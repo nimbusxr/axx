@@ -1,0 +1,12 @@
+parcels.manifest_lines:
+  - id: "ML-OUTCOME-VALID"
+    manifest_id: "MF-OUTCOME-VALID"
+    reference: "PX-OUTCOME-VALID-01"
+    sender: "shop-outcome"
+    weight_grams: 1250
+    service_level: "STANDARD"
+    recipient:
+      name: "Eva Outcome"
+      city: "Bremen"
+      postcode: "28195"
+      country: "DE"

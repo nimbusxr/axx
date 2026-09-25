@@ -1,0 +1,49 @@
+---
+// Starlight's page title plus two agent-friendly actions: copy the page's
+// Markdown twin, or open it in Claude with a prompt that references it.
+import Default from '@astrojs/starlight/components/PageTitle.astro';
+import { markdownPath, SITE } from '../lib/markdown';
+
+const route = Astro.locals.starlightRoute;
+const mdPath = markdownPath(route.id);
+const mdUrl = new URL(mdPath, Astro.site ?? SITE).href;
+const prompt =
+	`Read ${mdUrl}, a page from the docs of Axx (github.com/nimbusxr/axx), ` +
+	`the human-readable acceptance testing framework. Then help me apply it to my project.`;
+const claudeUrl = `https://claude.ai/new?q=${encodeURIComponent(prompt)}`;
+---
+
+<Default />
+<div class="page-actions">
+	<button type="button" data-copy-markdown={mdPath} aria-live="polite">
+		<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2"></rect><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"></path></svg>
+		<span>Copy as Markdown</span>
+	</button>
+	<a href={mdPath} type="text/markdown">
+		<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path><path d="M14 3v6h6"></path></svg>
+		<span>View .md</span>
+	</a>
+	<a href={claudeUrl} target="_blank" rel="noopener">
+		<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7"></path><path d="M8 7h9v9"></path></svg>
+		<span>Open in Claude</span>
+	</a>
+</div>
+
+<script>
+	for (const button of document.querySelectorAll<HTMLButtonElement>('[data-copy-markdown]')) {
+		const label = button.querySelector('span');
+		button.addEventListener('click', async () => {
+			if (!label) return;
+			const original = label.textContent;
+			try {
+				const res = await fetch(button.dataset.copyMarkdown!);
+				if (!res.ok) throw new Error(String(res.status));
+				await navigator.clipboard.writeText(await res.text());
+				label.textContent = 'Copied';
+			} catch {
+				label.textContent = 'Copy failed';
+			}
+			setTimeout(() => (label.textContent = original), 2000);
+		});
+	}
+</script>

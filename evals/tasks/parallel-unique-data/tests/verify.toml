@@ -1,0 +1,16 @@
+# What the verifier checks for this task (see evals/README.md, "How a task is verified").
+# Three runs on fresh data with 16 workers in random orders must all pass; axx lint must
+# pass, and fail once a copy of one of the agent's seed files is planted next to it.
+allowed = ["features/**", "seeds/**", "axx.yaml"]
+config_keys = ["lint"]
+required = ["seeds/**"]
+min_scenarios = 3
+mutants = ["list-ignores-sender-filter", "delete-not-removed"]
+
+[lint]
+required = true
+bites = "seeds/**"
+
+[run]
+workers = 16
+repeat = 3

@@ -1,0 +1,108 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://axx.nimbusxr.us/schemas/v0/axx-factory.schema.json",
+  "title": "axx fixture factory",
+  "description": "A *.factory.yaml: one fixture family with its governing schema, layered values (defaults, prototype, per-fixture data) and identity declarations whose uniqueness is guaranteed across every fixture. Reference it with: # yaml-language-server: $schema=https://axx.nimbusxr.us/schemas/v0/axx-factory.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["factory"],
+  "properties": {
+    "factory": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["family"],
+      "properties": {
+        "family": {
+          "type": "string",
+          "description": "Fixture family: a document shape plus a schema language plus a rendering.",
+          "examples": ["avro", "json", "yaml", "xml", "protobuf", "dataset"]
+        },
+        "schema": {
+          "type": "string",
+          "description": "Governing schema, relative to this factory file. avro: a .avsc file. json/yaml: a JSON Schema file, or an OpenAPI component such as ../openapi/api.yaml#/components/schemas/Name. xml: an .xsd file. protobuf: a .proto file or a protoc descriptor set plus the message, such as ../proto/orders.proto#shop.OrderEvent. dataset: optional SQL DDL, a file or a directory of *.sql files (parsed statically, never a live database)."
+        },
+        "output": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Output overrides. By default each fixture's files are generated next to its *.fixture.yaml.",
+          "properties": {
+            "dir": {
+              "type": "string",
+              "description": "Directory every output of this factory is written to, relative to fixtures.baseDir."
+            },
+            "ignored": {
+              "type": "boolean",
+              "description": "Make the outputs gitignored derivations: the tool maintains exact .gitignore entries and `axx fixtures generate` materializes them. Omit to inherit fixtures.output.ignored."
+            }
+          }
+        },
+        "options": {
+          "type": "object",
+          "description": "Family-specific options: dataset takes format (yaml, xml or csv); xml takes root (the document element when the XSD declares several).",
+          "additionalProperties": true
+        }
+      }
+    },
+    "defaults": {
+      "type": "object",
+      "description": "Lowest-priority values after schema defaults. Keys are exact dotted paths (order.payments[0].channel), [] wildcard paths that fill a field in every array element (order.payments[].channel), or bare field names that fill wherever the field is unresolved. The most specific key wins. For datasets, keys are table.column (or a bare column name when a DDL schema is declared).",
+      "additionalProperties": true
+    },
+    "prototype": {
+      "type": "object",
+      "description": "Inline prototype: the shape every fixture starts from, deep-merged under each fixture's data (maps merge, lists and scalars replace). Prefer a sibling <name>.prototype.yaml; declaring both is an error. For datasets, each table maps to a row template merged under every row.",
+      "additionalProperties": true
+    },
+    "metadata": {
+      "type": "object",
+      "description": "What travels beside every fixture's values without being part of them (a message key, headers); layered under each fixture's metadata like the prototype.",
+      "additionalProperties": true
+    },
+    "identity": {
+      "type": "array",
+      "description": "Fields whose values must be unique across every fixture. A value present at the path pins the fixture's identity; an absent one is derived from prefix + fixture key. Each identity also yields a generated cross-file-unique lint rule.",
+      "items": { "$ref": "#/$defs/identity" }
+    },
+    "fixtures": {
+      "type": "object",
+      "description": "Inline fixtures (fixture key to data) for small factories. Most fixtures live in *.fixture.yaml files instead; both may coexist but keys must be unique.",
+      "additionalProperties": {
+        "type": ["object", "null"],
+        "additionalProperties": true
+      }
+    }
+  },
+  "$defs": {
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path"],
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Dotted path with optional indices, such as order_id or payments[0].payment_id; for datasets table.column."
+        },
+        "prefix": {
+          "type": "string",
+          "description": "Prefix of derived values: prefix + fixture key."
+        },
+        "derive": {
+          "type": "string",
+          "enum": ["fixture-key", "authored"],
+          "default": "fixture-key",
+          "description": "fixture-key derives absent values from the fixture key; authored requires every fixture to provide a value and only enforces uniqueness."
+        },
+        "qualifier": {
+          "type": "string",
+          "description": "Tells several identities of one fixture apart; appended as -qualifier."
+        },
+        "format": {
+          "type": "string",
+          "enum": ["literal", "uuid-name-based"],
+          "default": "literal",
+          "description": "literal writes the derived name; uuid-name-based writes an RFC 4122 version 5 UUID of it, for format-constrained fields."
+        }
+      }
+    }
+  }
+}

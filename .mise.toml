@@ -1,0 +1,22 @@
+[tools]
+go = "1.27.1"
+golangci-lint = "2"
+goreleaser = "2"
+lefthook = "2.1.12"
+node = "22"          # docs site only
+java = "temurin-21"  # WireMock extension and IntelliJ plugin only
+"aqua:gitleaks/gitleaks" = "latest"
+"aqua:sharkdp/hyperfine" = "latest"  # bench/
+"aqua:rhysd/actionlint" = "latest"
+
+[tasks.test]
+run = "go test -race ./..."
+
+[tasks.lint]
+run = "golangci-lint run"
+
+[tasks.generate]
+run = "go generate ./..."
+
+[tasks.hygiene]
+run = "scripts/hygiene.sh"

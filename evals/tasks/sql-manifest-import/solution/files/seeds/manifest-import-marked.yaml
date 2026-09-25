@@ -1,0 +1,12 @@
+parcels.manifest_lines:
+  - id: "ML-IMPORT-MARKED-01"
+    manifest_id: "MF-IMPORT-MARKED"
+    reference: "PX-IMPORT-MARKED-01"
+    sender: "shop-import-marked"
+    weight_grams: 700
+    service_level: "STANDARD"
+    recipient:
+      name: "Noah Marked"
+      city: "Munich"
+      postcode: "80331"
+      country: "DE"

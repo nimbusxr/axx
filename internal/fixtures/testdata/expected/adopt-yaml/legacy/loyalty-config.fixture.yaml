@@ -1,0 +1,3 @@
+factory: legacy-configs
+data:
+  service: svc-loyalty

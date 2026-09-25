@@ -1,0 +1,41 @@
+FAIL features/orders.feature:15  Reject duplicate order
+  step features/orders.feature:17  Then the response body is:
+  response body mismatch
+  diff -expected +actual
+  @@ -1,4 +1,5 @@
+   {
+  -  "code": 409,
+  -  "error": "duplicate"
+  +  "id": 7,
+  +  "sku": "A1",
+  +  "status": "created"
+   }
+  rerun axx run features/orders.feature:15
+UNDEFINED features/orders.feature:24  Then the response is cached
+  did you mean: the order is {word}
+  did you mean: the order is valid
+  did you mean: the response body is:
+AMBIGUOUS features/orders.feature:27  Then the order is valid
+  ambiguous step: 2 definitions match
+  matches: the order is valid (orders.valid)
+  matches: the order is {word} (orders.state)
+PENDING features/orders.feature:29  Pending work
+  step features/orders.feature:30  Then refunds are processed
+FAIL features/orders.feature:39  Order 0 items
+  step features/orders.feature:34  Then the response status code is 400
+  unexpected status code: expected 400, got 201
+  rerun axx run features/orders.feature:39
+FAIL features/health.feature:3  Panicky
+  step features/health.feature:4  Given a panicking step
+  panic: boom
+  at example.com/packs/health.panicky (packs/health/steps.go:17)
+  rerun axx run features/health.feature:3
+FAIL features/health.feature:6  Slow
+  step features/health.feature:7  Given a slow step
+  timeout: step timed out after 2s
+  rerun axx run features/health.feature:6
+FAIL features/health.feature:13  Broken setup
+  before hook db.reset
+  connection refused
+  rerun axx run features/health.feature:13
+PASS 2  FAIL 5  UNDEFINED 1  AMBIGUOUS 1  PENDING 1  SKIP 1  NOT RUN 2  12.4s

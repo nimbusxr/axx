@@ -1,0 +1,35 @@
+{
+  "mappings": [
+    {
+      "name": "create user",
+      "request": { "method": "POST", "url": "/users" },
+      "response": { "status": 201 },
+      "metadata": { "openApiSpecSource": "/var/openapi/users.yaml" }
+    },
+    {
+      "name": "get user (matches the spec)",
+      "request": { "method": "GET", "url": "/users/42" },
+      "response": {
+        "status": 200,
+        "headers": { "Content-Type": "application/json" },
+        "jsonBody": { "id": 42, "name": "Ada" }
+      },
+      "metadata": { "openApiSpecSource": "/var/openapi/users.yaml" }
+    },
+    {
+      "name": "get user (stub violates the spec: id must be an integer)",
+      "request": { "method": "GET", "url": "/users/7" },
+      "response": {
+        "status": 200,
+        "headers": { "Content-Type": "application/json" },
+        "jsonBody": { "id": "seven", "name": "Grace" }
+      },
+      "metadata": { "openApiSpecSource": "/var/openapi/users.yaml" }
+    },
+    {
+      "name": "ping (no openApiSpecSource: served without validation)",
+      "request": { "method": "GET", "url": "/ping" },
+      "response": { "status": 200, "body": "pong" }
+    }
+  ]
+}

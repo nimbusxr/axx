@@ -1,0 +1,6 @@
+# yaml-language-server: $schema=https://axx.nimbusxr.us/schemas/v0/axx-factory.schema.json
+# Manifest lines as flat XML datasets, checked against the database schema.
+factory:
+  family: dataset
+  options: { format: xml }
+  schema: ../../../../infra/postgres/init/01-schema.sql

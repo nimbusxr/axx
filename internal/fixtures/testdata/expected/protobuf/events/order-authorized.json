@@ -1,0 +1,21 @@
+{
+  "orderId": "ord-order-authorized",
+  "status": "AUTHORIZED",
+  "totalCents": "12999",
+  "customer": {
+    "id": "cust-1",
+    "loyaltyTier": "gold"
+  },
+  "items": [
+    {
+      "sku": "SKU-1",
+      "quantity": 1,
+      "price": 9.99
+    }
+  ],
+  "attributes": {
+    "channel": "WEB",
+    "region": "us-east"
+  },
+  "cardToken": "tok-abc"
+}

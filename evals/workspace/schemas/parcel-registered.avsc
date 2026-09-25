@@ -1,0 +1,14 @@
+{
+  "type": "record",
+  "name": "ParcelRegistered",
+  "namespace": "evals.parcels",
+  "fields": [
+    {"name": "reference", "type": "string"},
+    {"name": "sender", "type": "string"},
+    {"name": "weightGrams", "type": "int"},
+    {"name": "serviceLevel", "type": "string"},
+    {"name": "zone", "type": "string"},
+    {"name": "source", "type": "string"},
+    {"name": "registeredAt", "type": {"type": "long", "logicalType": "timestamp-millis"}}
+  ]
+}

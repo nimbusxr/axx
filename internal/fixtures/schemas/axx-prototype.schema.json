@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://axx.nimbusxr.us/schemas/v0/axx-prototype.schema.json",
+  "title": "axx fixture prototype",
+  "description": "A <factory>.prototype.yaml. Next to its factory it is the base prototype; in any other directory it layers over the base for the fixtures beneath it (nearest wins). For datasets, data maps each table to a row template. Reference it with: # yaml-language-server: $schema=https://axx.nimbusxr.us/schemas/v0/axx-prototype.schema.json",
+  "type": ["object", "null"],
+  "additionalProperties": false,
+  "properties": {
+    "data": {
+      "type": "object",
+      "description": "The shape fixtures start from, deep-merged under each fixture's data (maps merge, lists and scalars replace). Scalars may be ${ fn(args) } expressions.",
+      "additionalProperties": true
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Metadata every fixture beneath this file carries, layered under each fixture's own.",
+      "additionalProperties": true
+    }
+  }
+}

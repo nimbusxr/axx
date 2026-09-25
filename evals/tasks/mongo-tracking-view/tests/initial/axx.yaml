@@ -1,0 +1,33 @@
+# yaml-language-server: $schema=https://axx.nimbusxr.us/schemas/v0/axx.schema.json
+# Acceptance tests for the parcels service (see README.md).
+version: 1
+
+run:
+  paths: [features]
+
+# Seed files and other resources named in steps resolve against the project root.
+resources: ["."]
+
+# Addresses of the service and its infrastructure, for ${sys:name} in features.
+properties:
+  parcels.url: http://localhost:8080
+  parcels.openapi: http://localhost:8080/openapi.json
+  db.url: jdbc:postgresql://postgres:5432/parcels
+  db.user: parcels
+  db.password: parcels
+  mongo.url: mongodb://mongo:27017/parcels?authSource=admin
+  mongo.user: parcels
+  mongo.password: parcels
+  address.url: http://address-service:8080
+  kafka.brokers: kafka:9092
+  schema.registry.url: http://schema-registry:8081
+
+apps:
+  parcels:
+    command: parcels
+    ready:
+      http:
+        url: http://localhost:8080/health
+      timeout: 90s
+    # Wipes the databases, the address service's journal and the events topic.
+    cleanup: parcels reset

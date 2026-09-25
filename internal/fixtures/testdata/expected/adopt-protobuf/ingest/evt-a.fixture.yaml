@@ -1,0 +1,7 @@
+factory: ingested-events
+data:
+  items:
+  - sku: A
+    quantity: 1
+    price: 1.5
+  orderId: evt-a-1

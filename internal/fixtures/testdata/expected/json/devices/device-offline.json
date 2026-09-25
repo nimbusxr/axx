@@ -1,0 +1,22 @@
+{
+  "device_id": "dev-device-offline",
+  "event_type": "device-offline",
+  "firmware": "1.4.2",
+  "region": null,
+  "sample_rate_hz": 60,
+  "readings": [
+    {
+      "metric": "uptime_s",
+      "value": 86400,
+      "unit": "s"
+    }
+  ],
+  "device": {
+    "serial": "SN-100",
+    "model": "T1000"
+  },
+  "power": {
+    "source": "solar",
+    "watts": 240.5
+  }
+}

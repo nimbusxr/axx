@@ -1,0 +1,25 @@
+parcels.parcels:
+  - reference: "PX-LIST-OWN-02"
+    sender: "shop-list-own"
+    weight_grams: 800
+    recipient:
+      name: "Ana Second"
+      postcode: "10115"
+      country: "DE"
+    created_at: "2026-09-10 10:05:00+00"
+  - reference: "PX-LIST-OWN-01"
+    sender: "shop-list-own"
+    weight_grams: 1200
+    recipient:
+      name: "Ben First"
+      postcode: "10117"
+      country: "DE"
+    created_at: "2026-09-10 10:00:00+00"
+  - reference: "PX-LIST-NEIGHBOUR-01"
+    sender: "shop-list-neighbour"
+    weight_grams: 500
+    recipient:
+      name: "Cem Neighbour"
+      postcode: "10119"
+      country: "DE"
+    created_at: "2026-09-10 10:02:00+00"

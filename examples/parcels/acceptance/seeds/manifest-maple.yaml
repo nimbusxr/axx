@@ -1,0 +1,8 @@
+parcels.manifest_lines:
+  - id: "ML-MAP-0020-1"
+    manifest_id: "M-MAPLE-0020"
+    reference: "PX-MAP-2001"
+    sender: "maple-home"
+    weight_grams: 4200
+    service_level: "STANDARD"
+    recipient: '{"name": "Mary Somerville", "city": "Munich", "postcode": "80331", "country": "DE"}'

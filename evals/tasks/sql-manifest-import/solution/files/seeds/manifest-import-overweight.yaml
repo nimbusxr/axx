@@ -1,0 +1,12 @@
+parcels.manifest_lines:
+  - id: "ML-IMPORT-HEAVY-01"
+    manifest_id: "MF-IMPORT-HEAVY"
+    reference: "PX-IMPORT-HEAVY-01"
+    sender: "shop-import-heavy"
+    weight_grams: 30500
+    service_level: "STANDARD"
+    recipient:
+      name: "Lea Heavy"
+      city: "Cologne"
+      postcode: "50667"
+      country: "DE"

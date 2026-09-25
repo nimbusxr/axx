@@ -1,0 +1,6 @@
+data:
+  total_cents: 12999
+  card_token: tok-abc
+  attributes:
+    channel: WEB
+    region: us-east

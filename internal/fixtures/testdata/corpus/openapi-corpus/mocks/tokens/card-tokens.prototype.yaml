@@ -1,0 +1,4 @@
+data:
+  responseCode: "00000"
+  responseText: "APPROVAL"
+  card: { type: "VIC", network: "VISA" }

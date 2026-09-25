@@ -1,0 +1,21 @@
+{
+  "order_id": "ord-order-captured",
+  "status": "CAPTURED",
+  "amount_cents": 12999,
+  "currency": "USD",
+  "tender_type": "CREDIT_CARD",
+  "captured_at": {
+    "string": "2026-07-01T12:00:00Z"
+  },
+  "payments": [
+    {
+      "payment_id": "pay-order-captured-primary",
+      "method": "CREDIT_CARD",
+      "channel": "POS",
+      "loyalty_id": null
+    }
+  ],
+  "metadata": {
+    "region": "us-east"
+  }
+}

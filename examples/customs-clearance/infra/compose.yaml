@@ -1,0 +1,53 @@
+# The customs service and the Azure it runs on.
+#
+#   docker compose up --build --wait     # start everything
+#   docker compose down -v               # stop and remove everything
+#
+# axx runs this for you: see ../acceptance/axx.yaml.
+#
+# Azure runs locally in floci (https://floci.io), a free, open-source
+# emulator: Blob Storage and the Service Bus management API on port 4577. For
+# Service Bus messaging it starts a broker container of its own, on the host's
+# port 5673, which needs the Docker socket. The service is set up exactly as
+# for Azure, from connection strings.
+name: customs-clearance
+
+services:
+  azure:
+    image: floci/floci-az:latest
+    ports:
+      - '4577:4577'
+    environment:
+      FLOCI_AZ_SERVICES_SERVICE_BUS_MOCKED: 'false'
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  # Creates the blob containers, queues, topics and the border subscription,
+  # as the infrastructure code of a real subscription does; then exits.
+  provision:
+    image: customs-clearance:local
+    build: ../app
+    command: ["provision"]
+    environment: &azure
+      # The emulator accepts any account key.
+      AZURE_STORAGE_CONNECTION_STRING: 'DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=bG9jYWw=;BlobEndpoint=http://azure:4577/devstoreaccount1;'
+      SERVICEBUS_CONNECTION_STRING: 'Endpoint=sb://host.docker.internal:5673;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=local;UseDevelopmentEmulator=true;'
+      SERVICEBUS_MANAGEMENT_ENDPOINT: 'http://azure:4577/devstoreaccount1-servicebus'
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+    depends_on:
+      - azure
+
+  customs:
+    image: customs-clearance:local
+    build: ../app
+    ports:
+      - '8700:8700'
+    environment:
+      <<: *azure
+      CUSTOMS_ADDR: ':8700'
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+    depends_on:
+      provision:
+        condition: service_completed_successfully

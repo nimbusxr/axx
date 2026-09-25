@@ -1,0 +1,4 @@
+space.missions:
+- id: msn-mission-alpha
+  name: Alpha
+  metadata: "{\"priority\": \"low\"}"

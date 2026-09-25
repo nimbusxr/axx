@@ -1,0 +1,11 @@
+{
+  "responseCode": "00000",
+  "responseText": "APPROVAL",
+  "cardIdentifier": "1111222233-token-success",
+  "nonFinancialToken": "9991234567789",
+  "encryptionFlag": "3",
+  "card": {
+    "type": "VIC",
+    "network": "VISA"
+  }
+}

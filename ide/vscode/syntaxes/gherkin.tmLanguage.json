@@ -1,0 +1,173 @@
+{
+  "name": "Gherkin",
+  "scopeName": "text.gherkin.feature",
+  "fileTypes": ["feature"],
+  "patterns": [
+    { "include": "#comment" },
+    { "include": "#tags" },
+    { "include": "#docstring" },
+    { "include": "#table" },
+    { "include": "#feature" },
+    { "include": "#rule" },
+    { "include": "#background" },
+    { "include": "#scenario-outline" },
+    { "include": "#scenario" },
+    { "include": "#examples" },
+    { "include": "#step" }
+  ],
+  "repository": {
+    "comment": {
+      "match": "^\\s*(#).*$",
+      "name": "comment.line.number-sign.gherkin",
+      "captures": {
+        "1": { "name": "punctuation.definition.comment.gherkin" }
+      }
+    },
+    "tags": {
+      "begin": "^\\s*(?=@)",
+      "end": "$",
+      "name": "meta.tags.gherkin",
+      "patterns": [
+        {
+          "match": "(?<=\\s)(#).*$",
+          "name": "comment.line.number-sign.gherkin",
+          "captures": {
+            "1": { "name": "punctuation.definition.comment.gherkin" }
+          }
+        },
+        {
+          "match": "@[^\\s@]*",
+          "name": "entity.name.tag.gherkin"
+        }
+      ]
+    },
+    "feature": {
+      "match": "^\\s*((?:Feature|Business Need|Ability):)(.*)$",
+      "captures": {
+        "1": { "name": "keyword.other.feature.gherkin" },
+        "2": { "name": "entity.name.section.feature.gherkin" }
+      }
+    },
+    "rule": {
+      "match": "^\\s*(Rule:)(.*)$",
+      "captures": {
+        "1": { "name": "keyword.other.rule.gherkin" },
+        "2": { "name": "entity.name.section.rule.gherkin" }
+      }
+    },
+    "background": {
+      "match": "^\\s*(Background:)(.*)$",
+      "captures": {
+        "1": { "name": "keyword.other.background.gherkin" },
+        "2": { "name": "entity.name.section.background.gherkin" }
+      }
+    },
+    "scenario-outline": {
+      "match": "^\\s*((?:Scenario Outline|Scenario Template):)(.*)$",
+      "captures": {
+        "1": { "name": "keyword.other.scenario-outline.gherkin" },
+        "2": {
+          "name": "entity.name.section.scenario-outline.gherkin",
+          "patterns": [{ "include": "#placeholder" }]
+        }
+      }
+    },
+    "scenario": {
+      "match": "^\\s*((?:Scenario|Example):)(.*)$",
+      "captures": {
+        "1": { "name": "keyword.other.scenario.gherkin" },
+        "2": { "name": "entity.name.section.scenario.gherkin" }
+      }
+    },
+    "examples": {
+      "match": "^\\s*((?:Examples|Scenarios):)(.*)$",
+      "captures": {
+        "1": { "name": "keyword.other.examples.gherkin" },
+        "2": { "name": "entity.name.section.examples.gherkin" }
+      }
+    },
+    "step": {
+      "begin": "^\\s*(Given|When|Then|And|But|\\*)(?=\\s|$)",
+      "end": "$",
+      "name": "meta.step.gherkin",
+      "beginCaptures": {
+        "1": { "name": "keyword.control.step.gherkin" }
+      },
+      "patterns": [
+        { "include": "#string-double" },
+        { "include": "#string-single" },
+        { "include": "#placeholder" }
+      ]
+    },
+    "string-double": {
+      "begin": "\"",
+      "end": "\"|$",
+      "name": "string.quoted.double.gherkin",
+      "beginCaptures": {
+        "0": { "name": "punctuation.definition.string.begin.gherkin" }
+      },
+      "endCaptures": {
+        "0": { "name": "punctuation.definition.string.end.gherkin" }
+      },
+      "patterns": [
+        { "match": "\\\\.", "name": "constant.character.escape.gherkin" },
+        { "include": "#placeholder" }
+      ]
+    },
+    "string-single": {
+      "begin": "(?<![\\w'])'",
+      "end": "'(?!\\w)|$",
+      "name": "string.quoted.single.gherkin",
+      "beginCaptures": {
+        "0": { "name": "punctuation.definition.string.begin.gherkin" }
+      },
+      "endCaptures": {
+        "0": { "name": "punctuation.definition.string.end.gherkin" }
+      },
+      "patterns": [
+        { "match": "\\\\.", "name": "constant.character.escape.gherkin" },
+        { "include": "#placeholder" }
+      ]
+    },
+    "placeholder": {
+      "match": "<[^<>\\s](?:[^<>]*[^<>\\s])?>",
+      "name": "variable.other.placeholder.gherkin"
+    },
+    "docstring": {
+      "begin": "^\\s*(\"\"\"|```)\\s*(\\S.*?)?\\s*$",
+      "end": "^\\s*(\\1)\\s*$",
+      "name": "string.quoted.docstring.gherkin",
+      "beginCaptures": {
+        "1": { "name": "punctuation.definition.string.begin.gherkin" },
+        "2": { "name": "entity.name.type.media-type.gherkin" }
+      },
+      "endCaptures": {
+        "1": { "name": "punctuation.definition.string.end.gherkin" }
+      },
+      "patterns": [{ "include": "#placeholder" }]
+    },
+    "table": {
+      "begin": "^\\s*(?=\\|)",
+      "end": "$",
+      "name": "meta.table.gherkin",
+      "patterns": [
+        {
+          "match": "\\|",
+          "name": "punctuation.separator.table.gherkin"
+        },
+        {
+          "match": "(?:[^|\\\\]|\\\\.)+",
+          "name": "string.unquoted.table-cell.gherkin",
+          "captures": {
+            "0": {
+              "patterns": [
+                { "match": "\\\\[|\\\\n]", "name": "constant.character.escape.gherkin" },
+                { "include": "#placeholder" }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  }
+}

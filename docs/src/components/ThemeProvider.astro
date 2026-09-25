@@ -1,0 +1,25 @@
+{/* Apply the saved choice before the page paints; dark is the default. */}
+<script is:inline>
+	window.AxxTheme = (() => {
+		const storageKey = 'starlight-theme';
+		const apply = (theme) => {
+			document.documentElement.dataset.theme = theme;
+			document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme === 'light' ? '#dcdcdf' : '#080808');
+			window.dispatchEvent(new Event('axx:theme-change'));
+		};
+		let initial = 'dark';
+		try {
+			if (localStorage.getItem(storageKey) === 'light') initial = 'light';
+		} catch { /* The toggle also works when storage is unavailable. */ }
+		apply(initial);
+		window.addEventListener('storage', (event) => {
+			if (event.key === storageKey || event.key === null) apply(event.newValue === 'light' ? 'light' : 'dark');
+		});
+		return {
+			set(theme) {
+				apply(theme);
+				try { localStorage.setItem(storageKey, theme); } catch { /* Keep the current page usable. */ }
+			},
+		};
+	})();
+</script>

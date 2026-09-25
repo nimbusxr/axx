@@ -1,0 +1,21 @@
+{
+  "device_id": "sensor-c-however",
+  "event_type": "device-offline",
+  "firmware": "2.0.1",
+  "region": "eu-west",
+  "sample_rate_hz": 60,
+  "readings": [
+    {
+      "metric": "temp_c",
+      "value": 19.0
+    }
+  ],
+  "device": {
+    "serial": "SN-C-9",
+    "model": "T2000"
+  },
+  "power": "battery",
+  "tags": {
+    "decommissioned": "true"
+  }
+}

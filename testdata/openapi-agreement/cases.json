@@ -1,0 +1,493 @@
+{
+  "description": "Exchanges validated against spec.yaml by both OpenAPI validators (packs/rest and extensions/wiremock-openapi), with the keys both must report. A body that is not a string is sent as JSON.",
+  "cases": [
+    {
+      "name": "a valid exchange",
+      "request": {
+        "method": "POST",
+        "path": "/parcels",
+        "headers": {
+          "Content-Type": "application/json",
+          "X-Api-Key": "k",
+          "X-Request-Id": "r-1"
+        },
+        "body": {
+          "reference": "PX-1",
+          "weightGrams": 1200,
+          "serviceLevel": "STANDARD"
+        }
+      },
+      "response": {
+        "status": 201,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "reference": "PX-1",
+          "status": "REGISTERED"
+        }
+      },
+      "keys": []
+    },
+    {
+      "name": "a required request property is missing",
+      "request": {
+        "method": "POST",
+        "path": "/parcels",
+        "headers": {
+          "Content-Type": "application/json",
+          "X-Api-Key": "k",
+          "X-Request-Id": "r-1"
+        },
+        "body": {
+          "reference": "PX-1",
+          "serviceLevel": "STANDARD"
+        }
+      },
+      "response": {
+        "status": 201,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "reference": "PX-1",
+          "status": "REGISTERED"
+        }
+      },
+      "keys": [
+        "validation.request.body.schema.required"
+      ]
+    },
+    {
+      "name": "a request property has the wrong type",
+      "request": {
+        "method": "POST",
+        "path": "/parcels",
+        "headers": {
+          "Content-Type": "application/json",
+          "X-Api-Key": "k",
+          "X-Request-Id": "r-1"
+        },
+        "body": {
+          "reference": "PX-1",
+          "weightGrams": "heavy",
+          "serviceLevel": "STANDARD"
+        }
+      },
+      "response": {
+        "status": 201,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "reference": "PX-1",
+          "status": "REGISTERED"
+        }
+      },
+      "keys": [
+        "validation.request.body.schema.type"
+      ]
+    },
+    {
+      "name": "a request property is not in the enum",
+      "request": {
+        "method": "POST",
+        "path": "/parcels",
+        "headers": {
+          "Content-Type": "application/json",
+          "X-Api-Key": "k",
+          "X-Request-Id": "r-1"
+        },
+        "body": {
+          "reference": "PX-1",
+          "weightGrams": 1200,
+          "serviceLevel": "SAME_DAY"
+        }
+      },
+      "response": {
+        "status": 201,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "reference": "PX-1",
+          "status": "REGISTERED"
+        }
+      },
+      "keys": [
+        "validation.request.body.schema.enum"
+      ]
+    },
+    {
+      "name": "a request property is too long",
+      "request": {
+        "method": "POST",
+        "path": "/parcels",
+        "headers": {
+          "Content-Type": "application/json",
+          "X-Api-Key": "k",
+          "X-Request-Id": "r-1"
+        },
+        "body": {
+          "reference": "PX-0123456789",
+          "weightGrams": 1200,
+          "serviceLevel": "STANDARD"
+        }
+      },
+      "response": {
+        "status": 201,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "reference": "PX-1",
+          "status": "REGISTERED"
+        }
+      },
+      "keys": [
+        "validation.request.body.schema.maxLength"
+      ]
+    },
+    {
+      "name": "the request has an undeclared property",
+      "request": {
+        "method": "POST",
+        "path": "/parcels",
+        "headers": {
+          "Content-Type": "application/json",
+          "X-Api-Key": "k",
+          "X-Request-Id": "r-1"
+        },
+        "body": {
+          "reference": "PX-1",
+          "weightGrams": 1200,
+          "serviceLevel": "STANDARD",
+          "note": "fragile"
+        }
+      },
+      "response": {
+        "status": 201,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "reference": "PX-1",
+          "status": "REGISTERED"
+        }
+      },
+      "keys": [
+        "validation.request.body.schema.additionalProperties"
+      ]
+    },
+    {
+      "name": "a required header is missing",
+      "request": {
+        "method": "POST",
+        "path": "/parcels",
+        "headers": {
+          "Content-Type": "application/json",
+          "X-Api-Key": "k"
+        },
+        "body": {
+          "reference": "PX-1",
+          "weightGrams": 1200,
+          "serviceLevel": "STANDARD"
+        }
+      },
+      "response": {
+        "status": 201,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "reference": "PX-1",
+          "status": "REGISTERED"
+        }
+      },
+      "keys": [
+        "validation.request.parameter.header.missing"
+      ]
+    },
+    {
+      "name": "the API key is missing",
+      "request": {
+        "method": "POST",
+        "path": "/parcels",
+        "headers": {
+          "Content-Type": "application/json",
+          "X-Request-Id": "r-1"
+        },
+        "body": {
+          "reference": "PX-1",
+          "weightGrams": 1200,
+          "serviceLevel": "STANDARD"
+        }
+      },
+      "response": {
+        "status": 201,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "reference": "PX-1",
+          "status": "REGISTERED"
+        }
+      },
+      "keys": [
+        "validation.request.security.missing"
+      ]
+    },
+    {
+      "name": "the request content type is not allowed",
+      "request": {
+        "method": "POST",
+        "path": "/parcels",
+        "headers": {
+          "Content-Type": "text/plain",
+          "X-Api-Key": "k",
+          "X-Request-Id": "r-1"
+        },
+        "body": "reference=PX-1"
+      },
+      "response": {
+        "status": 201,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "reference": "PX-1",
+          "status": "REGISTERED"
+        }
+      },
+      "keys": [
+        "validation.request.contentType.notAllowed"
+      ]
+    },
+    {
+      "name": "a required query parameter is missing",
+      "request": {
+        "method": "GET",
+        "path": "/parcels"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": [
+          {
+            "reference": "PX-1",
+            "status": "REGISTERED"
+          }
+        ]
+      },
+      "keys": [
+        "validation.request.parameter.query.missing"
+      ]
+    },
+    {
+      "name": "a query parameter is below its minimum",
+      "request": {
+        "method": "GET",
+        "path": "/parcels?limit=0"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": [
+          {
+            "reference": "PX-1",
+            "status": "REGISTERED"
+          }
+        ]
+      },
+      "keys": [
+        "validation.request.parameter.schema.minimum"
+      ]
+    },
+    {
+      "name": "the path is unknown",
+      "request": {
+        "method": "GET",
+        "path": "/labels"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": [
+          {
+            "reference": "PX-1",
+            "status": "REGISTERED"
+          }
+        ]
+      },
+      "keys": [
+        "validation.request.path.missing"
+      ]
+    },
+    {
+      "name": "the method is not allowed on the path",
+      "request": {
+        "method": "DELETE",
+        "path": "/parcels"
+      },
+      "response": {
+        "status": 204
+      },
+      "keys": [
+        "validation.request.operation.notAllowed"
+      ]
+    },
+    {
+      "name": "the response status is not declared",
+      "request": {
+        "method": "POST",
+        "path": "/parcels",
+        "headers": {
+          "Content-Type": "application/json",
+          "X-Api-Key": "k",
+          "X-Request-Id": "r-1"
+        },
+        "body": {
+          "reference": "PX-1",
+          "weightGrams": 1200,
+          "serviceLevel": "STANDARD"
+        }
+      },
+      "response": {
+        "status": 202,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "reference": "PX-1",
+          "status": "REGISTERED"
+        }
+      },
+      "keys": [
+        "validation.response.status.unknown"
+      ]
+    },
+    {
+      "name": "a required response property is missing",
+      "request": {
+        "method": "POST",
+        "path": "/parcels",
+        "headers": {
+          "Content-Type": "application/json",
+          "X-Api-Key": "k",
+          "X-Request-Id": "r-1"
+        },
+        "body": {
+          "reference": "PX-1",
+          "weightGrams": 1200,
+          "serviceLevel": "STANDARD"
+        }
+      },
+      "response": {
+        "status": 201,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "reference": "PX-1"
+        }
+      },
+      "keys": [
+        "validation.response.body.schema.required"
+      ]
+    },
+    {
+      "name": "a response property has the wrong type",
+      "request": {
+        "method": "POST",
+        "path": "/parcels",
+        "headers": {
+          "Content-Type": "application/json",
+          "X-Api-Key": "k",
+          "X-Request-Id": "r-1"
+        },
+        "body": {
+          "reference": "PX-1",
+          "weightGrams": 1200,
+          "serviceLevel": "STANDARD"
+        }
+      },
+      "response": {
+        "status": 201,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "reference": "PX-1",
+          "status": 7
+        }
+      },
+      "keys": [
+        "validation.response.body.schema.type"
+      ]
+    },
+    {
+      "name": "the response has an undeclared property",
+      "request": {
+        "method": "POST",
+        "path": "/parcels",
+        "headers": {
+          "Content-Type": "application/json",
+          "X-Api-Key": "k",
+          "X-Request-Id": "r-1"
+        },
+        "body": {
+          "reference": "PX-1",
+          "weightGrams": 1200,
+          "serviceLevel": "STANDARD"
+        }
+      },
+      "response": {
+        "status": 201,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "reference": "PX-1",
+          "status": "REGISTERED",
+          "zone": "DE-1"
+        }
+      },
+      "keys": [
+        "validation.response.body.schema.additionalProperties"
+      ]
+    },
+    {
+      "name": "the response content type is not allowed",
+      "request": {
+        "method": "POST",
+        "path": "/parcels",
+        "headers": {
+          "Content-Type": "application/json",
+          "X-Api-Key": "k",
+          "X-Request-Id": "r-1"
+        },
+        "body": {
+          "reference": "PX-1",
+          "weightGrams": 1200,
+          "serviceLevel": "STANDARD"
+        }
+      },
+      "response": {
+        "status": 201,
+        "headers": {
+          "Content-Type": "text/plain"
+        },
+        "body": "registered"
+      },
+      "keys": [
+        "validation.response.contentType.notAllowed"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://axx.nimbusxr.us/schemas/v0/axx-fixture.schema.json",
+  "title": "axx fixture",
+  "description": "A *.fixture.yaml: one fixture. The file name is the fixture key and its outputs are generated next to it. An empty or comment-only file is a fixture that is exactly the prototype. Reference it with: # yaml-language-server: $schema=https://axx.nimbusxr.us/schemas/v0/axx-fixture.schema.json",
+  "type": ["object", "null"],
+  "additionalProperties": false,
+  "properties": {
+    "factory": {
+      "type": "string",
+      "description": "The factory this fixture belongs to. Omit it when exactly one factory sits in this directory or the nearest ancestor that has one. A bare name (event) finds the nearest ancestor event.factory.yaml; a path (checkout/events/event) is relative to fixtures.baseDir and binds from anywhere."
+    },
+    "data": {
+      "type": "object",
+      "description": "The fixture's values, deep-merged over the prototype (maps merge, lists and scalars replace). A value at an identity path pins that identity. Scalars may be ${ fn(args) } expressions; {$ref: path#/pointer} takes a value from another fixture.",
+      "additionalProperties": true
+    },
+    "metadata": {
+      "type": "object",
+      "description": "What travels beside the values (a message key, headers), layered over the factory's metadata.",
+      "additionalProperties": true
+    }
+  }
+}

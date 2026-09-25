@@ -1,0 +1,17 @@
+{
+  "name": "address-service-unavailable",
+  "priority": 1,
+  "request": {
+    "method": "GET",
+    "urlPathPattern": "/v1/postcodes/[A-Z]{2}/000[^/]*"
+  },
+  "response": {
+    "status": 503,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "jsonBody": {
+      "message": "postcode directory is being updated"
+    }
+  }
+}

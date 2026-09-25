@@ -1,0 +1,18 @@
+{
+  "name": "postcode-undeliverable",
+  "priority": 1,
+  "request": {
+    "method": "GET",
+    "urlPathPattern": "/v1/postcodes/[A-Z]{2}/999[^/]*"
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "body": "{\"postcode\": \"{{request.pathSegments.[3]}}\", \"country\": \"{{request.pathSegments.[2]}}\", \"deliverable\": false, \"reason\": \"no delivery to this postcode\"}",
+    "transformers": [
+      "response-template"
+    ]
+  }
+}

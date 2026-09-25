@@ -1,0 +1,8 @@
+# What the verifier checks for this task (see evals/README.md, "How a task is verified").
+allowed = ["features/**", "seeds/**"]
+min_scenarios = 2
+preserve_scenarios = [
+  "A valid manifest line is registered as a manifest parcel",
+  "An overweight manifest line is rejected",
+]
+mutants = ["import-wrong-source", "import-accepts-overweight"]

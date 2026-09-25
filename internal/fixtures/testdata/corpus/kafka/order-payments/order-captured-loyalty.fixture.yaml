@@ -1,0 +1,5 @@
+data:
+  order_id: "54321000103"
+  status: "CAPTURED"
+  payments:
+    - { method: "CREDIT_CARD", loyalty_id: "loy-000103" }

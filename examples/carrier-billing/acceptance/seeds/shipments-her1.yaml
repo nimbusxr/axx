@@ -1,0 +1,2 @@
+shipments:
+  PX-5107: { parcel: PX-5107, carrier: HERON, service: express, weightKg: 1.5 }

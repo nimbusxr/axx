@@ -1,0 +1,189 @@
+---
+import { AXE_POSE_CONTROLS, DEFAULT_AXE_POSE } from '../lib/axe-pose.mjs';
+---
+
+<axe-pose-editor hidden>
+ <details open>
+  <summary>Adjust the axe <span>flight pose</span></summary>
+  <div class="pose-body">
+   <p>The flight pose is frozen before the camera orbit. Adjust the angles until the silhouette feels right.</p>
+   <fieldset disabled>
+    <legend class="sr-only">Axe orientation and position</legend>
+    {AXE_POSE_CONTROLS.map(({ key, label, hint, min, max, step, unit }) => (
+     <div class="pose-control">
+      <label for={`pose-${key}`}>{label}</label>
+      <div class="pose-value">
+       <input type="number" data-key={key} min={min} max={max} step={step}
+        value={DEFAULT_AXE_POSE[key as keyof typeof DEFAULT_AXE_POSE]} aria-label={`${label}, numeric value`} />
+       <span>{unit}</span>
+      </div>
+      <input id={`pose-${key}`} type="range" data-key={key} min={min} max={max} step={step}
+       value={DEFAULT_AXE_POSE[key as keyof typeof DEFAULT_AXE_POSE]} aria-describedby={hint ? `pose-${key}-hint` : undefined} />
+      {hint && <small id={`pose-${key}-hint`}>{hint}</small>}
+     </div>
+    ))}
+    <div class="pose-actions">
+     <button type="button" data-reset>Reset pose</button>
+     <button type="button" data-copy>Copy settings</button>
+    </div>
+   </fieldset>
+   <p class="pose-status" role="status" aria-live="polite">Loading saved pose…</p>
+   <p class="pose-help">Changes save automatically. When it looks right, tell me you're done.</p>
+   <textarea class="pose-copy" readonly hidden aria-label="Pose settings to copy"></textarea>
+  </div>
+ </details>
+</axe-pose-editor>
+
+<script>
+ import { DEFAULT_AXE_POSE, isAxePose } from '../lib/axe-pose.mjs';
+ type Settings = typeof DEFAULT_AXE_POSE;
+ type Key = keyof Settings;
+
+ if (import.meta.env.DEV) {
+  class AxePoseEditor extends HTMLElement {
+   private cleanup?: () => void;
+
+   connectedCallback() {
+    if (!new URLSearchParams(location.search).has('pose')) return;
+    this.hidden = false;
+    const fieldset = this.querySelector('fieldset')!;
+    const status = this.querySelector<HTMLElement>('.pose-status')!;
+    const inputs = [...this.querySelectorAll<HTMLInputElement>('input[data-key]')];
+    const copyButton = this.querySelector<HTMLButtonElement>('[data-copy]')!;
+    const resetButton = this.querySelector<HTMLButtonElement>('[data-reset]')!;
+    const copyText = this.querySelector<HTMLTextAreaElement>('.pose-copy')!;
+    let pose: Settings = { ...DEFAULT_AXE_POSE };
+    let timer: ReturnType<typeof setTimeout>;
+    let revision = 0, savedRevision = 0;
+    let saving = false, active = true;
+
+    const publish = () => {
+     for (const input of inputs) input.value = String(pose[input.dataset.key as Key]);
+     window.dispatchEvent(new CustomEvent('axx:pose-change', { detail: { ...pose } }));
+    };
+    const save = async () => {
+     clearTimeout(timer);
+     if (saving || revision === savedRevision) return;
+     saving = true;
+     const savingRevision = revision;
+     status.textContent = 'Saving…';
+     try {
+      const response = await fetch('/__axe-pose', {
+       method: 'PUT', headers: { 'Content-Type': 'application/json' },
+       body: JSON.stringify(pose), keepalive: true,
+      });
+      if (!response.ok) throw new Error('Save failed');
+      savedRevision = savingRevision;
+      if (active) status.textContent = 'Saved locally — I can read this pose.';
+     } catch {
+      if (active) status.textContent = 'Save failed. Use Copy settings to keep your pose.';
+     } finally {
+      saving = false;
+      if (active && revision !== savingRevision) void save();
+     }
+    };
+    const update = () => {
+     revision++;
+     publish();
+     copyText.hidden = true;
+     status.textContent = 'Unsaved changes…';
+     clearTimeout(timer);
+     timer = setTimeout(save, 250);
+    };
+    const onInput = (event: Event) => {
+     const input = event.target as HTMLInputElement;
+     if (!input.matches('input[data-key]') || !input.validity.valid || !Number.isFinite(input.valueAsNumber)) return;
+     pose[input.dataset.key as Key] = input.valueAsNumber;
+     // Sync the paired slider/number without disrupting typing in the active field.
+     revision++;
+     for (const other of inputs) {
+      if (other !== input && other.dataset.key === input.dataset.key) other.value = input.value;
+     }
+     window.dispatchEvent(new CustomEvent('axx:pose-change', { detail: { ...pose } }));
+     copyText.hidden = true;
+     status.textContent = 'Unsaved changes…';
+     clearTimeout(timer);
+     timer = setTimeout(save, 250);
+    };
+    const onReset = () => { pose = { ...DEFAULT_AXE_POSE }; update(); };
+    const onCopy = async () => {
+     const json = JSON.stringify(pose, null, 2);
+     try { await navigator.clipboard.writeText(json); copyButton.textContent = 'Copied'; }
+     catch { copyText.hidden = false; copyText.value = json; copyText.select(); }
+    };
+    const onLeave = () => { void save(); };
+    const onVisibility = () => { if (document.hidden) void save(); };
+    fieldset.addEventListener('input', onInput);
+    fieldset.addEventListener('change', onLeave);
+    resetButton.addEventListener('click', onReset);
+    copyButton.addEventListener('click', onCopy);
+    window.addEventListener('pagehide', onLeave);
+    document.addEventListener('visibilitychange', onVisibility);
+
+    const load = async () => {
+     try {
+      const response = await fetch('/__axe-pose');
+      if (!response.ok) throw new Error('Load failed');
+      const saved = await response.json();
+      if (saved.pose !== null && !isAxePose(saved.pose)) throw new Error('Invalid saved pose');
+      if (saved.pose) pose = saved.pose;
+      status.textContent = saved.pose ? 'Saved pose loaded.' : 'Ready. Changes save automatically.';
+     } catch {
+      status.textContent = 'Could not load a saved pose. Starting from the current pose.';
+     }
+     await customElements.whenDefined('ascii-axe');
+     if (!active) return;
+     publish();
+     fieldset.disabled = false;
+    };
+    void load();
+    this.cleanup = () => {
+     active = false;
+     clearTimeout(timer);
+     fieldset.removeEventListener('input', onInput);
+     fieldset.removeEventListener('change', onLeave);
+     resetButton.removeEventListener('click', onReset);
+     copyButton.removeEventListener('click', onCopy);
+     window.removeEventListener('pagehide', onLeave);
+     document.removeEventListener('visibilitychange', onVisibility);
+    };
+   }
+   disconnectedCallback() { this.cleanup?.(); }
+  }
+  if (!customElements.get('axe-pose-editor')) customElements.define('axe-pose-editor', AxePoseEditor);
+ }
+</script>
+
+<style>
+ axe-pose-editor {
+  position: fixed; z-index: 20; top: calc(var(--sl-nav-height, 4rem) + 1rem); right: 1rem;
+  width: 19rem; max-width: calc(100vw - 2rem); color: var(--sl-color-text);
+  background: var(--sl-color-bg-nav); border: 1px solid var(--sl-color-hairline);
+  border-radius: .75rem; box-shadow: 0 8px 32px #0003; font-size: .82rem;
+ }
+ axe-pose-editor[hidden], [hidden] { display: none !important; }
+ details, fieldset, p { margin: 0; }
+ summary { cursor: pointer; padding: .9rem 1rem; font-weight: 600; }
+ summary span { float: right; font-size: .72rem; font-weight: 400; color: var(--sl-color-gray-3); }
+ .pose-body { padding: 0 1rem 1rem; max-height: calc(100dvh - var(--sl-nav-height, 4rem) - 6rem); overflow-y: auto; }
+ p { line-height: 1.5; }
+ fieldset { border: 0; padding: 1rem 0 0; min-width: 0; }
+ .pose-control { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: .2rem .6rem; margin-bottom: .9rem; }
+ label { font-size: .8rem; }
+ small { grid-column: 1 / -1; color: var(--sl-color-gray-3); font-size: .7rem; line-height: 1.4; }
+ input[type='range'] { grid-column: 1 / -1; width: 100%; margin: .15rem 0; accent-color: var(--sl-color-text-accent); cursor: pointer; }
+ .pose-value { display: flex; align-items: center; gap: .25rem; }
+ .pose-value span { width: .7rem; color: var(--sl-color-gray-3); }
+ input[type='number'] { width: 4.3rem; padding: .2rem .3rem; border: 1px solid var(--sl-color-hairline); border-radius: .3rem; background: var(--sl-color-bg); color: inherit; font: inherit; font-variant-numeric: tabular-nums; }
+ .pose-actions { display: flex; gap: .5rem; margin-bottom: .75rem; }
+ button { flex: 1; padding: .45rem .5rem; border: 1px solid var(--sl-color-hairline); border-radius: .35rem; background: var(--sl-color-bg); color: inherit; font: inherit; cursor: pointer; }
+ button:hover { background: var(--sl-color-bg-inline-code); }
+ :is(button, input, summary):focus-visible { outline: 2px solid var(--sl-color-text-accent); outline-offset: 3px; }
+ .pose-status { color: var(--sl-color-text-accent); font-size: .75rem; }
+ .pose-help { margin-top: .4rem; font-size: .72rem; color: var(--sl-color-gray-3); }
+ .pose-copy { width: 100%; min-height: 10rem; margin-top: .75rem; color: inherit; background: var(--sl-color-bg); }
+ @media (max-width: 600px) {
+  axe-pose-editor { top: auto; bottom: .75rem; right: .75rem; width: 21rem; max-width: calc(100vw - 1.5rem); }
+  .pose-body { max-height: 38dvh; }
+ }
+</style>

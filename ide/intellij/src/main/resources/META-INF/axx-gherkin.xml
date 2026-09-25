@@ -1,0 +1,20 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<!-- Loaded with the Gherkin plugin. In axx projects: run and debug icons in the gutter of feature
+     files, run configurations from Feature, Scenario and Examples lines, feature files and
+     directories, and no "Undefined step reference" inspection (CucumberUndefinedStep), since
+     axx's steps live in the axx binary. -->
+<idea-plugin>
+  <!-- With the LSP API too: go to a step's definition through the axx language server. -->
+  <depends optional="true" config-file="axx-gherkin-lsp.xml">com.intellij.modules.lsp</depends>
+
+  <extensions defaultExtensionNs="com.intellij">
+    <lang.inspectionSuppressor
+        language="Gherkin"
+        implementationClass="us.nimbusxr.axx.idea.gherkin.AxxUndefinedStepSuppressor"/>
+    <runConfigurationProducer
+        implementation="us.nimbusxr.axx.idea.gherkin.AxxRunConfigurationProducer"/>
+    <runLineMarkerContributor
+        language="Gherkin"
+        implementationClass="us.nimbusxr.axx.idea.gherkin.AxxRunLineMarkerContributor"/>
+  </extensions>
+</idea-plugin>

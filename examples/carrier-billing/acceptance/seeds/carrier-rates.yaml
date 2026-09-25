@@ -1,0 +1,6 @@
+# The prices per kg agreed with the carriers (reference data every scenario shares).
+billing.carrier_rates:
+  - { carrier: KESTREL, service: express, price_per_kg: 1.35 }
+  - { carrier: KESTREL, service: economy, price_per_kg: 0.80 }
+  - { carrier: HERON, service: express, price_per_kg: 1.10 }
+  - { carrier: HERON, service: economy, price_per_kg: 0.70 }

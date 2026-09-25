@@ -1,0 +1,69 @@
+openapi: 3.0.3
+info:
+  title: Address service
+  version: 2.3.0
+  description: Checks whether a postcode is deliverable, and which delivery zone serves it.
+paths:
+  /v1/postcodes/{country}/{postcode}:
+    get:
+      operationId: checkPostcode
+      security:
+        - apiKey: []
+      parameters:
+        - name: country
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^[A-Z]{2}$'
+        - name: postcode
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The verdict for the postcode.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PostcodeCheck'
+        '404':
+          description: Unknown postcode.
+        '503':
+          description: Temporarily unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+components:
+  securitySchemes:
+    apiKey:
+      type: apiKey
+      in: header
+      name: X-Api-Key
+  schemas:
+    PostcodeCheck:
+      type: object
+      required: [postcode, country, deliverable]
+      additionalProperties: false
+      properties:
+        postcode:
+          type: string
+        country:
+          type: string
+          pattern: '^[A-Z]{2}$'
+        deliverable:
+          type: boolean
+        zone:
+          type: string
+          description: The delivery zone, for deliverable postcodes.
+        reason:
+          type: string
+          description: Why the postcode is not deliverable.
+    Error:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string

@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="axx" tests="11" failures="7" errors="0" skipped="2" time="12.400" timestamp="2026-09-23T10:00:00">
+  <testsuite name="Orders" tests="7" failures="4" errors="0" skipped="1" time="1.565" timestamp="2026-09-23T10:00:00" file="features/orders.feature">
+    <properties>
+      <property name="axx.version" value="0.1.0"></property>
+    </properties>
+    <testcase name="Create an order" classname="Orders" time="0.173" file="features/orders.feature" line="8">
+      <system-out><![CDATA[Given the orders service is running.........................................passed
+When I create an order:.....................................................passed
+Then the response status code is 201........................................passed
+]]></system-out>
+    </testcase>
+    <testcase name="Reject duplicate order" classname="Orders" time="1.303" file="features/orders.feature" line="15">
+      <failure message="response body mismatch" type="AssertionError"><![CDATA[Step: Then the response body is: (features/orders.feature:17)
+
+response body mismatch
+  expected: {"error":"duplicate","code":409}
+  actual:   {"id":7,"sku":"A1","status":"created"}
+  diff (-expected +actual):
+  @@ -1,4 +1,5 @@
+   {
+  -  "code": 409,
+  -  "error": "duplicate"
+  +  "id": 7,
+  +  "sku": "A1",
+  +  "status": "created"
+   }]]></failure>
+      <system-out><![CDATA[Given the orders service is running.........................................passed
+When I send the order again.................................................passed
+Then the response body is:..................................................failed
+
+Logs:
+When I send the order again: POST http://localhost:8080/orders -> 201 Created
+]]></system-out>
+    </testcase>
+    <testcase name="Cache responses" classname="Orders" time="0.016" file="features/orders.feature" line="22">
+      <failure message="undefined step: Then the response is cached" type="UndefinedStep"><![CDATA[Step: Then the response is cached (features/orders.feature:24)
+
+did you mean:
+  the order is {word}  (orders.state)
+  the order is valid  (orders.valid)
+  the response body is:  (rest.response.body)]]></failure>
+      <system-out><![CDATA[Given the orders service is running.........................................passed
+When I send the order again.................................................passed
+Then the response is cached.................................................undefined
+]]></system-out>
+    </testcase>
+    <testcase name="Ambiguous check" classname="Orders" time="0.013" file="features/orders.feature" line="26">
+      <failure message="ambiguous step: 2 definitions match: Then the order is valid" type="AmbiguousStep"><![CDATA[Step: Then the order is valid (features/orders.feature:27)
+
+ambiguous step: 2 definitions match
+  - the order is valid (orders.valid)
+  - the order is {word} (orders.state)]]></failure>
+      <system-out><![CDATA[Given the orders service is running.........................................passed
+Then the order is valid.....................................................ambiguous
+]]></system-out>
+    </testcase>
+    <testcase name="Pending work" classname="Orders" time="0.013" file="features/orders.feature" line="29">
+      <skipped message="pending step: Then refunds are processed"></skipped>
+      <system-out><![CDATA[Given the orders service is running.........................................passed
+Then refunds are processed..................................................pending
+]]></system-out>
+    </testcase>
+    <testcase name="Order 1 items (example line 38)" classname="Orders" time="0.019" file="features/orders.feature" line="38">
+      <system-out><![CDATA[Given the orders service is running.........................................passed
+When I order 1 items........................................................passed
+Then the response status code is 201........................................passed
+]]></system-out>
+    </testcase>
+    <testcase name="Order 0 items (example line 39)" classname="Orders" time="0.028" file="features/orders.feature" line="39">
+      <failure message="unexpected status code: expected 400, got 201" type="AssertionError"><![CDATA[Step: Then the response status code is 400 (features/orders.feature:34)
+
+unexpected status code
+  expected: 400
+  actual:   201]]></failure>
+      <system-out><![CDATA[Given the orders service is running.........................................passed
+When I order 0 items........................................................passed
+Then the response status code is 400........................................failed
+]]></system-out>
+    </testcase>
+  </testsuite>
+  <testsuite name="Health" tests="4" failures="3" errors="0" skipped="1" time="2.072" timestamp="2026-09-23T10:00:07" file="features/health.feature">
+    <properties>
+      <property name="axx.version" value="0.1.0"></property>
+    </properties>
+    <testcase name="Panicky" classname="Health" time="0.011" file="features/health.feature" line="3">
+      <failure message="panic: boom" type="Panic"><![CDATA[Step: Given a panicking step (features/health.feature:4)
+
+panic: boom
+  example.com/packs/health.panicky(0x14000132000, {0x0, 0x0})
+    /work/packs/health/steps.go:17 +0x2c
+  github.com/nimbusxr/axx/internal/runner.(*Runner).execStep.func2()
+    /src/axx/internal/runner/scenario.go:199 +0x38]]></failure>
+      <system-out><![CDATA[Given a panicking step......................................................failed
+]]></system-out>
+    </testcase>
+    <testcase name="Slow" classname="Health" time="2.011" file="features/health.feature" line="6">
+      <failure message="timeout: step timed out after 2s" type="TimeoutError"><![CDATA[Step: Given a slow step (features/health.feature:7)
+
+timeout: step timed out after 2s]]></failure>
+      <system-out><![CDATA[Given a slow step...........................................................failed
+]]></system-out>
+    </testcase>
+    <testcase name="Skipped one" classname="Health" time="0.010" file="features/health.feature" line="9">
+      <skipped></skipped>
+      <system-out><![CDATA[Given a skipped step........................................................skipped
+Then a panicking step.......................................................skipped
+]]></system-out>
+    </testcase>
+    <testcase name="Broken setup" classname="Health" time="0.040" file="features/health.feature" line="13">
+      <failure message="connection refused" type="Error"><![CDATA[Step: Before hook db.reset
+
+connection refused]]></failure>
+      <system-out><![CDATA[Before hook db.reset........................................................failed
+Given a slow step...........................................................skipped
+]]></system-out>
+    </testcase>
+  </testsuite>
+</testsuites>

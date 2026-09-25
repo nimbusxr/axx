@@ -1,0 +1,54 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Users API (OpenAPI 3.1)",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/v31/users": {
+      "get": {
+        "operationId": "getUsers31",
+        "responses": {
+          "200": {
+            "description": "List of users",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/User"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "User": {
+        "type": "object",
+        "required": [
+          "id",
+          "username"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "username": {
+            "type": "string"
+          },
+          "nickname": {
+            "type": "string",
+            "description": "Union-typed per JSON Schema 2020-12; the OpenAPI 3.0 'nullable' keyword does not exist in 3.1",
+            "nullable": true
+          }
+        }
+      }
+    }
+  }
+}

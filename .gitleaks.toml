@@ -1,0 +1,9 @@
+# Secret scanning (scripts/hygiene.sh). The default rules, minus the IntelliJ
+# Platform Gradle plugin's sandbox (ide/intellij/.intellijPlatform): IDE state
+# written by `./gradlew runIde`, git-ignored and never committed.
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "IntelliJ plugin sandbox state (git-ignored)"
+paths = ['''(^|/)\.intellijPlatform/''']

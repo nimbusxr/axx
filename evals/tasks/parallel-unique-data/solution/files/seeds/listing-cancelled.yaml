@@ -1,0 +1,17 @@
+parcels.parcels:
+  - reference: "PX-LIST-CANCEL-01"
+    sender: "shop-list-cancel"
+    weight_grams: 900
+    recipient:
+      name: "Eli Cancelled"
+      postcode: "80331"
+      country: "DE"
+    created_at: "2026-09-11 09:00:00+00"
+  - reference: "PX-LIST-CANCEL-02"
+    sender: "shop-list-cancel"
+    weight_grams: 1900
+    recipient:
+      name: "Fay Kept"
+      postcode: "80333"
+      country: "DE"
+    created_at: "2026-09-11 09:30:00+00"

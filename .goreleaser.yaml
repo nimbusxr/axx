@@ -1,0 +1,87 @@
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
+version: 2
+project_name: axx
+# Always GitHub, whatever tokens the environment holds.
+force_token: github
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: axx
+    main: ./cmd/axx
+    binary: axx
+    env: [CGO_ENABLED=0]
+    goos: [linux, darwin, windows]
+    goarch: [amd64, arm64]
+    flags: [-trimpath]
+    mod_timestamp: "{{ .CommitTimestamp }}"
+    ldflags:
+      - -s -w
+      - -X github.com/nimbusxr/axx/internal/version.Version={{ .Version }}
+      - -X github.com/nimbusxr/axx/internal/version.Commit={{ .FullCommit }}
+      - -X github.com/nimbusxr/axx/internal/version.Date={{ .CommitDate }}
+
+archives:
+  - id: axx
+    name_template: "axx_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    files: [LICENSE, NOTICE, README.md]
+
+checksum:
+  name_template: checksums.txt
+
+sboms:
+  - artifacts: archive
+
+signs:
+  - cmd: cosign
+    artifacts: checksum
+    signature: "${artifact}.sigstore.json"
+    args: [sign-blob, "--bundle=${signature}", "${artifact}", --yes]
+
+dockers_v2:
+  - images: [ghcr.io/nimbusxr/axx]
+    tags: ["v{{ .Version }}", "{{ if not .IsSnapshot }}latest{{ end }}"]
+    platforms: [linux/amd64, linux/arm64]
+    dockerfile: build/Dockerfile
+    labels:
+      org.opencontainers.image.source: https://github.com/nimbusxr/axx
+      org.opencontainers.image.description: Human-readable acceptance testing for the agentic era
+      org.opencontainers.image.licenses: Apache-2.0
+
+homebrew_casks:
+  - name: axx
+    binaries: [axx]
+    homepage: https://axx.nimbusxr.us
+    description: Human-readable acceptance testing for the agentic era
+    license: Apache-2.0
+    skip_upload: auto
+    # The binaries are not notarized yet, so macOS would refuse to run them: drop the
+    # quarantine flag Homebrew sets on download.
+    hooks:
+      post:
+        install: |
+          if OS.mac?
+            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/axx"]
+          end
+    repository:
+      owner: nimbusxr
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
+
+release:
+  github:
+    owner: nimbusxr
+    name: axx
+  # release-please creates the GitHub release and notes; we only attach assets.
+  mode: keep-existing
+  # every 0.x release is a GitHub pre-release until v1.0.0
+  prerelease: "true"
+
+changelog:
+  disable: true

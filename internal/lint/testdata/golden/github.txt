@@ -1,0 +1,12 @@
+::warning file=big/huge.yaml,title=axx lint%3A Database seed IDs::skipped big/huge.yaml: 200 bytes exceeds lint.config.maxFileSize 150 [AXX-E0812]
+::error file=seeds/missions.yaml,line=2,col=10,title=axx lint%3A Database seed IDs::value "mission-1" appears in 2 files (cross-file-unique); also at seeds/mock-data.yaml:2:10 [AXX-E0820]
+::error file=seeds/mock-data.yaml,line=2,col=10,title=axx lint%3A Database seed IDs::value "mission-1" appears in 2 files (cross-file-unique); also at seeds/missions.yaml:2:10 [AXX-E0820]
+::warning file=seeds/legacy.yaml,line=2,col=10,title=axx lint%3A Legacy IDs::value "legacy-1" appears 2 times (global-unique); also at seeds/legacy.yaml:3:10 [AXX-E0820]
+::warning file=seeds/legacy.yaml,line=3,col=10,title=axx lint%3A Legacy IDs::value "legacy-1" appears 2 times (global-unique); also at seeds/legacy.yaml:2:10 [AXX-E0820]
+::error file=seeds/missions.yaml,line=3,col=14,title=axx lint%3A Status values::value "planned" appears 2 times (global-unique); also at seeds/mock-data.yaml:3:14 [AXX-E0820]
+::error file=seeds/mock-data.yaml,line=3,col=14,title=axx lint%3A Status values::value "planned" appears 2 times (global-unique); also at seeds/missions.yaml:3:14 [AXX-E0820]
+::error file=kafka/broken.json,line=2,col=17,title=axx lint%3A mission_id uniqueness::kafka/broken.json is not valid JSON, which a jsonpath rule requires: unexpected character "'", expected a value [AXX-E0810]
+::error file=kafka/mission-created.json,line=3,col=17,title=axx lint%3A mission_id uniqueness::value "m-1" appears in 2 files (cross-file-unique); also at kafka/mission-launched.json:1:16 [AXX-E0820]
+::error file=kafka/mission-launched.json,line=1,col=16,title=axx lint%3A mission_id uniqueness::value "m-1" appears in 2 files (cross-file-unique); also at kafka/mission-created.json:3:17 [AXX-E0820]
+::warning file=features/f.feature,line=3,title=axx lint%3A SQL selection and trigger ordinals::this step uses the 2nd selection, but no selections were retrieved before it in the scenario, so the step always fails [AXX-E0830]
+axx lint: 6 rules, 7 files: 4 errors, 3 warnings

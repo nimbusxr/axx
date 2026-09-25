@@ -1,0 +1,13 @@
+{
+  "name": "axx",
+  "version": "0.1.0",
+  "description": "Write, run and debug human-readable acceptance tests with axx (github.com/nimbusxr/axx).",
+  "author": {
+    "name": "NimbusXR",
+    "url": "https://github.com/nimbusxr"
+  },
+  "homepage": "https://axx.nimbusxr.us",
+  "repository": "https://github.com/nimbusxr/axx",
+  "license": "Apache-2.0",
+  "keywords": ["gherkin", "bdd", "acceptance-testing", "cucumber", "openapi", "mcp"]
+}

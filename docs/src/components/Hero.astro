@@ -1,0 +1,14 @@
+---
+import Default from '@astrojs/starlight/components/Hero.astro';
+import AsciiAxe from './AsciiAxe.astro';
+import PoseEditor from './PoseEditor.astro';
+const isHome = Astro.url.pathname === '/';
+---
+
+{isHome ? (
+	<section class="home-stage" aria-labelledby="_top">
+		<h1 id="_top" class="sr-only" data-page-title>axx</h1>
+		<AsciiAxe />
+		{import.meta.env.DEV && <PoseEditor />}
+	</section>
+) : <Default />}

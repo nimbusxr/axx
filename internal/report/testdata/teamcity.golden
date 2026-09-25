@@ -1,0 +1,33 @@
+##teamcity[enteredTheMatrix]
+##teamcity[testingStarted]
+##teamcity[testSuiteStarted nodeId='feature-1' parentNodeId='0' name='Feature: Health' locationHint='file:///work/features/health.feature:1']
+##teamcity[testSuiteStarted nodeId='tcs1' parentNodeId='feature-1' name='Scenario: Panicky' locationHint='file:///work/features/health.feature:3']
+##teamcity[testStarted nodeId='tcs1/ts1' parentNodeId='tcs1' name='Given a panicking step' locationHint='file:///work/features/health.feature:4']
+##teamcity[testFailed nodeId='tcs1/ts1' message='panic: boom </script>' details='panic: boom </script>']
+##teamcity[testFinished nodeId='tcs1/ts1' duration='1']
+##teamcity[testSuiteFinished nodeId='tcs1']
+##teamcity[testSuiteFinished nodeId='feature-1']
+##teamcity[testingFinished]
+
+Failed scenarios:
+  x Reject duplicate order  # features/orders.feature:15
+      rerun: axx run features/orders.feature:15
+  ? Cache responses  # features/orders.feature:22  (undefined)
+      rerun: axx run features/orders.feature:22
+  ! Ambiguous check  # features/orders.feature:26  (ambiguous)
+      rerun: axx run features/orders.feature:26
+  ? Pending work  # features/orders.feature:29  (pending)
+      rerun: axx run features/orders.feature:29
+  x Order 0 items  # features/orders.feature:39
+      rerun: axx run features/orders.feature:39
+  x Panicky  # features/health.feature:3
+      rerun: axx run features/health.feature:3
+  x Slow  # features/health.feature:6
+      rerun: axx run features/health.feature:6
+  x Broken setup  # features/health.feature:13
+      rerun: axx run features/health.feature:13
+
+11 scenarios (5 failed, 1 ambiguous, 1 undefined, 1 pending, 1 skipped, 2 passed)
+24 steps (4 failed, 1 ambiguous, 1 undefined, 1 pending, 3 skipped, 14 passed)
+NOT RUN 2
+Finished in 12.4s

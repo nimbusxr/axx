@@ -1,0 +1,43 @@
+# SPDX-License-Identifier: Apache-2.0
+# Builds and tests the VS Code extension (ide/vscode) on pull requests and main.
+# It never publishes.
+name: vscode-extension
+
+on:
+  pull_request:
+    paths:
+      - ide/vscode/**
+      - .github/workflows/vscode-extension.yml
+  push:
+    branches: [main]
+    paths:
+      - ide/vscode/**
+      - .github/workflows/vscode-extension.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vscode-extension-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+defaults:
+  run:
+    working-directory: ide/vscode
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@5228313ee0372e111a38da051671ca30fc5a96db # v3
+        with:
+          install_args: "node"
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      - run: npm run package

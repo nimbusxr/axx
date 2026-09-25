@@ -1,0 +1,21 @@
+{
+  "name": "postcode-undocumented-field",
+  "priority": 1,
+  "request": {
+    "method": "GET",
+    "urlPath": "/v1/postcodes/DE/80995"
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "jsonBody": {
+      "postcode": "80995",
+      "country": "DE",
+      "deliverable": true,
+      "zone": "DE-8",
+      "deliveryWindow": "evening"
+    }
+  }
+}

@@ -1,0 +1,7 @@
+# Every line in these manifests comes from the same shop and goes to the same address.
+data:
+  parcels.manifest_lines:
+    manifest_id: M-FJORD-0101
+    sender: fjord-outdoor
+    service_level: STANDARD
+    recipient: '{"name": "Sophie Germain", "city": "Munich", "postcode": "80331", "country": "DE"}'

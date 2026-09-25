@@ -1,0 +1,5 @@
+factory: ingested-telemetry
+data:
+  device_id: sensor-a-001
+  device:
+    serial: SN-A-1

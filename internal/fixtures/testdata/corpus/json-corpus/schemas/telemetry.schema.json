@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Telemetry",
+  "type": "object",
+  "required": ["device_id", "event_type", "readings"],
+  "properties": {
+    "device_id": { "type": "string" },
+    "event_type": { "type": "string", "enum": ["device-online", "device-offline", "heartbeat"] },
+    "firmware": { "type": "string" },
+    "region": { "type": ["string", "null"] },
+    "sample_rate_hz": { "type": "integer", "default": 60 },
+    "readings": { "type": "array", "items": { "$ref": "#/$defs/Reading" } },
+    "device": { "$ref": "#/$defs/Device" },
+    "power": {
+      "oneOf": [
+        { "type": "string", "enum": ["battery", "mains"] },
+        {
+          "type": "object",
+          "required": ["source", "watts"],
+          "properties": {
+            "source": { "type": "string" },
+            "watts": { "type": "number" }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "tags": { "type": "object", "additionalProperties": { "type": "string" } }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "Reading": {
+      "type": "object",
+      "required": ["metric", "value"],
+      "properties": {
+        "metric": { "type": "string" },
+        "value": { "type": "number" },
+        "unit": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "Device": {
+      "allOf": [
+        { "$ref": "#/$defs/Identifiable" },
+        {
+          "type": "object",
+          "properties": {
+            "model": { "type": "string" },
+            "site": { "type": "string" }
+          }
+        }
+      ]
+    },
+    "Identifiable": {
+      "type": "object",
+      "required": ["serial"],
+      "properties": {
+        "serial": { "type": "string" }
+      }
+    }
+  }
+}

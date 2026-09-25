@@ -1,0 +1,10 @@
+data:
+  customer:
+    tier: gold
+  line:
+    - "@sku": SKU-1
+      "@qty": 1
+      "#text": "9.99"
+    - "@sku": SKU-2
+      "@qty": 3
+      "#text": "29.97"

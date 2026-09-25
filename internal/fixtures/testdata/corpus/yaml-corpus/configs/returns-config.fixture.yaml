@@ -1,0 +1,4 @@
+data:
+  mode: shadow
+  timeouts:
+    read_ms: 1500

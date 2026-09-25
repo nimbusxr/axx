@@ -1,0 +1,8 @@
+# What the verifier checks for this task (see evals/README.md, "How a task is verified").
+# The first run is a plain `axx run`: axx must start the service from the agent's axx.yaml.
+allowed = ["axx.yaml", "axx.*.yaml", "features/**", "seeds/**", ".github/**"]
+required = ["axx.yaml", "features/**/*.feature"]
+config_keys = ["*"]
+start_apps = true
+min_scenarios = 2
+mutants = ["wrong-status-on-duplicate", "wrong-status-on-create"]

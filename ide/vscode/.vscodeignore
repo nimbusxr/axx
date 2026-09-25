@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: Apache-2.0
+# The package holds only what VS Code loads: the bundle, the grammar, the language
+# configuration and the LICENSE. vsce adds package.json and README.md itself.
+**
+!dist/extension.js
+!syntaxes/gherkin.tmLanguage.json
+!language-configuration.json
+!LICENSE

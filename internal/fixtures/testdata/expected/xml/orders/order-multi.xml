@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<order channel="WEB" id="ord-order-multi">
+  <customer id="cust-1">
+    <name>Josh</name>
+    <tier>gold</tier>
+  </customer>
+  <line sku="SKU-1" qty="1">9.99</line>
+  <line sku="SKU-2" qty="3">29.97</line>
+</order>

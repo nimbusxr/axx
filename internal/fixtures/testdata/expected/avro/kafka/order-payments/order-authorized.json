@@ -1,0 +1,17 @@
+{
+  "order_id": "ord-order-authorized",
+  "status": "AUTHORIZED",
+  "amount_cents": 12999,
+  "currency": "USD",
+  "tender_type": "CREDIT_CARD",
+  "captured_at": null,
+  "payments": [
+    {
+      "payment_id": "pay-order-authorized-primary",
+      "method": "CREDIT_CARD",
+      "channel": "POS",
+      "loyalty_id": null
+    }
+  ],
+  "metadata": {}
+}

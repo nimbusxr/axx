@@ -1,0 +1,20 @@
+{
+  "type": "record",
+  "name": "DepotScan",
+  "namespace": "example.parcels",
+  "doc": "One scan of a parcel at a depot, published by the depot scanners.",
+  "fields": [
+    {"name": "scanId", "type": "string"},
+    {"name": "parcelRef", "type": "string"},
+    {
+      "name": "status",
+      "type": {
+        "type": "enum",
+        "name": "ScanStatus",
+        "symbols": ["PICKED_UP", "IN_TRANSIT", "OUT_FOR_DELIVERY", "DELIVERED", "EXCEPTION"]
+      }
+    },
+    {"name": "location", "type": "string"},
+    {"name": "scannedAt", "type": "string", "doc": "ISO-8601 time of the scan."}
+  ]
+}

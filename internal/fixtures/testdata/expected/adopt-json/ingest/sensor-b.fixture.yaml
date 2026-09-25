@@ -1,0 +1,10 @@
+factory: ingested-telemetry
+data:
+  readings:
+  - metric: temp_c
+    value: 24.5
+  - metric: humidity_pct
+    value: 40.0
+  device_id: sensor-b-007
+  device:
+    serial: SN-B-7

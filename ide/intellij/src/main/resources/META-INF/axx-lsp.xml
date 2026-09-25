@@ -1,0 +1,15 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<!-- Loaded in IDEs with the LSP API (com.intellij.modules.lsp): the axx language server for
+     .feature files. -->
+<idea-plugin>
+  <extensions defaultExtensionNs="com.intellij">
+    <platform.lsp.serverSupportProvider
+        implementation="us.nimbusxr.axx.idea.lsp.AxxLspServerSupportProvider"/>
+  </extensions>
+
+  <applicationListeners>
+    <listener
+        class="us.nimbusxr.axx.idea.lsp.AxxLspRestarter"
+        topic="us.nimbusxr.axx.idea.AxxSettings$Listener"/>
+  </applicationListeners>
+</idea-plugin>

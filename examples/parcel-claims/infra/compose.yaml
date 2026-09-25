@@ -1,0 +1,48 @@
+# The claims service and the AWS it runs on.
+#
+#   docker compose up --build --wait     # start everything and wait until it is healthy
+#   docker compose down -v               # stop and remove everything
+#
+# axx runs this for you: see ../acceptance/axx.yaml.
+#
+# AWS runs locally in floci (https://floci.io), a free, open-source AWS
+# emulator: one container, every service on port 4566. The service is set up
+# exactly as for AWS; only AWS_ENDPOINT_URL points it at the emulator.
+name: parcel-claims
+
+services:
+  aws:
+    image: floci/floci:latest
+    ports:
+      - '4566:4566'
+    environment:
+      # The host name other containers reach it by, used in the URLs it returns.
+      FLOCI_HOSTNAME: aws
+    stop_signal: SIGKILL
+
+  # Creates the tables, buckets, queues, topics and buses, as the
+  # infrastructure code of a real account does; then exits.
+  provision:
+    image: parcel-claims:local
+    build: ../app
+    command: ["provision"]
+    environment: &aws
+      AWS_REGION: eu-west-1
+      AWS_ENDPOINT_URL: http://aws:4566
+      AWS_ACCESS_KEY_ID: local
+      AWS_SECRET_ACCESS_KEY: local
+    depends_on:
+      - aws
+
+  claims:
+    image: parcel-claims:local
+    build: ../app
+    ports:
+      - '8500:8500'
+    environment:
+      <<: *aws
+      CLAIMS_ADDR: ':8500'
+      CLAIMS_AUTO_APPROVE_LIMIT: '250'
+    depends_on:
+      provision:
+        condition: service_completed_successfully

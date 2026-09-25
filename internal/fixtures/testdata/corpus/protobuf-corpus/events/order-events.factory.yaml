@@ -1,0 +1,7 @@
+# The .desc file is a FileDescriptorSet (protoc --descriptor_set_out); the test writes it.
+factory:
+  family: protobuf
+  schema: ../schemas/orders.desc#axx.test.OrderEvent
+identity:
+  - path: order_id
+    prefix: ord-

@@ -1,0 +1,5 @@
+data:
+  status: "AUTHORIZED"
+  amount_cents: 12999
+  payments:
+    - { method: "CREDIT_CARD" }

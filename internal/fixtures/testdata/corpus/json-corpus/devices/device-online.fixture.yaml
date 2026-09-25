@@ -1,0 +1,5 @@
+data:
+  event_type: device-online
+  tags:
+    zone: b
+    rack: "12"

@@ -1,0 +1,7 @@
+# yaml-language-server: $schema=https://axx.nimbusxr.us/schemas/v0/axx-factory.schema.json
+# Manifest lines as CSV dataset directories (one <table>.csv per table plus
+# table-ordering.txt), checked against the database schema.
+factory:
+  family: dataset
+  options: { format: csv }
+  schema: ../../../../infra/postgres/init/01-schema.sql

@@ -1,0 +1,6 @@
+insured-parcels:
+  - reference: PX-4106
+    shop: NORTHWIND
+    carrier: KESTREL
+    declaredValue: 30
+    currency: EUR

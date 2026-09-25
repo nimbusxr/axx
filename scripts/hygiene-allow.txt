@@ -1,0 +1,1 @@
+# path:regex exceptions for scripts/hygiene.sh (keep this list tiny and justified).

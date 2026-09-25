@@ -1,0 +1,100 @@
+name: docs
+
+# Builds https://axx.nimbusxr.us from docs/. The reference pages, schemas and
+# skills are generated from the axx binary during the build (ADR 0005), so
+# changes to the Go code can change the site too.
+on:
+  pull_request:
+    paths:
+      - "docs/**"
+      - "internal/**"
+      - "cmd/**"
+      - "pkg/**"
+      - "go.mod"
+      - "go.sum"
+      - "scripts/install.*"
+      - "README.md"
+      - "AGENTS.md"
+      - ".github/workflows/docs.yml"
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docs-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: docs
+    env:
+      ASTRO_TELEMETRY_DISABLED: "1"
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      # Go (from go.mod's toolchain in .mise.toml) builds bin/axx-all, axx with every pack; Node runs Astro.
+      # The site built on main is the one deployed, so only pull requests restore caches; main
+      # saves them.
+      - uses: jdx/mise-action@5228313ee0372e111a38da051671ca30fc5a96db # v3
+        with:
+          install_args: "go node"
+          cache: ${{ github.event_name == 'pull_request' }}
+      - if: github.event_name == 'pull_request'
+        uses: ./.github/actions/go-cache
+        with:
+          build: docs
+      - if: github.event_name == 'pull_request'
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.npm
+          key: npm-docs-${{ hashFiles('docs/package-lock.json') }}
+          restore-keys: npm-docs-
+      - run: npm ci
+      # prebuild runs scripts/gen.mjs: go build, axx docs export, skills, schemas.
+      # It fails if any generated reference comes out empty.
+      - run: npm run build
+      # Every ```gherkin block must parse and use real steps (see the script header).
+      - run: npm run check:gherkin
+      - if: ${{ !cancelled() }}
+        uses: ./.github/actions/go-cache
+        with:
+          build: docs
+          mode: save
+          modules: "false"
+      - if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        continue-on-error: true # the key exists until package-lock.json changes
+        with:
+          path: ~/.npm
+          key: npm-docs-${{ hashFiles('docs/package-lock.json') }}
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5
+        if: github.event_name != 'pull_request'
+        with:
+          path: docs/dist
+          # .well-known/agent-skills/index.json is a dot-directory.
+          include-hidden-files: true
+
+  deploy:
+    # Publishing the site waits for the AXX_PUBLISH repository variable, like every release.
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && vars.AXX_PUBLISH == 'true'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5

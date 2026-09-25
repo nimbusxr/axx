@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<order channel="WEB" id="ord-order-single">
+  <customer id="cust-1">
+    <name>Josh</name>
+  </customer>
+  <line sku="SKU-1" qty="2">19.98</line>
+  <note>rush</note>
+</order>

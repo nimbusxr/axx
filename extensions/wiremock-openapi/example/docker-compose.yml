@@ -1,0 +1,16 @@
+# SPDX-License-Identifier: Apache-2.0
+# Example: WireMock with OpenAPI validation. Run from this directory:
+#   docker compose up
+#   curl -i localhost:8080/users/42                                  # 200, matches the spec
+#   curl -i localhost:8080/users/7                                   # 500, stub violates the spec
+#   curl -i -H 'Content-Type: application/json' -d '{}' localhost:8080/users   # 500, invalid request
+#   curl localhost:8080/__admin/requests                             # the findings, per request
+services:
+  wiremock:
+    image: ghcr.io/nimbusxr/axx-wiremock:0.1
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./mappings:/home/wiremock/mappings:ro
+      - ./openapi:/var/openapi:ro
+    command: ["--verbose"]

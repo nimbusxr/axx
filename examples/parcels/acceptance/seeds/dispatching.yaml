@@ -1,0 +1,6 @@
+parcels.parcels:
+  - reference: "PX-DSP-2001"
+    sender: "fjord-outdoor"
+    weight_grams: 1800
+    recipient: '{"name": "Ida Noddack", "city": "Cologne", "postcode": "50667", "country": "DE"}'
+    details: '{"source": "api", "zone": "DE-1"}'

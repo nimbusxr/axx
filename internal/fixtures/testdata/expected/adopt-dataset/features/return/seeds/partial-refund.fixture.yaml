@@ -1,0 +1,12 @@
+factory: return-seeds
+data:
+  space.missions:
+  - id: ret-mission-2
+    name: Partial Mission
+    budget: null
+  - id: ret-mission-3
+    name: Third Mission
+    status: planned
+  space.spacecraft:
+  - id: ret-craft-2
+    name: Refund Two

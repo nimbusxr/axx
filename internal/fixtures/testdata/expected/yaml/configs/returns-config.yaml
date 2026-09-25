@@ -1,0 +1,6 @@
+service: svc-returns-config
+port: 8080
+mode: shadow
+timeouts:
+  connect_ms: 250
+  read_ms: 1500

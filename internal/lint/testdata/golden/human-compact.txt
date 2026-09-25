@@ -1,0 +1,25 @@
+FAIL Database seed IDs (cross-file-unique, 2 files): 1 duplicate value, 1 warning
+     Seed row IDs must be unique across all seed files
+     warning: skipped big/huge.yaml: 200 bytes exceeds lint.config.maxFileSize 150 [AXX-E0812]
+       big/huge.yaml
+     value "mission-1" appears in 2 files (cross-file-unique) [AXX-E0820]
+       seeds/missions.yaml:2:10   - id: "mission-1"
+       seeds/mock-data.yaml:2:10  - id: "mission-1"
+warn Legacy IDs (global-unique, warn mode, 1 file): 1 duplicate value
+     value "legacy-1" appears 2 times (global-unique) [AXX-E0820]
+       seeds/legacy.yaml:2:10  - id: "legacy-1"
+       seeds/legacy.yaml:3:10  - id: "legacy-1"
+FAIL Status values (global-unique, 3 files): 1 duplicate value
+     value "planned" appears 2 times (global-unique) [AXX-E0820]
+       seeds/missions.yaml:3:14   status: "planned"
+       seeds/mock-data.yaml:3:14  status: "planned"
+FAIL mission_id uniqueness (cross-file-unique, 3 files): 1 duplicate value, 1 problem
+     kafka/broken.json is not valid JSON, which a jsonpath rule requires: unexpected character "'", expected a value [AXX-E0810]
+       kafka/broken.json:2:17  "mission_id": 'm-2'
+     value "m-1" appears in 2 files (cross-file-unique) [AXX-E0820]
+       kafka/mission-created.json:3:17   "mission_id": "m-1"
+       kafka/mission-launched.json:1:16  {"mission_id": "m-1", "note": "a, b: c%"}
+warn SQL selection and trigger ordinals (1 file): 1 warning
+     this step uses the 2nd selection, but no selections were retrieved before it in the scenario, so the step always fails [AXX-E0830]
+       features/f.feature:3  Then the 2nd selection has 1 row
+axx lint: 6 rules, 7 files: 4 errors, 3 warnings
