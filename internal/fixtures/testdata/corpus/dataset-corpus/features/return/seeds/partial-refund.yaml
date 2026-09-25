@@ -1,0 +1,14 @@
+space.missions:
+  - id: "ret-mission-2"
+    name: "Partial Mission"
+    status: "launched"
+    metadata: '{"priority": "high"}'
+    budget: null
+  - id: "ret-mission-3"
+    name: "Third Mission"
+    status: "planned"
+    metadata: '{"priority": "high"}'
+space.spacecraft:
+  - id: "ret-craft-2"
+    name: "Refund Two"
+    capacity: 5

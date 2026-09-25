@@ -1,0 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
+# Loaded by WireMock's extension scanning (on by default in WireMock standalone; disabled
+# with --disable-extensions-scanning, and opt-in via extensionScanningEnabled(true) in the Java API).
+us.nimbusxr.axx.wiremock.openapi.OpenApiValidatorExtension

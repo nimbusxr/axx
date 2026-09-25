@@ -1,0 +1,332 @@
+openapi: 3.1.0
+info:
+  title: Parcels
+  version: 1.0.0
+  description: >-
+    Quote and register parcels for delivery, change or cancel them before pickup, and read
+    their tracking summary and shipping label. Every quote and registration checks the
+    recipient's postcode with the address service, and every registration is announced as a
+    ParcelRegistered event.
+paths:
+  /health:
+    get:
+      operationId: health
+      summary: Liveness check
+      responses:
+        "200":
+          description: The service is up.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status: {type: string, enum: [UP]}
+  /api/quotes:
+    post:
+      operationId: quoteParcel
+      summary: Price a parcel before registering it
+      description: >-
+        The price depends on the service level, the weight, whether the parcel goes abroad and
+        whether the address service places the postcode in a remote zone. Undeliverable
+        postcodes are refused with 422.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/QuoteRequest"}
+            examples:
+              Domestic parcel:
+                value:
+                  weightGrams: 1200
+                  serviceLevel: STANDARD
+                  recipient:
+                    postcode: "10115"
+                    country: DE
+              Express abroad:
+                value:
+                  weightGrams: 800
+                  serviceLevel: EXPRESS
+                  recipient:
+                    postcode: "75001"
+                    country: FR
+      responses:
+        "200":
+          description: The price.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Quote"}
+        "400": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+        "502": {$ref: "#/components/responses/Problem"}
+  /api/parcels:
+    post:
+      operationId: registerParcel
+      summary: Register a parcel
+      description: >-
+        The recipient's postcode is checked with the address service first; parcels to
+        undeliverable postcodes are refused with 422. References are unique: registering
+        an existing reference is refused with 409.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/ParcelRequest"}
+            examples:
+              Standard parcel:
+                value:
+                  reference: PX-EXAMPLE-1
+                  sender: shop-example
+                  weightGrams: 1200
+                  serviceLevel: STANDARD
+                  recipient:
+                    name: Ada Lovelace
+                    street: Invalidenstrasse 116
+                    city: Berlin
+                    postcode: "10115"
+                    country: DE
+              Express parcel:
+                value:
+                  reference: PX-EXAMPLE-2
+                  sender: shop-example
+                  weightGrams: 800
+                  serviceLevel: EXPRESS
+                  recipient:
+                    name: Grace Hopper
+                    city: Paris
+                    postcode: "75001"
+                    country: FR
+      responses:
+        "201":
+          description: Registered.
+          headers:
+            Location:
+              schema: {type: string}
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Parcel"}
+        "400": {$ref: "#/components/responses/Problem"}
+        "409": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+        "502": {$ref: "#/components/responses/Problem"}
+        "503":
+          description: The parcel could not be stored; try again later.
+          headers:
+            Retry-After:
+              schema: {type: string}
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+    get:
+      operationId: listParcels
+      summary: List parcels, oldest first
+      parameters:
+        - name: sender
+          in: query
+          required: false
+          description: Only this sender's parcels.
+          schema: {type: string}
+      responses:
+        "200":
+          description: The parcels.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: {$ref: "#/components/schemas/Parcel"}
+  /api/parcels/{reference}:
+    parameters:
+      - $ref: "#/components/parameters/Reference"
+    get:
+      operationId: getParcel
+      summary: Fetch a parcel
+      responses:
+        "200":
+          description: The parcel.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Parcel"}
+        "404": {$ref: "#/components/responses/Problem"}
+    patch:
+      operationId: changeParcel
+      summary: Change a parcel before pickup
+      description: >-
+        Only parcels with status REGISTERED can be changed, and not while the depot is
+        dispatching them (409 otherwise).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/ParcelChange"}
+            examples:
+              Heavier:
+                value:
+                  weightGrams: 2500
+      responses:
+        "200":
+          description: The changed parcel.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Parcel"}
+        "400": {$ref: "#/components/responses/Problem"}
+        "404": {$ref: "#/components/responses/Problem"}
+        "409": {$ref: "#/components/responses/Problem"}
+    delete:
+      operationId: cancelParcel
+      summary: Cancel a parcel before pickup
+      responses:
+        "204":
+          description: Cancelled.
+        "404": {$ref: "#/components/responses/Problem"}
+        "409": {$ref: "#/components/responses/Problem"}
+  /api/parcels/{reference}/tracking:
+    parameters:
+      - $ref: "#/components/parameters/Reference"
+    get:
+      operationId: getTracking
+      summary: The parcel's tracking summary (from depot scans)
+      responses:
+        "200":
+          description: The tracking summary.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Tracking"}
+        "404": {$ref: "#/components/responses/Problem"}
+  /api/parcels/{reference}/label:
+    parameters:
+      - $ref: "#/components/parameters/Reference"
+    get:
+      operationId: getLabel
+      summary: The parcel's shipping label
+      responses:
+        "200":
+          description: The label.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Label"}
+        "404": {$ref: "#/components/responses/Problem"}
+components:
+  parameters:
+    Reference:
+      name: reference
+      in: path
+      required: true
+      schema: {type: string}
+  responses:
+    Problem:
+      description: The request was refused (RFC 9457 problem details).
+      content:
+        application/problem+json:
+          schema: {$ref: "#/components/schemas/Problem"}
+  schemas:
+    Recipient:
+      type: object
+      required: [name, postcode, country]
+      properties:
+        name: {type: string, minLength: 1}
+        street: {type: [string, "null"]}
+        city: {type: [string, "null"]}
+        postcode: {type: string, minLength: 1}
+        country:
+          type: string
+          pattern: "^[A-Z]{2}$"
+          description: ISO 3166-1 alpha-2 country code.
+    QuoteRequest:
+      type: object
+      required: [weightGrams, recipient]
+      properties:
+        weightGrams: {type: integer, minimum: 1, maximum: 30000}
+        serviceLevel:
+          type: string
+          enum: [STANDARD, EXPRESS]
+          default: STANDARD
+        recipient:
+          type: object
+          required: [postcode, country]
+          properties:
+            postcode: {type: string, minLength: 1}
+            country: {type: string, pattern: "^[A-Z]{2}$"}
+    Quote:
+      type: object
+      required: [zone, serviceLevel, weightGrams, priceCents, currency, deliveryDays]
+      properties:
+        zone: {type: string}
+        serviceLevel: {type: string}
+        weightGrams: {type: integer}
+        priceCents: {type: integer}
+        currency: {type: string, enum: [EUR]}
+        deliveryDays: {type: integer, minimum: 1}
+    ParcelRequest:
+      type: object
+      required: [reference, sender, weightGrams, recipient]
+      properties:
+        reference:
+          type: string
+          pattern: "^[A-Z0-9][A-Z0-9-]{2,39}$"
+          description: The sender's unique reference for the parcel.
+        sender: {type: string, minLength: 1}
+        weightGrams: {type: integer, minimum: 1, maximum: 30000}
+        serviceLevel:
+          type: string
+          enum: [STANDARD, EXPRESS]
+          default: STANDARD
+        recipient: {$ref: "#/components/schemas/Recipient"}
+    ParcelChange:
+      type: object
+      minProperties: 1
+      additionalProperties: false
+      properties:
+        weightGrams: {type: integer, minimum: 1, maximum: 30000}
+        serviceLevel: {type: string, enum: [STANDARD, EXPRESS]}
+        recipient: {$ref: "#/components/schemas/Recipient"}
+    Parcel:
+      type: object
+      required: [reference, sender, status, weightGrams, serviceLevel, recipient, zone, source, createdAt, updatedAt]
+      properties:
+        reference: {type: string}
+        sender: {type: string}
+        status:
+          type: string
+          enum: [REGISTERED, IN_TRANSIT, DELIVERED]
+        weightGrams: {type: integer}
+        serviceLevel: {type: string}
+        recipient: {$ref: "#/components/schemas/Recipient"}
+        zone:
+          type: string
+          description: Delivery zone from the address service.
+        source:
+          type: string
+          enum: [api, manifest]
+        createdAt: {type: string, format: date-time}
+        updatedAt: {type: string, format: date-time}
+    Tracking:
+      type: object
+      required: [parcelRef, status, lastLocation, lastScanAt, scanCount, delivered]
+      properties:
+        parcelRef: {type: string}
+        status: {type: string}
+        lastLocation: {type: [string, "null"]}
+        lastScanAt: {type: [string, "null"], format: date-time}
+        scanCount: {type: integer, minimum: 0}
+        delivered: {type: boolean}
+    Label:
+      type: object
+      required: [reference, serviceLevel, barcode, signature]
+      properties:
+        reference: {type: string}
+        serviceLevel: {type: string}
+        barcode:
+          type: string
+          pattern: "^PX[0-9]{11}$"
+        signature:
+          type: string
+          pattern: "^[0-9a-f]{64}$"
+    Problem:
+      type: object
+      required: [type, title, status]
+      properties:
+        type: {type: string}
+        title: {type: string}
+        status: {type: integer}
+        detail: {type: string}
+        instance: {type: string}

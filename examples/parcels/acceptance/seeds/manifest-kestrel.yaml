@@ -1,0 +1,15 @@
+parcels.manifest_lines:
+  - id: "ML-KES-0412-1"
+    manifest_id: "M-KESTREL-0412"
+    reference: "PX-KES-1001"
+    sender: "kestrel-books"
+    weight_grams: 850
+    service_level: "STANDARD"
+    recipient: '{"name": "Emmy Noether", "street": "Bunsenstrasse 3", "city": "Goettingen", "postcode": "37073", "country": "DE"}'
+  - id: "ML-KES-0412-2"
+    manifest_id: "M-KESTREL-0412"
+    reference: "PX-KES-1002"
+    sender: "kestrel-books"
+    weight_grams: 2300
+    service_level: "EXPRESS"
+    recipient: '{"name": "Lise Meitner", "city": "Hamburg", "postcode": "20095", "country": "DE"}'

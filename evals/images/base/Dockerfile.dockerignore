@@ -1,0 +1,17 @@
+# Build context of evals/images/base/Dockerfile: the repository root, minus
+# what the images never need.
+.git
+**/.claude
+bin
+dist
+bench
+docs
+ide
+extensions
+examples
+plugins
+evals/tasks
+evals/results
+evals/.work
+**/__pycache__
+**/node_modules

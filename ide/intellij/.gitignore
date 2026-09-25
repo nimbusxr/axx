@@ -1,0 +1,3 @@
+# SPDX-License-Identifier: Apache-2.0
+# IntelliJ Platform Gradle Plugin state: sandboxes, IDE layout indexes, release caches.
+.intellijPlatform/

@@ -1,0 +1,11 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<!-- Loaded with both the Gherkin plugin and the LSP API. The Gherkin plugin's own step reference
+     would otherwise answer Go to Declaration on a step, and find nothing; declaration handlers run
+     before references, and this one goes first among them. -->
+<idea-plugin>
+  <extensions defaultExtensionNs="com.intellij">
+    <gotoDeclarationHandler
+        order="first"
+        implementation="us.nimbusxr.axx.idea.gherkin.AxxStepDeclarationHandler"/>
+  </extensions>
+</idea-plugin>

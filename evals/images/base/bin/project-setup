@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+# Builds a task's starting project in /app (used by the task Dockerfiles).
+#
+#   project-setup common                 copy the shared parcels acceptance project
+#   project-setup finish [--agents-md] [--skills]
+#                                        apply the agent aids of the condition, then
+#                                        commit everything as the initial state
+#
+#   --agents-md  the AGENTS.md section `axx init` writes
+#   --skills     `axx skills install` (.agents/skills and .claude/skills)
+set -euo pipefail
+
+app=/app
+cmd=${1:-}
+shift || true
+
+case "$cmd" in
+  common)
+    mkdir -p "$app"
+    cp -a /opt/evals/workspace/. "$app"/
+    ;;
+  finish)
+    agents_md=false skills=false
+    for a in "$@"; do
+      case "$a" in
+        --agents-md) agents_md=true ;;
+        --skills) skills=true ;;
+        *) echo "project-setup: unknown option $a" >&2; exit 2 ;;
+      esac
+    done
+    if $agents_md; then
+      # Let `axx init` write (or update) its AGENTS.md section in a scratch
+      # project, then keep only AGENTS.md.
+      scratch=$(mktemp -d)/project
+      mkdir -p "$scratch"
+      if [[ -f "$app/AGENTS.md" ]]; then cp "$app/AGENTS.md" "$scratch/AGENTS.md"; fi
+      (cd "$scratch" && axx init --no-ci >/dev/null)
+      cp "$scratch/AGENTS.md" "$app/AGENTS.md"
+      rm -rf "$(dirname "$scratch")"
+    fi
+    if $skills; then
+      (cd "$app" && axx skills install >/dev/null)
+    fi
+    cd "$app"
+    git init -q
+    git add -A
+    git commit -q -m "Initial state"
+    ;;
+  *)
+    echo "usage: project-setup common | finish [--agents-md] [--skills]" >&2
+    exit 2
+    ;;
+esac

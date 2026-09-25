@@ -1,0 +1,6 @@
+factory:
+  family: dataset
+  schema: ../../ddl/01-schema.sql
+identity:
+  - path: space.missions.id
+    prefix: msn-

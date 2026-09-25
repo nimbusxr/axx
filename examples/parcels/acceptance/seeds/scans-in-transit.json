@@ -1,0 +1,25 @@
+{
+  "scans": [
+    {
+      "scanId": "SC-3001-2",
+      "parcelRef": "PX-TRK-3001",
+      "status": "IN_TRANSIT",
+      "location": "Hamburg hub",
+      "scannedAt": {"$date": "2026-05-05T06:40:00Z"}
+    },
+    {
+      "scanId": "SC-3001-1",
+      "parcelRef": "PX-TRK-3001",
+      "status": "PICKED_UP",
+      "location": "Berlin depot",
+      "scannedAt": {"$date": "2026-05-04T16:10:00Z"}
+    },
+    {
+      "scanId": "SC-3001-2",
+      "parcelRef": "PX-TRK-3001",
+      "status": "IN_TRANSIT",
+      "location": "Hamburg hub",
+      "scannedAt": {"$date": "2026-05-05T06:40:00Z"}
+    }
+  ]
+}

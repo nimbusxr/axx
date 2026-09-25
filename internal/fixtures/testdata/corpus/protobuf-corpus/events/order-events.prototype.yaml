@@ -1,0 +1,9 @@
+data:
+  status: AUTHORIZED
+  customer:
+    id: cust-1
+    loyalty_tier: gold
+  items:
+    - sku: SKU-1
+      quantity: 1
+      price: 9.99

@@ -1,0 +1,799 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://axx.nimbusxr.us/schemas/v0/axx.schema.json",
+  "$defs": {
+    "Active": {
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "onNoTags": {
+          "type": "string",
+          "enum": [
+            "fallback",
+            "error"
+          ],
+          "description": "OnNoTags decides what happens when the selected scenarios have no tags:\n\"fallback\" (start all enabled apps, default) or \"error\"."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "Active configures tag-based application startup."
+    },
+    "Apps": {
+      "additionalProperties": {
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "description": "Enabled defaults to true."
+          },
+          "dir": {
+            "type": "string",
+            "description": "Dir is the working directory, relative to axx.yaml."
+          },
+          "command": {
+            "oneOf": [
+              {
+                "type": "string",
+                "description": "command line, split into words without a shell unless shell: true"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array",
+                "minItems": 1,
+                "description": "argv"
+              }
+            ],
+            "description": "Command starts the app: a string (split like a shell word list, without\na shell) or an argv list. Set shell: true to run it through the shell."
+          },
+          "shell": {
+            "type": "boolean",
+            "description": "Shell runs command and cleanup through /bin/sh -c (cmd /C on Windows)."
+          },
+          "env": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "dependsOn": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "description": "DependsOn names apps that must be ready first."
+          },
+          "ready": {
+            "properties": {
+              "http": {
+                "properties": {
+                  "url": {
+                    "oneOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "items": {
+                          "type": "string"
+                        },
+                        "type": "array"
+                      }
+                    ]
+                  }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "url"
+                ]
+              },
+              "tcp": {
+                "type": "string",
+                "description": "TCP is a host:port that must accept connections."
+              },
+              "exec": {
+                "oneOf": [
+                  {
+                    "type": "string",
+                    "description": "command line, split into words without a shell unless shell: true"
+                  },
+                  {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array",
+                    "minItems": 1,
+                    "description": "argv"
+                  }
+                ],
+                "description": "Exec is a command that must exit 0."
+              },
+              "log": {
+                "type": "string",
+                "description": "Log is a regular expression matched against the app's output."
+              },
+              "timeout": {
+                "oneOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^\\s*([0-9]+(\\.[0-9]+)?(ns|us|µs|ms|s|m|h))+\\s*$",
+                    "examples": [
+                      "30s",
+                      "1m30s",
+                      "250ms"
+                    ]
+                  },
+                  {
+                    "type": "number",
+                    "minimum": 0,
+                    "description": "seconds"
+                  }
+                ],
+                "description": "Timeout for the app to become ready. Default: 60s."
+              },
+              "interval": {
+                "oneOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^\\s*([0-9]+(\\.[0-9]+)?(ns|us|µs|ms|s|m|h))+\\s*$",
+                    "examples": [
+                      "30s",
+                      "1m30s",
+                      "250ms"
+                    ]
+                  },
+                  {
+                    "type": "number",
+                    "minimum": 0,
+                    "description": "seconds"
+                  }
+                ],
+                "description": "Interval between checks. Default: 1s."
+              }
+            },
+            "additionalProperties": false,
+            "type": "object"
+          },
+          "stop": {
+            "properties": {
+              "signal": {
+                "type": "string",
+                "enum": [
+                  "SIGTERM",
+                  "SIGINT"
+                ],
+                "description": "Signal sent first: SIGTERM (default) or SIGINT."
+              },
+              "grace": {
+                "oneOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^\\s*([0-9]+(\\.[0-9]+)?(ns|us|µs|ms|s|m|h))+\\s*$",
+                    "examples": [
+                      "30s",
+                      "1m30s",
+                      "250ms"
+                    ]
+                  },
+                  {
+                    "type": "number",
+                    "minimum": 0,
+                    "description": "seconds"
+                  }
+                ],
+                "description": "Grace period before the process group is killed. Default: 10s."
+              }
+            },
+            "additionalProperties": false,
+            "type": "object"
+          },
+          "cleanup": {
+            "oneOf": [
+              {
+                "type": "string",
+                "description": "command line, split into words without a shell unless shell: true"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array",
+                "minItems": 1,
+                "description": "argv"
+              }
+            ],
+            "description": "Cleanup runs after the app stops, even if it crashed."
+          },
+          "active": {
+            "properties": {
+              "tags": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            },
+            "additionalProperties": false,
+            "type": "object"
+          },
+          "debug": {
+            "properties": {
+              "command": {
+                "oneOf": [
+                  {
+                    "type": "string",
+                    "description": "command line, split into words without a shell unless shell: true"
+                  },
+                  {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array",
+                    "minItems": 1,
+                    "description": "argv"
+                  }
+                ],
+                "description": "Command replaces the normal command in debug mode."
+              },
+              "debugger": {
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "java",
+                      "go",
+                      "nodejs",
+                      "python"
+                    ]
+                  },
+                  "port": {
+                    "type": "integer"
+                  },
+                  "host": {
+                    "type": "string"
+                  },
+                  "module": {
+                    "type": "string"
+                  },
+                  "mode": {
+                    "type": "string",
+                    "enum": [
+                      "ide-listens",
+                      "app-listens"
+                    ],
+                    "description": "Mode is \"ide-listens\" (the IDE listens and the app connects, e.g. JDWP\nserver=n; default for java) or \"app-listens\" (delve, --inspect, debugpy)."
+                  }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "port"
+                ]
+              },
+              "onUnavailable": {
+                "type": "string",
+                "enum": [
+                  "fail",
+                  "fallback",
+                  "retry"
+                ],
+                "description": "OnUnavailable decides what happens when the debugger is not listening:\nfail, fallback (run the normal command) or retry (default)."
+              },
+              "retry": {
+                "properties": {
+                  "attempts": {
+                    "type": "integer"
+                  },
+                  "delay": {
+                    "oneOf": [
+                      {
+                        "type": "string",
+                        "pattern": "^\\s*([0-9]+(\\.[0-9]+)?(ns|us|µs|ms|s|m|h))+\\s*$",
+                        "examples": [
+                          "30s",
+                          "1m30s",
+                          "250ms"
+                        ]
+                      },
+                      {
+                        "type": "number",
+                        "minimum": 0,
+                        "description": "seconds"
+                      }
+                    ]
+                  }
+                },
+                "additionalProperties": false,
+                "type": "object"
+              }
+            },
+            "additionalProperties": false,
+            "type": "object"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "command"
+        ],
+        "description": "App is an application or piece of infrastructure managed by axx."
+      },
+      "type": "object"
+    },
+    "Duration": {
+      "oneOf": [
+        {
+          "type": "string",
+          "pattern": "^\\s*([0-9]+(\\.[0-9]+)?(ns|us|µs|ms|s|m|h))+\\s*$",
+          "examples": [
+            "30s",
+            "1m30s",
+            "250ms"
+          ]
+        },
+        {
+          "type": "number",
+          "minimum": 0,
+          "description": "seconds"
+        }
+      ]
+    },
+    "FixtureConformance": {
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Name is shown in check output."
+        },
+        "filePatterns": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "minItems": 1,
+          "description": "FilePatterns are globs (relative to baseDir) of the files to validate."
+        },
+        "schemaType": {
+          "type": "string",
+          "description": "SchemaType is the family whose oracle validates the files: avro,\njson, yaml, xml, protobuf or dataset.",
+          "examples": [
+            "avro",
+            "json",
+            "yaml",
+            "xml",
+            "protobuf",
+            "dataset"
+          ]
+        },
+        "schemaRef": {
+          "type": "string",
+          "description": "SchemaRef is the schema, relative to baseDir (unlike factory.schema,\nwhich is relative to the factory file)."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "name",
+        "filePatterns",
+        "schemaType",
+        "schemaRef"
+      ],
+      "description": "FixtureConformance validates matched files against a schema."
+    },
+    "FixtureLint": {
+      "properties": {
+        "emit": {
+          "type": "boolean",
+          "description": "Emit writes one cross-file-unique lint rule per declared identity.\nDefault: true."
+        },
+        "output": {
+          "type": "string",
+          "description": "Output is the generated rules file, relative to baseDir. Default:\naxx-lint.generated.yaml. Wire it in with lint.include."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "FixtureLint configures the generated lint rules."
+    },
+    "FixtureOutput": {
+      "properties": {
+        "ignored": {
+          "type": "boolean",
+          "description": "Ignored makes outputs gitignored derivations instead of committed\nfiles: the tool maintains exact .gitignore entries and `axx fixtures\ngenerate` materializes them. Default: false."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "FixtureOutput holds output defaults."
+    },
+    "Fixtures": {
+      "properties": {
+        "baseDir": {
+          "type": "string",
+          "description": "BaseDir is the resource root every fixtures path resolves against,\nrelative to axx.yaml. Default: the directory of axx.yaml."
+        },
+        "factories": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Factories are globs (relative to baseDir) locating factory specs.\nDefault: [\"**.factory.yaml\"]."
+        },
+        "sources": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Sources are additional roots, relative to baseDir (\"../\" reaches\noutside it), walked for factory, prototype and fixture sources exactly\nlike baseDir, so fixtures can sit next to generated files that live\nelsewhere (a compose-mounted WireMock directory, say). Roots must\nexist and be disjoint from baseDir and each other."
+        },
+        "conformance": {
+          "items": {
+            "$ref": "#/$defs/FixtureConformance"
+          },
+          "type": "array",
+          "description": "Conformance rules validate files no factory manages through a\nfamily's schema oracle."
+        },
+        "lint": {
+          "$ref": "#/$defs/FixtureLint",
+          "description": "Lint configures the lint rules generated from identity declarations."
+        },
+        "output": {
+          "$ref": "#/$defs/FixtureOutput",
+          "description": "Output holds module-wide output defaults; factories override them\nwith factory.output."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "Fixtures configures `axx fixtures`, the fixture factory: *.factory.yaml, *.fixture.yaml and *.prototype.yaml sources expanded into schema-governed fixture files, with the ownership manifest, drift and conformance checks."
+    },
+    "Lint": {
+      "properties": {
+        "include": {
+          "$ref": "#/$defs/StringList",
+          "description": "Include lists rule files merged into this section (for example the\naxx-lint.generated.yaml written by `axx fixtures generate`), resolved\nrelative to the including file. Included files contribute rules and\nfurther includes only; they must not have a config block."
+        },
+        "config": {
+          "$ref": "#/$defs/LintConfig",
+          "description": "Config holds the settings shared by every rule."
+        },
+        "rules": {
+          "items": {
+            "$ref": "#/$defs/LintRule"
+          },
+          "type": "array",
+          "description": "Rules are the isolation rules, run in order (included rules follow)."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "Lint configures `axx lint`: test-data isolation rules."
+    },
+    "LintConfig": {
+      "properties": {
+        "baseDir": {
+          "type": "string",
+          "description": "BaseDir is the directory file patterns are resolved against, relative\nto axx.yaml. Default: the directory of axx.yaml."
+        },
+        "mode": {
+          "type": "string",
+          "enum": [
+            "error",
+            "warn"
+          ],
+          "description": "Mode is \"error\" (violations make `axx lint` exit 3, default) or \"warn\"\n(violations are reported but do not fail)."
+        },
+        "maxFileSize": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "MaxFileSize skips files larger than this many bytes, with a warning.\nDefault: 5242880 (5 MB)."
+        },
+        "maxReportedValues": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "MaxReportedValues is how many duplicate values the human output lists\nper rule before truncating. Default: 3. Machine formats list all."
+        },
+        "maxReportedLocations": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "MaxReportedLocations is how many locations the human output lists per\nduplicate value before truncating. Default: 5. Machine formats list all."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "LintConfig holds the settings shared by every lint rule."
+    },
+    "LintRule": {
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Name identifies the rule in reports."
+        },
+        "description": {
+          "type": "string",
+          "description": "Description says why the values must be unique; shown with violations."
+        },
+        "filePatterns": {
+          "$ref": "#/$defs/StringList",
+          "description": "FilePatterns are glob patterns (Java glob syntax: *, **, ?, [abc],\n{a,b}) selecting the files to scan, relative to baseDir. The part\nbefore the first wildcard is a directory (it may start with ../); the\nrest is matched against the end of each file path below it, so\n\"seeds/*.yaml\" also finds YAML files in subdirectories of seeds."
+        },
+        "excludePatterns": {
+          "$ref": "#/$defs/StringList",
+          "description": "ExcludePatterns are glob patterns removing files from the match set,\nmatched against the whole path relative to baseDir; ** crosses\ndirectories, e.g. \"**.fixture.yaml\"."
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "regex",
+            "jsonpath"
+          ],
+          "description": "Type is \"regex\" (default: extract values with regex) or \"jsonpath\"\n(parse each file as JSON and extract the values at jsonPath)."
+        },
+        "regex": {
+          "type": "string",
+          "description": "Regex is a Java regular expression, applied in MULTILINE mode (^ and $\nmatch at line boundaries). Each match contributes the text of its\nfirst participating capture group."
+        },
+        "jsonPath": {
+          "type": "string",
+          "description": "JSONPath selects the values of a jsonpath rule, e.g. \"order.id\",\n\"payments[*].id\" or \"$.items[0].sku\" (exact field paths with array\nindexes or [*]); other JSONPath expressions (\"$..id\", filters) are\nevaluated like Jayway JsonPath. Only scalar values count."
+        },
+        "validation": {
+          "type": "string",
+          "enum": [
+            "global-unique",
+            "file-unique",
+            "cross-file-unique"
+          ],
+          "description": "Validation is \"global-unique\" (default: a value may occur once),\n\"file-unique\" (no repeats within a file; files may share values) or\n\"cross-file-unique\" (repeats within one file are fine; no two files\nmay share a value)."
+        },
+        "mode": {
+          "type": "string",
+          "enum": [
+            "error",
+            "warn"
+          ],
+          "description": "Mode overrides config.mode for this rule: \"error\" or \"warn\"."
+        },
+        "ignoreValues": {
+          "$ref": "#/$defs/ScalarList",
+          "description": "IgnoreValues are values never reported (intentionally shared constants)."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "name",
+        "filePatterns"
+      ],
+      "description": "LintRule is one test-data isolation rule."
+    },
+    "OpenAPI": {
+      "properties": {
+        "levels": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "OpenAPI holds default validation levels, keyed by validation message key (e.g."
+    },
+    "Reporter": {
+      "oneOf": [
+        {
+          "type": "string",
+          "enum": [
+            "pretty",
+            "progress",
+            "junit",
+            "messages",
+            "cucumber-json",
+            "html",
+            "agent"
+          ]
+        },
+        {
+          "properties": {
+            "pretty": {
+              "type": "string",
+              "description": "output file"
+            },
+            "progress": {
+              "type": "string",
+              "description": "output file"
+            },
+            "junit": {
+              "type": "string",
+              "description": "output file"
+            },
+            "messages": {
+              "type": "string",
+              "description": "output file"
+            },
+            "cucumber-json": {
+              "type": "string",
+              "description": "output file"
+            },
+            "html": {
+              "type": "string",
+              "description": "output file"
+            },
+            "agent": {
+              "type": "string",
+              "description": "output file"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "maxProperties": 1,
+          "minProperties": 1
+        }
+      ]
+    },
+    "Run": {
+      "properties": {
+        "paths": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Paths are feature files or directories. Default: [\"features\"]."
+        },
+        "tags": {
+          "type": "string",
+          "description": "Tags is a default tag expression, e.g. \"not @wip\"."
+        },
+        "workers": {
+          "$ref": "#/$defs/Workers",
+          "description": "Workers is the number of scenarios run in parallel: a number or \"auto\"\n(number of CPUs). Default: auto."
+        },
+        "exclusive": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Exclusive lists tags whose scenarios run alone, after the parallel phase."
+        },
+        "order": {
+          "type": "string",
+          "description": "Order is \"defined\" (default) or \"random[:seed]\"."
+        },
+        "timeouts": {
+          "$ref": "#/$defs/Timeouts"
+        },
+        "reporters": {
+          "items": {
+            "$ref": "#/$defs/Reporter"
+          },
+          "type": "array",
+          "description": "Reporters, e.g. [\"pretty\", {\"junit\": \"build/axx/junit.xml\"}]."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "Run controls execution."
+    },
+    "ScalarList": {
+      "items": {
+        "oneOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "number"
+          },
+          {
+            "type": "boolean"
+          }
+        ]
+      },
+      "type": "array"
+    },
+    "StringList": {
+      "oneOf": [
+        {
+          "type": "string"
+        },
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      ]
+    },
+    "Timeouts": {
+      "properties": {
+        "step": {
+          "$ref": "#/$defs/Duration"
+        },
+        "scenario": {
+          "$ref": "#/$defs/Duration"
+        },
+        "hook": {
+          "$ref": "#/$defs/Duration"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "Timeouts bound steps, scenarios and hooks."
+    },
+    "Workers": {
+      "oneOf": [
+        {
+          "type": "integer",
+          "minimum": 1
+        },
+        {
+          "type": "string",
+          "enum": [
+            "auto"
+          ]
+        }
+      ]
+    }
+  },
+  "properties": {
+    "version": {
+      "type": "integer",
+      "enum": [
+        1
+      ],
+      "description": "Schema version of this file. Currently 1."
+    },
+    "run": {
+      "$ref": "#/$defs/Run",
+      "description": "Run controls which features run and how."
+    },
+    "resources": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array",
+      "description": "Resources are directories that relative resource paths in steps (seed\nfiles, schemas, payloads) resolve against, in order. The directory of\naxx.yaml is always searched last."
+    },
+    "properties": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "type": "object",
+      "description": "Properties back ${sys:name} references. `-D name=value` overrides them."
+    },
+    "openapi": {
+      "$ref": "#/$defs/OpenAPI",
+      "description": "OpenAPI holds default OpenAPI validation settings for REST services."
+    },
+    "active": {
+      "$ref": "#/$defs/Active",
+      "description": "Active starts only the applications needed by the selected scenarios."
+    },
+    "apps": {
+      "$ref": "#/$defs/Apps",
+      "description": "Apps are the applications under test (and their infrastructure),\nstarted before scenarios run and stopped afterwards, in declaration order."
+    },
+    "packs": {
+      "additionalProperties": true,
+      "type": "object",
+      "description": "Packs holds pack settings keyed by pack name."
+    },
+    "lint": {
+      "$ref": "#/$defs/Lint",
+      "description": "Lint configures `axx lint`: test-data isolation rules that keep values\nsuch as seed ids unique so scenarios can run in parallel."
+    },
+    "fixtures": {
+      "$ref": "#/$defs/Fixtures",
+      "description": "Fixtures configures `axx fixtures` (fixture factories)."
+    },
+    "profiles": {
+      "additionalProperties": true,
+      "type": "object",
+      "description": "Profiles are named overlays selected with --profile or AXX_PROFILE."
+    }
+  },
+  "additionalProperties": false,
+  "type": "object",
+  "title": "axx.yaml",
+  "description": "Configuration for axx, the human-readable acceptance testing framework (https://axx.nimbusxr.us)."
+}

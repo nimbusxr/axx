@@ -1,0 +1,4 @@
+# What the verifier checks for this task (see evals/README.md, "How a task is verified").
+allowed = ["features/**", "seeds/**", "kafka/**", "schemas/**"]
+min_scenarios = 1
+mutants = ["event-not-published", "event-weight-in-kilograms"]

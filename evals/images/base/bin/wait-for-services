@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# Exits 0 once the parcels service's infrastructure accepts connections:
+# PostgreSQL, MongoDB and the address service, plus Kafka and the Schema
+# Registry when PARCELS_KAFKA_BROKERS is set. Used as the environment's
+# healthcheck; with --wait it retries for up to three minutes.
+set -uo pipefail
+
+targets=(postgres:5432 mongo:27017 address-service:8080)
+if [[ -n "${PARCELS_KAFKA_BROKERS:-}" ]]; then
+  targets+=(kafka:9092 schema-registry:8081)
+fi
+
+up() {
+  local t
+  for t in "${targets[@]}"; do
+    if ! timeout 2 bash -c "exec 3<>/dev/tcp/${t%:*}/${t#*:}" 2>/dev/null; then
+      echo "waiting for $t" >&2
+      return 1
+    fi
+  done
+}
+
+if [[ "${1:-}" != "--wait" ]]; then
+  up
+  exit
+fi
+for _ in $(seq 1 180); do
+  up && exit 0
+  sleep 1
+done
+exit 1

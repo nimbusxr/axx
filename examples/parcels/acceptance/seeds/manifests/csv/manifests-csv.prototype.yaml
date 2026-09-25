@@ -1,0 +1,7 @@
+data:
+  parcels.manifest_lines:
+    manifest_id: M-MAPLE-0019
+    sender: maple-home
+    weight_grams: 1600
+    service_level: STANDARD
+    recipient: '{"name": "Hertha Sponer", "city": "Dresden", "postcode": "01067", "country": "DE"}'

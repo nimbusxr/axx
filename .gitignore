@@ -1,0 +1,40 @@
+# build output
+/bin/
+/dist/
+/build/*
+!/build/Dockerfile
+coverage.*
+*.test
+
+# axx runtime state
+.axx/
+
+# editors / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
+
+# local-only config overlays and agent settings
+axx.local.yaml
+**/.claude/settings.local.json
+
+# docs site
+docs/node_modules/
+docs/dist/
+docs/.astro/
+
+# JVM components
+extensions/**/build/
+ide/**/build/
+.gradle/
+
+
+# agent worktrees
+.claude/worktrees/
+
+# benchmark output
+/bench/results/
+
+# agent evals: prepared datasets, Harbor jobs, local checks
+/evals/.work/

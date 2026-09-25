@@ -1,0 +1,30 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<!-- id, name, version, description, vendor and compatibility are filled in from build.gradle.kts. -->
+<idea-plugin>
+  <id>us.nimbusxr.axx.idea</id>
+  <name>axx</name>
+  <vendor url="https://github.com/nimbusxr/axx">NimbusXR</vendor>
+
+  <depends>com.intellij.modules.platform</depends>
+  <!-- The axx language server needs the LSP API; without it, running and debugging still work. -->
+  <depends optional="true" config-file="axx-lsp.xml">com.intellij.modules.lsp</depends>
+  <!-- Gutter icons and run configurations from feature files use the Gherkin plugin's PSI. -->
+  <depends optional="true" config-file="axx-gherkin.xml">gherkin</depends>
+
+  <extensions defaultExtensionNs="com.intellij">
+    <applicationConfigurable
+        id="us.nimbusxr.axx.idea.settings"
+        parentId="tools"
+        displayName="axx"
+        instance="us.nimbusxr.axx.idea.AxxConfigurable"/>
+    <configurationType implementation="us.nimbusxr.axx.idea.run.AxxRunConfigurationType"/>
+    <programRunner implementation="us.nimbusxr.axx.idea.run.AxxDebugRunner"/>
+    <notificationGroup id="axx" displayType="BALLOON"/>
+  </extensions>
+
+  <projectListeners>
+    <listener
+        class="us.nimbusxr.axx.idea.DebugAutoStartListener"
+        topic="com.intellij.execution.ExecutionListener"/>
+  </projectListeners>
+</idea-plugin>

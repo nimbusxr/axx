@@ -1,0 +1,18 @@
+{
+  "device_id": "sensor-a-001",
+  "event_type": "heartbeat",
+  "firmware": "2.0.1",
+  "region": "us-east",
+  "sample_rate_hz": 60,
+  "readings": [
+    {
+      "metric": "temp_c",
+      "value": 20.0
+    }
+  ],
+  "device": {
+    "serial": "SN-A-1",
+    "model": "T2000"
+  },
+  "power": "mains"
+}

@@ -1,0 +1,14 @@
+# OpenAPI 3.1 component backend: identical machinery to the wiremock families.
+factory:
+  family: json
+  schema: ../openapi/inventory.yaml#/components/schemas/InventoryItem
+identity:
+  - path: sku
+    prefix: sku-
+fixtures:
+  item-in-stock:
+    quantity: 12
+    location: DC-7
+  item-backordered:
+    quantity: 0
+    location: null

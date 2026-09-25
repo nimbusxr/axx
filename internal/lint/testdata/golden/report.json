@@ -1,0 +1,197 @@
+{
+  "baseDir": ".",
+  "rules": [
+    {
+      "name": "Database seed IDs",
+      "id": "database-seed-ids",
+      "description": "Seed row IDs must be unique across all seed files",
+      "source": "axx.yaml:7",
+      "type": "regex",
+      "validation": "cross-file-unique",
+      "mode": "error",
+      "files": 2,
+      "values": 3,
+      "findings": [
+        {
+          "code": "AXX-E0812",
+          "severity": "warning",
+          "message": "skipped big/huge.yaml: 200 bytes exceeds lint.config.maxFileSize 150",
+          "locations": [
+            {
+              "file": "big/huge.yaml"
+            }
+          ]
+        },
+        {
+          "code": "AXX-E0820",
+          "severity": "error",
+          "message": "value \"mission-1\" appears in 2 files (cross-file-unique)",
+          "value": "mission-1",
+          "locations": [
+            {
+              "file": "seeds/missions.yaml",
+              "line": 2,
+              "column": 10,
+              "text": "- id: \"mission-1\""
+            },
+            {
+              "file": "seeds/mock-data.yaml",
+              "line": 2,
+              "column": 10,
+              "text": "- id: \"mission-1\""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Legacy IDs",
+      "id": "legacy-ids",
+      "source": "axx.yaml:13",
+      "type": "regex",
+      "validation": "global-unique",
+      "mode": "warn",
+      "files": 1,
+      "values": 2,
+      "findings": [
+        {
+          "code": "AXX-E0820",
+          "severity": "warning",
+          "message": "value \"legacy-1\" appears 2 times (global-unique)",
+          "value": "legacy-1",
+          "locations": [
+            {
+              "file": "seeds/legacy.yaml",
+              "line": 2,
+              "column": 10,
+              "text": "- id: \"legacy-1\""
+            },
+            {
+              "file": "seeds/legacy.yaml",
+              "line": 3,
+              "column": 10,
+              "text": "- id: \"legacy-1\""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Status values",
+      "id": "status-values",
+      "source": "axx.yaml:17",
+      "type": "regex",
+      "validation": "global-unique",
+      "mode": "error",
+      "files": 3,
+      "values": 3,
+      "findings": [
+        {
+          "code": "AXX-E0820",
+          "severity": "error",
+          "message": "value \"planned\" appears 2 times (global-unique)",
+          "value": "planned",
+          "locations": [
+            {
+              "file": "seeds/missions.yaml",
+              "line": 3,
+              "column": 14,
+              "text": "status: \"planned\""
+            },
+            {
+              "file": "seeds/mock-data.yaml",
+              "line": 3,
+              "column": 14,
+              "text": "status: \"planned\""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Event types",
+      "id": "event-types",
+      "source": "axx.yaml:20",
+      "type": "jsonpath",
+      "validation": "global-unique",
+      "mode": "error",
+      "files": 2,
+      "values": 1,
+      "findings": []
+    },
+    {
+      "name": "mission_id uniqueness",
+      "id": "mission-id-uniqueness",
+      "source": "axx.yaml:24",
+      "type": "jsonpath",
+      "validation": "cross-file-unique",
+      "mode": "error",
+      "files": 3,
+      "values": 2,
+      "findings": [
+        {
+          "code": "AXX-E0810",
+          "severity": "error",
+          "message": "kafka/broken.json is not valid JSON, which a jsonpath rule requires: unexpected character \"'\", expected a value",
+          "locations": [
+            {
+              "file": "kafka/broken.json",
+              "line": 2,
+              "column": 17,
+              "text": "\"mission_id\": 'm-2'"
+            }
+          ]
+        },
+        {
+          "code": "AXX-E0820",
+          "severity": "error",
+          "message": "value \"m-1\" appears in 2 files (cross-file-unique)",
+          "value": "m-1",
+          "locations": [
+            {
+              "file": "kafka/mission-created.json",
+              "line": 3,
+              "column": 17,
+              "text": "\"mission_id\": \"m-1\""
+            },
+            {
+              "file": "kafka/mission-launched.json",
+              "line": 1,
+              "column": 16,
+              "text": "{\"mission_id\": \"m-1\", \"note\": \"a, b: c%\"}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "SQL selection and trigger ordinals",
+      "id": "sql-ordinals",
+      "description": "Selections and triggers are numbered in the order a scenario creates them; the ordinal in a retrieval step is only a label.",
+      "type": "builtin",
+      "mode": "warn",
+      "files": 1,
+      "values": 0,
+      "findings": [
+        {
+          "code": "AXX-E0830",
+          "severity": "warning",
+          "message": "this step uses the 2nd selection, but no selections were retrieved before it in the scenario, so the step always fails",
+          "locations": [
+            {
+              "file": "features/f.feature",
+              "line": 3,
+              "text": "Then the 2nd selection has 1 row"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "rules": 6,
+    "files": 7,
+    "errors": 4,
+    "warnings": 3
+  }
+}

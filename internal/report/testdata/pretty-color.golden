@@ -1,0 +1,111 @@
+[1mFeature:[0m Orders
+
+  [1mScenario:[0m Create an order  [90m# features/orders.feature:8[0m
+    [32m✓[0m Given the orders service is running  [90m(background)[0m
+    [32m✓[0m When I create an order:  [90m(150ms)[0m
+        | sku | qty |
+        | A1  | 2   |
+    [32m✓[0m Then the response status code is 201
+
+  [1mScenario:[0m Reject duplicate order  [90m# features/orders.feature:15[0m
+    [32m✓[0m Given the orders service is running  [90m(background)[0m
+    [32m✓[0m When I send the order again
+        [90mlog:[0m POST http://localhost:8080/orders -> 201 Created
+        [90mattachment:[0m request.json (application/json, 20 B)
+          {"sku":"A1","qty":2}
+        [90mattachment:[0m screenshot.png (image/png, 8 B)
+    [31m✗[0m Then the response body is:  [90m(1.2s)[0m
+        """json
+        {"error": "duplicate", "code": 409}
+        """
+        [31mresponse body mismatch[0m
+          [90mexpected:[0m {"error":"duplicate","code":409}
+          [90mactual:  [0m {"id":7,"sku":"A1","status":"created"}
+          [90mdiff (-expected +actual):[0m
+          [36m@@ -1,4 +1,5 @@[0m
+           {
+          [31m-  "code": 409,[0m
+          [31m-  "error": "duplicate"[0m
+          [32m+  "id": 7,[0m
+          [32m+  "sku": "A1",[0m
+          [32m+  "status": "created"[0m
+           }
+
+  [1mScenario:[0m Cache responses  [90m# features/orders.feature:22[0m
+    [32m✓[0m Given the orders service is running  [90m(background)[0m
+    [32m✓[0m When I send the order again
+    [33m?[0m Then the response is cached  [33m(undefined)[0m
+        [33mdid you mean:[0m
+          the order is {word}  [90m(orders.state)[0m
+          the order is valid  [90m(orders.valid)[0m
+          the response body is:  [90m(rest.response.body)[0m
+
+  [1mScenario:[0m Ambiguous check  [90m# features/orders.feature:26[0m
+    [32m✓[0m Given the orders service is running  [90m(background)[0m
+    [35m![0m Then the order is valid  [35m(ambiguous)[0m
+        [35mambiguous step: 2 definitions match[0m
+          - the order is valid (orders.valid)
+          - the order is {word} (orders.state)
+
+  [1mScenario:[0m Pending work  [90m# features/orders.feature:29[0m
+    [32m✓[0m Given the orders service is running  [90m(background)[0m
+    [33m?[0m Then refunds are processed  [33m(pending)[0m
+
+  [1mScenario Outline:[0m Order 1 items  [90m# features/orders.feature:38[0m
+    [32m✓[0m Given the orders service is running  [90m(background)[0m
+    [32m✓[0m When I order 1 items
+    [32m✓[0m Then the response status code is 201
+
+  [1mScenario Outline:[0m Order 0 items  [90m# features/orders.feature:39[0m
+    [32m✓[0m Given the orders service is running  [90m(background)[0m
+    [32m✓[0m When I order 0 items
+    [31m✗[0m Then the response status code is 400
+        [31munexpected status code[0m
+          [90mexpected:[0m 400
+          [90mactual:  [0m 201
+
+[1mFeature:[0m Health
+
+  [1mScenario:[0m Panicky  [90m# features/health.feature:3[0m
+    [31m✗[0m Given a panicking step
+        [31mpanic: boom[0m
+          [90mexample.com/packs/health.panicky(0x14000132000, {0x0, 0x0})[0m
+          [90m  /work/packs/health/steps.go:17 +0x2c[0m
+          [90mgithub.com/nimbusxr/axx/internal/runner.(*Runner).execStep.func2()[0m
+          [90m  /src/axx/internal/runner/scenario.go:199 +0x38[0m
+
+  [1mScenario:[0m Slow  [90m# features/health.feature:6[0m
+    [31m✗[0m Given a slow step  [90m(2.0s)[0m
+        [31mtimeout: step timed out after 2s[0m
+
+  [1mScenario:[0m Skipped one  [90m# features/health.feature:9[0m
+    [36m↷[0m [90mGiven a skipped step[0m
+    [36m↷[0m [90mThen a panicking step[0m
+
+  [1mScenario:[0m Broken setup  [90m# features/health.feature:13[0m
+    [31m✗[0m Before hook db.reset
+        [31mconnection refused[0m
+    [36m↷[0m [90mGiven a slow step[0m
+
+[1mFailed scenarios:[0m
+  [31m✗[0m Reject duplicate order  [90m# features/orders.feature:15[0m
+      [90mrerun:[0m axx run features/orders.feature:15
+  [33m?[0m Cache responses  [90m# features/orders.feature:22[0m  [33m(undefined)[0m
+      [90mrerun:[0m axx run features/orders.feature:22
+  [35m![0m Ambiguous check  [90m# features/orders.feature:26[0m  [35m(ambiguous)[0m
+      [90mrerun:[0m axx run features/orders.feature:26
+  [33m?[0m Pending work  [90m# features/orders.feature:29[0m  [33m(pending)[0m
+      [90mrerun:[0m axx run features/orders.feature:29
+  [31m✗[0m Order 0 items  [90m# features/orders.feature:39[0m
+      [90mrerun:[0m axx run features/orders.feature:39
+  [31m✗[0m Panicky  [90m# features/health.feature:3[0m
+      [90mrerun:[0m axx run features/health.feature:3
+  [31m✗[0m Slow  [90m# features/health.feature:6[0m
+      [90mrerun:[0m axx run features/health.feature:6
+  [31m✗[0m Broken setup  [90m# features/health.feature:13[0m
+      [90mrerun:[0m axx run features/health.feature:13
+
+11 scenarios ([31m5 failed[0m, [35m1 ambiguous[0m, [33m1 undefined[0m, [33m1 pending[0m, [36m1 skipped[0m, [32m2 passed[0m)
+24 steps ([31m4 failed[0m, [35m1 ambiguous[0m, [33m1 undefined[0m, [33m1 pending[0m, [36m3 skipped[0m, [32m14 passed[0m)
+[33mNOT RUN 2[0m
+Finished in 12.4s

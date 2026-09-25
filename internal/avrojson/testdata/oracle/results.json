@@ -1,0 +1,1028 @@
+[ {
+  "schema" : "prim",
+  "json" : "{\"n\":null,\"b\":true,\"i\":1,\"l\":2,\"f\":1.5,\"d\":2.25,\"s\":\"hi\",\"by\":\"\\u0000\\u00ff\\u0041\"}",
+  "toString" : "{\"n\": null, \"b\": true, \"i\": 1, \"l\": 2, \"f\": 1.5, \"d\": 2.25, \"s\": \"hi\", \"by\": \"\\u0000ÿA\"}",
+  "hex" : "0102040000c03f00000000000002400468690600ff41",
+  "binToString" : "{\"n\": null, \"b\": true, \"i\": 1, \"l\": 2, \"f\": 1.5, \"d\": 2.25, \"s\": \"hi\", \"by\": \"\\u0000ÿA\"}",
+  "objToString" : "{\"n\": null, \"b\": true, \"i\": 1, \"l\": 2, \"f\": 1.5, \"d\": 2.25, \"s\": \"hi\", \"by\": \"\\u0000ÿA\"}"
+}, {
+  "schema" : "prim",
+  "json" : "{\"b\":true,\"n\":null,\"l\":2,\"i\":1,\"d\":2.25,\"f\":1.5,\"by\":\"\",\"s\":\"hi\"}",
+  "toString" : "{\"n\": null, \"b\": true, \"i\": 1, \"l\": 2, \"f\": 1.5, \"d\": 2.25, \"s\": \"hi\", \"by\": \"\"}",
+  "hex" : "0102040000c03f000000000000024004686900",
+  "binToString" : "{\"n\": null, \"b\": true, \"i\": 1, \"l\": 2, \"f\": 1.5, \"d\": 2.25, \"s\": \"hi\", \"by\": \"\"}",
+  "objToString" : "{\"n\": null, \"b\": true, \"i\": 1, \"l\": 2, \"f\": 1.5, \"d\": 2.25, \"s\": \"hi\", \"by\": \"\"}"
+}, {
+  "schema" : "prim",
+  "json" : "{\"n\":null,\"b\":true,\"i\":1,\"l\":2,\"f\":1,\"d\":2,\"s\":\"hi\",\"by\":\"\"}",
+  "toString" : "{\"n\": null, \"b\": true, \"i\": 1, \"l\": 2, \"f\": 1.0, \"d\": 2.0, \"s\": \"hi\", \"by\": \"\"}",
+  "hex" : "0102040000803f000000000000004004686900",
+  "binToString" : "{\"n\": null, \"b\": true, \"i\": 1, \"l\": 2, \"f\": 1.0, \"d\": 2.0, \"s\": \"hi\", \"by\": \"\"}",
+  "objToString" : "{\"n\": null, \"b\": true, \"i\": 1, \"l\": 2, \"f\": 1.0, \"d\": 2.0, \"s\": \"hi\", \"by\": \"\"}"
+}, {
+  "schema" : "prim",
+  "json" : "{\"n\":null,\"b\":true,\"i\":1.0,\"l\":2,\"f\":1,\"d\":2,\"s\":\"hi\",\"by\":\"\"}",
+  "toString" : "{\"n\": null, \"b\": true, \"i\": 1, \"l\": 2, \"f\": 1.0, \"d\": 2.0, \"s\": \"hi\", \"by\": \"\"}",
+  "hex" : "0102040000803f000000000000004004686900",
+  "binToString" : "{\"n\": null, \"b\": true, \"i\": 1, \"l\": 2, \"f\": 1.0, \"d\": 2.0, \"s\": \"hi\", \"by\": \"\"}",
+  "objToString" : "{\"n\": null, \"b\": true, \"i\": 1, \"l\": 2, \"f\": 1.0, \"d\": 2.0, \"s\": \"hi\", \"by\": \"\"}"
+}, {
+  "schema" : "prim",
+  "json" : "{\"n\":null,\"b\":true,\"i\":\"1\",\"l\":2,\"f\":1,\"d\":2,\"s\":\"hi\",\"by\":\"\"}",
+  "error" : {
+    "class" : "AvroTypeException",
+    "message" : "Expected int. Got VALUE_STRING"
+  }
+}, {
+  "schema" : "prim",
+  "json" : "{\"n\":null,\"b\":true,\"i\":2147483648,\"l\":2,\"f\":1,\"d\":2,\"s\":\"hi\",\"by\":\"\"}",
+  "error" : {
+    "class" : "InputCoercionException",
+    "message" : "Numeric value (2147483648) out of range of int (-2147483648 - 2147483647)\n at [Source: REDACTED (`StreamReadFeature.INCLUDE_SOURCE_IN_LOCATION` disabled); line: 1, column: 34]"
+  }
+}, {
+  "schema" : "prim",
+  "json" : "{\"n\":null,\"b\":true,\"i\":1,\"l\":9223372036854775808,\"f\":1,\"d\":2,\"s\":\"hi\",\"by\":\"\"}",
+  "error" : {
+    "class" : "InputCoercionException",
+    "message" : "Numeric value (9223372036854775808) out of range of long (-9223372036854775808 - 9223372036854775807)\n at [Source: REDACTED (`StreamReadFeature.INCLUDE_SOURCE_IN_LOCATION` disabled); line: 1, column: 49]"
+  }
+}, {
+  "schema" : "prim",
+  "json" : "{\"n\":null,\"b\":true,\"i\":1,\"l\":2.5,\"f\":1,\"d\":2,\"s\":\"hi\",\"by\":\"\"}",
+  "error" : {
+    "class" : "AvroTypeException",
+    "message" : "Expected long. Got VALUE_NUMBER_FLOAT"
+  }
+}, {
+  "schema" : "prim",
+  "json" : "{\"n\":null,\"b\":true,\"i\":1,\"l\":2,\"f\":\"NaN\",\"d\":\"Infinity\",\"s\":\"hi\",\"by\":\"\"}",
+  "toString" : "{\"n\": null, \"b\": true, \"i\": 1, \"l\": 2, \"f\": \"NaN\", \"d\": \"Infinity\", \"s\": \"hi\", \"by\": \"\"}",
+  "hex" : "0102040000c07f000000000000f07f04686900",
+  "binToString" : "{\"n\": null, \"b\": true, \"i\": 1, \"l\": 2, \"f\": \"NaN\", \"d\": \"Infinity\", \"s\": \"hi\", \"by\": \"\"}",
+  "objToString" : "{\"n\": null, \"b\": true, \"i\": 1, \"l\": 2, \"f\": \"NaN\", \"d\": \"Infinity\", \"s\": \"hi\", \"by\": \"\"}"
+}, {
+  "schema" : "prim",
+  "json" : "{\"n\":null,\"b\":true,\"i\":1,\"l\":2,\"f\":\"-Infinity\",\"d\":\"NaN\",\"s\":\"hi\",\"by\":\"\"}",
+  "toString" : "{\"n\": null, \"b\": true, \"i\": 1, \"l\": 2, \"f\": \"-Infinity\", \"d\": \"NaN\", \"s\": \"hi\", \"by\": \"\"}",
+  "hex" : "010204000080ff000000000000f87f04686900",
+  "binToString" : "{\"n\": null, \"b\": true, \"i\": 1, \"l\": 2, \"f\": \"-Infinity\", \"d\": \"NaN\", \"s\": \"hi\", \"by\": \"\"}",
+  "objToString" : "{\"n\": null, \"b\": true, \"i\": 1, \"l\": 2, \"f\": \"-Infinity\", \"d\": \"NaN\", \"s\": \"hi\", \"by\": \"\"}"
+}, {
+  "schema" : "prim",
+  "json" : "{\"n\":null,\"b\":true,\"i\":1,\"l\":2,\"f\":\"1.5\",\"d\":\"2\",\"s\":\"hi\",\"by\":\"\"}",
+  "error" : {
+    "class" : "AvroTypeException",
+    "message" : "Expected float. Got FIELD_NAME"
+  }
+}, {
+  "schema" : "prim",
+  "json" : "{\"n\":null,\"b\":\"true\",\"i\":1,\"l\":2,\"f\":1,\"d\":2,\"s\":\"hi\",\"by\":\"\"}",
+  "error" : {
+    "class" : "AvroTypeException",
+    "message" : "Expected boolean. Got VALUE_STRING"
+  }
+}, {
+  "schema" : "prim",
+  "json" : "{\"n\":null,\"b\":true,\"i\":1,\"l\":2,\"f\":1,\"d\":2,\"s\":5,\"by\":\"\"}",
+  "error" : {
+    "class" : "AvroTypeException",
+    "message" : "Expected string. Got VALUE_NUMBER_INT"
+  }
+}, {
+  "schema" : "prim",
+  "json" : "{\"n\":null,\"b\":true,\"i\":1,\"l\":2,\"f\":1,\"d\":2,\"s\":\"hi\",\"by\":\"\\u0100\"}",
+  "toString" : "{\"n\": null, \"b\": true, \"i\": 1, \"l\": 2, \"f\": 1.0, \"d\": 2.0, \"s\": \"hi\", \"by\": \"?\"}",
+  "hex" : "0102040000803f0000000000000040046869023f",
+  "binToString" : "{\"n\": null, \"b\": true, \"i\": 1, \"l\": 2, \"f\": 1.0, \"d\": 2.0, \"s\": \"hi\", \"by\": \"?\"}",
+  "objToString" : "{\"n\": null, \"b\": true, \"i\": 1, \"l\": 2, \"f\": 1.0, \"d\": 2.0, \"s\": \"hi\", \"by\": \"?\"}"
+}, {
+  "schema" : "prim",
+  "json" : "{\"n\":null,\"b\":true,\"i\":1,\"l\":2,\"f\":1,\"d\":2,\"s\":\"hi\"}",
+  "error" : {
+    "class" : "AvroTypeException",
+    "message" : "Expected bytes. Got END_OBJECT"
+  }
+}, {
+  "schema" : "prim",
+  "json" : "{\"n\":null,\"b\":true,\"i\":1,\"l\":2,\"f\":1,\"d\":2,\"s\":\"hi\",\"by\":\"\",\"extra\":1}",
+  "toString" : "{\"n\": null, \"b\": true, \"i\": 1, \"l\": 2, \"f\": 1.0, \"d\": 2.0, \"s\": \"hi\", \"by\": \"\"}",
+  "hex" : "0102040000803f000000000000004004686900",
+  "binToString" : "{\"n\": null, \"b\": true, \"i\": 1, \"l\": 2, \"f\": 1.0, \"d\": 2.0, \"s\": \"hi\", \"by\": \"\"}",
+  "objToString" : "{\"n\": null, \"b\": true, \"i\": 1, \"l\": 2, \"f\": 1.0, \"d\": 2.0, \"s\": \"hi\", \"by\": \"\"}"
+}, {
+  "schema" : "prim",
+  "json" : "{\"extra\":1,\"n\":null,\"b\":true,\"i\":1,\"l\":2,\"f\":1,\"d\":2,\"s\":\"hi\",\"by\":\"\"}",
+  "toString" : "{\"n\": null, \"b\": true, \"i\": 1, \"l\": 2, \"f\": 1.0, \"d\": 2.0, \"s\": \"hi\", \"by\": \"\"}",
+  "hex" : "0102040000803f000000000000004004686900",
+  "binToString" : "{\"n\": null, \"b\": true, \"i\": 1, \"l\": 2, \"f\": 1.0, \"d\": 2.0, \"s\": \"hi\", \"by\": \"\"}",
+  "objToString" : "{\"n\": null, \"b\": true, \"i\": 1, \"l\": 2, \"f\": 1.0, \"d\": 2.0, \"s\": \"hi\", \"by\": \"\"}"
+}, {
+  "schema" : "prim",
+  "json" : "{\"n\":null,\"extra\":{\"deep\":[1,2]},\"b\":true,\"i\":1,\"l\":2,\"f\":1,\"d\":2,\"s\":\"hi\",\"by\":\"\"}",
+  "toString" : "{\"n\": null, \"b\": true, \"i\": 1, \"l\": 2, \"f\": 1.0, \"d\": 2.0, \"s\": \"hi\", \"by\": \"\"}",
+  "hex" : "0102040000803f000000000000004004686900",
+  "binToString" : "{\"n\": null, \"b\": true, \"i\": 1, \"l\": 2, \"f\": 1.0, \"d\": 2.0, \"s\": \"hi\", \"by\": \"\"}",
+  "objToString" : "{\"n\": null, \"b\": true, \"i\": 1, \"l\": 2, \"f\": 1.0, \"d\": 2.0, \"s\": \"hi\", \"by\": \"\"}"
+}, {
+  "schema" : "prim",
+  "json" : "{\"n\":1,\"b\":true,\"i\":1,\"l\":2,\"f\":1,\"d\":2,\"s\":\"hi\",\"by\":\"\"}",
+  "error" : {
+    "class" : "AvroTypeException",
+    "message" : "Expected null. Got VALUE_NUMBER_INT"
+  }
+}, {
+  "schema" : "prim",
+  "json" : "{\"n\":null,\"b\":null,\"i\":1,\"l\":2,\"f\":1,\"d\":2,\"s\":\"hi\",\"by\":\"\"}",
+  "error" : {
+    "class" : "AvroTypeException",
+    "message" : "Expected boolean. Got VALUE_NULL"
+  }
+}, {
+  "schema" : "prim",
+  "json" : "{\"n\":null,\"b\":true,\"i\":-2147483648,\"l\":-9223372036854775808,\"f\":3.4028235e38,\"d\":1e308,\"s\":\"q\\\"b\\\\s/n\\nt\\tc\\u0001e\\u00e9z\\u2028o\\ud83d\\ude00x\\u007f\\u0080\\u009f\\u00a0\\u200b\",\"by\":\"\\\"\\\\\\n\\u0001\\u007f\\u0080\\u00a0\"}",
+  "toString" : "{\"n\": null, \"b\": true, \"i\": -2147483648, \"l\": -9223372036854775808, \"f\": 3.4028235E38, \"d\": 1.0E308, \"s\": \"q\\\"b\\\\s/n\\nt\\tc\\u0001eéz\\u2028o😀x\\u007F\\u0080\\u009F \\u200B\", \"by\": \"\\\"\\\\\\n\\u0001\\u007F\\u0080 \"}",
+  "hex" : "01ffffffff0fffffffffffffffffff01ffff7f7fa0c8eb85f3cce17f467122625c732f6e0a7409630165c3a97ae280a86ff09f9880787fc280c29fc2a0e2808b0e225c0a017f80a0",
+  "binToString" : "{\"n\": null, \"b\": true, \"i\": -2147483648, \"l\": -9223372036854775808, \"f\": 3.4028235E38, \"d\": 1.0E308, \"s\": \"q\\\"b\\\\s/n\\nt\\tc\\u0001eéz\\u2028o😀x\\u007F\\u0080\\u009F \\u200B\", \"by\": \"\\\"\\\\\\n\\u0001\\u007F\\u0080 \"}",
+  "objToString" : "{\"n\": null, \"b\": true, \"i\": -2147483648, \"l\": -9223372036854775808, \"f\": 3.4028235E38, \"d\": 1.0E308, \"s\": \"q\\\"b\\\\s/n\\nt\\tc\\u0001eéz\\u2028o😀x\\u007F\\u0080\\u009F \\u200B\", \"by\": \"\\\"\\\\\\n\\u0001\\u007F\\u0080 \"}"
+}, {
+  "schema" : "prim",
+  "json" : "{\"n\":null,\"b\":true,\"i\":1,\"l\":2,\"f\":0.1,\"d\":0.1,\"s\":\"\",\"by\":\"\"}",
+  "toString" : "{\"n\": null, \"b\": true, \"i\": 1, \"l\": 2, \"f\": 0.1, \"d\": 0.1, \"s\": \"\", \"by\": \"\"}",
+  "hex" : "010204cdcccc3d9a9999999999b93f0000",
+  "binToString" : "{\"n\": null, \"b\": true, \"i\": 1, \"l\": 2, \"f\": 0.1, \"d\": 0.1, \"s\": \"\", \"by\": \"\"}",
+  "objToString" : "{\"n\": null, \"b\": true, \"i\": 1, \"l\": 2, \"f\": 0.1, \"d\": 0.1, \"s\": \"\", \"by\": \"\"}"
+}, {
+  "schema" : "prim",
+  "json" : "{\"n\":null,\"b\":true,\"i\":1,\"l\":2,\"f\":1e10,\"d\":1e21,\"s\":\"\",\"by\":\"\"}",
+  "toString" : "{\"n\": null, \"b\": true, \"i\": 1, \"l\": 2, \"f\": 1.0E10, \"d\": 1.0E21, \"s\": \"\", \"by\": \"\"}",
+  "hex" : "010204f902155050efe2d6e41a4b440000",
+  "binToString" : "{\"n\": null, \"b\": true, \"i\": 1, \"l\": 2, \"f\": 1.0E10, \"d\": 1.0E21, \"s\": \"\", \"by\": \"\"}",
+  "objToString" : "{\"n\": null, \"b\": true, \"i\": 1, \"l\": 2, \"f\": 1.0E10, \"d\": 1.0E21, \"s\": \"\", \"by\": \"\"}"
+}, {
+  "schema" : "prim",
+  "json" : "{\"n\":null,\"b\":true,\"i\":1,\"l\":2,\"f\":1.0E-5,\"d\":1.0E-7,\"s\":\"\",\"by\":\"\"}",
+  "toString" : "{\"n\": null, \"b\": true, \"i\": 1, \"l\": 2, \"f\": 1.0E-5, \"d\": 1.0E-7, \"s\": \"\", \"by\": \"\"}",
+  "hex" : "010204acc5273748afbc9af2d77a3e0000",
+  "binToString" : "{\"n\": null, \"b\": true, \"i\": 1, \"l\": 2, \"f\": 1.0E-5, \"d\": 1.0E-7, \"s\": \"\", \"by\": \"\"}",
+  "objToString" : "{\"n\": null, \"b\": true, \"i\": 1, \"l\": 2, \"f\": 1.0E-5, \"d\": 1.0E-7, \"s\": \"\", \"by\": \"\"}"
+}, {
+  "schema" : "prim",
+  "json" : "{\"n\":null,\"b\":true,\"i\":1,\"l\":2,\"f\":123456789,\"d\":100,\"s\":\"\",\"by\":\"\"}",
+  "toString" : "{\"n\": null, \"b\": true, \"i\": 1, \"l\": 2, \"f\": 1.2345679E8, \"d\": 100.0, \"s\": \"\", \"by\": \"\"}",
+  "hex" : "010204a379eb4c00000000000059400000",
+  "binToString" : "{\"n\": null, \"b\": true, \"i\": 1, \"l\": 2, \"f\": 1.2345679E8, \"d\": 100.0, \"s\": \"\", \"by\": \"\"}",
+  "objToString" : "{\"n\": null, \"b\": true, \"i\": 1, \"l\": 2, \"f\": 1.2345679E8, \"d\": 100.0, \"s\": \"\", \"by\": \"\"}"
+}, {
+  "schema" : "prim",
+  "json" : "{\"n\":null,\"b\":true,\"i\":1,\"l\":2,\"f\":-0.0,\"d\":-0.0,\"s\":\"\",\"by\":\"\"}",
+  "toString" : "{\"n\": null, \"b\": true, \"i\": 1, \"l\": 2, \"f\": -0.0, \"d\": -0.0, \"s\": \"\", \"by\": \"\"}",
+  "hex" : "0102040000008000000000000000800000",
+  "binToString" : "{\"n\": null, \"b\": true, \"i\": 1, \"l\": 2, \"f\": -0.0, \"d\": -0.0, \"s\": \"\", \"by\": \"\"}",
+  "objToString" : "{\"n\": null, \"b\": true, \"i\": 1, \"l\": 2, \"f\": -0.0, \"d\": -0.0, \"s\": \"\", \"by\": \"\"}"
+}, {
+  "schema" : "prim",
+  "json" : "{\"n\":null,\"b\":true,\"i\":1,\"l\":2,\"f\":1e39,\"d\":1e400,\"s\":\"\",\"by\":\"\"}",
+  "toString" : "{\"n\": null, \"b\": true, \"i\": 1, \"l\": 2, \"f\": \"Infinity\", \"d\": \"Infinity\", \"s\": \"\", \"by\": \"\"}",
+  "hex" : "0102040000807f000000000000f07f0000",
+  "binToString" : "{\"n\": null, \"b\": true, \"i\": 1, \"l\": 2, \"f\": \"Infinity\", \"d\": \"Infinity\", \"s\": \"\", \"by\": \"\"}",
+  "objToString" : "{\"n\": null, \"b\": true, \"i\": 1, \"l\": 2, \"f\": \"Infinity\", \"d\": \"Infinity\", \"s\": \"\", \"by\": \"\"}"
+}, {
+  "schema" : "prim",
+  "json" : "{\"n\":null,\"b\":true,\"i\":01,\"l\":2,\"f\":1,\"d\":2,\"s\":\"\",\"by\":\"\"}",
+  "error" : {
+    "class" : "JsonParseException",
+    "message" : "Invalid numeric value: Leading zeroes not allowed\n at [Source: REDACTED (`StreamReadFeature.INCLUDE_SOURCE_IN_LOCATION` disabled); line: 1, column: 25]"
+  }
+}, {
+  "schema" : "prim",
+  "json" : "{\"n\":null,\"b\":true,\"i\":1,\"l\":2,\"f\":1,\"d\":2,\"s\":\"hi\",\"by\":\"\"} trailing",
+  "toString" : "{\"n\": null, \"b\": true, \"i\": 1, \"l\": 2, \"f\": 1.0, \"d\": 2.0, \"s\": \"hi\", \"by\": \"\"}",
+  "hex" : "0102040000803f000000000000004004686900",
+  "binToString" : "{\"n\": null, \"b\": true, \"i\": 1, \"l\": 2, \"f\": 1.0, \"d\": 2.0, \"s\": \"hi\", \"by\": \"\"}",
+  "objToString" : "{\"n\": null, \"b\": true, \"i\": 1, \"l\": 2, \"f\": 1.0, \"d\": 2.0, \"s\": \"hi\", \"by\": \"\"}"
+}, {
+  "schema" : "prim",
+  "json" : "{\"n\":null,\"b\":true,\"i\":1,\"l\":2,\"f\":1,\"d\":2,\"s\":\"hi\",\"by\":\"\",}",
+  "error" : {
+    "class" : "JsonParseException",
+    "message" : "Unexpected character ('}' (code 125)): was expecting double-quote to start field name\n at [Source: REDACTED (`StreamReadFeature.INCLUDE_SOURCE_IN_LOCATION` disabled); line: 1, column: 61]"
+  }
+}, {
+  "schema" : "prim",
+  "json" : "",
+  "error" : {
+    "class" : "EOFException",
+    "message" : "null"
+  }
+}, {
+  "schema" : "prim",
+  "json" : "[]",
+  "error" : {
+    "class" : "AvroTypeException",
+    "message" : "Expected record-start. Got START_ARRAY"
+  }
+}, {
+  "schema" : "prim",
+  "json" : "{'n':null}",
+  "error" : {
+    "class" : "JsonParseException",
+    "message" : "Unexpected character (''' (code 39)): was expecting double-quote to start field name\n at [Source: REDACTED (`StreamReadFeature.INCLUDE_SOURCE_IN_LOCATION` disabled); line: 1, column: 2]"
+  }
+}, {
+  "schema" : "prim",
+  "json" : "{\"n\":null,\"b\":true,\"i\":1,\"l\":2,\"f\":1,\"d\":2,\"s\":\"hi\",\"by\":\"\",\"s\":\"dup\"}",
+  "toString" : "{\"n\": null, \"b\": true, \"i\": 1, \"l\": 2, \"f\": 1.0, \"d\": 2.0, \"s\": \"hi\", \"by\": \"\"}",
+  "hex" : "0102040000803f000000000000004004686900",
+  "binToString" : "{\"n\": null, \"b\": true, \"i\": 1, \"l\": 2, \"f\": 1.0, \"d\": 2.0, \"s\": \"hi\", \"by\": \"\"}",
+  "objToString" : "{\"n\": null, \"b\": true, \"i\": 1, \"l\": 2, \"f\": 1.0, \"d\": 2.0, \"s\": \"hi\", \"by\": \"\"}"
+}, {
+  "schema" : "prim",
+  "json" : "{\"n\":null,\"b\":true,\"i\":1,\"l\":2,\"f\":1,\"d\":2,\"s\":\"hi\",\"by\":\"\",",
+  "error" : {
+    "class" : "JsonParseException",
+    "message" : "Unexpected end-of-input within/between Object entries\n at [Source: REDACTED (`StreamReadFeature.INCLUDE_SOURCE_IN_LOCATION` disabled); line: 1, column: 61]"
+  }
+}, {
+  "schema" : "ns",
+  "json" : "{\"v\":null}",
+  "toString" : "{\"v\": null}",
+  "hex" : "00",
+  "binToString" : "{\"v\": null}",
+  "objToString" : "{\"v\": null}"
+}, {
+  "schema" : "ns",
+  "json" : "{\"v\":{\"string\":\"x\"}}",
+  "toString" : "{\"v\": \"x\"}",
+  "hex" : "020278",
+  "binToString" : "{\"v\": \"x\"}",
+  "objToString" : "{\"v\": \"x\"}"
+}, {
+  "schema" : "ns",
+  "json" : "{\"v\":\"x\"}",
+  "error" : {
+    "class" : "AvroTypeException",
+    "message" : "Expected start-union. Got VALUE_STRING"
+  }
+}, {
+  "schema" : "ns",
+  "json" : "{}",
+  "error" : {
+    "class" : "AvroTypeException",
+    "message" : "Expected start-union. Got END_OBJECT"
+  }
+}, {
+  "schema" : "ns",
+  "json" : "{\"v\":{\"string\":\"x\",\"int\":1}}",
+  "toString" : "{\"v\": \"x\"}",
+  "hex" : "020278",
+  "binToString" : "{\"v\": \"x\"}",
+  "objToString" : "{\"v\": \"x\"}"
+}, {
+  "schema" : "ns",
+  "json" : "{\"v\":{\"int\":1}}",
+  "error" : {
+    "class" : "AvroTypeException",
+    "message" : "Unknown union branch int"
+  }
+}, {
+  "schema" : "ns",
+  "json" : "{\"v\":{}}",
+  "error" : {
+    "class" : "AvroTypeException",
+    "message" : "Expected start-union. Got END_OBJECT"
+  }
+}, {
+  "schema" : "ns",
+  "json" : "{\"v\":{\"null\":null}}",
+  "toString" : "{\"v\": null}",
+  "hex" : "00",
+  "binToString" : "{\"v\": null}",
+  "objToString" : "{\"v\": null}"
+}, {
+  "schema" : "multi",
+  "json" : "{\"u\":{\"int\":5}}",
+  "toString" : "{\"u\": 5}",
+  "hex" : "020a",
+  "binToString" : "{\"u\": 5}",
+  "objToString" : "{\"u\": 5}"
+}, {
+  "schema" : "multi",
+  "json" : "{\"u\":{\"string\":\"s\"}}",
+  "toString" : "{\"u\": \"s\"}",
+  "hex" : "040273",
+  "binToString" : "{\"u\": \"s\"}",
+  "objToString" : "{\"u\": \"s\"}"
+}, {
+  "schema" : "multi",
+  "json" : "{\"u\":{\"ns.x.Inner\":{\"a\":1}}}",
+  "toString" : "{\"u\": {\"a\": 1}}",
+  "hex" : "0602",
+  "binToString" : "{\"u\": {\"a\": 1}}",
+  "objToString" : "{\"u\": {\"a\": 1}}"
+}, {
+  "schema" : "multi",
+  "json" : "{\"u\":{\"Inner\":{\"a\":1}}}",
+  "error" : {
+    "class" : "AvroTypeException",
+    "message" : "Unknown union branch Inner"
+  }
+}, {
+  "schema" : "multi",
+  "json" : "{\"u\":{\"array\":[1,2]}}",
+  "toString" : "{\"u\": [1, 2]}",
+  "hex" : "0804020400",
+  "binToString" : "{\"u\": [1, 2]}",
+  "objToString" : "{\"u\": [1, 2]}"
+}, {
+  "schema" : "multi",
+  "json" : "{\"u\":{\"map\":{\"k\":\"v\"}}}",
+  "toString" : "{\"u\": {\"k\": \"v\"}}",
+  "hex" : "0a02026b027600",
+  "binToString" : "{\"u\": {\"k\": \"v\"}}",
+  "objToString" : "{\"u\": {\"k\": \"v\"}}"
+}, {
+  "schema" : "multi",
+  "json" : "{\"u\":{\"ex.Color\":\"RED\"}}",
+  "toString" : "{\"u\": \"RED\"}",
+  "hex" : "0c00",
+  "binToString" : "{\"u\": \"RED\"}",
+  "objToString" : "{\"u\": \"RED\"}"
+}, {
+  "schema" : "multi",
+  "json" : "{\"u\":{\"Color\":\"RED\"}}",
+  "error" : {
+    "class" : "AvroTypeException",
+    "message" : "Unknown union branch Color"
+  }
+}, {
+  "schema" : "multi",
+  "json" : "{\"u\":{\"boolean\":false}}",
+  "toString" : "{\"u\": false}",
+  "hex" : "0e00",
+  "binToString" : "{\"u\": false}",
+  "objToString" : "{\"u\": false}"
+}, {
+  "schema" : "multi",
+  "json" : "{\"u\":{\"double\":1}}",
+  "toString" : "{\"u\": 1.0}",
+  "hex" : "10000000000000f03f",
+  "binToString" : "{\"u\": 1.0}",
+  "objToString" : "{\"u\": 1.0}"
+}, {
+  "schema" : "multi",
+  "json" : "{\"u\":{\"bytes\":\"ab\"}}",
+  "toString" : "{\"u\": \"ab\"}",
+  "hex" : "12046162",
+  "binToString" : "{\"u\": \"ab\"}",
+  "objToString" : "{\"u\": \"ab\"}"
+}, {
+  "schema" : "multi",
+  "json" : "{\"u\":5}",
+  "error" : {
+    "class" : "AvroTypeException",
+    "message" : "Expected start-union. Got VALUE_NUMBER_INT"
+  }
+}, {
+  "schema" : "logical",
+  "json" : "{\"ts\":1700000000000,\"date\":19000,\"dec\":\"\\u0000\\u0001\",\"id\":\"123e4567-e89b-12d3-a456-426614174000\",\"fdec\":\"\\u0000\\u0000\\u0000\\u000a\",\"tm\":5,\"ots\":{\"long\":7}}",
+  "toString" : "{\"ts\": 1700000000000, \"date\": 19000, \"dec\": \"\\u0000\\u0001\", \"id\": \"123e4567-e89b-12d3-a456-426614174000\", \"fdec\": [0, 0, 0, 10], \"tm\": 5, \"ots\": 7}",
+  "hex" : "80a0abfef962f0a8020400014831323365343536372d653839622d313264332d613435362d3432363631343137343030300000000a0a020e",
+  "binToString" : "{\"ts\": 1700000000000, \"date\": 19000, \"dec\": \"\\u0000\\u0001\", \"id\": \"123e4567-e89b-12d3-a456-426614174000\", \"fdec\": [0, 0, 0, 10], \"tm\": 5, \"ots\": 7}",
+  "objToString" : "{\"ts\": 1700000000000, \"date\": 19000, \"dec\": \"\\u0000\\u0001\", \"id\": \"123e4567-e89b-12d3-a456-426614174000\", \"fdec\": [0, 0, 0, 10], \"tm\": 5, \"ots\": 7}"
+}, {
+  "schema" : "logical",
+  "json" : "{\"ts\":1700000000000,\"date\":19000,\"dec\":\"\\u0000\\u0001\",\"id\":\"123e4567-e89b-12d3-a456-426614174000\",\"fdec\":\"\\u0000\\u0000\\u0000\\u000a\",\"tm\":5,\"ots\":{\"long.timestamp-micros\":7}}",
+  "error" : {
+    "class" : "AvroTypeException",
+    "message" : "Unknown union branch long.timestamp-micros"
+  }
+}, {
+  "schema" : "logical",
+  "json" : "{\"ts\":\"2023-01-01T00:00:00Z\",\"date\":19000,\"dec\":\"\\u0000\\u0001\",\"id\":\"x\",\"fdec\":\"\\u0000\\u0000\\u0000\\u000a\",\"tm\":5,\"ots\":null}",
+  "error" : {
+    "class" : "AvroTypeException",
+    "message" : "Expected long. Got VALUE_STRING"
+  }
+}, {
+  "schema" : "mission",
+  "json" : "{\"event_type\":\"mission_created\",\"mission_id\":\"m-1\",\"mission_name\":\"Alpha\",\"destination\":\"Mars\",\"timestamp\":\"2025-06-15T10:00:00Z\",\"metadata\":{\"string\":\"{\\\"priority\\\": \\\"high\\\"}\"}}",
+  "toString" : "{\"event_type\": \"mission_created\", \"mission_id\": \"m-1\", \"mission_name\": \"Alpha\", \"destination\": \"Mars\", \"timestamp\": \"2025-06-15T10:00:00Z\", \"metadata\": \"{\\\"priority\\\": \\\"high\\\"}\"}",
+  "hex" : "1e6d697373696f6e5f63726561746564066d2d310a416c706861084d61727328323032352d30362d31355431303a30303a30305a02287b227072696f72697479223a202268696768227d",
+  "binToString" : "{\"event_type\": \"mission_created\", \"mission_id\": \"m-1\", \"mission_name\": \"Alpha\", \"destination\": \"Mars\", \"timestamp\": \"2025-06-15T10:00:00Z\", \"metadata\": \"{\\\"priority\\\": \\\"high\\\"}\"}",
+  "objToString" : "{\"event_type\": \"mission_created\", \"mission_id\": \"m-1\", \"mission_name\": \"Alpha\", \"destination\": \"Mars\", \"timestamp\": \"2025-06-15T10:00:00Z\", \"metadata\": \"{\\\"priority\\\": \\\"high\\\"}\"}"
+}, {
+  "schema" : "mission",
+  "json" : "{\"event_type\":\"mission_created\",\"mission_id\":\"m-1\",\"mission_name\":\"Alpha\",\"destination\":\"Mars\",\"timestamp\":\"2025-06-15T10:00:00Z\",\"metadata\":null}",
+  "toString" : "{\"event_type\": \"mission_created\", \"mission_id\": \"m-1\", \"mission_name\": \"Alpha\", \"destination\": \"Mars\", \"timestamp\": \"2025-06-15T10:00:00Z\", \"metadata\": null}",
+  "hex" : "1e6d697373696f6e5f63726561746564066d2d310a416c706861084d61727328323032352d30362d31355431303a30303a30305a00",
+  "binToString" : "{\"event_type\": \"mission_created\", \"mission_id\": \"m-1\", \"mission_name\": \"Alpha\", \"destination\": \"Mars\", \"timestamp\": \"2025-06-15T10:00:00Z\", \"metadata\": null}",
+  "objToString" : "{\"event_type\": \"mission_created\", \"mission_id\": \"m-1\", \"mission_name\": \"Alpha\", \"destination\": \"Mars\", \"timestamp\": \"2025-06-15T10:00:00Z\", \"metadata\": null}"
+}, {
+  "schema" : "mission",
+  "json" : "{\"event_type\":\"mission_created\",\"mission_id\":\"m-1\",\"mission_name\":\"Alpha\",\"destination\":\"Mars\",\"timestamp\":\"2025-06-15T10:00:00Z\",\"metadata\":\"{\\\"priority\\\": \\\"high\\\"}\"}",
+  "error" : {
+    "class" : "AvroTypeException",
+    "message" : "Expected start-union. Got VALUE_STRING"
+  }
+}, {
+  "schema" : "mission",
+  "json" : "{\"event_type\":\"mission_created\",\"mission_id\":\"m-1\",\"mission_name\":\"Alpha\",\"destination\":\"Mars\",\"timestamp\":\"2025-06-15T10:00:00Z\"}",
+  "error" : {
+    "class" : "AvroTypeException",
+    "message" : "Expected start-union. Got END_OBJECT"
+  }
+}, {
+  "schema" : "defaults",
+  "json" : "{\"a\":1}",
+  "error" : {
+    "class" : "AvroTypeException",
+    "message" : "Expected string. Got END_OBJECT"
+  }
+}, {
+  "schema" : "defaults",
+  "json" : "{\"a\":1,\"b\":\"y\",\"c\":{\"int\":2}}",
+  "toString" : "{\"a\": 1, \"b\": \"y\", \"c\": 2}",
+  "hex" : "0202790204",
+  "binToString" : "{\"a\": 1, \"b\": \"y\", \"c\": 2}",
+  "objToString" : "{\"a\": 1, \"b\": \"y\", \"c\": 2}"
+}, {
+  "schema" : "defaults",
+  "json" : "{}",
+  "error" : {
+    "class" : "AvroTypeException",
+    "message" : "Expected int. Got END_OBJECT"
+  }
+}, {
+  "schema" : "nested",
+  "json" : "{\"inner\":{\"x\":1,\"tags\":[\"a\",\"b\"]},\"list\":[{\"x\":2,\"tags\":[]}],\"m\":{\"zeta\":[1],\"alpha\":[2,3],\"mid\":[],\"b\":[4],\"a\":[5],\"aa\":[6],\"Aa\":[7],\"BB\":[8]},\"e\":\"B\",\"fx\":\"abc\",\"opt\":{\"ex.In\":{\"x\":3,\"tags\":[\"t\"]}}}",
+  "toString" : "{\"inner\": {\"x\": 1, \"tags\": [\"a\", \"b\"]}, \"list\": [{\"x\": 2, \"tags\": []}], \"m\": {\"a\": [5], \"b\": [4], \"aa\": [6], \"Aa\": [7], \"BB\": [8], \"alpha\": [2, 3], \"mid\": [], \"zeta\": [1]}, \"e\": \"B\", \"fx\": [97, 98, 99], \"opt\": {\"x\": 3, \"tags\": [\"t\"]}}",
+  "hex" : "0204026102620002040000100261020a000262020800046161020c00044161020e000442420210000a616c70686104040600066d696400087a6574610202000002616263020602027400",
+  "binToString" : "{\"inner\": {\"x\": 1, \"tags\": [\"a\", \"b\"]}, \"list\": [{\"x\": 2, \"tags\": []}], \"m\": {\"a\": [5], \"b\": [4], \"aa\": [6], \"Aa\": [7], \"BB\": [8], \"alpha\": [2, 3], \"mid\": [], \"zeta\": [1]}, \"e\": \"B\", \"fx\": [97, 98, 99], \"opt\": {\"x\": 3, \"tags\": [\"t\"]}}",
+  "objToString" : "{\"inner\": {\"x\": 1, \"tags\": [\"a\", \"b\"]}, \"list\": [{\"x\": 2, \"tags\": []}], \"m\": {\"a\": [5], \"b\": [4], \"aa\": [6], \"Aa\": [7], \"BB\": [8], \"alpha\": [2, 3], \"mid\": [], \"zeta\": [1]}, \"e\": \"B\", \"fx\": [97, 98, 99], \"opt\": {\"x\": 3, \"tags\": [\"t\"]}}"
+}, {
+  "schema" : "nested",
+  "json" : "{\"inner\":{\"x\":1,\"tags\":[]},\"list\":[],\"m\":{},\"e\":\"D\",\"fx\":\"abc\",\"opt\":null}",
+  "error" : {
+    "class" : "AvroTypeException",
+    "message" : "Unknown symbol in enum D"
+  }
+}, {
+  "schema" : "nested",
+  "json" : "{\"inner\":{\"x\":1,\"tags\":[]},\"list\":[],\"m\":{},\"e\":\"A\",\"fx\":\"abcd\",\"opt\":null}",
+  "error" : {
+    "class" : "AvroTypeException",
+    "message" : "Expected fixed length 3, but got4"
+  }
+}, {
+  "schema" : "nested",
+  "json" : "{\"inner\":{\"x\":1,\"tags\":[]},\"list\":[],\"m\":{},\"e\":\"A\",\"fx\":\"abc\",\"opt\":{\"In\":{\"x\":1,\"tags\":[]}}}",
+  "error" : {
+    "class" : "AvroTypeException",
+    "message" : "Unknown union branch In"
+  }
+}, {
+  "schema" : "nested",
+  "json" : "{\"inner\":{\"x\":1,\"tags\":[1]},\"list\":[],\"m\":{},\"e\":\"A\",\"fx\":\"abc\",\"opt\":null}",
+  "error" : {
+    "class" : "AvroTypeException",
+    "message" : "Expected string. Got VALUE_NUMBER_INT"
+  }
+}, {
+  "schema" : "nested",
+  "json" : "{\"inner\":{\"x\":1,\"tags\":[]},\"list\":[{\"x\":2,\"tags\":[]},{\"x\":\"bad\",\"tags\":[]}],\"m\":{},\"e\":\"A\",\"fx\":\"abc\",\"opt\":null}",
+  "error" : {
+    "class" : "AvroTypeException",
+    "message" : "Expected int. Got VALUE_STRING"
+  }
+}, {
+  "schema" : "nested",
+  "json" : "{\"inner\":{\"x\":1,\"tags\":[]},\"list\":[],\"m\":{\"k\":[1,\"x\"]},\"e\":\"A\",\"fx\":\"abc\",\"opt\":null}",
+  "error" : {
+    "class" : "AvroTypeException",
+    "message" : "Expected long. Got VALUE_STRING"
+  }
+}, {
+  "schema" : "str",
+  "json" : "\"hello\"",
+  "toString" : "\"hello\"",
+  "hex" : "0a68656c6c6f",
+  "binToString" : "\"hello\"",
+  "objToString" : "hello"
+}, {
+  "schema" : "str",
+  "json" : "5",
+  "error" : {
+    "class" : "AvroTypeException",
+    "message" : "Expected string. Got VALUE_NUMBER_INT"
+  }
+}, {
+  "schema" : "int",
+  "json" : "42",
+  "toString" : "42",
+  "hex" : "54",
+  "binToString" : "42",
+  "objToString" : "42"
+}, {
+  "schema" : "long",
+  "json" : "42",
+  "toString" : "42",
+  "hex" : "54",
+  "binToString" : "42",
+  "objToString" : "42"
+}, {
+  "schema" : "bytes",
+  "json" : "\"\\u00e9t\\u00e9\"",
+  "toString" : "\"été\"",
+  "hex" : "06e974e9",
+  "binToString" : "\"été\"",
+  "objToString" : "java.nio.HeapByteBuffer[pos=0 lim=3 cap=3]"
+}, {
+  "schema" : "fixed4",
+  "json" : "\"abcd\"",
+  "toString" : "[97, 98, 99, 100]",
+  "hex" : "61626364",
+  "binToString" : "[97, 98, 99, 100]",
+  "objToString" : "[97, 98, 99, 100]"
+}, {
+  "schema" : "enum",
+  "json" : "\"HEARTS\"",
+  "toString" : "\"HEARTS\"",
+  "hex" : "02",
+  "binToString" : "\"HEARTS\"",
+  "objToString" : "HEARTS"
+}, {
+  "schema" : "enum",
+  "json" : "\"CLUBS\"",
+  "error" : {
+    "class" : "AvroTypeException",
+    "message" : "Unknown symbol in enum CLUBS"
+  }
+}, {
+  "schema" : "fd",
+  "json" : "{\"f\":1.1,\"d\":1.1}",
+  "toString" : "{\"f\": 1.1, \"d\": 1.1}",
+  "hex" : "cdcc8c3f9a9999999999f13f",
+  "binToString" : "{\"f\": 1.1, \"d\": 1.1}",
+  "objToString" : "{\"f\": 1.1, \"d\": 1.1}"
+}, {
+  "schema" : "fd",
+  "json" : "{\"f\":100.0,\"d\":1234567.0}",
+  "toString" : "{\"f\": 100.0, \"d\": 1234567.0}",
+  "hex" : "0000c8420000000087d63241",
+  "binToString" : "{\"f\": 100.0, \"d\": 1234567.0}",
+  "objToString" : "{\"f\": 100.0, \"d\": 1234567.0}"
+}, {
+  "schema" : "fd",
+  "json" : "{\"f\":1.0E7,\"d\":1.0E7}",
+  "toString" : "{\"f\": 1.0E7, \"d\": 1.0E7}",
+  "hex" : "8096184b00000000d0126341",
+  "binToString" : "{\"f\": 1.0E7, \"d\": 1.0E7}",
+  "objToString" : "{\"f\": 1.0E7, \"d\": 1.0E7}"
+}, {
+  "schema" : "fd",
+  "json" : "{\"f\":0.001,\"d\":0.001}",
+  "toString" : "{\"f\": 0.001, \"d\": 0.001}",
+  "hex" : "6f12833afca9f1d24d62503f",
+  "binToString" : "{\"f\": 0.001, \"d\": 0.001}",
+  "objToString" : "{\"f\": 0.001, \"d\": 0.001}"
+}, {
+  "schema" : "fd",
+  "json" : "{\"f\":0.0001,\"d\":0.0001}",
+  "toString" : "{\"f\": 1.0E-4, \"d\": 1.0E-4}",
+  "hex" : "17b7d1382d431cebe2361a3f",
+  "binToString" : "{\"f\": 1.0E-4, \"d\": 1.0E-4}",
+  "objToString" : "{\"f\": 1.0E-4, \"d\": 1.0E-4}"
+}, {
+  "schema" : "fd",
+  "json" : "{\"f\":16777217,\"d\":9007199254740993}",
+  "toString" : "{\"f\": 1.6777216E7, \"d\": 9.007199254740992E15}",
+  "hex" : "0000804b0000000000004043",
+  "binToString" : "{\"f\": 1.6777216E7, \"d\": 9.007199254740992E15}",
+  "objToString" : "{\"f\": 1.6777216E7, \"d\": 9.007199254740992E15}"
+}, {
+  "schema" : "map",
+  "json" : "{\"b\":1,\"a\":2,\"c\":3,\"key10\":4,\"key2\":5,\"x\":6,\"y\":7,\"z\":8,\"w\":9,\"v\":10,\"u\":11,\"t\":12,\"s\":13}",
+  "toString" : "{\"a\": 2, \"b\": 1, \"c\": 3, \"s\": 13, \"t\": 12, \"key2\": 5, \"u\": 11, \"key10\": 4, \"v\": 10, \"w\": 9, \"x\": 6, \"y\": 7, \"z\": 8}",
+  "hex" : "1a02610402620202630602731a027418086b6579320a0275160a6b657931300802761402771202780c02790e027a1000",
+  "binToString" : "{\"a\": 2, \"b\": 1, \"c\": 3, \"s\": 13, \"t\": 12, \"key2\": 5, \"u\": 11, \"key10\": 4, \"v\": 10, \"w\": 9, \"x\": 6, \"y\": 7, \"z\": 8}",
+  "objToString" : "{a=2, b=1, c=3, s=13, t=12, key2=5, u=11, key10=4, v=10, w=9, x=6, y=7, z=8}"
+}, {
+  "schema" : "map",
+  "json" : "{}",
+  "toString" : "{}",
+  "hex" : "00",
+  "binToString" : "{}",
+  "objToString" : "{}"
+}, {
+  "schema" : "map",
+  "json" : "{\"a\":1,\"a\":2}",
+  "toString" : "{\"a\": 2}",
+  "hex" : "0202610400",
+  "binToString" : "{\"a\": 2}",
+  "objToString" : "{a=2}"
+}, {
+  "schema" : "arr",
+  "json" : "[null,{\"string\":\"a\"},null]",
+  "toString" : "[null, \"a\", null]",
+  "hex" : "06000202610000",
+  "binToString" : "[null, \"a\", null]",
+  "objToString" : "[null, a, null]"
+}, {
+  "schema" : "arr",
+  "json" : "[null,\"a\"]",
+  "error" : {
+    "class" : "AvroTypeException",
+    "message" : "Expected start-union. Got VALUE_STRING"
+  }
+}, {
+  "schema" : "topunion",
+  "json" : "null",
+  "toString" : "null",
+  "hex" : "00",
+  "binToString" : "null",
+  "objToString" : "null"
+}, {
+  "schema" : "topunion",
+  "json" : "{\"int\":3}",
+  "toString" : "3",
+  "hex" : "0406",
+  "binToString" : "3",
+  "objToString" : "3"
+}, {
+  "schema" : "topunion",
+  "json" : "{\"string\":\"s\"}",
+  "toString" : "\"s\"",
+  "hex" : "020273",
+  "binToString" : "\"s\"",
+  "objToString" : "s"
+}, {
+  "schema" : "recunion",
+  "json" : "{\"r\":{\"a.b.Leaf\":{\"v\":1}}}",
+  "toString" : "{\"r\": {\"v\": 1}}",
+  "hex" : "0202",
+  "binToString" : "{\"r\": {\"v\": 1}}",
+  "objToString" : "{\"r\": {\"v\": 1}}"
+}, {
+  "schema" : "recunion",
+  "json" : "{\"r\":{\"Leaf\":{\"v\":1}}}",
+  "error" : {
+    "class" : "AvroTypeException",
+    "message" : "Unknown union branch Leaf"
+  }
+}, {
+  "schema" : "recunion",
+  "json" : "{\"r\":{\"v\":1}}",
+  "error" : {
+    "class" : "AvroTypeException",
+    "message" : "Unknown union branch v"
+  }
+}, {
+  "schema" : "fixed4",
+  "json" : "\"\\u00ff\\u0080\\u0000\\u007f\"",
+  "toString" : "[-1, -128, 0, 127]",
+  "hex" : "ff80007f",
+  "binToString" : "[-1, -128, 0, 127]",
+  "objToString" : "[-1, -128, 0, 127]"
+}, {
+  "schema" : "prim",
+  "json" : "{\"n\":null,\"b\":true,\"i\":1.5,\"l\":2,\"f\":1,\"d\":2,\"s\":\"\",\"by\":\"\"}",
+  "error" : {
+    "class" : "AvroTypeException",
+    "message" : "Expected int. Got VALUE_NUMBER_FLOAT"
+  }
+}, {
+  "schema" : "prim",
+  "json" : "{\"n\":null,\"b\":true,\"i\":-1.9,\"l\":2,\"f\":1,\"d\":2,\"s\":\"\",\"by\":\"\"}",
+  "error" : {
+    "class" : "AvroTypeException",
+    "message" : "Expected int. Got VALUE_NUMBER_FLOAT"
+  }
+}, {
+  "schema" : "prim",
+  "json" : "{\"n\":null,\"b\":true,\"i\":1e2,\"l\":2,\"f\":1,\"d\":2,\"s\":\"\",\"by\":\"\"}",
+  "toString" : "{\"n\": null, \"b\": true, \"i\": 100, \"l\": 2, \"f\": 1.0, \"d\": 2.0, \"s\": \"\", \"by\": \"\"}",
+  "hex" : "01c801040000803f00000000000000400000",
+  "binToString" : "{\"n\": null, \"b\": true, \"i\": 100, \"l\": 2, \"f\": 1.0, \"d\": 2.0, \"s\": \"\", \"by\": \"\"}",
+  "objToString" : "{\"n\": null, \"b\": true, \"i\": 100, \"l\": 2, \"f\": 1.0, \"d\": 2.0, \"s\": \"\", \"by\": \"\"}"
+}, {
+  "schema" : "prim",
+  "json" : "{\"n\":null,\"b\":true,\"i\":3e9,\"l\":2,\"f\":1,\"d\":2,\"s\":\"\",\"by\":\"\"}",
+  "error" : {
+    "class" : "AvroTypeException",
+    "message" : "Expected int. Got VALUE_NUMBER_FLOAT"
+  }
+}, {
+  "schema" : "prim",
+  "json" : "{\"n\":null,\"b\":true,\"i\":1,\"l\":2,\"f\":123456789012345678901234567890,\"d\":123456789012345678901234567890,\"s\":\"\",\"by\":\"\"}",
+  "toString" : "{\"n\": null, \"b\": true, \"i\": 1, \"l\": 2, \"f\": 1.2345679E29, \"d\": 1.2345678901234568E29, \"s\": \"\", \"by\": \"\"}",
+  "hex" : "0102048874c76f3e376cff90eef8450000",
+  "binToString" : "{\"n\": null, \"b\": true, \"i\": 1, \"l\": 2, \"f\": 1.2345679E29, \"d\": 1.2345678901234568E29, \"s\": \"\", \"by\": \"\"}",
+  "objToString" : "{\"n\": null, \"b\": true, \"i\": 1, \"l\": 2, \"f\": 1.2345679E29, \"d\": 1.2345678901234568E29, \"s\": \"\", \"by\": \"\"}"
+}, {
+  "schema" : "prim",
+  "json" : "{\"n\":null,\"b\":true,\"i\":1,\"l\":2,\"f\":1.5e-46,\"d\":4.9e-325,\"s\":\"\",\"by\":\"\"}",
+  "toString" : "{\"n\": null, \"b\": true, \"i\": 1, \"l\": 2, \"f\": 0.0, \"d\": 0.0, \"s\": \"\", \"by\": \"\"}",
+  "hex" : "0102040000000000000000000000000000",
+  "binToString" : "{\"n\": null, \"b\": true, \"i\": 1, \"l\": 2, \"f\": 0.0, \"d\": 0.0, \"s\": \"\", \"by\": \"\"}",
+  "objToString" : "{\"n\": null, \"b\": true, \"i\": 1, \"l\": 2, \"f\": 0.0, \"d\": 0.0, \"s\": \"\", \"by\": \"\"}"
+}, {
+  "schema" : "prim",
+  "json" : "{\"n\":null,\"b\":true,\"i\":1,\"l\":2,\"f\":1,\"d\":\"x\",\"s\":\"\",\"by\":\"\"}",
+  "error" : {
+    "class" : "AvroTypeException",
+    "message" : "Expected double. Got FIELD_NAME"
+  }
+}, {
+  "schema" : "fd",
+  "json" : "{\"f\":1,\"d\":\"x\"}",
+  "error" : {
+    "class" : "AvroTypeException",
+    "message" : "Expected double. Got END_OBJECT"
+  }
+}, {
+  "schema" : "fd",
+  "json" : "{\"f\":1,\"d\":true}",
+  "error" : {
+    "class" : "AvroTypeException",
+    "message" : "Expected double. Got VALUE_TRUE"
+  }
+}, {
+  "schema" : "map",
+  "json" : "{\"\\u00e9\":1,\"\\u65e5\\u672c\":2,\"\\u00fc\":3,\"a\":4}",
+  "toString" : "{\"a\": 4, \"日本\": 2, \"ü\": 3, \"é\": 1}",
+  "hex" : "080261080ce697a5e69cac0404c3bc0604c3a90200",
+  "binToString" : "{\"a\": 4, \"日本\": 2, \"ü\": 3, \"é\": 1}",
+  "objToString" : "{a=4, 日本=2, ü=3, é=1}"
+}, {
+  "schema" : "map",
+  "json" : "{\"Aa\":1,\"BB\":2,\"C#\":3}",
+  "toString" : "{\"Aa\": 1, \"BB\": 2, \"C#\": 3}",
+  "hex" : "0604416102044242040443230600",
+  "binToString" : "{\"Aa\": 1, \"BB\": 2, \"C#\": 3}",
+  "objToString" : "{Aa=1, BB=2, C#=3}"
+}, {
+  "schema" : "map",
+  "json" : "{\"BB\":1,\"Aa\":2}",
+  "toString" : "{\"BB\": 1, \"Aa\": 2}",
+  "hex" : "04044242020441610400",
+  "binToString" : "{\"BB\": 1, \"Aa\": 2}",
+  "objToString" : "{BB=1, Aa=2}"
+}, {
+  "schema" : "map",
+  "json" : "{\"k1\":1,\"k2\":2,\"k3\":3,\"k4\":4,\"k5\":5,\"k6\":6,\"k7\":7}",
+  "toString" : "{\"k1\": 1, \"k2\": 2, \"k3\": 3, \"k4\": 4, \"k5\": 5, \"k6\": 6, \"k7\": 7}",
+  "hex" : "0e046b3102046b3204046b3306046b3408046b350a046b360c046b370e00",
+  "binToString" : "{\"k1\": 1, \"k2\": 2, \"k3\": 3, \"k4\": 4, \"k5\": 5, \"k6\": 6, \"k7\": 7}",
+  "objToString" : "{k1=1, k2=2, k3=3, k4=4, k5=5, k6=6, k7=7}"
+}, {
+  "schema" : "map",
+  "json" : "{\"q\":1,\"a\":2,\"z\":3,\"m\":4,\"b\":5,\"y\":6,\"c\":7,\"x\":8,\"d\":9,\"w\":10,\"e\":11,\"v\":12,\"f\":13,\"u\":14,\"g\":15,\"t\":16,\"h\":17,\"s\":18,\"i\":19,\"r\":20,\"j\":21,\"p\":22,\"k\":23,\"o\":24,\"l\":25,\"n\":26}",
+  "toString" : "{\"a\": 2, \"b\": 5, \"c\": 7, \"d\": 9, \"e\": 11, \"f\": 13, \"g\": 15, \"h\": 17, \"i\": 19, \"j\": 21, \"k\": 23, \"l\": 25, \"m\": 4, \"n\": 26, \"o\": 24, \"p\": 22, \"q\": 1, \"r\": 20, \"s\": 18, \"t\": 16, \"u\": 14, \"v\": 12, \"w\": 10, \"x\": 8, \"y\": 6, \"z\": 3}",
+  "hex" : "3402610402620a02630e02641202651602661a02671e026822026926026a2a026b2e026c32026d08026e34026f3002702c02710202722802732402742002751c02761802771402781002790c027a0600",
+  "binToString" : "{\"a\": 2, \"b\": 5, \"c\": 7, \"d\": 9, \"e\": 11, \"f\": 13, \"g\": 15, \"h\": 17, \"i\": 19, \"j\": 21, \"k\": 23, \"l\": 25, \"m\": 4, \"n\": 26, \"o\": 24, \"p\": 22, \"q\": 1, \"r\": 20, \"s\": 18, \"t\": 16, \"u\": 14, \"v\": 12, \"w\": 10, \"x\": 8, \"y\": 6, \"z\": 3}",
+  "objToString" : "{a=2, b=5, c=7, d=9, e=11, f=13, g=15, h=17, i=19, j=21, k=23, l=25, m=4, n=26, o=24, p=22, q=1, r=20, s=18, t=16, u=14, v=12, w=10, x=8, y=6, z=3}"
+}, {
+  "schema" : "ns",
+  "json" : "{\"v\":{\"string\":\"x\"},\"v\":null}",
+  "toString" : "{\"v\": \"x\"}",
+  "hex" : "020278",
+  "binToString" : "{\"v\": \"x\"}",
+  "objToString" : "{\"v\": \"x\"}"
+}, {
+  "schema" : "multi",
+  "json" : "{\"u\":{\"int\":5,\"string\":\"x\"}}",
+  "toString" : "{\"u\": 5}",
+  "hex" : "020a",
+  "binToString" : "{\"u\": 5}",
+  "objToString" : "{\"u\": 5}"
+}, {
+  "schema" : "multi",
+  "json" : "{\"u\":{\"null\":null}}",
+  "toString" : "{\"u\": null}",
+  "hex" : "00",
+  "binToString" : "{\"u\": null}",
+  "objToString" : "{\"u\": null}"
+}, {
+  "schema" : "multi",
+  "json" : "{\"u\":null}",
+  "toString" : "{\"u\": null}",
+  "hex" : "00",
+  "binToString" : "{\"u\": null}",
+  "objToString" : "{\"u\": null}"
+}, {
+  "schema" : "long",
+  "json" : "2.0",
+  "toString" : "2",
+  "hex" : "04",
+  "binToString" : "2",
+  "objToString" : "2"
+}, {
+  "schema" : "long",
+  "json" : "1e2",
+  "toString" : "100",
+  "hex" : "c801",
+  "binToString" : "100",
+  "objToString" : "100"
+}, {
+  "schema" : "long",
+  "json" : "1e19",
+  "error" : {
+    "class" : "AvroTypeException",
+    "message" : "Expected long. Got VALUE_NUMBER_FLOAT"
+  }
+}, {
+  "schema" : "long",
+  "json" : "9.2233720368547758E18",
+  "toString" : "9223372036854775807",
+  "hex" : "feffffffffffffffff01",
+  "binToString" : "9223372036854775807",
+  "objToString" : "9223372036854775807"
+}, {
+  "schema" : "long",
+  "json" : "-0.0",
+  "toString" : "0",
+  "hex" : "00",
+  "binToString" : "0",
+  "objToString" : "0"
+}, {
+  "schema" : "long",
+  "json" : "1.0000000001",
+  "error" : {
+    "class" : "AvroTypeException",
+    "message" : "Expected long. Got VALUE_NUMBER_FLOAT"
+  }
+}, {
+  "schema" : "long",
+  "json" : "123456789.5",
+  "error" : {
+    "class" : "AvroTypeException",
+    "message" : "Expected long. Got VALUE_NUMBER_FLOAT"
+  }
+}, {
+  "schema" : "int",
+  "json" : "-0.0",
+  "toString" : "0",
+  "hex" : "00",
+  "binToString" : "0",
+  "objToString" : "0"
+}, {
+  "schema" : "int",
+  "json" : "2147483647.0",
+  "toString" : "2147483647",
+  "hex" : "feffffff0f",
+  "binToString" : "2147483647",
+  "objToString" : "2147483647"
+}, {
+  "schema" : "int",
+  "json" : "2147483648.0",
+  "toString" : "2147483647",
+  "hex" : "feffffff0f",
+  "binToString" : "2147483647",
+  "objToString" : "2147483647"
+}, {
+  "schema" : "int",
+  "json" : "2147483520.0",
+  "toString" : "2147483520",
+  "hex" : "80feffff0f",
+  "binToString" : "2147483520",
+  "objToString" : "2147483520"
+}, {
+  "schema" : "int",
+  "json" : "16777217.0",
+  "toString" : "16777216",
+  "hex" : "80808010",
+  "binToString" : "16777216",
+  "objToString" : "16777216"
+}, {
+  "schema" : "int",
+  "json" : "1.00000001",
+  "toString" : "1",
+  "hex" : "02",
+  "binToString" : "1",
+  "objToString" : "1"
+}, {
+  "schema" : "int",
+  "json" : "0.9999999999",
+  "toString" : "1",
+  "hex" : "02",
+  "binToString" : "1",
+  "objToString" : "1"
+}, {
+  "schema" : "int",
+  "json" : "-2147483649.0",
+  "toString" : "-2147483648",
+  "hex" : "ffffffff0f",
+  "binToString" : "-2147483648",
+  "objToString" : "-2147483648"
+}, {
+  "schema" : "int",
+  "json" : "1E1",
+  "toString" : "10",
+  "hex" : "14",
+  "binToString" : "10",
+  "objToString" : "10"
+}, {
+  "schema" : "int",
+  "json" : "\"5\"",
+  "error" : {
+    "class" : "AvroTypeException",
+    "message" : "Expected int. Got VALUE_STRING"
+  }
+}, {
+  "schema" : "bytes",
+  "json" : "5",
+  "error" : {
+    "class" : "AvroTypeException",
+    "message" : "Expected bytes. Got VALUE_NUMBER_INT"
+  }
+}, {
+  "schema" : "bytes",
+  "json" : "null",
+  "error" : {
+    "class" : "AvroTypeException",
+    "message" : "Expected bytes. Got VALUE_NULL"
+  }
+}, {
+  "schema" : "str",
+  "json" : "null",
+  "error" : {
+    "class" : "AvroTypeException",
+    "message" : "Expected string. Got VALUE_NULL"
+  }
+}, {
+  "schema" : "enum",
+  "json" : "5",
+  "error" : {
+    "class" : "AvroTypeException",
+    "message" : "Expected fixed. Got VALUE_NUMBER_INT"
+  }
+}, {
+  "schema" : "fixed4",
+  "json" : "5",
+  "error" : {
+    "class" : "AvroTypeException",
+    "message" : "Expected fixed. Got VALUE_NUMBER_INT"
+  }
+}, {
+  "schema" : "arr",
+  "json" : "{}",
+  "error" : {
+    "class" : "AvroTypeException",
+    "message" : "Expected array-start. Got START_OBJECT"
+  }
+}, {
+  "schema" : "map",
+  "json" : "[]",
+  "error" : {
+    "class" : "AvroTypeException",
+    "message" : "Expected map-start. Got START_ARRAY"
+  }
+}, {
+  "schema" : "map",
+  "json" : "{\"a\":\"x\"}",
+  "error" : {
+    "class" : "AvroTypeException",
+    "message" : "Expected int. Got VALUE_STRING"
+  }
+}, {
+  "schema" : "map",
+  "hex" : "0602610302620202630400",
+  "binToString" : "{\"a\": -2, \"b\": 1, \"c\": 2}",
+  "objToString" : "{a=-2, b=1, c=2}"
+}, {
+  "schema" : "map",
+  "hex" : "010804416102020442420400",
+  "binToString" : "{\"Aa\": 1, \"BB\": 2}",
+  "objToString" : "{Aa=1, BB=2}"
+}, {
+  "schema" : "map",
+  "hex" : "04044242020441610400",
+  "binToString" : "{\"BB\": 1, \"Aa\": 2}",
+  "objToString" : "{BB=1, Aa=2}"
+}, {
+  "schema" : "nested",
+  "hex" : "0204026102620002040000100261020a000262020800046161020c00044161020e000442420210000a616c70686104040600066d696400087a6574610202000002616263020602027400",
+  "binToString" : "{\"inner\": {\"x\": 1, \"tags\": [\"a\", \"b\"]}, \"list\": [{\"x\": 2, \"tags\": []}], \"m\": {\"a\": [5], \"b\": [4], \"aa\": [6], \"Aa\": [7], \"BB\": [8], \"alpha\": [2, 3], \"mid\": [], \"zeta\": [1]}, \"e\": \"B\", \"fx\": [97, 98, 99], \"opt\": {\"x\": 3, \"tags\": [\"t\"]}}",
+  "objToString" : "{\"inner\": {\"x\": 1, \"tags\": [\"a\", \"b\"]}, \"list\": [{\"x\": 2, \"tags\": []}], \"m\": {\"a\": [5], \"b\": [4], \"aa\": [6], \"Aa\": [7], \"BB\": [8], \"alpha\": [2, 3], \"mid\": [], \"zeta\": [1]}, \"e\": \"B\", \"fx\": [97, 98, 99], \"opt\": {\"x\": 3, \"tags\": [\"t\"]}}"
+}, {
+  "schema" : "fixed4",
+  "hex" : "ff80007f",
+  "binToString" : "[-1, -128, 0, 127]",
+  "objToString" : "[-1, -128, 0, 127]"
+}, {
+  "schema" : "arr",
+  "hex" : "0600020261000000",
+  "binToString" : "[null, \"a\", null]",
+  "objToString" : "[null, a, null]"
+}, {
+  "schema" : "topunion",
+  "hex" : "0406",
+  "binToString" : "3",
+  "objToString" : "3"
+}, {
+  "schema" : "logical",
+  "hex" : "80a0abfef962f0a8020400014831323365343536372d653839622d313264332d613435362d3432363631343137343030300000000a0a020e",
+  "binToString" : "{\"ts\": 1700000000000, \"date\": 19000, \"dec\": \"\\u0000\\u0001\", \"id\": \"123e4567-e89b-12d3-a456-426614174000\", \"fdec\": [0, 0, 0, 10], \"tm\": 5, \"ots\": 7}",
+  "objToString" : "{\"ts\": 1700000000000, \"date\": 19000, \"dec\": \"\\u0000\\u0001\", \"id\": \"123e4567-e89b-12d3-a456-426614174000\", \"fdec\": [0, 0, 0, 10], \"tm\": 5, \"ots\": 7}"
+} ]

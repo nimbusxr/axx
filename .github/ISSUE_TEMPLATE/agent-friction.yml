@@ -1,0 +1,26 @@
+name: Agent friction
+description: A coding agent struggled to use axx. These reports feed our agent evals.
+labels: [agent-dx, triage]
+body:
+  - type: input
+    id: agent
+    attributes:
+      label: Agent and model (e.g. Claude Code + model, Codex, Cursor)
+    validations: {required: true}
+  - type: dropdown
+    id: setup
+    attributes:
+      label: What axx integration was active?
+      multiple: true
+      options: [None, Skills, MCP server, AGENTS.md block]
+  - type: textarea
+    id: wrong
+    attributes:
+      label: What did the agent get wrong?
+      description: e.g. invented step text, misread a failure, looped on validation.
+    validations: {required: true}
+  - type: textarea
+    id: transcript
+    attributes:
+      label: Transcript excerpt
+      render: text

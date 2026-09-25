@@ -1,0 +1,967 @@
+{
+ "schemas": {
+  "prim": {
+   "type": "record",
+   "name": "Prim",
+   "namespace": "ex",
+   "fields": [
+    {
+     "name": "n",
+     "type": "null"
+    },
+    {
+     "name": "b",
+     "type": "boolean"
+    },
+    {
+     "name": "i",
+     "type": "int"
+    },
+    {
+     "name": "l",
+     "type": "long"
+    },
+    {
+     "name": "f",
+     "type": "float"
+    },
+    {
+     "name": "d",
+     "type": "double"
+    },
+    {
+     "name": "s",
+     "type": "string"
+    },
+    {
+     "name": "by",
+     "type": "bytes"
+    }
+   ]
+  },
+  "ns": {
+   "type": "record",
+   "name": "NS",
+   "fields": [
+    {
+     "name": "v",
+     "type": [
+      "null",
+      "string"
+     ],
+     "default": null
+    }
+   ]
+  },
+  "multi": {
+   "type": "record",
+   "name": "Multi",
+   "namespace": "ex",
+   "fields": [
+    {
+     "name": "u",
+     "type": [
+      "null",
+      "int",
+      "string",
+      {
+       "type": "record",
+       "name": "Inner",
+       "namespace": "ns.x",
+       "fields": [
+        {
+         "name": "a",
+         "type": "int"
+        }
+       ]
+      },
+      {
+       "type": "array",
+       "items": "int"
+      },
+      {
+       "type": "map",
+       "values": "string"
+      },
+      {
+       "type": "enum",
+       "name": "Color",
+       "symbols": [
+        "RED",
+        "GREEN"
+       ]
+      },
+      "boolean",
+      "double",
+      "bytes"
+     ]
+    }
+   ]
+  },
+  "logical": {
+   "type": "record",
+   "name": "Logical",
+   "namespace": "ex",
+   "fields": [
+    {
+     "name": "ts",
+     "type": {
+      "type": "long",
+      "logicalType": "timestamp-millis"
+     }
+    },
+    {
+     "name": "date",
+     "type": {
+      "type": "int",
+      "logicalType": "date"
+     }
+    },
+    {
+     "name": "dec",
+     "type": {
+      "type": "bytes",
+      "logicalType": "decimal",
+      "precision": 5,
+      "scale": 2
+     }
+    },
+    {
+     "name": "id",
+     "type": {
+      "type": "string",
+      "logicalType": "uuid"
+     }
+    },
+    {
+     "name": "fdec",
+     "type": {
+      "type": "fixed",
+      "name": "FDec",
+      "size": 4,
+      "logicalType": "decimal",
+      "precision": 6,
+      "scale": 1
+     }
+    },
+    {
+     "name": "tm",
+     "type": {
+      "type": "long",
+      "logicalType": "time-micros"
+     }
+    },
+    {
+     "name": "ots",
+     "type": [
+      "null",
+      {
+       "type": "long",
+       "logicalType": "timestamp-micros"
+      }
+     ]
+    }
+   ]
+  },
+  "mission": {
+   "type": "record",
+   "name": "MissionEvent",
+   "namespace": "us.nimbusxr.axx.events",
+   "fields": [
+    {
+     "name": "event_type",
+     "type": "string"
+    },
+    {
+     "name": "mission_id",
+     "type": "string"
+    },
+    {
+     "name": "mission_name",
+     "type": "string"
+    },
+    {
+     "name": "destination",
+     "type": "string"
+    },
+    {
+     "name": "timestamp",
+     "type": "string"
+    },
+    {
+     "name": "metadata",
+     "type": [
+      "null",
+      "string"
+     ],
+     "default": null
+    }
+   ]
+  },
+  "defaults": {
+   "type": "record",
+   "name": "Def",
+   "fields": [
+    {
+     "name": "a",
+     "type": "int"
+    },
+    {
+     "name": "b",
+     "type": "string",
+     "default": "x"
+    },
+    {
+     "name": "c",
+     "type": [
+      "null",
+      "int"
+     ],
+     "default": null
+    }
+   ]
+  },
+  "nested": {
+   "type": "record",
+   "name": "Outer",
+   "namespace": "ex",
+   "fields": [
+    {
+     "name": "inner",
+     "type": {
+      "type": "record",
+      "name": "In",
+      "fields": [
+       {
+        "name": "x",
+        "type": "int"
+       },
+       {
+        "name": "tags",
+        "type": {
+         "type": "array",
+         "items": "string"
+        }
+       }
+      ]
+     }
+    },
+    {
+     "name": "list",
+     "type": {
+      "type": "array",
+      "items": "In"
+     }
+    },
+    {
+     "name": "m",
+     "type": {
+      "type": "map",
+      "values": {
+       "type": "array",
+       "items": "long"
+      }
+     }
+    },
+    {
+     "name": "e",
+     "type": {
+      "type": "enum",
+      "name": "E",
+      "symbols": [
+       "A",
+       "B",
+       "C"
+      ]
+     }
+    },
+    {
+     "name": "fx",
+     "type": {
+      "type": "fixed",
+      "name": "Fx",
+      "size": 3
+     }
+    },
+    {
+     "name": "opt",
+     "type": [
+      "null",
+      "In"
+     ],
+     "default": null
+    }
+   ]
+  },
+  "str": "string",
+  "int": "int",
+  "long": "long",
+  "bytes": "bytes",
+  "fixed4": {
+   "type": "fixed",
+   "name": "F4",
+   "size": 4
+  },
+  "enum": {
+   "type": "enum",
+   "name": "Suit",
+   "symbols": [
+    "SPADES",
+    "HEARTS"
+   ]
+  },
+  "fd": {
+   "type": "record",
+   "name": "FD",
+   "fields": [
+    {
+     "name": "f",
+     "type": "float"
+    },
+    {
+     "name": "d",
+     "type": "double"
+    }
+   ]
+  },
+  "map": {
+   "type": "map",
+   "values": "int"
+  },
+  "arr": {
+   "type": "array",
+   "items": [
+    "null",
+    "string"
+   ]
+  },
+  "topunion": [
+   "null",
+   "string",
+   "int"
+  ],
+  "recunion": {
+   "type": "record",
+   "name": "RU",
+   "namespace": "a.b",
+   "fields": [
+    {
+     "name": "r",
+     "type": [
+      "null",
+      {
+       "type": "record",
+       "name": "Leaf",
+       "fields": [
+        {
+         "name": "v",
+         "type": "int"
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  }
+ },
+ "cases": [
+  {
+   "schema": "prim",
+   "json": "{\"n\":null,\"b\":true,\"i\":1,\"l\":2,\"f\":1.5,\"d\":2.25,\"s\":\"hi\",\"by\":\"\\u0000\\u00ff\\u0041\"}"
+  },
+  {
+   "schema": "prim",
+   "json": "{\"b\":true,\"n\":null,\"l\":2,\"i\":1,\"d\":2.25,\"f\":1.5,\"by\":\"\",\"s\":\"hi\"}"
+  },
+  {
+   "schema": "prim",
+   "json": "{\"n\":null,\"b\":true,\"i\":1,\"l\":2,\"f\":1,\"d\":2,\"s\":\"hi\",\"by\":\"\"}"
+  },
+  {
+   "schema": "prim",
+   "json": "{\"n\":null,\"b\":true,\"i\":1.0,\"l\":2,\"f\":1,\"d\":2,\"s\":\"hi\",\"by\":\"\"}"
+  },
+  {
+   "schema": "prim",
+   "json": "{\"n\":null,\"b\":true,\"i\":\"1\",\"l\":2,\"f\":1,\"d\":2,\"s\":\"hi\",\"by\":\"\"}"
+  },
+  {
+   "schema": "prim",
+   "json": "{\"n\":null,\"b\":true,\"i\":2147483648,\"l\":2,\"f\":1,\"d\":2,\"s\":\"hi\",\"by\":\"\"}"
+  },
+  {
+   "schema": "prim",
+   "json": "{\"n\":null,\"b\":true,\"i\":1,\"l\":9223372036854775808,\"f\":1,\"d\":2,\"s\":\"hi\",\"by\":\"\"}"
+  },
+  {
+   "schema": "prim",
+   "json": "{\"n\":null,\"b\":true,\"i\":1,\"l\":2.5,\"f\":1,\"d\":2,\"s\":\"hi\",\"by\":\"\"}"
+  },
+  {
+   "schema": "prim",
+   "json": "{\"n\":null,\"b\":true,\"i\":1,\"l\":2,\"f\":\"NaN\",\"d\":\"Infinity\",\"s\":\"hi\",\"by\":\"\"}"
+  },
+  {
+   "schema": "prim",
+   "json": "{\"n\":null,\"b\":true,\"i\":1,\"l\":2,\"f\":\"-Infinity\",\"d\":\"NaN\",\"s\":\"hi\",\"by\":\"\"}"
+  },
+  {
+   "schema": "prim",
+   "json": "{\"n\":null,\"b\":true,\"i\":1,\"l\":2,\"f\":\"1.5\",\"d\":\"2\",\"s\":\"hi\",\"by\":\"\"}"
+  },
+  {
+   "schema": "prim",
+   "json": "{\"n\":null,\"b\":\"true\",\"i\":1,\"l\":2,\"f\":1,\"d\":2,\"s\":\"hi\",\"by\":\"\"}"
+  },
+  {
+   "schema": "prim",
+   "json": "{\"n\":null,\"b\":true,\"i\":1,\"l\":2,\"f\":1,\"d\":2,\"s\":5,\"by\":\"\"}"
+  },
+  {
+   "schema": "prim",
+   "json": "{\"n\":null,\"b\":true,\"i\":1,\"l\":2,\"f\":1,\"d\":2,\"s\":\"hi\",\"by\":\"\\u0100\"}"
+  },
+  {
+   "schema": "prim",
+   "json": "{\"n\":null,\"b\":true,\"i\":1,\"l\":2,\"f\":1,\"d\":2,\"s\":\"hi\"}"
+  },
+  {
+   "schema": "prim",
+   "json": "{\"n\":null,\"b\":true,\"i\":1,\"l\":2,\"f\":1,\"d\":2,\"s\":\"hi\",\"by\":\"\",\"extra\":1}"
+  },
+  {
+   "schema": "prim",
+   "json": "{\"extra\":1,\"n\":null,\"b\":true,\"i\":1,\"l\":2,\"f\":1,\"d\":2,\"s\":\"hi\",\"by\":\"\"}"
+  },
+  {
+   "schema": "prim",
+   "json": "{\"n\":null,\"extra\":{\"deep\":[1,2]},\"b\":true,\"i\":1,\"l\":2,\"f\":1,\"d\":2,\"s\":\"hi\",\"by\":\"\"}"
+  },
+  {
+   "schema": "prim",
+   "json": "{\"n\":1,\"b\":true,\"i\":1,\"l\":2,\"f\":1,\"d\":2,\"s\":\"hi\",\"by\":\"\"}"
+  },
+  {
+   "schema": "prim",
+   "json": "{\"n\":null,\"b\":null,\"i\":1,\"l\":2,\"f\":1,\"d\":2,\"s\":\"hi\",\"by\":\"\"}"
+  },
+  {
+   "schema": "prim",
+   "json": "{\"n\":null,\"b\":true,\"i\":-2147483648,\"l\":-9223372036854775808,\"f\":3.4028235e38,\"d\":1e308,\"s\":\"q\\\"b\\\\s/n\\nt\\tc\\u0001e\\u00e9z\\u2028o\\ud83d\\ude00x\\u007f\\u0080\\u009f\\u00a0\\u200b\",\"by\":\"\\\"\\\\\\n\\u0001\\u007f\\u0080\\u00a0\"}"
+  },
+  {
+   "schema": "prim",
+   "json": "{\"n\":null,\"b\":true,\"i\":1,\"l\":2,\"f\":0.1,\"d\":0.1,\"s\":\"\",\"by\":\"\"}"
+  },
+  {
+   "schema": "prim",
+   "json": "{\"n\":null,\"b\":true,\"i\":1,\"l\":2,\"f\":1e10,\"d\":1e21,\"s\":\"\",\"by\":\"\"}"
+  },
+  {
+   "schema": "prim",
+   "json": "{\"n\":null,\"b\":true,\"i\":1,\"l\":2,\"f\":1.0E-5,\"d\":1.0E-7,\"s\":\"\",\"by\":\"\"}"
+  },
+  {
+   "schema": "prim",
+   "json": "{\"n\":null,\"b\":true,\"i\":1,\"l\":2,\"f\":123456789,\"d\":100,\"s\":\"\",\"by\":\"\"}"
+  },
+  {
+   "schema": "prim",
+   "json": "{\"n\":null,\"b\":true,\"i\":1,\"l\":2,\"f\":-0.0,\"d\":-0.0,\"s\":\"\",\"by\":\"\"}"
+  },
+  {
+   "schema": "prim",
+   "json": "{\"n\":null,\"b\":true,\"i\":1,\"l\":2,\"f\":1e39,\"d\":1e400,\"s\":\"\",\"by\":\"\"}"
+  },
+  {
+   "schema": "prim",
+   "json": "{\"n\":null,\"b\":true,\"i\":01,\"l\":2,\"f\":1,\"d\":2,\"s\":\"\",\"by\":\"\"}"
+  },
+  {
+   "schema": "prim",
+   "json": "{\"n\":null,\"b\":true,\"i\":1,\"l\":2,\"f\":1,\"d\":2,\"s\":\"hi\",\"by\":\"\"} trailing"
+  },
+  {
+   "schema": "prim",
+   "json": "{\"n\":null,\"b\":true,\"i\":1,\"l\":2,\"f\":1,\"d\":2,\"s\":\"hi\",\"by\":\"\",}"
+  },
+  {
+   "schema": "prim",
+   "json": ""
+  },
+  {
+   "schema": "prim",
+   "json": "[]"
+  },
+  {
+   "schema": "prim",
+   "json": "{'n':null}"
+  },
+  {
+   "schema": "prim",
+   "json": "{\"n\":null,\"b\":true,\"i\":1,\"l\":2,\"f\":1,\"d\":2,\"s\":\"hi\",\"by\":\"\",\"s\":\"dup\"}"
+  },
+  {
+   "schema": "prim",
+   "json": "{\"n\":null,\"b\":true,\"i\":1,\"l\":2,\"f\":1,\"d\":2,\"s\":\"hi\",\"by\":\"\","
+  },
+  {
+   "schema": "ns",
+   "json": "{\"v\":null}"
+  },
+  {
+   "schema": "ns",
+   "json": "{\"v\":{\"string\":\"x\"}}"
+  },
+  {
+   "schema": "ns",
+   "json": "{\"v\":\"x\"}"
+  },
+  {
+   "schema": "ns",
+   "json": "{}"
+  },
+  {
+   "schema": "ns",
+   "json": "{\"v\":{\"string\":\"x\",\"int\":1}}"
+  },
+  {
+   "schema": "ns",
+   "json": "{\"v\":{\"int\":1}}"
+  },
+  {
+   "schema": "ns",
+   "json": "{\"v\":{}}"
+  },
+  {
+   "schema": "ns",
+   "json": "{\"v\":{\"null\":null}}"
+  },
+  {
+   "schema": "multi",
+   "json": "{\"u\":{\"int\":5}}"
+  },
+  {
+   "schema": "multi",
+   "json": "{\"u\":{\"string\":\"s\"}}"
+  },
+  {
+   "schema": "multi",
+   "json": "{\"u\":{\"ns.x.Inner\":{\"a\":1}}}"
+  },
+  {
+   "schema": "multi",
+   "json": "{\"u\":{\"Inner\":{\"a\":1}}}"
+  },
+  {
+   "schema": "multi",
+   "json": "{\"u\":{\"array\":[1,2]}}"
+  },
+  {
+   "schema": "multi",
+   "json": "{\"u\":{\"map\":{\"k\":\"v\"}}}"
+  },
+  {
+   "schema": "multi",
+   "json": "{\"u\":{\"ex.Color\":\"RED\"}}"
+  },
+  {
+   "schema": "multi",
+   "json": "{\"u\":{\"Color\":\"RED\"}}"
+  },
+  {
+   "schema": "multi",
+   "json": "{\"u\":{\"boolean\":false}}"
+  },
+  {
+   "schema": "multi",
+   "json": "{\"u\":{\"double\":1}}"
+  },
+  {
+   "schema": "multi",
+   "json": "{\"u\":{\"bytes\":\"ab\"}}"
+  },
+  {
+   "schema": "multi",
+   "json": "{\"u\":5}"
+  },
+  {
+   "schema": "logical",
+   "json": "{\"ts\":1700000000000,\"date\":19000,\"dec\":\"\\u0000\\u0001\",\"id\":\"123e4567-e89b-12d3-a456-426614174000\",\"fdec\":\"\\u0000\\u0000\\u0000\\u000a\",\"tm\":5,\"ots\":{\"long\":7}}"
+  },
+  {
+   "schema": "logical",
+   "json": "{\"ts\":1700000000000,\"date\":19000,\"dec\":\"\\u0000\\u0001\",\"id\":\"123e4567-e89b-12d3-a456-426614174000\",\"fdec\":\"\\u0000\\u0000\\u0000\\u000a\",\"tm\":5,\"ots\":{\"long.timestamp-micros\":7}}"
+  },
+  {
+   "schema": "logical",
+   "json": "{\"ts\":\"2023-01-01T00:00:00Z\",\"date\":19000,\"dec\":\"\\u0000\\u0001\",\"id\":\"x\",\"fdec\":\"\\u0000\\u0000\\u0000\\u000a\",\"tm\":5,\"ots\":null}"
+  },
+  {
+   "schema": "mission",
+   "json": "{\"event_type\":\"mission_created\",\"mission_id\":\"m-1\",\"mission_name\":\"Alpha\",\"destination\":\"Mars\",\"timestamp\":\"2025-06-15T10:00:00Z\",\"metadata\":{\"string\":\"{\\\"priority\\\": \\\"high\\\"}\"}}"
+  },
+  {
+   "schema": "mission",
+   "json": "{\"event_type\":\"mission_created\",\"mission_id\":\"m-1\",\"mission_name\":\"Alpha\",\"destination\":\"Mars\",\"timestamp\":\"2025-06-15T10:00:00Z\",\"metadata\":null}"
+  },
+  {
+   "schema": "mission",
+   "json": "{\"event_type\":\"mission_created\",\"mission_id\":\"m-1\",\"mission_name\":\"Alpha\",\"destination\":\"Mars\",\"timestamp\":\"2025-06-15T10:00:00Z\",\"metadata\":\"{\\\"priority\\\": \\\"high\\\"}\"}"
+  },
+  {
+   "schema": "mission",
+   "json": "{\"event_type\":\"mission_created\",\"mission_id\":\"m-1\",\"mission_name\":\"Alpha\",\"destination\":\"Mars\",\"timestamp\":\"2025-06-15T10:00:00Z\"}"
+  },
+  {
+   "schema": "defaults",
+   "json": "{\"a\":1}"
+  },
+  {
+   "schema": "defaults",
+   "json": "{\"a\":1,\"b\":\"y\",\"c\":{\"int\":2}}"
+  },
+  {
+   "schema": "defaults",
+   "json": "{}"
+  },
+  {
+   "schema": "nested",
+   "json": "{\"inner\":{\"x\":1,\"tags\":[\"a\",\"b\"]},\"list\":[{\"x\":2,\"tags\":[]}],\"m\":{\"zeta\":[1],\"alpha\":[2,3],\"mid\":[],\"b\":[4],\"a\":[5],\"aa\":[6],\"Aa\":[7],\"BB\":[8]},\"e\":\"B\",\"fx\":\"abc\",\"opt\":{\"ex.In\":{\"x\":3,\"tags\":[\"t\"]}}}"
+  },
+  {
+   "schema": "nested",
+   "json": "{\"inner\":{\"x\":1,\"tags\":[]},\"list\":[],\"m\":{},\"e\":\"D\",\"fx\":\"abc\",\"opt\":null}"
+  },
+  {
+   "schema": "nested",
+   "json": "{\"inner\":{\"x\":1,\"tags\":[]},\"list\":[],\"m\":{},\"e\":\"A\",\"fx\":\"abcd\",\"opt\":null}"
+  },
+  {
+   "schema": "nested",
+   "json": "{\"inner\":{\"x\":1,\"tags\":[]},\"list\":[],\"m\":{},\"e\":\"A\",\"fx\":\"abc\",\"opt\":{\"In\":{\"x\":1,\"tags\":[]}}}"
+  },
+  {
+   "schema": "nested",
+   "json": "{\"inner\":{\"x\":1,\"tags\":[1]},\"list\":[],\"m\":{},\"e\":\"A\",\"fx\":\"abc\",\"opt\":null}"
+  },
+  {
+   "schema": "nested",
+   "json": "{\"inner\":{\"x\":1,\"tags\":[]},\"list\":[{\"x\":2,\"tags\":[]},{\"x\":\"bad\",\"tags\":[]}],\"m\":{},\"e\":\"A\",\"fx\":\"abc\",\"opt\":null}"
+  },
+  {
+   "schema": "nested",
+   "json": "{\"inner\":{\"x\":1,\"tags\":[]},\"list\":[],\"m\":{\"k\":[1,\"x\"]},\"e\":\"A\",\"fx\":\"abc\",\"opt\":null}"
+  },
+  {
+   "schema": "str",
+   "json": "\"hello\""
+  },
+  {
+   "schema": "str",
+   "json": "5"
+  },
+  {
+   "schema": "int",
+   "json": "42"
+  },
+  {
+   "schema": "long",
+   "json": "42"
+  },
+  {
+   "schema": "bytes",
+   "json": "\"\\u00e9t\\u00e9\""
+  },
+  {
+   "schema": "fixed4",
+   "json": "\"abcd\""
+  },
+  {
+   "schema": "enum",
+   "json": "\"HEARTS\""
+  },
+  {
+   "schema": "enum",
+   "json": "\"CLUBS\""
+  },
+  {
+   "schema": "fd",
+   "json": "{\"f\":1.1,\"d\":1.1}"
+  },
+  {
+   "schema": "fd",
+   "json": "{\"f\":100.0,\"d\":1234567.0}"
+  },
+  {
+   "schema": "fd",
+   "json": "{\"f\":1.0E7,\"d\":1.0E7}"
+  },
+  {
+   "schema": "fd",
+   "json": "{\"f\":0.001,\"d\":0.001}"
+  },
+  {
+   "schema": "fd",
+   "json": "{\"f\":0.0001,\"d\":0.0001}"
+  },
+  {
+   "schema": "fd",
+   "json": "{\"f\":16777217,\"d\":9007199254740993}"
+  },
+  {
+   "schema": "map",
+   "json": "{\"b\":1,\"a\":2,\"c\":3,\"key10\":4,\"key2\":5,\"x\":6,\"y\":7,\"z\":8,\"w\":9,\"v\":10,\"u\":11,\"t\":12,\"s\":13}"
+  },
+  {
+   "schema": "map",
+   "json": "{}"
+  },
+  {
+   "schema": "map",
+   "json": "{\"a\":1,\"a\":2}"
+  },
+  {
+   "schema": "arr",
+   "json": "[null,{\"string\":\"a\"},null]"
+  },
+  {
+   "schema": "arr",
+   "json": "[null,\"a\"]"
+  },
+  {
+   "schema": "topunion",
+   "json": "null"
+  },
+  {
+   "schema": "topunion",
+   "json": "{\"int\":3}"
+  },
+  {
+   "schema": "topunion",
+   "json": "{\"string\":\"s\"}"
+  },
+  {
+   "schema": "recunion",
+   "json": "{\"r\":{\"a.b.Leaf\":{\"v\":1}}}"
+  },
+  {
+   "schema": "recunion",
+   "json": "{\"r\":{\"Leaf\":{\"v\":1}}}"
+  },
+  {
+   "schema": "recunion",
+   "json": "{\"r\":{\"v\":1}}"
+  },
+  {
+   "schema": "fixed4",
+   "json": "\"\\u00ff\\u0080\\u0000\\u007f\""
+  },
+  {
+   "schema": "prim",
+   "json": "{\"n\":null,\"b\":true,\"i\":1.5,\"l\":2,\"f\":1,\"d\":2,\"s\":\"\",\"by\":\"\"}"
+  },
+  {
+   "schema": "prim",
+   "json": "{\"n\":null,\"b\":true,\"i\":-1.9,\"l\":2,\"f\":1,\"d\":2,\"s\":\"\",\"by\":\"\"}"
+  },
+  {
+   "schema": "prim",
+   "json": "{\"n\":null,\"b\":true,\"i\":1e2,\"l\":2,\"f\":1,\"d\":2,\"s\":\"\",\"by\":\"\"}"
+  },
+  {
+   "schema": "prim",
+   "json": "{\"n\":null,\"b\":true,\"i\":3e9,\"l\":2,\"f\":1,\"d\":2,\"s\":\"\",\"by\":\"\"}"
+  },
+  {
+   "schema": "prim",
+   "json": "{\"n\":null,\"b\":true,\"i\":1,\"l\":2,\"f\":123456789012345678901234567890,\"d\":123456789012345678901234567890,\"s\":\"\",\"by\":\"\"}"
+  },
+  {
+   "schema": "prim",
+   "json": "{\"n\":null,\"b\":true,\"i\":1,\"l\":2,\"f\":1.5e-46,\"d\":4.9e-325,\"s\":\"\",\"by\":\"\"}"
+  },
+  {
+   "schema": "prim",
+   "json": "{\"n\":null,\"b\":true,\"i\":1,\"l\":2,\"f\":1,\"d\":\"x\",\"s\":\"\",\"by\":\"\"}"
+  },
+  {
+   "schema": "fd",
+   "json": "{\"f\":1,\"d\":\"x\"}"
+  },
+  {
+   "schema": "fd",
+   "json": "{\"f\":1,\"d\":true}"
+  },
+  {
+   "schema": "map",
+   "json": "{\"\\u00e9\":1,\"\\u65e5\\u672c\":2,\"\\u00fc\":3,\"a\":4}"
+  },
+  {
+   "schema": "map",
+   "json": "{\"Aa\":1,\"BB\":2,\"C#\":3}"
+  },
+  {
+   "schema": "map",
+   "json": "{\"BB\":1,\"Aa\":2}"
+  },
+  {
+   "schema": "map",
+   "json": "{\"k1\":1,\"k2\":2,\"k3\":3,\"k4\":4,\"k5\":5,\"k6\":6,\"k7\":7}"
+  },
+  {
+   "schema": "map",
+   "json": "{\"q\":1,\"a\":2,\"z\":3,\"m\":4,\"b\":5,\"y\":6,\"c\":7,\"x\":8,\"d\":9,\"w\":10,\"e\":11,\"v\":12,\"f\":13,\"u\":14,\"g\":15,\"t\":16,\"h\":17,\"s\":18,\"i\":19,\"r\":20,\"j\":21,\"p\":22,\"k\":23,\"o\":24,\"l\":25,\"n\":26}"
+  },
+  {
+   "schema": "ns",
+   "json": "{\"v\":{\"string\":\"x\"},\"v\":null}"
+  },
+  {
+   "schema": "multi",
+   "json": "{\"u\":{\"int\":5,\"string\":\"x\"}}"
+  },
+  {
+   "schema": "multi",
+   "json": "{\"u\":{\"null\":null}}"
+  },
+  {
+   "schema": "multi",
+   "json": "{\"u\":null}"
+  },
+  {
+   "schema": "long",
+   "json": "2.0"
+  },
+  {
+   "schema": "long",
+   "json": "1e2"
+  },
+  {
+   "schema": "long",
+   "json": "1e19"
+  },
+  {
+   "schema": "long",
+   "json": "9.2233720368547758E18"
+  },
+  {
+   "schema": "long",
+   "json": "-0.0"
+  },
+  {
+   "schema": "long",
+   "json": "1.0000000001"
+  },
+  {
+   "schema": "long",
+   "json": "123456789.5"
+  },
+  {
+   "schema": "int",
+   "json": "-0.0"
+  },
+  {
+   "schema": "int",
+   "json": "2147483647.0"
+  },
+  {
+   "schema": "int",
+   "json": "2147483648.0"
+  },
+  {
+   "schema": "int",
+   "json": "2147483520.0"
+  },
+  {
+   "schema": "int",
+   "json": "16777217.0"
+  },
+  {
+   "schema": "int",
+   "json": "1.00000001"
+  },
+  {
+   "schema": "int",
+   "json": "0.9999999999"
+  },
+  {
+   "schema": "int",
+   "json": "-2147483649.0"
+  },
+  {
+   "schema": "int",
+   "json": "1E1"
+  },
+  {
+   "schema": "int",
+   "json": "\"5\""
+  },
+  {
+   "schema": "bytes",
+   "json": "5"
+  },
+  {
+   "schema": "bytes",
+   "json": "null"
+  },
+  {
+   "schema": "str",
+   "json": "null"
+  },
+  {
+   "schema": "enum",
+   "json": "5"
+  },
+  {
+   "schema": "fixed4",
+   "json": "5"
+  },
+  {
+   "schema": "arr",
+   "json": "{}"
+  },
+  {
+   "schema": "map",
+   "json": "[]"
+  },
+  {
+   "schema": "map",
+   "json": "{\"a\":\"x\"}"
+  }
+ ],
+ "binary": [
+  {
+   "schema": "map",
+   "hex": "0602610302620202630400"
+  },
+  {
+   "schema": "map",
+   "hex": "010804416102020442420400"
+  },
+  {
+   "schema": "map",
+   "hex": "04044242020441610400"
+  },
+  {
+   "schema": "nested",
+   "hex": "0204026102620002040000100261020a000262020800046161020c00044161020e000442420210000a616c70686104040600066d696400087a6574610202000002616263020602027400"
+  },
+  {
+   "schema": "fixed4",
+   "hex": "ff80007f"
+  },
+  {
+   "schema": "arr",
+   "hex": "0600020261000000"
+  },
+  {
+   "schema": "topunion",
+   "hex": "0406"
+  },
+  {
+   "schema": "logical",
+   "hex": "80a0abfef962f0a8020400014831323365343536372d653839622d313264332d613435362d3432363631343137343030300000000a0a020e"
+  }
+ ]
+}

@@ -1,0 +1,6 @@
+{
+  "scans": [
+    {"scanId": "SC-TRK-DELIVERED-1", "parcelRef": "PX-TRK-DELIVERED-01", "status": "PICKED_UP", "location": "Shop Sued", "scannedAt": {"$date": "2026-09-03T08:00:00Z"}},
+    {"scanId": "SC-TRK-DELIVERED-2", "parcelRef": "PX-TRK-DELIVERED-01", "status": "DELIVERED", "location": "Front door", "scannedAt": {"$date": "2026-09-03T16:45:00Z"}}
+  ]
+}

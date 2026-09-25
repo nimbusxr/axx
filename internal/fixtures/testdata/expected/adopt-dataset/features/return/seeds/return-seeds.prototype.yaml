@@ -1,0 +1,8 @@
+# Shared shape of every return-seeds fixture (modal values from adoption);
+# fixture files carry only their deltas.
+data:
+  space.missions:
+    status: launched
+    metadata: "{\"priority\": \"high\"}"
+  space.spacecraft:
+    capacity: 5

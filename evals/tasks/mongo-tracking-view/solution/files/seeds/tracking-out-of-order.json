@@ -1,0 +1,7 @@
+{
+  "scans": [
+    {"scanId": "SC-TRK-ORDER-1", "parcelRef": "PX-TRK-ORDER-01", "status": "PICKED_UP", "location": "Shop Mitte", "scannedAt": {"$date": "2026-09-01T08:00:00Z"}},
+    {"scanId": "SC-TRK-ORDER-3", "parcelRef": "PX-TRK-ORDER-01", "status": "OUT_FOR_DELIVERY", "location": "Leipzig depot", "scannedAt": {"$date": "2026-09-01T12:00:00Z"}},
+    {"scanId": "SC-TRK-ORDER-2", "parcelRef": "PX-TRK-ORDER-01", "status": "IN_TRANSIT", "location": "Halle hub", "scannedAt": {"$date": "2026-09-01T10:00:00Z"}}
+  ]
+}

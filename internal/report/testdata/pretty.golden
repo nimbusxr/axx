@@ -1,0 +1,111 @@
+Feature: Orders
+
+  Scenario: Create an order  # features/orders.feature:8
+    + Given the orders service is running  (background)
+    + When I create an order:  (150ms)
+        | sku | qty |
+        | A1  | 2   |
+    + Then the response status code is 201
+
+  Scenario: Reject duplicate order  # features/orders.feature:15
+    + Given the orders service is running  (background)
+    + When I send the order again
+        log: POST http://localhost:8080/orders -> 201 Created
+        attachment: request.json (application/json, 20 B)
+          {"sku":"A1","qty":2}
+        attachment: screenshot.png (image/png, 8 B)
+    x Then the response body is:  (1.2s)
+        """json
+        {"error": "duplicate", "code": 409}
+        """
+        response body mismatch
+          expected: {"error":"duplicate","code":409}
+          actual:   {"id":7,"sku":"A1","status":"created"}
+          diff (-expected +actual):
+          @@ -1,4 +1,5 @@
+           {
+          -  "code": 409,
+          -  "error": "duplicate"
+          +  "id": 7,
+          +  "sku": "A1",
+          +  "status": "created"
+           }
+
+  Scenario: Cache responses  # features/orders.feature:22
+    + Given the orders service is running  (background)
+    + When I send the order again
+    ? Then the response is cached  (undefined)
+        did you mean:
+          the order is {word}  (orders.state)
+          the order is valid  (orders.valid)
+          the response body is:  (rest.response.body)
+
+  Scenario: Ambiguous check  # features/orders.feature:26
+    + Given the orders service is running  (background)
+    ! Then the order is valid  (ambiguous)
+        ambiguous step: 2 definitions match
+          - the order is valid (orders.valid)
+          - the order is {word} (orders.state)
+
+  Scenario: Pending work  # features/orders.feature:29
+    + Given the orders service is running  (background)
+    ? Then refunds are processed  (pending)
+
+  Scenario Outline: Order 1 items  # features/orders.feature:38
+    + Given the orders service is running  (background)
+    + When I order 1 items
+    + Then the response status code is 201
+
+  Scenario Outline: Order 0 items  # features/orders.feature:39
+    + Given the orders service is running  (background)
+    + When I order 0 items
+    x Then the response status code is 400
+        unexpected status code
+          expected: 400
+          actual:   201
+
+Feature: Health
+
+  Scenario: Panicky  # features/health.feature:3
+    x Given a panicking step
+        panic: boom
+          example.com/packs/health.panicky(0x14000132000, {0x0, 0x0})
+            /work/packs/health/steps.go:17 +0x2c
+          github.com/nimbusxr/axx/internal/runner.(*Runner).execStep.func2()
+            /src/axx/internal/runner/scenario.go:199 +0x38
+
+  Scenario: Slow  # features/health.feature:6
+    x Given a slow step  (2.0s)
+        timeout: step timed out after 2s
+
+  Scenario: Skipped one  # features/health.feature:9
+    - Given a skipped step
+    - Then a panicking step
+
+  Scenario: Broken setup  # features/health.feature:13
+    x Before hook db.reset
+        connection refused
+    - Given a slow step
+
+Failed scenarios:
+  x Reject duplicate order  # features/orders.feature:15
+      rerun: axx run features/orders.feature:15
+  ? Cache responses  # features/orders.feature:22  (undefined)
+      rerun: axx run features/orders.feature:22
+  ! Ambiguous check  # features/orders.feature:26  (ambiguous)
+      rerun: axx run features/orders.feature:26
+  ? Pending work  # features/orders.feature:29  (pending)
+      rerun: axx run features/orders.feature:29
+  x Order 0 items  # features/orders.feature:39
+      rerun: axx run features/orders.feature:39
+  x Panicky  # features/health.feature:3
+      rerun: axx run features/health.feature:3
+  x Slow  # features/health.feature:6
+      rerun: axx run features/health.feature:6
+  x Broken setup  # features/health.feature:13
+      rerun: axx run features/health.feature:13
+
+11 scenarios (5 failed, 1 ambiguous, 1 undefined, 1 pending, 1 skipped, 2 passed)
+24 steps (4 failed, 1 ambiguous, 1 undefined, 1 pending, 3 skipped, 14 passed)
+NOT RUN 2
+Finished in 12.4s

@@ -1,0 +1,10 @@
+space.missions:
+  - id: "ret-mission-1"
+    name: "Refund Mission"
+    status: "launched"
+    metadata: '{"priority": "high"}'
+    budget: 10.5
+space.spacecraft:
+  - id: "ret-craft-1"
+    name: "Refund One"
+    capacity: 5

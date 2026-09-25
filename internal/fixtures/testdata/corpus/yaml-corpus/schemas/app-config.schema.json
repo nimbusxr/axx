@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AppConfig",
+  "type": "object",
+  "required": ["service", "port", "mode"],
+  "properties": {
+    "service": { "type": "string" },
+    "port": { "type": "integer" },
+    "mode": { "type": "string", "enum": ["live", "shadow"] },
+    "timeouts": {
+      "type": "object",
+      "properties": {
+        "connect_ms": { "type": "integer", "default": 250 },
+        "read_ms": { "type": "integer" }
+      },
+      "additionalProperties": false
+    },
+    "features": { "type": "object", "additionalProperties": { "type": "boolean" } },
+    "tags": { "type": "array", "items": { "type": "string" } }
+  },
+  "additionalProperties": false
+}

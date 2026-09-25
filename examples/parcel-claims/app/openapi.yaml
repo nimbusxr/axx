@@ -1,0 +1,79 @@
+openapi: 3.1.0
+info:
+  title: Claims
+  version: 1.0.0
+  description: Shops claim for insured parcels that arrived damaged or never arrived.
+paths:
+  /api/claims:
+    post:
+      operationId: fileClaim
+      summary: File a claim for a parcel
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ClaimRequest' }
+            examples:
+              damaged:
+                value: { parcel: PX-4101, reason: DAMAGED, description: 'Crushed box, the vase inside is broken' }
+      responses:
+        '201':
+          description: Filed. A damaged parcel awaits its evidence photo; a lost one is decided at once.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Claim' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /api/claims/{id}:
+    get:
+      operationId: getClaim
+      summary: Look up a claim
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, pattern: '^CLM-' } }
+      responses:
+        '200':
+          description: The claim
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Claim' }
+        '404': { $ref: '#/components/responses/Problem' }
+components:
+  responses:
+    Problem:
+      description: Why the request failed
+      content:
+        application/problem+json:
+          schema:
+            type: object
+            required: [status, title, detail]
+            properties:
+              status: { type: integer }
+              title: { type: string }
+              detail: { type: string }
+  schemas:
+    ClaimRequest:
+      type: object
+      required: [parcel, reason]
+      additionalProperties: false
+      properties:
+        parcel: { type: string, pattern: '^PX-' }
+        reason: { type: string, enum: [DAMAGED, LOST] }
+        description: { type: string }
+    Claim:
+      type: object
+      required: [id, parcel, reason, status, amount, currency, source, filedAt]
+      properties:
+        id: { type: string }
+        parcel: { type: string }
+        reason: { type: string, enum: [DAMAGED, LOST] }
+        description: { type: string }
+        status: { type: string, enum: [AWAITING_EVIDENCE, APPROVED, REFERRED, REJECTED, PAID, REFUND_FAILED] }
+        amount: { type: number }
+        currency: { type: string }
+        note: { type: string }
+        source: { type: string }
+        filedAt: { type: string, format: date-time }
+        decidedAt: { type: string, format: date-time }
+        paidAt: { type: string, format: date-time }

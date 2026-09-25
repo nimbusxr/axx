@@ -1,0 +1,575 @@
+{
+  "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+  "version": "2.1.0",
+  "runs": [
+    {
+      "tool": {
+        "driver": {
+          "name": "axx lint",
+          "informationUri": "https://axx.nimbusxr.us",
+          "version": "0.0.0-test",
+          "rules": [
+            {
+              "id": "database-seed-ids",
+              "name": "Database seed IDs",
+              "shortDescription": {
+                "text": "Database seed IDs"
+              },
+              "fullDescription": {
+                "text": "Seed row IDs must be unique across all seed files"
+              },
+              "helpUri": "https://axx.nimbusxr.us/references/error-codes/#axx-e0820",
+              "defaultConfiguration": {
+                "level": "error"
+              },
+              "properties": {
+                "type": "regex",
+                "validation": "cross-file-unique"
+              }
+            },
+            {
+              "id": "legacy-ids",
+              "name": "Legacy IDs",
+              "shortDescription": {
+                "text": "Legacy IDs"
+              },
+              "helpUri": "https://axx.nimbusxr.us/references/error-codes/#axx-e0820",
+              "defaultConfiguration": {
+                "level": "warning"
+              },
+              "properties": {
+                "type": "regex",
+                "validation": "global-unique"
+              }
+            },
+            {
+              "id": "status-values",
+              "name": "Status values",
+              "shortDescription": {
+                "text": "Status values"
+              },
+              "helpUri": "https://axx.nimbusxr.us/references/error-codes/#axx-e0820",
+              "defaultConfiguration": {
+                "level": "error"
+              },
+              "properties": {
+                "type": "regex",
+                "validation": "global-unique"
+              }
+            },
+            {
+              "id": "event-types",
+              "name": "Event types",
+              "shortDescription": {
+                "text": "Event types"
+              },
+              "helpUri": "https://axx.nimbusxr.us/references/error-codes/#axx-e0820",
+              "defaultConfiguration": {
+                "level": "error"
+              },
+              "properties": {
+                "type": "jsonpath",
+                "validation": "global-unique"
+              }
+            },
+            {
+              "id": "mission-id-uniqueness",
+              "name": "mission_id uniqueness",
+              "shortDescription": {
+                "text": "mission_id uniqueness"
+              },
+              "helpUri": "https://axx.nimbusxr.us/references/error-codes/#axx-e0820",
+              "defaultConfiguration": {
+                "level": "error"
+              },
+              "properties": {
+                "type": "jsonpath",
+                "validation": "cross-file-unique"
+              }
+            },
+            {
+              "id": "sql-ordinals",
+              "name": "SQL selection and trigger ordinals",
+              "shortDescription": {
+                "text": "SQL selection and trigger ordinals"
+              },
+              "fullDescription": {
+                "text": "Selections and triggers are numbered in the order a scenario creates them; the ordinal in a retrieval step is only a label."
+              },
+              "helpUri": "https://axx.nimbusxr.us/references/error-codes/#axx-e0830",
+              "defaultConfiguration": {
+                "level": "warning"
+              },
+              "properties": {
+                "type": "builtin"
+              }
+            }
+          ]
+        }
+      },
+      "originalUriBaseIds": {
+        "%SRCROOT%": {
+          "uri": "file:///ROOT/"
+        }
+      },
+      "columnKind": "unicodeCodePoints",
+      "results": [
+        {
+          "ruleId": "database-seed-ids",
+          "ruleIndex": 0,
+          "level": "warning",
+          "message": {
+            "text": "skipped big/huge.yaml: 200 bytes exceeds lint.config.maxFileSize 150"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "big/huge.yaml",
+                  "uriBaseId": "%SRCROOT%"
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "axxLint/v1": "7911a8c47a845827c3c7cff715b8c2ad"
+          },
+          "properties": {
+            "code": "AXX-E0812"
+          }
+        },
+        {
+          "ruleId": "database-seed-ids",
+          "ruleIndex": 0,
+          "level": "error",
+          "message": {
+            "text": "value \"mission-1\" appears in 2 files (cross-file-unique); also at seeds/mock-data.yaml:2:10"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "seeds/missions.yaml",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startLine": 2,
+                  "startColumn": 10
+                }
+              }
+            }
+          ],
+          "relatedLocations": [
+            {
+              "id": 1,
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "seeds/mock-data.yaml",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startLine": 2,
+                  "startColumn": 10
+                }
+              },
+              "message": {
+                "text": "also here"
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "axxLint/v1": "24b5431e58fef44b61af61757da93fe1"
+          },
+          "properties": {
+            "code": "AXX-E0820",
+            "value": "mission-1"
+          }
+        },
+        {
+          "ruleId": "database-seed-ids",
+          "ruleIndex": 0,
+          "level": "error",
+          "message": {
+            "text": "value \"mission-1\" appears in 2 files (cross-file-unique); also at seeds/missions.yaml:2:10"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "seeds/mock-data.yaml",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startLine": 2,
+                  "startColumn": 10
+                }
+              }
+            }
+          ],
+          "relatedLocations": [
+            {
+              "id": 1,
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "seeds/missions.yaml",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startLine": 2,
+                  "startColumn": 10
+                }
+              },
+              "message": {
+                "text": "also here"
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "axxLint/v1": "f81d5d213da29c8e8895d446085b1bec"
+          },
+          "properties": {
+            "code": "AXX-E0820",
+            "value": "mission-1"
+          }
+        },
+        {
+          "ruleId": "legacy-ids",
+          "ruleIndex": 1,
+          "level": "warning",
+          "message": {
+            "text": "value \"legacy-1\" appears 2 times (global-unique); also at seeds/legacy.yaml:3:10"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "seeds/legacy.yaml",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startLine": 2,
+                  "startColumn": 10
+                }
+              }
+            }
+          ],
+          "relatedLocations": [
+            {
+              "id": 1,
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "seeds/legacy.yaml",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startLine": 3,
+                  "startColumn": 10
+                }
+              },
+              "message": {
+                "text": "also here"
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "axxLint/v1": "4ac0cce16ac6bf5880564a8e3154e046"
+          },
+          "properties": {
+            "code": "AXX-E0820",
+            "value": "legacy-1"
+          }
+        },
+        {
+          "ruleId": "legacy-ids",
+          "ruleIndex": 1,
+          "level": "warning",
+          "message": {
+            "text": "value \"legacy-1\" appears 2 times (global-unique); also at seeds/legacy.yaml:2:10"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "seeds/legacy.yaml",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startLine": 3,
+                  "startColumn": 10
+                }
+              }
+            }
+          ],
+          "relatedLocations": [
+            {
+              "id": 1,
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "seeds/legacy.yaml",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startLine": 2,
+                  "startColumn": 10
+                }
+              },
+              "message": {
+                "text": "also here"
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "axxLint/v1": "4ac0cce16ac6bf5880564a8e3154e046"
+          },
+          "properties": {
+            "code": "AXX-E0820",
+            "value": "legacy-1"
+          }
+        },
+        {
+          "ruleId": "status-values",
+          "ruleIndex": 2,
+          "level": "error",
+          "message": {
+            "text": "value \"planned\" appears 2 times (global-unique); also at seeds/mock-data.yaml:3:14"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "seeds/missions.yaml",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startLine": 3,
+                  "startColumn": 14
+                }
+              }
+            }
+          ],
+          "relatedLocations": [
+            {
+              "id": 1,
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "seeds/mock-data.yaml",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startLine": 3,
+                  "startColumn": 14
+                }
+              },
+              "message": {
+                "text": "also here"
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "axxLint/v1": "3b3f9a18aab0f8538493201c1a45c573"
+          },
+          "properties": {
+            "code": "AXX-E0820",
+            "value": "planned"
+          }
+        },
+        {
+          "ruleId": "status-values",
+          "ruleIndex": 2,
+          "level": "error",
+          "message": {
+            "text": "value \"planned\" appears 2 times (global-unique); also at seeds/missions.yaml:3:14"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "seeds/mock-data.yaml",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startLine": 3,
+                  "startColumn": 14
+                }
+              }
+            }
+          ],
+          "relatedLocations": [
+            {
+              "id": 1,
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "seeds/missions.yaml",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startLine": 3,
+                  "startColumn": 14
+                }
+              },
+              "message": {
+                "text": "also here"
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "axxLint/v1": "71d52c42be3fb8896a3c8d3e02b43997"
+          },
+          "properties": {
+            "code": "AXX-E0820",
+            "value": "planned"
+          }
+        },
+        {
+          "ruleId": "mission-id-uniqueness",
+          "ruleIndex": 4,
+          "level": "error",
+          "message": {
+            "text": "kafka/broken.json is not valid JSON, which a jsonpath rule requires: unexpected character \"'\", expected a value"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "kafka/broken.json",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startLine": 2,
+                  "startColumn": 17
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "axxLint/v1": "b90aec343b829e42638b7222859b498f"
+          },
+          "properties": {
+            "code": "AXX-E0810"
+          }
+        },
+        {
+          "ruleId": "mission-id-uniqueness",
+          "ruleIndex": 4,
+          "level": "error",
+          "message": {
+            "text": "value \"m-1\" appears in 2 files (cross-file-unique); also at kafka/mission-launched.json:1:16"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "kafka/mission-created.json",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startLine": 3,
+                  "startColumn": 17
+                }
+              }
+            }
+          ],
+          "relatedLocations": [
+            {
+              "id": 1,
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "kafka/mission-launched.json",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startLine": 1,
+                  "startColumn": 16
+                }
+              },
+              "message": {
+                "text": "also here"
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "axxLint/v1": "307c5252c2e35366178aedeffc544fb2"
+          },
+          "properties": {
+            "code": "AXX-E0820",
+            "value": "m-1"
+          }
+        },
+        {
+          "ruleId": "mission-id-uniqueness",
+          "ruleIndex": 4,
+          "level": "error",
+          "message": {
+            "text": "value \"m-1\" appears in 2 files (cross-file-unique); also at kafka/mission-created.json:3:17"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "kafka/mission-launched.json",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startLine": 1,
+                  "startColumn": 16
+                }
+              }
+            }
+          ],
+          "relatedLocations": [
+            {
+              "id": 1,
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "kafka/mission-created.json",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startLine": 3,
+                  "startColumn": 17
+                }
+              },
+              "message": {
+                "text": "also here"
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "axxLint/v1": "f3c4ae3b08640e12ed68bb897b044872"
+          },
+          "properties": {
+            "code": "AXX-E0820",
+            "value": "m-1"
+          }
+        },
+        {
+          "ruleId": "sql-ordinals",
+          "ruleIndex": 5,
+          "level": "warning",
+          "message": {
+            "text": "this step uses the 2nd selection, but no selections were retrieved before it in the scenario, so the step always fails"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "features/f.feature",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startLine": 3
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "axxLint/v1": "f0e1af5cfa08ab0b662ada6740b6c99a"
+          },
+          "properties": {
+            "code": "AXX-E0830"
+          }
+        }
+      ]
+    }
+  ]
+}

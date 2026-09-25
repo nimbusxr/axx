@@ -1,0 +1,88 @@
+# yaml-language-server: $schema=https://axx.nimbusxr.us/schemas/v0/axx.schema.json
+#
+# The acceptance suite of the parcels example. From this directory:
+#   axx run            # start the service and its infrastructure, run every feature, clean up
+#   axx run --debug    # the same, with the service under a Go debugger (see ../README.md)
+version: 1
+
+run:
+  paths: [features]
+  # Scenarios tagged @isolated make the parcels table fail on purpose (database
+  # triggers), so they run alone, after the parallel phase.
+  exclusive: ["@isolated"]
+
+# Step paths such as seeds/manifest-kestrel.yaml, kafka/scan-delivered.json and
+# schemas/depot-scan.avsc resolve against this directory.
+resources: ["."]
+
+# ${sys:...} references in the feature files; override with -D local.host=<name>.
+properties:
+  local.host: localhost
+
+apps:
+  parcels:
+    # ../infra/compose.yaml builds and starts the service and all of its infrastructure.
+    dir: ../infra
+    command: docker compose up --build
+    ready:
+      http:
+        url: http://localhost:8400/health
+      timeout: 5m
+      interval: 1s
+    stop:
+      grace: 20s
+    cleanup: docker compose down -v --remove-orphans
+    # `axx run --debug`: compose starts only the infrastructure, and the service runs on
+    # the host under Delve, which listens on port 2345 for your IDE to attach.
+    debug:
+      command:
+        - sh
+        - -c
+        - >-
+          docker compose up --wait address-service postgres mongo kafka schema-registry
+          && cd ../app
+          && exec dlv debug --headless --listen=127.0.0.1:2345 --api-version=2 --accept-multiclient --continue .
+      debugger:
+        type: go
+        port: 2345
+        mode: app-listens
+
+# `axx lint`: seeds share one database while scenarios run in parallel, so the values
+# that identify their rows must not collide across files.
+lint:
+  include: [axx-lint.generated.yaml]
+  rules:
+    - name: Parcel references in seeds
+      filePatterns: ["seeds/*.yaml"]
+      regex: '^\s+-?\s*reference:\s*"([^"]+)"'
+      description: Every seeded parcel and manifest line has its own reference
+      validation: cross-file-unique
+
+    - name: Manifest line ids
+      filePatterns: ["seeds/*.yaml"]
+      regex: '^\s+-?\s*id:\s*"([^"]+)"'
+      description: Manifest line ids are unique across seed files
+      validation: cross-file-unique
+
+    - name: Depot scan ids
+      filePatterns: ["seeds/*.json"]
+      type: jsonpath
+      jsonPath: "scans[*].scanId"
+      description: Depot scans in MongoDB seeds have their own ids
+      validation: cross-file-unique
+
+# `axx fixtures`: fixtures generated from the committed *.factory.yaml, *.fixture.yaml
+# and *.prototype.yaml files. Run `axx fixtures generate` to write them; they are
+# gitignored and recorded in axx-fixtures.manifest.yaml.
+fixtures:
+  # The address service's response bodies live next to the files WireMock serves.
+  sources: ["../infra/wiremock"]
+
+  # Every seed file, hand-written or generated, must match the database schema.
+  conformance:
+    - name: seeds match the database schema
+      filePatterns: ["seeds/*.yaml"]
+      schemaType: dataset
+      schemaRef: ../infra/postgres/init/01-schema.sql
+
+  output: { ignored: true }

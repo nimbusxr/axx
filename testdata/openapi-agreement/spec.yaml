@@ -1,0 +1,78 @@
+openapi: 3.0.3
+info:
+  title: Validator agreement
+  version: 1.0.0
+  description: >-
+    One contract, validated by both of axx's OpenAPI validators: the REST steps' (your
+    service's own contract) and the WireMock extension's (a dependency's contract). The cases
+    in cases.json are exchanges with the keys both must report.
+paths:
+  /parcels:
+    post:
+      security:
+        - apiKey: []
+      parameters:
+        - name: X-Request-Id
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ParcelRequest'
+      responses:
+        '201':
+          description: Registered.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Parcel'
+    get:
+      parameters:
+        - name: limit
+          in: query
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        '200':
+          description: The parcels.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Parcel'
+components:
+  securitySchemes:
+    apiKey:
+      type: apiKey
+      in: header
+      name: X-Api-Key
+  schemas:
+    ParcelRequest:
+      type: object
+      additionalProperties: false
+      required: [reference, weightGrams, serviceLevel]
+      properties:
+        reference:
+          type: string
+          maxLength: 12
+        weightGrams:
+          type: integer
+        serviceLevel:
+          type: string
+          enum: [STANDARD, EXPRESS]
+    Parcel:
+      type: object
+      additionalProperties: false
+      required: [reference, status]
+      properties:
+        reference:
+          type: string
+        status:
+          type: string

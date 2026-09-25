@@ -1,0 +1,3 @@
+shipments:
+  PX-5101: { parcel: PX-5101, carrier: KESTREL, service: express, weightKg: 2.5 }
+  PX-5102: { parcel: PX-5102, carrier: KESTREL, service: economy, weightKg: 4.0 }

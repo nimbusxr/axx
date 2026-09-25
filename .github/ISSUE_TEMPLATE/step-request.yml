@@ -1,0 +1,19 @@
+name: Step request
+description: Ask for a new step in one of axx's packs.
+labels: [step-request, triage]
+body:
+  - type: textarea
+    id: gherkin
+    attributes:
+      label: The step(s) as you'd like to write them
+      render: gherkin
+    validations: {required: true}
+  - type: textarea
+    id: semantics
+    attributes:
+      label: What should the step do or assert?
+    validations: {required: true}
+  - type: input
+    id: pack
+    attributes:
+      label: Which pack? (rest, mock, sql, mongo, kafka, logs, other)

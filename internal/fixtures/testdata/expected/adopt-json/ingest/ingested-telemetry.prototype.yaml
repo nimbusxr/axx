@@ -1,0 +1,13 @@
+# Shared shape of every ingested-telemetry fixture (modal values from adoption);
+# fixture files carry only their deltas.
+data:
+  event_type: heartbeat
+  firmware: 2.0.1
+  region: us-east
+  sample_rate_hz: 60
+  readings:
+  - metric: temp_c
+    value: 20.0
+  device:
+    model: T2000
+  power: mains

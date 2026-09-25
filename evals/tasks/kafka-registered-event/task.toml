@@ -1,0 +1,37 @@
+schema_version = "1.4"
+
+[task]
+name = "axx-evals/kafka-registered-event"
+description = "Acceptance tests that registering a parcel publishes an Avro ParcelRegistered event on Kafka."
+keywords = ["axx", "gherkin", "acceptance-testing", "kafka", "avro"]
+
+[metadata]
+title = "Kafka: Avro event published on registration"
+difficulty = "hard"
+category = "kafka"
+requires = ["rest", "kafka"]
+services = ["postgres", "mongo", "address-service", "kafka"]
+workspace = "common"
+
+[verifier]
+timeout_sec = 1200.0
+environment_mode = "separate"
+
+[agent]
+timeout_sec = 1800.0
+
+[environment]
+build_timeout_sec = 900.0
+cpus = 2
+memory_mb = 6144
+
+[environment.healthcheck]
+command = "wait-for-services"
+interval_sec = 2.0
+timeout_sec = 10.0
+start_period_sec = 120.0
+retries = 60
+
+[[artifacts]]
+source = "/app"
+exclude = [".axx", ".git"]

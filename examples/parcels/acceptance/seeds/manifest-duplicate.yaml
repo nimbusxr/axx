@@ -1,0 +1,13 @@
+parcels.parcels:
+  - reference: "PX-DUP-1201"
+    sender: "kestrel-books"
+    weight_grams: 1000
+    recipient: '{"name": "Clara Immerwahr", "city": "Leipzig", "postcode": "04109", "country": "DE"}'
+    details: '{"source": "api", "zone": "DE-1"}'
+parcels.manifest_lines:
+  - id: "ML-KES-0413-1"
+    manifest_id: "M-KESTREL-0413"
+    reference: "PX-DUP-1201"
+    sender: "kestrel-books"
+    weight_grams: 1000
+    recipient: '{"name": "Clara Immerwahr", "city": "Leipzig", "postcode": "04109", "country": "DE"}'

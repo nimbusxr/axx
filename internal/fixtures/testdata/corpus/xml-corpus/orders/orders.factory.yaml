@@ -1,0 +1,7 @@
+# Record-shaped XML governed by an XSD; @keys are attributes, #text is element text.
+factory:
+  family: xml
+  schema: ../schemas/order.xsd
+identity:
+  - path: "@id"
+    prefix: ord-

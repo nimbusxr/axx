@@ -1,0 +1,15 @@
+# Mock response bodies are just schema-governed JSON: the json family's OpenAPI backend.
+factory:
+  family: json
+  schema: ../../openapi/payments.yaml#/components/schemas/CardTokenResponse
+identity:
+  - path: cardIdentifier
+    prefix: "1111222233-"
+fixtures:
+  token-success:
+    nonFinancialToken: "9991234567789"
+  token-success-no-nf: {}
+  token-declined:
+    responseText: "DECLINE"
+    expiryDate: null
+    card: { network: "MC" }

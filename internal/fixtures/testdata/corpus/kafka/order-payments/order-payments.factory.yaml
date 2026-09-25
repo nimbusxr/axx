@@ -1,0 +1,16 @@
+factory:
+  family: avro
+  schema: ../../schemas/order-payment.avsc
+
+defaults:
+  tender_type: "CREDIT_CARD"
+  channel: "POS"                # bare name: fills payments[].channel at any depth
+
+identity:
+  - path: order_id
+    prefix: ord-
+    derive: fixture-key
+  - path: payments[0].payment_id
+    prefix: pay-
+    derive: fixture-key
+    qualifier: primary

@@ -1,0 +1,14 @@
+data:
+  parcels.manifest_lines:
+    - id: ML-MAP-0019-1
+      reference: PX-MAP-1901
+    - id: ML-MAP-0019-2
+      reference: PX-MAP-1902
+    - id: ML-MAP-0019-3
+      reference: PX-MAP-1903
+      weight_grams: 12000
+    - id: ML-MAP-0019-4
+      reference: PX-MAP-1904
+      service_level: EXPRESS
+    - id: ML-MAP-0019-5
+      reference: PX-MAP-1905

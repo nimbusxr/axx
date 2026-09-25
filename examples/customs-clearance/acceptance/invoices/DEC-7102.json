@@ -1,0 +1,20 @@
+{
+  "declaration": "DEC-7102",
+  "parcel": "PX-7102",
+  "currency": "EUR",
+  "items": [
+    {
+      "description": "Leather boots",
+      "hsCode": "640391",
+      "quantity": 2,
+      "value": 360.0
+    },
+    {
+      "description": "Wool scarf",
+      "hsCode": "611710",
+      "quantity": 1,
+      "value": 120.0
+    }
+  ],
+  "total": 480.0
+}

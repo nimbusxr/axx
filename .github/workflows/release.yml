@@ -1,0 +1,251 @@
+# SPDX-License-Identifier: Apache-2.0
+# release-please keeps one release PR per component. Merging it tags the release, and
+# the jobs below publish exactly the components that were released. Publishing lives
+# here (not in tag-triggered workflows) so it never depends on whether a tag created
+# through the API starts other workflows.
+#
+# Nothing is published unless the AXX_PUBLISH repository variable is "true". Until then,
+# and always for pull requests and manual runs, this is a dry run: release-please reports
+# the release PR it would open, and every component is built and checked as a release
+# would build it, then attached to the run instead of published.
+name: release
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    paths:
+      - .goreleaser.yaml
+      - build/**
+      - release-please-config.json
+      - .release-please-manifest.json
+      - scripts/release-check.sh
+      - .github/workflows/release.yml
+      - .github/workflows/wiremock-extension.yml
+      - .github/workflows/intellij-plugin.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    # Publishing reads the release app's key from the release-pr environment (main only). A dry
+    # run uses no environment.
+    environment: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.AXX_PUBLISH == 'true' && 'release-pr' || '' }}
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      dry-run: ${{ steps.mode.outputs.dry-run }}
+      axx: ${{ steps.rp.outputs.release_created || steps.dry.outputs.axx }}
+      axx_tag: ${{ steps.rp.outputs.tag_name }}
+      wiremock: ${{ steps.rp.outputs['extensions/wiremock-openapi--release_created'] || steps.dry.outputs.wiremock }}
+      wiremock_tag: ${{ steps.rp.outputs['extensions/wiremock-openapi--tag_name'] }}
+      wiremock_version: ${{ steps.rp.outputs['extensions/wiremock-openapi--version'] || steps.dry.outputs.wiremock_version }}
+      intellij: ${{ steps.rp.outputs['ide/intellij--release_created'] || steps.dry.outputs.intellij }}
+      intellij_tag: ${{ steps.rp.outputs['ide/intellij--tag_name'] }}
+      intellij_version: ${{ steps.rp.outputs['ide/intellij--version'] || steps.dry.outputs.intellij_version }}
+    steps:
+      - id: mode
+        env:
+          EVENT: ${{ github.event_name }}
+          REF: ${{ github.ref }}
+          PUBLISH: ${{ vars.AXX_PUBLISH }}
+        run: |
+          if [[ "$EVENT" == push && "$REF" == refs/heads/main && "$PUBLISH" == true ]]; then
+            echo "dry-run=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "dry-run=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::Dry run: nothing is published. Releases from main need the AXX_PUBLISH repository variable set to true."
+          fi
+
+      # Publishing. A GitHub App token (not GITHUB_TOKEN) so the release PR triggers CI.
+      - if: steps.mode.outputs.dry-run == 'false'
+        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2
+        id: app
+        with:
+          app-id: ${{ vars.RELEASE_APP_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+          # Only what release-please needs: release PRs, labels, tags and releases.
+          permission-contents: write
+          permission-pull-requests: write
+          permission-issues: write
+      - if: steps.mode.outputs.dry-run == 'false'
+        uses: googleapis/release-please-action@5c625bfb5d1ff62eadeeb3772007f7f66fdcf071 # v4
+        id: rp
+        with:
+          token: ${{ steps.app.outputs.token }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+      # Dry run: the release PR release-please would open, read-only, and every component
+      # built at the version its next release would get.
+      - if: steps.mode.outputs.dry-run == 'true'
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - if: steps.mode.outputs.dry-run == 'true'
+        uses: jdx/mise-action@5228313ee0372e111a38da051671ca30fc5a96db # v3
+        with:
+          install_args: "node"
+          cache: false # this job also publishes
+      - if: steps.mode.outputs.dry-run == 'true'
+        name: release-please (dry run)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          out=$(mktemp)
+          status=0
+          npx -y release-please@17.11.2 release-pr --dry-run --token "$GH_TOKEN" --repo-url "$REPO" \
+            --target-branch main --config-file release-please-config.json \
+            --manifest-file .release-please-manifest.json >"$out" 2>&1 || status=$?
+          cat "$out"
+          {
+            echo "### release-please (dry run)"
+            echo
+            echo "What release-please would do on \`main\` (it reads the branch on GitHub, not this checkout):"
+            echo
+            echo '```'
+            cat "$out"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit "$status"
+      - if: steps.mode.outputs.dry-run == 'true'
+        id: dry
+        run: |
+          version() { jq -r --arg p "$1" '.packages[$p]["release-as"] // "0.0.0-dry-run"' release-please-config.json; }
+          {
+            echo "axx=true"
+            echo "wiremock=true"
+            echo "wiremock_version=$(version extensions/wiremock-openapi)"
+            echo "intellij=true"
+            echo "intellij_version=$(version ide/intellij)"
+          } >> "$GITHUB_OUTPUT"
+
+  # The CLI: binaries, archives, checksums, SBOMs, signatures, images, Homebrew cask.
+  goreleaser:
+    needs: release-please
+    if: needs.release-please.outputs.dry-run == 'false' && needs.release-please.outputs.axx == 'true'
+    runs-on: ubuntu-latest
+    # The release environment: main only, and a maintainer approves each release.
+    environment: release
+    permissions:
+      contents: write
+      packages: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: ${{ needs.release-please.outputs.axx_tag }}
+          fetch-depth: 0
+          persist-credentials: false
+      # The Homebrew tap is another repository; the release app writes the cask there.
+      - uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2
+        id: tap
+        with:
+          app-id: ${{ vars.RELEASE_APP_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+          owner: nimbusxr
+          repositories: homebrew-tap
+          permission-contents: write
+      # No cache in a job that publishes: a restored cache could feed the release.
+      - uses: jdx/mise-action@5228313ee0372e111a38da051671ca30fc5a96db # v3
+        with:
+          install_args: "go goreleaser"
+          cache: false
+      - uses: sigstore/cosign-installer@398d4b0eeef1380460a10c8013a76f728fb906ac # v3
+      - uses: anchore/sbom-action/download-syft@e22c389904149dbc22b58101806040fa8d37a610 # v0
+      - uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - run: goreleaser release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GORELEASER_CURRENT_TAG: ${{ needs.release-please.outputs.axx_tag }}
+          HOMEBREW_TAP_TOKEN: ${{ steps.tap.outputs.token }}
+      - uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3
+        with:
+          subject-checksums: dist/checksums.txt
+
+  # The same build in snapshot mode: nothing is pushed, uploaded or signed (keyless signing
+  # would write to the public transparency log). scripts/release-check.sh checks the result.
+  goreleaser-dry-run:
+    needs: release-please
+    if: needs.release-please.outputs.dry-run == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: jdx/mise-action@5228313ee0372e111a38da051671ca30fc5a96db # v3
+        with:
+          install_args: "go goreleaser"
+      # A dry run publishes nothing, so it can reuse CI's cross-build cache.
+      - uses: ./.github/actions/go-cache
+        with:
+          build: cross
+      - uses: anchore/sbom-action/download-syft@e22c389904149dbc22b58101806040fa8d37a610 # v0
+      - uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+      - run: goreleaser release --snapshot --clean --skip=sign
+      - run: scripts/release-check.sh dist
+        env:
+          RELEASE_CHECK_STRICT: "1"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: axx-release-dry-run
+          path: |
+            dist/*.tar.gz
+            dist/*.zip
+            dist/*.sbom.json
+            dist/checksums.txt
+            dist/homebrew/
+            dist/metadata.json
+          retention-days: 14
+
+  # ghcr.io/nimbusxr/axx-wiremock:<version>, :<major>.<minor> and :latest, plus the fat jar
+  # attached to the release. A dry run builds both without publishing.
+  wiremock-openapi:
+    needs: release-please
+    if: needs.release-please.outputs.wiremock == 'true'
+    permissions:
+      contents: write # the jar release asset
+      packages: write
+      id-token: write
+      attestations: write
+    uses: ./.github/workflows/wiremock-extension.yml
+    with:
+      tag: ${{ needs.release-please.outputs.wiremock_tag }}
+      version: ${{ needs.release-please.outputs.wiremock_version }}
+      dry-run: ${{ needs.release-please.outputs.dry-run == 'true' }}
+
+  # The axx IntelliJ plugin on the JetBrains Marketplace. A dry run verifies it without
+  # uploading.
+  intellij:
+    needs: release-please
+    if: needs.release-please.outputs.intellij == 'true'
+    permissions:
+      contents: read
+    uses: ./.github/workflows/intellij-plugin.yml
+    with:
+      tag: ${{ needs.release-please.outputs.intellij_tag }}
+      version: ${{ needs.release-please.outputs.intellij_version }}
+      dry-run: ${{ needs.release-please.outputs.dry-run == 'true' }}
+    secrets:
+      JETBRAINS_MARKETPLACE_TOKEN: ${{ secrets.JETBRAINS_MARKETPLACE_TOKEN }}
+      JETBRAINS_CERTIFICATE_CHAIN: ${{ secrets.JETBRAINS_CERTIFICATE_CHAIN }}
+      JETBRAINS_PRIVATE_KEY: ${{ secrets.JETBRAINS_PRIVATE_KEY }}
+      JETBRAINS_PRIVATE_KEY_PASSWORD: ${{ secrets.JETBRAINS_PRIVATE_KEY_PASSWORD }}

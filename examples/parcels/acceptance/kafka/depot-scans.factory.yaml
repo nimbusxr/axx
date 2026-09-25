@@ -1,0 +1,7 @@
+# yaml-language-server: $schema=https://axx.nimbusxr.us/schemas/v0/axx-factory.schema.json
+# Depot scan events, checked against the Avro schema they are published with.
+factory:
+  family: avro
+  schema: ../schemas/depot-scan.avsc
+identity:
+- path: scanId

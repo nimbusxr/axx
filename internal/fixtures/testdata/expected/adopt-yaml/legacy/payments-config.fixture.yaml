@@ -1,0 +1,6 @@
+factory: legacy-configs
+data:
+  port: 8081
+  tags:
+  - payments
+  service: svc-payments

@@ -1,0 +1,14 @@
+{
+  "declaration": "DEC-7101",
+  "parcel": "PX-7101",
+  "currency": "EUR",
+  "items": [
+    {
+      "description": "Cotton T-shirts",
+      "hsCode": "610910",
+      "quantity": 3,
+      "value": 45.0
+    }
+  ],
+  "total": 45.0
+}

@@ -1,0 +1,207 @@
+# SPDX-License-Identifier: Apache-2.0
+# Tests the WireMock OpenAPI validation extension and publishes ghcr.io/nimbusxr/axx-wiremock:
+#   pull requests       -> gradle test, docker build and smoke test
+#   main                -> also push :edge
+#   releases            -> called by release.yml: push :<version>, :<major>.<minor> and :latest
+#                          (multi-arch, signed, with provenance) and attach the fat jar to the release
+#   release dry runs    -> called by release.yml: build the multi-arch image and the jar, publish nothing
+# Nothing is pushed or attached unless the AXX_PUBLISH repository variable is "true".
+name: wiremock-extension
+
+on:
+  pull_request:
+    paths:
+      - extensions/wiremock-openapi/**
+      - testdata/openapi-agreement/**
+      - .github/workflows/wiremock-extension.yml
+  push:
+    branches: [main]
+    paths:
+      - extensions/wiremock-openapi/**
+      - testdata/openapi-agreement/**
+      - .github/workflows/wiremock-extension.yml
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      tag:
+        description: release tag to build (wiremock-openapi-v<version>)
+        type: string
+        required: true
+      version:
+        description: released version, e.g. 0.1.0
+        type: string
+        required: true
+      dry-run:
+        description: build everything a release would publish, and publish nothing
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wiremock-extension-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  IMAGE: ghcr.io/nimbusxr/axx-wiremock
+
+defaults:
+  run:
+    working-directory: extensions/wiremock-openapi
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ inputs.tag }}
+          persist-credentials: false
+      # Validation only; Gradle caching comes from setup-java below.
+      - uses: gradle/actions/wrapper-validation@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+          cache-dependency-path: |
+            extensions/wiremock-openapi/*.gradle.kts
+            extensions/wiremock-openapi/gradle/wrapper/gradle-wrapper.properties
+      - run: ./gradlew --no-daemon --console=plain build
+      - if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: wiremock-openapi-test-reports
+          path: extensions/wiremock-openapi/build/reports/tests/
+          retention-days: 7
+
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ inputs.tag }}
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
+      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
+        with:
+          context: extensions/wiremock-openapi
+          load: true
+          tags: axx-wiremock:ci
+          cache-from: type=gha,scope=axx-wiremock
+          cache-to: type=gha,mode=max,scope=axx-wiremock
+      - run: ./smoke-test.sh axx-wiremock:ci
+
+  publish:
+    if: inputs.dry-run || (vars.AXX_PUBLISH == 'true' && (github.event_name == 'push' || inputs.version != ''))
+    needs: [test, image]
+    runs-on: ubuntu-latest
+    # A release publishes from the release environment (main only, approved by a maintainer).
+    environment: ${{ inputs.version != '' && !inputs.dry-run && 'release' || '' }}
+    permissions:
+      contents: read
+      packages: write # push to GHCR
+      id-token: write # cosign keyless signing and attestations
+      attestations: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ inputs.tag }}
+          persist-credentials: false
+      - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
+      - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+      - if: ${{ !inputs.dry-run }}
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6
+        env:
+          DOCKER_METADATA_ANNOTATIONS_LEVELS: manifest,index
+        with:
+          images: ${{ env.IMAGE }}
+          flavor: latest=false
+          tags: |
+            type=edge,branch=main,enable=${{ inputs.version == '' }}
+            type=raw,value=${{ inputs.version }},enable=${{ inputs.version != '' }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ inputs.version }},enable=${{ inputs.version != '' }}
+            type=raw,value=latest,enable=${{ inputs.version != '' }}
+          labels: |
+            org.opencontainers.image.title=axx-wiremock
+            org.opencontainers.image.description=WireMock standalone with the axx OpenAPI validation extension
+            org.opencontainers.image.licenses=Apache-2.0
+            org.opencontainers.image.vendor=NimbusXR
+          annotations: |
+            org.opencontainers.image.title=axx-wiremock
+            org.opencontainers.image.description=WireMock standalone with the axx OpenAPI validation extension
+            org.opencontainers.image.licenses=Apache-2.0
+            org.opencontainers.image.vendor=NimbusXR
+      - id: build
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
+        with:
+          context: extensions/wiremock-openapi
+          platforms: linux/amd64,linux/arm64
+          push: ${{ !inputs.dry-run }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          annotations: ${{ steps.meta.outputs.annotations }}
+          build-args: VERSION=${{ steps.meta.outputs.version }}
+          provenance: mode=max
+          sbom: true
+          # Only a dry run reuses cached layers; a published image is built from scratch.
+          cache-from: ${{ inputs.dry-run && 'type=gha,scope=axx-wiremock' || '' }}
+          cache-to: type=gha,mode=max,scope=axx-wiremock
+      - name: sign (cosign keyless)
+        if: ${{ !inputs.dry-run }}
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: cosign sign --yes "${IMAGE}@${DIGEST}"
+      - if: ${{ !inputs.dry-run }}
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4
+        with:
+          subject-name: ${{ env.IMAGE }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
+
+  jar:
+    # Releases also attach the fat jar, for running WireMock standalone without the image.
+    if: inputs.version != '' && (inputs.dry-run || vars.AXX_PUBLISH == 'true')
+    needs: [test]
+    runs-on: ubuntu-latest
+    environment: ${{ !inputs.dry-run && 'release' || '' }}
+    permissions:
+      contents: write # upload the release asset
+      id-token: write # attestations
+      attestations: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ inputs.tag }}
+          persist-credentials: false
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6
+        with:
+          distribution: temurin
+          java-version: "21"
+      - env:
+          VERSION: ${{ inputs.version }}
+        run: ./gradlew --no-daemon --console=plain shadowJar -Pversion="${VERSION}"
+      - if: ${{ !inputs.dry-run }}
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4
+        with:
+          subject-path: extensions/wiremock-openapi/build/libs/axx-wiremock-openapi-${{ inputs.version }}-all.jar
+      - if: ${{ !inputs.dry-run }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+          VERSION: ${{ inputs.version }}
+        run: gh release upload "${TAG}" "build/libs/axx-wiremock-openapi-${VERSION}-all.jar" --clobber
+      - if: ${{ inputs.dry-run }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: axx-wiremock-openapi-jar
+          path: extensions/wiremock-openapi/build/libs/axx-wiremock-openapi-${{ inputs.version }}-all.jar
+          retention-days: 14

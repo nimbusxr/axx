@@ -1,0 +1,42 @@
+openapi: 3.0.3
+info:
+  title: Payments Mock Schemas
+  version: 1.0.0
+paths: {}
+components:
+  schemas:
+    CardTokenResponse:
+      type: object
+      additionalProperties: false
+      required: [responseCode, responseText, cardIdentifier]
+      properties:
+        responseCode:
+          type: string
+        responseText:
+          type: string
+          enum: [APPROVAL, DECLINE]
+        cardIdentifier:
+          type: string
+        nonFinancialToken:
+          type: string
+        encryptionFlag:
+          type: string
+          default: "3"
+        expiryDate:
+          type: string
+          nullable: true
+        card:
+          type: object
+          required: [type]
+          properties:
+            type:
+              type: string
+            network:
+              type: string
+        auditTrail:
+          type: array
+          items:
+            type: object
+            properties:
+              step:
+                type: string

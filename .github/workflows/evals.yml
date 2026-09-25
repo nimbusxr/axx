@@ -1,0 +1,104 @@
+name: evals
+
+# Agent evaluations (evals/README.md): every task under up to four conditions, with a real
+# coding agent. They take hours and cost model credits, so they only run on demand, never on
+# pull requests.
+on:
+  workflow_dispatch:
+    inputs:
+      agent:
+        description: Harbor agent (oracle and nop check the plumbing without a model)
+        type: choice
+        options: [claude-code, codex, gemini-cli, oracle, nop]
+        default: claude-code
+      model:
+        description: Model for the agent, e.g. anthropic/claude-sonnet-4-5 (empty for the agent's default)
+        type: string
+        default: ""
+      conditions:
+        description: Comma-separated conditions from evals/conditions.toml
+        type: string
+        default: none,skills,mcp,both
+      tasks:
+        description: Comma-separated task ids (empty for all)
+        type: string
+        default: ""
+      attempts:
+        description: Trials per task and condition
+        type: string
+        default: "1"
+      gate:
+        description: Fail when a condition scores more than 10 points below evals/results/baseline-<agent>.json
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: evals-${{ inputs.agent }}
+  cancel-in-progress: false
+
+jobs:
+  evals:
+    runs-on: ubuntu-latest
+    timeout-minutes: 720
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version-file: evals/go.mod
+          cache: false
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+      - name: Install Harbor
+        run: uv tool install harbor==0.23.0
+      - name: Run the evals
+        working-directory: evals
+        env:
+          AGENT: ${{ inputs.agent }}
+          MODEL: ${{ inputs.model }}
+          CONDITIONS: ${{ inputs.conditions }}
+          TASKS: ${{ inputs.tasks }}
+          ATTEMPTS: ${{ inputs.attempts }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          args=(--agent "$AGENT" --conditions "$CONDITIONS" --attempts "$ATTEMPTS" --concurrency 2 --out "results/ci-$AGENT")
+          if [[ -n "$MODEL" ]]; then args+=(--model "$MODEL"); fi
+          if [[ -n "$TASKS" ]]; then args+=(--tasks "$TASKS"); fi
+          go run ./cmd/evals run "${args[@]}"
+      - name: Summary
+        if: always()
+        working-directory: evals
+        env:
+          AGENT: ${{ inputs.agent }}
+        run: |
+          if [[ -f "results/ci-$AGENT.md" ]]; then cat "results/ci-$AGENT.md" >> "$GITHUB_STEP_SUMMARY"; fi
+      - name: Compare with the baseline
+        if: inputs.gate
+        working-directory: evals
+        env:
+          AGENT: ${{ inputs.agent }}
+        run: |
+          baseline="results/baseline-$AGENT.json"
+          if [[ ! -f "$baseline" ]]; then
+            echo "No $baseline yet: nothing to compare with." | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          {
+            echo "## Compared with $baseline"
+            echo
+          } >> "$GITHUB_STEP_SUMMARY"
+          go run ./cmd/evals compare "$baseline" "results/ci-$AGENT.json" --max-drop 10 | tee -a "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        if: always()
+        with:
+          name: evals-${{ inputs.agent }}
+          path: |
+            evals/results/ci-*
+            evals/.work/jobs/
+          if-no-files-found: warn
+          retention-days: 30

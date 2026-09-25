@@ -1,0 +1,8 @@
+# The packs this project uses. Manage it with `axx pack add|remove`.
+# axx's packs by name (`axx pack list`), others by path (./steps) or Go module (host/path@version).
+packs:
+  - logs
+  - gcp-storage
+  - gcp-pubsub
+  - gcp-bigquery
+  - gcp-firestore

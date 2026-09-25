@@ -1,0 +1,26 @@
+# The agent aids each eval condition provides. `go run ./cmd/evals run` runs every
+# task once per condition (default: none, skills, mcp, both).
+#
+#   agents_md  the AGENTS.md section `axx init` writes (every initialized axx project has it)
+#   skills     `axx skills install` in the project (.agents/skills and .claude/skills)
+#   mcp        `axx mcp` registered with the agent (Harbor's --mcp-config conditions/mcp.json,
+#              which Harbor turns into each agent's own MCP configuration)
+
+[none]
+description = "The bare project: no skills, no MCP server, no AGENTS.md section."
+
+[skills]
+description = "axx's agent skills and the AGENTS.md section."
+agents_md = true
+skills = true
+
+[mcp]
+description = "The axx MCP server and the AGENTS.md section."
+agents_md = true
+mcp = true
+
+[both]
+description = "Skills, the MCP server and the AGENTS.md section."
+agents_md = true
+skills = true
+mcp = true

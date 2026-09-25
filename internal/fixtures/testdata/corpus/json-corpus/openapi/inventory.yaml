@@ -1,0 +1,20 @@
+# An OpenAPI 3.1 spec (JSON Schema dialect: type arrays, no nullable keyword).
+openapi: 3.1.0
+info:
+  title: Inventory
+  version: "1.0"
+paths: {}
+components:
+  schemas:
+    InventoryItem:
+      type: object
+      required: [sku, quantity]
+      properties:
+        sku:
+          type: string
+        quantity:
+          type: integer
+        location:
+          type: [string, "null"]
+        notes:
+          type: string

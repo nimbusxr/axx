@@ -1,0 +1,7 @@
+# Record-shaped YAML governed by JSON Schema: the json family's machinery, YAML rendering.
+factory:
+  family: yaml
+  schema: ../schemas/app-config.schema.json
+identity:
+  - path: service
+    prefix: svc-

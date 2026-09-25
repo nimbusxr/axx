@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=https://axx.nimbusxr.us/schemas/v0/axx.schema.json
+#
+# The acceptance suite of the customs-clearance example. From this directory:
+#   axx run      # start Azure (floci) and the customs service, run every feature, clean up
+version: 1
+
+run:
+  paths: [features]
+
+# Paths in steps (invoices/DEC-7101.json, messages/filing-DEC-7101.json) resolve against this directory.
+resources: ["."]
+
+# ${sys:local.host} in the feature files; override with -D local.host=<name>.
+properties:
+  local.host: localhost
+
+apps:
+  customs:
+    # ../infra/compose.yaml starts Azure (floci), creates the resources, and starts the service.
+    dir: ../infra
+    command: docker compose up --build
+    ready:
+      http:
+        url: http://localhost:8700/health
+      timeout: 5m
+      interval: 1s
+    stop:
+      grace: 15s
+    cleanup: docker compose down -v --remove-orphans

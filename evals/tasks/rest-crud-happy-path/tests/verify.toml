@@ -1,0 +1,4 @@
+# What the verifier checks for this task (see evals/README.md, "How a task is verified").
+allowed = ["features/**", "seeds/**"]
+min_scenarios = 3
+mutants = ["wrong-status-on-create", "update-not-persisted", "delete-not-removed"]

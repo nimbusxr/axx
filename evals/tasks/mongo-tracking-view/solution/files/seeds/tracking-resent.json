@@ -1,0 +1,7 @@
+{
+  "scans": [
+    {"scanId": "SC-TRK-RESENT-1", "parcelRef": "PX-TRK-RESENT-01", "status": "PICKED_UP", "location": "Shop Nord", "scannedAt": {"$date": "2026-09-02T08:00:00Z"}},
+    {"scanId": "SC-TRK-RESENT-2", "parcelRef": "PX-TRK-RESENT-01", "status": "IN_TRANSIT", "location": "Kiel hub", "scannedAt": {"$date": "2026-09-02T09:30:00Z"}},
+    {"scanId": "SC-TRK-RESENT-2", "parcelRef": "PX-TRK-RESENT-01", "status": "IN_TRANSIT", "location": "Kiel hub", "scannedAt": {"$date": "2026-09-02T09:30:00Z"}}
+  ]
+}

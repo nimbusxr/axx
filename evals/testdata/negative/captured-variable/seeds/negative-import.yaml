@@ -1,0 +1,11 @@
+parcels.manifest_lines:
+  - id: "ML-NEG-VAR-01"
+    manifest_id: "MF-NEG-VAR"
+    reference: "PX-NEG-VAR-01"
+    sender: "shop-neg-var"
+    weight_grams: 1000
+    service_level: "STANDARD"
+    recipient:
+      name: "Val Variable"
+      postcode: "10115"
+      country: "DE"

@@ -1,0 +1,7 @@
+data:
+  features:
+    split_tender: true
+    gift_wrap: false
+  tags:
+    - checkout
+    - tier-1

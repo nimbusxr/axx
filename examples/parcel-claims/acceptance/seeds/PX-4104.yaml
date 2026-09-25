@@ -1,0 +1,6 @@
+insured-parcels:
+  - reference: PX-4104
+    shop: NORTHWIND
+    carrier: HERON
+    declaredValue: 120
+    currency: EUR

@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="axx lint" tests="6" failures="3">
+  <testsuite name="axx lint" tests="6" failures="3" errors="0" skipped="0">
+    <testcase classname="axx.lint" name="Database seed IDs">
+      <failure message="1 duplicate value, 1 warning" type="cross-file-unique"><![CDATA[warning: skipped big/huge.yaml: 200 bytes exceeds lint.config.maxFileSize 150 [AXX-E0812]
+  big/huge.yaml
+error: value "mission-1" appears in 2 files (cross-file-unique) [AXX-E0820]
+  seeds/missions.yaml:2:10
+  seeds/mock-data.yaml:2:10
+]]></failure>
+    </testcase>
+    <testcase classname="axx.lint" name="Legacy IDs">
+      <system-out><![CDATA[WARNING: Legacy IDs
+warning: value "legacy-1" appears 2 times (global-unique) [AXX-E0820]
+  seeds/legacy.yaml:2:10
+  seeds/legacy.yaml:3:10
+]]></system-out>
+    </testcase>
+    <testcase classname="axx.lint" name="Status values">
+      <failure message="1 duplicate value" type="global-unique"><![CDATA[error: value "planned" appears 2 times (global-unique) [AXX-E0820]
+  seeds/missions.yaml:3:14
+  seeds/mock-data.yaml:3:14
+]]></failure>
+    </testcase>
+    <testcase classname="axx.lint" name="Event types"></testcase>
+    <testcase classname="axx.lint" name="mission_id uniqueness">
+      <failure message="1 duplicate value, 1 problem" type="cross-file-unique"><![CDATA[error: kafka/broken.json is not valid JSON, which a jsonpath rule requires: unexpected character "'", expected a value [AXX-E0810]
+  kafka/broken.json:2:17
+error: value "m-1" appears in 2 files (cross-file-unique) [AXX-E0820]
+  kafka/mission-created.json:3:17
+  kafka/mission-launched.json:1:16
+]]></failure>
+    </testcase>
+    <testcase classname="axx.lint" name="SQL selection and trigger ordinals">
+      <system-out><![CDATA[WARNING: SQL selection and trigger ordinals
+warning: this step uses the 2nd selection, but no selections were retrieved before it in the scenario, so the step always fails [AXX-E0830]
+  features/f.feature:3
+]]></system-out>
+    </testcase>
+  </testsuite>
+</testsuites>

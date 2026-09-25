@@ -1,0 +1,19 @@
+{
+  "name": "nimbusxr",
+  "owner": {
+    "name": "NimbusXR",
+    "url": "https://github.com/nimbusxr"
+  },
+  "metadata": {
+    "description": "axx: human-readable acceptance testing for the agentic era"
+  },
+  "plugins": [
+    {
+      "name": "axx",
+      "source": "./plugins/axx",
+      "description": "Skills and an MCP server for writing, running and debugging axx acceptance tests (Gherkin).",
+      "category": "testing",
+      "keywords": ["gherkin", "bdd", "acceptance-testing", "cucumber", "openapi", "mcp"]
+    }
+  ]
+}

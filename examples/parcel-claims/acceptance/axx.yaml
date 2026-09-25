@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=https://axx.nimbusxr.us/schemas/v0/axx.schema.json
+#
+# The acceptance suite of the parcel-claims example. From this directory:
+#   axx run      # start AWS (floci) and the claims service, run every feature, clean up
+version: 1
+
+run:
+  paths: [features]
+
+# Paths in steps (seeds/PX-4101.yaml, evidence/crushed-box.png) resolve against this directory.
+resources: ["."]
+
+# ${sys:local.host} in the feature files; override with -D local.host=<name>.
+properties:
+  local.host: localhost
+
+apps:
+  claims:
+    # ../infra/compose.yaml starts AWS (floci), creates the resources, and starts the service.
+    dir: ../infra
+    command: docker compose up --build
+    ready:
+      http:
+        url: http://localhost:8500/health
+      timeout: 5m
+      interval: 1s
+    stop:
+      grace: 10s
+    cleanup: docker compose down -v --remove-orphans
+
+# `axx lint`: scenarios run in parallel against the same tables, so each seeds a
+# parcel of its own.
+lint:
+  rules:
+    - name: Insured parcels in seeds
+      filePatterns: ["seeds/*.yaml"]
+      regex: '^\s+-?\s*reference:\s*(\S+)'
+      description: Every seed has its own parcel reference
+      validation: cross-file-unique

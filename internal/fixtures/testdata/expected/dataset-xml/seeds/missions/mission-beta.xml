@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<dataset>
+  <space.missions id="msn-mission-beta" name="Beta" status="launched" launch_date="2026-01-01 10:00:00" budget="500000.5" metadata="{&quot;priority&quot;: &quot;low&quot;}"/>
+  <space.missions id="msn-mission-beta-2" name="Beta Backup" status="planned" metadata="{&quot;priority&quot;: &quot;low&quot;}"/>
+  <space.spacecraft id="craft-beta" name="Beta Shuttle" capacity="4"/>
+</dataset>

@@ -1,0 +1,15 @@
+{
+  "name": "postcode-remote",
+  "priority": 1,
+  "request": {
+    "method": "GET",
+    "urlPath": "/v1/postcodes/DE/27498"
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "bodyFileName": "postcode-remote.json"
+  }
+}

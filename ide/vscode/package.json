@@ -1,0 +1,127 @@
+{
+  "name": "axx",
+  "displayName": "axx",
+  "description": "Gherkin support for axx acceptance tests: step completion, hover docs, links to and completion of the files steps name, and diagnostics from the axx language server, and running and debugging scenarios from the editor.",
+  "version": "0.1.0",
+  "publisher": "nimbusxr",
+  "license": "Apache-2.0",
+  "homepage": "https://axx.nimbusxr.us",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nimbusxr/axx.git",
+    "directory": "ide/vscode"
+  },
+  "bugs": {
+    "url": "https://github.com/nimbusxr/axx/issues"
+  },
+  "engines": {
+    "vscode": "^1.91.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Linters",
+    "Testing"
+  ],
+  "keywords": [
+    "axx",
+    "gherkin",
+    "feature",
+    "acceptance testing",
+    "bdd"
+  ],
+  "main": "./dist/extension.js",
+  "activationEvents": [
+    "onLanguage:feature",
+    "workspaceContains:**/axx.yaml",
+    "workspaceContains:**/axx.yml"
+  ],
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": "limited",
+      "description": "Syntax highlighting works everywhere. The axx language server and test runs need a trusted workspace, because they build and run the project's custom step packs.",
+      "restrictedConfigurations": [
+        "axx.path"
+      ]
+    },
+    "virtualWorkspaces": {
+      "supported": "limited",
+      "description": "Syntax highlighting works everywhere. The axx language server needs the project's files on disk."
+    }
+  },
+  "contributes": {
+    "languages": [
+      {
+        "id": "feature",
+        "aliases": [
+          "Gherkin",
+          "feature"
+        ],
+        "extensions": [
+          ".feature"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "feature",
+        "scopeName": "text.gherkin.feature",
+        "path": "./syntaxes/gherkin.tmLanguage.json"
+      }
+    ],
+    "commands": [
+      {
+        "command": "axx.restartLanguageServer",
+        "title": "Restart language server",
+        "category": "axx"
+      }
+    ],
+    "configuration": {
+      "title": "axx",
+      "properties": {
+        "axx.path": {
+          "type": "string",
+          "default": "axx",
+          "scope": "machine-overridable",
+          "markdownDescription": "The `axx` executable that runs the language server (`axx lsp`). A bare name is looked up on `PATH`; a relative path such as `./bin/axx` is resolved against the workspace folder; `~` is your home directory."
+        },
+        "axx.trace.server": {
+          "type": "string",
+          "enum": [
+            "off",
+            "messages",
+            "verbose"
+          ],
+          "default": "off",
+          "scope": "window",
+          "description": "Log the messages between VS Code and the axx language server to the axx output channel."
+        }
+      }
+    },
+    "configurationDefaults": {
+      "[feature]": {
+        "editor.semanticHighlighting.enabled": true
+      }
+    }
+  },
+  "scripts": {
+    "build": "node esbuild.mjs",
+    "watch": "node esbuild.mjs --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "node esbuild.mjs --tests && node --test \"test/*.test.mjs\" \"dist/test/*.test.mjs\"",
+    "package": "vsce package --no-dependencies",
+    "vscode:prepublish": "npm run typecheck && node esbuild.mjs --production"
+  },
+  "dependencies": {
+    "vscode-languageclient": "10.1.1"
+  },
+  "devDependencies": {
+    "@types/node": "20.19.43",
+    "@types/vscode": "1.91.0",
+    "@vscode/vsce": "4.0.0",
+    "esbuild": "0.28.2",
+    "typescript": "7.0.2",
+    "vscode-oniguruma": "2.0.1",
+    "vscode-textmate": "9.3.2"
+  }
+}

@@ -1,0 +1,21 @@
+# A draft-07 schema authored in YAML: proves $schema auto-detection and definitions-style refs.
+$schema: "http://json-schema.org/draft-07/schema#"
+title: Limits
+type: object
+required: [tier]
+properties:
+  tier:
+    type: string
+  ceiling:
+    $ref: "#/definitions/Money"
+additionalProperties: false
+definitions:
+  Money:
+    type: object
+    required: [amount, currency]
+    properties:
+      amount:
+        type: number
+      currency:
+        type: string
+    additionalProperties: false

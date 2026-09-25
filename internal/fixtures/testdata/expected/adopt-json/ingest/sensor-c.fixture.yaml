@@ -1,0 +1,13 @@
+factory: ingested-telemetry
+data:
+  event_type: device-offline
+  region: eu-west
+  readings:
+  - metric: temp_c
+    value: 19.0
+  power: battery
+  tags:
+    decommissioned: "true"
+  device_id: sensor-c-however
+  device:
+    serial: SN-C-9

@@ -1,0 +1,105 @@
+# The parcels service and its infrastructure, for developing the evals app and
+# its tasks outside Harbor. Inside the stack the service names match the evals
+# environment (postgres, mongo, address-service, kafka, schema-registry); from
+# the host use the published ports.
+#
+#   docker compose -f evals/app/compose.yaml up -d --build --wait
+#   docker compose -f evals/app/compose.yaml --profile kafka up -d --build --wait   # with Kafka
+#   docker compose -f evals/app/compose.yaml --profile kafka down -v
+#
+# EVALS_MUTANT (see evals/internal/mutant) starts the app with deliberate bugs:
+#   EVALS_MUTANT=no-weight-limit docker compose -f evals/app/compose.yaml up -d app
+name: axx-evals
+
+services:
+  app:
+    build:
+      context: ..
+      dockerfile: app/Dockerfile
+    ports: ["${EVALS_APP_PORT:-8080}:8080"]
+    environment:
+      EVALS_MUTANT: ${EVALS_MUTANT:-}
+      PARCELS_KAFKA_BROKERS: ${PARCELS_KAFKA_BROKERS:-}
+    depends_on:
+      postgres: {condition: service_healthy}
+      mongo: {condition: service_healthy}
+      address-service: {condition: service_healthy}
+
+  postgres:
+    image: postgres:16-alpine
+    ports: ["${EVALS_PG_PORT:-5432}:5432"]
+    environment:
+      POSTGRES_DB: parcels
+      POSTGRES_USER: parcels
+      POSTGRES_PASSWORD: parcels
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "parcels", "-d", "parcels"]
+      interval: 1s
+      timeout: 2s
+      retries: 60
+
+  mongo:
+    image: mongo:7
+    ports: ["${EVALS_MONGO_PORT:-27017}:27017"]
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: parcels
+      MONGO_INITDB_ROOT_PASSWORD: parcels
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 2s
+      timeout: 5s
+      retries: 60
+
+  # The downstream address service, mocked by the plain WireMock image.
+  address-service:
+    image: wiremock/wiremock:3.13.2
+    ports: ["${EVALS_ADDRESS_PORT:-8081}:8080"]
+    volumes:
+      - ./wiremock:/home/wiremock:ro
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "-o", "/dev/null", "http://localhost:8080/__admin/health"]
+      interval: 1s
+      timeout: 2s
+      retries: 60
+
+  kafka:
+    profiles: [kafka]
+    image: apache/kafka-native:3.9.1
+    ports: ["19092:19092"]
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:19092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,EXTERNAL://localhost:19092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_DELETE_TOPIC_ENABLE: "true"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 9092"]
+      interval: 1s
+      timeout: 5s
+      retries: 60
+
+  schema-registry:
+    profiles: [kafka]
+    image: confluentinc/cp-schema-registry:7.9.2
+    ports: ["8085:8081"]
+    depends_on:
+      kafka: {condition: service_healthy}
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: PLAINTEXT://kafka:9092
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "-o", "/dev/null", "http://localhost:8081/subjects"]
+      interval: 2s
+      timeout: 2s
+      retries: 60

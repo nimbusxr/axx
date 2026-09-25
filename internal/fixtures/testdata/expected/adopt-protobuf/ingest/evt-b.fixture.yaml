@@ -1,0 +1,6 @@
+factory: ingested-events
+data:
+  totalCents: "250"
+  attributes:
+    channel: WEB
+  orderId: evt-b-7

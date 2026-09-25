@@ -1,0 +1,9 @@
+data:
+  parcels.manifest_lines:
+    - id: ML-FJORD-0101-1
+      reference: PX-FJORD-0101
+      weight_grams: 31000
+    - id: ML-FJORD-0101-2
+      reference: PX-FJORD-0102
+      weight_grams: 1500
+      service_level: SAME_DAY

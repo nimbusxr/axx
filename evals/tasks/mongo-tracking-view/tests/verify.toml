@@ -1,0 +1,4 @@
+# What the verifier checks for this task (see evals/README.md, "How a task is verified").
+allowed = ["features/**", "seeds/**"]
+min_scenarios = 2
+mutants = ["tracking-status-from-first-scan", "tracking-counts-duplicate-scans"]

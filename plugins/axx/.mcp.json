@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "axx": {
+      "command": "axx",
+      "args": ["mcp"]
+    }
+  }
+}

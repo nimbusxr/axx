@@ -1,0 +1,11 @@
+data:
+  event_type: heartbeat
+  firmware: "1.4.2"
+  region: us-east
+  power: battery
+  device:
+    serial: SN-100
+    model: T1000
+  readings:
+    - metric: temp_c
+      value: 21.5

@@ -1,0 +1,7 @@
+# Standalone JSON Schema backend: fixture files, prototype sibling, derived identity.
+factory:
+  family: json
+  schema: ../schemas/telemetry.schema.json
+identity:
+  - path: device_id
+    prefix: dev-

@@ -1,0 +1,12 @@
+service: svc-checkout-config
+port: 8080
+mode: live
+timeouts:
+  connect_ms: 250
+  read_ms: 900
+features:
+  gift_wrap: false
+  split_tender: true
+tags:
+- checkout
+- tier-1

@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: Apache-2.0
+# The image builds the extension from source; send only what that needs.
+*
+!gradlew
+!gradle/
+!settings.gradle.kts
+!build.gradle.kts
+!gradle.properties
+!src/main/

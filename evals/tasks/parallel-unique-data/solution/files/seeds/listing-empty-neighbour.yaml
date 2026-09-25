@@ -1,0 +1,8 @@
+parcels.parcels:
+  - reference: "PX-LIST-BUSY-01"
+    sender: "shop-list-busy"
+    weight_grams: 650
+    recipient:
+      name: "Dara Busy"
+      postcode: "20095"
+      country: "DE"

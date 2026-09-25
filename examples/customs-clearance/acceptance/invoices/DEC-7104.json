@@ -1,0 +1,14 @@
+{
+  "declaration": "DEC-7104",
+  "parcel": "PX-7104",
+  "currency": "EUR",
+  "items": [
+    {
+      "description": "Paperback books",
+      "hsCode": "490199",
+      "quantity": 2,
+      "value": 20.0
+    }
+  ],
+  "total": 20.0
+}

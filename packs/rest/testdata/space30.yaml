@@ -1,0 +1,176 @@
+openapi: 3.0.3
+info:
+  title: Space test API (OpenAPI 3.0)
+  version: "1.0"
+servers:
+  - url: http://localhost:8080
+paths:
+  /api/launches:
+    get:
+      responses:
+        "200":
+          description: launches
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Launch"
+    post:
+      parameters:
+        - name: query
+          in: query
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Launch"
+            examples:
+              Zeta Launch:
+                value:
+                  name: Zeta
+                  flight_number: 7
+                  fuel_ratio: 1.0
+                  approved: true
+                  crew:
+                    - first_name: Jane
+                      last_name: Speed
+              Alpha Launch:
+                value:
+                  name: Alpha
+                  flight_number: 1
+                  fuel_ratio: 0.5
+                  approved: false
+              External Launch:
+                externalValue: examples/launch-ext.json
+      responses:
+        "201":
+          description: created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Launch"
+        "400":
+          description: bad request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+  /api/launches/search:
+    post:
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+      responses:
+        "200":
+          description: ok
+  /api/launches/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+    get:
+      responses:
+        "200":
+          description: one launch
+          headers:
+            X-Rate-Limit:
+              required: true
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Launch"
+        "404":
+          description: not found
+  /api/missions:
+    get:
+      parameters:
+        - name: status
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [planned, active]
+        - name: limit
+          in: query
+          schema:
+            type: integer
+        - name: X-Trace
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: missions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+  /api/secure:
+    get:
+      security:
+        - apiKey: []
+      responses:
+        "200":
+          description: ok
+components:
+  securitySchemes:
+    apiKey:
+      type: apiKey
+      in: header
+      name: X-API-Key
+  schemas:
+    Launch:
+      type: object
+      required: [name, flight_number]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+          minLength: 1
+        date_utc:
+          type: string
+          format: date-time
+        flight_number:
+          type: integer
+        fuel_ratio:
+          type: number
+        approved:
+          type: boolean
+        status:
+          type: string
+          enum: [planned, launched]
+        crew:
+          type: array
+          nullable: true
+          items:
+            type: object
+            required: [first_name]
+            properties:
+              first_name:
+                type: string
+              last_name:
+                type: string
+    Problem:
+      type: object
+      properties:
+        title:
+          type: string
+        status:
+          type: integer

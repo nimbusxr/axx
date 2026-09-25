@@ -1,0 +1,23 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended", "helpers:pinGitHubActionDigests", ":semanticCommits"],
+  "schedule": ["before 6am on monday"],
+  "postUpdateOptions": ["gomodTidy"],
+  "packageRules": [
+    {"matchUpdateTypes": ["minor", "patch", "digest"], "automerge": true},
+    {"matchUpdateTypes": ["major"], "dependencyDashboardApproval": true},
+    {"matchManagers": ["github-actions"], "groupName": "GitHub Actions"},
+    {"matchManagers": ["gomod"], "matchUpdateTypes": ["minor", "patch"], "groupName": "Go modules"},
+    {"matchPackageNames": ["org.wiremock:wiremock-standalone"], "groupName": "WireMock", "automerge": false}
+  ],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "WireMock in the axx-wiremock image. WIREMOCK_SHA256 needs a manual update; the image build fails until it matches.",
+      "managerFilePatterns": ["/^extensions/wiremock-openapi/Dockerfile$/"],
+      "matchStrings": ["ARG WIREMOCK_VERSION=(?<currentValue>\\S+)"],
+      "depNameTemplate": "org.wiremock:wiremock-standalone",
+      "datasourceTemplate": "maven"
+    }
+  ]
+}

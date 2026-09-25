@@ -1,0 +1,195 @@
+<ascii-axe role="img" aria-label="Wind streams behind ASCII titles reading BLACK, BOX, MEET, AXX. The axe smashes through AXX, scattering characters behind it. The camera orbits to the left, revealing the blade and trailing handle as the axe continues flying.">
+	<div class="ascii-scene">
+		<div class="ascii-intro" aria-hidden="true" hidden><pre class="ascii-intro-word"></pre></div>
+		<canvas hidden aria-hidden="true"></canvas>
+		<canvas class="ascii-burst" hidden aria-hidden="true"></canvas>
+		<pre class="ascii-fallback" aria-hidden="true">
+                 __..------.
+         .--===###%%%%%%%%%%)
+         |#######%%%%%%%%%%%|
+         '---.##%%%%%%%%%%%/
+             |##%%%%%%%%%/
+             |#| '%%%%%:'
+             |#|   '::'
+             |#|
+             |#|
+            /#/
+           /#/
+          /#/
+          |#|
+          '::'
+		</pre>
+	</div>
+</ascii-axe>
+
+<script>
+	import { AXE_FLIGHT, createAxeScene } from '../lib/axe-scene';
+	import { DEFAULT_AXE_POSE, isAxePose } from '../lib/axe-pose.mjs';
+	import { createAsciiTitles } from '../lib/ascii-titles';
+	import { createTitleBurst, TITLE_BURST_DURATION } from '../lib/ascii-burst';
+
+	const FLIGHT_START = .7;
+	const TITLE_END = FLIGHT_START + AXE_FLIGHT.impact;
+	const STILL_TIME = Math.max(TITLE_END + TITLE_BURST_DURATION, FLIGHT_START + AXE_FLIGHT.orbitEnd);
+	const TITLES = [
+		{ word: 'BLACK', start: 0, end: .6 },
+		{ word: 'BOX', start: .6, end: 1.2 },
+		{ word: 'MEET', start: 1.2, end: 1.8 },
+		{ word: 'AXX', start: 1.8, end: TITLE_END },
+	] as const;
+
+	class AsciiAxe extends HTMLElement {
+		private cleanup?: () => void;
+
+		connectedCallback() {
+			const canvas = this.querySelector('canvas')!;
+			const context = canvas.getContext('2d');
+			if (!context) return;
+			const burst = this.querySelector<HTMLCanvasElement>('.ascii-burst')!;
+			const burstContext = burst.getContext('2d')!;
+			let drawBurst: ReturnType<typeof createTitleBurst> | undefined;
+			const scene = document.createElement('canvas');
+			const renderScene = createAxeScene(scene.getContext('2d')!);
+			const sampler = document.createElement('canvas');
+			const sample = sampler.getContext('2d', { willReadFrequently: true })!;
+			const intro = this.querySelector<HTMLElement>('.ascii-intro')!;
+			const title = this.querySelector<HTMLElement>('.ascii-intro-word')!;
+			const motion = matchMedia('(prefers-reduced-motion: reduce)');
+			const poseEditing = import.meta.env.DEV && new URLSearchParams(location.search).has('pose');
+			let editorPose = { ...DEFAULT_AXE_POSE };
+			let elapsed = motion.matches || poseEditing ? STILL_TIME : 0;
+			let frame = 0;
+			let previousTime = 0;
+			let lastPaint = 0;
+			let width = 0;
+			let height = 0;
+			let columns = 0;
+			let rows = 0;
+			let ratio = 1;
+			let titleColumns = 0;
+			let titleArt: Record<string, string> = {};
+			let ready = false;
+			let active = true;
+
+			const drawTitle = () => {
+				const cue = TITLES.find(cue => elapsed >= cue.start && elapsed < cue.end);
+				const hidden = !cue;
+				if (intro.hidden !== hidden) intro.hidden = hidden;
+				if (cue && intro.dataset.word !== cue.word) {
+					intro.dataset.word = cue.word;
+					title.textContent = titleArt[cue.word];
+				}
+			};
+
+			const draw = () => {
+				if (!width || !height) return;
+				drawTitle();
+				const impactAge = motion.matches || poseEditing ? -1 : elapsed - TITLE_END;
+				const kick = impactAge >= 0 && impactAge < .22 ? Math.pow(1 - impactAge / .22, 2) * Math.min(9, width * .012) : 0;
+				const shakeX = Math.sin(impactAge * 110 + 1) * kick;
+				const shakeY = -Math.cos(impactAge * 90) * kick * .6;
+				context.setTransform(ratio, 0, 0, ratio, 0, 0);
+				context.clearRect(0, 0, width, height);
+				context.translate(shakeX, shakeY);
+				// Break the title on visual contact, before the axe finishes settling.
+				const vanishingPoint = renderScene(elapsed - FLIGHT_START, motion.matches || poseEditing, elapsed, poseEditing ? editorPose : undefined);
+				drawBurst?.(impactAge, shakeX, shakeY, scene, vanishingPoint);
+				sample.clearRect(0, 0, columns, rows);
+				sample.drawImage(scene, 0, 0, columns, rows);
+				const pixels = sample.getImageData(0, 0, columns, rows).data;
+				const cellWidth = width / columns;
+				const cellHeight = height / rows;
+				context.font = `${cellHeight * .92}px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace`;
+				context.textAlign = 'center'; context.textBaseline = 'middle';
+				const glyphs = '.,:;=+*#%@';
+				for (let y = 0; y < rows; y++) {
+					for (let x = 0; x < columns; x++) {
+						const index = (y * columns + x) * 4;
+						const value = pixels[index] * pixels[index + 3] / 255;
+						if (value < 9) continue;
+						const tone = Math.round(22 + value * .35);
+						context.fillStyle = `rgb(${tone} ${tone} ${tone + 3})`;
+						const isLine = pixels[index] - pixels[index + 1] > 12;
+						const direction = (pixels[index + 2] - pixels[index + 1]) / Math.max(1, pixels[index] - pixels[index + 1]);
+						const lineGlyph = direction < .15 ? '-' : direction < .45 ? '/' : direction < .75 ? '\\' : '|';
+						const glyph = isLine ? lineGlyph : glyphs[Math.min(glyphs.length - 1, Math.floor(value / 256 * glyphs.length))];
+						context.fillText(glyph, (x + .5) * cellWidth, (y + .5) * cellHeight);
+					}
+				}
+			};
+
+			const resize = () => {
+				if (!ready) return;
+				const bounds = canvas.parentElement!.getBoundingClientRect();
+				width = bounds.width; height = bounds.height;
+				ratio = Math.min(devicePixelRatio || 1, 2);
+				canvas.width = Math.round(width * ratio); canvas.height = Math.round(height * ratio);
+				burst.width = canvas.width; burst.height = canvas.height;
+				const sceneRatio = Math.min(1, 1400 / width, 1000 / height);
+				scene.width = Math.round(width * sceneRatio); scene.height = Math.round(height * sceneRatio);
+				columns = Math.max(64, Math.min(200, Math.floor(width / 7.2)));
+				rows = Math.max(30, Math.round(height / (width / columns * 1.5)));
+				sampler.width = columns; sampler.height = rows;
+				const titleStyle = getComputedStyle(title);
+				const nextTitleColumns = Number(titleStyle.getPropertyValue('--ascii-columns'));
+				if (titleColumns !== nextTitleColumns) {
+					titleColumns = nextTitleColumns;
+					titleArt = createAsciiTitles(titleColumns, titleColumns / 5);
+					delete intro.dataset.word;
+				}
+				drawBurst = createTitleBurst(burstContext, {
+					art: titleArt.AXX, width, height, ratio,
+					font: `${titleStyle.fontWeight} ${titleStyle.fontSize} ${titleStyle.fontFamily}`,
+					fontSize: parseFloat(titleStyle.fontSize),
+				});
+				draw();
+			};
+			const tick = (now: number) => {
+				if (poseEditing || motion.matches || document.hidden) return;
+				if (previousTime) elapsed += Math.min((now - previousTime) / 1000, .1);
+				previousTime = now;
+				const frameDuration = 1000 / 24;
+				if (now - lastPaint >= frameDuration) {
+					draw();
+					lastPaint = now - (now - lastPaint) % frameDuration;
+				}
+				frame = requestAnimationFrame(tick);
+			};
+			const sync = () => {
+				cancelAnimationFrame(frame); previousTime = 0;
+				if (ready && !poseEditing && !motion.matches && !document.hidden) frame = requestAnimationFrame(tick);
+			};
+			const onPose = (event: Event) => {
+				const pose = (event as CustomEvent).detail;
+				if (!poseEditing || !isAxePose(pose)) return;
+				editorPose = { ...pose };
+				draw();
+			};
+			if (poseEditing) window.addEventListener('axx:pose-change', onPose);
+			const onMotion = () => { if (motion.matches) elapsed = STILL_TIME; draw(); sync(); };
+			motion.addEventListener('change', onMotion);
+			document.addEventListener('visibilitychange', sync);
+			const observer = new ResizeObserver(resize);
+			observer.observe(canvas.parentElement!);
+			this.querySelector<HTMLElement>('.ascii-fallback')!.hidden = true;
+			const start = () => {
+				if (!active) return;
+				ready = true;
+				canvas.hidden = false;
+				burst.hidden = false;
+				resize(); sync();
+			};
+			// Build the masks with the local brand font before starting the first card.
+			document.fonts.load('900 100px Inter').then(start, start);
+			this.cleanup = () => {
+				active = false;
+				cancelAnimationFrame(frame); observer.disconnect();
+				motion.removeEventListener('change', onMotion); document.removeEventListener('visibilitychange', sync);
+				window.removeEventListener('axx:pose-change', onPose);
+			};
+		}
+
+		disconnectedCallback() { this.cleanup?.(); }
+	}
+	if (!customElements.get('ascii-axe')) customElements.define('ascii-axe', AsciiAxe);
+</script>

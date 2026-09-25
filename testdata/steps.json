@@ -1,0 +1,1386 @@
+{
+  "description": "The frozen catalog of built-in step text. Step text is public API: every entry must stay defined, verbatim, by its pack.",
+  "counts": {
+    "step": 219,
+    "parameterType": 9
+  },
+  "entries": [
+    {
+      "kind": "parameterType",
+      "pack": "core",
+      "keyword": "ParameterType",
+      "name": "duration",
+      "expression": "(\\d+)(s|m)"
+    },
+    {
+      "kind": "parameterType",
+      "pack": "core",
+      "keyword": "ParameterType",
+      "name": "filepath",
+      "expression": "([^\\s]+)"
+    },
+    {
+      "kind": "parameterType",
+      "pack": "core",
+      "keyword": "ParameterType",
+      "name": "mimeType",
+      "expression": "([^\\s]+)"
+    },
+    {
+      "kind": "parameterType",
+      "pack": "core",
+      "keyword": "ParameterType",
+      "name": "ordinal",
+      "expression": "(\\d+)(?:st|nd|rd|th)"
+    },
+    {
+      "kind": "parameterType",
+      "pack": "core",
+      "keyword": "ParameterType",
+      "name": "pattern",
+      "expression": "([^\\s]+)"
+    },
+    {
+      "kind": "parameterType",
+      "pack": "rest",
+      "keyword": "ParameterType",
+      "name": "service",
+      "expression": "([^\\s]+)"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Given",
+      "expression": "a(n) {word} request to {word} on {service}"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Given",
+      "expression": "a(n) {word} request to {word}"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Given",
+      "expression": "a {ordinal} ordered {word} request to {word} on {service}"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Given",
+      "expression": "a {ordinal} ordered {word} request to {word}"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Given",
+      "expression": "a request payload using a(n) {mimeType} empty content template for request on {service}"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Given",
+      "expression": "a request payload using a(n) {mimeType} empty content template for {ordinal} ordered request on {service}"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Given",
+      "expression": "a request payload using a(n) {mimeType} empty content template for {ordinal} ordered request"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Given",
+      "expression": "a request payload using a(n) {mimeType} empty content template"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Given",
+      "expression": "a request payload using a(n) {mimeType} content example named {string} for request on {service}"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Given",
+      "expression": "a request payload using a(n) {mimeType} content example named {string} for {ordinal} ordered request on {service}"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Given",
+      "expression": "a request payload using a(n) {mimeType} content example named {string} for {ordinal} ordered request"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Given",
+      "expression": "a request payload using a(n) {mimeType} content example named {string}"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Given",
+      "expression": "a request payload using a(n) {mimeType} content example for request on {service}"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Given",
+      "expression": "a request payload using a(n) {mimeType} content example for {ordinal} ordered request on {service}"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Given",
+      "expression": "a request payload using a(n) {mimeType} content example for {ordinal} ordered request"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Given",
+      "expression": "a request payload using a(n) {mimeType} content example"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "When",
+      "expression": "the request is executed"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "When",
+      "expression": "the request is executed on {service}"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "When",
+      "expression": "the {ordinal} ordered request is executed on {service}"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "When",
+      "expression": "the {ordinal} ordered request is executed"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Given",
+      "expression": "the request header {word} is {string} for request on {service}"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Given",
+      "expression": "the request header {word} is {string} for {ordinal} ordered request on {service}"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Given",
+      "expression": "the request header {word} is {string} for {ordinal} ordered request"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Given",
+      "expression": "the request header {word} is {string}"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Given",
+      "expression": "the request headers are:"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Given",
+      "expression": "the request headers for request on {service} are:"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Given",
+      "expression": "the request headers for {ordinal} ordered request are:"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Given",
+      "expression": "the request headers for {ordinal} ordered request on {service} are:"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Given",
+      "expression": "the request payload property {word} is null for request on {service}"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Given",
+      "expression": "the request payload property {word} is null for {ordinal} ordered request on {service}"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Given",
+      "expression": "the request payload property {word} is null for {ordinal} ordered request"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Given",
+      "expression": "the request payload property {word} is null"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Given",
+      "expression": "the request payload properties are:"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Given",
+      "expression": "the request payload properties for request on {service} are:"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Given",
+      "expression": "the request payload properties for {ordinal} ordered request are:"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Given",
+      "expression": "the request payload properties for {ordinal} ordered request on {service} are:"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Given",
+      "expression": "the request payload property {word} is {string} for request on {service}"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Given",
+      "expression": "the request payload property {word} is {string} for {ordinal} ordered request on {service}"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Given",
+      "expression": "the request payload property {word} is {string} for {ordinal} ordered request"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Given",
+      "expression": "the request payload property {word} is {string}"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Then",
+      "expression": "the response body contains {string} for response on {service}"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Then",
+      "expression": "the response body contains {string} for {ordinal} ordered response on {service}"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Then",
+      "expression": "the response body contains {string} for {ordinal} ordered response"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Then",
+      "expression": "the response body contains {string}"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Then",
+      "expression": "the response header {word} is {string} for response on {service}"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Then",
+      "expression": "the response header {word} is {string} for {ordinal} ordered response on {service}"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Then",
+      "expression": "the response header {word} is {string} for {ordinal} ordered response"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Then",
+      "expression": "the response header {word} is {string}"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Then",
+      "expression": "the response header {word} is missing for response on {service}"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Then",
+      "expression": "the response header {word} is missing for {ordinal} ordered response on {service}"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Then",
+      "expression": "the response header {word} is missing for {ordinal} ordered response"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Then",
+      "expression": "the response header {word} is missing"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Then",
+      "expression": "the response header {word} matches {pattern} for response on {service}"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Then",
+      "expression": "the response header {word} matches {pattern} for {ordinal} ordered response on {service}"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Then",
+      "expression": "the response header {word} matches {pattern} for {ordinal} ordered response"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Then",
+      "expression": "the response header {word} matches {pattern}"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Then",
+      "expression": "the response headers are:"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Then",
+      "expression": "the response headers for response on {service} are:"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Then",
+      "expression": "the response headers for {ordinal} ordered response are:"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Then",
+      "expression": "the response headers for {ordinal} ordered response on {service} are:"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Then",
+      "expression": "the response headers are missing:"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Then",
+      "expression": "the response headers for response on {service} are missing:"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Then",
+      "expression": "the response headers for {ordinal} ordered response are missing:"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Then",
+      "expression": "the response headers for {ordinal} ordered response on {service} are missing:"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Then",
+      "expression": "the response headers match:"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Then",
+      "expression": "the response headers for response on {service} match:"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Then",
+      "expression": "the response headers for {ordinal} ordered response match:"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Then",
+      "expression": "the response headers for {ordinal} ordered response on {service} match:"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Then",
+      "expression": "the response payload properties are:"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Then",
+      "expression": "the response payload properties for response on {service} are:"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Then",
+      "expression": "the response payload properties for {ordinal} ordered response are:"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Then",
+      "expression": "the response payload properties for {ordinal} ordered response on {service} are:"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Then",
+      "expression": "the response payload properties match:"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Then",
+      "expression": "the response payload properties for response on {service} match:"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Then",
+      "expression": "the response payload properties for {ordinal} ordered response match:"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Then",
+      "expression": "the response payload properties for {ordinal} ordered response on {service} match:"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Then",
+      "expression": "the response payload property {word} is {string} for response on {service}"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Then",
+      "expression": "the response payload property {word} is {string} for {ordinal} ordered response on {service}"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Then",
+      "expression": "the response payload property {word} is {string} for {ordinal} ordered response"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Then",
+      "expression": "the response payload property {word} is {string}"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Then",
+      "expression": "the response payload property {word} is null for response on {service}"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Then",
+      "expression": "the response payload property {word} is null for {ordinal} ordered response on {service}"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Then",
+      "expression": "the response payload property {word} is null for {ordinal} ordered response"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Then",
+      "expression": "the response payload property {word} is null"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Then",
+      "expression": "the response payload property {word} is undefined for response on {service}"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Then",
+      "expression": "the response payload property {word} is undefined for {ordinal} ordered response on {service}"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Then",
+      "expression": "the response payload property {word} is undefined for {ordinal} ordered response"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Then",
+      "expression": "the response payload property {word} is undefined"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Then",
+      "expression": "the response payload property {word} matches {pattern} for response on {service}"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Then",
+      "expression": "the response payload property {word} matches {pattern} for {ordinal} ordered response on {service}"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Then",
+      "expression": "the response payload property {word} matches {pattern} for {ordinal} ordered response"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Then",
+      "expression": "the response payload property {word} matches {pattern}"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Then",
+      "expression": "the response status code is {int} on {service}"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Then",
+      "expression": "the response status code is {int}"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Then",
+      "expression": "the {ordinal} ordered response status code is {int} on {service}"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Then",
+      "expression": "the {ordinal} ordered response status code is {int}"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Given",
+      "expression": "the {word} service with the following properties:"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Given",
+      "expression": "the OpenAPI validation levels are:"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Given",
+      "expression": "the OpenAPI validation levels on {service} are:"
+    },
+    {
+      "kind": "parameterType",
+      "pack": "mock",
+      "keyword": "ParameterType",
+      "name": "mockedService",
+      "expression": "([^\\s]+)"
+    },
+    {
+      "kind": "step",
+      "pack": "mock",
+      "keyword": "Then",
+      "expression": "the mocked {word} request to {word} named {word} was received by {mockedService}"
+    },
+    {
+      "kind": "step",
+      "pack": "mock",
+      "keyword": "Then",
+      "expression": "the mocked request named {word} on {mockedService} was received at least {int} time(s)"
+    },
+    {
+      "kind": "step",
+      "pack": "mock",
+      "keyword": "Then",
+      "expression": "the mocked request named {word} was received at least {int} time(s)"
+    },
+    {
+      "kind": "step",
+      "pack": "mock",
+      "keyword": "Then",
+      "expression": "the mocked request named {word} on {mockedService} was received at most {int} time(s)"
+    },
+    {
+      "kind": "step",
+      "pack": "mock",
+      "keyword": "Then",
+      "expression": "the mocked request named {word} was received at most {int} time(s)"
+    },
+    {
+      "kind": "step",
+      "pack": "mock",
+      "keyword": "Then",
+      "expression": "the mocked request named {word} on {mockedService} was received exactly {int} time(s)"
+    },
+    {
+      "kind": "step",
+      "pack": "mock",
+      "keyword": "Then",
+      "expression": "the mocked request named {word} was received exactly {int} time(s)"
+    },
+    {
+      "kind": "step",
+      "pack": "mock",
+      "keyword": "Then",
+      "expression": "the mocked {word} request to {word} named {word} on {mockedService} was not received"
+    },
+    {
+      "kind": "step",
+      "pack": "mock",
+      "keyword": "Then",
+      "expression": "the mocked {word} request to {word} named {word} was not received"
+    },
+    {
+      "kind": "step",
+      "pack": "mock",
+      "keyword": "Then",
+      "expression": "the header {word} for mocked request named {word} is {string}"
+    },
+    {
+      "kind": "step",
+      "pack": "mock",
+      "keyword": "Then",
+      "expression": "the header {word} for mocked request named {word} on {mockedService} is {string}"
+    },
+    {
+      "kind": "step",
+      "pack": "mock",
+      "keyword": "Then",
+      "expression": "the header {word} for mocked request named {word} on {mockedService} is missing"
+    },
+    {
+      "kind": "step",
+      "pack": "mock",
+      "keyword": "Then",
+      "expression": "the header {word} for mocked request named {word} on {mockedService} matches {pattern}"
+    },
+    {
+      "kind": "step",
+      "pack": "mock",
+      "keyword": "Then",
+      "expression": "the headers for mocked request named {word} on {mockedService} are:"
+    },
+    {
+      "kind": "step",
+      "pack": "mock",
+      "keyword": "Then",
+      "expression": "the headers for mocked request named {word} on {mockedService} are missing:"
+    },
+    {
+      "kind": "step",
+      "pack": "mock",
+      "keyword": "Then",
+      "expression": "the headers for mocked request named {word} on {mockedService} match:"
+    },
+    {
+      "kind": "step",
+      "pack": "mock",
+      "keyword": "Given",
+      "expression": "the mocked {word} service with the following properties:"
+    },
+    {
+      "kind": "parameterType",
+      "pack": "sql",
+      "keyword": "ParameterType",
+      "name": "dbService",
+      "expression": "([^\\s]+)"
+    },
+    {
+      "kind": "parameterType",
+      "pack": "sql",
+      "keyword": "ParameterType",
+      "name": "sqlState",
+      "expression": "[0-9A-Za-z]{5}"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Given",
+      "expression": "the rows in the {word} table are locked where:"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Given",
+      "expression": "the rows in the {word} table on {dbService} are locked where:"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Then",
+      "expression": "the row locks are released"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Then",
+      "expression": "the row locks on {dbService} are released"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Given",
+      "expression": "a {filepath} db seed on {dbService}"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Given",
+      "expression": "a {filepath} db seed"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Then",
+      "expression": "a selection of rows is retrieved from the {word} table where:"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Then",
+      "expression": "a selection of rows is retrieved from the {word} table on {dbService} where:"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Then",
+      "expression": "a {ordinal} selection of rows is retrieved from the {word} table where:"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Then",
+      "expression": "a {ordinal} selection of rows is retrieved from the {word} table on {dbService} where:"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Then",
+      "expression": "within {duration} a selection of at least {int} row(s) is retrieved from the {word} table where:"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Then",
+      "expression": "within {duration} a selection of at least {int} row(s) is retrieved from the {word} table on {dbService} where:"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Then",
+      "expression": "within {duration} a {ordinal} selection of at least {int} row(s) is retrieved from the {word} table where:"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Then",
+      "expression": "within {duration} a {ordinal} selection of at least {int} row(s) is retrieved from the {word} table on {dbService} where:"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Then",
+      "expression": "the {ordinal} row {word} property for the selection json properties are:"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Then",
+      "expression": "the {ordinal} row {word} property for the {ordinal} selection json properties are:"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Then",
+      "expression": "the {ordinal} row {word} property for the {ordinal} selection on {dbService} json properties are:"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Then",
+      "expression": "the {ordinal} row {word} property for the selection on {dbService} json properties are:"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Then",
+      "expression": "the {ordinal} row {word} property for the selection json properties match:"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Then",
+      "expression": "the {ordinal} row {word} property for the {ordinal} selection json properties match:"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Then",
+      "expression": "the {ordinal} row {word} property for the {ordinal} selection on {dbService} json properties match:"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Then",
+      "expression": "the {ordinal} row {word} property for the selection on {dbService} json properties match:"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Then",
+      "expression": "a selection of rows is retrieved from the {word} table where the {word} jsonb column contains:"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Then",
+      "expression": "a selection of rows is retrieved from the {word} table on {dbService} where the {word} jsonb column contains:"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Then",
+      "expression": "a {ordinal} selection of rows is retrieved from the {word} table where the {word} jsonb column contains:"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Then",
+      "expression": "a {ordinal} selection of rows is retrieved from the {word} table on {dbService} where the {word} jsonb column contains:"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Then",
+      "expression": "the selection on {dbService} has fewer than {int} row(s)"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Then",
+      "expression": "the {ordinal} selection on {dbService} has fewer than {int} row(s)"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Then",
+      "expression": "the {ordinal} selection has fewer than {int} row(s)"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Then",
+      "expression": "the selection has fewer than {int} row(s)"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Then",
+      "expression": "the selection on {dbService} has more than {int} row(s)"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Then",
+      "expression": "the {ordinal} selection on {dbService} has more than {int} row(s)"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Then",
+      "expression": "the {ordinal} selection has more than {int} row(s)"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Then",
+      "expression": "the selection has more than {int} row(s)"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Then",
+      "expression": "the selection on {dbService} has {int} row(s)"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Then",
+      "expression": "the {ordinal} selection on {dbService} has {int} row(s)"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Then",
+      "expression": "the {ordinal} selection has {int} row(s)"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Then",
+      "expression": "the selection has {int} row(s)"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Given",
+      "expression": "a(n) {word} database with the following properties:"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Given",
+      "expression": "a(n) before insert trigger on the {word} table will raise a(n) {sqlState} exception where:"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Given",
+      "expression": "a(n) before insert trigger on the {word} table will raise a(n) {sqlState} exception {int} time(s) where:"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Given",
+      "expression": "a(n) before insert trigger on the {word} table on {dbService} will raise a(n) {sqlState} exception {int} time(s) where:"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Given",
+      "expression": "a(n) before insert trigger on the {word} table on {dbService} will raise a(n) {sqlState} exception where:"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Given",
+      "expression": "a(n) before insert trigger on the {word} table will insert and raise a(n) {sqlState} exception where:"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Given",
+      "expression": "a(n) before insert trigger on the {word} table will insert and raise a(n) {sqlState} exception {int} time(s) where:"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Given",
+      "expression": "a(n) before insert trigger on the {word} table on {dbService} will insert and raise a(n) {sqlState} exception {int} time(s) where:"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Given",
+      "expression": "a(n) before insert trigger on the {word} table on {dbService} will insert and raise a(n) {sqlState} exception where:"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Given",
+      "expression": "a(n) {ordinal} ordered before insert trigger on the {word} table will raise a(n) {sqlState} exception where:"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Given",
+      "expression": "a(n) {ordinal} ordered before insert trigger on the {word} table will raise a(n) {sqlState} exception {int} time(s) where:"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Given",
+      "expression": "a(n) {ordinal} ordered before insert trigger on the {word} table on {dbService} will raise a(n) {sqlState} exception {int} time(s) where:"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Given",
+      "expression": "a(n) {ordinal} ordered before insert trigger on the {word} table on {dbService} will raise a(n) {sqlState} exception where:"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Given",
+      "expression": "a(n) {ordinal} ordered before insert trigger on the {word} table will insert and raise a(n) {sqlState} exception where:"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Given",
+      "expression": "a(n) {ordinal} ordered before insert trigger on the {word} table will insert and raise a(n) {sqlState} exception {int} time(s) where:"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Given",
+      "expression": "a(n) {ordinal} ordered before insert trigger on the {word} table on {dbService} will insert and raise a(n) {sqlState} exception {int} time(s) where:"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Given",
+      "expression": "a(n) {ordinal} ordered before insert trigger on the {word} table on {dbService} will insert and raise a(n) {sqlState} exception where:"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Then",
+      "expression": "the {ordinal} ordered before insert trigger on the {word} table was raised {int} time(s)"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Then",
+      "expression": "the {ordinal} ordered before insert trigger on the {word} table on {dbService} was raised {int} time(s)"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Then",
+      "expression": "the before insert trigger on the {word} table was raised {int} time(s)"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Then",
+      "expression": "the before insert trigger on the {word} table on {dbService} was raised {int} time(s)"
+    },
+    {
+      "kind": "step",
+      "pack": "mongo",
+      "keyword": "Given",
+      "expression": "a {filepath} mongo db seed"
+    },
+    {
+      "kind": "step",
+      "pack": "mongo",
+      "keyword": "Given",
+      "expression": "a {filepath} MongoDB seed for {word}"
+    },
+    {
+      "kind": "step",
+      "pack": "mongo",
+      "keyword": "Given",
+      "expression": "a(n) {word} mongo database with the following properties:"
+    },
+    {
+      "kind": "step",
+      "pack": "kafka",
+      "keyword": "Given",
+      "expression": "a(n) {word} kafka topic client on the {word} kafka service with the following properties:"
+    },
+    {
+      "kind": "step",
+      "pack": "kafka",
+      "keyword": "Given",
+      "expression": "a(n) {word} kafka topic client with the following properties:"
+    },
+    {
+      "kind": "step",
+      "pack": "kafka",
+      "keyword": "Given",
+      "expression": "the {word} kafka topic client"
+    },
+    {
+      "kind": "step",
+      "pack": "kafka",
+      "keyword": "Then",
+      "expression": "the {word} kafka event named {word} headers match:"
+    },
+    {
+      "kind": "step",
+      "pack": "kafka",
+      "keyword": "Then",
+      "expression": "the {word} kafka event named {word} headers are:"
+    },
+    {
+      "kind": "step",
+      "pack": "kafka",
+      "keyword": "Then",
+      "expression": "the {word} kafka event named {word} headers on the {word} kafka service are:"
+    },
+    {
+      "kind": "step",
+      "pack": "kafka",
+      "keyword": "Then",
+      "expression": "the {word} kafka event named {word} key is {word}"
+    },
+    {
+      "kind": "step",
+      "pack": "kafka",
+      "keyword": "Then",
+      "expression": "the {word} kafka event named {word} key is {word} on the {word} kafka service"
+    },
+    {
+      "kind": "step",
+      "pack": "kafka",
+      "keyword": "Then",
+      "expression": "the {word} kafka event named {word} payload properties are:"
+    },
+    {
+      "kind": "step",
+      "pack": "kafka",
+      "keyword": "Then",
+      "expression": "the {word} kafka event named {word} payload properties on the {word} kafka service are:"
+    },
+    {
+      "kind": "step",
+      "pack": "kafka",
+      "keyword": "Given",
+      "expression": "a(n) {word} kafka event"
+    },
+    {
+      "kind": "step",
+      "pack": "kafka",
+      "keyword": "Given",
+      "expression": "a(n) {word} kafka event on {word} kafka service"
+    },
+    {
+      "kind": "step",
+      "pack": "kafka",
+      "keyword": "Given",
+      "expression": "a(n) {ordinal} ordered {word} kafka event"
+    },
+    {
+      "kind": "step",
+      "pack": "kafka",
+      "keyword": "Given",
+      "expression": "a(n) {ordinal} ordered {word} kafka event on {word} kafka service"
+    },
+    {
+      "kind": "step",
+      "pack": "kafka",
+      "keyword": "Given",
+      "expression": "the {word} kafka event headers are:"
+    },
+    {
+      "kind": "step",
+      "pack": "kafka",
+      "keyword": "Given",
+      "expression": "the {word} kafka event headers on the {word} kafka service are:"
+    },
+    {
+      "kind": "step",
+      "pack": "kafka",
+      "keyword": "Given",
+      "expression": "the {ordinal} ordered {word} kafka event headers are:"
+    },
+    {
+      "kind": "step",
+      "pack": "kafka",
+      "keyword": "Given",
+      "expression": "the {ordinal} ordered {word} kafka event headers on the {word} kafka service are:"
+    },
+    {
+      "kind": "step",
+      "pack": "kafka",
+      "keyword": "Given",
+      "expression": "the {word} kafka event key is {word}"
+    },
+    {
+      "kind": "step",
+      "pack": "kafka",
+      "keyword": "Given",
+      "expression": "the {word} kafka event key is {word} on the {word} kafka service"
+    },
+    {
+      "kind": "step",
+      "pack": "kafka",
+      "keyword": "Given",
+      "expression": "the {ordinal} ordered {word} kafka event key is {word}"
+    },
+    {
+      "kind": "step",
+      "pack": "kafka",
+      "keyword": "Given",
+      "expression": "the {ordinal} ordered {word} kafka event key is {word} on the {word} kafka service"
+    },
+    {
+      "kind": "step",
+      "pack": "kafka",
+      "keyword": "Given",
+      "expression": "the kafka event payload properties are:"
+    },
+    {
+      "kind": "step",
+      "pack": "kafka",
+      "keyword": "Given",
+      "expression": "the kafka event payload properties on the {word} kafka service are:"
+    },
+    {
+      "kind": "step",
+      "pack": "kafka",
+      "keyword": "Given",
+      "expression": "the {word} kafka event payload properties are:"
+    },
+    {
+      "kind": "step",
+      "pack": "kafka",
+      "keyword": "Given",
+      "expression": "the {word} kafka event payload properties on the {word} kafka service are:"
+    },
+    {
+      "kind": "step",
+      "pack": "kafka",
+      "keyword": "Given",
+      "expression": "the {ordinal} ordered kafka event payload properties are:"
+    },
+    {
+      "kind": "step",
+      "pack": "kafka",
+      "keyword": "Given",
+      "expression": "the {ordinal} ordered kafka event payload properties on the {word} kafka service are:"
+    },
+    {
+      "kind": "step",
+      "pack": "kafka",
+      "keyword": "Given",
+      "expression": "the {word} kafka event payload property {word} is null"
+    },
+    {
+      "kind": "step",
+      "pack": "kafka",
+      "keyword": "Given",
+      "expression": "the {word} kafka event payload property {word} is null on the {word} kafka service"
+    },
+    {
+      "kind": "step",
+      "pack": "kafka",
+      "keyword": "Given",
+      "expression": "the {ordinal} ordered {word} kafka event payload property {word} is null"
+    },
+    {
+      "kind": "step",
+      "pack": "kafka",
+      "keyword": "Given",
+      "expression": "the {ordinal} ordered {word} kafka event payload property {word} is null on the {word} kafka service"
+    },
+    {
+      "kind": "step",
+      "pack": "kafka",
+      "keyword": "Given",
+      "expression": "the {word} kafka event payload is a(n) {filepath} resource"
+    },
+    {
+      "kind": "step",
+      "pack": "kafka",
+      "keyword": "Given",
+      "expression": "the {word} kafka event payload is a(n) {filepath} resource on the {word} kafka service"
+    },
+    {
+      "kind": "step",
+      "pack": "kafka",
+      "keyword": "Given",
+      "expression": "the {ordinal} ordered {word} kafka event payload is a(n) {filepath} resource"
+    },
+    {
+      "kind": "step",
+      "pack": "kafka",
+      "keyword": "Given",
+      "expression": "the {ordinal} ordered {word} kafka event payload is a(n) {filepath} resource on the {word} kafka service"
+    },
+    {
+      "kind": "step",
+      "pack": "kafka",
+      "keyword": "When",
+      "expression": "the {word} kafka event is published using schema {filepath}"
+    },
+    {
+      "kind": "step",
+      "pack": "kafka",
+      "keyword": "When",
+      "expression": "the {ordinal} ordered {word} kafka event is published using schema {filepath}"
+    },
+    {
+      "kind": "step",
+      "pack": "kafka",
+      "keyword": "When",
+      "expression": "the {word} kafka event is published using schema {filepath} on the {word} kafka service"
+    },
+    {
+      "kind": "step",
+      "pack": "kafka",
+      "keyword": "When",
+      "expression": "the {ordinal} ordered {word} kafka event is published using schema {filepath} on the {word} kafka service"
+    },
+    {
+      "kind": "step",
+      "pack": "kafka",
+      "keyword": "Given",
+      "expression": "the {word} kafka service with the following properties:"
+    }
+  ]
+}

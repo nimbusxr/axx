@@ -1,0 +1,9 @@
+factory: return-seeds
+data:
+  space.missions:
+  - id: ret-mission-1
+    name: Refund Mission
+    budget: 10.5
+  space.spacecraft:
+  - id: ret-craft-1
+    name: Refund One

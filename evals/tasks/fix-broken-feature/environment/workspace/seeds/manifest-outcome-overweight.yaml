@@ -1,0 +1,12 @@
+parcels.manifest_lines:
+  - id: "ML-OUTCOME-HEAVY"
+    manifest_id: "MF-OUTCOME-HEAVY"
+    reference: "PX-OUTCOME-HEAVY-01"
+    sender: "shop-outcome"
+    weight_grams: 32000
+    service_level: "STANDARD"
+    recipient:
+      name: "Max Outcome"
+      city: "Dresden"
+      postcode: "01067"
+      country: "DE"

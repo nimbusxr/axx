@@ -1,0 +1,10 @@
+# Shared shape of every legacy-configs fixture (modal values from adoption);
+# fixture files carry only their deltas.
+data:
+  port: 8082
+  mode: live
+  timeouts:
+    connect_ms: 250
+    read_ms: 900
+  tags:
+  - loyalty

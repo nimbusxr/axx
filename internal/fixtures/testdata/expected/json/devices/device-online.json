@@ -1,0 +1,22 @@
+{
+  "device_id": "dev-device-online",
+  "event_type": "device-online",
+  "firmware": "1.4.2",
+  "region": "us-east",
+  "sample_rate_hz": 60,
+  "readings": [
+    {
+      "metric": "temp_c",
+      "value": 21.5
+    }
+  ],
+  "device": {
+    "serial": "SN-100",
+    "model": "T1000"
+  },
+  "power": "battery",
+  "tags": {
+    "rack": "12",
+    "zone": "b"
+  }
+}

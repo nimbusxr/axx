@@ -1,0 +1,6 @@
+data:
+  line:
+    - "@sku": SKU-1
+      "@qty": 2
+      "#text": "19.98"
+  note: rush

@@ -1,0 +1,13 @@
+# Adopted by axx fixtures. Values are preserved verbatim from the
+# original files; review the proposed identity candidates below.
+factory:
+  family: dataset
+  schema: ../../../ddl/01-schema.sql
+# review: every value of these string fields is distinct across the
+# adopted fixtures, so they are declared as identities. Remove any that
+# are not identities; values stay pinned in the fixture data either way.
+identity:
+- path: space.missions.id
+- path: space.missions.name
+- path: space.spacecraft.id
+- path: space.spacecraft.name

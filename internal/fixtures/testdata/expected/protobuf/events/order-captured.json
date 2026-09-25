@@ -1,0 +1,18 @@
+{
+  "orderId": "ord-order-captured",
+  "status": "CAPTURED",
+  "totalCents": "500",
+  "customer": {
+    "id": "cust-1",
+    "loyaltyTier": "gold"
+  },
+  "items": [
+    {
+      "sku": "SKU-1",
+      "quantity": 1,
+      "price": 9.99
+    }
+  ],
+  "giftCardId": "gc-9",
+  "signature": "c2lnbmVk"
+}

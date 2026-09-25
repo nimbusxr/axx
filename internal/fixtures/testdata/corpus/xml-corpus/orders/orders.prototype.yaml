@@ -1,0 +1,5 @@
+data:
+  "@channel": WEB
+  customer:
+    "@id": cust-1
+    name: Josh

@@ -1,0 +1,635 @@
+[
+  {
+    "uri": "features/orders.feature",
+    "id": "orders",
+    "keyword": "Feature",
+    "name": "Orders",
+    "description": "  Orders API behaviour.",
+    "line": 2,
+    "tags": [
+      {
+        "name": "@orders",
+        "type": "Tag",
+        "location": {
+          "line": 1,
+          "column": 1
+        }
+      }
+    ],
+    "elements": [
+      {
+        "keyword": "Background",
+        "name": "",
+        "description": "",
+        "line": 5,
+        "type": "background",
+        "steps": [
+          {
+            "keyword": "Given ",
+            "name": "the orders service is running",
+            "line": 6,
+            "match": {
+              "location": "orders.running"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 3000000
+            }
+          }
+        ]
+      },
+      {
+        "start_timestamp": "2026-09-23T10:00:00.000Z",
+        "id": "orders;create-an-order",
+        "keyword": "Scenario",
+        "name": "Create an order",
+        "description": "",
+        "line": 8,
+        "type": "scenario",
+        "tags": [
+          {
+            "name": "@orders"
+          }
+        ],
+        "before": [
+          {
+            "match": {
+              "location": "db.reset"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 5000000
+            }
+          }
+        ],
+        "steps": [
+          {
+            "keyword": "When ",
+            "name": "I create an order:",
+            "line": 9,
+            "rows": [
+              {
+                "cells": [
+                  "sku",
+                  "qty"
+                ]
+              },
+              {
+                "cells": [
+                  "A1",
+                  "2"
+                ]
+              }
+            ],
+            "match": {
+              "location": "orders.create"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 150000000
+            }
+          },
+          {
+            "keyword": "Then ",
+            "name": "the response status code is 201",
+            "line": 12,
+            "match": {
+              "location": "rest.response.status",
+              "arguments": [
+                {
+                  "val": "201",
+                  "offset": 28
+                }
+              ]
+            },
+            "result": {
+              "status": "passed",
+              "duration": 3000000
+            }
+          }
+        ],
+        "after": [
+          {
+            "match": {
+              "location": "db.cleanup"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 2000000
+            }
+          }
+        ]
+      },
+      {
+        "keyword": "Background",
+        "name": "",
+        "description": "",
+        "line": 5,
+        "type": "background",
+        "steps": [
+          {
+            "keyword": "Given ",
+            "name": "the orders service is running",
+            "line": 6,
+            "match": {
+              "location": "orders.running"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 3000000
+            }
+          }
+        ]
+      },
+      {
+        "start_timestamp": "2026-09-23T10:00:01.000Z",
+        "id": "orders;reject-duplicate-order",
+        "keyword": "Scenario",
+        "name": "Reject duplicate order",
+        "description": "",
+        "line": 15,
+        "type": "scenario",
+        "tags": [
+          {
+            "name": "@orders"
+          },
+          {
+            "name": "@slow"
+          }
+        ],
+        "steps": [
+          {
+            "keyword": "When ",
+            "name": "I send the order again",
+            "line": 16,
+            "match": {
+              "location": "orders.resend"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 40000000
+            },
+            "embeddings": [
+              {
+                "data": "eyJza3UiOiJBMSIsInF0eSI6Mn0=",
+                "mime_type": "application/json",
+                "name": "request.json"
+              },
+              {
+                "data": "iVBORw0KGgo=",
+                "mime_type": "image/png",
+                "name": "screenshot.png"
+              }
+            ],
+            "output": [
+              "POST http://localhost:8080/orders -> 201 Created"
+            ]
+          },
+          {
+            "keyword": "Then ",
+            "name": "the response body is:",
+            "line": 17,
+            "doc_string": {
+              "content_type": "json",
+              "value": "{\"error\": \"duplicate\", \"code\": 409}",
+              "line": 18
+            },
+            "match": {
+              "location": "rest.response.body"
+            },
+            "result": {
+              "status": "failed",
+              "duration": 1250000000,
+              "error_message": "response body mismatch\n  expected: {\"error\":\"duplicate\",\"code\":409}\n  actual:   {\"id\":7,\"sku\":\"A1\",\"status\":\"created\"}\n  diff (-expected +actual):\n  @@ -1,4 +1,5 @@\n   {\n  -  \"code\": 409,\n  -  \"error\": \"duplicate\"\n  +  \"id\": 7,\n  +  \"sku\": \"A1\",\n  +  \"status\": \"created\"\n   }"
+            }
+          }
+        ]
+      },
+      {
+        "keyword": "Background",
+        "name": "",
+        "description": "",
+        "line": 5,
+        "type": "background",
+        "steps": [
+          {
+            "keyword": "Given ",
+            "name": "the orders service is running",
+            "line": 6,
+            "match": {
+              "location": "orders.running"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 3000000
+            }
+          }
+        ]
+      },
+      {
+        "start_timestamp": "2026-09-23T10:00:02.000Z",
+        "id": "orders;cache-responses",
+        "keyword": "Scenario",
+        "name": "Cache responses",
+        "description": "",
+        "line": 22,
+        "type": "scenario",
+        "tags": [
+          {
+            "name": "@orders"
+          }
+        ],
+        "steps": [
+          {
+            "keyword": "When ",
+            "name": "I send the order again",
+            "line": 23,
+            "match": {
+              "location": "orders.resend"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 3000000
+            }
+          },
+          {
+            "keyword": "Then ",
+            "name": "the response is cached",
+            "line": 24,
+            "match": {},
+            "result": {
+              "status": "undefined"
+            }
+          }
+        ]
+      },
+      {
+        "keyword": "Background",
+        "name": "",
+        "description": "",
+        "line": 5,
+        "type": "background",
+        "steps": [
+          {
+            "keyword": "Given ",
+            "name": "the orders service is running",
+            "line": 6,
+            "match": {
+              "location": "orders.running"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 3000000
+            }
+          }
+        ]
+      },
+      {
+        "start_timestamp": "2026-09-23T10:00:03.000Z",
+        "id": "orders;ambiguous-check",
+        "keyword": "Scenario",
+        "name": "Ambiguous check",
+        "description": "",
+        "line": 26,
+        "type": "scenario",
+        "tags": [
+          {
+            "name": "@orders"
+          }
+        ],
+        "steps": [
+          {
+            "keyword": "Then ",
+            "name": "the order is valid",
+            "line": 27,
+            "match": {},
+            "result": {
+              "status": "ambiguous",
+              "error_message": "ambiguous step: 2 definitions match\n  - the order is valid (orders.valid)\n  - the order is {word} (orders.state)"
+            }
+          }
+        ]
+      },
+      {
+        "keyword": "Background",
+        "name": "",
+        "description": "",
+        "line": 5,
+        "type": "background",
+        "steps": [
+          {
+            "keyword": "Given ",
+            "name": "the orders service is running",
+            "line": 6,
+            "match": {
+              "location": "orders.running"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 3000000
+            }
+          }
+        ]
+      },
+      {
+        "start_timestamp": "2026-09-23T10:00:04.000Z",
+        "id": "orders;pending-work",
+        "keyword": "Scenario",
+        "name": "Pending work",
+        "description": "",
+        "line": 29,
+        "type": "scenario",
+        "tags": [
+          {
+            "name": "@orders"
+          }
+        ],
+        "steps": [
+          {
+            "keyword": "Then ",
+            "name": "refunds are processed",
+            "line": 30,
+            "match": {
+              "location": "orders.refunds"
+            },
+            "result": {
+              "status": "pending"
+            }
+          }
+        ]
+      },
+      {
+        "keyword": "Background",
+        "name": "",
+        "description": "",
+        "line": 5,
+        "type": "background",
+        "steps": [
+          {
+            "keyword": "Given ",
+            "name": "the orders service is running",
+            "line": 6,
+            "match": {
+              "location": "orders.running"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 3000000
+            }
+          }
+        ]
+      },
+      {
+        "start_timestamp": "2026-09-23T10:00:05.000Z",
+        "id": "orders;order-<qty>-items;quantities;2",
+        "keyword": "Scenario Outline",
+        "name": "Order 1 items",
+        "description": "",
+        "line": 38,
+        "type": "scenario",
+        "tags": [
+          {
+            "name": "@orders"
+          }
+        ],
+        "steps": [
+          {
+            "keyword": "When ",
+            "name": "I order 1 items",
+            "line": 33,
+            "match": {
+              "location": "orders.order",
+              "arguments": [
+                {
+                  "val": "1",
+                  "offset": 8
+                }
+              ]
+            },
+            "result": {
+              "status": "passed",
+              "duration": 3000000
+            }
+          },
+          {
+            "keyword": "Then ",
+            "name": "the response status code is 201",
+            "line": 34,
+            "match": {
+              "location": "rest.response.status",
+              "arguments": [
+                {
+                  "val": "201",
+                  "offset": 28
+                }
+              ]
+            },
+            "result": {
+              "status": "passed",
+              "duration": 3000000
+            }
+          }
+        ]
+      },
+      {
+        "keyword": "Background",
+        "name": "",
+        "description": "",
+        "line": 5,
+        "type": "background",
+        "steps": [
+          {
+            "keyword": "Given ",
+            "name": "the orders service is running",
+            "line": 6,
+            "match": {
+              "location": "orders.running"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 3000000
+            }
+          }
+        ]
+      },
+      {
+        "start_timestamp": "2026-09-23T10:00:06.000Z",
+        "id": "orders;order-<qty>-items;quantities;3",
+        "keyword": "Scenario Outline",
+        "name": "Order 0 items",
+        "description": "",
+        "line": 39,
+        "type": "scenario",
+        "tags": [
+          {
+            "name": "@orders"
+          }
+        ],
+        "steps": [
+          {
+            "keyword": "When ",
+            "name": "I order 0 items",
+            "line": 33,
+            "match": {
+              "location": "orders.order",
+              "arguments": [
+                {
+                  "val": "0",
+                  "offset": 8
+                }
+              ]
+            },
+            "result": {
+              "status": "passed",
+              "duration": 3000000
+            }
+          },
+          {
+            "keyword": "Then ",
+            "name": "the response status code is 400",
+            "line": 34,
+            "match": {
+              "location": "rest.response.status",
+              "arguments": [
+                {
+                  "val": "400",
+                  "offset": 28
+                }
+              ]
+            },
+            "result": {
+              "status": "failed",
+              "duration": 12000000,
+              "error_message": "unexpected status code\n  expected: 400\n  actual:   201"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "uri": "features/health.feature",
+    "id": "health",
+    "keyword": "Feature",
+    "name": "Health",
+    "description": "",
+    "line": 1,
+    "elements": [
+      {
+        "start_timestamp": "2026-09-23T10:00:07.000Z",
+        "id": "health;panicky",
+        "keyword": "Scenario",
+        "name": "Panicky",
+        "description": "",
+        "line": 3,
+        "type": "scenario",
+        "steps": [
+          {
+            "keyword": "Given ",
+            "name": "a panicking step",
+            "line": 4,
+            "match": {
+              "location": "health.panic"
+            },
+            "result": {
+              "status": "failed",
+              "duration": 1000000,
+              "error_message": "panic: boom\n  example.com/packs/health.panicky(0x14000132000, {0x0, 0x0})\n    /work/packs/health/steps.go:17 +0x2c\n  github.com/nimbusxr/axx/internal/runner.(*Runner).execStep.func2()\n    /src/axx/internal/runner/scenario.go:199 +0x38"
+            }
+          }
+        ]
+      },
+      {
+        "start_timestamp": "2026-09-23T10:00:08.000Z",
+        "id": "health;slow",
+        "keyword": "Scenario",
+        "name": "Slow",
+        "description": "",
+        "line": 6,
+        "type": "scenario",
+        "steps": [
+          {
+            "keyword": "Given ",
+            "name": "a slow step",
+            "line": 7,
+            "match": {
+              "location": "health.slow"
+            },
+            "result": {
+              "status": "failed",
+              "duration": 2001000000,
+              "error_message": "timeout: step timed out after 2s"
+            }
+          }
+        ]
+      },
+      {
+        "start_timestamp": "2026-09-23T10:00:09.000Z",
+        "id": "health;skipped-one",
+        "keyword": "Scenario",
+        "name": "Skipped one",
+        "description": "",
+        "line": 9,
+        "type": "scenario",
+        "steps": [
+          {
+            "keyword": "Given ",
+            "name": "a skipped step",
+            "line": 10,
+            "match": {
+              "location": "health.skip"
+            },
+            "result": {
+              "status": "skipped"
+            }
+          },
+          {
+            "keyword": "Then ",
+            "name": "a panicking step",
+            "line": 11,
+            "match": {
+              "location": "health.panic"
+            },
+            "result": {
+              "status": "skipped"
+            }
+          }
+        ]
+      },
+      {
+        "start_timestamp": "2026-09-23T10:00:10.000Z",
+        "id": "health;broken-setup",
+        "keyword": "Scenario",
+        "name": "Broken setup",
+        "description": "",
+        "line": 13,
+        "type": "scenario",
+        "before": [
+          {
+            "match": {
+              "location": "db.reset"
+            },
+            "result": {
+              "status": "failed",
+              "duration": 30000000,
+              "error_message": "connection refused"
+            }
+          }
+        ],
+        "steps": [
+          {
+            "keyword": "Given ",
+            "name": "a slow step",
+            "line": 14,
+            "match": {
+              "location": "health.slow"
+            },
+            "result": {
+              "status": "skipped"
+            }
+          }
+        ]
+      }
+    ]
+  }
+]

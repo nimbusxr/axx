@@ -1,0 +1,19 @@
+{
+  "order_id": "54321000103",
+  "status": "CAPTURED",
+  "amount_cents": 12999,
+  "currency": "USD",
+  "tender_type": "CREDIT_CARD",
+  "captured_at": null,
+  "payments": [
+    {
+      "payment_id": "pay-order-captured-loyalty-primary",
+      "method": "CREDIT_CARD",
+      "channel": "POS",
+      "loyalty_id": {
+        "string": "loy-000103"
+      }
+    }
+  ],
+  "metadata": {}
+}

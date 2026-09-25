@@ -1,0 +1,15 @@
+# yaml-language-server: $schema=https://axx.nimbusxr.us/schemas/v0/axx-factory.schema.json
+# Response bodies of the address service mock, checked against the address service's
+# OpenAPI contract. They live next to the files WireMock serves (infra/wiremock is a
+# fixtures.sources root in acceptance/axx.yaml); the mappings in ../mappings are
+# written by hand.
+factory:
+  family: json
+  schema: ../../openapi/address-service.yaml#/components/schemas/PostcodeCheck
+prototype:
+  country: DE
+  deliverable: true
+fixtures:
+  postcode-remote:
+    postcode: "27498"
+    zone: DE-REMOTE

@@ -1,0 +1,11 @@
+{
+  "responseCode": "00000",
+  "responseText": "DECLINE",
+  "cardIdentifier": "1111222233-token-declined",
+  "encryptionFlag": "3",
+  "expiryDate": null,
+  "card": {
+    "type": "VIC",
+    "network": "MC"
+  }
+}

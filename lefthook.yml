@@ -1,0 +1,17 @@
+pre-commit:
+  parallel: true
+  commands:
+    fmt:
+      glob: "*.go"
+      run: golangci-lint fmt {staged_files}
+      stage_fixed: true
+    lint:
+      glob: "*.go"
+      run: golangci-lint run --fast-only --new-from-rev=HEAD
+    hygiene:
+      run: scripts/hygiene.sh
+
+pre-push:
+  commands:
+    test:
+      run: go test -short ./...

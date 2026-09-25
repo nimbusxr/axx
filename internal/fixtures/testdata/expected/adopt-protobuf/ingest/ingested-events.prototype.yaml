@@ -1,0 +1,8 @@
+# Shared shape of every ingested-events fixture (modal values from adoption);
+# fixture files carry only their deltas.
+data:
+  status: CAPTURED
+  totalCents: "100"
+  customer:
+    id: c-9
+    loyaltyTier: gold

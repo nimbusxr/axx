@@ -1,0 +1,2 @@
+{"orderId": "evt-a-1", "status": "CAPTURED", "totalCents": "100",
+ "customer": {"id": "c-9", "loyaltyTier": "gold"}, "items": [{"sku": "A", "quantity": 1, "price": 1.5}]}

@@ -1,0 +1,10 @@
+data:
+  event_type: device-offline
+  region: null
+  power:
+    source: solar
+    watts: 240.5
+  readings:
+    - metric: uptime_s
+      value: 86400
+      unit: s

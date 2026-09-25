@@ -1,0 +1,45 @@
+# The billing service and the Google Cloud it runs on.
+#
+#   docker compose up --build --wait     # start everything
+#   docker compose down -v               # stop and remove everything
+#
+# axx runs this for you: see ../acceptance/axx.yaml.
+#
+# Google Cloud runs locally in floci (https://floci.io), a free, open-source
+# emulator: one container, every service on port 4588. The service is set up
+# exactly as for Google Cloud; only the emulator variables point it there.
+name: carrier-billing
+
+services:
+  gcp:
+    image: floci/floci-gcp:latest
+    ports:
+      - '4588:4588'
+    stop_signal: SIGKILL
+
+  # Creates the buckets, topics, subscriptions, the bucket notification and the
+  # BigQuery tables, as the infrastructure code of a real project does; then exits.
+  provision:
+    image: carrier-billing:local
+    build: ../app
+    command: ["provision"]
+    environment: &gcp
+      GOOGLE_CLOUD_PROJECT: parcels-billing
+      STORAGE_EMULATOR_HOST: http://gcp:4588
+      PUBSUB_EMULATOR_HOST: gcp:4588
+      FIRESTORE_EMULATOR_HOST: gcp:4588
+      BIGQUERY_ENDPOINT: http://gcp:4588
+    depends_on:
+      - gcp
+
+  billing:
+    image: carrier-billing:local
+    build: ../app
+    ports:
+      - '8600:8600'
+    environment:
+      <<: *gcp
+      BILLING_ADDR: ':8600'
+    depends_on:
+      provision:
+        condition: service_completed_successfully
