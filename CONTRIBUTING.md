@@ -55,6 +55,6 @@ release app's key for release-please, and `release` holds what publishing needs,
 maintainer approving each release. To check the CLI release locally:
 
 ```sh
-goreleaser release --snapshot --clean --skip=sign,sbom
+GORELEASER_CURRENT_TAG=$(scripts/cli-tag.sh) goreleaser release --snapshot --clean --skip=sign,sbom
 scripts/release-check.sh
 ```

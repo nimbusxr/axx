@@ -3,6 +3,9 @@ version: 2
 project_name: axx
 # Always GitHub, whatever tokens the environment holds.
 force_token: github
+# The CLI's versions are the v* tags. The other components are tagged on the same commits
+# (wiremock-openapi-v…, intellij-v…), so builds without a release tag set
+# GORELEASER_CURRENT_TAG to the newest v* tag (see scripts/cli-tag.sh).
 
 before:
   hooks:
@@ -46,7 +49,8 @@ signs:
 
 dockers_v2:
   - images: [ghcr.io/nimbusxr/axx]
-    tags: ["v{{ .Version }}", "{{ if not .IsSnapshot }}latest{{ end }}"]
+    # The version without the v, like the axx-wiremock image: 0.1.0, 0.1 and latest.
+    tags: ["{{ .Version }}", "{{ .Major }}.{{ .Minor }}", "{{ if not .IsSnapshot }}latest{{ end }}"]
     platforms: [linux/amd64, linux/arm64]
     dockerfile: build/Dockerfile
     labels:

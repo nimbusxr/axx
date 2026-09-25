@@ -92,9 +92,9 @@ tar xzf "$dist/axx_${version}_${os}_${arch}.tar.gz" -C "$tmp" axx
 if out=$("$tmp/axx" version) && [[ $out == "axx v$version "* ]]; then ok "binary: $out"; else fail "binary says '${out:-}'"; fi
 
 # The images run and report the version.
-if command -v docker >/dev/null && docker image inspect "ghcr.io/nimbusxr/axx:v$version-amd64" >/dev/null 2>&1; then
+if command -v docker >/dev/null && docker image inspect "ghcr.io/nimbusxr/axx:$version-amd64" >/dev/null 2>&1; then
 	for a in amd64 arm64; do
-		image="ghcr.io/nimbusxr/axx:v$version-$a"
+		image="ghcr.io/nimbusxr/axx:$version-$a"
 		if out=$(docker run --rm --platform "linux/$a" "$image" version) && [[ $out == "axx v$version "* ]]; then ok "$image: $out"; else fail "$image says '${out:-}'"; fi
 	done
 elif [[ $strict == 1 ]]; then

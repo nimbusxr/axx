@@ -165,7 +165,7 @@ jobs:
         with:
           build: cross
       - run: goreleaser check
-      - run: goreleaser build --snapshot --clean --single-target
+      - run: GORELEASER_CURRENT_TAG=$(scripts/cli-tag.sh) goreleaser build --snapshot --clean --single-target
 
   # Single required status check; keeps branch protection simple as jobs are added.
   workflows:

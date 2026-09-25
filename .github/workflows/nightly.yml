@@ -23,7 +23,7 @@ jobs:
         with:
           install_args: "go goreleaser"
           cache: false
-      - run: goreleaser release --snapshot --clean --skip=docker,homebrew,sign,sbom
+      - run: GORELEASER_CURRENT_TAG=$(scripts/cli-tag.sh) goreleaser release --snapshot --clean --skip=docker,homebrew,sign,sbom
       # The rolling release waits for the AXX_PUBLISH repository variable, like every release;
       # until then the build is kept on the run.
       - if: vars.AXX_PUBLISH != 'true'
