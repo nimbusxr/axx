@@ -252,18 +252,23 @@ class AxxFileServerTest {
 
     /** The status of a GET of a path exactly as written: HTTP clients resolve dot segments. */
     private static int raw(URI server, String path) throws IOException {
-        try (Socket socket = new Socket(server.getHost(), server.getPort())) {
+        try (Socket socket = new Socket(server.getHost(), server.getPort());
+                BufferedReader in =
+                        new BufferedReader(
+                                new InputStreamReader(
+                                        socket.getInputStream(), StandardCharsets.US_ASCII))) {
             OutputStream out = socket.getOutputStream();
             out.write(
                     ("GET " + path + " HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n")
                             .getBytes(StandardCharsets.US_ASCII));
             out.flush();
-            String status =
-                    new BufferedReader(
-                                    new InputStreamReader(
-                                            socket.getInputStream(), StandardCharsets.US_ASCII))
-                            .readLine();
-            return Integer.parseInt(status.split(" ")[1]);
+            String status = in.readLine();
+            String[] parts = status == null ? new String[0] : status.split(" ");
+            try {
+                return Integer.parseInt(parts.length > 1 ? parts[1] : "");
+            } catch (NumberFormatException e) {
+                throw new IOException("not an HTTP status line: " + status, e);
+            }
         }
     }
 }

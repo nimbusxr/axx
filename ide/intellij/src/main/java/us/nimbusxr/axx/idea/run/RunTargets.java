@@ -106,8 +106,11 @@ public final class RunTargets {
         } catch (InvalidPathException e) {
             return null;
         }
-        if (path.isAbsolute() || workingDirectory != null) {
-            Path absolute = path.isAbsolute() ? path : workingDirectory.resolve(path);
+        Path absolute =
+                path.isAbsolute()
+                        ? path
+                        : workingDirectory != null ? workingDirectory.resolve(path) : null;
+        if (absolute != null) {
             String exact =
                     locationUrl(
                             absolute.normalize().toString().replace(File.separatorChar, '/'), line);
