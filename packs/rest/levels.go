@@ -1,6 +1,10 @@
 package rest
 
-import "github.com/nimbusxr/axx/internal/oaslevel"
+import (
+	"slices"
+
+	"github.com/nimbusxr/axx/internal/oaslevel"
+)
 
 // Level is how an OpenAPI validation finding is reported.
 type Level = oaslevel.Level
@@ -25,5 +29,32 @@ func ParseLevel(s string) (Level, error) { return oaslevel.Parse(s) }
 // is configured.
 type Levels = oaslevel.Levels
 
-// ParseLevels parses a key -> level-name map.
-func ParseLevels(m map[string]string) (Levels, error) { return oaslevel.ParseMap(m) }
+// ParseLevels parses a key -> level-name map. Every key must be one this
+// pack's findings have, or a prefix of such keys (validation.request.body);
+// any other is an error that names the closest keys.
+func ParseLevels(m map[string]string) (Levels, error) { return oaslevel.ParseMap(m, levelKeys) }
+
+// levelKeys are the keys levels can be set on: the keys of knownKeys, with
+// {keyword} standing for every schema keyword a finding is keyed by, and
+// {in} for every parameter location; and their prefixes. A newer schema
+// keyword name suggests the draft-4 one the findings use (const -> enum).
+var levelKeys = func() *oaslevel.Keys {
+	patterns := make([]string, len(knownKeys))
+	for i, k := range knownKeys {
+		patterns[i] = k.key
+	}
+	keywords := []string{"unknownError"}
+	aliases := map[string]string{}
+	for name, kw := range schemaKeywords {
+		if !slices.Contains(keywords, kw) {
+			keywords = append(keywords, kw)
+		}
+		if name != kw {
+			aliases[name] = kw
+		}
+	}
+	return oaslevel.NewKeys(patterns, map[string][]string{
+		"{keyword}": keywords,
+		"{in}":      {"path", "query", "header", "cookie"},
+	}, aliases)
+}()

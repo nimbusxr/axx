@@ -17,14 +17,19 @@ When a message is sent to the {word} sqs queue:
   """
 ```
 
-Send a message whose body is the doc string to a sqs queue.
+Send a message to the sqs queue; the doc string is its body.
 
-**Parameters:** `{word}` (one word, no spaces)
+| Parameter | Takes | For example |
+|---|---|---|
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
 
 **Example:**
 
 ```gherkin
-When a message is sent to the refund-requests sqs queue:
+When a message is sent to the refund-results sqs queue:
+  """
+  {"claim": "CLM-4106", "status": "PAID", "paidAt": "2026-09-24T10:00:00Z"}
+  """
 ```
 
 _Since 0.1.0._
@@ -35,20 +40,26 @@ _Since 0.1.0._
 When the {filepath} message is sent to the {word} sqs queue[[ with the following attributes:]]
 ```
 
-Send a message whose body is the file (resolved against `resources`) to a sqs queue, with the attributes of the table (`name | value`).
+Send a message whose body is the file to the sqs queue, with the attributes of the table when the step has one.
 
-**Variants** (optional parts in `[[...]]` above):
+| Parameter | Takes | For example |
+|---|---|---|
+| `{filepath}` | a file of the project, with no spaces: a path relative to the `resources` directories or to axx.yaml's directory, or an absolute path | `seeds/parcels.yaml`, `kafka/scan-delivered.json` |
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+
+Each row is an attribute sent with the message, as text: its name and its value.
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `the {filepath} message is sent to the {word} sqs queue`
 - `the {filepath} message is sent to the {word} sqs queue with the following attributes:`
 
-**Parameters:** `{filepath}` (A file of the project, without whitespace: a path relative to the `resources` directories or to the directory of axx.yaml, or an absolute path. Editors link it to the file), `{word}` (one word, no spaces)
-
 **Example:**
 
 ```gherkin
-When the messages/shipment-delivered.json message is sent to the refund-requests sqs queue
-When the messages/shipment-delivered.json message is sent to the refund-requests sqs queue with the following attributes:
+When the messages/refund-failed-clm-4109.json message is sent to the refund-results sqs queue
+When the messages/refund-failed-clm-4109.json message is sent to the refund-results sqs queue with the following attributes:
+  | failureReason | ACCOUNT_CLOSED |
 ```
 
 _Since 0.1.0._
@@ -57,22 +68,33 @@ _Since 0.1.0._
 
 ```gherkin
 Then [[within {duration} ]]the {word} sqs queue has a message where:
-  | ... | ... |
+  | path | value |
 ```
 
-Wait (10s, or the given time) until the sqs queue has a message, received since the scenario started, that meets every row: `path | value` on the JSON body (a field name, a dotted path or a JSONPath, compared as text; `null` for null and `undefined` for absent), or `attribute <name> | value` on a attribute sent with it. axx takes the queue's messages off it: check queues your services write to.
+Check that the sqs queue has a message with those values, received since the scenario started.
 
-**Variants** (optional parts in `[[...]]` above):
+- The check waits for it: 10 seconds, or `within {duration}`.
+- axx takes the queue's messages off it: check queues your services write to.
+
+| Parameter | Takes | For example |
+|---|---|---|
+| `{duration}` | a duration in seconds (`s`) or minutes (`m`) | `5s`, `2m` |
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+
+Each row is a path into the message's JSON body (a field name, a dotted path or a JSONPath) and the value it has, compared as text: `null` for null and `undefined` for absent. A row `attribute <name>` is instead on the attribute of that name sent with the message: `undefined` when there is none.
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `the {word} sqs queue has a message where:`
 - `within {duration} the {word} sqs queue has a message where:`
-
-**Parameters:** `{duration}` (A duration in seconds or minutes, e.g. `5s` or `2m`), `{word}` (one word, no spaces)
 
 **Example:**
 
 ```gherkin
 Then within 30s the refund-requests sqs queue has a message where:
+  | claim            | CLM-4101 |
+  | amount           | 89.5     |
+  | attribute reason | DAMAGED  |
 ```
 
 _Since 0.1.0._

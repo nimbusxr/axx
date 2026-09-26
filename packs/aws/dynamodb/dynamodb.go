@@ -49,31 +49,51 @@ func (pack) Manifest() core.Manifest {
 		Steps: []core.StepDef{
 			{
 				ID: name + ".seed", Keyword: "Given", Since: "0.1.0",
-				Expr:     "a {filepath} dynamodb seed",
-				Doc:      "Put the items of a seed file (resolved against `resources`): YAML or JSON mapping table names to lists of items.",
+				Expr: "a {filepath} dynamodb seed",
+				Doc: "Put the items of a seed file into their tables: YAML or JSON that maps table names to lists of items. " +
+					"Items are plain JSON: numbers become `N`, objects `M` and arrays `L`.",
 				Examples: []string{"Given a seeds/insured-parcels.yaml dynamodb seed"},
 				Run:      seed,
 			},
 			{
 				ID: name + ".item", Keyword: "Then", Arg: core.ArgTable, Since: "0.1.0",
-				Expr:     "[[within {duration} ]]the {word} dynamodb table has an item where:",
-				Doc:      "Wait (10s, or the given time) until the table has an item meeting every `attribute | value` row.",
-				Examples: []string{"Then within 30s the claims dynamodb table has an item where:"},
+				Expr: "[[within {duration} ]]the {word} dynamodb table has an item where:",
+				Doc: "Check that the table has an item with those values in those attributes. The check waits for it: 10 seconds, " +
+					"or `within {duration}`.",
+				Table: conditions,
+				Examples: []string{
+					"Then within 30s the claims dynamodb table has an item where:\n" +
+						"  | id     | CLM-4101 |\n" +
+						"  | status | APPROVED |\n" +
+						"  | amount | 89.5     |",
+				},
 				Run: func(sc *core.Scenario, a core.Args) error {
 					return expect(sc, a, a.String(1), -1)
 				},
 			},
 			{
 				ID: name + ".items", Keyword: "Then", Arg: core.ArgTable, Since: "0.1.0",
-				Expr:     "[[within {duration} ]]the {word} dynamodb table has {int} item(s) where:",
-				Doc:      "Wait (10s, or the given time) until exactly that many items of the table meet every `attribute | value` row.",
-				Examples: []string{"Then the claims dynamodb table has 1 item where:"},
+				Expr: "[[within {duration} ]]the {word} dynamodb table has {int} item(s) where:",
+				Doc: "Check that exactly that many items of the table have those values in those attributes. The check waits " +
+					"for it: 10 seconds, or `within {duration}`.",
+				Table: conditions,
+				Examples: []string{
+					"Then the claims dynamodb table has 1 item where:\n" +
+						"  | parcel | PX-4107 |",
+				},
 				Run: func(sc *core.Scenario, a core.Args) error {
 					return expect(sc, a, a.String(1), a.Int(2))
 				},
 			},
 		},
 	}
+}
+
+// conditions is what the checks' tables hold.
+var conditions = &core.TableDoc{
+	Columns: []string{"attribute", "value"},
+	Note: "Each row names an attribute of the item, or a dotted path into a map (`address.city`), and the value it has, " +
+		"compared as text: `null` for null and `undefined` for absent. Sets read as lists, and binary as base64.",
 }
 
 func client(sc *core.Scenario) (*dynamodb.Client, error) {

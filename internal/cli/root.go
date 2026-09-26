@@ -79,10 +79,11 @@ func newRootCmd(app *App) *cobra.Command {
 	root := &cobra.Command{
 		Use:   "axx",
 		Short: "Human-readable acceptance testing for the agentic era",
-		Long: `axx runs acceptance criteria that people can read, written as Gherkin
-scenarios, as black-box tests against locally built services: REST + OpenAPI,
-WireMock, SQL, MongoDB and Kafka out of the box, extended with packs of your own
-steps.
+		Long: `axx runs acceptance criteria that people can read as black-box tests against
+locally built services and web apps. Its packs cover REST and OpenAPI, WireMock,
+SQL, MongoDB, Kafka, logs, files, web apps in real browsers, and AWS, Google Cloud
+and Azure services: a project lists those it uses in axx-packs.yaml, beside packs
+of its own steps.
 
 ` + Identity,
 		SilenceUsage:  true,

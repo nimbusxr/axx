@@ -7,7 +7,7 @@ Axx is a human-readable acceptance testing framework for the agentic era.
 
 Coding agents now write a growing share of code and tests. That makes one question matter more: what exactly was checked? With Axx, the answer is the acceptance criteria themselves. Each scenario states a behavior in plain language, so the people who own that behavior can read and review it. Agents can find the steps, write the scenario, run it and fix what fails.
 
-Axx runs every scenario against your service from the outside, through the same interfaces your users and neighboring services use: its HTTP API, its database, its event streams and the dependencies it calls. When a scenario passes, the behavior it describes works in the running system, not in a mock of it or in one unit on its own.
+Axx runs every scenario against your service from the outside, through the same interfaces your users and neighboring services use: its HTTP API and its web app, its database, its event streams and the dependencies it calls. When a scenario passes, the behavior it describes works in the running system, not in a mock of it or in one unit on its own.
 
 ## One scenario covers the whole flow
 
@@ -53,7 +53,7 @@ Every line is a step from one of Axx's packs, so there is no step code to write.
 
 Axx never loads your code. The service can be written in any language, and the tests keep passing through refactors and rewrites because they only depend on what the service does. The people who wrote the acceptance criteria can read them too. See [Black-box testing](/explanations/black-box-testing/).
 
-These are built in:
+Axx's packs cover:
 
 | Area | What you get |
 |---|---|
@@ -62,6 +62,10 @@ These are built in:
 | SQL | PostgreSQL, MySQL, SQLite and SQL Server: seeds, selections, JSON columns, locks and triggers |
 | MongoDB | Seeding and querying |
 | Kafka | Publishing and consuming events, with Avro and Schema Registry |
+| Logs | The entries your services log, in files or sent over UDP, TCP or HTTP |
+| Files | The files your services write: their content, their text (PDF, Word, Excel...) and their rows |
+| Web apps | Real browsers through Playwright, with screenshots, accessibility audits, network control, Lighthouse scores and JavaScript coverage |
+| Clouds | S3, SQS, SNS, EventBridge and DynamoDB; Cloud Storage, Pub/Sub, BigQuery and Firestore; Blob Storage and Service Bus |
 
 ## One binary with nothing to wire up
 
@@ -72,7 +76,7 @@ Axx needs no JVM, no build plugin and no test-runner glue. `axx run` does the wh
 
 `axx up` keeps the system running between runs, so each edit-and-run cycle takes seconds.
 
-It is fast. The [example suite](https://github.com/nimbusxr/axx/tree/main/examples/parcels) has 32 scenarios and 316 steps, covering REST, WireMock, PostgreSQL, MongoDB and Kafka. Against a running stack, it finishes in about a second.
+It is fast. The [example suite](https://github.com/nimbusxr/axx/tree/main/examples/parcels) has 101 scenarios and 888 steps, covering REST, WireMock, PostgreSQL, MongoDB, Kafka, logs, files and a web app in real browsers. Against a running stack, its 38 scenarios that need no browser finish in about a second.
 
 ## Axx's steps handle the hard parts
 
@@ -83,7 +87,7 @@ The steps of Axx's packs do the difficult work:
 - waiting for events to arrive
 - checking calls to mocked services
 
-All of them compose the same way. You build something (a request, an event, a selection), act on it, and assert on what came back. Any step can name the service it targets (`on parcels-db`). Ordinals such as `the 2nd selection` refer back to earlier ones. Once you know the pattern, a pack you have never used reads the same.
+All of them compose the same way. You build something (a request, an event, a selection), act on it, and assert on what came back. A step can name the service it targets (`on parcels-db`) when a scenario uses more than one. Ordinals such as `the 2nd selection` refer back to earlier ones. Once you know the pattern, a pack you have never used reads the same.
 
 Step text is public API, and it never changes, so a feature file keeps working across every release.
 
@@ -113,7 +117,7 @@ Parallel scenarios only stay reliable if each one uses its own data. `axx lint` 
 |---|---|
 | Get a passing scenario in about ten minutes | [Quickstart](/tutorials/quickstart/) |
 | Get a task done | [Guides](/guides/install/) |
-| Look up a step, command or setting | [References](/references/steps/) |
+| Look up a pack, a step, a command or a setting | [References](/references/packs/) |
 | Understand the design | [How Axx works](/explanations/how-axx-works/) |
 
 Axx is pre-release (`v0.x`): interfaces may change before `v1.0.0`.

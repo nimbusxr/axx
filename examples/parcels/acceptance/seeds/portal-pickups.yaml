@@ -1,0 +1,11 @@
+parcels.parcels:
+  - reference: "PX-WEB-5301"
+    sender: "linden-leather"
+    weight_grams: 1400
+    recipient: '{"name": "Karl Winter", "street": "Oranienstr. 7", "city": "Berlin", "postcode": "10999", "country": "DE"}'
+    details: '{"source": "portal", "zone": "DE-1", "signature": false, "leaveWithNeighbour": true}'
+  - reference: "PX-WEB-5302"
+    sender: "linden-leather"
+    weight_grams: 2600
+    recipient: '{"name": "Ida Neumann", "street": "Mainzer Str. 18", "city": "Berlin", "postcode": "12053", "country": "DE"}'
+    details: '{"source": "portal", "zone": "DE-1", "signature": true, "leaveWithNeighbour": false}'

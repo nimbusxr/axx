@@ -270,6 +270,128 @@ logs | logs.count | the {word} log has {int} entry/entries matching {string}
 logs | logs.count | within {duration} the {word} log has {int} entry/entries matching {string}
 logs | logs.across | the logs have entries matching:  [+table]
 logs | logs.across | within {duration} the logs have entries matching:  [+table]
+files | files.folder | the {word} folder with the following properties:  [+table]
+files | files.has | the {word} folder has a(n) file named {word}
+files | files.has | within {duration} the {word} folder has a(n) file named {word}
+files | files.identical | the {word} file in the {word} folder is identical to the {filepath} file
+files | files.identical | within {duration} the {word} file in the {word} folder is identical to the {filepath} file
+files | files.properties | the {word} file in the {word} folder has the following properties:  [+table]
+files | files.properties | within {duration} the {word} file in the {word} folder has the following properties:  [+table]
+files | files.contains | the {word} file in the {word} folder contains {string}
+files | files.contains | within {duration} the {word} file in the {word} folder contains {string}
+files | files.row | the {word} file in the {word} folder has a row where:  [+table]
+files | files.row | within {duration} the {word} file in the {word} folder has a row where:  [+table]
+web-core | web-core.app | the {word} web app with the following properties:  [+table]
+web-core | web-core.open | the {string} page is opened
+web-core | web-core.open | the {string} page of the {word} web app is opened
+web-core | web-core.fill | the {string} field is filled with {string}
+web-core | web-core.select | {string} is chosen in the {string} field
+web-core | web-core.option | the {string} option is chosen
+web-core | web-core.check | the {string} checkbox is checked
+web-core | web-core.uncheck | the {string} checkbox is unchecked
+web-core | web-core.upload | the {filepath} file is uploaded in the {string} field
+web-core | web-core.button | the {string} button is clicked
+web-core | web-core.link | the {string} link is clicked
+web-core | web-core.tab | the {string} tab is clicked
+web-core | web-core.menuitem | the {string} menu item is clicked
+web-core | web-core.element.click | the {string} element is clicked
+web-core | web-core.key | the {word} key is pressed
+web-core | web-core.key | the {word} key is pressed in the {string} field
+web-core | web-core.hover | the pointer is moved over {string}
+web-core | web-core.reload | the page is reloaded
+web-core | web-core.back | the browser's back button is clicked
+web-core | web-core.closetab | the browser tab is closed
+web-core | web-core.accept | the dialog is accepted
+web-core | web-core.dismiss | the dialog is dismissed
+web-core | web-core.answer | the dialog is answered with {string}
+web-core | web-core.dialog | the dialog shows {string}
+web-core | web-core.dialog | within {duration} the dialog shows {string}
+web-core | web-core.shows | the page shows {string}
+web-core | web-core.shows | within {duration} the page shows {string}
+web-core | web-core.hides | the page does not show {string}
+web-core | web-core.hides | within {duration} the page does not show {string}
+web-core | web-core.url | the {string} page is shown
+web-core | web-core.url | within {duration} the {string} page is shown
+web-core | web-core.value | the {string} field has the value {string}
+web-core | web-core.value | within {duration} the {string} field has the value {string}
+web-core | web-core.disabled | the {string} button is disabled
+web-core | web-core.disabled | within {duration} the {string} button is disabled
+web-core | web-core.enabled | the {string} button is enabled
+web-core | web-core.enabled | within {duration} the {string} button is enabled
+web-core | web-core.row | the page shows a table row where:  [+table]
+web-core | web-core.row | within {duration} the page shows a table row where:  [+table]
+web-core | web-core.downloaded | the {string} file is downloaded
+web-core | web-core.downloaded | within {duration} the {string} file is downloaded
+web-core | web-core.download.contains | the downloaded {string} file contains {string}
+web-core | web-core.download.row | the downloaded {string} file has a row where:  [+table]
+web-core | web-core.download.identical | the downloaded {string} file is identical to the {filepath} file
+web-core | web-core.element.shown | the {string} {element} is shown
+web-core | web-core.element.shown | within {duration} the {string} {element} is shown
+web-core | web-core.element.hidden | the {string} {element} is not shown
+web-core | web-core.element.hidden | within {duration} the {string} {element} is not shown
+web-core | web-core.element.text | the {string} {element} shows {string}
+web-core | web-core.element.text | within {duration} the {string} {element} shows {string}
+web-core | web-core.element.attribute | the {string} {element} has the {word} attribute {string}
+web-core | web-core.element.attribute | within {duration} the {string} {element} has the {word} attribute {string}
+web-core | web-core.element.focus | the {string} {element} has the focus
+web-core | web-core.element.focus | within {duration} the {string} {element} has the focus
+web-core | web-core.checkbox.ticked | the {string} checkbox is ticked
+web-core | web-core.checkbox.ticked | within {duration} the {string} checkbox is ticked
+web-core | web-core.checkbox.unticked | the {string} checkbox is not ticked
+web-core | web-core.checkbox.unticked | within {duration} the {string} checkbox is not ticked
+web-core | web-core.option.selected | the {string} option is selected
+web-core | web-core.option.selected | within {duration} the {string} option is selected
+web-core | web-core.option.unselected | the {string} option is not selected
+web-core | web-core.option.unselected | within {duration} the {string} option is not selected
+web-core | web-core.field.disabled | the {string} field is disabled
+web-core | web-core.field.disabled | within {duration} the {string} field is disabled
+web-core | web-core.field.enabled | the {string} field is enabled
+web-core | web-core.field.enabled | within {duration} the {string} field is enabled
+web-core | web-core.element.count | the page shows {int} {string} {element}
+web-core | web-core.element.count | within {duration} the page shows {int} {string} {element}
+web-core | web-core.row.count | the page shows {int} table row(s) where:  [+table]
+web-core | web-core.row.count | within {duration} the page shows {int} table row(s) where:  [+table]
+web-core | web-core.title | the page title is {string}
+web-core | web-core.title | within {duration} the page title is {string}
+web-core | web-core.errors.none | the page has no script errors
+web-core | web-core.request.sent | the browser sent a {word} request to {string}
+web-core | web-core.request.sent | within {duration} the browser sent a {word} request to {string}
+web-core | web-core.element.dblclick | the {string} {element} is double-clicked
+web-core | web-core.element.rightclick | the {string} {element} is right-clicked
+web-core | web-core.element.tap | the {string} {element} is tapped
+web-core | web-core.element.scroll | the {string} {element} is scrolled into view
+web-core | web-core.element.drag | the {string} {element} is dragged onto the {string} {element}
+web-core | web-core.scroll.bottom | the page is scrolled to the bottom
+web-core | web-core.scroll.top | the page is scrolled to the top
+web-core | web-core.select.many | the following options are chosen in the {string} field:  [+table]
+web-core | web-core.clock.set | the browser's clock is set to {string}
+web-core | web-core.clock.forward | the browser's clock is moved forward by {duration}
+web-core | web-core.connection.offline | the browser is offline
+web-core | web-core.connection.online | the browser is online
+web-screenshots | web-screenshots.page | the page looks like the {string} screenshot
+web-screenshots | web-screenshots.page | within {duration} the page looks like the {string} screenshot
+web-screenshots | web-screenshots.page.masked | the page looks like the {string} screenshot, apart from:  [+table]
+web-screenshots | web-screenshots.page.masked | within {duration} the page looks like the {string} screenshot, apart from:  [+table]
+web-screenshots | web-screenshots.element | the {string} {element} looks like the {string} screenshot
+web-screenshots | web-screenshots.element | within {duration} the {string} {element} looks like the {string} screenshot
+web-a11y | web-a11y.page | the page has no accessibility violations
+web-a11y | web-a11y.element | the {string} {element} has no accessibility violations
+web-a11y | web-a11y.structure | the page's accessible structure is:  [+docstring]
+web-a11y | web-a11y.structure | within {duration} the page's accessible structure is:  [+docstring]
+web-a11y | web-a11y.element.structure | the {string} {element}'s accessible structure is:  [+docstring]
+web-a11y | web-a11y.element.structure | within {duration} the {string} {element}'s accessible structure is:  [+docstring]
+web-network | web-network.fail | the page's requests to {string} fail
+web-network | web-network.status | the page's requests to {string} answer with status {int}
+web-network | web-network.file | the page's requests to {string} answer with the {filepath} file
+web-network | web-network.slow | the page's requests to {string} take {duration}
+web-network | web-network.connection.slow | the browser's connection is slow
+web-network | web-network.recording | the page's requests are answered from the {filepath} recording
+web-network | web-network.ws.sent | the page sent a websocket message containing {string}
+web-network | web-network.ws.sent | within {duration} the page sent a websocket message containing {string}
+web-network | web-network.ws.received | the page received a websocket message containing {string}
+web-network | web-network.ws.received | within {duration} the page received a websocket message containing {string}
+web-lighthouse | web-lighthouse.scores | the {string} page scores at least:  [+table]
+web-lighthouse | web-lighthouse.loads | the {string} page loads within:  [+table]
 aws-core | aws-core.account | the {word} aws account with the following properties:  [+table]
 aws-s3 | aws-s3.upload | the {filepath} file is uploaded to the {word} s3 bucket
 aws-s3 | aws-s3.upload | the {filepath} file is uploaded to the {word} s3 bucket as {word}
@@ -279,6 +401,10 @@ aws-s3 | aws-s3.identical | the {word} object in the {word} s3 bucket is identic
 aws-s3 | aws-s3.identical | within {duration} the {word} object in the {word} s3 bucket is identical to the {filepath} file
 aws-s3 | aws-s3.properties | the {word} object in the {word} s3 bucket has the following properties:  [+table]
 aws-s3 | aws-s3.properties | within {duration} the {word} object in the {word} s3 bucket has the following properties:  [+table]
+aws-s3 | aws-s3.contains | the {word} object in the {word} s3 bucket contains {string}
+aws-s3 | aws-s3.contains | within {duration} the {word} object in the {word} s3 bucket contains {string}
+aws-s3 | aws-s3.row | the {word} object in the {word} s3 bucket has a row where:  [+table]
+aws-s3 | aws-s3.row | within {duration} the {word} object in the {word} s3 bucket has a row where:  [+table]
 aws-sqs | aws-sqs.send | a message is sent to the {word} sqs queue:  [+docstring]
 aws-sqs | aws-sqs.send.file | the {filepath} message is sent to the {word} sqs queue
 aws-sqs | aws-sqs.send.file | the {filepath} message is sent to the {word} sqs queue with the following attributes:
@@ -306,6 +432,10 @@ gcp-storage | gcp-storage.identical | the {word} object in the {word} gcs bucket
 gcp-storage | gcp-storage.identical | within {duration} the {word} object in the {word} gcs bucket is identical to the {filepath} file
 gcp-storage | gcp-storage.properties | the {word} object in the {word} gcs bucket has the following properties:  [+table]
 gcp-storage | gcp-storage.properties | within {duration} the {word} object in the {word} gcs bucket has the following properties:  [+table]
+gcp-storage | gcp-storage.contains | the {word} object in the {word} gcs bucket contains {string}
+gcp-storage | gcp-storage.contains | within {duration} the {word} object in the {word} gcs bucket contains {string}
+gcp-storage | gcp-storage.row | the {word} object in the {word} gcs bucket has a row where:  [+table]
+gcp-storage | gcp-storage.row | within {duration} the {word} object in the {word} gcs bucket has a row where:  [+table]
 gcp-pubsub | gcp-pubsub.send | a message is published to the {word} pubsub topic:  [+docstring]
 gcp-pubsub | gcp-pubsub.send.file | the {filepath} message is published to the {word} pubsub topic
 gcp-pubsub | gcp-pubsub.send.file | the {filepath} message is published to the {word} pubsub topic with the following attributes:
@@ -330,6 +460,10 @@ azure-blob | azure-blob.identical | the {word} blob in the {word} blob container
 azure-blob | azure-blob.identical | within {duration} the {word} blob in the {word} blob container is identical to the {filepath} file
 azure-blob | azure-blob.properties | the {word} blob in the {word} blob container has the following properties:  [+table]
 azure-blob | azure-blob.properties | within {duration} the {word} blob in the {word} blob container has the following properties:  [+table]
+azure-blob | azure-blob.contains | the {word} blob in the {word} blob container contains {string}
+azure-blob | azure-blob.contains | within {duration} the {word} blob in the {word} blob container contains {string}
+azure-blob | azure-blob.row | the {word} blob in the {word} blob container has a row where:  [+table]
+azure-blob | azure-blob.row | within {duration} the {word} blob in the {word} blob container has a row where:  [+table]
 azure-servicebus | azure-servicebus.namespace | the {word} service bus namespace with the following properties:  [+table]
 azure-servicebus | azure-servicebus.send | a message is sent to the {word} service bus queue:/topic:  [+docstring]
 azure-servicebus | azure-servicebus.send.file | the {filepath} message is sent to the {word} service bus queue/topic

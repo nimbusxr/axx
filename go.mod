@@ -22,6 +22,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sqs v1.52.1
 	github.com/aws/aws-sdk-go-v2/service/sts v1.51.1
 	github.com/bufbuild/protocompile v0.14.1
+	github.com/coder/websocket v1.8.13
 	github.com/cucumber/cucumber-expressions/go/v20 v20.1.0
 	github.com/cucumber/gherkin/go/v42 v42.0.1
 	github.com/cucumber/messages/go/v34 v34.2.1
@@ -33,9 +34,11 @@ require (
 	github.com/iskorotkov/avro/v2 v2.34.0
 	github.com/jackc/pgx/v5 v5.11.0
 	github.com/jacoelho/xsd v0.5.1
+	github.com/ledongthuc/pdf v0.0.0-20260907135840-6c8c28e0e8a0
 	github.com/microsoft/go-mssqldb v1.11.2
 	github.com/moby/moby/api v1.55.0
 	github.com/modelcontextprotocol/go-sdk v1.8.0
+	github.com/mxschmitt/playwright-go v0.6201.1
 	github.com/pavlo-v-chernykh/keystore-go/v4 v4.5.0
 	github.com/pb33f/libopenapi v0.38.6
 	github.com/pb33f/libopenapi-validator v0.14.0
@@ -51,6 +54,8 @@ require (
 	github.com/youmark/pkcs8 v0.0.0-20240726163527-a2c0da244d78
 	go.mongodb.org/mongo-driver/v2 v2.9.1
 	go.yaml.in/yaml/v4 v4.0.0-rc.6
+	golang.org/x/crypto v0.57.0
+	golang.org/x/net v0.59.0
 	golang.org/x/sys v0.48.0
 	golang.org/x/text v0.42.0
 	google.golang.org/api v0.299.0
@@ -106,6 +111,7 @@ require (
 	github.com/containerd/log v0.1.0 // indirect
 	github.com/containerd/platforms v0.2.1 // indirect
 	github.com/cpuguy83/dockercfg v0.3.2 // indirect
+	github.com/deckarep/golang-set/v2 v2.8.0 // indirect
 	github.com/distribution/reference v0.6.0 // indirect
 	github.com/docker/go-connections v0.7.0 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
@@ -120,6 +126,7 @@ require (
 	github.com/go-ole/go-ole v1.3.0 // indirect
 	github.com/go-openapi/jsonpointer v0.23.2 // indirect
 	github.com/go-openapi/swag/jsonname v0.26.1 // indirect
+	github.com/go-stack/stack v1.8.1 // indirect
 	github.com/go-viper/mapstructure/v2 v2.4.0 // indirect
 	github.com/goccy/go-json v0.10.6 // indirect
 	github.com/golang-jwt/jwt/v5 v5.3.1 // indirect
@@ -195,10 +202,8 @@ require (
 	go.opentelemetry.io/otel/sdk/metric v1.44.0 // indirect
 	go.opentelemetry.io/otel/trace v1.44.0 // indirect
 	go.yaml.in/yaml/v3 v3.0.5 // indirect
-	golang.org/x/crypto v0.57.0 // indirect
 	golang.org/x/exp v0.0.0-20260813180055-c1d0aacb2297 // indirect
 	golang.org/x/mod v0.41.0 // indirect
-	golang.org/x/net v0.59.0 // indirect
 	golang.org/x/oauth2 v0.37.0 // indirect
 	golang.org/x/sync v0.23.0 // indirect
 	golang.org/x/telemetry v0.0.0-20260811182544-a038080d80e5 // indirect

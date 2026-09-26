@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Get a quote</title></head>
+<body>
+  <nav><a href="/">Home</a> <a href="/parcels">Track a parcel</a></nav>
+  <h1>Get a quote</h1>
+  <form id="quote">
+    <p><label for="weight">Weight (grams)</label> <input id="weight" type="number"></p>
+    <p>
+      <label for="country">Destination country</label>
+      <select id="country">
+        <option value="">Choose a country</option>
+        <option value="DE">Germany</option>
+        <option value="FR">France</option>
+      </select>
+    </p>
+    <fieldset>
+      <legend>Service</legend>
+      <label><input type="radio" name="service" value="standard" checked> Standard</label>
+      <label><input type="radio" name="service" value="express"> Express</label>
+    </fieldset>
+    <p><label><input type="checkbox" id="insure"> Insure this parcel</label></p>
+    <p><label><input type="checkbox" id="neighbour" checked> Leave with a neighbour</label></p>
+    <button type="submit">Get a quote</button>
+  </form>
+  <p id="error" role="alert" hidden>Enter a weight</p>
+  <p id="price" role="status"></p>
+  <script>
+    const $ = (id) => document.getElementById(id);
+    $('quote').addEventListener('submit', (e) => {
+      e.preventDefault();
+      if (!$('weight').value) {
+        $('error').hidden = false;
+        $('price').textContent = '';
+        return;
+      }
+      $('error').hidden = true;
+      // The pricing service takes a moment.
+      $('price').textContent = 'Calculating…';
+      setTimeout(() => {
+        let cents = $('country').value === 'DE' ? 690 : 1790;
+        if (document.querySelector('input[name=service]:checked').value === 'express') cents += 500;
+        if ($('insure').checked) cents += 150;
+        $('price').textContent = 'Price: ' + (cents / 100).toFixed(2) + ' EUR' + ($('neighbour').checked ? '' : ' (signature required)');
+      }, 400);
+    });
+  </script>
+</body>
+</html>

@@ -26,6 +26,8 @@ var ErrEmpty = errors.New("refusing to render an empty reference")
 type PackInfo struct {
 	Name     string
 	Manifest core.Manifest
+	// Builtin is set for the core, which every project has.
+	Builtin bool
 }
 
 // StepsPage renders the reference page for one pack.
@@ -48,14 +50,14 @@ func StepsPage(reg *match.Registry, p PackInfo, frontmatter bool) (string, error
 	variants := variantsByDef(reg)
 	params := paramDocs(reg)
 	for _, d := range defs {
-		writeStep(&b, d, variants[d], params)
+		writeStep(&b, "##", d, variants[d], params)
 	}
 	return b.String(), nil
 }
 
-func writeStep(b *strings.Builder, d *match.Def, variants []string, params map[string]string) {
+func writeStep(b *strings.Builder, heading string, d *match.Def, variants []string, params map[string]core.ParamType) {
 	s := d.Step
-	fmt.Fprintf(b, "\n## `%s`\n\n", s.ID)
+	fmt.Fprintf(b, "\n%s `%s`\n\n", heading, s.ID)
 	if s.DeprecatedBy != "" {
 		fmt.Fprintf(b, "> **Deprecated:** %s\n\n", s.DeprecatedBy)
 	}
@@ -66,7 +68,11 @@ func writeStep(b *strings.Builder, d *match.Def, variants []string, params map[s
 	fmt.Fprintf(b, "```gherkin\n%s %s\n", kw, s.Expr)
 	switch s.Arg {
 	case core.ArgTable:
-		b.WriteString("  | ... | ... |\n")
+		if s.Table != nil && len(s.Table.Columns) > 0 {
+			fmt.Fprintf(b, "  | %s |\n", strings.Join(s.Table.Columns, " | "))
+		} else {
+			b.WriteString("  | ... | ... |\n")
+		}
 	case core.ArgDocString:
 		b.WriteString("  \"\"\"\n  ...\n  \"\"\"\n")
 	}
@@ -74,32 +80,15 @@ func writeStep(b *strings.Builder, d *match.Def, variants []string, params map[s
 	if s.Doc != "" {
 		fmt.Fprintf(b, "\n%s\n", strings.TrimSpace(s.Doc))
 	}
+	writeParams(b, d, params)
+	if s.Table != nil {
+		writeTable(b, s.Table)
+	}
 	if len(variants) > 1 {
-		b.WriteString("\n**Variants** (optional parts in `[[...]]` above):\n\n")
+		b.WriteString("\n**Variants**, the parts in `[[...]]` said or left out:\n\n")
 		for _, v := range variants {
 			fmt.Fprintf(b, "- `%s`\n", v)
 		}
-	}
-	seen := map[string]bool{}
-	var used []string
-	for _, n := range d.Names {
-		if !seen[n] {
-			seen[n] = true
-			used = append(used, n)
-		}
-	}
-	if len(used) > 0 {
-		b.WriteString("\n**Parameters:** ")
-		for i, n := range used {
-			if i > 0 {
-				b.WriteString(", ")
-			}
-			fmt.Fprintf(b, "`{%s}`", n)
-			if doc := params[n]; doc != "" {
-				fmt.Fprintf(b, " (%s)", strings.TrimSuffix(oneLine(doc), "."))
-			}
-		}
-		b.WriteString("\n")
 	}
 	if len(s.Examples) > 0 {
 		b.WriteString("\n**Example:**\n\n```gherkin\n")
@@ -113,7 +102,107 @@ func writeStep(b *strings.Builder, d *match.Def, variants []string, params map[s
 	}
 }
 
-// ParamsPage renders all parameter types.
+// writeParams is a step's parameters: what each takes, the values it takes
+// when it takes one of a set, and a value it takes.
+func writeParams(b *strings.Builder, d *match.Def, params map[string]core.ParamType) {
+	seen := map[string]bool{}
+	var used []core.ParamType
+	values := false
+	for _, n := range d.Names {
+		if !seen[n] {
+			seen[n] = true
+			p := params[n]
+			p.Name = n
+			used = append(used, p)
+			values = values || len(p.Values) > 0
+		}
+	}
+	if len(used) == 0 {
+		return
+	}
+	b.WriteString("\n| Parameter | Takes |")
+	if values {
+		b.WriteString(" Values |")
+	}
+	b.WriteString(" For example |\n|---|---|")
+	if values {
+		b.WriteString("---|")
+	}
+	b.WriteString("---|\n")
+	for _, p := range used {
+		fmt.Fprintf(b, "| `{%s}` | %s |", p.Name, escapePipes(strings.TrimSuffix(oneLine(p.Doc), ".")))
+		if values {
+			fmt.Fprintf(b, " %s |", escapePipes(codes(p.Values)))
+		}
+		fmt.Fprintf(b, " %s |\n", escapePipes(codes(first(p.Examples, 2))))
+	}
+}
+
+// writeTable is what a step's table holds: the rows it knows, what each
+// takes, the values it takes when it takes one of a set, and its default,
+// or that the table must have it.
+func writeTable(b *strings.Builder, t *core.TableDoc) {
+	if len(t.Rows) > 0 {
+		name := "Row"
+		if len(t.Columns) > 0 {
+			name = strings.ToUpper(t.Columns[0][:1]) + t.Columns[0][1:]
+		}
+		values, defaults := false, false
+		for _, r := range t.Rows {
+			values = values || len(r.Values) > 0
+			defaults = defaults || r.Default != "" || r.Required
+		}
+		fmt.Fprintf(b, "\n| %s | Takes |", name)
+		sep := "\n|---|---|"
+		if values {
+			b.WriteString(" Values |")
+			sep += "---|"
+		}
+		if defaults {
+			b.WriteString(" Default |")
+			sep += "---|"
+		}
+		b.WriteString(sep + "\n")
+		for _, r := range t.Rows {
+			fmt.Fprintf(b, "| `%s` | %s |", r.Name, escapePipes(strings.TrimSuffix(r.Takes, ".")))
+			if values {
+				fmt.Fprintf(b, " %s |", escapePipes(codes(r.Values)))
+			}
+			if defaults {
+				switch {
+				case r.Required:
+					b.WriteString(" _required_ |")
+				case r.Default != "":
+					fmt.Fprintf(b, " `%s` |", r.Default)
+				default:
+					b.WriteString(" |")
+				}
+			}
+			b.WriteString("\n")
+		}
+	}
+	if t.Note != "" {
+		fmt.Fprintf(b, "\n%s\n", strings.TrimSpace(t.Note))
+	}
+}
+
+func codes(values []string) string {
+	vs := make([]string, len(values))
+	for i, v := range values {
+		vs[i] = "`" + v + "`"
+	}
+	return strings.Join(vs, ", ")
+}
+
+func first(values []string, n int) []string {
+	if len(values) > n {
+		return values[:n]
+	}
+	return values
+}
+
+// ParamsPage renders all parameter types: what each takes, and values it
+// takes.
 func ParamsPage(reg *match.Registry, frontmatter bool) (string, error) {
 	params := reg.Params()
 	if len(params) == 0 {
@@ -127,13 +216,13 @@ func ParamsPage(reg *match.Registry, frontmatter bool) (string, error) {
 	if !frontmatter {
 		b.WriteString("\n# Parameter types\n")
 	}
-	b.WriteString("\n| Parameter | Matches | Description | Provided by |\n|---|---|---|---|\n")
+	b.WriteString("\n| Parameter | Takes | Values | For example | Pack |\n|---|---|---|---|---|\n")
 	for _, p := range params {
-		name := p.Type.Name
-		if name == "" {
-			name = "(anonymous)"
+		if p.Type.Name == "" {
+			continue // the anonymous {}: any text
 		}
-		fmt.Fprintf(&b, "| `{%s}` | `%s` | %s | %s |\n", name, escapePipes(strings.Join(p.Type.Regexps, "` or `")), escapePipes(oneLine(p.Type.Doc)), p.Pack)
+		fmt.Fprintf(&b, "| `{%s}` | %s | %s | %s | %s |\n", p.Type.Name, escapePipes(strings.TrimSuffix(oneLine(p.Type.Doc), ".")),
+			escapePipes(codes(p.Type.Values)), escapePipes(codes(first(p.Type.Examples, 3))), p.Pack)
 	}
 	return b.String(), nil
 }
@@ -186,10 +275,10 @@ func variantsByDef(reg *match.Registry) map[*match.Def][]string {
 	return out
 }
 
-func paramDocs(reg *match.Registry) map[string]string {
-	out := map[string]string{}
+func paramDocs(reg *match.Registry) map[string]core.ParamType {
+	out := map[string]core.ParamType{}
 	for _, p := range reg.Params() {
-		out[p.Type.Name] = p.Type.Doc
+		out[p.Type.Name] = p.Type
 	}
 	return out
 }

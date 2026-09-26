@@ -1,13 +1,17 @@
-// Package cloudtest runs the steps of the cloud service packs in tests,
-// against local cloud emulators started in containers.
+// Package cloudtest runs the steps of packs in tests, as a run does: the
+// cloud service packs against local cloud emulators, the web pack against
+// a site the test serves.
 package cloudtest
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -16,6 +20,7 @@ import (
 	"github.com/testcontainers/testcontainers-go/wait"
 
 	"github.com/nimbusxr/axx/core"
+	"github.com/nimbusxr/axx/internal/interp"
 	"github.com/nimbusxr/axx/internal/match"
 )
 
@@ -28,25 +33,108 @@ type Harness struct {
 	// Dir is the project directory: relative files resolve against it.
 	Dir string
 	SC  *core.Scenario
+	// Sink records what the scenarios log and attach.
+	Sink *Sink
+	// hooks are the packs' step hooks, which run around each step.
+	hooks []core.Hook
+	// line is the line of the scenario's last step in its feature file.
+	line int
+}
+
+// Sink records scenario logs and attachments, and what packs announce to
+// an IDE.
+type Sink struct {
+	mu          sync.Mutex
+	Logs        []string
+	Attachments []Attachment
+	Announced   []string
+}
+
+// Attachment is something a step attached.
+type Attachment struct {
+	MediaType, Name string
+	Body            []byte
+}
+
+func (s *Sink) Log(_ *core.Scenario, msg string) {
+	s.mu.Lock()
+	s.Logs = append(s.Logs, msg)
+	s.mu.Unlock()
+}
+
+func (s *Sink) Attach(_ *core.Scenario, mediaType string, body []byte, name string) {
+	s.mu.Lock()
+	s.Attachments = append(s.Attachments, Attachment{MediaType: mediaType, Name: name, Body: body})
+	s.mu.Unlock()
+}
+
+// Lines are the lines announced to an IDE so far.
+func (s *Sink) Lines() []string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return slices.Clone(s.Announced)
+}
+
+// Reset forgets what was recorded.
+func (s *Sink) Reset() {
+	s.mu.Lock()
+	s.Logs, s.Attachments, s.Announced = nil, nil, nil
+	s.mu.Unlock()
 }
 
 // New registers the core pack and packs, in order.
 func New(t *testing.T, packs ...core.Pack) *Harness {
 	t.Helper()
+	return NewWith(t, nil, packs...)
+}
+
+// NewWith is New with the packs' sections of axx.yaml, by pack name.
+func NewWith(t *testing.T, config map[string]any, packs ...core.Pack) *Harness {
+	t.Helper()
+	packConfig := map[string]json.RawMessage{}
+	for name, c := range config {
+		b, err := json.Marshal(c)
+		if err != nil {
+			t.Fatal(err)
+		}
+		packConfig[name] = b
+	}
 	reg := match.NewRegistry()
 	all := append([]core.Pack{core.ParamsPack()}, packs...)
+	var hooks []core.Hook
 	for _, p := range all {
 		m := p.Manifest()
 		if err := reg.AddPack(m.Name, m); err != nil {
 			t.Fatal(err)
 		}
+		hooks = append(hooks, m.Hooks...)
 	}
 	dir := t.TempDir()
+	sink := &Sink{}
+	var h *Harness
 	suite := core.NewSuite(core.SuiteOptions{
-		ProjectDir: dir,
-		Interpolate: func(s string) string {
-			return os.Expand(s, func(k string) string { return "${" + k + "}" })
+		// Steps run by text (a paused scenario's) run as the engine runs
+		// them: in the scenario's current step.
+		Invoke: func(sc *core.Scenario, text string, table *core.Table, doc *core.DocString) error {
+			ms := h.reg.Match(text)
+			if len(ms) != 1 {
+				return fmt.Errorf("%q matches %d step definitions", text, len(ms))
+			}
+			args, err := h.reg.Resolve(sc, ms[0], text, table, doc)
+			if err != nil {
+				return err
+			}
+			return ms[0].Def().Step.Run(sc, args)
 		},
+		ProjectDir: dir,
+		PackConfig: packConfig,
+		Announce: func(line string) {
+			sink.mu.Lock()
+			sink.Announced = append(sink.Announced, line)
+			sink.mu.Unlock()
+		},
+		// ${env:..} references expand as in a run; ${sys:..} ones stay as they are.
+		Interpolate: (&interp.Resolver{Lookups: map[string]interp.Lookup{"env": os.LookupEnv}}).MustExpand,
 		ResolvePath: func(p string) (string, error) {
 			if !filepath.IsAbs(p) {
 				p = filepath.Join(dir, filepath.FromSlash(p))
@@ -57,7 +145,7 @@ func New(t *testing.T, packs ...core.Pack) *Harness {
 			return p, nil
 		},
 	})
-	h := &Harness{t: t, reg: reg, packs: packs, Suite: suite, Dir: dir}
+	h = &Harness{t: t, reg: reg, packs: packs, Suite: suite, Dir: dir, Sink: sink, hooks: hooks}
 	t.Cleanup(func() {
 		for i := len(packs) - 1; i >= 0; i-- {
 			if c, ok := packs[i].(core.Closer); ok {
@@ -74,12 +162,30 @@ func New(t *testing.T, packs ...core.Pack) *Harness {
 // answering fails the test instead of hanging it.
 const scenarioTimeout = 5 * time.Minute
 
-// NewScenario starts the next scenario.
+// NewScenario starts the next scenario, at line 1 of features/test.feature;
+// its steps are on the lines after it.
 func (h *Harness) NewScenario() *core.Scenario {
 	ctx, cancel := context.WithTimeout(context.Background(), scenarioTimeout)
 	h.t.Cleanup(cancel)
-	h.SC = core.NewScenario(ctx, core.ScenarioInfo{ID: fmt.Sprint(time.Now().UnixNano()), Name: "test"}, h.Suite, nil)
+	h.SC = core.NewScenario(ctx, core.ScenarioInfo{ID: fmt.Sprint(time.Now().UnixNano()), Name: "test", URI: "features/test.feature", Line: 1}, h.Suite, h.Sink)
+	h.line = 1
 	return h.SC
+}
+
+// In returns a harness that runs steps in another scenario of the same run,
+// for scenarios running side by side. Use Step (not OK or Fails) from other
+// goroutines.
+func (h *Harness) In(sc *core.Scenario) *Harness {
+	c := *h
+	c.SC = sc
+	return &c
+}
+
+// End ends the scenario as the runner does: it records the outcome
+// ("passed", "failed"...) and runs the packs' cleanup.
+func (h *Harness) End(status string) error {
+	h.SC.SetStatus(status)
+	return h.SC.Close()
 }
 
 // Step runs one step. A table is given as rows; a doc string as a string.
@@ -99,11 +205,31 @@ func (h *Harness) Step(text string, arg ...any) error {
 			doc = &core.DocString{Content: x}
 		}
 	}
+	// As in a run: the scenario knows its step, which runs between the
+	// packs' step hooks.
+	h.line++
+	h.SC.SetStep(&core.StepInfo{Keyword: "*", Text: text, Line: h.line})
+	defer h.SC.SetStep(nil)
 	args, err := h.reg.Resolve(h.SC, ms[0], text, tbl, doc)
 	if err != nil {
 		return err
 	}
-	return ms[0].Def().Step.Run(h.SC, args)
+	for _, hk := range h.hooks {
+		if hk.Phase == core.BeforeStep {
+			if err := hk.Run(h.SC); err != nil {
+				return err
+			}
+		}
+	}
+	err = ms[0].Def().Step.Run(h.SC, args)
+	for _, hk := range h.hooks {
+		if hk.Phase == core.AfterStep {
+			if herr := hk.Run(h.SC); herr != nil && err == nil {
+				err = herr
+			}
+		}
+	}
+	return err
 }
 
 // OK runs a step that must pass.

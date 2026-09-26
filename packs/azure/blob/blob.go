@@ -24,12 +24,12 @@ const name = "azure-blob"
 
 const packDoc = `Upload files to Blob Storage containers and check the blobs your services write there.
 
-Register the storage account with ` + "`the {word} azure storage account with the following properties:`" + ` (the first account registered is the default), set up as the Azure SDK is set up for the real service:
+Register the storage account once, set up as the Azure SDK is set up for the real service; every blob step of the scenario uses it:
 
-| Property | |
-| --- | --- |
-| ` + "`connection string`" + ` | the account's connection string, e.g. ` + "`${env:AZURE_STORAGE_CONNECTION_STRING}`" + `, or a local emulator's |
-| ` + "`url`" + ` | the account's blob endpoint (` + "`https://<account>.blob.core.windows.net`" + `), signed in with the Azure default credential chain (environment, workload identity, managed identity, Azure CLI) |
+` + "```gherkin" + `
+Given the customs azure storage account with the following properties:
+  | connection string | ${env:AZURE_STORAGE_CONNECTION_STRING} |
+` + "```" + `
 
 Checks wait for the blob (10 seconds unless ` + "`within {duration}`" + ` says otherwise), since services write asynchronously. Values expand ` + "`${env:..}`" + ` and ` + "`${sys:..}`" + `.`
 
@@ -41,9 +41,26 @@ type pack struct{}
 func (pack) Manifest() core.Manifest {
 	steps := []core.StepDef{{
 		ID: name + ".account", Keyword: "Given", Arg: core.ArgTable, Since: "0.1.0",
-		Expr:     "the {word} azure storage account with the following properties:",
-		Doc:      "Register the storage account the blob steps talk to: `connection string`, or `url` with the Azure default credential chain.",
-		Examples: []string{"Given the customs azure storage account with the following properties:"},
+		Expr: "the {word} azure storage account with the following properties:",
+		Doc: "Register the storage account the blob steps talk to.\n\n" +
+			"- The first account registered is the default.\n" +
+			"- Give it a `connection string` or a `url`, not both.\n" +
+			"- Values expand `${env:..}` and `${sys:..}`.",
+		Table: &core.TableDoc{
+			Columns: []string{"property", "value"},
+			Rows: []core.TableRow{
+				{Name: "connection string", Takes: "the account's connection string, or a local emulator's, like " +
+					"`${env:AZURE_STORAGE_CONNECTION_STRING}`"},
+				{Name: "url", Takes: "the account's blob endpoint, like `https://<account>.blob.core.windows.net`, signed in with the " +
+					"Azure default credential chain: environment, workload identity, managed identity, Azure CLI"},
+			},
+		},
+		Examples: []string{
+			"Given the customs azure storage account with the following properties:\n" +
+				"  | connection string | ${env:AZURE_STORAGE_CONNECTION_STRING} |",
+			"Given the customs azure storage account with the following properties:\n" +
+				"  | url | ${env:CUSTOMS_STORAGE_URL} |",
+		},
 		Run: func(sc *core.Scenario, a core.Args) error {
 			acct, err := parse(sc.Suite(), a.String(0), a.Table)
 			if err != nil {

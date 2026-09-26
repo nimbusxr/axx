@@ -14,6 +14,7 @@ import (
 	"unicode"
 
 	"github.com/nimbusxr/axx/core"
+	"github.com/nimbusxr/axx/internal/gotool"
 	"github.com/nimbusxr/axx/internal/match"
 	"github.com/nimbusxr/axx/internal/render/md"
 )
@@ -109,36 +110,43 @@ func funcSource(run core.StepFunc) (string, int) {
 }
 
 // moduleCachePath finds a -trimpath file name (module/path/file.go) on this
-// machine: in the local directory its module is replaced with, or in the
+// machine: in the local directory its module is replaced with, or in a
 // module cache at the version this binary was built with.
 func moduleCachePath(file string) string {
 	info, ok := debug.ReadBuildInfo()
 	if !ok {
 		return ""
 	}
-	return resolveModuleFile(file, append([]*debug.Module{&info.Main}, info.Deps...), moduleCache())
+	return resolveModuleFile(file, append([]*debug.Module{&info.Main}, info.Deps...), moduleCaches())
 }
 
-func moduleCache() string {
+// moduleCaches are where a project's axx found its modules: the cache of
+// the Go axx downloads for building the packs, and that of a Go installed
+// here.
+func moduleCaches() []string {
+	var out []string
+	if c := gotool.ModuleCache(); c != "" {
+		out = append(out, c)
+	}
 	if c := os.Getenv("GOMODCACHE"); c != "" {
-		return c
+		return append(out, c)
 	}
 	gopath := os.Getenv("GOPATH")
 	if gopath == "" {
 		home, err := os.UserHomeDir()
 		if err != nil {
-			return ""
+			return out
 		}
 		gopath = filepath.Join(home, "go")
 	}
-	return filepath.Join(filepath.SplitList(gopath)[0], "pkg", "mod")
+	return append(out, filepath.Join(filepath.SplitList(gopath)[0], "pkg", "mod"))
 }
 
 // resolveModuleFile maps a -trimpath file name to a local file, using the
 // module that contains it (the longest matching module path). The main
 // module's files are named module/path/file.go, a dependency's
 // module@version/path/file.go.
-func resolveModuleFile(file string, mods []*debug.Module, cache string) string {
+func resolveModuleFile(file string, mods []*debug.Module, caches []string) string {
 	var best *debug.Module
 	var rest string
 	for _, m := range mods {
@@ -165,11 +173,13 @@ func resolveModuleFile(file string, mods []*debug.Module, cache string) string {
 		}
 		m = r
 	}
-	if m.Version == "" || m.Version == "(devel)" || cache == "" {
+	if m.Version == "" || m.Version == "(devel)" {
 		return ""
 	}
-	if p := filepath.Join(cache, escapeModulePath(m.Path)+"@"+m.Version, rest); exists(p) {
-		return p
+	for _, cache := range caches {
+		if p := filepath.Join(cache, escapeModulePath(m.Path)+"@"+m.Version, rest); exists(p) {
+			return p
+		}
 	}
 	return ""
 }

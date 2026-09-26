@@ -181,8 +181,15 @@ func TestErrors(t *testing.T) {
 	if err := step(t, reg, sc, "the mocked request named x was received exactly 1 time", nil); err == nil || !strings.Contains(err.Error(), "No mocked service set") {
 		t.Errorf("no service: %v", err)
 	}
-	if err := step(t, reg, sc, "the mocked spacex service with the following properties:", [][]string{{"uri", url}}); err == nil || !strings.Contains(err.Error(), `Property "url" is required`) {
+	if err := step(t, reg, sc, "the mocked spacex service with the following properties:", [][]string{}); err == nil || !strings.Contains(err.Error(), `Property "url" is required`) {
 		t.Errorf("missing url: %v", err)
+	}
+	// An unknown property fails wherever it is.
+	for _, table := range [][][]string{{{"uri", url}}, {{"url", url}, {"uri", url}}} {
+		if err := step(t, reg, sc, "the mocked spacex service with the following properties:", table); err == nil ||
+			!strings.Contains(err.Error(), `unknown mocked service property "uri" (supported: url)`) {
+			t.Errorf("unknown property: %v", err)
+		}
 	}
 	if err := step(t, reg, sc, "the mocked spacex service with the following properties:", [][]string{{"url", url}}); err != nil {
 		t.Fatal(err)

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/csv"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -168,7 +169,8 @@ func (s *service) carrierReport(ctx context.Context, parcel, carrier, note strin
 }
 
 // approve settles a claim for the parcel's declared value: a letter for the
-// shop, a refund request for payments, and the decision.
+// shop (JSON for its systems, text for its staff), the settlement for
+// finance to book, a refund request for payments, and the decision.
 func (s *service) approve(ctx context.Context, c Claim, p Parcel) (Claim, error) {
 	c.Status, c.Amount, c.Currency, c.DecidedAt = Approved, p.DeclaredValue, p.Currency, s.stamp()
 	if err := s.saveClaim(ctx, c); err != nil {
@@ -181,6 +183,12 @@ func (s *service) approve(ctx context.Context, c Claim, p Parcel) (Claim, error)
 	if err := s.putJSON(ctx, s.names.Letters, c.ID+".json", letter); err != nil {
 		return c, err
 	}
+	if err := s.put(ctx, s.names.Letters, c.ID+".txt", "text/plain; charset=utf-8", letterText(c, p)); err != nil {
+		return c, err
+	}
+	if err := s.put(ctx, s.names.Settlements, c.ID+".csv", "text/csv", settlement(c, p)); err != nil {
+		return c, err
+	}
 	if err := s.send(ctx, s.names.RefundRequests, map[string]any{
 		"claim": c.ID, "shop": p.Shop, "amount": c.Amount, "currency": c.Currency,
 	}, map[string]string{"reason": c.Reason}); err != nil {
@@ -188,6 +196,29 @@ func (s *service) approve(ctx context.Context, c Claim, p Parcel) (Claim, error)
 	}
 	s.log.Info("claim approved", "claim", c.ID, "amount", c.Amount)
 	return c, s.announce(ctx, c)
+}
+
+// letterText is the settlement letter the shop's staff read.
+func letterText(c Claim, p Parcel) []byte {
+	what := "was damaged in transit"
+	if c.Reason == Lost {
+		what = "was lost in transit"
+	}
+	return fmt.Appendf(nil, "To %s\nClaim %s for parcel %s\n\n"+
+		"We have approved your claim for parcel %s, which %s.\n"+
+		"We will refund the declared value of %.2f %s.\n\nParcel claims\n",
+		p.Shop, c.ID, c.Parcel, c.Parcel, what, c.Amount, c.Currency)
+}
+
+// settlement is the CSV record finance books for an approved claim: what
+// is paid to the shop, and the carrier the parcel was in the care of.
+func settlement(c Claim, p Parcel) []byte {
+	var b strings.Builder
+	w := csv.NewWriter(&b)
+	_ = w.Write([]string{"claim", "parcel", "shop", "carrier", "reason", "amount", "currency"})
+	_ = w.Write([]string{c.ID, c.Parcel, p.Shop, p.Carrier, c.Reason, fmt.Sprintf("%.2f", c.Amount), c.Currency})
+	w.Flush()
+	return []byte(b.String())
 }
 
 func (s *service) reject(ctx context.Context, c Claim, note string) (Claim, error) {

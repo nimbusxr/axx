@@ -1,7 +1,7 @@
 {
   "name": "axx",
   "displayName": "axx",
-  "description": "Gherkin support for axx acceptance tests: step completion, hover docs, links to and completion of the files steps name, and diagnostics from the axx language server, and running and debugging scenarios from the editor.",
+  "description": "Gherkin support for axx acceptance tests: step completion, hover docs, links to and completion of the files steps name, and diagnostics from the axx language server, and running scenarios from the editor. Watch shows the browsers of web scenarios, slowed down, one scenario at a time; Debug stops at breakpoints on steps and where a scenario fails, in Playwright's Inspector, and in step code.",
   "version": "0.1.0",
   "publisher": "nimbusxr",
   "license": "Apache-2.0",
@@ -69,13 +69,90 @@
         "path": "./syntaxes/gherkin.tmLanguage.json"
       }
     ],
+    "breakpoints": [
+      {
+        "language": "feature"
+      }
+    ],
     "commands": [
       {
         "command": "axx.restartLanguageServer",
         "title": "Restart language server",
         "category": "axx"
+      },
+      {
+        "command": "axx.openTrace",
+        "title": "Open Trace",
+        "category": "axx"
+      },
+      {
+        "command": "axx.playVideo",
+        "title": "Play Video",
+        "category": "axx"
+      },
+      {
+        "command": "axx.runStepInPausedScenario",
+        "title": "Run Step in Paused Scenario",
+        "category": "axx"
+      },
+      {
+        "command": "axx.insertRecordedSteps",
+        "title": "Insert Recorded Steps",
+        "category": "axx"
       }
     ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "axx.openTrace",
+          "when": "false"
+        },
+        {
+          "command": "axx.playVideo",
+          "when": "false"
+        },
+        {
+          "command": "axx.runStepInPausedScenario",
+          "when": "axx.paused && resourceExtname == .feature"
+        },
+        {
+          "command": "axx.insertRecordedSteps",
+          "when": "axx.hasRecording && resourceExtname == .feature && !editorReadonly"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "axx.runStepInPausedScenario",
+          "when": "axx.paused && resourceExtname == .feature",
+          "group": "axx@1"
+        },
+        {
+          "command": "axx.insertRecordedSteps",
+          "when": "axx.hasRecording && resourceExtname == .feature && !editorReadonly",
+          "group": "axx@2"
+        }
+      ],
+      "testing/item/context": [
+        {
+          "command": "axx.openTrace",
+          "when": "testId in axx.testsWithTrace"
+        },
+        {
+          "command": "axx.playVideo",
+          "when": "testId in axx.testsWithVideo"
+        }
+      ],
+      "testing/item/gutter": [
+        {
+          "command": "axx.openTrace",
+          "when": "testId in axx.testsWithTrace"
+        },
+        {
+          "command": "axx.playVideo",
+          "when": "testId in axx.testsWithVideo"
+        }
+      ]
+    },
     "configuration": {
       "title": "axx",
       "properties": {
@@ -95,6 +172,13 @@
           "default": "off",
           "scope": "window",
           "description": "Log the messages between VS Code and the axx language server to the axx output channel."
+        },
+        "axx.watch.slowdown": {
+          "type": "integer",
+          "default": 300,
+          "minimum": 0,
+          "scope": "resource",
+          "markdownDescription": "How long runs with the **Watch** profile wait after every browser action, in milliseconds, so you can follow what happens. `0` adds no wait."
         }
       }
     },

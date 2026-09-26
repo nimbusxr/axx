@@ -61,8 +61,17 @@ func writeStepDoc(b *strings.Builder, m match.Match, outline bool) {
 		fmt.Fprintf(b, "\n| Parameter | %s |\n|---|---|\n%s\n", label, strings.Join(rows, "\n"))
 	}
 	if len(s.Examples) > 0 {
-		fmt.Fprintf(b, "\n**Example:** `%s`\n", s.Examples[0])
+		b.WriteString("\n" + example(s.Examples[0]) + "\n")
 	}
+}
+
+// example shows a step's example: inline, or as Gherkin when it has a table
+// or a doc string.
+func example(ex string) string {
+	if !strings.Contains(ex, "\n") {
+		return "**Example:** `" + ex + "`"
+	}
+	return "**Example:**\n\n```gherkin\n" + ex + "\n```"
 }
 
 func keywordOr(kw string) string {
@@ -140,7 +149,7 @@ func (d *document) stepCompletions(reg *match.Registry, pos position) completion
 		if s.Doc != "" || len(s.Examples) > 0 {
 			doc := strings.TrimSpace(s.Doc)
 			if len(s.Examples) > 0 {
-				doc += "\n\n**Example:** `" + s.Examples[0] + "`"
+				doc += "\n\n" + example(s.Examples[0])
 			}
 			item.Documentation = &markupContent{Kind: "markdown", Value: strings.TrimSpace(doc)}
 		}

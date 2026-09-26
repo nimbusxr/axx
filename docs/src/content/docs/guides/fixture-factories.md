@@ -75,7 +75,7 @@ When the schema gains a required field, generation fails and names every fixture
 | `json` | any JSON: mock bodies, request payloads | JSON Schema, or an OpenAPI component (`api.yaml#/components/schemas/Name`) |
 | `yaml` | record-shaped YAML | the same as `json` |
 | `xml` | XML documents | an XSD |
-| `protobuf` | canonical proto-JSON | a descriptor set (`orders.desc#pkg.Message`) |
+| `protobuf` | canonical proto-JSON | a `.proto` file or a descriptor set, with the message (`<file>.proto#pkg.Message`, `<set>.desc#pkg.Message`) |
 | `dataset` | SQL seeds: YAML datasets, flat XML or CSV directories | optional SQL DDL (a file or a directory of migrations) |
 
 For `dataset`, the prototype is a row template per table, and identities are `table.column` paths enforced per row. `options: { format: xml }` or `{ format: csv }` in the factory writes flat XML or a CSV directory instead of YAML. The parcels example generates its rejected manifest lines as flat XML:

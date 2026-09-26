@@ -7,8 +7,8 @@ Axx is one Go binary with its own Cucumber executor. It reads Gherkin, matches e
 
 ```text
 axx.yaml ─┐
-features ─┼─▶ load & validate ─▶ match steps ─▶ start apps ─▶ run scenarios ─▶ stop apps ─▶ reporters
-packs    ─┘                     (registry)      (lifecycle)   (workers)         (cleanup)    (pretty, junit, json…)
+features ─┼─▶ load & validate ─▶ match steps ─▶ start apps ─▶ run scenarios ─▶ report ───────────────▶ stop apps
+packs    ─┘                     (registry)      (lifecycle)   (workers)        (pretty, junit, html…)  (cleanup)
 ```
 
 ## 1. Load
@@ -19,25 +19,27 @@ Axx finds `axx.yaml` by walking up from the working directory, applies the selec
 
 Every step line is matched against the **registry**: the steps of the packs the project loads. Steps are [Cucumber Expressions](https://github.com/cucumber/cucumber-expressions) with custom parameter types such as `{ordinal}` and `{service}`. Optional segments like `[[ on {service}]]` register every variant of a step.
 
-A line that matches nothing is *undefined*; a line that matches two definitions is *ambiguous*. Both are found before anything runs: `axx validate` and `axx explain` are this phase alone, so they never start an app.
+A line that matches nothing is *undefined*; a line that matches two definitions is *ambiguous*. `axx validate`, `axx explain` and `axx run --dry-run` are this phase alone: they find both without starting an app or running a step. In a run, a scenario stops at an undefined or ambiguous step, and the report suggests the closest real steps or lists the candidates.
 
 ## 3. Start the apps
 
-The lifecycle manager starts `apps` in dependency order, independent apps in parallel, each in its own process group. It polls every `ready` check until they pass or time out. With `active.enabled`, only apps whose tags match the selected scenarios start. With `axx up`, a background supervisor keeps them running and later runs skip this step.
+The lifecycle manager starts `apps` one after another in the order `axx.yaml` declares them, or, when apps declare `dependsOn`, in dependency order with independent apps in parallel. Each runs in its own process group. It polls every `ready` check until they pass or time out. With `active.enabled`, only the apps the selected scenarios' tags call for start, with the apps they depend on. With `axx up`, a background supervisor keeps them running and later runs skip this step.
 
 ## 4. Run
 
 Scenarios run in parallel on `run.workers` workers; steps within a scenario run in order. Scenarios tagged with a `run.exclusive` tag run one at a time after the parallel phase.
 
-Each scenario gets a fresh **world**: its registered services and the state each pack keeps (requests built and responses received, selections, events). Nothing in the world is shared between scenarios, which is why parallel runs are safe as long as the *external* data is unique. See [Scenario isolation](/explanations/scenario-isolation/).
+Each scenario gets a fresh **world**: its registered services and the state each pack keeps (requests built and responses received, selections, events, browser pages). Nothing in the world is shared between scenarios, which is why parallel runs are safe as long as the *external* data is unique. See [Scenario isolation](/explanations/scenario-isolation/).
 
 ## 5. Packs
 
-A **pack** is a bundle of steps, parameter types and hooks, plus the per-scenario context its steps share. The packs are `rest`, `mock`, `sql`, `mongo`, `kafka`, `logs`, and `core` for shared parameter types.
+A **pack** is a bundle of steps, parameter types and hooks, its settings in `axx.yaml` and its tools for agents (`axx mcp`), plus the per-scenario context its steps share. The packs are `rest`, `mock`, `sql`, `mongo`, `kafka`, `logs`, `files`, the web packs (`web-core`, `web-screenshots`...), the cloud service packs (`aws-s3`, `gcp-pubsub`, `azure-blob`...), and `core` for shared parameter types.
 
-## 6. Stop and report
+A project lists the packs it uses in `axx-packs.yaml`. The `axx` binary is the core alone: on first use, it builds a copy of itself with the project's packs, caches it and runs it in its place ([Choose packs](/guides/use-packs/)).
 
-After the last scenario, apps are stopped (signal, grace period, kill) and every `cleanup` runs, including after a crash or an interrupt. Reporters receive the run as [Cucumber Messages](https://github.com/cucumber/messages) events and render them: pretty, progress or compact on the console; JUnit, HTML, Cucumber JSON, NDJSON messages and the JSON agent report to files. The exit code summarizes the worst outcome ([exit codes](/references/error-codes/#exit-codes)).
+## 6. Report and stop
+
+Reporters follow the run as it goes, as [Cucumber Messages](https://github.com/cucumber/messages) events and scenario results, and finish their reports after the last scenario: pretty, progress or compact on the console, TeamCity service messages for the editors' test runners, and JUnit, HTML, Cucumber JSON, NDJSON messages and the JSON agent report to files. Then apps are stopped (signal, grace period, kill) and every `cleanup` runs, including after a crash or an interrupt. The exit code summarizes the worst outcome ([exit codes](/references/error-codes/#exit-codes)).
 
 ## What Axx is not
 

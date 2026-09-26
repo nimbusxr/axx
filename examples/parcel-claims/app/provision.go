@@ -39,7 +39,7 @@ func provision(ctx context.Context, c clients, n names, log *slog.Logger) error 
 			return fmt.Errorf("table %s: %w", table, err)
 		}
 	}
-	for _, b := range []string{n.Evidence, n.Letters, n.Reviews} {
+	for _, b := range []string{n.Evidence, n.Letters, n.Reviews, n.Settlements} {
 		_, err := c.s3.CreateBucket(ctx, &s3.CreateBucketInput{Bucket: aws.String(b)})
 		var owned *s3types.BucketAlreadyOwnedByYou
 		if err != nil && !errors.As(err, &owned) {
@@ -106,7 +106,7 @@ func provision(ctx context.Context, c clients, n names, log *slog.Logger) error 
 	}); err != nil {
 		return fmt.Errorf("damage report target: %w", err)
 	}
-	log.Info("provisioned", "tables", 2, "buckets", 3, "queues", len(queueARN), "topics", 2, "buses", 2)
+	log.Info("provisioned", "tables", 2, "buckets", 4, "queues", len(queueARN), "topics", 2, "buses", 2)
 	return nil
 }
 

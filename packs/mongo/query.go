@@ -15,11 +15,15 @@ import (
 	"github.com/nimbusxr/axx/internal/jsonassert"
 )
 
-const filterDoc = "Each row is a `field | value` condition (dotted field paths reach into nested documents). " +
-	"Values are read as JSON when they parse as JSON (`3`, `true`, `null`, `\"3\"`, `{\"$oid\": \"...\"}`) and as plain strings otherwise."
+// filterTable is the table of a step that finds documents by their fields.
+var filterTable = &core.TableDoc{
+	Columns: []string{"field", "value"},
+	Note: "Each row names a field, dotted (`recipient.city`) for one inside a document, and the value it holds: " +
+		"JSON when it reads as JSON (`3`, `true`, `null`, `\"3\"`, `{\"$oid\": \"...\"}`), text otherwise.",
+}
 
-const docDoc = "Documents are compared as JSON: ObjectIds become their hex string, dates become ISO-8601 UTC strings, " +
-	"and every scalar is compared as text. `null` means null and `undefined` means the field is absent."
+// numbered is how selections are numbered, for the steps that find one.
+const numbered = "Selections are numbered in the order they are retrieved, whatever ordinal the step says; `the selection` means the first."
 
 // Selection is the result of a find: documents in natural (or _id) order.
 type Selection struct {
@@ -31,7 +35,8 @@ type Selection struct {
 func queryParams() []core.ParamType {
 	return []core.ParamType{{
 		Name: "mongoService", Regexps: []string{`([^\s]+)`},
-		Doc: "The name of a MongoDB database registered in the scenario.",
+		Doc:      "the name of a MongoDB database registered in the scenario",
+		Examples: []string{"tracking-db"},
 		Transform: func(sc *core.Scenario, name string, _ []*string) (any, error) {
 			return stateKey.Of(sc).services.Get(name)
 		},
@@ -42,10 +47,12 @@ func querySteps() []core.StepDef {
 	return []core.StepDef{
 		{
 			ID: "mongo.find", Keyword: "Then", Arg: core.ArgTable, Since: "0.1.0",
-			Expr: "a[[ {ordinal}]] selection of documents is retrieved from the {word} collection[[ on {mongoService}]] where:",
-			Doc: "Find documents and keep them as the next selection for later assertions, like the SQL selection steps. " +
-				"Selections are numbered in the order they are retrieved; `the selection` means the first. " + filterDoc,
-			Examples: []string{"Then a selection of documents is retrieved from the scans collection where:"},
+			Expr:  "a[[ {ordinal}]] selection of documents is retrieved from the {word} collection[[ on {mongoService}]] where:",
+			Doc:   "Find the documents that match and keep them as the next selection, for the steps that check it. " + numbered,
+			Table: filterTable,
+			Examples: []string{"Then a selection of documents is retrieved from the scans collection where:\n" +
+				"  | parcelRef | PX-TRK-3001 |\n" +
+				"  | status    | IN_TRANSIT  |"},
 			Run: func(sc *core.Scenario, a core.Args) error {
 				return find(sc, a, 2, a.String(1), a.Table, 0, 0)
 			},
@@ -53,9 +60,14 @@ func querySteps() []core.StepDef {
 		{
 			ID: "mongo.find.poll", Keyword: "Then", Arg: core.ArgTable, Since: "0.1.0",
 			Expr: "within {duration} a[[ {ordinal}]] selection of at least {int} document(s) is retrieved from the {word} collection[[ on {mongoService}]] where:",
-			Doc: "Poll every 500ms until the find returns at least the given number of documents or the time is up. " +
-				"On timeout the last result (possibly empty) is kept, so assert on it with a document-count step. " + filterDoc,
-			Examples: []string{"Then within 10s a selection of at least 1 document is retrieved from the tracking collection where:"},
+			Doc: "Find the documents that match, again every 500ms, until at least that many come back or the time is up.\n\n" +
+				"- The last result is kept as the next selection, even with fewer documents: check it with a document-count step.\n" +
+				"- An error from MongoDB fails the step only when the time is up.\n" +
+				"- " + numbered,
+			Table: filterTable,
+			Examples: []string{"Then within 10s a selection of at least 1 document is retrieved from the tracking collection where:\n" +
+				"  | _id       | PX-TRK-3001 |\n" +
+				"  | scanCount | 2           |"},
 			Run: func(sc *core.Scenario, a core.Args) error {
 				return find(sc, a, 4, a.String(3), a.Table, a.Value(0).(time.Duration), a.Int(2))
 			},
@@ -65,17 +77,33 @@ func querySteps() []core.StepDef {
 		docCount("mongo.docs.lt", "has fewer than {int} document(s)", "fewer than", func(got, want int) bool { return got < want }),
 		{
 			ID: "mongo.doc.are", Keyword: "Then", Arg: core.ArgTable, Since: "0.1.0",
-			Expr:     "the {ordinal} document for the[[ {ordinal}]] selection[[ on {mongoService}]] properties are:",
-			Doc:      "Assert properties (JSONPath, e.g. `lastLocation` or `scans[0].status`) of one document of a selection. " + docDoc,
-			Examples: []string{"Then the 1st document for the selection properties are:"},
-			Run:      func(sc *core.Scenario, a core.Args) error { return docProperties(sc, a, false) },
+			Expr: "the {ordinal} document for the[[ {ordinal}]] selection[[ on {mongoService}]] properties are:",
+			Doc: "Check the fields of one document of a selection, read as JSON: an ObjectId is its hex string, " +
+				"and a date is in ISO-8601 UTC, like `2026-05-05T06:40:00.000Z`.",
+			Table: &core.TableDoc{
+				Columns: []string{"JSONPath", "value"},
+				Note: "Each row names a JSONPath, like `lastLocation` or `scans[0].status`, and the value there as text, like `true` or `2`: " +
+					"`null` for null, `undefined` for a field the document lacks.",
+			},
+			Examples: []string{"Then the 1st document for the selection properties are:\n" +
+				"  | status       | DELIVERED |\n" +
+				"  | lastLocation | Leipzig   |\n" +
+				"  | delivered    | true      |"},
+			Run: func(sc *core.Scenario, a core.Args) error { return docProperties(sc, a, false) },
 		},
 		{
 			ID: "mongo.doc.match", Keyword: "Then", Arg: core.ArgTable, Since: "0.1.0",
-			Expr:     "the {ordinal} document for the[[ {ordinal}]] selection[[ on {mongoService}]] properties match:",
-			Doc:      "Like the properties step, but every value is a regular expression (Java syntax) that must match the whole text.",
-			Examples: []string{"Then the 1st document for the 2nd selection on tracking-db properties match:"},
-			Run:      func(sc *core.Scenario, a core.Args) error { return docProperties(sc, a, true) },
+			Expr: "the {ordinal} document for the[[ {ordinal}]] selection[[ on {mongoService}]] properties match:",
+			Doc: "Check the fields of one document of a selection, like the `properties are` step, " +
+				"with regular expressions (Java syntax) that must match the whole value, as text.",
+			Table: &core.TableDoc{
+				Columns: []string{"JSONPath", "pattern"},
+				Note:    "Each row names a JSONPath, like `_id` or `scans[0].status`, and a regular expression its value must match.",
+			},
+			Examples: []string{"Then the 1st document for the 2nd selection on tracking-db properties match:\n" +
+				"  | _id          | PX-TRK-\\d{4} |\n" +
+				"  | lastLocation | Hamburg.*    |"},
+			Run: func(sc *core.Scenario, a core.Args) error { return docProperties(sc, a, true) },
 		},
 	}
 }
@@ -84,8 +112,8 @@ func docCount(id, tail, words string, ok func(got, want int) bool) core.StepDef 
 	return core.StepDef{
 		ID: id, Keyword: "Then", Since: "0.1.0",
 		Expr:     "the[[ {ordinal}]] selection[[ on {mongoService}]] " + tail,
-		Doc:      fmt.Sprintf("Assert that a selection of documents has %s the given number of documents.", words),
-		Examples: []string{"Then the selection " + strings.ReplaceAll(tail, "{int} document(s)", "2 documents")},
+		Doc:      fmt.Sprintf("Check that a selection of documents has %s the given number of documents. `the selection` means the first selection of the scenario.", words),
+		Examples: []string{"Then the selection " + strings.ReplaceAll(tail, "{int} document(s)", "2 documents"), "Then the 2nd selection on tracking-db " + strings.ReplaceAll(tail, "{int} document(s)", "1 document")},
 		Run: func(sc *core.Scenario, a core.Args) error {
 			svc, err := service(sc, a, 1)
 			if err != nil {

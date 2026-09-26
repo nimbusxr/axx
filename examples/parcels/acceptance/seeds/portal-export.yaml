@@ -1,0 +1,8 @@
+parcels.parcels:
+  - reference: "PX-WEB-5171"
+    sender: "juniper-supply"
+    status: "IN_TRANSIT"
+    service_level: "EXPRESS"
+    weight_grams: 900
+    recipient: '{"name": "Paul Wagner", "street": "Domstr. 10", "city": "Cologne", "postcode": "50668", "country": "DE"}'
+    details: '{"source": "portal", "zone": "DE-1", "signature": false, "leaveWithNeighbour": true}'

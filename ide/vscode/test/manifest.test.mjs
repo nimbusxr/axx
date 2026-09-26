@@ -29,6 +29,12 @@ test('the language, grammar and language configuration files exist and parse', (
   assert.equal(JSON.parse(read(grammar.path)).scopeName, grammar.scopeName);
 });
 
+test('breakpoints can be set in feature files, and runs read them', () => {
+  const [language] = contributes.languages;
+  assert.deepEqual(contributes.breakpoints, [{ language: language.id }]);
+  assert.match(sources(), /vscode\.debug\.breakpoints/);
+});
+
 test('the extension activates for feature files and axx projects', () => {
   assert.ok(pkg.activationEvents.includes('onLanguage:feature'));
   assert.ok(pkg.activationEvents.includes('workspaceContains:**/axx.yaml'));
@@ -47,6 +53,33 @@ test('settings read by the extension are contributed', () => {
   // vscode-languageclient reads `<client id>.trace.server`; the client id is 'axx'.
   assert.ok(properties['axx.trace.server']);
   assert.match(sources(), /new LanguageClient\('axx',/);
+});
+
+test('the watch slowdown setting has the default the extension falls back to', () => {
+  const slowdown = contributes.configuration.properties['axx.watch.slowdown'];
+  assert.equal(slowdown.default, 300);
+  assert.match(sources(), /get<number>\('watch\.slowdown', 300\)/);
+});
+
+test('test menus show on the tests the extension marks', () => {
+  const source = sources();
+  for (const menu of ['testing/item/context', 'testing/item/gutter']) {
+    for (const { command, when } of contributes.menus[menu]) {
+      const key = /^testId in (\S+)$/.exec(when)?.[1];
+      assert.ok(key && source.includes(`'${key}'`), `${menu}: ${command} shows when ${when}, which the extension never sets`);
+    }
+  }
+});
+
+test('editor menus and palette entries show on what the extension sets', () => {
+  const source = sources();
+  for (const menu of ['editor/context', 'commandPalette']) {
+    for (const { command, when } of contributes.menus[menu]) {
+      for (const key of when.match(/\baxx\.\w+/g) ?? []) {
+        assert.ok(source.includes(`'${key}'`), `${menu}: ${command} shows when ${when}, but the extension never sets ${key}`);
+      }
+    }
+  }
 });
 
 test('the bundle entry point is what the build writes', () => {

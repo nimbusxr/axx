@@ -18,6 +18,8 @@ resources: ["."]
 # ${sys:...} references in the feature files; override with -D local.host=<name>.
 properties:
   local.host: localhost
+  # The shop portal, where the browsers find it.
+  portal.url: http://localhost:8400/portal
 
 apps:
   parcels:
@@ -32,20 +34,45 @@ apps:
     stop:
       grace: 20s
     cleanup: docker compose down -v --remove-orphans
-    # `axx run --debug`: compose starts only the infrastructure, and the service runs on
-    # the host under Delve, which listens on port 2345 for your IDE to attach.
+    # `axx run --debug`: compose starts only the infrastructure (and empties the export
+    # folder), and the service runs on the host under Delve, which listens on port 2345
+    # for your IDE to attach; it sends its log lines to Axx's UDP listener, as in compose.
     debug:
       command:
         - sh
         - -c
         - >-
           docker compose up --wait address-service postgres mongo kafka schema-registry
+          && docker compose up exports
           && cd ../app
-          && exec dlv debug --headless --listen=127.0.0.1:2345 --api-version=2 --accept-multiclient --continue .
+          && PARCELS_LOG_UDP=127.0.0.1:5140
+          exec dlv debug --headless --listen=127.0.0.1:2345 --api-version=2 --accept-multiclient --continue .
       debugger:
         type: go
         port: 2345
         mode: app-listens
+
+# The portal's screenshots are kept for Linux (CI) and macOS: each is compared on its own
+# platform; on others, the screenshot steps pass without comparing.
+packs:
+  web-screenshots:
+    platforms: [linux, darwin]
+  # How much of the portal's scripts the scenarios run, in .axx/web/coverage/lcov.info:
+  # the scripts the portal serves under /portal/js/ are those of ../app/web/js.
+  web-coverage:
+    sources:
+      /portal/js/: ../app/web/js
+
+# `axx run --profile watch`: the shop portal's browsers open in windows on your screen,
+# one scenario at a time and slowed down.
+profiles:
+  watch:
+    run:
+      workers: 1
+    packs:
+      web-core:
+        watch: true
+        slowdown: 300ms
 
 # `axx lint`: seeds share one database while scenarios run in parallel, so the values
 # that identify their rows must not collide across files.

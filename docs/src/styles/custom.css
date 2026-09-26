@@ -212,6 +212,9 @@ starlight-toc a[aria-current='true'] { color: var(--sl-color-white); }
 .sl-markdown-content h2 { margin-top: 3rem; font-size: 1.8rem; }
 .sl-markdown-content h3 { font-size: 1.3rem; }
 .sl-markdown-content :not(pre) > code { border: 1px solid var(--sl-color-gray-5); border-radius: 4px; padding: 0.15em 0.35em; font-size: 0.85em; }
+/* The parameter types of a step expression in inline code, colored as in code blocks. */
+.sl-markdown-content :not(pre) > code .step-param { color: #dba071; }
+[data-theme='light'] .sl-markdown-content :not(pre) > code .step-param { color: #893506; }
 .sl-markdown-content strong { color: var(--axx-strong); font-weight: 600; }
 .sl-markdown-content table { font-size: 0.85rem; }
 .sl-markdown-content th { color: var(--axx-table-heading); background: var(--axx-surface-raised); }

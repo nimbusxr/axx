@@ -44,7 +44,12 @@ func (pack) Manifest() core.Manifest {
 		Requires:  []string{awscore.Name},
 		Steps: cloudstep.Messages{
 			Pack: name, Target: "sns topic", Verb: "published", Field: "attribute", Fields: "attributes",
-			Example: "claim-decisions", Send: publish, Inbox: inbox,
+			Send: publish, Inbox: inbox,
+			Example: cloudstep.Sample{
+				To: "parcel-events", Body: `{"parcel": "PX-4104", "status": "DELIVERED", "deliveredAt": "2026-09-20T14:05:00Z"}`,
+				File: "messages/px-4104-delivered.json", Fields: [][2]string{{"eventType", "ParcelDelivered"}},
+				From: "claim-decisions", Where: [][2]string{{"claim", "CLM-4101"}, {"decision", "APPROVED"}, {"attribute eventType", "ClaimDecided"}},
+			},
 			Received: "axx subscribes a queue of its own to the topic for the run.",
 		}.Steps(),
 	}

@@ -1,0 +1,7 @@
+parcels.parcels:
+  - reference: "PX-WEB-5124"
+    sender: "oak-and-ember"
+    status: "REGISTERED"
+    weight_grams: 1200
+    recipient: '{"name": "Tim Wolf", "street": "Gartenstr. 14", "city": "Berlin", "postcode": "10115", "country": "DE"}'
+    details: '{"source": "portal", "zone": "DE-1", "signature": false, "leaveWithNeighbour": true}'

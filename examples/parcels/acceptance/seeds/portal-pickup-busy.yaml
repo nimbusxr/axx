@@ -1,0 +1,6 @@
+parcels.parcels:
+  - reference: "PX-WEB-5322"
+    sender: "brook-and-birch"
+    weight_grams: 950
+    recipient: '{"name": "Jonas Hartmann", "street": "Bergmannstr. 14", "city": "Berlin", "postcode": "10961", "country": "DE"}'
+    details: '{"source": "portal", "zone": "DE-1", "signature": false, "leaveWithNeighbour": true}'

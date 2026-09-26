@@ -19,8 +19,53 @@
         instance="us.nimbusxr.axx.idea.AxxConfigurable"/>
     <configurationType implementation="us.nimbusxr.axx.idea.run.AxxRunConfigurationType"/>
     <programRunner implementation="us.nimbusxr.axx.idea.run.AxxDebugRunner"/>
+    <!-- Watch, next to Run and Debug: runs scenarios with the web pack's browsers on the desktop,
+         slowed down, one at a time. -->
+    <executor implementation="us.nimbusxr.axx.idea.run.AxxWatchExecutor" order="after debug"/>
+    <programRunner implementation="us.nimbusxr.axx.idea.run.AxxWatchRunner"/>
+    <!-- Traces and videos, in editor tabs. -->
+    <fileEditorProvider implementation="us.nimbusxr.axx.idea.web.AxxBrowserTabs$Provider"/>
     <notificationGroup id="axx" displayType="BALLOON"/>
   </extensions>
+
+  <actions>
+    <action
+        id="us.nimbusxr.axx.idea.OpenTrace"
+        class="us.nimbusxr.axx.idea.web.KeptFileAction$OpenTrace"
+        text="Open Trace"
+        description="Open the Playwright trace the scenario kept">
+      <add-to-group group-id="TestTreePopupMenu" anchor="first"/>
+    </action>
+    <action
+        id="us.nimbusxr.axx.idea.PlayVideo"
+        class="us.nimbusxr.axx.idea.web.KeptFileAction$PlayVideo"
+        text="Play Video"
+        description="Play the video of the browser the scenario kept">
+      <add-to-group group-id="TestTreePopupMenu" anchor="after" relative-to-action="us.nimbusxr.axx.idea.OpenTrace"/>
+    </action>
+    <!-- In feature files, while a run's scenario is paused (and after, for the recorded steps). -->
+    <group id="us.nimbusxr.axx.idea.PausedScenario">
+      <separator/>
+      <action
+          id="us.nimbusxr.axx.idea.RunStepInPausedScenario"
+          class="us.nimbusxr.axx.idea.web.PausedScenarioActions$RunStep"
+          text="Run Step in Paused Scenario"
+          description="Run the step at the caret, with its table, in the scenario paused in Playwright's Inspector">
+        <!-- Ctrl+Alt+Shift+R everywhere, free in the bundled keymaps (PausedScenarioActionsTest);
+             the macOS keymaps would turn $default's into Cmd+Alt+Shift+R, which is Force Refresh. -->
+        <keyboard-shortcut keymap="$default" first-keystroke="control alt shift R"/>
+        <keyboard-shortcut keymap="Mac OS X 10.5+" first-keystroke="control alt shift R" replace-all="true"/>
+        <keyboard-shortcut keymap="Mac OS X" first-keystroke="control alt shift R" replace-all="true"/>
+      </action>
+      <action
+          id="us.nimbusxr.axx.idea.InsertRecordedSteps"
+          class="us.nimbusxr.axx.idea.web.PausedScenarioActions$InsertRecordedSteps"
+          text="Insert Recorded Steps"
+          description="Insert the steps recorded in Playwright's Inspector below the caret"/>
+      <separator/>
+      <add-to-group group-id="EditorPopupMenu" anchor="last"/>
+    </group>
+  </actions>
 
   <projectListeners>
     <listener

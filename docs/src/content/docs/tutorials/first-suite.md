@@ -320,9 +320,16 @@ The new scenario registered a parcel through the API. Then it selected the rows 
 Run `axx run` once more. This time the new scenario fails:
 
 ```console
+    ✓ When the request is executed
         log: POST http://localhost:8400/api/parcels -> 409 Conflict (1ms, 135 bytes)
+        attachment: request body (application/json, 211 B)
+          {"reference":"PX-TUTORIAL-1","sender":"my-shop","weightGrams":1200,"serviceLevel":"STANDARD","recipient":{"name":"Ada Lovelace","street":"Invalidenstrasse 116","city":"Berlin","postcode":"10115","country":"DE"}}
+        attachment: response body (application/problem+json, 135 B)
           {"detail":"parcel PX-TUTORIAL-1 is already registered","instance":"/api/parcels","status":409,"title":"Conflict","type":"about:blank"}
     ✗ Then the response status code is 201
+        Expected status code <201> but was <409>.
+          expected: 201
+          actual:   409
 ```
 
 The parcel from the first run is still in the database, and references are unique. Acceptance tests run against the service's real data, so data a scenario creates stays behind. [Isolate test data](/guides/isolate-test-data/) shows how suites deal with that. For now, stopping Parcels clears everything.

@@ -43,6 +43,9 @@ func (a *App) ensurePacks(ctx context.Context, cmd *cobra.Command) error {
 	if fl := cmd.Flags().Lookup("debug-steps"); fl != nil && fl.Changed {
 		return nil // --debug-steps builds its own axx, with debug information
 	}
+	if fl := cmd.Flags().Lookup("scope"); fl != nil && fl.Value.String() == "user" {
+		return nil // a home directory's skills have every pack's steps
+	}
 	dir, err := config.ProjectDir(a.Config)
 	if err != nil {
 		return nil //nolint:nilerr // the command reports configuration errors itself

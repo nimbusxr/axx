@@ -7,14 +7,14 @@ Axx is in **beta**. Versions start at `v0.1.0`, and every `0.x` release is a Git
 
 ## Now
 
-- The core runner, app lifecycle (`axx up`, `axx down`, `--attach`, `--debug`), reporters, `axx init`, `axx doctor`, `axx validate`, `axx explain`, `axx steps`, the MCP server and the skills.
-- Packs: `rest` (with OpenAPI validation), `mock` (WireMock verification), `sql`, `mongo` and `kafka`.
+- The core runner, app lifecycle (`axx up`, `axx down`, `--attach`, `--debug`), debugging step code (`--debug-steps`), pausing web scenarios (`--pause-at`), reporters, `axx init`, `axx doctor`, `axx validate`, `axx explain`, `axx steps`, the MCP server (with `steps_try` and the packs' tools) and the skills.
+- Packs: `rest` (with OpenAPI validation), `mock` (WireMock verification), `sql`, `mongo`, `kafka`, `logs` and `files`; `web-core` and the web packs that build on it (`web-screenshots`, `web-a11y`, `web-network`, `web-lighthouse`, `web-coverage`); the cloud packs for AWS (S3, SQS, SNS, EventBridge, DynamoDB), Google Cloud (Cloud Storage, Pub/Sub, BigQuery, Firestore) and Azure (Blob Storage, Service Bus).
 - `axx lint` and `axx fixtures`.
 - `axx pack`: choosing packs per project, and custom packs written in Go, loaded the same way as Axx's.
-- Editor support: the `axx lsp` language server, the IntelliJ plugin (feature files and debugging) and the VS Code extension.
+- Editor support: the `axx lsp` language server, the IntelliJ plugin and the VS Code extension (feature files, running and debugging scenarios, watching web scenarios' browsers).
 - The OpenAPI-validating WireMock image.
 
-Release channels (Homebrew, the install script, the container image and `nimbusxr/setup-axx`) go live with `v0.1.0`. A rolling `nightly` pre-release is built from `main` until then.
+Since `v0.1.0`, releases are published on GitHub, in the Homebrew tap (`nimbusxr/tap`) and as the container image `ghcr.io/nimbusxr/axx`; the install script and `nimbusxr/setup-axx` install them. A rolling `nightly` pre-release is built from `main` every day.
 
 ## Criteria for v1.0.0
 

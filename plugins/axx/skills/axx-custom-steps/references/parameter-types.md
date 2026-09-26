@@ -2,26 +2,26 @@
 
 # Parameter types
 
-| Parameter | Matches | Description | Provided by |
-|---|---|---|---|
-| `{(anonymous)}` | `.*` | anonymous: any text | cucumber |
-| `{bigdecimal}` | `[-+]?(?:\d+(?:\.\d+)?\|\.\d+)(?:[E][+-]?\d+)?` | an arbitrary-precision decimal | cucumber |
-| `{biginteger}` | `-?\d+` or `\d+` | an arbitrary-precision integer | cucumber |
-| `{byte}` | `-?\d+` or `\d+` | an 8-bit integer | cucumber |
-| `{dbService}` | `([^\s]+)` | The name of a database registered in the scenario. | sql |
-| `{double}` | `[-+]?(?:\d+(?:\.\d+)?\|\.\d+)(?:[E][+-]?\d+)?` | a 64-bit float | cucumber |
-| `{duration}` | `(\d+)(s\|m)` | A duration in seconds or minutes, e.g. `5s` or `2m`. | core |
-| `{filepath}` | `([^\s]+)` | A file of the project, without whitespace: a path relative to the `resources` directories or to the directory of axx.yaml, or an absolute path. Editors link it to the file. | core |
-| `{float}` | `[-+]?(?:\d+(?:\.\d+)?\|\.\d+)(?:[E][+-]?\d+)?` | a 32-bit float | cucumber |
-| `{int}` | `-?\d+` or `\d+` | a 32-bit integer | cucumber |
-| `{long}` | `-?\d+` or `\d+` | a 64-bit integer | cucumber |
-| `{mimeType}` | `([^\s]+)` | One of `application/json`, `text/json`, `application/problem+json`, `application/x-www-form-urlencoded`. | core |
-| `{mockedService}` | `([^\s]+)` | The name of a mocked service registered in the scenario. | mock |
-| `{mongoService}` | `([^\s]+)` | The name of a MongoDB database registered in the scenario. | mongo |
-| `{ordinal}` | `(\d+)(?:st\|nd\|rd\|th)` | A 1-based position such as `1st`, `2nd`, `3rd` or `4th`. Omitting an optional ordinal means the first. | core |
-| `{pattern}` | `([^\s]+)` | A regular expression (Java syntax) without whitespace. It must match the whole value. | core |
-| `{service}` | `([^\s]+)` | The name of a REST service registered in the scenario. | rest |
-| `{short}` | `-?\d+` or `\d+` | a 16-bit integer | cucumber |
-| `{sqlState}` | `[0-9A-Za-z]{5}` | A five-character SQLSTATE code, e.g. `23505` (unique violation). | sql |
-| `{string}` | `"([^"\\]*(\\.[^"\\]*)*)"\|'([^'\\]*(\\.[^'\\]*)*)'` | text in single or double quotes; the quotes are removed | cucumber |
-| `{word}` | `[^\s]+` | one word, no spaces | cucumber |
+| Parameter | Takes | Values | For example | Pack |
+|---|---|---|---|---|
+| `{bigdecimal}` | a decimal number of any precision |  | `0.1000000000000000055` | cucumber |
+| `{biginteger}` | a whole number of any size |  | `123456789012345678901234567890` | cucumber |
+| `{byte}` | a whole number, from -128 to 127 |  | `12` | cucumber |
+| `{dbService}` | the name of a database registered in the scenario |  | `parcels-db` | sql |
+| `{double}` | a decimal number |  | `19.90` | cucumber |
+| `{duration}` | a duration in seconds (`s`) or minutes (`m`) |  | `5s`, `2m` | core |
+| `{element}` | a kind of element on the page, plural after a number (`buttons`): a `field` by its label or placeholder, an `option` is a radio button, an `element` is anything, by its text, label, alternative text or title | `button`, `field`, `checkbox`, `option`, `link`, `tab`, `menu item`, `element` | `button`, `field` | web-core |
+| `{filepath}` | a file of the project, with no spaces: a path relative to the `resources` directories or to axx.yaml's directory, or an absolute path |  | `seeds/parcels.yaml`, `kafka/scan-delivered.json` | core |
+| `{float}` | a decimal number |  | `2.5`, `0.1` | cucumber |
+| `{int}` | a whole number |  | `200`, `3` | cucumber |
+| `{long}` | a whole number, however large |  | `9007199254740993` | cucumber |
+| `{mimeType}` | a content type | `application/json`, `text/json`, `application/problem+json`, `application/x-www-form-urlencoded` | `application/json` | core |
+| `{mockedService}` | the name of a mocked service the scenario registered |  | `addresses` | mock |
+| `{mongoService}` | the name of a MongoDB database registered in the scenario |  | `tracking-db` | mongo |
+| `{ordinal}` | a position, counting from 1; an optional ordinal left out is the first |  | `1st`, `2nd`, `3rd` | core |
+| `{pattern}` | a regular expression (Java syntax) with no spaces, which matches the whole value |  | `PX-\d{4}`, `[A-Z]{2}-\d+` | core |
+| `{service}` | the name of a REST service the scenario registered |  | `parcels` | rest |
+| `{short}` | a whole number, from -32768 to 32767 |  | `1200` | cucumber |
+| `{sqlState}` | a five-character SQLSTATE error code, like `40001` (serialization failure) or `23505` (unique violation) |  | `40001`, `23505` | sql |
+| `{string}` | text in double or single quotes, which the step leaves out |  | `"Get a quote"`, `'Express'` | cucumber |
+| `{word}` | one word, with no spaces |  | `parcels`, `PX-4101` | cucumber |

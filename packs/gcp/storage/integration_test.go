@@ -4,6 +4,7 @@ package gcpstorage
 
 import (
 	"context"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -35,6 +36,20 @@ func TestObjects(t *testing.T) {
 	h.OK("the incoming/kestrel.json object in the carrier-invoices gcs bucket has the following properties:", [][]string{
 		{"invoice", "INV-1"}, {"lines[0].amount", "12.5"},
 	})
+
+	// The text of a PDF and the rows of a CSV file.
+	pdf, err := os.ReadFile("../../../internal/filecontent/testdata/customs-invoice.pdf")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := st.Put(ctx, "carrier-invoices", "invoices/CI-2026-0925-001.pdf", pdf, "application/pdf"); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.Put(ctx, "carrier-invoices", "disputes/INV-0.csv", []byte("parcel;billed;reason\nPX-1;12.50;weight differs\n"), "text/csv"); err != nil {
+		t.Fatal(err)
+	}
+	h.OK(`the invoices/CI-2026-0925-001.pdf object in the carrier-invoices gcs bucket contains "Hiking boots 6403.91 1 129.00 EUR"`)
+	h.OK("the disputes/INV-0.csv object in the carrier-invoices gcs bucket has a row where:", [][]string{{"parcel", "PX-1"}, {"reason", "weight differs"}})
 
 	go func() {
 		time.Sleep(time.Second)

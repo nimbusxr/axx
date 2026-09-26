@@ -8,19 +8,30 @@ Register MongoDB databases, seed collections from JSON files, and query and asse
 
 ```gherkin
 Given a(n) {word} mongo database with the following properties:
-  | ... | ... |
+  | property | value |
 ```
 
 Register a MongoDB database. The first one registered in a scenario is the default.
 
-Properties (all required, `${env:..}`/`${sys:..}` expanded): `url` (must include the database name; `authSource` defaults to it), `user`, `password`.
+| Parameter | Takes | For example |
+|---|---|---|
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
 
-**Parameters:** `{word}` (one word, no spaces)
+| Property | Takes | Default |
+|---|---|---|
+| `url` | the connection string, which must name the database, like `mongodb://localhost:27017/parcels`; its `authSource` defaults to that database | _required_ |
+| `user` | the user axx connects as | _required_ |
+| `password` | the user's password | _required_ |
+
+Every value can take `${env:…}` and `${sys:…}` references.
 
 **Example:**
 
 ```gherkin
 Given a tracking-db mongo database with the following properties:
+  | url      | mongodb://localhost:27017/parcels?authSource=admin |
+  | user     | parcels                                            |
+  | password | parcels                                            |
 ```
 
 ## `mongo.seed`
@@ -29,9 +40,11 @@ Given a tracking-db mongo database with the following properties:
 Given a {filepath} mongo db seed
 ```
 
-Insert documents into the default MongoDB database. The file is a JSON object mapping collection names to arrays of documents (Extended JSON such as `{"$oid": ...}` is supported).
+Insert the documents of a JSON file into the default MongoDB database. The file maps each collection's name to an array of its documents, in Extended JSON: `{"$date": "2026-05-05T06:40:00Z"}` is a date and `{"$oid": ...}` an ObjectId.
 
-**Parameters:** `{filepath}` (A file of the project, without whitespace: a path relative to the `resources` directories or to the directory of axx.yaml, or an absolute path. Editors link it to the file)
+| Parameter | Takes | For example |
+|---|---|---|
+| `{filepath}` | a file of the project, with no spaces: a path relative to the `resources` directories or to axx.yaml's directory, or an absolute path | `seeds/parcels.yaml`, `kafka/scan-delivered.json` |
 
 **Example:**
 
@@ -45,9 +58,12 @@ Given a seeds/scans-in-transit.json mongo db seed
 Given a {filepath} MongoDB seed for {word}
 ```
 
-Insert documents into the named MongoDB database (same file format as the default-database seed).
+Insert the documents of a JSON file into the named MongoDB database; the file is as for the default database's seed.
 
-**Parameters:** `{filepath}` (A file of the project, without whitespace: a path relative to the `resources` directories or to the directory of axx.yaml, or an absolute path. Editors link it to the file), `{word}` (one word, no spaces)
+| Parameter | Takes | For example |
+|---|---|---|
+| `{filepath}` | a file of the project, with no spaces: a path relative to the `resources` directories or to axx.yaml's directory, or an absolute path | `seeds/parcels.yaml`, `kafka/scan-delivered.json` |
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
 
 **Example:**
 
@@ -61,9 +77,12 @@ Given a seeds/scans-in-transit.json MongoDB seed for tracking-db
 Given a {filepath} mongo db seed for {word}
 ```
 
-Insert documents into the named MongoDB database (same file format as the default-database seed).
+Insert the documents of a JSON file into the named MongoDB database; the file is as for the default database's seed.
 
-**Parameters:** `{filepath}` (A file of the project, without whitespace: a path relative to the `resources` directories or to the directory of axx.yaml, or an absolute path. Editors link it to the file), `{word}` (one word, no spaces)
+| Parameter | Takes | For example |
+|---|---|---|
+| `{filepath}` | a file of the project, with no spaces: a path relative to the `resources` directories or to axx.yaml's directory, or an absolute path | `seeds/parcels.yaml`, `kafka/scan-delivered.json` |
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
 
 **Example:**
 
@@ -77,24 +96,32 @@ _Since 0.1.0._
 
 ```gherkin
 Then a[[ {ordinal}]] selection of documents is retrieved from the {word} collection[[ on {mongoService}]] where:
-  | ... | ... |
+  | field | value |
 ```
 
-Find documents and keep them as the next selection for later assertions, like the SQL selection steps. Selections are numbered in the order they are retrieved; `the selection` means the first. Each row is a `field | value` condition (dotted field paths reach into nested documents). Values are read as JSON when they parse as JSON (`3`, `true`, `null`, `"3"`, `{"$oid": "..."}`) and as plain strings otherwise.
+Find the documents that match and keep them as the next selection, for the steps that check it. Selections are numbered in the order they are retrieved, whatever ordinal the step says; `the selection` means the first.
 
-**Variants** (optional parts in `[[...]]` above):
+| Parameter | Takes | For example |
+|---|---|---|
+| `{ordinal}` | a position, counting from 1; an optional ordinal left out is the first | `1st`, `2nd` |
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+| `{mongoService}` | the name of a MongoDB database registered in the scenario | `tracking-db` |
+
+Each row names a field, dotted (`recipient.city`) for one inside a document, and the value it holds: JSON when it reads as JSON (`3`, `true`, `null`, `"3"`, `{"$oid": "..."}`), text otherwise.
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `a selection of documents is retrieved from the {word} collection where:`
 - `a {ordinal} selection of documents is retrieved from the {word} collection where:`
 - `a selection of documents is retrieved from the {word} collection on {mongoService} where:`
 - `a {ordinal} selection of documents is retrieved from the {word} collection on {mongoService} where:`
 
-**Parameters:** `{ordinal}` (A 1-based position such as `1st`, `2nd`, `3rd` or `4th`. Omitting an optional ordinal means the first), `{word}` (one word, no spaces), `{mongoService}` (The name of a MongoDB database registered in the scenario)
-
 **Example:**
 
 ```gherkin
 Then a selection of documents is retrieved from the scans collection where:
+  | parcelRef | PX-TRK-3001 |
+  | status    | IN_TRANSIT  |
 ```
 
 _Since 0.1.0._
@@ -103,24 +130,38 @@ _Since 0.1.0._
 
 ```gherkin
 Then within {duration} a[[ {ordinal}]] selection of at least {int} document(s) is retrieved from the {word} collection[[ on {mongoService}]] where:
-  | ... | ... |
+  | field | value |
 ```
 
-Poll every 500ms until the find returns at least the given number of documents or the time is up. On timeout the last result (possibly empty) is kept, so assert on it with a document-count step. Each row is a `field | value` condition (dotted field paths reach into nested documents). Values are read as JSON when they parse as JSON (`3`, `true`, `null`, `"3"`, `{"$oid": "..."}`) and as plain strings otherwise.
+Find the documents that match, again every 500ms, until at least that many come back or the time is up.
 
-**Variants** (optional parts in `[[...]]` above):
+- The last result is kept as the next selection, even with fewer documents: check it with a document-count step.
+- An error from MongoDB fails the step only when the time is up.
+- Selections are numbered in the order they are retrieved, whatever ordinal the step says; `the selection` means the first.
+
+| Parameter | Takes | For example |
+|---|---|---|
+| `{duration}` | a duration in seconds (`s`) or minutes (`m`) | `5s`, `2m` |
+| `{ordinal}` | a position, counting from 1; an optional ordinal left out is the first | `1st`, `2nd` |
+| `{int}` | a whole number | `200`, `3` |
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+| `{mongoService}` | the name of a MongoDB database registered in the scenario | `tracking-db` |
+
+Each row names a field, dotted (`recipient.city`) for one inside a document, and the value it holds: JSON when it reads as JSON (`3`, `true`, `null`, `"3"`, `{"$oid": "..."}`), text otherwise.
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `within {duration} a selection of at least {int} document(s) is retrieved from the {word} collection where:`
 - `within {duration} a {ordinal} selection of at least {int} document(s) is retrieved from the {word} collection where:`
 - `within {duration} a selection of at least {int} document(s) is retrieved from the {word} collection on {mongoService} where:`
 - `within {duration} a {ordinal} selection of at least {int} document(s) is retrieved from the {word} collection on {mongoService} where:`
 
-**Parameters:** `{duration}` (A duration in seconds or minutes, e.g. `5s` or `2m`), `{ordinal}` (A 1-based position such as `1st`, `2nd`, `3rd` or `4th`. Omitting an optional ordinal means the first), `{int}` (a 32-bit integer), `{word}` (one word, no spaces), `{mongoService}` (The name of a MongoDB database registered in the scenario)
-
 **Example:**
 
 ```gherkin
 Then within 10s a selection of at least 1 document is retrieved from the tracking collection where:
+  | _id       | PX-TRK-3001 |
+  | scanCount | 2           |
 ```
 
 _Since 0.1.0._
@@ -131,21 +172,26 @@ _Since 0.1.0._
 Then the[[ {ordinal}]] selection[[ on {mongoService}]] has {int} document(s)
 ```
 
-Assert that a selection of documents has exactly the given number of documents.
+Check that a selection of documents has exactly the given number of documents. `the selection` means the first selection of the scenario.
 
-**Variants** (optional parts in `[[...]]` above):
+| Parameter | Takes | For example |
+|---|---|---|
+| `{ordinal}` | a position, counting from 1; an optional ordinal left out is the first | `1st`, `2nd` |
+| `{mongoService}` | the name of a MongoDB database registered in the scenario | `tracking-db` |
+| `{int}` | a whole number | `200`, `3` |
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `the selection has {int} document(s)`
 - `the {ordinal} selection has {int} document(s)`
 - `the selection on {mongoService} has {int} document(s)`
 - `the {ordinal} selection on {mongoService} has {int} document(s)`
 
-**Parameters:** `{ordinal}` (A 1-based position such as `1st`, `2nd`, `3rd` or `4th`. Omitting an optional ordinal means the first), `{mongoService}` (The name of a MongoDB database registered in the scenario), `{int}` (a 32-bit integer)
-
 **Example:**
 
 ```gherkin
 Then the selection has 2 documents
+Then the 2nd selection on tracking-db has 1 document
 ```
 
 _Since 0.1.0._
@@ -156,21 +202,26 @@ _Since 0.1.0._
 Then the[[ {ordinal}]] selection[[ on {mongoService}]] has more than {int} document(s)
 ```
 
-Assert that a selection of documents has more than the given number of documents.
+Check that a selection of documents has more than the given number of documents. `the selection` means the first selection of the scenario.
 
-**Variants** (optional parts in `[[...]]` above):
+| Parameter | Takes | For example |
+|---|---|---|
+| `{ordinal}` | a position, counting from 1; an optional ordinal left out is the first | `1st`, `2nd` |
+| `{mongoService}` | the name of a MongoDB database registered in the scenario | `tracking-db` |
+| `{int}` | a whole number | `200`, `3` |
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `the selection has more than {int} document(s)`
 - `the {ordinal} selection has more than {int} document(s)`
 - `the selection on {mongoService} has more than {int} document(s)`
 - `the {ordinal} selection on {mongoService} has more than {int} document(s)`
 
-**Parameters:** `{ordinal}` (A 1-based position such as `1st`, `2nd`, `3rd` or `4th`. Omitting an optional ordinal means the first), `{mongoService}` (The name of a MongoDB database registered in the scenario), `{int}` (a 32-bit integer)
-
 **Example:**
 
 ```gherkin
 Then the selection has more than 2 documents
+Then the 2nd selection on tracking-db has more than 1 document
 ```
 
 _Since 0.1.0._
@@ -181,21 +232,26 @@ _Since 0.1.0._
 Then the[[ {ordinal}]] selection[[ on {mongoService}]] has fewer than {int} document(s)
 ```
 
-Assert that a selection of documents has fewer than the given number of documents.
+Check that a selection of documents has fewer than the given number of documents. `the selection` means the first selection of the scenario.
 
-**Variants** (optional parts in `[[...]]` above):
+| Parameter | Takes | For example |
+|---|---|---|
+| `{ordinal}` | a position, counting from 1; an optional ordinal left out is the first | `1st`, `2nd` |
+| `{mongoService}` | the name of a MongoDB database registered in the scenario | `tracking-db` |
+| `{int}` | a whole number | `200`, `3` |
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `the selection has fewer than {int} document(s)`
 - `the {ordinal} selection has fewer than {int} document(s)`
 - `the selection on {mongoService} has fewer than {int} document(s)`
 - `the {ordinal} selection on {mongoService} has fewer than {int} document(s)`
 
-**Parameters:** `{ordinal}` (A 1-based position such as `1st`, `2nd`, `3rd` or `4th`. Omitting an optional ordinal means the first), `{mongoService}` (The name of a MongoDB database registered in the scenario), `{int}` (a 32-bit integer)
-
 **Example:**
 
 ```gherkin
 Then the selection has fewer than 2 documents
+Then the 2nd selection on tracking-db has fewer than 1 document
 ```
 
 _Since 0.1.0._
@@ -204,24 +260,32 @@ _Since 0.1.0._
 
 ```gherkin
 Then the {ordinal} document for the[[ {ordinal}]] selection[[ on {mongoService}]] properties are:
-  | ... | ... |
+  | JSONPath | value |
 ```
 
-Assert properties (JSONPath, e.g. `lastLocation` or `scans[0].status`) of one document of a selection. Documents are compared as JSON: ObjectIds become their hex string, dates become ISO-8601 UTC strings, and every scalar is compared as text. `null` means null and `undefined` means the field is absent.
+Check the fields of one document of a selection, read as JSON: an ObjectId is its hex string, and a date is in ISO-8601 UTC, like `2026-05-05T06:40:00.000Z`.
 
-**Variants** (optional parts in `[[...]]` above):
+| Parameter | Takes | For example |
+|---|---|---|
+| `{ordinal}` | a position, counting from 1; an optional ordinal left out is the first | `1st`, `2nd` |
+| `{mongoService}` | the name of a MongoDB database registered in the scenario | `tracking-db` |
+
+Each row names a JSONPath, like `lastLocation` or `scans[0].status`, and the value there as text, like `true` or `2`: `null` for null, `undefined` for a field the document lacks.
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `the {ordinal} document for the selection properties are:`
 - `the {ordinal} document for the {ordinal} selection properties are:`
 - `the {ordinal} document for the selection on {mongoService} properties are:`
 - `the {ordinal} document for the {ordinal} selection on {mongoService} properties are:`
 
-**Parameters:** `{ordinal}` (A 1-based position such as `1st`, `2nd`, `3rd` or `4th`. Omitting an optional ordinal means the first), `{mongoService}` (The name of a MongoDB database registered in the scenario)
-
 **Example:**
 
 ```gherkin
 Then the 1st document for the selection properties are:
+  | status       | DELIVERED |
+  | lastLocation | Leipzig   |
+  | delivered    | true      |
 ```
 
 _Since 0.1.0._
@@ -230,24 +294,31 @@ _Since 0.1.0._
 
 ```gherkin
 Then the {ordinal} document for the[[ {ordinal}]] selection[[ on {mongoService}]] properties match:
-  | ... | ... |
+  | JSONPath | pattern |
 ```
 
-Like the properties step, but every value is a regular expression (Java syntax) that must match the whole text.
+Check the fields of one document of a selection, like the `properties are` step, with regular expressions (Java syntax) that must match the whole value, as text.
 
-**Variants** (optional parts in `[[...]]` above):
+| Parameter | Takes | For example |
+|---|---|---|
+| `{ordinal}` | a position, counting from 1; an optional ordinal left out is the first | `1st`, `2nd` |
+| `{mongoService}` | the name of a MongoDB database registered in the scenario | `tracking-db` |
+
+Each row names a JSONPath, like `_id` or `scans[0].status`, and a regular expression its value must match.
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `the {ordinal} document for the selection properties match:`
 - `the {ordinal} document for the {ordinal} selection properties match:`
 - `the {ordinal} document for the selection on {mongoService} properties match:`
 - `the {ordinal} document for the {ordinal} selection on {mongoService} properties match:`
 
-**Parameters:** `{ordinal}` (A 1-based position such as `1st`, `2nd`, `3rd` or `4th`. Omitting an optional ordinal means the first), `{mongoService}` (The name of a MongoDB database registered in the scenario)
-
 **Example:**
 
 ```gherkin
 Then the 1st document for the 2nd selection on tracking-db properties match:
+  | _id          | PX-TRK-\d{4} |
+  | lastLocation | Hamburg.*    |
 ```
 
 _Since 0.1.0._

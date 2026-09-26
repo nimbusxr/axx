@@ -483,18 +483,22 @@ func TestResolveModuleFile(t *testing.T) {
 		{Path: "github.com/nimbusxr/axx", Version: "v0.0.0", Replace: &debug.Module{Path: src}},
 		{Path: "github.com/Big/lib", Version: "v1.2.0"},
 	}
-	if got := resolveModuleFile("github.com/nimbusxr/axx/packs/rest/responses.go", mods, cache); got != filepath.Join(src, "packs", "rest", "responses.go") {
+	if got := resolveModuleFile("github.com/nimbusxr/axx/packs/rest/responses.go", mods, []string{cache}); got != filepath.Join(src, "packs", "rest", "responses.go") {
 		t.Errorf("replaced module: %q", got)
 	}
 	// Dependencies are named with their version.
-	if got := resolveModuleFile("github.com/nimbusxr/axx@v0.0.0/packs/rest/responses.go", mods, cache); got != filepath.Join(src, "packs", "rest", "responses.go") {
+	if got := resolveModuleFile("github.com/nimbusxr/axx@v0.0.0/packs/rest/responses.go", mods, []string{cache}); got != filepath.Join(src, "packs", "rest", "responses.go") {
 		t.Errorf("replaced dependency: %q", got)
 	}
-	if got := resolveModuleFile("github.com/Big/lib@v1.2.0/x.go", mods, cache); got != filepath.Join(cache, "github.com", "!big", "lib@v1.2.0", "x.go") {
+	if got := resolveModuleFile("github.com/Big/lib@v1.2.0/x.go", mods, []string{cache}); got != filepath.Join(cache, "github.com", "!big", "lib@v1.2.0", "x.go") {
 		t.Errorf("module cache: %q", got)
 	}
-	if got := resolveModuleFile("axx.local/build/main.go", mods, cache); got != "" {
+	if got := resolveModuleFile("axx.local/build/main.go", mods, []string{cache}); got != "" {
 		t.Errorf("devel main module: %q", got)
+	}
+	// The cache of axx's own Go comes first; a Go installed here, after.
+	if got := resolveModuleFile("github.com/Big/lib@v1.2.0/x.go", mods, []string{t.TempDir(), cache}); got != filepath.Join(cache, "github.com", "!big", "lib@v1.2.0", "x.go") {
+		t.Errorf("second module cache: %q", got)
 	}
 }
 

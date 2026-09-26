@@ -2,25 +2,34 @@
 
 # mock steps
 
-Verify requests received by WireMock mocks (stubs are defined in WireMock mapping files).
+Verify the requests WireMock mocks received. Stubs are defined in WireMock mapping files; axx only verifies.
+
+With the axx WireMock image (`ghcr.io/nimbusxr/axx-wiremock`), every call to a mock is checked against the mocked service's OpenAPI contract. A step that checks a call that broke the contract fails; a call that broke it, and that no step checks, fails the run after the scenarios.
 
 ## `mock.service`
 
 ```gherkin
 Given the mocked {word} service with the following properties:
-  | ... | ... |
+  | property | value |
 ```
 
-Register a WireMock server. The first mocked service registered in a scenario is the default one.
+Register a WireMock server, to check the requests it received. The first mocked service registered in a scenario is the default one.
 
-Properties: `url` (required; `${env:..}`/`${sys:..}` are expanded).
+| Parameter | Takes | For example |
+|---|---|---|
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
 
-**Parameters:** `{word}` (one word, no spaces)
+| Property | Takes | Default |
+|---|---|---|
+| `url` | the WireMock server's URL, with its admin API at `/__admin` below it; it can use `${env:…}` and `${sys:…}` | _required_ |
+
+Any other property fails the step.
 
 **Example:**
 
 ```gherkin
 Given the mocked addresses service with the following properties:
+  | url | http://localhost:8081 |
 ```
 
 ## `mock.received`
@@ -29,9 +38,16 @@ Given the mocked addresses service with the following properties:
 Then the mocked {word} request to {word} named {word} was received by {mockedService}
 ```
 
-Register a request pattern under a name (method + exact URL, including the query string) and verify WireMock received it at least once. Later steps refer to the pattern by name.
+Check that the mocked service received a request at least once, and name it for the steps that follow.
 
-**Parameters:** `{word}` (one word, no spaces), `{mockedService}` (The name of a mocked service registered in the scenario)
+- The request is its method and its exact URL, query string included.
+- The method is `GET`, `POST`, `PUT`, `DELETE`, `PATCH`, `OPTIONS` or `HEAD`, in capitals.
+- With the axx WireMock image, a call that broke the service's OpenAPI contract fails the step.
+
+| Parameter | Takes | For example |
+|---|---|---|
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+| `{mockedService}` | the name of a mocked service the scenario registered | `addresses` |
 
 **Example:**
 
@@ -43,17 +59,28 @@ Then the mocked GET request to /v1/postcodes/DE/10115 named postcode-check was r
 
 ```gherkin
 Given the OpenAPI validation levels for the mocked {mockedService} service are:
-  | ... | ... |
+  | validation key | level |
 ```
 
-Relax, for this scenario, the mocked service's OpenAPI contract: findings that would fail the checking mock step are reported at the level you set instead (`key | level` rows; WARN logs them, INFO and IGNORE drop them). A key also covers the keys below it: `validation.response.body` covers `validation.response.body.schema.required`. It applies to the calls this scenario's mock steps check; a stub that is off-contract on purpose is better relaxed in its own metadata (`openApiValidationLevels`), which applies wherever it answers. This is the dependency's contract: your own service's is relaxed with `the OpenAPI validation levels are:`.
+Relax the mocked service's OpenAPI contract for this scenario: a finding that would fail the mock step that checks the call is reported at the level its row sets instead.
 
-**Parameters:** `{mockedService}` (The name of a mocked service registered in the scenario)
+- `WARN` logs the finding; `INFO` and `IGNORE` drop it.
+- A key also covers the keys below it: `validation.response.body` covers `validation.response.body.schema.required`.
+- It applies to the calls this scenario's mock steps check. A scenario whose mock steps check no call to the service logs a warning.
+- A stub that is off-contract on purpose is better relaxed in its own metadata (`openApiValidationLevels`), which applies wherever it answers.
+- This is the dependency's contract: your own service's is relaxed with `the OpenAPI validation levels are:`.
+
+| Parameter | Takes | For example |
+|---|---|---|
+| `{mockedService}` | the name of a mocked service the scenario registered | `addresses` |
+
+A row is a validation key and its level: `ERROR` (or `FAIL`), `WARN`, `INFO` or `IGNORE`. The key must be one the axx WireMock extension reports, or a prefix of such keys, like `validation.response.body`: any other fails the step, which names the closest keys.
 
 **Example:**
 
 ```gherkin
 Given the OpenAPI validation levels for the mocked addresses service are:
+  | validation.response.body.schema.additionalProperties | WARN |
 ```
 
 ## `mock.count.exactly`
@@ -62,14 +89,18 @@ Given the OpenAPI validation levels for the mocked addresses service are:
 Then the mocked request named {word}[[ on {mockedService}]] was received exactly {int} time(s)
 ```
 
-Verify the named request pattern was received exactly the given number of times.
+Check that the mocked service received the named request exactly that many times.
 
-**Variants** (optional parts in `[[...]]` above):
+| Parameter | Takes | For example |
+|---|---|---|
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+| `{mockedService}` | the name of a mocked service the scenario registered | `addresses` |
+| `{int}` | a whole number | `200`, `3` |
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `the mocked request named {word} was received exactly {int} time(s)`
 - `the mocked request named {word} on {mockedService} was received exactly {int} time(s)`
-
-**Parameters:** `{word}` (one word, no spaces), `{mockedService}` (The name of a mocked service registered in the scenario), `{int}` (a 32-bit integer)
 
 **Example:**
 
@@ -83,14 +114,18 @@ Then the mocked request named postcode-check was received exactly 1 time
 Then the mocked request named {word}[[ on {mockedService}]] was received at least {int} time(s)
 ```
 
-Verify the named request pattern was received at least the given number of times.
+Check that the mocked service received the named request at least that many times.
 
-**Variants** (optional parts in `[[...]]` above):
+| Parameter | Takes | For example |
+|---|---|---|
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+| `{mockedService}` | the name of a mocked service the scenario registered | `addresses` |
+| `{int}` | a whole number | `200`, `3` |
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `the mocked request named {word} was received at least {int} time(s)`
 - `the mocked request named {word} on {mockedService} was received at least {int} time(s)`
-
-**Parameters:** `{word}` (one word, no spaces), `{mockedService}` (The name of a mocked service registered in the scenario), `{int}` (a 32-bit integer)
 
 **Example:**
 
@@ -104,14 +139,18 @@ Then the mocked request named postcode-check was received at least 1 time
 Then the mocked request named {word}[[ on {mockedService}]] was received at most {int} time(s)
 ```
 
-Verify the named request pattern was received at most the given number of times.
+Check that the mocked service received the named request at most that many times.
 
-**Variants** (optional parts in `[[...]]` above):
+| Parameter | Takes | For example |
+|---|---|---|
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+| `{mockedService}` | the name of a mocked service the scenario registered | `addresses` |
+| `{int}` | a whole number | `200`, `3` |
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `the mocked request named {word} was received at most {int} time(s)`
 - `the mocked request named {word} on {mockedService} was received at most {int} time(s)`
-
-**Parameters:** `{word}` (one word, no spaces), `{mockedService}` (The name of a mocked service registered in the scenario), `{int}` (a 32-bit integer)
 
 **Example:**
 
@@ -125,14 +164,17 @@ Then the mocked request named postcode-check was received at most 1 time
 Then the mocked {word} request to {word} named {word}[[ on {mockedService}]] was not received
 ```
 
-Register a request pattern under a name and verify WireMock received no matching request.
+Check that the mocked service received no request with that method and exact URL, and name it for the steps that follow.
 
-**Variants** (optional parts in `[[...]]` above):
+| Parameter | Takes | For example |
+|---|---|---|
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+| `{mockedService}` | the name of a mocked service the scenario registered | `addresses` |
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `the mocked {word} request to {word} named {word} was not received`
 - `the mocked {word} request to {word} named {word} on {mockedService} was not received`
-
-**Parameters:** `{word}` (one word, no spaces), `{mockedService}` (The name of a mocked service registered in the scenario)
 
 **Example:**
 
@@ -146,14 +188,18 @@ Then the mocked GET request to /v1/postcodes/DE/12489 named skipped-check was no
 Then the header {word} for mocked request named {word}[[ on {mockedService}]] is {string}
 ```
 
-Verify the named request was received with a header equal to the value. The constraint is added to the named pattern.
+Check that the named request was received with a header of that value. Later steps on the named request check this header too.
 
-**Variants** (optional parts in `[[...]]` above):
+| Parameter | Takes | For example |
+|---|---|---|
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+| `{mockedService}` | the name of a mocked service the scenario registered | `addresses` |
+| `{string}` | text in double or single quotes, which the step leaves out | `"Get a quote"`, `'Express'` |
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `the header {word} for mocked request named {word} is {string}`
 - `the header {word} for mocked request named {word} on {mockedService} is {string}`
-
-**Parameters:** `{word}` (one word, no spaces), `{mockedService}` (The name of a mocked service registered in the scenario), `{string}` (text in single or double quotes; the quotes are removed)
 
 **Example:**
 
@@ -165,17 +211,24 @@ Then the header X-Api-Key for mocked request named postcode-check is 'example-ad
 
 ```gherkin
 Then the headers for mocked request named {word} on {mockedService} are:
-  | ... | ... |
+  | header | value |
 ```
 
-Verify the named request was received with every header in the table (name | value).
+Check that the named request was received with every header of the table, each with its value. Later steps on the named request check these headers too.
 
-**Parameters:** `{word}` (one word, no spaces), `{mockedService}` (The name of a mocked service registered in the scenario)
+| Parameter | Takes | For example |
+|---|---|---|
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+| `{mockedService}` | the name of a mocked service the scenario registered | `addresses` |
+
+A row is a header's name and the value it must have.
 
 **Example:**
 
 ```gherkin
 Then the headers for mocked request named postcode-check on addresses are:
+  | X-Api-Key | example-address-key |
+  | Accept    | application/json    |
 ```
 
 ## `mock.header.matches`
@@ -184,9 +237,16 @@ Then the headers for mocked request named postcode-check on addresses are:
 Then the header {word} for mocked request named {word} on {mockedService} matches {pattern}
 ```
 
-Verify the named request was received with a header matching the regular expression (evaluated by WireMock, full match).
+Check that the named request was received with a header that matches a regular expression.
 
-**Parameters:** `{word}` (one word, no spaces), `{mockedService}` (The name of a mocked service registered in the scenario), `{pattern}` (A regular expression (Java syntax) without whitespace. It must match the whole value)
+- WireMock evaluates the expression, in Java syntax; it must match the whole value.
+- Later steps on the named request check this header too.
+
+| Parameter | Takes | For example |
+|---|---|---|
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+| `{mockedService}` | the name of a mocked service the scenario registered | `addresses` |
+| `{pattern}` | a regular expression (Java syntax) with no spaces, which matches the whole value | `PX-\d{4}`, `[A-Z]{2}-\d+` |
 
 **Example:**
 
@@ -198,17 +258,27 @@ Then the header Accept for mocked request named postcode-check on addresses matc
 
 ```gherkin
 Then the headers for mocked request named {word} on {mockedService} match:
-  | ... | ... |
+  | header | regular expression |
 ```
 
-Verify the named request was received with headers matching each regular expression in the table (name | pattern).
+Check that the named request was received with headers that match regular expressions, a row each.
 
-**Parameters:** `{word}` (one word, no spaces), `{mockedService}` (The name of a mocked service registered in the scenario)
+- WireMock evaluates the expressions, in Java syntax; each must match the whole value.
+- Later steps on the named request check these headers too.
+
+| Parameter | Takes | For example |
+|---|---|---|
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+| `{mockedService}` | the name of a mocked service the scenario registered | `addresses` |
+
+A row is a header's name and a regular expression its value must match.
 
 **Example:**
 
 ```gherkin
 Then the headers for mocked request named postcode-check on addresses match:
+  | X-Api-Key | example-.+         |
+  | Accept    | application/json.* |
 ```
 
 ## `mock.header.missing`
@@ -217,9 +287,12 @@ Then the headers for mocked request named postcode-check on addresses match:
 Then the header {word} for mocked request named {word} on {mockedService} is missing
 ```
 
-Verify the named request was received without the header.
+Check that the named request was received without that header. Later steps on the named request check this header too.
 
-**Parameters:** `{word}` (one word, no spaces), `{mockedService}` (The name of a mocked service registered in the scenario)
+| Parameter | Takes | For example |
+|---|---|---|
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+| `{mockedService}` | the name of a mocked service the scenario registered | `addresses` |
 
 **Example:**
 
@@ -231,15 +304,22 @@ Then the header Authorization for mocked request named postcode-check on address
 
 ```gherkin
 Then the headers for mocked request named {word} on {mockedService} are missing:
-  | ... | ... |
+  | header |
 ```
 
-Verify the named request was received without any of the headers listed (one per row).
+Check that the named request was received without any of the headers the table names. Later steps on the named request check these headers too.
 
-**Parameters:** `{word}` (one word, no spaces), `{mockedService}` (The name of a mocked service registered in the scenario)
+| Parameter | Takes | For example |
+|---|---|---|
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+| `{mockedService}` | the name of a mocked service the scenario registered | `addresses` |
+
+A row names a header, in the table's only column.
 
 **Example:**
 
 ```gherkin
 Then the headers for mocked request named postcode-check on addresses are missing:
+  | Authorization |
+  | Cookie        |
 ```

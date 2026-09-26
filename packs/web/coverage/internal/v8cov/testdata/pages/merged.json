@@ -1,0 +1,230 @@
+{
+ "result": [
+  {
+   "scriptId": "0",
+   "url": "/dist/quote.js",
+   "functions": [
+    {
+     "functionName": "",
+     "ranges": [
+      {
+       "startOffset": 0,
+       "endOffset": 719,
+       "count": 2
+      }
+     ],
+     "isBlockCoverage": true
+    },
+    {
+     "functionName": "",
+     "ranges": [
+      {
+       "startOffset": 1,
+       "endOffset": 680,
+       "count": 2
+      }
+     ],
+     "isBlockCoverage": true
+    },
+    {
+     "functionName": "o",
+     "ranges": [
+      {
+       "startOffset": 6,
+       "endOffset": 112,
+       "count": 2
+      },
+      {
+       "startOffset": 30,
+       "endOffset": 110,
+       "count": 1
+      },
+      {
+       "startOffset": 30,
+       "endOffset": 61,
+       "count": 0
+      }
+     ],
+     "isBlockCoverage": true
+    },
+    {
+     "functionName": "r",
+     "ranges": [
+      {
+       "startOffset": 154,
+       "endOffset": 221,
+       "count": 2
+      },
+      {
+       "startOffset": 191,
+       "endOffset": 195,
+       "count": 0
+      }
+     ],
+     "isBlockCoverage": true
+    },
+    {
+     "functionName": "n",
+     "ranges": [
+      {
+       "startOffset": 221,
+       "endOffset": 282,
+       "count": 4
+      }
+     ],
+     "isBlockCoverage": true
+    },
+    {
+     "functionName": "i",
+     "ranges": [
+      {
+       "startOffset": 282,
+       "endOffset": 476,
+       "count": 3
+      },
+      {
+       "startOffset": 354,
+       "endOffset": 360,
+       "count": 2
+      },
+      {
+       "startOffset": 361,
+       "endOffset": 389,
+       "count": 1
+      },
+      {
+       "startOffset": 389,
+       "endOffset": 475,
+       "count": 2
+      }
+     ],
+     "isBlockCoverage": true
+    },
+    {
+     "functionName": "u",
+     "ranges": [
+      {
+       "startOffset": 476,
+       "endOffset": 556,
+       "count": 1
+      },
+      {
+       "startOffset": 518,
+       "endOffset": 539,
+       "count": 0
+      }
+     ],
+     "isBlockCoverage": true
+    }
+   ]
+  },
+  {
+   "scriptId": "1",
+   "url": "/js/format.js",
+   "functions": [
+    {
+     "functionName": "",
+     "ranges": [
+      {
+       "startOffset": 0,
+       "endOffset": 408,
+       "count": 2
+      }
+     ],
+     "isBlockCoverage": true
+    },
+    {
+     "functionName": "statusLabel",
+     "ranges": [
+      {
+       "startOffset": 36,
+       "endOffset": 283,
+       "count": 1
+      },
+      {
+       "startOffset": 141,
+       "endOffset": 184,
+       "count": 0
+      },
+      {
+       "startOffset": 189,
+       "endOffset": 240,
+       "count": 0
+      },
+      {
+       "startOffset": 245,
+       "endOffset": 277,
+       "count": 0
+      }
+     ],
+     "isBlockCoverage": true
+    },
+    {
+     "functionName": "formatWeight",
+     "ranges": [
+      {
+       "startOffset": 285,
+       "endOffset": 407,
+       "count": 1
+      },
+      {
+       "startOffset": 373,
+       "endOffset": 406,
+       "count": 0
+      }
+     ],
+     "isBlockCoverage": true
+    }
+   ]
+  },
+  {
+   "scriptId": "2",
+   "url": "/js/track.js",
+   "functions": [
+    {
+     "functionName": "",
+     "ranges": [
+      {
+       "startOffset": 0,
+       "endOffset": 916,
+       "count": 2
+      }
+     ],
+     "isBlockCoverage": true
+    },
+    {
+     "functionName": "trackParcel",
+     "ranges": [
+      {
+       "startOffset": 224,
+       "endOffset": 601,
+       "count": 2
+      },
+      {
+       "startOffset": 424,
+       "endOffset": 600,
+       "count": 1
+      }
+     ],
+     "isBlockCoverage": true
+    },
+    {
+     "functionName": "reportProblem",
+     "ranges": [
+      {
+       "startOffset": 603,
+       "endOffset": 915,
+       "count": 1
+      },
+      {
+       "startOffset": 751,
+       "endOffset": 843,
+       "count": 0
+      }
+     ],
+     "isBlockCoverage": true
+    }
+   ]
+  }
+ ]
+}

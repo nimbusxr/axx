@@ -58,27 +58,55 @@ func (pack) Manifest() core.Manifest {
 		Steps: []core.StepDef{
 			{
 				ID: name + ".seed", Keyword: "Given", Since: "0.1.0",
-				Expr:     "a {filepath} firestore seed",
-				Doc:      "Write the documents of a seed file (resolved against `resources`): YAML or JSON mapping collections to documents by ID.",
+				Expr: "a {filepath} firestore seed",
+				Doc: "Write the documents of a seed file: YAML or JSON that maps collections to their documents, by ID. " +
+					"Whole numbers are stored as integers, other numbers as doubles.",
 				Examples: []string{"Given a seeds/shipments.yaml firestore seed"},
 				Run:      seed,
 			},
 			{
 				ID: name + ".document", Keyword: "Then", Arg: core.ArgTable, Since: "0.1.0",
-				Expr:     "[[within {duration} ]]the {word} firestore document has the following properties:",
-				Doc:      "Wait (10s, or the given time) until the document at the path exists with every `field | value` property.",
-				Examples: []string{"Then within 30s the invoices/INV-2026-09-KESTREL firestore document has the following properties:"},
-				Run:      document,
+				Expr: "[[within {duration} ]]the {word} firestore document has the following properties:",
+				Doc: "Check that the document at that path, like `invoices/INV-2026-09-KES1`, has those values in those fields." +
+					checkDetails,
+				Table: fieldTable,
+				Examples: []string{
+					"Then within 30s the invoices/INV-2026-09-KES1 firestore document has the following properties:\n" +
+						"  | status          | RECONCILED |\n" +
+						"  | lines           | 2          |\n" +
+						"  | totals.billed   | 6.58       |\n" +
+						"  | totals.disputed | 0          |",
+				},
+				Run: document,
 			},
 			{
 				ID: name + ".collection", Keyword: "Then", Arg: core.ArgTable, Since: "0.1.0",
-				Expr:     "[[within {duration} ]]the {word} firestore collection has a document where:",
-				Doc:      "Wait (10s, or the given time) until the collection has a document meeting every `field | value` row.",
-				Examples: []string{"Then the disputes firestore collection has a document where:"},
-				Run:      collection,
+				Expr: "[[within {duration} ]]the {word} firestore collection has a document where:",
+				Doc: "Check that the collection has a document with those values in those fields." + checkDetails +
+					"\n- The check reads up to 5,000 documents of the collection.",
+				Table: fieldTable,
+				Examples: []string{
+					"Then the shipments firestore collection has a document where:\n" +
+						"  | parcel   | PX-5105 |\n" +
+						"  | carrier  | HERON   |\n" +
+						"  | weightKg | 3.2     |",
+				},
+				Run: collection,
 			},
 		},
 	}
+}
+
+// checkDetails is what the checks' docs say after what they check.
+const checkDetails = "\n\n" +
+	"- The check waits for it: 10 seconds, or `within {duration}`.\n" +
+	"- Values compare as text: timestamps in RFC 3339, references as their path, bytes in base64, a geo point as its " +
+	"`lat` and `lng`; `null` for null and `undefined` for absent."
+
+// fieldTable is what the checks' tables hold.
+var fieldTable = &core.TableDoc{
+	Columns: []string{"field", "value"},
+	Note:    "Each row names a field of the document, or a dotted path into a map (`totals.billed`), and the value it has.",
 }
 
 func client(sc *core.Scenario) (*firestore.Client, error) {

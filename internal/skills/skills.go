@@ -22,6 +22,7 @@ import (
 	"github.com/nimbusxr/axx/internal/engine"
 	"github.com/nimbusxr/axx/internal/render/md"
 	"github.com/nimbusxr/axx/internal/version"
+	plugin "github.com/nimbusxr/axx/plugins/axx"
 )
 
 //go:embed assets
@@ -87,6 +88,32 @@ func Build(e *engine.Engine) ([]Skill, error) {
 			sk.Files = append(sk.Files, errorCodes)
 		}
 		sort.Slice(sk.Files, func(i, j int) bool { return sk.Files[i].Path < sk.Files[j].Path })
+		out = append(out, sk)
+	}
+	return out, nil
+}
+
+// Published returns the skills as axx publishes them, with the references
+// of every pack axx publishes: those of its plugin for Claude Code.
+func Published() ([]Skill, error) {
+	var out []Skill
+	for _, name := range Names() {
+		sk := Skill{Name: name}
+		root := "skills/" + name
+		err := fs.WalkDir(plugin.Skills, root, func(p string, d fs.DirEntry, err error) error {
+			if err != nil || d.IsDir() {
+				return err
+			}
+			b, err := plugin.Skills.ReadFile(p)
+			if err != nil {
+				return err
+			}
+			sk.Files = append(sk.Files, File{Path: strings.TrimPrefix(p, root+"/"), Content: b})
+			return nil
+		})
+		if err != nil {
+			return nil, err
+		}
 		out = append(out, sk)
 	}
 	return out, nil

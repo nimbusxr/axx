@@ -92,6 +92,15 @@ func (r *Runner) runScenario(ctx context.Context, p *feature.Pickle, worker int)
 	sk.onAttach = func(sr *StepResult, a Attachment) { r.msg.attachment(tcs, tc, sr, a) }
 
 	failed := false
+	// last is the last step (or hook) that ran: what packs log and attach
+	// while the scenario is cleaned up belongs to it, such as the trace of a
+	// failed step.
+	var last *StepResult
+	ran := func(sr *StepResult) {
+		if sr.Status != Skipped {
+			last = sr
+		}
+	}
 	// Before hooks.
 	for _, h := range r.hooksFor(core.BeforeScenario, p.TagNames) {
 		sr := &StepResult{Hook: &h.Hook, Text: h.Hook.ID}
@@ -102,6 +111,7 @@ func (r *Runner) runScenario(ctx context.Context, p *feature.Pickle, worker int)
 			continue
 		}
 		r.execHook(scCtx, sc, sk, h, sr, tcs, tc)
+		ran(sr)
 		if sr.Status != Passed {
 			failed = true
 		}
@@ -117,6 +127,7 @@ func (r *Runner) runScenario(ctx context.Context, p *feature.Pickle, worker int)
 		sr.Table, sr.DocString = stepArgument(ps)
 		res.Steps = append(res.Steps, sr)
 		r.execStep(scCtx, sc, sk, sr, failed, tcs, tc)
+		ran(sr)
 		if sr.Status != Passed {
 			failed = true
 		}
@@ -137,11 +148,15 @@ func (r *Runner) runScenario(ctx context.Context, p *feature.Pickle, worker int)
 			continue
 		}
 		r.execHook(ctx, sc, sk, h, sr, tcs, tc)
+		ran(sr)
 	}
 	// Per-scenario state cleanup (closers registered by packs), which may
 	// look at the outcome so far.
 	sc.SetStatus(res.worst().String())
-	if err := sc.Close(); err != nil {
+	sk.set(last)
+	err := sc.Close()
+	sk.set(nil)
+	if err != nil {
 		sr := &StepResult{Text: "scenario cleanup", Status: Failed, Err: err}
 		res.After = append(res.After, sr)
 	}
@@ -180,6 +195,8 @@ func (r *Runner) execStep(ctx context.Context, sc *core.Scenario, sk *sink, sr *
 	start := r.opts.Now()
 	sk.set(sr)
 	defer sk.set(nil)
+	sc.SetStep(&core.StepInfo{Keyword: sr.Keyword, Text: sr.Text, Line: sr.Line})
+	defer sc.SetStep(nil)
 
 	err := r.checkArgKind(m.Def().Step.Arg, sr)
 	var args core.Args

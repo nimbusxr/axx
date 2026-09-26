@@ -4,13 +4,12 @@
 
 Send messages to Service Bus queues and topics, and check the messages your services send there.
 
-Register the namespace with `the {word} service bus namespace with the following properties:` (the first namespace registered is the default), set up as the Azure SDK is set up for the real service:
+Register the namespace once, set up as the Azure SDK is set up for the real service; every Service Bus step of the scenario uses it:
 
-| Property | |
-| --- | --- |
-| `connection string` | the namespace's connection string, e.g. `${env:SERVICEBUS_CONNECTION_STRING}`, or a local emulator's (`UseDevelopmentEmulator=true`) |
-| `namespace` | the fully qualified namespace (`<name>.servicebus.windows.net`), signed in with the Azure default credential chain |
-| `management endpoint` | where the namespace's management API is when it is not the namespace's own host, as with local emulators |
+```gherkin
+Given the customs service bus namespace with the following properties:
+  | connection string | ${env:SERVICEBUS_CONNECTION_STRING} |
+```
 
 Steps name a **queue** or a **topic**: `the customs-filings service bus queue`, `the customs-events service bus topic`. Messages carry application properties (`with the following properties:`, and `property <name>` rows in checks).
 
@@ -20,17 +19,32 @@ Steps name a **queue** or a **topic**: `the customs-filings service bus queue`, 
 
 ```gherkin
 Given the {word} service bus namespace with the following properties:
-  | ... | ... |
+  | property | value |
 ```
 
-Register the Service Bus namespace the steps talk to: `connection string`, or `namespace` with the Azure default credential chain; `management endpoint` for an emulator whose management API is elsewhere.
+Register the Service Bus namespace the steps talk to.
 
-**Parameters:** `{word}` (one word, no spaces)
+- The first namespace registered is the default.
+- Give it a `connection string` or a `namespace`, not both.
+- Values expand `${env:..}` and `${sys:..}`.
+
+| Parameter | Takes | For example |
+|---|---|---|
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+
+| Property | Takes |
+|---|---|
+| `connection string` | the namespace's connection string, or a local emulator's (with `UseDevelopmentEmulator=true`), like `${env:SERVICEBUS_CONNECTION_STRING}` |
+| `namespace` | the fully qualified namespace, like `<name>.servicebus.windows.net`, signed in with the Azure default credential chain |
+| `management endpoint` | where the namespace's management API is when it is not the namespace's own host, as with local emulators |
 
 **Example:**
 
 ```gherkin
 Given the customs service bus namespace with the following properties:
+  | connection string | ${env:SERVICEBUS_CONNECTION_STRING} |
+Given the customs service bus namespace with the following properties:
+  | namespace | ${env:SERVICEBUS_NAMESPACE} |
 ```
 
 _Since 0.1.0._
@@ -44,14 +58,19 @@ When a message is sent to the {word} service bus queue:/topic:
   """
 ```
 
-Send a message whose body is the doc string to a service bus queue/topic.
+Send a message to the service bus queue or topic; the doc string is its body.
 
-**Parameters:** `{word}` (one word, no spaces)
+| Parameter | Takes | For example |
+|---|---|---|
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
 
 **Example:**
 
 ```gherkin
-When a message is sent to the customs-filings service bus queue/topic:
+When a message is sent to the customs-filings service bus queue:
+  """
+  {"declaration": "DEC-7103", "parcel": "PX-7103", "invoice": "DEC-7103.json"}
+  """
 ```
 
 _Since 0.1.0._
@@ -62,20 +81,26 @@ _Since 0.1.0._
 When the {filepath} message is sent to the {word} service bus queue/topic[[ with the following properties:]]
 ```
 
-Send a message whose body is the file (resolved against `resources`) to a service bus queue/topic, with the properties of the table (`name | value`).
+Send a message whose body is the file to the service bus queue or topic, with the properties of the table when the step has one.
 
-**Variants** (optional parts in `[[...]]` above):
+| Parameter | Takes | For example |
+|---|---|---|
+| `{filepath}` | a file of the project, with no spaces: a path relative to the `resources` directories or to axx.yaml's directory, or an absolute path | `seeds/parcels.yaml`, `kafka/scan-delivered.json` |
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+
+Each row is a property sent with the message, as text: its name and its value.
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `the {filepath} message is sent to the {word} service bus queue/topic`
 - `the {filepath} message is sent to the {word} service bus queue/topic with the following properties:`
 
-**Parameters:** `{filepath}` (A file of the project, without whitespace: a path relative to the `resources` directories or to the directory of axx.yaml, or an absolute path. Editors link it to the file), `{word}` (one word, no spaces)
-
 **Example:**
 
 ```gherkin
-When the messages/shipment-delivered.json message is sent to the customs-filings service bus queue/topic
-When the messages/shipment-delivered.json message is sent to the customs-filings service bus queue/topic with the following properties:
+When the messages/filing-DEC-7101.json message is sent to the customs-filings service bus queue
+When the messages/filing-DEC-7101.json message is sent to the customs-filings service bus queue with the following properties:
+  | broker | ACME-CUSTOMS |
 ```
 
 _Since 0.1.0._
@@ -84,22 +109,34 @@ _Since 0.1.0._
 
 ```gherkin
 Then [[within {duration} ]]the {word} service bus queue/topic has a message where:
-  | ... | ... |
+  | path | value |
 ```
 
-Wait (10s, or the given time) until the service bus queue/topic has a message, received since the scenario started, that meets every row: `path | value` on the JSON body (a field name, a dotted path or a JSONPath, compared as text; `null` for null and `undefined` for absent), or `property <name> | value` on a property sent with it. axx completes the messages of a queue it checks, and subscribes to a topic for the run.
+Check that the service bus queue or topic has a message with those values, received since the scenario started.
 
-**Variants** (optional parts in `[[...]]` above):
+- The check waits for it: 10 seconds, or `within {duration}`.
+- axx completes the messages of a queue it checks, and subscribes to a topic for the run.
+
+| Parameter | Takes | For example |
+|---|---|---|
+| `{duration}` | a duration in seconds (`s`) or minutes (`m`) | `5s`, `2m` |
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+
+Each row is a path into the message's JSON body (a field name, a dotted path or a JSONPath) and the value it has, compared as text: `null` for null and `undefined` for absent. A row `property <name>` is instead on the property of that name sent with the message: `undefined` when there is none.
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `the {word} service bus queue/topic has a message where:`
 - `within {duration} the {word} service bus queue/topic has a message where:`
 
-**Parameters:** `{duration}` (A duration in seconds or minutes, e.g. `5s` or `2m`), `{word}` (one word, no spaces)
-
 **Example:**
 
 ```gherkin
-Then within 30s the customs-filings service bus queue/topic has a message where:
+Then within 30s the duty-payments service bus queue has a message where:
+  | declaration     | DEC-7102     |
+  | amount          | 96           |
+  | currency        | EUR          |
+  | property broker | ACME-CUSTOMS |
 ```
 
 _Since 0.1.0._

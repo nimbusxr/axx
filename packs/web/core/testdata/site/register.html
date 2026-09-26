@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Register a parcel</title></head>
+<body>
+  <h1>Register a parcel</h1>
+  <form method="post" action="/parcels" enctype="multipart/form-data">
+    <p><label for="ref">Reference</label> <input id="ref" name="reference"></p>
+    <!-- No label: the placeholder names it. -->
+    <p><input name="recipient" placeholder="Recipient name"></p>
+    <p><label for="date">Delivery date</label> <input id="date" name="date" type="date"></p>
+    <p><label for="notes">Delivery notes</label> <textarea id="notes" name="notes"></textarea></p>
+    <p><label for="invoice">Customs invoice</label> <input id="invoice" name="invoice" type="file"></p>
+    <button type="submit" id="register" disabled>Register the parcel</button>
+  </form>
+  <script>
+    const ref = document.getElementById('ref');
+    ref.addEventListener('input', () => { document.getElementById('register').disabled = !ref.value; });
+  </script>
+</body>
+</html>

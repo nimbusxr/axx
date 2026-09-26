@@ -21,7 +21,7 @@ Background:
 
 The service consumes depot scans, so the suite publishes to `depot-scans`; it announces registered parcels on `parcel-events`, so the suite reads that topic. A topic the suite both publishes to and reads takes both sets of properties.
 
-The topic client's properties use the Kafka client property names, prefixed with `producer.` or `consumer.`. Axx translates them to its own Go client, so you do not need a JVM; the [Kafka step reference](/references/steps/kafka/) lists every property it understands. Consumer group settings (`group.id`, `enable.auto.commit`) have no effect, because Axx reads topics without a group.
+The topic client's properties use the Kafka client property names, prefixed with `producer.` or `consumer.`. Axx translates them to its own Go client, so you do not need a JVM; the [Kafka pack reference](/references/packs/kafka/) lists every property it understands. Consumer group settings (`group.id`, `enable.auto.commit`) have no effect, because Axx reads topics without a group.
 
 For a TLS-secured cluster:
 
@@ -60,7 +60,7 @@ And the depot-scans kafka event headers are:
 ```
 
 - The payload starts from a file in Avro's JSON encoding. Union values are written as `{"string": "..."}` or `null`; set `packs.kafka.lenientUnions: true` in `axx.yaml` to accept bare values when only one branch fits.
-- `the depot-scans kafka event payload properties are:` sets JSONPath properties of that topic's event; `the kafka event payload properties are:` uses the first topic client's. Values are always set as **strings** (an empty cell sets null), and each property must already exist in the payload, so give numbers and objects their values in the file.
+- `the depot-scans kafka event payload properties are:` sets JSONPath properties of that topic's first event; `the kafka event payload properties are:` uses the first topic client's. Values are always set as **strings** (an empty cell sets null), and each property must already exist in the payload, so give numbers and objects their values in the file.
 - `the depot-scans kafka event payload property <path> is null` sets a property to JSON null (for an Avro union with `null`).
 - Keep payload files schema-valid with [fixture factories](/guides/fixture-factories/) (the `avro` family); `kafka/scan-delivered.json` is generated that way.
 
@@ -72,10 +72,11 @@ When the depot-scans kafka event is published using schema schemas/depot-scan.av
 
 The payload is read with the Avro schema (`.avsc`, resolved against `resources`), the schema is registered under `<topic>-value` (or looked up, with `producer.auto.register.schemas=false`), and the record is sent in the Confluent wire format with the key and headers you set. A payload that does not fit the schema fails with the path of the mismatch, such as `$.location: expected string, got number 5`.
 
-To publish without Avro (plain text or JSON with the default `StringSerializer`):
+To publish without Avro (plain text or JSON), a topic client with the default configuration is enough: its `StringSerializer` sends the payload as text. Every event needs a topic client for its topic:
 
 ```gherkin
-Given a delivery-notifications kafka event
+Given the delivery-notifications kafka topic client
+And a delivery-notifications kafka event
 And the delivery-notifications kafka event payload is a kafka/delivery-notification.json resource
 When the delivery-notifications kafka event is published
 ```
@@ -97,7 +98,7 @@ And the parcel-events kafka event named registered headers match:
   | X-Event-Type | ^Parcel.*$ |
 ```
 
-`named registered` names an expectation. Each step adds its checks to the name and passes when one record of the topic meets all of them at once, so the four steps above check that a single record has that key, those properties and those headers. Records are read from the start of the topic (with `consumer.auto.offset.reset=latest`, only those produced after the step starts), and a step waits up to 30 seconds (`packs.kafka.timeout`). Expected payload values are typed, so `1200` does not equal `1200.0` ([the rules](/references/steps/kafka/#kafkaconsumedproperties)). `headers are` needs each header exactly once with that value; `headers match` takes regular expressions.
+`named registered` names an expectation. Each step adds its checks to the name and passes when one record of the topic meets all of them at once, so the four steps above check that a single record has that key, those properties and those headers. Records are read from the start of the topic (with `consumer.auto.offset.reset=latest`, only those produced after the step starts), and a step waits up to 30 seconds (`packs.kafka.timeout`). Expected payload values are typed, so `1200` does not equal `1200.0` ([the rules](/references/packs/kafka/#kafkaconsumedproperties)). `headers are` needs each header exactly once with that value; `headers match` takes regular expressions.
 
 When a step fails, the report lists the name's checks and the latest records of the topic with the reason each one did not match.
 

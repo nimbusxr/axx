@@ -50,16 +50,16 @@ axx lint
 ```
 
 ```console
-FAIL Parcel references in seeds (cross-file-unique, 11 files): 1 duplicate value
+FAIL Parcel references in seeds (cross-file-unique, 52 files): 1 duplicate value
      Every seeded parcel and manifest line has its own reference
      value "PX-KES-1001" appears in 2 files (cross-file-unique) [AXX-E0820]
        seeds/manifest-kestrel-resend.yaml:4:17  reference: "PX-KES-1001"
        seeds/manifest-kestrel.yaml:4:17         reference: "PX-KES-1001"
-ok   Manifest line ids (cross-file-unique, 11 files)
+ok   Manifest line ids (cross-file-unique, 52 files)
 ok   Depot scan ids (cross-file-unique, 1 file)
 ok   kafka/depot-scans.factory.yaml: scanId uniqueness (cross-file-unique, 2 files)
-ok   SQL selection and trigger ordinals (8 files)
-axx lint: 5 rules, 22 files: 1 error, 0 warnings
+ok   SQL selection and trigger ordinals (13 files)
+axx lint: 5 rules, 68 files: 1 error, 0 warnings
 ```
 
 A new seed file reused a reference that `seeds/manifest-kestrel.yaml` already inserts. The rule from `axx-lint.generated.yaml` and the built-in check of SQL ordinals in features run too.

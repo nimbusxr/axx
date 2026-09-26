@@ -3,8 +3,10 @@ package runner
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -407,5 +409,115 @@ func TestAfterRunErrorsFailTheRun(t *testing.T) {
 	r.Run(context.Background(), pickles)
 	if calls != 0 {
 		t.Error("AfterRun must not run for a dry run")
+	}
+}
+
+// What packs log and attach while a scenario is cleaned up (the trace of a
+// failed step, say) belongs to its last step that ran.
+func TestCleanupOutputGoesToTheLastStep(t *testing.T) {
+	traced := core.NewStateKey("test.traced", func(*core.Scenario) *int { n := 0; return &n },
+		func(sc *core.Scenario, _ *int) error {
+			sc.Log("trace kept for a %s scenario", sc.Status())
+			sc.Attach("application/zip", []byte("PK"), "trace")
+			return nil
+		})
+	m := core.Manifest{Name: "test", Steps: []core.StepDef{
+		{ID: "open", Expr: "a page is opened", Run: func(sc *core.Scenario, _ core.Args) error { _ = traced.Of(sc); return nil }},
+		{ID: "fail", Expr: "a failing step", Run: func(*core.Scenario, core.Args) error { return core.Failf("no price") }},
+		{ID: "pass", Expr: "a passing step", Run: func(*core.Scenario, core.Args) error { return nil }},
+	}}
+	reg := match.NewRegistry()
+	if err := reg.AddPack("test", m); err != nil {
+		t.Fatal(err)
+	}
+	set, pickles := load(t, `Feature: cleanup
+
+  Scenario: failed
+    Given a page is opened
+    When a failing step
+    Then a passing step
+`)
+	rec := &recorder{}
+	r, err := New(Options{Registry: reg, Workers: 1, Reporters: []Reporter{rec}, Messages: true, Docs: set.Docs})
+	if err != nil {
+		t.Fatal(err)
+	}
+	res := r.Run(context.Background(), pickles)
+	failed := res.Scenarios[0].Steps[1]
+	if len(failed.Logs) != 1 || failed.Logs[0] != "trace kept for a failed scenario" || len(failed.Attachments) != 1 || failed.Attachments[0].Name != "trace" {
+		t.Fatalf("the failed step: logs %q, attachments %v", failed.Logs, failed.Attachments)
+	}
+	if skipped := res.Scenarios[0].Steps[2]; len(skipped.Logs)+len(skipped.Attachments) != 0 {
+		t.Errorf("the skipped step got output: %+v", skipped)
+	}
+	attached := 0
+	for _, e := range rec.envelopes {
+		if a := e.Attachment; a != nil && a.MediaType == "application/zip" {
+			if a.TestStepId == "" {
+				t.Errorf("the attachment has no step: %+v", a)
+			}
+			attached++
+		}
+	}
+	if attached != 1 {
+		t.Errorf("%d trace attachments in the messages", attached)
+	}
+}
+
+// Steps and their step hooks know the step the scenario runs; its scenario
+// hooks and cleanup run outside any step.
+func TestScenariosKnowTheirStep(t *testing.T) {
+	var mu sync.Mutex
+	var seen []string
+	see := func(who string, sc *core.Scenario) {
+		mu.Lock()
+		defer mu.Unlock()
+		if st := sc.Step(); st != nil {
+			seen = append(seen, fmt.Sprintf("%s %s %s:%d", who, st.Keyword, st.Text, st.Line))
+		} else {
+			seen = append(seen, who+" -")
+		}
+	}
+	cleanup := core.NewStateKey("test.cleanup", func(*core.Scenario) *int { n := 0; return &n },
+		func(sc *core.Scenario, _ *int) error { see("cleanup", sc); return nil })
+	m := core.Manifest{
+		Name: "test",
+		Steps: []core.StepDef{
+			{ID: "open", Expr: "a page is opened", Run: func(sc *core.Scenario, _ core.Args) error { _ = cleanup.Of(sc); see("step", sc); return nil }},
+			{ID: "click", Expr: "a button is clicked", Run: func(sc *core.Scenario, _ core.Args) error { see("step", sc); return nil }},
+		},
+		Hooks: []core.Hook{
+			{ID: "before", Phase: core.BeforeScenario, Run: func(sc *core.Scenario) error { see("before", sc); return nil }},
+			{ID: "beforeStep", Phase: core.BeforeStep, Run: func(sc *core.Scenario) error { see("beforeStep", sc); return nil }},
+			{ID: "afterStep", Phase: core.AfterStep, Run: func(sc *core.Scenario) error { see("afterStep", sc); return nil }},
+		},
+	}
+	reg := match.NewRegistry()
+	if err := reg.AddPack("test", m); err != nil {
+		t.Fatal(err)
+	}
+	var hooks []PackHook
+	for _, h := range m.Hooks {
+		hooks = append(hooks, PackHook{Pack: "test", Hook: h})
+	}
+	set, pickles := load(t, `Feature: steps
+
+  Scenario: a click
+    Given a page is opened
+    When a button is clicked
+`)
+	r, err := New(Options{Registry: reg, Hooks: hooks, Workers: 1, Docs: set.Docs})
+	if err != nil {
+		t.Fatal(err)
+	}
+	r.Run(context.Background(), pickles)
+	want := []string{
+		"before -",
+		"beforeStep Given a page is opened:4", "step Given a page is opened:4", "afterStep Given a page is opened:4",
+		"beforeStep When a button is clicked:5", "step When a button is clicked:5", "afterStep When a button is clicked:5",
+		"cleanup -",
+	}
+	if !slices.Equal(seen, want) {
+		t.Errorf("seen:\n%s\nwant:\n%s", strings.Join(seen, "\n"), strings.Join(want, "\n"))
 	}
 }

@@ -7,7 +7,7 @@ description: Choose console output, write JUnit, HTML, Cucumber JSON, Cucumber M
 
 | Format | What you see | When |
 | --- | --- | --- |
-| `pretty` | every scenario and step, tables, logs, failures, a summary | the default in a terminal |
+| `pretty` | every scenario and step, tables, logs, failures, a summary | the default |
 | `progress` | one character per scenario, then failures and a summary | long suites |
 | `compact` | failures only, and one summary line | automatic for coding agents (`--compact`) |
 
@@ -17,12 +17,12 @@ $ axx run --format progress features/register-parcels.feature
 
 Feature: Register parcels
 
-  Scenario: A reference can only be registered once  # features/register-parcels.feature:67
+  Scenario: A reference can only be registered once  # features/register-parcels.feature:69
     ...
 
 Failed scenarios:
-  x A reference can only be registered once  # features/register-parcels.feature:67
-      rerun: axx run features/register-parcels.feature:67
+  x A reference can only be registered once  # features/register-parcels.feature:69
+      rerun: axx run features/register-parcels.feature:69
 
 8 scenarios (1 failed, 7 passed)
 96 steps (1 failed, 1 skipped, 94 passed)

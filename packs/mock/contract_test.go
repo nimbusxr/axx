@@ -2,7 +2,9 @@ package mock
 
 import (
 	"context"
+	"encoding/json"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 
@@ -86,6 +88,66 @@ func TestScenarioLevelsRelaxAFinding(t *testing.T) {
 	if err := step(t, reg, sc, "the OpenAPI validation levels for the mocked addresses service are:", [][]string{{"validation", "LOUD"}}); err == nil ||
 		!strings.Contains(err.Error(), "supported levels") {
 		t.Errorf("invalid level: %v", err)
+	}
+}
+
+func TestScenarioLevelKeysAreChecked(t *testing.T) {
+	reg, newScenario, _, url := contractSetup(t, nil)
+	sc := newScenario()
+	if err := step(t, reg, sc, "the mocked addresses service with the following properties:", [][]string{{"url", url}}); err != nil {
+		t.Fatal(err)
+	}
+	const levels = "the OpenAPI validation levels for the mocked addresses service are:"
+	err := step(t, reg, sc, levels, [][]string{
+		{"validation.request", "warn"}, {"validation.response.body.schema.additionalProperty", "WARN"},
+	})
+	if err == nil || !strings.Contains(err.Error(), `unknown OpenAPI validation key "validation.response.body.schema.additionalProperty"; `+
+		"did you mean validation.response.body.schema.additionalProperties?") {
+		t.Fatalf("unknown key: %v", err)
+	}
+	svc, _ := Context(sc).Service("addresses")
+	if len(svc.levels) != 0 {
+		t.Fatalf("a failed step sets none of its levels: %v", svc.levels)
+	}
+	// Keys the extension reports, and their prefixes.
+	if err := step(t, reg, sc, levels, [][]string{
+		{"validation", "INFO"},
+		{"validation.request.parameter.query.unexpected", "Warn"},
+		{"validation.response.body.schema.const", "WARN"},
+		{"validation.request.body.schema.format.date-time", "IGNORE"},
+		{"validation.spec", "IGNORE"},
+	}); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// TestLevelKeysHaveTheExtensionsKeys checks the keys levels can be set on
+// against the keys the extension reports for the agreement cases, which
+// its tests check (FindingsAgreementTest).
+func TestLevelKeysHaveTheExtensionsKeys(t *testing.T) {
+	raw, err := os.ReadFile("../../testdata/openapi-agreement/cases.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var doc struct {
+		Cases []struct {
+			Keys []string `json:"keys"`
+		} `json:"cases"`
+	}
+	if err := json.Unmarshal(raw, &doc); err != nil {
+		t.Fatal(err)
+	}
+	n := 0
+	for _, c := range doc.Cases {
+		for _, k := range c.Keys {
+			n++
+			if err := levelKeys.Check(k); err != nil {
+				t.Error(err)
+			}
+		}
+	}
+	if n == 0 {
+		t.Fatal("no keys read")
 	}
 }
 

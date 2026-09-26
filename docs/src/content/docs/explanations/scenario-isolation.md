@@ -7,15 +7,15 @@ A fast black-box suite shares infrastructure: one database, one broker, one Wire
 
 ## What is isolated for you
 
-Each scenario has its own **world**: the services it registered, the requests it built and the responses it received, its selections and its events. Nothing in the world leaks into another scenario, and a scenario always runs on a single worker.
+Each scenario has its own **world**: the services it registered, the requests it built and the responses it received, its selections and its events, and its browser pages, with their own cookies and storage. Nothing in the world leaks into another scenario, and a scenario always runs on a single worker.
 
 ## What you isolate
 
-Everything outside Axx persists: rows in the database, documents in MongoDB, events on topics, requests in the WireMock journal. Those are visible to every scenario, including ones running at the same moment and ones in the next run. So:
+Everything outside Axx persists: rows in the database, documents in MongoDB, events on topics, requests in the WireMock journal, entries in logs, files in folders and buckets. Those are visible to every scenario, including ones running at the same moment and ones in the next run. So:
 
 1. **Every scenario owns its data.** References, ids, keys and emails belong to one scenario: `PX-REG-1004`, not `test`. A scenario that registers a parcel for the sender `shop-example` and then counts that sender's parcels will pass alone and fail beside any other scenario that does the same.
 2. **Assert on your own data only.** Select rows by your ids; name mock request patterns by URLs that contain your ids; consume events by your keys.
-3. **Do not rely on cleanup.** Data from earlier runs, failed and interrupted ones included, is still there. A scenario must pass beside everyone else's data. A scenario that inserts a fixed id (a seed, a registration with a fixed reference) needs that id to be free, so it runs again only on a fresh environment: `axx run` starts from empty databases, and against `axx up`, restart with `axx down` and `axx up`.
+3. **Do not rely on cleanup.** Data from earlier runs, failed and interrupted ones included, is still there. A scenario must pass beside everyone else's data. A scenario that inserts a fixed id (a seed, a registration with a fixed reference) needs that id to be free, so it runs again only on a fresh environment: `axx run` starts from empty databases when the apps' `cleanup` removes their data (as `docker compose down -v` does), and against `axx up`, restart with `axx down` and `axx up`.
 
 ## Enforcing it
 

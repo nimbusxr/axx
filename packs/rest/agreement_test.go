@@ -89,6 +89,11 @@ func TestValidatorsAgree(t *testing.T) {
 			if !slices.Equal(got, want) {
 				t.Errorf("keys %v, want %v", got, want)
 			}
+			for _, k := range want {
+				if !levelKeys.Has(k) {
+					t.Errorf("levels cannot be set on %s", k)
+				}
+			}
 		})
 	}
 }

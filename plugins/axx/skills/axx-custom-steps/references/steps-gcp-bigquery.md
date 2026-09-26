@@ -23,9 +23,11 @@ billing.carrier_rates:
 Given a {filepath} bigquery seed
 ```
 
-Insert the rows of a seed file (resolved against `resources`): YAML or JSON mapping tables to lists of rows.
+Insert the rows of a seed file into their tables: YAML or JSON that maps tables (`dataset.table` or `project.dataset.table`) to lists of rows. The rows are streamed in (`tabledata.insertAll`).
 
-**Parameters:** `{filepath}` (A file of the project, without whitespace: a path relative to the `resources` directories or to the directory of axx.yaml, or an absolute path. Editors link it to the file)
+| Parameter | Takes | For example |
+|---|---|---|
+| `{filepath}` | a file of the project, with no spaces: a path relative to the `resources` directories or to axx.yaml's directory, or an absolute path | `seeds/parcels.yaml`, `kafka/scan-delivered.json` |
 
 **Example:**
 
@@ -39,22 +41,37 @@ _Since 0.1.0._
 
 ```gherkin
 Then [[within {duration} ]]the {word} bigquery table has a row where:
-  | ... | ... |
+  | column | value |
 ```
 
-Wait (10s, or the given time) until the table has a row meeting every `column | value` row.
+Check that the table has a row with those values in those columns.
 
-**Variants** (optional parts in `[[...]]` above):
+- The check waits for it: 10 seconds, or `within {duration}`.
+- Name the table `dataset.table`, or `project.dataset.table` for another project's.
+- Values compare as text: numbers as written, `NUMERIC` as its decimal, `TIMESTAMP` in RFC 3339 (`2026-09-24T09:30:00Z`), `DATE` as `2026-09-24`, `DATETIME` as `2026-09-24T09:30:00`, `BYTES` in base64; `null` for NULL.
+- The check reads only the columns the step names, of up to 5,000 rows.
+
+| Parameter | Takes | For example |
+|---|---|---|
+| `{duration}` | a duration in seconds (`s`) or minutes (`m`) | `5s`, `2m` |
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+
+Each row names a column, or a dotted path into a `RECORD` column (`address.city`), and the value in it.
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `the {word} bigquery table has a row where:`
 - `within {duration} the {word} bigquery table has a row where:`
-
-**Parameters:** `{duration}` (A duration in seconds or minutes, e.g. `5s` or `2m`), `{word}` (one word, no spaces)
 
 **Example:**
 
 ```gherkin
 Then within 30s the billing.invoice_lines bigquery table has a row where:
+  | invoice  | INV-2026-09-KES2 |
+  | parcel   | PX-5103          |
+  | status   | OVERCHARGED      |
+  | billed   | 2.5              |
+  | expected | 1.35             |
 ```
 
 _Since 0.1.0._
@@ -63,22 +80,35 @@ _Since 0.1.0._
 
 ```gherkin
 Then [[within {duration} ]]the {word} bigquery table has {int} row(s) where:
-  | ... | ... |
+  | column | value |
 ```
 
-Wait (10s, or the given time) until exactly that many rows of the table meet every `column | value` row.
+Check that exactly that many rows of the table have those values in those columns.
 
-**Variants** (optional parts in `[[...]]` above):
+- The check waits for it: 10 seconds, or `within {duration}`.
+- Name the table `dataset.table`, or `project.dataset.table` for another project's.
+- Values compare as text: numbers as written, `NUMERIC` as its decimal, `TIMESTAMP` in RFC 3339 (`2026-09-24T09:30:00Z`), `DATE` as `2026-09-24`, `DATETIME` as `2026-09-24T09:30:00`, `BYTES` in base64; `null` for NULL.
+- The check reads only the columns the step names, of up to 5,000 rows.
+
+| Parameter | Takes | For example |
+|---|---|---|
+| `{duration}` | a duration in seconds (`s`) or minutes (`m`) | `5s`, `2m` |
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+| `{int}` | a whole number | `200`, `3` |
+
+Each row names a column, or a dotted path into a `RECORD` column (`address.city`), and the value in it.
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `the {word} bigquery table has {int} row(s) where:`
 - `within {duration} the {word} bigquery table has {int} row(s) where:`
 
-**Parameters:** `{duration}` (A duration in seconds or minutes, e.g. `5s` or `2m`), `{word}` (one word, no spaces), `{int}` (a 32-bit integer)
-
 **Example:**
 
 ```gherkin
-Then the billing.invoice_lines bigquery table has 3 rows where:
+Then the billing.invoice_lines bigquery table has 2 rows where:
+  | invoice | INV-2026-09-KES1 |
+  | status  | MATCHED          |
 ```
 
 _Since 0.1.0._

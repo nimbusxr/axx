@@ -61,7 +61,7 @@ Scenario: A shop registers a parcel
 
 ### Setting values in a payload
 
-Keys are JSONPath expressions (`reference`, `recipient.postcode`, `items[0].sku`). A value keeps the type of the property it replaces, double quotes make it a string, `null` sets JSON null and `undefined` removes the property. The [step reference](/references/steps/rest/#restrequestproperties) has the exact rules.
+Keys are JSONPath expressions (`reference`, `recipient.postcode`, `items[0].sku`). A value keeps the type of the property it replaces, double quotes make it a string, `null` sets JSON null and `undefined` removes the property. The [rest pack reference](/references/packs/rest/#restrequestproperties) has the exact rules.
 
 Double-quote values that look like numbers but are strings in the schema, such as postcodes (`"50667"`) or long numeric identifiers, so they stay exact strings.
 
@@ -108,7 +108,7 @@ Common keys:
 | `validation.response.body.schema.required` | required properties in the response |
 | `validation.response.body.schema.type` | property types in the response |
 
-The failure message of a violated rule includes its key, so you can copy it into the table.
+The failure message of a violated rule includes its key, so you can copy it into the table. A key must be one Axx reports, or a prefix of such keys, like `validation.request.body`: a misspelled key fails the step (or the run, in `axx.yaml`), and the message names the closest keys.
 
 ### Defaults for the whole suite
 

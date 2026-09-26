@@ -101,8 +101,12 @@ func (s *service) putJSON(ctx context.Context, bucket, key string, v any) error 
 	if err != nil {
 		return err
 	}
-	_, err = s.aws.s3.PutObject(ctx, &s3.PutObjectInput{
-		Bucket: aws.String(bucket), Key: aws.String(key), Body: bytes.NewReader(b), ContentType: aws.String("application/json"),
+	return s.put(ctx, bucket, key, "application/json", b)
+}
+
+func (s *service) put(ctx context.Context, bucket, key, contentType string, body []byte) error {
+	_, err := s.aws.s3.PutObject(ctx, &s3.PutObjectInput{
+		Bucket: aws.String(bucket), Key: aws.String(key), Body: bytes.NewReader(body), ContentType: aws.String(contentType),
 	})
 	return err
 }

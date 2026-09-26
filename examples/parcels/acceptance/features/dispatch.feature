@@ -12,18 +12,23 @@ Feature: Changes during dispatch
       | user     | parcels                           |
       | password | parcels                           |
 
-  Scenario: A parcel can be changed again once the depot lets go of it
+  Scenario: A parcel cannot be changed while the depot dispatches it
     Given a seeds/dispatching.yaml db seed
     And the rows in the parcels.parcels table are locked where:
       | reference | PX-DSP-2001 |
     And a 1st ordered PATCH request to /api/parcels/PX-DSP-2001
     And a request payload using an application/json content example named 'Heavier' for 1st ordered request
-    And a 2nd ordered PATCH request to /api/parcels/PX-DSP-2001
-    And a request payload using an application/json content example named 'Heavier' for 2nd ordered request
     When the 1st ordered request is executed
     Then the 1st ordered response status code is 409
     And the response payload property detail is 'parcel PX-DSP-2001 is being dispatched and cannot be changed now' for 1st ordered response
+
+  Scenario: A parcel can be changed again once the depot lets go of it
+    Given a seeds/dispatched.yaml db seed
+    And the rows in the parcels.parcels table are locked where:
+      | reference | PX-DSP-2002 |
+    And a 1st ordered PATCH request to /api/parcels/PX-DSP-2002
+    And a request payload using an application/json content example named 'Heavier' for 1st ordered request
     When the row locks are released
-    And the 2nd ordered request is executed
-    Then the 2nd ordered response status code is 200
-    And the response payload property weightGrams is '2500' for 2nd ordered response
+    And the 1st ordered request is executed
+    Then the 1st ordered response status code is 200
+    And the response payload property weightGrams is '2500' for 1st ordered response

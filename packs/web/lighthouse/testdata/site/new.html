@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Register a parcel for collection.">
+<title>Register a parcel - Parcels</title>
+<link rel="icon" href="data:,">
+<style>
+ body { font-family: system-ui, sans-serif; margin: 0; color: #1a1a1a; }
+ header { background: #0b3d91; color: #fff; padding: 12px 16px; font-weight: bold; }
+ main { padding: 16px; max-width: 960px; margin: auto; }
+ .hero { width: 100%; height: auto; display: block; }
+ .notice { background: #ffd54f; padding: 48px 16px; font-size: 20px; }
+ label { display: block; margin: 12px 0 4px; }
+ input, button { font-size: 16px; padding: 8px; }
+</style>
+</head>
+<body>
+<header>Parcels</header>
+<main>
+ <img class="hero" src="/hero.jpg" alt="A courier loading parcels into a van" width="1600" height="900">
+ <h1>Register a parcel</h1>
+ <form>
+  <label for="sender">Sender</label>
+  <input id="sender" name="sender">
+  <label for="recipient">Recipient</label>
+  <input id="recipient" name="recipient">
+  <button type="submit">Register the parcel</button>
+ </form>
+</main>
+<script>
+ // A notice above the page, once it has loaded: everything moves down.
+ addEventListener('load', () => setTimeout(() => {
+   const notice = document.createElement('div');
+   notice.className = 'notice';
+   notice.textContent = 'Collections may be late this week because of the weather.';
+   document.body.insertBefore(notice, document.body.firstChild);
+ }, 200));
+ // Busy work once it has loaded: the page does not answer meanwhile.
+ addEventListener('load', () => setTimeout(() => {
+   const start = performance.now();
+   while (performance.now() - start < 300) {}
+ }, 50));
+</script>
+</body>
+</html>

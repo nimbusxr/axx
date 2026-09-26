@@ -17,24 +17,39 @@ func Pack() core.Pack { return pack{} }
 
 type pack struct{}
 
-const tableDoc = "Values in the table become `column = 'value'` conditions joined with AND; `null` becomes `IS NULL`. Values are escaped."
+// whereTable is the table of a step that picks rows by their values: rows
+// says who holds them, like "the selected rows hold".
+func whereTable(rows string) *core.TableDoc {
+	return &core.TableDoc{
+		Columns: []string{"column", "value"},
+		Note:    "Each row names a column and the value " + rows + " in it, or `null` for none (`IS NULL`); values are escaped.",
+	}
+}
+
+// numbered is how selections are numbered, for the steps that retrieve one.
+const numbered = "Selections are numbered in the order they are retrieved, whatever ordinal the step says; `the selection` means the first."
 
 func (pack) Manifest() core.Manifest {
 	return core.Manifest{
 		Name:      "sql",
 		Namespace: "sql",
 		Doc: "Seed, query and assert on relational databases. PostgreSQL is fully supported (including JSONB and " +
-			"trigger fault injection); MySQL/MariaDB, SQL Server and SQLite support seeds, selections, row counts and locks. " +
-			"JDBC URLs (jdbc:postgresql://...) are accepted as-is.",
+			"trigger fault injection); MySQL/MariaDB and SQL Server support seeds, selections, row counts and locks, " +
+			"and SQLite all of them but locks. JDBC URLs (jdbc:postgresql://...) are accepted as-is.",
 		Params: []core.ParamType{
 			{
 				Name: "dbService", Regexps: []string{`([^\s]+)`},
-				Doc: "The name of a database registered in the scenario.",
+				Doc:      "the name of a database registered in the scenario",
+				Examples: []string{"parcels-db"},
 				Transform: func(sc *core.Scenario, name string, _ []*string) (any, error) {
 					return stateKey.Of(sc).services.Get(name)
 				},
 			},
-			{Name: "sqlState", Regexps: []string{`[0-9A-Za-z]{5}`}, Doc: "A five-character SQLSTATE code, e.g. `23505` (unique violation)."},
+			{
+				Name: "sqlState", Regexps: []string{`[0-9A-Za-z]{5}`},
+				Doc:      "a five-character SQLSTATE error code, like `40001` (serialization failure) or `23505` (unique violation)",
+				Examples: []string{"40001", "23505"},
+			},
 		},
 		Steps: steps(),
 	}
@@ -46,33 +61,69 @@ func steps() []core.StepDef {
 		core.StepDef{
 			ID: "sql.service", Keyword: "Given", Arg: core.ArgTable,
 			Expr: "a(n) {word} database with the following properties:",
-			Doc: "Register a database. The first one registered in a scenario is the default.\n\n" +
-				"Properties: `url` (JDBC or native URL), `user`, `password` (all required; `${env:..}`/`${sys:..}` expanded), `schema` (optional).",
-			Examples: []string{"Given a parcels-db database with the following properties:"},
-			Run:      addService,
+			Doc: "Register a database.\n\n" +
+				"- The first database registered in a scenario is the default.\n" +
+				"- The scheme of the `url` says which database it is: PostgreSQL (`postgres://`, `postgresql://`, `jdbc:postgresql:`), " +
+				"MySQL or MariaDB (`mysql://`, `jdbc:mysql:`, `jdbc:mariadb:`), SQL Server (`sqlserver://`, `jdbc:sqlserver:`) " +
+				"or SQLite (`sqlite:`, `file:`, `jdbc:sqlite:`).\n" +
+				"- A PostgreSQL URL connects without TLS unless it sets `sslmode`; its `currentSchema` sets the default schema.",
+			Table: &core.TableDoc{
+				Columns: []string{"property", "value"},
+				Rows: []core.TableRow{
+					{Name: "url", Takes: "where the database is: a native or JDBC URL, like `postgres://localhost:5432/parcels`", Required: true},
+					{Name: "user", Takes: "the user axx connects as; SQLite ignores it, but the table needs it all the same", Required: true},
+					{Name: "password", Takes: "the user's password; SQLite ignores it, but the table needs it all the same", Required: true},
+					{Name: "schema", Takes: "a schema, kept for code that builds on the pack; the steps don't use it, so name tables `schema.table` " +
+						"(or set a PostgreSQL URL's `currentSchema`)"},
+				},
+				Note: "`url`, `user` and `password` can take `${env:…}` and `${sys:…}` references.",
+			},
+			Examples: []string{"Given a parcels-db database with the following properties:\n" +
+				"  | url      | postgres://localhost:5432/parcels |\n" +
+				"  | user     | parcels                           |\n" +
+				"  | password | parcels                           |"},
+			Run: addService,
 		},
 		core.StepDef{
 			ID: "sql.seed", Keyword: "Given",
 			Expr: "a {filepath} db seed[[ on {dbService}]]",
-			Doc: "Insert the rows of a dataset file (resolved against `resources`). Formats by extension: `.yaml`/`.yml` " +
-				"(`schema.table:` → list of rows), flat XML (`<dataset><schema.table col=\"v\"/></dataset>`), `.json`, " +
-				"`.csv` (a directory of `<table>.csv` files with `table-ordering.txt`) and `.xlsx` (one sheet per table). " +
-				"Replacers: `[null]`, `[DAY,NOW]`, `[DAY,PLUS,1]`, `[UNIX_TIMESTAMP]`. Rows are inserted in one transaction and never deleted.",
-			Examples: []string{"Given a seeds/manifest-kestrel.yaml db seed", "Given a seeds/dispatching.yaml db seed on parcels-db"},
-			Run:      seedStep,
+			Doc: "Insert the rows of a dataset file, in the file's order and in one transaction.\n\n" +
+				"- A YAML file (`.yaml`, `.yml`) maps each `schema.table` to a list of rows, each a mapping of column to value.\n" +
+				"- A flat XML file (`.xml`) has a `<schema.table column=\"value\"/>` element per row inside `<dataset>`.\n" +
+				"- A JSON file (`.json`) maps each `schema.table` to an array of rows.\n" +
+				"- A CSV file (`.csv`) stands for its directory, which has a `<schema.table>.csv` file per table, " +
+				"in the order its `table-ordering.txt` lists or else by name; a first line names the columns, and `null` is NULL. " +
+				"The step takes the directory itself too.\n" +
+				"- An Excel file (`.xlsx`) has a sheet per table, named after it, with a first row that names the columns; an empty cell is NULL.\n" +
+				"- A value can be `[null]` for NULL, `[UNIX_TIMESTAMP]` for the seconds since 1970, or a time counted from now, like " +
+				"`[DAY,NOW]`, `[DAY,PLUS,1]` or `[HOUR,MINUS,2]` (the unit is `DAY`, `HOUR`, `MIN` or `SEC`).\n" +
+				"- In YAML and JSON, a value that is a list or an object is stored as JSON text.\n" +
+				"- A row the database refuses, like one whose key exists already, fails the step, and nothing of the file is written.\n" +
+				"- Seeded rows are never deleted.",
+			Examples: []string{
+				"Given a seeds/manifest-kestrel.yaml db seed",
+				"Given a seeds/dispatching.yaml db seed on parcels-db",
+				"Given a seeds/manifests/csv/bulk-manifest/parcels.manifest_lines.csv db seed",
+			},
+			Run: seedStep,
 		},
 		core.StepDef{
 			ID: "sql.lock", Keyword: "Given", Arg: core.ArgTable,
-			Expr:     "the rows in the {word} table[[ on {dbService}]] are locked where:",
-			Doc:      "Lock matching rows with SELECT ... FOR UPDATE on a separate connection, held until the locks are released or the scenario ends. " + tableDoc,
-			Examples: []string{"Given the rows in the parcels.parcels table are locked where:"},
-			Run:      lockStep,
+			Expr: "the rows in the {word} table[[ on {dbService}]] are locked where:",
+			Doc: "Lock the rows that match, with `SELECT ... FOR UPDATE` on a separate connection.\n\n" +
+				"- The locks hold until the row locks are released or the scenario ends.\n" +
+				"- Rows locked elsewhere, like by another scenario, are waited for 10 seconds at most; then the step fails.\n" +
+				"- SQLite has no row locks: the step fails on it.",
+			Table: whereTable("the locked rows hold"),
+			Examples: []string{"Given the rows in the parcels.parcels table are locked where:\n" +
+				"  | reference | PX-DSP-2001 |"},
+			Run: lockStep,
 		},
 		core.StepDef{
 			ID: "sql.unlock", Keyword: "Then",
 			Expr:     "the row locks[[ on {dbService}]] are released",
-			Doc:      "Release row locks taken with the lock step.",
-			Examples: []string{"Then the row locks are released"},
+			Doc:      "Release all the row locks the lock step took on the database.",
+			Examples: []string{"Then the row locks are released", "Then the row locks on parcels-db are released"},
 			Run: func(sc *core.Scenario, a core.Args) error {
 				svc, err := service(sc, a, 0)
 				if err != nil {
@@ -83,42 +134,77 @@ func steps() []core.StepDef {
 		},
 		core.StepDef{
 			ID: "sql.select", Keyword: "Then", Arg: core.ArgTable,
-			Expr: "a[[ {ordinal}]] selection of rows is retrieved from the {word} table[[ on {dbService}]] where:",
-			Doc: "Query rows (SELECT * ... WHERE) and keep the result as the next selection for later assertions. " +
-				"Selections are numbered in the order they are retrieved; `the selection` means the first. " + tableDoc,
-			Examples: []string{"Then a selection of rows is retrieved from the parcels.parcels table where:"},
-			Run:      selectStep,
+			Expr:  "a[[ {ordinal}]] selection of rows is retrieved from the {word} table[[ on {dbService}]] where:",
+			Doc:   "Select the rows that match (`SELECT * ... WHERE`) and keep them as the next selection, for the steps that check it. " + numbered,
+			Table: whereTable("the selected rows hold"),
+			Examples: []string{
+				"Then a selection of rows is retrieved from the parcels.pickups table where:\n" +
+					"  | reference | PX-WEB-5302 |\n" +
+					"  | day       | Friday      |",
+				"Then a 2nd selection of rows is retrieved from the parcels.manifest_lines table on parcels-db where:\n" +
+					"  | manifest_id | M-KESTREL-0412 |\n" +
+					"  | error       | null           |",
+			},
+			Run: selectStep,
 		},
 		core.StepDef{
 			ID: "sql.select.poll", Keyword: "Then", Arg: core.ArgTable,
 			Expr: "within {duration} a[[ {ordinal}]] selection of at least {int} row(s) is retrieved from the {word} table[[ on {dbService}]] where:",
-			Doc: "Poll every 500ms until the query returns at least the given number of rows or the time is up. " +
-				"On timeout the last result (possibly empty) is kept, so assert on it with a row-count step.",
-			Examples: []string{"Then within 10s a selection of at least 1 row is retrieved from the parcels.manifest_lines table where:"},
-			Run:      pollStep,
+			Doc: "Select the rows that match, again every 500ms, until at least that many come back or the time is up.\n\n" +
+				"- The last result is kept as the next selection, even with fewer rows: check it with a row-count step.\n" +
+				"- The step fails only when no query succeeds in that time.\n" +
+				"- " + numbered,
+			Table: whereTable("the selected rows hold"),
+			Examples: []string{"Then within 10s a selection of at least 2 rows is retrieved from the parcels.manifest_lines table where:\n" +
+				"  | manifest_id | M-KESTREL-0412 |\n" +
+				"  | status      | IMPORTED       |"},
+			Run: pollStep,
 		},
 		core.StepDef{
 			ID: "sql.select.jsonb", Keyword: "Then", Arg: core.ArgTable,
 			Expr: "a[[ {ordinal}]] selection of rows is retrieved from the {word} table[[ on {dbService}]] where the {word} jsonb column contains:",
-			Doc: "PostgreSQL: select rows whose JSONB column contains the given properties (`@>`). Dotted keys (`a.b`) build nested objects; " +
-				"every value is compared as a JSON string (`null` means JSON null).",
-			Examples: []string{"Then a selection of rows is retrieved from the parcels.parcels table where the details jsonb column contains:"},
-			Run:      jsonbStep,
+			Doc: "Select the rows whose JSONB column contains the properties (`@>`), and keep them as the next selection.\n\n" +
+				"- The database must be PostgreSQL.\n" +
+				"- " + numbered,
+			Table: &core.TableDoc{
+				Columns: []string{"property", "value"},
+				Note: "Each row names a property, dotted (`recipient.city`) for one inside an object, and the value it holds, " +
+					"compared as a JSON string (`null` is JSON null), so it never matches a number or a boolean.",
+			},
+			Examples: []string{"Then a selection of rows is retrieved from the parcels.parcels table where the details jsonb column contains:\n" +
+				"  | manifestId | M-KESTREL-0412 |\n" +
+				"  | source     | manifest       |"},
+			Run: jsonbStep,
 		},
 		core.StepDef{
 			ID: "sql.json.are", Keyword: "Then", Arg: core.ArgTable,
 			Expr: "the {ordinal} row {word} property for the[[ {ordinal}]] selection[[ on {dbService}]] json properties are:",
-			Doc: "Assert JSON properties (JSONPath) of a JSON column in the given row of a selection. Every scalar is compared as text; " +
-				"`null` means JSON null and `undefined` means the property is absent.",
-			Examples: []string{"Then the 1st row details property for the 2nd selection json properties are:"},
-			Run:      func(sc *core.Scenario, a core.Args) error { return jsonProperties(sc, a, false) },
+			Doc: "Check the JSON a column holds in one row of a selection. " +
+				"`the 1st row details property` is the `details` column of the selection's first row.",
+			Table: &core.TableDoc{
+				Columns: []string{"JSONPath", "value"},
+				Note: "Each row names a JSONPath, like `source` or `$.recipient.city`, and the value there as text, like `true` or `850`: " +
+					"`null` for JSON null, `undefined` for a property the JSON lacks.",
+			},
+			Examples: []string{"Then the 1st row details property for the selection json properties are:\n" +
+				"  | source         | portal    |\n" +
+				"  | signature      | true      |\n" +
+				"  | customsInvoice | undefined |"},
+			Run: func(sc *core.Scenario, a core.Args) error { return jsonProperties(sc, a, false) },
 		},
 		core.StepDef{
 			ID: "sql.json.match", Keyword: "Then", Arg: core.ArgTable,
-			Expr:     "the {ordinal} row {word} property for the[[ {ordinal}]] selection[[ on {dbService}]] json properties match:",
-			Doc:      "Like the `are` form, but each value is a regular expression that must match the whole property value (as text).",
-			Examples: []string{"Then the 1st row recipient property for the 3rd selection json properties match:"},
-			Run:      func(sc *core.Scenario, a core.Args) error { return jsonProperties(sc, a, true) },
+			Expr: "the {ordinal} row {word} property for the[[ {ordinal}]] selection[[ on {dbService}]] json properties match:",
+			Doc: "Check the JSON a column holds in one row of a selection, like the `json properties are` step, " +
+				"with regular expressions (Java syntax) that must match the whole value, as text.",
+			Table: &core.TableDoc{
+				Columns: []string{"JSONPath", "pattern"},
+				Note:    "Each row names a JSONPath, like `zone` or `$.recipient.postcode`, and a regular expression its value must match.",
+			},
+			Examples: []string{"Then the 1st row recipient property for the 2nd selection json properties match:\n" +
+				"  | postcode | \\d{5}    |\n" +
+				"  | country  | [A-Z]{2} |"},
+			Run: func(sc *core.Scenario, a core.Args) error { return jsonProperties(sc, a, true) },
 		},
 		rowCount("sql.rows.eq", "has {int} row(s)", "exactly", func(got, want int) bool { return got == want }),
 		rowCount("sql.rows.gt", "has more than {int} row(s)", "more than", func(got, want int) bool { return got > want }),
@@ -132,7 +218,7 @@ func rowCount(id, tail, words string, ok func(got, want int) bool) core.StepDef 
 	return core.StepDef{
 		ID: id, Keyword: "Then",
 		Expr:     "the[[ {ordinal}]] selection[[ on {dbService}]] " + tail,
-		Doc:      fmt.Sprintf("Assert that a selection has %s the given number of rows. `the selection` means the first selection of the scenario.", words),
+		Doc:      fmt.Sprintf("Check that a selection has %s the given number of rows. `the selection` means the first selection of the scenario.", words),
 		Examples: []string{"Then the selection " + strings.ReplaceAll(tail, "{int} row(s)", "2 rows"), "Then the 2nd selection on parcels-db " + strings.ReplaceAll(tail, "{int} row(s)", "1 row")},
 		Run: func(sc *core.Scenario, a core.Args) error {
 			svc, err := service(sc, a, 1)

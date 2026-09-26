@@ -4,12 +4,12 @@
 
 Upload files to Blob Storage containers and check the blobs your services write there.
 
-Register the storage account with `the {word} azure storage account with the following properties:` (the first account registered is the default), set up as the Azure SDK is set up for the real service:
+Register the storage account once, set up as the Azure SDK is set up for the real service; every blob step of the scenario uses it:
 
-| Property | |
-| --- | --- |
-| `connection string` | the account's connection string, e.g. `${env:AZURE_STORAGE_CONNECTION_STRING}`, or a local emulator's |
-| `url` | the account's blob endpoint (`https://<account>.blob.core.windows.net`), signed in with the Azure default credential chain (environment, workload identity, managed identity, Azure CLI) |
+```gherkin
+Given the customs azure storage account with the following properties:
+  | connection string | ${env:AZURE_STORAGE_CONNECTION_STRING} |
+```
 
 Checks wait for the blob (10 seconds unless `within {duration}` says otherwise), since services write asynchronously. Values expand `${env:..}` and `${sys:..}`.
 
@@ -17,17 +17,31 @@ Checks wait for the blob (10 seconds unless `within {duration}` says otherwise),
 
 ```gherkin
 Given the {word} azure storage account with the following properties:
-  | ... | ... |
+  | property | value |
 ```
 
-Register the storage account the blob steps talk to: `connection string`, or `url` with the Azure default credential chain.
+Register the storage account the blob steps talk to.
 
-**Parameters:** `{word}` (one word, no spaces)
+- The first account registered is the default.
+- Give it a `connection string` or a `url`, not both.
+- Values expand `${env:..}` and `${sys:..}`.
+
+| Parameter | Takes | For example |
+|---|---|---|
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+
+| Property | Takes |
+|---|---|
+| `connection string` | the account's connection string, or a local emulator's, like `${env:AZURE_STORAGE_CONNECTION_STRING}` |
+| `url` | the account's blob endpoint, like `https://<account>.blob.core.windows.net`, signed in with the Azure default credential chain: environment, workload identity, managed identity, Azure CLI |
 
 **Example:**
 
 ```gherkin
 Given the customs azure storage account with the following properties:
+  | connection string | ${env:AZURE_STORAGE_CONNECTION_STRING} |
+Given the customs azure storage account with the following properties:
+  | url | ${env:CUSTOMS_STORAGE_URL} |
 ```
 
 _Since 0.1.0._
@@ -38,14 +52,17 @@ _Since 0.1.0._
 When the {filepath} file is uploaded to the {word} blob container[[ as {word}]]
 ```
 
-Upload a file (resolved against `resources`) to a blob container, named after the file or as given. The content type follows the file's extension.
+Upload a file to the blob container, under the file's name or the name given. Its content type follows the file's extension.
 
-**Variants** (optional parts in `[[...]]` above):
+| Parameter | Takes | For example |
+|---|---|---|
+| `{filepath}` | a file of the project, with no spaces: a path relative to the `resources` directories or to axx.yaml's directory, or an absolute path | `seeds/parcels.yaml`, `kafka/scan-delivered.json` |
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `the {filepath} file is uploaded to the {word} blob container`
 - `the {filepath} file is uploaded to the {word} blob container as {word}`
-
-**Parameters:** `{filepath}` (A file of the project, without whitespace: a path relative to the `resources` directories or to the directory of axx.yaml, or an absolute path. Editors link it to the file), `{word}` (one word, no spaces)
 
 **Example:**
 
@@ -62,19 +79,22 @@ _Since 0.1.0._
 Then [[within {duration} ]]the {word} blob container has a(n) blob named {word}
 ```
 
-Wait (10s, or the given time) until the blob container has an blob with that name.
+Check that the blob container has a blob with that name. The check waits for it: 10 seconds, or `within {duration}`.
 
-**Variants** (optional parts in `[[...]]` above):
+| Parameter | Takes | For example |
+|---|---|---|
+| `{duration}` | a duration in seconds (`s`) or minutes (`m`) | `5s`, `2m` |
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `the {word} blob container has a(n) blob named {word}`
 - `within {duration} the {word} blob container has a(n) blob named {word}`
 
-**Parameters:** `{duration}` (A duration in seconds or minutes, e.g. `5s` or `2m`), `{word}` (one word, no spaces)
-
 **Example:**
 
 ```gherkin
-Then within 30s the declarations blob container has a(n) blob named disputes/kestrel-2026-09.csv
+Then within 30s the declarations blob container has a blob named disputes/kestrel-2026-09.csv
 ```
 
 _Since 0.1.0._
@@ -85,14 +105,18 @@ _Since 0.1.0._
 Then [[within {duration} ]]the {word} blob in the {word} blob container is identical to the {filepath} file
 ```
 
-Wait (10s, or the given time) until the blob exists with exactly the content of the file (resolved against `resources`).
+Check that the blob exists with exactly the content of the file. The check waits for it: 10 seconds, or `within {duration}`.
 
-**Variants** (optional parts in `[[...]]` above):
+| Parameter | Takes | For example |
+|---|---|---|
+| `{duration}` | a duration in seconds (`s`) or minutes (`m`) | `5s`, `2m` |
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+| `{filepath}` | a file of the project, with no spaces: a path relative to the `resources` directories or to axx.yaml's directory, or an absolute path | `seeds/parcels.yaml`, `kafka/scan-delivered.json` |
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `the {word} blob in the {word} blob container is identical to the {filepath} file`
 - `within {duration} the {word} blob in the {word} blob container is identical to the {filepath} file`
-
-**Parameters:** `{duration}` (A duration in seconds or minutes, e.g. `5s` or `2m`), `{word}` (one word, no spaces), `{filepath}` (A file of the project, without whitespace: a path relative to the `resources` directories or to the directory of axx.yaml, or an absolute path. Editors link it to the file)
 
 **Example:**
 
@@ -106,22 +130,97 @@ _Since 0.1.0._
 
 ```gherkin
 Then [[within {duration} ]]the {word} blob in the {word} blob container has the following properties:
-  | ... | ... |
+  | path | value |
 ```
 
-Wait (10s, or the given time) until the blob exists and its JSON content has the properties: `path | value` rows compared as text, `null` for null and `undefined` for absent, as in the other JSON property steps.
+Check that the blob holds JSON with those values at those paths. The check waits for it: 10 seconds, or `within {duration}`.
 
-**Variants** (optional parts in `[[...]]` above):
+| Parameter | Takes | For example |
+|---|---|---|
+| `{duration}` | a duration in seconds (`s`) or minutes (`m`) | `5s`, `2m` |
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+
+Each row is a path into the JSON (a property name, a dotted path or a JSONPath) and the value it has, compared as text: `null` for null and `undefined` for absent, as in the other JSON property steps.
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `the {word} blob in the {word} blob container has the following properties:`
 - `within {duration} the {word} blob in the {word} blob container has the following properties:`
-
-**Parameters:** `{duration}` (A duration in seconds or minutes, e.g. `5s` or `2m`), `{word}` (one word, no spaces)
 
 **Example:**
 
 ```gherkin
 Then the summaries/kestrel-2026-09.json blob in the declarations blob container has the following properties:
+  | carrier         | KESTREL |
+  | lines           | 14      |
+  | totals.disputed | 5.25    |
 ```
 
 _Since 0.1.0._
+
+## `azure-blob.contains`
+
+```gherkin
+Then [[within {duration} ]]the {word} blob in the {word} blob container contains {string}
+```
+
+Check that the text of the blob contains the text.
+
+- The check waits for it: 10 seconds, or `within {duration}`.
+- Case matters; runs of spaces and line breaks count as one space.
+- The text is read by the blob's type: the text of a PDF's pages, the paragraphs and tables of a Word document (.docx), the cells of every sheet of an Excel workbook (.xlsx), the text content (or the markup) of XML and HTML, or the text itself.
+
+| Parameter | Takes | For example |
+|---|---|---|
+| `{duration}` | a duration in seconds (`s`) or minutes (`m`) | `5s`, `2m` |
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+| `{string}` | text in double or single quotes, which the step leaves out | `"Get a quote"`, `'Express'` |
+
+**Variants**, the parts in `[[...]]` said or left out:
+
+- `the {word} blob in the {word} blob container contains {string}`
+- `within {duration} the {word} blob in the {word} blob container contains {string}`
+
+**Example:**
+
+```gherkin
+Then the invoices/kestrel-2026-09.pdf blob in the declarations blob container contains "Total due: 1284.50 EUR"
+```
+
+_Since 0.1.1._
+
+## `azure-blob.row`
+
+```gherkin
+Then [[within {duration} ]]the {word} blob in the {word} blob container has a row where:
+  | column | value |
+```
+
+Check that the table of the blob has a row with those values in those columns.
+
+- The check waits for it: 10 seconds, or `within {duration}`.
+- The blob is a CSV or TSV file, or an Excel workbook (.xlsx; its first sheet), whose first row names the columns.
+- Cells compare as text, as the workbook shows them, with runs of spaces as one space; an empty value matches an empty cell.
+
+| Parameter | Takes | For example |
+|---|---|---|
+| `{duration}` | a duration in seconds (`s`) or minutes (`m`) | `5s`, `2m` |
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+
+Each row names a column, as the blob's first row names it, and the value in that column.
+
+**Variants**, the parts in `[[...]]` said or left out:
+
+- `the {word} blob in the {word} blob container has a row where:`
+- `within {duration} the {word} blob in the {word} blob container has a row where:`
+
+**Example:**
+
+```gherkin
+Then within 30s the disputes/kestrel-2026-09.csv blob in the declarations blob container has a row where:
+  | parcel | PX-5199          |
+  | status | UNKNOWN_SHIPMENT |
+  | billed | 4.10             |
+```
+
+_Since 0.1.1._

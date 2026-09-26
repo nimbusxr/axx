@@ -1,0 +1,6 @@
+parcels.parcels:
+  - reference: "PX-WEB-5321"
+    sender: "fern-and-flax"
+    weight_grams: 1800
+    recipient: '{"name": "Lena Vogt", "street": "Kastanienallee 21", "city": "Berlin", "postcode": "10435", "country": "DE"}'
+    details: '{"source": "portal", "zone": "DE-1", "signature": false, "leaveWithNeighbour": true}'

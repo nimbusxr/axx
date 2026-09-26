@@ -35,7 +35,8 @@ func (d direction) prefix() string {
 }
 
 // Keys produced by the mapping. The list is the swagger request validator's
-// key set that libopenapi-validator can detect; the docs render it.
+// key set that libopenapi-validator can detect; the docs render it, and it
+// is what levels can be set on (levelKeys).
 var knownKeys = []struct{ key, when string }{
 	{"validation.request.path.missing", "no path of the specification matches the request path"},
 	{"validation.request.operation.notAllowed", "the path exists but not for the request method"},
@@ -51,6 +52,7 @@ var knownKeys = []struct{ key, when string }{
 	{"validation.request.parameter.cookie.missing", "a required cookie parameter is missing"},
 	{"validation.request.parameter.schema.{keyword}", "a parameter value violates its schema (type, enum, format, pattern, minimum, ...)"},
 	{"validation.request.parameter.schema.invalidJson", "a JSON (content) parameter cannot be parsed"},
+	{"validation.request.parameter.schema.processingError", "a parameter's schema cannot be compiled"},
 	{"validation.request.parameter.collection.invalidFormat", "an array or object parameter is serialized in the wrong style"},
 	{"validation.request.parameter.collection.tooManyItems", "an array parameter has more than maxItems items"},
 	{"validation.request.parameter.collection.tooFewItems", "an array parameter has fewer than minItems items"},

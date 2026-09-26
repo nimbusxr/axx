@@ -1,10 +1,10 @@
 ---
 name: axx-debugging
-description: Diagnose failing axx acceptance-test runs (Gherkin scenarios run by the axx CLI) - failed assertions, undefined or ambiguous steps, OpenAPI validation errors, apps that do not start, timeouts and flaky parallel scenarios. Use when `axx run` exits non-zero.
+description: Diagnose failing Axx acceptance-test runs (Gherkin scenarios run by the Axx CLI) - failed assertions, undefined or ambiguous steps, OpenAPI validation errors, apps that do not start, failed web steps, timeouts and flaky parallel scenarios. Use when `axx run` exits non-zero.
 license: Apache-2.0
 ---
 
-# Debugging axx failures
+# Debugging Axx failures
 
 ## Start from the exit code
 
@@ -26,13 +26,14 @@ Every error also carries a code such as `AXX-E0408`. Run `axx explain AXX-E0408`
 
 ## Common causes
 
-- **Undefined step.** The text differs from every definition. Use the `did you mean` suggestion or `axx steps search`, and never rewrite a step definition to match your text. A step from a pack the project doesn't list is undefined too: add the pack with `axx pack add <name>` (`axx pack list` shows axx's packs). Check for extra spaces, singular/plural (`time(s)` is optional), `a` vs `an`, and quotes around `{string}` values.
+- **Undefined step.** The text differs from every definition. Use the `did you mean` suggestion or `axx steps search`, and never rewrite a step definition to match your text. A step from a pack the project doesn't list is undefined too: add the pack with `axx pack add <name>` (`axx pack list` shows Axx's packs). Check for extra spaces, singular/plural (`time(s)` is optional), `a` vs `an`, and quotes around `{string}` values.
 - **Ambiguous step.** Two definitions match. Make the text more specific, for example by adding `on <service>`.
 - **Assertion expected X, got Y.** Check whether the test data is unique: another scenario running in parallel may have changed or used the same ids. Then check whether the value's type is wrong (`'5'` is the number 5; use `'"5"'` for the string `"5"`).
 - **OpenAPI validation errors on "the request is executed".** The request or the response violates the spec. The message names the rule, e.g. `validation.response.body.schema.required`. Fix the payload, or (for deliberate negative tests) relax that rule for the scenario: `Given the OpenAPI validation levels are:` with `| <rule> | IGNORE |`.
 - **Timeouts.** A step exceeded `run.timeouts.step`. For asynchronous behavior, use the polling steps (`within 5s a selection of at least 1 row ...`) instead of adding sleeps.
 - **Passes alone, fails in a full run.** Shared data or shared state. Give the scenario unique data (`axx lint` finds seed and fixture values used by more than one file). If it genuinely must run alone, tag it `@isolated`, or whatever is listed in `run.exclusive`.
 - **Fixture errors (`AXX-E09xx`).** `axx fixtures check` reports drift when a generated file no longer matches its factory spec: edit the spec and run `axx fixtures generate`. Generate refuses (`AXX-E0903`) to overwrite a generated file someone edited by hand; move the change into the spec, or revert the file. Messages name the factory, the fixture and the field.
+- **A web step failed.** The failure's `context` says which page each web app was on, the failed step attaches a screenshot of the page, and the `logs` name the Playwright trace the scenario keeps in `.axx/web/traces` (open it with `npx playwright show-trace`). To look at the page yourself, run the steps up to there with `steps_try` in `axx mcp`, then `web_page`.
 - **App never becomes ready.** Check `apps.<name>.ready` (URL, port, timeout). `axx up` then `curl` the health URL yourself. Read `.axx/logs/apps.log`.
 
 ## Don't

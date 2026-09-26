@@ -69,11 +69,11 @@ Given a seeds/scans-in-transit.json MongoDB seed for tracking-db
 
 `a seeds/scans-in-transit.json mongo db seed for tracking-db` is the same step with the other spelling.
 
-The file path resolves against the `resources` directories in `axx.yaml`. See the [mongo step reference](/references/steps/mongo/).
+The file path resolves against the `resources` directories in `axx.yaml`. See the [mongo pack reference](/references/packs/mongo/).
 
 ## Query and assert
 
-A document selection finds documents with equality conditions. Dotted field paths reach into nested documents, and [the step reference](/references/steps/mongo/#mongofind) says how values are read:
+A document selection finds documents with equality conditions. Dotted field paths reach into nested documents, and [the mongo pack reference](/references/packs/mongo/#mongofind) says how values are read:
 
 ```gherkin
 Then a selection of documents is retrieved from the scans collection where:
@@ -86,7 +86,7 @@ And the 1st document for the selection properties are:
   | scannedAt | 2026-05-04T16:10:00.000Z |
 ```
 
-Properties are JSONPaths (`location`, `history[0].status`), compared as text; `null` means null and `undefined` means the field is absent ([the rules](/references/steps/mongo/#mongodocare)). `the 1st document for the selection properties match:` takes Java regular expressions instead.
+Properties are JSONPaths (`location`, `history[0].status`), compared as text; `null` means null and `undefined` means the field is absent ([the rules](/references/packs/mongo/#mongodocare)). `the 1st document for the selection properties match:` takes Java regular expressions instead.
 
 Like the SQL selections, they are numbered in the order they are retrieved (`the 2nd selection has 3 documents`), and `has more than` / `has fewer than` compare counts.
 
@@ -98,7 +98,7 @@ Then within 10s a selection of at least 1 document is retrieved from the trackin
   | scanCount | 2           |
 ```
 
-The step polls every 500 ms until enough documents match or the time runs out. Values that parse as JSON are typed, so `2` matches the number 2.
+The step polls every 500 ms until enough documents match or the time runs out. When the time runs out it keeps the last result as the selection, with fewer documents, and does not fail, so check the selection in a later step (`the selection has 1 document`, or its properties). Values that parse as JSON are typed, so `2` matches the number 2.
 
 Every query step has an `on <service>` form for scenarios with more than one MongoDB database.
 

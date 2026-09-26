@@ -3,6 +3,7 @@ package rest
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/nimbusxr/axx/core"
@@ -71,7 +72,9 @@ type family struct {
 	head, tail   string
 	noun         string // "request" or "response"
 	nHead        int
-	doc          string
+	doc          string   // what the step does, in a sentence
+	details      []string // more of it, a short sentence or two each
+	table        *core.TableDoc
 	example      string // default-service example
 	namedExample string // named-service example
 	run          func(sc *core.Scenario, a core.Args, t target) error
@@ -85,7 +88,8 @@ func (f family) defs() []core.StepDef {
 		{
 			ID: f.id, Keyword: f.keyword, Arg: f.arg,
 			Expr:     f.head + "[[ for {ordinal} ordered " + f.noun + "]]" + f.tail,
-			Doc:      f.doc,
+			Doc:      docList(f.doc, append(append([]string{}, f.details...), f.targetDoc()...)...),
+			Table:    f.table,
 			Examples: []string{f.example},
 			Run:      run(target{ord: f.nHead, svc: -1}),
 		},
@@ -95,17 +99,40 @@ func (f family) defs() []core.StepDef {
 			Doc: "`" + f.id + "` on a named service: `for " + f.noun + " on <service>` addresses the service's first " +
 				"(default) " + f.noun + ", `for 2nd ordered " + f.noun + " on <service>` its second one. " +
 				"Everything else works like `" + f.id + "`.",
+			Table:    f.table,
 			Examples: []string{f.namedExample},
 			Run:      run(target{ord: f.nHead, svc: f.nHead + 1}),
 		},
 	}
 }
 
-const ordinalDoc = " Without an ordinal the step applies to the first (default) request of the service; " +
-	"`for 2nd ordered request` picks the second one. Without `on {service}` it uses the default (first registered) service."
+// docList is a step's Doc: what it does, in a sentence, then more of it as
+// a list.
+func docList(first string, items ...string) string {
+	if len(items) == 0 {
+		return first
+	}
+	return first + "\n\n- " + strings.Join(items, "\n- ")
+}
 
-const respOrdinalDoc = " Without an ordinal the step checks the response of the first (default) request; " +
-	"`for 2nd ordered response` the response of the second one. Without `on {service}` it uses the default (first registered) service."
+// targetDoc says which request (or response) and which service the first
+// step of a family works on.
+func (f family) targetDoc() []string {
+	which := "Without an ordinal it applies to the service's first (default) request; `for 2nd ordered request`, to its second."
+	if f.noun == "response" {
+		which = "Without an ordinal it checks the response to the first (default) request; `for 2nd ordered response`, " +
+			"the response to the second."
+	}
+	return []string{which, "It uses the default service, the first one registered; `" + f.id + ".on` names a service."}
+}
+
+// serviceDoc says which service a step uses when it names none.
+const serviceDoc = "Without `on {service}` it uses the default service, the first one registered."
+
+// levelsNote is the note on the table of OpenAPI validation levels.
+const levelsNote = "A row is a validation key and its level: `ERROR` (or `FAIL`), `WARN`, `INFO` or `IGNORE`. " +
+	"The key must be one the pack reports, or a prefix of such keys, like `validation.request.body`: " +
+	"any other fails the step, which names the closest keys."
 
 func steps() []core.StepDef {
 	var out []core.StepDef
@@ -122,29 +149,51 @@ func serviceSteps() []core.StepDef {
 		{
 			ID: "rest.service", Keyword: "Given", Arg: core.ArgTable,
 			Expr: "the {word} service with the following properties:",
-			Doc: "Register a REST service. The first service registered in a scenario is the default one.\n\n" +
-				"Properties (`${env:..}`/`${sys:..}` are expanded):\n\n" +
-				"- `url` (required): the base URL requests are sent to, e.g. `http://localhost:8080`.\n" +
-				"- `openapi`: the service's OpenAPI 3.0 or 3.1 specification, as a URL or a file path (resolved " +
-				"against the `resources` roots). When set, every executed request and its response are validated " +
-				"against it, and content example payloads come from it.",
-			Examples:   []string{"Given the parcels service with the following properties:"},
+			Doc: docList("Register a REST service: where its requests go, and the OpenAPI specification they are checked against.",
+				"The first service registered in a scenario is the default one.",
+				"With an `openapi` specification, every request executed and its response are validated against it, "+
+					"and request payloads can start from its examples.",
+				"Values can use `${env:…}` and `${sys:…}`, which are expanded."),
+			Table: &core.TableDoc{
+				Columns: []string{"property", "value"},
+				Rows: []core.TableRow{
+					{Name: "url", Takes: "the base URL requests go to, like `http://localhost:8400`; a request's path is added to it", Required: true},
+					{Name: "openapi", Takes: "the service's OpenAPI 3.0 or 3.1 specification: a URL, or a file of the project (relative to " +
+						"the `resources` directories or to axx.yaml's directory)"},
+				},
+				Note: "Any other property fails the step.",
+			},
+			Examples: []string{
+				"Given the parcels service with the following properties:\n" +
+					"  | url     | http://localhost:8400              |\n" +
+					"  | openapi | http://localhost:8400/openapi.json |",
+			},
 			TableTypes: map[string]string{"openapi": "filepath"},
 			Run:        addService,
 		},
 		{
 			ID: "rest.openapi.levels", Keyword: "Given", Arg: core.ArgTable,
 			Expr: "the OpenAPI validation levels[[ on {service}]] are:",
-			Doc: "Override OpenAPI validation levels for this scenario (on the default or the named service). " +
-				"Each row is `validation key | level`; the level is `ERROR` (or its alias `FAIL`), `WARN`, `INFO` or " +
-				"`IGNORE`. A key covers every more specific key: `validation.request.body` relaxes " +
-				"`validation.request.body.schema.required` too, and the most specific configured key wins. " +
-				"Rows are merged over `openapi.levels` from axx.yaml. See the pack documentation for the keys.",
-			Examples: []string{"Given the OpenAPI validation levels are:"},
-			Run:      setLevels,
+			Doc: docList("Set the level of OpenAPI validation findings for this scenario, on the default or the named service.",
+				"A key also sets the keys below it: `validation.request.body` relaxes `validation.request.body.schema.required` "+
+					"too. The most specific key set wins.",
+				"The rows are merged over `openapi.levels` of axx.yaml.",
+				"The pack's documentation lists the keys, and what each level does."),
+			Table: &core.TableDoc{Columns: []string{"validation key", "level"}, Note: levelsNote},
+			Examples: []string{
+				"Given the OpenAPI validation levels are:\n" +
+					"  | validation.request.body.schema.maximum | IGNORE |\n" +
+					"  | validation.response.header.missing     | WARN   |",
+				"Given the OpenAPI validation levels on parcels are:\n" +
+					"  | validation.request.body.schema.required | WARN |",
+			},
+			Run: setLevels,
 		},
 	}
 }
+
+// serviceProperties are the properties of a REST service.
+var serviceProperties = []string{"url", "openapi"}
 
 func addService(sc *core.Scenario, a core.Args) error {
 	pairs, err := a.Table.Pairs()
@@ -153,6 +202,9 @@ func addService(sc *core.Scenario, a core.Args) error {
 	}
 	props := map[string]string{}
 	for _, p := range pairs {
+		if !slices.Contains(serviceProperties, p.Key) {
+			return fmt.Errorf("unknown service property %q (supported: %s)", p.Key, strings.Join(serviceProperties, ", "))
+		}
 		if !p.Null {
 			props[p.Key] = sc.Suite().Interpolate(p.Value)
 		}
@@ -175,6 +227,9 @@ func setLevels(sc *core.Scenario, a core.Args) error {
 	}
 	levels := Levels{}
 	for _, p := range pairs {
+		if err := levelKeys.Check(strings.TrimSpace(p.Key)); err != nil {
+			return err
+		}
 		lv, err := ParseLevel(p.Value)
 		if err != nil {
 			return fmt.Errorf("Invalid OpenAPI validation level %q for key %q. Supported levels: %s", p.Value, p.Key, supportedLevels) //nolint:staticcheck // user-facing message
@@ -195,9 +250,9 @@ func requestSteps() []core.StepDef {
 		core.StepDef{
 			ID: "rest.request", Keyword: "Given",
 			Expr: "a(n) {word} request to {word}[[ on {service}]]",
-			Doc: "Add a request with a method and a path (optionally with a query string, e.g. `/api/parcels?sender=kestrel-books`) " +
-				"to the default or the named service. This is the service's first (default) request; add more with the " +
-				"ordered form. The path is appended to the service URL; an absolute URL replaces it.",
+			Doc: docList("Add a request to the default or the named service: its method, and its path below the service's `url`.",
+				"The path can have a query string, like `/api/parcels?sender=kestrel-books`. A whole URL replaces the service's `url`.",
+				"This is the service's first (default) request; the ordered form adds more."),
 			Examples: []string{"Given a GET request to /api/parcels/PX-1001", "Given a DELETE request to /api/parcels/PX-1001 on parcels"},
 			Run: func(sc *core.Scenario, a core.Args) error {
 				return addRequest(sc, a, target{ord: -1, svc: 2}, a.String(0), a.String(1))
@@ -218,8 +273,10 @@ func requestSteps() []core.StepDef {
 		{
 			id: "rest.request.header", keyword: "Given", noun: "request",
 			head: "the request header {word} is {string}", nHead: 2,
-			doc: "Set a request header. `Content-Type` and `Accept` replace an earlier value; other headers may be " +
-				"added more than once and are all sent." + ordinalDoc,
+			doc: "Set a request header.",
+			details: []string{
+				"`Content-Type` and `Accept` replace an earlier value; other headers may be added more than once, and are all sent.",
+			},
 			example:      "Given the request header Content-Type is 'application/json'",
 			namedExample: "Given the request header Accept is 'application/json' for 1st ordered request on parcels",
 			run: func(sc *core.Scenario, a core.Args, t target) error {
@@ -232,9 +289,18 @@ func requestSteps() []core.StepDef {
 		{
 			id: "rest.request.headers", keyword: "Given", arg: core.ArgTable, noun: "request",
 			head: "the request headers", tail: " are:",
-			doc:          "Set request headers from a `name | value` table (a name may repeat)." + ordinalDoc,
-			example:      "Given the request headers are:",
-			namedExample: "Given the request headers for request on parcels are:",
+			doc: "Set request headers, a row each.",
+			details: []string{
+				"A name may repeat. Like the single-header step, `Content-Type` and `Accept` replace an earlier value, " +
+					"and other headers are all sent.",
+			},
+			table: &core.TableDoc{Columns: []string{"header", "value"}, Note: "A row is a header's name and its value."},
+			example: "Given the request headers are:\n" +
+				"  | Accept          | application/json |\n" +
+				"  | Accept-Language | de-DE            |",
+			namedExample: "Given the request headers for request on parcels are:\n" +
+				"  | Content-Type | application/json |\n" +
+				"  | Accept       | application/json |",
 			run: func(sc *core.Scenario, a core.Args, t target) error {
 				rows, err := rows2(a.Table, "request headers")
 				if err != nil {
@@ -251,9 +317,12 @@ func requestSteps() []core.StepDef {
 		{
 			id: "rest.request.payload.empty", keyword: "Given", noun: "request",
 			head: "a request payload using a(n) {mimeType} empty content template", nHead: 1,
-			doc: "Start the request payload from an empty JSON object `{}`, to be filled with the payload property " +
-				"steps; no OpenAPI specification is needed. With `application/x-www-form-urlencoded` the properties " +
-				"are sent form-encoded (nested objects and arrays as JSON text)." + ordinalDoc,
+			doc: "Start the request payload from an empty JSON object, `{}`, for the payload property steps to fill.",
+			details: []string{
+				"It needs no OpenAPI specification.",
+				"With `application/x-www-form-urlencoded`, the properties are sent form-encoded, and nested objects and arrays as JSON text.",
+				"A request takes one payload step.",
+			},
 			example:      "Given a request payload using an application/json empty content template",
 			namedExample: "Given a request payload using an application/json empty content template for request on parcels",
 			run: func(sc *core.Scenario, a core.Args, t target) error {
@@ -265,11 +334,15 @@ func requestSteps() []core.StepDef {
 		{
 			id: "rest.request.payload.example", keyword: "Given", noun: "request",
 			head: "a request payload using a(n) {mimeType} content example[[ named {string}]]", nHead: 2,
-			doc: "Use a request body example of the service's OpenAPI specification as the payload: with " +
-				"`named '<name>'` the example of that name, otherwise the first example in document order (or the " +
-				"media type's single `example`). The example is looked up under the operation that matches the " +
-				"request's method and path, for the given media type. An example with an `externalValue` is read " +
-				"relative to the specification. Requires the service's `openapi` property and a request added first." + ordinalDoc,
+			doc: "Start the request payload from a request body example of the service's OpenAPI specification.",
+			details: []string{
+				"With `named '<name>'` it is the example of that name; without, the first example in document order, " +
+					"or the media type's single `example`.",
+				"The example is looked up under the operation that matches the request's method and path, for the media type.",
+				"An example with an `externalValue` is read relative to the specification.",
+				"The service needs its `openapi` property, and the request must be added first.",
+				"A request takes one payload step.",
+			},
 			example:      "Given a request payload using an application/json content example named 'Standard parcel'",
 			namedExample: "Given a request payload using an application/json content example for 1st ordered request on parcels",
 			run:          examplePayload,
@@ -277,11 +350,15 @@ func requestSteps() []core.StepDef {
 		{
 			id: "rest.request.property", keyword: "Given", noun: "request",
 			head: "the request payload property {word} is {string}", nHead: 2,
-			doc: "Set a payload property (a JSONPath such as `weightGrams`, `recipient.postcode` or `$.recipient.name`). " +
-				"A value in double quotes inside the quotes (`'\"42\"'`) is always a string. Otherwise the value takes the " +
-				"type of the current value (string, boolean, integer, number, object or array, parsed from JSON text); " +
-				"a property that does not exist yet, or is null, gets the type the text reads as (`true`, `42`, `1.5`, " +
-				"`{...}`, `[...]`, else a string). Requires a payload step first." + ordinalDoc,
+			doc: "Set a property of the request payload, by its JSONPath, like `weightGrams`, `recipient.postcode` or `$.recipient.name`.",
+			details: []string{
+				"A value in double quotes inside the quotes, like `'\"42\"'`, is always a string.",
+				"Any other value takes the type of the property's current value: a string, a boolean, an integer, a number, " +
+					"or an object or array parsed from JSON text.",
+				"A property that does not exist yet, or is null, takes the type its value reads as: `true`, `42`, `1.5`, " +
+					"`{...}`, `[...]`, or else a string.",
+				"A payload step must come first.",
+			},
 			example:      "Given the request payload property sender is 'kestrel-books'",
 			namedExample: "Given the request payload property serviceLevel is 'EXPRESS' for request on parcels",
 			run: func(sc *core.Scenario, a core.Args, t target) error {
@@ -291,11 +368,19 @@ func requestSteps() []core.StepDef {
 		{
 			id: "rest.request.properties", keyword: "Given", arg: core.ArgTable, noun: "request",
 			head: "the request payload properties", tail: " are:",
-			doc: "Set payload properties from a `path | value` table, row by row, like the single-property step. " +
-				"`null` sets JSON null and `undefined` removes the property (any case); write `\"null\"` or " +
-				"`\"undefined\"` in double quotes for the strings." + ordinalDoc,
-			example:      "Given the request payload properties are:",
-			namedExample: "Given the request payload properties for 1st ordered request on parcels are:",
+			doc: "Set properties of the request payload, a row each, in order, like the single-property step.",
+			details: []string{
+				"`null` sets JSON null, and `undefined` removes the property, in any case.",
+				"`\"null\"` and `\"undefined\"`, in double quotes, are the strings.",
+			},
+			table: &core.TableDoc{Columns: []string{"JSONPath", "value"}, Note: "A row is a property's JSONPath and its value."},
+			example: "Given the request payload properties are:\n" +
+				"  | reference          | PX-4101 |\n" +
+				"  | weightGrams        | 1200    |\n" +
+				"  | recipient.postcode | \"53111\" |",
+			namedExample: "Given the request payload properties for 1st ordered request on parcels are:\n" +
+				"  | sender           | lark-ceramics |\n" +
+				"  | recipient.street | undefined     |",
 			run: func(sc *core.Scenario, a core.Args, t target) error {
 				pairs, err := a.Table.Pairs()
 				if err != nil {
@@ -314,7 +399,7 @@ func requestSteps() []core.StepDef {
 		{
 			id: "rest.request.property.null", keyword: "Given", noun: "request",
 			head: "the request payload property {word} is null", nHead: 1,
-			doc:          "Set an existing payload property to JSON null." + ordinalDoc,
+			doc:          "Set an existing property of the request payload to JSON null.",
 			example:      "Given the request payload property recipient.street is null",
 			namedExample: "Given the request payload property recipient.street is null for request on parcels",
 			run: func(sc *core.Scenario, a core.Args, t target) error {
@@ -327,11 +412,14 @@ func requestSteps() []core.StepDef {
 	out = append(out, core.StepDef{
 		ID: "rest.execute", Keyword: "When",
 		Expr: "the[[ {ordinal} ordered]] request is executed[[ on {service}]]",
-		Doc: "Send a request and keep its response for the response steps. With an OpenAPI specification the " +
-			"request and the response are validated after sending: findings at level ERROR fail the step (all of " +
-			"them are listed with their keys), WARN and INFO are logged. The payload is sent as is, form-encoded " +
-			"for `application/x-www-form-urlencoded`; without a Content-Type header the payload's media type is " +
-			"used. The request honors the step timeout. A request can be executed once.",
+		Doc: docList("Send a request, and keep its response for the response steps.",
+			"With an OpenAPI specification, the request and its response are validated after sending. Findings at level "+
+				"`ERROR` fail the step, which lists them all with their keys; `WARN` and `INFO` findings are logged.",
+			"The payload is sent as it is, or form-encoded for `application/x-www-form-urlencoded`.",
+			"Without a `Content-Type` header, the request has the payload's media type; without an `Accept` header, `*/*`.",
+			"The request honors the step timeout, and is executed once.",
+			"Without an ordinal it sends the service's first (default) request; `the 2nd ordered request`, its second.",
+			serviceDoc),
 		Examples: []string{"When the request is executed", "When the 2nd ordered request is executed on parcels"},
 		Run: func(sc *core.Scenario, a core.Args) error {
 			t := target{ord: 0, svc: 1}

@@ -226,8 +226,8 @@ func (s *service) rates(ctx context.Context, carrier string) (map[string]float64
 	}
 }
 
-// writeDisputes writes the lines the carrier must answer for, as CSV for the
-// carrier and as a JSON summary for the finance team.
+// writeDisputes writes the lines the carrier must answer for: as CSV and a
+// letter for the carrier, and as a JSON summary for the finance team.
 func (s *service) writeDisputes(ctx context.Context, invoice, carrier string, lines []Line, total int64) error {
 	var b bytes.Buffer
 	w := csv.NewWriter(&b)
@@ -242,7 +242,31 @@ func (s *service) writeDisputes(ctx context.Context, invoice, carrier string, li
 	summary, _ := json.MarshalIndent(map[string]any{
 		"invoice": invoice, "carrier": carrier, "disputedLines": len(lines), "disputedAmount": cents(total),
 	}, "", "  ")
-	return s.put(ctx, invoice+".json", "application/json", summary)
+	if err := s.put(ctx, invoice+".json", "application/json", summary); err != nil {
+		return err
+	}
+	return s.put(ctx, invoice+"-letter.txt", "text/plain; charset=utf-8", disputeLetter(invoice, carrier, lines, total))
+}
+
+// disputeLetter tells the carrier which lines of its invoice are disputed,
+// and why, and asks for a credit note.
+func disputeLetter(invoice, carrier string, lines []Line, total int64) []byte {
+	var b strings.Builder
+	fmt.Fprintf(&b, "To %s, about invoice %s\n\n", carrier, invoice)
+	fmt.Fprintf(&b, "We checked your invoice %s against the rates we agreed and the weights we measured, "+
+		"and we dispute %d of its lines, %s in all:\n\n", invoice, len(lines), money(cents(total)))
+	for _, l := range lines {
+		switch l.Status {
+		case Overcharged:
+			fmt.Fprintf(&b, "  %s  billed %s, the agreed rate for the weight we measured is %s\n", l.Parcel, money(l.Billed), money(l.Expected))
+		case UnknownShipment:
+			fmt.Fprintf(&b, "  %s  billed %s, a parcel we did not ship with you\n", l.Parcel, money(l.Billed))
+		default:
+			fmt.Fprintf(&b, "  %s  billed %s, we agreed no rate for the %s service\n", l.Parcel, money(l.Billed), l.Service)
+		}
+	}
+	fmt.Fprintf(&b, "\nPlease send us a credit note for %s.\n\nCarrier billing\n", money(cents(total)))
+	return []byte(b.String())
 }
 
 func (s *service) put(ctx context.Context, name, contentType string, body []byte) error {

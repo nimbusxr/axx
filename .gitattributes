@@ -9,4 +9,5 @@ gradlew text eol=lf
 
 # generated artifacts: collapse in diffs, exclude from language stats
 testdata/oracles/** linguist-generated=true -diff
+packs/web/coverage/internal/v8cov/testdata/** linguist-generated=true -diff
 docs/src/content/docs/references/_gen/** linguist-generated=true

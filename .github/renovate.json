@@ -8,7 +8,8 @@
     {"matchUpdateTypes": ["major"], "dependencyDashboardApproval": true},
     {"matchManagers": ["github-actions"], "groupName": "GitHub Actions"},
     {"matchManagers": ["gomod"], "matchUpdateTypes": ["minor", "patch"], "groupName": "Go modules"},
-    {"matchPackageNames": ["org.wiremock:wiremock-standalone"], "groupName": "WireMock", "automerge": false}
+    {"matchPackageNames": ["org.wiremock:wiremock-standalone"], "groupName": "WireMock", "automerge": false},
+    {"matchPackageNames": ["lighthouse"], "matchFileNames": ["packs/web/lighthouse/**"], "groupName": "Lighthouse", "automerge": false}
   ],
   "customManagers": [
     {
@@ -18,6 +19,22 @@
       "matchStrings": ["ARG WIREMOCK_VERSION=(?<currentValue>\\S+)"],
       "depNameTemplate": "org.wiremock:wiremock-standalone",
       "datasourceTemplate": "maven"
+    },
+    {
+      "customType": "regex",
+      "description": "The Lighthouse the web-lighthouse pack names; npm/package.json and its lockfile pin the same one. It must suit the Chromium of the Playwright the web pack drives: a person checks before it merges.",
+      "managerFilePatterns": ["/^packs/web/lighthouse/install\\.go$/"],
+      "matchStrings": ["const lighthouseVersion = \"(?<currentValue>[^\"]+)\""],
+      "depNameTemplate": "lighthouse",
+      "datasourceTemplate": "npm"
+    },
+    {
+      "customType": "regex",
+      "description": "The Delve axx builds for --debug-steps. It must support the Go release axx is built with.",
+      "managerFilePatterns": ["/^internal/cli/debugsteps\\.go$/"],
+      "matchStrings": ["const delveVersion = \"(?<currentValue>[^\"]+)\""],
+      "depNameTemplate": "github.com/go-delve/delve",
+      "datasourceTemplate": "go"
     }
   ]
 }

@@ -3,7 +3,9 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/csv"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log/slog"
 	"math"
@@ -27,7 +29,16 @@ type Filing struct {
 // Invoice is a commercial invoice: what the parcel contains and its value.
 type Invoice struct {
 	Currency string  `json:"currency"`
+	Items    []Item  `json:"items"`
 	Total    float64 `json:"total"`
+}
+
+// Item is a line of a commercial invoice.
+type Item struct {
+	Description string  `json:"description"`
+	HSCode      string  `json:"hsCode"` // the tariff code
+	Quantity    int     `json:"quantity"`
+	Value       float64 `json:"value"`
 }
 
 type service struct {
@@ -59,7 +70,10 @@ func (s *service) clear(ctx context.Context, f Filing, broker string) error {
 		return err
 	}
 	if inv.Total > s.deMinimis {
-		duties := math.Round(inv.Total*s.dutyRate*100) / 100
+		lines, duties := assessDuties(inv, s.dutyRate)
+		if err := s.upload(ctx, s.names.Archive, f.Declaration+"/duties.csv", "text/csv", dutiesCSV(lines, inv.Currency)); err != nil {
+			return err
+		}
 		payment, _ := json.Marshal(map[string]any{"declaration": f.Declaration, "parcel": f.Parcel, "amount": duties, "currency": inv.Currency})
 		if err := s.send(ctx, s.names.Duties, payment, map[string]any{"broker": broker}); err != nil {
 			return err
@@ -67,15 +81,65 @@ func (s *service) clear(ctx context.Context, f Filing, broker string) error {
 		s.log.Info("declaration held", "declaration", f.Declaration, "reason", "DUTIES_DUE", "duties", duties)
 		return s.announce(ctx, "DeclarationHeld", map[string]any{"declaration": f.Declaration, "parcel": f.Parcel, "reason": "DUTIES_DUE", "duties": duties})
 	}
+	at := s.now().UTC()
 	certificate, _ := json.MarshalIndent(map[string]any{
 		"declaration": f.Declaration, "parcel": f.Parcel, "status": "CLEARED", "duties": 0,
-		"currency": inv.Currency, "value": inv.Total, "clearedAt": s.now().UTC().Format(time.RFC3339),
+		"currency": inv.Currency, "value": inv.Total, "clearedAt": at.Format(time.RFC3339),
 	}, "", "  ")
 	if err := s.upload(ctx, s.names.Clearances, f.Declaration+".json", "application/json", certificate); err != nil {
 		return err
 	}
+	if err := s.upload(ctx, s.names.Clearances, f.Declaration+".txt", "text/plain; charset=utf-8", certificateText(f, inv, s.deMinimis, at)); err != nil {
+		return err
+	}
 	s.log.Info("declaration cleared", "declaration", f.Declaration)
 	return s.announce(ctx, "DeclarationCleared", map[string]any{"declaration": f.Declaration, "parcel": f.Parcel})
+}
+
+// dutyLine is the duty on a line of a commercial invoice.
+type dutyLine struct {
+	Item
+	Duty float64
+}
+
+// assessDuties works out the duty on every line of an invoice at the rate,
+// and their total. An invoice that lists no items is assessed as one line.
+func assessDuties(inv Invoice, rate float64) ([]dutyLine, float64) {
+	items := inv.Items
+	if len(items) == 0 {
+		items = []Item{{Value: inv.Total}}
+	}
+	lines := make([]dutyLine, 0, len(items))
+	var cents int64
+	for _, it := range items {
+		c := int64(math.Round(it.Value * rate * 100))
+		lines = append(lines, dutyLine{Item: it, Duty: float64(c) / 100})
+		cents += c
+	}
+	return lines, float64(cents) / 100
+}
+
+// dutiesCSV is the breakdown of the duties the archive keeps: a row per
+// line of the invoice.
+func dutiesCSV(lines []dutyLine, currency string) []byte {
+	var b bytes.Buffer
+	w := csv.NewWriter(&b)
+	_ = w.Write([]string{"hs_code", "description", "quantity", "value", "duty", "currency"})
+	for _, l := range lines {
+		_ = w.Write([]string{l.HSCode, l.Description, fmt.Sprint(l.Quantity), fmt.Sprintf("%.2f", l.Value), fmt.Sprintf("%.2f", l.Duty), currency})
+	}
+	w.Flush()
+	return b.Bytes()
+}
+
+// certificateText is the clearance certificate to print, for the parcel's
+// papers.
+func certificateText(f Filing, inv Invoice, deMinimis float64, at time.Time) []byte {
+	return fmt.Appendf(nil, "CUSTOMS CLEARANCE CERTIFICATE\n\n"+
+		"Declaration  %s\nParcel       %s\nValue        %.2f %s\nDuties       0.00 %s\nCleared at   %s\n\n"+
+		"Parcel %s is cleared for import without duties: its value of %.2f %s is within the de minimis limit of %.2f %s.\n",
+		f.Declaration, f.Parcel, inv.Total, inv.Currency, inv.Currency, at.Format(time.RFC3339),
+		f.Parcel, inv.Total, inv.Currency, deMinimis, inv.Currency)
 }
 
 // arrived releases a parcel that reaches the border cleared, and holds one

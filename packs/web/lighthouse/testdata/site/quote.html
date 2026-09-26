@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Get a price for sending a parcel with Parcels, by its weight and where it goes.">
+<title>Get a quote - Parcels</title>
+<link rel="icon" href="data:,">
+<style>
+ body { font-family: system-ui, sans-serif; margin: 0; color: #1a1a1a; }
+ header { background: #0b3d91; color: #fff; padding: 12px 16px; font-weight: bold; }
+ main { padding: 16px; max-width: 640px; margin: auto; }
+ label { display: block; margin: 12px 0 4px; }
+ input, select, button { font-size: 16px; padding: 8px; }
+ button { margin-top: 16px; background: #0b3d91; color: #fff; border: 0; }
+</style>
+</head>
+<body>
+<header>Parcels</header>
+<main>
+ <h1>Get a quote</h1>
+ <form>
+  <label for="weight">Weight (grams)</label>
+  <input id="weight" name="weight" type="number" min="1">
+  <label for="country">Destination country</label>
+  <select id="country" name="country"><option>Germany</option><option>France</option></select>
+  <button type="submit">Get a quote</button>
+ </form>
+ <p><a href="/track/PX-4101">Track a parcel</a></p>
+</main>
+</body>
+</html>

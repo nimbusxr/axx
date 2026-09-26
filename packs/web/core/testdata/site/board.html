@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Depot board</title>
+  <style>
+    body { font: 16px sans-serif; margin: 16px; }
+    .columns { display: flex; gap: 16px; }
+    .column { min-width: 200px; min-height: 120px; border: 1px solid #999; padding: 8px; }
+    .card { border: 1px solid #1f5fa8; margin: 4px 0; padding: 6px; background: #eef4fb; }
+    [role=menu] { list-style: none; border: 1px solid #999; padding: 4px; position: absolute; background: #fff; }
+    #more { height: 20px; }
+  </style>
+</head>
+<body>
+  <h1>Depot board</h1>
+  <p><label for="scan">Scan a parcel</label> <input id="scan" autofocus></p>
+  <p><label for="depot">Depot</label> <input id="depot" value="Berlin-Mitte" disabled></p>
+  <p data-testid="depot-total">3 parcels</p>
+  <p id="today"></p>
+  <p id="session">Session ends in 30 minutes</p>
+  <p id="connection">Online</p>
+  <p id="outcome" role="status"></p>
+
+  <div id="board" class="columns">
+    <section class="column" id="registered">
+      <h2>Registered</h2>
+      <div class="card" draggable="true" id="PX-4101"><span>PX-4101</span> <button>Remove</button></div>
+      <div class="card" draggable="true" id="PX-4102"><span>PX-4102</span> <button>Remove</button></div>
+    </section>
+    <section class="column" id="out">
+      <h2>Out for delivery</h2>
+      <div class="card" draggable="true" id="PX-4103"><span>PX-4103</span></div>
+    </section>
+  </div>
+  <ul id="context" role="menu" hidden><li role="menuitem" id="print">Print the label</li></ul>
+
+  <p>
+    <label for="days">Delivery days</label>
+    <select id="days" multiple size="5">
+      <option>Monday</option><option>Tuesday</option><option>Wednesday</option><option>Thursday</option><option>Friday</option>
+    </select>
+  </p>
+  <p><button id="choose">Choose a customs invoice</button> <input id="invoice" type="file" hidden></p>
+  <p><button id="refresh">Refresh the board</button> <button id="break">Break the board</button></p>
+
+  <h2>Delivered today</h2>
+  <ol id="delivered"></ol>
+  <div id="more"></div>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const say = (text) => { $('outcome').textContent = text; };
+
+    // Dragging a card to a column moves it there.
+    let dragged = null;
+    for (const card of document.querySelectorAll('.card')) {
+      card.addEventListener('dragstart', (e) => { dragged = card; e.dataTransfer.setData('text/plain', card.id); });
+      card.addEventListener('dblclick', () => say('Editing ' + card.id));
+      card.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        $('context').hidden = false;
+        $('context').dataset.card = card.id;
+      });
+      card.addEventListener('touchend', () => say('Tapped ' + card.id));
+    }
+    for (const column of document.querySelectorAll('.column')) {
+      column.addEventListener('dragover', (e) => e.preventDefault());
+      column.addEventListener('drop', (e) => {
+        e.preventDefault();
+        column.appendChild(dragged);
+        say(dragged.id + ' moved to ' + column.querySelector('h2').textContent);
+      });
+    }
+    $('print').addEventListener('click', () => { $('context').hidden = true; say('Label printed for ' + $('context').dataset.card); });
+
+    $('days').addEventListener('change', () => say('Days: ' + [...$('days').selectedOptions].map((o) => o.text).join(', ')));
+    $('choose').addEventListener('click', () => $('invoice').click());
+    $('invoice').addEventListener('change', () => say('Invoice: ' + $('invoice').files[0].name));
+    $('refresh').addEventListener('click', () => {
+      fetch('/api/board', { method: 'POST', body: '{}' })
+        .then(() => say('Board refreshed'))
+        .catch(() => say('Offline: the board keeps its changes on this device'));
+    });
+    $('break').addEventListener('click', () => { console.error('the board lost its columns'); throw new Error('columns is undefined'); });
+    $('scan').addEventListener('keydown', (e) => { if (e.key === 'Enter') say('Scanned ' + $('scan').value); });
+
+    // The clock: the day, and a session that ends after 30 minutes.
+    $('today').textContent = 'Today: ' + new Date().toISOString().slice(0, 10);
+    setTimeout(() => { $('session').textContent = 'Session expired'; }, 30 * 60 * 1000);
+    addEventListener('offline', () => { $('connection').textContent = 'You are offline'; });
+    addEventListener('online', () => { $('connection').textContent = 'Back online'; });
+
+    // More delivered parcels show as the page scrolls.
+    let next = 1;
+    const more = () => {
+      for (let i = 0; i < 40; i++, next++) {
+        const li = document.createElement('li');
+        li.textContent = 'PX-' + (5000 + next);
+        $('delivered').appendChild(li);
+      }
+    };
+    more();
+    new IntersectionObserver((es) => { if (es[0].isIntersecting && next < 200) more(); }).observe($('more'));
+  </script>
+</body>
+</html>

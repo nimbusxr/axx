@@ -45,6 +45,16 @@ type Options struct {
 	Log io.Writer
 }
 
+// ModuleCache is the module cache of the Go axx downloads, where the builds
+// of a project's packs find their modules; "" when there is no user cache.
+func ModuleCache() string {
+	base, err := os.UserCacheDir()
+	if err != nil {
+		return ""
+	}
+	return filepath.Join(base, "axx", "go", "path", "pkg", "mod")
+}
+
 // Ensure returns the toolchain to build with: AXX_GO when set, else the
 // release axx was built with (downloaded on first use), else go on PATH.
 func Ensure(ctx context.Context, o Options) (*Toolchain, error) {

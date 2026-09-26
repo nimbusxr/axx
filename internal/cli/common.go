@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"io"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -17,13 +18,15 @@ import (
 
 // configFlags are shared by commands that load axx.yaml.
 type configFlags struct {
-	profile string
-	defines []string
+	profile  string
+	defines  []string
+	settings []string
 }
 
 func (f *configFlags) register(cmd *cobra.Command) {
 	cmd.Flags().StringVar(&f.profile, "profile", "", "apply profiles.<name> / axx.<name>.yaml (env: AXX_PROFILE)")
 	cmd.Flags().StringArrayVarP(&f.defines, "define", "D", nil, "set a property for ${sys:name}, e.g. -D local.host=docker")
+	cmd.Flags().StringArrayVar(&f.settings, "set", nil, "set a key of axx.yaml for this run, over its files and profiles, e.g. --set run.workers=1 or --set packs.<pack>.<key>=value")
 }
 
 func (f *configFlags) properties() (map[string]string, error) {
@@ -44,7 +47,7 @@ func (a *App) loadConfig(f *configFlags) (*config.Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	return config.Load(config.LoadOptions{Path: a.Config, Profile: f.profile, Properties: props})
+	return config.Load(config.LoadOptions{Path: a.Config, Profile: f.profile, Properties: props, Settings: f.settings})
 }
 
 // loadEngine loads configuration and assembles packs.
@@ -53,7 +56,16 @@ func (a *App) loadEngine(f *configFlags) (*engine.Engine, error) {
 	if err != nil {
 		return nil, err
 	}
-	return engine.New(engine.Options{Config: cfg, Logger: a.logger()})
+	return engine.New(engine.Options{Config: cfg, Logger: a.logger(), IDE: a.ide()})
+}
+
+// ide is where packs' lines for an IDE go: stdout, when an IDE runs axx
+// (it sets AXX_IDE); nowhere otherwise.
+func (a *App) ide() io.Writer {
+	if os.Getenv("AXX_IDE") == "" {
+		return nil
+	}
+	return a.Stdout
 }
 
 // hintNoPacks tells a project without axx-packs.yaml where steps come from.

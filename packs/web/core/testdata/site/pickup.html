@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Pickup points</title></head>
+<body>
+  <form id="pickup">
+    <label for="point">Pickup point</label>
+    <select id="point">
+      <option>Kiosk Rosenthaler Str. 40</option>
+      <option>Späti Torstr. 102</option>
+    </select>
+    <button type="submit">Choose this pickup point</button>
+  </form>
+  <p id="chosen" role="status"></p>
+  <table><thead><tr><th>Pickup point</th><th>Opening hours</th></tr></thead>
+    <tbody><tr><td>Kiosk Rosenthaler Str. 40</td><td>7:00 to 22:00</td></tr></tbody></table>
+  <script>
+    document.getElementById('pickup').addEventListener('submit', (e) => {
+      e.preventDefault();
+      document.getElementById('chosen').textContent = 'Pickup point: ' + document.getElementById('point').value;
+    });
+  </script>
+</body>
+</html>

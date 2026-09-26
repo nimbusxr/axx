@@ -1,6 +1,6 @@
 ---
 title: Mock dependencies
-description: Replace the services your service calls with WireMock, verify the requests it sent, and check both sides of each dependency's OpenAPI contract with the axx WireMock image.
+description: Replace the services your service calls with WireMock, verify the requests it sent, and check both sides of each dependency's OpenAPI contract with the Axx WireMock image.
 ---
 
 Your service calls other services. In an acceptance test you replace them with [WireMock](https://wiremock.org/) mocks, which gives you two things: the responses are under your control, and you can check exactly what your service sent.
@@ -62,7 +62,7 @@ Feature: Address check
     And the header X-Api-Key for mocked request named postcode-check on addresses is 'example-address-key'
 ```
 
-`the mocked GET request to /v1/postcodes/DE/53111 named postcode-check was received by addresses` registers a request pattern (method and exact URL, including the query string) under a name you choose, and checks it was received at least once. Later steps refer to it by that name; the [mock step reference](/references/steps/mock/) has the ones that check counts, absence and headers.
+`the mocked GET request to /v1/postcodes/DE/53111 named postcode-check was received by addresses` registers a request pattern (method and exact URL, including the query string) under a name you choose, and checks it was received at least once. Later steps refer to it by that name; the [mock pack reference](/references/packs/mock/) has the ones that check counts, absence and headers.
 
 ```gherkin
 Scenario: Invalid registrations never reach the address service
@@ -80,7 +80,7 @@ Scenario: Invalid registrations never reach the address service
 ```
 
 :::caution[Journals persist]
-WireMock keeps its request journal between scenarios, and between runs for as long as it keeps running, and scenarios run in parallel. Match on something unique to the scenario (a postcode or an id in the URL, a header) so one scenario never counts another scenario's requests. See [Isolate test data](/guides/isolate-test-data/).
+WireMock keeps its request journal between scenarios, and between runs for as long as it keeps running, and scenarios run in parallel. Match on something unique to the scenario (a postcode or an id in the URL, a header) so one scenario never counts another scenario's requests. A count such as `exactly 1 time` also counts the requests of earlier runs while the mock keeps running, as it does between runs with `axx up`. See [Isolate test data](/guides/isolate-test-data/).
 :::
 
 ## Check the dependency's contract

@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"maps"
 	"os"
@@ -164,6 +165,9 @@ type Options struct {
 	Selection []packset.Entry
 	// Compiled overrides the packs compiled into this axx (tests).
 	Compiled map[string]core.Pack
+	// IDE receives the lines packs announce to an IDE running axx; nil
+	// when none does.
+	IDE io.Writer
 }
 
 // New registers packs and builds the suite. It does not start anything.
@@ -227,6 +231,10 @@ func New(opts Options) (*Engine, error) {
 		ResolvePath: e.ResolvePath,
 		Logger:      logger,
 		ProjectDir:  cfg.Dir,
+		Announce:    announcer(opts.IDE),
+		Invoke: func(sc *core.Scenario, text string, table *core.Table, doc *core.DocString) error {
+			return e.Invoke(sc, text, table, doc)
+		},
 	})
 	return e, nil
 }
@@ -448,4 +456,17 @@ func (e *Engine) PackNames() []string {
 // String identifies the engine for debugging.
 func (e *Engine) String() string {
 	return fmt.Sprintf("engine(%d packs, %d steps)", len(e.Packs), len(e.Registry.Defs()))
+}
+
+// announcer writes packs' IDE lines, one at a time.
+func announcer(w io.Writer) func(string) {
+	if w == nil {
+		return nil
+	}
+	var mu sync.Mutex
+	return func(line string) {
+		mu.Lock()
+		defer mu.Unlock()
+		fmt.Fprintln(w, line)
+	}
 }

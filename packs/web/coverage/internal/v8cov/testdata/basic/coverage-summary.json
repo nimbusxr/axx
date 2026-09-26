@@ -1,0 +1,4 @@
+{"total": {"lines":{"total":62,"covered":36,"skipped":0,"pct":58.06},"statements":{"total":62,"covered":36,"skipped":0,"pct":58.06},"functions":{"total":7,"covered":4,"skipped":0,"pct":57.14},"branches":{"total":12,"covered":6,"skipped":0,"pct":50},"branchesTrue":{"total":0,"covered":0,"skipped":0,"pct":"Unknown"}}
+,"site/app.js": {"lines":{"total":33,"covered":17,"skipped":0,"pct":51.51},"functions":{"total":3,"covered":1,"skipped":0,"pct":33.33},"statements":{"total":33,"covered":17,"skipped":0,"pct":51.51},"branches":{"total":4,"covered":2,"skipped":0,"pct":50}}
+,"site/util.js": {"lines":{"total":29,"covered":19,"skipped":0,"pct":65.51},"functions":{"total":4,"covered":3,"skipped":0,"pct":75},"statements":{"total":29,"covered":19,"skipped":0,"pct":65.51},"branches":{"total":8,"covered":4,"skipped":0,"pct":50}}
+}

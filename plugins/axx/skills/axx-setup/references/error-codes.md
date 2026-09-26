@@ -116,6 +116,14 @@ The file given with `--config` does not exist or cannot be read.
 
 **Fix:** Define the profile or pick one of the listed names.
 
+### AXX-E0105
+
+**Invalid --set** · exit 2
+
+A `--set` is not a dotted path to a key of `axx.yaml` and a value.
+
+**Fix:** Write `--set path.to.key=value`, like `--set run.workers=1` or `--set packs.<pack>.<key>=value`. The value is read as YAML, so `true` and `1` are a boolean and a number.
+
 ## Feature files and filters
 
 ### AXX-E0200
@@ -196,9 +204,9 @@ Preparing axx with the project's packs failed. The compiler output is in the mes
 
 **Delve is needed to debug step code** · exit 4
 
-`axx run --debug-steps` runs axx under Delve, Go's debugger, so an IDE can stop at breakpoints in step code. `dlv` was not found on PATH or in Go's bin directories.
+`axx run --debug-steps` runs axx under Delve, Go's debugger, so an IDE can stop at breakpoints in step code. Axx builds Delve itself the first time, from the Go module proxy, with the Go it downloads; it could not, and no `dlv` is installed.
 
-**Fix:** Install it with `go install github.com/go-delve/delve/cmd/dlv@latest`.
+**Fix:** Check the network and run again, or install Delve with `go install github.com/go-delve/delve/cmd/dlv@latest`, or set `AXX_DLV` to the path of a `dlv`.
 
 ### AXX-E0306
 
@@ -346,7 +354,7 @@ Starting apps was interrupted (Ctrl-C). Every app that had started was stopped a
 
 `--format` or `run.reporters` names a reporter that does not exist.
 
-**Fix:** Use one of: pretty, progress, compact, junit, messages, cucumber-json, html, agent.
+**Fix:** Use one of: pretty, progress, compact, junit, messages, cucumber-json, html, agent, teamcity.
 
 ## Lint
 

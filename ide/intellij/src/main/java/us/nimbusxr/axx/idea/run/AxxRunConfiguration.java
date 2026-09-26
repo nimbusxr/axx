@@ -31,7 +31,8 @@ import java.util.List;
 
 /**
  * An axx run configuration: {@code axx run --format teamcity <targets> <arguments>}, in the axx
- * project's directory, with the scenarios in the IDE's test runner.
+ * project's directory, with the scenarios in the IDE's test runner. It can watch the web pack's
+ * browsers, as the Watch executor does for any axx run configuration.
  */
 public final class AxxRunConfiguration
         extends LocatableConfigurationBase<AxxRunConfigurationOptions>
@@ -98,6 +99,15 @@ public final class AxxRunConfiguration
 
     public void setWorkingDirectory(@NotNull String workingDirectory) {
         getOptions().setWorkingDirectory(workingDirectory.strip());
+    }
+
+    /** Whether every run watches the web pack's browsers, not only runs with Watch. */
+    public boolean isWatchBrowsers() {
+        return getOptions().getWatchBrowsers();
+    }
+
+    public void setWatchBrowsers(boolean watchBrowsers) {
+        getOptions().setWatchBrowsers(watchBrowsers);
     }
 
     /**
@@ -185,6 +195,12 @@ public final class AxxRunConfiguration
     @Override
     public @NotNull SMTRunnerConsoleProperties createTestConsoleProperties(
             @NotNull Executor executor) {
-        return new AxxTestConsoleProperties(this, executor);
+        Path workingDirectory;
+        try {
+            workingDirectory = workingDirectory();
+        } catch (ExecutionException e) {
+            workingDirectory = null;
+        }
+        return new AxxTestConsoleProperties(this, executor, workingDirectory);
     }
 }

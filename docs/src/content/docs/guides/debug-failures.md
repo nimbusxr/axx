@@ -11,7 +11,7 @@ description: Go from a red axx run to the cause - read the exit code, rerun one 
 | `2` | usage or configuration error | read the `hint`; config errors point at `axx.yaml:line:col`; run `axx doctor` |
 | `3` | undefined or ambiguous step | `axx validate`, then `axx explain "<line>"` |
 | `4` | an app did not start or stop | the error shows the app's last output lines; the full log is `.axx/logs/apps.log` |
-| `130` | interrupted | nothing completed; run again |
+| `130` | interrupted | the run was cancelled (Ctrl-C); run again |
 
 Every error also has a stable code (`AXX-E0408`, say) that links to its entry in the [error code reference](/references/error-codes/).
 
@@ -45,10 +45,22 @@ Each failure names the step, the expected and actual values, and the command tha
 
 ```sh
 axx up                                          # keep the apps running while you iterate
-axx run features/register-parcels.feature:15    # the scenario on (or containing) line 15
+axx run features/register-parcels.feature:17    # the scenario on (or containing) line 17
 ```
 
 The line of any step inside the scenario works too.
+
+## See what a web scenario did
+
+A failed scenario of the [`web-core` pack](/guides/test-web-apps/) keeps a Playwright trace: each step, its actions, the page before and after them, and the network. In the editor, open it from the scenario's test ([Open traces and videos](/guides/set-up-your-editor/#open-traces-and-videos)).
+
+To look at the page where the scenario fails, run it again with *Debug* in the editor: it pauses there, in Playwright's Inspector ([Pause a scenario](/guides/watch-web-browsers/#pause-a-scenario)). From a terminal:
+
+```sh
+axx run --workers 1 --set packs.web-core.pauseOnFailure=true features/shop-portal.feature:21
+```
+
+*Watch* shows the page as the scenario runs, without pausing ([Watch the browsers](/guides/set-up-your-editor/#watch-the-browsers)).
 
 ## Undefined and ambiguous steps
 
@@ -68,7 +80,7 @@ search all steps with `axx steps search <words>`
 
 ## Common causes
 
-- **Expected X, got Y, and the product looks right.** Another scenario running at the same time may have used the same ids. Check that the data is unique (`axx lint`), then check the value's type: the step's entry in the [step reference](/references/steps/) says how it reads values (`'5'` and `'"5"'` differ).
+- **Expected X, got Y, and the product looks right.** Another scenario running at the same time may have used the same ids. Check that the data is unique (`axx lint`), then check the value's type: the step's entry on its [pack's page](/references/packs/) says how it reads values (`'5'` and `'"5"'` differ).
 - **OpenAPI validation error on `the request is executed`.** The request or the response violates the document; the message names the rule, such as `validation.response.body.schema.required`. Fix the payload or the service. For a deliberate negative test, relax that rule in the scenario ([Validate against OpenAPI](/guides/validate-openapi/#validation-levels)).
 - **Timeout.** A step exceeded `run.timeouts.step`. For asynchronous behavior use a polling step (`within 10s a selection of at least 1 row ...`) instead of a sleep or a longer timeout.
 - **Passes alone, fails in the full run.** Shared data or shared state. Make the data unique; if the scenario really must run alone, tag it for `run.exclusive` ([Run in parallel](/guides/parallel-runs/)).
@@ -79,8 +91,8 @@ search all steps with `axx steps search <words>`
 Set a breakpoint in your service under test and run the scenario against it:
 
 ```sh
-axx run --attach parcels features/register-parcels.feature:15   # you start parcels from your IDE; axx waits for it
-axx run --debug=parcels features/register-parcels.feature:15    # axx starts parcels with its debug command
+axx run --attach parcels features/register-parcels.feature:17   # you start parcels from your IDE; axx waits for it
+axx run --debug=parcels features/register-parcels.feature:17    # axx starts parcels with its debug command
 ```
 
 [Manage the app lifecycle](/guides/manage-app-lifecycle/#debug-an-app) shows how to configure `apps.<name>.debug`.
@@ -90,24 +102,25 @@ axx run --debug=parcels features/register-parcels.feature:15    # axx starts par
 To see exactly what a step does, why it fails, or what your service sent back, set breakpoints in the step's own Go code, whether it comes from one of Axx's packs or from your own, and step through it:
 
 ```sh
-axx run --debug-steps features/register-parcels.feature:15
+axx run --debug-steps features/register-parcels.feature:17
 ```
 
 Axx builds itself with debug information (the first time; later runs reuse the build), starts under [Delve](https://github.com/go-delve/delve), Go's debugger, and waits for a debugger on port 2345 (`--debug-steps=<port>` picks another). The scenario starts when one attaches. Step timeouts are off while you debug, and the exit code is the run's as usual.
 
-- **GoLand, or IntelliJ IDEA with the Go plugin:** click the gutter icon of a scenario and choose *Debug*. The axx plugin attaches the Go debugger for you. From a terminal run, start the *Debugger: axx-steps* configuration (written by `axx ide intellij`).
+- **GoLand, or IntelliJ IDEA with the Go plugin:** click the gutter icon of a scenario and choose *Debug*. The axx plugin attaches the Go debugger for you. From a terminal run, start the *Debugger: axx-steps* configuration (the axx plugin creates it the first time you debug, and `axx ide intellij` writes it).
 - **VS Code with the Go extension:** use the debug button of a scenario in the gutter or the Testing view. To attach to a run you started in a terminal, use *axx: attach to steps* (written by `axx ide vscode`).
 - **Anything else:** `dlv connect 127.0.0.1:2345`.
 
-Jump from a step in a feature file to its code with go-to-definition ([Set up your editor](/guides/set-up-your-editor/)). Steps of Axx's packs open in axx's source, which the debug build is compiled from, so breakpoints set there hold.
+Jump from a step in a feature file to its code with go-to-definition ([Set up your editor](/guides/set-up-your-editor/)). It opens the Go code that defines the step when that code is on your machine (your own packs, or Axx built from source), otherwise the step's entry in a reference page.
 
-It needs Go, to build, and Delve: `go install github.com/go-delve/delve/cmd/dlv@latest`.
+There is nothing to install: Axx builds itself and Delve with the Go toolchain it downloads, as it does for packs, and keeps them for later runs. To use a Delve of your own, set `AXX_DLV` to its path.
 
 ## Logs
 
 | File | Contents |
 | --- | --- |
 | `.axx/logs/apps.log` | output of every app Axx started |
+| `.axx/logs/supervisor.log` | what the background process of `axx up` logged; read it when `axx up` fails |
 
 Add `-v` or `-vv` to any command for more detail from Axx itself.
 

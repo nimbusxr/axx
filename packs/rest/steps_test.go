@@ -16,6 +16,11 @@ func TestServiceRegistration(t *testing.T) {
 	h := newHarness(t)
 	h.fails("the request is executed", "No service set")
 	h.fails("the api service with the following properties:", `Property "url" is required`, []string{"openapi", "spec.yaml"})
+	// An unknown property fails wherever it is, even with an empty value.
+	h.fails("the api service with the following properties:", `unknown service property "openApi" (supported: url, openapi)`,
+		[]string{"url", "http://x"}, []string{"openApi", "space30.yaml"})
+	h.fails("the api service with the following properties:", `unknown service property "timeout"`,
+		[]string{"timeout", ""}, []string{"url", "http://x"})
 	h.ok("the api service with the following properties:", []string{"url", "http://${env:HOST}:1"}, []string{"openapi", "space30.yaml"})
 	h.fails("the api service with the following properties:", `Service "api" already set`, []string{"url", "http://x"})
 	h.ok("the other service with the following properties:", []string{"url", "http://y"})

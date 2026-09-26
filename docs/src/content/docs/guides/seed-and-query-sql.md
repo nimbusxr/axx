@@ -15,7 +15,7 @@ Background:
     | password | parcels                           |
 ```
 
-Native URLs (`postgres://`, `mysql://`, `sqlserver://`, `sqlite:`) and JDBC-style URLs (`jdbc:postgresql://`, `jdbc:mysql://`, `jdbc:mariadb://`, `jdbc:sqlserver://`, `jdbc:sqlite:`) are accepted; an optional `schema` property sets the default schema. The drivers are pure Go and built into `axx`. JSONB containment and triggers need PostgreSQL; seeds, selections, row counts and locks work on every database.
+Native URLs (`postgres://`, `mysql://`, `sqlserver://`, `sqlite:`) and JDBC-style URLs (`jdbc:postgresql://`, `jdbc:mysql://`, `jdbc:mariadb://`, `jdbc:sqlserver://`, `jdbc:sqlite:`) are accepted. Name a table with its schema, like `parcels.parcels`, or set `currentSchema` in a PostgreSQL URL. The drivers are pure Go and come with the `sql` pack. JSONB containment and triggers need PostgreSQL, and row locks a database other than SQLite; seeds, selections and row counts work on every database.
 
 ## Seed
 
@@ -44,7 +44,7 @@ parcels.manifest_lines:
     recipient: '{"name": "Lise Meitner", "city": "Hamburg", "postcode": "20095", "country": "DE"}'
 ```
 
-Flat XML (`.xml`), JSON (`.json`), Excel (`.xlsx`, one sheet per table) and CSV dataset directories (one `<table>.csv` per table plus `table-ordering.txt`) work the same way. The `[null]`, `[DAY,NOW]`, `[DAY,PLUS,1]` and `[UNIX_TIMESTAMP]` placeholders are supported. Values are escaped, so text containing `'` is safe.
+Flat XML (`.xml`), JSON (`.json`), Excel (`.xlsx`, one sheet per table) and CSV dataset directories (one `<table>.csv` per table, in the order `table-ordering.txt` lists when there is one) work the same way. The `[null]` and `[UNIX_TIMESTAMP]` placeholders are supported, and so are times counted from now, such as `[DAY,NOW]`, `[DAY,PLUS,1]` or `[HOUR,MINUS,2]` (in `DAY`, `HOUR`, `MIN` or `SEC`). Values are escaped, so text containing `'` is safe.
 
 Scenarios share the database and run in parallel, so give every seeded row an id that belongs to one scenario. [Isolate test data](/guides/isolate-test-data/) shows how to enforce that with `axx lint`.
 
@@ -62,7 +62,7 @@ And the selection has more than 1 row
 And the selection has fewer than 5 rows
 ```
 
-A scenario can hold several selections, addressed by ordinal (`2nd`, `3rd`, ...). Leaving the ordinal out means the first:
+A scenario can hold several selections. They are numbered in the order they are retrieved, and later steps address them by ordinal (`the 2nd selection`); in `a 2nd selection of rows is retrieved` the ordinal is only a label. Leaving the ordinal out means the first:
 
 ```gherkin
 Then a selection of rows is retrieved from the parcels.manifest_lines table where:
@@ -94,7 +94,7 @@ Then a selection of rows is retrieved from the parcels.parcels table where the d
 And the selection has 2 rows
 ```
 
-Paths are JSONPaths such as `manifestId` or `items[0].sku`, and values are compared as text ([the rules](/references/steps/sql/#sqljsonare)).
+In `json properties are:` and `json properties match:`, paths are JSONPaths such as `zone` or `items[0].sku`, and values are compared as text ([the rules](/references/packs/sql/#sqljsonare)). The containment step takes dotted names (`recipient.city`) and compares each value as a JSON string, so it never matches a number or a boolean.
 
 ## Wait for asynchronous writes
 
@@ -104,9 +104,10 @@ When the service writes in the background (importing a manifest, say), poll inst
 Then within 10s a selection of at least 2 rows is retrieved from the parcels.manifest_lines table where:
   | manifest_id | M-KESTREL-0412 |
   | status      | IMPORTED       |
+And the selection has 2 rows
 ```
 
-The step retries until the selection has at least that many rows or the time runs out. It passes as soon as the rows appear.
+The step queries again every 500 ms until the selection has at least that many rows or the time runs out, and moves on as soon as the rows appear. When the time runs out it keeps the last result as the selection, with fewer rows, and does not fail, so check the count in the next step.
 
 ## Inject faults with triggers
 
@@ -132,19 +133,24 @@ Triggers change a shared table, so tag those scenarios with a tag in `run.exclus
 ## Row locks
 
 ```gherkin
-Scenario: A parcel can be changed again once the depot lets go of it
+Scenario: A parcel cannot be changed while the depot dispatches it
   Given a seeds/dispatching.yaml db seed
   And the rows in the parcels.parcels table are locked where:
     | reference | PX-DSP-2001 |
-  And a 1st ordered PATCH request to /api/parcels/PX-DSP-2001
-  And a request payload using an application/json content example named 'Heavier' for 1st ordered request
-  And a 2nd ordered PATCH request to /api/parcels/PX-DSP-2001
-  And a request payload using an application/json content example named 'Heavier' for 2nd ordered request
-  When the 1st ordered request is executed
-  Then the 1st ordered response status code is 409
+  And a PATCH request to /api/parcels/PX-DSP-2001
+  And a request payload using an application/json content example named 'Heavier'
+  When the request is executed
+  Then the response status code is 409
+
+Scenario: A parcel can be changed again once the depot lets go of it
+  Given a seeds/dispatched.yaml db seed
+  And the rows in the parcels.parcels table are locked where:
+    | reference | PX-DSP-2002 |
+  And a PATCH request to /api/parcels/PX-DSP-2002
+  And a request payload using an application/json content example named 'Heavier'
   When the row locks are released
-  And the 2nd ordered request is executed
-  Then the 2nd ordered response status code is 200
+  And the request is executed
+  Then the response status code is 200
 ```
 
 Lock rows to test timeouts and contention in your service. The lock holds until `the row locks are released` or the end of the scenario.

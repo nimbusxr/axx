@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 package us.nimbusxr.axx.idea.run;
 
+import com.intellij.execution.Executor;
+import com.intellij.execution.ExecutorRegistry;
 import com.intellij.execution.RunManager;
 import com.intellij.execution.RunnerAndConfigurationSettings;
 import com.intellij.execution.configurations.ConfigurationFactory;
@@ -14,20 +16,44 @@ import com.intellij.execution.runners.ExecutionEnvironment;
 import com.intellij.execution.runners.ExecutionEnvironmentBuilder;
 import com.intellij.execution.runners.ProgramRunner;
 import com.intellij.icons.AllIcons;
+import com.intellij.openapi.application.WriteAction;
 import com.intellij.openapi.project.Project;
+import com.intellij.openapi.vfs.LocalFileSystem;
+import com.intellij.openapi.vfs.VfsUtilCore;
 import com.intellij.testFramework.HeavyPlatformTestCase;
+import com.intellij.xdebugger.XDebuggerManager;
+import com.intellij.xdebugger.XDebuggerUtil;
+import com.intellij.xdebugger.breakpoints.XLineBreakpoint;
 
+import org.jdom.Element;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.debugger.RemoteDebugConfiguration;
 
 import us.nimbusxr.axx.idea.AxxSettings;
+import us.nimbusxr.axx.idea.gherkin.AxxStepBreakpointType;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 
-/** The axx command line a run configuration runs, and the Go debugger for step code. */
+/**
+ * The axx command line a run configuration runs, with or without watching the browsers, the steps
+ * it pauses before, and the Go debugger for step code.
+ */
 public class AxxRunStateTest extends HeavyPlatformTestCase {
+    private static final String ORDERS =
+            String.join(
+                    "\n",
+                    "Feature: Orders", // 1
+                    "",
+                    "  Background:", // 3
+                    "    Given the orders service",
+                    "", // 5
+                    "  Scenario: List orders",
+                    "    When a GET request is sent to \"/orders\"", // 7
+                    "    Then the response status code is 200",
+                    "");
+
     private Path base;
     private Path suite;
     private Path axx;
@@ -54,6 +80,8 @@ public class AxxRunStateTest extends HeavyPlatformTestCase {
     protected void tearDown() throws Exception {
         try {
             AxxSettings.getInstance().setExecutable(null);
+            AxxSettings.getInstance()
+                    .setWatchSlowdownMillis(AxxSettings.DEFAULT_WATCH_SLOWDOWN_MILLIS);
         } finally {
             super.tearDown();
         }
@@ -94,6 +122,79 @@ public class AxxRunStateTest extends HeavyPlatformTestCase {
         assertEquals(List.of("run", "--format", "teamcity"), command.getParametersList().getList());
     }
 
+    public void testTellsAxxThatTheIdeRunsIt() throws Exception {
+        assertEquals("intellij", commandLine(environment(false)).getEnvironment().get("AXX_IDE"));
+    }
+
+    public void testWatchRunsWatchTheBrowsers() throws Exception {
+        configuration.setTargets(List.of("features/orders.feature:7"));
+        configuration.setWorkingDirectory(suite.toString());
+        Executor watch = ExecutorRegistry.getInstance().getExecutorById(AxxWatchExecutor.ID);
+        assertNotNull("Watch is not registered", watch);
+        assertInstanceOf(
+                ProgramRunner.getRunner(AxxWatchExecutor.ID, configuration), AxxWatchRunner.class);
+
+        ExecutionEnvironment environment =
+                ExecutionEnvironmentBuilder.create(getProject(), watch, configuration).build();
+        assertEquals(
+                List.of(
+                        "run",
+                        "--format",
+                        "teamcity",
+                        "--workers",
+                        "1",
+                        "--set",
+                        "packs.web-core.watch=true",
+                        "--set",
+                        "packs.web-core.slowdown=300ms",
+                        "features/orders.feature:7"),
+                commandLine(environment).getParametersList().getList());
+    }
+
+    public void testTheConfigurationCanWatchEveryRun() throws Exception {
+        configuration.setTargets(List.of("features/orders.feature:7"));
+        configuration.setWorkingDirectory(suite.toString());
+        configuration.setWatchBrowsers(true);
+        AxxSettings.getInstance().setWatchSlowdownMillis(0);
+        assertEquals(
+                List.of(
+                        "run",
+                        "--format",
+                        "teamcity",
+                        "--workers",
+                        "1",
+                        "--set",
+                        "packs.web-core.watch=true",
+                        "features/orders.feature:7"),
+                commandLine(environment(false)).getParametersList().getList());
+        // Debug watches too, and debugs.
+        assertEquals(
+                List.of(
+                        "run",
+                        "--format",
+                        "teamcity",
+                        "--workers",
+                        "1",
+                        "--set",
+                        "packs.web-core.watch=true",
+                        "--set",
+                        "packs.web-core.pauseOnFailure=true",
+                        "features/orders.feature:7"),
+                commandLine(environment(true)).getParametersList().getList());
+
+        // The option is stored with the configuration.
+        Element stored = new Element("configuration");
+        configuration.writeExternal(stored);
+        AxxRunConfiguration read =
+                (AxxRunConfiguration)
+                        AxxRunConfigurationType.getInstance()
+                                .getFactory()
+                                .createTemplateConfiguration(getProject());
+        read.readExternal(stored);
+        assertTrue(read.isWatchBrowsers());
+        assertEquals(configuration.getTargets(), read.getTargets());
+    }
+
     public void testDebugsStepsWithAGoDebugger() throws Exception {
         configuration.setTargets(List.of("features/orders.feature"));
         configuration.setWorkingDirectory(suite.toString());
@@ -105,8 +206,87 @@ public class AxxRunStateTest extends HeavyPlatformTestCase {
                         "--format",
                         "teamcity",
                         "--debug-steps=2345",
+                        "--workers",
+                        "1",
+                        "--set",
+                        "packs.web-core.pauseOnFailure=true",
                         "features/orders.feature"),
                 commandLine(environment).getParametersList().getList());
+    }
+
+    public void testDebugPausesAtStepBreakpointsAndFailures() throws Exception {
+        configuration.setTargets(List.of("features/orders.feature:6"));
+        configuration.setWorkingDirectory(suite.toString());
+        Path orders = Files.writeString(suite.resolve("features/orders.feature"), ORDERS);
+        Path returns = Files.writeString(suite.resolve("features/returns.feature"), ORDERS);
+        addStepBreakpoint(orders, 8, true);
+        addStepBreakpoint(orders, 4, true);
+        addStepBreakpoint(orders, 7, false); // disabled
+        addStepBreakpoint(returns, 7, true); // in a file the run does not reach
+
+        // Breakpoints in step code stop too: --debug-steps stays.
+        ExecutionEnvironment debug = environment(true);
+        debug.putUserData(AxxDebugRunner.STEPS_PORT, 2345);
+        assertEquals(
+                List.of(
+                        "run",
+                        "--format",
+                        "teamcity",
+                        "--debug-steps=2345",
+                        "--workers",
+                        "1",
+                        "--set",
+                        "packs.web-core.pauseOnFailure=true",
+                        "--pause-at",
+                        "features/orders.feature:4",
+                        "--pause-at",
+                        "features/orders.feature:8",
+                        "features/orders.feature:6"),
+                commandLine(debug).getParametersList().getList());
+        // Without a Go debugger, the run still pauses at the steps and failures.
+        assertEquals(
+                List.of(
+                        "run",
+                        "--format",
+                        "teamcity",
+                        "--workers",
+                        "1",
+                        "--set",
+                        "packs.web-core.pauseOnFailure=true",
+                        "--pause-at",
+                        "features/orders.feature:4",
+                        "--pause-at",
+                        "features/orders.feature:8",
+                        "features/orders.feature:6"),
+                commandLine(environment(true)).getParametersList().getList());
+    }
+
+    public void testRunAndWatchIgnoreStepBreakpoints() throws Exception {
+        configuration.setTargets(List.of("features/orders.feature"));
+        configuration.setWorkingDirectory(suite.toString());
+        AxxSettings.getInstance().setWatchSlowdownMillis(0);
+        Path orders = Files.writeString(suite.resolve("features/orders.feature"), ORDERS);
+        addStepBreakpoint(orders, 8, true);
+
+        // Watch only shows the browsers: no pausing at breakpoints or failures.
+        Executor watch = ExecutorRegistry.getInstance().getExecutorById(AxxWatchExecutor.ID);
+        ExecutionEnvironment environment =
+                ExecutionEnvironmentBuilder.create(getProject(), watch, configuration).build();
+        assertEquals(
+                List.of(
+                        "run",
+                        "--format",
+                        "teamcity",
+                        "--workers",
+                        "1",
+                        "--set",
+                        "packs.web-core.watch=true",
+                        "features/orders.feature"),
+                commandLine(environment).getParametersList().getList());
+        // Run does not pause.
+        assertEquals(
+                List.of("run", "--format", "teamcity", "features/orders.feature"),
+                commandLine(environment(false)).getParametersList().getList());
     }
 
     public void testDebugRunsWithTheAxxRunner() {
@@ -145,6 +325,26 @@ public class AxxRunStateTest extends HeavyPlatformTestCase {
         remote.setPort(4567);
         assertEquals(Integer.valueOf(4567), AxxStepsDebugger.prepare(getProject()));
         RunManager.getInstance(getProject()).removeConfiguration(settings);
+    }
+
+    /** Adds a step breakpoint on a one-based line, as clicking in the gutter does. */
+    private void addStepBreakpoint(Path file, int line, boolean enabled) {
+        assertNotNull(LocalFileSystem.getInstance().refreshAndFindFileByNioFile(file));
+        AxxStepBreakpointType type =
+                XDebuggerUtil.getInstance().findBreakpointType(AxxStepBreakpointType.class);
+        assertNotNull("the step breakpoint type is not registered", type);
+        WriteAction.run(
+                () -> {
+                    XLineBreakpoint<?> breakpoint =
+                            XDebuggerManager.getInstance(getProject())
+                                    .getBreakpointManager()
+                                    .addLineBreakpoint(
+                                            type,
+                                            VfsUtilCore.pathToUrl(file.toString()),
+                                            line - 1,
+                                            null);
+                    breakpoint.setEnabled(enabled);
+                });
     }
 
     private GeneralCommandLine commandLine(ExecutionEnvironment environment) throws Exception {

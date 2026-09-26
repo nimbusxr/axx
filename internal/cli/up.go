@@ -116,20 +116,7 @@ Stop them with ` + "`axx down`" + `. App output goes to .axx/logs/apps.log.`,
 			if err != nil {
 				return err
 			}
-			sargs := []string{"__supervise"}
-			if app.Config != "" {
-				sargs = append(sargs, "--config", app.Config)
-			}
-			if cf.profile != "" {
-				sargs = append(sargs, "--profile", cf.profile)
-			}
-			for _, d := range cf.defines {
-				sargs = append(sargs, "-D", d)
-			}
-			if debug != "" {
-				sargs = append(sargs, "--debug", debug)
-			}
-			sargs = append(sargs, args...)
+			sargs := supervisorArgs(app.Config, cf, debug, args)
 			if err := os.MkdirAll(filepath.Join(cfg.Dir, ".axx", "logs"), 0o755); err != nil {
 				return err
 			}
@@ -191,6 +178,28 @@ Stop them with ` + "`axx down`" + `. App output goes to .axx/logs/apps.log.`,
 	cmd.Flags().StringVar(&debug, "debug", "", "start apps with their debug command (all, or a comma-separated list)")
 	cmd.Flags().Lookup("debug").NoOptDefVal = "*"
 	return cmd
+}
+
+// supervisorArgs are the arguments of the supervisor `axx up` starts: the
+// same configuration, profile, properties, settings and debugging.
+func supervisorArgs(config string, cf configFlags, debug string, apps []string) []string {
+	out := []string{"__supervise"}
+	if config != "" {
+		out = append(out, "--config", config)
+	}
+	if cf.profile != "" {
+		out = append(out, "--profile", cf.profile)
+	}
+	for _, d := range cf.defines {
+		out = append(out, "-D", d)
+	}
+	for _, kv := range cf.settings {
+		out = append(out, "--set", kv)
+	}
+	if debug != "" {
+		out = append(out, "--debug", debug)
+	}
+	return append(out, apps...)
 }
 
 func newSuperviseCmd(app *App) *cobra.Command {

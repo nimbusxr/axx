@@ -2,25 +2,41 @@
 
 # sql steps
 
-Seed, query and assert on relational databases. PostgreSQL is fully supported (including JSONB and trigger fault injection); MySQL/MariaDB, SQL Server and SQLite support seeds, selections, row counts and locks. JDBC URLs (jdbc:postgresql://...) are accepted as-is.
+Seed, query and assert on relational databases. PostgreSQL is fully supported (including JSONB and trigger fault injection); MySQL/MariaDB and SQL Server support seeds, selections, row counts and locks, and SQLite all of them but locks. JDBC URLs (jdbc:postgresql://...) are accepted as-is.
 
 ## `sql.service`
 
 ```gherkin
 Given a(n) {word} database with the following properties:
-  | ... | ... |
+  | property | value |
 ```
 
-Register a database. The first one registered in a scenario is the default.
+Register a database.
 
-Properties: `url` (JDBC or native URL), `user`, `password` (all required; `${env:..}`/`${sys:..}` expanded), `schema` (optional).
+- The first database registered in a scenario is the default.
+- The scheme of the `url` says which database it is: PostgreSQL (`postgres://`, `postgresql://`, `jdbc:postgresql:`), MySQL or MariaDB (`mysql://`, `jdbc:mysql:`, `jdbc:mariadb:`), SQL Server (`sqlserver://`, `jdbc:sqlserver:`) or SQLite (`sqlite:`, `file:`, `jdbc:sqlite:`).
+- A PostgreSQL URL connects without TLS unless it sets `sslmode`; its `currentSchema` sets the default schema.
 
-**Parameters:** `{word}` (one word, no spaces)
+| Parameter | Takes | For example |
+|---|---|---|
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+
+| Property | Takes | Default |
+|---|---|---|
+| `url` | where the database is: a native or JDBC URL, like `postgres://localhost:5432/parcels` | _required_ |
+| `user` | the user axx connects as; SQLite ignores it, but the table needs it all the same | _required_ |
+| `password` | the user's password; SQLite ignores it, but the table needs it all the same | _required_ |
+| `schema` | a schema, kept for code that builds on the pack; the steps don't use it, so name tables `schema.table` (or set a PostgreSQL URL's `currentSchema`) | |
+
+`url`, `user` and `password` can take `${env:…}` and `${sys:…}` references.
 
 **Example:**
 
 ```gherkin
 Given a parcels-db database with the following properties:
+  | url      | postgres://localhost:5432/parcels |
+  | user     | parcels                           |
+  | password | parcels                           |
 ```
 
 ## `sql.seed`
@@ -29,42 +45,66 @@ Given a parcels-db database with the following properties:
 Given a {filepath} db seed[[ on {dbService}]]
 ```
 
-Insert the rows of a dataset file (resolved against `resources`). Formats by extension: `.yaml`/`.yml` (`schema.table:` → list of rows), flat XML (`<dataset><schema.table col="v"/></dataset>`), `.json`, `.csv` (a directory of `<table>.csv` files with `table-ordering.txt`) and `.xlsx` (one sheet per table). Replacers: `[null]`, `[DAY,NOW]`, `[DAY,PLUS,1]`, `[UNIX_TIMESTAMP]`. Rows are inserted in one transaction and never deleted.
+Insert the rows of a dataset file, in the file's order and in one transaction.
 
-**Variants** (optional parts in `[[...]]` above):
+- A YAML file (`.yaml`, `.yml`) maps each `schema.table` to a list of rows, each a mapping of column to value.
+- A flat XML file (`.xml`) has a `<schema.table column="value"/>` element per row inside `<dataset>`.
+- A JSON file (`.json`) maps each `schema.table` to an array of rows.
+- A CSV file (`.csv`) stands for its directory, which has a `<schema.table>.csv` file per table, in the order its `table-ordering.txt` lists or else by name; a first line names the columns, and `null` is NULL. The step takes the directory itself too.
+- An Excel file (`.xlsx`) has a sheet per table, named after it, with a first row that names the columns; an empty cell is NULL.
+- A value can be `[null]` for NULL, `[UNIX_TIMESTAMP]` for the seconds since 1970, or a time counted from now, like `[DAY,NOW]`, `[DAY,PLUS,1]` or `[HOUR,MINUS,2]` (the unit is `DAY`, `HOUR`, `MIN` or `SEC`).
+- In YAML and JSON, a value that is a list or an object is stored as JSON text.
+- A row the database refuses, like one whose key exists already, fails the step, and nothing of the file is written.
+- Seeded rows are never deleted.
+
+| Parameter | Takes | For example |
+|---|---|---|
+| `{filepath}` | a file of the project, with no spaces: a path relative to the `resources` directories or to axx.yaml's directory, or an absolute path | `seeds/parcels.yaml`, `kafka/scan-delivered.json` |
+| `{dbService}` | the name of a database registered in the scenario | `parcels-db` |
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `a {filepath} db seed`
 - `a {filepath} db seed on {dbService}`
-
-**Parameters:** `{filepath}` (A file of the project, without whitespace: a path relative to the `resources` directories or to the directory of axx.yaml, or an absolute path. Editors link it to the file), `{dbService}` (The name of a database registered in the scenario)
 
 **Example:**
 
 ```gherkin
 Given a seeds/manifest-kestrel.yaml db seed
 Given a seeds/dispatching.yaml db seed on parcels-db
+Given a seeds/manifests/csv/bulk-manifest/parcels.manifest_lines.csv db seed
 ```
 
 ## `sql.lock`
 
 ```gherkin
 Given the rows in the {word} table[[ on {dbService}]] are locked where:
-  | ... | ... |
+  | column | value |
 ```
 
-Lock matching rows with SELECT ... FOR UPDATE on a separate connection, held until the locks are released or the scenario ends. Values in the table become `column = 'value'` conditions joined with AND; `null` becomes `IS NULL`. Values are escaped.
+Lock the rows that match, with `SELECT ... FOR UPDATE` on a separate connection.
 
-**Variants** (optional parts in `[[...]]` above):
+- The locks hold until the row locks are released or the scenario ends.
+- Rows locked elsewhere, like by another scenario, are waited for 10 seconds at most; then the step fails.
+- SQLite has no row locks: the step fails on it.
+
+| Parameter | Takes | For example |
+|---|---|---|
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+| `{dbService}` | the name of a database registered in the scenario | `parcels-db` |
+
+Each row names a column and the value the locked rows hold in it, or `null` for none (`IS NULL`); values are escaped.
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `the rows in the {word} table are locked where:`
 - `the rows in the {word} table on {dbService} are locked where:`
-
-**Parameters:** `{word}` (one word, no spaces), `{dbService}` (The name of a database registered in the scenario)
 
 **Example:**
 
 ```gherkin
 Given the rows in the parcels.parcels table are locked where:
+  | reference | PX-DSP-2001 |
 ```
 
 ## `sql.unlock`
@@ -73,139 +113,195 @@ Given the rows in the parcels.parcels table are locked where:
 Then the row locks[[ on {dbService}]] are released
 ```
 
-Release row locks taken with the lock step.
+Release all the row locks the lock step took on the database.
 
-**Variants** (optional parts in `[[...]]` above):
+| Parameter | Takes | For example |
+|---|---|---|
+| `{dbService}` | the name of a database registered in the scenario | `parcels-db` |
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `the row locks are released`
 - `the row locks on {dbService} are released`
-
-**Parameters:** `{dbService}` (The name of a database registered in the scenario)
 
 **Example:**
 
 ```gherkin
 Then the row locks are released
+Then the row locks on parcels-db are released
 ```
 
 ## `sql.select`
 
 ```gherkin
 Then a[[ {ordinal}]] selection of rows is retrieved from the {word} table[[ on {dbService}]] where:
-  | ... | ... |
+  | column | value |
 ```
 
-Query rows (SELECT * ... WHERE) and keep the result as the next selection for later assertions. Selections are numbered in the order they are retrieved; `the selection` means the first. Values in the table become `column = 'value'` conditions joined with AND; `null` becomes `IS NULL`. Values are escaped.
+Select the rows that match (`SELECT * ... WHERE`) and keep them as the next selection, for the steps that check it. Selections are numbered in the order they are retrieved, whatever ordinal the step says; `the selection` means the first.
 
-**Variants** (optional parts in `[[...]]` above):
+| Parameter | Takes | For example |
+|---|---|---|
+| `{ordinal}` | a position, counting from 1; an optional ordinal left out is the first | `1st`, `2nd` |
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+| `{dbService}` | the name of a database registered in the scenario | `parcels-db` |
+
+Each row names a column and the value the selected rows hold in it, or `null` for none (`IS NULL`); values are escaped.
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `a selection of rows is retrieved from the {word} table where:`
 - `a {ordinal} selection of rows is retrieved from the {word} table where:`
 - `a selection of rows is retrieved from the {word} table on {dbService} where:`
 - `a {ordinal} selection of rows is retrieved from the {word} table on {dbService} where:`
 
-**Parameters:** `{ordinal}` (A 1-based position such as `1st`, `2nd`, `3rd` or `4th`. Omitting an optional ordinal means the first), `{word}` (one word, no spaces), `{dbService}` (The name of a database registered in the scenario)
-
 **Example:**
 
 ```gherkin
-Then a selection of rows is retrieved from the parcels.parcels table where:
+Then a selection of rows is retrieved from the parcels.pickups table where:
+  | reference | PX-WEB-5302 |
+  | day       | Friday      |
+Then a 2nd selection of rows is retrieved from the parcels.manifest_lines table on parcels-db where:
+  | manifest_id | M-KESTREL-0412 |
+  | error       | null           |
 ```
 
 ## `sql.select.poll`
 
 ```gherkin
 Then within {duration} a[[ {ordinal}]] selection of at least {int} row(s) is retrieved from the {word} table[[ on {dbService}]] where:
-  | ... | ... |
+  | column | value |
 ```
 
-Poll every 500ms until the query returns at least the given number of rows or the time is up. On timeout the last result (possibly empty) is kept, so assert on it with a row-count step.
+Select the rows that match, again every 500ms, until at least that many come back or the time is up.
 
-**Variants** (optional parts in `[[...]]` above):
+- The last result is kept as the next selection, even with fewer rows: check it with a row-count step.
+- The step fails only when no query succeeds in that time.
+- Selections are numbered in the order they are retrieved, whatever ordinal the step says; `the selection` means the first.
+
+| Parameter | Takes | For example |
+|---|---|---|
+| `{duration}` | a duration in seconds (`s`) or minutes (`m`) | `5s`, `2m` |
+| `{ordinal}` | a position, counting from 1; an optional ordinal left out is the first | `1st`, `2nd` |
+| `{int}` | a whole number | `200`, `3` |
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+| `{dbService}` | the name of a database registered in the scenario | `parcels-db` |
+
+Each row names a column and the value the selected rows hold in it, or `null` for none (`IS NULL`); values are escaped.
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `within {duration} a selection of at least {int} row(s) is retrieved from the {word} table where:`
 - `within {duration} a {ordinal} selection of at least {int} row(s) is retrieved from the {word} table where:`
 - `within {duration} a selection of at least {int} row(s) is retrieved from the {word} table on {dbService} where:`
 - `within {duration} a {ordinal} selection of at least {int} row(s) is retrieved from the {word} table on {dbService} where:`
 
-**Parameters:** `{duration}` (A duration in seconds or minutes, e.g. `5s` or `2m`), `{ordinal}` (A 1-based position such as `1st`, `2nd`, `3rd` or `4th`. Omitting an optional ordinal means the first), `{int}` (a 32-bit integer), `{word}` (one word, no spaces), `{dbService}` (The name of a database registered in the scenario)
-
 **Example:**
 
 ```gherkin
-Then within 10s a selection of at least 1 row is retrieved from the parcels.manifest_lines table where:
+Then within 10s a selection of at least 2 rows is retrieved from the parcels.manifest_lines table where:
+  | manifest_id | M-KESTREL-0412 |
+  | status      | IMPORTED       |
 ```
 
 ## `sql.select.jsonb`
 
 ```gherkin
 Then a[[ {ordinal}]] selection of rows is retrieved from the {word} table[[ on {dbService}]] where the {word} jsonb column contains:
-  | ... | ... |
+  | property | value |
 ```
 
-PostgreSQL: select rows whose JSONB column contains the given properties (`@>`). Dotted keys (`a.b`) build nested objects; every value is compared as a JSON string (`null` means JSON null).
+Select the rows whose JSONB column contains the properties (`@>`), and keep them as the next selection.
 
-**Variants** (optional parts in `[[...]]` above):
+- The database must be PostgreSQL.
+- Selections are numbered in the order they are retrieved, whatever ordinal the step says; `the selection` means the first.
+
+| Parameter | Takes | For example |
+|---|---|---|
+| `{ordinal}` | a position, counting from 1; an optional ordinal left out is the first | `1st`, `2nd` |
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+| `{dbService}` | the name of a database registered in the scenario | `parcels-db` |
+
+Each row names a property, dotted (`recipient.city`) for one inside an object, and the value it holds, compared as a JSON string (`null` is JSON null), so it never matches a number or a boolean.
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `a selection of rows is retrieved from the {word} table where the {word} jsonb column contains:`
 - `a {ordinal} selection of rows is retrieved from the {word} table where the {word} jsonb column contains:`
 - `a selection of rows is retrieved from the {word} table on {dbService} where the {word} jsonb column contains:`
 - `a {ordinal} selection of rows is retrieved from the {word} table on {dbService} where the {word} jsonb column contains:`
 
-**Parameters:** `{ordinal}` (A 1-based position such as `1st`, `2nd`, `3rd` or `4th`. Omitting an optional ordinal means the first), `{word}` (one word, no spaces), `{dbService}` (The name of a database registered in the scenario)
-
 **Example:**
 
 ```gherkin
 Then a selection of rows is retrieved from the parcels.parcels table where the details jsonb column contains:
+  | manifestId | M-KESTREL-0412 |
+  | source     | manifest       |
 ```
 
 ## `sql.json.are`
 
 ```gherkin
 Then the {ordinal} row {word} property for the[[ {ordinal}]] selection[[ on {dbService}]] json properties are:
-  | ... | ... |
+  | JSONPath | value |
 ```
 
-Assert JSON properties (JSONPath) of a JSON column in the given row of a selection. Every scalar is compared as text; `null` means JSON null and `undefined` means the property is absent.
+Check the JSON a column holds in one row of a selection. `the 1st row details property` is the `details` column of the selection's first row.
 
-**Variants** (optional parts in `[[...]]` above):
+| Parameter | Takes | For example |
+|---|---|---|
+| `{ordinal}` | a position, counting from 1; an optional ordinal left out is the first | `1st`, `2nd` |
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+| `{dbService}` | the name of a database registered in the scenario | `parcels-db` |
+
+Each row names a JSONPath, like `source` or `$.recipient.city`, and the value there as text, like `true` or `850`: `null` for JSON null, `undefined` for a property the JSON lacks.
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `the {ordinal} row {word} property for the selection json properties are:`
 - `the {ordinal} row {word} property for the {ordinal} selection json properties are:`
 - `the {ordinal} row {word} property for the selection on {dbService} json properties are:`
 - `the {ordinal} row {word} property for the {ordinal} selection on {dbService} json properties are:`
 
-**Parameters:** `{ordinal}` (A 1-based position such as `1st`, `2nd`, `3rd` or `4th`. Omitting an optional ordinal means the first), `{word}` (one word, no spaces), `{dbService}` (The name of a database registered in the scenario)
-
 **Example:**
 
 ```gherkin
-Then the 1st row details property for the 2nd selection json properties are:
+Then the 1st row details property for the selection json properties are:
+  | source         | portal    |
+  | signature      | true      |
+  | customsInvoice | undefined |
 ```
 
 ## `sql.json.match`
 
 ```gherkin
 Then the {ordinal} row {word} property for the[[ {ordinal}]] selection[[ on {dbService}]] json properties match:
-  | ... | ... |
+  | JSONPath | pattern |
 ```
 
-Like the `are` form, but each value is a regular expression that must match the whole property value (as text).
+Check the JSON a column holds in one row of a selection, like the `json properties are` step, with regular expressions (Java syntax) that must match the whole value, as text.
 
-**Variants** (optional parts in `[[...]]` above):
+| Parameter | Takes | For example |
+|---|---|---|
+| `{ordinal}` | a position, counting from 1; an optional ordinal left out is the first | `1st`, `2nd` |
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+| `{dbService}` | the name of a database registered in the scenario | `parcels-db` |
+
+Each row names a JSONPath, like `zone` or `$.recipient.postcode`, and a regular expression its value must match.
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `the {ordinal} row {word} property for the selection json properties match:`
 - `the {ordinal} row {word} property for the {ordinal} selection json properties match:`
 - `the {ordinal} row {word} property for the selection on {dbService} json properties match:`
 - `the {ordinal} row {word} property for the {ordinal} selection on {dbService} json properties match:`
 
-**Parameters:** `{ordinal}` (A 1-based position such as `1st`, `2nd`, `3rd` or `4th`. Omitting an optional ordinal means the first), `{word}` (one word, no spaces), `{dbService}` (The name of a database registered in the scenario)
-
 **Example:**
 
 ```gherkin
-Then the 1st row recipient property for the 3rd selection json properties match:
+Then the 1st row recipient property for the 2nd selection json properties match:
+  | postcode | \d{5}    |
+  | country  | [A-Z]{2} |
 ```
 
 ## `sql.rows.eq`
@@ -214,16 +310,20 @@ Then the 1st row recipient property for the 3rd selection json properties match:
 Then the[[ {ordinal}]] selection[[ on {dbService}]] has {int} row(s)
 ```
 
-Assert that a selection has exactly the given number of rows. `the selection` means the first selection of the scenario.
+Check that a selection has exactly the given number of rows. `the selection` means the first selection of the scenario.
 
-**Variants** (optional parts in `[[...]]` above):
+| Parameter | Takes | For example |
+|---|---|---|
+| `{ordinal}` | a position, counting from 1; an optional ordinal left out is the first | `1st`, `2nd` |
+| `{dbService}` | the name of a database registered in the scenario | `parcels-db` |
+| `{int}` | a whole number | `200`, `3` |
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `the selection has {int} row(s)`
 - `the {ordinal} selection has {int} row(s)`
 - `the selection on {dbService} has {int} row(s)`
 - `the {ordinal} selection on {dbService} has {int} row(s)`
-
-**Parameters:** `{ordinal}` (A 1-based position such as `1st`, `2nd`, `3rd` or `4th`. Omitting an optional ordinal means the first), `{dbService}` (The name of a database registered in the scenario), `{int}` (a 32-bit integer)
 
 **Example:**
 
@@ -238,16 +338,20 @@ Then the 2nd selection on parcels-db has 1 row
 Then the[[ {ordinal}]] selection[[ on {dbService}]] has more than {int} row(s)
 ```
 
-Assert that a selection has more than the given number of rows. `the selection` means the first selection of the scenario.
+Check that a selection has more than the given number of rows. `the selection` means the first selection of the scenario.
 
-**Variants** (optional parts in `[[...]]` above):
+| Parameter | Takes | For example |
+|---|---|---|
+| `{ordinal}` | a position, counting from 1; an optional ordinal left out is the first | `1st`, `2nd` |
+| `{dbService}` | the name of a database registered in the scenario | `parcels-db` |
+| `{int}` | a whole number | `200`, `3` |
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `the selection has more than {int} row(s)`
 - `the {ordinal} selection has more than {int} row(s)`
 - `the selection on {dbService} has more than {int} row(s)`
 - `the {ordinal} selection on {dbService} has more than {int} row(s)`
-
-**Parameters:** `{ordinal}` (A 1-based position such as `1st`, `2nd`, `3rd` or `4th`. Omitting an optional ordinal means the first), `{dbService}` (The name of a database registered in the scenario), `{int}` (a 32-bit integer)
 
 **Example:**
 
@@ -262,16 +366,20 @@ Then the 2nd selection on parcels-db has more than 1 row
 Then the[[ {ordinal}]] selection[[ on {dbService}]] has fewer than {int} row(s)
 ```
 
-Assert that a selection has fewer than the given number of rows. `the selection` means the first selection of the scenario.
+Check that a selection has fewer than the given number of rows. `the selection` means the first selection of the scenario.
 
-**Variants** (optional parts in `[[...]]` above):
+| Parameter | Takes | For example |
+|---|---|---|
+| `{ordinal}` | a position, counting from 1; an optional ordinal left out is the first | `1st`, `2nd` |
+| `{dbService}` | the name of a database registered in the scenario | `parcels-db` |
+| `{int}` | a whole number | `200`, `3` |
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `the selection has fewer than {int} row(s)`
 - `the {ordinal} selection has fewer than {int} row(s)`
 - `the selection on {dbService} has fewer than {int} row(s)`
 - `the {ordinal} selection on {dbService} has fewer than {int} row(s)`
-
-**Parameters:** `{ordinal}` (A 1-based position such as `1st`, `2nd`, `3rd` or `4th`. Omitting an optional ordinal means the first), `{dbService}` (The name of a database registered in the scenario), `{int}` (a 32-bit integer)
 
 **Example:**
 
@@ -284,96 +392,150 @@ Then the 2nd selection on parcels-db has fewer than 1 row
 
 ```gherkin
 Given a(n)[[ {ordinal} ordered]] before insert trigger on the {word} table[[ on {dbService}]] will raise a(n) {sqlState} exception where:
-  | ... | ... |
+  | column | value |
 ```
 
-PostgreSQL: create a BEFORE INSERT trigger that raises the SQLSTATE for inserted rows matching the table (`column | value`, `null` for IS NULL), so you can test how your app handles database errors. The trigger is dropped when the scenario ends.
+Make inserts of matching rows into the table fail with that SQLSTATE, to test how the app handles database errors.
 
-**Variants** (optional parts in `[[...]]` above):
+- A BEFORE INSERT trigger raises the error, so the database must be PostgreSQL.
+- Triggers are numbered in the order they are created, whatever ordinal the step says.
+- The trigger is dropped when the scenario ends.
+
+| Parameter | Takes | For example |
+|---|---|---|
+| `{ordinal}` | a position, counting from 1; an optional ordinal left out is the first | `1st`, `2nd` |
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+| `{dbService}` | the name of a database registered in the scenario | `parcels-db` |
+| `{sqlState}` | a five-character SQLSTATE error code, like `40001` (serialization failure) or `23505` (unique violation) | `40001`, `23505` |
+
+Each row names a column and the value the inserted row holds in it, or `null` for none (`IS NULL`); values are escaped.
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `a(n) before insert trigger on the {word} table will raise a(n) {sqlState} exception where:`
 - `a(n) before insert trigger on the {word} table on {dbService} will raise a(n) {sqlState} exception where:`
 - `a(n) {ordinal} ordered before insert trigger on the {word} table will raise a(n) {sqlState} exception where:`
 - `a(n) {ordinal} ordered before insert trigger on the {word} table on {dbService} will raise a(n) {sqlState} exception where:`
 
-**Parameters:** `{ordinal}` (A 1-based position such as `1st`, `2nd`, `3rd` or `4th`. Omitting an optional ordinal means the first), `{word}` (one word, no spaces), `{dbService}` (The name of a database registered in the scenario), `{sqlState}` (A five-character SQLSTATE code, e.g. `23505` (unique violation))
-
 **Example:**
 
 ```gherkin
 Given a before insert trigger on the parcels.parcels table will raise a 40001 exception where:
+  | reference | PX-DBF-3001 |
 ```
 
 ## `sql.trigger.raise.times`
 
 ```gherkin
 Given a(n)[[ {ordinal} ordered]] before insert trigger on the {word} table[[ on {dbService}]] will raise a(n) {sqlState} exception {int} time(s) where:
-  | ... | ... |
+  | column | value |
 ```
 
-PostgreSQL: create a BEFORE INSERT trigger that raises the SQLSTATE for inserted rows matching the table (`column | value`, `null` for IS NULL), so you can test how your app handles database errors. The trigger is dropped when the scenario ends. Only the first N matching inserts raise.
+Make inserts of matching rows into the table fail with that SQLSTATE, to test how the app handles database errors.
 
-**Variants** (optional parts in `[[...]]` above):
+- A BEFORE INSERT trigger raises the error, so the database must be PostgreSQL.
+- Only that many matching inserts fail; the ones after them succeed.
+- Triggers are numbered in the order they are created, whatever ordinal the step says.
+- The trigger is dropped when the scenario ends.
+
+| Parameter | Takes | For example |
+|---|---|---|
+| `{ordinal}` | a position, counting from 1; an optional ordinal left out is the first | `1st`, `2nd` |
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+| `{dbService}` | the name of a database registered in the scenario | `parcels-db` |
+| `{sqlState}` | a five-character SQLSTATE error code, like `40001` (serialization failure) or `23505` (unique violation) | `40001`, `23505` |
+| `{int}` | a whole number | `200`, `3` |
+
+Each row names a column and the value the inserted row holds in it, or `null` for none (`IS NULL`); values are escaped.
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `a(n) before insert trigger on the {word} table will raise a(n) {sqlState} exception {int} time(s) where:`
 - `a(n) before insert trigger on the {word} table on {dbService} will raise a(n) {sqlState} exception {int} time(s) where:`
 - `a(n) {ordinal} ordered before insert trigger on the {word} table will raise a(n) {sqlState} exception {int} time(s) where:`
 - `a(n) {ordinal} ordered before insert trigger on the {word} table on {dbService} will raise a(n) {sqlState} exception {int} time(s) where:`
 
-**Parameters:** `{ordinal}` (A 1-based position such as `1st`, `2nd`, `3rd` or `4th`. Omitting an optional ordinal means the first), `{word}` (one word, no spaces), `{dbService}` (The name of a database registered in the scenario), `{sqlState}` (A five-character SQLSTATE code, e.g. `23505` (unique violation)), `{int}` (a 32-bit integer)
-
 **Example:**
 
 ```gherkin
 Given a before insert trigger on the parcels.parcels table will raise a 40001 exception 1 time where:
+  | reference | PX-DBF-3001 |
 ```
 
 ## `sql.trigger.insertRaise`
 
 ```gherkin
 Given a(n)[[ {ordinal} ordered]] before insert trigger on the {word} table[[ on {dbService}]] will insert and raise a(n) {sqlState} exception where:
-  | ... | ... |
+  | column | value |
 ```
 
-PostgreSQL: create a BEFORE INSERT trigger that raises the SQLSTATE for inserted rows matching the table (`column | value`, `null` for IS NULL), so you can test how your app handles database errors. The trigger is dropped when the scenario ends. The row is still committed through a second connection (dblink) before the error, simulating a write that succeeded but reported failure.
+Make inserts of matching rows into the table store the row and still fail with that SQLSTATE, like a write that succeeded but reported a failure.
 
-**Variants** (optional parts in `[[...]]` above):
+- A BEFORE INSERT trigger raises the error, so the database must be PostgreSQL.
+- The row is committed through a second connection before the error, with the `dblink` extension, which the step creates when the database lacks it.
+- Triggers are numbered in the order they are created, whatever ordinal the step says.
+- The trigger is dropped when the scenario ends.
+
+| Parameter | Takes | For example |
+|---|---|---|
+| `{ordinal}` | a position, counting from 1; an optional ordinal left out is the first | `1st`, `2nd` |
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+| `{dbService}` | the name of a database registered in the scenario | `parcels-db` |
+| `{sqlState}` | a five-character SQLSTATE error code, like `40001` (serialization failure) or `23505` (unique violation) | `40001`, `23505` |
+
+Each row names a column and the value the inserted row holds in it, or `null` for none (`IS NULL`); values are escaped.
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `a(n) before insert trigger on the {word} table will insert and raise a(n) {sqlState} exception where:`
 - `a(n) before insert trigger on the {word} table on {dbService} will insert and raise a(n) {sqlState} exception where:`
 - `a(n) {ordinal} ordered before insert trigger on the {word} table will insert and raise a(n) {sqlState} exception where:`
 - `a(n) {ordinal} ordered before insert trigger on the {word} table on {dbService} will insert and raise a(n) {sqlState} exception where:`
 
-**Parameters:** `{ordinal}` (A 1-based position such as `1st`, `2nd`, `3rd` or `4th`. Omitting an optional ordinal means the first), `{word}` (one word, no spaces), `{dbService}` (The name of a database registered in the scenario), `{sqlState}` (A five-character SQLSTATE code, e.g. `23505` (unique violation))
-
 **Example:**
 
 ```gherkin
 Given a before insert trigger on the parcels.parcels table will insert and raise a 40001 exception where:
+  | reference | PX-DBF-3001 |
 ```
 
 ## `sql.trigger.insertRaise.times`
 
 ```gherkin
 Given a(n)[[ {ordinal} ordered]] before insert trigger on the {word} table[[ on {dbService}]] will insert and raise a(n) {sqlState} exception {int} time(s) where:
-  | ... | ... |
+  | column | value |
 ```
 
-PostgreSQL: create a BEFORE INSERT trigger that raises the SQLSTATE for inserted rows matching the table (`column | value`, `null` for IS NULL), so you can test how your app handles database errors. The trigger is dropped when the scenario ends. The row is still committed through a second connection (dblink) before the error, simulating a write that succeeded but reported failure. Only the first N matching inserts raise.
+Make inserts of matching rows into the table store the row and still fail with that SQLSTATE, like a write that succeeded but reported a failure.
 
-**Variants** (optional parts in `[[...]]` above):
+- A BEFORE INSERT trigger raises the error, so the database must be PostgreSQL.
+- The row is committed through a second connection before the error, with the `dblink` extension, which the step creates when the database lacks it.
+- Only that many matching inserts fail; the ones after them succeed.
+- Triggers are numbered in the order they are created, whatever ordinal the step says.
+- The trigger is dropped when the scenario ends.
+
+| Parameter | Takes | For example |
+|---|---|---|
+| `{ordinal}` | a position, counting from 1; an optional ordinal left out is the first | `1st`, `2nd` |
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+| `{dbService}` | the name of a database registered in the scenario | `parcels-db` |
+| `{sqlState}` | a five-character SQLSTATE error code, like `40001` (serialization failure) or `23505` (unique violation) | `40001`, `23505` |
+| `{int}` | a whole number | `200`, `3` |
+
+Each row names a column and the value the inserted row holds in it, or `null` for none (`IS NULL`); values are escaped.
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `a(n) before insert trigger on the {word} table will insert and raise a(n) {sqlState} exception {int} time(s) where:`
 - `a(n) before insert trigger on the {word} table on {dbService} will insert and raise a(n) {sqlState} exception {int} time(s) where:`
 - `a(n) {ordinal} ordered before insert trigger on the {word} table will insert and raise a(n) {sqlState} exception {int} time(s) where:`
 - `a(n) {ordinal} ordered before insert trigger on the {word} table on {dbService} will insert and raise a(n) {sqlState} exception {int} time(s) where:`
 
-**Parameters:** `{ordinal}` (A 1-based position such as `1st`, `2nd`, `3rd` or `4th`. Omitting an optional ordinal means the first), `{word}` (one word, no spaces), `{dbService}` (The name of a database registered in the scenario), `{sqlState}` (A five-character SQLSTATE code, e.g. `23505` (unique violation)), `{int}` (a 32-bit integer)
-
 **Example:**
 
 ```gherkin
 Given a before insert trigger on the parcels.parcels table will insert and raise a 40001 exception 1 time where:
+  | reference | PX-DBF-3001 |
 ```
 
 ## `sql.trigger.raised`
@@ -382,19 +544,25 @@ Given a before insert trigger on the parcels.parcels table will insert and raise
 Then the[[ {ordinal} ordered]] before insert trigger on the {word} table[[ on {dbService}]] was raised {int} time(s)
 ```
 
-Assert how many times a simulated trigger raised its exception. Triggers are numbered in creation order; the table must match the trigger's table.
+Check how many times a before insert trigger raised its error. Triggers are numbered in the order they are created; a table other than the trigger's only logs a warning.
 
-**Variants** (optional parts in `[[...]]` above):
+| Parameter | Takes | For example |
+|---|---|---|
+| `{ordinal}` | a position, counting from 1; an optional ordinal left out is the first | `1st`, `2nd` |
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+| `{dbService}` | the name of a database registered in the scenario | `parcels-db` |
+| `{int}` | a whole number | `200`, `3` |
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `the before insert trigger on the {word} table was raised {int} time(s)`
 - `the before insert trigger on the {word} table on {dbService} was raised {int} time(s)`
 - `the {ordinal} ordered before insert trigger on the {word} table was raised {int} time(s)`
 - `the {ordinal} ordered before insert trigger on the {word} table on {dbService} was raised {int} time(s)`
 
-**Parameters:** `{ordinal}` (A 1-based position such as `1st`, `2nd`, `3rd` or `4th`. Omitting an optional ordinal means the first), `{word}` (one word, no spaces), `{dbService}` (The name of a database registered in the scenario), `{int}` (a 32-bit integer)
-
 **Example:**
 
 ```gherkin
 Then the before insert trigger on the parcels.parcels table was raised 1 time
+Then the 2nd ordered before insert trigger on the parcels.parcels table on parcels-db was raised 3 times
 ```

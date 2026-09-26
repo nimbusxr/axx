@@ -52,6 +52,11 @@ func runValidationCases(t *testing.T, spec string, cases []validationCase) {
 			if !slices.Equal(got, c.want) {
 				t.Fatalf("findings %v, want %v (step error: %v)", got, c.want, err)
 			}
+			for _, k := range got {
+				if !levelKeys.Has(k) {
+					t.Errorf("levels cannot be set on the finding key %s: add it to knownKeys", k)
+				}
+			}
 			if len(c.want) > 0 {
 				if err == nil {
 					t.Fatal("findings at level ERROR must fail the step")
@@ -282,6 +287,37 @@ func TestLevelsInScenario(t *testing.T) {
 		}
 	})
 
+	t.Run("unknown key", func(t *testing.T) {
+		h := newHarness(t)
+		h.service("space", srv.URL, "space30.yaml")
+		err := h.failure("the OpenAPI validation levels are:", `unknown OpenAPI validation key "validation.request.body.schema.maxlength"`,
+			[]string{"validation.request.body", "IGNORE"}, []string{"validation.request.body.schema.maxlength", "IGNORE"})
+		if !strings.Contains(err.Error(), "did you mean validation.request.body.schema.maxLength?") {
+			t.Fatal(err)
+		}
+		err = h.failure("the OpenAPI validation levels on space are:", "did you mean validation.request.body.schema.enum?",
+			[]string{"validation.request.body.schema.const", "WARN"})
+		if !strings.Contains(err.Error(), `"validation.request.body.schema.const"`) {
+			t.Fatal(err)
+		}
+		// A failed step sets none of its levels.
+		if svc, _ := stateKey.Of(h.sc).services.Default(); len(svc.levels) != 0 {
+			t.Fatalf("levels set: %v", svc.levels)
+		}
+		// Prefixes of the keys, down to validation, are keys too.
+		h.ok("the OpenAPI validation levels are:", []string{"validation", "WARN"}, []string{"validation.request.parameter", "INFO"},
+			[]string{"validation.response.header.schema.pattern", "IGNORE"})
+	})
+
+	t.Run("unknown configured key", func(t *testing.T) {
+		h := newHarness(t, withPackConfig("rest", `{"openapi":{"levels":{"validation.request.security":"warn","validation.request.securty.missing":"IGNORE"}}}`))
+		err := (pack{}).Init(t.Context(), h.suite)
+		if err == nil || !strings.Contains(err.Error(), `openapi.levels: unknown OpenAPI validation key "validation.request.securty.missing"; `+
+			"did you mean validation.request.security.missing?") {
+			t.Fatalf("Init: %v", err)
+		}
+	})
+
 	t.Run("invalid configured level", func(t *testing.T) {
 		h := newHarness(t, withPackConfig("rest", `{"openapi":{"levels":{"validation.request":"NOPE"}}}`))
 		h.service("space", srv.URL, "space30.yaml")
@@ -403,6 +439,9 @@ func TestMapIssuesTable(t *testing.T) {
 		var keys []string
 		for _, is := range got {
 			keys = append(keys, is.Key)
+			if !levelKeys.Has(is.Key) {
+				t.Errorf("levels cannot be set on the finding key %s: add it to knownKeys", is.Key)
+			}
 		}
 		if !slices.Equal(keys, c.want) {
 			t.Errorf("%s/%s %q: keys %v, want %v", e.ValidationType, e.ValidationSubType, e.Message, keys, c.want)

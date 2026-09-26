@@ -3,6 +3,7 @@ src/content/docs/references/_gen/
 public/skills/
 public/schemas/
 public/.well-known/agent-skills/index.json
+src/lib/_gen/
 
 
 # Astro

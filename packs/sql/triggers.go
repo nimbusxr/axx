@@ -40,22 +40,29 @@ func triggerSteps() []core.StepDef {
 	var out []core.StepDef
 	for _, v := range variants {
 		v := v
-		doc := "PostgreSQL: create a BEFORE INSERT trigger that raises the SQLSTATE for inserted rows matching the table " +
-			"(`column | value`, `null` for IS NULL), so you can test how your app handles database errors. The trigger is dropped when the scenario ends."
+		doc := "Make inserts of matching rows into the table fail with that SQLSTATE, to test how the app handles database errors.\n\n"
 		if v.insert {
-			doc += " The row is still committed through a second connection (dblink) before the error, simulating a " +
-				"write that succeeded but reported failure."
+			doc = "Make inserts of matching rows into the table store the row and still fail with that SQLSTATE, " +
+				"like a write that succeeded but reported a failure.\n\n"
+		}
+		doc += "- A BEFORE INSERT trigger raises the error, so the database must be PostgreSQL.\n"
+		if v.insert {
+			doc += "- The row is committed through a second connection before the error, with the `dblink` extension, " +
+				"which the step creates when the database lacks it.\n"
 		}
 		if v.limited {
-			doc += " Only the first N matching inserts raise."
+			doc += "- Only that many matching inserts fail; the ones after them succeed.\n"
 		}
+		doc += "- Triggers are numbered in the order they are created, whatever ordinal the step says.\n" +
+			"- The trigger is dropped when the scenario ends."
+		example := "Given a before insert trigger on the parcels.parcels table " + v.verb + " a 40001 exception" +
+			strings.ReplaceAll(v.limit, "{int} time(s)", "1 time") + " where:\n  | reference | PX-DBF-3001 |"
 		out = append(out, core.StepDef{
 			ID: v.id, Keyword: "Given", Arg: core.ArgTable,
-			Expr: "a(n)[[ {ordinal} ordered]] before insert trigger on the {word} table[[ on {dbService}]] " + v.verb + " a(n) {sqlState} exception" + v.limit + " where:",
-			Doc:  doc,
-			Examples: []string{
-				"Given a before insert trigger on the parcels.parcels table " + v.verb + " a 40001 exception" + strings.ReplaceAll(v.limit, "{int} time(s)", "1 time") + " where:",
-			},
+			Expr:     "a(n)[[ {ordinal} ordered]] before insert trigger on the {word} table[[ on {dbService}]] " + v.verb + " a(n) {sqlState} exception" + v.limit + " where:",
+			Doc:      doc,
+			Table:    whereTable("the inserted row holds"),
+			Examples: []string{example},
 			Run: func(sc *core.Scenario, a core.Args) error {
 				svc, err := service(sc, a, 2)
 				if err != nil {
@@ -71,9 +78,13 @@ func triggerSteps() []core.StepDef {
 	}
 	out = append(out, core.StepDef{
 		ID: "sql.trigger.raised", Keyword: "Then",
-		Expr:     "the[[ {ordinal} ordered]] before insert trigger on the {word} table[[ on {dbService}]] was raised {int} time(s)",
-		Doc:      "Assert how many times a simulated trigger raised its exception. Triggers are numbered in creation order; the table must match the trigger's table.",
-		Examples: []string{"Then the before insert trigger on the parcels.parcels table was raised 1 time"},
+		Expr: "the[[ {ordinal} ordered]] before insert trigger on the {word} table[[ on {dbService}]] was raised {int} time(s)",
+		Doc: "Check how many times a before insert trigger raised its error. " +
+			"Triggers are numbered in the order they are created; a table other than the trigger's only logs a warning.",
+		Examples: []string{
+			"Then the before insert trigger on the parcels.parcels table was raised 1 time",
+			"Then the 2nd ordered before insert trigger on the parcels.parcels table on parcels-db was raised 3 times",
+		},
 		Run: func(sc *core.Scenario, a core.Args) error {
 			svc, err := service(sc, a, 2)
 			if err != nil {

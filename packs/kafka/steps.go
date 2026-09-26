@@ -11,11 +11,28 @@ const serviceSuffix = "[[ on the {word} kafka service]]"
 
 const ordinalDoc = "With `the {ordinal} ordered` the step works on that event of the topic (`1st` is the first event created); without it, on the first event."
 
-const consumeDoc = "Adds the expectation to the label (`named {word}`) and then waits until **one record** of the topic satisfies " +
-	"**every** expectation added to that label in the scenario (key, payload properties and headers together). " +
-	"Records are read from the start of the topic (or, with `consumer.auto.offset.reset=latest`, only those produced after the step starts); " +
-	"the step fails after 30 seconds (`packs.kafka.timeout`) without a match, and the failure report lists the label's expectations " +
-	"and the latest records with the reason each one did not match."
+// consumeDoc is how the assertion steps work, as the items of a Doc's list.
+const consumeDoc = "- The expectation joins those of the label (`named {word}`) in the scenario: **one record** of the topic must meet " +
+	"**every** one of them, key, payload properties and headers together.\n" +
+	"- Records are read from the start of the topic, or with `consumer.auto.offset.reset=latest`, only those produced after the step starts.\n" +
+	"- The step fails after 30 seconds (`packs.kafka.timeout`) without a match; the failure lists the label's expectations " +
+	"and the latest records, each with the reason it did not match."
+
+// setPropertiesTable is the table of the steps that set payload properties
+// of a drafted event.
+var setPropertiesTable = &core.TableDoc{
+	Columns: []string{"JSONPath", "value"},
+	Note:    "A row sets the property at the JSONPath to the value, always as a string; an empty cell sets JSON null.",
+}
+
+// headersMatchTable and headersMatchDoc are those of the steps that match
+// headers with regular expressions.
+var headersMatchTable = &core.TableDoc{
+	Columns: []string{"header", "pattern"},
+	Note:    "A row expects a header of the record to match a regular expression (Java syntax), over its whole value; an empty cell fails the step.",
+}
+
+const headersMatchDoc = "- A header must have one distinct value: unlike the other steps, this one ignores repeated identical values of a header.\n"
 
 func (pack) Manifest() core.Manifest {
 	return core.Manifest{
@@ -37,9 +54,9 @@ func packDoc() string {
 		"`$.reference` work on Avro records as on JSON; union values appear without their wrapper.\n\n" +
 		"**Configuration** (`packs.kafka` in axx.yaml): `timeout` (default `30s`), `maxRecords` kept per topic (default 100000), " +
 		"`lenientUnions` (accept Avro union values without their `{\"<branch>\": value}` wrapper when exactly one branch fits).\n\n" +
-		"**Client properties.** Rows prefixed `producer.` or `consumer.` configure that client (without the prefix); values are expanded " +
-		"(`${env:..}`, `${sys:..}`). Defaults: `StringSerializer`/`StringDeserializer`, `auto.offset.reset=earliest`, no consumer group. " +
-		"How each Java property is applied:\n\n" + propDoc()
+		"**Client properties.** A topic client's table takes Java Kafka client properties, prefixed `producer.` or `consumer.`: " +
+		"`a(n) {word} kafka topic client with the following properties:` lists those axx applies. Without them, a client writes " +
+		"and reads keys and payloads as text, reads every record of the topic, and uses no consumer group.\n\n" + otherPropsDoc()
 }
 
 func steps() []core.StepDef {
@@ -47,9 +64,15 @@ func steps() []core.StepDef {
 		{
 			ID: "kafka.service", Keyword: "Given", Arg: core.ArgTable,
 			Expr: "the {word} kafka service with the following properties:",
-			Doc: "Register a Kafka cluster. The first one registered in a scenario is the default for steps without `on the {word} kafka service`.\n\n" +
-				"Properties: `brokers` (required; `host:port` list, `${env:..}`/`${sys:..}` expanded).",
-			Examples: []string{"Given the events kafka service with the following properties:"},
+			Doc:  "Register a Kafka cluster. The first one registered in a scenario is the default for steps without `on the {word} kafka service`.",
+			Table: &core.TableDoc{
+				Columns: []string{"property", "value"},
+				Rows: []core.TableRow{
+					{Name: "brokers", Required: true, Takes: "the cluster's brokers, a comma-separated list of `host:port`; `${env:..}` and `${sys:..}` are expanded"},
+				},
+				Note: "Any other property is ignored, with a warning.",
+			},
+			Examples: []string{"Given the events kafka service with the following properties:\n  | brokers | localhost:9092 |"},
 			Run:      addService,
 		},
 		{
@@ -69,14 +92,17 @@ func steps() []core.StepDef {
 		{
 			ID: "kafka.client.props", Keyword: "Given", Arg: core.ArgTable,
 			Expr: "a(n) {word} kafka topic client" + serviceSuffix + " with the following properties:",
-			Doc: "Create a topic client configured with Java Kafka client properties. Rows prefixed `producer.` configure publishing, " +
-				"rows prefixed `consumer.` configure assertions (the prefix is removed); values are expanded. For Avro use " +
-				"`producer.value.serializer=io.confluent.kafka.serializers.KafkaAvroSerializer`, " +
-				"`consumer.value.deserializer=io.confluent.kafka.serializers.KafkaAvroDeserializer` and `*.schema.registry.url`. " +
-				"See the pack documentation for every supported property; unknown properties are logged as warnings.",
+			Doc: "Create a topic client configured with Java Kafka client properties: `producer.` rows for publishing, `consumer.` rows for assertions.\n\n" +
+				"- For Avro, set the Confluent Avro serializer or deserializer and the `schema.registry.url`, as in the examples.\n" +
+				"- A topic can have one client per service in a scenario.",
+			Table: clientTable(),
 			Examples: []string{
-				"Given a depot-scans kafka topic client with the following properties:",
-				"Given a parcel-events kafka topic client on the events kafka service with the following properties:",
+				"Given a depot-scans kafka topic client with the following properties:\n" +
+					"  | producer.value.serializer    | io.confluent.kafka.serializers.KafkaAvroSerializer |\n" +
+					"  | producer.schema.registry.url | http://localhost:9081                              |",
+				"Given a parcel-events kafka topic client on the events kafka service with the following properties:\n" +
+					"  | consumer.value.deserializer  | io.confluent.kafka.serializers.KafkaAvroDeserializer |\n" +
+					"  | consumer.schema.registry.url | http://localhost:9081                                |",
 			},
 			TableTypes: clientTableTypes(),
 			Run: func(sc *core.Scenario, a core.Args) error {
@@ -90,9 +116,10 @@ func steps() []core.StepDef {
 		{
 			ID: "kafka.event", Keyword: "Given",
 			Expr: "a(n)[[ {ordinal} ordered]] {word} kafka event[[ on {word} kafka service]]",
-			Doc: "Draft a new event (key, headers and payload are set by the following steps; the payload starts as `{}`). " +
-				"Without an ordinal the event is appended. With one, it must be the next position (`a 2nd ordered` after one event); " +
-				"an ordinal equal to the number of existing events still appends, with a warning (it will be an error in axx 1.0).",
+			Doc: "Draft a new event of the topic: the steps that follow set its key, headers and payload, which starts as `{}`.\n\n" +
+				"- Without an ordinal, the event is appended.\n" +
+				"- With one, it must be the next position: `a 2nd ordered` after one event.\n" +
+				"- An ordinal equal to the number of events the topic has still appends, with a warning.",
 			Examples: []string{
 				"Given a depot-scans kafka event",
 				"Given a 2nd ordered depot-scans kafka event",
@@ -105,8 +132,8 @@ func steps() []core.StepDef {
 			Expr: "the[[ {ordinal} ordered]] {word} kafka event key is {word}" + serviceSuffix,
 			Doc:  "Set the key of a drafted event. " + ordinalDoc,
 			Examples: []string{
-				"Given the depot-scans kafka event key is PX-1001",
-				"Given the 2nd ordered depot-scans kafka event key is PX-1002 on the events kafka service",
+				"Given the depot-scans kafka event key is PX-4101",
+				"Given the 2nd ordered depot-scans kafka event key is PX-4102 on the events kafka service",
 			},
 			Run: func(sc *core.Scenario, a core.Args) error {
 				ev, err := event(sc, a, 0, 1, 3)
@@ -121,10 +148,17 @@ func steps() []core.StepDef {
 		{
 			ID: "kafka.event.headers", Keyword: "Given", Arg: core.ArgTable,
 			Expr: "the[[ {ordinal} ordered]] {word} kafka event headers" + serviceSuffix + " are:",
-			Doc:  "Set headers of a drafted event (`name | value` rows; setting a header again replaces its value; an empty cell sends the text `null`). " + ordinalDoc,
+			Doc:  "Set headers of a drafted event. " + ordinalDoc,
+			Table: &core.TableDoc{
+				Columns: []string{"header", "value"},
+				Note:    "A row sets a header of the event: setting a header again replaces its value, and an empty cell sends the text `null`.",
+			},
 			Examples: []string{
-				"Given the depot-scans kafka event headers are:",
-				"Given the 1st ordered depot-scans kafka event headers on the events kafka service are:",
+				"Given the depot-scans kafka event headers are:\n" +
+					"  | X-Event-Type | ParcelScanned |\n" +
+					"  | X-Depot      | Leipzig       |",
+				"Given the 1st ordered depot-scans kafka event headers on the events kafka service are:\n" +
+					"  | X-Event-Type | ParcelScanned |",
 			},
 			Run: func(sc *core.Scenario, a core.Args) error {
 				ev, err := event(sc, a, 0, 1, 2)
@@ -148,8 +182,9 @@ func steps() []core.StepDef {
 		{
 			ID: "kafka.event.payload.resource", Keyword: "Given",
 			Expr: "the[[ {ordinal} ordered]] {word} kafka event payload is a(n) {filepath} resource" + serviceSuffix,
-			Doc: "Set the payload of a drafted event to the contents of a file (resolved against `resources`). For Avro events the " +
-				"file is Avro's JSON encoding of the record (unions as `{\"<branch>\": value}`). " + ordinalDoc,
+			Doc: "Set the payload of a drafted event to the contents of a file.\n\n" +
+				"- For Avro events, the file is Avro's JSON encoding of the record, with unions as `{\"<branch>\": value}`.\n" +
+				"- " + ordinalDoc,
 			Examples: []string{
 				"Given the depot-scans kafka event payload is a kafka/scan-delivered.json resource",
 				"Given the 3rd ordered depot-scans kafka event payload is a kafka/scan-out-for-delivery.json resource on the events kafka service",
@@ -165,11 +200,17 @@ func steps() []core.StepDef {
 		{
 			ID: "kafka.event.properties.first", Keyword: "Given", Arg: core.ArgTable,
 			Expr: "the[[ {ordinal} ordered]] kafka event payload properties" + serviceSuffix + " are:",
-			Doc: "Set JSONPath properties (`path | value` rows) of an event of the service's **first** topic client (the first one created in the scenario). " +
-				"Values are always set as strings, an empty cell sets JSON null, and every property must already exist in the payload. " + ordinalDoc,
+			Doc: "Set JSONPath properties of an event of the service's **first** topic client, the first one created in the scenario.\n\n" +
+				"- Every property must already exist in the payload.\n" +
+				"- " + ordinalDoc,
+			Table: setPropertiesTable,
 			Examples: []string{
-				"Given the kafka event payload properties are:",
-				"Given the 2nd ordered kafka event payload properties on the events kafka service are:",
+				"Given the kafka event payload properties are:\n" +
+					"  | $.scanId    | SC-4101-1 |\n" +
+					"  | $.parcelRef | PX-4101   |",
+				"Given the 2nd ordered kafka event payload properties on the events kafka service are:\n" +
+					"  | $.scanId    | SC-4101-2 |\n" +
+					"  | $.parcelRef | PX-4101   |",
 			},
 			Run: func(sc *core.Scenario, a core.Args) error {
 				svc, err := service(sc, a, 1)
@@ -189,12 +230,15 @@ func steps() []core.StepDef {
 		},
 		{
 			ID: "kafka.event.properties", Keyword: "Given", Arg: core.ArgTable,
-			Expr: "the {word} kafka event payload properties" + serviceSuffix + " are:",
-			Doc: "Set JSONPath properties (`path | value` rows) of the topic's first event. Values are always set as strings, " +
-				"an empty cell sets JSON null, and every property must already exist in the payload (set it in the payload file first).",
+			Expr:  "the {word} kafka event payload properties" + serviceSuffix + " are:",
+			Doc:   "Set JSONPath properties of the topic's first event. Every property must already exist in the payload: set it in the payload file first.",
+			Table: setPropertiesTable,
 			Examples: []string{
-				"Given the depot-scans kafka event payload properties are:",
-				"Given the depot-scans kafka event payload properties on the events kafka service are:",
+				"Given the depot-scans kafka event payload properties are:\n" +
+					"  | $.scanId    | SC-4101-1 |\n" +
+					"  | $.parcelRef | PX-4101   |",
+				"Given the depot-scans kafka event payload properties on the events kafka service are:\n" +
+					"  | $.location | Leipzig |",
 			},
 			Run: func(sc *core.Scenario, a core.Args) error {
 				ev, err := event(sc, a, -1, 0, 1)
@@ -207,9 +251,13 @@ func steps() []core.StepDef {
 		{
 			ID: "kafka.event.properties.ordinal", Keyword: "Given", Arg: core.ArgTable, Since: "0.1.0",
 			Expr: "the {ordinal} ordered {word} kafka event payload properties" + serviceSuffix + " are:",
-			Doc:  "Like the topic form, for the given event of the topic (`1st` is the first event created).",
+			Doc: "Set JSONPath properties of that event of the topic (`1st` is the first event created). Every property must " +
+				"already exist in the payload: set it in the payload file first.",
+			Table: setPropertiesTable,
 			Examples: []string{
-				"Given the 2nd ordered depot-scans kafka event payload properties are:",
+				"Given the 2nd ordered depot-scans kafka event payload properties are:\n" +
+					"  | $.scanId    | SC-4101-2 |\n" +
+					"  | $.parcelRef | PX-4101   |",
 			},
 			Run: func(sc *core.Scenario, a core.Args) error {
 				ev, err := event(sc, a, 0, 1, 2)
@@ -238,11 +286,12 @@ func steps() []core.StepDef {
 		{
 			ID: "kafka.event.publish.schema", Keyword: "When",
 			Expr: "the[[ {ordinal} ordered]] {word} kafka event is published using schema {filepath}" + serviceSuffix,
-			Doc: "Publish a drafted event as Confluent Avro: the payload (Avro's JSON encoding) is read with the `.avsc` schema file, " +
-				"the schema is registered (or looked up) in the Schema Registry under the subject of `value.subject.name.strategy` " +
-				"(`<topic>-value` by default), and the record is written as magic byte 0, the schema ID and the Avro binary. " +
-				"Needs `producer.value.serializer=io.confluent.kafka.serializers.KafkaAvroSerializer` and `producer.schema.registry.url`. " +
-				"A payload that does not fit the schema fails with the JSONPath of the mismatch. " + ordinalDoc,
+			Doc: "Publish a drafted event as Confluent Avro, with an `.avsc` schema file.\n\n" +
+				"- The payload, Avro's JSON encoding of the record, is read with the schema; a payload that does not fit it fails the step with the JSONPath of the mismatch.\n" +
+				"- The schema is registered, or looked up, in the Schema Registry under the subject of `value.subject.name.strategy`, `<topic>-value` by default.\n" +
+				"- The record is written as magic byte 0, the schema ID and the Avro binary.\n" +
+				"- The topic client needs `producer.value.serializer=io.confluent.kafka.serializers.KafkaAvroSerializer` and `producer.schema.registry.url`.\n" +
+				"- " + ordinalDoc,
 			Examples: []string{
 				"When the depot-scans kafka event is published using schema schemas/depot-scan.avsc",
 				"When the 2nd ordered depot-scans kafka event is published using schema schemas/depot-scan.avsc on the events kafka service",
@@ -258,8 +307,10 @@ func steps() []core.StepDef {
 		{
 			ID: "kafka.event.publish", Keyword: "When", Since: "0.1.0",
 			Expr: "the[[ {ordinal} ordered]] {word} kafka event is published" + serviceSuffix,
-			Doc: "Publish a drafted event as it is: the payload text with the producer's value serializer (`StringSerializer` by default, " +
-				"or `ByteArraySerializer`), with its key and headers. Use `published using schema` for Avro. " + ordinalDoc,
+			Doc: "Publish a drafted event as it is: its key, its headers and its payload's text.\n\n" +
+				"- The producer's value serializer writes the payload: `StringSerializer` by default, or `ByteArraySerializer`.\n" +
+				"- For Avro, use `is published using schema`: with `KafkaAvroSerializer`, this step fails.\n" +
+				"- " + ordinalDoc,
 			Examples: []string{
 				"When the depot-scans kafka event is published",
 				"When the 2nd ordered depot-scans kafka event is published on the events kafka service",
@@ -275,10 +326,11 @@ func steps() []core.StepDef {
 		{
 			ID: "kafka.consumed.key", Keyword: "Then",
 			Expr: "the {word} kafka event named {word} key is {word}" + serviceSuffix,
-			Doc:  "Expect the label's record to have this key (the consumer's key deserializer decides how keys read). " + consumeDoc,
+			Doc: "Expect the label's record to have this key.\n\n" +
+				"- The consumer's key deserializer decides how keys read.\n" + consumeDoc,
 			Examples: []string{
-				"Then the parcel-events kafka event named registered key is PX-1001",
-				"Then the parcel-events kafka event named registered key is PX-1001 on the events kafka service",
+				"Then the parcel-events kafka event named registered key is PX-4101",
+				"Then the parcel-events kafka event named registered key is PX-4101 on the events kafka service",
 			},
 			Run: func(sc *core.Scenario, a core.Args) error {
 				return consume(sc, a, 3, false, func(l *label) error {
@@ -290,12 +342,23 @@ func steps() []core.StepDef {
 		{
 			ID: "kafka.consumed.properties", Keyword: "Then", Arg: core.ArgTable,
 			Expr: "the {word} kafka event named {word} payload properties" + serviceSuffix + " are:",
-			Doc: "Expect JSONPath properties of the label's record payload (`path | value` rows). Values are typed: " +
-				"`\"text\"` is a string, `null` is JSON null, `12` an integer, `1.5` a decimal, `true`/`false` booleans, `{...}`/`[...]` JSON; " +
-				"anything else is a string. Numbers must match in type (`2` does not equal `2.0`). " + consumeDoc,
+			Doc: "Expect JSONPath properties of the label's record payload.\n\n" +
+				"- Values are typed: `\"text\"` is a string, `null` JSON null, `12` an integer, `1.5` a decimal, `true` and `false` booleans, " +
+				"`{...}` and `[...]` JSON; anything else is a string.\n" +
+				"- Numbers must match in type: `2` does not equal `2.0`.\n" +
+				"- An empty cell fails the step: write `null` for JSON null, `\"\"` for an empty string.\n" + consumeDoc,
+			Table: &core.TableDoc{
+				Columns: []string{"JSONPath", "value"},
+				Note:    "A row expects the property at the JSONPath to have the value.",
+			},
 			Examples: []string{
-				"Then the parcel-events kafka event named registered payload properties are:",
-				"Then the parcel-events kafka event named registered payload properties on the events kafka service are:",
+				"Then the parcel-events kafka event named registered payload properties are:\n" +
+					"  | $.reference    | PX-4101  |\n" +
+					"  | $.weightGrams  | 1200     |\n" +
+					"  | $.serviceLevel | STANDARD |",
+				"Then the parcel-events kafka event named registered payload properties on the events kafka service are:\n" +
+					"  | $.reference | PX-4101 |\n" +
+					"  | $.source    | api     |",
 			},
 			Run: func(sc *core.Scenario, a core.Args) error {
 				pairs, err := a.Table.Pairs()
@@ -322,10 +385,17 @@ func steps() []core.StepDef {
 		{
 			ID: "kafka.consumed.headers", Keyword: "Then", Arg: core.ArgTable,
 			Expr: "the {word} kafka event named {word} headers" + serviceSuffix + " are:",
-			Doc:  "Expect headers of the label's record (`name | value` rows): each header must occur exactly once with exactly this value. " + consumeDoc,
+			Doc: "Expect headers of the label's record.\n\n" +
+				"- Each header must occur exactly once, with exactly this value.\n" + consumeDoc,
+			Table: &core.TableDoc{
+				Columns: []string{"header", "value"},
+				Note:    "A row expects a header of the record to have the value; an empty cell fails the step.",
+			},
 			Examples: []string{
-				"Then the parcel-events kafka event named registered headers are:",
-				"Then the parcel-events kafka event named registered headers on the events kafka service are:",
+				"Then the parcel-events kafka event named registered headers are:\n" +
+					"  | X-Event-Type | ParcelRegistered |",
+				"Then the parcel-events kafka event named registered headers on the events kafka service are:\n" +
+					"  | X-Event-Type | ParcelRegistered |",
 			},
 			Run: func(sc *core.Scenario, a core.Args) error {
 				hs, err := headerExpectations(a.Table, false)
@@ -340,18 +410,21 @@ func steps() []core.StepDef {
 		},
 		{
 			ID: "kafka.consumed.headers.match", Keyword: "Then", Arg: core.ArgTable,
-			Expr: "the {word} kafka event named {word} headers match:",
-			Doc: "Expect headers of the label's record to match regular expressions (`name | pattern` rows, Java syntax, whole value). " +
-				"A header must have one distinct value; this step (unlike the others) ignores repeated identical values of a header. " + consumeDoc,
-			Examples: []string{"Then the parcel-events kafka event named registered headers match:"},
-			Run:      headersMatch(-1),
+			Expr:  "the {word} kafka event named {word} headers match:",
+			Doc:   "Expect headers of the label's record to match regular expressions.\n\n" + headersMatchDoc + consumeDoc,
+			Table: headersMatchTable,
+			Examples: []string{"Then the parcel-events kafka event named registered headers match:\n" +
+				"  | X-Event-Type | Parcel[A-Za-z]+ |"},
+			Run: headersMatch(-1),
 		},
 		{
 			ID: "kafka.consumed.headers.match.service", Keyword: "Then", Arg: core.ArgTable, Since: "0.1.0",
-			Expr:     "the {word} kafka event named {word} headers on the {word} kafka service match:",
-			Doc:      "The `headers match` expectation for a topic client of a named Kafka service. " + consumeDoc,
-			Examples: []string{"Then the parcel-events kafka event named registered headers on the events kafka service match:"},
-			Run:      headersMatch(2),
+			Expr:  "the {word} kafka event named {word} headers on the {word} kafka service match:",
+			Doc:   "Expect headers of the label's record, on a topic client of that Kafka service, to match regular expressions.\n\n" + headersMatchDoc + consumeDoc,
+			Table: headersMatchTable,
+			Examples: []string{"Then the parcel-events kafka event named registered headers on the events kafka service match:\n" +
+				"  | X-Event-Type | Parcel[A-Za-z]+ |"},
+			Run: headersMatch(2),
 		},
 	}
 }

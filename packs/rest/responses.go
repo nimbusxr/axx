@@ -14,15 +14,28 @@ import (
 	"github.com/nimbusxr/axx/internal/compat/jvalue"
 )
 
-const valueDoc = " Values are compared with their JSON type: `'John'` or `\"42\"` (double quotes inside) are strings, " +
-	"`42` an integer, `42L` a long, `1.5` a number, `true`/`false` booleans, `{...}` and `[...]` JSON objects and arrays " +
-	"(compared regardless of member order). An integer never equals a decimal (`5` is not `5.0`)."
+// valueDoc says how the response property steps compare values.
+var valueDoc = []string{
+	"A value is compared with its JSON type. Text, like `REGISTERED`, is a string, and so is a value in double quotes, like `\"42\"`.",
+	"`42` is an integer, `42L` a long and `1.5` a number. An integer never equals a decimal: `5` is not `5.0`.",
+	"`true` and `false` are booleans. `{...}` and `[...]` are a JSON object and a JSON array; an object's members may come in any order.",
+}
+
+// regexpDoc and regexpsDoc say how the steps that match regular
+// expressions match them.
+const (
+	regexpDoc  = "The regular expression is in Java syntax, and must match the whole value."
+	regexpsDoc = "Each regular expression is in Java syntax, and must match the whole value."
+)
 
 func responseSteps() []core.StepDef {
 	out := []core.StepDef{{
 		ID: "rest.response.status", Keyword: "Then",
-		Expr:     "the[[ {ordinal} ordered]] response status code is {int}[[ on {service}]]",
-		Doc:      "Assert the HTTP status code of a response." + respOrdinalDoc,
+		Expr: "the[[ {ordinal} ordered]] response status code is {int}[[ on {service}]]",
+		Doc: docList("Check the HTTP status code of a response.",
+			"Without an ordinal it checks the response to the first (default) request; `the 2nd ordered response`, "+
+				"the response to the second.",
+			serviceDoc),
 		Examples: []string{"Then the response status code is 200", "Then the 2nd ordered response status code is 201 on parcels"},
 		Run: func(sc *core.Scenario, a core.Args) error {
 			ex, err := target{ord: 0, svc: 2}.exchange(sc, a)
@@ -39,7 +52,7 @@ func responseSteps() []core.StepDef {
 		{
 			id: "rest.response.body.contains", keyword: "Then", noun: "response",
 			head: "the response body contains {string}", nHead: 1,
-			doc:          "Assert that the response body contains the text." + respOrdinalDoc,
+			doc:          "Check that the response body contains the text.",
 			example:      "Then the response body contains 'already registered'",
 			namedExample: "Then the response body contains 'already registered' for 2nd ordered response on parcels",
 			run: func(sc *core.Scenario, a core.Args, t target) error {
@@ -56,8 +69,11 @@ func responseSteps() []core.StepDef {
 		{
 			id: "rest.response.header.is", keyword: "Then", noun: "response",
 			head: "the response header {word} is {string}", nHead: 2,
-			doc: "Assert that a response header (name matched case-insensitively) has the value; with repeated " +
-				"headers, one of them must." + respOrdinalDoc,
+			doc: "Check that a response header has the value.",
+			details: []string{
+				"The header's name is matched in any case.",
+				"With the header repeated, one of its values must be the value.",
+			},
 			example:      "Then the response header Content-Type is 'application/json'",
 			namedExample: "Then the response header Content-Type is 'application/json' for response on parcels",
 			run: func(sc *core.Scenario, a core.Args, t target) error {
@@ -71,8 +87,11 @@ func responseSteps() []core.StepDef {
 		{
 			id: "rest.response.header.matches", keyword: "Then", noun: "response",
 			head: "the response header {word} matches {pattern}", nHead: 2,
-			doc: "Assert that a response header matches a regular expression (Java syntax; it must match the " +
-				"whole value). With repeated headers, one of them must match." + respOrdinalDoc,
+			doc: "Check that a response header matches a regular expression.",
+			details: []string{
+				regexpDoc,
+				"With the header repeated, one of its values must match.",
+			},
 			example:      "Then the response header Content-Type matches ^application/json.*$",
 			namedExample: "Then the response header Content-Type matches ^application/json$ for 1st ordered response on parcels",
 			run: func(sc *core.Scenario, a core.Args, t target) error {
@@ -90,9 +109,9 @@ func responseSteps() []core.StepDef {
 		{
 			id: "rest.response.header.missing", keyword: "Then", noun: "response",
 			head: "the response header {word} is missing", nHead: 1,
-			doc:          "Assert that the response has no header with the name." + respOrdinalDoc,
+			doc:          "Check that the response has no header of that name.",
 			example:      "Then the response header Content-Length is missing",
-			namedExample: "Then the response header X-Custom is missing for response on parcels",
+			namedExample: "Then the response header Retry-After is missing for response on parcels",
 			run: func(sc *core.Scenario, a core.Args, t target) error {
 				ex, err := t.exchange(sc, a)
 				if err != nil {
@@ -104,9 +123,18 @@ func responseSteps() []core.StepDef {
 		{
 			id: "rest.response.headers.are", keyword: "Then", arg: core.ArgTable, noun: "response",
 			head: "the response headers", tail: " are:",
-			doc:          "Assert response headers from a `name | value` table, each like the single-header step (a name may repeat)." + respOrdinalDoc,
-			example:      "Then the response headers are:",
-			namedExample: "Then the response headers for 1st ordered response on parcels are:",
+			doc: "Check response headers, a row each, like the single-header step.",
+			details: []string{
+				"A name may repeat.",
+				"Every row is checked, and every mismatch reported.",
+			},
+			table: &core.TableDoc{Columns: []string{"header", "value"}, Note: "A row is a header's name and the value it must have."},
+			example: "Then the response headers are:\n" +
+				"  | Content-Type | application/json     |\n" +
+				"  | Location     | /api/parcels/PX-4101 |",
+			namedExample: "Then the response headers for 1st ordered response on parcels are:\n" +
+				"  | Content-Type | application/problem+json |\n" +
+				"  | Retry-After  | 5                        |",
 			run: func(sc *core.Scenario, a core.Args, t target) error {
 				return headerTable(sc, a, t, func(h http.Header, row [2]string) (*failure, error) {
 					return headerIs(h, row[0], row[1]), nil
@@ -116,9 +144,20 @@ func responseSteps() []core.StepDef {
 		{
 			id: "rest.response.headers.match", keyword: "Then", arg: core.ArgTable, noun: "response",
 			head: "the response headers", tail: " match:",
-			doc:          "Assert response headers from a `name | regular expression` table (full match, Java syntax)." + respOrdinalDoc,
-			example:      "Then the response headers match:",
-			namedExample: "Then the response headers for response on parcels match:",
+			doc: "Check that response headers match regular expressions, a row each.",
+			details: []string{
+				regexpsDoc,
+				"Every row is checked, and every mismatch reported.",
+			},
+			table: &core.TableDoc{
+				Columns: []string{"header", "regular expression"},
+				Note:    "A row is a header's name and a regular expression its value must match.",
+			},
+			example: "Then the response headers match:\n" +
+				"  | Content-Type | application/json.*       |\n" +
+				"  | Location     | /api/parcels/PX-[0-9]{4} |",
+			namedExample: "Then the response headers for response on parcels match:\n" +
+				"  | Retry-After | [0-9]+ |",
 			run: func(sc *core.Scenario, a core.Args, t target) error {
 				return headerTable(sc, a, t, func(h http.Header, row [2]string) (*failure, error) {
 					return headerMatches(h, row[0], row[1])
@@ -128,9 +167,13 @@ func responseSteps() []core.StepDef {
 		{
 			id: "rest.response.headers.missing", keyword: "Then", arg: core.ArgTable, noun: "response",
 			head: "the response headers", tail: " are missing:",
-			doc:          "Assert that the response has none of the headers named in the table's first column." + respOrdinalDoc,
-			example:      "Then the response headers are missing:",
-			namedExample: "Then the response headers for response on parcels are missing:",
+			doc:   "Check that the response has none of the headers the table names.",
+			table: &core.TableDoc{Columns: []string{"header"}, Note: "A row names a header, in its first cell."},
+			example: "Then the response headers are missing:\n" +
+				"  | Retry-After |\n" +
+				"  | Set-Cookie  |",
+			namedExample: "Then the response headers for response on parcels are missing:\n" +
+				"  | Retry-After |",
 			run: func(sc *core.Scenario, a core.Args, t target) error {
 				ex, err := t.exchange(sc, a)
 				if err != nil {
@@ -151,9 +194,12 @@ func responseSteps() []core.StepDef {
 		{
 			id: "rest.response.property.is", keyword: "Then", noun: "response",
 			head: "the response payload property {word} is {string}", nHead: 2,
-			doc: "Assert a property of a JSON response (a JSONPath such as `status`, `recipient.postcode` or " +
-				"`[?(@.sender=='kestrel-books')].reference`; an indefinite path yields a list). The response must be JSON " +
-				"(`application/json`, `text/json` or any `+json` type, charset ignored)." + valueDoc + respOrdinalDoc,
+			doc: "Check a property of a JSON response, by its JSONPath, like `status`, `recipient.postcode` or " +
+				"`[?(@.sender=='kestrel-books')].reference`.",
+			details: append([]string{
+				"An indefinite path, like a filter, reads as a list.",
+				"The response must be JSON: `application/json`, `text/json` or any `+json` type, whatever its charset.",
+			}, valueDoc...),
 			example:      "Then the response payload property status is 'REGISTERED'",
 			namedExample: "Then the response payload property status is 'REGISTERED' for 1st ordered response on parcels",
 			run: func(sc *core.Scenario, a core.Args, t target) error {
@@ -171,7 +217,7 @@ func responseSteps() []core.StepDef {
 		{
 			id: "rest.response.property.null", keyword: "Then", noun: "response",
 			head: "the response payload property {word} is null", nHead: 1,
-			doc:          "Assert that a response payload property exists and is JSON null." + respOrdinalDoc,
+			doc:          "Check that a property of the response payload exists, and is JSON null.",
 			example:      "Then the response payload property lastLocation is null",
 			namedExample: "Then the response payload property lastLocation is null for response on parcels",
 			run: func(sc *core.Scenario, a core.Args, t target) error {
@@ -189,10 +235,12 @@ func responseSteps() []core.StepDef {
 		{
 			id: "rest.response.property.undefined", keyword: "Then", noun: "response",
 			head: "the response payload property {word} is undefined", nHead: 1,
-			doc: "Assert that a response payload property does not exist. (An indefinite path always exists: it " +
-				"reads as a possibly empty list.)" + respOrdinalDoc,
-			example:      "Then the response payload property nonexistent is undefined",
-			namedExample: "Then the response payload property nonexistent is undefined for 1st ordered response on parcels",
+			doc: "Check that a property of the response payload does not exist.",
+			details: []string{
+				"An indefinite path always exists: it reads as a list, which may be empty.",
+			},
+			example:      "Then the response payload property recipient.street is undefined",
+			namedExample: "Then the response payload property recipient.street is undefined for 1st ordered response on parcels",
 			run: func(sc *core.Scenario, a core.Args, t target) error {
 				ex, err := t.exchange(sc, a)
 				if err != nil {
@@ -208,8 +256,8 @@ func responseSteps() []core.StepDef {
 		{
 			id: "rest.response.property.matches", keyword: "Then", noun: "response",
 			head: "the response payload property {word} matches {pattern}", nHead: 2,
-			doc: "Assert that a response payload property is a string that matches a regular expression (Java " +
-				"syntax; it must match the whole value)." + respOrdinalDoc,
+			doc:          "Check that a property of the response payload is a string that matches a regular expression.",
+			details:      []string{regexpDoc},
 			example:      "Then the response payload property barcode matches ^PX[0-9]{11}$",
 			namedExample: "Then the response payload property barcode matches ^PX[0-9]{11}$ for response on parcels",
 			run: func(sc *core.Scenario, a core.Args, t target) error {
@@ -227,11 +275,21 @@ func responseSteps() []core.StepDef {
 		{
 			id: "rest.response.properties.are", keyword: "Then", arg: core.ArgTable, noun: "response",
 			head: "the response payload properties", tail: " are:",
-			doc: "Assert response payload properties from a `path | value` table. `null` and `undefined` (any case) " +
-				"check for JSON null and absence; `\"null\"` in double quotes is the string. Every other value is " +
-				"compared like the single-property step. All rows are checked and every mismatch is reported." + valueDoc + respOrdinalDoc,
-			example:      "Then the response payload properties are:",
-			namedExample: "Then the response payload properties for 1st ordered response on parcels are:",
+			doc: "Check properties of a JSON response, a row each, like the single-property step.",
+			details: append([]string{
+				"`null` and `undefined`, in any case, check for JSON null and for no such property; `\"null\"`, " +
+					"in double quotes, is the string.",
+				"Every row is checked, and every mismatch reported.",
+			}, valueDoc...),
+			table: &core.TableDoc{Columns: []string{"JSONPath", "value"}, Note: "A row is a property's JSONPath and the value it must have."},
+			example: "Then the response payload properties are:\n" +
+				"  | reference | PX-4101    |\n" +
+				"  | status    | REGISTERED |\n" +
+				"  | zone      | DE-1       |",
+			namedExample: "Then the response payload properties for 1st ordered response on parcels are:\n" +
+				"  | serviceLevel     | STANDARD     |\n" +
+				"  | recipient.name   | Ada Lovelace |\n" +
+				"  | recipient.street | undefined    |",
 			run: func(sc *core.Scenario, a core.Args, t target) error {
 				return propertyTable(sc, a, t, func(ex *Exchange, path, value string) (*failure, error) {
 					switch {
@@ -249,9 +307,20 @@ func responseSteps() []core.StepDef {
 		{
 			id: "rest.response.properties.match", keyword: "Then", arg: core.ArgTable, noun: "response",
 			head: "the response payload properties", tail: " match:",
-			doc:          "Assert response payload properties from a `path | regular expression` table (full match, Java syntax)." + respOrdinalDoc,
-			example:      "Then the response payload properties match:",
-			namedExample: "Then the response payload properties for response on parcels match:",
+			doc: "Check that properties of the response payload are strings that match regular expressions, a row each.",
+			details: []string{
+				regexpsDoc,
+				"Every row is checked, and every mismatch reported.",
+			},
+			table: &core.TableDoc{
+				Columns: []string{"JSONPath", "regular expression"},
+				Note:    "A row is a property's JSONPath and a regular expression its value must match.",
+			},
+			example: "Then the response payload properties match:\n" +
+				"  | barcode   | ^PX[0-9]{11}$  |\n" +
+				"  | signature | ^[0-9a-f]{64}$ |",
+			namedExample: "Then the response payload properties for 2nd ordered response on parcels match:\n" +
+				"  | [0].reference | PX-[0-9]{4} |",
 			run: func(sc *core.Scenario, a core.Args, t target) error {
 				return propertyTable(sc, a, t, propertyMatches)
 			},

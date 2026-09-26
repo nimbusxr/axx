@@ -55,31 +55,60 @@ func (pack) Manifest() core.Manifest {
 		Steps: []core.StepDef{
 			{
 				ID: name + ".seed", Keyword: "Given", Since: "0.1.0",
-				Expr:     "a {filepath} bigquery seed",
-				Doc:      "Insert the rows of a seed file (resolved against `resources`): YAML or JSON mapping tables to lists of rows.",
+				Expr: "a {filepath} bigquery seed",
+				Doc: "Insert the rows of a seed file into their tables: YAML or JSON that maps tables (`dataset.table` or " +
+					"`project.dataset.table`) to lists of rows. The rows are streamed in (`tabledata.insertAll`).",
 				Examples: []string{"Given a seeds/carrier-rates.yaml bigquery seed"},
 				Run:      seed,
 			},
 			{
 				ID: name + ".row", Keyword: "Then", Arg: core.ArgTable, Since: "0.1.0",
-				Expr:     "[[within {duration} ]]the {word} bigquery table has a row where:",
-				Doc:      "Wait (10s, or the given time) until the table has a row meeting every `column | value` row.",
-				Examples: []string{"Then within 30s the billing.invoice_lines bigquery table has a row where:"},
+				Expr:  "[[within {duration} ]]the {word} bigquery table has a row where:",
+				Doc:   "Check that the table has a row with those values in those columns." + checkDetails,
+				Table: conditions,
+				Examples: []string{
+					"Then within 30s the billing.invoice_lines bigquery table has a row where:\n" +
+						"  | invoice  | INV-2026-09-KES2 |\n" +
+						"  | parcel   | PX-5103          |\n" +
+						"  | status   | OVERCHARGED      |\n" +
+						"  | billed   | 2.5              |\n" +
+						"  | expected | 1.35             |",
+				},
 				Run: func(sc *core.Scenario, a core.Args) error {
 					return expect(sc, a, a.String(1), -1)
 				},
 			},
 			{
 				ID: name + ".rows", Keyword: "Then", Arg: core.ArgTable, Since: "0.1.0",
-				Expr:     "[[within {duration} ]]the {word} bigquery table has {int} row(s) where:",
-				Doc:      "Wait (10s, or the given time) until exactly that many rows of the table meet every `column | value` row.",
-				Examples: []string{"Then the billing.invoice_lines bigquery table has 3 rows where:"},
+				Expr:  "[[within {duration} ]]the {word} bigquery table has {int} row(s) where:",
+				Doc:   "Check that exactly that many rows of the table have those values in those columns." + checkDetails,
+				Table: conditions,
+				Examples: []string{
+					"Then the billing.invoice_lines bigquery table has 2 rows where:\n" +
+						"  | invoice | INV-2026-09-KES1 |\n" +
+						"  | status  | MATCHED          |",
+				},
 				Run: func(sc *core.Scenario, a core.Args) error {
 					return expect(sc, a, a.String(1), a.Int(2))
 				},
 			},
 		},
 	}
+}
+
+// checkDetails is what the checks' docs say after what they check.
+const checkDetails = "\n\n" +
+	"- The check waits for it: 10 seconds, or `within {duration}`.\n" +
+	"- Name the table `dataset.table`, or `project.dataset.table` for another project's.\n" +
+	"- Values compare as text: numbers as written, `NUMERIC` as its decimal, `TIMESTAMP` in RFC 3339 " +
+	"(`2026-09-24T09:30:00Z`), `DATE` as `2026-09-24`, `DATETIME` as `2026-09-24T09:30:00`, `BYTES` in base64; " +
+	"`null` for NULL.\n" +
+	"- The check reads only the columns the step names, of up to 5,000 rows."
+
+// conditions is what the checks' tables hold.
+var conditions = &core.TableDoc{
+	Columns: []string{"column", "value"},
+	Note:    "Each row names a column, or a dotted path into a `RECORD` column (`address.city`), and the value in it.",
 }
 
 func client(sc *core.Scenario) (*bigquery.Client, *gcpcore.Project, error) {

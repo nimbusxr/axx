@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Track a parcel</title>
+<script src="/js/format.js"></script>
+<script src="/js/track.js"></script>
+<script src="OTHER_ORIGIN/js/chat.js"></script>
+</head>
+<body>
+<h1>Track a parcel</h1>
+<label for="reference">Reference</label>
+<input id="reference" value="PX-1042">
+<button onclick="trackParcel()">Track</button>
+<p id="status"></p>
+<form onsubmit="reportProblem(event)">
+  <label for="reason">What went wrong</label>
+  <input id="reason" value="The parcel arrived damaged">
+  <button>Report a problem</button>
+</form>
+<p><a href="/quote.html">Get a quote</a></p>
+<p><a href="/track.html?tab=new" target="_blank">Track another parcel</a></p>
+<p><a href="OTHER_ORIGIN/help.html">Help</a></p>
+<script>document.getElementById("status").textContent = "Enter a reference";</script>
+</body>
+</html>

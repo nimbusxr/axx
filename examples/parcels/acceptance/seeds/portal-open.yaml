@@ -1,0 +1,8 @@
+parcels.parcels:
+  - reference: "PX-WEB-5141"
+    sender: "fern-and-flint"
+    status: "IN_TRANSIT"
+    service_level: "EXPRESS"
+    weight_grams: 1300
+    recipient: '{"name": "Clara Vogel", "street": "Schillerstr. 4", "city": "Munich", "postcode": "80336", "country": "DE"}'
+    details: '{"source": "portal", "zone": "DE-1", "signature": true, "leaveWithNeighbour": false}'

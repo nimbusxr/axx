@@ -9,11 +9,11 @@ It is *acceptance* testing, with a name of its own. Axx is the short form, and t
 
 ### Do I need Java, Node or Python?
 
-No. Axx is a single static binary. Your service can be written in anything, and Axx itself needs nothing installed. Docker is only needed if your apps start with Docker Compose, and Go only if your project adds [custom packs](/guides/use-packs/).
+No. Axx is a single static binary, and your service can be written in anything. What Axx needs, it downloads itself and keeps in its cache: the Go toolchain it uses to build itself with a project's [packs](/guides/use-packs/), custom ones included, and the Node.js and browsers the web packs drive. Docker is only needed if your apps start with Docker Compose.
 
 ### Is Axx Cucumber?
 
-Axx runs Gherkin, the language Cucumber defined, with its own executor built on the official Cucumber libraries for Go (the Gherkin parser, Cucumber Expressions, tag expressions and Cucumber Messages). Feature files are standard Gherkin, and reports use Cucumber formats. You do not write step definitions for the built-in capabilities: they ship with Axx.
+Axx runs Gherkin, the language Cucumber defined, with its own executor built on the official Cucumber libraries for Go (the Gherkin parser, Cucumber Expressions, tag expressions and Cucumber Messages). Feature files are standard Gherkin, and reports use Cucumber formats. You do not write step definitions for what Axx's packs cover: their steps come with Axx.
 
 ### How is this different from Postman, Karate or REST Assured?
 
@@ -21,7 +21,7 @@ Axx tests a whole service from the outside, not only its HTTP API: it seeds data
 
 ### Can I test services that are not HTTP?
 
-Yes. SQL databases, MongoDB and Kafka are built in, and anything else can be reached with a [custom step](/guides/write-custom-steps/), written as a Go pack.
+Yes. Axx's packs cover SQL databases, MongoDB, Kafka, the logs and files your services write, and cloud services on AWS, Google Cloud and Azure. Anything else can be reached with a [custom step](/guides/write-custom-steps/), written as a Go pack.
 
 ### Does Axx run my unit tests?
 
@@ -29,7 +29,7 @@ No. Keep unit and integration tests in your language's test framework. Axx tests
 
 ### Can Axx test a deployed environment?
 
-Yes. Point the service URLs at the environment (with a profile, say `--profile staging`) and run with `--no-start` so Axx does not try to start apps. Keep data isolation in mind: the environment is shared with everyone else.
+Yes. Write the part of the service URLs that differs as a property (`http://${sys:parcels.host}:8400`), set it for the environment in a profile (say `--profile staging`), and run with `--no-start` so Axx does not try to start apps. Keep data isolation in mind: the environment is shared with everyone else.
 
 ### Why do my scenarios pass alone and fail together?
 
@@ -37,9 +37,7 @@ They share data. Scenarios run in parallel against shared infrastructure, so eac
 
 ### Does Axx collect telemetry?
 
-No. Axx makes no network calls of its own; it only talks to the services, databases and brokers your scenarios name.
-
-<!-- TODO(verify): confirm there is still no telemetry or update check before the first release. -->
+No. Axx sends no telemetry and does not check for updates. The only downloads it makes are those it needs, once, into its cache: the Go toolchain and the packs' Go modules when it builds itself with a project's packs, and the Node.js, Playwright, browsers, axe-core and Lighthouse the web packs use. Otherwise it talks only to the services, databases, brokers and clouds your scenarios name.
 
 ### What license is Axx under?
 

@@ -61,12 +61,17 @@ func (Workers) JSONSchema() *ijs.Schema {
 	}}
 }
 
+// ReporterNames are the reporters `run.reporters` and `--format` name, in
+// documentation order.
+var ReporterNames = []string{"pretty", "progress", "compact", "junit", "messages", "cucumber-json", "html", "agent", "teamcity"}
+
 // JSONSchema describes Reporter.
 func (Reporter) JSONSchema() *ijs.Schema {
-	names := []any{"pretty", "progress", "junit", "messages", "cucumber-json", "html", "agent"}
+	names := make([]any, len(ReporterNames))
 	props := ijs.NewProperties()
-	for _, n := range names {
-		props.Set(n.(string), &ijs.Schema{Type: "string", Description: "output file"})
+	for i, n := range ReporterNames {
+		names[i] = n
+		props.Set(n, &ijs.Schema{Type: "string", Description: "output file"})
 	}
 	return &ijs.Schema{OneOf: []*ijs.Schema{
 		{Type: "string", Enum: names},
@@ -227,8 +232,9 @@ var friendlyPatterns = map[string]string{
 }
 
 // collect flattens leaf validation errors. For oneOf/anyOf failures it keeps
-// only the branches whose type matched the value, so `workers: many` reports
-// "must be 'auto'" instead of also "got string, want integer".
+// only the branches whose type matched the value, and names the others'
+// types, so `workers: many` reports "must be 'auto', or an integer" instead
+// of also "got string, want integer".
 func collect(ve *jsonschema.ValidationError, out *[]Issue) {
 	if len(ve.Causes) == 0 {
 		msg := ve.ErrorKind.LocalizedString(printer)
@@ -244,10 +250,22 @@ func collect(ve *jsonschema.ValidationError, out *[]Issue) {
 	switch ve.ErrorKind.(type) {
 	case *kind.OneOf, *kind.AnyOf:
 		var typed []*jsonschema.ValidationError
+		var others []string
 		for _, c := range causes {
-			if !isTypeMismatch(c) {
+			if want, ok := typeMismatch(c); ok {
+				others = append(others, want...)
+			} else {
 				typed = append(typed, c)
 			}
+		}
+		if len(typed) == 1 && len(others) > 0 {
+			var one []Issue
+			collect(typed[0], &one)
+			if len(one) == 1 {
+				one[0].Message += ", or " + typeNames(others)
+			}
+			*out = append(*out, one...)
+			return
 		}
 		if len(typed) > 0 {
 			causes = typed
@@ -258,12 +276,31 @@ func collect(ve *jsonschema.ValidationError, out *[]Issue) {
 	}
 }
 
-func isTypeMismatch(ve *jsonschema.ValidationError) bool {
+// typeMismatch reports whether ve is only a value of another type, and the
+// types it wants.
+func typeMismatch(ve *jsonschema.ValidationError) ([]string, bool) {
 	for len(ve.Causes) == 1 {
 		ve = ve.Causes[0]
 	}
-	_, ok := ve.ErrorKind.(*kind.Type)
-	return ok && len(ve.Causes) == 0
+	t, ok := ve.ErrorKind.(*kind.Type)
+	if !ok || len(ve.Causes) > 0 {
+		return nil, false
+	}
+	return t.Want, true
+}
+
+// typeNames names JSON Schema types for a person: "an integer or a string".
+func typeNames(types []string) string {
+	names := make([]string, len(types))
+	for i, t := range types {
+		switch t {
+		case "integer", "object", "array":
+			names[i] = "an " + t
+		default:
+			names[i] = "a " + t
+		}
+	}
+	return strings.Join(names, " or ")
 }
 
 func plural(n int) string {

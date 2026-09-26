@@ -1,6 +1,8 @@
 package cli
 
 import (
+	"context"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -58,5 +60,13 @@ func TestPackGoMod(t *testing.T) {
 	rel := packGoMod("steps", version.Info{Version: "0.1.0", Channel: "beta"}, "")
 	if !strings.Contains(rel, "require github.com/nimbusxr/axx v0.1.0\n") || strings.Contains(rel, "replace") {
 		t.Errorf("release go.mod:\n%s", rel)
+	}
+}
+
+func TestAChosenDelveIsUsed(t *testing.T) {
+	t.Setenv("AXX_DLV", "/opt/delve/dlv")
+	got, err := (&App{Stderr: io.Discard}).findDelve(context.Background())
+	if err != nil || got != "/opt/delve/dlv" {
+		t.Errorf("findDelve = %q, %v; want AXX_DLV's /opt/delve/dlv", got, err)
 	}
 }

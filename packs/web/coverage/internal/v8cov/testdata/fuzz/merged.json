@@ -1,0 +1,1343 @@
+{
+ "result": [
+  {
+   "scriptId": "0",
+   "url": "/fuzz/t0.js",
+   "functions": [
+    {
+     "functionName": "track",
+     "ranges": [
+      {
+       "startOffset": 0,
+       "endOffset": 713,
+       "count": 1
+      }
+     ],
+     "isBlockCoverage": true
+    },
+    {
+     "functionName": "",
+     "ranges": [
+      {
+       "startOffset": 146,
+       "endOffset": 493,
+       "count": 0
+      },
+      {
+       "startOffset": 374,
+       "endOffset": 387,
+       "count": 1
+      },
+      {
+       "startOffset": 389,
+       "endOffset": 470,
+       "count": 0
+      },
+      {
+       "startOffset": 432,
+       "endOffset": 453,
+       "count": 1
+      },
+      {
+       "startOffset": 464,
+       "endOffset": 466,
+       "count": 3
+      },
+      {
+       "startOffset": 468,
+       "endOffset": 469,
+       "count": 1
+      },
+      {
+       "startOffset": 484,
+       "endOffset": 493,
+       "count": 3
+      }
+     ],
+     "isBlockCoverage": true
+    },
+    {
+     "functionName": "label",
+     "ranges": [
+      {
+       "startOffset": 542,
+       "endOffset": 552,
+       "count": 0
+      },
+      {
+       "startOffset": 544,
+       "endOffset": 545,
+       "count": 0
+      }
+     ],
+     "isBlockCoverage": true
+    },
+    {
+     "functionName": "track",
+     "ranges": [
+      {
+       "startOffset": 545,
+       "endOffset": 546,
+       "count": 1
+      }
+     ],
+     "isBlockCoverage": true
+    }
+   ]
+  },
+  {
+   "scriptId": "1",
+   "url": "/fuzz/t1.js",
+   "functions": [
+    {
+     "functionName": "",
+     "ranges": [
+      {
+       "startOffset": 0,
+       "endOffset": 1064,
+       "count": 5
+      },
+      {
+       "startOffset": 869,
+       "endOffset": 1000,
+       "count": 3
+      },
+      {
+       "startOffset": 869,
+       "endOffset": 926,
+       "count": 3
+      }
+     ],
+     "isBlockCoverage": true
+    }
+   ]
+  },
+  {
+   "scriptId": "2",
+   "url": "/fuzz/t10.js",
+   "functions": [
+    {
+     "functionName": "label",
+     "ranges": [
+      {
+       "startOffset": 0,
+       "endOffset": 1010,
+       "count": 2
+      },
+      {
+       "startOffset": 606,
+       "endOffset": 619,
+       "count": 1
+      },
+      {
+       "startOffset": 845,
+       "endOffset": 849,
+       "count": 1
+      }
+     ],
+     "isBlockCoverage": true
+    }
+   ]
+  },
+  {
+   "scriptId": "3",
+   "url": "/fuzz/t11.js",
+   "functions": [
+    {
+     "functionName": "track",
+     "ranges": [
+      {
+       "startOffset": 0,
+       "endOffset": 234,
+       "count": 2
+      },
+      {
+       "startOffset": 52,
+       "endOffset": 122,
+       "count": 0
+      },
+      {
+       "startOffset": 98,
+       "endOffset": 117,
+       "count": 1
+      },
+      {
+       "startOffset": 114,
+       "endOffset": 115,
+       "count": 1
+      }
+     ],
+     "isBlockCoverage": true
+    },
+    {
+     "functionName": "label",
+     "ranges": [
+      {
+       "startOffset": 96,
+       "endOffset": 162,
+       "count": 0
+      },
+      {
+       "startOffset": 120,
+       "endOffset": 122,
+       "count": 1
+      },
+      {
+       "startOffset": 143,
+       "endOffset": 156,
+       "count": 3
+      }
+     ],
+     "isBlockCoverage": true
+    },
+    {
+     "functionName": "label",
+     "ranges": [
+      {
+       "startOffset": 96,
+       "endOffset": 118,
+       "count": 1
+      },
+      {
+       "startOffset": 108,
+       "endOffset": 111,
+       "count": 0
+      }
+     ],
+     "isBlockCoverage": true
+    },
+    {
+     "functionName": "label",
+     "ranges": [
+      {
+       "startOffset": 113,
+       "endOffset": 114,
+       "count": 1
+      }
+     ],
+     "isBlockCoverage": true
+    },
+    {
+     "functionName": "track",
+     "ranges": [
+      {
+       "startOffset": 115,
+       "endOffset": 117,
+       "count": 2
+      }
+     ],
+     "isBlockCoverage": false
+    },
+    {
+     "functionName": "track",
+     "ranges": [
+      {
+       "startOffset": 199,
+       "endOffset": 220,
+       "count": 1
+      },
+      {
+       "startOffset": 205,
+       "endOffset": 215,
+       "count": 0
+      },
+      {
+       "startOffset": 206,
+       "endOffset": 211,
+       "count": 3
+      },
+      {
+       "startOffset": 212,
+       "endOffset": 215,
+       "count": 3
+      },
+      {
+       "startOffset": 213,
+       "endOffset": 214,
+       "count": 0
+      },
+      {
+       "startOffset": 217,
+       "endOffset": 220,
+       "count": 3
+      }
+     ],
+     "isBlockCoverage": true
+    },
+    {
+     "functionName": "label",
+     "ranges": [
+      {
+       "startOffset": 213,
+       "endOffset": 217,
+       "count": 0
+      },
+      {
+       "startOffset": 215,
+       "endOffset": 217,
+       "count": 0
+      }
+     ],
+     "isBlockCoverage": true
+    }
+   ]
+  },
+  {
+   "scriptId": "4",
+   "url": "/fuzz/t12.js",
+   "functions": [
+    {
+     "functionName": "",
+     "ranges": [
+      {
+       "startOffset": 0,
+       "endOffset": 624,
+       "count": 1
+      },
+      {
+       "startOffset": 139,
+       "endOffset": 437,
+       "count": 3
+      }
+     ],
+     "isBlockCoverage": true
+    },
+    {
+     "functionName": "track",
+     "ranges": [
+      {
+       "startOffset": 51,
+       "endOffset": 239,
+       "count": 1
+      }
+     ],
+     "isBlockCoverage": false
+    },
+    {
+     "functionName": "",
+     "ranges": [
+      {
+       "startOffset": 67,
+       "endOffset": 135,
+       "count": 0
+      },
+      {
+       "startOffset": 133,
+       "endOffset": 134,
+       "count": 0
+      }
+     ],
+     "isBlockCoverage": true
+    },
+    {
+     "functionName": "track",
+     "ranges": [
+      {
+       "startOffset": 124,
+       "endOffset": 133,
+       "count": 0
+      },
+      {
+       "startOffset": 126,
+       "endOffset": 130,
+       "count": 3
+      },
+      {
+       "startOffset": 128,
+       "endOffset": 129,
+       "count": 1
+      },
+      {
+       "startOffset": 131,
+       "endOffset": 132,
+       "count": 3
+      }
+     ],
+     "isBlockCoverage": true
+    },
+    {
+     "functionName": "label",
+     "ranges": [
+      {
+       "startOffset": 224,
+       "endOffset": 239,
+       "count": 2
+      },
+      {
+       "startOffset": 227,
+       "endOffset": 230,
+       "count": 1
+      },
+      {
+       "startOffset": 228,
+       "endOffset": 229,
+       "count": 3
+      },
+      {
+       "startOffset": 231,
+       "endOffset": 234,
+       "count": 3
+      },
+      {
+       "startOffset": 232,
+       "endOffset": 234,
+       "count": 1
+      },
+      {
+       "startOffset": 233,
+       "endOffset": 234,
+       "count": 1
+      },
+      {
+       "startOffset": 234,
+       "endOffset": 238,
+       "count": 5
+      },
+      {
+       "startOffset": 234,
+       "endOffset": 235,
+       "count": 5
+      },
+      {
+       "startOffset": 237,
+       "endOffset": 238,
+       "count": 4
+      },
+      {
+       "startOffset": 238,
+       "endOffset": 239,
+       "count": 1
+      }
+     ],
+     "isBlockCoverage": true
+    },
+    {
+     "functionName": "label",
+     "ranges": [
+      {
+       "startOffset": 231,
+       "endOffset": 238,
+       "count": 0
+      }
+     ],
+     "isBlockCoverage": false
+    },
+    {
+     "functionName": "",
+     "ranges": [
+      {
+       "startOffset": 622,
+       "endOffset": 624,
+       "count": 2
+      }
+     ],
+     "isBlockCoverage": true
+    }
+   ]
+  },
+  {
+   "scriptId": "5",
+   "url": "/fuzz/t13.js",
+   "functions": [
+    {
+     "functionName": "label",
+     "ranges": [
+      {
+       "startOffset": 0,
+       "endOffset": 249,
+       "count": 3
+      },
+      {
+       "startOffset": 109,
+       "endOffset": 121,
+       "count": 2
+      },
+      {
+       "startOffset": 113,
+       "endOffset": 121,
+       "count": 2
+      },
+      {
+       "startOffset": 117,
+       "endOffset": 119,
+       "count": 1
+      },
+      {
+       "startOffset": 121,
+       "endOffset": 201,
+       "count": 3
+      },
+      {
+       "startOffset": 195,
+       "endOffset": 200,
+       "count": 5
+      },
+      {
+       "startOffset": 196,
+       "endOffset": 197,
+       "count": 5
+      },
+      {
+       "startOffset": 197,
+       "endOffset": 199,
+       "count": 2
+      },
+      {
+       "startOffset": 232,
+       "endOffset": 234,
+       "count": 1
+      },
+      {
+       "startOffset": 237,
+       "endOffset": 247,
+       "count": 1
+      },
+      {
+       "startOffset": 244,
+       "endOffset": 247,
+       "count": 3
+      },
+      {
+       "startOffset": 244,
+       "endOffset": 245,
+       "count": 3
+      },
+      {
+       "startOffset": 247,
+       "endOffset": 248,
+       "count": 5
+      }
+     ],
+     "isBlockCoverage": true
+    },
+    {
+     "functionName": "",
+     "ranges": [
+      {
+       "startOffset": 217,
+       "endOffset": 225,
+       "count": 0
+      },
+      {
+       "startOffset": 217,
+       "endOffset": 221,
+       "count": 1
+      },
+      {
+       "startOffset": 219,
+       "endOffset": 221,
+       "count": 1
+      }
+     ],
+     "isBlockCoverage": true
+    },
+    {
+     "functionName": "",
+     "ranges": [
+      {
+       "startOffset": 218,
+       "endOffset": 220,
+       "count": 1
+      }
+     ],
+     "isBlockCoverage": true
+    },
+    {
+     "functionName": "",
+     "ranges": [
+      {
+       "startOffset": 222,
+       "endOffset": 224,
+       "count": 0
+      }
+     ],
+     "isBlockCoverage": true
+    },
+    {
+     "functionName": "label",
+     "ranges": [
+      {
+       "startOffset": 237,
+       "endOffset": 239,
+       "count": 2
+      }
+     ],
+     "isBlockCoverage": true
+    }
+   ]
+  },
+  {
+   "scriptId": "6",
+   "url": "/fuzz/t2.js",
+   "functions": [
+    {
+     "functionName": "",
+     "ranges": [
+      {
+       "startOffset": 0,
+       "endOffset": 1358,
+       "count": 5
+      },
+      {
+       "startOffset": 512,
+       "endOffset": 525,
+       "count": 5
+      },
+      {
+       "startOffset": 522,
+       "endOffset": 525,
+       "count": 6
+      },
+      {
+       "startOffset": 913,
+       "endOffset": 951,
+       "count": 0
+      },
+      {
+       "startOffset": 1150,
+       "endOffset": 1194,
+       "count": 0
+      },
+      {
+       "startOffset": 1191,
+       "endOffset": 1194,
+       "count": 3
+      },
+      {
+       "startOffset": 1200,
+       "endOffset": 1208,
+       "count": 3
+      },
+      {
+       "startOffset": 1204,
+       "endOffset": 1206,
+       "count": 3
+      }
+     ],
+     "isBlockCoverage": true
+    }
+   ]
+  },
+  {
+   "scriptId": "7",
+   "url": "/fuzz/t3.js",
+   "functions": [
+    {
+     "functionName": "",
+     "ranges": [
+      {
+       "startOffset": 0,
+       "endOffset": 948,
+       "count": 11
+      },
+      {
+       "startOffset": 157,
+       "endOffset": 486,
+       "count": 6
+      },
+      {
+       "startOffset": 813,
+       "endOffset": 850,
+       "count": 9
+      },
+      {
+       "startOffset": 816,
+       "endOffset": 819,
+       "count": 7
+      }
+     ],
+     "isBlockCoverage": true
+    },
+    {
+     "functionName": "label",
+     "ranges": [
+      {
+       "startOffset": 945,
+       "endOffset": 948,
+       "count": 6
+      },
+      {
+       "startOffset": 945,
+       "endOffset": 947,
+       "count": 4
+      }
+     ],
+     "isBlockCoverage": true
+    },
+    {
+     "functionName": "",
+     "ranges": [
+      {
+       "startOffset": 946,
+       "endOffset": 948,
+       "count": 3
+      }
+     ],
+     "isBlockCoverage": true
+    }
+   ]
+  },
+  {
+   "scriptId": "8",
+   "url": "/fuzz/t4.js",
+   "functions": [
+    {
+     "functionName": "track",
+     "ranges": [
+      {
+       "startOffset": 0,
+       "endOffset": 1386,
+       "count": 5
+      },
+      {
+       "startOffset": 357,
+       "endOffset": 625,
+       "count": 5
+      },
+      {
+       "startOffset": 581,
+       "endOffset": 586,
+       "count": 1
+      },
+      {
+       "startOffset": 587,
+       "endOffset": 590,
+       "count": 4
+      },
+      {
+       "startOffset": 596,
+       "endOffset": 598,
+       "count": 3
+      },
+      {
+       "startOffset": 616,
+       "endOffset": 623,
+       "count": 6
+      },
+      {
+       "startOffset": 616,
+       "endOffset": 618,
+       "count": 2
+      },
+      {
+       "startOffset": 619,
+       "endOffset": 621,
+       "count": 6
+      },
+      {
+       "startOffset": 1003,
+       "endOffset": 1378,
+       "count": 4
+      },
+      {
+       "startOffset": 1379,
+       "endOffset": 1385,
+       "count": 4
+      },
+      {
+       "startOffset": 1381,
+       "endOffset": 1383,
+       "count": 4
+      }
+     ],
+     "isBlockCoverage": true
+    },
+    {
+     "functionName": "",
+     "ranges": [
+      {
+       "startOffset": 22,
+       "endOffset": 247,
+       "count": 3
+      },
+      {
+       "startOffset": 56,
+       "endOffset": 148,
+       "count": 2
+      },
+      {
+       "startOffset": 123,
+       "endOffset": 136,
+       "count": 2
+      },
+      {
+       "startOffset": 128,
+       "endOffset": 133,
+       "count": 2
+      },
+      {
+       "startOffset": 194,
+       "endOffset": 243,
+       "count": 2
+      },
+      {
+       "startOffset": 201,
+       "endOffset": 216,
+       "count": 4
+      },
+      {
+       "startOffset": 209,
+       "endOffset": 215,
+       "count": 2
+      },
+      {
+       "startOffset": 213,
+       "endOffset": 215,
+       "count": 2
+      },
+      {
+       "startOffset": 215,
+       "endOffset": 216,
+       "count": 4
+      },
+      {
+       "startOffset": 216,
+       "endOffset": 218,
+       "count": 2
+      },
+      {
+       "startOffset": 221,
+       "endOffset": 234,
+       "count": 1
+      },
+      {
+       "startOffset": 222,
+       "endOffset": 223,
+       "count": 1
+      },
+      {
+       "startOffset": 232,
+       "endOffset": 234,
+       "count": 1
+      },
+      {
+       "startOffset": 234,
+       "endOffset": 243,
+       "count": 2
+      },
+      {
+       "startOffset": 235,
+       "endOffset": 238,
+       "count": 2
+      },
+      {
+       "startOffset": 240,
+       "endOffset": 242,
+       "count": 2
+      },
+      {
+       "startOffset": 242,
+       "endOffset": 243,
+       "count": 4
+      },
+      {
+       "startOffset": 243,
+       "endOffset": 247,
+       "count": 3
+      },
+      {
+       "startOffset": 244,
+       "endOffset": 246,
+       "count": 3
+      }
+     ],
+     "isBlockCoverage": true
+    },
+    {
+     "functionName": "",
+     "ranges": [
+      {
+       "startOffset": 51,
+       "endOffset": 108,
+       "count": 7
+      },
+      {
+       "startOffset": 88,
+       "endOffset": 91,
+       "count": 6
+      },
+      {
+       "startOffset": 89,
+       "endOffset": 90,
+       "count": 5
+      }
+     ],
+     "isBlockCoverage": true
+    },
+    {
+     "functionName": "",
+     "ranges": [
+      {
+       "startOffset": 178,
+       "endOffset": 228,
+       "count": 7
+      },
+      {
+       "startOffset": 212,
+       "endOffset": 221,
+       "count": 6
+      },
+      {
+       "startOffset": 213,
+       "endOffset": 215,
+       "count": 4
+      },
+      {
+       "startOffset": 224,
+       "endOffset": 227,
+       "count": 3
+      }
+     ],
+     "isBlockCoverage": true
+    },
+    {
+     "functionName": "track",
+     "ranges": [
+      {
+       "startOffset": 225,
+       "endOffset": 227,
+       "count": 5
+      }
+     ],
+     "isBlockCoverage": true
+    },
+    {
+     "functionName": "",
+     "ranges": [
+      {
+       "startOffset": 243,
+       "endOffset": 247,
+       "count": 9
+      },
+      {
+       "startOffset": 244,
+       "endOffset": 246,
+       "count": 7
+      }
+     ],
+     "isBlockCoverage": true
+    },
+    {
+     "functionName": "label",
+     "ranges": [
+      {
+       "startOffset": 243,
+       "endOffset": 244,
+       "count": 7
+      }
+     ],
+     "isBlockCoverage": true
+    },
+    {
+     "functionName": "label",
+     "ranges": [
+      {
+       "startOffset": 245,
+       "endOffset": 247,
+       "count": 7
+      }
+     ],
+     "isBlockCoverage": true
+    },
+    {
+     "functionName": "track",
+     "ranges": [
+      {
+       "startOffset": 694,
+       "endOffset": 724,
+       "count": 7
+      },
+      {
+       "startOffset": 696,
+       "endOffset": 711,
+       "count": 6
+      },
+      {
+       "startOffset": 719,
+       "endOffset": 721,
+       "count": 9
+      },
+      {
+       "startOffset": 722,
+       "endOffset": 723,
+       "count": 9
+      }
+     ],
+     "isBlockCoverage": true
+    }
+   ]
+  },
+  {
+   "scriptId": "9",
+   "url": "/fuzz/t5.js",
+   "functions": [
+    {
+     "functionName": "label",
+     "ranges": [
+      {
+       "startOffset": 0,
+       "endOffset": 504,
+       "count": 12
+      },
+      {
+       "startOffset": 152,
+       "endOffset": 154,
+       "count": 7
+      },
+      {
+       "startOffset": 163,
+       "endOffset": 173,
+       "count": 8
+      },
+      {
+       "startOffset": 169,
+       "endOffset": 170,
+       "count": 7
+      },
+      {
+       "startOffset": 171,
+       "endOffset": 173,
+       "count": 7
+      },
+      {
+       "startOffset": 229,
+       "endOffset": 378,
+       "count": 13
+      },
+      {
+       "startOffset": 284,
+       "endOffset": 315,
+       "count": 11
+      },
+      {
+       "startOffset": 360,
+       "endOffset": 378,
+       "count": 9
+      },
+      {
+       "startOffset": 378,
+       "endOffset": 470,
+       "count": 8
+      },
+      {
+       "startOffset": 458,
+       "endOffset": 460,
+       "count": 8
+      },
+      {
+       "startOffset": 462,
+       "endOffset": 464,
+       "count": 8
+      },
+      {
+       "startOffset": 468,
+       "endOffset": 469,
+       "count": 8
+      }
+     ],
+     "isBlockCoverage": true
+    }
+   ]
+  },
+  {
+   "scriptId": "10",
+   "url": "/fuzz/t6.js",
+   "functions": [
+    {
+     "functionName": "track",
+     "ranges": [
+      {
+       "startOffset": 0,
+       "endOffset": 456,
+       "count": 3
+      },
+      {
+       "startOffset": 333,
+       "endOffset": 437,
+       "count": 1
+      },
+      {
+       "startOffset": 449,
+       "endOffset": 453,
+       "count": 4
+      },
+      {
+       "startOffset": 454,
+       "endOffset": 455,
+       "count": 2
+      }
+     ],
+     "isBlockCoverage": true
+    },
+    {
+     "functionName": "label",
+     "ranges": [
+      {
+       "startOffset": 88,
+       "endOffset": 140,
+       "count": 11
+      },
+      {
+       "startOffset": 124,
+       "endOffset": 125,
+       "count": 6
+      },
+      {
+       "startOffset": 132,
+       "endOffset": 134,
+       "count": 0
+      }
+     ],
+     "isBlockCoverage": true
+    },
+    {
+     "functionName": "label",
+     "ranges": [
+      {
+       "startOffset": 126,
+       "endOffset": 139,
+       "count": 2
+      }
+     ],
+     "isBlockCoverage": true
+    },
+    {
+     "functionName": "track",
+     "ranges": [
+      {
+       "startOffset": 192,
+       "endOffset": 375,
+       "count": 0
+      },
+      {
+       "startOffset": 332,
+       "endOffset": 357,
+       "count": 0
+      },
+      {
+       "startOffset": 334,
+       "endOffset": 339,
+       "count": 3
+      },
+      {
+       "startOffset": 334,
+       "endOffset": 335,
+       "count": 3
+      }
+     ],
+     "isBlockCoverage": true
+    },
+    {
+     "functionName": "track",
+     "ranges": [
+      {
+       "startOffset": 351,
+       "endOffset": 357,
+       "count": 1
+      }
+     ],
+     "isBlockCoverage": false
+    },
+    {
+     "functionName": "label",
+     "ranges": [
+      {
+       "startOffset": 370,
+       "endOffset": 372,
+       "count": 1
+      }
+     ],
+     "isBlockCoverage": true
+    },
+    {
+     "functionName": "label",
+     "ranges": [
+      {
+       "startOffset": 373,
+       "endOffset": 375,
+       "count": 2
+      }
+     ],
+     "isBlockCoverage": true
+    },
+    {
+     "functionName": "track",
+     "ranges": [
+      {
+       "startOffset": 454,
+       "endOffset": 455,
+       "count": 6
+      }
+     ],
+     "isBlockCoverage": true
+    }
+   ]
+  },
+  {
+   "scriptId": "11",
+   "url": "/fuzz/t7.js",
+   "functions": [
+    {
+     "functionName": "",
+     "ranges": [
+      {
+       "startOffset": 0,
+       "endOffset": 548,
+       "count": 9
+      },
+      {
+       "startOffset": 124,
+       "endOffset": 143,
+       "count": 5
+      },
+      {
+       "startOffset": 128,
+       "endOffset": 133,
+       "count": 6
+      },
+      {
+       "startOffset": 129,
+       "endOffset": 130,
+       "count": 3
+      }
+     ],
+     "isBlockCoverage": true
+    }
+   ]
+  },
+  {
+   "scriptId": "12",
+   "url": "/fuzz/t8.js",
+   "functions": [
+    {
+     "functionName": "label",
+     "ranges": [
+      {
+       "startOffset": 0,
+       "endOffset": 313,
+       "count": 1
+      },
+      {
+       "startOffset": 125,
+       "endOffset": 128,
+       "count": 1
+      },
+      {
+       "startOffset": 214,
+       "endOffset": 221,
+       "count": 0
+      },
+      {
+       "startOffset": 218,
+       "endOffset": 219,
+       "count": 0
+      },
+      {
+       "startOffset": 224,
+       "endOffset": 274,
+       "count": 0
+      }
+     ],
+     "isBlockCoverage": true
+    },
+    {
+     "functionName": "",
+     "ranges": [
+      {
+       "startOffset": 250,
+       "endOffset": 254,
+       "count": 0
+      }
+     ],
+     "isBlockCoverage": true
+    },
+    {
+     "functionName": "track",
+     "ranges": [
+      {
+       "startOffset": 250,
+       "endOffset": 251,
+       "count": 6
+      }
+     ],
+     "isBlockCoverage": true
+    },
+    {
+     "functionName": "label",
+     "ranges": [
+      {
+       "startOffset": 302,
+       "endOffset": 307,
+       "count": 2
+      },
+      {
+       "startOffset": 303,
+       "endOffset": 304,
+       "count": 3
+      }
+     ],
+     "isBlockCoverage": true
+    },
+    {
+     "functionName": "",
+     "ranges": [
+      {
+       "startOffset": 303,
+       "endOffset": 304,
+       "count": 1
+      }
+     ],
+     "isBlockCoverage": true
+    },
+    {
+     "functionName": "",
+     "ranges": [
+      {
+       "startOffset": 309,
+       "endOffset": 311,
+       "count": 3
+      }
+     ],
+     "isBlockCoverage": true
+    }
+   ]
+  },
+  {
+   "scriptId": "13",
+   "url": "/fuzz/t9.js",
+   "functions": [
+    {
+     "functionName": "label",
+     "ranges": [
+      {
+       "startOffset": 0,
+       "endOffset": 464,
+       "count": 1
+      },
+      {
+       "startOffset": 444,
+       "endOffset": 445,
+       "count": 3
+      },
+      {
+       "startOffset": 453,
+       "endOffset": 460,
+       "count": 1
+      },
+      {
+       "startOffset": 453,
+       "endOffset": 456,
+       "count": 3
+      },
+      {
+       "startOffset": 454,
+       "endOffset": 456,
+       "count": 0
+      }
+     ],
+     "isBlockCoverage": true
+    }
+   ]
+  }
+ ]
+}

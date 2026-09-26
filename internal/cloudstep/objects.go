@@ -8,15 +8,17 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/nimbusxr/axx/core"
+	"github.com/nimbusxr/axx/internal/filecontent"
 	"github.com/nimbusxr/axx/internal/jsonassert"
 )
 
 // ObjectStore is an object storage service (S3, Cloud Storage, Blob
-// Storage) as the object steps use it.
+// Storage), or a folder, as the object steps use it.
 type ObjectStore interface {
 	// Put stores an object.
 	Put(ctx context.Context, container, name string, body []byte, contentType string) error
@@ -39,18 +41,47 @@ type Objects struct {
 	Example string
 	// Store returns the scenario's store.
 	Store func(sc *core.Scenario) (ObjectStore, error)
+	// Since is the axx version that introduced the pack, when it came
+	// after the object steps (0.1.0): its steps are as old as it is.
+	Since string
 }
 
-// Steps are the pack's object steps: upload a file, and wait for an
-// object, its exact content or its JSON properties.
+// since is the version that introduced a step of the pack: the step's, or
+// the pack's when that is later.
+func (o Objects) since(step string) string {
+	if o.Since == "" || compareVersions(o.Since, step) < 0 {
+		return step
+	}
+	return o.Since
+}
+
+// compareVersions compares two versions such as 0.1.10 and 0.1.9.
+func compareVersions(a, b string) int {
+	as, bs := strings.Split(a, "."), strings.Split(b, ".")
+	for i := 0; i < len(as) || i < len(bs); i++ {
+		var x, y int
+		if i < len(as) {
+			x, _ = strconv.Atoi(as[i])
+		}
+		if i < len(bs) {
+			y, _ = strconv.Atoi(bs[i])
+		}
+		if x != y {
+			return x - y
+		}
+	}
+	return 0
+}
+
+// Steps are the pack's object steps: upload a file, and the checks.
 func (o Objects) Steps() []core.StepDef {
-	c, obj := o.Container, o.Object
-	return []core.StepDef{
+	c := o.Container
+	return append([]core.StepDef{
 		{
-			ID: o.Pack + ".upload", Keyword: "When", Since: "0.1.0",
+			ID: o.Pack + ".upload", Keyword: "When", Since: o.since("0.1.0"),
 			Expr: "the {filepath} file is uploaded to the {word} " + c + "[[ as {word}]]",
-			Doc: fmt.Sprintf("Upload a file (resolved against `resources`) to a %s, named after the file or as given. "+
-				"The content type follows the file's extension.", c),
+			Doc: fmt.Sprintf("Upload a file to the %s, under the file's name or the name given. Its content type follows the "+
+				"file's extension.", c),
 			Examples: []string{
 				fmt.Sprintf("When the invoices/kestrel-2026-09.csv file is uploaded to the %s %s", o.Example, c),
 				fmt.Sprintf("When the invoices/kestrel-2026-09.csv file is uploaded to the %s %s as incoming/kestrel-2026-09.csv", o.Example, c),
@@ -84,21 +115,30 @@ func (o Objects) Steps() []core.StepDef {
 				return nil
 			},
 		},
+	}, o.Checks()...)
+}
+
+// Checks are the pack's object checks: they wait for an object, its exact
+// content, its JSON properties, its text or a row of its table.
+func (o Objects) Checks() []core.StepDef {
+	c, obj := o.Container, o.Object
+	return []core.StepDef{
 		{
-			ID: o.Pack + ".has", Keyword: "Then", Since: "0.1.0",
-			Expr:     "[[within {duration} ]]the {word} " + c + " has a(n) " + obj + " named {word}",
-			Doc:      fmt.Sprintf("Wait (10s, or the given time) until the %s has an %s with that name.", c, obj),
-			Examples: []string{fmt.Sprintf("Then within 30s the %s %s has a(n) %s named disputes/kestrel-2026-09.csv", o.Example, c, obj)},
+			ID: o.Pack + ".has", Keyword: "Then", Since: o.since("0.1.0"),
+			Expr: "[[within {duration} ]]the {word} " + c + " has a(n) " + obj + " named {word}",
+			Doc: fmt.Sprintf("Check that the %s has %s %s with that name. The check waits for it: 10 seconds, or `within {duration}`.",
+				c, article(obj), obj),
+			Examples: []string{fmt.Sprintf("Then within 30s the %s %s has %s named disputes/kestrel-2026-09.csv", o.Example, c, article(obj)+" "+obj)},
 			Run: func(sc *core.Scenario, a core.Args) error {
 				container, name := a.String(1), a.String(2)
 				return o.await(sc, Wait(a, 0), container, name, func([]byte) (bool, string, error) { return true, "", nil })
 			},
 		},
 		{
-			ID: o.Pack + ".identical", Keyword: "Then", Since: "0.1.0",
+			ID: o.Pack + ".identical", Keyword: "Then", Since: o.since("0.1.0"),
 			Expr: "[[within {duration} ]]the {word} " + obj + " in the {word} " + c + " is identical to the {filepath} file",
-			Doc: fmt.Sprintf("Wait (10s, or the given time) until the %s exists with exactly the content of the file "+
-				"(resolved against `resources`).", obj),
+			Doc: fmt.Sprintf("Check that the %s exists with exactly the content of the file. The check waits for it: 10 seconds, "+
+				"or `within {duration}`.", obj),
 			Examples: []string{fmt.Sprintf("Then the disputes/kestrel-2026-09.csv %s in the %s %s is identical to the expected/kestrel-disputes.csv file", obj, o.Example, c)},
 			Run: func(sc *core.Scenario, a core.Args) error {
 				p, err := sc.Suite().ResolvePath(a.String(3))
@@ -118,11 +158,17 @@ func (o Objects) Steps() []core.StepDef {
 			},
 		},
 		{
-			ID: o.Pack + ".properties", Keyword: "Then", Arg: core.ArgTable, Since: "0.1.0",
+			ID: o.Pack + ".properties", Keyword: "Then", Arg: core.ArgTable, Since: o.since("0.1.0"),
 			Expr: "[[within {duration} ]]the {word} " + obj + " in the {word} " + c + " has the following properties:",
-			Doc: fmt.Sprintf("Wait (10s, or the given time) until the %s exists and its JSON content has the properties: "+
-				"`path | value` rows compared as text, `null` for null and `undefined` for absent, as in the other JSON property steps.", obj),
-			Examples: []string{fmt.Sprintf("Then the summaries/kestrel-2026-09.json %s in the %s %s has the following properties:", obj, o.Example, c)},
+			Doc: fmt.Sprintf("Check that the %s holds JSON with those values at those paths. The check waits for it: 10 seconds, "+
+				"or `within {duration}`.", obj),
+			Table: &core.TableDoc{
+				Columns: []string{"path", "value"},
+				Note: "Each row is a path into the JSON (a property name, a dotted path or a JSONPath) and the value it has, compared " +
+					"as text: `null` for null and `undefined` for absent, as in the other JSON property steps.",
+			},
+			Examples: []string{fmt.Sprintf("Then the summaries/kestrel-2026-09.json %s in the %s %s has the following properties:", obj, o.Example, c) +
+				exampleTable([][2]string{{"carrier", "KESTREL"}, {"lines", "14"}, {"totals.disputed", "5.25"}})},
 			Run: func(sc *core.Scenario, a core.Args) error {
 				return o.await(sc, Wait(a, 0), a.String(2), a.String(1), func(got []byte) (bool, string, error) {
 					err := jsonassert.Properties(string(got), a.Table, false)
@@ -136,6 +182,90 @@ func (o Objects) Steps() []core.StepDef {
 				})
 			},
 		},
+		{
+			ID: o.Pack + ".contains", Keyword: "Then", Since: o.since("0.1.1"),
+			Expr: "[[within {duration} ]]the {word} " + obj + " in the {word} " + c + " contains {string}",
+			Doc: fmt.Sprintf("Check that the text of the %s contains the text.\n\n"+
+				"- The check waits for it: 10 seconds, or `within {duration}`.\n"+
+				"- Case matters; runs of spaces and line breaks count as one space.\n"+
+				"- The text is read by the %s's type: the text of a PDF's pages, the paragraphs and tables of a Word document "+
+				"(.docx), the cells of every sheet of an Excel workbook (.xlsx), the text content (or the markup) of XML and HTML, "+
+				"or the text itself.", obj, obj),
+			Examples: []string{fmt.Sprintf(`Then the invoices/kestrel-2026-09.pdf %s in the %s %s contains "Total due: 1284.50 EUR"`, obj, o.Example, c)},
+			Run: func(sc *core.Scenario, a core.Args) error {
+				name, want := a.String(1), a.String(3)
+				return o.await(sc, Wait(a, 0), a.String(2), name, unchanged(func(got []byte) (bool, string, error) {
+					f := filecontent.File{Name: name, Body: got}
+					if k := f.Kind(); k == filecontent.Binary {
+						return false, "", fmt.Errorf("the %s %s is %s (%d bytes), not a file whose text axx reads (%s)",
+							name, obj, k.Noun(), len(got), filecontent.Readable)
+					}
+					ok, text, err := f.Contains(want)
+					switch {
+					case err != nil:
+						return false, err.Error(), nil //nolint:nilerr // a file still being written, say: wait
+					case ok:
+						return true, "", nil
+					}
+					return false, fmt.Sprintf("its text does not contain %q. %s", want, filecontent.Nearest(text, want)), nil
+				}))
+			},
+		},
+		{
+			ID: o.Pack + ".row", Keyword: "Then", Arg: core.ArgTable, Since: o.since("0.1.1"),
+			Expr: "[[within {duration} ]]the {word} " + obj + " in the {word} " + c + " has a row where:",
+			Doc: fmt.Sprintf("Check that the table of the %s has a row with those values in those columns.\n\n"+
+				"- The check waits for it: 10 seconds, or `within {duration}`.\n"+
+				"- The %s is a CSV or TSV file, or an Excel workbook (.xlsx; its first sheet), whose first row names the columns.\n"+
+				"- Cells compare as text, as the workbook shows them, with runs of spaces as one space; an empty value matches an "+
+				"empty cell.", obj, obj),
+			Table: &core.TableDoc{
+				Columns: []string{"column", "value"},
+				Note:    fmt.Sprintf("Each row names a column, as the %s's first row names it, and the value in that column.", obj),
+			},
+			Examples: []string{fmt.Sprintf("Then within 30s the disputes/kestrel-2026-09.csv %s in the %s %s has a row where:", obj, o.Example, c) +
+				exampleTable([][2]string{{"parcel", "PX-5199"}, {"status", "UNKNOWN_SHIPMENT"}, {"billed", "4.10"}})},
+			Run: func(sc *core.Scenario, a core.Args) error {
+				if a.Table == nil {
+					return fmt.Errorf("the step needs a table of the row's columns and values (| column | value |)")
+				}
+				want, err := a.Table.Pairs()
+				if err != nil {
+					return err
+				}
+				name := a.String(1)
+				return o.await(sc, Wait(a, 0), a.String(2), name, unchanged(func(got []byte) (bool, string, error) {
+					f := filecontent.File{Name: name, Body: got}
+					if k := f.Kind(); !k.HasTable() {
+						return false, "", fmt.Errorf("the %s %s is %s, not a table axx reads (CSV, TSV, Excel .xlsx)", name, obj, k.Noun())
+					}
+					t, err := f.Table("")
+					if err != nil {
+						return false, err.Error(), nil //nolint:nilerr // a file still being written, say: wait
+					}
+					ok, why := t.FindRow(want)
+					return ok, why, nil
+				}))
+			},
+		},
+	}
+}
+
+// unchanged gives content that did not change since the last poll the
+// same verdict, without reading it again.
+func unchanged(check func([]byte) (bool, string, error)) func([]byte) (bool, string, error) {
+	var last []byte
+	var done, seen bool
+	var why string
+	return func(b []byte) (bool, string, error) {
+		if seen && bytes.Equal(b, last) {
+			return done, why, nil
+		}
+		d, w, err := check(b)
+		if err == nil {
+			last, done, why, seen = b, d, w, true
+		}
+		return d, w, err
 	}
 }
 

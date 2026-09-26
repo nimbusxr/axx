@@ -7,7 +7,7 @@ The steps of Axx's packs follow a few rules, so once you know one pack you can g
 
 ## One step, several variants
 
-Most steps come in up to four forms: the plain step, a form that names the service, a form with an ordinal for the 2nd or 3rd request, selection or event, and both together. The plain form covers the common case, a scenario with one service and one request, so most scenarios read like the acceptance criterion. The other forms appear only when a scenario needs them, and they read the same way in every pack ([How steps read](/references/steps/) has the grammar):
+The steps that address a service, a database or a broker come in up to four forms: the plain step, a form that names the service, a form with an ordinal for the 2nd or 3rd request, selection or event, and both together. The plain form covers the common case, a scenario with one service and one request, so most scenarios read like the acceptance criterion. The other forms appear only when a scenario needs them, and they read the same way in every pack ([How steps read](/references/steps/) has the grammar):
 
 ```gherkin
 Scenario: A reference can only be registered once
@@ -25,7 +25,7 @@ Scenario: A reference can only be registered once
 
 ## Parameter types
 
-Besides Cucumber's built-in types (`{int}`, `{word}`, `{string}`, ...), Axx adds types that let steps read naturally: `a 2nd selection`, `within 5s`, `on parcels`. `{filepath}` marks a value that names a file, such as a seed or a schema, so editors can link it to the file. They are listed in [How steps read](/references/steps/#parameter-types).
+Besides Cucumber's built-in types (`{int}`, `{word}`, `{string}`, ...), Axx adds types that let steps read naturally: `a 2nd selection`, `within 5s`, `on parcels`, `on parcels-db`. `{filepath}` marks a value that names a file, such as a seed or a schema, so editors can link it to the file. They are listed in [How steps read](/references/steps/#parameter-types).
 
 ## Tables for many values, arguments for one
 
@@ -33,12 +33,12 @@ Steps that set or check one value take it inline (`the request header Accept is 
 
 ## Step text is public API
 
-Once a step is released, its text never changes. New behavior gets new steps; old steps can be deprecated with a pointer to the replacement, never renamed. That is what keeps feature files working across releases, and what lets an agent trust `axx steps search` today and next year. Every built-in step is checked against a frozen catalog of step text on every build.
+Once a step is released, its text never changes. New behavior gets new steps; old steps can be deprecated with a pointer to the replacement, never renamed. That is what keeps feature files working across releases, and what lets an agent trust `axx steps search` today and next year. Every build checks that each step in a frozen catalog of step text is still defined, word for word.
 
 ## Designing your own steps
 
 The same rules make [custom steps](/guides/write-custom-steps/) easy to use:
 
-- Give every step a stable `id`, a doc string and a complete example line.
-- Add an `on {service}` variant when a step talks to a service that can appear twice.
+- Give every step a stable `ID`, its documentation (`Doc`) and a complete example line (`Examples`).
+- Add an optional `on` part that names the service, with its pack's parameter type (`[[ on {dbService}]]`), when a step talks to a service that can appear twice.
 - Report failed expectations with expected and actual values, not just a message.

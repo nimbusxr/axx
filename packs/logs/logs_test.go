@@ -367,6 +367,10 @@ func TestListenersCloseWithTheSuite(t *testing.T) {
 func TestRegistrationErrors(t *testing.T) {
 	h := newHarness(t)
 	_ = h.fails("the parcels log with the following properties:", "unknown log property", []string{"path", "x"})
+	// An unknown property fails after the url too.
+	_ = h.fails("the parcels log with the following properties:", `unknown log property "format" (supported: url)`,
+		[]string{"url", "file://app.log"}, []string{"format", "json"})
+	_ = h.fails("the parcels log with the following properties:", `Property "url" is required`, [][]string{}...)
 	_ = h.fails("the parcels log with the following properties:", "unknown scheme", []string{"url", "ftp://x"})
 	_ = h.fails("the parcels log with the following properties:", "needs host:port", []string{"url", "udp://nowhere"})
 	_ = h.fails("the parcels log with the following properties:", "have no path", []string{"url", "tcp://127.0.0.1:1/x"})

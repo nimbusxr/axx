@@ -6,10 +6,8 @@ description: Install the Axx CLI with Homebrew, the install script, go install o
 Axx is a single static binary for Linux, macOS and Windows on amd64 and arm64. It has no runtime dependencies. Docker is only needed if the apps you test start with Docker Compose.
 
 :::caution[Pre-release]
-Axx is in beta. Until `v0.1.0` is published, install from source with `go install`. The other channels below go live with that release. Every `0.x` release is marked as a pre-release on GitHub.
+Axx is in beta. Every `0.x` release is marked as a pre-release on GitHub.
 :::
-
-<!-- TODO(verify): the Homebrew cask, install.sh, the container image and release asset names are defined in .goreleaser.yaml but not yet published; check each command against the v0.1.0 release. -->
 
 ## Choose a channel
 
@@ -25,7 +23,15 @@ brew install nimbusxr/tap/axx
 curl -fsSL https://axx.nimbusxr.us/install.sh | sh
 ```
 
-The script picks the newest release (pre-releases included, since every `0.x` release is one), downloads the archive for your OS and architecture, and checks it against `checksums.txt`.
+The script picks the newest release (pre-releases included, since every `0.x` release is one), downloads the archive for your OS and architecture, and checks it against `checksums.txt`. It installs `axx` in `/usr/local/bin` when that is writable, otherwise in `~/.local/bin`. Set `AXX_INSTALL_DIR` to choose the directory, and `AXX_VERSION` to install a given version (`0.1.0`) or the `nightly` build.
+
+### Install script (Windows)
+
+```powershell
+irm https://axx.nimbusxr.us/install.ps1 | iex
+```
+
+The script installs the newest release in `%LOCALAPPDATA%\axx\bin`, after checking it against `checksums.txt`, and adds that directory to your user `PATH`.
 
 ### Go
 

@@ -1,0 +1,10 @@
+parcels.parcels:
+  - reference: "PX-WEB-5601"
+    sender: "maple-crafts"
+    status: "IN_TRANSIT"
+    service_level: "STANDARD"
+    weight_grams: 2100
+    recipient: '{"name": "Clara Busch", "street": "Lindenstr. 8", "city": "Potsdam", "postcode": "14467", "country": "DE"}'
+    details: '{"source": "portal", "zone": "DE-1", "signature": false, "leaveWithNeighbour": true}'
+    created_at: "2026-09-25 14:00:00+00"
+    updated_at: "2026-09-25 14:00:00+00"

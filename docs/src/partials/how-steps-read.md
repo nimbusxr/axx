@@ -1,4 +1,4 @@
-Every step of Axx's packs follows the same grammar. The pack pages list each step with its variants, parameters and an example.
+Every step of Axx's packs follows the same grammar. The [pack pages](/references/packs/) list each step with its parameters, the rows its table takes, its variants and an example.
 
 ## Optional parts
 
@@ -22,8 +22,8 @@ A step without a service name uses the default service: the first one of its kin
 ## Arguments
 
 - `{string}` takes single or double quotes; the quotes are removed.
-- `a(n)`, `time(s)`, `row(s)` and `document(s)` are optional text: `1 time` and `2 times` both match.
-- A step that ends with `:` takes a two-column data table on the following lines.
+- `a(n)`, `time(s)`, `row(s)`, `document(s)` and `item(s)` are optional text: `1 time` and `2 times` both match.
+- A step that ends with `:` takes a data table, or a doc string, on the following lines. Its entry shows the table's columns and the rows it knows.
 - How a value is typed (string, number, `null`, `undefined`) depends on the step; each step's entry says how it reads its values.
 
 ## Parameter types

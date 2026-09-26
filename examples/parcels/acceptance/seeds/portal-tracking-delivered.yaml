@@ -1,0 +1,10 @@
+parcels.parcels:
+  - reference: "PX-WEB-5605"
+    sender: "maple-crafts"
+    status: "DELIVERED"
+    service_level: "STANDARD"
+    weight_grams: 1100
+    recipient: '{"name": "Sofia Richter", "street": "Goethestr. 12", "city": "Weimar", "postcode": "99423", "country": "DE"}'
+    details: '{"source": "portal", "zone": "DE-1", "signature": false, "leaveWithNeighbour": true}'
+    created_at: "2026-09-22 11:00:00+00"
+    updated_at: "2026-09-22 11:00:00+00"

@@ -1,0 +1,22 @@
+parcels.manifest_lines:
+  - id: "ML-HER-0501-1"
+    manifest_id: "M-HERON-0501"
+    reference: "PX-HER-5001"
+    sender: "heron-prints"
+    weight_grams: 640
+    service_level: "STANDARD"
+    recipient: '{"name": "Ada Lovelace", "street": "Domkloster 4", "city": "Cologne", "postcode": "50667", "country": "DE"}'
+  - id: "ML-HER-0501-2"
+    manifest_id: "M-HERON-0501"
+    reference: "PX-HER-5002"
+    sender: "heron-prints"
+    weight_grams: 1250
+    service_level: "EXPRESS"
+    recipient: '{"name": "Grace Hopper", "city": "Frankfurt", "postcode": "60311", "country": "DE"}'
+  - id: "ML-HER-0501-3"
+    manifest_id: "M-HERON-0501"
+    reference: "PX-HER-5003"
+    sender: "heron-prints"
+    weight_grams: 900
+    service_level: "SAME_DAY"
+    recipient: '{"name": "Hedy Lamarr", "city": "Stuttgart", "postcode": "70173", "country": "DE"}'

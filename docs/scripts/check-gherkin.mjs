@@ -23,6 +23,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { blocks, markdownFiles, toFeature } from './gherkin-blocks.mjs';
 
 const docsDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const repoDir = path.resolve(docsDir, '..');
@@ -35,44 +36,6 @@ if (!fs.existsSync(axxBin)) {
 }
 
 // ------------------------------------------------------------- the blocks
-
-function walk(dir) {
-	return fs.readdirSync(dir, { withFileTypes: true }).flatMap((d) => {
-		const p = path.join(dir, d.name);
-		if (d.isDirectory()) return d.name === '_gen' ? [] : walk(p);
-		return /\.mdx?$/.test(d.name) ? [p] : [];
-	});
-}
-
-function blocks(file) {
-	const lines = fs.readFileSync(file, 'utf8').split('\n');
-	const found = [];
-	for (let i = 0; i < lines.length; i++) {
-		const open = lines[i].match(/^(\s*)(`{3,}|~{3,})gherkin\b(.*)$/);
-		if (!open) continue;
-		const [, indent, fence, info] = open;
-		const body = [];
-		let j = i + 1;
-		for (; j < lines.length; j++) {
-			const close = lines[j].match(/^(\s*)(`{3,}|~{3,})\s*$/);
-			if (close && close[2][0] === fence[0] && close[2].length >= fence.length) break;
-			body.push(lines[j].startsWith(indent) ? lines[j].slice(indent.length) : lines[j].trimStart());
-		}
-		found.push({ line: i + 2, nocheck: /\bnocheck\b/.test(info), body });
-		i = j;
-	}
-	return found;
-}
-
-/** Wraps a snippet so it is a complete feature; returns the text and the line offset. */
-function toFeature(body) {
-	const text = body.join('\n');
-	if (/^\s*Feature:/m.test(text)) return { text, offset: 0 };
-	if (/^\s*(Background|Scenario|Scenario Outline|Scenario Template|Example|Rule):/m.test(text)) {
-		return { text: `Feature: docs snippet\n${text}`, offset: 1 };
-	}
-	return { text: `Feature: docs snippet\n  Scenario: docs snippet\n${body.map((l) => `    ${l}`).join('\n')}`, offset: 2 };
-}
 
 function validate(dir, name) {
 	try {
@@ -96,8 +59,8 @@ let n = 0;
 // The site, plus every other place an agent or a human copies steps from:
 // the skills shipped in the binary, the README and AGENTS.md.
 const sources = [
-	...walk(contentDir),
-	...walk(path.join(repoDir, 'internal/skills/assets')),
+	...markdownFiles(contentDir),
+	...markdownFiles(path.join(repoDir, 'internal/skills/assets')),
 	...['README.md', 'AGENTS.md']
 		.map((f) => path.join(repoDir, f))
 		.filter((f) => fs.existsSync(f)),

@@ -24,7 +24,7 @@ Scenario: A claim within the limit is settled when its photo arrives
 | Google Cloud | `gcp-storage`, `gcp-pubsub`, `gcp-bigquery`, `gcp-firestore`, on `gcp-core` |
 | Azure | `azure-blob`, `azure-servicebus` |
 
-Each pack talks to its service through the cloud's official SDK. The [step reference](/references/steps/) lists the steps of each one, grouped by cloud. With an `axx-packs.yaml` ([Choose packs](/guides/use-packs/)), list the packs you use. An AWS or Google Cloud pack brings its core with it.
+Each pack talks to its service through the cloud's official SDK. The [pack reference](/references/packs/) has a page for each one, with its steps and settings, grouped by cloud. List the packs you use in `axx-packs.yaml` ([Choose packs](/guides/use-packs/)). An AWS or Google Cloud pack brings its core with it.
 
 ## Connect as your service does
 
@@ -43,7 +43,7 @@ Background:
 - **Google Cloud:** `the {word} gcp project` takes a `project`, and optionally an `endpoint` or a `credentials` key file. Without them, Application Default Credentials apply.
 - **Azure:** each service connects to its own resource. `the {word} azure storage account` takes a `connection string` or a `url`. `the {word} service bus namespace` takes a `connection string` or a `namespace`, plus a `management endpoint` for emulators.
 
-An `endpoint` points every service of the account or project at an emulator. Leave it out, and the same features run against the cloud.
+An `endpoint` points every service of the account or project at an emulator. Leave it out, and the same features run against the cloud. Axx's AWS clients also honor `AWS_ENDPOINT_URL`, but only the account's `endpoint` addresses S3 by path, as an S3 emulator needs.
 
 ## Run the clouds locally
 
@@ -73,13 +73,21 @@ Create the buckets, queues, topics and tables the way your infrastructure code d
 
 - **They wait.** Services act asynchronously, so every check waits: 10 seconds, or the time `within {duration}` gives.
 - **They see the scenario's messages only.** A message check counts only what arrived since its scenario started. Scenarios run in parallel, so match on data unique to the scenario, such as a claim or an invoice ID.
-- **Topics and buses cost nobody a message.** For the topics and buses a run checks, axx subscribes a listener of its own before the scenarios start, and removes it when the run ends:
+- **Topics and buses cost nobody a message.** For the topics and buses a run checks, Axx subscribes a listener of its own before the scenarios start, and removes it when the run ends:
   - an SQS queue for an SNS topic;
   - a subscription for a Pub/Sub topic;
   - a rule and a queue for an EventBridge bus;
   - a subscription for a Service Bus topic.
-- **Checking a queue takes its messages.** On an SQS or Service Bus queue, axx consumes each message like any other consumer would. So check the queues your service writes to. Check a queue it consumes by what the service does with the messages.
+- **Checking a queue takes its messages.** On an SQS or Service Bus queue, Axx consumes each message like any other consumer would. So check the queues your service writes to. Check a queue it consumes by what the service does with the messages.
 - **Conditions compare text.** A `| field | value |` row compares the value as text, with a dotted path into nested data. `null` means null and `undefined` means absent. On messages, `attribute <name>` or `property <name>` rows check the values sent with the message.
+- **Objects are read by their type.** Besides its exact content and its JSON properties, a check can look for text in an object, in a PDF, a Word document or a workbook too, or for a row of a CSV file or a workbook ([Check files](/guides/check-files/)):
+
+  ```gherkin
+  Then within 30s the invoices/kestrel-2026-09.pdf object in the carrier-invoices gcs bucket contains "Total due: 1284.50 EUR"
+  And the disputes/kestrel-2026-09.csv object in the carrier-invoices gcs bucket has a row where:
+    | parcel | PX-KES-1001    |
+    | reason | weight differs |
+  ```
 
 ## Examples
 

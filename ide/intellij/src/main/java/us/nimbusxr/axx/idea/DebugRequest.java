@@ -4,10 +4,6 @@ package us.nimbusxr.axx.idea;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.regex.Pattern;
-
 /**
  * A debugger request that the axx runner prints to its console when it starts an application in
  * debug mode:
@@ -25,7 +21,7 @@ import java.util.regex.Pattern;
  * <p>Fields are {@code key=value} tokens separated by whitespace, in any order; unknown keys are
  * ignored so the protocol can grow. {@code name}, {@code type}, {@code host} and a numeric {@code
  * port} are required. The marker may be preceded by other output (a timestamp, a log prefix) on the
- * same line.
+ * same line (see {@link IdeLine}).
  *
  * @param kind whether the IDE listens for the application or attaches to it
  * @param name the application name
@@ -41,13 +37,10 @@ public record DebugRequest(
         int port) {
 
     /** The marker that starts every request. */
-    public static final String MARKER = "[AXX-IDE]";
+    public static final String MARKER = IdeLine.MARKER;
 
     /** Run configurations the plugin starts are named with this prefix plus the app name. */
     public static final String CONFIGURATION_PREFIX = "Debugger: ";
-
-    private static final Pattern ANSI_ESCAPE = Pattern.compile("\u001B\\[[0-9;?]*[ -/]*[@-~]");
-    private static final Pattern WHITESPACE = Pattern.compile("\\s+");
 
     /** The kind of request, identified by the token that follows the marker. */
     public enum Kind {
@@ -84,35 +77,16 @@ public record DebugRequest(
      * @return the request, or null when the text holds no well-formed request
      */
     public static @Nullable DebugRequest parse(@Nullable String line) {
-        if (line == null || !line.contains(MARKER)) {
-            return null;
-        }
-        String rest = afterMarker(ANSI_ESCAPE.matcher(line).replaceAll(""));
-        if (rest == null) {
-            return null;
-        }
-        int eol = indexOfLineBreak(rest);
-        if (eol >= 0) {
-            rest = rest.substring(0, eol);
-        }
-        String[] tokens = WHITESPACE.split(rest.strip());
-        Kind kind = Kind.fromToken(tokens[0]);
+        IdeLine ideLine = IdeLine.parse(line);
+        Kind kind = ideLine == null ? null : Kind.fromToken(ideLine.kind());
         if (kind == null) {
             return null;
         }
 
-        Map<String, String> fields = new HashMap<>();
-        for (int i = 1; i < tokens.length; i++) {
-            int eq = tokens[i].indexOf('=');
-            if (eq > 0 && eq < tokens[i].length() - 1) {
-                fields.putIfAbsent(tokens[i].substring(0, eq), tokens[i].substring(eq + 1));
-            }
-        }
-
-        String name = fields.get("name");
-        String type = fields.get("type");
-        String host = fields.get("host");
-        Integer port = parsePort(fields.get("port"));
+        String name = ideLine.field("name");
+        String type = ideLine.field("type");
+        String host = ideLine.field("host");
+        Integer port = parsePort(ideLine.field("port"));
         if (name == null || type == null || host == null || port == null) {
             return null;
         }
@@ -122,21 +96,6 @@ public record DebugRequest(
     /** The name of the run configuration this request starts: {@code "Debugger: <name>"}. */
     public @NotNull String configurationName() {
         return CONFIGURATION_PREFIX + name;
-    }
-
-    private static @Nullable String afterMarker(String text) {
-        int at = text.indexOf(MARKER);
-        return at >= 0 ? text.substring(at + MARKER.length()) : null;
-    }
-
-    private static int indexOfLineBreak(String text) {
-        for (int i = 0; i < text.length(); i++) {
-            char c = text.charAt(i);
-            if (c == '\n' || c == '\r') {
-                return i;
-            }
-        }
-        return -1;
     }
 
     private static @Nullable Integer parsePort(@Nullable String value) {

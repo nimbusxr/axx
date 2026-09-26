@@ -26,7 +26,13 @@ public final class AxxSettings implements PersistentStateComponent<AxxSettings.S
     public static final class StoredState {
         /** The axx command on PATH, or a path to the binary (see {@link AxxExecutable}). */
         public String executable = AxxExecutable.DEFAULT;
+
+        /** How long runs that watch the browsers wait after every browser action; 0 for none. */
+        public int watchSlowdownMillis = DEFAULT_WATCH_SLOWDOWN_MILLIS;
     }
+
+    /** The default wait after every browser action when watching. */
+    public static final int DEFAULT_WATCH_SLOWDOWN_MILLIS = 300;
 
     /** Hears about changed settings, on the application message bus. */
     public interface Listener {
@@ -60,5 +66,14 @@ public final class AxxSettings implements PersistentStateComponent<AxxSettings.S
 
     public void setExecutable(@Nullable String executable) {
         state.executable = AxxExecutable.normalize(executable);
+    }
+
+    /** How long runs that watch the browsers wait after every browser action; 0 for none. */
+    public int getWatchSlowdownMillis() {
+        return Math.max(0, state.watchSlowdownMillis);
+    }
+
+    public void setWatchSlowdownMillis(int millis) {
+        state.watchSlowdownMillis = Math.max(0, millis);
     }
 }

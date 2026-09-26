@@ -1,0 +1,7 @@
+parcels.parcels:
+  - reference: "PX-WEB-5191"
+    sender: "maple-crafts"
+    status: "REGISTERED"
+    weight_grams: 1600
+    recipient: '{"name": "Greta Albers", "street": "Kaiserstr. 22", "city": "Kiel", "postcode": "24103", "country": "DE"}'
+    details: '{"source": "portal", "zone": "DE-1", "signature": true, "leaveWithNeighbour": false}'

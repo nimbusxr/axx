@@ -1,0 +1,6 @@
+parcels.parcels:
+  - reference: "PX-WEB-5121"
+    sender: "oak-and-ember"
+    weight_grams: 1800
+    recipient: '{"name": "Mia Schulz", "street": "Bergmannstr. 5", "city": "Berlin", "postcode": "10961", "country": "DE"}'
+    details: '{"source": "portal", "zone": "DE-1", "signature": false, "leaveWithNeighbour": true}'

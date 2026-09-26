@@ -140,9 +140,10 @@ func (pack) Manifest() core.Manifest {
 		Doc:          packDoc,
 		ConfigSchema: json.RawMessage(configSchema),
 		Params: []core.ParamType{{
-			Name:    "service",
-			Regexps: []string{`([^\s]+)`},
-			Doc:     "The name of a REST service registered in the scenario.",
+			Name:     "service",
+			Regexps:  []string{`([^\s]+)`},
+			Doc:      "the name of a REST service the scenario registered",
+			Examples: []string{"parcels"},
 			Transform: func(sc *core.Scenario, name string, _ []*string) (any, error) {
 				return stateKey.Of(sc).services.Get(name)
 			},

@@ -6,8 +6,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"path/filepath"
+	"slices"
+	"strconv"
 	"strings"
 
 	messages "github.com/cucumber/messages/go/v34"
@@ -39,6 +42,8 @@ type runFlags struct {
 	debugSteps string
 	order      string
 	rerunFile  string
+	// pauseAt are the steps (file:line) the run pauses before.
+	pauseAt []string
 }
 
 func newRunCmd(app *App) *cobra.Command {
@@ -58,11 +63,12 @@ line 14, or the scenario containing that step line), --tags and --name.
 Exit codes: 0 passed, 1 failures, 2 usage/config, 3 undefined/ambiguous steps,
 4 an app failed to start, 130 interrupted.`,
 		Example: `  axx run
-  axx run features/register-parcels.feature:14
+  axx run features/register-parcels.feature:17
   axx run --tags "@smoke and not @wip" --format junit:build/axx/junit.xml
   axx run --attach api        # you run the api from your IDE; axx waits for it
   axx run --debug=api         # start api with its debug command
-  axx run --debug-steps features/register-parcels.feature:14   # stop at breakpoints in step code`,
+  axx run --debug-steps features/register-parcels.feature:17   # stop at breakpoints in step code
+  axx run features/shop-portal.feature --pause-at features/shop-portal.feature:24   # pause before that step, where packs can show it`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return app.run(cmd.Context(), &f, args)
 		},
@@ -83,6 +89,7 @@ Exit codes: 0 passed, 1 failures, 2 usage/config, 3 undefined/ambiguous steps,
 	fl.Lookup("debug-steps").NoOptDefVal = defaultStepsPort
 	fl.StringVar(&f.order, "order", "", `scenario order: "defined" or "random[:seed]"`)
 	fl.StringVar(&f.rerunFile, "rerun-file", "", "write failed scenario locations (file:line) to this file")
+	fl.StringArrayVar(&f.pauseAt, "pause-at", nil, "pause before the step at this file:line, with no timeouts, for the packs that can show a person what the scenario does (repeatable)")
 	return cmd
 }
 
@@ -95,6 +102,10 @@ func (a *App) run(ctx context.Context, f *runFlags, args []string) error {
 		return err
 	}
 	cfg := e.Config
+	pauses, err := a.pauseAt(e, f.pauseAt)
+	if err != nil {
+		return err
+	}
 	paths, lines, err := e.FeaturePaths(args)
 	if err != nil {
 		return err
@@ -111,6 +122,7 @@ func (a *App) run(ctx context.Context, f *runFlags, args []string) error {
 	if err != nil {
 		return err
 	}
+	e.Suite.PauseAt(a.pausesOnSteps(pauses, pickles))
 	if len(pickles) == 0 {
 		fmt.Fprintln(a.Stderr, "axx: no scenarios matched the given paths and filters")
 		return a.EmitResult(map[string]any{"scenarios": 0}, true, nil)
@@ -163,8 +175,8 @@ func (a *App) run(ctx context.Context, f *runFlags, args []string) error {
 		order = cfg.Run.Order
 	}
 	stepTimeout, scenarioTimeout, hookTimeout := cfg.Run.Timeouts.Step.D(), cfg.Run.Timeouts.Scenario.D(), cfg.Run.Timeouts.Hook.D()
-	if os.Getenv(envDebuggee) != "" {
-		// Stopped at a breakpoint, a step can take as long as it takes.
+	if os.Getenv(envDebuggee) != "" || e.Suite.Pausing() {
+		// Stopped at a breakpoint, or paused, a step can take as long as it takes.
 		stepTimeout, scenarioTimeout, hookTimeout = noTimeout, 0, noTimeout
 	}
 	r, err := runner.New(runner.Options{
@@ -381,4 +393,53 @@ func writeRerun(path string, res *runner.RunResult) error {
 		}
 	}
 	return os.WriteFile(path, []byte(b.String()), 0o644)
+}
+
+// pauseAt reads where the run is to pause, from --pause-at file:line
+// values: the lines of each file, by URI.
+func (a *App) pauseAt(e *engine.Engine, specs []string) (map[string][]int, error) {
+	if len(specs) == 0 {
+		return nil, nil
+	}
+	for _, spec := range specs {
+		_, line, ok := strings.Cut(spec[max(0, strings.LastIndexByte(spec, ':')):], ":")
+		if n, err := strconv.Atoi(line); !ok || err != nil || n < 1 {
+			return nil, axxerr.New("AXX-E0001", exitcode.Usage, "invalid usage: --pause-at takes the file:line of a step, got %q", spec).
+				WithHint("use --pause-at features/<file>.feature:<line>, the line of the step to pause before")
+		}
+	}
+	_, lines, err := e.FeaturePaths(specs)
+	if err != nil {
+		return nil, err
+	}
+	return lines, nil
+}
+
+// pausesOnSteps are the pauses on a step of the run, the ones the run
+// pauses at. It tells of the others: a line of a scenario that is not a
+// step, or a file the run leaves out.
+func (a *App) pausesOnSteps(pauses map[string][]int, pickles []*feature.Pickle) map[string][]int {
+	if len(pauses) == 0 {
+		return nil
+	}
+	steps := map[string]map[int]bool{}
+	for _, p := range pickles {
+		if steps[p.Doc.URI] == nil {
+			steps[p.Doc.URI] = map[int]bool{}
+		}
+		for _, ps := range p.Steps {
+			steps[p.Doc.URI][p.StepSource(ps).Line] = true
+		}
+	}
+	out := map[string][]int{}
+	for _, uri := range slices.Sorted(maps.Keys(pauses)) {
+		for _, line := range slices.Compact(slices.Sorted(slices.Values(pauses[uri]))) {
+			if !steps[uri][line] {
+				fmt.Fprintf(a.Stderr, "axx: not pausing at %s:%d: no step of this run is on that line\n", uri, line)
+				continue
+			}
+			out[uri] = append(out[uri], line)
+		}
+	}
+	return out
 }

@@ -1,0 +1,10 @@
+parcels.parcels:
+  - reference: "PX-WEB-5603"
+    sender: "maple-crafts"
+    status: "IN_TRANSIT"
+    service_level: "EXPRESS"
+    weight_grams: 700
+    recipient: '{"name": "Marie Lang", "street": "Schillerstr. 2", "city": "Jena", "postcode": "07743", "country": "DE"}'
+    details: '{"source": "portal", "zone": "DE-1", "signature": false, "leaveWithNeighbour": true}'
+    created_at: "2026-09-25 14:20:00+00"
+    updated_at: "2026-09-25 14:20:00+00"

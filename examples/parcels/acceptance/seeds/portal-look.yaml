@@ -1,0 +1,10 @@
+parcels.parcels:
+  - reference: "PX-WEB-5181"
+    sender: "maple-crafts"
+    status: "REGISTERED"
+    service_level: "STANDARD"
+    weight_grams: 1500
+    # Its own label number, so its label looks the same whichever parcels came before.
+    label_number: 5181
+    recipient: '{"name": "Ilse Möller", "street": "Weberstr. 6", "city": "Bonn", "postcode": "53113", "country": "DE"}'
+    details: '{"source": "portal", "zone": "DE-1", "signature": false, "leaveWithNeighbour": true}'
