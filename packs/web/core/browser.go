@@ -147,6 +147,11 @@ func browserFor(s *core.Suite, a *App) (playwright.Browser, error) {
 			// whether someone watches it or not.
 			opts.Channel = playwright.String("chromium")
 		}
+		if !branded(a.Engine) {
+			if err := wholeBrowser(s, a.Engine, bt); err != nil {
+				return nil, launchError(a, err)
+			}
+		}
 		b, err := bt.Launch(opts)
 		if err != nil && !branded(a.Engine) && strings.Contains(err.Error(), "Executable doesn't exist") {
 			if err = installBrowser(s, a.Engine); err == nil {
@@ -171,13 +176,36 @@ func browserFor(s *core.Suite, a *App) (playwright.Browser, error) {
 // inspectorBrowser makes sure Playwright's Chromium is there, for the
 // Inspector, once per run.
 func inspectorBrowser(s *core.Suite, pw *playwright.Playwright) error {
-	_, err := core.Cached(s, Name+"/inspector", func() (bool, error) {
-		if _, err := os.Stat(pw.Chromium.ExecutablePath()); err == nil {
+	return wholeBrowser(s, "chromium", pw.Chromium)
+}
+
+// wholeBrowser makes sure Playwright's browser of an engine is there, and
+// whole, before it starts, once per run. Another axx, a run beside this one,
+// may be installing it: a browser started half written fails ("text file
+// busy"). Playwright marks a browser installed whole; without the mark, its
+// installer runs, which waits for another's to end and does nothing for a
+// browser installed whole.
+func wholeBrowser(s *core.Suite, engine string, bt playwright.BrowserType) error {
+	_, err := core.Cached(s, Name+"/installed/"+engine, func() (bool, error) {
+		if installedWhole(bt.ExecutablePath(), engine) {
 			return true, nil
 		}
-		return true, installBrowser(s, "chromium")
+		return true, installBrowser(s, engine)
 	})
 	return err
+}
+
+// installedWhole reports whether the browser of an executable has
+// Playwright's mark of a finished install, in its folder (like
+// chromium-1234) of Playwright's browsers.
+func installedWhole(executable, engine string) bool {
+	for dir := filepath.Dir(executable); filepath.Dir(dir) != dir; dir = filepath.Dir(dir) {
+		if strings.HasPrefix(filepath.Base(dir), engine+"-") {
+			_, err := os.Stat(filepath.Join(dir, "INSTALLATION_COMPLETE"))
+			return err == nil
+		}
+	}
+	return false
 }
 
 // branded reports whether an engine is a browser installed on the machine,

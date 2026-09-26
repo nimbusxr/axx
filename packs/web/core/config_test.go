@@ -2,6 +2,7 @@ package webcore
 
 import (
 	"context"
+	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -145,5 +146,28 @@ func TestFailuresShowTheNearestLines(t *testing.T) {
 	}
 	if n := commonRun("Price: 6.90 EUR", "Price: 99.00 EUR"); n != 7 {
 		t.Errorf("commonRun: %d", n)
+	}
+}
+
+func TestABrowserStartsOnlyWhenInstalledWhole(t *testing.T) {
+	browsers := t.TempDir()
+	exe := filepath.Join(browsers, "chromium-1234", "chrome-linux64", "chrome")
+	if err := os.MkdirAll(filepath.Dir(exe), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(exe, []byte("half written"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if installedWhole(exe, "chromium") {
+		t.Error("a browser still being installed counts as installed")
+	}
+	if err := os.WriteFile(filepath.Join(browsers, "chromium-1234", "INSTALLATION_COMPLETE"), nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if !installedWhole(exe, "chromium") {
+		t.Error("a browser installed whole does not count as installed")
+	}
+	if installedWhole(filepath.Join(browsers, "firefox-1538", "firefox", "firefox"), "firefox") {
+		t.Error("a missing browser counts as installed")
 	}
 }
