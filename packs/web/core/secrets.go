@@ -106,7 +106,7 @@ func (st *pages) masker() *strings.Replacer {
 		}
 		return forms[i] < forms[j]
 	})
-	pairs := make([]string, 0, 2*len(forms))
+	var pairs []string
 	for _, f := range forms {
 		pairs = append(pairs, f, masked)
 	}

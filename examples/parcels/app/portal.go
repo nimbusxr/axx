@@ -798,6 +798,6 @@ func (s *service) portalSaveSettings(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		saved = st
 	}
-	http.SetCookie(w, &http.Cookie{Name: "shop", Value: st.Shop, Path: "/portal", HttpOnly: true, SameSite: http.SameSiteLaxMode})
+	http.SetCookie(w, &http.Cookie{Name: "shop", Value: st.Shop, Path: "/portal", HttpOnly: true, Secure: r.TLS != nil, SameSite: http.SameSiteLaxMode})
 	s.render(w, "settings", http.StatusOK, portalPage{Title: "Settings", Settings: saved, Notice: "Settings saved"})
 }

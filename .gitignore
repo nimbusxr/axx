@@ -3,7 +3,9 @@
 /dist/
 /build/*
 !/build/Dockerfile
-coverage.*
+coverage.out
+coverage.txt
+coverage.html
 *.test
 
 # axx runtime state
