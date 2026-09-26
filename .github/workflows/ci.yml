@@ -104,7 +104,9 @@ jobs:
         with:
           build: test
       # The web pack has a job of its own (web).
-      - run: go test -race -tags integration -timeout 20m $(go list ./packs/... | grep -v /packs/web) ./internal/engine/... ./internal/packbuild/...
+      - run: |
+          mapfile -t packs < <(go list ./packs/... | grep -v /packs/web)
+          go test -race -tags integration -timeout 20m "${packs[@]}" ./internal/engine/... ./internal/packbuild/...
 
   web:
     # The web pack in Chromium, Firefox and WebKit, which it downloads on first use; the watching
