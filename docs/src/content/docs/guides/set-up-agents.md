@@ -22,7 +22,7 @@ axx skills list
 | `axx-custom-steps` | custom steps as Go packs |
 | `axx-debugging` | reading failures, exit codes and logs |
 
-The step references inside the skills are generated from *your* project, including your custom packs. Rerun `axx skills install` after adding steps or upgrading Axx; files you edited are kept unless you pass `--force`. The same skills are published at [`/.well-known/agent-skills/index.json`](/.well-known/agent-skills/index.json).
+The step references inside the skills are generated from *your* project, including your custom packs. Installed for your user, which serves every repository, they have the steps of every pack Axx publishes instead. Rerun `axx skills install` after adding steps or upgrading Axx; files you edited are kept unless you pass `--force`. The same skills are published at [`/.well-known/agent-skills/index.json`](/.well-known/agent-skills/index.json).
 
 ## MCP server
 
@@ -33,11 +33,27 @@ The step references inside the skills are generated from *your* project, includi
 | `steps_search` | find steps by intent, with docs and examples |
 | `step_explain` | how one line matches, or the closest steps |
 | `feature_validate` | check feature files or feature text without running |
+| `lint_run` | run `axx lint`: values such as seed ids that collide across files, with `file:line` |
 | `scenarios_run` | run scenarios (paths, tags, names); returns failures with expected and actual |
 | `failure_context` | logs, attachments and the last request and response of one failure |
 | `env` | `up`, `down` or `status` of the apps |
 | `config_show` | the effective `axx.yaml`, with secrets redacted |
 | `scaffold` | starter contents for a feature or an `axx.yaml` |
+| `steps_try` | try steps in a live scenario that stays open between calls, until `restart` |
+
+Packs add tools of their own, which look at the scenario `steps_try` keeps open. The `web-core` pack's:
+
+| Tool | Does |
+| --- | --- |
+| `web_page` | the page the session's web app is on: its elements as steps name them, what a screen reader reads, script errors and a screenshot |
+
+An agent tries the steps it is unsure of, looks at the page they led to, then writes them into the feature:
+
+```json
+{"steps": "Given the portal web app with the following properties:\n  | url | http://localhost:8400/portal |\nWhen the \"/quote\" page is opened"}
+```
+
+The apps must be running (`env` `up`). The session's browsers close when the agent restarts it or the server stops.
 
 It also serves the `axx.yaml` JSON Schema as a resource and a `write-acceptance-tests` prompt. Pass `--profile ci` (or any profile) to apply it to every tool call.
 

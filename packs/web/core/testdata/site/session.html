@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Your session</title></head>
+<body>
+  <h1>Your session</h1>
+  <p id="server">Asking the portal…</p>
+  <p id="storage"></p>
+  <p id="scheme"></p>
+  <p id="motion"></p>
+  <p id="media"></p>
+  <p id="agent"></p>
+  <p id="where">Locating…</p>
+  <p id="notify"></p>
+  <script>
+    const say = (id, text) => { document.getElementById(id).textContent = text; };
+    fetch('/whoami').then((r) => r.json()).then((w) => say('server', `Cookie: ${w.cookie}; Authorization: ${w.authorization}; User: ${w.user}`));
+    say('storage', `Token: ${localStorage.getItem('token')}; ID token: ${sessionStorage.getItem('msal.idtoken')}`);
+    say('scheme', 'Color scheme: ' + (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
+    say('motion', 'Motion: ' + (matchMedia('(prefers-reduced-motion: reduce)').matches ? 'reduced' : 'full'));
+    say('media', 'Media: ' + (matchMedia('print').matches ? 'print' : 'screen'));
+    say('agent', 'Agent: ' + navigator.userAgent);
+    navigator.geolocation.getCurrentPosition(
+      (p) => say('where', `Location: ${p.coords.latitude.toFixed(4)}, ${p.coords.longitude.toFixed(4)}`),
+      (e) => say('where', 'Location: ' + e.message));
+    navigator.permissions.query({ name: 'notifications' }).then((p) => say('notify', 'Notifications: ' + p.state));
+  </script>
+</body>
+</html>

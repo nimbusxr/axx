@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"slices"
+	"strings"
 	"sync"
 )
 
@@ -23,6 +25,11 @@ type SuiteOptions struct {
 	// ProjectDir is the directory of axx.yaml; packs keep their run state
 	// under ProjectDir/.axx.
 	ProjectDir string
+	// Announce writes a line for the IDE running axx; nil when none does.
+	Announce func(line string)
+	// Invoke runs a step by its text in a scenario; nil where steps cannot
+	// run.
+	Invoke func(sc *Scenario, text string, table *Table, doc *DocString) error
 }
 
 // Suite is shared by all scenarios of a run: configuration, resolution
@@ -35,6 +42,8 @@ type Suite struct {
 	cache   map[string]*cacheEntry
 	closers []func(context.Context) error
 	closed  bool
+	// pauses are the lines of the steps the run pauses before, by URI.
+	pauses map[string][]int
 }
 
 type cacheEntry struct {
@@ -81,6 +90,55 @@ func (s *Suite) Logger() *slog.Logger { return s.opts.Logger }
 
 // ProjectDir returns the directory of axx.yaml ("" when there is none).
 func (s *Suite) ProjectDir() string { return s.opts.ProjectDir }
+
+// PauseAt sets where the run pauses, as `axx run --pause-at` asks: before
+// the steps at these lines, by feature file (URIs relative to the project,
+// like the scenarios'). Hosts call it before the run.
+func (s *Suite) PauseAt(lines map[string][]int) {
+	s.mu.Lock()
+	s.pauses = lines
+	s.mu.Unlock()
+}
+
+// Pausing reports whether the run pauses anywhere: a run to debug, where
+// packs that can show a person what a scenario does get ready to.
+func (s *Suite) Pausing() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return len(s.pauses) > 0
+}
+
+// PausesAt reports whether the run pauses before the step at that line of
+// that feature file (a URI relative to the project).
+func (s *Suite) PausesAt(uri string, line int) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return slices.Contains(s.pauses[uri], line)
+}
+
+// Invoke runs a step by its text in a scenario, as a run does: for packs
+// that run the steps a person asks for, such as in a paused scenario.
+func (s *Suite) Invoke(sc *Scenario, text string, table *Table, doc *DocString) error {
+	if s.opts.Invoke == nil {
+		return errors.New("steps cannot run here")
+	}
+	return s.opts.Invoke(sc, text, table, doc)
+}
+
+// Announce tells the IDE running axx, if one does, about something it can
+// show: an "[AXX-IDE] <kind> key=value..." line, from pairs of keys and
+// values (spaces in values are written %20). It does nothing otherwise.
+func (s *Suite) Announce(kind string, keyValues ...string) {
+	if s.opts.Announce == nil {
+		return
+	}
+	var b strings.Builder
+	b.WriteString("[AXX-IDE] " + kind)
+	for i := 0; i+1 < len(keyValues); i += 2 {
+		b.WriteString(" " + keyValues[i] + "=" + strings.ReplaceAll(keyValues[i+1], " ", "%20"))
+	}
+	s.opts.Announce(b.String())
+}
 
 // OnClose registers fn to run when the suite ends (reverse order).
 func (s *Suite) OnClose(fn func(context.Context) error) {

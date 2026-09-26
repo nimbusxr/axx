@@ -25,17 +25,28 @@ axx opens listeners before it starts the apps, for the log steps of the scenario
 
 ```gherkin
 Given the {word} log with the following properties:
-  | ... | ... |
+  | property | value |
 ```
 
-Register a log under a name. Properties: `url` (required; `file://`, `udp://`, `tcp://`, `http://` or `https://`, `${env:..}`/`${sys:..}` are expanded). Assertions only look at what the log receives from now on.
+Register a log under a name. Assertions only look at what the log receives from then on.
 
-**Parameters:** `{word}` (one word, no spaces)
+| Parameter | Takes | For example |
+|---|---|---|
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+
+| Property | Takes | Default |
+|---|---|---|
+| `url` | where the log's lines are: a file axx reads (`file://`, relative to the directory of axx.yaml or absolute), or an address axx listens on (`udp://`, `tcp://`, `http://`, `https://`); `${env:..}` and `${sys:..}` are expanded | _required_ |
+
+Any other property fails the step.
 
 **Example:**
 
 ```gherkin
 Given the parcels log with the following properties:
+  | url | udp://0.0.0.0:5140 |
+Given the console log with the following properties:
+  | url | file://.axx/logs/apps.log |
 ```
 
 ## `logs.entry`
@@ -46,12 +57,16 @@ Then [[within {duration} ]]the {word} log has an entry matching {string}
 
 Wait (10s, or the given time) until the log has a match for the regular expression. The pattern is searched in the log's text: `^` and `$` match at line boundaries and a pattern can span lines.
 
-**Variants** (optional parts in `[[...]]` above):
+| Parameter | Takes | For example |
+|---|---|---|
+| `{duration}` | a duration in seconds (`s`) or minutes (`m`) | `5s`, `2m` |
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+| `{string}` | text in double or single quotes, which the step leaves out | `"Get a quote"`, `'Express'` |
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `the {word} log has an entry matching {string}`
 - `within {duration} the {word} log has an entry matching {string}`
-
-**Parameters:** `{duration}` (A duration in seconds or minutes, e.g. `5s` or `2m`), `{word}` (one word, no spaces), `{string}` (text in single or double quotes; the quotes are removed)
 
 **Example:**
 
@@ -64,22 +79,29 @@ Then within 30s the parcels log has an entry matching 'manifest line processed l
 
 ```gherkin
 Then [[within {duration} ]]the {word} log has entries matching:
-  | ... | ... |
+  | pattern |
 ```
 
-Wait until the log has a match for every regular expression in the table (one per row). Each row needs a match of its own: the same pattern in two rows needs two matches.
+Wait until the log has a match for every regular expression in the table. Each row needs a match of its own: the same pattern in two rows needs two matches.
 
-**Variants** (optional parts in `[[...]]` above):
+| Parameter | Takes | For example |
+|---|---|---|
+| `{duration}` | a duration in seconds (`s`) or minutes (`m`) | `5s`, `2m` |
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+
+A row is a regular expression the log must have a match for.
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `the {word} log has entries matching:`
 - `within {duration} the {word} log has entries matching:`
 
-**Parameters:** `{duration}` (A duration in seconds or minutes, e.g. `5s` or `2m`), `{word}` (one word, no spaces)
-
 **Example:**
 
 ```gherkin
-Then the parcels log has entries matching:
+Then the console log has entries matching:
+  | msg="manifest line processed" line=ML-FJORD-0101-1 status=REJECTED |
+  | msg="manifest line processed" line=ML-FJORD-0101-2 status=REJECTED |
 ```
 
 ## `logs.count`
@@ -90,12 +112,17 @@ Then [[within {duration} ]]the {word} log has {int} entry/entries matching {stri
 
 Wait until the log has the given number of matches for the regular expression, for example one per retry. More matches than that fail the step.
 
-**Variants** (optional parts in `[[...]]` above):
+| Parameter | Takes | For example |
+|---|---|---|
+| `{duration}` | a duration in seconds (`s`) or minutes (`m`) | `5s`, `2m` |
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+| `{int}` | a whole number | `200`, `3` |
+| `{string}` | text in double or single quotes, which the step leaves out | `"Get a quote"`, `'Express'` |
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `the {word} log has {int} entry/entries matching {string}`
 - `within {duration} the {word} log has {int} entry/entries matching {string}`
-
-**Parameters:** `{duration}` (A duration in seconds or minutes, e.g. `5s` or `2m`), `{word}` (one word, no spaces), `{int}` (a 32-bit integer), `{string}` (text in single or double quotes; the quotes are removed)
 
 **Example:**
 
@@ -107,20 +134,26 @@ Then the parcels log has 2 entries matching 'storing parcel PX-DBF-3002 failed, 
 
 ```gherkin
 Then [[within {duration} ]]the logs have entries matching:
-  | ... | ... |
+  | log | pattern |
 ```
 
-Wait until every log in the table has a match for its regular expression (`log | pattern` rows), for example the service's own entry and its dependency's. Each row needs a match of its own.
+Wait until every log in the table has a match for its regular expression, for example the service's own entry and its dependency's. Each row needs a match of its own.
 
-**Variants** (optional parts in `[[...]]` above):
+| Parameter | Takes | For example |
+|---|---|---|
+| `{duration}` | a duration in seconds (`s`) or minutes (`m`) | `5s`, `2m` |
+
+A row names a log registered in the scenario, and a regular expression it must have a match for.
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `the logs have entries matching:`
 - `within {duration} the logs have entries matching:`
-
-**Parameters:** `{duration}` (A duration in seconds or minutes, e.g. `5s` or `2m`)
 
 **Example:**
 
 ```gherkin
 Then the logs have entries matching:
+  | parcels | msg="registration refused; not announced" reference=PX-ADR-1104 |
+  | console | GET /v1/postcodes/DE/00012                                      |
 ```

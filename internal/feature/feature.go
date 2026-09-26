@@ -256,7 +256,8 @@ type Filter struct {
 	Tags string
 	// Names are regular expressions matched against scenario names (any).
 	Names []string
-	// Lines selects pickles by file:line; keys are URIs.
+	// Lines selects the pickles of a file by file:line; keys are URIs. The
+	// files it has no lines for keep all their pickles.
 	Lines map[string][]int
 }
 
@@ -287,13 +288,10 @@ func (s *Set) Apply(f Filter) ([]*Pickle, error) {
 		if len(names) > 0 && !anyMatch(names, p.Name) {
 			continue
 		}
+		// A file given with lines runs those scenarios; a file given
+		// without (or in a directory given) runs them all.
 		if lines, ok := f.Lines[p.Doc.URI]; ok && len(lines) > 0 && !p.coversAny(lines) {
 			continue
-		}
-		if len(f.Lines) > 0 {
-			if _, ok := f.Lines[p.Doc.URI]; !ok {
-				continue
-			}
 		}
 		out = append(out, p)
 	}

@@ -170,7 +170,11 @@ func TestOutputIsPrefixedAndTailed(t *testing.T) {
 	if err := h.Start(t.Context(), nil); err != nil {
 		t.Fatal(err)
 	}
-	eventually(t, 2*time.Second, "stderr line", func() bool { return h.stderr.String() != "" })
+	// Readiness sees "done" in the log; the prefixed copies are written
+	// beside it, and may come a moment later.
+	eventually(t, 2*time.Second, "the app's output", func() bool {
+		return strings.HasSuffix(h.stdout.String(), "done\n") && h.stderr.String() != ""
+	})
 	if got := h.stdout.String(); got != "[api] hello\n[api] done\n" {
 		t.Errorf("stdout = %q", got)
 	}
@@ -203,6 +207,9 @@ func TestWorkingDirectory(t *testing.T) {
 		t.Fatal(err)
 	}
 	want, _ := filepath.EvalSymlinks(filepath.Join(h.dir, "svc"))
+	// Readiness sees the line in the log; its prefixed copy may come a
+	// moment later.
+	eventually(t, 2*time.Second, "the app's output", func() bool { return strings.HasSuffix(h.stdout.String(), "\n") })
 	got := strings.TrimSpace(strings.TrimPrefix(h.stdout.String(), "[api] pwd="))
 	if got, _ = filepath.EvalSymlinks(got); got != want {
 		t.Errorf("app ran in %q, want %q", got, want)

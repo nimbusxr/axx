@@ -4,22 +4,23 @@
 arrives. It runs on AWS:
 
 - **DynamoDB:** insured parcels and claims.
-- **S3:** evidence photos, settlement letters, and the reviewers' copies of photos.
+- **S3:** evidence photos, settlement letters, the settlements for finance, and the
+  reviewers' copies of photos.
 - **SQS, SNS and EventBridge:** everything else. S3 tells it when a photo arrives,
   carriers report the damage they caused, the parcels platform reports deliveries, and
   payments reports refunds.
 
 axx tests it the way the rest of the world uses it: by calling its API, uploading photos,
 putting carrier events on a bus, and publishing deliveries. It then checks what the
-service did: the claim in DynamoDB, the letter in S3, the refund request on a queue, and
-the decision on a topic and a bus. The service knows nothing about axx.
+service did: the claim in DynamoDB, the letter and the settlement in S3, the refund request
+on a queue, and the decision on a topic and a bus. The service knows nothing about axx.
 
 ## What the features check
 
 | Feature | Acceptance criteria | What axx uses |
 | --- | --- | --- |
-| `damage-claims` | A claim within the auto-approval limit is settled when its photo arrives. A larger one goes to a person, with the photo copied for the reviewer. A parcel is claimed once. | REST with OpenAPI, S3 uploads and objects, DynamoDB items and counts, SQS, SNS and EventBridge checks |
-| `lost-claims` | A lost parcel is paid out unless the parcels platform reported it delivered. A parcel event without a type is set aside. | publishing to SNS, with and without attributes, and a log entry that proves an event was ignored |
+| `damage-claims` | A claim within the auto-approval limit is settled when its photo arrives. A larger one goes to a person, with the photo copied for the reviewer. A parcel is claimed once. | REST with OpenAPI, S3 uploads and objects (JSON properties, a letter's text, identical to a file), DynamoDB items and counts, SQS, SNS and EventBridge checks |
+| `lost-claims` | A lost parcel is paid out unless the parcels platform reported it delivered. A parcel event without a type is set aside. | publishing to SNS, with and without attributes, a CSV row in an S3 object, and a log entry that proves an event was ignored |
 | `carrier-reports` | A carrier's damage report settles the claim without a photo. | putting an event on an EventBridge bus |
 | `refunds` | Paid refunds close claims. Failed ones are flagged with the reason payments gives. | sending to SQS, with and without attributes |
 
@@ -67,7 +68,8 @@ credentials come from your environment.
 | --- | --- | --- |
 | `insured-parcels`, `claims` | DynamoDB tables | insured parcels (seeded by the scenarios) and claims |
 | `claim-evidence` | S3 bucket | shops' photos; new objects notify the `evidence-uploads` queue |
-| `claim-letters`, `claim-reviews` | S3 buckets | settlement letters; photos copied for reviewers |
+| `claim-letters`, `claim-reviews` | S3 buckets | settlement letters, as JSON for the shop's systems and text for its staff; photos copied for reviewers |
+| `claim-settlements` | S3 bucket | the settlement of every approved claim, as CSV for finance to book |
 | `refund-requests` | SQS queue | refunds for payments to pay (the service writes it; axx checks it) |
 | `refund-results` | SQS queue | payments' answers (axx sends them; the service reads them) |
 | `claim-decisions` | SNS topic | decisions, for the shops |

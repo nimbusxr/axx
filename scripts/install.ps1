@@ -2,8 +2,8 @@
 #
 #   irm https://axx.nimbusxr.us/install.ps1 | iex
 #
-# Environment: AXX_VERSION (default newest release), AXX_INSTALL_DIR
-# (default %LOCALAPPDATA%\axx\bin), GITHUB_TOKEN (optional).
+# Environment: AXX_VERSION (e.g. 0.1.0, v0.1.0, nightly; default newest release),
+# AXX_INSTALL_DIR (default %LOCALAPPDATA%\axx\bin), GITHUB_TOKEN (optional).
 $ErrorActionPreference = 'Stop'
 $repo = 'nimbusxr/axx'
 $api = "https://api.github.com/repos/$repo"
@@ -18,25 +18,36 @@ $arch = switch ($env:PROCESSOR_ARCHITECTURE) {
 
 $version = $env:AXX_VERSION
 if (-not $version) {
-  # Pre-releases included: /releases/latest skips them during the 0.x beta.
+  # Pre-releases included: /releases/latest skips them during the 0.x beta. The CLI's tags are
+  # v*; the WireMock extension and the IntelliJ plugin have releases of their own
+  # (wiremock-openapi-v*, intellij-v*), and nightly.
   $release = (Invoke-RestMethod -Headers $headers "$api/releases?per_page=20") |
-    Where-Object { -not $_.draft -and $_.tag_name -ne 'nightly' } | Select-Object -First 1
+    Where-Object { -not $_.draft -and $_.tag_name -match '^v\d' } | Select-Object -First 1
   if (-not $release) { throw 'could not determine the newest release; set AXX_VERSION' }
   $version = $release.tag_name
 }
-$tag = if ($version.StartsWith('v')) { $version } else { "v$version" }
-$plain = $tag.TrimStart('v')
-$archive = "axx_${plain}_windows_${arch}.zip"
+$tag = if ($version -eq 'nightly') { 'nightly' } elseif ($version.StartsWith('v')) { $version } else { "v$version" }
 $base = "https://github.com/$repo/releases/download/$tag"
 
 $tmp = Join-Path ([IO.Path]::GetTempPath()) ("axx-" + [Guid]::NewGuid())
 New-Item -ItemType Directory -Path $tmp | Out-Null
 try {
+  $checksums = Join-Path $tmp 'checksums.txt'
+  Invoke-WebRequest -Headers $headers -Uri "$base/checksums.txt" -OutFile $checksums
+  if ($tag -eq 'nightly') {
+    # The nightly's archives are named after its build (axx_0.1.0-SNAPSHOT-<commit>_...), and
+    # the release can keep older builds' archives: take the one its checksums list.
+    $archive = Get-Content $checksums | ForEach-Object { ($_ -split '\s+')[1] } |
+      Where-Object { $_ -like "axx_*_windows_${arch}.zip" } | Select-Object -First 1
+    if (-not $archive) { throw "no nightly build for windows/$arch" }
+  } else {
+    $archive = "axx_$($tag.TrimStart('v'))_windows_${arch}.zip"
+  }
+
   Write-Host "axx-install: downloading $archive ($tag)"
   Invoke-WebRequest -Headers $headers -Uri "$base/$archive" -OutFile (Join-Path $tmp $archive)
-  Invoke-WebRequest -Headers $headers -Uri "$base/checksums.txt" -OutFile (Join-Path $tmp 'checksums.txt')
 
-  $line = Select-String -Path (Join-Path $tmp 'checksums.txt') -Pattern " $([regex]::Escape($archive))$"
+  $line = Select-String -Path $checksums -Pattern " $([regex]::Escape($archive))$"
   if (-not $line) { throw "$archive is not listed in checksums.txt" }
   $expected = ($line.Line -split '\s+')[0]
   $actual = (Get-FileHash -Algorithm SHA256 (Join-Path $tmp $archive)).Hash.ToLower()

@@ -30,9 +30,10 @@ func (paramsPack) Manifest() Manifest {
 		Doc:  "Parameter types every pack can use.",
 		Params: []ParamType{
 			{
-				Name:    "ordinal",
-				Regexps: []string{`(\d+)(?:st|nd|rd|th)`},
-				Doc:     "A 1-based position such as `1st`, `2nd`, `3rd` or `4th`. Omitting an optional ordinal means the first.",
+				Name:     "ordinal",
+				Regexps:  []string{`(\d+)(?:st|nd|rd|th)`},
+				Doc:      "a position, counting from 1; an optional ordinal left out is the first",
+				Examples: []string{"1st", "2nd", "3rd"},
 				Transform: func(_ *Scenario, match string, groups []*string) (any, error) {
 					if len(groups) == 0 || groups[0] == nil {
 						return nil, fmt.Errorf("invalid ordinal %q", match)
@@ -45,14 +46,17 @@ func (paramsPack) Manifest() Manifest {
 				},
 			},
 			{
-				Name:    "pattern",
-				Regexps: []string{`([^\s]+)`},
-				Doc:     "A regular expression (Java syntax) without whitespace. It must match the whole value.",
+				Name:     "pattern",
+				Regexps:  []string{`([^\s]+)`},
+				Doc:      "a regular expression (Java syntax) with no spaces, which matches the whole value",
+				Examples: []string{`PX-\d{4}`, `[A-Z]{2}-\d+`},
 			},
 			{
-				Name:    "mimeType",
-				Regexps: []string{`([^\s]+)`},
-				Doc:     "One of `application/json`, `text/json`, `application/problem+json`, `application/x-www-form-urlencoded`.",
+				Name:     "mimeType",
+				Regexps:  []string{`([^\s]+)`},
+				Doc:      "a content type",
+				Values:   SupportedMimeTypes,
+				Examples: []string{"application/json"},
 				Transform: func(_ *Scenario, match string, _ []*string) (any, error) {
 					for _, m := range SupportedMimeTypes {
 						if m == match {
@@ -65,13 +69,15 @@ func (paramsPack) Manifest() Manifest {
 			{
 				Name:    "filepath",
 				Regexps: []string{`([^\s]+)`},
-				Doc: "A file of the project, without whitespace: a path relative to the `resources` directories or to the " +
-					"directory of axx.yaml, or an absolute path. Editors link it to the file.",
+				Doc: "a file of the project, with no spaces: a path relative to the `resources` directories or to " +
+					"axx.yaml's directory, or an absolute path",
+				Examples: []string{"seeds/parcels.yaml", "kafka/scan-delivered.json"},
 			},
 			{
-				Name:    "duration",
-				Regexps: []string{`(\d+)(s|m)`},
-				Doc:     "A duration in seconds or minutes, e.g. `5s` or `2m`.",
+				Name:     "duration",
+				Regexps:  []string{`(\d+)(s|m)`},
+				Doc:      "a duration in seconds (`s`) or minutes (`m`)",
+				Examples: []string{"5s", "2m"},
 				Transform: func(_ *Scenario, match string, groups []*string) (any, error) {
 					if len(groups) < 2 || groups[0] == nil || groups[1] == nil {
 						return nil, fmt.Errorf("invalid duration %q", match)

@@ -41,7 +41,12 @@ func (pack) Manifest() core.Manifest {
 		Requires:  []string{awscore.Name},
 		Steps: cloudstep.Messages{
 			Pack: name, Target: "sqs queue", Verb: "sent", Field: "attribute", Fields: "attributes",
-			Example: "refund-requests", Send: send, Inbox: inbox,
+			Send: send, Inbox: inbox,
+			Example: cloudstep.Sample{
+				To: "refund-results", Body: `{"claim": "CLM-4106", "status": "PAID", "paidAt": "2026-09-24T10:00:00Z"}`,
+				File: "messages/refund-failed-clm-4109.json", Fields: [][2]string{{"failureReason", "ACCOUNT_CLOSED"}},
+				From: "refund-requests", Where: [][2]string{{"claim", "CLM-4101"}, {"amount", "89.5"}, {"attribute reason", "DAMAGED"}},
+			},
 			Received: "axx takes the queue's messages off it: check queues your services write to.",
 		}.Steps(),
 	}

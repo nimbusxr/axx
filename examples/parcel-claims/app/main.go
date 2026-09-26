@@ -1,7 +1,7 @@
 // The claims service: shops claim for parcels that arrived damaged or never
 // arrived. It runs on AWS: insured parcels and claims in DynamoDB, evidence
-// photos and settlement letters in S3, and messages over SQS, SNS and
-// EventBridge.
+// photos, settlement letters and settlements in S3, and messages over SQS,
+// SNS and EventBridge.
 //
 //	claims             serve the API and process the queues
 //	claims provision   create the AWS resources it needs (what Terraform does in a real account)
@@ -37,6 +37,7 @@ var openAPI []byte
 type names struct {
 	InsuredParcels, Claims          string // DynamoDB tables
 	Evidence, Letters, Reviews      string // S3 buckets
+	Settlements                     string
 	EvidenceUploads, RefundRequests string // SQS queues
 	RefundResults, CarrierDamage    string
 	ParcelEvents                    string // the queue subscribed to the parcel-events topic
@@ -46,7 +47,7 @@ type names struct {
 
 var defaults = names{
 	InsuredParcels: "insured-parcels", Claims: "claims",
-	Evidence: "claim-evidence", Letters: "claim-letters", Reviews: "claim-reviews",
+	Evidence: "claim-evidence", Letters: "claim-letters", Reviews: "claim-reviews", Settlements: "claim-settlements",
 	EvidenceUploads: "evidence-uploads", RefundRequests: "refund-requests",
 	RefundResults: "refund-results", CarrierDamage: "carrier-damage-reports",
 	ParcelEvents: "claims-parcel-events", Decisions: "claim-decisions", ParcelEventsTopic: "parcel-events",

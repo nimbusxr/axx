@@ -1,0 +1,5 @@
+{"total": {"lines":{"total":76,"covered":52,"skipped":0,"pct":68.42},"statements":{"total":76,"covered":52,"skipped":0,"pct":68.42},"functions":{"total":9,"covered":5,"skipped":0,"pct":55.55},"branches":{"total":20,"covered":18,"skipped":0,"pct":90},"branchesTrue":{"total":0,"covered":0,"skipped":0,"pct":"Unknown"}}
+,"site/app.js": {"lines":{"total":33,"covered":20,"skipped":0,"pct":60.6},"functions":{"total":3,"covered":1,"skipped":0,"pct":33.33},"statements":{"total":33,"covered":20,"skipped":0,"pct":60.6},"branches":{"total":6,"covered":6,"skipped":0,"pct":100}}
+,"site/deliveries.js": {"lines":{"total":14,"covered":11,"skipped":0,"pct":78.57},"functions":{"total":2,"covered":1,"skipped":0,"pct":50},"statements":{"total":14,"covered":11,"skipped":0,"pct":78.57},"branches":{"total":4,"covered":4,"skipped":0,"pct":100}}
+,"site/util.js": {"lines":{"total":29,"covered":21,"skipped":0,"pct":72.41},"functions":{"total":4,"covered":3,"skipped":0,"pct":75},"statements":{"total":29,"covered":21,"skipped":0,"pct":72.41},"branches":{"total":10,"covered":8,"skipped":0,"pct":80}}
+}

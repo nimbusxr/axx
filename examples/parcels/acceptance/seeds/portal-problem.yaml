@@ -1,0 +1,6 @@
+parcels.parcels:
+  - reference: "PX-WEB-5122"
+    sender: "oak-and-ember"
+    weight_grams: 650
+    recipient: '{"name": "Leon Wagner", "street": "Kastanienallee 12", "city": "Berlin", "postcode": "10435", "country": "DE"}'
+    details: '{"source": "portal", "zone": "DE-1", "signature": true, "leaveWithNeighbour": false}'

@@ -89,7 +89,7 @@ In a repository with several services, start only the apps the selected scenario
 ```yaml title="axx.yaml"
 active:
   enabled: true
-  onNoTags: fallback       # scenarios without tags: start every enabled app (or: error)
+  onNoTags: fallback       # no selected scenario has a tag: start every enabled app (or: error)
 
 apps:
   orders:
@@ -102,4 +102,4 @@ apps:
     command: docker compose up wiremock   # no active.tags: always starts
 ```
 
-An app with `active.tags` starts when any selected scenario carries one of its tags. Apps without `active.tags` always start. `axx run --tags @billing` starts `billing` and `wiremock`, not `orders`.
+An app with `active.tags` starts when any selected scenario carries one of its tags, and the apps in its `dependsOn` start with it. Apps without `active.tags` always start. `axx run --tags @billing` starts `billing` and `wiremock`, not `orders`.

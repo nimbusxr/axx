@@ -144,7 +144,7 @@ func TestSchemaErrorsHaveLocations(t *testing.T) {
 		t.Fatalf("want invalid config error, got %v", err)
 	}
 	msg := err.Error()
-	for _, want := range []string{"run.workers", "apps.api", "command", "axx.yaml:2:12", "axx.yaml:5:8"} {
+	for _, want := range []string{"run.workers: value must be 'auto', or an integer", "apps.api", "command", "axx.yaml:2:12", "axx.yaml:5:8"} {
 		if !strings.Contains(msg, want) {
 			t.Errorf("error should mention %q:\n%s", want, msg)
 		}

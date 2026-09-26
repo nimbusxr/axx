@@ -1,6 +1,7 @@
 package lifecycle
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"errors"
@@ -152,14 +153,19 @@ func runHelper(args []string) int {
 	case "grandchild":
 		exe, _ := os.Executable()
 		child := exec.Command(exe, "stubborn", arg(2))
-		child.Stdout = os.Stdout
+		out, err := child.StdoutPipe()
+		if err != nil {
+			return 1
+		}
 		if err := child.Start(); err != nil {
 			return 1
 		}
 		if err := os.WriteFile(arg(1), []byte(strconv.Itoa(child.Process.Pid)), 0o600); err != nil {
 			return 1
 		}
-		time.Sleep(100 * time.Millisecond) // let the child install its handler
+		// The child says "ready" once it handles SIGTERM.
+		for sc := bufio.NewScanner(out); sc.Scan() && sc.Text() != "ready"; {
+		}
 		fmt.Println("spawned")
 		return forever()
 	case "pwd":

@@ -1,0 +1,13 @@
+parcels.parcels:
+  - reference: "PX-WEB-5101"
+    sender: "birch-and-bloom"
+    status: "IN_TRANSIT"
+    service_level: "EXPRESS"
+    weight_grams: 950
+    recipient: '{"name": "Lena Hoffmann", "street": "Hafenstr. 12", "city": "Hamburg", "postcode": "20457", "country": "DE"}'
+    details: '{"source": "portal", "zone": "DE-1", "signature": true, "leaveWithNeighbour": false}'
+  - reference: "PX-WEB-5102"
+    sender: "birch-and-bloom"
+    weight_grams: 2400
+    recipient: '{"name": "Tomas Novak", "street": "Rue Oberkampf 40", "city": "Paris", "postcode": "75011", "country": "FR"}'
+    details: '{"source": "portal", "zone": "FR-1", "signature": false, "leaveWithNeighbour": true}'

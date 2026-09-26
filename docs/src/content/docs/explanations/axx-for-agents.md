@@ -12,6 +12,7 @@ Agents invent plausible step text, and Gherkin punishes near-misses. Axx makes t
 - `axx steps search "<intent>"` and the `steps_search` MCP tool return real expressions with docs and complete examples.
 - The skills ship a one-line-per-step index generated from the project, including custom steps.
 - `axx validate` and `axx explain` check every line without starting anything, and suggest the closest real steps for a near-miss.
+- The `steps_try` MCP tool runs steps in a live scenario that stays open between calls, so an agent sees what a step does before it writes it down; the packs' tools look at that scenario, such as the web-core pack's `web_page`, which shows the page as the steps name its elements.
 - Step text is public API: it never changes, so what an agent learned stays true.
 
 ## Never guess what happened

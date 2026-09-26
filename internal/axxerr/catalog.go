@@ -92,6 +92,9 @@ func init() {
 	add("AXX-E0104", u, "Unknown profile",
 		"`--profile` (or `AXX_PROFILE`) names a profile that is not defined under `profiles:` in `axx.yaml`.",
 		"Define the profile or pick one of the listed names.")
+	add("AXX-E0105", u, "Invalid --set",
+		"A `--set` is not a dotted path to a key of `axx.yaml` and a value.",
+		"Write `--set path.to.key=value`, like `--set run.workers=1` or `--set packs.<pack>.<key>=value`. The value is read as YAML, so `true` and `1` are a boolean and a number.")
 
 	add("AXX-E0200", u, "Feature file does not parse",
 		"A `.feature` file has a Gherkin syntax error.",
@@ -122,8 +125,8 @@ func init() {
 		"Preparing axx with the project's packs failed. The compiler output is in the message.",
 		"A pack is a Go package that exports `func Pack() core.Pack`. Fix the reported errors; `axx pack new <dir>` scaffolds a working pack.")
 	add("AXX-E0305", env, "Delve is needed to debug step code",
-		"`axx run --debug-steps` runs axx under Delve, Go's debugger, so an IDE can stop at breakpoints in step code. `dlv` was not found on PATH or in Go's bin directories.",
-		"Install it with `go install github.com/go-delve/delve/cmd/dlv@latest`.")
+		"`axx run --debug-steps` runs axx under Delve, Go's debugger, so an IDE can stop at breakpoints in step code. Axx builds Delve itself the first time, from the Go module proxy, with the Go it downloads; it could not, and no `dlv` is installed.",
+		"Check the network and run again, or install Delve with `go install github.com/go-delve/delve/cmd/dlv@latest`, or set `AXX_DLV` to the path of a `dlv`.")
 	add("AXX-E0306", env, "Delve did not start",
 		"`axx run --debug-steps` started Delve, but it exited or never began listening for a debugger. Its output is in the message.",
 		"Check that the port is free (`--debug-steps=<port>` picks another) and that Delve works on this machine (`dlv version`).")
@@ -179,7 +182,7 @@ func init() {
 
 	add("AXX-E0600", u, "Unknown reporter",
 		"`--format` or `run.reporters` names a reporter that does not exist.",
-		"Use one of: pretty, progress, compact, junit, messages, cucumber-json, html, agent.")
+		"Use one of: pretty, progress, compact, junit, messages, cucumber-json, html, agent, teamcity.")
 
 	lint := exitcode.Undefined
 	add("AXX-E0800", u, "No lint rules",

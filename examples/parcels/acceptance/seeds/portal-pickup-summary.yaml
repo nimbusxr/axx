@@ -1,0 +1,7 @@
+parcels.parcels:
+  - reference: "PX-WEB-5311"
+    sender: "hazel-and-hide"
+    status: "REGISTERED"
+    weight_grams: 3100
+    recipient: '{"name": "Rosa Beck", "street": "Hauptstr. 30", "city": "Potsdam", "postcode": "14467", "country": "DE"}'
+    details: '{"source": "portal", "zone": "DE-1", "signature": false, "leaveWithNeighbour": true}'

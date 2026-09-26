@@ -18,7 +18,7 @@ Send HTTP requests to REST services, validate them against the services' OpenAPI
 - `WARN` and `INFO` are logged on the step;
 - `IGNORE` drops the finding.
 
-Levels come from `openapi.levels` in axx.yaml and are overridden per scenario with `the OpenAPI validation levels are:`. A key also sets every more specific key (`validation.request.body` covers `validation.request.body.schema.required`); the most specific configured key wins.
+Levels come from `openapi.levels` in axx.yaml and are overridden per scenario with `the OpenAPI validation levels are:`. A key also sets every more specific key (`validation.request.body` covers `validation.request.body.schema.required`); the most specific configured key wins. A key must be one of the keys below, or a prefix of them: any other, in the step or in axx.yaml, is an error that names the closest keys.
 
 | Key | Reported when |
 | --- | --- |
@@ -36,6 +36,7 @@ Levels come from `openapi.levels` in axx.yaml and are overridden per scenario wi
 | `validation.request.parameter.cookie.missing` | a required cookie parameter is missing |
 | `validation.request.parameter.schema.{keyword}` | a parameter value violates its schema (type, enum, format, pattern, minimum, ...) |
 | `validation.request.parameter.schema.invalidJson` | a JSON (content) parameter cannot be parsed |
+| `validation.request.parameter.schema.processingError` | a parameter's schema cannot be compiled |
 | `validation.request.parameter.collection.invalidFormat` | an array or object parameter is serialized in the wrong style |
 | `validation.request.parameter.collection.tooManyItems` | an array parameter has more than maxItems items |
 | `validation.request.parameter.collection.tooFewItems` | an array parameter has fewer than minItems items |
@@ -55,7 +56,7 @@ Levels come from `openapi.levels` in axx.yaml and are overridden per scenario wi
 | `validation.request.unknownError` | anything else the validator reports about the request |
 | `validation.response.unknownError` | anything else the validator reports about the response |
 
-Schema keywords use the draft-4 names: `const` is reported as `enum`, `exclusiveMinimum`/`exclusiveMaximum` as `minimum`/`maximum`, `unevaluatedProperties` as `additionalProperties`.
+Schema keywords use the draft-4 names: `const` is reported as `enum`, `exclusiveMinimum`/`exclusiveMaximum` as `minimum`/`maximum`, `unevaluatedProperties` as `additionalProperties`. A schema failure that names no keyword is keyed `unknownError` (`validation.request.body.schema.unknownError`).
 
 When a scenario fails, its failure context (`rest`) shows the last request and response (headers, bodies truncated to 2 KB) and the OpenAPI findings.
 
@@ -63,44 +64,66 @@ When a scenario fails, its failure context (`rest`) shows the last request and r
 
 ```gherkin
 Given the {word} service with the following properties:
-  | ... | ... |
+  | property | value |
 ```
 
-Register a REST service. The first service registered in a scenario is the default one.
+Register a REST service: where its requests go, and the OpenAPI specification they are checked against.
 
-Properties (`${env:..}`/`${sys:..}` are expanded):
+- The first service registered in a scenario is the default one.
+- With an `openapi` specification, every request executed and its response are validated against it, and request payloads can start from its examples.
+- Values can use `${env:…}` and `${sys:…}`, which are expanded.
 
-- `url` (required): the base URL requests are sent to, e.g. `http://localhost:8080`.
-- `openapi`: the service's OpenAPI 3.0 or 3.1 specification, as a URL or a file path (resolved against the `resources` roots). When set, every executed request and its response are validated against it, and content example payloads come from it.
+| Parameter | Takes | For example |
+|---|---|---|
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
 
-**Parameters:** `{word}` (one word, no spaces)
+| Property | Takes | Default |
+|---|---|---|
+| `url` | the base URL requests go to, like `http://localhost:8400`; a request's path is added to it | _required_ |
+| `openapi` | the service's OpenAPI 3.0 or 3.1 specification: a URL, or a file of the project (relative to the `resources` directories or to axx.yaml's directory) | |
+
+Any other property fails the step.
 
 **Example:**
 
 ```gherkin
 Given the parcels service with the following properties:
+  | url     | http://localhost:8400              |
+  | openapi | http://localhost:8400/openapi.json |
 ```
 
 ## `rest.openapi.levels`
 
 ```gherkin
 Given the OpenAPI validation levels[[ on {service}]] are:
-  | ... | ... |
+  | validation key | level |
 ```
 
-Override OpenAPI validation levels for this scenario (on the default or the named service). Each row is `validation key | level`; the level is `ERROR` (or its alias `FAIL`), `WARN`, `INFO` or `IGNORE`. A key covers every more specific key: `validation.request.body` relaxes `validation.request.body.schema.required` too, and the most specific configured key wins. Rows are merged over `openapi.levels` from axx.yaml. See the pack documentation for the keys.
+Set the level of OpenAPI validation findings for this scenario, on the default or the named service.
 
-**Variants** (optional parts in `[[...]]` above):
+- A key also sets the keys below it: `validation.request.body` relaxes `validation.request.body.schema.required` too. The most specific key set wins.
+- The rows are merged over `openapi.levels` of axx.yaml.
+- The pack's documentation lists the keys, and what each level does.
+
+| Parameter | Takes | For example |
+|---|---|---|
+| `{service}` | the name of a REST service the scenario registered | `parcels` |
+
+A row is a validation key and its level: `ERROR` (or `FAIL`), `WARN`, `INFO` or `IGNORE`. The key must be one the pack reports, or a prefix of such keys, like `validation.request.body`: any other fails the step, which names the closest keys.
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `the OpenAPI validation levels are:`
 - `the OpenAPI validation levels on {service} are:`
-
-**Parameters:** `{service}` (The name of a REST service registered in the scenario)
 
 **Example:**
 
 ```gherkin
 Given the OpenAPI validation levels are:
+  | validation.request.body.schema.maximum | IGNORE |
+  | validation.response.header.missing     | WARN   |
+Given the OpenAPI validation levels on parcels are:
+  | validation.request.body.schema.required | WARN |
 ```
 
 ## `rest.request`
@@ -109,14 +132,20 @@ Given the OpenAPI validation levels are:
 Given a(n) {word} request to {word}[[ on {service}]]
 ```
 
-Add a request with a method and a path (optionally with a query string, e.g. `/api/parcels?sender=kestrel-books`) to the default or the named service. This is the service's first (default) request; add more with the ordered form. The path is appended to the service URL; an absolute URL replaces it.
+Add a request to the default or the named service: its method, and its path below the service's `url`.
 
-**Variants** (optional parts in `[[...]]` above):
+- The path can have a query string, like `/api/parcels?sender=kestrel-books`. A whole URL replaces the service's `url`.
+- This is the service's first (default) request; the ordered form adds more.
+
+| Parameter | Takes | For example |
+|---|---|---|
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+| `{service}` | the name of a REST service the scenario registered | `parcels` |
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `a(n) {word} request to {word}`
 - `a(n) {word} request to {word} on {service}`
-
-**Parameters:** `{word}` (one word, no spaces), `{service}` (The name of a REST service registered in the scenario)
 
 **Example:**
 
@@ -133,12 +162,16 @@ Given a {ordinal} ordered {word} request to {word}[[ on {service}]]
 
 Add the Nth request of a service. Requests are numbered in the order they are added: the 1st ordered request is the default request, and the Nth can only be added once N-1 exist.
 
-**Variants** (optional parts in `[[...]]` above):
+| Parameter | Takes | For example |
+|---|---|---|
+| `{ordinal}` | a position, counting from 1; an optional ordinal left out is the first | `1st`, `2nd` |
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+| `{service}` | the name of a REST service the scenario registered | `parcels` |
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `a {ordinal} ordered {word} request to {word}`
 - `a {ordinal} ordered {word} request to {word} on {service}`
-
-**Parameters:** `{ordinal}` (A 1-based position such as `1st`, `2nd`, `3rd` or `4th`. Omitting an optional ordinal means the first), `{word}` (one word, no spaces), `{service}` (The name of a REST service registered in the scenario)
 
 **Example:**
 
@@ -153,14 +186,22 @@ Given a 1st ordered POST request to /api/parcels on parcels
 Given the request header {word} is {string}[[ for {ordinal} ordered request]]
 ```
 
-Set a request header. `Content-Type` and `Accept` replace an earlier value; other headers may be added more than once and are all sent. Without an ordinal the step applies to the first (default) request of the service; `for 2nd ordered request` picks the second one. Without `on {service}` it uses the default (first registered) service.
+Set a request header.
 
-**Variants** (optional parts in `[[...]]` above):
+- `Content-Type` and `Accept` replace an earlier value; other headers may be added more than once, and are all sent.
+- Without an ordinal it applies to the service's first (default) request; `for 2nd ordered request`, to its second.
+- It uses the default service, the first one registered; `rest.request.header.on` names a service.
+
+| Parameter | Takes | For example |
+|---|---|---|
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+| `{string}` | text in double or single quotes, which the step leaves out | `"Get a quote"`, `'Express'` |
+| `{ordinal}` | a position, counting from 1; an optional ordinal left out is the first | `1st`, `2nd` |
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `the request header {word} is {string}`
 - `the request header {word} is {string} for {ordinal} ordered request`
-
-**Parameters:** `{word}` (one word, no spaces), `{string}` (text in single or double quotes; the quotes are removed), `{ordinal}` (A 1-based position such as `1st`, `2nd`, `3rd` or `4th`. Omitting an optional ordinal means the first)
 
 **Example:**
 
@@ -176,12 +217,17 @@ Given the request header {word} is {string} for[[ {ordinal} ordered]] request on
 
 `rest.request.header` on a named service: `for request on <service>` addresses the service's first (default) request, `for 2nd ordered request on <service>` its second one. Everything else works like `rest.request.header`.
 
-**Variants** (optional parts in `[[...]]` above):
+| Parameter | Takes | For example |
+|---|---|---|
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+| `{string}` | text in double or single quotes, which the step leaves out | `"Get a quote"`, `'Express'` |
+| `{ordinal}` | a position, counting from 1; an optional ordinal left out is the first | `1st`, `2nd` |
+| `{service}` | the name of a REST service the scenario registered | `parcels` |
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `the request header {word} is {string} for request on {service}`
 - `the request header {word} is {string} for {ordinal} ordered request on {service}`
-
-**Parameters:** `{word}` (one word, no spaces), `{string}` (text in single or double quotes; the quotes are removed), `{ordinal}` (A 1-based position such as `1st`, `2nd`, `3rd` or `4th`. Omitting an optional ordinal means the first), `{service}` (The name of a REST service registered in the scenario)
 
 **Example:**
 
@@ -193,44 +239,61 @@ Given the request header Accept is 'application/json' for 1st ordered request on
 
 ```gherkin
 Given the request headers[[ for {ordinal} ordered request]] are:
-  | ... | ... |
+  | header | value |
 ```
 
-Set request headers from a `name | value` table (a name may repeat). Without an ordinal the step applies to the first (default) request of the service; `for 2nd ordered request` picks the second one. Without `on {service}` it uses the default (first registered) service.
+Set request headers, a row each.
 
-**Variants** (optional parts in `[[...]]` above):
+- A name may repeat. Like the single-header step, `Content-Type` and `Accept` replace an earlier value, and other headers are all sent.
+- Without an ordinal it applies to the service's first (default) request; `for 2nd ordered request`, to its second.
+- It uses the default service, the first one registered; `rest.request.headers.on` names a service.
+
+| Parameter | Takes | For example |
+|---|---|---|
+| `{ordinal}` | a position, counting from 1; an optional ordinal left out is the first | `1st`, `2nd` |
+
+A row is a header's name and its value.
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `the request headers are:`
 - `the request headers for {ordinal} ordered request are:`
-
-**Parameters:** `{ordinal}` (A 1-based position such as `1st`, `2nd`, `3rd` or `4th`. Omitting an optional ordinal means the first)
 
 **Example:**
 
 ```gherkin
 Given the request headers are:
+  | Accept          | application/json |
+  | Accept-Language | de-DE            |
 ```
 
 ## `rest.request.headers.on`
 
 ```gherkin
 Given the request headers for[[ {ordinal} ordered]] request on {service} are:
-  | ... | ... |
+  | header | value |
 ```
 
 `rest.request.headers` on a named service: `for request on <service>` addresses the service's first (default) request, `for 2nd ordered request on <service>` its second one. Everything else works like `rest.request.headers`.
 
-**Variants** (optional parts in `[[...]]` above):
+| Parameter | Takes | For example |
+|---|---|---|
+| `{ordinal}` | a position, counting from 1; an optional ordinal left out is the first | `1st`, `2nd` |
+| `{service}` | the name of a REST service the scenario registered | `parcels` |
+
+A row is a header's name and its value.
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `the request headers for request on {service} are:`
 - `the request headers for {ordinal} ordered request on {service} are:`
-
-**Parameters:** `{ordinal}` (A 1-based position such as `1st`, `2nd`, `3rd` or `4th`. Omitting an optional ordinal means the first), `{service}` (The name of a REST service registered in the scenario)
 
 **Example:**
 
 ```gherkin
 Given the request headers for request on parcels are:
+  | Content-Type | application/json |
+  | Accept       | application/json |
 ```
 
 ## `rest.request.payload.empty`
@@ -239,14 +302,23 @@ Given the request headers for request on parcels are:
 Given a request payload using a(n) {mimeType} empty content template[[ for {ordinal} ordered request]]
 ```
 
-Start the request payload from an empty JSON object `{}`, to be filled with the payload property steps; no OpenAPI specification is needed. With `application/x-www-form-urlencoded` the properties are sent form-encoded (nested objects and arrays as JSON text). Without an ordinal the step applies to the first (default) request of the service; `for 2nd ordered request` picks the second one. Without `on {service}` it uses the default (first registered) service.
+Start the request payload from an empty JSON object, `{}`, for the payload property steps to fill.
 
-**Variants** (optional parts in `[[...]]` above):
+- It needs no OpenAPI specification.
+- With `application/x-www-form-urlencoded`, the properties are sent form-encoded, and nested objects and arrays as JSON text.
+- A request takes one payload step.
+- Without an ordinal it applies to the service's first (default) request; `for 2nd ordered request`, to its second.
+- It uses the default service, the first one registered; `rest.request.payload.empty.on` names a service.
+
+| Parameter | Takes | Values | For example |
+|---|---|---|---|
+| `{mimeType}` | a content type | `application/json`, `text/json`, `application/problem+json`, `application/x-www-form-urlencoded` | `application/json` |
+| `{ordinal}` | a position, counting from 1; an optional ordinal left out is the first |  | `1st`, `2nd` |
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `a request payload using a(n) {mimeType} empty content template`
 - `a request payload using a(n) {mimeType} empty content template for {ordinal} ordered request`
-
-**Parameters:** `{mimeType}` (One of `application/json`, `text/json`, `application/problem+json`, `application/x-www-form-urlencoded`), `{ordinal}` (A 1-based position such as `1st`, `2nd`, `3rd` or `4th`. Omitting an optional ordinal means the first)
 
 **Example:**
 
@@ -262,12 +334,16 @@ Given a request payload using a(n) {mimeType} empty content template for[[ {ordi
 
 `rest.request.payload.empty` on a named service: `for request on <service>` addresses the service's first (default) request, `for 2nd ordered request on <service>` its second one. Everything else works like `rest.request.payload.empty`.
 
-**Variants** (optional parts in `[[...]]` above):
+| Parameter | Takes | Values | For example |
+|---|---|---|---|
+| `{mimeType}` | a content type | `application/json`, `text/json`, `application/problem+json`, `application/x-www-form-urlencoded` | `application/json` |
+| `{ordinal}` | a position, counting from 1; an optional ordinal left out is the first |  | `1st`, `2nd` |
+| `{service}` | the name of a REST service the scenario registered |  | `parcels` |
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `a request payload using a(n) {mimeType} empty content template for request on {service}`
 - `a request payload using a(n) {mimeType} empty content template for {ordinal} ordered request on {service}`
-
-**Parameters:** `{mimeType}` (One of `application/json`, `text/json`, `application/problem+json`, `application/x-www-form-urlencoded`), `{ordinal}` (A 1-based position such as `1st`, `2nd`, `3rd` or `4th`. Omitting an optional ordinal means the first), `{service}` (The name of a REST service registered in the scenario)
 
 **Example:**
 
@@ -281,16 +357,28 @@ Given a request payload using an application/json empty content template for req
 Given a request payload using a(n) {mimeType} content example[[ named {string}]][[ for {ordinal} ordered request]]
 ```
 
-Use a request body example of the service's OpenAPI specification as the payload: with `named '<name>'` the example of that name, otherwise the first example in document order (or the media type's single `example`). The example is looked up under the operation that matches the request's method and path, for the given media type. An example with an `externalValue` is read relative to the specification. Requires the service's `openapi` property and a request added first. Without an ordinal the step applies to the first (default) request of the service; `for 2nd ordered request` picks the second one. Without `on {service}` it uses the default (first registered) service.
+Start the request payload from a request body example of the service's OpenAPI specification.
 
-**Variants** (optional parts in `[[...]]` above):
+- With `named '<name>'` it is the example of that name; without, the first example in document order, or the media type's single `example`.
+- The example is looked up under the operation that matches the request's method and path, for the media type.
+- An example with an `externalValue` is read relative to the specification.
+- The service needs its `openapi` property, and the request must be added first.
+- A request takes one payload step.
+- Without an ordinal it applies to the service's first (default) request; `for 2nd ordered request`, to its second.
+- It uses the default service, the first one registered; `rest.request.payload.example.on` names a service.
+
+| Parameter | Takes | Values | For example |
+|---|---|---|---|
+| `{mimeType}` | a content type | `application/json`, `text/json`, `application/problem+json`, `application/x-www-form-urlencoded` | `application/json` |
+| `{string}` | text in double or single quotes, which the step leaves out |  | `"Get a quote"`, `'Express'` |
+| `{ordinal}` | a position, counting from 1; an optional ordinal left out is the first |  | `1st`, `2nd` |
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `a request payload using a(n) {mimeType} content example`
 - `a request payload using a(n) {mimeType} content example named {string}`
 - `a request payload using a(n) {mimeType} content example for {ordinal} ordered request`
 - `a request payload using a(n) {mimeType} content example named {string} for {ordinal} ordered request`
-
-**Parameters:** `{mimeType}` (One of `application/json`, `text/json`, `application/problem+json`, `application/x-www-form-urlencoded`), `{string}` (text in single or double quotes; the quotes are removed), `{ordinal}` (A 1-based position such as `1st`, `2nd`, `3rd` or `4th`. Omitting an optional ordinal means the first)
 
 **Example:**
 
@@ -306,14 +394,19 @@ Given a request payload using a(n) {mimeType} content example[[ named {string}]]
 
 `rest.request.payload.example` on a named service: `for request on <service>` addresses the service's first (default) request, `for 2nd ordered request on <service>` its second one. Everything else works like `rest.request.payload.example`.
 
-**Variants** (optional parts in `[[...]]` above):
+| Parameter | Takes | Values | For example |
+|---|---|---|---|
+| `{mimeType}` | a content type | `application/json`, `text/json`, `application/problem+json`, `application/x-www-form-urlencoded` | `application/json` |
+| `{string}` | text in double or single quotes, which the step leaves out |  | `"Get a quote"`, `'Express'` |
+| `{ordinal}` | a position, counting from 1; an optional ordinal left out is the first |  | `1st`, `2nd` |
+| `{service}` | the name of a REST service the scenario registered |  | `parcels` |
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `a request payload using a(n) {mimeType} content example for request on {service}`
 - `a request payload using a(n) {mimeType} content example named {string} for request on {service}`
 - `a request payload using a(n) {mimeType} content example for {ordinal} ordered request on {service}`
 - `a request payload using a(n) {mimeType} content example named {string} for {ordinal} ordered request on {service}`
-
-**Parameters:** `{mimeType}` (One of `application/json`, `text/json`, `application/problem+json`, `application/x-www-form-urlencoded`), `{string}` (text in single or double quotes; the quotes are removed), `{ordinal}` (A 1-based position such as `1st`, `2nd`, `3rd` or `4th`. Omitting an optional ordinal means the first), `{service}` (The name of a REST service registered in the scenario)
 
 **Example:**
 
@@ -327,14 +420,25 @@ Given a request payload using an application/json content example for 1st ordere
 Given the request payload property {word} is {string}[[ for {ordinal} ordered request]]
 ```
 
-Set a payload property (a JSONPath such as `weightGrams`, `recipient.postcode` or `$.recipient.name`). A value in double quotes inside the quotes (`'"42"'`) is always a string. Otherwise the value takes the type of the current value (string, boolean, integer, number, object or array, parsed from JSON text); a property that does not exist yet, or is null, gets the type the text reads as (`true`, `42`, `1.5`, `{...}`, `[...]`, else a string). Requires a payload step first. Without an ordinal the step applies to the first (default) request of the service; `for 2nd ordered request` picks the second one. Without `on {service}` it uses the default (first registered) service.
+Set a property of the request payload, by its JSONPath, like `weightGrams`, `recipient.postcode` or `$.recipient.name`.
 
-**Variants** (optional parts in `[[...]]` above):
+- A value in double quotes inside the quotes, like `'"42"'`, is always a string.
+- Any other value takes the type of the property's current value: a string, a boolean, an integer, a number, or an object or array parsed from JSON text.
+- A property that does not exist yet, or is null, takes the type its value reads as: `true`, `42`, `1.5`, `{...}`, `[...]`, or else a string.
+- A payload step must come first.
+- Without an ordinal it applies to the service's first (default) request; `for 2nd ordered request`, to its second.
+- It uses the default service, the first one registered; `rest.request.property.on` names a service.
+
+| Parameter | Takes | For example |
+|---|---|---|
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+| `{string}` | text in double or single quotes, which the step leaves out | `"Get a quote"`, `'Express'` |
+| `{ordinal}` | a position, counting from 1; an optional ordinal left out is the first | `1st`, `2nd` |
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `the request payload property {word} is {string}`
 - `the request payload property {word} is {string} for {ordinal} ordered request`
-
-**Parameters:** `{word}` (one word, no spaces), `{string}` (text in single or double quotes; the quotes are removed), `{ordinal}` (A 1-based position such as `1st`, `2nd`, `3rd` or `4th`. Omitting an optional ordinal means the first)
 
 **Example:**
 
@@ -350,12 +454,17 @@ Given the request payload property {word} is {string} for[[ {ordinal} ordered]] 
 
 `rest.request.property` on a named service: `for request on <service>` addresses the service's first (default) request, `for 2nd ordered request on <service>` its second one. Everything else works like `rest.request.property`.
 
-**Variants** (optional parts in `[[...]]` above):
+| Parameter | Takes | For example |
+|---|---|---|
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+| `{string}` | text in double or single quotes, which the step leaves out | `"Get a quote"`, `'Express'` |
+| `{ordinal}` | a position, counting from 1; an optional ordinal left out is the first | `1st`, `2nd` |
+| `{service}` | the name of a REST service the scenario registered | `parcels` |
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `the request payload property {word} is {string} for request on {service}`
 - `the request payload property {word} is {string} for {ordinal} ordered request on {service}`
-
-**Parameters:** `{word}` (one word, no spaces), `{string}` (text in single or double quotes; the quotes are removed), `{ordinal}` (A 1-based position such as `1st`, `2nd`, `3rd` or `4th`. Omitting an optional ordinal means the first), `{service}` (The name of a REST service registered in the scenario)
 
 **Example:**
 
@@ -367,44 +476,63 @@ Given the request payload property serviceLevel is 'EXPRESS' for request on parc
 
 ```gherkin
 Given the request payload properties[[ for {ordinal} ordered request]] are:
-  | ... | ... |
+  | JSONPath | value |
 ```
 
-Set payload properties from a `path | value` table, row by row, like the single-property step. `null` sets JSON null and `undefined` removes the property (any case); write `"null"` or `"undefined"` in double quotes for the strings. Without an ordinal the step applies to the first (default) request of the service; `for 2nd ordered request` picks the second one. Without `on {service}` it uses the default (first registered) service.
+Set properties of the request payload, a row each, in order, like the single-property step.
 
-**Variants** (optional parts in `[[...]]` above):
+- `null` sets JSON null, and `undefined` removes the property, in any case.
+- `"null"` and `"undefined"`, in double quotes, are the strings.
+- Without an ordinal it applies to the service's first (default) request; `for 2nd ordered request`, to its second.
+- It uses the default service, the first one registered; `rest.request.properties.on` names a service.
+
+| Parameter | Takes | For example |
+|---|---|---|
+| `{ordinal}` | a position, counting from 1; an optional ordinal left out is the first | `1st`, `2nd` |
+
+A row is a property's JSONPath and its value.
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `the request payload properties are:`
 - `the request payload properties for {ordinal} ordered request are:`
-
-**Parameters:** `{ordinal}` (A 1-based position such as `1st`, `2nd`, `3rd` or `4th`. Omitting an optional ordinal means the first)
 
 **Example:**
 
 ```gherkin
 Given the request payload properties are:
+  | reference          | PX-4101 |
+  | weightGrams        | 1200    |
+  | recipient.postcode | "53111" |
 ```
 
 ## `rest.request.properties.on`
 
 ```gherkin
 Given the request payload properties for[[ {ordinal} ordered]] request on {service} are:
-  | ... | ... |
+  | JSONPath | value |
 ```
 
 `rest.request.properties` on a named service: `for request on <service>` addresses the service's first (default) request, `for 2nd ordered request on <service>` its second one. Everything else works like `rest.request.properties`.
 
-**Variants** (optional parts in `[[...]]` above):
+| Parameter | Takes | For example |
+|---|---|---|
+| `{ordinal}` | a position, counting from 1; an optional ordinal left out is the first | `1st`, `2nd` |
+| `{service}` | the name of a REST service the scenario registered | `parcels` |
+
+A row is a property's JSONPath and its value.
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `the request payload properties for request on {service} are:`
 - `the request payload properties for {ordinal} ordered request on {service} are:`
-
-**Parameters:** `{ordinal}` (A 1-based position such as `1st`, `2nd`, `3rd` or `4th`. Omitting an optional ordinal means the first), `{service}` (The name of a REST service registered in the scenario)
 
 **Example:**
 
 ```gherkin
 Given the request payload properties for 1st ordered request on parcels are:
+  | sender           | lark-ceramics |
+  | recipient.street | undefined     |
 ```
 
 ## `rest.request.property.null`
@@ -413,14 +541,20 @@ Given the request payload properties for 1st ordered request on parcels are:
 Given the request payload property {word} is null[[ for {ordinal} ordered request]]
 ```
 
-Set an existing payload property to JSON null. Without an ordinal the step applies to the first (default) request of the service; `for 2nd ordered request` picks the second one. Without `on {service}` it uses the default (first registered) service.
+Set an existing property of the request payload to JSON null.
 
-**Variants** (optional parts in `[[...]]` above):
+- Without an ordinal it applies to the service's first (default) request; `for 2nd ordered request`, to its second.
+- It uses the default service, the first one registered; `rest.request.property.null.on` names a service.
+
+| Parameter | Takes | For example |
+|---|---|---|
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+| `{ordinal}` | a position, counting from 1; an optional ordinal left out is the first | `1st`, `2nd` |
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `the request payload property {word} is null`
 - `the request payload property {word} is null for {ordinal} ordered request`
-
-**Parameters:** `{word}` (one word, no spaces), `{ordinal}` (A 1-based position such as `1st`, `2nd`, `3rd` or `4th`. Omitting an optional ordinal means the first)
 
 **Example:**
 
@@ -436,12 +570,16 @@ Given the request payload property {word} is null for[[ {ordinal} ordered]] requ
 
 `rest.request.property.null` on a named service: `for request on <service>` addresses the service's first (default) request, `for 2nd ordered request on <service>` its second one. Everything else works like `rest.request.property.null`.
 
-**Variants** (optional parts in `[[...]]` above):
+| Parameter | Takes | For example |
+|---|---|---|
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+| `{ordinal}` | a position, counting from 1; an optional ordinal left out is the first | `1st`, `2nd` |
+| `{service}` | the name of a REST service the scenario registered | `parcels` |
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `the request payload property {word} is null for request on {service}`
 - `the request payload property {word} is null for {ordinal} ordered request on {service}`
-
-**Parameters:** `{word}` (one word, no spaces), `{ordinal}` (A 1-based position such as `1st`, `2nd`, `3rd` or `4th`. Omitting an optional ordinal means the first), `{service}` (The name of a REST service registered in the scenario)
 
 **Example:**
 
@@ -455,16 +593,26 @@ Given the request payload property recipient.street is null for request on parce
 When the[[ {ordinal} ordered]] request is executed[[ on {service}]]
 ```
 
-Send a request and keep its response for the response steps. With an OpenAPI specification the request and the response are validated after sending: findings at level ERROR fail the step (all of them are listed with their keys), WARN and INFO are logged. The payload is sent as is, form-encoded for `application/x-www-form-urlencoded`; without a Content-Type header the payload's media type is used. The request honors the step timeout. A request can be executed once.
+Send a request, and keep its response for the response steps.
 
-**Variants** (optional parts in `[[...]]` above):
+- With an OpenAPI specification, the request and its response are validated after sending. Findings at level `ERROR` fail the step, which lists them all with their keys; `WARN` and `INFO` findings are logged.
+- The payload is sent as it is, or form-encoded for `application/x-www-form-urlencoded`.
+- Without a `Content-Type` header, the request has the payload's media type; without an `Accept` header, `*/*`.
+- The request honors the step timeout, and is executed once.
+- Without an ordinal it sends the service's first (default) request; `the 2nd ordered request`, its second.
+- Without `on {service}` it uses the default service, the first one registered.
+
+| Parameter | Takes | For example |
+|---|---|---|
+| `{ordinal}` | a position, counting from 1; an optional ordinal left out is the first | `1st`, `2nd` |
+| `{service}` | the name of a REST service the scenario registered | `parcels` |
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `the request is executed`
 - `the request is executed on {service}`
 - `the {ordinal} ordered request is executed`
 - `the {ordinal} ordered request is executed on {service}`
-
-**Parameters:** `{ordinal}` (A 1-based position such as `1st`, `2nd`, `3rd` or `4th`. Omitting an optional ordinal means the first), `{service}` (The name of a REST service registered in the scenario)
 
 **Example:**
 
@@ -479,16 +627,23 @@ When the 2nd ordered request is executed on parcels
 Then the[[ {ordinal} ordered]] response status code is {int}[[ on {service}]]
 ```
 
-Assert the HTTP status code of a response. Without an ordinal the step checks the response of the first (default) request; `for 2nd ordered response` the response of the second one. Without `on {service}` it uses the default (first registered) service.
+Check the HTTP status code of a response.
 
-**Variants** (optional parts in `[[...]]` above):
+- Without an ordinal it checks the response to the first (default) request; `the 2nd ordered response`, the response to the second.
+- Without `on {service}` it uses the default service, the first one registered.
+
+| Parameter | Takes | For example |
+|---|---|---|
+| `{ordinal}` | a position, counting from 1; an optional ordinal left out is the first | `1st`, `2nd` |
+| `{int}` | a whole number | `200`, `3` |
+| `{service}` | the name of a REST service the scenario registered | `parcels` |
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `the response status code is {int}`
 - `the response status code is {int} on {service}`
 - `the {ordinal} ordered response status code is {int}`
 - `the {ordinal} ordered response status code is {int} on {service}`
-
-**Parameters:** `{ordinal}` (A 1-based position such as `1st`, `2nd`, `3rd` or `4th`. Omitting an optional ordinal means the first), `{int}` (a 32-bit integer), `{service}` (The name of a REST service registered in the scenario)
 
 **Example:**
 
@@ -503,14 +658,20 @@ Then the 2nd ordered response status code is 201 on parcels
 Then the response body contains {string}[[ for {ordinal} ordered response]]
 ```
 
-Assert that the response body contains the text. Without an ordinal the step checks the response of the first (default) request; `for 2nd ordered response` the response of the second one. Without `on {service}` it uses the default (first registered) service.
+Check that the response body contains the text.
 
-**Variants** (optional parts in `[[...]]` above):
+- Without an ordinal it checks the response to the first (default) request; `for 2nd ordered response`, the response to the second.
+- It uses the default service, the first one registered; `rest.response.body.contains.on` names a service.
+
+| Parameter | Takes | For example |
+|---|---|---|
+| `{string}` | text in double or single quotes, which the step leaves out | `"Get a quote"`, `'Express'` |
+| `{ordinal}` | a position, counting from 1; an optional ordinal left out is the first | `1st`, `2nd` |
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `the response body contains {string}`
 - `the response body contains {string} for {ordinal} ordered response`
-
-**Parameters:** `{string}` (text in single or double quotes; the quotes are removed), `{ordinal}` (A 1-based position such as `1st`, `2nd`, `3rd` or `4th`. Omitting an optional ordinal means the first)
 
 **Example:**
 
@@ -526,12 +687,16 @@ Then the response body contains {string} for[[ {ordinal} ordered]] response on {
 
 `rest.response.body.contains` on a named service: `for response on <service>` addresses the service's first (default) response, `for 2nd ordered response on <service>` its second one. Everything else works like `rest.response.body.contains`.
 
-**Variants** (optional parts in `[[...]]` above):
+| Parameter | Takes | For example |
+|---|---|---|
+| `{string}` | text in double or single quotes, which the step leaves out | `"Get a quote"`, `'Express'` |
+| `{ordinal}` | a position, counting from 1; an optional ordinal left out is the first | `1st`, `2nd` |
+| `{service}` | the name of a REST service the scenario registered | `parcels` |
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `the response body contains {string} for response on {service}`
 - `the response body contains {string} for {ordinal} ordered response on {service}`
-
-**Parameters:** `{string}` (text in single or double quotes; the quotes are removed), `{ordinal}` (A 1-based position such as `1st`, `2nd`, `3rd` or `4th`. Omitting an optional ordinal means the first), `{service}` (The name of a REST service registered in the scenario)
 
 **Example:**
 
@@ -545,14 +710,23 @@ Then the response body contains 'already registered' for 2nd ordered response on
 Then the response header {word} is {string}[[ for {ordinal} ordered response]]
 ```
 
-Assert that a response header (name matched case-insensitively) has the value; with repeated headers, one of them must. Without an ordinal the step checks the response of the first (default) request; `for 2nd ordered response` the response of the second one. Without `on {service}` it uses the default (first registered) service.
+Check that a response header has the value.
 
-**Variants** (optional parts in `[[...]]` above):
+- The header's name is matched in any case.
+- With the header repeated, one of its values must be the value.
+- Without an ordinal it checks the response to the first (default) request; `for 2nd ordered response`, the response to the second.
+- It uses the default service, the first one registered; `rest.response.header.is.on` names a service.
+
+| Parameter | Takes | For example |
+|---|---|---|
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+| `{string}` | text in double or single quotes, which the step leaves out | `"Get a quote"`, `'Express'` |
+| `{ordinal}` | a position, counting from 1; an optional ordinal left out is the first | `1st`, `2nd` |
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `the response header {word} is {string}`
 - `the response header {word} is {string} for {ordinal} ordered response`
-
-**Parameters:** `{word}` (one word, no spaces), `{string}` (text in single or double quotes; the quotes are removed), `{ordinal}` (A 1-based position such as `1st`, `2nd`, `3rd` or `4th`. Omitting an optional ordinal means the first)
 
 **Example:**
 
@@ -568,12 +742,17 @@ Then the response header {word} is {string} for[[ {ordinal} ordered]] response o
 
 `rest.response.header.is` on a named service: `for response on <service>` addresses the service's first (default) response, `for 2nd ordered response on <service>` its second one. Everything else works like `rest.response.header.is`.
 
-**Variants** (optional parts in `[[...]]` above):
+| Parameter | Takes | For example |
+|---|---|---|
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+| `{string}` | text in double or single quotes, which the step leaves out | `"Get a quote"`, `'Express'` |
+| `{ordinal}` | a position, counting from 1; an optional ordinal left out is the first | `1st`, `2nd` |
+| `{service}` | the name of a REST service the scenario registered | `parcels` |
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `the response header {word} is {string} for response on {service}`
 - `the response header {word} is {string} for {ordinal} ordered response on {service}`
-
-**Parameters:** `{word}` (one word, no spaces), `{string}` (text in single or double quotes; the quotes are removed), `{ordinal}` (A 1-based position such as `1st`, `2nd`, `3rd` or `4th`. Omitting an optional ordinal means the first), `{service}` (The name of a REST service registered in the scenario)
 
 **Example:**
 
@@ -587,14 +766,23 @@ Then the response header Content-Type is 'application/json' for response on parc
 Then the response header {word} matches {pattern}[[ for {ordinal} ordered response]]
 ```
 
-Assert that a response header matches a regular expression (Java syntax; it must match the whole value). With repeated headers, one of them must match. Without an ordinal the step checks the response of the first (default) request; `for 2nd ordered response` the response of the second one. Without `on {service}` it uses the default (first registered) service.
+Check that a response header matches a regular expression.
 
-**Variants** (optional parts in `[[...]]` above):
+- The regular expression is in Java syntax, and must match the whole value.
+- With the header repeated, one of its values must match.
+- Without an ordinal it checks the response to the first (default) request; `for 2nd ordered response`, the response to the second.
+- It uses the default service, the first one registered; `rest.response.header.matches.on` names a service.
+
+| Parameter | Takes | For example |
+|---|---|---|
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+| `{pattern}` | a regular expression (Java syntax) with no spaces, which matches the whole value | `PX-\d{4}`, `[A-Z]{2}-\d+` |
+| `{ordinal}` | a position, counting from 1; an optional ordinal left out is the first | `1st`, `2nd` |
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `the response header {word} matches {pattern}`
 - `the response header {word} matches {pattern} for {ordinal} ordered response`
-
-**Parameters:** `{word}` (one word, no spaces), `{pattern}` (A regular expression (Java syntax) without whitespace. It must match the whole value), `{ordinal}` (A 1-based position such as `1st`, `2nd`, `3rd` or `4th`. Omitting an optional ordinal means the first)
 
 **Example:**
 
@@ -610,12 +798,17 @@ Then the response header {word} matches {pattern} for[[ {ordinal} ordered]] resp
 
 `rest.response.header.matches` on a named service: `for response on <service>` addresses the service's first (default) response, `for 2nd ordered response on <service>` its second one. Everything else works like `rest.response.header.matches`.
 
-**Variants** (optional parts in `[[...]]` above):
+| Parameter | Takes | For example |
+|---|---|---|
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+| `{pattern}` | a regular expression (Java syntax) with no spaces, which matches the whole value | `PX-\d{4}`, `[A-Z]{2}-\d+` |
+| `{ordinal}` | a position, counting from 1; an optional ordinal left out is the first | `1st`, `2nd` |
+| `{service}` | the name of a REST service the scenario registered | `parcels` |
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `the response header {word} matches {pattern} for response on {service}`
 - `the response header {word} matches {pattern} for {ordinal} ordered response on {service}`
-
-**Parameters:** `{word}` (one word, no spaces), `{pattern}` (A regular expression (Java syntax) without whitespace. It must match the whole value), `{ordinal}` (A 1-based position such as `1st`, `2nd`, `3rd` or `4th`. Omitting an optional ordinal means the first), `{service}` (The name of a REST service registered in the scenario)
 
 **Example:**
 
@@ -629,14 +822,20 @@ Then the response header Content-Type matches ^application/json$ for 1st ordered
 Then the response header {word} is missing[[ for {ordinal} ordered response]]
 ```
 
-Assert that the response has no header with the name. Without an ordinal the step checks the response of the first (default) request; `for 2nd ordered response` the response of the second one. Without `on {service}` it uses the default (first registered) service.
+Check that the response has no header of that name.
 
-**Variants** (optional parts in `[[...]]` above):
+- Without an ordinal it checks the response to the first (default) request; `for 2nd ordered response`, the response to the second.
+- It uses the default service, the first one registered; `rest.response.header.missing.on` names a service.
+
+| Parameter | Takes | For example |
+|---|---|---|
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+| `{ordinal}` | a position, counting from 1; an optional ordinal left out is the first | `1st`, `2nd` |
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `the response header {word} is missing`
 - `the response header {word} is missing for {ordinal} ordered response`
-
-**Parameters:** `{word}` (one word, no spaces), `{ordinal}` (A 1-based position such as `1st`, `2nd`, `3rd` or `4th`. Omitting an optional ordinal means the first)
 
 **Example:**
 
@@ -652,149 +851,203 @@ Then the response header {word} is missing for[[ {ordinal} ordered]] response on
 
 `rest.response.header.missing` on a named service: `for response on <service>` addresses the service's first (default) response, `for 2nd ordered response on <service>` its second one. Everything else works like `rest.response.header.missing`.
 
-**Variants** (optional parts in `[[...]]` above):
+| Parameter | Takes | For example |
+|---|---|---|
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+| `{ordinal}` | a position, counting from 1; an optional ordinal left out is the first | `1st`, `2nd` |
+| `{service}` | the name of a REST service the scenario registered | `parcels` |
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `the response header {word} is missing for response on {service}`
 - `the response header {word} is missing for {ordinal} ordered response on {service}`
 
-**Parameters:** `{word}` (one word, no spaces), `{ordinal}` (A 1-based position such as `1st`, `2nd`, `3rd` or `4th`. Omitting an optional ordinal means the first), `{service}` (The name of a REST service registered in the scenario)
-
 **Example:**
 
 ```gherkin
-Then the response header X-Custom is missing for response on parcels
+Then the response header Retry-After is missing for response on parcels
 ```
 
 ## `rest.response.headers.are`
 
 ```gherkin
 Then the response headers[[ for {ordinal} ordered response]] are:
-  | ... | ... |
+  | header | value |
 ```
 
-Assert response headers from a `name | value` table, each like the single-header step (a name may repeat). Without an ordinal the step checks the response of the first (default) request; `for 2nd ordered response` the response of the second one. Without `on {service}` it uses the default (first registered) service.
+Check response headers, a row each, like the single-header step.
 
-**Variants** (optional parts in `[[...]]` above):
+- A name may repeat.
+- Every row is checked, and every mismatch reported.
+- Without an ordinal it checks the response to the first (default) request; `for 2nd ordered response`, the response to the second.
+- It uses the default service, the first one registered; `rest.response.headers.are.on` names a service.
+
+| Parameter | Takes | For example |
+|---|---|---|
+| `{ordinal}` | a position, counting from 1; an optional ordinal left out is the first | `1st`, `2nd` |
+
+A row is a header's name and the value it must have.
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `the response headers are:`
 - `the response headers for {ordinal} ordered response are:`
-
-**Parameters:** `{ordinal}` (A 1-based position such as `1st`, `2nd`, `3rd` or `4th`. Omitting an optional ordinal means the first)
 
 **Example:**
 
 ```gherkin
 Then the response headers are:
+  | Content-Type | application/json     |
+  | Location     | /api/parcels/PX-4101 |
 ```
 
 ## `rest.response.headers.are.on`
 
 ```gherkin
 Then the response headers for[[ {ordinal} ordered]] response on {service} are:
-  | ... | ... |
+  | header | value |
 ```
 
 `rest.response.headers.are` on a named service: `for response on <service>` addresses the service's first (default) response, `for 2nd ordered response on <service>` its second one. Everything else works like `rest.response.headers.are`.
 
-**Variants** (optional parts in `[[...]]` above):
+| Parameter | Takes | For example |
+|---|---|---|
+| `{ordinal}` | a position, counting from 1; an optional ordinal left out is the first | `1st`, `2nd` |
+| `{service}` | the name of a REST service the scenario registered | `parcels` |
+
+A row is a header's name and the value it must have.
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `the response headers for response on {service} are:`
 - `the response headers for {ordinal} ordered response on {service} are:`
-
-**Parameters:** `{ordinal}` (A 1-based position such as `1st`, `2nd`, `3rd` or `4th`. Omitting an optional ordinal means the first), `{service}` (The name of a REST service registered in the scenario)
 
 **Example:**
 
 ```gherkin
 Then the response headers for 1st ordered response on parcels are:
+  | Content-Type | application/problem+json |
+  | Retry-After  | 5                        |
 ```
 
 ## `rest.response.headers.match`
 
 ```gherkin
 Then the response headers[[ for {ordinal} ordered response]] match:
-  | ... | ... |
+  | header | regular expression |
 ```
 
-Assert response headers from a `name | regular expression` table (full match, Java syntax). Without an ordinal the step checks the response of the first (default) request; `for 2nd ordered response` the response of the second one. Without `on {service}` it uses the default (first registered) service.
+Check that response headers match regular expressions, a row each.
 
-**Variants** (optional parts in `[[...]]` above):
+- Each regular expression is in Java syntax, and must match the whole value.
+- Every row is checked, and every mismatch reported.
+- Without an ordinal it checks the response to the first (default) request; `for 2nd ordered response`, the response to the second.
+- It uses the default service, the first one registered; `rest.response.headers.match.on` names a service.
+
+| Parameter | Takes | For example |
+|---|---|---|
+| `{ordinal}` | a position, counting from 1; an optional ordinal left out is the first | `1st`, `2nd` |
+
+A row is a header's name and a regular expression its value must match.
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `the response headers match:`
 - `the response headers for {ordinal} ordered response match:`
-
-**Parameters:** `{ordinal}` (A 1-based position such as `1st`, `2nd`, `3rd` or `4th`. Omitting an optional ordinal means the first)
 
 **Example:**
 
 ```gherkin
 Then the response headers match:
+  | Content-Type | application/json.*       |
+  | Location     | /api/parcels/PX-[0-9]{4} |
 ```
 
 ## `rest.response.headers.match.on`
 
 ```gherkin
 Then the response headers for[[ {ordinal} ordered]] response on {service} match:
-  | ... | ... |
+  | header | regular expression |
 ```
 
 `rest.response.headers.match` on a named service: `for response on <service>` addresses the service's first (default) response, `for 2nd ordered response on <service>` its second one. Everything else works like `rest.response.headers.match`.
 
-**Variants** (optional parts in `[[...]]` above):
+| Parameter | Takes | For example |
+|---|---|---|
+| `{ordinal}` | a position, counting from 1; an optional ordinal left out is the first | `1st`, `2nd` |
+| `{service}` | the name of a REST service the scenario registered | `parcels` |
+
+A row is a header's name and a regular expression its value must match.
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `the response headers for response on {service} match:`
 - `the response headers for {ordinal} ordered response on {service} match:`
-
-**Parameters:** `{ordinal}` (A 1-based position such as `1st`, `2nd`, `3rd` or `4th`. Omitting an optional ordinal means the first), `{service}` (The name of a REST service registered in the scenario)
 
 **Example:**
 
 ```gherkin
 Then the response headers for response on parcels match:
+  | Retry-After | [0-9]+ |
 ```
 
 ## `rest.response.headers.missing`
 
 ```gherkin
 Then the response headers[[ for {ordinal} ordered response]] are missing:
-  | ... | ... |
+  | header |
 ```
 
-Assert that the response has none of the headers named in the table's first column. Without an ordinal the step checks the response of the first (default) request; `for 2nd ordered response` the response of the second one. Without `on {service}` it uses the default (first registered) service.
+Check that the response has none of the headers the table names.
 
-**Variants** (optional parts in `[[...]]` above):
+- Without an ordinal it checks the response to the first (default) request; `for 2nd ordered response`, the response to the second.
+- It uses the default service, the first one registered; `rest.response.headers.missing.on` names a service.
+
+| Parameter | Takes | For example |
+|---|---|---|
+| `{ordinal}` | a position, counting from 1; an optional ordinal left out is the first | `1st`, `2nd` |
+
+A row names a header, in its first cell.
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `the response headers are missing:`
 - `the response headers for {ordinal} ordered response are missing:`
-
-**Parameters:** `{ordinal}` (A 1-based position such as `1st`, `2nd`, `3rd` or `4th`. Omitting an optional ordinal means the first)
 
 **Example:**
 
 ```gherkin
 Then the response headers are missing:
+  | Retry-After |
+  | Set-Cookie  |
 ```
 
 ## `rest.response.headers.missing.on`
 
 ```gherkin
 Then the response headers for[[ {ordinal} ordered]] response on {service} are missing:
-  | ... | ... |
+  | header |
 ```
 
 `rest.response.headers.missing` on a named service: `for response on <service>` addresses the service's first (default) response, `for 2nd ordered response on <service>` its second one. Everything else works like `rest.response.headers.missing`.
 
-**Variants** (optional parts in `[[...]]` above):
+| Parameter | Takes | For example |
+|---|---|---|
+| `{ordinal}` | a position, counting from 1; an optional ordinal left out is the first | `1st`, `2nd` |
+| `{service}` | the name of a REST service the scenario registered | `parcels` |
+
+A row names a header, in its first cell.
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `the response headers for response on {service} are missing:`
 - `the response headers for {ordinal} ordered response on {service} are missing:`
-
-**Parameters:** `{ordinal}` (A 1-based position such as `1st`, `2nd`, `3rd` or `4th`. Omitting an optional ordinal means the first), `{service}` (The name of a REST service registered in the scenario)
 
 **Example:**
 
 ```gherkin
 Then the response headers for response on parcels are missing:
+  | Retry-After |
 ```
 
 ## `rest.response.property.is`
@@ -803,14 +1056,26 @@ Then the response headers for response on parcels are missing:
 Then the response payload property {word} is {string}[[ for {ordinal} ordered response]]
 ```
 
-Assert a property of a JSON response (a JSONPath such as `status`, `recipient.postcode` or `[?(@.sender=='kestrel-books')].reference`; an indefinite path yields a list). The response must be JSON (`application/json`, `text/json` or any `+json` type, charset ignored). Values are compared with their JSON type: `'John'` or `"42"` (double quotes inside) are strings, `42` an integer, `42L` a long, `1.5` a number, `true`/`false` booleans, `{...}` and `[...]` JSON objects and arrays (compared regardless of member order). An integer never equals a decimal (`5` is not `5.0`). Without an ordinal the step checks the response of the first (default) request; `for 2nd ordered response` the response of the second one. Without `on {service}` it uses the default (first registered) service.
+Check a property of a JSON response, by its JSONPath, like `status`, `recipient.postcode` or `[?(@.sender=='kestrel-books')].reference`.
 
-**Variants** (optional parts in `[[...]]` above):
+- An indefinite path, like a filter, reads as a list.
+- The response must be JSON: `application/json`, `text/json` or any `+json` type, whatever its charset.
+- A value is compared with its JSON type. Text, like `REGISTERED`, is a string, and so is a value in double quotes, like `"42"`.
+- `42` is an integer, `42L` a long and `1.5` a number. An integer never equals a decimal: `5` is not `5.0`.
+- `true` and `false` are booleans. `{...}` and `[...]` are a JSON object and a JSON array; an object's members may come in any order.
+- Without an ordinal it checks the response to the first (default) request; `for 2nd ordered response`, the response to the second.
+- It uses the default service, the first one registered; `rest.response.property.is.on` names a service.
+
+| Parameter | Takes | For example |
+|---|---|---|
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+| `{string}` | text in double or single quotes, which the step leaves out | `"Get a quote"`, `'Express'` |
+| `{ordinal}` | a position, counting from 1; an optional ordinal left out is the first | `1st`, `2nd` |
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `the response payload property {word} is {string}`
 - `the response payload property {word} is {string} for {ordinal} ordered response`
-
-**Parameters:** `{word}` (one word, no spaces), `{string}` (text in single or double quotes; the quotes are removed), `{ordinal}` (A 1-based position such as `1st`, `2nd`, `3rd` or `4th`. Omitting an optional ordinal means the first)
 
 **Example:**
 
@@ -826,12 +1091,17 @@ Then the response payload property {word} is {string} for[[ {ordinal} ordered]] 
 
 `rest.response.property.is` on a named service: `for response on <service>` addresses the service's first (default) response, `for 2nd ordered response on <service>` its second one. Everything else works like `rest.response.property.is`.
 
-**Variants** (optional parts in `[[...]]` above):
+| Parameter | Takes | For example |
+|---|---|---|
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+| `{string}` | text in double or single quotes, which the step leaves out | `"Get a quote"`, `'Express'` |
+| `{ordinal}` | a position, counting from 1; an optional ordinal left out is the first | `1st`, `2nd` |
+| `{service}` | the name of a REST service the scenario registered | `parcels` |
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `the response payload property {word} is {string} for response on {service}`
 - `the response payload property {word} is {string} for {ordinal} ordered response on {service}`
-
-**Parameters:** `{word}` (one word, no spaces), `{string}` (text in single or double quotes; the quotes are removed), `{ordinal}` (A 1-based position such as `1st`, `2nd`, `3rd` or `4th`. Omitting an optional ordinal means the first), `{service}` (The name of a REST service registered in the scenario)
 
 **Example:**
 
@@ -845,14 +1115,20 @@ Then the response payload property status is 'REGISTERED' for 1st ordered respon
 Then the response payload property {word} is null[[ for {ordinal} ordered response]]
 ```
 
-Assert that a response payload property exists and is JSON null. Without an ordinal the step checks the response of the first (default) request; `for 2nd ordered response` the response of the second one. Without `on {service}` it uses the default (first registered) service.
+Check that a property of the response payload exists, and is JSON null.
 
-**Variants** (optional parts in `[[...]]` above):
+- Without an ordinal it checks the response to the first (default) request; `for 2nd ordered response`, the response to the second.
+- It uses the default service, the first one registered; `rest.response.property.null.on` names a service.
+
+| Parameter | Takes | For example |
+|---|---|---|
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+| `{ordinal}` | a position, counting from 1; an optional ordinal left out is the first | `1st`, `2nd` |
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `the response payload property {word} is null`
 - `the response payload property {word} is null for {ordinal} ordered response`
-
-**Parameters:** `{word}` (one word, no spaces), `{ordinal}` (A 1-based position such as `1st`, `2nd`, `3rd` or `4th`. Omitting an optional ordinal means the first)
 
 **Example:**
 
@@ -868,12 +1144,16 @@ Then the response payload property {word} is null for[[ {ordinal} ordered]] resp
 
 `rest.response.property.null` on a named service: `for response on <service>` addresses the service's first (default) response, `for 2nd ordered response on <service>` its second one. Everything else works like `rest.response.property.null`.
 
-**Variants** (optional parts in `[[...]]` above):
+| Parameter | Takes | For example |
+|---|---|---|
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+| `{ordinal}` | a position, counting from 1; an optional ordinal left out is the first | `1st`, `2nd` |
+| `{service}` | the name of a REST service the scenario registered | `parcels` |
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `the response payload property {word} is null for response on {service}`
 - `the response payload property {word} is null for {ordinal} ordered response on {service}`
-
-**Parameters:** `{word}` (one word, no spaces), `{ordinal}` (A 1-based position such as `1st`, `2nd`, `3rd` or `4th`. Omitting an optional ordinal means the first), `{service}` (The name of a REST service registered in the scenario)
 
 **Example:**
 
@@ -887,19 +1167,26 @@ Then the response payload property lastLocation is null for response on parcels
 Then the response payload property {word} is undefined[[ for {ordinal} ordered response]]
 ```
 
-Assert that a response payload property does not exist. (An indefinite path always exists: it reads as a possibly empty list.) Without an ordinal the step checks the response of the first (default) request; `for 2nd ordered response` the response of the second one. Without `on {service}` it uses the default (first registered) service.
+Check that a property of the response payload does not exist.
 
-**Variants** (optional parts in `[[...]]` above):
+- An indefinite path always exists: it reads as a list, which may be empty.
+- Without an ordinal it checks the response to the first (default) request; `for 2nd ordered response`, the response to the second.
+- It uses the default service, the first one registered; `rest.response.property.undefined.on` names a service.
+
+| Parameter | Takes | For example |
+|---|---|---|
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+| `{ordinal}` | a position, counting from 1; an optional ordinal left out is the first | `1st`, `2nd` |
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `the response payload property {word} is undefined`
 - `the response payload property {word} is undefined for {ordinal} ordered response`
 
-**Parameters:** `{word}` (one word, no spaces), `{ordinal}` (A 1-based position such as `1st`, `2nd`, `3rd` or `4th`. Omitting an optional ordinal means the first)
-
 **Example:**
 
 ```gherkin
-Then the response payload property nonexistent is undefined
+Then the response payload property recipient.street is undefined
 ```
 
 ## `rest.response.property.undefined.on`
@@ -910,17 +1197,21 @@ Then the response payload property {word} is undefined for[[ {ordinal} ordered]]
 
 `rest.response.property.undefined` on a named service: `for response on <service>` addresses the service's first (default) response, `for 2nd ordered response on <service>` its second one. Everything else works like `rest.response.property.undefined`.
 
-**Variants** (optional parts in `[[...]]` above):
+| Parameter | Takes | For example |
+|---|---|---|
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+| `{ordinal}` | a position, counting from 1; an optional ordinal left out is the first | `1st`, `2nd` |
+| `{service}` | the name of a REST service the scenario registered | `parcels` |
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `the response payload property {word} is undefined for response on {service}`
 - `the response payload property {word} is undefined for {ordinal} ordered response on {service}`
 
-**Parameters:** `{word}` (one word, no spaces), `{ordinal}` (A 1-based position such as `1st`, `2nd`, `3rd` or `4th`. Omitting an optional ordinal means the first), `{service}` (The name of a REST service registered in the scenario)
-
 **Example:**
 
 ```gherkin
-Then the response payload property nonexistent is undefined for 1st ordered response on parcels
+Then the response payload property recipient.street is undefined for 1st ordered response on parcels
 ```
 
 ## `rest.response.property.matches`
@@ -929,14 +1220,22 @@ Then the response payload property nonexistent is undefined for 1st ordered resp
 Then the response payload property {word} matches {pattern}[[ for {ordinal} ordered response]]
 ```
 
-Assert that a response payload property is a string that matches a regular expression (Java syntax; it must match the whole value). Without an ordinal the step checks the response of the first (default) request; `for 2nd ordered response` the response of the second one. Without `on {service}` it uses the default (first registered) service.
+Check that a property of the response payload is a string that matches a regular expression.
 
-**Variants** (optional parts in `[[...]]` above):
+- The regular expression is in Java syntax, and must match the whole value.
+- Without an ordinal it checks the response to the first (default) request; `for 2nd ordered response`, the response to the second.
+- It uses the default service, the first one registered; `rest.response.property.matches.on` names a service.
+
+| Parameter | Takes | For example |
+|---|---|---|
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+| `{pattern}` | a regular expression (Java syntax) with no spaces, which matches the whole value | `PX-\d{4}`, `[A-Z]{2}-\d+` |
+| `{ordinal}` | a position, counting from 1; an optional ordinal left out is the first | `1st`, `2nd` |
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `the response payload property {word} matches {pattern}`
 - `the response payload property {word} matches {pattern} for {ordinal} ordered response`
-
-**Parameters:** `{word}` (one word, no spaces), `{pattern}` (A regular expression (Java syntax) without whitespace. It must match the whole value), `{ordinal}` (A 1-based position such as `1st`, `2nd`, `3rd` or `4th`. Omitting an optional ordinal means the first)
 
 **Example:**
 
@@ -952,12 +1251,17 @@ Then the response payload property {word} matches {pattern} for[[ {ordinal} orde
 
 `rest.response.property.matches` on a named service: `for response on <service>` addresses the service's first (default) response, `for 2nd ordered response on <service>` its second one. Everything else works like `rest.response.property.matches`.
 
-**Variants** (optional parts in `[[...]]` above):
+| Parameter | Takes | For example |
+|---|---|---|
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+| `{pattern}` | a regular expression (Java syntax) with no spaces, which matches the whole value | `PX-\d{4}`, `[A-Z]{2}-\d+` |
+| `{ordinal}` | a position, counting from 1; an optional ordinal left out is the first | `1st`, `2nd` |
+| `{service}` | the name of a REST service the scenario registered | `parcels` |
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `the response payload property {word} matches {pattern} for response on {service}`
 - `the response payload property {word} matches {pattern} for {ordinal} ordered response on {service}`
-
-**Parameters:** `{word}` (one word, no spaces), `{pattern}` (A regular expression (Java syntax) without whitespace. It must match the whole value), `{ordinal}` (A 1-based position such as `1st`, `2nd`, `3rd` or `4th`. Omitting an optional ordinal means the first), `{service}` (The name of a REST service registered in the scenario)
 
 **Example:**
 
@@ -969,86 +1273,126 @@ Then the response payload property barcode matches ^PX[0-9]{11}$ for response on
 
 ```gherkin
 Then the response payload properties[[ for {ordinal} ordered response]] are:
-  | ... | ... |
+  | JSONPath | value |
 ```
 
-Assert response payload properties from a `path | value` table. `null` and `undefined` (any case) check for JSON null and absence; `"null"` in double quotes is the string. Every other value is compared like the single-property step. All rows are checked and every mismatch is reported. Values are compared with their JSON type: `'John'` or `"42"` (double quotes inside) are strings, `42` an integer, `42L` a long, `1.5` a number, `true`/`false` booleans, `{...}` and `[...]` JSON objects and arrays (compared regardless of member order). An integer never equals a decimal (`5` is not `5.0`). Without an ordinal the step checks the response of the first (default) request; `for 2nd ordered response` the response of the second one. Without `on {service}` it uses the default (first registered) service.
+Check properties of a JSON response, a row each, like the single-property step.
 
-**Variants** (optional parts in `[[...]]` above):
+- `null` and `undefined`, in any case, check for JSON null and for no such property; `"null"`, in double quotes, is the string.
+- Every row is checked, and every mismatch reported.
+- A value is compared with its JSON type. Text, like `REGISTERED`, is a string, and so is a value in double quotes, like `"42"`.
+- `42` is an integer, `42L` a long and `1.5` a number. An integer never equals a decimal: `5` is not `5.0`.
+- `true` and `false` are booleans. `{...}` and `[...]` are a JSON object and a JSON array; an object's members may come in any order.
+- Without an ordinal it checks the response to the first (default) request; `for 2nd ordered response`, the response to the second.
+- It uses the default service, the first one registered; `rest.response.properties.are.on` names a service.
+
+| Parameter | Takes | For example |
+|---|---|---|
+| `{ordinal}` | a position, counting from 1; an optional ordinal left out is the first | `1st`, `2nd` |
+
+A row is a property's JSONPath and the value it must have.
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `the response payload properties are:`
 - `the response payload properties for {ordinal} ordered response are:`
-
-**Parameters:** `{ordinal}` (A 1-based position such as `1st`, `2nd`, `3rd` or `4th`. Omitting an optional ordinal means the first)
 
 **Example:**
 
 ```gherkin
 Then the response payload properties are:
+  | reference | PX-4101    |
+  | status    | REGISTERED |
+  | zone      | DE-1       |
 ```
 
 ## `rest.response.properties.are.on`
 
 ```gherkin
 Then the response payload properties for[[ {ordinal} ordered]] response on {service} are:
-  | ... | ... |
+  | JSONPath | value |
 ```
 
 `rest.response.properties.are` on a named service: `for response on <service>` addresses the service's first (default) response, `for 2nd ordered response on <service>` its second one. Everything else works like `rest.response.properties.are`.
 
-**Variants** (optional parts in `[[...]]` above):
+| Parameter | Takes | For example |
+|---|---|---|
+| `{ordinal}` | a position, counting from 1; an optional ordinal left out is the first | `1st`, `2nd` |
+| `{service}` | the name of a REST service the scenario registered | `parcels` |
+
+A row is a property's JSONPath and the value it must have.
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `the response payload properties for response on {service} are:`
 - `the response payload properties for {ordinal} ordered response on {service} are:`
-
-**Parameters:** `{ordinal}` (A 1-based position such as `1st`, `2nd`, `3rd` or `4th`. Omitting an optional ordinal means the first), `{service}` (The name of a REST service registered in the scenario)
 
 **Example:**
 
 ```gherkin
 Then the response payload properties for 1st ordered response on parcels are:
+  | serviceLevel     | STANDARD     |
+  | recipient.name   | Ada Lovelace |
+  | recipient.street | undefined    |
 ```
 
 ## `rest.response.properties.match`
 
 ```gherkin
 Then the response payload properties[[ for {ordinal} ordered response]] match:
-  | ... | ... |
+  | JSONPath | regular expression |
 ```
 
-Assert response payload properties from a `path | regular expression` table (full match, Java syntax). Without an ordinal the step checks the response of the first (default) request; `for 2nd ordered response` the response of the second one. Without `on {service}` it uses the default (first registered) service.
+Check that properties of the response payload are strings that match regular expressions, a row each.
 
-**Variants** (optional parts in `[[...]]` above):
+- Each regular expression is in Java syntax, and must match the whole value.
+- Every row is checked, and every mismatch reported.
+- Without an ordinal it checks the response to the first (default) request; `for 2nd ordered response`, the response to the second.
+- It uses the default service, the first one registered; `rest.response.properties.match.on` names a service.
+
+| Parameter | Takes | For example |
+|---|---|---|
+| `{ordinal}` | a position, counting from 1; an optional ordinal left out is the first | `1st`, `2nd` |
+
+A row is a property's JSONPath and a regular expression its value must match.
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `the response payload properties match:`
 - `the response payload properties for {ordinal} ordered response match:`
-
-**Parameters:** `{ordinal}` (A 1-based position such as `1st`, `2nd`, `3rd` or `4th`. Omitting an optional ordinal means the first)
 
 **Example:**
 
 ```gherkin
 Then the response payload properties match:
+  | barcode   | ^PX[0-9]{11}$  |
+  | signature | ^[0-9a-f]{64}$ |
 ```
 
 ## `rest.response.properties.match.on`
 
 ```gherkin
 Then the response payload properties for[[ {ordinal} ordered]] response on {service} match:
-  | ... | ... |
+  | JSONPath | regular expression |
 ```
 
 `rest.response.properties.match` on a named service: `for response on <service>` addresses the service's first (default) response, `for 2nd ordered response on <service>` its second one. Everything else works like `rest.response.properties.match`.
 
-**Variants** (optional parts in `[[...]]` above):
+| Parameter | Takes | For example |
+|---|---|---|
+| `{ordinal}` | a position, counting from 1; an optional ordinal left out is the first | `1st`, `2nd` |
+| `{service}` | the name of a REST service the scenario registered | `parcels` |
+
+A row is a property's JSONPath and a regular expression its value must match.
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `the response payload properties for response on {service} match:`
 - `the response payload properties for {ordinal} ordered response on {service} match:`
 
-**Parameters:** `{ordinal}` (A 1-based position such as `1st`, `2nd`, `3rd` or `4th`. Omitting an optional ordinal means the first), `{service}` (The name of a REST service registered in the scenario)
-
 **Example:**
 
 ```gherkin
-Then the response payload properties for response on parcels match:
+Then the response payload properties for 2nd ordered response on parcels match:
+  | [0].reference | PX-[0-9]{4} |
 ```

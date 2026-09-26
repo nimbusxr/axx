@@ -22,13 +22,13 @@ const Name = "gcp-core"
 
 const packDoc = `The Google Cloud project the gcp-* packs talk to, set up the way the Google Cloud client libraries are set up for the real services.
 
-Register the project once with ` + "`the {word} gcp project with the following properties:`" + `; every gcp-* step of the scenario uses it (the first project registered is the default).
+Register the project once; every gcp-* step of the scenario uses it:
 
-| Property | |
-| --- | --- |
-| ` + "`project`" + ` | required: the project ID |
-| ` + "`endpoint`" + ` | where every service of the project is, instead of Google Cloud: a local emulator such as ` + "`http://localhost:4588`" + `. The clients then connect without credentials (and without TLS for an ` + "`http://`" + ` endpoint) |
-| ` + "`credentials`" + ` | a service account key file (resolved against ` + "`resources`" + `) |
+` + "```gherkin" + `
+Given the billing gcp project with the following properties:
+  | project  | parcels-billing       |
+  | endpoint | http://localhost:4588 |
+` + "```" + `
 
 Without ` + "`credentials`" + `, the clients use Application Default Credentials, as they always do: ` + "`GOOGLE_APPLICATION_CREDENTIALS`" + `, the gcloud login, or the workload's service account. Values expand ` + "`${env:..}`" + ` and ` + "`${sys:..}`" + `, so the same features run against Google Cloud and against an emulator.`
 
@@ -45,9 +45,28 @@ func (pack) Manifest() core.Manifest {
 		Steps: []core.StepDef{{
 			ID: "gcp-core.project", Keyword: "Given", Arg: core.ArgTable, Since: "0.1.0",
 			Expr: "the {word} gcp project with the following properties:",
-			Doc: "Register the Google Cloud project the gcp-* steps talk to: `project` (required), `endpoint` (an emulator), " +
-				"`credentials` (a service account key file). Without credentials the clients use Application Default Credentials.",
-			Examples:   []string{"Given the billing gcp project with the following properties:"},
+			Doc: "Register the Google Cloud project the gcp-* steps talk to.\n\n" +
+				"- The first project registered is the default.\n" +
+				"- Without `credentials`, the clients use Application Default Credentials: `GOOGLE_APPLICATION_CREDENTIALS`, " +
+				"the gcloud login, or the workload's service account.\n" +
+				"- Values expand `${env:..}` and `${sys:..}`, so the same features run against Google Cloud and against an emulator.",
+			Table: &core.TableDoc{
+				Columns: []string{"property", "value"},
+				Rows: []core.TableRow{
+					{Name: "project", Takes: "the project ID, like `parcels-billing`", Required: true},
+					{Name: "endpoint", Takes: "where every service of the project is, instead of Google Cloud: a local emulator, like " +
+						"`http://localhost:4588`; the clients then connect without credentials, and without TLS to an `http://` endpoint"},
+					{Name: "credentials", Takes: "a service account key file, resolved against `resources`, like `keys/billing-tests.json`"},
+				},
+			},
+			Examples: []string{
+				"Given the billing gcp project with the following properties:\n" +
+					"  | project  | parcels-billing       |\n" +
+					"  | endpoint | http://localhost:4588 |",
+				"Given the billing gcp project with the following properties:\n" +
+					"  | project     | parcels-billing         |\n" +
+					"  | credentials | keys/billing-tests.json |",
+			},
 			TableTypes: map[string]string{"credentials": "filepath"},
 			Run: func(sc *core.Scenario, a core.Args) error {
 				p, err := Parse(sc.Suite(), a.String(0), a.Table)

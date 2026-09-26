@@ -28,7 +28,7 @@ Feature: Register parcels
       | brokers | localhost:9092 |
 ```
 
-Each kind of service has its own registration step and properties, listed on its pack's page: [REST](/references/steps/rest/) (an `openapi` property turns on [validation](/guides/validate-openapi/)), [Mocks](/references/steps/mock/), [SQL](/references/steps/sql/), [MongoDB](/references/steps/mongo/) and [Kafka](/references/steps/kafka/).
+Each kind of service has its own registration step and properties, listed on its pack's page: [REST](/references/packs/rest/) (an `openapi` property turns on [validation](/guides/validate-openapi/)), [Mocks](/references/packs/mock/), [SQL](/references/packs/sql/), [MongoDB](/references/packs/mongo/) and [Kafka](/references/packs/kafka/).
 
 ## The default service and named services
 

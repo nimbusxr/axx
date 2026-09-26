@@ -33,6 +33,11 @@ Feature: Claims for lost parcels
       | claim            | CLM-4103 |
       | amount           | 45       |
       | attribute reason | LOST     |
+    And the CLM-4103.csv object in the claim-settlements s3 bucket has a row where:
+      | shop    | NORTHWIND |
+      | carrier | HERON     |
+      | reason  | LOST      |
+      | amount  | 45.00     |
 
   Scenario: A parcel reported delivered is not paid out
     Given a seeds/PX-4104.yaml dynamodb seed

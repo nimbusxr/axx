@@ -2,7 +2,8 @@ Feature: Carrier invoices
 
   Carriers upload their monthly invoices to the carrier-invoices bucket. Billing prices
   every line at the rate agreed with the carrier, for the weight the parcels platform
-  measured, and disputes the lines billed above it and the parcels it never shipped.
+  measured, and disputes the lines billed above it and the parcels it never shipped, in
+  a letter to the carrier.
 
   Background:
     Given the billing gcp project with the following properties:
@@ -30,11 +31,17 @@ Feature: Carrier invoices
     Given a seeds/shipments-kes2.yaml firestore seed
     When the invoices/INV-2026-09-KES2.csv file is uploaded to the carrier-invoices gcs bucket as kestrel/INV-2026-09-KES2.csv
     Then within 30s the billing-disputes gcs bucket has an object named INV-2026-09-KES2.csv
+    And the INV-2026-09-KES2.csv object in the billing-disputes gcs bucket has a row where:
+      | parcel | PX-5199          |
+      | status | UNKNOWN_SHIPMENT |
+      | billed | 4.10             |
     And the INV-2026-09-KES2.csv object in the billing-disputes gcs bucket is identical to the expected/INV-2026-09-KES2-disputes.csv file
     And the INV-2026-09-KES2.json object in the billing-disputes gcs bucket has the following properties:
       | carrier        | KESTREL |
       | disputedLines  | 2       |
       | disputedAmount | 5.25    |
+    And the INV-2026-09-KES2-letter.txt object in the billing-disputes gcs bucket contains "we dispute 2 of its lines, 5.25 in all"
+    And the INV-2026-09-KES2-letter.txt object in the billing-disputes gcs bucket contains "PX-5199 billed 4.10, a parcel we did not ship with you"
     And the invoices/INV-2026-09-KES2 firestore document has the following properties:
       | status          | DISPUTED |
       | totals.billed   | 9.3      |

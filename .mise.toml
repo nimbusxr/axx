@@ -20,3 +20,7 @@ run = "go generate ./..."
 
 [tasks.hygiene]
 run = "scripts/hygiene.sh"
+
+[tasks.intellij]
+description = "IntelliJ IDEA with the axx plugin, the Go plugin and axx from this tree (scripts/intellij-sandbox.sh)"
+run = "scripts/intellij-sandbox.sh"

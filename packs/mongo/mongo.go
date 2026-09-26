@@ -79,16 +79,29 @@ func (pack) Manifest() core.Manifest {
 			{
 				ID: "mongo.service", Keyword: "Given", Arg: core.ArgTable,
 				Expr: "a(n) {word} mongo database with the following properties:",
-				Doc: "Register a MongoDB database. The first one registered in a scenario is the default.\n\n" +
-					"Properties (all required, `${env:..}`/`${sys:..}` expanded): `url` (must include the database name; " +
-					"`authSource` defaults to it), `user`, `password`.",
-				Examples: []string{"Given a tracking-db mongo database with the following properties:"},
-				Run:      addService,
+				Doc:  "Register a MongoDB database. The first one registered in a scenario is the default.",
+				Table: &core.TableDoc{
+					Columns: []string{"property", "value"},
+					Rows: []core.TableRow{
+						{Name: "url", Takes: "the connection string, which must name the database, like `mongodb://localhost:27017/parcels`; " +
+							"its `authSource` defaults to that database", Required: true},
+						{Name: "user", Takes: "the user axx connects as", Required: true},
+						{Name: "password", Takes: "the user's password", Required: true},
+					},
+					Note: "Every value can take `${env:…}` and `${sys:…}` references.",
+				},
+				Examples: []string{"Given a tracking-db mongo database with the following properties:\n" +
+					"  | url      | mongodb://localhost:27017/parcels?authSource=admin |\n" +
+					"  | user     | parcels                                            |\n" +
+					"  | password | parcels                                            |"},
+				Run: addService,
 			},
 			{
 				ID: "mongo.seed", Keyword: "Given",
-				Expr:     "a {filepath} mongo db seed",
-				Doc:      "Insert documents into the default MongoDB database. The file is a JSON object mapping collection names to arrays of documents (Extended JSON such as `{\"$oid\": ...}` is supported).",
+				Expr: "a {filepath} mongo db seed",
+				Doc: "Insert the documents of a JSON file into the default MongoDB database. " +
+					"The file maps each collection's name to an array of its documents, in Extended JSON: " +
+					"`{\"$date\": \"2026-05-05T06:40:00Z\"}` is a date and `{\"$oid\": ...}` an ObjectId.",
 				Examples: []string{"Given a seeds/scans-in-transit.json mongo db seed"},
 				Run: func(sc *core.Scenario, a core.Args) error {
 					svc, err := stateKey.Of(sc).services.Default()
@@ -110,7 +123,7 @@ func (pack) Manifest() core.Manifest {
 func namedSeed(id, expr, example, since string) core.StepDef {
 	return core.StepDef{
 		ID: id, Keyword: "Given", Expr: expr, Since: since,
-		Doc:      "Insert documents into the named MongoDB database (same file format as the default-database seed).",
+		Doc:      "Insert the documents of a JSON file into the named MongoDB database; the file is as for the default database's seed.",
 		Examples: []string{example},
 		Run: func(sc *core.Scenario, a core.Args) error {
 			name := a.String(1)

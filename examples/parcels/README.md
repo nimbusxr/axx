@@ -1,27 +1,33 @@
-# Parcels: an axx example
+# Parcels: an Axx example
 
 A complete acceptance suite for a realistic service. **Parcels** is a parcel-delivery
 service written in Go: shops ask it for price quotes, register parcels through its API or
-upload them in bulk as manifests, and follow them through the depots. It stores parcels in
+its shop portal, or upload them in bulk as manifests, and follow them through the depots. It stores parcels in
 PostgreSQL, keeps a tracking read model in MongoDB, checks every address with a downstream
-address service, and talks to the depots over Kafka.
+address service, talks to the depots over Kafka, and writes each imported manifest's
+documents to an export folder.
 
-axx tests it black-box: it starts the service and its infrastructure with Docker Compose,
+Axx tests it black-box: it starts the service and its infrastructure with Docker Compose,
 waits until the service is healthy, runs the features against it and cleans up afterwards.
-The service has no dependency on axx or on any test framework.
+The service has no dependency on Axx or on any test framework.
 
 ## What the features check
 
-| Feature | Acceptance criteria | What axx uses |
+| Feature | Acceptance criteria | What Axx uses |
 | --- | --- | --- |
 | `quotes` | prices by service level, weight, destination and delivery zone; no quote for undeliverable postcodes; undocumented fields from the address service do not break quoting | requests built from the OpenAPI examples, a Scenario Outline, a mocked dependency, a dependency's contract relaxed for one scenario |
 | `register-parcels` | register, look up, change, cancel and list parcels; unique references; the 30 kg limit; signed labels | OpenAPI validation and its levels, ordered requests, null and undefined properties, regular expressions, SQL selections |
 | `address-check` | every registration asks the address service with the API key; undeliverable and unavailable addresses | WireMock verification, the address service's OpenAPI contract checked on every call, entries in two logs (the service's and the mock's) |
 | `manifest-import` | manifest lines become parcels or are rejected with the reason | YAML, flat XML and CSV seeds, polling selections, JSON and JSONB column checks, entries in the console log |
+| `manifest-documents` | an imported manifest's report, summary and handover note land in the export folder | a folder the service writes to, the rows of a CSV file and of a workbook, a file compared byte for byte, JSON properties, the text of a PDF |
 | `dispatch` | a parcel the depot is dispatching cannot be changed until the depot lets go of it | row locks |
 | `database-failures` | brief database failures are retried; lasting ones ask the shop to try again later | fault-injecting triggers, `@isolated` scenarios, counting log entries (one per retry) |
 | `tracking` | the tracking summary shows the latest scan, however late or often scans arrive | MongoDB seeds and polling queries, publishing Avro events |
 | `registration-events` | every registered parcel is announced as a ParcelRegistered event, and a refused one is not | consuming Avro events through the Schema Registry, a log entry that proves an event was not published |
+| `shop-portal` | the portal's quotes and registration form, a shop's parcels, phones, pickup times, sessions and going offline | a web app in real browsers (Chromium, and WebKit as an iPhone), forms, an upload, a download, the browser's clock and connection, a session to start with, selectors, screenshots, accessibility audits and Lighthouse scores; the registered parcel checked in the database and on Kafka |
+| `portal-parcels` | a parcel's page: its label, its tracking page, cancelling it, reporting a problem, times in the shop's time zone | menus, dialogs, a new browser tab, a downloaded label compared byte for byte, tabs, a locale and a time zone |
+| `portal-planning` | planning a parcel's pickup, when it cannot be planned, and a shop's settings | drag and drop, requests that fail or answer with an error, several options chosen, an upload, the rows the portal wrote |
+| `portal-tracking` | the recipient's tracking page: when the parcel arrives, and its depot scans as they happen | requests answered with a file, a recording or late, a slow connection, websocket messages, a Kafka event the page shows |
 
 `axx.yaml` also shows test-data lint rules (`axx lint`), fixture factories (`axx fixtures`)
 and debugging the service from your IDE (`axx run --debug`).
@@ -32,26 +38,35 @@ and debugging the service from your IDE (`axx run --debug`).
 parcels/
   app/          the system under test: a Go module with its Dockerfile
   infra/        compose.yaml plus the files the containers mount
-    postgres/     the database schema (the seeds must match it)
-    openapi/      the address service's OpenAPI contract
-    wiremock/     the address service mock: mappings and response bodies
-  acceptance/   the axx project
-    axx.yaml      run settings, the app definition, lint rules, fixture settings
-    features/     the features
-    seeds/        database seeds (YAML and JSON, plus generated XML and CSV datasets)
-    kafka/        depot scan events (generated from a factory)
-    schemas/      Avro schemas
+    postgres/       the database schema (the seeds must match it)
+    openapi/        the address service's OpenAPI contract
+    wiremock/       the address service mock: mappings and response bodies
+    exports/        what the service writes to its export folder during a run (not committed)
+  acceptance/   the Axx project
+    axx.yaml        run settings, the app definition, the packs' settings, lint rules, fixture settings
+    axx-packs.yaml  the packs whose steps the features use
+    features/       the features
+    seeds/          database seeds (YAML and JSON, plus generated XML and CSV datasets)
+    reports/        the import report a manifest-documents scenario expects
+    invoices/       a customs invoice a shop uploads in the portal
+    labels/         the label a portal scenario expects to download
+    logos/          the logo a shop uploads in its settings
+    screenshots/    how the portal's pages look, on Linux and on macOS
+    network/        answers for the tracking page's requests: a file, and a recording of the service
+    kafka/          depot scan events (generated from a factory)
+    schemas/        Avro schemas
 ```
 
 ## Run it
 
-You need Docker with Compose v2, and axx:
+You need Docker with Compose v2, and Axx:
 
 ```sh
 go install github.com/nimbusxr/axx/cmd/axx@latest
 ```
 
-Then, from `acceptance/`:
+The first command that needs the suite's steps prepares Axx with the packs in
+`axx-packs.yaml`, once. Then, from `acceptance/`:
 
 ```sh
 cd acceptance
@@ -78,25 +93,44 @@ axx lint                                # test-data isolation rules
 axx up                                  # keep the service running between runs (axx down stops it)
 ```
 
+The portal's features use web browsers on your machine; the `web-core` pack downloads them the
+first time. To see them:
+
+```sh
+axx run --profile watch features/shop-portal.feature   # the browsers in windows, slowed down
+axx run features/shop-portal.feature --pause-at features/shop-portal.feature:24   # pause before that step, in Playwright's Inspector
+```
+
+The portal's screenshots are kept for Linux and macOS, each compared on its own platform
+(`packs.web-screenshots.platforms` in `axx.yaml`); elsewhere those steps pass without
+comparing. When the pages change on purpose, take them again with
+`axx run --set packs.web-screenshots.update=true`, on each platform.
+
+Each run also measures how much of the portal's own scripts the scenarios run
+(`packs.web-coverage` in `axx.yaml`): the totals print at the end, and
+`.axx/web/coverage/lcov.info` has them line by line. The quote page's Lighthouse scenario
+audits it as a phone loads it.
+
 The scenarios register parcels with fixed references and seed fixed rows, and the data
 stays in the database. Against a service kept running with `axx up`, the stateless quote
 scenarios can run again and again; for the others, start fresh with `axx down` and
-`axx up`, or use `axx run`, which always starts from empty databases.
+`axx up`, or leave the service down: `axx run` alone then starts it with empty databases.
 
 ## Infrastructure
 
 `infra/compose.yaml` defines everything, with healthchecks, so you can also start the
-system by hand (`docker compose up --build --wait` in `infra/`) and point axx, curl or a
+system by hand (`docker compose up --build --wait` in `infra/`) and point Axx, curl or a
 browser at it. The host ports are the ones the features use:
 
 | Service | Image | Host port | Purpose |
 | --- | --- | --- | --- |
-| `app` | built from `../app` | 8400 | the parcels API under `/api`, OpenAPI at `/openapi.json`, health at `/health` |
-| `address-service` | built from `extensions/wiremock-openapi` | 8081 | WireMock with axx's OpenAPI validation extension: the mocked address service |
-| `postgres` | `postgres:16` | 5432 | parcels and manifest lines |
+| `app` | built from `../app` | 8400 | the parcels API under `/api`, the shop portal under `/portal`, OpenAPI at `/openapi.json`, health at `/health` |
+| `address-service` | built from `extensions/wiremock-openapi` | 8081 | WireMock with Axx's OpenAPI validation extension: the mocked address service |
+| `postgres` | `postgres:16` | 5432 | parcels, manifest lines, pickups and shops' settings |
 | `mongo` | `mongo:7` | 27017 | depot scans and the tracking read model |
 | `kafka` | `apache/kafka-native:3.9.1` | 9092 | single-node KRaft broker |
 | `schema-registry` | `confluentinc/cp-schema-registry:7.9.2-1-ubi8` | 9081 | Avro schemas for the events |
+| `exports` | `busybox:1.37` | (none) | empties `exports/`, and makes it writable, before the service starts |
 
 The address service mock builds the WireMock extension from this repository
 (`extensions/wiremock-openapi`). The same image is published as
@@ -105,12 +139,13 @@ call against `openapi/address-service.yaml` (`OPENAPI_SPEC_SOURCE`) in `report` 
 gets the stubs' answers unchanged, and a call that breaks the contract fails the scenario that
 checks it, or the run when no scenario does.
 
-The service sends every log line to `udp://0.0.0.0:5140`, where axx listens during a run
-(the `parcels` log in the features); axx opens that listener before it starts compose. The
-`console` log is the output axx captures from compose, in `.axx/logs/apps.log`.
+The service also sends every log line over UDP to port 5140 on the host, where Axx listens
+during a run (`udp://0.0.0.0:5140`, the `parcels` log in the features); Axx opens that
+listener before it starts compose. The `console` log is the output Axx captures from compose,
+in `.axx/logs/apps.log`.
 
 Kafka advertises `localhost:9092` to clients on the host. Set `LOCAL_HOST` before starting
-compose to advertise another host name, and pass the same name to axx
+compose to advertise another host name, and pass the same name to Axx
 (`axx run -D local.host=<name>`) so the Kafka and mock steps use it too.
 
 ### Service configuration
@@ -122,12 +157,13 @@ published ports on `localhost`, which is what you want when running it on the ho
 | Variable | Default | In compose |
 | --- | --- | --- |
 | `PARCELS_ADDR` | `:8400` | `:8400` |
-| `PARCELS_DB_URL` | `postgres://parcels:parcels@localhost:5432/parcels` | `...@postgres:5432/parcels` |
-| `PARCELS_MONGO_URI` | `mongodb://parcels:parcels@localhost:27017/` | `...@mongo:27017/` |
+| `PARCELS_DB_URL` | `postgres://parcels:parcels@localhost:5432/parcels?sslmode=disable` | `...@postgres:5432/parcels?sslmode=disable` |
+| `PARCELS_MONGO_URI` | `mongodb://parcels:parcels@localhost:27017/?authSource=admin` | `...@mongo:27017/?authSource=admin` |
 | `PARCELS_ADDRESS_URL` | `http://localhost:8081` | `http://address-service:8080` |
 | `PARCELS_KAFKA_BROKERS` | `localhost:9092` | `kafka:9094` |
 | `PARCELS_SCHEMA_REGISTRY_URL` | `http://localhost:9081` | `http://schema-registry:8081` |
-| `PARCELS_LOG_UDP` | (none) | `host.docker.internal:5140`: every log line also goes to axx's log listener |
+| `PARCELS_EXPORT_DIR` | `../infra/exports` | `/var/lib/parcels/exports`, mounted from `./exports` |
+| `PARCELS_LOG_UDP` | (none) | `host.docker.internal:5140`: every log line also goes to Axx's log listener |
 
 ## Debug the service from your IDE
 
@@ -136,10 +172,10 @@ cd acceptance
 axx run --debug
 ```
 
-In debug mode axx runs the `debug.command` from `axx.yaml` instead of the normal command:
+In debug mode Axx runs the `debug.command` from `axx.yaml` instead of the normal command:
 compose starts only the infrastructure, and the service runs on the host under
 [Delve](https://github.com/go-delve/delve), listening for a debugger on port 2345. Attach
-your IDE to `localhost:2345` (in IntelliJ IDEA or GoLand: a **Go Remote** configuration;
-`axx ide intellij` writes one), set breakpoints in `app/`, and they are hit while the
-scenarios run. You need `dlv` on your `PATH`
+your IDE to `localhost:2345` (in IntelliJ IDEA or GoLand: a **Go Remote** configuration,
+which `axx ide intellij` writes; in VS Code, `axx ide vscode` writes one), set breakpoints
+in `app/`, and they are hit while the scenarios run. You need `dlv` on your `PATH`
 (`go install github.com/go-delve/delve/cmd/dlv@latest`).

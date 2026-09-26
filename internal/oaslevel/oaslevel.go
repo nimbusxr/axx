@@ -1,6 +1,7 @@
 // Package oaslevel holds OpenAPI validation levels: the ERROR, WARN, INFO and
-// IGNORE a finding is reported at, and the maps from validation keys
-// (validation.request.body.schema.required, ...) to levels. The REST pack
+// IGNORE a finding is reported at, the maps from validation keys
+// (validation.request.body.schema.required, ...) to levels, and the keys a
+// validator reports, which levels are set on (Keys). The REST pack
 // uses them for the service under test's own contract and the mock pack for
 // mocked dependencies' contracts; the settings of the two are separate.
 package oaslevel
@@ -58,8 +59,9 @@ func Parse(s string) (Level, error) {
 // Levels maps validation keys to levels.
 type Levels map[string]Level
 
-// ParseMap parses a key -> level-name map.
-func ParseMap(m map[string]string) (Levels, error) {
+// ParseMap parses a key -> level-name map. Every key must be one of known,
+// or a prefix of them (Keys.Check).
+func ParseMap(m map[string]string, known *Keys) (Levels, error) {
 	out := make(Levels, len(m))
 	keys := make([]string, 0, len(m))
 	for k := range m {
@@ -67,11 +69,15 @@ func ParseMap(m map[string]string) (Levels, error) {
 	}
 	sort.Strings(keys)
 	for _, k := range keys {
+		key := strings.TrimSpace(k)
+		if err := known.Check(key); err != nil {
+			return nil, err
+		}
 		lv, err := Parse(m[k])
 		if err != nil {
 			return nil, fmt.Errorf("key %q: %w", k, err)
 		}
-		out[strings.TrimSpace(k)] = lv
+		out[key] = lv
 	}
 	return out, nil
 }

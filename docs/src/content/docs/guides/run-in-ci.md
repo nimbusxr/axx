@@ -5,8 +5,6 @@ description: Run Axx in GitHub Actions with setup-axx, in GitLab CI with the ins
 
 In CI, Axx does the same thing it does on a laptop: start the apps, wait until they are ready, run the scenarios, stop everything. The only extra work is installing Axx and keeping the reports.
 
-<!-- TODO(verify): nimbusxr/setup-axx, install.sh and ghcr.io/nimbusxr/axx publish with v0.1.0. Confirm the action's inputs (for example a version input) then. -->
-
 ## GitHub Actions
 
 `axx init` writes this workflow to `.github/workflows/acceptance.yml`:
@@ -27,7 +25,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - uses: nimbusxr/setup-axx@v1
+      - uses: nimbusxr/setup-axx@v0
       - run: axx run --format junit:build/axx/junit.xml --format html:build/axx/report.html
       - uses: actions/upload-artifact@v4
         if: always()
@@ -36,7 +34,7 @@ jobs:
           path: build/axx/
 ```
 
-GitHub-hosted Ubuntu runners include Docker and Compose, so apps that start with `docker compose up` work as they do locally. `nimbusxr/setup-axx` installs the latest release (pre-releases included) and adds it to `PATH`.
+GitHub-hosted Ubuntu runners include Docker and Compose, so apps that start with `docker compose up` work as they do locally. `nimbusxr/setup-axx` installs the latest release (pre-releases included) and adds it to `PATH`. Its `version` input installs another: a version such as `0.1.0`, or `nightly`. `@v0` is the action's own version: its tag `v0` follows the action's 0.x releases while Axx is in beta.
 
 ## GitLab CI
 
@@ -52,7 +50,6 @@ acceptance:
   before_script:
     - apk add --no-cache curl
     - curl -fsSL https://axx.nimbusxr.us/install.sh | sh
-    - export PATH="$HOME/.local/bin:$PATH"
   script:
     - axx run --profile ci --format junit:build/axx/junit.xml --format html:build/axx/report.html
   artifacts:
@@ -69,9 +66,7 @@ profiles:
       local.host: docker   # containers publish their ports on the dind host
 ```
 
-This works when your features and `axx.yaml` use `${sys:local.host}` instead of a hard-coded `localhost`.
-
-<!-- TODO(verify): the install directory the install script uses ($HOME/.local/bin above). -->
+This works when your features and `axx.yaml` use `${sys:local.host}` instead of a hard-coded `localhost`. The job runs as root, so the install script puts `axx` in `/usr/local/bin`, which is on `PATH`.
 
 ## Any other CI
 

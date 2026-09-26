@@ -1,0 +1,151 @@
+parcels.parcels:
+  - reference: "PX-WEB-5201"
+    sender: "harbour-hardware"
+    status: "REGISTERED"
+    weight_grams: 837
+    recipient: '{"name": "Jonas Weber", "street": "Lindenallee 9", "city": "Bremen", "postcode": "28195", "country": "DE"}'
+    details: '{"source": "portal", "zone": "DE-1", "signature": false, "leaveWithNeighbour": true}'
+  - reference: "PX-WEB-5202"
+    sender: "harbour-hardware"
+    status: "REGISTERED"
+    weight_grams: 874
+    recipient: '{"name": "Mia Klein", "street": "Kaiserstr. 21", "city": "Kiel", "postcode": "24103", "country": "DE"}'
+    details: '{"source": "portal", "zone": "DE-1", "signature": false, "leaveWithNeighbour": true}'
+  - reference: "PX-WEB-5203"
+    sender: "harbour-hardware"
+    status: "REGISTERED"
+    weight_grams: 911
+    recipient: '{"name": "Ella Brandt", "street": "Hafenstr. 3", "city": "Hamburg", "postcode": "20457", "country": "DE"}'
+    details: '{"source": "portal", "zone": "DE-1", "signature": false, "leaveWithNeighbour": true}'
+  - reference: "PX-WEB-5204"
+    sender: "harbour-hardware"
+    status: "REGISTERED"
+    weight_grams: 948
+    recipient: '{"name": "Paul Schröder", "street": "Lindenallee 9", "city": "Bremen", "postcode": "28195", "country": "DE"}'
+    details: '{"source": "portal", "zone": "DE-1", "signature": false, "leaveWithNeighbour": true}'
+  - reference: "PX-WEB-5205"
+    sender: "harbour-hardware"
+    status: "IN_TRANSIT"
+    weight_grams: 985
+    recipient: '{"name": "Lina Hartmann", "street": "Kaiserstr. 21", "city": "Kiel", "postcode": "24103", "country": "DE"}'
+    details: '{"source": "portal", "zone": "DE-1", "signature": false, "leaveWithNeighbour": true}'
+  - reference: "PX-WEB-5206"
+    sender: "harbour-hardware"
+    status: "REGISTERED"
+    weight_grams: 1022
+    recipient: '{"name": "Felix Wolf", "street": "Hafenstr. 3", "city": "Hamburg", "postcode": "20457", "country": "DE"}'
+    details: '{"source": "portal", "zone": "DE-1", "signature": false, "leaveWithNeighbour": true}'
+  - reference: "PX-WEB-5207"
+    sender: "harbour-hardware"
+    status: "REGISTERED"
+    weight_grams: 1059
+    recipient: '{"name": "Nora Fischer", "street": "Lindenallee 9", "city": "Bremen", "postcode": "28195", "country": "DE"}'
+    details: '{"source": "portal", "zone": "DE-1", "signature": false, "leaveWithNeighbour": true}'
+  - reference: "PX-WEB-5208"
+    sender: "harbour-hardware"
+    status: "REGISTERED"
+    weight_grams: 1096
+    recipient: '{"name": "Ben Richter", "street": "Kaiserstr. 21", "city": "Kiel", "postcode": "24103", "country": "DE"}'
+    details: '{"source": "portal", "zone": "DE-1", "signature": false, "leaveWithNeighbour": true}'
+  - reference: "PX-WEB-5209"
+    sender: "harbour-hardware"
+    status: "REGISTERED"
+    weight_grams: 1133
+    recipient: '{"name": "Emma Koch", "street": "Hafenstr. 3", "city": "Hamburg", "postcode": "20457", "country": "DE"}'
+    details: '{"source": "portal", "zone": "DE-1", "signature": false, "leaveWithNeighbour": true}'
+  - reference: "PX-WEB-5210"
+    sender: "harbour-hardware"
+    status: "IN_TRANSIT"
+    weight_grams: 1170
+    recipient: '{"name": "Leon Bauer", "street": "Lindenallee 9", "city": "Bremen", "postcode": "28195", "country": "DE"}'
+    details: '{"source": "portal", "zone": "DE-1", "signature": false, "leaveWithNeighbour": true}'
+  - reference: "PX-WEB-5211"
+    sender: "harbour-hardware"
+    status: "REGISTERED"
+    weight_grams: 1207
+    recipient: '{"name": "Hanna Schulz", "street": "Kaiserstr. 21", "city": "Kiel", "postcode": "24103", "country": "DE"}'
+    details: '{"source": "portal", "zone": "DE-1", "signature": false, "leaveWithNeighbour": true}'
+  - reference: "PX-WEB-5212"
+    sender: "harbour-hardware"
+    status: "REGISTERED"
+    weight_grams: 1244
+    recipient: '{"name": "Noah Lange", "street": "Hafenstr. 3", "city": "Hamburg", "postcode": "20457", "country": "DE"}'
+    details: '{"source": "portal", "zone": "DE-1", "signature": false, "leaveWithNeighbour": true}'
+  - reference: "PX-WEB-5213"
+    sender: "harbour-hardware"
+    status: "REGISTERED"
+    weight_grams: 1281
+    recipient: '{"name": "Clara Krüger", "street": "Lindenallee 9", "city": "Bremen", "postcode": "28195", "country": "DE"}'
+    details: '{"source": "portal", "zone": "DE-1", "signature": false, "leaveWithNeighbour": true}'
+  - reference: "PX-WEB-5214"
+    sender: "harbour-hardware"
+    status: "REGISTERED"
+    weight_grams: 1318
+    recipient: '{"name": "Elias Braun", "street": "Kaiserstr. 21", "city": "Kiel", "postcode": "24103", "country": "DE"}'
+    details: '{"source": "portal", "zone": "DE-1", "signature": false, "leaveWithNeighbour": true}'
+  - reference: "PX-WEB-5215"
+    sender: "harbour-hardware"
+    status: "IN_TRANSIT"
+    weight_grams: 1355
+    recipient: '{"name": "Sophie Zimmer", "street": "Hafenstr. 3", "city": "Hamburg", "postcode": "20457", "country": "DE"}'
+    details: '{"source": "portal", "zone": "DE-1", "signature": false, "leaveWithNeighbour": true}'
+  - reference: "PX-WEB-5216"
+    sender: "harbour-hardware"
+    status: "REGISTERED"
+    weight_grams: 1392
+    recipient: '{"name": "Luis Hofmann", "street": "Lindenallee 9", "city": "Bremen", "postcode": "28195", "country": "DE"}'
+    details: '{"source": "portal", "zone": "DE-1", "signature": false, "leaveWithNeighbour": true}'
+  - reference: "PX-WEB-5217"
+    sender: "harbour-hardware"
+    status: "REGISTERED"
+    weight_grams: 1429
+    recipient: '{"name": "Marie Vogel", "street": "Kaiserstr. 21", "city": "Kiel", "postcode": "24103", "country": "DE"}'
+    details: '{"source": "portal", "zone": "DE-1", "signature": false, "leaveWithNeighbour": true}'
+  - reference: "PX-WEB-5218"
+    sender: "harbour-hardware"
+    status: "REGISTERED"
+    weight_grams: 1466
+    recipient: '{"name": "Finn Keller", "street": "Hafenstr. 3", "city": "Hamburg", "postcode": "20457", "country": "DE"}'
+    details: '{"source": "portal", "zone": "DE-1", "signature": false, "leaveWithNeighbour": true}'
+  - reference: "PX-WEB-5219"
+    sender: "harbour-hardware"
+    status: "REGISTERED"
+    weight_grams: 1503
+    recipient: '{"name": "Lea Frank", "street": "Lindenallee 9", "city": "Bremen", "postcode": "28195", "country": "DE"}'
+    details: '{"source": "portal", "zone": "DE-1", "signature": false, "leaveWithNeighbour": true}'
+  - reference: "PX-WEB-5220"
+    sender: "harbour-hardware"
+    status: "REGISTERED"
+    weight_grams: 1540
+    recipient: '{"name": "Jakob Busch", "street": "Kaiserstr. 21", "city": "Kiel", "postcode": "24103", "country": "DE"}'
+    details: '{"source": "portal", "zone": "DE-1", "signature": false, "leaveWithNeighbour": true}'
+  - reference: "PX-WEB-5221"
+    sender: "harbour-hardware"
+    status: "REGISTERED"
+    weight_grams: 1577
+    recipient: '{"name": "Anna Seidel", "street": "Hafenstr. 3", "city": "Hamburg", "postcode": "20457", "country": "DE"}'
+    details: '{"source": "portal", "zone": "DE-1", "signature": false, "leaveWithNeighbour": true}'
+  - reference: "PX-WEB-5222"
+    sender: "harbour-hardware"
+    status: "REGISTERED"
+    weight_grams: 1614
+    recipient: '{"name": "Tim Lorenz", "street": "Lindenallee 9", "city": "Bremen", "postcode": "28195", "country": "DE"}'
+    details: '{"source": "portal", "zone": "DE-1", "signature": false, "leaveWithNeighbour": true}'
+  - reference: "PX-WEB-5223"
+    sender: "harbour-hardware"
+    status: "REGISTERED"
+    weight_grams: 1651
+    recipient: '{"name": "Lisa Berger", "street": "Kaiserstr. 21", "city": "Kiel", "postcode": "24103", "country": "DE"}'
+    details: '{"source": "portal", "zone": "DE-1", "signature": false, "leaveWithNeighbour": true}'
+  - reference: "PX-WEB-5224"
+    sender: "harbour-hardware"
+    status: "REGISTERED"
+    weight_grams: 1688
+    recipient: '{"name": "Max Ludwig", "street": "Hafenstr. 3", "city": "Hamburg", "postcode": "20457", "country": "DE"}'
+    details: '{"source": "portal", "zone": "DE-1", "signature": false, "leaveWithNeighbour": true}'
+  - reference: "PX-WEB-5225"
+    sender: "harbour-hardware"
+    status: "REGISTERED"
+    weight_grams: 1725
+    recipient: '{"name": "Emily Horn", "street": "Lindenallee 9", "city": "Bremen", "postcode": "28195", "country": "DE"}'
+    details: '{"source": "portal", "zone": "DE-1", "signature": false, "leaveWithNeighbour": true}'

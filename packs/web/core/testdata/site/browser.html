@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Your browser</title></head>
+<body>
+  <h1>Your browser</h1>
+  <p id="size"></p>
+  <p id="device"></p>
+  <p id="language"></p>
+  <p id="zone"></p>
+  <p id="registered"></p>
+  <p id="headless"></p>
+  <script>
+    const say = (id, text) => { document.getElementById(id).textContent = text; };
+    say('size', 'Width: ' + window.innerWidth + ', height: ' + window.innerHeight);
+    say('device', 'Device: ' + (/iPhone/.test(navigator.userAgent) ? 'iPhone' : 'computer'));
+    say('language', 'Language: ' + navigator.language);
+    say('zone', 'Time zone: ' + Intl.DateTimeFormat().resolvedOptions().timeZone);
+    say('registered', 'Registered: ' + new Date('2026-09-25T12:03:00Z').toLocaleString(navigator.language,
+      { dateStyle: 'medium', timeStyle: 'short' }));
+    say('headless', /Headless/.test(navigator.userAgent) ? 'Browser: headless' : 'Browser: on a screen');
+  </script>
+</body>
+</html>

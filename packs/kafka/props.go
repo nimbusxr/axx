@@ -6,6 +6,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/nimbusxr/axx/core"
 )
 
 // Java client properties. A topic client takes Kafka producer and consumer
@@ -144,14 +146,38 @@ func (t tlsSpec) configured() bool {
 	return t.TruststoreLocation != "" || t.TruststoreCerts != "" || t.KeystoreLocation != "" || t.KeystoreKey != ""
 }
 
+// The values of the properties that take one of a set, in the order the
+// reference lists them.
+var (
+	protocols           = []string{"PLAINTEXT", "SSL", "SASL_PLAINTEXT", "SASL_SSL"}
+	saslMechanisms      = []string{"PLAIN", "SCRAM-SHA-256", "SCRAM-SHA-512"}
+	storeTypes          = []string{"JKS", "PKCS12", "PEM"}
+	tlsVersions         = []string{"TLS", "TLSv1.2", "TLSv1.3"}
+	ackValues           = []string{"all", "-1", "0", "1"}
+	compressions        = []string{"none", "gzip", "snappy", "lz4", "zstd"}
+	offsetResets        = []string{"earliest", "latest"}
+	isolationLevels     = []string{"read_uncommitted", "read_committed"}
+	credentialSources   = []string{"URL", "USER_INFO", "SASL_INHERIT"}
+	serializerClasses   = []string{stringSerializer, bytesSerializer, avroSerializer}
+	deserializerClasses = []string{stringDeserializer, bytesDeserializer, avroDeserializer}
+	partitioners        = []string{defaultPartitioner, roundRobinPartitoner, uniformStickyPart}
+	subjectStrategies   = []string{topicNameStrategy, recordNameStrategy, topicRecordStrategy}
+)
+
 // propDef describes how axx treats one Java property.
 type propDef struct {
 	Key   string
 	Roles role
-	// Doc says what axx does with the property (Markdown).
-	Doc string
+	// Takes says what the property takes, for the topic client step's
+	// table in the reference (Markdown, a phrase); for a property without
+	// effect, why it has none.
+	Takes string
+	// Values are the values it takes, when it takes one of a set.
+	Values []string
+	// Default is its value when the table does not set it.
+	Default string
 	// Set applies a value; nil means the property is known but has no
-	// effect in axx (Doc says why).
+	// effect in axx.
 	Set func(c *clientSpec, v string) error
 	// Registry marks Confluent serializer properties (read by the
 	// (de)serializer, not the Kafka client).
@@ -199,9 +225,12 @@ func oneOf(v string, allowed ...string) (string, error) {
 	return "", fmt.Errorf("expected one of %s, got %q", strings.Join(allowed, ", "), v)
 }
 
-// propTable lists every property axx translates or knowingly ignores. It
-// also generates the pack documentation.
-var propTable = buildPropTable()
+// propList is every property axx translates, in the order the reference
+// lists them.
+var propList = buildProps()
+
+// propTable is every property axx translates or knowingly ignores, by key.
+var propTable = indexProps(propList)
 
 // clientTableTypes are the parameter types of the topic client table's
 // values that have one, under every key they are written with: the
@@ -229,120 +258,149 @@ func clientTableTypes() map[string]string {
 	return out
 }
 
-func buildPropTable() map[string]propDef {
+func buildProps() []propDef {
 	defs := []propDef{
+		// Connection.
 		{
-			Key: "bootstrap.servers", Roles: roleBoth, Doc: "Seed brokers (`kgo.SeedBrokers`); defaults to the service's `brokers`.",
-			Set: func(c *clientSpec, v string) error { c.Brokers = splitList(v); return nil },
+			Key: "bootstrap.servers", Roles: roleBoth,
+			Takes: "the brokers the client connects to, a comma-separated list; the service's `brokers` by default",
+			Set:   func(c *clientSpec, v string) error { c.Brokers = splitList(v); return nil },
 		},
 		{
-			Key: "client.id", Roles: roleBoth, Doc: "`kgo.ClientID`.",
-			Set: func(c *clientSpec, v string) error { c.ClientID = v; return nil },
+			Key: "client.id", Roles: roleBoth, Default: "axx",
+			Takes: "the name the client gives the brokers",
+			Set:   func(c *clientSpec, v string) error { c.ClientID = v; return nil },
+		},
+		// Serialization.
+		{
+			Key: "key.serializer", Roles: roleProducer, Values: serializerClasses, Default: stringSerializer,
+			Takes: "how the producer writes keys: `StringSerializer` as text, `ByteArraySerializer` as the text's bytes, `KafkaAvroSerializer` as an Avro string",
 		},
 		{
-			Key: "security.protocol", Roles: roleBoth, Doc: "`PLAINTEXT`, `SSL` (TLS dialer), `SASL_PLAINTEXT` or `SASL_SSL` (`kgo.SASL`).",
+			Key: "value.serializer", Roles: roleProducer, Values: serializerClasses, Default: stringSerializer,
+			Takes: "how the producer writes payloads: `StringSerializer` and `ByteArraySerializer` as text, `KafkaAvroSerializer` as Avro, which publishing with a schema needs",
+		},
+		{
+			Key: "key.deserializer", Roles: roleConsumer, Values: deserializerClasses, Default: stringDeserializer,
+			Takes: "how assertions read keys: `StringDeserializer` and `ByteArrayDeserializer` as text, `KafkaAvroDeserializer` as Avro",
+		},
+		{
+			Key: "value.deserializer", Roles: roleConsumer, Values: deserializerClasses, Default: stringDeserializer,
+			Takes: "how assertions read payloads: `StringDeserializer` and `ByteArrayDeserializer` as text, `KafkaAvroDeserializer` as Avro, whose properties are checked on Avro's text form of the record",
+		},
+		// Confluent serializer settings.
+		{
+			Key: "schema.registry.url", Roles: roleBoth, Registry: true,
+			Takes: "the Schema Registry's URLs, a comma-separated list, which the Avro serializers need; `user:password@` in a URL signs in with basic auth",
+			Set:   func(c *clientSpec, v string) error { c.Registry.URLs = splitList(v); return nil },
+		},
+		{
+			Key: "basic.auth.credentials.source", Roles: roleBoth, Registry: true, Values: credentialSources, Default: "URL",
+			Takes: "where the registry's basic auth credentials come from: the `URL`, `basic.auth.user.info` (`USER_INFO`), or the SASL username and password (`SASL_INHERIT`)",
 			Set: func(c *clientSpec, v string) error {
-				p, err := oneOf(v, "PLAINTEXT", "SSL", "SASL_PLAINTEXT", "SASL_SSL")
-				c.Protocol = p
+				s, err := oneOf(v, credentialSources...)
+				c.Registry.CredentialsFrom = s
 				return err
 			},
 		},
 		{
-			Key: "sasl.mechanism", Roles: roleBoth, Doc: "`PLAIN`, `SCRAM-SHA-256` or `SCRAM-SHA-512` (GSSAPI and OAUTHBEARER are not supported).",
+			Key: "basic.auth.user.info", Roles: roleBoth, Registry: true,
+			Takes: "`user:password` for the registry, with `basic.auth.credentials.source=USER_INFO`",
+			Set:   func(c *clientSpec, v string) error { c.Registry.UserInfo = v; return nil },
+		},
+		{
+			Key: "schema.registry.basic.auth.user.info", Roles: roleBoth, Registry: true,
+			Takes: "the older name of `basic.auth.user.info`",
+			Set:   func(c *clientSpec, v string) error { c.Registry.UserInfo = v; return nil },
+		},
+		{
+			Key: "bearer.auth.credentials.source", Roles: roleBoth, Registry: true, Values: []string{"STATIC_TOKEN"},
+			Takes: "where the registry's bearer token comes from: only `STATIC_TOKEN`, the `bearer.auth.token`",
+			Set: func(_ *clientSpec, v string) error {
+				_, err := oneOf(v, "STATIC_TOKEN")
+				return err
+			},
+		},
+		{
+			Key: "bearer.auth.token", Roles: roleBoth, Registry: true,
+			Takes: "a bearer token for the registry",
+			Set:   func(c *clientSpec, v string) error { c.Registry.BearerToken = v; return nil },
+		},
+		{
+			Key: "auto.register.schemas", Roles: roleProducer, Registry: true, Default: "true",
+			Takes: "`true` registers the schema under its subject; `false` looks its ID up, and fails if it is not registered",
 			Set: func(c *clientSpec, v string) error {
-				m, err := oneOf(v, "PLAIN", "SCRAM-SHA-256", "SCRAM-SHA-512")
-				c.SASLMechanism = m
+				b, err := parseBool(v)
+				c.Registry.AutoRegister = b
+				return err
+			},
+		},
+		{
+			Key: "use.latest.version", Roles: roleProducer, Registry: true, Default: "false",
+			Takes: "`true` writes with the subject's latest schema and its ID, with `auto.register.schemas=false`",
+			Set: func(c *clientSpec, v string) error {
+				b, err := parseBool(v)
+				c.Registry.UseLatest = b
+				return err
+			},
+		},
+		{
+			Key: "normalize.schemas", Roles: roleProducer, Registry: true, Default: "false",
+			Takes: "`true` has the registry normalize the schema when registering it or looking it up",
+			Set: func(c *clientSpec, v string) error {
+				b, err := parseBool(v)
+				c.Registry.Normalize = b
+				return err
+			},
+		},
+		{
+			Key: "use.schema.id", Roles: roleProducer, Registry: true,
+			Takes: "the ID of the schema to write with, with `auto.register.schemas=false`",
+			Set: func(c *clientSpec, v string) error {
+				n, err := strconv.Atoi(strings.TrimSpace(v))
 				if err != nil {
-					return fmt.Errorf("%w (GSSAPI and OAUTHBEARER are not supported)", err)
+					return fmt.Errorf("expected a schema ID, got %q", v)
+				}
+				c.Registry.UseSchemaID = n
+				return nil
+			},
+		},
+		{
+			Key: "key.subject.name.strategy", Roles: roleProducer, Registry: true, Values: subjectStrategies, Default: topicNameStrategy,
+			Takes: "the subject of a key's schema: `<topic>-key` (`TopicNameStrategy`); the record strategies fail, since a key is an Avro string",
+			Set:   func(c *clientSpec, v string) error { return setStrategy(&c.Registry.KeyStrategy, v) },
+		},
+		{
+			Key: "value.subject.name.strategy", Roles: roleProducer, Registry: true, Values: subjectStrategies, Default: topicNameStrategy,
+			Takes: "the subject of a payload's schema: `<topic>-value` (`TopicNameStrategy`), the record's full name (`RecordNameStrategy`), or `<topic>-<full name>` (`TopicRecordNameStrategy`)",
+			Set:   func(c *clientSpec, v string) error { return setStrategy(&c.Registry.ValueStrategy, v) },
+		},
+		{
+			Key: "schema.reflection", Roles: roleBoth, Registry: true, Values: []string{"false"},
+			Takes: "only `false`: reflection needs Java classes",
+			Set: func(_ *clientSpec, v string) error {
+				if b, err := parseBool(v); err != nil || b {
+					return fmt.Errorf("schema.reflection=%s is not supported: reflection needs Java classes", v)
 				}
 				return nil
 			},
 		},
 		{
-			Key: "sasl.jaas.config", Roles: roleBoth, Doc: "The `username` and `password` of a `PlainLoginModule` or `ScramLoginModule` entry.",
-			Set: func(c *clientSpec, v string) error { c.JAAS = v; return nil },
-		},
-		{
-			Key: "ssl.truststore.location", Roles: roleBoth, Type: "filepath", Doc: "CA certificates (JKS, PKCS12 or PEM file, resolved against `resources`).",
-			Set: func(c *clientSpec, v string) error { c.TLS.TruststoreLocation = v; return nil },
-		},
-		{
-			Key: "ssl.truststore.password", Roles: roleBoth, Doc: "Truststore password (optional for JKS, as in Java).",
-			Set: func(c *clientSpec, v string) error { c.TLS.TruststorePassword = v; return nil },
-		},
-		{
-			Key: "ssl.truststore.type", Roles: roleBoth, Doc: "`JKS` (default), `PKCS12` or `PEM`; JKS and PKCS12 files are recognized by content.",
-			Set: func(c *clientSpec, v string) error {
-				t, err := oneOf(v, "JKS", "PKCS12", "PEM")
-				c.TLS.TruststoreType = t
-				return err
+			Key: "specific.avro.reader", Roles: roleConsumer, Registry: true, Values: []string{"false"},
+			Takes: "only `false`: axx has no generated classes and reads generic records",
+			Set: func(_ *clientSpec, v string) error {
+				if b, err := parseBool(v); err != nil || b {
+					return fmt.Errorf("specific.avro.reader=%s is not supported: axx reads generic records", v)
+				}
+				return nil
 			},
 		},
+		// Producer.
 		{
-			Key: "ssl.truststore.certificates", Roles: roleBoth, Doc: "Inline PEM CA certificates.",
-			Set: func(c *clientSpec, v string) error { c.TLS.TruststoreCerts = v; return nil },
-		},
-		{
-			Key: "ssl.keystore.location", Roles: roleBoth, Type: "filepath", Doc: "Client certificate and key (JKS, PKCS12 or PEM file) for mutual TLS.",
-			Set: func(c *clientSpec, v string) error { c.TLS.KeystoreLocation = v; return nil },
-		},
-		{
-			Key: "ssl.keystore.password", Roles: roleBoth, Doc: "Keystore password.",
-			Set: func(c *clientSpec, v string) error { c.TLS.KeystorePassword = v; return nil },
-		},
-		{
-			Key: "ssl.key.password", Roles: roleBoth, Doc: "Private key password (JKS key entries, encrypted PEM keys); defaults to the keystore password.",
-			Set: func(c *clientSpec, v string) error { c.TLS.KeyPassword = v; return nil },
-		},
-		{
-			Key: "ssl.keystore.type", Roles: roleBoth, Doc: "`JKS` (default), `PKCS12` or `PEM`.",
+			Key: "acks", Roles: roleProducer, Values: ackValues, Default: "all",
+			Takes: "the acknowledgements a publish waits for: from every in-sync replica (`all`, `-1`), from none (`0`) or from the leader (`1`); `0` and `1` turn idempotence off unless `enable.idempotence` is set, as in Java",
 			Set: func(c *clientSpec, v string) error {
-				t, err := oneOf(v, "JKS", "PKCS12", "PEM")
-				c.TLS.KeystoreType = t
-				return err
-			},
-		},
-		{
-			Key: "ssl.keystore.key", Roles: roleBoth, Doc: "Inline PEM private key (with `ssl.keystore.certificate.chain`).",
-			Set: func(c *clientSpec, v string) error { c.TLS.KeystoreKey = v; return nil },
-		},
-		{
-			Key: "ssl.keystore.certificate.chain", Roles: roleBoth, Doc: "Inline PEM certificate chain.",
-			Set: func(c *clientSpec, v string) error { c.TLS.KeystoreChain = v; return nil },
-		},
-		{
-			Key: "ssl.endpoint.identification.algorithm", Roles: roleBoth, Doc: "`https` (default) verifies the broker host name; empty skips that check (the chain is still verified).",
-			Set: func(c *clientSpec, v string) error { v = strings.TrimSpace(v); c.TLS.EndpointID = &v; return nil },
-		},
-		{
-			Key: "ssl.protocol", Roles: roleBoth, Doc: "`TLSv1.2` or `TLSv1.3` sets the minimum TLS version (`TLS` allows both).",
-			Set: func(c *clientSpec, v string) error { c.TLS.Protocol = strings.TrimSpace(v); return nil },
-		},
-		{
-			Key: "ssl.enabled.protocols", Roles: roleBoth, Doc: "Limits TLS versions to the listed `TLSv1.2`/`TLSv1.3`.",
-			Set: func(c *clientSpec, v string) error { c.TLS.EnabledProtocols = splitList(v); return nil },
-		},
-		{Key: "metadata.max.age.ms", Roles: roleBoth, Doc: "`kgo.MetadataMaxAge`."},
-		{Key: "connections.max.idle.ms", Roles: roleBoth, Doc: "`kgo.ConnIdleTimeout`."},
-		{Key: "socket.connection.setup.timeout.ms", Roles: roleBoth, Doc: "`kgo.DialTimeout`."},
-		{Key: "request.timeout.ms", Roles: roleBoth, Doc: "Producer: `kgo.ProduceRequestTimeout`; consumer: `kgo.RequestTimeoutOverhead`."},
-		{Key: "retry.backoff.ms", Roles: roleBoth, Doc: "Constant `kgo.RetryBackoffFn`."},
-		{
-			Key: "allow.auto.create.topics", Roles: roleConsumer, Doc: "`true` (default) lets reading a missing topic create it (`kgo.AllowAutoTopicCreation`). Producers always may, as in Java.",
-			Set: func(c *clientSpec, v string) error {
-				b, err := parseBool(v)
-				c.AllowAutoCreate = b
-				return err
-			},
-		},
-		{Key: "key.serializer", Roles: roleProducer, Doc: "`StringSerializer` (default), `ByteArraySerializer` (the key text's bytes) or `KafkaAvroSerializer` (the key as an Avro string)."},
-		{Key: "value.serializer", Roles: roleProducer, Doc: "`StringSerializer` (default), `ByteArraySerializer` or `KafkaAvroSerializer` (needed to publish with a schema)."},
-		{Key: "key.deserializer", Roles: roleConsumer, Doc: "`StringDeserializer` (default), `ByteArrayDeserializer` or `KafkaAvroDeserializer`."},
-		{Key: "value.deserializer", Roles: roleConsumer, Doc: "`StringDeserializer` (default), `ByteArrayDeserializer` or `KafkaAvroDeserializer` (payloads are checked against the record's Java `toString()`)."},
-		{
-			Key: "acks", Roles: roleProducer, Doc: "`all`/`-1` (default), `1` or `0` (`kgo.RequiredAcks`); `0` and `1` disable idempotence unless it is set explicitly, as in Java.",
-			Set: func(c *clientSpec, v string) error {
-				a, err := oneOf(v, "all", "-1", "0", "1")
+				a, err := oneOf(v, ackValues...)
 				if a == "-1" {
 					a = "all"
 				}
@@ -351,7 +409,8 @@ func buildPropTable() map[string]propDef {
 			},
 		},
 		{
-			Key: "enable.idempotence", Roles: roleProducer, Doc: "`false` sets `kgo.DisableIdempotentWrite`.",
+			Key: "enable.idempotence", Roles: roleProducer,
+			Takes: "`false` turns idempotent publishing off; it is on by default with `acks=all`, and `true` needs `acks=all`",
 			Set: func(c *clientSpec, v string) error {
 				b, err := parseBool(v)
 				c.Idempotent = &b
@@ -359,16 +418,21 @@ func buildPropTable() map[string]propDef {
 			},
 		},
 		{
-			Key: "compression.type", Roles: roleProducer, Doc: "`none` (default), `gzip`, `snappy`, `lz4` or `zstd` (`kgo.ProducerBatchCompression`).",
+			Key: "compression.type", Roles: roleProducer, Values: compressions, Default: "none",
+			Takes: "how the producer compresses what it sends",
 			Set: func(c *clientSpec, v string) error {
-				t, err := oneOf(v, "none", "gzip", "snappy", "lz4", "zstd")
+				t, err := oneOf(v, compressions...)
 				c.Compression = t
 				return err
 			},
 		},
-		{Key: "linger.ms", Roles: roleProducer, Doc: "`kgo.ProducerLinger` (default 5 ms, as in Java)."},
 		{
-			Key: "max.request.size", Roles: roleProducer, Doc: "`kgo.ProducerBatchMaxBytes`.",
+			Key: "linger.ms", Roles: roleProducer, Default: "5",
+			Takes: "how long the producer waits to fill a batch, in milliseconds, as in Java",
+		},
+		{
+			Key: "max.request.size", Roles: roleProducer,
+			Takes: "the largest batch the producer sends, in bytes",
 			Set: func(c *clientSpec, v string) error {
 				n, err := parseInt32(v)
 				c.MaxRequestSize = n
@@ -376,16 +440,21 @@ func buildPropTable() map[string]propDef {
 			},
 		},
 		{
-			Key: "buffer.memory", Roles: roleProducer, Doc: "`kgo.MaxBufferedBytes`.",
+			Key: "buffer.memory", Roles: roleProducer,
+			Takes: "the most bytes of records the producer holds before they are sent",
 			Set: func(c *clientSpec, v string) error {
 				n, err := parseInt32(v)
 				c.BufferMemory = int(n)
 				return err
 			},
 		},
-		{Key: "delivery.timeout.ms", Roles: roleProducer, Doc: "`kgo.RecordDeliveryTimeout`."},
 		{
-			Key: "retries", Roles: roleProducer, Doc: "`kgo.RecordRetries`.",
+			Key: "delivery.timeout.ms", Roles: roleProducer,
+			Takes: "how long a publish may take, retries included, in milliseconds",
+		},
+		{
+			Key: "retries", Roles: roleProducer,
+			Takes: "how many times a failed publish is retried",
 			Set: func(c *clientSpec, v string) error {
 				n, err := parseInt32(v)
 				i := int(n)
@@ -394,7 +463,8 @@ func buildPropTable() map[string]propDef {
 			},
 		},
 		{
-			Key: "max.in.flight.requests.per.connection", Roles: roleProducer, Doc: "`kgo.MaxProduceRequestsInflightPerBroker`.",
+			Key: "max.in.flight.requests.per.connection", Roles: roleProducer,
+			Takes: "how many publish requests may wait for an answer from a broker at once, with idempotence off",
 			Set: func(c *clientSpec, v string) error {
 				n, err := parseInt32(v)
 				c.MaxInFlight = int(n)
@@ -402,7 +472,8 @@ func buildPropTable() map[string]propDef {
 			},
 		},
 		{
-			Key: "partitioner.class", Roles: roleProducer, Doc: "`DefaultPartitioner` (murmur2 of the key, as by default), `RoundRobinPartitioner` or `UniformStickyPartitioner`; other classes are errors.",
+			Key: "partitioner.class", Roles: roleProducer, Values: partitioners, Default: defaultPartitioner,
+			Takes: "how records are spread over the partitions: by the key's murmur2 hash (`DefaultPartitioner`), in turn (`RoundRobinPartitioner`) or a batch at a time (`UniformStickyPartitioner`); other classes fail the step",
 			Set: func(c *clientSpec, v string) error {
 				switch strings.TrimSpace(v) {
 				case "", defaultPartitioner:
@@ -418,15 +489,18 @@ func buildPropTable() map[string]propDef {
 			},
 		},
 		{
-			Key: "transactional.id", Roles: roleProducer, Doc: "Error: the steps never begin a transaction, so a transactional producer cannot send.",
+			Key: "transactional.id", Roles: roleProducer,
+			Takes: "nothing: it fails the step, since the publish steps run no transactions and a transactional producer cannot send",
 			Set: func(_ *clientSpec, _ string) error {
 				return fmt.Errorf("transactional producers are not supported: the publish steps do not run transactions")
 			},
 		},
+		// Consumer.
 		{
-			Key: "auto.offset.reset", Roles: roleConsumer, Doc: "`earliest` (default): assertions consider every record of the topic; `latest`: only records produced after the assertion starts. `none` is an error.",
+			Key: "auto.offset.reset", Roles: roleConsumer, Values: offsetResets, Default: "earliest",
+			Takes: "the records assertions consider: every record of the topic (`earliest`), or those produced after the assertion starts (`latest`); `none` fails the step, since axx reads without a consumer group",
 			Set: func(c *clientSpec, v string) error {
-				r, err := oneOf(v, "earliest", "latest")
+				r, err := oneOf(v, offsetResets...)
 				c.OffsetReset = r
 				if err != nil {
 					return fmt.Errorf("%w: axx reads topics without a consumer group, so there are no committed offsets", err)
@@ -435,16 +509,30 @@ func buildPropTable() map[string]propDef {
 			},
 		},
 		{
-			Key: "isolation.level", Roles: roleConsumer, Doc: "`read_uncommitted` (default) or `read_committed` (`kgo.FetchIsolationLevel`).",
+			Key: "isolation.level", Roles: roleConsumer, Values: isolationLevels, Default: "read_uncommitted",
+			Takes: "`read_committed` leaves out the records of transactions that are open or were aborted",
 			Set: func(c *clientSpec, v string) error {
-				l, err := oneOf(v, "read_uncommitted", "read_committed")
+				l, err := oneOf(v, isolationLevels...)
 				c.ReadCommitted = l == "read_committed"
 				return err
 			},
 		},
-		{Key: "fetch.max.wait.ms", Roles: roleConsumer, Doc: "`kgo.FetchMaxWait`."},
 		{
-			Key: "fetch.min.bytes", Roles: roleConsumer, Doc: "`kgo.FetchMinBytes`.",
+			Key: "allow.auto.create.topics", Roles: roleConsumer, Default: "true",
+			Takes: "`true` lets reading a topic that does not exist create it; producers always may, as in Java",
+			Set: func(c *clientSpec, v string) error {
+				b, err := parseBool(v)
+				c.AllowAutoCreate = b
+				return err
+			},
+		},
+		{
+			Key: "fetch.max.wait.ms", Roles: roleConsumer,
+			Takes: "how long a broker may wait to fill a fetch, in milliseconds",
+		},
+		{
+			Key: "fetch.min.bytes", Roles: roleConsumer,
+			Takes: "the fewest bytes a broker answers a fetch with",
 			Set: func(c *clientSpec, v string) error {
 				n, err := parseInt32(v)
 				c.FetchMinBytes = n
@@ -452,7 +540,8 @@ func buildPropTable() map[string]propDef {
 			},
 		},
 		{
-			Key: "fetch.max.bytes", Roles: roleConsumer, Doc: "`kgo.FetchMaxBytes`.",
+			Key: "fetch.max.bytes", Roles: roleConsumer,
+			Takes: "the most bytes a broker answers a fetch with",
 			Set: func(c *clientSpec, v string) error {
 				n, err := parseInt32(v)
 				c.FetchMaxBytes = n
@@ -460,105 +549,134 @@ func buildPropTable() map[string]propDef {
 			},
 		},
 		{
-			Key: "max.partition.fetch.bytes", Roles: roleConsumer, Doc: "`kgo.FetchMaxPartitionBytes`.",
+			Key: "max.partition.fetch.bytes", Roles: roleConsumer,
+			Takes: "the most bytes of one partition a broker answers a fetch with",
 			Set: func(c *clientSpec, v string) error {
 				n, err := parseInt32(v)
 				c.PartitionFetch = n
 				return err
 			},
 		},
-		// Confluent serializer settings.
+		// Security.
 		{
-			Key: "schema.registry.url", Roles: roleBoth, Registry: true, Doc: "Schema Registry URLs (comma-separated); required by the Avro (de)serializers. `user:password@` in a URL is used for basic auth.",
-			Set: func(c *clientSpec, v string) error { c.Registry.URLs = splitList(v); return nil },
-		},
-		{
-			Key: "basic.auth.credentials.source", Roles: roleBoth, Registry: true, Doc: "`URL` (default), `USER_INFO` or `SASL_INHERIT` (the SASL username and password).",
+			Key: "security.protocol", Roles: roleBoth, Values: protocols, Default: "PLAINTEXT",
+			Takes: "how the client connects: in plain text or over TLS (`SSL`), and signed in with SASL (`SASL_`) or not",
 			Set: func(c *clientSpec, v string) error {
-				s, err := oneOf(v, "URL", "USER_INFO", "SASL_INHERIT")
-				c.Registry.CredentialsFrom = s
+				p, err := oneOf(v, protocols...)
+				c.Protocol = p
 				return err
 			},
 		},
 		{
-			Key: "basic.auth.user.info", Roles: roleBoth, Registry: true, Doc: "`user:password` for `USER_INFO`.",
-			Set: func(c *clientSpec, v string) error { c.Registry.UserInfo = v; return nil },
-		},
-		{
-			Key: "schema.registry.basic.auth.user.info", Roles: roleBoth, Registry: true, Doc: "Older name of `basic.auth.user.info`.",
-			Set: func(c *clientSpec, v string) error { c.Registry.UserInfo = v; return nil },
-		},
-		{
-			Key: "bearer.auth.credentials.source", Roles: roleBoth, Registry: true, Doc: "Only `STATIC_TOKEN` is supported.",
-			Set: func(_ *clientSpec, v string) error {
-				_, err := oneOf(v, "STATIC_TOKEN")
-				return err
-			},
-		},
-		{
-			Key: "bearer.auth.token", Roles: roleBoth, Registry: true, Doc: "Static bearer token for the registry.",
-			Set: func(c *clientSpec, v string) error { c.Registry.BearerToken = v; return nil },
-		},
-		{
-			Key: "auto.register.schemas", Roles: roleProducer, Registry: true, Doc: "`true` (default) registers the schema under the subject; `false` looks its ID up and fails if it is not registered.",
+			Key: "sasl.mechanism", Roles: roleBoth, Values: saslMechanisms, Default: "PLAIN",
+			Takes: "how the client signs in with SASL; GSSAPI and OAUTHBEARER are not supported",
 			Set: func(c *clientSpec, v string) error {
-				b, err := parseBool(v)
-				c.Registry.AutoRegister = b
-				return err
-			},
-		},
-		{
-			Key: "use.latest.version", Roles: roleProducer, Registry: true, Doc: "With `auto.register.schemas=false`, writes with the subject's latest schema and ID.",
-			Set: func(c *clientSpec, v string) error {
-				b, err := parseBool(v)
-				c.Registry.UseLatest = b
-				return err
-			},
-		},
-		{
-			Key: "normalize.schemas", Roles: roleProducer, Registry: true, Doc: "Passes `normalize=true` when registering or looking up.",
-			Set: func(c *clientSpec, v string) error {
-				b, err := parseBool(v)
-				c.Registry.Normalize = b
-				return err
-			},
-		},
-		{
-			Key: "use.schema.id", Roles: roleProducer, Registry: true, Doc: "Writes with this schema ID (with `auto.register.schemas=false`).",
-			Set: func(c *clientSpec, v string) error {
-				n, err := strconv.Atoi(strings.TrimSpace(v))
+				m, err := oneOf(v, saslMechanisms...)
+				c.SASLMechanism = m
 				if err != nil {
-					return fmt.Errorf("expected a schema ID, got %q", v)
-				}
-				c.Registry.UseSchemaID = n
-				return nil
-			},
-		},
-		{
-			Key: "key.subject.name.strategy", Roles: roleProducer, Registry: true, Doc: "`TopicNameStrategy` (default: `<topic>-key`), `RecordNameStrategy` or `TopicRecordNameStrategy`.",
-			Set: func(c *clientSpec, v string) error { return setStrategy(&c.Registry.KeyStrategy, v) },
-		},
-		{
-			Key: "value.subject.name.strategy", Roles: roleProducer, Registry: true, Doc: "Same choices; the default subject is `<topic>-value`.",
-			Set: func(c *clientSpec, v string) error { return setStrategy(&c.Registry.ValueStrategy, v) },
-		},
-		{
-			Key: "schema.reflection", Roles: roleBoth, Registry: true, Doc: "Only `false`: reflection needs Java classes.",
-			Set: func(_ *clientSpec, v string) error {
-				if b, err := parseBool(v); err != nil || b {
-					return fmt.Errorf("schema.reflection=%s is not supported: reflection needs Java classes", v)
+					return fmt.Errorf("%w (GSSAPI and OAUTHBEARER are not supported)", err)
 				}
 				return nil
 			},
 		},
 		{
-			Key: "specific.avro.reader", Roles: roleConsumer, Registry: true, Doc: "Only `false`: axx has no generated classes and reads generic records.",
-			Set: func(_ *clientSpec, v string) error {
-				if b, err := parseBool(v); err != nil || b {
-					return fmt.Errorf("specific.avro.reader=%s is not supported: axx reads generic records", v)
-				}
-				return nil
+			Key: "sasl.jaas.config", Roles: roleBoth,
+			Takes: "the username and password the client signs in with, in a `PlainLoginModule` or `ScramLoginModule` entry; a `SASL_` protocol needs it",
+			Set:   func(c *clientSpec, v string) error { c.JAAS = v; return nil },
+		},
+		{
+			Key: "ssl.truststore.location", Roles: roleBoth, Type: "filepath",
+			Takes: "the CA certificates the client trusts: a JKS, PKCS12 or PEM file, resolved against `resources`",
+			Set:   func(c *clientSpec, v string) error { c.TLS.TruststoreLocation = v; return nil },
+		},
+		{
+			Key: "ssl.truststore.password", Roles: roleBoth,
+			Takes: "the truststore's password, which a JKS file may do without, as in Java",
+			Set:   func(c *clientSpec, v string) error { c.TLS.TruststorePassword = v; return nil },
+		},
+		{
+			Key: "ssl.truststore.type", Roles: roleBoth, Values: storeTypes, Default: "JKS",
+			Takes: "the truststore's format, for a file axx does not recognize by its content as JKS, PKCS12 or PEM",
+			Set: func(c *clientSpec, v string) error {
+				t, err := oneOf(v, storeTypes...)
+				c.TLS.TruststoreType = t
+				return err
 			},
+		},
+		{
+			Key: "ssl.truststore.certificates", Roles: roleBoth,
+			Takes: "CA certificates the client trusts, in PEM, written in the cell",
+			Set:   func(c *clientSpec, v string) error { c.TLS.TruststoreCerts = v; return nil },
+		},
+		{
+			Key: "ssl.keystore.location", Roles: roleBoth, Type: "filepath",
+			Takes: "the client's certificate and key, for mutual TLS: a JKS, PKCS12 or PEM file, resolved against `resources`",
+			Set:   func(c *clientSpec, v string) error { c.TLS.KeystoreLocation = v; return nil },
+		},
+		{
+			Key: "ssl.keystore.password", Roles: roleBoth,
+			Takes: "the keystore's password",
+			Set:   func(c *clientSpec, v string) error { c.TLS.KeystorePassword = v; return nil },
+		},
+		{
+			Key: "ssl.key.password", Roles: roleBoth,
+			Takes: "the private key's password, for JKS key entries and encrypted PEM keys; the keystore's password by default",
+			Set:   func(c *clientSpec, v string) error { c.TLS.KeyPassword = v; return nil },
+		},
+		{
+			Key: "ssl.keystore.type", Roles: roleBoth, Values: storeTypes, Default: "JKS",
+			Takes: "the keystore's format, for a file axx does not recognize by its content as JKS, PKCS12 or PEM",
+			Set: func(c *clientSpec, v string) error {
+				t, err := oneOf(v, storeTypes...)
+				c.TLS.KeystoreType = t
+				return err
+			},
+		},
+		{
+			Key: "ssl.keystore.key", Roles: roleBoth,
+			Takes: "the client's private key, in PEM, written in the cell; with `ssl.keystore.certificate.chain`",
+			Set:   func(c *clientSpec, v string) error { c.TLS.KeystoreKey = v; return nil },
+		},
+		{
+			Key: "ssl.keystore.certificate.chain", Roles: roleBoth,
+			Takes: "the client's certificate chain, in PEM, written in the cell",
+			Set:   func(c *clientSpec, v string) error { c.TLS.KeystoreChain = v; return nil },
+		},
+		{
+			Key: "ssl.endpoint.identification.algorithm", Roles: roleBoth, Default: "https",
+			Takes: "`https` checks the broker's host name against its certificate; an empty value skips that check, and the certificate is still verified",
+			Set:   func(c *clientSpec, v string) error { v = strings.TrimSpace(v); c.TLS.EndpointID = &v; return nil },
+		},
+		{
+			Key: "ssl.protocol", Roles: roleBoth, Values: tlsVersions, Default: "TLSv1.2",
+			Takes: "the oldest TLS version the client accepts; `TLS` is `TLSv1.2`",
+			Set:   func(c *clientSpec, v string) error { c.TLS.Protocol = strings.TrimSpace(v); return nil },
+		},
+		{
+			Key: "ssl.enabled.protocols", Roles: roleBoth,
+			Takes: "the TLS versions the client may use, a comma-separated list of `TLSv1.2` and `TLSv1.3`; older versions are left out",
+			Set:   func(c *clientSpec, v string) error { c.TLS.EnabledProtocols = splitList(v); return nil },
+		},
+		// Timing.
+		{
+			Key: "metadata.max.age.ms", Roles: roleBoth,
+			Takes: "how often the client refreshes what it knows of the cluster, in milliseconds; assertions refresh every 5 seconds without it",
+		},
+		{
+			Key: "connections.max.idle.ms", Roles: roleBoth,
+			Takes: "how long a connection may stay idle before the client closes it, in milliseconds",
+		},
+		{
+			Key: "socket.connection.setup.timeout.ms", Roles: roleBoth,
+			Takes: "how long connecting to a broker may take, in milliseconds",
+		},
+		{
+			Key: "request.timeout.ms", Roles: roleBoth,
+			Takes: "how long a broker has to answer a request, in milliseconds",
+		},
+		{
+			Key: "retry.backoff.ms", Roles: roleBoth,
+			Takes: "how long the client waits before it retries a request, in milliseconds",
 		},
 	}
 	// Durations need the target field, which setMillis closes over per spec.
@@ -578,20 +696,27 @@ func buildPropTable() map[string]propDef {
 		"key.deserializer":   func(c *clientSpec) *serde { return &c.Key },
 		"value.deserializer": func(c *clientSpec) *serde { return &c.Value },
 	}
-	out := map[string]propDef{}
-	for _, d := range defs {
+	for i, d := range defs {
 		if f, ok := durations[d.Key]; ok {
-			d.Set = func(c *clientSpec, v string) error { return setMillis(f(c))(c, v) }
+			defs[i].Set = func(c *clientSpec, v string) error { return setMillis(f(c))(c, v) }
 		}
 		if f, ok := serdes[d.Key]; ok {
 			deser := strings.HasSuffix(d.Key, "deserializer")
-			d.Set = func(c *clientSpec, v string) error { return setSerde(f(c), v, deser) }
+			defs[i].Set = func(c *clientSpec, v string) error { return setSerde(f(c), v, deser) }
 		}
+	}
+	return defs
+}
+
+// indexProps indexes the translated properties and the ignored ones by key.
+func indexProps(defs []propDef) map[string]propDef {
+	out := map[string]propDef{}
+	for _, d := range defs {
 		out[d.Key] = d
 	}
 	for _, ig := range ignoredProps {
 		for _, k := range ig.keys {
-			out[k] = propDef{Key: k, Roles: ig.roles, Doc: ig.why, Registry: ig.registry}
+			out[k] = propDef{Key: k, Roles: ig.roles, Takes: ig.why, Registry: ig.registry}
 		}
 	}
 	return out
@@ -640,14 +765,14 @@ var ignoredProps = []struct {
 			"max.poll.records", "partition.assignment.strategy", "internal.leave.group.on.close", "exclude.internal.topics",
 			"default.api.timeout.ms", "client.rack", "check.crcs", "internal.throw.on.fetch.stable.offset.unsupported",
 		},
-		roleConsumer, "No effect: axx reads each topic from the start without a consumer group and never commits offsets.", false,
+		roleConsumer, "axx reads each topic from the start without a consumer group, and never commits offsets", false,
 	},
 	{
 		[]string{
 			"batch.size", "max.block.ms", "metadata.max.idle.ms", "partitioner.ignore.keys", "partitioner.adaptive.partitioning.enable",
 			"partitioner.availability.timeout.ms", "transaction.timeout.ms", "compression.gzip.level", "compression.lz4.level", "compression.zstd.level",
 		},
-		roleProducer, "No effect: franz-go sizes batches by `max.request.size` and publishes each event synchronously.", false,
+		roleProducer, "axx sizes batches by `max.request.size`, and publishes one event at a time", false,
 	},
 	{
 		[]string{
@@ -661,14 +786,14 @@ var ignoredProps = []struct {
 			"key.serializer.encoding", "value.serializer.encoding", "serializer.encoding",
 			"key.deserializer.encoding", "value.deserializer.encoding", "deserializer.encoding",
 		},
-		roleBoth, "No effect: Java tuning without a franz-go counterpart (strings are always UTF-8).", false,
+		roleBoth, "they tune Java, and axx has no counterpart for them; its text is always UTF-8", false,
 	},
 	{
 		[]string{
 			"latest.compatibility.strict", "id.compatibility.strict", "avro.remove.java.properties", "avro.use.logical.type.converters",
 			"avro.reflection.allow.null", "max.schemas.per.subject", "use.latest.with.metadata", "auto.register.schemas.retry",
 		},
-		roleBoth, "No effect: axx writes and reads generic Avro records as described above.", true,
+		roleBoth, "axx writes and reads generic Avro records", true,
 	},
 }
 
@@ -801,56 +926,65 @@ func splitList(v string) []string {
 	return out
 }
 
-// propDoc renders the translation table for the pack documentation.
-func propDoc() string {
-	keys := make([]string, 0, len(propTable))
-	for k, d := range propTable {
-		if d.Set != nil || !isIgnored(k) {
-			keys = append(keys, k)
+// prefix is how a row of the topic client's table names a property of
+// the role: "<client>." stands for either prefix.
+func (r role) prefix() string {
+	switch r {
+	case roleProducer:
+		return "producer."
+	case roleConsumer:
+		return "consumer."
+	}
+	return "<client>."
+}
+
+// clientTable is what the topic client step's table holds, for the
+// reference: every property axx applies, from propList.
+func clientTable() *core.TableDoc {
+	var rows []core.TableRow
+	for i, d := range propList {
+		rows = append(rows, core.TableRow{Name: d.Roles.prefix() + d.Key, Takes: d.Takes, Values: d.Values, Default: d.Default})
+		if d.Registry && (i+1 == len(propList) || !propList[i+1].Registry) {
+			rows = append(rows, core.TableRow{
+				Name:  "<client>.schema.registry.ssl.<property>",
+				Takes: "an `ssl.` property of this table, for HTTPS to the Schema Registry",
+			})
 		}
 	}
-	sort.Slice(keys, func(i, j int) bool {
-		a, b := propTable[keys[i]], propTable[keys[j]]
-		if a.Registry != b.Registry {
-			return !a.Registry
-		}
-		return keys[i] < keys[j]
-	})
+	for _, r := range []role{roleProducer, roleConsumer} {
+		rows = append(rows, core.TableRow{
+			Name: r.String() + ".<property>",
+			Takes: "any other Java " + r.String() + " property: those the pack's description lists have no effect or fail the step, " +
+				"and the others are ignored, with a warning",
+		})
+	}
+	return &core.TableDoc{
+		Columns: []string{"property", "value"},
+		Rows:    rows,
+		Note: "`<client>` is `producer`, for publishing, or `consumer`, for assertions: axx applies the Java Kafka client property " +
+			"after the prefix to that client. Values are expanded (`${env:..}`, `${sys:..}`); an empty value fails the step, " +
+			"and a row with neither prefix is ignored, with a warning.",
+	}
+}
+
+// otherPropsDoc lists, for the pack's description, the Java properties
+// axx accepts without effect and those it rejects.
+func otherPropsDoc() string {
 	var b strings.Builder
-	b.WriteString("| Property | Client | In axx |\n| --- | --- | --- |\n")
-	for _, k := range keys {
-		d := propTable[k]
-		fmt.Fprintf(&b, "| `%s` | %s | %s |\n", k, d.Roles, d.Doc)
-	}
-	b.WriteString("| `schema.registry.ssl.*` | producer, consumer | The `ssl.*` settings above, for HTTPS to the Schema Registry. |\n")
-	b.WriteString("\nAccepted without effect: ")
-	for i, ig := range ignoredProps {
-		if i > 0 {
-			b.WriteString(" ")
-		}
+	b.WriteString("Java client properties axx accepts without effect:\n\n")
+	for _, ig := range ignoredProps {
 		quoted := make([]string, len(ig.keys))
 		for j, k := range ig.keys {
 			quoted[j] = "`" + k + "`"
 		}
-		b.WriteString(strings.Join(quoted, ", ") + " (" + strings.TrimSuffix(strings.TrimPrefix(ig.why, "No effect: "), ".") + ").")
+		fmt.Fprintf(&b, "- %s: %s.\n", strings.Join(quoted, ", "), ig.why)
 	}
 	rejected := make([]string, 0, len(rejectedProps))
 	for k := range rejectedProps {
 		rejected = append(rejected, "`"+k+"`")
 	}
 	sort.Strings(rejected)
-	b.WriteString("\n\nRejected (they name Java classes): " + strings.Join(rejected, ", ") +
-		", `metric.reporters` other than JmxReporter, and any unknown `*.class`/`*.classes` property. Other unknown properties are logged as warnings and ignored.")
+	b.WriteString("\nThose that fail the step, since they name Java classes: " + strings.Join(rejected, ", ") +
+		", `metric.reporters` other than JmxReporter, and any other `*.class` or `*.classes` property.")
 	return b.String()
-}
-
-func isIgnored(k string) bool {
-	for _, ig := range ignoredProps {
-		for _, x := range ig.keys {
-			if x == k {
-				return true
-			}
-		}
-	}
-	return false
 }

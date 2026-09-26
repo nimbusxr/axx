@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Parcel PX-4101</title><link rel="icon" href="data:,"></head>
+<body>
+  <h1>Parcel PX-4101</h1>
+  <p id="estimate">Working out when your parcel arrives</p>
+  <p id="status"></p>
+  <button type="button" id="again">Ask again</button>
+  <script>
+    const estimate = async () => {
+      document.getElementById('estimate').textContent = 'Working out when your parcel arrives';
+      let r;
+      try {
+        r = await fetch('/api/estimate?ref=PX-4101');
+      } catch {
+        document.getElementById('estimate').textContent = 'No estimate: the service cannot be reached';
+        return;
+      }
+      if (!r.ok) {
+        document.getElementById('estimate').textContent = 'No estimate right now (' + r.status + ')';
+        return;
+      }
+      const e = await r.json();
+      document.getElementById('estimate').textContent = 'Arrives on ' + e.arrives;
+    };
+    document.getElementById('again').addEventListener('click', estimate);
+    estimate();
+    const live = new WebSocket(location.origin.replace(/^http/, 'ws') + '/live');
+    live.onopen = () => live.send(JSON.stringify({ follow: 'PX-4101' }));
+    live.onclose = (e) => { document.getElementById('status').textContent = 'Live updates stopped (' + e.code + ')'; };
+    live.onmessage = (m) => { document.getElementById('status').textContent = 'Status: ' + JSON.parse(m.data).status; };
+  </script>
+</body>
+</html>

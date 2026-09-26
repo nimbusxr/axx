@@ -207,7 +207,7 @@ func TestCatalogCompiles(t *testing.T) {
 	}
 	must(t, r.AddParams("catalog", params))
 	must(t, r.AddSteps("catalog", steps))
-	if got := len(r.Defs()); got != 219 {
-		t.Fatalf("compiled %d catalog steps, want 219", got)
+	if got := len(r.Defs()); got != len(steps) {
+		t.Fatalf("compiled %d catalog steps, want %d", got, len(steps))
 	}
 }

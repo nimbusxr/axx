@@ -115,6 +115,15 @@ services:
       start_period: 5s
     stop_signal: SIGKILL
 
+  # The export folder the service writes the manifests' documents to (./exports, the
+  # exports folder in the features), emptied for every run so that no document of an
+  # earlier run passes a check, and writable by the service's non-root user.
+  exports:
+    image: 'busybox:1.37'
+    volumes:
+      - './exports:/exports'
+    command: ['sh', '-c', 'rm -rf /exports/* && chmod 777 /exports']
+
   # The system under test, built from ../app. Its defaults reach the ports above on
   # localhost (for running it on the host); here it uses the compose service names.
   app:
@@ -127,12 +136,17 @@ services:
       PARCELS_ADDRESS_URL: http://address-service:8080
       PARCELS_KAFKA_BROKERS: kafka:9094
       PARCELS_SCHEMA_REGISTRY_URL: http://schema-registry:8081
+      PARCELS_EXPORT_DIR: /var/lib/parcels/exports
       # Every log line also goes to the log service axx runs on the host (the
       # parcels log in the features); host-gateway makes the name work on Linux.
       PARCELS_LOG_UDP: host.docker.internal:5140
+    volumes:
+      - './exports:/var/lib/parcels/exports'
     extra_hosts:
       - host.docker.internal:host-gateway
     depends_on:
+      exports:
+        condition: service_completed_successfully
       address-service:
         condition: service_healthy
       postgres:

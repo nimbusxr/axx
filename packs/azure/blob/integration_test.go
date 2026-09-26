@@ -4,6 +4,7 @@ package azureblob
 
 import (
 	"context"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -37,6 +38,20 @@ func TestBlobs(t *testing.T) {
 	h.OK("the incoming/DEC-1.json blob in the declarations blob container has the following properties:", [][]string{
 		{"declaration", "DEC-1"}, {"goods[0].hs", "610910"},
 	})
+
+	// The text of a PDF and the rows of a CSV file.
+	pdf, err := os.ReadFile("../../../internal/filecontent/testdata/customs-declaration.pdf")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := st.Put(ctx, "declarations", "cn23/PX-CUS-6003.pdf", pdf, "application/pdf"); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.Put(ctx, "declarations", "goods/DEC-1.tsv", []byte("hs\tvalue\n610910\t49.50\n"), "text/tab-separated-values"); err != nil {
+		t.Fatal(err)
+	}
+	h.OK(`the cn23/PX-CUS-6003.pdf blob in the declarations blob container contains "Customs declaration CN23 for parcel PX-CUS-6003"`)
+	h.OK("the goods/DEC-1.tsv blob in the declarations blob container has a row where:", [][]string{{"hs", "610910"}, {"value", "49.50"}})
 	go func() {
 		time.Sleep(time.Second)
 		_ = st.Put(ctx, "declarations", "clearances/DEC-1.json", []byte(`{"cleared":true}`), "application/json")

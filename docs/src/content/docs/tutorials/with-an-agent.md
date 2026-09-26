@@ -18,7 +18,7 @@ axx skills install
 ```
 
 ```console
-installed 4 skills to .agents/skills (22 files updated)
+installed 4 skills to .agents/skills (14 files updated)
 linked for Claude Code in .claude/skills
 ```
 

@@ -33,9 +33,9 @@ const configSchema = `{
   "type": "object",
   "additionalProperties": false,
   "properties": {
-    "timeout": {"type": "string", "description": "How long a consumer assertion waits for a matching record, e.g. 30s (the default)."},
+    "timeout": {"type": "string", "description": "How long a consumer assertion waits for a matching record, like 45s (default 30s)."},
     "maxRecords": {"type": "integer", "minimum": 1, "description": "Records kept in memory per topic (default 100000); older records are dropped and can no longer match."},
-    "lenientUnions": {"type": "boolean", "description": "Accept Avro union values written without their {\"<branch>\": value} wrapper when exactly one branch fits (default false: Avro's JSON encoding needs the wrapper)."}
+    "lenientUnions": {"type": "boolean", "description": "Accept Avro union values written without their {\"branch type\": value} wrapper when exactly one branch fits; Avro's JSON encoding needs the wrapper (default false)."}
   }
 }`
 

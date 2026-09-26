@@ -1,0 +1,190 @@
+[
+ {
+  "scriptId": "6",
+  "url": "http://localhost:63482/dist/bundle.js",
+  "source": "(()=\u003e{function r(t){return t\u003c1?Math.round(t*1e3)+\" g\":t.toFixed(1)+\" kg\"}function n(t){switch(t){case\"in_transit\":return\"In transit\";case\"delivered\":return\"Delivered\";default:return\"Returned to sender\"}}var u={\"PX-1042\":{weight:.4,status:\"in_transit\"},\"PX-2077\":{weight:12.5,status:\"delivered\"}};function i(t){let e=u[t];return e?n(e.status)+\", \"+r(e.weight):\"No parcel \"+t}document.getElementById(\"track\").addEventListener(\"click\",()=\u003e{let t=document.getElementById(\"code\").value;document.getElementById(\"result\").textContent=i(t)});})();\n//# sourceMappingURL=bundle.js.map\n",
+  "hash": "7c93aa62f018e7798f090b10d12e7eae505e8b7b25ff489625814eb7c3f1ee65",
+  "functions": [
+   {
+    "functionName": "",
+    "ranges": [
+     {
+      "startOffset": 0,
+      "endOffset": 575,
+      "count": 1
+     }
+    ],
+    "isBlockCoverage": true
+   },
+   {
+    "functionName": "",
+    "ranges": [
+     {
+      "startOffset": 1,
+      "endOffset": 535,
+      "count": 1
+     }
+    ],
+    "isBlockCoverage": true
+   },
+   {
+    "functionName": "r",
+    "ranges": [
+     {
+      "startOffset": 6,
+      "endOffset": 73,
+      "count": 1
+     },
+     {
+      "startOffset": 30,
+      "endOffset": 53,
+      "count": 0
+     }
+    ],
+    "isBlockCoverage": true
+   },
+   {
+    "functionName": "n",
+    "ranges": [
+     {
+      "startOffset": 73,
+      "endOffset": 203,
+      "count": 1
+     },
+     {
+      "startOffset": 97,
+      "endOffset": 133,
+      "count": 0
+     },
+     {
+      "startOffset": 167,
+      "endOffset": 201,
+      "count": 0
+     }
+    ],
+    "isBlockCoverage": true
+   },
+   {
+    "functionName": "i",
+    "ranges": [
+     {
+      "startOffset": 296,
+      "endOffset": 374,
+      "count": 1
+     },
+     {
+      "startOffset": 358,
+      "endOffset": 373,
+      "count": 0
+     }
+    ],
+    "isBlockCoverage": true
+   },
+   {
+    "functionName": "",
+    "ranges": [
+     {
+      "startOffset": 432,
+      "endOffset": 532,
+      "count": 1
+     }
+    ],
+    "isBlockCoverage": true
+   }
+  ]
+ },
+ {
+  "scriptId": "82",
+  "url": "http://localhost:63482/dist/bundle.dev.js",
+  "source": "(() =\u003e {\n  // site-src/format.ts\n  function formatWeight(kg) {\n    if (kg \u003c 1) {\n      return Math.round(kg * 1e3) + \" g\";\n    }\n    return kg.toFixed(1) + \" kg\";\n  }\n\n  // site-src/status.ts\n  function statusLabel(status) {\n    switch (status) {\n      case \"in_transit\":\n        return \"In transit\";\n      case \"delivered\":\n        return \"Delivered\";\n      default:\n        return \"Returned to sender\";\n    }\n  }\n\n  // site-src/main.ts\n  var parcels = {\n    \"PX-1042\": { weight: 0.4, status: \"in_transit\" },\n    \"PX-2077\": { weight: 12.5, status: \"delivered\" }\n  };\n  function track(code) {\n    const parcel = parcels[code];\n    if (!parcel) {\n      return \"No parcel \" + code;\n    }\n    return statusLabel(parcel.status) + \", \" + formatWeight(parcel.weight);\n  }\n  document.getElementById(\"track\").addEventListener(\"click\", () =\u003e {\n    const code = document.getElementById(\"code\").value;\n    document.getElementById(\"result\").textContent = track(code);\n  });\n})();\n//# sourceMappingURL=bundle.dev.js.map\n",
+  "hash": "e9515c8b5a96b29015fc86ea288f2074e489b49544f33e92820c86cb05884998",
+  "functions": [
+   {
+    "functionName": "",
+    "ranges": [
+     {
+      "startOffset": 0,
+      "endOffset": 1007,
+      "count": 1
+     }
+    ],
+    "isBlockCoverage": true
+   },
+   {
+    "functionName": "",
+    "ranges": [
+     {
+      "startOffset": 1,
+      "endOffset": 963,
+      "count": 1
+     }
+    ],
+    "isBlockCoverage": true
+   },
+   {
+    "functionName": "formatWeight",
+    "ranges": [
+     {
+      "startOffset": 35,
+      "endOffset": 166,
+      "count": 1
+     },
+     {
+      "startOffset": 79,
+      "endOffset": 128,
+      "count": 0
+     }
+    ],
+    "isBlockCoverage": true
+   },
+   {
+    "functionName": "statusLabel",
+    "ranges": [
+     {
+      "startOffset": 194,
+      "endOffset": 414,
+      "count": 1
+     },
+     {
+      "startOffset": 253,
+      "endOffset": 300,
+      "count": 0
+     },
+     {
+      "startOffset": 359,
+      "endOffset": 404,
+      "count": 0
+     }
+    ],
+    "isBlockCoverage": true
+   },
+   {
+    "functionName": "track",
+    "ranges": [
+     {
+      "startOffset": 570,
+      "endOffset": 765,
+      "count": 1
+     },
+     {
+      "startOffset": 644,
+      "endOffset": 685,
+      "count": 0
+     }
+    ],
+    "isBlockCoverage": true
+   },
+   {
+    "functionName": "",
+    "ranges": [
+     {
+      "startOffset": 827,
+      "endOffset": 959,
+      "count": 1
+     }
+    ],
+    "isBlockCoverage": true
+   }
+  ]
+ }
+]

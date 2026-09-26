@@ -51,7 +51,8 @@ apps:
     dir: .
     command: docker compose up --build
     ready:
-      http: {url: http://${sys:local.host}:8080/health}
+      http:
+        url: http://${sys:local.host}:8080/health
       timeout: 120s
     cleanup: docker compose down -v --remove-orphans
 
@@ -74,7 +75,7 @@ profiles:                        # overlays: --profile ci or AXX_PROFILE=ci
 | `openapi.levels` | default OpenAPI validation levels, by rule key | [Validate against OpenAPI](/guides/validate-openapi/) |
 | `active` | tag-based app startup | [Manage the app lifecycle](/guides/manage-app-lifecycle/#start-only-what-a-run-needs) |
 | `apps` | the system under test ([keys](#apps)) | [Manage the app lifecycle](/guides/manage-app-lifecycle/) |
-| `packs` | settings for packs, keyed by pack name | |
+| `packs` | settings for packs, keyed by pack name | each pack's page under [Packs](/references/packs/) |
 | `lint` | test-data isolation rules ([keys](#lint)) | [Isolate test data](/guides/isolate-test-data/) |
 | `fixtures` | fixture factory settings | [Fixture factories](/guides/fixture-factories/) |
 | `profiles` | named overlays | [below](#finding-and-merging-files) |
@@ -94,7 +95,7 @@ Each key under `apps:` names one app.
 | `stop` | `signal` (`SIGTERM` by default, or `SIGINT`) is sent to the app's process group; after `grace` (default 10s) it is killed. |
 | `cleanup` | Runs after the app stops, even if it crashed or never became ready. |
 | `active.tags` | With `active.enabled`, the app starts only when a selected scenario has one of these tags. |
-| `debug` | `command`, `debugger` (`type`, `port`, `mode`), `onUnavailable` and `retry` for `axx run --debug`. |
+| `debug` | `command`, `debugger` (`type`, `port`, `host`, `module`, `mode`), `onUnavailable` and `retry` for `axx run --debug` and `axx up --debug`. |
 
 ### lint
 
@@ -103,8 +104,8 @@ Rules live under `lint.rules`; `lint.config` sets `baseDir` (patterns are relati
 | Key | Meaning |
 | --- | --- |
 | `name`, `description` | Shown in the report. |
-| `filePatterns` | Globs (`*`, `**`, `?`, `[abc]`, `{a,b}`), relative to `baseDir`. A leading `../` reaches outside it. |
-| `excludePatterns` | Globs removed from the match, for example `**/*.fixture.yaml`. |
+| `filePatterns` | Globs (`*`, `**`, `?`, `[abc]`, `{a,b}`), relative to `baseDir`. A leading `../` reaches outside it. The part before the first wildcard is a directory, and the rest matches the end of each path below it: `seeds/*.yaml` also finds YAML files in subdirectories of `seeds`. |
+| `excludePatterns` | Globs removed from the match, against the whole path relative to `baseDir`, for example `**.fixture.yaml`. |
 | `type` | `regex` (default) or `jsonpath`. |
 | `regex` | The first capture group that matched is the value. |
 | `jsonPath` | A structural path in JSON files: `order.id`, `payments[0].id`, `payments[*].id`, optional `$.` prefix. |
@@ -117,7 +118,8 @@ Rules live under `lint.rules`; `lint.config` sets `baseDir` (patterns are relati
 1. With `-c path/to/axx.yaml`, that file. Otherwise Axx looks for `axx.yaml` (or `axx.yml`) in the working directory, then in each parent directory up to the repository root.
 2. With `--profile NAME` or `AXX_PROFILE=NAME`, `profiles.NAME` is merged over the file, and then `axx.NAME.yaml` next to it, if either exists. A profile that exists in neither place is an error ([`AXX-E0104`](/references/error-codes/#axx-e0104)).
 3. `axx.local.yaml` next to `axx.yaml`, if present, is merged last. Keep it out of version control for personal settings.
-4. `-D name=value` overrides `properties`.
+4. `--set path.to.key=value` sets any key for one run, over all of the above: `--set run.workers=1 --set packs.web-core.watch=true`. The value is read as YAML.
+5. `-D name=value` overrides `properties`.
 
 Paths inside the file (`apps.*.dir`, `resources`) are relative to the directory of `axx.yaml`.
 

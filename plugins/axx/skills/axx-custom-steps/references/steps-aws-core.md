@@ -4,14 +4,13 @@
 
 The AWS account the aws-* packs talk to, set up the way the AWS SDK is set up for the real services.
 
-Register the account once with `the {word} aws account with the following properties:`; every aws-* step of the scenario uses it (the first account registered is the default).
+Register the account once; every aws-* step of the scenario uses it:
 
-| Property | |
-| --- | --- |
-| `region` | required, e.g. `eu-west-1` |
-| `endpoint` | where every service of the account is, instead of AWS: a local emulator such as `http://localhost:4566` (S3 is then addressed by path) |
-| `profile` | a profile of the shared AWS config and credentials files |
-| `access key id`, `secret access key`, `session token` | static credentials |
+```gherkin
+Given the parcels aws account with the following properties:
+  | region   | eu-west-1             |
+  | endpoint | http://localhost:4566 |
+```
 
 Without credentials in the table, the SDK finds them as it always does: the `AWS_*` environment variables, the shared files, then the container or instance role. `AWS_ENDPOINT_URL` is honored too, so the same features run against AWS and against an emulator. Values expand `${env:..}` and `${sys:..}`.
 
@@ -19,17 +18,39 @@ Without credentials in the table, the SDK finds them as it always does: the `AWS
 
 ```gherkin
 Given the {word} aws account with the following properties:
-  | ... | ... |
+  | property | value |
 ```
 
-Register the AWS account the aws-* steps talk to: `region` (required), `endpoint` (an emulator), `profile`, or `access key id` and `secret access key` (and `session token`). Without credentials the SDK's default chain is used.
+Register the AWS account the aws-* steps talk to.
 
-**Parameters:** `{word}` (one word, no spaces)
+- The first account registered is the default.
+- Without `access key id` and `secret access key`, the SDK finds credentials as it always does: the `AWS_*` environment variables, the shared files, then the container or instance role.
+- Values expand `${env:..}` and `${sys:..}`, so the same features run against AWS and against an emulator.
+
+| Parameter | Takes | For example |
+|---|---|---|
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+
+| Property | Takes | Default |
+|---|---|---|
+| `region` | the AWS region, like `eu-west-1` | _required_ |
+| `endpoint` | where every service of the account is, instead of AWS: a local emulator, like `http://localhost:4566`, where S3 is addressed by path | |
+| `profile` | a profile of the shared AWS config and credentials files | |
+| `access key id` | the access key ID of static credentials, with `secret access key` | |
+| `secret access key` | the secret access key of static credentials, with `access key id` | |
+| `session token` | the session token of temporary static credentials | |
 
 **Example:**
 
 ```gherkin
 Given the parcels aws account with the following properties:
+  | region            | eu-west-1                           |
+  | endpoint          | http://localhost:4566               |
+  | access key id     | ${env:AWS_ACCESS_KEY_ID:-local}     |
+  | secret access key | ${env:AWS_SECRET_ACCESS_KEY:-local} |
+Given the parcels aws account with the following properties:
+  | region  | eu-central-1  |
+  | profile | parcels-tests |
 ```
 
 _Since 0.1.0._

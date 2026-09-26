@@ -12,14 +12,17 @@ The steps use the scenario's project (`the {word} gcp project with the following
 When the {filepath} file is uploaded to the {word} gcs bucket[[ as {word}]]
 ```
 
-Upload a file (resolved against `resources`) to a gcs bucket, named after the file or as given. The content type follows the file's extension.
+Upload a file to the gcs bucket, under the file's name or the name given. Its content type follows the file's extension.
 
-**Variants** (optional parts in `[[...]]` above):
+| Parameter | Takes | For example |
+|---|---|---|
+| `{filepath}` | a file of the project, with no spaces: a path relative to the `resources` directories or to axx.yaml's directory, or an absolute path | `seeds/parcels.yaml`, `kafka/scan-delivered.json` |
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `the {filepath} file is uploaded to the {word} gcs bucket`
 - `the {filepath} file is uploaded to the {word} gcs bucket as {word}`
-
-**Parameters:** `{filepath}` (A file of the project, without whitespace: a path relative to the `resources` directories or to the directory of axx.yaml, or an absolute path. Editors link it to the file), `{word}` (one word, no spaces)
 
 **Example:**
 
@@ -36,19 +39,22 @@ _Since 0.1.0._
 Then [[within {duration} ]]the {word} gcs bucket has a(n) object named {word}
 ```
 
-Wait (10s, or the given time) until the gcs bucket has an object with that name.
+Check that the gcs bucket has an object with that name. The check waits for it: 10 seconds, or `within {duration}`.
 
-**Variants** (optional parts in `[[...]]` above):
+| Parameter | Takes | For example |
+|---|---|---|
+| `{duration}` | a duration in seconds (`s`) or minutes (`m`) | `5s`, `2m` |
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `the {word} gcs bucket has a(n) object named {word}`
 - `within {duration} the {word} gcs bucket has a(n) object named {word}`
 
-**Parameters:** `{duration}` (A duration in seconds or minutes, e.g. `5s` or `2m`), `{word}` (one word, no spaces)
-
 **Example:**
 
 ```gherkin
-Then within 30s the carrier-invoices gcs bucket has a(n) object named disputes/kestrel-2026-09.csv
+Then within 30s the carrier-invoices gcs bucket has an object named disputes/kestrel-2026-09.csv
 ```
 
 _Since 0.1.0._
@@ -59,14 +65,18 @@ _Since 0.1.0._
 Then [[within {duration} ]]the {word} object in the {word} gcs bucket is identical to the {filepath} file
 ```
 
-Wait (10s, or the given time) until the object exists with exactly the content of the file (resolved against `resources`).
+Check that the object exists with exactly the content of the file. The check waits for it: 10 seconds, or `within {duration}`.
 
-**Variants** (optional parts in `[[...]]` above):
+| Parameter | Takes | For example |
+|---|---|---|
+| `{duration}` | a duration in seconds (`s`) or minutes (`m`) | `5s`, `2m` |
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+| `{filepath}` | a file of the project, with no spaces: a path relative to the `resources` directories or to axx.yaml's directory, or an absolute path | `seeds/parcels.yaml`, `kafka/scan-delivered.json` |
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `the {word} object in the {word} gcs bucket is identical to the {filepath} file`
 - `within {duration} the {word} object in the {word} gcs bucket is identical to the {filepath} file`
-
-**Parameters:** `{duration}` (A duration in seconds or minutes, e.g. `5s` or `2m`), `{word}` (one word, no spaces), `{filepath}` (A file of the project, without whitespace: a path relative to the `resources` directories or to the directory of axx.yaml, or an absolute path. Editors link it to the file)
 
 **Example:**
 
@@ -80,22 +90,97 @@ _Since 0.1.0._
 
 ```gherkin
 Then [[within {duration} ]]the {word} object in the {word} gcs bucket has the following properties:
-  | ... | ... |
+  | path | value |
 ```
 
-Wait (10s, or the given time) until the object exists and its JSON content has the properties: `path | value` rows compared as text, `null` for null and `undefined` for absent, as in the other JSON property steps.
+Check that the object holds JSON with those values at those paths. The check waits for it: 10 seconds, or `within {duration}`.
 
-**Variants** (optional parts in `[[...]]` above):
+| Parameter | Takes | For example |
+|---|---|---|
+| `{duration}` | a duration in seconds (`s`) or minutes (`m`) | `5s`, `2m` |
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+
+Each row is a path into the JSON (a property name, a dotted path or a JSONPath) and the value it has, compared as text: `null` for null and `undefined` for absent, as in the other JSON property steps.
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `the {word} object in the {word} gcs bucket has the following properties:`
 - `within {duration} the {word} object in the {word} gcs bucket has the following properties:`
-
-**Parameters:** `{duration}` (A duration in seconds or minutes, e.g. `5s` or `2m`), `{word}` (one word, no spaces)
 
 **Example:**
 
 ```gherkin
 Then the summaries/kestrel-2026-09.json object in the carrier-invoices gcs bucket has the following properties:
+  | carrier         | KESTREL |
+  | lines           | 14      |
+  | totals.disputed | 5.25    |
 ```
 
 _Since 0.1.0._
+
+## `gcp-storage.contains`
+
+```gherkin
+Then [[within {duration} ]]the {word} object in the {word} gcs bucket contains {string}
+```
+
+Check that the text of the object contains the text.
+
+- The check waits for it: 10 seconds, or `within {duration}`.
+- Case matters; runs of spaces and line breaks count as one space.
+- The text is read by the object's type: the text of a PDF's pages, the paragraphs and tables of a Word document (.docx), the cells of every sheet of an Excel workbook (.xlsx), the text content (or the markup) of XML and HTML, or the text itself.
+
+| Parameter | Takes | For example |
+|---|---|---|
+| `{duration}` | a duration in seconds (`s`) or minutes (`m`) | `5s`, `2m` |
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+| `{string}` | text in double or single quotes, which the step leaves out | `"Get a quote"`, `'Express'` |
+
+**Variants**, the parts in `[[...]]` said or left out:
+
+- `the {word} object in the {word} gcs bucket contains {string}`
+- `within {duration} the {word} object in the {word} gcs bucket contains {string}`
+
+**Example:**
+
+```gherkin
+Then the invoices/kestrel-2026-09.pdf object in the carrier-invoices gcs bucket contains "Total due: 1284.50 EUR"
+```
+
+_Since 0.1.1._
+
+## `gcp-storage.row`
+
+```gherkin
+Then [[within {duration} ]]the {word} object in the {word} gcs bucket has a row where:
+  | column | value |
+```
+
+Check that the table of the object has a row with those values in those columns.
+
+- The check waits for it: 10 seconds, or `within {duration}`.
+- The object is a CSV or TSV file, or an Excel workbook (.xlsx; its first sheet), whose first row names the columns.
+- Cells compare as text, as the workbook shows them, with runs of spaces as one space; an empty value matches an empty cell.
+
+| Parameter | Takes | For example |
+|---|---|---|
+| `{duration}` | a duration in seconds (`s`) or minutes (`m`) | `5s`, `2m` |
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+
+Each row names a column, as the object's first row names it, and the value in that column.
+
+**Variants**, the parts in `[[...]]` said or left out:
+
+- `the {word} object in the {word} gcs bucket has a row where:`
+- `within {duration} the {word} object in the {word} gcs bucket has a row where:`
+
+**Example:**
+
+```gherkin
+Then within 30s the disputes/kestrel-2026-09.csv object in the carrier-invoices gcs bucket has a row where:
+  | parcel | PX-5199          |
+  | status | UNKNOWN_SHIPMENT |
+  | billed | 4.10             |
+```
+
+_Since 0.1.1._

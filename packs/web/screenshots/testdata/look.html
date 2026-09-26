@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Quote</title>
+  <style>
+    body { margin: 0; font: 16px sans-serif; background: #fff; }
+    .card { margin: 24px; padding: 16px; width: 320px; border: 2px solid #1f5fa8; border-radius: 8px; }
+    .price { font-size: 32px; color: #1f5fa8; }
+    .late .price { color: #b3261e; }
+    #now { margin: 24px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <p>Express to Germany</p>
+    <p class="price">13.40 EUR</p>
+  </div>
+  <p id="now"></p>
+  <script>
+    const params = new URLSearchParams(location.search);
+    if (params.has('late')) document.body.classList.add('late');
+    if (params.has('at')) document.getElementById('now').textContent = 'Quoted at ' + new Date().toISOString();
+  </script>
+</body>
+</html>

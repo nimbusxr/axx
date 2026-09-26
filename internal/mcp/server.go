@@ -36,9 +36,10 @@ const Instructions = `axx (github.com/nimbusxr/axx, "axxeptance") is a human-rea
 
 Workflow for writing acceptance tests:
 1. steps_search for every action/assertion you need; use only step text that exists (never invent steps).
-2. Write the .feature file; feature_validate it until there are no problems (step_explain shows how a single line is read).
-3. env {"action":"up"} once to keep the apps running, then scenarios_run.
-4. On failure, read the returned failures (expected/actual); failure_context gives logs and request/response details.
+2. env {"action":"up"} once to keep the apps running.
+3. Unsure how a step behaves? steps_try runs steps in a live scenario that stays open between calls; the packs' tools (web_page: the page a step opened) look at it.
+4. Write the .feature file; feature_validate it until there are no problems (step_explain shows how a single line is read). Then scenarios_run.
+5. On failure, read the returned failures (expected/actual); failure_context gives logs and request/response details.
 Every scenario must use unique test data (ids, names, keys): scenarios run in parallel and data persists between runs. After adding seeds, payloads or fixtures, lint_run reports values that collide with other files.`
 
 // Options configures the server.
@@ -53,10 +54,16 @@ type Options struct {
 
 type server struct {
 	opts Options
+	sess agentSession
 }
 
 // New builds the MCP server.
 func New(opts Options) *sdk.Server {
+	srv, _ := newServer(opts)
+	return srv
+}
+
+func newServer(opts Options) (*sdk.Server, *server) {
 	if opts.WorkDir == "" {
 		opts.WorkDir, _ = os.Getwd()
 	}
@@ -109,6 +116,12 @@ func New(opts Options) *sdk.Server {
 	},
 		s.configShow)
 	sdk.AddTool(srv, &sdk.Tool{
+		Name:        "steps_try",
+		Description: "Try steps in a live scenario before writing them into a feature: they run one after the other in a scenario that stays open between calls (browsers, sessions, data), until restart. Returns each step's status and error, and what the packs say of the scenario now (the page it is on...). The packs' own tools look at this scenario too.",
+	},
+		s.stepsTry)
+	s.packTools(srv)
+	sdk.AddTool(srv, &sdk.Tool{
 		Name: "scaffold", Annotations: ro,
 		Description: "Return starter file contents for a 'feature' (from real steps) or an 'axx.yaml'. Nothing is written; create the file yourself.",
 	},
@@ -125,12 +138,15 @@ func New(opts Options) *sdk.Server {
 		func(_ context.Context, req *sdk.GetPromptRequest) (*sdk.GetPromptResult, error) {
 			return &sdk.GetPromptResult{Messages: []*sdk.PromptMessage{{Role: "user", Content: &sdk.TextContent{Text: writeTestsPrompt(req.Params.Arguments["criteria"])}}}}, nil
 		})
-	return srv
+	return srv, s
 }
 
-// Serve runs the server on stdin/stdout until the client disconnects.
+// Serve runs the server on stdin/stdout until the client disconnects, then
+// ends the agent's session.
 func Serve(ctx context.Context, opts Options) error {
-	return New(opts).Run(ctx, &sdk.StdioTransport{})
+	srv, s := newServer(opts)
+	defer s.end()
+	return srv.Run(ctx, &sdk.StdioTransport{})
 }
 
 func (s *server) engine() (*engine.Engine, error) {
@@ -145,7 +161,7 @@ func (s *server) engine() (*engine.Engine, error) {
 
 type stepsSearchIn struct {
 	Query string `json:"query" jsonschema:"what the step should do, e.g. 'response header', 'rows in table'"`
-	Pack  string `json:"pack,omitempty" jsonschema:"limit to one pack: rest, mock, sql, mongo, kafka, logs or a custom pack"`
+	Pack  string `json:"pack,omitempty" jsonschema:"limit to one pack of the project, by its name in axx-packs.yaml: rest, sql, web-core..."`
 	Limit int    `json:"limit,omitempty" jsonschema:"maximum results (default 10)"`
 }
 

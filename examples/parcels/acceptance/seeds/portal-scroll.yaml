@@ -1,0 +1,151 @@
+parcels.parcels:
+  - reference: "PX-WEB-5401"
+    sender: "kiln-and-copper"
+    status: "REGISTERED"
+    weight_grams: 800
+    recipient: '{"name": "Jonas Weber", "street": "Ringstr. 1", "city": "Hanover", "postcode": "30159", "country": "DE"}'
+    details: '{"source": "portal", "zone": "DE-1", "signature": false, "leaveWithNeighbour": true}'
+  - reference: "PX-WEB-5402"
+    sender: "kiln-and-copper"
+    status: "REGISTERED"
+    weight_grams: 837
+    recipient: '{"name": "Mia Klein", "street": "Ringstr. 2", "city": "Hanover", "postcode": "30159", "country": "DE"}'
+    details: '{"source": "portal", "zone": "DE-1", "signature": false, "leaveWithNeighbour": true}'
+  - reference: "PX-WEB-5403"
+    sender: "kiln-and-copper"
+    status: "REGISTERED"
+    weight_grams: 874
+    recipient: '{"name": "Ella Braun", "street": "Ringstr. 3", "city": "Hanover", "postcode": "30159", "country": "DE"}'
+    details: '{"source": "portal", "zone": "DE-1", "signature": false, "leaveWithNeighbour": true}'
+  - reference: "PX-WEB-5404"
+    sender: "kiln-and-copper"
+    status: "IN_TRANSIT"
+    weight_grams: 911
+    recipient: '{"name": "Paul Wolf", "street": "Ringstr. 4", "city": "Hanover", "postcode": "30159", "country": "DE"}'
+    details: '{"source": "portal", "zone": "DE-1", "signature": false, "leaveWithNeighbour": true}'
+  - reference: "PX-WEB-5405"
+    sender: "kiln-and-copper"
+    status: "REGISTERED"
+    weight_grams: 948
+    recipient: '{"name": "Lena Neumann", "street": "Ringstr. 5", "city": "Hanover", "postcode": "30159", "country": "DE"}'
+    details: '{"source": "portal", "zone": "DE-1", "signature": false, "leaveWithNeighbour": true}'
+  - reference: "PX-WEB-5406"
+    sender: "kiln-and-copper"
+    status: "REGISTERED"
+    weight_grams: 985
+    recipient: '{"name": "Finn Schwarz", "street": "Ringstr. 6", "city": "Hanover", "postcode": "30159", "country": "DE"}'
+    details: '{"source": "portal", "zone": "DE-1", "signature": false, "leaveWithNeighbour": true}'
+  - reference: "PX-WEB-5407"
+    sender: "kiln-and-copper"
+    status: "REGISTERED"
+    weight_grams: 1022
+    recipient: '{"name": "Emma Zimmer", "street": "Ringstr. 7", "city": "Hanover", "postcode": "30159", "country": "DE"}'
+    details: '{"source": "portal", "zone": "DE-1", "signature": false, "leaveWithNeighbour": true}'
+  - reference: "PX-WEB-5408"
+    sender: "kiln-and-copper"
+    status: "REGISTERED"
+    weight_grams: 1059
+    recipient: '{"name": "Noah Krüger", "street": "Ringstr. 8", "city": "Hanover", "postcode": "30159", "country": "DE"}'
+    details: '{"source": "portal", "zone": "DE-1", "signature": false, "leaveWithNeighbour": true}'
+  - reference: "PX-WEB-5409"
+    sender: "kiln-and-copper"
+    status: "REGISTERED"
+    weight_grams: 1096
+    recipient: '{"name": "Lina Hofmann", "street": "Ringstr. 9", "city": "Hanover", "postcode": "30159", "country": "DE"}'
+    details: '{"source": "portal", "zone": "DE-1", "signature": false, "leaveWithNeighbour": true}'
+  - reference: "PX-WEB-5410"
+    sender: "kiln-and-copper"
+    status: "REGISTERED"
+    weight_grams: 1133
+    recipient: '{"name": "Ben Hartmann", "street": "Ringstr. 10", "city": "Hanover", "postcode": "30159", "country": "DE"}'
+    details: '{"source": "portal", "zone": "DE-1", "signature": false, "leaveWithNeighbour": true}'
+  - reference: "PX-WEB-5411"
+    sender: "kiln-and-copper"
+    status: "REGISTERED"
+    weight_grams: 1170
+    recipient: '{"name": "Mila Lange", "street": "Ringstr. 11", "city": "Hanover", "postcode": "30159", "country": "DE"}'
+    details: '{"source": "portal", "zone": "DE-1", "signature": false, "leaveWithNeighbour": true}'
+  - reference: "PX-WEB-5412"
+    sender: "kiln-and-copper"
+    status: "IN_TRANSIT"
+    weight_grams: 1207
+    recipient: '{"name": "Leon Werner", "street": "Ringstr. 12", "city": "Hanover", "postcode": "30159", "country": "DE"}'
+    details: '{"source": "portal", "zone": "DE-1", "signature": false, "leaveWithNeighbour": true}'
+  - reference: "PX-WEB-5413"
+    sender: "kiln-and-copper"
+    status: "REGISTERED"
+    weight_grams: 1244
+    recipient: '{"name": "Clara Krause", "street": "Ringstr. 13", "city": "Hanover", "postcode": "30159", "country": "DE"}'
+    details: '{"source": "portal", "zone": "DE-1", "signature": false, "leaveWithNeighbour": true}'
+  - reference: "PX-WEB-5414"
+    sender: "kiln-and-copper"
+    status: "REGISTERED"
+    weight_grams: 1281
+    recipient: '{"name": "Luis Meier", "street": "Ringstr. 14", "city": "Hanover", "postcode": "30159", "country": "DE"}'
+    details: '{"source": "portal", "zone": "DE-1", "signature": false, "leaveWithNeighbour": true}'
+  - reference: "PX-WEB-5415"
+    sender: "kiln-and-copper"
+    status: "REGISTERED"
+    weight_grams: 1318
+    recipient: '{"name": "Ida Lehmann", "street": "Ringstr. 15", "city": "Hanover", "postcode": "30159", "country": "DE"}'
+    details: '{"source": "portal", "zone": "DE-1", "signature": false, "leaveWithNeighbour": true}'
+  - reference: "PX-WEB-5416"
+    sender: "kiln-and-copper"
+    status: "REGISTERED"
+    weight_grams: 1355
+    recipient: '{"name": "Emil Schmid", "street": "Ringstr. 16", "city": "Hanover", "postcode": "30159", "country": "DE"}'
+    details: '{"source": "portal", "zone": "DE-1", "signature": false, "leaveWithNeighbour": true}'
+  - reference: "PX-WEB-5417"
+    sender: "kiln-and-copper"
+    status: "REGISTERED"
+    weight_grams: 1392
+    recipient: '{"name": "Frieda Schulze", "street": "Ringstr. 17", "city": "Hanover", "postcode": "30159", "country": "DE"}'
+    details: '{"source": "portal", "zone": "DE-1", "signature": false, "leaveWithNeighbour": true}'
+  - reference: "PX-WEB-5418"
+    sender: "kiln-and-copper"
+    status: "REGISTERED"
+    weight_grams: 1429
+    recipient: '{"name": "Karl Maier", "street": "Ringstr. 18", "city": "Hanover", "postcode": "30159", "country": "DE"}'
+    details: '{"source": "portal", "zone": "DE-1", "signature": false, "leaveWithNeighbour": true}'
+  - reference: "PX-WEB-5419"
+    sender: "kiln-and-copper"
+    status: "REGISTERED"
+    weight_grams: 1466
+    recipient: '{"name": "Marta Köhler", "street": "Ringstr. 19", "city": "Hanover", "postcode": "30159", "country": "DE"}'
+    details: '{"source": "portal", "zone": "DE-1", "signature": false, "leaveWithNeighbour": true}'
+  - reference: "PX-WEB-5420"
+    sender: "kiln-and-copper"
+    status: "IN_TRANSIT"
+    weight_grams: 1503
+    recipient: '{"name": "Otto Herrmann", "street": "Ringstr. 20", "city": "Hanover", "postcode": "30159", "country": "DE"}'
+    details: '{"source": "portal", "zone": "DE-1", "signature": false, "leaveWithNeighbour": true}'
+  - reference: "PX-WEB-5421"
+    sender: "kiln-and-copper"
+    status: "REGISTERED"
+    weight_grams: 1540
+    recipient: '{"name": "Rosa König", "street": "Ringstr. 21", "city": "Hanover", "postcode": "30159", "country": "DE"}'
+    details: '{"source": "portal", "zone": "DE-1", "signature": false, "leaveWithNeighbour": true}'
+  - reference: "PX-WEB-5422"
+    sender: "kiln-and-copper"
+    status: "REGISTERED"
+    weight_grams: 1577
+    recipient: '{"name": "Theo Walter", "street": "Ringstr. 22", "city": "Hanover", "postcode": "30159", "country": "DE"}'
+    details: '{"source": "portal", "zone": "DE-1", "signature": false, "leaveWithNeighbour": true}'
+  - reference: "PX-WEB-5423"
+    sender: "kiln-and-copper"
+    status: "REGISTERED"
+    weight_grams: 1614
+    recipient: '{"name": "Alma Mayer", "street": "Ringstr. 23", "city": "Hanover", "postcode": "30159", "country": "DE"}'
+    details: '{"source": "portal", "zone": "DE-1", "signature": false, "leaveWithNeighbour": true}'
+  - reference: "PX-WEB-5424"
+    sender: "kiln-and-copper"
+    status: "REGISTERED"
+    weight_grams: 1651
+    recipient: '{"name": "Moritz Huber", "street": "Ringstr. 24", "city": "Hanover", "postcode": "30159", "country": "DE"}'
+    details: '{"source": "portal", "zone": "DE-1", "signature": false, "leaveWithNeighbour": true}'
+  - reference: "PX-WEB-5425"
+    sender: "kiln-and-copper"
+    status: "REGISTERED"
+    weight_grams: 1688
+    recipient: '{"name": "Greta Kaiser", "street": "Ringstr. 25", "city": "Hanover", "postcode": "30159", "country": "DE"}'
+    details: '{"source": "portal", "zone": "DE-1", "signature": false, "leaveWithNeighbour": true}'

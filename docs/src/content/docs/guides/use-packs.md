@@ -3,13 +3,13 @@ title: Choose packs
 description: Pick the packs a project uses with axx-packs.yaml and axx pack add, remove, list and update.
 ---
 
-A **pack** is a set of steps. Axx publishes `rest`, `mock`, `sql`, `mongo`, `kafka` and `logs`. It also publishes packs for cloud services, one per service, named after its cloud ([Test cloud services](/guides/test-cloud-services/)):
+A **pack** is a set of steps. Axx publishes `rest`, `mock`, `sql`, `mongo`, `kafka`, `logs`, `files` (the files your services write: [Check files](/guides/check-files/)) and `web-core` (web apps in real browsers: [Test web apps](/guides/test-web-apps/)), with the packs that build on it: `web-screenshots`, `web-a11y`, `web-network`, `web-lighthouse` and `web-coverage`. It also publishes packs for cloud services, one per service, named after its cloud ([Test cloud services](/guides/test-cloud-services/)):
 
 - **AWS:** `aws-s3`, `aws-sqs`, `aws-sns`, `aws-eventbridge` and `aws-dynamodb`, which build on `aws-core`.
 - **Google Cloud:** `gcp-storage`, `gcp-pubsub`, `gcp-bigquery` and `gcp-firestore`, which build on `gcp-core`.
 - **Azure:** `azure-blob` and `azure-servicebus`.
 
-A project can write packs of its own, or use packs other teams publish. Every pack, Axx's or anyone else's, is used the same way: the project lists it in `axx-packs.yaml`, next to `axx.yaml`.
+Each pack's steps, settings and tools are on its page of the [pack reference](/references/packs/). A project can write packs of its own, or use packs other teams publish. Every pack, Axx's or anyone else's, is used the same way: the project lists it in `axx-packs.yaml`, next to `axx.yaml`.
 
 ## Choose the packs a project uses
 
@@ -31,7 +31,7 @@ packs:
   - sql
 ```
 
-Only the listed packs are loaded, so their steps are the only ones `axx validate`, `axx steps` and the skills know about. Listing an AWS or Google Cloud pack loads its core too. `axx pack remove` takes packs off the list. `axx init` starts the file with `rest`, which its first feature uses. Commit `axx-packs.yaml`.
+Only the listed packs are loaded, so their steps are the only ones `axx validate`, `axx steps` and the skills know about. Listing a pack that builds on another (a web pack such as `web-a11y`, or an AWS or Google Cloud pack) loads that one too: `web-core`, `aws-core` or `gcp-core`. `axx pack remove` takes packs off the list. `axx init` starts the file with `rest`, which its first feature uses. Commit `axx-packs.yaml`.
 
 The first `axx` command that needs the project's steps prepares Axx with its packs:
 

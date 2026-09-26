@@ -2,12 +2,14 @@
 // Generates every piece of reference material from the axx binary, the single
 // source of truth (ADR 0005). Run by `npm run build` and `npm run dev`.
 //
-//   src/content/docs/references/_gen/   step pack pages, the steps overview (with the
-//                                      parameter types), all steps, CLI pages,
-//                                      error codes
+//   src/content/docs/references/_gen/   the packs' pages and their overview, the steps
+//                                      overview (with the parameter types), all
+//                                      steps, CLI pages, error codes
 //   public/skills/                     the agent skills (SKILL.md + references)
 //   public/.well-known/agent-skills/   index.json listing the skills
 //   public/schemas/v0/                 axx.yaml JSON Schema
+//   src/lib/_gen/step-tokens.json      the parameter values of the docs' steps, for
+//                                      the site to color as editors do
 //
 // All outputs are gitignored. The script fails if any of them comes out empty:
 // a docs site that silently publishes an empty reference is worse than no build.
@@ -18,7 +20,10 @@ import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import os from 'node:os';
 import { capitalizeDocsBrand } from './brand-name.mjs';
+import { markdownFiles } from './gherkin-blocks.mjs';
+import { stepTokens } from './step-tokens.mjs';
 
 const docsDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const repoDir = path.resolve(docsDir, '..');
@@ -60,12 +65,17 @@ function resolveBinary() {
 const axxBin = resolveBinary();
 
 /** Runs axx with a clean, non-agent environment so output is deterministic. */
-function axx(args, { allowFailure = false } = {}) {
+function axx(args, options = {}) {
+	return axxIn(docsDir, args, options);
+}
+
+/** Runs axx in a directory, as axx() does. */
+function axxIn(cwd, args, { allowFailure = false } = {}) {
 	// Help text shows flag defaults, and some defaults come from the environment.
 	const env = { ...process.env };
 	for (const k of ['NO_COLOR', 'AI_AGENT', 'AGENT', 'CLAUDECODE', 'CODEX_SANDBOX', 'GEMINI_CLI', 'CURSOR_AGENT', 'AXX_PROFILE']) delete env[k];
 	try {
-		return execFileSync(axxBin, args, { cwd: docsDir, env, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+		return execFileSync(axxBin, args, { cwd, env, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
 	} catch (err) {
 		if (allowFailure) return err.stdout ?? '';
 		fail(`axx ${args.join(' ')} failed:\n${err.stderr || err.message}`);
@@ -165,19 +175,27 @@ axx(['docs', 'export', '--out', genDir]);
 // Pack pages are titled after what they test, not the pack's id.
 {
 	const titles = {
+		core: 'Core',
 		rest: 'REST',
 		mock: 'Mocks',
 		sql: 'SQL',
 		mongo: 'MongoDB',
 		kafka: 'Kafka',
 		logs: 'Logs',
-		'aws-core': 'AWS account',
+		files: 'Files',
+		'web-core': 'Core',
+		'web-screenshots': 'Screenshots',
+		'web-a11y': 'Accessibility',
+		'web-network': 'Network',
+		'web-lighthouse': 'Lighthouse',
+		'web-coverage': 'Coverage',
+		'aws-core': 'Core',
 		'aws-s3': 'S3',
 		'aws-sqs': 'SQS',
 		'aws-sns': 'SNS',
 		'aws-eventbridge': 'EventBridge',
 		'aws-dynamodb': 'DynamoDB',
-		'gcp-core': 'Google Cloud project',
+		'gcp-core': 'Core',
 		'gcp-storage': 'Cloud Storage',
 		'gcp-pubsub': 'Pub/Sub',
 		'gcp-bigquery': 'BigQuery',
@@ -186,10 +204,25 @@ axx(['docs', 'export', '--out', genDir]);
 		'azure-servicebus': 'Service Bus',
 	};
 	for (const [pack, title] of Object.entries(titles)) {
-		const file = path.join(genDir, 'steps', `${pack}.md`);
+		const file = path.join(genDir, 'packs', `${pack}.md`);
 		if (!fs.existsSync(file)) continue;
 		fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace(/^title: .*$/m, `title: ${title}`));
 	}
+}
+
+// ------------------------------------------------- 1b. the parameter values of steps
+
+// The docs' Gherkin blocks, the pack pages' among them, read by axx's
+// language server: the words of each step that are its parameter values.
+const tokensFile = path.join(docsDir, 'src/lib/_gen/step-tokens.json');
+{
+	log('axx lsp: the parameter values of the docs\' steps');
+	const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'axx-docs-packs-'));
+	const packs = JSON.parse(axxIn(tmp, ['pack', 'list', '--json'])).data.packs.map((p) => p.pack);
+	fs.rmSync(tmp, { recursive: true, force: true });
+	const files = [...markdownFiles(path.join(docsDir, 'src/content/docs'), { withGenerated: true })].sort();
+	const tokens = await stepTokens(axxBin, files, packs);
+	write(tokensFile, JSON.stringify(tokens) + '\n');
 }
 
 // ------------------------------------------------- 2. skills
@@ -337,7 +370,7 @@ for (const name of ['install.sh', 'install.ps1']) {
 
 // ------------------------------------------------- 7. publish generated pages at their natural URLs
 
-// references/_gen/steps/mock.md is served as /references/steps/mock/. The page's
+// references/_gen/packs/mock.md is served as /references/packs/mock/. The page's
 // own `slug` front matter says so, which Starlight and the links validator both
 // honor.
 for (const file of listFiles(genDir, (n) => n.endsWith('.md'))) {
@@ -353,9 +386,12 @@ for (const file of listFiles(genDir, (n) => n.endsWith('.md'))) {
 // ------------------------------------------------- 8. never publish empty output
 
 const checks = [
-	['step pack pages (references/_gen/steps/*.md)', listFiles(path.join(genDir, 'steps'), (n) => n.endsWith('.md') && n !== 'index.md')],
+	['pack pages (references/_gen/packs/*.md)', listFiles(path.join(genDir, 'packs'), (n) => n.endsWith('.md') && n !== 'index.md')],
+	['packs overview page', listFiles(path.join(genDir, 'packs'), (n) => n === 'index.md')],
 	['steps overview page', listFiles(path.join(genDir, 'steps'), (n) => n === 'index.md')],
 	['step index page', listFiles(genDir, (n) => n === 'step-index.md')],
+	['code blocks with parameter values (src/lib/_gen/step-tokens.json)', Object.keys(JSON.parse(fs.readFileSync(tokensFile, 'utf8')).blocks)],
+	['steps written inline with parameter values', Object.keys(JSON.parse(fs.readFileSync(tokensFile, 'utf8')).inline)],
 	['CLI pages (references/_gen/cli/*.md)', listFiles(cliDir, (n) => n.startsWith('axx-') && n.endsWith('.md'))],
 	['error codes', sortedCodes],
 	['install scripts', listFiles(publicDir, (n) => n === 'install.sh' || n === 'install.ps1')],

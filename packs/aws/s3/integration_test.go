@@ -4,6 +4,7 @@ package awss3
 
 import (
 	"context"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -42,6 +43,23 @@ func TestObjects(t *testing.T) {
 	h.OK("the claims/CLM-1/photo.json object in the claim-evidence s3 bucket has the following properties:", [][]string{
 		{"claim", "CLM-1"}, {"$.damage.severity", "3"}, {"damage.note", "undefined"},
 	})
+
+	// The text of a PDF and the rows of a CSV file.
+	pdf, err := os.ReadFile("../../../internal/filecontent/testdata/manifest.pdf")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	if err := st.Put(ctx, "claim-evidence", "manifests/M-KESTREL-0412.pdf", pdf, "application/pdf"); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.Put(ctx, "claim-evidence", "refunds/2026-09.csv", []byte("claim,amount\nCLM-1,49.90\n"), "text/csv"); err != nil {
+		t.Fatal(err)
+	}
+	h.OK(`the manifests/M-KESTREL-0412.pdf object in the claim-evidence s3 bucket contains "PX-KES-0412-1 Anna Weber 1200 g"`)
+	h.OK("the refunds/2026-09.csv object in the claim-evidence s3 bucket has a row where:", [][]string{{"claim", "CLM-1"}, {"amount", "49.90"}})
+	_ = h.Fails("within 1s the refunds/2026-09.csv object in the claim-evidence s3 bucket has a row where:",
+		"no row has claim=CLM-2", [][]string{{"claim", "CLM-2"}})
 
 	// An object written later is waited for.
 	go func() {

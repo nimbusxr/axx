@@ -42,6 +42,7 @@ Feature: Claims for damaged parcels
       | amount   | 89.5      |
       | currency | EUR       |
       | shop     | ACME-TOYS |
+    And the CLM-4101.txt object in the claim-letters s3 bucket contains "We will refund the declared value of 89.50 EUR."
     And the refund-requests sqs queue has a message where:
       | claim            | CLM-4101  |
       | shop             | ACME-TOYS |

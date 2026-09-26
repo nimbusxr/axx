@@ -1,7 +1,8 @@
 // Command parcels is the system under test of the axx example: a parcel
 // service with a REST API (OpenAPI 3.1), PostgreSQL storage, a manifest
-// importer, a MongoDB tracking read model fed by depot scan events, calls to
-// a downstream address service, and ParcelRegistered events on Kafka (Avro).
+// importer that writes each manifest's documents to an export folder, a
+// MongoDB tracking read model fed by depot scan events, calls to a
+// downstream address service, and ParcelRegistered events on Kafka (Avro).
 //
 // Configuration comes from PARCELS_* environment variables. The defaults
 // reach the infrastructure's published ports on localhost, which is what you
@@ -37,6 +38,9 @@ type config struct {
 	EventsTopic   string
 	ScansTopic    string
 	PollInterval  time.Duration
+	// ExportDir is where the service writes the documents of the manifests
+	// it imports, for the shops' systems to collect.
+	ExportDir string
 	// LogUDP (host:port) also sends every log line there, as one datagram:
 	// the way many services ship logs to a collector.
 	LogUDP string
@@ -61,6 +65,7 @@ func loadConfig() (config, error) {
 		RegistryURL:   strings.TrimRight(env("PARCELS_SCHEMA_REGISTRY_URL", "http://localhost:9081"), "/"),
 		EventsTopic:   env("PARCELS_EVENTS_TOPIC", "parcel-events"),
 		ScansTopic:    env("PARCELS_SCANS_TOPIC", "depot-scans"),
+		ExportDir:     env("PARCELS_EXPORT_DIR", "../infra/exports"),
 		LogUDP:        env("PARCELS_LOG_UDP", ""),
 	}
 	for _, s := range strings.Split(env("PARCELS_KAFKA_BROKERS", "localhost:9092"), ",") {
@@ -119,6 +124,7 @@ func serve(ctx context.Context, cfg config, log *slog.Logger) error {
 		log:      log,
 	}
 	go svc.runImporter(ctx, cfg.PollInterval)
+	go (&documents{store: store, dir: cfg.ExportDir, log: log}).run(ctx, cfg.PollInterval)
 	go tracking.runProjector(ctx, cfg.PollInterval)
 	go events.consumeScans(ctx, tracking)
 

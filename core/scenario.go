@@ -18,6 +18,14 @@ type ScenarioInfo struct {
 	Attempt int      `json:"attempt,omitempty"`
 }
 
+// StepInfo is a step of a scenario: its keyword, its text and its line in
+// the feature file (the scenario's URI).
+type StepInfo struct {
+	Keyword string `json:"keyword"`
+	Text    string `json:"text"`
+	Line    int    `json:"line"`
+}
+
 // Sink receives a scenario's logs and attachments. Hosts implement it.
 type Sink interface {
 	Log(sc *Scenario, msg string)
@@ -40,6 +48,7 @@ type Scenario struct {
 	describers map[string]func() any
 	status     string
 	started    time.Time
+	step       *StepInfo
 }
 
 type namedCloser struct {
@@ -79,6 +88,23 @@ func (sc *Scenario) Context() context.Context {
 func (sc *Scenario) SetContext(ctx context.Context) {
 	sc.mu.Lock()
 	sc.ctx = ctx
+	sc.mu.Unlock()
+}
+
+// Step returns the step the scenario runs now, or nil outside its steps (in
+// its hooks and cleanup).
+func (sc *Scenario) Step() *StepInfo {
+	sc.mu.Lock()
+	defer sc.mu.Unlock()
+	return sc.step
+}
+
+// SetStep sets the step the scenario runs, nil after it. Hosts call it
+// around each step, before its BeforeStep hooks and after its AfterStep
+// hooks.
+func (sc *Scenario) SetStep(st *StepInfo) {
+	sc.mu.Lock()
+	sc.step = st
 	sc.mu.Unlock()
 }
 

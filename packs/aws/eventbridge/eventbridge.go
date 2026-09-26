@@ -23,7 +23,7 @@ const name = "aws-eventbridge"
 
 const packDoc = `Put events on EventBridge buses and check the events your services put there.
 
-The steps use the scenario's AWS account (` + "`the {word} aws account with the following properties:`" + `, from aws-core). An event has a detail type, a source and a JSON detail, as in ` + "`When a \"DamageReported\" event from carrier.kestrel is put on the carrier-events eventbridge bus:`" + ` with the detail as the doc string.
+The steps use the scenario's AWS account (` + "`the {word} aws account with the following properties:`" + `, from aws-core). An event has a detail type, a source and a JSON detail, as in ` + "`When a \"Damage Reported\" event from carrier.kestrel is put on the carrier-events eventbridge bus:`" + ` with the detail as the doc string.
 
 **Checking a bus** does not take events from anyone: for the buses a run checks, axx adds a rule of its own (` + "`axx-<run>-<bus>`" + `, matching every event of the account) with a queue of its own as its target once the apps are up, and removes both when the run ends. The conditions are paths into the event as EventBridge delivers it: ` + "`detail-type`" + `, ` + "`source`" + `, and ` + "`detail.<field>`" + ` for the detail. A check only looks at the events received since its scenario started.`
 
@@ -47,19 +47,38 @@ func (pack) Manifest() core.Manifest {
 			{
 				ID: name + ".put", Keyword: "When", Arg: core.ArgDocString, Since: "0.1.0",
 				Expr: "a(n) {string} event from {word} is put on the {word} eventbridge bus:",
-				Doc:  "Put an event with the detail type and source on a bus; the doc string is its JSON detail.",
+				Doc:  "Put an event with that detail type and source on the bus; the doc string is its detail, in JSON.",
 				Examples: []string{
-					`When a "DamageReported" event from carrier.kestrel is put on the carrier-events eventbridge bus:`,
+					"When a \"Damage Reported\" event from carrier.kestrel is put on the carrier-events eventbridge bus:\n" +
+						"  \"\"\"\n" +
+						"  {\"parcel\": \"PX-4105\", \"carrier\": \"KESTREL\", \"note\": \"Crushed at the depot\"}\n" +
+						"  \"\"\"",
 				},
 				Run: put,
 			},
 			{
 				ID: name + ".received", Keyword: "Then", Arg: core.ArgTable, Since: "0.1.0",
 				Expr: "[[within {duration} ]]the {word} eventbridge bus has an event where:",
-				Doc: "Wait (10s, or the given time) until the bus has an event, put since the scenario started, that meets every row: " +
-					"`path | value` on the event (`detail-type`, `source`, `detail.<field>`), compared as text; `null` for null and " +
-					"`undefined` for absent. axx adds a rule of its own to the bus for the run.",
-				Examples: []string{"Then within 30s the parcels eventbridge bus has an event where:"},
+				Doc: "Check that the bus has an event with those values, put since the scenario started.\n\n" +
+					"- The check waits for it: 10 seconds, or `within {duration}`.\n" +
+					"- axx adds a rule of its own to the bus for the run.",
+				Table: &core.TableDoc{
+					Columns: []string{"path", "value"},
+					Rows: []core.TableRow{
+						{Name: "detail-type", Takes: "the event's detail type, like `Claim Decided`"},
+						{Name: "source", Takes: "the event's source, like `parcels.claims`"},
+						{Name: "detail.<field>", Takes: "a field of the event's detail, or a dotted path into it, like `detail.claim`"},
+					},
+					Note: "Values compare as text: `null` for null and `undefined` for absent. Other paths into the event, as " +
+						"EventBridge delivers it, work too, like `account` or `region`.",
+				},
+				Examples: []string{
+					"Then within 30s the parcels eventbridge bus has an event where:\n" +
+						"  | detail-type     | Claim Decided  |\n" +
+						"  | source          | parcels.claims |\n" +
+						"  | detail.claim    | CLM-4101       |\n" +
+						"  | detail.decision | APPROVED       |",
+				},
 				Run: func(sc *core.Scenario, a core.Args) error {
 					rs, err := cloudstep.Conditions(a.Table)
 					if err != nil {

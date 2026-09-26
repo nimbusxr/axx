@@ -1,0 +1,15 @@
+parcels.manifest_lines:
+  - id: "ML-OSP-0502-1"
+    manifest_id: "M-OSPREY-0502"
+    reference: "PX-OSP-5101"
+    sender: "osprey-outdoor"
+    weight_grams: 2100
+    service_level: "STANDARD"
+    recipient: '{"name": "Rosalind Franklin", "city": "Bremen", "postcode": "28195", "country": "DE"}'
+  - id: "ML-OSP-0502-2"
+    manifest_id: "M-OSPREY-0502"
+    reference: "PX-OSP-5102"
+    sender: "osprey-outdoor"
+    weight_grams: 3400
+    service_level: "EXPRESS"
+    recipient: '{"name": "Dorothy Hodgkin", "city": "Hanover", "postcode": "30159", "country": "DE"}'

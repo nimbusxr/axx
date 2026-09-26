@@ -722,3 +722,15 @@ func TestRunErrorsAreReported(t *testing.T) {
 		t.Errorf("agent: %+v", agent)
 	}
 }
+
+func TestTheUnknownReporterHintNamesEveryReporter(t *testing.T) {
+	e, _ := axxerr.Lookup(CodeUnknownReporter)
+	for _, n := range Names() {
+		if !strings.Contains(e.Fix, " "+n+",") && !strings.Contains(e.Fix, " "+n+".") {
+			t.Errorf("%s's fix does not name the %s reporter: %s", CodeUnknownReporter, n, e.Fix)
+		}
+		if _, err := New(n, io.Discard, Options{}); err != nil {
+			t.Errorf("%s: %v", n, err)
+		}
+	}
+}

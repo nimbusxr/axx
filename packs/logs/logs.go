@@ -83,9 +83,20 @@ func steps() []core.StepDef {
 		{
 			ID: "logs.log", Keyword: "Given", Arg: core.ArgTable,
 			Expr: "the {word} log with the following properties:",
-			Doc: "Register a log under a name. Properties: `url` (required; `file://`, `udp://`, `tcp://`, `http://` or `https://`, " +
-				"`${env:..}`/`${sys:..}` are expanded). Assertions only look at what the log receives from now on.",
-			Examples:   []string{"Given the parcels log with the following properties:"},
+			Doc:  "Register a log under a name. Assertions only look at what the log receives from then on.",
+			Table: &core.TableDoc{
+				Columns: []string{"property", "value"},
+				Rows: []core.TableRow{{
+					Name: "url", Required: true,
+					Takes: "where the log's lines are: a file axx reads (`file://`, relative to the directory of axx.yaml or absolute), " +
+						"or an address axx listens on (`udp://`, `tcp://`, `http://`, `https://`); `${env:..}` and `${sys:..}` are expanded",
+				}},
+				Note: "Any other property fails the step.",
+			},
+			Examples: []string{
+				"Given the parcels log with the following properties:\n  | url | udp://0.0.0.0:5140 |",
+				"Given the console log with the following properties:\n  | url | file://.axx/logs/apps.log |",
+			},
 			TableTypes: map[string]string{"url": "url"},
 			Run:        addLog,
 		},
@@ -109,9 +120,15 @@ func steps() []core.StepDef {
 		{
 			ID: "logs.entries", Keyword: "Then", Arg: core.ArgTable,
 			Expr: "[[within {duration} ]]the {word} log has entries matching:",
-			Doc: "Wait until the log has a match for every regular expression in the table (one per row). Each row needs a match " +
+			Doc: "Wait until the log has a match for every regular expression in the table. Each row needs a match " +
 				"of its own: the same pattern in two rows needs two matches.",
-			Examples: []string{"Then the parcels log has entries matching:"},
+			Table: &core.TableDoc{
+				Columns: []string{"pattern"},
+				Note:    "A row is a regular expression the log must have a match for.",
+			},
+			Examples: []string{"Then the console log has entries matching:\n" +
+				"  | msg=\"manifest line processed\" line=ML-FJORD-0101-1 status=REJECTED |\n" +
+				"  | msg=\"manifest line processed\" line=ML-FJORD-0101-2 status=REJECTED |"},
 			Run: func(sc *core.Scenario, a core.Args) error {
 				lg, err := lookup(sc, a.String(1))
 				if err != nil {
@@ -144,9 +161,15 @@ func steps() []core.StepDef {
 		{
 			ID: "logs.across", Keyword: "Then", Arg: core.ArgTable,
 			Expr: "[[within {duration} ]]the logs have entries matching:",
-			Doc: "Wait until every log in the table has a match for its regular expression (`log | pattern` rows), for example the " +
+			Doc: "Wait until every log in the table has a match for its regular expression, for example the " +
 				"service's own entry and its dependency's. Each row needs a match of its own.",
-			Examples: []string{"Then the logs have entries matching:"},
+			Table: &core.TableDoc{
+				Columns: []string{"log", "pattern"},
+				Note:    "A row names a log registered in the scenario, and a regular expression it must have a match for.",
+			},
+			Examples: []string{"Then the logs have entries matching:\n" +
+				"  | parcels | msg=\"registration refused; not announced\" reference=PX-ADR-1104 |\n" +
+				"  | console | GET /v1/postcodes/DE/00012                                      |"},
 			Run: func(sc *core.Scenario, a core.Args) error {
 				var ws []want
 				for _, row := range a.Table.Rows {
@@ -218,15 +241,17 @@ func urlProperty(t *core.Table) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	url, found := "", false
 	for _, p := range pairs {
-		switch p.Key {
-		case "url":
-			return p.Value, nil
-		default:
+		if p.Key != "url" {
 			return "", fmt.Errorf("unknown log property %q (supported: url)", p.Key)
 		}
+		url, found = p.Value, true
 	}
-	return "", fmt.Errorf(`Property "url" is required`) //nolint:staticcheck // user-facing message
+	if !found {
+		return "", fmt.Errorf(`Property "url" is required`) //nolint:staticcheck // user-facing message
+	}
+	return url, nil
 }
 
 func addLog(sc *core.Scenario, a core.Args) error {

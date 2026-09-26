@@ -1,0 +1,13 @@
+parcels.parcels:
+  - reference: "PX-WEB-5511"
+    sender: "thistle-and-thread"
+    status: "REGISTERED"
+    weight_grams: 1200
+    recipient: '{"name": "Nora Fischer", "street": "Lange Str. 17", "city": "Oldenburg", "postcode": "26122", "country": "DE"}'
+    details: '{"source": "portal", "zone": "DE-1", "signature": false, "leaveWithNeighbour": true}'
+  - reference: "PX-WEB-5512"
+    sender: "thistle-and-thread"
+    status: "REGISTERED"
+    weight_grams: 1200
+    recipient: '{"name": "Ben Schreiber", "street": "Achterstr. 5", "city": "Oldenburg", "postcode": "26122", "country": "DE"}'
+    details: '{"source": "portal", "zone": "DE-1", "signature": false, "leaveWithNeighbour": true}'

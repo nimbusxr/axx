@@ -23,7 +23,7 @@ func buildDoc() string {
 - ` + "`WARN`" + ` and ` + "`INFO`" + ` are logged on the step;
 - ` + "`IGNORE`" + ` drops the finding.
 
-Levels come from ` + "`openapi.levels`" + ` in axx.yaml and are overridden per scenario with ` + "`the OpenAPI validation levels are:`" + `. A key also sets every more specific key (` + "`validation.request.body`" + ` covers ` + "`validation.request.body.schema.required`" + `); the most specific configured key wins.
+Levels come from ` + "`openapi.levels`" + ` in axx.yaml and are overridden per scenario with ` + "`the OpenAPI validation levels are:`" + `. A key also sets every more specific key (` + "`validation.request.body`" + ` covers ` + "`validation.request.body.schema.required`" + `); the most specific configured key wins. A key must be one of the keys below, or a prefix of them: any other, in the step or in axx.yaml, is an error that names the closest keys.
 
 | Key | Reported when |
 | --- | --- |
@@ -32,7 +32,7 @@ Levels come from ` + "`openapi.levels`" + ` in axx.yaml and are overridden per s
 		b.WriteString("| `" + k.key + "` | " + k.when + " |\n")
 	}
 	b.WriteString(`
-Schema keywords use the draft-4 names: ` + "`const`" + ` is reported as ` + "`enum`" + `, ` + "`exclusiveMinimum`" + `/` + "`exclusiveMaximum`" + ` as ` + "`minimum`" + `/` + "`maximum`" + `, ` + "`unevaluatedProperties`" + ` as ` + "`additionalProperties`" + `.
+Schema keywords use the draft-4 names: ` + "`const`" + ` is reported as ` + "`enum`" + `, ` + "`exclusiveMinimum`" + `/` + "`exclusiveMaximum`" + ` as ` + "`minimum`" + `/` + "`maximum`" + `, ` + "`unevaluatedProperties`" + ` as ` + "`additionalProperties`" + `. A schema failure that names no keyword is keyed ` + "`unknownError`" + ` (` + "`validation.request.body.schema.unknownError`" + `).
 
 When a scenario fails, its failure context (` + "`rest`" + `) shows the last request and response (headers, bodies truncated to 2 KB) and the OpenAPI findings.
 `)

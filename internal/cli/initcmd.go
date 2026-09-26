@@ -96,7 +96,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - uses: nimbusxr/setup-axx@v1
+      - uses: nimbusxr/setup-axx@v0
       - run: axx run --format junit:build/axx/junit.xml --format html:build/axx/report.html
       - uses: actions/upload-artifact@v4
         if: always()

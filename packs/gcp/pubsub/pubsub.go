@@ -44,7 +44,14 @@ func (pack) Manifest() core.Manifest {
 		Requires:  []string{gcpcore.Name},
 		Steps: cloudstep.Messages{
 			Pack: name, Target: "pubsub topic", Verb: "published", Field: "attribute", Fields: "attributes",
-			Example: "invoice-events", Send: publish, Inbox: inbox,
+			Send: publish, Inbox: inbox,
+			Example: cloudstep.Sample{
+				To: "shipment-events", Body: `{"parcel": "PX-5105", "carrier": "HERON", "service": "express", "weightKg": 3.2}`,
+				File: "messages/px-5105-weighed.json", Fields: [][2]string{{"eventType", "ShipmentWeighed"}},
+				From: "invoice-events", Where: [][2]string{
+					{"attribute eventType", "InvoiceReconciled"}, {"invoice", "INV-2026-09-KES1"}, {"status", "RECONCILED"},
+				},
+			},
 			Received: "axx creates a subscription of its own to the topic for the run.",
 		}.Steps(),
 	}

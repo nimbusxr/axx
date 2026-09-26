@@ -13,6 +13,7 @@ import (
 	awssqs "github.com/nimbusxr/axx/packs/aws/sqs"
 	azureblob "github.com/nimbusxr/axx/packs/azure/blob"
 	azureservicebus "github.com/nimbusxr/axx/packs/azure/servicebus"
+	"github.com/nimbusxr/axx/packs/files"
 	gcpbigquery "github.com/nimbusxr/axx/packs/gcp/bigquery"
 	gcpcore "github.com/nimbusxr/axx/packs/gcp/core"
 	gcpfirestore "github.com/nimbusxr/axx/packs/gcp/firestore"
@@ -24,6 +25,12 @@ import (
 	"github.com/nimbusxr/axx/packs/mongo"
 	"github.com/nimbusxr/axx/packs/rest"
 	sqlpack "github.com/nimbusxr/axx/packs/sql"
+	weba11y "github.com/nimbusxr/axx/packs/web/a11y"
+	webcore "github.com/nimbusxr/axx/packs/web/core"
+	webcoverage "github.com/nimbusxr/axx/packs/web/coverage"
+	weblighthouse "github.com/nimbusxr/axx/packs/web/lighthouse"
+	webnetwork "github.com/nimbusxr/axx/packs/web/network"
+	webscreenshots "github.com/nimbusxr/axx/packs/web/screenshots"
 )
 
 // Packs returns every published pack, keyed by its name.
@@ -35,6 +42,13 @@ func Packs() map[string]core.Pack {
 		"mongo":            mongo.Pack(),
 		"kafka":            kafka.Pack(),
 		"logs":             logs.Pack(),
+		"files":            files.Pack(),
+		"web-core":         webcore.Pack(),
+		"web-screenshots":  webscreenshots.Pack(),
+		"web-a11y":         weba11y.Pack(),
+		"web-network":      webnetwork.Pack(),
+		"web-lighthouse":   weblighthouse.Pack(),
+		"web-coverage":     webcoverage.Pack(),
 		"aws-core":         awscore.Pack(),
 		"aws-s3":           awss3.Pack(),
 		"aws-sqs":          awssqs.Pack(),

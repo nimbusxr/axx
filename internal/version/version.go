@@ -2,6 +2,7 @@
 package version
 
 import (
+	"regexp"
 	"runtime"
 	"runtime/debug"
 	"strings"
@@ -59,11 +60,17 @@ func Get() Info {
 	return info
 }
 
-// channel classifies a version: everything before 1.0.0 is beta.
+// pseudoVersion matches the end of a Go pseudo-version (a build of a commit
+// rather than of a release tag: 0.1.1-0.20260925184804-3bf0dd25927c).
+var pseudoVersion = regexp.MustCompile(`[.-]\d{14}-[0-9a-f]{12}$`)
+
+// channel classifies a version: builds of commits are dev, and everything
+// before 1.0.0 is beta.
 func channel(v string) string {
+	release, dirty := strings.CutSuffix(v, "+dirty")
 	switch {
-	case strings.Contains(v, "-dev") || strings.Contains(v, "SNAPSHOT") || strings.Contains(v, "nightly") ||
-		strings.HasPrefix(v, "0.0.0-"): // Go pseudo-versions of untagged builds
+	case dirty || pseudoVersion.MatchString(release) ||
+		strings.Contains(v, "-dev") || strings.Contains(v, "SNAPSHOT") || strings.Contains(v, "nightly"):
 		return "dev"
 	case strings.HasPrefix(v, "0."):
 		return "beta"

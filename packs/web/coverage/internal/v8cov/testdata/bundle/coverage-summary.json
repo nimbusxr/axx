@@ -1,0 +1,5 @@
+{"total": {"lines":{"total":50,"covered":47,"skipped":0,"pct":94},"statements":{"total":50,"covered":47,"skipped":0,"pct":94},"functions":{"total":3,"covered":3,"skipped":0,"pct":100},"branches":{"total":9,"covered":7,"skipped":0,"pct":77.77},"branchesTrue":{"total":0,"covered":0,"skipped":0,"pct":"Unknown"}}
+,"site-src/format.ts": {"lines":{"total":13,"covered":12,"skipped":0,"pct":92.3},"functions":{"total":1,"covered":1,"skipped":0,"pct":100},"statements":{"total":13,"covered":12,"skipped":0,"pct":92.3},"branches":{"total":3,"covered":3,"skipped":0,"pct":100}}
+,"site-src/main.ts": {"lines":{"total":25,"covered":25,"skipped":0,"pct":100},"functions":{"total":1,"covered":1,"skipped":0,"pct":100},"statements":{"total":25,"covered":25,"skipped":0,"pct":100},"branches":{"total":3,"covered":3,"skipped":0,"pct":100}}
+,"site-src/status.ts": {"lines":{"total":12,"covered":10,"skipped":0,"pct":83.33},"functions":{"total":1,"covered":1,"skipped":0,"pct":100},"statements":{"total":12,"covered":10,"skipped":0,"pct":83.33},"branches":{"total":3,"covered":1,"skipped":0,"pct":33.33}}
+}

@@ -93,15 +93,19 @@ func (pack) Manifest() core.Manifest {
 	return core.Manifest{
 		Name:      "mock",
 		Namespace: "mock",
-		Doc:       "Verify requests received by WireMock mocks (stubs are defined in WireMock mapping files).",
+		Doc: "Verify the requests WireMock mocks received. Stubs are defined in WireMock mapping files; axx only verifies.\n\n" +
+			"With the axx WireMock image (`ghcr.io/nimbusxr/axx-wiremock`), every call to a mock is checked against the mocked " +
+			"service's OpenAPI contract. A step that checks a call that broke the contract fails; a call that broke it, and that " +
+			"no step checks, fails the run after the scenarios.",
 		Hooks: []core.Hook{{
 			ID: "mock.openapi.levels.unused", Phase: core.AfterScenario,
 			Run: warnUnusedLevels,
 		}},
 		Params: []core.ParamType{{
-			Name:    "mockedService",
-			Regexps: []string{`([^\s]+)`},
-			Doc:     "The name of a mocked service registered in the scenario.",
+			Name:     "mockedService",
+			Regexps:  []string{`([^\s]+)`},
+			Doc:      "the name of a mocked service the scenario registered",
+			Examples: []string{"addresses"},
 			Transform: func(sc *core.Scenario, name string, _ []*string) (any, error) {
 				return stateKey.Of(sc).services.Get(name)
 			},
@@ -115,45 +119,67 @@ func steps() []core.StepDef {
 		{
 			ID: "mock.service", Keyword: "Given", Arg: core.ArgTable,
 			Expr: "the mocked {word} service with the following properties:",
-			Doc: "Register a WireMock server. The first mocked service registered in a scenario is the default one.\n\n" +
-				"Properties: `url` (required; `${env:..}`/`${sys:..}` are expanded).",
-			Examples: []string{"Given the mocked addresses service with the following properties:"},
-			Run:      addService,
+			Doc: "Register a WireMock server, to check the requests it received. The first mocked service registered in a " +
+				"scenario is the default one.",
+			Table: &core.TableDoc{
+				Columns: []string{"property", "value"},
+				Rows: []core.TableRow{
+					{Name: "url", Takes: "the WireMock server's URL, with its admin API at `/__admin` below it; it can use `${env:…}` " +
+						"and `${sys:…}`", Required: true},
+				},
+				Note: "Any other property fails the step.",
+			},
+			Examples: []string{"Given the mocked addresses service with the following properties:\n" +
+				"  | url | http://localhost:8081 |"},
+			Run: addService,
 		},
 		{
 			ID: "mock.received", Keyword: "Then",
 			Expr: "the mocked {word} request to {word} named {word} was received by {mockedService}",
-			Doc: "Register a request pattern under a name (method + exact URL, including the query string) and verify " +
-				"WireMock received it at least once. Later steps refer to the pattern by name.",
+			Doc: "Check that the mocked service received a request at least once, and name it for the steps that follow.\n\n" +
+				"- The request is its method and its exact URL, query string included.\n" +
+				"- The method is `GET`, `POST`, `PUT`, `DELETE`, `PATCH`, `OPTIONS` or `HEAD`, in capitals.\n" +
+				"- With the axx WireMock image, a call that broke the service's OpenAPI contract fails the step.",
 			Examples: []string{"Then the mocked GET request to /v1/postcodes/DE/10115 named postcode-check was received by addresses"},
 			Run:      received,
 		},
 		{
 			ID: "mock.openapi.levels", Keyword: "Given", Arg: core.ArgTable,
 			Expr: "the OpenAPI validation levels for the mocked {mockedService} service are:",
-			Doc: "Relax, for this scenario, the mocked service's OpenAPI contract: findings that would fail the checking mock step " +
-				"are reported at the level you set instead (`key | level` rows; WARN logs them, INFO and IGNORE drop them). A key also " +
-				"covers the keys below it: `validation.response.body` covers `validation.response.body.schema.required`. It applies to the " +
-				"calls this scenario's mock steps check; a stub that is off-contract on purpose is better relaxed in its own metadata " +
-				"(`openApiValidationLevels`), which applies wherever it answers. This is the dependency's contract: your own service's " +
-				"is relaxed with `the OpenAPI validation levels are:`.",
-			Examples: []string{"Given the OpenAPI validation levels for the mocked addresses service are:"},
-			Run:      setLevels,
+			Doc: "Relax the mocked service's OpenAPI contract for this scenario: a finding that would fail the mock step " +
+				"that checks the call is reported at the level its row sets instead.\n\n" +
+				"- `WARN` logs the finding; `INFO` and `IGNORE` drop it.\n" +
+				"- A key also covers the keys below it: `validation.response.body` covers `validation.response.body.schema.required`.\n" +
+				"- It applies to the calls this scenario's mock steps check. A scenario whose mock steps check no call to the " +
+				"service logs a warning.\n" +
+				"- A stub that is off-contract on purpose is better relaxed in its own metadata (`openApiValidationLevels`), " +
+				"which applies wherever it answers.\n" +
+				"- This is the dependency's contract: your own service's is relaxed with `the OpenAPI validation levels are:`.",
+			Table: &core.TableDoc{
+				Columns: []string{"validation key", "level"},
+				Note: "A row is a validation key and its level: `ERROR` (or `FAIL`), `WARN`, `INFO` or `IGNORE`. " +
+					"The key must be one the axx WireMock extension reports, or a prefix of such keys, like `validation.response.body`: " +
+					"any other fails the step, which names the closest keys.",
+			},
+			Examples: []string{"Given the OpenAPI validation levels for the mocked addresses service are:\n" +
+				"  | validation.response.body.schema.additionalProperties | WARN |"},
+			Run: setLevels,
 		},
 		countStep("mock.count.exactly", "exactly", func(got, n int) bool { return got == n }),
 		countStep("mock.count.atLeast", "at least", func(got, n int) bool { return got >= n }),
 		countStep("mock.count.atMost", "at most", func(got, n int) bool { return got <= n }),
 		{
 			ID: "mock.notReceived", Keyword: "Then",
-			Expr:     "the mocked {word} request to {word} named {word}[[ on {mockedService}]] was not received",
-			Doc:      "Register a request pattern under a name and verify WireMock received no matching request.",
+			Expr: "the mocked {word} request to {word} named {word}[[ on {mockedService}]] was not received",
+			Doc: "Check that the mocked service received no request with that method and exact URL, and name it for the " +
+				"steps that follow.",
 			Examples: []string{"Then the mocked GET request to /v1/postcodes/DE/12489 named skipped-check was not received"},
 			Run:      notReceived,
 		},
 		{
 			ID: "mock.header.is", Keyword: "Then",
 			Expr:     "the header {word} for mocked request named {word}[[ on {mockedService}]] is {string}",
-			Doc:      "Verify the named request was received with a header equal to the value. The constraint is added to the named pattern.",
+			Doc:      "Check that the named request was received with a header of that value. " + headerJoins,
 			Examples: []string{"Then the header X-Api-Key for mocked request named postcode-check is 'example-address-key'"},
 			Run: func(sc *core.Scenario, a core.Args) error {
 				return headerCheck(sc, a, a.String(0), a.String(1), headerMatcher{EqualTo: a.String(3)})
@@ -161,17 +187,22 @@ func steps() []core.StepDef {
 		},
 		{
 			ID: "mock.headers.are", Keyword: "Then", Arg: core.ArgTable,
-			Expr:     "the headers for mocked request named {word} on {mockedService} are:",
-			Doc:      "Verify the named request was received with every header in the table (name | value).",
-			Examples: []string{"Then the headers for mocked request named postcode-check on addresses are:"},
+			Expr:  "the headers for mocked request named {word} on {mockedService} are:",
+			Doc:   "Check that the named request was received with every header of the table, each with its value. " + headersJoin,
+			Table: &core.TableDoc{Columns: []string{"header", "value"}, Note: "A row is a header's name and the value it must have."},
+			Examples: []string{"Then the headers for mocked request named postcode-check on addresses are:\n" +
+				"  | X-Api-Key | example-address-key |\n" +
+				"  | Accept    | application/json    |"},
 			Run: func(sc *core.Scenario, a core.Args) error {
 				return headersCheck(sc, a, func(v string) headerMatcher { return headerMatcher{EqualTo: v} })
 			},
 		},
 		{
 			ID: "mock.header.matches", Keyword: "Then",
-			Expr:     "the header {word} for mocked request named {word} on {mockedService} matches {pattern}",
-			Doc:      "Verify the named request was received with a header matching the regular expression (evaluated by WireMock, full match).",
+			Expr: "the header {word} for mocked request named {word} on {mockedService} matches {pattern}",
+			Doc: "Check that the named request was received with a header that matches a regular expression.\n\n" +
+				"- WireMock evaluates the expression, in Java syntax; it must match the whole value.\n" +
+				"- " + headerJoins,
 			Examples: []string{"Then the header Accept for mocked request named postcode-check on addresses matches ^application/json$"},
 			Run: func(sc *core.Scenario, a core.Args) error {
 				return headerCheck(sc, a, a.String(0), a.String(1), headerMatcher{Matches: a.String(3)})
@@ -179,9 +210,17 @@ func steps() []core.StepDef {
 		},
 		{
 			ID: "mock.headers.match", Keyword: "Then", Arg: core.ArgTable,
-			Expr:     "the headers for mocked request named {word} on {mockedService} match:",
-			Doc:      "Verify the named request was received with headers matching each regular expression in the table (name | pattern).",
-			Examples: []string{"Then the headers for mocked request named postcode-check on addresses match:"},
+			Expr: "the headers for mocked request named {word} on {mockedService} match:",
+			Doc: "Check that the named request was received with headers that match regular expressions, a row each.\n\n" +
+				"- WireMock evaluates the expressions, in Java syntax; each must match the whole value.\n" +
+				"- " + headersJoin,
+			Table: &core.TableDoc{
+				Columns: []string{"header", "regular expression"},
+				Note:    "A row is a header's name and a regular expression its value must match.",
+			},
+			Examples: []string{"Then the headers for mocked request named postcode-check on addresses match:\n" +
+				"  | X-Api-Key | example-.+         |\n" +
+				"  | Accept    | application/json.* |"},
 			Run: func(sc *core.Scenario, a core.Args) error {
 				return headersCheck(sc, a, func(v string) headerMatcher { return headerMatcher{Matches: v} })
 			},
@@ -189,7 +228,7 @@ func steps() []core.StepDef {
 		{
 			ID: "mock.header.missing", Keyword: "Then",
 			Expr:     "the header {word} for mocked request named {word} on {mockedService} is missing",
-			Doc:      "Verify the named request was received without the header.",
+			Doc:      "Check that the named request was received without that header. " + headerJoins,
 			Examples: []string{"Then the header Authorization for mocked request named postcode-check on addresses is missing"},
 			Run: func(sc *core.Scenario, a core.Args) error {
 				return headerCheck(sc, a, a.String(0), a.String(1), headerMatcher{Absent: true})
@@ -197,19 +236,29 @@ func steps() []core.StepDef {
 		},
 		{
 			ID: "mock.headers.missing", Keyword: "Then", Arg: core.ArgTable,
-			Expr:     "the headers for mocked request named {word} on {mockedService} are missing:",
-			Doc:      "Verify the named request was received without any of the headers listed (one per row).",
-			Examples: []string{"Then the headers for mocked request named postcode-check on addresses are missing:"},
-			Run:      headersMissing,
+			Expr:  "the headers for mocked request named {word} on {mockedService} are missing:",
+			Doc:   "Check that the named request was received without any of the headers the table names. " + headersJoin,
+			Table: &core.TableDoc{Columns: []string{"header"}, Note: "A row names a header, in the table's only column."},
+			Examples: []string{"Then the headers for mocked request named postcode-check on addresses are missing:\n" +
+				"  | Authorization |\n" +
+				"  | Cookie        |"},
+			Run: headersMissing,
 		},
 	}
 }
+
+// headerJoins and headersJoin say that the headers a step checks stay with
+// the named request: its later checks check them too.
+const (
+	headerJoins = "Later steps on the named request check this header too."
+	headersJoin = "Later steps on the named request check these headers too."
+)
 
 func countStep(id, words string, ok func(got, n int) bool) core.StepDef {
 	return core.StepDef{
 		ID: id, Keyword: "Then",
 		Expr:     "the mocked request named {word}[[ on {mockedService}]] was received " + words + " {int} time(s)",
-		Doc:      fmt.Sprintf("Verify the named request pattern was received %s the given number of times.", words),
+		Doc:      fmt.Sprintf("Check that the mocked service received the named request %s that many times.", words),
 		Examples: []string{fmt.Sprintf("Then the mocked request named postcode-check was received %s 1 time", words)},
 		Run: func(sc *core.Scenario, a core.Args) error {
 			svc, err := service(sc, a, 1)
@@ -234,6 +283,9 @@ func addService(sc *core.Scenario, a core.Args) error {
 	}
 	props := map[string]string{}
 	for _, p := range pairs {
+		if p.Key != "url" {
+			return fmt.Errorf("unknown mocked service property %q (supported: url)", p.Key)
+		}
 		props[p.Key] = p.Value
 	}
 	raw, ok := props["url"]
@@ -264,7 +316,7 @@ func setLevels(sc *core.Scenario, a core.Args) error {
 	for _, p := range pairs {
 		m[p.Key] = p.Value
 	}
-	lv, err := oaslevel.ParseMap(m)
+	lv, err := oaslevel.ParseMap(m, levelKeys)
 	if err != nil {
 		return err
 	}

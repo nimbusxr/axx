@@ -12,6 +12,8 @@ public final class AxxRunConfigurationOptions extends LocatableRunConfigurationO
     private final StoredProperty<String> arguments = string("").provideDelegate(this, "arguments");
     private final StoredProperty<String> workingDirectory =
             string("").provideDelegate(this, "workingDirectory");
+    private final StoredProperty<Boolean> watchBrowsers =
+            property(false).provideDelegate(this, "watchBrowsers");
 
     /** The targets, as a command line (quoted where needed). */
     public @NotNull String getTargets() {
@@ -38,6 +40,15 @@ public final class AxxRunConfigurationOptions extends LocatableRunConfigurationO
 
     public void setWorkingDirectory(@NotNull String value) {
         workingDirectory.setValue(this, value);
+    }
+
+    /** Whether runs watch the web pack's browsers. */
+    public boolean getWatchBrowsers() {
+        return Boolean.TRUE.equals(watchBrowsers.getValue(this));
+    }
+
+    public void setWatchBrowsers(boolean value) {
+        watchBrowsers.setValue(this, value);
     }
 
     private static String nonNull(String value) {

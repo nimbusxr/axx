@@ -7,3 +7,10 @@ packs:
   - mongo
   - kafka
   - logs
+  - files
+  - web-core
+  - web-screenshots
+  - web-a11y
+  - web-network
+  - web-lighthouse
+  - web-coverage

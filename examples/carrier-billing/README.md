@@ -9,7 +9,7 @@ runs on Google Cloud:
   BigQuery, for the weight the parcels platform measured (kept in Firestore). It writes
   the priced lines to BigQuery and the invoice's summary to Firestore.
 - **Disputes:** overcharged lines and parcels nobody shipped are written to a dispute file
-  in Cloud Storage.
+  in Cloud Storage, with a letter to the carrier.
 - **Pub/Sub:** the outcome is announced on a topic, and the parcels platform's weights
   arrive on another.
 
@@ -21,7 +21,7 @@ Firestore, the files in Cloud Storage, the events on Pub/Sub, and what the servi
 
 | Feature | Acceptance criteria | What axx uses |
 | --- | --- | --- |
-| `invoices` | An invoice at the agreed rates is reconciled. Overcharged lines and unknown parcels are disputed. An invoice uploaded twice is reconciled once. | Cloud Storage uploads, objects (identical to a file, JSON properties), BigQuery seeds, rows and counts, Firestore seeds and documents, Pub/Sub checks, a log entry |
+| `invoices` | An invoice at the agreed rates is reconciled. Overcharged lines and unknown parcels are disputed. An invoice uploaded twice is reconciled once. | Cloud Storage uploads, objects (a CSV row, identical to a file, JSON properties, a letter's text), BigQuery seeds, rows and counts, Firestore seeds and documents, Pub/Sub checks, a log entry |
 | `shipments` | A weighed parcel is kept for pricing. A shipment event without a type is set aside. | publishing to Pub/Sub, with and without attributes, a Firestore collection query, a log entry |
 
 ## Run it
@@ -67,7 +67,7 @@ short name (see `notify` in `app/provision.go`).
 | Resource | Kind | Purpose |
 | --- | --- | --- |
 | `carrier-invoices` | Cloud Storage bucket | carriers' invoices, `<carrier>/<invoice>.csv`; new ones are announced on `invoice-uploads` |
-| `billing-disputes` | Cloud Storage bucket | the disputed lines of an invoice (CSV) and a summary (JSON) |
+| `billing-disputes` | Cloud Storage bucket | the disputed lines of an invoice (CSV), a summary (JSON) and the letter to the carrier (text) |
 | `invoice-uploads`, `shipment-events` | Pub/Sub topics | read by the service's subscriptions |
 | `invoice-events` | Pub/Sub topic | `InvoiceReconciled` and `InvoiceDisputed` |
 | `billing.carrier_rates`, `billing.invoice_lines` | BigQuery tables | agreed prices per kg; every priced line |

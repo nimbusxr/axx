@@ -1,0 +1,22 @@
+parcels.manifest_lines:
+  - id: "ML-WRN-0503-1"
+    manifest_id: "M-WREN-0503"
+    reference: "PX-WRN-5201"
+    sender: "wren-toys"
+    weight_grams: 1200
+    service_level: "STANDARD"
+    recipient: '{"name": "Marie Curie", "city": "Dresden", "postcode": "01067", "country": "DE"}'
+  - id: "ML-WRN-0503-2"
+    manifest_id: "M-WREN-0503"
+    reference: "PX-WRN-5202"
+    sender: "wren-toys"
+    weight_grams: 450
+    service_level: "EXPRESS"
+    recipient: '{"name": "Katherine Johnson", "city": "Nuremberg", "postcode": "90402", "country": "DE"}'
+  - id: "ML-WRN-0503-3"
+    manifest_id: "M-WREN-0503"
+    reference: "PX-WRN-5203"
+    sender: "wren-toys"
+    weight_grams: 32000
+    service_level: "STANDARD"
+    recipient: '{"name": "Lise Meitner", "city": "Hamburg", "postcode": "20095", "country": "DE"}'

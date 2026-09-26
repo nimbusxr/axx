@@ -34,32 +34,30 @@ them; files you edited are kept unless --force.`,
 		Args: wrapArgs(cobra.NoArgs),
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			var root string
-			var cfg *config.Config
+			var sks []skills.Skill
 			switch scope {
 			case "project":
-				c, err := app.loadConfig(&cf)
+				// The project's packs, its own ones too.
+				e, err := app.loadEngine(&cf)
 				if err != nil {
 					return err
 				}
-				cfg = c
-				root = c.Dir
+				if sks, err = skills.Build(e); err != nil {
+					return err
+				}
+				root = e.Config.Dir
 			case "user":
+				// Every project, whatever its packs: every pack axx publishes.
 				home, err := os.UserHomeDir()
 				if err != nil {
 					return err
 				}
+				if sks, err = skills.Published(); err != nil {
+					return err
+				}
 				root = home
-				cfg = &config.Config{}
 			default:
 				return axxerr.New("AXX-E0007", exitcode.Usage, "--scope must be project or user")
-			}
-			e, err := engine.New(engine.Options{Config: cfg})
-			if err != nil {
-				return err
-			}
-			sks, err := skills.Build(e)
-			if err != nil {
-				return err
 			}
 			res, err := skills.Install(sks, skills.InstallOptions{Root: root, Claude: !noClaude, Force: force})
 			if err != nil {

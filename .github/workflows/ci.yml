@@ -103,7 +103,30 @@ jobs:
       - uses: ./.github/actions/go-cache
         with:
           build: test
-      - run: go test -race -tags integration -timeout 20m ./packs/... ./internal/engine/... ./internal/packbuild/...
+      # The web pack has a job of its own (web).
+      - run: |
+          mapfile -t packs < <(go list ./packs/... | grep -v /packs/web)
+          go test -race -tags integration -timeout 20m "${packs[@]}" ./internal/engine/... ./internal/packbuild/...
+
+  web:
+    # The web pack in Chromium, Firefox and WebKit, which it downloads on first use; the watching
+    # test opens browser windows, on a virtual screen.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@5228313ee0372e111a38da051671ca30fc5a96db # v3
+        with:
+          install_args: "go"
+      - uses: ./.github/actions/go-cache
+        with:
+          build: test
+      - name: the browsers' system libraries
+        run: |
+          version=$(sed -n 's/^\tCoreVersion = "\(.*\)"$/\1/p' packs/web/internal/driver/driver.go)
+          sudo npx -y "playwright@$version" install-deps chromium firefox webkit
+      - run: xvfb-run -a go test -race -tags integration -timeout 20m ./packs/web/...
 
   cross-build:
     # CGO_ENABLED=0 must keep working for every release target. Built with -trimpath like
@@ -186,7 +209,7 @@ jobs:
 
   ci-ok:
     if: always()
-    needs: [hygiene, lint, workflows, test, integration, cross-build, release-check]
+    needs: [hygiene, lint, workflows, test, integration, web, cross-build, release-check]
     runs-on: ubuntu-latest
     steps:
       - name: all jobs passed

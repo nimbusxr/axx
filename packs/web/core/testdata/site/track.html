@@ -1,0 +1,12 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Carrier tracking</title></head>
+<body>
+  <h1>Carrier tracking</h1>
+  <p id="status"></p>
+  <script>
+    const ref = new URLSearchParams(location.search).get('ref');
+    document.getElementById('status').textContent = 'Parcel ' + ref + ': in transit to the depot';
+  </script>
+</body>
+</html>

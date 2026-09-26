@@ -26,13 +26,12 @@ const name = "azure-servicebus"
 
 const packDoc = `Send messages to Service Bus queues and topics, and check the messages your services send there.
 
-Register the namespace with ` + "`the {word} service bus namespace with the following properties:`" + ` (the first namespace registered is the default), set up as the Azure SDK is set up for the real service:
+Register the namespace once, set up as the Azure SDK is set up for the real service; every Service Bus step of the scenario uses it:
 
-| Property | |
-| --- | --- |
-| ` + "`connection string`" + ` | the namespace's connection string, e.g. ` + "`${env:SERVICEBUS_CONNECTION_STRING}`" + `, or a local emulator's (` + "`UseDevelopmentEmulator=true`" + `) |
-| ` + "`namespace`" + ` | the fully qualified namespace (` + "`<name>.servicebus.windows.net`" + `), signed in with the Azure default credential chain |
-| ` + "`management endpoint`" + ` | where the namespace's management API is when it is not the namespace's own host, as with local emulators |
+` + "```gherkin" + `
+Given the customs service bus namespace with the following properties:
+  | connection string | ${env:SERVICEBUS_CONNECTION_STRING} |
+` + "```" + `
 
 Steps name a **queue** or a **topic**: ` + "`the customs-filings service bus queue`" + `, ` + "`the customs-events service bus topic`" + `. Messages carry application properties (` + "`with the following properties:`" + `, and ` + "`property <name>`" + ` rows in checks).
 
@@ -50,7 +49,14 @@ var (
 
 var messages = cloudstep.Messages{
 	Pack: name, Target: "service bus queue/topic", Verb: "sent", Field: "property", Fields: "properties",
-	Example: "customs-filings", Send: send, Inbox: inbox,
+	Send: send, Inbox: inbox,
+	Example: cloudstep.Sample{
+		To: "customs-filings", Body: `{"declaration": "DEC-7103", "parcel": "PX-7103", "invoice": "DEC-7103.json"}`,
+		File: "messages/filing-DEC-7101.json", Fields: [][2]string{{"broker", "ACME-CUSTOMS"}},
+		From: "duty-payments", Where: [][2]string{
+			{"declaration", "DEC-7102"}, {"amount", "96"}, {"currency", "EUR"}, {"property broker", "ACME-CUSTOMS"},
+		},
+	},
 	Received: "axx completes the messages of a queue it checks, and subscribes to a topic for the run.",
 }
 
@@ -58,9 +64,27 @@ func (pack) Manifest() core.Manifest {
 	steps := []core.StepDef{{
 		ID: name + ".namespace", Keyword: "Given", Arg: core.ArgTable, Since: "0.1.0",
 		Expr: "the {word} service bus namespace with the following properties:",
-		Doc: "Register the Service Bus namespace the steps talk to: `connection string`, or `namespace` with the Azure default " +
-			"credential chain; `management endpoint` for an emulator whose management API is elsewhere.",
-		Examples: []string{"Given the customs service bus namespace with the following properties:"},
+		Doc: "Register the Service Bus namespace the steps talk to.\n\n" +
+			"- The first namespace registered is the default.\n" +
+			"- Give it a `connection string` or a `namespace`, not both.\n" +
+			"- Values expand `${env:..}` and `${sys:..}`.",
+		Table: &core.TableDoc{
+			Columns: []string{"property", "value"},
+			Rows: []core.TableRow{
+				{Name: "connection string", Takes: "the namespace's connection string, or a local emulator's (with " +
+					"`UseDevelopmentEmulator=true`), like `${env:SERVICEBUS_CONNECTION_STRING}`"},
+				{Name: "namespace", Takes: "the fully qualified namespace, like `<name>.servicebus.windows.net`, signed in with the " +
+					"Azure default credential chain"},
+				{Name: "management endpoint", Takes: "where the namespace's management API is when it is not the namespace's own " +
+					"host, as with local emulators"},
+			},
+		},
+		Examples: []string{
+			"Given the customs service bus namespace with the following properties:\n" +
+				"  | connection string | ${env:SERVICEBUS_CONNECTION_STRING} |",
+			"Given the customs service bus namespace with the following properties:\n" +
+				"  | namespace | ${env:SERVICEBUS_NAMESPACE} |",
+		},
 		Run: func(sc *core.Scenario, a core.Args) error {
 			ns, err := parse(sc.Suite(), a.String(0), a.Table)
 			if err != nil {

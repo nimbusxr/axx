@@ -1,0 +1,11 @@
+parcels.parcels:
+  - reference: "PX-WEB-5111"
+    sender: "maple-crafts"
+    status: "IN_TRANSIT"
+    service_level: "EXPRESS"
+    weight_grams: 1300
+    recipient: '{"name": "Jana Novak", "street": "Lindenstr. 8", "city": "Leipzig", "postcode": "04109", "country": "DE"}'
+    details: '{"source": "portal", "zone": "DE-1", "signature": false, "leaveWithNeighbour": true}'
+    label_number: 5111
+    created_at: "2026-09-25 12:03:00+00"
+    updated_at: "2026-09-25 16:40:00+00"

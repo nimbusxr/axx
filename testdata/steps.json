@@ -1,8 +1,8 @@
 {
   "description": "The frozen catalog of built-in step text. Step text is public API: every entry must stay defined, verbatim, by its pack.",
   "counts": {
-    "step": 219,
-    "parameterType": 9
+    "parameterType": 11,
+    "step": 465
   },
   "entries": [
     {
@@ -1381,6 +1381,1496 @@
       "pack": "kafka",
       "keyword": "Given",
       "expression": "the {word} kafka service with the following properties:"
+    },
+    {
+      "kind": "parameterType",
+      "pack": "web-core",
+      "keyword": "ParameterType",
+      "name": "element",
+      "expression": "(buttons?|fields?|checkbox(?:es)?|options?|links?|tabs?|menu items?|elements?)"
+    },
+    {
+      "kind": "parameterType",
+      "pack": "mongo",
+      "keyword": "ParameterType",
+      "name": "mongoService",
+      "expression": "([^\\s]+)"
+    },
+    {
+      "kind": "step",
+      "pack": "mock",
+      "keyword": "Given",
+      "expression": "the OpenAPI validation levels for the mocked {mockedService} service are:"
+    },
+    {
+      "kind": "step",
+      "pack": "mongo",
+      "keyword": "Given",
+      "expression": "a {filepath} mongo db seed for {word}"
+    },
+    {
+      "kind": "step",
+      "pack": "mongo",
+      "keyword": "Then",
+      "expression": "a selection of documents is retrieved from the {word} collection where:"
+    },
+    {
+      "kind": "step",
+      "pack": "mongo",
+      "keyword": "Then",
+      "expression": "a {ordinal} selection of documents is retrieved from the {word} collection where:"
+    },
+    {
+      "kind": "step",
+      "pack": "mongo",
+      "keyword": "Then",
+      "expression": "a selection of documents is retrieved from the {word} collection on {mongoService} where:"
+    },
+    {
+      "kind": "step",
+      "pack": "mongo",
+      "keyword": "Then",
+      "expression": "a {ordinal} selection of documents is retrieved from the {word} collection on {mongoService} where:"
+    },
+    {
+      "kind": "step",
+      "pack": "mongo",
+      "keyword": "Then",
+      "expression": "within {duration} a selection of at least {int} document(s) is retrieved from the {word} collection where:"
+    },
+    {
+      "kind": "step",
+      "pack": "mongo",
+      "keyword": "Then",
+      "expression": "within {duration} a {ordinal} selection of at least {int} document(s) is retrieved from the {word} collection where:"
+    },
+    {
+      "kind": "step",
+      "pack": "mongo",
+      "keyword": "Then",
+      "expression": "within {duration} a selection of at least {int} document(s) is retrieved from the {word} collection on {mongoService} where:"
+    },
+    {
+      "kind": "step",
+      "pack": "mongo",
+      "keyword": "Then",
+      "expression": "within {duration} a {ordinal} selection of at least {int} document(s) is retrieved from the {word} collection on {mongoService} where:"
+    },
+    {
+      "kind": "step",
+      "pack": "mongo",
+      "keyword": "Then",
+      "expression": "the selection has {int} document(s)"
+    },
+    {
+      "kind": "step",
+      "pack": "mongo",
+      "keyword": "Then",
+      "expression": "the {ordinal} selection has {int} document(s)"
+    },
+    {
+      "kind": "step",
+      "pack": "mongo",
+      "keyword": "Then",
+      "expression": "the selection on {mongoService} has {int} document(s)"
+    },
+    {
+      "kind": "step",
+      "pack": "mongo",
+      "keyword": "Then",
+      "expression": "the {ordinal} selection on {mongoService} has {int} document(s)"
+    },
+    {
+      "kind": "step",
+      "pack": "mongo",
+      "keyword": "Then",
+      "expression": "the selection has more than {int} document(s)"
+    },
+    {
+      "kind": "step",
+      "pack": "mongo",
+      "keyword": "Then",
+      "expression": "the {ordinal} selection has more than {int} document(s)"
+    },
+    {
+      "kind": "step",
+      "pack": "mongo",
+      "keyword": "Then",
+      "expression": "the selection on {mongoService} has more than {int} document(s)"
+    },
+    {
+      "kind": "step",
+      "pack": "mongo",
+      "keyword": "Then",
+      "expression": "the {ordinal} selection on {mongoService} has more than {int} document(s)"
+    },
+    {
+      "kind": "step",
+      "pack": "mongo",
+      "keyword": "Then",
+      "expression": "the selection has fewer than {int} document(s)"
+    },
+    {
+      "kind": "step",
+      "pack": "mongo",
+      "keyword": "Then",
+      "expression": "the {ordinal} selection has fewer than {int} document(s)"
+    },
+    {
+      "kind": "step",
+      "pack": "mongo",
+      "keyword": "Then",
+      "expression": "the selection on {mongoService} has fewer than {int} document(s)"
+    },
+    {
+      "kind": "step",
+      "pack": "mongo",
+      "keyword": "Then",
+      "expression": "the {ordinal} selection on {mongoService} has fewer than {int} document(s)"
+    },
+    {
+      "kind": "step",
+      "pack": "mongo",
+      "keyword": "Then",
+      "expression": "the {ordinal} document for the selection properties are:"
+    },
+    {
+      "kind": "step",
+      "pack": "mongo",
+      "keyword": "Then",
+      "expression": "the {ordinal} document for the {ordinal} selection properties are:"
+    },
+    {
+      "kind": "step",
+      "pack": "mongo",
+      "keyword": "Then",
+      "expression": "the {ordinal} document for the selection on {mongoService} properties are:"
+    },
+    {
+      "kind": "step",
+      "pack": "mongo",
+      "keyword": "Then",
+      "expression": "the {ordinal} document for the {ordinal} selection on {mongoService} properties are:"
+    },
+    {
+      "kind": "step",
+      "pack": "mongo",
+      "keyword": "Then",
+      "expression": "the {ordinal} document for the selection properties match:"
+    },
+    {
+      "kind": "step",
+      "pack": "mongo",
+      "keyword": "Then",
+      "expression": "the {ordinal} document for the {ordinal} selection properties match:"
+    },
+    {
+      "kind": "step",
+      "pack": "mongo",
+      "keyword": "Then",
+      "expression": "the {ordinal} document for the selection on {mongoService} properties match:"
+    },
+    {
+      "kind": "step",
+      "pack": "mongo",
+      "keyword": "Then",
+      "expression": "the {ordinal} document for the {ordinal} selection on {mongoService} properties match:"
+    },
+    {
+      "kind": "step",
+      "pack": "kafka",
+      "keyword": "Given",
+      "expression": "the {ordinal} ordered {word} kafka event payload properties are:"
+    },
+    {
+      "kind": "step",
+      "pack": "kafka",
+      "keyword": "Given",
+      "expression": "the {ordinal} ordered {word} kafka event payload properties on the {word} kafka service are:"
+    },
+    {
+      "kind": "step",
+      "pack": "kafka",
+      "keyword": "When",
+      "expression": "the {word} kafka event is published"
+    },
+    {
+      "kind": "step",
+      "pack": "kafka",
+      "keyword": "When",
+      "expression": "the {ordinal} ordered {word} kafka event is published"
+    },
+    {
+      "kind": "step",
+      "pack": "kafka",
+      "keyword": "When",
+      "expression": "the {word} kafka event is published on the {word} kafka service"
+    },
+    {
+      "kind": "step",
+      "pack": "kafka",
+      "keyword": "When",
+      "expression": "the {ordinal} ordered {word} kafka event is published on the {word} kafka service"
+    },
+    {
+      "kind": "step",
+      "pack": "kafka",
+      "keyword": "Then",
+      "expression": "the {word} kafka event named {word} headers on the {word} kafka service match:"
+    },
+    {
+      "kind": "step",
+      "pack": "logs",
+      "keyword": "Given",
+      "expression": "the {word} log with the following properties:"
+    },
+    {
+      "kind": "step",
+      "pack": "logs",
+      "keyword": "Then",
+      "expression": "the {word} log has an entry matching {string}"
+    },
+    {
+      "kind": "step",
+      "pack": "logs",
+      "keyword": "Then",
+      "expression": "within {duration} the {word} log has an entry matching {string}"
+    },
+    {
+      "kind": "step",
+      "pack": "logs",
+      "keyword": "Then",
+      "expression": "the {word} log has entries matching:"
+    },
+    {
+      "kind": "step",
+      "pack": "logs",
+      "keyword": "Then",
+      "expression": "within {duration} the {word} log has entries matching:"
+    },
+    {
+      "kind": "step",
+      "pack": "logs",
+      "keyword": "Then",
+      "expression": "the {word} log has {int} entry/entries matching {string}"
+    },
+    {
+      "kind": "step",
+      "pack": "logs",
+      "keyword": "Then",
+      "expression": "within {duration} the {word} log has {int} entry/entries matching {string}"
+    },
+    {
+      "kind": "step",
+      "pack": "logs",
+      "keyword": "Then",
+      "expression": "the logs have entries matching:"
+    },
+    {
+      "kind": "step",
+      "pack": "logs",
+      "keyword": "Then",
+      "expression": "within {duration} the logs have entries matching:"
+    },
+    {
+      "kind": "step",
+      "pack": "files",
+      "keyword": "Given",
+      "expression": "the {word} folder with the following properties:"
+    },
+    {
+      "kind": "step",
+      "pack": "files",
+      "keyword": "Then",
+      "expression": "the {word} folder has a(n) file named {word}"
+    },
+    {
+      "kind": "step",
+      "pack": "files",
+      "keyword": "Then",
+      "expression": "within {duration} the {word} folder has a(n) file named {word}"
+    },
+    {
+      "kind": "step",
+      "pack": "files",
+      "keyword": "Then",
+      "expression": "the {word} file in the {word} folder is identical to the {filepath} file"
+    },
+    {
+      "kind": "step",
+      "pack": "files",
+      "keyword": "Then",
+      "expression": "within {duration} the {word} file in the {word} folder is identical to the {filepath} file"
+    },
+    {
+      "kind": "step",
+      "pack": "files",
+      "keyword": "Then",
+      "expression": "the {word} file in the {word} folder has the following properties:"
+    },
+    {
+      "kind": "step",
+      "pack": "files",
+      "keyword": "Then",
+      "expression": "within {duration} the {word} file in the {word} folder has the following properties:"
+    },
+    {
+      "kind": "step",
+      "pack": "files",
+      "keyword": "Then",
+      "expression": "the {word} file in the {word} folder contains {string}"
+    },
+    {
+      "kind": "step",
+      "pack": "files",
+      "keyword": "Then",
+      "expression": "within {duration} the {word} file in the {word} folder contains {string}"
+    },
+    {
+      "kind": "step",
+      "pack": "files",
+      "keyword": "Then",
+      "expression": "the {word} file in the {word} folder has a row where:"
+    },
+    {
+      "kind": "step",
+      "pack": "files",
+      "keyword": "Then",
+      "expression": "within {duration} the {word} file in the {word} folder has a row where:"
+    },
+    {
+      "kind": "step",
+      "pack": "web-core",
+      "keyword": "Given",
+      "expression": "the {word} web app with the following properties:"
+    },
+    {
+      "kind": "step",
+      "pack": "web-core",
+      "keyword": "When",
+      "expression": "the {string} page is opened"
+    },
+    {
+      "kind": "step",
+      "pack": "web-core",
+      "keyword": "When",
+      "expression": "the {string} page of the {word} web app is opened"
+    },
+    {
+      "kind": "step",
+      "pack": "web-core",
+      "keyword": "When",
+      "expression": "the {string} field is filled with {string}"
+    },
+    {
+      "kind": "step",
+      "pack": "web-core",
+      "keyword": "When",
+      "expression": "{string} is chosen in the {string} field"
+    },
+    {
+      "kind": "step",
+      "pack": "web-core",
+      "keyword": "When",
+      "expression": "the {string} option is chosen"
+    },
+    {
+      "kind": "step",
+      "pack": "web-core",
+      "keyword": "When",
+      "expression": "the {string} checkbox is checked"
+    },
+    {
+      "kind": "step",
+      "pack": "web-core",
+      "keyword": "When",
+      "expression": "the {string} checkbox is unchecked"
+    },
+    {
+      "kind": "step",
+      "pack": "web-core",
+      "keyword": "When",
+      "expression": "the {filepath} file is uploaded in the {string} field"
+    },
+    {
+      "kind": "step",
+      "pack": "web-core",
+      "keyword": "When",
+      "expression": "the {string} button is clicked"
+    },
+    {
+      "kind": "step",
+      "pack": "web-core",
+      "keyword": "When",
+      "expression": "the {string} link is clicked"
+    },
+    {
+      "kind": "step",
+      "pack": "web-core",
+      "keyword": "When",
+      "expression": "the {string} tab is clicked"
+    },
+    {
+      "kind": "step",
+      "pack": "web-core",
+      "keyword": "When",
+      "expression": "the {string} menu item is clicked"
+    },
+    {
+      "kind": "step",
+      "pack": "web-core",
+      "keyword": "When",
+      "expression": "the {string} element is clicked"
+    },
+    {
+      "kind": "step",
+      "pack": "web-core",
+      "keyword": "When",
+      "expression": "the {word} key is pressed"
+    },
+    {
+      "kind": "step",
+      "pack": "web-core",
+      "keyword": "When",
+      "expression": "the {word} key is pressed in the {string} field"
+    },
+    {
+      "kind": "step",
+      "pack": "web-core",
+      "keyword": "When",
+      "expression": "the pointer is moved over {string}"
+    },
+    {
+      "kind": "step",
+      "pack": "web-core",
+      "keyword": "When",
+      "expression": "the page is reloaded"
+    },
+    {
+      "kind": "step",
+      "pack": "web-core",
+      "keyword": "When",
+      "expression": "the browser's back button is clicked"
+    },
+    {
+      "kind": "step",
+      "pack": "web-core",
+      "keyword": "When",
+      "expression": "the browser tab is closed"
+    },
+    {
+      "kind": "step",
+      "pack": "web-core",
+      "keyword": "When",
+      "expression": "the dialog is accepted"
+    },
+    {
+      "kind": "step",
+      "pack": "web-core",
+      "keyword": "When",
+      "expression": "the dialog is dismissed"
+    },
+    {
+      "kind": "step",
+      "pack": "web-core",
+      "keyword": "When",
+      "expression": "the dialog is answered with {string}"
+    },
+    {
+      "kind": "step",
+      "pack": "web-core",
+      "keyword": "Then",
+      "expression": "the dialog shows {string}"
+    },
+    {
+      "kind": "step",
+      "pack": "web-core",
+      "keyword": "Then",
+      "expression": "within {duration} the dialog shows {string}"
+    },
+    {
+      "kind": "step",
+      "pack": "web-core",
+      "keyword": "Then",
+      "expression": "the page shows {string}"
+    },
+    {
+      "kind": "step",
+      "pack": "web-core",
+      "keyword": "Then",
+      "expression": "within {duration} the page shows {string}"
+    },
+    {
+      "kind": "step",
+      "pack": "web-core",
+      "keyword": "Then",
+      "expression": "the page does not show {string}"
+    },
+    {
+      "kind": "step",
+      "pack": "web-core",
+      "keyword": "Then",
+      "expression": "within {duration} the page does not show {string}"
+    },
+    {
+      "kind": "step",
+      "pack": "web-core",
+      "keyword": "Then",
+      "expression": "the {string} page is shown"
+    },
+    {
+      "kind": "step",
+      "pack": "web-core",
+      "keyword": "Then",
+      "expression": "within {duration} the {string} page is shown"
+    },
+    {
+      "kind": "step",
+      "pack": "web-core",
+      "keyword": "Then",
+      "expression": "the {string} field has the value {string}"
+    },
+    {
+      "kind": "step",
+      "pack": "web-core",
+      "keyword": "Then",
+      "expression": "within {duration} the {string} field has the value {string}"
+    },
+    {
+      "kind": "step",
+      "pack": "web-core",
+      "keyword": "Then",
+      "expression": "the {string} button is disabled"
+    },
+    {
+      "kind": "step",
+      "pack": "web-core",
+      "keyword": "Then",
+      "expression": "within {duration} the {string} button is disabled"
+    },
+    {
+      "kind": "step",
+      "pack": "web-core",
+      "keyword": "Then",
+      "expression": "the {string} button is enabled"
+    },
+    {
+      "kind": "step",
+      "pack": "web-core",
+      "keyword": "Then",
+      "expression": "within {duration} the {string} button is enabled"
+    },
+    {
+      "kind": "step",
+      "pack": "web-core",
+      "keyword": "Then",
+      "expression": "the page shows a table row where:"
+    },
+    {
+      "kind": "step",
+      "pack": "web-core",
+      "keyword": "Then",
+      "expression": "within {duration} the page shows a table row where:"
+    },
+    {
+      "kind": "step",
+      "pack": "web-core",
+      "keyword": "Then",
+      "expression": "the {string} file is downloaded"
+    },
+    {
+      "kind": "step",
+      "pack": "web-core",
+      "keyword": "Then",
+      "expression": "within {duration} the {string} file is downloaded"
+    },
+    {
+      "kind": "step",
+      "pack": "web-core",
+      "keyword": "Then",
+      "expression": "the downloaded {string} file contains {string}"
+    },
+    {
+      "kind": "step",
+      "pack": "web-core",
+      "keyword": "Then",
+      "expression": "the downloaded {string} file has a row where:"
+    },
+    {
+      "kind": "step",
+      "pack": "web-core",
+      "keyword": "Then",
+      "expression": "the downloaded {string} file is identical to the {filepath} file"
+    },
+    {
+      "kind": "step",
+      "pack": "web-core",
+      "keyword": "Then",
+      "expression": "the {string} {element} is shown"
+    },
+    {
+      "kind": "step",
+      "pack": "web-core",
+      "keyword": "Then",
+      "expression": "within {duration} the {string} {element} is shown"
+    },
+    {
+      "kind": "step",
+      "pack": "web-core",
+      "keyword": "Then",
+      "expression": "the {string} {element} is not shown"
+    },
+    {
+      "kind": "step",
+      "pack": "web-core",
+      "keyword": "Then",
+      "expression": "within {duration} the {string} {element} is not shown"
+    },
+    {
+      "kind": "step",
+      "pack": "web-core",
+      "keyword": "Then",
+      "expression": "the {string} {element} shows {string}"
+    },
+    {
+      "kind": "step",
+      "pack": "web-core",
+      "keyword": "Then",
+      "expression": "within {duration} the {string} {element} shows {string}"
+    },
+    {
+      "kind": "step",
+      "pack": "web-core",
+      "keyword": "Then",
+      "expression": "the {string} {element} has the {word} attribute {string}"
+    },
+    {
+      "kind": "step",
+      "pack": "web-core",
+      "keyword": "Then",
+      "expression": "within {duration} the {string} {element} has the {word} attribute {string}"
+    },
+    {
+      "kind": "step",
+      "pack": "web-core",
+      "keyword": "Then",
+      "expression": "the {string} {element} has the focus"
+    },
+    {
+      "kind": "step",
+      "pack": "web-core",
+      "keyword": "Then",
+      "expression": "within {duration} the {string} {element} has the focus"
+    },
+    {
+      "kind": "step",
+      "pack": "web-core",
+      "keyword": "Then",
+      "expression": "the {string} checkbox is ticked"
+    },
+    {
+      "kind": "step",
+      "pack": "web-core",
+      "keyword": "Then",
+      "expression": "within {duration} the {string} checkbox is ticked"
+    },
+    {
+      "kind": "step",
+      "pack": "web-core",
+      "keyword": "Then",
+      "expression": "the {string} checkbox is not ticked"
+    },
+    {
+      "kind": "step",
+      "pack": "web-core",
+      "keyword": "Then",
+      "expression": "within {duration} the {string} checkbox is not ticked"
+    },
+    {
+      "kind": "step",
+      "pack": "web-core",
+      "keyword": "Then",
+      "expression": "the {string} option is selected"
+    },
+    {
+      "kind": "step",
+      "pack": "web-core",
+      "keyword": "Then",
+      "expression": "within {duration} the {string} option is selected"
+    },
+    {
+      "kind": "step",
+      "pack": "web-core",
+      "keyword": "Then",
+      "expression": "the {string} option is not selected"
+    },
+    {
+      "kind": "step",
+      "pack": "web-core",
+      "keyword": "Then",
+      "expression": "within {duration} the {string} option is not selected"
+    },
+    {
+      "kind": "step",
+      "pack": "web-core",
+      "keyword": "Then",
+      "expression": "the {string} field is disabled"
+    },
+    {
+      "kind": "step",
+      "pack": "web-core",
+      "keyword": "Then",
+      "expression": "within {duration} the {string} field is disabled"
+    },
+    {
+      "kind": "step",
+      "pack": "web-core",
+      "keyword": "Then",
+      "expression": "the {string} field is enabled"
+    },
+    {
+      "kind": "step",
+      "pack": "web-core",
+      "keyword": "Then",
+      "expression": "within {duration} the {string} field is enabled"
+    },
+    {
+      "kind": "step",
+      "pack": "web-core",
+      "keyword": "Then",
+      "expression": "the page shows {int} {string} {element}"
+    },
+    {
+      "kind": "step",
+      "pack": "web-core",
+      "keyword": "Then",
+      "expression": "within {duration} the page shows {int} {string} {element}"
+    },
+    {
+      "kind": "step",
+      "pack": "web-core",
+      "keyword": "Then",
+      "expression": "the page shows {int} table row(s) where:"
+    },
+    {
+      "kind": "step",
+      "pack": "web-core",
+      "keyword": "Then",
+      "expression": "within {duration} the page shows {int} table row(s) where:"
+    },
+    {
+      "kind": "step",
+      "pack": "web-core",
+      "keyword": "Then",
+      "expression": "the page title is {string}"
+    },
+    {
+      "kind": "step",
+      "pack": "web-core",
+      "keyword": "Then",
+      "expression": "within {duration} the page title is {string}"
+    },
+    {
+      "kind": "step",
+      "pack": "web-core",
+      "keyword": "Then",
+      "expression": "the page has no script errors"
+    },
+    {
+      "kind": "step",
+      "pack": "web-core",
+      "keyword": "Then",
+      "expression": "the browser sent a {word} request to {string}"
+    },
+    {
+      "kind": "step",
+      "pack": "web-core",
+      "keyword": "Then",
+      "expression": "within {duration} the browser sent a {word} request to {string}"
+    },
+    {
+      "kind": "step",
+      "pack": "web-core",
+      "keyword": "When",
+      "expression": "the {string} {element} is double-clicked"
+    },
+    {
+      "kind": "step",
+      "pack": "web-core",
+      "keyword": "When",
+      "expression": "the {string} {element} is right-clicked"
+    },
+    {
+      "kind": "step",
+      "pack": "web-core",
+      "keyword": "When",
+      "expression": "the {string} {element} is tapped"
+    },
+    {
+      "kind": "step",
+      "pack": "web-core",
+      "keyword": "When",
+      "expression": "the {string} {element} is scrolled into view"
+    },
+    {
+      "kind": "step",
+      "pack": "web-core",
+      "keyword": "When",
+      "expression": "the {string} {element} is dragged onto the {string} {element}"
+    },
+    {
+      "kind": "step",
+      "pack": "web-core",
+      "keyword": "When",
+      "expression": "the page is scrolled to the bottom"
+    },
+    {
+      "kind": "step",
+      "pack": "web-core",
+      "keyword": "When",
+      "expression": "the page is scrolled to the top"
+    },
+    {
+      "kind": "step",
+      "pack": "web-core",
+      "keyword": "When",
+      "expression": "the following options are chosen in the {string} field:"
+    },
+    {
+      "kind": "step",
+      "pack": "web-core",
+      "keyword": "Given",
+      "expression": "the browser's clock is set to {string}"
+    },
+    {
+      "kind": "step",
+      "pack": "web-core",
+      "keyword": "When",
+      "expression": "the browser's clock is moved forward by {duration}"
+    },
+    {
+      "kind": "step",
+      "pack": "web-core",
+      "keyword": "When",
+      "expression": "the browser is offline"
+    },
+    {
+      "kind": "step",
+      "pack": "web-core",
+      "keyword": "When",
+      "expression": "the browser is online"
+    },
+    {
+      "kind": "step",
+      "pack": "web-screenshots",
+      "keyword": "Then",
+      "expression": "the page looks like the {string} screenshot"
+    },
+    {
+      "kind": "step",
+      "pack": "web-screenshots",
+      "keyword": "Then",
+      "expression": "within {duration} the page looks like the {string} screenshot"
+    },
+    {
+      "kind": "step",
+      "pack": "web-screenshots",
+      "keyword": "Then",
+      "expression": "the page looks like the {string} screenshot, apart from:"
+    },
+    {
+      "kind": "step",
+      "pack": "web-screenshots",
+      "keyword": "Then",
+      "expression": "within {duration} the page looks like the {string} screenshot, apart from:"
+    },
+    {
+      "kind": "step",
+      "pack": "web-screenshots",
+      "keyword": "Then",
+      "expression": "the {string} {element} looks like the {string} screenshot"
+    },
+    {
+      "kind": "step",
+      "pack": "web-screenshots",
+      "keyword": "Then",
+      "expression": "within {duration} the {string} {element} looks like the {string} screenshot"
+    },
+    {
+      "kind": "step",
+      "pack": "web-a11y",
+      "keyword": "Then",
+      "expression": "the page has no accessibility violations"
+    },
+    {
+      "kind": "step",
+      "pack": "web-a11y",
+      "keyword": "Then",
+      "expression": "the {string} {element} has no accessibility violations"
+    },
+    {
+      "kind": "step",
+      "pack": "web-a11y",
+      "keyword": "Then",
+      "expression": "the page's accessible structure is:"
+    },
+    {
+      "kind": "step",
+      "pack": "web-a11y",
+      "keyword": "Then",
+      "expression": "within {duration} the page's accessible structure is:"
+    },
+    {
+      "kind": "step",
+      "pack": "web-a11y",
+      "keyword": "Then",
+      "expression": "the {string} {element}'s accessible structure is:"
+    },
+    {
+      "kind": "step",
+      "pack": "web-a11y",
+      "keyword": "Then",
+      "expression": "within {duration} the {string} {element}'s accessible structure is:"
+    },
+    {
+      "kind": "step",
+      "pack": "web-network",
+      "keyword": "Given",
+      "expression": "the page's requests to {string} fail"
+    },
+    {
+      "kind": "step",
+      "pack": "web-network",
+      "keyword": "Given",
+      "expression": "the page's requests to {string} answer with status {int}"
+    },
+    {
+      "kind": "step",
+      "pack": "web-network",
+      "keyword": "Given",
+      "expression": "the page's requests to {string} answer with the {filepath} file"
+    },
+    {
+      "kind": "step",
+      "pack": "web-network",
+      "keyword": "Given",
+      "expression": "the page's requests to {string} take {duration}"
+    },
+    {
+      "kind": "step",
+      "pack": "web-network",
+      "keyword": "Given",
+      "expression": "the browser's connection is slow"
+    },
+    {
+      "kind": "step",
+      "pack": "web-network",
+      "keyword": "Given",
+      "expression": "the page's requests are answered from the {filepath} recording"
+    },
+    {
+      "kind": "step",
+      "pack": "web-network",
+      "keyword": "Then",
+      "expression": "the page sent a websocket message containing {string}"
+    },
+    {
+      "kind": "step",
+      "pack": "web-network",
+      "keyword": "Then",
+      "expression": "within {duration} the page sent a websocket message containing {string}"
+    },
+    {
+      "kind": "step",
+      "pack": "web-network",
+      "keyword": "Then",
+      "expression": "the page received a websocket message containing {string}"
+    },
+    {
+      "kind": "step",
+      "pack": "web-network",
+      "keyword": "Then",
+      "expression": "within {duration} the page received a websocket message containing {string}"
+    },
+    {
+      "kind": "step",
+      "pack": "web-lighthouse",
+      "keyword": "Then",
+      "expression": "the {string} page scores at least:"
+    },
+    {
+      "kind": "step",
+      "pack": "web-lighthouse",
+      "keyword": "Then",
+      "expression": "the {string} page loads within:"
+    },
+    {
+      "kind": "step",
+      "pack": "aws-core",
+      "keyword": "Given",
+      "expression": "the {word} aws account with the following properties:"
+    },
+    {
+      "kind": "step",
+      "pack": "aws-s3",
+      "keyword": "When",
+      "expression": "the {filepath} file is uploaded to the {word} s3 bucket"
+    },
+    {
+      "kind": "step",
+      "pack": "aws-s3",
+      "keyword": "When",
+      "expression": "the {filepath} file is uploaded to the {word} s3 bucket as {word}"
+    },
+    {
+      "kind": "step",
+      "pack": "aws-s3",
+      "keyword": "Then",
+      "expression": "the {word} s3 bucket has a(n) object named {word}"
+    },
+    {
+      "kind": "step",
+      "pack": "aws-s3",
+      "keyword": "Then",
+      "expression": "within {duration} the {word} s3 bucket has a(n) object named {word}"
+    },
+    {
+      "kind": "step",
+      "pack": "aws-s3",
+      "keyword": "Then",
+      "expression": "the {word} object in the {word} s3 bucket is identical to the {filepath} file"
+    },
+    {
+      "kind": "step",
+      "pack": "aws-s3",
+      "keyword": "Then",
+      "expression": "within {duration} the {word} object in the {word} s3 bucket is identical to the {filepath} file"
+    },
+    {
+      "kind": "step",
+      "pack": "aws-s3",
+      "keyword": "Then",
+      "expression": "the {word} object in the {word} s3 bucket has the following properties:"
+    },
+    {
+      "kind": "step",
+      "pack": "aws-s3",
+      "keyword": "Then",
+      "expression": "within {duration} the {word} object in the {word} s3 bucket has the following properties:"
+    },
+    {
+      "kind": "step",
+      "pack": "aws-s3",
+      "keyword": "Then",
+      "expression": "the {word} object in the {word} s3 bucket contains {string}"
+    },
+    {
+      "kind": "step",
+      "pack": "aws-s3",
+      "keyword": "Then",
+      "expression": "within {duration} the {word} object in the {word} s3 bucket contains {string}"
+    },
+    {
+      "kind": "step",
+      "pack": "aws-s3",
+      "keyword": "Then",
+      "expression": "the {word} object in the {word} s3 bucket has a row where:"
+    },
+    {
+      "kind": "step",
+      "pack": "aws-s3",
+      "keyword": "Then",
+      "expression": "within {duration} the {word} object in the {word} s3 bucket has a row where:"
+    },
+    {
+      "kind": "step",
+      "pack": "aws-sqs",
+      "keyword": "When",
+      "expression": "a message is sent to the {word} sqs queue:"
+    },
+    {
+      "kind": "step",
+      "pack": "aws-sqs",
+      "keyword": "When",
+      "expression": "the {filepath} message is sent to the {word} sqs queue"
+    },
+    {
+      "kind": "step",
+      "pack": "aws-sqs",
+      "keyword": "When",
+      "expression": "the {filepath} message is sent to the {word} sqs queue with the following attributes:"
+    },
+    {
+      "kind": "step",
+      "pack": "aws-sqs",
+      "keyword": "Then",
+      "expression": "the {word} sqs queue has a message where:"
+    },
+    {
+      "kind": "step",
+      "pack": "aws-sqs",
+      "keyword": "Then",
+      "expression": "within {duration} the {word} sqs queue has a message where:"
+    },
+    {
+      "kind": "step",
+      "pack": "aws-sns",
+      "keyword": "When",
+      "expression": "a message is published to the {word} sns topic:"
+    },
+    {
+      "kind": "step",
+      "pack": "aws-sns",
+      "keyword": "When",
+      "expression": "the {filepath} message is published to the {word} sns topic"
+    },
+    {
+      "kind": "step",
+      "pack": "aws-sns",
+      "keyword": "When",
+      "expression": "the {filepath} message is published to the {word} sns topic with the following attributes:"
+    },
+    {
+      "kind": "step",
+      "pack": "aws-sns",
+      "keyword": "Then",
+      "expression": "the {word} sns topic has a message where:"
+    },
+    {
+      "kind": "step",
+      "pack": "aws-sns",
+      "keyword": "Then",
+      "expression": "within {duration} the {word} sns topic has a message where:"
+    },
+    {
+      "kind": "step",
+      "pack": "aws-eventbridge",
+      "keyword": "When",
+      "expression": "a(n) {string} event from {word} is put on the {word} eventbridge bus:"
+    },
+    {
+      "kind": "step",
+      "pack": "aws-eventbridge",
+      "keyword": "Then",
+      "expression": "the {word} eventbridge bus has an event where:"
+    },
+    {
+      "kind": "step",
+      "pack": "aws-eventbridge",
+      "keyword": "Then",
+      "expression": "within {duration} the {word} eventbridge bus has an event where:"
+    },
+    {
+      "kind": "step",
+      "pack": "aws-dynamodb",
+      "keyword": "Given",
+      "expression": "a {filepath} dynamodb seed"
+    },
+    {
+      "kind": "step",
+      "pack": "aws-dynamodb",
+      "keyword": "Then",
+      "expression": "the {word} dynamodb table has an item where:"
+    },
+    {
+      "kind": "step",
+      "pack": "aws-dynamodb",
+      "keyword": "Then",
+      "expression": "within {duration} the {word} dynamodb table has an item where:"
+    },
+    {
+      "kind": "step",
+      "pack": "aws-dynamodb",
+      "keyword": "Then",
+      "expression": "the {word} dynamodb table has {int} item(s) where:"
+    },
+    {
+      "kind": "step",
+      "pack": "aws-dynamodb",
+      "keyword": "Then",
+      "expression": "within {duration} the {word} dynamodb table has {int} item(s) where:"
+    },
+    {
+      "kind": "step",
+      "pack": "gcp-core",
+      "keyword": "Given",
+      "expression": "the {word} gcp project with the following properties:"
+    },
+    {
+      "kind": "step",
+      "pack": "gcp-storage",
+      "keyword": "When",
+      "expression": "the {filepath} file is uploaded to the {word} gcs bucket"
+    },
+    {
+      "kind": "step",
+      "pack": "gcp-storage",
+      "keyword": "When",
+      "expression": "the {filepath} file is uploaded to the {word} gcs bucket as {word}"
+    },
+    {
+      "kind": "step",
+      "pack": "gcp-storage",
+      "keyword": "Then",
+      "expression": "the {word} gcs bucket has a(n) object named {word}"
+    },
+    {
+      "kind": "step",
+      "pack": "gcp-storage",
+      "keyword": "Then",
+      "expression": "within {duration} the {word} gcs bucket has a(n) object named {word}"
+    },
+    {
+      "kind": "step",
+      "pack": "gcp-storage",
+      "keyword": "Then",
+      "expression": "the {word} object in the {word} gcs bucket is identical to the {filepath} file"
+    },
+    {
+      "kind": "step",
+      "pack": "gcp-storage",
+      "keyword": "Then",
+      "expression": "within {duration} the {word} object in the {word} gcs bucket is identical to the {filepath} file"
+    },
+    {
+      "kind": "step",
+      "pack": "gcp-storage",
+      "keyword": "Then",
+      "expression": "the {word} object in the {word} gcs bucket has the following properties:"
+    },
+    {
+      "kind": "step",
+      "pack": "gcp-storage",
+      "keyword": "Then",
+      "expression": "within {duration} the {word} object in the {word} gcs bucket has the following properties:"
+    },
+    {
+      "kind": "step",
+      "pack": "gcp-storage",
+      "keyword": "Then",
+      "expression": "the {word} object in the {word} gcs bucket contains {string}"
+    },
+    {
+      "kind": "step",
+      "pack": "gcp-storage",
+      "keyword": "Then",
+      "expression": "within {duration} the {word} object in the {word} gcs bucket contains {string}"
+    },
+    {
+      "kind": "step",
+      "pack": "gcp-storage",
+      "keyword": "Then",
+      "expression": "the {word} object in the {word} gcs bucket has a row where:"
+    },
+    {
+      "kind": "step",
+      "pack": "gcp-storage",
+      "keyword": "Then",
+      "expression": "within {duration} the {word} object in the {word} gcs bucket has a row where:"
+    },
+    {
+      "kind": "step",
+      "pack": "gcp-pubsub",
+      "keyword": "When",
+      "expression": "a message is published to the {word} pubsub topic:"
+    },
+    {
+      "kind": "step",
+      "pack": "gcp-pubsub",
+      "keyword": "When",
+      "expression": "the {filepath} message is published to the {word} pubsub topic"
+    },
+    {
+      "kind": "step",
+      "pack": "gcp-pubsub",
+      "keyword": "When",
+      "expression": "the {filepath} message is published to the {word} pubsub topic with the following attributes:"
+    },
+    {
+      "kind": "step",
+      "pack": "gcp-pubsub",
+      "keyword": "Then",
+      "expression": "the {word} pubsub topic has a message where:"
+    },
+    {
+      "kind": "step",
+      "pack": "gcp-pubsub",
+      "keyword": "Then",
+      "expression": "within {duration} the {word} pubsub topic has a message where:"
+    },
+    {
+      "kind": "step",
+      "pack": "gcp-bigquery",
+      "keyword": "Given",
+      "expression": "a {filepath} bigquery seed"
+    },
+    {
+      "kind": "step",
+      "pack": "gcp-bigquery",
+      "keyword": "Then",
+      "expression": "the {word} bigquery table has a row where:"
+    },
+    {
+      "kind": "step",
+      "pack": "gcp-bigquery",
+      "keyword": "Then",
+      "expression": "within {duration} the {word} bigquery table has a row where:"
+    },
+    {
+      "kind": "step",
+      "pack": "gcp-bigquery",
+      "keyword": "Then",
+      "expression": "the {word} bigquery table has {int} row(s) where:"
+    },
+    {
+      "kind": "step",
+      "pack": "gcp-bigquery",
+      "keyword": "Then",
+      "expression": "within {duration} the {word} bigquery table has {int} row(s) where:"
+    },
+    {
+      "kind": "step",
+      "pack": "gcp-firestore",
+      "keyword": "Given",
+      "expression": "a {filepath} firestore seed"
+    },
+    {
+      "kind": "step",
+      "pack": "gcp-firestore",
+      "keyword": "Then",
+      "expression": "the {word} firestore document has the following properties:"
+    },
+    {
+      "kind": "step",
+      "pack": "gcp-firestore",
+      "keyword": "Then",
+      "expression": "within {duration} the {word} firestore document has the following properties:"
+    },
+    {
+      "kind": "step",
+      "pack": "gcp-firestore",
+      "keyword": "Then",
+      "expression": "the {word} firestore collection has a document where:"
+    },
+    {
+      "kind": "step",
+      "pack": "gcp-firestore",
+      "keyword": "Then",
+      "expression": "within {duration} the {word} firestore collection has a document where:"
+    },
+    {
+      "kind": "step",
+      "pack": "azure-blob",
+      "keyword": "Given",
+      "expression": "the {word} azure storage account with the following properties:"
+    },
+    {
+      "kind": "step",
+      "pack": "azure-blob",
+      "keyword": "When",
+      "expression": "the {filepath} file is uploaded to the {word} blob container"
+    },
+    {
+      "kind": "step",
+      "pack": "azure-blob",
+      "keyword": "When",
+      "expression": "the {filepath} file is uploaded to the {word} blob container as {word}"
+    },
+    {
+      "kind": "step",
+      "pack": "azure-blob",
+      "keyword": "Then",
+      "expression": "the {word} blob container has a(n) blob named {word}"
+    },
+    {
+      "kind": "step",
+      "pack": "azure-blob",
+      "keyword": "Then",
+      "expression": "within {duration} the {word} blob container has a(n) blob named {word}"
+    },
+    {
+      "kind": "step",
+      "pack": "azure-blob",
+      "keyword": "Then",
+      "expression": "the {word} blob in the {word} blob container is identical to the {filepath} file"
+    },
+    {
+      "kind": "step",
+      "pack": "azure-blob",
+      "keyword": "Then",
+      "expression": "within {duration} the {word} blob in the {word} blob container is identical to the {filepath} file"
+    },
+    {
+      "kind": "step",
+      "pack": "azure-blob",
+      "keyword": "Then",
+      "expression": "the {word} blob in the {word} blob container has the following properties:"
+    },
+    {
+      "kind": "step",
+      "pack": "azure-blob",
+      "keyword": "Then",
+      "expression": "within {duration} the {word} blob in the {word} blob container has the following properties:"
+    },
+    {
+      "kind": "step",
+      "pack": "azure-blob",
+      "keyword": "Then",
+      "expression": "the {word} blob in the {word} blob container contains {string}"
+    },
+    {
+      "kind": "step",
+      "pack": "azure-blob",
+      "keyword": "Then",
+      "expression": "within {duration} the {word} blob in the {word} blob container contains {string}"
+    },
+    {
+      "kind": "step",
+      "pack": "azure-blob",
+      "keyword": "Then",
+      "expression": "the {word} blob in the {word} blob container has a row where:"
+    },
+    {
+      "kind": "step",
+      "pack": "azure-blob",
+      "keyword": "Then",
+      "expression": "within {duration} the {word} blob in the {word} blob container has a row where:"
+    },
+    {
+      "kind": "step",
+      "pack": "azure-servicebus",
+      "keyword": "Given",
+      "expression": "the {word} service bus namespace with the following properties:"
+    },
+    {
+      "kind": "step",
+      "pack": "azure-servicebus",
+      "keyword": "When",
+      "expression": "a message is sent to the {word} service bus queue:/topic:"
+    },
+    {
+      "kind": "step",
+      "pack": "azure-servicebus",
+      "keyword": "When",
+      "expression": "the {filepath} message is sent to the {word} service bus queue/topic"
+    },
+    {
+      "kind": "step",
+      "pack": "azure-servicebus",
+      "keyword": "When",
+      "expression": "the {filepath} message is sent to the {word} service bus queue/topic with the following properties:"
+    },
+    {
+      "kind": "step",
+      "pack": "azure-servicebus",
+      "keyword": "Then",
+      "expression": "the {word} service bus queue/topic has a message where:"
+    },
+    {
+      "kind": "step",
+      "pack": "azure-servicebus",
+      "keyword": "Then",
+      "expression": "within {duration} the {word} service bus queue/topic has a message where:"
     }
   ]
 }

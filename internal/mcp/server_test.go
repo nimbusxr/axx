@@ -3,11 +3,16 @@ package mcp
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
+
+	"github.com/nimbusxr/axx/core"
+	"github.com/nimbusxr/axx/internal/engine"
 )
 
 func session(t *testing.T, dir string) *sdk.ClientSession {
@@ -54,7 +59,8 @@ func TestTools(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(tools.Tools) < 9 || len(tools.Tools) > 10 {
+	// The packs' tools come on top of these.
+	if len(tools.Tools) != 10 {
 		t.Fatalf("tools: %d (keep the tool list short: at most 10)", len(tools.Tools))
 	}
 	for _, tl := range tools.Tools {
@@ -157,4 +163,72 @@ func contains(s, sub string) bool {
 		}
 	}
 	return false
+}
+
+// shelf is a project's own pack for the session tests: a step puts parcels
+// on a shelf, and a tool says what is on it.
+type shelf struct{}
+
+var onShelf = core.NewStateKey("shelf.parcels", func(*core.Scenario) *[]string { return &[]string{} }, nil)
+
+func (shelf) Manifest() core.Manifest {
+	return core.Manifest{
+		Name: "shelf",
+		Steps: []core.StepDef{{ID: "shelf.put", Expr: "parcel {word} is put on the shelf", Run: func(sc *core.Scenario, a core.Args) error {
+			*onShelf.Of(sc) = append(*onShelf.Of(sc), a.String(0))
+			return nil
+		}}},
+		Tools: []core.Tool{{
+			Name: "shelf_list", Description: "The parcels on the shelf.", ReadOnly: true,
+			Input: json.RawMessage(`{"type": "object", "properties": {"limit": {"type": "integer"}}, "additionalProperties": false}`),
+			Run: func(call *core.ToolCall) (*core.ToolResult, error) {
+				return &core.ToolResult{Data: map[string]any{"parcels": *onShelf.Of(call.Scenario)}}, nil
+			},
+		}},
+	}
+}
+
+func TestAgentsTryStepsInALiveScenario(t *testing.T) {
+	engine.Register("./shelf", shelf{})
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "axx.yaml"), []byte("version: 1\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "axx-packs.yaml"), []byte("packs: [rest, ./shelf]\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cs := session(t, dir)
+	tools, err := cs.ListTools(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var names []string
+	for _, tl := range tools.Tools {
+		names = append(names, tl.Name)
+	}
+	if !slices.Contains(names, "steps_try") || !slices.Contains(names, "shelf_list") {
+		t.Fatalf("tools: %v", names)
+	}
+
+	out := call(t, cs, "steps_try", map[string]any{"steps": "Given parcel PX-4101 is put on the shelf\nAnd parcel PX-4102 is put on the shelf"})
+	if fmt.Sprint(out["steps"]) != "[map[keyword:Given status:passed text:parcel PX-4101 is put on the shelf] map[keyword:And status:passed text:parcel PX-4102 is put on the shelf]]" {
+		t.Fatalf("steps_try: %v", out)
+	}
+	out = call(t, cs, "steps_try", map[string]any{"steps": "When parcel PX-4103 is put on the shelf\nThen the parcel is on the shelf\nAnd parcel PX-4104 is put on the shelf"})
+	steps := out["steps"].([]any)
+	if steps[1].(map[string]any)["status"] != "undefined" || steps[2].(map[string]any)["status"] != "skipped" {
+		t.Fatalf("steps_try undefined: %v", out)
+	}
+	if out := call(t, cs, "shelf_list", map[string]any{}); fmt.Sprint(out["parcels"]) != "[PX-4101 PX-4102 PX-4103]" {
+		t.Fatalf("shelf_list: %v", out)
+	}
+	res, err := cs.CallTool(context.Background(), &sdk.CallToolParams{Name: "shelf_list", Arguments: map[string]any{"limit": "all"}})
+	if err != nil || !res.IsError {
+		t.Fatalf("an input against the schema: %v %+v", err, res)
+	}
+
+	call(t, cs, "steps_try", map[string]any{"restart": true, "steps": "Given parcel PX-4105 is put on the shelf"})
+	if out := call(t, cs, "shelf_list", map[string]any{}); fmt.Sprint(out["parcels"]) != "[PX-4105]" {
+		t.Fatalf("after a restart: %v", out)
+	}
 }

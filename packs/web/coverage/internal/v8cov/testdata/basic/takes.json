@@ -1,0 +1,166 @@
+[
+ {
+  "scriptId": "6",
+  "url": "http://localhost:64851/util.js",
+  "source": "// Parcel helpers, shared by every page. Weights in kg; \"≈\" marks estimates. 📦\nfunction formatWeight(kg) {\n  if (kg \u003c 1) {\n    return Math.round(kg * 1000) + \" g\";\n  }\n  return kg.toFixed(1) + \" kg\";\n}\n\nfunction formatVolume(litres) {\n  if (litres \u003e 1000) {\n    return (litres / 1000).toFixed(2) + \" m³\";\n  }\n  return litres + \" l\";\n}\n\nfunction statusLabel(status) {\n  switch (status) {\n    case \"in_transit\":\n      return \"In transit\";\n    case \"delivered\":\n      return \"Delivered\";\n    case \"returned\":\n      return \"Returned to sender\";\n    default:\n      return \"Unknown\";\n  }\n}\n\nconst isFragile = (parcel) =\u003e parcel.tags \u0026\u0026 parcel.tags.includes(\"fragile\");\n",
+  "hash": "52d042c5fc7566160ac0774a49c94a58937d1bd188fa53421eaf3beecd959594",
+  "functions": [
+   {
+    "functionName": "",
+    "ranges": [
+     {
+      "startOffset": 0,
+      "endOffset": 664,
+      "count": 1
+     }
+    ],
+    "isBlockCoverage": true
+   },
+   {
+    "functionName": "formatWeight",
+    "ranges": [
+     {
+      "startOffset": 80,
+      "endOffset": 202,
+      "count": 1
+     },
+     {
+      "startOffset": 168,
+      "endOffset": 201,
+      "count": 0
+     }
+    ],
+    "isBlockCoverage": true
+   },
+   {
+    "functionName": "formatVolume",
+    "ranges": [
+     {
+      "startOffset": 204,
+      "endOffset": 335,
+      "count": 0
+     }
+    ],
+    "isBlockCoverage": false
+   },
+   {
+    "functionName": "statusLabel",
+    "ranges": [
+     {
+      "startOffset": 337,
+      "endOffset": 584,
+      "count": 1
+     },
+     {
+      "startOffset": 442,
+      "endOffset": 485,
+      "count": 0
+     },
+     {
+      "startOffset": 490,
+      "endOffset": 541,
+      "count": 0
+     },
+     {
+      "startOffset": 546,
+      "endOffset": 578,
+      "count": 0
+     }
+    ],
+    "isBlockCoverage": true
+   },
+   {
+    "functionName": "isFragile",
+    "ranges": [
+     {
+      "startOffset": 604,
+      "endOffset": 662,
+      "count": 1
+     }
+    ],
+    "isBlockCoverage": true
+   }
+  ]
+ },
+ {
+  "scriptId": "7",
+  "url": "http://localhost:64851/app.js",
+  "source": "const parcels = {\n  \"PX-1042\": { weight: 0.4, status: \"in_transit\", tags: [\"fragile\"] },\n  \"PX-2077\": { weight: 12.5, status: \"delivered\", tags: [] },\n};\n\nfunction trackParcel() {\n  const code = document.getElementById(\"code\").value;\n  const parcel = parcels[code];\n  const out = document.getElementById(\"result\");\n  if (!parcel) {\n    out.textContent = \"No parcel \" + code;\n    return;\n  }\n  out.textContent = statusLabel(parcel.status) + \", \" + formatWeight(parcel.weight) +\n    (isFragile(parcel) ? \" (fragile)\" : \"\");\n}\n\nfunction cancelParcel(code) {\n  delete parcels[code];\n  document.getElementById(\"result\").textContent = \"Cancelled \" + code;\n}\n\ndocument.title = \"Parcels (\" + Object.keys(parcels).length + \")\";\n\nfunction submitClaim(event) {\n  event.preventDefault();\n  const reason = document.getElementById(\"reason\").value;\n  if (reason.length \u003c 3) {\n    document.getElementById(\"result\").textContent = \"Give a reason\";\n    return;\n  }\n  location.href = \"/deliveries.html?claim=\" + encodeURIComponent(reason);\n}\n",
+  "hash": "79c4bf4425533ee8ea3d4721c3a14abcdfdde78376336f9e5b7f68c0cd241bff",
+  "functions": [
+   {
+    "functionName": "",
+    "ranges": [
+     {
+      "startOffset": 0,
+      "endOffset": 1022,
+      "count": 1
+     }
+    ],
+    "isBlockCoverage": true
+   },
+   {
+    "functionName": "trackParcel",
+    "ranges": [
+     {
+      "startOffset": 155,
+      "endOffset": 523,
+      "count": 1
+     },
+     {
+      "startOffset": 330,
+      "endOffset": 390,
+      "count": 0
+     },
+     {
+      "startOffset": 515,
+      "endOffset": 519,
+      "count": 0
+     }
+    ],
+    "isBlockCoverage": true
+   },
+   {
+    "functionName": "cancelParcel",
+    "ranges": [
+     {
+      "startOffset": 525,
+      "endOffset": 651,
+      "count": 0
+     }
+    ],
+    "isBlockCoverage": false
+   },
+   {
+    "functionName": "submitClaim",
+    "ranges": [
+     {
+      "startOffset": 720,
+      "endOffset": 1021,
+      "count": 0
+     }
+    ],
+    "isBlockCoverage": false
+   }
+  ]
+ },
+ {
+  "scriptId": "64",
+  "url": "http://localhost:64851/",
+  "source": "trackParcel()",
+  "hash": "fbd0db86e1bb87c7157ccafc482e7ef43b79e517e6cfc13e313bf7b380150873",
+  "functions": [
+   {
+    "functionName": "onclick",
+    "ranges": [
+     {
+      "startOffset": 0,
+      "endOffset": 13,
+      "count": 1
+     }
+    ],
+    "isBlockCoverage": true
+   }
+  ]
+ }
+]

@@ -10,92 +10,41 @@ Consumer assertions scan every record of the topic from its first offset, re-che
 
 **Configuration** (`packs.kafka` in axx.yaml): `timeout` (default `30s`), `maxRecords` kept per topic (default 100000), `lenientUnions` (accept Avro union values without their `{"<branch>": value}` wrapper when exactly one branch fits).
 
-**Client properties.** Rows prefixed `producer.` or `consumer.` configure that client (without the prefix); values are expanded (`${env:..}`, `${sys:..}`). Defaults: `StringSerializer`/`StringDeserializer`, `auto.offset.reset=earliest`, no consumer group. How each Java property is applied:
+**Client properties.** A topic client's table takes Java Kafka client properties, prefixed `producer.` or `consumer.`: `a(n) {word} kafka topic client with the following properties:` lists those axx applies. Without them, a client writes and reads keys and payloads as text, reads every record of the topic, and uses no consumer group.
 
-| Property | Client | In axx |
-| --- | --- | --- |
-| `acks` | producer | `all`/`-1` (default), `1` or `0` (`kgo.RequiredAcks`); `0` and `1` disable idempotence unless it is set explicitly, as in Java. |
-| `allow.auto.create.topics` | consumer | `true` (default) lets reading a missing topic create it (`kgo.AllowAutoTopicCreation`). Producers always may, as in Java. |
-| `auto.offset.reset` | consumer | `earliest` (default): assertions consider every record of the topic; `latest`: only records produced after the assertion starts. `none` is an error. |
-| `bootstrap.servers` | producer, consumer | Seed brokers (`kgo.SeedBrokers`); defaults to the service's `brokers`. |
-| `buffer.memory` | producer | `kgo.MaxBufferedBytes`. |
-| `client.id` | producer, consumer | `kgo.ClientID`. |
-| `compression.type` | producer | `none` (default), `gzip`, `snappy`, `lz4` or `zstd` (`kgo.ProducerBatchCompression`). |
-| `connections.max.idle.ms` | producer, consumer | `kgo.ConnIdleTimeout`. |
-| `delivery.timeout.ms` | producer | `kgo.RecordDeliveryTimeout`. |
-| `enable.idempotence` | producer | `false` sets `kgo.DisableIdempotentWrite`. |
-| `fetch.max.bytes` | consumer | `kgo.FetchMaxBytes`. |
-| `fetch.max.wait.ms` | consumer | `kgo.FetchMaxWait`. |
-| `fetch.min.bytes` | consumer | `kgo.FetchMinBytes`. |
-| `isolation.level` | consumer | `read_uncommitted` (default) or `read_committed` (`kgo.FetchIsolationLevel`). |
-| `key.deserializer` | consumer | `StringDeserializer` (default), `ByteArrayDeserializer` or `KafkaAvroDeserializer`. |
-| `key.serializer` | producer | `StringSerializer` (default), `ByteArraySerializer` (the key text's bytes) or `KafkaAvroSerializer` (the key as an Avro string). |
-| `linger.ms` | producer | `kgo.ProducerLinger` (default 5 ms, as in Java). |
-| `max.in.flight.requests.per.connection` | producer | `kgo.MaxProduceRequestsInflightPerBroker`. |
-| `max.partition.fetch.bytes` | consumer | `kgo.FetchMaxPartitionBytes`. |
-| `max.request.size` | producer | `kgo.ProducerBatchMaxBytes`. |
-| `metadata.max.age.ms` | producer, consumer | `kgo.MetadataMaxAge`. |
-| `partitioner.class` | producer | `DefaultPartitioner` (murmur2 of the key, as by default), `RoundRobinPartitioner` or `UniformStickyPartitioner`; other classes are errors. |
-| `request.timeout.ms` | producer, consumer | Producer: `kgo.ProduceRequestTimeout`; consumer: `kgo.RequestTimeoutOverhead`. |
-| `retries` | producer | `kgo.RecordRetries`. |
-| `retry.backoff.ms` | producer, consumer | Constant `kgo.RetryBackoffFn`. |
-| `sasl.jaas.config` | producer, consumer | The `username` and `password` of a `PlainLoginModule` or `ScramLoginModule` entry. |
-| `sasl.mechanism` | producer, consumer | `PLAIN`, `SCRAM-SHA-256` or `SCRAM-SHA-512` (GSSAPI and OAUTHBEARER are not supported). |
-| `security.protocol` | producer, consumer | `PLAINTEXT`, `SSL` (TLS dialer), `SASL_PLAINTEXT` or `SASL_SSL` (`kgo.SASL`). |
-| `socket.connection.setup.timeout.ms` | producer, consumer | `kgo.DialTimeout`. |
-| `ssl.enabled.protocols` | producer, consumer | Limits TLS versions to the listed `TLSv1.2`/`TLSv1.3`. |
-| `ssl.endpoint.identification.algorithm` | producer, consumer | `https` (default) verifies the broker host name; empty skips that check (the chain is still verified). |
-| `ssl.key.password` | producer, consumer | Private key password (JKS key entries, encrypted PEM keys); defaults to the keystore password. |
-| `ssl.keystore.certificate.chain` | producer, consumer | Inline PEM certificate chain. |
-| `ssl.keystore.key` | producer, consumer | Inline PEM private key (with `ssl.keystore.certificate.chain`). |
-| `ssl.keystore.location` | producer, consumer | Client certificate and key (JKS, PKCS12 or PEM file) for mutual TLS. |
-| `ssl.keystore.password` | producer, consumer | Keystore password. |
-| `ssl.keystore.type` | producer, consumer | `JKS` (default), `PKCS12` or `PEM`. |
-| `ssl.protocol` | producer, consumer | `TLSv1.2` or `TLSv1.3` sets the minimum TLS version (`TLS` allows both). |
-| `ssl.truststore.certificates` | producer, consumer | Inline PEM CA certificates. |
-| `ssl.truststore.location` | producer, consumer | CA certificates (JKS, PKCS12 or PEM file, resolved against `resources`). |
-| `ssl.truststore.password` | producer, consumer | Truststore password (optional for JKS, as in Java). |
-| `ssl.truststore.type` | producer, consumer | `JKS` (default), `PKCS12` or `PEM`; JKS and PKCS12 files are recognized by content. |
-| `transactional.id` | producer | Error: the steps never begin a transaction, so a transactional producer cannot send. |
-| `value.deserializer` | consumer | `StringDeserializer` (default), `ByteArrayDeserializer` or `KafkaAvroDeserializer` (payloads are checked against the record's Java `toString()`). |
-| `value.serializer` | producer | `StringSerializer` (default), `ByteArraySerializer` or `KafkaAvroSerializer` (needed to publish with a schema). |
-| `auto.register.schemas` | producer | `true` (default) registers the schema under the subject; `false` looks its ID up and fails if it is not registered. |
-| `basic.auth.credentials.source` | producer, consumer | `URL` (default), `USER_INFO` or `SASL_INHERIT` (the SASL username and password). |
-| `basic.auth.user.info` | producer, consumer | `user:password` for `USER_INFO`. |
-| `bearer.auth.credentials.source` | producer, consumer | Only `STATIC_TOKEN` is supported. |
-| `bearer.auth.token` | producer, consumer | Static bearer token for the registry. |
-| `key.subject.name.strategy` | producer | `TopicNameStrategy` (default: `<topic>-key`), `RecordNameStrategy` or `TopicRecordNameStrategy`. |
-| `normalize.schemas` | producer | Passes `normalize=true` when registering or looking up. |
-| `schema.reflection` | producer, consumer | Only `false`: reflection needs Java classes. |
-| `schema.registry.basic.auth.user.info` | producer, consumer | Older name of `basic.auth.user.info`. |
-| `schema.registry.url` | producer, consumer | Schema Registry URLs (comma-separated); required by the Avro (de)serializers. `user:password@` in a URL is used for basic auth. |
-| `specific.avro.reader` | consumer | Only `false`: axx has no generated classes and reads generic records. |
-| `use.latest.version` | producer | With `auto.register.schemas=false`, writes with the subject's latest schema and ID. |
-| `use.schema.id` | producer | Writes with this schema ID (with `auto.register.schemas=false`). |
-| `value.subject.name.strategy` | producer | Same choices; the default subject is `<topic>-value`. |
-| `schema.registry.ssl.*` | producer, consumer | The `ssl.*` settings above, for HTTPS to the Schema Registry. |
+Java client properties axx accepts without effect:
 
-Accepted without effect: `group.id`, `group.instance.id`, `group.protocol`, `group.remote.assignor`, `enable.auto.commit`, `auto.commit.interval.ms`, `session.timeout.ms`, `heartbeat.interval.ms`, `max.poll.interval.ms`, `max.poll.records`, `partition.assignment.strategy`, `internal.leave.group.on.close`, `exclude.internal.topics`, `default.api.timeout.ms`, `client.rack`, `check.crcs`, `internal.throw.on.fetch.stable.offset.unsupported` (axx reads each topic from the start without a consumer group and never commits offsets). `batch.size`, `max.block.ms`, `metadata.max.idle.ms`, `partitioner.ignore.keys`, `partitioner.adaptive.partitioning.enable`, `partitioner.availability.timeout.ms`, `transaction.timeout.ms`, `compression.gzip.level`, `compression.lz4.level`, `compression.zstd.level` (franz-go sizes batches by `max.request.size` and publishes each event synchronously). `client.dns.lookup`, `receive.buffer.bytes`, `send.buffer.bytes`, `reconnect.backoff.ms`, `reconnect.backoff.max.ms`, `retry.backoff.max.ms`, `socket.connection.setup.timeout.max.ms`, `metadata.recovery.strategy`, `metrics.num.samples`, `metrics.recording.level`, `metrics.sample.window.ms`, `auto.include.jmx.reporter`, `enable.metrics.push`, `ssl.provider`, `ssl.cipher.suites`, `ssl.keymanager.algorithm`, `ssl.trustmanager.algorithm`, `ssl.secure.random.implementation`, `sasl.kerberos.service.name`, `sasl.login.connect.timeout.ms`, `sasl.login.read.timeout.ms`, `sasl.login.retry.backoff.ms`, `sasl.login.retry.backoff.max.ms`, `sasl.login.refresh.window.factor`, `sasl.login.refresh.window.jitter`, `sasl.login.refresh.min.period.seconds`, `sasl.login.refresh.buffer.seconds`, `key.serializer.encoding`, `value.serializer.encoding`, `serializer.encoding`, `key.deserializer.encoding`, `value.deserializer.encoding`, `deserializer.encoding` (Java tuning without a franz-go counterpart (strings are always UTF-8)). `latest.compatibility.strict`, `id.compatibility.strict`, `avro.remove.java.properties`, `avro.use.logical.type.converters`, `avro.reflection.allow.null`, `max.schemas.per.subject`, `use.latest.with.metadata`, `auto.register.schemas.retry` (axx writes and reads generic Avro records as described above).
+- `group.id`, `group.instance.id`, `group.protocol`, `group.remote.assignor`, `enable.auto.commit`, `auto.commit.interval.ms`, `session.timeout.ms`, `heartbeat.interval.ms`, `max.poll.interval.ms`, `max.poll.records`, `partition.assignment.strategy`, `internal.leave.group.on.close`, `exclude.internal.topics`, `default.api.timeout.ms`, `client.rack`, `check.crcs`, `internal.throw.on.fetch.stable.offset.unsupported`: axx reads each topic from the start without a consumer group, and never commits offsets.
+- `batch.size`, `max.block.ms`, `metadata.max.idle.ms`, `partitioner.ignore.keys`, `partitioner.adaptive.partitioning.enable`, `partitioner.availability.timeout.ms`, `transaction.timeout.ms`, `compression.gzip.level`, `compression.lz4.level`, `compression.zstd.level`: axx sizes batches by `max.request.size`, and publishes one event at a time.
+- `client.dns.lookup`, `receive.buffer.bytes`, `send.buffer.bytes`, `reconnect.backoff.ms`, `reconnect.backoff.max.ms`, `retry.backoff.max.ms`, `socket.connection.setup.timeout.max.ms`, `metadata.recovery.strategy`, `metrics.num.samples`, `metrics.recording.level`, `metrics.sample.window.ms`, `auto.include.jmx.reporter`, `enable.metrics.push`, `ssl.provider`, `ssl.cipher.suites`, `ssl.keymanager.algorithm`, `ssl.trustmanager.algorithm`, `ssl.secure.random.implementation`, `sasl.kerberos.service.name`, `sasl.login.connect.timeout.ms`, `sasl.login.read.timeout.ms`, `sasl.login.retry.backoff.ms`, `sasl.login.retry.backoff.max.ms`, `sasl.login.refresh.window.factor`, `sasl.login.refresh.window.jitter`, `sasl.login.refresh.min.period.seconds`, `sasl.login.refresh.buffer.seconds`, `key.serializer.encoding`, `value.serializer.encoding`, `serializer.encoding`, `key.deserializer.encoding`, `value.deserializer.encoding`, `deserializer.encoding`: they tune Java, and axx has no counterpart for them; its text is always UTF-8.
+- `latest.compatibility.strict`, `id.compatibility.strict`, `avro.remove.java.properties`, `avro.use.logical.type.converters`, `avro.reflection.allow.null`, `max.schemas.per.subject`, `use.latest.with.metadata`, `auto.register.schemas.retry`: axx writes and reads generic Avro records.
 
-Rejected (they name Java classes): `context.name.strategy`, `interceptor.classes`, `sasl.client.callback.handler.class`, `sasl.login.callback.handler.class`, `sasl.login.class`, `security.providers`, `specific.avro.key.type`, `specific.avro.value.type`, `ssl.engine.factory.class`, `metric.reporters` other than JmxReporter, and any unknown `*.class`/`*.classes` property. Other unknown properties are logged as warnings and ignored.
+Those that fail the step, since they name Java classes: `context.name.strategy`, `interceptor.classes`, `sasl.client.callback.handler.class`, `sasl.login.callback.handler.class`, `sasl.login.class`, `security.providers`, `specific.avro.key.type`, `specific.avro.value.type`, `ssl.engine.factory.class`, `metric.reporters` other than JmxReporter, and any other `*.class` or `*.classes` property.
 
 ## `kafka.service`
 
 ```gherkin
 Given the {word} kafka service with the following properties:
-  | ... | ... |
+  | property | value |
 ```
 
 Register a Kafka cluster. The first one registered in a scenario is the default for steps without `on the {word} kafka service`.
 
-Properties: `brokers` (required; `host:port` list, `${env:..}`/`${sys:..}` expanded).
+| Parameter | Takes | For example |
+|---|---|---|
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
 
-**Parameters:** `{word}` (one word, no spaces)
+| Property | Takes | Default |
+|---|---|---|
+| `brokers` | the cluster's brokers, a comma-separated list of `host:port`; `${env:..}` and `${sys:..}` are expanded | _required_ |
+
+Any other property is ignored, with a warning.
 
 **Example:**
 
 ```gherkin
 Given the events kafka service with the following properties:
+  | brokers | localhost:9092 |
 ```
 
 ## `kafka.client`
@@ -106,7 +55,9 @@ Given the {word} kafka topic client
 
 Create a topic client on the default Kafka service with the default configuration: string keys and values, records read from the start of the topic. A topic can have one client per service in a scenario.
 
-**Parameters:** `{word}` (one word, no spaces)
+| Parameter | Takes | For example |
+|---|---|---|
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
 
 **Example:**
 
@@ -118,23 +69,99 @@ Given the parcel-events kafka topic client
 
 ```gherkin
 Given a(n) {word} kafka topic client[[ on the {word} kafka service]] with the following properties:
-  | ... | ... |
+  | property | value |
 ```
 
-Create a topic client configured with Java Kafka client properties. Rows prefixed `producer.` configure publishing, rows prefixed `consumer.` configure assertions (the prefix is removed); values are expanded. For Avro use `producer.value.serializer=io.confluent.kafka.serializers.KafkaAvroSerializer`, `consumer.value.deserializer=io.confluent.kafka.serializers.KafkaAvroDeserializer` and `*.schema.registry.url`. See the pack documentation for every supported property; unknown properties are logged as warnings.
+Create a topic client configured with Java Kafka client properties: `producer.` rows for publishing, `consumer.` rows for assertions.
 
-**Variants** (optional parts in `[[...]]` above):
+- For Avro, set the Confluent Avro serializer or deserializer and the `schema.registry.url`, as in the examples.
+- A topic can have one client per service in a scenario.
+
+| Parameter | Takes | For example |
+|---|---|---|
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+
+| Property | Takes | Values | Default |
+|---|---|---|---|
+| `<client>.bootstrap.servers` | the brokers the client connects to, a comma-separated list; the service's `brokers` by default |  | |
+| `<client>.client.id` | the name the client gives the brokers |  | `axx` |
+| `producer.key.serializer` | how the producer writes keys: `StringSerializer` as text, `ByteArraySerializer` as the text's bytes, `KafkaAvroSerializer` as an Avro string | `org.apache.kafka.common.serialization.StringSerializer`, `org.apache.kafka.common.serialization.ByteArraySerializer`, `io.confluent.kafka.serializers.KafkaAvroSerializer` | `org.apache.kafka.common.serialization.StringSerializer` |
+| `producer.value.serializer` | how the producer writes payloads: `StringSerializer` and `ByteArraySerializer` as text, `KafkaAvroSerializer` as Avro, which publishing with a schema needs | `org.apache.kafka.common.serialization.StringSerializer`, `org.apache.kafka.common.serialization.ByteArraySerializer`, `io.confluent.kafka.serializers.KafkaAvroSerializer` | `org.apache.kafka.common.serialization.StringSerializer` |
+| `consumer.key.deserializer` | how assertions read keys: `StringDeserializer` and `ByteArrayDeserializer` as text, `KafkaAvroDeserializer` as Avro | `org.apache.kafka.common.serialization.StringDeserializer`, `org.apache.kafka.common.serialization.ByteArrayDeserializer`, `io.confluent.kafka.serializers.KafkaAvroDeserializer` | `org.apache.kafka.common.serialization.StringDeserializer` |
+| `consumer.value.deserializer` | how assertions read payloads: `StringDeserializer` and `ByteArrayDeserializer` as text, `KafkaAvroDeserializer` as Avro, whose properties are checked on Avro's text form of the record | `org.apache.kafka.common.serialization.StringDeserializer`, `org.apache.kafka.common.serialization.ByteArrayDeserializer`, `io.confluent.kafka.serializers.KafkaAvroDeserializer` | `org.apache.kafka.common.serialization.StringDeserializer` |
+| `<client>.schema.registry.url` | the Schema Registry's URLs, a comma-separated list, which the Avro serializers need; `user:password@` in a URL signs in with basic auth |  | |
+| `<client>.basic.auth.credentials.source` | where the registry's basic auth credentials come from: the `URL`, `basic.auth.user.info` (`USER_INFO`), or the SASL username and password (`SASL_INHERIT`) | `URL`, `USER_INFO`, `SASL_INHERIT` | `URL` |
+| `<client>.basic.auth.user.info` | `user:password` for the registry, with `basic.auth.credentials.source=USER_INFO` |  | |
+| `<client>.schema.registry.basic.auth.user.info` | the older name of `basic.auth.user.info` |  | |
+| `<client>.bearer.auth.credentials.source` | where the registry's bearer token comes from: only `STATIC_TOKEN`, the `bearer.auth.token` | `STATIC_TOKEN` | |
+| `<client>.bearer.auth.token` | a bearer token for the registry |  | |
+| `producer.auto.register.schemas` | `true` registers the schema under its subject; `false` looks its ID up, and fails if it is not registered |  | `true` |
+| `producer.use.latest.version` | `true` writes with the subject's latest schema and its ID, with `auto.register.schemas=false` |  | `false` |
+| `producer.normalize.schemas` | `true` has the registry normalize the schema when registering it or looking it up |  | `false` |
+| `producer.use.schema.id` | the ID of the schema to write with, with `auto.register.schemas=false` |  | |
+| `producer.key.subject.name.strategy` | the subject of a key's schema: `<topic>-key` (`TopicNameStrategy`); the record strategies fail, since a key is an Avro string | `io.confluent.kafka.serializers.subject.TopicNameStrategy`, `io.confluent.kafka.serializers.subject.RecordNameStrategy`, `io.confluent.kafka.serializers.subject.TopicRecordNameStrategy` | `io.confluent.kafka.serializers.subject.TopicNameStrategy` |
+| `producer.value.subject.name.strategy` | the subject of a payload's schema: `<topic>-value` (`TopicNameStrategy`), the record's full name (`RecordNameStrategy`), or `<topic>-<full name>` (`TopicRecordNameStrategy`) | `io.confluent.kafka.serializers.subject.TopicNameStrategy`, `io.confluent.kafka.serializers.subject.RecordNameStrategy`, `io.confluent.kafka.serializers.subject.TopicRecordNameStrategy` | `io.confluent.kafka.serializers.subject.TopicNameStrategy` |
+| `<client>.schema.reflection` | only `false`: reflection needs Java classes | `false` | |
+| `consumer.specific.avro.reader` | only `false`: axx has no generated classes and reads generic records | `false` | |
+| `<client>.schema.registry.ssl.<property>` | an `ssl.` property of this table, for HTTPS to the Schema Registry |  | |
+| `producer.acks` | the acknowledgements a publish waits for: from every in-sync replica (`all`, `-1`), from none (`0`) or from the leader (`1`); `0` and `1` turn idempotence off unless `enable.idempotence` is set, as in Java | `all`, `-1`, `0`, `1` | `all` |
+| `producer.enable.idempotence` | `false` turns idempotent publishing off; it is on by default with `acks=all`, and `true` needs `acks=all` |  | |
+| `producer.compression.type` | how the producer compresses what it sends | `none`, `gzip`, `snappy`, `lz4`, `zstd` | `none` |
+| `producer.linger.ms` | how long the producer waits to fill a batch, in milliseconds, as in Java |  | `5` |
+| `producer.max.request.size` | the largest batch the producer sends, in bytes |  | |
+| `producer.buffer.memory` | the most bytes of records the producer holds before they are sent |  | |
+| `producer.delivery.timeout.ms` | how long a publish may take, retries included, in milliseconds |  | |
+| `producer.retries` | how many times a failed publish is retried |  | |
+| `producer.max.in.flight.requests.per.connection` | how many publish requests may wait for an answer from a broker at once, with idempotence off |  | |
+| `producer.partitioner.class` | how records are spread over the partitions: by the key's murmur2 hash (`DefaultPartitioner`), in turn (`RoundRobinPartitioner`) or a batch at a time (`UniformStickyPartitioner`); other classes fail the step | `org.apache.kafka.clients.producer.internals.DefaultPartitioner`, `org.apache.kafka.clients.producer.RoundRobinPartitioner`, `org.apache.kafka.clients.producer.UniformStickyPartitioner` | `org.apache.kafka.clients.producer.internals.DefaultPartitioner` |
+| `producer.transactional.id` | nothing: it fails the step, since the publish steps run no transactions and a transactional producer cannot send |  | |
+| `consumer.auto.offset.reset` | the records assertions consider: every record of the topic (`earliest`), or those produced after the assertion starts (`latest`); `none` fails the step, since axx reads without a consumer group | `earliest`, `latest` | `earliest` |
+| `consumer.isolation.level` | `read_committed` leaves out the records of transactions that are open or were aborted | `read_uncommitted`, `read_committed` | `read_uncommitted` |
+| `consumer.allow.auto.create.topics` | `true` lets reading a topic that does not exist create it; producers always may, as in Java |  | `true` |
+| `consumer.fetch.max.wait.ms` | how long a broker may wait to fill a fetch, in milliseconds |  | |
+| `consumer.fetch.min.bytes` | the fewest bytes a broker answers a fetch with |  | |
+| `consumer.fetch.max.bytes` | the most bytes a broker answers a fetch with |  | |
+| `consumer.max.partition.fetch.bytes` | the most bytes of one partition a broker answers a fetch with |  | |
+| `<client>.security.protocol` | how the client connects: in plain text or over TLS (`SSL`), and signed in with SASL (`SASL_`) or not | `PLAINTEXT`, `SSL`, `SASL_PLAINTEXT`, `SASL_SSL` | `PLAINTEXT` |
+| `<client>.sasl.mechanism` | how the client signs in with SASL; GSSAPI and OAUTHBEARER are not supported | `PLAIN`, `SCRAM-SHA-256`, `SCRAM-SHA-512` | `PLAIN` |
+| `<client>.sasl.jaas.config` | the username and password the client signs in with, in a `PlainLoginModule` or `ScramLoginModule` entry; a `SASL_` protocol needs it |  | |
+| `<client>.ssl.truststore.location` | the CA certificates the client trusts: a JKS, PKCS12 or PEM file, resolved against `resources` |  | |
+| `<client>.ssl.truststore.password` | the truststore's password, which a JKS file may do without, as in Java |  | |
+| `<client>.ssl.truststore.type` | the truststore's format, for a file axx does not recognize by its content as JKS, PKCS12 or PEM | `JKS`, `PKCS12`, `PEM` | `JKS` |
+| `<client>.ssl.truststore.certificates` | CA certificates the client trusts, in PEM, written in the cell |  | |
+| `<client>.ssl.keystore.location` | the client's certificate and key, for mutual TLS: a JKS, PKCS12 or PEM file, resolved against `resources` |  | |
+| `<client>.ssl.keystore.password` | the keystore's password |  | |
+| `<client>.ssl.key.password` | the private key's password, for JKS key entries and encrypted PEM keys; the keystore's password by default |  | |
+| `<client>.ssl.keystore.type` | the keystore's format, for a file axx does not recognize by its content as JKS, PKCS12 or PEM | `JKS`, `PKCS12`, `PEM` | `JKS` |
+| `<client>.ssl.keystore.key` | the client's private key, in PEM, written in the cell; with `ssl.keystore.certificate.chain` |  | |
+| `<client>.ssl.keystore.certificate.chain` | the client's certificate chain, in PEM, written in the cell |  | |
+| `<client>.ssl.endpoint.identification.algorithm` | `https` checks the broker's host name against its certificate; an empty value skips that check, and the certificate is still verified |  | `https` |
+| `<client>.ssl.protocol` | the oldest TLS version the client accepts; `TLS` is `TLSv1.2` | `TLS`, `TLSv1.2`, `TLSv1.3` | `TLSv1.2` |
+| `<client>.ssl.enabled.protocols` | the TLS versions the client may use, a comma-separated list of `TLSv1.2` and `TLSv1.3`; older versions are left out |  | |
+| `<client>.metadata.max.age.ms` | how often the client refreshes what it knows of the cluster, in milliseconds; assertions refresh every 5 seconds without it |  | |
+| `<client>.connections.max.idle.ms` | how long a connection may stay idle before the client closes it, in milliseconds |  | |
+| `<client>.socket.connection.setup.timeout.ms` | how long connecting to a broker may take, in milliseconds |  | |
+| `<client>.request.timeout.ms` | how long a broker has to answer a request, in milliseconds |  | |
+| `<client>.retry.backoff.ms` | how long the client waits before it retries a request, in milliseconds |  | |
+| `producer.<property>` | any other Java producer property: those the pack's description lists have no effect or fail the step, and the others are ignored, with a warning |  | |
+| `consumer.<property>` | any other Java consumer property: those the pack's description lists have no effect or fail the step, and the others are ignored, with a warning |  | |
+
+`<client>` is `producer`, for publishing, or `consumer`, for assertions: axx applies the Java Kafka client property after the prefix to that client. Values are expanded (`${env:..}`, `${sys:..}`); an empty value fails the step, and a row with neither prefix is ignored, with a warning.
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `a(n) {word} kafka topic client with the following properties:`
 - `a(n) {word} kafka topic client on the {word} kafka service with the following properties:`
-
-**Parameters:** `{word}` (one word, no spaces)
 
 **Example:**
 
 ```gherkin
 Given a depot-scans kafka topic client with the following properties:
+  | producer.value.serializer    | io.confluent.kafka.serializers.KafkaAvroSerializer |
+  | producer.schema.registry.url | http://localhost:9081                              |
 Given a parcel-events kafka topic client on the events kafka service with the following properties:
+  | consumer.value.deserializer  | io.confluent.kafka.serializers.KafkaAvroDeserializer |
+  | consumer.schema.registry.url | http://localhost:9081                                |
 ```
 
 ## `kafka.event`
@@ -143,16 +170,23 @@ Given a parcel-events kafka topic client on the events kafka service with the fo
 Given a(n)[[ {ordinal} ordered]] {word} kafka event[[ on {word} kafka service]]
 ```
 
-Draft a new event (key, headers and payload are set by the following steps; the payload starts as `{}`). Without an ordinal the event is appended. With one, it must be the next position (`a 2nd ordered` after one event); an ordinal equal to the number of existing events still appends, with a warning (it will be an error in axx 1.0).
+Draft a new event of the topic: the steps that follow set its key, headers and payload, which starts as `{}`.
 
-**Variants** (optional parts in `[[...]]` above):
+- Without an ordinal, the event is appended.
+- With one, it must be the next position: `a 2nd ordered` after one event.
+- An ordinal equal to the number of events the topic has still appends, with a warning.
+
+| Parameter | Takes | For example |
+|---|---|---|
+| `{ordinal}` | a position, counting from 1; an optional ordinal left out is the first | `1st`, `2nd` |
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `a(n) {word} kafka event`
 - `a(n) {ordinal} ordered {word} kafka event`
 - `a(n) {word} kafka event on {word} kafka service`
 - `a(n) {ordinal} ordered {word} kafka event on {word} kafka service`
-
-**Parameters:** `{ordinal}` (A 1-based position such as `1st`, `2nd`, `3rd` or `4th`. Omitting an optional ordinal means the first), `{word}` (one word, no spaces)
 
 **Example:**
 
@@ -170,45 +204,56 @@ Given the[[ {ordinal} ordered]] {word} kafka event key is {word}[[ on the {word}
 
 Set the key of a drafted event. With `the {ordinal} ordered` the step works on that event of the topic (`1st` is the first event created); without it, on the first event.
 
-**Variants** (optional parts in `[[...]]` above):
+| Parameter | Takes | For example |
+|---|---|---|
+| `{ordinal}` | a position, counting from 1; an optional ordinal left out is the first | `1st`, `2nd` |
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `the {word} kafka event key is {word}`
 - `the {ordinal} ordered {word} kafka event key is {word}`
 - `the {word} kafka event key is {word} on the {word} kafka service`
 - `the {ordinal} ordered {word} kafka event key is {word} on the {word} kafka service`
 
-**Parameters:** `{ordinal}` (A 1-based position such as `1st`, `2nd`, `3rd` or `4th`. Omitting an optional ordinal means the first), `{word}` (one word, no spaces)
-
 **Example:**
 
 ```gherkin
-Given the depot-scans kafka event key is PX-1001
-Given the 2nd ordered depot-scans kafka event key is PX-1002 on the events kafka service
+Given the depot-scans kafka event key is PX-4101
+Given the 2nd ordered depot-scans kafka event key is PX-4102 on the events kafka service
 ```
 
 ## `kafka.event.headers`
 
 ```gherkin
 Given the[[ {ordinal} ordered]] {word} kafka event headers[[ on the {word} kafka service]] are:
-  | ... | ... |
+  | header | value |
 ```
 
-Set headers of a drafted event (`name | value` rows; setting a header again replaces its value; an empty cell sends the text `null`). With `the {ordinal} ordered` the step works on that event of the topic (`1st` is the first event created); without it, on the first event.
+Set headers of a drafted event. With `the {ordinal} ordered` the step works on that event of the topic (`1st` is the first event created); without it, on the first event.
 
-**Variants** (optional parts in `[[...]]` above):
+| Parameter | Takes | For example |
+|---|---|---|
+| `{ordinal}` | a position, counting from 1; an optional ordinal left out is the first | `1st`, `2nd` |
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+
+A row sets a header of the event: setting a header again replaces its value, and an empty cell sends the text `null`.
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `the {word} kafka event headers are:`
 - `the {ordinal} ordered {word} kafka event headers are:`
 - `the {word} kafka event headers on the {word} kafka service are:`
 - `the {ordinal} ordered {word} kafka event headers on the {word} kafka service are:`
 
-**Parameters:** `{ordinal}` (A 1-based position such as `1st`, `2nd`, `3rd` or `4th`. Omitting an optional ordinal means the first), `{word}` (one word, no spaces)
-
 **Example:**
 
 ```gherkin
 Given the depot-scans kafka event headers are:
+  | X-Event-Type | ParcelScanned |
+  | X-Depot      | Leipzig       |
 Given the 1st ordered depot-scans kafka event headers on the events kafka service are:
+  | X-Event-Type | ParcelScanned |
 ```
 
 ## `kafka.event.payload.resource`
@@ -217,16 +262,23 @@ Given the 1st ordered depot-scans kafka event headers on the events kafka servic
 Given the[[ {ordinal} ordered]] {word} kafka event payload is a(n) {filepath} resource[[ on the {word} kafka service]]
 ```
 
-Set the payload of a drafted event to the contents of a file (resolved against `resources`). For Avro events the file is Avro's JSON encoding of the record (unions as `{"<branch>": value}`). With `the {ordinal} ordered` the step works on that event of the topic (`1st` is the first event created); without it, on the first event.
+Set the payload of a drafted event to the contents of a file.
 
-**Variants** (optional parts in `[[...]]` above):
+- For Avro events, the file is Avro's JSON encoding of the record, with unions as `{"<branch>": value}`.
+- With `the {ordinal} ordered` the step works on that event of the topic (`1st` is the first event created); without it, on the first event.
+
+| Parameter | Takes | For example |
+|---|---|---|
+| `{ordinal}` | a position, counting from 1; an optional ordinal left out is the first | `1st`, `2nd` |
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+| `{filepath}` | a file of the project, with no spaces: a path relative to the `resources` directories or to axx.yaml's directory, or an absolute path | `seeds/parcels.yaml`, `kafka/scan-delivered.json` |
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `the {word} kafka event payload is a(n) {filepath} resource`
 - `the {ordinal} ordered {word} kafka event payload is a(n) {filepath} resource`
 - `the {word} kafka event payload is a(n) {filepath} resource on the {word} kafka service`
 - `the {ordinal} ordered {word} kafka event payload is a(n) {filepath} resource on the {word} kafka service`
-
-**Parameters:** `{ordinal}` (A 1-based position such as `1st`, `2nd`, `3rd` or `4th`. Omitting an optional ordinal means the first), `{word}` (one word, no spaces), `{filepath}` (A file of the project, without whitespace: a path relative to the `resources` directories or to the directory of axx.yaml, or an absolute path. Editors link it to the file)
 
 **Example:**
 
@@ -239,70 +291,96 @@ Given the 3rd ordered depot-scans kafka event payload is a kafka/scan-out-for-de
 
 ```gherkin
 Given the[[ {ordinal} ordered]] kafka event payload properties[[ on the {word} kafka service]] are:
-  | ... | ... |
+  | JSONPath | value |
 ```
 
-Set JSONPath properties (`path | value` rows) of an event of the service's **first** topic client (the first one created in the scenario). Values are always set as strings, an empty cell sets JSON null, and every property must already exist in the payload. With `the {ordinal} ordered` the step works on that event of the topic (`1st` is the first event created); without it, on the first event.
+Set JSONPath properties of an event of the service's **first** topic client, the first one created in the scenario.
 
-**Variants** (optional parts in `[[...]]` above):
+- Every property must already exist in the payload.
+- With `the {ordinal} ordered` the step works on that event of the topic (`1st` is the first event created); without it, on the first event.
+
+| Parameter | Takes | For example |
+|---|---|---|
+| `{ordinal}` | a position, counting from 1; an optional ordinal left out is the first | `1st`, `2nd` |
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+
+A row sets the property at the JSONPath to the value, always as a string; an empty cell sets JSON null.
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `the kafka event payload properties are:`
 - `the {ordinal} ordered kafka event payload properties are:`
 - `the kafka event payload properties on the {word} kafka service are:`
 - `the {ordinal} ordered kafka event payload properties on the {word} kafka service are:`
 
-**Parameters:** `{ordinal}` (A 1-based position such as `1st`, `2nd`, `3rd` or `4th`. Omitting an optional ordinal means the first), `{word}` (one word, no spaces)
-
 **Example:**
 
 ```gherkin
 Given the kafka event payload properties are:
+  | $.scanId    | SC-4101-1 |
+  | $.parcelRef | PX-4101   |
 Given the 2nd ordered kafka event payload properties on the events kafka service are:
+  | $.scanId    | SC-4101-2 |
+  | $.parcelRef | PX-4101   |
 ```
 
 ## `kafka.event.properties`
 
 ```gherkin
 Given the {word} kafka event payload properties[[ on the {word} kafka service]] are:
-  | ... | ... |
+  | JSONPath | value |
 ```
 
-Set JSONPath properties (`path | value` rows) of the topic's first event. Values are always set as strings, an empty cell sets JSON null, and every property must already exist in the payload (set it in the payload file first).
+Set JSONPath properties of the topic's first event. Every property must already exist in the payload: set it in the payload file first.
 
-**Variants** (optional parts in `[[...]]` above):
+| Parameter | Takes | For example |
+|---|---|---|
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+
+A row sets the property at the JSONPath to the value, always as a string; an empty cell sets JSON null.
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `the {word} kafka event payload properties are:`
 - `the {word} kafka event payload properties on the {word} kafka service are:`
-
-**Parameters:** `{word}` (one word, no spaces)
 
 **Example:**
 
 ```gherkin
 Given the depot-scans kafka event payload properties are:
+  | $.scanId    | SC-4101-1 |
+  | $.parcelRef | PX-4101   |
 Given the depot-scans kafka event payload properties on the events kafka service are:
+  | $.location | Leipzig |
 ```
 
 ## `kafka.event.properties.ordinal`
 
 ```gherkin
 Given the {ordinal} ordered {word} kafka event payload properties[[ on the {word} kafka service]] are:
-  | ... | ... |
+  | JSONPath | value |
 ```
 
-Like the topic form, for the given event of the topic (`1st` is the first event created).
+Set JSONPath properties of that event of the topic (`1st` is the first event created). Every property must already exist in the payload: set it in the payload file first.
 
-**Variants** (optional parts in `[[...]]` above):
+| Parameter | Takes | For example |
+|---|---|---|
+| `{ordinal}` | a position, counting from 1; an optional ordinal left out is the first | `1st`, `2nd` |
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+
+A row sets the property at the JSONPath to the value, always as a string; an empty cell sets JSON null.
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `the {ordinal} ordered {word} kafka event payload properties are:`
 - `the {ordinal} ordered {word} kafka event payload properties on the {word} kafka service are:`
-
-**Parameters:** `{ordinal}` (A 1-based position such as `1st`, `2nd`, `3rd` or `4th`. Omitting an optional ordinal means the first), `{word}` (one word, no spaces)
 
 **Example:**
 
 ```gherkin
 Given the 2nd ordered depot-scans kafka event payload properties are:
+  | $.scanId    | SC-4101-2 |
+  | $.parcelRef | PX-4101   |
 ```
 
 _Since 0.1.0._
@@ -315,14 +393,17 @@ Given the[[ {ordinal} ordered]] {word} kafka event payload property {word} is nu
 
 Set a JSONPath property of a drafted event's payload to JSON null; the property must exist. With `the {ordinal} ordered` the step works on that event of the topic (`1st` is the first event created); without it, on the first event.
 
-**Variants** (optional parts in `[[...]]` above):
+| Parameter | Takes | For example |
+|---|---|---|
+| `{ordinal}` | a position, counting from 1; an optional ordinal left out is the first | `1st`, `2nd` |
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `the {word} kafka event payload property {word} is null`
 - `the {ordinal} ordered {word} kafka event payload property {word} is null`
 - `the {word} kafka event payload property {word} is null on the {word} kafka service`
 - `the {ordinal} ordered {word} kafka event payload property {word} is null on the {word} kafka service`
-
-**Parameters:** `{ordinal}` (A 1-based position such as `1st`, `2nd`, `3rd` or `4th`. Omitting an optional ordinal means the first), `{word}` (one word, no spaces)
 
 **Example:**
 
@@ -337,16 +418,26 @@ Given the 2nd ordered depot-scans kafka event payload property $.location is nul
 When the[[ {ordinal} ordered]] {word} kafka event is published using schema {filepath}[[ on the {word} kafka service]]
 ```
 
-Publish a drafted event as Confluent Avro: the payload (Avro's JSON encoding) is read with the `.avsc` schema file, the schema is registered (or looked up) in the Schema Registry under the subject of `value.subject.name.strategy` (`<topic>-value` by default), and the record is written as magic byte 0, the schema ID and the Avro binary. Needs `producer.value.serializer=io.confluent.kafka.serializers.KafkaAvroSerializer` and `producer.schema.registry.url`. A payload that does not fit the schema fails with the JSONPath of the mismatch. With `the {ordinal} ordered` the step works on that event of the topic (`1st` is the first event created); without it, on the first event.
+Publish a drafted event as Confluent Avro, with an `.avsc` schema file.
 
-**Variants** (optional parts in `[[...]]` above):
+- The payload, Avro's JSON encoding of the record, is read with the schema; a payload that does not fit it fails the step with the JSONPath of the mismatch.
+- The schema is registered, or looked up, in the Schema Registry under the subject of `value.subject.name.strategy`, `<topic>-value` by default.
+- The record is written as magic byte 0, the schema ID and the Avro binary.
+- The topic client needs `producer.value.serializer=io.confluent.kafka.serializers.KafkaAvroSerializer` and `producer.schema.registry.url`.
+- With `the {ordinal} ordered` the step works on that event of the topic (`1st` is the first event created); without it, on the first event.
+
+| Parameter | Takes | For example |
+|---|---|---|
+| `{ordinal}` | a position, counting from 1; an optional ordinal left out is the first | `1st`, `2nd` |
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+| `{filepath}` | a file of the project, with no spaces: a path relative to the `resources` directories or to axx.yaml's directory, or an absolute path | `seeds/parcels.yaml`, `kafka/scan-delivered.json` |
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `the {word} kafka event is published using schema {filepath}`
 - `the {ordinal} ordered {word} kafka event is published using schema {filepath}`
 - `the {word} kafka event is published using schema {filepath} on the {word} kafka service`
 - `the {ordinal} ordered {word} kafka event is published using schema {filepath} on the {word} kafka service`
-
-**Parameters:** `{ordinal}` (A 1-based position such as `1st`, `2nd`, `3rd` or `4th`. Omitting an optional ordinal means the first), `{word}` (one word, no spaces), `{filepath}` (A file of the project, without whitespace: a path relative to the `resources` directories or to the directory of axx.yaml, or an absolute path. Editors link it to the file)
 
 **Example:**
 
@@ -361,16 +452,23 @@ When the 2nd ordered depot-scans kafka event is published using schema schemas/d
 When the[[ {ordinal} ordered]] {word} kafka event is published[[ on the {word} kafka service]]
 ```
 
-Publish a drafted event as it is: the payload text with the producer's value serializer (`StringSerializer` by default, or `ByteArraySerializer`), with its key and headers. Use `published using schema` for Avro. With `the {ordinal} ordered` the step works on that event of the topic (`1st` is the first event created); without it, on the first event.
+Publish a drafted event as it is: its key, its headers and its payload's text.
 
-**Variants** (optional parts in `[[...]]` above):
+- The producer's value serializer writes the payload: `StringSerializer` by default, or `ByteArraySerializer`.
+- For Avro, use `is published using schema`: with `KafkaAvroSerializer`, this step fails.
+- With `the {ordinal} ordered` the step works on that event of the topic (`1st` is the first event created); without it, on the first event.
+
+| Parameter | Takes | For example |
+|---|---|---|
+| `{ordinal}` | a position, counting from 1; an optional ordinal left out is the first | `1st`, `2nd` |
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `the {word} kafka event is published`
 - `the {ordinal} ordered {word} kafka event is published`
 - `the {word} kafka event is published on the {word} kafka service`
 - `the {ordinal} ordered {word} kafka event is published on the {word} kafka service`
-
-**Parameters:** `{ordinal}` (A 1-based position such as `1st`, `2nd`, `3rd` or `4th`. Omitting an optional ordinal means the first), `{word}` (one word, no spaces)
 
 **Example:**
 
@@ -387,100 +485,154 @@ _Since 0.1.0._
 Then the {word} kafka event named {word} key is {word}[[ on the {word} kafka service]]
 ```
 
-Expect the label's record to have this key (the consumer's key deserializer decides how keys read). Adds the expectation to the label (`named {word}`) and then waits until **one record** of the topic satisfies **every** expectation added to that label in the scenario (key, payload properties and headers together). Records are read from the start of the topic (or, with `consumer.auto.offset.reset=latest`, only those produced after the step starts); the step fails after 30 seconds (`packs.kafka.timeout`) without a match, and the failure report lists the label's expectations and the latest records with the reason each one did not match.
+Expect the label's record to have this key.
 
-**Variants** (optional parts in `[[...]]` above):
+- The consumer's key deserializer decides how keys read.
+- The expectation joins those of the label (`named {word}`) in the scenario: **one record** of the topic must meet **every** one of them, key, payload properties and headers together.
+- Records are read from the start of the topic, or with `consumer.auto.offset.reset=latest`, only those produced after the step starts.
+- The step fails after 30 seconds (`packs.kafka.timeout`) without a match; the failure lists the label's expectations and the latest records, each with the reason it did not match.
+
+| Parameter | Takes | For example |
+|---|---|---|
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `the {word} kafka event named {word} key is {word}`
 - `the {word} kafka event named {word} key is {word} on the {word} kafka service`
 
-**Parameters:** `{word}` (one word, no spaces)
-
 **Example:**
 
 ```gherkin
-Then the parcel-events kafka event named registered key is PX-1001
-Then the parcel-events kafka event named registered key is PX-1001 on the events kafka service
+Then the parcel-events kafka event named registered key is PX-4101
+Then the parcel-events kafka event named registered key is PX-4101 on the events kafka service
 ```
 
 ## `kafka.consumed.properties`
 
 ```gherkin
 Then the {word} kafka event named {word} payload properties[[ on the {word} kafka service]] are:
-  | ... | ... |
+  | JSONPath | value |
 ```
 
-Expect JSONPath properties of the label's record payload (`path | value` rows). Values are typed: `"text"` is a string, `null` is JSON null, `12` an integer, `1.5` a decimal, `true`/`false` booleans, `{...}`/`[...]` JSON; anything else is a string. Numbers must match in type (`2` does not equal `2.0`). Adds the expectation to the label (`named {word}`) and then waits until **one record** of the topic satisfies **every** expectation added to that label in the scenario (key, payload properties and headers together). Records are read from the start of the topic (or, with `consumer.auto.offset.reset=latest`, only those produced after the step starts); the step fails after 30 seconds (`packs.kafka.timeout`) without a match, and the failure report lists the label's expectations and the latest records with the reason each one did not match.
+Expect JSONPath properties of the label's record payload.
 
-**Variants** (optional parts in `[[...]]` above):
+- Values are typed: `"text"` is a string, `null` JSON null, `12` an integer, `1.5` a decimal, `true` and `false` booleans, `{...}` and `[...]` JSON; anything else is a string.
+- Numbers must match in type: `2` does not equal `2.0`.
+- An empty cell fails the step: write `null` for JSON null, `""` for an empty string.
+- The expectation joins those of the label (`named {word}`) in the scenario: **one record** of the topic must meet **every** one of them, key, payload properties and headers together.
+- Records are read from the start of the topic, or with `consumer.auto.offset.reset=latest`, only those produced after the step starts.
+- The step fails after 30 seconds (`packs.kafka.timeout`) without a match; the failure lists the label's expectations and the latest records, each with the reason it did not match.
+
+| Parameter | Takes | For example |
+|---|---|---|
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+
+A row expects the property at the JSONPath to have the value.
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `the {word} kafka event named {word} payload properties are:`
 - `the {word} kafka event named {word} payload properties on the {word} kafka service are:`
-
-**Parameters:** `{word}` (one word, no spaces)
 
 **Example:**
 
 ```gherkin
 Then the parcel-events kafka event named registered payload properties are:
+  | $.reference    | PX-4101  |
+  | $.weightGrams  | 1200     |
+  | $.serviceLevel | STANDARD |
 Then the parcel-events kafka event named registered payload properties on the events kafka service are:
+  | $.reference | PX-4101 |
+  | $.source    | api     |
 ```
 
 ## `kafka.consumed.headers`
 
 ```gherkin
 Then the {word} kafka event named {word} headers[[ on the {word} kafka service]] are:
-  | ... | ... |
+  | header | value |
 ```
 
-Expect headers of the label's record (`name | value` rows): each header must occur exactly once with exactly this value. Adds the expectation to the label (`named {word}`) and then waits until **one record** of the topic satisfies **every** expectation added to that label in the scenario (key, payload properties and headers together). Records are read from the start of the topic (or, with `consumer.auto.offset.reset=latest`, only those produced after the step starts); the step fails after 30 seconds (`packs.kafka.timeout`) without a match, and the failure report lists the label's expectations and the latest records with the reason each one did not match.
+Expect headers of the label's record.
 
-**Variants** (optional parts in `[[...]]` above):
+- Each header must occur exactly once, with exactly this value.
+- The expectation joins those of the label (`named {word}`) in the scenario: **one record** of the topic must meet **every** one of them, key, payload properties and headers together.
+- Records are read from the start of the topic, or with `consumer.auto.offset.reset=latest`, only those produced after the step starts.
+- The step fails after 30 seconds (`packs.kafka.timeout`) without a match; the failure lists the label's expectations and the latest records, each with the reason it did not match.
+
+| Parameter | Takes | For example |
+|---|---|---|
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+
+A row expects a header of the record to have the value; an empty cell fails the step.
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `the {word} kafka event named {word} headers are:`
 - `the {word} kafka event named {word} headers on the {word} kafka service are:`
-
-**Parameters:** `{word}` (one word, no spaces)
 
 **Example:**
 
 ```gherkin
 Then the parcel-events kafka event named registered headers are:
+  | X-Event-Type | ParcelRegistered |
 Then the parcel-events kafka event named registered headers on the events kafka service are:
+  | X-Event-Type | ParcelRegistered |
 ```
 
 ## `kafka.consumed.headers.match`
 
 ```gherkin
 Then the {word} kafka event named {word} headers match:
-  | ... | ... |
+  | header | pattern |
 ```
 
-Expect headers of the label's record to match regular expressions (`name | pattern` rows, Java syntax, whole value). A header must have one distinct value; this step (unlike the others) ignores repeated identical values of a header. Adds the expectation to the label (`named {word}`) and then waits until **one record** of the topic satisfies **every** expectation added to that label in the scenario (key, payload properties and headers together). Records are read from the start of the topic (or, with `consumer.auto.offset.reset=latest`, only those produced after the step starts); the step fails after 30 seconds (`packs.kafka.timeout`) without a match, and the failure report lists the label's expectations and the latest records with the reason each one did not match.
+Expect headers of the label's record to match regular expressions.
 
-**Parameters:** `{word}` (one word, no spaces)
+- A header must have one distinct value: unlike the other steps, this one ignores repeated identical values of a header.
+- The expectation joins those of the label (`named {word}`) in the scenario: **one record** of the topic must meet **every** one of them, key, payload properties and headers together.
+- Records are read from the start of the topic, or with `consumer.auto.offset.reset=latest`, only those produced after the step starts.
+- The step fails after 30 seconds (`packs.kafka.timeout`) without a match; the failure lists the label's expectations and the latest records, each with the reason it did not match.
+
+| Parameter | Takes | For example |
+|---|---|---|
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+
+A row expects a header of the record to match a regular expression (Java syntax), over its whole value; an empty cell fails the step.
 
 **Example:**
 
 ```gherkin
 Then the parcel-events kafka event named registered headers match:
+  | X-Event-Type | Parcel[A-Za-z]+ |
 ```
 
 ## `kafka.consumed.headers.match.service`
 
 ```gherkin
 Then the {word} kafka event named {word} headers on the {word} kafka service match:
-  | ... | ... |
+  | header | pattern |
 ```
 
-The `headers match` expectation for a topic client of a named Kafka service. Adds the expectation to the label (`named {word}`) and then waits until **one record** of the topic satisfies **every** expectation added to that label in the scenario (key, payload properties and headers together). Records are read from the start of the topic (or, with `consumer.auto.offset.reset=latest`, only those produced after the step starts); the step fails after 30 seconds (`packs.kafka.timeout`) without a match, and the failure report lists the label's expectations and the latest records with the reason each one did not match.
+Expect headers of the label's record, on a topic client of that Kafka service, to match regular expressions.
 
-**Parameters:** `{word}` (one word, no spaces)
+- A header must have one distinct value: unlike the other steps, this one ignores repeated identical values of a header.
+- The expectation joins those of the label (`named {word}`) in the scenario: **one record** of the topic must meet **every** one of them, key, payload properties and headers together.
+- Records are read from the start of the topic, or with `consumer.auto.offset.reset=latest`, only those produced after the step starts.
+- The step fails after 30 seconds (`packs.kafka.timeout`) without a match; the failure lists the label's expectations and the latest records, each with the reason it did not match.
+
+| Parameter | Takes | For example |
+|---|---|---|
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+
+A row expects a header of the record to match a regular expression (Java syntax), over its whole value; an empty cell fails the step.
 
 **Example:**
 
 ```gherkin
 Then the parcel-events kafka event named registered headers on the events kafka service match:
+  | X-Event-Type | Parcel[A-Za-z]+ |
 ```
 
 _Since 0.1.0._

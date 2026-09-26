@@ -1,18 +1,40 @@
 // @ts-check
+import { fileURLToPath } from 'node:url';
+import { satteri } from '@astrojs/markdown-satteri';
 import starlight from '@astrojs/starlight';
 import { ExpressiveCodeTheme } from '@astrojs/starlight/expressive-code';
 import { defineConfig } from 'astro/config';
 import starlightLinksValidator from 'starlight-links-validator';
 import starlightLlmsTxt from 'starlight-llms-txt';
 import { axxConsole } from './src/lib/axx-console.mjs';
+import { axxGherkinSteps } from './src/lib/axx-gherkin.mjs';
+import { stepParams } from './src/lib/step-params.mjs';
+import { stepTokensPlugin } from './src/lib/step-tokens-plugin.mjs';
 import { poseEditor } from './scripts/pose-editor.mjs';
 
 const site = 'https://axx.nimbusxr.us';
 
+/** Where the parameter values of the docs' steps are (scripts/step-tokens.mjs). */
+const stepTokens = fileURLToPath(new URL('./src/lib/_gen/step-tokens.json', import.meta.url));
+
+/** The sidebar entries of the reference pages of packs. */
+const packsOf = (names) => names.map((name) => `references/packs/${name}`);
+
+// The packs' pages were the steps' until the packs had settings and tools of
+// their own: the addresses published then lead to the packs' (web is web-core now).
+const movedPacks = [
+	'rest', 'mock', 'sql', 'mongo', 'kafka', 'logs', 'files', 'web',
+	'aws-core', 'aws-s3', 'aws-sqs', 'aws-sns', 'aws-eventbridge', 'aws-dynamodb',
+	'gcp-core', 'gcp-storage', 'gcp-pubsub', 'gcp-bigquery', 'gcp-firestore',
+	'azure-blob', 'azure-servicebus',
+];
+
 export default defineConfig({
 	site,
 	trailingSlash: 'ignore',
+	redirects: Object.fromEntries(movedPacks.map((name) => [`/references/steps/${name}`, `/references/packs/${name === 'web' ? 'web-core' : name}`])),
 	vite: { plugins: [poseEditor()] },
+	markdown: { processor: satteri({ mdastPlugins: [stepParams(stepTokens)] }) },
 	integrations: [
 		starlight({
 			title: 'axx',
@@ -32,8 +54,16 @@ export default defineConfig({
 			},
 			expressiveCode: {
 				useDarkModeMediaQuery: false,
+				// The data of steps: parameter values in each theme's variable.parameter color, the names of a
+				// table in its property-name color, and a table's pipes in its punctuation color.
+				plugins: [
+					stepTokensPlugin(stepTokens, [
+						{ value: '#dba071', name: '#78b7ed', punctuation: '#85858d' },
+						{ value: '#893506', name: '#004ca4', punctuation: '#62626c' },
+					]),
+				],
 				shiki: {
-					langs: [axxConsole],
+					langs: [axxConsole, axxGherkinSteps],
 					langAlias: { console: 'axx-console' },
 				},
 				themes: [new ExpressiveCodeTheme({
@@ -165,7 +195,8 @@ export default defineConfig({
 					label: 'Guides',
 					items: [
 						{ label: 'Set up', items: ['guides/install', 'guides/set-up-your-editor', 'guides/configure-services', 'guides/manage-app-lifecycle', 'guides/run-in-ci', 'guides/set-up-agents'] },
-						{ label: 'Test', items: ['guides/validate-openapi', 'guides/mock-dependencies', 'guides/seed-and-query-sql', 'guides/seed-mongodb', 'guides/test-kafka-avro', 'guides/check-logs', 'guides/test-cloud-services', 'guides/use-packs', 'guides/write-custom-steps'] },
+						{ label: 'Test', items: ['guides/validate-openapi', 'guides/mock-dependencies', 'guides/seed-and-query-sql', 'guides/seed-mongodb', 'guides/test-kafka-avro', 'guides/check-logs', 'guides/check-files', 'guides/test-cloud-services', 'guides/use-packs', 'guides/write-custom-steps'] },
+						{ label: 'Web apps', items: ['guides/test-web-apps', 'guides/web-pages', 'guides/web-checks', 'guides/web-sign-in', 'guides/web-screenshots', 'guides/web-accessibility', 'guides/web-network', 'guides/web-lighthouse', 'guides/web-coverage', 'guides/watch-web-browsers'] },
 						{ label: 'Test data', items: ['guides/fixture-factories', 'guides/isolate-test-data'] },
 						{ label: 'Run and diagnose', items: ['guides/parallel-runs', 'guides/tags-and-filtering', 'guides/reports', 'guides/debug-failures'] },
 					],
@@ -173,49 +204,46 @@ export default defineConfig({
 				{
 					label: 'References',
 					items: [
-						// Steps, the command line and the codes are generated (scripts/gen.mjs).
+						// Packs, steps, the command line and the codes are generated (scripts/gen.mjs).
 						// Each command's page is linked from the command line overview.
 						{
-							label: 'Steps',
+							label: 'Packs',
 							items: [
-								'references/steps',
-								'references/steps/rest',
-								'references/steps/mock',
-								'references/steps/sql',
-								'references/steps/mongo',
-								'references/steps/kafka',
-								'references/steps/logs',
-								// The cloud service packs, by cloud.
+								'references/packs/core',
+								'references/packs/rest',
+								'references/packs/mock',
+								'references/packs/sql',
+								'references/packs/mongo',
+								'references/packs/kafka',
+								'references/packs/logs',
+								'references/packs/files',
+								// A group's packs, its core first: the pack the others build on, as the
+								// core is the one every pack builds on.
+								{
+									label: 'Web',
+									collapsed: true,
+									items: packsOf(['web-core', 'web-screenshots', 'web-a11y', 'web-network', 'web-lighthouse', 'web-coverage']),
+								},
 								{
 									label: 'AWS',
 									collapsed: true,
-									items: [
-										'references/steps/aws-core',
-										'references/steps/aws-s3',
-										'references/steps/aws-sqs',
-										'references/steps/aws-sns',
-										'references/steps/aws-eventbridge',
-										'references/steps/aws-dynamodb',
-									],
+									items: packsOf(['aws-core', 'aws-s3', 'aws-sqs', 'aws-sns', 'aws-eventbridge', 'aws-dynamodb']),
 								},
 								{
 									label: 'Google Cloud',
 									collapsed: true,
-									items: [
-										'references/steps/gcp-core',
-										'references/steps/gcp-storage',
-										'references/steps/gcp-pubsub',
-										'references/steps/gcp-bigquery',
-										'references/steps/gcp-firestore',
-									],
+									items: packsOf(['gcp-core', 'gcp-storage', 'gcp-pubsub', 'gcp-bigquery', 'gcp-firestore']),
 								},
 								{
 									label: 'Azure',
 									collapsed: true,
-									items: ['references/steps/azure-blob', 'references/steps/azure-servicebus'],
+									items: packsOf(['azure-blob', 'azure-servicebus']),
 								},
-								'references/step-index',
 							],
+						},
+						{
+							label: 'Steps',
+							items: ['references/steps', 'references/step-index'],
 						},
 						'references/config',
 						{ label: 'Command line', slug: 'references/cli' },
@@ -231,6 +259,7 @@ export default defineConfig({
 						'explanations/black-box-testing',
 						'explanations/scenario-isolation',
 						'explanations/step-design',
+						'explanations/web-browsers',
 						'explanations/openapi-contract',
 						'explanations/axx-for-agents',
 						'explanations/faq',
@@ -256,9 +285,9 @@ export default defineConfig({
 					].join('\n'),
 					customSets: [
 						{ label: 'Tutorials', paths: ['tutorials/**'], description: 'quickstart, a first suite, and testing with a coding agent' },
-						{ label: 'Guides', paths: ['guides/**'], description: 'task guides: services, apps, CI, OpenAPI, mocks, SQL, MongoDB, Kafka, logs, cloud services (AWS, Google Cloud, Azure), test data, packs, custom steps, debugging, agents' },
-						{ label: 'References', paths: ['references/**'], description: 'generated step, CLI and error-code reference, axx.yaml, JSON output and exit codes' },
-						{ label: 'Explanations', paths: ['explanations/**'], description: 'why Axx, how it works: black-box testing, isolation, step design, OpenAPI, agents' },
+						{ label: 'Guides', paths: ['guides/**'], description: 'task guides: services, apps, CI, OpenAPI, mocks, SQL, MongoDB, Kafka, logs, files, web apps in real browsers (pages, checks, sign-in, screenshots, accessibility, network, Lighthouse, coverage, watching and traces), cloud services (AWS, Google Cloud, Azure), test data, packs, custom steps, debugging, agents' },
+						{ label: 'References', paths: ['references/**'], description: 'generated reference of the packs (settings, steps, agent tools), the steps\' grammar, the CLI and error codes, axx.yaml, JSON output and exit codes' },
+						{ label: 'Explanations', paths: ['explanations/**'], description: 'why Axx, how it works: black-box testing, isolation, step design, web browsers, OpenAPI, agents' },
 					],
 					promote: ['index*', 'explanations/why-axx', 'tutorials/**'],
 					demote: ['explanations/{faq,roadmap,adrs}'],

@@ -1,0 +1,151 @@
+parcels.parcels:
+  - reference: "PX-WEB-5431"
+    sender: "ashgrove-goods"
+    status: "REGISTERED"
+    weight_grams: 800
+    recipient: '{"name": "Jonas Weber", "street": "Ringstr. 1", "city": "Kassel", "postcode": "34117", "country": "DE"}'
+    details: '{"source": "portal", "zone": "DE-1", "signature": false, "leaveWithNeighbour": true}'
+  - reference: "PX-WEB-5432"
+    sender: "ashgrove-goods"
+    status: "REGISTERED"
+    weight_grams: 837
+    recipient: '{"name": "Mia Klein", "street": "Ringstr. 2", "city": "Kassel", "postcode": "34117", "country": "DE"}'
+    details: '{"source": "portal", "zone": "DE-1", "signature": false, "leaveWithNeighbour": true}'
+  - reference: "PX-WEB-5433"
+    sender: "ashgrove-goods"
+    status: "REGISTERED"
+    weight_grams: 874
+    recipient: '{"name": "Ella Braun", "street": "Ringstr. 3", "city": "Kassel", "postcode": "34117", "country": "DE"}'
+    details: '{"source": "portal", "zone": "DE-1", "signature": false, "leaveWithNeighbour": true}'
+  - reference: "PX-WEB-5434"
+    sender: "ashgrove-goods"
+    status: "IN_TRANSIT"
+    weight_grams: 911
+    recipient: '{"name": "Paul Wolf", "street": "Ringstr. 4", "city": "Kassel", "postcode": "34117", "country": "DE"}'
+    details: '{"source": "portal", "zone": "DE-1", "signature": false, "leaveWithNeighbour": true}'
+  - reference: "PX-WEB-5435"
+    sender: "ashgrove-goods"
+    status: "REGISTERED"
+    weight_grams: 948
+    recipient: '{"name": "Lena Neumann", "street": "Ringstr. 5", "city": "Kassel", "postcode": "34117", "country": "DE"}'
+    details: '{"source": "portal", "zone": "DE-1", "signature": false, "leaveWithNeighbour": true}'
+  - reference: "PX-WEB-5436"
+    sender: "ashgrove-goods"
+    status: "REGISTERED"
+    weight_grams: 985
+    recipient: '{"name": "Finn Schwarz", "street": "Ringstr. 6", "city": "Kassel", "postcode": "34117", "country": "DE"}'
+    details: '{"source": "portal", "zone": "DE-1", "signature": false, "leaveWithNeighbour": true}'
+  - reference: "PX-WEB-5437"
+    sender: "ashgrove-goods"
+    status: "REGISTERED"
+    weight_grams: 1022
+    recipient: '{"name": "Emma Zimmer", "street": "Ringstr. 7", "city": "Kassel", "postcode": "34117", "country": "DE"}'
+    details: '{"source": "portal", "zone": "DE-1", "signature": false, "leaveWithNeighbour": true}'
+  - reference: "PX-WEB-5438"
+    sender: "ashgrove-goods"
+    status: "REGISTERED"
+    weight_grams: 1059
+    recipient: '{"name": "Noah Krüger", "street": "Ringstr. 8", "city": "Kassel", "postcode": "34117", "country": "DE"}'
+    details: '{"source": "portal", "zone": "DE-1", "signature": false, "leaveWithNeighbour": true}'
+  - reference: "PX-WEB-5439"
+    sender: "ashgrove-goods"
+    status: "REGISTERED"
+    weight_grams: 1096
+    recipient: '{"name": "Lina Hofmann", "street": "Ringstr. 9", "city": "Kassel", "postcode": "34117", "country": "DE"}'
+    details: '{"source": "portal", "zone": "DE-1", "signature": false, "leaveWithNeighbour": true}'
+  - reference: "PX-WEB-5440"
+    sender: "ashgrove-goods"
+    status: "REGISTERED"
+    weight_grams: 1133
+    recipient: '{"name": "Ben Hartmann", "street": "Ringstr. 10", "city": "Kassel", "postcode": "34117", "country": "DE"}'
+    details: '{"source": "portal", "zone": "DE-1", "signature": false, "leaveWithNeighbour": true}'
+  - reference: "PX-WEB-5441"
+    sender: "ashgrove-goods"
+    status: "REGISTERED"
+    weight_grams: 1170
+    recipient: '{"name": "Mila Lange", "street": "Ringstr. 11", "city": "Kassel", "postcode": "34117", "country": "DE"}'
+    details: '{"source": "portal", "zone": "DE-1", "signature": false, "leaveWithNeighbour": true}'
+  - reference: "PX-WEB-5442"
+    sender: "ashgrove-goods"
+    status: "IN_TRANSIT"
+    weight_grams: 1207
+    recipient: '{"name": "Leon Werner", "street": "Ringstr. 12", "city": "Kassel", "postcode": "34117", "country": "DE"}'
+    details: '{"source": "portal", "zone": "DE-1", "signature": false, "leaveWithNeighbour": true}'
+  - reference: "PX-WEB-5443"
+    sender: "ashgrove-goods"
+    status: "REGISTERED"
+    weight_grams: 1244
+    recipient: '{"name": "Clara Krause", "street": "Ringstr. 13", "city": "Kassel", "postcode": "34117", "country": "DE"}'
+    details: '{"source": "portal", "zone": "DE-1", "signature": false, "leaveWithNeighbour": true}'
+  - reference: "PX-WEB-5444"
+    sender: "ashgrove-goods"
+    status: "REGISTERED"
+    weight_grams: 1281
+    recipient: '{"name": "Luis Meier", "street": "Ringstr. 14", "city": "Kassel", "postcode": "34117", "country": "DE"}'
+    details: '{"source": "portal", "zone": "DE-1", "signature": false, "leaveWithNeighbour": true}'
+  - reference: "PX-WEB-5445"
+    sender: "ashgrove-goods"
+    status: "REGISTERED"
+    weight_grams: 1318
+    recipient: '{"name": "Ida Lehmann", "street": "Ringstr. 15", "city": "Kassel", "postcode": "34117", "country": "DE"}'
+    details: '{"source": "portal", "zone": "DE-1", "signature": false, "leaveWithNeighbour": true}'
+  - reference: "PX-WEB-5446"
+    sender: "ashgrove-goods"
+    status: "REGISTERED"
+    weight_grams: 1355
+    recipient: '{"name": "Emil Schmid", "street": "Ringstr. 16", "city": "Kassel", "postcode": "34117", "country": "DE"}'
+    details: '{"source": "portal", "zone": "DE-1", "signature": false, "leaveWithNeighbour": true}'
+  - reference: "PX-WEB-5447"
+    sender: "ashgrove-goods"
+    status: "REGISTERED"
+    weight_grams: 1392
+    recipient: '{"name": "Frieda Schulze", "street": "Ringstr. 17", "city": "Kassel", "postcode": "34117", "country": "DE"}'
+    details: '{"source": "portal", "zone": "DE-1", "signature": false, "leaveWithNeighbour": true}'
+  - reference: "PX-WEB-5448"
+    sender: "ashgrove-goods"
+    status: "REGISTERED"
+    weight_grams: 1429
+    recipient: '{"name": "Karl Maier", "street": "Ringstr. 18", "city": "Kassel", "postcode": "34117", "country": "DE"}'
+    details: '{"source": "portal", "zone": "DE-1", "signature": false, "leaveWithNeighbour": true}'
+  - reference: "PX-WEB-5449"
+    sender: "ashgrove-goods"
+    status: "REGISTERED"
+    weight_grams: 1466
+    recipient: '{"name": "Marta Köhler", "street": "Ringstr. 19", "city": "Kassel", "postcode": "34117", "country": "DE"}'
+    details: '{"source": "portal", "zone": "DE-1", "signature": false, "leaveWithNeighbour": true}'
+  - reference: "PX-WEB-5450"
+    sender: "ashgrove-goods"
+    status: "IN_TRANSIT"
+    weight_grams: 1503
+    recipient: '{"name": "Otto Herrmann", "street": "Ringstr. 20", "city": "Kassel", "postcode": "34117", "country": "DE"}'
+    details: '{"source": "portal", "zone": "DE-1", "signature": false, "leaveWithNeighbour": true}'
+  - reference: "PX-WEB-5451"
+    sender: "ashgrove-goods"
+    status: "REGISTERED"
+    weight_grams: 1540
+    recipient: '{"name": "Rosa König", "street": "Ringstr. 21", "city": "Kassel", "postcode": "34117", "country": "DE"}'
+    details: '{"source": "portal", "zone": "DE-1", "signature": false, "leaveWithNeighbour": true}'
+  - reference: "PX-WEB-5452"
+    sender: "ashgrove-goods"
+    status: "REGISTERED"
+    weight_grams: 1577
+    recipient: '{"name": "Theo Walter", "street": "Ringstr. 22", "city": "Kassel", "postcode": "34117", "country": "DE"}'
+    details: '{"source": "portal", "zone": "DE-1", "signature": false, "leaveWithNeighbour": true}'
+  - reference: "PX-WEB-5453"
+    sender: "ashgrove-goods"
+    status: "REGISTERED"
+    weight_grams: 1614
+    recipient: '{"name": "Alma Mayer", "street": "Ringstr. 23", "city": "Kassel", "postcode": "34117", "country": "DE"}'
+    details: '{"source": "portal", "zone": "DE-1", "signature": false, "leaveWithNeighbour": true}'
+  - reference: "PX-WEB-5454"
+    sender: "ashgrove-goods"
+    status: "REGISTERED"
+    weight_grams: 1651
+    recipient: '{"name": "Moritz Huber", "street": "Ringstr. 24", "city": "Kassel", "postcode": "34117", "country": "DE"}'
+    details: '{"source": "portal", "zone": "DE-1", "signature": false, "leaveWithNeighbour": true}'
+  - reference: "PX-WEB-5455"
+    sender: "ashgrove-goods"
+    status: "REGISTERED"
+    weight_grams: 1688
+    recipient: '{"name": "Greta Kaiser", "street": "Ringstr. 25", "city": "Kassel", "postcode": "34117", "country": "DE"}'
+    details: '{"source": "portal", "zone": "DE-1", "signature": false, "leaveWithNeighbour": true}'

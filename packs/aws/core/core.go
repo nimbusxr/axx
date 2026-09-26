@@ -20,14 +20,13 @@ const Name = "aws-core"
 
 const packDoc = `The AWS account the aws-* packs talk to, set up the way the AWS SDK is set up for the real services.
 
-Register the account once with ` + "`the {word} aws account with the following properties:`" + `; every aws-* step of the scenario uses it (the first account registered is the default).
+Register the account once; every aws-* step of the scenario uses it:
 
-| Property | |
-| --- | --- |
-| ` + "`region`" + ` | required, e.g. ` + "`eu-west-1`" + ` |
-| ` + "`endpoint`" + ` | where every service of the account is, instead of AWS: a local emulator such as ` + "`http://localhost:4566`" + ` (S3 is then addressed by path) |
-| ` + "`profile`" + ` | a profile of the shared AWS config and credentials files |
-| ` + "`access key id`" + `, ` + "`secret access key`" + `, ` + "`session token`" + ` | static credentials |
+` + "```gherkin" + `
+Given the parcels aws account with the following properties:
+  | region   | eu-west-1             |
+  | endpoint | http://localhost:4566 |
+` + "```" + `
 
 Without credentials in the table, the SDK finds them as it always does: the ` + "`AWS_*`" + ` environment variables, the shared files, then the container or instance role. ` + "`AWS_ENDPOINT_URL`" + ` is honored too, so the same features run against AWS and against an emulator. Values expand ` + "`${env:..}`" + ` and ` + "`${sys:..}`" + `.`
 
@@ -44,9 +43,33 @@ func (pack) Manifest() core.Manifest {
 		Steps: []core.StepDef{{
 			ID: "aws-core.account", Keyword: "Given", Arg: core.ArgTable, Since: "0.1.0",
 			Expr: "the {word} aws account with the following properties:",
-			Doc: "Register the AWS account the aws-* steps talk to: `region` (required), `endpoint` (an emulator), `profile`, " +
-				"or `access key id` and `secret access key` (and `session token`). Without credentials the SDK's default chain is used.",
-			Examples: []string{"Given the parcels aws account with the following properties:"},
+			Doc: "Register the AWS account the aws-* steps talk to.\n\n" +
+				"- The first account registered is the default.\n" +
+				"- Without `access key id` and `secret access key`, the SDK finds credentials as it always does: the `AWS_*` " +
+				"environment variables, the shared files, then the container or instance role.\n" +
+				"- Values expand `${env:..}` and `${sys:..}`, so the same features run against AWS and against an emulator.",
+			Table: &core.TableDoc{
+				Columns: []string{"property", "value"},
+				Rows: []core.TableRow{
+					{Name: "region", Takes: "the AWS region, like `eu-west-1`", Required: true},
+					{Name: "endpoint", Takes: "where every service of the account is, instead of AWS: a local emulator, like " +
+						"`http://localhost:4566`, where S3 is addressed by path"},
+					{Name: "profile", Takes: "a profile of the shared AWS config and credentials files"},
+					{Name: "access key id", Takes: "the access key ID of static credentials, with `secret access key`"},
+					{Name: "secret access key", Takes: "the secret access key of static credentials, with `access key id`"},
+					{Name: "session token", Takes: "the session token of temporary static credentials"},
+				},
+			},
+			Examples: []string{
+				"Given the parcels aws account with the following properties:\n" +
+					"  | region            | eu-west-1                           |\n" +
+					"  | endpoint          | http://localhost:4566               |\n" +
+					"  | access key id     | ${env:AWS_ACCESS_KEY_ID:-local}     |\n" +
+					"  | secret access key | ${env:AWS_SECRET_ACCESS_KEY:-local} |",
+				"Given the parcels aws account with the following properties:\n" +
+					"  | region  | eu-central-1  |\n" +
+					"  | profile | parcels-tests |",
+			},
 			Run: func(sc *core.Scenario, a core.Args) error {
 				acct, err := Parse(sc.Suite(), a.String(0), a.Table)
 				if err != nil {

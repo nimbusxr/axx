@@ -2,7 +2,8 @@ Feature: Customs declarations
 
   Brokers upload a parcel's commercial invoice and file its declaration on the
   customs-filings queue. Parcels worth up to 150 EUR are cleared at once, with a
-  certificate; others owe 20% duties first. A declaration without its invoice is held.
+  certificate; others owe 20% duties on every line of the invoice first. A declaration
+  without its invoice is held.
 
   Background:
     Given the customs azure storage account with the following properties:
@@ -21,6 +22,7 @@ Feature: Customs declarations
       | status      | CLEARED  |
       | duties      | 0        |
       | value       | 45       |
+    And the DEC-7101.txt blob in the clearances blob container contains "Parcel PX-7101 is cleared for import without duties"
     And the DEC-7101/invoice.json blob in the customs-archive blob container is identical to the invoices/DEC-7101.json file
     And the customs-events service bus topic has a message where:
       | property eventType | DeclarationCleared |
@@ -35,6 +37,11 @@ Feature: Customs declarations
       | amount          | 96                |
       | currency        | EUR               |
       | property broker | NORTHSTAR-BROKERS |
+    And the DEC-7102/duties.csv blob in the customs-archive blob container has a row where:
+      | hs_code     | 640391        |
+      | description | Leather boots |
+      | value       | 360.00        |
+      | duty        | 72.00         |
     And the customs-events service bus topic has a message where:
       | property eventType | DeclarationHeld |
       | declaration        | DEC-7102        |

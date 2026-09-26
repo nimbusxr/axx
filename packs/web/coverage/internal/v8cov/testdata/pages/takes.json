@@ -1,0 +1,658 @@
+[
+ {
+  "scriptId": "1",
+  "url": "http://127.0.0.1:59786/dist/quote.js",
+  "source": "(()=\u003e{function o(e){switch(e){case\"Germany\":return\"domestic\";case\"France\":return\"europe\";default:return\"world\"}}var c={domestic:1.2,europe:2.9,world:7.5};function r(e,t){return(t===\"domestic\"?4.5:9)+Math.ceil(e/1e3)*c[t]}function n(e){document.getElementById(\"price\").textContent=e}function i(){let e=Number(document.getElementById(\"weight\").value);if(!e||e\u003c=0){n(\"Enter a weight\");return}let t=o(document.getElementById(\"country\").value);n(`Price: ${r(e,t).toFixed(2)} EUR`)}function u(){confirm(\"Cancel this quote?\")?n(\"Quote cancelled\"):n(\"Quote kept\")}document.getElementById(\"quote\").addEventListener(\"click\",i);document.getElementById(\"cancel\").addEventListener(\"click\",u);})();\n//# sourceMappingURL=quote.js.map\n",
+  "functions": [
+   {
+    "functionName": "",
+    "ranges": [
+     {
+      "startOffset": 0,
+      "endOffset": 719,
+      "count": 1
+     }
+    ],
+    "isBlockCoverage": true
+   },
+   {
+    "functionName": "",
+    "ranges": [
+     {
+      "startOffset": 1,
+      "endOffset": 680,
+      "count": 1
+     }
+    ],
+    "isBlockCoverage": true
+   },
+   {
+    "functionName": "o",
+    "ranges": [
+     {
+      "startOffset": 6,
+      "endOffset": 112,
+      "count": 0
+     }
+    ],
+    "isBlockCoverage": false
+   },
+   {
+    "functionName": "r",
+    "ranges": [
+     {
+      "startOffset": 154,
+      "endOffset": 221,
+      "count": 0
+     }
+    ],
+    "isBlockCoverage": false
+   },
+   {
+    "functionName": "n",
+    "ranges": [
+     {
+      "startOffset": 221,
+      "endOffset": 282,
+      "count": 0
+     }
+    ],
+    "isBlockCoverage": false
+   },
+   {
+    "functionName": "i",
+    "ranges": [
+     {
+      "startOffset": 282,
+      "endOffset": 476,
+      "count": 0
+     }
+    ],
+    "isBlockCoverage": false
+   },
+   {
+    "functionName": "u",
+    "ranges": [
+     {
+      "startOffset": 476,
+      "endOffset": 556,
+      "count": 0
+     }
+    ],
+    "isBlockCoverage": false
+   }
+  ]
+ },
+ {
+  "scriptId": "1",
+  "url": "http://127.0.0.1:59786/dist/quote.js",
+  "source": "(()=\u003e{function o(e){switch(e){case\"Germany\":return\"domestic\";case\"France\":return\"europe\";default:return\"world\"}}var c={domestic:1.2,europe:2.9,world:7.5};function r(e,t){return(t===\"domestic\"?4.5:9)+Math.ceil(e/1e3)*c[t]}function n(e){document.getElementById(\"price\").textContent=e}function i(){let e=Number(document.getElementById(\"weight\").value);if(!e||e\u003c=0){n(\"Enter a weight\");return}let t=o(document.getElementById(\"country\").value);n(`Price: ${r(e,t).toFixed(2)} EUR`)}function u(){confirm(\"Cancel this quote?\")?n(\"Quote cancelled\"):n(\"Quote kept\")}document.getElementById(\"quote\").addEventListener(\"click\",i);document.getElementById(\"cancel\").addEventListener(\"click\",u);})();\n//# sourceMappingURL=quote.js.map\n",
+  "functions": [
+   {
+    "functionName": "",
+    "ranges": [
+     {
+      "startOffset": 0,
+      "endOffset": 719,
+      "count": 1
+     }
+    ],
+    "isBlockCoverage": true
+   },
+   {
+    "functionName": "",
+    "ranges": [
+     {
+      "startOffset": 1,
+      "endOffset": 680,
+      "count": 1
+     }
+    ],
+    "isBlockCoverage": true
+   },
+   {
+    "functionName": "o",
+    "ranges": [
+     {
+      "startOffset": 6,
+      "endOffset": 112,
+      "count": 0
+     }
+    ],
+    "isBlockCoverage": false
+   },
+   {
+    "functionName": "r",
+    "ranges": [
+     {
+      "startOffset": 154,
+      "endOffset": 221,
+      "count": 0
+     }
+    ],
+    "isBlockCoverage": false
+   },
+   {
+    "functionName": "n",
+    "ranges": [
+     {
+      "startOffset": 221,
+      "endOffset": 282,
+      "count": 0
+     }
+    ],
+    "isBlockCoverage": false
+   },
+   {
+    "functionName": "i",
+    "ranges": [
+     {
+      "startOffset": 282,
+      "endOffset": 476,
+      "count": 0
+     }
+    ],
+    "isBlockCoverage": false
+   },
+   {
+    "functionName": "u",
+    "ranges": [
+     {
+      "startOffset": 476,
+      "endOffset": 556,
+      "count": 0
+     }
+    ],
+    "isBlockCoverage": false
+   }
+  ]
+ },
+ {
+  "scriptId": "1",
+  "url": "http://127.0.0.1:59786/dist/quote.js",
+  "source": "(()=\u003e{function o(e){switch(e){case\"Germany\":return\"domestic\";case\"France\":return\"europe\";default:return\"world\"}}var c={domestic:1.2,europe:2.9,world:7.5};function r(e,t){return(t===\"domestic\"?4.5:9)+Math.ceil(e/1e3)*c[t]}function n(e){document.getElementById(\"price\").textContent=e}function i(){let e=Number(document.getElementById(\"weight\").value);if(!e||e\u003c=0){n(\"Enter a weight\");return}let t=o(document.getElementById(\"country\").value);n(`Price: ${r(e,t).toFixed(2)} EUR`)}function u(){confirm(\"Cancel this quote?\")?n(\"Quote cancelled\"):n(\"Quote kept\")}document.getElementById(\"quote\").addEventListener(\"click\",i);document.getElementById(\"cancel\").addEventListener(\"click\",u);})();\n//# sourceMappingURL=quote.js.map\n",
+  "functions": [
+   {
+    "functionName": "n",
+    "ranges": [
+     {
+      "startOffset": 221,
+      "endOffset": 282,
+      "count": 1
+     }
+    ],
+    "isBlockCoverage": true
+   },
+   {
+    "functionName": "i",
+    "ranges": [
+     {
+      "startOffset": 282,
+      "endOffset": 476,
+      "count": 1
+     },
+     {
+      "startOffset": 354,
+      "endOffset": 360,
+      "count": 0
+     },
+     {
+      "startOffset": 389,
+      "endOffset": 475,
+      "count": 0
+     }
+    ],
+    "isBlockCoverage": true
+   }
+  ]
+ },
+ {
+  "scriptId": "1",
+  "url": "http://127.0.0.1:59786/dist/quote.js",
+  "source": "(()=\u003e{function o(e){switch(e){case\"Germany\":return\"domestic\";case\"France\":return\"europe\";default:return\"world\"}}var c={domestic:1.2,europe:2.9,world:7.5};function r(e,t){return(t===\"domestic\"?4.5:9)+Math.ceil(e/1e3)*c[t]}function n(e){document.getElementById(\"price\").textContent=e}function i(){let e=Number(document.getElementById(\"weight\").value);if(!e||e\u003c=0){n(\"Enter a weight\");return}let t=o(document.getElementById(\"country\").value);n(`Price: ${r(e,t).toFixed(2)} EUR`)}function u(){confirm(\"Cancel this quote?\")?n(\"Quote cancelled\"):n(\"Quote kept\")}document.getElementById(\"quote\").addEventListener(\"click\",i);document.getElementById(\"cancel\").addEventListener(\"click\",u);})();\n//# sourceMappingURL=quote.js.map\n",
+  "functions": [
+   {
+    "functionName": "o",
+    "ranges": [
+     {
+      "startOffset": 6,
+      "endOffset": 112,
+      "count": 1
+     },
+     {
+      "startOffset": 30,
+      "endOffset": 61,
+      "count": 0
+     },
+     {
+      "startOffset": 89,
+      "endOffset": 110,
+      "count": 0
+     }
+    ],
+    "isBlockCoverage": true
+   },
+   {
+    "functionName": "r",
+    "ranges": [
+     {
+      "startOffset": 154,
+      "endOffset": 221,
+      "count": 1
+     },
+     {
+      "startOffset": 191,
+      "endOffset": 195,
+      "count": 0
+     }
+    ],
+    "isBlockCoverage": true
+   },
+   {
+    "functionName": "n",
+    "ranges": [
+     {
+      "startOffset": 221,
+      "endOffset": 282,
+      "count": 1
+     }
+    ],
+    "isBlockCoverage": true
+   },
+   {
+    "functionName": "i",
+    "ranges": [
+     {
+      "startOffset": 282,
+      "endOffset": 476,
+      "count": 1
+     },
+     {
+      "startOffset": 361,
+      "endOffset": 389,
+      "count": 0
+     }
+    ],
+    "isBlockCoverage": true
+   }
+  ]
+ },
+ {
+  "scriptId": "1",
+  "url": "http://127.0.0.1:59786/dist/quote.js",
+  "source": "(()=\u003e{function o(e){switch(e){case\"Germany\":return\"domestic\";case\"France\":return\"europe\";default:return\"world\"}}var c={domestic:1.2,europe:2.9,world:7.5};function r(e,t){return(t===\"domestic\"?4.5:9)+Math.ceil(e/1e3)*c[t]}function n(e){document.getElementById(\"price\").textContent=e}function i(){let e=Number(document.getElementById(\"weight\").value);if(!e||e\u003c=0){n(\"Enter a weight\");return}let t=o(document.getElementById(\"country\").value);n(`Price: ${r(e,t).toFixed(2)} EUR`)}function u(){confirm(\"Cancel this quote?\")?n(\"Quote cancelled\"):n(\"Quote kept\")}document.getElementById(\"quote\").addEventListener(\"click\",i);document.getElementById(\"cancel\").addEventListener(\"click\",u);})();\n//# sourceMappingURL=quote.js.map\n",
+  "functions": [
+   {
+    "functionName": "n",
+    "ranges": [
+     {
+      "startOffset": 221,
+      "endOffset": 282,
+      "count": 1
+     }
+    ],
+    "isBlockCoverage": true
+   },
+   {
+    "functionName": "u",
+    "ranges": [
+     {
+      "startOffset": 476,
+      "endOffset": 556,
+      "count": 1
+     },
+     {
+      "startOffset": 518,
+      "endOffset": 539,
+      "count": 0
+     }
+    ],
+    "isBlockCoverage": true
+   }
+  ]
+ },
+ {
+  "scriptId": "1",
+  "url": "http://127.0.0.1:59786/dist/quote.js",
+  "source": "(()=\u003e{function o(e){switch(e){case\"Germany\":return\"domestic\";case\"France\":return\"europe\";default:return\"world\"}}var c={domestic:1.2,europe:2.9,world:7.5};function r(e,t){return(t===\"domestic\"?4.5:9)+Math.ceil(e/1e3)*c[t]}function n(e){document.getElementById(\"price\").textContent=e}function i(){let e=Number(document.getElementById(\"weight\").value);if(!e||e\u003c=0){n(\"Enter a weight\");return}let t=o(document.getElementById(\"country\").value);n(`Price: ${r(e,t).toFixed(2)} EUR`)}function u(){confirm(\"Cancel this quote?\")?n(\"Quote cancelled\"):n(\"Quote kept\")}document.getElementById(\"quote\").addEventListener(\"click\",i);document.getElementById(\"cancel\").addEventListener(\"click\",u);})();\n//# sourceMappingURL=quote.js.map\n",
+  "functions": [
+   {
+    "functionName": "o",
+    "ranges": [
+     {
+      "startOffset": 6,
+      "endOffset": 112,
+      "count": 1
+     },
+     {
+      "startOffset": 30,
+      "endOffset": 89,
+      "count": 0
+     }
+    ],
+    "isBlockCoverage": true
+   },
+   {
+    "functionName": "r",
+    "ranges": [
+     {
+      "startOffset": 154,
+      "endOffset": 221,
+      "count": 1
+     },
+     {
+      "startOffset": 191,
+      "endOffset": 195,
+      "count": 0
+     }
+    ],
+    "isBlockCoverage": true
+   },
+   {
+    "functionName": "n",
+    "ranges": [
+     {
+      "startOffset": 221,
+      "endOffset": 282,
+      "count": 1
+     }
+    ],
+    "isBlockCoverage": true
+   },
+   {
+    "functionName": "i",
+    "ranges": [
+     {
+      "startOffset": 282,
+      "endOffset": 476,
+      "count": 1
+     },
+     {
+      "startOffset": 361,
+      "endOffset": 389,
+      "count": 0
+     }
+    ],
+    "isBlockCoverage": true
+   }
+  ]
+ },
+ {
+  "scriptId": "1",
+  "url": "http://127.0.0.1:59786/js/format.js",
+  "source": "// Formatting for the parcel pages.\nfunction statusLabel(status) {\n  switch (status) {\n    case \"in_transit\":\n      return \"In transit\";\n    case \"delivered\":\n      return \"Delivered\";\n    case \"returned\":\n      return \"Returned to sender\";\n    default:\n      return \"Unknown\";\n  }\n}\n\nfunction formatWeight(kg) {\n  if (kg \u003c 1) {\n    return Math.round(kg * 1000) + \" g\";\n  }\n  return kg.toFixed(1) + \" kg\";\n}\n",
+  "functions": [
+   {
+    "functionName": "",
+    "ranges": [
+     {
+      "startOffset": 0,
+      "endOffset": 408,
+      "count": 1
+     }
+    ],
+    "isBlockCoverage": true
+   },
+   {
+    "functionName": "statusLabel",
+    "ranges": [
+     {
+      "startOffset": 36,
+      "endOffset": 283,
+      "count": 0
+     }
+    ],
+    "isBlockCoverage": false
+   },
+   {
+    "functionName": "formatWeight",
+    "ranges": [
+     {
+      "startOffset": 285,
+      "endOffset": 407,
+      "count": 0
+     }
+    ],
+    "isBlockCoverage": false
+   }
+  ]
+ },
+ {
+  "scriptId": "1",
+  "url": "http://127.0.0.1:59786/js/format.js",
+  "source": "// Formatting for the parcel pages.\nfunction statusLabel(status) {\n  switch (status) {\n    case \"in_transit\":\n      return \"In transit\";\n    case \"delivered\":\n      return \"Delivered\";\n    case \"returned\":\n      return \"Returned to sender\";\n    default:\n      return \"Unknown\";\n  }\n}\n\nfunction formatWeight(kg) {\n  if (kg \u003c 1) {\n    return Math.round(kg * 1000) + \" g\";\n  }\n  return kg.toFixed(1) + \" kg\";\n}\n",
+  "functions": [
+   {
+    "functionName": "",
+    "ranges": [
+     {
+      "startOffset": 0,
+      "endOffset": 408,
+      "count": 1
+     }
+    ],
+    "isBlockCoverage": true
+   },
+   {
+    "functionName": "statusLabel",
+    "ranges": [
+     {
+      "startOffset": 36,
+      "endOffset": 283,
+      "count": 0
+     }
+    ],
+    "isBlockCoverage": false
+   },
+   {
+    "functionName": "formatWeight",
+    "ranges": [
+     {
+      "startOffset": 285,
+      "endOffset": 407,
+      "count": 0
+     }
+    ],
+    "isBlockCoverage": false
+   }
+  ]
+ },
+ {
+  "scriptId": "1",
+  "url": "http://127.0.0.1:59786/js/format.js",
+  "source": "// Formatting for the parcel pages.\nfunction statusLabel(status) {\n  switch (status) {\n    case \"in_transit\":\n      return \"In transit\";\n    case \"delivered\":\n      return \"Delivered\";\n    case \"returned\":\n      return \"Returned to sender\";\n    default:\n      return \"Unknown\";\n  }\n}\n\nfunction formatWeight(kg) {\n  if (kg \u003c 1) {\n    return Math.round(kg * 1000) + \" g\";\n  }\n  return kg.toFixed(1) + \" kg\";\n}\n",
+  "functions": [
+   {
+    "functionName": "statusLabel",
+    "ranges": [
+     {
+      "startOffset": 36,
+      "endOffset": 283,
+      "count": 1
+     },
+     {
+      "startOffset": 141,
+      "endOffset": 184,
+      "count": 0
+     },
+     {
+      "startOffset": 189,
+      "endOffset": 240,
+      "count": 0
+     },
+     {
+      "startOffset": 245,
+      "endOffset": 277,
+      "count": 0
+     }
+    ],
+    "isBlockCoverage": true
+   },
+   {
+    "functionName": "formatWeight",
+    "ranges": [
+     {
+      "startOffset": 285,
+      "endOffset": 407,
+      "count": 1
+     },
+     {
+      "startOffset": 373,
+      "endOffset": 406,
+      "count": 0
+     }
+    ],
+    "isBlockCoverage": true
+   }
+  ]
+ },
+ {
+  "scriptId": "1",
+  "url": "http://127.0.0.1:59786/js/track.js",
+  "source": "// Tracking: a parcel's status, by its reference.\nconst parcels = {\n  \"PX-1042\": { status: \"in_transit\", weight: 0.4 },\n  \"PX-2077\": { status: \"delivered\", weight: 12.5 },\n  \"PX-3310\": { status: \"returned\", weight: 2 },\n};\n\nfunction trackParcel() {\n  const reference = document.getElementById(\"reference\").value.trim();\n  const parcel = parcels[reference];\n  const status = document.getElementById(\"status\");\n  if (!parcel) {\n    status.textContent = \"No parcel \" + reference;\n    return;\n  }\n  status.textContent = reference + \": \" + statusLabel(parcel.status) + \", \" + formatWeight(parcel.weight);\n}\n\nfunction reportProblem(event) {\n  event.preventDefault();\n  const reason = document.getElementById(\"reason\").value.trim();\n  if (reason.length \u003c 5) {\n    document.getElementById(\"status\").textContent = \"Say what went wrong\";\n    return;\n  }\n  location.href = \"/claim.html?reason=\" + encodeURIComponent(reason);\n}\n",
+  "functions": [
+   {
+    "functionName": "",
+    "ranges": [
+     {
+      "startOffset": 0,
+      "endOffset": 916,
+      "count": 1
+     }
+    ],
+    "isBlockCoverage": true
+   },
+   {
+    "functionName": "trackParcel",
+    "ranges": [
+     {
+      "startOffset": 224,
+      "endOffset": 601,
+      "count": 0
+     }
+    ],
+    "isBlockCoverage": false
+   },
+   {
+    "functionName": "reportProblem",
+    "ranges": [
+     {
+      "startOffset": 603,
+      "endOffset": 915,
+      "count": 0
+     }
+    ],
+    "isBlockCoverage": false
+   }
+  ]
+ },
+ {
+  "scriptId": "1",
+  "url": "http://127.0.0.1:59786/js/track.js",
+  "source": "// Tracking: a parcel's status, by its reference.\nconst parcels = {\n  \"PX-1042\": { status: \"in_transit\", weight: 0.4 },\n  \"PX-2077\": { status: \"delivered\", weight: 12.5 },\n  \"PX-3310\": { status: \"returned\", weight: 2 },\n};\n\nfunction trackParcel() {\n  const reference = document.getElementById(\"reference\").value.trim();\n  const parcel = parcels[reference];\n  const status = document.getElementById(\"status\");\n  if (!parcel) {\n    status.textContent = \"No parcel \" + reference;\n    return;\n  }\n  status.textContent = reference + \": \" + statusLabel(parcel.status) + \", \" + formatWeight(parcel.weight);\n}\n\nfunction reportProblem(event) {\n  event.preventDefault();\n  const reason = document.getElementById(\"reason\").value.trim();\n  if (reason.length \u003c 5) {\n    document.getElementById(\"status\").textContent = \"Say what went wrong\";\n    return;\n  }\n  location.href = \"/claim.html?reason=\" + encodeURIComponent(reason);\n}\n",
+  "functions": [
+   {
+    "functionName": "",
+    "ranges": [
+     {
+      "startOffset": 0,
+      "endOffset": 916,
+      "count": 1
+     }
+    ],
+    "isBlockCoverage": true
+   },
+   {
+    "functionName": "trackParcel",
+    "ranges": [
+     {
+      "startOffset": 224,
+      "endOffset": 601,
+      "count": 0
+     }
+    ],
+    "isBlockCoverage": false
+   },
+   {
+    "functionName": "reportProblem",
+    "ranges": [
+     {
+      "startOffset": 603,
+      "endOffset": 915,
+      "count": 0
+     }
+    ],
+    "isBlockCoverage": false
+   }
+  ]
+ },
+ {
+  "scriptId": "1",
+  "url": "http://127.0.0.1:59786/js/track.js",
+  "source": "// Tracking: a parcel's status, by its reference.\nconst parcels = {\n  \"PX-1042\": { status: \"in_transit\", weight: 0.4 },\n  \"PX-2077\": { status: \"delivered\", weight: 12.5 },\n  \"PX-3310\": { status: \"returned\", weight: 2 },\n};\n\nfunction trackParcel() {\n  const reference = document.getElementById(\"reference\").value.trim();\n  const parcel = parcels[reference];\n  const status = document.getElementById(\"status\");\n  if (!parcel) {\n    status.textContent = \"No parcel \" + reference;\n    return;\n  }\n  status.textContent = reference + \": \" + statusLabel(parcel.status) + \", \" + formatWeight(parcel.weight);\n}\n\nfunction reportProblem(event) {\n  event.preventDefault();\n  const reason = document.getElementById(\"reason\").value.trim();\n  if (reason.length \u003c 5) {\n    document.getElementById(\"status\").textContent = \"Say what went wrong\";\n    return;\n  }\n  location.href = \"/claim.html?reason=\" + encodeURIComponent(reason);\n}\n",
+  "functions": [
+   {
+    "functionName": "trackParcel",
+    "ranges": [
+     {
+      "startOffset": 224,
+      "endOffset": 601,
+      "count": 1
+     },
+     {
+      "startOffset": 424,
+      "endOffset": 492,
+      "count": 0
+     }
+    ],
+    "isBlockCoverage": true
+   }
+  ]
+ },
+ {
+  "scriptId": "1",
+  "url": "http://127.0.0.1:59786/js/track.js",
+  "source": "// Tracking: a parcel's status, by its reference.\nconst parcels = {\n  \"PX-1042\": { status: \"in_transit\", weight: 0.4 },\n  \"PX-2077\": { status: \"delivered\", weight: 12.5 },\n  \"PX-3310\": { status: \"returned\", weight: 2 },\n};\n\nfunction trackParcel() {\n  const reference = document.getElementById(\"reference\").value.trim();\n  const parcel = parcels[reference];\n  const status = document.getElementById(\"status\");\n  if (!parcel) {\n    status.textContent = \"No parcel \" + reference;\n    return;\n  }\n  status.textContent = reference + \": \" + statusLabel(parcel.status) + \", \" + formatWeight(parcel.weight);\n}\n\nfunction reportProblem(event) {\n  event.preventDefault();\n  const reason = document.getElementById(\"reason\").value.trim();\n  if (reason.length \u003c 5) {\n    document.getElementById(\"status\").textContent = \"Say what went wrong\";\n    return;\n  }\n  location.href = \"/claim.html?reason=\" + encodeURIComponent(reason);\n}\n",
+  "functions": [
+   {
+    "functionName": "reportProblem",
+    "ranges": [
+     {
+      "startOffset": 603,
+      "endOffset": 915,
+      "count": 1
+     },
+     {
+      "startOffset": 751,
+      "endOffset": 843,
+      "count": 0
+     }
+    ],
+    "isBlockCoverage": true
+   }
+  ]
+ },
+ {
+  "scriptId": "1",
+  "url": "http://127.0.0.1:59786/js/track.js",
+  "source": "// Tracking: a parcel's status, by its reference.\nconst parcels = {\n  \"PX-1042\": { status: \"in_transit\", weight: 0.4 },\n  \"PX-2077\": { status: \"delivered\", weight: 12.5 },\n  \"PX-3310\": { status: \"returned\", weight: 2 },\n};\n\nfunction trackParcel() {\n  const reference = document.getElementById(\"reference\").value.trim();\n  const parcel = parcels[reference];\n  const status = document.getElementById(\"status\");\n  if (!parcel) {\n    status.textContent = \"No parcel \" + reference;\n    return;\n  }\n  status.textContent = reference + \": \" + statusLabel(parcel.status) + \", \" + formatWeight(parcel.weight);\n}\n\nfunction reportProblem(event) {\n  event.preventDefault();\n  const reason = document.getElementById(\"reason\").value.trim();\n  if (reason.length \u003c 5) {\n    document.getElementById(\"status\").textContent = \"Say what went wrong\";\n    return;\n  }\n  location.href = \"/claim.html?reason=\" + encodeURIComponent(reason);\n}\n",
+  "functions": [
+   {
+    "functionName": "trackParcel",
+    "ranges": [
+     {
+      "startOffset": 224,
+      "endOffset": 601,
+      "count": 1
+     },
+     {
+      "startOffset": 492,
+      "endOffset": 600,
+      "count": 0
+     }
+    ],
+    "isBlockCoverage": true
+   }
+  ]
+ }
+]

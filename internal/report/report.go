@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/nimbusxr/axx/internal/axxerr"
+	"github.com/nimbusxr/axx/internal/config"
 	"github.com/nimbusxr/axx/internal/exitcode"
 	"github.com/nimbusxr/axx/internal/runner"
 	"github.com/nimbusxr/axx/internal/version"
@@ -37,7 +38,7 @@ type Options struct {
 }
 
 // reporter names in documentation order.
-var names = []string{"pretty", "progress", "compact", "junit", "messages", "cucumber-json", "html", "agent", "teamcity"}
+var names = config.ReporterNames
 
 // Names returns the supported reporter names in documentation order.
 func Names() []string { return append([]string(nil), names...) }

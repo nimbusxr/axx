@@ -26,7 +26,7 @@ Background:
 
 A log only counts what it receives after the scenario registers it. Scenarios run in parallel and share logs, so match on data unique to the scenario: a reference, an order id.
 
-For the network schemes Axx is the log service: your service, or the thing that ships its logs, sends lines to Axx. Axx opens those listeners before it starts the apps, for the log steps of the scenarios in the run, so nothing sent during startup is lost; `axx up` keeps them open between runs. Containers reach them at `host.docker.internal` (on Linux, add `extra_hosts: ["host.docker.internal:host-gateway"]` to the service).
+For the network schemes Axx is the log service: your service, or the thing that ships its logs, sends lines to Axx. Axx opens those listeners before it starts the apps, for the log steps of the scenarios in the run, so services can connect and send from the moment they start; `axx up` keeps them open between runs. Containers reach them at `host.docker.internal` (on Linux, add `extra_hosts: ["host.docker.internal:host-gateway"]` to the service).
 
 ## Point your logs at Axx
 

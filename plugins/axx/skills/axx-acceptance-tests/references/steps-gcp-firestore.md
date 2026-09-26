@@ -24,9 +24,11 @@ shipments:
 Given a {filepath} firestore seed
 ```
 
-Write the documents of a seed file (resolved against `resources`): YAML or JSON mapping collections to documents by ID.
+Write the documents of a seed file: YAML or JSON that maps collections to their documents, by ID. Whole numbers are stored as integers, other numbers as doubles.
 
-**Parameters:** `{filepath}` (A file of the project, without whitespace: a path relative to the `resources` directories or to the directory of axx.yaml, or an absolute path. Editors link it to the file)
+| Parameter | Takes | For example |
+|---|---|---|
+| `{filepath}` | a file of the project, with no spaces: a path relative to the `resources` directories or to axx.yaml's directory, or an absolute path | `seeds/parcels.yaml`, `kafka/scan-delivered.json` |
 
 **Example:**
 
@@ -40,22 +42,34 @@ _Since 0.1.0._
 
 ```gherkin
 Then [[within {duration} ]]the {word} firestore document has the following properties:
-  | ... | ... |
+  | field | value |
 ```
 
-Wait (10s, or the given time) until the document at the path exists with every `field | value` property.
+Check that the document at that path, like `invoices/INV-2026-09-KES1`, has those values in those fields.
 
-**Variants** (optional parts in `[[...]]` above):
+- The check waits for it: 10 seconds, or `within {duration}`.
+- Values compare as text: timestamps in RFC 3339, references as their path, bytes in base64, a geo point as its `lat` and `lng`; `null` for null and `undefined` for absent.
+
+| Parameter | Takes | For example |
+|---|---|---|
+| `{duration}` | a duration in seconds (`s`) or minutes (`m`) | `5s`, `2m` |
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+
+Each row names a field of the document, or a dotted path into a map (`totals.billed`), and the value it has.
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `the {word} firestore document has the following properties:`
 - `within {duration} the {word} firestore document has the following properties:`
 
-**Parameters:** `{duration}` (A duration in seconds or minutes, e.g. `5s` or `2m`), `{word}` (one word, no spaces)
-
 **Example:**
 
 ```gherkin
-Then within 30s the invoices/INV-2026-09-KESTREL firestore document has the following properties:
+Then within 30s the invoices/INV-2026-09-KES1 firestore document has the following properties:
+  | status          | RECONCILED |
+  | lines           | 2          |
+  | totals.billed   | 6.58       |
+  | totals.disputed | 0          |
 ```
 
 _Since 0.1.0._
@@ -64,22 +78,34 @@ _Since 0.1.0._
 
 ```gherkin
 Then [[within {duration} ]]the {word} firestore collection has a document where:
-  | ... | ... |
+  | field | value |
 ```
 
-Wait (10s, or the given time) until the collection has a document meeting every `field | value` row.
+Check that the collection has a document with those values in those fields.
 
-**Variants** (optional parts in `[[...]]` above):
+- The check waits for it: 10 seconds, or `within {duration}`.
+- Values compare as text: timestamps in RFC 3339, references as their path, bytes in base64, a geo point as its `lat` and `lng`; `null` for null and `undefined` for absent.
+- The check reads up to 5,000 documents of the collection.
+
+| Parameter | Takes | For example |
+|---|---|---|
+| `{duration}` | a duration in seconds (`s`) or minutes (`m`) | `5s`, `2m` |
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+
+Each row names a field of the document, or a dotted path into a map (`totals.billed`), and the value it has.
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `the {word} firestore collection has a document where:`
 - `within {duration} the {word} firestore collection has a document where:`
 
-**Parameters:** `{duration}` (A duration in seconds or minutes, e.g. `5s` or `2m`), `{word}` (one word, no spaces)
-
 **Example:**
 
 ```gherkin
-Then the disputes firestore collection has a document where:
+Then the shipments firestore collection has a document where:
+  | parcel   | PX-5105 |
+  | carrier  | HERON   |
+  | weightKg | 3.2     |
 ```
 
 _Since 0.1.0._

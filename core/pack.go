@@ -104,6 +104,8 @@ type Manifest struct {
 	Params   []ParamType `json:"params,omitempty"`
 	Steps    []StepDef   `json:"steps"`
 	Hooks    []Hook      `json:"hooks,omitempty"`
+	// Tools are what the pack lets coding agents do through `axx mcp`.
+	Tools []Tool `json:"tools,omitempty"`
 	// ConfigSchema is a JSON Schema for the pack's section in axx.yaml.
 	ConfigSchema json.RawMessage `json:"configSchema,omitempty"`
 }
@@ -169,6 +171,9 @@ type StepDef struct {
 	// appear only during the run, such as a log: editors link it when it
 	// exists and complete its path.
 	TableTypes map[string]string `json:"tableTypes,omitempty"`
+	// Table says what the data table of a step with a table holds, for the
+	// reference: its columns, and the rows it knows.
+	Table *TableDoc `json:"table,omitempty"`
 	// Since is the axx version that introduced the step.
 	Since string `json:"since,omitempty"`
 	// DeprecatedBy, if set, explains what to use instead.
@@ -177,6 +182,34 @@ type StepDef struct {
 	Timeout time.Duration `json:"-"`
 	Source  SourceRef     `json:"source,omitzero"`
 	Run     StepFunc      `json:"-"`
+}
+
+// TableDoc says what a step's data table holds.
+type TableDoc struct {
+	// Columns name the table's columns, like "property" and "value", or
+	// "JSONPath" and "value".
+	Columns []string `json:"columns,omitempty"`
+	// Rows are the rows the table knows, by their first cell: a service's
+	// properties, the metrics of a check. A table of any rows has none.
+	Rows []TableRow `json:"rows,omitempty"`
+	// Note says more of the table, in a sentence or two.
+	Note string `json:"note,omitempty"`
+}
+
+// TableRow is a row a step's data table knows.
+type TableRow struct {
+	// Name is its first cell, like "url"; "header.<name>" stands for a
+	// header's name after "header.".
+	Name string `json:"name"`
+	// Takes says what its second cell takes, in a phrase: "the URL the
+	// browser finds the app at".
+	Takes string `json:"takes"`
+	// Values are the values it takes, when it takes one of a set.
+	Values []string `json:"values,omitempty"`
+	// Default is its value when the table has no such row.
+	Default string `json:"default,omitempty"`
+	// Required says the table must have it.
+	Required bool `json:"required,omitempty"`
 }
 
 // SourceRef locates a definition for go-to-definition and error messages.
@@ -189,7 +222,13 @@ type SourceRef struct {
 type ParamType struct {
 	Name    string   `json:"name"`
 	Regexps []string `json:"regexps"`
-	Doc     string   `json:"doc,omitempty"`
+	// Doc says what the type takes, in a phrase: "a duration, like 5s".
+	Doc string `json:"doc,omitempty"`
+	// Values are the values the type takes, when it takes one of a set,
+	// like the kinds of an element: the reference lists them.
+	Values []string `json:"values,omitempty"`
+	// Examples are values it takes, for the reference: "5s", "2m".
+	Examples []string `json:"examples,omitempty"`
 	// Snippet marks the type as a candidate when generating snippets for
 	// undefined steps. Broad types such as [^\s]+ should leave it false.
 	Snippet bool `json:"snippet,omitempty"`

@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -17,6 +18,7 @@ import (
 	"github.com/nimbusxr/axx/internal/axxerr"
 	"github.com/nimbusxr/axx/internal/config"
 	"github.com/nimbusxr/axx/internal/exitcode"
+	"github.com/nimbusxr/axx/internal/gotool"
 	"github.com/nimbusxr/axx/internal/packbuild"
 	"github.com/nimbusxr/axx/internal/packset"
 	"github.com/nimbusxr/axx/internal/version"
@@ -80,7 +82,7 @@ func (a *App) debugSteps(ctx context.Context, f *runFlags) error {
 	if err != nil {
 		return err
 	}
-	dlv, err := findDelve(ctx)
+	dlv, err := a.findDelve(ctx)
 	if err != nil {
 		return err
 	}
@@ -198,14 +200,66 @@ func withoutFlag(args []string, flag string) []string {
 	return out
 }
 
-// findDelve finds dlv on PATH or in Go's bin directories.
-func findDelve(ctx context.Context) (string, error) {
+// delveVersion is the Delve axx prepares for --debug-steps: one that
+// supports the Go release axx builds with.
+const delveVersion = "v1.27.2"
+
+// findDelve returns the Delve to run the debug build under: $AXX_DLV, else
+// axx's own, built once with the Go axx builds with (so that it supports
+// that Go) and kept in axx's cache, else a dlv installed here.
+func (a *App) findDelve(ctx context.Context) (string, error) {
+	if p := os.Getenv("AXX_DLV"); p != "" {
+		return p, nil
+	}
+	own, err := prepareDelve(ctx, a.Stderr)
+	if err == nil {
+		return own, nil
+	}
+	if p, ok := installedDelve(ctx); ok {
+		return p, nil
+	}
+	return "", axxerr.Wrap(err, codeNoDelve, exitcode.Environment, "debugging step code needs Delve, and axx could not prepare it").
+		WithHint("axx builds Delve once from the Go module proxy: check the network, or install it with `go install github.com/go-delve/delve/cmd/dlv@latest`, or set AXX_DLV to a dlv")
+}
+
+// prepareDelve builds axx's own Delve, once, with the Go axx builds with,
+// in axx's cache.
+func prepareDelve(ctx context.Context, log io.Writer) (string, error) {
+	base, err := os.UserCacheDir()
+	if err != nil {
+		return "", err
+	}
+	dir := filepath.Join(base, "axx", "delve", delveVersion)
+	bin := filepath.Join(dir, "dlv")
+	if runtime.GOOS == "windows" {
+		bin += ".exe"
+	}
+	if st, err := os.Stat(bin); err == nil && !st.IsDir() {
+		return bin, nil
+	}
+	tc, err := gotool.Ensure(ctx, gotool.Options{Log: log})
+	if err != nil {
+		return "", err
+	}
+	fmt.Fprintf(log, "axx: preparing Delve %s, Go's debugger (once; cached for later runs)\n", delveVersion)
+	cmd := exec.CommandContext(ctx, tc.Go, "install", "github.com/go-delve/delve/cmd/dlv@"+delveVersion)
+	cmd.Env = append(slices.Clip(tc.Env), "GOBIN="+dir)
+	var out bytes.Buffer
+	cmd.Stdout, cmd.Stderr = &out, &out
+	if err := cmd.Run(); err != nil {
+		return "", fmt.Errorf("go install dlv@%s: %w\n%s", delveVersion, err, strings.TrimSpace(out.String()))
+	}
+	return bin, nil
+}
+
+// installedDelve finds a dlv on PATH or in Go's bin directories.
+func installedDelve(ctx context.Context) (string, bool) {
 	name := "dlv"
 	if runtime.GOOS == "windows" {
 		name = "dlv.exe"
 	}
 	if p, err := exec.LookPath("dlv"); err == nil {
-		return p, nil
+		return p, true
 	}
 	var dirs []string
 	if goBin, err := exec.LookPath("go"); err == nil {
@@ -227,11 +281,10 @@ func findDelve(ctx context.Context) (string, error) {
 	for _, d := range dirs {
 		p := filepath.Join(d, name)
 		if st, err := os.Stat(p); err == nil && !st.IsDir() {
-			return p, nil
+			return p, true
 		}
 	}
-	return "", axxerr.New(codeNoDelve, exitcode.Environment, "debugging step code needs Delve, and dlv is not installed").
-		WithHint("install it with `go install github.com/go-delve/delve/cmd/dlv@latest`")
+	return "", false
 }
 
 // axxSource is the axx source to build from: $AXX_SOURCE_DIR, or for a

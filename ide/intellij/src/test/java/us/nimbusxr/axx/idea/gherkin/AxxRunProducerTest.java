@@ -6,7 +6,9 @@ import com.intellij.execution.PsiLocation;
 import com.intellij.execution.actions.ConfigurationContext;
 import com.intellij.execution.actions.ConfigurationFromContext;
 import com.intellij.execution.actions.RunConfigurationProducer;
+import com.intellij.execution.lineMarker.ExecutorAction;
 import com.intellij.execution.lineMarker.RunLineMarkerContributor;
+import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.ActionPlaces;
 import com.intellij.openapi.actionSystem.CommonDataKeys;
 import com.intellij.openapi.actionSystem.DataContext;
@@ -25,11 +27,14 @@ import com.intellij.testFramework.HeavyPlatformTestCase;
 import com.intellij.testFramework.PsiTestUtil;
 
 import us.nimbusxr.axx.idea.run.AxxRunConfiguration;
+import us.nimbusxr.axx.idea.run.AxxWatchExecutor;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /** Run configurations and gutter icons from feature files, with the Gherkin plugin. */
 public class AxxRunProducerTest extends HeavyPlatformTestCase {
@@ -167,7 +172,16 @@ public class AxxRunProducerTest extends HeavyPlatformTestCase {
             RunLineMarkerContributor.Info info = contributor.getInfo(leaf);
             if (info != null) {
                 lines.add(document.getLineNumber(leaf.getTextRange().getStartOffset()) + 1);
-                assertTrue(info.actions.length > 0);
+                Set<String> executors = new HashSet<>();
+                for (AnAction action : info.actions) {
+                    if (action instanceof ExecutorAction executorAction) {
+                        executors.add(executorAction.getExecutor().getId());
+                    }
+                }
+                // Run, Debug, and Watch to watch the browsers.
+                assertTrue(
+                        executors.toString(),
+                        executors.containsAll(List.of("Run", "Debug", AxxWatchExecutor.ID)));
             }
         }
         assertEquals(List.of(1, 7, 12, 18, 19, 21, 23, 26), lines);

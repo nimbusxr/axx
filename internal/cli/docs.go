@@ -6,14 +6,17 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 
 	"github.com/spf13/cobra"
 
+	"github.com/nimbusxr/axx/core"
 	"github.com/nimbusxr/axx/internal/axxerr"
 	"github.com/nimbusxr/axx/internal/config"
 	"github.com/nimbusxr/axx/internal/engine"
 	"github.com/nimbusxr/axx/internal/exitcode"
 	"github.com/nimbusxr/axx/internal/fixtures"
+	"github.com/nimbusxr/axx/internal/packset"
 	"github.com/nimbusxr/axx/internal/render/md"
 )
 
@@ -26,10 +29,11 @@ func newDocsCmd(app *App) *cobra.Command {
 	var frontmatter bool
 	export := &cobra.Command{
 		Use:   "export",
-		Short: "Write generated reference pages (steps, parameter types, error codes, schema) to a directory",
+		Short: "Write generated reference pages (packs, parameter types, error codes, schema) to a directory",
 		Long: `Write the reference documentation generated from this binary: one page per
-step pack, parameter types, a grep-friendly step index, the error and exit
-codes, and the JSON Schemas of axx.yaml and the fixture spec files. The documentation site and the agent skills are built from this output.
+pack (its settings, steps, parameter types and agent tools) and an overview of
+them, parameter types, a grep-friendly step index, the error and exit codes,
+and the JSON Schemas of axx.yaml and the fixture spec files. The documentation site and the agent skills are built from this output.
 It covers the packs compiled into this axx, whatever the project lists.`,
 		Args: wrapArgs(cobra.NoArgs),
 		RunE: func(*cobra.Command, []string) error {
@@ -67,21 +71,25 @@ It covers the packs compiled into this axx, whatever the project lists.`,
 	return cmd
 }
 
+// packsLink is where the site publishes the pack pages.
+const packsLink = "/references/packs/"
+
 // referenceFiles renders every generated reference file, keyed by relative path.
 func referenceFiles(e *engine.Engine, frontmatter bool) (map[string]string, error) {
 	files := map[string]string{}
 	manifests := e.Manifests()
 	for _, name := range e.PackNames() {
-		m := manifests[name]
-		if len(m.Steps) == 0 {
-			continue // parameter-only packs (core) appear on the parameter types page
-		}
-		page, err := md.StepsPage(e.Registry, md.PackInfo{Name: name, Manifest: m}, frontmatter)
+		page, err := md.PackPage(e.Registry, md.PackInfo{Name: name, Manifest: manifests[name], Builtin: name == "core"}, packsLink, frontmatter)
 		if err != nil {
 			return nil, err
 		}
-		files["steps/"+name+".md"] = page
+		files["packs/"+name+".md"] = page
 	}
+	overview, err := md.PacksOverview(packGroups(manifests), packsLink, frontmatter)
+	if err != nil {
+		return nil, err
+	}
+	files["packs/index.md"] = overview
 	params, err := md.ParamsPage(e.Registry, frontmatter)
 	if err != nil {
 		return nil, err
@@ -102,6 +110,34 @@ func referenceFiles(e *engine.Engine, frontmatter bool) (map[string]string, erro
 		files["schemas/"+name] = string(schema)
 	}
 	return files, nil
+}
+
+// packGroups are the packs axx publishes and this axx has, by group, as the
+// site's sidebar has them: the core and the packs of no group, then the web
+// packs and each cloud's, each group with its own core first.
+func packGroups(manifests map[string]core.Manifest) []md.PackGroup {
+	groups := []md.PackGroup{{}, {Title: "Web"}, {Title: "AWS"}, {Title: "Google Cloud"}, {Title: "Azure"}}
+	if m, ok := manifests["core"]; ok {
+		groups[0].Packs = append(groups[0].Packs, md.PackSummary{Name: "core", Summary: strings.TrimSuffix(m.Doc, ".")})
+	}
+	for _, p := range packset.Catalog {
+		if _, ok := manifests[p.Name]; !ok {
+			continue
+		}
+		g := 0
+		switch {
+		case strings.HasPrefix(p.Name, "web-"):
+			g = 1
+		case strings.HasPrefix(p.Name, "aws-"):
+			g = 2
+		case strings.HasPrefix(p.Name, "gcp-"):
+			g = 3
+		case strings.HasPrefix(p.Name, "azure-"):
+			g = 4
+		}
+		groups[g].Packs = append(groups[g].Packs, md.PackSummary{Name: p.Name, Summary: p.Summary})
+	}
+	return groups
 }
 
 func sortedKeys(m map[string]string) []string {

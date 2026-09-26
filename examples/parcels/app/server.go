@@ -44,9 +44,11 @@ type registration struct {
 	WeightGrams  int
 	ServiceLevel string
 	Recipient    Recipient
-	Source       string // api | manifest
+	Source       string // api | manifest | portal
 	ManifestID   string
 	LineID       string
+	// Extra details the registration records (the portal's delivery preferences).
+	Extra map[string]any
 }
 
 type undeliverableError struct{ reason string }
@@ -72,6 +74,9 @@ func (s *service) register(ctx context.Context, r registration) (*Parcel, error)
 		return nil, err
 	}
 	details := map[string]any{"source": r.Source, "zone": zone}
+	for k, v := range r.Extra {
+		details[k] = v
+	}
 	if r.Source == "manifest" {
 		details["manifestId"] = r.ManifestID
 		details["lineId"] = r.LineID
@@ -131,6 +136,7 @@ func (s *service) routes() http.Handler {
 	mux.HandleFunc("DELETE /api/parcels/{reference}", s.remove)
 	mux.HandleFunc("GET /api/parcels/{reference}/tracking", s.trackingView)
 	mux.HandleFunc("GET /api/parcels/{reference}/label", s.label)
+	s.portalRoutes(mux)
 	return s.logRequests(mux)
 }
 
@@ -154,6 +160,9 @@ func (w *statusWriter) WriteHeader(code int) {
 	w.status = code
 	w.ResponseWriter.WriteHeader(code)
 }
+
+// Unwrap lets the tracking page's websocket take over the connection.
+func (w *statusWriter) Unwrap() http.ResponseWriter { return w.ResponseWriter }
 
 func (s *service) quote(w http.ResponseWriter, r *http.Request) {
 	body, err := decodeObject(r)

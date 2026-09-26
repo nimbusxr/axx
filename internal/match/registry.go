@@ -240,40 +240,42 @@ func transform(sc *core.Scenario, p *Param, a *core.Arg) (any, error) {
 // conversions Cucumber-JVM applies (so {int} overflows are errors, {string}
 // strips quotes and unescapes).
 var builtinParams = []core.ParamType{
-	{Name: "int", Regexps: []string{`-?\d+`, `\d+`}, Doc: "a 32-bit integer", Transform: intTransform(math.MinInt32, math.MaxInt32, "Integer")},
-	{Name: "byte", Regexps: []string{`-?\d+`, `\d+`}, Doc: "an 8-bit integer", Transform: intTransform(math.MinInt8, math.MaxInt8, "Byte")},
-	{Name: "short", Regexps: []string{`-?\d+`, `\d+`}, Doc: "a 16-bit integer", Transform: intTransform(math.MinInt16, math.MaxInt16, "Short")},
-	{Name: "long", Regexps: []string{`-?\d+`, `\d+`}, Doc: "a 64-bit integer", Transform: func(_ *core.Scenario, s string, _ []*string) (any, error) {
+	{Name: "int", Regexps: []string{`-?\d+`, `\d+`}, Doc: "a whole number", Examples: []string{"200", "3"}, Transform: intTransform(math.MinInt32, math.MaxInt32, "Integer")},
+	{Name: "byte", Regexps: []string{`-?\d+`, `\d+`}, Doc: "a whole number, from -128 to 127", Examples: []string{"12"}, Transform: intTransform(math.MinInt8, math.MaxInt8, "Byte")},
+	{Name: "short", Regexps: []string{`-?\d+`, `\d+`}, Doc: "a whole number, from -32768 to 32767", Examples: []string{"1200"}, Transform: intTransform(math.MinInt16, math.MaxInt16, "Short")},
+	{Name: "long", Regexps: []string{`-?\d+`, `\d+`}, Doc: "a whole number, however large", Examples: []string{"9007199254740993"}, Transform: func(_ *core.Scenario, s string, _ []*string) (any, error) {
 		n, err := strconv.ParseInt(s, 10, 64)
 		if err != nil {
 			return nil, transformError("long", s, "Long")
 		}
 		return n, nil
 	}},
-	{Name: "biginteger", Regexps: []string{`-?\d+`, `\d+`}, Doc: "an arbitrary-precision integer", Transform: func(_ *core.Scenario, s string, _ []*string) (any, error) {
+	{Name: "biginteger", Regexps: []string{`-?\d+`, `\d+`}, Doc: "a whole number of any size", Examples: []string{"123456789012345678901234567890"}, Transform: func(_ *core.Scenario, s string, _ []*string) (any, error) {
 		n, ok := new(big.Int).SetString(s, 10)
 		if !ok {
 			return nil, transformError("biginteger", s, "BigInteger")
 		}
 		return n, nil
 	}},
-	{Name: "float", Regexps: []string{`[-+]?(?:\d+(?:\.\d+)?|\.\d+)(?:[E][+-]?\d+)?`}, Doc: "a 32-bit float", Transform: floatTransform(32, "float", "Float")},
-	{Name: "double", Regexps: []string{`[-+]?(?:\d+(?:\.\d+)?|\.\d+)(?:[E][+-]?\d+)?`}, Doc: "a 64-bit float", Transform: floatTransform(64, "double", "Double")},
-	{Name: "bigdecimal", Regexps: []string{`[-+]?(?:\d+(?:\.\d+)?|\.\d+)(?:[E][+-]?\d+)?`}, Doc: "an arbitrary-precision decimal", Transform: func(_ *core.Scenario, s string, _ []*string) (any, error) {
+	{Name: "float", Regexps: []string{`[-+]?(?:\d+(?:\.\d+)?|\.\d+)(?:[E][+-]?\d+)?`}, Doc: "a decimal number", Examples: []string{"2.5", "0.1"}, Transform: floatTransform(32, "float", "Float")},
+	{Name: "double", Regexps: []string{`[-+]?(?:\d+(?:\.\d+)?|\.\d+)(?:[E][+-]?\d+)?`}, Doc: "a decimal number", Examples: []string{"19.90"}, Transform: floatTransform(64, "double", "Double")},
+	{Name: "bigdecimal", Regexps: []string{`[-+]?(?:\d+(?:\.\d+)?|\.\d+)(?:[E][+-]?\d+)?`}, Doc: "a decimal number of any precision", Examples: []string{"0.1000000000000000055"}, Transform: func(_ *core.Scenario, s string, _ []*string) (any, error) {
 		f, ok := new(big.Float).SetString(s)
 		if !ok {
 			return nil, transformError("bigdecimal", s, "BigDecimal")
 		}
 		return f, nil
 	}},
-	{Name: "word", Regexps: []string{`[^\s]+`}, Doc: "one word, no spaces"},
-	{Name: "string", Regexps: []string{`"([^"\\]*(\\.[^"\\]*)*)"|'([^'\\]*(\\.[^'\\]*)*)'`}, Doc: "text in single or double quotes; the quotes are removed", Transform: stringTransform},
+	{Name: "word", Regexps: []string{`[^\s]+`}, Doc: "one word, with no spaces", Examples: []string{"parcels", "PX-4101"}},
+	{Name: "string", Regexps: []string{`"([^"\\]*(\\.[^"\\]*)*)"|'([^'\\]*(\\.[^'\\]*)*)'`}, Doc: "text in double or single quotes, which the step leaves out", Examples: []string{`"Get a quote"`, `'Express'`}, Transform: stringTransform},
 	{Name: "", Regexps: []string{`.*`}, Doc: "anonymous: any text"},
 }
 
 func intTransform(minV, maxV int64, javaType string) func(*core.Scenario, string, []*string) (any, error) {
 	return func(_ *core.Scenario, s string, _ []*string) (any, error) {
-		n, err := strconv.ParseInt(s, 10, 64)
+		// At int's size: a value an int cannot hold fails, where a
+		// conversion would cut it.
+		n, err := strconv.ParseInt(s, 10, strconv.IntSize)
 		if err != nil || n < minV || n > maxV {
 			return nil, transformError(strings.ToLower(javaType), s, javaType)
 		}

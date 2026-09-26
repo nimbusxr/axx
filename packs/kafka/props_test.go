@@ -194,11 +194,21 @@ func TestParseJAAS(t *testing.T) {
 	}
 }
 
+// TestPropDocListsEveryProperty checks that the reference names every
+// property: those axx applies in the topic client step's table, the others
+// in the pack's description.
 func TestPropDocListsEveryProperty(t *testing.T) {
-	doc := propDoc()
-	for k := range propTable {
-		if !strings.Contains(doc, "`"+k+"`") {
+	rows := map[string]bool{}
+	for _, r := range clientTable().Rows {
+		rows[r.Name] = true
+	}
+	doc := otherPropsDoc()
+	for k, d := range propTable {
+		switch {
+		case d.Set == nil && !strings.Contains(doc, "`"+k+"`"):
 			t.Errorf("the documentation does not mention %s", k)
+		case d.Set != nil && !rows[d.Roles.prefix()+k]:
+			t.Errorf("the topic client's table does not list %s", k)
 		}
 	}
 	for k := range rejectedProps {

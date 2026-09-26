@@ -23,9 +23,11 @@ insured-parcels:
 Given a {filepath} dynamodb seed
 ```
 
-Put the items of a seed file (resolved against `resources`): YAML or JSON mapping table names to lists of items.
+Put the items of a seed file into their tables: YAML or JSON that maps table names to lists of items. Items are plain JSON: numbers become `N`, objects `M` and arrays `L`.
 
-**Parameters:** `{filepath}` (A file of the project, without whitespace: a path relative to the `resources` directories or to the directory of axx.yaml, or an absolute path. Editors link it to the file)
+| Parameter | Takes | For example |
+|---|---|---|
+| `{filepath}` | a file of the project, with no spaces: a path relative to the `resources` directories or to axx.yaml's directory, or an absolute path | `seeds/parcels.yaml`, `kafka/scan-delivered.json` |
 
 **Example:**
 
@@ -39,22 +41,30 @@ _Since 0.1.0._
 
 ```gherkin
 Then [[within {duration} ]]the {word} dynamodb table has an item where:
-  | ... | ... |
+  | attribute | value |
 ```
 
-Wait (10s, or the given time) until the table has an item meeting every `attribute | value` row.
+Check that the table has an item with those values in those attributes. The check waits for it: 10 seconds, or `within {duration}`.
 
-**Variants** (optional parts in `[[...]]` above):
+| Parameter | Takes | For example |
+|---|---|---|
+| `{duration}` | a duration in seconds (`s`) or minutes (`m`) | `5s`, `2m` |
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+
+Each row names an attribute of the item, or a dotted path into a map (`address.city`), and the value it has, compared as text: `null` for null and `undefined` for absent. Sets read as lists, and binary as base64.
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `the {word} dynamodb table has an item where:`
 - `within {duration} the {word} dynamodb table has an item where:`
-
-**Parameters:** `{duration}` (A duration in seconds or minutes, e.g. `5s` or `2m`), `{word}` (one word, no spaces)
 
 **Example:**
 
 ```gherkin
 Then within 30s the claims dynamodb table has an item where:
+  | id     | CLM-4101 |
+  | status | APPROVED |
+  | amount | 89.5     |
 ```
 
 _Since 0.1.0._
@@ -63,22 +73,29 @@ _Since 0.1.0._
 
 ```gherkin
 Then [[within {duration} ]]the {word} dynamodb table has {int} item(s) where:
-  | ... | ... |
+  | attribute | value |
 ```
 
-Wait (10s, or the given time) until exactly that many items of the table meet every `attribute | value` row.
+Check that exactly that many items of the table have those values in those attributes. The check waits for it: 10 seconds, or `within {duration}`.
 
-**Variants** (optional parts in `[[...]]` above):
+| Parameter | Takes | For example |
+|---|---|---|
+| `{duration}` | a duration in seconds (`s`) or minutes (`m`) | `5s`, `2m` |
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+| `{int}` | a whole number | `200`, `3` |
+
+Each row names an attribute of the item, or a dotted path into a map (`address.city`), and the value it has, compared as text: `null` for null and `undefined` for absent. Sets read as lists, and binary as base64.
+
+**Variants**, the parts in `[[...]]` said or left out:
 
 - `the {word} dynamodb table has {int} item(s) where:`
 - `within {duration} the {word} dynamodb table has {int} item(s) where:`
-
-**Parameters:** `{duration}` (A duration in seconds or minutes, e.g. `5s` or `2m`), `{word}` (one word, no spaces), `{int}` (a 32-bit integer)
 
 **Example:**
 
 ```gherkin
 Then the claims dynamodb table has 1 item where:
+  | parcel | PX-4107 |
 ```
 
 _Since 0.1.0._

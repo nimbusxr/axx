@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Parcel PX-4101</title>
+  <style>
+    nav .account { position: relative; display: inline-block; }
+    nav .account ul { display: none; position: absolute; margin: 0; padding: 4px; list-style: none; background: #eee; }
+    nav .account:hover ul { display: block; }
+    .tip { display: none; }
+    [aria-label="About Express"]:hover + .tip { display: inline; }
+    [role=menu] { list-style: none; padding: 0; }
+  </style>
+</head>
+<body>
+  <nav>
+    <a href="/">Home</a>
+    <span class="account"><a href="/account">Account</a><ul><li><a href="/signout">Sign out</a></li></ul></span>
+  </nav>
+  <h1>Parcel PX-4101</h1>
+  <p><label for="find">Find a parcel</label> <input id="find"></p>
+  <p id="found" role="status"></p>
+
+  <div role="tablist">
+    <button role="tab" id="tab-details" aria-selected="true" aria-controls="details">Details</button>
+    <button role="tab" id="tab-history" aria-selected="false" aria-controls="history">History</button>
+  </div>
+  <section id="details" role="tabpanel">
+    <p>Recipient: Anna Weber</p>
+    <p>Service: Express <button aria-label="About Express">ⓘ</button><span class="tip">Delivered the next working day within Germany</span></p>
+  </section>
+  <section id="history" role="tabpanel" hidden>
+    <table><thead><tr><th>Date</th><th>Event</th></tr></thead>
+      <tbody><tr><td>2026-09-24</td><td>Registered</td></tr><tr><td>2026-09-25</td><td>In transit</td></tr></tbody></table>
+  </section>
+
+  <p>
+    <button id="actions" aria-haspopup="menu" aria-expanded="false">Actions</button>
+  </p>
+  <ul id="menu" role="menu" hidden>
+    <li role="menuitem" id="cancel">Cancel the parcel</li>
+    <li role="menuitem" id="report">Report a problem</li>
+    <li role="menuitem" id="hours">Opening hours</li>
+    <li role="menuitemcheckbox" id="notify" aria-checked="false">Notify me of changes</li>
+  </ul>
+  <p id="outcome" role="status"></p>
+
+  <p>
+    <a href="/labels/PX-4101">Download the label</a>
+    <a href="/parcels.csv" download>Export as CSV</a>
+    <a href="/invoice.pdf" download>Download the customs invoice</a>
+    <a href="/track.html?ref=PX-4101" target="_blank">Track on the carrier's site</a>
+  </p>
+
+  <h2>Pickup point</h2>
+  <iframe title="Pickup points" src="/pickup.html" width="480" height="200"></iframe>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const tabs = [['tab-details', 'details'], ['tab-history', 'history']];
+    for (const [tab, panel] of tabs) {
+      $(tab).addEventListener('click', () => {
+        for (const [t, p] of tabs) {
+          $(t).setAttribute('aria-selected', String(t === tab));
+          $(p).hidden = p !== panel;
+        }
+      });
+    }
+    $('actions').addEventListener('click', () => {
+      $('menu').hidden = !$('menu').hidden;
+      $('actions').setAttribute('aria-expanded', String(!$('menu').hidden));
+    });
+    const done = (text) => { $('menu').hidden = true; $('outcome').textContent = text; };
+    $('cancel').addEventListener('click', () => {
+      done(confirm('Cancel parcel PX-4101? The shop gets its postage back.') ? 'Parcel PX-4101 cancelled' : 'Parcel PX-4101 kept');
+    });
+    $('report').addEventListener('click', () => {
+      const why = prompt('What went wrong?');
+      done(why ? 'Problem reported: ' + why : 'No problem reported');
+    });
+    $('hours').addEventListener('click', () => {
+      alert('The depot is open from 8:00 to 18:00');
+      done('Opening hours shown');
+    });
+    $('notify').addEventListener('click', () => {
+      const on = $('notify').getAttribute('aria-checked') !== 'true';
+      $('notify').setAttribute('aria-checked', String(on));
+      $('outcome').textContent = on ? 'Changes will be sent to you' : 'No more changes sent';
+    });
+    $('find').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') $('found').textContent = 'Found ' + $('find').value;
+      if (e.key === 'Escape') { $('find').value = ''; $('found').textContent = ''; }
+    });
+  </script>
+</body>
+</html>

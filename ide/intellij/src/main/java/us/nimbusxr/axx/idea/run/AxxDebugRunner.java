@@ -22,7 +22,9 @@ import org.jetbrains.annotations.Nullable;
  * Debug for axx run configurations: runs {@code axx run --debug-steps}, which waits under Delve for
  * a Go debugger; the plugin then starts {@code "Debugger: axx-steps"} to attach, so breakpoints in
  * step code stop. Without a Go debugger in the IDE, the scenarios run without it, and the plugin
- * says why.
+ * says why. Either way, the run goes one scenario at a time and pauses the web pack's scenarios in
+ * Playwright's Inspector, where they fail and before the steps that have a breakpoint (see {@link
+ * AxxStepBreakpoints}).
  */
 public final class AxxDebugRunner extends GenericProgramRunner<RunnerSettings> {
     /** The Delve port for {@code --debug-steps}, set when a Go debugger can attach. */

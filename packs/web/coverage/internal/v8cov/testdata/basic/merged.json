@@ -1,0 +1,145 @@
+{
+ "result": [
+  {
+   "scriptId": "0",
+   "url": "/app.js",
+   "functions": [
+    {
+     "functionName": "",
+     "ranges": [
+      {
+       "startOffset": 0,
+       "endOffset": 1022,
+       "count": 1
+      }
+     ],
+     "isBlockCoverage": true
+    },
+    {
+     "functionName": "trackParcel",
+     "ranges": [
+      {
+       "startOffset": 155,
+       "endOffset": 523,
+       "count": 1
+      },
+      {
+       "startOffset": 330,
+       "endOffset": 390,
+       "count": 0
+      },
+      {
+       "startOffset": 515,
+       "endOffset": 519,
+       "count": 0
+      }
+     ],
+     "isBlockCoverage": true
+    },
+    {
+     "functionName": "cancelParcel",
+     "ranges": [
+      {
+       "startOffset": 525,
+       "endOffset": 651,
+       "count": 0
+      }
+     ],
+     "isBlockCoverage": false
+    },
+    {
+     "functionName": "submitClaim",
+     "ranges": [
+      {
+       "startOffset": 720,
+       "endOffset": 1021,
+       "count": 0
+      }
+     ],
+     "isBlockCoverage": false
+    }
+   ]
+  },
+  {
+   "scriptId": "1",
+   "url": "/util.js",
+   "functions": [
+    {
+     "functionName": "",
+     "ranges": [
+      {
+       "startOffset": 0,
+       "endOffset": 664,
+       "count": 1
+      }
+     ],
+     "isBlockCoverage": true
+    },
+    {
+     "functionName": "formatWeight",
+     "ranges": [
+      {
+       "startOffset": 80,
+       "endOffset": 202,
+       "count": 1
+      },
+      {
+       "startOffset": 168,
+       "endOffset": 201,
+       "count": 0
+      }
+     ],
+     "isBlockCoverage": true
+    },
+    {
+     "functionName": "formatVolume",
+     "ranges": [
+      {
+       "startOffset": 204,
+       "endOffset": 335,
+       "count": 0
+      }
+     ],
+     "isBlockCoverage": false
+    },
+    {
+     "functionName": "statusLabel",
+     "ranges": [
+      {
+       "startOffset": 337,
+       "endOffset": 584,
+       "count": 1
+      },
+      {
+       "startOffset": 442,
+       "endOffset": 485,
+       "count": 0
+      },
+      {
+       "startOffset": 490,
+       "endOffset": 541,
+       "count": 0
+      },
+      {
+       "startOffset": 546,
+       "endOffset": 578,
+       "count": 0
+      }
+     ],
+     "isBlockCoverage": true
+    },
+    {
+     "functionName": "isFragile",
+     "ranges": [
+      {
+       "startOffset": 604,
+       "endOffset": 662,
+       "count": 1
+      }
+     ],
+     "isBlockCoverage": true
+    }
+   ]
+  }
+ ]
+}

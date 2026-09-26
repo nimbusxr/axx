@@ -121,7 +121,7 @@ func TestTagFilter(t *testing.T) {
 }
 
 func TestLineFilter(t *testing.T) {
-	dir, set := setup(t)
+	dir, _ := setup(t)
 	cases := map[string][]string{
 		"features/launches.feature:9":     {"list launches"},
 		"features/launches.feature:12":    {"list launches"}, // a step line inside the scenario
@@ -131,15 +131,34 @@ func TestLineFilter(t *testing.T) {
 		"features/launches.feature:22:31": {"get launch 1", "create launch"},
 	}
 	for spec, want := range cases {
-		_, lines := ParseLineSpecs([]string{spec}, dir)
-		ps, err := set.Apply(Filter{Lines: lines})
-		if err != nil {
-			t.Fatal(err)
-		}
-		if got := names(ps); !equal(got, want) {
+		if got := selected(t, dir, spec); !equal(got, want) {
 			t.Errorf("%s: got %v, want %v", spec, got, want)
 		}
 	}
+}
+
+func TestLinesOfOneFileKeepTheOthersWhole(t *testing.T) {
+	dir, _ := setup(t)
+	got := selected(t, dir, "features/launches.feature:9", "features/nested/other.feature")
+	if want := []string{"list launches", "x"}; !equal(got, want) {
+		t.Errorf("got %v, want %v", got, want)
+	}
+}
+
+// selected is what `axx run` runs for its arguments: the files they
+// name, filtered by their lines.
+func selected(t *testing.T, dir string, args ...string) []string {
+	t.Helper()
+	paths, lines := ParseLineSpecs(args, dir)
+	set, err := Load(paths, dir, (&messages.Incrementing{}).NewId)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ps, err := set.Apply(Filter{Lines: lines})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return names(ps)
 }
 
 func TestNameFilter(t *testing.T) {

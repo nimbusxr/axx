@@ -5,9 +5,10 @@
 - **Filing:** brokers upload a parcel's commercial invoice to Blob Storage and file its
   declaration on a Service Bus queue.
 - **Low-value parcels:** a parcel worth up to 150 EUR is cleared. The service writes a
-  clearance certificate, archives the invoice, and announces the decision on a Service
-  Bus topic.
-- **Parcels that owe duties:** the service sends a payment request for the duties on a
+  clearance certificate (JSON, and text to print), archives the invoice, and announces the
+  decision on a Service Bus topic.
+- **Parcels that owe duties:** the service works out the duties on every line of the
+  invoice and archives the breakdown. It sends a payment request for the duties on a
   queue, and the parcel is held.
 - **At the border:** carriers announce parcels reaching the border on another topic, and
   the service releases the cleared ones for delivery.
@@ -20,7 +21,7 @@ the duty requests on their queue, and the events on the topic.
 
 | Feature | Acceptance criteria | What axx uses |
 | --- | --- | --- |
-| `declarations` | A low-value parcel is cleared. A parcel above the de minimis value owes duties. A declaration without its invoice is held. | Blob Storage uploads and blobs (JSON properties, identical to a file), Service Bus queue sends (with application properties) and checks, topic checks |
+| `declarations` | A low-value parcel is cleared. A parcel above the de minimis value owes duties. A declaration without its invoice is held. | Blob Storage uploads and blobs (JSON properties, a certificate's text, identical to a file, a CSV row), Service Bus queue sends (with application properties) and checks, topic checks |
 | `border` | A cleared parcel is released when it reaches the border. One that is not is held. | sending to a Service Bus topic |
 
 ## Run it
@@ -66,7 +67,7 @@ strings (from `${env:...}`) and drop the `management endpoint` row.
 | Resource | Kind | Purpose |
 | --- | --- | --- |
 | `commercial-invoices` | blob container | brokers' invoices, `<declaration>.json` |
-| `clearances`, `customs-archive` | blob containers | clearance certificates; archived invoices |
+| `clearances`, `customs-archive` | blob containers | clearance certificates (`<declaration>.json`, and `.txt` to print); archived invoices and duty breakdowns (`<declaration>/invoice.json`, `<declaration>/duties.csv`) |
 | `customs-filings` | Service Bus queue | brokers' declarations (axx sends them; the service reads them) |
 | `duty-payments` | Service Bus queue | duties for payments to collect (the service writes it; axx checks it) |
 | `customs-events` | Service Bus topic | `DeclarationCleared`, `DeclarationHeld`, `ReleasedForDelivery`, `HeldAtBorder` |

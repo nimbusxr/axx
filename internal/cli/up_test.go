@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"os"
+	"slices"
 	"strings"
 	"testing"
 
@@ -36,5 +37,21 @@ func TestSupervisorErrorRoundTrip(t *testing.T) {
 	}
 	if _, ok := parseSupervisorError("some app output"); ok {
 		t.Error("ordinary lines are not errors")
+	}
+}
+
+func TestTheSupervisorGetsTheSameConfiguration(t *testing.T) {
+	cf := configFlags{profile: "ci", defines: []string{"local.host=docker"}, settings: []string{"run.workers=1", "packs.web-core.headless=false"}}
+	args := supervisorArgs("", cf, "api", []string{"api"})
+	cmd := newSuperviseCmd(&App{})
+	if err := cmd.ParseFlags(args[1:]); err != nil {
+		t.Fatal(err)
+	}
+	profile, _ := cmd.Flags().GetString("profile")
+	defines, _ := cmd.Flags().GetStringArray("define")
+	settings, _ := cmd.Flags().GetStringArray("set")
+	debug, _ := cmd.Flags().GetString("debug")
+	if profile != "ci" || !slices.Equal(defines, cf.defines) || !slices.Equal(settings, cf.settings) || debug != "api" || !slices.Equal(cmd.Flags().Args(), []string{"api"}) {
+		t.Errorf("the supervisor got profile %q, -D %v, --set %v, --debug %q, apps %v", profile, defines, settings, debug, cmd.Flags().Args())
 	}
 }

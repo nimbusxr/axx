@@ -12,6 +12,7 @@ Create a pack and add it to the project in one go:
 ```console
 $ axx pack new ./steps
 created the steps pack in ./steps and added it to axx-packs.yaml
+its example step: Then the steps pack is loaded
 ```
 
 A pack is a Go package that exports `Pack()`. Its steps receive the scenario, and from it every pack's context: the services registered in the scenario and their state. A custom step sees exactly what the steps of Axx's packs set up, and their steps see what it adds.
@@ -72,3 +73,29 @@ The first `axx` command that needs the project's steps prepares Axx with the pac
 ## Use the step
 
 Once the pack is listed in `axx-packs.yaml`, its steps are used like any other step: `axx steps search` finds them, `axx validate` checks feature lines against them, and `axx skills install` adds them to the agent step index.
+
+## Give agents a tool
+
+A pack can also give coding agents tools of their own, in `axx mcp`: `Tools` in its manifest. A tool looks at the scenario an agent keeps open with `steps_try`, the one its steps ran in, and returns data (and images) for the agent. The web-core pack's `web_page` shows the page the steps led to ([Set up agents](/guides/set-up-agents/#mcp-server)).
+
+```go
+Tools: []core.Tool{{
+	Name:        "steps_manifest_lines",
+	Description: "The manifest lines the session's steps imported, as the importer stored them.",
+	ReadOnly:    true,
+	Input:       json.RawMessage(`{"type": "object", "properties": {}}`),
+	Run: func(call *core.ToolCall) (*core.ToolResult, error) {
+		db, err := sql.Context(call.Scenario).Service()
+		if err != nil {
+			return nil, err
+		}
+		sel, err := db.Query(call.Context, "manifest_lines", "SELECT * FROM parcels.manifest_lines")
+		if err != nil {
+			return nil, err
+		}
+		return &core.ToolResult{Data: map[string]any{"rows": sel.Rows}}, nil
+	},
+}},
+```
+
+Name a tool after its pack, and describe what it gives and when to use it: agents choose tools by their descriptions. The input is checked against its JSON Schema before `Run`.

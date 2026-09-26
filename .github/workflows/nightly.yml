@@ -43,3 +43,9 @@ jobs:
           gh release view nightly >/dev/null 2>&1 || \
             gh release create nightly --prerelease --title "nightly" --notes "Rolling build of main. Not for production use."
           gh release upload nightly dist/*.tar.gz dist/*.zip dist/checksums.txt --clobber
+          # Each build names its archives after itself: remove the earlier builds' ones,
+          # which checksums.txt no longer lists.
+          keep=$(cd dist && printf '%s\n' ./*.tar.gz ./*.zip checksums.txt | sed 's|^\./||')
+          gh release view nightly --json assets --jq '.assets[].name' | while read -r name; do
+            printf '%s\n' "$keep" | grep -qxF "$name" || gh release delete-asset nightly "$name" --yes
+          done

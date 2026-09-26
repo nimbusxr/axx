@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -32,6 +33,9 @@ type LoadOptions struct {
 	Profile string
 	// Properties override `properties` (from -D name=value).
 	Properties map[string]string
+	// Settings override any key, over the files and profiles: each is
+	// "path.to.key=value" (from --set), the value read as YAML.
+	Settings []string
 	// LookupEnv resolves ${env:..}; defaults to os.LookupEnv.
 	LookupEnv func(string) (string, bool)
 }
@@ -109,6 +113,14 @@ func Load(opts LoadOptions) (*Config, error) {
 		}
 		tree = merge(tree, t)
 		sources = append(sources, src)
+	}
+
+	for _, set := range opts.Settings {
+		overlay, err := setting(set)
+		if err != nil {
+			return nil, err
+		}
+		tree = merge(tree, overlay)
 	}
 
 	// Properties: file values, overridden by -D, expanded against env and
@@ -236,6 +248,29 @@ func readYAML(file string) (yaml.MapSlice, source, error) {
 		return nil, src, axxerr.New(CodeInvalid, exitcode.Usage, "%s: top level must be a mapping", displayFile(file))
 	}
 	return m, src, nil
+}
+
+// CodeSetting reports a --set that is not path=value.
+const CodeSetting = "AXX-E0105"
+
+// setting is the overlay a --set path.to.key=value makes.
+func setting(s string) (yaml.MapSlice, error) {
+	path, raw, ok := strings.Cut(s, "=")
+	keys := strings.Split(path, ".")
+	if !ok || slices.Contains(keys, "") {
+		return nil, axxerr.New(CodeSetting, exitcode.Usage, "invalid --set %q", s).
+			WithHint("use --set path.to.key=value, like --set run.workers=1 or --set packs.<pack>.<key>=value")
+	}
+	var val any
+	if strings.TrimSpace(raw) != "" {
+		if err := yaml.UnmarshalWithOptions([]byte(raw), &val, yaml.UseOrderedMap()); err != nil {
+			val = raw
+		}
+	}
+	for i := len(keys) - 1; i >= 0; i-- {
+		val = yaml.MapSlice{{Key: keys[i], Value: val}}
+	}
+	return val.(yaml.MapSlice), nil
 }
 
 func lookup(tree yaml.MapSlice, keys ...string) (any, bool) {

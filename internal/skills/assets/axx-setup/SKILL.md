@@ -1,10 +1,10 @@
 ---
 name: axx-setup
-description: Adopt axx (the human-readable acceptance testing framework) in a repository - axx init, axx.yaml apps and readiness checks, docker compose infrastructure, running in CI (GitHub Actions, GitLab CI), and agent integration (skills, MCP). Use when setting up acceptance testing for a service.
+description: Adopt Axx (the human-readable acceptance testing framework) in a repository - axx init, axx.yaml apps and readiness checks, docker compose infrastructure, running in CI (GitHub Actions, GitLab CI), and agent integration (skills, MCP). Use when setting up acceptance testing for a service.
 license: Apache-2.0
 ---
 
-# Setting up axx in a repository
+# Setting up Axx in a repository
 
 ## 1. Initialize
 
@@ -14,7 +14,7 @@ axx pack add sql    # the packs whose steps the project uses (init lists rest); 
 axx doctor          # verify: config, apps' commands, docker, features
 ```
 
-`axx init` detects `compose.yaml` and OpenAPI files. It never overwrites existing files unless you pass `--force`, and it is safe to run again.
+`axx init` detects `compose.yaml` and OpenAPI files. It leaves existing files alone unless you pass `--force`, adds or updates its `AGENTS.md` section and the `.axx/` line of `.gitignore` in place, and is safe to run again.
 
 ## 2. Describe how to start the system under test
 
@@ -32,7 +32,7 @@ apps:
 
 - Commands run without a shell. Set `shell: true` if a command needs pipes or `&&`.
 - Order apps with `dependsOn: [db]`. Independent apps start in parallel.
-- A command that exits 0 before the app is ready (`docker compose up -d`) is fine: axx keeps checking readiness.
+- A command that exits 0 before the app is ready (`docker compose up -d`) is fine: Axx keeps checking readiness.
 - For fast local iteration, run `axx up` once, then `axx run` as often as you like, then `axx down`.
 - To debug the app, run it yourself from your IDE with `axx run --attach api`, or use `axx run --debug` with `apps.api.debug`.
 
@@ -41,12 +41,12 @@ apps:
 GitHub Actions:
 
 ```yaml
-- uses: nimbusxr/setup-axx@v1
+- uses: nimbusxr/setup-axx@v0
 - run: axx lint --format github --format sarif:build/axx/lint.sarif   # test-data isolation, annotated in the PR
 - run: axx run --format junit:build/axx/junit.xml --format html:build/axx/report.html
 ```
 
-Anywhere else, install axx with `curl -fsSL https://axx.nimbusxr.us/install.sh | sh` or use the image `ghcr.io/nimbusxr/axx`.
+Anywhere else, install Axx with `curl -fsSL https://axx.nimbusxr.us/install.sh | sh` or use the image `ghcr.io/nimbusxr/axx`.
 
 - Use profiles for CI-only differences: `profiles: {ci: {properties: {local.host: docker}}}` together with `--profile ci` or `AXX_PROFILE=ci`.
 - If `axx.yaml` has a `fixtures` section, run `axx fixtures check` before `axx run`: it fails (exit 1) when committed fixtures drifted from their factory specs. When outputs are `ignored`, run `axx fixtures generate` first to materialize them.
