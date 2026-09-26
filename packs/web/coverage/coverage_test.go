@@ -46,7 +46,7 @@ func TestTheManifestIsSettingsAndStepHooks(t *testing.T) {
 }
 
 func TestSettings(t *testing.T) {
-	project := filepath.FromSlash("/work/acceptance")
+	project := t.TempDir()
 	st, err := parseConfig(Config{}, project)
 	if err != nil {
 		t.Fatal(err)

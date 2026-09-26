@@ -170,7 +170,11 @@ func TestOutputIsPrefixedAndTailed(t *testing.T) {
 	if err := h.Start(t.Context(), nil); err != nil {
 		t.Fatal(err)
 	}
-	eventually(t, 2*time.Second, "stderr line", func() bool { return h.stderr.String() != "" })
+	// Readiness sees "done" in the log; the prefixed copies are written
+	// beside it, and may come a moment later.
+	eventually(t, 2*time.Second, "the app's output", func() bool {
+		return strings.HasSuffix(h.stdout.String(), "done\n") && h.stderr.String() != ""
+	})
 	if got := h.stdout.String(); got != "[api] hello\n[api] done\n" {
 		t.Errorf("stdout = %q", got)
 	}

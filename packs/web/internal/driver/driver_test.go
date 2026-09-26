@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -110,7 +111,7 @@ func TestPreparesTheDriverOnce(t *testing.T) {
 			t.Errorf("%s: %q %v", name, got, err)
 		}
 	}
-	if st, _ := os.Stat(filepath.Join(dir, "node")); st.Mode().Perm()&0o100 == 0 {
+	if st, _ := os.Stat(filepath.Join(dir, "node")); runtime.GOOS != "windows" && st.Mode().Perm()&0o100 == 0 {
 		t.Error("node is not executable")
 	}
 	if _, err := os.Stat(filepath.Join(dir, "README.md")); err == nil {

@@ -430,7 +430,7 @@ func TestTheInspectorSpeaksGherkin(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	b, err := pw.Chromium.Launch()
+	b, err := pw.Chromium.Launch(playwright.BrowserTypeLaunchOptions{Channel: playwright.String("chromium")}) // the full Chromium, as the pack runs it
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -555,7 +555,7 @@ func TestTheTraceViewerSpeaksGherkin(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	b, err := pw.Chromium.Launch()
+	b, err := pw.Chromium.Launch(playwright.BrowserTypeLaunchOptions{Channel: playwright.String("chromium")}) // the full Chromium, as the pack runs it
 	if err != nil {
 		t.Fatal(err)
 	}

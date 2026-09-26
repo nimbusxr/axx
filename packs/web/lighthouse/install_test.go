@@ -12,6 +12,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 	"sync"
@@ -182,7 +183,7 @@ func TestPackagesAreInstalledOnce(t *testing.T) {
 			t.Errorf("%s is installed", left)
 		}
 	}
-	if st, err := os.Stat(filepath.Join(dir, "node_modules", "a", "bin", "a.js")); err != nil || st.Mode().Perm()&0o100 == 0 {
+	if st, err := os.Stat(filepath.Join(dir, "node_modules", "a", "bin", "a.js")); err != nil || runtime.GOOS != "windows" && st.Mode().Perm()&0o100 == 0 {
 		t.Errorf("a.js is not executable: %v", err)
 	}
 	if _, err := os.Lstat(filepath.Join(dir, "node_modules", "a", "link")); err == nil {

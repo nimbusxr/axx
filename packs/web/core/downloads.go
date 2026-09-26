@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"time"
@@ -62,7 +63,7 @@ func (s *session) downloaded(sc *core.Scenario, name string, wait time.Duration)
 
 // downloadPath is where a scenario keeps a file its browser downloaded.
 func downloadPath(sc *core.Scenario, a *App, name string) string {
-	base := filepath.Base(filepath.Clean("/" + strings.ReplaceAll(name, `\`, "/")))
+	base := path.Base(path.Clean("/" + strings.ReplaceAll(name, `\`, "/")))
 	if base == "/" || base == "." {
 		base = "download"
 	}

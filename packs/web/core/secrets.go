@@ -168,7 +168,14 @@ func scrubTrace(path string, r *strings.Replacer) (err error) {
 	if err != nil {
 		return err
 	}
-	defer zr.Close()
+	// Closed before the scrubbed copy replaces it: Windows cannot replace
+	// an open file.
+	closed := false
+	defer func() {
+		if !closed {
+			_ = zr.Close()
+		}
+	}()
 	tmp, err := os.CreateTemp(filepath.Dir(path), ".trace-*.zip")
 	if err != nil {
 		return err
@@ -202,6 +209,10 @@ func scrubTrace(path string, r *strings.Replacer) (err error) {
 		return err
 	}
 	if err := tmp.Close(); err != nil {
+		return err
+	}
+	closed = true
+	if err := zr.Close(); err != nil {
 		return err
 	}
 	return os.Rename(tmp.Name(), path)

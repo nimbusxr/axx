@@ -174,11 +174,10 @@ func (h *Harness) NewScenario() *core.Scenario {
 
 // In returns a harness that runs steps in another scenario of the same run,
 // for scenarios running side by side. Use Step (not OK or Fails) from other
-// goroutines.
+// goroutines. It takes only what does not change as h runs steps, so it can
+// be called while h runs one.
 func (h *Harness) In(sc *core.Scenario) *Harness {
-	c := *h
-	c.SC = sc
-	return &c
+	return &Harness{t: h.t, reg: h.reg, packs: h.packs, Suite: h.Suite, Dir: h.Dir, SC: sc, Sink: h.Sink, hooks: h.hooks, line: 1}
 }
 
 // End ends the scenario as the runner does: it records the outcome
