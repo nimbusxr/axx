@@ -31,6 +31,10 @@ var actionTimeout = cloudstep.DefaultWait
 // Pages load within this.
 const navigationTimeout = 30 * time.Second
 
+// launchTimeout bounds starting a browser, which takes longer than loading
+// a page: a first start sets up a profile, and a busy machine starts slowly.
+const launchTimeout = 2 * time.Minute
+
 // driverDir prepares the Playwright driver, once per run.
 func driverDir(s *core.Suite) (string, error) {
 	return core.Cached(s, Name+"/driver", func() (string, error) {
@@ -124,7 +128,7 @@ func browserFor(s *core.Suite, a *App) (playwright.Browser, error) {
 		// A run that pauses shows its browsers, for the Inspector.
 		opts := playwright.BrowserTypeLaunchOptions{
 			Headless: playwright.Bool(!st.watch && !st.pause && !s.Pausing()),
-			Timeout:  playwright.Float(float64(navigationTimeout.Milliseconds())),
+			Timeout:  playwright.Float(float64(launchTimeout.Milliseconds())),
 		}
 		if st.slowdown > 0 {
 			opts.SlowMo = playwright.Float(float64(st.slowdown.Milliseconds()))
