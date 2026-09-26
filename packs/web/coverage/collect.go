@@ -480,6 +480,23 @@ func (a *appCoverage) trigger() <-chan struct{} {
 	return done
 }
 
+// pending is the take running in the background, if one is, and how long
+// to wait for it: less while a page shows a dialog.
+func (a *appCoverage) pending() (<-chan struct{}, time.Duration) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if !a.running {
+		return nil, 0
+	}
+	wait := settleWait
+	for _, p := range a.pages {
+		if !p.closed && p.dialog.After(p.answered) {
+			wait = blockedWait
+		}
+	}
+	return a.done, wait
+}
+
 // cycle takes the coverage of each isolate of the app's pages, where they
 // are now, starting it where no page does.
 func (a *appCoverage) cycle() {
