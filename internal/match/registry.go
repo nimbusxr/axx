@@ -273,7 +273,9 @@ var builtinParams = []core.ParamType{
 
 func intTransform(minV, maxV int64, javaType string) func(*core.Scenario, string, []*string) (any, error) {
 	return func(_ *core.Scenario, s string, _ []*string) (any, error) {
-		n, err := strconv.ParseInt(s, 10, 64)
+		// At int's size: a value an int cannot hold fails, where a
+		// conversion would cut it.
+		n, err := strconv.ParseInt(s, 10, strconv.IntSize)
 		if err != nil || n < minV || n > maxV {
 			return nil, transformError(strings.ToLower(javaType), s, javaType)
 		}
