@@ -163,10 +163,12 @@ func TestAPageBelowItsScoresSaysWhatCostItTheMost(t *testing.T) {
 func TestASlowPageSaysWhichLimitsItMisses(t *testing.T) {
 	h := newHarness(t, Config{})
 	h.OK(`the "/quote" page is opened`)
+	// Limits whatever the machine: no page paints within 1ms, the page's
+	// busy work blocks for longer than 200ms, and it shifts less than 1.
 	err := h.Fails(`the "/parcels/new" page loads within:`, `The "/parcels/new" page does not load within its limits:`, [][]string{
-		{"first contentful paint", "10s"}, {"total blocking time", "200ms"}, {"cumulative layout shift", "0.1"},
+		{"first contentful paint", "1ms"}, {"total blocking time", "200ms"}, {"cumulative layout shift", "1"},
 	})
-	for _, want := range []string{"\n  total blocking time: ", ", at most 200ms", "\n  cumulative layout shift: ", ", at most 0.1", "\n  (first contentful paint: "} {
+	for _, want := range []string{"\n  first contentful paint: ", ", at most 1ms", "\n  total blocking time: ", ", at most 200ms", "\n  (cumulative layout shift: "} {
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("the failure lacks %q:\n%v", want, err)
 		}

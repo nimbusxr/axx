@@ -207,6 +207,9 @@ func TestWorkingDirectory(t *testing.T) {
 		t.Fatal(err)
 	}
 	want, _ := filepath.EvalSymlinks(filepath.Join(h.dir, "svc"))
+	// Readiness sees the line in the log; its prefixed copy may come a
+	// moment later.
+	eventually(t, 2*time.Second, "the app's output", func() bool { return strings.HasSuffix(h.stdout.String(), "\n") })
 	got := strings.TrimSpace(strings.TrimPrefix(h.stdout.String(), "[api] pwd="))
 	if got, _ = filepath.EvalSymlinks(got); got != want {
 		t.Errorf("app ran in %q, want %q", got, want)
