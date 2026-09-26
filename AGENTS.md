@@ -57,6 +57,8 @@ the skills instead: `axx skills install`.
 - `cmd/axx` is the core only. Never import a pack from it: every pack, ours included, gets into
   axx through `axx-packs.yaml`, and pack dependencies stay out of the core binary.
 - Keep `CGO_ENABLED=0` builds working: pure-Go dependencies only.
+- CI runs the jobs a pull request needs, from the files it changes (`scripts/ci-changes.sh`).
+  A new kind of input to a job (a folder its tests read, say) goes there too.
 - The `hygiene` check (`scripts/hygiene.sh`) must pass; it blocks references to unrelated
   organizations and internal infrastructure.
 

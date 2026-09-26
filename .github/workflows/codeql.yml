@@ -11,8 +11,34 @@ on:
 permissions: {}
 
 jobs:
+  # A pull request analyzes the languages it changes (scripts/ci-changes.sh); pushes to main and
+  # the weekly run analyze them all. Go has no build-free mode: CodeQL's autobuild builds the
+  # module with the Go version go.mod asks for.
+  languages:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      matrix: ${{ steps.changes.outputs.codeql }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          fetch-depth: 2
+          persist-credentials: false
+      - id: changes
+        env:
+          EVENT: ${{ github.event_name }}
+        run: |
+          if [ "$EVENT" = pull_request ] && files=$(git diff --name-only HEAD^1 HEAD); then
+            printf '%s\n' "$files" | scripts/ci-changes.sh
+          else
+            scripts/ci-changes.sh --all
+          fi | tee -a "$GITHUB_OUTPUT"
+
   analyze:
     name: analyze (${{ matrix.language }})
+    needs: languages
+    if: needs.languages.outputs.matrix != '{"include":[]}'
     runs-on: ubuntu-latest
     permissions:
       actions: read # the run's details, which private and internal repositories do not expose otherwise
@@ -20,18 +46,7 @@ jobs:
       security-events: write
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          # Go has no build-free mode: CodeQL's autobuild builds the module with the Go version
-          # go.mod asks for.
-          - language: go
-            build-mode: autobuild
-          - language: javascript-typescript
-            build-mode: none
-          - language: java-kotlin
-            build-mode: none
-          - language: actions
-            build-mode: none
+      matrix: ${{ fromJSON(needs.languages.outputs.matrix) }}
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:

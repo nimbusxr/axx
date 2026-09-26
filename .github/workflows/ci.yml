@@ -14,6 +14,33 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  # Which jobs a pull request needs, from the files it changes (scripts/ci-changes.sh). Pushes
+  # to main and the merge queue run every job, and so does a change to CI itself.
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      go: ${{ steps.changes.outputs.go }}
+      integration: ${{ steps.changes.outputs.integration }}
+      web: ${{ steps.changes.outputs.web }}
+      examples: ${{ steps.changes.outputs.examples }}
+      workflows: ${{ steps.changes.outputs.workflows }}
+    steps:
+      # A pull request is checked out as its merge into the base branch, the merge's first
+      # parent: the two differ by what the pull request changes.
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          fetch-depth: 2
+          persist-credentials: false
+      - id: changes
+        env:
+          EVENT: ${{ github.event_name }}
+        run: |
+          if [ "$EVENT" = pull_request ] && files=$(git diff --name-only HEAD^1 HEAD); then
+            printf '%s\n' "$files" | scripts/ci-changes.sh
+          else
+            scripts/ci-changes.sh --all
+          fi | tee -a "$GITHUB_OUTPUT"
+
   hygiene:
     runs-on: ubuntu-latest
     steps:
@@ -29,6 +56,8 @@ jobs:
         run: gitleaks git --no-banner --redact .
 
   lint:
+    needs: changes
+    if: needs.changes.outputs.go == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
@@ -59,6 +88,8 @@ jobs:
           extra-paths: ~/.cache/golangci-lint
 
   test:
+    needs: changes
+    if: needs.changes.outputs.go == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -84,6 +115,8 @@ jobs:
           modules: ${{ runner.os != 'Linux' }}
 
   integration:
+    needs: changes
+    if: needs.changes.outputs.integration == 'true'
     # Packs against real services (PostgreSQL, MongoDB, Kafka, WireMock, the cloud emulators)
     # via testcontainers. It reads the test job's cache.
     runs-on: ubuntu-latest
@@ -109,6 +142,8 @@ jobs:
           go test -race -tags integration -timeout 20m "${packs[@]}" ./internal/engine/... ./internal/packbuild/...
 
   web:
+    needs: changes
+    if: needs.changes.outputs.web == 'true'
     # The web pack in Chromium, Firefox and WebKit, which it downloads on first use; the watching
     # test opens browser windows, on a virtual screen.
     runs-on: ubuntu-latest
@@ -122,13 +157,41 @@ jobs:
       - uses: ./.github/actions/go-cache
         with:
           build: test
+      # The browsers, and the Playwright driver, Node.js, axe-core and Lighthouse axx prepares,
+      # by their versions. Saved only on pushes to main, like Go's caches.
+      - id: web-tools
+        name: the versions of the web packs' downloads
+        run: |
+          versions=$({
+            grep -hE '(CoreVersion|NodeVersion|patchRevision|lighthouseVersion) *=|Name: "axe-core"' \
+              packs/web/internal/driver/*.go packs/web/lighthouse/install.go packs/web/a11y/a11y.go
+            sha256sum packs/web/lighthouse/npm/package-lock.json
+          } | sha256sum | cut -c1-16)
+          echo "key=web-tools-${RUNNER_OS}-${versions}" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cache/ms-playwright
+            ~/.cache/axx/web
+          key: ${{ steps.web-tools.outputs.key }}
       - name: the browsers' system libraries
         run: |
           version=$(sed -n 's/^\tCoreVersion = "\(.*\)"$/\1/p' packs/web/internal/driver/driver.go)
           sudo npx -y "playwright@$version" install-deps chromium firefox webkit
       - run: xvfb-run -a go test -race -tags integration -timeout 20m ./packs/web/...
+      - if: ${{ !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+        # A cache is an optimization: failing to save it fails nothing.
+        continue-on-error: true
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cache/ms-playwright
+            ~/.cache/axx/web
+          key: ${{ steps.web-tools.outputs.key }}
 
   cross-build:
+    needs: changes
+    if: needs.changes.outputs.go == 'true'
     # CGO_ENABLED=0 must keep working for every release target. Built with -trimpath like
     # GoReleaser, so release-check and the release dry run reuse this job's build cache.
     runs-on: ubuntu-latest
@@ -154,6 +217,8 @@ jobs:
           modules: "false"
 
   example-app:
+    needs: changes
+    if: needs.changes.outputs.examples == 'true'
     # The services the examples test are Go modules of their own.
     runs-on: ubuntu-latest
     strategy:
@@ -175,6 +240,8 @@ jobs:
       - run: golangci-lint run
 
   release-check:
+    needs: changes
+    if: needs.changes.outputs.go == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
@@ -190,8 +257,9 @@ jobs:
       - run: goreleaser check
       - run: GORELEASER_CURRENT_TAG=$(scripts/cli-tag.sh) goreleaser build --snapshot --clean --single-target
 
-  # Single required status check; keeps branch protection simple as jobs are added.
   workflows:
+    needs: changes
+    if: needs.changes.outputs.workflows == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
@@ -207,9 +275,11 @@ jobs:
       # Security audit of every workflow (template injection, permissions, pinning...).
       - run: uvx zizmor --offline --min-severity medium --format github .github/workflows
 
+  # Single required status check; keeps branch protection simple as jobs are added. A job a
+  # pull request does not need is skipped, which passes.
   ci-ok:
     if: always()
-    needs: [hygiene, lint, workflows, test, integration, web, cross-build, release-check]
+    needs: [changes, hygiene, lint, workflows, test, integration, web, cross-build, example-app, release-check]
     runs-on: ubuntu-latest
     steps:
       - name: all jobs passed
