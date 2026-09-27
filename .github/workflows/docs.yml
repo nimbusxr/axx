@@ -3,6 +3,10 @@ name: docs
 # Builds https://axx.nimbusxr.us from docs/. The reference pages, schemas and
 # skills are generated from the axx binary during the build (ADR 0005), so
 # changes to the Go code can change the site too.
+#
+# The site's root is the latest release's docs, built from its tag once and then
+# kept; main's are at /next/, each page with a banner saying so. A release asks
+# for a run (release.yml), so that its docs replace the ones before.
 on:
   pull_request:
     paths:
@@ -35,6 +39,8 @@ jobs:
         working-directory: docs
     env:
       ASTRO_TELEMETRY_DISABLED: "1"
+    outputs:
+      release: ${{ steps.release.outputs.tag }}
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
@@ -56,10 +62,23 @@ jobs:
           path: ~/.npm
           key: npm-docs-${{ hashFiles('docs/package-lock.json') }}
           restore-keys: npm-docs-
+      # The latest release, pre-releases included: its docs are the site's root, and main's
+      # lead to them.
+      - id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag=$(gh release list --repo "$GITHUB_REPOSITORY" --exclude-drafts --limit 50 --json tagName \
+            --jq '[.[] | select(.tagName | test("^v[0-9]"))][0].tagName')
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
       - run: npm ci
+      # This ref's docs, as main's at /next/: a pull request's are checked the same way.
       # prebuild runs scripts/gen.mjs: go build, axx docs export, skills, schemas.
       # It fails if any generated reference comes out empty.
       - run: npm run build
+        env:
+          AXX_DOCS_CHANNEL: next
+          AXX_DOCS_RELEASE: ${{ steps.release.outputs.tag }}
       # Every ```gherkin block must parse and use real steps (see the script header).
       - run: npm run check:gherkin
       - if: ${{ !cancelled() }}
@@ -74,10 +93,51 @@ jobs:
         with:
           path: ~/.npm
           key: npm-docs-${{ hashFiles('docs/package-lock.json') }}
+
+      # The root: the latest release's docs, built from its tag once and then kept.
+      - if: github.event_name != 'pull_request' && steps.release.outputs.tag != ''
+        id: release-docs
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: docs-release
+          key: docs-release-${{ steps.release.outputs.tag }}
+      - if: github.event_name != 'pull_request' && steps.release.outputs.tag != '' && steps.release-docs.outputs.cache-hit != 'true'
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: ${{ steps.release.outputs.tag }}
+          path: release
+          persist-credentials: false
+      - if: github.event_name != 'pull_request' && steps.release.outputs.tag != '' && steps.release-docs.outputs.cache-hit != 'true'
+        working-directory: release/docs
+        env:
+          AXX_DOCS_CHANNEL: latest
+          AXX_DOCS_RELEASE: ${{ steps.release.outputs.tag }}
+        run: |
+          npm ci
+          npm run build
+          mv dist "$GITHUB_WORKSPACE/docs-release"
+      - if: github.event_name != 'pull_request' && steps.release.outputs.tag != '' && steps.release-docs.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        continue-on-error: true
+        with:
+          path: docs-release
+          key: docs-release-${{ steps.release.outputs.tag }}
+      - if: github.event_name != 'pull_request'
+        name: the site, the release's docs with main's at /next/
+        working-directory: .
+        run: |
+          if [ ! -d docs-release ]; then
+            echo "::error::no release to put at the site's root"
+            exit 1
+          fi
+          mkdir site
+          cp -R docs-release/. site/
+          mkdir site/next
+          cp -R docs/dist/. site/next/
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5
         if: github.event_name != 'pull_request'
         with:
-          path: docs/dist
+          path: site
           # .well-known/agent-skills/index.json is a dot-directory.
           include-hidden-files: true
 
@@ -87,6 +147,7 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     permissions:
+      contents: read
       pages: write
       id-token: write
     environment:
@@ -96,5 +157,20 @@ jobs:
       group: pages
       cancel-in-progress: false
     steps:
-      - id: deployment
+      # A run that began before a release would put the release before it at the root: the
+      # run the release asks for deploys the site with it instead.
+      - id: current
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUILT: ${{ needs.build.outputs.release }}
+        run: |
+          tag=$(gh release list --repo "$GITHUB_REPOSITORY" --exclude-drafts --limit 50 --json tagName \
+            --jq '[.[] | select(.tagName | test("^v[0-9]"))][0].tagName')
+          if [ "$tag" = "$BUILT" ]; then
+            echo "deploy=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::$tag was released after this site was built with $BUILT: the run it asked for deploys it"
+          fi
+      - if: steps.current.outputs.deploy == 'true'
+        id: deployment
         uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5

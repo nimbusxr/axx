@@ -188,6 +188,10 @@ h1, h2, h3 { font-weight: 550; letter-spacing: -0.045em; }
 .axe-header-tools button[data-open-modal] { width: 11rem; height: 2.25rem; border: 1px solid var(--sl-color-gray-5); background: var(--axx-surface); border-radius: 6px; font-size: 0.75rem; }
 .github-link { display: flex; align-items: center; gap: 0.55rem; white-space: nowrap; }
 .github-link > span:last-child { color: var(--axx-arrow); }
+.version-switch { display: flex; align-items: center; gap: 0.55rem; font-size: 0.8rem; white-space: nowrap; }
+.version-switch .version-current { color: var(--axx-muted); }
+.version-switch a { color: var(--axx-link); text-decoration: none; transition: color 160ms; }
+.version-switch a:hover { color: var(--sl-color-white); }
 axx-theme-toggle:not([hidden]) { display: inline-flex; flex-shrink: 0; }
 .theme-toggle { display: grid; place-items: center; width: 2.75rem; height: 2.75rem; padding: 0; border: 0; border-radius: 6px; background: transparent; color: var(--axx-home-link); cursor: pointer; }
 .theme-toggle:hover { color: var(--sl-color-white); background: var(--axx-surface-hover); }

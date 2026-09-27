@@ -2,16 +2,19 @@
 import Search from '@astrojs/starlight/components/Search.astro';
 import SiteTitle from '@astrojs/starlight/components/SiteTitle.astro';
 import ThemeSelect from './ThemeSelect.astro';
+import VersionSwitch from './VersionSwitch.astro';
 import { Icon } from '@astrojs/starlight/components';
+import { withBase } from '../lib/docs-build';
 
-const isHome = Astro.url.pathname === '/';
+const isHome = Astro.url.pathname === withBase('/');
 ---
 
 {isHome ? (
 	<div class="home-header">
-		<div class="home-brand"><a class="home-wordmark" href="/" aria-label="axx home">axx</a><span class="beta-tag">beta</span></div>
+		<div class="home-brand"><a class="home-wordmark" href={withBase('/')} aria-label="axx home">axx</a><span class="beta-tag">beta</span></div>
 		<nav aria-label="Main navigation">
-			<a href="/explanations/why-axx/">docs</a>
+			<a href={withBase('/explanations/why-axx/')}>docs</a>
+			<VersionSwitch home />
 			<a href="https://github.com/nimbusxr/axx">github <span aria-hidden="true">↗</span></a>
 			<ThemeSelect />
 		</nav>
@@ -20,6 +23,7 @@ const isHome = Astro.url.pathname === '/';
 	<div class="axe-header">
 		<div class="axe-brand"><span class="brand-name"><SiteTitle /><span class="beta-tag">beta</span></span><span class="brand-divider" aria-hidden="true"></span><span class="brand-caption">docs</span></div>
 		<div class="axe-header-tools">
+			<VersionSwitch />
 			<Search />
 			<ThemeSelect />
 			<a class="github-link" href="https://github.com/nimbusxr/axx" aria-label="axx on GitHub"><Icon name="github" size="1.2rem" /><span>GitHub</span><span aria-hidden="true">↗</span></a>
