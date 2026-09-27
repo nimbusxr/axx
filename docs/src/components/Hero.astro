@@ -2,7 +2,8 @@
 import Default from '@astrojs/starlight/components/Hero.astro';
 import AsciiAxe from './AsciiAxe.astro';
 import PoseEditor from './PoseEditor.astro';
-const isHome = Astro.url.pathname === '/';
+import { withBase } from '../lib/docs-build';
+const isHome = Astro.url.pathname === withBase('/');
 ---
 
 {isHome ? (

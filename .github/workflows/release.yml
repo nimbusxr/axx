@@ -129,6 +129,19 @@ jobs:
             echo "intellij_version=$(version ide/intellij)"
           } >> "$GITHUB_OUTPUT"
 
+  docs:
+    # The site's root is the latest release's docs: a new release asks for a docs run, which
+    # builds them from its tag (docs.yml). A run started with this token is one GitHub allows.
+    needs: release-please
+    if: needs.release-please.outputs.dry-run == 'false' && needs.release-please.outputs.axx == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run docs.yml --repo "$GITHUB_REPOSITORY" --ref main
+
   # The CLI: binaries, archives, checksums, SBOMs, signatures, images, Homebrew cask.
   goreleaser:
     needs: release-please

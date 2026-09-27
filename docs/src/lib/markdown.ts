@@ -1,10 +1,14 @@
 import type { CollectionEntry } from 'astro:content';
+import { docs, withBase } from './docs-build';
 
 export const SITE = 'https://axx.nimbusxr.us';
 
+/** Where this build's pages are: the root, or /next/ for main's docs. */
+const ROOT = SITE + docs.base.replace(/\/$/, '');
+
 /** Path of the Markdown twin of a docs page: `/tutorials/quickstart.md`, `/index.md`. */
 export function markdownPath(id: string): string {
-	return `/${id || 'index'}.md`;
+	return withBase(`/${id || 'index'}.md`);
 }
 
 /**
@@ -25,7 +29,7 @@ function mdxToMarkdown(body: string): string {
 
 /** Makes root-relative links absolute so the Markdown works outside the site. */
 function absolutize(body: string): string {
-	return body.replace(/\]\(\/(?!\/)/g, `](${SITE}/`);
+	return body.replace(/\]\(\/(?!\/)/g, `](${ROOT}/`);
 }
 
 /** The Markdown twin: title, description and the page source. */
@@ -42,8 +46,10 @@ export function toMarkdown(entry: CollectionEntry<'docs'>): string {
 	const parts = [`# ${title}`];
 	if (description) parts.push(`> ${description}`);
 	if (hero?.tagline) parts.push(hero.tagline);
-	if (hero?.actions?.length) parts.push(hero.actions.map((a) => `- [${a.text}](${a.link})`).join('\n'));
-	parts.push(`Source: ${SITE}${entry.id === 'index' ? '/' : `/${entry.id}/`}`);
+	// The home page's links are relative to it: from the site's root here.
+	const rooted = (link: string) => (/^[a-z]+:|^\//i.test(link) ? link : `/${link}`);
+	if (hero?.actions?.length) parts.push(hero.actions.map((a) => `- [${a.text}](${rooted(a.link)})`).join('\n'));
+	parts.push(`Source: ${ROOT}${entry.id === 'index' ? '/' : `/${entry.id}/`}`);
 	parts.push(body.trim());
 	return absolutize(parts.join('\n\n')) + '\n';
 }

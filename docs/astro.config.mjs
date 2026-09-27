@@ -8,11 +8,17 @@ import starlightLinksValidator from 'starlight-links-validator';
 import starlightLlmsTxt from 'starlight-llms-txt';
 import { axxConsole } from './src/lib/axx-console.mjs';
 import { axxGherkinSteps } from './src/lib/axx-gherkin.mjs';
+import { docsBuild, siteBase } from './src/lib/site-base.mjs';
 import { stepParams } from './src/lib/step-params.mjs';
 import { stepTokensPlugin } from './src/lib/step-tokens-plugin.mjs';
 import { poseEditor } from './scripts/pose-editor.mjs';
 
 const site = 'https://axx.nimbusxr.us';
+
+// The latest release's docs, at the root, or main's, at /next/ (src/lib/site-base.mjs).
+const build = docsBuild();
+/** A site-absolute path below the base. */
+const at = (path) => build.base.replace(/\/$/, '') + path;
 
 /** Where the parameter values of the docs' steps are (scripts/step-tokens.mjs). */
 const stepTokens = fileURLToPath(new URL('./src/lib/_gen/step-tokens.json', import.meta.url));
@@ -31,10 +37,12 @@ const movedPacks = [
 
 export default defineConfig({
 	site,
+	base: build.base,
 	trailingSlash: 'ignore',
-	redirects: Object.fromEntries(movedPacks.map((name) => [`/references/steps/${name}`, `/references/packs/${name === 'web' ? 'web-core' : name}`])),
-	vite: { plugins: [poseEditor()] },
-	markdown: { processor: satteri({ mdastPlugins: [stepParams(stepTokens)] }) },
+	// Astro puts a redirect below the base, but not where it leads.
+	redirects: Object.fromEntries(movedPacks.map((name) => [`/references/steps/${name}`, at(`/references/packs/${name === 'web' ? 'web-core' : name}`)])),
+	vite: { plugins: [poseEditor()], define: { __AXX_DOCS__: JSON.stringify(build) } },
+	markdown: { processor: satteri({ mdastPlugins: [stepParams(stepTokens), siteBase(build.base)] }) },
 	integrations: [
 		starlight({
 			title: 'axx',
@@ -180,11 +188,13 @@ export default defineConfig({
 			head: [
 				{ tag: 'meta', attrs: { name: 'theme-color', content: '#080808' } },
 				{ tag: 'meta', attrs: { name: 'color-scheme', content: 'dark light' } },
-				{ tag: 'link', attrs: { rel: 'preload', href: '/fonts/inter-latin.woff', as: 'font', type: 'font/woff', crossorigin: 'anonymous' } },
+				{ tag: 'link', attrs: { rel: 'preload', href: at('/fonts/inter-latin.woff'), as: 'font', type: 'font/woff', crossorigin: 'anonymous' } },
 				{
 					tag: 'link',
-					attrs: { rel: 'alternate', type: 'text/plain', title: 'llms.txt', href: '/llms.txt' },
+					attrs: { rel: 'alternate', type: 'text/plain', title: 'llms.txt', href: at('/llms.txt') },
 				},
+				// Main's docs are a preview: search engines keep to the release's.
+				...(build.channel === 'next' ? [{ tag: 'meta', attrs: { name: 'robots', content: 'noindex' } }] : []),
 			],
 			sidebar: [
 				{
@@ -270,8 +280,13 @@ export default defineConfig({
 			],
 			plugins: [
 				starlightLinksValidator({
-					// Files served from public/ (schemas, skills, llms.txt) are not pages.
-					exclude: ['/schemas/**', '/skills/**', '/.well-known/**', '/llms.txt', '/llms-full.txt', '/llms-small.txt', '/**/*.md', '/index.md'],
+					// Files served from public/ (schemas, skills, llms.txt) are not pages. And the
+					// home page's hero links, which are relative to it to be right in the release's
+					// docs and in main's (/next/): front matter is not rebased.
+					exclude: [
+						'/schemas/**', '/skills/**', '/.well-known/**', '/llms.txt', '/llms-full.txt', '/llms-small.txt', '/**/*.md', '/index.md',
+						'explanations/why-axx/', 'references/step-index/',
+					],
 				}),
 				starlightLlmsTxt({
 					projectName: 'Axx',

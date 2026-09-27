@@ -1,0 +1,24 @@
+---
+import { docs, withoutBase } from '../lib/docs-build';
+
+// Which docs these are, and a link to the same page in the others: the
+// latest release's at the root, main's at /next/.
+const page = withoutBase(Astro.url.pathname);
+const release = docs.release || 'latest';
+const current = docs.channel === 'next' ? 'next' : release;
+const other =
+	docs.channel === 'next'
+		? { label: release, href: page, title: `The docs of ${release}, the latest release` }
+		: { label: 'next', href: `/next${page}`, title: 'The docs of main, not yet released' };
+const { home = false } = Astro.props;
+---
+
+{docs.channel && (home ? (
+	<a href={other.href} title={other.title}>{other.label}</a>
+) : (
+	<span class="version-switch">
+		<span class="version-current" title="These docs">{current}</span>
+		<span class="brand-divider" aria-hidden="true"></span>
+		<a href={other.href} title={other.title}>{other.label}</a>
+	</span>
+))}
