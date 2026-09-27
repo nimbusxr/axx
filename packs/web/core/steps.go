@@ -536,9 +536,41 @@ func clickStep(id string, k kind, expr, verb, doc, example string, do func(playw
 	return core.StepDef{
 		ID: id, Keyword: "When", Since: since, Expr: expr, Doc: doc, Examples: []string{example},
 		Run: action(func(sc *core.Scenario, s *session, a core.Args) error {
-			return act(sc, s, k, text(sc, a, 0), verb, do)
+			return act(sc, s, k, text(sc, a, 0), verb, func(l playwright.Locator) error { return s.click(l, do) })
 		}),
 	}
+}
+
+// opensTab is whether clicking an element opens a new browser tab: it is in
+// a link, or is a form's submit button, aimed at another tab (a target other
+// than _self, _parent and _top). A link that downloads opens none.
+const opensTab = `el => {
+  const other = t => !!t && !['_self', '_parent', '_top'].includes(t.toLowerCase());
+  const link = el.closest('a[href], area[href]');
+  if (link) return !link.hasAttribute('download') && other(link.target);
+  const submit = el.closest('button, input');
+  return !!submit && !!submit.form && ['submit', 'image'].includes(submit.type) &&
+    other(submit.getAttribute('formtarget') || submit.form.target);
+}`
+
+// click clicks an element. One that opens a new browser tab waits for the
+// tab, which is the current tab when the step ends: the browser reports a
+// new tab after the click returns, and the next step must not act on the
+// tab before it.
+func (s *session) click(l playwright.Locator, do func(playwright.Locator) error) error {
+	opens, err := l.Evaluate(opensTab, nil)
+	if yes, _ := opens.(bool); err != nil || !yes {
+		return do(l)
+	}
+	pg, err := s.page()
+	if err != nil {
+		return err
+	}
+	var clicked error
+	if _, err := pg.ExpectPopup(func() error { clicked = do(l); return clicked }); err != nil && clicked == nil {
+		return fmt.Errorf("it opens a new browser tab, and none opened: %s", firstLine(err))
+	}
+	return clicked
 }
 
 func enabledStep(id string, k kind, state string, enabled bool, example string) core.StepDef {

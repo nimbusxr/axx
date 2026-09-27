@@ -98,6 +98,12 @@ func TestAParcelPageInEveryEngine(t *testing.T) {
 			h.OK(`the "Download the customs invoice" link is clicked`)
 			h.OK(`the downloaded "INV-6001.pdf" file contains "Parcel: PX-CUS-6001"`)
 
+			// A new browser tab is the current tab once the link is clicked:
+			// closing it right away closes it, not the page it came from.
+			h.OK(`the "Track on the carrier's site" link is clicked`)
+			h.OK(`the browser tab is closed`)
+			h.OK(`the "/parcel.html" page is shown`)
+
 			// A new browser tab, followed and closed.
 			h.OK(`the "Track on the carrier's site" link is clicked`)
 			h.OK(`the "/track.html?ref=PX-4101" page is shown`)
