@@ -144,7 +144,7 @@ jobs:
       # The services' images and the race-detector builds need more disk than a runner has
       # free: remove toolchains the job never uses, in the background while the job sets up.
       - name: free disk space (in the background)
-        run: (for d in /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL /usr/share/swift; do sudo rm -rf "$d" & done; wait; touch "$RUNNER_TEMP/disk-freed") > /dev/null 2>&1 &
+        run: (sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL /usr/share/swift; touch "$RUNNER_TEMP/disk-freed") > /dev/null 2>&1 &
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           persist-credentials: false
