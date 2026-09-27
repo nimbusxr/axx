@@ -99,7 +99,7 @@ func (a *App) ensurePacks(ctx context.Context, cmd *cobra.Command) error {
 // reexec replaces this process with bin, keeping the arguments. On Windows
 // it runs bin as a child and exits with its code.
 func reexec(bin string) error {
-	env := append(os.Environ(), envPackBuild+"=1")
+	env := append(os.Environ(), envPackBuild+"=1", version.EnvLauncher+"="+version.Get().Version)
 	if runtime.GOOS != "windows" {
 		return syscall.Exec(bin, append([]string{bin}, os.Args[1:]...), env)
 	}
