@@ -47,6 +47,10 @@ type jsonSchemaDoc struct {
 	document *jsonx.Object
 	oracle   *jsonschema.Schema
 	name     string
+	// files are the local schema files bundled into document
+	// (jsonschema_bundle.go), under its defs keyword.
+	files bundled
+	defs  string
 }
 
 func loadJSONSchemaDoc(baseDir, ref string) (*jsonSchemaDoc, error) {
@@ -75,6 +79,10 @@ func loadJSONSchemaDoc(baseDir, ref string) (*jsonSchemaDoc, error) {
 	if t, ok := get(doc, "title").(string); ok {
 		name = t
 	}
+	files, err := bundleLocalRefs(doc, path, ref)
+	if err != nil {
+		return nil, err
+	}
 	c := jsonschema.NewCompiler()
 	c.DefaultDraft(jsonschema.Draft2020)
 	abs, _ := filepath.Abs(path)
@@ -86,7 +94,7 @@ func loadJSONSchemaDoc(baseDir, ref string) (*jsonSchemaDoc, error) {
 	if err != nil {
 		return nil, schemaError("cannot compile JSON Schema %s: %v", ref, err)
 	}
-	return &jsonSchemaDoc{document: doc, oracle: oracle, name: name}, nil
+	return &jsonSchemaDoc{document: doc, oracle: oracle, name: name, files: files, defs: defsKeyword(doc)}, nil
 }
 
 // toSchemaValue converts the value model to what the jsonschema package
@@ -115,7 +123,7 @@ func toSchemaValue(v any) any {
 
 // validationMessages flattens a jsonschema validation error into one line
 // per leaf failure: "<instance location>: <message>".
-func validationMessages(err error) []string {
+func validationMessages(err error, schemaFile func(schemaURL string) string) []string {
 	var ve *jsonschema.ValidationError
 	if !errors.As(err, &ve) {
 		return []string{err.Error()}
@@ -128,7 +136,11 @@ func validationMessages(err error) []string {
 			for _, seg := range e.InstanceLocation {
 				loc += "/" + seg
 			}
-			out = append(out, loc+": "+e.ErrorKind.LocalizedString(printer))
+			msg := loc + ": " + e.ErrorKind.LocalizedString(printer)
+			if f := schemaFile(e.SchemaURL); f != "" {
+				msg += " (" + f + ")"
+			}
+			out = append(out, msg)
 			return
 		}
 		for _, c := range e.Causes {
@@ -145,9 +157,15 @@ func (d *jsonSchemaDoc) validate(data []byte, fixtureName string) error {
 		return genError("%s is not valid JSON: %v", fixtureName, err)
 	}
 	if err := d.oracle.Validate(inst); err != nil {
-		return genError("%s does not conform to %s:\n  %s", fixtureName, d.name, strings.Join(validationMessages(err), "\n  "))
+		return genError("%s does not conform to %s:\n  %s", fixtureName, d.name, strings.Join(validationMessages(err, d.schemaFile), "\n  "))
 	}
 	return nil
+}
+
+// schemaFile is the local schema file a failing rule comes from, when it is
+// not the governing schema itself.
+func (d *jsonSchemaDoc) schemaFile(schemaURL string) string {
+	return d.files.fileOf(schemaURL, d.defs)
 }
 
 func (d *jsonSchemaDoc) resolve(tree, defaults *jsonx.Object, key, source string, unresolved *[]string) (*jsonx.Object, error) {
@@ -321,7 +339,7 @@ func (d *jsonSchemaDoc) object(schema, values *jsonx.Object, path string, w *jso
 			}
 			node.Set(name, v)
 		} else if required[name] {
-			*w.unresolved = append(*w.unresolved, "field '"+fieldPath+"' (required by "+d.name+") in fixtures."+w.key+" ("+w.source+")")
+			*w.unresolved = append(*w.unresolved, "field '"+fieldPath+"' (required by "+d.ruleSource(schema)+") in fixtures."+w.key+" ("+w.source+")")
 		}
 	}
 	if remaining.Len() > 0 {
@@ -480,7 +498,24 @@ func guardEnum(schema *jsonx.Object, value any, path string, w *jsonWalk) error 
 			return nil
 		}
 	}
-	return genError("'%s' = \"%s\" is not one of %s%s", path, s, javaListString(allowed), w.suffix())
+	from := ""
+	if f, ok := get(schema, schemaFileMarker).(string); ok && f != "" {
+		from = " (by " + f + ")"
+	}
+	return genError("'%s' = \"%s\" is not one of %s%s%s", path, s, javaListString(allowed), from, w.suffix())
+}
+
+// schemaFileMarker notes, on a merged view, the bundled schema file its
+// rules come from, for messages.
+const schemaFileMarker = "x-axx-schema-file"
+
+// ruleSource names what a merged schema view's rules come from: a bundled
+// schema file, or the governing schema.
+func (d *jsonSchemaDoc) ruleSource(schema *jsonx.Object) string {
+	if f, ok := get(schema, schemaFileMarker).(string); ok && f != "" {
+		return f
+	}
+	return d.name
 }
 
 // effective is the merged view of a schema node: internal $refs resolved
@@ -501,7 +536,8 @@ func (d *jsonSchemaDoc) mergeInto(out *jsonx.Object, node any, seen map[string]b
 	}
 	if ref, ok := get(n, "$ref").(string); ok {
 		if !strings.HasPrefix(ref, "#") {
-			return schemaError("%s: external $ref '%s' is not supported - inline the schema", d.name, ref)
+			// Bundling (jsonschema_bundle.go) makes every reference internal.
+			return schemaError("%s: $ref '%s' could not be resolved", d.name, ref)
 		}
 		if seen[ref] {
 			return schemaError("%s: $ref cycle through '%s'", d.name, ref)
@@ -513,6 +549,9 @@ func (d *jsonSchemaDoc) mergeInto(out *jsonx.Object, node any, seen map[string]b
 		}
 		if err := d.mergeInto(out, target, seen); err != nil {
 			return err
+		}
+		if f := d.files.fileOf(ref, d.defs); f != "" {
+			out.Set(schemaFileMarker, f)
 		}
 	}
 	if all, ok := get(n, "allOf").([]any); ok {
