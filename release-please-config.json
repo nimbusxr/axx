@@ -7,8 +7,6 @@
   "packages": {
     ".": {
       "release-type": "go",
-      "package-name": "axx",
-      "component": "axx",
       "include-component-in-tag": false,
       "exclude-paths": [
         "extensions",
