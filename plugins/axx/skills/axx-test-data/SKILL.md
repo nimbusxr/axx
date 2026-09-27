@@ -119,7 +119,7 @@ A reference sees the fixture as it is generated: its prototype, its defaults and
 
 ## Identities
 
-An identity is a field whose value must be unique across every fixture of every factory: a parcel reference, a scan id, a manifest line id.
+An identity is a field that tells fixtures apart: a parcel reference, a scan id, a manifest line id. No two fixtures, of any factories, have the same value in identity fields of the same name (the path's last field).
 
 ```yaml
 identity:
@@ -130,7 +130,8 @@ identity:
 - A fixture that sets the value pins it (`PX-WEB-5141`). One that leaves it out gets one derived from its name (`PX-WEB-portal-track`): unique by construction.
 - `derive: authored` requires every fixture to set its own value and only enforces uniqueness.
 - `format: uuid-name-based` derives a UUID (version 5) from the name, for fields that must hold a UUID. `qualifier` tells several identities of one fixture apart.
-- Two fixtures with one value fail generation (`AXX-E0902`) and name both.
+- Two fixtures with one value in fields of one name fail generation (`AXX-E0902`) and name both. Fields of different names, and two identities of one fixture, may share a value.
+- `namespace:` compares identities by what they identify instead of by field name: different namespaces keep fields of one name apart (a depot's `id` and a shop's `id`), and one namespace compares fields of different names.
 
 For the families that generate JSON (`avro`, `json`, `protobuf`), each identity also becomes a lint rule in `axx-lint.generated.yaml`, covering the factory's output directories, so hand-written files next to them are checked too. Pull the rules into `axx lint` once the file exists (an include that is missing is an error):
 
