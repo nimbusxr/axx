@@ -4,7 +4,7 @@ A complete acceptance suite for a realistic service. **Parcels** is a parcel-del
 service written in Go: shops ask it for price quotes, register parcels through its API or
 its shop portal, or upload them in bulk as manifests, and follow them through the depots. It stores parcels in
 PostgreSQL, keeps a tracking read model in MongoDB, checks every address with a downstream
-address service, talks to the depots over Kafka, and writes each imported manifest's
+address service, books express collections and pickups with a courier, talks to the depots over Kafka, and writes each imported manifest's
 documents to an export folder.
 
 Axx tests it black-box: it starts the service and its infrastructure with Docker Compose,
@@ -16,7 +16,7 @@ The service has no dependency on Axx or on any test framework.
 | Feature | Acceptance criteria | What Axx uses |
 | --- | --- | --- |
 | `quotes` | prices by service level, weight, destination and delivery zone; no quote for undeliverable postcodes; undocumented fields from the address service do not break quoting | requests built from the OpenAPI examples, a Scenario Outline, a mocked dependency, a dependency's contract relaxed for one scenario |
-| `register-parcels` | register, look up, change, cancel and list parcels; unique references; the 30 kg limit; signed labels | OpenAPI validation and its levels, ordered requests, null and undefined properties, regular expressions, SQL selections |
+| `register-parcels` | register, look up, change, cancel and list parcels; a shop's order system registers what it exports; the courier collects an express parcel without the recipient's name; unique references; the 30 kg limit; signed labels | OpenAPI validation and its levels, ordered requests, payloads from a fixture factory's files, the JSON body a mock received (a property that must be absent included), null and undefined properties, regular expressions, SQL selections |
 | `address-check` | every registration asks the address service with the API key; undeliverable and unavailable addresses | WireMock verification, the address service's OpenAPI contract checked on every call, entries in two logs (the service's and the mock's) |
 | `manifest-import` | manifest lines become parcels or are rejected with the reason | YAML, flat XML and CSV seeds, polling selections, JSON and JSONB column checks, entries in the console log |
 | `manifest-documents` | an imported manifest's report, summary and handover note land in the export folder | a folder the service writes to, the rows of a CSV file and of a workbook, a file compared byte for byte, JSON properties, the text of a PDF |
@@ -26,7 +26,7 @@ The service has no dependency on Axx or on any test framework.
 | `registration-events` | every registered parcel is announced as a ParcelRegistered event, and a refused one is not | consuming Avro events through the Schema Registry, a log entry that proves an event was not published |
 | `shop-portal` | the portal's quotes and registration form, a shop's parcels, phones, pickup times, sessions and going offline | a web app in real browsers (Chromium, and WebKit as an iPhone), forms, an upload, a download, the browser's clock and connection, a session to start with, selectors, screenshots, accessibility audits and Lighthouse scores; the registered parcel checked in the database and on Kafka |
 | `portal-parcels` | a parcel's page: its label, its tracking page, cancelling it, reporting a problem, times in the shop's time zone | menus, dialogs, a new browser tab, a downloaded label compared byte for byte, tabs, a locale and a time zone |
-| `portal-planning` | planning a parcel's pickup, when it cannot be planned, and a shop's settings | drag and drop, requests that fail or answer with an error, several options chosen, an upload, the rows the portal wrote |
+| `portal-planning` | planning a parcel's pickup, the courier told of it, when it cannot be planned, and a shop's settings | drag and drop, the form fields a mock received, requests that fail or answer with an error, several options chosen, an upload, the rows the portal wrote |
 | `portal-tracking` | the recipient's tracking page: when the parcel arrives, and its depot scans as they happen | requests answered with a file, a recording or late, a slow connection, websocket messages, a Kafka event the page shows |
 
 `axx.yaml` also shows test-data lint rules (`axx lint`), fixture factories (`axx fixtures`)
@@ -39,8 +39,9 @@ parcels/
   app/          the system under test: a Go module with its Dockerfile
   infra/        compose.yaml plus the files the containers mount
     postgres/       the database schema (the seeds must match it)
-    openapi/        the address service's OpenAPI contract
+    openapi/        the OpenAPI contracts of the address service and the courier
     wiremock/       the address service mock: mappings and response bodies
+    courier/        the courier mock's mappings
     exports/        what the service writes to its export folder during a run (not committed)
   acceptance/   the Axx project
     axx.yaml        run settings, the app definition, the packs' settings, lint rules, fixture settings
@@ -54,6 +55,7 @@ parcels/
     screenshots/    how the portal's pages look, on Linux and on macOS
     network/        answers for the tracking page's requests: a file, and a recording of the service
     kafka/          depot scan events (generated from a factory)
+    requests/       registration requests an order system exports (generated from a factory)
     schemas/        Avro schemas
 ```
 
@@ -126,6 +128,7 @@ browser at it. The host ports are the ones the features use:
 | --- | --- | --- | --- |
 | `app` | built from `../app` | 8400 | the parcels API under `/api`, the shop portal under `/portal`, OpenAPI at `/openapi.json`, health at `/health` |
 | `address-service` | built from `extensions/wiremock-openapi` | 8081 | WireMock with Axx's OpenAPI validation extension: the mocked address service |
+| `courier` | built from `extensions/wiremock-openapi` | 8082 | the mocked courier, checked against `openapi/courier.yaml`: express collections (JSON) and pickups (a form) |
 | `postgres` | `postgres:16` | 5432 | parcels, manifest lines, pickups and shops' settings |
 | `mongo` | `mongo:7` | 27017 | depot scans and the tracking read model |
 | `kafka` | `apache/kafka-native:3.9.1` | 9092 | single-node KRaft broker |
@@ -160,6 +163,7 @@ published ports on `localhost`, which is what you want when running it on the ho
 | `PARCELS_DB_URL` | `postgres://parcels:parcels@localhost:5432/parcels?sslmode=disable` | `...@postgres:5432/parcels?sslmode=disable` |
 | `PARCELS_MONGO_URI` | `mongodb://parcels:parcels@localhost:27017/?authSource=admin` | `...@mongo:27017/?authSource=admin` |
 | `PARCELS_ADDRESS_URL` | `http://localhost:8081` | `http://address-service:8080` |
+| `PARCELS_COURIER_URL` | `http://localhost:8082` | `http://courier:8080` |
 | `PARCELS_KAFKA_BROKERS` | `localhost:9092` | `kafka:9094` |
 | `PARCELS_SCHEMA_REGISTRY_URL` | `http://localhost:9081` | `http://schema-registry:8081` |
 | `PARCELS_EXPORT_DIR` | `../infra/exports` | `/var/lib/parcels/exports`, mounted from `./exports` |

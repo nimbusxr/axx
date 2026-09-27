@@ -225,3 +225,22 @@ func TestInterpolatedURLAndPathPrefix(t *testing.T) {
 		t.Fatalf("count calls = %d", fw.counts)
 	}
 }
+
+func TestBodyAndFormPatterns(t *testing.T) {
+	p := &pattern{Method: "POST", URL: "/v1/collections"}
+	p.withProperty("reference", bodyValue("PX-REG-1401"))
+	p.withProperty("$.deliverTo.postcode", bodyValue(`"10115"`))
+	p.withProperty("recipient", bodyValue("undefined"))
+	p.withProperty("reference", bodyValue("PX-REG-1402")) // a later check of a property replaces the earlier one
+	p.withField("day", bodyValue("Friday"))
+	p.withField("shop", bodyValue("undefined"))
+	got := string(mustJSON(p))
+	want := `{"method":"POST","url":"/v1/collections",` +
+		`"formParameters":{"day":{"equalTo":"Friday"},"shop":{"absent":true}},` +
+		`"bodyPatterns":[{"matchesJsonPath":{"expression":"$.reference","equalTo":"PX-REG-1402"}},` +
+		`{"matchesJsonPath":{"expression":"$.deliverTo.postcode","equalTo":"10115"}},` +
+		`{"matchesJsonPath":{"expression":"$.recipient","absent":true}}]}`
+	if got != want {
+		t.Errorf("pattern\n got %s\nwant %s", got, want)
+	}
+}

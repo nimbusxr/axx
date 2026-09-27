@@ -1,6 +1,10 @@
 package main
 
 import (
+	"context"
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
@@ -120,5 +124,33 @@ func TestPortalPagesRender(t *testing.T) {
 		if _, msg := portalWeight(v); msg != want {
 			t.Errorf("portalWeight(%q) = %q, want %q", v, msg, want)
 		}
+	}
+}
+
+// The courier gets a JSON booking without the recipient's name or street,
+// and a form for a pickup.
+func TestCourierRequests(t *testing.T) {
+	var got []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		got = append(got, r.Method+" "+r.URL.Path+" "+r.Header.Get("Content-Type")+" "+string(body))
+		w.WriteHeader(http.StatusCreated)
+	}))
+	defer srv.Close()
+	c := &courierClient{base: srv.URL, http: srv.Client()}
+	p := &Parcel{Reference: "PX-REG-1401", WeightGrams: 800, ServiceLevel: "EXPRESS",
+		Recipient: Recipient{Name: "Ada Lovelace", Street: "Invalidenstrasse 116", Postcode: "10115", Country: "DE"}}
+	if err := c.book(context.Background(), p); err != nil {
+		t.Fatal(err)
+	}
+	if err := c.pickup(context.Background(), "PX-WEB-5401", "Friday"); err != nil {
+		t.Fatal(err)
+	}
+	want := []string{
+		`POST /v1/collections application/json {"reference":"PX-REG-1401","weightGrams":800,"deliverTo":{"postcode":"10115","country":"DE"}}`,
+		"POST /v1/pickups application/x-www-form-urlencoded day=Friday&reference=PX-WEB-5401",
+	}
+	if strings.Join(got, "\n") != strings.Join(want, "\n") {
+		t.Errorf("requests\n%s\nwant\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
 	}
 }

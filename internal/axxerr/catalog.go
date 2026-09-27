@@ -174,8 +174,8 @@ func init() {
 		"The app's process group did not exit after SIGTERM, the grace period and SIGKILL.",
 		"Look for processes that detach from their group; `axx down` retries using the state file.")
 	add("AXX-E0411", env, "App cleanup failed",
-		"The app's `cleanup` command exited non-zero. The run still completed; this is reported so leaks are visible.",
-		"Run the cleanup command by hand to see its output.")
+		"The app's `cleanup` command exited non-zero. The run still completed; this is reported so leaks are visible. The state file keeps the cleanup, and runs refuse to start apps until it succeeds (AXX-E0415).",
+		"Fix what made it fail (its output is above), then run `axx down`: it runs the cleanup again.")
 	add("AXX-E0412", u, "No active tags",
 		"Active startup is on with `onNoTags: error`, and the selected scenarios carry no tags, so axx cannot tell which apps to start.",
 		"Tag the scenarios, set `active.onNoTags: fallback` (start everything), or disable active startup.")
@@ -185,6 +185,9 @@ func init() {
 	add("AXX-E0414", exitcode.Interrupted, "Startup interrupted",
 		"Starting apps was interrupted (Ctrl-C). Every app that had started was stopped and cleaned up.",
 		"Nothing to fix; re-run when ready.")
+	add("AXX-E0415", env, "Earlier run not cleaned up",
+		"The state file records apps an earlier run left behind: still running after the run was killed, or stopped with a cleanup that failed or never ran. Their data (containers, volumes, recorded requests) would be what this run starts from, so no app is started.",
+		"Run `axx down`: it stops what is left and runs the cleanup again. `axx doctor` and the MCP `env` status list what is left.")
 
 	add("AXX-E0600", u, "Unknown reporter",
 		"`--format` or `run.reporters` names a reporter that does not exist.",
@@ -227,6 +230,12 @@ func init() {
 	add("AXX-E0831", exitcode.OK, "SQL ordinal label does not match",
 		"A retrieval (or trigger) step is labelled with an ordinal it cannot have: selections and triggers are appended in the order they are created, and the ordinal in a creating step is only a label. Later steps that use the label address another entry. This is a warning.",
 		"Number retrievals in the order they happen (1st, 2nd, 3rd ...), per database service, and address them by that number.")
+	add("AXX-E0832", exitcode.OK, "REST ordinal addresses a missing request",
+		"A step adds the Nth request of a REST service before the (N-1)th was added, or addresses a request (or its response) that no step added before it: a service's requests are numbered in the order they are added. The step always fails at runtime. This is a warning.",
+		"Add requests in order (`a GET request to ...`, then `a 2nd ordered POST request to ...`), per service, and address them by that number.")
+	add("AXX-E0833", exitcode.OK, "REST request added twice",
+		"A step adds a request of a REST service that an earlier step added: without an ordinal, `a GET request to ...` is the service's 1st request. The step fails at runtime (Method already set). This is a warning.",
+		"Add the next request with the ordered form, like `a 2nd ordered GET request to ...`.")
 
 	f := exitcode.Failed
 	add("AXX-E0900", u, "Invalid fixtures configuration",

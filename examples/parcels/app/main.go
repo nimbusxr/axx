@@ -32,6 +32,7 @@ type config struct {
 	MongoDB       string
 	AddressURL    string
 	AddressAPIKey string
+	CourierURL    string
 	LabelSecret   string
 	KafkaBrokers  []string
 	RegistryURL   string
@@ -61,6 +62,7 @@ func loadConfig() (config, error) {
 		MongoDB:       env("PARCELS_MONGO_DB", "parcels"),
 		AddressURL:    strings.TrimRight(env("PARCELS_ADDRESS_URL", "http://localhost:8081"), "/"),
 		AddressAPIKey: env("PARCELS_ADDRESS_API_KEY", "example-address-key"),
+		CourierURL:    strings.TrimRight(env("PARCELS_COURIER_URL", "http://localhost:8082"), "/"),
 		LabelSecret:   env("PARCELS_LABEL_SECRET", "example-label-secret"),
 		RegistryURL:   strings.TrimRight(env("PARCELS_SCHEMA_REGISTRY_URL", "http://localhost:9081"), "/"),
 		EventsTopic:   env("PARCELS_EVENTS_TOPIC", "parcel-events"),
@@ -119,6 +121,7 @@ func serve(ctx context.Context, cfg config, log *slog.Logger) error {
 		store:    store,
 		tracking: tracking,
 		address:  &addressClient{base: cfg.AddressURL, apiKey: cfg.AddressAPIKey, http: &http.Client{Timeout: 5 * time.Second}},
+		courier:  &courierClient{base: cfg.CourierURL, http: &http.Client{Timeout: 5 * time.Second}},
 		events:   events,
 		labels:   labeler{secret: []byte(cfg.LabelSecret)},
 		log:      log,

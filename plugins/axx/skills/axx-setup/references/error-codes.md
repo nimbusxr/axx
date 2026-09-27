@@ -334,9 +334,9 @@ The app's process group did not exit after SIGTERM, the grace period and SIGKILL
 
 **App cleanup failed** · exit 4
 
-The app's `cleanup` command exited non-zero. The run still completed; this is reported so leaks are visible.
+The app's `cleanup` command exited non-zero. The run still completed; this is reported so leaks are visible. The state file keeps the cleanup, and runs refuse to start apps until it succeeds (AXX-E0415).
 
-**Fix:** Run the cleanup command by hand to see its output.
+**Fix:** Fix what made it fail (its output is above), then run `axx down`: it runs the cleanup again.
 
 ### AXX-E0412
 
@@ -361,6 +361,14 @@ Active startup is on with `onNoTags: error`, and the selected scenarios carry no
 Starting apps was interrupted (Ctrl-C). Every app that had started was stopped and cleaned up.
 
 **Fix:** Nothing to fix; re-run when ready.
+
+### AXX-E0415
+
+**Earlier run not cleaned up** · exit 4
+
+The state file records apps an earlier run left behind: still running after the run was killed, or stopped with a cleanup that failed or never ran. Their data (containers, volumes, recorded requests) would be what this run starts from, so no app is started.
+
+**Fix:** Run `axx down`: it stops what is left and runs the cleanup again. `axx doctor` and the MCP `env` status list what is left.
 
 ## Reporters
 
@@ -469,6 +477,22 @@ A step addresses the Nth selection (or trigger) of the scenario, but fewer than 
 A retrieval (or trigger) step is labelled with an ordinal it cannot have: selections and triggers are appended in the order they are created, and the ordinal in a creating step is only a label. Later steps that use the label address another entry. This is a warning.
 
 **Fix:** Number retrievals in the order they happen (1st, 2nd, 3rd ...), per database service, and address them by that number.
+
+### AXX-E0832
+
+**REST ordinal addresses a missing request** · exit 0
+
+A step adds the Nth request of a REST service before the (N-1)th was added, or addresses a request (or its response) that no step added before it: a service's requests are numbered in the order they are added. The step always fails at runtime. This is a warning.
+
+**Fix:** Add requests in order (`a GET request to ...`, then `a 2nd ordered POST request to ...`), per service, and address them by that number.
+
+### AXX-E0833
+
+**REST request added twice** · exit 0
+
+A step adds a request of a REST service that an earlier step added: without an ordinal, `a GET request to ...` is the service's 1st request. The step fails at runtime (Method already set). This is a warning.
+
+**Fix:** Add the next request with the ordered form, like `a 2nd ordered GET request to ...`.
 
 ## Fixtures
 

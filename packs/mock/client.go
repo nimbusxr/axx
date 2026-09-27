@@ -10,6 +10,8 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/nimbusxr/axx/internal/compat/jsonx"
 )
 
 // headerMatcher is a WireMock string-value pattern.
@@ -23,8 +25,10 @@ type headerMatcher struct {
 type pattern struct {
 	Method string
 	URL    string
-	// headers keeps insertion order for stable messages.
+	// headers, body and form keep insertion order for stable messages.
 	headers []headerEntry
+	body    []headerEntry // JSONPath expressions into the JSON body
+	form    []headerEntry // fields of a form-encoded body
 }
 
 type headerEntry struct {
@@ -36,7 +40,38 @@ func (p *pattern) withHeader(name string, m headerMatcher) {
 	p.headers = append(p.headers, headerEntry{name, m})
 }
 
-// MarshalJSON renders {"method":..,"url":..,"headers":{..}}.
+// withProperty requires the JSON body to have a property (a JSONPath, "$."
+// optional) that matches m.
+func (p *pattern) withProperty(path string, m headerMatcher) {
+	p.body = append(p.body, headerEntry{jsonx.Normalize(path), m})
+}
+
+// withField requires the form-encoded body to have a field that matches m.
+func (p *pattern) withField(name string, m headerMatcher) {
+	p.form = append(p.form, headerEntry{name, m})
+}
+
+// latest keeps one entry per name, the last one, where the first stood: a
+// later constraint replaces an earlier one, as RequestPatternBuilder does.
+func latest(entries []headerEntry, fold bool) []headerEntry {
+	seen := map[string]int{}
+	var out []headerEntry
+	for _, e := range entries {
+		key := e.name
+		if fold {
+			key = strings.ToLower(key)
+		}
+		if i, ok := seen[key]; ok {
+			out[i] = e
+			continue
+		}
+		seen[key] = len(out)
+		out = append(out, e)
+	}
+	return out
+}
+
+// MarshalJSON renders {"method":..,"url":..,"headers":{..},"formParameters":{..},"bodyPatterns":[..]}.
 func (p *pattern) MarshalJSON() ([]byte, error) {
 	var b bytes.Buffer
 	b.WriteString(`{"method":`)
@@ -45,34 +80,47 @@ func (p *pattern) MarshalJSON() ([]byte, error) {
 	b.WriteString(`,"url":`)
 	u, _ := json.Marshal(p.URL)
 	b.Write(u)
-	if len(p.headers) > 0 {
-		b.WriteString(`,"headers":{`)
-		// WireMock takes one matcher per header name; later constraints on the
-		// same header replace earlier ones, as RequestPatternBuilder does.
-		seen := map[string]int{}
-		var order []headerEntry
-		for _, h := range p.headers {
-			if i, ok := seen[strings.ToLower(h.name)]; ok {
-				order[i] = h
-				continue
-			}
-			seen[strings.ToLower(h.name)] = len(order)
-			order = append(order, h)
-		}
-		for i, h := range order {
+	// WireMock takes one matcher per header name (case-insensitive) and form field.
+	writeMatchers(&b, "headers", latest(p.headers, true))
+	writeMatchers(&b, "formParameters", latest(p.form, false))
+	if body := latest(p.body, false); len(body) > 0 {
+		b.WriteString(`,"bodyPatterns":[`)
+		for i, e := range body {
 			if i > 0 {
 				b.WriteByte(',')
 			}
-			k, _ := json.Marshal(h.name)
-			v, _ := json.Marshal(h.m)
-			b.Write(k)
-			b.WriteByte(':')
+			v, _ := json.Marshal(map[string]any{"matchesJsonPath": jsonPathMatcher{Expression: e.name, headerMatcher: e.m}})
 			b.Write(v)
 		}
-		b.WriteByte('}')
+		b.WriteByte(']')
 	}
 	b.WriteByte('}')
 	return b.Bytes(), nil
+}
+
+// jsonPathMatcher is WireMock's matchesJsonPath with a matcher of the value
+// the expression selects.
+type jsonPathMatcher struct {
+	Expression string `json:"expression"`
+	headerMatcher
+}
+
+func writeMatchers(b *bytes.Buffer, key string, entries []headerEntry) {
+	if len(entries) == 0 {
+		return
+	}
+	b.WriteString(`,"` + key + `":{`)
+	for i, e := range entries {
+		if i > 0 {
+			b.WriteByte(',')
+		}
+		k, _ := json.Marshal(e.name)
+		v, _ := json.Marshal(e.m)
+		b.Write(k)
+		b.WriteByte(':')
+		b.Write(v)
+	}
+	b.WriteByte('}')
 }
 
 // describe renders the pattern for failure messages.

@@ -7,6 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/nimbusxr/axx/internal/agents"
 	"github.com/nimbusxr/axx/internal/axxerr"
 	"github.com/nimbusxr/axx/internal/config"
 	"github.com/nimbusxr/axx/internal/engine"
@@ -24,13 +25,15 @@ references are generated from this project's steps.`,
 	}
 	var cf configFlags
 	var scope string
-	var noClaude, force bool
+	var claude, noClaude, force bool
 	install := &cobra.Command{
 		Use:   "install",
 		Short: "Install or update the skills (project: .agents/skills + .claude/skills)",
 		Long: `Write the skills to .agents/skills/ (read by Codex, Cursor, Gemini CLI and
-Copilot) and link them into .claude/skills/ for Claude Code. Re-running updates
-them; files you edited are kept unless --force.`,
+Copilot) and, when the project uses Claude Code (a .claude directory, CLAUDE.md
+or .mcp.json), link them into .claude/skills/ for it: --claude links them
+anyway, --no-claude never. Re-running updates them; files you edited are kept
+unless --force.`,
 		Args: wrapArgs(cobra.NoArgs),
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			var root string
@@ -59,7 +62,11 @@ them; files you edited are kept unless --force.`,
 			default:
 				return axxerr.New("AXX-E0007", exitcode.Usage, "--scope must be project or user")
 			}
-			res, err := skills.Install(sks, skills.InstallOptions{Root: root, Claude: !noClaude, Force: force})
+			if claude && noClaude {
+				return axxerr.New("AXX-E0001", exitcode.Usage, "invalid usage: --claude and --no-claude cannot both be given")
+			}
+			link := claude || !noClaude && agents.Uses(root, "claude")
+			res, err := skills.Install(sks, skills.InstallOptions{Root: root, Claude: link, Force: force})
 			if err != nil {
 				return err
 			}
@@ -77,6 +84,7 @@ them; files you edited are kept unless --force.`,
 	}
 	cf.register(install)
 	install.Flags().StringVar(&scope, "scope", "project", "project (this repo) or user (your home directory)")
+	install.Flags().BoolVar(&claude, "claude", false, "link into .claude/skills even if the project does not use Claude Code")
 	install.Flags().BoolVar(&noClaude, "no-claude", false, "do not link into .claude/skills")
 	install.Flags().BoolVar(&force, "force", false, "overwrite skill files you edited")
 

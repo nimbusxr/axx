@@ -221,7 +221,7 @@ func newSuperviseCmd(app *App) *cobra.Command {
 			defer logw.Close()
 			opts := lifecycle.Options{
 				ConfigDir: cfg.Dir, Stdout: logw, Stderr: logw, Logger: app.logger(),
-				StateFile: filepath.Join(runDir(cfg), "state.json"),
+				StateFile: lifecycle.StateFile(cfg.Dir),
 			}
 			switch debug {
 			case "":
@@ -325,17 +325,30 @@ func newDownCmd(app *App) *cobra.Command {
 			}
 			_ = os.Remove(upFile(cfg))
 			_ = os.Remove(stopFile(cfg))
-			// Reap anything a killed run or supervisor left behind.
-			if err := lifecycle.Reap(filepath.Join(runDir(cfg), "state.json"), app.Stderr, app.Stderr); err != nil {
+			// Reap anything a killed run or supervisor left behind, and run
+			// the cleanups that failed.
+			reaped, err := lifecycle.Reap(lifecycle.StateFile(cfg.Dir), app.Stderr, app.Stderr)
+			if err != nil {
 				return err
 			}
-			return app.Emit(map[string]any{"stopped": stopped}, func(w io.Writer) error {
-				if len(stopped) == 0 {
+			if reaped == nil {
+				reaped = []string{}
+			}
+			return app.Emit(map[string]any{"stopped": stopped, "cleanedUp": reaped}, func(w io.Writer) error {
+				if len(stopped) == 0 && len(reaped) == 0 {
 					_, err := fmt.Fprintln(w, "nothing was running")
 					return err
 				}
-				_, err := fmt.Fprintf(w, "stopped: %s\n", strings.Join(stopped, ", "))
-				return err
+				if len(stopped) > 0 {
+					if _, err := fmt.Fprintf(w, "stopped: %s\n", strings.Join(stopped, ", ")); err != nil {
+						return err
+					}
+				}
+				if len(reaped) > 0 {
+					_, err := fmt.Fprintf(w, "cleaned up after an earlier run: %s\n", strings.Join(reaped, ", "))
+					return err
+				}
+				return nil
 			})
 		},
 	}

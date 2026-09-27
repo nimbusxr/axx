@@ -21,6 +21,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"time"
 )
@@ -85,7 +86,9 @@ func Ensure(ctx context.Context, o Options) (*Toolchain, error) {
 	if err != nil {
 		return onPath(err)
 	}
-	return &Toolchain{Go: goBin, Env: append(baseEnv(),
+	// The downloaded go finds its own tree: a GOROOT or GOTOOLDIR the
+	// caller has, for another Go, would mix two versions in one build.
+	return &Toolchain{Go: goBin, Env: append(without(baseEnv(), "GOROOT", "GOTOOLDIR"),
 		"GOTOOLCHAIN=local",
 		"GOPATH="+filepath.Join(o.CacheDir, "path"),
 		"GOMODCACHE="+filepath.Join(o.CacheDir, "path", "pkg", "mod"),
@@ -101,6 +104,18 @@ func baseEnv() []string {
 }
 
 // onPath falls back to an installed go, or explains why there is none.
+// without drops the named variables from env.
+func without(env []string, names ...string) []string {
+	out := env[:0:0]
+	for _, kv := range env {
+		name, _, _ := strings.Cut(kv, "=")
+		if !slices.Contains(names, name) {
+			out = append(out, kv)
+		}
+	}
+	return out
+}
+
 func onPath(cause error) (*Toolchain, error) {
 	p, err := exec.LookPath("go")
 	if err != nil {

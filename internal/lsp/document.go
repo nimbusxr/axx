@@ -297,16 +297,18 @@ func (d *document) diagnostics(p *project) []diagnostic {
 		out = append(out, diagnostic{Range: r, Severity: severityError, Code: pr.Kind, Source: "axx", Message: problemMessage(pr, st.outline)})
 	}
 	out = append(out, d.fileDiagnostics(p)...)
-	for _, f := range lint.CheckFeatures(p.reg, d.pickles, p.dir).Findings {
-		if len(f.Locations) == 0 {
-			continue
+	for _, rr := range lint.FeatureChecks(p.reg, d.pickles, p.dir) {
+		for _, f := range rr.Findings {
+			if len(f.Locations) == 0 {
+				continue
+			}
+			line := f.Locations[0].Line - 1
+			r := wholeLine(d.lines, line)
+			if st, ok := d.stepAt(line); ok {
+				r = d.textRange(st)
+			}
+			out = append(out, diagnostic{Range: r, Severity: severityWarning, Code: f.Code, Source: "axx", Message: f.Message})
 		}
-		line := f.Locations[0].Line - 1
-		r := wholeLine(d.lines, line)
-		if st, ok := d.stepAt(line); ok {
-			r = d.textRange(st)
-		}
-		out = append(out, diagnostic{Range: r, Severity: severityWarning, Code: f.Code, Source: "axx", Message: f.Message})
 	}
 	return out
 }

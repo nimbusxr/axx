@@ -119,6 +119,7 @@ Each command documents its own `data`. The most useful for scripts and agents:
 | `axx steps search <q>` | `{query, steps[]}`; each step has `id`, `pack`, `expr`, `variants`, `keyword`, `arg`, `doc`, `examples`, `params` |
 | `axx validate` | `{files, scenarios, steps, problems[], warnings[]}`; each problem has `kind` (`undefined`, `ambiguous`, `argument`), `location`, `text`, and a `message`, `suggestions` or `candidates` where they apply; `warnings[]`, present when there are some, are findings of `axx lint`'s feature checks (kind `lint`), which do not change the exit code |
 | `axx doctor` | `{version, config, checks[]}`; each check has `name`, `status` (`ok`, `warn`, `fail`), `detail`, `hint` |
+| `axx down` | `{stopped, cleanedUp}`: the apps `axx up` kept running that it stopped, and the apps an earlier run left behind that it stopped or cleaned up |
 | `axx lint` | `{baseDir, rules[], summary, notes[], hints[]}`; `hints[]`, present when there are some, suggest fixture factories and never change the exit code |
 | `axx init` | `{dryRun, files[], detected, agents}`; each file has `path`, `action` (`create`, `update`, `skip`), `reason`; `agents`, absent with `--no-agents`, has `detected[]` (agent ids), `skills[]` (like `files`) and `mcp[]` |
 | `axx mcp install` | `{dryRun, change}`; `change` and each entry of `axx init`'s `agents.mcp[]` has `agent`, `scope` (`project`, `user`), `path`, `action` (`create`, `update`, `skip`, or `manual` when `command` adds the server), `reason`, `command` |

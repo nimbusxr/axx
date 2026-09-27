@@ -19,6 +19,7 @@ import (
 	"github.com/nimbusxr/axx/internal/config"
 	"github.com/nimbusxr/axx/internal/engine"
 	"github.com/nimbusxr/axx/internal/exitcode"
+	"github.com/nimbusxr/axx/internal/lifecycle"
 	"github.com/nimbusxr/axx/internal/lint"
 	"github.com/nimbusxr/axx/internal/shellwords"
 	"github.com/nimbusxr/axx/internal/skills"
@@ -270,6 +271,21 @@ func (a *App) doctor(ctx context.Context, cf *configFlags) (rep DoctorReport) {
 	}
 	if st, ok := liveUp(cfg); ok {
 		add("axx up", "ok", "apps running: "+strings.Join(st.Apps, ", "), "")
+	}
+	// What earlier runs left behind stops the next run from starting apps.
+	if apps, err := lifecycle.Status(lifecycle.StateFile(cfg.Dir)); err != nil {
+		add("earlier runs", "fail", err.Error(), "stop leftover apps by hand, then delete "+relPath(lifecycle.StateFile(cfg.Dir)))
+	} else {
+		for _, a := range apps {
+			switch {
+			case a.State == lifecycle.AppLeftOver:
+				add("app "+a.Name, "fail", fmt.Sprintf("left running by an earlier run (pid %d)", a.PID), "`axx down` stops it and runs its cleanup")
+			case a.State == lifecycle.AppNotCleaned && a.CleanupFailed:
+				add("app "+a.Name, "fail", "its cleanup failed: "+a.Cleanup, "`axx down` runs it again")
+			case a.State == lifecycle.AppNotCleaned:
+				add("app "+a.Name, "fail", "an earlier run stopped without its cleanup: "+a.Cleanup, "`axx down` runs it")
+			}
+		}
 	}
 	return rep
 }

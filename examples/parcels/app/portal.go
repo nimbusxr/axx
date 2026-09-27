@@ -763,6 +763,9 @@ func (s *service) portalPickup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.log.Info("pickup planned", "reference", ref, "day", day)
+	if err := s.courier.pickup(r.Context(), ref, day); err != nil {
+		s.log.Error("telling the courier about a pickup failed", "reference", ref, "err", err)
+	}
 	w.WriteHeader(http.StatusNoContent)
 }
 

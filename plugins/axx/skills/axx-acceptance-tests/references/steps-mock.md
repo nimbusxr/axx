@@ -323,3 +323,69 @@ Then the headers for mocked request named postcode-check on addresses are missin
   | Authorization |
   | Cookie        |
 ```
+
+## `mock.properties.are`
+
+```gherkin
+Then the payload properties for mocked request named {word}[[ on {mockedService}]] are:
+  | property | value |
+```
+
+Check that the named request was received with a JSON body that has every property of the table, each with its value.
+
+- A property is a JSONPath, like `deliverTo.postcode` or `$.lines[0].reference`; WireMock reads it.
+- Values compare as text: `800` matches the number 800, and `"10115"` the string 10115. `undefined` means the body has no such property, to check that a request leaves something out.
+- Later steps on the named request check these too, so its counts count only the requests that have them.
+
+| Parameter | Takes | For example |
+|---|---|---|
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+| `{mockedService}` | the name of a mocked service the scenario registered | `addresses` |
+
+A row is a property's JSONPath and the value it must have, or `undefined`.
+
+**Variants**, the parts in `[[...]]` said or left out:
+
+- `the payload properties for mocked request named {word} are:`
+- `the payload properties for mocked request named {word} on {mockedService} are:`
+
+**Example:**
+
+```gherkin
+Then the payload properties for mocked request named collection on courier are:
+  | reference          | PX-REG-1401 |
+  | deliverTo.postcode | "10115"     |
+  | recipient          | undefined   |
+```
+
+## `mock.form.are`
+
+```gherkin
+Then the form fields for mocked request named {word}[[ on {mockedService}]] are:
+  | field | value |
+```
+
+Check that the named request was received with a form-encoded body that has every field of the table, each with its value.
+
+- `undefined` means the form has no such field.
+- Later steps on the named request check these too, so its counts count only the requests that have them.
+
+| Parameter | Takes | For example |
+|---|---|---|
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+| `{mockedService}` | the name of a mocked service the scenario registered | `addresses` |
+
+A row is a field's name and the value it must have, or `undefined`.
+
+**Variants**, the parts in `[[...]]` said or left out:
+
+- `the form fields for mocked request named {word} are:`
+- `the form fields for mocked request named {word} on {mockedService} are:`
+
+**Example:**
+
+```gherkin
+Then the form fields for mocked request named pickup-notice on courier are:
+  | reference | PX-WEB-5401 |
+  | day       | Friday      |
+```

@@ -47,6 +47,9 @@ const (
 	// CodeInterrupted: starting apps was interrupted (Ctrl-C); every app that
 	// had started was stopped and cleaned up.
 	CodeInterrupted = "AXX-E0414"
+	// CodeNotCleanedUp: the state file records apps an earlier run left
+	// running, or whose cleanup failed or never ran.
+	CodeNotCleanedUp = "AXX-E0415"
 )
 
 // exitConfig is the exit status for configuration mistakes detected before

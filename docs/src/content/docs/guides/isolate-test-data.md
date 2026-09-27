@@ -58,13 +58,15 @@ FAIL Parcel references in seeds (cross-file-unique, 52 files): 1 duplicate value
 ok   Manifest line ids (cross-file-unique, 52 files)
 ok   Depot scan ids (cross-file-unique, 1 file)
 ok   kafka/depot-scans.factory.yaml: scanId uniqueness (cross-file-unique, 2 files)
+ok   requests/registrations.factory.yaml: reference uniqueness (cross-file-unique, 2 files)
 ok   SQL selection and trigger ordinals (13 files)
+ok   REST request ordinals (13 files)
 hint: seeds/ has 39 hand-written .yaml files of one shape (parcels.parcels) that no fixture factory generates; a factory would keep what they share in one place (optional; `axx fixtures adopt --help`)
 hint: seeds/ has 5 hand-written .yaml files of one shape (parcels.manifest_lines) that no fixture factory generates; a factory would keep what they share in one place (optional; `axx fixtures adopt --help`)
-axx lint: 5 rules, 68 files: 1 error, 0 warnings
+axx lint: 7 rules, 70 files: 1 error, 0 warnings
 ```
 
-A new seed file reused a reference that `seeds/manifest-kestrel.yaml` already inserts. The rule from `axx-lint.generated.yaml` and the built-in check of SQL ordinals in features run too.
+A new seed file reused a reference that `seeds/manifest-kestrel.yaml` already inserts. The rules from `axx-lint.generated.yaml` run too, and so do the built-in checks of the features: SQL selections and triggers, and REST requests, addressed by ordinals they cannot have (a `3rd ordered` request after only one, or a second request added without its ordinal). They are warnings, and `axx validate` reports them as well.
 
 The `hint:` lines are suggestions, never errors or warnings. When the scenarios read three or more hand-written `.json` or `.yaml` files from one directory, whose top-level keys are the same and that no [fixture factory](/guides/fixture-factories/) generates, `axx lint` suggests one: it would keep what the files share in one place and each file's differences in its own. Factories are optional; `axx fixtures adopt` turns the files into one without changing a value.
 

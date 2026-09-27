@@ -65,9 +65,11 @@ Exit codes: 0 valid, 2 syntax/config error, 3 undefined or ambiguous steps.`,
 			}
 			rep := validatePickles(e.Registry, pickles)
 			rep.Files = len(set.Docs)
-			for _, f := range lint.CheckFeatures(e.Registry, pickles, e.Config.Dir).Findings {
-				l := f.Locations[0]
-				rep.Warnings = append(rep.Warnings, Problem{Kind: "lint", Location: fmt.Sprintf("%s:%d", l.File, l.Line), Text: stripKeyword(l.Text), Message: f.Message + " [" + f.Code + "]"})
+			for _, rr := range lint.FeatureChecks(e.Registry, pickles, e.Config.Dir) {
+				for _, f := range rr.Findings {
+					l := f.Locations[0]
+					rep.Warnings = append(rep.Warnings, Problem{Kind: "lint", Location: fmt.Sprintf("%s:%d", l.File, l.Line), Text: stripKeyword(l.Text), Message: f.Message + " [" + f.Code + "]"})
+				}
 			}
 			if err := app.EmitResult(rep, len(rep.Problems) == 0, func(w io.Writer) error { return renderValidation(w, rep) }); err != nil {
 				return err

@@ -18,6 +18,8 @@ A step names requests by their address:
 
 What a step sets holds for every web app of the scenario, from their next request on. Set it before the page opens, so that the page's first requests get it too. When two steps name the same request, the later one answers it.
 
+A step sees the requests a page starts, not where a redirect takes them: when an answer redirects, the browser follows it within the same request, and a step that names the address it leads to does not apply. So a sign-in or a payment that your server redirects to a provider, like `https://checkout.stripe.com/...`, reaches the real provider, whatever a step says about that address. Keep such a flow local on the server's side: point the app at a mock of the provider that hands out an address of your app ([Mock dependencies](/guides/mock-dependencies/)), and check that the browser gets there.
+
 ## Requests that fail or answer
 
 ```gherkin

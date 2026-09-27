@@ -29,6 +29,8 @@ const (
 	CodeDuplicate      = "AXX-E0820"
 	CodeOrdinalMissing = "AXX-E0830"
 	CodeOrdinalLabel   = "AXX-E0831"
+	CodeRESTMissing    = "AXX-E0832"
+	CodeRESTAddedTwice = "AXX-E0833"
 )
 
 // Defaults of the lint config block.

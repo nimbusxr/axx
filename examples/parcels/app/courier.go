@@ -1,0 +1,71 @@
+package main
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+	"net/url"
+	"strings"
+)
+
+// courierClient calls the courier company that collects express parcels
+// and picks up the parcels shops plan (its contract is
+// ../infra/openapi/courier.yaml):
+//
+//	POST /v1/collections   a JSON booking: the parcel's reference, weight and
+//	                       where it goes, never who it goes to
+//	POST /v1/pickups       a form: the parcel's reference and the day
+type courierClient struct {
+	base string
+	http *http.Client
+}
+
+type collection struct {
+	Reference   string      `json:"reference"`
+	WeightGrams int         `json:"weightGrams"`
+	DeliverTo   destination `json:"deliverTo"`
+}
+
+type destination struct {
+	Postcode string `json:"postcode"`
+	Country  string `json:"country"`
+}
+
+// book books the collection of an express parcel.
+func (c *courierClient) book(ctx context.Context, p *Parcel) error {
+	body, err := json.Marshal(collection{
+		Reference: p.Reference, WeightGrams: p.WeightGrams,
+		DeliverTo: destination{Postcode: p.Recipient.Postcode, Country: p.Recipient.Country},
+	})
+	if err != nil {
+		return err
+	}
+	return c.post(ctx, "/v1/collections", "application/json", body)
+}
+
+// pickup tells the courier the day a shop has a parcel picked up.
+func (c *courierClient) pickup(ctx context.Context, reference, day string) error {
+	form := url.Values{"reference": {reference}, "day": {day}}
+	return c.post(ctx, "/v1/pickups", "application/x-www-form-urlencoded", []byte(form.Encode()))
+}
+
+func (c *courierClient) post(ctx context.Context, path, contentType string, body []byte) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.base+path, bytes.NewReader(body))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", contentType)
+	res, err := c.http.Do(req)
+	if err != nil {
+		return err
+	}
+	defer res.Body.Close()
+	if res.StatusCode/100 != 2 {
+		answer, _ := io.ReadAll(io.LimitReader(res.Body, 1<<10))
+		return fmt.Errorf("courier answered %d: %s", res.StatusCode, strings.TrimSpace(string(answer)))
+	}
+	return nil
+}

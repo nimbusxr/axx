@@ -33,6 +33,39 @@ Feature: Register parcels
       | source | api  |
       | zone   | DE-1 |
 
+  Scenario Outline: A shop's order system registers the parcels it exports
+    Given a POST request to /api/parcels
+    And a request payload using an application/json requests/<order>.json resource
+    When the request is executed
+    Then the response status code is 201
+    And the response header Location is '/api/parcels/<reference>'
+    And the response payload properties are:
+      | reference    | <reference> |
+      | serviceLevel | <service>   |
+      | status       | REGISTERED  |
+
+    Examples:
+      | order      | reference   | service  |
+      | order-7731 | PX-REG-1301 | STANDARD |
+      | order-7732 | PX-REG-1302 | EXPRESS  |
+
+  Scenario: The courier collects an express parcel without being told who it goes to
+    Given the mocked courier service with the following properties:
+      | url | http://${sys:local.host}:8082 |
+    And a POST request to /api/parcels
+    And a request payload using an application/json content example named 'Express parcel'
+    And the request payload property reference is 'PX-REG-1401'
+    When the request is executed
+    Then the response status code is 201
+    And the mocked POST request to /v1/collections named collection was received by courier
+    And the payload properties for mocked request named collection on courier are:
+      | reference          | PX-REG-1401 |
+      | weightGrams        | 800         |
+      | deliverTo.postcode | "75001"     |
+      | deliverTo.country  | FR          |
+      | recipient          | undefined   |
+    And the mocked request named collection on courier was received exactly 1 time
+
   Scenario: A parcel needs only a reference, a sender, a weight and a recipient
     Given a POST request to /api/parcels
     And a request payload using an application/json empty content template

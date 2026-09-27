@@ -27,6 +27,19 @@ Feature: Planning in the shop portal
       | day       | Friday      |
     And the selection has 1 row
 
+  Scenario: The courier is told the day a shop plans a pickup
+    Given a seeds/portal-pickup-courier.yaml db seed
+    And the mocked courier service with the following properties:
+      | url | http://${sys:local.host}:8082 |
+    And the "/parcels?shop=rowan-and-reed" page is opened
+    When the "Pickup PX-WEB-5331" element is dragged onto the "Tomorrow" element
+    Then the page shows "PX-WEB-5331 is picked up tomorrow"
+    And the mocked POST request to /v1/pickups named pickup-notice was received by courier
+    And the form fields for mocked request named pickup-notice are:
+      | reference | PX-WEB-5331 |
+      | day       | Tomorrow    |
+    And the mocked request named pickup-notice was received exactly 1 time
+
   Scenario: A shop is told when a pickup cannot be planned for want of a connection
     Given a seeds/portal-pickup-offline.yaml db seed
     And the page's requests to "/pickups" fail

@@ -500,3 +500,37 @@ func TestPackConfigErrors(t *testing.T) {
 		t.Fatal("config schema is not JSON")
 	}
 }
+
+func TestPayloadFromAResource(t *testing.T) {
+	a, srv := newAPI(t)
+	h := newHarness(t)
+	h.service("api", srv.URL, "")
+	h.ok("a POST request to /echo")
+	h.ok("a request payload using an application/json requests/order-7731.json resource")
+	h.ok("the request payload property weightGrams is '2600'")
+	h.ok("the request is executed")
+	got := a.last()
+	if got.Header.Get("Content-Type") != "application/json" {
+		t.Errorf("Content-Type %q", got.Header.Get("Content-Type"))
+	}
+	for _, want := range []string{`"reference":"PX-REG-1301"`, `"weightGrams":2600`, `"postcode":"10115"`} {
+		if !strings.Contains(strings.ReplaceAll(got.Body, " ", ""), want) {
+			t.Errorf("the body lacks %s: %s", want, got.Body)
+		}
+	}
+
+	// A form payload file is a JSON object, sent form-encoded; the ordered
+	// and named forms address other requests.
+	h.ok("a 2nd ordered POST request to /echo")
+	h.ok("a request payload using an application/x-www-form-urlencoded requests/token-request.json resource for 2nd ordered request on api")
+	h.fails("a request payload using an application/json requests/order-7731.json resource for 2nd ordered request", "MIME type already set")
+	h.ok("the 2nd ordered request is executed")
+	if got := a.last(); got.Body != "grant_type=client_credentials&scope=parcels%3Awrite" {
+		t.Errorf("form body %s", got.Body)
+	}
+
+	h2 := newHarness(t)
+	h2.service("api", srv.URL, "")
+	h2.ok("a POST request to /echo")
+	h2.fails("a request payload using an application/json requests/missing.json resource", "missing.json")
+}
