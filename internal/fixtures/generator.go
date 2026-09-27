@@ -211,7 +211,7 @@ func (g *Generator) referencesAcross(ctx *ExpansionContext) References {
 		if !ok {
 			for _, d := range resolving {
 				if d == document {
-					return nil, genError("documents reference each other in a cycle: %s", strings.Join(resolving, " -> "))
+					return nil, genError("documents reference each other in a cycle: %s", strings.Join(append(resolving[:len(resolving):len(resolving)], document), " -> "))
 				}
 			}
 			resolving = append(resolving, document)
@@ -227,13 +227,14 @@ func (g *Generator) referencesAcross(ctx *ExpansionContext) References {
 	}
 }
 
-// resolveReferenced returns a document's resolved values: a fixture file is
-// one fixture; a factory file holds several, keyed by fixture.
+// resolveReferenced returns a document as its fixtures generate it: a
+// fixture file is one fixture; a factory file holds several, keyed by
+// fixture.
 func (g *Generator) resolveReferenced(document string, ctx *ExpansionContext) (any, error) {
 	for _, spec := range g.specs {
 		for _, k := range spec.Fixtures.Keys() {
 			if spec.Fixtures.Get(k).Source == document {
-				return resolveValues(spec, k, ctx)
+				return g.referenced(spec, k, ctx)
 			}
 		}
 	}
@@ -241,7 +242,7 @@ func (g *Generator) resolveReferenced(document string, ctx *ExpansionContext) (a
 		if spec.SourceName == document {
 			byFixture := jsonx.NewObject()
 			for _, k := range spec.Fixtures.Keys() {
-				v, err := resolveValues(spec, k, ctx)
+				v, err := g.referenced(spec, k, ctx)
 				if err != nil {
 					return nil, err
 				}
@@ -250,15 +251,36 @@ func (g *Generator) resolveReferenced(document string, ctx *ExpansionContext) (a
 			return byFixture, nil
 		}
 	}
-	var known []string
+	nd := &noDocument{document: document}
 	for _, spec := range g.specs {
+		nd.known = append(nd.known, spec.SourceName)
 		for _, k := range spec.Fixtures.Keys() {
-			known = append(known, spec.Fixtures.Get(k).Source)
+			nd.known = append(nd.known, spec.Fixtures.Get(k).Source)
 		}
 	}
-	sortStrings(known)
-	return nil, genError("$ref names no document: %s (known: %s)", document, javaListString(known))
+	return nil, nd
 }
+
+// referenced is one fixture as it is generated, for a $ref.
+func (g *Generator) referenced(spec *Spec, key string, ctx *ExpansionContext) (any, error) {
+	f, err := g.family(spec)
+	if err != nil {
+		return nil, err
+	}
+	if r, ok := f.(Referencer); ok {
+		return r.Referenced(spec, g.baseDir, key, ctx)
+	}
+	return resolveFixture(spec, key, ctx)
+}
+
+// noDocument is a $ref's document that no factory or fixture is: the
+// reference, which knows how it was written, explains it (refs.go).
+type noDocument struct {
+	document string
+	known    []string
+}
+
+func (e *noDocument) Error() string { return "$ref names no document: " + e.document }
 
 func (g *Generator) expandInto(files map[string][]byte, manifest *Manifest, ignoredByDir map[string]map[string]bool, ctx *ExpansionContext) error {
 	for _, spec := range g.specs {

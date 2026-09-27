@@ -1,6 +1,7 @@
 package fixtures
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -185,4 +186,58 @@ func TestJSONPointerAndNormalize(t *testing.T) {
 	} {
 		expect(t, normalizeRef(in[0], in[1]), want)
 	}
+}
+
+// A reference sees the document its fixture generates: identities derived
+// from the fixture key included, as in the fixture's own output.
+func TestARefSeesTheIdentityItsFixtureGenerates(t *testing.T) {
+	w := newWorkspace(t)
+	w.write("records/record.schema.json", `{"type": "object", "required": ["key"], "properties": {"key": {"type": "string"}, "plan": {"type": "string"}}}`)
+	w.write("records/record.factory.yaml", "factory:\n  family: json\n  schema: record.schema.json\nprototype: {plan: free}\nidentity:\n  - path: key\n")
+	w.write("records/alpha.fixture.yaml", "factory: record\ndata: {}\n")
+	w.write("seeds/seed.schema.json", `{"type": "object", "properties": {"orgs": {"type": "object"}}}`)
+	w.write("seeds/seed.factory.yaml", "factory:\n  family: json\n  schema: seed.schema.json\nfixtures:\n  example:\n    orgs:\n      alpha:\n        $ref: ../records/alpha.fixture.yaml#\n")
+	own := w.generated("records/alpha.json")
+	expect(t, str(at(own, "key")), "alpha")
+	seed := jsonOf(t, []byte(w.read("seeds/example.json")))
+	expect(t, str(at(seed, "orgs", "alpha", "key")), "alpha")
+	expect(t, str(at(seed, "orgs", "alpha", "plan")), "free")
+}
+
+// A reference into a dataset fixture sees its rows as they are generated,
+// with their table.column identities.
+func TestARefIntoADatasetSeesItsRowsIdentities(t *testing.T) {
+	w := datasetWorkspace(t)
+	w.write("briefs/brief.schema.json", `{"type": "object", "properties": {"missionId": {"type": "string"}}}`)
+	w.write("briefs/brief.factory.yaml", "factory:\n  family: json\n  schema: brief.schema.json\nfixtures:\n  alpha:\n    missionId:\n      $ref: ../"+missions+"/mission-alpha.fixture.yaml#/space.missions/0/id\n")
+	expect(t, str(at(w.generated("briefs/alpha.json"), "missionId")), "msn-mission-alpha")
+}
+
+// A reference to no document says what was written, where it was looked
+// for and what it came to, and the few documents it most likely meant.
+func TestABrokenRefSaysWhereItLooked(t *testing.T) {
+	w := refsWorkspace(t)
+	w.write("orders/typo.fixture.yaml", "factory: orders\ndata:\n  orderId: ORD-9\n  customer:\n    $ref: ../shared/custmer.fixture.yaml\n")
+	err := w.expandErr()
+	mustErrContain(t, err, "../shared/custmer.fixture.yaml", "orders", "shared/custmer.fixture.yaml", "did you mean shared/customer.fixture.yaml")
+	if strings.Contains(err.Error(), "known:") {
+		t.Errorf("lists every document:\n%v", err)
+	}
+}
+
+// A chain of references sees each document as it is generated: a fixture
+// that takes a whole record, taken whole in turn, carries the record's
+// derived identity.
+func TestARefChainCarriesIdentities(t *testing.T) {
+	w := newWorkspace(t)
+	w.write("records/record.schema.json", `{"type": "object", "properties": {"key": {"type": "string"}, "plan": {"type": "string"}}}`)
+	w.write("records/record.factory.yaml", "factory:\n  family: json\n  schema: record.schema.json\nprototype: {plan: free}\nidentity:\n  - path: key\n")
+	w.write("records/alpha.fixture.yaml", "factory: record\ndata: {}\n")
+	w.write("accounts/account.schema.json", `{"type": "object", "properties": {"org": {"type": "object"}}}`)
+	w.write("accounts/account.factory.yaml", "factory:\n  family: json\n  schema: account.schema.json\n")
+	w.write("accounts/main.fixture.yaml", "factory: account\ndata:\n  org:\n    $ref: ../records/alpha.fixture.yaml\n")
+	w.write("seeds/seed.schema.json", `{"type": "object", "properties": {"account": {"type": "object"}}}`)
+	w.write("seeds/seed.factory.yaml", "factory:\n  family: json\n  schema: seed.schema.json\nfixtures:\n  example:\n    account:\n      $ref: ../accounts/main.fixture.yaml\n")
+	seed := w.generated("seeds/example.json")
+	expect(t, str(at(seed, "account", "org", "key")), "alpha")
 }

@@ -1,6 +1,9 @@
 package fixtures
 
 import (
+	"errors"
+	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -87,6 +90,9 @@ func resolveRefValue(value any, documentDir string, lookup References, self bool
 			target = normalizeRef(documentDir, path)
 		}
 		referenced, err := lookup(target, pointer)
+		if nd, ok := errors.AsType[*noDocument](err); ok {
+			return nil, noDocumentError(refText, documentDir, nd)
+		}
 		if err != nil {
 			return nil, err
 		}
@@ -183,4 +189,76 @@ func jsonPointer(root any, pointer string) any {
 		}
 	}
 	return current
+}
+
+// noDocumentError says what a reference to no document wrote, where it was
+// looked for and what it came to, and the few documents it most likely
+// meant, rather than every document there is.
+func noDocumentError(written, documentDir string, nd *noDocument) error {
+	from := documentDir
+	if from == "" {
+		from = "the resource root"
+	}
+	msg := fmt.Sprintf("%s %q names no document\n  written:     %s (relative to %s)\n  looked for:  %s", refKeyword, written, written, from, nd.document)
+	if likely := likelyDocuments(nd.document, nd.known, 3); len(likely) > 0 {
+		msg += "\n  did you mean " + strings.Join(likely, ", ") + "?"
+	}
+	return genError("%s", msg)
+}
+
+// likelyDocuments are up to n known documents closest to a path: those with
+// its file name first, then by edit distance, within a third of its length.
+func likelyDocuments(path string, known []string, n int) []string {
+	type scored struct {
+		doc  string
+		dist int
+	}
+	base := path[strings.LastIndexByte(path, '/')+1:]
+	var out []scored
+	seen := map[string]bool{}
+	for _, k := range known {
+		if seen[k] || k == path {
+			continue
+		}
+		seen[k] = true
+		d := editDistance(path, k)
+		if kb := k[strings.LastIndexByte(k, '/')+1:]; kb == base {
+			d = 0
+		}
+		if d <= max(3, len(path)/3) {
+			out = append(out, scored{k, d})
+		}
+	}
+	sort.SliceStable(out, func(i, j int) bool {
+		if out[i].dist != out[j].dist {
+			return out[i].dist < out[j].dist
+		}
+		return out[i].doc < out[j].doc
+	})
+	var docs []string
+	for i := 0; i < len(out) && i < n; i++ {
+		docs = append(docs, out[i].doc)
+	}
+	return docs
+}
+
+// editDistance is the Levenshtein distance between two strings.
+func editDistance(a, b string) int {
+	prev := make([]int, len(b)+1)
+	for j := range prev {
+		prev[j] = j
+	}
+	for i := 1; i <= len(a); i++ {
+		cur := make([]int, len(b)+1)
+		cur[0] = i
+		for j := 1; j <= len(b); j++ {
+			cost := 1
+			if a[i-1] == b[j-1] {
+				cost = 0
+			}
+			cur[j] = min(prev[j]+1, cur[j-1]+1, prev[j-1]+cost)
+		}
+		prev = cur
+	}
+	return prev[len(b)]
 }

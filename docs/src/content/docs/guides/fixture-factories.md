@@ -53,6 +53,20 @@ The fixture's file name is its name, and `scan-delivered.json` is what features 
 }
 ```
 
+## Reference other fixtures
+
+A value can be another fixture, or part of one, with `$ref`: the path of its `*.fixture.yaml` (or `*.factory.yaml`) file, relative to the file that refers to it (a leading `/` starts at the directory of `axx.yaml`, or `fixtures.baseDir`), then `#` and a JSON Pointer into it.
+
+```yaml title="seeds/handover.fixture.yaml"
+data:
+  parcel:
+    $ref: ../parcels/express-berlin.fixture.yaml        # the whole fixture
+  parcelId:
+    $ref: ../parcels/express-berlin.fixture.yaml#/id    # one value of it
+```
+
+A reference sees the fixture as it is generated: its prototype, its defaults, and the identities derived for it. Keys next to `$ref` override what it brings. References that loop fail and name the loop; a path that names no fixture says what it was resolved to, and the fixtures it most likely meant.
+
 ## Generate and check
 
 ```sh
