@@ -63,8 +63,8 @@ Feature: Carrier invoices
     Given a seeds/shipments-her1.yaml firestore seed
     And the console log with the following properties:
       | url | file://.axx/logs/apps.log |
-    When the invoices/INV-2026-09-HER1.csv file is uploaded to the carrier-invoices gcs bucket as heron/INV-2026-09-HER1.csv
-    Then within 30s the invoices/INV-2026-09-HER1 firestore document has the following properties:
+    And the invoices/INV-2026-09-HER1.csv file is uploaded to the carrier-invoices gcs bucket as heron/INV-2026-09-HER1.csv
+    And within 30s the invoices/INV-2026-09-HER1 firestore document has the following properties:
       | status | RECONCILED |
     When the invoices/INV-2026-09-HER1.csv file is uploaded to the carrier-invoices gcs bucket as heron/INV-2026-09-HER1.csv
     Then the console log has an entry matching 'invoice already reconciled.* invoice=INV-2026-09-HER1'

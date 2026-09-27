@@ -41,12 +41,12 @@ Feature: Claims for lost parcels
 
   Scenario: A parcel reported delivered is not paid out
     Given a seeds/PX-4104.yaml dynamodb seed
-    When the messages/px-4104-delivered.json message is published to the parcel-events sns topic with the following attributes:
+    And the messages/px-4104-delivered.json message is published to the parcel-events sns topic with the following attributes:
       | eventType | ParcelDelivered |
-    Then within 10s the insured-parcels dynamodb table has an item where:
+    And within 10s the insured-parcels dynamodb table has an item where:
       | reference   | PX-4104              |
       | deliveredAt | 2026-09-20T14:05:00Z |
-    Given a POST request to /api/claims
+    And a POST request to /api/claims
     And a request payload using an application/json content example
     And the request payload properties are:
       | parcel | PX-4104 |

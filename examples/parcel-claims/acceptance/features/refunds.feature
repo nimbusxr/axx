@@ -20,8 +20,8 @@ Feature: Refunds
     And the request payload properties are:
       | parcel | PX-4106 |
       | reason | LOST    |
-    When the request is executed
-    Then the response status code is 201
+    And the request is executed
+    And the response status code is 201
     When a message is sent to the refund-results sqs queue:
       """
       {"claim": "CLM-4106", "status": "PAID", "paidAt": "2026-09-24T10:00:00Z"}
@@ -38,8 +38,8 @@ Feature: Refunds
     And the request payload properties are:
       | parcel | PX-4109 |
       | reason | LOST    |
-    When the request is executed
-    Then the response status code is 201
+    And the request is executed
+    And the response status code is 201
     When the messages/refund-failed-clm-4109.json message is sent to the refund-results sqs queue with the following attributes:
       | failureReason | ACCOUNT_CLOSED |
     Then within 10s the claims dynamodb table has an item where:

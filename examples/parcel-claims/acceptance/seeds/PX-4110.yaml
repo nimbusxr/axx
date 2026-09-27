@@ -1,0 +1,6 @@
+insured-parcels:
+  - reference: PX-4110
+    shop: ACME-TOYS
+    carrier: KESTREL
+    declaredValue: 64.0
+    currency: EUR
