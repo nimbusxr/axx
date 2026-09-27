@@ -168,13 +168,11 @@ type Service struct {
 type Request struct {
 	Method   string
 	Path     string
-	MimeType string  // set by a payload step
-	Payload  *string // nil until a payload step runs
-	headers  []header
-	exchange *Exchange // nil until executed
+	MimeType string      // set by a payload step
+	Payload  *string     // nil until a payload step runs
+	header   http.Header // the headers it is sent with (Header)
+	exchange *Exchange   // nil until executed
 }
-
-type header struct{ name, value string }
 
 // Exchange is an executed request and its response.
 type Exchange struct {
@@ -241,7 +239,7 @@ func (svc *Service) requestOrAdd(i int) (*Request, error) {
 	case i > n:
 		return nil, fmt.Errorf("Cannot add request at index %d for service %s because the current number of requests is %d", i, svc.Name, n) //nolint:staticcheck // user-facing message
 	}
-	r := &Request{}
+	r := &Request{header: http.Header{}}
 	svc.requests = append(svc.requests, r)
 	return r, nil
 }
@@ -249,22 +247,10 @@ func (svc *Service) requestOrAdd(i int) (*Request, error) {
 // addHeader adds a request header. Content-Type and Accept replace an
 // earlier value; other headers may repeat (RFC 9110 field lines).
 func (r *Request) addHeader(name, value string) {
-	if http.CanonicalHeaderKey(name) == "Content-Type" || http.CanonicalHeaderKey(name) == "Accept" {
-		kept := r.headers[:0]
-		for _, h := range r.headers {
-			if http.CanonicalHeaderKey(h.name) != http.CanonicalHeaderKey(name) {
-				kept = append(kept, h)
-			}
-		}
-		r.headers = kept
+	switch h := r.Header(); http.CanonicalHeaderKey(name) {
+	case "Content-Type", "Accept":
+		h.Set(name, value)
+	default:
+		h.Add(name, value)
 	}
-	r.headers = append(r.headers, header{name, value})
-}
-
-func (r *Request) header() http.Header {
-	h := http.Header{}
-	for _, kv := range r.headers {
-		h.Add(kv.name, kv.value)
-	}
-	return h
 }

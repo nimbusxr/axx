@@ -94,7 +94,7 @@ func execute(sc *core.Scenario, svc *Service, idx int) error {
 	svc.mu.Lock()
 	method, path, mimeType, payload := req.Method, req.Path, req.MimeType, req.Payload
 	executed := req.exchange != nil
-	hdr := req.header()
+	hdr := req.Header().Clone() // the defaults below are the exchange's, not the request's
 	svc.mu.Unlock()
 	if executed {
 		return errors.New("Response already set") //nolint:staticcheck // user-facing message

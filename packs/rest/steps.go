@@ -417,6 +417,9 @@ func requestSteps() []core.StepDef {
 				"`ERROR` fail the step, which lists them all with their keys; `WARN` and `INFO` findings are logged.",
 			"The payload is sent as it is, or form-encoded for `application/x-www-form-urlencoded`.",
 			"Without a `Content-Type` header, the request has the payload's media type; without an `Accept` header, `*/*`.",
+			"A GET or HEAD request follows redirects, and a request with another method a `303 See Other` (with a GET): "+
+				"the response steps then check the response it leads to. Other redirects are the response, with their `Location` header.",
+			"No cookies are kept: a `Set-Cookie` response header is not sent back. Send one with the `Cookie` request header.",
 			"The request honors the step timeout, and is executed once.",
 			"Without an ordinal it sends the service's first (default) request; `the 2nd ordered request`, its second.",
 			serviceDoc),

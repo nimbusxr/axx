@@ -15,7 +15,11 @@ func buildDoc() string {
 
 **Payloads.** A payload starts from an OpenAPI content example (the named one, or the first in document order; ` + "`externalValue`" + ` examples are read relative to the specification) or from an empty template ` + "`{}`" + `, and is edited with the payload property steps (JSONPath, typed values, ` + "`null`" + `/` + "`undefined`" + `). ` + "`application/x-www-form-urlencoded`" + ` payloads are sent form-encoded.
 
-**Execution.** Requests go through one HTTP client shared by the run (connections are reused and closed at the end), honor the step timeout, follow redirects for GET and HEAD, and do not verify TLS certificates unless ` + "`packs.rest.tls.verify: true`" + ` is set in axx.yaml. Without a Content-Type header a payload is sent with its payload step's media type.
+**Execution.** Requests go through one HTTP client shared by the run (connections are reused and closed at the end), honor the step timeout, and do not verify TLS certificates unless ` + "`packs.rest.tls.verify: true`" + ` is set in axx.yaml. Without a Content-Type header a payload is sent with its payload step's media type.
+
+**Redirects.** A GET or HEAD request follows redirects (301, 302, 303, 307 and 308); a request with another method follows only ` + "`303 See Other`" + `, with a GET, as a browser does after a form. A request that follows a redirect has the response it leads to: the response steps check that one, and the redirect responses, with their ` + "`Location`" + ` and ` + "`Set-Cookie`" + ` headers, are not kept. The other redirects of a POST, PUT, PATCH or DELETE (301, 302, 307 and 308) are its response: check the status and the ` + "`Location`" + ` header, and send the request it leads to as the next ordered request.
+
+**Cookies.** The pack keeps no cookies: a ` + "`Set-Cookie`" + ` response header is never sent back, not even to where a redirect leads, so no request carries a cookie from another scenario. Send a cookie with the ` + "`Cookie`" + ` request header: it goes along when the request follows a redirect on the same host or to a subdomain of it.
 
 **OpenAPI validation.** When a service has an ` + "`openapi`" + ` specification (OpenAPI 3.0 or 3.1, a URL or a file; parsed once per run), each executed request and its response are validated after sending. Every finding has a key in the style of the swagger request validator (the one the WireMock extension uses), and a level:
 

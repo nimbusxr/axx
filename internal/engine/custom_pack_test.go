@@ -34,6 +34,22 @@ func (customPack) Manifest() core.Manifest {
 			},
 		},
 		{
+			// Changes a request the rest pack's steps built: its headers
+			// are the ones it is sent with.
+			ID: "custom.sign", Keyword: "Given", Expr: "a custom step signs the request for {word}",
+			Run: func(sc *core.Scenario, a core.Args) error {
+				svc, err := rest.Context(sc).Service()
+				if err != nil {
+					return err
+				}
+				reqs := svc.Requests()
+				h := reqs[len(reqs)-1].Header()
+				h.Set("Authorization", "Bearer token-of-"+a.String(0))
+				h.Del("X-Draft")
+				return nil
+			},
+		},
+		{
 			ID: "custom.status", Keyword: "Then", Expr: "a custom step sees status {int} on the last response",
 			Run: func(sc *core.Scenario, a core.Args) error {
 				svc, err := rest.Context(sc).Service()
@@ -63,11 +79,30 @@ const customFeature = `Feature: custom packs share the context
     When the request is executed
     Then the response status code is 200
     And a custom step sees status 200 on the last response
+
+  Scenario: a custom step changes the headers of a request the rest pack's steps built
+    Given the api service with the following properties:
+      | url | ${sys:api.url} |
+    And a GET request to /api/parcels?sender=kestrel-books
+    And the request header X-Draft is 'yes'
+    And a custom step signs the request for kestrel-books
+    When the request is executed
+    Then the response status code is 200
 `
 
 func TestCustomPackSharesContext(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/health" {
+		switch r.URL.Path {
+		case "/health":
+			if r.Header.Get("X-Prepared-By") != "custom" {
+				w.WriteHeader(http.StatusBadRequest)
+			}
+		case "/api/parcels":
+			// The headers the custom step set, and not the one it removed.
+			if r.Header.Get("Authorization") != "Bearer token-of-kestrel-books" || r.Header.Get("X-Draft") != "" {
+				w.WriteHeader(http.StatusUnauthorized)
+			}
+		default:
 			w.WriteHeader(http.StatusNotFound)
 		}
 	}))
@@ -101,10 +136,15 @@ func TestCustomPackSharesContext(t *testing.T) {
 		t.Fatal(err)
 	}
 	res := r.Run(ctx, pickles)
-	if s := res.Scenarios[0]; s.Status != runner.Passed {
-		for _, st := range s.Steps {
-			t.Logf("%s %s: %v", st.Status, st.Text, st.Err)
+	if len(res.Scenarios) != 2 {
+		t.Fatalf("ran %d scenarios", len(res.Scenarios))
+	}
+	for _, s := range res.Scenarios {
+		if s.Status != runner.Passed {
+			for _, st := range s.Steps {
+				t.Logf("%s %s: %v", st.Status, st.Text, st.Err)
+			}
+			t.Fatalf("%s: %v", s.Pickle.Name, s.Status)
 		}
-		t.Fatalf("scenario %v", s.Status)
 	}
 }
