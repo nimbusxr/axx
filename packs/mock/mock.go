@@ -144,6 +144,18 @@ func steps() []core.StepDef {
 			Run:      received,
 		},
 		{
+			ID: "mock.received.path", Keyword: "Then",
+			Expr: "the mocked {word} request to path {word} named {word} was received by {mockedService}",
+			Doc: "Check that the mocked service received a request to a path at least once, whatever its query string, and name it " +
+				"for the steps that follow.\n\n" +
+				"- For requests whose query changes from call to call, such as a request ID: check the query parameters that matter " +
+				"with `the query parameters for mocked request named ... are:`.\n" +
+				"- The method is `GET`, `POST`, `PUT`, `DELETE`, `PATCH`, `OPTIONS` or `HEAD`, in capitals.\n" +
+				"- With the axx WireMock image, a call that broke the service's OpenAPI contract fails the step.",
+			Examples: []string{"Then the mocked POST request to path /v1/collections named collection was received by courier"},
+			Run:      receivedPath,
+		},
+		{
 			ID: "mock.openapi.levels", Keyword: "Given", Arg: core.ArgTable,
 			Expr: "the OpenAPI validation levels for the mocked {mockedService} service are:",
 			Doc: "Relax the mocked service's OpenAPI contract for this scenario: a finding that would fail the mock step " +
@@ -261,6 +273,22 @@ func steps() []core.StepDef {
 				"  | deliverTo.postcode | \"10115\"     |\n" +
 				"  | recipient          | undefined   |"},
 			Run: func(sc *core.Scenario, a core.Args) error { return bodyCheck(sc, a, (*pattern).withProperty) },
+		},
+		{
+			ID: "mock.query.are", Keyword: "Then", Arg: core.ArgTable,
+			Expr: "the query parameters for mocked request named {word}[[ on {mockedService}]] are:",
+			Doc: "Check that the named request was received with every query parameter of the table, each with its value.\n\n" +
+				"- Name the request by its path (`the mocked ... request to path ...`): a request named by its whole URL matches its query already.\n" +
+				"- `undefined` means the query has no such parameter.\n" +
+				"- " + bodyJoins,
+			Table: &core.TableDoc{
+				Columns: []string{"parameter", "value"},
+				Note:    "A row is a query parameter's name and the value it must have, or `undefined`.",
+			},
+			Examples: []string{"Then the query parameters for mocked request named collection on courier are:\n" +
+				"  | slot      | same-day  |\n" +
+				"  | reference | undefined |"},
+			Run: func(sc *core.Scenario, a core.Args) error { return bodyCheck(sc, a, (*pattern).withQuery) },
 		},
 		{
 			ID: "mock.form.are", Keyword: "Then", Arg: core.ArgTable,
@@ -386,6 +414,22 @@ func received(sc *core.Scenario, a core.Args) error {
 	return verify(sc, svc, name, p, "at least 1", func(got int) bool { return got >= 1 })
 }
 
+func receivedPath(sc *core.Scenario, a core.Args) error {
+	method, path, name := a.String(0), a.String(1), a.String(2)
+	svc := a.Value(3).(*Service)
+	switch method {
+	case "GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD":
+	default:
+		return fmt.Errorf("Unsupported method: %s", method) //nolint:staticcheck // user-facing message
+	}
+	if strings.Contains(path, "?") {
+		return fmt.Errorf("the path %s has a query string: check its query parameters with the query parameters step", path)
+	}
+	p := &pattern{Method: method, URL: path, PathOnly: true}
+	svc.requests[name] = p
+	return verify(sc, svc, name, p, "at least 1", func(got int) bool { return got >= 1 })
+}
+
 func notReceived(sc *core.Scenario, a core.Args) error {
 	svc, err := service(sc, a, 3)
 	if err != nil {
@@ -443,8 +487,9 @@ func headersMissing(sc *core.Scenario, a core.Args) error {
 	return verify(sc, svc, name, p, "at least 1", func(got int) bool { return got >= 1 })
 }
 
-// bodyCheck adds the table's rows to the named request's body (with add)
-// and checks that it was received.
+// bodyCheck adds the table's rows to the named request (with add: its
+// body's properties, its form's fields, its query's parameters) and checks
+// that it was received.
 func bodyCheck(sc *core.Scenario, a core.Args, add func(*pattern, string, headerMatcher)) error {
 	svc, err := service(sc, a, 1)
 	if err != nil {

@@ -57,6 +57,8 @@ func TestAgainstRealWireMock(t *testing.T) {
 		{"/v1/collections", "application/json", `{"reference": "PX-REG-1401", "weightGrams": 800, "deliverTo": {"postcode": "10115", "country": "DE"}}`},
 		{"/v1/collections", "application/json", `{"reference": "PX-REG-1402", "weightGrams": 650, "recipient": {"name": "Ada Lovelace"}}`},
 		{"/v1/pickups", "application/x-www-form-urlencoded", "reference=PX-WEB-5401&day=Friday"},
+		{"/v1/bookings?requestId=a1f3&slot=same-day", "application/json", `{"reference": "PX-REG-1501"}`},
+		{"/v1/bookings?requestId=b7c9&slot=next-day", "application/json", `{"reference": "PX-REG-1502"}`},
 	} {
 		r, err := http.Post(base+r.path, r.contentType, strings.NewReader(r.body))
 		if err != nil {
@@ -111,6 +113,28 @@ func TestAgainstRealWireMock(t *testing.T) {
 	}
 	if err := run("the form fields for mocked request named pickup-notice on spacex are:", []string{"day", "Tomorrow"}); err == nil {
 		t.Error("a form field with another value passed")
+	}
+
+	// A request named by its path matches whatever its query; the query's
+	// parameters narrow it.
+	if err := run("the mocked POST request to path /v1/bookings named booking was received by spacex"); err != nil {
+		t.Fatal(err)
+	}
+	if err := run("the mocked request named booking was received exactly 2 times"); err != nil {
+		t.Fatal(err)
+	}
+	if err := run("the query parameters for mocked request named booking on spacex are:",
+		[]string{"slot", "same-day"}, []string{"reference", "undefined"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := run("the mocked request named booking was received exactly 1 time"); err != nil {
+		t.Fatal(err)
+	}
+	if err := run("the query parameters for mocked request named booking are:", []string{"slot", "tomorrow"}); err == nil {
+		t.Error("a query parameter with another value passed")
+	}
+	if err := run("the mocked POST request to path /v1/bookings?slot=same-day named wrong was received by spacex"); err == nil {
+		t.Error("a path with a query string passed")
 	}
 
 	err = run("the mocked request named launches was received exactly 5 times")

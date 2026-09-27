@@ -104,6 +104,17 @@ Scenario: The courier collects an express parcel without being told who it goes 
 - **`undefined` checks that something was left out**, such as a recipient's name the courier must never get.
 - **Form fields** of a form-encoded body are checked the same way: `the form fields for mocked request named pickup-notice are:`, with a field and its value a row.
 
+When a request's query changes from call to call, such as a request ID, name the request by its path, and check the query parameters that matter:
+
+```gherkin
+Then the mocked POST request to path /v1/collections named collection was received by courier
+And the query parameters for mocked request named collection on courier are:
+  | slot      | same-day  |
+  | reference | undefined |
+```
+
+A request named by its path matches whatever its query string; its query parameters narrow it, and its counts, like its body's properties.
+
 :::caution[Journals persist]
 WireMock keeps its request journal between scenarios, and between runs for as long as it keeps running, and scenarios run in parallel. Match on something unique to the scenario (a postcode or an id in the URL, a header, a property of the body) so one scenario never counts another scenario's requests. A count such as `exactly 1 time` also counts the requests of earlier runs while the mock keeps running, as it does between runs with `axx up`. See [Isolate test data](/guides/isolate-test-data/).
 :::

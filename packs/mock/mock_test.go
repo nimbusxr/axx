@@ -244,3 +244,14 @@ func TestBodyAndFormPatterns(t *testing.T) {
 		t.Errorf("pattern\n got %s\nwant %s", got, want)
 	}
 }
+
+func TestPathAndQueryPatterns(t *testing.T) {
+	p := &pattern{Method: "POST", URL: "/v1/collections", PathOnly: true}
+	p.withQuery("slot", bodyValue("same-day"))
+	p.withQuery("reference", bodyValue("undefined"))
+	got := string(mustJSON(p))
+	want := `{"method":"POST","urlPath":"/v1/collections","queryParameters":{"slot":{"equalTo":"same-day"},"reference":{"absent":true}}}`
+	if got != want {
+		t.Errorf("pattern\n got %s\nwant %s", got, want)
+	}
+}

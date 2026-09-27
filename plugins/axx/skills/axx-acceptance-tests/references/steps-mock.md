@@ -55,6 +55,29 @@ Check that the mocked service received a request at least once, and name it for 
 Then the mocked GET request to /v1/postcodes/DE/10115 named postcode-check was received by addresses
 ```
 
+## `mock.received.path`
+
+```gherkin
+Then the mocked {word} request to path {word} named {word} was received by {mockedService}
+```
+
+Check that the mocked service received a request to a path at least once, whatever its query string, and name it for the steps that follow.
+
+- For requests whose query changes from call to call, such as a request ID: check the query parameters that matter with `the query parameters for mocked request named ... are:`.
+- The method is `GET`, `POST`, `PUT`, `DELETE`, `PATCH`, `OPTIONS` or `HEAD`, in capitals.
+- With the axx WireMock image, a call that broke the service's OpenAPI contract fails the step.
+
+| Parameter | Takes | For example |
+|---|---|---|
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+| `{mockedService}` | the name of a mocked service the scenario registered | `addresses` |
+
+**Example:**
+
+```gherkin
+Then the mocked POST request to path /v1/collections named collection was received by courier
+```
+
 ## `mock.openapi.levels`
 
 ```gherkin
@@ -356,6 +379,39 @@ Then the payload properties for mocked request named collection on courier are:
   | reference          | PX-REG-1401 |
   | deliverTo.postcode | "10115"     |
   | recipient          | undefined   |
+```
+
+## `mock.query.are`
+
+```gherkin
+Then the query parameters for mocked request named {word}[[ on {mockedService}]] are:
+  | parameter | value |
+```
+
+Check that the named request was received with every query parameter of the table, each with its value.
+
+- Name the request by its path (`the mocked ... request to path ...`): a request named by its whole URL matches its query already.
+- `undefined` means the query has no such parameter.
+- Later steps on the named request check these too, so its counts count only the requests that have them.
+
+| Parameter | Takes | For example |
+|---|---|---|
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+| `{mockedService}` | the name of a mocked service the scenario registered | `addresses` |
+
+A row is a query parameter's name and the value it must have, or `undefined`.
+
+**Variants**, the parts in `[[...]]` said or left out:
+
+- `the query parameters for mocked request named {word} are:`
+- `the query parameters for mocked request named {word} on {mockedService} are:`
+
+**Example:**
+
+```gherkin
+Then the query parameters for mocked request named collection on courier are:
+  | slot      | same-day  |
+  | reference | undefined |
 ```
 
 ## `mock.form.are`

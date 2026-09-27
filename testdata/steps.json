@@ -2,7 +2,7 @@
   "description": "The frozen catalog of built-in step text. Step text is public API: every entry must stay defined, verbatim, by its pack.",
   "counts": {
     "parameterType": 11,
-    "step": 473
+    "step": 476
   },
   "entries": [
     {
@@ -2919,6 +2919,24 @@
       "pack": "mock",
       "keyword": "Then",
       "expression": "the form fields for mocked request named {word} on {mockedService} are:"
+    },
+    {
+      "kind": "step",
+      "pack": "mock",
+      "keyword": "Then",
+      "expression": "the mocked {word} request to path {word} named {word} was received by {mockedService}"
+    },
+    {
+      "kind": "step",
+      "pack": "mock",
+      "keyword": "Then",
+      "expression": "the query parameters for mocked request named {word} are:"
+    },
+    {
+      "kind": "step",
+      "pack": "mock",
+      "keyword": "Then",
+      "expression": "the query parameters for mocked request named {word} on {mockedService} are:"
     }
   ]
 }
