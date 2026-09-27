@@ -4,6 +4,10 @@ description: >-
   Go's module and build caches. Restore them right after installing Go, and save them as the
   job's last step: saving only happens on pushes to main, so pull requests use the caches but
   never write them. Jobs that publish use no cache at all.
+
+  The module cache is what go.sum says, so it is keyed by go.sum. The build cache changes with
+  every commit, and a cache's key is written once: each push to main keeps its own, by commit,
+  and a run restores the newest one (for its go.sum, else any).
 inputs:
   build:
     description: Name of the build cache (lint, test, cross...). Jobs with the same name share it.
@@ -40,8 +44,10 @@ runs:
         path: |
           ${{ steps.go.outputs.build }}
           ${{ inputs.extra-paths }}
-        key: go-build-${{ runner.os }}-${{ inputs.build }}-${{ hashFiles('go.sum') }}
-        restore-keys: go-build-${{ runner.os }}-${{ inputs.build }}-
+        key: go-build-${{ runner.os }}-${{ inputs.build }}-${{ hashFiles('go.sum') }}-${{ github.sha }}
+        restore-keys: |
+          go-build-${{ runner.os }}-${{ inputs.build }}-${{ hashFiles('go.sum') }}-
+          go-build-${{ runner.os }}-${{ inputs.build }}-
     - if: >-
         inputs.mode == 'save' && inputs.modules == 'true'
         && github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -63,4 +69,4 @@ runs:
         path: |
           ${{ steps.go.outputs.build }}
           ${{ inputs.extra-paths }}
-        key: go-build-${{ runner.os }}-${{ inputs.build }}-${{ hashFiles('go.sum') }}
+        key: go-build-${{ runner.os }}-${{ inputs.build }}-${{ hashFiles('go.sum') }}-${{ github.sha }}

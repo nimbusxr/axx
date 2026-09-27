@@ -60,16 +60,14 @@ jobs:
         with:
           ref: ${{ inputs.tag }}
           persist-credentials: false
-      # Validation only; Gradle caching comes from setup-java below.
+      # Validation only; Gradle's caches come from setup-gradle below.
       - uses: gradle/actions/wrapper-validation@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6
       - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6
         with:
           distribution: temurin
           java-version: "21"
-          cache: gradle
-          cache-dependency-path: |
-            extensions/wiremock-openapi/*.gradle.kts
-            extensions/wiremock-openapi/gradle/wrapper/gradle-wrapper.properties
+      # Gradle's caches: written on main only (the action's default), read by pull requests.
+      - uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6
       - run: ./gradlew --no-daemon --console=plain build
       - if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
@@ -92,7 +90,8 @@ jobs:
           load: true
           tags: axx-wiremock:ci
           cache-from: type=gha,scope=axx-wiremock
-          cache-to: type=gha,mode=max,scope=axx-wiremock
+          # Layers are cached from main only: pull requests read them.
+          cache-to: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && 'type=gha,mode=max,scope=axx-wiremock' || '' }}
       - run: ./smoke-test.sh axx-wiremock:ci
 
   publish:
@@ -156,7 +155,7 @@ jobs:
           sbom: true
           # Only a dry run reuses cached layers; a published image is built from scratch.
           cache-from: ${{ inputs.dry-run && 'type=gha,scope=axx-wiremock' || '' }}
-          cache-to: type=gha,mode=max,scope=axx-wiremock
+          cache-to: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && 'type=gha,mode=max,scope=axx-wiremock' || '' }}
       - name: sign (cosign keyless)
         if: ${{ !inputs.dry-run }}
         env:

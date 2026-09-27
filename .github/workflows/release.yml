@@ -206,6 +206,8 @@ jobs:
       - uses: jdx/mise-action@5228313ee0372e111a38da051671ca30fc5a96db # v3
         with:
           install_args: "go goreleaser"
+          # Tools are cached from main only: pull requests read them.
+          cache_save: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
       # A dry run publishes nothing, so it can reuse CI's cross-build cache.
       - uses: ./.github/actions/go-cache
         with:

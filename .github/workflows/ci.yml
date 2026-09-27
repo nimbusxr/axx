@@ -51,6 +51,8 @@ jobs:
       - uses: jdx/mise-action@5228313ee0372e111a38da051671ca30fc5a96db # v3
         with:
           install_args: "aqua:gitleaks/gitleaks"
+          # Tools are cached from main only: pull requests read them.
+          cache_save: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
       - run: scripts/hygiene.sh
       - name: gitleaks (history)
         run: gitleaks git --no-banner --redact .
@@ -66,6 +68,8 @@ jobs:
       - uses: jdx/mise-action@5228313ee0372e111a38da051671ca30fc5a96db # v3
         with:
           install_args: "go golangci-lint"
+          # Tools are cached from main only: pull requests read them.
+          cache_save: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
       - uses: ./.github/actions/go-cache
         with:
           build: lint
@@ -96,12 +100,20 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
+      # Windows scans every file the checkout, the cache restore and the build write, which
+      # makes them slow: its real-time scanning is off on this runner, which lasts one job.
+      - if: runner.os == 'Windows'
+        name: stop Windows Defender's real-time scanning
+        shell: pwsh
+        run: Set-MpPreference -DisableRealtimeMonitoring $true
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           persist-credentials: false
       - uses: jdx/mise-action@5228313ee0372e111a38da051671ca30fc5a96db # v3
         with:
           install_args: "go"
+          # Tools are cached from main only: pull requests read them.
+          cache_save: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
       - uses: ./.github/actions/go-cache
         with:
           build: test
@@ -122,20 +134,25 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       # The services' images and the race-detector builds need more disk than a runner has
-      # free: remove toolchains the job never uses.
-      - name: free disk space
-        run: |
-          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL /usr/share/swift
-          df -h /
+      # free: remove toolchains the job never uses, in the background while the job sets up.
+      - name: free disk space (in the background)
+        run: (sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL /usr/share/swift; touch "$RUNNER_TEMP/disk-freed") > /dev/null 2>&1 &
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           persist-credentials: false
       - uses: jdx/mise-action@5228313ee0372e111a38da051671ca30fc5a96db # v3
         with:
           install_args: "go"
+          # Tools are cached from main only: pull requests read them.
+          cache_save: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
       - uses: ./.github/actions/go-cache
         with:
           build: test
+      - name: wait for the disk space
+        run: |
+          for _ in $(seq 300); do [ -f "$RUNNER_TEMP/disk-freed" ] && break; sleep 2; done
+          [ -f "$RUNNER_TEMP/disk-freed" ] || { echo "::error::the disk space was not freed within 10 minutes"; exit 1; }
+          df -h /
       # The web pack has a job of its own (web).
       - run: |
           mapfile -t packs < <(go list ./packs/... | grep -v /packs/web)
@@ -154,6 +171,8 @@ jobs:
       - uses: jdx/mise-action@5228313ee0372e111a38da051671ca30fc5a96db # v3
         with:
           install_args: "go"
+          # Tools are cached from main only: pull requests read them.
+          cache_save: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
       - uses: ./.github/actions/go-cache
         with:
           build: test
@@ -202,6 +221,8 @@ jobs:
       - uses: jdx/mise-action@5228313ee0372e111a38da051671ca30fc5a96db # v3
         with:
           install_args: "go"
+          # Tools are cached from main only: pull requests read them.
+          cache_save: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
       - uses: ./.github/actions/go-cache
         with:
           build: cross
@@ -235,6 +256,8 @@ jobs:
       - uses: jdx/mise-action@5228313ee0372e111a38da051671ca30fc5a96db # v3
         with:
           install_args: "go golangci-lint"
+          # Tools are cached from main only: pull requests read them.
+          cache_save: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
       - run: go mod tidy -diff
       - run: go test ./...
       - run: golangci-lint run
@@ -251,6 +274,8 @@ jobs:
       - uses: jdx/mise-action@5228313ee0372e111a38da051671ca30fc5a96db # v3
         with:
           install_args: "go goreleaser"
+          # Tools are cached from main only: pull requests read them.
+          cache_save: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
       - uses: ./.github/actions/go-cache
         with:
           build: cross
@@ -268,6 +293,8 @@ jobs:
       - uses: jdx/mise-action@5228313ee0372e111a38da051671ca30fc5a96db # v3
         with:
           install_args: "aqua:rhysd/actionlint"
+          # Tools are cached from main only: pull requests read them.
+          cache_save: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
       - run: mise exec aqua:rhysd/actionlint -- actionlint
       - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
         with:
