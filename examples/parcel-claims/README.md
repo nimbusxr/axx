@@ -19,7 +19,7 @@ on a queue, and the decision on a topic and a bus. The service knows nothing abo
 
 | Feature | Acceptance criteria | What axx uses |
 | --- | --- | --- |
-| `damage-claims` | A claim within the auto-approval limit is settled when its photo arrives. A larger one goes to a person, with the photo copied for the reviewer. A parcel is claimed once. | REST with OpenAPI, S3 uploads and objects (JSON properties, a letter's text, identical to a file), DynamoDB items and counts, SQS, SNS and EventBridge checks |
+| `damage-claims` | A damage claim waits for its photo. A claim within the auto-approval limit is settled when its photo arrives. A larger one goes to a person, with the photo copied for the reviewer. A parcel is claimed once. | REST with OpenAPI, S3 uploads and objects (JSON properties, a letter's text, identical to a file), DynamoDB items and counts, SQS, SNS and EventBridge checks |
 | `lost-claims` | A lost parcel is paid out unless the parcels platform reported it delivered. A parcel event without a type is set aside. | publishing to SNS, with and without attributes, a CSV row in an S3 object, and a log entry that proves an event was ignored |
 | `carrier-reports` | A carrier's damage report settles the claim without a photo. | putting an event on an EventBridge bus |
 | `refunds` | Paid refunds close claims. Failed ones are flagged with the reason payments gives. | sending to SQS, with and without attributes |

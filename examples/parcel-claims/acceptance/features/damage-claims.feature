@@ -15,6 +15,24 @@ Feature: Claims for damaged parcels
       | url     | http://${sys:local.host}:8500              |
       | openapi | http://${sys:local.host}:8500/openapi.yaml |
 
+  Scenario: A damage claim waits for its photo
+    Given a seeds/PX-4110.yaml dynamodb seed
+    And a POST request to /api/claims
+    And a request payload using an application/json content example
+    And the request payload properties are:
+      | parcel | PX-4110 |
+      | reason | DAMAGED |
+    When the request is executed
+    Then the response status code is 201
+    And the response payload properties are:
+      | id     | CLM-4110          |
+      | status | AWAITING_EVIDENCE |
+    And the parcels eventbridge bus has an event where:
+      | detail-type   | Claim Filed    |
+      | source        | parcels.claims |
+      | detail.claim  | CLM-4110       |
+      | detail.reason | DAMAGED        |
+
   Scenario: A claim within the limit is settled when its photo arrives
     Given a seeds/PX-4101.yaml dynamodb seed
     And a POST request to /api/claims
@@ -22,16 +40,8 @@ Feature: Claims for damaged parcels
     And the request payload properties are:
       | parcel | PX-4101 |
       | reason | DAMAGED |
-    When the request is executed
-    Then the response status code is 201
-    And the response payload properties are:
-      | id     | CLM-4101          |
-      | status | AWAITING_EVIDENCE |
-    And the parcels eventbridge bus has an event where:
-      | detail-type   | Claim Filed |
-      | source        | parcels.claims |
-      | detail.claim  | CLM-4101    |
-      | detail.reason | DAMAGED     |
+    And the request is executed
+    And the response status code is 201
     When the evidence/crushed-box.png file is uploaded to the claim-evidence s3 bucket as claims/CLM-4101/crushed-box.png
     Then within 30s the claims dynamodb table has an item where:
       | id     | CLM-4101 |
@@ -60,8 +70,8 @@ Feature: Claims for damaged parcels
     And the request payload properties are:
       | parcel | PX-4102 |
       | reason | DAMAGED |
-    When the request is executed
-    Then the response status code is 201
+    And the request is executed
+    And the response status code is 201
     When the evidence/torn-parcel.png file is uploaded to the claim-evidence s3 bucket as claims/CLM-4102/torn-parcel.png
     Then within 30s the claim-reviews s3 bucket has an object named CLM-4102/torn-parcel.png
     And the CLM-4102/torn-parcel.png object in the claim-reviews s3 bucket is identical to the evidence/torn-parcel.png file
