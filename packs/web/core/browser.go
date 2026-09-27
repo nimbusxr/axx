@@ -140,6 +140,13 @@ func browserFor(s *core.Suite, a *App) (playwright.Browser, error) {
 		if port != 0 {
 			opts.Args = append(opts.Args, fmt.Sprintf("--remote-debugging-port=%d", port))
 		}
+		if a.Engine == "chromium" || branded(a.Engine) {
+			// Text is smoothed in grayscale. Otherwise Chromium on Linux
+			// switches between grayscale and subpixel (LCD) smoothing as it
+			// composites a page, and a screenshot of one page differs from
+			// run to run.
+			opts.Args = append(opts.Args, "--disable-lcd-text")
+		}
 		bt := map[string]playwright.BrowserType{"chromium": pw.Chromium, "firefox": pw.Firefox, "webkit": pw.WebKit}[a.Engine]
 		switch {
 		case branded(a.Engine):

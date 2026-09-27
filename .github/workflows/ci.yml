@@ -23,6 +23,7 @@ jobs:
       integration: ${{ steps.changes.outputs.integration }}
       web: ${{ steps.changes.outputs.web }}
       examples: ${{ steps.changes.outputs.examples }}
+      acceptance: ${{ steps.changes.outputs.acceptance }}
       workflows: ${{ steps.changes.outputs.workflows }}
     steps:
       # A pull request is checked out as its merge into the base branch, the merge's first
@@ -184,37 +185,12 @@ jobs:
       - uses: ./.github/actions/go-cache
         with:
           build: test
-      # The browsers, and the Playwright driver, Node.js, axe-core and Lighthouse axx prepares,
-      # by their versions. Saved only on pushes to main, like Go's caches.
-      - id: web-tools
-        name: the versions of the web packs' downloads
-        run: |
-          versions=$({
-            grep -hE '(CoreVersion|NodeVersion|patchRevision|lighthouseVersion) *=|Name: "axe-core"' \
-              packs/web/internal/driver/*.go packs/web/lighthouse/install.go packs/web/a11y/a11y.go
-            sha256sum packs/web/lighthouse/npm/package-lock.json
-          } | sha256sum | cut -c1-16)
-          echo "key=web-tools-${RUNNER_OS}-${versions}" >> "$GITHUB_OUTPUT"
-      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: |
-            ~/.cache/ms-playwright
-            ~/.cache/axx/web
-          key: ${{ steps.web-tools.outputs.key }}
-      - name: the browsers' system libraries
-        run: |
-          version=$(sed -n 's/^\tCoreVersion = "\(.*\)"$/\1/p' packs/web/internal/driver/driver.go)
-          sudo npx -y "playwright@$version" install-deps chromium firefox webkit
+      - uses: ./.github/actions/web-tools
       - run: xvfb-run -a go test -race -tags integration -timeout 20m ./packs/web/...
-      - if: ${{ !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-        # A cache is an optimization: failing to save it fails nothing.
-        continue-on-error: true
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      - if: ${{ !cancelled() }}
+        uses: ./.github/actions/web-tools
         with:
-          path: |
-            ~/.cache/ms-playwright
-            ~/.cache/axx/web
-          key: ${{ steps.web-tools.outputs.key }}
+          mode: save
 
   cross-build:
     needs: changes
@@ -270,6 +246,62 @@ jobs:
       - run: go test ./...
       - run: golangci-lint run
 
+  acceptance:
+    needs: changes
+    if: needs.changes.outputs.acceptance == 'true'
+    # Each example's acceptance suite, the way its README runs it: axx starts the service and
+    # its infrastructure with Docker Compose, runs the features and removes everything. axx is
+    # built with every pack, so it prepares none.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        example: [parcels, parcel-claims, carrier-billing, customs-clearance]
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+        with:
+          install_args: "go"
+          # Tools are cached from main only: pull requests read them.
+          cache_save: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+      - uses: ./.github/actions/go-cache
+        with:
+          build: acceptance
+      - name: axx, with every pack
+        run: |
+          go build -o "$RUNNER_TEMP/bin/axx" ./internal/tools/axxall
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+      # The parcels shop portal's features run in browsers.
+      - if: matrix.example == 'parcels'
+        uses: ./.github/actions/web-tools
+      - name: the fixtures, as a fresh clone has them
+        working-directory: examples/${{ matrix.example }}/acceptance
+        run: |
+          axx fixtures check
+          axx fixtures generate
+      - working-directory: examples/${{ matrix.example }}/acceptance
+        run: axx run --format progress --format junit:build/axx/junit.xml --format html:build/axx/report.html
+      - if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: acceptance-${{ matrix.example }}
+          # The report, and the screenshots, traces and logs a failure leaves.
+          path: |
+            examples/${{ matrix.example }}/acceptance/build/axx/
+            examples/${{ matrix.example }}/acceptance/.axx/web/
+            examples/${{ matrix.example }}/acceptance/.axx/logs/
+          if-no-files-found: ignore
+          retention-days: 7
+      - if: ${{ !cancelled() && matrix.example == 'parcels' }}
+        uses: ./.github/actions/go-cache
+        with:
+          build: acceptance
+          mode: save
+          modules: "false"
+
   release-check:
     needs: changes
     if: needs.changes.outputs.go == 'true'
@@ -314,7 +346,7 @@ jobs:
   # pull request does not need is skipped, which passes.
   ci-ok:
     if: always()
-    needs: [changes, hygiene, lint, workflows, test, integration, web, cross-build, example-app, release-check]
+    needs: [changes, hygiene, lint, workflows, test, integration, web, cross-build, example-app, acceptance, release-check]
     runs-on: ubuntu-24.04
     steps:
       - name: all jobs passed

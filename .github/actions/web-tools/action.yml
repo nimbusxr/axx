@@ -1,0 +1,45 @@
+# SPDX-License-Identifier: Apache-2.0
+name: web-tools
+description: >-
+  What the web packs download on first use: the browsers, and the Playwright driver, Node.js,
+  axe-core and Lighthouse axx prepares, cached by their versions, and the browsers' system
+  libraries. Restore them before the web packs run, and save them as the job's last step:
+  saving only happens on pushes to main, like Go's caches.
+inputs:
+  mode:
+    description: "`restore` (with the system libraries) or `save`."
+    default: restore
+runs:
+  using: composite
+  steps:
+    - id: key
+      shell: bash
+      run: |
+        versions=$({
+          grep -hE '(CoreVersion|NodeVersion|patchRevision|lighthouseVersion) *=|Name: "axe-core"' \
+            packs/web/internal/driver/*.go packs/web/lighthouse/install.go packs/web/a11y/a11y.go
+          sha256sum packs/web/lighthouse/npm/package-lock.json
+        } | sha256sum | cut -c1-16)
+        echo "key=web-tools-${RUNNER_OS}-${versions}" >> "$GITHUB_OUTPUT"
+    - if: inputs.mode == 'restore'
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: |
+          ~/.cache/ms-playwright
+          ~/.cache/axx/web
+        key: ${{ steps.key.outputs.key }}
+    - if: inputs.mode == 'restore'
+      name: the browsers' system libraries
+      shell: bash
+      run: |
+        version=$(sed -n 's/^\tCoreVersion = "\(.*\)"$/\1/p' packs/web/internal/driver/driver.go)
+        sudo npx -y "playwright@$version" install-deps chromium firefox webkit
+    - if: inputs.mode == 'save' && github.event_name == 'push' && github.ref == 'refs/heads/main'
+      # A cache is an optimization: failing to save it fails nothing.
+      continue-on-error: true
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: |
+          ~/.cache/ms-playwright
+          ~/.cache/axx/web
+        key: ${{ steps.key.outputs.key }}

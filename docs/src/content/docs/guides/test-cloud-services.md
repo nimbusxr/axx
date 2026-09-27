@@ -69,6 +69,8 @@ services:
 
 Create the buckets, queues, topics and tables the way your infrastructure code does in a real account. Scenarios bring the data: files, seeds and messages. The examples run a one-shot `provision` command before the service starts.
 
+For a service that consumes Service Bus messages, use Microsoft's [Service Bus emulator](https://learn.microsoft.com/azure/service-bus-messaging/overview-emulator) rather than floci's. With floci-az, a message that arrives while the service is busy with another can stay locked until its lock expires, a minute by default, so the service sees it too late for a check. The `customs-clearance` example runs Service Bus in Microsoft's emulator and Blob Storage in floci. Its management API is on its own port: give axx's namespace `management endpoint` `http://localhost:5300`.
+
 ## Seed data
 
 A seed is a YAML or JSON file that gives a scenario's data: the items of DynamoDB tables, the rows of BigQuery tables, or the documents of Firestore collections, by ID.

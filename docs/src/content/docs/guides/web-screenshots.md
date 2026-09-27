@@ -33,7 +33,7 @@ On a platform that is not in the list, the steps pass without comparing and say 
 
 - The first time, there is no screenshot: the step takes it and fails. Look at it, commit it, and the next runs compare with it.
 - When the page looks different, the step attaches the screenshot, the page and their difference to the report (red: what differs; yellow: anti-aliasing), and keeps the page in `.axx/web/screenshots/`. When the change is right, copy that over the screenshot, or delete the screenshot and run again.
-- `packs.web-screenshots.update: true` takes every screenshot again, as the pages look now, for the platform it runs on: `axx run --set packs.web-screenshots.update=true` on your Mac, and on Linux in a CI job that keeps them as an artifact, or in Playwright's image, which has the browsers and fonts of Linux (`mcr.microsoft.com/playwright:v1.62.1-noble`).
+- `packs.web-screenshots.update: true` takes every screenshot again, as the pages look now, for the platform it runs on: `axx run --set packs.web-screenshots.update=true` on your Mac, and on Linux in the CI job that compares them, keeping them as an artifact. Take a platform's screenshots where they are compared: another Linux draws text with other fonts and smoothing, and Playwright's image (`mcr.microsoft.com/playwright`) does not draw like GitHub's Ubuntu runners.
 - The check waits for the page to settle, such as a price that arrives, before it fails.
 
 ## One element

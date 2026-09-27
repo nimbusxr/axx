@@ -5,11 +5,12 @@
 #
 # axx runs this for you: see ../acceptance/axx.yaml.
 #
-# Azure runs locally in floci (https://floci.io), a free, open-source
-# emulator: Blob Storage and the Service Bus management API on port 4577. For
-# Service Bus messaging it starts a broker container of its own, on the host's
-# port 5673, which needs the Docker socket. The service is set up exactly as
-# for Azure, from connection strings.
+# Azure runs locally in two emulators: Blob Storage in floci (https://floci.io),
+# free and open source, on port 4577; Service Bus in Microsoft's Service Bus
+# emulator, with the Azure SQL Edge it keeps its state in, on ports 5672
+# (messaging) and 5300 (management). Running them accepts the emulator's and
+# Azure SQL Edge's license terms (ACCEPT_EULA). The service is set up exactly
+# as for Azure, from connection strings.
 name: customs-clearance
 
 services:
@@ -17,10 +18,27 @@ services:
     image: floci/floci-az:latest
     ports:
       - '4577:4577'
-    environment:
-      FLOCI_AZ_SERVICES_SERVICE_BUS_MOCKED: 'false'
+
+  servicebus:
+    image: mcr.microsoft.com/azure-messaging/servicebus-emulator:latest
+    ports:
+      - '5672:5672'
+      - '5300:5300'
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
+      # The namespace, with no entities: the provision service creates them.
+      - './servicebus/Config.json:/ServiceBus_Emulator/ConfigFiles/Config.json'
+    environment:
+      SQL_SERVER: sqledge
+      MSSQL_SA_PASSWORD: &sql-password 'Customs-Emulator-1'
+      ACCEPT_EULA: 'Y'
+    depends_on:
+      - sqledge
+
+  sqledge:
+    image: mcr.microsoft.com/azure-sql-edge:latest
+    environment:
+      MSSQL_SA_PASSWORD: *sql-password
+      ACCEPT_EULA: 'Y'
 
   # Creates the blob containers, queues, topics and the border subscription,
   # as the infrastructure code of a real subscription does; then exits.
@@ -29,14 +47,13 @@ services:
     build: ../app
     command: ["provision"]
     environment: &azure
-      # The emulator accepts any account key.
+      # floci accepts any account key; the Service Bus emulator's key is SAS_KEY_VALUE.
       AZURE_STORAGE_CONNECTION_STRING: 'DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=bG9jYWw=;BlobEndpoint=http://azure:4577/devstoreaccount1;'
-      SERVICEBUS_CONNECTION_STRING: 'Endpoint=sb://host.docker.internal:5673;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=local;UseDevelopmentEmulator=true;'
-      SERVICEBUS_MANAGEMENT_ENDPOINT: 'http://azure:4577/devstoreaccount1-servicebus'
-    extra_hosts:
-      - 'host.docker.internal:host-gateway'
+      SERVICEBUS_CONNECTION_STRING: 'Endpoint=sb://servicebus;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=SAS_KEY_VALUE;UseDevelopmentEmulator=true;'
+      SERVICEBUS_MANAGEMENT_ENDPOINT: 'http://servicebus:5300'
     depends_on:
       - azure
+      - servicebus
 
   customs:
     image: customs-clearance:local
@@ -46,8 +63,6 @@ services:
     environment:
       <<: *azure
       CUSTOMS_ADDR: ':8700'
-    extra_hosts:
-      - 'host.docker.internal:host-gateway'
     depends_on:
       provision:
         condition: service_completed_successfully

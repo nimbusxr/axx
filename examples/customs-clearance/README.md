@@ -39,12 +39,15 @@ waits for `http://localhost:8700/health`, runs the features, and removes everyth
 
 ## Azure, locally
 
-Azure runs in [floci](https://floci.io) (`floci-az`), a free, open-source emulator:
+Azure runs in two emulators:
 
-- **Blob Storage and management:** Blob Storage and the Service Bus management API are
+- **Blob Storage** in [floci](https://floci.io) (`floci-az`), a free, open-source emulator,
   on port 4577.
-- **Service Bus messaging:** floci-az starts a broker container of its own on the host's
-  port 5673. That needs the Docker socket and `FLOCI_AZ_SERVICES_SERVICE_BUS_MOCKED=false`.
+- **Service Bus** in Microsoft's
+  [Service Bus emulator](https://learn.microsoft.com/azure/service-bus-messaging/overview-emulator),
+  on ports 5672 (messaging) and 5300 (management), with the Azure SQL Edge it keeps its
+  state in. Running it accepts the emulator's and Azure SQL Edge's license terms
+  (`ACCEPT_EULA` in `infra/compose.yaml`).
 
 The service is set up exactly as it would be for Azure, from connection strings. The only
 emulator-specific setting is `SERVICEBUS_MANAGEMENT_ENDPOINT`, because the emulator's
@@ -57,8 +60,8 @@ The features register the storage account and the namespace:
 Given the customs azure storage account with the following properties:
   | connection string | DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=bG9jYWw=;BlobEndpoint=http://${sys:local.host}:4577/devstoreaccount1; |
 And the customs service bus namespace with the following properties:
-  | connection string   | Endpoint=sb://${sys:local.host}:5673;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=local;UseDevelopmentEmulator=true; |
-  | management endpoint | http://${sys:local.host}:4577/devstoreaccount1-servicebus |
+  | connection string   | Endpoint=sb://${sys:local.host}:5672;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=SAS_KEY_VALUE;UseDevelopmentEmulator=true; |
+  | management endpoint | http://${sys:local.host}:5300                                                                                                                 |
 ```
 
 To run the same features against Azure, use the account's and namespace's connection
