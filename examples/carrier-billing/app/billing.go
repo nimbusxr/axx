@@ -31,12 +31,13 @@ const (
 )
 
 // Shipment is what the parcels platform knows about a parcel it handed to a
-// carrier.
+// carrier: the weight it measured, and when.
 type Shipment struct {
-	Parcel   string  `firestore:"parcel" json:"parcel"`
-	Carrier  string  `firestore:"carrier" json:"carrier"`
-	Service  string  `firestore:"service" json:"service"`
-	WeightKg float64 `firestore:"weightKg" json:"weightKg"`
+	Parcel    string    `firestore:"parcel" json:"parcel"`
+	Carrier   string    `firestore:"carrier" json:"carrier"`
+	Service   string    `firestore:"service" json:"service"`
+	WeightKg  float64   `firestore:"weightKg" json:"weightKg"`
+	WeighedAt time.Time `firestore:"weighedAt" json:"weighedAt"`
 }
 
 // Line is a reconciled invoice line, as stored in BigQuery.

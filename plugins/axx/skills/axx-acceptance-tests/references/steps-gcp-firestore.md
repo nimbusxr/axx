@@ -14,9 +14,13 @@ shipments:
     carrier: KESTREL
     weightKg: 2.5
     agreedPrice: 3.38
+    weighedAt: 2026-09-24T07:40:00Z
+    manifest: "2026-09-24"
 ```
 
-**Checks** wait (10 seconds unless `within {duration}` says otherwise): for a document at a path (`invoices/INV-2026-09-KESTREL`) to have properties, or for a collection to have a document meeting every condition. Conditions and properties are `field | value` rows, with a dotted path into maps (`totals.billed`), compared as text: timestamps in RFC 3339, `null` for null and `undefined` for absent. A collection check reads up to 5,000 of its documents.
+**Dates:** an unquoted YAML date is a Firestore timestamp (`weighedAt` above). A date alone (`2026-09-24`) is midnight UTC. A date and time can have fractional seconds and an offset (`2026-09-24T09:40:00.25+02:00`), and without an offset it is in UTC. A value tagged `!!timestamp` is a timestamp too. Quote a date to keep it a string (`manifest`). JSON has no date type, so the dates of a JSON seed are strings.
+
+**Checks** wait (10 seconds unless `within {duration}` says otherwise): for a document at a path (`invoices/INV-2026-09-KESTREL`) to have properties, or for a collection to have a document meeting every condition. Conditions and properties are `field | value` rows, with a dotted path into maps (`totals.billed`), compared as text: timestamps in RFC 3339 and UTC (`2026-09-24T07:40:00Z`), `null` for null and `undefined` for absent. A collection check reads up to 5,000 of its documents.
 
 ## `gcp-firestore.seed`
 
@@ -24,7 +28,7 @@ shipments:
 Given a {filepath} firestore seed
 ```
 
-Write the documents of a seed file: YAML or JSON that maps collections to their documents, by ID. Whole numbers are stored as integers, other numbers as doubles.
+Write the documents of a seed file: YAML or JSON that maps collections to their documents, by ID. Whole numbers are stored as integers, other numbers as doubles. Unquoted YAML dates (`2026-09-24`, `2026-09-24T07:40:00Z`) and values tagged `!!timestamp` are stored as timestamps; quote a date to store it as a string.
 
 | Parameter | Takes | For example |
 |---|---|---|
@@ -48,7 +52,7 @@ Then [[within {duration} ]]the {word} firestore document has the following prope
 Check that the document at that path, like `invoices/INV-2026-09-KES1`, has those values in those fields.
 
 - The check waits for it: 10 seconds, or `within {duration}`.
-- Values compare as text: timestamps in RFC 3339, references as their path, bytes in base64, a geo point as its `lat` and `lng`; `null` for null and `undefined` for absent.
+- Values compare as text: timestamps in RFC 3339 and UTC, references as their path, bytes in base64, a geo point as its `lat` and `lng`; `null` for null and `undefined` for absent.
 
 | Parameter | Takes | For example |
 |---|---|---|
@@ -84,7 +88,7 @@ Then [[within {duration} ]]the {word} firestore collection has a document where:
 Check that the collection has a document with those values in those fields.
 
 - The check waits for it: 10 seconds, or `within {duration}`.
-- Values compare as text: timestamps in RFC 3339, references as their path, bytes in base64, a geo point as its `lat` and `lng`; `null` for null and `undefined` for absent.
+- Values compare as text: timestamps in RFC 3339 and UTC, references as their path, bytes in base64, a geo point as its `lat` and `lng`; `null` for null and `undefined` for absent.
 - The check reads up to 5,000 documents of the collection.
 
 | Parameter | Takes | For example |

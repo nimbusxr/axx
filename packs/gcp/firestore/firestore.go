@@ -40,9 +40,13 @@ shipments:
     carrier: KESTREL
     weightKg: 2.5
     agreedPrice: 3.38
+    weighedAt: 2026-09-24T07:40:00Z
+    manifest: "2026-09-24"
 ` + "```" + `
 
-**Checks** wait (10 seconds unless ` + "`within {duration}`" + ` says otherwise): for a document at a path (` + "`invoices/INV-2026-09-KESTREL`" + `) to have properties, or for a collection to have a document meeting every condition. Conditions and properties are ` + "`field | value`" + ` rows, with a dotted path into maps (` + "`totals.billed`" + `), compared as text: timestamps in RFC 3339, ` + "`null`" + ` for null and ` + "`undefined`" + ` for absent. A collection check reads up to 5,000 of its documents.`
+**Dates:** an unquoted YAML date is a Firestore timestamp (` + "`weighedAt`" + ` above). A date alone (` + "`2026-09-24`" + `) is midnight UTC. A date and time can have fractional seconds and an offset (` + "`2026-09-24T09:40:00.25+02:00`" + `), and without an offset it is in UTC. A value tagged ` + "`!!timestamp`" + ` is a timestamp too. Quote a date to keep it a string (` + "`manifest`" + `). JSON has no date type, so the dates of a JSON seed are strings.
+
+**Checks** wait (10 seconds unless ` + "`within {duration}`" + ` says otherwise): for a document at a path (` + "`invoices/INV-2026-09-KESTREL`" + `) to have properties, or for a collection to have a document meeting every condition. Conditions and properties are ` + "`field | value`" + ` rows, with a dotted path into maps (` + "`totals.billed`" + `), compared as text: timestamps in RFC 3339 and UTC (` + "`2026-09-24T07:40:00Z`" + `), ` + "`null`" + ` for null and ` + "`undefined`" + ` for absent. A collection check reads up to 5,000 of its documents.`
 
 // Pack returns the gcp-firestore pack.
 func Pack() core.Pack { return pack{} }
@@ -60,7 +64,9 @@ func (pack) Manifest() core.Manifest {
 				ID: name + ".seed", Keyword: "Given", Since: "0.1.0",
 				Expr: "a {filepath} firestore seed",
 				Doc: "Write the documents of a seed file: YAML or JSON that maps collections to their documents, by ID. " +
-					"Whole numbers are stored as integers, other numbers as doubles.",
+					"Whole numbers are stored as integers, other numbers as doubles. " +
+					"Unquoted YAML dates (`2026-09-24`, `2026-09-24T07:40:00Z`) and values tagged `!!timestamp` are stored as timestamps; " +
+					"quote a date to store it as a string.",
 				Examples: []string{"Given a seeds/shipments.yaml firestore seed"},
 				Run:      seed,
 			},
@@ -100,7 +106,7 @@ func (pack) Manifest() core.Manifest {
 // checkDetails is what the checks' docs say after what they check.
 const checkDetails = "\n\n" +
 	"- The check waits for it: 10 seconds, or `within {duration}`.\n" +
-	"- Values compare as text: timestamps in RFC 3339, references as their path, bytes in base64, a geo point as its " +
+	"- Values compare as text: timestamps in RFC 3339 and UTC, references as their path, bytes in base64, a geo point as its " +
 	"`lat` and `lng`; `null` for null and `undefined` for absent."
 
 // fieldTable is what the checks' tables hold.
@@ -119,9 +125,13 @@ func client(sc *core.Scenario) (*firestore.Client, error) {
 	})
 }
 
+// seedOptions keep a seed's YAML timestamps, which Firestore stores as
+// timestamps.
+var seedOptions = cloudstep.SeedOptions{Timestamps: true}
+
 func seed(sc *core.Scenario, a core.Args) error {
 	file := a.String(0)
-	s, err := cloudstep.ReadSeed(sc, file)
+	s, err := cloudstep.ReadSeedWith(sc, file, seedOptions)
 	if err != nil {
 		return err
 	}
@@ -149,7 +159,8 @@ func seed(sc *core.Scenario, a core.Args) error {
 }
 
 // stored converts seed values for Firestore: JSON numbers become integers
-// or doubles.
+// or doubles. YAML's timestamps are already time.Time values, which Firestore
+// stores as timestamps.
 func stored(v any) any {
 	switch x := v.(type) {
 	case json.Number:

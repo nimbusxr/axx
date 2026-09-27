@@ -14,9 +14,10 @@ Feature: Shipment weights
     When the messages/px-5105-weighed.json message is published to the shipment-events pubsub topic with the following attributes:
       | eventType | ShipmentWeighed |
     Then within 10s the shipments firestore collection has a document where:
-      | parcel   | PX-5105 |
-      | carrier  | HERON   |
-      | weightKg | 3.2     |
+      | parcel    | PX-5105              |
+      | carrier   | HERON                |
+      | weightKg  | 3.2                  |
+      | weighedAt | 2026-09-03T14:05:00Z |
 
   Scenario: A shipment event without a type is set aside
     When a message is published to the shipment-events pubsub topic:
