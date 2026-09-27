@@ -102,7 +102,15 @@
       }
     };
     more();
-    new IntersectionObserver((es) => { if (es[0].isIntersecting && next < 200) more(); }).observe($('more'));
+    // After a batch, the marker is observed again: that reports where it is
+    // now, so a scroll that follows a batch at once still loads the next one.
+    const io = new IntersectionObserver((es) => {
+      if (!es[0].isIntersecting || next >= 200) return;
+      more();
+      io.unobserve($('more'));
+      io.observe($('more'));
+    });
+    io.observe($('more'));
   </script>
 </body>
 </html>
