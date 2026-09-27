@@ -110,6 +110,7 @@ rest | rest.response.properties.match.on | the response payload properties for r
 rest | rest.response.properties.match.on | the response payload properties for {ordinal} ordered response on {service} match:  [+table]
 mock | mock.service | the mocked {word} service with the following properties:  [+table]
 mock | mock.received | the mocked {word} request to {word} named {word} was received by {mockedService}
+mock | mock.received.path | the mocked {word} request to path {word} named {word} was received by {mockedService}
 mock | mock.openapi.levels | the OpenAPI validation levels for the mocked {mockedService} service are:  [+table]
 mock | mock.count.exactly | the mocked request named {word} was received exactly {int} time(s)
 mock | mock.count.exactly | the mocked request named {word} on {mockedService} was received exactly {int} time(s)
@@ -128,6 +129,8 @@ mock | mock.header.missing | the header {word} for mocked request named {word} o
 mock | mock.headers.missing | the headers for mocked request named {word} on {mockedService} are missing:  [+table]
 mock | mock.properties.are | the payload properties for mocked request named {word} are:  [+table]
 mock | mock.properties.are | the payload properties for mocked request named {word} on {mockedService} are:  [+table]
+mock | mock.query.are | the query parameters for mocked request named {word} are:  [+table]
+mock | mock.query.are | the query parameters for mocked request named {word} on {mockedService} are:  [+table]
 mock | mock.form.are | the form fields for mocked request named {word} are:  [+table]
 mock | mock.form.are | the form fields for mocked request named {word} on {mockedService} are:  [+table]
 sql | sql.service | a(n) {word} database with the following properties:  [+table]

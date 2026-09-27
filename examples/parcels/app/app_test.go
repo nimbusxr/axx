@@ -134,6 +134,9 @@ func TestCourierRequests(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body, _ := io.ReadAll(r.Body)
 		got = append(got, r.Method+" "+r.URL.Path+" "+r.Header.Get("Content-Type")+" "+string(body))
+		if q := r.URL.Query(); r.URL.Path == "/v1/collections" && (q.Get("slot") != "same-day" || len(q.Get("requestId")) != 16) {
+			t.Errorf("the booking's query: %s", r.URL.RawQuery)
+		}
 		w.WriteHeader(http.StatusCreated)
 	}))
 	defer srv.Close()

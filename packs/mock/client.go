@@ -25,10 +25,13 @@ type headerMatcher struct {
 type pattern struct {
 	Method string
 	URL    string
+	// PathOnly matches URL as a path, whatever the query string.
+	PathOnly bool
 	// headers, body and form keep insertion order for stable messages.
 	headers []headerEntry
 	body    []headerEntry // JSONPath expressions into the JSON body
 	form    []headerEntry // fields of a form-encoded body
+	query   []headerEntry // query parameters
 }
 
 type headerEntry struct {
@@ -44,6 +47,11 @@ func (p *pattern) withHeader(name string, m headerMatcher) {
 // optional) that matches m.
 func (p *pattern) withProperty(path string, m headerMatcher) {
 	p.body = append(p.body, headerEntry{jsonx.Normalize(path), m})
+}
+
+// withQuery requires the URL to have a query parameter that matches m.
+func (p *pattern) withQuery(name string, m headerMatcher) {
+	p.query = append(p.query, headerEntry{name, m})
 }
 
 // withField requires the form-encoded body to have a field that matches m.
@@ -71,16 +79,22 @@ func latest(entries []headerEntry, fold bool) []headerEntry {
 	return out
 }
 
-// MarshalJSON renders {"method":..,"url":..,"headers":{..},"formParameters":{..},"bodyPatterns":[..]}.
+// MarshalJSON renders {"method":..,"url" or "urlPath":..,"queryParameters":{..},"headers":{..},"formParameters":{..},"bodyPatterns":[..]}.
 func (p *pattern) MarshalJSON() ([]byte, error) {
 	var b bytes.Buffer
 	b.WriteString(`{"method":`)
 	m, _ := json.Marshal(p.Method)
 	b.Write(m)
-	b.WriteString(`,"url":`)
+	if p.PathOnly {
+		b.WriteString(`,"urlPath":`)
+	} else {
+		b.WriteString(`,"url":`)
+	}
 	u, _ := json.Marshal(p.URL)
 	b.Write(u)
-	// WireMock takes one matcher per header name (case-insensitive) and form field.
+	// WireMock takes one matcher per query parameter, header name
+	// (case-insensitive) and form field.
+	writeMatchers(&b, "queryParameters", latest(p.query, false))
 	writeMatchers(&b, "headers", latest(p.headers, true))
 	writeMatchers(&b, "formParameters", latest(p.form, false))
 	if body := latest(p.body, false); len(body) > 0 {

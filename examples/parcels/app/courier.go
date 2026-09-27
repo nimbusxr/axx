@@ -3,6 +3,8 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -16,7 +18,9 @@ import (
 // ../infra/openapi/courier.yaml):
 //
 //	POST /v1/collections   a JSON booking: the parcel's reference, weight and
-//	                       where it goes, never who it goes to
+//	                       where it goes, never who it goes to; the query has
+//	                       the slot and a request ID of its own, which the
+//	                       courier drops retried bookings by
 //	POST /v1/pickups       a form: the parcel's reference and the day
 type courierClient struct {
 	base string
@@ -43,7 +47,12 @@ func (c *courierClient) book(ctx context.Context, p *Parcel) error {
 	if err != nil {
 		return err
 	}
-	return c.post(ctx, "/v1/collections", "application/json", body)
+	id := make([]byte, 8)
+	if _, err := rand.Read(id); err != nil {
+		return err
+	}
+	q := url.Values{"slot": {"same-day"}, "requestId": {hex.EncodeToString(id)}}
+	return c.post(ctx, "/v1/collections?"+q.Encode(), "application/json", body)
 }
 
 // pickup tells the courier the day a shop has a parcel picked up.

@@ -11,6 +11,8 @@ Feature: Carrier invoices
       | endpoint | http://${sys:local.host}:4588 |
     And a seeds/carrier-rates.yaml bigquery seed
 
+  # Known flake: floci's BigQuery emulator once lost this invoice's lines when three
+  # invoices' inserts arrived within a millisecond. Not reproducible; rerun if it recurs.
   Scenario: An invoice at the agreed rates is reconciled
     Given a seeds/shipments-kes1.yaml firestore seed
     When the invoices/INV-2026-09-KES1.csv file is uploaded to the carrier-invoices gcs bucket as kestrel/INV-2026-09-KES1.csv

@@ -9,6 +9,16 @@ paths:
   /v1/collections:
     post:
       operationId: bookCollection
+      parameters:
+        - name: slot
+          in: query
+          required: true
+          schema: {type: string, enum: [same-day]}
+        - name: requestId
+          in: query
+          required: true
+          description: The booking's own ID; the courier drops a retried booking with an ID it has seen.
+          schema: {type: string, pattern: '^[0-9a-f]{16}$'}
       requestBody:
         required: true
         content:

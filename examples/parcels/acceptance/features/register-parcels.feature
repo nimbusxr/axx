@@ -57,7 +57,10 @@ Feature: Register parcels
     And the request payload property reference is 'PX-REG-1401'
     When the request is executed
     Then the response status code is 201
-    And the mocked POST request to /v1/collections named collection was received by courier
+    And the mocked POST request to path /v1/collections named collection was received by courier
+    And the query parameters for mocked request named collection on courier are:
+      | slot      | same-day  |
+      | reference | undefined |
     And the payload properties for mocked request named collection on courier are:
       | reference          | PX-REG-1401 |
       | weightGrams        | 800         |
