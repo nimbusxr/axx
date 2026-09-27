@@ -15,6 +15,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/mxschmitt/playwright-go"
 
@@ -208,6 +209,7 @@ func start(sc *core.Scenario) error {
 	st.started = true
 	st.mu.Unlock()
 	if started {
+		st.caughtUp()
 		return nil
 	}
 	r, err := runFor(sc.Suite())
@@ -243,6 +245,23 @@ func take(sc *core.Scenario) error {
 		a.trigger()
 	}
 	return nil
+}
+
+// caughtUp waits for the counts the step before started to take: a step
+// that closes a tab would take the tab's last counts with it. It waits a
+// while at most, and less while a page shows a dialog, whose scripts wait
+// for the answer a step gives.
+func (st *scenarioCoverage) caughtUp() {
+	for _, a := range st.appsNow() {
+		done, wait := a.pending()
+		if done == nil {
+			continue
+		}
+		select {
+		case <-done:
+		case <-time.After(wait):
+		}
+	}
 }
 
 func (st *scenarioCoverage) appsNow() []*appCoverage {
