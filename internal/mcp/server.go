@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -43,9 +44,10 @@ Workflow for writing acceptance tests:
 2. env {"action":"up"} once to keep the apps running.
 3. Unsure how a step behaves? steps_try runs steps in a live scenario that stays open between calls; the packs' tools (web_page: the page a step opened) look at it.
 4. Write the .feature file; feature_validate it until there are no problems (step_explain shows how a single line is read). Then scenarios_run.
-5. On failure, read the returned failures (expected/actual); failure_context gives logs and request/response details.
+5. On failure, read the returned failures (expected/actual); failure_context gives logs and request/response details (without a runId: the latest run).
 Every scenario must use unique test data (ids, names, keys): scenarios run in parallel and data persists between runs. After adding seeds, payloads or fixtures, lint_run reports values that collide with other files.
-When seeds, payloads or mock bodies repeat across scenarios, fixture factories generate them from one shape with unique ids (optional; ` + "`axx fixtures`" + `, the axx-test-data skill); ` + "`axx fixtures adopt`" + ` converts hand-written ones.`
+When seeds, payloads or mock bodies repeat across scenarios, fixture factories generate them from one shape with unique ids (optional; ` + "`axx fixtures`" + `, the axx-test-data skill); ` + "`axx fixtures adopt`" + ` converts hand-written ones.
+Ask axx rather than reading files: config_show (the effective axx.yaml and its packs); on the command line, ` + "`axx doctor --json`" + ` (prerequisites, packs, agents), ` + "`axx pack list`" + ` (the packs there are), ` + "`axx validate --json`" + ` (features, scenarios, steps), ` + "`axx fixtures check --json`" + ` (what the factories generate) and ` + "`axx fixtures adopt --dry-run`" + ` (an adoption, previewed).`
 
 // Options configures the server.
 type Options struct {
@@ -107,7 +109,7 @@ func newServer(opts Options) (*sdk.Server, *server) {
 		s.scenariosRun)
 	sdk.AddTool(srv, &sdk.Tool{
 		Name: "failure_context", Annotations: ro,
-		Description: "Full details of one failed scenario from a previous scenarios_run: logs, attachments and pack context such as the last HTTP request/response.",
+		Description: "Full details of one failed scenario from a scenarios_run: logs, attachments and pack context such as the last HTTP request/response. Without runId, the latest run; without location, its only failure (or the list of its failures).",
 	},
 		s.failureContext)
 	sdk.AddTool(srv, &sdk.Tool{
@@ -117,7 +119,7 @@ func newServer(opts Options) (*sdk.Server, *server) {
 		s.env)
 	sdk.AddTool(srv, &sdk.Tool{
 		Name: "config_show", Annotations: ro,
-		Description: "The effective axx.yaml (profiles and -D applied, secrets redacted), plus the loaded step packs.",
+		Description: "The effective axx.yaml (profiles and -D applied, secrets redacted), plus the loaded step packs. For prerequisites and agent setup run `axx doctor --json`; for the packs there are, `axx pack list`; for the features, `axx validate --json`.",
 	},
 		s.configShow)
 	sdk.AddTool(srv, &sdk.Tool{
@@ -555,14 +557,23 @@ func compactReport(raw json.RawMessage) json.RawMessage {
 }
 
 type failureContextIn struct {
-	RunID    string `json:"runId"`
-	Location string `json:"location" jsonschema:"the failing scenario's location, e.g. features/orders.feature:14"`
+	RunID    string `json:"runId,omitempty" jsonschema:"the run, from scenarios_run; the latest run when empty"`
+	Location string `json:"location,omitempty" jsonschema:"the failing scenario's location, e.g. features/orders.feature:14; when empty, the run's only failure"`
 }
 
 func (s *server) failureContext(ctx context.Context, _ *sdk.CallToolRequest, in failureContextIn) (*sdk.CallToolResult, map[string]any, error) {
-	b, err := os.ReadFile(filepath.Join(s.runsDir(), filepath.Base(in.RunID)+".json"))
+	dir := s.runsDir()
+	id := in.RunID
+	if id == "" {
+		latest, err := latestRun(dir)
+		if err != nil {
+			return nil, nil, err
+		}
+		id = latest
+	}
+	b, err := os.ReadFile(filepath.Join(dir, filepath.Base(id)+".json"))
 	if err != nil {
-		return nil, nil, fmt.Errorf("unknown runId %q (runs are kept in .axx/runs)", in.RunID)
+		return nil, nil, fmt.Errorf("unknown runId %q (runs are kept in .axx/runs)", id)
 	}
 	var rep struct {
 		Failures []map[string]any `json:"failures"`
@@ -570,16 +581,49 @@ func (s *server) failureContext(ctx context.Context, _ *sdk.CallToolRequest, in 
 	if err := json.Unmarshal(b, &rep); err != nil {
 		return nil, nil, err
 	}
-	for _, f := range rep.Failures {
-		if f["location"] == in.Location {
-			return nil, f, nil
-		}
-	}
 	var locs []string
 	for _, f := range rep.Failures {
 		locs = append(locs, fmt.Sprint(f["location"]))
 	}
-	return nil, nil, fmt.Errorf("no failure at %s in run %s; failures: %s", in.Location, in.RunID, strings.Join(locs, ", "))
+	switch {
+	case len(rep.Failures) == 0:
+		return nil, nil, fmt.Errorf("run %s has no failures", id)
+	case in.Location == "" && len(rep.Failures) == 1:
+		rep.Failures[0]["runId"] = id
+		return nil, rep.Failures[0], nil
+	case in.Location == "":
+		return nil, nil, fmt.Errorf("run %s has %d failures; give the location of one: %s", id, len(rep.Failures), strings.Join(locs, ", "))
+	}
+	for _, f := range rep.Failures {
+		if f["location"] == in.Location {
+			f["runId"] = id
+			return nil, f, nil
+		}
+	}
+	return nil, nil, fmt.Errorf("no failure at %s in run %s; failures: %s", in.Location, id, strings.Join(locs, ", "))
+}
+
+// latestRun is the ID of the newest run in dir.
+func latestRun(dir string) (string, error) {
+	entries, err := os.ReadDir(dir)
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return "", err
+	}
+	var id string
+	var newest time.Time
+	for _, e := range entries {
+		name, ok := strings.CutSuffix(e.Name(), ".json")
+		if !ok {
+			continue
+		}
+		if info, err := e.Info(); err == nil && info.ModTime().After(newest) {
+			id, newest = name, info.ModTime()
+		}
+	}
+	if id == "" {
+		return "", errors.New("no runs yet: scenarios_run keeps its runs in .axx/runs")
+	}
+	return id, nil
 }
 
 func (s *server) runsDir() string {

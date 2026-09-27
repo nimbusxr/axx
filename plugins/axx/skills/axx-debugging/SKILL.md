@@ -20,7 +20,7 @@ Every error also carries a code such as `AXX-E0408`. Run `axx explain AXX-E0408`
 
 ## Get the facts before changing anything
 
-- `axx run --json` returns a structured report. Each failure has `error.kind`: assertion, error, timeout, panic, undefined, ambiguous or pending. It also carries `expected`, `actual`, `logs`, `context` (for example the last HTTP request and response) and a `rerun` command.
+- `axx run --json` returns a structured report. Each failure has `error.kind`: assertion, error, timeout, panic, undefined, ambiguous or pending. It also carries `expected`, `actual`, `logs`, `context` (for example the last HTTP request and response) and a `rerun` command. With the MCP tools, `failure_context` gives the same for a failure of a `scenarios_run`: without a run ID it reads the latest run, without a location its only failure.
 - Rerun one scenario with the `rerun` command: `axx run features/x.feature:LINE`. The line of any step inside the scenario also works.
 - `axx explain "<step line>"` shows which definition a line matches and what it captures.
 

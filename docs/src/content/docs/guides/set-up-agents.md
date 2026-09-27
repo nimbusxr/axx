@@ -71,9 +71,9 @@ The step references inside the skills are generated from *your* project, includi
 | `feature_validate` | check feature files or feature text without running |
 | `lint_run` | run `axx lint`: values such as seed ids that collide across files, with `file:line` |
 | `scenarios_run` | run scenarios (paths, tags, names); returns failures with expected and actual |
-| `failure_context` | logs, attachments and the last request and response of one failure |
+| `failure_context` | logs, attachments and the last request and response of one failure; without a run ID, of the latest run |
 | `env` | `up`, `down` or `status` of the apps: which are running, left over from a killed run, or not cleaned up |
-| `config_show` | the effective `axx.yaml`, with secrets redacted |
+| `config_show` | the effective `axx.yaml`, with secrets redacted, and its packs |
 | `scaffold` | starter contents for a feature or an `axx.yaml` |
 | `steps_try` | try steps in a live scenario that stays open between calls, until `restart` |
 
@@ -198,13 +198,16 @@ axx (github.com/nimbusxr/axx, "axxeptance") is a human-readable acceptance testi
 - Find steps before writing: `axx steps search "<intent>"`; never invent step text.
 - Steps come from the packs in `axx-packs.yaml`; `axx pack list` shows the others, `axx pack add <name>` adds one.
 - Check without running: `axx validate`. Explain one line: `axx explain "<step>"`.
+- Ask axx rather than reading files: `axx doctor --json` (prerequisites, packs, agents),
+  `axx validate --json` (features, scenarios), `axx fixtures check --json` (what the factories generate).
 - Run: `axx up` once (keeps apps running), then `axx run --compact`; `axx down` when done.
 - Every scenario uses unique data (IDs, names, keys): scenarios run in parallel and data persists.
 - Test data: when payloads, seeds or mock bodies repeat, generate them with fixture factories
   (`axx fixtures`; optional, strongly recommended where data repeats); `axx fixtures adopt` turns
   existing hand-written ones into a factory. `axx lint` reports ids and keys that collide across files.
 - Features live in `features/`; configuration in `axx.yaml` (schema: `axx schema`).
-- Diagnose failures from the report: `axx run --json` includes expected/actual and a rerun command.
+- Diagnose failures from the report: `axx run --json` includes expected/actual and a rerun command;
+  the MCP tool failure_context reads the latest scenarios_run when given no run ID.
 <!-- axx:end -->
 ```
 

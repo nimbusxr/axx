@@ -124,13 +124,16 @@ axx (github.com/nimbusxr/axx, "axxeptance") is a human-readable acceptance testi
 - Find steps before writing: ` + "`axx steps search \"<intent>\"`" + `; never invent step text.
 - Steps come from the packs in ` + "`axx-packs.yaml`" + `; ` + "`axx pack list`" + ` shows the others, ` + "`axx pack add <name>`" + ` adds one.
 - Check without running: ` + "`axx validate`" + `. Explain one line: ` + "`axx explain \"<step>\"`" + `.
+- Ask axx rather than reading files: ` + "`axx doctor --json`" + ` (prerequisites, packs, agents),
+  ` + "`axx validate --json`" + ` (features, scenarios), ` + "`axx fixtures check --json`" + ` (what the factories generate).
 - Run: ` + "`axx up`" + ` once (keeps apps running), then ` + "`axx run --compact`" + `; ` + "`axx down`" + ` when done.
 - Every scenario uses unique data (IDs, names, keys): scenarios run in parallel and data persists.
 - Test data: when payloads, seeds or mock bodies repeat, generate them with fixture factories
   (` + "`axx fixtures`" + `; optional, strongly recommended where data repeats); ` + "`axx fixtures adopt`" + ` turns
   existing hand-written ones into a factory. ` + "`axx lint`" + ` reports ids and keys that collide across files.
 - Features live in ` + "`features/`" + `; configuration in ` + "`axx.yaml`" + ` (schema: ` + "`axx schema`" + `).
-- Diagnose failures from the report: ` + "`axx run --json`" + ` includes expected/actual and a rerun command.
+- Diagnose failures from the report: ` + "`axx run --json`" + ` includes expected/actual and a rerun command;
+  the MCP tool failure_context reads the latest scenarios_run when given no run ID.
 ` + agentsEnd + "\n"
 
 // InitAgents is what `axx init` set up for coding agents.

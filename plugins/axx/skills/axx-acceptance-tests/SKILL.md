@@ -10,18 +10,18 @@ Axx (github.com/nimbusxr/axx, "axxeptance") runs Gherkin scenarios black-box aga
 
 ## The loop (follow it every time)
 
-1. **Check the project.** Run `axx doctor`. Fix anything marked FAIL before writing tests.
+1. **Check the project.** Run `axx doctor`. Fix anything marked FAIL before writing tests. Ask axx for what the project has rather than reading every file: `axx doctor --json` (prerequisites, packs, agents), the MCP tool `config_show` (the effective `axx.yaml` and its packs), `axx validate --json` (features, scenarios, steps).
 2. **One scenario per acceptance criterion.** Name each scenario after the behavior, e.g. "A shop cannot register the same reference twice", not the implementation.
 3. **Find real steps. Never invent step text.** For each Given/When/Then you need, run
    `axx steps search "<what you want to do>"`, or read `references/step-index.md`.
    Copy the expression exactly and fill in its `{parameters}`. The search covers the packs in
    `axx-packs.yaml`; `axx pack list` shows Axx's other packs, and `axx pack add <name>` adds one.
-4. **Prepare the test data.** Seeds, event payloads and mock bodies are files the steps read. When data repeats across scenarios (several files of one shape that differ in a few fields), use fixture factories: add a `*.fixture.yaml` to the factory that already generates files like it, or turn hand-written ones into a factory with `axx fixtures adopt`, then run `axx fixtures generate`. The `axx-test-data` skill shows how. Factories are optional: a one-off file can stay hand-written.
+4. **Prepare the test data.** Seeds, event payloads and mock bodies are files the steps read. When data repeats across scenarios (several files of one shape that differ in a few fields), use fixture factories: add a `*.fixture.yaml` to the factory that already generates files like it, or turn hand-written ones into a factory with `axx fixtures adopt`, then run `axx fixtures generate`. `axx fixtures check --json` says what the factories generate, and `axx fixtures adopt --dry-run` previews an adoption. The `axx-test-data` skill shows how. Factories are optional: a one-off file can stay hand-written.
 5. **Validate without running:** run `axx validate`. For any line it flags, `axx explain "<line>"` shows how Axx reads it, and `did you mean` suggests the closest real steps. Then run `axx lint` after adding seeds, payloads or fixtures: it reports values (ids, keys) that collide with other files, and hints at a factory when hand-written files repeat one shape.
 6. **Start the apps once:** `axx up`. They keep running between runs. Stop them with `axx down` when you are done.
 7. **Try steps you are unsure of** in a live scenario, with the `axx mcp` tools: `steps_try` runs steps in a scenario that stays open between calls (a browser on the page they opened, say), and `web_page` shows that page: its elements as steps name them (`the "Get a quote" button`), what a screen reader reads, and a screenshot. Try, look, then write the steps down. `axx run --pause-at features/x.feature:LINE` does the same for a person, in Playwright's Inspector.
 8. **Run:** `axx run --compact` (or `axx run features/x.feature:LINE` for one scenario).
-9. **Diagnose failures:** read the expected/actual values. `axx run --json` adds request/response context. See the `axx-debugging` skill.
+9. **Diagnose failures:** read the expected/actual values. `axx run --json` adds request/response context; the MCP tool `failure_context` without a run ID reads the latest `scenarios_run`. See the `axx-debugging` skill.
 
 ## Write criteria for people
 
@@ -36,6 +36,8 @@ A feature file is the acceptance criteria, written so a product owner can read a
 
 - **Unique data in every scenario.** Scenarios run in parallel, and seeded rows, published events and mock journals persist between runs. Give every id, name and key a scenario-specific value, e.g. `PX-DUP-0001`, never `test`. `axx lint` enforces this with the rules under `lint:` in `axx.yaml`; each finding gives `file:line` and the colliding value.
 - **Assert on observable outcomes.** Check the response status and payload, the rows in a table, the events on a topic, or the requests a mock received. A scenario that passes when the feature is broken is worse than no scenario.
+  - A status code alone rarely proves the behavior: a `201` says the request was accepted, not that the parcel was stored or announced. Check what the service did too.
+  - A check that something did not happen (a mocked request not received, no rows) passes when the service did nothing at all. Pair it with a check that the action reached that point: the `400` and its problem detail that show the service refused the parcel, next to the address check it never made.
 - **Declare the services each scenario needs in a `Background`**, using the "with the following properties" steps. The first service registered is the default one. Name services explicitly (`... on <service>`) when a scenario uses more than one of the same kind.
 - **Ordinals** (`1st`, `2nd` ...) address the Nth request or selection within a scenario. Leaving the ordinal out means the first. SQL selections and triggers are numbered in the order they are retrieved: the ordinal in "a 2nd selection of rows is retrieved ..." is only a label, so number retrievals 1st, 2nd, 3rd in order. A service's REST requests are numbered in the order they are added: `a GET request to ...` is the 1st, and the next is `a 2nd ordered ... request`. `axx validate` and `axx lint` warn when an ordinal cannot work.
 - **Values in tables:** `"double quotes"` force a string (`"53111"`). `null` means JSON null. `undefined` means the property is absent. Unquoted numbers and booleans are typed, except that a request payload value keeps the type of the property it replaces.

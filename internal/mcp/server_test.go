@@ -9,6 +9,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 
@@ -252,5 +253,46 @@ func TestAServerStartedWithoutAPackSaysToRestart(t *testing.T) {
 	b, _ := json.Marshal(res.Content)
 	if !res.IsError || !strings.Contains(string(b), "restart the axx MCP server") || !strings.Contains(string(b), "./steps") {
 		t.Errorf("the error does not say to restart the server: %s", b)
+	}
+}
+
+// Without a run ID, failure_context reads the latest run; without a
+// location, its only failure.
+func TestFailureContextOfTheLatestRun(t *testing.T) {
+	dir := t.TempDir()
+	runs := filepath.Join(dir, ".axx", "runs")
+	if err := os.MkdirAll(runs, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range []string{"axx.yaml", "axx-packs.yaml"} {
+		if err := os.WriteFile(filepath.Join(dir, f), []byte(map[string]string{"axx.yaml": "version: 1\n", "axx-packs.yaml": "packs: [rest]\n"}[f]), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write := func(id, report string, age time.Duration) {
+		p := filepath.Join(runs, id+".json")
+		if err := os.WriteFile(p, []byte(report), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		at := time.Now().Add(-age)
+		if err := os.Chtimes(p, at, at); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write("20260927T100000-aaaa", `{"failures": [{"location": "features/quotes.feature:9"}, {"location": "features/quotes.feature:20"}]}`, time.Hour)
+	write("20260927T110000-bbbb", `{"failures": [{"location": "features/tracking.feature:14", "error": "expected 200"}]}`, time.Minute)
+	cs := session(t, dir)
+
+	out := call(t, cs, "failure_context", map[string]any{})
+	if out["location"] != "features/tracking.feature:14" || out["runId"] != "20260927T110000-bbbb" {
+		t.Errorf("the latest run's failure: %v", out)
+	}
+	res, err := cs.CallTool(context.Background(), &sdk.CallToolParams{Name: "failure_context", Arguments: map[string]any{"runId": "20260927T100000-aaaa"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, _ := json.Marshal(res.Content)
+	if !res.IsError || !strings.Contains(string(b), "2 failures") || !strings.Contains(string(b), "features/quotes.feature:20") {
+		t.Errorf("a run of two failures lists them: %s", b)
 	}
 }
