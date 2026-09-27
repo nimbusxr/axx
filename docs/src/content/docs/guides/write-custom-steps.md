@@ -74,6 +74,67 @@ The first `axx` command that needs the project's steps prepares Axx with the pac
 
 Once the pack is listed in `axx-packs.yaml`, its steps are used like any other step: `axx steps search` finds them, `axx validate` checks feature lines against them, and `axx skills install` adds them to the agent step index.
 
+## Change a REST request
+
+A custom step can change a request the rest pack's steps built, until it is executed: sign it, or give it a session or a token from an earlier response. A request's headers are the ones it is sent with:
+
+- `Header()` returns them, and `Set`, `Add` and `Del` change them, as with Go's `http.Request.Header`.
+- `SetHeader(name, value)` does what the request header steps do: `Content-Type` and `Accept` replace an earlier value, and other headers get one more.
+- When the request is sent, it gets `Accept: */*`, its payload's `Content-Type` and a `User-Agent` if it has none. `Exchange().RequestHeader` has the headers it was sent with, and `Exchange().Header` the response's.
+
+This step sends the cookies an earlier response set with a later request:
+
+```go title="steps/pack.go"
+{
+	ID:       "steps.session",
+	Keyword:  "Given",
+	Expr:     "the {ordinal} ordered request sends the session of the {ordinal} ordered response",
+	Doc:      "Sends the cookies a response of the default REST service set with a later request.",
+	Examples: []string{"Given the 2nd ordered request sends the session of the 1st ordered response"},
+	Run: func(sc *core.Scenario, a core.Args) error {
+		svc, err := rest.Context(sc).Service()
+		if err != nil {
+			return err
+		}
+		to, err := svc.Request(a.Int(0) - 1)
+		if err != nil {
+			return err
+		}
+		from, err := svc.Request(a.Int(1) - 1)
+		if err != nil {
+			return err
+		}
+		if from.Exchange() == nil {
+			return errors.New("the request of that response is not executed yet")
+		}
+		var cookies []string
+		for _, line := range from.Exchange().Header.Values("Set-Cookie") {
+			if c, err := http.ParseSetCookie(line); err == nil {
+				cookies = append(cookies, c.Name+"="+c.Value)
+			}
+		}
+		if len(cookies) == 0 {
+			return errors.New("the response set no cookie")
+		}
+		to.Header().Set("Cookie", strings.Join(cookies, "; "))
+		return nil
+	},
+},
+```
+
+```gherkin nocheck
+Scenario: A signed-in shop sees its parcels
+  Given a POST request to /api/sessions
+  And a request payload using an application/json content example
+  And a 2nd ordered GET request to /api/parcels?sender=kestrel-books
+  When the request is executed
+  And the 2nd ordered request sends the session of the 1st ordered response
+  And the 2nd ordered request is executed
+  Then the 2nd ordered response status code is 200
+```
+
+The step reads the session from the scenario's own responses, so a session never reaches another scenario. A response is the one at the end of the redirects its request followed: a cookie that a followed `303 See Other` set is not in it ([Send REST requests](/guides/send-rest-requests/#redirects)).
+
 ## Give agents a tool
 
 A pack can also give coding agents tools of their own, in `axx mcp`: `Tools` in its manifest. A tool looks at the scenario an agent keeps open with `steps_try`, the one its steps ran in, and returns data (and images) for the agent. The web-core pack's `web_page` shows the page the steps led to ([Set up agents](/guides/set-up-agents/#mcp-server)).

@@ -45,16 +45,26 @@ func (svc *Service) Request(i int) (*Request, error) { return svc.request(i) }
 func (svc *Service) AddRequest(method, path string) *Request {
 	svc.mu.Lock()
 	defer svc.mu.Unlock()
-	r := &Request{Method: method, Path: path}
+	r := &Request{Method: method, Path: path, header: http.Header{}}
 	svc.requests = append(svc.requests, r)
 	return r
 }
 
-// Header returns the request's headers.
-func (r *Request) Header() http.Header { return r.header() }
+// Header returns the headers the request is sent with, like
+// http.Request.Header: changing them (Set, Add, Del) changes the request
+// until it is executed. When it is sent, the request gets an Accept header
+// (*/*), a Content-Type (its payload's media type) and a User-Agent if it has
+// none; the executed request's headers are its Exchange's RequestHeader.
+func (r *Request) Header() http.Header {
+	if r.header == nil {
+		r.header = http.Header{}
+	}
+	return r.header
+}
 
-// SetHeader adds a request header (Content-Type and Accept replace an
-// earlier value).
+// SetHeader adds a request header, like the request header steps:
+// Content-Type and Accept replace an earlier value, and other headers are
+// added to the values the header has (use Header().Set to replace one).
 func (r *Request) SetHeader(name, value string) { r.addHeader(name, value) }
 
 // Exchange returns the executed request and its response, or nil before the

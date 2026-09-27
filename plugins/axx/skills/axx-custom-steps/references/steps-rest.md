@@ -10,7 +10,11 @@ Send HTTP requests to REST services, validate them against the services' OpenAPI
 
 **Payloads.** A payload starts from an OpenAPI content example (the named one, or the first in document order; `externalValue` examples are read relative to the specification) or from an empty template `{}`, and is edited with the payload property steps (JSONPath, typed values, `null`/`undefined`). `application/x-www-form-urlencoded` payloads are sent form-encoded.
 
-**Execution.** Requests go through one HTTP client shared by the run (connections are reused and closed at the end), honor the step timeout, follow redirects for GET and HEAD, and do not verify TLS certificates unless `packs.rest.tls.verify: true` is set in axx.yaml. Without a Content-Type header a payload is sent with its payload step's media type.
+**Execution.** Requests go through one HTTP client shared by the run (connections are reused and closed at the end), honor the step timeout, and do not verify TLS certificates unless `packs.rest.tls.verify: true` is set in axx.yaml. Without a Content-Type header a payload is sent with its payload step's media type.
+
+**Redirects.** A GET or HEAD request follows redirects (301, 302, 303, 307 and 308); a request with another method follows only `303 See Other`, with a GET, as a browser does after a form. A request that follows a redirect has the response it leads to: the response steps check that one, and the redirect responses, with their `Location` and `Set-Cookie` headers, are not kept. The other redirects of a POST, PUT, PATCH or DELETE (301, 302, 307 and 308) are its response: check the status and the `Location` header, and send the request it leads to as the next ordered request.
+
+**Cookies.** The pack keeps no cookies: a `Set-Cookie` response header is never sent back, not even to where a redirect leads, so no request carries a cookie from another scenario. Send a cookie with the `Cookie` request header: it goes along when the request follows a redirect on the same host or to a subdomain of it.
 
 **OpenAPI validation.** When a service has an `openapi` specification (OpenAPI 3.0 or 3.1, a URL or a file; parsed once per run), each executed request and its response are validated after sending. Every finding has a key in the style of the swagger request validator (the one the WireMock extension uses), and a level:
 
@@ -598,6 +602,8 @@ Send a request, and keep its response for the response steps.
 - With an OpenAPI specification, the request and its response are validated after sending. Findings at level `ERROR` fail the step, which lists them all with their keys; `WARN` and `INFO` findings are logged.
 - The payload is sent as it is, or form-encoded for `application/x-www-form-urlencoded`.
 - Without a `Content-Type` header, the request has the payload's media type; without an `Accept` header, `*/*`.
+- A GET or HEAD request follows redirects, and a request with another method a `303 See Other` (with a GET): the response steps then check the response it leads to. Other redirects are the response, with their `Location` header.
+- No cookies are kept: a `Set-Cookie` response header is not sent back. Send one with the `Cookie` request header.
 - The request honors the step timeout, and is executed once.
 - Without an ordinal it sends the service's first (default) request; `the 2nd ordered request`, its second.
 - Without `on {service}` it uses the default service, the first one registered.
