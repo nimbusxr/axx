@@ -76,64 +76,51 @@ Once the pack is listed in `axx-packs.yaml`, its steps are used like any other s
 
 ## Change a REST request
 
-A custom step can change a request the rest pack's steps built, until it is executed: sign it, or give it a session or a token from an earlier response. A request's headers are the ones it is sent with:
+A custom step can change a request the rest pack's steps built, until it is executed: sign it, or give it a token the service expects. A request's headers are the ones it is sent with:
 
 - `Header()` returns them, and `Set`, `Add` and `Del` change them, as with Go's `http.Request.Header`.
 - `SetHeader(name, value)` does what the request header steps do: `Content-Type` and `Accept` replace an earlier value, and other headers get one more.
 - When the request is sent, it gets `Accept: */*`, its payload's `Content-Type` and a `User-Agent` if it has none. `Exchange().RequestHeader` has the headers it was sent with, and `Exchange().Header` the response's.
 
-This step sends the cookies an earlier response set with a later request:
+This step signs a request's payload for a service that checks an `X-Signature` header, like a carrier's scan webhook:
 
 ```go title="steps/pack.go"
 {
-	ID:       "steps.session",
+	ID:       "steps.sign",
 	Keyword:  "Given",
-	Expr:     "the {ordinal} ordered request sends the session of the {ordinal} ordered response",
-	Doc:      "Sends the cookies a response of the default REST service set with a later request.",
-	Examples: []string{"Given the 2nd ordered request sends the session of the 1st ordered response"},
+	Expr:     "the request is signed with the key {string}",
+	Doc:      "Signs the default REST service's request: an X-Signature header with the HMAC-SHA256 of its payload.",
+	Examples: []string{"Given the request is signed with the key '${env:CARRIER_KEY}'"},
 	Run: func(sc *core.Scenario, a core.Args) error {
 		svc, err := rest.Context(sc).Service()
 		if err != nil {
 			return err
 		}
-		to, err := svc.Request(a.Int(0) - 1)
+		req, err := svc.Request(0)
 		if err != nil {
 			return err
 		}
-		from, err := svc.Request(a.Int(1) - 1)
-		if err != nil {
-			return err
+		if req.Payload == nil {
+			return errors.New("the request has no payload to sign")
 		}
-		if from.Exchange() == nil {
-			return errors.New("the request of that response is not executed yet")
-		}
-		var cookies []string
-		for _, line := range from.Exchange().Header.Values("Set-Cookie") {
-			if c, err := http.ParseSetCookie(line); err == nil {
-				cookies = append(cookies, c.Name+"="+c.Value)
-			}
-		}
-		if len(cookies) == 0 {
-			return errors.New("the response set no cookie")
-		}
-		to.Header().Set("Cookie", strings.Join(cookies, "; "))
+		mac := hmac.New(sha256.New, []byte(a.String(0)))
+		mac.Write([]byte(*req.Payload))
+		req.Header().Set("X-Signature", "sha256="+hex.EncodeToString(mac.Sum(nil)))
 		return nil
 	},
 },
 ```
 
 ```gherkin nocheck
-Scenario: A signed-in shop sees its parcels
-  Given a POST request to /api/sessions
+Scenario: A carrier's signed scan is accepted
+  Given a POST request to /api/scans
   And a request payload using an application/json content example
-  And a 2nd ordered GET request to /api/parcels?sender=kestrel-books
+  And the request is signed with the key '${env:CARRIER_KEY}'
   When the request is executed
-  And the 2nd ordered request sends the session of the 1st ordered response
-  And the 2nd ordered request is executed
-  Then the 2nd ordered response status code is 200
+  Then the response status code is 202
 ```
 
-The step reads the session from the scenario's own responses, so a session never reaches another scenario. A response is the one at the end of the redirects its request followed: a cookie that a followed `303 See Other` set is not in it ([Send REST requests](/guides/send-rest-requests/#redirects)).
+The step signs the payload as the steps before it left it, so it comes after the payload steps.
 
 ## Give agents a tool
 
