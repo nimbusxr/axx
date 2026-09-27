@@ -7,6 +7,8 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
+	"runtime/debug"
 	"strings"
 	"time"
 
@@ -32,7 +34,89 @@ type DoctorCheck struct {
 type DoctorReport struct {
 	Version version.Info  `json:"version"`
 	Config  string        `json:"config,omitempty"`
+	Packs   []PackSource  `json:"packs,omitempty"`
 	Checks  []DoctorCheck `json:"checks"`
+}
+
+// PackSource is where a pack of this axx comes from: a module at a version,
+// or a local directory.
+type PackSource struct {
+	Name    string `json:"name"`
+	Module  string `json:"module"`
+	Version string `json:"version,omitempty"`
+	Dir     string `json:"dir,omitempty"`
+}
+
+func (p PackSource) String() string {
+	switch {
+	case p.Dir != "":
+		return p.Name + " (" + p.Dir + ")"
+	case p.Module == version.Module:
+		return p.Name + " (axx " + orDev(p.Version) + ")"
+	default:
+		return p.Name + " (" + p.Module + " " + orDev(p.Version) + ")"
+	}
+}
+
+func orDev(v string) string {
+	if v == "" {
+		return "dev"
+	}
+	return v
+}
+
+// packSources are where the packs of this axx come from, from its build
+// information: axx's own at the axx module's version, the others at their
+// module's, or from their local directory, relative to the project's.
+func packSources(e *engine.Engine, projectDir string) []PackSource {
+	bi, ok := debug.ReadBuildInfo()
+	if !ok {
+		return nil
+	}
+	mods := append([]*debug.Module{&bi.Main}, bi.Deps...)
+	var out []PackSource
+	for _, np := range e.Packs {
+		if np.Name == "core" {
+			continue
+		}
+		t := reflect.TypeOf(np.Pack)
+		for t != nil && t.Kind() == reflect.Pointer {
+			t = t.Elem()
+		}
+		if t == nil {
+			continue
+		}
+		out = append(out, packSource(np.Name, t.PkgPath(), mods, projectDir))
+	}
+	return out
+}
+
+// packSource finds the module of a pack's package among a build's modules.
+func packSource(name, pkg string, mods []*debug.Module, projectDir string) PackSource {
+	var m *debug.Module
+	for _, c := range mods {
+		if c != nil && (pkg == c.Path || strings.HasPrefix(pkg, c.Path+"/")) && (m == nil || len(c.Path) > len(m.Path)) {
+			m = c
+		}
+	}
+	if m == nil {
+		return PackSource{Name: name, Module: pkg}
+	}
+	src := PackSource{Name: name, Module: m.Path, Version: strings.TrimPrefix(m.Version, "v")}
+	if src.Version == "(devel)" {
+		src.Version = ""
+	}
+	if r := m.Replace; r != nil {
+		if version.LocalReplace(r) { // a local directory
+			src.Version, src.Dir = "", r.Path
+			if rel, err := filepath.Rel(projectDir, r.Path); err == nil && !strings.HasPrefix(rel, "..") {
+				src.Dir = "./" + filepath.ToSlash(rel)
+			}
+		} else {
+			src.Module, src.Version = r.Path, strings.TrimPrefix(r.Version, "v")
+		}
+	}
+	return src
 }
 
 func newDoctorCmd(app *App) *cobra.Command {
@@ -71,7 +155,13 @@ func (a *App) doctor(ctx context.Context, cf *configFlags) DoctorReport {
 	add := func(name, status, detail, hint string) {
 		rep.Checks = append(rep.Checks, DoctorCheck{Name: name, Status: status, Detail: detail, Hint: hint})
 	}
-	add("axx", "ok", rep.Version.String()+" "+rep.Version.Platform, "")
+	detail := rep.Version.String() + " " + rep.Version.Platform
+	if l := rep.Version.Launcher; l != "" {
+		// A project's build of axx, with its packs: the axx it holds, and the
+		// installed axx that built and started it.
+		detail += fmt.Sprintf(", in this project's build with its packs (started by the installed axx v%s)", l)
+	}
+	add("axx", "ok", detail, "")
 
 	cfg, err := a.loadConfig(cf)
 	if err != nil {
@@ -99,8 +189,13 @@ func (a *App) doctor(ctx context.Context, cf *configFlags) DoctorReport {
 		add("step packs", "fail", err.Error(), "check axx-packs.yaml and the packs' settings in axx.yaml")
 		return rep
 	}
+	rep.Packs = packSources(e, cfg.Dir)
 	if e.Declared {
-		add("step packs", "ok", fmt.Sprintf("%s, %s", plural(len(e.Packs)-1, "pack"), plural(len(e.Registry.Defs()), "step")), "")
+		sources := make([]string, len(rep.Packs))
+		for i, p := range rep.Packs {
+			sources[i] = p.String()
+		}
+		add("step packs", "ok", fmt.Sprintf("%s, %s: %s", plural(len(e.Packs)-1, "pack"), plural(len(e.Registry.Defs()), "step"), strings.Join(sources, ", ")), "")
 	} else {
 		add("step packs", "warn", "no axx-packs.yaml: the project uses no packs, so it has no steps", "add the packs your steps come from with `axx pack add rest sql ...` (`axx pack list` lists them)")
 	}

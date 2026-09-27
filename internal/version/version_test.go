@@ -1,6 +1,9 @@
 package version
 
-import "testing"
+import (
+	"runtime/debug"
+	"testing"
+)
 
 func TestChannel(t *testing.T) {
 	for v, want := range map[string]string{
@@ -21,6 +24,25 @@ func TestChannel(t *testing.T) {
 	} {
 		if got := channel(v); got != want {
 			t.Errorf("channel(%q) = %q, want %q", v, got, want)
+		}
+	}
+}
+
+func TestTheVersionIsTheAxxModules(t *testing.T) {
+	axx := func(v string) debug.Module { return debug.Module{Path: Module, Version: v} }
+	for _, c := range []struct {
+		name string
+		bi   debug.BuildInfo
+		want string
+	}{
+		{"axx itself", debug.BuildInfo{Main: axx("v0.1.1")}, "0.1.1"},
+		{"axx built from its checkout", debug.BuildInfo{Main: axx("(devel)")}, ""},
+		{"a project's build", debug.BuildInfo{Main: debug.Module{Path: "axx.local/build", Version: "(devel)"}, Deps: []*debug.Module{{Path: "rsc.io/quote/v3", Version: "v3.1.0"}, {Path: Module, Version: "v0.1.1"}}}, "0.1.1"},
+		{"a project's build of axx from source", debug.BuildInfo{Main: debug.Module{Path: "axx.local/build"}, Deps: []*debug.Module{{Path: Module, Version: "v0.0.0", Replace: &debug.Module{Path: "/src/axx"}}}}, ""},
+		{"a project's build of axx from source, as Go records it", debug.BuildInfo{Main: debug.Module{Path: "axx.local/build"}, Deps: []*debug.Module{{Path: Module, Version: "v0.0.0", Replace: &debug.Module{Path: "/src/axx", Version: "(devel)"}}}}, ""},
+	} {
+		if got := moduleVersion(&c.bi); got != c.want {
+			t.Errorf("%s: %q, want %q", c.name, got, c.want)
 		}
 	}
 }

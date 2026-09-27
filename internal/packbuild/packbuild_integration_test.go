@@ -4,6 +4,7 @@ package packbuild
 
 import (
 	"context"
+	"encoding/json"
 	"maps"
 	"os"
 	"os/exec"
@@ -149,6 +150,26 @@ apps:
 	})
 	if out := axxIn("run", "--format", "progress"); !strings.Contains(out, "1 passed") {
 		t.Fatalf("run:\n%s", out)
+	}
+	// The project's build says which axx started it, and where its packs
+	// come from.
+	var doctor struct {
+		Data struct {
+			Version struct{ Launcher string } `json:"version"`
+			Packs   []struct{ Name, Module, Dir string }
+		} `json:"data"`
+	}
+	out := axxIn("doctor", "--json")
+	if err := json.Unmarshal([]byte(out), &doctor); err != nil {
+		t.Fatalf("doctor --json: %v\n%s", err, out)
+	}
+	modules, dirs := map[string]string{}, map[string]string{}
+	for _, p := range doctor.Data.Packs {
+		modules[p.Name], dirs[p.Name] = p.Module, p.Dir
+	}
+	// Built from this checkout, the axx module is its directory.
+	if doctor.Data.Version.Launcher == "" || modules["rest"] != "github.com/nimbusxr/axx" || dirs["rest"] != src || modules["steps"] != "axx.local/steps" || dirs["steps"] != "./steps" {
+		t.Errorf("doctor: launcher %q, modules %v, dirs %v\n%s", doctor.Data.Version.Launcher, modules, dirs, out)
 	}
 	axxIn("down")
 }
