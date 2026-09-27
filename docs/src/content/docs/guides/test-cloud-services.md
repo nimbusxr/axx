@@ -69,6 +69,31 @@ services:
 
 Create the buckets, queues, topics and tables the way your infrastructure code does in a real account. Scenarios bring the data: files, seeds and messages. The examples run a one-shot `provision` command before the service starts.
 
+## Seed data
+
+A seed is a YAML or JSON file that gives a scenario's data: the items of DynamoDB tables, the rows of BigQuery tables, or the documents of Firestore collections, by ID.
+
+```gherkin
+Given a seeds/shipments.yaml firestore seed
+```
+
+Firestore stores dates as timestamps, and a Firestore seed keeps YAML's dates:
+
+```yaml title="seeds/shipments.yaml"
+shipments:
+  PX-5101:
+    carrier: KESTREL
+    weightKg: 2.5
+    weighedAt: 2026-09-01T08:12:00Z # a timestamp
+    manifest: "2026-09-01"          # a string
+```
+
+- **An unquoted date is a timestamp.** A date alone (`2026-09-01`) is midnight UTC. A date and time can have fractional seconds and an offset (`2026-09-01T10:12:00.25+02:00`); without an offset, it is in UTC. A value tagged `!!timestamp` is a timestamp too.
+- **A quoted date is a string.** Quote a value to keep it a string, such as a manifest named by its date.
+- **JSON seeds hold strings.** JSON has no date type, so the dates of a JSON seed are strings.
+
+Checks read timestamps back in RFC 3339 and UTC, so `| weighedAt | 2026-09-01T08:12:00Z |` checks the document above.
+
 ## What the checks do
 
 - **They wait.** Services act asynchronously, so every check waits: 10 seconds, or the time `within {duration}` gives.

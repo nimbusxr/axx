@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"cloud.google.com/go/firestore"
+
 	"github.com/nimbusxr/axx/internal/cloudstep/cloudtest"
 	gcpcore "github.com/nimbusxr/axx/packs/gcp/core"
 )
@@ -54,4 +56,80 @@ shipments/SHP-1001/scans:
 	if !strings.Contains(err.Error(), `"carrier":"KESTREL"`) {
 		t.Errorf("the failure should show the documents: %v", err)
 	}
+}
+
+// A seed's unquoted YAML dates are Firestore timestamps and its quoted ones
+// strings, as a service reading the documents with the Firestore SDK sees
+// them.
+func TestSeedTimestamps(t *testing.T) {
+	addr := cloudtest.Emulator(t, "floci/floci-gcp:latest", "4588", "/health", nil)
+	h := cloudtest.New(t, gcpcore.Pack(), Pack())
+	h.OK("the billing gcp project with the following properties:", [][]string{
+		{"project", "parcels-dev"}, {"endpoint", "http://" + addr},
+	})
+	h.File("seeds/shipments.yaml", `
+shipments:
+  PX-5101:
+    weighedAt: 2026-09-24T07:40:00Z
+    carrierScan: "2026-09-24T07:40:00Z"
+    pickedUpAt: !!timestamp 2026-09-24T09:40:00.25+02:00
+    shipDate: 2026-09-24
+    scans:
+      - {depot: LDS, at: 2026-09-24T09:30:00Z}
+`)
+	h.OK("a seeds/shipments.yaml firestore seed")
+
+	// The service reads the document as it would against Firestore.
+	t.Setenv("FIRESTORE_EMULATOR_HOST", addr)
+	ctx := context.Background()
+	c, err := firestore.NewClient(ctx, "parcels-dev")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer c.Close()
+	snap, err := c.Doc("shipments/PX-5101").Get(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var shipment struct {
+		WeighedAt   time.Time `firestore:"weighedAt"`
+		CarrierScan string    `firestore:"carrierScan"`
+		PickedUpAt  time.Time `firestore:"pickedUpAt"`
+		ShipDate    time.Time `firestore:"shipDate"`
+		Scans       []struct {
+			At time.Time `firestore:"at"`
+		} `firestore:"scans"`
+	}
+	if err := snap.DataTo(&shipment); err != nil {
+		t.Fatalf("the service cannot read the seeded shipment: %v", err)
+	}
+	data := snap.Data()
+	if _, ok := data["weighedAt"].(time.Time); !ok {
+		t.Errorf("weighedAt is a %T, want a timestamp", data["weighedAt"])
+	}
+	if _, ok := data["carrierScan"].(string); !ok {
+		t.Errorf("carrierScan is a %T, want a string", data["carrierScan"])
+	}
+	for name, ts := range map[string]struct{ got, want time.Time }{
+		"weighedAt":   {shipment.WeighedAt, time.Date(2026, 9, 24, 7, 40, 0, 0, time.UTC)},
+		"pickedUpAt":  {shipment.PickedUpAt, time.Date(2026, 9, 24, 7, 40, 0, 250e6, time.UTC)},
+		"shipDate":    {shipment.ShipDate, time.Date(2026, 9, 24, 0, 0, 0, 0, time.UTC)},
+		"scans[0].at": {shipment.Scans[0].At, time.Date(2026, 9, 24, 9, 30, 0, 0, time.UTC)},
+	} {
+		if !ts.got.Equal(ts.want) {
+			t.Errorf("%s = %v, want %v", name, ts.got, ts.want)
+		}
+	}
+	if shipment.CarrierScan != "2026-09-24T07:40:00Z" {
+		t.Errorf("carrierScan = %q", shipment.CarrierScan)
+	}
+
+	// Checks read the seeded timestamps back in RFC 3339, in UTC.
+	h.OK("the shipments/PX-5101 firestore document has the following properties:", [][]string{
+		{"weighedAt", "2026-09-24T07:40:00Z"},
+		{"carrierScan", "2026-09-24T07:40:00Z"},
+		{"pickedUpAt", "2026-09-24T07:40:00.25Z"},
+		{"shipDate", "2026-09-24T00:00:00Z"},
+		{"scans[0].at", "2026-09-24T09:30:00Z"},
+	})
 }

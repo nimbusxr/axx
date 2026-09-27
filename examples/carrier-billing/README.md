@@ -21,7 +21,7 @@ Firestore, the files in Cloud Storage, the events on Pub/Sub, and what the servi
 
 | Feature | Acceptance criteria | What axx uses |
 | --- | --- | --- |
-| `invoices` | An invoice at the agreed rates is reconciled. Overcharged lines and unknown parcels are disputed. An invoice uploaded twice is reconciled once. | Cloud Storage uploads, objects (a CSV row, identical to a file, JSON properties, a letter's text), BigQuery seeds, rows and counts, Firestore seeds and documents, Pub/Sub checks, a log entry |
+| `invoices` | An invoice at the agreed rates is reconciled. Overcharged lines and unknown parcels are disputed. An invoice uploaded twice is reconciled once. | Cloud Storage uploads, objects (a CSV row, identical to a file, JSON properties, a letter's text), BigQuery seeds, rows and counts, Firestore seeds (with timestamps) and documents, Pub/Sub checks, a log entry |
 | `shipments` | A weighed parcel is kept for pricing. A shipment event without a type is set aside. | publishing to Pub/Sub, with and without attributes, a Firestore collection query, a log entry |
 
 ## Run it

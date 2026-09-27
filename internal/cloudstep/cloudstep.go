@@ -194,9 +194,24 @@ type Seed struct {
 	Items map[string]any
 }
 
+// SeedOptions change how ReadSeedWith reads a seed.
+type SeedOptions struct {
+	// Timestamps keeps YAML's timestamps, for a service that stores them:
+	// an unquoted date or date and time (2026-09-01, 2026-09-01T10:00:00Z,
+	// 2026-09-01 10:00:00.5 +02:00) and a value tagged !!timestamp are
+	// time.Time values instead of their text. Quoted and block scalars, keys
+	// and JSON's strings stay strings.
+	Timestamps bool
+}
+
 // ReadSeed reads a YAML or JSON seed file whose top level maps names to
 // their content.
 func ReadSeed(sc *core.Scenario, file string) (*Seed, error) {
+	return ReadSeedWith(sc, file, SeedOptions{})
+}
+
+// ReadSeedWith is ReadSeed with options.
+func ReadSeedWith(sc *core.Scenario, file string, o SeedOptions) (*Seed, error) {
 	path, err := sc.Suite().ResolvePath(file)
 	if err != nil {
 		return nil, err
@@ -213,6 +228,12 @@ func ReadSeed(sc *core.Scenario, file string) (*Seed, error) {
 	if !ok {
 		return nil, fmt.Errorf("%s: the seed must map names to their content", file)
 	}
+	var times *stamps
+	if o.Timestamps {
+		if times, err = findStamps(b); err != nil {
+			return nil, fmt.Errorf("%s: %w", file, err)
+		}
+	}
 	s := &Seed{Items: map[string]any{}}
 	for _, k := range obj.Keys() {
 		v, _ := obj.Get(k)
@@ -221,7 +242,7 @@ func ReadSeed(sc *core.Scenario, file string) (*Seed, error) {
 			return nil, fmt.Errorf("%s: %s: %w", file, k, err)
 		}
 		s.Names = append(s.Names, k)
-		s.Items[k] = plain
+		s.Items[k] = times.field(k).apply(plain)
 	}
 	return s, nil
 }
