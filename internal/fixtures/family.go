@@ -26,6 +26,14 @@ type Family interface {
 	Validate(data []byte, baseDir, schemaRef, fixtureName string) error
 }
 
+// Referencer is implemented by families whose fixtures, as generated, are
+// more than resolveFixture's values (their defaults and schema applied, rows
+// with their identities): a $ref sees the document its fixture generates.
+// Other families' references see resolveFixture's values.
+type Referencer interface {
+	Referenced(spec *Spec, baseDir, fixtureKey string, ctx *ExpansionContext) (any, error)
+}
+
 // LintRuler is implemented by families whose output is not JSON (or whose
 // identity paths land elsewhere in the output) to steer the generated lint
 // rules. Families without it get one rule per identity over every .json

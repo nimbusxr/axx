@@ -69,51 +69,9 @@ func (d datasetFamily) Expand(spec *Spec, baseDir string, ctx *ExpansionContext)
 	out := map[string]map[string][]byte{}
 	var unresolved []string
 	for _, key := range spec.Fixtures.SortedKeys() {
-		fx := spec.Fixtures.Get(key)
-		templates := spec.PrototypeFor(fx.Dir)
-		w := where(spec, key)
-		resolved := jsonx.NewObject()
-		for _, rawTable := range fx.Data.Keys() {
-			table := strings.ToLower(rawTable)
-			var columns *ddlTable
-			if schema != nil {
-				if columns = schema.table(table); columns == nil {
-					return nil, genError("%s: table '%s' not found in DDL (tables: %s)", w, rawTable, schema.tableNames())
-				}
-			}
-			rows, ok := get(fx.Data, rawTable).([]any)
-			if !ok {
-				return nil, genError("%s: table '%s' must map to a list of rows", w, table)
-			}
-			template, _ := get(templates, rawTable).(*jsonx.Object)
-			var resolvedRows []any
-			for i, raw := range rows {
-				rowMap, ok := raw.(*jsonx.Object)
-				if !ok {
-					return nil, genError("%s: table '%s' row %d must be a map", w, table, i+1)
-				}
-				merged := deepMerge(template, rowMap)
-				if err := ctx.eval.evaluateTree(merged, w+" "+table+"["+itoa(i)+"]", nil); err != nil {
-					return nil, err
-				}
-				if err := d.applyIdentities(spec, ctx, key, table, merged, i); err != nil {
-					return nil, err
-				}
-				var row *jsonx.Object
-				if columns == nil {
-					row, err = resolveRowSchemaFree(spec, table, merged, key)
-				} else {
-					row, err = resolveRow(spec, columns, table, merged, key, &unresolved)
-				}
-				if err != nil {
-					return nil, err
-				}
-				resolvedRows = append(resolvedRows, row)
-			}
-			if resolvedRows == nil {
-				resolvedRows = []any{}
-			}
-			resolved.Set(table, resolvedRows)
+		resolved, err := d.resolveTables(spec, schema, key, ctx, &unresolved)
+		if err != nil {
+			return nil, err
 		}
 		if len(unresolved) == 0 {
 			rendered, err := renderDataset(format, key, orderedTables(schema, resolved))
@@ -128,6 +86,75 @@ func (d datasetFamily) Expand(spec *Spec, baseDir string, ctx *ExpansionContext)
 			joinLines(unresolved), spec.SourceName)
 	}
 	return out, nil
+}
+
+// resolveTables is one fixture's tables as the family renders them: each
+// row its template, expressions, identities and columns applied.
+func (d datasetFamily) resolveTables(spec *Spec, schema *ddlSchema, key string, ctx *ExpansionContext, unresolved *[]string) (*jsonx.Object, error) {
+	fx := spec.Fixtures.Get(key)
+	templates := spec.PrototypeFor(fx.Dir)
+	w := where(spec, key)
+	resolved := jsonx.NewObject()
+	for _, rawTable := range fx.Data.Keys() {
+		table := strings.ToLower(rawTable)
+		var columns *ddlTable
+		if schema != nil {
+			if columns = schema.table(table); columns == nil {
+				return nil, genError("%s: table '%s' not found in DDL (tables: %s)", w, rawTable, schema.tableNames())
+			}
+		}
+		rows, ok := get(fx.Data, rawTable).([]any)
+		if !ok {
+			return nil, genError("%s: table '%s' must map to a list of rows", w, table)
+		}
+		template, _ := get(templates, rawTable).(*jsonx.Object)
+		var resolvedRows []any
+		for i, raw := range rows {
+			rowMap, ok := raw.(*jsonx.Object)
+			if !ok {
+				return nil, genError("%s: table '%s' row %d must be a map", w, table, i+1)
+			}
+			merged := deepMerge(template, rowMap)
+			if err := ctx.eval.evaluateTree(merged, w+" "+table+"["+itoa(i)+"]", nil); err != nil {
+				return nil, err
+			}
+			if err := d.applyIdentities(spec, ctx, key, table, merged, i); err != nil {
+				return nil, err
+			}
+			var row *jsonx.Object
+			var err error
+			if columns == nil {
+				row, err = resolveRowSchemaFree(spec, table, merged, key)
+			} else {
+				row, err = resolveRow(spec, columns, table, merged, key, unresolved)
+			}
+			if err != nil {
+				return nil, err
+			}
+			resolvedRows = append(resolvedRows, row)
+		}
+		if resolvedRows == nil {
+			resolvedRows = []any{}
+		}
+		resolved.Set(table, resolvedRows)
+	}
+	return resolved, nil
+}
+
+// Referenced is a fixture's tables as the family renders them, for a $ref:
+// rows with their table.column identities. A required column a row lacks is
+// left out: the fixture's own expansion reports it.
+func (d datasetFamily) Referenced(spec *Spec, baseDir, key string, ctx *ExpansionContext) (any, error) {
+	schema, err := datasetDDL(spec, baseDir)
+	if err != nil {
+		return nil, err
+	}
+	var unresolved []string
+	resolved, err := d.resolveTables(spec, schema, key, ctx, &unresolved)
+	if err != nil {
+		return nil, err
+	}
+	return orderedTables(schema, resolved), nil
 }
 
 // orderedTables puts tables in DDL declaration order when a schema is

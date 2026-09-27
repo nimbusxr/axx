@@ -61,6 +61,34 @@ func (f jsonFamily) Expand(spec *Spec, baseDir string, ctx *ExpansionContext) (m
 	return out, nil
 }
 
+// Referenced is a fixture as the family generates it, for a $ref: its
+// identities, defaults and schema applied.
+func (f jsonFamily) Referenced(spec *Spec, baseDir, key string, ctx *ExpansionContext) (any, error) {
+	return referencedGoverned(spec, baseDir, key, ctx)
+}
+
+// Referenced is a fixture as the family generates it, for a $ref: its
+// identities, defaults and schema applied.
+func (f yamlFamily) Referenced(spec *Spec, baseDir, key string, ctx *ExpansionContext) (any, error) {
+	return referencedGoverned(spec, baseDir, key, ctx)
+}
+
+// referencedGoverned resolves a fixture as the JSON and YAML families do. A
+// required field it lacks is left out: the fixture's own expansion reports
+// it.
+func referencedGoverned(spec *Spec, baseDir, key string, ctx *ExpansionContext) (any, error) {
+	g, err := loadGoverning(baseDir, spec.SchemaRef())
+	if err != nil {
+		return nil, err
+	}
+	tree, err := resolveFixture(spec, key, ctx)
+	if err != nil {
+		return nil, err
+	}
+	var unresolved []string
+	return g.resolve(tree, spec.Defaults, key, spec.SourceName, &unresolved)
+}
+
 func (jsonFamily) Validate(data []byte, baseDir, schemaRef, fixtureName string) error {
 	g, err := loadGoverning(baseDir, schemaRef)
 	if err != nil {
