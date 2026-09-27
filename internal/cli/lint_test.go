@@ -229,3 +229,40 @@ func TestLintExampleSuite(t *testing.T) {
 		t.Errorf("unexpected report:\n%s", out)
 	}
 }
+
+// Hand-written seeds of one shape get a hint toward fixture factories, which
+// changes neither the findings nor the exit code.
+func TestLintHintsAtFixtureFactories(t *testing.T) {
+	dir, _ := filepath.EvalSymlinks(t.TempDir())
+	seed := func(ref string) string {
+		return "parcels.parcels:\n  - reference: \"" + ref + "\"\n    sender: \"kestrel-books\"\n"
+	}
+	writeFiles(t, dir, map[string]string{
+		"axx.yaml":                "version: 1\n",
+		"axx-packs.yaml":          "packs: [sql]\n",
+		"seeds/portal-find.yaml":  seed("PX-WEB-5151"),
+		"seeds/portal-open.yaml":  seed("PX-WEB-5141"),
+		"seeds/portal-track.yaml": seed("PX-WEB-5161"),
+		"features/portal.feature": "Feature: portal\n  Scenario: find\n    Given a seeds/portal-find.yaml db seed\n" +
+			"  Scenario: open\n    Given a seeds/portal-open.yaml db seed\n  Scenario: track\n    Given a seeds/portal-track.yaml db seed\n",
+	})
+	t.Chdir(dir)
+	out, stderr, code := run(t, "lint", "--compact")
+	if code != 0 {
+		t.Fatalf("exit %d: %s%s", code, out, stderr)
+	}
+	if !strings.Contains(out, "hint: seeds/ has 3 hand-written .yaml files of one shape (parcels.parcels) that no fixture factory generates") {
+		t.Errorf("output:\n%s", out)
+	}
+	out, _, code = run(t, "lint", "--json")
+	var env struct {
+		OK   bool        `json:"ok"`
+		Data lint.Report `json:"data"`
+	}
+	if err := json.Unmarshal([]byte(out), &env); err != nil || code != 0 || !env.OK {
+		t.Fatalf("exit %d %v\n%s", code, err, out)
+	}
+	if len(env.Data.Hints) != 1 || env.Data.Summary.Warnings != 0 {
+		t.Errorf("hints %q, summary %+v", env.Data.Hints, env.Data.Summary)
+	}
+}

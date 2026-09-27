@@ -40,7 +40,8 @@ Workflow for writing acceptance tests:
 3. Unsure how a step behaves? steps_try runs steps in a live scenario that stays open between calls; the packs' tools (web_page: the page a step opened) look at it.
 4. Write the .feature file; feature_validate it until there are no problems (step_explain shows how a single line is read). Then scenarios_run.
 5. On failure, read the returned failures (expected/actual); failure_context gives logs and request/response details.
-Every scenario must use unique test data (ids, names, keys): scenarios run in parallel and data persists between runs. After adding seeds, payloads or fixtures, lint_run reports values that collide with other files.`
+Every scenario must use unique test data (ids, names, keys): scenarios run in parallel and data persists between runs. After adding seeds, payloads or fixtures, lint_run reports values that collide with other files.
+When seeds, payloads or mock bodies repeat across scenarios, fixture factories generate them from one shape with unique ids (optional; ` + "`axx fixtures`" + `, the axx-test-data skill); ` + "`axx fixtures adopt`" + ` converts hand-written ones.`
 
 // Options configures the server.
 type Options struct {

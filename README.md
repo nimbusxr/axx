@@ -62,7 +62,8 @@ built on the clouds, with the clouds running locally:
 - **Extensible.** Pick the packs a project uses (`axx pack add rest sql`), write your own steps as
   a Go pack that works on the same context as the steps of axx's packs (`axx pack new ./steps`).
 - **Built for agents.** `axx steps search`, `axx explain`, `--json` on every command, stable exit
-  codes, an MCP server (`axx mcp`) and installable agent skills (`axx skills install`).
+  codes, an MCP server (`axx mcp`) and agent skills, which `axx init` sets up for the agents a
+  repository uses.
 - **Test data you can trust.** `axx lint` catches colliding test data before parallel runs
   flake, and `axx fixtures` generates schema-checked fixtures and detects drift.
 

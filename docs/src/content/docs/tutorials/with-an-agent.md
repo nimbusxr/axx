@@ -11,18 +11,20 @@ We'll use [Claude Code](https://claude.com/claude-code) and the `hello-axx` proj
 
 ## Teach the agent Axx
 
-In the `hello-axx` directory, install Axx's skills:
+`axx init` installed Axx's skills in `.agents/skills` in the Quickstart. The `hello-axx` directory had no sign of Claude Code then, so connect it now. In the `hello-axx` directory, give Claude Code the Axx MCP server and link the skills where it reads them:
 
 ```sh
+axx mcp install --agent claude
 axx skills install
 ```
 
 ```console
-installed 4 skills to .agents/skills (14 files updated)
+create .mcp.json: the axx MCP server for Claude Code
+installed 5 skills to .agents/skills (0 files updated)
 linked for Claude Code in .claude/skills
 ```
 
-The skills teach an agent how to find Axx's steps, write a scenario, run it and read a failure. The `AGENTS.md` that `axx init` wrote in the Quickstart points agents at the same rules.
+The skills teach an agent how to find Axx's steps, write a scenario, run it and read a failure. The MCP server gives it tools to do so, and the `AGENTS.md` that `axx init` wrote points agents at the same rules. In a repository that already uses Claude Code, `axx init` does all of this itself.
 
 ## Ask for a test
 
@@ -32,6 +34,8 @@ Start Claude Code in the project:
 claude
 ```
 
+It asks whether to use the `axx` server from `.mcp.json`; allow it.
+
 Give it the criterion, not step text:
 
 ```text
@@ -40,13 +44,13 @@ Add an acceptance test for this: asking for a file that doesn't exist returns 40
 
 ## Watch what it does
 
-The agent's wording will differ from run to run, but you'll see it work through the same loop. Claude Code asks before each command, so you can follow along. Notice that it:
+The agent's wording will differ from run to run, but you'll see it work through the same loop. Claude Code asks before each command and each tool call, so you can follow along. Notice that it:
 
 1. checks the project with `axx doctor`;
-2. searches for real steps with `axx steps search "response status code"` instead of guessing their text;
-3. checks a line it's unsure of with `axx explain`;
+2. searches for real steps with the `steps_search` tool (or `axx steps search "response status code"`) instead of guessing their text;
+3. checks a line it's unsure of with `step_explain` (`axx explain`);
 4. writes a feature file;
-5. checks it with `axx validate`, starts the server with `axx up`, runs the scenarios with `axx run --compact`, and stops the server with `axx down`.
+5. checks it with `feature_validate` (`axx validate`), starts the server with `env` (`axx up`), runs the scenarios with `scenarios_run` (`axx run --compact`), and stops the server again.
 
 ## Review what it wrote
 

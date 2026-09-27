@@ -79,6 +79,12 @@ func init() {
 	add("AXX-E0011", u, "Invalid pack argument",
 		"`axx pack` was given a pack that is not the name of one of axx's packs, an existing local directory or a Go module path, or one that is not listed.",
 		"`axx pack list` lists axx's packs; other packs are added by path (`./steps`, created with `axx pack new`) or Go module path (`github.com/team/axx-grpc@v1.2.0`).")
+	add("AXX-E0012", u, "Unknown agent or scope",
+		"`axx mcp install` connects one coding agent (`--agent claude`, `codex`, `cursor`, `vscode` or `gemini`) in one scope: `project` (the repository's own files) or `user` (your home directory).",
+		"Pass `--agent` with one of the listed agents, and `--scope project` (the default) or `--scope user`.")
+	add("AXX-E0013", u, "Agent configuration cannot be merged",
+		"axx adds its MCP server to an agent's configuration file only when it can read the file back exactly and keep everything else in it. The file has comments, is not valid JSON, or (Codex) lists its MCP servers in a form a new `[mcp_servers.axx]` table cannot join. axx left it alone.",
+		"Add the server yourself: the hint shows the lines to add. Or fix the file and run the command again.")
 
 	add("AXX-E0100", u, "Config file not found",
 		"The file given with `--config` does not exist or cannot be read.",

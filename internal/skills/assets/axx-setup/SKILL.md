@@ -9,12 +9,12 @@ license: Apache-2.0
 ## 1. Initialize
 
 ```sh
-axx init            # axx.yaml, axx-packs.yaml, features/smoke.feature, .github/workflows/acceptance.yml, AGENTS.md section, .gitignore
+axx init            # axx.yaml, axx-packs.yaml, features/smoke.feature, .github/workflows/acceptance.yml, AGENTS.md section, .gitignore, agents
 axx pack add sql    # the packs whose steps the project uses (init lists rest); `axx pack list` shows them all
 axx doctor          # verify: config, apps' commands, docker, features
 ```
 
-`axx init` detects `compose.yaml` and OpenAPI files. It leaves existing files alone unless you pass `--force`, adds or updates its `AGENTS.md` section and the `.axx/` line of `.gitignore` in place, and is safe to run again.
+`axx init` detects `compose.yaml` and OpenAPI files. It leaves existing files alone unless you pass `--force`, adds or updates its `AGENTS.md` section and the `.axx/` line of `.gitignore` in place, and is safe to run again. It also installs the skills in `.agents/skills` and connects the axx MCP server to the agents the repository already uses, in their own files (see "4. Agents"); `--no-agents` skips that.
 
 ## 2. Describe how to start the system under test
 
@@ -55,8 +55,10 @@ Anywhere else, install Axx with `curl -fsSL https://axx.nimbusxr.us/install.sh |
 
 ## 4. Agents
 
-- `axx skills install` adds these skills for Claude Code, Codex, Cursor, Gemini CLI and Copilot.
-- `axx mcp` is an MCP server. Add `{"mcpServers": {"axx": {"command": "axx", "args": ["mcp"]}}}` to `.mcp.json`.
+- `axx init` sets agents up in the repository only, and lists every file it writes: the skills in `.agents/skills` (linked into `.claude/skills` when the repository uses Claude Code), and the axx MCP server for each agent the repository shows signs of using: `.claude/`, `CLAUDE.md` or `.mcp.json` → `.mcp.json`; `.codex/` → `.codex/config.toml`; `.cursor/` → `.cursor/mcp.json`; `.vscode/` → `.vscode/mcp.json`; `.gemini/` or `GEMINI.md` → `.gemini/settings.json`. Other servers and settings in those files stay; a file it cannot read back exactly (comments, say) is left alone.
+- `axx mcp install --agent claude|codex|cursor|vscode|gemini` connects one agent (`--scope user` for your home directory; the default is the project). Codex usually reads `~/.codex/config.toml`, which `axx init` never writes: run `axx mcp install --agent codex --scope user`.
+- `axx skills install` installs or refreshes the skills (after upgrading Axx, or adding steps).
+- `axx doctor` warns when an agent the project uses lacks the skills or the MCP server, with the command that fixes it.
 - The `AGENTS.md` section written by `axx init` gives any agent the essential rules.
 
 ## When a command fails

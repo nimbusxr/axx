@@ -3,12 +3,14 @@ package lint
 import (
 	"context"
 	"errors"
+	"path/filepath"
 	"strings"
 
 	"github.com/nimbusxr/axx/internal/axxerr"
 	"github.com/nimbusxr/axx/internal/config"
 	"github.com/nimbusxr/axx/internal/engine"
 	"github.com/nimbusxr/axx/internal/feature"
+	"github.com/nimbusxr/axx/internal/fixtures"
 )
 
 // Project runs everything `axx lint` checks for a loaded configuration: the
@@ -41,8 +43,23 @@ func Project(ctx context.Context, cfg *config.Config, opts Options) (*Report, er
 	if set2 != nil && len(set2.Pickles) > 0 {
 		rep.Add(CheckFeatures(e.Registry, set2.Pickles, opts.WorkDir))
 		rep.Filter(opts)
+		rep.Hints = FixtureHints(e.Registry, set2.Pickles, FixtureSources{Resolve: e.ResolvePath, Generated: generated(cfg)}, opts)
 	}
 	return rep, nil
+}
+
+// generated reports whether a fixture factory generates a file: whether
+// axx-fixtures.manifest.yaml records it.
+func generated(cfg *config.Config) func(abs string) bool {
+	base := cfg.FixturesDir()
+	m, err := fixtures.LoadManifest(base)
+	if err != nil {
+		return nil
+	}
+	return func(abs string) bool {
+		rel, err := filepath.Rel(base, abs)
+		return err == nil && m.Managed(filepath.ToSlash(rel))
+	}
 }
 
 func firstLine(err error) string {

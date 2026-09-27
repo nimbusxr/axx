@@ -20,6 +20,7 @@ import (
 	"strings"
 
 	"github.com/nimbusxr/axx/internal/engine"
+	"github.com/nimbusxr/axx/internal/fixtures"
 	"github.com/nimbusxr/axx/internal/render/md"
 	"github.com/nimbusxr/axx/internal/version"
 	plugin "github.com/nimbusxr/axx/plugins/axx"
@@ -86,6 +87,8 @@ func Build(e *engine.Engine) ([]Skill, error) {
 			sk.Files = append(sk.Files, refs...)
 		case "axx-debugging", "axx-setup":
 			sk.Files = append(sk.Files, errorCodes)
+		case "axx-test-data":
+			sk.Files = append(sk.Files, errorCodes, File{Path: "references/spec-files.md", Content: []byte(specFilesRef())})
 		}
 		sort.Slice(sk.Files, func(i, j int) bool { return sk.Files[i].Path < sk.Files[j].Path })
 		out = append(out, sk)
@@ -173,6 +176,26 @@ profiles:
   ci: {properties: {local.host: docker}}
 ` + "```" + `
 `
+
+// specFilesRef documents the fixture spec files with their JSON Schemas,
+// the ones `axx schema --kind factory|fixture|prototype` prints.
+func specFilesRef() string {
+	var b strings.Builder
+	b.WriteString(md.GeneratedHeader + `
+# Fixture spec files
+
+The JSON Schemas of the files ` + "`axx fixtures`" + ` reads, as ` + "`axx schema --kind <kind>`" + ` prints them. Reference one from the top of a file for completion in editors:
+
+` + "```yaml" + `
+# yaml-language-server: $schema=` + fixtures.SchemaID("factory") + `
+` + "```" + `
+`)
+	for _, kind := range fixtures.SchemaKinds {
+		schema, _ := fixtures.SchemaJSON(kind)
+		fmt.Fprintf(&b, "\n## `*.%s.yaml`\n\n```json\n%s\n```\n", kind, strings.TrimSpace(string(schema)))
+	}
+	return b.String()
+}
 
 // Lock records installed files so updates never overwrite local edits.
 type Lock struct {

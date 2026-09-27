@@ -39,7 +39,7 @@ Documentation drifts; binaries do not. The MCP server, `axx steps`, the skills a
 The skills and the AGENTS.md section encode the rules that keep agent-written tests honest:
 
 - one scenario per acceptance criterion, named after the behavior;
-- unique data in every scenario;
+- unique data in every scenario, and fixture factories where data repeats (optional, and `axx lint` hints at them);
 - assert on observable outcomes, never loosen an assertion to go green;
 - no fixed sleeps, use readiness checks and polling steps.
 
@@ -47,4 +47,4 @@ The skills and the AGENTS.md section encode the rules that keep agent-written te
 
 Every page on this site has a Markdown twin (append `.md`), advertised with `<link rel="alternate" type="text/markdown">`. [`/llms.txt`](/llms.txt) indexes them, and [`/.well-known/agent-skills/index.json`](/.well-known/agent-skills/index.json) lists the skills. Each page also has *Copy as Markdown* and *Open in Claude* buttons.
 
-Set it up with [Set up agents](/guides/set-up-agents/), and see it work in [Test with an agent](/tutorials/with-an-agent/).
+`axx init` sets up the skills and the MCP server for the agents a repository already uses, in the repository's own files, and `axx doctor` says what an agent lacks. Read [Set up agents](/guides/set-up-agents/), and see it work in [Test with an agent](/tutorials/with-an-agent/).
