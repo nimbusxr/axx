@@ -140,6 +140,9 @@ type CheckReport struct {
 	BaseDir  string             `json:"baseDir"`
 	Checks   int                `json:"checks"`
 	Failures []fixtures.Failure `json:"failures"`
+	// Unmaterialized are ignored outputs this checkout does not have yet,
+	// which `axx fixtures generate` writes.
+	Unmaterialized []string `json:"unmaterialized,omitempty"`
 }
 
 func newFixturesCheckCmd(app *App) *cobra.Command {
@@ -151,6 +154,11 @@ func newFixturesCheckCmd(app *App) *cobra.Command {
 generate, the manifest must list exactly what they produce, and every file a
 conformance rule matches must pass its family's schema oracle. Recorded
 expression functions resolve from the committed pairings lock only.
+
+Ignored outputs (fixtures.output.ignored) a checkout lacks pass when the
+committed manifest records what the sources produce, so a fresh clone
+checks clean; run ` + "`axx fixtures generate`" + ` after check to write them. Check
+first: generate would bring a stale manifest up to date and hide it.
 
 Exit codes: 0 all checks pass, 1 any failure (drift fails CI), 2 invalid
 configuration or spec files.`,
@@ -168,7 +176,7 @@ configuration or spec files.`,
 			if failures == nil {
 				failures = []fixtures.Failure{}
 			}
-			rep := CheckReport{BaseDir: relPath(fc.BaseDir), Checks: total, Failures: failures}
+			rep := CheckReport{BaseDir: relPath(fc.BaseDir), Checks: total, Failures: failures, Unmaterialized: checker.Unmaterialized()}
 			if err := app.EmitResult(rep, len(failures) == 0, func(w io.Writer) error { return renderCheck(w, rep) }); err != nil {
 				return err
 			}
@@ -193,6 +201,9 @@ func renderCheck(w io.Writer, rep CheckReport) error {
 	switch {
 	case len(rep.Failures) == 0:
 		_, err = fmt.Fprintf(w, "%s passed\n", plural(rep.Checks, "check"))
+		if err == nil && len(rep.Unmaterialized) > 0 {
+			_, err = fmt.Fprintf(w, "%s not generated in this checkout yet: run `axx fixtures generate` before `axx run`\n", plural(len(rep.Unmaterialized), "ignored output"))
+		}
 	case rep.Checks == 0:
 		_, err = fmt.Fprintf(w, "the specs could not be expanded; no checks ran\n")
 	default:

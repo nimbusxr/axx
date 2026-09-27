@@ -85,19 +85,64 @@ func TestHandEditGuardOnIgnoredOutputsWorksWithoutGit(t *testing.T) {
 	mustErrContain(t, w.generateErr(), "hand-edited", "debrief.json")
 }
 
-func TestMissingIgnoredOutputFailsWithMaterializationGuidance(t *testing.T) {
+// A fresh checkout has no ignored outputs: check passes when the committed
+// manifest records what the sources produce, and says what generate writes.
+func TestAFreshCheckoutOfIgnoredOutputsPassesCheck(t *testing.T) {
 	w := ignoredWorkspace(t)
 	w.generate()
 	w.remove("kafka/notes/briefing.json")
+	w.remove("kafka/notes/debrief.json")
+	c, err := NewChecker(w.cfg, w.opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, f := c.Run(); len(f) != 0 {
+		t.Fatalf("failures: %v", f)
+	}
+	if got := c.Unmaterialized(); len(got) != 2 {
+		t.Errorf("unmaterialized: %v", got)
+	}
+}
+
+// Sources changed without generating again: the committed manifest is
+// stale, which check reports even though the outputs are not on disk.
+func TestAStaleManifestFailsCheckWithoutTheOutputs(t *testing.T) {
+	w := ignoredWorkspace(t)
+	w.generate()
+	w.remove("kafka/notes/debrief.json")
+	w.replace("kafka/notes/debrief.fixture.yaml", "bye", "see you")
 	f := w.check()
 	if len(f) != 1 {
 		t.Fatalf("failures: %v", f)
 	}
-	mustContain(t, f[0], "briefing.json", "materialized", "axx fixtures generate")
+	mustContain(t, f[0], "stale", "debrief.json", "axx fixtures generate", "commit the manifest")
+}
+
+// A generated ignored output that is on disk is drift-checked like any
+// managed file.
+func TestAnEditedIgnoredOutputFailsCheck(t *testing.T) {
+	w := ignoredWorkspace(t)
 	w.generate()
-	if f := w.check(); len(f) != 0 {
-		t.Errorf("regenerate heals: %v", f)
+	w.replace("kafka/notes/debrief.json", "bye", "tampered")
+	f := w.check()
+	if len(f) != 1 {
+		t.Fatalf("failures: %v", f)
 	}
+	mustContain(t, f[0], "debrief.json", "DRIFT")
+}
+
+// Missing committed fixtures make one failure, not one per file.
+func TestMissingCommittedFixturesAreSummarized(t *testing.T) {
+	w := ignoredWorkspace(t)
+	w.write("kafka/memos/memos.factory.yaml", strings.Replace(w.read("kafka/memos/memos.factory.yaml"), "fixtures:\n  memo-1: {}\n", "fixtures:\n  memo-1: {}\n  memo-2: {}\n", 1))
+	w.generate()
+	w.remove("kafka/memos/memo-1.json")
+	w.remove("kafka/memos/memo-2.json")
+	f := w.check()
+	if len(f) != 1 {
+		t.Fatalf("failures: %v", f)
+	}
+	mustContain(t, f[0], "2 committed fixtures", "memo-1.json", "memo-2.json", "axx fixtures generate")
 }
 
 func TestFlippingBackToCommittedOrphansTheGitignore(t *testing.T) {
@@ -207,12 +252,14 @@ func TestCleanDeletesIgnoredOutputsOnly(t *testing.T) {
 			t.Errorf("%s exists = %v, want %v", rel, !want, want)
 		}
 	}
-	found := false
-	for _, f := range w.check() {
-		found = found || strings.Contains(f, "materialized")
+	// The cleaned state is the fresh-clone state: it checks clean, and
+	// generate writes what it lacks.
+	c, err := NewChecker(w.cfg, w.opts)
+	if err != nil {
+		t.Fatal(err)
 	}
-	if !found {
-		t.Error("the cleaned state is the fresh-clone state")
+	if _, f := c.Run(); len(f) != 0 || len(c.Unmaterialized()) == 0 {
+		t.Errorf("the cleaned state checks clean and lists what generate writes: %v, %v", f, c.Unmaterialized())
 	}
 	w.generate()
 	if f := w.check(); len(f) != 0 {

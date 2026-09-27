@@ -2,6 +2,7 @@ package fixtures
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -26,7 +27,15 @@ type Failure struct {
 // their governing schemas (conformance, for managed and unmanaged files).
 type Checker struct {
 	gen *Generator
+	// unmaterialized are the ignored outputs this checkout does not have yet
+	// (a fresh clone): `axx fixtures generate` writes them.
+	unmaterialized []string
 }
+
+// Unmaterialized lists the ignored outputs the last Checks found absent, and
+// in step with the committed manifest: a fresh checkout's, which generate
+// writes.
+func (c *Checker) Unmaterialized() []string { return c.unmaterialized }
 
 // NewChecker loads the specs; errors here are expansion-independent (spec
 // files, configuration, a hand-edited pairings lock).
@@ -38,18 +47,51 @@ func NewChecker(cfg Config, opts Options) (*Checker, error) {
 	return &Checker{gen: g}, nil
 }
 
-// Checks lists every check: drift per produced file, the manifest, and
-// conformance per rule-matched file.
+// Checks lists every check: drift per produced file on disk, the manifest,
+// and conformance per rule-matched file. An ignored output a checkout lacks
+// passes when the committed manifest records what the sources produce (a
+// fresh clone), and fails when it records something else (the sources
+// changed, and the manifest was not generated again). Committed fixtures
+// that are missing make one check.
 func (c *Checker) Checks() ([]Check, error) {
 	g := c.gen
 	x, err := g.Expand(ModeVerify)
 	if err != nil {
 		return nil, err
 	}
+	committed, err := LoadManifest(g.baseDir)
+	if err != nil {
+		return nil, err
+	}
 	var checks []Check
+	var missing, stale []string
+	c.unmaterialized = nil
 	for _, rel := range x.Paths() {
 		expected := x.Files[rel]
+		if _, err := os.Stat(filepath.Join(g.baseDir, filepath.FromSlash(rel))); os.IsNotExist(err) {
+			switch {
+			case !x.ignored(rel):
+				missing = append(missing, rel)
+			case !inManifest(committed, rel, expected):
+				stale = append(stale, rel)
+			default:
+				c.unmaterialized = append(c.unmaterialized, rel)
+			}
+			continue
+		}
 		checks = append(checks, Check{Name: "drift: " + rel, run: func() error { return c.drift(rel, expected) }})
+	}
+	if len(missing) > 0 {
+		checks = append(checks, Check{Name: "missing: committed fixtures", run: func() error {
+			return checkError("%s the factories produce %s not on disk:\n%sfix: run `axx fixtures generate`, and commit them",
+				plural(len(missing), "committed fixture"), are(len(missing)), listSome(missing, 5))
+		}})
+	}
+	if len(stale) > 0 {
+		checks = append(checks, Check{Name: "stale: the manifest", run: func() error {
+			return checkError("the sources changed since the manifest was generated: %s would differ from what it records:\n%sfix: run `axx fixtures generate`, and commit the manifest",
+				plural(len(stale), "ignored output"), listSome(stale, 5))
+		}})
 	}
 	checks = append(checks, Check{Name: "manifest: consistency", run: func() error { return c.manifest(x) }})
 	roots, err := sourceRoots(g.cfg)
@@ -159,4 +201,41 @@ func firstDifference(committed, expected []byte) string {
 		}
 	}
 	return "  (content identical, byte-level difference: check line endings or encoding)\n"
+}
+
+// inManifest reports whether the committed manifest records a file with
+// exactly this content.
+func inManifest(m *Manifest, rel string, content []byte) bool {
+	e, ok := m.Get(rel)
+	return ok && e.SHA256 == SHA256(content)
+}
+
+// listSome lists up to n paths, one per line, and how many more there are.
+func listSome(paths []string, n int) string {
+	var b strings.Builder
+	for i, p := range paths {
+		if i == n {
+			fmt.Fprintf(&b, "  and %d more\n", len(paths)-n)
+			break
+		}
+		b.WriteString("  " + p + "\n")
+	}
+	return b.String()
+}
+
+func are(n int) string {
+	if n == 1 {
+		return "is"
+	}
+	return "are"
+}
+
+func plural(n int, one string, many ...string) string {
+	if n == 1 {
+		return "1 " + one
+	}
+	if len(many) > 0 {
+		return fmt.Sprintf("%d %s", n, many[0])
+	}
+	return fmt.Sprintf("%d %ss", n, one)
 }
