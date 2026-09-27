@@ -55,7 +55,7 @@ defaults:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -85,7 +85,7 @@ jobs:
   publish:
     if: inputs.version != '' && (inputs.dry-run || vars.AXX_PUBLISH == 'true')
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # Publishing reads the signing key and Marketplace token from the release environment
     # (main only, approved by a maintainer); the secrets passed in are then unused. A dry run
     # uses no environment, so it verifies the plugin without signing it.

@@ -33,7 +33,7 @@ concurrency:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: docs
@@ -48,7 +48,7 @@ jobs:
       # Go (from go.mod's toolchain in .mise.toml) builds bin/axx-all, axx with every pack; Node runs Astro.
       # The site built on main is the one deployed, so only pull requests restore caches; main
       # saves them.
-      - uses: jdx/mise-action@5228313ee0372e111a38da051671ca30fc5a96db # v3
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
         with:
           install_args: "go node"
           cache: ${{ github.event_name == 'pull_request' }}
@@ -147,7 +147,7 @@ jobs:
     # Publishing the site waits for the AXX_PUBLISH repository variable, like every release.
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && vars.AXX_PUBLISH == 'true'
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
       pages: write

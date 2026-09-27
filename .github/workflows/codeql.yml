@@ -15,7 +15,7 @@ jobs:
   # the weekly run analyze them all. Go has no build-free mode: CodeQL's autobuild builds the
   # module with the Go version go.mod asks for.
   languages:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
     outputs:
@@ -39,7 +39,7 @@ jobs:
     name: analyze (${{ matrix.language }})
     needs: languages
     if: needs.languages.outputs.matrix != '{"include":[]}'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       actions: read # the run's details, which private and internal repositories do not expose otherwise
       contents: read
