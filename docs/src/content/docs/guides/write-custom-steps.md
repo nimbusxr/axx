@@ -72,7 +72,7 @@ The first `axx` command that needs the project's steps prepares Axx with the pac
 
 ## Use the step
 
-Once the pack is listed in `axx-packs.yaml`, its steps are used like any other step: `axx steps search` finds them, `axx validate` checks feature lines against them, and `axx skills install` adds them to the agent step index.
+Once the pack is listed in `axx-packs.yaml`, its steps are used like any other step: `axx steps search` finds them, `axx validate` checks feature lines against them, and `axx skills install` adds them to the agent step index. `axx docs export --out <dir>` writes the reference of the project's packs, yours included: a page per pack, with its steps, their documentation and examples.
 
 ## Change a REST request
 

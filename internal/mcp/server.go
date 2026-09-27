@@ -22,13 +22,16 @@ import (
 	messages "github.com/cucumber/messages/go/v34"
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 
+	"github.com/nimbusxr/axx/internal/axxerr"
 	"github.com/nimbusxr/axx/internal/check"
 	"github.com/nimbusxr/axx/internal/config"
 	"github.com/nimbusxr/axx/internal/engine"
+	"github.com/nimbusxr/axx/internal/exitcode"
 	"github.com/nimbusxr/axx/internal/feature"
 	"github.com/nimbusxr/axx/internal/lifecycle"
 	"github.com/nimbusxr/axx/internal/lint"
 	"github.com/nimbusxr/axx/internal/match"
+	"github.com/nimbusxr/axx/internal/packset"
 	"github.com/nimbusxr/axx/internal/version"
 )
 
@@ -156,7 +159,36 @@ func (s *server) engine() (*engine.Engine, error) {
 	if err != nil {
 		return nil, err
 	}
-	return engine.New(engine.Options{Config: cfg})
+	return newEngine(cfg)
+}
+
+// newEngine loads the project's steps. The server has the packs the project
+// listed when it started, prepared then; a pack added since is not in it,
+// and only a new server has it.
+func newEngine(cfg *config.Config) (*engine.Engine, error) {
+	e, err := engine.New(engine.Options{Config: cfg})
+	if err == nil {
+		return e, nil
+	}
+	f, found, ferr := packset.Load(cfg.Dir)
+	if ferr != nil || !found {
+		return nil, err
+	}
+	entries, _ := f.Entries()
+	compiled := engine.Compiled()
+	var added []string
+	for _, en := range packset.WithRequired(entries) {
+		if _, ok := compiled[en.Key()]; !ok {
+			added = append(added, en.Key())
+		}
+	}
+	if len(added) == 0 {
+		return nil, err
+	}
+	return nil, axxerr.New(engine.CodeUnknownPack, exitcode.Usage,
+		"this axx MCP server started without the packs %s, which %s lists now: restart the axx MCP server (in your agent, reconnect or restart the MCP server named axx); the new one prepares the project's packs as it starts",
+		strings.Join(added, ", "), packset.FileName).
+		WithHint("the axx command line prepares them already: `axx steps search` works meanwhile")
 }
 
 // ---- steps_search ----

@@ -46,7 +46,7 @@ func (s *server) live(restart bool) (*runner.Session, error) {
 	if err != nil {
 		return nil, err
 	}
-	e, err := engine.New(engine.Options{Config: cfg})
+	e, err := newEngine(cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -193,7 +193,7 @@ func (s *server) packTools(srv *sdk.Server) {
 	if err != nil {
 		return
 	}
-	e, err := engine.New(engine.Options{Config: cfg})
+	e, err := newEngine(cfg)
 	if err != nil {
 		return
 	}

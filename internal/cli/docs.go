@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 
@@ -27,22 +28,36 @@ func newDocsCmd(app *App) *cobra.Command {
 	}
 	var out string
 	var frontmatter bool
+	var cf configFlags
 	export := &cobra.Command{
 		Use:   "export",
 		Short: "Write generated reference pages (packs, parameter types, error codes, schema) to a directory",
 		Long: `Write the reference documentation generated from this binary: one page per
 pack (its settings, steps, parameter types and agent tools) and an overview of
 them, parameter types, a grep-friendly step index, the error and exit codes,
-and the JSON Schemas of axx.yaml and the fixture spec files. The documentation site and the agent skills are built from this output.
-It covers the packs compiled into this axx, whatever the project lists.`,
+and the JSON Schemas of axx.yaml and the fixture spec files. In a project, it
+covers the project's packs, those axx-packs.yaml lists, custom packs included;
+elsewhere, the packs compiled into this axx (the documentation site is built
+this way).`,
 		Args: wrapArgs(cobra.NoArgs),
 		RunE: func(*cobra.Command, []string) error {
 			if out == "" {
 				return axxerr.New("AXX-E0005", exitcode.Usage, "--out is required")
 			}
-			e, err := engine.New(engine.Options{Config: &config.Config{}, Packs: engine.CompiledPacks()})
+			cfg, err := app.loadConfig(&cf)
 			if err != nil {
 				return err
+			}
+			opts := engine.Options{Config: cfg, Logger: app.logger()}
+			if cfg.File == "" {
+				opts = engine.Options{Config: &config.Config{}, Packs: engine.CompiledPacks()}
+			}
+			e, err := engine.New(opts)
+			if err != nil {
+				return err
+			}
+			if !slices.ContainsFunc(e.PackNames(), func(n string) bool { return n != "core" }) {
+				return noPacksToDocument(cfg)
 			}
 			files, err := referenceFiles(e, frontmatter)
 			if err != nil {
@@ -65,6 +80,7 @@ It covers the packs compiled into this axx, whatever the project lists.`,
 			})
 		},
 	}
+	cf.register(export)
 	export.Flags().StringVarP(&out, "out", "o", "", "output directory")
 	export.Flags().BoolVar(&frontmatter, "frontmatter", true, "emit YAML front matter (for the docs site)")
 	cmd.AddCommand(export)
@@ -75,6 +91,17 @@ It covers the packs compiled into this axx, whatever the project lists.`,
 const packsLink = "/references/packs/"
 
 // referenceFiles renders every generated reference file, keyed by relative path.
+// noPacksToDocument says why there is nothing to export: no project here,
+// or a project that lists no packs.
+func noPacksToDocument(cfg *config.Config) error {
+	if cfg.File == "" {
+		return axxerr.New("AXX-E0014", exitcode.Usage, "there are no packs to document: this is not an axx project, and this axx has no packs built in").
+			WithHint("run it in your project's directory, where axx.yaml is; axx's own packs are documented at https://axx.nimbusxr.us/references/packs/")
+	}
+	return axxerr.New("AXX-E0014", exitcode.Usage, "there are no packs to document: the project lists none").
+		WithHint("add the packs your steps come from with `axx pack add rest sql ...` (`axx pack list` lists them)")
+}
+
 func referenceFiles(e *engine.Engine, frontmatter bool) (map[string]string, error) {
 	files := map[string]string{}
 	manifests := e.Manifests()

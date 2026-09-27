@@ -49,15 +49,17 @@ The `GET` that follows a 303 has no body and no `Content-Type`. It has the reque
 A `POST`, `PUT`, `PATCH` or `DELETE` answered with 301, 302, 307 or 308 has the redirect as its response. Check its status and its `Location` header, and send the request it leads to as the next ordered request. Say a service moved its API from `/api/v1` and answers the old paths with `308 Permanent Redirect`:
 
 ```gherkin
-Scenario: The old API sends shops to where parcels are cancelled now
+Scenario: A cancellation sent to the old API cancels the parcel through its redirect
   Given a 1st ordered DELETE request to /api/v1/parcels/PX-REG-1010
   And a 2nd ordered DELETE request to /api/parcels/PX-REG-1010
   When the 1st ordered request is executed
+  And the 2nd ordered request is executed
   Then the 1st ordered response status code is 308
   And the response header Location is '/api/parcels/PX-REG-1010' for 1st ordered response
-  When the 2nd ordered request is executed
-  Then the 2nd ordered response status code is 204
+  And the 2nd ordered response status code is 204
 ```
+
+The scenario sends both requests, then checks both responses: the redirect, where it leads, and the cancellation there.
 
 ## Cookies
 

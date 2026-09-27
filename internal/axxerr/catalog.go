@@ -85,6 +85,9 @@ func init() {
 	add("AXX-E0013", u, "Agent configuration cannot be merged",
 		"axx adds its MCP server to an agent's configuration file only when it can read the file back exactly and keep everything else in it. The file has comments, is not valid JSON, or (Codex) lists its MCP servers in a form a new `[mcp_servers.axx]` table cannot join. axx left it alone.",
 		"Add the server yourself: the hint shows the lines to add. Or fix the file and run the command again.")
+	add("AXX-E0014", u, "No packs to document",
+		"`axx docs export` found no packs to document: it was run outside an axx project with an axx that has no packs built in, or in a project that lists no packs.",
+		"Run it in your project's directory (where axx.yaml is); axx's own packs are documented at https://axx.nimbusxr.us/references/packs/. A project adds its packs with `axx pack add`.")
 
 	add("AXX-E0100", u, "Config file not found",
 		"The file given with `--config` does not exist or cannot be read.",
