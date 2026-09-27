@@ -96,6 +96,22 @@ axx fixtures check      # CI: regenerate in memory and compare, without writing
 
 When the schema gains a required field, generation fails and names every fixture that lacks it. Add it once to the prototype (or a `defaults:` entry) and regenerate.
 
+## Where a value comes from
+
+A generated value comes from the fixture, a prototype overlay, the prototype, a `defaults:` entry or the schema's default, and it may get there through a `$ref`, an expression or an identity. `axx fixtures explain` names the source to edit, and the place in it:
+
+```sh
+axx fixtures explain kafka/scan-delivered.json location
+```
+
+```text
+location = "Leipzig"
+  in kafka/scan-delivered.json, fixture scan-delivered of kafka/depot-scans.factory.yaml
+  set by the prototype at data.location in kafka/depot-scans.prototype.yaml
+```
+
+The path is dotted, with indices (`recipient.postcode`, `items[0].sku`); a dataset's starts with its table (`parcels.manifest_lines[0].weight_grams`). A fixture's `*.fixture.yaml` works in place of the file it generates. With `--json`, the origins come as a list, outermost first: a `$ref`, then the source of what it points at.
+
 ## Families
 
 | Family | Produces | Schema |
