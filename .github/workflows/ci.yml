@@ -106,6 +106,14 @@ jobs:
         name: stop Windows Defender's real-time scanning
         shell: pwsh
         run: Set-MpPreference -DisableRealtimeMonitoring $true
+      # And its D: drive, where the runner's temporary folder is, writes Go's many small cache
+      # files much faster than C:, where Go keeps them.
+      - if: runner.os == 'Windows'
+        name: "Go's caches on the D: drive"
+        shell: pwsh
+        run: |
+          "GOCACHE=$env:RUNNER_TEMP\go-build" >> $env:GITHUB_ENV
+          "GOMODCACHE=$env:RUNNER_TEMP\go-mod" >> $env:GITHUB_ENV
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           persist-credentials: false
@@ -136,7 +144,7 @@ jobs:
       # The services' images and the race-detector builds need more disk than a runner has
       # free: remove toolchains the job never uses, in the background while the job sets up.
       - name: free disk space (in the background)
-        run: (sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL /usr/share/swift; touch "$RUNNER_TEMP/disk-freed") > /dev/null 2>&1 &
+        run: (for d in /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL /usr/share/swift; do sudo rm -rf "$d" & done; wait; touch "$RUNNER_TEMP/disk-freed") > /dev/null 2>&1 &
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           persist-credentials: false

@@ -102,7 +102,7 @@ jobs:
       - if: inputs.dry-run
         name: free disk space (in the background)
         working-directory: .
-        run: (sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL /usr/share/swift; touch "$RUNNER_TEMP/disk-freed") > /dev/null 2>&1 &
+        run: (for d in /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL /usr/share/swift; do sudo rm -rf "$d" & done; wait; touch "$RUNNER_TEMP/disk-freed") > /dev/null 2>&1 &
       - id: secrets
         name: check publishing secrets
         working-directory: .
