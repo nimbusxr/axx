@@ -318,7 +318,7 @@ func (propertiesFamily) Expand(spec *Spec, _ string, ctx *ExpansionContext) (map
 		tree := deepMerge(spec.Prototype, spec.Fixtures.Get(key).Data)
 		for _, id := range spec.Identity {
 			v := ctx.identities.derive(id, key)
-			if err := ctx.identities.claim(v, spec.SourceName, key, id.Path); err != nil {
+			if err := ctx.identities.claim(id, v, spec.SourceName, key); err != nil {
 				return nil, err
 			}
 			if err := pathSet(tree, id.Path, v); err != nil {

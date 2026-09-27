@@ -296,14 +296,14 @@ func parseFactory(root any, rel string) (*Spec, error) {
 			if !ok {
 				return nil, specError("cannot parse %s: identity[%d] must be a mapping", rel, i)
 			}
-			if err := unknownKey(rel, " in identity", io, []string{"derive", "format", "path", "prefix", "qualifier"}); err != nil {
+			if err := unknownKey(rel, " in identity", io, []string{"derive", "format", "namespace", "path", "prefix", "qualifier"}); err != nil {
 				return nil, err
 			}
 			id := Identity{Derive: "fixture-key", Format: "literal"}
 			for _, f := range []struct {
 				name string
 				dst  *string
-			}{{"path", &id.Path}, {"prefix", &id.Prefix}, {"derive", &id.Derive}, {"qualifier", &id.Qualifier}, {"format", &id.Format}} {
+			}{{"path", &id.Path}, {"prefix", &id.Prefix}, {"derive", &id.Derive}, {"qualifier", &id.Qualifier}, {"format", &id.Format}, {"namespace", &id.Namespace}} {
 				if io.Has(f.name) {
 					if *f.dst, err = stringField(rel, "identity."+f.name, get(io, f.name)); err != nil {
 						return nil, err

@@ -60,7 +60,7 @@
     },
     "identity": {
       "type": "array",
-      "description": "Fields whose values must be unique across every fixture. A value present at the path pins the fixture's identity; an absent one is derived from prefix + fixture key. Each identity also yields a generated cross-file-unique lint rule.",
+      "description": "Fields that tell fixtures apart: no two fixtures, of any factory, have the same value in identity fields of the same name (or namespace). A value present at the path pins the fixture's identity; an absent one is derived from prefix + fixture key. Each identity also yields a generated cross-file-unique lint rule.",
       "items": { "$ref": "#/$defs/identity" }
     },
     "fixtures": {
@@ -101,6 +101,10 @@
           "enum": ["literal", "uuid-name-based"],
           "default": "literal",
           "description": "literal writes the derived name; uuid-name-based writes an RFC 4122 version 5 UUID of it, for format-constrained fields."
+        },
+        "namespace": {
+          "type": "string",
+          "description": "The identities whose values this one's must differ from: those of the same namespace, instead of those whose path ends in the same field name. Different namespaces keep same-named fields apart; one namespace compares fields of different names."
         }
       }
     }

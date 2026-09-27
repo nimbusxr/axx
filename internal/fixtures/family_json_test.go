@@ -251,10 +251,11 @@ func TestJSONOverlappingIdentityCandidatesKeepOnlyTheFirst(t *testing.T) {
 	w := jsonWorkspace(t)
 	w.write("schemas/echo.schema.json", `{"$schema": "https://json-schema.org/draft/2020-12/schema", "title": "Echo",
  "type": "object",
- "properties": {"txn_id": {"type": "string"}, "correlated_id": {"type": "string"}, "note": {"type": "string"}},
+ "properties": {"txn_id": {"type": "string"}, "note": {"type": "string"},
+  "reverses": {"type": "object", "properties": {"txn_id": {"type": "string"}}, "additionalProperties": false}},
  "additionalProperties": false}`)
-	w.write("echo/self-correlated.json", `{"txn_id": "T-1", "correlated_id": "T-1", "note": "reversal of itself"}`)
-	w.write("echo/cross-correlated.json", `{"txn_id": "T-2", "correlated_id": "T-9", "note": "reversal of another"}`)
+	w.write("echo/self-correlated.json", `{"txn_id": "T-1", "reverses": {"txn_id": "T-1"}, "note": "reversal of itself"}`)
+	w.write("echo/cross-correlated.json", `{"txn_id": "T-2", "reverses": {"txn_id": "T-9"}, "note": "reversal of another"}`)
 	a := w.adopter()
 	a.Choice = AdoptChoice{Identities: []string{"txn_id"}}
 	res, err := a.Adopt("json", "schemas/echo.schema.json", "echo/*.json", "echo-events", false)
@@ -264,7 +265,24 @@ func TestJSONOverlappingIdentityCandidatesKeepOnlyTheFirst(t *testing.T) {
 	mustContain(t, joinLines(res.Report), "deep-equal")
 	factory := w.read("echo/echo-events.factory.yaml")
 	mustContain(t, factory, "path: txn_id")
-	if strings.Contains(factory, "correlated_id") {
-		t.Errorf("overlapping candidate kept:\n%s", factory)
+	if strings.Contains(factory, "reverses.txn_id") {
+		t.Errorf("a txn_id echoing another txn_id's values kept as a candidate:\n%s", factory)
 	}
+}
+
+func TestJSONCandidatesOfOtherFieldsMayShareValues(t *testing.T) {
+	w := jsonWorkspace(t)
+	w.write("schemas/echo.schema.json", `{"$schema": "https://json-schema.org/draft/2020-12/schema", "title": "Echo",
+ "type": "object",
+ "properties": {"txn_id": {"type": "string"}, "correlated_id": {"type": "string"}},
+ "additionalProperties": false}`)
+	w.write("echo/self-correlated.json", `{"txn_id": "T-1", "correlated_id": "T-1"}`)
+	w.write("echo/cross-correlated.json", `{"txn_id": "T-2", "correlated_id": "T-9"}`)
+	a := w.adopter()
+	a.Choice = AdoptChoice{Identities: []string{"txn_id", "correlated_id"}}
+	if _, err := a.Adopt("json", "schemas/echo.schema.json", "echo/*.json", "echo-events", false); err != nil {
+		t.Fatal(err)
+	}
+	mustContain(t, w.read("echo/echo-events.factory.yaml"), "path: txn_id", "path: correlated_id")
+	w.generate() // a txn_id and a correlated_id of one fixture may be equal
 }

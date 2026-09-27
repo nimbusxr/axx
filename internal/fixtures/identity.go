@@ -7,7 +7,8 @@ import (
 )
 
 // Identity declares a field whose values must be unique across every
-// fixture of every factory.
+// fixture of every factory: a value never repeats in a field of the same
+// name (the path's last field), or of the same namespace when one is given.
 type Identity struct {
 	// Path is dotted with optional indices, e.g. payments[0].id.
 	Path string
@@ -19,6 +20,29 @@ type Identity struct {
 	Qualifier string
 	// Format is "literal" (the default) or "uuid-name-based".
 	Format string
+	// Namespace, when set, is the group of identities whose values are
+	// compared, instead of the fields of the same name.
+	Namespace string
+}
+
+// group is where the identity's values must be unique: its namespace, or
+// the field its path ends in (payments[0].id: id).
+func (id Identity) group() string {
+	if id.Namespace != "" {
+		return "namespace " + id.Namespace
+	}
+	return "field " + fieldName(id.Path)
+}
+
+// fieldName is the last field of a dotted path, without indices.
+func fieldName(path string) string {
+	if dot := strings.LastIndexByte(path, '.'); dot >= 0 {
+		path = path[dot+1:]
+	}
+	if i := strings.IndexByte(path, '['); i >= 0 {
+		path = path[:i]
+	}
+	return path
 }
 
 // namespace is the fixed RFC 4122 namespace of uuid-name-based identities
@@ -27,7 +51,7 @@ var namespace = [16]byte{0xac, 0xe5, 0xfa, 0xc7, 0x00, 0x00, 0x50, 0x00, 0x80, 0
 
 // identities guarantees identity uniqueness across a module.
 type identities struct {
-	claims map[string]string // value -> owner description
+	claims map[string]string // group + value -> owner description
 }
 
 func newIdentities() *identities { return &identities{claims: map[string]string{}} }
@@ -45,16 +69,22 @@ func (r *identities) derive(id Identity, fixtureKey string) string {
 	return name
 }
 
-// claim registers a value, failing with both owners on a collision.
-func (r *identities) claim(value, factory, fixtureKey, path string) error {
-	owner := factory + " -> fixtures." + fixtureKey + " (" + path + ")"
-	if prev, ok := r.claims[value]; ok {
+// claim registers an identity's value, failing with both owners when the
+// value is already claimed in the identity's group.
+func (r *identities) claim(id Identity, value, factory, fixtureKey string) error {
+	owner := factory + " -> fixtures." + fixtureKey + " (" + id.Path + ")"
+	group := id.group()
+	if prev, ok := r.claims[group+"\x00"+value]; ok {
 		if prev != owner {
-			return genError("identity collision: value \"%s\" is claimed by both\n  %s\n  %s\nEvery fixture must own unique identity values.", value, prev, owner)
+			if id.Namespace != "" {
+				return genError("identity collision: value \"%s\" in namespace %s is claimed by both\n  %s\n  %s\nIdentities of one namespace own unique values across every factory.", value, id.Namespace, prev, owner)
+			}
+			field := fieldName(id.Path)
+			return genError("identity collision: %s \"%s\" is claimed by both\n  %s\n  %s\nIdentity fields named %s own unique values across every factory. If these identify different things, give the identities different namespaces (namespace: in identity:).", field, value, prev, owner, field)
 		}
 		return nil
 	}
-	r.claims[value] = owner
+	r.claims[group+"\x00"+value] = owner
 	return nil
 }
 
