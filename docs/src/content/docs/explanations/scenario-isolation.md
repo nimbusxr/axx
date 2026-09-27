@@ -7,7 +7,7 @@ A fast black-box suite shares infrastructure: one database, one broker, one Wire
 
 ## What is isolated for you
 
-Each scenario has its own **world**: the services it registered, the requests it built and the responses it received, its selections and its events, and its browser pages, with their own cookies and storage. Nothing in the world leaks into another scenario, and a scenario always runs on a single worker. REST requests share connections, but no cookies: a request sends only the cookies its scenario gives it ([Send REST requests](/guides/send-rest-requests/#cookies-and-sessions)).
+Each scenario has its own **world**: the services it registered, the requests it built and the responses it received, its selections and its events, and its browser pages, with their own cookies and storage. Nothing in the world leaks into another scenario, and a scenario always runs on a single worker. REST requests share connections, but no cookies: a request sends only the cookies its scenario gives it ([Send REST requests](/guides/send-rest-requests/#cookies)).
 
 ## What you isolate
 
