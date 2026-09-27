@@ -124,5 +124,8 @@ Each command documents its own `data`. The most useful for scripts and agents:
 | `axx init` | `{dryRun, files[], detected, agents}`; each file has `path`, `action` (`create`, `update`, `skip`), `reason`; `agents`, absent with `--no-agents`, has `detected[]` (agent ids), `skills[]` (like `files`) and `mcp[]` |
 | `axx mcp install` | `{dryRun, change}`; `change` and each entry of `axx init`'s `agents.mcp[]` has `agent`, `scope` (`project`, `user`), `path`, `action` (`create`, `update`, `skip`, or `manual` when `command` adds the server), `reason`, `command` |
 | `axx docs export` | `{files[]}` |
+| `axx fixtures generate` | `{baseDir, dryRun, written[], unchanged[]}`: every file the factories generate, relative to `baseDir`; with `--dry-run`, `written[]` is what it would write |
+| `axx fixtures check` | `{baseDir, checks, failures[], unmaterialized[]}`; each failure has `check`, `code` and `message`; `unmaterialized[]`, present when there are some, are ignored outputs this checkout has not generated yet |
+| `axx fixtures explain <file> <path>` | `{file, factory, fixture, path, value, origins[]}`; `origins[]` is the value's way into the fixture, outermost first, each with `kind` (`identity`, `reference`, `expression`, `fixture`, `prototype-overlay`, `prototype`, `defaults`, `schema`), `file`, `at` (where in the file) and `detail` |
 
 For editors and generated clients, the `axx.yaml` schema is at [`/schemas/v0/axx.schema.json`](/schemas/v0/axx.schema.json).
