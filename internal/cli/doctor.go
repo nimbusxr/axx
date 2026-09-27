@@ -9,16 +9,19 @@ import (
 	"path/filepath"
 	"reflect"
 	"runtime/debug"
+	"slices"
 	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
 
+	"github.com/nimbusxr/axx/internal/agents"
 	"github.com/nimbusxr/axx/internal/config"
 	"github.com/nimbusxr/axx/internal/engine"
 	"github.com/nimbusxr/axx/internal/exitcode"
 	"github.com/nimbusxr/axx/internal/lint"
 	"github.com/nimbusxr/axx/internal/shellwords"
+	"github.com/nimbusxr/axx/internal/skills"
 	"github.com/nimbusxr/axx/internal/version"
 )
 
@@ -150,8 +153,8 @@ Exit code 0 when nothing failed (warnings allowed), 4 otherwise.`,
 	return cmd
 }
 
-func (a *App) doctor(ctx context.Context, cf *configFlags) DoctorReport {
-	rep := DoctorReport{Version: version.Get()}
+func (a *App) doctor(ctx context.Context, cf *configFlags) (rep DoctorReport) {
+	rep = DoctorReport{Version: version.Get()}
 	add := func(name, status, detail, hint string) {
 		rep.Checks = append(rep.Checks, DoctorCheck{Name: name, Status: status, Detail: detail, Hint: hint})
 	}
@@ -168,6 +171,8 @@ func (a *App) doctor(ctx context.Context, cf *configFlags) DoctorReport {
 		add("axx.yaml", "fail", err.Error(), "fix the configuration, or run `axx init` to create one")
 		return rep
 	}
+	// The agents come last, whatever the checks before them find.
+	defer func() { rep.Checks = append(rep.Checks, agentChecks(agents.NewEnv(cfg.Dir))...) }()
 	if cfg.File == "" {
 		add("axx.yaml", "warn", "no axx.yaml found; using defaults", "run `axx init` to create one")
 	} else {
@@ -267,6 +272,79 @@ func (a *App) doctor(ctx context.Context, cf *configFlags) DoctorReport {
 		add("axx up", "ok", "apps running: "+strings.Join(st.Apps, ", "), "")
 	}
 	return rep
+}
+
+// agentChecks report, for the agents the project uses, whether they have
+// the skills and the axx MCP server. Missing ones are warnings: agents work
+// without them, less well.
+func agentChecks(env agents.Env) []DoctorCheck {
+	used := agents.Detect(env.Project)
+	codexInProject := slices.ContainsFunc(used, func(a agents.Agent) bool { return a.ID == "codex" })
+	if h := agents.CodexHome(env); !codexInProject && h != "" {
+		// Codex keeps its servers in its home more often than in projects.
+		if _, err := os.Stat(h); err == nil {
+			cx, _ := agents.Lookup("codex")
+			used = append(used, cx)
+		}
+	}
+	skillsDir := filepath.Join(env.Project, ".agents", "skills")
+	if _, err := os.Stat(skillsDir); len(used) == 0 && err != nil {
+		return nil
+	}
+	var out []DoctorCheck
+	check := func(name, detail, hint string, ok bool) {
+		c := DoctorCheck{Name: name, Status: "ok", Detail: detail}
+		if !ok {
+			c.Status, c.Hint = "warn", hint
+		}
+		out = append(out, c)
+	}
+	names := skills.Names()
+	if missing := missingSkills(names, skillsDir, filepath.Join(env.Home, ".agents", "skills")); len(missing) > 0 {
+		check("agent skills", "not installed: "+strings.Join(missing, ", "), "`axx skills install` adds them to .agents/skills", false)
+	} else {
+		check("agent skills", plural(len(names), "skill"), "", true)
+	}
+	for _, ag := range used {
+		where, configured := agents.Configured(ag, env)
+		if ag.ID == "claude" {
+			missing := missingSkills(names, filepath.Join(env.Project, ".claude", "skills"), filepath.Join(env.Home, ".claude", "skills"))
+			switch {
+			case where == "the axx plugin" || len(missing) == 0:
+				check("Claude Code skills", plural(len(names), "skill"), "", true)
+			default:
+				check("Claude Code skills", "not in .claude/skills: "+strings.Join(missing, ", "), "`axx skills install` links them into .claude/skills", false)
+			}
+		}
+		if configured {
+			check(ag.Name+" MCP", "axx server in "+where, "", true)
+			continue
+		}
+		scope, fix := agents.ScopeProject, "axx mcp install --agent "+ag.ID
+		if ag.ID == "codex" && !codexInProject {
+			scope, fix = agents.ScopeUser, fix+" --scope user"
+		}
+		check(ag.Name+" MCP", "no axx server in "+env.Display(ag.Path(scope, env)), "`"+fix+"` adds it", false)
+	}
+	return out
+}
+
+// missingSkills are the skills found in none of dirs.
+func missingSkills(names []string, dirs ...string) []string {
+	var out []string
+	for _, n := range names {
+		found := false
+		for _, d := range dirs {
+			if _, err := os.Stat(filepath.Join(d, n, "SKILL.md")); err == nil {
+				found = true
+				break
+			}
+		}
+		if !found {
+			out = append(out, n)
+		}
+	}
+	return out
 }
 
 func commandAvailable(bin, dir string) bool {

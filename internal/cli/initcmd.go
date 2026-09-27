@@ -2,17 +2,23 @@ package cli
 
 import (
 	"bytes"
+	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"text/template"
 
 	"github.com/spf13/cobra"
 
+	"github.com/nimbusxr/axx/internal/agents"
 	"github.com/nimbusxr/axx/internal/config"
 	"github.com/nimbusxr/axx/internal/packset"
+	"github.com/nimbusxr/axx/internal/skills"
 )
 
 // InitFile is one file `axx init` writes (or would write).
@@ -109,34 +115,66 @@ jobs:
 var agentsBlock = agentsBegin + `
 ## Acceptance tests (axx)
 axx (github.com/nimbusxr/axx, "axxeptance") is a human-readable acceptance testing framework.
+- Use the axx MCP tools when you have them (steps_search, step_explain, feature_validate, lint_run,
+  scenarios_run, failure_context, env, steps_try); otherwise the axx commands below.
+- The skills in ` + "`.agents/skills`" + ` teach the details: axx-acceptance-tests (write and run tests),
+  axx-test-data (fixture factories), axx-debugging (failures). ` + "`axx skills install`" + ` updates them.
 - Feature files are acceptance criteria a person can read: one scenario per criterion, in plain
   language, using the steps exactly as written. No programming constructs in Gherkin.
 - Find steps before writing: ` + "`axx steps search \"<intent>\"`" + `; never invent step text.
 - Steps come from the packs in ` + "`axx-packs.yaml`" + `; ` + "`axx pack list`" + ` shows the others, ` + "`axx pack add <name>`" + ` adds one.
 - Check without running: ` + "`axx validate`" + `. Explain one line: ` + "`axx explain \"<step>\"`" + `.
-- Check test data: ` + "`axx lint`" + ` reports ids and keys that collide across seed and fixture files.
 - Run: ` + "`axx up`" + ` once (keeps apps running), then ` + "`axx run --compact`" + `; ` + "`axx down`" + ` when done.
 - Every scenario uses unique data (IDs, names, keys): scenarios run in parallel and data persists.
+- Test data: when payloads, seeds or mock bodies repeat, generate them with fixture factories
+  (` + "`axx fixtures`" + `; optional, strongly recommended where data repeats); ` + "`axx fixtures adopt`" + ` turns
+  existing hand-written ones into a factory. ` + "`axx lint`" + ` reports ids and keys that collide across files.
 - Features live in ` + "`features/`" + `; configuration in ` + "`axx.yaml`" + ` (schema: ` + "`axx schema`" + `).
 - Diagnose failures from the report: ` + "`axx run --json`" + ` includes expected/actual and a rerun command.
 ` + agentsEnd + "\n"
 
+// InitAgents is what `axx init` set up for coding agents.
+type InitAgents struct {
+	// Detected are the agents the repository shows signs of using.
+	Detected []string `json:"detected"`
+	// Skills are where the skills were installed: .agents/skills, and
+	// .claude/skills for Claude Code.
+	Skills []InitFile `json:"skills"`
+	// MCP are the agents' MCP configurations: written, already there, or
+	// (Codex, whose servers live in the home directory) the command that adds axx.
+	MCP []agents.Change `json:"mcp"`
+}
+
 func newInitCmd(app *App) *cobra.Command {
-	var dryRun, force, noCI bool
+	var dryRun, force, noCI, noAgents bool
 	cmd := &cobra.Command{
 		Use:   "init",
-		Short: "Set up axx in this project: axx.yaml, its packs, a smoke feature, CI and AGENTS.md",
+		Short: "Set up axx in this project: axx.yaml, its packs, a smoke feature, CI, AGENTS.md and agents",
 		Long: `Create axx.yaml, axx-packs.yaml (with the rest pack, which the smoke feature
 uses), features/smoke.feature, a GitHub Actions workflow and a managed section
 in AGENTS.md. Existing files are left alone (use --force to
-overwrite); the AGENTS.md section is updated in place. Safe to re-run.`,
+overwrite); the AGENTS.md section is updated in place. Safe to re-run.
+
+It also sets up coding agents, in this repository only: it installs the skills
+in .agents/skills, and connects the axx MCP server to the agents the repository
+already uses, in their own files (Claude Code: .claude/, CLAUDE.md or .mcp.json
+→ .mcp.json and .claude/skills; Codex: .codex/ → .codex/config.toml; Cursor:
+.cursor/ → .cursor/mcp.json; VS Code: .vscode/ → .vscode/mcp.json; Gemini CLI:
+.gemini/ or GEMINI.md → .gemini/settings.json). Other servers and settings in
+those files stay. It never writes your home directory: for Codex, whose servers
+usually live in ~/.codex/config.toml, it prints the command that adds axx there.
+--no-agents skips all of this.`,
 		Args: wrapArgs(cobra.NoArgs),
-		RunE: func(*cobra.Command, []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			wd, err := os.Getwd()
 			if err != nil {
 				return err
 			}
 			data := detect(wd)
+			var used []agents.Agent
+			if !noAgents {
+				used = agents.Detect(wd) // before init writes anything
+			}
 			var plan []InitFile
 			contents := map[string]string{}
 			for _, name := range []string{"axx.yaml", packset.FileName, "features/smoke.feature", ".github/workflows/acceptance.yml"} {
@@ -158,9 +196,9 @@ overwrite); the AGENTS.md section is updated in place. Safe to re-run.`,
 				plan = append(plan, f)
 				contents[name] = out
 			}
-			agents, action := mergeAgents(filepath.Join(wd, "AGENTS.md"))
+			agentsMD, action := mergeAgents(filepath.Join(wd, "AGENTS.md"))
 			plan = append(plan, InitFile{Path: "AGENTS.md", Action: action, Reason: upToDate(action)})
-			contents["AGENTS.md"] = agents
+			contents["AGENTS.md"] = agentsMD
 			gi, giAction := mergeGitignore(filepath.Join(wd, ".gitignore"))
 			plan = append(plan, InitFile{Path: ".gitignore", Action: giAction, Reason: upToDate(giAction)})
 			contents[".gitignore"] = gi
@@ -179,26 +217,204 @@ overwrite); the AGENTS.md section is updated in place. Safe to re-run.`,
 					}
 				}
 			}
-			return app.Emit(map[string]any{"dryRun": dryRun, "files": plan, "detected": data}, func(w io.Writer) error {
-				verb := map[bool]string{true: "would ", false: ""}[dryRun]
-				for _, f := range plan {
-					if f.Action == "skip" {
-						fmt.Fprintf(w, "  skip    %s: %s\n", f.Path, f.Reason)
-						continue
-					}
-					fmt.Fprintf(w, "  %s%-7s %s\n", verb, f.Action, f.Path)
-				}
-				if !dryRun {
-					fmt.Fprintln(w, "\nnext: edit apps in axx.yaml, then `axx doctor` and `axx run`")
-				}
-				return nil
+			result := map[string]any{"dryRun": dryRun, "files": plan, "detected": data}
+			var setup *InitAgents
+			if !noAgents {
+				setup = app.initAgents(cmd.Context(), wd, used, dryRun)
+				result["agents"] = setup
+			}
+			return app.Emit(result, func(w io.Writer) error {
+				return renderInit(w, plan, setup, dryRun)
 			})
 		},
 	}
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "show what would be written without writing")
 	cmd.Flags().BoolVar(&force, "force", false, "overwrite existing axx.yaml, axx-packs.yaml, feature and workflow files")
 	cmd.Flags().BoolVar(&noCI, "no-ci", false, "do not create a GitHub Actions workflow")
+	cmd.Flags().BoolVar(&noAgents, "no-agents", false, "do not install the skills or connect agents to the axx MCP server")
 	return cmd
+}
+
+func renderInit(w io.Writer, plan []InitFile, setup *InitAgents, dryRun bool) error {
+	verb := map[bool]string{true: "would ", false: ""}[dryRun]
+	line := func(f InitFile, note string) {
+		if f.Action == "skip" {
+			fmt.Fprintf(w, "  skip    %s: %s\n", f.Path, f.Reason)
+			return
+		}
+		if note != "" {
+			note = " (" + note + ")"
+		}
+		fmt.Fprintf(w, "  %s%-7s %s%s\n", verb, f.Action, f.Path, note)
+	}
+	for _, f := range plan {
+		line(f, "")
+	}
+	var manual []string
+	if setup != nil {
+		for _, f := range setup.Skills {
+			line(f, f.Reason)
+		}
+		for _, ch := range setup.MCP {
+			a, _ := agents.Lookup(ch.Agent)
+			switch ch.Action {
+			case agents.ActionManual:
+				manual = append(manual, fmt.Sprintf("%s keeps its MCP servers in %s; `%s` adds axx there.", a.Name, ch.Path, ch.Command))
+			case agents.ActionSkip:
+				reason := ch.Reason
+				if ch.Command != "" {
+					reason += " (see `" + ch.Command + "`)"
+				}
+				line(InitFile{Path: ch.Path, Action: ch.Action, Reason: reason}, "")
+			default:
+				line(InitFile{Path: ch.Path, Action: ch.Action}, serverNote(a, ch))
+			}
+		}
+	}
+	if !dryRun {
+		fmt.Fprintln(w)
+		for _, m := range manual {
+			fmt.Fprintln(w, m)
+		}
+		fmt.Fprintln(w, "next: edit apps in axx.yaml, then `axx doctor` and `axx run`")
+	}
+	return nil
+}
+
+// initAgents installs the skills and connects the agents the project uses
+// to the axx MCP server, in the project's own files.
+func (a *App) initAgents(ctx context.Context, dir string, used []agents.Agent, dryRun bool) *InitAgents {
+	out := &InitAgents{Detected: []string{}, MCP: []agents.Change{}}
+	claude, codex := false, false
+	for _, ag := range used {
+		out.Detected = append(out.Detected, ag.ID)
+		claude = claude || ag.ID == "claude"
+		codex = codex || ag.ID == "codex"
+	}
+	out.Skills = a.initSkills(ctx, dir, claude, dryRun)
+	env := agents.NewEnv(dir)
+	for _, ag := range used {
+		ch, err := agents.Install(ag, agents.ScopeProject, env, dryRun)
+		if err != nil {
+			// Leave the file alone; the command says what to add by hand.
+			reason := firstLine(err)
+			if cause := errors.Unwrap(err); cause != nil {
+				reason = "left alone: " + firstLine(cause)
+			}
+			ch.Action, ch.Reason, ch.Command = agents.ActionSkip, reason, "axx mcp install --agent "+ag.ID
+			if ch.Path == "" {
+				ch.Path = ag.Project
+			}
+		}
+		out.MCP = append(out.MCP, ch)
+	}
+	if cx, _ := agents.Lookup("codex"); !codex {
+		// Codex usually keeps its servers in the home directory, which init
+		// never writes: say how to add axx there, unless it is there.
+		if _, ok := agents.Configured(cx, env); !ok {
+			out.MCP = append(out.MCP, agents.Change{
+				Agent: cx.ID, Scope: agents.ScopeUser, Path: env.Display(cx.Path(agents.ScopeUser, env)),
+				Action: agents.ActionManual, Command: "axx mcp install --agent codex --scope user",
+				Reason: "Codex keeps its MCP servers in your home directory",
+			})
+		}
+	}
+	return out
+}
+
+// initSkills installs the skills as `axx skills install` does, linking them
+// for Claude Code only when the project uses it.
+func (a *App) initSkills(ctx context.Context, dir string, claude, dryRun bool) []InitFile {
+	existed := func(rel string) bool {
+		_, err := os.Lstat(filepath.Join(dir, filepath.FromSlash(rel)))
+		return err == nil
+	}
+	skillsAction, claudeAction := "create", "create"
+	if existed(".agents/skills") {
+		skillsAction = "update"
+	}
+	if existed(".claude/skills") {
+		claudeAction = "update"
+	}
+	n := len(skills.Names())
+	if dryRun {
+		out := []InitFile{{Path: ".agents/skills", Action: skillsAction, Reason: plural(n, "skill")}}
+		if claude {
+			out = append(out, InitFile{Path: ".claude/skills", Action: claudeAction, Reason: "linked for Claude Code"})
+		}
+		return out
+	}
+	res, err := a.installProjectSkills(ctx, dir, claude)
+	if err != nil {
+		return []InitFile{{Path: ".agents/skills", Action: "skip", Reason: firstLine(err) + "; run `axx skills install` when it is fixed"}}
+	}
+	f := InitFile{Path: ".agents/skills", Action: skillsAction, Reason: plural(len(res.Skills), "skill")}
+	if len(res.Written) == 0 {
+		f.Action, f.Reason = "skip", "up to date"
+	}
+	if len(res.Kept) > 0 {
+		f.Reason += fmt.Sprintf("; kept %s you edited (`axx skills install --force` replaces them)", plural(len(res.Kept), "file"))
+	}
+	out := []InitFile{f}
+	if claude {
+		c := InitFile{Path: ".claude/skills", Action: claudeAction, Reason: "linked for Claude Code"}
+		if len(res.Linked) == 0 {
+			c.Action, c.Reason = "skip", "up to date"
+		}
+		out = append(out, c)
+	}
+	return out
+}
+
+// installProjectSkills installs the skills with the project's steps. An axx
+// without the project's packs has the axx prepared with them do it, as
+// `axx skills install` does.
+func (a *App) installProjectSkills(ctx context.Context, dir string, claude bool) (*skills.Result, error) {
+	if _, missing := missingPacks(dir); !missing {
+		e, err := a.loadEngine(&configFlags{})
+		if err != nil {
+			return nil, err
+		}
+		sks, err := skills.Build(e)
+		if err != nil {
+			return nil, err
+		}
+		return skills.Install(sks, skills.InstallOptions{Root: dir, Claude: claude})
+	}
+	exe, err := os.Executable()
+	if err != nil {
+		return nil, err
+	}
+	args := []string{"skills", "install", "--json"}
+	if !claude {
+		args = append(args, "--no-claude")
+	}
+	cmd := exec.CommandContext(ctx, exe, args...)
+	cmd.Dir, cmd.Stderr = dir, a.Stderr
+	stdout, runErr := cmd.Output()
+	var env struct {
+		OK     bool            `json:"ok"`
+		Data   skills.Result   `json:"data"`
+		Errors []EnvelopeError `json:"errors"`
+	}
+	switch {
+	case json.Unmarshal(stdout, &env) != nil:
+		if runErr == nil {
+			runErr = errors.New("axx skills install printed no result")
+		}
+		return nil, runErr
+	case !env.OK && len(env.Errors) > 0:
+		return nil, errors.New(env.Errors[0].Message)
+	case !env.OK:
+		return nil, errors.New("axx skills install failed")
+	}
+	return &env.Data, nil
+}
+
+// firstLine is an error's first line.
+func firstLine(err error) string {
+	s, _, _ := strings.Cut(err.Error(), "\n")
+	return strings.TrimSuffix(s, ":")
 }
 
 func detect(dir string) initData {

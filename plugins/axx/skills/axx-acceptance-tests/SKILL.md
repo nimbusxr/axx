@@ -16,11 +16,12 @@ Axx (github.com/nimbusxr/axx, "axxeptance") runs Gherkin scenarios black-box aga
    `axx steps search "<what you want to do>"`, or read `references/step-index.md`.
    Copy the expression exactly and fill in its `{parameters}`. The search covers the packs in
    `axx-packs.yaml`; `axx pack list` shows Axx's other packs, and `axx pack add <name>` adds one.
-4. **Validate without running:** run `axx validate`. For any line it flags, `axx explain "<line>"` shows how Axx reads it, and `did you mean` suggests the closest real steps. Then run `axx lint` after adding seeds, payloads or fixtures: it reports values (ids, keys) that collide with other files.
-5. **Start the apps once:** `axx up`. They keep running between runs. Stop them with `axx down` when you are done.
-6. **Try steps you are unsure of** in a live scenario, with the `axx mcp` tools: `steps_try` runs steps in a scenario that stays open between calls (a browser on the page they opened, say), and `web_page` shows that page: its elements as steps name them (`the "Get a quote" button`), what a screen reader reads, and a screenshot. Try, look, then write the steps down. `axx run --pause-at features/x.feature:LINE` does the same for a person, in Playwright's Inspector.
-7. **Run:** `axx run --compact` (or `axx run features/x.feature:LINE` for one scenario).
-8. **Diagnose failures:** read the expected/actual values. `axx run --json` adds request/response context. See the `axx-debugging` skill.
+4. **Prepare the test data.** Seeds, event payloads and mock bodies are files the steps read. When data repeats across scenarios (several files of one shape that differ in a few fields), use fixture factories: add a `*.fixture.yaml` to the factory that already generates files like it, or turn hand-written ones into a factory with `axx fixtures adopt`, then run `axx fixtures generate`. The `axx-test-data` skill shows how. Factories are optional: a one-off file can stay hand-written.
+5. **Validate without running:** run `axx validate`. For any line it flags, `axx explain "<line>"` shows how Axx reads it, and `did you mean` suggests the closest real steps. Then run `axx lint` after adding seeds, payloads or fixtures: it reports values (ids, keys) that collide with other files, and hints at a factory when hand-written files repeat one shape.
+6. **Start the apps once:** `axx up`. They keep running between runs. Stop them with `axx down` when you are done.
+7. **Try steps you are unsure of** in a live scenario, with the `axx mcp` tools: `steps_try` runs steps in a scenario that stays open between calls (a browser on the page they opened, say), and `web_page` shows that page: its elements as steps name them (`the "Get a quote" button`), what a screen reader reads, and a screenshot. Try, look, then write the steps down. `axx run --pause-at features/x.feature:LINE` does the same for a person, in Playwright's Inspector.
+8. **Run:** `axx run --compact` (or `axx run features/x.feature:LINE` for one scenario).
+9. **Diagnose failures:** read the expected/actual values. `axx run --json` adds request/response context. See the `axx-debugging` skill.
 
 ## Write criteria for people
 
@@ -71,7 +72,7 @@ OpenAPI validation is on whenever a service has an `openapi` URL. Requests and r
 - `run.paths`: where the features are.
 - `properties`: values for `${sys:name}`.
 - `packs`: the packs' settings, by pack name, such as `packs.web-core.traces`. `axx run --set packs.<pack>.<key>=value` sets one for a run.
-- `fixtures`: fixture factories. Payloads, mock bodies and seed datasets are generated from `*.factory.yaml`, `*.fixture.yaml` and `*.prototype.yaml` sources and validated against their schemas (Avro, JSON Schema, OpenAPI, XSD, protobuf, SQL DDL). Edit the sources, never the generated files, then run `axx fixtures generate`; `axx fixtures check` verifies nothing drifted. `axx schema --kind factory|fixture|prototype` prints the file formats, and `axx fixtures adopt` turns existing hand-written files into sources.
+- `fixtures`: fixture factories. Payloads, mock bodies and seed datasets are generated from `*.factory.yaml`, `*.fixture.yaml` and `*.prototype.yaml` sources and validated against their schemas (Avro, JSON Schema, OpenAPI, XSD, protobuf, SQL DDL). Edit the sources, never the generated files, then run `axx fixtures generate`; `axx fixtures check` verifies nothing drifted. The `axx-test-data` skill covers them.
 
 ## References
 

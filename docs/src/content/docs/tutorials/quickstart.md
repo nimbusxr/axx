@@ -36,17 +36,21 @@ axx init
 ```
 
 ```console
+axx: preparing rest (once; cached for later runs)
+axx: ready in 31s
   create  axx.yaml
   create  axx-packs.yaml
   create  features/smoke.feature
   create  .github/workflows/acceptance.yml
   create  AGENTS.md
   create  .gitignore
+  create  .agents/skills (5 skills)
 
+Codex keeps its MCP servers in ~/.codex/config.toml; `axx mcp install --agent codex --scope user` adds axx there.
 next: edit apps in axx.yaml, then `axx doctor` and `axx run`
 ```
 
-Axx created a configuration file, `axx.yaml`, and a first feature file, `features/smoke.feature`. We'll change both. It also created `axx-packs.yaml`, the list of the packs of steps the project uses. It lists `rest`, whose steps send HTTP requests, and that's all we need. We won't need the other files in this tutorial.
+Axx created a configuration file, `axx.yaml`, and a first feature file, `features/smoke.feature`. We'll change both. It also created `axx-packs.yaml`, the list of the packs of steps the project uses. It lists `rest`, whose steps send HTTP requests, and that's all we need. The first time, Axx prepared itself with that pack, which it won't need to do again. We won't need the other files in this tutorial: they are for CI and for coding agents.
 
 ## Give the web server something to serve
 
@@ -100,12 +104,10 @@ axx validate
 ```
 
 ```console
-axx: preparing rest (once; cached for later runs)
-axx: ready in 31s
 1 file, 1 scenario, 5 steps: ok
 ```
 
-Axx matched each line to one of its steps, without starting the server. The first time, it also prepared itself with the project's packs. It won't need to do that again.
+Axx matched each line to one of its steps, without starting the server.
 
 ## Run it
 

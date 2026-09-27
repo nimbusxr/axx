@@ -36,6 +36,9 @@ type Report struct {
 	Summary Summary `json:"summary"`
 	// Notes are informational messages (nothing to fix).
 	Notes []string `json:"notes,omitempty"`
+	// Hints suggest improvements (nothing to fix either), such as fixture
+	// factories for hand-written files that repeat one shape.
+	Hints []string `json:"hints,omitempty"`
 
 	// human output truncation (lint.config.maxReportedValues/Locations)
 	maxValues, maxLocations int
@@ -486,21 +489,7 @@ func (r *Report) filter(opts Options) {
 	if len(opts.Paths) == 0 {
 		return
 	}
-	var roots []string
-	for _, p := range opts.Paths {
-		if !filepath.IsAbs(p) {
-			p = filepath.Join(opts.WorkDir, p)
-		}
-		roots = append(roots, filepath.Clean(p))
-	}
-	within := func(abs string) bool {
-		for _, root := range roots {
-			if abs == root || strings.HasPrefix(abs, root+string(filepath.Separator)) {
-				return true
-			}
-		}
-		return false
-	}
+	within := withinPaths(opts)
 	for i := range r.Rules {
 		kept := []Finding{}
 		for _, f := range r.Rules[i].Findings {

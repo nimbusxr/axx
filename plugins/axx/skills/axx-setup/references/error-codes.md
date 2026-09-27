@@ -82,6 +82,22 @@ The run options are inconsistent, for example an unknown `--order` value or a re
 
 **Fix:** `axx pack list` lists axx's packs; other packs are added by path (`./steps`, created with `axx pack new`) or Go module path (`github.com/team/axx-grpc@v1.2.0`).
 
+### AXX-E0012
+
+**Unknown agent or scope** · exit 2
+
+`axx mcp install` connects one coding agent (`--agent claude`, `codex`, `cursor`, `vscode` or `gemini`) in one scope: `project` (the repository's own files) or `user` (your home directory).
+
+**Fix:** Pass `--agent` with one of the listed agents, and `--scope project` (the default) or `--scope user`.
+
+### AXX-E0013
+
+**Agent configuration cannot be merged** · exit 2
+
+axx adds its MCP server to an agent's configuration file only when it can read the file back exactly and keep everything else in it. The file has comments, is not valid JSON, or (Codex) lists its MCP servers in a form a new `[mcp_servers.axx]` table cannot join. axx left it alone.
+
+**Fix:** Add the server yourself: the hint shows the lines to add. Or fix the file and run the command again.
+
 ## Configuration (axx.yaml)
 
 ### AXX-E0100

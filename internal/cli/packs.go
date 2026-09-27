@@ -38,6 +38,9 @@ func (a *App) ensurePacks(ctx context.Context, cmd *cobra.Command) error {
 		top = top.Parent()
 	}
 	needs := slices.Contains(commandsNeedingPacks, top.Name()) || cmd.CommandPath() == "axx pack list"
+	if cmd.CommandPath() == "axx mcp install" {
+		needs = false // writes agents' configuration, no steps
+	}
 	if !needs || os.Getenv(envPackBuild) != "" {
 		return nil
 	}
@@ -56,18 +59,7 @@ func (a *App) ensurePacks(ctx context.Context, cmd *cobra.Command) error {
 		// axx project in a subdirectory.
 		dir = lsp.FindProject(dir)
 	}
-	f, found, err := packset.Load(dir)
-	if err != nil || !found {
-		return nil //nolint:nilerr // the engine reports a broken axx-packs.yaml with its code
-	}
-	entries, _ := f.Entries()
-	compiled := engine.Compiled()
-	missing := false
-	for _, e := range packset.WithRequired(entries) {
-		if _, ok := compiled[e.Key()]; !ok {
-			missing = true
-		}
-	}
+	entries, missing := missingPacks(dir)
 	if !missing {
 		return nil
 	}
@@ -94,6 +86,24 @@ func (a *App) ensurePacks(ctx context.Context, cmd *cobra.Command) error {
 		}
 	}
 	return reexec(res.Binary)
+}
+
+// missingPacks returns the packs the project in dir lists, and whether this
+// axx lacks any of them. A missing or broken axx-packs.yaml lacks nothing:
+// the engine reports a broken one with its code.
+func missingPacks(dir string) ([]packset.Entry, bool) {
+	f, found, err := packset.Load(dir)
+	if err != nil || !found {
+		return nil, false
+	}
+	entries, _ := f.Entries()
+	compiled := engine.Compiled()
+	for _, e := range packset.WithRequired(entries) {
+		if _, ok := compiled[e.Key()]; !ok {
+			return entries, true
+		}
+	}
+	return entries, false
 }
 
 // reexec replaces this process with bin, keeping the arguments. On Windows

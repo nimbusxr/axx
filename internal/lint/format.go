@@ -100,6 +100,9 @@ func WriteHuman(w io.Writer, rep *Report, o HumanOptions) error {
 			fmt.Fprintf(w, "     ... and %d more %s (use --json for all)\n", more, pluralWord(more, "finding"))
 		}
 	}
+	for _, h := range rep.Hints {
+		fmt.Fprintf(w, "hint: %s\n", h)
+	}
 	s := rep.Summary
 	status := "ok"
 	if s.Errors > 0 || s.Warnings > 0 {

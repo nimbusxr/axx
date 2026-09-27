@@ -34,7 +34,7 @@ case "$cmd" in
       scratch=$(mktemp -d)/project
       mkdir -p "$scratch"
       if [[ -f "$app/AGENTS.md" ]]; then cp "$app/AGENTS.md" "$scratch/AGENTS.md"; fi
-      (cd "$scratch" && axx init --no-ci >/dev/null)
+      (cd "$scratch" && axx init --no-ci --no-agents >/dev/null)
       cp "$scratch/AGENTS.md" "$app/AGENTS.md"
       rm -rf "$(dirname "$scratch")"
     fi

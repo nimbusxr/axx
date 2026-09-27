@@ -26,7 +26,7 @@ import (
 var Ignored = []string{
 	".git", ".git/**",
 	".axx/**",
-	".agents/**", ".claude/**", ".codex/**", ".gemini/**", ".cursor/**", ".github/copilot-instructions.md",
+	".agents/**", ".claude/**", ".codex/**", ".gemini/**", ".cursor/**", ".vscode/mcp.json", ".github/copilot-instructions.md",
 	".mcp.json", "AGENTS.md", "CLAUDE.md", "GEMINI.md", ".gitignore", "**/.gitignore",
 	"**/node_modules/**", "**/__pycache__/**", "**/.venv/**", "**/.pytest_cache/**",
 	"**/.ruff_cache/**", "**/.mypy_cache/**", "**/.DS_Store",
