@@ -106,4 +106,33 @@ With `output: { ignored: true }`, generated files are derived on demand instead 
 
 ## Adopt existing files
 
-You do not need to write specs for fixtures you already have. Adoption reads existing files, writes the most common value of each field into the prototype, keeps each file's differences in its own `*.fixture.yaml`, and proposes identity candidates for you to review. It only writes anything if regenerating from the new spec reproduces the originals exactly.
+You do not need to write specs for fixtures you already have. Adoption reads existing files, puts the values they all share into the prototype, keeps each file's differences in its own `*.fixture.yaml`, and proposes identity candidates for you to review. It only writes anything if regenerating from the new spec reproduces the originals exactly.
+
+Try it first with `--dry-run`, which does everything but write:
+
+```sh
+axx fixtures adopt --family json --schema openapi/parcels.yaml#/components/schemas/Parcel \
+  --files 'mocks/parcels/*.json' --factory parcel-bodies --dry-run
+```
+
+```text
+  decoded 3/3 files (family: json)
+  prototype: 4 field(s) (the values every adopted file shares)
+  identity candidates, not declared: id (distinct in all 3), trackingNumber (distinct in all 3); declare the ones that identify a fixture with --identity <path>
+  would write mocks/parcels/parcel-bodies.factory.yaml + 3 *.fixture.yaml + parcel-bodies.prototype.yaml
+  semantic round-trip: 3/3 deep-equal. 0 file(s) will be reformatted by `axx fixtures generate`, 0 semantic changes.
+  next: axx fixtures generate
+```
+
+- **The prototype takes only what every file shares.** A value two files of three happen to have stays in those two files, so no fixture's customer or tenant becomes every new fixture's default. `--prototype common` takes each field's most common value instead.
+- **Identities are yours to declare.** A candidate is a string field whose value is distinct in every file, which is what an identity looks like, but not proof of one: an email or a domain can be distinct in three examples by chance. Declare the ones that identify a fixture with `--identity` (repeatable); the factory file lists the others as comments.
+- **A refusal says what would change.** When regenerating would not reproduce the originals, adoption lists the paths that would differ and writes nothing. Seed layouts whose maps are keyed by document ID (`orgs: {alpha: {...}}`) often do this: adopt the records as a factory of their own, then reference them from the layout with `$ref`.
+
+```sh
+axx fixtures adopt --family json --schema openapi/parcels.yaml#/components/schemas/Parcel \
+  --files 'mocks/parcels/*.json' --factory parcel-bodies --identity id
+axx fixtures adopt --into parcel-bodies --files 'mocks/returns/*.json'   # more files into the same factory
+axx fixtures generate
+```
+
+`--into` adds files to an existing factory, with its prototype and identities.

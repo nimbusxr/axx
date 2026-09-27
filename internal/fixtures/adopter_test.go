@@ -79,7 +79,9 @@ func TestAdoptThenGenerateReproducesOriginalsByteForByte(t *testing.T) {
 
 func TestAdoptPrototypeTakesModalValuesAndFixturesKeepDeltas(t *testing.T) {
 	w := unmanagedAvroWorkspace(t)
-	if _, err := w.adopter().Adopt("avro", avroSchemaRef, orderPayments+"/*.json", "adopted", false); err != nil {
+	a := w.adopter()
+	a.Choice = AdoptChoice{Common: true, Identities: []string{"order_id"}}
+	if _, err := a.Adopt("avro", avroSchemaRef, orderPayments+"/*.json", "adopted", false); err != nil {
 		t.Fatal(err)
 	}
 	factory, err := jyaml.Unmarshal([]byte(w.read(orderPayments + "/adopted.factory.yaml")))
@@ -286,4 +288,92 @@ func TestFactoryRelative(t *testing.T) {
 	} {
 		expect(t, a.factoryRelative(in[0], in[1]), want)
 	}
+}
+
+// By default the prototype holds only what every adopted file shares: one
+// tenant's values never become every new fixture's default.
+func TestAdoptSharesOnlyWhatEveryFileHas(t *testing.T) {
+	w := tenantsWorkspace(t)
+	res, err := w.adopter().Adopt("json", "schemas/tenant.schema.json", "tenants/*.json", "tenants", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mustContain(t, joinLines(res.Report), "the values every adopted file shares", "3/3 deep-equal")
+	prototype := w.read("tenants/tenants.prototype.yaml")
+	mustContain(t, prototype, "plan: standard", "region: eu")
+	if strings.Contains(prototype, "customer") {
+		t.Errorf("one tenant's customer became the default:\n%s", prototype)
+	}
+	for _, f := range []string{"acme", "globex", "initech"} {
+		mustContain(t, w.read("tenants/"+f+".fixture.yaml"), "customer:")
+	}
+}
+
+// Identity candidates are proposed, with why, and declared only when chosen.
+func TestAdoptDeclaresOnlyTheIdentitiesChosen(t *testing.T) {
+	w := tenantsWorkspace(t)
+	res, err := w.adopter().Adopt("json", "schemas/tenant.schema.json", "tenants/*.json", "tenants", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	factory := w.read("tenants/tenants.factory.yaml")
+	if strings.Contains(factory, "\nidentity:") {
+		t.Errorf("a candidate was declared without being chosen:\n%s", factory)
+	}
+	mustContain(t, factory, "#   key (distinct in all 3)", "#   domain (distinct in all 3)")
+	mustContain(t, joinLines(res.Report), "identity candidates, not declared: key (distinct in all 3), domain (distinct in all 3)", "--identity")
+
+	w = tenantsWorkspace(t)
+	a := w.adopter()
+	a.Choice = AdoptChoice{Identities: []string{"key"}}
+	res, err = a.Adopt("json", "schemas/tenant.schema.json", "tenants/*.json", "tenants", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mustContain(t, w.read("tenants/tenants.factory.yaml"), "identity:\n- path: key", "#   domain (distinct in all 3)")
+	mustContain(t, joinLines(res.Report), "identities: key")
+}
+
+func TestAdoptRefusesAnIdentityThatIsNotACandidate(t *testing.T) {
+	w := tenantsWorkspace(t)
+	a := w.adopter()
+	a.Choice = AdoptChoice{Identities: []string{"region"}}
+	_, err := a.Adopt("json", "schemas/tenant.schema.json", "tenants/*.json", "tenants", false)
+	mustErrContain(t, err, "--identity region", "distinct", "key, domain")
+}
+
+// Three tenants: two share a customer by chance, all share their plan and
+// region, and each has its own key and domain.
+func tenantsWorkspace(t *testing.T) *workspace {
+	t.Helper()
+	w := newWorkspace(t)
+	w.write("schemas/tenant.schema.json", `{"$schema": "https://json-schema.org/draft/2020-12/schema", "title": "Tenant", "type": "object",
+ "properties": {"key": {"type": "string"}, "domain": {"type": "string"}, "customer": {"type": "string"}, "plan": {"type": "string"}, "region": {"type": "string"}}}`)
+	w.write("tenants/acme.json", `{"key": "acme", "domain": "acme.example", "customer": "cus_100", "plan": "standard", "region": "eu"}`)
+	w.write("tenants/globex.json", `{"key": "globex", "domain": "globex.example", "customer": "cus_100", "plan": "standard", "region": "eu"}`)
+	w.write("tenants/initech.json", `{"key": "initech", "domain": "initech.example", "customer": "cus_300", "plan": "standard", "region": "eu"}`)
+	return w
+}
+
+// A dataset's row templates, by default, hold the values every row of a
+// table shares: a status two rows of three have stays in the rows.
+func TestAdoptDatasetRowTemplatesShareOnlyWhatEveryRowHas(t *testing.T) {
+	w := newWorkspace(t).seed("dataset-corpus")
+	if _, err := w.adopter().Adopt("dataset", "ddl/01-schema.sql", "features/return/seeds/*.yaml", "return-seeds", false); err != nil {
+		t.Fatal(err)
+	}
+	prototype := w.read("features/return/seeds/return-seeds.prototype.yaml")
+	mustContain(t, prototype, "metadata:", "capacity: 5")
+	if strings.Contains(prototype, "status:") {
+		t.Errorf("a status two rows of three have became the template's:\n%s", prototype)
+	}
+}
+
+func TestValueDifferencesNameEveryChangedPath(t *testing.T) {
+	original := newObject("orgs", newObject("alpha", newObject("plan", "free", "key", "alpha"), "beta", newObject("plan", "pro")))
+	regenerated := newObject("orgs", newObject("alpha", newObject("plan", "pro", "key", "alpha"), "gamma", newObject("plan", "pro")))
+	var diffs []string
+	valueDifferences("", original, regenerated, &diffs, 5)
+	got := strings.Join(diffs, "\n")
+	mustContain(t, got, "orgs.alpha.plan", "orgs.beta: missing in regenerated", "orgs.gamma: added in regenerated")
 }

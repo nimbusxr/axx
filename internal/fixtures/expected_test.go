@@ -92,7 +92,11 @@ func TestExpectedAdoptions(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			w := newWorkspace(t).seed(tc.corpus)
-			res, err := w.adopter().Adopt(tc.family, tc.schema, tc.glob, tc.factory, false)
+			// The expected adoptions record the most common values, and every
+			// candidate declared.
+			a := w.adopter()
+			a.Choice = AdoptChoice{Common: true, declareCandidates: true}
+			res, err := a.Adopt(tc.family, tc.schema, tc.glob, tc.factory, false)
 			if err != nil {
 				t.Fatal(err)
 			}

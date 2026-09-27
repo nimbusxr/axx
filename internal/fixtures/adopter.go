@@ -11,10 +11,11 @@ import (
 )
 
 // Adopter turns existing hand-written fixture files into factory sources
-// without renaming a single value. The prototype takes the modal value of
-// every field present in every file; fields absent from any file stay
-// per-fixture; string fields whose values are distinct across every file are
-// proposed as identities with their values pinned. Before anything is
+// without renaming a single value. The prototype takes every field whose
+// value is the same in every file (or, by choice, each field's most common
+// value); the rest stay per-fixture. String fields whose values are distinct
+// across every file are proposed as identities, and the ones chosen are
+// declared, with their values pinned. Before anything is
 // written the emitted spec is parsed back and expanded, and every generated
 // fixture must decode equal to its original: reformatting is allowed, a
 // silent data change never.
@@ -24,6 +25,8 @@ type Adopter struct {
 	families  families
 	functions map[string]Function
 	opts      Options
+	// Choice is the prototype strategy and the identities to declare.
+	Choice AdoptChoice
 }
 
 // AdoptionResult names the factory adopted into and reports what happened.
@@ -170,25 +173,41 @@ func (a *Adopter) Adopt(familyName, schemaRef, glob, factoryName string, dryRun 
 	sortStrings(fixtureKeys)
 
 	var identityPaths []string
+	var candidates []Candidate
 	var prototype *jsonx.Object
 	fixtures := map[string]*jsonx.Object{}
 	if an, ok := adoption.(Analyzer); ok {
-		analysis, err := an.Analyze(fixtureKeys, trees)
+		analysis, err := an.Analyze(fixtureKeys, trees, a.Choice)
 		if err != nil {
 			return nil, err
 		}
-		identityPaths, prototype, fixtures = analysis.IdentityPaths, analysis.Prototype, analysis.Fixtures
+		identityPaths, candidates, prototype, fixtures = analysis.IdentityPaths, analysis.Candidates, analysis.Prototype, analysis.Fixtures
+		if err := a.chosenAmong(candidates); err != nil {
+			return nil, err
+		}
 	} else {
 		shape, err := adoption.Shape()
 		if err != nil {
 			return nil, err
 		}
-		identityPaths = identityCandidates(shape, fixtureKeys, trees)
+		for _, p := range identityCandidates(shape, fixtureKeys, trees) {
+			candidates = append(candidates, Candidate{Path: p, Of: len(fixtureKeys)})
+			if a.Choice.declared(p) {
+				identityPaths = append(identityPaths, p)
+			}
+		}
+		if err := a.chosenAmong(candidates); err != nil {
+			return nil, err
+		}
 		ordered := make([]*jsonx.Object, len(fixtureKeys))
 		for i, k := range fixtureKeys {
 			ordered[i] = trees[k]
 		}
-		prototype = modalTree(shape, "", ordered, identityPaths)
+		if a.Choice.Common {
+			prototype = modalTree(shape, "", ordered, identityPaths)
+		} else {
+			prototype = sharedTree(shape, "", ordered, identityPaths)
+		}
 		for _, k := range fixtureKeys {
 			data := deltaTree(shape, "", prototype, trees[k], identityPaths)
 			for _, p := range identityPaths {
@@ -201,7 +220,7 @@ func (a *Adopter) Adopt(familyName, schemaRef, glob, factoryName string, dryRun 
 		}
 	}
 
-	emitted, err := a.emit(familyName, schemaRef, factoryName, outputDir, fixtureDirs, prototype, identityPaths, fixtureKeys, trees, fixtures)
+	emitted, err := a.emit(familyName, schemaRef, factoryName, outputDir, fixtureDirs, prototype, identityPaths, candidates, fixtureKeys, trees, fixtures)
 	if err != nil {
 		return nil, err
 	}
@@ -215,13 +234,9 @@ func (a *Adopter) Adopt(familyName, schemaRef, glob, factoryName string, dryRun 
 	}
 	report := []string{
 		"decoded " + itoa(len(files)) + "/" + itoa(len(files)) + " files (family: " + familyName + ")",
-		"prototype: " + itoa(prototype.Len()) + " field(s) (modal values)",
+		"prototype: " + itoa(prototype.Len()) + " field(s) (" + a.strategy() + ")",
 	}
-	if len(identityPaths) == 0 {
-		report = append(report, "identity candidates: none (no string field is distinct across every fixture)")
-	} else {
-		report = append(report, "identity candidates (all-distinct across files): "+strings.Join(identityPaths, ", ")+"  # review!")
-	}
+	report = append(report, candidateReport(candidates, identityPaths)...)
 	wrote := "wrote " + factoryPath + " + " + itoa(len(fixtures)) + " *.fixture.yaml"
 	if dryRun {
 		wrote = "would write " + factoryPath + " + " + itoa(len(fixtures)) + " *.fixture.yaml"
@@ -282,7 +297,7 @@ func fixtureFileBody(binding string, data *jsonx.Object) ([]byte, error) {
 // emit renders the colocated file set: factory spec, optional prototype
 // file, fixture envelopes.
 func (a *Adopter) emit(familyName, schemaRef, factoryName, outputDir string, fixtureDirs map[string]string, prototype *jsonx.Object,
-	identityPaths, fixtureKeys []string, trees, fixtures map[string]*jsonx.Object,
+	identityPaths []string, candidates []Candidate, fixtureKeys []string, trees, fixtures map[string]*jsonx.Object,
 ) (map[string][]byte, error) {
 	out := map[string][]byte{}
 	var factory strings.Builder
@@ -311,14 +326,31 @@ func (a *Adopter) emit(familyName, schemaRef, factoryName, outputDir string, fix
 		}
 		factory.WriteString(s)
 	}
+	var open []Candidate
+	for _, c := range candidates {
+		if !containsString(identityPaths, c.Path) {
+			open = append(open, c)
+		}
+	}
+	if len(open) > 0 {
+		factory.WriteString("# Identity candidates, not declared: each has a distinct value in every\n")
+		factory.WriteString("# adopted file. Declare the ones that identify a fixture under identity:.\n")
+		for _, c := range open {
+			factory.WriteString("#   " + c.Path + " (distinct in all " + itoa(c.Of) + ")\n")
+		}
+	}
 	out[joinDir(outputDir, factoryName+FactorySuffix)] = []byte(factory.String())
 	if prototype.Len() > 0 {
 		s, err := yamlSection("data", prototype)
 		if err != nil {
 			return nil, err
 		}
+		values := "modal values from adoption"
+		if !a.Choice.Common {
+			values = "the values every adopted file shares"
+		}
 		out[joinDir(outputDir, factoryName+PrototypeSuffix)] = []byte("# Shared shape of every " + factoryName +
-			" fixture (modal values from adoption);\n# fixture files carry only their deltas.\n" + s)
+			" fixture (" + values + ");\n# fixture files carry only their deltas.\n" + s)
 	}
 	for _, k := range fixtureKeys {
 		body, err := fixtureFileBody(factoryName, fixtures[k])
@@ -376,8 +408,11 @@ func (a *Adopter) compare(generated map[string]map[string][]byte, fixtureKeys []
 			return "", err
 		}
 		if !deepEquals(regenerated, decoded[key]) {
-			return "", adoptError("round-trip failure: regenerating fixture '%s' through %s changes its decoded content (%s). Adoption refuses to proceed; nothing was written.",
-				key, via, valueDifference("", decoded[key], regenerated))
+			var diffs []string
+			valueDifferences("", decoded[key], regenerated, &diffs, 5)
+			return "", adoptError("round-trip failure: regenerating fixture '%s' through %s changes its decoded content:\n  %s\nAdoption refuses to proceed; nothing was written.",
+				key, via, strings.Join(diffs, "\n  ")).
+				WithHint("when the files are seed layouts whose maps are keyed by document ID (orgs: {alpha: {...}}), adopt the records as a factory of their own and reference them from the layout with $ref; adoption writes nothing when it refuses")
 		}
 		if !bytes.Equal(regeneratedBytes, originals[key]) {
 			reformatted++
@@ -880,4 +915,138 @@ func orderedNative(v any) any {
 		out.Set(k, m[k])
 	}
 	return out
+}
+
+// strategy describes the prototype strategy chosen.
+func (a *Adopter) strategy() string {
+	if a.Choice.Common {
+		return "each field's most common value"
+	}
+	return "the values every adopted file shares"
+}
+
+// chosenAmong refuses identities that are not candidates: their values are
+// not present and distinct in every adopted file.
+func (a *Adopter) chosenAmong(candidates []Candidate) error {
+	for _, chosen := range a.Choice.Identities {
+		found := false
+		for _, c := range candidates {
+			found = found || c.Path == chosen
+		}
+		if !found {
+			var paths []string
+			for _, c := range candidates {
+				paths = append(paths, c.Path)
+			}
+			list := "none"
+			if len(paths) > 0 {
+				list = strings.Join(paths, ", ")
+			}
+			return adoptError("--identity %s: not every adopted file has a distinct value there, so it cannot identify them (identity candidates: %s)", chosen, list)
+		}
+	}
+	return nil
+}
+
+// candidateReport says which identities were declared, and which
+// candidates were not, with why each is one.
+func candidateReport(candidates []Candidate, declared []string) []string {
+	if len(candidates) == 0 {
+		return []string{"identity candidates: none (no string field is distinct across every fixture)"}
+	}
+	var out []string
+	if len(declared) > 0 {
+		out = append(out, "identities: "+strings.Join(declared, ", "))
+	}
+	var open []string
+	for _, c := range candidates {
+		if !containsString(declared, c.Path) {
+			open = append(open, c.Path+" (distinct in all "+itoa(c.Of)+")")
+		}
+	}
+	if len(open) > 0 {
+		out = append(out, "identity candidates, not declared: "+strings.Join(open, ", ")+"; declare the ones that identify a fixture with --identity <path>")
+	}
+	return out
+}
+
+// sharedTree takes, in schema order, the fields whose value is the same in
+// every file; identity fields and fields absent from any file are left out.
+func sharedTree(shape *FieldShape, path string, trees []*jsonx.Object, identityPaths []string) *jsonx.Object {
+	out := jsonx.NewObject()
+	for _, f := range shape.Children {
+		p := joinPath(path, f.Name)
+		if containsString(identityPaths, p) {
+			continue
+		}
+		values := make([]any, len(trees))
+		anyAbsent := false
+		allMaps := true
+		for i, t := range trees {
+			values[i] = presence(t, f.Name)
+			anyAbsent = anyAbsent || values[i] == absent
+			_, isMap := values[i].(*jsonx.Object)
+			allMaps = allMaps && isMap
+		}
+		if anyAbsent {
+			continue
+		}
+		if f.Nested() && allMaps {
+			nested := make([]*jsonx.Object, len(values))
+			for i, v := range values {
+				nested[i] = v.(*jsonx.Object)
+			}
+			if shared := sharedTree(f, p, nested, identityPaths); shared.Len() > 0 {
+				out.Set(f.Name, shared)
+			}
+			continue
+		}
+		if best, count := modal(values); count == len(values) {
+			out.Set(f.Name, best)
+		}
+	}
+	return out
+}
+
+// valueDifferences collects up to limit paths where a regenerated value
+// differs from the original: added, missing or changed.
+func valueDifferences(path string, a, b any, out *[]string, limit int) {
+	if len(*out) >= limit || deepEquals(a, b) {
+		return
+	}
+	a, b = orderedNative(a), orderedNative(b)
+	if ma, ok := a.(*jsonx.Object); ok {
+		if mb, ok := b.(*jsonx.Object); ok {
+			ks := ma.Keys()
+			for _, k := range mb.Keys() {
+				if !ma.Has(k) {
+					ks = append(ks, k)
+				}
+			}
+			for _, k := range ks {
+				if len(*out) >= limit {
+					return
+				}
+				p := joinPath(path, k)
+				switch {
+				case !ma.Has(k):
+					*out = append(*out, p+": added in regenerated, "+valueOf(get(mb, k)))
+				case !mb.Has(k):
+					*out = append(*out, p+": missing in regenerated (original "+valueOf(get(ma, k))+")")
+				default:
+					valueDifferences(p, get(ma, k), get(mb, k), out, limit)
+				}
+			}
+			return
+		}
+	}
+	if la, ok := a.([]any); ok {
+		if lb, ok := b.([]any); ok && len(la) == len(lb) {
+			for i := range la {
+				valueDifferences(path+"["+itoa(i)+"]", la[i], lb[i], out, limit)
+			}
+			return
+		}
+	}
+	*out = append(*out, valueDifference(path, a, b))
 }

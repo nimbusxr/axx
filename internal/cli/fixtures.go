@@ -203,18 +203,24 @@ func renderCheck(w io.Writer, rep CheckReport) error {
 
 func newFixturesAdoptCmd(app *App) *cobra.Command {
 	var cf configFlags
-	var family, schema, files, factory, into string
+	var family, schema, files, factory, into, prototype string
+	var identities []string
 	var dryRun bool
 	cmd := &cobra.Command{
 		Use:   "adopt",
 		Short: "Turn existing fixture files into factory sources, preserving every value",
-		Long: `Adopt hand-written fixture files: the prototype takes the modal value of every
-field, each file becomes a *.fixture.yaml carrying only its deltas, and string
-fields distinct across every file are proposed as identities. Before anything is
-written the new spec is expanded and every file must decode equal to its
-original; otherwise adoption refuses and writes nothing.
+		Long: `Adopt hand-written fixture files: the prototype takes the values every file
+shares (--prototype common: each field's most common value), and each file
+becomes a *.fixture.yaml carrying only its differences. String fields whose value
+is distinct in every file are proposed as identity candidates, with how many
+files they were compared across; declare the ones that identify a fixture with
+--identity (repeatable). Before anything is written the new spec is expanded and
+every file must decode equal to its original; otherwise adoption refuses, lists
+the paths that would change, and writes nothing. --dry-run does all of it and
+writes nothing either.
 
-  axx fixtures adopt --schema schemas/order.avsc --files 'kafka/orders/*.json' --factory orders
+  axx fixtures adopt --schema schemas/order.avsc --files 'kafka/orders/*.json' --factory orders --dry-run
+  axx fixtures adopt --schema schemas/order.avsc --files 'kafka/orders/*.json' --factory orders --identity order_id
   axx fixtures adopt --into orders --files 'features/refunds/*.json'
 
 Paths and globs are relative to fixtures.baseDir.`,
@@ -246,6 +252,17 @@ Paths and globs are relative to fixtures.baseDir.`,
 			if err != nil {
 				return err
 			}
+			switch prototype {
+			case "shared":
+			case "common":
+				a.Choice.Common = true
+			default:
+				return adoptUsage("--prototype is shared or common, got %q", prototype)
+			}
+			if into != "" && (len(identities) > 0 || prototype != "shared") {
+				return adoptUsage("adopt --into uses the existing factory's prototype and identities - drop --identity and --prototype")
+			}
+			a.Choice.Identities = identities
 			var res *fixtures.AdoptionResult
 			if into != "" {
 				res, err = a.AdoptInto(into, files, dryRun)
@@ -274,6 +291,8 @@ Paths and globs are relative to fixtures.baseDir.`,
 	cmd.Flags().StringVar(&factory, "factory", "", "name of the new factory (written next to the adopted files)")
 	cmd.Flags().StringVar(&into, "into", "", "adopt into this existing factory (name or root-relative path)")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "verify the adoption and report without writing anything")
+	cmd.Flags().StringVar(&prototype, "prototype", "shared", "what the prototype takes: shared (the values every file shares) or common (each field's most common value)")
+	cmd.Flags().StringArrayVar(&identities, "identity", nil, "declare an identity candidate as an identity (repeatable), e.g. --identity order_id")
 	cf.register(cmd)
 	return cmd
 }
