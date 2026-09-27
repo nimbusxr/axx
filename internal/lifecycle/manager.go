@@ -66,6 +66,8 @@ type Manager struct {
 	// up lists the apps started (launched or attached), in start order,
 	// until Stop has stopped them.
 	up []*app
+	// unclean are the apps this run stopped whose cleanup failed.
+	unclean []stateApp
 	// stateLoaded is set once the state file has been checked for entries
 	// of an earlier run; inherited holds them so they are not forgotten.
 	stateLoaded bool
@@ -201,6 +203,9 @@ func (m *Manager) Start(ctx context.Context, names []string) error {
 	todo := m.pending(withDependencies(m.cfg, names))
 	if len(todo) == 0 {
 		return nil
+	}
+	if err := m.checkEarlierRuns(); err != nil {
+		return err
 	}
 
 	runCtx, cancel := context.WithCancel(ctx)

@@ -37,12 +37,19 @@ type comparison struct {
 	diff                     *image.RGBA // the differing pixels in red, on a faded copy of the expected image
 }
 
+// maskColor paints over the elements a screenshot leaves out: Playwright's
+// own mask color, which pages hardly ever use.
+var maskColor = color.RGBA{0xff, 0x00, 0xff, 0xff}
+
 // compare counts the pixels of two images that differ: whose colors are
 // further apart than threshold, unless the difference is anti-aliasing.
+// With masked, a pixel painted over in either image is left out: an element
+// the screenshot leaves out, like a time, need not have the same size in
+// both.
 //
 // The color distance (YIQ) and the anti-aliasing test are pixelmatch's
 // (https://github.com/mapbox/pixelmatch), as Playwright compares screenshots.
-func compare(expected, actual image.Image) comparison {
+func compare(expected, actual image.Image, masked bool) comparison {
 	a, b := toRGBA(expected), toRGBA(actual)
 	w, h := a.Rect.Dx(), a.Rect.Dy()
 	c := comparison{expectedSize: sizeOf(expected), actualSize: sizeOf(actual), pixels: w * h}
@@ -57,6 +64,8 @@ func compare(expected, actual image.Image) comparison {
 			pos := y*a.Stride + x*4
 			delta := colorDelta(a.Pix, b.Pix, pos, pos, false)
 			switch {
+			case masked && (isMask(a.Pix[pos:pos+4]) || isMask(b.Pix[pos:pos+4])):
+				c.diff.SetRGBA(x, y, color.RGBA{255, 200, 255, 255})
 			case math.Abs(delta) <= maxDelta:
 				v := uint8(blend(rgb2y(float64(a.Pix[pos]), float64(a.Pix[pos+1]), float64(a.Pix[pos+2])), 0.1*float64(a.Pix[pos+3])/255))
 				c.diff.SetRGBA(x, y, color.RGBA{v, v, v, 255})
@@ -69,6 +78,10 @@ func compare(expected, actual image.Image) comparison {
 		}
 	}
 	return c
+}
+
+func isMask(px []byte) bool {
+	return px[0] == maskColor.R && px[1] == maskColor.G && px[2] == maskColor.B && px[3] == maskColor.A
 }
 
 func toRGBA(img image.Image) *image.RGBA {

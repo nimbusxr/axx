@@ -385,9 +385,9 @@ func (a *App) installProjectSkills(ctx context.Context, dir string, claude bool)
 	if err != nil {
 		return nil, err
 	}
-	args := []string{"skills", "install", "--json"}
-	if !claude {
-		args = append(args, "--no-claude")
+	args := []string{"skills", "install", "--json", "--no-claude"}
+	if claude {
+		args[3] = "--claude"
 	}
 	cmd := exec.CommandContext(ctx, exe, args...)
 	cmd.Dir, cmd.Stderr = dir, a.Stderr

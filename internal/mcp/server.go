@@ -26,6 +26,7 @@ import (
 	"github.com/nimbusxr/axx/internal/config"
 	"github.com/nimbusxr/axx/internal/engine"
 	"github.com/nimbusxr/axx/internal/feature"
+	"github.com/nimbusxr/axx/internal/lifecycle"
 	"github.com/nimbusxr/axx/internal/lint"
 	"github.com/nimbusxr/axx/internal/match"
 	"github.com/nimbusxr/axx/internal/version"
@@ -108,7 +109,7 @@ func newServer(opts Options) (*sdk.Server, *server) {
 		s.failureContext)
 	sdk.AddTool(srv, &sdk.Tool{
 		Name:        "env",
-		Description: "Manage the apps from axx.yaml: 'up' starts them and keeps them running between runs (fast loop), 'down' stops them, 'status' reports what is running.",
+		Description: "Manage the apps from axx.yaml: 'up' starts them and keeps them running between runs (fast loop), 'down' stops them and runs the cleanups that failed, 'status' lists the apps that are running, left over from an earlier run, or not cleaned up (runs refuse to start apps until 'down' has cleaned up).",
 	},
 		s.env)
 	sdk.AddTool(srv, &sdk.Tool{
@@ -393,10 +394,11 @@ func (s *server) featureValidate(ctx context.Context, _ *sdk.CallToolRequest, in
 		out.Problems = append(out.Problems, mp)
 	}
 	out.Valid = len(out.Problems) == 0
-	rr := lint.CheckFeatures(e.Registry, pickles, e.Config.Dir)
-	for _, f := range rr.Findings {
-		l := f.Locations[0]
-		out.Warnings = append(out.Warnings, Problem{Kind: "lint", Location: fmt.Sprintf("%s:%d", l.File, l.Line), Text: stripKeyword(l.Text), Message: f.Message + " [" + f.Code + "]"})
+	for _, rr := range lint.FeatureChecks(e.Registry, pickles, e.Config.Dir) {
+		for _, f := range rr.Findings {
+			l := f.Locations[0]
+			out.Warnings = append(out.Warnings, Problem{Kind: "lint", Location: fmt.Sprintf("%s:%d", l.File, l.Line), Text: stripKeyword(l.Text), Message: f.Message + " [" + f.Code + "]"})
+		}
 	}
 	return nil, out, nil
 }
@@ -582,7 +584,7 @@ func (s *server) env(ctx context.Context, _ *sdk.CallToolRequest, in envIn) (*sd
 	case "down":
 		args = []string{"down", "--json"}
 	case "status", "":
-		args = []string{"doctor", "--json"}
+		return s.envStatus()
 	default:
 		return nil, envOut{}, fmt.Errorf("action must be up, down or status")
 	}
@@ -610,6 +612,28 @@ func (s *server) env(ctx context.Context, _ *sdk.CallToolRequest, in envIn) (*sd
 	if len(envlp.Errors) > 0 {
 		out.Error = envlp.Errors[0].Message
 	}
+	return nil, out, nil
+}
+
+// envStatus reports the apps the project's state file records: running,
+// left over from an earlier run, or not cleaned up.
+func (s *server) envStatus() (*sdk.CallToolResult, envOut, error) {
+	out := envOut{Action: "status"}
+	cfg, err := config.Load(config.LoadOptions{Path: s.opts.ConfigPath, WorkDir: s.opts.WorkDir, Profile: s.opts.Profile})
+	if err != nil {
+		out.Error = err.Error()
+		return nil, out, nil
+	}
+	apps, err := lifecycle.Status(lifecycle.StateFile(cfg.Dir))
+	if err != nil {
+		out.Error = err.Error()
+		return nil, out, nil
+	}
+	if apps == nil {
+		apps = []lifecycle.AppStatus{}
+	}
+	out.OK = true
+	out.Data = map[string]any{"apps": apps}
 	return nil, out, nil
 }
 

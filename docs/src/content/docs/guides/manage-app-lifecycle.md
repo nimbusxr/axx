@@ -33,7 +33,7 @@ apps:
 
 Each key is described in the [configuration reference](/references/config/#apps). A command that exits `0` before the app is ready is fine, which is what `docker compose up -d` or `--wait` does: Axx keeps polling the `ready` checks.
 
-App output goes to `.axx/logs/apps.log`. When an app fails to start, the error shows the last lines of its output and a stable code from [`AXX-E0400` to `AXX-E0414`](/references/error-codes/#app-lifecycle).
+App output goes to `.axx/logs/apps.log`. When an app fails to start, the error shows the last lines of its output and a stable code from [`AXX-E0400` to `AXX-E0415`](/references/error-codes/#app-lifecycle).
 
 ## Keep apps running between runs
 
@@ -45,6 +45,16 @@ axx down          # stop the apps and run their cleanup
 ```
 
 This is the fastest local loop, and the one agents should use. `axx down` also stops apps left behind by an interrupted run.
+
+## When a cleanup fails
+
+A cleanup can fail: `docker compose down` without access to Docker, say. The run reports it (`AXX-E0411`), and `.axx/run/state.json` keeps the cleanup, so what it should have removed is not forgotten. Until it succeeds:
+
+- runs and `axx up` start no app, and say what is left (`AXX-E0415`): containers, volumes and requests recorded by a mock would be where the next run starts from;
+- `axx down` runs the cleanup again, and says `cleaned up after an earlier run` once it succeeds;
+- `axx doctor` lists what is left, and so does the MCP `env` tool's `status`, with each app `running`, `left over` from a run that was killed, or `not cleaned up`.
+
+The same holds for the apps of a run that was killed before it could stop them: `axx down` stops them and runs their cleanup.
 
 ## Run an app yourself
 

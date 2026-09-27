@@ -75,6 +75,9 @@ func TestDownloadsTheReleaseOnce(t *testing.T) {
 	archive := tarball(t, map[string]string{"go/bin/" + goExe(): "#!/bin/sh\necho go9.9.9\n", "go/VERSION": "go9.9.9"})
 	srv, downloads := goDev(t, archive, sha(archive))
 	t.Setenv("AXX_GO", "")
+	// Another Go's tree in the caller's environment is not the toolchain's.
+	t.Setenv("GOROOT", "/opt/go1.0.0")
+	t.Setenv("GOTOOLDIR", "/opt/go1.0.0/pkg/tool")
 	cache := t.TempDir()
 	o := Options{CacheDir: cache, Version: "go9.9.9", DownloadURL: srv.URL + "/"}
 	var log strings.Builder
@@ -92,6 +95,9 @@ func TestDownloadsTheReleaseOnce(t *testing.T) {
 		if !strings.Contains(env, v) {
 			t.Errorf("the environment lacks %s", v)
 		}
+	}
+	if strings.Contains(env, "GOROOT=") || strings.Contains(env, "GOTOOLDIR=") {
+		t.Errorf("the toolchain inherits another Go's tree:\n%s", env)
 	}
 	if !strings.Contains(log.String(), "setting up") || strings.Contains(strings.ToLower(log.String()), "go ") {
 		t.Errorf("what the user sees: %q", log.String())

@@ -1,0 +1,55 @@
+openapi: 3.0.3
+info:
+  title: Courier
+  version: 1.4.0
+  description: >-
+    The courier company that collects express parcels the day they are registered, and
+    picks up the parcels shops plan. Its older pickup endpoint takes a form.
+paths:
+  /v1/collections:
+    post:
+      operationId: bookCollection
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reference, weightGrams, deliverTo]
+              additionalProperties: false
+              properties:
+                reference: {type: string}
+                weightGrams: {type: integer, minimum: 1}
+                deliverTo:
+                  type: object
+                  required: [postcode, country]
+                  additionalProperties: false
+                  properties:
+                    postcode: {type: string}
+                    country: {type: string, pattern: '^[A-Z]{2}$'}
+      responses:
+        '201':
+          description: The collection is booked.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [collection]
+                properties:
+                  collection: {type: string}
+  /v1/pickups:
+    post:
+      operationId: notePickup
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [reference, day]
+              properties:
+                reference: {type: string}
+                day: {type: string, enum: [Tomorrow, Friday]}
+      responses:
+        '204':
+          description: The courier noted the pickup.

@@ -79,8 +79,33 @@ Scenario: Invalid registrations never reach the address service
   And the mocked GET request to /v1/postcodes/DE/12489 named skipped-check was not received
 ```
 
+### What a request sent
+
+When requests share a URL, like every courier booking going to `/v1/collections`, check what a request sent: the properties of its JSON body, or the fields of its form. The checks stay with the named request, so its counts count only the requests that sent that:
+
+```gherkin
+Scenario: The courier collects an express parcel without being told who it goes to
+  Given the mocked courier service with the following properties:
+    | url | http://localhost:8082 |
+  And a POST request to /api/parcels
+  And a request payload using an application/json content example named 'Express parcel'
+  And the request payload property reference is 'PX-REG-1401'
+  When the request is executed
+  Then the response status code is 201
+  And the mocked POST request to /v1/collections named collection was received by courier
+  And the payload properties for mocked request named collection on courier are:
+    | reference          | PX-REG-1401 |
+    | deliverTo.postcode | "75001"     |
+    | recipient          | undefined   |
+  And the mocked request named collection on courier was received exactly 1 time
+```
+
+- **A property is a JSONPath** (`deliverTo.postcode`, `$.lines[0].reference`), and values compare as text: `800` matches the number 800, `"75001"` the string.
+- **`undefined` checks that something was left out**, such as a recipient's name the courier must never get.
+- **Form fields** of a form-encoded body are checked the same way: `the form fields for mocked request named pickup-notice are:`, with a field and its value a row.
+
 :::caution[Journals persist]
-WireMock keeps its request journal between scenarios, and between runs for as long as it keeps running, and scenarios run in parallel. Match on something unique to the scenario (a postcode or an id in the URL, a header) so one scenario never counts another scenario's requests. A count such as `exactly 1 time` also counts the requests of earlier runs while the mock keeps running, as it does between runs with `axx up`. See [Isolate test data](/guides/isolate-test-data/).
+WireMock keeps its request journal between scenarios, and between runs for as long as it keeps running, and scenarios run in parallel. Match on something unique to the scenario (a postcode or an id in the URL, a header, a property of the body) so one scenario never counts another scenario's requests. A count such as `exactly 1 time` also counts the requests of earlier runs while the mock keeps running, as it does between runs with `axx up`. See [Isolate test data](/guides/isolate-test-data/).
 :::
 
 ## Check the dependency's contract

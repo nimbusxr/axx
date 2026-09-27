@@ -1,0 +1,6 @@
+parcels.parcels:
+  - reference: "PX-WEB-5331"
+    sender: "rowan-and-reed"
+    weight_grams: 1800
+    recipient: '{"name": "Lotte Brandt", "street": "Hauptstr. 12", "city": "Leipzig", "postcode": "04109", "country": "DE"}'
+    details: '{"source": "portal", "zone": "DE-1", "signature": false, "leaveWithNeighbour": true}'

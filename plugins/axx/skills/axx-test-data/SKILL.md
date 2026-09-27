@@ -6,7 +6,7 @@ license: Apache-2.0
 
 # Test data with Axx
 
-Scenarios read their data from files: `Given a seeds/portal-find.yaml db seed`, `the depot-scans kafka event payload is a kafka/scan-delivered.json resource`. Those files can be written by hand, and one-off files should be. **Fixture factories are optional**, but use them wherever data repeats: when several files share one schema and differ in a few fields.
+Scenarios read their data from files: `Given a seeds/portal-find.yaml db seed`, `the depot-scans kafka event payload is a kafka/scan-delivered.json resource`, `a request payload using an application/json requests/order-7731.json resource`. Those files can be written by hand, and one-off files should be. **Fixture factories are optional**, but use them wherever data repeats: when several files share one schema and differ in a few fields.
 
 A factory keeps the shared shape once and each fixture as only its differences. `axx fixtures generate` expands them into ordinary files, checked against their schema, with unique ids. Features cannot tell a generated file from a hand-written one, and nothing is generated during `axx run`.
 

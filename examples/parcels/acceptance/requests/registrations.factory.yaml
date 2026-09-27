@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=https://axx.nimbusxr.us/schemas/v0/axx-factory.schema.json
+# Registration requests as a shop's order system exports them, checked against the
+# parcels service's OpenAPI contract. Scenarios send them as they are:
+# `a request payload using an application/json requests/<fixture>.json resource`.
+factory:
+  family: json
+  schema: ../../app/openapi.yaml#/components/schemas/ParcelRequest
+prototype:
+  sender: kestrel-books
+  serviceLevel: STANDARD
+  recipient:
+    country: DE
+identity:
+  - path: reference
+    derive: authored
+fixtures:
+  order-7731:
+    reference: PX-REG-1301
+    weightGrams: 2400
+    recipient:
+      name: Ada Lovelace
+      street: Invalidenstrasse 116
+      city: Berlin
+      postcode: "10115"
+  order-7732:
+    reference: PX-REG-1302
+    weightGrams: 650
+    serviceLevel: EXPRESS
+    recipient:
+      name: Mary Somerville
+      city: Munich
+      postcode: "80331"

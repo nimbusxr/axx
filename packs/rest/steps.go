@@ -3,6 +3,7 @@ package rest
 import (
 	"errors"
 	"fmt"
+	"os"
 	"slices"
 	"strings"
 
@@ -346,6 +347,33 @@ func requestSteps() []core.StepDef {
 			example:      "Given a request payload using an application/json content example named 'Standard parcel'",
 			namedExample: "Given a request payload using an application/json content example for 1st ordered request on parcels",
 			run:          examplePayload,
+		},
+		{
+			id: "rest.request.payload.resource", keyword: "Given", noun: "request",
+			head: "a request payload using a(n) {mimeType} {filepath} resource", nHead: 2,
+			doc: "Start the request payload from a file of the project, such as a fixture factory's output: it is sent with the media type.",
+			details: []string{
+				"The file is found like other files steps name: relative to the `resources` directories, or to axx.yaml's directory.",
+				"It is sent as it is, and a JSON payload can then be changed with the payload property steps. " +
+					"With `application/x-www-form-urlencoded`, the file is a JSON object whose properties are sent form-encoded.",
+				"It needs no OpenAPI specification.",
+				"A request takes one payload step.",
+			},
+			example:      "Given a request payload using an application/json requests/order-7731.json resource",
+			namedExample: "Given a request payload using an application/json requests/order-7732.json resource for 2nd ordered request on parcels",
+			run: func(sc *core.Scenario, a core.Args, t target) error {
+				path, err := sc.Suite().ResolvePath(a.String(1))
+				if err != nil {
+					return err
+				}
+				body, err := os.ReadFile(path)
+				if err != nil {
+					return fmt.Errorf("cannot read the payload file %s: %w", a.String(1), err)
+				}
+				return withRequest(sc, a, t, func(r *Request) error {
+					return setPayload(r, a.String(0), string(body))
+				})
+			},
 		},
 		{
 			id: "rest.request.property", keyword: "Given", noun: "request",

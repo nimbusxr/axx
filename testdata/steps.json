@@ -2,7 +2,7 @@
   "description": "The frozen catalog of built-in step text. Step text is public API: every entry must stay defined, verbatim, by its pack.",
   "counts": {
     "parameterType": 11,
-    "step": 465
+    "step": 473
   },
   "entries": [
     {
@@ -2871,6 +2871,54 @@
       "pack": "azure-servicebus",
       "keyword": "Then",
       "expression": "within {duration} the {word} service bus queue/topic has a message where:"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Given",
+      "expression": "a request payload using a(n) {mimeType} {filepath} resource"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Given",
+      "expression": "a request payload using a(n) {mimeType} {filepath} resource for {ordinal} ordered request"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Given",
+      "expression": "a request payload using a(n) {mimeType} {filepath} resource for request on {service}"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Given",
+      "expression": "a request payload using a(n) {mimeType} {filepath} resource for {ordinal} ordered request on {service}"
+    },
+    {
+      "kind": "step",
+      "pack": "mock",
+      "keyword": "Then",
+      "expression": "the payload properties for mocked request named {word} are:"
+    },
+    {
+      "kind": "step",
+      "pack": "mock",
+      "keyword": "Then",
+      "expression": "the payload properties for mocked request named {word} on {mockedService} are:"
+    },
+    {
+      "kind": "step",
+      "pack": "mock",
+      "keyword": "Then",
+      "expression": "the form fields for mocked request named {word} are:"
+    },
+    {
+      "kind": "step",
+      "pack": "mock",
+      "keyword": "Then",
+      "expression": "the form fields for mocked request named {word} on {mockedService} are:"
     }
   ]
 }

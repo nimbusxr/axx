@@ -18,6 +18,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/nimbusxr/axx/internal/axxerr"
@@ -186,13 +187,43 @@ func Detect(project string) []Agent {
 	var out []Agent
 	for _, a := range All {
 		for _, s := range a.Signals {
-			if _, err := os.Stat(filepath.Join(project, s)); err == nil {
+			if _, err := os.Stat(filepath.Join(project, s)); err == nil && !onlyAxxSkills(project, s) {
 				out = append(out, a)
 				break
 			}
 		}
 	}
 	return out
+}
+
+// Uses reports whether the project (or home directory) shows signs of the
+// agent with this id.
+func Uses(project, id string) bool {
+	return slices.ContainsFunc(Detect(project), func(a Agent) bool { return a.ID == id })
+}
+
+// onlyAxxSkills reports whether the signal is a .claude directory that
+// holds nothing but the skills axx linked there: axx made it, so it does
+// not show that the project uses Claude Code.
+func onlyAxxSkills(project, signal string) bool {
+	if signal != ".claude" {
+		return false
+	}
+	dir := filepath.Join(project, ".claude")
+	entries, err := os.ReadDir(dir)
+	if err != nil || len(entries) != 1 || entries[0].Name() != "skills" {
+		return false
+	}
+	skills, err := os.ReadDir(filepath.Join(dir, "skills"))
+	if err != nil {
+		return false
+	}
+	for _, e := range skills {
+		if !strings.HasPrefix(e.Name(), "axx-") {
+			return false
+		}
+	}
+	return true
 }
 
 // CodexHome is Codex's own directory: $CODEX_HOME, or ~/.codex.

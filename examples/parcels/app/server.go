@@ -32,6 +32,7 @@ type service struct {
 	store    *store
 	tracking *trackingStore
 	address  *addressClient
+	courier  *courierClient
 	events   *events
 	labels   labeler
 	log      *slog.Logger
@@ -62,7 +63,8 @@ func (e *upstreamError) Error() string { return "address service unavailable: " 
 var errNotChangeable = errors.New("not changeable")
 
 // register runs the rules shared by the API and the manifest importer:
-// duplicate check, address check, storage and the ParcelRegistered event.
+// duplicate check, address check, storage, the ParcelRegistered event and,
+// for an express parcel, the courier's collection.
 func (s *service) register(ctx context.Context, r registration) (*Parcel, error) {
 	if existing, err := s.store.Get(ctx, r.Reference); err == nil {
 		return existing, errDuplicate
@@ -93,6 +95,12 @@ func (s *service) register(ctx context.Context, r registration) (*Parcel, error)
 	}
 	if err := s.events.publishRegistered(ctx, ev); err != nil {
 		s.log.Error("publishing ParcelRegistered failed", "reference", p.Reference, "err", err)
+	}
+	// An express parcel is collected by the courier the day it is registered.
+	if p.ServiceLevel == "EXPRESS" {
+		if err := s.courier.book(ctx, p); err != nil {
+			s.log.Error("booking the courier failed", "reference", p.Reference, "err", err)
+		}
 	}
 	return p, nil
 }

@@ -94,6 +94,16 @@ shipments:
 
 Checks read timestamps back in RFC 3339 and UTC, so `| weighedAt | 2026-09-01T08:12:00Z |` checks the document above.
 
+## Send a service messages
+
+A service that consumes messages gets them the way it does in the cloud: publish to the topic it reads, and let the subscription deliver them.
+
+```gherkin
+When the disputes/kestrel-overcharge.json message is published to the carrier-disputes pubsub topic
+```
+
+A service that Pub/Sub pushes to gets what a push subscription sends: an envelope whose `message.data` is the message, base64-encoded, with its attributes and ID. Create the push subscription, with the service's address as its endpoint, where your other emulator resources are created, and publish to its topic: the Pub/Sub emulator of the gcloud CLI pushes the message to the service as Pub/Sub does. The scenario neither builds the envelope nor encodes the data.
+
 ## What the checks do
 
 - **They wait.** Services act asynchronously, so every check waits: 10 seconds, or the time `within {duration}` gives.

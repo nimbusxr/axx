@@ -5,6 +5,10 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/nimbusxr/axx/internal/config"
+	"github.com/nimbusxr/axx/internal/feature"
+	"github.com/nimbusxr/axx/internal/runner"
 )
 
 func TestPausesOffTheStepsAreTold(t *testing.T) {
@@ -35,5 +39,21 @@ func TestPausesOffTheStepsAreTold(t *testing.T) {
 	}
 	if strings.Contains(stderr, "tracking.feature:5:") {
 		t.Errorf("warned about a step's line:\n%s", stderr)
+	}
+}
+
+func TestRerunLocationsKeepFilesOutsideTheProject(t *testing.T) {
+	project, elsewhere := t.TempDir(), t.TempDir()
+	t.Chdir(project)
+	cfg := &config.Config{Dir: project}
+	outside := filepath.Join(elsewhere, "probe.feature")
+	for uri, want := range map[string]string{
+		"features/tracking.feature": "features/tracking.feature:2",
+		filepath.ToSlash(outside):   outside + ":2",
+	} {
+		r := &runner.ScenarioResult{Pickle: &feature.Pickle{Doc: &feature.Document{URI: uri}, Line: 2}}
+		if got := scenarioLocation(cfg, r); got != want {
+			t.Errorf("the location of %s is %s, want %s", uri, got, want)
+		}
 	}
 }

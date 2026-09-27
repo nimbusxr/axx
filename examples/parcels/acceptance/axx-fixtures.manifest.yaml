@@ -11,7 +11,7 @@ files:
   factory: ../infra/wiremock/__files/postcodes.factory.yaml
   fixture: postcode-remote
 - path: axx-lint.generated.yaml
-  sha256: 45bda6a88445f5170f92e4a953a82ef909852cd10989a0ec33b8cba8230ba959
+  sha256: 78e4d39c1b2c4302618931f7fd6165b61c87d45226fb21974028b28abccb7709
   factory: <axx-fixtures>
   fixture: <generated lint rules>
 - path: kafka/.gitignore
@@ -26,6 +26,18 @@ files:
   sha256: ade4b734615bbb4da4b46d221a520d0ec0aa6632c478e36b29c088504cd65f17
   factory: kafka/depot-scans.factory.yaml
   fixture: scan-out-for-delivery
+- path: requests/.gitignore
+  sha256: d89fe6548e5a6ee64844def78d6e9897af05fdd6c7d82e8e94b966650c1d7420
+  factory: <axx-fixtures>
+  fixture: <ignored outputs>
+- path: requests/order-7731.json
+  sha256: 554be585ce253c9645b4399d1a735de3067d91dac644564a73af3987447b1494
+  factory: requests/registrations.factory.yaml
+  fixture: order-7731
+- path: requests/order-7732.json
+  sha256: 1c60f722b1b9c20ee3f56934946805863f57ce96a06fde9a1432620b544ce683
+  factory: requests/registrations.factory.yaml
+  fixture: order-7732
 - path: seeds/manifests/csv/.gitignore
   sha256: 78852063700adaabc07f21c42e3ee3e32e0ae1ba27a19714d35e8763e1347fd9
   factory: <axx-fixtures>

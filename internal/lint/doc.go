@@ -38,6 +38,8 @@
 //
 // # Builtin checks
 //
-// CheckFeatures warns about SQL selection and trigger ordinals that cannot
-// work (see features.go). It runs over the features in run.paths.
+// FeatureChecks run over the features in run.paths: CheckFeatures warns
+// about SQL selection and trigger ordinals that cannot work (features.go),
+// CheckRESTRequests about REST requests added or addressed out of order
+// (rest.go).
 package lint

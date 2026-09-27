@@ -418,6 +418,64 @@ Given a request payload using a(n) {mimeType} content example[[ named {string}]]
 Given a request payload using an application/json content example for 1st ordered request on parcels
 ```
 
+## `rest.request.payload.resource`
+
+```gherkin
+Given a request payload using a(n) {mimeType} {filepath} resource[[ for {ordinal} ordered request]]
+```
+
+Start the request payload from a file of the project, such as a fixture factory's output: it is sent with the media type.
+
+- The file is found like other files steps name: relative to the `resources` directories, or to axx.yaml's directory.
+- It is sent as it is, and a JSON payload can then be changed with the payload property steps. With `application/x-www-form-urlencoded`, the file is a JSON object whose properties are sent form-encoded.
+- It needs no OpenAPI specification.
+- A request takes one payload step.
+- Without an ordinal it applies to the service's first (default) request; `for 2nd ordered request`, to its second.
+- It uses the default service, the first one registered; `rest.request.payload.resource.on` names a service.
+
+| Parameter | Takes | Values | For example |
+|---|---|---|---|
+| `{mimeType}` | a content type | `application/json`, `text/json`, `application/problem+json`, `application/x-www-form-urlencoded` | `application/json` |
+| `{filepath}` | a file of the project, with no spaces: a path relative to the `resources` directories or to axx.yaml's directory, or an absolute path |  | `seeds/parcels.yaml`, `kafka/scan-delivered.json` |
+| `{ordinal}` | a position, counting from 1; an optional ordinal left out is the first |  | `1st`, `2nd` |
+
+**Variants**, the parts in `[[...]]` said or left out:
+
+- `a request payload using a(n) {mimeType} {filepath} resource`
+- `a request payload using a(n) {mimeType} {filepath} resource for {ordinal} ordered request`
+
+**Example:**
+
+```gherkin
+Given a request payload using an application/json requests/order-7731.json resource
+```
+
+## `rest.request.payload.resource.on`
+
+```gherkin
+Given a request payload using a(n) {mimeType} {filepath} resource for[[ {ordinal} ordered]] request on {service}
+```
+
+`rest.request.payload.resource` on a named service: `for request on <service>` addresses the service's first (default) request, `for 2nd ordered request on <service>` its second one. Everything else works like `rest.request.payload.resource`.
+
+| Parameter | Takes | Values | For example |
+|---|---|---|---|
+| `{mimeType}` | a content type | `application/json`, `text/json`, `application/problem+json`, `application/x-www-form-urlencoded` | `application/json` |
+| `{filepath}` | a file of the project, with no spaces: a path relative to the `resources` directories or to axx.yaml's directory, or an absolute path |  | `seeds/parcels.yaml`, `kafka/scan-delivered.json` |
+| `{ordinal}` | a position, counting from 1; an optional ordinal left out is the first |  | `1st`, `2nd` |
+| `{service}` | the name of a REST service the scenario registered |  | `parcels` |
+
+**Variants**, the parts in `[[...]]` said or left out:
+
+- `a request payload using a(n) {mimeType} {filepath} resource for request on {service}`
+- `a request payload using a(n) {mimeType} {filepath} resource for {ordinal} ordered request on {service}`
+
+**Example:**
+
+```gherkin
+Given a request payload using an application/json requests/order-7732.json resource for 2nd ordered request on parcels
+```
+
 ## `rest.request.property`
 
 ```gherkin

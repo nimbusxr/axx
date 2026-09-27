@@ -1,0 +1,6 @@
+{
+  "reference": "PX-REG-1301",
+  "sender": "kestrel-books",
+  "weightGrams": 2400,
+  "recipient": {"name": "Ada Lovelace", "postcode": "10115", "country": "DE"}
+}

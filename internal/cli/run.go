@@ -275,7 +275,7 @@ func (a *App) startApps(ctx context.Context, e *engine.Engine, f *runFlags, pick
 		Logger:    a.logger(),
 		NoStart:   f.noStart,
 		Attach:    attach,
-		StateFile: filepath.Join(cfg.Dir, ".axx", "run", "state.json"),
+		StateFile: lifecycle.StateFile(cfg.Dir),
 	}
 	switch f.debug {
 	case "":
@@ -381,7 +381,11 @@ func (a *App) reporters(cfg *config.Config, f *runFlags) ([]runner.Reporter, *by
 
 // scenarioLocation renders "path:line" relative to the working directory.
 func scenarioLocation(cfg *config.Config, r *runner.ScenarioResult) string {
-	p := filepath.Join(cfg.Dir, filepath.FromSlash(r.Pickle.Doc.URI))
+	// A file outside the configuration's directory has an absolute URI.
+	p := filepath.FromSlash(r.Pickle.Doc.URI)
+	if !filepath.IsAbs(p) {
+		p = filepath.Join(cfg.Dir, p)
+	}
 	return fmt.Sprintf("%s:%d", relPath(p), r.Pickle.Line)
 }
 

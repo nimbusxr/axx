@@ -244,14 +244,48 @@ func steps() []core.StepDef {
 				"  | Cookie        |"},
 			Run: headersMissing,
 		},
+		{
+			ID: "mock.properties.are", Keyword: "Then", Arg: core.ArgTable,
+			Expr: "the payload properties for mocked request named {word}[[ on {mockedService}]] are:",
+			Doc: "Check that the named request was received with a JSON body that has every property of the table, each with its value.\n\n" +
+				"- A property is a JSONPath, like `deliverTo.postcode` or `$.lines[0].reference`; WireMock reads it.\n" +
+				"- Values compare as text: `800` matches the number 800, and `\"10115\"` the string 10115. `undefined` means the body has " +
+				"no such property, to check that a request leaves something out.\n" +
+				"- " + bodyJoins,
+			Table: &core.TableDoc{
+				Columns: []string{"property", "value"},
+				Note:    "A row is a property's JSONPath and the value it must have, or `undefined`.",
+			},
+			Examples: []string{"Then the payload properties for mocked request named collection on courier are:\n" +
+				"  | reference          | PX-REG-1401 |\n" +
+				"  | deliverTo.postcode | \"10115\"     |\n" +
+				"  | recipient          | undefined   |"},
+			Run: func(sc *core.Scenario, a core.Args) error { return bodyCheck(sc, a, (*pattern).withProperty) },
+		},
+		{
+			ID: "mock.form.are", Keyword: "Then", Arg: core.ArgTable,
+			Expr: "the form fields for mocked request named {word}[[ on {mockedService}]] are:",
+			Doc: "Check that the named request was received with a form-encoded body that has every field of the table, each with its value.\n\n" +
+				"- `undefined` means the form has no such field.\n" +
+				"- " + bodyJoins,
+			Table: &core.TableDoc{
+				Columns: []string{"field", "value"},
+				Note:    "A row is a field's name and the value it must have, or `undefined`.",
+			},
+			Examples: []string{"Then the form fields for mocked request named pickup-notice on courier are:\n" +
+				"  | reference | PX-WEB-5401 |\n" +
+				"  | day       | Friday      |"},
+			Run: func(sc *core.Scenario, a core.Args) error { return bodyCheck(sc, a, (*pattern).withField) },
+		},
 	}
 }
 
-// headerJoins and headersJoin say that the headers a step checks stay with
-// the named request: its later checks check them too.
+// headerJoins, headersJoin and bodyJoins say that what a step checks stays
+// with the named request: its later checks check it too.
 const (
 	headerJoins = "Later steps on the named request check this header too."
 	headersJoin = "Later steps on the named request check these headers too."
+	bodyJoins   = "Later steps on the named request check these too, so its counts count only the requests that have them."
 )
 
 func countStep(id, words string, ok func(got, n int) bool) core.StepDef {
@@ -407,6 +441,41 @@ func headersMissing(sc *core.Scenario, a core.Args) error {
 		p.withHeader(row[0], headerMatcher{Absent: true})
 	}
 	return verify(sc, svc, name, p, "at least 1", func(got int) bool { return got >= 1 })
+}
+
+// bodyCheck adds the table's rows to the named request's body (with add)
+// and checks that it was received.
+func bodyCheck(sc *core.Scenario, a core.Args, add func(*pattern, string, headerMatcher)) error {
+	svc, err := service(sc, a, 1)
+	if err != nil {
+		return err
+	}
+	name := a.String(0)
+	p, err := named(svc, name)
+	if err != nil {
+		return err
+	}
+	pairs, err := a.Table.Pairs()
+	if err != nil {
+		return err
+	}
+	for _, kv := range pairs {
+		add(p, kv.Key, bodyValue(kv.Value))
+	}
+	return verify(sc, svc, name, p, "at least 1", func(got int) bool { return got >= 1 })
+}
+
+// bodyValue is the matcher of a table value: `undefined` for an absent
+// property or field, otherwise its text, without the double quotes that
+// make a value a string in other steps' tables.
+func bodyValue(v string) headerMatcher {
+	if v == "undefined" {
+		return headerMatcher{Absent: true}
+	}
+	if len(v) >= 2 && v[0] == '"' && v[len(v)-1] == '"' {
+		v = v[1 : len(v)-1]
+	}
+	return headerMatcher{EqualTo: v}
 }
 
 // service returns the named service from argument i, or the default.

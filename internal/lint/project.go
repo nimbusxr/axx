@@ -41,7 +41,9 @@ func Project(ctx context.Context, cfg *config.Config, opts Options) (*Report, er
 		rep.Notes = append(rep.Notes, "some feature files were not checked (run `axx validate`): "+firstLine(err))
 	}
 	if set2 != nil && len(set2.Pickles) > 0 {
-		rep.Add(CheckFeatures(e.Registry, set2.Pickles, opts.WorkDir))
+		for _, rr := range FeatureChecks(e.Registry, set2.Pickles, opts.WorkDir) {
+			rep.Add(rr)
+		}
 		rep.Filter(opts)
 		rep.Hints = FixtureHints(e.Registry, set2.Pickles, FixtureSources{Resolve: e.ResolvePath, Generated: generated(cfg)}, opts)
 	}

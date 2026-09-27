@@ -1,11 +1,36 @@
 ---
 title: Send REST requests
-description: The redirects the REST pack follows and the ones it leaves to the scenario, cookies, and the headers custom steps give a request.
+description: Payloads from files, the redirects the REST pack follows and the ones it leaves to the scenario, cookies, and the headers custom steps give a request.
 ---
 
-A scenario registers a REST service, adds requests to it, executes them and checks their responses ([rest pack](/references/packs/rest/)). This page is about what happens in between: the redirects a request follows, the cookies it sends, and the headers a custom step gives it.
+A scenario registers a REST service, adds requests to it, executes them and checks their responses ([rest pack](/references/packs/rest/)). This page is about what happens in between: the payload a request sends, the redirects it follows, the cookies it sends, and the headers a custom step gives it.
 
 The REST pack tests APIs. To test a web app's pages, forms or sign-in, use the web-core pack: a real browser keeps cookies, follows redirects and submits forms, as the app's users do ([Test web apps](/guides/test-web-apps/)).
+
+## Payloads from files
+
+A payload starts from an example of the service's OpenAPI specification, from an empty template the payload property steps fill, or from a file of the project, sent as it is:
+
+```gherkin
+Scenario Outline: A shop's order system registers the parcels it exports
+  Given a POST request to /api/parcels
+  And a request payload using an application/json requests/<order>.json resource
+  When the request is executed
+  Then the response status code is 201
+  And the response header Location is '/api/parcels/<reference>'
+
+  Examples:
+    | order      | reference   |
+    | order-7731 | PX-REG-1301 |
+    | order-7732 | PX-REG-1302 |
+```
+
+- **The file is found like the other files steps name:** relative to the `resources` directories, or to `axx.yaml`'s directory.
+- **A JSON payload can still change.** The payload property steps edit it, like a payload from an example.
+- **A form payload file is a JSON object.** With `application/x-www-form-urlencoded`, its properties are sent form-encoded.
+- **No OpenAPI specification is needed,** which suits a callback or a webhook that the service has no contract for.
+
+A [fixture factory](/guides/fixture-factories/) keeps such files in one place and checks them against a schema. The parcels example generates the two files above with `requests/registrations.factory.yaml`, from the `ParcelRequest` schema of the service's OpenAPI contract.
 
 ## Redirects
 

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"slices"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -184,14 +185,20 @@ func (m *Manager) stopApp(ctx context.Context, a *app) error {
 	p.pipes.drain(drainWait)
 	p.group.release()
 
+	var cleanupErr error
 	if a.cleanup != nil {
 		m.log.Info("running cleanup", "app", name, "command", displayArgv(a.cleanup))
-		if err := runCleanup(ctx, m.console, a.tail, name, a.cleanup, a.dir, a.env); err != nil {
-			errs = append(errs, err)
+		if cleanupErr = runCleanup(ctx, m.console, a.tail, name, a.cleanup, a.dir, a.env); cleanupErr != nil {
+			errs = append(errs, cleanupErr)
 		}
 	}
 	m.mu.Lock()
 	a.cleaned = true
+	// A failed cleanup stays in the state file, for `axx down` to run again.
+	m.unclean = slices.DeleteFunc(m.unclean, func(sa stateApp) bool { return sa.Name == name })
+	if cleanupErr != nil {
+		m.unclean = append(m.unclean, uncleaned(stateApp{Name: name, Dir: a.dir, Cleanup: a.cleanup, Env: a.cfg.Env}))
+	}
 	m.saveStateLocked()
 	m.mu.Unlock()
 	return joinErrs(errs)

@@ -1,0 +1,17 @@
+{
+  "name": "collection-booked",
+  "request": {
+    "method": "POST",
+    "urlPath": "/v1/collections"
+  },
+  "response": {
+    "status": 201,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "body": "{\"collection\": \"COL-{{jsonPath request.body '$.reference'}}\"}",
+    "transformers": [
+      "response-template"
+    ]
+  }
+}

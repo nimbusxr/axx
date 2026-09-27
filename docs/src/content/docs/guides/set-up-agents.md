@@ -48,7 +48,7 @@ axx skills install --scope user    # your home directory, for every repository
 axx skills list
 ```
 
-`install` writes the skills to `.agents/skills/` (read by Codex, Cursor, Gemini CLI and Copilot) and links them into `.claude/skills/` for Claude Code (`--no-claude` skips the link). `axx init` installs them the same way, and links them for Claude Code only when the repository uses it. Commit them so every contributor and every CI agent gets them.
+`install` writes the skills to `.agents/skills/` (read by Codex, Cursor, Gemini CLI and Copilot) and, when the repository uses Claude Code (a `.claude/` directory, `CLAUDE.md` or `.mcp.json`), links them into `.claude/skills/` for it. `--claude` links them anyway, and `--no-claude` never; with `--scope user`, they are linked when your home directory has `.claude/`. A `.claude/` that holds nothing but these links does not count as using Claude Code, so `axx doctor` does not ask a Codex repository for a Claude Code MCP server. `axx init` installs them the same way. Commit them so every contributor and every CI agent gets them.
 
 | Skill | Teaches |
 | --- | --- |
@@ -72,7 +72,7 @@ The step references inside the skills are generated from *your* project, includi
 | `lint_run` | run `axx lint`: values such as seed ids that collide across files, with `file:line` |
 | `scenarios_run` | run scenarios (paths, tags, names); returns failures with expected and actual |
 | `failure_context` | logs, attachments and the last request and response of one failure |
-| `env` | `up`, `down` or `status` of the apps |
+| `env` | `up`, `down` or `status` of the apps: which are running, left over from a killed run, or not cleaned up |
 | `config_show` | the effective `axx.yaml`, with secrets redacted |
 | `scaffold` | starter contents for a feature or an `axx.yaml` |
 | `steps_try` | try steps in a live scenario that stays open between calls, until `restart` |

@@ -32,6 +32,10 @@ rest | rest.request.payload.example.on | a request payload using a(n) {mimeType}
 rest | rest.request.payload.example.on | a request payload using a(n) {mimeType} content example named {string} for request on {service}
 rest | rest.request.payload.example.on | a request payload using a(n) {mimeType} content example for {ordinal} ordered request on {service}
 rest | rest.request.payload.example.on | a request payload using a(n) {mimeType} content example named {string} for {ordinal} ordered request on {service}
+rest | rest.request.payload.resource | a request payload using a(n) {mimeType} {filepath} resource
+rest | rest.request.payload.resource | a request payload using a(n) {mimeType} {filepath} resource for {ordinal} ordered request
+rest | rest.request.payload.resource.on | a request payload using a(n) {mimeType} {filepath} resource for request on {service}
+rest | rest.request.payload.resource.on | a request payload using a(n) {mimeType} {filepath} resource for {ordinal} ordered request on {service}
 rest | rest.request.property | the request payload property {word} is {string}
 rest | rest.request.property | the request payload property {word} is {string} for {ordinal} ordered request
 rest | rest.request.property.on | the request payload property {word} is {string} for request on {service}
@@ -122,6 +126,10 @@ mock | mock.header.matches | the header {word} for mocked request named {word} o
 mock | mock.headers.match | the headers for mocked request named {word} on {mockedService} match:  [+table]
 mock | mock.header.missing | the header {word} for mocked request named {word} on {mockedService} is missing
 mock | mock.headers.missing | the headers for mocked request named {word} on {mockedService} are missing:  [+table]
+mock | mock.properties.are | the payload properties for mocked request named {word} are:  [+table]
+mock | mock.properties.are | the payload properties for mocked request named {word} on {mockedService} are:  [+table]
+mock | mock.form.are | the form fields for mocked request named {word} are:  [+table]
+mock | mock.form.are | the form fields for mocked request named {word} on {mockedService} are:  [+table]
 sql | sql.service | a(n) {word} database with the following properties:  [+table]
 sql | sql.seed | a {filepath} db seed
 sql | sql.seed | a {filepath} db seed on {dbService}

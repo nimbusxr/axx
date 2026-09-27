@@ -1,0 +1,10 @@
+{
+  "name": "pickup-noted",
+  "request": {
+    "method": "POST",
+    "urlPath": "/v1/pickups"
+  },
+  "response": {
+    "status": 204
+  }
+}

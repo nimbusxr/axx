@@ -52,6 +52,19 @@ func TestAgainstRealWireMock(t *testing.T) {
 		r.Body.Close()
 	}
 
+	// A JSON body and a form, for the payload and form checks.
+	for _, r := range []struct{ path, contentType, body string }{
+		{"/v1/collections", "application/json", `{"reference": "PX-REG-1401", "weightGrams": 800, "deliverTo": {"postcode": "10115", "country": "DE"}}`},
+		{"/v1/collections", "application/json", `{"reference": "PX-REG-1402", "weightGrams": 650, "recipient": {"name": "Ada Lovelace"}}`},
+		{"/v1/pickups", "application/x-www-form-urlencoded", "reference=PX-WEB-5401&day=Friday"},
+	} {
+		r, err := http.Post(base+r.path, r.contentType, strings.NewReader(r.body))
+		if err != nil {
+			t.Fatal(err)
+		}
+		r.Body.Close()
+	}
+
 	reg, sc, _, _ := setup(t)
 	run := func(text string, table ...[]string) error {
 		t.Helper()
@@ -71,6 +84,35 @@ func TestAgainstRealWireMock(t *testing.T) {
 			t.Fatalf("%s: %v", s, err)
 		}
 	}
+	if err := run("the mocked POST request to /v1/collections named collection was received by spacex"); err != nil {
+		t.Fatal(err)
+	}
+	if err := run("the mocked request named collection was received exactly 2 times"); err != nil {
+		t.Fatal(err)
+	}
+	// The body's properties narrow what the named request counts.
+	if err := run("the payload properties for mocked request named collection on spacex are:",
+		[]string{"reference", "PX-REG-1401"}, []string{"weightGrams", "800"},
+		[]string{"deliverTo.postcode", `"10115"`}, []string{"recipient", "undefined"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := run("the mocked request named collection was received exactly 1 time"); err != nil {
+		t.Fatal(err)
+	}
+	if err := run("the payload properties for mocked request named collection are:", []string{"weightGrams", "900"}); err == nil {
+		t.Error("a payload property with another value passed")
+	}
+	if err := run("the mocked POST request to /v1/pickups named pickup-notice was received by spacex"); err != nil {
+		t.Fatal(err)
+	}
+	if err := run("the form fields for mocked request named pickup-notice are:",
+		[]string{"reference", "PX-WEB-5401"}, []string{"day", "Friday"}, []string{"shop", "undefined"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := run("the form fields for mocked request named pickup-notice on spacex are:", []string{"day", "Tomorrow"}); err == nil {
+		t.Error("a form field with another value passed")
+	}
+
 	err = run("the mocked request named launches was received exactly 5 times")
 	if err == nil || !strings.Contains(err.Error(), "received 2") {
 		t.Fatalf("expected count failure with near misses, got %v", err)
