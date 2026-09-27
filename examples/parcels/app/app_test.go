@@ -138,8 +138,10 @@ func TestCourierRequests(t *testing.T) {
 	}))
 	defer srv.Close()
 	c := &courierClient{base: srv.URL, http: srv.Client()}
-	p := &Parcel{Reference: "PX-REG-1401", WeightGrams: 800, ServiceLevel: "EXPRESS",
-		Recipient: Recipient{Name: "Ada Lovelace", Street: "Invalidenstrasse 116", Postcode: "10115", Country: "DE"}}
+	p := &Parcel{
+		Reference: "PX-REG-1401", WeightGrams: 800, ServiceLevel: "EXPRESS",
+		Recipient: Recipient{Name: "Ada Lovelace", Street: "Invalidenstrasse 116", Postcode: "10115", Country: "DE"},
+	}
 	if err := c.book(context.Background(), p); err != nil {
 		t.Fatal(err)
 	}

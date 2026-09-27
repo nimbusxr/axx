@@ -128,7 +128,7 @@ func steps() []core.StepDef {
 			Doc:      "Check that the page looks like its screenshot, pixel by pixel (anti-aliasing aside)." + stepDoc,
 			Examples: []string{`Then the page looks like the "quote" screenshot`},
 			Run: webcore.Check(func(sc *core.Scenario, c *webcore.Current, a core.Args) error {
-				return looksLike(sc, c, webcore.Text(sc, a, 1), cloudstep.Wait(a, 0), func(pg playwright.Page) ([]byte, error) {
+				return looksLike(sc, c, webcore.Text(sc, a, 1), cloudstep.Wait(a, 0), false, func(pg playwright.Page) ([]byte, error) {
 					return pg.Screenshot(pageShot(nil))
 				})
 			}),
@@ -149,7 +149,7 @@ func steps() []core.StepDef {
 						}
 					}
 				}
-				return looksLike(sc, c, webcore.Text(sc, a, 1), cloudstep.Wait(a, 0), func(pg playwright.Page) ([]byte, error) {
+				return looksLike(sc, c, webcore.Text(sc, a, 1), cloudstep.Wait(a, 0), true, func(pg playwright.Page) ([]byte, error) {
 					var locs []playwright.Locator
 					for _, m := range masks {
 						found, err := c.Anything(m)
@@ -172,7 +172,7 @@ func steps() []core.StepDef {
 				if err != nil {
 					return err
 				}
-				return looksLike(sc, c, webcore.Text(sc, a, 3), cloudstep.Wait(a, 0), func(playwright.Page) ([]byte, error) {
+				return looksLike(sc, c, webcore.Text(sc, a, 3), cloudstep.Wait(a, 0), false, func(playwright.Page) ([]byte, error) {
 					return loc.Screenshot(playwright.LocatorScreenshotOptions{
 						Animations: playwright.ScreenshotAnimationsDisabled,
 						Caret:      playwright.ScreenshotCaretHide,
@@ -189,12 +189,14 @@ func pageShot(mask []playwright.Locator) playwright.PageScreenshotOptions {
 		Animations: playwright.ScreenshotAnimationsDisabled,
 		Caret:      playwright.ScreenshotCaretHide,
 		Mask:       mask,
+		MaskColor:  playwright.String(fmt.Sprintf("#%02X%02X%02X", maskColor.R, maskColor.G, maskColor.B)),
 	}
 }
 
 // looksLike compares what shoot takes with the screenshot name, once it
-// settles: two screenshots in a row alike.
-func looksLike(sc *core.Scenario, c *webcore.Current, name string, wait time.Duration, shoot func(playwright.Page) ([]byte, error)) error {
+// settles: two screenshots in a row alike. With masked, what shoot painted
+// over, in either screenshot, is left out.
+func looksLike(sc *core.Scenario, c *webcore.Current, name string, wait time.Duration, masked bool, shoot func(playwright.Page) ([]byte, error)) error {
 	if !screenshotName.MatchString(name) {
 		return fmt.Errorf("the screenshot name %q is not a file name: use letters, digits, spaces, dots and dashes", name)
 	}
@@ -242,7 +244,7 @@ func looksLike(sc *core.Scenario, c *webcore.Current, name string, wait time.Dur
 		if err != nil {
 			return false, err
 		}
-		result = compare(want, actual)
+		result = compare(want, actual, masked)
 		return result.sameSize && float64(result.differ) <= cfg.tolerance*float64(result.pixels), nil
 	})
 	if err != nil {

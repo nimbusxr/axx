@@ -60,7 +60,7 @@ func TestScreenshotsDifferByPixelsNotAntiAliasing(t *testing.T) {
 		}
 		return img
 	}
-	if c := compare(page(nil), page(nil)); !c.sameSize || c.differ != 0 || c.pixels != 800 {
+	if c := compare(page(nil), page(nil), false); !c.sameSize || c.differ != 0 || c.pixels != 800 {
 		t.Errorf("alike: %+v", c)
 	}
 	// A block of another color differs.
@@ -70,21 +70,38 @@ func TestScreenshotsDifferByPixelsNotAntiAliasing(t *testing.T) {
 				img.SetRGBA(x, y, color.RGBA{220, 30, 30, 255})
 			}
 		}
-	}))
+	}), false)
 	if c.differ != 12 {
 		t.Errorf("a red block: %d pixels differ", c.differ)
 	}
+	// A masked element, a time, painted over one pixel wider in one of the
+	// screenshots than in the other: left out where either is painted over.
+	masks := func(x1 int) func(img *image.RGBA) {
+		return func(img *image.RGBA) {
+			for y := 4; y < 8; y++ {
+				for x := 10; x < x1; x++ {
+					img.SetRGBA(x, y, maskColor)
+				}
+			}
+		}
+	}
+	if c := compare(page(masks(20)), page(masks(21)), true); c.differ != 0 {
+		t.Errorf("masks of two sizes: %d pixels differ", c.differ)
+	}
+	if c := compare(page(masks(20)), page(masks(21)), false); c.differ != 4 {
+		t.Errorf("unmasked, the wider mask differs: %d pixels differ", c.differ)
+	}
 	// A slightly lighter edge pixel, as anti-aliasing draws it, does not.
-	c = compare(page(nil), page(func(img *image.RGBA) { img.SetRGBA(5, 10, color.RGBA{90, 90, 90, 255}) }))
+	c = compare(page(nil), page(func(img *image.RGBA) { img.SetRGBA(5, 10, color.RGBA{90, 90, 90, 255}) }), false)
 	if c.differ != 0 {
 		t.Errorf("anti-aliasing: %d pixels differ", c.differ)
 	}
 	// A color close enough is the same color.
-	c = compare(page(nil), page(func(img *image.RGBA) { img.SetRGBA(20, 2, color.RGBA{250, 250, 250, 255}) }))
+	c = compare(page(nil), page(func(img *image.RGBA) { img.SetRGBA(20, 2, color.RGBA{250, 250, 250, 255}) }), false)
 	if c.differ != 0 {
 		t.Errorf("a near color: %d pixels differ", c.differ)
 	}
-	if c := compare(page(nil), image.NewRGBA(image.Rect(0, 0, 40, 30))); c.sameSize || c.actualSize != "40x30" || c.expectedSize != "40x20" {
+	if c := compare(page(nil), image.NewRGBA(image.Rect(0, 0, 40, 30)), false); c.sameSize || c.actualSize != "40x30" || c.expectedSize != "40x20" {
 		t.Errorf("sizes: %+v", c)
 	}
 }

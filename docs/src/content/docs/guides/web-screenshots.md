@@ -55,6 +55,8 @@ Scenario: A parcel's page looks as designed, whatever the time it was registered
     | css=time |
 ```
 
+What is painted over in either screenshot is left out of the comparison, so an element may change size from run to run, like a time whose digits differ.
+
 Better still, give pages fixed data: a seeded parcel, and the browser's clock set to a time ([The browser's clock](/guides/web-pages/#the-browsers-clock)).
 
 ## Settings
