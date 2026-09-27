@@ -195,10 +195,13 @@ func TestJSONAdoptionRoundTrips(t *testing.T) {
 
 func TestJSONAdoptionEmitsTheJavaFileSet(t *testing.T) {
 	w := jsonWorkspace(t)
-	if _, err := w.adopter().Adopt("json", "schemas/telemetry.schema.json", "ingest/*.json", "ingested-telemetry", false); err != nil {
+	a := w.adopter()
+	a.Choice = AdoptChoice{Common: true, declareCandidates: true}
+	if _, err := a.Adopt("json", "schemas/telemetry.schema.json", "ingest/*.json", "ingested-telemetry", false); err != nil {
 		t.Fatal(err)
 	}
-	// The exact bytes of this adoption.
+	// The exact bytes of this adoption, with the most common values and every
+	// candidate declared.
 	expect(t, w.read("ingest/ingested-telemetry.factory.yaml"), `# Adopted by axx fixtures. Values are preserved verbatim from the
 # original files; review the proposed identity candidates below.
 factory:
@@ -252,7 +255,9 @@ func TestJSONOverlappingIdentityCandidatesKeepOnlyTheFirst(t *testing.T) {
  "additionalProperties": false}`)
 	w.write("echo/self-correlated.json", `{"txn_id": "T-1", "correlated_id": "T-1", "note": "reversal of itself"}`)
 	w.write("echo/cross-correlated.json", `{"txn_id": "T-2", "correlated_id": "T-9", "note": "reversal of another"}`)
-	res, err := w.adopter().Adopt("json", "schemas/echo.schema.json", "echo/*.json", "echo-events", false)
+	a := w.adopter()
+	a.Choice = AdoptChoice{Identities: []string{"txn_id"}}
+	res, err := a.Adopt("json", "schemas/echo.schema.json", "echo/*.json", "echo-events", false)
 	if err != nil {
 		t.Fatal(err)
 	}

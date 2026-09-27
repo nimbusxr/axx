@@ -526,7 +526,7 @@ func (a *datasetAdoption) AuthoringTree(data []byte, where string) (*jsonx.Objec
 
 func (a *datasetAdoption) Shape() (*FieldShape, error) { return shapeRoot(nil), nil }
 
-func (a *datasetAdoption) Analyze(fixtureKeys []string, trees map[string]*jsonx.Object) (*AdoptionAnalysis, error) {
+func (a *datasetAdoption) Analyze(fixtureKeys []string, trees map[string]*jsonx.Object, choice AdoptChoice) (*AdoptionAnalysis, error) {
 	// Every row per table across every document, tables in sorted order.
 	rowsByTable := map[string][]*jsonx.Object{}
 	var tables []string
@@ -596,7 +596,15 @@ func (a *datasetAdoption) Analyze(fixtureKeys []string, trees map[string]*jsonx.
 		}
 		kept = append(kept, p)
 	}
-	identityPaths = kept
+	// Candidates are reported; the chosen ones are declared.
+	var candidates []Candidate
+	identityPaths = nil
+	for _, p := range kept {
+		candidates = append(candidates, Candidate{Path: p, Of: len(rowsByTable[p[:strings.LastIndexByte(p, '.')]])})
+		if choice.declared(p) {
+			identityPaths = append(identityPaths, p)
+		}
+	}
 	isIdentity := func(p string) bool {
 		for _, q := range identityPaths {
 			if q == p {
@@ -606,8 +614,9 @@ func (a *datasetAdoption) Analyze(fixtureKeys []string, trees map[string]*jsonx.
 		return false
 	}
 
-	// Row template per table: columns present in every row, modal value
-	// shared by more than one row.
+	// Row template per table: columns present in every row, with the value
+	// every row has (or, by choice, the most common one), shared by more
+	// than one row.
 	prototype := jsonx.NewObject()
 	for _, t := range tables {
 		rows := rowsByTable[t]
@@ -636,7 +645,7 @@ func (a *datasetAdoption) Analyze(fixtureKeys []string, trees map[string]*jsonx.
 				continue
 			}
 			best, count := modal(values)
-			if count > 1 {
+			if count > 1 && (choice.Common || count == len(values)) {
 				template.Set(c, best)
 			}
 		}
@@ -672,5 +681,5 @@ func (a *datasetAdoption) Analyze(fixtureKeys []string, trees map[string]*jsonx.
 		}
 		fixtures[k] = data
 	}
-	return &AdoptionAnalysis{IdentityPaths: identityPaths, Prototype: prototype, Fixtures: fixtures}, nil
+	return &AdoptionAnalysis{IdentityPaths: identityPaths, Candidates: candidates, Prototype: prototype, Fixtures: fixtures}, nil
 }

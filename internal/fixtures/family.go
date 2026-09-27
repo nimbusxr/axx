@@ -68,14 +68,44 @@ type Adoption interface {
 // Analyzer replaces the generic field-shape analysis when a family's
 // fixture unit is not a single record (datasets).
 type Analyzer interface {
-	Analyze(keys []string, trees map[string]*jsonx.Object) (*AdoptionAnalysis, error)
+	Analyze(keys []string, trees map[string]*jsonx.Object, choice AdoptChoice) (*AdoptionAnalysis, error)
+}
+
+// AdoptChoice is what the person adopting chose.
+type AdoptChoice struct {
+	// Common takes each field's most common value into the prototype;
+	// otherwise only values identical in every adopted file (or row) go
+	// there, so no fixture's particular values become everyone's default.
+	Common bool
+	// Identities are the candidate paths declared as identities; the other
+	// candidates are only reported.
+	Identities []string
+	// declareCandidates declares every candidate (the earlier behavior,
+	// which the expected adoptions record).
+	declareCandidates bool
+}
+
+// declared reports whether a candidate path is declared as an identity.
+func (c AdoptChoice) declared(path string) bool {
+	return c.declareCandidates || containsString(c.Identities, path)
 }
 
 // AdoptionAnalysis is a complete custom analysis.
 type AdoptionAnalysis struct {
+	// IdentityPaths are the declared identities.
 	IdentityPaths []string
-	Prototype     *jsonx.Object
-	Fixtures      map[string]*jsonx.Object
+	// Candidates are the paths whose values are distinct in every file (or
+	// row), with how many they were compared across.
+	Candidates []Candidate
+	Prototype  *jsonx.Object
+	Fixtures   map[string]*jsonx.Object
+}
+
+// Candidate is a path adoption proposes as an identity: its values are
+// distinct across Of files (or rows).
+type Candidate struct {
+	Path string
+	Of   int
 }
 
 // FieldShape is one node of a schema's field tree, in declaration order.
