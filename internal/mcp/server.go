@@ -47,7 +47,7 @@ Workflow for writing acceptance tests:
 5. On failure, read the returned failures (expected/actual); failure_context gives logs and request/response details (without a runId: the latest run).
 Every scenario must use unique test data (ids, names, keys): scenarios run in parallel and data persists between runs. After adding seeds, payloads or fixtures, lint_run reports values that collide with other files.
 When seeds, payloads or mock bodies repeat across scenarios, fixture factories generate them from one shape with unique ids (optional; ` + "`axx fixtures`" + `, the axx-test-data skill); ` + "`axx fixtures adopt`" + ` converts hand-written ones.
-Ask axx rather than reading files: config_show (the effective axx.yaml and its packs); on the command line, ` + "`axx doctor --json`" + ` (prerequisites, packs, agents), ` + "`axx pack list`" + ` (the packs there are), ` + "`axx validate --json`" + ` (features, scenarios, steps), ` + "`axx fixtures check --json`" + ` (what the factories generate) and ` + "`axx fixtures adopt --dry-run`" + ` (an adoption, previewed).`
+Ask axx rather than reading files: config_show (the effective axx.yaml and its packs); on the command line, ` + "`axx doctor --json`" + ` (prerequisites, packs, agents), ` + "`axx pack list`" + ` (the packs there are), ` + "`axx validate --json`" + ` (features, scenarios, steps), ` + "`axx fixtures check --json`" + ` (what the factories generate), ` + "`axx fixtures explain <file> <path>`" + ` (the source that sets a generated value) and ` + "`axx fixtures adopt --dry-run`" + ` (an adoption, previewed).`
 
 // Options configures the server.
 type Options struct {
