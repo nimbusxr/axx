@@ -7,8 +7,8 @@ Feature: Parcels at the border
     Given the customs azure storage account with the following properties:
       | connection string | DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=bG9jYWw=;BlobEndpoint=http://${sys:local.host}:4577/devstoreaccount1; |
     And the customs service bus namespace with the following properties:
-      | connection string   | Endpoint=sb://${sys:local.host}:5673;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=local;UseDevelopmentEmulator=true; |
-      | management endpoint | http://${sys:local.host}:4577/devstoreaccount1-servicebus |
+      | connection string   | Endpoint=sb://${sys:local.host}:5672;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=SAS_KEY_VALUE;UseDevelopmentEmulator=true; |
+      | management endpoint | http://${sys:local.host}:5300                                                                                                                 |
 
   Scenario: A cleared parcel is released when it reaches the border
     Given the invoices/DEC-7104.json file is uploaded to the commercial-invoices blob container

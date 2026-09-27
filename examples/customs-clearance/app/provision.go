@@ -41,20 +41,22 @@ func provision(ctx context.Context, c *clients, n names, log *slog.Logger) error
 	return nil
 }
 
-// waitForAzure waits until Blob Storage answers (an emulator starting next
-// to the service).
+// waitForAzure waits until Blob Storage and the Service Bus management API
+// answer (emulators starting next to the service).
 func waitForAzure(ctx context.Context, c *clients) error {
-	deadline := time.Now().Add(time.Minute)
+	deadline := time.Now().Add(3 * time.Minute)
 	for {
-		pager := c.blob.NewListContainersPager(nil)
-		_, err := pager.NextPage(ctx)
+		_, err := c.blob.NewListContainersPager(nil).NextPage(ctx)
+		if err == nil {
+			_, err = c.admin.NewListQueuesPager(nil).NextPage(ctx)
+		}
 		if err == nil {
 			return nil
 		}
 		if time.Now().After(deadline) {
 			return err
 		}
-		time.Sleep(500 * time.Millisecond)
+		time.Sleep(time.Second)
 	}
 }
 
