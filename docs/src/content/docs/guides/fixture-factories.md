@@ -92,6 +92,8 @@ When the schema gains a required field, generation fails and names every fixture
 | `protobuf` | canonical proto-JSON | a `.proto` file or a descriptor set, with the message (`<file>.proto#pkg.Message`, `<set>.desc#pkg.Message`) |
 | `dataset` | SQL seeds: YAML datasets, flat XML or CSV directories | optional SQL DDL (a file or a directory of migrations) |
 
+A JSON Schema can reference definitions in other local files, by a path relative to the schema holding the `$ref`, with or without a fragment: `"$ref": "address.schema.json"` or `"$ref": "common/money.schema.json#/$defs/Money"`. A failure a referenced file's rule causes names that file. Remote schemas are not fetched: save them next to yours.
+
 For `dataset`, the prototype is a row template per table, and identities are `table.column` paths enforced per row. `options: { format: xml }` or `{ format: csv }` in the factory writes flat XML or a CSV directory instead of YAML. The parcels example generates its rejected manifest lines as flat XML:
 
 ```yaml title="seeds/manifests/xml/manifests-xml.factory.yaml"
