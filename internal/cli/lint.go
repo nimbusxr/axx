@@ -118,7 +118,7 @@ configuration, 3 violations.`,
 		},
 	}
 	cmd.Flags().StringArrayVarP(&formats, "format", "f", nil, "output NAME or NAME:FILE (repeatable): "+strings.Join(lint.Formats, ", "))
-	cmd.Flags().StringVar(&mode, "mode", "", "override the mode of every rule: error or warn")
+	cmd.Flags().StringVar(&mode, "mode", "", "override the mode of every rule, the built-in feature checks included: error or warn")
 	cf.register(cmd)
 	return cmd
 }

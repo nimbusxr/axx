@@ -266,3 +266,22 @@ func TestLintHintsAtFixtureFactories(t *testing.T) {
 		t.Errorf("hints %q, summary %+v", env.Data.Hints, env.Data.Summary)
 	}
 }
+
+// --mode error makes the builtin feature checks errors too: CI can fail on
+// an ordinal every run would fail on, before any app starts.
+func TestLintModeErrorAppliesToTheFeatureChecks(t *testing.T) {
+	dir := t.TempDir()
+	t.Chdir(dir)
+	writeFiles(t, dir, map[string]string{
+		"axx.yaml":           "version: 1\n",
+		"axx-packs.yaml":     "packs: [sql]\n",
+		"features/f.feature": "Feature: f\n  Scenario: s\n    Then the 2nd selection has 1 row\n",
+	})
+	if out, stderr, code := run(t, "lint"); code != int(exitcode.OK) || !strings.Contains(out, "1 warning") {
+		t.Fatalf("by default a warning: exit %d\n%s%s", code, out, stderr)
+	}
+	out, stderr, code := run(t, "lint", "--mode", "error")
+	if code != int(exitcode.Undefined) || !strings.Contains(out, "1 error") || !strings.Contains(out, "AXX-E0830") {
+		t.Fatalf("--mode error: exit %d\n%s%s", code, out, stderr)
+	}
+}

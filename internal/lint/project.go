@@ -42,7 +42,7 @@ func Project(ctx context.Context, cfg *config.Config, opts Options) (*Report, er
 	}
 	if set2 != nil && len(set2.Pickles) > 0 {
 		for _, rr := range FeatureChecks(e.Registry, set2.Pickles, opts.WorkDir) {
-			rep.Add(rr)
+			rep.Add(withMode(rr, opts.Mode))
 		}
 		rep.Filter(opts)
 		rep.Hints = FixtureHints(e.Registry, set2.Pickles, FixtureSources{Resolve: e.ResolvePath, Generated: generated(cfg)}, opts)
@@ -67,4 +67,22 @@ func generated(cfg *config.Config) func(abs string) bool {
 func firstLine(err error) string {
 	s, _, _ := strings.Cut(err.Error(), "\n")
 	return strings.TrimSuffix(s, ":")
+}
+
+// withMode applies --mode to a builtin check, a warning by default: `axx lint
+// --mode error` fails on the ordinals every run would fail on, before any
+// app starts.
+func withMode(rr RuleResult, mode string) RuleResult {
+	if mode == "" {
+		return rr
+	}
+	rr.Mode = mode
+	severity := SeverityWarning
+	if mode == ModeError {
+		severity = SeverityError
+	}
+	for i := range rr.Findings {
+		rr.Findings[i].Severity = severity
+	}
+	return rr
 }

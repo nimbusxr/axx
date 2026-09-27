@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
@@ -230,5 +231,26 @@ func TestAgentsTryStepsInALiveScenario(t *testing.T) {
 	call(t, cs, "steps_try", map[string]any{"restart": true, "steps": "Given parcel PX-4105 is put on the shelf"})
 	if out := call(t, cs, "shelf_list", map[string]any{}); fmt.Sprint(out["parcels"]) != "[PX-4105]" {
 		t.Fatalf("after a restart: %v", out)
+	}
+}
+
+// A pack added after the server started is not in it: the agent is told to
+// restart the server.
+func TestAServerStartedWithoutAPackSaysToRestart(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "axx.yaml"), []byte("version: 1\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "axx-packs.yaml"), []byte("packs: [rest, ./steps]\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cs := session(t, dir)
+	res, err := cs.CallTool(context.Background(), &sdk.CallToolParams{Name: "steps_search", Arguments: map[string]any{"query": "status code"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, _ := json.Marshal(res.Content)
+	if !res.IsError || !strings.Contains(string(b), "restart the axx MCP server") || !strings.Contains(string(b), "./steps") {
+		t.Errorf("the error does not say to restart the server: %s", b)
 	}
 }

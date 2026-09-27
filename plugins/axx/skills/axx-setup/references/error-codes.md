@@ -98,6 +98,14 @@ axx adds its MCP server to an agent's configuration file only when it can read t
 
 **Fix:** Add the server yourself: the hint shows the lines to add. Or fix the file and run the command again.
 
+### AXX-E0014
+
+**No packs to document** · exit 2
+
+`axx docs export` found no packs to document: it was run outside an axx project with an axx that has no packs built in, or in a project that lists no packs.
+
+**Fix:** Run it in your project's directory (where axx.yaml is); axx's own packs are documented at https://axx.nimbusxr.us/references/packs/. A project adds its packs with `axx pack add`.
+
 ## Configuration (axx.yaml)
 
 ### AXX-E0100

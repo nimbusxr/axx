@@ -70,7 +70,7 @@ A new seed file reused a reference that `seeds/manifest-kestrel.yaml` already in
 
 The `hint:` lines are suggestions, never errors or warnings. When the scenarios read three or more hand-written `.json` or `.yaml` files from one directory, whose top-level keys are the same and that no [fixture factory](/guides/fixture-factories/) generates, `axx lint` suggests one: it would keep what the files share in one place and each file's differences in its own. Factories are optional; `axx fixtures adopt` turns the files into one without changing a value.
 
-`axx lint` exits with `3` when an `error`-mode rule finds a duplicate, like `axx validate` does for undefined steps. Run it in CI next to `axx validate`, and start new rules in `warn` mode while you clean up existing data.
+`axx lint` exits with `3` when an `error`-mode rule finds a duplicate, like `axx validate` does for undefined steps. Run it in CI next to `axx validate`, and start new rules in `warn` mode while you clean up existing data. `axx lint --mode error` makes every rule an error, the built-in checks of the features too, so CI fails on an ordinal that would fail every run, before any app starts.
 
 ## Tips
 
