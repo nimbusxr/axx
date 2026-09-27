@@ -53,6 +53,21 @@ The fixture's file name is its name, and `scan-delivered.json` is what features 
 }
 ```
 
+## Identities
+
+An `identity:` entry names a field that tells fixtures apart, like `scanId` above. A fixture that gives it a value keeps that value; one that leaves it out gets one derived from its name (`prefix:` goes in front, and `format: uuid-name-based` makes it a UUID). Generation fails when two fixtures, of any factories, have the same value in identity fields of the same name, and names both fixtures.
+
+- **Fields of different names never collide.** A shop's `key` and a pickup's `id` can both be `alder-stationery`. So can two identity fields of one fixture: each identity is checked on its own.
+- **A namespace groups identities by what they identify.** Give identities a `namespace:` when their field names say too little. Different namespaces keep fields of one name apart: a depot's `id` and a shop's `id` can both be `leipzig`. One namespace compares fields of different names: a SQL seed's `shops.shop_id` and a registration payload's `shopId` that both create shops.
+
+```yaml title="depots/depots.factory.yaml"
+identity:
+  - path: id
+    namespace: depots     # a depot's id may equal a shop's
+```
+
+Before namespaces, identity values were unique across every identity field of every factory. To keep that, give every identity the same namespace.
+
 ## Reference other fixtures
 
 A value can be another fixture, or part of one, with `$ref`: the path of its `*.fixture.yaml` (or `*.factory.yaml`) file, relative to the file that refers to it (a leading `/` starts at the directory of `axx.yaml`, or `fixtures.baseDir`), then `#` and a JSON Pointer into it.

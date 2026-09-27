@@ -193,7 +193,7 @@ func (datasetFamily) applyIdentities(spec *Spec, ctx *ExpansionContext, key, tab
 			}
 			value = ctx.identities.derive(id, name)
 		}
-		if err := ctx.identities.claim(value, spec.SourceName, key+" "+table+"["+itoa(index)+"]", id.Path); err != nil {
+		if err := ctx.identities.claim(id, value, spec.SourceName, key+" "+table+"["+itoa(index)+"]"); err != nil {
 			return err
 		}
 		row.Set(column, value)
@@ -574,8 +574,9 @@ func (a *datasetAdoption) Analyze(fixtureKeys []string, trees map[string]*jsonx.
 			}
 		}
 	}
-	// Identity values share one namespace: a column echoing an earlier
-	// candidate's values cannot be an identity too.
+	// Identities of one field name own their values together: a column
+	// echoing the values of an earlier candidate of its name cannot be an
+	// identity too.
 	claimed := map[string]bool{}
 	var kept []string
 	for _, p := range identityPaths {
@@ -584,7 +585,7 @@ func (a *datasetAdoption) Analyze(fixtureKeys []string, trees map[string]*jsonx.
 		var values []string
 		overlap := false
 		for _, row := range rowsByTable[t] {
-			v := valueOf(get(row, col))
+			v := col + "\x00" + valueOf(get(row, col))
 			values = append(values, v)
 			overlap = overlap || claimed[v]
 		}

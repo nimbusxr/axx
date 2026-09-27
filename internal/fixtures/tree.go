@@ -42,7 +42,7 @@ func resolveValues(spec *Spec, fixtureKey string, ctx *ExpansionContext) (*jsonx
 
 // resolveFixture is FixtureTree.resolve: resolveValues, then each identity
 // pinned by presence (a value at the path is the fixture's authored identity)
-// or derived from the fixture key, and claimed module-wide.
+// or derived from the fixture key, and claimed module-wide in its group.
 func resolveFixture(spec *Spec, fixtureKey string, ctx *ExpansionContext) (*jsonx.Object, error) {
 	tree, err := resolveValues(spec, fixtureKey, ctx)
 	if err != nil {
@@ -62,7 +62,7 @@ func resolveFixture(spec *Spec, fixtureKey string, ctx *ExpansionContext) (*json
 		default:
 			value = ctx.identities.derive(id, fixtureKey)
 		}
-		if err := ctx.identities.claim(value, spec.SourceName, fixtureKey, id.Path); err != nil {
+		if err := ctx.identities.claim(id, value, spec.SourceName, fixtureKey); err != nil {
 			return nil, err
 		}
 		if err := pathSet(tree, id.Path, value); err != nil {

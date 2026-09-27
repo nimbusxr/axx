@@ -677,8 +677,8 @@ func commonPrefix(fixtureKeys []string, trees map[string]*jsonx.Object, path str
 
 // identityCandidates are the dotted paths of string leaves whose values are
 // present and distinct across every file (two files at least); a candidate
-// whose values overlap an earlier one's is dropped, since identity values
-// share one namespace.
+// whose values overlap an earlier one's of the same field name is dropped,
+// since those identities own their values together.
 func identityCandidates(shape *FieldShape, fixtureKeys []string, trees map[string]*jsonx.Object) []string {
 	if len(fixtureKeys) < 2 {
 		return nil
@@ -704,7 +704,7 @@ func identityCandidates(shape *FieldShape, fixtureKeys []string, trees map[strin
 		var values []string
 		overlap := false
 		for _, k := range fixtureKeys {
-			v := javaKey(mustGet(trees[k], p))
+			v := fieldName(p) + "\x00" + javaKey(mustGet(trees[k], p))
 			values = append(values, v)
 			overlap = overlap || claimed[v]
 		}
