@@ -118,6 +118,16 @@ fixtures:
 
 With `output: { ignored: true }`, generated files are derived on demand instead of committed: Axx maintains an exact `.gitignore` in each output directory, and a fresh clone runs `axx fixtures generate` once before `axx run`. The specs, the manifest and the generated lint rules stay committed; they are what reviewers read.
 
+In CI, check before you generate:
+
+```sh
+axx fixtures check      # the sources, the committed manifest and any generated files agree
+axx fixtures generate   # write the ignored outputs this checkout lacks
+axx run
+```
+
+A fresh clone checks clean: the ignored outputs it lacks pass when the committed manifest records what the sources produce. Changed sources whose manifest was not generated again fail, and so does a generated file edited by hand. The other order would hide a stale manifest, because generate brings it up to date.
+
 `conformance` rules check files that no factory owns, so hand-written seeds are held to the same schema.
 
 ## Adopt existing files
