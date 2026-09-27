@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.2](https://github.com/nimbusxr/axx/compare/v0.1.1...v0.1.2) (2026-09-27)
+
+
+### Features
+
+* failed cleanups are kept, REST ordinals are linted, payloads come from files, mocks check bodies ([#23](https://github.com/nimbusxr/axx/issues/23)) ([e028593](https://github.com/nimbusxr/axx/commit/e0285934aa0b51fb3c2bc4c212c5b2625d8003bc))
+
 ## [0.1.1](https://github.com/nimbusxr/axx/compare/v0.1.0...v0.1.1) (2026-09-27)
 
 
