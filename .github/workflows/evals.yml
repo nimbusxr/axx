@@ -41,7 +41,7 @@ concurrency:
 
 jobs:
   evals:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 720
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
@@ -51,7 +51,7 @@ jobs:
         with:
           go-version-file: evals/go.mod
           cache: false
-      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
       - name: Install Harbor
         run: uv tool install harbor==0.23.0
       - name: Run the evals

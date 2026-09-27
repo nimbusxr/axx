@@ -54,7 +54,7 @@ defaults:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -77,7 +77,7 @@ jobs:
           retention-days: 7
 
   image:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -97,7 +97,7 @@ jobs:
   publish:
     if: inputs.dry-run || (vars.AXX_PUBLISH == 'true' && (github.event_name == 'push' || inputs.version != ''))
     needs: [test, image]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # A release publishes from the release environment (main only, approved by a maintainer).
     environment: ${{ inputs.version != '' && !inputs.dry-run && 'release' || '' }}
     permissions:
@@ -172,7 +172,7 @@ jobs:
     # Releases also attach the fat jar, for running WireMock standalone without the image.
     if: inputs.version != '' && (inputs.dry-run || vars.AXX_PUBLISH == 'true')
     needs: [test]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     environment: ${{ !inputs.dry-run && 'release' || '' }}
     permissions:
       contents: write # upload the release asset

@@ -104,7 +104,7 @@ jobs:
       - uses: actions/checkout@v5
       - uses: nimbusxr/setup-axx@v0
       - run: axx run --format junit:build/axx/junit.xml --format html:build/axx/report.html
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: axx-report

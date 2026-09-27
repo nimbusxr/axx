@@ -27,7 +27,7 @@ jobs:
       - uses: actions/checkout@v5
       - uses: nimbusxr/setup-axx@v0
       - run: axx run --format junit:build/axx/junit.xml --format html:build/axx/report.html
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: axx-report
@@ -81,7 +81,7 @@ docker run --rm -v axx-cache:/home/nonroot -v "$PWD:/work" -w /work ghcr.io/nimb
 The first command in a project prepares Axx with the packs in `axx-packs.yaml` ([Choose packs](/guides/use-packs/)). On a fresh runner, that happens on every run. Keep the prepared builds between runs to skip it. In GitHub Actions, add this step before `axx run`:
 
 ```yaml
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: ~/.cache/axx/builds
           key: axx-${{ runner.os }}-${{ hashFiles('**/axx-packs.yaml', '**/axx-packs.lock') }}

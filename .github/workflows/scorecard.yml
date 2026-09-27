@@ -13,7 +13,7 @@ permissions: {}
 jobs:
   analysis:
     if: vars.AXX_PUBLISH == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
       security-events: write
