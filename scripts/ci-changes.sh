@@ -2,14 +2,14 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 # Which CI jobs a pull request needs, from the files it changes, one per line on stdin. Prints
-# name=value lines for $GITHUB_OUTPUT: go, integration, web, examples and workflows (true or
-# false), and codeql, the matrix of the languages CodeQL analyzes.
+# name=value lines for $GITHUB_OUTPUT: go, integration, web, examples, acceptance and workflows
+# (true or false), and codeql, the matrix of the languages CodeQL analyzes.
 #   usage: git diff --name-only BASE...HEAD | scripts/ci-changes.sh
 #          scripts/ci-changes.sh --all   # every job: pushes to main, the merge queue
 # A change to CI itself runs every job too.
 set -euo pipefail
 
-go=false integration=false web=false examples=false workflows=false
+go=false integration=false web=false examples=false acceptance=false workflows=false
 lang_go=false lang_java=false lang_js=false lang_actions=false
 all=false
 if [[ "${1:-}" == --all ]]; then
@@ -46,6 +46,12 @@ while ! $all && IFS= read -r f; do
   case "$f" in
     examples/*/app/* | mise.toml) examples=true ;;
   esac
+  # The examples' acceptance suites: axx, the examples, and the WireMock extension the parcels
+  # example builds its mocks from.
+  case "$f" in
+    cmd/* | core/* | internal/* | packs/* | go.mod | go.sum | mise.toml | examples/* | extensions/wiremock-openapi/*)
+      acceptance=true ;;
+  esac
   case "$f" in
     *.go | go.mod | go.sum | */go.mod | */go.sum) lang_go=true ;;
     *.java | *.kt | *.kts | *.gradle | *gradle.properties | *pom.xml) lang_java=true ;;
@@ -54,7 +60,7 @@ while ! $all && IFS= read -r f; do
 done
 
 if $all; then
-  go=true integration=true web=true examples=true workflows=true
+  go=true integration=true web=true examples=true acceptance=true workflows=true
   lang_go=true lang_java=true lang_js=true lang_actions=true
 fi
 
@@ -69,5 +75,6 @@ echo "go=$go"
 echo "integration=$integration"
 echo "web=$web"
 echo "examples=$examples"
+echo "acceptance=$acceptance"
 echo "workflows=$workflows"
 echo "codeql={\"include\":[$langs]}"
