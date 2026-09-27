@@ -38,6 +38,9 @@ const (
 	CodeSchema = "AXX-E0907"
 	// CodeIO: a file could not be read or written.
 	CodeIO = "AXX-E0908"
+	// CodeExplain: `axx fixtures explain` was given a file no factory
+	// generates, or a path that holds no single value.
+	CodeExplain = "AXX-E0910"
 )
 
 const hintGenerate = "fix the factory sources (defaults:, prototype, fixture data) and run `axx fixtures generate`"

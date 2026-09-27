@@ -26,7 +26,7 @@ A factory keeps the shared shape once and each fixture as only its differences. 
 5. **Use the generated file** in the step, exactly as a hand-written one.
 6. **Check:** `axx fixtures check` (nothing drifted), then `axx lint` (no id collides with another file).
 
-Never edit a generated file: generate refuses to overwrite a hand-edited one (`AXX-E0903`). Change the fixture, the prototype or the factory, then generate again. To remove a fixture, delete its `*.fixture.yaml` and the file it generated, then generate: the old file is no longer the factory's.
+Never edit a generated file: generate refuses to overwrite a hand-edited one (`AXX-E0903`). Change the fixture, the prototype or the factory, then generate again. To find which of them sets a value, ask `axx fixtures explain <generated file> <path>` rather than tracing the layers yourself. To remove a fixture, delete its `*.fixture.yaml` and the file it generated, then generate: the old file is no longer the factory's.
 
 ## The files
 
@@ -166,6 +166,7 @@ Then run `axx fixtures generate`. The files keep their names, so the features ch
 | --- | --- |
 | `axx fixtures generate` | writes the files that changed, the manifest and the generated lint rules; `--dry-run` lists them |
 | `axx fixtures check` | read only: every generated file equals what its factory generates, the manifest lists exactly what the factories produce, files matched by `conformance` rules pass their schema. Exit 1 on any failure |
+| `axx fixtures explain <file> <path>` | read only: where one value of a generated file comes from (the fixture, a prototype overlay, the prototype, `defaults:` or the schema's default, through any `$ref`, expression or identity), with the file and the place in it to edit. `--json` lists the origins |
 | `axx fixtures clean` | deletes the ignored outputs (below); `--dry-run` lists them |
 | `axx fixtures untrack` | `git rm --cached` for ignored outputs still in the index, once, after making outputs ignored |
 

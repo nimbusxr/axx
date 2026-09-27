@@ -111,6 +111,26 @@ func TestFixturesCheckFailuresExitOne(t *testing.T) {
 	}
 }
 
+func TestFixturesExplain(t *testing.T) {
+	dir, cfg := fixturesProject(t)
+	gold := filepath.Join(dir, "resources", "limits", "gold-tier.json")
+	out, stderr, code := run(t, "fixtures", "explain", gold, "ceiling.currency", "--config", cfg)
+	if code != 0 || out != "ceiling.currency = \"USD\"\n  in limits/gold-tier.json, fixture gold-tier of limits/account-limits.factory.yaml\n  set by the fixture at fixtures.gold-tier.ceiling.currency in limits/account-limits.factory.yaml\n" {
+		t.Fatalf("exit %d: %s%s", code, out, stderr)
+	}
+	out, _, code = run(t, "fixtures", "explain", "limits/gold-tier.json", "$.tier", "--config", cfg, "--json")
+	env := envelope(t, out)
+	data, _ := env.Data.(map[string]any)
+	origins, _ := data["origins"].([]any)
+	if code != 0 || !env.OK || env.Command != "axx fixtures explain" || data["value"] != "gold" || len(origins) != 1 || origins[0].(map[string]any)["kind"] != fixtures.OriginFixture {
+		t.Errorf("json: %s", out)
+	}
+	_, stderr, code = run(t, "fixtures", "explain", "limits/gold-tier.json", "ceiling", "--config", cfg)
+	if code != int(exitcode.Usage) || !strings.Contains(stderr, fixtures.CodeExplain) || !strings.Contains(stderr, "ceiling is an object") {
+		t.Errorf("exit %d: %s", code, stderr)
+	}
+}
+
 func TestFixturesHandEditRefusal(t *testing.T) {
 	dir, cfg := fixturesProject(t)
 	run(t, "fixtures", "generate", "--config", cfg)

@@ -188,14 +188,19 @@ var indexRE = regexp.MustCompile(`\[\d+\]`)
 // (order.payments[0].channel), the [] wildcard path (order.payments[].channel)
 // and the bare field name, which fills wherever the field is unresolved.
 func defaultsLookup(defaults *jsonx.Object, fieldPath, fieldName string) any {
+	return get(defaults, defaultsKey(defaults, fieldPath, fieldName))
+}
+
+// defaultsKey is the defaults: key defaultsLookup reads for a field.
+func defaultsKey(defaults *jsonx.Object, fieldPath, fieldName string) string {
 	if defaults.Has(fieldPath) {
-		return get(defaults, fieldPath)
+		return fieldPath
 	}
 	wildcard := indexRE.ReplaceAllString(fieldPath, "[]")
 	if wildcard != fieldPath && defaults.Has(wildcard) {
-		return get(defaults, wildcard)
+		return wildcard
 	}
-	return get(defaults, fieldName)
+	return fieldName
 }
 
 // unresolvedError reports required fields no layer resolved.

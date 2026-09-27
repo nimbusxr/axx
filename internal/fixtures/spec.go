@@ -36,6 +36,9 @@ type Spec struct {
 	// files.
 	Fixtures *fixtureSet
 
+	// prototypeFile is the sibling <baseName>.prototype.yaml the prototype
+	// was read from ("" when it is inline).
+	prototypeFile string
 	// Overlays of <baseName>.prototype.yaml files in other directories,
 	// keyed by directory.
 	prototypeOverlays map[string]*jsonx.Object

@@ -412,7 +412,8 @@ func loadPrototypeFile(spec *Spec, base, factoryFile string) error {
 	if spec.Prototype.Len() > 0 {
 		return specError("%s declares an inline prototype AND %s exists - keep exactly one", spec.SourceName, filepath.Base(file))
 	}
-	env, err := readEnvelope(file, relPath(base, file), false)
+	spec.prototypeFile = relPath(base, file)
+	env, err := readEnvelope(file, spec.prototypeFile, false)
 	if err != nil {
 		return err
 	}

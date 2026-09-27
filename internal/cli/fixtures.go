@@ -32,6 +32,7 @@ or spec files, 4 git unavailable (untrack).`,
 	cmd.AddCommand(
 		newFixturesGenerateCmd(app),
 		newFixturesCheckCmd(app),
+		newFixturesExplainCmd(app),
 		newFixturesAdoptCmd(app),
 		newFixturesCleanCmd(app),
 		newFixturesUntrackCmd(app),
@@ -210,6 +211,74 @@ func renderCheck(w io.Writer, rep CheckReport) error {
 		_, err = fmt.Fprintf(w, "%d of %s failed\n", len(rep.Failures), plural(rep.Checks, "check"))
 	}
 	return err
+}
+
+func newFixturesExplainCmd(app *App) *cobra.Command {
+	var cf configFlags
+	cmd := &cobra.Command{
+		Use:   "explain <file> <path>",
+		Short: "Say where a value of a generated fixture comes from",
+		Long: `Say where the value at <path> in a generated fixture file comes from, and so
+which source to edit: the fixture's own data, a prototype overlay, the factory's
+prototype, a defaults: entry or the schema's default, with the file and the place
+in it. A value that comes through a $ref, an expression or an identity says so,
+then where that comes from.
+
+<file> is a file ` + "`axx fixtures generate`" + ` writes (or its fixture's *.fixture.yaml),
+from the working directory or the fixtures base dir. <path> is dotted, with
+indices: recipient.postcode, items[0].sku; a dataset path starts with the table:
+orders[0].status.
+
+Read-only: recorded expression functions resolve from the committed pairings.
+
+Exit codes: 0 explained, 1 the specs cannot be expanded, 2 a file the factory
+does not generate or a path with no single value.`,
+		Example: `  axx fixtures explain requests/order-7731.json recipient.country
+  axx fixtures explain kafka/scan-delivered.json scanId --json`,
+		Args: wrapArgs(cobra.ExactArgs(2)),
+		RunE: func(_ *cobra.Command, args []string) error {
+			fc, err := app.loadFixturesConfig(&cf)
+			if err != nil {
+				return err
+			}
+			g, err := fixtures.NewGenerator(fc, fixturesOptions())
+			if err != nil {
+				return err
+			}
+			ex, err := g.Explain(args[0], args[1])
+			if err != nil {
+				return err
+			}
+			return app.Emit(ex, func(w io.Writer) error { return renderFixtureExplanation(w, ex) })
+		},
+	}
+	cf.register(cmd)
+	return cmd
+}
+
+func renderFixtureExplanation(w io.Writer, ex *fixtures.Explanation) error {
+	fmt.Fprintf(w, "%s = %s\n  in %s, fixture %s of %s\n", ex.Path, ex.Value, ex.File, ex.Fixture, ex.Factory)
+	for _, o := range ex.Origins {
+		var line string
+		switch o.Kind {
+		case fixtures.OriginIdentity:
+			line = fmt.Sprintf("identity %s in %s: %s", o.At, o.File, o.Detail)
+		case fixtures.OriginReference:
+			line = fmt.Sprintf("through the $ref %s at %s in %s", o.Detail, o.At, o.File)
+		case fixtures.OriginExpression:
+			line = "computed by the expression " + o.Detail
+		case fixtures.OriginDefaults:
+			line = fmt.Sprintf("set by defaults: %s in %s", o.At, o.File)
+		case fixtures.OriginSchema:
+			line = "the default of the schema " + o.File
+		default: // the fixture, a prototype overlay, the prototype
+			line = fmt.Sprintf("set by the %s at %s in %s", strings.ReplaceAll(o.Kind, "-", " "), o.At, o.File)
+		}
+		if _, err := fmt.Fprintf(w, "  %s\n", line); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func newFixturesAdoptCmd(app *App) *cobra.Command {

@@ -271,4 +271,7 @@ func init() {
 	add("AXX-E0909", u, "Invalid adopt options",
 		"`axx fixtures adopt` needs either --schema, --files and --factory, or --into and --files.",
 		"Run `axx fixtures adopt --help`.")
+	add("AXX-E0910", u, "Nothing to explain",
+		"`axx fixtures explain` was given a file the fixture factory does not generate (and no fixture's `*.fixture.yaml`), or a path that holds no single value in it: a path it has no value at, an object rather than one of its fields, or a dataset path that is not `<table>[<row>].<column>`.",
+		"Give a file listed in axx-fixtures.manifest.yaml (or its `*.fixture.yaml`) and the dotted path of one value in it, like `recipient.postcode` or `items[0].sku`.")
 }

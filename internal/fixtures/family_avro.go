@@ -130,6 +130,70 @@ func (a avroFamily) Expand(spec *Spec, baseDir string, ctx *ExpansionContext) (m
 	return out, nil
 }
 
+// plain reads a generated fixture back in the shape its sources write it:
+// union values without their branch keys.
+func (avroFamily) plain(spec *Spec, baseDir string, data []byte, where string) (any, error) {
+	schema, err := parseAvroSchema(baseDir, spec.SchemaRef(), spec)
+	if err != nil {
+		return nil, err
+	}
+	v, err := parseJSON(data, where)
+	if err != nil {
+		return nil, err
+	}
+	return avroPlain(schema, v), nil
+}
+
+// avroPlain is an Avro JSON value without union branch keys.
+func avroPlain(s avro.Schema, v any) any {
+	switch x := deref(s).(type) {
+	case *avro.RecordSchema:
+		o, ok := object(v)
+		if !ok {
+			return v
+		}
+		out := jsonx.NewObject()
+		for _, f := range x.Fields() {
+			if has(o, f.Name()) {
+				out.Set(f.Name(), avroPlain(f.Type(), get(o, f.Name())))
+			}
+		}
+		return out
+	case *avro.ArraySchema:
+		list, ok := v.([]any)
+		if !ok {
+			return v
+		}
+		out := make([]any, len(list))
+		for i, e := range list {
+			out[i] = avroPlain(x.Items(), e)
+		}
+		return out
+	case *avro.MapSchema:
+		o, ok := object(v)
+		if !ok {
+			return v
+		}
+		out := jsonx.NewObject()
+		for _, k := range o.Keys() {
+			out.Set(k, avroPlain(x.Values(), get(o, k)))
+		}
+		return out
+	case *avro.UnionSchema:
+		o, ok := object(v)
+		if !ok || o.Len() != 1 {
+			return v
+		}
+		branch := o.Keys()[0]
+		for _, t := range x.Types() {
+			if unionBranchName(t) == branch {
+				return avroPlain(t, get(o, branch))
+			}
+		}
+	}
+	return v
+}
+
 func (avroFamily) Validate(data []byte, baseDir, schemaRef, fixtureName string) error {
 	schema, err := parseAvroSchema(baseDir, schemaRef, nil)
 	if err != nil {
