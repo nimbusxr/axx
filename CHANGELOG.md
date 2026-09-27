@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.1.3](https://github.com/nimbusxr/axx/compare/v0.1.2...v0.1.3) (2026-09-27)
+
+
+### Features
+
+* **fixtures:** axx fixtures explain says where a generated value comes from ([#33](https://github.com/nimbusxr/axx/issues/33)) ([42b1d64](https://github.com/nimbusxr/axx/commit/42b1d64f185fd6ef903c83cae150ba895774e110))
+* **mcp:** failure_context reads the latest run and its only failure when given no run ID or location ([dc0be8c](https://github.com/nimbusxr/axx/commit/dc0be8cd20f7dcac4086a8fb53c272d4c27a6a29))
+* **mock:** check mocked requests by their path and their query parameters ([#31](https://github.com/nimbusxr/axx/issues/31)) ([26d9004](https://github.com/nimbusxr/axx/commit/26d90044f3fcbd60a55c97e222e85a02f0d215ed))
+
+
+### Bug Fixes
+
+* `axx docs export` documents the project's packs, custom packs included, and says why when there are none ([2824768](https://github.com/nimbusxr/axx/commit/2824768ebc624bbf1298916df1e677cdbdfe0c09))
+* **deps:** update go.opentelemetry.io/otel to v1.46.0 ([65cdb6c](https://github.com/nimbusxr/axx/commit/65cdb6c793b5f73edfc706560b1633637dfab44e))
+* **lint:** `--mode` applies to the built-in feature checks too ([2824768](https://github.com/nimbusxr/axx/commit/2824768ebc624bbf1298916df1e677cdbdfe0c09))
+* **mcp:** a server started before packs were added says to restart it ([2824768](https://github.com/nimbusxr/axx/commit/2824768ebc624bbf1298916df1e677cdbdfe0c09))
+* **web-core:** a click that opens a new browser tab waits for it, so the next step acts on that tab ([65cdb6c](https://github.com/nimbusxr/axx/commit/65cdb6c793b5f73edfc706560b1633637dfab44e))
+* **web-core:** Chromium smooths text in grayscale, so a page's screenshots do not change from run to run (Linux screenshots with subpixel text are taken again once) ([22ff42d](https://github.com/nimbusxr/axx/commit/22ff42db8baa9e865d8f9fe88134bc3571d70b29))
+
 ## [0.1.2](https://github.com/nimbusxr/axx/compare/v0.1.1...v0.1.2) (2026-09-27)
 
 
