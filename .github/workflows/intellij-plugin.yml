@@ -61,17 +61,14 @@ jobs:
         with:
           ref: ${{ inputs.tag }}
           persist-credentials: false
-      # Validation only; Gradle caching comes from setup-java below.
+      # Validation only; Gradle's caches come from setup-gradle below.
       - uses: gradle/actions/wrapper-validation@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6
       - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6
         with:
           distribution: temurin
           java-version: "21"
-          cache: gradle
-          cache-dependency-path: |
-            ide/intellij/*.gradle.kts
-            ide/intellij/gradle.properties
-            ide/intellij/gradle/wrapper/gradle-wrapper.properties
+      # Gradle's caches: written on main only (the action's default), read by pull requests.
+      - uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6
       - run: ./gradlew --no-daemon --console=plain build buildPlugin verifyPluginStructure
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
@@ -100,6 +97,12 @@ jobs:
       PRIVATE_KEY_PASSWORD: ${{ secrets.JETBRAINS_PRIVATE_KEY_PASSWORD }}
       VERSION: ${{ inputs.version }}
     steps:
+      # A dry run's plugin verifier downloads IDEs that need more disk than a runner has free:
+      # remove toolchains the build never uses, in the background while the job sets up.
+      - if: inputs.dry-run
+        name: free disk space (in the background)
+        working-directory: .
+        run: (for d in /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL /usr/share/swift; do sudo rm -rf "$d" & done; wait; touch "$RUNNER_TEMP/disk-freed") > /dev/null 2>&1 &
       - id: secrets
         name: check publishing secrets
         working-directory: .
@@ -128,14 +131,13 @@ jobs:
           # would hold the IDEs the plugin verifier downloads (many GB).
 
       # Dry run: what the Marketplace checks (the plugin verifier against the recommended IDEs)
-      # and the signed plugin, kept on the run. The IDEs the verifier downloads need more disk
-      # than a runner has free, so remove toolchains the build never uses first.
+      # and the signed plugin, kept on the run. The verifier needs the disk space freed above.
       - if: inputs.dry-run
-        name: free disk space
+        name: wait for the disk space
         working-directory: .
         run: |
-          df -h /
-          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL /usr/share/swift
+          for _ in $(seq 300); do [ -f "$RUNNER_TEMP/disk-freed" ] && break; sleep 2; done
+          [ -f "$RUNNER_TEMP/disk-freed" ] || { echo "::error::the disk space was not freed within 10 minutes"; exit 1; }
           df -h /
       - if: inputs.dry-run
         name: verify and sign (dry run)
