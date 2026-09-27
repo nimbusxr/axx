@@ -83,13 +83,17 @@ func (g *Generator) Explain(file, path string) (ex *Explanation, err error) {
 	}
 	var spec *Spec
 	var key, out, rel string
-	for _, c := range g.candidates(file) {
+	candidates := g.candidates(file)
+	for _, c := range candidates {
 		if spec, key, out = g.fixtureOf(x, c); spec != nil {
 			rel = c
 			break
 		}
 	}
 	if spec == nil {
+		if len(candidates) > 0 {
+			file = candidates[0]
+		}
 		return nil, explainError("%s is not a file the fixture factory generates, nor a fixture's *.fixture.yaml (%s lists what it generates; paths are relative to the working directory or to %s)", file, ManifestFile, shownDir(g.baseDir))
 	}
 	steps, err := explainSteps(spec, key, path)
