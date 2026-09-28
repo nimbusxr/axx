@@ -36,6 +36,8 @@ the skills instead: `axx skills install`.
 - `internal/compat`: the value semantics steps follow (Jayway JSONPath, Java regex, Java number
   formatting; ADR 0007). The oracle tests depend on these; don't "simplify" them.
 - `extensions/wiremock-openapi`, `ide/intellij`: JVM parts (the WireMock extension and the IntelliJ plugin).
+- `extensions/mailpit-chaos`: axx's Mailpit image, Mailpit built with `chaos-rules.patch` (rules that refuse
+  particular addresses' mail, for the mail pack's refusal steps).
 - `ide/vscode`: the VS Code extension (TypeScript). Both editor clients run `axx lsp` (`internal/lsp`).
 - `testdata/steps.json`: the frozen catalog of the step text of axx's packs. `testdata/oracles`:
   recorded behavior oracles. **Never edit either by hand**: they define correct behavior. A new

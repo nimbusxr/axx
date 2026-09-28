@@ -214,10 +214,13 @@ services:
       retries: 60
     stop_signal: SIGKILL
 
-  # The service's mail server in the tests: Mailpit catches every email it sends,
-  # for the features to read through its API (8025).
+  # The service's mail server in the tests: axx's Mailpit catches every email it sends, for
+  # the features to read through its API (8025), and refuses the mail a scenario says to.
+  # This builds the image from this repository; `image: ghcr.io/nimbusxr/axx-mailpit:<version>`
+  # can replace `build:`.
   mailpit:
-    image: 'axllent/mailpit:v1.31.3'
+    build:
+      context: ../../../extensions/mailpit-chaos
     ports:
       - '8025:8025'
       - '1025:1025'

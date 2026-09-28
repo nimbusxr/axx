@@ -29,6 +29,14 @@
         }
       ]
     },
+    "extensions/mailpit-chaos": {
+      "release-type": "simple",
+      "package-name": "axx-mailpit",
+      "component": "mailpit-chaos",
+      "include-component-in-tag": true,
+      "changelog-path": "CHANGELOG.md",
+      "initial-version": "0.1.0"
+    },
     "ide/intellij": {
       "release-type": "simple",
       "package-name": "axx-intellij",

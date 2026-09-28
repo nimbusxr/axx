@@ -15,6 +15,7 @@ Given the shops mailbox with the following properties:
 - **Any mailbox, a real one included,** is read over POP3 (`pop3://`, `pop3s://`) or IMAP (`imap://`, `imaps://`): GreenMail, smtp4dev, Inbucket, Dovecot, a staging inbox.
 - **A check only looks at the emails that arrived since its scenario started,** and waits for one that meets it: 10 seconds, or `within {duration}`. For a run, axx reads each mailbox the checks name from when the apps are up, and never deletes or marks what it reads.
 - **Scenarios share the mailbox,** so each checks its own mail, by a recipient or a subject unique to it.
+- **Refusing mail:** with axx's Mailpit image, `ghcr.io/nimbusxr/axx-mailpit`, a scenario can have the mail server refuse its own mail, from or to the addresses it names, to test how your service handles it. The rule lasts until the scenario ends, and scenarios that refuse their own addresses run side by side.
 - **Mail sent through a provider's HTTP API** (SendGrid, SES, Mailgun, Postmark) is not in a mailbox: mock the provider with WireMock and check the request with the mock pack.
 - **Secrets stay secret:** the password, and `${env:..}` values, are masked in logs and failures.
 
@@ -94,6 +95,60 @@ Then within 10s the shops mailbox has an email where:
   | to         | orders@hawthorn-home.example |
   | subject    | Parcel PX-MAIL-9701 registered |
   | attachment | PX-MAIL-9701-label.zpl       |
+```
+
+_Since 0.1.5._
+
+## `mail.refuse.from`
+
+```gherkin
+Given the {word} mailbox refuses mail from {string} with code {int}
+```
+
+Have the mailbox's mail server refuse, with that SMTP code, every email from the addresses the text matches, until the scenario ends: to check what your service does when its mail is refused.
+
+- The text is an address, or a pattern where `*` stands for any text, like `*@hawthorn-home.example`; case does not matter.
+- The code is from 400 to 599: 4xx for a failure the sender should retry, like 451, 5xx for one it should not, like 550.
+- It needs axx's Mailpit image, `ghcr.io/nimbusxr/axx-mailpit`: plain Mailpit refuses a share of all mail, not a scenario's own.
+- Refuse only addresses of the scenario's own, since scenarios running side by side share the mail server.
+
+| Parameter | Takes | For example |
+|---|---|---|
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+| `{string}` | text in double or single quotes, which the step leaves out | `"Get a quote"`, `'Express'` |
+| `{int}` | a whole number | `200`, `3` |
+
+**Example:**
+
+```gherkin
+Given the shops mailbox refuses mail from '*@quince-and-quill.example' with code 451
+```
+
+_Since 0.1.5._
+
+## `mail.refuse.to`
+
+```gherkin
+Given the {word} mailbox refuses mail to {string} with code {int}
+```
+
+Have the mailbox's mail server refuse, with that SMTP code, every email to the addresses the text matches, until the scenario ends: to check what your service does when its mail is refused.
+
+- The text is an address, or a pattern where `*` stands for any text, like `*@hawthorn-home.example`; case does not matter.
+- The code is from 400 to 599: 4xx for a failure the sender should retry, like 451, 5xx for one it should not, like 550.
+- It needs axx's Mailpit image, `ghcr.io/nimbusxr/axx-mailpit`: plain Mailpit refuses a share of all mail, not a scenario's own.
+- Refuse only addresses of the scenario's own, since scenarios running side by side share the mail server.
+
+| Parameter | Takes | For example |
+|---|---|---|
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+| `{string}` | text in double or single quotes, which the step leaves out | `"Get a quote"`, `'Express'` |
+| `{int}` | a whole number | `200`, `3` |
+
+**Example:**
+
+```gherkin
+Given the shops mailbox refuses mail to '*@quince-and-quill.example' with code 451
 ```
 
 _Since 0.1.5._

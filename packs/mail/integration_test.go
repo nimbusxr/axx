@@ -77,3 +77,45 @@ func TestGreenMailOverIMAP(t *testing.T) {
 	}
 	checkMailbox(t, [][]string{{"url", "imap://" + addrs["3143"]}, {"username", to}, {"password", "mailbox-pass"}}, addrs["3025"], to)
 }
+
+// sendFrom sends an email by SMTP and returns the server's refusal, if any.
+func sendFrom(addr, from, to string) error {
+	msg := "From: " + from + "\r\nTo: " + to + "\r\nSubject: Parcel PX-9703 registered\r\n\r\nYour parcel PX-9703 is registered.\r\n"
+	return smtp.SendMail(addr, nil, from, []string{to}, []byte(msg))
+}
+
+// TestRefusingMail runs axx's Mailpit image, built from extensions/mailpit-chaos.
+func TestRefusingMail(t *testing.T) {
+	addrs := cloudtest.BuiltPorts(t, "../../extensions/mailpit-chaos", []string{"1025", "8025"}, nil)
+	rows := [][]string{{"url", "http://" + addrs["8025"]}}
+	h := cloudtest.New(t, Pack())
+	h.OK("the shops mailbox with the following properties:", rows)
+	h.OK("the shops mailbox refuses mail to '*@quince-and-quill.example' with code 451")
+	h.OK("the shops mailbox refuses mail from 'billing@parcels.example' with code 550")
+	if err := sendFrom(addrs["1025"], "no-reply@parcels.example", "orders@quince-and-quill.example"); err == nil || !strings.Contains(err.Error(), "451") {
+		t.Errorf("mail to the refused recipient: %v", err)
+	}
+	if err := sendFrom(addrs["1025"], "billing@parcels.example", "orders@wisteria-way.example"); err == nil || !strings.Contains(err.Error(), "550") {
+		t.Errorf("mail from the refused sender: %v", err)
+	}
+	if err := sendFrom(addrs["1025"], "no-reply@parcels.example", "orders@wisteria-way.example"); err != nil {
+		t.Errorf("other mail was refused: %v", err)
+	}
+	_ = h.Fails("the shops mailbox refuses mail to '*@quince-and-quill.example' with code 250", "an SMTP code that refuses mail is from 400 to 599, not 250")
+	_ = h.Fails("the parcels mailbox refuses mail to 'x@y.example' with code 451", `no mailbox named "parcels" in this scenario`)
+	if err := h.End("passed"); err != nil {
+		t.Fatal(err)
+	}
+	// The rules go with their scenario.
+	if err := sendFrom(addrs["1025"], "billing@parcels.example", "orders@quince-and-quill.example"); err != nil {
+		t.Errorf("a rule outlived its scenario: %v", err)
+	}
+}
+
+// Plain Mailpit has no rules, and the step says what to use instead.
+func TestRefusingMailNeedsAxxMailpit(t *testing.T) {
+	addrs := cloudtest.ServerPorts(t, "axllent/mailpit:v1.31.3", []string{"8025"}, nil, nil)
+	h := cloudtest.New(t, Pack())
+	h.OK("the shops mailbox with the following properties:", [][]string{{"url", "http://" + addrs["8025"]}})
+	_ = h.Fails("the shops mailbox refuses mail to '*@quince-and-quill.example' with code 451", "use axx's Mailpit image, ghcr.io/nimbusxr/axx-mailpit")
+}

@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -331,6 +332,23 @@ func ServerPorts(t *testing.T, image string, ports []string, cmd []string, env m
 	return startPorts(t, image, ports, "", cmd, env, false)
 }
 
+// BuiltPorts is ServerPorts for an image built from a Dockerfile's
+// directory (an image of this repository, such as axx-mailpit), with the
+// docker CLI, which asks only for the credentials of the registries the
+// build pulls from.
+func BuiltPorts(t *testing.T, dir string, ports []string, env map[string]string) map[string]string {
+	t.Helper()
+	if _, err := exec.LookPath("docker"); err != nil {
+		t.Skip("docker is not on the PATH")
+	}
+	tag := "axx-test/" + filepath.Base(dir) + ":test"
+	out, err := exec.CommandContext(t.Context(), "docker", "build", "-q", "-t", tag, dir).CombinedOutput()
+	if err != nil {
+		t.Fatalf("building %s: %v\n%s", dir, err, out)
+	}
+	return startRequest(t, testcontainers.ContainerRequest{Image: tag}, ports, "", env, false)
+}
+
 func emulator(t *testing.T, image, port, healthPath string, env map[string]string, docker bool) string {
 	return start(t, image, port, healthPath, nil, env, docker)
 }
@@ -342,6 +360,12 @@ func start(t *testing.T, image, port, healthPath string, cmd []string, env map[s
 
 func startPorts(t *testing.T, image string, ports []string, healthPath string, cmd []string, env map[string]string, docker bool) map[string]string {
 	t.Helper()
+	return startRequest(t, testcontainers.ContainerRequest{Image: image, Cmd: cmd}, ports, healthPath, env, docker)
+}
+
+func startRequest(t *testing.T, req testcontainers.ContainerRequest, ports []string, healthPath string, env map[string]string, docker bool) map[string]string {
+	t.Helper()
+	image := req.Image
 	ctx := context.Background()
 	var strategies []wait.Strategy
 	exposed := make([]string, len(ports))
@@ -355,7 +379,7 @@ func startPorts(t *testing.T, image string, ports []string, healthPath string, c
 	}
 	c, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
 		ContainerRequest: testcontainers.ContainerRequest{
-			Image: image, ExposedPorts: exposed, Cmd: cmd, Env: env, WaitingFor: strategy,
+			Image: req.Image, ExposedPorts: exposed, Cmd: req.Cmd, Env: env, WaitingFor: strategy,
 			HostConfigModifier: func(hc *container.HostConfig) {
 				if docker {
 					hc.Binds = append(hc.Binds, "/var/run/docker.sock:/var/run/docker.sock")
