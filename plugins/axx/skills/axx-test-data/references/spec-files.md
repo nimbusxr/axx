@@ -32,7 +32,7 @@ The JSON Schemas of the files `axx fixtures` reads, as `axx schema --kind <kind>
         },
         "schema": {
           "type": "string",
-          "description": "Governing schema, relative to this factory file. avro: a .avsc file. json/yaml: a JSON Schema file, or an OpenAPI component such as ../openapi/api.yaml#/components/schemas/Name. xml: an .xsd file. protobuf: a .proto file or a protoc descriptor set plus the message, such as ../proto/orders.proto#shop.OrderEvent. dataset: optional SQL DDL, a file or a directory of *.sql files (parsed statically, never a live database)."
+          "description": "Governing schema, relative to this factory file. avro: a .avsc file. json/yaml: a JSON Schema file, an OpenAPI component such as ../openapi/api.yaml#/components/schemas/Name, or the payload of an AsyncAPI message such as ../asyncapi.yaml#/components/messages/Name. xml: an .xsd file. protobuf: a .proto file or a protoc descriptor set plus the message, such as ../proto/orders.proto#shop.OrderEvent. dataset: optional SQL DDL, a file or a directory of *.sql files (parsed statically, never a live database)."
         },
         "output": {
           "type": "object",

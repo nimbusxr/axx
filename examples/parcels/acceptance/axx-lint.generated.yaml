@@ -11,6 +11,14 @@ rules:
   description: Identity declared by kafka/depot-scans.factory.yaml; every fixture
     in the directory must own a unique value
   validation: cross-file-unique
+- name: "mqtt/scans.factory.yaml: scanId uniqueness"
+  filePatterns:
+  - mqtt/*.json
+  type: jsonpath
+  jsonPath: scanId
+  description: Identity declared by mqtt/scans.factory.yaml; every fixture in the
+    directory must own a unique value
+  validation: cross-file-unique
 - name: "requests/registrations.factory.yaml: reference uniqueness"
   filePatterns:
   - requests/*.json

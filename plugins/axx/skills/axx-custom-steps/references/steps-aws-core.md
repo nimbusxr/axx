@@ -39,6 +39,7 @@ Register the AWS account the aws-* steps talk to.
 | `access key id` | the access key ID of static credentials, with `secret access key` | |
 | `secret access key` | the secret access key of static credentials, with `access key id` | |
 | `session token` | the session token of temporary static credentials | |
+| `asyncapi` | an AsyncAPI document, a file of the project or a URL, that the SQS queues and SNS topics follow: every message a scenario sends there, and every message a check finds, is checked against it (with the asyncapi pack) | |
 
 **Example:**
 

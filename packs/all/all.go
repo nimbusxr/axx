@@ -6,6 +6,7 @@ package all
 import (
 	"github.com/nimbusxr/axx/core"
 	"github.com/nimbusxr/axx/packs/amqp"
+	"github.com/nimbusxr/axx/packs/asyncapi"
 	awscore "github.com/nimbusxr/axx/packs/aws/core"
 	awsdynamodb "github.com/nimbusxr/axx/packs/aws/dynamodb"
 	awseventbridge "github.com/nimbusxr/axx/packs/aws/eventbridge"
@@ -59,6 +60,7 @@ func Packs() map[string]core.Pack {
 		"cli":              cli.Pack(),
 		"websocket":        websocket.Pack(),
 		"sse":              sse.Pack(),
+		"asyncapi":         asyncapi.Pack(),
 		"web-core":         webcore.Pack(),
 		"web-screenshots":  webscreenshots.Pack(),
 		"web-a11y":         weba11y.Pack(),

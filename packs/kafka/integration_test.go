@@ -19,6 +19,8 @@ import (
 	"github.com/twmb/franz-go/pkg/sr"
 
 	"github.com/nimbusxr/axx/core"
+	"github.com/nimbusxr/axx/internal/cloudstep/cloudtest"
+	"github.com/nimbusxr/axx/packs/asyncapi"
 )
 
 // startCluster runs a single-node KRaft broker and a Confluent Schema
@@ -256,4 +258,66 @@ func TestAgainstRealKafka(t *testing.T) {
 		[]string{"consumer.value.deserializer", avroDeserializer},
 		[]string{"consumer.schema.registry.url", registryURL})
 	h.must("the mission-events kafka event named again payload properties are:", []string{"$.mission_id", "m-1"})
+
+	t.Run("contract", func(t *testing.T) {
+		c := cloudtest.NewWith(t, map[string]any{"kafka": map[string]any{"timeout": "10s"}}, asyncapi.Pack(), Pack())
+		c.Start(c.Plan())
+		c.File("asyncapi.yaml", missionsContract)
+		c.File("schemas/mission-event.avsc", missionSchema)
+		c.File("kafka/mission-created.json", missionPayload)
+		c.OK("the space-kafka kafka service with the following properties:", [][]string{{"brokers", brokers}, {"asyncapi", "asyncapi.yaml"}})
+
+		// Avro events, published and consumed, in Avro's JSON encoding.
+		c.OK("a contract-missions kafka topic client with the following properties:", [][]string{
+			{"producer.value.serializer", avroSerializer}, {"producer.schema.registry.url", registryURL},
+			{"consumer.value.deserializer", avroDeserializer}, {"consumer.schema.registry.url", registryURL},
+		})
+		c.OK("a contract-missions kafka event")
+		c.OK("the contract-missions kafka event payload is a kafka/mission-created.json resource")
+		c.OK("the contract-missions kafka event is published using schema schemas/mission-event.avsc")
+		c.OK("the contract-missions kafka event named created payload properties are:", [][]string{{"$.mission_id", "m-template"}})
+
+		// JSON events: what the scenario publishes, and what a check consumes.
+		c.OK("the contract-plain kafka topic client")
+		c.OK("a contract-plain kafka event")
+		c.File("loud.json", `{"kind": "loud"}`)
+		c.OK("the contract-plain kafka event payload is a loud.json resource")
+		_ = c.Fails("the contract-plain kafka event is published",
+			"the message to send breaks asyncapi.yaml:\n- validation.message.payload.schema.enum: payload $.kind:")
+		pc, err := kgo.NewClient(kgo.SeedBrokers(brokers))
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer pc.Close()
+		if err := pc.ProduceSync(context.Background(), &kgo.Record{Topic: "contract-plain", Key: []byte("late"), Value: []byte(`{"kind":"late"}`)}).FirstErr(); err != nil {
+			t.Fatal(err)
+		}
+		_ = c.Fails("the contract-plain kafka event named late key is late",
+			"the message the check found breaks asyncapi.yaml:\n- validation.message.payload.schema.enum: payload $.kind:")
+	})
 }
+
+// missionsContract is the missions' AsyncAPI document, with an Avro
+// payload and a JSON Schema one.
+const missionsContract = `asyncapi: 3.0.0
+info: {title: Missions, version: 1.0.0}
+servers:
+  events: {host: localhost:9092, protocol: kafka}
+channels:
+  missions:
+    address: contract-missions
+    messages:
+      missionEvent:
+        payload:
+          schemaFormat: application/vnd.apache.avro;version=1.9.0
+          schema: {$ref: 'schemas/mission-event.avsc'}
+  plain:
+    address: contract-plain
+    messages:
+      plain:
+        payload:
+          type: object
+          required: [kind]
+          properties:
+            kind: {enum: [plain]}
+`

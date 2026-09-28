@@ -10,6 +10,7 @@ import (
 	amqp091 "github.com/rabbitmq/amqp091-go"
 
 	"github.com/nimbusxr/axx/internal/cloudstep/cloudtest"
+	"github.com/nimbusxr/axx/packs/asyncapi"
 )
 
 // labelService acts as the parcels service does: it reads the printers'
@@ -120,7 +121,62 @@ func TestRabbitMQ(t *testing.T) {
 	h.OK("the depot amqp broker with the following properties:", broker)
 	_ = h.Fails("within 1s the labels amqp exchange has a message where:", "No message on the labels amqp exchange met the conditions within 1s",
 		[][]string{{"reference", "PX-8101"}})
+
+	// The run ends, and with it its listeners, which would take the queue's
+	// messages from the next run's.
+	if err := h.Suite.Close(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	t.Run("contract", func(t *testing.T) {
+		broker := [][]string{{"url", url}, {"asyncapi", "asyncapi.yaml"}}
+		h := cloudtest.New(t, asyncapi.Pack(), Pack())
+		h.File("asyncapi.yaml", printingContract)
+		h.Start(h.Plan(
+			cloudtest.PlannedStep{Text: "the depot amqp broker with the following properties:", Table: broker},
+			cloudtest.PlannedStep{Text: "within 10s the labels amqp exchange has a message where:", Table: [][]string{{"reference", "PX-8106"}}},
+			cloudtest.PlannedStep{Text: "within 10s the parcels.label-printed.rejected amqp queue has a message where:", Table: [][]string{{"reference", "PX-8199"}}},
+		))
+		h.OK("the depot amqp broker with the following properties:", broker)
+		// An exchange's messages are on the channel of the exchange, or of their routing key.
+		_ = h.Fails("a message is published to the printers amqp exchange with the routing key 'printed.LEJ':",
+			"the message to send breaks asyncapi.yaml:\n- validation.message.payload.schema.required: payload $: missing property 'printedAt' (the printed message of the labelPrinted channel)",
+			`{"reference": "PX-8106", "printer": "LEJ-3"}`)
+		h.OK("a message is published to the printers amqp exchange with the routing key 'printed.LEJ':",
+			`{"reference": "PX-8106", "printer": "LEJ-3", "printedAt": "2026-09-28T08:15:00Z"}`)
+		_ = h.Fails("within 10s the labels amqp exchange has a message where:",
+			"the message the check found breaks asyncapi.yaml:\n- validation.message.payload.schema.required: payload $: missing property 'copies'",
+			[][]string{{"reference", "PX-8106"}})
+		// Headers are checked too.
+		h.OK("a message is published to the printers amqp exchange with the routing key 'printed.LEJ':",
+			`{"reference": "PX-8199", "printer": "LEJ-3", "printedAt": "2026-09-28T08:16:00Z"}`)
+		h.OK("within 10s the parcels.label-printed.rejected amqp queue has a message where:", [][]string{{"reference", "PX-8199"}})
+	})
 }
+
+// printingContract is the printing's AsyncAPI document.
+const printingContract = `asyncapi: 3.0.0
+info: {title: Label printing, version: 1.0.0}
+defaultContentType: application/json
+servers:
+  printing: {host: localhost:5672, protocol: amqp}
+channels:
+  labelPrinted:
+    address: printed.{depot}
+    messages:
+      printed:
+        payload: {type: object, required: [reference, printer, printedAt]}
+  labels:
+    address: labels
+    messages:
+      announced:
+        payload: {type: object, required: [reference, printer, copies]}
+  rejected:
+    address: parcels.label-printed.rejected
+    messages:
+      rejected:
+        headers: {type: object, required: [reason]}
+        payload: {type: object, required: [reference]}
+`
 
 // AMQP 1.0: a queue is an anycast address and an exchange a multicast one,
 // and the routing key is the subject.

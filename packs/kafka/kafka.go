@@ -12,6 +12,7 @@ import (
 	"github.com/twmb/franz-go/pkg/kgo"
 
 	"github.com/nimbusxr/axx/core"
+	"github.com/nimbusxr/axx/internal/contract"
 )
 
 // Pack returns the Kafka pack.
@@ -68,6 +69,9 @@ func configOf(s *core.Suite) (config, error) {
 type Service struct {
 	Name    string
 	Brokers string
+	// contract checks the events of the service's topics, when its
+	// asyncapi row names one.
+	contract contract.Checker
 
 	mu      sync.Mutex
 	clients []*TopicClient // in creation order: "the kafka event payload properties" use the first

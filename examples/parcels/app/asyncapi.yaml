@@ -1,0 +1,337 @@
+asyncapi: 3.0.0
+info:
+  title: Parcels events
+  version: 1.0.0
+  description: >-
+    The messages the parcels service sends and hears: the ParcelRegistered event of every
+    registered parcel and the depots' scans on Kafka, the label print jobs and the printers'
+    reports over AMQP, the handheld scanners' scans and alerts over MQTT, the couriers'
+    delivery confirmations and the tracking updates on NATS, and a parcel's latest scan for
+    the tracking page (a websocket) and the shops' systems (an event stream).
+defaultContentType: application/json
+
+servers:
+  events:
+    host: kafka:9092
+    protocol: kafka
+  printing:
+    host: rabbitmq:5672
+    protocol: amqp
+  depots:
+    host: mosquitto:1883
+    protocol: mqtt
+  tracking:
+    host: nats:4222
+    protocol: nats
+  portal:
+    host: localhost:8400
+    protocol: ws
+  api:
+    host: localhost:8400
+    protocol: http
+
+channels:
+  parcelEvents:
+    address: parcel-events
+    description: Every registered parcel, keyed by its reference.
+    servers: [{$ref: '#/servers/events'}]
+    messages:
+      parcelRegistered: {$ref: '#/components/messages/parcelRegistered'}
+  depotScans:
+    address: depot-scans
+    description: The depots' systems' scans, keyed by the parcel's reference.
+    servers: [{$ref: '#/servers/events'}]
+    messages:
+      depotScan: {$ref: '#/components/messages/depotScan'}
+
+  labels:
+    address: labels
+    description: A topic exchange; the routing key is print.<service level>, like print.express.
+    servers: [{$ref: '#/servers/printing'}]
+    messages:
+      printJob: {$ref: '#/components/messages/printJob'}
+  printers:
+    address: printers
+    description: A topic exchange the printers report to; the routing key is printed.<depot>.
+    servers: [{$ref: '#/servers/printing'}]
+    messages:
+      labelReport: {$ref: '#/components/messages/labelReport'}
+  labelReports:
+    address: parcels.label-printed
+    description: The service's queue of label reports, bound to the printers exchange with printed.#.
+    servers: [{$ref: '#/servers/printing'}]
+    messages:
+      labelReport: {$ref: '#/components/messages/labelReport'}
+  rejectedReports:
+    address: parcels.label-printed.rejected
+    description: The reports the service could not use, as they came, for the depot's staff.
+    servers: [{$ref: '#/servers/printing'}]
+    messages:
+      rejectedReport: {$ref: '#/components/messages/rejectedReport'}
+
+  scans:
+    address: depots/{depot}/scans
+    parameters:
+      depot: {description: 'The depot, like LEJ.'}
+    servers: [{$ref: '#/servers/depots'}]
+    messages:
+      scan: {$ref: '#/components/messages/scan'}
+  alerts:
+    address: depots/{depot}/alerts
+    parameters:
+      depot: {description: 'The depot, like LEJ.'}
+    servers: [{$ref: '#/servers/depots'}]
+    messages:
+      alert: {$ref: '#/components/messages/alert'}
+
+  deliveries:
+    address: deliveries.confirmed
+    servers: [{$ref: '#/servers/tracking'}]
+    messages:
+      deliveryConfirmed: {$ref: '#/components/messages/deliveryConfirmed'}
+  trackingUpdates:
+    address: tracking.{reference}
+    description: Every scan the service records; the TRACKING stream keeps them.
+    parameters:
+      reference: {description: "The parcel's reference."}
+    servers: [{$ref: '#/servers/tracking'}]
+    messages:
+      trackingUpdate: {$ref: '#/components/messages/trackingUpdate'}
+
+  liveTracking:
+    address: /portal/track/{reference}/live
+    description: The tracking page says which parcel it follows, then hears its latest scan, and each new one.
+    parameters:
+      reference: {description: "The parcel's reference."}
+    servers: [{$ref: '#/servers/portal'}]
+    messages:
+      follow: {$ref: '#/components/messages/follow'}
+      liveScan: {$ref: '#/components/messages/liveScan'}
+  trackingEvents:
+    address: /api/parcels/{reference}/events
+    description: A scan event for each change of the parcel's tracking, and a delivered event that ends the stream.
+    parameters:
+      reference: {description: "The parcel's reference."}
+    servers: [{$ref: '#/servers/api'}]
+    messages:
+      scan: {$ref: '#/components/messages/trackingScanned'}
+      delivered: {$ref: '#/components/messages/trackingDelivered'}
+
+operations:
+  announceRegistration:
+    action: send
+    channel: {$ref: '#/channels/parcelEvents'}
+  recordDepotScan:
+    action: receive
+    channel: {$ref: '#/channels/depotScans'}
+  sendPrintJob:
+    action: send
+    channel: {$ref: '#/channels/labels'}
+  recordLabelReport:
+    action: receive
+    channel: {$ref: '#/channels/labelReports'}
+  setReportAside:
+    action: send
+    channel: {$ref: '#/channels/rejectedReports'}
+  recordScannerScan:
+    action: receive
+    channel: {$ref: '#/channels/scans'}
+  alertDepot:
+    action: send
+    channel: {$ref: '#/channels/alerts'}
+  confirmDelivery:
+    action: receive
+    channel: {$ref: '#/channels/deliveries'}
+  updateTracking:
+    action: send
+    channel: {$ref: '#/channels/trackingUpdates'}
+  followParcel:
+    action: receive
+    channel: {$ref: '#/channels/liveTracking'}
+    messages: [{$ref: '#/channels/liveTracking/messages/follow'}]
+  sendLiveScan:
+    action: send
+    channel: {$ref: '#/channels/liveTracking'}
+    messages: [{$ref: '#/channels/liveTracking/messages/liveScan'}]
+  streamTracking:
+    action: send
+    channel: {$ref: '#/channels/trackingEvents'}
+
+components:
+  messages:
+    parcelRegistered:
+      name: parcelRegistered
+      title: ParcelRegistered
+      headers:
+        type: object
+        required: [X-Event-Type]
+        properties:
+          X-Event-Type: {const: ParcelRegistered}
+      payload:
+        schemaFormat: application/vnd.apache.avro;version=1.9.0
+        schema:
+          type: record
+          name: ParcelRegistered
+          namespace: example.parcels
+          fields:
+            - {name: reference, type: string}
+            - {name: sender, type: string}
+            - {name: weightGrams, type: int}
+            - {name: serviceLevel, type: string}
+            - {name: zone, type: string}
+            - {name: source, type: string}
+            - {name: registeredAt, type: {type: long, logicalType: timestamp-millis}}
+    depotScan:
+      name: depotScan
+      title: DepotScan
+      payload:
+        schemaFormat: application/vnd.apache.avro;version=1.9.0
+        schema:
+          type: record
+          name: DepotScan
+          namespace: example.parcels
+          fields:
+            - {name: scanId, type: string}
+            - {name: parcelRef, type: string}
+            - name: status
+              type: {type: enum, name: ScanStatus, symbols: [PICKED_UP, IN_TRANSIT, OUT_FOR_DELIVERY, DELIVERED, EXCEPTION]}
+            - {name: location, type: string}
+            - {name: scannedAt, type: string}
+
+    printJob:
+      name: printJob
+      headers:
+        type: object
+        required: [sender]
+        properties:
+          sender: {type: string, description: "The shop that sends the parcel."}
+      payload:
+        type: object
+        required: [reference, serviceLevel, barcode, zpl]
+        properties:
+          reference: {type: string}
+          serviceLevel: {$ref: '#/components/schemas/ServiceLevel'}
+          barcode: {type: string}
+          zpl: {type: string, description: The label, in ZPL.}
+    labelReport:
+      name: labelReport
+      headers:
+        type: object
+        properties:
+          printer: {type: string, description: "Older printers name themselves here instead of in the body."}
+      payload:
+        type: object
+        required: [reference, printer, printedAt]
+        properties:
+          reference: {type: string}
+          printer: {type: string}
+          printedAt: {type: string, format: date-time}
+    rejectedReport:
+      name: rejectedReport
+      description: The report as it came, whatever it held.
+      headers:
+        type: object
+        required: [reason]
+        properties:
+          reason: {type: string, enum: [unknown parcel, not a label report]}
+
+    scan:
+      name: scan
+      payload: {$ref: '#/components/schemas/Scan'}
+    alert:
+      name: alert
+      payload:
+        type: object
+        required: [parcelRef, scanId, problem]
+        properties:
+          parcelRef: {type: string}
+          scanId: {type: string}
+          problem: {type: string, enum: [unknown parcel]}
+
+    deliveryConfirmed:
+      name: deliveryConfirmed
+      headers:
+        type: object
+        properties:
+          courier: {type: string}
+      payload:
+        type: object
+        required: [reference, location, deliveredAt]
+        properties:
+          reference: {type: string}
+          location: {type: string}
+          deliveredAt: {type: string, format: date-time}
+          signedBy: {type: string}
+    trackingUpdate:
+      name: trackingUpdate
+      headers:
+        type: object
+        required: [source]
+        properties:
+          source: {type: string, enum: [depot-system, scanner, courier]}
+          courier: {type: string}
+      payload:
+        type: object
+        required: [reference, scanId, status, location, scannedAt]
+        properties:
+          reference: {type: string}
+          scanId: {type: string}
+          status: {$ref: '#/components/schemas/ScanStatus'}
+          location: {type: string}
+          scannedAt: {type: string, format: date-time}
+
+    follow:
+      name: follow
+      payload:
+        type: object
+        required: [follow]
+        properties:
+          follow: {type: string, description: "The reference of the parcel the page follows."}
+    liveScan:
+      name: liveScan
+      payload:
+        type: object
+        required: [reference, status, location]
+        properties:
+          reference: {type: string}
+          status: {$ref: '#/components/schemas/TrackingStatus'}
+          location: {type: [string, 'null']}
+    trackingScanned:
+      name: scan
+      payload: {$ref: '#/components/schemas/TrackingEvent'}
+    trackingDelivered:
+      name: delivered
+      payload:
+        allOf:
+          - {$ref: '#/components/schemas/TrackingEvent'}
+          - properties:
+              status: {const: DELIVERED}
+
+  schemas:
+    ServiceLevel:
+      type: string
+      enum: [STANDARD, EXPRESS]
+    ScanStatus:
+      type: string
+      enum: [PICKED_UP, IN_TRANSIT, OUT_FOR_DELIVERY, DELIVERED, EXCEPTION]
+    TrackingStatus:
+      anyOf:
+        - {$ref: '#/components/schemas/ScanStatus'}
+        - {const: REGISTERED}
+    Scan:
+      type: object
+      required: [scanId, parcelRef, status]
+      properties:
+        scanId: {type: string}
+        parcelRef: {type: string}
+        status: {$ref: '#/components/schemas/ScanStatus'}
+        location: {type: string}
+        scannedAt: {type: string, format: date-time}
+    TrackingEvent:
+      type: object
+      required: [reference, status, location, scannedAt]
+      properties:
+        reference: {type: string}
+        status: {$ref: '#/components/schemas/TrackingStatus'}
+        location: {type: [string, 'null']}
+        scannedAt: {type: [string, 'null'], format: date-time}

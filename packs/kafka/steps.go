@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/nimbusxr/axx/core"
+	"github.com/nimbusxr/axx/internal/contract"
 )
 
 const serviceSuffix = "[[ on the {word} kafka service]]"
@@ -69,6 +70,7 @@ func steps() []core.StepDef {
 				Columns: []string{"property", "value"},
 				Rows: []core.TableRow{
 					{Name: "brokers", Required: true, Takes: "the cluster's brokers, a comma-separated list of `host:port`; `${env:..}` and `${sys:..}` are expanded"},
+					contract.TableRow("topics"),
 				},
 				Note: "Any other property is ignored, with a warning.",
 			},
@@ -524,19 +526,27 @@ func addService(sc *core.Scenario, a core.Args) error {
 	if err != nil {
 		return err
 	}
-	brokers := ""
+	brokers, asyncapi := "", ""
 	for _, p := range pairs {
 		switch {
 		case p.Key == "brokers" && !p.Null:
 			brokers = sc.Suite().Interpolate(p.Value)
-		case p.Key != "brokers":
-			sc.Log("warning: kafka service property %q is ignored (only brokers is used)", p.Key)
+		case p.Key == contract.Row && !p.Null:
+			asyncapi = strings.TrimSpace(sc.Suite().Interpolate(p.Value))
+		case p.Key != "brokers" && p.Key != contract.Row:
+			sc.Log("warning: kafka service property %q is ignored (only brokers and asyncapi are used)", p.Key)
 		}
 	}
 	if strings.TrimSpace(brokers) == "" {
 		return fmt.Errorf("Property %q is required", "brokers") //nolint:staticcheck // user-facing message
 	}
-	return Context(sc).AddService(&Service{Name: a.String(0), Brokers: brokers})
+	svc := &Service{Name: a.String(0), Brokers: brokers}
+	if asyncapi != "" {
+		if svc.contract, err = contract.Open(sc, asyncapi); err != nil {
+			return err
+		}
+	}
+	return Context(sc).AddService(svc)
 }
 
 func createEvent(sc *core.Scenario, a core.Args) error {

@@ -1,6 +1,7 @@
 package cloudstep
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -42,6 +43,10 @@ type Messages struct {
 	// Inbox returns the listener for a target's checks; noun is the
 	// target's kind as the step wrote it ("service bus topic").
 	Inbox func(sc *core.Scenario, target, noun string) (*Inbox, error)
+	// Found, when set, is given the message a check found before the
+	// check passes: an error fails the check, as for a message that breaks
+	// its registration's contract.
+	Found func(sc *core.Scenario, target, noun string, msg Message) error
 	// Received explains in the pack's docs how the checks receive
 	// messages.
 	Received string
@@ -179,8 +184,16 @@ func (m Messages) ReceivedStep() core.StepDef {
 			if err != nil {
 				return err
 			}
-			return ExpectMatch(sc, Wait(a, 0), in, func(msg Message) (bool, error) { return rs.MatchMessageIn(msg, m.Field, m.Meta) },
-				m.Field, "message", fmt.Sprintf("the %s %s", target, noun))
+			match := func(msg Message) (bool, error) {
+				ok, err := rs.MatchMessageIn(msg, m.Field, m.Meta)
+				if ok && m.Found != nil {
+					if err := m.Found(sc, target, noun, msg); err != nil {
+						return false, err
+					}
+				}
+				return ok, err
+			}
+			return ExpectMatch(sc, Wait(a, 0), in, match, m.Field, "message", fmt.Sprintf("the %s %s", target, noun))
 		},
 	}
 }
@@ -216,6 +229,11 @@ func rowNames(names []string) string {
 
 func (m Messages) send(sc *core.Scenario, target string, body []byte, fields map[string]string) error {
 	if err := m.Send(sc, target, body, fields); err != nil {
+		// A message that breaks its contract is a failed check, not a
+		// failure to send.
+		if _, ok := errors.AsType[*core.AssertionError](err); ok {
+			return err
+		}
 		return fmt.Errorf("cannot send the message to the %s %s: %w", target, m.Target, err)
 	}
 	sc.Log("%s a message to the %s %s: %s", m.Verb, target, m.Target, Compact(body))

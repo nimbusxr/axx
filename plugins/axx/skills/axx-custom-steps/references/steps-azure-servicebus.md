@@ -37,6 +37,7 @@ Register the Service Bus namespace the steps talk to.
 | `connection string` | the namespace's connection string, or a local emulator's (with `UseDevelopmentEmulator=true`), like `${env:SERVICEBUS_CONNECTION_STRING}` |
 | `namespace` | the fully qualified namespace, like `<name>.servicebus.windows.net`, signed in with the Azure default credential chain |
 | `management endpoint` | where the namespace's management API is when it is not the namespace's own host, as with local emulators |
+| `asyncapi` | an AsyncAPI document, a file of the project or a URL, that the queues and topics follow: every message a scenario sends there, and every message a check finds, is checked against it (with the asyncapi pack) |
 
 **Example:**
 

@@ -384,6 +384,7 @@ sse | sse.event | the {word} event stream has an event where:  [+table]
 sse | sse.event | within {duration} the {word} event stream has an event where:  [+table]
 sse | sse.event.text | the {word} event stream has an event containing {string}
 sse | sse.event.text | within {duration} the {word} event stream has an event containing {string}
+asyncapi | asyncapi.levels | the AsyncAPI validation levels are:  [+table]
 web-core | web-core.app | the {word} web app with the following properties:  [+table]
 web-core | web-core.open | the {string} page is opened
 web-core | web-core.open | the {string} page of the {word} web app is opened

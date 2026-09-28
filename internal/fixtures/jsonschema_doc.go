@@ -31,8 +31,11 @@ func loadGoverning(baseDir, ref string) (jsonGoverning, error) {
 	if err := checkRef(ref); err != nil {
 		return nil, err
 	}
-	if strings.Contains(ref, componentPrefix) {
+	switch {
+	case strings.Contains(ref, componentPrefix):
 		return loadOpenAPIComponent(baseDir, ref)
+	case strings.Contains(ref, messagePrefix):
+		return loadAsyncAPIMessage(baseDir, ref)
 	}
 	return loadJSONSchemaDoc(baseDir, ref)
 }
@@ -55,30 +58,46 @@ type jsonSchemaDoc struct {
 
 func loadJSONSchemaDoc(baseDir, ref string) (*jsonSchemaDoc, error) {
 	if strings.Contains(ref, "#") {
-		return nil, schemaError("json schema ref '%s': fragments into standalone schema files are not supported - point at a whole schema file, or at an OpenAPI component via <spec>.yaml%s<Name>", ref, componentPrefix)
+		return nil, schemaError("json schema ref '%s': fragments into standalone schema files are not supported - point at a whole schema file, "+
+			"at an OpenAPI component via <spec>.yaml%s<Name>, or at an AsyncAPI message via <spec>.yaml%s<Name>", ref, componentPrefix, messagePrefix)
 	}
 	path := filepath.Join(baseDir, filepath.FromSlash(ref))
-	data, err := os.ReadFile(path)
+	doc, err := readSchemaObject(path, ref, "JSON Schema")
 	if err != nil {
-		return nil, schemaError("cannot read JSON Schema %s: %v", ref, err)
-	}
-	var root any
-	if strings.HasSuffix(strings.ToLower(ref), ".json") {
-		root, err = jvalue.ParseJackson(string(data))
-	} else {
-		root, err = jyaml.Unmarshal(data)
-	}
-	if err != nil {
-		return nil, schemaError("cannot read JSON Schema %s: %v", ref, err)
-	}
-	doc, ok := root.(*jsonx.Object)
-	if !ok {
-		return nil, schemaError("JSON Schema %s must be a top-level object", ref)
+		return nil, err
 	}
 	name := ref[strings.LastIndexByte(ref, '/')+1:]
 	if t, ok := get(doc, "title").(string); ok {
 		name = t
 	}
+	return compileSchemaDoc(doc, path, ref, name)
+}
+
+// readSchemaObject reads a JSON or YAML file whose top level is an object.
+func readSchemaObject(path, ref, what string) (*jsonx.Object, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, schemaError("cannot read %s %s: %v", what, ref, err)
+	}
+	var root any
+	if strings.HasSuffix(strings.ToLower(path), ".json") {
+		root, err = jvalue.ParseJackson(string(data))
+	} else {
+		root, err = jyaml.Unmarshal(data)
+	}
+	if err != nil {
+		return nil, schemaError("cannot read %s %s: %v", what, ref, err)
+	}
+	doc, ok := root.(*jsonx.Object)
+	if !ok {
+		return nil, schemaError("%s %s must be a top-level object", what, ref)
+	}
+	return doc, nil
+}
+
+// compileSchemaDoc bundles the local files doc, the schema at path, refers
+// to, and compiles it.
+func compileSchemaDoc(doc *jsonx.Object, path, ref, name string) (*jsonSchemaDoc, error) {
 	files, err := bundleLocalRefs(doc, path, ref)
 	if err != nil {
 		return nil, err

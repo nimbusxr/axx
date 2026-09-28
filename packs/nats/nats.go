@@ -16,6 +16,7 @@ import (
 
 	"github.com/nimbusxr/axx/core"
 	"github.com/nimbusxr/axx/internal/cloudstep"
+	"github.com/nimbusxr/axx/internal/contract"
 	"github.com/nimbusxr/axx/internal/secrets"
 )
 
@@ -54,7 +55,7 @@ var (
 var subjects = cloudstep.Messages{
 	Pack: Name, Kind: "subject", Target: "nats subject", Verb: "published", Field: "header", Fields: "headers",
 	Meta: []string{"subject"}, Since: since,
-	Send: publish, Inbox: inbox("subject"),
+	Send: publish, Inbox: inbox("subject"), Found: found,
 	Example: cloudstep.Sample{
 		To: "deliveries.confirmed", Body: `{"reference": "PX-8301", "signedBy": "H. Wolf", "deliveredAt": "2026-09-28T10:12:00Z"}`,
 		File: "nats/delivery-confirmed.json", Fields: [][2]string{{"courier", "CR-LEJ-12"}},
@@ -65,7 +66,7 @@ var subjects = cloudstep.Messages{
 
 var streams = cloudstep.Messages{
 	Pack: Name, Kind: "stream", Target: "nats stream", Field: "header",
-	Meta: []string{"subject"}, Since: since, Inbox: inbox("stream"),
+	Meta: []string{"subject"}, Since: since, Inbox: inbox("stream"), Found: found,
 	Example: cloudstep.Sample{
 		From: "TRACKING", Where: [][2]string{{"subject", "tracking.PX-8302"}, {"status", "OUT_FOR_DELIVERY"}},
 	},
@@ -88,6 +89,7 @@ func (pack) Manifest() core.Manifest {
 				{Name: "username", Takes: "the user axx connects as"},
 				{Name: "password", Takes: "its password"},
 				{Name: "creds", Takes: "a credentials file (JWT and seed), relative to the directory of axx.yaml"},
+				contract.TableRow("subjects"),
 			},
 		},
 		Examples: []string{
@@ -102,6 +104,11 @@ func (pack) Manifest() core.Manifest {
 			if err != nil {
 				return err
 			}
+			if s.asyncapi != "" {
+				if s.contract, err = contract.Open(sc, s.asyncapi); err != nil {
+					return err
+				}
+			}
 			if err := servers.Of(sc).Add(s.name, s); err != nil {
 				return err
 			}
@@ -115,6 +122,10 @@ func (pack) Manifest() core.Manifest {
 
 type server struct {
 	name, url, token, username, password, creds string
+	// asyncapi names the contract of the server's messages; contract
+	// checks them.
+	asyncapi string
+	contract contract.Checker
 }
 
 func (s *server) key() string { return s.url + "|" + s.username + "|" + s.creds }
@@ -140,8 +151,10 @@ func parse(suite *core.Suite, name string, t *core.Table, expand func(string) st
 			if s.creds, err = suite.ResolvePath(v); err != nil {
 				return nil, fmt.Errorf("the nats credentials file: %w", err)
 			}
+		case contract.Row:
+			s.asyncapi = v
 		default:
-			return nil, fmt.Errorf("unknown nats server property %q (supported: url, token, username, password, creds)", p.Key)
+			return nil, fmt.Errorf("unknown nats server property %q (supported: url, token, username, password, creds, asyncapi)", p.Key)
 		}
 	}
 	if s.url == "" {
@@ -218,13 +231,16 @@ func publish(sc *core.Scenario, subject string, body []byte, headers map[string]
 	if err != nil {
 		return err
 	}
-	c, err := open(sc.Suite(), s)
-	if err != nil {
-		return secrets.Hide(sc, err)
-	}
 	msg := &natsgo.Msg{Subject: subject, Data: body, Header: natsgo.Header{}}
 	for k, v := range headers {
 		msg.Header.Set(k, v)
+	}
+	if err := contract.Check(s.contract, sc, contractMessage(incoming(subject, msg.Header, body), true)); err != nil {
+		return err
+	}
+	c, err := open(sc.Suite(), s)
+	if err != nil {
+		return secrets.Hide(sc, err)
 	}
 	ctx, cancel := context.WithTimeout(sc.Context(), 10*time.Second)
 	defer cancel()
@@ -299,6 +315,27 @@ func incoming(subject string, h natsgo.Header, data []byte) cloudstep.Message {
 		m.Fields[k] = strings.Join(vs, ", ")
 	}
 	return m
+}
+
+// found checks a message a check found against the server's contract.
+func found(sc *core.Scenario, _, _ string, msg cloudstep.Message) error {
+	s, err := servers.Of(sc).Default()
+	if err != nil {
+		return err
+	}
+	return contract.Check(s.contract, sc, contractMessage(msg, false))
+}
+
+// contractMessage is a message as its contract sees it: on the subject it
+// was published to, which a check's wildcards or stream only match.
+func contractMessage(m cloudstep.Message, sent bool) contract.Message {
+	cm := contract.Message{Protocol: "nats", Addresses: []string{m.Meta["subject"]}, Sent: sent, Payload: m.Body, Headers: m.Fields}
+	for k, v := range m.Fields {
+		if strings.EqualFold(k, "Content-Type") {
+			cm.ContentType = v
+		}
+	}
+	return cm
 }
 
 // Prepare plans subscribing to the subjects and reading the streams the

@@ -15,6 +15,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 
 	"github.com/nimbusxr/axx/core"
+	"github.com/nimbusxr/axx/internal/contract"
 )
 
 // Name is the pack's name; the gcp-* packs require it.
@@ -57,6 +58,7 @@ func (pack) Manifest() core.Manifest {
 					{Name: "endpoint", Takes: "where every service of the project is, instead of Google Cloud: a local emulator, like " +
 						"`http://localhost:4588`; the clients then connect without credentials, and without TLS to an `http://` endpoint"},
 					{Name: "credentials", Takes: "a service account key file, resolved against `resources`, like `keys/billing-tests.json`"},
+					contract.TableRow("Pub/Sub topics"),
 				},
 			},
 			Examples: []string{
@@ -73,6 +75,11 @@ func (pack) Manifest() core.Manifest {
 				if err != nil {
 					return err
 				}
+				if p.asyncapi != "" {
+					if p.Contract, err = contract.Open(sc, p.asyncapi); err != nil {
+						return err
+					}
+				}
 				return projects.Of(sc).Add(p.Name, p)
 			},
 		}},
@@ -86,6 +93,11 @@ type Project struct {
 	Endpoint string
 	// Credentials is the resolved service account key file.
 	Credentials string
+	// Contract checks the messages of the project's topics, when its
+	// asyncapi row names one.
+	Contract contract.Checker
+
+	asyncapi string
 }
 
 // Key identifies the project's configuration, for clients and listeners
@@ -124,7 +136,7 @@ func (p *Project) auth() []option.ClientOption {
 	return nil
 }
 
-var properties = []string{"project", "endpoint", "credentials"}
+var properties = []string{"project", "endpoint", "credentials", contract.Row}
 
 // Parse reads a project's properties (expanding ${env:..} and ${sys:..}).
 // The gcp-* packs also use it to read the projects of a planned run.
@@ -150,6 +162,8 @@ func Parse(s *core.Suite, name string, t *core.Table) (*Project, error) {
 				return nil, fmt.Errorf("gcp project credentials: %w", err)
 			}
 			p.Credentials = path
+		case contract.Row:
+			p.asyncapi = v
 		default:
 			return nil, fmt.Errorf("unknown gcp project property %q (supported: %s)", pr.Key, strings.Join(properties, ", "))
 		}

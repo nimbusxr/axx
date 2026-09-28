@@ -1,0 +1,130 @@
+asyncapi: 3.0.0
+info:
+  title: Parcels events
+  version: 1.0.0
+defaultContentType: application/json
+servers:
+  depots:
+    host: localhost:1883
+    protocol: mqtt
+  events:
+    host: localhost:9092
+    protocol: kafka
+  printing:
+    host: localhost:5672
+    protocol: amqp
+  portal:
+    host: localhost:8400
+    pathname: /portal
+    protocol: ws
+channels:
+  scans:
+    address: depots/{depot}/scans
+    parameters:
+      depot:
+        description: The depot's code, like LEJ.
+    servers:
+      - $ref: '#/servers/depots'
+    messages:
+      scan:
+        $ref: '#/components/messages/scan'
+  parcelEvents:
+    address: parcels.events
+    servers:
+      - $ref: '#/servers/events'
+    messages:
+      registered:
+        $ref: '#/components/messages/registered'
+      delivered:
+        $ref: 'messages/delivered.yaml'
+  labels:
+    address: labels.print
+    servers:
+      - $ref: '#/servers/printing'
+    messages:
+      printJob:
+        $ref: '#/components/messages/printJob'
+  tracking:
+    address: /api/parcels/{reference}/events
+    messages:
+      scan:
+        name: scan
+        payload:
+          type: object
+          required: [reference, status]
+          properties:
+            reference: {type: string}
+            status: {type: string}
+      delivered:
+        name: delivered
+        payload:
+          type: object
+          required: [reference, status, signedBy]
+          properties:
+            reference: {type: string}
+            status: {const: DELIVERED}
+            signedBy: {type: string}
+  live:
+    address: /track/{reference}/live
+    servers:
+      - $ref: '#/servers/portal'
+    messages:
+      update:
+        payload:
+          type: object
+          required: [reference]
+  replies:
+    description: Its address is only known at run time.
+components:
+  messages:
+    scan:
+      name: scan
+      payload:
+        $ref: '#/components/schemas/scan'
+      headers:
+        type: object
+        properties:
+          attempt:
+            type: integer
+            minimum: 1
+    registered:
+      name: parcelRegistered
+      payload:
+        type: object
+        required: [parcelRef, shop, type]
+        properties:
+          parcelRef:
+            type: string
+            pattern: '^PX-'
+          shop:
+            type: string
+          type:
+            const: REGISTERED
+    printJob:
+      name: printJob
+      payload:
+        schemaFormat: application/vnd.apache.avro;version=1.9.0
+        schema:
+          type: record
+          name: PrintJob
+          namespace: parcels.printing
+          fields:
+            - name: parcelRef
+              type: string
+            - name: copies
+              type: int
+            - name: printer
+              type: ['null', string]
+              default: null
+  schemas:
+    scan:
+      type: object
+      required: [scanId, parcelRef, status]
+      properties:
+        scanId:
+          type: string
+        parcelRef:
+          type: string
+        status:
+          type: string
+          enum: [SORTED, OUT_FOR_DELIVERY, DELIVERED]

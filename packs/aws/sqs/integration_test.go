@@ -13,6 +13,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/sqs/types"
 
 	"github.com/nimbusxr/axx/internal/cloudstep/cloudtest"
+	"github.com/nimbusxr/axx/packs/asyncapi"
 	awscore "github.com/nimbusxr/axx/packs/aws/core"
 )
 
@@ -96,4 +97,54 @@ func TestQueues(t *testing.T) {
 	if got[withAttributes] != "KESTREL" {
 		t.Errorf("the message with attributes: %v", got)
 	}
+
+	t.Run("contract", func(t *testing.T) {
+		// A queue of its own: the first run still receives from refund-requests.
+		out, err := c.CreateQueue(ctx, &sqs.CreateQueueInput{QueueName: aws.String("refund-claims")})
+		if err != nil {
+			t.Fatal(err)
+		}
+		account := append(account, []string{"asyncapi", "asyncapi.yaml"})
+		h := cloudtest.New(t, awscore.Pack(), asyncapi.Pack(), Pack())
+		h.File("asyncapi.yaml", refundsContract)
+		h.Start(h.Plan(
+			cloudtest.PlannedStep{Text: "the parcels aws account with the following properties:", Table: account},
+			cloudtest.PlannedStep{Text: "the refund-claims sqs queue has a message where:", Table: [][]string{{"claim", "CLM-5"}}},
+		))
+		h.OK("the parcels aws account with the following properties:", account)
+		_ = h.Fails("a message is sent to the refund-claims sqs queue:",
+			"the message to send breaks asyncapi.yaml:\n- validation.message.payload.schema.required: payload $: missing property 'amount'", `{"claim": "CLM-3"}`)
+		h.File("messages/refund.json", `{"claim": "CLM-4", "amount": 20}`)
+		_ = h.Fails("the messages/refund.json message is sent to the refund-claims sqs queue with the following attributes:",
+			"- validation.message.headers.schema.enum: headers $.reason:", [][]string{{"reason", "BORED"}})
+		// The service under test sends a refund whose amount is text.
+		if _, err := c.SendMessage(ctx, &sqs.SendMessageInput{
+			QueueUrl: out.QueueUrl, MessageBody: aws.String(`{"claim":"CLM-5","amount":"lots"}`),
+		}); err != nil {
+			t.Fatal(err)
+		}
+		_ = h.Fails("within 10s the refund-claims sqs queue has a message where:",
+			"the message the check found breaks asyncapi.yaml:\n- validation.message.payload.schema.type: payload $.amount:", [][]string{{"claim", "CLM-5"}})
+	})
 }
+
+// refundsContract is the refunds' AsyncAPI document.
+const refundsContract = `asyncapi: 3.0.0
+info: {title: Refunds, version: 1.0.0}
+servers:
+  aws: {host: localhost:4566, protocol: sqs}
+channels:
+  refunds:
+    address: refund-claims
+    messages:
+      refund:
+        headers:
+          type: object
+          properties:
+            reason: {type: string, enum: [DAMAGE, LOST]}
+        payload:
+          type: object
+          required: [claim, amount]
+          properties:
+            amount: {type: number}
+`

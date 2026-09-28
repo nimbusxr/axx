@@ -27,6 +27,7 @@ Open a server-sent event stream under a name. It belongs to the scenario, which 
 |---|---|---|
 | `url` | the stream's address | _required_ |
 | `header.<name>` | a header of the request, such as `header.Authorization` | |
+| `asyncapi` | an AsyncAPI document, a file of the project or a URL, that the events follow: every message a scenario sends there, and every message a check finds, is checked against it (with the asyncapi pack) | |
 
 Values are expanded (`${env:..}`, `${sys:..}`); what `${env:..}` references expand to is masked everywhere.
 

@@ -36,6 +36,7 @@ Register the Google Cloud project the gcp-* steps talk to.
 | `project` | the project ID, like `parcels-billing` | _required_ |
 | `endpoint` | where every service of the project is, instead of Google Cloud: a local emulator, like `http://localhost:4588`; the clients then connect without credentials, and without TLS to an `http://` endpoint | |
 | `credentials` | a service account key file, resolved against `resources`, like `keys/billing-tests.json` | |
+| `asyncapi` | an AsyncAPI document, a file of the project or a URL, that the Pub/Sub topics follow: every message a scenario sends there, and every message a check finds, is checked against it (with the asyncapi pack) | |
 
 **Example:**
 
