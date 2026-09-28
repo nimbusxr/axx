@@ -12,6 +12,7 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.14.1
 	github.com/Azure/azure-sdk-for-go/sdk/messaging/azservicebus v1.10.0
 	github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v1.8.1
+	github.com/Azure/go-amqp v1.4.0
 	github.com/aws/aws-sdk-go-v2 v1.47.1
 	github.com/aws/aws-sdk-go-v2/config v1.33.6
 	github.com/aws/aws-sdk-go-v2/credentials v1.20.6
@@ -28,6 +29,7 @@ require (
 	github.com/cucumber/messages/go/v34 v34.2.1
 	github.com/cucumber/tag-expressions/go/v11 v11.0.1
 	github.com/dlclark/regexp2 v1.12.0
+	github.com/eclipse/paho.golang v0.23.0
 	github.com/go-sql-driver/mysql v1.10.1
 	github.com/goccy/go-yaml v1.19.2
 	github.com/invopop/jsonschema v0.14.0
@@ -39,9 +41,11 @@ require (
 	github.com/moby/moby/api v1.55.0
 	github.com/modelcontextprotocol/go-sdk v1.8.0
 	github.com/mxschmitt/playwright-go v0.6201.1
+	github.com/nats-io/nats.go v1.54.0
 	github.com/pavlo-v-chernykh/keystore-go/v4 v4.5.0
 	github.com/pb33f/libopenapi v0.38.6
 	github.com/pb33f/libopenapi-validator v0.14.0
+	github.com/rabbitmq/amqp091-go v1.15.0
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.3
 	github.com/spf13/cobra v1.10.2
 	github.com/testcontainers/testcontainers-go v0.44.0
@@ -77,7 +81,6 @@ require (
 	dario.cat/mergo v1.0.2 // indirect
 	filippo.io/edwards25519 v1.2.0 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/internal v1.12.0 // indirect
-	github.com/Azure/go-amqp v1.4.0 // indirect
 	github.com/Azure/go-ansiterm v0.0.0-20250102033503-faa5f7b0171c // indirect
 	github.com/AzureAD/microsoft-authentication-library-for-go v1.8.0 // indirect
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/detectors/gcp v1.34.0 // indirect
@@ -159,6 +162,8 @@ require (
 	github.com/moby/term v0.5.2 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
+	github.com/nats-io/nkeys v0.4.16 // indirect
+	github.com/nats-io/nuid v1.0.1 // indirect
 	github.com/ncruces/go-strftime v1.0.0 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.1.1 // indirect

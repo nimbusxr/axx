@@ -318,7 +318,18 @@ func EmulatorWithDocker(t *testing.T, image, port, healthPath string, env map[st
 	return emulator(t, image, port, healthPath, env, true)
 }
 
+// Server starts a server's container, with the command it runs when cmd
+// is not empty, and returns its host address for port once the port
+// listens. It skips the test when Docker is unavailable.
+func Server(t *testing.T, image, port string, cmd []string, env map[string]string) string {
+	return start(t, image, port, "", cmd, env, false)
+}
+
 func emulator(t *testing.T, image, port, healthPath string, env map[string]string, docker bool) string {
+	return start(t, image, port, healthPath, nil, env, docker)
+}
+
+func start(t *testing.T, image, port, healthPath string, cmd []string, env map[string]string, docker bool) string {
 	t.Helper()
 	ctx := context.Background()
 	var strategy wait.Strategy = wait.ForListeningPort(port + "/tcp").WithStartupTimeout(2 * time.Minute)
@@ -327,7 +338,7 @@ func emulator(t *testing.T, image, port, healthPath string, env map[string]strin
 	}
 	c, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
 		ContainerRequest: testcontainers.ContainerRequest{
-			Image: image, ExposedPorts: []string{port + "/tcp"}, Env: env, WaitingFor: strategy,
+			Image: image, ExposedPorts: []string{port + "/tcp"}, Cmd: cmd, Env: env, WaitingFor: strategy,
 			HostConfigModifier: func(hc *container.HostConfig) {
 				if docker {
 					hc.Binds = append(hc.Binds, "/var/run/docker.sock:/var/run/docker.sock")

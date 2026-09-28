@@ -1,0 +1,8 @@
+parcels.parcels:
+  - reference: "PX-AMQ-8103"
+    sender: "maple-crafts"
+    status: "REGISTERED"
+    service_level: "STANDARD"
+    weight_grams: 2600
+    recipient: '{"name": "Felix Kuhn", "street": "Prager Str. 6", "city": "Dresden", "postcode": "01069", "country": "DE"}'
+    details: '{"source": "api", "zone": "DE-1"}'

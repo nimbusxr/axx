@@ -138,7 +138,7 @@ func (e *events) publishRegistered(ctx context.Context, ev parcelRegistered) err
 
 // consumeScans stores every DepotScan event from the scans topic until ctx
 // ends. Records that cannot be read are logged and skipped.
-func (e *events) consumeScans(ctx context.Context, tracking *trackingStore) {
+func (e *events) consumeScans(ctx context.Context, rec *recorder) {
 	cl, err := kgo.NewClient(
 		kgo.SeedBrokers(e.brokers...),
 		kgo.ConsumerGroup("parcels-tracking"),
@@ -161,13 +161,11 @@ func (e *events) consumeScans(ctx context.Context, tracking *trackingStore) {
 		fetches.EachRecord(func(r *kgo.Record) {
 			ref, s, err := e.decodeScan(ctx, r.Value)
 			if err == nil {
-				err = tracking.AddScan(ctx, ref, s)
+				err = rec.record(ctx, ref, s, "depot-system", nil)
 			}
 			if err != nil {
 				e.log.Warn("depot scan skipped", "offset", r.Offset, "err", err)
-				return
 			}
-			e.log.Info("depot scan stored", "parcel", ref, "status", s.Status)
 		})
 	}
 }

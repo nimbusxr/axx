@@ -190,6 +190,18 @@ func (s *store) Cancel(ctx context.Context, ref string, check func(*Parcel) erro
 	return tx.Commit(ctx)
 }
 
+// LabelPrinted records the printer that printed a parcel's label, and when.
+func (s *store) LabelPrinted(ctx context.Context, ref, printer string, at time.Time) error {
+	tag, err := s.pool.Exec(ctx, `UPDATE parcels.parcels SET label_printed_by = $2, label_printed_at = $3 WHERE reference = $1`, ref, printer, at)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return errNotFound
+	}
+	return nil
+}
+
 func lockParcel(ctx context.Context, tx pgx.Tx, ref string) (*Parcel, error) {
 	p, err := scanParcel(tx.QueryRow(ctx, `SELECT `+parcelColumns+` FROM parcels.parcels WHERE reference = $1 FOR UPDATE NOWAIT`, ref))
 	if sqlState(err) == "55P03" {

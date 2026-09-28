@@ -1,0 +1,8 @@
+parcels.parcels:
+  - reference: "PX-NAT-8303"
+    sender: "maple-crafts"
+    status: "IN_TRANSIT"
+    service_level: "STANDARD"
+    weight_grams: 1200
+    recipient: '{"name": "Jonas Roth", "street": "Anger 17", "city": "Erfurt", "postcode": "99084", "country": "DE"}'
+    details: '{"source": "api", "zone": "DE-1"}'

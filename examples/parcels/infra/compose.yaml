@@ -4,7 +4,8 @@
 #   docker compose down -v               # stop and remove containers and volumes
 #
 # axx runs this for you: see ../acceptance/axx.yaml. The published host ports are the
-# ones the feature files use (8400, 8081, 8082, 5432, 27017, 9092 and 9081).
+# ones the feature files use (8400, 8081, 8082, 5432, 27017, 9092, 9081, 5672, 1883
+# and 4222).
 name: parcels
 
 services:
@@ -136,6 +137,49 @@ services:
       start_period: 5s
     stop_signal: SIGKILL
 
+  # Label printing: print jobs and the printers' reports (AMQP 0-9-1).
+  rabbitmq:
+    image: 'rabbitmq:4.2.9-alpine'
+    ports:
+      - '5672:5672'
+    environment:
+      RABBITMQ_DEFAULT_USER: parcels
+      RABBITMQ_DEFAULT_PASS: parcels
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "check_port_connectivity"]
+      interval: 2s
+      timeout: 10s
+      retries: 60
+      start_period: 5s
+    stop_signal: SIGKILL
+
+  # The depots' handheld scanners publish their scans here (MQTT 5).
+  mosquitto:
+    image: 'eclipse-mosquitto:2.0.22'
+    command: ["mosquitto", "-c", "/mosquitto-no-auth.conf"]
+    ports:
+      - '1883:1883'
+    healthcheck:
+      test: ["CMD", "mosquitto_pub", "-t", "health", "-m", "ok"]
+      interval: 1s
+      timeout: 2s
+      retries: 60
+    stop_signal: SIGKILL
+
+  # Couriers' delivery confirmations, and every tracking update in the TRACKING
+  # stream (NATS with JetStream).
+  nats:
+    image: 'nats:2.15.0-alpine'
+    command: ["nats-server", "-js", "-m", "8222"]
+    ports:
+      - '4222:4222'
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8222/healthz"]
+      interval: 1s
+      timeout: 2s
+      retries: 60
+    stop_signal: SIGKILL
+
   # The export folder the service writes the manifests' documents to (./exports, the
   # exports folder in the features), emptied for every run so that no document of an
   # earlier run passes a check, and writable by the service's non-root user.
@@ -158,6 +202,9 @@ services:
       PARCELS_COURIER_URL: http://courier:8080
       PARCELS_KAFKA_BROKERS: kafka:9094
       PARCELS_SCHEMA_REGISTRY_URL: http://schema-registry:8081
+      PARCELS_AMQP_URL: amqp://parcels:parcels@rabbitmq:5672/
+      PARCELS_MQTT_URL: mqtt://mosquitto:1883
+      PARCELS_NATS_URL: nats://nats:4222
       PARCELS_EXPORT_DIR: /var/lib/parcels/exports
       # Every log line also goes to the log service axx runs on the host (the
       # parcels log in the features); host-gateway makes the name work on Linux.
@@ -180,4 +227,10 @@ services:
       kafka:
         condition: service_healthy
       schema-registry:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      mosquitto:
+        condition: service_healthy
+      nats:
         condition: service_healthy

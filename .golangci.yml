@@ -17,6 +17,10 @@ linters:
     - unparam
     - usestdlibvars
   settings:
+    misspell:
+      # Product names that look like misspellings.
+      ignore-rules:
+        - mosquitto
     revive:
       rules:
         - name: exported

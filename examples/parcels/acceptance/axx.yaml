@@ -45,7 +45,7 @@ apps:
         - sh
         - -c
         - >-
-          docker compose up --wait address-service courier postgres mongo kafka schema-registry
+          docker compose up --wait address-service courier postgres mongo kafka schema-registry rabbitmq mosquitto nats
           && docker compose up exports
           && cd ../app
           && PARCELS_LOG_UDP=127.0.0.1:5140
