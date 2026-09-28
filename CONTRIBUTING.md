@@ -51,8 +51,8 @@ build, the docs site, Scorecard results) unless the `AXX_PUBLISH` repository var
 every pull request that touches release files. A dry run reports the release PR
 release-please would open, builds every component as a release would, checks it
 (`scripts/release-check.sh`) and attaches it to the run. Release secrets live in two environments that only `main` can use: `release-pr` holds the
-release app's key for release-please, and `release` holds what publishing needs, with a
-maintainer approving each release. To check the CLI release locally:
+release app's key for release-please, and `release` holds what publishing needs. Merging
+the release PR is the approval: it publishes. To check the CLI release locally:
 
 ```sh
 GORELEASER_CURRENT_TAG=$(scripts/cli-tag.sh) goreleaser release --snapshot --clean --skip=sign,sbom

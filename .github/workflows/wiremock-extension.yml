@@ -98,7 +98,7 @@ jobs:
     if: inputs.dry-run || (vars.AXX_PUBLISH == 'true' && (github.event_name == 'push' || inputs.version != ''))
     needs: [test, image]
     runs-on: ubuntu-24.04
-    # A release publishes from the release environment (main only, approved by a maintainer).
+    # A release publishes from the release environment (main only).
     environment: ${{ inputs.version != '' && !inputs.dry-run && 'release' || '' }}
     permissions:
       contents: read
