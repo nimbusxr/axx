@@ -5,12 +5,14 @@ packs:
   - mock
   - sql
   - mongo
+  - redis
   - kafka
   - amqp
   - mqtt
   - nats
   - logs
   - files
+  - mail
   - cli
   - websocket
   - sse

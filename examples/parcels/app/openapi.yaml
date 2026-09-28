@@ -68,7 +68,14 @@ paths:
       description: >-
         The recipient's postcode is checked with the address service first; parcels to
         undeliverable postcodes are refused with 422. References are unique: registering
-        an existing reference is refused with 409.
+        an existing reference is refused with 409. A retry sent with the Idempotency-Key of
+        a registration the shop already made is answered with the parcel it made (200).
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: false
+          description: The shop's own key for the registration; kept for a day.
+          schema: {type: string}
       requestBody:
         required: true
         content:
@@ -99,6 +106,14 @@ paths:
                     postcode: "75001"
                     country: FR
       responses:
+        "200":
+          description: A retry of a registration made with the same Idempotency-Key; the parcel it made.
+          headers:
+            Location:
+              schema: {type: string}
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Parcel"}
         "201":
           description: Registered.
           headers:

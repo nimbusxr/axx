@@ -26,6 +26,9 @@ type trackingStore struct {
 	client *mongo.Client
 	db     *mongo.Database
 	log    *slog.Logger
+	// rebuilt, when set, hears of each parcel whose summary changed: a
+	// cached view of it is out of date.
+	rebuilt func(ctx context.Context, ref string)
 }
 
 type trackingView struct {
@@ -180,6 +183,9 @@ func (t *trackingStore) rebuild(ctx context.Context, ref string) error {
 	}
 	_, err = t.db.Collection("tracking").UpdateOne(ctx, bson.D{{Key: "_id", Value: ref}},
 		bson.D{{Key: "$set", Value: doc}}, options.UpdateOne().SetUpsert(true))
+	if err == nil && t.rebuilt != nil {
+		t.rebuilt(ctx, ref)
+	}
 	return err
 }
 

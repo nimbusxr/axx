@@ -37,6 +37,8 @@ type service struct {
 	printing *printing
 	labels   labeler
 	rec      *recorder
+	cache    *cache
+	mail     *mailer
 	log      *slog.Logger
 
 	courierKey   []byte            // signs the courier's callbacks
@@ -105,6 +107,7 @@ func (s *service) register(ctx context.Context, r registration) (*Parcel, error)
 	if err := s.printing.printJob(ctx, p); err != nil {
 		s.log.Error("sending the label to the printers failed", "reference", p.Reference, "err", err)
 	}
+	s.mailRegistered(ctx, p)
 	// An express parcel is collected by the courier the day it is registered.
 	if p.ServiceLevel == "EXPRESS" {
 		if err := s.courier.book(ctx, p); err != nil {
@@ -246,7 +249,22 @@ func (s *service) create(w http.ResponseWriter, r *http.Request) {
 		problem(w, r, http.StatusBadRequest, strings.Join(errs, "; "))
 		return
 	}
+	// A retry of a registration its shop already made is answered with the
+	// parcel it made.
+	key := r.Header.Get("Idempotency-Key")
+	if key != "" {
+		if ref, ok := s.cache.registered(r.Context(), reg.Sender, key); ok {
+			if p, err := s.store.Get(r.Context(), ref); err == nil {
+				w.Header().Set("Location", "/api/parcels/"+p.Reference)
+				writeJSON(w, http.StatusOK, p)
+				return
+			}
+		}
+	}
 	p, err := s.register(r.Context(), reg)
+	if err == nil && key != "" {
+		s.cache.keepRegistered(r.Context(), reg.Sender, key, p.Reference)
+	}
 	switch {
 	case errors.Is(err, errDuplicate):
 		s.refused(reg.Reference, "already registered")
@@ -387,19 +405,24 @@ func changeable(p *Parcel) error {
 
 func (s *service) trackingView(w http.ResponseWriter, r *http.Request) {
 	ref := r.PathValue("reference")
+	if v, ok := s.cache.tracking(r.Context(), ref); ok {
+		writeJSON(w, http.StatusOK, v)
+		return
+	}
 	t, err := s.tracking.Get(r.Context(), ref)
 	if errors.Is(err, errNotFound) {
 		if _, perr := s.store.Get(r.Context(), ref); perr == nil {
-			writeJSON(w, http.StatusOK, trackingView{ParcelRef: ref, Status: "REGISTERED"})
+			t, err = &trackingView{ParcelRef: ref, Status: "REGISTERED"}, nil
+		} else {
+			problem(w, r, http.StatusNotFound, fmt.Sprintf("no tracking for parcel %s", ref))
 			return
 		}
-		problem(w, r, http.StatusNotFound, fmt.Sprintf("no tracking for parcel %s", ref))
-		return
 	}
 	if err != nil {
 		s.fail(w, r, err)
 		return
 	}
+	s.cache.keepTracking(r.Context(), t)
 	writeJSON(w, http.StatusOK, t)
 }
 

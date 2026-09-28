@@ -7,7 +7,7 @@ PostgreSQL, keeps a tracking read model in MongoDB, checks every address with a 
 address service, books express collections and pickups with a courier, talks to the depots over Kafka, sends labels to the depots'
 printers and hears their reports over AMQP (RabbitMQ), hears the depots' handheld scanners over MQTT, confirms
 deliveries and tells other services of every tracking update over NATS, takes the courier's signed callbacks and
-tells shops of deliveries in signed webhooks, serves the shops' systems with tokens, writes each imported manifest's documents to
+tells shops of deliveries in signed webhooks, serves the shops' systems with tokens, caches in Valkey, emails shops, writes each imported manifest's documents to
 an export folder, streams depot scans as they happen (over a websocket and as server-sent events), and has an admin
 command for its operations desk.
 
@@ -38,6 +38,8 @@ The service has no dependency on Axx or on any test framework.
 | `tracking-updates` | a courier's confirmation marks a parcel delivered; the other services hear of every scan, and the TRACKING stream keeps the updates | NATS messages published with headers, a subject with a wildcard, a JetStream stream, an Avro event on Kafka |
 | `courier-callbacks` | the courier's signed callbacks are recorded, and one signed with another key is refused; a delivery is told to the parcel's shop in a signed webhook | a request signed in a header (HMAC-SHA256), a Standard Webhook's signature checked on the mock that receives it, a mocked dependency's contract, MongoDB selections |
 | `shop-api` | a shop's system reads its parcels with a token its platform signs, or one it gets with its client credentials; a token for another shop is refused | a JSON Web Token axx signs, an OAuth 2.0 client credentials token axx gets from the service's token endpoint |
+| `cache` | a parcel's tracking view is cached, answers from the cache, and is dropped when a scan changes it; a registration retried with its idempotency key is answered with the parcel it made | Redis keys seeded and checked by their value, their JSON properties and their absence, ordered requests with a header |
+| `shop-emails` | a shop gets each registered parcel's label by email, and each delivery when it asked to be told | Mailpit read through its API: an email's recipient, sender, subject, text, HTML and attachment |
 | `operations-desk` | the desk's `parcels admin` command reprints labels, cancels parcels (from its input too) under the API's rules, and lists a shop's parcels | a command run in the service's container, its exit code, output and error output, output compared byte for byte and by its JSON properties, SQL selections |
 
 `axx.yaml` also shows test-data lint rules (`axx lint`), fixture factories (`axx fixtures`)
@@ -70,6 +72,7 @@ parcels/
     amqp/           the label printers' reports
     mqtt/           a handheld scanner's scan
     nats/           a courier's delivery confirmation
+    redis/          cached tracking views seeded into Valkey
     requests/       registration requests an order system exports (generated from a factory)
     schemas/        Avro schemas
 ```
@@ -152,6 +155,8 @@ browser at it. The host ports are the ones the features use:
 | `rabbitmq` | `rabbitmq:4.2.9-alpine` | 5672 | label print jobs and the printers' reports (AMQP 0-9-1) |
 | `mosquitto` | `eclipse-mosquitto:2.0.22` | 1883 | the depots' handheld scanners (MQTT 5) |
 | `nats` | `nats:2.15.0-alpine` | 4222 | couriers' delivery confirmations, and tracking updates in the TRACKING stream (JetStream) |
+| `valkey` | `valkey/valkey:9.1.2-alpine` | 6379 | the service's cache: tracking views and idempotency keys |
+| `mailpit` | `axllent/mailpit:v1.31.3` | 8025, 1025 | the service's mail server in the tests: its API (8025) and SMTP (1025) |
 | `exports` | `busybox:1.37` | (none) | empties `exports/`, and makes it writable, before the service starts |
 
 The address service mock builds the WireMock extension from this repository

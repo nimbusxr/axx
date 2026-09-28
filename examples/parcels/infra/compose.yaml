@@ -5,7 +5,7 @@
 #
 # axx runs this for you: see ../acceptance/axx.yaml. The published host ports are the
 # ones the feature files use (8400, 8081, 8082, 8083, 5432, 27017, 9092, 9081, 5672,
-# 1883 and 4222).
+# 1883, 4222, 6379 and 8025, and Mailpit's SMTP on 1025).
 name: parcels
 
 services:
@@ -201,6 +201,33 @@ services:
       retries: 60
     stop_signal: SIGKILL
 
+  # The service's cache: tracking views, and idempotency keys (Valkey, which speaks
+  # Redis's protocol).
+  valkey:
+    image: 'valkey/valkey:9.1.2-alpine'
+    ports:
+      - '6379:6379'
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 1s
+      timeout: 2s
+      retries: 60
+    stop_signal: SIGKILL
+
+  # The service's mail server in the tests: Mailpit catches every email it sends,
+  # for the features to read through its API (8025).
+  mailpit:
+    image: 'axllent/mailpit:v1.31.3'
+    ports:
+      - '8025:8025'
+      - '1025:1025'
+    healthcheck:
+      test: ["CMD", "/mailpit", "readyz"]
+      interval: 1s
+      timeout: 2s
+      retries: 60
+    stop_signal: SIGKILL
+
   # The export folder the service writes the manifests' documents to (./exports, the
   # exports folder in the features), emptied for every run so that no document of an
   # earlier run passes a check, and writable by the service's non-root user.
@@ -227,6 +254,8 @@ services:
       PARCELS_MQTT_URL: mqtt://mosquitto:1883
       PARCELS_NATS_URL: nats://nats:4222
       PARCELS_SHOP_WEBHOOK_URL: http://shops:8080/webhooks
+      PARCELS_REDIS_URL: redis://valkey:6379/0
+      PARCELS_SMTP_ADDR: mailpit:1025
       PARCELS_EXPORT_DIR: /var/lib/parcels/exports
       # Every log line also goes to the log service axx runs on the host (the
       # parcels log in the features); host-gateway makes the name work on Linux.
@@ -257,4 +286,8 @@ services:
       mosquitto:
         condition: service_healthy
       nats:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+      mailpit:
         condition: service_healthy

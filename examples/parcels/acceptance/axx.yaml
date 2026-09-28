@@ -52,7 +52,7 @@ apps:
         - sh
         - -c
         - >-
-          docker compose up --wait address-service courier shops postgres mongo kafka schema-registry rabbitmq mosquitto nats
+          docker compose up --wait address-service courier shops postgres mongo kafka schema-registry rabbitmq mosquitto nats valkey mailpit
           && docker compose up exports
           && cd ../app
           && PARCELS_LOG_UDP=127.0.0.1:5140
@@ -99,6 +99,12 @@ lint:
       filePatterns: ["seeds/*.yaml"]
       regex: '^\s+-?\s*id:\s*"([^"]+)"'
       description: Manifest line ids are unique across seed files
+      validation: cross-file-unique
+
+    - name: Redis keys in seeds
+      filePatterns: ["redis/*.yaml"]
+      regex: '^"([^"]+)":'
+      description: Every seeded Redis key has its own name
       validation: cross-file-unique
 
     - name: Depot scan ids
