@@ -68,7 +68,7 @@ The step references inside the skills are generated from *your* project, includi
 | --- | --- |
 | `steps_search` | find steps by intent, with docs and examples |
 | `step_explain` | how one line matches, or the closest steps |
-| `feature_validate` | check feature files or feature text without running |
+| `feature_validate` | check feature files or feature text without running; hints name scenarios whose checks prove little |
 | `lint_run` | run `axx lint`: values such as seed ids that collide across files, with `file:line` |
 | `scenarios_run` | run scenarios (paths, tags, names); returns failures with expected and actual |
 | `failure_context` | logs, attachments and the last request and response of one failure; without a run ID, of the latest run |

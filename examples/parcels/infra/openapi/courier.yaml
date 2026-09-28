@@ -47,6 +47,17 @@ paths:
                 required: [collection]
                 properties:
                   collection: {type: string}
+    delete:
+      operationId: callOffCollection
+      parameters:
+        - name: reference
+          in: query
+          required: true
+          description: The reference of the parcel whose collection is off.
+          schema: {type: string}
+      responses:
+        '204':
+          description: The collection is called off.
   /v1/pickups:
     post:
       operationId: notePickup

@@ -21,6 +21,8 @@ import (
 //	                       where it goes, never who it goes to; the query has
 //	                       the slot and a request ID of its own, which the
 //	                       courier drops retried bookings by
+//	DELETE /v1/collections the query has the reference of a parcel whose
+//	                       collection is off: the shop cancelled it
 //	POST /v1/pickups       a form: the parcel's reference and the day
 type courierClient struct {
 	base string
@@ -55,6 +57,11 @@ func (c *courierClient) book(ctx context.Context, p *Parcel) error {
 	return c.post(ctx, "/v1/collections?"+q.Encode(), "application/json", body)
 }
 
+// cancel calls off the collection of an express parcel the shop cancelled.
+func (c *courierClient) cancel(ctx context.Context, reference string) error {
+	return c.send(ctx, http.MethodDelete, "/v1/collections?"+url.Values{"reference": {reference}}.Encode(), "", nil)
+}
+
 // pickup tells the courier the day a shop has a parcel picked up.
 func (c *courierClient) pickup(ctx context.Context, reference, day string) error {
 	form := url.Values{"reference": {reference}, "day": {day}}
@@ -62,11 +69,17 @@ func (c *courierClient) pickup(ctx context.Context, reference, day string) error
 }
 
 func (c *courierClient) post(ctx context.Context, path, contentType string, body []byte) error {
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.base+path, bytes.NewReader(body))
+	return c.send(ctx, http.MethodPost, path, contentType, body)
+}
+
+func (c *courierClient) send(ctx context.Context, method, path, contentType string, body []byte) error {
+	req, err := http.NewRequestWithContext(ctx, method, c.base+path, bytes.NewReader(body))
 	if err != nil {
 		return err
 	}
-	req.Header.Set("Content-Type", contentType)
+	if contentType != "" {
+		req.Header.Set("Content-Type", contentType)
+	}
 	res, err := c.http.Do(req)
 	if err != nil {
 		return err

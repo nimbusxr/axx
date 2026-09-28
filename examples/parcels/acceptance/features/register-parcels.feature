@@ -69,6 +69,40 @@ Feature: Register parcels
       | recipient          | undefined   |
     And the mocked request named collection on courier was received exactly 1 time
 
+  Scenario: The courier collects only express parcels
+    Given the mocked courier service with the following properties:
+      | url | http://${sys:local.host}:8082 |
+    And a POST request to /api/parcels
+    And a request payload using an application/json content example
+    And the request payload property reference is 'PX-REG-1603'
+    When the request is executed
+    Then the response status code is 201
+    And the response payload property serviceLevel is 'STANDARD'
+    And none of the mocked POST requests to path /v1/collections on courier have the payload properties:
+      | reference | PX-REG-1603 |
+
+  Scenario: The courier's collection of a cancelled express parcel is called off
+    Given a seeds/cancel-express.yaml db seed
+    And the mocked courier service with the following properties:
+      | url | http://${sys:local.host}:8082 |
+    And a DELETE request to /api/parcels/PX-REG-1601
+    When the request is executed
+    Then the response status code is 204
+    And the mocked DELETE request to path /v1/collections named call-off was received by courier
+    And the query parameters for mocked request named call-off on courier are:
+      | reference | PX-REG-1601 |
+    And the mocked request named call-off on courier was received exactly 1 time
+
+  Scenario: The courier is not called about a cancelled standard parcel
+    Given a seeds/cancel-standard.yaml db seed
+    And the mocked courier service with the following properties:
+      | url | http://${sys:local.host}:8082 |
+    And a DELETE request to /api/parcels/PX-REG-1602
+    When the request is executed
+    Then the response status code is 204
+    And none of the mocked DELETE requests to path /v1/collections on courier have the query parameters:
+      | reference | PX-REG-1602 |
+
   Scenario: A parcel needs only a reference, a sender, a weight and a recipient
     Given a POST request to /api/parcels
     And a request payload using an application/json empty content template

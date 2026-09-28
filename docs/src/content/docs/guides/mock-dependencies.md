@@ -115,6 +115,25 @@ And the query parameters for mocked request named collection on courier are:
 
 A request named by its path matches whatever its query string; its query parameters narrow it, and its counts, like its body's properties.
 
+### What your service did not send
+
+A check that something did not happen also passes when the service never got that far, so check what it did do too, like the response. Every scenario's requests count, so the check names the scenario's own data:
+
+```gherkin
+Scenario: The courier is not called about a cancelled standard parcel
+  Given a seeds/cancel-standard.yaml db seed
+  And the mocked courier service with the following properties:
+    | url | http://localhost:8082 |
+  And a DELETE request to /api/parcels/PX-REG-1602
+  When the request is executed
+  Then the response status code is 204
+  And none of the mocked DELETE requests to path /v1/collections on courier have the query parameters:
+    | reference | PX-REG-1602 |
+```
+
+- **`none of the mocked ... requests to path ... have ...`** checks that no request to the path has every row of its table: `the query parameters`, `the payload properties` or `the form fields`. Put the scenario's own data in the table, next to what must not be there.
+- **`the mocked ... request to path ... named ... was not received`** checks that no request went to a path at all, whatever its query string. Use it for a path that is the scenario's own, like one with its parcel's reference.
+
 :::caution[Journals persist]
 WireMock keeps its request journal between scenarios, and between runs for as long as it keeps running, and scenarios run in parallel. Match on something unique to the scenario (a postcode or an id in the URL, a header, a property of the body) so one scenario never counts another scenario's requests. A count such as `exactly 1 time` also counts the requests of earlier runs while the mock keeps running, as it does between runs with `axx up`. See [Isolate test data](/guides/isolate-test-data/).
 :::

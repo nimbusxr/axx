@@ -46,6 +46,7 @@ func Project(ctx context.Context, cfg *config.Config, opts Options) (*Report, er
 		}
 		rep.Filter(opts)
 		rep.Hints = FixtureHints(e.Registry, set2.Pickles, FixtureSources{Resolve: e.ResolvePath, Generated: generated(cfg)}, opts)
+		rep.Hints = append(rep.Hints, ScenarioHints(e.Registry, set2.Pickles, opts)...)
 	}
 	return rep, nil
 }

@@ -94,7 +94,7 @@ func newServer(opts Options) (*sdk.Server, *server) {
 		s.stepExplain)
 	sdk.AddTool(srv, &sdk.Tool{
 		Name: "feature_validate", Annotations: ro,
-		Description: "Check feature files (by path) or feature text (content) without running them: Gherkin syntax, undefined and ambiguous steps, data table/doc string arguments.",
+		Description: "Check feature files (by path) or feature text (content) without running them: Gherkin syntax, undefined and ambiguous steps, data table/doc string arguments. Hints name scenarios whose checks prove little (only a success status, or only that something did not happen): findings to judge, not to silence.",
 	},
 		s.featureValidate)
 	sdk.AddTool(srv, &sdk.Tool{
@@ -383,6 +383,10 @@ type featureValidateOut struct {
 	Problems  []Problem `json:"problems"`
 	// Warnings do not make the features invalid (see lint_run).
 	Warnings []Problem `json:"warnings,omitempty"`
+	// Hints name scenarios whose checks prove little: only a success status
+	// code, or only that something did not happen. They are for the author
+	// to judge.
+	Hints []string `json:"hints,omitempty"`
 }
 
 func (s *server) featureValidate(ctx context.Context, _ *sdk.CallToolRequest, in featureValidateIn) (*sdk.CallToolResult, featureValidateOut, error) {
@@ -434,6 +438,7 @@ func (s *server) featureValidate(ctx context.Context, _ *sdk.CallToolRequest, in
 			out.Warnings = append(out.Warnings, Problem{Kind: "lint", Location: fmt.Sprintf("%s:%d", l.File, l.Line), Text: stripKeyword(l.Text), Message: f.Message + " [" + f.Code + "]"})
 		}
 	}
+	out.Hints = lint.ScenarioHints(e.Registry, pickles, lint.Options{WorkDir: s.opts.WorkDir})
 	return nil, out, nil
 }
 

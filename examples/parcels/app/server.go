@@ -339,11 +339,27 @@ func (s *service) update(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *service) remove(w http.ResponseWriter, r *http.Request) {
-	err := s.store.Cancel(r.Context(), r.PathValue("reference"), changeable)
+	var cancelled *Parcel
+	err := s.store.Cancel(r.Context(), r.PathValue("reference"), func(p *Parcel) error {
+		cancelled = p
+		return changeable(p)
+	})
 	if s.notFound(w, r, err) {
 		return
 	}
+	s.callOffCollection(r.Context(), cancelled)
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// callOffCollection tells the courier that a cancelled express parcel,
+// which it was booked to collect, is not coming.
+func (s *service) callOffCollection(ctx context.Context, p *Parcel) {
+	if p.ServiceLevel != "EXPRESS" {
+		return
+	}
+	if err := s.courier.cancel(ctx, p.Reference); err != nil {
+		s.log.Error("calling off the courier's collection failed", "reference", p.Reference, "err", err)
+	}
 }
 
 var errInvalid = errors.New("invalid change")

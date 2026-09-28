@@ -36,8 +36,9 @@ type Report struct {
 	Summary Summary `json:"summary"`
 	// Notes are informational messages (nothing to fix).
 	Notes []string `json:"notes,omitempty"`
-	// Hints suggest improvements (nothing to fix either), such as fixture
-	// factories for hand-written files that repeat one shape.
+	// Hints suggest improvements (nothing to fix either): fixture factories
+	// for hand-written files that repeat one shape, and scenarios whose
+	// checks prove little.
 	Hints []string `json:"hints,omitempty"`
 
 	// human output truncation (lint.config.maxReportedValues/Locations)

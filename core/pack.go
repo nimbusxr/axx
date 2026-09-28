@@ -178,6 +178,11 @@ type StepDef struct {
 	Since string `json:"since,omitempty"`
 	// DeprecatedBy, if set, explains what to use instead.
 	DeprecatedBy string `json:"deprecated,omitempty"`
+	// Absence says the step checks that something did not happen, like a
+	// request that was not received or text a page does not show. Such a
+	// check also passes when the action never ran: axx lint hints at
+	// scenarios that check nothing else.
+	Absence bool `json:"absence,omitempty"`
 	// Timeout overrides the default step timeout when positive.
 	Timeout time.Duration `json:"-"`
 	Source  SourceRef     `json:"source,omitzero"`

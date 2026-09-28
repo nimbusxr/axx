@@ -99,6 +99,10 @@ func TestTools(t *testing.T) {
 	if ws, _ := out["warnings"].([]any); out["valid"] != true || len(ws) != 1 || ws[0].(map[string]any)["kind"] != "lint" {
 		t.Fatalf("feature_validate lint warnings: %v", out)
 	}
+	out = call(t, cs, "feature_validate", map[string]any{"content": "Feature: f\n  Scenario: s\n    Given a GET request to /health\n    When the request is executed\n    Then the response status code is 200\n"})
+	if hs, _ := out["hints"].([]any); out["valid"] != true || len(hs) != 1 || !strings.Contains(hs[0].(string), "only a success status code") {
+		t.Fatalf("feature_validate hints: %v", out)
+	}
 
 	out = call(t, cs, "scaffold", map[string]any{"kind": "feature", "name": "Widget checks"})
 	if out["path"] != "features/widget-checks.feature" {

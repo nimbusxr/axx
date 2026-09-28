@@ -533,4 +533,11 @@ func TestPayloadFromAResource(t *testing.T) {
 	h2.service("api", srv.URL, "")
 	h2.ok("a POST request to /echo")
 	h2.fails("a request payload using an application/json requests/missing.json resource", "missing.json")
+
+	// A file already form-encoded is not a form payload: the failure says what one is.
+	h3 := newHarness(t)
+	h3.service("api", srv.URL, "")
+	h3.ok("a POST request to /echo")
+	h3.ok("a request payload using an application/x-www-form-urlencoded requests/token-request.form resource")
+	h3.fails("the request is executed", "must be a JSON object whose properties are the form's fields")
 }

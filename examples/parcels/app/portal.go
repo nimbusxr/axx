@@ -644,6 +644,7 @@ func (s *service) portalCancel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.log.Info("parcel cancelled", "reference", p.Reference, "source", "portal")
+	s.callOffCollection(r.Context(), p)
 	http.Redirect(w, r, "/portal/parcels?shop="+p.Sender+"&cancelled="+p.Reference, http.StatusSeeOther)
 }
 

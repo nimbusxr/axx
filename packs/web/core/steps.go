@@ -292,7 +292,7 @@ func steps() []core.StepDef {
 			}),
 		},
 		{
-			ID: "web-core.hides", Keyword: "Then", Since: since,
+			ID: "web-core.hides", Keyword: "Then", Since: since, Absence: true,
 			Expr: "[[within {duration} ]]the page does not show {string}",
 			Doc: "Check that the page does not show the text anywhere (case matters). The check waits for the text to go: " +
 				"10 seconds, or `within {duration}`.",

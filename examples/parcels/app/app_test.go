@@ -128,13 +128,18 @@ func TestPortalPagesRender(t *testing.T) {
 }
 
 // The courier gets a JSON booking without the recipient's name or street,
-// and a form for a pickup.
+// a form for a pickup, and a cancelled parcel's reference to call off its
+// collection.
 func TestCourierRequests(t *testing.T) {
 	var got []string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body, _ := io.ReadAll(r.Body)
-		got = append(got, r.Method+" "+r.URL.Path+" "+r.Header.Get("Content-Type")+" "+string(body))
-		if q := r.URL.Query(); r.URL.Path == "/v1/collections" && (q.Get("slot") != "same-day" || len(q.Get("requestId")) != 16) {
+		path := r.URL.Path
+		if r.Method == http.MethodDelete {
+			path = r.URL.RequestURI()
+		}
+		got = append(got, r.Method+" "+path+" "+r.Header.Get("Content-Type")+" "+string(body))
+		if q := r.URL.Query(); r.Method == http.MethodPost && r.URL.Path == "/v1/collections" && (q.Get("slot") != "same-day" || len(q.Get("requestId")) != 16) {
 			t.Errorf("the booking's query: %s", r.URL.RawQuery)
 		}
 		w.WriteHeader(http.StatusCreated)
@@ -151,9 +156,13 @@ func TestCourierRequests(t *testing.T) {
 	if err := c.pickup(context.Background(), "PX-WEB-5401", "Friday"); err != nil {
 		t.Fatal(err)
 	}
+	if err := c.cancel(context.Background(), "PX-REG-1401"); err != nil {
+		t.Fatal(err)
+	}
 	want := []string{
 		`POST /v1/collections application/json {"reference":"PX-REG-1401","weightGrams":800,"deliverTo":{"postcode":"10115","country":"DE"}}`,
 		"POST /v1/pickups application/x-www-form-urlencoded day=Friday&reference=PX-WEB-5401",
+		"DELETE /v1/collections?reference=PX-REG-1401  ",
 	}
 	if strings.Join(got, "\n") != strings.Join(want, "\n") {
 		t.Errorf("requests\n%s\nwant\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
