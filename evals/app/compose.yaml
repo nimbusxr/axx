@@ -64,7 +64,7 @@ services:
 
   kafka:
     profiles: [kafka]
-    image: apache/kafka-native:3.9.1
+    image: apache/kafka-native:3.9.2
     ports: ["19092:19092"]
     environment:
       KAFKA_NODE_ID: 1

@@ -44,7 +44,7 @@ services:
       timeout: 2s
       retries: 90
   kafka:
-    image: apache/kafka-native:3.9.1
+    image: apache/kafka-native:3.9.2
     environment:
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: broker,controller
