@@ -67,7 +67,7 @@ services:
       timeout: 5s
       retries: 90
   schema-registry:
-    image: confluentinc/cp-schema-registry:7.9.2
+    image: confluentinc/cp-schema-registry:7.9.10
     depends_on:
       kafka:
         condition: service_healthy
