@@ -18,12 +18,18 @@ $arch = switch ($env:PROCESSOR_ARCHITECTURE) {
 
 $version = $env:AXX_VERSION
 if (-not $version) {
-  # Pre-releases included: /releases/latest skips them during the 0.x beta. The CLI's tags are
+  # Pre-releases included: /releases/latest skips them during the 0.x beta. The newest release
+  # whose files are up: its checksums and this platform's archive. A release is published
+  # before its build uploads them, so the newest one can have none yet. The CLI's tags are
   # v*; the WireMock extension and the IntelliJ plugin have releases of their own
   # (wiremock-openapi-v*, intellij-v*), and nightly.
   $release = (Invoke-RestMethod -Headers $headers "$api/releases?per_page=20") |
-    Where-Object { -not $_.draft -and $_.tag_name -match '^v\d' } | Select-Object -First 1
-  if (-not $release) { throw 'could not determine the newest release; set AXX_VERSION' }
+    Where-Object {
+      $names = @($_.assets.name)
+      -not $_.draft -and $_.tag_name -match '^v\d' -and $names -contains 'checksums.txt' -and
+        $names -contains "axx_$($_.tag_name.TrimStart('v'))_windows_${arch}.zip"
+    } | Select-Object -First 1
+  if (-not $release) { throw "no release has a build for windows/$arch yet; set AXX_VERSION" }
   $version = $release.tag_name
 }
 $tag = if ($version -eq 'nightly') { 'nightly' } elseif ($version.StartsWith('v')) { $version } else { "v$version" }

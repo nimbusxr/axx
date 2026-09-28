@@ -46,10 +46,17 @@ esac
 
 version=${AXX_VERSION:-}
 if [ -z "$version" ]; then
-  # The newest CLI release (pre-releases included): its tags are v*. The WireMock extension and
-  # the IntelliJ plugin have releases of their own (wiremock-openapi-v*, intellij-v*), and nightly.
-  version=$(fetch "$API/releases?per_page=20" | tr ',' '\n' | sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p' | grep '^v[0-9]' | head -n 1)
-  [ -n "$version" ] || die "could not determine the newest release; set AXX_VERSION"
+  # The newest CLI release (pre-releases included) whose files are up: its checksums and this
+  # platform's archive. A release is published before its build uploads them, so the newest
+  # one can have none yet. The CLI's tags are v*; the WireMock extension and the IntelliJ
+  # plugin have releases of their own (wiremock-openapi-v*, intellij-v*), and nightly.
+  version=$(fetch "$API/releases?per_page=20" | tr ',' '\n' |
+    sed -n 's#.*"browser_download_url": *"[^"]*/releases/download/\(v[0-9][^/"]*\)/\([^/"]*\)".*#\1 \2#p' |
+    awk -v os="$os" -v arch="$arch" '
+      $2 == "checksums.txt" { sums[$1] = 1 }
+      $2 == "axx_" substr($1, 2) "_" os "_" arch ".tar.gz" { archive[$1] = 1 }
+      sums[$1] && archive[$1] { print $1; exit }')
+  [ -n "$version" ] || die "no release has a build for $os/$arch yet; set AXX_VERSION"
 fi
 case "$version" in
   nightly) tag=nightly ;;
