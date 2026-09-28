@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.1.4](https://github.com/nimbusxr/axx/compare/v0.1.3...v0.1.4) (2026-09-28)
+
+
+### Features
+
+* **lint:** axx lint, axx validate and feature_validate hint at scenarios that check only a success status, or only that something did not happen ([3e36357](https://github.com/nimbusxr/axx/commit/3e3635784595d221f246fce7b14c2980140ee7ab))
+* **mock:** check that no request went to a path, and that none of a path's requests have given query parameters, payload properties or form fields ([3e36357](https://github.com/nimbusxr/axx/commit/3e3635784595d221f246fce7b14c2980140ee7ab))
+
+
+### Bug Fixes
+
+* **deps:** update google.golang.org/genproto digest to b142276 ([#38](https://github.com/nimbusxr/axx/issues/38)) ([d90646b](https://github.com/nimbusxr/axx/commit/d90646bbfc25b01f440e447f4c69b77966026fbb))
+* **install:** install the newest release whose files are up ([ea323a3](https://github.com/nimbusxr/axx/commit/ea323a35116ac81eb63b890a8b79bb22bb1d9f78))
+* **rest:** a form payload that is not a JSON object says what one must be ([3e36357](https://github.com/nimbusxr/axx/commit/3e3635784595d221f246fce7b14c2980140ee7ab))
+
 ## [0.1.3](https://github.com/nimbusxr/axx/compare/v0.1.2...v0.1.3) (2026-09-27)
 
 
