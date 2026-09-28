@@ -15,14 +15,15 @@ type shopSettings struct {
 	PickupDays      []string
 	NotifyDelivered bool
 	Logo            string
+	ContactEmail    string
 }
 
 // Settings returns a shop's settings; a shop that set none has empty ones.
 func (s *store) Settings(ctx context.Context, shop string) (*shopSettings, error) {
 	st := &shopSettings{Shop: shop}
 	var days string
-	err := s.pool.QueryRow(ctx, `SELECT pickup_address, pickup_days, notify_delivered, logo FROM parcels.shop_settings WHERE shop = $1`, shop).
-		Scan(&st.PickupAddress, &days, &st.NotifyDelivered, &st.Logo)
+	err := s.pool.QueryRow(ctx, `SELECT pickup_address, pickup_days, notify_delivered, logo, contact_email FROM parcels.shop_settings WHERE shop = $1`, shop).
+		Scan(&st.PickupAddress, &days, &st.NotifyDelivered, &st.Logo, &st.ContactEmail)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return st, nil
 	}

@@ -122,6 +122,7 @@ type recorder struct {
 	updates  *trackingUpdates
 	store    *store
 	shops    *shopWebhooks
+	mail     *mailer
 	log      *slog.Logger
 }
 
@@ -138,6 +139,7 @@ func (r *recorder) tellShop(ctx context.Context, ref string, s scan) {
 	if err := r.shops.delivered(ctx, p, s); err != nil {
 		r.log.Error("telling the shop of a delivery failed", "parcel", ref, "shop", p.Sender, "err", err)
 	}
+	r.mailDelivered(ctx, p, s)
 }
 
 func (r *recorder) record(ctx context.Context, ref string, s scan, source string, headers map[string]string) error {

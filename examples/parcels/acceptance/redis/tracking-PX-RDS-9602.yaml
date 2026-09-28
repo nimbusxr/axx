@@ -1,0 +1,3 @@
+"tracking:PX-RDS-9602":
+  value: {"parcelRef": "PX-RDS-9602", "status": "OUT_FOR_DELIVERY", "lastLocation": "Leipzig", "lastScanAt": "2026-09-28T07:30:00Z", "scanCount": 3, "delivered": false}
+  ttl: 10m

@@ -56,7 +56,12 @@ type config struct {
 	ShopWebhookKey     string
 	ShopTokenKey       string
 	ShopClients        map[string]string
-	PollInterval       time.Duration
+	// RedisURL is Valkey, where the service caches; SMTPAddr its mail server
+	// (host:port), and MailFrom who its mail comes from.
+	RedisURL     string
+	SMTPAddr     string
+	MailFrom     string
+	PollInterval time.Duration
 	// ExportDir is where the service writes the documents of the manifests
 	// it imports, for the shops' systems to collect.
 	ExportDir string
@@ -94,6 +99,9 @@ func loadConfig() (config, error) {
 		ShopWebhookKey:     env("PARCELS_SHOP_WEBHOOK_KEY", "whsec_ZXhhbXBsZS1zaG9wLXdlYmhvb2sta2V5"),
 		ShopTokenKey:       env("PARCELS_SHOP_TOKEN_KEY", "example-shop-token-key"),
 		ShopClients:        map[string]string{},
+		RedisURL:           env("PARCELS_REDIS_URL", "redis://localhost:6379/0"),
+		SMTPAddr:           env("PARCELS_SMTP_ADDR", "localhost:1025"),
+		MailFrom:           env("PARCELS_MAIL_FROM", "Parcels <no-reply@parcels.example>"),
 		ExportDir:          env("PARCELS_EXPORT_DIR", "../infra/exports"),
 		LogUDP:             env("PARCELS_LOG_UDP", ""),
 	}
@@ -160,7 +168,15 @@ func serve(ctx context.Context, cfg config, log *slog.Logger) error {
 	if err != nil {
 		return err
 	}
-	rec := &recorder{tracking: tracking, updates: updates, store: store, shops: shops, log: log}
+	cache, err := openCache(cctx, cfg.RedisURL, log)
+	if err != nil {
+		return err
+	}
+	defer cache.Close()
+	// A tracking view is cached until its parcel's summary changes.
+	tracking.rebuilt = cache.dropTracking
+	mail := &mailer{addr: cfg.SMTPAddr, from: cfg.MailFrom, log: log}
+	rec := &recorder{tracking: tracking, updates: updates, store: store, shops: shops, mail: mail, log: log}
 	if err := updates.confirmDeliveries(ctx, rec); err != nil {
 		return err
 	}
@@ -185,6 +201,8 @@ func serve(ctx context.Context, cfg config, log *slog.Logger) error {
 		printing: printing,
 		labels:   labels,
 		rec:      rec,
+		cache:    cache,
+		mail:     mail,
 		log:      log,
 
 		courierKey:   []byte(cfg.CourierCallbackKey),

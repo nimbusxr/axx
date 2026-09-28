@@ -1,0 +1,12 @@
+parcels.shop_settings:
+  - shop: "larkspur-lane"
+    notify_delivered: true
+    contact_email: "orders@larkspur-lane.example"
+parcels.parcels:
+  - reference: "PX-MAIL-9702"
+    sender: "larkspur-lane"
+    status: "OUT_FOR_DELIVERY"
+    service_level: "STANDARD"
+    weight_grams: 1500
+    recipient: '{"name": "Nina Lorenz", "street": "Gottschedstr. 1", "city": "Leipzig", "postcode": "04109", "country": "DE"}'
+    details: '{"source": "api", "zone": "DE-1"}'

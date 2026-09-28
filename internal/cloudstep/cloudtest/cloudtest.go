@@ -325,20 +325,37 @@ func Server(t *testing.T, image, port string, cmd []string, env map[string]strin
 	return start(t, image, port, "", cmd, env, false)
 }
 
+// ServerPorts is Server for a server that listens on several ports: it
+// returns the host address of each, once all of them listen.
+func ServerPorts(t *testing.T, image string, ports []string, cmd []string, env map[string]string) map[string]string {
+	return startPorts(t, image, ports, "", cmd, env, false)
+}
+
 func emulator(t *testing.T, image, port, healthPath string, env map[string]string, docker bool) string {
 	return start(t, image, port, healthPath, nil, env, docker)
 }
 
 func start(t *testing.T, image, port, healthPath string, cmd []string, env map[string]string, docker bool) string {
 	t.Helper()
+	return startPorts(t, image, []string{port}, healthPath, cmd, env, docker)[port]
+}
+
+func startPorts(t *testing.T, image string, ports []string, healthPath string, cmd []string, env map[string]string, docker bool) map[string]string {
+	t.Helper()
 	ctx := context.Background()
-	var strategy wait.Strategy = wait.ForListeningPort(port + "/tcp").WithStartupTimeout(2 * time.Minute)
+	var strategies []wait.Strategy
+	exposed := make([]string, len(ports))
+	for i, p := range ports {
+		exposed[i] = p + "/tcp"
+		strategies = append(strategies, wait.ForListeningPort(p+"/tcp").WithStartupTimeout(2*time.Minute))
+	}
+	var strategy wait.Strategy = wait.ForAll(strategies...)
 	if healthPath != "" {
-		strategy = wait.ForHTTP(healthPath).WithPort(port + "/tcp").WithStartupTimeout(2 * time.Minute)
+		strategy = wait.ForHTTP(healthPath).WithPort(ports[0] + "/tcp").WithStartupTimeout(2 * time.Minute)
 	}
 	c, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
 		ContainerRequest: testcontainers.ContainerRequest{
-			Image: image, ExposedPorts: []string{port + "/tcp"}, Cmd: cmd, Env: env, WaitingFor: strategy,
+			Image: image, ExposedPorts: exposed, Cmd: cmd, Env: env, WaitingFor: strategy,
 			HostConfigModifier: func(hc *container.HostConfig) {
 				if docker {
 					hc.Binds = append(hc.Binds, "/var/run/docker.sock:/var/run/docker.sock")
@@ -355,9 +372,13 @@ func start(t *testing.T, image, port, healthPath string, cmd []string, env map[s
 	if err != nil {
 		t.Fatal(err)
 	}
-	mapped, err := c.MappedPort(ctx, port+"/tcp")
-	if err != nil {
-		t.Fatal(err)
+	out := map[string]string{}
+	for _, p := range ports {
+		mapped, err := c.MappedPort(ctx, p+"/tcp")
+		if err != nil {
+			t.Fatal(err)
+		}
+		out[p] = host + ":" + mapped.Port()
 	}
-	return host + ":" + mapped.Port()
+	return out
 }

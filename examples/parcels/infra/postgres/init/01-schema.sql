@@ -48,6 +48,8 @@ CREATE TABLE parcels.shop_settings (
     pickup_address   VARCHAR(200) NOT NULL DEFAULT '',
     pickup_days      VARCHAR(100) NOT NULL DEFAULT '',
     notify_delivered BOOLEAN NOT NULL DEFAULT false,
+    -- Where the service emails the shop (see ../../../app/mailer.go).
+    contact_email    VARCHAR(200) NOT NULL DEFAULT '',
     logo             VARCHAR(200) NOT NULL DEFAULT '',
     updated_at       TIMESTAMPTZ NOT NULL DEFAULT now()
 );

@@ -249,6 +249,14 @@ mongo | mongo.doc.match | the {ordinal} document for the selection properties ma
 mongo | mongo.doc.match | the {ordinal} document for the {ordinal} selection properties match:  [+table]
 mongo | mongo.doc.match | the {ordinal} document for the selection on {mongoService} properties match:  [+table]
 mongo | mongo.doc.match | the {ordinal} document for the {ordinal} selection on {mongoService} properties match:  [+table]
+redis | redis.server | the {word} redis server with the following properties:  [+table]
+redis | redis.seed | a {filepath} redis seed
+redis | redis.value | the {word} redis key has the value {string}
+redis | redis.value | within {duration} the {word} redis key has the value {string}
+redis | redis.properties | the {word} redis key has the following properties:  [+table]
+redis | redis.properties | within {duration} the {word} redis key has the following properties:  [+table]
+redis | redis.absent | the {word} redis key does not exist
+redis | redis.absent | within {duration} the {word} redis key does not exist
 kafka | kafka.service | the {word} kafka service with the following properties:  [+table]
 kafka | kafka.client | the {word} kafka topic client
 kafka | kafka.client.props | a(n) {word} kafka topic client with the following properties:  [+table]
@@ -343,6 +351,9 @@ files | files.contains | the {word} file in the {word} folder contains {string}
 files | files.contains | within {duration} the {word} file in the {word} folder contains {string}
 files | files.row | the {word} file in the {word} folder has a row where:  [+table]
 files | files.row | within {duration} the {word} file in the {word} folder has a row where:  [+table]
+mail | mail.mailbox | the {word} mailbox with the following properties:  [+table]
+mail | mail.received | the {word} mailbox has an email where:  [+table]
+mail | mail.received | within {duration} the {word} mailbox has an email where:  [+table]
 cli | cli.command | the {word} command with the following properties:  [+table]
 cli | cli.run | the {word} command is run
 cli | cli.run | the {word} command is run with {string}

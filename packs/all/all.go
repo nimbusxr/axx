@@ -23,10 +23,12 @@ import (
 	gcpstorage "github.com/nimbusxr/axx/packs/gcp/storage"
 	"github.com/nimbusxr/axx/packs/kafka"
 	"github.com/nimbusxr/axx/packs/logs"
+	"github.com/nimbusxr/axx/packs/mail"
 	"github.com/nimbusxr/axx/packs/mock"
 	"github.com/nimbusxr/axx/packs/mongo"
 	"github.com/nimbusxr/axx/packs/mqtt"
 	"github.com/nimbusxr/axx/packs/nats"
+	"github.com/nimbusxr/axx/packs/redis"
 	"github.com/nimbusxr/axx/packs/rest"
 	sqlpack "github.com/nimbusxr/axx/packs/sql"
 	"github.com/nimbusxr/axx/packs/sse"
@@ -46,12 +48,14 @@ func Packs() map[string]core.Pack {
 		"mock":             mock.Pack(),
 		"sql":              sqlpack.Pack(),
 		"mongo":            mongo.Pack(),
+		"redis":            redis.Pack(),
 		"kafka":            kafka.Pack(),
 		"amqp":             amqp.Pack(),
 		"mqtt":             mqtt.Pack(),
 		"nats":             nats.Pack(),
 		"logs":             logs.Pack(),
 		"files":            files.Pack(),
+		"mail":             mail.Pack(),
 		"cli":              cli.Pack(),
 		"websocket":        websocket.Pack(),
 		"sse":              sse.Pack(),

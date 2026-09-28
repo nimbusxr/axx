@@ -2,7 +2,7 @@
   "description": "The frozen catalog of built-in step text. Step text is public API: every entry must stay defined, verbatim, by its pack.",
   "counts": {
     "parameterType": 11,
-    "step": 557
+    "step": 568
   },
   "entries": [
     {
@@ -3423,6 +3423,72 @@
       "pack": "mock",
       "keyword": "Then",
       "expression": "the mocked request named {word} on {mockedService} is signed as a standard webhook with the key {string}"
+    },
+    {
+      "kind": "step",
+      "pack": "redis",
+      "keyword": "Given",
+      "expression": "the {word} redis server with the following properties:"
+    },
+    {
+      "kind": "step",
+      "pack": "redis",
+      "keyword": "Given",
+      "expression": "a {filepath} redis seed"
+    },
+    {
+      "kind": "step",
+      "pack": "redis",
+      "keyword": "Then",
+      "expression": "the {word} redis key has the value {string}"
+    },
+    {
+      "kind": "step",
+      "pack": "redis",
+      "keyword": "Then",
+      "expression": "within {duration} the {word} redis key has the value {string}"
+    },
+    {
+      "kind": "step",
+      "pack": "redis",
+      "keyword": "Then",
+      "expression": "the {word} redis key has the following properties:"
+    },
+    {
+      "kind": "step",
+      "pack": "redis",
+      "keyword": "Then",
+      "expression": "within {duration} the {word} redis key has the following properties:"
+    },
+    {
+      "kind": "step",
+      "pack": "redis",
+      "keyword": "Then",
+      "expression": "the {word} redis key does not exist"
+    },
+    {
+      "kind": "step",
+      "pack": "redis",
+      "keyword": "Then",
+      "expression": "within {duration} the {word} redis key does not exist"
+    },
+    {
+      "kind": "step",
+      "pack": "mail",
+      "keyword": "Given",
+      "expression": "the {word} mailbox with the following properties:"
+    },
+    {
+      "kind": "step",
+      "pack": "mail",
+      "keyword": "Then",
+      "expression": "the {word} mailbox has an email where:"
+    },
+    {
+      "kind": "step",
+      "pack": "mail",
+      "keyword": "Then",
+      "expression": "within {duration} the {word} mailbox has an email where:"
     }
   ]
 }
