@@ -2,7 +2,7 @@
 go = "1.27.1"
 golangci-lint = "2"
 goreleaser = "2"
-lefthook = "2.1.12"
+lefthook = "2.1.14"
 node = "22"          # docs site only
 java = "temurin-21"  # WireMock extension and IntelliJ plugin only
 "aqua:gitleaks/gitleaks" = "latest"
