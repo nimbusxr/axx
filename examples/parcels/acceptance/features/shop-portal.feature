@@ -68,6 +68,7 @@ Feature: Shop portal
       """
     And the "css=form" element has no accessibility violations
 
+  @performance
   Scenario: The quote page is quick and sound on a phone
     When the "/quote" page is opened
     Then the "/quote" page scores at least:

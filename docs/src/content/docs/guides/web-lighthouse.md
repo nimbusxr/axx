@@ -48,7 +48,7 @@ The "/parcels/new" page scores below what it should:
 - **On a phone, or a desktop.** It measures the page as a mid-range phone on a slow 4G connection loads it (the `device` setting: `desktop` for Lighthouse's desktop preset), simulating the device and the connection rather than slowing the browser down. An audit takes about 5 seconds, and audits take turns in a run, so that scenarios running beside one another do not slow each other's pages.
 - **With a report.** Each audit attaches Lighthouse's HTML report, which the pack also keeps in `.axx/web/lighthouse`.
 
-Scores and timings vary a little from run to run, and from machine to machine: leave room in the limits. Lighthouse audits pages in Chromium, Chrome and Edge only; for a web app in Firefox or WebKit the step fails.
+Scores and timings vary a little from run to run, and from machine to machine: leave room in the limits. The blocking time is time the browser spends on the CPU, which other scenarios' browsers share: on a busy machine, such as a CI runner, run the scenarios that time pages alone, after the others, by tagging them and listing the tag in `run.exclusive` ([Run in parallel](/guides/parallel-runs/)). Lighthouse audits pages in Chromium, Chrome and Edge only; for a web app in Firefox or WebKit the step fails.
 
 ## Settings
 
