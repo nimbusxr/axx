@@ -90,7 +90,11 @@ func steps() []core.StepDef {
 				if a.DocString != nil {
 					body = a.DocString.Content
 				}
-				return send(sc, a.String(0), secrets.Expand(sc, body))
+				body, err := secrets.Resolve(sc, body)
+				if err != nil {
+					return err
+				}
+				return send(sc, a.String(0), body)
 			},
 		},
 		{
@@ -186,7 +190,10 @@ func connect(sc *core.Scenario, a core.Args) error {
 	header := http.Header{}
 	var protocols []string
 	for _, p := range pairs {
-		v := secrets.Expand(sc, p.Value)
+		v, err := secrets.Resolve(sc, p.Value)
+		if err != nil {
+			return err
+		}
 		switch {
 		case p.Key == "url":
 			url = strings.TrimSpace(v)

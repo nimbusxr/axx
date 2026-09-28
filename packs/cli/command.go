@@ -97,7 +97,10 @@ func parse(sc *core.Scenario, name string, t *core.Table) (*Command, error) {
 	c := &Command{Name: name, Timeout: defaultTimeout}
 	env := map[string]string{}
 	for _, p := range pairs {
-		v := secrets.Expand(sc, p.Value)
+		v, err := secrets.Resolve(sc, p.Value)
+		if err != nil {
+			return nil, err
+		}
 		switch {
 		case p.Key == "command":
 			c.Argv = shellwords.Split(v)

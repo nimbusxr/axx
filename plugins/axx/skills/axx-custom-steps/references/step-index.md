@@ -108,6 +108,19 @@ rest | rest.response.properties.match | the response payload properties match:  
 rest | rest.response.properties.match | the response payload properties for {ordinal} ordered response match:  [+table]
 rest | rest.response.properties.match.on | the response payload properties for response on {service} match:  [+table]
 rest | rest.response.properties.match.on | the response payload properties for {ordinal} ordered response on {service} match:  [+table]
+rest | rest.token | the {word} token with the following properties:  [+table]
+rest | rest.request.token | the request is authorized with the {word} token
+rest | rest.request.token | the request is authorized with the {word} token for {ordinal} ordered request
+rest | rest.request.token.on | the request is authorized with the {word} token for request on {service}
+rest | rest.request.token.on | the request is authorized with the {word} token for {ordinal} ordered request on {service}
+rest | rest.request.signed | the request is signed in the {word} header with the following properties:  [+table]
+rest | rest.request.signed | the request is signed in the {word} header for {ordinal} ordered request with the following properties:  [+table]
+rest | rest.request.signed.on | the request is signed in the {word} header for request on {service} with the following properties:  [+table]
+rest | rest.request.signed.on | the request is signed in the {word} header for {ordinal} ordered request on {service} with the following properties:  [+table]
+rest | rest.request.webhook | the request is signed as a standard webhook with the key {string}
+rest | rest.request.webhook | the request is signed as a standard webhook with the key {string} for {ordinal} ordered request
+rest | rest.request.webhook.on | the request is signed as a standard webhook with the key {string} for request on {service}
+rest | rest.request.webhook.on | the request is signed as a standard webhook with the key {string} for {ordinal} ordered request on {service}
 mock | mock.service | the mocked {word} service with the following properties:  [+table]
 mock | mock.received | the mocked {word} request to {word} named {word} was received by {mockedService}
 mock | mock.received.path | the mocked {word} request to path {word} named {word} was received by {mockedService}
@@ -141,6 +154,10 @@ mock | mock.properties.none | none of the mocked {word} requests to path {word} 
 mock | mock.properties.none | none of the mocked {word} requests to path {word} on {mockedService} have the payload properties:  [+table]
 mock | mock.form.none | none of the mocked {word} requests to path {word} have the form fields:  [+table]
 mock | mock.form.none | none of the mocked {word} requests to path {word} on {mockedService} have the form fields:  [+table]
+mock | mock.signed | the mocked request named {word} is signed in the {word} header with the following properties:  [+table]
+mock | mock.signed | the mocked request named {word} on {mockedService} is signed in the {word} header with the following properties:  [+table]
+mock | mock.webhook | the mocked request named {word} is signed as a standard webhook with the key {string}
+mock | mock.webhook | the mocked request named {word} on {mockedService} is signed as a standard webhook with the key {string}
 sql | sql.service | a(n) {word} database with the following properties:  [+table]
 sql | sql.seed | a {filepath} db seed
 sql | sql.seed | a {filepath} db seed on {dbService}

@@ -172,6 +172,8 @@ type Request struct {
 	Payload  *string     // nil until a payload step runs
 	header   http.Header // the headers it is sent with (Header)
 	exchange *Exchange   // nil until executed
+	token    string      // the token it is authorized with, by name
+	signers  []signer    // how it is signed, when it is sent
 }
 
 // Exchange is an executed request and its response.
@@ -202,7 +204,7 @@ type lastExchange struct {
 
 var stateKey = core.NewStateKey("rest", func(sc *core.Scenario) *ScenarioContext {
 	st := &ScenarioContext{services: core.NewServices[*Service]("Service", "")}
-	sc.Describe("rest", st.describe)
+	sc.Describe("rest", func() any { return masked(sc, st.describe()) })
 	return st
 }, nil)
 

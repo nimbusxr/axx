@@ -1,0 +1,8 @@
+parcels.parcels:
+  - reference: "PX-WHK-9103"
+    sender: "linden-and-lace"
+    status: "IN_TRANSIT"
+    service_level: "STANDARD"
+    weight_grams: 1600
+    recipient: '{"name": "Lea Fischer", "street": "Karl-Heine-Str. 44", "city": "Leipzig", "postcode": "04229", "country": "DE"}'
+    details: '{"source": "api", "zone": "DE-1"}'

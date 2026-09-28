@@ -23,6 +23,13 @@ properties:
   # The operations desk's command, run in the service's container (from ../infra). Under
   # `axx run --debug` the service runs on the host: -D 'parcels.admin=go run ../app admin'.
   parcels.admin: docker compose exec -T app parcels admin
+  # The example's keys (../app/main.go): the courier signs its callbacks with the first, the
+  # service signs the shops' webhooks with the second and their tokens with the third, and
+  # the wisteria-way shop's system gets its tokens with the last.
+  courier.callback-key: example-courier-callback-key
+  shops.webhook-key: whsec_ZXhhbXBsZS1zaG9wLXdlYmhvb2sta2V5
+  shops.token-key: example-shop-token-key
+  shops.wisteria-secret: wisteria-client-secret
 
 apps:
   parcels:
@@ -45,7 +52,7 @@ apps:
         - sh
         - -c
         - >-
-          docker compose up --wait address-service courier postgres mongo kafka schema-registry rabbitmq mosquitto nats
+          docker compose up --wait address-service courier shops postgres mongo kafka schema-registry rabbitmq mosquitto nats
           && docker compose up exports
           && cd ../app
           && PARCELS_LOG_UDP=127.0.0.1:5140

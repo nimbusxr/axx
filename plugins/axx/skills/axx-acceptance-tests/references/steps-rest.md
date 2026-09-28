@@ -1460,3 +1460,250 @@ A row is a property's JSONPath and a regular expression its value must match.
 Then the response payload properties for 2nd ordered response on parcels match:
   | [0].reference | PX-[0-9]{4} |
 ```
+
+## `rest.token`
+
+```gherkin
+Given the {word} token with the following properties:
+  | property | value |
+```
+
+Register a bearer token under a name: a JSON Web Token axx signs, or an OAuth 2.0 client credentials token axx gets from a token endpoint.
+
+- A request uses it with `the request is authorized with the {word} token`; the steps of other packs that take header rows, like the websocket and sse packs, with `${token:<name>}`.
+- A JSON Web Token is signed each time it is used, with `iat` and `exp` from then; the claims of the table add to them or replace them.
+- A client credentials token is got once for the run, and again once it expires.
+- Values expand `${env:..}` and `${sys:..}`; the token and its secrets are masked in logs and failures.
+
+| Parameter | Takes | For example |
+|---|---|---|
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+
+| Property | Takes | Values | Default |
+|---|---|---|---|
+| `algorithm` | how axx signs a JSON Web Token | `HS256`, `HS384`, `HS512`, `RS256`, `ES256` | `HS256` |
+| `key` | the secret an HS token is signed with, like `${env:SHOP_TOKEN_KEY}`, or the PEM private key (a file of the project) of an RS or ES token |  | |
+| `key id` | the `kid` in the token's header |  | |
+| `claim.<name>` | a claim of the token: a JSON value (`true`, `42`, `["parcels:read"]`) or text |  | |
+| `expires in` | how long the token lasts from when it is used, like `5m` |  | `5m` |
+| `token url` | an OAuth 2.0 token endpoint axx gets a client credentials token from, instead of signing one |  | |
+| `client id` | the client's ID, for the token endpoint |  | |
+| `client secret` | the client's secret, like `${env:SHOP_CLIENT_SECRET}` |  | |
+| `scope` | the scopes asked for, separated by spaces |  | |
+| `audience` | the API the token is for, for token endpoints that ask for one |  | |
+
+Give a `key` for a token axx signs, or a `token url`, `client id` and `client secret` for one it gets, not both.
+
+**Example:**
+
+```gherkin
+Given the shop token with the following properties:
+  | key        | ${env:SHOP_TOKEN_KEY} |
+  | claim.shop | maple-crafts          |
+Given the shop-system token with the following properties:
+  | token url     | http://localhost:8400/oauth/token |
+  | client id     | maple-crafts                      |
+  | client secret | ${env:SHOP_CLIENT_SECRET}         |
+  | scope         | parcels:read                      |
+```
+
+_Since 0.1.5._
+
+## `rest.request.token`
+
+```gherkin
+Given the request is authorized with the {word} token[[ for {ordinal} ordered request]]
+```
+
+Send the request with the token of that name: `Authorization: Bearer <token>`.
+
+- The token is had when the request is executed: a JSON Web Token is signed then.
+- Without an ordinal it applies to the service's first (default) request; `for 2nd ordered request`, to its second.
+- It uses the default service, the first one registered; `rest.request.token.on` names a service.
+
+| Parameter | Takes | For example |
+|---|---|---|
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+| `{ordinal}` | a position, counting from 1; an optional ordinal left out is the first | `1st`, `2nd` |
+
+**Variants**, the parts in `[[...]]` said or left out:
+
+- `the request is authorized with the {word} token`
+- `the request is authorized with the {word} token for {ordinal} ordered request`
+
+**Example:**
+
+```gherkin
+Given the request is authorized with the shop token
+```
+
+_Since 0.1.5._
+
+## `rest.request.token.on`
+
+```gherkin
+Given the request is authorized with the {word} token for[[ {ordinal} ordered]] request on {service}
+```
+
+`rest.request.token` on a named service: `for request on <service>` addresses the service's first (default) request, `for 2nd ordered request on <service>` its second one. Everything else works like `rest.request.token`.
+
+| Parameter | Takes | For example |
+|---|---|---|
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+| `{ordinal}` | a position, counting from 1; an optional ordinal left out is the first | `1st`, `2nd` |
+| `{service}` | the name of a REST service the scenario registered | `parcels` |
+
+**Variants**, the parts in `[[...]]` said or left out:
+
+- `the request is authorized with the {word} token for request on {service}`
+- `the request is authorized with the {word} token for {ordinal} ordered request on {service}`
+
+**Example:**
+
+```gherkin
+Given the request is authorized with the shop token for 2nd ordered request on parcels
+```
+
+_Since 0.1.5._
+
+## `rest.request.signed`
+
+```gherkin
+Given the request is signed in the {word} header[[ for {ordinal} ordered request]] with the following properties:
+  | property | value |
+```
+
+Sign the request as webhooks are signed: an HMAC of its body, or of what the `signs` template gives, in the header.
+
+- The signature is made when the request is executed, over the body as it is sent.
+- `sha256={signature}` is GitHub's form; `t={timestamp},v1={signature}` with `{timestamp}.{body}` signed, Stripe's.
+- The key expands `${env:..}`, and is masked.
+- Without an ordinal it applies to the service's first (default) request; `for 2nd ordered request`, to its second.
+- It uses the default service, the first one registered; `rest.request.signed.on` names a service.
+
+| Parameter | Takes | For example |
+|---|---|---|
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+| `{ordinal}` | a position, counting from 1; an optional ordinal left out is the first | `1st`, `2nd` |
+
+| Property | Takes | Values | Default |
+|---|---|---|---|
+| `key` | the secret the signature is made with, like `${env:COURIER_WEBHOOK_KEY}` |  | _required_ |
+| `algorithm` | the HMAC | `hmac-sha256`, `hmac-sha1`, `hmac-sha512` | `hmac-sha256` |
+| `signs` | what is signed: a template of `{body}`, `{timestamp}` (Unix seconds), `{method}` and `{path}` (with the query), like `{timestamp}.{body}` |  | ``{body}`` |
+| `encoding` | how the signature is written | `hex`, `base64` | `hex` |
+| `value` | the header's value: a template of `{signature}` and `{timestamp}`, like `sha256={signature}` or `t={timestamp},v1={signature}` |  | ``{signature}`` |
+| `timestamp header` | a header that also carries `{timestamp}`, as Slack's `X-Slack-Request-Timestamp` does |  | |
+
+**Variants**, the parts in `[[...]]` said or left out:
+
+- `the request is signed in the {word} header with the following properties:`
+- `the request is signed in the {word} header for {ordinal} ordered request with the following properties:`
+
+**Example:**
+
+```gherkin
+Given the request is signed in the X-Courier-Signature header with the following properties:
+  | key   | ${env:COURIER_WEBHOOK_KEY} |
+  | value | sha256={signature}         |
+```
+
+_Since 0.1.5._
+
+## `rest.request.signed.on`
+
+```gherkin
+Given the request is signed in the {word} header for[[ {ordinal} ordered]] request on {service} with the following properties:
+  | property | value |
+```
+
+`rest.request.signed` on a named service: `for request on <service>` addresses the service's first (default) request, `for 2nd ordered request on <service>` its second one. Everything else works like `rest.request.signed`.
+
+| Parameter | Takes | For example |
+|---|---|---|
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+| `{ordinal}` | a position, counting from 1; an optional ordinal left out is the first | `1st`, `2nd` |
+| `{service}` | the name of a REST service the scenario registered | `parcels` |
+
+| Property | Takes | Values | Default |
+|---|---|---|---|
+| `key` | the secret the signature is made with, like `${env:COURIER_WEBHOOK_KEY}` |  | _required_ |
+| `algorithm` | the HMAC | `hmac-sha256`, `hmac-sha1`, `hmac-sha512` | `hmac-sha256` |
+| `signs` | what is signed: a template of `{body}`, `{timestamp}` (Unix seconds), `{method}` and `{path}` (with the query), like `{timestamp}.{body}` |  | ``{body}`` |
+| `encoding` | how the signature is written | `hex`, `base64` | `hex` |
+| `value` | the header's value: a template of `{signature}` and `{timestamp}`, like `sha256={signature}` or `t={timestamp},v1={signature}` |  | ``{signature}`` |
+| `timestamp header` | a header that also carries `{timestamp}`, as Slack's `X-Slack-Request-Timestamp` does |  | |
+
+**Variants**, the parts in `[[...]]` said or left out:
+
+- `the request is signed in the {word} header for request on {service} with the following properties:`
+- `the request is signed in the {word} header for {ordinal} ordered request on {service} with the following properties:`
+
+**Example:**
+
+```gherkin
+Given the request is signed in the Stripe-Signature header for request on parcels with the following properties:
+  | key   | ${env:PAYMENTS_WEBHOOK_KEY}  |
+  | signs | {timestamp}.{body}           |
+  | value | t={timestamp},v1={signature} |
+```
+
+_Since 0.1.5._
+
+## `rest.request.webhook`
+
+```gherkin
+Given the request is signed as a standard webhook with the key {string}[[ for {ordinal} ordered request]]
+```
+
+Sign the request as a Standard Webhook (standardwebhooks.com): its `webhook-id`, `webhook-timestamp` and `webhook-signature` headers.
+
+- The key is `whsec_` and the key in base64, as Standard Webhooks give it; it expands `${env:..}`, and is masked.
+- The signature is made when the request is executed, over the body as it is sent.
+- Without an ordinal it applies to the service's first (default) request; `for 2nd ordered request`, to its second.
+- It uses the default service, the first one registered; `rest.request.webhook.on` names a service.
+
+| Parameter | Takes | For example |
+|---|---|---|
+| `{string}` | text in double or single quotes, which the step leaves out | `"Get a quote"`, `'Express'` |
+| `{ordinal}` | a position, counting from 1; an optional ordinal left out is the first | `1st`, `2nd` |
+
+**Variants**, the parts in `[[...]]` said or left out:
+
+- `the request is signed as a standard webhook with the key {string}`
+- `the request is signed as a standard webhook with the key {string} for {ordinal} ordered request`
+
+**Example:**
+
+```gherkin
+Given the request is signed as a standard webhook with the key '${env:SHOP_WEBHOOK_KEY}'
+```
+
+_Since 0.1.5._
+
+## `rest.request.webhook.on`
+
+```gherkin
+Given the request is signed as a standard webhook with the key {string} for[[ {ordinal} ordered]] request on {service}
+```
+
+`rest.request.webhook` on a named service: `for request on <service>` addresses the service's first (default) request, `for 2nd ordered request on <service>` its second one. Everything else works like `rest.request.webhook`.
+
+| Parameter | Takes | For example |
+|---|---|---|
+| `{string}` | text in double or single quotes, which the step leaves out | `"Get a quote"`, `'Express'` |
+| `{ordinal}` | a position, counting from 1; an optional ordinal left out is the first | `1st`, `2nd` |
+| `{service}` | the name of a REST service the scenario registered | `parcels` |
+
+**Variants**, the parts in `[[...]]` said or left out:
+
+- `the request is signed as a standard webhook with the key {string} for request on {service}`
+- `the request is signed as a standard webhook with the key {string} for {ordinal} ordered request on {service}`
+
+**Example:**
+
+```gherkin
+Given the request is signed as a standard webhook with the key '${env:SHOP_WEBHOOK_KEY}' for request on shops
+```
+
+_Since 0.1.5._

@@ -3,6 +3,7 @@ package rest
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -15,6 +16,8 @@ import (
 
 	"github.com/nimbusxr/axx/core"
 	"github.com/nimbusxr/axx/internal/compat/jvalue"
+	"github.com/nimbusxr/axx/internal/secrets"
+	"github.com/nimbusxr/axx/internal/tokens"
 	"github.com/nimbusxr/axx/internal/version"
 )
 
@@ -93,6 +96,7 @@ func execute(sc *core.Scenario, svc *Service, idx int) error {
 	}
 	svc.mu.Lock()
 	method, path, mimeType, payload := req.Method, req.Path, req.MimeType, req.Payload
+	token, signers := req.token, req.signers
 	executed := req.exchange != nil
 	hdr := req.Header().Clone() // the defaults below are the exchange's, not the request's
 	svc.mu.Unlock()
@@ -127,6 +131,26 @@ func execute(sc *core.Scenario, svc *Service, idx int) error {
 	}
 	if hdr.Get("User-Agent") == "" {
 		hdr.Set("User-Agent", userAgent())
+	}
+	if token != "" {
+		v, err := tokens.Value(sc, token)
+		if err != nil {
+			return secrets.Hide(sc, err)
+		}
+		secrets.Keep(sc, v)
+		hdr.Set("Authorization", "Bearer "+v)
+	}
+	if len(signers) > 0 {
+		u, err := url.Parse(target)
+		if err != nil {
+			return err
+		}
+		now := time.Now()
+		for _, sign := range signers {
+			if err := sign(hdr, method, u.RequestURI(), body, now); err != nil {
+				return err
+			}
+		}
 	}
 
 	var rd io.Reader
@@ -251,6 +275,24 @@ func attachType(ct string) string {
 }
 
 // ---- failure context ----
+
+// masked is a failure context with the scenario's secrets masked: its
+// tokens and the keys it signed with, and its ${env:..} values.
+func masked(sc *core.Scenario, v any) any {
+	r := secrets.Replacer(sc)
+	if r == nil || v == nil {
+		return v
+	}
+	b, err := json.Marshal(v)
+	if err != nil {
+		return v
+	}
+	var out any
+	if json.Unmarshal([]byte(r.Replace(string(b))), &out) != nil {
+		return v
+	}
+	return out
+}
 
 // describeBodyLimit caps bodies shown in failure reports.
 const describeBodyLimit = 2048

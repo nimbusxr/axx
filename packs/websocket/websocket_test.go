@@ -12,8 +12,10 @@ import (
 
 	ws "github.com/coder/websocket"
 
+	"github.com/nimbusxr/axx/core"
 	"github.com/nimbusxr/axx/internal/cloudstep/cloudtest"
 	"github.com/nimbusxr/axx/internal/secrets"
+	"github.com/nimbusxr/axx/internal/tokens"
 )
 
 // tracker follows a parcel as the parcels portal does: the client says
@@ -134,4 +136,21 @@ func waitFor(t *testing.T, ok func() bool) {
 		case <-time.After(20 * time.Millisecond):
 		}
 	}
+}
+
+// A header row can carry a token the scenario registered.
+func TestATokenInAHeader(t *testing.T) {
+	h, tr, url := harness(t)
+	tok, err := tokens.Parse("shop", []core.Pair{{Key: "key", Value: "shop-token-key"}},
+		func(v string) (string, error) { return v, nil }, func(string) ([]byte, error) { return nil, nil })
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := tokens.Register(h.SC, tok); err != nil {
+		t.Fatal(err)
+	}
+	h.OK("the tracking websocket with the following properties:", [][]string{{"url", url}, {"header.Authorization", "Bearer ${token:shop}"}})
+	waitFor(t, func() bool { a, _ := tr.auth.Load().(string); return strings.HasPrefix(a, "Bearer ey") })
+	_ = h.Fails("the parcels websocket with the following properties:", `no token named "courier"`,
+		[][]string{{"url", url}, {"header.Authorization", "Bearer ${token:courier}"}})
 }

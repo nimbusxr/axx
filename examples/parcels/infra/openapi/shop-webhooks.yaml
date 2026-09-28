@@ -1,0 +1,44 @@
+openapi: 3.0.3
+info:
+  title: Shop webhooks
+  version: 1.0.0
+  description: >-
+    Where a shop's system hears of its parcels' deliveries: a Standard Webhook
+    (standardwebhooks.com) for each, signed with the key the shop and the parcel service share.
+paths:
+  /webhooks/{shop}:
+    post:
+      operationId: parcelDelivered
+      parameters:
+        - name: shop
+          in: path
+          required: true
+          schema: {type: string}
+        - name: webhook-id
+          in: header
+          required: true
+          schema: {type: string}
+        - name: webhook-timestamp
+          in: header
+          required: true
+          schema: {type: string, pattern: '^[0-9]+$'}
+        - name: webhook-signature
+          in: header
+          required: true
+          schema: {type: string, pattern: '^v1,'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [type, reference, deliveredAt]
+              additionalProperties: false
+              properties:
+                type: {type: string, enum: [parcel.delivered]}
+                reference: {type: string}
+                location: {type: string}
+                deliveredAt: {type: string, format: date-time}
+      responses:
+        "204":
+          description: The shop heard of it.

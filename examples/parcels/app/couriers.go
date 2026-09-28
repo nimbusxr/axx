@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"time"
@@ -114,12 +115,29 @@ func (u *trackingUpdates) confirmDeliveries(ctx context.Context, rec *recorder) 
 	return u.nc.Flush()
 }
 
-// recorder stores the scans of parcels, wherever they come from, and tells
-// the other services of each.
+// recorder stores the scans of parcels, wherever they come from, tells the
+// shop of a delivery, and then the other services of each scan.
 type recorder struct {
 	tracking *trackingStore
 	updates  *trackingUpdates
+	store    *store
+	shops    *shopWebhooks
 	log      *slog.Logger
+}
+
+// tellShop tells the shop of a parcel's delivery; a parcel the service
+// does not know has no shop to tell.
+func (r *recorder) tellShop(ctx context.Context, ref string, s scan) {
+	p, err := r.store.Get(ctx, ref)
+	if err != nil {
+		if !errors.Is(err, errNotFound) {
+			r.log.Error("telling the shop of a delivery failed", "parcel", ref, "err", err)
+		}
+		return
+	}
+	if err := r.shops.delivered(ctx, p, s); err != nil {
+		r.log.Error("telling the shop of a delivery failed", "parcel", ref, "shop", p.Sender, "err", err)
+	}
 }
 
 func (r *recorder) record(ctx context.Context, ref string, s scan, source string, headers map[string]string) error {
@@ -127,6 +145,9 @@ func (r *recorder) record(ctx context.Context, ref string, s scan, source string
 		return err
 	}
 	r.log.Info("scan stored", "parcel", ref, "status", s.Status, "source", source)
+	if s.Status == "DELIVERED" {
+		r.tellShop(ctx, ref, s)
+	}
 	if err := r.updates.publish(ctx, ref, s, source, headers); err != nil {
 		r.log.Error("publishing a tracking update failed", "parcel", ref, "err", err)
 	}

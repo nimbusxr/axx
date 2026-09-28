@@ -6,7 +6,9 @@ info:
     Quote and register parcels for delivery, change or cancel them before pickup, read their
     tracking summary and shipping label, and follow their depot scans as they happen. Every
     quote and registration checks the recipient's postcode with the address service, and
-    every registration is announced as a ParcelRegistered event.
+    every registration is announced as a ParcelRegistered event. The courier calls back,
+    signed, as it collects and delivers parcels; the shops' own systems read their parcels
+    with a token.
 paths:
   /health:
     get:
@@ -223,7 +225,109 @@ paths:
             application/json:
               schema: {$ref: "#/components/schemas/Label"}
         "404": {$ref: "#/components/responses/Problem"}
+  /api/courier/callbacks:
+    post:
+      operationId: courierCallback
+      summary: The courier's status callbacks
+      description: >-
+        The courier calls back as it collects and delivers parcels. A callback is signed in
+        X-Courier-Signature: `sha256=` and the hex HMAC-SHA256 of the body, with the key the
+        courier and the service share. A delivery is told to the parcel's shop before the
+        callback is answered.
+      parameters:
+        - name: X-Courier-Signature
+          in: header
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/CourierCallback"}
+            examples:
+              Collected:
+                value:
+                  reference: PX-EXAMPLE-1
+                  status: COLLECTED
+                  location: Leipzig depot
+                  at: "2026-09-28T09:40:00Z"
+              Delivered:
+                value:
+                  reference: PX-EXAMPLE-1
+                  status: DELIVERED
+                  location: Leipzig
+                  at: "2026-09-28T14:05:00Z"
+      responses:
+        "204":
+          description: The status is recorded.
+        "400": {$ref: "#/components/responses/Problem"}
+        "401": {$ref: "#/components/responses/Problem"}
+        "404": {$ref: "#/components/responses/Problem"}
+  /api/shops/{shop}/parcels:
+    parameters:
+      - name: shop
+        in: path
+        required: true
+        schema: {type: string}
+    get:
+      operationId: listShopParcels
+      summary: A shop's parcels, for the shop's own systems
+      description: >-
+        Needs a shop's token: a JSON Web Token signed with HS256 whose shop claim names the
+        shop, from POST /oauth/token or the shop's platform.
+      security:
+        - shopToken: []
+      responses:
+        "200":
+          description: The shop's parcels, oldest first.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/ShopParcels"}
+        "401": {$ref: "#/components/responses/Problem"}
+        "403": {$ref: "#/components/responses/Problem"}
+  /oauth/token:
+    post:
+      operationId: issueToken
+      summary: A token for a shop's system (OAuth 2.0 client credentials)
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [grant_type, client_id, client_secret]
+              properties:
+                grant_type: {type: string, enum: [client_credentials]}
+                client_id: {type: string, description: The shop's name.}
+                client_secret: {type: string}
+      responses:
+        "200":
+          description: The token, which lasts an hour.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [access_token, token_type, expires_in]
+                properties:
+                  access_token: {type: string}
+                  token_type: {type: string, enum: [Bearer]}
+                  expires_in: {type: integer}
+        "400":
+          description: Not a client credentials request.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/OAuthError"}
+        "401":
+          description: The client's credentials are not a shop's.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/OAuthError"}
 components:
+  securitySchemes:
+    shopToken:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
   parameters:
     Reference:
       name: reference
@@ -339,6 +443,34 @@ components:
         signature:
           type: string
           pattern: "^[0-9a-f]{64}$"
+    CourierCallback:
+      type: object
+      required: [reference, status]
+      properties:
+        reference: {type: string}
+        status: {type: string, enum: [COLLECTED, IN_TRANSIT, OUT_FOR_DELIVERY, DELIVERED]}
+        location: {type: string}
+        at: {type: string, format: date-time}
+    ShopParcels:
+      type: object
+      required: [shop, parcels]
+      properties:
+        shop: {type: string}
+        parcels:
+          type: array
+          items:
+            type: object
+            required: [reference, status, serviceLevel, weightGrams]
+            properties:
+              reference: {type: string}
+              status: {type: string}
+              serviceLevel: {type: string}
+              weightGrams: {type: integer}
+    OAuthError:
+      type: object
+      required: [error]
+      properties:
+        error: {type: string}
     Problem:
       type: object
       required: [type, title, status]

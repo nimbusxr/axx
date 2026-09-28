@@ -2,7 +2,7 @@
   "description": "The frozen catalog of built-in step text. Step text is public API: every entry must stay defined, verbatim, by its pack.",
   "counts": {
     "parameterType": 11,
-    "step": 540
+    "step": 557
   },
   "entries": [
     {
@@ -3321,6 +3321,108 @@
       "pack": "nats",
       "keyword": "Then",
       "expression": "within {duration} the {word} nats stream has a message where:"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Given",
+      "expression": "the {word} token with the following properties:"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Given",
+      "expression": "the request is authorized with the {word} token"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Given",
+      "expression": "the request is authorized with the {word} token for {ordinal} ordered request"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Given",
+      "expression": "the request is authorized with the {word} token for request on {service}"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Given",
+      "expression": "the request is authorized with the {word} token for {ordinal} ordered request on {service}"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Given",
+      "expression": "the request is signed in the {word} header with the following properties:"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Given",
+      "expression": "the request is signed in the {word} header for {ordinal} ordered request with the following properties:"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Given",
+      "expression": "the request is signed in the {word} header for request on {service} with the following properties:"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Given",
+      "expression": "the request is signed in the {word} header for {ordinal} ordered request on {service} with the following properties:"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Given",
+      "expression": "the request is signed as a standard webhook with the key {string}"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Given",
+      "expression": "the request is signed as a standard webhook with the key {string} for {ordinal} ordered request"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Given",
+      "expression": "the request is signed as a standard webhook with the key {string} for request on {service}"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Given",
+      "expression": "the request is signed as a standard webhook with the key {string} for {ordinal} ordered request on {service}"
+    },
+    {
+      "kind": "step",
+      "pack": "mock",
+      "keyword": "Then",
+      "expression": "the mocked request named {word} is signed in the {word} header with the following properties:"
+    },
+    {
+      "kind": "step",
+      "pack": "mock",
+      "keyword": "Then",
+      "expression": "the mocked request named {word} on {mockedService} is signed in the {word} header with the following properties:"
+    },
+    {
+      "kind": "step",
+      "pack": "mock",
+      "keyword": "Then",
+      "expression": "the mocked request named {word} is signed as a standard webhook with the key {string}"
+    },
+    {
+      "kind": "step",
+      "pack": "mock",
+      "keyword": "Then",
+      "expression": "the mocked request named {word} on {mockedService} is signed as a standard webhook with the key {string}"
     }
   ]
 }
