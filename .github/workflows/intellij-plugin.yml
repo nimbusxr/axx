@@ -87,7 +87,7 @@ jobs:
     needs: build
     runs-on: ubuntu-24.04
     # Publishing reads the signing key and Marketplace token from the release environment
-    # (main only, approved by a maintainer); the secrets passed in are then unused. A dry run
+    # (main only); the secrets passed in are then unused. A dry run
     # uses no environment, so it verifies the plugin without signing it.
     environment: ${{ !inputs.dry-run && 'release' || '' }}
     env:

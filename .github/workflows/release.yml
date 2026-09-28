@@ -147,7 +147,7 @@ jobs:
     needs: release-please
     if: needs.release-please.outputs.dry-run == 'false' && needs.release-please.outputs.axx == 'true'
     runs-on: ubuntu-24.04
-    # The release environment: main only, and a maintainer approves each release.
+    # The release environment: main only. Merging the release PR is the approval.
     environment: release
     permissions:
       contents: write
