@@ -90,7 +90,7 @@ services:
 
   schema-registry:
     profiles: [kafka]
-    image: confluentinc/cp-schema-registry:7.9.2
+    image: confluentinc/cp-schema-registry:7.9.10
     ports: ["8085:8081"]
     depends_on:
       kafka: {condition: service_healthy}
