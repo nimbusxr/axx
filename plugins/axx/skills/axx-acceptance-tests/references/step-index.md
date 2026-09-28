@@ -280,6 +280,32 @@ kafka | kafka.consumed.headers | the {word} kafka event named {word} headers are
 kafka | kafka.consumed.headers | the {word} kafka event named {word} headers on the {word} kafka service are:  [+table]
 kafka | kafka.consumed.headers.match | the {word} kafka event named {word} headers match:  [+table]
 kafka | kafka.consumed.headers.match.service | the {word} kafka event named {word} headers on the {word} kafka service match:  [+table]
+amqp | amqp.broker | the {word} amqp broker with the following properties:  [+table]
+amqp | amqp.queue.send | a message is sent to the {word} amqp queue:  [+docstring]
+amqp | amqp.queue.send.file | the {filepath} message is sent to the {word} amqp queue
+amqp | amqp.queue.send.file | the {filepath} message is sent to the {word} amqp queue with the following properties:
+amqp | amqp.queue.received | the {word} amqp queue has a message where:  [+table]
+amqp | amqp.queue.received | within {duration} the {word} amqp queue has a message where:  [+table]
+amqp | amqp.exchange.send | a message is published to the {word} amqp exchange:  [+docstring]
+amqp | amqp.exchange.send | a message is published to the {word} amqp exchange with the routing key {string}:  [+docstring]
+amqp | amqp.exchange.send.file | the {filepath} message is published to the {word} amqp exchange
+amqp | amqp.exchange.send.file | the {filepath} message is published to the {word} amqp exchange with the following properties:
+amqp | amqp.exchange.received | the {word} amqp exchange has a message where:  [+table]
+amqp | amqp.exchange.received | within {duration} the {word} amqp exchange has a message where:  [+table]
+mqtt | mqtt.broker | the {word} mqtt broker with the following properties:  [+table]
+mqtt | mqtt.send | a message is published to the {word} mqtt topic:  [+docstring]
+mqtt | mqtt.send.file | the {filepath} message is published to the {word} mqtt topic
+mqtt | mqtt.send.file | the {filepath} message is published to the {word} mqtt topic with the following properties:
+mqtt | mqtt.received | the {word} mqtt topic has a message where:  [+table]
+mqtt | mqtt.received | within {duration} the {word} mqtt topic has a message where:  [+table]
+nats | nats.server | the {word} nats server with the following properties:  [+table]
+nats | nats.subject.send | a message is published to the {word} nats subject:  [+docstring]
+nats | nats.subject.send.file | the {filepath} message is published to the {word} nats subject
+nats | nats.subject.send.file | the {filepath} message is published to the {word} nats subject with the following headers:
+nats | nats.subject.received | the {word} nats subject has a message where:  [+table]
+nats | nats.subject.received | within {duration} the {word} nats subject has a message where:  [+table]
+nats | nats.stream.received | the {word} nats stream has a message where:  [+table]
+nats | nats.stream.received | within {duration} the {word} nats stream has a message where:  [+table]
 logs | logs.log | the {word} log with the following properties:  [+table]
 logs | logs.entry | the {word} log has an entry matching {string}
 logs | logs.entry | within {duration} the {word} log has an entry matching {string}

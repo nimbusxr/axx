@@ -2,7 +2,7 @@
   "description": "The frozen catalog of built-in step text. Step text is public API: every entry must stay defined, verbatim, by its pack.",
   "counts": {
     "parameterType": 11,
-    "step": 514
+    "step": 540
   },
   "entries": [
     {
@@ -3165,6 +3165,162 @@
       "pack": "sse",
       "keyword": "Then",
       "expression": "within {duration} the {word} event stream has an event containing {string}"
+    },
+    {
+      "kind": "step",
+      "pack": "amqp",
+      "keyword": "Given",
+      "expression": "the {word} amqp broker with the following properties:"
+    },
+    {
+      "kind": "step",
+      "pack": "amqp",
+      "keyword": "When",
+      "expression": "a message is sent to the {word} amqp queue:"
+    },
+    {
+      "kind": "step",
+      "pack": "amqp",
+      "keyword": "When",
+      "expression": "the {filepath} message is sent to the {word} amqp queue"
+    },
+    {
+      "kind": "step",
+      "pack": "amqp",
+      "keyword": "When",
+      "expression": "the {filepath} message is sent to the {word} amqp queue with the following properties:"
+    },
+    {
+      "kind": "step",
+      "pack": "amqp",
+      "keyword": "Then",
+      "expression": "the {word} amqp queue has a message where:"
+    },
+    {
+      "kind": "step",
+      "pack": "amqp",
+      "keyword": "Then",
+      "expression": "within {duration} the {word} amqp queue has a message where:"
+    },
+    {
+      "kind": "step",
+      "pack": "amqp",
+      "keyword": "When",
+      "expression": "a message is published to the {word} amqp exchange:"
+    },
+    {
+      "kind": "step",
+      "pack": "amqp",
+      "keyword": "When",
+      "expression": "a message is published to the {word} amqp exchange with the routing key {string}:"
+    },
+    {
+      "kind": "step",
+      "pack": "amqp",
+      "keyword": "When",
+      "expression": "the {filepath} message is published to the {word} amqp exchange"
+    },
+    {
+      "kind": "step",
+      "pack": "amqp",
+      "keyword": "When",
+      "expression": "the {filepath} message is published to the {word} amqp exchange with the following properties:"
+    },
+    {
+      "kind": "step",
+      "pack": "amqp",
+      "keyword": "Then",
+      "expression": "the {word} amqp exchange has a message where:"
+    },
+    {
+      "kind": "step",
+      "pack": "amqp",
+      "keyword": "Then",
+      "expression": "within {duration} the {word} amqp exchange has a message where:"
+    },
+    {
+      "kind": "step",
+      "pack": "mqtt",
+      "keyword": "Given",
+      "expression": "the {word} mqtt broker with the following properties:"
+    },
+    {
+      "kind": "step",
+      "pack": "mqtt",
+      "keyword": "When",
+      "expression": "a message is published to the {word} mqtt topic:"
+    },
+    {
+      "kind": "step",
+      "pack": "mqtt",
+      "keyword": "When",
+      "expression": "the {filepath} message is published to the {word} mqtt topic"
+    },
+    {
+      "kind": "step",
+      "pack": "mqtt",
+      "keyword": "When",
+      "expression": "the {filepath} message is published to the {word} mqtt topic with the following properties:"
+    },
+    {
+      "kind": "step",
+      "pack": "mqtt",
+      "keyword": "Then",
+      "expression": "the {word} mqtt topic has a message where:"
+    },
+    {
+      "kind": "step",
+      "pack": "mqtt",
+      "keyword": "Then",
+      "expression": "within {duration} the {word} mqtt topic has a message where:"
+    },
+    {
+      "kind": "step",
+      "pack": "nats",
+      "keyword": "Given",
+      "expression": "the {word} nats server with the following properties:"
+    },
+    {
+      "kind": "step",
+      "pack": "nats",
+      "keyword": "When",
+      "expression": "a message is published to the {word} nats subject:"
+    },
+    {
+      "kind": "step",
+      "pack": "nats",
+      "keyword": "When",
+      "expression": "the {filepath} message is published to the {word} nats subject"
+    },
+    {
+      "kind": "step",
+      "pack": "nats",
+      "keyword": "When",
+      "expression": "the {filepath} message is published to the {word} nats subject with the following headers:"
+    },
+    {
+      "kind": "step",
+      "pack": "nats",
+      "keyword": "Then",
+      "expression": "the {word} nats subject has a message where:"
+    },
+    {
+      "kind": "step",
+      "pack": "nats",
+      "keyword": "Then",
+      "expression": "within {duration} the {word} nats subject has a message where:"
+    },
+    {
+      "kind": "step",
+      "pack": "nats",
+      "keyword": "Then",
+      "expression": "the {word} nats stream has a message where:"
+    },
+    {
+      "kind": "step",
+      "pack": "nats",
+      "keyword": "Then",
+      "expression": "within {duration} the {word} nats stream has a message where:"
     }
   ]
 }

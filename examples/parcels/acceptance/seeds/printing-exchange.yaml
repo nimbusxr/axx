@@ -1,0 +1,8 @@
+parcels.parcels:
+  - reference: "PX-AMQ-8102"
+    sender: "maple-crafts"
+    status: "REGISTERED"
+    service_level: "STANDARD"
+    weight_grams: 1400
+    recipient: '{"name": "Lena Brandt", "street": "Grimmaische Str. 12", "city": "Leipzig", "postcode": "04109", "country": "DE"}'
+    details: '{"source": "api", "zone": "DE-1"}'

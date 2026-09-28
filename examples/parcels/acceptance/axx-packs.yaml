@@ -6,6 +6,9 @@ packs:
   - sql
   - mongo
   - kafka
+  - amqp
+  - mqtt
+  - nats
   - logs
   - files
   - cli

@@ -13,7 +13,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"os"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -105,6 +107,9 @@ func matchValue(doc string, r core.Pair) (bool, error) {
 type Message struct {
 	Body   []byte
 	Fields map[string]string
+	// Meta are values of the message itself, by the names checks give
+	// them: its "routing key", its "topic".
+	Meta map[string]string
 	// Received is when axx received it.
 	Received time.Time
 }
@@ -114,15 +119,24 @@ type Message struct {
 // value sent with the message; any other is a path into the body, which
 // must then be JSON.
 func (rs Rows) MatchMessage(m Message, field string) (bool, error) {
+	return rs.MatchMessageIn(m, field, nil)
+}
+
+// MatchMessageIn is MatchMessage for messages with values of their own
+// that conditions name (meta, "routing key"): a condition on one of them
+// is on m.Meta.
+func (rs Rows) MatchMessageIn(m Message, field string, meta []string) (bool, error) {
 	for _, r := range rs {
+		if slices.Contains(meta, r.Key) {
+			v, present := m.Meta[r.Key]
+			if !valueIs(v, present, r.Value) {
+				return false, nil
+			}
+			continue
+		}
 		if name, ok := strings.CutPrefix(r.Key, field+" "); ok {
 			v, present := m.Fields[strings.TrimSpace(name)]
-			switch {
-			case strings.EqualFold(r.Value, "undefined"):
-				if present {
-					return false, nil
-				}
-			case !present || v != r.Value:
+			if !valueIs(v, present, r.Value) {
 				return false, nil
 			}
 			continue
@@ -138,10 +152,22 @@ func (rs Rows) MatchMessage(m Message, field string) (bool, error) {
 	return true, nil
 }
 
-// Describe renders a message for a failure report: its named values and
-// its body.
+// valueIs reports whether a named value (present or not) is what a
+// condition wants: `undefined` wants it absent.
+func valueIs(v string, present bool, want string) bool {
+	if strings.EqualFold(want, "undefined") {
+		return !present
+	}
+	return present && v == want
+}
+
+// Describe renders a message for a failure report: its own values, its
+// named values and its body.
 func (m Message) Describe(field string) string {
 	var b strings.Builder
+	for _, k := range slices.Sorted(maps.Keys(m.Meta)) {
+		fmt.Fprintf(&b, "%s=%s ", k, m.Meta[k])
+	}
 	names := make([]string, 0, len(m.Fields))
 	for k := range m.Fields {
 		names = append(names, k)

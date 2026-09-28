@@ -34,6 +34,7 @@ type service struct {
 	address  *addressClient
 	courier  *courierClient
 	events   *events
+	printing *printing
 	labels   labeler
 	log      *slog.Logger
 }
@@ -95,6 +96,9 @@ func (s *service) register(ctx context.Context, r registration) (*Parcel, error)
 	}
 	if err := s.events.publishRegistered(ctx, ev); err != nil {
 		s.log.Error("publishing ParcelRegistered failed", "reference", p.Reference, "err", err)
+	}
+	if err := s.printing.printJob(ctx, p); err != nil {
+		s.log.Error("sending the label to the printers failed", "reference", p.Reference, "err", err)
 	}
 	// An express parcel is collected by the courier the day it is registered.
 	if p.ServiceLevel == "EXPRESS" {

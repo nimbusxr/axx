@@ -4,9 +4,11 @@ A complete acceptance suite for a realistic service. **Parcels** is a parcel-del
 service written in Go: shops ask it for price quotes, register parcels through its API or
 its shop portal, or upload them in bulk as manifests, and follow them through the depots. It stores parcels in
 PostgreSQL, keeps a tracking read model in MongoDB, checks every address with a downstream
-address service, books express collections and pickups with a courier, talks to the depots over Kafka, writes each imported manifest's
-documents to an export folder, streams depot scans as they happen (over a websocket and as server-sent events), and
-has an admin command for its operations desk.
+address service, books express collections and pickups with a courier, talks to the depots over Kafka, sends labels to the depots'
+printers and hears their reports over AMQP (RabbitMQ), hears the depots' handheld scanners over MQTT, confirms
+deliveries and tells other services of every tracking update over NATS, writes each imported manifest's documents to
+an export folder, streams depot scans as they happen (over a websocket and as server-sent events), and has an admin
+command for its operations desk.
 
 Axx tests it black-box: it starts the service and its infrastructure with Docker Compose,
 waits until the service is healthy, runs the features against it and cleans up afterwards.
@@ -30,6 +32,9 @@ The service has no dependency on Axx or on any test framework.
 | `portal-planning` | planning a parcel's pickup, the courier told of it (and not of a day the shop does not offer), when it cannot be planned, and a shop's settings | drag and drop, the form fields a mock received (and did not), a form sent as a request payload, requests that fail or answer with an error, several options chosen, an upload, the rows the portal wrote |
 | `portal-tracking` | the recipient's tracking page: when the parcel arrives, and its depot scans as they happen | requests answered with a file, a recording or late, a slow connection, websocket messages, a Kafka event the page shows |
 | `live-tracking` | depot scans reach the tracking page's websocket and the shops' event streams as they happen; a delivered parcel ends its stream; a websocket that names no parcel is closed | a websocket opened, sent to and checked by its messages and its close code, a server-sent event stream checked by its events' type, id and data, Avro events published |
+| `label-printing` | every registered parcel's label goes to the printers of its service level; the printers' reports, through their exchange or straight to the service's queue, mark labels printed; reports the service cannot use are set aside with the reason | an AMQP exchange and queues: messages published with a routing key, sent with headers, and checked by their routing key, headers and body, SQL selections |
+| `depot-scanners` | a handheld scanner's scan updates the tracking; a scan of an unknown parcel alerts the depot's scanners | MQTT messages published with user properties, a topic filter checked by the topic a message came on, MongoDB selections |
+| `tracking-updates` | a courier's confirmation marks a parcel delivered; the other services hear of every scan, and the TRACKING stream keeps the updates | NATS messages published with headers, a subject with a wildcard, a JetStream stream, an Avro event on Kafka |
 | `operations-desk` | the desk's `parcels admin` command reprints labels, cancels parcels (from its input too) under the API's rules, and lists a shop's parcels | a command run in the service's container, its exit code, output and error output, output compared byte for byte and by its JSON properties, SQL selections |
 
 `axx.yaml` also shows test-data lint rules (`axx lint`), fixture factories (`axx fixtures`)
@@ -58,6 +63,9 @@ parcels/
     screenshots/    how the portal's pages look, on Linux and on macOS
     network/        answers for the tracking page's requests: a file, and a recording of the service
     kafka/          depot scan events (generated from a factory)
+    amqp/           the label printers' reports
+    mqtt/           a handheld scanner's scan
+    nats/           a courier's delivery confirmation
     requests/       registration requests an order system exports (generated from a factory)
     schemas/        Avro schemas
 ```

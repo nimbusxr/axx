@@ -1,8 +1,11 @@
 // Command parcels is the system under test of the axx example: a parcel
 // service with a REST API (OpenAPI 3.1), PostgreSQL storage, a manifest
 // importer that writes each manifest's documents to an export folder, a
-// MongoDB tracking read model fed by depot scan events, calls to a
-// downstream address service, and ParcelRegistered events on Kafka (Avro).
+// MongoDB tracking read model fed by depot scans (Kafka events, and the
+// scanners' MQTT messages), calls to a downstream address service,
+// ParcelRegistered events on Kafka (Avro), label print jobs and the
+// printers' reports on RabbitMQ (AMQP), and the couriers' delivery
+// confirmations and every tracking update on NATS.
 //
 // Configuration comes from PARCELS_* environment variables. The defaults
 // reach the infrastructure's published ports on localhost, which is what you
@@ -38,7 +41,13 @@ type config struct {
 	RegistryURL   string
 	EventsTopic   string
 	ScansTopic    string
-	PollInterval  time.Duration
+	// AMQPURL is RabbitMQ, where labels are printed; MQTTURL the broker the
+	// depots' scanners publish to; NATSURL where couriers confirm deliveries
+	// and tracking updates go.
+	AMQPURL      string
+	MQTTURL      string
+	NATSURL      string
+	PollInterval time.Duration
 	// ExportDir is where the service writes the documents of the manifests
 	// it imports, for the shops' systems to collect.
 	ExportDir string
@@ -67,6 +76,9 @@ func loadConfig() (config, error) {
 		RegistryURL:   strings.TrimRight(env("PARCELS_SCHEMA_REGISTRY_URL", "http://localhost:9081"), "/"),
 		EventsTopic:   env("PARCELS_EVENTS_TOPIC", "parcel-events"),
 		ScansTopic:    env("PARCELS_SCANS_TOPIC", "depot-scans"),
+		AMQPURL:       env("PARCELS_AMQP_URL", "amqp://parcels:parcels@localhost:5672/"),
+		MQTTURL:       env("PARCELS_MQTT_URL", "mqtt://localhost:1883"),
+		NATSURL:       env("PARCELS_NATS_URL", "nats://localhost:4222"),
 		ExportDir:     env("PARCELS_EXPORT_DIR", "../infra/exports"),
 		LogUDP:        env("PARCELS_LOG_UDP", ""),
 	}
@@ -119,6 +131,26 @@ func serve(ctx context.Context, cfg config, log *slog.Logger) error {
 		return err
 	}
 	defer events.Close()
+	updates, err := openTrackingUpdates(cctx, cfg.NATSURL, log)
+	if err != nil {
+		return err
+	}
+	defer updates.Close()
+	rec := &recorder{tracking: tracking, updates: updates, log: log}
+	if err := updates.confirmDeliveries(ctx, rec); err != nil {
+		return err
+	}
+	scanners, err := openScanners(cctx, cfg.MQTTURL, store, rec, log)
+	if err != nil {
+		return err
+	}
+	defer scanners.Close()
+	labels := labeler{secret: []byte(cfg.LabelSecret)}
+	printing, err := openPrinting(cctx, cfg.AMQPURL, store, labels, log)
+	if err != nil {
+		return err
+	}
+	defer printing.Close()
 
 	svc := &service{
 		store:    store,
@@ -126,13 +158,15 @@ func serve(ctx context.Context, cfg config, log *slog.Logger) error {
 		address:  &addressClient{base: cfg.AddressURL, apiKey: cfg.AddressAPIKey, http: &http.Client{Timeout: 5 * time.Second}},
 		courier:  &courierClient{base: cfg.CourierURL, http: &http.Client{Timeout: 5 * time.Second}},
 		events:   events,
-		labels:   labeler{secret: []byte(cfg.LabelSecret)},
+		printing: printing,
+		labels:   labels,
 		log:      log,
 	}
 	go svc.runImporter(ctx, cfg.PollInterval)
+	go printing.run(ctx)
 	go (&documents{store: store, dir: cfg.ExportDir, log: log}).run(ctx, cfg.PollInterval)
 	go tracking.runProjector(ctx, cfg.PollInterval)
-	go events.consumeScans(ctx, tracking)
+	go events.consumeScans(ctx, rec)
 
 	srv := &http.Server{Addr: cfg.Addr, Handler: svc.routes(), ReadHeaderTimeout: 10 * time.Second}
 	errc := make(chan error, 1)

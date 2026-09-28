@@ -13,6 +13,10 @@ CREATE TABLE parcels.parcels (
     recipient     JSONB NOT NULL,
     details       JSONB NOT NULL DEFAULT '{}',
     label_number  BIGINT NOT NULL DEFAULT nextval('parcels.label_numbers'),
+    -- The depot printer that printed the parcel's label, and when: from the
+    -- printers' reports (see ../../../app/printing.go).
+    label_printed_by VARCHAR(40),
+    label_printed_at TIMESTAMPTZ,
     created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );

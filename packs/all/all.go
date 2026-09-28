@@ -5,6 +5,7 @@ package all
 
 import (
 	"github.com/nimbusxr/axx/core"
+	"github.com/nimbusxr/axx/packs/amqp"
 	awscore "github.com/nimbusxr/axx/packs/aws/core"
 	awsdynamodb "github.com/nimbusxr/axx/packs/aws/dynamodb"
 	awseventbridge "github.com/nimbusxr/axx/packs/aws/eventbridge"
@@ -24,6 +25,8 @@ import (
 	"github.com/nimbusxr/axx/packs/logs"
 	"github.com/nimbusxr/axx/packs/mock"
 	"github.com/nimbusxr/axx/packs/mongo"
+	"github.com/nimbusxr/axx/packs/mqtt"
+	"github.com/nimbusxr/axx/packs/nats"
 	"github.com/nimbusxr/axx/packs/rest"
 	sqlpack "github.com/nimbusxr/axx/packs/sql"
 	"github.com/nimbusxr/axx/packs/sse"
@@ -44,6 +47,9 @@ func Packs() map[string]core.Pack {
 		"sql":              sqlpack.Pack(),
 		"mongo":            mongo.Pack(),
 		"kafka":            kafka.Pack(),
+		"amqp":             amqp.Pack(),
+		"mqtt":             mqtt.Pack(),
+		"nats":             nats.Pack(),
 		"logs":             logs.Pack(),
 		"files":            files.Pack(),
 		"cli":              cli.Pack(),

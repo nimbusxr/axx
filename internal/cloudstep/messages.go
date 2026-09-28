@@ -12,6 +12,9 @@ import (
 type Messages struct {
 	// Pack is the pack name, the prefix of the step IDs.
 	Pack string
+	// Kind tells the steps of one kind of target from a pack's others, in
+	// their IDs: "queue" gives amqp.queue.send. Empty for a pack with one.
+	Kind string
 	// Target is how steps name what messages go to: "sqs queue",
 	// "pubsub topic", "service bus queue/topic".
 	Target string
@@ -20,6 +23,18 @@ type Messages struct {
 	// Field names the values sent with a message: "attribute" or
 	// "property"; Fields is its plural.
 	Field, Fields string
+	// Key is a value of the message that the doc string form can give
+	// too, where a table cannot go: "routing key" gives "a message is
+	// published to the {word} amqp exchange[[ with the routing key
+	// {string}]]:". Send gets it as a field of that name. The Target must
+	// have no alternatives.
+	Key string
+	// Meta are the values of a message itself, not sent with it as
+	// fields, that checks read by name: "routing key", "topic".
+	Meta []string
+	// SendRows are the rows the "with the following <fields>:" table
+	// knows, when it takes more than fields.
+	SendRows []core.TableRow
 	// Example is what the step examples send and check.
 	Example Sample
 	// Send sends a message.
@@ -30,6 +45,9 @@ type Messages struct {
 	// Received explains in the pack's docs how the checks receive
 	// messages.
 	Received string
+	// Since is the axx version that introduced the pack, when it came
+	// after the message steps (0.1.0).
+	Since string
 }
 
 // Sample is what a messaging pack's step examples send and check, in the
@@ -39,6 +57,8 @@ type Sample struct {
 	// Body to, and the File with the Fields.
 	To, Body, File string
 	Fields         [][2]string
+	// Key is the Key's value in the doc string form's example.
+	Key string
 	// From is a target the services write to, which the check example
 	// checks with the Where rows.
 	From  string
@@ -53,24 +73,43 @@ func (m Messages) Steps() []core.StepDef {
 	// Examples name one target: "service bus queue", not "service bus queue/topic";
 	// docs name them all: "service bus queue or topic".
 	et, dt := oneAlternative(t), strings.ReplaceAll(t, "/", " or ")
-	return []core.StepDef{
-		{
-			ID: m.Pack + ".send", Keyword: "When", Arg: core.ArgDocString, Since: "0.1.0",
-			Expr:     "a message is " + m.Verb + " to the {word} " + colon(t),
-			Doc:      fmt.Sprintf("Send a message to the %s; the doc string is its body.", dt),
-			Examples: []string{fmt.Sprintf("When a message is %s to the %s %s:", m.Verb, ex.To, et) + docString(ex.Body)},
-			Run: func(sc *core.Scenario, a core.Args) error {
-				return m.send(sc, a.String(0), []byte(a.DocString.Content), nil)
-			},
+	since := m.version()
+	send := core.StepDef{
+		ID: m.ID("send"), Keyword: "When", Arg: core.ArgDocString, Since: since,
+		Expr:     "a message is " + m.Verb + " to the {word} " + colon(t),
+		Doc:      fmt.Sprintf("Send a message to the %s; the doc string is its body.", dt),
+		Examples: []string{fmt.Sprintf("When a message is %s to the %s %s:", m.Verb, ex.To, et) + docString(ex.Body)},
+		Run: func(sc *core.Scenario, a core.Args) error {
+			return m.send(sc, a.String(0), []byte(a.DocString.Content), nil)
 		},
+	}
+	if m.Key != "" {
+		send.Expr = "a message is " + m.Verb + " to the {word} " + t + "[[ with the " + m.Key + " {string}]]:"
+		send.Doc = fmt.Sprintf("Send a message to the %s, with the %s the step gives; the doc string is its body.", dt, m.Key)
+		send.Examples = append(send.Examples,
+			fmt.Sprintf("When a message is %s to the %s %s with the %s '%s':", m.Verb, ex.To, et, m.Key, ex.Key)+docString(ex.Body))
+		send.Run = func(sc *core.Scenario, a core.Args) error {
+			var fields map[string]string
+			if a.Present(1) {
+				fields = map[string]string{m.Key: sc.Suite().Interpolate(a.String(1))}
+			}
+			return m.send(sc, a.String(0), []byte(a.DocString.Content), fields)
+		}
+	}
+	sendTable := &core.TableDoc{
+		Columns: []string{"name", "value"},
+		Note:    fmt.Sprintf("Each row is %s %s sent with the message, as text: its name and its value.", article(m.Field), m.Field),
+	}
+	if len(m.SendRows) > 0 {
+		sendTable = &core.TableDoc{Columns: []string{"name", "value"}, Rows: m.SendRows}
+	}
+	return []core.StepDef{
+		send,
 		{
-			ID: m.Pack + ".send.file", Keyword: "When", Arg: core.ArgOptional, Since: "0.1.0",
-			Expr: "the {filepath} message is " + m.Verb + " to the {word} " + t + "[[ with the following " + m.Fields + ":]]",
-			Doc:  fmt.Sprintf("Send a message whose body is the file to the %s, with the %s of the table when the step has one.", dt, m.Fields),
-			Table: &core.TableDoc{
-				Columns: []string{"name", "value"},
-				Note:    fmt.Sprintf("Each row is %s %s sent with the message, as text: its name and its value.", article(m.Field), m.Field),
-			},
+			ID: m.ID("send.file"), Keyword: "When", Arg: core.ArgOptional, Since: since,
+			Expr:  "the {filepath} message is " + m.Verb + " to the {word} " + t + "[[ with the following " + m.Fields + ":]]",
+			Doc:   fmt.Sprintf("Send a message whose body is the file to the %s, with the %s of the table when the step has one.", dt, m.Fields),
+			Table: sendTable,
 			Examples: []string{
 				fmt.Sprintf("When the %s message is %s to the %s %s", ex.File, m.Verb, ex.To, et),
 				fmt.Sprintf("When the %s message is %s to the %s %s with the following %s:", ex.File, m.Verb, ex.To, et, m.Fields) +
@@ -105,33 +144,74 @@ func (m Messages) Steps() []core.StepDef {
 				return m.send(sc, a.String(1), body, fields)
 			},
 		},
-		{
-			ID: m.Pack + ".received", Keyword: "Then", Arg: core.ArgTable, Since: "0.1.0",
-			Expr: "[[within {duration} ]]the {word} " + t + " has a message where:",
-			Doc: fmt.Sprintf("Check that the %s has a message with those values, received since the scenario started.\n\n"+
-				"- The check waits for it: 10 seconds, or `within {duration}`.\n"+
-				"- %s", dt, m.Received),
-			Table: &core.TableDoc{
-				Columns: []string{"path", "value"},
-				Note: fmt.Sprintf("Each row is a path into the message's JSON body (a field name, a dotted path or a JSONPath) and "+
-					"the value it has, compared as text: `null` for null and `undefined` for absent. A row `%s <name>` is instead "+
-					"on the %s of that name sent with the message: `undefined` when there is none.", m.Field, m.Field),
-			},
-			Examples: []string{fmt.Sprintf("Then within 30s the %s %s has a message where:", ex.From, et) + exampleTable(ex.Where)},
-			Run: func(sc *core.Scenario, a core.Args) error {
-				rs, err := Conditions(a.Table)
-				if err != nil {
-					return err
-				}
-				target, noun := a.String(1), m.Noun(a.Text)
-				in, err := m.Inbox(sc, target, noun)
-				if err != nil {
-					return err
-				}
-				return ExpectMessage(sc, Wait(a, 0), in, rs, m.Field, fmt.Sprintf("the %s %s", target, noun))
-			},
+		m.ReceivedStep(),
+	}
+}
+
+// ReceivedStep is the check of the pack's message steps alone, for a
+// kind of target that messages are not sent to (a NATS stream, whose
+// subjects they are published to).
+func (m Messages) ReceivedStep() core.StepDef {
+	t, ex := m.Target, m.Example
+	et, dt := oneAlternative(t), strings.ReplaceAll(t, "/", " or ")
+	since := m.version()
+	whereNote := fmt.Sprintf("Each row is a path into the message's JSON body (a field name, a dotted path or a JSONPath) and "+
+		"the value it has, compared as text: `null` for null and `undefined` for absent. A row `%s <name>` is instead "+
+		"on the %s of that name sent with the message: `undefined` when there is none.", m.Field, m.Field)
+	if len(m.Meta) > 0 {
+		whereNote += fmt.Sprintf(" %s on the message itself, not its body.", rowNames(m.Meta))
+	}
+	return core.StepDef{
+		ID: m.ID("received"), Keyword: "Then", Arg: core.ArgTable, Since: since,
+		Expr: "[[within {duration} ]]the {word} " + t + " has a message where:",
+		Doc: fmt.Sprintf("Check that the %s has a message with those values, received since the scenario started.\n\n"+
+			"- The check waits for it: 10 seconds, or `within {duration}`.\n"+
+			"- %s", dt, m.Received),
+		Table:    &core.TableDoc{Columns: []string{"path", "value"}, Note: whereNote},
+		Examples: []string{fmt.Sprintf("Then within 30s the %s %s has a message where:", ex.From, et) + exampleTable(ex.Where)},
+		Run: func(sc *core.Scenario, a core.Args) error {
+			rs, err := Conditions(a.Table)
+			if err != nil {
+				return err
+			}
+			target, noun := a.String(1), m.Noun(a.Text)
+			in, err := m.Inbox(sc, target, noun)
+			if err != nil {
+				return err
+			}
+			return ExpectMatch(sc, Wait(a, 0), in, func(msg Message) (bool, error) { return rs.MatchMessageIn(msg, m.Field, m.Meta) },
+				m.Field, "message", fmt.Sprintf("the %s %s", target, noun))
 		},
 	}
+}
+
+// version is the axx version that introduced the steps.
+func (m Messages) version() string {
+	if m.Since == "" {
+		return "0.1.0"
+	}
+	return m.Since
+}
+
+// ID is the ID of one of the pack's message steps: "send", "send.file" or
+// "received".
+func (m Messages) ID(step string) string {
+	if m.Kind != "" {
+		return m.Pack + "." + m.Kind + "." + step
+	}
+	return m.Pack + "." + step
+}
+
+// rowNames lists row names for the docs: "Rows `routing key` and `topic` are".
+func rowNames(names []string) string {
+	quoted := make([]string, len(names))
+	for i, n := range names {
+		quoted[i] = "`" + n + "`"
+	}
+	if len(quoted) == 1 {
+		return "A row " + quoted[0] + " is"
+	}
+	return "Rows " + strings.Join(quoted[:len(quoted)-1], ", ") + " and " + quoted[len(quoted)-1] + " are"
 }
 
 func (m Messages) send(sc *core.Scenario, target string, body []byte, fields map[string]string) error {
