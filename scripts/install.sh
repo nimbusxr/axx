@@ -48,8 +48,9 @@ version=${AXX_VERSION:-}
 if [ -z "$version" ]; then
   # The newest CLI release (pre-releases included) whose files are up: its checksums and this
   # platform's archive. A release is published before its build uploads them, so the newest
-  # one can have none yet. The CLI's tags are v*; the WireMock extension and the IntelliJ
-  # plugin have releases of their own (wiremock-openapi-v*, intellij-v*), and nightly.
+  # one can have none yet. The CLI's tags are v*; the WireMock extension, the Mailpit image and
+  # the IntelliJ plugin have releases of their own (wiremock-openapi-v*, mailpit-chaos-v*,
+  # intellij-v*), and nightly.
   version=$(fetch "$API/releases?per_page=20" | tr ',' '\n' |
     sed -n 's#.*"browser_download_url": *"[^"]*/releases/download/\(v[0-9][^/"]*\)/\([^/"]*\)".*#\1 \2#p' |
     awk -v os="$os" -v arch="$arch" '

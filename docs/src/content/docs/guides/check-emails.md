@@ -38,7 +38,7 @@ Point your service's SMTP settings at the mail server of the test environment, a
 ```yaml title="compose.yaml"
 services:
   mailpit:
-    image: axllent/mailpit:v1.31.3
+    image: ghcr.io/nimbusxr/axx-mailpit # or axllent/mailpit, without refusing mail
     ports: ['8025:8025', '1025:1025']
   app:
     environment:
@@ -79,6 +79,34 @@ Then within 10s the shops mailbox has an email where:
 | `header <name>` | a header's value |
 
 Addresses compare without regard to case, and `text` and `html` take runs of spaces and line breaks as one space. Subjects and names in other charsets are decoded first. The check waits for an email that meets every row: 10 seconds, or the time `within` gives. When none does, it lists the emails that arrived.
+
+## Refuse mail
+
+What does your service do when its mail server refuses an email? With axx's Mailpit image, a scenario can have the mail server refuse its own mail, with the SMTP code it gives:
+
+```gherkin
+Scenario: A registration email the mail server refuses does not stop the registration
+  Given a seeds/mail-refused.yaml db seed
+  And the shops mailbox refuses mail to '*@quince-and-quill.example' with code 451
+  And a POST request to /api/parcels
+  And a request payload using an application/json content example
+  And the request payload property sender is 'quince-and-quill'
+  When the request is executed
+  Then the response status code is 201
+```
+
+- `refuses mail to` refuses each recipient the text matches; `refuses mail from`, the mail of the senders it matches. The text is an address, or a pattern where `*` stands for any text.
+- The code is from 400 to 599: a 4xx, like 451, for a failure the sender should retry, and a 5xx, like 550, for one it should not.
+- The refusal lasts until the scenario ends. It refuses only the addresses it names, so scenarios that each refuse their own addresses run side by side.
+
+It needs `ghcr.io/nimbusxr/axx-mailpit`: Mailpit, built with chaos rules that match addresses. Plain Mailpit can only refuse a share of all mail, which would fail every other scenario's mail too.
+
+```yaml title="compose.yaml"
+services:
+  mailpit:
+    image: ghcr.io/nimbusxr/axx-mailpit
+    ports: ['8025:8025', '1025:1025']
+```
 
 ## Keep scenarios apart
 

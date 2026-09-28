@@ -8,8 +8,9 @@ version: 1
 run:
   paths: [features]
   # Scenarios tagged @isolated make the parcels table fail on purpose (database
-  # triggers), so they run alone, after the parallel phase.
-  exclusive: ["@isolated"]
+  # triggers), and those tagged @performance time how fast pages load, which other
+  # scenarios' browsers would slow down: they run alone, after the parallel phase.
+  exclusive: ["@isolated", "@performance"]
 
 # Step paths such as seeds/manifest-kestrel.yaml, kafka/scan-delivered.json and
 # schemas/depot-scan.avsc resolve against this directory.

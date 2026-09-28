@@ -39,7 +39,7 @@ The service has no dependency on Axx or on any test framework.
 | `courier-callbacks` | the courier's signed callbacks are recorded, and one signed with another key is refused; a delivery is told to the parcel's shop in a signed webhook | a request signed in a header (HMAC-SHA256), a Standard Webhook's signature checked on the mock that receives it, a mocked dependency's contract, MongoDB selections |
 | `shop-api` | a shop's system reads its parcels with a token its platform signs, or one it gets with its client credentials; a token for another shop is refused | a JSON Web Token axx signs, an OAuth 2.0 client credentials token axx gets from the service's token endpoint |
 | `cache` | a parcel's tracking view is cached, answers from the cache, and is dropped when a scan changes it; a registration retried with its idempotency key is answered with the parcel it made | Redis keys seeded and checked by their value, their JSON properties and their absence, ordered requests with a header |
-| `shop-emails` | a shop gets each registered parcel's label by email, and each delivery when it asked to be told | Mailpit read through its API: an email's recipient, sender, subject, text, HTML and attachment |
+| `shop-emails` | a shop gets each registered parcel's label by email, and each delivery when it asked to be told; an email the mail server refuses does not stop the registration | Mailpit read through its API: an email's recipient, sender, subject, text, HTML and attachment; the mail server refusing a scenario's own mail; a log entry |
 | `operations-desk` | the desk's `parcels admin` command reprints labels, cancels parcels (from its input too) under the API's rules, and lists a shop's parcels | a command run in the service's container, its exit code, output and error output, output compared byte for byte and by its JSON properties, SQL selections |
 
 `axx.yaml` also shows test-data lint rules (`axx lint`), fixture factories (`axx fixtures`)
@@ -156,7 +156,7 @@ browser at it. The host ports are the ones the features use:
 | `mosquitto` | `eclipse-mosquitto:2.0.22` | 1883 | the depots' handheld scanners (MQTT 5) |
 | `nats` | `nats:2.15.0-alpine` | 4222 | couriers' delivery confirmations, and tracking updates in the TRACKING stream (JetStream) |
 | `valkey` | `valkey/valkey:9.1.2-alpine` | 6379 | the service's cache: tracking views and idempotency keys |
-| `mailpit` | `axllent/mailpit:v1.31.3` | 8025, 1025 | the service's mail server in the tests: its API (8025) and SMTP (1025) |
+| `mailpit` | built from `extensions/mailpit-chaos` | 8025, 1025 | the service's mail server in the tests, Mailpit with axx's chaos rules: its API (8025) and SMTP (1025) |
 | `exports` | `busybox:1.37` | (none) | empties `exports/`, and makes it writable, before the service starts |
 
 The address service mock builds the WireMock extension from this repository

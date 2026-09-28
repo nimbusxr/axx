@@ -371,6 +371,9 @@ func ExpectMessage(sc *core.Scenario, d time.Duration, in *Inbox, rs Rows, field
 // fails at once, saying why.
 func ExpectMatch(sc *core.Scenario, d time.Duration, in *Inbox, match func(Message) (bool, error), field, what, where string) error {
 	return Poll(sc, d, func() (bool, string, error) {
+		// Whether it ended first, then what arrived: a listener adds its last
+		// message before it ends, so what arrived is all there is when it has.
+		why, ended := in.Ended()
 		msgs, err := in.Since(sc.Started())
 		if err != nil {
 			return false, "", fmt.Errorf("listening to %s failed: %w", where, err)
@@ -387,7 +390,7 @@ func ExpectMatch(sc *core.Scenario, d time.Duration, in *Inbox, match func(Messa
 			shown = append(shown, m.Describe(field))
 		}
 		received := Shown(plural(len(shown), what)+" since the scenario started", shown, 10)
-		if why, ended := in.Ended(); ended {
+		if ended {
 			return false, "", core.Failf("No %s on %s met the conditions: %s. It received %s", what, where, why, received)
 		}
 		return false, fmt.Sprintf("No %s on %s met the conditions within %s. It received %s", what, where, d, received), nil
