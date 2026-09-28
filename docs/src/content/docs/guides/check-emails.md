@@ -28,8 +28,7 @@ How your service sends its mail decides where a test finds it:
 
 | Your service sends | In the tests | The check |
 | --- | --- | --- |
-| by **SMTP**, to a relay or a provider's SMTP endpoint | a mail server that catches it: [Mailpit](https://mailpit.axllent.org), the WireMock of mail | a mailbox with Mailpit's `url`, read through its API |
-| by SMTP, to a catcher your team already runs | GreenMail, smtp4dev, Inbucket | a mailbox with a `pop3://` or `imap://` `url` |
+| by **SMTP**, to a relay or a provider's SMTP endpoint | a mail server that catches it: [smtp4dev](https://github.com/rnwood/smtp4dev), which can also stub refusals, or [Mailpit](https://mailpit.axllent.org), GreenMail, Inbucket | a mailbox with an `imap://` or `pop3://` `url`, or Mailpit's, read through its API |
 | by SMTP, and it must really arrive | a real inbox, in a staging environment | a mailbox with an `imaps://` `url` |
 | through a **provider's HTTP API** (SendGrid, SES, Mailgun, Postmark, Resend) | WireMock, against the provider's contract | the [mock pack](/guides/mock-dependencies/): the request's payload properties |
 
@@ -37,12 +36,12 @@ Point your service's SMTP settings at the mail server of the test environment, a
 
 ```yaml title="compose.yaml"
 services:
-  mailpit:
-    image: ghcr.io/nimbusxr/axx-mailpit # or axllent/mailpit, without refusing mail
-    ports: ['8025:8025', '1025:1025']
+  mail:
+    image: rnwood/smtp4dev:3.15.0
+    ports: ['1025:25', '1143:143', '8025:80'] # SMTP, IMAP, its web interface
   app:
     environment:
-      PARCELS_SMTP_ADDR: mailpit:1025
+      PARCELS_SMTP_ADDR: mail:25
 ```
 
 ## Register the mailbox
@@ -50,14 +49,16 @@ services:
 ```gherkin
 Background:
   Given the shops mailbox with the following properties:
-    | url | http://${sys:local.host}:8025 |
+    | url      | imap://${sys:local.host}:1143 |
+    | username | axx                           |
+    | password | axx                           |
 ```
 
 - **`url`:** Mailpit's address (`http://` or `https://`), or `pop3://`, `pop3s://`, `imap://` or `imaps://` and the mail server's host.
 - **`username` and `password`:** sign in over POP3 and IMAP, or to a Mailpit behind a password. The password is masked.
 - **`folder`:** the IMAP folder, `INBOX` unless it says otherwise.
 
-Mailpit answers POP3 once it is given a password file (`--pop3-auth-file`, or `MP_POP3_AUTH`).
+smtp4dev takes any username and password over IMAP, and its `INBOX` has every email it received. Mailpit answers POP3 once it is given a password file (`--pop3-auth-file`, or `MP_POP3_AUTH`).
 
 ## Check an email
 
@@ -82,12 +83,24 @@ Addresses compare without regard to case, and `text` and `html` take runs of spa
 
 ## Refuse mail
 
-What does your service do when its mail server refuses an email? With axx's Mailpit image, a scenario can have the mail server refuse its own mail, with the SMTP code it gives:
+What does your service do when a mail server refuses its email? Stub the refusal in the mail server, as you stub an HTTP dependency's failures in WireMock's mappings: by the data a scenario uses. smtp4dev runs a JavaScript expression for each recipient, and `error(code, message)` refuses it with that SMTP code:
+
+```yaml title="compose.yaml"
+services:
+  mail:
+    image: rnwood/smtp4dev:3.15.0
+    environment:
+      # quince-and-quill's mail server is busy: it asks to be tried again later.
+      ServerOptions__RecipientValidationExpression: >-
+        recipient.toLowerCase().endsWith("@quince-and-quill.example")
+        ? error(451, "Mailbox busy, try again later") : true
+```
+
+A scenario whose shop is quince-and-quill then sees how your service copes:
 
 ```gherkin
-Scenario: A registration email the mail server refuses does not stop the registration
+Scenario: A registration email the shop's mail server refuses does not stop the registration
   Given a seeds/mail-refused.yaml db seed
-  And the shops mailbox refuses mail to '*@quince-and-quill.example' with code 451
   And a POST request to /api/parcels
   And a request payload using an application/json content example
   And the request payload property sender is 'quince-and-quill'
@@ -95,18 +108,9 @@ Scenario: A registration email the mail server refuses does not stop the registr
   Then the response status code is 201
 ```
 
-- `refuses mail to` refuses each recipient the text matches; `refuses mail from`, the mail of the senders it matches. The text is an address, or a pattern where `*` stands for any text.
-- The code is from 400 to 599: a 4xx, like 451, for a failure the sender should retry, and a 5xx, like 550, for one it should not.
-- The refusal lasts until the scenario ends. It refuses only the addresses it names, so scenarios that each refuse their own addresses run side by side.
-
-It needs `ghcr.io/nimbusxr/axx-mailpit`: Mailpit, built with chaos rules that match addresses. Plain Mailpit can only refuse a share of all mail, which would fail every other scenario's mail too.
-
-```yaml title="compose.yaml"
-services:
-  mailpit:
-    image: ghcr.io/nimbusxr/axx-mailpit
-    ports: ['8025:8025', '1025:1025']
-```
+- A 4xx code, like 451, is a failure the sender should retry; a 5xx, like 550, one it should not.
+- The stub refuses only the recipients it names, so scenarios running beside it are not affected: give each refusal a recipient of its own.
+- `CommandValidationExpression` refuses at other stages, such as the sender's `mail from:` (smtp4dev passes the command's verb in lowercase), and `MessageValidationExpression` refuses whole messages.
 
 ## Keep scenarios apart
 

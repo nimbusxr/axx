@@ -2,7 +2,7 @@
   "description": "The frozen catalog of built-in step text. Step text is public API: every entry must stay defined, verbatim, by its pack.",
   "counts": {
     "parameterType": 11,
-    "step": 570
+    "step": 568
   },
   "entries": [
     {
@@ -3489,18 +3489,6 @@
       "pack": "mail",
       "keyword": "Then",
       "expression": "within {duration} the {word} mailbox has an email where:"
-    },
-    {
-      "kind": "step",
-      "pack": "mail",
-      "keyword": "Given",
-      "expression": "the {word} mailbox refuses mail from {string} with code {int}"
-    },
-    {
-      "kind": "step",
-      "pack": "mail",
-      "keyword": "Given",
-      "expression": "the {word} mailbox refuses mail to {string} with code {int}"
     }
   ]
 }

@@ -46,15 +46,10 @@ while ! $all && IFS= read -r f; do
   case "$f" in
     examples/*/app/* | mise.toml) examples=true ;;
   esac
-  # axx's Mailpit image, which the mail pack's integration tests build.
+  # The examples' acceptance suites: axx, the examples, and the WireMock extension the parcels
+  # example builds its mocks from.
   case "$f" in
-    extensions/mailpit-chaos/*) integration=true ;;
-  esac
-  # The examples' acceptance suites: axx, the examples, and the WireMock and Mailpit images the
-  # parcels example builds its mocks and its mail server from.
-  case "$f" in
-    cmd/* | core/* | internal/* | packs/* | go.mod | go.sum | mise.toml | examples/* | extensions/wiremock-openapi/* | \
-      extensions/mailpit-chaos/*)
+    cmd/* | core/* | internal/* | packs/* | go.mod | go.sum | mise.toml | examples/* | extensions/wiremock-openapi/*)
       acceptance=true ;;
   esac
   case "$f" in

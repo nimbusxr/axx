@@ -25,18 +25,18 @@ const since = "0.1.5"
 
 const packDoc = `Check the emails your services send: who they went to and from, their subject, their text, their HTML, their attachments and their headers.
 
-Your service sends its mail as it always does, by SMTP, to the mail server of your test environment: Mailpit, the WireMock of mail, or any other. axx reads the mailbox that catches it. Register it once, usually in the ` + "`Background`" + `; every mail step of the scenario uses it:
+Your service sends its mail as it always does, by SMTP, to the mail server of your test environment: smtp4dev, Mailpit or any other. axx reads the mailbox that catches it. Register it once, usually in the ` + "`Background`" + `; every mail step of the scenario uses it:
 
 ` + "```gherkin" + `
 Given the shops mailbox with the following properties:
   | url | http://localhost:8025 |
 ` + "```" + `
 
+- **Any mailbox, a real one included,** is read over POP3 (` + "`pop3://`" + `, ` + "`pop3s://`" + `) or IMAP (` + "`imap://`" + `, ` + "`imaps://`" + `): smtp4dev, GreenMail, Inbucket, Dovecot, a staging inbox.
 - **Mailpit** is read through its API (` + "`http://`" + ` or ` + "`https://`" + `).
-- **Any mailbox, a real one included,** is read over POP3 (` + "`pop3://`" + `, ` + "`pop3s://`" + `) or IMAP (` + "`imap://`" + `, ` + "`imaps://`" + `): GreenMail, smtp4dev, Inbucket, Dovecot, a staging inbox.
 - **A check only looks at the emails that arrived since its scenario started,** and waits for one that meets it: 10 seconds, or ` + "`within {duration}`" + `. For a run, axx reads each mailbox the checks name from when the apps are up, and never deletes or marks what it reads.
 - **Scenarios share the mailbox,** so each checks its own mail, by a recipient or a subject unique to it.
-- **Refusing mail:** with axx's Mailpit image, ` + "`ghcr.io/nimbusxr/axx-mailpit`" + `, a scenario can have the mail server refuse its own mail, from or to the addresses it names, to test how your service handles it. The rule lasts until the scenario ends, and scenarios that refuse their own addresses run side by side.
+- **Refused mail** is a stub of the mail server's, as WireMock's mappings are for HTTP: smtp4dev refuses the recipients its ` + "`RecipientValidationExpression`" + ` says to, with the code it gives, and a scenario that uses such a recipient sees how your service copes.
 - **Mail sent through a provider's HTTP API** (SendGrid, SES, Mailgun, Postmark) is not in a mailbox: mock the provider with WireMock and check the request with the mock pack.
 - **Secrets stay secret:** the password, and ` + "`${env:..}`" + ` values, are masked in logs and failures.`
 
@@ -113,8 +113,6 @@ func (pack) Manifest() core.Manifest {
 				"  | attachment | PX-MAIL-9701-label.zpl       |"},
 			Run: expect,
 		},
-		refuseStep("from", "sender"),
-		refuseStep("to", "recipient"),
 	}}
 }
 
