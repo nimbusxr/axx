@@ -36,6 +36,8 @@ type config struct {
 	AddressURL    string
 	AddressAPIKey string
 	CourierURL    string
+	RatingAddr    string // the partner carrier's rating service (gRPC)
+	GRPCAddr      string // where the tracking API (gRPC) listens
 	LabelSecret   string
 	KafkaBrokers  []string
 	RegistryURL   string
@@ -86,6 +88,8 @@ func loadConfig() (config, error) {
 		AddressURL:    strings.TrimRight(env("PARCELS_ADDRESS_URL", "http://localhost:8081"), "/"),
 		AddressAPIKey: env("PARCELS_ADDRESS_API_KEY", "example-address-key"),
 		CourierURL:    strings.TrimRight(env("PARCELS_COURIER_URL", "http://localhost:8082"), "/"),
+		RatingAddr:    env("PARCELS_RATING_ADDR", "localhost:8084"),
+		GRPCAddr:      env("PARCELS_GRPC_ADDR", ":8410"),
 		LabelSecret:   env("PARCELS_LABEL_SECRET", "example-label-secret"),
 		RegistryURL:   strings.TrimRight(env("PARCELS_SCHEMA_REGISTRY_URL", "http://localhost:9081"), "/"),
 		EventsTopic:   env("PARCELS_EVENTS_TOPIC", "parcel-events"),
@@ -191,12 +195,18 @@ func serve(ctx context.Context, cfg config, log *slog.Logger) error {
 		return err
 	}
 	defer printing.Close()
+	rating, err := openRating(cfg.RatingAddr)
+	if err != nil {
+		return err
+	}
+	defer rating.Close()
 
 	svc := &service{
 		store:    store,
 		tracking: tracking,
 		address:  &addressClient{base: cfg.AddressURL, apiKey: cfg.AddressAPIKey, http: &http.Client{Timeout: 5 * time.Second}},
 		courier:  &courierClient{base: cfg.CourierURL, http: &http.Client{Timeout: 5 * time.Second}},
+		rating:   rating,
 		events:   events,
 		printing: printing,
 		labels:   labels,
@@ -215,10 +225,16 @@ func serve(ctx context.Context, cfg config, log *slog.Logger) error {
 	go tracking.runProjector(ctx, cfg.PollInterval)
 	go events.consumeScans(ctx, rec)
 
+	stopTrackingAPI, err := serveTrackingAPI(ctx, cfg.GRPCAddr, &trackingAPI{store: store, tracking: tracking, log: log})
+	if err != nil {
+		return err
+	}
+	defer stopTrackingAPI()
+
 	srv := &http.Server{Addr: cfg.Addr, Handler: svc.routes(), ReadHeaderTimeout: 10 * time.Second}
 	errc := make(chan error, 1)
 	go func() { errc <- srv.ListenAndServe() }()
-	log.Info("parcels is ready", "addr", cfg.Addr)
+	log.Info("parcels is ready", "addr", cfg.Addr, "grpc", cfg.GRPCAddr)
 	select {
 	case err := <-errc:
 		return err

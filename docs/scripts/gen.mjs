@@ -178,6 +178,8 @@ axx(['docs', 'export', '--out', genDir]);
 		core: 'Core',
 		rest: 'REST',
 		mock: 'Mocks',
+		grpc: 'gRPC',
+		jsonrpc: 'JSON-RPC',
 		sql: 'SQL',
 		mongo: 'MongoDB',
 		redis: 'Redis',

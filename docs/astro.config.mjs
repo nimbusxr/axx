@@ -205,7 +205,7 @@ export default defineConfig({
 					label: 'Guides',
 					items: [
 						{ label: 'Set up', items: ['guides/install', 'guides/set-up-your-editor', 'guides/configure-services', 'guides/manage-app-lifecycle', 'guides/run-in-ci', 'guides/set-up-agents'] },
-						{ label: 'Test', items: ['guides/send-rest-requests', 'guides/validate-openapi', 'guides/mock-dependencies', 'guides/webhooks-and-tokens', 'guides/seed-and-query-sql', 'guides/seed-mongodb', 'guides/test-redis', 'guides/test-kafka-avro', 'guides/test-message-brokers', 'guides/test-websockets', 'guides/test-event-streams', 'guides/validate-asyncapi', 'guides/check-logs', 'guides/check-files', 'guides/check-emails', 'guides/run-commands', 'guides/test-cloud-services', 'guides/use-packs', 'guides/write-custom-steps'] },
+						{ label: 'Test', items: ['guides/send-rest-requests', 'guides/validate-openapi', 'guides/mock-dependencies', 'guides/webhooks-and-tokens', 'guides/test-grpc', 'guides/test-jsonrpc', 'guides/seed-and-query-sql', 'guides/seed-mongodb', 'guides/test-redis', 'guides/test-kafka-avro', 'guides/test-message-brokers', 'guides/test-websockets', 'guides/test-event-streams', 'guides/validate-asyncapi', 'guides/check-logs', 'guides/check-files', 'guides/check-emails', 'guides/run-commands', 'guides/test-cloud-services', 'guides/use-packs', 'guides/write-custom-steps'] },
 						{ label: 'Web apps', items: ['guides/test-web-apps', 'guides/web-pages', 'guides/web-checks', 'guides/web-sign-in', 'guides/web-screenshots', 'guides/web-accessibility', 'guides/web-network', 'guides/web-lighthouse', 'guides/web-coverage', 'guides/watch-web-browsers'] },
 						{ label: 'Test data', items: ['guides/fixture-factories', 'guides/isolate-test-data'] },
 						{ label: 'Run and diagnose', items: ['guides/parallel-runs', 'guides/tags-and-filtering', 'guides/reports', 'guides/debug-failures'] },
@@ -222,6 +222,8 @@ export default defineConfig({
 								'references/packs/core',
 								'references/packs/rest',
 								'references/packs/mock',
+								'references/packs/grpc',
+								'references/packs/jsonrpc',
 								'references/packs/sql',
 								'references/packs/mongo',
 								'references/packs/redis',

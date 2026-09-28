@@ -190,6 +190,40 @@ func (s *store) Cancel(ctx context.Context, ref string, check func(*Parcel) erro
 	return tx.Commit(ctx)
 }
 
+// Hold keeps a parcel at its depot until a day, under check's rules.
+func (s *store) Hold(ctx context.Context, ref string, until time.Time, check func(*Parcel) error) (*Parcel, error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	p, err := lockParcel(ctx, tx, ref)
+	if err != nil {
+		return nil, err
+	}
+	if err := check(p); err != nil {
+		return nil, err
+	}
+	out, err := scanParcel(tx.QueryRow(ctx, `
+UPDATE parcels.parcels SET status = 'ON_HOLD', held_until = $2, updated_at = now()
+WHERE reference = $1
+RETURNING `+parcelColumns, ref, until))
+	if err != nil {
+		return nil, err
+	}
+	return out, tx.Commit(ctx)
+}
+
+// HeldUntil is the day a depot holds a parcel until, nil when it does not.
+func (s *store) HeldUntil(ctx context.Context, ref string) (*time.Time, error) {
+	var until *time.Time
+	err := s.pool.QueryRow(ctx, `SELECT held_until FROM parcels.parcels WHERE reference = $1`, ref).Scan(&until)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, errNotFound
+	}
+	return until, err
+}
+
 // LabelPrinted records the printer that printed a parcel's label, and when.
 func (s *store) LabelPrinted(ctx context.Context, ref, printer string, at time.Time) error {
 	tag, err := s.pool.Exec(ctx, `UPDATE parcels.parcels SET label_printed_by = $2, label_printed_at = $3 WHERE reference = $1`, ref, printer, at)

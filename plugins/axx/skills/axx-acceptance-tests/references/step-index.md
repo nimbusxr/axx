@@ -158,6 +158,29 @@ mock | mock.signed | the mocked request named {word} is signed in the {word} hea
 mock | mock.signed | the mocked request named {word} on {mockedService} is signed in the {word} header with the following properties:  [+table]
 mock | mock.webhook | the mocked request named {word} is signed as a standard webhook with the key {string}
 mock | mock.webhook | the mocked request named {word} on {mockedService} is signed as a standard webhook with the key {string}
+grpc | grpc.service | the {word} grpc service with the following properties:  [+table]
+grpc | grpc.call | the {word} method is called on the {word} grpc service
+grpc | grpc.call.fields | the {word} method is called on the {word} grpc service with the following fields:  [+table]
+grpc | grpc.call.file | the {word} method is called on the {word} grpc service with the {filepath} message
+grpc | grpc.call.file | the {word} method is called on the {word} grpc service with the {filepath} message and the following fields:
+grpc | grpc.status | the {word} grpc service answered {word}
+grpc | grpc.status | within {duration} the {word} grpc service answered {word}
+grpc | grpc.status | the {word} grpc service answered {word} with a message containing {string}
+grpc | grpc.status | within {duration} the {word} grpc service answered {word} with a message containing {string}
+grpc | grpc.answer | the {word} grpc service's answer has the following fields:  [+table]
+grpc | grpc.metadata | the {word} grpc service's answer has the following metadata:  [+table]
+grpc | grpc.streamed | the {word} grpc service streamed a message where:  [+table]
+grpc | grpc.streamed | within {duration} the {word} grpc service streamed a message where:  [+table]
+jsonrpc | jsonrpc.service | the {word} jsonrpc service with the following properties:  [+table]
+jsonrpc | jsonrpc.call | the {word} method is called on the {word} jsonrpc service
+jsonrpc | jsonrpc.call.params | the {word} method is called on the {word} jsonrpc service with the following params:  [+table]
+jsonrpc | jsonrpc.call.doc | the {word} method is called on the {word} jsonrpc service with the params:  [+docstring]
+jsonrpc | jsonrpc.result | the {word} jsonrpc service's result has the following properties:  [+table]
+jsonrpc | jsonrpc.result.is | the {word} jsonrpc service's result is {string}
+jsonrpc | jsonrpc.error | the {word} jsonrpc service answered the error {int}
+jsonrpc | jsonrpc.error | the {word} jsonrpc service answered the error {int} with a message containing {string}
+jsonrpc | jsonrpc.error.properties | the {word} jsonrpc service's error has the following properties:  [+table]
+jsonrpc | jsonrpc.openrpc.levels | the OpenRPC validation levels are:  [+table]
 sql | sql.service | a(n) {word} database with the following properties:  [+table]
 sql | sql.seed | a {filepath} db seed
 sql | sql.seed | a {filepath} db seed on {dbService}

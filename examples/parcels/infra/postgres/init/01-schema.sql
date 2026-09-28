@@ -17,6 +17,9 @@ CREATE TABLE parcels.parcels (
     -- printers' reports (see ../../../app/printing.go).
     label_printed_by VARCHAR(40),
     label_printed_at TIMESTAMPTZ,
+    -- The day a depot holds the parcel until, from the depots' systems (see
+    -- ../../../app/rpc.go); its status is then ON_HOLD.
+    held_until    DATE,
     created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );

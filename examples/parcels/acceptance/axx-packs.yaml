@@ -3,6 +3,8 @@
 packs:
   - rest
   - mock
+  - grpc
+  - jsonrpc
   - sql
   - mongo
   - redis

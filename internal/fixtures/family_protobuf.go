@@ -1,22 +1,18 @@
 package fixtures
 
 import (
-	"context"
 	"errors"
 	"os"
 	"path/filepath"
 	"strings"
 
-	"github.com/bufbuild/protocompile"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/reflect/protodesc"
 	"google.golang.org/protobuf/reflect/protoreflect"
-	"google.golang.org/protobuf/reflect/protoregistry"
-	"google.golang.org/protobuf/types/descriptorpb"
 	"google.golang.org/protobuf/types/dynamicpb"
 
 	"github.com/nimbusxr/axx/internal/compat/jsonx"
+	"github.com/nimbusxr/axx/internal/protoload"
 )
 
 // protobufFamily is family: protobuf: record-shaped fixtures emitted as
@@ -65,12 +61,11 @@ func compileProto(baseDir, file, name string) (protoreflect.Descriptor, error) {
 		// Not on disk: a standard import such as google/protobuf/type.proto.
 		source, importPaths = file, []string{baseDir}
 	}
-	c := protocompile.Compiler{Resolver: protocompile.WithStandardImports(&protocompile.SourceResolver{ImportPaths: importPaths})}
-	files, err := c.Compile(context.Background(), source)
+	set, err := protoload.Compile(source, importPaths)
 	if err != nil {
 		return nil, schemaError("cannot compile %s: %v", file, err)
 	}
-	d, err := files.AsResolver().FindDescriptorByName(protoreflect.FullName(name))
+	d, err := set.FindDescriptorByName(protoreflect.FullName(name))
 	if err != nil {
 		return nil, schemaError("%s has no message '%s' (use the fully-qualified name)", file, name)
 	}
@@ -78,73 +73,15 @@ func compileProto(baseDir, file, name string) (protoreflect.Descriptor, error) {
 }
 
 func descriptorSet(baseDir, file, name string) (protoreflect.Descriptor, error) {
-	data, err := os.ReadFile(filepath.Join(baseDir, filepath.FromSlash(file)))
+	set, err := protoload.DescriptorSet(filepath.Join(baseDir, filepath.FromSlash(file)), file)
 	if err != nil {
-		return nil, schemaError("cannot read descriptor set %s: %v", file, err)
+		return nil, schemaError("%v", err)
 	}
-	var set descriptorpb.FileDescriptorSet
-	if err := proto.Unmarshal(data, &set); err != nil {
-		return nil, schemaError("cannot read descriptor set %s: %v", file, err)
-	}
-	protos := map[string]*descriptorpb.FileDescriptorProto{}
-	for _, f := range set.GetFile() {
-		protos[f.GetName()] = f
-	}
-	reg := new(protoregistry.Files)
-	var build func(n string) error
-	build = func(n string) error {
-		if _, err := reg.FindFileByPath(n); err == nil {
-			return nil
-		}
-		fp, ok := protos[n]
-		if !ok {
-			if _, err := protoregistry.GlobalFiles.FindFileByPath(n); err == nil {
-				return nil // a well-known import the set omitted
-			}
-			return schemaError("%s: dependency '%s' missing - regenerate with --include_imports", file, n)
-		}
-		for _, dep := range fp.GetDependency() {
-			if err := build(dep); err != nil {
-				return err
-			}
-		}
-		fd, err := protodesc.NewFile(fp, resolverChain{reg, protoregistry.GlobalFiles})
-		if err != nil {
-			return schemaError("%s is not a valid descriptor set: %v", file, err)
-		}
-		return reg.RegisterFile(fd)
-	}
-	for _, f := range set.GetFile() {
-		if err := build(f.GetName()); err != nil {
-			return nil, err
-		}
-	}
-	d, err := reg.FindDescriptorByName(protoreflect.FullName(name))
+	d, err := set.FindDescriptorByName(protoreflect.FullName(name))
 	if err != nil {
 		return nil, schemaError("%s has no message '%s' (use the fully-qualified name)", file, name)
 	}
 	return d, nil
-}
-
-// resolverChain resolves from the set first, then the well-known types.
-type resolverChain []*protoregistry.Files
-
-func (r resolverChain) FindFileByPath(p string) (protoreflect.FileDescriptor, error) {
-	for _, f := range r {
-		if d, err := f.FindFileByPath(p); err == nil {
-			return d, nil
-		}
-	}
-	return nil, protoregistry.NotFound
-}
-
-func (r resolverChain) FindDescriptorByName(n protoreflect.FullName) (protoreflect.Descriptor, error) {
-	for _, f := range r {
-		if d, err := f.FindDescriptorByName(n); err == nil {
-			return d, nil
-		}
-	}
-	return nil, protoregistry.NotFound
 }
 
 func protoOracle(md protoreflect.MessageDescriptor, data []byte, fixtureName string) (proto.Message, error) {

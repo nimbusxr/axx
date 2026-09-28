@@ -1,0 +1,4 @@
+{
+  "request": {"method": "POST", "urlPath": "/smoke.v1.Ping/Ping"},
+  "response": {"status": 200, "jsonBody": {"status": "pong-grpc"}}
+}

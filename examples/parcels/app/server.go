@@ -37,6 +37,7 @@ type service struct {
 	store    *store
 	tracking *trackingStore
 	address  *addressClient
+	rating   *ratingClient
 	courier  *courierClient
 	events   *events
 	printing *printing
@@ -157,6 +158,7 @@ func (s *service) routes() http.Handler {
 		w.Header().Set("Content-Type", "application/yaml")
 		_, _ = w.Write(asyncapiYAML)
 	})
+	mux.HandleFunc("POST /rpc", s.depotRPC)
 	mux.HandleFunc("POST /api/quotes", s.quote)
 	mux.HandleFunc("POST /api/parcels", s.create)
 	mux.HandleFunc("GET /api/parcels", s.list)
@@ -224,9 +226,20 @@ func (s *service) quote(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	zone, err := s.zone(r.Context(), country, postcode)
-	if !s.addressFailed(w, r, err) {
-		writeJSON(w, http.StatusOK, priceQuote(zone, country, level, weight))
+	if s.addressFailed(w, r, err) {
+		return
 	}
+	q, err := s.priceFor(r.Context(), zone, country, level, weight)
+	if msg, refused := ratingMessage(err); msg != "" {
+		if refused {
+			problem(w, r, http.StatusUnprocessableEntity, err.Error())
+			return
+		}
+		s.log.Warn("rating failed", "country", country, "err", err)
+		problem(w, r, http.StatusBadGateway, "the rating service is unavailable; try again later")
+		return
+	}
+	writeJSON(w, http.StatusOK, q)
 }
 
 func (s *service) create(w http.ResponseWriter, r *http.Request) {

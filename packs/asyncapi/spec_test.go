@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/nimbusxr/axx/internal/contract"
+	"github.com/nimbusxr/axx/internal/schemadoc"
 )
 
 func loadDoc(t *testing.T, dir string) *spec {
@@ -14,7 +15,7 @@ func loadDoc(t *testing.T, dir string) *spec {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s, err := load(dir+"/asyncapi.yaml", fileURL(p))
+	s, err := load(dir+"/asyncapi.yaml", schemadoc.FileURL(p))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -147,7 +148,7 @@ func TestAsyncAPI2(t *testing.T) {
 
 func TestNotAsyncAPI(t *testing.T) {
 	p, _ := filepath.Abs(filepath.Join("testdata", "v3", "schemas", "delivered.json"))
-	_, err := load("delivered.json", fileURL(p))
+	_, err := load("delivered.json", schemadoc.FileURL(p))
 	if err == nil || !strings.Contains(err.Error(), "is not an AsyncAPI 2.x or 3.x document") {
 		t.Fatalf("err = %v", err)
 	}
@@ -163,17 +164,6 @@ func TestAddressPattern(t *testing.T) {
 	} {
 		if got := re.MatchString(addr); got != want {
 			t.Errorf("%s: %v, want %v", addr, got, want)
-		}
-	}
-}
-
-func TestFileURLs(t *testing.T) {
-	for p, want := range map[string]string{
-		"/srv/parcels/asyncapi.yaml":    "file:///srv/parcels/asyncapi.yaml",
-		"C:/work/parcels/asyncapi.yaml": "file:///C:/work/parcels/asyncapi.yaml",
-	} {
-		if got := fileURL(p); got != want {
-			t.Errorf("fileURL(%q) = %q, want %q", p, got, want)
 		}
 	}
 }

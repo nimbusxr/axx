@@ -21,6 +21,7 @@ start() {
   id=$(docker run -d -p 127.0.0.1::8080 ${env[@]+"${env[@]}"} \
     -v "$here/example/mappings:/home/wiremock/mappings:ro" \
     -v "$here/example/openapi:/var/openapi:ro" \
+    -v "$here/example/grpc:/home/wiremock/grpc:ro" \
     "$image" "$@")
   containers+=("$id")
   for _ in $(seq 1 60); do
@@ -63,6 +64,19 @@ check
 echo "== $image, extension named with --extensions"
 start --extensions us.nimbusxr.axx.wiremock.openapi.OpenApiValidatorExtension
 check
+
+echo "== $image, gRPC: a unary call to a stub of example/grpc's Ping service"
+# An empty request message is a gRPC frame of five zero bytes; the answer's frame holds the
+# stub's status, and its trailers grpc-status 0.
+answer=$(printf '\0\0\0\0\0' | curl -sS --http2-prior-knowledge -D - --data-binary @- \
+  -H 'content-type: application/grpc' -H 'te: trailers' "$base/smoke.v1.Ping/Ping" | tr -d '\0' | tr -c '[:print:]\n' ' ')
+printf '%s\n' "$answer" | grep -q 'grpc-status: 0' || fail "the gRPC call did not answer OK: $answer"
+printf '%s\n' "$answer" | grep -q 'pong-grpc' || fail "the gRPC call did not answer the stub: $answer"
+echo "/smoke.v1.Ping/Ping -> OK pong-grpc"
+
+echo "== $image, a root dir without a grpc folder: REST only"
+start --root-dir /tmp
+expect 404 - -H 'content-type: application/grpc' --http2-prior-knowledge --data-binary @/dev/null "$base/smoke.v1.Ping/Ping"
 
 echo "== $image, admin endpoint"
 expect 200 '"format" : 1' "$base/__admin/openapi-validation"

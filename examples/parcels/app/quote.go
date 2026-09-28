@@ -14,7 +14,8 @@ type quote struct {
 	DeliveryDays int    `json:"deliveryDays"`
 }
 
-// priceQuote is the price list:
+// priceQuote is the price list, for Germany and the EU (priceFor asks the
+// partner carrier beyond it):
 //
 //	base            STANDARD 4.90, EXPRESS 9.90
 //	weight          up to 1 kg +0, 5 kg +2.00, 10 kg +4.00, 30 kg +8.00
@@ -52,6 +53,18 @@ func priceQuote(zone, country, level string, weightGrams int) quote {
 	}
 	if strings.HasSuffix(zone, "-REMOTE") {
 		q.PriceCents += 300
+		q.DeliveryDays++
+	}
+	return q
+}
+
+// priceAbroad prices a parcel beyond the EU: the home price, what the
+// partner carrier adds, and the days it takes (a day more in a remote zone).
+func priceAbroad(zone, level string, weightGrams, surchargeCents, deliveryDays int) quote {
+	q := priceQuote(zone, homeCountry, level, weightGrams)
+	q.PriceCents += surchargeCents
+	q.DeliveryDays = deliveryDays
+	if strings.HasSuffix(zone, "-REMOTE") {
 		q.DeliveryDays++
 	}
 	return q

@@ -1,0 +1,17 @@
+// SPDX-License-Identifier: Apache-2.0
+//
+// The gRPC service smoke-test.sh calls. ping.dsc is its descriptor set:
+//   protoc --include_imports --descriptor_set_out=ping.dsc ping.proto
+syntax = "proto3";
+
+package smoke.v1;
+
+service Ping {
+  rpc Ping(PingRequest) returns (Pong);
+}
+
+message PingRequest {}
+
+message Pong {
+  string status = 1;
+}

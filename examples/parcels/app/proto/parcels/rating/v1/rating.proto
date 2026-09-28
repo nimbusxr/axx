@@ -1,0 +1,33 @@
+syntax = "proto3";
+
+// The partner carrier's rating service, which prices the parcels the
+// service sends abroad.
+package parcels.rating.v1;
+
+option go_package = "github.com/nimbusxr/axx/examples/parcels/app/gen/rating/v1;ratingv1";
+
+service Rates {
+  // Quote prices a parcel to a country; NOT_FOUND when the carrier does not
+  // deliver there.
+  rpc Quote(QuoteRequest) returns (Rate);
+}
+
+message QuoteRequest {
+  // The destination, as an ISO 3166-1 alpha-2 code.
+  string country = 1;
+  int32 weight_grams = 2;
+  ServiceLevel service_level = 3;
+}
+
+enum ServiceLevel {
+  SERVICE_LEVEL_UNSPECIFIED = 0;
+  STANDARD = 1;
+  EXPRESS = 2;
+}
+
+message Rate {
+  // What the carrier adds to the price, in euro cents.
+  int32 surcharge_cents = 1;
+  // How many days the carrier takes.
+  int32 delivery_days = 2;
+}
