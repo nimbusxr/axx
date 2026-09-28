@@ -112,6 +112,8 @@ location = "Leipzig"
 
 The path is dotted, with indices (`recipient.postcode`, `items[0].sku`); a dataset's starts with its table (`parcels.manifest_lines[0].weight_grams`). A fixture's `*.fixture.yaml` works in place of the file it generates. With `--json`, the origins come as a list, outermost first: a `$ref`, then the source of what it points at.
 
+A payload the cloud wraps and encodes on its way to your service, such as a Pub/Sub push envelope with the message base64-encoded in it, is not a fixture to build: publish the message itself, and the emulator's push subscription delivers the envelope ([Send a service messages](/guides/test-cloud-services/#send-a-service-messages)).
+
 ## Families
 
 | Family | Produces | Schema |

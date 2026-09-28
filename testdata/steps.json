@@ -2,7 +2,7 @@
   "description": "The frozen catalog of built-in step text. Step text is public API: every entry must stay defined, verbatim, by its pack.",
   "counts": {
     "parameterType": 11,
-    "step": 476
+    "step": 484
   },
   "entries": [
     {
@@ -2937,6 +2937,54 @@
       "pack": "mock",
       "keyword": "Then",
       "expression": "the query parameters for mocked request named {word} on {mockedService} are:"
+    },
+    {
+      "kind": "step",
+      "pack": "mock",
+      "keyword": "Then",
+      "expression": "the mocked {word} request to path {word} named {word} was not received"
+    },
+    {
+      "kind": "step",
+      "pack": "mock",
+      "keyword": "Then",
+      "expression": "the mocked {word} request to path {word} named {word} on {mockedService} was not received"
+    },
+    {
+      "kind": "step",
+      "pack": "mock",
+      "keyword": "Then",
+      "expression": "none of the mocked {word} requests to path {word} have the query parameters:"
+    },
+    {
+      "kind": "step",
+      "pack": "mock",
+      "keyword": "Then",
+      "expression": "none of the mocked {word} requests to path {word} on {mockedService} have the query parameters:"
+    },
+    {
+      "kind": "step",
+      "pack": "mock",
+      "keyword": "Then",
+      "expression": "none of the mocked {word} requests to path {word} have the payload properties:"
+    },
+    {
+      "kind": "step",
+      "pack": "mock",
+      "keyword": "Then",
+      "expression": "none of the mocked {word} requests to path {word} on {mockedService} have the payload properties:"
+    },
+    {
+      "kind": "step",
+      "pack": "mock",
+      "keyword": "Then",
+      "expression": "none of the mocked {word} requests to path {word} have the form fields:"
+    },
+    {
+      "kind": "step",
+      "pack": "mock",
+      "keyword": "Then",
+      "expression": "none of the mocked {word} requests to path {word} on {mockedService} have the form fields:"
     }
   ]
 }

@@ -32,6 +32,9 @@ type ValidationReport struct {
 	// Warnings come from the builtin feature checks of `axx lint`; they do
 	// not change the exit code.
 	Warnings []Problem `json:"warnings,omitempty"`
+	// Hints name scenarios whose checks prove little, as `axx lint` does;
+	// they are for the author to judge and do not change the exit code.
+	Hints []string `json:"hints,omitempty"`
 }
 
 func newValidateCmd(app *App) *cobra.Command {
@@ -42,8 +45,10 @@ func newValidateCmd(app *App) *cobra.Command {
 		Long: `Parse feature files and match every step against the available step
 definitions, without starting applications or executing anything.
 
-Also prints the warnings of axx lint's feature checks (SQL selection and
-trigger ordinals that cannot work); they do not change the exit code.
+Also prints the warnings of axx lint's feature checks (SQL and REST ordinals
+that cannot work), and hints at scenarios whose checks prove little (only a
+success status code, or only that something did not happen); neither changes
+the exit code.
 
 Exit codes: 0 valid, 2 syntax/config error, 3 undefined or ambiguous steps.`,
 		RunE: func(_ *cobra.Command, args []string) error {
@@ -71,6 +76,7 @@ Exit codes: 0 valid, 2 syntax/config error, 3 undefined or ambiguous steps.`,
 					rep.Warnings = append(rep.Warnings, Problem{Kind: "lint", Location: fmt.Sprintf("%s:%d", l.File, l.Line), Text: stripKeyword(l.Text), Message: f.Message + " [" + f.Code + "]"})
 				}
 			}
+			rep.Hints = lint.ScenarioHints(e.Registry, pickles, lint.Options{WorkDir: e.Config.Dir})
 			if err := app.EmitResult(rep, len(rep.Problems) == 0, func(w io.Writer) error { return renderValidation(w, rep) }); err != nil {
 				return err
 			}
@@ -112,6 +118,9 @@ func renderValidation(w io.Writer, rep ValidationReport) error {
 	}
 	for _, p := range rep.Warnings {
 		fmt.Fprintf(w, "%s: warning: %s\n  %s\n", p.Location, p.Text, p.Message)
+	}
+	for _, h := range rep.Hints {
+		fmt.Fprintf(w, "hint: %s\n", h)
 	}
 	status := "ok"
 	if len(rep.Problems) > 0 {

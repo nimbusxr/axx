@@ -205,6 +205,33 @@ Check that the mocked service received no request with that method and exact URL
 Then the mocked GET request to /v1/postcodes/DE/12489 named skipped-check was not received
 ```
 
+## `mock.notReceived.path`
+
+```gherkin
+Then the mocked {word} request to path {word} named {word}[[ on {mockedService}]] was not received
+```
+
+Check that the mocked service received no request with that method to a path, whatever its query string, and name it for the steps that follow.
+
+- Every request the mocked service received counts, other scenarios' too: the path must be the scenario's own, like one with its parcel's reference. For a path every scenario calls, check that none of its requests has the scenario's data with `none of the mocked ... requests to path ... have ...`.
+- The method is `GET`, `POST`, `PUT`, `DELETE`, `PATCH`, `OPTIONS` or `HEAD`, in capitals.
+
+| Parameter | Takes | For example |
+|---|---|---|
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+| `{mockedService}` | the name of a mocked service the scenario registered | `addresses` |
+
+**Variants**, the parts in `[[...]]` said or left out:
+
+- `the mocked {word} request to path {word} named {word} was not received`
+- `the mocked {word} request to path {word} named {word} on {mockedService} was not received`
+
+**Example:**
+
+```gherkin
+Then the mocked POST request to path /v1/parcels/PX-WEB-5302/returns named no-return on courier was not received
+```
+
 ## `mock.header.is`
 
 ```gherkin
@@ -444,4 +471,101 @@ A row is a field's name and the value it must have, or `undefined`.
 Then the form fields for mocked request named pickup-notice on courier are:
   | reference | PX-WEB-5401 |
   | day       | Friday      |
+```
+
+## `mock.query.none`
+
+```gherkin
+Then none of the mocked {word} requests to path {word}[[ on {mockedService}]] have the query parameters:
+  | parameter | value |
+```
+
+Check that the mocked service received no request with that method to a path, whatever its query string, that has every query parameter of the table, each with its value.
+
+- Every request the mocked service received counts, other scenarios' too: put the scenario's own data in the table, like its parcel's reference, next to what must not be there.
+- A check that something did not happen proves little on its own: check what the scenario did send, too.
+- `undefined` means the request has no such parameter.
+
+| Parameter | Takes | For example |
+|---|---|---|
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+| `{mockedService}` | the name of a mocked service the scenario registered | `addresses` |
+
+A row is a query parameter's name and the value it has, or `undefined`.
+
+**Variants**, the parts in `[[...]]` said or left out:
+
+- `none of the mocked {word} requests to path {word} have the query parameters:`
+- `none of the mocked {word} requests to path {word} on {mockedService} have the query parameters:`
+
+**Example:**
+
+```gherkin
+Then none of the mocked POST requests to path /v1/collections on courier have the query parameters:
+  | slot      | same-day    |
+  | reference | PX-REG-1402 |
+```
+
+## `mock.properties.none`
+
+```gherkin
+Then none of the mocked {word} requests to path {word}[[ on {mockedService}]] have the payload properties:
+  | property | value |
+```
+
+Check that the mocked service received no request with that method to a path, whatever its query string, that has every payload property of the table, each with its value.
+
+- Every request the mocked service received counts, other scenarios' too: put the scenario's own data in the table, like its parcel's reference, next to what must not be there.
+- A check that something did not happen proves little on its own: check what the scenario did send, too.
+- `undefined` means the request has no such property.
+
+| Parameter | Takes | For example |
+|---|---|---|
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+| `{mockedService}` | the name of a mocked service the scenario registered | `addresses` |
+
+A row is a property's JSONPath, like `deliverTo.postcode`, and the value it has, or `undefined`.
+
+**Variants**, the parts in `[[...]]` said or left out:
+
+- `none of the mocked {word} requests to path {word} have the payload properties:`
+- `none of the mocked {word} requests to path {word} on {mockedService} have the payload properties:`
+
+**Example:**
+
+```gherkin
+Then none of the mocked POST requests to path /v1/collections on courier have the payload properties:
+  | reference | PX-REG-1301 |
+```
+
+## `mock.form.none`
+
+```gherkin
+Then none of the mocked {word} requests to path {word}[[ on {mockedService}]] have the form fields:
+  | field | value |
+```
+
+Check that the mocked service received no request with that method to a path, whatever its query string, that has every form field of the table, each with its value.
+
+- Every request the mocked service received counts, other scenarios' too: put the scenario's own data in the table, like its parcel's reference, next to what must not be there.
+- A check that something did not happen proves little on its own: check what the scenario did send, too.
+- `undefined` means the request has no such field.
+
+| Parameter | Takes | For example |
+|---|---|---|
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+| `{mockedService}` | the name of a mocked service the scenario registered | `addresses` |
+
+A row is a form field's name and the value it has, or `undefined`.
+
+**Variants**, the parts in `[[...]]` said or left out:
+
+- `none of the mocked {word} requests to path {word} have the form fields:`
+- `none of the mocked {word} requests to path {word} on {mockedService} have the form fields:`
+
+**Example:**
+
+```gherkin
+Then none of the mocked POST requests to path /v1/pickups on courier have the form fields:
+  | reference | PX-WEB-5302 |
 ```

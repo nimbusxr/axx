@@ -1,0 +1,10 @@
+{
+  "name": "collection-called-off",
+  "request": {
+    "method": "DELETE",
+    "urlPath": "/v1/collections"
+  },
+  "response": {
+    "status": 204
+  }
+}

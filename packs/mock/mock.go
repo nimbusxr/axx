@@ -181,12 +181,24 @@ func steps() []core.StepDef {
 		countStep("mock.count.atLeast", "at least", func(got, n int) bool { return got >= n }),
 		countStep("mock.count.atMost", "at most", func(got, n int) bool { return got <= n }),
 		{
-			ID: "mock.notReceived", Keyword: "Then",
+			ID: "mock.notReceived", Keyword: "Then", Absence: true,
 			Expr: "the mocked {word} request to {word} named {word}[[ on {mockedService}]] was not received",
 			Doc: "Check that the mocked service received no request with that method and exact URL, and name it for the " +
 				"steps that follow.",
 			Examples: []string{"Then the mocked GET request to /v1/postcodes/DE/12489 named skipped-check was not received"},
 			Run:      notReceived,
+		},
+		{
+			ID: "mock.notReceived.path", Keyword: "Then", Absence: true,
+			Expr: "the mocked {word} request to path {word} named {word}[[ on {mockedService}]] was not received",
+			Doc: "Check that the mocked service received no request with that method to a path, whatever its query string, and " +
+				"name it for the steps that follow.\n\n" +
+				"- Every request the mocked service received counts, other scenarios' too: the path must be the scenario's own, like " +
+				"one with its parcel's reference. For a path every scenario calls, check that none of its requests has the scenario's " +
+				"data with `none of the mocked ... requests to path ... have ...`.\n" +
+				"- The method is `GET`, `POST`, `PUT`, `DELETE`, `PATCH`, `OPTIONS` or `HEAD`, in capitals.",
+			Examples: []string{"Then the mocked POST request to path /v1/parcels/PX-WEB-5302/returns named no-return on courier was not received"},
+			Run:      notReceivedPath,
 		},
 		{
 			ID: "mock.header.is", Keyword: "Then",
@@ -304,6 +316,40 @@ func steps() []core.StepDef {
 				"  | reference | PX-WEB-5401 |\n" +
 				"  | day       | Friday      |"},
 			Run: func(sc *core.Scenario, a core.Args) error { return bodyCheck(sc, a, (*pattern).withField) },
+		},
+		noneStep("mock.query.none", "query parameters", "query parameter", "parameter", "a query parameter's name",
+			"Then none of the mocked POST requests to path /v1/collections on courier have the query parameters:\n"+
+				"  | slot      | same-day    |\n"+
+				"  | reference | PX-REG-1402 |", (*pattern).withQuery),
+		noneStep("mock.properties.none", "payload properties", "payload property", "property", "a property's JSONPath, like `deliverTo.postcode`,",
+			"Then none of the mocked POST requests to path /v1/collections on courier have the payload properties:\n"+
+				"  | reference | PX-REG-1301 |", (*pattern).withProperty),
+		noneStep("mock.form.none", "form fields", "form field", "field", "a form field's name",
+			"Then none of the mocked POST requests to path /v1/pickups on courier have the form fields:\n"+
+				"  | reference | PX-WEB-5302 |", (*pattern).withField),
+	}
+}
+
+// noneStep checks that none of the requests to a path have every row of
+// the table: the thing a scenario must not have caused, with its own data,
+// since the requests of every scenario count.
+func noneStep(id, what, one, column, row, example string, add func(*pattern, string, headerMatcher)) core.StepDef {
+	return core.StepDef{
+		ID: id, Keyword: "Then", Arg: core.ArgTable, Absence: true,
+		Expr: "none of the mocked {word} requests to path {word}[[ on {mockedService}]] have the " + what + ":",
+		Doc: "Check that the mocked service received no request with that method to a path, whatever its query string, that has " +
+			"every " + one + " of the table, each with its value.\n\n" +
+			"- Every request the mocked service received counts, other scenarios' too: put the scenario's own data in the table, " +
+			"like its parcel's reference, next to what must not be there.\n" +
+			"- A check that something did not happen proves little on its own: check what the scenario did send, too.\n" +
+			"- `undefined` means the request has no such " + column + ".",
+		Table: &core.TableDoc{
+			Columns: []string{column, "value"},
+			Note:    "A row is " + row + " and the value it has, or `undefined`.",
+		},
+		Examples: []string{example},
+		Run: func(sc *core.Scenario, a core.Args) error {
+			return noneReceived(sc, a, what, add)
 		},
 	}
 }
@@ -439,6 +485,75 @@ func notReceived(sc *core.Scenario, a core.Args) error {
 	p := &pattern{Method: method, URL: path}
 	svc.requests[name] = p
 	return verify(sc, svc, name, p, "exactly 0", func(got int) bool { return got == 0 })
+}
+
+func notReceivedPath(sc *core.Scenario, a core.Args) error {
+	svc, err := service(sc, a, 3)
+	if err != nil {
+		return err
+	}
+	method, path, name := a.String(0), a.String(1), a.String(2)
+	p, err := pathPattern(method, path)
+	if err != nil {
+		return err
+	}
+	svc.requests[name] = p
+	return verify(sc, svc, name, p, "exactly 0", func(got int) bool { return got == 0 })
+}
+
+// pathPattern is the requests with a method to a path, whatever their
+// query string.
+func pathPattern(method, path string) (*pattern, error) {
+	switch method {
+	case "GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD":
+	default:
+		return nil, fmt.Errorf("Unsupported method: %s", method) //nolint:staticcheck // user-facing message
+	}
+	if strings.Contains(path, "?") {
+		return nil, fmt.Errorf("the path %s has a query string: put its query parameters in a step's table", path)
+	}
+	return &pattern{Method: method, URL: path, PathOnly: true}, nil
+}
+
+// noneReceived checks that none of the requests to a path have every row
+// of the table. A failure lists the requests that do.
+func noneReceived(sc *core.Scenario, a core.Args, what string, add func(*pattern, string, headerMatcher)) error {
+	svc, err := service(sc, a, 2)
+	if err != nil {
+		return err
+	}
+	method, path := a.String(0), a.String(1)
+	p, err := pathPattern(method, path)
+	if err != nil {
+		return err
+	}
+	pairs, err := a.Table.Pairs()
+	if err != nil {
+		return err
+	}
+	for _, kv := range pairs {
+		add(p, kv.Key, bodyValue(kv.Value))
+	}
+	got, err := svc.c.count(sc.Context(), p)
+	if err != nil {
+		return err
+	}
+	stateKey.Of(sc).last = &verification{service: svc.Name, pattern: p, want: "exactly 0", got: got}
+	if got == 0 {
+		return nil
+	}
+	msg := fmt.Sprintf("%d %s request(s) to path %s on %s have the %s of the table", got, method, path, svc.Name, what)
+	if found, err := svc.c.find(sc.Context(), p); err == nil && len(found) > 0 {
+		msg += ":"
+		for i, r := range found {
+			if i == 3 {
+				msg += fmt.Sprintf("\n  and %d more", len(found)-3)
+				break
+			}
+			msg += fmt.Sprintf("\n  %s %s", r.Method, r.URL)
+		}
+	}
+	return core.Fail(msg+"\nPattern:\n"+p.describe(), "none", got)
 }
 
 func headerCheck(sc *core.Scenario, a core.Args, header, name string, m headerMatcher) error {

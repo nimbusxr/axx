@@ -206,6 +206,17 @@ func TestErrors(t *testing.T) {
 	if err := step(t, reg, sc, "the mocked request named x on nowhere was received exactly 1 time", nil); err == nil || !strings.Contains(err.Error(), `Mocked service "nowhere" not set`) {
 		t.Errorf("unknown service: %v", err)
 	}
+	// A path is a path: its method is checked, and a query string belongs in the table.
+	for _, c := range []struct{ text, want string }{
+		{"the mocked TRACE request to path /x named t was not received", "Unsupported method: TRACE"},
+		{"the mocked GET request to path /x?a=1 named t was not received", "has a query string"},
+		{"none of the mocked TRACE requests to path /x have the query parameters:", "Unsupported method: TRACE"},
+		{"none of the mocked GET requests to path /x?a=1 have the query parameters:", "has a query string"},
+	} {
+		if err := step(t, reg, sc, c.text, [][]string{{"a", "1"}}); err == nil || !strings.Contains(err.Error(), c.want) {
+			t.Errorf("%s: %v", c.text, err)
+		}
+	}
 }
 
 func TestInterpolatedURLAndPathPrefix(t *testing.T) {

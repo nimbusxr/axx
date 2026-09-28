@@ -226,6 +226,7 @@ A fresh clone checks clean: ignored outputs it lacks pass when the committed man
 - Don't edit a generated file, or the manifest.
 - Don't reuse a value an identity owns in a hand-written file: `axx lint` reports it.
 - Don't make a factory for one file.
+- Don't build what the cloud wraps and encodes, like a Pub/Sub push envelope with the message base64-encoded: publish the message itself, and the emulator's push subscription delivers the envelope.
 
 ## References
 

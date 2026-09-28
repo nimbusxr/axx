@@ -239,7 +239,8 @@ Feature: Shop portal
       | engine | webkit            |
       | device | iPhone 15         |
     When the "/quote" page of the phone web app is opened
-    Then the "Register a parcel" link is not shown
+    Then the "Menu" button is shown
+    And the "Register a parcel" link is not shown
 
   Scenario: Shops register parcels from their phones too
     Given the phone web app with the following properties:
@@ -284,6 +285,7 @@ Feature: Shop portal
   Scenario: The portal says when it can save again
     Given the "/quote" page is opened
     And the browser is offline
+    And the page shows "You are offline"
     When the browser is online
     Then the page does not show "You are offline"
 
@@ -316,6 +318,7 @@ Feature: Shop portal
     And a seeds/portal-top.yaml db seed
     And the "/parcels" page of the shop web app is opened
     And the page is scrolled to the bottom
+    And the "Back to the top" button is shown
     When the page is scrolled to the top
     Then the "Back to the top" button is not shown
 

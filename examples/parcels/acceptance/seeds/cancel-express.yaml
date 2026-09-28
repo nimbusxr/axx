@@ -1,0 +1,7 @@
+parcels.parcels:
+  - reference: "PX-REG-1601"
+    sender: "kestrel-books"
+    weight_grams: 900
+    service_level: "EXPRESS"
+    recipient: '{"name": "Lise Meitner", "street": "Rue Cuvier 12", "city": "Paris", "postcode": "75005", "country": "FR"}'
+    details: '{"source": "api", "zone": "FR-1"}'

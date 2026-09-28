@@ -137,6 +137,49 @@ func TestAgainstRealWireMock(t *testing.T) {
 		t.Error("a path with a query string passed")
 	}
 
+	// None of the requests to a path have the table's values, all of them
+	// together: the scenario's own data next to what must not be there. A
+	// failure lists the requests that have them.
+	for _, c := range []struct {
+		text string
+		rows [][]string
+		want string // "" when the step passes
+	}{
+		{"none of the mocked POST requests to path /v1/collections on spacex have the payload properties:",
+			[][]string{{"reference", "PX-REG-1403"}}, ""},
+		{"none of the mocked POST requests to path /v1/collections have the payload properties:",
+			[][]string{{"reference", "PX-REG-1402"}, {"weightGrams", "800"}}, ""},
+		{"none of the mocked POST requests to path /v1/collections have the payload properties:",
+			[][]string{{"reference", "PX-REG-1402"}, {"recipient.name", "Ada Lovelace"}},
+			"1 POST request(s) to path /v1/collections on spacex have the payload properties of the table:\n  POST /v1/collections\n"},
+		{"none of the mocked POST requests to path /v1/bookings on spacex have the query parameters:",
+			[][]string{{"slot", "same-day"}, {"requestId", "b7c9"}}, ""},
+		{"none of the mocked POST requests to path /v1/bookings have the query parameters:",
+			[][]string{{"slot", "next-day"}}, "POST /v1/bookings?requestId=b7c9&slot=next-day"},
+		{"none of the mocked POST requests to path /v1/pickups on spacex have the form fields:",
+			[][]string{{"reference", "PX-WEB-5402"}}, ""},
+		{"none of the mocked POST requests to path /v1/pickups have the form fields:",
+			[][]string{{"reference", "PX-WEB-5401"}, {"shop", "undefined"}}, "POST /v1/pickups"},
+	} {
+		err := run(c.text, c.rows...)
+		switch {
+		case c.want == "" && err != nil:
+			t.Errorf("%s %v: %v", c.text, c.rows, err)
+		case c.want != "" && (err == nil || !strings.Contains(err.Error(), c.want)):
+			t.Errorf("%s %v: want a failure with %q, got %v", c.text, c.rows, c.want, err)
+		}
+	}
+	// A path no request went to, named for the steps that follow.
+	if err := run("the mocked DELETE request to path /v1/collections named cancellation on spacex was not received"); err != nil {
+		t.Fatal(err)
+	}
+	if err := run("the mocked request named cancellation was received exactly 0 times"); err != nil {
+		t.Fatal(err)
+	}
+	if err := run("the mocked POST request to path /v1/bookings named rebooking was not received"); err == nil || !strings.Contains(err.Error(), "received 2") {
+		t.Errorf("a path requests went to passed: %v", err)
+	}
+
 	err = run("the mocked request named launches was received exactly 5 times")
 	if err == nil || !strings.Contains(err.Error(), "received 2") {
 		t.Fatalf("expected count failure with near misses, got %v", err)

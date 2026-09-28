@@ -104,7 +104,7 @@ A service that consumes messages gets them the way it does in the cloud: publish
 When the disputes/kestrel-overcharge.json message is published to the carrier-disputes pubsub topic
 ```
 
-A service that Pub/Sub pushes to gets what a push subscription sends: an envelope whose `message.data` is the message, base64-encoded, with its attributes and ID. Create the push subscription, with the service's address as its endpoint, where your other emulator resources are created, and publish to its topic: the Pub/Sub emulator of the gcloud CLI pushes the message to the service as Pub/Sub does. The scenario neither builds the envelope nor encodes the data.
+A service that Pub/Sub pushes to gets what a push subscription sends: an envelope whose `message.data` is the message, base64-encoded, with its attributes and ID. Create the push subscription, with the service's address as its endpoint, where your other emulator resources are created, and publish to its topic: an emulator with push subscriptions, such as the gcloud CLI's, pushes the message to the service as Pub/Sub does. The scenario neither builds the envelope nor encodes the data.
 
 ## What the checks do
 

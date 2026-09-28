@@ -120,6 +120,8 @@ mock | mock.count.atMost | the mocked request named {word} was received at most 
 mock | mock.count.atMost | the mocked request named {word} on {mockedService} was received at most {int} time(s)
 mock | mock.notReceived | the mocked {word} request to {word} named {word} was not received
 mock | mock.notReceived | the mocked {word} request to {word} named {word} on {mockedService} was not received
+mock | mock.notReceived.path | the mocked {word} request to path {word} named {word} was not received
+mock | mock.notReceived.path | the mocked {word} request to path {word} named {word} on {mockedService} was not received
 mock | mock.header.is | the header {word} for mocked request named {word} is {string}
 mock | mock.header.is | the header {word} for mocked request named {word} on {mockedService} is {string}
 mock | mock.headers.are | the headers for mocked request named {word} on {mockedService} are:  [+table]
@@ -133,6 +135,12 @@ mock | mock.query.are | the query parameters for mocked request named {word} are
 mock | mock.query.are | the query parameters for mocked request named {word} on {mockedService} are:  [+table]
 mock | mock.form.are | the form fields for mocked request named {word} are:  [+table]
 mock | mock.form.are | the form fields for mocked request named {word} on {mockedService} are:  [+table]
+mock | mock.query.none | none of the mocked {word} requests to path {word} have the query parameters:  [+table]
+mock | mock.query.none | none of the mocked {word} requests to path {word} on {mockedService} have the query parameters:  [+table]
+mock | mock.properties.none | none of the mocked {word} requests to path {word} have the payload properties:  [+table]
+mock | mock.properties.none | none of the mocked {word} requests to path {word} on {mockedService} have the payload properties:  [+table]
+mock | mock.form.none | none of the mocked {word} requests to path {word} have the form fields:  [+table]
+mock | mock.form.none | none of the mocked {word} requests to path {word} on {mockedService} have the form fields:  [+table]
 sql | sql.service | a(n) {word} database with the following properties:  [+table]
 sql | sql.seed | a {filepath} db seed
 sql | sql.seed | a {filepath} db seed on {dbService}

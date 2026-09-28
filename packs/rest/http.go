@@ -112,7 +112,7 @@ func execute(sc *core.Scenario, svc *Service, idx int) error {
 		text := *payload
 		if mimeType == core.MimeForm {
 			if text, err = jvalue.FormURLEncode(text); err != nil {
-				return fmt.Errorf("could not form-encode the request payload: %w", err)
+				return fmt.Errorf("could not form-encode the request payload, which must be a JSON object whose properties are the form's fields: %w", err)
 			}
 		}
 		body = []byte(text)

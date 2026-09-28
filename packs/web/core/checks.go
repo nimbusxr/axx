@@ -35,7 +35,7 @@ func checkSteps() []core.StepDef {
 			}),
 		},
 		{
-			ID: "web-core.element.hidden", Keyword: "Then", Since: since,
+			ID: "web-core.element.hidden", Keyword: "Then", Since: since, Absence: true,
 			Expr: "[[within {duration} ]]the {string} {element} is not shown",
 			Doc: "Check that the page does not show the element, by its name or a selector. The check waits for it to go: " +
 				"10 seconds, or `within {duration}`.",

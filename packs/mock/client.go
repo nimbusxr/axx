@@ -176,6 +176,23 @@ func (c *client) count(ctx context.Context, p *pattern) (int, error) {
 	return out.Count, nil
 }
 
+// logged is a request the journal holds.
+type logged struct {
+	Method string `json:"method"`
+	URL    string `json:"url"`
+}
+
+// find returns the journaled requests that match p.
+func (c *client) find(ctx context.Context, p *pattern) ([]logged, error) {
+	var out struct {
+		Requests []logged `json:"requests"`
+	}
+	if err := c.post(ctx, "/__admin/requests/find", p, &out); err != nil {
+		return nil, err
+	}
+	return out.Requests, nil
+}
+
 type nearMiss struct {
 	Request struct {
 		Method  string         `json:"method"`

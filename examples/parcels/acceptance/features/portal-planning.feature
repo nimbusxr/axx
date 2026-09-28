@@ -40,6 +40,18 @@ Feature: Planning in the shop portal
       | day       | Tomorrow    |
     And the mocked request named pickup-notice was received exactly 1 time
 
+  Scenario: The courier is not told of a pickup on a day the shop does not offer
+    Given the portal service with the following properties:
+      | url | ${sys:portal.url} |
+    And the mocked courier service with the following properties:
+      | url | http://${sys:local.host}:8082 |
+    And a POST request to /pickups
+    And a request payload using an application/x-www-form-urlencoded requests/pickup-sunday.json resource
+    When the request is executed
+    Then the response status code is 400
+    And none of the mocked POST requests to path /v1/pickups on courier have the form fields:
+      | reference | PX-WEB-5335 |
+
   Scenario: A shop is told when a pickup cannot be planned for want of a connection
     Given a seeds/portal-pickup-offline.yaml db seed
     And the page's requests to "/pickups" fail

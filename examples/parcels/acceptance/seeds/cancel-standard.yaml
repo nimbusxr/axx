@@ -1,0 +1,7 @@
+parcels.parcels:
+  - reference: "PX-REG-1602"
+    sender: "kestrel-books"
+    weight_grams: 1200
+    service_level: "STANDARD"
+    recipient: '{"name": "Emmy Noether", "street": "Weender Str. 8", "city": "Göttingen", "postcode": "37073", "country": "DE"}'
+    details: '{"source": "api", "zone": "DE-2"}'
