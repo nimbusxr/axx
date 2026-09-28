@@ -354,8 +354,6 @@ files | files.row | within {duration} the {word} file in the {word} folder has a
 mail | mail.mailbox | the {word} mailbox with the following properties:  [+table]
 mail | mail.received | the {word} mailbox has an email where:  [+table]
 mail | mail.received | within {duration} the {word} mailbox has an email where:  [+table]
-mail | mail.refuse.from | the {word} mailbox refuses mail from {string} with code {int}
-mail | mail.refuse.to | the {word} mailbox refuses mail to {string} with code {int}
 cli | cli.command | the {word} command with the following properties:  [+table]
 cli | cli.run | the {word} command is run
 cli | cli.run | the {word} command is run with {string}

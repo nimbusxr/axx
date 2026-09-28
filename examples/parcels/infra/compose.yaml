@@ -5,7 +5,7 @@
 #
 # axx runs this for you: see ../acceptance/axx.yaml. The published host ports are the
 # ones the feature files use (8400, 8081, 8082, 8083, 5432, 27017, 9092, 9081, 5672,
-# 1883, 4222, 6379 and 8025, and Mailpit's SMTP on 1025).
+# 1883, 4222, 6379 and 1143, and the mail server's SMTP on 1025 and web interface on 8025).
 name: parcels
 
 services:
@@ -214,18 +214,23 @@ services:
       retries: 60
     stop_signal: SIGKILL
 
-  # The service's mail server in the tests: axx's Mailpit catches every email it sends, for
-  # the features to read through its API (8025), and refuses the mail a scenario says to.
-  # This builds the image from this repository; `image: ghcr.io/nimbusxr/axx-mailpit:<version>`
-  # can replace `build:`.
-  mailpit:
-    build:
-      context: ../../../extensions/mailpit-chaos
+  # The service's mail server in the tests: smtp4dev catches every email it sends, for the
+  # features to read over IMAP (1143), and stubs the mail servers of the shops as WireMock's
+  # mappings stub the HTTP dependencies: its recipient expression refuses the mail of the
+  # recipients it names, with the code it gives. Its web interface is on 8025.
+  mail:
+    image: 'rnwood/smtp4dev:3.15.0'
     ports:
-      - '8025:8025'
-      - '1025:1025'
+      - '1025:25'
+      - '1143:143'
+      - '8025:80'
+    environment:
+      # quince-and-quill's mail server is busy: it asks to be tried again later.
+      ServerOptions__RecipientValidationExpression: >-
+        recipient.toLowerCase().endsWith("@quince-and-quill.example")
+        ? error(451, "Mailbox busy, try again later") : true
     healthcheck:
-      test: ["CMD", "/mailpit", "readyz"]
+      test: ["CMD", "curl", "-fsS", "-o", "/dev/null", "http://127.0.0.1/api/server"]
       interval: 1s
       timeout: 2s
       retries: 60
@@ -258,7 +263,7 @@ services:
       PARCELS_NATS_URL: nats://nats:4222
       PARCELS_SHOP_WEBHOOK_URL: http://shops:8080/webhooks
       PARCELS_REDIS_URL: redis://valkey:6379/0
-      PARCELS_SMTP_ADDR: mailpit:1025
+      PARCELS_SMTP_ADDR: mail:25
       PARCELS_EXPORT_DIR: /var/lib/parcels/exports
       # Every log line also goes to the log service axx runs on the host (the
       # parcels log in the features); host-gateway makes the name work on Linux.
@@ -292,5 +297,5 @@ services:
         condition: service_healthy
       valkey:
         condition: service_healthy
-      mailpit:
+      mail:
         condition: service_healthy

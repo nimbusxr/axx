@@ -12,7 +12,10 @@ import (
 
 const catalogFile = "../../testdata/steps.json"
 
-var updateCatalog = flag.Bool("update", false, "add the steps and parameter types missing from testdata/steps.json; never changes or removes an entry")
+var (
+	updateCatalog = flag.Bool("update", false, "add the steps and parameter types missing from testdata/steps.json; never changes or removes an entry")
+	pruneCatalog  = flag.Bool("prune", false, "remove the entries of steps no pack defines any more: for steps the owner decided to remove, never to hide one that went missing")
+)
 
 type catalog struct {
 	Description string         `json:"description"`
@@ -30,9 +33,10 @@ type catalogEntry struct {
 
 // TestStepCatalog asserts that every step expression and parameter type of
 // the frozen catalog (testdata/steps.json) is defined, verbatim, by its
-// pack: step text is public API and never changes. And that the catalog has
-// every step and parameter type of axx's packs, so that new ones are frozen
-// too: -update adds them.
+// pack: step text is public API and never changes by accident. And that the
+// catalog has every step and parameter type of axx's packs, so that new ones
+// are frozen too: -update adds them. A step the owner decides to remove is
+// taken out with -prune.
 func TestStepCatalog(t *testing.T) {
 	b, err := os.ReadFile(catalogFile)
 	if err != nil {
@@ -55,19 +59,28 @@ func TestStepCatalog(t *testing.T) {
 		params[p.Type.Name] = p.Type.Regexps
 	}
 	listed := map[string]bool{}
+	kept := make([]catalogEntry, 0, len(cat.Entries))
+	pruned := 0
 	for _, c := range cat.Entries {
 		switch c.Kind {
 		case "step":
-			listed["step "+c.Expression] = true
 			got, ok := exprs[c.Expression]
+			if !ok && *pruneCatalog {
+				pruned++
+				continue
+			}
+			kept = append(kept, c)
+			listed["step "+c.Expression] = true
 			if !ok {
-				t.Errorf("step %q is missing from pack %s", c.Expression, c.Pack)
+				t.Errorf("step %q is missing from pack %s: step text is public API; if its removal is intended, "+
+					"run `go test ./internal/engine -run TestStepCatalog -prune`", c.Expression, c.Pack)
 				continue
 			}
 			if got != c.Pack {
 				t.Errorf("step %q is provided by pack %s, want %s", c.Expression, got, c.Pack)
 			}
 		case "parameterType":
+			kept = append(kept, c)
 			listed["parameterType "+c.Name] = true
 			re, ok := params[c.Name]
 			if !ok || len(re) == 0 || re[0] != c.Expression {
@@ -90,8 +103,11 @@ func TestStepCatalog(t *testing.T) {
 		listed["step "+v.Expr] = true
 		missing = append(missing, catalogEntry{Kind: "step", Pack: v.Def.Pack, Keyword: v.Def.Step.Keyword, Expression: v.Expr})
 	}
-	if *updateCatalog && len(missing) > 0 {
-		cat.Entries = append(cat.Entries, missing...)
+	if (*updateCatalog && len(missing) > 0) || pruned > 0 {
+		cat.Entries = kept
+		if *updateCatalog {
+			cat.Entries = append(cat.Entries, missing...)
+		}
 		cat.Counts = map[string]int{}
 		for _, c := range cat.Entries {
 			cat.Counts[c.Kind]++
@@ -106,7 +122,7 @@ func TestStepCatalog(t *testing.T) {
 		if err := os.WriteFile(catalogFile, out.Bytes(), 0o644); err != nil {
 			t.Fatal(err)
 		}
-		t.Logf("added %d entries to %s", len(missing), catalogFile)
+		t.Logf("%s: added %d entries, removed %d", catalogFile, len(missing), pruned)
 		return
 	}
 	for _, m := range missing {

@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -330,23 +329,6 @@ func Server(t *testing.T, image, port string, cmd []string, env map[string]strin
 // returns the host address of each, once all of them listen.
 func ServerPorts(t *testing.T, image string, ports []string, cmd []string, env map[string]string) map[string]string {
 	return startPorts(t, image, ports, "", cmd, env, false)
-}
-
-// BuiltPorts is ServerPorts for an image built from a Dockerfile's
-// directory (an image of this repository, such as axx-mailpit), with the
-// docker CLI, which asks only for the credentials of the registries the
-// build pulls from.
-func BuiltPorts(t *testing.T, dir string, ports []string, env map[string]string) map[string]string {
-	t.Helper()
-	if _, err := exec.LookPath("docker"); err != nil {
-		t.Skip("docker is not on the PATH")
-	}
-	tag := "axx-test/" + filepath.Base(dir) + ":test"
-	out, err := exec.CommandContext(t.Context(), "docker", "build", "-q", "-t", tag, dir).CombinedOutput()
-	if err != nil {
-		t.Fatalf("building %s: %v\n%s", dir, err, out)
-	}
-	return startRequest(t, testcontainers.ContainerRequest{Image: tag}, ports, "", env, false)
 }
 
 func emulator(t *testing.T, image, port, healthPath string, env map[string]string, docker bool) string {

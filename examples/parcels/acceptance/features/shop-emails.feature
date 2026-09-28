@@ -2,8 +2,9 @@ Feature: Shop emails
 
   The service emails each shop at the contact address of its settings: the label of every
   parcel it registers, for its label printer, and each delivery, when the shop asked to be
-  told. It sends its mail by SMTP to its mail server: axx's Mailpit, in the tests. An email
-  the mail server refuses never stops what the shop asked for.
+  told. It sends its mail by SMTP to its mail server: smtp4dev, in the tests, which stubs the
+  shops' mail servers. An email a shop's mail server refuses never stops what the shop asked
+  for.
 
   Background:
     Given the parcels service with the following properties:
@@ -14,7 +15,9 @@ Feature: Shop emails
       | user     | parcels                                   |
       | password | parcels                                   |
     And the shops mailbox with the following properties:
-      | url | http://${sys:local.host}:8025 |
+      | url      | imap://${sys:local.host}:1143 |
+      | username | axx                           |
+      | password | axx                           |
     And the parcels log with the following properties:
       | url | udp://0.0.0.0:5140 |
 
@@ -48,9 +51,9 @@ Feature: Shop emails
       | subject | Parcel PX-MAIL-9702 delivered                        |
       | html    | <b>PX-MAIL-9702</b> was delivered in Leipzig         |
 
-  Scenario: A registration email the mail server refuses does not stop the registration
+  Scenario: A registration email the shop's mail server refuses does not stop the registration
+    # quince-and-quill's mail server is busy (451): the mail server's stub, in ../infra/compose.yaml.
     Given a seeds/mail-refused.yaml db seed
-    And the shops mailbox refuses mail to '*@quince-and-quill.example' with code 451
     And a POST request to /api/parcels
     And a request payload using an application/json content example
     And the request payload property reference is 'PX-MAIL-9703'

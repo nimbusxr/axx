@@ -36,8 +36,6 @@ the skills instead: `axx skills install`.
 - `internal/compat`: the value semantics steps follow (Jayway JSONPath, Java regex, Java number
   formatting; ADR 0007). The oracle tests depend on these; don't "simplify" them.
 - `extensions/wiremock-openapi`, `ide/intellij`: JVM parts (the WireMock extension and the IntelliJ plugin).
-- `extensions/mailpit-chaos`: axx's Mailpit image, Mailpit built with `chaos-rules.patch` (rules that refuse
-  particular addresses' mail, for the mail pack's refusal steps).
 - `ide/vscode`: the VS Code extension (TypeScript). Both editor clients run `axx lsp` (`internal/lsp`).
 - `testdata/steps.json`: the frozen catalog of the step text of axx's packs. `testdata/oracles`:
   recorded behavior oracles. **Never edit either by hand**: they define correct behavior. A new
@@ -50,7 +48,9 @@ the skills instead: `axx skills install`.
 
 ## Rules
 
-- Step expression text is public API. Never change existing step text; add new steps instead.
+- Step expression text is public API. Never change existing step text by accident; add new steps instead. axx
+  is in beta: when the owner decides to remove or change a step, take its old text out of the catalog with
+  `go test ./internal/engine -run TestStepCatalog -prune`.
 - Exit codes (`internal/exitcode`) and the `--json` envelope are frozen contracts (ADR 0003).
 - Every user-facing error is an `*axxerr.Error` with a stable `AXX-Exxxx` code and a hint.
 - Never hand-edit generated files: `go generate ./...` writes the `axx.yaml` schema

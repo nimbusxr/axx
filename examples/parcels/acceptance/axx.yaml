@@ -53,7 +53,7 @@ apps:
         - sh
         - -c
         - >-
-          docker compose up --wait address-service courier shops postgres mongo kafka schema-registry rabbitmq mosquitto nats valkey mailpit
+          docker compose up --wait address-service courier shops postgres mongo kafka schema-registry rabbitmq mosquitto nats valkey mail
           && docker compose up exports
           && cd ../app
           && PARCELS_LOG_UDP=127.0.0.1:5140

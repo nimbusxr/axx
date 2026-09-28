@@ -22,7 +22,6 @@ on:
       - scripts/release-check.sh
       - .github/workflows/release.yml
       - .github/workflows/wiremock-extension.yml
-      - .github/workflows/mailpit-extension.yml
       - .github/workflows/intellij-plugin.yml
   workflow_dispatch:
 
@@ -49,9 +48,6 @@ jobs:
       wiremock: ${{ steps.rp.outputs['extensions/wiremock-openapi--release_created'] || steps.dry.outputs.wiremock }}
       wiremock_tag: ${{ steps.rp.outputs['extensions/wiremock-openapi--tag_name'] }}
       wiremock_version: ${{ steps.rp.outputs['extensions/wiremock-openapi--version'] || steps.dry.outputs.wiremock_version }}
-      mailpit: ${{ steps.rp.outputs['extensions/mailpit-chaos--release_created'] || steps.dry.outputs.mailpit }}
-      mailpit_tag: ${{ steps.rp.outputs['extensions/mailpit-chaos--tag_name'] }}
-      mailpit_version: ${{ steps.rp.outputs['extensions/mailpit-chaos--version'] || steps.dry.outputs.mailpit_version }}
       intellij: ${{ steps.rp.outputs['ide/intellij--release_created'] || steps.dry.outputs.intellij }}
       intellij_tag: ${{ steps.rp.outputs['ide/intellij--tag_name'] }}
       intellij_version: ${{ steps.rp.outputs['ide/intellij--version'] || steps.dry.outputs.intellij_version }}
@@ -129,8 +125,6 @@ jobs:
             echo "axx=true"
             echo "wiremock=true"
             echo "wiremock_version=$(version extensions/wiremock-openapi)"
-            echo "mailpit=true"
-            echo "mailpit_version=$(version extensions/mailpit-chaos)"
             echo "intellij=true"
             echo "intellij_version=$(version ide/intellij)"
           } >> "$GITHUB_OUTPUT"
@@ -251,22 +245,6 @@ jobs:
     with:
       tag: ${{ needs.release-please.outputs.wiremock_tag }}
       version: ${{ needs.release-please.outputs.wiremock_version }}
-      dry-run: ${{ needs.release-please.outputs.dry-run == 'true' }}
-
-  # ghcr.io/nimbusxr/axx-mailpit:<version>, :<major>.<minor> and :latest. A dry run builds it
-  # without publishing.
-  mailpit-chaos:
-    needs: release-please
-    if: needs.release-please.outputs.mailpit == 'true'
-    permissions:
-      contents: read
-      packages: write
-      id-token: write
-      attestations: write
-    uses: ./.github/workflows/mailpit-extension.yml
-    with:
-      tag: ${{ needs.release-please.outputs.mailpit_tag }}
-      version: ${{ needs.release-please.outputs.mailpit_version }}
       dry-run: ${{ needs.release-please.outputs.dry-run == 'true' }}
 
   # The axx IntelliJ plugin on the JetBrains Marketplace. A dry run verifies it without

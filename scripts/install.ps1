@@ -21,8 +21,8 @@ if (-not $version) {
   # Pre-releases included: /releases/latest skips them during the 0.x beta. The newest release
   # whose files are up: its checksums and this platform's archive. A release is published
   # before its build uploads them, so the newest one can have none yet. The CLI's tags are
-  # v*; the WireMock extension, the Mailpit image and the IntelliJ plugin have releases of
-  # their own (wiremock-openapi-v*, mailpit-chaos-v*, intellij-v*), and nightly.
+  # v*; the WireMock extension and the IntelliJ plugin have releases of their own
+  # (wiremock-openapi-v*, intellij-v*), and nightly.
   $release = (Invoke-RestMethod -Headers $headers "$api/releases?per_page=20") |
     Where-Object {
       $names = @($_.assets.name)
