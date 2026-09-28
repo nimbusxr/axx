@@ -7,3 +7,11 @@ useDefault = true
 [[allowlists]]
 description = "IntelliJ plugin sandbox state (git-ignored)"
 paths = ['''(^|/)\.intellijPlatform/''']
+
+[[allowlists]]
+description = "The Standard Webhooks specification's published test vector (its key and message ID), which the signing tests check against"
+regexes = ['''MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw''', '''msg_p5jXN8AQM9LWM0D4loKWxJek''']
+
+[[allowlists]]
+description = "The parcels example's made-up shop webhook key: whsec_ and example-shop-webhook-key in base64"
+regexes = ['''^whsec_ZXhhbXBsZS1zaG9wLXdlYmhvb2sta2V5$''']

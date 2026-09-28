@@ -3,7 +3,8 @@
 // or a token: failure messages, logs, attachments and reports show it
 // masked, as it is and as it appears in URLs, forms, JSON and HTML. The
 // secrets of a scenario are its own, and every pack that expands values
-// with Expand adds to them.
+// with Expand or Resolve adds to them; the tokens Resolve expands are
+// secrets too.
 package secrets
 
 import (
@@ -12,11 +13,13 @@ import (
 	"errors"
 	"html"
 	"net/url"
+	"regexp"
 	"sort"
 	"strings"
 	"sync"
 
 	"github.com/nimbusxr/axx/core"
+	"github.com/nimbusxr/axx/internal/tokens"
 )
 
 // Masked is what a secret is shown as.
@@ -36,6 +39,31 @@ func Expand(sc *core.Scenario, s string) string {
 		Keep(sc, vs...)
 	}
 	return sc.Suite().Interpolate(s)
+}
+
+// tokenRef is a ${token:<name>} reference.
+var tokenRef = regexp.MustCompile(`\$\{token:([^}]+)\}`)
+
+// Resolve is Expand, and ${token:<name>} references replaced by the
+// value of the scenario's token of that name, which is a secret too. It
+// fails when a token cannot be had: none has the name, or its token
+// endpoint refuses.
+func Resolve(sc *core.Scenario, s string) (string, error) {
+	out := Expand(sc, s)
+	var err error
+	out = tokenRef.ReplaceAllStringFunc(out, func(ref string) string {
+		if err != nil {
+			return ref
+		}
+		v, verr := tokens.Value(sc, tokenRef.FindStringSubmatch(ref)[1])
+		if verr != nil {
+			err = verr
+			return ref
+		}
+		Keep(sc, v)
+		return v
+	})
+	return out, err
 }
 
 // In is what the ${env:..} references in s expand to.

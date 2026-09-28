@@ -44,10 +44,19 @@ type config struct {
 	// AMQPURL is RabbitMQ, where labels are printed; MQTTURL the broker the
 	// depots' scanners publish to; NATSURL where couriers confirm deliveries
 	// and tracking updates go.
-	AMQPURL      string
-	MQTTURL      string
-	NATSURL      string
-	PollInterval time.Duration
+	AMQPURL string
+	MQTTURL string
+	NATSURL string
+	// CourierCallbackKey signs the courier's callbacks; ShopWebhookURL and
+	// ShopWebhookKey are where the shops hear of deliveries and how the
+	// service signs them; ShopTokenKey signs the shops' tokens, and
+	// ShopClients are the shops' client credentials (shop:secret,...).
+	CourierCallbackKey string
+	ShopWebhookURL     string
+	ShopWebhookKey     string
+	ShopTokenKey       string
+	ShopClients        map[string]string
+	PollInterval       time.Duration
 	// ExportDir is where the service writes the documents of the manifests
 	// it imports, for the shops' systems to collect.
 	ExportDir string
@@ -79,8 +88,19 @@ func loadConfig() (config, error) {
 		AMQPURL:       env("PARCELS_AMQP_URL", "amqp://parcels:parcels@localhost:5672/"),
 		MQTTURL:       env("PARCELS_MQTT_URL", "mqtt://localhost:1883"),
 		NATSURL:       env("PARCELS_NATS_URL", "nats://localhost:4222"),
-		ExportDir:     env("PARCELS_EXPORT_DIR", "../infra/exports"),
-		LogUDP:        env("PARCELS_LOG_UDP", ""),
+		// Keys for the example only; a real service reads them from its vault.
+		CourierCallbackKey: env("PARCELS_COURIER_CALLBACK_KEY", "example-courier-callback-key"),
+		ShopWebhookURL:     env("PARCELS_SHOP_WEBHOOK_URL", "http://localhost:8083/webhooks"),
+		ShopWebhookKey:     env("PARCELS_SHOP_WEBHOOK_KEY", "whsec_ZXhhbXBsZS1zaG9wLXdlYmhvb2sta2V5"),
+		ShopTokenKey:       env("PARCELS_SHOP_TOKEN_KEY", "example-shop-token-key"),
+		ShopClients:        map[string]string{},
+		ExportDir:          env("PARCELS_EXPORT_DIR", "../infra/exports"),
+		LogUDP:             env("PARCELS_LOG_UDP", ""),
+	}
+	for _, pair := range strings.Split(env("PARCELS_SHOP_CLIENTS", "wisteria-way:wisteria-client-secret"), ",") {
+		if shop, secret, ok := strings.Cut(strings.TrimSpace(pair), ":"); ok {
+			c.ShopClients[shop] = secret
+		}
 	}
 	for _, s := range strings.Split(env("PARCELS_KAFKA_BROKERS", "localhost:9092"), ",") {
 		if s = strings.TrimSpace(s); s != "" {
@@ -136,7 +156,11 @@ func serve(ctx context.Context, cfg config, log *slog.Logger) error {
 		return err
 	}
 	defer updates.Close()
-	rec := &recorder{tracking: tracking, updates: updates, log: log}
+	shops, err := newShopWebhooks(cfg.ShopWebhookURL, cfg.ShopWebhookKey, log)
+	if err != nil {
+		return err
+	}
+	rec := &recorder{tracking: tracking, updates: updates, store: store, shops: shops, log: log}
 	if err := updates.confirmDeliveries(ctx, rec); err != nil {
 		return err
 	}
@@ -160,7 +184,12 @@ func serve(ctx context.Context, cfg config, log *slog.Logger) error {
 		events:   events,
 		printing: printing,
 		labels:   labels,
+		rec:      rec,
 		log:      log,
+
+		courierKey:   []byte(cfg.CourierCallbackKey),
+		shopTokenKey: []byte(cfg.ShopTokenKey),
+		shopClients:  cfg.ShopClients,
 	}
 	go svc.runImporter(ctx, cfg.PollInterval)
 	go printing.run(ctx)

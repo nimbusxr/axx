@@ -3,7 +3,7 @@ title: Mock dependencies
 description: Replace the services your service calls with WireMock, verify the requests it sent, and check both sides of each dependency's OpenAPI contract with the Axx WireMock image.
 ---
 
-Your service calls other services. In an acceptance test you replace them with [WireMock](https://wiremock.org/) mocks, which gives you two things: the responses are under your control, and you can check exactly what your service sent.
+Your service calls other services. In an acceptance test you replace them with [WireMock](https://wiremock.org/) mocks, which gives you two things: the responses are under your control, and you can check exactly what your service sent, down to the signatures of its webhooks ([Test webhooks and tokens](/guides/webhooks-and-tokens/)).
 
 ## Define the stubs
 

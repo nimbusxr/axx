@@ -327,6 +327,8 @@ func steps() []core.StepDef {
 		noneStep("mock.form.none", "form fields", "form field", "field", "a form field's name",
 			"Then none of the mocked POST requests to path /v1/pickups on courier have the form fields:\n"+
 				"  | reference | PX-WEB-5302 |", (*pattern).withField),
+		signedStep(),
+		webhookStep(),
 	}
 }
 

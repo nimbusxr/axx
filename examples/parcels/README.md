@@ -6,7 +6,8 @@ its shop portal, or upload them in bulk as manifests, and follow them through th
 PostgreSQL, keeps a tracking read model in MongoDB, checks every address with a downstream
 address service, books express collections and pickups with a courier, talks to the depots over Kafka, sends labels to the depots'
 printers and hears their reports over AMQP (RabbitMQ), hears the depots' handheld scanners over MQTT, confirms
-deliveries and tells other services of every tracking update over NATS, writes each imported manifest's documents to
+deliveries and tells other services of every tracking update over NATS, takes the courier's signed callbacks and
+tells shops of deliveries in signed webhooks, serves the shops' systems with tokens, writes each imported manifest's documents to
 an export folder, streams depot scans as they happen (over a websocket and as server-sent events), and has an admin
 command for its operations desk.
 
@@ -35,6 +36,8 @@ The service has no dependency on Axx or on any test framework.
 | `label-printing` | every registered parcel's label goes to the printers of its service level; the printers' reports, through their exchange or straight to the service's queue, mark labels printed; reports the service cannot use are set aside with the reason | an AMQP exchange and queues: messages published with a routing key, sent with headers, and checked by their routing key, headers and body, SQL selections |
 | `depot-scanners` | a handheld scanner's scan updates the tracking; a scan of an unknown parcel alerts the depot's scanners | MQTT messages published with user properties, a topic filter checked by the topic a message came on, MongoDB selections |
 | `tracking-updates` | a courier's confirmation marks a parcel delivered; the other services hear of every scan, and the TRACKING stream keeps the updates | NATS messages published with headers, a subject with a wildcard, a JetStream stream, an Avro event on Kafka |
+| `courier-callbacks` | the courier's signed callbacks are recorded, and one signed with another key is refused; a delivery is told to the parcel's shop in a signed webhook | a request signed in a header (HMAC-SHA256), a Standard Webhook's signature checked on the mock that receives it, a mocked dependency's contract, MongoDB selections |
+| `shop-api` | a shop's system reads its parcels with a token its platform signs, or one it gets with its client credentials; a token for another shop is refused | a JSON Web Token axx signs, an OAuth 2.0 client credentials token axx gets from the service's token endpoint |
 | `operations-desk` | the desk's `parcels admin` command reprints labels, cancels parcels (from its input too) under the API's rules, and lists a shop's parcels | a command run in the service's container, its exit code, output and error output, output compared byte for byte and by its JSON properties, SQL selections |
 
 `axx.yaml` also shows test-data lint rules (`axx lint`), fixture factories (`axx fixtures`)
@@ -47,9 +50,10 @@ parcels/
   app/          the system under test: a Go module with its Dockerfile
   infra/        compose.yaml plus the files the containers mount
     postgres/       the database schema (the seeds must match it)
-    openapi/        the OpenAPI contracts of the address service and the courier
+    openapi/        the OpenAPI contracts of the address service, the courier and the shops' webhooks
     wiremock/       the address service mock: mappings and response bodies
     courier/        the courier mock's mappings
+    shops/          the mock of the shops' systems, which hear of deliveries: its mapping
     exports/        what the service writes to its export folder during a run (not committed)
   acceptance/   the Axx project
     axx.yaml        run settings, the app definition, the packs' settings, lint rules, fixture settings
@@ -140,10 +144,14 @@ browser at it. The host ports are the ones the features use:
 | `app` | built from `../app` | 8400 | the parcels API under `/api`, the shop portal under `/portal`, OpenAPI at `/openapi.json`, health at `/health` |
 | `address-service` | built from `extensions/wiremock-openapi` | 8081 | WireMock with Axx's OpenAPI validation extension: the mocked address service |
 | `courier` | built from `extensions/wiremock-openapi` | 8082 | the mocked courier, checked against `openapi/courier.yaml`: express collections (JSON) and pickups (a form) |
+| `shops` | built from `extensions/wiremock-openapi` | 8083 | the mocked shops' systems, checked against `openapi/shop-webhooks.yaml`: the signed webhooks of deliveries |
 | `postgres` | `postgres:16` | 5432 | parcels, manifest lines, pickups and shops' settings |
 | `mongo` | `mongo:7` | 27017 | depot scans and the tracking read model |
 | `kafka` | `apache/kafka-native:3.9.1` | 9092 | single-node KRaft broker |
 | `schema-registry` | `confluentinc/cp-schema-registry:7.9.2-1-ubi8` | 9081 | Avro schemas for the events |
+| `rabbitmq` | `rabbitmq:4.2.9-alpine` | 5672 | label print jobs and the printers' reports (AMQP 0-9-1) |
+| `mosquitto` | `eclipse-mosquitto:2.0.22` | 1883 | the depots' handheld scanners (MQTT 5) |
+| `nats` | `nats:2.15.0-alpine` | 4222 | couriers' delivery confirmations, and tracking updates in the TRACKING stream (JetStream) |
 | `exports` | `busybox:1.37` | (none) | empties `exports/`, and makes it writable, before the service starts |
 
 The address service mock builds the WireMock extension from this repository

@@ -3,7 +3,7 @@ title: Send REST requests
 description: Payloads from files, the redirects the REST pack follows and the ones it leaves to the scenario, cookies, and the headers custom steps give a request.
 ---
 
-A scenario registers a REST service, adds requests to it, executes them and checks their responses ([rest pack](/references/packs/rest/)). This page is about what happens in between: the payload a request sends, the redirects it follows, the cookies it sends, and the headers a custom step gives it.
+A scenario registers a REST service, adds requests to it, executes them and checks their responses ([rest pack](/references/packs/rest/)). This page is about what happens in between: the payload a request sends, the redirects it follows, the cookies it sends, and the headers a custom step gives it. To sign a request as a webhook is signed, or authorize it with a token, see [Test webhooks and tokens](/guides/webhooks-and-tokens/).
 
 The REST pack tests APIs. To test a web app's pages, forms or sign-in, use the web-core pack: a real browser keeps cookies, follows redirects and submits forms, as the app's users do ([Test web apps](/guides/test-web-apps/)).
 

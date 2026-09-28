@@ -1,0 +1,19 @@
+parcels.parcels:
+  - reference: "PX-API-9201"
+    sender: "hawthorn-home"
+    status: "IN_TRANSIT"
+    service_level: "STANDARD"
+    weight_grams: 2300
+    recipient: '{"name": "Paula Klein", "street": "Brühl 8", "city": "Leipzig", "postcode": "04109", "country": "DE"}'
+    details: '{"source": "api", "zone": "DE-1"}'
+    created_at: "2026-09-26 10:00:00+00"
+    updated_at: "2026-09-26 10:00:00+00"
+  - reference: "PX-API-9202"
+    sender: "hawthorn-home"
+    status: "REGISTERED"
+    service_level: "EXPRESS"
+    weight_grams: 900
+    recipient: '{"name": "Max Wagner", "street": "Petersstr. 30", "city": "Leipzig", "postcode": "04109", "country": "DE"}'
+    details: '{"source": "api", "zone": "DE-1"}'
+    created_at: "2026-09-27 09:30:00+00"
+    updated_at: "2026-09-27 09:30:00+00"

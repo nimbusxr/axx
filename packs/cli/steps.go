@@ -63,7 +63,11 @@ func steps() []core.StepDef {
 				if a.DocString != nil {
 					in = a.DocString.Content + "\n"
 				}
-				return runCommand(sc, a.String(0), a, []byte(secrets.Expand(sc, in)))
+				in, err := secrets.Resolve(sc, in)
+				if err != nil {
+					return err
+				}
+				return runCommand(sc, a.String(0), a, []byte(in))
 			},
 		},
 		{
@@ -204,7 +208,11 @@ func runCommand(sc *core.Scenario, name string, a core.Args, stdin []byte) error
 	}
 	argv := append([]string(nil), c.Argv...)
 	if a.Present(1) {
-		argv = append(argv, shellwords.Split(secrets.Expand(sc, a.String(1)))...)
+		args, err := secrets.Resolve(sc, a.String(1))
+		if err != nil {
+			return err
+		}
+		argv = append(argv, shellwords.Split(args)...)
 	}
 	dir := c.Dir
 	if dir == "" {

@@ -70,8 +70,8 @@ func CheckRESTRequests(reg *match.Registry, pickles []*feature.Pickle, workDir s
 					services = append(services, name)
 				}
 				continue
-			case "rest.openapi.levels":
-				continue
+			case "rest.openapi.levels", "rest.token":
+				continue // not about a request
 			}
 			n, svc := 1, ""
 			for _, a := range args {

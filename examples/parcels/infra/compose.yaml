@@ -4,8 +4,8 @@
 #   docker compose down -v               # stop and remove containers and volumes
 #
 # axx runs this for you: see ../acceptance/axx.yaml. The published host ports are the
-# ones the feature files use (8400, 8081, 8082, 5432, 27017, 9092, 9081, 5672, 1883
-# and 4222).
+# ones the feature files use (8400, 8081, 8082, 8083, 5432, 27017, 9092, 9081, 5672,
+# 1883 and 4222).
 name: parcels
 
 services:
@@ -47,6 +47,27 @@ services:
       OPENAPI_SPEC_SOURCE: /var/openapi/courier.yaml
     volumes:
       - './courier:/home/wiremock'
+      - './openapi:/var/openapi:ro'
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/__admin/health"]
+      interval: 1s
+      timeout: 2s
+      retries: 60
+      start_period: 5s
+    stop_signal: SIGKILL
+
+  # The shops' systems, where the service tells each shop of its parcels' deliveries,
+  # mocked the same way against openapi/shop-webhooks.yaml.
+  shops:
+    build:
+      context: ../../../extensions/wiremock-openapi
+    ports:
+      - '8083:8080'
+    environment:
+      OPENAPI_VALIDATION_MODE: report
+      OPENAPI_SPEC_SOURCE: /var/openapi/shop-webhooks.yaml
+    volumes:
+      - './shops:/home/wiremock'
       - './openapi:/var/openapi:ro'
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/__admin/health"]
@@ -205,6 +226,7 @@ services:
       PARCELS_AMQP_URL: amqp://parcels:parcels@rabbitmq:5672/
       PARCELS_MQTT_URL: mqtt://mosquitto:1883
       PARCELS_NATS_URL: nats://nats:4222
+      PARCELS_SHOP_WEBHOOK_URL: http://shops:8080/webhooks
       PARCELS_EXPORT_DIR: /var/lib/parcels/exports
       # Every log line also goes to the log service axx runs on the host (the
       # parcels log in the features); host-gateway makes the name work on Linux.
@@ -219,6 +241,8 @@ services:
       address-service:
         condition: service_healthy
       courier:
+        condition: service_healthy
+      shops:
         condition: service_healthy
       postgres:
         condition: service_healthy

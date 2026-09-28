@@ -3,6 +3,7 @@ package mock
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -179,7 +180,34 @@ func (c *client) count(ctx context.Context, p *pattern) (int, error) {
 // logged is a request the journal holds.
 type logged struct {
 	Method string `json:"method"`
-	URL    string `json:"url"`
+	URL    string `json:"url"` // its path and query, as received
+	// Headers maps a name to a value, or to its values when it repeats.
+	Headers      map[string]json.RawMessage `json:"headers"`
+	BodyAsBase64 string                     `json:"bodyAsBase64"`
+}
+
+// header is the request's headers.
+func (l logged) header() http.Header {
+	h := http.Header{}
+	for k, raw := range l.Headers {
+		var one string
+		var many []string
+		switch {
+		case json.Unmarshal(raw, &one) == nil:
+			h.Add(k, one)
+		case json.Unmarshal(raw, &many) == nil:
+			for _, v := range many {
+				h.Add(k, v)
+			}
+		}
+	}
+	return h
+}
+
+// body is the request's body, byte for byte.
+func (l logged) body() []byte {
+	b, _ := base64.StdEncoding.DecodeString(l.BodyAsBase64)
+	return b
 }
 
 // find returns the journaled requests that match p.

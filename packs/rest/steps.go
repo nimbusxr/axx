@@ -69,6 +69,7 @@ func (t target) exchange(sc *core.Scenario, a core.Args) (*Exchange, error) {
 // nHead and the service argument nHead+1.
 type family struct {
 	id, keyword  string
+	since        string // the axx version that introduced the step, if after 0.1.0
 	arg          core.ArgKind
 	head, tail   string
 	noun         string // "request" or "response"
@@ -87,7 +88,7 @@ func (f family) defs() []core.StepDef {
 	}
 	return []core.StepDef{
 		{
-			ID: f.id, Keyword: f.keyword, Arg: f.arg,
+			ID: f.id, Keyword: f.keyword, Arg: f.arg, Since: f.since,
 			Expr:     f.head + "[[ for {ordinal} ordered " + f.noun + "]]" + f.tail,
 			Doc:      docList(f.doc, append(append([]string{}, f.details...), f.targetDoc()...)...),
 			Table:    f.table,
@@ -95,7 +96,7 @@ func (f family) defs() []core.StepDef {
 			Run:      run(target{ord: f.nHead, svc: -1}),
 		},
 		{
-			ID: f.id + ".on", Keyword: f.keyword, Arg: f.arg,
+			ID: f.id + ".on", Keyword: f.keyword, Arg: f.arg, Since: f.since,
 			Expr: f.head + " for[[ {ordinal} ordered]] " + f.noun + " on {service}" + f.tail,
 			Doc: "`" + f.id + "` on a named service: `for " + f.noun + " on <service>` addresses the service's first " +
 				"(default) " + f.noun + ", `for 2nd ordered " + f.noun + " on <service>` its second one. " +
@@ -140,6 +141,7 @@ func steps() []core.StepDef {
 	out = append(out, serviceSteps()...)
 	out = append(out, requestSteps()...)
 	out = append(out, responseSteps()...)
+	out = append(out, authSteps()...)
 	return out
 }
 

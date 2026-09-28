@@ -1,0 +1,10 @@
+{
+  "name": "delivered",
+  "request": {
+    "method": "POST",
+    "urlPathPattern": "/webhooks/[a-z0-9-]+"
+  },
+  "response": {
+    "status": 204
+  }
+}

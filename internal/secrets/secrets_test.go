@@ -12,6 +12,7 @@ import (
 
 	"github.com/nimbusxr/axx/core"
 	"github.com/nimbusxr/axx/internal/interp"
+	"github.com/nimbusxr/axx/internal/tokens"
 )
 
 const password = `Fjord & "north" 2026/ü`
@@ -103,5 +104,32 @@ func TestSecretsBelongToTheirScenario(t *testing.T) {
 	Keep(a, password)
 	if Replacer(b) != nil {
 		t.Error("a scenario sees another's secrets")
+	}
+}
+
+// ${token:<name>} is the scenario's token, kept as a secret.
+func TestResolveTokens(t *testing.T) {
+	sc := scenario()
+	tok, err := tokens.Parse("shop", []core.Pair{{Key: "key", Value: "shop-token-key"}, {Key: "claim.shop", Value: "maple-crafts"}},
+		func(v string) (string, error) { return v, nil }, func(string) ([]byte, error) { return nil, nil })
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := tokens.Register(sc, tok); err != nil {
+		t.Fatal(err)
+	}
+	got, err := Resolve(sc, "Bearer ${token:shop}")
+	if err != nil {
+		t.Fatal(err)
+	}
+	jwt := strings.TrimPrefix(got, "Bearer ")
+	if strings.Count(jwt, ".") != 2 || Mask(sc, got) != "Bearer "+Masked {
+		t.Errorf("resolved %q, masked %q", got, Mask(sc, got))
+	}
+	if _, err := Resolve(sc, "Bearer ${token:courier}"); err == nil || !strings.Contains(err.Error(), `no token named "courier"`) {
+		t.Errorf("an unknown token: %v", err)
+	}
+	if got, err := Resolve(sc, "no tokens here"); err != nil || got != "no tokens here" {
+		t.Errorf("%q %v", got, err)
 	}
 }

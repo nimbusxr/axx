@@ -40,6 +40,15 @@ const restFeature = `Feature: REST requests
     Given a GET request to /api/parcels
     And the shop's signed webhook request to /webhooks/stripe
     When the 2nd ordered request is executed
+
+  Scenario: a token is registered before any request
+    Given the shop token with the following properties:
+      | key        | shop-token-key |
+      | claim.shop | maple-crafts   |
+    And a GET request to /api/shops/maple-crafts/parcels
+    And the request is authorized with the shop token
+    And the request is authorized with the shop token for 2nd ordered request
+    When the request is executed
 `
 
 // A project's pack whose step adds a request through the rest pack's
@@ -84,6 +93,7 @@ func TestCheckRESTRequests(t *testing.T) {
 		"13 AXX-E0832 this step uses the 2nd request of service parcels, but only 1 request was added before it, so it always fails",
 		"20 AXX-E0832 this step adds the 2nd request of service parcels, but no request was added before it, so it fails; add the 1st first: requests are numbered in the order they are added",
 		"22 AXX-E0832 this step uses the 1st request of service parcels, but no request was added before it, so it always fails",
+		"35 AXX-E0832 this step uses the 2nd request of service parcels, but only 1 request was added before it, so it always fails",
 	}
 	if strings.Join(got, "\n") != strings.Join(want, "\n") {
 		t.Errorf("findings:\n%s\nwant:\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))

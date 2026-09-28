@@ -569,3 +569,74 @@ A row is a form field's name and the value it has, or `undefined`.
 Then none of the mocked POST requests to path /v1/pickups on courier have the form fields:
   | reference | PX-WEB-5302 |
 ```
+
+## `mock.signed`
+
+```gherkin
+Then the mocked request named {word}[[ on {mockedService}]] is signed in the {word} header with the following properties:
+  | property | value |
+```
+
+Check that the named request was received, and that every request it names is signed in the header: an HMAC of its body, or of what the `signs` template gives, made with the key.
+
+- axx signs what the mock received, byte for byte, its method and its path with the query, and compares the signatures.
+- `{timestamp}` is read from the header's value, or from the timestamp header.
+- The key expands `${env:..}`, and is masked.
+
+| Parameter | Takes | For example |
+|---|---|---|
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+| `{mockedService}` | the name of a mocked service the scenario registered | `addresses` |
+
+| Property | Takes | Values | Default |
+|---|---|---|---|
+| `key` | the secret the signature is made with, like `${env:COURIER_WEBHOOK_KEY}` |  | _required_ |
+| `algorithm` | the HMAC | `hmac-sha256`, `hmac-sha1`, `hmac-sha512` | `hmac-sha256` |
+| `signs` | what is signed: a template of `{body}`, `{timestamp}` (Unix seconds), `{method}` and `{path}` (with the query), like `{timestamp}.{body}` |  | ``{body}`` |
+| `encoding` | how the signature is written | `hex`, `base64` | `hex` |
+| `value` | the header's value: a template of `{signature}` and `{timestamp}`, like `sha256={signature}` or `t={timestamp},v1={signature}` |  | ``{signature}`` |
+| `timestamp header` | a header that also carries `{timestamp}`, as Slack's `X-Slack-Request-Timestamp` does |  | |
+
+**Variants**, the parts in `[[...]]` said or left out:
+
+- `the mocked request named {word} is signed in the {word} header with the following properties:`
+- `the mocked request named {word} on {mockedService} is signed in the {word} header with the following properties:`
+
+**Example:**
+
+```gherkin
+Then the mocked request named status-callback on shops is signed in the X-Parcels-Signature header with the following properties:
+  | key   | ${env:SHOP_WEBHOOK_KEY} |
+  | value | sha256={signature}      |
+```
+
+_Since 0.1.5._
+
+## `mock.webhook`
+
+```gherkin
+Then the mocked request named {word}[[ on {mockedService}]] is signed as a standard webhook with the key {string}
+```
+
+Check that the named request was received, and that every request it names is a Standard Webhook (standardwebhooks.com) signed with the key: its `webhook-signature` has the signature of its `webhook-id`, `webhook-timestamp` and body.
+
+- The key is `whsec_` and the key in base64, as Standard Webhooks give it; it expands `${env:..}`, and is masked.
+
+| Parameter | Takes | For example |
+|---|---|---|
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+| `{mockedService}` | the name of a mocked service the scenario registered | `addresses` |
+| `{string}` | text in double or single quotes, which the step leaves out | `"Get a quote"`, `'Express'` |
+
+**Variants**, the parts in `[[...]]` said or left out:
+
+- `the mocked request named {word} is signed as a standard webhook with the key {string}`
+- `the mocked request named {word} on {mockedService} is signed as a standard webhook with the key {string}`
+
+**Example:**
+
+```gherkin
+Then the mocked request named delivered on shops is signed as a standard webhook with the key '${env:SHOP_WEBHOOK_KEY}'
+```
+
+_Since 0.1.5._

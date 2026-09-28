@@ -129,7 +129,10 @@ func open(sc *core.Scenario, a core.Args) error {
 	var url string
 	header := http.Header{}
 	for _, p := range pairs {
-		v := secrets.Expand(sc, p.Value)
+		v, err := secrets.Resolve(sc, p.Value)
+		if err != nil {
+			return err
+		}
 		switch {
 		case p.Key == "url":
 			url = strings.TrimSpace(v)

@@ -36,7 +36,12 @@ type service struct {
 	events   *events
 	printing *printing
 	labels   labeler
+	rec      *recorder
 	log      *slog.Logger
+
+	courierKey   []byte            // signs the courier's callbacks
+	shopTokenKey []byte            // signs the shops' tokens
+	shopClients  map[string]string // the shops' client credentials
 }
 
 // registration is a parcel to register, from the API or a manifest line.
@@ -149,6 +154,9 @@ func (s *service) routes() http.Handler {
 	mux.HandleFunc("GET /api/parcels/{reference}/tracking", s.trackingView)
 	mux.HandleFunc("GET /api/parcels/{reference}/events", s.trackingEvents)
 	mux.HandleFunc("GET /api/parcels/{reference}/label", s.label)
+	mux.HandleFunc("POST /api/courier/callbacks", s.courierCallback)
+	mux.HandleFunc("GET /api/shops/{shop}/parcels", s.shopParcels)
+	mux.HandleFunc("POST /oauth/token", s.issueToken)
 	s.portalRoutes(mux)
 	return s.logRequests(mux)
 }

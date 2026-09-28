@@ -1,0 +1,8 @@
+parcels.parcels:
+  - reference: "PX-WHK-9102"
+    sender: "maple-crafts"
+    status: "REGISTERED"
+    service_level: "EXPRESS"
+    weight_grams: 700
+    recipient: '{"name": "Ben Schulz", "street": "Nikolaistr. 20", "city": "Leipzig", "postcode": "04109", "country": "DE"}'
+    details: '{"source": "api", "zone": "DE-1"}'
