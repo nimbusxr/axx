@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"os"
 	"path"
+	"path/filepath"
 	"regexp"
 	"sort"
 	"strconv"
@@ -81,11 +82,12 @@ func (l *loader) Load(u string) (any, error) {
 	var err error
 	switch {
 	case strings.HasPrefix(u, "file://"):
-		p, perr := url.Parse(u)
+		// file:///C:/... on Windows.
+		p, perr := jsonschema.FileLoader{}.ToFile(u)
 		if perr != nil {
 			return nil, perr
 		}
-		raw, err = os.ReadFile(p.Path)
+		raw, err = os.ReadFile(p)
 	case strings.HasPrefix(u, "http://"), strings.HasPrefix(u, "https://"):
 		// The document is read once per run, whatever scenario asks first:
 		// the client's timeout bounds it, not the scenario.
@@ -484,7 +486,13 @@ func addressPattern(address string) *regexp.Regexp {
 	return regexp.MustCompile(b.String())
 }
 
-// fileURL is the URL of a document of the project.
+// fileURL is the URL of a document of the project, from its absolute
+// path: file:///C:/... for a Windows path, whose drive would otherwise read
+// as the URL's host.
 func fileURL(p string) string {
-	return (&url.URL{Scheme: "file", Path: path.Clean(strings.ReplaceAll(p, `\`, "/"))}).String()
+	u := path.Clean(filepath.ToSlash(p))
+	if !strings.HasPrefix(u, "/") {
+		u = "/" + u
+	}
+	return (&url.URL{Scheme: "file", Path: u}).String()
 }

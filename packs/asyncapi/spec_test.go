@@ -166,3 +166,14 @@ func TestAddressPattern(t *testing.T) {
 		}
 	}
 }
+
+func TestFileURLs(t *testing.T) {
+	for p, want := range map[string]string{
+		"/srv/parcels/asyncapi.yaml":    "file:///srv/parcels/asyncapi.yaml",
+		"C:/work/parcels/asyncapi.yaml": "file:///C:/work/parcels/asyncapi.yaml",
+	} {
+		if got := fileURL(p); got != want {
+			t.Errorf("fileURL(%q) = %q, want %q", p, got, want)
+		}
+	}
+}
