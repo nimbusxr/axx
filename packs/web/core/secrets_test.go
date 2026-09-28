@@ -5,17 +5,15 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
-	"fmt"
 	"io"
 	"os"
 	"path/filepath"
-	"slices"
 	"strings"
 	"testing"
 
 	"github.com/nimbusxr/axx/core"
 	"github.com/nimbusxr/axx/internal/interp"
+	"github.com/nimbusxr/axx/internal/secrets"
 )
 
 const password = `Fjord & "north" 2026/ü`
@@ -24,71 +22,6 @@ func secretSuite() *core.Suite {
 	env := interp.MapLookup(map[string]string{"SHOP_PASSWORD": password, "SHOP_EMAIL": "orders@fjord-outdoor.example", "EMPTY": ""})
 	r := &interp.Resolver{Lookups: map[string]interp.Lookup{"env": env}}
 	return core.NewSuite(core.SuiteOptions{Interpolate: r.MustExpand})
-}
-
-func TestSecretsAreWhatEnvReferencesExpandTo(t *testing.T) {
-	s := secretSuite()
-	for _, c := range []struct {
-		in   string
-		want []string
-	}{
-		{"${env:SHOP_PASSWORD}", []string{password}},
-		{"user ${env:SHOP_EMAIL}, password ${env:SHOP_PASSWORD}", []string{"orders@fjord-outdoor.example", password}},
-		{"${env:MISSING:-${env:SHOP_PASSWORD}}", []string{password}},
-		{"${env:MISSING:-local-dev}", []string{"local-dev"}},
-		{"$${env:SHOP_PASSWORD}", nil},
-		{"${env:MISSING}", nil},
-		{"${env:EMPTY}", nil},
-		{"${sys:portal.url}", nil},
-		{"Fjord Outdoor", nil},
-		{"${env:SHOP_PASSWORD", nil},
-	} {
-		if got := secretsIn(s, c.in); !slices.Equal(got, c.want) {
-			t.Errorf("%s: got %q, want %q", c.in, got, c.want)
-		}
-	}
-}
-
-func TestSecretsAreMaskedInFailures(t *testing.T) {
-	sc := core.NewScenario(context.Background(), core.ScenarioInfo{ID: "1", Name: "sign in"}, secretSuite(), nil)
-	if v := expand(sc, "${env:SHOP_PASSWORD}"); v != password {
-		t.Fatalf("expanded to %q", v)
-	}
-	if err := hide(sc, core.Fail(`The page does not show "`+password+`"`, password, "Log in to Your Account")); err.Error() !=
-		"The page does not show \"********\"\n  expected: \"********\"\n  actual:   \"Log in to Your Account\"" {
-		t.Errorf("assertion: %v", err)
-	}
-	err := hide(sc, fmt.Errorf("wrapped: %w", core.Fail("no "+password, nil, nil)))
-	if strings.Contains(err.Error(), password) || !core.IsAssertion(err) {
-		t.Errorf("wrapped assertion: %v", err)
-	}
-	if err := hide(sc, io.EOF); !errors.Is(err, io.EOF) {
-		t.Errorf("an error without secrets changed: %v", err)
-	}
-	if err := hide(sc, os.ErrNotExist); !errors.Is(err, os.ErrNotExist) {
-		t.Errorf("an error without secrets changed: %v", err)
-	}
-}
-
-func TestMaskingCoversEncodings(t *testing.T) {
-	st := &pages{}
-	st.keep([]string{password})
-	r := st.masker()
-	for _, s := range []string{
-		password,
-		"login=orders%40fjord-outdoor.example&password=Fjord+%26+%22north%22+2026%2F%C3%BC",
-		"/reset/Fjord%20&%20%22north%22%202026%2F%C3%BC",
-		`<input value="Fjord &amp; &#34;north&#34; 2026/ü">`,
-		`{"value":"Fjord & \"north\" 2026/ü"}`,
-		`{"value":"Fjord \u0026 \"north\" 2026/ü"}`,
-	} {
-		if got := r.Replace(s); !strings.Contains(got, masked) {
-			t.Errorf("not masked: %s", got)
-		}
-	}
-	if (&pages{}).masker() != nil {
-		t.Error("a masker without secrets")
-	}
 }
 
 // A trace's event logs keep their shape; every text in it is masked, and
@@ -109,9 +42,9 @@ func TestTracesAreScrubbed(t *testing.T) {
 	}
 	writeZip(t, path, files)
 
-	st := &pages{}
-	st.keep([]string{password})
-	if err := scrubTrace(path, st.masker()); err != nil {
+	sc := core.NewScenario(context.Background(), core.ScenarioInfo{ID: "1", Name: "sign in"}, secretSuite(), nil)
+	secrets.Keep(sc, password)
+	if err := scrubTrace(path, secrets.Replacer(sc)); err != nil {
 		t.Fatal(err)
 	}
 	got := readZip(t, path)

@@ -10,6 +10,8 @@ import (
 	"strings"
 
 	"github.com/nimbusxr/axx/internal/config"
+
+	"github.com/nimbusxr/axx/internal/proc"
 )
 
 // tokenRE splits a command line the way the original runner did: a
@@ -48,7 +50,7 @@ func commandArgv(c config.Command, shell bool) ([]string, error) {
 		if strings.TrimSpace(line) == "" {
 			return nil, errEmptyCommand
 		}
-		return shellArgv(line), nil
+		return proc.ShellArgv(line), nil
 	}
 	argv := c.Argv
 	if len(argv) == 0 {

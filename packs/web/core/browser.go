@@ -22,6 +22,7 @@ import (
 
 	"github.com/nimbusxr/axx/core"
 	"github.com/nimbusxr/axx/internal/cloudstep"
+	"github.com/nimbusxr/axx/internal/secrets"
 	"github.com/nimbusxr/axx/packs/web/internal/driver"
 )
 
@@ -502,7 +503,6 @@ type pages struct {
 	byApp   map[string]*session
 	order   []*session
 	current *session
-	secrets map[string]bool
 	// clock is the time a step set the browser's clock to, when it did, and
 	// offline whether a step took the browser offline: they hold for every
 	// web app of the scenario, those opened later too.
@@ -678,7 +678,7 @@ func open(sc *core.Scenario, a *App) (*session, error) {
 	}
 	st.byApp[a.Name], st.current = s, s
 	st.order = append(st.order, s)
-	sc.Describe(Name, func() any { return describe(st) })
+	sc.Describe(Name, func() any { return describe(sc, st) })
 	return s, nil
 }
 
@@ -890,10 +890,10 @@ func current(sc *core.Scenario) (*session, error) {
 }
 
 // describe is the pages' state for failure reports.
-func describe(st *pages) any {
+func describe(sc *core.Scenario, st *pages) any {
+	r := secrets.Replacer(sc)
 	st.mu.Lock()
 	defer st.mu.Unlock()
-	r := st.masker()
 	if r == nil {
 		r = strings.NewReplacer()
 	}
@@ -927,10 +927,10 @@ func closePages(sc *core.Scenario, st *pages) error {
 	if failed && cfg.pause {
 		pauseWhereFailed(sc, st)
 	}
+	scrubber := secrets.Replacer(sc)
+	mask := scrubber
 	st.mu.Lock()
 	defer st.mu.Unlock()
-	secrets := st.masker()
-	mask := secrets
 	if mask == nil {
 		mask = strings.NewReplacer()
 	}
@@ -950,7 +950,7 @@ func closePages(sc *core.Scenario, st *pages) error {
 		}
 		if cfg.traces != "never" {
 			if keep(cfg.traces, failed) {
-				keepTrace(sc, s, secrets)
+				keepTrace(sc, s, scrubber)
 			} else {
 				_ = s.ctx.Tracing().Stop()
 			}
@@ -979,13 +979,13 @@ func (s *session) scriptErrors() []string {
 	return out
 }
 
-func keepTrace(sc *core.Scenario, s *session, secrets *strings.Replacer) {
+func keepTrace(sc *core.Scenario, s *session, mask *strings.Replacer) {
 	path := artifactPath(sc, "traces", s.app, ".zip")
 	if err := s.ctx.Tracing().Stop(path); err != nil {
 		return
 	}
-	if secrets != nil {
-		if err := scrubTrace(path, secrets); err != nil {
+	if mask != nil {
+		if err := scrubTrace(path, mask); err != nil {
 			_ = os.Remove(path)
 			sc.Log("the %s web app's trace was not kept: its secrets could not be masked: %v", s.app.Name, err)
 			return

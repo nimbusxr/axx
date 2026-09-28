@@ -143,6 +143,7 @@ func (s *service) routes() http.Handler {
 	mux.HandleFunc("PATCH /api/parcels/{reference}", s.update)
 	mux.HandleFunc("DELETE /api/parcels/{reference}", s.remove)
 	mux.HandleFunc("GET /api/parcels/{reference}/tracking", s.trackingView)
+	mux.HandleFunc("GET /api/parcels/{reference}/events", s.trackingEvents)
 	mux.HandleFunc("GET /api/parcels/{reference}/label", s.label)
 	s.portalRoutes(mux)
 	return s.logRequests(mux)

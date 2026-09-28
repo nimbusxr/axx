@@ -8,6 +8,8 @@ import (
 	"testing"
 
 	"github.com/nimbusxr/axx/internal/config"
+
+	"github.com/nimbusxr/axx/internal/proc"
 )
 
 func TestTokenize(t *testing.T) {
@@ -47,8 +49,8 @@ func TestCommandArgv(t *testing.T) {
 	}{
 		{"argv verbatim", config.Command{Argv: []string{"my tool", `"x"`, "a b"}}, false, []string{"my tool", `"x"`, "a b"}, false},
 		{"line tokenized", config.Command{Line: `run "a b" c`}, false, []string{"run", "a b", "c"}, false},
-		{"shell line", config.Command{Line: "echo $HOME | wc"}, true, shellArgv("echo $HOME | wc"), false},
-		{"shell argv joined", config.Command{Argv: []string{"echo", "hi"}}, true, shellArgv("echo hi"), false},
+		{"shell line", config.Command{Line: "echo $HOME | wc"}, true, proc.ShellArgv("echo $HOME | wc"), false},
+		{"shell argv joined", config.Command{Argv: []string{"echo", "hi"}}, true, proc.ShellArgv("echo hi"), false},
 		{"empty", config.Command{}, false, nil, true},
 		{"blank line", config.Command{Line: "   "}, false, nil, true},
 		{"empty program", config.Command{Argv: []string{""}}, false, nil, true},

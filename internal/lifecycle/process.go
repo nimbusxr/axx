@@ -12,6 +12,8 @@ import (
 	"time"
 
 	"github.com/nimbusxr/axx/internal/axxerr"
+
+	"github.com/nimbusxr/axx/internal/proc"
 )
 
 // drainWait bounds how long output is read after a process has exited
@@ -83,7 +85,7 @@ func (p *pipes) close() {
 // process is a launched app.
 type process struct {
 	cmd       *exec.Cmd
-	group     *procGroup
+	group     *proc.Group
 	pipes     *pipes
 	argv      []string
 	startedAt time.Time
@@ -102,7 +104,7 @@ func (m *Manager) launch(a *app, argv []string) (*process, error) {
 	name := a.cfg.Name
 	cmd := exec.Command(argv[0], argv[1:]...) //nolint:noctx // the app outlives Start's ctx; Stop terminates its process group
 	cmd.Dir, cmd.Env = a.dir, a.env
-	setupCmd(cmd)
+	proc.Setup(cmd)
 	pp, err := newPipes(cmd)
 	if err != nil {
 		return nil, envErr(CodeLaunchFailed, "app %s could not be started: %v", name, err)
@@ -112,7 +114,7 @@ func (m *Manager) launch(a *app, argv []string) (*process, error) {
 		return nil, envErr(CodeLaunchFailed, "app %s could not be started: %v", name, err).
 			WithHint("check apps.%s.command: `%s` must be an executable on PATH or relative to %s", name, argv[0], a.dir)
 	}
-	group, err := newProcGroup(cmd)
+	group, err := proc.NewGroup(cmd)
 	if err != nil {
 		_ = cmd.Process.Kill()
 		_ = cmd.Wait()
@@ -168,11 +170,11 @@ func (m *Manager) stopApp(ctx context.Context, a *app) error {
 	name := a.cfg.Name
 	var errs []error
 	p.stopping.Store(true)
-	if p.group.alive() {
+	if p.group.Alive() {
 		m.log.Info("stopping app", "app", name)
 	}
 	if err := terminate(ctx, p.group, a.cfg.Stop.Signal, a.cfg.Stop.Grace.Or(defaultGrace)); err != nil {
-		_, pgid := p.group.ids()
+		_, pgid := p.group.IDs()
 		errs = append(errs, envErr(CodeStopFailed, "app %s could not be stopped: %v", name, err).
 			WithHint("stop its processes by hand (process group %d)", pgid))
 	}
@@ -183,7 +185,7 @@ func (m *Manager) stopApp(ctx context.Context, a *app) error {
 	}
 	t.Stop()
 	p.pipes.drain(drainWait)
-	p.group.release()
+	p.group.Release()
 
 	var cleanupErr error
 	if a.cleanup != nil {
@@ -211,7 +213,7 @@ func runCleanup(ctx context.Context, con *console, tail *ring, name string, argv
 	cmd.Dir, cmd.Env = dir, env
 	// Its own process group keeps a second Ctrl-C in the terminal from
 	// interrupting it.
-	setupCmd(cmd)
+	proc.Setup(cmd)
 	fail := func(err error) *axxerr.Error {
 		return envErr(CodeCleanupFailed, "cleanup of app %s failed: `%s` %v", name, displayArgv(argv), err).
 			WithHint("run it by hand in %s, and check apps.%s.cleanup", dir, name)

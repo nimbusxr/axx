@@ -1,0 +1,19 @@
+parcels.parcels:
+  - reference: "PX-ADM-6105"
+    sender: "pebble-and-pine"
+    status: "REGISTERED"
+    service_level: "STANDARD"
+    weight_grams: 800
+    recipient: '{"name": "Nora Weiss", "street": "Domplatz 2", "city": "Erfurt", "postcode": "99084", "country": "DE"}'
+    details: '{"source": "api", "zone": "DE-1"}'
+    created_at: "2026-09-24 09:15:00+00"
+    updated_at: "2026-09-24 09:15:00+00"
+  - reference: "PX-ADM-6106"
+    sender: "pebble-and-pine"
+    status: "IN_TRANSIT"
+    service_level: "EXPRESS"
+    weight_grams: 2400
+    recipient: '{"name": "Jonas Roth", "street": "Anger 17", "city": "Erfurt", "postcode": "99084", "country": "DE"}'
+    details: '{"source": "api", "zone": "DE-1"}'
+    created_at: "2026-09-25 14:30:00+00"
+    updated_at: "2026-09-26 07:05:00+00"

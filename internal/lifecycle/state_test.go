@@ -11,6 +11,8 @@ import (
 	"testing"
 
 	"github.com/nimbusxr/axx/internal/config"
+
+	"github.com/nimbusxr/axx/internal/proc"
 )
 
 func TestStateFileAndReap(t *testing.T) {
@@ -53,7 +55,7 @@ func TestStateFileAndReap(t *testing.T) {
 		t.Errorf("reaped %q", reaped)
 	}
 	for _, name := range []string{"db", "api"} {
-		if pid := h.pidOf(t, name); processAlive(pid) {
+		if pid := h.pidOf(t, name); proc.ProcessAlive(pid) {
 			t.Errorf("%s (pid %d) survived Reap", name, pid)
 		}
 	}

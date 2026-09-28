@@ -16,6 +16,8 @@ import (
 	"github.com/nimbusxr/axx/internal/axxerr"
 	"github.com/nimbusxr/axx/internal/config"
 	"github.com/nimbusxr/axx/internal/exitcode"
+
+	"github.com/nimbusxr/axx/internal/proc"
 )
 
 // Options configures a Manager.
@@ -151,7 +153,7 @@ func newApp(c config.App) (*app, error) {
 	if a.debug, err = parseDebug(c); err != nil {
 		return nil, err
 	}
-	if err := checkSignal(c.Stop.Signal); err != nil {
+	if err := proc.CheckSignal(c.Stop.Signal); err != nil {
 		return nil, configErr(CodeInvalidConfig, "apps.%s.stop.signal: %v", c.Name, err)
 	}
 	if c.Stop.Grace < 0 {

@@ -20,6 +20,9 @@ properties:
   local.host: localhost
   # The shop portal, where the browsers find it.
   portal.url: http://localhost:8400/portal
+  # The operations desk's command, run in the service's container (from ../infra). Under
+  # `axx run --debug` the service runs on the host: -D 'parcels.admin=go run ../app admin'.
+  parcels.admin: docker compose exec -T app parcels admin
 
 apps:
   parcels:

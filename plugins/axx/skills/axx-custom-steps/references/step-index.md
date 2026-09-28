@@ -300,6 +300,36 @@ files | files.contains | the {word} file in the {word} folder contains {string}
 files | files.contains | within {duration} the {word} file in the {word} folder contains {string}
 files | files.row | the {word} file in the {word} folder has a row where:  [+table]
 files | files.row | within {duration} the {word} file in the {word} folder has a row where:  [+table]
+cli | cli.command | the {word} command with the following properties:  [+table]
+cli | cli.run | the {word} command is run
+cli | cli.run | the {word} command is run with {string}
+cli | cli.run.input | the {word} command is run with the input:  [+docstring]
+cli | cli.run.input | the {word} command is run with {string} and the input:  [+docstring]
+cli | cli.exit | the {word} command's exit code is {int}
+cli | cli.output.contains | the {word} command's output contains {string}
+cli | cli.output.contains | the {word} command's error output contains {string}
+cli | cli.output.line | the {word} command's output has a line matching {string}
+cli | cli.output.line | the {word} command's error output has a line matching {string}
+cli | cli.output.is | the {word} command's output is:  [+docstring]
+cli | cli.output.is | the {word} command's error output is:  [+docstring]
+cli | cli.output.empty | the {word} command's output is empty
+cli | cli.output.empty | the {word} command's error output is empty
+cli | cli.output.properties | the {word} command's output has the following properties:  [+table]
+cli | cli.output.identical | the {word} command's output is identical to the {filepath} file
+websocket | websocket.connect | the {word} websocket with the following properties:  [+table]
+websocket | websocket.send | a message is sent to the {word} websocket:  [+docstring]
+websocket | websocket.send.file | the {filepath} message is sent to the {word} websocket
+websocket | websocket.received | the {word} websocket received a message where:  [+table]
+websocket | websocket.received | within {duration} the {word} websocket received a message where:  [+table]
+websocket | websocket.received.text | the {word} websocket received a message containing {string}
+websocket | websocket.received.text | within {duration} the {word} websocket received a message containing {string}
+websocket | websocket.closed | the {word} websocket was closed with code {int}
+websocket | websocket.closed | within {duration} the {word} websocket was closed with code {int}
+sse | sse.stream | the {word} event stream with the following properties:  [+table]
+sse | sse.event | the {word} event stream has an event where:  [+table]
+sse | sse.event | within {duration} the {word} event stream has an event where:  [+table]
+sse | sse.event.text | the {word} event stream has an event containing {string}
+sse | sse.event.text | within {duration} the {word} event stream has an event containing {string}
 web-core | web-core.app | the {word} web app with the following properties:  [+table]
 web-core | web-core.open | the {string} page is opened
 web-core | web-core.open | the {string} page of the {word} web app is opened

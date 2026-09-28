@@ -1,0 +1,13 @@
+parcels.parcels:
+  - reference: "PX-ADM-6103"
+    sender: "sorrel-and-sage"
+    service_level: "STANDARD"
+    weight_grams: 700
+    recipient: '{"name": "Ida Krause", "street": "Bergstr. 3", "city": "Heidelberg", "postcode": "69120", "country": "DE"}'
+    details: '{"source": "api", "zone": "DE-1"}'
+  - reference: "PX-ADM-6104"
+    sender: "sorrel-and-sage"
+    service_level: "STANDARD"
+    weight_grams: 1200
+    recipient: '{"name": "Paul Lenz", "street": "Neckarstaden 9", "city": "Heidelberg", "postcode": "69117", "country": "DE"}'
+    details: '{"source": "api", "zone": "DE-1"}'
