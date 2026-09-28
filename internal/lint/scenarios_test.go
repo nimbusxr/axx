@@ -74,7 +74,7 @@ func TestScenarioHints(t *testing.T) {
 	}
 	got := ScenarioHints(e.Registry, pickles, Options{})
 	want := []string{
-		"2 scenarios check only a success status code, which says a request was accepted, not what it did: checks.feature:9, checks.feature:37 (check what it did too: a response property, a row, a message)",
+		"2 scenarios check only a success status (a 2xx response, a command's exit code 0), which says it was accepted, not what it did: checks.feature:9, checks.feature:37 (check what it did too: a response property, a row, a message, the output)",
 		"1 scenario checks only that something did not happen, which also passes when the action never ran: checks.feature:25 (check something it did do too)",
 	}
 	if strings.Join(got, "\n") != strings.Join(want, "\n") {
@@ -97,7 +97,7 @@ func TestScenarioHintsNameAFewScenarios(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := ScenarioHints(e.Registry, pickles, Options{})
-	if len(got) != 1 || !strings.Contains(got[0], "7 scenarios check only a success status code") ||
+	if len(got) != 1 || !strings.Contains(got[0], "7 scenarios check only a success status") ||
 		!strings.Contains(got[0], "many.feature:27 and 2 more (check") {
 		t.Errorf("hints: %v", got)
 	}

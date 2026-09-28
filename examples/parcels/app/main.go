@@ -83,6 +83,9 @@ func loadConfig() (config, error) {
 }
 
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == "admin" {
+		os.Exit(admin(os.Args[2:], os.Stdin, os.Stdout, os.Stderr))
+	}
 	cfg, err := loadConfig()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "parcels:", err)

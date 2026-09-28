@@ -9,6 +9,7 @@ import (
 	"github.com/mxschmitt/playwright-go"
 
 	"github.com/nimbusxr/axx/core"
+	"github.com/nimbusxr/axx/internal/secrets"
 )
 
 // tools are what the web-core pack lets coding agents do through `axx mcp`:
@@ -56,13 +57,13 @@ func lookAtPage(call *core.ToolCall) (*core.ToolResult, error) {
 		return nil, err
 	}
 	st := scenarioPages.Of(call.Scenario)
+	// Secrets the steps used stay masked, as in failures.
+	mask := secrets.Replacer(call.Scenario)
 	st.mu.Lock()
 	s := st.current
 	if in.App != "" {
 		s = st.byApp[in.App]
 	}
-	// Secrets the steps used stay masked, as in failures.
-	mask := st.masker()
 	st.mu.Unlock()
 	if mask == nil {
 		mask = strings.NewReplacer()

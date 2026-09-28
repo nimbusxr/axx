@@ -1,6 +1,6 @@
 //go:build windows
 
-package lifecycle
+package proc
 
 import (
 	"errors"
@@ -21,12 +21,12 @@ func comspec() string {
 	return "cmd.exe"
 }
 
-// shellArgv runs line through cmd.exe.
-func shellArgv(line string) []string { return []string{comspec(), "/C", line} }
+// ShellArgv runs line through cmd.exe.
+func ShellArgv(line string) []string { return []string{comspec(), "/C", line} }
 
-// setupCmd starts cmd in its own process group; newProcGroup then puts it in
+// Setup starts cmd in its own process group; NewGroup then puts it in
 // a Job Object.
-func setupCmd(cmd *exec.Cmd) {
+func Setup(cmd *exec.Cmd) {
 	attr := &syscall.SysProcAttr{CreationFlags: windows.CREATE_NEW_PROCESS_GROUP}
 	if a := cmd.Args; len(a) == 3 && a[0] == comspec() && a[1] == "/C" {
 		// Hand the line to cmd.exe verbatim: with /S, cmd strips exactly the
@@ -37,10 +37,10 @@ func setupCmd(cmd *exec.Cmd) {
 	cmd.SysProcAttr = attr
 }
 
-// procGroup is the process tree of an app: a Job Object for apps this
+// Group is the process tree of an app: a Job Object for apps this
 // process started (closing it kills the tree, even if axx crashes), or a
 // plain process handle for an app recorded in a state file.
-type procGroup struct {
+type Group struct {
 	pid  int
 	job  windows.Handle
 	proc windows.Handle
@@ -58,9 +58,9 @@ type jobAccounting struct {
 	TotalTerminatedProcesses  uint32
 }
 
-// newProcGroup puts a freshly started command in a new Job Object that kills
+// NewGroup puts a freshly started command in a new Job Object that kills
 // all its processes when the job is closed.
-func newProcGroup(cmd *exec.Cmd) (*procGroup, error) {
+func NewGroup(cmd *exec.Cmd) (*Group, error) {
 	job, err := windows.CreateJobObject(nil, nil)
 	if err != nil {
 		return nil, fmt.Errorf("create job object: %w", err)
@@ -85,30 +85,30 @@ func newProcGroup(cmd *exec.Cmd) (*procGroup, error) {
 		_ = windows.CloseHandle(job)
 		return nil, fmt.Errorf("assign process %d to job object: %w", cmd.Process.Pid, err)
 	}
-	return &procGroup{pid: cmd.Process.Pid, job: job}, nil
+	return &Group{pid: cmd.Process.Pid, job: job}, nil
 }
 
-// openProcGroup opens a process recorded in a state file. Its children were
+// OpenGroup opens a process recorded in a state file. Its children were
 // in the recording run's Job Object and died when that run exited.
-func openProcGroup(pid, _ int) (*procGroup, error) {
+func OpenGroup(pid, _ int) (*Group, error) {
 	if pid <= 0 {
 		return nil, fmt.Errorf("invalid process id %d", pid)
 	}
 	h, err := windows.OpenProcess(windows.PROCESS_TERMINATE|windows.PROCESS_QUERY_LIMITED_INFORMATION|windows.SYNCHRONIZE, false, uint32(pid))
 	switch {
 	case errors.Is(err, windows.ERROR_INVALID_PARAMETER):
-		return &procGroup{pid: pid}, nil // no such process: already gone
+		return &Group{pid: pid}, nil // no such process: already gone
 	case err != nil:
 		return nil, fmt.Errorf("open process %d: %w", pid, err)
 	}
-	return &procGroup{pid: pid, proc: h}, nil
+	return &Group{pid: pid, proc: h}, nil
 }
 
 // ids returns the process id twice: Windows has no process group ids here.
-func (g *procGroup) ids() (pid, pgid int) { return g.pid, g.pid }
+func (g *Group) IDs() (pid, pgid int) { return g.pid, g.pid }
 
 // alive reports whether any process of the tree still runs.
-func (g *procGroup) alive() bool {
+func (g *Group) Alive() bool {
 	switch {
 	case g.job != 0:
 		var acct jobAccounting
@@ -126,10 +126,10 @@ func (g *procGroup) alive() bool {
 // interrupt cannot ask a process tree to stop on Windows (console apps
 // have no SIGTERM, and CTRL_BREAK makes a JVM print a thread dump instead of
 // exiting), so the tree is terminated right away.
-func (g *procGroup) interrupt(string) bool { return false }
+func (g *Group) Interrupt(string) bool { return false }
 
 // kill terminates every process of the tree.
-func (g *procGroup) kill() error {
+func (g *Group) Kill() error {
 	switch {
 	case g.job != 0:
 		return windows.TerminateJobObject(g.job, 1)
@@ -141,7 +141,7 @@ func (g *procGroup) kill() error {
 }
 
 // release closes the handles (closing the job kills what is left of it).
-func (g *procGroup) release() {
+func (g *Group) Release() {
 	if g.job != 0 {
 		_ = windows.CloseHandle(g.job)
 		g.job = 0
@@ -152,12 +152,12 @@ func (g *procGroup) release() {
 	}
 }
 
-// processAlive reports whether a process with this pid is running.
-func processAlive(pid int) bool {
-	g, err := openProcGroup(pid, pid)
+// ProcessAlive reports whether a process with this pid is running.
+func ProcessAlive(pid int) bool {
+	g, err := OpenGroup(pid, pid)
 	if err != nil {
 		return false
 	}
-	defer g.release()
-	return g.alive()
+	defer g.Release()
+	return g.Alive()
 }

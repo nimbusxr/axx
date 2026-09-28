@@ -12,8 +12,8 @@ import (
 )
 
 // Scenario hints name scenarios whose checks prove little, for their author
-// to judge: a success status code says a request was accepted, not what it
-// did, and a check that something did not happen also passes when the action
+// to judge: a success status (a 2xx response, a command's exit code 0) says
+// something was accepted, not what it did, and a check that something did not happen also passes when the action
 // never ran. Like every hint, they need no fix and never change the exit
 // code.
 
@@ -21,7 +21,8 @@ import (
 const scenarioHintMax = 5
 
 // ScenarioHints names the scenarios whose checks (the steps defined as
-// Then) are only success status codes of REST responses, and those whose
+// Then) are only success statuses (a REST response's 2xx, a command's exit
+// code 0), and those whose
 // checks are only absences (steps defined with Absence). A scenario with a
 // step that matches no single definition is left out.
 func ScenarioHints(reg *match.Registry, pickles []*feature.Pickle, opts Options) []string {
@@ -52,7 +53,8 @@ func ScenarioHints(reg *match.Registry, pickles []*feature.Pickle, opts Options)
 			switch {
 			case def.Step.Absence:
 				absences++
-			case def.Step.ID == "rest.response.status" && success(ms[0].Args):
+			case def.Step.ID == "rest.response.status" && success(ms[0].Args),
+				def.Step.ID == "cli.exit" && exitedZero(ms[0].Args):
 				successes++
 			}
 		}
@@ -71,7 +73,7 @@ func ScenarioHints(reg *match.Registry, pickles []*feature.Pickle, opts Options)
 	}
 	var hints []string
 	if n := len(statusOnly); n > 0 {
-		hints = append(hints, fmt.Sprintf("%d %s only a success status code, which says a request was accepted, not what it did: %s (check what it did too: a response property, a row, a message)",
+		hints = append(hints, fmt.Sprintf("%d %s only a success status (a 2xx response, a command's exit code 0), which says it was accepted, not what it did: %s (check what it did too: a response property, a row, a message, the output)",
 			n, plural(n, "scenario checks", "scenarios check"), scenarioList(statusOnly)))
 	}
 	if n := len(absenceOnly); n > 0 {
@@ -79,6 +81,16 @@ func ScenarioHints(reg *match.Registry, pickles []*feature.Pickle, opts Options)
 			n, plural(n, "scenario checks", "scenarios check"), scenarioList(absenceOnly)))
 	}
 	return hints
+}
+
+// exitedZero reports whether an exit code step's code is 0.
+func exitedZero(args []core.Arg) bool {
+	for _, a := range args {
+		if a.Present && a.Param == "int" {
+			return a.Raw == "0"
+		}
+	}
+	return false
 }
 
 // success reports whether a status code step's code is 2xx.

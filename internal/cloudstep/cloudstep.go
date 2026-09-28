@@ -272,9 +272,10 @@ func JSON(v any) string {
 // Inbox collects the messages a listener receives during a run, for the
 // "has a message where:" checks of every scenario.
 type Inbox struct {
-	mu   sync.Mutex
-	msgs []Message
-	err  error
+	mu    sync.Mutex
+	msgs  []Message
+	err   error
+	ended string
 }
 
 // Add records a received message.
@@ -296,6 +297,25 @@ func (b *Inbox) Fail(err error) {
 	b.mu.Unlock()
 }
 
+// End records that what the inbox listens to has ended (the server closed
+// the connection, the stream finished) and why. What arrived before still
+// counts; a check that finds nothing among it fails at once instead of
+// waiting for more.
+func (b *Inbox) End(why string) {
+	b.mu.Lock()
+	if b.ended == "" {
+		b.ended = why
+	}
+	b.mu.Unlock()
+}
+
+// Ended reports why what the inbox listens to ended, if it has.
+func (b *Inbox) Ended() (string, bool) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.ended, b.ended != ""
+}
+
 // Since returns the messages received at or after t, or why the listener
 // stopped.
 func (b *Inbox) Since(t time.Time) ([]Message, error) {
@@ -315,6 +335,15 @@ func (b *Inbox) Since(t time.Time) ([]Message, error) {
 // listened to ("the invoice-events pubsub topic"); field is the word for the
 // named values messages carry ("attribute", "property").
 func ExpectMessage(sc *core.Scenario, d time.Duration, in *Inbox, rs Rows, field, where string) error {
+	return ExpectMatch(sc, d, in, func(m Message) (bool, error) { return rs.MatchMessage(m, field) }, field, "message", where)
+}
+
+// ExpectMatch waits until the inbox has a message, received since the
+// scenario started, that match accepts. what is the word for one ("message",
+// "event"); where names what was listened to; field is the word for the
+// named values messages carry. When what the inbox listens to has ended, it
+// fails at once, saying why.
+func ExpectMatch(sc *core.Scenario, d time.Duration, in *Inbox, match func(Message) (bool, error), field, what, where string) error {
 	return Poll(sc, d, func() (bool, string, error) {
 		msgs, err := in.Since(sc.Started())
 		if err != nil {
@@ -322,7 +351,7 @@ func ExpectMessage(sc *core.Scenario, d time.Duration, in *Inbox, rs Rows, field
 		}
 		shown := make([]string, 0, len(msgs))
 		for _, m := range msgs {
-			ok, err := rs.MatchMessage(m, field)
+			ok, err := match(m)
 			if err != nil {
 				return false, "", err
 			}
@@ -331,8 +360,11 @@ func ExpectMessage(sc *core.Scenario, d time.Duration, in *Inbox, rs Rows, field
 			}
 			shown = append(shown, m.Describe(field))
 		}
-		return false, fmt.Sprintf("No message on %s met the conditions within %s. It received %s",
-			where, d, Shown(plural(len(shown), "message")+" since the scenario started", shown, 10)), nil
+		received := Shown(plural(len(shown), what)+" since the scenario started", shown, 10)
+		if why, ended := in.Ended(); ended {
+			return false, "", core.Failf("No %s on %s met the conditions: %s. It received %s", what, where, why, received)
+		}
+		return false, fmt.Sprintf("No %s on %s met the conditions within %s. It received %s", what, where, d, received), nil
 	})
 }
 

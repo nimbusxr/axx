@@ -1,0 +1,9 @@
+parcels.parcels:
+  - reference: "PX-ADM-6101"
+    sender: "maple-crafts"
+    status: "REGISTERED"
+    service_level: "STANDARD"
+    weight_grams: 2100
+    recipient: '{"name": "Clara Brandt", "street": "Hohe Str. 21", "city": "Dresden", "postcode": "01069", "country": "DE"}'
+    details: '{"source": "api", "zone": "DE-1"}'
+    label_number: 6101

@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"github.com/nimbusxr/axx/internal/config"
+
+	"github.com/nimbusxr/axx/internal/proc"
 )
 
 func TestStopSignals(t *testing.T) {
@@ -52,7 +54,7 @@ func TestStopSignals(t *testing.T) {
 			if !tt.wantSlow && elapsed >= grace {
 				t.Errorf("graceful stop took %s", elapsed)
 			}
-			if processAlive(pid) {
+			if proc.ProcessAlive(pid) {
 				t.Errorf("process %d is still alive", pid)
 			}
 			if got := readLines(t, file); !slices.Equal(got, tt.wantEvents) {
@@ -80,13 +82,13 @@ func TestStopKillsProcessGroup(t *testing.T) {
 		t.Fatal(err)
 	}
 	child, _ := strconv.Atoi(strings.TrimSpace(string(data)))
-	if !processAlive(child) {
+	if !proc.ProcessAlive(child) {
 		t.Fatalf("grandchild %d is not running", child)
 	}
 	if err := h.Stop(t.Context()); err != nil {
 		t.Fatal(err)
 	}
-	eventually(t, 2*time.Second, "grandchild to die", func() bool { return !processAlive(child) })
+	eventually(t, 2*time.Second, "grandchild to die", func() bool { return !proc.ProcessAlive(child) })
 	if got := readLines(t, events); !slices.Equal(got, []string{"SIGTERM"}) {
 		t.Errorf("grandchild events %q, want it to have seen SIGTERM", got)
 	}
@@ -115,13 +117,13 @@ func TestStopWithCancelledContextKillsAtOnce(t *testing.T) {
 
 func TestCheckSignal(t *testing.T) {
 	for _, name := range []string{"", "SIGTERM", "term", " sigint ", "INT", "SIGKILL"} {
-		if err := checkSignal(name); err != nil {
-			t.Errorf("checkSignal(%q): %v", name, err)
+		if err := proc.CheckSignal(name); err != nil {
+			t.Errorf("proc.CheckSignal(%q): %v", name, err)
 		}
 	}
 	for _, name := range []string{"SIGWINCH", "15", "TERMINATE"} {
-		if err := checkSignal(name); err == nil {
-			t.Errorf("checkSignal(%q) accepted", name)
+		if err := proc.CheckSignal(name); err == nil {
+			t.Errorf("proc.CheckSignal(%q) accepted", name)
 		}
 	}
 }

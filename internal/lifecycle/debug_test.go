@@ -6,7 +6,6 @@ import (
 	"slices"
 	"strconv"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
@@ -136,27 +135,32 @@ func TestDebugMode(t *testing.T) {
 				d.Port = port(t, addr)
 				app.Debug.Debugger = &d
 			}
+			h := newHarness(t, config.Apps{app}, tt.opts)
 			if tt.lateListen {
-				var mu sync.Mutex
+				// The IDE starts listening once axx has found no debugger and
+				// waits for one, however long that took: the first check fails
+				// and a later one succeeds.
+				stop, done := make(chan struct{}), make(chan struct{})
 				var late net.Listener
-				timer := time.AfterFunc(150*time.Millisecond, func() {
-					ln, err := net.Listen("tcp", addr)
-					if err == nil {
-						mu.Lock()
-						late = ln
-						mu.Unlock()
+				go func() {
+					defer close(done)
+					for !strings.Contains(h.logs.String(), "waiting for the IDE debugger to listen") {
+						select {
+						case <-stop:
+							return
+						case <-time.After(5 * time.Millisecond):
+						}
 					}
-				})
+					late, _ = net.Listen("tcp", addr)
+				}()
 				t.Cleanup(func() {
-					timer.Stop()
-					mu.Lock()
-					defer mu.Unlock()
+					close(stop)
+					<-done
 					if late != nil {
 						_ = late.Close()
 					}
 				})
 			}
-			h := newHarness(t, config.Apps{app}, tt.opts)
 			err := h.Start(t.Context(), nil)
 
 			if tt.wantCode != "" {

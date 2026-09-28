@@ -205,7 +205,7 @@ export default defineConfig({
 					label: 'Guides',
 					items: [
 						{ label: 'Set up', items: ['guides/install', 'guides/set-up-your-editor', 'guides/configure-services', 'guides/manage-app-lifecycle', 'guides/run-in-ci', 'guides/set-up-agents'] },
-						{ label: 'Test', items: ['guides/send-rest-requests', 'guides/validate-openapi', 'guides/mock-dependencies', 'guides/seed-and-query-sql', 'guides/seed-mongodb', 'guides/test-kafka-avro', 'guides/check-logs', 'guides/check-files', 'guides/test-cloud-services', 'guides/use-packs', 'guides/write-custom-steps'] },
+						{ label: 'Test', items: ['guides/send-rest-requests', 'guides/validate-openapi', 'guides/mock-dependencies', 'guides/seed-and-query-sql', 'guides/seed-mongodb', 'guides/test-kafka-avro', 'guides/test-websockets', 'guides/test-event-streams', 'guides/check-logs', 'guides/check-files', 'guides/run-commands', 'guides/test-cloud-services', 'guides/use-packs', 'guides/write-custom-steps'] },
 						{ label: 'Web apps', items: ['guides/test-web-apps', 'guides/web-pages', 'guides/web-checks', 'guides/web-sign-in', 'guides/web-screenshots', 'guides/web-accessibility', 'guides/web-network', 'guides/web-lighthouse', 'guides/web-coverage', 'guides/watch-web-browsers'] },
 						{ label: 'Test data', items: ['guides/fixture-factories', 'guides/isolate-test-data'] },
 						{ label: 'Run and diagnose', items: ['guides/parallel-runs', 'guides/tags-and-filtering', 'guides/reports', 'guides/debug-failures'] },
@@ -227,6 +227,9 @@ export default defineConfig({
 								'references/packs/kafka',
 								'references/packs/logs',
 								'references/packs/files',
+								'references/packs/cli',
+								'references/packs/websocket',
+								'references/packs/sse',
 								// A group's packs, its core first: the pack the others build on, as the
 								// core is the one every pack builds on.
 								{
@@ -300,7 +303,7 @@ export default defineConfig({
 					].join('\n'),
 					customSets: [
 						{ label: 'Tutorials', paths: ['tutorials/**'], description: 'quickstart, a first suite, and testing with a coding agent' },
-						{ label: 'Guides', paths: ['guides/**'], description: 'task guides: services, apps, CI, REST requests (redirects, cookies), OpenAPI, mocks, SQL, MongoDB, Kafka, logs, files, web apps in real browsers (pages, checks, sign-in, screenshots, accessibility, network, Lighthouse, coverage, watching and traces), cloud services (AWS, Google Cloud, Azure), test data, packs, custom steps, debugging, agents' },
+						{ label: 'Guides', paths: ['guides/**'], description: 'task guides: services, apps, CI, REST requests (redirects, cookies), OpenAPI, mocks, SQL, MongoDB, Kafka, WebSockets, server-sent events, logs, files, commands, web apps in real browsers (pages, checks, sign-in, screenshots, accessibility, network, Lighthouse, coverage, watching and traces), cloud services (AWS, Google Cloud, Azure), test data, packs, custom steps, debugging, agents' },
 						{ label: 'References', paths: ['references/**'], description: 'generated reference of the packs (settings, steps, agent tools), the steps\' grammar, the CLI and error codes, axx.yaml, JSON output and exit codes' },
 						{ label: 'Explanations', paths: ['explanations/**'], description: 'why Axx, how it works: black-box testing, isolation, step design, web browsers, OpenAPI, agents' },
 					],

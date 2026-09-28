@@ -8,6 +8,9 @@ packs:
   - kafka
   - logs
   - files
+  - cli
+  - websocket
+  - sse
   - web-core
   - web-screenshots
   - web-a11y

@@ -2,7 +2,7 @@
   "description": "The frozen catalog of built-in step text. Step text is public API: every entry must stay defined, verbatim, by its pack.",
   "counts": {
     "parameterType": 11,
-    "step": 484
+    "step": 514
   },
   "entries": [
     {
@@ -2985,6 +2985,186 @@
       "pack": "mock",
       "keyword": "Then",
       "expression": "none of the mocked {word} requests to path {word} on {mockedService} have the form fields:"
+    },
+    {
+      "kind": "step",
+      "pack": "cli",
+      "keyword": "Given",
+      "expression": "the {word} command with the following properties:"
+    },
+    {
+      "kind": "step",
+      "pack": "cli",
+      "keyword": "When",
+      "expression": "the {word} command is run"
+    },
+    {
+      "kind": "step",
+      "pack": "cli",
+      "keyword": "When",
+      "expression": "the {word} command is run with {string}"
+    },
+    {
+      "kind": "step",
+      "pack": "cli",
+      "keyword": "When",
+      "expression": "the {word} command is run with the input:"
+    },
+    {
+      "kind": "step",
+      "pack": "cli",
+      "keyword": "When",
+      "expression": "the {word} command is run with {string} and the input:"
+    },
+    {
+      "kind": "step",
+      "pack": "cli",
+      "keyword": "Then",
+      "expression": "the {word} command's exit code is {int}"
+    },
+    {
+      "kind": "step",
+      "pack": "cli",
+      "keyword": "Then",
+      "expression": "the {word} command's output contains {string}"
+    },
+    {
+      "kind": "step",
+      "pack": "cli",
+      "keyword": "Then",
+      "expression": "the {word} command's error output contains {string}"
+    },
+    {
+      "kind": "step",
+      "pack": "cli",
+      "keyword": "Then",
+      "expression": "the {word} command's output has a line matching {string}"
+    },
+    {
+      "kind": "step",
+      "pack": "cli",
+      "keyword": "Then",
+      "expression": "the {word} command's error output has a line matching {string}"
+    },
+    {
+      "kind": "step",
+      "pack": "cli",
+      "keyword": "Then",
+      "expression": "the {word} command's output is:"
+    },
+    {
+      "kind": "step",
+      "pack": "cli",
+      "keyword": "Then",
+      "expression": "the {word} command's error output is:"
+    },
+    {
+      "kind": "step",
+      "pack": "cli",
+      "keyword": "Then",
+      "expression": "the {word} command's output is empty"
+    },
+    {
+      "kind": "step",
+      "pack": "cli",
+      "keyword": "Then",
+      "expression": "the {word} command's error output is empty"
+    },
+    {
+      "kind": "step",
+      "pack": "cli",
+      "keyword": "Then",
+      "expression": "the {word} command's output has the following properties:"
+    },
+    {
+      "kind": "step",
+      "pack": "cli",
+      "keyword": "Then",
+      "expression": "the {word} command's output is identical to the {filepath} file"
+    },
+    {
+      "kind": "step",
+      "pack": "websocket",
+      "keyword": "Given",
+      "expression": "the {word} websocket with the following properties:"
+    },
+    {
+      "kind": "step",
+      "pack": "websocket",
+      "keyword": "When",
+      "expression": "a message is sent to the {word} websocket:"
+    },
+    {
+      "kind": "step",
+      "pack": "websocket",
+      "keyword": "When",
+      "expression": "the {filepath} message is sent to the {word} websocket"
+    },
+    {
+      "kind": "step",
+      "pack": "websocket",
+      "keyword": "Then",
+      "expression": "the {word} websocket received a message where:"
+    },
+    {
+      "kind": "step",
+      "pack": "websocket",
+      "keyword": "Then",
+      "expression": "within {duration} the {word} websocket received a message where:"
+    },
+    {
+      "kind": "step",
+      "pack": "websocket",
+      "keyword": "Then",
+      "expression": "the {word} websocket received a message containing {string}"
+    },
+    {
+      "kind": "step",
+      "pack": "websocket",
+      "keyword": "Then",
+      "expression": "within {duration} the {word} websocket received a message containing {string}"
+    },
+    {
+      "kind": "step",
+      "pack": "websocket",
+      "keyword": "Then",
+      "expression": "the {word} websocket was closed with code {int}"
+    },
+    {
+      "kind": "step",
+      "pack": "websocket",
+      "keyword": "Then",
+      "expression": "within {duration} the {word} websocket was closed with code {int}"
+    },
+    {
+      "kind": "step",
+      "pack": "sse",
+      "keyword": "Given",
+      "expression": "the {word} event stream with the following properties:"
+    },
+    {
+      "kind": "step",
+      "pack": "sse",
+      "keyword": "Then",
+      "expression": "the {word} event stream has an event where:"
+    },
+    {
+      "kind": "step",
+      "pack": "sse",
+      "keyword": "Then",
+      "expression": "within {duration} the {word} event stream has an event where:"
+    },
+    {
+      "kind": "step",
+      "pack": "sse",
+      "keyword": "Then",
+      "expression": "the {word} event stream has an event containing {string}"
+    },
+    {
+      "kind": "step",
+      "pack": "sse",
+      "keyword": "Then",
+      "expression": "within {duration} the {word} event stream has an event containing {string}"
     }
   ]
 }

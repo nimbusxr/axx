@@ -1,6 +1,6 @@
 //go:build unix
 
-package lifecycle
+package proc
 
 import (
 	"errors"
@@ -9,32 +9,32 @@ import (
 	"syscall"
 )
 
-// setupCmd makes cmd the leader of a new process group, so that stopping
+// Setup makes cmd the leader of a new process group, so that stopping
 // the app also stops everything it spawned. On Linux the child is also
 // killed if axx itself dies.
-func setupCmd(cmd *exec.Cmd) {
+func Setup(cmd *exec.Cmd) {
 	attr := &syscall.SysProcAttr{Setpgid: true}
 	setDeathSignal(attr)
 	cmd.SysProcAttr = attr
 }
 
-// shellArgv runs line through the POSIX shell.
-func shellArgv(line string) []string { return []string{"/bin/sh", "-c", line} }
+// ShellArgv runs line through the POSIX shell.
+func ShellArgv(line string) []string { return []string{"/bin/sh", "-c", line} }
 
-// procGroup is the process group of an app.
-type procGroup struct {
+// Group is the process group of an app.
+type Group struct {
 	pid  int
 	pgid int
 }
 
-// newProcGroup returns the group led by a freshly started command.
-func newProcGroup(cmd *exec.Cmd) (*procGroup, error) {
+// NewGroup returns the group led by a freshly started command.
+func NewGroup(cmd *exec.Cmd) (*Group, error) {
 	pid := cmd.Process.Pid
-	return &procGroup{pid: pid, pgid: pid}, nil
+	return &Group{pid: pid, pgid: pid}, nil
 }
 
-// openProcGroup returns a group recorded in a state file.
-func openProcGroup(pid, pgid int) (*procGroup, error) {
+// OpenGroup returns a group recorded in a state file.
+func OpenGroup(pid, pgid int) (*Group, error) {
 	if pgid == 0 {
 		pgid = pid
 	}
@@ -42,22 +42,22 @@ func openProcGroup(pid, pgid int) (*procGroup, error) {
 	if pgid <= 1 {
 		return nil, fmt.Errorf("invalid process group %d", pgid)
 	}
-	return &procGroup{pid: pid, pgid: pgid}, nil
+	return &Group{pid: pid, pgid: pgid}, nil
 }
 
 // ids returns the leader's pid and the group id.
-func (g *procGroup) ids() (pid, pgid int) { return g.pid, g.pgid }
+func (g *Group) IDs() (pid, pgid int) { return g.pid, g.pgid }
 
 // alive reports whether any process of the group still runs (zombies do
 // not count).
-func (g *procGroup) alive() bool {
+func (g *Group) Alive() bool {
 	return syscall.Kill(-g.pgid, 0) == nil && groupHasLiveMember(g.pgid)
 }
 
 // interrupt sends the named stop signal (SIGTERM if the name is unknown) to
 // every process of the group and reports whether that worked.
-func (g *procGroup) interrupt(name string) bool {
-	sig, ok := stopSignals[canonicalSignal(name)]
+func (g *Group) Interrupt(name string) bool {
+	sig, ok := stopSignals[CanonicalSignal(name)]
 	if !ok {
 		sig = syscall.SIGTERM
 	}
@@ -65,13 +65,13 @@ func (g *procGroup) interrupt(name string) bool {
 }
 
 // kill sends SIGKILL to every process of the group.
-func (g *procGroup) kill() error { return ignoreGone(syscall.Kill(-g.pgid, syscall.SIGKILL)) }
+func (g *Group) Kill() error { return ignoreGone(syscall.Kill(-g.pgid, syscall.SIGKILL)) }
 
 // release frees OS resources held for the group.
-func (g *procGroup) release() {}
+func (g *Group) Release() {}
 
-// processAlive reports whether a process with this pid runs.
-func processAlive(pid int) bool {
+// ProcessAlive reports whether a process with this pid runs.
+func ProcessAlive(pid int) bool {
 	return pid > 0 && syscall.Kill(pid, 0) == nil && !isZombie(pid)
 }
 

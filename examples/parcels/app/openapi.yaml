@@ -3,10 +3,10 @@ info:
   title: Parcels
   version: 1.0.0
   description: >-
-    Quote and register parcels for delivery, change or cancel them before pickup, and read
-    their tracking summary and shipping label. Every quote and registration checks the
-    recipient's postcode with the address service, and every registration is announced as a
-    ParcelRegistered event.
+    Quote and register parcels for delivery, change or cancel them before pickup, read their
+    tracking summary and shipping label, and follow their depot scans as they happen. Every
+    quote and registration checks the recipient's postcode with the address service, and
+    every registration is announced as a ParcelRegistered event.
 paths:
   /health:
     get:
@@ -191,6 +191,24 @@ paths:
           content:
             application/json:
               schema: {$ref: "#/components/schemas/Tracking"}
+        "404": {$ref: "#/components/responses/Problem"}
+  /api/parcels/{reference}/events:
+    parameters:
+      - $ref: "#/components/parameters/Reference"
+    get:
+      operationId: followTracking
+      summary: The parcel's depot scans as they happen (server-sent events)
+      description: >-
+        A `scan` event for the parcel's latest scan and each new one, then a `delivered`
+        event, which ends the stream. Each event's data is JSON with the parcel's
+        `reference`, `status`, `location` and `scannedAt`; its id is the number of scans so
+        far. A comment every 15 seconds keeps a quiet stream open.
+      responses:
+        "200":
+          description: The event stream.
+          content:
+            text/event-stream:
+              schema: {type: string}
         "404": {$ref: "#/components/responses/Problem"}
   /api/parcels/{reference}/label:
     parameters:

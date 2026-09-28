@@ -14,6 +14,8 @@ import (
 	"time"
 
 	"github.com/nimbusxr/axx/internal/config"
+
+	"github.com/nimbusxr/axx/internal/proc"
 )
 
 // stateVersion is the schema version of the state file.
@@ -77,7 +79,7 @@ func (m *Manager) saveStateLocked() {
 		if a.proc == nil || a.cleaned {
 			continue
 		}
-		pid, pgid := a.proc.group.ids()
+		pid, pgid := a.proc.group.IDs()
 		st.Apps = append(st.Apps, stateApp{
 			Name: a.cfg.Name, PID: pid, PGID: pgid, StartedAt: a.proc.startedAt,
 			Dir: a.dir, StopSignal: a.cfg.Stop.Signal, Grace: a.cfg.Stop.Grace,
@@ -167,24 +169,24 @@ func Reap(stateFile string, stdout, stderr io.Writer) ([]string, error) {
 	for i := len(st.Apps) - 1; i >= 0; i-- {
 		sa := st.Apps[i]
 		if !sa.CleanupFailed {
-			g, err := openProcGroup(sa.PID, sa.PGID)
+			g, err := proc.OpenGroup(sa.PID, sa.PGID)
 			if err != nil {
 				errs = append(errs, envErr(CodeStateFile, "state file %s: app %s: %v", stateFile, sa.Name, err))
 				continue
 			}
-			alive := g.alive()
+			alive := g.Alive()
 			if alive {
 				con.Println(fmt.Sprintf("stopping app %s left over from an earlier run (pid %d)", sa.Name, sa.PID))
 				if err := terminate(ctx, g, sa.StopSignal, sa.Grace.Or(defaultGrace)); err != nil {
 					errs = append(errs, envErr(CodeStopFailed, "app %s could not be stopped: %v", sa.Name, err).
 						WithHint("stop its processes by hand (process group %d)", sa.PGID))
-					g.release()
+					g.Release()
 					sa.Owner = 0
 					kept = append([]stateApp{sa}, kept...)
 					continue
 				}
 			}
-			g.release()
+			g.Release()
 			if !alive && len(sa.Cleanup) == 0 {
 				continue // gone, with nothing to clean up
 			}
@@ -264,9 +266,9 @@ func statusOf(st runState) []AppStatus {
 		switch {
 		case sa.CleanupFailed:
 			as.State = AppNotCleaned
-		case owner > 0 && processAlive(owner):
+		case owner > 0 && proc.ProcessAlive(owner):
 			as.State, as.PID = AppRunning, sa.PID
-		case sa.PID > 0 && processAlive(sa.PID):
+		case sa.PID > 0 && proc.ProcessAlive(sa.PID):
 			as.State, as.PID = AppLeftOver, sa.PID
 		case len(sa.Cleanup) > 0:
 			as.State = AppNotCleaned
@@ -313,4 +315,4 @@ func (m *Manager) checkEarlierRuns() error {
 
 // ProcessAlive reports whether the process with this id is running (and,
 // on Unix, not a zombie).
-func ProcessAlive(pid int) bool { return processAlive(pid) }
+func ProcessAlive(pid int) bool { return proc.ProcessAlive(pid) }

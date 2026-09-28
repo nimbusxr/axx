@@ -1,6 +1,6 @@
 //go:build unix && !linux
 
-package lifecycle
+package proc
 
 // groupHasLiveMember defers to kill(-pgid, 0): without /proc there is no
 // cheap way to tell zombies apart, and outside Linux containers orphans are

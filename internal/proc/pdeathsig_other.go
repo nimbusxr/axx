@@ -1,6 +1,6 @@
 //go:build unix && !linux
 
-package lifecycle
+package proc
 
 import "syscall"
 
