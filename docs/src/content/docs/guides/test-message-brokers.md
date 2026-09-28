@@ -49,6 +49,8 @@ Background:
 
 `${env:..}` values, such as passwords, are masked in logs and failures, and so is a password written in a URL.
 
+An `asyncapi` row names the AsyncAPI document the broker's messages follow: every message a scenario sends there, and every message a check finds, is checked against it ([Validate against AsyncAPI](/guides/validate-asyncapi/)).
+
 With AMQP 1.0, a queue is an anycast address and an exchange a multicast one, as ActiveMQ Artemis and Qpid have them, and the routing key is the message's subject. RabbitMQ routes the same messages over 0-9-1 whatever protocol your services use, so keep the default for it.
 
 ## Send and publish

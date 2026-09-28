@@ -11,6 +11,7 @@ import (
 
 	"github.com/nimbusxr/axx/core"
 	"github.com/nimbusxr/axx/internal/cloudstep"
+	"github.com/nimbusxr/axx/internal/contract"
 	awscore "github.com/nimbusxr/axx/packs/aws/core"
 	"github.com/nimbusxr/axx/packs/aws/internal/queue"
 )
@@ -41,7 +42,7 @@ func (pack) Manifest() core.Manifest {
 		Requires:  []string{awscore.Name},
 		Steps: cloudstep.Messages{
 			Pack: name, Target: "sqs queue", Verb: "sent", Field: "attribute", Fields: "attributes",
-			Send: send, Inbox: inbox,
+			Send: send, Inbox: inbox, Found: found,
 			Example: cloudstep.Sample{
 				To: "refund-results", Body: `{"claim": "CLM-4106", "status": "PAID", "paidAt": "2026-09-24T10:00:00Z"}`,
 				File: "messages/refund-failed-clm-4109.json", Fields: [][2]string{{"failureReason", "ACCOUNT_CLOSED"}},
@@ -103,6 +104,20 @@ func listen(ctx context.Context, s *core.Suite, acct *awscore.Account, q string)
 	})
 }
 
+// found checks a message a check found against the account's contract.
+func found(sc *core.Scenario, target, _ string, msg cloudstep.Message) error {
+	return check(sc, target, msg.Body, msg.Fields, false)
+}
+
+// check checks a message against the contract of the account, when it names one.
+func check(sc *core.Scenario, target string, body []byte, fields map[string]string, sent bool) error {
+	acct, err := awscore.Default(sc)
+	if err != nil {
+		return err
+	}
+	return contract.Check(acct.Contract, sc, contract.Message{Protocol: "sqs", Addresses: []string{target}, Payload: body, Headers: fields, Sent: sent})
+}
+
 func inbox(sc *core.Scenario, q, _ string) (*cloudstep.Inbox, error) {
 	acct, err := awscore.Default(sc)
 	if err != nil {
@@ -112,6 +127,9 @@ func inbox(sc *core.Scenario, q, _ string) (*cloudstep.Inbox, error) {
 }
 
 func send(sc *core.Scenario, q string, body []byte, attrs map[string]string) error {
+	if err := check(sc, q, body, attrs, true); err != nil {
+		return err
+	}
 	acct, err := awscore.Default(sc)
 	if err != nil {
 		return err

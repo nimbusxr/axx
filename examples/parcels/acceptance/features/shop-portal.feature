@@ -125,7 +125,8 @@ Feature: Shop portal
 
   Scenario: A parcel registered in the portal is stored and announced
     Given the events kafka service with the following properties:
-      | brokers | ${sys:local.host}:9092 |
+      | brokers  | ${sys:local.host}:9092                      |
+      | asyncapi | http://${sys:local.host}:8400/asyncapi.yaml |
     And a parcel-events kafka topic client with the following properties:
       | consumer.value.deserializer  | io.confluent.kafka.serializers.KafkaAvroDeserializer |
       | consumer.schema.registry.url | http://${sys:local.host}:9081                        |

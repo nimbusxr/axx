@@ -11,7 +11,7 @@ files:
   factory: ../infra/wiremock/__files/postcodes.factory.yaml
   fixture: postcode-remote
 - path: axx-lint.generated.yaml
-  sha256: 78e4d39c1b2c4302618931f7fd6165b61c87d45226fb21974028b28abccb7709
+  sha256: 5a496d639222a8371f7735e539b4a74d2bb59838228f362995dbc1c174162b59
   factory: <axx-fixtures>
   fixture: <generated lint rules>
 - path: kafka/.gitignore
@@ -26,6 +26,14 @@ files:
   sha256: ade4b734615bbb4da4b46d221a520d0ec0aa6632c478e36b29c088504cd65f17
   factory: kafka/depot-scans.factory.yaml
   fixture: scan-out-for-delivery
+- path: mqtt/.gitignore
+  sha256: 9be9413d16e6efcbe2c7d8fb31b3f7456974c92d3badb52b0286a68d45ac14c0
+  factory: <axx-fixtures>
+  fixture: <ignored outputs>
+- path: mqtt/scan-unknown.json
+  sha256: 8baeb0fc39981fe649f70eaeb7626da751c401654b8798bffc473f7830c20ad3
+  factory: mqtt/scans.factory.yaml
+  fixture: scan-unknown
 - path: requests/.gitignore
   sha256: d89fe6548e5a6ee64844def78d6e9897af05fdd6c7d82e8e94b966650c1d7420
   factory: <axx-fixtures>

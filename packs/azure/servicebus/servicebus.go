@@ -20,6 +20,7 @@ import (
 
 	"github.com/nimbusxr/axx/core"
 	"github.com/nimbusxr/axx/internal/cloudstep"
+	"github.com/nimbusxr/axx/internal/contract"
 )
 
 const name = "azure-servicebus"
@@ -49,7 +50,7 @@ var (
 
 var messages = cloudstep.Messages{
 	Pack: name, Target: "service bus queue/topic", Verb: "sent", Field: "property", Fields: "properties",
-	Send: send, Inbox: inbox,
+	Send: send, Inbox: inbox, Found: found,
 	Example: cloudstep.Sample{
 		To: "customs-filings", Body: `{"declaration": "DEC-7103", "parcel": "PX-7103", "invoice": "DEC-7103.json"}`,
 		File: "messages/filing-DEC-7101.json", Fields: [][2]string{{"broker", "ACME-CUSTOMS"}},
@@ -77,6 +78,7 @@ func (pack) Manifest() core.Manifest {
 					"Azure default credential chain"},
 				{Name: "management endpoint", Takes: "where the namespace's management API is when it is not the namespace's own " +
 					"host, as with local emulators"},
+				contract.TableRow("queues and topics"),
 			},
 		},
 		Examples: []string{
@@ -90,6 +92,11 @@ func (pack) Manifest() core.Manifest {
 			if err != nil {
 				return err
 			}
+			if ns.asyncapi != "" {
+				if ns.contract, err = contract.Open(sc, ns.asyncapi); err != nil {
+					return err
+				}
+			}
 			return namespaces.Of(sc).Add(ns.name, ns)
 		},
 	}}
@@ -98,6 +105,10 @@ func (pack) Manifest() core.Manifest {
 
 type namespace struct {
 	name, connection, fqdn, management string
+	// asyncapi names the contract of the namespace's messages; contract
+	// checks them.
+	asyncapi string
+	contract contract.Checker
 }
 
 func (n *namespace) key() string { return n.connection + "|" + n.fqdn + "|" + n.management }
@@ -117,8 +128,10 @@ func parse(s *core.Suite, nm string, t *core.Table) (*namespace, error) {
 			n.fqdn = v
 		case "management endpoint":
 			n.management = strings.TrimRight(v, "/")
+		case contract.Row:
+			n.asyncapi = v
 		default:
-			return nil, fmt.Errorf("unknown service bus namespace property %q (supported: connection string, namespace, management endpoint)", p.Key)
+			return nil, fmt.Errorf("unknown service bus namespace property %q (supported: connection string, namespace, management endpoint, asyncapi)", p.Key)
 		}
 	}
 	if (n.connection == "") == (n.fqdn == "") {
@@ -261,10 +274,25 @@ func receive(ctx context.Context, r *azservicebus.Receiver, in *cloudstep.Inbox)
 			for k, v := range m.ApplicationProperties {
 				fields[k] = fmt.Sprint(v)
 			}
-			in.Add(cloudstep.Message{Body: m.Body, Fields: fields})
+			msg := cloudstep.Message{Body: m.Body, Fields: fields}
+			if m.ContentType != nil {
+				msg.Meta = map[string]string{"content type": *m.ContentType}
+			}
+			in.Add(msg)
 			_ = r.CompleteMessage(ctx, m, nil)
 		}
 	}
+}
+
+// found checks a message a check found against the namespace's contract.
+func found(sc *core.Scenario, entity, _ string, msg cloudstep.Message) error {
+	n, err := namespaces.Of(sc).Default()
+	if err != nil {
+		return err
+	}
+	return contract.Check(n.contract, sc, contract.Message{
+		Protocol: "servicebus", Addresses: []string{entity}, Payload: msg.Body, ContentType: msg.Meta["content type"], Headers: msg.Fields,
+	})
 }
 
 func inbox(sc *core.Scenario, entity, noun string) (*cloudstep.Inbox, error) {
@@ -278,6 +306,9 @@ func inbox(sc *core.Scenario, entity, noun string) (*cloudstep.Inbox, error) {
 func send(sc *core.Scenario, entity string, body []byte, props map[string]string) error {
 	n, err := namespaces.Of(sc).Default()
 	if err != nil {
+		return err
+	}
+	if err := contract.Check(n.contract, sc, contract.Message{Protocol: "servicebus", Addresses: []string{entity}, Payload: body, Headers: props, Sent: true}); err != nil {
 		return err
 	}
 	c, err := open(sc.Suite(), n)

@@ -299,6 +299,9 @@ func (tc *TopicClient) produce(sc *core.Scenario, ev *Event, value []byte, info 
 		}
 		rec.Headers = append(rec.Headers, kgo.RecordHeader{Key: h.Key, Value: []byte(v)})
 	}
+	if err := tc.check(sc, []byte(ev.Payload), ev.Headers, true); err != nil {
+		return err
+	}
 	res, err := tc.prod.ProduceSync(sc.Context(), rec).First()
 	if err != nil {
 		return fmt.Errorf("publishing the %s kafka event: %w", tc.Topic, err)

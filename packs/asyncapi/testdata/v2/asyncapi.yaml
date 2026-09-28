@@ -1,0 +1,58 @@
+asyncapi: 2.6.0
+info:
+  title: Parcels events
+  version: 1.0.0
+defaultContentType: application/json
+servers:
+  depots:
+    url: localhost:1883
+    protocol: mqtt
+  events:
+    url: localhost:9092
+    protocol: kafka
+channels:
+  depots/{depot}/scans:
+    servers: [depots]
+    parameters:
+      depot:
+        schema:
+          type: string
+    publish:
+      message:
+        $ref: '#/components/messages/scan'
+  parcels.events:
+    servers: [events]
+    subscribe:
+      message:
+        oneOf:
+          - $ref: '#/components/messages/registered'
+          - $ref: '#/components/messages/delivered'
+components:
+  messages:
+    scan:
+      name: scan
+      payload:
+        type: object
+        required: [scanId, parcelRef, status]
+        properties:
+          scanId: {type: string}
+          parcelRef: {type: string}
+          status: {type: string, enum: [SORTED, OUT_FOR_DELIVERY, DELIVERED]}
+    registered:
+      name: parcelRegistered
+      payload:
+        type: object
+        required: [parcelRef, type]
+        properties:
+          parcelRef: {type: string}
+          type: {const: REGISTERED}
+    delivered:
+      name: parcelDelivered
+      schemaFormat: application/vnd.apache.avro+json;version=1.9.0
+      payload:
+        type: record
+        name: ParcelDelivered
+        fields:
+          - {name: parcelRef, type: string}
+          - {name: type, type: string}
+          - {name: deliveredAt, type: {type: long, logicalType: timestamp-millis}}

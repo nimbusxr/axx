@@ -15,6 +15,7 @@ import (
 
 	"github.com/nimbusxr/axx/core"
 	"github.com/nimbusxr/axx/internal/cloudstep"
+	"github.com/nimbusxr/axx/internal/contract"
 	gcpcore "github.com/nimbusxr/axx/packs/gcp/core"
 )
 
@@ -44,7 +45,7 @@ func (pack) Manifest() core.Manifest {
 		Requires:  []string{gcpcore.Name},
 		Steps: cloudstep.Messages{
 			Pack: name, Target: "pubsub topic", Verb: "published", Field: "attribute", Fields: "attributes",
-			Send: publish, Inbox: inbox,
+			Send: publish, Inbox: inbox, Found: found,
 			Example: cloudstep.Sample{
 				To: "shipment-events", Body: `{"parcel": "PX-5105", "carrier": "HERON", "service": "express", "weightKg": 3.2}`,
 				File: "messages/px-5105-weighed.json", Fields: [][2]string{{"eventType", "ShipmentWeighed"}},
@@ -134,6 +135,20 @@ func listen(ctx context.Context, s *core.Suite, p *gcpcore.Project, topic string
 	})
 }
 
+// found checks a message a check found against the project's contract.
+func found(sc *core.Scenario, target, _ string, msg cloudstep.Message) error {
+	return check(sc, target, msg.Body, msg.Fields, false)
+}
+
+// check checks a message against the contract of the project, when it names one.
+func check(sc *core.Scenario, target string, body []byte, fields map[string]string, sent bool) error {
+	p, err := gcpcore.Default(sc)
+	if err != nil {
+		return err
+	}
+	return contract.Check(p.Contract, sc, contract.Message{Protocol: "googlepubsub", Addresses: []string{target}, Payload: body, Headers: fields, Sent: sent})
+}
+
 func inbox(sc *core.Scenario, topic, _ string) (*cloudstep.Inbox, error) {
 	p, err := gcpcore.Default(sc)
 	if err != nil {
@@ -143,6 +158,9 @@ func inbox(sc *core.Scenario, topic, _ string) (*cloudstep.Inbox, error) {
 }
 
 func publish(sc *core.Scenario, topic string, body []byte, attrs map[string]string) error {
+	if err := check(sc, topic, body, attrs, true); err != nil {
+		return err
+	}
 	p, err := gcpcore.Default(sc)
 	if err != nil {
 		return err

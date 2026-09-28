@@ -119,7 +119,7 @@ A payload the cloud wraps and encodes on its way to your service, such as a Pub/
 | Family | Produces | Schema |
 | --- | --- | --- |
 | `avro` | Kafka payload JSON | an `.avsc` file |
-| `json` | any JSON: mock bodies, request payloads | JSON Schema, or an OpenAPI component (`api.yaml#/components/schemas/Name`) |
+| `json` | any JSON: mock bodies, request payloads, messages | JSON Schema, an OpenAPI component (`api.yaml#/components/schemas/Name`), or an AsyncAPI message's payload (`asyncapi.yaml#/components/messages/Name`) |
 | `yaml` | record-shaped YAML | the same as `json` |
 | `xml` | XML documents | an XSD |
 | `protobuf` | canonical proto-JSON | a `.proto` file or a descriptor set, with the message (`<file>.proto#pkg.Message`, `<set>.desc#pkg.Message`) |

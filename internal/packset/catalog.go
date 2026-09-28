@@ -31,6 +31,7 @@ var Catalog = []Pack{
 	{Name: "cli", Import: packs + "cli", Summary: "commands: their exit codes and what they print"},
 	{Name: "websocket", Import: packs + "websocket", Summary: "WebSocket connections: the messages sent and received, and how they close"},
 	{Name: "sse", Import: packs + "sse", Summary: "server-sent event streams and the events they send"},
+	{Name: "asyncapi", Import: packs + "asyncapi", Summary: "AsyncAPI contracts: the messages scenarios send and checks find, checked against them"},
 	{Name: "web-core", Import: packs + "web/core", Summary: "web apps in real browsers, driven by Playwright"},
 	{Name: "web-screenshots", Import: packs + "web/screenshots", Requires: []string{"web-core"}, Summary: "pages that look as designed, compared with screenshots per platform"},
 	{Name: "web-a11y", Import: packs + "web/a11y", Requires: []string{"web-core"}, Summary: "pages people can use whatever their abilities: axe-core audits and accessible structure"},

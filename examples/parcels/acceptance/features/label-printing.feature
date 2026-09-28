@@ -3,7 +3,9 @@ Feature: Label printing
   The depots print the shipping label of every registered parcel on printers that talk
   AMQP. The service sends each label to the printers of the parcel's service level, and
   the printers report every label they print. A report the service cannot use is set
-  aside for the depot's staff, with the reason.
+  aside for the depot's staff, with the reason. Every message follows the service's
+  AsyncAPI contract, save those of the older printers and the broken reports the
+  scenarios send on purpose.
 
   Background:
     Given the parcels service with the following properties:
@@ -14,7 +16,8 @@ Feature: Label printing
       | user     | parcels                                   |
       | password | parcels                                   |
     And the depot amqp broker with the following properties:
-      | url | amqp://parcels:parcels@${sys:local.host}:5672/ |
+      | url      | amqp://parcels:parcels@${sys:local.host}:5672/ |
+      | asyncapi | http://${sys:local.host}:8400/asyncapi.yaml    |
 
   Scenario: A registered parcel's label goes to the printers of its service level
     Given a POST request to /api/parcels
@@ -42,6 +45,8 @@ Feature: Label printing
 
   Scenario: An older printer reports straight to the service's queue
     Given a seeds/printing-queue.yaml db seed
+    And the AsyncAPI validation levels are:
+      | validation.message.payload.schema.required | WARN |
     When the amqp/label-printed-PX-AMQ-8103.json message is sent to the parcels.label-printed amqp queue with the following properties:
       | header printer | DRS-1 |
     Then within 10s a selection of at least 1 row is retrieved from the parcels.parcels table where:
@@ -58,6 +63,8 @@ Feature: Label printing
       | header printer | LEJ-3          |
 
   Scenario: A report without a parcel reference is set aside
+    Given the AsyncAPI validation levels are:
+      | validation.message.payload | IGNORE |
     When a message is sent to the parcels.label-printed amqp queue:
       """
       {"printer": "LEJ-3", "job": "JOB-AMQ-8105"}

@@ -1,0 +1,18 @@
+# yaml-language-server: $schema=https://axx.nimbusxr.us/schemas/v0/axx-factory.schema.json
+# Depot scans as the handheld scanners publish them, checked against the scan message of
+# the parcels service's AsyncAPI contract. Scenarios publish them as they are:
+# `the mqtt/<fixture>.json message is published to the depots/LEJ/scans mqtt topic`.
+factory:
+  family: json
+  schema: ../../app/asyncapi.yaml#/components/messages/scan
+prototype:
+  location: Leipzig
+identity:
+  - path: scanId
+    derive: authored
+fixtures:
+  scan-unknown:
+    scanId: SC-8299-1
+    parcelRef: PX-MQT-8299
+    status: IN_TRANSIT
+    scannedAt: "2026-09-28T06:45:00Z"

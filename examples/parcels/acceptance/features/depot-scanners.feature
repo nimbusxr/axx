@@ -6,7 +6,8 @@ Feature: Depot scanners
 
   Background:
     Given the depots mqtt broker with the following properties:
-      | url | mqtt://${sys:local.host}:1883 |
+      | url      | mqtt://${sys:local.host}:1883               |
+      | asyncapi | http://${sys:local.host}:8400/asyncapi.yaml |
     And a parcels-db database with the following properties:
       | url      | postgres://${sys:local.host}:5432/parcels |
       | user     | parcels                                   |

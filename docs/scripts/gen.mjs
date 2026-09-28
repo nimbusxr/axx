@@ -191,6 +191,7 @@ axx(['docs', 'export', '--out', genDir]);
 		cli: 'Commands',
 		websocket: 'WebSockets',
 		sse: 'Server-sent events',
+		asyncapi: 'AsyncAPI',
 		'web-core': 'Core',
 		'web-screenshots': 'Screenshots',
 		'web-a11y': 'Accessibility',

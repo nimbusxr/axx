@@ -40,6 +40,7 @@ Register the AMQP broker the steps talk to.
 |---|---|---|---|
 | `url` | the broker's URL, with its user, password and virtual host: `amqp://user:password@host:5672/vhost`, or `amqps://` for TLS |  | |
 | `protocol` | the AMQP version the broker speaks | `0-9-1`, `1.0` | `0-9-1` |
+| `asyncapi` | an AsyncAPI document, a file of the project or a URL, that the queues and exchanges follow: every message a scenario sends there, and every message a check finds, is checked against it (with the asyncapi pack) |  | |
 
 **Example:**
 

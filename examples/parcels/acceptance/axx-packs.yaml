@@ -16,6 +16,7 @@ packs:
   - cli
   - websocket
   - sse
+  - asyncapi
   - web-core
   - web-screenshots
   - web-a11y

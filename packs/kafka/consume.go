@@ -2,9 +2,11 @@ package kafka
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/nimbusxr/axx/core"
+	"github.com/nimbusxr/axx/internal/contract"
 )
 
 // consume adds expectations to a label and waits for a record of the topic
@@ -31,6 +33,27 @@ func consume(sc *core.Scenario, a core.Args, svcArg int, distinctHeaders bool, a
 }
 
 const keepMisses = describeRecords
+
+// check checks an event of the topic against the contract of its service,
+// when it names one: its payload as JSON (Avro's JSON encoding for Avro
+// events) and its headers.
+func (tc *TopicClient) check(sc *core.Scenario, payload []byte, headers []header, sent bool) error {
+	c := tc.Service.contract
+	if c == nil {
+		return nil
+	}
+	m := contract.Message{Protocol: "kafka", Addresses: []string{tc.Topic}, Payload: payload, Headers: map[string]string{}, Sent: sent}
+	for _, h := range headers {
+		if h.Value == nil {
+			continue
+		}
+		m.Headers[h.Key] = *h.Value
+		if strings.EqualFold(h.Key, "content-type") {
+			m.ContentType = *h.Value
+		}
+	}
+	return c.Check(sc, m)
+}
 
 // await scans the topic's records, oldest first, until one satisfies every
 // expectation of the label, waiting for new records until timeout.
@@ -71,6 +94,11 @@ func (tc *TopicClient) await(sc *core.Scenario, l *label, distinctHeaders bool, 
 			ok, why := l.eval(d, distinctHeaders)
 			tc.mu.Unlock()
 			report.Checked++
+			if ok && d.Value != nil {
+				if err := tc.check(sc, []byte(*d.Value), d.Headers, false); err != nil {
+					return err
+				}
+			}
 			if ok {
 				ri := info(r, d, 0)
 				tc.mu.Lock()

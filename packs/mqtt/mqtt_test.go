@@ -18,7 +18,7 @@ func TestBrokerProperties(t *testing.T) {
 	}{
 		{[][]string{{"username", "depot-scanners"}}, `the mqtt broker property "url" is required`},
 		{[][]string{{"url", "http://localhost:1883"}}, "the mqtt broker's url is mqtt://, mqtts://, ws:// or wss://"},
-		{[][]string{{"url", "mqtt://localhost"}, {"qos", "1"}}, `unknown mqtt broker property "qos" (supported: url, username, password, client id)`},
+		{[][]string{{"url", "mqtt://localhost"}, {"qos", "1"}}, `unknown mqtt broker property "qos" (supported: url, username, password, client id, asyncapi)`},
 	} {
 		_ = h.Fails("the depots mqtt broker with the following properties:", tc.want, tc.rows)
 	}

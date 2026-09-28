@@ -13,6 +13,7 @@ import (
 
 	"github.com/nimbusxr/axx/core"
 	"github.com/nimbusxr/axx/internal/cloudstep"
+	"github.com/nimbusxr/axx/internal/contract"
 	"github.com/nimbusxr/axx/internal/secrets"
 	"github.com/nimbusxr/axx/internal/stream"
 )
@@ -45,6 +46,9 @@ type socket struct {
 	url  string
 	conn *stream.WebSocket
 	in   *cloudstep.Inbox
+	// contract checks the messages both ways, when the asyncapi row
+	// names one.
+	contract contract.Checker
 
 	mu   sync.Mutex
 	sent []string
@@ -74,6 +78,7 @@ func steps() []core.StepDef {
 					{Name: "url", Required: true, Takes: "the address, `ws://` or `wss://`"},
 					{Name: "header.<name>", Takes: "a header of the opening request, such as `header.Authorization`"},
 					{Name: "subprotocol", Takes: "the subprotocols to offer, separated by commas"},
+					contract.TableRow("messages both ways"),
 				},
 				Note: "Values are expanded (`${env:..}`, `${sys:..}`); what `${env:..}` references expand to is masked everywhere.",
 			},
@@ -133,7 +138,8 @@ func steps() []core.StepDef {
 				if err != nil {
 					return err
 				}
-				return secrets.Hide(sc, cloudstep.ExpectMessage(sc, cloudstep.Wait(a, 0), w.in, rs, "", where(w)))
+				match := func(m cloudstep.Message) (bool, error) { return rs.MatchMessage(m, "") }
+				return secrets.Hide(sc, cloudstep.ExpectMatch(sc, cloudstep.Wait(a, 0), w.in, w.found(sc, match), "", "message", where(w)))
 			},
 		},
 		{
@@ -148,7 +154,7 @@ func steps() []core.StepDef {
 				}
 				text := secrets.Expand(sc, a.String(2))
 				contains := func(m cloudstep.Message) (bool, error) { return strings.Contains(string(m.Body), text), nil }
-				return secrets.Hide(sc, cloudstep.ExpectMatch(sc, cloudstep.Wait(a, 0), w.in, contains, "", "message", where(w)))
+				return secrets.Hide(sc, cloudstep.ExpectMatch(sc, cloudstep.Wait(a, 0), w.in, w.found(sc, contains), "", "message", where(w)))
 			},
 		},
 		{
@@ -186,7 +192,7 @@ func connect(sc *core.Scenario, a core.Args) error {
 	if err != nil {
 		return err
 	}
-	var url string
+	var url, asyncapi string
 	header := http.Header{}
 	var protocols []string
 	for _, p := range pairs {
@@ -205,19 +211,26 @@ func connect(sc *core.Scenario, a core.Args) error {
 					protocols = append(protocols, s)
 				}
 			}
+		case p.Key == contract.Row:
+			asyncapi = strings.TrimSpace(v)
 		default:
-			return fmt.Errorf("unknown websocket property %q (supported: url, header.<name>, subprotocol)", p.Key)
+			return fmt.Errorf("unknown websocket property %q (supported: url, header.<name>, subprotocol, asyncapi)", p.Key)
 		}
 	}
 	if url == "" {
 		return errors.New(`the websocket property "url" is required`)
 	}
 	w := &socket{name: name, url: url, in: &cloudstep.Inbox{}}
+	if asyncapi != "" {
+		if w.contract, err = contract.Open(sc, asyncapi); err != nil {
+			return err
+		}
+	}
 	conn, err := stream.DialWebSocket(url, header, protocols,
 		func(r stream.Received) {
 			m := cloudstep.Message{Body: r.Data}
 			if r.Binary {
-				m = cloudstep.Message{Body: []byte(fmt.Sprintf("(a binary message of %d bytes)", len(r.Data)))}
+				m = cloudstep.Message{Body: []byte(fmt.Sprintf("(a binary message of %d bytes)", len(r.Data))), Meta: map[string]string{"binary": "true"}}
 			}
 			w.in.Add(m)
 		},
@@ -241,6 +254,9 @@ func send(sc *core.Scenario, name, body string) error {
 	if err != nil {
 		return err
 	}
+	if err := contract.Check(w.contract, sc, w.message([]byte(body), true)); err != nil {
+		return err
+	}
 	if err := w.conn.Send(sc.Context(), []byte(body)); err != nil {
 		return secrets.Hide(sc, fmt.Errorf("could not send on the %s websocket: %w", name, err))
 	}
@@ -256,6 +272,26 @@ func get(sc *core.Scenario, name string) (*socket, error) {
 		return nil, fmt.Errorf("no websocket named %q in this scenario; open it first with \"the %s websocket with the following properties:\"", name, name)
 	}
 	return w, nil
+}
+
+// message is a message on the connection as its contract sees it: on
+// the path of the connection's URL.
+func (w *socket) message(body []byte, sent bool) contract.Message {
+	return contract.Message{Protocol: "ws", Addresses: contract.URLAddresses(w.url), Payload: body, Sent: sent}
+}
+
+// found checks the message a check found against the connection's
+// contract; binary messages are left out.
+func (w *socket) found(sc *core.Scenario, match func(cloudstep.Message) (bool, error)) func(cloudstep.Message) (bool, error) {
+	return func(m cloudstep.Message) (bool, error) {
+		ok, err := match(m)
+		if ok && err == nil && m.Meta["binary"] == "" {
+			if err := contract.Check(w.contract, sc, w.message(m.Body, false)); err != nil {
+				return false, err
+			}
+		}
+		return ok, err
+	}
 }
 
 func where(w *socket) string { return "the " + w.name + " websocket" }

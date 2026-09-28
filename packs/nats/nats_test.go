@@ -15,7 +15,7 @@ func TestServerProperties(t *testing.T) {
 	}{
 		{[][]string{{"token", "t"}}, `the nats server property "url" is required`},
 		{[][]string{{"url", "nats://localhost"}, {"token", "t"}, {"username", "axx"}}, "give the nats server one way to sign in"},
-		{[][]string{{"url", "nats://localhost"}, {"stream", "TRACKING"}}, `unknown nats server property "stream" (supported: url, token, username, password, creds)`},
+		{[][]string{{"url", "nats://localhost"}, {"stream", "TRACKING"}}, `unknown nats server property "stream" (supported: url, token, username, password, creds, asyncapi)`},
 	} {
 		_ = h.Fails("the tracking nats server with the following properties:", tc.want, tc.rows)
 	}

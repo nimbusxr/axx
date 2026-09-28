@@ -10,7 +10,8 @@ Feature: Live tracking
       | user     | parcels                                   |
       | password | parcels                                   |
     And the events kafka service with the following properties:
-      | brokers | ${sys:local.host}:9092 |
+      | brokers  | ${sys:local.host}:9092                      |
+      | asyncapi | http://${sys:local.host}:8400/asyncapi.yaml |
     And a depot-scans kafka topic client with the following properties:
       | producer.value.serializer    | io.confluent.kafka.serializers.KafkaAvroSerializer |
       | producer.schema.registry.url | http://${sys:local.host}:9081                      |
@@ -18,7 +19,8 @@ Feature: Live tracking
   Scenario: The tracking page hears that its parcel is out for delivery
     Given a seeds/live-websocket.yaml db seed
     And the tracking websocket with the following properties:
-      | url | ws://${sys:local.host}:8400/portal/track/PX-LIV-5701/live |
+      | url      | ws://${sys:local.host}:8400/portal/track/PX-LIV-5701/live |
+      | asyncapi | http://${sys:local.host}:8400/asyncapi.yaml               |
     And a message is sent to the tracking websocket:
       """
       {"follow": "PX-LIV-5701"}
@@ -36,8 +38,11 @@ Feature: Live tracking
       | location  | Leipzig          |
 
   Scenario: The tracking websocket closes a connection that does not say which parcel it follows
-    Given the tracking websocket with the following properties:
-      | url | ws://${sys:local.host}:8400/portal/track/PX-LIV-5702/live |
+    Given the AsyncAPI validation levels are:
+      | validation.message.payload | IGNORE |
+    And the tracking websocket with the following properties:
+      | url      | ws://${sys:local.host}:8400/portal/track/PX-LIV-5702/live |
+      | asyncapi | http://${sys:local.host}:8400/asyncapi.yaml               |
     When a message is sent to the tracking websocket:
       """
       {"parcel": "PX-LIV-5702"}
@@ -47,7 +52,8 @@ Feature: Live tracking
   Scenario: A shop's system hears each depot scan
     Given a seeds/live-events.yaml db seed
     And the tracking event stream with the following properties:
-      | url | http://${sys:local.host}:8400/api/parcels/PX-LIV-5703/events |
+      | url      | http://${sys:local.host}:8400/api/parcels/PX-LIV-5703/events |
+      | asyncapi | http://${sys:local.host}:8400/asyncapi.yaml                  |
     And a depot-scans kafka event
     And the depot-scans kafka event key is PX-LIV-5703
     And the depot-scans kafka event payload is a kafka/scan-out-for-delivery.json resource
@@ -64,7 +70,8 @@ Feature: Live tracking
   Scenario: A shop's system hears that the parcel is delivered
     Given a seeds/live-delivered.yaml db seed
     And the tracking event stream with the following properties:
-      | url | http://${sys:local.host}:8400/api/parcels/PX-LIV-5704/events |
+      | url      | http://${sys:local.host}:8400/api/parcels/PX-LIV-5704/events |
+      | asyncapi | http://${sys:local.host}:8400/asyncapi.yaml                  |
     And a depot-scans kafka event
     And the depot-scans kafka event key is PX-LIV-5704
     And the depot-scans kafka event payload is a kafka/scan-delivered.json resource

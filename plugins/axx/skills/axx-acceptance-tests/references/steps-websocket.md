@@ -28,6 +28,7 @@ Open a WebSocket connection under a name. It belongs to the scenario, which clos
 | `url` | the address, `ws://` or `wss://` | _required_ |
 | `header.<name>` | a header of the opening request, such as `header.Authorization` | |
 | `subprotocol` | the subprotocols to offer, separated by commas | |
+| `asyncapi` | an AsyncAPI document, a file of the project or a URL, that the messages both ways follow: every message a scenario sends there, and every message a check finds, is checked against it (with the asyncapi pack) | |
 
 Values are expanded (`${env:..}`, `${sys:..}`); what `${env:..}` references expand to is masked everywhere.
 

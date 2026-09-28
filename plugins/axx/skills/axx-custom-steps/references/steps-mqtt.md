@@ -42,6 +42,7 @@ Register the MQTT broker the steps talk to.
 | `username` | the user axx connects as | |
 | `password` | its password, like `${env:MQTT_PASSWORD}` | |
 | `client id` | the start of the client IDs axx connects with, one per connection | ``axx-<run>`` |
+| `asyncapi` | an AsyncAPI document, a file of the project or a URL, that the topics follow: every message a scenario sends there, and every message a check finds, is checked against it (with the asyncapi pack) | |
 
 **Example:**
 

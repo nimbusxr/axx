@@ -16,6 +16,7 @@ import (
 	"github.com/nimbusxr/axx/internal/cloudstep/cloudtest"
 	"github.com/nimbusxr/axx/internal/secrets"
 	"github.com/nimbusxr/axx/internal/tokens"
+	"github.com/nimbusxr/axx/packs/asyncapi"
 )
 
 // tracker follows a parcel as the parcels portal does: the client says
@@ -153,4 +154,56 @@ func TestATokenInAHeader(t *testing.T) {
 	waitFor(t, func() bool { a, _ := tr.auth.Load().(string); return strings.HasPrefix(a, "Bearer ey") })
 	_ = h.Fails("the parcels websocket with the following properties:", `no token named "courier"`,
 		[][]string{{"url", url}, {"header.Authorization", "Bearer ${token:courier}"}})
+}
+
+// trackingContract is the tracker's AsyncAPI document: what a client sends
+// it, and the scans it sends back.
+const trackingContract = `asyncapi: 3.0.0
+info: {title: Parcel tracking, version: 1.0.0}
+channels:
+  live:
+    address: /live
+    messages:
+      follow:
+        payload:
+          type: object
+          required: [follow]
+          properties:
+            follow: {type: string, pattern: '^PX-'}
+      scan:
+        payload:
+          type: object
+          required: [reference, status, signedBy]
+          properties:
+            reference: {type: string}
+            status: {type: string}
+            signedBy: {type: string}
+`
+
+func TestContract(t *testing.T) {
+	tr := &tracker{}
+	srv := httptest.NewServer(tr)
+	t.Cleanup(srv.Close)
+	url := "ws" + strings.TrimPrefix(srv.URL, "http") + "/live"
+	h := cloudtest.New(t, asyncapi.Pack(), Pack())
+	h.Start(h.Plan())
+	h.File("asyncapi.yaml", trackingContract)
+	h.OK("the tracking websocket with the following properties:", [][]string{{"url", url}, {"asyncapi", "asyncapi.yaml"}})
+	// What the scenario sends is checked before it goes.
+	_ = h.Fails("a message is sent to the tracking websocket:",
+		"the message to send breaks asyncapi.yaml:\n- validation.message.payload.schema.pattern: payload $.follow:", `{"follow": "LIV-5704"}`)
+	// What a check finds is checked before the check passes: the tracker's
+	// scans have no signedBy.
+	h.OK("a message is sent to the tracking websocket:", `{"follow": "PX-LIV-5704"}`)
+	_ = h.Fails("the tracking websocket received a message where:",
+		"the message the check found breaks asyncapi.yaml:\n- validation.message.payload.schema.required: payload $: missing property 'signedBy'",
+		[][]string{{"reference", "PX-LIV-5704"}})
+	h.OK("the AsyncAPI validation levels are:", [][]string{{"validation.message.payload.schema.required", "WARN"}})
+	h.OK("the tracking websocket received a message containing 'PX-LIV-5704'")
+}
+
+func TestContractNeedsTheAsyncAPIPack(t *testing.T) {
+	h, _, url := harness(t)
+	_ = h.Fails("the tracking websocket with the following properties:", "add it with `axx pack add asyncapi`",
+		[][]string{{"url", url}, {"asyncapi", "asyncapi.yaml"}})
 }

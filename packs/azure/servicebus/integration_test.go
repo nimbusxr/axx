@@ -12,6 +12,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/messaging/azservicebus"
 
 	"github.com/nimbusxr/axx/internal/cloudstep/cloudtest"
+	"github.com/nimbusxr/axx/packs/asyncapi"
 )
 
 // The emulator's namespace: its broker listens on the host's port 5673.
@@ -112,4 +113,49 @@ func TestQueuesAndTopics(t *testing.T) {
 			}
 		}
 	}
+
+	t.Run("contract", func(t *testing.T) {
+		namespace := append(namespace, []string{"asyncapi", "asyncapi.yaml"})
+		h := cloudtest.New(t, asyncapi.Pack(), Pack())
+		h.File("asyncapi.yaml", customsContract)
+		h.Start(h.Plan(
+			cloudtest.PlannedStep{Text: "the customs service bus namespace with the following properties:", Table: namespace},
+			cloudtest.PlannedStep{Text: "the customs-events service bus topic has a message where:", Table: [][]string{{"declaration", "DEC-4"}}},
+		))
+		h.OK("the customs service bus namespace with the following properties:", namespace)
+		_ = h.Fails("a message is sent to the customs-events service bus topic:",
+			"the message to send breaks asyncapi.yaml:\n- validation.message.payload.schema.required: payload $: missing property 'status'", `{"declaration": "DEC-4"}`)
+		// The service under test announces a clearance as XML.
+		n, _ := namespaces.Of(h.SC).Default()
+		c, err := open(h.Suite, n)
+		if err != nil {
+			t.Fatal(err)
+		}
+		snd, err := c.msg.NewSender("customs-events", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer snd.Close(ctx)
+		xml := "application/xml"
+		if err := snd.SendMessage(ctx, &azservicebus.Message{
+			Body: []byte(`<cleared declaration="DEC-4"/>`), ContentType: &xml, ApplicationProperties: map[string]any{"declaration": "DEC-4"},
+		}, nil); err != nil {
+			t.Fatal(err)
+		}
+		_ = h.Fails("within 10s the customs-events service bus topic has a message where:",
+			"the message the check found breaks asyncapi.yaml:\n- validation.message.contentType: the content type is \"application/xml\", not \"application/json\"",
+			[][]string{{"property declaration", "DEC-4"}})
+	})
 }
+
+// customsContract is the customs' AsyncAPI document.
+const customsContract = `asyncapi: 3.0.0
+info: {title: Customs, version: 1.0.0}
+defaultContentType: application/json
+channels:
+  events:
+    address: customs-events
+    messages:
+      declarationEvent:
+        payload: {type: object, required: [declaration, status]}
+`

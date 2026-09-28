@@ -40,7 +40,8 @@ Feature: The cache
     And the tracking:PX-RDS-9603 redis key has the following properties:
       | status | IN_TRANSIT |
     And the depots mqtt broker with the following properties:
-      | url | mqtt://${sys:local.host}:1883 |
+      | url      | mqtt://${sys:local.host}:1883               |
+      | asyncapi | http://${sys:local.host}:8400/asyncapi.yaml |
     When a message is published to the depots/LEJ/scans mqtt topic:
       """
       {"scanId": "SC-9603-1", "parcelRef": "PX-RDS-9603", "status": "OUT_FOR_DELIVERY", "location": "Leipzig", "scannedAt": "2026-09-28T07:45:00Z"}

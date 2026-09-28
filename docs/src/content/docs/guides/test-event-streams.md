@@ -36,6 +36,7 @@ Given the tracking event stream with the following properties:
 | --- | --- |
 | `url` | The stream's URL (required). |
 | `header.<name>` | A header of the request, such as a token. |
+| `asyncapi` | The AsyncAPI document its events follow, each event type a message of it ([Validate against AsyncAPI](/guides/validate-asyncapi/)). |
 
 A stream that doesn't answer `200` with `text/event-stream` fails the step, and shows what the service answered instead, such as a `404` for an unknown parcel. `${env:..}` values are masked in logs and failures.
 

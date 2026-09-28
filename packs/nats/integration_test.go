@@ -11,6 +11,7 @@ import (
 	"github.com/nats-io/nats.go/jetstream"
 
 	"github.com/nimbusxr/axx/internal/cloudstep/cloudtest"
+	"github.com/nimbusxr/axx/packs/asyncapi"
 )
 
 // trackingService acts as the parcels service does: it hears the couriers'
@@ -96,4 +97,45 @@ func TestNATS(t *testing.T) {
 	h.OK("the tracking nats server with the following properties:", rows)
 	_ = h.Fails("within 1s the tracking.> nats subject has a message where:", "No message on the tracking.> nats subject met the conditions within 1s",
 		[][]string{{"reference", "PX-8301"}})
+
+	t.Run("contract", func(t *testing.T) {
+		rows := [][]string{{"url", url}, {"asyncapi", "asyncapi.yaml"}}
+		h := cloudtest.New(t, asyncapi.Pack(), Pack())
+		h.File("asyncapi.yaml", couriersContract)
+		h.Start(h.Plan(
+			cloudtest.PlannedStep{Text: "the tracking nats server with the following properties:", Table: rows},
+			cloudtest.PlannedStep{Text: "within 10s the TRACKING nats stream has a message where:", Table: [][]string{{"reference", "PX-8305"}}},
+		))
+		h.OK("the tracking nats server with the following properties:", rows)
+		_ = h.Fails("a message is published to the deliveries.confirmed nats subject:",
+			"the message to send breaks asyncapi.yaml:\n- validation.message.payload.schema.required: payload $: missing property 'signedBy'",
+			`{"reference": "PX-8305"}`)
+		h.OK("a message is published to the deliveries.confirmed nats subject:", `{"reference": "PX-8305", "signedBy": "H. Wolf"}`)
+		// A stream's messages are on the channel of their subject; the
+		// service's updates say DELIVERED, which the contract does not know.
+		_ = h.Fails("within 10s the TRACKING nats stream has a message where:",
+			"the message the check found breaks asyncapi.yaml:\n- validation.message.payload.schema.enum: payload $.status:",
+			[][]string{{"reference", "PX-8305"}})
+	})
 }
+
+// couriersContract is the couriers' AsyncAPI document.
+const couriersContract = `asyncapi: 2.6.0
+info: {title: Couriers, version: 1.0.0}
+servers:
+  tracking: {url: localhost:4222, protocol: nats}
+channels:
+  deliveries.confirmed:
+    publish:
+      message:
+        payload: {type: object, required: [reference, signedBy]}
+  tracking.{reference}:
+    subscribe:
+      message:
+        headers: {type: object, required: [source]}
+        payload:
+          type: object
+          required: [reference, status]
+          properties:
+            status: {enum: [IN_TRANSIT, OUT_FOR_DELIVERY]}
+`

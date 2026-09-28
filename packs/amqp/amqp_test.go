@@ -16,7 +16,7 @@ func TestBrokerProperties(t *testing.T) {
 		{[][]string{{"protocol", "1.0"}}, `the amqp broker property "url" is required`},
 		{[][]string{{"url", "amqp://localhost"}, {"protocol", "0-10"}}, `the amqp protocol is 0-9-1 or 1.0, not "0-10"`},
 		{[][]string{{"url", "http://localhost:5672"}}, "the amqp broker's url is amqp://user:password@host:port/vhost"},
-		{[][]string{{"url", "amqp://localhost"}, {"vhost", "/"}}, `unknown amqp broker property "vhost" (supported: url, protocol)`},
+		{[][]string{{"url", "amqp://localhost"}, {"vhost", "/"}}, `unknown amqp broker property "vhost" (supported: url, protocol, asyncapi)`},
 	} {
 		_ = h.Fails("the depot amqp broker with the following properties:", tc.want, tc.rows)
 	}

@@ -13,6 +13,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/credentials"
 
 	"github.com/nimbusxr/axx/core"
+	"github.com/nimbusxr/axx/internal/contract"
 )
 
 // Name is the pack's name; the aws-* packs require it.
@@ -58,6 +59,7 @@ func (pack) Manifest() core.Manifest {
 					{Name: "access key id", Takes: "the access key ID of static credentials, with `secret access key`"},
 					{Name: "secret access key", Takes: "the secret access key of static credentials, with `access key id`"},
 					{Name: "session token", Takes: "the session token of temporary static credentials"},
+					contract.TableRow("SQS queues and SNS topics"),
 				},
 			},
 			Examples: []string{
@@ -75,6 +77,11 @@ func (pack) Manifest() core.Manifest {
 				if err != nil {
 					return err
 				}
+				if acct.asyncapi != "" {
+					if acct.Contract, err = contract.Open(sc, acct.asyncapi); err != nil {
+						return err
+					}
+				}
 				return accounts.Of(sc).Add(acct.Name, acct)
 			},
 		}},
@@ -87,8 +94,12 @@ type Account struct {
 	Region   string
 	Endpoint string
 	Profile  string
+	// Contract checks the messages of the account's queues and topics,
+	// when its asyncapi row names one.
+	Contract contract.Checker
 
 	accessKey, secretKey, sessionToken string
+	asyncapi                           string
 }
 
 // Key identifies the account's configuration, for resources shared by the
@@ -119,7 +130,7 @@ func (a *Account) Config(ctx context.Context, s *core.Suite) (aws.Config, error)
 	})
 }
 
-var properties = []string{"region", "endpoint", "profile", "access key id", "secret access key", "session token"}
+var properties = []string{"region", "endpoint", "profile", "access key id", "secret access key", "session token", contract.Row}
 
 // Parse reads an account's properties (expanding ${env:..} and ${sys:..}).
 // The aws-* packs also use it to read the accounts of a planned run.
@@ -144,6 +155,8 @@ func Parse(s *core.Suite, name string, t *core.Table) (*Account, error) {
 			a.secretKey = v
 		case "session token":
 			a.sessionToken = v
+		case contract.Row:
+			a.asyncapi = v
 		default:
 			return nil, fmt.Errorf("unknown aws account property %q (supported: %s)", p.Key, strings.Join(properties, ", "))
 		}

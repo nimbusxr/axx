@@ -13,8 +13,9 @@ import (
 var printer = message.NewPrinter(language.English)
 
 // jsonFamily is family: json: JSON fixture files governed by a standalone
-// JSON Schema document (any draft, detected from $schema) or by an OpenAPI
-// 3.0/3.1 component (spec.yaml#/components/schemas/Name). Fields resolve
+// JSON Schema document (any draft, detected from $schema), by an OpenAPI
+// 3.0/3.1 component (spec.yaml#/components/schemas/Name), or by the payload
+// of an AsyncAPI message (spec.yaml#/components/messages/Name). Fields resolve
 // fixture override, prototype, factory defaults, schema default; a required
 // field left unresolved is a hard error, an optional one is omitted.
 type jsonFamily struct{}

@@ -13,6 +13,7 @@ import (
 
 	"github.com/nimbusxr/axx/core"
 	"github.com/nimbusxr/axx/internal/cloudstep"
+	"github.com/nimbusxr/axx/internal/contract"
 	"github.com/nimbusxr/axx/internal/secrets"
 )
 
@@ -63,7 +64,7 @@ var propertyRows = []core.TableRow{
 var queues = cloudstep.Messages{
 	Pack: Name, Kind: "queue", Target: "amqp queue", Verb: "sent", Field: "header", Fields: "properties",
 	Meta: meta, SendRows: propertyRows, Since: since,
-	Send: sender("queue"), Inbox: inbox("queue"),
+	Send: sender("queue"), Inbox: inbox("queue"), Found: found,
 	Example: cloudstep.Sample{
 		To: "parcels.label-printed", Body: `{"reference": "PX-8103", "printer": "LEJ-3", "printedAt": "2026-09-28T08:15:00Z"}`,
 		File: "amqp/label-printed.json", Fields: [][2]string{{"header printer", "LEJ-3"}, {"content type", "application/json"}},
@@ -76,7 +77,7 @@ var exchanges = cloudstep.Messages{
 	Pack: Name, Kind: "exchange", Target: "amqp exchange", Verb: "published", Field: "header", Fields: "properties",
 	Key: "routing key", Meta: meta, Since: since,
 	SendRows: append([]core.TableRow{{Name: "routing key", Takes: "the routing key the exchange routes the message by"}}, propertyRows...),
-	Send:     sender("exchange"), Inbox: inbox("exchange"),
+	Send:     sender("exchange"), Inbox: inbox("exchange"), Found: found,
 	Example: cloudstep.Sample{
 		To: "printers", Key: "printed.LEJ", Body: `{"reference": "PX-8102", "printer": "LEJ-3", "printedAt": "2026-09-28T08:15:00Z"}`,
 		File: "amqp/label-printed.json", Fields: [][2]string{{"routing key", "printed.LEJ"}, {"header printer", "LEJ-3"}},
@@ -97,6 +98,7 @@ func (pack) Manifest() core.Manifest {
 			Rows: []core.TableRow{
 				{Name: "url", Takes: "the broker's URL, with its user, password and virtual host: `amqp://user:password@host:5672/vhost`, or `amqps://` for TLS"},
 				{Name: "protocol", Takes: "the AMQP version the broker speaks", Values: []string{"0-9-1", "1.0"}, Default: "0-9-1"},
+				contract.TableRow("queues and exchanges"),
 			},
 		},
 		Examples: []string{
@@ -111,6 +113,11 @@ func (pack) Manifest() core.Manifest {
 			if err != nil {
 				return err
 			}
+			if b.asyncapi != "" {
+				if b.contract, err = contract.Open(sc, b.asyncapi); err != nil {
+					return err
+				}
+			}
 			if err := brokers.Of(sc).Add(b.name, b); err != nil {
 				return err
 			}
@@ -124,6 +131,18 @@ func (pack) Manifest() core.Manifest {
 
 type broker struct {
 	name, url, protocol string
+	// asyncapi names the contract of the broker's messages; contract
+	// checks them.
+	asyncapi string
+	contract contract.Checker
+}
+
+// asyncProtocol is the AsyncAPI protocol of the broker's messages.
+func (b *broker) asyncProtocol() string {
+	if b.protocol == "1.0" {
+		return "amqp1"
+	}
+	return "amqp"
 }
 
 func (b *broker) key() string { return b.protocol + "|" + b.url }
@@ -144,8 +163,10 @@ func parse(name string, t *core.Table, expand func(string) string) (*broker, err
 				return nil, fmt.Errorf("the amqp protocol is 0-9-1 or 1.0, not %q", v)
 			}
 			b.protocol = v
+		case contract.Row:
+			b.asyncapi = v
 		default:
-			return nil, fmt.Errorf("unknown amqp broker property %q (supported: url, protocol)", p.Key)
+			return nil, fmt.Errorf("unknown amqp broker property %q (supported: url, protocol, asyncapi)", p.Key)
 		}
 	}
 	if b.url == "" {
@@ -260,12 +281,39 @@ func sender(kind string) func(sc *core.Scenario, target string, body []byte, fie
 		if err != nil {
 			return err
 		}
+		if err := contract.Check(b.contract, sc, contract.Message{
+			Protocol: b.asyncProtocol(), Addresses: addresses(target, m.routingKey), Sent: true,
+			Payload: body, ContentType: m.contentType, Headers: m.headers,
+		}); err != nil {
+			return err
+		}
 		c, err := open(sc.Suite(), b)
 		if err != nil {
 			return secrets.Hide(sc, err)
 		}
 		return secrets.Hide(sc, c.send(sc.Context(), kind, target, m))
 	}
+}
+
+// found checks a message a check found against the broker's contract.
+func found(sc *core.Scenario, target, _ string, msg cloudstep.Message) error {
+	b, err := brokers.Of(sc).Default()
+	if err != nil || b.contract == nil {
+		return err
+	}
+	return b.contract.Check(sc, contract.Message{
+		Protocol: b.asyncProtocol(), Addresses: addresses(target, msg.Meta["routing key"]),
+		Payload: msg.Body, ContentType: msg.Meta["content type"], Headers: msg.Fields,
+	})
+}
+
+// addresses are what a contract's channel can name a message's
+// destination by: the queue or the exchange, then the routing key.
+func addresses(target, routingKey string) []string {
+	if routingKey == "" {
+		return []string{target}
+	}
+	return []string{target, routingKey}
 }
 
 func inbox(kind string) func(sc *core.Scenario, target, noun string) (*cloudstep.Inbox, error) {

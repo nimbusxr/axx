@@ -21,6 +21,8 @@ Background:
 
 The service consumes depot scans, so the suite publishes to `depot-scans`; it announces registered parcels on `parcel-events`, so the suite reads that topic. A topic the suite both publishes to and reads takes both sets of properties.
 
+An `asyncapi` row on the service names the AsyncAPI document its topics' events follow: every event a scenario publishes, and every event a check consumes, is checked against it, Avro events in Avro's JSON encoding ([Validate against AsyncAPI](/guides/validate-asyncapi/)).
+
 The topic client's properties use the Kafka client property names, prefixed with `producer.` or `consumer.`. Axx translates them to its own Go client, so you do not need a JVM; the [Kafka pack reference](/references/packs/kafka/) lists every property it understands. Consumer group settings (`group.id`, `enable.auto.commit`) have no effect, because Axx reads topics without a group.
 
 For a TLS-secured cluster:

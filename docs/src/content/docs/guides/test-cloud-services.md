@@ -43,6 +43,8 @@ Background:
 - **Google Cloud:** `the {word} gcp project` takes a `project`, and optionally an `endpoint` or a `credentials` key file. Without them, Application Default Credentials apply.
 - **Azure:** each service connects to its own resource. `the {word} azure storage account` takes a `connection string` or a `url`. `the {word} service bus namespace` takes a `connection string` or a `namespace`, plus a `management endpoint` for emulators.
 
+An `asyncapi` row on an AWS account, a Google Cloud project or a Service Bus namespace names the AsyncAPI document its queues' and topics' messages follow ([Validate against AsyncAPI](/guides/validate-asyncapi/)).
+
 An `endpoint` points every service of the account or project at an emulator. Leave it out, and the same features run against the cloud. Axx's AWS clients also honor `AWS_ENDPOINT_URL`, but only the account's `endpoint` addresses S3 by path, as an S3 emulator needs.
 
 ## Run the clouds locally

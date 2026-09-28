@@ -11,6 +11,7 @@ import (
 
 	"github.com/nimbusxr/axx/core"
 	"github.com/nimbusxr/axx/internal/cloudstep/cloudtest"
+	"github.com/nimbusxr/axx/packs/asyncapi"
 )
 
 // scanService acts as the parcels service does: it hears the depots'
@@ -89,7 +90,45 @@ func TestMosquitto(t *testing.T) {
 	h.OK("the depots mqtt broker with the following properties:", rows)
 	_ = h.Fails("within 1s the depots/LEJ/scans mqtt topic has a message where:", "No message on the depots/LEJ/scans mqtt topic met the conditions within 1s",
 		[][]string{{"parcelRef", "PX-8201"}})
+
+	t.Run("contract", func(t *testing.T) {
+		rows := [][]string{{"url", url}, {"asyncapi", "asyncapi.yaml"}}
+		h := cloudtest.New(t, asyncapi.Pack(), Pack())
+		h.File("asyncapi.yaml", depotsContract)
+		h.Start(h.Plan(
+			cloudtest.PlannedStep{Text: "the depots mqtt broker with the following properties:", Table: rows},
+			cloudtest.PlannedStep{Text: "within 10s the depots/+/alerts mqtt topic has a message where:", Table: [][]string{{"parcelRef", "PX-8299"}}},
+		))
+		h.OK("the depots mqtt broker with the following properties:", rows)
+		_ = h.Fails("a message is published to the depots/LEJ/scans mqtt topic:",
+			"the message to send breaks asyncapi.yaml:\n- validation.message.payload.schema.required: payload $: missing property 'scanId'", `{"parcelRef": "PX-8299", "status": "SORTED"}`)
+		h.File("mqtt/scan-sorted.json", `{"scanId": "SC-8297-1", "parcelRef": "PX-8299", "status": "SORTED"}`)
+		h.OK("the mqtt/scan-sorted.json message is published to the depots/LEJ/scans mqtt topic with the following properties:",
+			[][]string{{"property scanner", "LEJ-HANDHELD-7"}})
+		// The scan service alerts with the scan itself, which has no reason.
+		_ = h.Fails("within 10s the depots/+/alerts mqtt topic has a message where:",
+			"the message the check found breaks asyncapi.yaml:\n- validation.message.payload.schema.required: payload $: missing property 'reason'",
+			[][]string{{"parcelRef", "PX-8299"}})
+	})
 }
+
+// depotsContract is the depots' AsyncAPI document.
+const depotsContract = `asyncapi: 3.0.0
+info: {title: Depots, version: 1.0.0}
+servers:
+  depots: {host: localhost:1883, protocol: mqtt}
+channels:
+  scans:
+    address: depots/{depot}/scans
+    messages:
+      scan:
+        payload: {type: object, required: [scanId, parcelRef, status]}
+  alerts:
+    address: depots/{depot}/alerts
+    messages:
+      alert:
+        payload: {type: object, required: [parcelRef, reason]}
+`
 
 // MQTT over WebSockets.
 func TestMosquittoOverWebSockets(t *testing.T) {

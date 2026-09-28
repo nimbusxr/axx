@@ -2,7 +2,7 @@
   "description": "The frozen catalog of built-in step text. Step text is public API: every entry must stay defined, verbatim, by its pack.",
   "counts": {
     "parameterType": 11,
-    "step": 568
+    "step": 569
   },
   "entries": [
     {
@@ -3489,6 +3489,12 @@
       "pack": "mail",
       "keyword": "Then",
       "expression": "within {duration} the {word} mailbox has an email where:"
+    },
+    {
+      "kind": "step",
+      "pack": "asyncapi",
+      "keyword": "Given",
+      "expression": "the AsyncAPI validation levels are:"
     }
   ]
 }

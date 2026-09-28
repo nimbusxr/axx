@@ -12,7 +12,8 @@ Feature: The tracking page
       | user     | parcels                                   |
       | password | parcels                                   |
     And the events kafka service with the following properties:
-      | brokers | ${sys:local.host}:9092 |
+      | brokers  | ${sys:local.host}:9092                      |
+      | asyncapi | http://${sys:local.host}:8400/asyncapi.yaml |
     And a depot-scans kafka topic client with the following properties:
       | producer.value.serializer    | io.confluent.kafka.serializers.KafkaAvroSerializer |
       | producer.schema.registry.url | http://${sys:local.host}:9081                      |

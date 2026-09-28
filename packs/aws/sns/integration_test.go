@@ -12,6 +12,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/sqs"
 
 	"github.com/nimbusxr/axx/internal/cloudstep/cloudtest"
+	"github.com/nimbusxr/axx/packs/asyncapi"
 	awscore "github.com/nimbusxr/axx/packs/aws/core"
 )
 
@@ -84,4 +85,43 @@ func TestTopics(t *testing.T) {
 	if len(qs.QueueUrls) != 0 {
 		t.Errorf("queues left: %v", qs.QueueUrls)
 	}
+
+	t.Run("contract", func(t *testing.T) {
+		account := append(account, []string{"asyncapi", "asyncapi.yaml"})
+		h := cloudtest.New(t, awscore.Pack(), asyncapi.Pack(), Pack())
+		h.File("asyncapi.yaml", claimsContract)
+		h.Start(h.Plan(
+			cloudtest.PlannedStep{Text: "the parcels aws account with the following properties:", Table: account},
+			cloudtest.PlannedStep{Text: "the claim-decisions sns topic has a message where:", Table: [][]string{{"claim", "CLM-2"}}},
+		))
+		h.OK("the parcels aws account with the following properties:", account)
+		_ = h.Fails("a message is published to the claim-decisions sns topic:",
+			"the message to send breaks asyncapi.yaml:\n- validation.message.payload.schema.enum: payload $.decision:", `{"claim": "CLM-2", "decision": "MAYBE"}`)
+		// The service under test publishes a decision without its claim.
+		if _, err := snsc.Publish(ctx, &sns.PublishInput{
+			TopicArn: aws.String(topics["claim-decisions"]), Message: aws.String(`{"decision":"APPROVED","ref":"CLM-2"}`),
+		}); err != nil {
+			t.Fatal(err)
+		}
+		_ = h.Fails("within 10s the claim-decisions sns topic has a message where:",
+			"the message the check found breaks asyncapi.yaml:\n- validation.message.payload.schema.required: payload $: missing property 'claim'",
+			[][]string{{"ref", "CLM-2"}})
+	})
 }
+
+// claimsContract is the claims' AsyncAPI document.
+const claimsContract = `asyncapi: 3.0.0
+info: {title: Claims, version: 1.0.0}
+servers:
+  aws: {host: localhost:4566, protocol: sns}
+channels:
+  decisions:
+    address: claim-decisions
+    messages:
+      decided:
+        payload:
+          type: object
+          required: [claim, decision]
+          properties:
+            decision: {enum: [APPROVED, REJECTED]}
+`

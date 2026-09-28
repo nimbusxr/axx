@@ -12,6 +12,7 @@ import (
 
 	"github.com/nimbusxr/axx/internal/cloudstep/cloudtest"
 	"github.com/nimbusxr/axx/internal/secrets"
+	"github.com/nimbusxr/axx/packs/asyncapi"
 )
 
 // tracking streams a parcel's tracking as the parcels service does: a scan
@@ -104,4 +105,38 @@ func waitFor(t *testing.T, ok func() bool) {
 		case <-time.After(20 * time.Millisecond):
 		}
 	}
+}
+
+// trackingContract is the tracking stream's AsyncAPI document: an event's
+// type names its message.
+const trackingContract = `asyncapi: 3.0.0
+info: {title: Parcel tracking, version: 1.0.0}
+channels:
+  tracking:
+    address: /api/parcels/{reference}/events
+    messages:
+      scan:
+        name: scan
+        payload:
+          type: object
+          required: [reference, status]
+      delivered:
+        name: delivered
+        payload:
+          type: object
+          required: [reference, status, signedBy]
+`
+
+func TestContract(t *testing.T) {
+	e := &tracking{}
+	srv := httptest.NewServer(e)
+	t.Cleanup(srv.Close)
+	h := cloudtest.New(t, asyncapi.Pack(), Pack())
+	h.Start(h.Plan())
+	h.File("asyncapi.yaml", trackingContract)
+	h.OK("the tracking event stream with the following properties:",
+		[][]string{{"url", srv.URL + "/api/parcels/PX-LIV-5702/events"}, {"asyncapi", "asyncapi.yaml"}})
+	h.OK("the tracking event stream has an event where:", [][]string{{"event type", "scan"}, {"status", "OUT_FOR_DELIVERY"}})
+	_ = h.Fails("within 5s the tracking event stream has an event containing 'DELIVERED'",
+		"- validation.message.payload.schema.required: payload $: missing property 'signedBy' (the delivered message of the tracking channel)")
 }

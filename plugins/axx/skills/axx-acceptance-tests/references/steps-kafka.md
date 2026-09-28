@@ -37,6 +37,7 @@ Register a Kafka cluster. The first one registered in a scenario is the default 
 | Property | Takes | Default |
 |---|---|---|
 | `brokers` | the cluster's brokers, a comma-separated list of `host:port`; `${env:..}` and `${sys:..}` are expanded | _required_ |
+| `asyncapi` | an AsyncAPI document, a file of the project or a URL, that the topics follow: every message a scenario sends there, and every message a check finds, is checked against it (with the asyncapi pack) | |
 
 Any other property is ignored, with a warning.
 

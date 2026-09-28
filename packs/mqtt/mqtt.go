@@ -20,6 +20,7 @@ import (
 
 	"github.com/nimbusxr/axx/core"
 	"github.com/nimbusxr/axx/internal/cloudstep"
+	"github.com/nimbusxr/axx/internal/contract"
 	"github.com/nimbusxr/axx/internal/secrets"
 )
 
@@ -67,7 +68,7 @@ var topics = cloudstep.Messages{
 		{Name: "response topic", Takes: "the topic a reply goes to"},
 		{Name: "correlation data", Takes: "what ties a reply to its request, as text"},
 	},
-	Send: publish, Inbox: inbox,
+	Send: publish, Inbox: inbox, Found: found,
 	Example: cloudstep.Sample{
 		To:   "depots/LEJ/scans",
 		Body: `{"scanId": "SC-8201-1", "parcelRef": "PX-8201", "status": "OUT_FOR_DELIVERY", "location": "Leipzig"}`,
@@ -91,6 +92,7 @@ func (pack) Manifest() core.Manifest {
 				{Name: "username", Takes: "the user axx connects as"},
 				{Name: "password", Takes: "its password, like `${env:MQTT_PASSWORD}`"},
 				{Name: "client id", Takes: "the start of the client IDs axx connects with, one per connection", Default: "`axx-<run>`"},
+				contract.TableRow("topics"),
 			},
 		},
 		Examples: []string{
@@ -106,6 +108,11 @@ func (pack) Manifest() core.Manifest {
 			if err != nil {
 				return err
 			}
+			if b.asyncapi != "" {
+				if b.contract, err = contract.Open(sc, b.asyncapi); err != nil {
+					return err
+				}
+			}
 			if err := brokers.Of(sc).Add(b.name, b); err != nil {
 				return err
 			}
@@ -118,6 +125,10 @@ func (pack) Manifest() core.Manifest {
 
 type broker struct {
 	name, url, username, password, clientID string
+	// asyncapi names the contract of the broker's messages; contract
+	// checks them.
+	asyncapi string
+	contract contract.Checker
 }
 
 func (b *broker) key() string { return b.url + "|" + b.username + "|" + b.clientID }
@@ -139,8 +150,10 @@ func parse(name string, t *core.Table, expand func(string) string) (*broker, err
 			b.password = v
 		case "client id":
 			b.clientID = v
+		case contract.Row:
+			b.asyncapi = v
 		default:
-			return nil, fmt.Errorf("unknown mqtt broker property %q (supported: url, username, password, client id)", p.Key)
+			return nil, fmt.Errorf("unknown mqtt broker property %q (supported: url, username, password, client id, asyncapi)", p.Key)
 		}
 	}
 	if b.url == "" {
@@ -303,6 +316,9 @@ func publish(sc *core.Scenario, topic string, body []byte, fields map[string]str
 	if err != nil {
 		return err
 	}
+	if err := contract.Check(b.contract, sc, contractMessage(incoming(p), true)); err != nil {
+		return err
+	}
 	c, err := publisher(sc.Suite(), b)
 	if err != nil {
 		return secrets.Hide(sc, err)
@@ -370,6 +386,24 @@ func incoming(p *paho.Publish) cloudstep.Message {
 		}
 	}
 	return m
+}
+
+// found checks a message a check found against the broker's contract.
+func found(sc *core.Scenario, _, _ string, msg cloudstep.Message) error {
+	b, err := brokers.Of(sc).Default()
+	if err != nil {
+		return err
+	}
+	return contract.Check(b.contract, sc, contractMessage(msg, false))
+}
+
+// contractMessage is a message as its contract sees it: on the topic it
+// was published to, which a check's filter only matches.
+func contractMessage(m cloudstep.Message, sent bool) contract.Message {
+	return contract.Message{
+		Protocol: "mqtt", Addresses: []string{m.Meta["topic"]}, Sent: sent,
+		Payload: m.Body, ContentType: m.Meta["content type"], Headers: m.Fields,
+	}
 }
 
 func inbox(sc *core.Scenario, topic, _ string) (*cloudstep.Inbox, error) {

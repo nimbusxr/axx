@@ -20,6 +20,11 @@ import (
 //go:embed openapi.yaml
 var openapiYAML []byte
 
+// asyncapiYAML is the contract of the messages the service sends and hears.
+//
+//go:embed asyncapi.yaml
+var asyncapiYAML []byte
+
 const maxWeightGrams = 30000
 
 var (
@@ -147,6 +152,10 @@ func (s *service) routes() http.Handler {
 		}
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write(b)
+	})
+	mux.HandleFunc("GET /asyncapi.yaml", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/yaml")
+		_, _ = w.Write(asyncapiYAML)
 	})
 	mux.HandleFunc("POST /api/quotes", s.quote)
 	mux.HandleFunc("POST /api/parcels", s.create)

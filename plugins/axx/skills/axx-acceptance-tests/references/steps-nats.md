@@ -43,6 +43,7 @@ Register the NATS server the steps talk to.
 | `username` | the user axx connects as |
 | `password` | its password |
 | `creds` | a credentials file (JWT and seed), relative to the directory of axx.yaml |
+| `asyncapi` | an AsyncAPI document, a file of the project or a URL, that the subjects follow: every message a scenario sends there, and every message a check finds, is checked against it (with the asyncapi pack) |
 
 **Example:**
 

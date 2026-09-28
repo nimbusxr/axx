@@ -41,6 +41,7 @@ Given the tracking websocket with the following properties:
 | `url` | The `ws://` or `wss://` URL (required). |
 | `header.<name>` | A header of the opening request, such as a token. |
 | `subprotocol` | The subprotocol to ask for. A server that picks none is still accepted. |
+| `asyncapi` | The AsyncAPI document the messages both ways follow ([Validate against AsyncAPI](/guides/validate-asyncapi/)). |
 
 A connection the server refuses fails the step, with what the server answered. `${env:..}` values, such as a token, are masked in logs and failures.
 

@@ -11,6 +11,7 @@ import (
 
 	"github.com/nimbusxr/axx/core"
 	"github.com/nimbusxr/axx/internal/cloudstep"
+	"github.com/nimbusxr/axx/internal/contract"
 	"github.com/nimbusxr/axx/internal/secrets"
 	"github.com/nimbusxr/axx/internal/stream"
 )
@@ -42,6 +43,8 @@ type events struct {
 	name, url string
 	stream    *stream.EventStream
 	in        *cloudstep.Inbox
+	// contract checks the events, when the asyncapi row names one.
+	contract contract.Checker
 }
 
 var streams = core.NewStateKey(Name, func(sc *core.Scenario) *core.Services[*events] {
@@ -70,6 +73,7 @@ func steps() []core.StepDef {
 				Rows: []core.TableRow{
 					{Name: "url", Required: true, Takes: "the stream's address"},
 					{Name: "header.<name>", Takes: "a header of the request, such as `header.Authorization`"},
+					contract.TableRow("events"),
 				},
 				Note: "Values are expanded (`${env:..}`, `${sys:..}`); what `${env:..}` references expand to is masked everywhere.",
 			},
@@ -96,7 +100,7 @@ func steps() []core.StepDef {
 					return err
 				}
 				match := func(m cloudstep.Message) (bool, error) { return rs.MatchMessage(m, field) }
-				return secrets.Hide(sc, cloudstep.ExpectMatch(sc, cloudstep.Wait(a, 0), e.in, match, field, "event", where(e)))
+				return secrets.Hide(sc, cloudstep.ExpectMatch(sc, cloudstep.Wait(a, 0), e.in, e.found(sc, match), field, "event", where(e)))
 			},
 		},
 		{
@@ -111,7 +115,7 @@ func steps() []core.StepDef {
 				}
 				text := secrets.Expand(sc, a.String(2))
 				contains := func(m cloudstep.Message) (bool, error) { return strings.Contains(string(m.Body), text), nil }
-				return secrets.Hide(sc, cloudstep.ExpectMatch(sc, cloudstep.Wait(a, 0), e.in, contains, field, "event", where(e)))
+				return secrets.Hide(sc, cloudstep.ExpectMatch(sc, cloudstep.Wait(a, 0), e.in, e.found(sc, contains), field, "event", where(e)))
 			},
 		},
 	}
@@ -126,7 +130,7 @@ func open(sc *core.Scenario, a core.Args) error {
 	if err != nil {
 		return err
 	}
-	var url string
+	var url, asyncapi string
 	header := http.Header{}
 	for _, p := range pairs {
 		v, err := secrets.Resolve(sc, p.Value)
@@ -138,14 +142,21 @@ func open(sc *core.Scenario, a core.Args) error {
 			url = strings.TrimSpace(v)
 		case strings.HasPrefix(p.Key, "header."):
 			header.Add(strings.TrimPrefix(p.Key, "header."), v)
+		case p.Key == contract.Row:
+			asyncapi = strings.TrimSpace(v)
 		default:
-			return fmt.Errorf("unknown event stream property %q (supported: url, header.<name>)", p.Key)
+			return fmt.Errorf("unknown event stream property %q (supported: url, header.<name>, asyncapi)", p.Key)
 		}
 	}
 	if url == "" {
 		return errors.New(`the event stream property "url" is required`)
 	}
 	e := &events{name: name, url: url, in: &cloudstep.Inbox{}}
+	if asyncapi != "" {
+		if e.contract, err = contract.Open(sc, asyncapi); err != nil {
+			return err
+		}
+	}
 	s, err := stream.OpenEvents(url, header,
 		func(ev stream.Event) {
 			e.in.Add(cloudstep.Message{Body: []byte(ev.Data), Fields: map[string]string{"type": ev.Type, "id": ev.ID}})
@@ -175,6 +186,23 @@ func get(sc *core.Scenario, name string) (*events, error) {
 		return nil, fmt.Errorf("no event stream named %q in this scenario; open it first with \"the %s event stream with the following properties:\"", name, name)
 	}
 	return e, nil
+}
+
+// found checks the event a check found against the stream's contract: a
+// message of the channel of the stream's path, named by its event type
+// when the channel has one of that name.
+func (e *events) found(sc *core.Scenario, match func(cloudstep.Message) (bool, error)) func(cloudstep.Message) (bool, error) {
+	return func(m cloudstep.Message) (bool, error) {
+		ok, err := match(m)
+		if ok && err == nil {
+			if err := contract.Check(e.contract, sc, contract.Message{
+				Protocol: "http", Addresses: contract.URLAddresses(e.url), Payload: m.Body, Name: m.Fields["type"],
+			}); err != nil {
+				return false, err
+			}
+		}
+		return ok, err
+	}
 }
 
 func where(e *events) string { return "the " + e.name + " event stream" }

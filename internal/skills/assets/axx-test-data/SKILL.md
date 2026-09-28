@@ -87,7 +87,7 @@ Each file kind has a JSON Schema: `axx schema --kind factory`, `--kind fixture` 
 | Family | Generates | Schema |
 | --- | --- | --- |
 | `avro` | Kafka payload JSON | an `.avsc` file |
-| `json` | any JSON: request payloads, mock bodies | a JSON Schema, or an OpenAPI component (`../openapi/parcels.yaml#/components/schemas/Parcel`) |
+| `json` | any JSON: request payloads, mock bodies, messages | a JSON Schema, an OpenAPI component (`../openapi/parcels.yaml#/components/schemas/Parcel`), or an AsyncAPI message's payload (`../asyncapi.yaml#/components/messages/scan`) |
 | `yaml` | YAML documents | the same as `json` |
 | `xml` | XML documents | an `.xsd` |
 | `protobuf` | canonical proto-JSON | a `.proto` or a descriptor set, with the message (`../proto/depot.proto#depot.Scan`) |

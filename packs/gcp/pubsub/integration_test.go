@@ -10,6 +10,7 @@ import (
 	"cloud.google.com/go/pubsub/v2/apiv1/pubsubpb"
 
 	"github.com/nimbusxr/axx/internal/cloudstep/cloudtest"
+	"github.com/nimbusxr/axx/packs/asyncapi"
 	gcpcore "github.com/nimbusxr/axx/packs/gcp/core"
 )
 
@@ -68,4 +69,48 @@ func TestTopics(t *testing.T) {
 	if s, err := it.Next(); err == nil {
 		t.Errorf("subscription left: %s", s.Name)
 	}
+
+	t.Run("contract", func(t *testing.T) {
+		project := append(project, []string{"asyncapi", "asyncapi.yaml"})
+		h := cloudtest.New(t, gcpcore.Pack(), asyncapi.Pack(), Pack())
+		h.File("asyncapi.yaml", invoicesContract)
+		h.Start(h.Plan(
+			cloudtest.PlannedStep{Text: "the billing gcp project with the following properties:", Table: project},
+			cloudtest.PlannedStep{Text: "the invoice-events pubsub topic has a message where:", Table: [][]string{{"invoice", "INV-2"}}},
+		))
+		h.OK("the billing gcp project with the following properties:", project)
+		h.File("messages/reconciled.json", `{"invoice": "INV-2", "status": "RECONCILED"}`)
+		_ = h.Fails("the messages/reconciled.json message is published to the invoice-events pubsub topic with the following attributes:",
+			"the message to send breaks asyncapi.yaml:\n- validation.message.headers.schema.required: headers $: missing property 'eventType'",
+			[][]string{{"source", "billing"}})
+		// The service under test publishes an event whose status the contract does not know.
+		pub := c2.Publisher(topicName(p, "invoice-events"))
+		defer pub.Stop()
+		if _, err := pub.Publish(ctx, &pubsub.Message{
+			Data: []byte(`{"invoice":"INV-2","status":"LOST"}`), Attributes: map[string]string{"eventType": "InvoiceReconciled"},
+		}).Get(ctx); err != nil {
+			t.Fatal(err)
+		}
+		_ = h.Fails("within 10s the invoice-events pubsub topic has a message where:",
+			"the message the check found breaks asyncapi.yaml:\n- validation.message.payload.schema.enum: payload $.status:",
+			[][]string{{"invoice", "INV-2"}})
+	})
 }
+
+// invoicesContract is the invoices' AsyncAPI document.
+const invoicesContract = `asyncapi: 3.0.0
+info: {title: Invoices, version: 1.0.0}
+servers:
+  gcp: {host: pubsub.googleapis.com, protocol: googlepubsub}
+channels:
+  invoices:
+    address: invoice-events
+    messages:
+      invoiceEvent:
+        headers: {type: object, required: [eventType]}
+        payload:
+          type: object
+          required: [invoice, status]
+          properties:
+            status: {enum: [RECONCILED, DISPUTED]}
+`
