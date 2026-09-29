@@ -30,14 +30,17 @@ the skills instead: `axx skills install`.
 - `internal/npm`: a pinned Node.js (`EnsureNode`, `WriteNode`) and the npm packages a
   package-lock.json pins (`Install`: integrity-checked, each platform's builds on that platform
   only, no lifecycle scripts), for the packs that run Node.js tools (web-core, web-lighthouse,
-  and mobile-android, which runs Appium from the lockfile in `packs/mobile/android/appium`).
+  mobile-android and mobile-ios, which run Appium from the lockfiles in `packs/mobile/*/appium`).
   `internal/imagediff`: Playwright's (pixelmatch's) pixel comparison of screenshots.
-- `packs/mobile/core` (`mobile-core`) and `packs/mobile/android` (`mobile-android`): native apps
-  through Appium (`packs/mobile/internal/appium`), with a device leased per scenario and the app
-  reset before it. Their unit tests run the steps against a fake Appium server
-  (`appiumtest`) serving real page sources (`packs/mobile/android/testdata`); their integration
-  tests run the parcels example's couriers' app (`examples/parcels/courier/android`) on an
-  emulator, in CI's mobile job.
+- `packs/mobile/core` (`mobile-core`), `packs/mobile/android` (`mobile-android`) and
+  `packs/mobile/ios` (`mobile-ios`): native apps through Appium (`packs/mobile/internal/appium`),
+  with a device leased per scenario and the app reset before it. Their unit tests run the steps
+  against a fake Appium server (`appiumtest`) serving real page sources (each pack's
+  `testdata`); their integration tests run the parcels example's couriers' apps
+  (`examples/parcels/courier/{android,ios}`) against a stand-in of its API (`courierapi`): on an
+  emulator in CI's mobile job, and on simulators in its ios job (macOS). mobile-ios installs
+  Appium's prebuilt WebDriverAgent (pinned, with its SHA-256 sums, in `install.go`) instead of
+  building it with Xcode.
 - `internal/filecontent`: reads files by their type (text, CSV, TSV, JSON, XML, HTML, PDF, Word,
   Excel) for the steps that check a file's text or table: files, storage objects, downloads.
 - `internal/packbuild`, `internal/gotool`: axx builds itself with the packs a project lists in

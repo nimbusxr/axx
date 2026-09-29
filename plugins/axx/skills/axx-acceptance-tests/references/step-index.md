@@ -604,12 +604,13 @@ mobile-core | mobile-core.dialog.accepted | the {word} app's dialog is accepted
 mobile-core | mobile-core.dialog.dismissed | the {word} app's dialog is dismissed
 mobile-core | mobile-core.dialog.shows | the {word} app's dialog shows {string}
 mobile-core | mobile-core.dialog.shows | within {duration} the {word} app's dialog shows {string}
+mobile-core | mobile-core.notification | the {word} app shows a notification {string}
+mobile-core | mobile-core.notification | within {duration} the {word} app shows a notification {string}
 mobile-core | mobile-core.screenshot | the {word} app looks like the {string} screenshot
 mobile-core | mobile-core.screenshot | within {duration} the {word} app looks like the {string} screenshot
 mobile-android | mobile-android.app | the {word} android app with the following properties:  [+table]
 mobile-android | mobile-android.back | the {word} app's back button is pressed
-mobile-android | mobile-android.notification | the {word} app shows a notification {string}
-mobile-android | mobile-android.notification | within {duration} the {word} app shows a notification {string}
+mobile-ios | mobile-ios.app | the {word} ios app with the following properties:  [+table]
 aws-core | aws-core.account | the {word} aws account with the following properties:  [+table]
 aws-s3 | aws-s3.upload | the {filepath} file is uploaded to the {word} s3 bucket
 aws-s3 | aws-s3.upload | the {filepath} file is uploaded to the {word} s3 bucket as {word}

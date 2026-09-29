@@ -45,6 +45,7 @@ var Catalog = []Pack{
 	{Name: "web-coverage", Import: packs + "web/coverage", Requires: []string{"web-core"}, Summary: "how much of the web apps' JavaScript the scenarios run: lcov and Istanbul reports, from Chromium"},
 	{Name: "mobile-core", Import: packs + "mobile/core", Summary: "native mobile apps, used as people use them: launched or opened with a deep link, their controls tapped and filled, what they show checked"},
 	{Name: "mobile-android", Import: packs + "mobile/android", Requires: []string{"mobile-core"}, Summary: "Android apps on emulators and devices, through Appium: a device of its own and a clean app for each scenario"},
+	{Name: "mobile-ios", Import: packs + "mobile/ios", Requires: []string{"mobile-core"}, Summary: "iOS apps on simulators, through Appium: a simulator of its own and a clean app for each scenario"},
 	{Name: "aws-core", Import: packs + "aws/core", Summary: "the AWS account the aws-* packs use"},
 	{Name: "aws-s3", Import: packs + "aws/s3", Requires: []string{"aws-core"}, Summary: "S3 buckets and objects"},
 	{Name: "aws-sqs", Import: packs + "aws/sqs", Requires: []string{"aws-core"}, Summary: "SQS queues"},

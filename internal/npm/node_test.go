@@ -261,6 +261,55 @@ func TestUnpackingFiles(t *testing.T) {
 	}
 }
 
+func TestUnzippingAnApp(t *testing.T) {
+	var buf bytes.Buffer
+	zw := zip.NewWriter(&buf)
+	for _, f := range []struct {
+		name string
+		mode os.FileMode
+	}{
+		{"Courier.app/Courier", 0o755},
+		{"Courier.app/Info.plist", 0o644},
+		{"Courier.app/Frameworks/", os.ModeDir | 0o755},
+		{"Courier.app/Current", os.ModeSymlink | 0o777},
+	} {
+		h := &zip.FileHeader{Name: f.name}
+		h.SetMode(f.mode)
+		w, err := zw.CreateHeader(h)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, _ = w.Write([]byte(f.name))
+	}
+	if err := zw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	dir := t.TempDir()
+	if err := Unzip(buf.Bytes(), dir); err != nil {
+		t.Fatal(err)
+	}
+	exe, err := os.Stat(filepath.Join(dir, "Courier.app", "Courier"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if runtime.GOOS != "windows" && exe.Mode().Perm() != 0o755 {
+		t.Errorf("the app's executable is %v", exe.Mode())
+	}
+	if b, err := os.ReadFile(filepath.Join(dir, "Courier.app", "Info.plist")); err != nil || string(b) != "Courier.app/Info.plist" {
+		t.Errorf("%q %v", b, err)
+	}
+	if _, err := os.Lstat(filepath.Join(dir, "Courier.app", "Current")); !os.IsNotExist(err) {
+		t.Errorf("a link was unpacked: %v", err)
+	}
+	escape := zipOf(t, map[string]string{"../escape": "x"})
+	if err := Unzip(escape, t.TempDir()); err == nil || err.Error() != `archive entry "../escape" leaves the directory` {
+		t.Errorf("an entry out of the directory: %v", err)
+	}
+	if err := Unzip([]byte("not a zip"), dir); err == nil {
+		t.Error("an archive that is not one")
+	}
+}
+
 func TestWriteOnceKeepsTheFirst(t *testing.T) {
 	dest := filepath.Join(t.TempDir(), "helper.mjs")
 	for _, content := range []string{"first", "second"} {

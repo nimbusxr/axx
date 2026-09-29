@@ -13,7 +13,7 @@ import (
 const catalogFile = "../../testdata/steps.json"
 
 var (
-	updateCatalog = flag.Bool("update", false, "add the steps and parameter types missing from testdata/steps.json; never changes or removes an entry")
+	updateCatalog = flag.Bool("update", false, "add the steps and parameter types missing from testdata/steps.json, and record the pack a step moved to; never removes an entry")
 	pruneCatalog  = flag.Bool("prune", false, "remove the entries of steps no pack defines any more: for steps the owner decided to remove, never to hide one that went missing")
 )
 
@@ -60,7 +60,7 @@ func TestStepCatalog(t *testing.T) {
 	}
 	listed := map[string]bool{}
 	kept := make([]catalogEntry, 0, len(cat.Entries))
-	pruned := 0
+	pruned, moved := 0, 0
 	for _, c := range cat.Entries {
 		switch c.Kind {
 		case "step":
@@ -68,6 +68,11 @@ func TestStepCatalog(t *testing.T) {
 			if !ok && *pruneCatalog {
 				pruned++
 				continue
+			}
+			if ok && got != c.Pack && *updateCatalog {
+				// The same text from another pack, like one its pack builds on.
+				c.Pack = got
+				moved++
 			}
 			kept = append(kept, c)
 			listed["step "+c.Expression] = true
@@ -77,7 +82,8 @@ func TestStepCatalog(t *testing.T) {
 				continue
 			}
 			if got != c.Pack {
-				t.Errorf("step %q is provided by pack %s, want %s", c.Expression, got, c.Pack)
+				t.Errorf("step %q is provided by pack %s, want %s: if it moved on purpose, to a pack every user of %s has, "+
+					"run `go test ./internal/engine -run TestStepCatalog -update`", c.Expression, got, c.Pack, c.Pack)
 			}
 		case "parameterType":
 			kept = append(kept, c)
@@ -103,7 +109,7 @@ func TestStepCatalog(t *testing.T) {
 		listed["step "+v.Expr] = true
 		missing = append(missing, catalogEntry{Kind: "step", Pack: v.Def.Pack, Keyword: v.Def.Step.Keyword, Expression: v.Expr})
 	}
-	if (*updateCatalog && len(missing) > 0) || pruned > 0 {
+	if (*updateCatalog && len(missing)+moved > 0) || pruned > 0 {
 		cat.Entries = kept
 		if *updateCatalog {
 			cat.Entries = append(cat.Entries, missing...)
@@ -122,7 +128,7 @@ func TestStepCatalog(t *testing.T) {
 		if err := os.WriteFile(catalogFile, out.Bytes(), 0o644); err != nil {
 			t.Fatal(err)
 		}
-		t.Logf("%s: added %d entries, removed %d", catalogFile, len(missing), pruned)
+		t.Logf("%s: added %d entries, moved %d, removed %d", catalogFile, len(missing), moved, pruned)
 		return
 	}
 	for _, m := range missing {

@@ -202,11 +202,24 @@ func element(sc *core.Scenario, d Device, app string, k kind, name string, wait 
 		}
 		return el, nil
 	}
-	n, err := find(sc, d, app, k, name, wait)
-	if err != nil {
-		return nil, err
+	deadline := time.Now().Add(wait)
+	for {
+		n, err := find(sc, d, app, k, name, time.Until(deadline))
+		if err != nil {
+			return nil, err
+		}
+		el, err := d.Session().Find(sc.Context(), n.Using, n.Value)
+		if !appium.IsNoSuchElement(err) || !time.Now().Before(deadline) {
+			return el, err
+		}
+		// The control moved between reading the screen and finding it, like
+		// a dialog's button as the dialog comes in: read the screen again.
+		select {
+		case <-sc.Context().Done():
+			return nil, sc.Context().Err()
+		case <-time.After(200 * time.Millisecond):
+		}
 	}
-	return d.Session().Find(sc.Context(), n.Using, n.Value)
 }
 
 // scrollTo scrolls until the control is shown: down, then up.

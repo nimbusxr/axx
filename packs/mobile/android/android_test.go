@@ -80,8 +80,9 @@ func courier(t *testing.T) *appiumtest.Server {
 			at(t, sc, "confirm", "Confirm"):         "delivered",
 			at(t, sc, "confirm", "Cancel"):          "delivery",
 		},
-		Links:  map[string]string{"parcels-courier://deliveries/PX-MOB-9401": "delivery"},
-		Alerts: map[string]string{"permission": "Allow Parcels Courier to send you notifications?"},
+		Links:         map[string]string{"parcels-courier://deliveries/PX-MOB-9401": "delivery"},
+		Alerts:        map[string]string{"permission": "Allow Parcels Courier to send you notifications?"},
+		Notifications: "notifications",
 	})
 }
 
@@ -93,6 +94,8 @@ func register(h *cloudtest.Harness, url string, rows ...[]string) {
 // every step of the pack, on the app's own screens.
 func TestACourierDelivers(t *testing.T) {
 	app := courier(t)
+	// The dialog's button moves in: the screen read shows it before it is there.
+	app.Moving(at(t, screens(t), "confirm", "Confirm"), 2)
 	h := cloudtest.New(t, mobilecore.Pack(), Pack())
 	register(h, app.URL, []string{"locale", "de-DE"})
 	h.OK("the courier app is launched")
@@ -115,6 +118,7 @@ func TestACourierDelivers(t *testing.T) {
 	h.OK(`the courier app shows "Mark PX-MOB-9401 delivered?"`)
 	h.OK(`the "Confirm" button is tapped in the courier app`)
 	h.OK(`the courier app shows "Delivered"`)
+	h.OK(`the courier app shows a notification "PX-MOB-9401 delivered"`)
 	h.OK(`the courier app does not show "Mark delivered"`)
 	h.OK("the courier app's back button is pressed")
 	h.OK(`the courier app is opened with the "parcels-courier://deliveries/PX-MOB-9401" link`)
@@ -140,7 +144,7 @@ func TestACourierDelivers(t *testing.T) {
 	cmds := strings.Join(app.Commands(), "\n")
 	for _, want := range []string{
 		`mobile: activateApp [{"appId":"example.parcels.courier"}]`,
-		"type CR-LEJ-12", "type 4711", "accept alert", "type Jonas Weber", "back",
+		"type CR-LEJ-12", "type 4711", "accept alert", "type Jonas Weber", "mobile: openNotifications", "back",
 		`mobile: deepLink [{"package":"example.parcels.courier","url":"parcels-courier://deliveries/PX-MOB-9401","waitForLaunch":true}]`,
 		`"direction":"down"`, `mobile: backgroundApp [{"seconds":-1}]`, `mobile: terminateApp`, "end session",
 	} {
@@ -166,6 +170,10 @@ func TestFailures(t *testing.T) {
 	_ = h.Fails(`within 1s the courier app does not show "Sign in"`, `The courier app shows "Sign in"`)
 	_ = h.Fails(`within 1s the "Sign in" button is enabled in the courier app`, `The "Sign in" button in the courier app is not enabled`)
 	_ = h.Fails(`the courier app's dialog is accepted`, "The courier app shows no dialog")
+	_ = h.Fails(`within 1s the courier app shows a notification "PX-MOB-9402 delivered"`, `The device of the courier app shows no notification "PX-MOB-9402 delivered"`)
+	if app.Screen() != "sign-in" {
+		t.Errorf("the notifications stayed open over the app: %s", app.Screen())
+	}
 	app.Show("sign-in-filled")
 	err := h.Fails(`within 1s the "Courier ID" field in the courier app has the value "${env:COURIER_PIN}"`, "does not have the value")
 	if strings.Contains(err.Error(), "4711") {

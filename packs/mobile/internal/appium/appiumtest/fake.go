@@ -32,6 +32,10 @@ type App struct {
 	// Alerts are the texts of the dialogs the system shows over screens; Taps
 	// moves on "accept <screen>" and "dismiss <screen>".
 	Alerts map[string]string
+	// Notifications is the screen of the device's notifications: opened over
+	// the app (Android's shade, or a finger from iOS's top edge), and closed
+	// by back or by activating the app.
+	Notifications string
 }
 
 // Server is a running fake.
@@ -47,12 +51,15 @@ type Server struct {
 	commands []string          // mobile: commands and other actions, in order
 	caps     map[string]any
 	shots    int
+	state    int    // the app's state, as XCUITest reports it: 1 not running, 4 in front
+	under    string // the screen under the notifications, while they are open
+	moving   map[string]int
 }
 
 // Start runs the fake for a test.
 func Start(t *testing.T, app App) *Server {
 	t.Helper()
-	s := &Server{app: app, screen: app.Start, elements: map[string]string{}, typed: map[string]string{}}
+	s := &Server{app: app, screen: app.Start, elements: map[string]string{}, typed: map[string]string{}, state: 1}
 	srv := httptest.NewServer(http.HandlerFunc(s.serve))
 	t.Cleanup(srv.Close)
 	s.URL = srv.URL
@@ -64,6 +71,17 @@ func (s *Server) Screen() string {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.screen
+}
+
+// Moving has the next finds of a control miss it, as they do while it
+// moves in, like a dialog's button: by the XPath the packs find it with.
+func (s *Server) Moving(xpath string, misses int) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.moving == nil {
+		s.moving = map[string]int{}
+	}
+	s.moving[xpath] = misses
 }
 
 // Show moves the app to a screen, as the app would by itself.
@@ -98,6 +116,8 @@ var (
 	sessionRE = regexp.MustCompile(`^/session/([^/]+)(/.*)?$`)
 	elementRE = regexp.MustCompile(`^/element/([^/]+)/([a-z]+)$`)
 	boundsRE  = regexp.MustCompile(`@bounds=["']([^"']+)["']`)
+	// The iOS pack finds an element by its type and where it is.
+	iosRE = regexp.MustCompile(`^//(XCUIElementType\w+)\[@x="([^"]*)" and @y="([^"]*)" and @width="([^"]*)" and @height="([^"]*)"\]$`)
 )
 
 func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
@@ -157,10 +177,24 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 		reply(nil)
 	case path == "/back":
 		s.commands = append(s.commands, "back")
+		s.closeNotifications()
+		reply(nil)
+	case path == "/actions":
+		s.commands = append(s.commands, "drag")
+		s.openNotifications()
+		reply(nil)
+	case path == "/appium/settings":
+		settings, _ := json.Marshal(body["settings"])
+		s.commands = append(s.commands, "settings "+string(settings))
 		reply(nil)
 	case path == "/element" || path == "/elements":
 		using, _ := body["using"].(string)
 		value, _ := body["value"].(string)
+		if s.moving[value] > 0 {
+			s.moving[value]--
+			fail("no such element", "An element could not be located on the page using the given search parameters.")
+			return
+		}
 		if !s.has(using, value) {
 			fail("no such element", "An element could not be located on the page using the given search parameters.")
 			return
@@ -184,7 +218,25 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 				s.screen = next
 			}
 		}
-		if script == "mobile: scrollGesture" {
+		switch script {
+		case "mobile: openNotifications":
+			s.openNotifications()
+		case "mobile: activateApp":
+			s.closeNotifications()
+			s.state = 4
+		case "mobile: launchApp":
+			s.state = 4
+		case "mobile: terminateApp":
+			s.state = 1
+		case "mobile: backgroundApp":
+			s.state = 3
+		case "mobile: queryAppState":
+			reply(s.state)
+			return
+		case "mobile: deviceScreenInfo":
+			reply(map[string]any{"statusBarSize": map[string]any{"width": 54, "height": 5}, "scale": 2})
+			return
+		case "mobile: scrollGesture":
 			reply(false)
 			return
 		}
@@ -221,6 +273,18 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (s *Server) openNotifications() {
+	if s.app.Notifications != "" && s.under == "" {
+		s.under, s.screen = s.screen, s.app.Notifications
+	}
+}
+
+func (s *Server) closeNotifications() {
+	if s.under != "" {
+		s.screen, s.under = s.under, ""
+	}
+}
+
 // Shots are the screenshots of screens, 108x240 PNGs: each screen a colour
 // of its own unless set here.
 var Shots = map[string]color.Color{}
@@ -246,7 +310,7 @@ func (s *Server) shot() []byte {
 }
 
 // has reports whether the screen has what a locator finds: an XPath by
-// bounds, as the packs find elements, or an id.
+// bounds, or by type and place, as the packs find elements, or an id.
 func (s *Server) has(using, value string) bool {
 	src := s.app.Screens[s.screen]
 	switch using {
@@ -254,9 +318,13 @@ func (s *Server) has(using, value string) bool {
 		if b := boundsRE.FindStringSubmatch(value); b != nil {
 			return strings.Contains(src, `bounds="`+b[1]+`"`)
 		}
+		if b := iosRE.FindStringSubmatch(value); b != nil {
+			at := fmt.Sprintf(`x="%s" y="%s" width="%s" height="%s"`, b[2], b[3], b[4], b[5])
+			return regexp.MustCompile(`<` + b[1] + `\s[^>]*` + regexp.QuoteMeta(at)).MatchString(src)
+		}
 		return false
 	case "id":
-		return strings.Contains(src, `resource-id="`+value+`"`)
+		return strings.Contains(src, `resource-id="`+value+`"`) || strings.Contains(src, ` name="`+value+`"`)
 	}
 	return false
 }

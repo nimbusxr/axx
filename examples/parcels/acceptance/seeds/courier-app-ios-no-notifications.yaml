@@ -1,0 +1,8 @@
+parcels.parcels:
+  - reference: "PX-IOS-9521"
+    sender: "maple-crafts"
+    status: "OUT_FOR_DELIVERY"
+    service_level: "STANDARD"
+    weight_grams: 900
+    recipient: '{"name": "Greta Fischer", "street": "Alaunstr. 36", "city": "Dresden", "postcode": "01099", "country": "DE"}'
+    details: '{"source": "api", "zone": "DE-1", "courier": "CR-DRS-11"}'

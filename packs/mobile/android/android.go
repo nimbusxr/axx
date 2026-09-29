@@ -5,11 +5,8 @@ package mobileandroid
 
 import (
 	"context"
-	"fmt"
-	"time"
 
 	"github.com/nimbusxr/axx/core"
-	"github.com/nimbusxr/axx/internal/cloudstep"
 	"github.com/nimbusxr/axx/internal/secrets"
 	mobilecore "github.com/nimbusxr/axx/packs/mobile/core"
 )
@@ -82,34 +79,5 @@ func steps() []core.StepDef {
 				})
 			},
 		},
-		{
-			ID: "mobile-android.notification", Keyword: "Then", Since: since,
-			Expr:     "[[within {duration} ]]the {word} app shows a notification {string}",
-			Doc:      "Check that the device shows a notification with a text, in its title or its text: it opens the notification shade, looks, and closes it. It waits for the notification (10 seconds, or `within`).",
-			Examples: []string{`Then the courier app shows a notification "PX-MOB-9401 delivered"`},
-			Run: func(sc *core.Scenario, a core.Args) error {
-				wait, app, text := cloudstep.Wait(a, 0), a.String(1), secrets.Expand(sc, a.String(2))
-				return mobilecore.OnDevice(sc, app, func(ctx context.Context, d mobilecore.Device) error {
-					return notification(sc, ctx, d, app, text, wait)
-				})
-			},
-		},
 	}
-}
-
-// notification looks for a notification in the shade until wait has passed.
-func notification(sc *core.Scenario, ctx context.Context, d mobilecore.Device, app, text string, wait time.Duration) error {
-	s := d.Session()
-	if err := s.Mobile(ctx, "openNotifications", nil, nil); err != nil {
-		return fmt.Errorf("cannot open the notification shade: %w", err)
-	}
-	defer func() { _ = s.Back(context.WithoutCancel(ctx)) }()
-	ok, err := mobilecore.WaitUntil(sc, wait, func() (bool, error) {
-		screen, err := d.Screen(ctx)
-		return err == nil && screen.Shows(text), err
-	})
-	if err != nil || ok {
-		return err
-	}
-	return core.Failf("The device of the %s app shows no notification %q", app, text)
 }

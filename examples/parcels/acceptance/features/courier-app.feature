@@ -1,4 +1,4 @@
-@mobile
+@mobile @android
 Feature: The couriers' app
 
   Couriers deliver with the service's Android app (../courier/android): they sign in, see the

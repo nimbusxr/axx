@@ -203,7 +203,8 @@ jobs:
     needs: changes
     if: needs.changes.outputs.mobile == 'true'
     # The mobile packs and the parcels example's Android scenarios, on an Android emulator that
-    # axx starts (KVM); the scenarios run against the whole example, which axx starts too.
+    # axx starts (KVM); the scenarios run against the whole example, which axx starts too. The
+    # iOS pack's tests skip here: they run in the ios job.
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
@@ -256,7 +257,7 @@ jobs:
           axx fixtures check
           axx fixtures generate
       - working-directory: examples/parcels/acceptance
-        run: axx run --tags @mobile --format progress --format junit:build/axx/junit.xml --format html:build/axx/report.html
+        run: axx run --tags @android --format progress --format junit:build/axx/junit.xml --format html:build/axx/report.html
       - if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
@@ -268,6 +269,32 @@ jobs:
             examples/parcels/acceptance/.axx/logs/
           if-no-files-found: ignore
           retention-days: 7
+
+  ios:
+    needs: changes
+    if: needs.changes.outputs.mobile == 'true'
+    # The iOS pack, on simulators axx makes, with the parcels example's couriers' iOS app. The
+    # example's iOS scenarios need the whole example, and macOS runners have no Docker: they
+    # run on developers' Macs.
+    runs-on: macos-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+        with:
+          install_args: "go"
+          # Tools are cached from main only: pull requests read them.
+          cache_save: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+      - uses: ./.github/actions/go-cache
+        with:
+          build: test
+      - name: the couriers' app
+        working-directory: examples/parcels/courier/ios
+        run: xcodebuild -project Courier.xcodeproj -target Courier -configuration Debug -sdk iphonesimulator ONLY_ACTIVE_ARCH=NO SYMROOT=build
+      # A failed test prints the end of its Appium's log.
+      - run: go test -race -tags integration -timeout 30m ./packs/mobile/ios/...
 
   cross-build:
     needs: changes
@@ -360,7 +387,7 @@ jobs:
           axx fixtures check
           axx fixtures generate
       - working-directory: examples/${{ matrix.example }}/acceptance
-        # The Android scenarios run in the mobile job, on an emulator.
+        # The Android scenarios run in the mobile job, on an emulator; the iOS ones on Macs.
         run: axx run --tags "not @mobile" --format progress --format junit:build/axx/junit.xml --format html:build/axx/report.html
       - if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
@@ -424,7 +451,7 @@ jobs:
   # pull request does not need is skipped, which passes.
   ci-ok:
     if: always()
-    needs: [changes, hygiene, lint, workflows, test, integration, web, mobile, cross-build, example-app, acceptance, release-check]
+    needs: [changes, hygiene, lint, workflows, test, integration, web, mobile, ios, cross-build, example-app, acceptance, release-check]
     runs-on: ubuntu-24.04
     steps:
       - name: all jobs passed

@@ -140,7 +140,7 @@ func loadConfig() (config, error) {
 			c.ShopClients[shop] = secret
 		}
 	}
-	for _, entry := range strings.Split(env("PARCELS_COURIERS", "CR-LEJ-12:Hanna Wolf:4711,CR-LEJ-14:Mia Krause:4711,CR-LEJ-15:Paul Richter:4711,CR-LEJ-16:Lea Schmidt:4711,CR-DRS-07:Jonas Keller:4711"), ",") {
+	for _, entry := range strings.Split(env("PARCELS_COURIERS", "CR-LEJ-12:Hanna Wolf:4711,CR-LEJ-14:Mia Krause:4711,CR-LEJ-15:Paul Richter:4711,CR-LEJ-16:Lea Schmidt:4711,CR-DRS-07:Jonas Keller:4711,CR-LEJ-21:Emil Hartmann:4711,CR-DRS-11:Nora Lange:4711"), ",") {
 		if parts := strings.Split(strings.TrimSpace(entry), ":"); len(parts) == 3 {
 			c.Couriers[parts[0]] = courierAccount{name: parts[1], pin: parts[2]}
 		}

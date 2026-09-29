@@ -27,13 +27,30 @@ func dialogSteps() []core.StepDef {
 			Run: func(sc *core.Scenario, a core.Args) error {
 				app := a.String(0)
 				return onDevice(sc, app, false, func(ctx context.Context, d Device) error {
-					if _, err := dialog(sc, d, app, actionTimeout); err != nil {
+					text, err := dialog(sc, d, app, actionTimeout)
+					if err != nil {
 						return err
 					}
-					if err := fn(ctx, d.Session()); err != nil {
-						return fmt.Errorf("the %s app's dialog could not be %s: %w", app, verb, err)
+					// An answer given while the dialog still comes in can go
+					// unnoticed (iOS's): answer until it is gone, or another
+					// dialog shows.
+					for range 3 {
+						if err := fn(ctx, d.Session()); err != nil {
+							return fmt.Errorf("the %s app's dialog could not be %s: %w", app, verb, err)
+						}
+						answered, err := waitUntil(sc, 2*time.Second, func() (bool, error) {
+							t, err := d.Session().AlertText(ctx)
+							var ae *appium.Error
+							if errors.As(err, &ae) && ae.Code == "no such alert" {
+								return true, nil
+							}
+							return err == nil && t != text, err
+						})
+						if err != nil || answered {
+							return err
+						}
 					}
-					return nil
+					return core.Failf("The %s app's dialog is still shown: it could not be %s", app, verb)
 				})
 			},
 		}

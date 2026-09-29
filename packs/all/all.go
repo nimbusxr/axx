@@ -32,6 +32,7 @@ import (
 	"github.com/nimbusxr/axx/packs/mcp"
 	mobileandroid "github.com/nimbusxr/axx/packs/mobile/android"
 	mobilecore "github.com/nimbusxr/axx/packs/mobile/core"
+	mobileios "github.com/nimbusxr/axx/packs/mobile/ios"
 	"github.com/nimbusxr/axx/packs/mock"
 	"github.com/nimbusxr/axx/packs/mongo"
 	"github.com/nimbusxr/axx/packs/mqtt"
@@ -81,6 +82,7 @@ func Packs() map[string]core.Pack {
 		"web-coverage":     webcoverage.Pack(),
 		"mobile-core":      mobilecore.Pack(),
 		"mobile-android":   mobileandroid.Pack(),
+		"mobile-ios":       mobileios.Pack(),
 		"aws-core":         awscore.Pack(),
 		"aws-s3":           awss3.Pack(),
 		"aws-sqs":          awssqs.Pack(),
