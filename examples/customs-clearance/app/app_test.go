@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -69,5 +70,48 @@ func TestCertificateText(t *testing.T) {
 		if !strings.Contains(text, want) {
 			t.Errorf("the certificate does not say %q:\n%s", want, text)
 		}
+	}
+}
+
+// A 409 Conflict is an entity that exists only when the entity is there: the
+// emulator also answers it while another operation on the entity is in
+// progress, and the entity must still be created then.
+func TestEnsureCreatesTheEntityUntilItExists(t *testing.T) {
+	provisionRetry = time.Millisecond
+	t.Cleanup(func() { provisionRetry = time.Second })
+	conflict := errors.New("409 Conflict: another conflicting operation is in progress")
+
+	created, creates := false, 0
+	err := ensure(t.Context(), "queue customs-filings",
+		func() error {
+			creates++
+			if creates < 3 {
+				return conflict
+			}
+			created = true
+			return nil
+		},
+		func() (bool, error) { return created, nil })
+	if err != nil || !created || creates != 3 {
+		t.Errorf("err %v, created %v after %d creates", err, created, creates)
+	}
+
+	// An entity that exists is kept.
+	creates = 0
+	err = ensure(t.Context(), "queue customs-filings",
+		func() error { creates++; return conflict },
+		func() (bool, error) { return true, nil })
+	if err != nil || creates != 1 {
+		t.Errorf("err %v after %d creates", err, creates)
+	}
+
+	// One that never gets created fails provisioning, with what it is.
+	provisionTimeout = 20 * time.Millisecond
+	t.Cleanup(func() { provisionTimeout = 3 * time.Minute })
+	err = ensure(t.Context(), "queue customs-filings",
+		func() error { return conflict },
+		func() (bool, error) { return false, nil })
+	if err == nil || !strings.Contains(err.Error(), "queue customs-filings: 409 Conflict") {
+		t.Errorf("err %v", err)
 	}
 }
