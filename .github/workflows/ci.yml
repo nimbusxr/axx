@@ -293,9 +293,14 @@ jobs:
       - name: the couriers' app
         working-directory: examples/parcels/courier/ios
         run: xcodebuild -project Courier.xcodeproj -target Courier -configuration Debug -sdk iphonesimulator ONLY_ACTIVE_ARCH=NO SYMROOT=build
-      # The first test sets up the simulator the others clone: over ten minutes on these
-      # runners. A failed test prints the end of its Appium's log and the screen it read.
+      - uses: ./.github/actions/ios-tools
+      # Without ios-tools' cache, setting up the simulator the tests clone takes over ten
+      # minutes on these runners. A failed test prints the end of its Appium's log and the
+      # screen it read.
       - run: go test -race -tags integration -timeout 45m ./packs/mobile/ios/...
+      - uses: ./.github/actions/ios-tools
+        with:
+          mode: save
 
   cross-build:
     needs: changes

@@ -46,6 +46,7 @@ func TestCapabilities(t *testing.T) {
 		"platformName": "iOS", "appium:automationName": "XCUITest", "appium:bundleId": "example.parcels.courier",
 		"appium:udid": "U", "appium:platformVersion": "18.1", "appium:usePreinstalledWDA": true,
 		"appium:wdaLocalPort": 8101, "appium:mjpegServerPort": 9101, "appium:noReset": true, "appium:autoLaunch": false,
+		"appium:isHeadless": true,
 	} {
 		if caps[key] != want {
 			t.Errorf("capability %s: %v, want %v", key, caps[key], want)

@@ -89,6 +89,9 @@ func (a *app) capabilities(dev *device, bundleID string) map[string]any {
 		caps["appium:wdaLocalPort"] = dev.wdaPort
 		caps["appium:mjpegServerPort"] = dev.mjpegPort
 		caps["appium:reduceMotion"] = true // a screen settles at once, and screenshots compare
+		// No Simulator window: without this, the driver boots a simulator
+		// again to show one.
+		caps["appium:isHeadless"] = true
 	}
 	for k, v := range a.caps {
 		caps[k] = v

@@ -99,8 +99,11 @@ func signIn(h *cloudtest.Harness) {
 	h.OK(`the "Sign in" button is tapped in the courier app`)
 }
 
-// A courier delivers a parcel on a simulator: every step of the packs.
-func TestACourierDeliversOnASimulator(t *testing.T) {
+// A courier delivers a parcel on a simulator, with every step of the packs;
+// the next scenario, on the same simulator, starts signed out (the first kept
+// its sign-in in the keychain, which outlives the app), and iOS asks again
+// for notifications. One simulator for both, as a run's worker has.
+func TestCouriersOnASimulator(t *testing.T) {
 	device := simulator(t)
 	courierapi.Start(t)
 	t.Setenv("COURIER_PIN", "4711")
@@ -135,25 +138,6 @@ func TestACourierDeliversOnASimulator(t *testing.T) {
 			t.Errorf("the PIN is in the logs: %s", l)
 		}
 	}
-	if err := h.End("passed"); err != nil {
-		t.Fatal(err)
-	}
-}
-
-// Two scenarios on one simulator: the second starts signed out (the first
-// kept its sign-in in the keychain), and iOS asks again for notifications.
-func TestScenariosOnASimulatorAreIsolated(t *testing.T) {
-	device := simulator(t)
-	courierapi.Start(t)
-	t.Setenv("COURIER_PIN", "4711")
-	h := harness(t)
-	warm(t, h, device)
-	h.OK("the courier ios app with the following properties:", [][]string{{"app", courierBuild(t)}, {"device", device}})
-	signIn(h)
-	h.OK(`the courier app's dialog is accepted`)
-	h.OK(`the courier app shows "Hello, Hanna Wolf"`)
-	h.OK("the courier app is restarted")
-	h.OK(`the courier app shows "Hello, Hanna Wolf"`)
 	if err := h.End("passed"); err != nil {
 		t.Fatal(err)
 	}
