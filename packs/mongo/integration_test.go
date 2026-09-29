@@ -9,8 +9,11 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/testcontainers/testcontainers-go"
 	tcmongo "github.com/testcontainers/testcontainers-go/modules/mongodb"
+	"github.com/testcontainers/testcontainers-go/wait"
 	"go.mongodb.org/mongo-driver/v2/bson"
 
 	"github.com/nimbusxr/axx/core"
@@ -19,7 +22,13 @@ import (
 
 func TestSeedAgainstRealMongo(t *testing.T) {
 	ctx := context.Background()
-	c, err := tcmongo.Run(ctx, "mongo:7", tcmongo.WithUsername("space"), tcmongo.WithPassword("secret"))
+	// With a user to create, the image first runs a mongod that listens only
+	// inside the container, then restarts it: the second "Waiting for
+	// connections" is the server the test reaches.
+	c, err := tcmongo.Run(ctx, "mongo:7", tcmongo.WithUsername("space"), tcmongo.WithPassword("secret"),
+		testcontainers.WithWaitStrategy(
+			wait.ForLog("Waiting for connections").WithOccurrence(2).WithStartupTimeout(2*time.Minute),
+			wait.ForListeningPort("27017/tcp")))
 	if err != nil {
 		t.Skipf("mongo container unavailable: %v", err)
 	}
