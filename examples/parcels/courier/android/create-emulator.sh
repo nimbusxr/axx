@@ -12,10 +12,16 @@ case "$(uname -m)" in
   *) abi=x86_64 ;;
 esac
 image="system-images;android-35;google_apis;$abi"
-tools="$sdk/cmdline-tools/latest/bin"
 
-# sdkmanager asks to accept licences; yes stops when it stops reading.
-{ yes || true; } | "$tools/sdkmanager" --install "$image" emulator platform-tools > /dev/null
+# Google's newest packages need its newest command-line tools: the SDK's own fetch them into a
+# folder of their own, and are left as they are. sdkmanager asks to accept licences; yes stops
+# when it stops reading.
+latest=$(mktemp -d)
+trap 'rm -rf "$latest"' EXIT
+{ yes || true; } | "$sdk/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$latest" --install "cmdline-tools;latest" > /dev/null
+{ yes || true; } | "$latest/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$sdk" --install "$image" emulator platform-tools > /dev/null
+# The SDK's own avdmanager: the newest one takes its own folder for the SDK.
+tools="$sdk/cmdline-tools/latest/bin"
 # A Pixel the installed command-line tools know: older ones do not know the Pixel 8.
 devices=$("$tools/avdmanager" list device -c 2> /dev/null)
 device=""
