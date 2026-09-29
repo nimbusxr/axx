@@ -69,6 +69,9 @@ abstract class McpMockTest {
                 .header("Content-Type", "application/json")
                 .header("Accept", "application/json, text/event-stream")
                 .POST(HttpRequest.BodyPublishers.ofString(body));
+        if (headers.length % 2 != 0) {
+            throw new IllegalArgumentException("headers are names and values, in pairs: " + headers.length + " is odd");
+        }
         for (int i = 0; i < headers.length; i += 2) {
             b.header(headers[i], headers[i + 1]);
         }

@@ -6,10 +6,10 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 
+import us.nimbusxr.axx.wiremock.json.JsonObjects;
 import us.nimbusxr.axx.wiremock.json.JsonText;
 
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -51,11 +51,7 @@ final class Values {
 
     /** An object of keys and values, in their order, nulls kept. */
     static Map<String, Object> obj(Object... kv) {
-        Map<String, Object> m = new LinkedHashMap<>();
-        for (int i = 0; i < kv.length; i += 2) {
-            m.put((String) kv[i], kv[i + 1]);
-        }
-        return m;
+        return JsonObjects.of(kv);
     }
 
     @SuppressWarnings("unchecked")

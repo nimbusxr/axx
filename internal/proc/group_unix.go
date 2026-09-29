@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os/exec"
 	"syscall"
+	"time"
 )
 
 // Setup makes cmd the leader of a new process group, so that stopping
@@ -66,6 +67,16 @@ func (g *Group) Interrupt(name string) bool {
 
 // kill sends SIGKILL to every process of the group.
 func (g *Group) Kill() error { return ignoreGone(syscall.Kill(-g.pgid, syscall.SIGKILL)) }
+
+// KillAndWait kills every process of the group, and waits up to timeout
+// until none runs.
+func (g *Group) KillAndWait(timeout time.Duration) error {
+	err := g.Kill()
+	for deadline := time.Now().Add(timeout); g.Alive() && time.Now().Before(deadline); {
+		time.Sleep(10 * time.Millisecond)
+	}
+	return err
+}
 
 // release frees OS resources held for the group.
 func (g *Group) Release() {}

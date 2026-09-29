@@ -68,6 +68,9 @@ abstract class A2aMockTest {
         if (body != null) {
             b.header("Content-Type", path.startsWith(REST) ? "application/a2a+json" : "application/json");
         }
+        if (headers.length % 2 != 0) {
+            throw new IllegalArgumentException("headers are names and values, in pairs: " + headers.length + " is odd");
+        }
         for (int i = 0; i < headers.length; i += 2) {
             b.header(headers[i], headers[i + 1]);
         }

@@ -161,10 +161,7 @@ func (s *server) stop() {
 	if s.group != nil {
 		// What the command left running is stopped with it, and gone before
 		// the scenario's folder, which may be its working folder, is removed.
-		_ = s.group.Kill()
-		for deadline := time.Now().Add(2 * time.Second); s.group.Alive() && time.Now().Before(deadline); {
-			time.Sleep(20 * time.Millisecond)
-		}
+		_ = s.group.KillAndWait(2 * time.Second)
 		s.group.Release()
 	}
 	<-exited

@@ -351,7 +351,7 @@ final class Agent {
             }
             for (String k : List.of("metadata", "filename", "mediaType")) {
                 Object v = p.get(k);
-                if (v != null && !"".equals(v)) {
+                if (v != null && !(v instanceof String text && text.isEmpty())) {
                     part.put(k, v);
                 }
             }
