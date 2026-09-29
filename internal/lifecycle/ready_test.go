@@ -72,7 +72,9 @@ func TestReadiness(t *testing.T) {
 		{name: "no readiness config", setup: func(*testing.T, *config.App) {}},
 		{name: "timeout", setup: func(t *testing.T, app *config.App) {
 			app.Command = helper(t, "print", "still booting")
-			app.Ready = fast(config.Ready{Log: "never", Timeout: config.Duration(300 * time.Millisecond)})
+			// The error quotes what the app printed, so the app has the time to
+			// start and print on a busy machine (300ms was not always enough).
+			app.Ready = fast(config.Ready{Log: "never", Timeout: config.Duration(2 * time.Second)})
 		}, wantCode: CodeNotReady, wantMsg: []string{"ready.log: no output line matched never", "still booting", "raise apps.api.ready.timeout"}},
 		{name: "early exit fails fast", setup: func(t *testing.T, app *config.App) {
 			app.Command = helper(t, "exit", "3", "loading config", "boom: config missing")
