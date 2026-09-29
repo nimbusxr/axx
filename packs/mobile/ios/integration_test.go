@@ -70,13 +70,13 @@ func harness(t *testing.T) *cloudtest.Harness {
 	return h
 }
 
-// warm makes the test's simulator before its scenario, as `axx up` keeps
-// devices warm: a runner's first simulator, and the first downloads of
-// Appium and WebDriverAgent, take longer than a scenario may. The scenario
-// then leases it, and resets it as ever.
+// warm makes the test's simulator before its scenario: setting up the
+// simulator axx clones, on a runner that has none yet, and the first
+// downloads of Appium and WebDriverAgent take longer than a scenario may.
+// The scenario then leases the clone, and resets it as ever.
 func warm(t *testing.T, h *cloudtest.Harness, device string) {
 	t.Helper()
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
 	defer cancel()
 	p, err := poolFor(h.SC, device)
 	if err != nil {

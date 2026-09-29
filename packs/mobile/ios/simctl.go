@@ -49,9 +49,20 @@ type simDeviceType struct {
 	Name       string `json:"name"` // iPhone 16
 }
 
-// simulators lists the simulators, available or not.
-func simulators(ctx context.Context) ([]simDevice, error) {
-	out, err := simctl(ctx, "list", "devices", "-j")
+// simSet is a set of simulators: Xcode's own (""), or axx's, in its cache.
+type simSet string
+
+// simctl runs simctl on the set's simulators.
+func (set simSet) simctl(ctx context.Context, args ...string) (string, error) {
+	if set != "" {
+		args = append([]string{"--set", string(set)}, args...)
+	}
+	return simctl(ctx, args...)
+}
+
+// simulators lists the set's simulators, available or not.
+func simulators(ctx context.Context, set simSet) ([]simDevice, error) {
+	out, err := set.simctl(ctx, "list", "devices", "-j")
 	if err != nil {
 		return nil, err
 	}
@@ -162,21 +173,21 @@ func newer(a, b string) bool {
 	return false
 }
 
-// bootAttempt is how long one attempt to boot a simulator may take: a new
-// simulator's first boot sets it up, and can stall on some machines (GitHub's
-// macOS runners), where booting it again goes through.
-const bootAttempt = 2 * time.Minute
-
-// bootOnce boots a simulator and waits, up to within, until it has finished
-// booting.
-func bootOnce(ctx context.Context, udid string, within time.Duration) error {
+// boot boots a simulator of the set and waits, up to within, until it has
+// finished booting.
+func (set simSet) boot(ctx context.Context, udid string, within time.Duration) error {
 	ctx, cancel := context.WithTimeout(ctx, within)
 	defer cancel()
-	if _, err := simctl(ctx, "boot", udid); err != nil && !strings.Contains(err.Error(), "current state: Booted") {
+	if _, err := set.simctl(ctx, "boot", udid); err != nil && !strings.Contains(err.Error(), "current state: Booted") {
 		return err
 	}
-	_, err := simctl(ctx, "bootstatus", udid, "-b")
-	return err
+	if _, err := set.simctl(ctx, "bootstatus", udid, "-b"); err != nil {
+		if ctx.Err() != nil {
+			return fmt.Errorf("it did not finish booting within %s", within)
+		}
+		return err
+	}
+	return nil
 }
 
 // isUDID reports a simulator's or device's identifier.

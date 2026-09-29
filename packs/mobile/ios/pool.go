@@ -15,15 +15,18 @@ import (
 	"time"
 
 	"github.com/nimbusxr/axx/core"
+	"github.com/nimbusxr/axx/internal/npm"
 	"github.com/nimbusxr/axx/internal/proc"
 	"github.com/nimbusxr/axx/packs/mobile/internal/appium"
 )
 
-// device is a simulator of a pool: one axx made for the run, or one the
+// device is a simulator of a pool: a clone axx made for the run, or one the
 // registration names by its UDID. One scenario at a time has it.
 type device struct {
+	set       simSet // the set it is in
 	udid      string
 	name      string // the simulator's name
+	source    string // the simulator it is a clone of
 	version   string // its iOS version, like 18.1
 	made      bool   // axx made it for the run, and deletes it at the end
 	booted    bool   // axx booted it, and shuts it down at the end
@@ -32,11 +35,13 @@ type device struct {
 	appium    *appium.Server
 }
 
-// pool is the simulators of one kind the run has. For a device type, like
-// iPhone 16, it makes a new simulator of it for each worker; for a simulator
-// the project set up, it clones it; each is deleted when the run ends. A
-// UDID names a simulator the pool uses as it is. A scenario leases a
-// simulator for its whole run, and gives it back at its end.
+// pool is the simulators of one kind the run has: a clone for each worker,
+// deleted when the run ends. For a device type, like iPhone 16, it clones
+// axx's own simulator of it: made and booted once to set it up, then kept in
+// axx's cache for the runs after, as no scenario ever runs on it. For a
+// simulator the project set up, it clones that one. A UDID names a simulator
+// the pool uses as it is. A scenario leases a simulator for its whole run,
+// and gives it back at its end.
 type pool struct {
 	suite *core.Suite
 	name  string // as the registration names it
@@ -44,11 +49,15 @@ type pool struct {
 	max   int
 	boot  time.Duration
 
-	// What the pool's simulators are: a device type and runtime to make new
-	// ones of, a simulator to clone, or one simulator to use as it is.
+	// What the pool's simulators are: clones of a simulator in set (axx's
+	// own of a device type and runtime, or the project's), or one simulator
+	// to use as it is.
+	set                      simSet
 	typeID, runtime, version string
+	template                 string // the name of axx's simulator of the device type
 	source                   *simDevice
 	own                      *simDevice
+	prepare                  sync.Mutex // one worker at a time makes the template
 
 	mu      sync.Mutex
 	free    []*device
@@ -58,8 +67,9 @@ type pool struct {
 	closed  bool
 }
 
-// madePrefix names the simulators axx makes: axx-<pid>-<n> <what>, so that
-// a run that was killed leaves simulators the next run can tell are its own.
+// madeRE names the simulators axx makes for a run: axx-<pid>-<n> <what>, so
+// that a run that was killed leaves simulators the next run can tell are its
+// own.
 var (
 	madeRE = regexp.MustCompile(`^axx-(\d+)-\d+ `)
 	made   atomic.Int64
@@ -74,11 +84,15 @@ func poolFor(sc *core.Scenario, device string) (*pool, error) {
 			return nil, err
 		}
 		ctx := sc.Context()
-		sims, err := simulators(ctx)
+		sims, err := simulators(ctx, "")
 		if err != nil {
 			return nil, err
 		}
-		sweep(ctx, s, sims)
+		own, err := axxSet()
+		if err != nil {
+			return nil, err
+		}
+		sweep(ctx, s, own)
 		p := &pool{suite: s, name: device, max: cfg.devices, boot: cfg.bootTimeout, changed: make(chan struct{})}
 		if err := p.resolve(ctx, sims); err != nil {
 			return nil, err
@@ -119,6 +133,7 @@ func (p *pool) resolve(ctx context.Context, sims []simDevice) error {
 		}
 		p.typeID, p.runtime, p.version = t.Identifier, rt.Identifier, rt.Version
 		p.key = t.Name + "-" + rt.Name
+		p.set, p.template = axxSetOf(), t.Name+", "+rt.Name
 		return nil
 	}
 	// A simulator the project set up: the pool clones it.
@@ -142,23 +157,40 @@ func (p *pool) resolve(ctx context.Context, sims []simDevice) error {
 	return fmt.Errorf("%d simulators of Xcode's are named %q: name its iOS version too, like %s, iOS %s, or its UDID", len(found), name, name, versionOf(found[0].runtime))
 }
 
-// sweep deletes the simulators a run that was killed made and left: those
-// named axx-<pid>-<n> whose axx is gone.
-func sweep(ctx context.Context, s *core.Suite, sims []simDevice) {
+// axxSetOf is where axx keeps its simulators: the simulators it sets up to
+// clone, and the clones of a run. It is axx's own, apart from Xcode's.
+func axxSetOf() simSet { return simSet(filepath.Join(npm.CacheDir("mobile"), "simulators")) }
+
+func axxSet() (simSet, error) {
+	set := axxSetOf()
+	return set, os.MkdirAll(string(set), 0o755)
+}
+
+// sweep deletes the simulators a run that was killed made and left, in
+// Xcode's set and in axx's: those named axx-<pid>-<n> whose axx is gone; and
+// axx's simulators of iOS versions Xcode no longer has.
+func sweep(ctx context.Context, s *core.Suite, own simSet) {
 	_, _ = core.Cached(s, Name+"/sweep", func() (bool, error) {
-		for _, d := range sims {
-			m := madeRE.FindStringSubmatch(d.Name)
-			if m == nil {
+		for _, set := range []simSet{"", own} {
+			sims, err := simulators(ctx, set)
+			if err != nil {
 				continue
 			}
-			pid, _ := strconv.Atoi(m[1])
-			if pid == os.Getpid() || proc.ProcessAlive(pid) {
-				continue
+			for _, d := range sims {
+				m := madeRE.FindStringSubmatch(d.Name)
+				if m == nil {
+					continue
+				}
+				pid, _ := strconv.Atoi(m[1])
+				if pid == os.Getpid() || proc.ProcessAlive(pid) {
+					continue
+				}
+				s.Logger().Info("deleting a simulator a run that ended early left", "simulator", d.Name, "udid", d.UDID)
+				_, _ = set.simctl(ctx, "shutdown", d.UDID)
+				_, _ = set.simctl(ctx, "delete", d.UDID)
 			}
-			s.Logger().Info("deleting a simulator a run that ended early left", "simulator", d.Name, "udid", d.UDID)
-			_, _ = simctl(ctx, "shutdown", d.UDID)
-			_, _ = simctl(ctx, "delete", d.UDID)
 		}
+		_, _ = own.simctl(ctx, "delete", "unavailable")
 		return true, nil
 	})
 }
@@ -215,10 +247,10 @@ func (p *pool) signal() {
 	p.changed = make(chan struct{})
 }
 
-// start makes a simulator ready: made (or the one the registration names),
+// start makes a simulator ready: cloned (or the one the registration names),
 // booted, with WebDriverAgent installed and an Appium server of its own.
 func (p *pool) start(ctx context.Context, logDir string) (*device, error) {
-	d := &device{version: p.version}
+	d := &device{version: p.version, set: p.set}
 	var err error
 	if d.wdaPort, err = appium.FreePort(); err != nil {
 		return nil, err
@@ -226,20 +258,10 @@ func (p *pool) start(ctx context.Context, logDir string) (*device, error) {
 	if d.mjpegPort, err = appium.FreePort(); err != nil {
 		return nil, err
 	}
-	switch {
-	case p.own != nil:
+	if p.own != nil {
 		d.udid, d.name = p.own.UDID, p.own.Name
-	case p.source != nil:
-		if err := p.clone(ctx, d); err != nil {
-			return nil, err
-		}
-	default:
-		d.name = fmt.Sprintf("axx-%d-%d %s", os.Getpid(), made.Add(1), p.key)
-		out, err := simctl(ctx, "create", d.name, p.typeID, p.runtime)
-		if err != nil {
-			return nil, fmt.Errorf("cannot make a %s simulator: %w", p.name, err)
-		}
-		d.udid, d.made = strings.TrimSpace(out), true
+	} else if err := p.clone(ctx, d); err != nil {
+		return nil, err
 	}
 	if err := p.bootDevice(ctx, d); err != nil {
 		d.stop()
@@ -247,7 +269,7 @@ func (p *pool) start(ctx context.Context, logDir string) (*device, error) {
 	}
 	wda, err := wdaFor(ctx, p.suite)
 	if err == nil {
-		_, err = simctl(ctx, "install", d.udid, wda)
+		_, err = d.set.simctl(ctx, "install", d.udid, wda)
 	}
 	if err != nil {
 		d.stop()
@@ -264,27 +286,80 @@ func (p *pool) start(ctx context.Context, logDir string) (*device, error) {
 	return d, nil
 }
 
-// clone copies the simulator the project set up; it has to be shut down.
+// clone makes the worker's simulator: a clone of the project's simulator, or
+// of axx's own of the device type. What is cloned has to be shut down.
 func (p *pool) clone(ctx context.Context, d *device) error {
-	sims, err := simulators(ctx)
-	if err != nil {
-		return err
+	src := p.source
+	if src == nil {
+		t, err := p.templateOf(ctx)
+		if err != nil {
+			return err
+		}
+		src = &t
+	} else {
+		sims, err := simulators(ctx, p.set)
+		if err != nil {
+			return err
+		}
+		if s, ok := findUDID(sims, src.UDID); ok && s.State != "Shutdown" {
+			return fmt.Errorf("the %s simulator is %s: axx clones it for each worker, which needs it shut down (xcrun simctl shutdown %s)", s.Name, strings.ToLower(s.State), s.UDID)
+		}
 	}
-	if src, ok := findUDID(sims, p.source.UDID); ok && src.State != "Shutdown" {
-		return fmt.Errorf("the %s simulator is %s: axx clones it for each worker, which needs it shut down (xcrun simctl shutdown %s)", src.Name, strings.ToLower(src.State), src.UDID)
-	}
-	d.name = fmt.Sprintf("axx-%d-%d %s", os.Getpid(), made.Add(1), p.source.Name)
-	out, err := simctl(ctx, "clone", p.source.UDID, d.name)
+	d.name, d.source = fmt.Sprintf("axx-%d-%d %s", os.Getpid(), made.Add(1), src.Name), src.Name
+	out, err := p.set.simctl(ctx, "clone", src.UDID, d.name)
 	if err != nil {
-		return fmt.Errorf("cannot clone the %s simulator: %w", p.source.Name, err)
+		return fmt.Errorf("cannot clone the %s simulator: %w", src.Name, err)
 	}
 	d.udid, d.made = strings.TrimSpace(out), true
 	return nil
 }
 
+// templateOf is axx's simulator of the pool's device type and runtime, which
+// the workers' simulators are clones of. The first time, axx makes it and
+// boots it once: a new simulator's first boot sets it up, which takes over
+// ten minutes on GitHub's macOS runners, and a clone of one set up boots in
+// seconds. No scenario ever runs on it.
+func (p *pool) templateOf(ctx context.Context) (simDevice, error) {
+	p.prepare.Lock()
+	defer p.prepare.Unlock()
+	sims, err := simulators(ctx, p.set)
+	if err != nil {
+		return simDevice{}, err
+	}
+	for _, d := range sims {
+		if d.Name == p.template && d.runtime == p.runtime {
+			if d.State != "Shutdown" {
+				_, _ = p.set.simctl(ctx, "shutdown", d.UDID)
+			}
+			return d, nil
+		}
+	}
+	// Named for this axx while it is set up: a run killed meanwhile leaves
+	// one the next run deletes.
+	name := fmt.Sprintf("axx-%d-%d %s", os.Getpid(), made.Add(1), p.template)
+	out, err := p.set.simctl(ctx, "create", name, p.typeID, p.runtime)
+	if err != nil {
+		return simDevice{}, fmt.Errorf("cannot make a %s simulator: %w", p.name, err)
+	}
+	udid := strings.TrimSpace(out)
+	p.suite.Logger().Warn("setting up an iOS simulator to clone, once: its first boot takes minutes", "simulator", p.template, "udid", udid)
+	started := time.Now()
+	err = p.set.boot(ctx, udid, p.boot)
+	_, _ = p.set.simctl(context.WithoutCancel(ctx), "shutdown", udid)
+	if err == nil {
+		_, err = p.set.simctl(ctx, "rename", udid, p.template)
+	}
+	if err != nil {
+		_, _ = p.set.simctl(context.WithoutCancel(ctx), "delete", udid)
+		return simDevice{}, fmt.Errorf("cannot set up the %s simulator axx clones (packs.%s.bootTimeout gives it longer): %w", p.template, Name, err)
+	}
+	p.suite.Logger().Info("set up an iOS simulator to clone", "simulator", p.template, "took", time.Since(started).Round(time.Second))
+	return simDevice{Name: p.template, UDID: udid, State: "Shutdown", runtime: p.runtime}, nil
+}
+
 // bootDevice boots the simulator, unless it runs already.
 func (p *pool) bootDevice(ctx context.Context, d *device) error {
-	sims, err := simulators(ctx)
+	sims, err := simulators(ctx, d.set)
 	if err != nil {
 		return err
 	}
@@ -293,20 +368,10 @@ func (p *pool) bootDevice(ctx context.Context, d *device) error {
 	}
 	p.suite.Logger().Info("booting an iOS simulator", "simulator", d.name, "udid", d.udid)
 	d.booted = true
-	deadline := time.Now().Add(p.boot)
-	for attempt := 1; ; attempt++ {
-		err := bootOnce(ctx, d.udid, min(bootAttempt, time.Until(deadline)))
-		switch {
-		case err == nil:
-			return nil
-		case ctx.Err() != nil:
-			return ctx.Err()
-		case !time.Now().Before(deadline):
-			return fmt.Errorf("the simulator %s did not boot within %s (packs.%s.bootTimeout), in %d attempts: %w", d.name, p.boot, Name, attempt, err)
-		}
-		p.suite.Logger().Warn("an iOS simulator did not finish booting: booting it again", "simulator", d.name, "attempt", attempt, "error", err)
-		_, _ = simctl(ctx, "shutdown", d.udid)
+	if err := d.set.boot(ctx, d.udid, p.boot); err != nil {
+		return fmt.Errorf("the simulator %s did not boot (packs.%s.bootTimeout gives it longer): %w", d.name, Name, err)
 	}
+	return nil
 }
 
 // stop stops the simulator's Appium server, shuts down a simulator axx
@@ -318,10 +383,10 @@ func (d *device) stop() {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 	if d.booted || d.made {
-		_, _ = simctl(ctx, "shutdown", d.udid)
+		_, _ = d.set.simctl(ctx, "shutdown", d.udid)
 	}
 	if d.made {
-		_, _ = simctl(ctx, "delete", d.udid)
+		_, _ = d.set.simctl(ctx, "delete", d.udid)
 	}
 }
 

@@ -84,7 +84,7 @@ packs:
 ```
 
 - **Android** starts emulators of the device read-only, so that several run at once and nothing a scenario changes outlives it.
-- **iOS** makes a simulator of the device type for each device it runs (a new one, the same on every Mac), or clones the simulator you set up, and deletes them when the run ends.
+- **iOS** gives each device it runs a clone, deleted when the run ends: of the simulator you set up, or, for a device type, of axx's own simulator of it. axx makes that one and boots it once to set it up, the same on every Mac, and keeps it in its cache (`~/Library/Caches/axx/mobile/simulators`, apart from Xcode's). No scenario ever runs on it, and its clones boot in seconds.
 
 Before its app starts, a scenario's app is reset, and what it sees of the device is set:
 
@@ -169,6 +169,6 @@ steps:
   - run: axx run --tags @ios
 ```
 
-GitHub's macOS runners have no Docker: when the services your scenarios talk to run in containers, run them elsewhere, or run the iOS scenarios on a Mac that has them. A new simulator's first boot sets it up, which takes minutes on some runners and can stall: axx boots it again when an attempt stalls, within `packs.mobile-ios.bootTimeout` (5 minutes by default).
+GitHub's macOS runners have no Docker: when the services your scenarios talk to run in containers, run them elsewhere, or run the iOS scenarios on a Mac that has them. Setting up the simulator axx clones takes over ten minutes on GitHub's macOS runners, and each hosted run is a new machine: give the steps that long (`run.timeouts: {step: 20m}` in `axx.yaml`). `packs.mobile-ios.bootTimeout` (20 minutes by default) bounds a simulator's boot; the clones boot in seconds.
 
 See the [mobile-core](/references/packs/mobile-core/), [mobile-android](/references/packs/mobile-android/) and [mobile-ios](/references/packs/mobile-ios/) references for every step.

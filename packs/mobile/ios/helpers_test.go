@@ -80,8 +80,8 @@ func TestConfig(t *testing.T) {
 	if _, err := parseConfig(Config{BootTimeout: "soon"}); err == nil || !strings.Contains(err.Error(), "not a duration") {
 		t.Errorf("err %v", err)
 	}
-	if s, _ := parseConfig(Config{}); s.devices != 1 || s.bootTimeout.Minutes() != 5 {
-		t.Errorf("one device and 5 minutes by default: %+v", s)
+	if s, _ := parseConfig(Config{}); s.devices != 1 || s.bootTimeout.Minutes() != 20 {
+		t.Errorf("one device and 20 minutes by default: %+v", s)
 	}
 }
 

@@ -21,7 +21,7 @@ type pack struct{}
 
 const packDoc = `iOS apps, on simulators axx runs, driven by [Appium](https://appium.io)'s XCUITest driver and the build of WebDriverAgent Appium publishes, which axx downloads on first use. It needs a Mac with Xcode and an iOS simulator runtime.
 
-**Each scenario has a simulator to itself.** For a device type, like iPhone 16, axx makes new simulators of it as scenarios need them, up to ` + "`devices`" + ` at once (1 by default: iOS scenarios then take turns); for a simulator the project set up, it clones it. They are deleted when the run ends. A scenario leases a simulator for its whole run.
+**Each scenario has a simulator to itself.** axx makes simulators as scenarios need them, up to ` + "`devices`" + ` at once (1 by default: iOS scenarios then take turns), each a clone, deleted when the run ends: for a device type, like iPhone 16, of axx's own simulator of it, which it sets up once and keeps in its cache (no scenario ever runs on it); for a simulator the project set up, of that one. A scenario leases a simulator for its whole run.
 
 **Each scenario starts from a clean app.** Before the app starts, it is installed afresh (its data and its notifications go with the old one), the simulator's keychain and the app's permissions are reset, the permissions the registration names are granted, and the location is set. The app starts in the registration's language, region and time zone. There is no switch that skips it: a scenario is one journey, and that journey is its own.`
 

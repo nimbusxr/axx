@@ -12,7 +12,7 @@ const configSchema = `{
   "additionalProperties": false,
   "properties": {
     "devices": {"type": "integer", "minimum": 1, "description": "How many simulators of a device run at once: each scenario has one to itself, so it is how many iOS scenarios run at once. Default 1."},
-    "bootTimeout": {"type": "string", "description": "How long a simulator may take to boot, like 10m: an attempt that stalls is booted again, within it. Default 5m."}
+    "bootTimeout": {"type": "string", "description": "How long a simulator may take to boot, like 30m. The simulator axx sets up once, to clone, takes over ten minutes on GitHub's macOS runners; its clones boot in seconds. Default 20m."}
   }
 }`
 
@@ -38,7 +38,7 @@ func settingsFor(s *core.Suite) (settings, error) {
 }
 
 func parseConfig(c Config) (settings, error) {
-	out := settings{devices: 1, bootTimeout: 5 * time.Minute}
+	out := settings{devices: 1, bootTimeout: 20 * time.Minute}
 	if c.Devices < 0 {
 		return out, fmt.Errorf("packs.%s.devices: %d is not a number of devices", Name, c.Devices)
 	}
