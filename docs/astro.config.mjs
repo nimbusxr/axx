@@ -252,7 +252,7 @@ export default defineConfig({
 								{
 									label: 'Mobile',
 									collapsed: true,
-									items: packsOf(['mobile-core', 'mobile-android']),
+									items: packsOf(['mobile-core', 'mobile-android', 'mobile-ios']),
 								},
 								{
 									label: 'AWS',

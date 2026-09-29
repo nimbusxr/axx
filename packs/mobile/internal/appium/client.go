@@ -247,6 +247,27 @@ func (s *Session) AlertText(ctx context.Context) (string, error) {
 	return out, err
 }
 
+// Drag moves a finger from one point of the screen to another, in points,
+// as a swipe from the screen's edge does.
+func (s *Session) Drag(ctx context.Context, fromX, fromY, toX, toY float64, d time.Duration) error {
+	finger := map[string]any{
+		"type": "pointer", "id": "finger", "parameters": map[string]any{"pointerType": "touch"},
+		"actions": []any{
+			map[string]any{"type": "pointerMove", "duration": 0, "x": int(fromX), "y": int(fromY)},
+			map[string]any{"type": "pointerDown", "button": 0},
+			map[string]any{"type": "pause", "duration": 100},
+			map[string]any{"type": "pointerMove", "duration": d.Milliseconds(), "x": int(toX), "y": int(toY)},
+			map[string]any{"type": "pointerUp", "button": 0},
+		},
+	}
+	return s.c.do(ctx, http.MethodPost, s.path("/actions"), map[string]any{"actions": []any{finger}}, nil)
+}
+
+// Settings changes the driver's settings for the session.
+func (s *Session) Settings(ctx context.Context, settings map[string]any) error {
+	return s.c.do(ctx, http.MethodPost, s.path("/appium/settings"), map[string]any{"settings": settings}, nil)
+}
+
 // Mobile runs one of Appium's mobile: commands, like "mobile: deepLink",
 // with its arguments.
 func (s *Session) Mobile(ctx context.Context, command string, args map[string]any, out any) error {

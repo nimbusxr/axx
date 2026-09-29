@@ -45,6 +45,9 @@ type Device interface {
 	// Scroll scrolls the screen's scrollable content one screenful toward
 	// direction, and reports whether it moved.
 	Scroll(ctx context.Context, direction string) (bool, error)
+	// OpenNotifications shows the device's notifications over the app. The
+	// screen it returns reads them, until close hides them again.
+	OpenNotifications(ctx context.Context) (screen func(context.Context) (*Screen, error), close func(context.Context) error, err error)
 	// SystemBars are where the device's own bars are, which its screenshots
 	// leave out: the status bar with its clock, the navigation bar.
 	SystemBars(ctx context.Context) ([]Rect, error)

@@ -1,0 +1,42 @@
+# SPDX-License-Identifier: Apache-2.0
+name: ios-tools
+description: >-
+  What an iOS run prepares the first time on a machine: the iOS runtime's shared cache, which
+  the first boot of a simulator builds (over ten minutes on a hosted runner), and what the
+  mobile-ios pack keeps in axx's cache: Appium, WebDriverAgent, Node.js, and the simulator it
+  sets up to clone. Keyed by the macOS and runtime builds they belong to, and the tools'
+  versions. Restore them before the tests, and save them as the job's last step: saving only
+  happens on pushes to main, like Go's caches.
+inputs:
+  mode:
+    description: "`restore` or `save`."
+    default: restore
+runs:
+  using: composite
+  steps:
+    - id: key
+      shell: bash
+      run: |
+        # The newest iOS runtime, which the pack's simulators run.
+        runtime=$(xcrun simctl list runtimes -j | jq -r '[.runtimes[] | select(.platform == "iOS" and .isAvailable)] | sort_by(.version | split(".") | map(tonumber)) | last | .buildversion')
+        versions=$({
+          grep -hE '(wdaVersion|appiumName|NodeVersion) *=' packs/mobile/ios/install.go internal/npm/node.go
+          shasum -a 256 packs/mobile/ios/appium/package-lock.json
+        } | shasum -a 256 | cut -c1-16)
+        echo "key=ios-tools-$(sw_vers -buildVersion)-${runtime}-${versions}" >> "$GITHUB_OUTPUT"
+    - if: inputs.mode == 'restore'
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: |
+          ~/Library/Developer/CoreSimulator/Caches/dyld
+          ~/Library/Caches/axx/mobile
+        key: ${{ steps.key.outputs.key }}
+    - if: inputs.mode == 'save' && github.event_name == 'push' && github.ref == 'refs/heads/main'
+      # A cache is an optimization: failing to save it fails nothing.
+      continue-on-error: true
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: |
+          ~/Library/Developer/CoreSimulator/Caches/dyld
+          ~/Library/Caches/axx/mobile
+        key: ${{ steps.key.outputs.key }}

@@ -16,6 +16,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 )
 
 func tgz(t *testing.T, files map[string]string) []byte {
@@ -258,6 +259,89 @@ func TestUnpackingFiles(t *testing.T) {
 	}
 	if err := Unpack([]byte("not gzip"), dir); err == nil {
 		t.Error("a tarball that is not one")
+	}
+}
+
+func TestUnzippingAnApp(t *testing.T) {
+	var buf bytes.Buffer
+	zw := zip.NewWriter(&buf)
+	for _, f := range []struct {
+		name string
+		mode os.FileMode
+	}{
+		{"Courier.app/Courier", 0o755},
+		{"Courier.app/Info.plist", 0o644},
+		{"Courier.app/Frameworks/", os.ModeDir | 0o755},
+		{"Courier.app/Current", os.ModeSymlink | 0o777},
+	} {
+		h := &zip.FileHeader{Name: f.name}
+		h.SetMode(f.mode)
+		w, err := zw.CreateHeader(h)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, _ = w.Write([]byte(f.name))
+	}
+	if err := zw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	dir := t.TempDir()
+	if err := Unzip(buf.Bytes(), dir); err != nil {
+		t.Fatal(err)
+	}
+	exe, err := os.Stat(filepath.Join(dir, "Courier.app", "Courier"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if runtime.GOOS != "windows" && exe.Mode().Perm() != 0o755 {
+		t.Errorf("the app's executable is %v", exe.Mode())
+	}
+	if b, err := os.ReadFile(filepath.Join(dir, "Courier.app", "Info.plist")); err != nil || string(b) != "Courier.app/Info.plist" {
+		t.Errorf("%q %v", b, err)
+	}
+	if _, err := os.Lstat(filepath.Join(dir, "Courier.app", "Current")); !os.IsNotExist(err) {
+		t.Errorf("a link was unpacked: %v", err)
+	}
+	escape := zipOf(t, map[string]string{"../escape": "x"})
+	if err := Unzip(escape, t.TempDir()); err == nil || err.Error() != `archive entry "../escape" leaves the directory` {
+		t.Errorf("an entry out of the directory: %v", err)
+	}
+	if err := Unzip([]byte("not a zip"), dir); err == nil {
+		t.Error("an archive that is not one")
+	}
+}
+
+// A download the network or the server fails is tried again; one that is
+// not there is not.
+func TestFetchTriesAgain(t *testing.T) {
+	waits := fetchWaits
+	fetchWaits = []time.Duration{time.Millisecond, time.Millisecond, time.Millisecond}
+	t.Cleanup(func() { fetchWaits = waits })
+	var calls atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		n := calls.Add(1)
+		switch {
+		case r.URL.Path == "/missing":
+			http.NotFound(w, r)
+		case r.URL.Path == "/down":
+			w.WriteHeader(http.StatusServiceUnavailable)
+		case n < 3:
+			w.WriteHeader(http.StatusBadGateway)
+		default:
+			_, _ = w.Write([]byte("wda"))
+		}
+	}))
+	t.Cleanup(srv.Close)
+	if b, err := Fetch(context.Background(), srv.URL+"/wda.zip"); err != nil || string(b) != "wda" || calls.Load() != 3 {
+		t.Errorf("after two 502s: %q %v, %d requests", b, err, calls.Load())
+	}
+	calls.Store(0)
+	if _, err := Fetch(context.Background(), srv.URL+"/missing"); err == nil || calls.Load() != 1 {
+		t.Errorf("a 404 is not tried again: %v, %d requests", err, calls.Load())
+	}
+	calls.Store(0)
+	if _, err := Fetch(context.Background(), srv.URL+"/down"); err == nil || !strings.Contains(err.Error(), "503") || calls.Load() != 4 {
+		t.Errorf("a server that stays down fails after 4 tries: %v, %d requests", err, calls.Load())
 	}
 }
 

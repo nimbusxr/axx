@@ -64,30 +64,3 @@ When the courier app's back button is pressed
 ```
 
 _Since 0.1.5._
-
-## `mobile-android.notification`
-
-```gherkin
-Then [[within {duration} ]]the {word} app shows a notification {string}
-```
-
-Check that the device shows a notification with a text, in its title or its text: it opens the notification shade, looks, and closes it. It waits for the notification (10 seconds, or `within`).
-
-| Parameter | Takes | For example |
-|---|---|---|
-| `{duration}` | a duration in seconds (`s`) or minutes (`m`) | `5s`, `2m` |
-| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
-| `{string}` | text in double or single quotes, which the step leaves out | `"Get a quote"`, `'Express'` |
-
-**Variants**, the parts in `[[...]]` said or left out:
-
-- `the {word} app shows a notification {string}`
-- `within {duration} the {word} app shows a notification {string}`
-
-**Example:**
-
-```gherkin
-Then the courier app shows a notification "PX-MOB-9401 delivered"
-```
-
-_Since 0.1.5._

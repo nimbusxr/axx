@@ -30,6 +30,6 @@ func (pack) Manifest() core.Manifest {
 		Doc:          packDoc,
 		Params:       []core.ParamType{controlParam, directionParam},
 		ConfigSchema: []byte(configSchema),
-		Steps:        append(append(append(steps(), checkSteps()...), dialogSteps()...), screenshotSteps()...),
+		Steps:        append(append(append(append(steps(), checkSteps()...), dialogSteps()...), notificationSteps()...), screenshotSteps()...),
 	}
 }

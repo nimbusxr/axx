@@ -1,4 +1,4 @@
-@mobile
+@mobile @android
 Feature: The couriers' app asks to notify
 
   Once a courier signs in, the app asks Android for leave to tell them of each delivery it

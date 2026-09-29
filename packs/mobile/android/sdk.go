@@ -97,14 +97,30 @@ func (s *sdk) avds(ctx context.Context) ([]string, error) {
 	return names, nil
 }
 
-// waitBooted waits until a device has finished booting.
+// online reports whether the device has its network: it comes up seconds
+// after the device has booted, and an app that calls its service before
+// finds none. An Android that does not say is taken as online.
+func (s *sdk) online(ctx context.Context, serial string) bool {
+	out, err := s.shell(ctx, serial, "dumpsys", "connectivity")
+	if err != nil {
+		return false
+	}
+	_, rest, ok := strings.Cut(out, "Active default network:")
+	if !ok {
+		return true
+	}
+	rest = strings.TrimSpace(rest)
+	return rest != "" && rest[0] >= '0' && rest[0] <= '9'
+}
+
+// waitBooted waits until a device has finished booting, and has its network.
 func (s *sdk) waitBooted(ctx context.Context, serial string, within time.Duration) error {
 	ctx, cancel := context.WithTimeout(ctx, within)
 	defer cancel()
 	for {
 		out, err := s.shell(ctx, serial, "getprop", "sys.boot_completed")
 		if err == nil && out == "1" {
-			if _, err := s.shell(ctx, serial, "pm", "path", "android"); err == nil {
+			if _, err := s.shell(ctx, serial, "pm", "path", "android"); err == nil && s.online(ctx, serial) {
 				return nil
 			}
 		}

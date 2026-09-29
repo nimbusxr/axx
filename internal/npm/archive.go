@@ -76,6 +76,39 @@ func eachTar(archive []byte, fn func(*tar.Header, io.Reader) error) error {
 	}
 }
 
+// Unzip unpacks a .zip archive into dir: its files, executable when the
+// archive says so. Links are left out, and an entry that would leave dir is
+// refused.
+func Unzip(archive []byte, dir string) error {
+	zr, err := zip.NewReader(bytes.NewReader(archive), int64(len(archive)))
+	if err != nil {
+		return err
+	}
+	for _, f := range zr.File {
+		if !f.Mode().IsRegular() {
+			continue
+		}
+		dest, err := within(dir, f.Name)
+		if err != nil {
+			return err
+		}
+		mode := os.FileMode(0o644)
+		if f.Mode()&0o111 != 0 {
+			mode = 0o755
+		}
+		rc, err := f.Open()
+		if err != nil {
+			return err
+		}
+		err = write(dest, rc, mode)
+		_ = rc.Close()
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func unzipOne(archive []byte, name, dest string) error {
 	zr, err := zip.NewReader(bytes.NewReader(archive), int64(len(archive)))
 	if err != nil {

@@ -136,9 +136,9 @@ axx run --profile watch features/shop-portal.feature   # the browsers in windows
 axx run features/shop-portal.feature --pause-at features/shop-portal.feature:24   # pause before that step, in Playwright's Inspector
 ```
 
-The couriers' app's features (tagged `@mobile`) run the app on an Android emulator axx
-starts. They need the Android SDK (`ANDROID_HOME`), the app built, and the emulator's
-device, once:
+The couriers' apps' features (tagged `@mobile`) run the apps on devices axx runs. The
+Android app's (`@android`) run on an emulator axx starts: they need the Android SDK
+(`ANDROID_HOME`), the app built, and the emulator's device, once:
 
 ```sh
 cd ../courier/android
@@ -146,7 +146,16 @@ cd ../courier/android
 ./create-emulator.sh      # parcels-pixel, the device axx.yaml names (android.device)
 ```
 
-Without them, leave those features out: `axx run --tags "not @mobile"`.
+The iOS app's (`@ios`) run on simulators axx makes of an iPhone 16 (`ios.device`): they need
+a Mac with Xcode and an iOS runtime, and the app built:
+
+```sh
+cd ../courier/ios
+xcodebuild -project Courier.xcodeproj -target Courier -configuration Debug -sdk iphonesimulator ONLY_ACTIVE_ARCH=NO SYMROOT=build
+```
+
+Without them, leave those features out: `axx run --tags "not @mobile"`, or `--tags "not @ios"`
+on a machine that runs Android emulators but is not a Mac.
 
 The portal's screenshots are kept for Linux and macOS, each compared on its own platform
 (`packs.web-screenshots.platforms` in `axx.yaml`); elsewhere those steps pass without

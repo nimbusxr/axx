@@ -1,0 +1,267 @@
+// !$*UTF8*$!
+// SPDX-License-Identifier: Apache-2.0
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		CA0000000000000000000B01 /* CourierApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0000000000000000000F01 /* CourierApp.swift */; };
+		CA0000000000000000000B02 /* CourierModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0000000000000000000F02 /* CourierModel.swift */; };
+		CA0000000000000000000B03 /* CourierAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0000000000000000000F03 /* CourierAPI.swift */; };
+		CA0000000000000000000B04 /* SessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0000000000000000000F04 /* SessionStore.swift */; };
+		CA0000000000000000000B05 /* Screens.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0000000000000000000F05 /* Screens.swift */; };
+		CA0000000000000000000B06 /* DeliveredNotification.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0000000000000000000F06 /* DeliveredNotification.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		CA0000000000000000000A01 /* Courier.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Courier.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		CA0000000000000000000F01 /* CourierApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CourierApp.swift; sourceTree = "<group>"; };
+		CA0000000000000000000F02 /* CourierModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CourierModel.swift; sourceTree = "<group>"; };
+		CA0000000000000000000F03 /* CourierAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CourierAPI.swift; sourceTree = "<group>"; };
+		CA0000000000000000000F04 /* SessionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionStore.swift; sourceTree = "<group>"; };
+		CA0000000000000000000F05 /* Screens.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Screens.swift; sourceTree = "<group>"; };
+		CA0000000000000000000F06 /* DeliveredNotification.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeliveredNotification.swift; sourceTree = "<group>"; };
+		CA0000000000000000000F07 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		CA0000000000000000000C02 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		CA0000000000000000000E01 = {
+			isa = PBXGroup;
+			children = (
+				CA0000000000000000000E03 /* Courier */,
+				CA0000000000000000000E02 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		CA0000000000000000000E02 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				CA0000000000000000000A01 /* Courier.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		CA0000000000000000000E03 /* Courier */ = {
+			isa = PBXGroup;
+			children = (
+				CA0000000000000000000F01 /* CourierApp.swift */,
+				CA0000000000000000000F02 /* CourierModel.swift */,
+				CA0000000000000000000F03 /* CourierAPI.swift */,
+				CA0000000000000000000F04 /* SessionStore.swift */,
+				CA0000000000000000000F05 /* Screens.swift */,
+				CA0000000000000000000F06 /* DeliveredNotification.swift */,
+				CA0000000000000000000F07 /* Info.plist */,
+			);
+			path = Courier;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		CA0000000000000000000D01 /* Courier */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = CA00000000000000000001A2 /* Build configuration list for PBXNativeTarget "Courier" */;
+			buildPhases = (
+				CA0000000000000000000C01 /* Sources */,
+				CA0000000000000000000C02 /* Frameworks */,
+				CA0000000000000000000C03 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Courier;
+			productName = Courier;
+			productReference = CA0000000000000000000A01 /* Courier.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		CA0000000000000000000901 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1610;
+				LastUpgradeCheck = 1610;
+				TargetAttributes = {
+					CA0000000000000000000D01 = {
+						CreatedOnToolsVersion = 16.1;
+					};
+				};
+			};
+			buildConfigurationList = CA00000000000000000001A1 /* Build configuration list for PBXProject "Courier" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = CA0000000000000000000E01;
+			productRefGroup = CA0000000000000000000E02 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				CA0000000000000000000D01 /* Courier */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		CA0000000000000000000C03 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		CA0000000000000000000C01 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				CA0000000000000000000B01 /* CourierApp.swift in Sources */,
+				CA0000000000000000000B02 /* CourierModel.swift in Sources */,
+				CA0000000000000000000B03 /* CourierAPI.swift in Sources */,
+				CA0000000000000000000B04 /* SessionStore.swift in Sources */,
+				CA0000000000000000000B05 /* Screens.swift in Sources */,
+				CA0000000000000000000B06 /* DeliveredNotification.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		CA00000000000000000006C1 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		CA00000000000000000006C2 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		CA00000000000000000006C3 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Courier/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Parcels Courier";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = example.parcels.courier;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		CA00000000000000000006C4 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Courier/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Parcels Courier";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = example.parcels.courier;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		CA00000000000000000001A1 /* Build configuration list for PBXProject "Courier" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				CA00000000000000000006C1 /* Debug */,
+				CA00000000000000000006C2 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		CA00000000000000000001A2 /* Build configuration list for PBXNativeTarget "Courier" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				CA00000000000000000006C3 /* Debug */,
+				CA00000000000000000006C4 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = CA0000000000000000000901 /* Project object */;
+}

@@ -2,7 +2,7 @@
   "description": "The frozen catalog of built-in step text. Step text is public API: every entry must stay defined, verbatim, by its pack.",
   "counts": {
     "parameterType": 13,
-    "step": 683
+    "step": 684
   },
   "entries": [
     {
@@ -4184,15 +4184,21 @@
     },
     {
       "kind": "step",
-      "pack": "mobile-android",
+      "pack": "mobile-core",
       "keyword": "Then",
       "expression": "the {word} app shows a notification {string}"
     },
     {
       "kind": "step",
-      "pack": "mobile-android",
+      "pack": "mobile-core",
       "keyword": "Then",
       "expression": "within {duration} the {word} app shows a notification {string}"
+    },
+    {
+      "kind": "step",
+      "pack": "mobile-ios",
+      "keyword": "Given",
+      "expression": "the {word} ios app with the following properties:"
     }
   ]
 }

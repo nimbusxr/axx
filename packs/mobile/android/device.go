@@ -218,6 +218,15 @@ func (d *running) Scroll(ctx context.Context, direction string) (bool, error) {
 	return false, nil
 }
 
+// OpenNotifications opens the notification shade, which the app's screen
+// then shows, and Back closes.
+func (d *running) OpenNotifications(ctx context.Context) (func(context.Context) (*mobilecore.Screen, error), func(context.Context) error, error) {
+	if err := d.session.Mobile(ctx, "openNotifications", nil, nil); err != nil {
+		return nil, nil, fmt.Errorf("cannot open the notification shade: %w", err)
+	}
+	return d.Screen, d.session.Back, nil
+}
+
 // SystemBars are the status and navigation bars, as UiAutomator2 reads them.
 func (d *running) SystemBars(ctx context.Context) ([]mobilecore.Rect, error) {
 	var bars map[string]struct {
