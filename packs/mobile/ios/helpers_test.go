@@ -129,6 +129,19 @@ func TestDevices(t *testing.T) {
 	}
 }
 
+// A text in a predicate is a string of its own, whatever quotes it has.
+func TestPredicateStrings(t *testing.T) {
+	for text, want := range map[string]string{
+		"PX-MOB-9401 delivered": `'PX-MOB-9401 delivered'`,
+		"Don't allow":           `'Don\'t allow'`,
+		`a\b`:                   `'a\\b'`,
+	} {
+		if got := predicateString(text); got != want {
+			t.Errorf("%q: %s, want %s", text, got, want)
+		}
+	}
+}
+
 // A set's simulators are its own: simctl is told which set.
 func TestSimulatorSets(t *testing.T) {
 	if got := strings.Join(simSet("").args("boot", "U"), " "); got != "boot U" {

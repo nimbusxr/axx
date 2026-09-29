@@ -142,6 +142,11 @@ func shownTexts(s *Screen) string {
 	if s == nil {
 		return ""
 	}
+	return cloudstep.Shown("texts", shownList(s), 30)
+}
+
+// shownList is what a screen shows: its texts, each once.
+func shownList(s *Screen) []string {
 	var out []string
 	seen := map[string]bool{}
 	for _, n := range s.Visible() {
@@ -152,5 +157,5 @@ func shownTexts(s *Screen) string {
 			}
 		}
 	}
-	return cloudstep.Shown("texts", out, 30)
+	return out
 }
