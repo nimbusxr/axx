@@ -33,6 +33,11 @@ properties:
   shops.webhook-key: whsec_ZXhhbXBsZS1zaG9wLXdlYmhvb2sta2V5
   shops.token-key: example-shop-token-key
   shops.wisteria-secret: wisteria-client-secret
+  # The couriers' Android app (../courier/android): the emulator's device (AVD) it runs on,
+  # and the PIN the example couriers sign in with. Create the device once with
+  # ../courier/android/create-emulator.sh, or run on one of yours: -D android.device=<AVD>.
+  android.device: parcels-pixel
+  couriers.pin: "4711"
 
 apps:
   parcels:

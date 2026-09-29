@@ -1,8 +1,8 @@
 {
   "description": "The frozen catalog of built-in step text. Step text is public API: every entry must stay defined, verbatim, by its pack.",
   "counts": {
-    "parameterType": 11,
-    "step": 652
+    "parameterType": 13,
+    "step": 683
   },
   "entries": [
     {
@@ -3993,6 +3993,206 @@
       "pack": "a2a",
       "keyword": "Then",
       "expression": "within {duration} the {word} a2a agent's stream received an update where:"
+    },
+    {
+      "kind": "parameterType",
+      "pack": "mobile-core",
+      "keyword": "ParameterType",
+      "name": "control",
+      "expression": "(buttons?|fields?|checkbox(?:es)?|switch(?:es)?|tabs?|list items?|images?|texts?|elements?)"
+    },
+    {
+      "kind": "parameterType",
+      "pack": "mobile-core",
+      "keyword": "ParameterType",
+      "name": "direction",
+      "expression": "(up|down|left|right)"
+    },
+    {
+      "kind": "step",
+      "pack": "mobile-core",
+      "keyword": "When",
+      "expression": "the {word} app is launched"
+    },
+    {
+      "kind": "step",
+      "pack": "mobile-core",
+      "keyword": "When",
+      "expression": "the {word} app is opened with the {string} link"
+    },
+    {
+      "kind": "step",
+      "pack": "mobile-core",
+      "keyword": "When",
+      "expression": "the {word} app is sent to the background"
+    },
+    {
+      "kind": "step",
+      "pack": "mobile-core",
+      "keyword": "When",
+      "expression": "the {word} app is brought back"
+    },
+    {
+      "kind": "step",
+      "pack": "mobile-core",
+      "keyword": "When",
+      "expression": "the {word} app is restarted"
+    },
+    {
+      "kind": "step",
+      "pack": "mobile-core",
+      "keyword": "When",
+      "expression": "the {string} {control} is tapped in the {word} app"
+    },
+    {
+      "kind": "step",
+      "pack": "mobile-core",
+      "keyword": "When",
+      "expression": "the {string} field in the {word} app is filled with {string}"
+    },
+    {
+      "kind": "step",
+      "pack": "mobile-core",
+      "keyword": "When",
+      "expression": "the {word} app is swiped {direction}"
+    },
+    {
+      "kind": "step",
+      "pack": "mobile-core",
+      "keyword": "When",
+      "expression": "the {string} {control} is scrolled into view in the {word} app"
+    },
+    {
+      "kind": "step",
+      "pack": "mobile-core",
+      "keyword": "Then",
+      "expression": "the {word} app shows {string}"
+    },
+    {
+      "kind": "step",
+      "pack": "mobile-core",
+      "keyword": "Then",
+      "expression": "within {duration} the {word} app shows {string}"
+    },
+    {
+      "kind": "step",
+      "pack": "mobile-core",
+      "keyword": "Then",
+      "expression": "the {word} app does not show {string}"
+    },
+    {
+      "kind": "step",
+      "pack": "mobile-core",
+      "keyword": "Then",
+      "expression": "within {duration} the {word} app does not show {string}"
+    },
+    {
+      "kind": "step",
+      "pack": "mobile-core",
+      "keyword": "Then",
+      "expression": "the {string} {control} is shown in the {word} app"
+    },
+    {
+      "kind": "step",
+      "pack": "mobile-core",
+      "keyword": "Then",
+      "expression": "within {duration} the {string} {control} is shown in the {word} app"
+    },
+    {
+      "kind": "step",
+      "pack": "mobile-core",
+      "keyword": "Then",
+      "expression": "the {string} {control} is enabled in the {word} app"
+    },
+    {
+      "kind": "step",
+      "pack": "mobile-core",
+      "keyword": "Then",
+      "expression": "within {duration} the {string} {control} is enabled in the {word} app"
+    },
+    {
+      "kind": "step",
+      "pack": "mobile-core",
+      "keyword": "Then",
+      "expression": "the {string} {control} is disabled in the {word} app"
+    },
+    {
+      "kind": "step",
+      "pack": "mobile-core",
+      "keyword": "Then",
+      "expression": "within {duration} the {string} {control} is disabled in the {word} app"
+    },
+    {
+      "kind": "step",
+      "pack": "mobile-core",
+      "keyword": "Then",
+      "expression": "the {string} field in the {word} app has the value {string}"
+    },
+    {
+      "kind": "step",
+      "pack": "mobile-core",
+      "keyword": "Then",
+      "expression": "within {duration} the {string} field in the {word} app has the value {string}"
+    },
+    {
+      "kind": "step",
+      "pack": "mobile-core",
+      "keyword": "When",
+      "expression": "the {word} app's dialog is accepted"
+    },
+    {
+      "kind": "step",
+      "pack": "mobile-core",
+      "keyword": "When",
+      "expression": "the {word} app's dialog is dismissed"
+    },
+    {
+      "kind": "step",
+      "pack": "mobile-core",
+      "keyword": "Then",
+      "expression": "the {word} app's dialog shows {string}"
+    },
+    {
+      "kind": "step",
+      "pack": "mobile-core",
+      "keyword": "Then",
+      "expression": "within {duration} the {word} app's dialog shows {string}"
+    },
+    {
+      "kind": "step",
+      "pack": "mobile-core",
+      "keyword": "Then",
+      "expression": "the {word} app looks like the {string} screenshot"
+    },
+    {
+      "kind": "step",
+      "pack": "mobile-core",
+      "keyword": "Then",
+      "expression": "within {duration} the {word} app looks like the {string} screenshot"
+    },
+    {
+      "kind": "step",
+      "pack": "mobile-android",
+      "keyword": "Given",
+      "expression": "the {word} android app with the following properties:"
+    },
+    {
+      "kind": "step",
+      "pack": "mobile-android",
+      "keyword": "When",
+      "expression": "the {word} app's back button is pressed"
+    },
+    {
+      "kind": "step",
+      "pack": "mobile-android",
+      "keyword": "Then",
+      "expression": "the {word} app shows a notification {string}"
+    },
+    {
+      "kind": "step",
+      "pack": "mobile-android",
+      "keyword": "Then",
+      "expression": "within {duration} the {word} app shows a notification {string}"
     }
   ]
 }

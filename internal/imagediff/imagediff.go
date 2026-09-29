@@ -1,87 +1,89 @@
-package screenshots
+// Package imagediff compares two images pixel by pixel, as Playwright
+// compares screenshots: pixelmatch's comparison
+// (https://github.com/mapbox/pixelmatch), a color distance in YIQ, with the
+// pixels of anti-aliased edges left out.
+package imagediff
 
 import (
-	"bytes"
 	"fmt"
 	"image"
 	"image/color"
 	"image/draw"
-	"image/png"
 	"math"
 )
-
-// The comparison of two screenshots is pixelmatch's
-// (https://github.com/mapbox/pixelmatch), as Playwright compares them: a
-// color distance in YIQ, and pixels of anti-aliased edges left out.
 
 // threshold is how far apart two colors may be and still count as the same,
 // in pixelmatch's terms (0 to 1); Playwright compares screenshots with 0.2.
 const threshold = 0.2
 
-func mustPNG(img image.Image) []byte {
-	var b bytes.Buffer
-	_ = png.Encode(&b, img)
-	return b.Bytes()
+// MaskColor paints over what a comparison leaves out (Options.Masked):
+// Playwright's own mask color for screenshots, which pages hardly ever use.
+var MaskColor = color.RGBA{0xff, 0x00, 0xff, 0xff}
+
+// Options configure Compare.
+type Options struct {
+	// Masked leaves out the pixels painted over with MaskColor in either
+	// image: what is painted over, like a time, need not have the same size
+	// in both.
+	Masked bool
 }
 
-func sizeOf(img image.Image) string {
-	return fmt.Sprintf("%dx%d", img.Bounds().Dx(), img.Bounds().Dy())
+// Result is how two images differ.
+type Result struct {
+	// SameSize reports whether the images have the same size; when they do
+	// not, they are not compared, and Diff is nil.
+	SameSize                 bool
+	ExpectedSize, ActualSize string // "<width>x<height>"
+	Pixels                   int    // the expected image's
+	Differ                   int    // how many pixels differ
+	// Diff shows the differing pixels in red, those of anti-aliasing in
+	// yellow and masked ones in pink, on a faded copy of the expected image.
+	Diff *image.RGBA
 }
 
-// comparison is how two images differ.
-type comparison struct {
-	sameSize                 bool
-	expectedSize, actualSize string
-	pixels                   int
-	differ                   int
-	diff                     *image.RGBA // the differing pixels in red, on a faded copy of the expected image
-}
-
-// maskColor paints over the elements a screenshot leaves out: Playwright's
-// own mask color, which pages hardly ever use.
-var maskColor = color.RGBA{0xff, 0x00, 0xff, 0xff}
-
-// compare counts the pixels of two images that differ: whose colors are
-// further apart than threshold, unless the difference is anti-aliasing.
-// With masked, a pixel painted over in either image is left out: an element
-// the screenshot leaves out, like a time, need not have the same size in
-// both.
+// Compare counts the pixels of two images that differ: whose colors are
+// further apart than pixelmatch's threshold (0.2, Playwright's), unless the
+// difference is anti-aliasing.
 //
 // The color distance (YIQ) and the anti-aliasing test are pixelmatch's
 // (https://github.com/mapbox/pixelmatch), as Playwright compares screenshots.
-func compare(expected, actual image.Image, masked bool) comparison {
+func Compare(expected, actual image.Image, o Options) Result {
 	a, b := toRGBA(expected), toRGBA(actual)
 	w, h := a.Rect.Dx(), a.Rect.Dy()
-	c := comparison{expectedSize: sizeOf(expected), actualSize: sizeOf(actual), pixels: w * h}
+	r := Result{ExpectedSize: sizeOf(expected), ActualSize: sizeOf(actual), Pixels: w * h}
 	if w != b.Rect.Dx() || h != b.Rect.Dy() {
-		return c
+		return r
 	}
-	c.sameSize = true
-	c.diff = image.NewRGBA(image.Rect(0, 0, w, h))
+	r.SameSize = true
+	r.Diff = image.NewRGBA(image.Rect(0, 0, w, h))
 	maxDelta := 35215 * threshold * threshold
 	for y := range h {
 		for x := range w {
 			pos := y*a.Stride + x*4
 			delta := colorDelta(a.Pix, b.Pix, pos, pos, false)
 			switch {
-			case masked && (isMask(a.Pix[pos:pos+4]) || isMask(b.Pix[pos:pos+4])):
-				c.diff.SetRGBA(x, y, color.RGBA{255, 200, 255, 255})
+			case o.Masked && (isMask(a.Pix[pos:pos+4]) || isMask(b.Pix[pos:pos+4])):
+				r.Diff.SetRGBA(x, y, color.RGBA{255, 200, 255, 255})
 			case math.Abs(delta) <= maxDelta:
 				v := uint8(blend(rgb2y(float64(a.Pix[pos]), float64(a.Pix[pos+1]), float64(a.Pix[pos+2])), 0.1*float64(a.Pix[pos+3])/255))
-				c.diff.SetRGBA(x, y, color.RGBA{v, v, v, 255})
+				r.Diff.SetRGBA(x, y, color.RGBA{v, v, v, 255})
 			case antialiased(a, x, y, w, h, b) || antialiased(b, x, y, w, h, a):
-				c.diff.SetRGBA(x, y, color.RGBA{255, 255, 0, 255})
+				r.Diff.SetRGBA(x, y, color.RGBA{255, 255, 0, 255})
 			default:
-				c.diff.SetRGBA(x, y, color.RGBA{255, 0, 0, 255})
-				c.differ++
+				r.Diff.SetRGBA(x, y, color.RGBA{255, 0, 0, 255})
+				r.Differ++
 			}
 		}
 	}
-	return c
+	return r
+}
+
+func sizeOf(img image.Image) string {
+	return fmt.Sprintf("%dx%d", img.Bounds().Dx(), img.Bounds().Dy())
 }
 
 func isMask(px []byte) bool {
-	return px[0] == maskColor.R && px[1] == maskColor.G && px[2] == maskColor.B && px[3] == maskColor.A
+	return px[0] == MaskColor.R && px[1] == MaskColor.G && px[2] == MaskColor.B && px[3] == MaskColor.A
 }
 
 func toRGBA(img image.Image) *image.RGBA {

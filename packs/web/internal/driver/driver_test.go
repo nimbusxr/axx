@@ -6,6 +6,9 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -14,6 +17,8 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+
+	"github.com/nimbusxr/axx/internal/npm"
 )
 
 func tgz(t *testing.T, files map[string]string) []byte {
@@ -82,14 +87,15 @@ func newMirror(t *testing.T, files map[string][]byte) *mirror {
 // options points Ensure at m, with hashes of what m serves (or of want).
 func options(t *testing.T, m *mirror, nodeArchive, core []byte, goos, goarch string) Options {
 	t.Helper()
-	platform, _, err := nodePlatform(goos, goarch)
+	platform, err := npm.NodePlatform(goos, goarch)
 	if err != nil {
 		t.Fatal(err)
 	}
+	sum := sha256.Sum256(nodeArchive)
 	return Options{
 		CacheDir: t.TempDir(), NodeMirror: m.URL + "/node", NPMRegistry: m.URL + "/npm", GOOS: goos, GOARCH: goarch,
-		coreVersion: "9.9.9", nodeVersion: "1.2.3", coreIntegrity: integrity(core),
-		nodeSums: map[string]string{platform: sha256Hex(nodeArchive)},
+		coreVersion: "9.9.9", coreIntegrity: npm.Integrity(core),
+		node: npm.NodeRelease{Version: "1.2.3", Sums: map[string]string{platform: hex.EncodeToString(sum[:])}},
 	}
 }
 
@@ -188,19 +194,37 @@ func TestArchiveEntriesStayInTheDirectory(t *testing.T) {
 }
 
 func TestPlatforms(t *testing.T) {
-	for _, p := range [][2]string{{"linux", "amd64"}, {"linux", "arm64"}, {"darwin", "amd64"}, {"darwin", "arm64"}, {"windows", "amd64"}, {"windows", "arm64"}} {
-		platform, _, err := nodePlatform(p[0], p[1])
-		if err != nil {
-			t.Fatal(err)
-		}
-		if len(nodeSums[platform]) != 64 {
-			t.Errorf("no pinned Node.js sum for %s", platform)
-		}
-	}
-	if _, _, err := nodePlatform("linux", "arm"); err == nil || !strings.Contains(err.Error(), "linux/arm") {
+	if _, err := Ensure(context.Background(), Options{GOOS: "linux", GOARCH: "arm"}); err == nil ||
+		err.Error() != "the web-core pack's browser driver needs Node.js, which has no build for linux/arm" {
 		t.Errorf("got %v", err)
 	}
 	if !strings.HasPrefix(coreIntegrity, "sha512-") {
 		t.Error("playwright-core integrity is not pinned")
+	}
+}
+
+// The driver's directory is named after what it holds, as it always was:
+// drivers prepared before are still found.
+func TestTheDriverDirectoryKeepsItsName(t *testing.T) {
+	cache := t.TempDir()
+	want := filepath.Join(cache, fmt.Sprintf("playwright-%s-axx%d-node-%s-linux-x64", CoreVersion, patchRevision, npm.NodeVersion))
+	for _, f := range []string{"node", "package/cli.js"} {
+		if err := os.MkdirAll(filepath.Dir(filepath.Join(want, f)), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(want, f), []byte("x"), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	dir, err := Ensure(context.Background(), Options{CacheDir: cache, GOOS: "linux", GOARCH: "amd64", NodeMirror: "http://127.0.0.1:1"})
+	if err != nil || dir != want {
+		t.Errorf("%s %v, want %s", dir, err, want)
+	}
+	base, err := os.UserCacheDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if o := (Options{}).defaults(); o.CacheDir != filepath.Join(base, "axx", "web") {
+		t.Errorf("the cache is %s", o.CacheDir)
 	}
 }

@@ -12,6 +12,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"image"
 	"image/png"
 	"os"
 	"path/filepath"
@@ -25,6 +26,7 @@ import (
 
 	"github.com/nimbusxr/axx/core"
 	"github.com/nimbusxr/axx/internal/cloudstep"
+	"github.com/nimbusxr/axx/internal/imagediff"
 	webcore "github.com/nimbusxr/axx/packs/web/core"
 )
 
@@ -189,7 +191,7 @@ func pageShot(mask []playwright.Locator) playwright.PageScreenshotOptions {
 		Animations: playwright.ScreenshotAnimationsDisabled,
 		Caret:      playwright.ScreenshotCaretHide,
 		Mask:       mask,
-		MaskColor:  playwright.String(fmt.Sprintf("#%02X%02X%02X", maskColor.R, maskColor.G, maskColor.B)),
+		MaskColor:  playwright.String(fmt.Sprintf("#%02X%02X%02X", imagediff.MaskColor.R, imagediff.MaskColor.G, imagediff.MaskColor.B)),
 	}
 }
 
@@ -217,7 +219,7 @@ func looksLike(sc *core.Scenario, c *webcore.Current, name string, wait time.Dur
 		}
 	}
 	var prev, shot []byte
-	var result comparison
+	var result imagediff.Result
 	ok, err := webcore.WaitUntil(sc, wait, func() (bool, error) {
 		pg, err := c.Page()
 		if err != nil {
@@ -244,8 +246,8 @@ func looksLike(sc *core.Scenario, c *webcore.Current, name string, wait time.Dur
 		if err != nil {
 			return false, err
 		}
-		result = compare(want, actual, masked)
-		return result.sameSize && float64(result.differ) <= cfg.tolerance*float64(result.pixels), nil
+		result = imagediff.Compare(want, actual, imagediff.Options{Masked: masked})
+		return result.SameSize && float64(result.Differ) <= cfg.tolerance*float64(result.Pixels), nil
 	})
 	if err != nil {
 		return err
@@ -280,11 +282,17 @@ func looksLike(sc *core.Scenario, c *webcore.Current, name string, wait time.Dur
 		sc.Attach("image/png", expected, "expected screenshot")
 		sc.Attach("image/png", shot, "the page")
 	}
-	if !result.sameSize {
+	if !result.SameSize {
 		return core.Fail(fmt.Sprintf("The page does not look like the %q screenshot: its size differs", name),
-			result.expectedSize, result.actualSize)
+			result.ExpectedSize, result.ActualSize)
 	}
-	sc.Attach("image/png", mustPNG(result.diff), "difference")
+	sc.Attach("image/png", mustPNG(result.Diff), "difference")
 	return core.Failf("The page does not look like the %q screenshot: %d of its %d pixels differ (%.2f%%, %.2f%% allowed); the page is %s",
-		name, result.differ, result.pixels, 100*float64(result.differ)/float64(result.pixels), 100*cfg.tolerance, webcore.Relative(sc, actualPath))
+		name, result.Differ, result.Pixels, 100*float64(result.Differ)/float64(result.Pixels), 100*cfg.tolerance, webcore.Relative(sc, actualPath))
+}
+
+func mustPNG(img image.Image) []byte {
+	var b bytes.Buffer
+	_ = png.Encode(&b, img)
+	return b.Bytes()
 }

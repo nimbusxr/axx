@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/nimbusxr/axx/internal/npm"
 )
 
 // Package is one file of a pinned npm package: a browser library a pack
@@ -29,11 +31,11 @@ func (p Package) Fetch(ctx context.Context, o Options) (string, error) {
 		return path, nil
 	}
 	tgz := fmt.Sprintf("%s-%s.tgz", p.Name, p.Version)
-	body, err := fetch(ctx, o.NPMRegistry+"/"+p.Name+"/-/"+tgz)
+	body, err := npm.Fetch(ctx, o.NPMRegistry+"/"+p.Name+"/-/"+tgz)
 	if err != nil {
 		return "", err
 	}
-	if got := integrity(body); got != p.Integrity {
+	if got := npm.Integrity(body); got != p.Integrity {
 		return "", fmt.Errorf("%s: integrity %s does not match the pinned %s", tgz, got, p.Integrity)
 	}
 	if err := os.MkdirAll(dir, 0o755); err != nil {
@@ -46,7 +48,7 @@ func (p Package) Fetch(ctx context.Context, o Options) (string, error) {
 	}
 	_ = tmp.Close()
 	defer os.Remove(tmp.Name())
-	if err := untarOne(body, "package/"+strings.TrimPrefix(p.File, "/"), tmp.Name()); err != nil {
+	if err := npm.UnpackFile(body, "package/"+strings.TrimPrefix(p.File, "/"), tmp.Name()); err != nil {
 		return "", fmt.Errorf("%s: %w", tgz, err)
 	}
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {

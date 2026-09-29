@@ -47,6 +47,8 @@ The service has no dependency on Axx or on any test framework.
 | `parcel-assistant` | the assistant reads the address in a shop's note, and sends a note it cannot read back to the shop; it looks a parcel up before it answers, and never tells the model the recipient's street; for a parcel abroad, it asks the partner carrier; a busy model is asked once more, then the recipient is asked to try again | a model mocked by WireMock (the service speaks OpenAI's API), a tool loop, what the service asked the model: the texts, the tools and the schema, and what it must never send; a mocked MCP server and the tool calls it received |
 | `parcels-mcp` | the service's MCP server: assistants see its tools, track parcels, hold them (and not once they are out for delivery), read labels and write delivery updates, over HTTP and over stdio | an MCP server's tools, results that are errors and calls it refuses, the tools' schemas as the contract and a level relaxed, a resource and a prompt, a server run as a command |
 | `parcels-agent` | the service's A2A agent: its card and skills, where a parcel is, a hold that asks until which day, a hold that can no longer be placed, a stream of its work, a canceled task, an unknown parcel, and a parcel abroad it asks the partner carrier's agent about | an A2A agent's card, tasks and their states, a reply to a task that asks for input, artifacts, a stream over HTTP+JSON, a mocked A2A agent and the messages it was sent |
+| `courier-app` | couriers deliver with the service's Android app: they sign in (and a wrong PIN is refused), see the parcels they deliver today, pull the list down for one given to them since, stay signed in until they sign out, and confirm a delivery, signed for, which the parcel's event stream and its recipient's tracking page then show; every scenario starts signed out | an Android app on an emulator axx starts: a deep link, controls tapped and filled by the names people see, a disabled button, a swipe, the back button, a notification, the app sent to the background and restarted, and a web page and an event stream in the same scenario |
+| `courier-app-notifications` | the app asks Android for leave to notify the courier; a courier who does not allow it delivers all the same | a dialog the system shows, dismissed; a delivery the tracking store recorded |
 | `operations-desk` | the desk's `parcels admin` command reprints labels, cancels parcels (from its input too) under the API's rules, and lists a shop's parcels | a command run in the service's container, its exit code, output and error output, output compared byte for byte and by its JSON properties, SQL selections |
 
 `axx.yaml` also shows test-data lint rules (`axx lint`), fixture factories (`axx fixtures`)
@@ -57,6 +59,7 @@ and debugging the service from your IDE (`axx run --debug`).
 ```
 parcels/
   app/          the system under test: a Go module with its Dockerfile
+  courier/      the couriers' app: an Android app (Kotlin, Jetpack Compose) the courier-app features use
   infra/        compose.yaml plus the files the containers mount
     postgres/       the database schema (the seeds must match it)
     openapi/        the OpenAPI contracts of the address service, the courier and the shops' webhooks
@@ -132,6 +135,18 @@ first time. To see them:
 axx run --profile watch features/shop-portal.feature   # the browsers in windows, slowed down
 axx run features/shop-portal.feature --pause-at features/shop-portal.feature:24   # pause before that step, in Playwright's Inspector
 ```
+
+The couriers' app's features (tagged `@mobile`) run the app on an Android emulator axx
+starts. They need the Android SDK (`ANDROID_HOME`), the app built, and the emulator's
+device, once:
+
+```sh
+cd ../courier/android
+./gradlew assembleDebug   # the app the features install
+./create-emulator.sh      # parcels-pixel, the device axx.yaml names (android.device)
+```
+
+Without them, leave those features out: `axx run --tags "not @mobile"`.
 
 The portal's screenshots are kept for Linux and macOS, each compared on its own platform
 (`packs.web-screenshots.platforms` in `axx.yaml`); elsewhere those steps pass without

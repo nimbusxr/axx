@@ -17,7 +17,7 @@ runs:
       run: |
         versions=$({
           grep -hE '(CoreVersion|NodeVersion|patchRevision|lighthouseVersion) *=|Name: "axe-core"' \
-            packs/web/internal/driver/*.go packs/web/lighthouse/install.go packs/web/a11y/a11y.go
+            packs/web/internal/driver/*.go internal/npm/node.go packs/web/lighthouse/install.go packs/web/a11y/a11y.go
           sha256sum packs/web/lighthouse/npm/package-lock.json
         } | sha256sum | cut -c1-16)
         echo "key=web-tools-${RUNNER_OS}-${versions}" >> "$GITHUB_OUTPUT"
@@ -32,7 +32,7 @@ runs:
       name: the browsers' system libraries
       shell: bash
       run: |
-        version=$(sed -n 's/^\tCoreVersion = "\(.*\)"$/\1/p' packs/web/internal/driver/driver.go)
+        version=$(sed -n 's/^const CoreVersion = "\(.*\)"$/\1/p' packs/web/internal/driver/driver.go)
         sudo npx -y "playwright@$version" install-deps chromium firefox webkit
     - if: inputs.mode == 'save' && github.event_name == 'push' && github.ref == 'refs/heads/main'
       # A cache is an optimization: failing to save it fails nothing.

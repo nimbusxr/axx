@@ -1,0 +1,8 @@
+parcels.parcels:
+  - reference: "PX-MOB-9421"
+    sender: "maple-crafts"
+    status: "OUT_FOR_DELIVERY"
+    service_level: "STANDARD"
+    weight_grams: 950
+    recipient: '{"name": "Max Hahn", "street": "Gohliser Str. 5", "city": "Leipzig", "postcode": "04155", "country": "DE"}'
+    details: '{"source": "api", "zone": "DE-1", "courier": "CR-LEJ-15"}'

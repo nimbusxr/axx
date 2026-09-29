@@ -1,0 +1,8 @@
+parcels.parcels:
+  - reference: "PX-MOB-9431"
+    sender: "maple-crafts"
+    status: "OUT_FOR_DELIVERY"
+    service_level: "STANDARD"
+    weight_grams: 2100
+    recipient: '{"name": "Tim Braun", "street": "Riebeckstr. 9", "city": "Leipzig", "postcode": "04317", "country": "DE"}'
+    details: '{"source": "api", "zone": "DE-1", "courier": "CR-LEJ-16"}'
