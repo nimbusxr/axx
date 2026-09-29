@@ -3,11 +3,13 @@
 package mobileios
 
 import (
+	"context"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/nimbusxr/axx/internal/cloudstep/cloudtest"
 	mobilecore "github.com/nimbusxr/axx/packs/mobile/core"
@@ -62,6 +64,25 @@ func harness(t *testing.T) *cloudtest.Harness {
 	return h
 }
 
+// warm makes the test's simulator before its scenario, as `axx up` keeps
+// devices warm: a runner's first simulator, and the first downloads of
+// Appium and WebDriverAgent, take longer than a scenario may. The scenario
+// then leases it, and resets it as ever.
+func warm(t *testing.T, h *cloudtest.Harness, device string) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Minute)
+	defer cancel()
+	p, err := poolFor(h.SC, device)
+	if err != nil {
+		t.Fatal(err)
+	}
+	d, err := p.lease(ctx, filepath.Join(h.Dir, ".axx", "mobile"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	p.release(d)
+}
+
 func signIn(h *cloudtest.Harness) {
 	h.OK(`the courier app is launched`)
 	h.OK(`the "Sign in" button is disabled in the courier app`)
@@ -72,11 +93,13 @@ func signIn(h *cloudtest.Harness) {
 
 // A courier delivers a parcel on a simulator: every step of the packs.
 func TestACourierDeliversOnASimulator(t *testing.T) {
+	device := simulator(t)
 	courierapi.Start(t)
 	t.Setenv("COURIER_PIN", "4711")
 	h := harness(t)
+	warm(t, h, device)
 	h.OK("the courier ios app with the following properties:", [][]string{
-		{"app", courierBuild(t)}, {"device", simulator(t)}, {"timezone", "Europe/Berlin"}, {"locale", "en-GB"}, {"location", "51.3397, 12.3731"},
+		{"app", courierBuild(t)}, {"device", device}, {"timezone", "Europe/Berlin"}, {"locale", "en-GB"}, {"location", "51.3397, 12.3731"},
 	})
 	signIn(h)
 	h.OK(`the courier app's dialog shows "Send You Notifications"`)
@@ -112,10 +135,12 @@ func TestACourierDeliversOnASimulator(t *testing.T) {
 // Two scenarios on one simulator: the second starts signed out (the first
 // kept its sign-in in the keychain), and iOS asks again for notifications.
 func TestScenariosOnASimulatorAreIsolated(t *testing.T) {
+	device := simulator(t)
 	courierapi.Start(t)
 	t.Setenv("COURIER_PIN", "4711")
 	h := harness(t)
-	h.OK("the courier ios app with the following properties:", [][]string{{"app", courierBuild(t)}, {"device", simulator(t)}})
+	warm(t, h, device)
+	h.OK("the courier ios app with the following properties:", [][]string{{"app", courierBuild(t)}, {"device", device}})
 	signIn(h)
 	h.OK(`the courier app's dialog is accepted`)
 	h.OK(`the courier app shows "Hello, Hanna Wolf"`)
@@ -126,7 +151,7 @@ func TestScenariosOnASimulatorAreIsolated(t *testing.T) {
 	}
 
 	h.NewScenario()
-	h.OK("the courier ios app with the following properties:", [][]string{{"app", courierBuild(t)}, {"device", simulator(t)}})
+	h.OK("the courier ios app with the following properties:", [][]string{{"app", courierBuild(t)}, {"device", device}})
 	h.OK(`the courier app is launched`)
 	h.OK(`the courier app shows "Sign in"`)
 	h.OK(`the "Courier ID" field in the courier app has the value ""`)
