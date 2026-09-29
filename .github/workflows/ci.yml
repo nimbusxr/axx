@@ -186,7 +186,9 @@ jobs:
         with:
           build: test
       - uses: ./.github/actions/web-tools
-      - run: xvfb-run -a go test -race -tags integration -timeout 20m $(go list ./packs/web/... | grep -v /packs/web/lighthouse)
+      - run: |
+          mapfile -t packs < <(go list ./packs/web/... | grep -v /packs/web/lighthouse)
+          xvfb-run -a go test -race -tags integration -timeout 20m "${packs[@]}"
       # The Lighthouse audits run on their own: a score measures the machine's load too, and
       # the other packages' browsers would take its CPU.
       - if: ${{ !cancelled() }}
