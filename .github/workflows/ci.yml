@@ -250,8 +250,8 @@ jobs:
   android:
     needs: changes
     if: needs.changes.outputs.mobile == 'true'
-    # The parcels example's Android scenarios, on emulators axx starts (KVM), three at once,
-    # against the whole example, which axx starts too.
+    # The parcels example's Android scenarios, on an emulator axx starts (KVM), against the
+    # whole example, which axx starts too.
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
@@ -290,6 +290,14 @@ jobs:
       - name: the couriers' app
         working-directory: examples/parcels/courier/android
         run: ./gradlew --no-daemon --console=plain assembleDebug
+      - name: wait for the disk space
+        run: |
+          for _ in $(seq 300); do [ -f "$RUNNER_TEMP/disk-freed" ] && break; sleep 2; done
+          [ -f "$RUNNER_TEMP/disk-freed" ] || { echo "::error::the disk space was not freed within 10 minutes"; exit 1; }
+          df -h /
+      # What the example pulls (2 GB), while the job goes on.
+      - name: the example's images (in the background)
+        run: (docker compose -f examples/parcels/infra/compose.yaml pull --ignore-buildable --quiet > "$RUNNER_TEMP/pull.log" 2>&1; echo $? > "$RUNNER_TEMP/pull.done") &
       - name: axx, with every pack
         run: |
           go build -o "$RUNNER_TEMP/bin/axx" ./internal/tools/axxall
@@ -299,11 +307,6 @@ jobs:
         run: |
           axx fixtures check
           axx fixtures generate
-      - name: wait for the disk space
-        run: |
-          for _ in $(seq 300); do [ -f "$RUNNER_TEMP/disk-freed" ] && break; sleep 2; done
-          [ -f "$RUNNER_TEMP/disk-freed" ] || { echo "::error::the disk space was not freed within 10 minutes"; exit 1; }
-          df -h /
       # The WireMock image the example's compose file builds: from cached layers, in seconds.
       - uses: ./.github/actions/wiremock-image
         with:
@@ -314,8 +317,14 @@ jobs:
           for _ in $(seq 450); do [ -f "$RUNNER_TEMP/device.done" ] && break; sleep 2; done
           cat "$RUNNER_TEMP/device.log"
           [ "$(cat "$RUNNER_TEMP/device.done" 2> /dev/null)" = 0 ] || { echo "::error::the emulator's device was not made"; exit 1; }
+      - name: wait for the example's images
+        run: |
+          for _ in $(seq 300); do [ -f "$RUNNER_TEMP/pull.done" ] && break; sleep 2; done
+          cat "$RUNNER_TEMP/pull.log"
+          # A pull that failed is done again as the example starts.
+          [ "$(cat "$RUNNER_TEMP/pull.done" 2> /dev/null)" = 0 ] || echo "::warning::the example's images were not all pulled"
       - working-directory: examples/parcels/acceptance
-        run: axx run --tags @android --set packs.mobile-android.devices=3 --format progress --format junit:build/axx/junit.xml --format html:build/axx/report.html
+        run: axx run --tags @android --format progress --format junit:build/axx/junit.xml --format html:build/axx/report.html
       - if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
@@ -430,6 +439,10 @@ jobs:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           persist-credentials: false
+      # What the parcels example pulls (2 GB), while the job sets up.
+      - if: matrix.example == 'parcels'
+        name: the example's images (in the background)
+        run: (docker compose -f examples/parcels/infra/compose.yaml pull --ignore-buildable --quiet > "$RUNNER_TEMP/pull.log" 2>&1; echo $? > "$RUNNER_TEMP/pull.done") &
       - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
         with:
           install_args: "go"
@@ -456,8 +469,15 @@ jobs:
         run: |
           axx fixtures check
           axx fixtures generate
+      - if: matrix.example == 'parcels'
+        name: wait for the example's images
+        run: |
+          for _ in $(seq 300); do [ -f "$RUNNER_TEMP/pull.done" ] && break; sleep 2; done
+          cat "$RUNNER_TEMP/pull.log"
+          # A pull that failed is done again as the example starts.
+          [ "$(cat "$RUNNER_TEMP/pull.done" 2> /dev/null)" = 0 ] || echo "::warning::the example's images were not all pulled"
       - working-directory: examples/${{ matrix.example }}/acceptance
-        # The Android scenarios run in the mobile job, on an emulator; the iOS ones on Macs.
+        # The Android scenarios run in the android job, on an emulator; the iOS ones on Macs.
         run: axx run --tags "not @mobile" --format progress --format junit:build/axx/junit.xml --format html:build/axx/report.html
       - if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
@@ -468,6 +488,14 @@ jobs:
             examples/${{ matrix.example }}/acceptance/build/axx/
             examples/${{ matrix.example }}/acceptance/.axx/web/
             examples/${{ matrix.example }}/acceptance/.axx/logs/
+          if-no-files-found: ignore
+          retention-days: 7
+      # How long the example took to build, pull and start, from its log.
+      - if: ${{ !cancelled() && matrix.example == 'parcels' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: apps-log-parcels
+          path: examples/parcels/acceptance/.axx/logs/apps.log
           if-no-files-found: ignore
           retention-days: 7
       - if: ${{ !cancelled() && matrix.example == 'parcels' }}
