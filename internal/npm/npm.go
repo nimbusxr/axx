@@ -72,21 +72,46 @@ func Registry() string {
 
 var client = &http.Client{Timeout: 10 * time.Minute}
 
-// Fetch downloads url.
+// fetchWaits are the pauses before Fetch tries a download again.
+var fetchWaits = []time.Duration{2 * time.Second, 5 * time.Second, 15 * time.Second}
+
+// Fetch downloads url. It tries again when the network or the server fails
+// (a 5xx, a 429): a moment's trouble on the way does not fail a run.
 func Fetch(ctx context.Context, url string) ([]byte, error) {
+	for i := 0; ; i++ {
+		body, again, err := fetchOnce(ctx, url)
+		if err == nil || !again || i == len(fetchWaits) {
+			return body, err
+		}
+		select {
+		case <-ctx.Done():
+			return nil, err
+		case <-time.After(fetchWaits[i]):
+		}
+	}
+}
+
+// fetchOnce downloads url once, and tells whether a failure is worth trying
+// again.
+func fetchOnce(ctx context.Context, url string) (body []byte, again bool, err error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("download %s: %w", url, err)
+		return nil, ctx.Err() == nil, fmt.Errorf("download %s: %w", url, err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("download %s: %s", url, resp.Status)
+		again := resp.StatusCode >= 500 || resp.StatusCode == http.StatusTooManyRequests
+		return nil, again, fmt.Errorf("download %s: %s", url, resp.Status)
 	}
-	return io.ReadAll(resp.Body)
+	body, err = io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, ctx.Err() == nil, fmt.Errorf("download %s: %w", url, err)
+	}
+	return body, false, nil
 }
 
 // Integrity is npm's Subresource Integrity form of b: "sha512-<base64>",

@@ -16,6 +16,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 )
 
 func tgz(t *testing.T, files map[string]string) []byte {
@@ -307,6 +308,40 @@ func TestUnzippingAnApp(t *testing.T) {
 	}
 	if err := Unzip([]byte("not a zip"), dir); err == nil {
 		t.Error("an archive that is not one")
+	}
+}
+
+// A download the network or the server fails is tried again; one that is
+// not there is not.
+func TestFetchTriesAgain(t *testing.T) {
+	waits := fetchWaits
+	fetchWaits = []time.Duration{time.Millisecond, time.Millisecond, time.Millisecond}
+	t.Cleanup(func() { fetchWaits = waits })
+	var calls atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		n := calls.Add(1)
+		switch {
+		case r.URL.Path == "/missing":
+			http.NotFound(w, r)
+		case r.URL.Path == "/down":
+			w.WriteHeader(http.StatusServiceUnavailable)
+		case n < 3:
+			w.WriteHeader(http.StatusBadGateway)
+		default:
+			_, _ = w.Write([]byte("wda"))
+		}
+	}))
+	t.Cleanup(srv.Close)
+	if b, err := Fetch(context.Background(), srv.URL+"/wda.zip"); err != nil || string(b) != "wda" || calls.Load() != 3 {
+		t.Errorf("after two 502s: %q %v, %d requests", b, err, calls.Load())
+	}
+	calls.Store(0)
+	if _, err := Fetch(context.Background(), srv.URL+"/missing"); err == nil || calls.Load() != 1 {
+		t.Errorf("a 404 is not tried again: %v, %d requests", err, calls.Load())
+	}
+	calls.Store(0)
+	if _, err := Fetch(context.Background(), srv.URL+"/down"); err == nil || !strings.Contains(err.Error(), "503") || calls.Load() != 4 {
+		t.Errorf("a server that stays down fails after 4 tries: %v, %d requests", err, calls.Load())
 	}
 }
 
