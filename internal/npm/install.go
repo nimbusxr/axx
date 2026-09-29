@@ -46,6 +46,14 @@ type InstallOptions struct {
 	Registry     string // default Registry()
 	GOOS, GOARCH string // the platform the packages are for; default the running one
 
+	// Unbundle names packages another package bundles in its own tarball
+	// (their lockfile paths, like node_modules/driver/node_modules/morgan)
+	// which are removed once it is unpacked, for a package the lockfile has
+	// higher up, which Node.js then finds instead: a fixed version of one a
+	// package bundles with a flaw. The lockfile must not list them any more,
+	// and must list what replaces them.
+	Unbundle []string
+
 	// Downloading, when set, is called before the downloads, when the
 	// packages are not installed yet.
 	Downloading func()
@@ -71,14 +79,14 @@ func Install(ctx context.Context, o InstallOptions) (string, error) {
 		if o.Name == "" {
 			return "", errors.New("npm.Install needs a Dir, or a Name to name one after")
 		}
-		dir = filepath.Join(cmp.Or(o.CacheDir, CacheDir("")), installName(o.Name, pkgs))
+		dir = filepath.Join(cmp.Or(o.CacheDir, CacheDir("")), installName(o.Name, pkgs, o.Unbundle))
 	}
 	registry := cmp.Or(strings.TrimRight(o.Registry, "/"), Registry())
 	downloading := o.Downloading
 	if downloading == nil {
 		downloading = func() {}
 	}
-	if err := install(ctx, dir, registry, pkgs, downloading); err != nil {
+	if err := install(ctx, dir, registry, pkgs, o.Unbundle, downloading); err != nil {
 		return "", err
 	}
 	return dir, nil
@@ -90,7 +98,44 @@ func Packages(o InstallOptions) ([]Package, error) {
 	if goos == "" {
 		goos, goarch = runtime.GOOS, runtime.GOARCH
 	}
-	return packagesOf(o.Lock, o.LeaveOut, platformOf(goos, goarch))
+	pkgs, err := packagesOf(o.Lock, o.LeaveOut, platformOf(goos, goarch))
+	if err != nil {
+		return nil, err
+	}
+	if err := checkUnbundle(o.Lock, o.Unbundle); err != nil {
+		return nil, err
+	}
+	return pkgs, nil
+}
+
+// checkUnbundle checks that each package Install unbundles is one another
+// bundles, which the lockfile no longer lists, and that the lockfile has one
+// of its name that Node.js finds in its place.
+func checkUnbundle(lock []byte, unbundle []string) error {
+	if len(unbundle) == 0 {
+		return nil
+	}
+	var lf struct {
+		Packages map[string]lockEntry `json:"packages"`
+	}
+	if err := json.Unmarshal(lock, &lf); err != nil {
+		return fmt.Errorf("the lockfile is no JSON: %w", err)
+	}
+	for _, p := range unbundle {
+		i := strings.LastIndex(p, "/node_modules/")
+		if i < 0 || !strings.HasPrefix(p, "node_modules/") {
+			return fmt.Errorf("%s is no package another bundles: its path is node_modules/<bundler>/node_modules/<name>", p)
+		}
+		if _, ok := lf.Packages[p]; ok {
+			return fmt.Errorf("the lockfile still lists %s, which is unbundled: take it out of the lockfile", p)
+		}
+		bundler, name := p[:i], p[i+len("/node_modules/"):]
+		_, e, ok := resolve(lf.Packages, bundler, name)
+		if !ok || e.InBundle {
+			return fmt.Errorf("the lockfile has no %s that Node.js finds in place of %s", name, p)
+		}
+	}
+	return nil
 }
 
 type lockEntry struct {
@@ -316,10 +361,13 @@ func (e lockEntry) platforms() string {
 
 // installName names the directory packages are installed in, after what
 // and a hash of the packages, so that other packages go elsewhere.
-func installName(what string, pkgs []Package) string {
+func installName(what string, pkgs []Package, unbundle []string) string {
 	h := sha256.New()
 	for _, p := range pkgs {
 		fmt.Fprintf(h, "%s %s\n", p.Path, p.Integrity)
+	}
+	for _, p := range unbundle {
+		fmt.Fprintf(h, "unbundled %s\n", p)
 	}
 	return what + "-" + hex.EncodeToString(h.Sum(nil))[:8]
 }
@@ -328,7 +376,7 @@ func installName(what string, pkgs []Package) string {
 // downloaded from registry, checked against its integrity and unpacked in
 // its place. dir appears whole or not at all. downloading is called before
 // the downloads.
-func install(ctx context.Context, dir, registry string, pkgs []Package, downloading func()) error {
+func install(ctx context.Context, dir, registry string, pkgs []Package, unbundle []string, downloading func()) error {
 	if st, err := os.Stat(dir); err == nil && st.IsDir() {
 		return nil
 	}
@@ -344,6 +392,15 @@ func install(ctx context.Context, dir, registry string, pkgs []Package, download
 	defer os.RemoveAll(tmp)
 	if err := fetchAll(ctx, registry, pkgs, tmp); err != nil {
 		return err
+	}
+	for _, p := range unbundle {
+		path := filepath.Join(tmp, filepath.FromSlash(p))
+		if _, err := os.Stat(filepath.Join(path, "package.json")); err != nil {
+			return fmt.Errorf("%s is not bundled any more: take it off the packages to unbundle", p)
+		}
+		if err := os.RemoveAll(path); err != nil {
+			return err
+		}
 	}
 	// Another axx may have installed them meanwhile: keep the first.
 	if err := os.Rename(tmp, dir); err != nil {

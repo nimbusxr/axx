@@ -16,5 +16,15 @@ tools="$sdk/cmdline-tools/latest/bin"
 
 # sdkmanager asks to accept licences; yes stops when it stops reading.
 { yes || true; } | "$tools/sdkmanager" --install "$image" emulator platform-tools > /dev/null
-echo no | "$tools/avdmanager" create avd --force --name parcels-pixel --package "$image" --device pixel_8
-echo "parcels-pixel: $image"
+# A Pixel the installed command-line tools know: older ones do not know the Pixel 8.
+devices=$("$tools/avdmanager" list device -c 2> /dev/null)
+device=""
+for want in pixel_8 pixel_6; do
+  if printf '%s\n' "$devices" | grep -qx "$want"; then
+    device=$want
+    break
+  fi
+done
+[ -n "$device" ] || device=$(printf '%s\n' "$devices" | grep '^pixel' | tail -1)
+echo no | "$tools/avdmanager" create avd --force --name parcels-pixel --package "$image" --device "$device"
+echo "parcels-pixel: $image, $device"

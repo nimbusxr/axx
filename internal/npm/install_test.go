@@ -152,10 +152,10 @@ func TestBundledPackagesComeWithTheirBundler(t *testing.T) {
 
 func TestPackagesAreInstalledOnce(t *testing.T) {
 	pkgs, reg, _ := fakePackages(t)
-	dir := filepath.Join(t.TempDir(), "web", installName("shop-1.0.0", pkgs))
+	dir := filepath.Join(t.TempDir(), "web", installName("shop-1.0.0", pkgs, nil))
 	announced := 0
 	for range 2 {
-		if err := install(context.Background(), dir, reg.URL, pkgs, func() { announced++ }); err != nil {
+		if err := install(context.Background(), dir, reg.URL, pkgs, nil, func() { announced++ }); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -190,11 +190,11 @@ func TestPackagesAreInstalledOnce(t *testing.T) {
 
 func TestPackagesInstalledSideBySideAppearOnce(t *testing.T) {
 	pkgs, reg, _ := fakePackages(t)
-	dir := filepath.Join(t.TempDir(), installName("shop-1.0.0", pkgs))
+	dir := filepath.Join(t.TempDir(), installName("shop-1.0.0", pkgs, nil))
 	var wg sync.WaitGroup
 	errs := make([]error, 4)
 	for i := range errs {
-		wg.Go(func() { errs[i] = install(context.Background(), dir, reg.URL, pkgs, func() {}) })
+		wg.Go(func() { errs[i] = install(context.Background(), dir, reg.URL, pkgs, nil, func() {}) })
 	}
 	wg.Wait()
 	for _, err := range errs {
@@ -213,8 +213,8 @@ func TestAPackageThatIsNotAsPinnedIsRefused(t *testing.T) {
 	tarballs["/c/-/c-3.1.0.tgz"] = tarball(t, "package/", map[string]string{"package.json": `{"name":"c","scripts":{"postinstall":"curl"}}`})
 	reg := newRegistry(t, tarballs)
 	cache := t.TempDir()
-	dir := filepath.Join(cache, installName("shop-1.0.0", pkgs))
-	err := install(context.Background(), dir, reg.URL, pkgs, func() {})
+	dir := filepath.Join(cache, installName("shop-1.0.0", pkgs, nil))
+	err := install(context.Background(), dir, reg.URL, pkgs, nil, func() {})
 	if err == nil || !strings.HasPrefix(err.Error(), "c 3.1.0: integrity sha512-") || !strings.Contains(err.Error(), "does not match the pinned "+pkgs[2].Integrity) {
 		t.Errorf("a changed package: %v", err)
 	}
@@ -228,7 +228,7 @@ func TestAPackageThatWritesOutsideItsDirectoryIsRefused(t *testing.T) {
 	pkgs := []Package{{Path: "node_modules/evil", Name: "evil", Version: "1.0.0", Integrity: Integrity(evil)}}
 	reg := newRegistry(t, map[string][]byte{"/evil/-/evil-1.0.0.tgz": evil})
 	cache := t.TempDir()
-	err := install(context.Background(), filepath.Join(cache, "evil"), reg.URL, pkgs, func() {})
+	err := install(context.Background(), filepath.Join(cache, "evil"), reg.URL, pkgs, nil, func() {})
 	if err == nil || err.Error() != `evil 1.0.0: archive entry "../../../escaped.js" leaves the directory` {
 		t.Errorf("an entry out of the directory: %v", err)
 	}
@@ -241,7 +241,7 @@ func TestAMissingPackageSaysWhereItWasLookedFor(t *testing.T) {
 	pkgs, _, tarballs := fakePackages(t)
 	delete(tarballs, "/@parcels/labels/-/labels-2.0.0.tgz")
 	reg := newRegistry(t, tarballs)
-	err := install(context.Background(), filepath.Join(t.TempDir(), "shop"), reg.URL, pkgs, func() {})
+	err := install(context.Background(), filepath.Join(t.TempDir(), "shop"), reg.URL, pkgs, nil, func() {})
 	if err == nil || err.Error() != "download "+reg.URL+"/@parcels/labels/-/labels-2.0.0.tgz: 404 Not Found" {
 		t.Errorf("a missing package: %v", err)
 	}
@@ -260,7 +260,7 @@ func TestInstallPutsThePackagesInTheirDirectory(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if want := filepath.Join(cache, installName("shop-1.0.0", pkgs)); dir != want {
+	if want := filepath.Join(cache, installName("shop-1.0.0", pkgs, nil)); dir != want {
 		t.Errorf("installed in %s, want %s", dir, want)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "node_modules", "@parcels", "labels", "index.js")); err != nil {
@@ -413,5 +413,62 @@ func TestPackagesSayWhichPlatformsTheyAreFor(t *testing.T) {
 	}
 	if (lockEntry{Libc: names{"musl"}}).fits(platformOf("linux", "amd64")) {
 		t.Error("musl on glibc")
+	}
+}
+
+// A package a driver bundles with a flaw is removed from the driver once it is
+// unpacked: Node.js then finds the fixed version the lockfile has higher up.
+func TestAFlawedBundledPackageIsReplaced(t *testing.T) {
+	driver := tarball(t, "package/", map[string]string{
+		"package.json":                     `{"name":"driver","bundleDependencies":["morgan"]}`,
+		"node_modules/morgan/package.json": `{"name":"morgan","version":"1.11.0"}`,
+		"node_modules/css/package.json":    `{"name":"css","version":"1.0.7"}`,
+	})
+	morgan := tarball(t, "package/", map[string]string{"package.json": `{"name":"morgan","version":"1.12.1"}`})
+	reg := newRegistry(t, map[string][]byte{"/driver/-/driver-8.7.0.tgz": driver, "/morgan/-/morgan-1.12.1.tgz": morgan})
+	lock := fmt.Sprintf(`{"lockfileVersion": 3, "packages": {
+		"": {"dependencies": {"driver": "8.7.0", "morgan": "1.12.1"}},
+		"node_modules/driver": {"version": "8.7.0", "integrity": %q, "dependencies": {"morgan": "1.11.0", "css": "1.0.7"}},
+		"node_modules/driver/node_modules/css": {"version": "1.0.7", "inBundle": true},
+		"node_modules/morgan": {"version": "1.12.1", "integrity": %q}
+	}}`, Integrity(driver), Integrity(morgan))
+	unbundle := []string{"node_modules/driver/node_modules/morgan"}
+	dir, err := Install(context.Background(), InstallOptions{Lock: []byte(lock), CacheDir: t.TempDir(), Name: "appium", Registry: reg.URL, Unbundle: unbundle})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "node_modules", "driver", "node_modules", "morgan")); !os.IsNotExist(err) {
+		t.Errorf("the flawed morgan is still bundled: %v", err)
+	}
+	for _, kept := range []string{"node_modules/driver/node_modules/css/package.json", "node_modules/morgan/package.json"} {
+		if _, err := os.Stat(filepath.Join(dir, filepath.FromSlash(kept))); err != nil {
+			t.Errorf("%s: %v", kept, err)
+		}
+	}
+	plain, err := Packages(InstallOptions{Lock: []byte(lock)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if installName("appium", plain, nil) == filepath.Base(dir) {
+		t.Error("an install that unbundles a package is named apart from one that does not")
+	}
+
+	// What cannot be unbundled.
+	for u, want := range map[string]string{
+		"node_modules/morgan":                    "node_modules/morgan is no package another bundles",
+		"node_modules/driver/node_modules/css":   "the lockfile still lists node_modules/driver/node_modules/css, which is unbundled",
+		"node_modules/driver/node_modules/chalk": "the lockfile has no chalk that Node.js finds in place of node_modules/driver/node_modules/chalk",
+	} {
+		if _, err := Packages(InstallOptions{Lock: []byte(lock), Unbundle: []string{u}}); err == nil || !strings.Contains(err.Error(), want) {
+			t.Errorf("%s: %v, want %s", u, err, want)
+		}
+	}
+	// A driver that no longer bundles it: the unbundling is out of date.
+	lean := tarball(t, "package/", map[string]string{"package.json": `{"name":"driver"}`, "node_modules/css/package.json": `{"name":"css"}`})
+	reg2 := newRegistry(t, map[string][]byte{"/driver/-/driver-8.7.0.tgz": lean, "/morgan/-/morgan-1.12.1.tgz": morgan})
+	lock2 := strings.Replace(lock, Integrity(driver), Integrity(lean), 1)
+	_, err = Install(context.Background(), InstallOptions{Lock: []byte(lock2), CacheDir: t.TempDir(), Name: "appium", Registry: reg2.URL, Unbundle: unbundle})
+	if err == nil || !strings.Contains(err.Error(), "is not bundled any more") {
+		t.Errorf("an out-of-date unbundling: %v", err)
 	}
 }
