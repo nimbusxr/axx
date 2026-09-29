@@ -9,15 +9,21 @@
 # interface on 8025).
 name: parcels
 
+# The WireMock image every mocked dependency below runs: WireMock with axx's extensions,
+# built once from this repository and shared (one image name, so one build).
+# `image: ghcr.io/nimbusxr/axx-wiremock:<version>` in place of this uses the published one.
+x-wiremock: &wiremock
+  build:
+    context: ../../../extensions/wiremock-openapi
+  image: parcels-wiremock:local
+
 services:
   # The downstream address service, mocked by WireMock with axx's OpenAPI validation
   # extension: every call is checked against openapi/address-service.yaml. In report
   # mode the service gets the stub's real answer, and axx fails the scenario (or the
-  # run) with the contract violation. This builds the extension from this repository;
-  # `image: ghcr.io/nimbusxr/axx-wiremock:<version>` can replace `build:`.
+  # run) with the contract violation.
   address-service:
-    build:
-      context: ../../../extensions/wiremock-openapi
+    <<: *wiremock
     ports:
       - '8081:8080'
     environment:
@@ -39,8 +45,7 @@ services:
   # The courier company, mocked the same way against openapi/courier.yaml: the
   # service books express collections and notes the pickups shops plan there.
   courier:
-    build:
-      context: ../../../extensions/wiremock-openapi
+    <<: *wiremock
     ports:
       - '8082:8080'
     environment:
@@ -60,8 +65,7 @@ services:
   # The shops' systems, where the service tells each shop of its parcels' deliveries,
   # mocked the same way against openapi/shop-webhooks.yaml.
   shops:
-    build:
-      context: ../../../extensions/wiremock-openapi
+    <<: *wiremock
     ports:
       - '8083:8080'
     environment:
@@ -82,8 +86,7 @@ services:
   # gRPC, mocked by WireMock's gRPC extension (in the same image) from the descriptor set in
   # rating/grpc (see ../app/gen/gen.go). The stubs in rating/mappings answer per country.
   rating:
-    build:
-      context: ../../../extensions/wiremock-openapi
+    <<: *wiremock
     ports:
       - '8084:8080'
     volumes:
@@ -100,8 +103,7 @@ services:
   # WireMock image: field by field from shop-directory/graphql/shops.graphql, its entities from
   # the stubs in shop-directory/mappings.
   shop-directory:
-    build:
-      context: ../../../extensions/wiremock-openapi
+    <<: *wiremock
     ports:
       - '8085:8080'
     environment:
@@ -120,8 +122,7 @@ services:
   # the stubs in models/mappings answer requests about the scenarios' notes and parcels, in
   # the format of the request (the service speaks OpenAI's API).
   models:
-    build:
-      context: ../../../extensions/wiremock-openapi
+    <<: *wiremock
     ports:
       - '8086:8080'
     volumes:
@@ -139,8 +140,7 @@ services:
   # (which the parcels agent asks) mocked from partner-carrier/a2a/agent-card.json, both by the same
   # WireMock image, their answers the stubs in partner-carrier/mappings.
   partner-carrier:
-    build:
-      context: ../../../extensions/wiremock-openapi
+    <<: *wiremock
     ports:
       - '8087:8080'
     environment:
@@ -278,7 +278,10 @@ services:
       RABBITMQ_DEFAULT_USER: parcels
       RABBITMQ_DEFAULT_PASS: parcels
     healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "-q", "check_port_connectivity"]
+      # As the rabbitmq user: run as root (the healthcheck's default here), the check makes
+      # the Erlang cookie root's if it comes before the booting broker's, and the broker,
+      # which cannot read it then, stops.
+      test: ["CMD", "su-exec", "rabbitmq", "rabbitmq-diagnostics", "-q", "check_port_connectivity"]
       interval: 2s
       timeout: 10s
       retries: 60

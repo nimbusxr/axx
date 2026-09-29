@@ -20,15 +20,38 @@ RUN --mount=type=cache,target=/root/.gradle \
     ./gradlew --no-daemon --console=plain shadowJar -Pversion="${VERSION}" \
     && cp build/libs/axx-wiremock-openapi-*-all.jar /axx-wiremock-openapi.jar
 
-FROM eclipse-temurin:21-jre-alpine
-
-ARG VERSION=0.1.0-SNAPSHOT
+# WireMock and its gRPC extension, from Maven Central. A download is tried again until its sha256
+# is the one pinned here, so a transfer that goes wrong is fetched again, and never used.
+FROM --platform=$BUILDPLATFORM eclipse-temurin:21-jdk AS jars
 ARG WIREMOCK_VERSION=3.13.2
 # sha256 of wiremock-standalone-${WIREMOCK_VERSION}.jar; update together with WIREMOCK_VERSION.
 ARG WIREMOCK_SHA256=d097b19bd483c5038479b13a5c71e9faf8f2f5106584f0c120a7770ab0bdb367
 # WireMock's own gRPC extension, the build for WireMock standalone; its sha256 changes with it.
 ARG GRPC_EXTENSION_VERSION=0.11.0
 ARG GRPC_EXTENSION_SHA256=f1e1f822abe07eaff012e059dec5c0aec1e23c8fb3bb3978064a894849e82840
+RUN <<'SH'
+set -eu
+mkdir -p /jars
+# fetch <url> <sha256> <file>
+fetch() {
+  for try in 1 2 3 4 5; do
+    if curl -fsSL -o "$3" "$1" && echo "$2  $3" | sha256sum -c --status; then
+      return 0
+    fi
+    echo "$1: try $try failed, or its sha256 is not $2" >&2
+    sleep $((try * 2))
+  done
+  return 1
+}
+fetch "https://repo1.maven.org/maven2/org/wiremock/wiremock-standalone/${WIREMOCK_VERSION}/wiremock-standalone-${WIREMOCK_VERSION}.jar" \
+  "${WIREMOCK_SHA256}" /jars/wiremock-standalone.jar
+fetch "https://repo1.maven.org/maven2/org/wiremock/wiremock-grpc-extension-standalone/${GRPC_EXTENSION_VERSION}/wiremock-grpc-extension-standalone-${GRPC_EXTENSION_VERSION}.jar" \
+  "${GRPC_EXTENSION_SHA256}" /jars/wiremock-grpc-extension.jar
+SH
+
+FROM eclipse-temurin:21-jre-alpine
+
+ARG VERSION=0.1.0-SNAPSHOT
 
 LABEL org.opencontainers.image.title="axx-wiremock" \
       org.opencontainers.image.description="WireMock standalone with the axx OpenAPI validation extension (stubs with metadata.openApiSpecSource are validated against their OpenAPI spec), WireMock's gRPC extension (gRPC services from the descriptor sets in grpc/), GraphQL services and subgraphs mocked field by field from their schema (GRAPHQL_SCHEMA_SOURCE), AI models (the model-request matcher and the model-answer transformer), answered in the format of OpenAI, Anthropic, Gemini, Bedrock or Ollama, MCP servers mocked from their description (MCP_SERVER_SOURCE) with tool calls answered by stubs, and A2A agents mocked from their agent card (A2A_AGENT_CARD_SOURCE) with messages answered by stubs." \
@@ -38,18 +61,14 @@ LABEL org.opencontainers.image.title="axx-wiremock" \
       org.opencontainers.image.vendor="NimbusXR" \
       org.opencontainers.image.version="${VERSION}"
 
-ADD --checksum=sha256:${WIREMOCK_SHA256} --chmod=644 \
-    https://repo1.maven.org/maven2/org/wiremock/wiremock-standalone/${WIREMOCK_VERSION}/wiremock-standalone-${WIREMOCK_VERSION}.jar \
-    /var/wiremock/wiremock-standalone.jar
+COPY --from=jars --chmod=644 /jars/wiremock-standalone.jar /var/wiremock/wiremock-standalone.jar
 
 # The bundled extension lives in lib/ so that mounting jars into /var/wiremock/extensions adds
 # extensions instead of hiding this one.
 COPY --from=build --chmod=644 /axx-wiremock-openapi.jar /var/wiremock/lib/axx-wiremock-openapi.jar
 # On the classpath after wiremock-standalone.jar, so WireMock's classes are the ones loaded,
 # and only when the root dir has a grpc folder (entrypoint.sh).
-ADD --checksum=sha256:${GRPC_EXTENSION_SHA256} --chmod=644 \
-    https://repo1.maven.org/maven2/org/wiremock/wiremock-grpc-extension-standalone/${GRPC_EXTENSION_VERSION}/wiremock-grpc-extension-standalone-${GRPC_EXTENSION_VERSION}.jar \
-    /var/wiremock/grpc/wiremock-grpc-extension.jar
+COPY --from=jars --chmod=644 /jars/wiremock-grpc-extension.jar /var/wiremock/grpc/wiremock-grpc-extension.jar
 COPY --chmod=755 entrypoint.sh /var/wiremock/entrypoint.sh
 
 # WireMock's root dir is the working directory: mount stubs at /home/wiremock/mappings,
