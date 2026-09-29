@@ -1,0 +1,10 @@
+{
+  "name": "A question about PX-AI-8104, when the model is busy",
+  "request": {
+    "customMatcher": {"name": "model-request", "parameters": {"about": "PX-AI-8104"}}
+  },
+  "response": {
+    "transformers": ["model-answer"],
+    "jsonBody": {"error": {"type": "rate_limit", "retryAfter": 1}}
+  }
+}

@@ -2,6 +2,7 @@ package mock
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -21,6 +22,8 @@ type journaled struct {
 	Headers map[string]string
 	// Record is what the axx WireMock extension recorded, if anything.
 	Record any
+	// Body is the request's body, and Response the body of its answer.
+	Body, Response string
 }
 
 // fakeWireMock implements the admin endpoints axx uses.
@@ -56,7 +59,11 @@ func (f *fakeWireMock) handler() http.Handler {
 		reqs := []map[string]any{}
 		for i := len(f.journal) - 1; i >= 0; i-- { // newest first, like WireMock
 			j := f.journal[i]
-			r := map[string]any{"id": fmt.Sprintf("id-%d", i), "request": map[string]any{"method": j.Method, "url": j.URL}}
+			r := map[string]any{
+				"id":       fmt.Sprintf("id-%d", i),
+				"request":  map[string]any{"method": j.Method, "url": j.URL, "bodyAsBase64": base64.StdEncoding.EncodeToString([]byte(j.Body))},
+				"response": map[string]any{"bodyAsBase64": base64.StdEncoding.EncodeToString([]byte(j.Response))},
+			}
 			if j.Record != nil {
 				r["subEvents"] = []map[string]any{{"type": "openapi-validation", "data": j.Record}}
 			}

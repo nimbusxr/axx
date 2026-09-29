@@ -1,0 +1,8 @@
+parcels.parcels:
+  - reference: "PX-AI-8102"
+    sender: "birch-and-bloom"
+    status: "OUT_FOR_DELIVERY"
+    service_level: "STANDARD"
+    weight_grams: 900
+    recipient: '{"name": "Ida Hoffmann", "street": "Lindenweg 14", "city": "Leipzig", "postcode": "04109", "country": "DE"}'
+    details: '{"source": "api", "zone": "DE-1"}'

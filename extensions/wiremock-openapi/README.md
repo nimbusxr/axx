@@ -13,8 +13,8 @@ call, or the run when no scenario does. Without axx, the extension can instead a
 calls with an HTTP 500 that lists the problems.
 
 It ships as a ready-to-run image, `ghcr.io/nimbusxr/axx-wiremock`: WireMock standalone with the
-extension on its classpath, WireMock's gRPC extension (see [gRPC](#grpc)), and GraphQL mocks
-(see [GraphQL](#graphql)). Validation uses
+extension on its classpath, WireMock's gRPC extension (see [gRPC](#grpc)), GraphQL mocks
+(see [GraphQL](#graphql)), and model mocks (see [Models](#models)). Validation uses
 the Atlassian
 [`openapi-request-validator`](https://bitbucket.org/atlassian/swagger-request-validator), which
 supports OpenAPI 3.0 and 3.1 and Swagger 2.0, in JSON or YAML.
@@ -257,6 +257,45 @@ field's value comes from its parent's value when that has it, and otherwise from
   "response": {"status": 200, "jsonBody": {"name": "Alder & Ash", "tier": "STANDARD"}}
 }
 ```
+
+## Models
+
+The image mocks the AI models a service asks, **in the format of each request**: OpenAI's Chat
+Completions and Responses (and the servers that speak OpenAI's API: Azure OpenAI, vLLM,
+llama.cpp, LM Studio, Ollama's `/v1`...), Anthropic's Messages (directly, on Bedrock and on
+Vertex AI), Gemini (AI Studio and Vertex AI), Bedrock's Converse, and Ollama's own API, with
+their embeddings and model lists. Nothing configures it: a stub uses the `model-request` matcher
+and the `model-answer` transformer, and its answer is written the same way for every provider.
+
+```json
+{
+  "request": {
+    "customMatcher": {"name": "model-request", "parameters": {"about": "PX-AI-8102", "afterTool": "track_parcel"}}
+  },
+  "response": {
+    "transformers": ["model-answer"],
+    "jsonBody": {"text": "Your parcel PX-AI-8102 is out for delivery in Leipzig and arrives today."}
+  }
+}
+```
+
+- **`model-request`** matches the requests `about` a text (or texts) of the conversation, the
+  tools' results and JSON-escaped text included; `afterTool` names the tool whose result the
+  model was just given; `endpoint` is `chat` (the default), `embeddings` or `models`.
+- **`model-answer`** renders `text`, `json` (structured output), `toolCalls`, `reasoning`,
+  `refusal`, `stop` (`length` or `safety`), `usage`, `embedding`, `dimensions` and `models`,
+  streamed when the request asks for a stream (server-sent events, Ollama's newline-delimited
+  JSON, AWS's event stream).
+- **Failures** are the provider's own: `error` (`rate_limit`, `overloaded`, `context_length`,
+  `auth` or `server`, with `retryAfter`, and `afterEvents` to fail a stream in its middle),
+  `cutOffAfter` and `malformed`. WireMock's `fixedDelayMilliseconds` and `chunkedDribbleDelay`
+  make a model slow.
+- **A mistake in a stub** (an unknown key, a wrong value) stops WireMock at startup.
+- **The contracts:** the providers' official SDKs (OpenAI, Anthropic, Google GenAI, AWS) read
+  the answers in the tests, and OpenAI's and Ollama's OpenAPI documents validate them.
+
+axx's mock steps check what the service asked the model; see
+[Test AI features](https://axx.nimbusxr.us/guides/test-ai-features/).
 
 ## Versions
 

@@ -4,7 +4,7 @@
 #   docker compose down -v               # stop and remove containers and volumes
 #
 # axx runs this for you: see ../acceptance/axx.yaml. The published host ports are the
-# ones the feature files use (8400, 8410, 4000, 8081, 8082, 8083, 8084, 8085, 5432, 27017,
+# ones the feature files use (8400, 8410, 4000, 8081, 8082, 8083, 8084, 8085, 8086, 5432, 27017,
 # 9092, 9081, 5672, 1883, 4222, 6379 and 1143, and the mail server's SMTP on 1025 and web
 # interface on 8025).
 name: parcels
@@ -108,6 +108,24 @@ services:
       GRAPHQL_SCHEMA_SOURCE: /home/wiremock/graphql/shops.graphql
     volumes:
       - './shop-directory:/home/wiremock'
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/__admin/health"]
+      interval: 1s
+      timeout: 2s
+      retries: 60
+      start_period: 5s
+    stop_signal: SIGKILL
+
+  # The model the parcel assistant asks, mocked by the model mock of the same WireMock image:
+  # the stubs in models/mappings answer requests about the scenarios' notes and parcels, in
+  # the format of the request (the service speaks OpenAI's API).
+  models:
+    build:
+      context: ../../../extensions/wiremock-openapi
+    ports:
+      - '8086:8080'
+    volumes:
+      - './models:/home/wiremock'
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/__admin/health"]
       interval: 1s
@@ -339,6 +357,7 @@ services:
       PARCELS_REDIS_URL: redis://valkey:6379/0
       PARCELS_SMTP_ADDR: mail:25
       PARCELS_EXPORT_DIR: /var/lib/parcels/exports
+      PARCELS_MODEL_URL: http://models:8080/v1
       # Every log line also goes to the log service axx runs on the host (the
       # parcels log in the features); host-gateway makes the name work on Linux.
       PARCELS_LOG_UDP: host.docker.internal:5140
@@ -356,6 +375,8 @@ services:
       shops:
         condition: service_healthy
       rating:
+        condition: service_healthy
+      models:
         condition: service_healthy
       postgres:
         condition: service_healthy

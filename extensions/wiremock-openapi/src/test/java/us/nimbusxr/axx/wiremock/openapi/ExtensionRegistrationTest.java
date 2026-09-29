@@ -56,18 +56,26 @@ class ExtensionRegistrationTest {
 
     @Test
     void withoutTheExtensionNothingIsValidated() {
-        assertThat(statusForInvalidRequest(options().dynamicPort())).isEqualTo(201);
+        assertThat(statusForInvalidRequest(options().bindAddress("127.0.0.1").dynamicPort()))
+                .isEqualTo(201);
     }
 
     @Test
     void registersThroughServiceLoaderScanning() {
-        assertThat(statusForInvalidRequest(options().dynamicPort().extensionScanningEnabled(true)))
+        assertThat(
+                        statusForInvalidRequest(
+                                options()
+                                        .bindAddress("127.0.0.1")
+                                        .dynamicPort()
+                                        .extensionScanningEnabled(true)))
                 .isEqualTo(500);
     }
 
     @Test
     void scanningAlsoRegistersTheAdminEndpoint() {
-        wm = new WireMockServer(options().dynamicPort().extensionScanningEnabled(true));
+        wm =
+                new WireMockServer(
+                        options().bindAddress("127.0.0.1").dynamicPort().extensionScanningEnabled(true));
         wm.start();
 
         HttpResponse<String> response = Http.request(wm.port(), "GET", "/__admin/openapi-validation").send();
@@ -81,6 +89,7 @@ class ExtensionRegistrationTest {
         assertThat(
                         statusForInvalidRequest(
                                 options()
+                                        .bindAddress("127.0.0.1")
                                         .dynamicPort()
                                         .extensions(OpenApiValidatorExtension.class.getName())))
                 .isEqualTo(500);
@@ -93,6 +102,7 @@ class ExtensionRegistrationTest {
         assertThat(
                         statusForInvalidRequest(
                                 options()
+                                        .bindAddress("127.0.0.1")
                                         .dynamicPort()
                                         .extensions(OpenApiValidatorExtension.class.getName())
                                         .extensionScanningEnabled(true)))
@@ -102,7 +112,8 @@ class ExtensionRegistrationTest {
     @Test
     void standaloneCommandLineWithoutFlag() {
         CommandLineOptions cli =
-                new CommandLineOptions("--port", "0", "--root-dir", rootDir.toString());
+                new CommandLineOptions(
+                        "--port", "0", "--bind-address", "127.0.0.1", "--root-dir", rootDir.toString());
 
         assertThat(statusForInvalidRequest(cli)).isEqualTo(500);
     }

@@ -220,6 +220,22 @@ And the payload properties for mocked request named shop-lookup on shop-director
 
 A stub of a whole operation on `/graphql` (for example, matching `$.query`) wins over the field-by-field answers, for an outage or an answer the schema cannot give. The OpenAPI validation does not apply to GraphQL calls. To send operations to a GraphQL service yourself, see [Call GraphQL services](/guides/test-graphql/).
 
+## Mock AI models
+
+The Axx WireMock image mocks the models a service asks, in the format of the request: OpenAI's API (and the servers that speak it), Anthropic's, Gemini's, Bedrock's and Ollama's, with their streams and their errors. A stub's `model-request` matcher says which requests it answers (`about` a text of the conversation), and its `model-answer` transformer renders its answer, written the same way for every provider:
+
+```json title="infra/models/mappings/address-note.json"
+{
+  "request": {"customMatcher": {"name": "model-request", "parameters": {"about": "Birkenallee 3"}}},
+  "response": {
+    "transformers": ["model-answer"],
+    "jsonBody": {"json": {"name": "Mara Lindqvist", "street": "Birkenallee 3", "postcode": "01067", "city": "Dresden", "country": "DE"}}
+  }
+}
+```
+
+The mock pack's model steps check what the service asked the model: the texts, the tools and the schema. See [Test AI features](/guides/test-ai-features/).
+
 ## Check the dependency's contract
 
 A mock that answers something the real API never would makes a test pass for the wrong reason, and a service that calls its dependency wrongly only finds out in production. The `ghcr.io/nimbusxr/axx-wiremock` image is WireMock with Axx's OpenAPI validation extension. It checks every call to the mock against the dependency's OpenAPI document: your service's request, and the stub's response.

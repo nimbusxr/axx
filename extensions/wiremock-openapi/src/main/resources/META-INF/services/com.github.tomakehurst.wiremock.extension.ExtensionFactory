@@ -1,3 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
 # The GraphQL mock, made when GRAPHQL_SCHEMA_SOURCE names a schema (see GraphqlExtensionFactory).
 us.nimbusxr.axx.wiremock.graphql.GraphqlExtensionFactory
+# The model mock: the model-request matcher and the model-answer transformer (see ModelsExtensionFactory).
+us.nimbusxr.axx.wiremock.models.ModelsExtensionFactory

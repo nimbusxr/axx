@@ -1,0 +1,12 @@
+{
+  "type": "object",
+  "properties": {
+    "name": {"type": "string"},
+    "street": {"type": "string"},
+    "postcode": {"type": "string"},
+    "city": {"type": "string"},
+    "country": {"type": "string", "description": "ISO 3166-1 alpha-2"}
+  },
+  "required": ["name", "street", "postcode", "city", "country"],
+  "additionalProperties": false
+}

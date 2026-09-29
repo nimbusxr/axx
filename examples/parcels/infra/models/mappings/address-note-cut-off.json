@@ -1,0 +1,13 @@
+{
+  "name": "Jonas Brandt's note, whose address the model runs out of tokens in",
+  "request": {
+    "customMatcher": {"name": "model-request", "parameters": {"about": "Kastanienweg 9"}}
+  },
+  "response": {
+    "transformers": ["model-answer"],
+    "jsonBody": {
+      "text": "{\"name\": \"Jonas Brandt\", \"street\": \"Kastanienweg 9\", \"postc",
+      "stop": "length"
+    }
+  }
+}

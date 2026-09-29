@@ -4,8 +4,9 @@
 // MongoDB tracking read model fed by depot scans (Kafka events, and the
 // scanners' MQTT messages), calls to a downstream address service,
 // ParcelRegistered events on Kafka (Avro), label print jobs and the
-// printers' reports on RabbitMQ (AMQP), and the couriers' delivery
-// confirmations and every tracking update on NATS.
+// printers' reports on RabbitMQ (AMQP), the couriers' delivery
+// confirmations and every tracking update on NATS, and a parcel assistant
+// that asks a model (OpenAI's API).
 //
 // Configuration comes from PARCELS_* environment variables. The defaults
 // reach the infrastructure's published ports on localhost, which is what you
@@ -70,6 +71,11 @@ type config struct {
 	// LogUDP (host:port) also sends every log line there, as one datagram:
 	// the way many services ship logs to a collector.
 	LogUDP string
+	// ModelURL is the model the parcel assistant asks (OpenAI's API, or a
+	// server that speaks it), Model the model it names, and ModelAPIKey its key.
+	ModelURL    string
+	Model       string
+	ModelAPIKey string
 }
 
 func env(name, def string) string {
@@ -108,6 +114,9 @@ func loadConfig() (config, error) {
 		MailFrom:           env("PARCELS_MAIL_FROM", "Parcels <no-reply@parcels.example>"),
 		ExportDir:          env("PARCELS_EXPORT_DIR", "../infra/exports"),
 		LogUDP:             env("PARCELS_LOG_UDP", ""),
+		ModelURL:           env("PARCELS_MODEL_URL", "http://localhost:8086/v1"),
+		Model:              env("PARCELS_MODEL", "gpt-4.1-mini"),
+		ModelAPIKey:        env("PARCELS_MODEL_API_KEY", "example-model-key"),
 	}
 	for _, pair := range strings.Split(env("PARCELS_SHOP_CLIENTS", "wisteria-way:wisteria-client-secret"), ",") {
 		if shop, secret, ok := strings.Cut(strings.TrimSpace(pair), ":"); ok {
@@ -214,6 +223,8 @@ func serve(ctx context.Context, cfg config, log *slog.Logger) error {
 		cache:    cache,
 		mail:     mail,
 		log:      log,
+
+		assistant: newAssistant(cfg, store, tracking, log),
 
 		courierKey:   []byte(cfg.CourierCallbackKey),
 		shopTokenKey: []byte(cfg.ShopTokenKey),

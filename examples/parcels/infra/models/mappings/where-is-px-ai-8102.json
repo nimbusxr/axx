@@ -1,0 +1,26 @@
+{
+  "mappings": [
+    {
+      "name": "Where is PX-AI-8102: the model looks it up",
+      "request": {
+        "customMatcher": {"name": "model-request", "parameters": {"about": "PX-AI-8102"}}
+      },
+      "response": {
+        "transformers": ["model-answer"],
+        "jsonBody": {
+          "toolCalls": [{"name": "track_parcel", "arguments": {"reference": "PX-AI-8102"}}]
+        }
+      }
+    },
+    {
+      "name": "Where is PX-AI-8102: the model answers with what track_parcel said",
+      "request": {
+        "customMatcher": {"name": "model-request", "parameters": {"about": "PX-AI-8102", "afterTool": "track_parcel"}}
+      },
+      "response": {
+        "transformers": ["model-answer"],
+        "jsonBody": {"text": "Your parcel PX-AI-8102 is out for delivery in Leipzig and arrives today."}
+      }
+    }
+  ]
+}

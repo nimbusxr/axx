@@ -2,7 +2,7 @@
   "description": "The frozen catalog of built-in step text. Step text is public API: every entry must stay defined, verbatim, by its pack.",
   "counts": {
     "parameterType": 11,
-    "step": 604
+    "step": 610
   },
   "entries": [
     {
@@ -3705,6 +3705,42 @@
       "pack": "graphql",
       "keyword": "Given",
       "expression": "the GraphQL validation levels are:"
+    },
+    {
+      "kind": "step",
+      "pack": "mock",
+      "keyword": "Then",
+      "expression": "the mocked {mockedService} model was asked about {string}"
+    },
+    {
+      "kind": "step",
+      "pack": "mock",
+      "keyword": "Then",
+      "expression": "the mocked {mockedService} model was asked about {string} {int} time(s)"
+    },
+    {
+      "kind": "step",
+      "pack": "mock",
+      "keyword": "Then",
+      "expression": "the mocked {mockedService} model's request about {string} contains {string}"
+    },
+    {
+      "kind": "step",
+      "pack": "mock",
+      "keyword": "Then",
+      "expression": "the mocked {mockedService} model's request about {string} does not contain {string}"
+    },
+    {
+      "kind": "step",
+      "pack": "mock",
+      "keyword": "Then",
+      "expression": "the mocked {mockedService} model was offered the {word} tool in the request about {string}"
+    },
+    {
+      "kind": "step",
+      "pack": "mock",
+      "keyword": "Then",
+      "expression": "the mocked {mockedService} model was asked for the {filepath} schema in the request about {string}"
     }
   ]
 }

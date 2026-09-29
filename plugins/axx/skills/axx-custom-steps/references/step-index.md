@@ -158,6 +158,12 @@ mock | mock.signed | the mocked request named {word} is signed in the {word} hea
 mock | mock.signed | the mocked request named {word} on {mockedService} is signed in the {word} header with the following properties:  [+table]
 mock | mock.webhook | the mocked request named {word} is signed as a standard webhook with the key {string}
 mock | mock.webhook | the mocked request named {word} on {mockedService} is signed as a standard webhook with the key {string}
+mock | mock.model.asked | the mocked {mockedService} model was asked about {string}
+mock | mock.model.asked | the mocked {mockedService} model was asked about {string} {int} time(s)
+mock | mock.model.contains | the mocked {mockedService} model's request about {string} contains {string}
+mock | mock.model.notContains | the mocked {mockedService} model's request about {string} does not contain {string}
+mock | mock.model.tool | the mocked {mockedService} model was offered the {word} tool in the request about {string}
+mock | mock.model.schema | the mocked {mockedService} model was asked for the {filepath} schema in the request about {string}
 grpc | grpc.service | the {word} grpc service with the following properties:  [+table]
 grpc | grpc.call | the {word} method is called on the {word} grpc service
 grpc | grpc.call.fields | the {word} method is called on the {word} grpc service with the following fields:  [+table]

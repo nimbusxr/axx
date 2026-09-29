@@ -41,7 +41,7 @@ class GraphqlMockTest {
 
     private void start(String schema) {
         String source = Path.of("src/test/resources/graphql", schema).toAbsolutePath().toString();
-        wm = new WireMockServer(options().dynamicPort().extensions(new GraphqlExtensionFactory(new GraphqlSettings(source, "/graphql"))));
+        wm = new WireMockServer(options().bindAddress("127.0.0.1").dynamicPort().extensions(new GraphqlExtensionFactory(new GraphqlSettings(source, "/graphql"))));
         wm.start();
     }
 
@@ -51,7 +51,7 @@ class GraphqlMockTest {
         Map<String, Object> body = variables == null ? Map.of("query", query) : Map.of("query", query, "variables", variables);
         HttpResponse<String> res =
                 CLIENT.send(
-                        HttpRequest.newBuilder(URI.create("http://localhost:" + wm.port() + "/graphql"))
+                        HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + wm.port() + "/graphql"))
                                 .header("Content-Type", "application/json")
                                 .POST(HttpRequest.BodyPublishers.ofString(Json.write(body)))
                                 .build(),
@@ -128,7 +128,7 @@ class GraphqlMockTest {
         // A non-null field without a value is an error, which nulls its parent.
         res = graphql(200, "{ parcels(shop: \"maple-crafts\") { reference } }", null);
         assertThat(res.get("data")).isNull();
-        assertThat(res.get("errors")).asList().isNotEmpty();
+        assertThat((List<?>) res.get("errors")).isNotEmpty();
         // Introspection works, for clients that read the schema from the mock.
         res = graphql(200, "{ __schema { queryType { name } } }", null);
         assertThat(res.get("data")).isEqualTo(Map.of("__schema", Map.of("queryType", Map.of("name", "Query"))));
@@ -163,7 +163,7 @@ class GraphqlMockTest {
         start("parcels.graphql");
         HttpResponse<String> res =
                 CLIENT.send(
-                        HttpRequest.newBuilder(URI.create("http://localhost:" + wm.port() + "/graphql"))
+                        HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + wm.port() + "/graphql"))
                                 .POST(HttpRequest.BodyPublishers.ofString("<parcel/>"))
                                 .build(),
                         HttpResponse.BodyHandlers.ofString());
@@ -196,7 +196,7 @@ class GraphqlMockTest {
 
     @Test
     void withoutASchemaTheMockIsOff() throws Exception {
-        wm = new WireMockServer(options().dynamicPort().extensions(new GraphqlExtensionFactory(new GraphqlSettings(null, "/graphql"))));
+        wm = new WireMockServer(options().bindAddress("127.0.0.1").dynamicPort().extensions(new GraphqlExtensionFactory(new GraphqlSettings(null, "/graphql"))));
         wm.start();
         graphql(404, "{ parcel(reference: \"PX-GQL-7206\") { reference } }", null);
     }
