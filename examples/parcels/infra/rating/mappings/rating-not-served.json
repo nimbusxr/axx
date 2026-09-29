@@ -1,0 +1,15 @@
+{
+  "name": "rating-not-served",
+  "request": {
+    "method": "POST",
+    "urlPath": "/parcels.rating.v1.Rates/Quote",
+    "bodyPatterns": [{"matchesJsonPath": "$[?(@.country == 'AQ')]"}]
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "grpc-status-name": "NOT_FOUND",
+      "grpc-status-reason": "the carrier does not deliver to AQ"
+    }
+  }
+}

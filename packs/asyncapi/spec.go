@@ -1,26 +1,15 @@
 package asyncapi
 
 import (
-	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
-	"net/url"
-	"os"
-	"path"
-	"path/filepath"
 	"regexp"
-	"sort"
-	"strconv"
 	"strings"
-	"sync"
-	"time"
 
-	"github.com/goccy/go-yaml"
 	"github.com/iskorotkov/avro/v2"
 	"github.com/santhosh-tekuri/jsonschema/v6"
+
+	"github.com/nimbusxr/axx/internal/schemadoc"
 )
 
 // spec is an AsyncAPI document (2.6 or 3.0), reduced to what checking
@@ -57,217 +46,37 @@ type schema struct {
 	where  string
 }
 
-// loader reads the documents of a contract, YAML or JSON, by URL: a
-// document's $refs to other files are relative to it.
-type loader struct {
-	mu   sync.Mutex
-	docs map[string]any
-	http *http.Client
-}
-
-func newLoader() *loader {
-	return &loader{docs: map[string]any{}, http: &http.Client{Timeout: 30 * time.Second}}
-}
-
-// Load reads a document (without its fragment); the jsonschema compiler
-// calls it for the schemas' $refs too.
-func (l *loader) Load(u string) (any, error) {
-	u, _, _ = strings.Cut(u, "#")
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	if d, ok := l.docs[u]; ok {
-		return d, nil
-	}
-	var raw []byte
-	var err error
-	switch {
-	case strings.HasPrefix(u, "file://"):
-		// file:///C:/... on Windows.
-		p, perr := jsonschema.FileLoader{}.ToFile(u)
-		if perr != nil {
-			return nil, perr
-		}
-		raw, err = os.ReadFile(p)
-	case strings.HasPrefix(u, "http://"), strings.HasPrefix(u, "https://"):
-		// The document is read once per run, whatever scenario asks first:
-		// the client's timeout bounds it, not the scenario.
-		var req *http.Request
-		var res *http.Response
-		if req, err = http.NewRequestWithContext(context.Background(), http.MethodGet, u, nil); err == nil {
-			res, err = l.http.Do(req)
-		}
-		if err == nil {
-			raw, err = io.ReadAll(io.LimitReader(res.Body, 16<<20))
-			_ = res.Body.Close()
-			if err == nil && res.StatusCode != http.StatusOK {
-				err = fmt.Errorf("%s answered %d", u, res.StatusCode)
-			}
-		}
-	default:
-		err = fmt.Errorf("cannot read %s", u)
-	}
-	if err != nil {
-		return nil, err
-	}
-	doc, err := decode(raw)
-	if err != nil {
-		return nil, fmt.Errorf("%s: %w", u, err)
-	}
-	l.docs[u] = doc
-	return doc, nil
-}
-
-// decode reads YAML (or JSON, which is YAML) into what the jsonschema
-// package validates with: plain maps and json.Number numbers.
-func decode(raw []byte) (any, error) {
-	var v any
-	if err := yaml.Unmarshal(raw, &v); err != nil {
-		return nil, err
-	}
-	j, err := json.Marshal(v)
-	if err != nil {
-		return nil, err
-	}
-	return jsonschema.UnmarshalJSON(bytes.NewReader(j))
-}
-
-// node is a value of a document, and where it is: its document's URL and
-// its JSON pointer.
-type node struct {
-	url, pointer string
-	v            any
-}
-
-func (n node) ref() string { return n.url + "#" + n.pointer }
-
-func (n node) get(key string) node {
-	m, _ := n.v.(map[string]any)
-	return node{url: n.url, pointer: n.pointer + "/" + escape(key), v: m[key]}
-}
-
-func (n node) str(key string) string {
-	s, _ := n.get(key).v.(string)
-	return s
-}
-
-func (n node) keys() []string {
-	m, _ := n.v.(map[string]any)
-	out := make([]string, 0, len(m))
-	for k := range m {
-		out = append(out, k)
-	}
-	sort.Strings(out)
-	return out
-}
-
-func (n node) items() []node {
-	a, _ := n.v.([]any)
-	out := make([]node, len(a))
-	for i, v := range a {
-		out[i] = node{url: n.url, pointer: n.pointer + "/" + strconv.Itoa(i), v: v}
-	}
-	return out
-}
-
-func escape(k string) string { return strings.ReplaceAll(strings.ReplaceAll(k, "~", "~0"), "/", "~1") }
-
-// deref follows a node's $refs, across documents.
-func (l *loader) deref(n node) (node, error) {
-	for range 32 {
-		m, ok := n.v.(map[string]any)
-		if !ok {
-			return n, nil
-		}
-		ref, ok := m["$ref"].(string)
-		if !ok {
-			return n, nil
-		}
-		file, pointer, _ := strings.Cut(ref, "#")
-		target := n.url
-		if file != "" {
-			base, err := url.Parse(n.url)
-			if err != nil {
-				return n, err
-			}
-			rel, err := url.Parse(file)
-			if err != nil {
-				return n, fmt.Errorf("the $ref %q: %w", ref, err)
-			}
-			target = base.ResolveReference(rel).String()
-		}
-		doc, err := l.Load(target)
-		if err != nil {
-			return n, err
-		}
-		v, err := lookup(doc, pointer)
-		if err != nil {
-			return n, fmt.Errorf("the $ref %q: %w", ref, err)
-		}
-		n = node{url: target, pointer: pointer, v: v}
-	}
-	return n, fmt.Errorf("the $refs of %s go round in circles", n.ref())
-}
-
-func lookup(doc any, pointer string) (any, error) {
-	v := doc
-	if pointer == "" || pointer == "/" {
-		return v, nil
-	}
-	for _, seg := range strings.Split(strings.TrimPrefix(pointer, "/"), "/") {
-		seg = strings.ReplaceAll(strings.ReplaceAll(seg, "~1", "/"), "~0", "~")
-		switch x := v.(type) {
-		case map[string]any:
-			next, ok := x[seg]
-			if !ok {
-				return nil, fmt.Errorf("no %q", pointer)
-			}
-			v = next
-		case []any:
-			i, err := strconv.Atoi(seg)
-			if err != nil || i < 0 || i >= len(x) {
-				return nil, fmt.Errorf("no %q", pointer)
-			}
-			v = x[i]
-		default:
-			return nil, fmt.Errorf("no %q", pointer)
-		}
-	}
-	return v, nil
-}
-
 // load reads and reduces an AsyncAPI document.
 func load(source, u string) (*spec, error) {
-	l := newLoader()
+	l := schemadoc.NewLoader()
 	doc, err := l.Load(u)
 	if err != nil {
 		return nil, err
 	}
-	root := node{url: u, v: doc}
-	s := &spec{source: source, version: root.str("asyncapi")}
+	root := schemadoc.Node{URL: u, V: doc}
+	s := &spec{source: source, version: root.Str("asyncapi")}
 	major, _, _ := strings.Cut(s.version, ".")
 	if major != "2" && major != "3" {
 		return nil, fmt.Errorf("%s is not an AsyncAPI 2.x or 3.x document (asyncapi: %q)", source, s.version)
 	}
-	c := jsonschema.NewCompiler()
-	c.DefaultDraft(jsonschema.Draft7)
-	c.UseLoader(jsonschema.SchemeURLLoader{"file": l, "http": l, "https": l})
-	r := &reducer{l: l, c: c, defaultContentType: root.str("defaultContentType"), servers: map[string]server{}}
-	servers := root.get("servers")
-	for _, name := range servers.keys() {
-		n, err := l.deref(servers.get(name))
+	c := l.Compiler(jsonschema.Draft7)
+	r := &reducer{l: l, c: c, defaultContentType: root.Str("defaultContentType"), servers: map[string]server{}}
+	servers := root.Get("servers")
+	for _, name := range servers.Keys() {
+		n, err := l.Deref(servers.Get(name))
 		if err != nil {
 			return nil, err
 		}
-		srv := server{protocol: n.str("protocol"), path: n.str("pathname")}
+		srv := server{protocol: n.Str("protocol"), path: n.Str("pathname")}
 		if major == "2" {
-			srv.path = urlPath(n.str("url"))
+			srv.path = urlPath(n.Str("url"))
 		}
-		r.servers[name], r.servers[n.ref()] = srv, srv
+		r.servers[name], r.servers[n.Ref()] = srv, srv
 		r.all = append(r.all, srv)
 	}
-	channels := root.get("channels")
-	for _, id := range channels.keys() {
-		ch, err := l.deref(channels.get(id))
+	channels := root.Get("channels")
+	for _, id := range channels.Keys() {
+		ch, err := l.Deref(channels.Get(id))
 		if err != nil {
 			return nil, err
 		}
@@ -288,7 +97,7 @@ func load(source, u string) (*spec, error) {
 }
 
 type reducer struct {
-	l                  *loader
+	l                  *schemadoc.Loader
 	c                  *jsonschema.Compiler
 	defaultContentType string
 	servers            map[string]server // by name, and by a server's ref
@@ -333,23 +142,23 @@ func (r *reducer) on(c *channel, servers []server) {
 
 // channel2 reads an AsyncAPI 2.x channel: its key is its address, and its
 // messages are its operations'.
-func (r *reducer) channel2(address string, ch node) (*channel, error) {
+func (r *reducer) channel2(address string, ch schemadoc.Node) (*channel, error) {
 	c := &channel{id: address, address: address}
 	var on []server
-	for _, s := range ch.get("servers").items() {
-		name, _ := s.v.(string)
+	for _, s := range ch.Get("servers").Items() {
+		name, _ := s.V.(string)
 		on = append(on, r.servers[name])
 	}
 	r.on(c, on)
 	seen := map[string]bool{}
 	for _, op := range []string{"publish", "subscribe"} {
-		m := ch.get(op).get("message")
-		if m.v == nil {
+		m := ch.Get(op).Get("message")
+		if m.V == nil {
 			continue
 		}
-		list := []node{m}
-		if one := m.get("oneOf"); one.v != nil {
-			list = one.items()
+		list := []schemadoc.Node{m}
+		if one := m.Get("oneOf"); one.V != nil {
+			list = one.Items()
 		}
 		for _, mn := range list {
 			msg, err := r.message(mn, "")
@@ -366,28 +175,28 @@ func (r *reducer) channel2(address string, ch node) (*channel, error) {
 }
 
 // channel3 reads an AsyncAPI 3.x channel: its address, and its messages.
-func (r *reducer) channel3(id string, ch node) (*channel, error) {
-	address, _ := ch.get("address").v.(string)
+func (r *reducer) channel3(id string, ch schemadoc.Node) (*channel, error) {
+	address, _ := ch.Get("address").V.(string)
 	if address == "" {
 		return nil, nil // a channel whose address is only known at run time
 	}
 	c := &channel{id: id, address: address}
 	var on []server
-	for _, s := range ch.get("servers").items() {
-		srv, err := r.l.deref(s)
+	for _, s := range ch.Get("servers").Items() {
+		srv, err := r.l.Deref(s)
 		if err != nil {
 			return nil, err
 		}
-		info, ok := r.servers[srv.ref()]
+		info, ok := r.servers[srv.Ref()]
 		if !ok {
-			info = server{protocol: srv.str("protocol"), path: srv.str("pathname")}
+			info = server{protocol: srv.Str("protocol"), path: srv.Str("pathname")}
 		}
 		on = append(on, info)
 	}
 	r.on(c, on)
-	msgs := ch.get("messages")
-	for _, name := range msgs.keys() {
-		msg, err := r.message(msgs.get(name), name)
+	msgs := ch.Get("messages")
+	for _, name := range msgs.Keys() {
+		msg, err := r.message(msgs.Get(name), name)
 		if err != nil {
 			return nil, err
 		}
@@ -397,22 +206,22 @@ func (r *reducer) channel3(id string, ch node) (*channel, error) {
 }
 
 // message reads a message: its name, content type, payload and headers.
-func (r *reducer) message(n node, name string) (*message, error) {
-	m, err := r.l.deref(n)
+func (r *reducer) message(n schemadoc.Node, name string) (*message, error) {
+	m, err := r.l.Deref(n)
 	if err != nil {
 		return nil, err
 	}
-	msg := &message{name: m.str("name"), contentType: m.str("contentType")}
+	msg := &message{name: m.Str("name"), contentType: m.Str("contentType")}
 	if msg.name == "" {
 		msg.name = name
 	}
 	if msg.contentType == "" {
 		msg.contentType = r.defaultContentType
 	}
-	if msg.payload, err = r.schema(m.get("payload"), m.str("schemaFormat")); err != nil {
+	if msg.payload, err = r.schema(m.Get("payload"), m.Str("schemaFormat")); err != nil {
 		return nil, fmt.Errorf("the payload of %s: %w", msg.name, err)
 	}
-	if msg.headers, err = r.schema(m.get("headers"), ""); err != nil {
+	if msg.headers, err = r.schema(m.Get("headers"), ""); err != nil {
 		return nil, fmt.Errorf("the headers of %s: %w", msg.name, err)
 	}
 	return msg, nil
@@ -420,37 +229,37 @@ func (r *reducer) message(n node, name string) (*message, error) {
 
 // schema compiles a payload or headers schema; a 3.x multi-format schema
 // ({schemaFormat, schema}) gives its format itself.
-func (r *reducer) schema(n node, format string) (*schema, error) {
-	if n.v == nil {
+func (r *reducer) schema(n schemadoc.Node, format string) (*schema, error) {
+	if n.V == nil {
 		return nil, nil
 	}
-	d, err := r.l.deref(n)
+	d, err := r.l.Deref(n)
 	if err != nil {
 		return nil, err
 	}
-	if f := d.str("schemaFormat"); f != "" && d.get("schema").v != nil {
-		format, d = f, d.get("schema")
-		if d, err = r.l.deref(d); err != nil {
+	if f := d.Str("schemaFormat"); f != "" && d.Get("schema").V != nil {
+		format, d = f, d.Get("schema")
+		if d, err = r.l.Deref(d); err != nil {
 			return nil, err
 		}
 	}
 	switch kind := formatOf(format); kind {
 	case "json":
-		s, err := r.c.Compile(d.ref())
+		s, err := r.c.Compile(d.Ref())
 		if err != nil {
 			return nil, err
 		}
-		return &schema{format: kind, json: s, raw: d.v, where: d.ref()}, nil
+		return &schema{format: kind, json: s, raw: d.V, where: d.Ref()}, nil
 	case "avro":
-		raw, err := json.Marshal(d.v)
+		raw, err := json.Marshal(d.V)
 		if err != nil {
 			return nil, err
 		}
 		s, err := avro.ParseBytesWithCache(raw, "", &avro.SchemaCache{})
 		if err != nil {
-			return nil, fmt.Errorf("the Avro schema at %s: %w", d.ref(), err)
+			return nil, fmt.Errorf("the Avro schema at %s: %w", d.Ref(), err)
 		}
-		return &schema{format: kind, avro: s, raw: d.v, where: d.ref()}, nil
+		return &schema{format: kind, avro: s, raw: d.V, where: d.Ref()}, nil
 	}
 	return nil, nil // a format the checks do not read: Protobuf, RAML...
 }
@@ -484,15 +293,4 @@ func addressPattern(address string) *regexp.Regexp {
 	}
 	b.WriteString(regexp.QuoteMeta(address[last:]) + "$")
 	return regexp.MustCompile(b.String())
-}
-
-// fileURL is the URL of a document of the project, from its absolute
-// path: file:///C:/... for a Windows path, whose drive would otherwise read
-// as the URL's host.
-func fileURL(p string) string {
-	u := path.Clean(filepath.ToSlash(p))
-	if !strings.HasPrefix(u, "/") {
-		u = "/" + u
-	}
-	return (&url.URL{Scheme: "file", Path: u}).String()
 }

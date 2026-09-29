@@ -4,8 +4,9 @@
 #   docker compose down -v               # stop and remove containers and volumes
 #
 # axx runs this for you: see ../acceptance/axx.yaml. The published host ports are the
-# ones the feature files use (8400, 8081, 8082, 8083, 5432, 27017, 9092, 9081, 5672,
-# 1883, 4222, 6379 and 1143, and the mail server's SMTP on 1025 and web interface on 8025).
+# ones the feature files use (8400, 8410, 8081, 8082, 8083, 8084, 5432, 27017, 9092, 9081,
+# 5672, 1883, 4222, 6379 and 1143, and the mail server's SMTP on 1025 and web interface on
+# 8025).
 name: parcels
 
 services:
@@ -69,6 +70,24 @@ services:
     volumes:
       - './shops:/home/wiremock'
       - './openapi:/var/openapi:ro'
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/__admin/health"]
+      interval: 1s
+      timeout: 2s
+      retries: 60
+      start_period: 5s
+    stop_signal: SIGKILL
+
+  # The partner carrier's rating service, which prices the parcels going beyond the EU over
+  # gRPC, mocked by WireMock's gRPC extension (in the same image) from the descriptor set in
+  # rating/grpc (see ../app/gen/gen.go). The stubs in rating/mappings answer per country.
+  rating:
+    build:
+      context: ../../../extensions/wiremock-openapi
+    ports:
+      - '8084:8080'
+    volumes:
+      - './rating:/home/wiremock'
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/__admin/health"]
       interval: 1s
@@ -251,11 +270,14 @@ services:
     build: ../app
     ports:
       - '8400:8400'
+      # The tracking API, over gRPC.
+      - '8410:8410'
     environment:
       PARCELS_DB_URL: postgres://parcels:parcels@postgres:5432/parcels?sslmode=disable
       PARCELS_MONGO_URI: mongodb://parcels:parcels@mongo:27017/?authSource=admin
       PARCELS_ADDRESS_URL: http://address-service:8080
       PARCELS_COURIER_URL: http://courier:8080
+      PARCELS_RATING_ADDR: rating:8080
       PARCELS_KAFKA_BROKERS: kafka:9094
       PARCELS_SCHEMA_REGISTRY_URL: http://schema-registry:8081
       PARCELS_AMQP_URL: amqp://parcels:parcels@rabbitmq:5672/
@@ -280,6 +302,8 @@ services:
       courier:
         condition: service_healthy
       shops:
+        condition: service_healthy
+      rating:
         condition: service_healthy
       postgres:
         condition: service_healthy

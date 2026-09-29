@@ -486,7 +486,12 @@ func (s *service) portalQuote(w http.ResponseWriter, r *http.Request) {
 		s.render(w, "quote", http.StatusUnprocessableEntity, page)
 		return
 	}
-	q := priceQuote(zone, f.Country, level(f.Service), weight)
+	q, err := s.priceFor(r.Context(), zone, f.Country, level(f.Service), weight)
+	if msg, _ := ratingMessage(err); msg != "" {
+		page.Error = msg
+		s.render(w, "quote", http.StatusUnprocessableEntity, page)
+		return
+	}
 	page.Quote = &q
 	s.render(w, "quote", http.StatusOK, page)
 }

@@ -31,6 +31,26 @@ func TestPriceQuote(t *testing.T) {
 	}
 }
 
+func TestPriceAbroad(t *testing.T) {
+	tests := []struct {
+		zone, level             string
+		grams, surcharge, rated int
+		cents, days             int
+	}{
+		// The home price, what the partner carrier adds, and the days it takes.
+		{"CH-1", "EXPRESS", 2350, 1250, 3, 2440, 3},
+		{"CH-1", "STANDARD", 800, 1250, 5, 1740, 5},
+		// A remote zone costs more and takes a day longer abroad too.
+		{"CH-REMOTE", "EXPRESS", 2350, 1250, 3, 2740, 4},
+	}
+	for _, tt := range tests {
+		q := priceAbroad(tt.zone, tt.level, tt.grams, tt.surcharge, tt.rated)
+		if q.PriceCents != tt.cents || q.DeliveryDays != tt.days || q.Zone != tt.zone {
+			t.Errorf("%+v: got %d cents, %d days", tt, q.PriceCents, q.DeliveryDays)
+		}
+	}
+}
+
 func TestEstimateFor(t *testing.T) {
 	at := func(s string) time.Time { v, _ := time.Parse(time.RFC3339, s); return v }
 	tests := []struct {

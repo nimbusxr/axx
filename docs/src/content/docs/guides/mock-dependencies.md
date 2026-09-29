@@ -138,6 +138,46 @@ Scenario: The courier is not called about a cancelled standard parcel
 WireMock keeps its request journal between scenarios, and between runs for as long as it keeps running, and scenarios run in parallel. Match on something unique to the scenario (a postcode or an id in the URL, a header, a property of the body) so one scenario never counts another scenario's requests. A count such as `exactly 1 time` also counts the requests of earlier runs while the mock keeps running, as it does between runs with `axx up`. See [Isolate test data](/guides/isolate-test-data/).
 :::
 
+## Mock gRPC dependencies
+
+The Axx WireMock image also carries [WireMock's gRPC extension](https://wiremock.org/docs/grpc/), so a gRPC dependency is mocked like a REST one. Give the mock a `grpc` folder with the descriptor set of the dependency's services (`protoc --include_imports --descriptor_set_out=rating.dsc rating.proto`), and stub each method as a POST to `/<package>.<Service>/<Method>`, with its request and answer as proto JSON:
+
+```json title="infra/rating/mappings/rating-switzerland.json"
+{
+  "name": "rating-switzerland",
+  "request": {
+    "method": "POST",
+    "urlPath": "/parcels.rating.v1.Rates/Quote",
+    "bodyPatterns": [{"matchesJsonPath": "$[?(@.country == 'CH')]"}]
+  },
+  "response": {"status": 200, "jsonBody": {"surchargeCents": 1250, "deliveryDays": 3}}
+}
+```
+
+- **Another status than OK** is a response header: `"headers": {"grpc-status-name": "NOT_FOUND", "grpc-status-reason": "the carrier does not deliver to AQ"}`.
+- **The mock steps check the calls** as they check REST requests: WireMock records each call as a POST to its method's path, with its request as JSON.
+
+```gherkin
+Scenario: A parcel beyond the EU is priced by the partner carrier
+  Given the mocked rating service with the following properties:
+    | url | http://localhost:8084 |
+  And a POST request to /api/quotes
+  And a request payload using an application/json content example named 'Express abroad'
+  And the request payload properties are:
+    | weightGrams        | 2350   |
+    | recipient.postcode | "8001" |
+    | recipient.country  | CH     |
+  When the request is executed
+  Then the response status code is 200
+  And the mocked POST request to path /parcels.rating.v1.Rates/Quote named rate was received by rating
+  And the payload properties for mocked request named rate on rating are:
+    | country      | CH      |
+    | weightGrams  | 2350    |
+    | serviceLevel | EXPRESS |
+```
+
+Every scenario's calls to a method share its path, so the payload check names data of the scenario's own, here the weight. The gRPC extension runs when WireMock's root has a `grpc` folder; the OpenAPI validation does not apply to gRPC calls. To call a gRPC service yourself, see [Call gRPC services](/guides/test-grpc/).
+
 ## Check the dependency's contract
 
 A mock that answers something the real API never would makes a test pass for the wrong reason, and a service that calls its dependency wrongly only finds out in production. The `ghcr.io/nimbusxr/axx-wiremock` image is WireMock with Axx's OpenAPI validation extension. It checks every call to the mock against the dependency's OpenAPI document: your service's request, and the stub's response.

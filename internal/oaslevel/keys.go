@@ -15,6 +15,8 @@ type Keys struct {
 	// aliases map a key segment, in lower case, to the one the keys use
 	// instead (const -> enum), for suggestions.
 	aliases map[string]string
+	// name is the contract's, and example a key prefix, for errors.
+	name, example string
 }
 
 // NewKeys returns the keys patterns stand for: each {name} in a pattern
@@ -50,6 +52,15 @@ func NewKeys(patterns []string, vars map[string][]string, aliases map[string]str
 	return k
 }
 
+// Named returns the keys, whose errors name their contract (AsyncAPI) and
+// give example as a key prefix (validation.message.payload). Keys are
+// OpenAPI's unless they are named.
+func (k *Keys) Named(name, example string) *Keys {
+	c := *k
+	c.name, c.example = name, example
+	return &c
+}
+
 // Has reports whether levels can be set on key: it is one of the keys or a
 // dotted prefix of them.
 func (k *Keys) Has(key string) bool { return k.valid[key] }
@@ -60,7 +71,7 @@ func (k *Keys) Check(key string) error {
 	if k.Has(key) {
 		return nil
 	}
-	return &UnknownKeyError{Key: key, Closest: k.closest(key)}
+	return &UnknownKeyError{Key: key, Closest: k.closest(key), Name: k.name, Example: k.example}
 }
 
 // UnknownKeyError is a key levels cannot be set on: none of the keys a
@@ -69,10 +80,17 @@ type UnknownKeyError struct {
 	Key string
 	// Closest are the keys closest to it, the closest first.
 	Closest []string
+	// Name is the contract's, and Example a key prefix: OpenAPI's and
+	// validation.request.body when empty.
+	Name, Example string
 }
 
 func (e *UnknownKeyError) Error() string {
-	msg := fmt.Sprintf("unknown OpenAPI validation key %q", e.Key)
+	name, example := e.Name, e.Example
+	if name == "" {
+		name, example = "OpenAPI", "validation.request.body"
+	}
+	msg := fmt.Sprintf("unknown %s validation key %q", name, e.Key)
 	switch n := len(e.Closest); n {
 	case 0:
 		msg += "."
@@ -81,7 +99,7 @@ func (e *UnknownKeyError) Error() string {
 	default:
 		msg += "; did you mean " + strings.Join(e.Closest[:n-1], ", ") + " or " + e.Closest[n-1] + "?"
 	}
-	return msg + " A key is one the validator reports, or a prefix of such keys, like validation.request.body"
+	return msg + " A key is one the validator reports, or a prefix of such keys, like " + example
 }
 
 // closest returns up to three keys (or prefixes) closest to key: those

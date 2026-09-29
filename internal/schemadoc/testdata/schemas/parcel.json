@@ -1,0 +1,1 @@
+{"type": "object", "required": ["reference"], "properties": {"reference": {"type": "string"}, "weightGrams": {"type": "integer", "maximum": 30000}}}

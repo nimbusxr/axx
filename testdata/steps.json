@@ -2,7 +2,7 @@
   "description": "The frozen catalog of built-in step text. Step text is public API: every entry must stay defined, verbatim, by its pack.",
   "counts": {
     "parameterType": 11,
-    "step": 569
+    "step": 592
   },
   "entries": [
     {
@@ -3495,6 +3495,144 @@
       "pack": "asyncapi",
       "keyword": "Given",
       "expression": "the AsyncAPI validation levels are:"
+    },
+    {
+      "kind": "step",
+      "pack": "grpc",
+      "keyword": "Given",
+      "expression": "the {word} grpc service with the following properties:"
+    },
+    {
+      "kind": "step",
+      "pack": "grpc",
+      "keyword": "When",
+      "expression": "the {word} method is called on the {word} grpc service"
+    },
+    {
+      "kind": "step",
+      "pack": "grpc",
+      "keyword": "When",
+      "expression": "the {word} method is called on the {word} grpc service with the following fields:"
+    },
+    {
+      "kind": "step",
+      "pack": "grpc",
+      "keyword": "When",
+      "expression": "the {word} method is called on the {word} grpc service with the {filepath} message"
+    },
+    {
+      "kind": "step",
+      "pack": "grpc",
+      "keyword": "When",
+      "expression": "the {word} method is called on the {word} grpc service with the {filepath} message and the following fields:"
+    },
+    {
+      "kind": "step",
+      "pack": "grpc",
+      "keyword": "Then",
+      "expression": "the {word} grpc service answered {word}"
+    },
+    {
+      "kind": "step",
+      "pack": "grpc",
+      "keyword": "Then",
+      "expression": "within {duration} the {word} grpc service answered {word}"
+    },
+    {
+      "kind": "step",
+      "pack": "grpc",
+      "keyword": "Then",
+      "expression": "the {word} grpc service answered {word} with a message containing {string}"
+    },
+    {
+      "kind": "step",
+      "pack": "grpc",
+      "keyword": "Then",
+      "expression": "within {duration} the {word} grpc service answered {word} with a message containing {string}"
+    },
+    {
+      "kind": "step",
+      "pack": "grpc",
+      "keyword": "Then",
+      "expression": "the {word} grpc service's answer has the following fields:"
+    },
+    {
+      "kind": "step",
+      "pack": "grpc",
+      "keyword": "Then",
+      "expression": "the {word} grpc service's answer has the following metadata:"
+    },
+    {
+      "kind": "step",
+      "pack": "grpc",
+      "keyword": "Then",
+      "expression": "the {word} grpc service streamed a message where:"
+    },
+    {
+      "kind": "step",
+      "pack": "grpc",
+      "keyword": "Then",
+      "expression": "within {duration} the {word} grpc service streamed a message where:"
+    },
+    {
+      "kind": "step",
+      "pack": "jsonrpc",
+      "keyword": "Given",
+      "expression": "the {word} jsonrpc service with the following properties:"
+    },
+    {
+      "kind": "step",
+      "pack": "jsonrpc",
+      "keyword": "When",
+      "expression": "the {word} method is called on the {word} jsonrpc service"
+    },
+    {
+      "kind": "step",
+      "pack": "jsonrpc",
+      "keyword": "When",
+      "expression": "the {word} method is called on the {word} jsonrpc service with the following params:"
+    },
+    {
+      "kind": "step",
+      "pack": "jsonrpc",
+      "keyword": "When",
+      "expression": "the {word} method is called on the {word} jsonrpc service with the params:"
+    },
+    {
+      "kind": "step",
+      "pack": "jsonrpc",
+      "keyword": "Then",
+      "expression": "the {word} jsonrpc service's result has the following properties:"
+    },
+    {
+      "kind": "step",
+      "pack": "jsonrpc",
+      "keyword": "Then",
+      "expression": "the {word} jsonrpc service's result is {string}"
+    },
+    {
+      "kind": "step",
+      "pack": "jsonrpc",
+      "keyword": "Then",
+      "expression": "the {word} jsonrpc service answered the error {int}"
+    },
+    {
+      "kind": "step",
+      "pack": "jsonrpc",
+      "keyword": "Then",
+      "expression": "the {word} jsonrpc service answered the error {int} with a message containing {string}"
+    },
+    {
+      "kind": "step",
+      "pack": "jsonrpc",
+      "keyword": "Then",
+      "expression": "the {word} jsonrpc service's error has the following properties:"
+    },
+    {
+      "kind": "step",
+      "pack": "jsonrpc",
+      "keyword": "Given",
+      "expression": "the OpenRPC validation levels are:"
     }
   ]
 }

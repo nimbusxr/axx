@@ -1,0 +1,12 @@
+{
+  "name": "rating-switzerland",
+  "request": {
+    "method": "POST",
+    "urlPath": "/parcels.rating.v1.Rates/Quote",
+    "bodyPatterns": [{"matchesJsonPath": "$[?(@.country == 'CH')]"}]
+  },
+  "response": {
+    "status": 200,
+    "jsonBody": {"surchargeCents": 1250, "deliveryDays": 3}
+  }
+}

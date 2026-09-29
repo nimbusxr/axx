@@ -2,7 +2,8 @@ Feature: Price quotes
 
   Shops ask for a price before they register a parcel. The price depends on the service
   level, the weight, whether the parcel goes abroad, and the delivery zone the address
-  service assigns to the recipient's postcode.
+  service assigns to the recipient's postcode. Beyond the EU, a partner carrier takes the
+  parcel, and its rating service says, over gRPC, what it adds and how long it takes.
 
   Background:
     Given the parcels service with the following properties:
@@ -88,3 +89,34 @@ Feature: Price quotes
     Then the response status code is 422
     And the response header Content-Type is 'application/problem+json'
     And the response payload property detail is 'address not deliverable: no delivery to this postcode'
+
+  Scenario: A parcel beyond the EU is priced by the partner carrier
+    Given the mocked rating service with the following properties:
+      | url | http://${sys:local.host}:8084 |
+    And a POST request to /api/quotes
+    And a request payload using an application/json content example named 'Express abroad'
+    And the request payload properties are:
+      | weightGrams        | 2350   |
+      | recipient.postcode | "8001" |
+      | recipient.country  | CH     |
+    When the request is executed
+    Then the response status code is 200
+    And the response payload properties are:
+      | zone         | CH-1 |
+      | priceCents   | 2440 |
+      | deliveryDays | 3    |
+    And the mocked POST request to path /parcels.rating.v1.Rates/Quote named rate was received by rating
+    And the payload properties for mocked request named rate on rating are:
+      | country      | CH      |
+      | weightGrams  | 2350    |
+      | serviceLevel | EXPRESS |
+
+  Scenario: No quote where the partner carrier does not deliver
+    Given a POST request to /api/quotes
+    And a request payload using an application/json content example named 'Express abroad'
+    And the request payload properties are:
+      | recipient.postcode | "1010" |
+      | recipient.country  | AQ     |
+    When the request is executed
+    Then the response status code is 422
+    And the response payload property detail is 'no delivery to AQ: the carrier does not deliver to AQ'

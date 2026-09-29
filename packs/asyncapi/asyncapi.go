@@ -5,15 +5,14 @@ package asyncapi
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"path/filepath"
 	"strings"
 	"sync"
 
 	"github.com/nimbusxr/axx/core"
 	"github.com/nimbusxr/axx/internal/contract"
 	"github.com/nimbusxr/axx/internal/oaslevel"
+	"github.com/nimbusxr/axx/internal/schemadoc"
 )
 
 // Name is the pack's name.
@@ -133,7 +132,7 @@ var levelKeys = oaslevel.NewKeys([]string{
 		"maxProperties", "maximum", "minContains", "minItems", "minLength", "minProperties", "minimum",
 		"multipleOf", "not", "oneOf", "pattern", "propertyNames", "required", "type", "uniqueItems", "unknownError",
 	},
-}, nil)
+}, nil).Named("AsyncAPI", "validation.message.payload")
 
 // parseLevels parses a key -> level map, naming the closest keys for an
 // unknown one.
@@ -153,23 +152,7 @@ func parseLevels(m map[string]string) (oaslevel.Levels, error) {
 	return out, nil
 }
 
-func checkKey(key string) error {
-	err := levelKeys.Check(key)
-	var uk *oaslevel.UnknownKeyError
-	if !errors.As(err, &uk) {
-		return err
-	}
-	msg := fmt.Sprintf("unknown AsyncAPI validation key %q", key)
-	switch n := len(uk.Closest); n {
-	case 0:
-		msg += "."
-	case 1:
-		msg += "; did you mean " + uk.Closest[0] + "?"
-	default:
-		msg += "; did you mean " + strings.Join(uk.Closest[:n-1], ", ") + " or " + uk.Closest[n-1] + "?"
-	}
-	return errors.New(msg + " A key is one the pack reports, or a prefix of such keys, like validation.message.payload")
-}
+func checkKey(key string) error { return levelKeys.Check(key) }
 
 const levelsNote = "A row is a validation key and its level: `ERROR` (or `FAIL`), `WARN`, `INFO` or `IGNORE`. " +
 	"The key must be one the pack reports, or a prefix of such keys, like `validation.message.payload`: " +
@@ -224,16 +207,9 @@ func open(sc *core.Scenario, source string) (contract.Checker, error) {
 	if err != nil {
 		return nil, err
 	}
-	u := source
-	if !strings.HasPrefix(source, "http://") && !strings.HasPrefix(source, "https://") {
-		p, err := sc.Suite().ResolvePath(source)
-		if err != nil {
-			return nil, err
-		}
-		if p, err = filepath.Abs(p); err != nil {
-			return nil, err
-		}
-		u = fileURL(p)
+	u, err := schemadoc.Locate(sc.Suite(), source)
+	if err != nil {
+		return nil, err
 	}
 	st.mu.Lock()
 	e, ok := st.specs[u]

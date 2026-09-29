@@ -1,0 +1,43 @@
+syntax = "proto3";
+
+package parcels.tracking.v1;
+
+import "google/protobuf/timestamp.proto";
+
+// Tracking tells where parcels are.
+service Tracking {
+  rpc GetParcel(GetParcelRequest) returns (Parcel);
+  rpc WatchParcel(WatchParcelRequest) returns (stream Scan);
+}
+
+message GetParcelRequest {
+  string reference = 1;
+  string postcode = 2;
+}
+
+message WatchParcelRequest {
+  string reference = 1;
+}
+
+enum Status {
+  STATUS_UNSPECIFIED = 0;
+  REGISTERED = 1;
+  OUT_FOR_DELIVERY = 2;
+  DELIVERED = 3;
+}
+
+message Parcel {
+  string reference = 1;
+  Status status = 2;
+  Scan last_scan = 3;
+  int64 weight_grams = 4;
+  bool signature = 5;
+  string postcode = 6;
+}
+
+message Scan {
+  string reference = 1;
+  Status status = 2;
+  string location = 3;
+  google.protobuf.Timestamp scanned_at = 4;
+}

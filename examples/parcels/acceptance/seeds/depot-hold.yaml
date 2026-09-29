@@ -1,0 +1,8 @@
+parcels.parcels:
+  - reference: "PX-RPC-7102"
+    sender: "maple-crafts"
+    status: "IN_TRANSIT"
+    service_level: "EXPRESS"
+    weight_grams: 2600
+    recipient: '{"name": "Hanna Wolf", "street": "Marktstr. 5", "city": "Leipzig", "postcode": "04109", "country": "DE"}'
+    details: '{"source": "api", "zone": "DE-1"}'

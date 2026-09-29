@@ -8,16 +8,13 @@ import (
 	"mime"
 	"regexp"
 	"slices"
-	"sort"
 	"strings"
 
 	"github.com/santhosh-tekuri/jsonschema/v6"
-	"github.com/santhosh-tekuri/jsonschema/v6/kind"
-	"golang.org/x/text/language"
-	xmessage "golang.org/x/text/message"
 
 	"github.com/nimbusxr/axx/internal/avrojson"
 	"github.com/nimbusxr/axx/internal/contract"
+	"github.com/nimbusxr/axx/internal/schemadoc"
 )
 
 // finding is a way a message breaks its contract, keyed for levels.
@@ -25,8 +22,6 @@ type finding struct {
 	key     string
 	message string
 }
-
-var printer = xmessage.NewPrinter(language.English)
 
 // protocols are the AsyncAPI protocols each pack's messages travel over,
 // by what the pack reports: a server of any of them serves the pack.
@@ -257,7 +252,7 @@ func instance(payload []byte, contentType string) (any, *readError) {
 		}
 		return v, nil
 	case mt == "application/yaml" || mt == "application/x-yaml" || mt == "text/yaml" || strings.HasSuffix(mt, "+yaml"):
-		v, err := decode(payload)
+		v, err := schemadoc.Decode(payload)
 		if err != nil {
 			return nil, &readError{"YAML", err}
 		}
@@ -268,53 +263,11 @@ func instance(payload []byte, contentType string) (any, *readError) {
 
 // checkValue validates a value against a JSON Schema.
 func (s *schema) checkValue(part string, v any) []finding {
-	err := s.json.Validate(v)
-	if err == nil {
-		return nil
-	}
-	var ve *jsonschema.ValidationError
-	if !errors.As(err, &ve) {
-		return []finding{{key: "validation.message." + part + ".schema", message: err.Error()}}
-	}
 	var out []finding
-	var walk func(*jsonschema.ValidationError)
-	walk = func(e *jsonschema.ValidationError) {
-		if len(e.Causes) == 0 {
-			loc := "$"
-			for _, seg := range e.InstanceLocation {
-				loc += "." + seg
-			}
-			out = append(out, finding{
-				key:     "validation.message." + part + ".schema." + keyword(e),
-				message: fmt.Sprintf("%s %s: %s", part, loc, e.ErrorKind.LocalizedString(printer)),
-			})
-			return
-		}
-		for _, c := range e.Causes {
-			walk(c)
-		}
+	for _, f := range schemadoc.Validate(s.json, v, "validation.message."+part+".schema", part) {
+		out = append(out, finding{key: f.Key, message: f.Message})
 	}
-	walk(ve)
-	sort.SliceStable(out, func(i, j int) bool { return out[i].message < out[j].message })
 	return out
-}
-
-// keyword is the JSON Schema keyword a failure is keyed by.
-func keyword(e *jsonschema.ValidationError) string {
-	switch e.ErrorKind.(type) {
-	case *kind.Dependency:
-		return "dependencies"
-	case *kind.Not:
-		return "not"
-	case *kind.FalseSchema:
-		return "false"
-	case *kind.RefCycle:
-		return "$ref"
-	}
-	if p := e.ErrorKind.KeywordPath(); len(p) > 0 {
-		return p[0]
-	}
-	return "unknownError"
 }
 
 // headerValues is the object a message's headers are checked as: a header

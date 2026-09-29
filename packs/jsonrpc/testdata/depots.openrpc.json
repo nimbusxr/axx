@@ -1,0 +1,41 @@
+{
+  "openrpc": "1.3.2",
+  "info": {"title": "Depots", "version": "1.0.0"},
+  "methods": [
+    {
+      "name": "parcel.get",
+      "params": [{"$ref": "#/components/contentDescriptors/Reference"}],
+      "result": {"name": "parcel", "schema": {"$ref": "#/components/schemas/Parcel"}}
+    },
+    {
+      "name": "parcel.hold",
+      "paramStructure": "by-name",
+      "params": [
+        {"$ref": "#/components/contentDescriptors/Reference"},
+        {"name": "until", "required": true, "schema": {"type": "string", "format": "date"}},
+        {"name": "reason", "schema": {"type": "string", "maxLength": 40}}
+      ],
+      "result": {"name": "parcel", "schema": {"$ref": "#/components/schemas/Parcel"}},
+      "errors": [{"$ref": "#/components/errors/NotHoldable"}]
+    }
+  ],
+  "components": {
+    "contentDescriptors": {
+      "Reference": {"name": "reference", "required": true, "schema": {"type": "string", "pattern": "^PX-"}}
+    },
+    "schemas": {
+      "Parcel": {
+        "type": "object",
+        "required": ["reference", "status"],
+        "properties": {
+          "reference": {"type": "string"},
+          "status": {"enum": ["REGISTERED", "ON_HOLD", "OUT_FOR_DELIVERY", "DELIVERED"]},
+          "heldUntil": {"type": "string"}
+        }
+      }
+    },
+    "errors": {
+      "NotHoldable": {"code": -32010, "message": "The parcel can no longer be held"}
+    }
+  }
+}

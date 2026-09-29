@@ -1,0 +1,13 @@
+components:
+  schemas:
+    Parcel:
+      $ref: 'schemas/parcel.json'
+    Hold:
+      type: object
+      required: [reference, until]
+      properties:
+        reference: {$ref: '#/components/schemas/Reference'}
+        until: {type: string, format: date}
+    Reference:
+      type: string
+      pattern: '^PX-'

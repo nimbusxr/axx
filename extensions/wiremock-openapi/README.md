@@ -13,7 +13,8 @@ call, or the run when no scenario does. Without axx, the extension can instead a
 calls with an HTTP 500 that lists the problems.
 
 It ships as a ready-to-run image, `ghcr.io/nimbusxr/axx-wiremock`: WireMock standalone with the
-extension on its classpath. Validation uses the Atlassian
+extension on its classpath, and WireMock's gRPC extension (see [gRPC](#grpc)). Validation uses
+the Atlassian
 [`openapi-request-validator`](https://bitbucket.org/atlassian/swagger-request-validator), which
 supports OpenAPI 3.0 and 3.1 and Swagger 2.0, in JSON or YAML.
 
@@ -200,6 +201,32 @@ With the Java API, register it with `extensions(OpenApiValidatorExtension.class)
 
 OpenAPI 3.1 removed the 3.0 `nullable` keyword. A 3.1 spec must write nullable fields as
 `"type": ["string", "null"]`. A 3.1 spec that still says `nullable: true` rejects `null` values.
+
+## gRPC
+
+The image also carries WireMock's own [gRPC extension](https://wiremock.org/docs/grpc/), so one
+image mocks REST and gRPC dependencies alike. Mount the descriptor sets of the services to mock
+(`protoc --include_imports --descriptor_set_out=<name>.dsc <file>.proto`) at
+`/home/wiremock/grpc`, and stub each method as a POST to `/<package>.<Service>/<Method>`, with
+its request and answer as proto JSON. The gRPC extension runs when WireMock's root dir has a
+`grpc` folder, as the image's own root does; a root you mount without one runs REST only.
+
+```json
+{
+  "request": {
+    "method": "POST",
+    "urlPath": "/parcels.rating.v1.Rates/Quote",
+    "bodyPatterns": [{"matchesJsonPath": "$[?(@.country == 'CH')]"}]
+  },
+  "response": {"status": 200, "jsonBody": {"surchargeCents": 1250, "deliveryDays": 3}}
+}
+```
+
+A status other than OK is a response header: `"headers": {"grpc-status-name": "NOT_FOUND",
+"grpc-status-reason": "no delivery to AQ"}`. The request journal records each call with its
+request as JSON, so axx's mock steps check what your service asked, as for REST calls. The
+OpenAPI validation does not apply to gRPC calls. `GRPC_EXTENSION_VERSION` in the `Dockerfile`
+pins the extension's version.
 
 ## Versions
 

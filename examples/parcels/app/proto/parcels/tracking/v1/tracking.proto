@@ -1,0 +1,48 @@
+syntax = "proto3";
+
+// The parcels service's tracking API, for the shops' systems: where a
+// parcel is, and its scans as they happen.
+package parcels.tracking.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/nimbusxr/axx/examples/parcels/app/gen/tracking/v1;trackingv1";
+
+service Tracking {
+  // GetParcel is a parcel's tracking; NOT_FOUND for a parcel the service
+  // does not know.
+  rpc GetParcel(GetParcelRequest) returns (Parcel);
+  // WatchParcel sends the parcel's latest scan, then each new one, and ends
+  // once the parcel is delivered.
+  rpc WatchParcel(WatchParcelRequest) returns (stream Scan);
+}
+
+message GetParcelRequest {
+  string reference = 1;
+}
+
+message WatchParcelRequest {
+  string reference = 1;
+}
+
+message Parcel {
+  string reference = 1;
+  string status = 2;
+  ServiceLevel service_level = 3;
+  int32 weight_grams = 4;
+  // The latest scan; unset before the first.
+  Scan last_scan = 5;
+}
+
+enum ServiceLevel {
+  SERVICE_LEVEL_UNSPECIFIED = 0;
+  STANDARD = 1;
+  EXPRESS = 2;
+}
+
+message Scan {
+  string reference = 1;
+  string status = 2;
+  string location = 3;
+  google.protobuf.Timestamp scanned_at = 4;
+}

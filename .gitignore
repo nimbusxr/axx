@@ -8,8 +8,9 @@ coverage.txt
 coverage.html
 *.test
 
-# axx runtime state
+# axx runtime state, and the reports the examples' suites write the way CI runs them
 .axx/
+examples/*/acceptance/build/
 
 # editors / OS
 .idea/
