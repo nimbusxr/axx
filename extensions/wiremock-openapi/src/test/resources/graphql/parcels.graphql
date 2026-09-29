@@ -1,0 +1,45 @@
+scalar DateTime
+
+type Query {
+  parcel(reference: ID!): Parcel
+  parcels(shop: ID!): [Parcel!]!
+  node(id: ID!): Node
+}
+
+type Mutation {
+  holdParcel(reference: ID!, until: String!): Parcel!
+}
+
+interface Node {
+  id: ID!
+}
+
+type Parcel {
+  reference: ID!
+  status: Status!
+  weightGrams: Int!
+  lastScan: Scan
+  shop: Shop
+}
+
+type Scan {
+  location: String!
+  scannedAt: DateTime
+}
+
+type Shop implements Node {
+  id: ID!
+  name: String!
+}
+
+type Depot implements Node {
+  id: ID!
+  city: String!
+}
+
+enum Status {
+  REGISTERED
+  IN_TRANSIT
+  ON_HOLD
+  DELIVERED
+}

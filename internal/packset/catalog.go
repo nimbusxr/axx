@@ -20,6 +20,7 @@ var Catalog = []Pack{
 	{Name: "mock", Import: packs + "mock", Summary: "WireMock services and their OpenAPI contracts"},
 	{Name: "grpc", Import: packs + "grpc", Summary: "gRPC calls and server streams: status, answers, metadata, read with the services' protos or reflection"},
 	{Name: "jsonrpc", Import: packs + "jsonrpc", Summary: "JSON-RPC 2.0 calls over HTTP: results and errors, checked against OpenRPC documents"},
+	{Name: "graphql", Import: packs + "graphql", Summary: "GraphQL queries, mutations and subscriptions, of a federated graph or a subgraph, checked against the schema"},
 	{Name: "sql", Import: packs + "sql", Summary: "SQL databases: seeds, selections, locks, triggers"},
 	{Name: "mongo", Import: packs + "mongo", Summary: "MongoDB: seeds and selections"},
 	{Name: "redis", Import: packs + "redis", Summary: "Redis and its forks (Valkey, Dragonfly, KeyDB, Garnet): seeds and keys"},

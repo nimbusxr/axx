@@ -111,7 +111,7 @@ Given the tracking websocket with the following properties:
   | header.Authorization | Bearer ${token:shop}                             |
 ```
 
-It works in the rows of what a scenario registers for itself (the `websocket`, `sse`, `grpc` and `jsonrpc` packs), and in the `cli` pack's command, arguments, input and environment. It doesn't work in the rows of message brokers, whose connections are opened for the whole run before any scenario registers a token.
+It works in the rows of what a scenario registers for itself (the `websocket`, `sse`, `grpc`, `jsonrpc` and `graphql` packs), and in the `cli` pack's command, arguments, input and environment. It doesn't work in the rows of message brokers, whose connections are opened for the whole run before any scenario registers a token.
 
 ## Keep secrets secret
 

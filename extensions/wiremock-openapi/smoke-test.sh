@@ -22,6 +22,7 @@ start() {
     -v "$here/example/mappings:/home/wiremock/mappings:ro" \
     -v "$here/example/openapi:/var/openapi:ro" \
     -v "$here/example/grpc:/home/wiremock/grpc:ro" \
+    -v "$here/example/graphql:/var/graphql:ro" \
     "$image" "$@")
   containers+=("$id")
   for _ in $(seq 1 60); do
@@ -73,6 +74,16 @@ answer=$(printf '\0\0\0\0\0' | curl -sS --http2-prior-knowledge -D - --data-bina
 printf '%s\n' "$answer" | grep -q 'grpc-status: 0' || fail "the gRPC call did not answer OK: $answer"
 printf '%s\n' "$answer" | grep -q 'pong-grpc' || fail "the gRPC call did not answer the stub: $answer"
 echo "/smoke.v1.Ping/Ping -> OK pong-grpc"
+
+echo "== $image, GraphQL: a subgraph mocked field by field from example/graphql/shops.graphql"
+env=(-e GRAPHQL_SCHEMA_SOURCE=/var/graphql/shops.graphql)
+start --verbose
+expect 200 'type Shop' -H 'Content-Type: application/json' -d '{"query": "{ _service { sdl } }"}' "$base/graphql"
+expect 200 '"name":"Maple Home"' -H 'Content-Type: application/json' \
+  -d '{"query": "query ($r: [_Any!]!) { _entities(representations: $r) { ... on Shop { name tier } } }", "variables": {"r": [{"__typename": "Shop", "id": "maple-crafts"}]}}' "$base/graphql"
+expect 200 '"_entities":[null]' -H 'Content-Type: application/json' \
+  -d '{"query": "query ($r: [_Any!]!) { _entities(representations: $r) { ... on Shop { name } } }", "variables": {"r": [{"__typename": "Shop", "id": "hawthorn-home"}]}}' "$base/graphql"
+env=()
 
 echo "== $image, a root dir without a grpc folder: REST only"
 start --root-dir /tmp

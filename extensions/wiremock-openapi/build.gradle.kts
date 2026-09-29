@@ -33,6 +33,10 @@ dependencies {
     // Compiling against the standalone jar keeps the extension binary-compatible with it.
     compileOnly("org.wiremock:wiremock-standalone:$wiremockVersion")
     implementation("com.atlassian.oai:openapi-request-validator-core:3.0.0")
+    // The GraphQL mock: operations run against the mock's schema, and federation's _service and
+    // _entities for subgraphs.
+    implementation("com.graphql-java:graphql-java:26.0")
+    implementation("com.apollographql.federation:federation-graphql-java-support:7.0.0")
 
     testImplementation("org.wiremock:wiremock-standalone:$wiremockVersion")
     testImplementation(platform("org.junit:junit-bom:6.1.3"))

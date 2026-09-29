@@ -1,0 +1,3 @@
+mutation HoldParcel($reference: ID!, $until: String!) {
+  holdParcel(reference: $reference, until: $until) { status }
+}

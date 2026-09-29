@@ -33,7 +33,7 @@ Each scenario gets a fresh **world**: its registered services and the state each
 
 ## 5. Packs
 
-A **pack** is a bundle of steps, parameter types and hooks, its settings in `axx.yaml` and its tools for agents (`axx mcp`), plus the per-scenario context its steps share. The packs are `rest`, `mock`, `grpc`, `jsonrpc`, `sql`, `mongo`, `redis`, `kafka`, `amqp`, `mqtt`, `nats`, `websocket`, `sse`, `asyncapi`, `logs`, `files`, `mail`, `cli`, the web packs (`web-core`, `web-screenshots`...), the cloud service packs (`aws-s3`, `gcp-pubsub`, `azure-blob`...), and `core` for shared parameter types.
+A **pack** is a bundle of steps, parameter types and hooks, its settings in `axx.yaml` and its tools for agents (`axx mcp`), plus the per-scenario context its steps share. The packs are `rest`, `mock`, `grpc`, `jsonrpc`, `graphql`, `sql`, `mongo`, `redis`, `kafka`, `amqp`, `mqtt`, `nats`, `websocket`, `sse`, `asyncapi`, `logs`, `files`, `mail`, `cli`, the web packs (`web-core`, `web-screenshots`...), the cloud service packs (`aws-s3`, `gcp-pubsub`, `azure-blob`...), and `core` for shared parameter types.
 
 A project lists the packs it uses in `axx-packs.yaml`. The `axx` binary is the core alone: on first use, it builds a copy of itself with the project's packs, caches it and runs it in its place ([Choose packs](/guides/use-packs/)).
 

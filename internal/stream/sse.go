@@ -121,11 +121,28 @@ type EventStream struct {
 // It fails, with the body, on a status other than 200 or a content type
 // other than text/event-stream.
 func OpenEvents(url string, header http.Header, emit func(Event), ended func(error)) (*EventStream, error) {
+	return openEvents(http.MethodGet, url, header, nil, emit, ended)
+}
+
+// PostEvents is OpenEvents for a stream that answers a POST of body, as
+// GraphQL over server-sent events has it.
+func PostEvents(url string, header http.Header, body []byte, emit func(Event), ended func(error)) (*EventStream, error) {
+	return openEvents(http.MethodPost, url, header, body, emit, ended)
+}
+
+func openEvents(method, url string, header http.Header, body []byte, emit func(Event), ended func(error)) (*EventStream, error) {
 	ctx, cancel := context.WithCancel(context.Background())
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	var content io.Reader
+	if body != nil {
+		content = bytes.NewReader(body)
+	}
+	req, err := http.NewRequestWithContext(ctx, method, url, content)
 	if err != nil {
 		cancel()
 		return nil, err
+	}
+	if body != nil {
+		req.Header.Set("Content-Type", "application/json")
 	}
 	for k, vs := range header {
 		for _, v := range vs {

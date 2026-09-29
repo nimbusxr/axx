@@ -1,0 +1,7 @@
+query ParcelWithShop($reference: ID!) {
+  parcel(reference: $reference) {
+    reference
+    status
+    shop { id name tier }
+  }
+}

@@ -22,6 +22,7 @@ import (
 	gcpfirestore "github.com/nimbusxr/axx/packs/gcp/firestore"
 	gcppubsub "github.com/nimbusxr/axx/packs/gcp/pubsub"
 	gcpstorage "github.com/nimbusxr/axx/packs/gcp/storage"
+	"github.com/nimbusxr/axx/packs/graphql"
 	grpcpack "github.com/nimbusxr/axx/packs/grpc"
 	"github.com/nimbusxr/axx/packs/jsonrpc"
 	"github.com/nimbusxr/axx/packs/kafka"
@@ -51,6 +52,7 @@ func Packs() map[string]core.Pack {
 		"mock":             mock.Pack(),
 		"grpc":             grpcpack.Pack(),
 		"jsonrpc":          jsonrpc.Pack(),
+		"graphql":          graphql.Pack(),
 		"sql":              sqlpack.Pack(),
 		"mongo":            mongo.Pack(),
 		"redis":            redis.Pack(),

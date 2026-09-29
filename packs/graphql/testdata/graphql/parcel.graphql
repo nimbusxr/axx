@@ -1,0 +1,8 @@
+query Parcel($reference: ID!) {
+  parcel(reference: $reference) {
+    reference
+    status
+    weightGrams
+    shop { name }
+  }
+}

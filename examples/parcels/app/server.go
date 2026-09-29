@@ -159,6 +159,11 @@ func (s *service) routes() http.Handler {
 		_, _ = w.Write(asyncapiYAML)
 	})
 	mux.HandleFunc("POST /rpc", s.depotRPC)
+	// The parcels subgraph: POST for queries and mutations, GET to open a
+	// graphql-ws subscription.
+	graphQL := graphHandler(&parcelsGraph{store: s.store, tracking: s.tracking, log: s.log})
+	mux.Handle("POST /graphql", graphQL)
+	mux.Handle("GET /graphql", graphQL)
 	mux.HandleFunc("POST /api/quotes", s.quote)
 	mux.HandleFunc("POST /api/parcels", s.create)
 	mux.HandleFunc("GET /api/parcels", s.list)

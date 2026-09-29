@@ -2,7 +2,7 @@
   "description": "The frozen catalog of built-in step text. Step text is public API: every entry must stay defined, verbatim, by its pack.",
   "counts": {
     "parameterType": 11,
-    "step": 592
+    "step": 604
   },
   "entries": [
     {
@@ -3633,6 +3633,78 @@
       "pack": "jsonrpc",
       "keyword": "Given",
       "expression": "the OpenRPC validation levels are:"
+    },
+    {
+      "kind": "step",
+      "pack": "graphql",
+      "keyword": "Given",
+      "expression": "the {word} graphql service with the following properties:"
+    },
+    {
+      "kind": "step",
+      "pack": "graphql",
+      "keyword": "When",
+      "expression": "the {filepath} query/mutation is sent to the {word} graphql service"
+    },
+    {
+      "kind": "step",
+      "pack": "graphql",
+      "keyword": "When",
+      "expression": "the {filepath} query/mutation is sent to the {word} graphql service with the following variables:"
+    },
+    {
+      "kind": "step",
+      "pack": "graphql",
+      "keyword": "When",
+      "expression": "a query/mutation is sent to the {word} graphql service:"
+    },
+    {
+      "kind": "step",
+      "pack": "graphql",
+      "keyword": "When",
+      "expression": "the {filepath} subscription is started on the {word} graphql service"
+    },
+    {
+      "kind": "step",
+      "pack": "graphql",
+      "keyword": "When",
+      "expression": "the {filepath} subscription is started on the {word} graphql service with the following variables:"
+    },
+    {
+      "kind": "step",
+      "pack": "graphql",
+      "keyword": "Then",
+      "expression": "the {word} graphql service answered without errors"
+    },
+    {
+      "kind": "step",
+      "pack": "graphql",
+      "keyword": "Then",
+      "expression": "the {word} graphql service's data has the following properties:"
+    },
+    {
+      "kind": "step",
+      "pack": "graphql",
+      "keyword": "Then",
+      "expression": "the {word} graphql service answered an error where:"
+    },
+    {
+      "kind": "step",
+      "pack": "graphql",
+      "keyword": "Then",
+      "expression": "the {word} graphql service's subscription received a message where:"
+    },
+    {
+      "kind": "step",
+      "pack": "graphql",
+      "keyword": "Then",
+      "expression": "within {duration} the {word} graphql service's subscription received a message where:"
+    },
+    {
+      "kind": "step",
+      "pack": "graphql",
+      "keyword": "Given",
+      "expression": "the GraphQL validation levels are:"
     }
   ]
 }

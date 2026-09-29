@@ -4,9 +4,9 @@
 #   docker compose down -v               # stop and remove containers and volumes
 #
 # axx runs this for you: see ../acceptance/axx.yaml. The published host ports are the
-# ones the feature files use (8400, 8410, 8081, 8082, 8083, 8084, 5432, 27017, 9092, 9081,
-# 5672, 1883, 4222, 6379 and 1143, and the mail server's SMTP on 1025 and web interface on
-# 8025).
+# ones the feature files use (8400, 8410, 4000, 8081, 8082, 8083, 8084, 8085, 5432, 27017,
+# 9092, 9081, 5672, 1883, 4222, 6379 and 1143, and the mail server's SMTP on 1025 and web
+# interface on 8025).
 name: parcels
 
 services:
@@ -95,6 +95,58 @@ services:
       retries: 60
       start_period: 5s
     stop_signal: SIGKILL
+
+  # The shops subgraph, which another team owns, mocked by the GraphQL extension of the same
+  # WireMock image: field by field from shop-directory/graphql/shops.graphql, its entities from
+  # the stubs in shop-directory/mappings.
+  shop-directory:
+    build:
+      context: ../../../extensions/wiremock-openapi
+    ports:
+      - '8085:8080'
+    environment:
+      GRAPHQL_SCHEMA_SOURCE: /home/wiremock/graphql/shops.graphql
+    volumes:
+      - './shop-directory:/home/wiremock'
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/__admin/health"]
+      interval: 1s
+      timeout: 2s
+      retries: 60
+      start_period: 5s
+    stop_signal: SIGKILL
+
+  # The parcels supergraph, composed from the subgraphs' SDL, the service's own
+  # (../app/graph/schema.graphqls) and the shops subgraph's, as a team composes in CI.
+  supergraph:
+    build: ./supergraph
+    environment:
+      PARCELS_SUBGRAPH_URL: ${PARCELS_SUBGRAPH_URL:-http://app:8400/graphql}
+    volumes:
+      - '../app/graph/schema.graphqls:/subgraphs/parcels.graphqls:ro'
+      - './shop-directory/graphql/shops.graphql:/subgraphs/shops.graphql:ro'
+      - 'supergraph:/supergraph'
+
+  # The federated graph's gateway, Hive Gateway, on port 4000: queries across the parcels
+  # subgraph and the shops subgraph go through it.
+  gateway:
+    image: 'ghcr.io/graphql-hive/gateway:2.15.1'
+    command: ['supergraph', '/supergraph/supergraph.graphql', '--port', '4000']
+    ports:
+      - '4000:4000'
+    volumes:
+      - 'supergraph:/supergraph:ro'
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    depends_on:
+      supergraph:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:4000/readiness"]
+      interval: 1s
+      timeout: 2s
+      retries: 60
+      start_period: 5s
 
   postgres:
     image: 'postgres:16'
@@ -323,3 +375,7 @@ services:
         condition: service_healthy
       mail:
         condition: service_healthy
+
+volumes:
+  # The composed supergraph, from the supergraph service to the gateway.
+  supergraph:

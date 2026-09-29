@@ -1,0 +1,37 @@
+type Query {
+  parcel(reference: ID!): Parcel
+  parcels(shop: ID!, postcode: String): [Parcel!]!
+}
+
+type Mutation {
+  holdParcel(reference: ID!, until: String!): Parcel!
+}
+
+type Subscription {
+  parcelScanned(reference: ID!): Scan!
+}
+
+type Parcel {
+  reference: ID!
+  status: Status!
+  weightGrams: Int!
+  shop: Shop
+}
+
+type Shop {
+  id: ID!
+  name: String!
+}
+
+type Scan {
+  reference: ID!
+  status: Status!
+}
+
+enum Status {
+  REGISTERED
+  IN_TRANSIT
+  OUT_FOR_DELIVERY
+  DELIVERED
+  ON_HOLD
+}

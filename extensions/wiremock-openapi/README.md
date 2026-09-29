@@ -13,7 +13,8 @@ call, or the run when no scenario does. Without axx, the extension can instead a
 calls with an HTTP 500 that lists the problems.
 
 It ships as a ready-to-run image, `ghcr.io/nimbusxr/axx-wiremock`: WireMock standalone with the
-extension on its classpath, and WireMock's gRPC extension (see [gRPC](#grpc)). Validation uses
+extension on its classpath, WireMock's gRPC extension (see [gRPC](#grpc)), and GraphQL mocks
+(see [GraphQL](#graphql)). Validation uses
 the Atlassian
 [`openapi-request-validator`](https://bitbucket.org/atlassian/swagger-request-validator), which
 supports OpenAPI 3.0 and 3.1 and Swagger 2.0, in JSON or YAML.
@@ -227,6 +228,35 @@ A status other than OK is a response header: `"headers": {"grpc-status-name": "N
 request as JSON, so axx's mock steps check what your service asked, as for REST calls. The
 OpenAPI validation does not apply to gRPC calls. `GRPC_EXTENSION_VERSION` in the `Dockerfile`
 pins the extension's version.
+
+## GraphQL
+
+The image mocks GraphQL services and federated subgraphs **field by field, from their
+schema**. Set `GRAPHQL_SCHEMA_SOURCE` to the SDL (and `GRAPHQL_PATH`, `/graphql` by default),
+and the mock answers each operation by running it against the schema, with graphql-java: a
+field's value comes from its parent's value when that has it, and otherwise from a stub.
+
+- **A field's stub** is an ordinary WireMock stub of a POST to `/graphql/<Type>/<field>`, whose
+  body is `{"arguments": {...}, "source": {...}}`; an **entity's** (`_entities`), of a POST to
+  `/graphql/_entities/<Type>`, whose body is its representation.
+- **The stub's JSON body is the value.** A `graphql-error` header makes the field an error, with
+  `graphql-error-code` as its `extensions.code`. A field without a value is null.
+- **A subgraph** (an SDL with `@key` or federation's `@link`) answers `_service { sdl }` and
+  `_entities` too, through federation-jvm, so a gateway composes and plans with it.
+- **The journal** records each operation received, with its query and variables; stub lookups
+  are not requests. The endpoint is a stub of its own at priority 10, which a stub of a whole
+  operation on the same path overrides.
+
+```json
+{
+  "request": {
+    "method": "POST",
+    "urlPath": "/graphql/_entities/Shop",
+    "bodyPatterns": [{"equalToJson": {"id": "alder-and-ash"}, "ignoreExtraElements": true}]
+  },
+  "response": {"status": 200, "jsonBody": {"name": "Alder & Ash", "tier": "STANDARD"}}
+}
+```
 
 ## Versions
 

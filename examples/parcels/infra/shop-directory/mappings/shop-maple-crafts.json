@@ -1,0 +1,9 @@
+{
+  "name": "shop-maple-crafts",
+  "request": {
+    "method": "POST",
+    "urlPath": "/graphql/_entities/Shop",
+    "bodyPatterns": [{"equalToJson": {"id": "maple-crafts"}, "ignoreExtraElements": true}]
+  },
+  "response": {"status": 200, "jsonBody": {"name": "Maple Crafts", "tier": "GOLD"}}
+}
