@@ -226,10 +226,15 @@ func neverAsked(sc *core.Scenario, svc *Service, about string) error {
 
 var responseID = regexp.MustCompile(`"id"\s*:\s*"(resp_[^"]*)"`)
 
-// modelRequests returns the requests to a model's chat endpoint WireMock
-// received since t, oldest first. A request to OpenAI's Responses API that
-// continues an earlier response comes with that response's conversation.
-func (c *client) modelRequests(ctx context.Context, since time.Time) ([]*modelRequest, error) {
+// served is a request WireMock received, and the body of its answer.
+type servedCall struct {
+	request  logged
+	response []byte
+}
+
+// journal returns the requests WireMock received since t, oldest first,
+// with their answers.
+func (c *client) journal(ctx context.Context, since time.Time) ([]servedCall, error) {
 	var out struct {
 		Requests []struct {
 			Request  logged `json:"request"`
@@ -242,17 +247,32 @@ func (c *client) modelRequests(ctx context.Context, since time.Time) ([]*modelRe
 	if err := c.get(ctx, "/__admin/requests?"+q.Encode(), &out); err != nil {
 		return nil, err
 	}
-	var reqs []*modelRequest
-	byID := map[string]*modelRequest{}
+	calls := make([]servedCall, 0, len(out.Requests))
 	for i := len(out.Requests) - 1; i >= 0; i-- { // the journal lists newest first
 		e := out.Requests[i]
-		r := readModelRequest(e.Request.Method, e.Request.URL, e.Request.body())
+		answer, _ := base64.StdEncoding.DecodeString(e.Response.BodyAsBase64)
+		calls = append(calls, servedCall{request: e.Request, response: answer})
+	}
+	return calls, nil
+}
+
+// modelRequests returns the requests to a model's chat endpoint WireMock
+// received since t, oldest first. A request to OpenAI's Responses API that
+// continues an earlier response comes with that response's conversation.
+func (c *client) modelRequests(ctx context.Context, since time.Time) ([]*modelRequest, error) {
+	calls, err := c.journal(ctx, since)
+	if err != nil {
+		return nil, err
+	}
+	var reqs []*modelRequest
+	byID := map[string]*modelRequest{}
+	for _, e := range calls {
+		r := readModelRequest(e.request.Method, e.request.URL, e.request.body())
 		if r == nil {
 			continue
 		}
 		if r.api == "OpenAI's Responses" {
-			answer, _ := base64.StdEncoding.DecodeString(e.Response.BodyAsBase64)
-			if m := responseID.FindSubmatch(answer); m != nil {
+			if m := responseID.FindSubmatch(e.response); m != nil {
 				r.responseID = string(m[1])
 				byID[r.responseID] = r
 			}

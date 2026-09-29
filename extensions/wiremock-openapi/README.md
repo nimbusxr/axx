@@ -14,7 +14,8 @@ calls with an HTTP 500 that lists the problems.
 
 It ships as a ready-to-run image, `ghcr.io/nimbusxr/axx-wiremock`: WireMock standalone with the
 extension on its classpath, WireMock's gRPC extension (see [gRPC](#grpc)), GraphQL mocks
-(see [GraphQL](#graphql)), and model mocks (see [Models](#models)). Validation uses
+(see [GraphQL](#graphql)), model mocks (see [Models](#models)), MCP server mocks (see
+[MCP servers](#mcp-servers)) and A2A agent mocks (see [A2A agents](#a2a-agents)). Validation uses
 the Atlassian
 [`openapi-request-validator`](https://bitbucket.org/atlassian/swagger-request-validator), which
 supports OpenAPI 3.0 and 3.1 and Swagger 2.0, in JSON or YAML.
@@ -297,6 +298,133 @@ and the `model-answer` transformer, and its answer is written the same way for e
 axx's mock steps check what the service asked the model; see
 [Test AI features](https://axx.nimbusxr.us/guides/test-ai-features/).
 
+## MCP servers
+
+The image mocks an MCP server **from its description**: set `MCP_SERVER_SOURCE` to a file (JSON
+or YAML) that lists what the server has, in MCP's own field names (`serverInfo`, `instructions`,
+`tools`, `resources`, `resourceTemplates` and `prompts`; a resource can carry its content inline
+as `text` or `blob`), and `MCP_PATH` to its endpoint (`/mcp` by default). The mock speaks MCP's
+Streamable HTTP transport and answers each POST with one JSON object, in the protocol version
+2026-07-28 (no session: every request carries its version in `params._meta`, and `server/discover`
+says who the server is) and in 2025-11-25, 2025-06-18 and 2025-03-26, which start with
+`initialize`.
+
+```yaml
+serverInfo: {name: carrier-tools, version: 2.4.0}
+tools:
+  - name: shipment_status
+    description: Where a shipment the partner carrier handles is, by its parcel reference.
+    inputSchema:
+      type: object
+      properties: {reference: {type: string, pattern: "^PX-"}}
+      required: [reference]
+    outputSchema:
+      type: object
+      properties: {reference: {type: string}, status: {type: string}}
+      required: [reference, status]
+```
+
+The description is what the server lists; **stubs are what it answers**, looked up as POSTs to
+paths under the endpoint:
+
+- **A tool call** is a stub of `POST <MCP_PATH>/tools/<tool>` whose body is the call's
+  `arguments`, once they match the tool's `inputSchema` (JSON Schema 2020-12 unless it names
+  another draft; arguments that do not match get a tool error, `isError: true`, listing the
+  problems). The stub's JSON body is the tool's result, in MCP's shape: `structuredContent`,
+  `content` and `isError`. Structured content without content gets a text block of its JSON, and
+  must match the tool's `outputSchema`.
+- **A resource read** is a stub of `POST <MCP_PATH>/resources` whose body is `{"uri": ...}`,
+  answering `{"contents": [...]}` (each content gets the URI when it has none); without a stub the
+  description's inline content answers, and otherwise the resource is not found.
+- **A prompt** is a stub of `POST <MCP_PATH>/prompts/<prompt>` whose body is its arguments,
+  answering `{"description": ..., "messages": [...]}`; a required argument missing is an error.
+- **An error:** a stub's `{"error": {"code": -32050, "message": "...", "data": ...}}` answers a
+  JSON-RPC error. A call no stub answers gets an internal error (-32603) that says so.
+- **The journal** records the JSON-RPC messages the mock received (a call's `method`,
+  `params.name` and `params.arguments`); the stub lookups are not requests.
+
+```json
+{
+  "request": {
+    "method": "POST",
+    "urlPath": "/mcp/tools/shipment_status",
+    "bodyPatterns": [{"equalToJson": {"reference": "PX-MCP-7101"}}]
+  },
+  "response": {
+    "status": 200,
+    "jsonBody": {"structuredContent": {"reference": "PX-MCP-7101", "status": "OUT_FOR_DELIVERY"}}
+  }
+}
+```
+
+- **A mistake is loud:** a description that is not one (an unknown key, a tool without an input
+  schema, two tools of one name) stops WireMock at startup, and so does a stub under
+  `<MCP_PATH>/tools/` for a tool the description does not list, or whose answer has a key other
+  than `content`, `structuredContent`, `isError` and `error`. A stub whose structured content
+  breaks the tool's output schema answers an internal error that names the stub.
+- **Not mocked:** event streams (GET and DELETE on the endpoint get 405), sessions (the earlier
+  versions get an `Mcp-Session-Id` the mock never checks), `subscriptions/listen`, completions,
+  logging and the tasks extension. Results say `"ttlMs": 0`: clients do not cache what stubs may
+  change.
+- **The contracts:** the official MCP Java SDK reads the answers of the earlier versions in the
+  tests, and MCP's published JSON schemas of 2026-07-28 and 2025-11-25 validate the answers.
+
+## A2A agents
+
+The image mocks an A2A agent (A2A 1.0) **from its agent card**: set `A2A_AGENT_CARD_SOURCE` to the
+card, and the mock serves it at `/.well-known/agent-card.json` and answers the interfaces it lists
+at their URLs' paths: the JSON-RPC binding and the HTTP+JSON binding (`message:send`,
+`message:stream`, `tasks`...), with their streams as server-sent events. The agent remembers the
+tasks it answered (the latest thousand), for GetTask, ListTasks, CancelTask, SubscribeToTask and
+the messages that continue a task; WireMock's reset forgets them.
+
+**A message is answered by a stub** of `POST /a2a/messages` whose body is `{"text": <the text of
+the message's parts>, "message": <the message>, "conversation": <the text of every message of the
+task it continues, and this one>, "task": {"id", "state"} or null}`. The stub's JSON body is the
+agent's answer, written simply:
+
+- `{"reply": "...", "data": ...}` is a message: its text, and the data as a data part.
+- `{"state": "completed", "message": "...", "artifacts": [...], "updates": ["..."]}` is a task,
+  new or the one the message continues; the state is also `input-required`, `failed`,
+  `rejected`, `auth-required`, `working` or `canceled`, and each artifact is `{"name",
+  "description", "text" | "data" | "url", "mediaType"}`. A stream sends the task (submitted), a
+  working update per update, an artifact update per artifact and the final status, then ends.
+  With `returnImmediately` the task is answered working, and reaches the stub's state when it is
+  next looked at.
+- `{"error": {"code": -32005, "message": "..."}}` is an A2A error (in HTTP+JSON, with its HTTP
+  status and its `ErrorInfo`).
+
+```json
+{
+  "request": {
+    "method": "POST",
+    "urlPath": "/a2a/messages",
+    "bodyPatterns": [{"matchesJsonPath": {"expression": "$.text", "contains": "PX-A2A-9001"}}]
+  },
+  "response": {
+    "jsonBody": {
+      "state": "completed",
+      "message": "PX-A2A-9001 is at the Leipzig depot.",
+      "artifacts": [{"name": "status", "data": {"reference": "PX-A2A-9001", "status": "IN_TRANSIT"}}]
+    }
+  }
+}
+```
+
+- **A mistake is loud:** a card without what A2A 1.0 requires of one stops WireMock at startup,
+  and so does a stub of `/a2a/messages` with an unknown key or a key of the wrong shape. A
+  message no stub answers gets an internal error (-32603; HTTP 500 in HTTP+JSON) with its text.
+- **The journal** records the requests the agent received (`SendMessage`'s
+  `params.message.parts[].text`, and `message:send`'s `message.parts[].text`); the stub lookups
+  are not requests. A request that names an `A2A-Version` the interface does not speak gets
+  VersionNotSupported; one that names none is answered.
+- **Not mocked:** the gRPC binding (logged at startup), push notifications
+  (PushNotificationNotSupported) and the extended agent card (UnsupportedOperation, or
+  ExtendedAgentCardNotConfigured when the card declares one). Streaming and subscriptions follow
+  the card's `capabilities.streaming`.
+- **The contract:** the official A2A Java SDK reads every answer in the tests, over both bindings,
+  into A2A 1.0's types, strictly.
+
 ## Versions
 
 The extension is versioned on its own (SemVer), next to axx: merging its release-please PR tags
@@ -341,5 +469,7 @@ The WireMock version is pinned in `build.gradle.kts` and in the `Dockerfile`
 WireMock standalone bundles a relocated copy of the networknt JSON schema validator. It leaves
 that copy's message bundle (`jsv-messages*.properties`) at the classpath root, where it would
 override the one the validator needs and garble messages into `required property '{1}' not
-found`. The fat jar therefore renames its copy of the bundle, and the tests run against the fat
-jar with WireMock ahead of it on the classpath, as in the image.
+found`. The fat jar therefore renames its copy of the bundle, and moves the validator's classes
+into a package of its own, so another copy of the validator on the classpath (the MCP SDK's in the
+tests, a mounted extension's) cannot replace them. The tests run against the fat jar with WireMock
+ahead of it on the classpath, as in the image.

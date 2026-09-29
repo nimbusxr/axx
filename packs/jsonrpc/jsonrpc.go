@@ -18,11 +18,10 @@ import (
 
 	"github.com/nimbusxr/axx/core"
 	"github.com/nimbusxr/axx/internal/cloudstep"
-	"github.com/nimbusxr/axx/internal/compat/jsonx"
-	"github.com/nimbusxr/axx/internal/compat/jvalue"
 	"github.com/nimbusxr/axx/internal/oaslevel"
 	"github.com/nimbusxr/axx/internal/schemadoc"
 	"github.com/nimbusxr/axx/internal/secrets"
+	"github.com/nimbusxr/axx/internal/tablevalue"
 )
 
 // Name is the pack's name.
@@ -266,28 +265,30 @@ func get(sc *core.Scenario, name string) (*service, error) {
 	return s, nil
 }
 
-// params builds a call's params from a table (by name) or a doc string.
-func params(sc *core.Scenario, t *core.Table, doc *core.DocString) (json.RawMessage, error) {
+// params builds a call's params from a table (by name) or a doc string. A
+// param text says is text is its text as written (01067 keeps its zero).
+func params(sc *core.Scenario, t *core.Table, doc *core.DocString, text func(path string) bool) (json.RawMessage, error) {
 	switch {
 	case t != nil:
-		obj := jsonx.NewObject()
 		pairs, err := t.Pairs()
 		if err != nil {
 			return nil, err
 		}
-		for _, p := range pairs {
-			v := "null"
+		rows := make([]tablevalue.Row, len(pairs))
+		for i, p := range pairs {
+			rows[i] = tablevalue.Row{Path: p.Key, Null: p.Null}
 			if !p.Null {
-				if v, err = secrets.Resolve(sc, p.Value); err != nil {
+				if rows[i].Value, err = secrets.Resolve(sc, p.Value); err != nil {
 					return nil, err
 				}
 			}
-			if err := jvalue.ApplyRequestTableRow(obj, p.Key, v); err != nil {
-				return nil, err
-			}
 		}
-		text, err := jsonx.Marshal(obj)
-		return json.RawMessage(text), err
+		obj, err := tablevalue.Build(rows, text)
+		if err != nil {
+			return nil, err
+		}
+		b, err := json.Marshal(obj)
+		return json.RawMessage(b), err
 	case doc != nil:
 		text, err := secrets.Resolve(sc, doc.Content)
 		if err != nil {

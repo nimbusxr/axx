@@ -5,6 +5,7 @@ package all
 
 import (
 	"github.com/nimbusxr/axx/core"
+	"github.com/nimbusxr/axx/packs/a2a"
 	"github.com/nimbusxr/axx/packs/amqp"
 	"github.com/nimbusxr/axx/packs/asyncapi"
 	awscore "github.com/nimbusxr/axx/packs/aws/core"
@@ -28,6 +29,7 @@ import (
 	"github.com/nimbusxr/axx/packs/kafka"
 	"github.com/nimbusxr/axx/packs/logs"
 	"github.com/nimbusxr/axx/packs/mail"
+	"github.com/nimbusxr/axx/packs/mcp"
 	"github.com/nimbusxr/axx/packs/mock"
 	"github.com/nimbusxr/axx/packs/mongo"
 	"github.com/nimbusxr/axx/packs/mqtt"
@@ -53,6 +55,8 @@ func Packs() map[string]core.Pack {
 		"grpc":             grpcpack.Pack(),
 		"jsonrpc":          jsonrpc.Pack(),
 		"graphql":          graphql.Pack(),
+		"mcp":              mcp.Pack(),
+		"a2a":              a2a.Pack(),
 		"sql":              sqlpack.Pack(),
 		"mongo":            mongo.Pack(),
 		"redis":            redis.Pack(),

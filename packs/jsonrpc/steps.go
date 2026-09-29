@@ -202,7 +202,7 @@ func callOn(sc *core.Scenario, serviceName, method string, t *core.Table, doc *c
 	if err != nil {
 		return err
 	}
-	ps, err := params(sc, t, doc)
+	ps, err := params(sc, t, doc, func(path string) bool { return s.doc != nil && s.doc.textParam(method, path) })
 	if err != nil {
 		return err
 	}

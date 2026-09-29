@@ -145,21 +145,41 @@ func TestAgainstRealWireMock(t *testing.T) {
 		rows [][]string
 		want string // "" when the step passes
 	}{
-		{"none of the mocked POST requests to path /v1/collections on spacex have the payload properties:",
-			[][]string{{"reference", "PX-REG-1403"}}, ""},
-		{"none of the mocked POST requests to path /v1/collections have the payload properties:",
-			[][]string{{"reference", "PX-REG-1402"}, {"weightGrams", "800"}}, ""},
-		{"none of the mocked POST requests to path /v1/collections have the payload properties:",
+		{
+			"none of the mocked POST requests to path /v1/collections on spacex have the payload properties:",
+			[][]string{{"reference", "PX-REG-1403"}},
+			"",
+		},
+		{
+			"none of the mocked POST requests to path /v1/collections have the payload properties:",
+			[][]string{{"reference", "PX-REG-1402"}, {"weightGrams", "800"}},
+			"",
+		},
+		{
+			"none of the mocked POST requests to path /v1/collections have the payload properties:",
 			[][]string{{"reference", "PX-REG-1402"}, {"recipient.name", "Ada Lovelace"}},
-			"1 POST request(s) to path /v1/collections on spacex have the payload properties of the table:\n  POST /v1/collections\n"},
-		{"none of the mocked POST requests to path /v1/bookings on spacex have the query parameters:",
-			[][]string{{"slot", "same-day"}, {"requestId", "b7c9"}}, ""},
-		{"none of the mocked POST requests to path /v1/bookings have the query parameters:",
-			[][]string{{"slot", "next-day"}}, "POST /v1/bookings?requestId=b7c9&slot=next-day"},
-		{"none of the mocked POST requests to path /v1/pickups on spacex have the form fields:",
-			[][]string{{"reference", "PX-WEB-5402"}}, ""},
-		{"none of the mocked POST requests to path /v1/pickups have the form fields:",
-			[][]string{{"reference", "PX-WEB-5401"}, {"shop", "undefined"}}, "POST /v1/pickups"},
+			"1 POST request(s) to path /v1/collections on spacex have the payload properties of the table:\n  POST /v1/collections\n",
+		},
+		{
+			"none of the mocked POST requests to path /v1/bookings on spacex have the query parameters:",
+			[][]string{{"slot", "same-day"}, {"requestId", "b7c9"}},
+			"",
+		},
+		{
+			"none of the mocked POST requests to path /v1/bookings have the query parameters:",
+			[][]string{{"slot", "next-day"}},
+			"POST /v1/bookings?requestId=b7c9&slot=next-day",
+		},
+		{
+			"none of the mocked POST requests to path /v1/pickups on spacex have the form fields:",
+			[][]string{{"reference", "PX-WEB-5402"}},
+			"",
+		},
+		{
+			"none of the mocked POST requests to path /v1/pickups have the form fields:",
+			[][]string{{"reference", "PX-WEB-5401"}, {"shop", "undefined"}},
+			"POST /v1/pickups",
+		},
 	} {
 		err := run(c.text, c.rows...)
 		switch {

@@ -21,6 +21,8 @@ var Catalog = []Pack{
 	{Name: "grpc", Import: packs + "grpc", Summary: "gRPC calls and server streams: status, answers, metadata, read with the services' protos or reflection"},
 	{Name: "jsonrpc", Import: packs + "jsonrpc", Summary: "JSON-RPC 2.0 calls over HTTP: results and errors, checked against OpenRPC documents"},
 	{Name: "graphql", Import: packs + "graphql", Summary: "GraphQL queries, mutations and subscriptions, of a federated graph or a subgraph, checked against the schema"},
+	{Name: "mcp", Import: packs + "mcp", Summary: "MCP servers, over stdio or HTTP: their tools, checked against the tools' schemas, their resources and prompts"},
+	{Name: "a2a", Import: packs + "a2a", Summary: "A2A agents: the messages sent and streamed to them, and the tasks they run, with their states and artifacts"},
 	{Name: "sql", Import: packs + "sql", Summary: "SQL databases: seeds, selections, locks, triggers"},
 	{Name: "mongo", Import: packs + "mongo", Summary: "MongoDB: seeds and selections"},
 	{Name: "redis", Import: packs + "redis", Summary: "Redis and its forks (Valkey, Dragonfly, KeyDB, Garnet): seeds and keys"},

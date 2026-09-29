@@ -4,7 +4,7 @@
 #   docker compose down -v               # stop and remove containers and volumes
 #
 # axx runs this for you: see ../acceptance/axx.yaml. The published host ports are the
-# ones the feature files use (8400, 8410, 4000, 8081, 8082, 8083, 8084, 8085, 8086, 5432, 27017,
+# ones the feature files use (8400, 8410, 4000, 8081, 8082, 8083, 8084, 8085, 8086, 8087, 5432, 27017,
 # 9092, 9081, 5672, 1883, 4222, 6379 and 1143, and the mail server's SMTP on 1025 and web
 # interface on 8025).
 name: parcels
@@ -126,6 +126,28 @@ services:
       - '8086:8080'
     volumes:
       - './models:/home/wiremock'
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/__admin/health"]
+      interval: 1s
+      timeout: 2s
+      retries: 60
+      start_period: 5s
+    stop_signal: SIGKILL
+
+  # The partner carrier, which delivers the parcels going beyond the EU: its MCP server (which the
+  # parcel assistant asks) mocked from partner-carrier/mcp/partner-carrier.yaml, and its A2A agent
+  # (which the parcels agent asks) mocked from partner-carrier/a2a/agent-card.json, both by the same
+  # WireMock image, their answers the stubs in partner-carrier/mappings.
+  partner-carrier:
+    build:
+      context: ../../../extensions/wiremock-openapi
+    ports:
+      - '8087:8080'
+    environment:
+      MCP_SERVER_SOURCE: /home/wiremock/mcp/partner-carrier.yaml
+      A2A_AGENT_CARD_SOURCE: /home/wiremock/a2a/agent-card.json
+    volumes:
+      - './partner-carrier:/home/wiremock'
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/__admin/health"]
       interval: 1s
@@ -358,6 +380,8 @@ services:
       PARCELS_SMTP_ADDR: mail:25
       PARCELS_EXPORT_DIR: /var/lib/parcels/exports
       PARCELS_MODEL_URL: http://models:8080/v1
+      PARCELS_PARTNER_MCP_URL: http://partner-carrier:8080/mcp
+      PARCELS_PARTNER_AGENT_URL: http://partner-carrier:8080
       # Every log line also goes to the log service axx runs on the host (the
       # parcels log in the features); host-gateway makes the name work on Linux.
       PARCELS_LOG_UDP: host.docker.internal:5140
@@ -377,6 +401,8 @@ services:
       rating:
         condition: service_healthy
       models:
+        condition: service_healthy
+      partner-carrier:
         condition: service_healthy
       postgres:
         condition: service_healthy

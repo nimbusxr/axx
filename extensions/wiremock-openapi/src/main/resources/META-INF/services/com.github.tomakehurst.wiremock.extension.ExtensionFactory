@@ -3,3 +3,7 @@
 us.nimbusxr.axx.wiremock.graphql.GraphqlExtensionFactory
 # The model mock: the model-request matcher and the model-answer transformer (see ModelsExtensionFactory).
 us.nimbusxr.axx.wiremock.models.ModelsExtensionFactory
+# The MCP server mock, made when MCP_SERVER_SOURCE names a server description (see McpExtensionFactory).
+us.nimbusxr.axx.wiremock.mcp.McpExtensionFactory
+# The A2A agent mock, made when A2A_AGENT_CARD_SOURCE names an agent card (see A2aExtensionFactory).
+us.nimbusxr.axx.wiremock.a2a.A2aExtensionFactory

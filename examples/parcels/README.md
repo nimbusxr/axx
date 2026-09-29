@@ -44,7 +44,9 @@ The service has no dependency on Axx or on any test framework.
 | `depot-holds` | a depot reads a parcel, and holds it until the day the recipient chose, but not once it is out for delivery; a parcel the service does not know, and a hold without its day | JSON-RPC calls checked against the service's OpenRPC document, their results and error codes |
 | `parcels-graph` | a shop's app reads a parcel through the parcels subgraph, holds it at its depot, and hears it go out for delivery | GraphQL queries, mutations and a subscription (graphql-ws) checked against the schema the service introspects, their data and errors |
 | `federated-graph` | through the gateway, a parcel comes with its shop from the shops subgraph; a shop the directory does not know; a field the graph does not have | a federated graph (Hive Gateway) over the service's subgraph and a subgraph WireMock mocks from its schema, the `_entities` call the gateway sent it, a validation rule relaxed for one scenario |
-| `parcel-assistant` | the assistant reads the address in a shop's note, and sends a note it cannot read back to the shop; it looks a parcel up before it answers, and never tells the model the recipient's street; a busy model is asked once more, then the recipient is asked to try again | a model mocked by WireMock (the service speaks OpenAI's API), a tool loop, what the service asked the model: the texts, the tools and the schema, and what it must never send |
+| `parcel-assistant` | the assistant reads the address in a shop's note, and sends a note it cannot read back to the shop; it looks a parcel up before it answers, and never tells the model the recipient's street; for a parcel abroad, it asks the partner carrier; a busy model is asked once more, then the recipient is asked to try again | a model mocked by WireMock (the service speaks OpenAI's API), a tool loop, what the service asked the model: the texts, the tools and the schema, and what it must never send; a mocked MCP server and the tool calls it received |
+| `parcels-mcp` | the service's MCP server: assistants see its tools, track parcels, hold them (and not once they are out for delivery), read labels and write delivery updates, over HTTP and over stdio | an MCP server's tools, results that are errors and calls it refuses, the tools' schemas as the contract and a level relaxed, a resource and a prompt, a server run as a command |
+| `parcels-agent` | the service's A2A agent: its card and skills, where a parcel is, a hold that asks until which day, a hold that can no longer be placed, a stream of its work, a canceled task, an unknown parcel, and a parcel abroad it asks the partner carrier's agent about | an A2A agent's card, tasks and their states, a reply to a task that asks for input, artifacts, a stream over HTTP+JSON, a mocked A2A agent and the messages it was sent |
 | `operations-desk` | the desk's `parcels admin` command reprints labels, cancels parcels (from its input too) under the API's rules, and lists a shop's parcels | a command run in the service's container, its exit code, output and error output, output compared byte for byte and by its JSON properties, SQL selections |
 
 `axx.yaml` also shows test-data lint rules (`axx lint`), fixture factories (`axx fixtures`)
@@ -65,6 +67,7 @@ parcels/
     shop-directory/ the shops subgraph mock: its schema and its entities' mappings
     supergraph/     composes the supergraph the gateway serves, from the subgraphs' SDL
     models/         the model mock, which the parcel assistant asks: its answers' mappings
+    partner-carrier/ the partner carrier's MCP server and A2A agent mocks: their description, card and mappings
     exports/        what the service writes to its export folder during a run (not committed)
   acceptance/   the Axx project
     axx.yaml        run settings, the app definition, the packs' settings, lint rules, fixture settings
@@ -153,7 +156,7 @@ browser at it. The host ports are the ones the features use:
 
 | Service | Image | Host port | Purpose |
 | --- | --- | --- | --- |
-| `app` | built from `../app` | 8400, 8410 | the parcels API under `/api`, the shop portal under `/portal`, OpenAPI at `/openapi.json`, health at `/health`, JSON-RPC at `/rpc`, GraphQL at `/graphql`; the tracking API over gRPC on 8410 |
+| `app` | built from `../app` | 8400, 8410 | the parcels API under `/api`, the shop portal under `/portal`, OpenAPI at `/openapi.json`, health at `/health`, JSON-RPC at `/rpc`, GraphQL at `/graphql`, its MCP server at `/mcp`, its A2A agent at `/a2a` (card at `/.well-known/agent-card.json`); the tracking API over gRPC on 8410 |
 | `address-service` | built from `extensions/wiremock-openapi` | 8081 | WireMock with Axx's OpenAPI validation extension: the mocked address service |
 | `courier` | built from `extensions/wiremock-openapi` | 8082 | the mocked courier, checked against `openapi/courier.yaml`: express collections (JSON) and pickups (a form) |
 | `shops` | built from `extensions/wiremock-openapi` | 8083 | the mocked shops' systems, checked against `openapi/shop-webhooks.yaml`: the signed webhooks of deliveries |
@@ -162,6 +165,7 @@ browser at it. The host ports are the ones the features use:
 | `supergraph` | built from `supergraph/` | (none) | composes the supergraph from the subgraphs' SDL, as a team composes in CI |
 | `gateway` | `ghcr.io/graphql-hive/gateway:2.15.1` | 4000 | the federated graph's gateway (Hive Gateway), which serves the supergraph |
 | `models` | built from `extensions/wiremock-openapi` | 8086 | the model the parcel assistant asks, mocked in the format of its requests (OpenAI's API) |
+| `partner-carrier` | built from `extensions/wiremock-openapi` | 8087 | the partner carrier's MCP server and A2A agent, which the service asks about parcels beyond the EU, mocked from their description and card |
 | `postgres` | `postgres:16` | 5432 | parcels, manifest lines, pickups and shops' settings |
 | `mongo` | `mongo:7` | 27017 | depot scans and the tracking read model |
 | `kafka` | `apache/kafka-native:3.9.1` | 9092 | single-node KRaft broker |

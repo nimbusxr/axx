@@ -1,0 +1,26 @@
+{
+  "mappings": [
+    {
+      "name": "Where is PX-AI-8105, a parcel abroad: the model looks it up",
+      "request": {
+        "customMatcher": {"name": "model-request", "parameters": {"about": "PX-AI-8105"}}
+      },
+      "response": {
+        "transformers": ["model-answer"],
+        "jsonBody": {
+          "toolCalls": [{"name": "track_parcel", "arguments": {"reference": "PX-AI-8105"}}]
+        }
+      }
+    },
+    {
+      "name": "Where is PX-AI-8105: the model answers with what the partner carrier said",
+      "request": {
+        "customMatcher": {"name": "model-request", "parameters": {"about": "PX-AI-8105", "afterTool": "track_parcel"}}
+      },
+      "response": {
+        "transformers": ["model-answer"],
+        "jsonBody": {"text": "Your parcel PX-AI-8105 cleared customs in Basel and arrives on Thursday."}
+      }
+    }
+  ]
+}

@@ -164,6 +164,10 @@ mock | mock.model.contains | the mocked {mockedService} model's request about {s
 mock | mock.model.notContains | the mocked {mockedService} model's request about {string} does not contain {string}
 mock | mock.model.tool | the mocked {mockedService} model was offered the {word} tool in the request about {string}
 mock | mock.model.schema | the mocked {mockedService} model was asked for the {filepath} schema in the request about {string}
+mock | mock.mcp.called | the mocked {mockedService} mcp server's {word} tool was called with the following arguments:  [+table]
+mock | mock.mcp.called | the mocked {mockedService} mcp server's {word} tool was called {int} time(s) with the following arguments:  [+table]
+mock | mock.a2a.sent | the mocked {mockedService} a2a agent was sent a message containing {string}
+mock | mock.a2a.sent | the mocked {mockedService} a2a agent was sent a message containing {string} {int} time(s)
 grpc | grpc.service | the {word} grpc service with the following properties:  [+table]
 grpc | grpc.call | the {word} method is called on the {word} grpc service
 grpc | grpc.call.fields | the {word} method is called on the {word} grpc service with the following fields:  [+table]
@@ -199,6 +203,44 @@ graphql | graphql.error | the {word} graphql service answered an error where:  [
 graphql | graphql.received | the {word} graphql service's subscription received a message where:  [+table]
 graphql | graphql.received | within {duration} the {word} graphql service's subscription received a message where:  [+table]
 graphql | graphql.levels | the GraphQL validation levels are:  [+table]
+mcp | mcp.server | the {word} mcp server with the following properties:  [+table]
+mcp | mcp.tool | the {word} mcp server has the {word} tool
+mcp | mcp.tool | the {word} mcp server has the {word} tool with the following properties:
+mcp | mcp.noTool | the {word} mcp server does not have the {word} tool
+mcp | mcp.call | the {word} tool is called on the {word} mcp server
+mcp | mcp.call | the {word} tool is called on the {word} mcp server with the following arguments:
+mcp | mcp.call.file | the {word} tool is called on the {word} mcp server with the {filepath} arguments
+mcp | mcp.notError | the {word} tool's result is not an error
+mcp | mcp.notError | the {word} tool's result on the {word} mcp server is not an error
+mcp | mcp.error | the {word} tool's result is an error
+mcp | mcp.error | the {word} tool's result on the {word} mcp server is an error
+mcp | mcp.contains | the {word} tool's result contains {string}
+mcp | mcp.contains | the {word} tool's result on the {word} mcp server contains {string}
+mcp | mcp.properties | the {word} tool's result has the following properties:  [+table]
+mcp | mcp.properties | the {word} tool's result on the {word} mcp server has the following properties:  [+table]
+mcp | mcp.refused | the {word} tool's call failed with the error code {int}
+mcp | mcp.refused | the {word} tool's call on the {word} mcp server failed with the error code {int}
+mcp | mcp.resource.read | the {word} resource is read from the {word} mcp server
+mcp | mcp.resource.contains | the {word} resource contains {string}
+mcp | mcp.resource.properties | the {word} resource has the following properties:  [+table]
+mcp | mcp.prompt | the {word} prompt is requested from the {word} mcp server
+mcp | mcp.prompt | the {word} prompt is requested from the {word} mcp server with the following arguments:
+mcp | mcp.prompt.contains | the {word} prompt contains {string}
+mcp | mcp.levels | the MCP validation levels are:  [+table]
+a2a | a2a.agent | the {word} a2a agent with the following properties:  [+table]
+a2a | a2a.card | the {word} a2a agent's card has the following properties:  [+table]
+a2a | a2a.skill | the {word} a2a agent has the {word} skill
+a2a | a2a.send | a message is sent to the {word} a2a agent:  [+docstring]
+a2a | a2a.send.file | the {filepath} message is sent to the {word} a2a agent
+a2a | a2a.stream | a message is streamed to the {word} a2a agent:  [+docstring]
+a2a | a2a.reply | a reply is sent to the {word} a2a agent:  [+docstring]
+a2a | a2a.cancel | the {word} a2a agent is asked to cancel its task
+a2a | a2a.state | the {word} a2a agent's task is {word}
+a2a | a2a.state | within {duration} the {word} a2a agent's task is {word}
+a2a | a2a.answer | the {word} a2a agent's answer contains {string}
+a2a | a2a.artifact | the {word} a2a agent's task has an artifact where:  [+table]
+a2a | a2a.update | the {word} a2a agent's stream received an update where:  [+table]
+a2a | a2a.update | within {duration} the {word} a2a agent's stream received an update where:  [+table]
 sql | sql.service | a(n) {word} database with the following properties:  [+table]
 sql | sql.seed | a {filepath} db seed
 sql | sql.seed | a {filepath} db seed on {dbService}

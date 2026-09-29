@@ -125,6 +125,21 @@ type finding = schemadoc.Finding
 
 // conform gives a table's params by name the types of their schemas: the
 // text of a number for a param whose type is string.
+// textParam reports whether a path of a table's params is a param whose
+// schema's type is string.
+func (d *document) textParam(name, path string) bool {
+	m, ok := d.methods[name]
+	if !ok || strings.ContainsAny(path, ".[") {
+		return false
+	}
+	for _, p := range m.params {
+		if p.name == path {
+			return p.text
+		}
+	}
+	return false
+}
+
 func (d *document) conform(name string, params map[string]any) {
 	m, ok := d.methods[name]
 	if !ok {

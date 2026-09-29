@@ -1,0 +1,8 @@
+parcels.parcels:
+  - reference: "PX-MCP-9102"
+    sender: "birch-and-bloom"
+    status: "IN_TRANSIT"
+    service_level: "STANDARD"
+    weight_grams: 800
+    recipient: '{"name": "Lena Vogel", "street": "Prager Str. 3", "city": "Dresden", "postcode": "01069", "country": "DE"}'
+    details: '{"source": "api", "zone": "DE-1"}'

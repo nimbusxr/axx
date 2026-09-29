@@ -6,6 +6,8 @@ packs:
   - grpc
   - jsonrpc
   - graphql
+  - mcp
+  - a2a
   - sql
   - mongo
   - redis

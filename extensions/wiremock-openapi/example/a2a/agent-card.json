@@ -1,0 +1,21 @@
+{
+  "name": "Partner carrier agent",
+  "description": "Tracks the partner carrier's shipments and books pickups of parcels.",
+  "supportedInterfaces": [
+    {"url": "http://carrier-agent:8080/a2a", "protocolBinding": "JSONRPC", "protocolVersion": "1.0"},
+    {"url": "http://carrier-agent:8080/a2a/rest", "protocolBinding": "HTTP+JSON", "protocolVersion": "1.0"}
+  ],
+  "version": "2.4.0",
+  "capabilities": {"streaming": true, "pushNotifications": false},
+  "defaultInputModes": ["text/plain"],
+  "defaultOutputModes": ["text/plain", "application/json"],
+  "skills": [
+    {
+      "id": "shipment-status",
+      "name": "Shipment status",
+      "description": "Where a shipment is, by its parcel reference.",
+      "tags": ["parcels", "tracking"],
+      "examples": ["Where is PX-SMOKE-9001?"]
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+# SPDX-License-Identifier: Apache-2.0
+# The partner carrier's MCP server smoke-test.sh mocks: MCP_SERVER_SOURCE names it. What it lists;
+# its answers are the stubs in ../mappings.
+serverInfo:
+  name: carrier-tools
+  title: Partner carrier
+  version: 2.4.0
+instructions: Look up the partner carrier's shipments by their parcel reference (PX-...).
+tools:
+  - name: shipment_status
+    title: Shipment status
+    description: Where a shipment the partner carrier handles is, by its parcel reference.
+    inputSchema:
+      type: object
+      properties:
+        reference:
+          type: string
+          pattern: "^PX-[A-Z0-9-]+$"
+      required: [reference]
+      additionalProperties: false
+    outputSchema:
+      type: object
+      properties:
+        reference: {type: string}
+        status: {type: string, enum: [ACCEPTED, IN_TRANSIT, OUT_FOR_DELIVERY, DELIVERED, RETURNED]}
+        depot: {type: string}
+      required: [reference, status]
+resources:
+  - uri: carrier://service-areas
+    name: service-areas
+    description: The postcodes the partner carrier delivers to.
+    mimeType: text/plain
+    text: "DE 01067-99998, AT 1010-9992"
