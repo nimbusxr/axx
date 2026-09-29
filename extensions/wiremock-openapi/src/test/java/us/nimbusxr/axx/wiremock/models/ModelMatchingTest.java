@@ -109,7 +109,7 @@ class ModelMatchingTest extends ModelMockTest {
     void aWrongMappingFileStopsWireMock(@TempDir Path root) throws Exception {
         Files.createDirectories(root.resolve("mappings"));
         Files.writeString(root.resolve("mappings/assistant.json"), mapping("{\"about\": \"PX-AI-8605\"}", "{\"toolcalls\": []}"));
-        assertThatThrownBy(() -> new WireMockServer(options().dynamicPort().usingFilesUnderDirectory(root.toString())
+        assertThatThrownBy(() -> new WireMockServer(options().bindAddress("127.0.0.1").dynamicPort().usingFilesUnderDirectory(root.toString())
                 .extensions(new ModelsExtensionFactory())))
                 .hasMessageContaining("PX-AI-8605")
                 .hasMessageContaining("the model answer has no key \"toolcalls\"");
@@ -118,11 +118,11 @@ class ModelMatchingTest extends ModelMockTest {
     @Test
     void wireMocksCommandLineFindsTheModelMock(@TempDir Path root) throws Exception {
         // As the image runs WireMock: its command line, which scans for extensions.
-        WireMockServer standalone = new WireMockServer(new CommandLineOptions("--port", "0", "--root-dir", root.toString()));
+        WireMockServer standalone = new WireMockServer(new CommandLineOptions("--port", "0", "--bind-address", "127.0.0.1", "--root-dir", root.toString()));
         standalone.start();
         try {
             standalone.addStubMapping(StubMapping.buildFrom(mapping("{\"about\": \"PX-AI-8606\"}", "{\"text\": \"On its way.\"}")));
-            HttpResponse<String> res = HTTP.send(HttpRequest.newBuilder(URI.create("http://localhost:" + standalone.port() + "/v1/chat/completions"))
+            HttpResponse<String> res = HTTP.send(HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + standalone.port() + "/v1/chat/completions"))
                     .header("Content-Type", "application/json").POST(HttpRequest.BodyPublishers.ofString(
                             "{\"model\": \"gpt-4.1-mini\", \"messages\": [{\"role\": \"user\", \"content\": \"PX-AI-8606?\"}]}")).build(),
                     HttpResponse.BodyHandlers.ofString());

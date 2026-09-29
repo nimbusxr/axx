@@ -19,7 +19,9 @@ abstract class ModelMockTest {
 
     @BeforeEach
     void startWireMock() {
-        wm = new WireMockServer(options().dynamicPort().extensions(new ModelsExtensionFactory()));
+        // On the loopback address, which the tests call: a server on every address can be given a
+        // port another process listens on at 127.0.0.1 (an IDE's), which then answers the tests.
+        wm = new WireMockServer(options().bindAddress("127.0.0.1").dynamicPort().extensions(new ModelsExtensionFactory()));
         wm.start();
     }
 
@@ -29,7 +31,7 @@ abstract class ModelMockTest {
     }
 
     String url() {
-        return "http://localhost:" + wm.port();
+        return "http://127.0.0.1:" + wm.port();
     }
 
     /** Adds a stub, from the JSON of a mapping file. */

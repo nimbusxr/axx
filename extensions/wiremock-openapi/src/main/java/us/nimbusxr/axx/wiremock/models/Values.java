@@ -20,6 +20,9 @@ final class Values {
 
     /** An object of keys and values, in their order, nulls kept. */
     static Map<String, Object> obj(Object... kv) {
+        if (kv.length % 2 != 0) {
+            throw new IllegalArgumentException("an object is keys and values, in pairs: " + kv.length + " is odd");
+        }
         Map<String, Object> m = new LinkedHashMap<>();
         for (int i = 0; i < kv.length; i += 2) {
             m.put((String) kv[i], kv[i + 1]);

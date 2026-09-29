@@ -49,10 +49,15 @@ class OpenApiValidatorExtensionTest {
 
     @BeforeEach
     void setUp() {
-        // A dynamic port: a fixed one collides with anything else listening locally.
+        // A dynamic port: a fixed one collides with anything else listening locally. On the
+        // loopback address, which the tests call: a server on every address can be given a port
+        // another process listens on at 127.0.0.1 (an IDE's), which then answers the tests.
         wm =
                 new WireMockServer(
-                        options().dynamicPort().extensions(new OpenApiValidatorExtension()));
+                        options()
+                                .bindAddress("127.0.0.1")
+                                .dynamicPort()
+                                .extensions(new OpenApiValidatorExtension()));
         wm.start();
     }
 

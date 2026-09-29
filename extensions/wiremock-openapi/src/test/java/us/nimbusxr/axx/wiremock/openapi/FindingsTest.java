@@ -45,6 +45,7 @@ class FindingsTest {
         wm =
                 new WireMockServer(
                         options()
+                                .bindAddress("127.0.0.1")
                                 .dynamicPort()
                                 .extensions(new OpenApiValidatorExtension(Settings.fromEnv(env))));
         wm.start();

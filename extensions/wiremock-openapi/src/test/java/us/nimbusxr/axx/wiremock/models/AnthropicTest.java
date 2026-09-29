@@ -63,7 +63,8 @@ class AnthropicTest extends ModelMockTest {
     private static Tool trackParcel() {
         return Tool.builder().name("track_parcel").description("Finds where a parcel is.")
                 .inputSchema(Tool.InputSchema.builder()
-                        .properties(JsonValue.from(Map.of("reference", Map.of("type", "string"))))
+                        .properties(Tool.InputSchema.Properties.builder()
+                                .putAdditionalProperty("reference", JsonValue.from(Map.of("type", "string"))).build())
                         .required(List.of("reference"))
                         .build())
                 .build();
@@ -91,7 +92,7 @@ class AnthropicTest extends ModelMockTest {
         assertThat(first.stopReason()).contains(StopReason.TOOL_USE);
         ToolUseBlock use = first.content().get(0).toolUse().get();
         assertThat(use.name()).isEqualTo("track_parcel");
-        assertThat(use._input().convert(Map.class)).isEqualTo(Map.of("reference", "PX-AI-8202"));
+        assertThat(use._input()).isEqualTo(JsonValue.from(Map.of("reference", "PX-AI-8202")));
 
         Message second = client().messages().create(params.addMessage(first)
                 .addUserMessageOfBlockParams(List.of(ContentBlockParam.ofToolResult(ToolResultBlockParam.builder()
@@ -136,7 +137,7 @@ class AnthropicTest extends ModelMockTest {
         assertThat(m.content().get(0).thinking().get().thinking()).isEqualTo("It was scanned there.");
         assertThat(m.content().get(0).thinking().get().signature()).isNotEmpty();
         assertThat(m.content().get(1).text().get().text()).isEqualTo("Your parcel is at the Leipzig depot.");
-        assertThat(m.content().get(2).toolUse().get()._input().convert(Map.class)).isEqualTo(Map.of("reference", "PX-AI-8205"));
+        assertThat(m.content().get(2).toolUse().get()._input()).isEqualTo(JsonValue.from(Map.of("reference", "PX-AI-8205")));
         assertThat(m.stopReason()).contains(StopReason.TOOL_USE);
         assertThat(last().getResponse().getBodyAsString()).contains("event: ping").endsWith("event: message_stop\ndata: {\"type\":\"message_stop\"}\n\n");
     }

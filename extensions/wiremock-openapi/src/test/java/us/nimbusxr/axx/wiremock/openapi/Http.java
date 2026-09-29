@@ -24,7 +24,7 @@ final class Http {
     private String body;
 
     private Http(int port, String method, String path) {
-        this.builder = HttpRequest.newBuilder(URI.create("http://localhost:" + port + path));
+        this.builder = HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + path));
         this.method = method;
     }
 

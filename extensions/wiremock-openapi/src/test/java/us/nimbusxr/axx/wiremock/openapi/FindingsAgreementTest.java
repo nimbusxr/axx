@@ -42,7 +42,12 @@ class FindingsAgreementTest {
                         Map.of(
                                 "OPENAPI_VALIDATION_MODE", "report",
                                 "OPENAPI_SPEC_SOURCE", DIR.resolve("spec.yaml").toString()));
-        wm = new WireMockServer(options().dynamicPort().extensions(new OpenApiValidatorExtension(settings)));
+        wm =
+                new WireMockServer(
+                        options()
+                                .bindAddress("127.0.0.1")
+                                .dynamicPort()
+                                .extensions(new OpenApiValidatorExtension(settings)));
         wm.start();
     }
 

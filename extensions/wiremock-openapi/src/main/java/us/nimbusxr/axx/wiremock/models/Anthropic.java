@@ -28,7 +28,7 @@ final class Anthropic extends Wire {
 
     @Override
     Rendered answer(ModelCall call, Answer a) {
-        Map<String, Object> message = message(call, a, blocks(a), stopReason(a), usage(call, a));
+        Map<String, Object> message = message(call, blocks(a), stopReason(a), usage(call, a));
         return headers(call, Rendered.json(200, message));
     }
 
@@ -36,7 +36,7 @@ final class Anthropic extends Wire {
     Rendered stream(ModelCall call, Answer a) {
         List<Event> events = new ArrayList<>();
         int in = inputTokens(call, a);
-        events.add(event("message_start", "message", message(call, a, arr(), null, obj("input_tokens", in, "output_tokens", 1,
+        events.add(event("message_start", "message", message(call, arr(), null, obj("input_tokens", in, "output_tokens", 1,
                 "cache_creation_input_tokens", 0, "cache_read_input_tokens", 0, "service_tier", "standard"))));
         events.add(event("ping"));
         List<Map<String, Object>> blocks = blocks(a);
@@ -117,7 +117,7 @@ final class Anthropic extends Wire {
         return Base64.getEncoder().encodeToString(Values.hash(64, thinking).getBytes(StandardCharsets.UTF_8));
     }
 
-    private static Map<String, Object> message(ModelCall call, Answer a, List<?> content, String stopReason, Map<String, Object> usage) {
+    private static Map<String, Object> message(ModelCall call, List<?> content, String stopReason, Map<String, Object> usage) {
         return obj("id", "msg_" + UUID.randomUUID().toString().replace("-", ""), "type", "message", "role", "assistant",
                 "model", call.model(), "content", content, "stop_reason", stopReason, "stop_sequence", null, "usage", usage);
     }
