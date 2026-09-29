@@ -43,6 +43,8 @@ var Catalog = []Pack{
 	{Name: "web-network", Import: packs + "web/network", Requires: []string{"web-core"}, Summary: "what pages fetch: failing, answered or slow requests, recordings, websocket messages"},
 	{Name: "web-lighthouse", Import: packs + "web/lighthouse", Requires: []string{"web-core"}, Summary: "Lighthouse audits of pages: performance, accessibility, best practices and SEO scores, Core Web Vitals"},
 	{Name: "web-coverage", Import: packs + "web/coverage", Requires: []string{"web-core"}, Summary: "how much of the web apps' JavaScript the scenarios run: lcov and Istanbul reports, from Chromium"},
+	{Name: "mobile-core", Import: packs + "mobile/core", Summary: "native mobile apps, used as people use them: launched or opened with a deep link, their controls tapped and filled, what they show checked"},
+	{Name: "mobile-android", Import: packs + "mobile/android", Requires: []string{"mobile-core"}, Summary: "Android apps on emulators and devices, through Appium: a device of its own and a clean app for each scenario"},
 	{Name: "aws-core", Import: packs + "aws/core", Summary: "the AWS account the aws-* packs use"},
 	{Name: "aws-s3", Import: packs + "aws/s3", Requires: []string{"aws-core"}, Summary: "S3 buckets and objects"},
 	{Name: "aws-sqs", Import: packs + "aws/sqs", Requires: []string{"aws-core"}, Summary: "SQS queues"},

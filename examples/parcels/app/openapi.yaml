@@ -278,6 +278,80 @@ paths:
         "400": {$ref: "#/components/responses/Problem"}
         "401": {$ref: "#/components/responses/Problem"}
         "404": {$ref: "#/components/responses/Problem"}
+  /api/couriers/sign-in:
+    post:
+      operationId: courierSignIn
+      summary: A courier signs in to the couriers' app
+      description: >-
+        The couriers' app is the handheld a courier delivers with. A courier signs in with
+        their courier ID and PIN, and gets a token for a working day.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/CourierSignIn"}
+            examples:
+              Hanna:
+                value: {courier: CR-LEJ-12, pin: "4711"}
+      responses:
+        "200":
+          description: The courier's token and name.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/CourierSession"}
+        "400": {$ref: "#/components/responses/Problem"}
+        "401": {$ref: "#/components/responses/Problem"}
+  /api/couriers/{courier}/deliveries:
+    parameters:
+      - $ref: "#/components/parameters/Courier"
+    get:
+      operationId: listCourierDeliveries
+      summary: The parcels a courier delivers today
+      description: >-
+        The parcels out for delivery with the courier and not delivered yet, oldest first.
+        Needs the courier's token.
+      security:
+        - courierToken: []
+      responses:
+        "200":
+          description: The courier's deliveries.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/CourierDeliveries"}
+        "401": {$ref: "#/components/responses/Problem"}
+        "403": {$ref: "#/components/responses/Problem"}
+  /api/couriers/{courier}/deliveries/{reference}:
+    parameters:
+      - $ref: "#/components/parameters/Courier"
+      - $ref: "#/components/parameters/Reference"
+    post:
+      operationId: confirmCourierDelivery
+      summary: A courier confirms a delivery
+      description: >-
+        The parcel is delivered, signed for by someone: the service records it as it records
+        the confirmations the couriers' handhelds publish over NATS, and tells the parcel's
+        shop. Needs the courier's token.
+      security:
+        - courierToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/DeliveryConfirmation"}
+            examples:
+              Signed:
+                value: {signedBy: H. Wolf}
+      responses:
+        "200":
+          description: The parcel is delivered.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/DeliveryConfirmed"}
+        "400": {$ref: "#/components/responses/Problem"}
+        "401": {$ref: "#/components/responses/Problem"}
+        "403": {$ref: "#/components/responses/Problem"}
+        "404": {$ref: "#/components/responses/Problem"}
+        "409": {$ref: "#/components/responses/Problem"}
   /api/shops/{shop}/parcels:
     parameters:
       - name: shop
@@ -407,7 +481,16 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
+    courierToken:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
   parameters:
+    Courier:
+      name: courier
+      in: path
+      required: true
+      schema: {type: string}
     Reference:
       name: reference
       in: path
@@ -429,6 +512,48 @@ components:
         application/problem+json:
           schema: {$ref: "#/components/schemas/Problem"}
   schemas:
+    CourierSignIn:
+      type: object
+      required: [courier, pin]
+      properties:
+        courier: {type: string, minLength: 1}
+        pin: {type: string, minLength: 1}
+    CourierSession:
+      type: object
+      required: [token, courier, name, expiresIn]
+      properties:
+        token: {type: string}
+        courier: {type: string}
+        name: {type: string}
+        expiresIn: {type: integer}
+    CourierDeliveries:
+      type: object
+      required: [courier, deliveries]
+      properties:
+        courier: {type: string}
+        deliveries:
+          type: array
+          items:
+            type: object
+            required: [reference, serviceLevel, recipient]
+            properties:
+              reference: {type: string}
+              serviceLevel: {type: string, enum: [STANDARD, EXPRESS]}
+              recipient: {$ref: "#/components/schemas/Recipient"}
+    DeliveryConfirmation:
+      type: object
+      required: [signedBy]
+      properties:
+        signedBy: {type: string, minLength: 1}
+        location: {type: string, description: Where the parcel was delivered; the recipient's city by default.}
+    DeliveryConfirmed:
+      type: object
+      required: [reference, status, signedBy, location]
+      properties:
+        reference: {type: string}
+        status: {type: string, enum: [DELIVERED]}
+        signedBy: {type: string}
+        location: {type: string}
     Recipient:
       type: object
       required: [name, postcode, country]

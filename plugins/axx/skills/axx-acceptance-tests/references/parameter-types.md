@@ -7,7 +7,9 @@
 | `{bigdecimal}` | a decimal number of any precision |  | `0.1000000000000000055` | cucumber |
 | `{biginteger}` | a whole number of any size |  | `123456789012345678901234567890` | cucumber |
 | `{byte}` | a whole number, from -128 to 127 |  | `12` | cucumber |
+| `{control}` | a kind of control on the screen, found by the name people see: a `button` by its text, a `field` by its label, a `list item` by one of its texts, an `element` is anything, by its text or accessibility label | `button`, `field`, `checkbox`, `switch`, `tab`, `list item`, `image`, `text`, `element` | `button`, `list item` | mobile-core |
 | `{dbService}` | the name of a database registered in the scenario |  | `parcels-db` | sql |
+| `{direction}` | where a swipe goes, as the finger moves: `down` from the top pulls a list to refresh | `up`, `down`, `left`, `right` | `down`, `left` | mobile-core |
 | `{double}` | a decimal number |  | `19.90` | cucumber |
 | `{duration}` | a duration in seconds (`s`) or minutes (`m`) |  | `5s`, `2m` | core |
 | `{element}` | a kind of element on the page, plural after a number (`buttons`): a `field` by its label or placeholder, an `option` is a radio button, an `element` is anything, by its text, label, alternative text or title | `button`, `field`, `checkbox`, `option`, `link`, `tab`, `menu item`, `element` | `button`, `field` | web-core |

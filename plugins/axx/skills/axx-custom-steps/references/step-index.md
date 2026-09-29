@@ -579,6 +579,37 @@ web-network | web-network.ws.received | the page received a websocket message co
 web-network | web-network.ws.received | within {duration} the page received a websocket message containing {string}
 web-lighthouse | web-lighthouse.scores | the {string} page scores at least:  [+table]
 web-lighthouse | web-lighthouse.loads | the {string} page loads within:  [+table]
+mobile-core | mobile-core.launch | the {word} app is launched
+mobile-core | mobile-core.link | the {word} app is opened with the {string} link
+mobile-core | mobile-core.background | the {word} app is sent to the background
+mobile-core | mobile-core.foreground | the {word} app is brought back
+mobile-core | mobile-core.restart | the {word} app is restarted
+mobile-core | mobile-core.tap | the {string} {control} is tapped in the {word} app
+mobile-core | mobile-core.fill | the {string} field in the {word} app is filled with {string}
+mobile-core | mobile-core.swipe | the {word} app is swiped {direction}
+mobile-core | mobile-core.scroll | the {string} {control} is scrolled into view in the {word} app
+mobile-core | mobile-core.shows | the {word} app shows {string}
+mobile-core | mobile-core.shows | within {duration} the {word} app shows {string}
+mobile-core | mobile-core.hides | the {word} app does not show {string}
+mobile-core | mobile-core.hides | within {duration} the {word} app does not show {string}
+mobile-core | mobile-core.control.shown | the {string} {control} is shown in the {word} app
+mobile-core | mobile-core.control.shown | within {duration} the {string} {control} is shown in the {word} app
+mobile-core | mobile-core.control.enabled | the {string} {control} is enabled in the {word} app
+mobile-core | mobile-core.control.enabled | within {duration} the {string} {control} is enabled in the {word} app
+mobile-core | mobile-core.control.disabled | the {string} {control} is disabled in the {word} app
+mobile-core | mobile-core.control.disabled | within {duration} the {string} {control} is disabled in the {word} app
+mobile-core | mobile-core.field.value | the {string} field in the {word} app has the value {string}
+mobile-core | mobile-core.field.value | within {duration} the {string} field in the {word} app has the value {string}
+mobile-core | mobile-core.dialog.accepted | the {word} app's dialog is accepted
+mobile-core | mobile-core.dialog.dismissed | the {word} app's dialog is dismissed
+mobile-core | mobile-core.dialog.shows | the {word} app's dialog shows {string}
+mobile-core | mobile-core.dialog.shows | within {duration} the {word} app's dialog shows {string}
+mobile-core | mobile-core.screenshot | the {word} app looks like the {string} screenshot
+mobile-core | mobile-core.screenshot | within {duration} the {word} app looks like the {string} screenshot
+mobile-android | mobile-android.app | the {word} android app with the following properties:  [+table]
+mobile-android | mobile-android.back | the {word} app's back button is pressed
+mobile-android | mobile-android.notification | the {word} app shows a notification {string}
+mobile-android | mobile-android.notification | within {duration} the {word} app shows a notification {string}
 aws-core | aws-core.account | the {word} aws account with the following properties:  [+table]
 aws-s3 | aws-s3.upload | the {filepath} file is uploaded to the {word} s3 bucket
 aws-s3 | aws-s3.upload | the {filepath} file is uploaded to the {word} s3 bucket as {word}

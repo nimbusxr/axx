@@ -21,12 +21,23 @@ the skills instead: `axx skills install`.
   manifest gives its steps, parameter types, hooks, settings and `axx mcp` tools (`Tools`, which
   look at the scenario an agent keeps open with `steps_try`; `internal/runner/session.go`).
 - `packs/web/core` (`web-core`): drives Playwright through playwright-go, with the browsers on the machine that runs
-  axx. It pins the Playwright version, the Node.js version and their hashes in
-  `packs/web/internal/driver`; upgrading playwright-go means updating them
+  axx. It pins the Playwright version and its hash in `packs/web/internal/driver`, and runs it
+  with the Node.js `internal/npm` pins; upgrading playwright-go means updating them
   (`TestPinnedPlaywrightVersion` fails until they agree). The driver it prepares is patched
   (`packs/web/internal/driver/patch.go`, `patches/*.js`) so that Playwright's Inspector, recorder
   and trace viewer speak the pack's steps: each patch has an anchor in the pinned playwright-core,
   so upgrading Playwright means checking every anchor; bump `patchRevision` whenever a patch changes.
+- `internal/npm`: a pinned Node.js (`EnsureNode`, `WriteNode`) and the npm packages a
+  package-lock.json pins (`Install`: integrity-checked, each platform's builds on that platform
+  only, no lifecycle scripts), for the packs that run Node.js tools (web-core, web-lighthouse,
+  and mobile-android, which runs Appium from the lockfile in `packs/mobile/android/appium`).
+  `internal/imagediff`: Playwright's (pixelmatch's) pixel comparison of screenshots.
+- `packs/mobile/core` (`mobile-core`) and `packs/mobile/android` (`mobile-android`): native apps
+  through Appium (`packs/mobile/internal/appium`), with a device leased per scenario and the app
+  reset before it. Their unit tests run the steps against a fake Appium server
+  (`appiumtest`) serving real page sources (`packs/mobile/android/testdata`); their integration
+  tests run the parcels example's couriers' app (`examples/parcels/courier/android`) on an
+  emulator, in CI's mobile job.
 - `internal/filecontent`: reads files by their type (text, CSV, TSV, JSON, XML, HTML, PDF, Word,
   Excel) for the steps that check a file's text or table: files, storage objects, downloads.
 - `internal/packbuild`, `internal/gotool`: axx builds itself with the packs a project lists in

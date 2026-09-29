@@ -1,0 +1,8 @@
+parcels.parcels:
+  - reference: "PX-MOB-9411"
+    sender: "maple-crafts"
+    status: "OUT_FOR_DELIVERY"
+    service_level: "STANDARD"
+    weight_grams: 1500
+    recipient: '{"name": "Clara Busch", "street": "Eisenbahnstr. 41", "city": "Leipzig", "postcode": "04315", "country": "DE"}'
+    details: '{"source": "api", "zone": "DE-1", "courier": "CR-LEJ-14"}'

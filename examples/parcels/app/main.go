@@ -56,11 +56,15 @@ type config struct {
 	// ShopWebhookKey are where the shops hear of deliveries and how the
 	// service signs them; ShopTokenKey signs the shops' tokens, and
 	// ShopClients are the shops' client credentials (shop:secret,...).
+	// CourierTokenKey signs the tokens of the couriers' app, and Couriers
+	// are who can sign in to it (id:name:pin,...).
 	CourierCallbackKey string
 	ShopWebhookURL     string
 	ShopWebhookKey     string
 	ShopTokenKey       string
 	ShopClients        map[string]string
+	CourierTokenKey    string
+	Couriers           map[string]courierAccount
 	// RedisURL is Valkey, where the service caches; SMTPAddr its mail server
 	// (host:port), and MailFrom who its mail comes from.
 	RedisURL     string
@@ -117,6 +121,8 @@ func loadConfig() (config, error) {
 		ShopWebhookKey:     env("PARCELS_SHOP_WEBHOOK_KEY", "whsec_ZXhhbXBsZS1zaG9wLXdlYmhvb2sta2V5"),
 		ShopTokenKey:       env("PARCELS_SHOP_TOKEN_KEY", "example-shop-token-key"),
 		ShopClients:        map[string]string{},
+		CourierTokenKey:    env("PARCELS_COURIER_TOKEN_KEY", "example-courier-token-key"),
+		Couriers:           map[string]courierAccount{},
 		RedisURL:           env("PARCELS_REDIS_URL", "redis://localhost:6379/0"),
 		SMTPAddr:           env("PARCELS_SMTP_ADDR", "localhost:1025"),
 		MailFrom:           env("PARCELS_MAIL_FROM", "Parcels <no-reply@parcels.example>"),
@@ -132,6 +138,11 @@ func loadConfig() (config, error) {
 	for _, pair := range strings.Split(env("PARCELS_SHOP_CLIENTS", "wisteria-way:wisteria-client-secret"), ",") {
 		if shop, secret, ok := strings.Cut(strings.TrimSpace(pair), ":"); ok {
 			c.ShopClients[shop] = secret
+		}
+	}
+	for _, entry := range strings.Split(env("PARCELS_COURIERS", "CR-LEJ-12:Hanna Wolf:4711,CR-LEJ-14:Mia Krause:4711,CR-LEJ-15:Paul Richter:4711,CR-LEJ-16:Lea Schmidt:4711,CR-DRS-07:Jonas Keller:4711"), ",") {
+		if parts := strings.Split(strings.TrimSpace(entry), ":"); len(parts) == 3 {
+			c.Couriers[parts[0]] = courierAccount{name: parts[1], pin: parts[2]}
 		}
 	}
 	for _, s := range strings.Split(env("PARCELS_KAFKA_BROKERS", "localhost:9092"), ",") {
@@ -247,6 +258,9 @@ func serve(ctx context.Context, cfg config, log *slog.Logger) error {
 		courierKey:   []byte(cfg.CourierCallbackKey),
 		shopTokenKey: []byte(cfg.ShopTokenKey),
 		shopClients:  cfg.ShopClients,
+
+		courierTokenKey: []byte(cfg.CourierTokenKey),
+		couriers:        cfg.Couriers,
 	}
 	go svc.runImporter(ctx, cfg.PollInterval)
 	go printing.run(ctx)

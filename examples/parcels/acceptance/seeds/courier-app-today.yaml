@@ -1,0 +1,15 @@
+parcels.parcels:
+  - reference: "PX-MOB-9401"
+    sender: "maple-crafts"
+    status: "OUT_FOR_DELIVERY"
+    service_level: "EXPRESS"
+    weight_grams: 1200
+    recipient: '{"name": "Jonas Weber", "street": "Karl-Liebknecht-Str. 12", "city": "Leipzig", "postcode": "04107", "country": "DE"}'
+    details: '{"source": "api", "zone": "DE-1", "courier": "CR-LEJ-12"}'
+  - reference: "PX-MOB-9402"
+    sender: "maple-crafts"
+    status: "OUT_FOR_DELIVERY"
+    service_level: "STANDARD"
+    weight_grams: 800
+    recipient: '{"name": "Lena Vogel", "street": "Prager Str. 3", "city": "Leipzig", "postcode": "04103", "country": "DE"}'
+    details: '{"source": "api", "zone": "DE-1", "courier": "CR-LEJ-12"}'

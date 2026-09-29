@@ -1,0 +1,8 @@
+parcels.parcels:
+  - reference: "PX-MOB-9422"
+    sender: "maple-crafts"
+    status: "OUT_FOR_DELIVERY"
+    service_level: "EXPRESS"
+    weight_grams: 700
+    recipient: '{"name": "Sara Lange", "street": "Kochstr. 28", "city": "Leipzig", "postcode": "04275", "country": "DE"}'
+    details: '{"source": "api", "zone": "DE-1", "courier": "CR-LEJ-15"}'

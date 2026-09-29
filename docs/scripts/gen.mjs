@@ -203,6 +203,8 @@ axx(['docs', 'export', '--out', genDir]);
 		'web-network': 'Network',
 		'web-lighthouse': 'Lighthouse',
 		'web-coverage': 'Coverage',
+		'mobile-core': 'Core',
+		'mobile-android': 'Android',
 		'aws-core': 'Core',
 		'aws-s3': 'S3',
 		'aws-sqs': 'SQS',

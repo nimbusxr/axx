@@ -52,9 +52,11 @@ type service struct {
 	agent     *parcelsAgent // the parcels A2A agent, for other agents
 	publicURL string        // where other agents reach the service
 
-	courierKey   []byte            // signs the courier's callbacks
-	shopTokenKey []byte            // signs the shops' tokens
-	shopClients  map[string]string // the shops' client credentials
+	courierKey      []byte                    // signs the courier's callbacks
+	shopTokenKey    []byte                    // signs the shops' tokens
+	shopClients     map[string]string         // the shops' client credentials
+	courierTokenKey []byte                    // signs the tokens of the couriers' app
+	couriers        map[string]courierAccount // who can sign in to the couriers' app
 }
 
 // registration is a parcel to register, from the API or a manifest line.
@@ -185,6 +187,7 @@ func (s *service) routes() http.Handler {
 	mux.HandleFunc("POST /api/assistant/questions", s.assistant.question)
 	mux.Handle("/mcp", s.mcp.handler())
 	s.agent.routes(mux, s.publicURL)
+	s.courierRoutes(mux)
 	s.portalRoutes(mux)
 	return s.logRequests(mux)
 }

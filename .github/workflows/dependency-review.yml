@@ -19,4 +19,7 @@ jobs:
         with:
           fail-on-severity: moderate
           deny-licenses: GPL-2.0-only, GPL-3.0-only, AGPL-3.0-only, AGPL-3.0-or-later, SSPL-1.0
+          # Dual-licensed ("MIT OR GPL-2.0-or-later"): axx uses it under MIT. It comes with
+          # Appium's FTP support (jsftp), in packs/mobile/android/appium/package-lock.json.
+          allow-dependencies-licenses: pkg:npm/unorm@1.6.0
           comment-summary-in-pr: on-failure

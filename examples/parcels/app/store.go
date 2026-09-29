@@ -269,6 +269,26 @@ func (s *store) List(ctx context.Context, sender string) ([]*Parcel, error) {
 	return out, rows.Err()
 }
 
+// OutForDelivery returns the parcels out for delivery with a courier, whom
+// their details name, oldest first.
+func (s *store) OutForDelivery(ctx context.Context, courier string) ([]*Parcel, error) {
+	rows, err := s.pool.Query(ctx, `SELECT `+parcelColumns+` FROM parcels.parcels
+		WHERE status = 'OUT_FOR_DELIVERY' AND details->>'courier' = $1 ORDER BY created_at, reference`, courier)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []*Parcel{}
+	for rows.Next() {
+		p, err := scanParcel(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, p)
+	}
+	return out, rows.Err()
+}
+
 func sqlState(err error) string {
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) {

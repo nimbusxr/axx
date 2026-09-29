@@ -22,6 +22,7 @@ import (
 	"github.com/mxschmitt/playwright-go"
 
 	"github.com/nimbusxr/axx/core"
+	"github.com/nimbusxr/axx/internal/npm"
 	webcore "github.com/nimbusxr/axx/packs/web/core"
 	"github.com/nimbusxr/axx/packs/web/internal/driver"
 )
@@ -51,28 +52,24 @@ func lighthouseFor(s *core.Suite) (*tool, error) {
 		if err != nil {
 			return nil, fmt.Errorf("cannot prepare the browser driver: %w", err)
 		}
-		pkgs, err := packagesOf(lockfile, unused)
-		if err != nil {
+		packages := npm.InstallOptions{
+			Lock: lockfile, LeaveOut: unused,
+			CacheDir: filepath.Dir(driverDir), Name: "lighthouse-" + lighthouseVersion,
+			Downloading: func() { s.Logger().Warn(fmt.Sprintf("downloading Lighthouse %s, once", lighthouseVersion)) },
+		}
+		if _, err := npm.Packages(packages); err != nil {
 			return nil, fmt.Errorf("cannot read Lighthouse's lockfile: %w", err)
 		}
-		dir := filepath.Join(filepath.Dir(driverDir), installName("lighthouse-"+lighthouseVersion, pkgs))
-		registry := strings.TrimRight(cmp.Or(os.Getenv("npm_config_registry"), "https://registry.npmjs.org"), "/")
-		err = install(ctx, dir, registry, pkgs, func() {
-			s.Logger().Warn(fmt.Sprintf("downloading Lighthouse %s, once", lighthouseVersion))
-		})
+		dir, err := npm.Install(ctx, packages)
 		if err != nil {
 			return nil, fmt.Errorf("cannot download Lighthouse %s: %w\n  npm_config_registry points the download at a mirror of npm's registry", lighthouseVersion, err)
 		}
 		sum := sha256.Sum256(helper)
 		script := filepath.Join(dir, "axx-lighthouse-"+hex.EncodeToString(sum[:])[:8]+".mjs")
-		if err := writeOnce(script, helper); err != nil {
+		if err := npm.WriteOnce(script, helper); err != nil {
 			return nil, fmt.Errorf("cannot prepare Lighthouse: %w", err)
 		}
-		node := filepath.Join(driverDir, "node")
-		if runtime.GOOS == "windows" {
-			node += ".exe"
-		}
-		return &tool{node: node, script: script}, nil
+		return &tool{node: filepath.Join(driverDir, npm.NodeName(runtime.GOOS)), script: script}, nil
 	})
 }
 

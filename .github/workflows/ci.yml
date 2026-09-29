@@ -22,6 +22,7 @@ jobs:
       go: ${{ steps.changes.outputs.go }}
       integration: ${{ steps.changes.outputs.integration }}
       web: ${{ steps.changes.outputs.web }}
+      mobile: ${{ steps.changes.outputs.mobile }}
       examples: ${{ steps.changes.outputs.examples }}
       acceptance: ${{ steps.changes.outputs.acceptance }}
       workflows: ${{ steps.changes.outputs.workflows }}
@@ -162,9 +163,9 @@ jobs:
           for _ in $(seq 300); do [ -f "$RUNNER_TEMP/disk-freed" ] && break; sleep 2; done
           [ -f "$RUNNER_TEMP/disk-freed" ] || { echo "::error::the disk space was not freed within 10 minutes"; exit 1; }
           df -h /
-      # The web pack has a job of its own (web).
+      # The web and mobile packs have jobs of their own (web, mobile).
       - run: |
-          mapfile -t packs < <(go list ./packs/... | grep -v /packs/web)
+          mapfile -t packs < <(go list ./packs/... | grep -v -e /packs/web -e /packs/mobile)
           go test -race -tags integration -timeout 20m "${packs[@]}" ./internal/engine/... ./internal/packbuild/...
 
   web:
@@ -197,6 +198,76 @@ jobs:
         uses: ./.github/actions/web-tools
         with:
           mode: save
+
+  mobile:
+    needs: changes
+    if: needs.changes.outputs.mobile == 'true'
+    # The mobile packs and the parcels example's Android scenarios, on an Android emulator that
+    # axx starts (KVM); the scenarios run against the whole example, which axx starts too.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      # The example's images need more disk than a runner has free: remove toolchains the job
+      # never uses (not the Android SDK), in the background while the job sets up.
+      - name: free disk space (in the background)
+        run: (sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL /usr/share/swift; touch "$RUNNER_TEMP/disk-freed") > /dev/null 2>&1 &
+      - name: KVM, for the emulator, and where its devices are
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          # avdmanager would go by the runner's XDG_CONFIG_HOME, and the emulator not.
+          echo "ANDROID_AVD_HOME=$HOME/.android/avd" >> "$GITHUB_ENV"
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+        with:
+          install_args: "go"
+          # Tools are cached from main only: pull requests read them.
+          cache_save: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+      - uses: ./.github/actions/go-cache
+        with:
+          build: acceptance
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6
+        with:
+          distribution: temurin
+          java-version: "21"
+      # Gradle's caches: written on main only (the action's default), read by pull requests.
+      - uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6
+      - name: the couriers' app, and the emulator's device
+        working-directory: examples/parcels/courier/android
+        run: |
+          ./gradlew --no-daemon --console=plain assembleDebug
+          ./create-emulator.sh
+      - name: wait for the disk space
+        run: |
+          for _ in $(seq 300); do [ -f "$RUNNER_TEMP/disk-freed" ] && break; sleep 2; done
+          [ -f "$RUNNER_TEMP/disk-freed" ] || { echo "::error::the disk space was not freed within 10 minutes"; exit 1; }
+          df -h /
+      - run: go test -race -tags integration -timeout 30m ./packs/mobile/...
+      - name: axx, with every pack
+        run: |
+          go build -o "$RUNNER_TEMP/bin/axx" ./internal/tools/axxall
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+      - name: the fixtures, as a fresh clone has them
+        working-directory: examples/parcels/acceptance
+        run: |
+          axx fixtures check
+          axx fixtures generate
+      - working-directory: examples/parcels/acceptance
+        run: axx run --tags @mobile --format progress --format junit:build/axx/junit.xml --format html:build/axx/report.html
+      - if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: mobile
+          # The report, and the screenshots, Appium's and the emulators' logs a failure leaves.
+          path: |
+            examples/parcels/acceptance/build/axx/
+            examples/parcels/acceptance/.axx/mobile/
+            examples/parcels/acceptance/.axx/logs/
+          if-no-files-found: ignore
+          retention-days: 7
 
   cross-build:
     needs: changes
@@ -289,7 +360,8 @@ jobs:
           axx fixtures check
           axx fixtures generate
       - working-directory: examples/${{ matrix.example }}/acceptance
-        run: axx run --format progress --format junit:build/axx/junit.xml --format html:build/axx/report.html
+        # The Android scenarios run in the mobile job, on an emulator.
+        run: axx run --tags "not @mobile" --format progress --format junit:build/axx/junit.xml --format html:build/axx/report.html
       - if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
@@ -352,7 +424,7 @@ jobs:
   # pull request does not need is skipped, which passes.
   ci-ok:
     if: always()
-    needs: [changes, hygiene, lint, workflows, test, integration, web, cross-build, example-app, acceptance, release-check]
+    needs: [changes, hygiene, lint, workflows, test, integration, web, mobile, cross-build, example-app, acceptance, release-check]
     runs-on: ubuntu-24.04
     steps:
       - name: all jobs passed
