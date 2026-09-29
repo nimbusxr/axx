@@ -3,10 +3,11 @@ name: ios-tools
 description: >-
   What an iOS run prepares the first time on a machine: the iOS runtime's shared cache, which
   the first boot of a simulator builds (over ten minutes on a hosted runner), and what the
-  mobile-ios pack keeps in axx's cache: Appium, WebDriverAgent, Node.js, and the simulator it
-  sets up to clone. Keyed by the macOS and runtime builds they belong to, and the tools'
-  versions. Restore them before the tests, and save them as the job's last step: saving only
-  happens on pushes to main, like Go's caches.
+  mobile-ios pack downloads into axx's cache: Appium, WebDriverAgent, Node.js. Not the
+  simulator the pack sets up to clone: a simulator's keychain belongs to the machine it was made
+  on, and one from another machine hangs. Keyed by the macOS and runtime builds they belong to,
+  and the tools' versions. Restore them before the tests, and save them as the job's last step:
+  saving only happens on pushes to main, like Go's caches.
 inputs:
   mode:
     description: "`restore` or `save`."
@@ -31,6 +32,9 @@ runs:
           ~/Library/Developer/CoreSimulator/Caches/dyld
           ~/Library/Caches/axx/mobile
         key: ${{ steps.key.outputs.key }}
+    # Simulators are never kept (one from an earlier cache would come from another machine).
+    - shell: bash
+      run: rm -rf ~/Library/Caches/axx/mobile/simulators
     - if: inputs.mode == 'save' && github.event_name == 'push' && github.ref == 'refs/heads/main'
       # A cache is an optimization: failing to save it fails nothing.
       continue-on-error: true

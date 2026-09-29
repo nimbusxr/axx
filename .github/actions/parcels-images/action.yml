@@ -1,0 +1,41 @@
+# SPDX-License-Identifier: Apache-2.0
+name: parcels-images
+description: >-
+  The images the parcels example's compose file builds, made fast for CI, and COMPOSE_FILE set
+  to an override that has compose use them, so that `docker compose up --build` builds nothing
+  that takes long:
+    - WireMock with axx's extensions (a Gradle build inside Docker, minutes): built from the
+      layers the wiremock-extension workflow caches, and loaded under the name the compose
+      file gives it; the services that run it are not built again.
+    - The parcels service (a Go build inside Docker without Go's caches, over a minute):
+      compiled with the job's Go and its caches, and handed to the Dockerfile's final stage in
+      place of its build stage (a named build context), so the image is the Dockerfile's own.
+runs:
+  using: composite
+  steps:
+    - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
+    - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
+      with:
+        context: extensions/wiremock-openapi
+        load: true
+        tags: parcels-wiremock:local
+        cache-from: type=gha,scope=axx-wiremock
+        # Layers are cached from main only: pull requests read them.
+        cache-to: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && 'type=gha,mode=max,scope=axx-wiremock' || '' }}
+    - name: the parcels service, compiled
+      shell: bash
+      working-directory: examples/parcels/app
+      # The Dockerfile's build stage, on the job's Go: its final stage copies /out/parcels.
+      run: CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o "$RUNNER_TEMP/parcels-app/out/parcels" .
+    - name: compose uses them
+      shell: bash
+      run: |
+        compose="$GITHUB_WORKSPACE/examples/parcels/infra/compose.yaml"
+        override="$RUNNER_TEMP/compose.parcels-images.yaml"
+        {
+          docker compose -f "$compose" config --format json \
+            | jq -r '"services:", (.services | to_entries[] | select(.value.image == "parcels-wiremock:local" and .value.build != null) | "  \(.key):\n    build: !reset null")'
+          printf '  app:\n    build:\n      additional_contexts:\n        build: %s\n' "$RUNNER_TEMP/parcels-app"
+        } > "$override"
+        cat "$override"
+        echo "COMPOSE_FILE=$compose:$override" >> "$GITHUB_ENV"
