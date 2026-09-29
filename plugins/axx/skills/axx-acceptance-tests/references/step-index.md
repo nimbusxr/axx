@@ -181,6 +181,18 @@ jsonrpc | jsonrpc.error | the {word} jsonrpc service answered the error {int}
 jsonrpc | jsonrpc.error | the {word} jsonrpc service answered the error {int} with a message containing {string}
 jsonrpc | jsonrpc.error.properties | the {word} jsonrpc service's error has the following properties:  [+table]
 jsonrpc | jsonrpc.openrpc.levels | the OpenRPC validation levels are:  [+table]
+graphql | graphql.service | the {word} graphql service with the following properties:  [+table]
+graphql | graphql.send.file | the {filepath} query/mutation is sent to the {word} graphql service
+graphql | graphql.send.file | the {filepath} query/mutation is sent to the {word} graphql service with the following variables:
+graphql | graphql.send.doc | a query/mutation is sent to the {word} graphql service:  [+docstring]
+graphql | graphql.subscribe | the {filepath} subscription is started on the {word} graphql service
+graphql | graphql.subscribe | the {filepath} subscription is started on the {word} graphql service with the following variables:
+graphql | graphql.no.errors | the {word} graphql service answered without errors
+graphql | graphql.data | the {word} graphql service's data has the following properties:  [+table]
+graphql | graphql.error | the {word} graphql service answered an error where:  [+table]
+graphql | graphql.received | the {word} graphql service's subscription received a message where:  [+table]
+graphql | graphql.received | within {duration} the {word} graphql service's subscription received a message where:  [+table]
+graphql | graphql.levels | the GraphQL validation levels are:  [+table]
 sql | sql.service | a(n) {word} database with the following properties:  [+table]
 sql | sql.seed | a {filepath} db seed
 sql | sql.seed | a {filepath} db seed on {dbService}

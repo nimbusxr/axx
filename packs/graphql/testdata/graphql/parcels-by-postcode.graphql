@@ -1,0 +1,3 @@
+query ParcelsByPostcode($shop: ID!, $postcode: String) {
+  parcels(shop: $shop, postcode: $postcode) { reference }
+}

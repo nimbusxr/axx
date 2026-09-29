@@ -1,0 +1,3 @@
+query BadParcel($reference: ID!) {
+  parcel(reference: $reference) { reference status weightGrams }
+}

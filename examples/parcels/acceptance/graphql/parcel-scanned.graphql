@@ -1,0 +1,7 @@
+subscription ParcelScanned($reference: ID!) {
+  parcelScanned(reference: $reference) {
+    reference
+    status
+    location
+  }
+}

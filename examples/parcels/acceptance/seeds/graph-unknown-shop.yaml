@@ -1,0 +1,8 @@
+parcels.parcels:
+  - reference: "PX-GQL-7206"
+    sender: "fern-and-fig"
+    status: "IN_TRANSIT"
+    service_level: "STANDARD"
+    weight_grams: 800
+    recipient: '{"name": "Hanna Wolf", "street": "Marktstr. 5", "city": "Leipzig", "postcode": "04109", "country": "DE"}'
+    details: '{"source": "api", "zone": "DE-1"}'

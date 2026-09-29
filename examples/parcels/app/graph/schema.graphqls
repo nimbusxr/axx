@@ -1,0 +1,50 @@
+extend schema @link(url: "https://specs.apollo.dev/federation/v2.3", import: ["@key"])
+
+"""
+The parcels subgraph: a parcel's status, holding it at its depot, and its
+scans as they happen. The shops subgraph resolves a parcel's shop.
+"""
+type Query {
+  "A parcel, or null for one the service does not know."
+  parcel(reference: ID!): Parcel
+}
+
+type Mutation {
+  "Hold a parcel at its depot until a day; NOT_HOLDABLE once it is out for delivery."
+  holdParcel(reference: ID!, until: String!, reason: String): Parcel!
+}
+
+type Subscription {
+  "The parcel's latest scan, then each new one, until it is delivered."
+  parcelScanned(reference: ID!): Scan!
+}
+
+type Parcel @key(fields: "reference") {
+  reference: ID!
+  status: String!
+  serviceLevel: ServiceLevel!
+  weightGrams: Int!
+  "The day its depot holds it until."
+  heldUntil: String
+  "The latest scan; null before the first."
+  lastScan: Scan
+  "The shop that sends it."
+  shop: Shop!
+}
+
+"A shop, which the shops subgraph describes."
+type Shop @key(fields: "id", resolvable: false) {
+  id: ID!
+}
+
+type Scan {
+  reference: ID!
+  status: String!
+  location: String
+  scannedAt: String
+}
+
+enum ServiceLevel {
+  STANDARD
+  EXPRESS
+}

@@ -178,6 +178,48 @@ Scenario: A parcel beyond the EU is priced by the partner carrier
 
 Every scenario's calls to a method share its path, so the payload check names data of the scenario's own, here the weight. The gRPC extension runs when WireMock's root has a `grpc` folder; the OpenAPI validation does not apply to gRPC calls. To call a gRPC service yourself, see [Call gRPC services](/guides/test-grpc/).
 
+## Mock GraphQL services and subgraphs
+
+The Axx WireMock image mocks a GraphQL service, or a federated subgraph, **field by field from its schema**. Set `GRAPHQL_SCHEMA_SOURCE` to its SDL, and the mock answers `POST /graphql` by running each operation against the schema: a field's value comes from its parent's value when that has it, and otherwise from a stub. Whatever fields a query selects, it gets an answer, which is what a gateway's changing query plans need.
+
+```yaml title="infra/compose.yaml (excerpt)"
+shop-directory:
+  image: ghcr.io/nimbusxr/axx-wiremock:<version>   # a version with GraphQL mocks
+  environment:
+    GRAPHQL_SCHEMA_SOURCE: /home/wiremock/graphql/shops.graphql
+  volumes:
+    - './shop-directory:/home/wiremock'
+```
+
+Stubs are ordinary WireMock mappings, matched with WireMock's matchers:
+
+- **A field** is a POST to `/graphql/<Type>/<field>`, whose body is `{"arguments": {...}, "source": {...}}` (the field's arguments, and its parent's value).
+- **An entity** of a subgraph (`_entities`) is a POST to `/graphql/_entities/<Type>`, whose body is its representation, such as `{"__typename": "Shop", "id": "alder-and-ash"}`.
+- **The stub's JSON body is the value.** A `graphql-error` header makes the field an error instead, with `graphql-error-code` as its `extensions.code`.
+- **A field without a value is null,** and an entity without a stub too.
+
+```json title="infra/shop-directory/mappings/shop-alder-and-ash.json"
+{
+  "name": "shop-alder-and-ash",
+  "request": {
+    "method": "POST",
+    "urlPath": "/graphql/_entities/Shop",
+    "bodyPatterns": [{"equalToJson": {"id": "alder-and-ash"}, "ignoreExtraElements": true}]
+  },
+  "response": {"status": 200, "jsonBody": {"name": "Alder & Ash", "tier": "STANDARD"}}
+}
+```
+
+A subgraph's SDL makes the mock a subgraph: it answers `_service { sdl }` and `_entities`, so a gateway composes and plans with it. The journal records each operation the mock received, with its query and variables, so the mock steps check what was asked:
+
+```gherkin
+And the mocked POST request to path /graphql named shop-lookup was received by shop-directory
+And the payload properties for mocked request named shop-lookup on shop-directory are:
+  | variables.representations[0].id | alder-and-ash |
+```
+
+A stub of a whole operation on `/graphql` (for example, matching `$.query`) wins over the field-by-field answers, for an outage or an answer the schema cannot give. The OpenAPI validation does not apply to GraphQL calls. To send operations to a GraphQL service yourself, see [Call GraphQL services](/guides/test-graphql/).
+
 ## Check the dependency's contract
 
 A mock that answers something the real API never would makes a test pass for the wrong reason, and a service that calls its dependency wrongly only finds out in production. The `ghcr.io/nimbusxr/axx-wiremock` image is WireMock with Axx's OpenAPI validation extension. It checks every call to the mock against the dependency's OpenAPI document: your service's request, and the stub's response.

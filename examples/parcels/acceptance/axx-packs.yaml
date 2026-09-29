@@ -5,6 +5,7 @@ packs:
   - mock
   - grpc
   - jsonrpc
+  - graphql
   - sql
   - mongo
   - redis

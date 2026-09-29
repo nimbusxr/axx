@@ -56,6 +56,7 @@ require (
 	github.com/twmb/franz-go v1.22.0
 	github.com/twmb/franz-go/pkg/kadm v1.19.0
 	github.com/twmb/franz-go/pkg/sr v1.8.0
+	github.com/vektah/gqlparser/v2 v2.5.58
 	github.com/xuri/excelize/v2 v2.11.0
 	github.com/youmark/pkcs8 v0.0.0-20240726163527-a2c0da244d78
 	go.mongodb.org/mongo-driver/v2 v2.9.1
@@ -89,6 +90,7 @@ require (
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/exporter/metric v0.57.0 // indirect
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/internal/resourcemapping v0.57.0 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
+	github.com/agnivade/levenshtein v1.2.1 // indirect
 	github.com/apache/arrow-go/v18 v18.7.0 // indirect
 	github.com/apache/arrow/go/v15 v15.0.2 // indirect
 	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.20 // indirect

@@ -1,0 +1,24 @@
+# The parcels subgraph (graph/schema.graphqls). Regenerate the code, from the app's folder:
+#   go tool gqlgen generate
+schema:
+  - graph/schema.graphqls
+exec:
+  package: graph
+  layout: single-file
+  filename: graph/generated.go
+federation:
+  filename: graph/federation.go
+  package: graph
+  version: 2
+model:
+  filename: graph/model/models_gen.go
+  package: model
+resolver:
+  package: graph
+  layout: follow-schema
+  dir: graph
+  filename_template: "{name}.resolvers.go"
+models:
+  ID:
+    model:
+      - github.com/99designs/gqlgen/graphql.ID

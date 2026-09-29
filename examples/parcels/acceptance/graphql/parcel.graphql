@@ -1,0 +1,10 @@
+query Parcel($reference: ID!) {
+  parcel(reference: $reference) {
+    reference
+    status
+    serviceLevel
+    weightGrams
+    heldUntil
+    lastScan { status location }
+  }
+}

@@ -180,6 +180,7 @@ axx(['docs', 'export', '--out', genDir]);
 		mock: 'Mocks',
 		grpc: 'gRPC',
 		jsonrpc: 'JSON-RPC',
+		graphql: 'GraphQL',
 		sql: 'SQL',
 		mongo: 'MongoDB',
 		redis: 'Redis',
