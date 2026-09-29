@@ -1,0 +1,61 @@
+# SPDX-License-Identifier: Apache-2.0
+# A partner carrier's MCP server, as the MCP mock's tests describe it.
+serverInfo:
+  name: carrier-tools
+  title: Partner carrier
+  version: 2.4.0
+instructions: Look up the partner carrier's shipments by their parcel reference (PX-...).
+tools:
+  - name: shipment_status
+    title: Shipment status
+    description: Where a shipment the partner carrier handles is, by its parcel reference.
+    inputSchema:
+      type: object
+      properties:
+        reference:
+          type: string
+          pattern: "^PX-[A-Z0-9-]+$"
+      required: [reference]
+      additionalProperties: false
+    outputSchema:
+      type: object
+      properties:
+        reference: {type: string}
+        status: {type: string, enum: [ACCEPTED, IN_TRANSIT, OUT_FOR_DELIVERY, DELIVERED, RETURNED]}
+        depot: {type: string}
+      required: [reference, status]
+    annotations:
+      readOnlyHint: true
+  - name: book_pickup
+    description: Books a pickup of a parcel at a shop.
+    inputSchema:
+      type: object
+      properties:
+        reference: {type: string}
+        shop: {type: string}
+        date: {type: string}
+      required: [reference, shop]
+resources:
+  - uri: carrier://service-areas
+    name: service-areas
+    title: Service areas
+    description: The postcodes the partner carrier delivers to.
+    mimeType: text/plain
+    text: "DE 01067-99998, AT 1010-9992"
+  - uri: carrier://tariffs/2026
+    name: tariffs-2026
+    mimeType: application/json
+resourceTemplates:
+  - uriTemplate: "carrier://labels/{reference}"
+    name: label
+    description: The shipping label of a parcel.
+    mimeType: application/pdf
+prompts:
+  - name: delivery_update
+    description: A message to a recipient about their parcel.
+    arguments:
+      - name: reference
+        description: The parcel reference.
+        required: true
+      - name: tone
+        description: formal or friendly

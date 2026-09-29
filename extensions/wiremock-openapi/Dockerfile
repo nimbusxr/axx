@@ -1,8 +1,8 @@
 # syntax=docker/dockerfile:1
 # SPDX-License-Identifier: Apache-2.0
 #
-# WireMock standalone with the axx OpenAPI validation extension, GraphQL mocks and model mocks, and
-# WireMock's gRPC extension (ghcr.io/nimbusxr/axx-wiremock).
+# WireMock standalone with the axx OpenAPI validation extension, GraphQL mocks, model mocks, MCP
+# server mocks and A2A agent mocks, and WireMock's gRPC extension (ghcr.io/nimbusxr/axx-wiremock).
 #
 # The extension needs Java 21 (openapi-request-validator 3.x), which the official
 # wiremock/wiremock image's JRE 17 cannot load, so this image ships its own runtime. It also
@@ -31,7 +31,7 @@ ARG GRPC_EXTENSION_VERSION=0.11.0
 ARG GRPC_EXTENSION_SHA256=f1e1f822abe07eaff012e059dec5c0aec1e23c8fb3bb3978064a894849e82840
 
 LABEL org.opencontainers.image.title="axx-wiremock" \
-      org.opencontainers.image.description="WireMock standalone with the axx OpenAPI validation extension (stubs with metadata.openApiSpecSource are validated against their OpenAPI spec), WireMock's gRPC extension (gRPC services from the descriptor sets in grpc/), GraphQL services and subgraphs mocked field by field from their schema (GRAPHQL_SCHEMA_SOURCE), and AI models (the model-request matcher and the model-answer transformer), answered in the format of OpenAI, Anthropic, Gemini, Bedrock or Ollama." \
+      org.opencontainers.image.description="WireMock standalone with the axx OpenAPI validation extension (stubs with metadata.openApiSpecSource are validated against their OpenAPI spec), WireMock's gRPC extension (gRPC services from the descriptor sets in grpc/), GraphQL services and subgraphs mocked field by field from their schema (GRAPHQL_SCHEMA_SOURCE), AI models (the model-request matcher and the model-answer transformer), answered in the format of OpenAI, Anthropic, Gemini, Bedrock or Ollama, MCP servers mocked from their description (MCP_SERVER_SOURCE) with tool calls answered by stubs, and A2A agents mocked from their agent card (A2A_AGENT_CARD_SOURCE) with messages answered by stubs." \
       org.opencontainers.image.source="https://github.com/nimbusxr/axx" \
       org.opencontainers.image.url="https://github.com/nimbusxr/axx/tree/main/extensions/wiremock-openapi" \
       org.opencontainers.image.licenses="Apache-2.0" \

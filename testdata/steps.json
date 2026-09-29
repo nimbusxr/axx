@@ -2,7 +2,7 @@
   "description": "The frozen catalog of built-in step text. Step text is public API: every entry must stay defined, verbatim, by its pack.",
   "counts": {
     "parameterType": 11,
-    "step": 610
+    "step": 652
   },
   "entries": [
     {
@@ -3741,6 +3741,258 @@
       "pack": "mock",
       "keyword": "Then",
       "expression": "the mocked {mockedService} model was asked for the {filepath} schema in the request about {string}"
+    },
+    {
+      "kind": "step",
+      "pack": "mock",
+      "keyword": "Then",
+      "expression": "the mocked {mockedService} mcp server's {word} tool was called with the following arguments:"
+    },
+    {
+      "kind": "step",
+      "pack": "mock",
+      "keyword": "Then",
+      "expression": "the mocked {mockedService} mcp server's {word} tool was called {int} time(s) with the following arguments:"
+    },
+    {
+      "kind": "step",
+      "pack": "mock",
+      "keyword": "Then",
+      "expression": "the mocked {mockedService} a2a agent was sent a message containing {string}"
+    },
+    {
+      "kind": "step",
+      "pack": "mock",
+      "keyword": "Then",
+      "expression": "the mocked {mockedService} a2a agent was sent a message containing {string} {int} time(s)"
+    },
+    {
+      "kind": "step",
+      "pack": "mcp",
+      "keyword": "Given",
+      "expression": "the {word} mcp server with the following properties:"
+    },
+    {
+      "kind": "step",
+      "pack": "mcp",
+      "keyword": "Then",
+      "expression": "the {word} mcp server has the {word} tool"
+    },
+    {
+      "kind": "step",
+      "pack": "mcp",
+      "keyword": "Then",
+      "expression": "the {word} mcp server has the {word} tool with the following properties:"
+    },
+    {
+      "kind": "step",
+      "pack": "mcp",
+      "keyword": "Then",
+      "expression": "the {word} mcp server does not have the {word} tool"
+    },
+    {
+      "kind": "step",
+      "pack": "mcp",
+      "keyword": "When",
+      "expression": "the {word} tool is called on the {word} mcp server"
+    },
+    {
+      "kind": "step",
+      "pack": "mcp",
+      "keyword": "When",
+      "expression": "the {word} tool is called on the {word} mcp server with the following arguments:"
+    },
+    {
+      "kind": "step",
+      "pack": "mcp",
+      "keyword": "When",
+      "expression": "the {word} tool is called on the {word} mcp server with the {filepath} arguments"
+    },
+    {
+      "kind": "step",
+      "pack": "mcp",
+      "keyword": "Then",
+      "expression": "the {word} tool's result is not an error"
+    },
+    {
+      "kind": "step",
+      "pack": "mcp",
+      "keyword": "Then",
+      "expression": "the {word} tool's result on the {word} mcp server is not an error"
+    },
+    {
+      "kind": "step",
+      "pack": "mcp",
+      "keyword": "Then",
+      "expression": "the {word} tool's result is an error"
+    },
+    {
+      "kind": "step",
+      "pack": "mcp",
+      "keyword": "Then",
+      "expression": "the {word} tool's result on the {word} mcp server is an error"
+    },
+    {
+      "kind": "step",
+      "pack": "mcp",
+      "keyword": "Then",
+      "expression": "the {word} tool's result contains {string}"
+    },
+    {
+      "kind": "step",
+      "pack": "mcp",
+      "keyword": "Then",
+      "expression": "the {word} tool's result on the {word} mcp server contains {string}"
+    },
+    {
+      "kind": "step",
+      "pack": "mcp",
+      "keyword": "Then",
+      "expression": "the {word} tool's result has the following properties:"
+    },
+    {
+      "kind": "step",
+      "pack": "mcp",
+      "keyword": "Then",
+      "expression": "the {word} tool's result on the {word} mcp server has the following properties:"
+    },
+    {
+      "kind": "step",
+      "pack": "mcp",
+      "keyword": "Then",
+      "expression": "the {word} tool's call failed with the error code {int}"
+    },
+    {
+      "kind": "step",
+      "pack": "mcp",
+      "keyword": "Then",
+      "expression": "the {word} tool's call on the {word} mcp server failed with the error code {int}"
+    },
+    {
+      "kind": "step",
+      "pack": "mcp",
+      "keyword": "When",
+      "expression": "the {word} resource is read from the {word} mcp server"
+    },
+    {
+      "kind": "step",
+      "pack": "mcp",
+      "keyword": "Then",
+      "expression": "the {word} resource contains {string}"
+    },
+    {
+      "kind": "step",
+      "pack": "mcp",
+      "keyword": "Then",
+      "expression": "the {word} resource has the following properties:"
+    },
+    {
+      "kind": "step",
+      "pack": "mcp",
+      "keyword": "When",
+      "expression": "the {word} prompt is requested from the {word} mcp server"
+    },
+    {
+      "kind": "step",
+      "pack": "mcp",
+      "keyword": "When",
+      "expression": "the {word} prompt is requested from the {word} mcp server with the following arguments:"
+    },
+    {
+      "kind": "step",
+      "pack": "mcp",
+      "keyword": "Then",
+      "expression": "the {word} prompt contains {string}"
+    },
+    {
+      "kind": "step",
+      "pack": "mcp",
+      "keyword": "Given",
+      "expression": "the MCP validation levels are:"
+    },
+    {
+      "kind": "step",
+      "pack": "a2a",
+      "keyword": "Given",
+      "expression": "the {word} a2a agent with the following properties:"
+    },
+    {
+      "kind": "step",
+      "pack": "a2a",
+      "keyword": "Then",
+      "expression": "the {word} a2a agent's card has the following properties:"
+    },
+    {
+      "kind": "step",
+      "pack": "a2a",
+      "keyword": "Then",
+      "expression": "the {word} a2a agent has the {word} skill"
+    },
+    {
+      "kind": "step",
+      "pack": "a2a",
+      "keyword": "When",
+      "expression": "a message is sent to the {word} a2a agent:"
+    },
+    {
+      "kind": "step",
+      "pack": "a2a",
+      "keyword": "When",
+      "expression": "the {filepath} message is sent to the {word} a2a agent"
+    },
+    {
+      "kind": "step",
+      "pack": "a2a",
+      "keyword": "When",
+      "expression": "a message is streamed to the {word} a2a agent:"
+    },
+    {
+      "kind": "step",
+      "pack": "a2a",
+      "keyword": "When",
+      "expression": "a reply is sent to the {word} a2a agent:"
+    },
+    {
+      "kind": "step",
+      "pack": "a2a",
+      "keyword": "When",
+      "expression": "the {word} a2a agent is asked to cancel its task"
+    },
+    {
+      "kind": "step",
+      "pack": "a2a",
+      "keyword": "Then",
+      "expression": "the {word} a2a agent's task is {word}"
+    },
+    {
+      "kind": "step",
+      "pack": "a2a",
+      "keyword": "Then",
+      "expression": "within {duration} the {word} a2a agent's task is {word}"
+    },
+    {
+      "kind": "step",
+      "pack": "a2a",
+      "keyword": "Then",
+      "expression": "the {word} a2a agent's answer contains {string}"
+    },
+    {
+      "kind": "step",
+      "pack": "a2a",
+      "keyword": "Then",
+      "expression": "the {word} a2a agent's task has an artifact where:"
+    },
+    {
+      "kind": "step",
+      "pack": "a2a",
+      "keyword": "Then",
+      "expression": "the {word} a2a agent's stream received an update where:"
+    },
+    {
+      "kind": "step",
+      "pack": "a2a",
+      "keyword": "Then",
+      "expression": "within {duration} the {word} a2a agent's stream received an update where:"
     }
   ]
 }

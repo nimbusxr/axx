@@ -173,6 +173,10 @@ func TestRequests(t *testing.T) {
 	h.OK("the GetParcel method is called on the tracking grpc service with the grpc/get-parcel.json message and the following fields:",
 		[][]string{{"reference", "PX-GRP-6103"}})
 	h.OK("the tracking grpc service's answer has the following fields:", [][]string{{"reference", "PX-GRP-6103"}, {"postcode", "01067"}})
+	// A string field is its text as written: the postcode keeps its zero.
+	h.OK("the GetParcel method is called on the tracking grpc service with the following fields:",
+		[][]string{{"reference", "PX-GRP-6106"}, {"postcode", "01067"}})
+	h.OK("the tracking grpc service's answer has the following fields:", [][]string{{"reference", "PX-GRP-6106"}, {"postcode", "01067"}})
 	// Proto names do as well as JSON names.
 	h.OK("the GetParcel method is called on the tracking grpc service with the following fields:", [][]string{{"reference", `"6104"`}})
 	h.OK("the tracking grpc service's answer has the following fields:", [][]string{{"reference", "6104"}})

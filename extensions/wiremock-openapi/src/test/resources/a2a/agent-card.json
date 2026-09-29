@@ -1,0 +1,29 @@
+{
+  "name": "Partner carrier agent",
+  "description": "Tracks the partner carrier's shipments and books pickups of parcels.",
+  "supportedInterfaces": [
+    {"url": "http://127.0.0.1:8080/a2a/jsonrpc", "protocolBinding": "JSONRPC", "protocolVersion": "1.0"},
+    {"url": "http://127.0.0.1:8080/a2a/rest", "protocolBinding": "HTTP+JSON", "protocolVersion": "1.0"},
+    {"url": "http://127.0.0.1:9090", "protocolBinding": "GRPC", "protocolVersion": "1.0"}
+  ],
+  "provider": {"organization": "Partner carrier", "url": "https://carrier.example"},
+  "version": "2.4.0",
+  "capabilities": {"streaming": true, "pushNotifications": false, "extendedAgentCard": false},
+  "defaultInputModes": ["text/plain"],
+  "defaultOutputModes": ["text/plain", "application/json"],
+  "skills": [
+    {
+      "id": "shipment-status",
+      "name": "Shipment status",
+      "description": "Where a shipment is, by its parcel reference.",
+      "tags": ["parcels", "tracking"],
+      "examples": ["Where is PX-A2A-9001?"]
+    },
+    {
+      "id": "pickup-booking",
+      "name": "Pickup booking",
+      "description": "Books a pickup of a parcel at a shop.",
+      "tags": ["parcels", "pickups"]
+    }
+  ]
+}

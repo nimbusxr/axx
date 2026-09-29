@@ -776,3 +776,70 @@ Then the mocked models model was asked for the schemas/address.json schema in th
 ```
 
 _Since 0.1.5._
+
+## `mock.mcp.called`
+
+```gherkin
+Then the mocked {mockedService} mcp server's {word} tool was called[[ {int} time(s)]] with the following arguments:
+  | argument | value |
+```
+
+Check that the service called the tool of a mocked MCP server with the table's arguments: at least once, or as many times as the step says.
+
+- Every call since the run started counts, other scenarios' too: put the scenario's own data in the table, like its parcel's reference.
+- Paths are dotted (`address.postcode`) or JSONPath, and values compare as text; `null` and `undefined` work as in the other property steps.
+
+| Parameter | Takes | For example |
+|---|---|---|
+| `{mockedService}` | the name of a mocked service the scenario registered | `addresses` |
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+| `{int}` | a whole number | `200`, `3` |
+
+A row is a path into the call's arguments, and its value.
+
+**Variants**, the parts in `[[...]]` said or left out:
+
+- `the mocked {mockedService} mcp server's {word} tool was called with the following arguments:`
+- `the mocked {mockedService} mcp server's {word} tool was called {int} time(s) with the following arguments:`
+
+**Example:**
+
+```gherkin
+Then the mocked partner-carrier mcp server's shipment_status tool was called with the following arguments:
+  | reference | PX-MCP-9301 |
+Then the mocked partner-carrier mcp server's shipment_status tool was called 1 time with the following arguments:
+  | reference | PX-MCP-9301 |
+```
+
+_Since 0.1.5._
+
+## `mock.a2a.sent`
+
+```gherkin
+Then the mocked {mockedService} a2a agent was sent a message containing {string}[[ {int} time(s)]]
+```
+
+Check that the service sent the mocked A2A agent a message whose text has the text (its text parts, and its data parts as JSON): at least once, or as many times as the step says.
+
+- Every message since the run started counts, other scenarios' too: look for the scenario's own data, like its parcel's reference.
+- Messages sent and streamed count alike, over JSON-RPC or HTTP+JSON.
+
+| Parameter | Takes | For example |
+|---|---|---|
+| `{mockedService}` | the name of a mocked service the scenario registered | `addresses` |
+| `{string}` | text in double or single quotes, which the step leaves out | `"Get a quote"`, `'Express'` |
+| `{int}` | a whole number | `200`, `3` |
+
+**Variants**, the parts in `[[...]]` said or left out:
+
+- `the mocked {mockedService} a2a agent was sent a message containing {string}`
+- `the mocked {mockedService} a2a agent was sent a message containing {string} {int} time(s)`
+
+**Example:**
+
+```gherkin
+Then the mocked partner-carrier a2a agent was sent a message containing 'PX-A2A-9301'
+Then the mocked partner-carrier a2a agent was sent a message containing 'PX-A2A-9301' 1 time
+```
+
+_Since 0.1.5._

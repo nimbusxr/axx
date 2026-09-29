@@ -2,7 +2,8 @@ Feature: Parcel assistant
 
   The parcel assistant asks a model two things: the address in the note a shop attached to a
   parcel, and the answer to a recipient's question, which the model gives once it has looked
-  the parcel up. The service speaks OpenAI's API. The scenarios mock the model with the axx
+  the parcel up: for a parcel beyond the EU, with the partner carrier's MCP server, which
+  WireMock mocks too (../infra/partner-carrier). The service speaks OpenAI's API. The scenarios mock the model with the axx
   WireMock image, whose answers are the mapping files in ../infra/models/mappings, and check
   what the service does with each answer, and what it asked the model.
 
@@ -51,6 +52,20 @@ Feature: Parcel assistant
     And the mocked models model was asked about 'PX-AI-8102' 2 times
     And the mocked models model's request about 'PX-AI-8102' contains 'OUT_FOR_DELIVERY'
     And the mocked models model's request about 'PX-AI-8102' does not contain 'Lindenweg 14'
+
+  Scenario: For a parcel abroad, the assistant asks the partner carrier where it is
+    Given a seeds/assistant-abroad.yaml db seed
+    And the mocked partner-carrier service with the following properties:
+      | url | http://${sys:local.host}:8087 |
+    And a POST request to /api/assistant/questions
+    And a request payload using an application/json content example
+    And the request payload property question is 'Where is my parcel PX-AI-8105?'
+    When the request is executed
+    Then the response status code is 200
+    And the response payload property answer is 'Your parcel PX-AI-8105 cleared customs in Basel and arrives on Thursday.'
+    And the mocked partner-carrier mcp server's shipment_status tool was called with the following arguments:
+      | reference | PX-AI-8105 |
+    And the mocked models model's request about 'PX-AI-8105' contains 'cleared customs in Basel'
 
   Scenario: A busy model is asked once more, then the recipient is asked to try again
     Given a POST request to /api/assistant/questions

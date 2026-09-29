@@ -152,13 +152,23 @@ func TestAnEndedContextStopsTheCommand(t *testing.T) {
 }
 
 // A process the command started and left running, holding its output open,
-// neither hangs the run nor outlives it.
+// neither hangs the run nor outlives it, nor holds the folder it ran in.
 func TestWhatTheCommandLeftRunningIsStopped(t *testing.T) {
 	pidfile := filepath.Join(t.TempDir(), "pid")
-	start := time.Now()
-	res, err := Run(context.Background(), helper("grandchild", pidfile))
+	dir, err := os.MkdirTemp("", "axx-proc-")
 	if err != nil {
 		t.Fatal(err)
+	}
+	s := helper("grandchild", pidfile)
+	s.Dir = dir
+	start := time.Now()
+	res, err := Run(context.Background(), s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// At once: no retry, as a pack removes a scenario's folder.
+	if err := os.RemoveAll(dir); err != nil {
+		t.Errorf("the command's folder: %v", err)
 	}
 	if res.ExitCode != 0 || !bytes.Contains(res.Stdout, []byte("started")) {
 		t.Errorf("result: %+v", res)

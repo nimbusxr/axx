@@ -15,8 +15,10 @@ import (
 	ws "github.com/coder/websocket"
 	"github.com/vektah/gqlparser/v2"
 	"github.com/vektah/gqlparser/v2/ast"
+	"github.com/vektah/gqlparser/v2/parser"
 	"github.com/vektah/gqlparser/v2/validator/rules"
 
+	"github.com/nimbusxr/axx/core"
 	"github.com/nimbusxr/axx/internal/cloudstep/cloudtest"
 )
 
@@ -286,6 +288,30 @@ func TestTheSchemaIsTheContract(t *testing.T) {
 			_ = h.Fails("the GraphQL validation levels are:", `unknown GraphQL validation key "validation.operations"; did you mean validation.operation?`,
 				[][]string{{"validation.operations", "WARN"}})
 		})
+	}
+}
+
+// A text variable is its text as written: a postcode keeps its leading zero,
+// in a variable and in the fields and lists of an input, which rows make as
+// they go.
+func TestTextVariablesKeepTheirZeros(t *testing.T) {
+	schema := gqlparser.MustLoadSchema(&ast.Source{Input: `
+		input Address { postcode: String!, lines: [String!] }
+		type Query { parcels(postcode: String!, weight: Int, deliverTo: Address): Int }`})
+	d, err := parser.ParseQuery(&ast.Source{Input: `query Q($postcode: String!, $weight: Int, $to: Address) {
+		parcels(postcode: $postcode, weight: $weight, deliverTo: $to) }`})
+	if err != nil {
+		t.Fatal(err)
+	}
+	o := &operation{def: d.Operations[0]}
+	sc := core.NewScenario(context.Background(), core.ScenarioInfo{}, nil, nil)
+	rows := [][]string{{"postcode", "01067"}, {"weight", "0800"}, {"to.postcode", "01067"}, {"to.lines[0]", "007"}}
+	if err := o.setVariables(sc, &core.Table{Rows: rows}, schema); err != nil {
+		t.Fatal(err)
+	}
+	want := `{"postcode":"01067","to":{"lines":["007"],"postcode":"01067"},"weight":800}`
+	if string(o.variables) != want {
+		t.Errorf("variables\n got %s\nwant %s", o.variables, want)
 	}
 }
 

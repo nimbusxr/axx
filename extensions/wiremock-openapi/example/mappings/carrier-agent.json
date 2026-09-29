@@ -1,0 +1,16 @@
+{
+  "name": "A2A: the partner carrier agent's answer about PX-SMOKE-9001",
+  "request": {
+    "method": "POST",
+    "urlPath": "/a2a/messages",
+    "bodyPatterns": [{"matchesJsonPath": {"expression": "$.text", "contains": "PX-SMOKE-9001"}}]
+  },
+  "response": {
+    "status": 200,
+    "jsonBody": {
+      "state": "completed",
+      "message": "PX-SMOKE-9001 is out for delivery from the Leipzig depot.",
+      "artifacts": [{"name": "status", "data": {"reference": "PX-SMOKE-9001", "status": "OUT_FOR_DELIVERY"}}]
+    }
+  }
+}

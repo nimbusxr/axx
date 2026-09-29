@@ -23,6 +23,8 @@ start() {
     -v "$here/example/openapi:/var/openapi:ro" \
     -v "$here/example/grpc:/home/wiremock/grpc:ro" \
     -v "$here/example/graphql:/var/graphql:ro" \
+    -v "$here/example/mcp:/var/mcp:ro" \
+    -v "$here/example/a2a:/var/a2a:ro" \
     "$image" "$@")
   containers+=("$id")
   for _ in $(seq 1 60); do
@@ -101,6 +103,26 @@ type=$(curl -sS -o /dev/null -w '%{content_type}' -H 'Content-Type: application/
   -d '{"messages": [{"role": "user", "content": [{"text": "Where is PX-SMOKE-8001?"}]}]}' "$base/model/eu.amazon.nova-lite-v1%3A0/converse-stream")
 [[ $type == application/vnd.amazon.eventstream ]] || fail "Bedrock's converse-stream answered $type, not an AWS event stream"
 echo "/model/eu.amazon.nova-lite-v1:0/converse-stream -> 200 $type"
+
+echo "== $image, MCP: a partner carrier's server mocked from example/mcp/carrier.yaml (2026-07-28, no session)"
+env=(-e MCP_SERVER_SOURCE=/var/mcp/carrier.yaml)
+start --verbose
+meta='"_meta": {"io.modelcontextprotocol/protocolVersion": "2026-07-28", "io.modelcontextprotocol/clientCapabilities": {}}'
+mcp=(-H 'Content-Type: application/json' -H 'Accept: application/json, text/event-stream' -H 'MCP-Protocol-Version: 2026-07-28')
+expect 200 '"supportedVersions":["2026-07-28"' "${mcp[@]}" -H 'Mcp-Method: server/discover' \
+  -d "{\"jsonrpc\": \"2.0\", \"id\": 1, \"method\": \"server/discover\", \"params\": {$meta}}" "$base/mcp"
+expect 200 '"structuredContent":{"reference":"PX-SMOKE-9001","status":"OUT_FOR_DELIVERY"' "${mcp[@]}" -H 'Mcp-Method: tools/call' -H 'Mcp-Name: shipment_status' \
+  -d "{\"jsonrpc\": \"2.0\", \"id\": 2, \"method\": \"tools/call\", \"params\": {\"name\": \"shipment_status\", \"arguments\": {\"reference\": \"PX-SMOKE-9001\"}, $meta}}" "$base/mcp"
+env=()
+
+echo "== $image, A2A: a partner carrier's agent mocked from example/a2a/agent-card.json"
+env=(-e A2A_AGENT_CARD_SOURCE=/var/a2a/agent-card.json)
+start --verbose
+expect 200 'Partner carrier agent' "$base/.well-known/agent-card.json"
+expect 200 '"state":"TASK_STATE_COMPLETED"' -H 'Content-Type: application/json' -H 'A2A-Version: 1.0' \
+  -d '{"jsonrpc": "2.0", "id": 1, "method": "SendMessage", "params": {"message": {"messageId": "smoke-9001", "role": "ROLE_USER", "parts": [{"text": "Where is PX-SMOKE-9001?"}]}}}' \
+  "$base/a2a"
+env=()
 
 echo "== $image, a root dir without a grpc folder: REST only"
 start --root-dir /tmp

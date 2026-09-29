@@ -47,7 +47,10 @@ type service struct {
 	mail     *mailer
 	log      *slog.Logger
 
-	assistant *assistant // the parcel assistant, which asks a model
+	assistant *assistant    // the parcel assistant, which asks a model
+	mcp       *parcelsMCP   // the parcels MCP server, for AI assistants
+	agent     *parcelsAgent // the parcels A2A agent, for other agents
+	publicURL string        // where other agents reach the service
 
 	courierKey   []byte            // signs the courier's callbacks
 	shopTokenKey []byte            // signs the shops' tokens
@@ -180,6 +183,8 @@ func (s *service) routes() http.Handler {
 	mux.HandleFunc("POST /oauth/token", s.issueToken)
 	mux.HandleFunc("POST /api/assistant/address", s.assistant.address)
 	mux.HandleFunc("POST /api/assistant/questions", s.assistant.question)
+	mux.Handle("/mcp", s.mcp.handler())
+	s.agent.routes(mux, s.publicURL)
 	s.portalRoutes(mux)
 	return s.logRequests(mux)
 }
@@ -207,6 +212,9 @@ func (w *statusWriter) WriteHeader(code int) {
 
 // Unwrap lets the tracking page's websocket take over the connection.
 func (w *statusWriter) Unwrap() http.ResponseWriter { return w.ResponseWriter }
+
+// Flush lets a stream send as it goes: the agent's streams check for it.
+func (w *statusWriter) Flush() { _ = http.NewResponseController(w.ResponseWriter).Flush() }
 
 func (s *service) quote(w http.ResponseWriter, r *http.Request) {
 	body, err := decodeObject(r)

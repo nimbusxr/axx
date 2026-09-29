@@ -1,0 +1,30 @@
+# The partner carrier's MCP server, which delivers the parcels going beyond the EU: what it lists.
+# WireMock mocks it from this file (MCP_SERVER_SOURCE); its answers are the stubs in ../mappings.
+serverInfo:
+  name: partner-carrier
+  title: Partner carrier
+  version: 3.2.0
+instructions: Where the partner carrier's shipments are, by their parcel reference (PX-...).
+tools:
+  - name: shipment_status
+    title: Shipment status
+    description: Where a shipment the partner carrier delivers is, by its parcel reference.
+    annotations:
+      readOnlyHint: true
+    inputSchema:
+      type: object
+      properties:
+        reference:
+          type: string
+          pattern: "^PX-[A-Z0-9-]+$"
+      required: [reference]
+      additionalProperties: false
+    outputSchema:
+      type: object
+      properties:
+        reference: {type: string}
+        status: {type: string, enum: [ACCEPTED, IN_TRANSIT, CLEARED_CUSTOMS, OUT_FOR_DELIVERY, DELIVERED, RETURNED]}
+        location: {type: string}
+        message: {type: string}
+        estimatedDelivery: {type: string, format: date}
+      required: [reference, status]

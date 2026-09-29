@@ -1,0 +1,8 @@
+parcels.parcels:
+  - reference: "PX-MCP-9101"
+    sender: "birch-and-bloom"
+    status: "OUT_FOR_DELIVERY"
+    service_level: "EXPRESS"
+    weight_grams: 1200
+    recipient: '{"name": "Jonas Weber", "street": "Karl-Liebknecht-Str. 12", "city": "Leipzig", "postcode": "04107", "country": "DE"}'
+    details: '{"source": "api", "zone": "DE-1"}'

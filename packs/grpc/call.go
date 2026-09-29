@@ -23,10 +23,9 @@ import (
 
 	"github.com/nimbusxr/axx/core"
 	"github.com/nimbusxr/axx/internal/cloudstep"
-	"github.com/nimbusxr/axx/internal/compat/jsonx"
-	"github.com/nimbusxr/axx/internal/compat/jvalue"
 	"github.com/nimbusxr/axx/internal/protoload"
 	"github.com/nimbusxr/axx/internal/secrets"
+	"github.com/nimbusxr/axx/internal/tablevalue"
 )
 
 // call is a call a scenario made: a unary call's answer, or a server
@@ -132,9 +131,10 @@ func methodName(m protoreflect.MethodDescriptor) string {
 
 // request builds a method's request: the file's JSON, or an empty one,
 // with the table's rows set into it, as the REST pack's request properties
-// are. Scalars take the types of their fields.
+// are. Scalars take the types of their fields, and a string field's value
+// is its text as written (01067 keeps its zero).
 func request(sc *core.Scenario, md protoreflect.MessageDescriptor, set *protoload.Set, file string, t *core.Table) (*dynamicpb.Message, []byte, error) {
-	var doc any = jsonx.NewObject()
+	var v any = map[string]any{}
 	if file != "" {
 		p, err := sc.Suite().ResolvePath(file)
 		if err != nil {
@@ -148,40 +148,34 @@ func request(sc *core.Scenario, md protoreflect.MessageDescriptor, set *protoloa
 		if err != nil {
 			return nil, nil, err
 		}
-		if doc, err = jsonx.Parse(text); err != nil {
+		dec := json.NewDecoder(strings.NewReader(text))
+		dec.UseNumber()
+		if err := dec.Decode(&v); err != nil {
 			return nil, nil, fmt.Errorf("%s is not JSON: %w", file, err)
 		}
 	}
-	if t != nil {
+	if base, ok := v.(map[string]any); ok && t != nil {
 		pairs, err := t.Pairs()
 		if err != nil {
 			return nil, nil, err
 		}
-		for _, p := range pairs {
-			v := "null"
+		rows := make([]tablevalue.Row, len(pairs))
+		for i, p := range pairs {
+			rows[i] = tablevalue.Row{Path: p.Key, Null: p.Null}
 			if !p.Null {
-				if v, err = secrets.Resolve(sc, p.Value); err != nil {
+				if rows[i].Value, err = secrets.Resolve(sc, p.Value); err != nil {
 					return nil, nil, err
 				}
 			}
-			if err := jvalue.ApplyRequestTableRow(doc, p.Key, v); err != nil {
-				return nil, nil, err
-			}
 		}
-	}
-	text, err := jsonx.Marshal(doc)
-	if err != nil {
-		return nil, nil, err
-	}
-	dec := json.NewDecoder(strings.NewReader(text))
-	dec.UseNumber()
-	var v any
-	if err := dec.Decode(&v); err != nil {
-		return nil, nil, err
+		if v, err = tablevalue.Apply(base, rows, func(path string) bool { return stringField(md, path) }); err != nil {
+			return nil, nil, err
+		}
 	}
 	obj, ok := v.(map[string]any)
 	if !ok {
-		return nil, nil, fmt.Errorf("a %s is a JSON object, not %s", md.FullName(), text)
+		b, _ := json.Marshal(v)
+		return nil, nil, fmt.Errorf("a %s is a JSON object, not %s", md.FullName(), b)
 	}
 	conform(md, obj)
 	body, err := json.Marshal(obj)
@@ -202,6 +196,27 @@ func protoError(err error) string {
 		msg = strings.TrimPrefix(msg, prefix)
 	}
 	return msg
+}
+
+// stringField reports whether a path into a message (`recipient.postcode`,
+// `lines[0].reference`) is a string field.
+func stringField(md protoreflect.MessageDescriptor, path string) bool {
+	var fd protoreflect.FieldDescriptor
+	for _, seg := range strings.Split(strings.TrimPrefix(path, "$."), ".") {
+		if md == nil {
+			return false
+		}
+		name, _, _ := strings.Cut(seg, "[")
+		fields := md.Fields()
+		if fd = fields.ByJSONName(name); fd == nil {
+			fd = fields.ByName(protoreflect.Name(name))
+		}
+		if fd == nil {
+			return false
+		}
+		md = fd.Message()
+	}
+	return fd != nil && fd.Kind() == protoreflect.StringKind
 }
 
 // conform gives a JSON object's scalars the types of the message's

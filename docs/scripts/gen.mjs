@@ -181,6 +181,8 @@ axx(['docs', 'export', '--out', genDir]);
 		grpc: 'gRPC',
 		jsonrpc: 'JSON-RPC',
 		graphql: 'GraphQL',
+		mcp: 'MCP servers',
+		a2a: 'A2A agents',
 		sql: 'SQL',
 		mongo: 'MongoDB',
 		redis: 'Redis',

@@ -3,6 +3,7 @@ package us.nimbusxr.axx.wiremock.models;
 
 import com.github.tomakehurst.wiremock.common.Json;
 
+import us.nimbusxr.axx.wiremock.json.JsonObjects;
 import us.nimbusxr.axx.wiremock.json.JsonText;
 
 import java.nio.charset.StandardCharsets;
@@ -10,7 +11,6 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.HexFormat;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -20,14 +20,7 @@ final class Values {
 
     /** An object of keys and values, in their order, nulls kept. */
     static Map<String, Object> obj(Object... kv) {
-        if (kv.length % 2 != 0) {
-            throw new IllegalArgumentException("an object is keys and values, in pairs: " + kv.length + " is odd");
-        }
-        Map<String, Object> m = new LinkedHashMap<>();
-        for (int i = 0; i < kv.length; i += 2) {
-            m.put((String) kv[i], kv[i + 1]);
-        }
-        return m;
+        return JsonObjects.of(kv);
     }
 
     static List<Object> arr(Object... items) {

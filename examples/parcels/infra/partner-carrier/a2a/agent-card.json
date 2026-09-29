@@ -1,0 +1,21 @@
+{
+  "name": "Partner carrier agent",
+  "description": "Where the partner carrier's shipments are, beyond the EU.",
+  "provider": {"organization": "Partner carrier", "url": "http://partner-carrier:8080"},
+  "supportedInterfaces": [
+    {"url": "http://partner-carrier:8080/a2a", "protocolBinding": "JSONRPC", "protocolVersion": "1.0"}
+  ],
+  "version": "3.2.0",
+  "capabilities": {"streaming": false, "pushNotifications": false},
+  "defaultInputModes": ["text/plain"],
+  "defaultOutputModes": ["text/plain"],
+  "skills": [
+    {
+      "id": "shipment-status",
+      "name": "Shipment status",
+      "description": "Where a shipment is, by its parcel reference.",
+      "tags": ["tracking"],
+      "examples": ["Where is PX-1042?"]
+    }
+  ]
+}

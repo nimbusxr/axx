@@ -1,0 +1,15 @@
+{
+  "name": "A2A: the partner carrier agent's answer about PX-A2A-9206, which cleared customs",
+  "request": {
+    "method": "POST",
+    "urlPath": "/a2a/messages",
+    "bodyPatterns": [{"matchesJsonPath": {"expression": "$.text", "contains": "PX-A2A-9206"}}]
+  },
+  "response": {
+    "status": 200,
+    "jsonBody": {
+      "state": "completed",
+      "message": "PX-A2A-9206 cleared customs in Basel and arrives on Thursday."
+    }
+  }
+}

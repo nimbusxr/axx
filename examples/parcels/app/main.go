@@ -27,6 +27,8 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 type config struct {
@@ -76,6 +78,12 @@ type config struct {
 	ModelURL    string
 	Model       string
 	ModelAPIKey string
+	// PublicURL is where other agents reach the service (its A2A agent's
+	// card names it); PartnerMCPURL and PartnerAgentURL are the partner
+	// carrier's MCP server and A2A agent, which deliver beyond the EU.
+	PublicURL       string
+	PartnerMCPURL   string
+	PartnerAgentURL string
 }
 
 func env(name, def string) string {
@@ -117,6 +125,9 @@ func loadConfig() (config, error) {
 		ModelURL:           env("PARCELS_MODEL_URL", "http://localhost:8086/v1"),
 		Model:              env("PARCELS_MODEL", "gpt-4.1-mini"),
 		ModelAPIKey:        env("PARCELS_MODEL_API_KEY", "example-model-key"),
+		PublicURL:          strings.TrimRight(env("PARCELS_PUBLIC_URL", "http://localhost:8400"), "/"),
+		PartnerMCPURL:      env("PARCELS_PARTNER_MCP_URL", "http://localhost:8087/mcp"),
+		PartnerAgentURL:    strings.TrimRight(env("PARCELS_PARTNER_AGENT_URL", "http://localhost:8087"), "/"),
 	}
 	for _, pair := range strings.Split(env("PARCELS_SHOP_CLIENTS", "wisteria-way:wisteria-client-secret"), ",") {
 		if shop, secret, ok := strings.Cut(strings.TrimSpace(pair), ":"); ok {
@@ -138,6 +149,9 @@ func loadConfig() (config, error) {
 func main() {
 	if len(os.Args) > 1 && os.Args[1] == "admin" {
 		os.Exit(admin(os.Args[2:], os.Stdin, os.Stdout, os.Stderr))
+	}
+	if len(os.Args) > 1 && os.Args[1] == "mcp" {
+		os.Exit(mcpStdio())
 	}
 	cfg, err := loadConfig()
 	if err != nil {
@@ -199,6 +213,7 @@ func serve(ctx context.Context, cfg config, log *slog.Logger) error {
 	}
 	defer scanners.Close()
 	labels := labeler{secret: []byte(cfg.LabelSecret)}
+	partner := &partnerCarrier{mcpURL: cfg.PartnerMCPURL, agentURL: cfg.PartnerAgentURL, http: &http.Client{Timeout: 15 * time.Second}}
 	printing, err := openPrinting(cctx, cfg.AMQPURL, store, labels, log)
 	if err != nil {
 		return err
@@ -224,7 +239,10 @@ func serve(ctx context.Context, cfg config, log *slog.Logger) error {
 		mail:     mail,
 		log:      log,
 
-		assistant: newAssistant(cfg, store, tracking, log),
+		assistant: newAssistant(cfg, store, tracking, partner, log),
+		mcp:       &parcelsMCP{store: store, tracking: tracking, labels: labels},
+		agent:     &parcelsAgent{store: store, tracking: tracking, partner: partner, log: log},
+		publicURL: cfg.PublicURL,
 
 		courierKey:   []byte(cfg.CourierCallbackKey),
 		shopTokenKey: []byte(cfg.ShopTokenKey),
@@ -254,6 +272,38 @@ func serve(ctx context.Context, cfg config, log *slog.Logger) error {
 	sctx, scancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 	defer scancel()
 	return srv.Shutdown(sctx)
+}
+
+// mcpStdio serves the parcels MCP server over stdio (`parcels mcp`), for an
+// assistant that runs it as a command. Its logs go to stderr: stdout is the
+// protocol's.
+func mcpStdio() int {
+	cfg, err := loadConfig()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "parcels:", err)
+		return 2
+	}
+	log := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelWarn}))
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	store, err := openStore(ctx, cfg.DBURL, log)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "parcels:", err)
+		return 1
+	}
+	defer store.Close()
+	tracking, err := openTracking(ctx, cfg.MongoURI, cfg.MongoDB, log)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "parcels:", err)
+		return 1
+	}
+	defer tracking.Close(context.WithoutCancel(ctx))
+	m := &parcelsMCP{store: store, tracking: tracking, labels: labeler{secret: []byte(cfg.LabelSecret)}}
+	if err := m.server().Run(ctx, &sdk.StdioTransport{}); err != nil && !errors.Is(err, context.Canceled) {
+		fmt.Fprintln(os.Stderr, "parcels:", err)
+		return 1
+	}
+	return 0
 }
 
 // logOutput is stderr, and the UDP address when one is set.

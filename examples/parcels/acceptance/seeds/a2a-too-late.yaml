@@ -1,0 +1,8 @@
+parcels.parcels:
+  - reference: "PX-A2A-9203"
+    sender: "alder-and-ash"
+    status: "OUT_FOR_DELIVERY"
+    service_level: "EXPRESS"
+    weight_grams: 600
+    recipient: '{"name": "Eva Schulz", "street": "Hauptstr. 9", "city": "Potsdam", "postcode": "14467", "country": "DE"}'
+    details: '{"source": "api", "zone": "DE-1"}'

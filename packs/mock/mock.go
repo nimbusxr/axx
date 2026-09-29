@@ -332,7 +332,7 @@ func steps() []core.StepDef {
 				"  | reference | PX-WEB-5302 |", (*pattern).withField),
 		signedStep(),
 		webhookStep(),
-	}, modelSteps()...)
+	}, append(modelSteps(), agentSteps()...)...)
 }
 
 // noneStep checks that none of the requests to a path have every row of

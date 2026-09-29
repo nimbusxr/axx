@@ -1,0 +1,8 @@
+parcels.parcels:
+  - reference: "PX-A2A-9205"
+    sender: "alder-and-ash"
+    status: "REGISTERED"
+    service_level: "STANDARD"
+    weight_grams: 1100
+    recipient: '{"name": "Ben Wolf", "street": "Marienplatz 1", "city": "Munich", "postcode": "80331", "country": "DE"}'
+    details: '{"source": "api", "zone": "DE-2"}'

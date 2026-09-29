@@ -1,0 +1,8 @@
+parcels.parcels:
+  - reference: "PX-A2A-9204"
+    sender: "alder-and-ash"
+    status: "IN_TRANSIT"
+    service_level: "EXPRESS"
+    weight_grams: 700
+    recipient: '{"name": "Nora Klein", "street": "Lindenallee 2", "city": "Hamburg", "postcode": "20259", "country": "DE"}'
+    details: '{"source": "api", "zone": "DE-1"}'

@@ -14,11 +14,10 @@ import (
 	"github.com/vektah/gqlparser/v2/validator"
 
 	"github.com/nimbusxr/axx/core"
-	"github.com/nimbusxr/axx/internal/compat/jsonx"
-	"github.com/nimbusxr/axx/internal/compat/jvalue"
 	"github.com/nimbusxr/axx/internal/oaslevel"
 	"github.com/nimbusxr/axx/internal/schemadoc"
 	"github.com/nimbusxr/axx/internal/secrets"
+	"github.com/nimbusxr/axx/internal/tablevalue"
 )
 
 // operation is a query, a mutation or a subscription a scenario sends.
@@ -78,30 +77,25 @@ func (o *operation) setVariables(sc *core.Scenario, t *core.Table, schema *ast.S
 	if t == nil {
 		return nil
 	}
-	doc := jsonx.NewObject()
 	pairs, err := t.Pairs()
 	if err != nil {
 		return err
 	}
-	for _, p := range pairs {
-		v := "null"
+	rows := make([]tablevalue.Row, len(pairs))
+	for i, p := range pairs {
+		rows[i] = tablevalue.Row{Path: p.Key, Null: p.Null}
 		if !p.Null {
-			if v, err = secrets.Resolve(sc, p.Value); err != nil {
+			if rows[i].Value, err = secrets.Resolve(sc, p.Value); err != nil {
 				return err
 			}
 		}
-		if err := jvalue.ApplyRequestTableRow(doc, p.Key, v); err != nil {
-			return err
-		}
 	}
-	text, err := jsonx.Marshal(doc)
+	// Text is its text as written: 01067 stays 01067.
+	vars, err := tablevalue.Build(rows, func(path string) bool {
+		t := o.typeAt(schema, path)
+		return t == "String" || t == "ID"
+	})
 	if err != nil {
-		return err
-	}
-	dec := json.NewDecoder(strings.NewReader(text))
-	dec.UseNumber()
-	var vars map[string]any
-	if err := dec.Decode(&vars); err != nil {
 		return err
 	}
 	for _, vd := range o.def.VariableDefinitions {
@@ -111,6 +105,42 @@ func (o *operation) setVariables(sc *core.Scenario, t *core.Table, schema *ast.S
 	}
 	o.variables, err = json.Marshal(vars)
 	return err
+}
+
+// typeAt is the named type of a path into the variables (`reference`,
+// `address.postcode`, `lines[0].reference`), or "".
+func (o *operation) typeAt(schema *ast.Schema, path string) string {
+	segs := strings.Split(strings.TrimPrefix(path, "$."), ".")
+	name, _, _ := strings.Cut(segs[0], "[")
+	vd := o.def.VariableDefinitions.ForName(name)
+	if vd == nil {
+		return ""
+	}
+	t := vd.Type
+	for _, seg := range segs[1:] {
+		field, _, _ := strings.Cut(seg, "[")
+		if schema == nil {
+			return ""
+		}
+		def := schema.Types[named(t)]
+		if def == nil || def.Kind != ast.InputObject {
+			return ""
+		}
+		f := def.Fields.ForName(field)
+		if f == nil {
+			return ""
+		}
+		t = f.Type
+	}
+	return named(t)
+}
+
+// named is a type's name, out of its lists.
+func named(t *ast.Type) string {
+	for t.Elem != nil {
+		t = t.Elem
+	}
+	return t.NamedType
 }
 
 // conform gives a value the type the operation declares: the text of a

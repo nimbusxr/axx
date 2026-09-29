@@ -39,8 +39,19 @@ dependencies {
     // _entities for subgraphs.
     implementation("com.graphql-java:graphql-java:26.0")
     implementation("com.apollographql.federation:federation-graphql-java-support:7.0.0")
+    // The MCP mock validates tool arguments and stubbed results against the tools' JSON Schemas
+    // (2020-12). The OpenAPI validator already brings this validator: it is named here because
+    // the MCP mock uses it directly.
+    implementation("com.networknt:json-schema-validator:2.0.1")
 
     testImplementation("org.wiremock:wiremock-standalone:$wiremockVersion")
+    // The official MCP and A2A Java SDKs read the MCP and A2A mocks' answers in the tests.
+    testImplementation("io.modelcontextprotocol.sdk:mcp:2.0.1")
+    testImplementation("org.a2aproject.sdk:a2a-java-sdk-client:1.4.0.Final")
+    testImplementation("org.a2aproject.sdk:a2a-java-sdk-client-transport-rest:1.4.0.Final")
+    // Validates the MCP mock's answers against MCP's published JSON schemas in the tests: the
+    // version the MCP SDK brings, not the fat jar's own (relocated) copy.
+    testImplementation("com.networknt:json-schema-validator:3.0.6")
     // The providers' official SDKs read the model mock's answers in the tests, which point them at
     // WireMock: nothing reaches a provider.
     testImplementation("com.openai:openai-java:4.70.0")
@@ -83,6 +94,10 @@ tasks.shadowJar {
     // "id: required property '{1}' not found". Renaming our copy of the bundle (its resource
     // files and the base-name constant) makes the messages independent of classpath order.
     relocate(SimpleRelocator("^jsv-messages", "axx-wiremock-openapi-jsv-messages", rawString = true))
+    // The same validator's classes get a package of their own: another jar on WireMock's
+    // classpath (a mounted extension, the MCP SDK in the tests) may bring networknt 3.x, whose
+    // classes have the same names and another API.
+    relocate("com.networknt", "us.nimbusxr.axx.wiremock.shaded.com.networknt")
 
     manifest {
         attributes(
@@ -97,9 +112,11 @@ tasks.jar {
     archiveBaseName = "axx-wiremock-openapi"
 }
 
-// The published contracts the model mock's answers are validated against in the tests, pinned by
-// commit and checksum: OpenAI's OpenAPI document (openai/openai-openapi, in JSON: its YAML is
-// longer than the YAML parser reads) and Ollama's (ollama/ollama, docs/openapi.yaml).
+// The published contracts the mocks' answers are validated against in the tests, pinned by commit
+// and checksum: OpenAI's OpenAPI document (openai/openai-openapi, in JSON: its YAML is longer than
+// the YAML parser reads), Ollama's (ollama/ollama, docs/openapi.yaml), and MCP's JSON schemas of
+// the protocol versions 2026-07-28 and 2025-11-25 (modelcontextprotocol/modelcontextprotocol,
+// schema/<version>/schema.json).
 abstract class FetchContracts : DefaultTask() {
     /** A file's name, to its URL and its sha256, separated by a space. */
     @get:Input
@@ -126,7 +143,7 @@ abstract class FetchContracts : DefaultTask() {
         MessageDigest.getInstance("SHA-256").digest(b).joinToString("") { "%02x".format(it) }
 }
 
-val fetchContracts by tasks.registering(FetchContracts::class) {
+val fetchContracts = tasks.register<FetchContracts>("fetchContracts") {
     sources.put(
         "openai.json",
         "https://raw.githubusercontent.com/openai/openai-openapi/b6059fc737ac846e8ba64ad65f4f2c8bc0d15854/openapi.json " +
@@ -136,6 +153,16 @@ val fetchContracts by tasks.registering(FetchContracts::class) {
         "ollama.yaml",
         "https://raw.githubusercontent.com/ollama/ollama/a8aaf9fcfad23dc8d6f07b8109b1ba5ed310d76c/docs/openapi.yaml " +
             "988261d67db0389c9e6913ea6c10a6a7bf3c3e0ed76350898eefcbf7a0e2a8bc",
+    )
+    sources.put(
+        "mcp-2026-07-28.json",
+        "https://raw.githubusercontent.com/modelcontextprotocol/modelcontextprotocol/046fa30efd374370afb87ef830bd788eac5f217e/schema/2026-07-28/schema.json " +
+            "ef70b61f99b6d2e5e3b46863822eab08dff6a45bedc7a08914e0e5b133f40203",
+    )
+    sources.put(
+        "mcp-2025-11-25.json",
+        "https://raw.githubusercontent.com/modelcontextprotocol/modelcontextprotocol/046fa30efd374370afb87ef830bd788eac5f217e/schema/2025-11-25/schema.json " +
+            "268a5f82ba70fd7e4b6dc4aa1e64f116f74b4d0edcb69dc046829c79dd4e97e7",
     )
     into = layout.buildDirectory.dir("contracts")
 }

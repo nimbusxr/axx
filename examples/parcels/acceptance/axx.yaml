@@ -24,6 +24,8 @@ properties:
   # The operations desk's command, run in the service's container (from ../infra). Under
   # `axx run --debug` the service runs on the host: -D 'parcels.admin=go run ../app admin'.
   parcels.admin: docker compose exec -T app parcels admin
+  # The parcels MCP server over stdio, run the same way: -D 'parcels.mcp=go run ../app mcp' under --debug.
+  parcels.mcp: docker compose exec -T app parcels mcp
   # The example's keys (../app/main.go): the courier signs its callbacks with the first, the
   # service signs the shops' webhooks with the second and their tokens with the third, and
   # the wisteria-way shop's system gets its tokens with the last.
@@ -55,7 +57,7 @@ apps:
         - -c
         - >-
           PARCELS_SUBGRAPH_URL=http://host.docker.internal:8400/graphql
-          docker compose up --wait address-service courier shops rating shop-directory models postgres mongo kafka schema-registry rabbitmq mosquitto nats valkey mail gateway
+          docker compose up --wait address-service courier shops rating shop-directory models partner-carrier postgres mongo kafka schema-registry rabbitmq mosquitto nats valkey mail gateway
           && docker compose up exports
           && cd ../app
           && PARCELS_LOG_UDP=127.0.0.1:5140

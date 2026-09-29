@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"syscall"
+	"time"
 	"unsafe"
 
 	"golang.org/x/sys/windows"
@@ -138,6 +139,61 @@ func (g *Group) Kill() error {
 	default:
 		return nil
 	}
+}
+
+// jobProcesses mirrors JOBOBJECT_BASIC_PROCESS_ID_LIST, with room for 256
+// processes.
+type jobProcesses struct {
+	Assigned uint32
+	Listed   uint32
+	IDs      [256]uintptr
+}
+
+// KillAndWait terminates every process of the tree, and waits up to timeout
+// until each has ended. The job counts a process out before its handles,
+// such as the one on its working folder, are closed; its process handle is
+// signaled only after that.
+func (g *Group) KillAndWait(timeout time.Duration) error {
+	deadline := time.Now().Add(timeout)
+	if g.job == 0 {
+		err := g.Kill()
+		if g.proc != 0 {
+			_, _ = windows.WaitForSingleObject(g.proc, millis(time.Until(deadline)))
+		}
+		return err
+	}
+	for {
+		var list jobProcesses
+		if err := windows.QueryInformationJobObject(g.job, windows.JobObjectBasicProcessIdList,
+			uintptr(unsafe.Pointer(&list)), uint32(unsafe.Sizeof(list)), nil); err != nil && !errors.Is(err, windows.ERROR_MORE_DATA) {
+			return errors.Join(fmt.Errorf("list the job's processes: %w", err), g.Kill())
+		}
+		n := min(int(list.Listed), len(list.IDs))
+		// The handles are opened before the processes end, so that their
+		// ends can be waited for.
+		handles := make([]windows.Handle, 0, n)
+		for _, id := range list.IDs[:n] {
+			if h, err := windows.OpenProcess(windows.SYNCHRONIZE, false, uint32(id)); err == nil {
+				handles = append(handles, h)
+			}
+		}
+		err := g.Kill()
+		for _, h := range handles {
+			_, _ = windows.WaitForSingleObject(h, millis(time.Until(deadline)))
+			_ = windows.CloseHandle(h)
+		}
+		// A process started while the list was read is waited for next.
+		if n == 0 || !g.Alive() || time.Now().After(deadline) {
+			return err
+		}
+	}
+}
+
+func millis(d time.Duration) uint32 {
+	if d <= 0 {
+		return 0
+	}
+	return uint32(d.Milliseconds())
 }
 
 // release closes the handles (closing the job kills what is left of it).

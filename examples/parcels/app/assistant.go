@@ -29,10 +29,11 @@ type assistant struct {
 	model    string
 	parcels  *store
 	tracking *trackingStore
+	partner  *partnerCarrier
 	log      *slog.Logger
 }
 
-func newAssistant(cfg config, parcels *store, tracking *trackingStore, log *slog.Logger) *assistant {
+func newAssistant(cfg config, parcels *store, tracking *trackingStore, partner *partnerCarrier, log *slog.Logger) *assistant {
 	return &assistant{
 		client: openai.NewClient(
 			option.WithBaseURL(cfg.ModelURL),
@@ -44,6 +45,7 @@ func newAssistant(cfg config, parcels *store, tracking *trackingStore, log *slog
 		model:    cfg.Model,
 		parcels:  parcels,
 		tracking: tracking,
+		partner:  partner,
 		log:      log,
 	}
 }
@@ -175,6 +177,15 @@ func (a *assistant) run(ctx context.Context, call openai.ChatCompletionMessageTo
 	out := map[string]any{"reference": p.Reference, "status": p.Status, "serviceLevel": p.ServiceLevel, "city": p.Recipient.City}
 	if t, err := a.tracking.Get(ctx, p.Reference); err == nil {
 		out["lastLocation"], out["lastScanAt"] = t.LastLocation, t.LastScanAt
+	}
+	if abroad(p.Recipient.Country) {
+		// Beyond the EU, the partner carrier knows where the parcel is.
+		if status, err := a.partner.shipmentStatus(ctx, p.Reference); err == nil {
+			out["partner"] = status
+		} else {
+			a.log.Warn("the partner carrier did not say where a parcel is", "reference", p.Reference, "err", err)
+			out["partner"] = map[string]string{"error": "the partner carrier cannot be asked now"}
+		}
 	}
 	return result(out)
 }

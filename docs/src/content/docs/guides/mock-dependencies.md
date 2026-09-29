@@ -236,6 +236,76 @@ The Axx WireMock image mocks the models a service asks, in the format of the req
 
 The mock pack's model steps check what the service asked the model: the texts, the tools and the schema. See [Test AI features](/guides/test-ai-features/).
 
+## Mock MCP servers and A2A agents
+
+When your service calls another team's MCP server, or asks another team's A2A agent, the Axx WireMock image mocks them from their contract, as it mocks GraphQL subgraphs, with a mapping file per answer:
+
+```yaml title="infra/compose.yaml (excerpt)"
+partner-carrier:
+  image: ghcr.io/nimbusxr/axx-wiremock:<version>   # a version with MCP and A2A mocks
+  environment:
+    MCP_SERVER_SOURCE: /home/wiremock/mcp/partner-carrier.yaml
+    A2A_AGENT_CARD_SOURCE: /home/wiremock/a2a/agent-card.json
+  volumes:
+    - './partner-carrier:/home/wiremock'
+```
+
+- **An MCP server** is mocked from a description of what it lists, in MCP's own field names: its `tools` (with their input and output schemas), `resources`, `resourceTemplates` and `prompts`. It answers at `/mcp` (`MCP_PATH`), in MCP 2026-07-28 and in 2025-11-25, 2025-06-18 and 2025-03-26.
+  - **A tool call** is answered by a stub of `POST /mcp/tools/<tool>`, whose body is the call's arguments and whose JSON body is the tool's result: `structuredContent`, `content` and `isError`. Arguments that break the tool's input schema get a tool error, as from a real server, and a stub's result is checked against the tool's output schema.
+  - **Resources and prompts** are stubs of `POST /mcp/resources` and `POST /mcp/prompts/<prompt>`.
+- **An A2A agent** is mocked from its card: the mock serves the card and answers the JSON-RPC and HTTP+JSON interfaces it lists, streams included. A message is answered by a stub of `POST /a2a/messages`, whose body has the message's `text`, and whose JSON body is the agent's answer: a `reply`, or a task's `state`, `message` and `artifacts`. A reply to a task continues it, since the mock remembers the tasks it answered.
+
+```json title="infra/partner-carrier/mappings/shipment-status-px-ai-8105.json"
+{
+  "name": "MCP: the partner carrier's shipment_status of PX-AI-8105, which cleared customs",
+  "request": {
+    "method": "POST",
+    "urlPath": "/mcp/tools/shipment_status",
+    "bodyPatterns": [{"equalToJson": {"reference": "PX-AI-8105"}}]
+  },
+  "response": {
+    "status": 200,
+    "jsonBody": {
+      "structuredContent": {
+        "reference": "PX-AI-8105",
+        "status": "CLEARED_CUSTOMS",
+        "location": "Basel",
+        "message": "PX-AI-8105 cleared customs in Basel",
+        "estimatedDelivery": "2026-10-01"
+      }
+    }
+  }
+}
+```
+
+```json title="infra/partner-carrier/mappings/where-is-px-a2a-9206.json"
+{
+  "name": "A2A: the partner carrier agent's answer about PX-A2A-9206, which cleared customs",
+  "request": {
+    "method": "POST",
+    "urlPath": "/a2a/messages",
+    "bodyPatterns": [{"matchesJsonPath": {"expression": "$.text", "contains": "PX-A2A-9206"}}]
+  },
+  "response": {
+    "status": 200,
+    "jsonBody": {
+      "state": "completed",
+      "message": "PX-A2A-9206 cleared customs in Basel and arrives on Thursday."
+    }
+  }
+}
+```
+
+A mistake is loud: a description or card that is not one, or a stub for a tool the description does not list, stops WireMock at startup, and a call no stub answers gets an error that says so. The mock pack checks what your service called and asked:
+
+```gherkin
+Then the mocked partner-carrier mcp server's shipment_status tool was called with the following arguments:
+  | reference | PX-AI-8105 |
+And the mocked partner-carrier a2a agent was sent a message containing 'PX-A2A-9206' 1 time
+```
+
+All settings are in the [extension's README](https://github.com/nimbusxr/axx/tree/main/extensions/wiremock-openapi). To test your own MCP server or A2A agent, see [Test MCP servers](/guides/test-mcp/) and [Test A2A agents](/guides/test-a2a/).
+
 ## Check the dependency's contract
 
 A mock that answers something the real API never would makes a test pass for the wrong reason, and a service that calls its dependency wrongly only finds out in production. The `ghcr.io/nimbusxr/axx-wiremock` image is WireMock with Axx's OpenAPI validation extension. It checks every call to the mock against the dependency's OpenAPI document: your service's request, and the stub's response.

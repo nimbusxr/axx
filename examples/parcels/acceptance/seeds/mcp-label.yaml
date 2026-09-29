@@ -1,0 +1,9 @@
+parcels.parcels:
+  - reference: "PX-MCP-9103"
+    sender: "birch-and-bloom"
+    status: "REGISTERED"
+    service_level: "STANDARD"
+    weight_grams: 2100
+    recipient: '{"name": "Paul Richter", "street": "Torstr. 88", "city": "Berlin", "postcode": "10119", "country": "DE"}'
+    details: '{"source": "api", "zone": "DE-1"}'
+    label_number: 9103

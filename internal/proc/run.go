@@ -100,9 +100,10 @@ func Run(ctx context.Context, s Spec) (*Result, error) {
 		stop(g, done)
 		ended = ctx.Err()
 	}
-	// What the command started and left running goes with it.
+	// What the command started and left running goes with it, and is gone
+	// when Run returns: a folder it ran in can be removed.
 	if g.Alive() {
-		_ = g.Kill()
+		_ = g.KillAndWait(stopGrace)
 	}
 	res.Duration = time.Since(start)
 	res.Stdout, res.Stderr = stdout.bytes(), stderr.bytes()

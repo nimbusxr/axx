@@ -17,8 +17,9 @@ import (
 // and holding a parcel at the depot, which a parcel out for delivery can
 // no longer be.
 type depots struct {
-	calls atomic.Int32
-	auth  atomic.Value
+	calls  atomic.Int32
+	auth   atomic.Value
+	params atomic.Value // the last call's params, as sent
 }
 
 func (d *depots) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -34,6 +35,7 @@ func (d *depots) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.Method != "rpc.discover" {
 		d.calls.Add(1)
+		d.params.Store(string(req.Params))
 	}
 	answer := func(v map[string]any) {
 		v["jsonrpc"], v["id"] = "2.0", req.ID
@@ -118,6 +120,12 @@ func TestCalls(t *testing.T) {
 	h.OK("the depots jsonrpc service's result has the following properties:", [][]string{{"reference", "PX-RPC-7102"}})
 	h.OK("the depot.open method is called on the depots jsonrpc service")
 	h.OK("the depots jsonrpc service's result is 'true'")
+	// A row's path makes the objects it goes through.
+	h.OK("the depot.open method is called on the depots jsonrpc service with the following params:",
+		[][]string{{"depot.code", "LEJ"}, {"depot.gate", "4"}})
+	if got := d.params.Load(); got != `{"depot":{"code":"LEJ","gate":4}}` {
+		t.Errorf("params: %v", got)
+	}
 	_ = h.Fails("the depots jsonrpc service's result is 'false'", `The depots jsonrpc service's result of depot.open is true, not "false"`)
 
 	// An error is the call's, for the checks.
@@ -178,6 +186,12 @@ func TestOpenRPC(t *testing.T) {
 			h.OK("the depots jsonrpc service with the following properties:", [][]string{{"url", url}, {"openrpc", source}})
 			h.OK("the parcel.hold method is called on the depots jsonrpc service with the following params:",
 				[][]string{{"reference", "PX-RPC-7111"}, {"until", "2026-10-02"}})
+			// A text param is its text as written.
+			h.OK("the parcel.hold method is called on the depots jsonrpc service with the following params:",
+				[][]string{{"reference", "PX-RPC-7115"}, {"until", "2026-10-02"}, {"reason", "007"}})
+			if got := d.params.Load(); !strings.Contains(got.(string), `"reason":"007"`) {
+				t.Errorf("params: %v", got)
+			}
 
 			// Params that break the document are not sent.
 			calls := d.calls.Load()

@@ -1,0 +1,12 @@
+{
+  "name": "MCP: the partner carrier's shipment_status of PX-SMOKE-9001",
+  "request": {
+    "method": "POST",
+    "urlPath": "/mcp/tools/shipment_status",
+    "bodyPatterns": [{"equalToJson": {"reference": "PX-SMOKE-9001"}}]
+  },
+  "response": {
+    "status": 200,
+    "jsonBody": {"structuredContent": {"reference": "PX-SMOKE-9001", "status": "OUT_FOR_DELIVERY", "depot": "Leipzig"}}
+  }
+}
