@@ -169,6 +169,6 @@ steps:
   - run: axx run --tags @ios
 ```
 
-GitHub's macOS runners have no Docker: when the services your scenarios talk to run in containers, run them elsewhere, or run the iOS scenarios on a Mac that has them. `packs.mobile-ios.bootTimeout` gives a slow machine longer than 3 minutes to boot a simulator.
+GitHub's macOS runners have no Docker: when the services your scenarios talk to run in containers, run them elsewhere, or run the iOS scenarios on a Mac that has them. A new simulator's first boot sets it up, which takes minutes on some runners and can stall: axx boots it again when an attempt stalls, within `packs.mobile-ios.bootTimeout` (5 minutes by default).
 
 See the [mobile-core](/references/packs/mobile-core/), [mobile-android](/references/packs/mobile-android/) and [mobile-ios](/references/packs/mobile-ios/) references for every step.

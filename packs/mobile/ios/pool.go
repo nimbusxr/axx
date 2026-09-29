@@ -293,7 +293,20 @@ func (p *pool) bootDevice(ctx context.Context, d *device) error {
 	}
 	p.suite.Logger().Info("booting an iOS simulator", "simulator", d.name, "udid", d.udid)
 	d.booted = true
-	return bootSim(ctx, d.udid, p.boot)
+	deadline := time.Now().Add(p.boot)
+	for attempt := 1; ; attempt++ {
+		err := bootOnce(ctx, d.udid, min(bootAttempt, time.Until(deadline)))
+		switch {
+		case err == nil:
+			return nil
+		case ctx.Err() != nil:
+			return ctx.Err()
+		case !time.Now().Before(deadline):
+			return fmt.Errorf("the simulator %s did not boot within %s (packs.%s.bootTimeout), in %d attempts: %w", d.name, p.boot, Name, attempt, err)
+		}
+		p.suite.Logger().Warn("an iOS simulator did not finish booting: booting it again", "simulator", d.name, "attempt", attempt, "error", err)
+		_, _ = simctl(ctx, "shutdown", d.udid)
+	}
 }
 
 // stop stops the simulator's Appium server, shuts down a simulator axx

@@ -162,20 +162,21 @@ func newer(a, b string) bool {
 	return false
 }
 
-// bootSim boots a simulator and waits until it has finished booting.
-func bootSim(ctx context.Context, udid string, within time.Duration) error {
+// bootAttempt is how long one attempt to boot a simulator may take: a new
+// simulator's first boot sets it up, and can stall on some machines (GitHub's
+// macOS runners), where booting it again goes through.
+const bootAttempt = 2 * time.Minute
+
+// bootOnce boots a simulator and waits, up to within, until it has finished
+// booting.
+func bootOnce(ctx context.Context, udid string, within time.Duration) error {
+	ctx, cancel := context.WithTimeout(ctx, within)
+	defer cancel()
 	if _, err := simctl(ctx, "boot", udid); err != nil && !strings.Contains(err.Error(), "current state: Booted") {
 		return err
 	}
-	ctx, cancel := context.WithTimeout(ctx, within)
-	defer cancel()
-	if _, err := simctl(ctx, "bootstatus", udid, "-b"); err != nil {
-		if ctx.Err() != nil {
-			return fmt.Errorf("the simulator %s did not boot within %s", udid, within)
-		}
-		return err
-	}
-	return nil
+	_, err := simctl(ctx, "bootstatus", udid, "-b")
+	return err
 }
 
 // isUDID reports a simulator's or device's identifier.
