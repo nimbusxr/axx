@@ -61,10 +61,36 @@ func (a *parcelsAgent) routes(mux *http.ServeMux, publicURL string) {
 			},
 		},
 	}
-	h := a2asrv.NewHandler(a)
+	h := cancelWhenRunEnds{a2asrv.NewHandler(a)}
 	mux.Handle("GET /.well-known/agent-card.json", a2asrv.NewStaticAgentCardHandler(card))
 	mux.Handle("POST /a2a", a2asrv.NewJSONRPCHandler(h))
 	mux.Handle("/a2a/rest/", http.StripPrefix("/a2a/rest", a2asrv.NewRESTHandler(h)))
+}
+
+// cancelWhenRunEnds cancels a task that is not over once the run that
+// answered last has ended. a2a-go 2.6 hands a cancel that comes while that run
+// still ends to the run (a TODO in its internal/taskexec), which fails it: the
+// run's queue is closed, or the run left the task input-required. A hold that
+// asked for its day is canceled right after it asked.
+type cancelWhenRunEnds struct{ a2asrv.RequestHandler }
+
+func (h cancelWhenRunEnds) CancelTask(ctx context.Context, req *a2a.CancelTaskRequest) (*a2a.Task, error) {
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		t, err := h.RequestHandler.CancelTask(ctx, req)
+		if err == nil || time.Now().After(deadline) {
+			return t, err
+		}
+		task, gerr := h.GetTask(ctx, &a2a.GetTaskRequest{ID: req.ID})
+		if gerr != nil || task.Status.State.Terminal() {
+			return t, err
+		}
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-time.After(20 * time.Millisecond):
+		}
+	}
 }
 
 func (a *parcelsAgent) Execute(ctx context.Context, ec *a2asrv.ExecutorContext) iter.Seq2[a2a.Event, error] {

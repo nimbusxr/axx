@@ -54,6 +54,10 @@ func (p *parcels) Execute(_ context.Context, ec *a2asrv.ExecutorContext) iter.Se
 		switch {
 		case strings.HasPrefix(text, "Hold"):
 			yield(a2a.NewStatusUpdateEvent(ec, a2a.TaskStateInputRequired, agentSays("Until which day should "+ref+" be held?")), nil)
+			if ref == "PX-A2A-9208" {
+				// A run that is slow to end after it answered.
+				time.Sleep(200 * time.Millisecond)
+			}
 		case ref == "PX-A2A-9299":
 			yield(a2a.NewStatusUpdateEvent(ec, a2a.TaskStateRejected, agentSays("There is no parcel "+ref+".")), nil)
 		default:
@@ -79,6 +83,31 @@ func (p *parcels) Cancel(_ context.Context, ec *a2asrv.ExecutorContext) iter.Seq
 	}
 }
 
+// cancelWhenRunEnds cancels a task that is not over once the run that
+// answered last has ended. a2a-go 2.6 hands a cancel that comes while that run
+// still ends to the run (a TODO in its internal/taskexec), which fails it: the
+// run's queue is closed, or the run left the task input-required.
+type cancelWhenRunEnds struct{ a2asrv.RequestHandler }
+
+func (h cancelWhenRunEnds) CancelTask(ctx context.Context, req *a2a.CancelTaskRequest) (*a2a.Task, error) {
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		t, err := h.RequestHandler.CancelTask(ctx, req)
+		if err == nil || time.Now().After(deadline) {
+			return t, err
+		}
+		task, gerr := h.GetTask(ctx, &a2a.GetTaskRequest{ID: req.ID})
+		if gerr != nil || task.Status.State.Terminal() {
+			return t, err
+		}
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-time.After(20 * time.Millisecond):
+		}
+	}
+}
+
 func serve(t *testing.T) (*parcels, string) {
 	t.Helper()
 	return serveWith(t, func(w http.ResponseWriter) http.ResponseWriter { return w })
@@ -88,7 +117,7 @@ func serve(t *testing.T) (*parcels, string) {
 func serveWith(t *testing.T, wrap func(http.ResponseWriter) http.ResponseWriter) (*parcels, string) {
 	t.Helper()
 	p := &parcels{}
-	handler := a2asrv.NewHandler(p)
+	handler := cancelWhenRunEnds{a2asrv.NewHandler(p)}
 	mux := http.NewServeMux()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		p.mu.Lock()
@@ -150,6 +179,10 @@ func TestTasks(t *testing.T) {
 
 			// A task is canceled.
 			h.OK("a message is sent to the parcels a2a agent:", "Hold PX-A2A-9205")
+			h.OK("the parcels a2a agent is asked to cancel its task")
+			h.OK("the parcels a2a agent's task is canceled")
+			// A task is canceled while the run that asked for input still ends.
+			h.OK("a message is sent to the parcels a2a agent:", "Hold PX-A2A-9208")
 			h.OK("the parcels a2a agent is asked to cancel its task")
 			h.OK("the parcels a2a agent's task is canceled")
 			// A task that ended cannot be canceled.
