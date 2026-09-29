@@ -1,0 +1,9 @@
+{
+  "request": {
+    "customMatcher": {"name": "model-request", "parameters": {"about": "PX-SMOKE-8001"}}
+  },
+  "response": {
+    "transformers": ["model-answer"],
+    "jsonBody": {"text": "Your parcel PX-SMOKE-8001 is out for delivery."}
+  }
+}

@@ -6,6 +6,8 @@ Verify the requests WireMock mocks received. Stubs are defined in WireMock mappi
 
 With the axx WireMock image (`ghcr.io/nimbusxr/axx-wiremock`), every call to a mock is checked against the mocked service's OpenAPI contract. A step that checks a call that broke the contract fails; a call that broke it, and that no step checks, fails the run after the scenarios.
 
+The image also mocks AI models, in the format of each request (OpenAI's API and the servers that speak it, Anthropic, Gemini, Bedrock, Ollama): its stubs answer with the `model-request` matcher and the `model-answer` transformer, and the `the mocked ... model ...` steps check what the service asked the model: the texts, the tools and the schema.
+
 ## `mock.service`
 
 ```gherkin
@@ -637,6 +639,140 @@ Check that the named request was received, and that every request it names is a 
 
 ```gherkin
 Then the mocked request named delivered on shops is signed as a standard webhook with the key '${env:SHOP_WEBHOOK_KEY}'
+```
+
+_Since 0.1.5._
+
+## `mock.model.asked`
+
+```gherkin
+Then the mocked {mockedService} model was asked about {string}[[ {int} time(s)]]
+```
+
+Check that the mocked model was asked about a text: that a request to it had the text in its conversation, at least once, or as many times as the step says.
+
+- The model is a WireMock with the axx image's model mock: its stubs are mapping files, and it answers in the format of the request, whichever provider's API the service speaks (OpenAI's and the servers that speak it, Anthropic, Gemini, Bedrock, Ollama). Register it as any mocked service.
+- A request is about a text when its conversation has it: its system prompt, its messages, and the tools' calls and results, JSON-escaped text included. Every request since the run started counts, other scenarios' too: name the scenario's own data, like its parcel's reference.
+- A request that continues an earlier response of OpenAI's Responses API (`previous_response_id`) is about what that response's requests were about too.
+
+| Parameter | Takes | For example |
+|---|---|---|
+| `{mockedService}` | the name of a mocked service the scenario registered | `addresses` |
+| `{string}` | text in double or single quotes, which the step leaves out | `"Get a quote"`, `'Express'` |
+| `{int}` | a whole number | `200`, `3` |
+
+**Variants**, the parts in `[[...]]` said or left out:
+
+- `the mocked {mockedService} model was asked about {string}`
+- `the mocked {mockedService} model was asked about {string} {int} time(s)`
+
+**Example:**
+
+```gherkin
+Then the mocked models model was asked about 'PX-AI-8102'
+Then the mocked models model was asked about 'PX-AI-8104' 2 times
+```
+
+_Since 0.1.5._
+
+## `mock.model.contains`
+
+```gherkin
+Then the mocked {mockedService} model's request about {string} contains {string}
+```
+
+Check that a request the mocked model was asked about a text sent another: in its messages, its tools' results, its tools or its settings.
+
+- The model is a WireMock with the axx image's model mock: its stubs are mapping files, and it answers in the format of the request, whichever provider's API the service speaks (OpenAI's and the servers that speak it, Anthropic, Gemini, Bedrock, Ollama). Register it as any mocked service.
+- A request is about a text when its conversation has it: its system prompt, its messages, and the tools' calls and results, JSON-escaped text included. Every request since the run started counts, other scenarios' too: name the scenario's own data, like its parcel's reference.
+- A request that continues an earlier response of OpenAI's Responses API (`previous_response_id`) is about what that response's requests were about too.
+
+| Parameter | Takes | For example |
+|---|---|---|
+| `{mockedService}` | the name of a mocked service the scenario registered | `addresses` |
+| `{string}` | text in double or single quotes, which the step leaves out | `"Get a quote"`, `'Express'` |
+
+**Example:**
+
+```gherkin
+Then the mocked models model's request about 'PX-AI-8102' contains 'OUT_FOR_DELIVERY'
+```
+
+_Since 0.1.5._
+
+## `mock.model.notContains`
+
+```gherkin
+Then the mocked {mockedService} model's request about {string} does not contain {string}
+```
+
+Check that no request the mocked model was asked about a text sent another, anywhere: in its messages, its tools' results, its tools or its settings. The model must have been asked about the text, or the check proves nothing and fails.
+
+- The model is a WireMock with the axx image's model mock: its stubs are mapping files, and it answers in the format of the request, whichever provider's API the service speaks (OpenAI's and the servers that speak it, Anthropic, Gemini, Bedrock, Ollama). Register it as any mocked service.
+- A request is about a text when its conversation has it: its system prompt, its messages, and the tools' calls and results, JSON-escaped text included. Every request since the run started counts, other scenarios' too: name the scenario's own data, like its parcel's reference.
+- A request that continues an earlier response of OpenAI's Responses API (`previous_response_id`) is about what that response's requests were about too.
+
+| Parameter | Takes | For example |
+|---|---|---|
+| `{mockedService}` | the name of a mocked service the scenario registered | `addresses` |
+| `{string}` | text in double or single quotes, which the step leaves out | `"Get a quote"`, `'Express'` |
+
+**Example:**
+
+```gherkin
+Then the mocked models model's request about 'PX-AI-8102' does not contain 'Lindenweg 14'
+```
+
+_Since 0.1.5._
+
+## `mock.model.tool`
+
+```gherkin
+Then the mocked {mockedService} model was offered the {word} tool in the request about {string}
+```
+
+Check that a request the mocked model was asked about a text offered it the tool, by its name.
+
+- The model is a WireMock with the axx image's model mock: its stubs are mapping files, and it answers in the format of the request, whichever provider's API the service speaks (OpenAI's and the servers that speak it, Anthropic, Gemini, Bedrock, Ollama). Register it as any mocked service.
+- A request is about a text when its conversation has it: its system prompt, its messages, and the tools' calls and results, JSON-escaped text included. Every request since the run started counts, other scenarios' too: name the scenario's own data, like its parcel's reference.
+- A request that continues an earlier response of OpenAI's Responses API (`previous_response_id`) is about what that response's requests were about too.
+
+| Parameter | Takes | For example |
+|---|---|---|
+| `{mockedService}` | the name of a mocked service the scenario registered | `addresses` |
+| `{word}` | one word, with no spaces | `parcels`, `PX-4101` |
+| `{string}` | text in double or single quotes, which the step leaves out | `"Get a quote"`, `'Express'` |
+
+**Example:**
+
+```gherkin
+Then the mocked models model was offered the track_parcel tool in the request about 'PX-AI-8102'
+```
+
+_Since 0.1.5._
+
+## `mock.model.schema`
+
+```gherkin
+Then the mocked {mockedService} model was asked for the {filepath} schema in the request about {string}
+```
+
+Check that a request the mocked model was asked about a text asked for its answer in the JSON Schema of a file of the project (JSON or YAML): the structured output the request asks for is that schema, whatever the order of its keys.
+
+- The model is a WireMock with the axx image's model mock: its stubs are mapping files, and it answers in the format of the request, whichever provider's API the service speaks (OpenAI's and the servers that speak it, Anthropic, Gemini, Bedrock, Ollama). Register it as any mocked service.
+- A request is about a text when its conversation has it: its system prompt, its messages, and the tools' calls and results, JSON-escaped text included. Every request since the run started counts, other scenarios' too: name the scenario's own data, like its parcel's reference.
+- A request that continues an earlier response of OpenAI's Responses API (`previous_response_id`) is about what that response's requests were about too.
+
+| Parameter | Takes | For example |
+|---|---|---|
+| `{mockedService}` | the name of a mocked service the scenario registered | `addresses` |
+| `{filepath}` | a file of the project, with no spaces: a path relative to the `resources` directories or to axx.yaml's directory, or an absolute path | `seeds/parcels.yaml`, `kafka/scan-delivered.json` |
+| `{string}` | text in double or single quotes, which the step leaves out | `"Get a quote"`, `'Express'` |
+
+**Example:**
+
+```gherkin
+Then the mocked models model was asked for the schemas/address.json schema in the request about 'Lindenweg 14'
 ```
 
 _Since 0.1.5._

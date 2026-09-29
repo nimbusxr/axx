@@ -1,18 +1,19 @@
 // SPDX-License-Identifier: Apache-2.0
-package us.nimbusxr.axx.wiremock.graphql;
+package us.nimbusxr.axx.wiremock.json;
 
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
 /**
- * Writes a GraphQL answer as JSON, nulls included: WireMock's own JSON leaves nulls out, and a
- * GraphQL answer must keep them ({@code "parcel": null}).
+ * Writes JSON, nulls included: WireMock's own JSON leaves nulls out, and the answers of mocks must
+ * keep them (a GraphQL {@code "parcel": null}, a chat completion's {@code "refusal": null}).
  */
-final class JsonText {
+public final class JsonText {
     private JsonText() {}
 
-    static String write(Object value) {
+    /** Writes maps, lists, arrays, strings, numbers, booleans and nulls as compact JSON. */
+    public static String write(Object value) {
         StringBuilder b = new StringBuilder();
         write(b, value);
         return b.toString();

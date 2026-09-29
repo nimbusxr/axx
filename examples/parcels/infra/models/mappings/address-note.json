@@ -1,0 +1,12 @@
+{
+  "name": "The address in Mara Lindqvist's note",
+  "request": {
+    "customMatcher": {"name": "model-request", "parameters": {"about": "Birkenallee 3"}}
+  },
+  "response": {
+    "transformers": ["model-answer"],
+    "jsonBody": {
+      "json": {"name": "Mara Lindqvist", "street": "Birkenallee 3", "postcode": "01067", "city": "Dresden", "country": "DE"}
+    }
+  }
+}

@@ -55,7 +55,7 @@ apps:
         - -c
         - >-
           PARCELS_SUBGRAPH_URL=http://host.docker.internal:8400/graphql
-          docker compose up --wait address-service courier shops rating shop-directory postgres mongo kafka schema-registry rabbitmq mosquitto nats valkey mail gateway
+          docker compose up --wait address-service courier shops rating shop-directory models postgres mongo kafka schema-registry rabbitmq mosquitto nats valkey mail gateway
           && docker compose up exports
           && cd ../app
           && PARCELS_LOG_UDP=127.0.0.1:5140

@@ -337,6 +337,70 @@ paths:
           content:
             application/json:
               schema: {$ref: "#/components/schemas/OAuthError"}
+  /api/assistant/address:
+    post:
+      operationId: readAddress
+      summary: The recipient's address in a shop's note
+      description: >-
+        The parcel assistant asks a model to read the recipient's name and address in the free
+        text a shop attached to a parcel. A note it cannot read an address in is refused with
+        422, for the shop to check.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [note]
+              properties:
+                note: {type: string, minLength: 1}
+            examples:
+              A shop's note:
+                value:
+                  note: "Please deliver to Mara Lindqvist, Birkenallee 3, 01067 Dresden. Ring twice."
+      responses:
+        "200":
+          description: The address.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Recipient"}
+        "400": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+        "502": {$ref: "#/components/responses/Problem"}
+        "503": {$ref: "#/components/responses/Busy"}
+  /api/assistant/questions:
+    post:
+      operationId: askAssistant
+      summary: An answer to a recipient's question about a parcel
+      description: >-
+        The parcel assistant asks a model, which looks the parcel up before it answers. The model
+        learns the parcel's status and its last scan, never the recipient's name or street.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [question]
+              properties:
+                question: {type: string, minLength: 1}
+            examples:
+              Where is my parcel:
+                value:
+                  question: "Where is my parcel PX-1042?"
+      responses:
+        "200":
+          description: The answer.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [answer]
+                properties:
+                  answer: {type: string}
+        "400": {$ref: "#/components/responses/Problem"}
+        "502": {$ref: "#/components/responses/Problem"}
+        "503": {$ref: "#/components/responses/Busy"}
 components:
   securitySchemes:
     shopToken:
@@ -352,6 +416,15 @@ components:
   responses:
     Problem:
       description: The request was refused (RFC 9457 problem details).
+      content:
+        application/problem+json:
+          schema: {$ref: "#/components/schemas/Problem"}
+    Busy:
+      description: The model is busy, even after one more try; try again later.
+      headers:
+        Retry-After:
+          description: The seconds to wait.
+          schema: {type: integer}
       content:
         application/problem+json:
           schema: {$ref: "#/components/schemas/Problem"}

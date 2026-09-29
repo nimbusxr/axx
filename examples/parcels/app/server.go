@@ -47,6 +47,8 @@ type service struct {
 	mail     *mailer
 	log      *slog.Logger
 
+	assistant *assistant // the parcel assistant, which asks a model
+
 	courierKey   []byte            // signs the courier's callbacks
 	shopTokenKey []byte            // signs the shops' tokens
 	shopClients  map[string]string // the shops' client credentials
@@ -176,6 +178,8 @@ func (s *service) routes() http.Handler {
 	mux.HandleFunc("POST /api/courier/callbacks", s.courierCallback)
 	mux.HandleFunc("GET /api/shops/{shop}/parcels", s.shopParcels)
 	mux.HandleFunc("POST /oauth/token", s.issueToken)
+	mux.HandleFunc("POST /api/assistant/address", s.assistant.address)
+	mux.HandleFunc("POST /api/assistant/questions", s.assistant.question)
 	s.portalRoutes(mux)
 	return s.logRequests(mux)
 }

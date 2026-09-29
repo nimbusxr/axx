@@ -19,7 +19,7 @@ The service has no dependency on Axx or on any test framework.
 
 | Feature | Acceptance criteria | What Axx uses |
 | --- | --- | --- |
-| `quotes` | prices by service level, weight, destination and delivery zone; no quote for undeliverable postcodes; undocumented fields from the address service do not break quoting | requests built from the OpenAPI examples, a Scenario Outline, a mocked dependency, a dependency's contract relaxed for one scenario |
+| `quotes` | prices by service level, weight, destination and delivery zone; no quote for undeliverable postcodes; undocumented fields from the address service do not break quoting; beyond the EU, the partner carrier's rating service prices the parcel, and a country it does not deliver to gets no quote | requests built from the OpenAPI examples, a Scenario Outline, a mocked dependency, a dependency's contract relaxed for one scenario, a gRPC dependency mocked by WireMock |
 | `register-parcels` | register, look up, change, cancel and list parcels; a shop's order system registers what it exports; the courier collects an express parcel without the recipient's name, and only express parcels; cancelling one calls off its collection; unique references; the 30 kg limit; signed labels | OpenAPI validation and its levels, ordered requests, payloads from a fixture factory's files, the JSON body a mock received (a property that must be absent included), a mocked request named by its path and checked by its query parameters, requests a mock did not receive (by their body and their query), null and undefined properties, regular expressions, SQL selections |
 | `address-check` | every registration asks the address service with the API key; undeliverable and unavailable addresses | WireMock verification, the address service's OpenAPI contract checked on every call, entries in two logs (the service's and the mock's) |
 | `manifest-import` | manifest lines become parcels or are rejected with the reason | YAML, flat XML and CSV seeds, polling selections, JSON and JSONB column checks, entries in the console log |
@@ -40,6 +40,11 @@ The service has no dependency on Axx or on any test framework.
 | `shop-api` | a shop's system reads its parcels with a token its platform signs, or one it gets with its client credentials; a token for another shop is refused | a JSON Web Token axx signs, an OAuth 2.0 client credentials token axx gets from the service's token endpoint |
 | `cache` | a parcel's tracking view is cached, answers from the cache, and is dropped when a scan changes it; a registration retried with its idempotency key is answered with the parcel it made | Redis keys seeded and checked by their value, their JSON properties and their absence, ordered requests with a header |
 | `shop-emails` | a shop gets each registered parcel's label by email, and each delivery when it asked to be told; an email a shop's mail server refuses does not stop the registration | smtp4dev read over IMAP: an email's recipient, sender, subject, text, HTML and attachment; a mail server's refusal stubbed like a WireMock mapping; a log entry |
+| `tracking-api` | a shop's system reads a parcel's status over gRPC, and watches its scans until it is delivered; a parcel never registered is not found | a gRPC service read through server reflection, its status codes, a server stream checked by its messages |
+| `depot-holds` | a depot reads a parcel, and holds it until the day the recipient chose, but not once it is out for delivery; a parcel the service does not know, and a hold without its day | JSON-RPC calls checked against the service's OpenRPC document, their results and error codes |
+| `parcels-graph` | a shop's app reads a parcel through the parcels subgraph, holds it at its depot, and hears it go out for delivery | GraphQL queries, mutations and a subscription (graphql-ws) checked against the schema the service introspects, their data and errors |
+| `federated-graph` | through the gateway, a parcel comes with its shop from the shops subgraph; a shop the directory does not know; a field the graph does not have | a federated graph (Hive Gateway) over the service's subgraph and a subgraph WireMock mocks from its schema, the `_entities` call the gateway sent it, a validation rule relaxed for one scenario |
+| `parcel-assistant` | the assistant reads the address in a shop's note, and sends a note it cannot read back to the shop; it looks a parcel up before it answers, and never tells the model the recipient's street; a busy model is asked once more, then the recipient is asked to try again | a model mocked by WireMock (the service speaks OpenAI's API), a tool loop, what the service asked the model: the texts, the tools and the schema, and what it must never send |
 | `operations-desk` | the desk's `parcels admin` command reprints labels, cancels parcels (from its input too) under the API's rules, and lists a shop's parcels | a command run in the service's container, its exit code, output and error output, output compared byte for byte and by its JSON properties, SQL selections |
 
 `axx.yaml` also shows test-data lint rules (`axx lint`), fixture factories (`axx fixtures`)
@@ -56,6 +61,10 @@ parcels/
     wiremock/       the address service mock: mappings and response bodies
     courier/        the courier mock's mappings
     shops/          the mock of the shops' systems, which hear of deliveries: its mapping
+    rating/         the partner carrier's rating service mock (gRPC): its descriptor set and mappings
+    shop-directory/ the shops subgraph mock: its schema and its entities' mappings
+    supergraph/     composes the supergraph the gateway serves, from the subgraphs' SDL
+    models/         the model mock, which the parcel assistant asks: its answers' mappings
     exports/        what the service writes to its export folder during a run (not committed)
   acceptance/   the Axx project
     axx.yaml        run settings, the app definition, the packs' settings, lint rules, fixture settings
@@ -144,10 +153,15 @@ browser at it. The host ports are the ones the features use:
 
 | Service | Image | Host port | Purpose |
 | --- | --- | --- | --- |
-| `app` | built from `../app` | 8400 | the parcels API under `/api`, the shop portal under `/portal`, OpenAPI at `/openapi.json`, health at `/health` |
+| `app` | built from `../app` | 8400, 8410 | the parcels API under `/api`, the shop portal under `/portal`, OpenAPI at `/openapi.json`, health at `/health`, JSON-RPC at `/rpc`, GraphQL at `/graphql`; the tracking API over gRPC on 8410 |
 | `address-service` | built from `extensions/wiremock-openapi` | 8081 | WireMock with Axx's OpenAPI validation extension: the mocked address service |
 | `courier` | built from `extensions/wiremock-openapi` | 8082 | the mocked courier, checked against `openapi/courier.yaml`: express collections (JSON) and pickups (a form) |
 | `shops` | built from `extensions/wiremock-openapi` | 8083 | the mocked shops' systems, checked against `openapi/shop-webhooks.yaml`: the signed webhooks of deliveries |
+| `rating` | built from `extensions/wiremock-openapi` | 8084 | the mocked rating service of the partner carrier, over gRPC (WireMock's gRPC extension) |
+| `shop-directory` | built from `extensions/wiremock-openapi` | 8085 | the shops subgraph, which another team owns, mocked field by field from its schema |
+| `supergraph` | built from `supergraph/` | (none) | composes the supergraph from the subgraphs' SDL, as a team composes in CI |
+| `gateway` | `ghcr.io/graphql-hive/gateway:2.15.1` | 4000 | the federated graph's gateway (Hive Gateway), which serves the supergraph |
+| `models` | built from `extensions/wiremock-openapi` | 8086 | the model the parcel assistant asks, mocked in the format of its requests (OpenAI's API) |
 | `postgres` | `postgres:16` | 5432 | parcels, manifest lines, pickups and shops' settings |
 | `mongo` | `mongo:7` | 27017 | depot scans and the tracking read model |
 | `kafka` | `apache/kafka-native:3.9.1` | 9092 | single-node KRaft broker |

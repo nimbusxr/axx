@@ -96,7 +96,10 @@ func (pack) Manifest() core.Manifest {
 		Doc: "Verify the requests WireMock mocks received. Stubs are defined in WireMock mapping files; axx only verifies.\n\n" +
 			"With the axx WireMock image (`ghcr.io/nimbusxr/axx-wiremock`), every call to a mock is checked against the mocked " +
 			"service's OpenAPI contract. A step that checks a call that broke the contract fails; a call that broke it, and that " +
-			"no step checks, fails the run after the scenarios.",
+			"no step checks, fails the run after the scenarios.\n\n" +
+			"The image also mocks AI models, in the format of each request (OpenAI's API and the servers that speak it, Anthropic, " +
+			"Gemini, Bedrock, Ollama): its stubs answer with the `model-request` matcher and the `model-answer` transformer, and " +
+			"the `the mocked ... model ...` steps check what the service asked the model: the texts, the tools and the schema.",
 		Hooks: []core.Hook{{
 			ID: "mock.openapi.levels.unused", Phase: core.AfterScenario,
 			Run: warnUnusedLevels,
@@ -115,7 +118,7 @@ func (pack) Manifest() core.Manifest {
 }
 
 func steps() []core.StepDef {
-	return []core.StepDef{
+	return append([]core.StepDef{
 		{
 			ID: "mock.service", Keyword: "Given", Arg: core.ArgTable,
 			Expr: "the mocked {word} service with the following properties:",
@@ -329,7 +332,7 @@ func steps() []core.StepDef {
 				"  | reference | PX-WEB-5302 |", (*pattern).withField),
 		signedStep(),
 		webhookStep(),
-	}
+	}, modelSteps()...)
 }
 
 // noneStep checks that none of the requests to a path have every row of

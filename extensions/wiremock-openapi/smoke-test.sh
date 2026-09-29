@@ -85,6 +85,23 @@ expect 200 '"_entities":[null]' -H 'Content-Type: application/json' \
   -d '{"query": "query ($r: [_Any!]!) { _entities(representations: $r) { ... on Shop { name } } }", "variables": {"r": [{"__typename": "Shop", "id": "hawthorn-home"}]}}' "$base/graphql"
 env=()
 
+echo "== $image, models: example/mappings/parcel-assistant.json answered in each provider's format"
+start --verbose
+ask='"messages": [{"role": "user", "content": "Where is PX-SMOKE-8001?"}]'
+expect 200 '"content":"Your parcel PX-SMOKE-8001 is out for delivery."' -H 'Content-Type: application/json' \
+  -d "{\"model\": \"gpt-4.1-mini\", $ask}" "$base/v1/chat/completions"
+expect 200 'data: [DONE]' -H 'Content-Type: application/json' \
+  -d "{\"model\": \"gpt-4.1-mini\", \"stream\": true, $ask}" "$base/v1/chat/completions"
+expect 200 'event: message_stop' -H 'Content-Type: application/json' -H 'anthropic-version: 2023-06-01' \
+  -d "{\"model\": \"claude-sonnet-4-5\", \"max_tokens\": 256, \"stream\": true, $ask}" "$base/v1/messages"
+expect 200 '"text":"Your parcel PX-SMOKE-8001 is out for delivery."' -H 'Content-Type: application/json' \
+  -d '{"contents": [{"role": "user", "parts": [{"text": "Where is PX-SMOKE-8001?"}]}]}' "$base/v1beta/models/gemini-2.5-flash:generateContent"
+expect 200 '"done":true' -H 'Content-Type: application/json' -d "{\"model\": \"llama3.2\", $ask}" "$base/api/chat"
+type=$(curl -sS -o /dev/null -w '%{content_type}' -H 'Content-Type: application/json' \
+  -d '{"messages": [{"role": "user", "content": [{"text": "Where is PX-SMOKE-8001?"}]}]}' "$base/model/eu.amazon.nova-lite-v1%3A0/converse-stream")
+[[ $type == application/vnd.amazon.eventstream ]] || fail "Bedrock's converse-stream answered $type, not an AWS event stream"
+echo "/model/eu.amazon.nova-lite-v1:0/converse-stream -> 200 $type"
+
 echo "== $image, a root dir without a grpc folder: REST only"
 start --root-dir /tmp
 expect 404 - -H 'content-type: application/grpc' --http2-prior-knowledge --data-binary @/dev/null "$base/smoke.v1.Ping/Ping"
