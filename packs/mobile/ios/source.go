@@ -18,6 +18,7 @@ func parseSource(src string) (*mobilecore.Screen, error) {
 	dec := xml.NewDecoder(strings.NewReader(src))
 	s := &mobilecore.Screen{}
 	var stack []*mobilecore.Node
+	keyboard := map[*mobilecore.Node]bool{}
 	for {
 		tok, err := dec.Token()
 		if errors.Is(err, io.EOF) {
@@ -33,11 +34,17 @@ func parseSource(src string) (*mobilecore.Screen, error) {
 				continue
 			}
 			n := nodeOf(t)
+			if n.Class == "XCUIElementTypeKeyboard" {
+				keyboard[n] = true
+			}
 			if len(stack) > 0 {
 				if p := stack[len(stack)-1]; p != nil {
 					n.Parent = p
 					p.Children = append(p.Children, n)
-					n.Displayed = n.Displayed && p.Displayed
+					if keyboard[p] {
+						// The keyboard's keys are the system's, not what the app shows.
+						keyboard[n], n.Displayed = true, false
+					}
 				}
 			}
 			if n.Class == "XCUIElementTypeApplication" && s.Size.Width == 0 {
@@ -82,7 +89,7 @@ func nodeOf(t xml.StartElement) *mobilecore.Node {
 	}
 	switch class {
 	case "XCUIElementTypeKeyboard":
-		n.Displayed = false // the system's, over the app: not what the app shows
+		n.Displayed = false // the system's, over the app: not what the app shows; its keys too
 	case "XCUIElementTypeOther":
 		if attr(a, "traits") == "Adjustable" && attr(a, "accessible") == "false" {
 			n.Displayed = false // a scroll indicator, which says where a list is scrolled to

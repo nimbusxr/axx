@@ -54,6 +54,12 @@ func harness(t *testing.T) *cloudtest.Harness {
 		if !t.Failed() {
 			return
 		}
+		// What the app showed, as the pack read it, while its session lasts.
+		_ = mobilecore.OnDevice(h.SC, "courier", func(ctx context.Context, d mobilecore.Device) error {
+			src, err := d.Session().Source(ctx)
+			t.Logf("the courier app's page source at the failure (%v):\n%s", err, src)
+			return nil
+		})
 		logs, _ := filepath.Glob(filepath.Join(h.Dir, ".axx", "mobile", "*.log"))
 		for _, l := range logs {
 			b, _ := os.ReadFile(l)
@@ -81,6 +87,8 @@ func warm(t *testing.T, h *cloudtest.Harness, device string) {
 		t.Fatal(err)
 	}
 	p.release(d)
+	// The scenario starts now, with all of its time.
+	h.NewScenario()
 }
 
 func signIn(h *cloudtest.Harness) {
