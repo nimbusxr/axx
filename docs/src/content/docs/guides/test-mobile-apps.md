@@ -83,7 +83,7 @@ packs:
     devices: 2   # two simulators: two iOS scenarios at once
 ```
 
-- **Android** starts emulators of the device read-only, so that several run at once and nothing a scenario changes outlives it.
+- **Android** starts emulators of the device read-only, so that several run at once and nothing a scenario changes outlives it. A device with a boot snapshot (boot it once, and close it) starts in seconds; without one, each emulator boots cold.
 - **iOS** gives each device it runs a clone, deleted when the run ends: of the simulator you set up, or, for a device type, of axx's own simulator of it. axx makes that one and boots it once to set it up, the same on every Mac, and keeps it in its cache (`~/Library/Caches/axx/mobile/simulators`, apart from Xcode's). No scenario ever runs on it, and its clones boot in seconds.
 
 Before its app starts, a scenario's app is reset, and what it sees of the device is set:

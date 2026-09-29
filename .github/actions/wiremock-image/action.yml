@@ -1,0 +1,40 @@
+# SPDX-License-Identifier: Apache-2.0
+name: wiremock-image
+description: >-
+  The WireMock image with axx's extensions, which an example's compose file builds from
+  extensions/wiremock-openapi. Its build (Gradle, inside Docker) takes minutes; from the layers
+  the wiremock-extension workflow caches, seconds. It is built here from them and loaded under
+  the name the compose file gives it, and COMPOSE_FILE adds an override that removes the build
+  of the services that run it, so that `docker compose up --build` uses this one.
+inputs:
+  example:
+    description: The example's directory, like examples/parcels.
+    required: true
+  image:
+    description: The name the example's compose file gives the image, like parcels-wiremock:local.
+    required: true
+runs:
+  using: composite
+  steps:
+    - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
+    - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
+      with:
+        context: extensions/wiremock-openapi
+        load: true
+        tags: ${{ inputs.image }}
+        cache-from: type=gha,scope=axx-wiremock
+        # Layers are cached from main only: pull requests read them.
+        cache-to: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && 'type=gha,mode=max,scope=axx-wiremock' || '' }}
+    - name: compose runs it without building it
+      shell: bash
+      env:
+        EXAMPLE: ${{ inputs.example }}
+        IMAGE: ${{ inputs.image }}
+      run: |
+        compose="$GITHUB_WORKSPACE/$EXAMPLE/infra/compose.yaml"
+        override="$RUNNER_TEMP/compose.wiremock-image.yaml"
+        docker compose -f "$compose" config --format json \
+          | jq -r --arg image "$IMAGE" '"services:", (.services | to_entries[] | select(.value.image == $image and .value.build != null) | "  \(.key):\n    build: !reset null")' \
+          > "$override"
+        cat "$override"
+        echo "COMPOSE_FILE=$compose:$override" >> "$GITHUB_ENV"

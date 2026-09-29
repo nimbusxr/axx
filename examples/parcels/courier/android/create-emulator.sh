@@ -37,3 +37,29 @@ done
 [ -n "$device" ] || device=$(printf '%s\n' "$devices" | grep '^pixel' | tail -1)
 echo no | "$tools/avdmanager" create avd --force --name parcels-pixel --package "$image" --device "$device"
 echo "parcels-pixel: $image, $device"
+
+# Its boot snapshot: booted once and saved, every emulator axx starts of it boots from it in
+# seconds instead of booting cold. axx starts them read-only: they save nothing, so each starts
+# as the snapshot left it.
+args=(-avd parcels-pixel -port 5580 -no-window -no-audio -no-boot-anim)
+if [ "$(uname -s)" = Linux ]; then args+=(-gpu swiftshader_indirect); fi
+"$sdk/emulator/emulator" "${args[@]}" > "$ANDROID_AVD_HOME/parcels-pixel-snapshot.log" 2>&1 &
+emulator=$!
+adb="$sdk/platform-tools/adb"
+booted=""
+for _ in $(seq 300); do
+  kill -0 "$emulator" 2> /dev/null || break
+  if [ "$("$adb" -s emulator-5580 shell getprop sys.boot_completed 2> /dev/null | tr -d '\r')" = 1 ]; then
+    booted=yes
+    break
+  fi
+  sleep 2
+done
+if [ -z "$booted" ]; then
+  echo "parcels-pixel did not boot for its snapshot; the emulator's log: $ANDROID_AVD_HOME/parcels-pixel-snapshot.log" >&2
+  kill "$emulator" 2> /dev/null || true
+  exit 1
+fi
+"$adb" -s emulator-5580 emu kill > /dev/null
+wait "$emulator" || true
+echo "parcels-pixel: its boot snapshot is saved"
