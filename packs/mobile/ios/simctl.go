@@ -13,9 +13,15 @@ import (
 )
 
 // simctl runs xcrun simctl, Xcode's tool for simulators, and returns what it
-// printed.
+// printed. A command may take up to 5 minutes.
 func simctl(ctx context.Context, args ...string) (string, error) {
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
+	return simctlWithin(ctx, 5*time.Minute, args...)
+}
+
+// simctlWithin runs xcrun simctl for a command that may take up to within,
+// like waiting for a simulator to boot.
+func simctlWithin(ctx context.Context, within time.Duration, args ...string) (string, error) {
+	ctx, cancel := context.WithTimeout(ctx, within)
 	defer cancel()
 	out, err := exec.CommandContext(ctx, "xcrun", append([]string{"simctl"}, args...)...).CombinedOutput() //nolint:gosec // simctl, with arguments axx builds
 	text := strings.TrimSpace(string(out))
@@ -54,10 +60,15 @@ type simSet string
 
 // simctl runs simctl on the set's simulators.
 func (set simSet) simctl(ctx context.Context, args ...string) (string, error) {
-	if set != "" {
-		args = append([]string{"--set", string(set)}, args...)
+	return simctl(ctx, set.args(args...)...)
+}
+
+// args are simctl's arguments for the set's simulators.
+func (set simSet) args(args ...string) []string {
+	if set == "" {
+		return args
 	}
-	return simctl(ctx, args...)
+	return append([]string{"--set", string(set)}, args...)
 }
 
 // simulators lists the set's simulators, available or not.
@@ -181,7 +192,7 @@ func (set simSet) boot(ctx context.Context, udid string, within time.Duration) e
 	if _, err := set.simctl(ctx, "boot", udid); err != nil && !strings.Contains(err.Error(), "current state: Booted") {
 		return err
 	}
-	if _, err := set.simctl(ctx, "bootstatus", udid, "-b"); err != nil {
+	if _, err := simctlWithin(ctx, within, set.args("bootstatus", udid, "-b")...); err != nil {
 		if ctx.Err() != nil {
 			return fmt.Errorf("it did not finish booting within %s", within)
 		}

@@ -128,6 +128,16 @@ func TestDevices(t *testing.T) {
 	}
 }
 
+// A set's simulators are its own: simctl is told which set.
+func TestSimulatorSets(t *testing.T) {
+	if got := strings.Join(simSet("").args("boot", "U"), " "); got != "boot U" {
+		t.Errorf("Xcode's set: %q", got)
+	}
+	if got := strings.Join(simSet("/cache/simulators").args("boot", "U"), " "); got != "--set /cache/simulators boot U" {
+		t.Errorf("axx's set: %q", got)
+	}
+}
+
 // Simulators axx made are named for the axx that made them, so that one a
 // killed run left is known as such.
 func TestMadeNames(t *testing.T) {
