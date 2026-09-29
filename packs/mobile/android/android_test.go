@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -243,6 +244,36 @@ func TestCapabilityValues(t *testing.T) {
 	if _, ok := caps["appium:locale"]; !ok {
 		t.Error("the locale's region is a capability")
 	}
+}
+
+// Emulators that start at once each get a console port of their own, and a
+// port an emulator no longer holds is free again.
+func TestConsolePorts(t *testing.T) {
+	var mu sync.Mutex
+	seen := map[int]bool{}
+	var wg sync.WaitGroup
+	for range 3 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			port, err := consolePort()
+			mu.Lock()
+			defer mu.Unlock()
+			if err != nil || seen[port] || port%2 != 0 {
+				t.Errorf("port %d: %v (taken: %v)", port, err, seen)
+			}
+			seen[port] = true
+		}()
+	}
+	wg.Wait()
+	for port := range seen {
+		releasePort(port)
+	}
+	port, err := consolePort()
+	if err != nil || !seen[port] {
+		t.Errorf("a released port is free again: %d %v", port, err)
+	}
+	releasePort(port)
 }
 
 func TestConfig(t *testing.T) {

@@ -23,6 +23,7 @@ import (
 // lists. One scenario at a time has it.
 type device struct {
 	serial     string
+	port       int    // the console port of an emulator axx started, which it holds
 	avd        string // the emulator's AVD; "" for a device axx did not start
 	systemPort int    // the UiAutomator2 server's port on the host
 	appium     *appium.Server
@@ -193,12 +194,14 @@ func (p *pool) boot1(ctx context.Context, d *device, logDir string) error {
 	if err != nil {
 		return err
 	}
-	d.serial, d.avd = "emulator-"+strconv.Itoa(port), p.name
+	d.serial, d.avd, d.port = "emulator-"+strconv.Itoa(port), p.name, port
 	if err := os.MkdirAll(logDir, 0o755); err != nil {
+		releasePort(port)
 		return err
 	}
 	log, err := os.Create(filepath.Join(logDir, "emulator-"+strconv.Itoa(port)+".log"))
 	if err != nil {
+		releasePort(port)
 		return err
 	}
 	// The emulator outlives this step: it runs until the run ends.
@@ -216,6 +219,7 @@ func (p *pool) boot1(ctx context.Context, d *device, logDir string) error {
 	proc.Setup(cmd)
 	if err := cmd.Start(); err != nil {
 		_ = log.Close()
+		releasePort(port)
 		return fmt.Errorf("cannot start the %s emulator: %w", p.name, err)
 	}
 	d.emulator, d.exited = cmd, make(chan struct{})
@@ -225,6 +229,7 @@ func (p *pool) boot1(ctx context.Context, d *device, logDir string) error {
 	go func() {
 		_ = cmd.Wait()
 		_ = log.Close()
+		releasePort(port)
 		close(d.exited)
 	}()
 	p.suite.Logger().Info("starting an Android emulator", "avd", p.name, "serial", d.serial)
@@ -242,15 +247,31 @@ func (p *pool) boot1(ctx context.Context, d *device, logDir string) error {
 	return nil
 }
 
-// consolePort is a free even port for an emulator's console; adb uses the
-// odd one after it.
+// consolePorts are the console ports the run's emulators hold: emulators
+// that start at once each take one of their own, before any has bound it.
+var consolePorts = struct {
+	sync.Mutex
+	taken map[int]bool
+}{taken: map[int]bool{}}
+
+// consolePort takes a free even port for an emulator's console; adb uses the
+// odd one after it. releasePort gives it back.
 func consolePort() (int, error) {
+	consolePorts.Lock()
+	defer consolePorts.Unlock()
 	for port := 5554; port <= 5680; port += 2 {
-		if free(port) && free(port+1) {
+		if !consolePorts.taken[port] && free(port) && free(port+1) {
+			consolePorts.taken[port] = true
 			return port, nil
 		}
 	}
 	return 0, errors.New("no emulator console port from 5554 to 5680 is free")
+}
+
+func releasePort(port int) {
+	consolePorts.Lock()
+	defer consolePorts.Unlock()
+	delete(consolePorts.taken, port)
 }
 
 func free(port int) bool {
