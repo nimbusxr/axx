@@ -225,6 +225,8 @@ export default defineConfig({
 								'references/packs/grpc',
 								'references/packs/jsonrpc',
 								'references/packs/graphql',
+								'references/packs/mcp',
+								'references/packs/a2a',
 								'references/packs/sql',
 								'references/packs/mongo',
 								'references/packs/redis',
