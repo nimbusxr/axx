@@ -80,13 +80,25 @@ func poolFor(sc *core.Scenario, name string) (*pool, error) {
 				return nil, err
 			}
 			if !slices.Contains(avds, name) {
-				return nil, fmt.Errorf("no Android device or emulator is named %q: the emulator's devices (AVDs) are %v, and adb lists %v", name, avds, serials)
+				return nil, fmt.Errorf("no Android device or emulator is named %q: the emulator's devices (AVDs, in %s) are %v, and adb lists %v", name, avdHome(), avds, serials)
 			}
 			p.avd = true
 		}
 		s.OnClose(func(context.Context) error { return p.close() })
 		return p, nil
 	})
+}
+
+// avdHome is where the emulator finds its devices.
+func avdHome() string {
+	if d := os.Getenv("ANDROID_AVD_HOME"); d != "" {
+		return d
+	}
+	if d := os.Getenv("ANDROID_EMULATOR_HOME"); d != "" {
+		return filepath.Join(d, "avd")
+	}
+	home, _ := os.UserHomeDir()
+	return filepath.Join(home, ".android", "avd")
 }
 
 // lease gives the scenario a device of its own, starting an emulator when

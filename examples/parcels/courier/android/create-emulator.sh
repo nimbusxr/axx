@@ -22,6 +22,9 @@ trap 'rm -rf "$latest"' EXIT
 { yes || true; } | "$latest/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$sdk" --install "$image" emulator platform-tools > /dev/null
 # The SDK's own avdmanager: the newest one takes its own folder for the SDK.
 tools="$sdk/cmdline-tools/latest/bin"
+# Where the emulator looks for its devices: avdmanager may go by XDG_CONFIG_HOME instead.
+export ANDROID_AVD_HOME="${ANDROID_AVD_HOME:-$HOME/.android/avd}"
+mkdir -p "$ANDROID_AVD_HOME"
 # A Pixel the installed command-line tools know: older ones do not know the Pixel 8.
 devices=$("$tools/avdmanager" list device -c 2> /dev/null)
 device=""

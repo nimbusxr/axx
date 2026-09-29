@@ -211,11 +211,13 @@ jobs:
       # never uses (not the Android SDK), in the background while the job sets up.
       - name: free disk space (in the background)
         run: (sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL /usr/share/swift; touch "$RUNNER_TEMP/disk-freed") > /dev/null 2>&1 &
-      - name: KVM, for the emulator
+      - name: KVM, for the emulator, and where its devices are
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
+          # avdmanager would go by the runner's XDG_CONFIG_HOME, and the emulator not.
+          echo "ANDROID_AVD_HOME=$HOME/.android/avd" >> "$GITHUB_ENV"
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           persist-credentials: false
