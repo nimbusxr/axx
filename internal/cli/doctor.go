@@ -206,6 +206,16 @@ func (a *App) doctor(ctx context.Context, cf *configFlags) (rep DoctorReport) {
 		add("step packs", "warn", "no axx-packs.yaml: the project uses no packs, so it has no steps", "add the packs your steps come from with `axx pack add rest sql ...` (`axx pack list` lists them)")
 	}
 
+	// What the project's packs need of the machine.
+	for _, p := range e.Packs {
+		for _, c := range p.Pack.Manifest().Checks {
+			cctx, cancel := context.WithTimeout(ctx, time.Minute)
+			r := c.Run(cctx)
+			cancel()
+			add(c.Name, string(r.Status), r.Detail, r.Hint)
+		}
+	}
+
 	paths, _, _ := e.FeaturePaths(nil)
 	set, err := e.LoadFeatures(paths)
 	switch {

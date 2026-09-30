@@ -3,8 +3,11 @@
 package mobileandroid
 
 import (
+	"context"
 	"os"
 	"path/filepath"
+	"slices"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -43,6 +46,19 @@ func apk(t *testing.T) string {
 	return p
 }
 
+// near checks that the scenario's device was put at a latitude and longitude
+// (emu geo fix), as its resets say.
+func near(t *testing.T, h *cloudtest.Harness, lat, lon float64) {
+	t.Helper()
+	want := "location " + strconv.FormatFloat(lat, 'f', -1, 64) + ", " + strconv.FormatFloat(lon, 'f', -1, 64)
+	_ = mobilecore.OnDevice(h.SC, "courier", func(_ context.Context, d mobilecore.Device) error {
+		if resets, _ := d.Describe()["resets"].([]string); !slices.Contains(resets, want) {
+			t.Errorf("the device's resets are %v, want %q among them", resets, want)
+		}
+		return nil
+	})
+}
+
 func signIn(h *cloudtest.Harness) {
 	h.OK(`the courier app is launched`)
 	h.OK(`the "Sign in" button is disabled in the courier app`)
@@ -60,9 +76,15 @@ func TestCouriersOnAnEmulator(t *testing.T) {
 	t.Setenv("COURIER_PIN", "4711")
 	h := cloudtest.New(t, mobilecore.Pack(), Pack())
 	h.OK("the courier android app with the following properties:", [][]string{
-		{"apk", apk(t)}, {"device", avd(t)}, {"permissions", "POST_NOTIFICATIONS"}, {"timezone", "Europe/Berlin"}, {"locale", "en-GB"},
+		{"apk", apk(t)},
+		{"device", avd(t)},
+		{"permissions", "POST_NOTIFICATIONS"},
+		{"timezone", "Europe/Berlin"},
+		{"locale", "en-GB"},
+		{"location", "51.3397, 12.3731"},
 	})
 	signIn(h)
+	near(t, h, 51.3397, 12.3731)
 	h.OK(`the courier app shows "Hello, Hanna Wolf"`)
 	h.OK(`the "PX-MOB-9401" list item is tapped in the courier app`)
 	h.OK(`the "Mark delivered" button is disabled in the courier app`)
@@ -94,6 +116,8 @@ func TestCouriersOnAnEmulator(t *testing.T) {
 	h.NewScenario()
 	h.OK("the courier android app with the following properties:", [][]string{{"apk", apk(t)}, {"device", avd(t)}})
 	h.OK(`the courier app is launched`)
+	// Not where the scenario before left it: where an emulator starts.
+	near(t, h, defaultLocation[0], defaultLocation[1])
 	h.OK(`the courier app shows "Sign in"`)
 	h.OK(`the "Courier ID" field in the courier app has the value ""`)
 	signIn(h)

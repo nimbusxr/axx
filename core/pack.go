@@ -108,6 +108,9 @@ type Manifest struct {
 	Tools []Tool `json:"tools,omitempty"`
 	// ConfigSchema is a JSON Schema for the pack's section in axx.yaml.
 	ConfigSchema json.RawMessage `json:"configSchema,omitempty"`
+	// Checks are what `axx doctor` checks for the pack, in a project that
+	// uses it.
+	Checks []Check `json:"-"`
 }
 
 // ArgKind declares which Gherkin step argument a step accepts.

@@ -41,6 +41,8 @@ The steps are the same on Android and on iOS: only the app's registration says w
 - **A Mac with Xcode**, and an iOS runtime for its simulators (Xcode's Settings, Components). axx makes the simulators itself.
 - **The app built for the simulator**: the `.app` that `xcodebuild -sdk iphonesimulator` builds, or it zipped.
 
+`axx doctor` checks them: the Android SDK and its devices (and KVM on Linux), Xcode and its iOS runtimes.
+
 **Nothing else:** axx downloads [Appium](https://appium.io) and its driver (UiAutomator2 for Android, XCUITest for iOS) the first time a run needs them, pinned, with the Node.js that runs them, as it downloads a browser driver for web apps. For iOS it also downloads WebDriverAgent, the app on the simulator that drives yours, as Appium builds it: nothing is built with Xcode, and nothing needs signing.
 
 ## Register the app
@@ -88,7 +90,7 @@ packs:
 
 Before its app starts, a scenario's app is reset, and what it sees of the device is set:
 
-- **Android:** its data cleared (and with it its sign-in, its permissions and its notifications), the permissions its registration names granted, the notification shade closed, and the device's language, time zone and location set.
+- **Android:** its data cleared (and with it its sign-in, its permissions and its notifications), the permissions its registration names granted, the notification shade closed, and the device's language, time zone and location set: an emulator goes back to where it starts when the registration names none.
 - **iOS:** the app installed afresh (its data and notifications go with the old one), the simulator's keychain reset (a sign-in kept there outlives the app), its permissions reset and those its registration names granted, and the location set. It starts in the registration's language, region and time zone.
 
 There is no switch that skips it: a scenario is one journey, and that journey is its own. Its data stays unique as everywhere in axx: each scenario above has a courier and parcels of its own.
@@ -160,15 +162,27 @@ A dialog the system shows over the app, like a request for a permission it asked
 
 `packs.mobile-android.emulatorArgs` passes more arguments to the emulators, and `bootTimeout` gives a slow machine longer than 3 minutes to boot one.
 
-**iOS:** macOS runners have Xcode and its simulators: build the app, then run.
+**iOS:** macOS runners have Xcode and its simulators. A new machine's first simulator boot builds the iOS runtime's shared cache, which takes over ten minutes on GitHub's runners, and every hosted run is a new machine: keep that cache between runs, with what axx downloads, keyed by the macOS and runtime builds it belongs to. Never keep a simulator: its keychain belongs to the machine it was made on.
 
 ```yaml
 runs-on: macos-latest
 steps:
+  - uses: actions/checkout@v7
+  - id: ios
+    run: |
+      runtime=$(xcrun simctl list runtimes -j | jq -r '[.runtimes[] | select(.platform == "iOS" and .isAvailable)] | sort_by(.version | split(".") | map(tonumber)) | last | .buildversion')
+      echo "key=ios-$(sw_vers -buildVersion)-$runtime" >> "$GITHUB_OUTPUT"
+  - uses: actions/cache@v6
+    with:
+      path: |
+        ~/Library/Developer/CoreSimulator/Caches/dyld
+        ~/Library/Caches/axx/mobile
+        !~/Library/Caches/axx/mobile/simulators
+      key: ${{ steps.ios.outputs.key }}
   - run: xcodebuild -project Courier.xcodeproj -target Courier -configuration Debug -sdk iphonesimulator ONLY_ACTIVE_ARCH=NO SYMROOT=build
   - run: axx run --tags @ios
 ```
 
-GitHub's macOS runners have no Docker: when the services your scenarios talk to run in containers, run them elsewhere, or run the iOS scenarios on a Mac that has them. Setting up the simulator axx clones takes over ten minutes on GitHub's macOS runners, and each hosted run is a new machine: give the steps that long (`run.timeouts: {step: 20m}` in `axx.yaml`). `packs.mobile-ios.bootTimeout` (20 minutes by default) bounds a simulator's boot; the clones boot in seconds.
+With the cache, a run sets its simulators up in a minute or two; without it, the first scenario's steps need over ten minutes (`run.timeouts: {step: 20m}` in `axx.yaml` gives them that; `packs.mobile-ios.bootTimeout`, 20 minutes by default, bounds a simulator's boot). A simulator on a hosted runner stays slow for a few minutes after it boots: give checks there `within` to spare. GitHub's macOS runners have no Docker: when the services your scenarios talk to run in containers, run them elsewhere, or run the iOS scenarios on a Mac that has them.
 
 See the [mobile-core](/references/packs/mobile-core/), [mobile-android](/references/packs/mobile-android/) and [mobile-ios](/references/packs/mobile-ios/) references for every step.

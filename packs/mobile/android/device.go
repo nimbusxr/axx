@@ -130,7 +130,13 @@ func (d *running) resetDevice(ctx context.Context) error {
 		return err
 	}
 	d.resets = append(d.resets, "time zone "+d.app.timezone)
-	if loc := d.app.location; loc != nil && d.dev.avd != "" {
+	if d.dev.avd != "" {
+		// Where the scenario before left an emulator is not where this one starts:
+		// the registration's location, or the emulator's own.
+		loc := defaultLocation
+		if d.app.location != nil {
+			loc = *d.app.location
+		}
 		lon, lat := strconv.FormatFloat(loc[1], 'f', -1, 64), strconv.FormatFloat(loc[0], 'f', -1, 64)
 		if _, err := d.sdk.run(ctx, d.dev.serial, "emu", "geo", "fix", lon, lat); err != nil {
 			return err
@@ -139,6 +145,10 @@ func (d *running) resetDevice(ctx context.Context) error {
 	}
 	return nil
 }
+
+// defaultLocation is where an emulator says it is when nothing set it: the
+// latitude and longitude it starts with.
+var defaultLocation = [2]float64{37.4219983, -122.084}
 
 // grant leaves the app the permissions its registration grants, and no
 // other: clearing its data revoked those it had.

@@ -33,6 +33,7 @@ func (pack) Manifest() core.Manifest {
 		Requires:     []string{mobilecore.Name},
 		ConfigSchema: []byte(configSchema),
 		Steps:        steps(),
+		Checks:       checks(),
 	}
 }
 
