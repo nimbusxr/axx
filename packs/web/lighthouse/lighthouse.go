@@ -38,7 +38,7 @@ const packDoc = `Audit a web app's pages with [Lighthouse](https://developer.chr
 - **Scores.** ` + "`the {string} page scores at least:`" + ` checks the page's Lighthouse scores, from 0 to 100: performance, accessibility, best practices and SEO. A score below its minimum fails the step, which says which audits cost the page the most.
 - **Loading.** ` + "`the {string} page loads within:`" + ` checks how fast the page loads, by the Core Web Vitals and Lighthouse's other metrics: largest contentful paint, first contentful paint, total blocking time, speed index and cumulative layout shift.
 
-Lighthouse loads the page afresh in a tab of its own, beside the scenario's, with the web app's cookies and storage: signed-in pages are audited signed in. As for a first visit, it clears the browser's cache and the site's service workers first, for the scenario's tabs too. It measures the page as a mid-range phone on a slow 4G connection loads it, or a desktop computer (` + "`device`" + `), simulating the device and the connection rather than slowing the browser down: an audit takes about 5 seconds. Scores and timings vary a little from one run to the next: leave some room. Each audit attaches Lighthouse's report, which the pack also keeps in ` + "`.axx/web/lighthouse`" + `.
+Lighthouse loads the page afresh in a tab of its own, beside the scenario's, with the web app's cookies and storage: signed-in pages are audited signed in. As for a first visit, it clears the browser's cache and the site's service workers first, for the scenario's tabs too. It measures the page as a mid-range phone on a slow 4G connection loads it, or a desktop computer (` + "`device`" + `), simulating the device and the connection rather than slowing the browser down: an audit takes about 5 seconds. Performance varies with the machine's load, so the pack audits it three times and judges the median run, as Lighthouse recommends; still, leave some room. Each audit attaches Lighthouse's report, which the pack also keeps in ` + "`.axx/web/lighthouse`" + `.
 
 Lighthouse audits pages in Chromium, Chrome and Edge. The pack downloads Lighthouse ` + lighthouseVersion + ` the first time, about 18 MB from npm's registry (` + "`npm_config_registry`" + ` points it at a mirror), and runs it with the web-core pack's Node.js.
 
@@ -109,6 +109,7 @@ func steps() []core.StepDef {
 			Expr: "the {string} page scores at least:",
 			Doc: "Audit a page of the web app with Lighthouse, a path below its `url` or a whole URL, and check its scores.\n\n" +
 				"- Lighthouse audits the categories listed only, as the `device` of `packs.web-lighthouse` (a phone by default).\n" +
+				"- With performance among the categories, Lighthouse audits the page three times, and the step judges the median run.\n" +
 				"- A score below its minimum fails the step, which lists the audits that cost the page the most.\n" +
 				"- Lighthouse's report is attached.",
 			Table: &core.TableDoc{
@@ -145,6 +146,7 @@ func steps() []core.StepDef {
 				"its metrics.\n\n" +
 				"- Lighthouse measures the page as the `device` of `packs.web-lighthouse` would load it (a phone on a slow 4G " +
 				"connection by default).\n" +
+				"- Lighthouse audits the page three times, and the step judges the median run: a load's metrics vary with the machine's load.\n" +
 				"- A metric above its limit fails the step, which lists what would bring it down.\n" +
 				"- Lighthouse's report is attached.",
 			Table: &core.TableDoc{

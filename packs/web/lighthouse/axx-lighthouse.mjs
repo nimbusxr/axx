@@ -2,12 +2,14 @@
 // one page, in a tab of the browser axx drives, which it reaches through the
 // browser's remote debugging port: the tab axx opened for it, so that the
 // page has the web app's cookies and storage. It reads what to audit on
-// stdin, {browserURL, targetId, url, device, categories}, and writes
+// stdin, {browserURL, targetId, url, device, categories, runs}, and writes
 // Lighthouse's result and its HTML report on stdout, {lhr, html}, or why it
-// could not, {error}.
+// could not, {error}. With runs over 1 it audits the page that many times
+// and gives the median run, as Lighthouse picks it.
 import fs from 'node:fs';
 import lighthouse from 'lighthouse';
 import desktopConfig from 'lighthouse/core/config/desktop-config.js';
+import {computeMedianRun, filterToValidRuns} from 'lighthouse/core/lib/median-run.js';
 import puppeteer from 'puppeteer-core';
 
 async function main() {
@@ -23,9 +25,16 @@ async function main() {
   try {
     const page = await tab(browser, req.targetId);
     const flags = {output: 'html', logLevel: 'error', onlyCategories: req.categories};
-    const result = await lighthouse(req.url, flags, req.device === 'desktop' ? desktopConfig : undefined, page);
-    if (!result) throw new Error('Lighthouse gave no result');
-    return {lhr: result.lhr, html: result.report};
+    const results = [];
+    for (let i = 0; i < Math.max(req.runs || 1, 1); i++) {
+      const result = await lighthouse(req.url, flags, req.device === 'desktop' ? desktopConfig : undefined, page);
+      if (!result) throw new Error('Lighthouse gave no result');
+      results.push(result);
+    }
+    const valid = results.length > 1 ? filterToValidRuns(results.map((r) => r.lhr)) : [];
+    const median = valid.length > 0 ? computeMedianRun(valid) : results[0].lhr;
+    const chosen = results.find((r) => r.lhr === median);
+    return {lhr: chosen.lhr, html: chosen.report};
   } finally {
     await browser.disconnect();
   }

@@ -186,13 +186,14 @@ jobs:
     if: needs.changes.outputs.web == 'true'
     # The web packs in Chromium, Firefox and WebKit, which they download on first use; the
     # watching test opens browser windows, on a virtual screen. web-core's tests are two jobs,
-    # by their names, and the other web packs a third, which runs the Lighthouse audits last.
+    # by their names, the other web packs a third, and the Lighthouse audits a fourth: a score
+    # measures the machine's load too, and other packages' browsers would take its CPU.
     name: web (${{ matrix.part }})
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
-        part: [core-a-g, core-h-z, packs]
+        part: [core-a-g, core-h-z, packs, lighthouse]
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
@@ -220,9 +221,7 @@ jobs:
         run: |
           mapfile -t packs < <(go list ./packs/web/... | grep -v -e /packs/web/lighthouse -e '/packs/web/core$')
           xvfb-run -a go test -race -tags integration -timeout 20m "${packs[@]}"
-      # The Lighthouse audits run on their own: a score measures the machine's load too, and
-      # the other packages' browsers would take its CPU.
-      - if: ${{ !cancelled() && matrix.part == 'packs' }}
+      - if: matrix.part == 'lighthouse'
         run: xvfb-run -a go test -race -tags integration -timeout 20m ./packs/web/lighthouse/...
       - if: ${{ !cancelled() && matrix.part == 'packs' }}
         uses: ./.github/actions/web-tools
