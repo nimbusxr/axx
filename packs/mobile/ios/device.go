@@ -325,26 +325,60 @@ func (d *running) Scroll(ctx context.Context, direction string) (bool, error) {
 }
 
 // OpenNotifications opens Notification Center with a finger from the top
-// edge, and reads it from SpringBoard, which shows it; activating the app
-// closes it again.
-func (d *running) OpenNotifications(ctx context.Context) (func(context.Context) (*mobilecore.Screen, error), func(context.Context) error, error) {
+// edge; SpringBoard shows it, and activating the app closes it again.
+func (d *running) OpenNotifications(ctx context.Context) (mobilecore.Notifications, error) {
 	w, err := d.session.Window(ctx)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	if err := d.session.Drag(ctx, w.Width*0.2, 0, w.Width*0.2, w.Height*0.7, 400*time.Millisecond); err != nil {
-		return nil, nil, fmt.Errorf("cannot open Notification Center: %w", err)
+		return nil, fmt.Errorf("cannot open Notification Center: %w", err)
 	}
 	if err := d.session.Settings(ctx, map[string]any{"defaultActiveApplication": springboard}); err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-	closeThem := func(ctx context.Context) error {
-		if err := d.session.Settings(ctx, map[string]any{"defaultActiveApplication": d.bundleID}); err != nil {
-			return err
+	return notificationCenter{d}, nil
+}
+
+// notificationCenter looks for notifications by asking for them, not by
+// reading SpringBoard's whole screen: that takes a minute on a busy machine.
+type notificationCenter struct{ d *running }
+
+func (n notificationCenter) Shows(ctx context.Context, text string) (bool, error) {
+	q := predicateString(text)
+	els, err := n.d.session.FindAll(ctx, "-ios predicate string", "label CONTAINS[c] "+q+" OR value CONTAINS[c] "+q)
+	if appium.IsNoSuchElement(err) {
+		return false, nil
+	}
+	return len(els) > 0, err
+}
+
+// Texts are the notifications' texts: SpringBoard labels each with all of
+// them, like "PARCELS COURIER, now, PX-MOB-9401 delivered, Signed by ...".
+func (n notificationCenter) Texts(ctx context.Context) []string {
+	els, err := n.d.session.FindAll(ctx, "-ios predicate string", "name == 'NotificationShortLookView'")
+	if err != nil {
+		return nil
+	}
+	var out []string
+	for _, el := range els {
+		if label, err := el.Attribute(ctx, "label"); err == nil && label != "" {
+			out = append(out, label)
 		}
-		return d.session.Mobile(ctx, "activateApp", map[string]any{"bundleId": d.bundleID}, nil)
 	}
-	return d.Screen, closeThem, nil
+	return out
+}
+
+func (n notificationCenter) Close(ctx context.Context) error {
+	if err := n.d.session.Settings(ctx, map[string]any{"defaultActiveApplication": n.d.bundleID}); err != nil {
+		return err
+	}
+	return n.d.session.Mobile(ctx, "activateApp", map[string]any{"bundleId": n.d.bundleID}, nil)
+}
+
+// predicateString is a text as a string of an NSPredicate.
+func predicateString(s string) string {
+	return "'" + strings.NewReplacer(`\`, `\\`, `'`, `\'`).Replace(s) + "'"
 }
 
 // springboard is iOS's home screen app, which shows notifications.

@@ -117,7 +117,9 @@ var (
 	elementRE = regexp.MustCompile(`^/element/([^/]+)/([a-z]+)$`)
 	boundsRE  = regexp.MustCompile(`@bounds=["']([^"']+)["']`)
 	// The iOS pack finds an element by its type and where it is.
-	iosRE = regexp.MustCompile(`^//(XCUIElementType\w+)\[@x="([^"]*)" and @y="([^"]*)" and @width="([^"]*)" and @height="([^"]*)"\]$`)
+	containsRE = regexp.MustCompile(`^label CONTAINS\[c\] '((?:[^'\\]|\\.)*)'`)
+	nameRE     = regexp.MustCompile(`^name == '([^']*)'$`)
+	iosRE      = regexp.MustCompile(`^//(XCUIElementType\w+)\[@x="([^"]*)" and @y="([^"]*)" and @width="([^"]*)" and @height="([^"]*)"\]$`)
 )
 
 func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
@@ -196,6 +198,10 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if !s.has(using, value) {
+			if path == "/elements" {
+				reply([]any{}) // none: as WebDriver says it
+				return
+			}
 			fail("no such element", "An element could not be located on the page using the given search parameters.")
 			return
 		}
@@ -325,6 +331,14 @@ func (s *Server) has(using, value string) bool {
 		return false
 	case "id":
 		return strings.Contains(src, `resource-id="`+value+`"`) || strings.Contains(src, ` name="`+value+`"`)
+	case "-ios predicate string":
+		// What the iOS pack asks for: a label or value that contains a text.
+		if m := containsRE.FindStringSubmatch(value); m != nil {
+			return strings.Contains(strings.ToLower(src), strings.ToLower(strings.NewReplacer(`\'`, `'`, `\\`, `\`).Replace(m[1])))
+		}
+		if m := nameRE.FindStringSubmatch(value); m != nil {
+			return strings.Contains(src, ` name="`+m[1]+`"`)
+		}
 	}
 	return false
 }

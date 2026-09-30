@@ -210,11 +210,16 @@ services:
     image: 'mongo:7'
     ports:
       - '27017:27017'
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: parcels
-      MONGO_INITDB_ROOT_PASSWORD: parcels
+    # The service's user (parcels/parcels) is made by the healthcheck, once, so mongo is healthy
+    # once it has it. MONGO_INITDB_ROOT_* would make it with a mongod of its own, stopped before
+    # the real one starts, which can then find its port still taken on a busy machine.
     healthcheck:
-      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      test:
+        - CMD
+        - mongosh
+        - --quiet
+        - --eval
+        - "const admin = db.getSiblingDB('admin'); if (!admin.getUser('parcels')) admin.createUser({user: 'parcels', pwd: 'parcels', roles: ['root']}); admin.runCommand({ping: 1}).ok"
       interval: 2s
       timeout: 5s
       retries: 60

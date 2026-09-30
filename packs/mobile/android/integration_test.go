@@ -51,8 +51,11 @@ func signIn(h *cloudtest.Harness) {
 	h.OK(`the "Sign in" button is tapped in the courier app`)
 }
 
-// A courier delivers a parcel on a real emulator: every step of the packs.
-func TestACourierDeliversOnAnEmulator(t *testing.T) {
+// A courier delivers a parcel on an emulator, with every step of the packs;
+// the next scenario, on the same emulator, starts signed out, without the
+// permission the first had, and Android asks for it. One emulator for both,
+// as a run's worker has.
+func TestCouriersOnAnEmulator(t *testing.T) {
 	courierapi.Start(t)
 	t.Setenv("COURIER_PIN", "4711")
 	h := cloudtest.New(t, mobilecore.Pack(), Pack())
@@ -84,20 +87,6 @@ func TestACourierDeliversOnAnEmulator(t *testing.T) {
 			t.Errorf("the PIN is in the logs: %s", l)
 		}
 	}
-	if err := h.End("passed"); err != nil {
-		t.Fatal(err)
-	}
-}
-
-// Two scenarios on one device: the second starts signed out, without the
-// permission the first had, and Android asks for it.
-func TestScenariosOnADeviceAreIsolated(t *testing.T) {
-	courierapi.Start(t)
-	t.Setenv("COURIER_PIN", "4711")
-	h := cloudtest.New(t, mobilecore.Pack(), Pack())
-	h.OK("the courier android app with the following properties:", [][]string{{"apk", apk(t)}, {"device", avd(t)}, {"permissions", "POST_NOTIFICATIONS"}})
-	signIn(h)
-	h.OK(`the courier app shows "Hello, Hanna Wolf"`)
 	if err := h.End("passed"); err != nil {
 		t.Fatal(err)
 	}

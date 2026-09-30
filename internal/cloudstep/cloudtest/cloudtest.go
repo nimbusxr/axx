@@ -164,8 +164,12 @@ const scenarioTimeout = 5 * time.Minute
 
 // NewScenario starts the next scenario, at line 1 of features/test.feature;
 // its steps are on the lines after it.
-func (h *Harness) NewScenario() *core.Scenario {
-	ctx, cancel := context.WithTimeout(context.Background(), scenarioTimeout)
+func (h *Harness) NewScenario() *core.Scenario { return h.NewScenarioWithin(scenarioTimeout) }
+
+// NewScenarioWithin starts the next scenario, which may take up to limit: for
+// one on a machine known to be slow, like a simulator on a hosted runner.
+func (h *Harness) NewScenarioWithin(limit time.Duration) *core.Scenario {
+	ctx, cancel := context.WithTimeout(context.Background(), limit)
 	h.t.Cleanup(cancel)
 	h.SC = core.NewScenario(ctx, core.ScenarioInfo{ID: fmt.Sprint(time.Now().UnixNano()), Name: "test", URI: "features/test.feature", Line: 1}, h.Suite, h.Sink)
 	h.line = 1

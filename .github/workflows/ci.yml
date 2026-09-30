@@ -202,11 +202,58 @@ jobs:
   mobile:
     needs: changes
     if: needs.changes.outputs.mobile == 'true'
-    # The mobile packs and the parcels example's Android scenarios, on an Android emulator that
-    # axx starts (KVM); the scenarios run against the whole example, which axx starts too. The
-    # iOS pack's tests skip here: they run in the ios job.
+    # The mobile packs' tests, on an Android emulator that axx starts (KVM). The iOS pack's
+    # skip here: they run in the ios job.
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 30
+    steps:
+      - name: KVM, for the emulator, and where its devices are
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          # avdmanager would go by the runner's XDG_CONFIG_HOME, and the emulator not.
+          echo "ANDROID_AVD_HOME=$HOME/.android/avd" >> "$GITHUB_ENV"
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6
+        with:
+          distribution: temurin
+          java-version: "21"
+      # The emulator's device and its boot snapshot, while the rest sets up.
+      - name: the emulator's device (in the background)
+        working-directory: examples/parcels/courier/android
+        run: (./create-emulator.sh > "$RUNNER_TEMP/device.log" 2>&1; echo $? > "$RUNNER_TEMP/device.done") &
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+        with:
+          install_args: "go"
+          # Tools are cached from main only: pull requests read them.
+          cache_save: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+      - uses: ./.github/actions/go-cache
+        with:
+          build: acceptance
+      # Gradle's caches: written on main only (the action's default), read by pull requests.
+      - uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6
+      - name: the couriers' app
+        working-directory: examples/parcels/courier/android
+        run: ./gradlew --no-daemon --console=plain assembleDebug
+      - name: the tests, built
+        run: go test -race -tags integration -run '^$' ./packs/mobile/...
+      - name: wait for the emulator's device
+        run: |
+          for _ in $(seq 450); do [ -f "$RUNNER_TEMP/device.done" ] && break; sleep 2; done
+          cat "$RUNNER_TEMP/device.log"
+          [ "$(cat "$RUNNER_TEMP/device.done" 2> /dev/null)" = 0 ] || { echo "::error::the emulator's device was not made"; exit 1; }
+      - run: go test -race -tags integration -timeout 20m ./packs/mobile/...
+
+  android:
+    needs: changes
+    if: needs.changes.outputs.mobile == 'true'
+    # The parcels example's Android scenarios, on an emulator axx starts (KVM), against the
+    # whole example, which axx starts too.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
       # The example's images need more disk than a runner has free: remove toolchains the job
       # never uses (not the Android SDK), in the background while the job sets up.
@@ -222,6 +269,14 @@ jobs:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           persist-credentials: false
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6
+        with:
+          distribution: temurin
+          java-version: "21"
+      # The emulator's device and its boot snapshot, while the rest sets up.
+      - name: the emulator's device (in the background)
+        working-directory: examples/parcels/courier/android
+        run: (./create-emulator.sh > "$RUNNER_TEMP/device.log" 2>&1; echo $? > "$RUNNER_TEMP/device.done") &
       - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
         with:
           install_args: "go"
@@ -230,23 +285,19 @@ jobs:
       - uses: ./.github/actions/go-cache
         with:
           build: acceptance
-      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6
-        with:
-          distribution: temurin
-          java-version: "21"
       # Gradle's caches: written on main only (the action's default), read by pull requests.
       - uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6
-      - name: the couriers' app, and the emulator's device
+      - name: the couriers' app
         working-directory: examples/parcels/courier/android
-        run: |
-          ./gradlew --no-daemon --console=plain assembleDebug
-          ./create-emulator.sh
+        run: ./gradlew --no-daemon --console=plain assembleDebug
       - name: wait for the disk space
         run: |
           for _ in $(seq 300); do [ -f "$RUNNER_TEMP/disk-freed" ] && break; sleep 2; done
           [ -f "$RUNNER_TEMP/disk-freed" ] || { echo "::error::the disk space was not freed within 10 minutes"; exit 1; }
           df -h /
-      - run: go test -race -tags integration -timeout 30m ./packs/mobile/...
+      # What the example pulls (2 GB), while the job goes on.
+      - name: the example's images (in the background)
+        run: (docker compose -f examples/parcels/infra/compose.yaml pull --ignore-buildable --quiet > "$RUNNER_TEMP/pull.log" 2>&1; echo $? > "$RUNNER_TEMP/pull.done") &
       - name: axx, with every pack
         run: |
           go build -o "$RUNNER_TEMP/bin/axx" ./internal/tools/axxall
@@ -256,12 +307,25 @@ jobs:
         run: |
           axx fixtures check
           axx fixtures generate
+      # The images the example's compose file builds: in seconds, not minutes.
+      - uses: ./.github/actions/parcels-images
+      - name: wait for the emulator's device
+        run: |
+          for _ in $(seq 450); do [ -f "$RUNNER_TEMP/device.done" ] && break; sleep 2; done
+          cat "$RUNNER_TEMP/device.log"
+          [ "$(cat "$RUNNER_TEMP/device.done" 2> /dev/null)" = 0 ] || { echo "::error::the emulator's device was not made"; exit 1; }
+      - name: wait for the example's images
+        run: |
+          for _ in $(seq 300); do [ -f "$RUNNER_TEMP/pull.done" ] && break; sleep 2; done
+          cat "$RUNNER_TEMP/pull.log"
+          # A pull that failed is done again as the example starts.
+          [ "$(cat "$RUNNER_TEMP/pull.done" 2> /dev/null)" = 0 ] || echo "::warning::the example's images were not all pulled"
       - working-directory: examples/parcels/acceptance
         run: axx run --tags @android --format progress --format junit:build/axx/junit.xml --format html:build/axx/report.html
       - if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: mobile
+          name: android
           # The report, and the screenshots, Appium's and the emulators' logs a failure leaves.
           path: |
             examples/parcels/acceptance/build/axx/
@@ -372,6 +436,10 @@ jobs:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           persist-credentials: false
+      # What the parcels example pulls (2 GB), while the job sets up.
+      - if: matrix.example == 'parcels'
+        name: the example's images (in the background)
+        run: (docker compose -f examples/parcels/infra/compose.yaml pull --ignore-buildable --quiet > "$RUNNER_TEMP/pull.log" 2>&1; echo $? > "$RUNNER_TEMP/pull.done") &
       - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
         with:
           install_args: "go"
@@ -387,13 +455,23 @@ jobs:
       # The parcels shop portal's features run in browsers.
       - if: matrix.example == 'parcels'
         uses: ./.github/actions/web-tools
+      # The images parcels' compose file builds: in seconds, not minutes.
+      - if: matrix.example == 'parcels'
+        uses: ./.github/actions/parcels-images
       - name: the fixtures, as a fresh clone has them
         working-directory: examples/${{ matrix.example }}/acceptance
         run: |
           axx fixtures check
           axx fixtures generate
+      - if: matrix.example == 'parcels'
+        name: wait for the example's images
+        run: |
+          for _ in $(seq 300); do [ -f "$RUNNER_TEMP/pull.done" ] && break; sleep 2; done
+          cat "$RUNNER_TEMP/pull.log"
+          # A pull that failed is done again as the example starts.
+          [ "$(cat "$RUNNER_TEMP/pull.done" 2> /dev/null)" = 0 ] || echo "::warning::the example's images were not all pulled"
       - working-directory: examples/${{ matrix.example }}/acceptance
-        # The Android scenarios run in the mobile job, on an emulator; the iOS ones on Macs.
+        # The Android scenarios run in the android job, on an emulator; the iOS ones on Macs.
         run: axx run --tags "not @mobile" --format progress --format junit:build/axx/junit.xml --format html:build/axx/report.html
       - if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
@@ -404,6 +482,14 @@ jobs:
             examples/${{ matrix.example }}/acceptance/build/axx/
             examples/${{ matrix.example }}/acceptance/.axx/web/
             examples/${{ matrix.example }}/acceptance/.axx/logs/
+          if-no-files-found: ignore
+          retention-days: 7
+      # How long the example took to build, pull and start, from its log.
+      - if: ${{ !cancelled() && matrix.example == 'parcels' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: apps-log-parcels
+          path: examples/parcels/acceptance/.axx/logs/apps.log
           if-no-files-found: ignore
           retention-days: 7
       - if: ${{ !cancelled() && matrix.example == 'parcels' }}
@@ -457,7 +543,7 @@ jobs:
   # pull request does not need is skipped, which passes.
   ci-ok:
     if: always()
-    needs: [changes, hygiene, lint, workflows, test, integration, web, mobile, ios, cross-build, example-app, acceptance, release-check]
+    needs: [changes, hygiene, lint, workflows, test, integration, web, mobile, android, ios, cross-build, example-app, acceptance, release-check]
     runs-on: ubuntu-24.04
     steps:
       - name: all jobs passed

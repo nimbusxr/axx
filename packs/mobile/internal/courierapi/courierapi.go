@@ -10,15 +10,25 @@ import (
 	"net/http"
 	"sync"
 	"testing"
+	"time"
 )
 
 // Start serves the couriers' API for a test: the courier CR-LEJ-12 (PIN
-// 4711) signs in, and delivers PX-MOB-9401 and PX-MOB-9402.
+// 4711) signs in, and delivers PX-MOB-9401 and PX-MOB-9402. The apps call
+// 127.0.0.1:8400, and only one test at a time can serve it: the Android and
+// the iOS packs' tests, run at once, take turns.
 func Start(t *testing.T) {
 	t.Helper()
-	l, err := (&net.ListenConfig{}).Listen(context.Background(), "tcp", "127.0.0.1:8400")
-	if err != nil {
-		t.Fatalf("the couriers' API stands in on 127.0.0.1:8400, which is taken (is the parcels example running?): %v", err)
+	var l net.Listener
+	var err error
+	for deadline := time.Now().Add(5 * time.Minute); ; time.Sleep(time.Second) {
+		l, err = (&net.ListenConfig{}).Listen(context.Background(), "tcp", "127.0.0.1:8400")
+		if err == nil {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("the couriers' API stands in on 127.0.0.1:8400, which is taken (is the parcels example running?): %v", err)
+		}
 	}
 	var mu sync.Mutex
 	delivered := map[string]bool{}
