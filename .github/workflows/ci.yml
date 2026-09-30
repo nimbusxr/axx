@@ -140,7 +140,8 @@ jobs:
     needs: changes
     if: needs.changes.outputs.integration == 'true'
     # Packs against real services (PostgreSQL, MongoDB, Kafka, WireMock, the cloud emulators)
-    # via testcontainers. It reads the test job's cache.
+    # via testcontainers. It keeps a build cache of its own: the packs' test builds, and the
+    # builds of axx with packs that internal/packbuild's tests make.
     runs-on: ubuntu-24.04
     steps:
       # The services' images and the race-detector builds need more disk than a runner has
@@ -157,23 +158,42 @@ jobs:
           cache_save: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
       - uses: ./.github/actions/go-cache
         with:
-          build: test
+          build: integration
+      # The web and mobile packs have jobs of their own (web, mobile). The tests are built
+      # while the disk space is freed.
+      - name: the tests, built
+        run: |
+          mapfile -t packs < <(go list ./packs/... | grep -v -e /packs/web -e /packs/mobile)
+          echo "${packs[@]}" ./internal/engine/... ./internal/packbuild/... > "$RUNNER_TEMP/packages"
+          go test -race -tags integration -run '^$' "${packs[@]}" ./internal/engine/... ./internal/packbuild/...
       - name: wait for the disk space
         run: |
           for _ in $(seq 300); do [ -f "$RUNNER_TEMP/disk-freed" ] && break; sleep 2; done
           [ -f "$RUNNER_TEMP/disk-freed" ] || { echo "::error::the disk space was not freed within 10 minutes"; exit 1; }
           df -h /
-      # The web and mobile packs have jobs of their own (web, mobile).
       - run: |
-          mapfile -t packs < <(go list ./packs/... | grep -v -e /packs/web -e /packs/mobile)
-          go test -race -tags integration -timeout 20m "${packs[@]}" ./internal/engine/... ./internal/packbuild/...
+          read -ra packages < "$RUNNER_TEMP/packages"
+          go test -race -tags integration -timeout 20m "${packages[@]}"
+      - if: ${{ !cancelled() }}
+        uses: ./.github/actions/go-cache
+        with:
+          build: integration
+          mode: save
+          modules: "false"
 
   web:
     needs: changes
     if: needs.changes.outputs.web == 'true'
-    # The web pack in Chromium, Firefox and WebKit, which it downloads on first use; the watching
-    # test opens browser windows, on a virtual screen.
+    # The web packs in Chromium, Firefox and WebKit, which they download on first use; the
+    # watching test opens browser windows, on a virtual screen. web-core's tests are two jobs,
+    # by their names, the other web packs a third, and the Lighthouse audits a fourth: a score
+    # measures the machine's load too, and other packages' browsers would take its CPU.
+    name: web (${{ matrix.part }})
     runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        part: [core-a-g, core-h-z, packs, lighthouse]
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
@@ -187,14 +207,23 @@ jobs:
         with:
           build: test
       - uses: ./.github/actions/web-tools
-      - run: |
-          mapfile -t packs < <(go list ./packs/web/... | grep -v /packs/web/lighthouse)
+      - if: matrix.part == 'core-a-g'
+        name: web-core's tests are all in one of its halves
+        run: |
+          list() { go test -tags integration -list "$1" ./packs/web/core | grep -cE '^(Test|Example|Fuzz)'; }
+          all=$(list '.*') a=$(list '^Test[A-G]') b=$(list '^Test[H-Z]')
+          [ "$all" -eq $((a + b)) ] || { echo "::error::$((all - a - b)) of web-core's tests are in neither half: name each Test and a capital letter"; exit 1; }
+      - if: matrix.part == 'core-a-g'
+        run: xvfb-run -a go test -race -tags integration -timeout 20m -run '^Test[A-G]' ./packs/web/core
+      - if: matrix.part == 'core-h-z'
+        run: xvfb-run -a go test -race -tags integration -timeout 20m -run '^Test[H-Z]' ./packs/web/core
+      - if: matrix.part == 'packs'
+        run: |
+          mapfile -t packs < <(go list ./packs/web/... | grep -v -e /packs/web/lighthouse -e '/packs/web/core$')
           xvfb-run -a go test -race -tags integration -timeout 20m "${packs[@]}"
-      # The Lighthouse audits run on their own: a score measures the machine's load too, and
-      # the other packages' browsers would take its CPU.
-      - if: ${{ !cancelled() }}
+      - if: matrix.part == 'lighthouse'
         run: xvfb-run -a go test -race -tags integration -timeout 20m ./packs/web/lighthouse/...
-      - if: ${{ !cancelled() }}
+      - if: ${{ !cancelled() && matrix.part == 'packs' }}
         uses: ./.github/actions/web-tools
         with:
           mode: save

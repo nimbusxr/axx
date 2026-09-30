@@ -57,6 +57,16 @@ func TestBuildWithLocalPack(t *testing.T) {
 	}
 }
 
+// goEnv is one of the go on PATH's settings, like GOCACHE.
+func goEnv(t *testing.T, goBin, name string) string {
+	t.Helper()
+	out, err := exec.Command(goBin, "env", name).Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return strings.TrimSpace(string(out))
+}
+
 // localPackProject writes a project with one of axx's packs (rest) and a
 // custom pack with a dependency of its own, a feature that uses both, and
 // the extra files given.
@@ -134,8 +144,10 @@ apps:
 		cmd := exec.Command(axx, args...)
 		cmd.Dir = proj
 		// The build of the project's packs comes from this checkout, with the go on PATH,
-		// in a cache of the test's own on Linux.
-		cmd.Env = append(os.Environ(), "AXX_GO="+goBin, "AXX_SOURCE_DIR="+src, "XDG_CACHE_HOME="+cache, "AXX_PACK_BUILD=")
+		// in a cache of the test's own on Linux; Go compiles with the caches it has (on
+		// Linux they would follow XDG_CACHE_HOME, and compile all of axx again).
+		cmd.Env = append(os.Environ(), "AXX_GO="+goBin, "AXX_SOURCE_DIR="+src, "XDG_CACHE_HOME="+cache, "AXX_PACK_BUILD=",
+			"GOCACHE="+goEnv(t, goBin, "GOCACHE"), "GOMODCACHE="+goEnv(t, goBin, "GOMODCACHE"))
 		out, err := cmd.CombinedOutput()
 		if err != nil {
 			t.Fatalf("axx %s: %v\n%s", strings.Join(args, " "), err, out)

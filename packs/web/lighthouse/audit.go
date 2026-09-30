@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -35,6 +36,12 @@ var helper []byte
 // An audit that takes longer than this has gone wrong: Lighthouse waits
 // 45 seconds at most for a page to load.
 const auditTimeout = 3 * time.Minute
+
+// performanceRuns is how many times Lighthouse audits a page for its
+// performance: a load's metrics vary with the machine's load, and the pack
+// judges the median run, as Lighthouse recommends
+// (https://github.com/GoogleChrome/lighthouse/blob/main/docs/variability.md).
+const performanceRuns = 3
 
 // tool is Lighthouse, installed, and the Node.js that runs it.
 type tool struct {
@@ -80,6 +87,7 @@ type request struct {
 	URL        string   `json:"url"`
 	Device     string   `json:"device"`
 	Categories []string `json:"categories"`
+	Runs       int      `json:"runs"`
 }
 
 // run runs the helper: Lighthouse's result and its HTML report.
@@ -88,7 +96,7 @@ func (t *tool) run(sc *core.Scenario, req request) (json.RawMessage, string, err
 	if err != nil {
 		return nil, "", err
 	}
-	ctx, cancel := context.WithTimeout(sc.Context(), auditTimeout)
+	ctx, cancel := context.WithTimeout(sc.Context(), time.Duration(max(req.Runs, 1))*auditTimeout)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, t.node, t.script)
 	cmd.Dir = filepath.Dir(t.script)
@@ -108,7 +116,7 @@ func (t *tool) run(sc *core.Scenario, req request) (json.RawMessage, string, err
 	jerr := json.Unmarshal(stdout.Bytes(), &out)
 	switch {
 	case errors.Is(ctx.Err(), context.DeadlineExceeded):
-		return nil, "", fmt.Errorf("Lighthouse did not finish within %s", auditTimeout) //nolint:staticcheck // user-facing message
+		return nil, "", fmt.Errorf("Lighthouse did not finish within %s", time.Duration(max(req.Runs, 1))*auditTimeout) //nolint:staticcheck // user-facing message
 	case out.Error != "":
 		return nil, "", fmt.Errorf("Lighthouse failed: %s", out.Error) //nolint:staticcheck // user-facing message
 	case err != nil:
@@ -190,7 +198,11 @@ func audit(sc *core.Scenario, c *webcore.Current, page string, categories []stri
 	if err != nil {
 		return "", nil, fmt.Errorf("cannot open a tab for Lighthouse: %s", firstLine(err))
 	}
-	raw, html, err := lh.run(sc, request{BrowserURL: browser, TargetID: target, URL: address, Device: cfg.device, Categories: categories})
+	runs := 1
+	if slices.Contains(categories, "performance") {
+		runs = performanceRuns
+	}
+	raw, html, err := lh.run(sc, request{BrowserURL: browser, TargetID: target, URL: address, Device: cfg.device, Categories: categories, Runs: runs})
 	if err != nil {
 		return "", nil, fmt.Errorf("cannot audit the %q page: %w", page, err)
 	}
