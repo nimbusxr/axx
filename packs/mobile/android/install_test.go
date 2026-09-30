@@ -10,8 +10,9 @@ import (
 )
 
 // Appium's packages are those its lockfile pins, the flawed ones its driver
-// bundles removed: no morgan older than 1.12.1, which forges log lines.
-func TestAppiumHasNoFlawedMorgan(t *testing.T) {
+// bundles removed: no morgan older than 1.12.1, which forges log lines, and
+// no brace-expansion 5 older than 5.0.12, which crafted patterns stall.
+func TestAppiumHasNoFlawedPackages(t *testing.T) {
 	if _, err := npm.Packages(npm.InstallOptions{Lock: appiumLock, Unbundle: appiumUnbundled}); err != nil {
 		t.Fatal(err)
 	}
@@ -23,11 +24,18 @@ func TestAppiumHasNoFlawedMorgan(t *testing.T) {
 	if err := json.Unmarshal(appiumLock, &lock); err != nil {
 		t.Fatal(err)
 	}
+	fixed := map[string]string{"morgan": "1.12.1", "brace-expansion": "5.0.12"}
 	for path, p := range lock.Packages {
-		if strings.HasSuffix(path, "/morgan") && older(p.Version, "1.12.1") {
-			t.Errorf("%s is morgan %s, which forges log lines (GHSA-9f6g-j8ch-79g4): unbundle it", path, p.Version)
+		name := path[strings.LastIndex(path, "/")+1:]
+		if want, ok := fixed[name]; ok && sameMajor(p.Version, want) && older(p.Version, want) {
+			t.Errorf("%s is %s %s, which has a flaw fixed in %s: unbundle it", path, name, p.Version, want)
 		}
 	}
+}
+
+// sameMajor reports whether versions a and b have the same major version.
+func sameMajor(a, b string) bool {
+	return strings.SplitN(a, ".", 2)[0] == strings.SplitN(b, ".", 2)[0]
 }
 
 // older reports whether version a comes before b: major.minor.patch.
