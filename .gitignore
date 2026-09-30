@@ -38,6 +38,3 @@ ide/**/build/
 
 # benchmark output
 /bench/results/
-
-# agent evals: prepared datasets, Harbor jobs, local checks
-/evals/.work/

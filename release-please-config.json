@@ -11,8 +11,7 @@
       "exclude-paths": [
         "extensions",
         "ide",
-        "docs",
-        "evals"
+        "docs"
       ],
       "changelog-path": "CHANGELOG.md"
     },

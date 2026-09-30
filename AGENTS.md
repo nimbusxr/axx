@@ -45,8 +45,8 @@ the skills instead: `axx skills install`.
   Excel) for the steps that check a file's text or table: files, storage objects, downloads.
 - `internal/packbuild`, `internal/gotool`: axx builds itself with the packs a project lists in
   `axx-packs.yaml`, using a Go toolchain it downloads itself.
-- `packs/all` and `internal/tools/axxall`: axx with every pack, for generated docs and skills,
-  tests and the evals image.
+- `packs/all` and `internal/tools/axxall`: axx with every pack, for generated docs, skills and
+  tests.
 - `internal/compat`: the value semantics steps follow (Jayway JSONPath, Java regex, Java number
   formatting; ADR 0007). The oracle tests depend on these; don't "simplify" them.
 - `extensions/wiremock-openapi`, `ide/intellij`: JVM parts (the WireMock extension and the IntelliJ plugin).
@@ -57,8 +57,6 @@ the skills instead: `axx skills install`.
   only adds entries.
 - `testdata/openapi-agreement`: exchanges that both OpenAPI validators (the REST pack's and the
   WireMock extension's) must report with the same keys; both test suites read it.
-- `evals/`: agent evaluations on Harbor (its own Go module; see `evals/README.md`). They run on
-  demand only (`.github/workflows/evals.yml`), never on pull requests.
 
 ## Rules
 

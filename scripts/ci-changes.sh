@@ -27,10 +27,10 @@ while ! $all && IFS= read -r f; do
   case "$f" in
     .github/*) workflows=true lang_actions=true ;;
   esac
-  # The main Go module: its code, what its tests read, and its build. The example apps and the
-  # evals are modules of their own.
+  # The main Go module: its code, what its tests read, and its build. The example apps are
+  # modules of their own.
   case "$f" in
-    examples/*/app/* | evals/*) ;;
+    examples/*/app/*) ;;
     cmd/* | core/* | internal/* | packs/* | plugins/* | testdata/* | build/* | scripts/* | \
       examples/parcels/acceptance/* | go.mod | go.sum | mise.toml | .golangci.yml | .goreleaser.yaml | *.go)
       go=true

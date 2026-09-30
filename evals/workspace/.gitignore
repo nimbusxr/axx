@@ -1,5 +1,0 @@
-# axx runtime state and logs
-.axx/
-node_modules/
-__pycache__/
-.venv/
