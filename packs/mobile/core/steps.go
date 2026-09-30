@@ -249,15 +249,21 @@ func scrollTo(sc *core.Scenario, d Device, app string, k kind, name string) erro
 	return missing(app, s, k, name)
 }
 
-// waitUntil calls check until it reports true or d has passed.
+// minLooks is how many times a wait looks before it gives up, however long
+// each look takes: a busy machine reads a screen in seconds, and a check that
+// gave up after one look would fail on it.
+const minLooks = 3
+
+// waitUntil calls check until it reports true, or d has passed and it has
+// looked minLooks times.
 func waitUntil(sc *core.Scenario, d time.Duration, check func() (bool, error)) (bool, error) {
 	deadline := time.Now().Add(d)
-	for {
+	for looks := 1; ; looks++ {
 		ok, err := check()
 		if err != nil || ok {
 			return ok, err
 		}
-		if !time.Now().Before(deadline) {
+		if !time.Now().Before(deadline) && looks >= minLooks {
 			return false, nil
 		}
 		select {

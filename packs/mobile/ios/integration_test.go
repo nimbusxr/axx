@@ -91,8 +91,13 @@ func warm(t *testing.T, h *cloudtest.Harness, device string) {
 	}
 	p.release(d)
 	// The scenario starts now, with all of its time.
-	h.NewScenario()
+	h.NewScenarioWithin(scenarioLimit)
 }
+
+// scenarioLimit is how long a scenario may take: on a hosted runner, a
+// simulator is slow for minutes after it boots, and a journey of twenty-odd
+// steps takes longer than the harness's usual five.
+const scenarioLimit = 15 * time.Minute
 
 func signIn(h *cloudtest.Harness) {
 	h.OK(`the courier app is launched`)
@@ -146,7 +151,7 @@ func TestCouriersOnASimulator(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	h.NewScenario()
+	h.NewScenarioWithin(scenarioLimit)
 	h.OK("the courier ios app with the following properties:", [][]string{{"app", courierBuild(t)}, {"device", device}})
 	h.OK(`the courier app is launched`)
 	h.OK(`the courier app shows "Sign in"`)
