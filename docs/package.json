@@ -15,6 +15,7 @@
     "build": "astro build",
     "preview": "astro preview",
     "check:gherkin": "node scripts/check-gherkin.mjs",
+    "check:sidebar": "node scripts/check-sidebar.mjs",
     "astro": "astro"
   },
   "dependencies": {

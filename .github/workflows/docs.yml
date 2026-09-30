@@ -83,6 +83,8 @@ jobs:
           AXX_DOCS_RELEASE: ${{ steps.release.outputs.tag }}
       # Every ```gherkin block must parse and use real steps (see the script header).
       - run: npm run check:gherkin
+      # Every page, and each pack's reference page, must be in the sidebar.
+      - run: npm run check:sidebar
       - if: ${{ !cancelled() }}
         uses: ./.github/actions/go-cache
         with:
