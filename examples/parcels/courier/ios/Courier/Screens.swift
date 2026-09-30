@@ -126,6 +126,9 @@ struct DeliveryView: View {
                     Section {
                         Text("Delivered").font(.title2.bold()).foregroundStyle(.green)
                     }
+                    Section {
+                        Button("Back to deliveries") { model.backToDeliveries() }
+                    }
                 } else {
                     Section {
                         TextField("Signed by", text: $signedBy)

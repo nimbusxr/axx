@@ -236,6 +236,7 @@ fun DeliveryScreen(
                         color = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
                     )
+                    TextButton(onClick = onBack) { Text("Back to deliveries") }
                 } else {
                     OutlinedTextField(
                         value = signedBy,
