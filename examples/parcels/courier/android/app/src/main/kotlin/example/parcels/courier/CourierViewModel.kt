@@ -9,7 +9,6 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.json.JSONException
 import java.io.IOException
@@ -149,8 +148,11 @@ class CourierViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun backToDeliveries() {
+        // A delivery just recorded leaves the list out of date.
+        val stale = deliveries == null || delivered
+        delivered = false
         screen = Screen.Deliveries
-        if (deliveries == null) refresh()
+        if (stale) refresh()
     }
 
     fun markDelivered(reference: String, signedBy: String) {
@@ -161,11 +163,10 @@ class CourierViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             try {
                 api().markDelivered(s, reference, signedBy)
-                delivered = true
+                // "Delivered" shows until the courier goes back to the list, which
+                // reloads then; a courier who went back already gets it reloaded now.
+                if (screen == Screen.Delivery(reference)) delivered = true else refresh()
                 notifyDelivered(getApplication(), reference, signedBy)
-                delay(DELIVERED_SHOWN_MS)
-                if (screen == Screen.Delivery(reference)) screen = Screen.Deliveries
-                refresh()
             } catch (e: ApiException) {
                 when (e.status) {
                     401 -> expired()
@@ -186,9 +187,6 @@ class CourierViewModel(app: Application) : AndroidViewModel(app) {
     companion object {
         const val WRONG_SIGN_IN = "The courier ID or the PIN is wrong."
         const val UNREACHABLE = "The parcels service cannot be reached."
-
-        /** How long a delivery shows "Delivered" before the app goes back to the list. */
-        const val DELIVERED_SHOWN_MS = 2_000L
 
         fun notWithYou(reference: String) = "$reference is not out for delivery with you."
 

@@ -10,9 +10,6 @@ final class CourierModel {
     static let wrongSignIn = "The courier ID or the PIN is wrong."
     static let unreachable = "The parcels service cannot be reached."
 
-    /// How long a delivery shows "Delivered" before the app goes back to the list.
-    static let deliveredShown: Duration = .seconds(2)
-
     static func notWithYou(_ reference: String) -> String { "\(reference) is not out for delivery with you." }
 
     private static func unexpected(_ error: APIError) -> String { "The parcels service answered \(error.status)." }
@@ -26,9 +23,11 @@ final class CourierModel {
     var path: [String] = [] {
         didSet {
             guard path != oldValue else { return }
+            // A delivery just recorded leaves the list out of date.
+            let stale = deliveries == nil || delivered
             delivered = false
             deliveryError = nil
-            if path.isEmpty && deliveries == nil { refresh() }
+            if path.isEmpty && stale { refresh() }
         }
     }
 
@@ -158,11 +157,10 @@ final class CourierModel {
             defer { posting = false }
             do {
                 try await api.markDelivered(s, reference: reference, signedBy: signedBy)
-                delivered = true
+                // "Delivered" shows until the courier goes back to the list, which
+                // reloads then; a courier who went back already gets it reloaded now.
+                if path == [reference] { delivered = true } else { refresh() }
                 await notifyDelivered(reference: reference, signedBy: signedBy)
-                try? await Task.sleep(for: Self.deliveredShown)
-                if path == [reference] { path = [] }
-                refresh()
             } catch let e as APIError {
                 switch e.status {
                 case 401: expired()

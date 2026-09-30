@@ -94,6 +94,7 @@ func TestCouriersOnAnEmulator(t *testing.T) {
 	h.OK(`the "Confirm" button is tapped in the courier app`)
 	h.OK(`the courier app shows "Delivered"`)
 	h.OK(`the courier app shows a notification "PX-MOB-9401 delivered"`)
+	h.OK(`the "Back to deliveries" button is tapped in the courier app`)
 	h.OK(`the courier app does not show "PX-MOB-9401"`)
 	h.OK("the courier app is swiped down")
 	h.OK(`the courier app is opened with the "parcels-courier://deliveries/PX-MOB-9402" link`)
