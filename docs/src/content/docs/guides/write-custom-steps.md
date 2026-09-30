@@ -147,3 +147,21 @@ Tools: []core.Tool{{
 ```
 
 Name a tool after its pack, and describe what it gives and when to use it: agents choose tools by their descriptions. The input is checked against its JSON Schema before `Run`.
+
+## Check what the pack needs
+
+`axx doctor` runs a pack's `Checks` in the projects that use it: that what its steps need is there, before a scenario finds out. The mobile packs check the Android SDK and Xcode this way.
+
+```go
+Checks: []core.Check{{
+	Name: "carrier signing key",
+	Run: func(ctx context.Context) core.CheckResult {
+		if os.Getenv("CARRIER_KEY") == "" {
+			return core.CheckResult{Status: core.CheckWarn, Detail: "CARRIER_KEY is not set", Hint: "set it to the key carriers sign their scans with"}
+		}
+		return core.CheckResult{Status: core.CheckOK, Detail: "CARRIER_KEY is set"}
+	},
+}},
+```
+
+A check says what it found (`Detail`), and, when something is wrong, what puts it right (`Hint`). `CheckWarn` is for what only some scenarios need; `CheckFail` for what none can run without.

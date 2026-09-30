@@ -30,7 +30,7 @@ Register an Android app, and the device it runs on. The app starts when a step l
 | `permissions` | the permissions the app has from the start, like `POST_NOTIFICATIONS, ACCESS_FINE_LOCATION` | |
 | `locale` | the device's language and region, like `de-DE` | `en-US` |
 | `timezone` | the device's time zone, like `Europe/Berlin` | `UTC` |
-| `location` | where an emulator says it is: a latitude and a longitude, like `51.3397, 12.3731` | |
+| `location` | where an emulator says it is: a latitude and a longitude, like `51.3397, 12.3731` | `where an emulator starts (37.4219983, -122.084), whatever the scenario before set` |
 | `appium` | an Appium server of the project's own or a device farm's, which then runs the device, in place of `device` | |
 | `capability.<name>` | an Appium capability for that server, like a device farm's options, as text or JSON | |
 
