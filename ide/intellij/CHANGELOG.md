@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.4](https://github.com/nimbusxr/axx/compare/intellij-v0.1.3...intellij-v0.1.4) (2026-10-01)
+
+
+### Features
+
+* **intellij:** a Profiles list in the axx run configuration; the template's profiles start runs from the gutter, the editor and the project view ([11688a1](https://github.com/nimbusxr/axx/commit/11688a131376de7784d851eb7b27801c652b9b4d))
+* **vscode:** the gear next to Run, Debug and Watch picks the profiles they apply (axx.profiles) ([11688a1](https://github.com/nimbusxr/axx/commit/11688a131376de7784d851eb7b27801c652b9b4d))
+
 ## [0.1.3](https://github.com/nimbusxr/axx/compare/intellij-v0.1.2...intellij-v0.1.3) (2026-10-01)
 
 
