@@ -160,12 +160,12 @@ For scenarios that use Axx's `web-core` pack. Every axx run configuration the pl
 `AXX_IDE=intellij`, so the web pack prints lines for the IDE (see
 [Trace, video and pause lines](#trace-video-and-pause-lines)).
 
-- **Watch** runs an axx run configuration with its browsers shown. It is next to *Run* and
+- **Watch** runs an axx run configuration with what it does shown. It is next to *Run* and
   *Debug*: in the gutter menu, the context menus, and the run toolbar's menu. It adds
-  `--workers 1 --set packs.web-core.watch=true --set packs.web-core.slowdown=<n>ms`: one
-  scenario at a time, its browsers in windows on your desktop, slowed down. The windows are real
-  browsers: click in them, and open DevTools to look at the page, its console and its network.
-  Watch only shows the browsers: it does not pause. **Watch the browsers** in an axx run
+  `--workers 1 --watch --slowdown <n>ms`: one scenario at a time, its browsers and devices in
+  windows on your desktop (an iOS simulator in Device Hub, an Android emulator in its own),
+  slowed down. The windows are real browsers and devices: click in them, and open DevTools to
+  look at a page, its console and its network. Watch only shows what happens: it does not pause. **Watch the browsers** in an axx run
   configuration does the same for every run of it, *Debug* included.
 - **Slowdown when watching the browsers** in *Settings | Tools | axx* is the slowdown: 300 ms by
   default, 0 for none.

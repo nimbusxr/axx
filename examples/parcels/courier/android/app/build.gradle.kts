@@ -15,9 +15,11 @@ android {
         targetSdk = 37
         versionCode = 1
         versionName = "1.0"
-        // The parcels service as the emulator sees the host. A launch
-        // intent's api_url extra overrides it.
-        buildConfigField("String", "API_URL", "\"http://10.0.2.2:8400\"")
+        // The parcels service, at the address it has on the Mac: the tests give
+        // the emulator the Mac's port as its own (host ports), as
+        // `adb reverse tcp:8400 tcp:8400` does. A launch intent's api_url extra
+        // overrides it.
+        buildConfigField("String", "API_URL", "\"http://localhost:8400\"")
     }
 
     buildFeatures {

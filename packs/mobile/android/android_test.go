@@ -228,8 +228,21 @@ func TestRegistrationErrors(t *testing.T) {
 		{[][]string{{"package", "p"}, {"appium", "farm.example"}}, "is not an http(s) URL"},
 		{[][]string{{"package", "p"}, {"device", "d"}, {"capability.bstack:options", "{}"}}, "are for its appium server"},
 		{[][]string{{"package", "p"}, {"device", "d"}, {"screen", "big"}}, `unknown android app property "screen"`},
+		{[][]string{{"package", "p"}, {"device", "d"}, {"host ports", "5500, web"}}, `host port "web" is not a port`},
+		{[][]string{{"package", "p"}, {"appium", "http://farm.example"}, {"host ports", "5500"}}, "host ports are for a device axx runs"},
 	} {
 		_ = h.Fails("the courier android app with the following properties:", c.want, c.rows)
+	}
+}
+
+func TestHostPorts(t *testing.T) {
+	sc := core.NewScenario(t.Context(), core.ScenarioInfo{}, nil, nil)
+	a, err := parseApp(sc, func(s string) string { return s }, "wallet", &core.Table{Rows: [][]string{{"package", "p"}, {"device", "d"}, {"host ports", "5500, 8090,8089"}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(a.hostPorts, []int{5500, 8090, 8089}) {
+		t.Errorf("host ports: %v", a.hostPorts)
 	}
 }
 

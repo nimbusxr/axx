@@ -232,6 +232,8 @@ func New(opts Options) (*Engine, error) {
 		Logger:      logger,
 		ProjectDir:  cfg.Dir,
 		Announce:    announcer(opts.IDE),
+		Watch:       cfg.Run.Watch,
+		Slowdown:    cfg.Run.Slowdown.D(),
 		Invoke: func(sc *core.Scenario, text string, table *core.Table, doc *core.DocString) error {
 			return e.Invoke(sc, text, table, doc)
 		},

@@ -87,3 +87,20 @@ func TestUnlockLetsTheNextOneIn(t *testing.T) {
 	}
 	again()
 }
+
+func TestTryLockSaysWhenItIsHeld(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "device.lock")
+	unlock, ok, err := TryLock(path)
+	if err != nil || !ok {
+		t.Fatalf("first TryLock: %v %v", ok, err)
+	}
+	if _, ok, err := TryLock(path); err != nil || ok {
+		t.Fatalf("second TryLock while held: %v %v", ok, err)
+	}
+	unlock()
+	again, ok, err := TryLock(path)
+	if err != nil || !ok {
+		t.Fatalf("TryLock after unlock: %v %v", ok, err)
+	}
+	again()
+}

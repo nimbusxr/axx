@@ -151,8 +151,8 @@ public final class RunTargets {
      * arguments when watching, the debug arguments when debugging, the targets, then the extra
      * arguments.
      *
-     * <p>Watching only shows the browsers: in windows on the desktop, with a wait after every
-     * action, none for 0 ({@code --set packs.web-core.watch=true --set packs.web-core.slowdown=<n>ms}).
+     * <p>Watching shows what the scenarios do: browsers and devices in windows on the desktop, with
+     * a wait after every action, none for 0 ({@code --watch --slowdown <n>ms}).
      * Debugging pauses the web pack's scenarios in Playwright's Inspector, one by one: where a
      * scenario fails ({@code --set packs.web-core.pauseOnFailure=true}, which shows its browser), and
      * before the steps with a breakpoint (a {@code --pause-at <step>} each). Projects without the
@@ -178,9 +178,9 @@ public final class RunTargets {
             args.addAll(List.of("--workers", "1"));
         }
         if (watchSlowdownMillis != null) {
-            args.addAll(List.of("--set", "packs.web-core.watch=true"));
+            args.add("--watch");
             if (watchSlowdownMillis > 0) {
-                args.addAll(List.of("--set", "packs.web-core.slowdown=" + watchSlowdownMillis + "ms"));
+                args.addAll(List.of("--slowdown", watchSlowdownMillis + "ms"));
             }
         }
         if (pauseAt != null) {

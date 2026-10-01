@@ -12,6 +12,7 @@ Feature: The couriers' app
       | device      | ${sys:android.device}                                        |
       | permissions | POST_NOTIFICATIONS                                           |
       | timezone    | Europe/Berlin                                                |
+      | host ports  | 8400                                                         |
     And a parcels-db database with the following properties:
       | url      | postgres://${sys:local.host}:5432/parcels |
       | user     | parcels                                   |

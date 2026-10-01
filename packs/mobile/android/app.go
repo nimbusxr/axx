@@ -22,6 +22,7 @@ type app struct {
 	locale      string // like de-DE
 	timezone    string // like Europe/Berlin
 	location    *[2]float64
+	hostPorts   []int          // ports of the machine axx runs on, reached as the device's localhost
 	server      string         // an Appium server of the project's own, or a device farm's
 	caps        map[string]any // capability.<name> rows, for that server
 }
@@ -88,13 +89,25 @@ func parseApp(sc *core.Scenario, expand func(string) string, name string, t *cor
 				return nil, fmt.Errorf("the %s android app's location %q is not a latitude and a longitude, like 51.3397, 12.3731", name, value)
 			}
 			a.location = &[2]float64{la, lo}
+		case "host ports":
+			for _, port := range strings.Split(value, ",") {
+				port = strings.TrimSpace(port)
+				if port == "" {
+					continue
+				}
+				n, err := strconv.Atoi(port)
+				if err != nil || n < 1 || n > 65535 {
+					return nil, fmt.Errorf("the %s android app's host port %q is not a port, like 8080", name, port)
+				}
+				a.hostPorts = append(a.hostPorts, n)
+			}
 		case "appium":
 			if !strings.HasPrefix(value, "http://") && !strings.HasPrefix(value, "https://") {
 				return nil, fmt.Errorf("the %s android app's appium %q is not an http(s) URL", name, value)
 			}
 			a.server = strings.TrimRight(value, "/")
 		default:
-			return nil, fmt.Errorf("unknown android app property %q (supported: apk, package, activity, device, permissions, locale, timezone, location, appium, capability.<name>)", key)
+			return nil, fmt.Errorf("unknown android app property %q (supported: apk, package, activity, device, permissions, locale, timezone, location, host ports, appium, capability.<name>)", key)
 		}
 	}
 	switch {
@@ -104,6 +117,8 @@ func parseApp(sc *core.Scenario, expand func(string) string, name string, t *cor
 		return nil, fmt.Errorf("the %s android app needs a device: an emulator device (AVD) axx starts, or a device adb lists; or an appium server", name)
 	case len(a.caps) > 0 && a.server == "":
 		return nil, fmt.Errorf("the %s android app's capability.<name> rows are for its appium server", name)
+	case len(a.hostPorts) > 0 && a.server != "":
+		return nil, fmt.Errorf("the %s android app's host ports are for a device axx runs, not for an appium server's", name)
 	}
 	return a, nil
 }

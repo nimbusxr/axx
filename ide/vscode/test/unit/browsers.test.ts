@@ -90,10 +90,9 @@ test('builds the run arguments', () => {
     'teamcity',
     '--workers',
     '1',
-    '--set',
-    'packs.web-core.watch=true',
-    '--set',
-    'packs.web-core.slowdown=300ms',
+    '--watch',
+    '--slowdown',
+    '300ms',
     'features/a.feature:3',
     'features/b.feature',
   ]);
@@ -139,8 +138,7 @@ test('debugging pauses before steps and where a scenario fails, one scenario at 
     'teamcity',
     '--workers',
     '1',
-    '--set',
-    'packs.web-core.watch=true',
+    '--watch',
     'features/shop-portal.feature:20',
   ]);
   assert.deepEqual(runArguments(['features'], { pauseAt }), runArguments(['features']));
@@ -260,10 +258,10 @@ test('says why it ignores a breakpoint', () => {
 
 test('a slowdown of 0 adds none', () => {
   const watch = (watchSlowdownMs: number): string[] => runArguments(['features'], { watchSlowdownMs });
-  assert.deepEqual(watch(0), ['run', '--format', 'teamcity', '--workers', '1', '--set', 'packs.web-core.watch=true', 'features']);
+  assert.deepEqual(watch(0), ['run', '--format', 'teamcity', '--workers', '1', '--watch', 'features']);
   assert.deepEqual(watch(Number.NaN), watch(0));
   assert.deepEqual(watch(-5), watch(0));
-  assert.equal(watch(1250.7).at(-2), 'packs.web-core.slowdown=1250ms');
+  assert.equal(watch(1250.7).at(-2), '1250ms');
 });
 
 test("opens a trace in the trace viewer's files, served with it", () => {

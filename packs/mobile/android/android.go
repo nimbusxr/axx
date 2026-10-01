@@ -55,6 +55,7 @@ func steps() []core.StepDef {
 					{Name: "permissions", Takes: "the permissions the app has from the start, like `POST_NOTIFICATIONS, ACCESS_FINE_LOCATION`"},
 					{Name: "locale", Takes: "the device's language and region, like `de-DE`", Default: "en-US"},
 					{Name: "timezone", Takes: "the device's time zone, like `Europe/Berlin`", Default: "UTC"},
+					{Name: "host ports", Takes: "ports of the machine axx runs on that the app reaches as `localhost` on the device, like `5500, 8090`: the app calls `http://localhost:5500` as it does on a developer's device, and gets the service there"},
 					{Name: "location", Takes: "where an emulator says it is: a latitude and a longitude, like `51.3397, 12.3731`", Default: "where an emulator starts (37.4219983, -122.084), whatever the scenario before set"},
 					{Name: "appium", Takes: "an Appium server of the project's own or a device farm's, which then runs the device, in place of `device`"},
 					{Name: "capability.<name>", Takes: "an Appium capability for that server, like a device farm's options, as text or JSON"},

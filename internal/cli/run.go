@@ -44,6 +44,9 @@ type runFlags struct {
 	rerunFile  string
 	// pauseAt are the steps (file:line) the run pauses before.
 	pauseAt []string
+	// watch shows what the scenarios do on screen, slowdown slows it down.
+	watch    bool
+	slowdown string
 }
 
 func newRunCmd(app *App) *cobra.Command {
@@ -88,6 +91,8 @@ Exit codes: 0 passed, 1 failures, 2 usage/config, 3 undefined/ambiguous steps,
 	fl.StringVar(&f.debugSteps, "debug-steps", "", "run under Delve so a Go debugger can stop at breakpoints in step code (port, default "+defaultStepsPort+")")
 	fl.Lookup("debug-steps").NoOptDefVal = defaultStepsPort
 	fl.StringVar(&f.order, "order", "", `scenario order: "defined" or "random[:seed]"`)
+	fl.BoolVar(&f.watch, "watch", false, "show what the scenarios do as they do it: browsers and devices in their windows, one scenario at a time unless --workers says otherwise (run.watch)")
+	fl.StringVar(&f.slowdown, "slowdown", "", `pause after each action of a watched run, e.g. "500ms" (run.slowdown)`)
 	fl.StringVar(&f.rerunFile, "rerun-file", "", "write failed scenario locations (file:line) to this file")
 	fl.StringArrayVar(&f.pauseAt, "pause-at", nil, "pause before the step at this file:line, with no timeouts, for the packs that can show a person what the scenario does (repeatable)")
 	return cmd
@@ -96,6 +101,12 @@ Exit codes: 0 passed, 1 failures, 2 usage/config, 3 undefined/ambiguous steps,
 func (a *App) run(ctx context.Context, f *runFlags, args []string) error {
 	if f.debugSteps != "" && os.Getenv(envDebuggee) == "" {
 		return a.debugSteps(ctx, f)
+	}
+	if f.watch {
+		f.cf.settings = append(f.cf.settings, "run.watch=true")
+	}
+	if f.slowdown != "" {
+		f.cf.settings = append(f.cf.settings, "run.slowdown="+f.slowdown)
 	}
 	e, err := a.loadEngine(&f.cf)
 	if err != nil {
@@ -169,6 +180,9 @@ func (a *App) run(ctx context.Context, f *runFlags, args []string) error {
 	}
 
 	workers := f.workers
+	if workers == 0 && cfg.Run.Watch && cfg.Run.Workers == 0 {
+		workers = 1 // a person follows one scenario at a time
+	}
 	if workers == 0 {
 		workers = int(cfg.Run.Workers)
 	}

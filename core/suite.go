@@ -9,6 +9,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"time"
 )
 
 // SuiteOptions configures a Suite. Hosts construct suites; packs use them.
@@ -30,6 +31,11 @@ type SuiteOptions struct {
 	// Invoke runs a step by its text in a scenario; nil where steps cannot
 	// run.
 	Invoke func(sc *Scenario, text string, table *Table, doc *DocString) error
+	// Watch is true when a person watches the run (axx run --watch): packs
+	// that can show what a scenario does on screen show it.
+	Watch bool
+	// Slowdown is how long a watched run pauses after each action.
+	Slowdown time.Duration
 }
 
 // Suite is shared by all scenarios of a run: configuration, resolution
@@ -98,6 +104,16 @@ func (s *Suite) PauseAt(lines map[string][]int) {
 	s.mu.Lock()
 	s.pauses = lines
 	s.mu.Unlock()
+}
+
+// Watching reports whether a person watches the run (axx run --watch), and
+// how long to pause after each action so they can follow it. Packs that can
+// show what a scenario does show it: browsers and devices in their windows.
+func (s *Suite) Watching() (bool, time.Duration) {
+	if !s.opts.Watch {
+		return false, 0
+	}
+	return true, s.opts.Slowdown
 }
 
 // Pausing reports whether the run pauses anywhere: a run to debug, where

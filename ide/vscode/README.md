@@ -80,11 +80,12 @@ For scenarios that use Axx's `web-core` pack. Every `axx run` the extension star
 `AXX_IDE=vscode`, so the web pack tells the extension what its scenarios keep.
 
 - The **Watch** profile, next to Run and Debug (the menu next to the run button in the Testing
-  view, or **Execute Using Profile** on a gutter button), runs with `--workers 1 --set
-  packs.web-core.watch=true --set packs.web-core.slowdown=<n>ms`: one scenario at a time, its
-  browsers in windows on your desktop, slowed down by `axx.watch.slowdown`. The windows are real
-  browsers: click in them, and open DevTools to look at the page, its console and its network.
-  Watch only shows the browsers: it does not pause.
+  view, or **Execute Using Profile** on a gutter button), runs with `--workers 1 --watch
+  --slowdown <n>ms`: one scenario at a time, its browsers and devices in windows on your desktop
+  (an iOS simulator in Device Hub, an Android emulator in its own), slowed down by
+  `axx.watch.slowdown`. The windows are real browsers and devices: click in them, and open
+  DevTools to look at a page, its console and its network. Watch only shows what happens: it
+  does not pause.
 - **Debug** pauses a web scenario in Playwright's Inspector, before a step with a breakpoint and
   where the scenario fails. Click in the gutter of a step's line to set a breakpoint, then run
   with **Debug**: the run pauses before that step, and the Inspector opens next to the browser,

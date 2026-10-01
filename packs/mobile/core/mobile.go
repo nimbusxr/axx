@@ -6,6 +6,8 @@
 package mobilecore
 
 import (
+	"time"
+
 	"github.com/nimbusxr/axx/core"
 )
 
@@ -30,6 +32,30 @@ func (pack) Manifest() core.Manifest {
 		Doc:          packDoc,
 		Params:       []core.ParamType{controlParam, directionParam},
 		ConfigSchema: []byte(configSchema),
-		Steps:        append(append(append(append(steps(), checkSteps()...), dialogSteps()...), notificationSteps()...), screenshotSteps()...),
+		Steps:        append(append(append(append(paced(steps()), checkSteps()...), paced(dialogSteps())...), notificationSteps()...), screenshotSteps()...),
 	}
+}
+
+// paced makes each action (a launch, a tap, a typed field, a swipe) pause
+// after it in a watched run, for the run's slowdown (axx run --watch
+// --slowdown 500ms), so a person can follow the app as web-core's slowdown
+// lets them follow a browser.
+func paced(steps []core.StepDef) []core.StepDef {
+	for i := range steps {
+		if steps[i].Keyword != "When" || steps[i].Run == nil {
+			continue
+		}
+		run := steps[i].Run
+		steps[i].Run = func(sc *core.Scenario, a core.Args) error {
+			err := run(sc, a)
+			if watching, d := sc.Suite().Watching(); err == nil && watching && d > 0 {
+				select {
+				case <-sc.Context().Done():
+				case <-time.After(d):
+				}
+			}
+			return err
+		}
+	}
+	return steps
 }

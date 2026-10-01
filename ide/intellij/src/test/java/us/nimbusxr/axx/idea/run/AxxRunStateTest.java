@@ -158,10 +158,9 @@ public class AxxRunStateTest extends HeavyPlatformTestCase {
                         "teamcity",
                         "--workers",
                         "1",
-                        "--set",
-                        "packs.web-core.watch=true",
-                        "--set",
-                        "packs.web-core.slowdown=300ms",
+                        "--watch",
+                        "--slowdown",
+                        "300ms",
                         "features/orders.feature:7"),
                 commandLine(environment).getParametersList().getList());
     }
@@ -178,8 +177,7 @@ public class AxxRunStateTest extends HeavyPlatformTestCase {
                         "teamcity",
                         "--workers",
                         "1",
-                        "--set",
-                        "packs.web-core.watch=true",
+                        "--watch",
                         "features/orders.feature:7"),
                 commandLine(environment(false)).getParametersList().getList());
         // Debug watches too, and debugs.
@@ -190,8 +188,7 @@ public class AxxRunStateTest extends HeavyPlatformTestCase {
                         "teamcity",
                         "--workers",
                         "1",
-                        "--set",
-                        "packs.web-core.watch=true",
+                        "--watch",
                         "--set",
                         "packs.web-core.pauseOnFailure=true",
                         "features/orders.feature:7"),
@@ -294,8 +291,7 @@ public class AxxRunStateTest extends HeavyPlatformTestCase {
                         "teamcity",
                         "--workers",
                         "1",
-                        "--set",
-                        "packs.web-core.watch=true",
+                        "--watch",
                         "features/orders.feature"),
                 commandLine(environment).getParametersList().getList());
         // Run does not pause.

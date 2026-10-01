@@ -16,6 +16,29 @@ import (
 // errBusy is what tryLock returns while another process holds the lock.
 var errBusy = errors.New("locked by another process")
 
+// TryLock locks path, creating it and its directory, unless another process
+// holds it: then ok is false.
+func TryLock(path string) (unlock func(), ok bool, err error) {
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return nil, false, err
+	}
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, 0o644)
+	if err != nil {
+		return nil, false, err
+	}
+	if err := tryLock(f); err != nil {
+		_ = f.Close()
+		if errors.Is(err, errBusy) {
+			return nil, false, nil
+		}
+		return nil, false, err
+	}
+	return func() {
+		_ = unlockFile(f)
+		_ = f.Close()
+	}, true, nil
+}
+
 // Lock locks path, creating it and its directory, and returns the function
 // that unlocks it. While another process holds the lock it calls waiting
 // once (when not nil) and waits, until ctx ends.

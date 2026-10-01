@@ -65,6 +65,14 @@ type Run struct {
 	// Order is "defined" (default) or "random[:seed]".
 	Order    string   `json:"order,omitempty"`
 	Timeouts Timeouts `json:"timeouts,omitzero"`
+	// Watch shows what the scenarios do, as they do it: the packs that can
+	// show it on screen do (browsers and devices in their windows). Same as
+	// axx run --watch.
+	Watch bool `json:"watch,omitempty"`
+	// Slowdown pauses after each action of a watched run (a click, a tap, a
+	// typed field), so a person can follow it, e.g. "500ms". Same as
+	// axx run --slowdown.
+	Slowdown Duration `json:"slowdown,omitzero"`
 	// Reporters, e.g. ["pretty", {"junit": "build/axx/junit.xml"}].
 	Reporters []Reporter `json:"reporters,omitempty"`
 }

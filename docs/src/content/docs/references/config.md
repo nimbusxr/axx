@@ -31,6 +31,8 @@ run:
   exclusive: ["@isolated"]       # these run alone, after the parallel phase
   order: defined                 # or random, random:<seed>
   timeouts: {step: 60s, scenario: 5m, hook: 2m}
+  watch: false                   # show what scenarios do: browsers and devices on screen (axx run --watch)
+  slowdown: 300ms                # in a watched run, pause after each action (axx run --slowdown)
   reporters: [pretty, {junit: build/axx/junit.xml}]
 
 resources: ["."]                 # where seed, payload and schema paths in steps resolve

@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/nimbusxr/axx/core"
+	"github.com/nimbusxr/axx/internal/filelock"
 	"github.com/nimbusxr/axx/internal/npm"
 	"github.com/nimbusxr/axx/internal/proc"
 	"github.com/nimbusxr/axx/packs/mobile/internal/appium"
@@ -30,6 +31,8 @@ type device struct {
 	version   string // its iOS version, like 18.1
 	made      bool   // axx made it for the run, and deletes it at the end
 	booted    bool   // axx booted it, and shuts it down at the end
+	kept      bool   // kept booted for the next run (packs.mobile-ios.keep)
+	unlock    func() // gives up the kept simulator to other runs
 	wdaPort   int    // WebDriverAgent's port on the Mac
 	mjpegPort int    // WebDriverAgent's screen stream's port
 	appium    *appium.Server
@@ -58,6 +61,9 @@ type pool struct {
 	source                   *simDevice
 	own                      *simDevice
 	prepare                  sync.Mutex // one worker at a time makes the template
+	// watch: a person watches the run, so its simulators are shown in Device
+	// Hub. keep: they are kept booted, in Xcode's set, for the next run.
+	watch, keep bool
 
 	mu      sync.Mutex
 	free    []*device
@@ -93,7 +99,8 @@ func poolFor(sc *core.Scenario, device string) (*pool, error) {
 			return nil, err
 		}
 		sweep(ctx, s, own)
-		p := &pool{suite: s, name: device, max: cfg.devices, boot: cfg.bootTimeout, changed: make(chan struct{})}
+		watching, _ := s.Watching()
+		p := &pool{suite: s, name: device, max: cfg.devices, boot: cfg.bootTimeout, watch: watching, keep: watching || cfg.keep, changed: make(chan struct{})}
 		if err := p.resolve(ctx, sims); err != nil {
 			return nil, err
 		}
@@ -258,10 +265,17 @@ func (p *pool) start(ctx context.Context, logDir string) (*device, error) {
 	if d.mjpegPort, err = appium.FreePort(); err != nil {
 		return nil, err
 	}
-	if p.own != nil {
+	switch {
+	case p.own != nil:
 		d.udid, d.name = p.own.UDID, p.own.Name
-	} else if err := p.clone(ctx, d); err != nil {
-		return nil, err
+	case p.keep && p.typeID != "":
+		if err := p.kept(ctx, d); err != nil {
+			return nil, err
+		}
+	default:
+		if err := p.clone(ctx, d); err != nil {
+			return nil, err
+		}
 	}
 	if err := p.bootDevice(ctx, d); err != nil {
 		d.stop()
@@ -275,6 +289,10 @@ func (p *pool) start(ctx context.Context, logDir string) (*device, error) {
 		d.stop()
 		return nil, fmt.Errorf("cannot install WebDriverAgent on the %s simulator: %w", p.name, err)
 	}
+	if err := d.ensureWDA(ctx); err != nil {
+		d.stop()
+		return nil, err
+	}
 	install, err := installFor(ctx, p.suite)
 	if err == nil {
 		d.appium, err = install.Start(ctx, filepath.Join(logDir, "appium-"+d.udid+".log"))
@@ -283,7 +301,61 @@ func (p *pool) start(ctx context.Context, logDir string) (*device, error) {
 		d.stop()
 		return nil, err
 	}
+	if p.watch {
+		// Shown before the session starts, which then leaves it shown.
+		if err := showDevice(ctx, d.udid); err != nil {
+			p.suite.Logger().Warn("the simulator runs without a window", "simulator", d.name, "error", err)
+		}
+	}
 	return d, nil
+}
+
+// kept gives a worker a simulator of its own in Xcode's set, where Device
+// Hub lists it: one an earlier run kept, or a new one. It stays booted for
+// the next run, which then starts at once. A lock keeps two runs, or two
+// workers, from ever sharing one.
+func (p *pool) kept(ctx context.Context, d *device) error {
+	set := simSet("")
+	sims, err := simulators(ctx, set)
+	if err != nil {
+		return err
+	}
+	for n := 1; n <= 64; n++ {
+		name := fmt.Sprintf("axx %s (%d)", p.template, n)
+		unlock, ok, err := filelock.TryLock(filepath.Join(npm.CacheDir("mobile"), "kept", lockName(name)))
+		if err != nil {
+			return err
+		}
+		if !ok {
+			continue // another run, or worker, has it
+		}
+		d.set, d.name, d.kept, d.unlock = set, name, true, unlock
+		for _, s := range sims {
+			if s.Name == name && s.runtime == p.runtime {
+				d.udid = s.UDID
+				return nil
+			}
+		}
+		out, err := set.simctl(ctx, "create", name, p.typeID, p.runtime)
+		if err != nil {
+			unlock()
+			return fmt.Errorf("cannot make a %s simulator: %w", p.name, err)
+		}
+		d.udid = strings.TrimSpace(out)
+		p.suite.Logger().Info("made an iOS simulator, kept for the next runs", "simulator", name, "udid", d.udid)
+		return nil
+	}
+	return fmt.Errorf("every %s simulator kept for runs is in use", p.template)
+}
+
+// lockName is a file name for a simulator's lock.
+func lockName(name string) string {
+	return strings.Map(func(r rune) rune {
+		if r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || r == '.' || r == '-' {
+			return r
+		}
+		return '-'
+	}, name) + ".lock"
 }
 
 // clone makes the worker's simulator: a clone of the project's simulator, or
@@ -379,6 +451,13 @@ func (p *pool) bootDevice(ctx context.Context, d *device) error {
 func (d *device) stop() {
 	if d.appium != nil {
 		d.appium.Stop()
+	}
+	if d.kept {
+		// A kept simulator stays booted for the next run.
+		if d.unlock != nil {
+			d.unlock()
+		}
+		return
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()

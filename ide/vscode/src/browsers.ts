@@ -88,11 +88,12 @@ function relative(project: string, file: string): string {
   return path.relative(project, file) || file;
 }
 
-// Watching shows the browsers in windows on the desktop, and waits after every action (not for 0).
+// Watching shows what the scenarios do, browsers and devices in windows on the desktop, and waits
+// after every action (not for 0).
 function watchSettings(slowdownMs: number): string[] {
-  const args = ['--set', 'packs.web-core.watch=true'];
+  const args = ['--watch'];
   const ms = Math.floor(slowdownMs);
-  if (ms > 0) args.push('--set', `packs.web-core.slowdown=${ms}ms`);
+  if (ms > 0) args.push('--slowdown', `${ms}ms`);
   return args;
 }
 

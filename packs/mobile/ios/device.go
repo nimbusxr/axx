@@ -50,6 +50,10 @@ func (r runner) Start(sc *core.Scenario) (mobilecore.Device, error) {
 			p.release(dev)
 			return nil, err
 		}
+		if err := dev.ensureWDA(ctx); err != nil {
+			p.release(dev)
+			return nil, err
+		}
 	}
 	s, err := client.NewSession(ctx, a.capabilities(d.dev, d.bundleID, d.dev != nil && !deviceWindowOpen(ctx)))
 	if err != nil {
@@ -89,8 +93,9 @@ func (a *app) capabilities(dev *device, bundleID string, headless bool) map[stri
 		if dev.set != "" {
 			caps["appium:simulatorDevicesSetPath"] = string(dev.set)
 		}
-		caps["appium:usePreinstalledWDA"] = true
-		caps["appium:wdaLocalPort"] = dev.wdaPort
+		// WebDriverAgent runs for every scenario on the simulator (wda.go):
+		// a session given its URL leaves it running.
+		caps["appium:webDriverAgentUrl"] = dev.wdaURL()
 		caps["appium:mjpegServerPort"] = dev.mjpegPort
 		caps["appium:reduceMotion"] = true // a screen settles at once, and screenshots compare
 		// The simulator runs without a window. Asked for a headless session,

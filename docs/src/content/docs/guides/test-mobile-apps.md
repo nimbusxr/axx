@@ -53,6 +53,7 @@ Given the courier android app with the following properties:
   | device      | parcels-pixel                                                |
   | permissions | POST_NOTIFICATIONS                                           |
   | timezone    | Europe/Berlin                                                |
+  | host ports  | 8400                                                         |
 ```
 
 ```gherkin
@@ -69,6 +70,7 @@ Given the courier ios app with the following properties:
 | `device` | Android: an emulator's device (AVD) axx starts, or a device adb lists, by its serial. iOS: a device type axx makes simulators of, like `iPhone 16` or `iPhone 16, iOS 18.1` (the newest iOS Xcode has, by default); a simulator you set up, by its name, which axx clones; or a simulator's UDID. |
 | `permissions` | What the app may use from the start, and nothing else. Android: permissions like `POST_NOTIFICATIONS`. iOS: services like `location, photos` (`xcrun simctl help privacy` lists them). |
 | `locale`, `timezone`, `location` | The language and region (`de-DE`), the time zone (`Europe/Berlin`), and where the device says it is (`51.3397, 12.3731`). |
+| `host ports` (Android) | Ports of the machine axx runs on that the app reaches as `localhost` on the device, like `8400, 5500`: the app calls `http://localhost:8400` as on a developer's device, and gets the service there. Each scenario has only its own registration's. |
 | `appium`, `capability.<name>` | An Appium server of your own or a device farm's, which runs the device, and the capabilities it takes. |
 
 The app starts when a step launches it or opens a link in it. Every step names the app, so a scenario can drive two, and a web app too.
@@ -86,14 +88,30 @@ packs:
 ```
 
 - **Android** starts emulators of the device read-only, so that several run at once and nothing a scenario changes outlives it. A device with a boot snapshot (boot it once, and close it) starts in seconds; without one, each emulator boots cold.
-- **iOS** gives each device it runs a clone, deleted when the run ends: of the simulator you set up, or, for a device type, of axx's own simulator of it. axx makes that one and boots it once to set it up, the same on every Mac, and keeps it in its cache (`~/Library/Caches/axx/mobile/simulators`, apart from Xcode's). No scenario ever runs on it, and its clones boot in seconds.
+- **iOS** gives each device it runs a clone, deleted when the run ends: of the simulator you set up, or, for a device type, of axx's own simulator of it. axx makes that one and boots it once to set it up, the same on every Mac, and keeps it in its cache (`~/Library/Caches/axx/mobile/simulators`, apart from Xcode's). No scenario ever runs on it, and its clones boot in seconds. WebDriverAgent, the app that drives yours, starts once on each simulator, for all the scenarios that run on it.
 
 Before its app starts, a scenario's app is reset, and what it sees of the device is set:
 
-- **Android:** its data cleared (and with it its sign-in, its permissions and its notifications), the permissions its registration names granted, the notification shade closed, and the device's language, time zone and location set: an emulator goes back to where it starts when the registration names none.
+- **Android:** its data cleared (and with it its sign-in, its permissions and its notifications), the permissions its registration names granted, the notification shade and any dialog of the system's closed, the ports it reaches on this machine set, and the device's language, time zone and location set: an emulator goes back to where it starts when the registration names none. On the emulators axx starts, other apps that hang or crash show no dialog over yours, and Chrome opens a page at once, without its first-run screens.
 - **iOS:** the app installed afresh (its data and notifications go with the old one), the simulator's keychain reset (a sign-in kept there outlives the app), its permissions reset and those its registration names granted, and the location set. It starts in the registration's language, region and time zone.
 
 There is no switch that skips it: a scenario is one journey, and that journey is its own. Its data stays unique as everywhere in axx: each scenario above has a courier and parcels of its own.
+
+### Keep simulators warm
+
+A run makes its iOS simulators and deletes them at its end. With `keep`, it keeps them booted for the next run instead, which then starts at once: in the parcels example, its three iOS scenarios ran in 41 seconds instead of 68.
+
+```yaml title="axx.local.yaml"
+packs:
+  mobile-ios:
+    keep: true
+```
+
+The kept simulators are in Xcode's own set, named like `axx iPhone 17, iOS 27.0 (1)`, where Device Hub lists them. A run uses one only while no other run does, and each scenario still has its simulator to itself, its app reset. A watched run keeps them. To get rid of them, delete them in Device Hub, or with `xcrun simctl delete`.
+
+## Watch it
+
+`axx run --watch` shows what the scenarios do as they do it: an iOS simulator in Device Hub (the Simulator app before Xcode 27), an Android emulator in its window, a browser in its own, one scenario at a time, slowed down with `--slowdown 500ms` ([Watch a run](/guides/watch-runs/)). Without `--watch`, the devices run without a window, and a Device Hub you have open stays open.
 
 ## Launch it, or open it with a link
 
