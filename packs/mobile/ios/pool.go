@@ -289,15 +289,17 @@ func (p *pool) start(ctx context.Context, logDir string) (*device, error) {
 		d.stop()
 		return nil, fmt.Errorf("cannot install WebDriverAgent on the %s simulator: %w", p.name, err)
 	}
-	if err := d.ensureWDA(ctx); err != nil {
-		d.stop()
-		return nil, err
-	}
 	install, err := installFor(ctx, p.suite)
 	if err == nil {
 		d.appium, err = install.Start(ctx, filepath.Join(logDir, "appium-"+d.udid+".log"))
 	}
 	if err != nil {
+		d.stop()
+		return nil, err
+	}
+	// After Appium is up: on a busy machine the two starting at once slowed
+	// Appium past its start.
+	if err := d.ensureWDA(ctx); err != nil {
 		d.stop()
 		return nil, err
 	}
