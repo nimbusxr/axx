@@ -9,6 +9,7 @@ import org.jetbrains.annotations.NotNull;
 /** What an axx run configuration stores. */
 public final class AxxRunConfigurationOptions extends LocatableRunConfigurationOptions {
     private final StoredProperty<String> targets = string("").provideDelegate(this, "targets");
+    private final StoredProperty<String> profiles = string("").provideDelegate(this, "profiles");
     private final StoredProperty<String> arguments = string("").provideDelegate(this, "arguments");
     private final StoredProperty<String> workingDirectory =
             string("").provideDelegate(this, "workingDirectory");
@@ -22,6 +23,15 @@ public final class AxxRunConfigurationOptions extends LocatableRunConfigurationO
 
     public void setTargets(@NotNull String value) {
         targets.setValue(this, value);
+    }
+
+    /** The profiles runs apply, in order, as {@code --profile} takes them: {@code ios,watch}. */
+    public @NotNull String getProfiles() {
+        return nonNull(profiles.getValue(this));
+    }
+
+    public void setProfiles(@NotNull String value) {
+        profiles.setValue(this, value);
     }
 
     /** Extra {@code axx run} arguments, as a command line. */

@@ -3,6 +3,7 @@ package us.nimbusxr.axx.idea.gherkin;
 
 import com.intellij.execution.Location;
 import com.intellij.execution.PsiLocation;
+import com.intellij.execution.RunManager;
 import com.intellij.execution.actions.ConfigurationContext;
 import com.intellij.execution.actions.ConfigurationFromContext;
 import com.intellij.execution.actions.RunConfigurationProducer;
@@ -27,6 +28,7 @@ import com.intellij.testFramework.HeavyPlatformTestCase;
 import com.intellij.testFramework.PsiTestUtil;
 
 import us.nimbusxr.axx.idea.run.AxxRunConfiguration;
+import us.nimbusxr.axx.idea.run.AxxRunConfigurationType;
 import us.nimbusxr.axx.idea.run.AxxWatchExecutor;
 
 import java.nio.file.Files;
@@ -162,6 +164,24 @@ public class AxxRunProducerTest extends HeavyPlatformTestCase {
                                         .findFileByNioFile(base.resolve("other/loose.feature")));
         assertNull(configurationFor(loose));
         assertNull(configurationFor(directory("other")));
+    }
+
+    public void testStartsWithTheTemplatesProfiles() {
+        AxxRunConfiguration template =
+                (AxxRunConfiguration)
+                        RunManager.getInstance(getProject())
+                                .getConfigurationTemplate(
+                                        AxxRunConfigurationType.getInstance().getFactory())
+                                .getConfiguration();
+        template.setProfiles(List.of("ios", "watch"));
+        try {
+            AxxRunConfiguration configuration = configurationFor(atLine(7));
+            assertNotNull(configuration);
+            assertEquals("Scenario: List orders (ios, watch)", configuration.getName());
+            assertEquals(List.of("ios", "watch"), configuration.getProfiles());
+        } finally {
+            template.setProfiles(List.of());
+        }
     }
 
     public void testGutterIconsOnFeatureRuleScenarioOutlineAndExamplesRows() {

@@ -55,6 +55,11 @@ their results:
 - Everything else Axx prints, such as the summary and app start-up messages, is in the test output
   too.
 
+The gear next to **Run**, **Debug** and **Watch** picks the project's profiles (`profiles.<name>`
+in `axx.yaml`, and `axx.<name>.yaml` files) that all three apply, as `--profile`. They are kept in
+the workspace's `axx.profiles` setting and apply in its order; a project without one of them runs
+without it.
+
 **Cancel** stops Axx the way Ctrl+C does: Axx stops its apps and runs their cleanups. If Axx is
 still running 20 seconds later, the extension kills it and everything it started.
 
@@ -140,6 +145,7 @@ settings:
 |---|---|---|
 | `axx.path` | `axx` | The `axx` executable. A bare name is looked up on `PATH`; a relative path such as `./bin/axx` is resolved against the workspace folder; `~` is your home directory. |
 | `axx.trace.server` | `off` | Log the messages between VS Code and the server to the **axx** output channel (`messages` or `verbose`). |
+| `axx.profiles` | `[]` | The profiles runs apply, in order (`--profile`). The gear next to **Run**, **Debug** and **Watch** picks them. |
 | `axx.watch.slowdown` | `300` | How long **Watch** runs wait after every browser action, in milliseconds. `0` adds no wait. |
 
 Changing `axx.path` restarts the server.

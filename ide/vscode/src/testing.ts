@@ -25,6 +25,7 @@ import { FileServer } from './fileServer';
 import { parseFeature, type GherkinNode } from './gherkin';
 import { parseDebugRequest, parseIdeAnnouncement, parseScenarioPause, type DebugRequest, type KeptFileAnnouncement } from './ideMarker';
 import { PausedScenario } from './pausedScenario';
+import { findProfiles, profilesFor } from './profiles';
 import { linesOf } from './pausedStep';
 import { stopProcessTree } from './processTree';
 import { TeamCityReader, type Failure, type TcNode } from './teamcity';
@@ -94,9 +95,13 @@ export class AxxTests implements vscode.Disposable {
       if (!item) await this.discover();
     };
     this.controller.refreshHandler = () => this.discover();
-    this.controller.createRunProfile('Run', vscode.TestRunProfileKind.Run, (r, t) => this.run(r, t, 'run'), true);
-    this.controller.createRunProfile('Debug', vscode.TestRunProfileKind.Debug, (r, t) => this.run(r, t, 'debug'), true);
-    this.controller.createRunProfile('Watch', vscode.TestRunProfileKind.Run, (r, t) => this.run(r, t, 'watch'), false);
+    const runProfiles = [
+      this.controller.createRunProfile('Run', vscode.TestRunProfileKind.Run, (r, t) => this.run(r, t, 'run'), true),
+      this.controller.createRunProfile('Debug', vscode.TestRunProfileKind.Debug, (r, t) => this.run(r, t, 'debug'), true),
+      this.controller.createRunProfile('Watch', vscode.TestRunProfileKind.Run, (r, t) => this.run(r, t, 'watch'), false),
+    ];
+    // Their gear picks the axx profiles all three apply (axx.profiles).
+    for (const profile of runProfiles) profile.configureHandler = () => void this.chooseProfiles();
 
     const features = vscode.workspace.createFileSystemWatcher('**/*.feature');
     const configs = vscode.workspace.createFileSystemWatcher('**/axx.{yaml,yml}');
@@ -144,6 +149,30 @@ export class AxxTests implements vscode.Disposable {
     for (const file of [...this.files.keys()]) {
       if (!seen.has(file) && !vscode.workspace.textDocuments.some((d) => d.uri.fsPath === file)) this.remove(file);
     }
+  }
+
+  // Picks the axx profiles runs apply, from the profiles of the workspace's axx projects, and keeps
+  // them in the workspace's axx.profiles. They apply in the order listed: the ones chosen before
+  // first, in their order, then the others.
+  private async chooseProfiles(): Promise<void> {
+    const available: string[] = [];
+    for (const uri of await vscode.workspace.findFiles('**/axx.{yaml,yml}', FEATURE_EXCLUDE)) {
+      if (uri.scheme !== 'file') continue;
+      for (const p of findProfiles(path.dirname(uri.fsPath))) if (!available.includes(p)) available.push(p);
+    }
+    const settings = vscode.workspace.getConfiguration('axx');
+    const chosen = settings.get<string[]>('profiles', []);
+    const names = [...chosen, ...available.filter((p) => !chosen.includes(p))];
+    if (names.length === 0) {
+      void vscode.window.showInformationMessage('No axx profiles in this workspace: add profiles to axx.yaml, or axx.<name>.yaml files.');
+      return;
+    }
+    const picked = await vscode.window.showQuickPick(
+      names.map((label) => ({ label, picked: chosen.includes(label) })),
+      { canPickMany: true, title: 'axx profiles', placeHolder: 'The profiles Run, Debug and Watch apply, in this order (--profile)' },
+    );
+    if (picked === undefined) return;
+    await settings.update('profiles', picked.map((item) => item.label), vscode.ConfigurationTarget.Workspace);
   }
 
   private projectsChanged(): void {
@@ -344,9 +373,17 @@ export class AxxTests implements vscode.Disposable {
     const watchSlowdownMs =
       mode === 'watch' ? vscode.workspace.getConfiguration('axx', vscode.Uri.file(project)).get<number>('watch.slowdown', 300) : undefined;
     const { pauseAt, notSteps } = debug ? pauseSteps(stepBreakpoints(), project, this.featureLines(batch)) : { pauseAt: [], notSteps: [] };
-    const args = runArguments(targetArgs(batch), { debug, debugSteps, watchSlowdownMs, pauseAt });
+    const { apply: profiles, missing } = profilesFor(
+      vscode.workspace.getConfiguration('axx', vscode.Uri.file(project)).get<string[]>('profiles', []),
+      findProfiles(project),
+    );
+    const args = runArguments(targetArgs(batch), { debug, debugSteps, watchSlowdownMs, pauseAt, profiles });
     this.output.info(`Running "${axx} ${args.join(' ')}" in ${project}`);
     run.appendOutput(`$ axx ${args.join(' ')}\r\n(in ${project})\r\n`);
+    if (missing.length > 0) {
+      // Another project's profiles, in a workspace of several.
+      run.appendOutput(`axx.profiles: ${missing.join(', ')}: not ${missing.length === 1 ? 'a profile' : 'profiles'} of this project, left out\r\n`);
+    }
     // At the breakpoint's line too, where the editor shows it.
     for (const b of notSteps) {
       run.appendOutput(`${notAStep(project, b)}\r\n`, new vscode.Location(vscode.Uri.file(b.file), new vscode.Position(b.line - 1, 0)));

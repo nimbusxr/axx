@@ -56,6 +56,13 @@ Both plugins run scenarios from the editor, with the results in the IDE's test v
 - **IntelliJ IDEA:** click the run icon in the gutter of a Feature, Rule, Scenario or Scenario Outline line, or of an Examples row, or choose *Run* on a feature file or directory. *Rerun Failed Tests* is in the test view's toolbar.
 - **VS Code:** use the run buttons in the gutter or the Testing view.
 
+### With profiles
+
+A run from the editor can apply the project's [profiles](/references/config/#finding-and-merging-files), in order, as `axx run --profile ios,watch` does:
+
+- **IntelliJ IDEA:** the axx run configuration has a **Profiles** list with the project's profiles: check the ones to apply, and move them up and down to set their order. To start every run from the gutter, the editor and the project view with them, check them in the axx configuration template (*Run | Edit Configurations | Edit configuration templates | axx*); those runs are named with them, like `features (ios)`. For one file or directory, *More Run/Debug | Modify Run Configuration…* in its context menu opens its configuration, with the list.
+- **VS Code:** the gear next to *Run*, *Debug* and *Watch* in the Testing view picks the profiles all three apply, kept in the workspace's `axx.profiles` setting. They apply in the order the setting lists them; a project without one of them runs without it.
+
 *Debug* instead of *Run* stops at breakpoints in the Go code of the steps ([Stop in step code](/guides/debug-failures/#stop-in-step-code)). It needs a Go debugger: GoLand or IntelliJ IDEA with the Go plugin, or the Go extension in VS Code. Without one, *Debug* runs the scenarios without stopping in step code; breakpoints on steps still pause.
 
 ## Watch a run

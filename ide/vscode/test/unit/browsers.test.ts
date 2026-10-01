@@ -61,6 +61,15 @@ test('rejects incomplete announcements', () => {
 
 test('builds the run arguments', () => {
   assert.deepEqual(runArguments(['features/a.feature:3']), ['run', '--format', 'teamcity', 'features/a.feature:3']);
+  assert.deepEqual(runArguments(['features'], { profiles: ['ios', 'watch'] }), [
+    'run',
+    '--format',
+    'teamcity',
+    'features',
+    '--profile',
+    'ios,watch',
+  ]);
+  assert.deepEqual(runArguments(['features'], { profiles: [] }), runArguments(['features']));
   assert.deepEqual(runArguments(['features'], { debug: true, debugSteps: true }), [
     'run',
     '--format',

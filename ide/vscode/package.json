@@ -173,6 +173,15 @@
           "scope": "window",
           "description": "Log the messages between VS Code and the axx language server to the axx output channel."
         },
+        "axx.profiles": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "scope": "resource",
+          "markdownDescription": "The profiles runs from the Testing view apply, in this order (`--profile`): `profiles.<name>` in `axx.yaml` and `axx.<name>.yaml` files. The gear next to **Run**, **Debug** and **Watch** picks them. A project without one of them runs without it."
+        },
         "axx.watch.slowdown": {
           "type": "integer",
           "default": 300,

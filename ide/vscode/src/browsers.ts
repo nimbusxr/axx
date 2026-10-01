@@ -12,10 +12,10 @@ import { featureSteps } from './pausedStep';
 // time: where a scenario fails (`packs.web-core.pauseOnFailure`, which shows its browser), and
 // before each step of pauseAt (see pauseSteps), which only debugging uses. With debugSteps, it also
 // adds `--debug-steps` to debug step code, for the Go debugger to attach to. Projects without the
-// web pack ignore these settings.
+// web pack ignore these settings. Profiles apply in their order (`--profile`).
 export function runArguments(
   targets: string[],
-  options: { debug?: boolean; debugSteps?: boolean; watchSlowdownMs?: number; pauseAt?: string[] } = {},
+  options: { debug?: boolean; debugSteps?: boolean; watchSlowdownMs?: number; pauseAt?: string[]; profiles?: string[] } = {},
 ): string[] {
   const slowdownMs = options.watchSlowdownMs;
   const debug = options.debug === true;
@@ -29,6 +29,7 @@ export function runArguments(
     ...(slowdownMs !== undefined ? watchSettings(slowdownMs) : []),
     ...(debug ? ['--set', 'packs.web-core.pauseOnFailure=true', ...pauseAt] : []),
     ...targets,
+    ...(options.profiles !== undefined && options.profiles.length > 0 ? ['--profile', options.profiles.join(',')] : []),
   ];
 }
 
