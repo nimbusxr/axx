@@ -72,7 +72,9 @@ func (in Install) Start(ctx context.Context, logPath string) (*Server, error) {
 		close(s.done)
 	}()
 	ready := make(chan error, 1)
-	go func() { ready <- s.WaitReady(ctx, time.Minute) }()
+	// Node starts Appium in seconds, and in more than a minute on a busy CI
+	// runner: a slow start is not a hung one.
+	go func() { ready <- s.WaitReady(ctx, 3*time.Minute) }()
 	select {
 	case err := <-ready:
 		if err != nil {
