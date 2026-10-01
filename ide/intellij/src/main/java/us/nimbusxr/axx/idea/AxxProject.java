@@ -15,7 +15,7 @@ import java.nio.file.Path;
 /**
  * Tells whether an IDE project is an axx project: whether {@code axx lsp}, started in the project
  * directory, finds an axx config file there (see {@link ConfigFinder}). Only axx projects start the
- * axx language server, and only in axx projects are the Gherkin plugin's undefined-step warnings
+ * axx language server, and only in axx projects are the Cucumber plugins' undefined-step warnings
  * suppressed.
  */
 public final class AxxProject {

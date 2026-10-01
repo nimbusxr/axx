@@ -33,6 +33,14 @@ dependencies {
         // Not bundled with the IDE, and an optional dependency: the plugin compiles against its
         // step PSI (go to declaration), and runIde and the tests get it installed.
         plugin("gherkin", providers.gradleProperty("gherkinVersion").get())
+        // The Cucumber plugins people have next to Gherkin, for the tests that check what they make
+        // of axx's steps, with the bundled plugins they need. Not Cucumber+: it brings its own
+        // Kotlin, which the tests' single class loader would put before the platform's.
+        testPlugin("cucumber-java", providers.gradleProperty("cucumberJavaVersion").get())
+        testPlugin("cucumber-javascript", providers.gradleProperty("cucumberJsVersion").get())
+        testBundledPlugin("com.intellij.java")
+        testBundledPlugin("JUnit")
+        testBundledPlugin("JavaScript")
         // For the tests that run in a headless IDE.
         testFramework(org.jetbrains.intellij.platform.gradle.TestFrameworkType.Platform)
         // The platform's remote debug configuration, which Go Remote extends: AxxRunStateTest

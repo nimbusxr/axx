@@ -23,7 +23,7 @@ The IntelliJ plugin is not listed on the JetBrains Marketplace, and the VS Code 
 Needs IntelliJ IDEA 2025.3 or later (or another JetBrains IDE of that version).
 
 1. Install the **axx** plugin: *Settings | Plugins | ⚙ | Install Plugin from Disk* with the zip from `ide/intellij/build/distributions`.
-2. Install the **Gherkin** plugin too: it highlights Gherkin keywords, and the axx plugin needs it for the run icons in the gutter, for running a feature file or directory, and for breakpoints on steps. The Gherkin plugin looks for step definitions in code and would mark every Axx step as undefined, so the axx plugin turns that inspection off in Axx projects.
+2. Install the **Gherkin** plugin too: it highlights Gherkin keywords, and the axx plugin needs it for the run icons in the gutter, for running a feature file or directory, and for breakpoints on steps. The Gherkin plugin, and Cucumber+ if you have it, look for step definitions in code and would mark every Axx step as undefined, so the axx plugin turns those inspections off in Axx projects.
 3. Open a `.feature` file. The server appears in the **Language Services** widget in the status bar, where you can restart it.
 
 If `axx` is not on your `PATH`, set **axx executable** in *Settings | Tools | axx*.
