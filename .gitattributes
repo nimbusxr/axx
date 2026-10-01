@@ -6,6 +6,7 @@ gradlew text eol=lf
 *.jar binary
 *.png binary
 *.webp binary
+*.gif binary
 
 # generated artifacts: collapse in diffs, exclude from language stats
 testdata/oracles/** linguist-generated=true -diff

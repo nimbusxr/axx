@@ -1,7 +1,3 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
-<!-- The plugin icon (META-INF/pluginIcon.svg) at 16x16, for the Language Services widget. -->
-<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 40 40">
-  <path d="M9 35 L25 9" fill="none" stroke="#A0764A" stroke-width="4.5" stroke-linecap="round"/>
-  <path d="M22.4 7.4 L35.9 12.2 Q35.1 19.3 29.1 23.3 L18.8 13.4 Z" fill="#4C7BD9"/>
-  <path d="M35.9 12.2 Q35.1 19.3 29.1 23.3 L27.6 21.9 Q32.9 18.4 33.6 11.4 Z" fill="#9DB9F0"/>
-</svg>
+<!-- The wordmark's two x's at 16x16 (the 40px plugin icon, META-INF/pluginIcon.svg, is the whole axx), for run configurations and the Language Services widget. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><rect width="16" height="16" rx="2.88" fill="#111112"/><path transform="translate(1.019 11.641) scale(0.00690 -0.00690)" d="M14.7 0 443.6 606.3 438.6 475.7 40.4 1056H342.1L443.3 898.4Q484 831.5 521 769.1Q557.9 706.7 595 643.2H502.4Q540.9 706.7 578.1 769.1Q615.4 831.5 657 898.4L760.1 1056H1057.5L651.1 475.7L655.6 606.8L1074.6 0H772.1L656.3 175.2Q616.1 240.1 579.5 300.3Q542.9 360.4 505.9 421.8H587.8Q549.9 360.4 513 300.3Q476 240.1 434.5 175.2L316.2 0Z" fill="#a2a2a8"/><path transform="translate(7.469 11.641) scale(0.00690 -0.00690)" d="M14.7 0 443.6 606.3 438.6 475.7 40.4 1056H342.1L443.3 898.4Q484 831.5 521 769.1Q557.9 706.7 595 643.2H502.4Q540.9 706.7 578.1 769.1Q615.4 831.5 657 898.4L760.1 1056H1057.5L651.1 475.7L655.6 606.8L1074.6 0H772.1L656.3 175.2Q616.1 240.1 579.5 300.3Q542.9 360.4 505.9 421.8H587.8Q549.9 360.4 513 300.3Q476 240.1 434.5 175.2L316.2 0Z" fill="#a2a2a8"/></svg>
