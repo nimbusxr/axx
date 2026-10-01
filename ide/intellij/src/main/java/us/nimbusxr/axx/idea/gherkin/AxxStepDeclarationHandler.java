@@ -9,8 +9,8 @@ import com.intellij.openapi.fileEditor.FileDocumentManager;
 import com.intellij.openapi.project.DumbAware;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.vfs.VirtualFile;
-import com.intellij.platform.lsp.api.LspServer;
-import com.intellij.platform.lsp.api.LspServerManager;
+import com.intellij.platform.lsp.api.LspClient;
+import com.intellij.platform.lsp.api.LspClientManager;
 import com.intellij.platform.lsp.api.LspServerState;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiFile;
@@ -30,7 +30,7 @@ import org.jetbrains.plugins.cucumber.psi.GherkinStep;
 import org.jetbrains.plugins.cucumber.psi.GherkinTableCell;
 
 import us.nimbusxr.axx.idea.AxxProject;
-import us.nimbusxr.axx.idea.lsp.AxxLspServerSupportProvider;
+import us.nimbusxr.axx.idea.lsp.AxxLspIntegrationProvider;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -80,7 +80,7 @@ public final class AxxStepDeclarationHandler implements GotoDeclarationHandler, 
             return null;
         }
         Document document = FileDocumentManager.getInstance().getDocument(virtualFile);
-        LspServer server = runningServer(project, virtualFile);
+        LspClient server = runningServer(project, virtualFile);
         if (document == null || server == null || offset < 0 || offset > document.getTextLength()) {
             return null;
         }
@@ -117,7 +117,7 @@ public final class AxxStepDeclarationHandler implements GotoDeclarationHandler, 
     }
 
     /** Whether the position is on a link to a file the step names. */
-    private static boolean onLink(LspServer server, VirtualFile file, Position position) {
+    private static boolean onLink(LspClient server, VirtualFile file, Position position) {
         DocumentLinkParams params = new DocumentLinkParams(server.getDocumentIdentifier(file));
         List<DocumentLink> links =
                 server.sendRequestSync(
@@ -141,10 +141,9 @@ public final class AxxStepDeclarationHandler implements GotoDeclarationHandler, 
     }
 
     /** The project's axx language server, when it runs and serves the file. */
-    private static @Nullable LspServer runningServer(Project project, VirtualFile file) {
-        for (LspServer server :
-                LspServerManager.getInstance(project)
-                        .getServersForProvider(AxxLspServerSupportProvider.class)) {
+    private static @Nullable LspClient runningServer(Project project, VirtualFile file) {
+        for (LspClient server :
+                LspClientManager.getInstance(project).getClients(AxxLspIntegrationProvider.class)) {
             if (server.getState() == LspServerState.Running
                     && server.getDescriptor().isSupportedFile(file)) {
                 return server;
@@ -156,7 +155,7 @@ public final class AxxStepDeclarationHandler implements GotoDeclarationHandler, 
     private static void addTarget(
             List<PsiElement> targets,
             PsiFile source,
-            LspServer server,
+            LspClient server,
             @Nullable String uri,
             @Nullable Range range) {
         if (uri == null || range == null || range.getStart() == null) {

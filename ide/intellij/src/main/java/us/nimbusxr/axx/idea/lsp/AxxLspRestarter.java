@@ -3,7 +3,7 @@ package us.nimbusxr.axx.idea.lsp;
 
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.project.ProjectManager;
-import com.intellij.platform.lsp.api.LspServerManager;
+import com.intellij.platform.lsp.api.LspClientManager;
 
 import us.nimbusxr.axx.idea.AxxSettings;
 
@@ -13,8 +13,8 @@ public final class AxxLspRestarter implements AxxSettings.Listener {
     public void executableChanged() {
         for (Project project : ProjectManager.getInstance().getOpenProjects()) {
             if (!project.isDisposed()) {
-                LspServerManager.getInstance(project)
-                        .stopAndRestartIfNeeded(AxxLspServerSupportProvider.class);
+                LspClientManager.getInstance(project)
+                        .stopAndRestartClientsIfNeeded(AxxLspIntegrationProvider.class);
             }
         }
     }

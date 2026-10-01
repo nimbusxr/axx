@@ -129,9 +129,9 @@ intellijPlatform {
         }
         ideaVersion {
             sinceBuild = providers.gradleProperty("sinceBuild")
-            // Open-ended: the execution APIs are long-stable, and the LSP API classes the plugin
-            // uses (LspServerSupportProvider and friends) stay available, deprecated, after their
-            // 2026.1.4 renaming. verifyPlugin checks newer IDEs.
+            // Open-ended: the execution APIs are long-stable, and the plugin uses the LSP API's
+            // names from 2026.1.4 on (LspIntegrationProvider and friends). verifyPlugin checks
+            // newer IDEs.
             untilBuild = provider { null }
         }
     }

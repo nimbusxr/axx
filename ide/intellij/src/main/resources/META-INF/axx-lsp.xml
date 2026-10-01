@@ -3,8 +3,8 @@
      .feature files. -->
 <idea-plugin>
   <extensions defaultExtensionNs="com.intellij">
-    <platform.lsp.serverSupportProvider
-        implementation="us.nimbusxr.axx.idea.lsp.AxxLspServerSupportProvider"/>
+    <platform.lsp.integrationProvider
+        implementation="us.nimbusxr.axx.idea.lsp.AxxLspIntegrationProvider"/>
   </extensions>
 
   <applicationListeners>

@@ -102,7 +102,7 @@ public class AxxDefinitionTargetTest extends HeavyPlatformTestCase {
     private static NavigationRequest inBackgroundReadAction(AxxDefinitionTarget target) {
         return PlatformTestUtil.waitForFuture(
                 ApplicationManager.getApplication()
-                        .executeOnPooledThread(() -> ReadAction.compute(target::navigationRequest)),
+                        .executeOnPooledThread(() -> ReadAction.computeBlocking(target::navigationRequest)),
                 10_000);
     }
 }
