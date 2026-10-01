@@ -29,8 +29,8 @@ import com.intellij.openapi.vfs.LocalFileSystem;
 import com.intellij.openapi.vfs.VfsUtil;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.platform.backend.navigation.NavigationRequest;
-import com.intellij.platform.lsp.api.LspServer;
-import com.intellij.platform.lsp.api.LspServerManager;
+import com.intellij.platform.lsp.api.LspClient;
+import com.intellij.platform.lsp.api.LspClientManager;
 import com.intellij.platform.lsp.api.LspServerState;
 import com.intellij.pom.Navigatable;
 import com.intellij.psi.PsiDocumentManager;
@@ -48,7 +48,7 @@ import com.intellij.testFramework.fixtures.impl.CodeInsightTestFixtureImpl;
 import us.nimbusxr.axx.idea.AxxProject;
 import us.nimbusxr.axx.idea.gherkin.AxxStepDeclarationHandler;
 import us.nimbusxr.axx.idea.gherkin.AxxUndefinedStepSuppressor;
-import us.nimbusxr.axx.idea.lsp.AxxLspServerSupportProvider;
+import us.nimbusxr.axx.idea.lsp.AxxLspIntegrationProvider;
 import us.nimbusxr.axx.idea.AxxSettings;
 
 import java.nio.file.Files;
@@ -119,8 +119,8 @@ public class AxxLspIntegrationTest extends HeavyPlatformTestCase {
     @Override
     protected void tearDown() throws Exception {
         try {
-            LspServerManager.getInstance(getProject())
-                    .stopServers(AxxLspServerSupportProvider.class);
+            LspClientManager.getInstance(getProject())
+                    .stopClients(AxxLspIntegrationProvider.class);
             FileEditorManager.getInstance(getProject()).closeFile(feature);
             AxxSettings.getInstance().setExecutable(null);
         } catch (Throwable e) {
@@ -347,12 +347,11 @@ public class AxxLspIntegrationTest extends HeavyPlatformTestCase {
     }
 
     private void waitForServer() throws Exception {
-        LspServerManager manager = LspServerManager.getInstance(getProject());
-        manager.startServersIfNeeded(AxxLspServerSupportProvider.class);
+        LspClientManager manager = LspClientManager.getInstance(getProject());
+        manager.startClientsIfNeeded(AxxLspIntegrationProvider.class);
         long deadline = System.currentTimeMillis() + TIMEOUT_MS;
         while (System.currentTimeMillis() < deadline) {
-            for (LspServer server :
-                    manager.getServersForProvider(AxxLspServerSupportProvider.class)) {
+            for (LspClient server : manager.getClients(AxxLspIntegrationProvider.class)) {
                 if (server.getState() == LspServerState.Running) {
                     // Let the server receive the open file.
                     Thread.sleep(300);
@@ -369,7 +368,7 @@ public class AxxLspIntegrationTest extends HeavyPlatformTestCase {
     private static <T> T inBackgroundReadAction(Callable<T> computation) {
         return PlatformTestUtil.waitForFuture(
                 ApplicationManager.getApplication()
-                        .executeOnPooledThread(() -> ReadAction.compute(computation::call)),
+                        .executeOnPooledThread(() -> ReadAction.computeBlocking(computation::call)),
                 TIMEOUT_MS);
     }
 }

@@ -4,9 +4,9 @@ package us.nimbusxr.axx.idea.lsp;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.util.IconLoader;
 import com.intellij.openapi.vfs.VirtualFile;
-import com.intellij.platform.lsp.api.LspServer;
-import com.intellij.platform.lsp.api.LspServerSupportProvider;
-import com.intellij.platform.lsp.api.lsWidget.LspServerWidgetItem;
+import com.intellij.platform.lsp.api.LspClient;
+import com.intellij.platform.lsp.api.LspIntegrationProvider;
+import com.intellij.platform.lsp.api.lsWidget.LspClientWidgetItem;
 
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -25,24 +25,24 @@ import javax.swing.Icon;
  * documentation on hover, go to a step's definition, highlighted step parameters, and diagnostics
  * for undefined or ambiguous steps and Gherkin syntax errors. One server serves the whole project.
  */
-public final class AxxLspServerSupportProvider implements LspServerSupportProvider {
+public final class AxxLspIntegrationProvider implements LspIntegrationProvider {
     private static final Icon ICON =
-            IconLoader.getIcon("/icons/axx.svg", AxxLspServerSupportProvider.class);
+            IconLoader.getIcon("/icons/axx.svg", AxxLspIntegrationProvider.class);
 
     @Override
     public void fileOpened(
             @NotNull Project project,
             @NotNull VirtualFile file,
-            @NotNull LspServerStarter serverStarter) {
-        if (AxxLspServerDescriptor.isFeatureFile(file) && AxxProject.isAxxProject(project)) {
-            serverStarter.ensureServerStarted(new AxxLspServerDescriptor(project));
+            @NotNull LspClientStarter clientStarter) {
+        if (AxxLspClientDescriptor.isFeatureFile(file) && AxxProject.isAxxProject(project)) {
+            clientStarter.ensureClientStarted(new AxxLspClientDescriptor(project));
         }
     }
 
     /** The server's entry in the Language Services status bar widget, linking to the settings. */
     @Override
-    public @NotNull LspServerWidgetItem createLspServerWidgetItem(
-            @NotNull LspServer lspServer, @Nullable VirtualFile currentFile) {
-        return new LspServerWidgetItem(lspServer, currentFile, ICON, AxxConfigurable.class);
+    public @NotNull LspClientWidgetItem createWidgetItem(
+            @NotNull LspClient client, @Nullable VirtualFile currentFile) {
+        return new LspClientWidgetItem(client, currentFile, ICON, AxxConfigurable.class);
     }
 }

@@ -37,7 +37,7 @@ public final class AxxStepBreakpoints {
         if (type == null) {
             return List.of(); // no Gherkin plugin, so no step breakpoints
         }
-        return ReadAction.compute(
+        return ReadAction.computeBlocking(
                 () -> {
                     List<RunTargets.Step> steps = new ArrayList<>();
                     for (XBreakpoint<?> breakpoint :

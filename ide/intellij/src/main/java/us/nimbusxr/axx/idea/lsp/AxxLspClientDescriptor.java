@@ -6,7 +6,7 @@ import com.intellij.execution.configurations.GeneralCommandLine;
 import com.intellij.openapi.editor.colors.TextAttributesKey;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.vfs.VirtualFile;
-import com.intellij.platform.lsp.api.ProjectWideLspServerDescriptor;
+import com.intellij.platform.lsp.api.ProjectWideLspClientDescriptor;
 import com.intellij.platform.lsp.api.customization.LspCompletionCustomizer;
 import com.intellij.platform.lsp.api.customization.LspCustomization;
 import com.intellij.platform.lsp.api.customization.LspSemanticTokensCustomizer;
@@ -26,10 +26,10 @@ import java.util.List;
  * How to run the axx language server: {@code axx lsp}, over stdio, in the project directory. The
  * server finds the axx project from there itself.
  */
-final class AxxLspServerDescriptor extends ProjectWideLspServerDescriptor {
+final class AxxLspClientDescriptor extends ProjectWideLspClientDescriptor {
     private final LspCustomization customization = new AxxLspCustomization();
 
-    AxxLspServerDescriptor(@NotNull Project project) {
+    AxxLspClientDescriptor(@NotNull Project project) {
         super(project, "axx");
     }
 

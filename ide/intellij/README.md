@@ -19,23 +19,21 @@ The IDE companion for Axx. It does four things:
 
 ## Install
 
-Works in IntelliJ IDEA 2025.3 (build 253) or later, and in other IntelliJ-based IDEs of those
-versions.
+Works in IntelliJ IDEA 2026.1.4 (build 261.26222) or later, and in other IntelliJ-based IDEs of
+those versions.
 
-- Feature-file support uses the IntelliJ Platform's LSP API. Every IntelliJ IDEA has it since the
-  unified 2025.3 release, with or without a subscription, and so do most other JetBrains IDEs,
-  such as WebStorm, PyCharm and GoLand. In an IDE without it, the plugin still loads; running and
-  debugging work.
+- Feature-file support uses the IntelliJ Platform's LSP API. Every IntelliJ IDEA has it, with or
+  without a subscription, and so do most other JetBrains IDEs, such as WebStorm, PyCharm and
+  GoLand. In an IDE without it, the plugin still loads; running and debugging work.
 - The gutter icons, running from a feature file or directory, and breakpoints on steps use the
   Gherkin plugin (JetBrains Marketplace). Without it, create axx run configurations by hand.
 - Stopping at breakpoints in step code needs a Go debugger: GoLand, or IntelliJ IDEA with the Go
   plugin.
 - Debugging apps depends only on the core platform, so it works in any IntelliJ-based IDE.
 
-Then install it from disk: build it (`./gradlew buildPlugin`, see below), choose *Settings |
-Plugins | ⚙ | Install Plugin from Disk…* and pick
-`build/distributions/axx-intellij-<version>.zip`. The plugin is not listed on the JetBrains
-Marketplace yet.
+Install **axx** from the JetBrains Marketplace: *Settings | Plugins | Marketplace*, search for
+axx. To try a build of your own, build it (`./gradlew buildPlugin`, see below), choose *Settings |
+Plugins | ⚙ | Install Plugin from Disk…* and pick `build/distributions/axx-intellij-<version>.zip`.
 
 ## Feature files
 
@@ -324,7 +322,7 @@ Parsing rules:
 ## Development
 
 Requires JDK 21 (`mise install` at the repository root provides it). This is a standalone Gradle
-build: run it from this directory. The first build downloads IntelliJ IDEA 2025.3 and the Gherkin
+build: run it from this directory. The first build downloads IntelliJ IDEA 2026.1.4 and the Gherkin
 plugin.
 
 ```sh
@@ -354,17 +352,15 @@ at the repository root:
 AXX_BIN=$PWD/../../bin/axx ./gradlew test
 ```
 
-`platformVersion` in `gradle.properties` is the IDE the plugin builds against, and its major
-version (`sinceBuild`) is the lowest supported version. There is no upper bound (`untilBuild`).
+`platformVersion` in `gradle.properties` is the IDE the plugin builds against, and the lowest
+supported version (`sinceBuild` is its build). There is no upper bound (`untilBuild`).
 `gherkinVersion` is the Gherkin plugin release the plugin compiles against (for its step PSI)
 and that `runIde` and the tests install; keep it compatible with `platformVersion`. At run time the
 Gherkin plugin is an optional dependency.
 
-The plugin uses the LSP API's names from before 2026.1.4 (`LspServerSupportProvider`,
-`ProjectWideLspServerDescriptor`, `LspServerManager`), the only ones build 253 has. 2026.1.4
-renamed them (`LspIntegrationProvider`, `ProjectWideLspClientDescriptor`, `LspClientManager`) and
-kept the old names as deprecated, so `verifyPlugin` reports deprecated API usages for newer IDEs.
-Move to the new names once `sinceBuild` reaches 261.
+The plugin uses the LSP API's names from 2026.1.4 on (`LspIntegrationProvider`, `LspClient`,
+`ProjectWideLspClientDescriptor`, `LspClientManager`), which is why that release is the lowest one
+it supports: the names before it (`LspServerSupportProvider` and friends) are deprecated.
 
 Releases: release-please keeps a release PR for this plugin; merging it tags `intellij-v<version>`,
 and `release.yml` builds, signs and publishes the plugin to the JetBrains Marketplace (with
