@@ -49,11 +49,20 @@ func startServer(t *testing.T) *client {
 // capabilities.
 func startServerWith(t *testing.T, capabilities map[string]any) *client {
 	t.Helper()
+	return startWith(t, capabilities, func(in io.Reader, out io.Writer) error {
+		return Serve(context.Background(), in, out, Options{Version: "test"})
+	})
+}
+
+// startWith starts serve, as a server or the router, for an editor with the
+// given client capabilities.
+func startWith(t *testing.T, capabilities map[string]any, serve func(io.Reader, io.Writer) error) *client {
+	t.Helper()
 	inR, inW := io.Pipe()
 	outR, outW := io.Pipe()
 	c := &client{t: t, in: inW, out: bufio.NewReader(outR), done: make(chan error, 1)}
 	go func() {
-		err := Serve(context.Background(), inR, outW, Options{Version: "test"})
+		err := serve(inR, outW)
 		_ = outW.Close()
 		c.done <- err
 	}()
@@ -340,31 +349,6 @@ func TestContinuesAndSnippet(t *testing.T) {
 	}
 	if got := snippet("a(n) {word} kafka event"); got != "a ${1:word} kafka event" {
 		t.Errorf("snippet %q", got)
-	}
-}
-
-func TestFindProject(t *testing.T) {
-	root := t.TempDir()
-	sub := filepath.Join(root, "acceptance")
-	for _, d := range []string{sub, filepath.Join(root, "node_modules", "x")} {
-		if err := os.MkdirAll(d, 0o755); err != nil {
-			t.Fatal(err)
-		}
-	}
-	if err := os.WriteFile(filepath.Join(root, "node_modules", "x", "axx.yaml"), nil, 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if got := FindProject(root); got != root {
-		t.Errorf("without a project: %s", got)
-	}
-	if err := os.WriteFile(filepath.Join(sub, "axx.yaml"), []byte("version: 1\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if got := FindProject(root); got != sub {
-		t.Errorf("below: %s, want %s", got, sub)
-	}
-	if got := FindProject(sub); got != sub {
-		t.Errorf("at: %s", got)
 	}
 }
 

@@ -82,6 +82,8 @@ A trace opens in an editor tab, in Playwright's trace viewer. The viewer comes w
 
 In IntelliJ IDEA without its built-in browser (JCEF), traces open in your default browser, and videos in your video player. In VS Code, **Open in Browser** at the top of each tab opens its page in your default browser.
 
-## After changing packs
+## Projects and their packs
 
-The server starts with the project's packs. After you change a pack of your own or `axx-packs.yaml`, restart the server: from the Language Services widget in IntelliJ, with **axx: Restart language server** in VS Code, or by restarting the editor.
+Each Axx project in the editor (each `axx.yaml`) gets the steps of its own packs, so a repository with several projects works as one with a single project does. When a project's `axx.yaml`, its `axx-packs.yaml` or the code of a pack of its own changes, the server prepares the project again and loads its steps: a step you add to your pack is known once you save it. Until the new steps are ready, the ones before them answer, and if they cannot load, the editor says why and keeps them.
+
+After you upgrade Axx, restart the server: from the Language Services widget in IntelliJ, with **axx: Restart language server** in VS Code, or by restarting the editor.
