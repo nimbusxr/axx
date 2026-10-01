@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.5](https://github.com/nimbusxr/axx/compare/intellij-v0.1.4...intellij-v0.1.5) (2026-10-01)
+
+
+### Features
+
+* **intellij:** IntelliJ IDEA 2026.1.4 or later, with the LSP API's current names ([#80](https://github.com/nimbusxr/axx/issues/80)) ([e15b5bf](https://github.com/nimbusxr/axx/commit/e15b5bf321fd846b1efeb6d76c91a54ed970a1b2))
+
 ## [0.1.4](https://github.com/nimbusxr/axx/compare/intellij-v0.1.3...intellij-v0.1.4) (2026-10-01)
 
 
