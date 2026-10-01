@@ -169,7 +169,7 @@ func (s *server) handle(req *request) (bool, error) {
 		if s.decode(req, &p) {
 			s.initialized = true
 			s.watchFiles = p.Capabilities.Workspace.DidChangeWatchedFiles.DynamicRegistration
-			s.reply(req.ID, s.capabilities(), nil)
+			s.reply(req.ID, capabilities(s.opts.Version), nil)
 		}
 	case "initialized":
 		if s.watchFiles {
@@ -252,7 +252,8 @@ func (s *server) handle(req *request) (bool, error) {
 	return false, nil
 }
 
-func (s *server) capabilities() map[string]any {
+// capabilities is the answer to initialize: what the server does.
+func capabilities(version string) map[string]any {
 	return map[string]any{
 		"capabilities": map[string]any{
 			"positionEncoding":     "utf-16",
@@ -266,7 +267,7 @@ func (s *server) capabilities() map[string]any {
 				"full":   true,
 			},
 		},
-		"serverInfo": map[string]any{"name": "axx", "version": s.opts.Version},
+		"serverInfo": map[string]any{"name": "axx", "version": version},
 	}
 }
 
@@ -349,15 +350,19 @@ func (s *server) publish(uri string, version *int, diags []diagnostic) {
 // watch asks the editor to report changes to files, so missing-file
 // warnings follow the files as they are created and removed.
 func (s *server) watch() {
-	req := map[string]any{
+	if err := s.out.write(watchRequest()); err != nil {
+		s.log.Warn("cannot ask to watch files", "error", err)
+	}
+}
+
+// watchRequest asks the editor to report changes to every file.
+func watchRequest() map[string]any {
+	return map[string]any{
 		"jsonrpc": "2.0", "id": "axx-watch-files", "method": "client/registerCapability",
 		"params": map[string]any{"registrations": []map[string]any{{
 			"id": "axx-watch-files", "method": "workspace/didChangeWatchedFiles",
 			"registerOptions": map[string]any{"watchers": []map[string]any{{"globPattern": "**/*"}}},
 		}}},
-	}
-	if err := s.out.write(req); err != nil {
-		s.log.Warn("cannot ask to watch files", "error", err)
 	}
 }
 

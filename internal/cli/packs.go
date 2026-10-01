@@ -15,7 +15,6 @@ import (
 	"github.com/nimbusxr/axx/internal/config"
 	"github.com/nimbusxr/axx/internal/engine"
 	"github.com/nimbusxr/axx/internal/exitcode"
-	"github.com/nimbusxr/axx/internal/lsp"
 	"github.com/nimbusxr/axx/internal/packbuild"
 	"github.com/nimbusxr/axx/internal/packset"
 	"github.com/nimbusxr/axx/internal/version"
@@ -50,14 +49,12 @@ func (a *App) ensurePacks(ctx context.Context, cmd *cobra.Command) error {
 	if fl := cmd.Flags().Lookup("scope"); fl != nil && fl.Value.String() == "user" {
 		return nil // a home directory's skills have every pack's steps
 	}
+	if fl := cmd.Flags().Lookup("project"); top.Name() == "lsp" && a.Config == "" && (fl == nil || fl.Value.String() != "true") {
+		return nil // the router: the server it starts for each project prepares that project's packs
+	}
 	dir, err := config.ProjectDir(a.Config)
 	if err != nil {
 		return nil //nolint:nilerr // the command reports configuration errors itself
-	}
-	if top.Name() == "lsp" && a.Config == "" {
-		// Editors start the server at the workspace root, which may hold the
-		// axx project in a subdirectory.
-		dir = lsp.FindProject(dir)
 	}
 	entries, missing := missingPacks(dir)
 	if !missing {

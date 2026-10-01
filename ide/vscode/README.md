@@ -34,9 +34,9 @@ Axx must be installed and on your `PATH`, in a version that has the `axx lsp` co
 [Install Axx](https://axx.nimbusxr.us/guides/install/). If it's installed somewhere else, set
 `axx.path`.
 
-The language server starts when you open a `.feature` file, in the workspace folder that holds it,
-and finds the Axx project (`axx.yaml`) from there. In a multi-root workspace, each folder gets its
-own server.
+The language server starts when you open a `.feature` file, in the workspace folder that holds it.
+Each Axx project in the folder (each `axx.yaml`) gets the steps of its own packs. In a multi-root
+workspace, each folder gets its own server.
 
 ## Run and debug scenarios
 
@@ -146,9 +146,9 @@ Changing `axx.path` restarts the server.
 
 ## Commands
 
-**axx: Restart language server** restarts every Axx language server. The server starts with the
-project's packs, so run it after you change a pack of your own or `axx-packs.yaml`, or after you
-upgrade Axx.
+**axx: Restart language server** restarts every Axx language server. Run it after you upgrade
+Axx. The server loads a project's steps again by itself when its `axx.yaml`, its `axx-packs.yaml`
+or the code of a pack of its own changes.
 
 **axx: Run Step in Paused Scenario** and **axx: Insert Recorded Steps** work in feature files
 while a scenario is paused (see [Watch the browsers](#watch-the-browsers)).
