@@ -6,6 +6,7 @@ import com.intellij.openapi.options.SettingsEditor;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.TextFieldWithBrowseButton;
 import com.intellij.ui.CheckBoxList;
+import com.intellij.ui.CheckBoxListListener;
 import com.intellij.ui.RawCommandLineEditor;
 import com.intellij.ui.ToolbarDecorator;
 import com.intellij.ui.components.JBCheckBox;
@@ -35,7 +36,13 @@ final class AxxRunConfigurationEditor extends SettingsEditor<AxxRunConfiguration
                 project, FileChooserDescriptorFactory.singleDir().withTitle("Working Directory"));
         profiles.setVisibleRowCount(4);
         profiles.getEmptyText().setText("No profiles in this project's axx.yaml");
-        profiles.setCheckBoxListListener((index, value) -> fireEditorStateChanged());
+        profiles.setCheckBoxListListener(
+                new CheckBoxListListener() {
+                    @Override
+                    public void checkBoxSelectionChanged(int index, boolean value) {
+                        fireEditorStateChanged();
+                    }
+                });
         profiles.getModel()
                 .addListDataListener(
                         new ListDataListener() {
