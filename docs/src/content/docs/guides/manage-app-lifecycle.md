@@ -44,17 +44,19 @@ axx run --tags @smoke
 axx down          # stop the apps and run their cleanup
 ```
 
-This is the fastest local loop, and the one agents should use. `axx down` also stops apps left behind by an interrupted run.
+This is the fastest local loop, and the one agents should use.
+
+## When a run is stopped by force
+
+A run that is killed before it can stop its apps (stopped by force from an editor, say, or crashed) leaves them in `.axx/run/state.json`. The next run cleans up first, as `axx down` does: it stops what is left, runs the cleanups, says so, and starts from a clean slate. What belongs to a run still going, or to `axx up`, is left alone: a run then starts no app and says what is left (`AXX-E0415`).
 
 ## When a cleanup fails
 
 A cleanup can fail: `docker compose down` without access to Docker, say. The run reports it (`AXX-E0411`), and `.axx/run/state.json` keeps the cleanup, so what it should have removed is not forgotten. Until it succeeds:
 
-- runs and `axx up` start no app, and say what is left (`AXX-E0415`): containers, volumes and requests recorded by a mock would be where the next run starts from;
+- runs and `axx up` try it again first, and start no app while it fails, saying what is left (`AXX-E0415`): containers, volumes and requests recorded by a mock would be where the next run starts from;
 - `axx down` runs the cleanup again, and says `cleaned up after an earlier run` once it succeeds;
 - `axx doctor` lists what is left, and so does the MCP `env` tool's `status`, with each app `running`, `left over` from a run that was killed, or `not cleaned up`.
-
-The same holds for the apps of a run that was killed before it could stop them: `axx down` stops them and runs their cleanup.
 
 ## Run an app yourself
 

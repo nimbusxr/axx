@@ -1,7 +1,10 @@
 package mobileios
 
 import (
+	"context"
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
@@ -41,7 +44,7 @@ func TestRegistrationErrors(t *testing.T) {
 // the simulator's own; axx reset the app, so Appium leaves it.
 func TestCapabilities(t *testing.T) {
 	a := &app{locale: "en-US", caps: map[string]any{}}
-	caps := a.capabilities(&device{udid: "U", version: "18.1", wdaPort: 8101, mjpegPort: 9101}, "example.parcels.courier")
+	caps := a.capabilities(&device{udid: "U", version: "18.1", wdaPort: 8101, mjpegPort: 9101}, "example.parcels.courier", true)
 	for key, want := range map[string]any{
 		"platformName": "iOS", "appium:automationName": "XCUITest", "appium:bundleId": "example.parcels.courier",
 		"appium:udid": "U", "appium:platformVersion": "18.1", "appium:usePreinstalledWDA": true,
@@ -53,10 +56,45 @@ func TestCapabilities(t *testing.T) {
 		}
 	}
 	farm := &app{locale: "en-US", caps: map[string]any{"bstack:options": capabilityValue(`{"deviceName": "iPhone 16"}`)}}
-	caps = farm.capabilities(nil, "example.parcels.courier")
+	caps = farm.capabilities(nil, "example.parcels.courier", false)
 	b, _ := json.Marshal(caps["bstack:options"])
 	if string(b) != `{"deviceName":"iPhone 16"}` || caps["appium:usePreinstalledWDA"] != nil || caps["appium:noReset"] != false {
 		t.Errorf("a farm's caps: %v", caps)
+	}
+}
+
+// A session with a window when Device Hub (or Simulator) is open, so the
+// driver leaves it open; headless otherwise.
+func TestCapabilitiesKeepTheDeviceWindow(t *testing.T) {
+	a := &app{locale: "en-US", caps: map[string]any{}}
+	if caps := a.capabilities(&device{udid: "U"}, "b", false); caps["appium:isHeadless"] != false {
+		t.Errorf("with the window open: isHeadless %v", caps["appium:isHeadless"])
+	}
+}
+
+// The window apps are found by bundle id, beside Xcode's Developer folder
+// (Xcode 27's Device Hub) or inside it (Simulator before).
+func TestFindWindowApps(t *testing.T) {
+	xcode := t.TempDir()
+	dev := filepath.Join(xcode, "Developer")
+	ids := map[string]string{
+		filepath.Join(xcode, "Applications", "DeviceHub.app"):             "com.apple.dt.Devices",
+		filepath.Join(xcode, "Applications", "Instruments.app"):           "com.apple.dt.Instruments",
+		filepath.Join(dev, "Applications", "Simulator.app"):               "com.apple.iphonesimulator",
+		filepath.Join(dev, "Applications", "Accessibility Inspector.app"): "com.apple.AccessibilityInspector",
+	}
+	for app := range ids {
+		if err := os.MkdirAll(app, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	got := findWindowApps(t.Context(), dev, func(_ context.Context, app string) string { return ids[filepath.Clean(app)] })
+	want := []string{filepath.Join(xcode, "Applications", "DeviceHub.app"), filepath.Join(dev, "Applications", "Simulator.app")}
+	if !slices.Equal(got, want) {
+		t.Errorf("got %q, want %q", got, want)
+	}
+	if got := findWindowApps(t.Context(), "", nil); got != nil {
+		t.Errorf("without Xcode: %q", got)
 	}
 }
 

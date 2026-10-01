@@ -65,6 +65,10 @@ run:
 
 `--tags` on the command line replaces `run.tags`.
 
+`run.tags` narrows whole runs: `axx run`, and the directories you name. A feature file you name, with or without a line (`axx run features/checkout.feature:14`), runs the scenarios it selects whatever their tags, so a scenario that `run.tags` leaves out of a whole run still runs when you point at it, from the command line or your editor. `--tags` applies to named files too.
+
+A line that is in no scenario of its file, like the feature's description or its Background, is an error (`AXX-E0204`) rather than a run of nothing.
+
 ## Tags that change behavior
 
 - Tags listed in `run.exclusive` make scenarios run alone, after the parallel phase ([Run in parallel](/guides/parallel-runs/)).

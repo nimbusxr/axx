@@ -49,6 +49,7 @@ type Scenario struct {
 	status     string
 	started    time.Time
 	step       *StepInfo
+	hold       func() func()
 }
 
 type namedCloser struct {
@@ -89,6 +90,32 @@ func (sc *Scenario) SetContext(ctx context.Context) {
 	sc.mu.Lock()
 	sc.ctx = ctx
 	sc.mu.Unlock()
+}
+
+// Hold stops the clock of the running step's timeout (or hook's) until the
+// function it returns is called. It is for time spent waiting on what the
+// scenarios share, like a device another scenario has or one being made
+// ready: that is not the step's own work, and the step's timeout is for its
+// work. The step's context stays the same, with its clock stopped; the
+// scenario's timeout and the end of the run still end it. Outside a step, or
+// in hosts that time nothing, Hold does nothing.
+func (sc *Scenario) Hold() (release func()) {
+	sc.mu.Lock()
+	h := sc.hold
+	sc.mu.Unlock()
+	if h == nil {
+		return func() {}
+	}
+	return h()
+}
+
+// SetHold installs what Hold calls and returns the one it replaces. Hosts
+// call it around each step and hook they time.
+func (sc *Scenario) SetHold(hold func() func()) (prev func() func()) {
+	sc.mu.Lock()
+	defer sc.mu.Unlock()
+	prev, sc.hold = sc.hold, hold
+	return prev
 }
 
 // Step returns the step the scenario runs now, or nil outside its steps (in

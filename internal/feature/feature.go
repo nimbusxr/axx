@@ -26,6 +26,7 @@ const (
 	CodeNotFound = "AXX-E0201"
 	CodeTags     = "AXX-E0202"
 	CodeName     = "AXX-E0203"
+	CodeLine     = "AXX-E0204"
 )
 
 // Document is a parsed feature file.
@@ -254,6 +255,13 @@ func newPickle(doc *Document, pk *messages.Pickle) *Pickle {
 type Filter struct {
 	// Tags is a Cucumber tag expression, e.g. "@smoke and not @wip".
 	Tags string
+	// DefaultTags is the configured tag expression (run.tags), used when
+	// Tags is empty: it selects among the scenarios of directories and
+	// configured paths, but not of the feature files in Named, which a person
+	// pointed at and so run whatever their tags.
+	DefaultTags string
+	// Named holds the URIs of the feature files given by name.
+	Named map[string]bool
 	// Names are regular expressions matched against scenario names (any).
 	Names []string
 	// Lines selects the pickles of a file by file:line; keys are URIs. The
@@ -263,14 +271,21 @@ type Filter struct {
 
 // Apply returns the pickles selected by f, in load order.
 func (s *Set) Apply(f Filter) ([]*Pickle, error) {
+	tags, byDefault := f.Tags, false
+	if strings.TrimSpace(tags) == "" {
+		tags, byDefault = f.DefaultTags, true
+	}
 	var tagEval tagexpr.Evaluatable
-	if strings.TrimSpace(f.Tags) != "" {
-		ev, err := tagexpr.Parse(f.Tags)
+	if strings.TrimSpace(tags) != "" {
+		ev, err := tagexpr.Parse(tags)
 		if err != nil {
-			return nil, axxerr.Wrap(err, CodeTags, exitcode.Usage, "invalid tag expression %q", f.Tags).
+			return nil, axxerr.Wrap(err, CodeTags, exitcode.Usage, "invalid tag expression %q", tags).
 				WithHint(`use expressions like "@smoke and not @wip"`)
 		}
 		tagEval = ev
+	}
+	if err := s.checkLines(f.Lines); err != nil {
+		return nil, err
 	}
 	var names []*regexp.Regexp
 	for _, n := range f.Names {
@@ -282,7 +297,7 @@ func (s *Set) Apply(f Filter) ([]*Pickle, error) {
 	}
 	var out []*Pickle
 	for _, p := range s.Pickles {
-		if tagEval != nil && !tagEval.Evaluate(p.TagNames) {
+		if tagEval != nil && (!byDefault || !f.Named[p.Doc.URI]) && !tagEval.Evaluate(p.TagNames) {
 			continue
 		}
 		if len(names) > 0 && !anyMatch(names, p.Name) {
@@ -296,6 +311,47 @@ func (s *Set) Apply(f Filter) ([]*Pickle, error) {
 		out = append(out, p)
 	}
 	return out, nil
+}
+
+// checkLines reports a file:line that is in no scenario of its file: it would
+// select nothing, and a run of nothing reads like a pass.
+func (s *Set) checkLines(lines map[string][]int) error {
+	for uri, ls := range lines {
+		for _, l := range ls {
+			found, covered := false, false
+			for _, p := range s.Pickles {
+				if p.Doc.URI != uri {
+					continue
+				}
+				found = true
+				if p.coversAny([]int{l}) {
+					covered = true
+					break
+				}
+			}
+			if found && !covered {
+				return axxerr.New(CodeLine, exitcode.Usage, "%s:%d is not in a scenario", uri, l).
+					WithHint("give the line of a scenario, of one of its steps or of an Examples row, or the file alone to run all of its scenarios")
+			}
+		}
+	}
+	return nil
+}
+
+// NamedFiles returns the URIs of the paths that are feature files (not
+// directories), relative to base.
+func NamedFiles(paths []string, base string) map[string]bool {
+	named := map[string]bool{}
+	for _, p := range paths {
+		abs := p
+		if !filepath.IsAbs(abs) {
+			abs = filepath.Join(base, p)
+		}
+		if fi, err := os.Stat(abs); err == nil && fi.Mode().IsRegular() {
+			named[uriFor(abs, base)] = true
+		}
+	}
+	return named
 }
 
 // coversAny reports whether any line identifies this pickle: its scenario

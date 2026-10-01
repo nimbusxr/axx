@@ -53,7 +53,9 @@ type Config struct {
 type Run struct {
 	// Paths are feature files or directories. Default: ["features"].
 	Paths []string `json:"paths,omitempty"`
-	// Tags is a default tag expression, e.g. "not @wip".
+	// Tags is a default tag expression, e.g. "not @wip". It narrows whole runs
+	// and the directories named on the command line; a feature file named
+	// there runs the scenarios it selects whatever their tags.
 	Tags string `json:"tags,omitempty"`
 	// Workers is the number of scenarios run in parallel: a number or "auto"
 	// (number of CPUs). Default: auto.

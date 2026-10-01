@@ -33,7 +33,11 @@ func (r runner) Start(sc *core.Scenario) (mobilecore.Device, error) {
 		if err != nil {
 			return nil, err
 		}
+		// Waiting for a device another scenario has, or for one being made
+		// ready (a first boot takes minutes), is not the step's own work.
+		release := sc.Hold()
 		dev, err := p.lease(ctx, logDir)
+		release()
 		if err != nil {
 			return nil, err
 		}

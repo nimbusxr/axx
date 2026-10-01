@@ -114,11 +114,13 @@ func (a *App) run(ctx context.Context, f *runFlags, args []string) error {
 	if err != nil {
 		return err
 	}
-	tags := f.tags
-	if tags == "" {
-		tags = cfg.Run.Tags
+	filter := feature.Filter{Tags: f.tags, DefaultTags: cfg.Run.Tags, Names: f.names, Lines: lines}
+	if len(args) > 0 {
+		// A feature file named on the command line (or clicked in an editor) runs
+		// whatever run.tags leaves out of a whole run.
+		filter.Named = feature.NamedFiles(paths, cfg.Dir)
 	}
-	pickles, err := set.Apply(feature.Filter{Tags: tags, Names: f.names, Lines: lines})
+	pickles, err := set.Apply(filter)
 	if err != nil {
 		return err
 	}

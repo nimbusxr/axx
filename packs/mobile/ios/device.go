@@ -36,7 +36,11 @@ func (r runner) Start(sc *core.Scenario) (mobilecore.Device, error) {
 		if err != nil {
 			return nil, err
 		}
+		// Waiting for a device another scenario has, or for one being made
+		// ready (a first boot takes minutes), is not the step's own work.
+		release := sc.Hold()
 		dev, err := p.lease(ctx, logDir)
+		release()
 		if err != nil {
 			return nil, err
 		}
@@ -47,7 +51,7 @@ func (r runner) Start(sc *core.Scenario) (mobilecore.Device, error) {
 			return nil, err
 		}
 	}
-	s, err := client.NewSession(ctx, a.capabilities(d.dev, d.bundleID))
+	s, err := client.NewSession(ctx, a.capabilities(d.dev, d.bundleID, d.dev != nil && !deviceWindowOpen(ctx)))
 	if err != nil {
 		d.releaseDevice()
 		return nil, fmt.Errorf("cannot start the %s app: %w", a.name, err)
@@ -65,7 +69,7 @@ func (r runner) Start(sc *core.Scenario) (mobilecore.Device, error) {
 // capabilities are what the session asks Appium for. On a simulator axx
 // runs, axx reset the app before the session starts, so Appium leaves it as
 // it is; another Appium server installs the app afresh itself.
-func (a *app) capabilities(dev *device, bundleID string) map[string]any {
+func (a *app) capabilities(dev *device, bundleID string, headless bool) map[string]any {
 	caps := map[string]any{
 		"platformName":             "iOS",
 		"appium:automationName":    "XCUITest",
@@ -89,9 +93,11 @@ func (a *app) capabilities(dev *device, bundleID string) map[string]any {
 		caps["appium:wdaLocalPort"] = dev.wdaPort
 		caps["appium:mjpegServerPort"] = dev.mjpegPort
 		caps["appium:reduceMotion"] = true // a screen settles at once, and screenshots compare
-		// No Simulator window: without this, the driver boots a simulator
-		// again to show one.
-		caps["appium:isHeadless"] = true
+		// The simulator runs without a window. Asked for a headless session,
+		// the driver quits Device Hub (or Simulator) if it is open; asked for
+		// one with a window, it boots the simulator again to show it unless
+		// that app is open. So a session is headless only while it is not.
+		caps["appium:isHeadless"] = headless
 	}
 	for k, v := range a.caps {
 		caps[k] = v

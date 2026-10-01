@@ -57,6 +57,51 @@ func TestBuildWithLocalPack(t *testing.T) {
 	}
 }
 
+// TestConcurrentBuildsShareOne starts two builds of the same packs at once, as
+// a run and the language server do: one builds, the other waits for it and
+// uses its binary, instead of the two removing each other's sources.
+func TestConcurrentBuildsShareOne(t *testing.T) {
+	goBin, err := exec.LookPath("go")
+	if err != nil {
+		t.Skip("no go on PATH")
+	}
+	t.Setenv("AXX_GO", goBin)
+	src, err := filepath.Abs("../..")
+	if err != nil {
+		t.Fatal(err)
+	}
+	proj := localPackProject(t, nil)
+	f, _, err := packset.Load(proj)
+	if err != nil {
+		t.Fatal(err)
+	}
+	entries, _ := f.Entries()
+	cache := t.TempDir()
+	type built struct {
+		res *Result
+		err error
+	}
+	results := make(chan built, 2)
+	for range 2 {
+		go func() {
+			res, err := Ensure(context.Background(), Options{
+				ProjectDir: proj, Entries: entries, AxxVersion: "v0.0.0", AxxSource: src, CacheDir: cache,
+			})
+			results <- built{res, err}
+		}()
+	}
+	a, b := <-results, <-results
+	if a.err != nil || b.err != nil {
+		t.Fatalf("builds: %v; %v", a.err, b.err)
+	}
+	if a.res.Binary != b.res.Binary {
+		t.Errorf("two binaries: %s and %s", a.res.Binary, b.res.Binary)
+	}
+	if a.res.Cached == b.res.Cached {
+		t.Errorf("want one build and one reuse, got cached=%v and cached=%v", a.res.Cached, b.res.Cached)
+	}
+}
+
 // goEnv is one of the go on PATH's settings, like GOCACHE.
 func goEnv(t *testing.T, goBin, name string) string {
 	t.Helper()

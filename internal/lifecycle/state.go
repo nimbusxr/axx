@@ -280,10 +280,13 @@ func statusOf(st runState) []AppStatus {
 	return out
 }
 
-// checkEarlierRuns refuses to start apps while the state file records apps
-// an earlier run left behind, other than the ones this run attaches to:
-// still running with nothing to stop them, or stopped without their cleanup.
-// Their data would be what this run starts from.
+// checkEarlierRuns deals with apps an earlier run left behind (still running
+// with nothing to stop them, or stopped without their cleanup), whose data
+// would be what this run starts from. When nothing recorded belongs to a run
+// still going, or to an app this run attaches to, all of it was left by runs
+// that ended without stopping it (stopped by force, or crashed): it is
+// cleaned up as `axx down` does, and the run starts from a clean slate.
+// Otherwise the run refuses to start.
 func (m *Manager) checkEarlierRuns() error {
 	if m.opts.StateFile == "" {
 		return nil
@@ -293,8 +296,10 @@ func (m *Manager) checkEarlierRuns() error {
 		apps = statusOf(st)
 	}
 	var left []string
+	inUse := false
 	for _, as := range apps {
 		if m.opts.Attach[as.Name] || as.State == AppRunning {
+			inUse = true
 			continue
 		}
 		switch {
@@ -307,6 +312,14 @@ func (m *Manager) checkEarlierRuns() error {
 		}
 	}
 	if len(left) == 0 {
+		return nil
+	}
+	if !inUse {
+		m.log.Warn("an earlier run was not cleaned up; cleaning up as `axx down` does", "left", strings.Join(left, "; "))
+		if _, err := Reap(m.opts.StateFile, m.opts.Stdout, m.opts.Stderr); err != nil {
+			return envErr(CodeNotCleanedUp, "an earlier run was not cleaned up, and cleaning it up failed: %v", err).
+				WithHint("run `axx down` to see what is left, and stop it by hand if it cannot")
+		}
 		return nil
 	}
 	return envErr(CodeNotCleanedUp, "an earlier run was not cleaned up: %s", strings.Join(left, "; ")).

@@ -117,6 +117,9 @@ func init() {
 	add("AXX-E0203", u, "Invalid name filter",
 		"A `--name` pattern is not a valid regular expression.",
 		"Escape special characters, or pass a plain substring.")
+	add("AXX-E0204", u, "Line is not in a scenario",
+		"A `file:line` names a line that no scenario of the file contains, like the feature's description or its Background, so it would select nothing.",
+		"Give the line of a scenario, of one of its steps or of an Examples row, or the file alone to run all of its scenarios.")
 
 	add("AXX-E0300", u, "Pack cannot be loaded",
 		"A step pack failed to load or initialize: a step expression that does not compile, a duplicate parameter type, or pack configuration under `packs:` that is invalid.",
@@ -189,7 +192,7 @@ func init() {
 		"Starting apps was interrupted (Ctrl-C). Every app that had started was stopped and cleaned up.",
 		"Nothing to fix; re-run when ready.")
 	add("AXX-E0415", env, "Earlier run not cleaned up",
-		"The state file records apps an earlier run left behind: still running after the run was killed, or stopped with a cleanup that failed or never ran. Their data (containers, volumes, recorded requests) would be what this run starts from, so no app is started.",
+		"The state file records apps an earlier run left behind, and they could not be cleaned up before this run: a cleanup failed again, or what is left sits beside apps a run still going (or `axx up`) owns. Their data (containers, volumes, recorded requests) would be what this run starts from, so no app is started. A killed run's leftovers alone are cleaned up by the next run.",
 		"Run `axx down`: it stops what is left and runs the cleanup again. `axx doctor` and the MCP `env` status list what is left.")
 
 	add("AXX-E0600", u, "Unknown reporter",

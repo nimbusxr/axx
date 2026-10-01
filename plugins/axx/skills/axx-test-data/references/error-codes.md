@@ -182,6 +182,14 @@ A `--name` pattern is not a valid regular expression.
 
 **Fix:** Escape special characters, or pass a plain substring.
 
+### AXX-E0204
+
+**Line is not in a scenario** · exit 2
+
+A `file:line` names a line that no scenario of the file contains, like the feature's description or its Background, so it would select nothing.
+
+**Fix:** Give the line of a scenario, of one of its steps or of an Examples row, or the file alone to run all of its scenarios.
+
 ## Packs, steps and resources
 
 ### AXX-E0300
@@ -374,7 +382,7 @@ Starting apps was interrupted (Ctrl-C). Every app that had started was stopped a
 
 **Earlier run not cleaned up** · exit 4
 
-The state file records apps an earlier run left behind: still running after the run was killed, or stopped with a cleanup that failed or never ran. Their data (containers, volumes, recorded requests) would be what this run starts from, so no app is started.
+The state file records apps an earlier run left behind, and they could not be cleaned up before this run: a cleanup failed again, or what is left sits beside apps a run still going (or `axx up`) owns. Their data (containers, volumes, recorded requests) would be what this run starts from, so no app is started. A killed run's leftovers alone are cleaned up by the next run.
 
 **Fix:** Run `axx down`: it stops what is left and runs the cleanup again. `axx doctor` and the MCP `env` status list what is left.
 

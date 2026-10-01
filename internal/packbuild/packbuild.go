@@ -30,6 +30,7 @@ import (
 
 	"github.com/nimbusxr/axx/internal/axxerr"
 	"github.com/nimbusxr/axx/internal/exitcode"
+	"github.com/nimbusxr/axx/internal/filelock"
 	"github.com/nimbusxr/axx/internal/gotool"
 	"github.com/nimbusxr/axx/internal/packset"
 )
@@ -104,7 +105,11 @@ func Ensure(ctx context.Context, o Options) (*Result, error) {
 	dir := filepath.Join(o.CacheDir, key)
 	bin := filepath.Join(dir, exeName("axx"))
 	lockFile := filepath.Join(dir, "resolved.json")
-	if st, err := os.Stat(bin); err == nil && st.Mode().IsRegular() {
+	cached := func() *Result {
+		st, err := os.Stat(bin)
+		if err != nil || !st.Mode().IsRegular() {
+			return nil
+		}
 		res := &Result{Binary: bin, Cached: true, Lock: o.Lock}
 		if b, err := os.ReadFile(lockFile); err == nil {
 			l := &packset.Lock{}
@@ -112,6 +117,21 @@ func Ensure(ctx context.Context, o Options) (*Result, error) {
 				res.Lock = l
 			}
 		}
+		return res
+	}
+	if res := cached(); res != nil {
+		return res, nil
+	}
+	// One axx prepares a build at a time (a run and the language server often
+	// start together); the others wait for it and use what it built.
+	unlock, err := filelock.Lock(ctx, dir+".lock", func() {
+		fmt.Fprintln(o.Log, "axx: waiting for another axx preparing the same packs")
+	})
+	if err != nil {
+		return nil, err
+	}
+	defer unlock()
+	if res := cached(); res != nil {
 		return res, nil
 	}
 
