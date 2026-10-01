@@ -24,10 +24,12 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import us.nimbusxr.axx.idea.AxxBinary;
+import us.nimbusxr.axx.idea.AxxProfiles;
 import us.nimbusxr.axx.idea.AxxSettings;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -60,7 +62,7 @@ final class AxxRunState implements RunProfileState {
 
     /**
      * The command line: {@code <axx> run --format teamcity [--debug-steps=<port>] [--workers 1]
-     * [<watch arguments>] [<debug arguments>] <targets> <arguments>} (see {@link
+     * [<watch arguments>] [<debug arguments>] <targets> [--profile <profiles>] <arguments>} (see {@link
      * RunTargets#runArguments}).
      */
     @NotNull GeneralCommandLine commandLine() throws ExecutionException {
@@ -78,10 +80,16 @@ final class AxxRunState implements RunProfileState {
                                 run,
                                 workingDirectory)
                         : null;
+        List<String> extra = new ArrayList<>();
+        List<String> profiles = configuration.getProfiles();
+        if (!profiles.isEmpty()) {
+            extra.addAll(List.of("--profile", AxxProfiles.join(profiles)));
+        }
+        extra.addAll(ParametersListUtil.parse(configuration.getArguments()));
         List<String> args =
                 RunTargets.runArguments(
                         run,
-                        ParametersListUtil.parse(configuration.getArguments()),
+                        extra,
                         environment.getUserData(AxxDebugRunner.STEPS_PORT),
                         watchesBrowsers()
                                 ? AxxSettings.getInstance().getWatchSlowdownMillis()

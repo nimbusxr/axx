@@ -125,13 +125,18 @@ Configurations*:
 
 - **Targets:** feature files or directories, each optionally with `:line` (a Scenario, Scenario
   Outline or Examples row line). Empty runs the suite's `run.paths`.
+- **Profiles:** the project's profiles (`profiles.<name>` in `axx.yaml`, and `axx.<name>.yaml`
+  files) to apply, in the order of the list (`--profile`); move them up and down to change it.
+  Checked in the axx configuration template, they start every run from the gutter, the editor and
+  the project view, which are then named with them, like `features (ios)`.
 - **Arguments:** more `axx run` arguments, such as `--tags "@smoke"`.
 - **Working directory:** where Axx runs, and where the targets start. Empty: the directory of the
   `axx.yaml` above the first target. Axx finds `axx.yaml` upward from there.
 - **Watch the browsers:** every run watches the web pack's browsers, as *Watch* does (see
   [Watching the browsers](#watching-the-browsers)).
 
-The configuration runs `axx run --format teamcity <targets> <arguments>` (with the axx executable
+The configuration runs `axx run --format teamcity <targets> [--profile <profiles>] <arguments>`
+(with the axx executable
 from *Settings | Tools | axx*). The test runner shows each feature, its scenarios (one per outline
 example) and their steps as tests, with each step's log. A failed assertion has *Click to see
 difference* with the expected and actual values; skipped and pending steps show as ignored.

@@ -21,6 +21,7 @@ import com.intellij.util.execution.ParametersListUtil;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import us.nimbusxr.axx.idea.AxxProfiles;
 import us.nimbusxr.axx.idea.ConfigFinder;
 
 import java.nio.file.Files;
@@ -30,7 +31,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * An axx run configuration: {@code axx run --format teamcity <targets> <arguments>}, in the axx
+ * An axx run configuration: {@code axx run --format teamcity <targets> [--profile <profiles>]
+ * <arguments>}, in the axx
  * project's directory, with the scenarios in the IDE's test runner. It can watch the web pack's
  * browsers, as the Watch executor does for any axx run configuration.
  */
@@ -83,6 +85,23 @@ public final class AxxRunConfiguration
         getOptions().setTargets(targets.strip());
     }
 
+    /** The profiles runs apply, in order ({@code --profile}). */
+    public @NotNull List<String> getProfiles() {
+        return AxxProfiles.parse(getOptions().getProfiles());
+    }
+
+    public void setProfiles(@NotNull List<String> profiles) {
+        getOptions().setProfiles(AxxProfiles.join(profiles));
+    }
+
+    /**
+     * A name with the profiles the configuration applies: {@code features (ios, watch)}, or the
+     * name alone without profiles.
+     */
+    public static @NotNull String nameWithProfiles(@NotNull String name, @NotNull List<String> profiles) {
+        return profiles.isEmpty() ? name : name + " (" + String.join(", ", profiles) + ")";
+    }
+
     /** Extra {@code axx run} arguments, as a command line. */
     public @NotNull String getArguments() {
         return getOptions().getArguments();
@@ -108,6 +127,15 @@ public final class AxxRunConfiguration
 
     public void setWatchBrowsers(boolean watchBrowsers) {
         getOptions().setWatchBrowsers(watchBrowsers);
+    }
+
+    /** The profiles of the axx project the configuration runs in, for choosing from. */
+    @NotNull List<String> availableProfiles() {
+        try {
+            return AxxProfiles.find(workingDirectory());
+        } catch (ExecutionException e) {
+            return List.of();
+        }
     }
 
     /**

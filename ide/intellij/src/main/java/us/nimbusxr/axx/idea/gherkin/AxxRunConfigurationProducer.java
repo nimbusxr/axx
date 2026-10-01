@@ -38,7 +38,9 @@ public final class AxxRunConfigurationProducer
         sourceElement.set(selection.element());
         configuration.setTargets(selection.targets());
         configuration.setWorkingDirectory(selection.workingDirectory().toString());
-        configuration.setName(selection.name());
+        // The configuration starts from the axx template, with its profiles.
+        configuration.setName(
+                AxxRunConfiguration.nameWithProfiles(selection.name(), configuration.getProfiles()));
         return true;
     }
 

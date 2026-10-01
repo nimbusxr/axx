@@ -106,6 +106,25 @@ public class AxxRunStateTest extends HeavyPlatformTestCase {
                 command.getParametersList().getList());
     }
 
+    public void testAppliesTheProfilesInOrder() throws Exception {
+        configuration.setTargets(List.of("features/orders.feature:7"));
+        configuration.setProfiles(List.of("ios", "watch"));
+        configuration.setArguments("--tags @smoke");
+        configuration.setWorkingDirectory(suite.toString());
+
+        assertEquals(
+                List.of(
+                        "run",
+                        "--format",
+                        "teamcity",
+                        "features/orders.feature:7",
+                        "--profile",
+                        "ios,watch",
+                        "--tags",
+                        "@smoke"),
+                commandLine(environment(false)).getParametersList().getList());
+    }
+
     public void testARelativeExecutableStartsAtTheProject() throws Exception {
         // The suite is in a folder of the project; the setting names axx from the project's
         // directory, as the language server reads it.
