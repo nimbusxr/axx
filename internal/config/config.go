@@ -60,7 +60,9 @@ type Run struct {
 	// Workers is the number of scenarios run in parallel: a number or "auto"
 	// (number of CPUs). Default: auto.
 	Workers Workers `json:"workers,omitzero"`
-	// Exclusive lists tags whose scenarios run alone, after the parallel phase.
+	// Exclusive lists tags, and packs, whose scenarios run alone, after the
+	// parallel phase: ["@isolated"], or ["mobile-android", "mobile-ios"] for
+	// the scenarios that use those packs' steps, like apps on devices.
 	Exclusive []string `json:"exclusive,omitempty"`
 	// Order is "defined" (default) or "random[:seed]".
 	Order    string   `json:"order,omitempty"`
@@ -153,9 +155,14 @@ type Stop struct {
 	Grace Duration `json:"grace,omitzero"`
 }
 
-// AppActive lists tags that require this app.
+// AppActive says which scenarios need this app, with active.enabled: those
+// with one of its tags, or that use a step of one of its packs.
 type AppActive struct {
+	// Tags start the app for the scenarios that have one of them.
 	Tags []string `json:"tags,omitempty"`
+	// Packs start the app for the scenarios that use a step of one of them,
+	// like mobile-android: no tag needed.
+	Packs []string `json:"packs,omitempty"`
 }
 
 // Debug configures `axx run --debug`.

@@ -48,8 +48,13 @@ type Options struct {
 	Workers int
 	// Exclusive tags run alone after the parallel phase.
 	Exclusive []string
-	FailFast  bool
-	DryRun    bool
+	// ExclusivePacks run the scenarios that use a step of theirs alone after
+	// the parallel phase, like mobile-ios; PacksOf says which packs a
+	// scenario uses.
+	ExclusivePacks []string
+	PacksOf        func(*feature.Pickle) []string
+	FailFast       bool
+	DryRun         bool
 	// Order is "defined" (default) or "random" / "random:<seed>".
 	Order           string
 	StepTimeout     time.Duration
@@ -257,7 +262,7 @@ func (r *Runner) order(pickles []*feature.Pickle) []*feature.Pickle {
 }
 
 func (r *Runner) partition(pickles []*feature.Pickle) (parallel, serial []*feature.Pickle) {
-	if len(r.opts.Exclusive) == 0 {
+	if len(r.opts.Exclusive) == 0 && len(r.opts.ExclusivePacks) == 0 {
 		return pickles, nil
 	}
 	ex := map[string]bool{}
@@ -267,12 +272,24 @@ func (r *Runner) partition(pickles []*feature.Pickle) (parallel, serial []*featu
 		}
 		ex[t] = true
 	}
+	exPacks := map[string]bool{}
+	for _, p := range r.opts.ExclusivePacks {
+		exPacks[p] = true
+	}
 	for _, p := range pickles {
 		isEx := false
 		for _, t := range p.TagNames {
 			if ex[t] {
 				isEx = true
 				break
+			}
+		}
+		if !isEx && len(exPacks) > 0 && r.opts.PacksOf != nil {
+			for _, pack := range r.opts.PacksOf(p) {
+				if exPacks[pack] {
+					isEx = true
+					break
+				}
 			}
 		}
 		if isEx {

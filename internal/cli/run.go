@@ -179,6 +179,34 @@ func (a *App) run(ctx context.Context, f *runFlags, args []string) error {
 		}
 	}
 
+	// run.exclusive names tags, and packs: the scenarios that use a pack's
+	// steps, like mobile-ios.
+	loaded := map[string]bool{}
+	for _, p := range e.Packs {
+		loaded[p.Name] = true
+	}
+	var exclusiveTags, exclusivePacks []string
+	for _, x := range cfg.Run.Exclusive {
+		if loaded[x] {
+			exclusivePacks = append(exclusivePacks, x)
+		} else {
+			exclusiveTags = append(exclusiveTags, x)
+		}
+	}
+	var packsOf func(*feature.Pickle) []string
+	if len(exclusivePacks) > 0 {
+		byPickle := map[*feature.Pickle][]string{}
+		plan := e.Plan(pickles)
+		for i, sc := range plan.Scenarios {
+			for _, st := range sc.Steps {
+				if st.Pack != "" && !slices.Contains(byPickle[pickles[i]], st.Pack) {
+					byPickle[pickles[i]] = append(byPickle[pickles[i]], st.Pack)
+				}
+			}
+		}
+		packsOf = func(p *feature.Pickle) []string { return byPickle[p] }
+	}
+
 	workers := f.workers
 	if workers == 0 && cfg.Run.Watch && cfg.Run.Workers == 0 {
 		workers = 1 // a person follows one scenario at a time
@@ -200,7 +228,9 @@ func (a *App) run(ctx context.Context, f *runFlags, args []string) error {
 		Hooks:           e.Hooks,
 		Suite:           e.Suite,
 		Workers:         workers,
-		Exclusive:       cfg.Run.Exclusive,
+		Exclusive:       exclusiveTags,
+		ExclusivePacks:  exclusivePacks,
+		PacksOf:         packsOf,
 		FailFast:        f.failFast,
 		DryRun:          f.dryRun,
 		Order:           order,
@@ -261,7 +291,7 @@ func (a *App) startApps(ctx context.Context, e *engine.Engine, f *runFlags, pick
 			tags[i] = p.TagNames
 		}
 		var err error
-		names, err = lifecycle.SelectActive(cfg.Apps, cfg.Active, tags)
+		names, err = lifecycle.SelectActive(cfg.Apps, cfg.Active, tags, usedPacks(e, pickles))
 		if err != nil {
 			return nil, err
 		}
@@ -459,6 +489,22 @@ func (a *App) pausesOnSteps(pauses map[string][]int, pickles []*feature.Pickle) 
 				continue
 			}
 			out[uri] = append(out[uri], line)
+		}
+	}
+	return out
+}
+
+// usedPacks are the packs whose steps the scenarios use, Backgrounds
+// included.
+func usedPacks(e *engine.Engine, pickles []*feature.Pickle) []string {
+	seen := map[string]bool{}
+	var out []string
+	for _, sc := range e.Plan(pickles).Scenarios {
+		for _, st := range sc.Steps {
+			if st.Pack != "" && !seen[st.Pack] {
+				seen[st.Pack] = true
+				out = append(out, st.Pack)
+			}
 		}
 	}
 	return out

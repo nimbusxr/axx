@@ -45,6 +45,13 @@ Feature: Database failures
 
 Axx runs every other scenario in parallel first, then the exclusive ones one at a time. Tags are inherited, so tagging the feature covers every scenario in it.
 
+`run.exclusive` also takes packs: the scenarios that use a step of the pack run alone, no tag needed. Apps on devices are the usual case: an emulator and a simulator beside a run's browsers ask a lot of a machine, so they can take their turn after the rest, in the same run.
+
+```yaml title="axx.yaml"
+run:
+  exclusive: [mobile-android, mobile-ios]
+```
+
 ## Order
 
 ```sh

@@ -83,14 +83,19 @@ func Load(opts LoadOptions) (*Config, error) {
 		sources = append(sources, src)
 	}
 
-	// Overlays: profiles.<p>, axx.<p>.yaml, axx.local.yaml.
-	if opts.Profile != "" {
-		prof, ok := lookup(tree, "profiles", opts.Profile)
-		profFile := filepath.Join(dir, "axx."+opts.Profile+".yaml")
+	// Overlays: profiles.<p>, axx.<p>.yaml for each profile in order (watch,ios
+	// applies watch, then ios over it), then axx.local.yaml.
+	for _, name := range strings.Split(opts.Profile, ",") {
+		name = strings.TrimSpace(name)
+		if name == "" {
+			continue
+		}
+		prof, ok := lookup(tree, "profiles", name)
+		profFile := filepath.Join(dir, "axx."+name+".yaml")
 		_, statErr := os.Stat(profFile)
 		if !ok && statErr != nil {
-			return nil, axxerr.New(CodeProfile, exitcode.Usage, "profile %q not found", opts.Profile).
-				WithHint("define profiles.%s in axx.yaml or create axx.%s.yaml", opts.Profile, opts.Profile)
+			return nil, axxerr.New(CodeProfile, exitcode.Usage, "profile %q not found", name).
+				WithHint("define profiles.%s in axx.yaml or create axx.%s.yaml", name, name)
 		}
 		if ok {
 			if m, isMap := prof.(yaml.MapSlice); isMap {

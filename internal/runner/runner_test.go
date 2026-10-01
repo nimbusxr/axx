@@ -336,6 +336,38 @@ func TestParallelismAndExclusive(t *testing.T) {
 	}
 }
 
+// A pack in run.exclusive runs the scenarios that use it alone, after the
+// parallel phase, like those of an app on a device: no tag needed.
+func TestExclusivePacks(t *testing.T) {
+	f := &fixture{}
+	set, pickles := load(t, `Feature: p
+  Scenario: web a
+    Given a busy step
+  Scenario: phone
+    Given a busy step
+  Scenario: web b
+    Given a busy step
+`)
+	r, _ := newRunner(t, f, set, func(o *Options) {
+		o.ExclusivePacks = []string{"mobile-ios"}
+		o.PacksOf = func(p *feature.Pickle) []string {
+			if p.Name == "phone" {
+				return []string{"test", "mobile-ios"}
+			}
+			return []string{"test"}
+		}
+	})
+	res := r.Run(context.Background(), pickles)
+	if res.Worst() != Passed {
+		t.Fatalf("worst = %v", res.Worst())
+	}
+	for _, s := range res.Scenarios {
+		if serial := s.Worker == 0; serial != (s.Pickle.Name == "phone") {
+			t.Errorf("%s ran on worker %d", s.Pickle.Name, s.Worker)
+		}
+	}
+}
+
 func TestFailFast(t *testing.T) {
 	var b strings.Builder
 	b.WriteString("Feature: ff\n  Scenario: first\n    Given a failing step\n")

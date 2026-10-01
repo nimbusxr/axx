@@ -212,7 +212,15 @@
                 "items": {
                   "type": "string"
                 },
-                "type": "array"
+                "type": "array",
+                "description": "Tags start the app for the scenarios that have one of them."
+              },
+              "packs": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array",
+                "description": "Packs start the app for the scenarios that use a step of one of them,\nlike mobile-android: no tag needed."
               }
             },
             "additionalProperties": false,
@@ -664,7 +672,7 @@
             "type": "string"
           },
           "type": "array",
-          "description": "Exclusive lists tags whose scenarios run alone, after the parallel phase."
+          "description": "Exclusive lists tags, and packs, whose scenarios run alone, after the\nparallel phase: [\"@isolated\"], or [\"mobile-android\", \"mobile-ios\"] for\nthe scenarios that use those packs' steps, like apps on devices."
         },
         "order": {
           "type": "string",

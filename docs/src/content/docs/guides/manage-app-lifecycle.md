@@ -115,3 +115,12 @@ apps:
 ```
 
 An app with `active.tags` starts when any selected scenario carries one of its tags, and the apps in its `dependsOn` start with it. Apps without `active.tags` always start. `axx run --tags @billing` starts `billing` and `wiremock`, not `orders`.
+
+An app can also wait for the packs the scenarios use, with `active.packs`: it starts when a selected scenario uses a step of one of them, no tag needed. A service only the mobile apps call, say:
+
+```yaml title="axx.yaml"
+apps:
+  push-gateway:
+    command: docker compose up push-gateway
+    active: {packs: [mobile-android, mobile-ios]}
+```
