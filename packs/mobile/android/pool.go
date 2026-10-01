@@ -257,12 +257,16 @@ func (p *pool) boot1(ctx context.Context, d *device, logDir string) error {
 }
 
 // skipBrowserWelcome has Chrome open a page at once, without its first-run
-// screens: an emulator starts afresh at each run, and an app that opens a
-// browser tab (to sign in, say) means the page, not Chrome's welcome. On an
-// emulator without Chrome it does nothing.
+// screens or its prompt to allow notifications: an emulator starts afresh at
+// each run, and an app that opens a browser tab (to sign in, say) means the
+// page, not Chrome's welcome. On an emulator without Chrome it does nothing.
 func skipBrowserWelcome(ctx context.Context, s *sdk, serial string) {
+	// Chrome reads its command line from the file as the debug app.
 	_, _ = s.shell(ctx, serial, "am", "set-debug-app", "--persistent", "com.android.chrome")
-	_, _ = s.shell(ctx, serial, "sh", "-c", "echo '_ --disable-fre --no-default-browser-check --no-first-run' > /data/local/tmp/chrome-command-line")
+	// One argument: adb joins a command's arguments with spaces, which would
+	// lose a quoted sh -c script's quotes.
+	_, _ = s.shell(ctx, serial, "echo '_ --disable-fre --no-default-browser-check --no-first-run' > /data/local/tmp/chrome-command-line")
+	_, _ = s.shell(ctx, serial, "pm", "grant", "com.android.chrome", "android.permission.POST_NOTIFICATIONS")
 }
 
 // consolePorts are the console ports the run's emulators hold: emulators

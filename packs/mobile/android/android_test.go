@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 	"sync"
@@ -243,6 +244,30 @@ func TestHostPorts(t *testing.T) {
 	}
 	if !slices.Equal(a.hostPorts, []int{5500, 8090, 8089}) {
 		t.Errorf("host ports: %v", a.hostPorts)
+	}
+}
+
+// Chrome's command line reaches the device whole: adb joins a command's
+// arguments with spaces, so the shell script is one argument.
+func TestSkipBrowserWelcome(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("the stand-in adb is a shell script")
+	}
+	dir := t.TempDir()
+	log := filepath.Join(dir, "calls")
+	adb := filepath.Join(dir, "adb")
+	script := "#!/bin/sh\nfor a in \"$@\"; do printf '%s|' \"$a\"; done >> " + log + "\necho >> " + log + "\n"
+	if err := os.WriteFile(adb, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	skipBrowserWelcome(t.Context(), &sdk{adb: adb}, "emulator-5554")
+	b, err := os.ReadFile(log)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "-s|emulator-5554|shell|echo '_ --disable-fre --no-default-browser-check --no-first-run' > /data/local/tmp/chrome-command-line|"
+	if !slices.Contains(strings.Split(string(b), "\n"), want) {
+		t.Errorf("adb calls:\n%s\nwant the line %s", b, want)
 	}
 }
 
