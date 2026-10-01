@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.3](https://github.com/nimbusxr/axx/compare/intellij-v0.1.2...intellij-v0.1.3) (2026-10-01)
+
+
+### Bug Fixes
+
+* **intellij:** hide Cucumber+'s undefined step warnings in axx projects ([#74](https://github.com/nimbusxr/axx/issues/74)) ([f584dd2](https://github.com/nimbusxr/axx/commit/f584dd2ae8d70ade681bc6bfe9ba00147caf9941))
+
 ## [0.1.2](https://github.com/nimbusxr/axx/compare/intellij-v0.1.1...intellij-v0.1.2) (2026-10-01)
 
 

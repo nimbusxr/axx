@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.1.7](https://github.com/nimbusxr/axx/compare/v0.1.6...v0.1.7) (2026-10-01)
+
+
+### Features
+
+* **init:** mark the installed skills as generated in .gitattributes ([#75](https://github.com/nimbusxr/axx/issues/75)) ([04ff7c8](https://github.com/nimbusxr/axx/commit/04ff7c8550de1277142a22008cf6b604ec3f0876))
+* **lsp:** the server loads a project's steps again when its axx.yaml, axx-packs.yaml or a pack of its own changes ([e0d4e75](https://github.com/nimbusxr/axx/commit/e0d4e756868def635341ebba88e8868ee37eac80))
+
+
+### Bug Fixes
+
+* **lsp:** every axx project in the editor gets the steps of its own packs ([e0d4e75](https://github.com/nimbusxr/axx/commit/e0d4e756868def635341ebba88e8868ee37eac80))
+
 ## [0.1.6](https://github.com/nimbusxr/axx/compare/v0.1.5...v0.1.6) (2026-10-01)
 
 
