@@ -24,7 +24,7 @@ profiles:
       slowdown: 300ms
 ```
 
-`axx run --profile watch` runs with it, and `axx.local.yaml` can hold them for you alone. In your editor, *Watch* (next to *Run* and *Debug*) runs a scenario this way ([Set up your editor](/guides/set-up-your-editor/#watch-a-run)).
+`axx run --profile watch` runs with it, and with another profile after a comma, like `--profile ios,watch`, it watches that profile's run ([Select by what scenarios use](/guides/tags-and-filtering/#select-by-what-scenarios-use)). `axx.local.yaml` can hold the settings for you alone. In your editor, *Watch* (next to *Run* and *Debug*) runs a scenario this way ([Set up your editor](/guides/set-up-your-editor/#watch-a-run)).
 
 ## What you see
 

@@ -24,7 +24,7 @@ type configFlags struct {
 }
 
 func (f *configFlags) register(cmd *cobra.Command) {
-	cmd.Flags().StringVar(&f.profile, "profile", "", "apply profiles.<name> / axx.<name>.yaml (env: AXX_PROFILE)")
+	cmd.Flags().StringVar(&f.profile, "profile", "", "apply profiles.<name> / axx.<name>.yaml, several comma-separated in order, like watch,ios (env: AXX_PROFILE)")
 	cmd.Flags().StringArrayVarP(&f.defines, "define", "D", nil, "set a property for ${sys:name}, e.g. -D local.host=docker")
 	cmd.Flags().StringArrayVar(&f.settings, "set", nil, "set a key of axx.yaml for this run, over its files and profiles, e.g. --set run.workers=1 or --set packs.<pack>.<key>=value")
 }

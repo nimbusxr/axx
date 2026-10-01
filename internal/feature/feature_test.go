@@ -285,3 +285,28 @@ func indexOf(s, sub string) int {
 	}
 	return -1
 }
+
+// run.uses keeps the scenarios that use one of its packs; a named file runs
+// whatever it leaves out, as with run.tags.
+func TestByUses(t *testing.T) {
+	_, set := setup(t)
+	packsOf := func(p *Pickle) []string {
+		if p.Name == "list launches" {
+			return []string{"rest", "mobile-ios"}
+		}
+		return []string{"rest"}
+	}
+	if got := ByUses(set.Pickles, []string{"mobile-ios"}, nil, packsOf); !equal(names(got), []string{"list launches"}) {
+		t.Errorf("[mobile-ios]: %v", names(got))
+	}
+	if got := ByUses(set.Pickles, []string{"web-core", "mobile-ios"}, nil, packsOf); !equal(names(got), []string{"list launches"}) {
+		t.Errorf("[web-core, mobile-ios]: %v", names(got))
+	}
+	if got := ByUses(set.Pickles, nil, nil, packsOf); len(got) != len(set.Pickles) {
+		t.Errorf("no packs: %v", names(got))
+	}
+	named := map[string]bool{"features/nested/other.feature": true}
+	if got := ByUses(set.Pickles, []string{"mobile-ios"}, named, packsOf); !equal(names(got), []string{"list launches", "x"}) {
+		t.Errorf("with a named file: %v", names(got))
+	}
+}

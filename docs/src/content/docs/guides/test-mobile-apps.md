@@ -109,6 +109,18 @@ packs:
 
 The kept simulators are in Xcode's own set, named like `axx iPhone 17, iOS 27.0 (1)`, where Device Hub lists them. A run uses one only while no other run does, and each scenario still has its simulator to itself, its app reset. A watched run keeps them. To get rid of them, delete them in Device Hub, or with `xcrun simctl delete`.
 
+## Run one platform
+
+A profile per platform runs the scenarios of one app, with no tags on the features: `run.uses` picks the scenarios by the packs their steps use ([Select by what scenarios use](/guides/tags-and-filtering/#select-by-what-scenarios-use)).
+
+```yaml title="axx.yaml"
+profiles:
+  ios:     {run: {uses: [mobile-ios]}}
+  android: {run: {uses: [mobile-android]}}
+```
+
+`axx run --profile ios` runs the iOS app's scenarios, and `--profile ios,watch` runs them watched.
+
 ## Watch it
 
 `axx run --watch` shows what the scenarios do as they do it: an iOS simulator in Device Hub (the Simulator app before Xcode 27), an Android emulator in its window, a browser in its own, one scenario at a time, slowed down with `--slowdown 500ms` ([Watch a run](/guides/watch-runs/)). Without `--watch`, the devices run without a window, and a Device Hub you have open stays open.

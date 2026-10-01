@@ -190,6 +190,14 @@ A `file:line` names a line that no scenario of the file contains, like the featu
 
 **Fix:** Give the line of a scenario, of one of its steps or of an Examples row, or the file alone to run all of its scenarios.
 
+### AXX-E0205
+
+**Unknown pack in run.uses** · exit 2
+
+`run.uses` lists a pack the project does not load, so no scenario could use it.
+
+**Fix:** List packs of `axx-packs.yaml` (`axx pack list`), like `[mobile-ios]`, or add the pack with `axx pack add`.
+
 ## Packs, steps and resources
 
 ### AXX-E0300

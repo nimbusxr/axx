@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/nimbusxr/axx/internal/axxerr"
 	"github.com/nimbusxr/axx/internal/exitcode"
@@ -109,6 +110,31 @@ func TestProfileAndOverrides(t *testing.T) {
 	}
 	if cfg.Run.Workers != 3 {
 		t.Errorf("local overlay workers = %d", cfg.Run.Workers)
+	}
+}
+
+// Profiles combine: watch,ios applies watch, then ios over it.
+func TestProfilesCombine(t *testing.T) {
+	dir := t.TempDir()
+	write(t, dir, "axx.yaml", `version: 1
+run:
+  workers: 4
+profiles:
+  watch:
+    run: {watch: true, slowdown: 300ms, workers: 1}
+  ios:
+    run: {tags: "@ios", slowdown: 1s}
+`)
+	cfg, err := Load(LoadOptions{WorkDir: dir, Profile: "watch, ios", LookupEnv: env(nil)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !cfg.Run.Watch || cfg.Run.Workers != 1 || cfg.Run.Tags != "@ios" || cfg.Run.Slowdown.D() != time.Second {
+		t.Errorf("combined profiles: %+v", cfg.Run)
+	}
+	_, err = Load(LoadOptions{WorkDir: dir, Profile: "watch,android", LookupEnv: env(nil)})
+	if err == nil || !strings.Contains(err.Error(), `profile "android" not found`) {
+		t.Errorf("an unknown second profile: %v", err)
 	}
 }
 

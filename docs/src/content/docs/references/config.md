@@ -27,6 +27,7 @@ version: 1
 run:
   paths: [features]              # feature files or directories
   tags: "not @wip"               # default tag expression
+  uses: [web-core]               # only the scenarios that use one of these packs (a profile per platform)
   workers: auto                  # parallel scenarios: a number or auto (CPUs)
   exclusive: ["@isolated"]       # these run alone, after the parallel phase
   order: defined                 # or random, random:<seed>
@@ -61,7 +62,7 @@ apps:
 lint: {}                         # axx lint rules
 fixtures: {}                     # axx fixtures settings
 
-profiles:                        # overlays: --profile ci or AXX_PROFILE=ci
+profiles:                        # overlays: --profile ci, several in order (--profile ios,watch), or AXX_PROFILE
   ci:
     properties: {local.host: docker}
 ```
@@ -75,7 +76,7 @@ profiles:                        # overlays: --profile ci or AXX_PROFILE=ci
 | `resources` | directories that relative file paths in steps resolve against, in order; the directory of `axx.yaml` is searched last | [Configure services](/guides/configure-services/#resource-paths) |
 | `properties` | values for `${sys:name}` | [Configure services](/guides/configure-services/#keep-values-out-of-feature-files) |
 | `openapi.levels` | default OpenAPI validation levels, by rule key | [Validate against OpenAPI](/guides/validate-openapi/) |
-| `active` | tag-based app startup | [Manage the app lifecycle](/guides/manage-app-lifecycle/#start-only-what-a-run-needs) |
+| `active` | app startup by the selected scenarios' tags and packs | [Manage the app lifecycle](/guides/manage-app-lifecycle/#start-only-what-a-run-needs) |
 | `apps` | the system under test ([keys](#apps)) | [Manage the app lifecycle](/guides/manage-app-lifecycle/) |
 | `packs` | settings for packs, keyed by pack name | each pack's page under [Packs](/references/packs/) |
 | `lint` | test-data isolation rules ([keys](#lint)) | [Isolate test data](/guides/isolate-test-data/) |
@@ -97,6 +98,7 @@ Each key under `apps:` names one app.
 | `stop` | `signal` (`SIGTERM` by default, or `SIGINT`) is sent to the app's process group; after `grace` (default 10s) it is killed. |
 | `cleanup` | Runs after the app stops, even if it crashed or never became ready. |
 | `active.tags` | With `active.enabled`, the app starts only when a selected scenario has one of these tags. |
+| `active.uses` | With `active.enabled`, the app starts only when a selected scenario uses a step of one of these packs, like `[mobile-android]`. |
 | `debug` | `command`, `debugger` (`type`, `port`, `host`, `module`, `mode`), `onUnavailable` and `retry` for `axx run --debug` and `axx up --debug`. |
 
 ### lint
@@ -118,7 +120,7 @@ Rules live under `lint.rules`; `lint.config` sets `baseDir` (patterns are relati
 ### Finding and merging files
 
 1. With `-c path/to/axx.yaml`, that file. Otherwise Axx looks for `axx.yaml` (or `axx.yml`) in the working directory, then in each parent directory up to the repository root.
-2. With `--profile NAME` or `AXX_PROFILE=NAME`, `profiles.NAME` is merged over the file, and then `axx.NAME.yaml` next to it, if either exists. A profile that exists in neither place is an error ([`AXX-E0104`](/references/error-codes/#axx-e0104)).
+2. With `--profile NAME` or `AXX_PROFILE=NAME`, `profiles.NAME` is merged over the file, and then `axx.NAME.yaml` next to it, if either exists. Several profiles, comma-separated (`--profile ios,watch`), are merged in that order, each over the ones before: where they set different keys you get both, and where they set the same key the later one wins. A profile that exists in neither place is an error ([`AXX-E0104`](/references/error-codes/#axx-e0104)).
 3. `axx.local.yaml` next to `axx.yaml`, if present, is merged last. Keep it out of version control for personal settings.
 4. `--set path.to.key=value` sets any key for one run, over all of the above: `--set run.workers=1 --set packs.web-core.watch=true`. The value is read as YAML.
 5. `-D name=value` overrides `properties`.
