@@ -673,6 +673,14 @@
         "timeouts": {
           "$ref": "#/$defs/Timeouts"
         },
+        "watch": {
+          "type": "boolean",
+          "description": "Watch shows what the scenarios do, as they do it: the packs that can\nshow it on screen do (browsers and devices in their windows). Same as\naxx run --watch."
+        },
+        "slowdown": {
+          "$ref": "#/$defs/Duration",
+          "description": "Slowdown pauses after each action of a watched run (a click, a tap, a\ntyped field), so a person can follow it, e.g. \"500ms\". Same as\naxx run --slowdown."
+        },
         "reporters": {
           "items": {
             "$ref": "#/$defs/Reporter"

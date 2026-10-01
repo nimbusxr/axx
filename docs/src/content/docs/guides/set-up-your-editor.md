@@ -58,14 +58,14 @@ Both plugins run scenarios from the editor, with the results in the IDE's test v
 
 *Debug* instead of *Run* stops at breakpoints in the Go code of the steps ([Stop in step code](/guides/debug-failures/#stop-in-step-code)). It needs a Go debugger: GoLand or IntelliJ IDEA with the Go plugin, or the Go extension in VS Code. Without one, *Debug* runs the scenarios without stopping in step code; breakpoints on steps still pause.
 
-## Watch the browsers
+## Watch a run
 
-Scenarios that use the [`web-core` pack](/guides/test-web-apps/) can run with their browsers in windows on your screen, one scenario at a time, slowed down so you can follow what happens.
+Scenarios can run with what they do on your screen: their browsers in windows, an iOS simulator in Device Hub, an Android emulator in its window. They run one scenario at a time, slowed down so you can follow what happens ([Watch a run](/guides/watch-runs/)).
 
 - **IntelliJ IDEA:** choose *Watch* next to *Run* and *Debug*, in the gutter menu of a Feature, Rule, Scenario or Examples row line, or in the context menu of a feature file or directory. To watch every run of an **axx** run configuration, check **Watch the browsers** in it.
 - **VS Code:** run with the **Watch** profile: from the menu next to the run button in the Testing view, or with *Execute Using Profile* on a gutter button.
 
-Watching runs `axx run --workers 1 --set packs.web-core.watch=true --set packs.web-core.slowdown=300ms` ([Watch and debug browsers](/guides/watch-web-browsers/)). Set the slowdown in milliseconds, `0` for none: **Slowdown when watching the browsers** in *Settings | Tools | axx*, or `axx.watch.slowdown` in VS Code.
+Watching runs `axx run --workers 1 --watch --slowdown 300ms`. Set the slowdown in milliseconds, `0` for none: **Slowdown when watching the browsers** in *Settings | Tools | axx*, or `axx.watch.slowdown` in VS Code.
 
 To stop before a step, click in the gutter of its line to set a breakpoint, then *Debug*. The run pauses before that step, and Playwright's Inspector opens next to the browser: resume the run, step through its actions, pick an element or record new ones. When debugging, a failed scenario also pauses there, at the step that failed. *Debug* adds `--debug-steps --workers 1 --set packs.web-core.pauseOnFailure=true` to the run, and `--pause-at` for each breakpoint, as in `axx run features/<file>.feature --pause-at features/<file>.feature:<line>`. *Watch* ignores breakpoints.
 

@@ -209,7 +209,7 @@ export default defineConfig({
 						{ label: 'Web apps', items: ['guides/test-web-apps', 'guides/web-pages', 'guides/web-checks', 'guides/web-sign-in', 'guides/web-screenshots', 'guides/web-accessibility', 'guides/web-network', 'guides/web-lighthouse', 'guides/web-coverage', 'guides/watch-web-browsers'] },
 						{ label: 'Mobile apps', items: ['guides/test-mobile-apps'] },
 						{ label: 'Test data', items: ['guides/fixture-factories', 'guides/isolate-test-data'] },
-						{ label: 'Run and diagnose', items: ['guides/parallel-runs', 'guides/tags-and-filtering', 'guides/reports', 'guides/debug-failures'] },
+						{ label: 'Run and diagnose', items: ['guides/parallel-runs', 'guides/tags-and-filtering', 'guides/watch-runs', 'guides/reports', 'guides/debug-failures'] },
 					],
 				},
 				{

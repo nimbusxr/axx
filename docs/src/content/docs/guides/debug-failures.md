@@ -60,7 +60,7 @@ To look at the page where the scenario fails, run it again with *Debug* in the e
 axx run --workers 1 --set packs.web-core.pauseOnFailure=true features/shop-portal.feature:21
 ```
 
-*Watch* shows the page as the scenario runs, without pausing ([Watch the browsers](/guides/set-up-your-editor/#watch-the-browsers)).
+*Watch* shows the page as the scenario runs, without pausing ([Watch a run](/guides/watch-runs/)).
 
 ## Undefined and ambiguous steps
 

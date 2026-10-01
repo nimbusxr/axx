@@ -6,9 +6,10 @@ Feature: The couriers' app asks to notify
 
   Background:
     Given the courier android app with the following properties:
-      | apk      | ../courier/android/app/build/outputs/apk/debug/app-debug.apk |
-      | device   | ${sys:android.device}                                        |
-      | timezone | Europe/Berlin                                                |
+      | apk        | ../courier/android/app/build/outputs/apk/debug/app-debug.apk |
+      | device     | ${sys:android.device}                                        |
+      | timezone   | Europe/Berlin                                                |
+      | host ports | 8400                                                         |
     And a parcels-db database with the following properties:
       | url      | postgres://${sys:local.host}:5432/parcels |
       | user     | parcels                                   |

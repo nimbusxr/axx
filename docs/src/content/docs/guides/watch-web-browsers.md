@@ -7,24 +7,16 @@ The browsers run on your machine, and you can see them: live while a run goes, a
 
 ## Watch a run
 
-With `watch` on, the scenarios' browsers open in windows on your screen as they go, windows you can use as your own: click in them, and open DevTools to look at the page, its console and its network.
+`axx run --watch` shows what the scenarios do: their browsers open in windows on your screen as they go, one scenario at a time, and their devices too ([Watch a run](/guides/watch-runs/)). The windows are yours to use: click in them, and open DevTools to look at the page, its console and its network.
 
-```yaml title="axx.yaml"
-profiles:
-  watch:
-    run:
-      workers: 1 # one browser at a time
-    packs:
-      web-core:
-        watch: true
-        slowdown: 300ms
+```sh
+axx run --watch --slowdown 300ms   # wait after every action, to follow what happens
 ```
 
-- `axx run --profile watch` runs with it. `axx.local.yaml` can hold the same settings for you alone, and `axx run --set packs.web-core.watch=true` switches it on for one run.
-- `slowdown` waits after every action, to follow what happens.
+- `packs.web-core.watch: true` shows the browsers alone, and `packs.web-core.slowdown` sets their own pace.
 - Watching needs a screen: on a Linux machine without one, such as a CI runner, run without it.
 
-In the IntelliJ plugin and the VS Code extension, *Watch* runs scenarios this way, one at a time, with a slowdown of 300ms unless you set another ([Set up your editor](/guides/set-up-your-editor/#watch-the-browsers)). Watching only shows the browsers: to stop at a step, or where a scenario fails, pause it.
+In the IntelliJ plugin and the VS Code extension, *Watch* runs scenarios this way, one at a time, with a slowdown of 300ms unless you set another ([Set up your editor](/guides/set-up-your-editor/#watch-a-run)). Watching only shows the browsers: to stop at a step, or where a scenario fails, pause it.
 
 ## Pause a scenario
 

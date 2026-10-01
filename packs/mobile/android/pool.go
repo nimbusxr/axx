@@ -45,6 +45,8 @@ type pool struct {
 	max   int
 	boot  time.Duration
 	args  []string // more arguments for the emulators
+	// window shows the emulators' windows: a person watches the run.
+	window bool
 
 	mu      sync.Mutex
 	free    []*device
@@ -66,7 +68,8 @@ func poolFor(sc *core.Scenario, name string) (*pool, error) {
 		if err != nil {
 			return nil, err
 		}
-		p := &pool{suite: s, sdk: tools, name: name, max: cfg.devices, boot: cfg.bootTimeout, args: cfg.emulatorArgs, changed: make(chan struct{})}
+		watching, _ := s.Watching()
+		p := &pool{suite: s, sdk: tools, name: name, max: cfg.devices, boot: cfg.bootTimeout, args: cfg.emulatorArgs, window: watching, changed: make(chan struct{})}
 		ctx := sc.Context()
 		serials, err := tools.devices(ctx)
 		if err != nil {
@@ -204,11 +207,13 @@ func (p *pool) boot1(ctx context.Context, d *device, logDir string) error {
 		releasePort(port)
 		return err
 	}
-	// The emulator outlives this step: it runs until the run ends.
-	args := append([]string{
-		"-avd", p.name, "-port", strconv.Itoa(port), "-read-only", "-no-snapshot-save",
-		"-no-window", "-no-audio", "-no-boot-anim",
-	}, p.args...)
+	// The emulator outlives this step: it runs until the run ends. It shows
+	// its window only while a person watches the run.
+	args := []string{"-avd", p.name, "-port", strconv.Itoa(port), "-read-only", "-no-snapshot-save", "-no-audio", "-no-boot-anim"}
+	if !p.window {
+		args = append(args, "-no-window")
+	}
+	args = append(args, p.args...)
 	if runtime.GOOS == "linux" && !slices.Contains(p.args, "-gpu") {
 		// Linux machines that run tests rarely have a GPU the emulator can use.
 		args = append(args, "-gpu", "swiftshader_indirect")
@@ -247,7 +252,21 @@ func (p *pool) boot1(ctx context.Context, d *device, logDir string) error {
 	// The system says nothing over the app of another app that hangs or
 	// crashes, like its Messages on a slow machine ("isn't responding").
 	_, _ = p.sdk.shell(ctx, d.serial, "settings", "put", "global", "hide_error_dialogs", "1")
+	skipBrowserWelcome(ctx, p.sdk, d.serial)
 	return nil
+}
+
+// skipBrowserWelcome has Chrome open a page at once, without its first-run
+// screens or its prompt to allow notifications: an emulator starts afresh at
+// each run, and an app that opens a browser tab (to sign in, say) means the
+// page, not Chrome's welcome. On an emulator without Chrome it does nothing.
+func skipBrowserWelcome(ctx context.Context, s *sdk, serial string) {
+	// Chrome reads its command line from the file as the debug app.
+	_, _ = s.shell(ctx, serial, "am", "set-debug-app", "--persistent", "com.android.chrome")
+	// One argument: adb joins a command's arguments with spaces, which would
+	// lose a quoted sh -c script's quotes.
+	_, _ = s.shell(ctx, serial, "echo '_ --disable-fre --no-default-browser-check --no-first-run' > /data/local/tmp/chrome-command-line")
+	_, _ = s.shell(ctx, serial, "pm", "grant", "com.android.chrome", "android.permission.POST_NOTIFICATIONS")
 }
 
 // consolePorts are the console ports the run's emulators hold: emulators

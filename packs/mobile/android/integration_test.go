@@ -82,6 +82,7 @@ func TestCouriersOnAnEmulator(t *testing.T) {
 		{"timezone", "Europe/Berlin"},
 		{"locale", "en-GB"},
 		{"location", "51.3397, 12.3731"},
+		{"host ports", "8400"}, // the courier app calls localhost:8400, the stand-in on this machine
 	})
 	signIn(h)
 	near(t, h, 51.3397, 12.3731)
@@ -115,7 +116,9 @@ func TestCouriersOnAnEmulator(t *testing.T) {
 	}
 
 	h.NewScenario()
-	h.OK("the courier android app with the following properties:", [][]string{{"apk", apk(t)}, {"device", avd(t)}})
+	// What the app reached as localhost went with the scenario before: this
+	// one names its own.
+	h.OK("the courier android app with the following properties:", [][]string{{"apk", apk(t)}, {"device", avd(t)}, {"host ports", "8400"}})
 	h.OK(`the courier app is launched`)
 	// Not where the scenario before left it: where an emulator starts.
 	near(t, h, defaultLocation[0], defaultLocation[1])

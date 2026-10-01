@@ -56,7 +56,19 @@ func settingsFor(s *core.Suite) (*settings, error) {
 		if err := s.PackConfig(Name, &c); err != nil {
 			return nil, err
 		}
-		return parseConfig(c)
+		st, err := parseConfig(c)
+		if err != nil {
+			return nil, err
+		}
+		// A watched run (axx run --watch) shows the browsers too, at its pace
+		// unless the pack sets its own.
+		if watching, slowdown := s.Watching(); watching {
+			st.watch = true
+			if c.Slowdown == "" {
+				st.slowdown = slowdown
+			}
+		}
+		return st, nil
 	})
 }
 

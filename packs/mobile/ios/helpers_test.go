@@ -47,8 +47,8 @@ func TestCapabilities(t *testing.T) {
 	caps := a.capabilities(&device{udid: "U", version: "18.1", wdaPort: 8101, mjpegPort: 9101}, "example.parcels.courier", true)
 	for key, want := range map[string]any{
 		"platformName": "iOS", "appium:automationName": "XCUITest", "appium:bundleId": "example.parcels.courier",
-		"appium:udid": "U", "appium:platformVersion": "18.1", "appium:usePreinstalledWDA": true,
-		"appium:wdaLocalPort": 8101, "appium:mjpegServerPort": 9101, "appium:noReset": true, "appium:autoLaunch": false,
+		"appium:udid": "U", "appium:platformVersion": "18.1", "appium:webDriverAgentUrl": "http://127.0.0.1:8101",
+		"appium:mjpegServerPort": 9101, "appium:noReset": true, "appium:autoLaunch": false,
 		"appium:isHeadless": true,
 	} {
 		if caps[key] != want {
@@ -58,7 +58,7 @@ func TestCapabilities(t *testing.T) {
 	farm := &app{locale: "en-US", caps: map[string]any{"bstack:options": capabilityValue(`{"deviceName": "iPhone 16"}`)}}
 	caps = farm.capabilities(nil, "example.parcels.courier", false)
 	b, _ := json.Marshal(caps["bstack:options"])
-	if string(b) != `{"deviceName":"iPhone 16"}` || caps["appium:usePreinstalledWDA"] != nil || caps["appium:noReset"] != false {
+	if string(b) != `{"deviceName":"iPhone 16"}` || caps["appium:webDriverAgentUrl"] != nil || caps["appium:noReset"] != false {
 		t.Errorf("a farm's caps: %v", caps)
 	}
 }
@@ -89,7 +89,10 @@ func TestFindWindowApps(t *testing.T) {
 		}
 	}
 	got := findWindowApps(t.Context(), dev, func(_ context.Context, app string) string { return ids[filepath.Clean(app)] })
-	want := []string{filepath.Join(xcode, "Applications", "DeviceHub.app"), filepath.Join(dev, "Applications", "Simulator.app")}
+	want := []windowApp{
+		{filepath.Join(xcode, "Applications", "DeviceHub.app"), "com.apple.dt.Devices"},
+		{filepath.Join(dev, "Applications", "Simulator.app"), "com.apple.iphonesimulator"},
+	}
 	if !slices.Equal(got, want) {
 		t.Errorf("got %q, want %q", got, want)
 	}

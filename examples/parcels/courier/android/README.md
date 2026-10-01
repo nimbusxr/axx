@@ -16,8 +16,15 @@ later) and the Android SDK (`ANDROID_HOME`, or `sdk.dir` in `local.properties`).
 
 ## The parcels service
 
-The app calls the parcels service at `http://10.0.2.2:8400`: the host, as the Android emulator
-sees it. A launch intent's `api_url` extra points it somewhere else until the app's process ends:
+The app calls the parcels service at `http://localhost:8400`, the address it has on the Mac, as
+the iOS app does. The emulator reaches the Mac's port as its own once adb forwards it, as the
+scenarios' `host ports` row does:
+
+```sh
+adb reverse tcp:8400 tcp:8400
+```
+
+A launch intent's `api_url` extra points the app somewhere else until its process ends:
 
 ```sh
 adb shell am start -n example.parcels.courier/.MainActivity --es api_url http://10.0.2.2:8401

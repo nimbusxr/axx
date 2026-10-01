@@ -152,6 +152,24 @@ func (d *running) resetDevice(ctx context.Context) error {
 		}
 		d.resets = append(d.resets, "location "+lat+", "+lon)
 	}
+	// What the app reaches as localhost: the registration's host ports, and
+	// none another scenario's registration gave.
+	if _, err := d.sdk.run(ctx, d.dev.serial, "reverse", "--remove-all"); err != nil {
+		return err
+	}
+	for _, port := range d.app.hostPorts {
+		tcp := "tcp:" + strconv.Itoa(port)
+		if _, err := d.sdk.run(ctx, d.dev.serial, "reverse", tcp, tcp); err != nil {
+			return fmt.Errorf("the %s app cannot reach port %d of this machine: %w", d.app.name, port, err)
+		}
+	}
+	if len(d.app.hostPorts) > 0 {
+		ports := make([]string, len(d.app.hostPorts))
+		for i, p := range d.app.hostPorts {
+			ports[i] = strconv.Itoa(p)
+		}
+		d.resets = append(d.resets, "host ports "+strings.Join(ports, ", "))
+	}
 	return nil
 }
 
