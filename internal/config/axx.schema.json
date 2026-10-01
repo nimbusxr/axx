@@ -212,7 +212,15 @@
                 "items": {
                   "type": "string"
                 },
-                "type": "array"
+                "type": "array",
+                "description": "Tags start the app for the scenarios that have one of them."
+              },
+              "uses": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array",
+                "description": "Uses starts the app for the scenarios that use a step of one of these\npacks, like [mobile-android]: no tag needed."
               }
             },
             "additionalProperties": false,
@@ -654,6 +662,13 @@
         "tags": {
           "type": "string",
           "description": "Tags is a default tag expression, e.g. \"not @wip\". It narrows whole runs\nand the directories named on the command line; a feature file named\nthere runs the scenarios it selects whatever their tags."
+        },
+        "uses": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Uses keeps the scenarios that use a step of one of these packs, like\n[mobile-ios] for the scenarios that drive an iOS app: a profile per\nplatform, with no tags. Like tags, it narrows whole runs, not the\nfeature files named on the command line."
         },
         "workers": {
           "$ref": "#/$defs/Workers",

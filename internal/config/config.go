@@ -57,6 +57,11 @@ type Run struct {
 	// and the directories named on the command line; a feature file named
 	// there runs the scenarios it selects whatever their tags.
 	Tags string `json:"tags,omitempty"`
+	// Uses keeps the scenarios that use a step of one of these packs, like
+	// [mobile-ios] for the scenarios that drive an iOS app: a profile per
+	// platform, with no tags. Like tags, it narrows whole runs, not the
+	// feature files named on the command line.
+	Uses []string `json:"uses,omitempty"`
 	// Workers is the number of scenarios run in parallel: a number or "auto"
 	// (number of CPUs). Default: auto.
 	Workers Workers `json:"workers,omitzero"`
@@ -153,9 +158,14 @@ type Stop struct {
 	Grace Duration `json:"grace,omitzero"`
 }
 
-// AppActive lists tags that require this app.
+// AppActive says which scenarios need this app, with active.enabled: those
+// with one of its tags, or that use a step of one of its packs.
 type AppActive struct {
+	// Tags start the app for the scenarios that have one of them.
 	Tags []string `json:"tags,omitempty"`
+	// Uses starts the app for the scenarios that use a step of one of these
+	// packs, like [mobile-android]: no tag needed.
+	Uses []string `json:"uses,omitempty"`
 }
 
 // Debug configures `axx run --debug`.

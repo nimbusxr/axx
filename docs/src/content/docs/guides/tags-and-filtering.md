@@ -69,6 +69,26 @@ run:
 
 A line that is in no scenario of its file, like the feature's description or its Background, is an error (`AXX-E0204`) rather than a run of nothing.
 
+## Select by what scenarios use
+
+`run.uses` keeps the scenarios that use a step of one of its packs, with no tags: a scenario whose steps drive an iOS app uses `mobile-ios`, and axx knows it from the steps. A profile per platform puts it to work:
+
+```yaml title="axx.yaml"
+profiles:
+  web:     {run: {uses: [web-core]}}
+  ios:     {run: {uses: [mobile-ios]}}
+  android: {run: {uses: [mobile-android]}}
+  watch:   {run: {watch: true, slowdown: 500ms}}
+```
+
+```sh
+axx run                            # every scenario
+axx run --profile ios              # the scenarios that drive the iOS app
+axx run --profile android,watch    # the Android app's, watched
+```
+
+Like `run.tags`, it narrows whole runs: a feature file you name, or click in your editor, runs whatever it leaves out. Profiles merge in order, so `android,watch` takes `uses` from `android` and watching from `watch`.
+
 ## Tags that change behavior
 
 - Tags listed in `run.exclusive` make scenarios run alone, after the parallel phase ([Run in parallel](/guides/parallel-runs/)).

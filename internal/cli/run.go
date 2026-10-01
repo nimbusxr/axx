@@ -135,6 +135,15 @@ func (a *App) run(ctx context.Context, f *runFlags, args []string) error {
 	if err != nil {
 		return err
 	}
+	if len(cfg.Run.Uses) > 0 {
+		// The scenarios that use the packs run.uses lists: a profile per
+		// platform, with no tags.
+		if err := knownPacks(e, "run.uses", cfg.Run.Uses); err != nil {
+			return err
+		}
+		packs := packsOf(e, pickles)
+		pickles = feature.ByUses(pickles, cfg.Run.Uses, filter.Named, func(p *feature.Pickle) []string { return packs[p] })
+	}
 	e.Suite.PauseAt(a.pausesOnSteps(pauses, pickles))
 	if len(pickles) == 0 {
 		fmt.Fprintln(a.Stderr, "axx: no scenarios matched the given paths and filters")
@@ -261,7 +270,15 @@ func (a *App) startApps(ctx context.Context, e *engine.Engine, f *runFlags, pick
 			tags[i] = p.TagNames
 		}
 		var err error
-		names, err = lifecycle.SelectActive(cfg.Apps, cfg.Active, tags)
+		var used []string
+		for _, packs := range packsOf(e, pickles) {
+			for _, p := range packs {
+				if !slices.Contains(used, p) {
+					used = append(used, p)
+				}
+			}
+		}
+		names, err = lifecycle.SelectActive(cfg.Apps, cfg.Active, tags, used)
 		if err != nil {
 			return nil, err
 		}
@@ -462,4 +479,32 @@ func (a *App) pausesOnSteps(pauses map[string][]int, pickles []*feature.Pickle) 
 		}
 	}
 	return out
+}
+
+// packsOf is the packs whose steps each scenario uses, Backgrounds included.
+func packsOf(e *engine.Engine, pickles []*feature.Pickle) map[*feature.Pickle][]string {
+	out := make(map[*feature.Pickle][]string, len(pickles))
+	for i, sc := range e.Plan(pickles).Scenarios {
+		for _, st := range sc.Steps {
+			if st.Pack != "" && !slices.Contains(out[pickles[i]], st.Pack) {
+				out[pickles[i]] = append(out[pickles[i]], st.Pack)
+			}
+		}
+	}
+	return out
+}
+
+// knownPacks reports a pack the project does not load in a list of packs.
+func knownPacks(e *engine.Engine, key string, packs []string) error {
+	for _, want := range packs {
+		if !slices.ContainsFunc(e.Packs, func(p engine.NamedPack) bool { return p.Name == want }) {
+			var names []string
+			for _, p := range e.Packs {
+				names = append(names, p.Name)
+			}
+			return axxerr.New(feature.CodeUses, exitcode.Usage, "%s lists %s, which is not one of this project's packs", key, want).
+				WithHint("list packs of axx-packs.yaml (%s), or add it with `axx pack add %s`", strings.Join(names, ", "), want)
+		}
+	}
+	return nil
 }

@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -27,6 +28,7 @@ const (
 	CodeTags     = "AXX-E0202"
 	CodeName     = "AXX-E0203"
 	CodeLine     = "AXX-E0204"
+	CodeUses     = "AXX-E0205"
 )
 
 // Document is a parsed feature file.
@@ -461,4 +463,21 @@ func plural(n int) string {
 		return ""
 	}
 	return "s"
+}
+
+// ByUses keeps the pickles that use a step of one of the packs in uses
+// (run.uses, like [mobile-ios]); packsOf says which packs a pickle's steps
+// use. Pickles of the feature files in named run whatever it leaves out. No
+// packs keeps them all.
+func ByUses(pickles []*Pickle, uses []string, named map[string]bool, packsOf func(*Pickle) []string) []*Pickle {
+	if len(uses) == 0 {
+		return pickles
+	}
+	var out []*Pickle
+	for _, p := range pickles {
+		if named[p.Doc.URI] || slices.ContainsFunc(packsOf(p), func(pack string) bool { return slices.Contains(uses, pack) }) {
+			out = append(out, p)
+		}
+	}
+	return out
 }

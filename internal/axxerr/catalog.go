@@ -120,6 +120,9 @@ func init() {
 	add("AXX-E0204", u, "Line is not in a scenario",
 		"A `file:line` names a line that no scenario of the file contains, like the feature's description or its Background, so it would select nothing.",
 		"Give the line of a scenario, of one of its steps or of an Examples row, or the file alone to run all of its scenarios.")
+	add("AXX-E0205", u, "Unknown pack in run.uses",
+		"`run.uses` lists a pack the project does not load, so no scenario could use it.",
+		"List packs of `axx-packs.yaml` (`axx pack list`), like `[mobile-ios]`, or add the pack with `axx pack add`.")
 
 	add("AXX-E0300", u, "Pack cannot be loaded",
 		"A step pack failed to load or initialize: a step expression that does not compile, a duplicate parameter type, or pack configuration under `packs:` that is invalid.",
