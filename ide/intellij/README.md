@@ -92,8 +92,9 @@ says why and lists where the plugin looked. To log the traffic between the IDE a
 
 The Gherkin plugin (JetBrains Marketplace, also installed by Cucumber for Java) highlights Gherkin
 keywords, but it looks for step definitions in your code, so it marks every Axx step as an
-undefined step reference. In Axx projects, this plugin suppresses that inspection
-(`CucumberUndefinedStep`); the Axx server reports the steps Axx does not define instead.
+undefined step reference, and so does Cucumber+, in place of the Gherkin plugin, when it is
+installed. In Axx projects, this plugin suppresses both inspections (`CucumberUndefinedStep` and
+`CucumberPlusUndefinedStep`); the Axx server reports the steps Axx does not define instead.
 
 The Gherkin plugin also puts its own reference on every step, which finds no definition for an Axx
 step, so Go to Declaration would say "Cannot find declaration to go to". In Axx projects, this
