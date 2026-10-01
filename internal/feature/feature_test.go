@@ -161,6 +161,61 @@ func selected(t *testing.T, dir string, args ...string) []string {
 	return names(ps)
 }
 
+// TestNamedFilesRunWhateverTheDefaultTags: run.tags narrows a whole run, but a
+// feature file someone names (or clicks in an editor) runs all it selects.
+func TestNamedFilesRunWhateverTheDefaultTags(t *testing.T) {
+	dir, _ := setup(t)
+	run := func(tags, defaultTags string, args ...string) []string {
+		t.Helper()
+		paths, lines := ParseLineSpecs(args, dir)
+		set, err := Load(paths, dir, (&messages.Incrementing{}).NewId)
+		if err != nil {
+			t.Fatal(err)
+		}
+		ps, err := set.Apply(Filter{Tags: tags, DefaultTags: defaultTags, Named: NamedFiles(paths, dir), Lines: lines})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return names(ps)
+	}
+	cases := []struct {
+		name, tags, defaultTags string
+		args                    []string
+		want                    []string
+	}{
+		{"a directory keeps the default", "", "not @launches", []string{"features"}, []string{"x"}},
+		{
+			"a named file ignores it", "", "not @launches",
+			[]string{"features/launches.feature"},
+			[]string{"list launches", "get launch 1", "get launch 2", "get launch 99", "create launch"},
+		},
+		{"a named line ignores it", "", "not @launches and not @wip", []string{"features/launches.feature:31"}, []string{"create launch"}},
+		{"the other paths keep it", "", "not @launches", []string{"features/launches.feature:9", "features/nested"}, []string{"list launches", "x"}},
+		{"--tags applies to named files too", "@smoke", "not @launches", []string{"features/launches.feature"}, []string{"list launches"}},
+	}
+	for _, c := range cases {
+		if got := run(c.tags, c.defaultTags, c.args...); !equal(got, c.want) {
+			t.Errorf("%s: got %v, want %v", c.name, got, c.want)
+		}
+	}
+}
+
+func TestLineOutsideAScenario(t *testing.T) {
+	dir, _ := setup(t)
+	for _, spec := range []string{"features/launches.feature:2", "features/launches.feature:5"} {
+		paths, lines := ParseLineSpecs([]string{spec}, dir)
+		set, err := Load(paths, dir, (&messages.Incrementing{}).NewId)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, err = set.Apply(Filter{Lines: lines})
+		var ae *axxerr.Error
+		if !errors.As(err, &ae) || ae.Code != CodeLine {
+			t.Errorf("%s: got %v, want %s", spec, err, CodeLine)
+		}
+	}
+}
+
 func TestNameFilter(t *testing.T) {
 	_, set := setup(t)
 	ps, err := set.Apply(Filter{Names: []string{"^get launch (1|2)$"}})

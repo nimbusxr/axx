@@ -88,7 +88,9 @@ func TestStopRemovesStateFile(t *testing.T) {
 	}
 }
 
-func TestStateFileKeepsEarlierRun(t *testing.T) {
+// A run stopped by force, or crashed, leaves its apps' cleanup behind; the
+// next run cleans up as `axx down` does and starts from a clean slate.
+func TestARunCleansUpWhatAKilledRunLeft(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
 	stateFile := filepath.Join(dir, "state.json")
@@ -101,33 +103,50 @@ func TestStateFileKeepsEarlierRun(t *testing.T) {
 	if err := writeState(stateFile, runState{Version: stateVersion, PID: 1 << 22, Apps: []stateApp{stale}}); err != nil {
 		t.Fatal(err)
 	}
-	// A run does not start from what the earlier run left.
 	h := newHarness(t, config.Apps{helperApp(t, "api", "sleep")}, Options{StateFile: stateFile})
-	ae := mustCode(t, h.Start(t.Context(), nil), CodeNotCleanedUp)
-	if !strings.Contains(ae.Message, "the cleanup of app old never ran") || !strings.Contains(ae.Hint, "axx down") {
-		t.Errorf("error = %v (hint %q)", ae, ae.Hint)
-	}
-	if st, err := readState(stateFile); err != nil || len(st.Apps) != 1 {
-		t.Fatalf("state after the refusal = %+v, %v", st, err)
-	}
-	reaped, err := Reap(stateFile, nil, nil)
-	if err != nil || !slices.Equal(reaped, []string{"old"}) {
-		t.Fatalf("Reap = %q, %v", reaped, err)
+	if err := h.Start(t.Context(), nil); err != nil {
+		t.Fatal(err)
 	}
 	if got := readLines(t, events); !slices.Equal(got, []string{"old cleanup"}) {
 		t.Errorf("events %q", got)
 	}
-	if err := h.Start(t.Context(), nil); err != nil {
-		t.Fatal(err)
+	st, err := readState(stateFile)
+	if err != nil || len(st.Apps) != 1 || st.Apps[0].Name != "api" {
+		t.Fatalf("state while running = %+v, %v", st, err)
 	}
 	if err := h.Stop(t.Context()); err != nil {
 		t.Fatal(err)
 	}
 }
 
+// What a run still going (or `axx up`) owns is not a killed run's leftover:
+// a run does not clean up around it, and refuses to start instead.
+func TestARunLeavesAnotherRunsAppsAlone(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	stateFile := filepath.Join(dir, "state.json")
+	events := filepath.Join(dir, "events")
+	live := stateApp{Name: "shared", PID: os.Getpid(), PGID: os.Getpid(), Owner: os.Getpid()}
+	stale := stateApp{
+		Name: "old", PID: 1 << 22, PGID: 1 << 22, Owner: 1 << 22, Dir: dir, Cleanup: helper(t, "append", events, "old cleanup").Argv,
+		Env: helperEnvVars(),
+	}
+	if err := writeState(stateFile, runState{Version: stateVersion, PID: 1 << 22, Apps: []stateApp{live, stale}}); err != nil {
+		t.Fatal(err)
+	}
+	h := newHarness(t, config.Apps{helperApp(t, "api", "sleep")}, Options{StateFile: stateFile})
+	ae := mustCode(t, h.Start(t.Context(), nil), CodeNotCleanedUp)
+	if !strings.Contains(ae.Message, "the cleanup of app old never ran") || !strings.Contains(ae.Hint, "axx down") {
+		t.Errorf("error = %v (hint %q)", ae, ae.Hint)
+	}
+	if _, err := os.Stat(events); !errors.Is(err, fs.ErrNotExist) {
+		t.Errorf("a cleanup ran around a live run: %v", err)
+	}
+}
+
 // A cleanup that fails, like `docker compose down` without access to
-// Docker, stays in the state file: runs refuse to start apps, and `axx
-// down` runs it again until it succeeds.
+// Docker, stays in the state file: runs try it again and refuse to start
+// apps while it fails, and `axx down` runs it again until it succeeds.
 func TestAFailedCleanupIsKeptUntilItSucceeds(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
@@ -149,10 +168,12 @@ func TestAFailedCleanupIsKeptUntilItSucceeds(t *testing.T) {
 		t.Fatalf("status = %+v, %v", apps, err)
 	}
 
+	// The next run cleans up first, as `axx down` does; the cleanup fails
+	// again, and the run refuses to start from what is left.
 	next := newHarness(t, config.Apps{db}, Options{StateFile: stateFile})
 	ae := mustCode(t, next.Start(t.Context(), nil), CodeNotCleanedUp)
-	if !strings.Contains(ae.Message, "the cleanup of app db failed") {
-		t.Errorf("error = %v", ae)
+	if !strings.Contains(ae.Message, "cleaning it up failed") || !strings.Contains(ae.Hint, "axx down") {
+		t.Errorf("error = %v (hint %q)", ae, ae.Hint)
 	}
 
 	// Still no access: the cleanup fails again and stays.

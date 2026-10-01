@@ -65,7 +65,11 @@ final class AxxRunState implements RunProfileState {
      */
     @NotNull GeneralCommandLine commandLine() throws ExecutionException {
         Path workingDirectory = configuration.workingDirectory();
-        Path executable = AxxBinary.find(workingDirectory, "run axx");
+        // A relative "axx executable" setting starts at the project's directory, as it does
+        // for the language server, not at the run's (the folder of the nearest axx.yaml).
+        String basePath = configuration.getProject().getBasePath();
+        Path executable =
+                AxxBinary.find(basePath != null ? Path.of(basePath) : workingDirectory, "run axx");
         List<String> run = targets != null ? targets : configuration.targetsFor(workingDirectory);
         List<String> pauseAt =
                 debugs()

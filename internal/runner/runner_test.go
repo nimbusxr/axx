@@ -71,6 +71,29 @@ func (f *fixture) pack() core.Manifest {
 				time.Sleep(2 * time.Second)
 				return nil
 			}},
+			// It waits four times its timeout for a device other scenarios share,
+			// with the clock held, then works well within its time.
+			{ID: "held", Expr: "a step waiting for a shared device", Timeout: 50 * time.Millisecond, Run: func(sc *core.Scenario, _ core.Args) error {
+				ctx := sc.Context()
+				release := sc.Hold()
+				select {
+				case <-ctx.Done():
+					release()
+					return ctx.Err()
+				case <-time.After(200 * time.Millisecond):
+				}
+				release()
+				time.Sleep(10 * time.Millisecond)
+				return ctx.Err()
+			}},
+			// It waits with the clock held, then outlasts what is left of its time.
+			{ID: "held-slow", Expr: "a slow step after waiting for a shared device", Timeout: 50 * time.Millisecond, Run: func(sc *core.Scenario, _ core.Args) error {
+				release := sc.Hold()
+				time.Sleep(100 * time.Millisecond)
+				release()
+				<-sc.Context().Done()
+				return sc.Context().Err()
+			}},
 			{ID: "count", Expr: "the counter is {int}", Run: func(sc *core.Scenario, a core.Args) error {
 				if got := *counter.Of(sc); got != a.Int(0) {
 					return core.Fail("counter", a.Int(0), got)
@@ -267,6 +290,28 @@ func countPassingScenariosTouching(res *RunResult) int {
 		}
 	}
 	return n
+}
+
+// TestHeldTimeWaitsOutsideTheStepsTimeout: a step's timeout is for its own
+// work; time it spends held (waiting on what scenarios share) does not count.
+func TestHeldTimeWaitsOutsideTheStepsTimeout(t *testing.T) {
+	f := &fixture{}
+	set, pickles := load(t, `Feature: held
+  Scenario: waits for a device
+    Given a step waiting for a shared device
+
+  Scenario: slow after waiting
+    Given a slow step after waiting for a shared device
+`)
+	r, _ := newRunner(t, f, set, nil)
+	got := byName(r.Run(context.Background(), pickles))
+	if s := got["waits for a device"]; s == nil || s.Status != Passed {
+		t.Errorf("waits for a device: %v (%v)", s.Status, s.Steps[0].Err)
+	}
+	var te *TimeoutError
+	if s := got["slow after waiting"]; s == nil || s.Status != Failed || !errors.As(s.Steps[0].Err, &te) {
+		t.Errorf("slow after waiting: %v (%v)", s.Status, s.Steps[0].Err)
+	}
 }
 
 func TestParallelismAndExclusive(t *testing.T) {

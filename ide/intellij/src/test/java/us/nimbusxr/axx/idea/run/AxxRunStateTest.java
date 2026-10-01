@@ -106,6 +106,21 @@ public class AxxRunStateTest extends HeavyPlatformTestCase {
                 command.getParametersList().getList());
     }
 
+    public void testARelativeExecutableStartsAtTheProject() throws Exception {
+        // The suite is in a folder of the project; the setting names axx from the project's
+        // directory, as the language server reads it.
+        Path local = Files.createDirectories(base.resolve("bin")).resolve("axx");
+        Files.writeString(local, "");
+        assertTrue(local.toFile().setExecutable(true));
+        AxxSettings.getInstance().setExecutable("bin/axx");
+        configuration.setTargets(List.of("features/orders.feature:7"));
+        configuration.setWorkingDirectory(suite.toString());
+
+        GeneralCommandLine command = commandLine(environment(false));
+        assertEquals(local.toString(), command.getExePath());
+        assertEquals(suite.toFile(), command.getWorkDirectory());
+    }
+
     public void testFindsTheSuiteAboveTheFirstTarget() throws Exception {
         configuration.setTargets(List.of("acceptance/features/orders.feature:7"));
 

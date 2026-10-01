@@ -653,7 +653,7 @@
         },
         "tags": {
           "type": "string",
-          "description": "Tags is a default tag expression, e.g. \"not @wip\"."
+          "description": "Tags is a default tag expression, e.g. \"not @wip\". It narrows whole runs\nand the directories named on the command line; a feature file named\nthere runs the scenarios it selects whatever their tags."
         },
         "workers": {
           "$ref": "#/$defs/Workers",

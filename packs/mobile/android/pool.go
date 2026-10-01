@@ -244,6 +244,9 @@ func (p *pool) boot1(ctx context.Context, d *device, logDir string) error {
 	case <-d.exited:
 		return fmt.Errorf("the %s emulator stopped as it started; its log: %s", p.name, log.Name())
 	}
+	// The system says nothing over the app of another app that hangs or
+	// crashes, like its Messages on a slow machine ("isn't responding").
+	_, _ = p.sdk.shell(ctx, d.serial, "settings", "put", "global", "hide_error_dialogs", "1")
 	return nil
 }
 

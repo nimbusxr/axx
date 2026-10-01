@@ -1,0 +1,86 @@
+// SPDX-License-Identifier: Apache-2.0
+
+package mobileios
+
+import (
+	"context"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
+	"sync"
+)
+
+// The apps that show simulators on the Mac: Device Hub from Xcode 27, the
+// Simulator app before it.
+var windowBundleIDs = []string{"com.apple.dt.Devices", "com.apple.iphonesimulator"}
+
+var windowApps = sync.OnceValue(func() []string {
+	ctx := context.Background()
+	return findWindowApps(ctx, developerDir(ctx), bundleID)
+})
+
+// deviceWindowOpen reports whether the app that shows simulators on the Mac
+// (Device Hub, or Simulator) is running. A session that asks for a headless
+// simulator quits that app, so axx asks for one only while the app is not
+// running: the person's Device Hub stays open, and axx's simulators, booted
+// without a window, run the same either way.
+func deviceWindowOpen(ctx context.Context) bool {
+	for _, app := range windowApps() {
+		// The driver finds it the same way: a process started from the app.
+		if exec.CommandContext(ctx, "pgrep", "-f", app).Run() == nil {
+			return true
+		}
+	}
+	return false
+}
+
+// developerDir is Xcode's Developer folder: DEVELOPER_DIR, or the one
+// xcode-select chose.
+func developerDir(ctx context.Context) string {
+	if d := os.Getenv("DEVELOPER_DIR"); d != "" {
+		return d
+	}
+	out, err := exec.CommandContext(ctx, "xcode-select", "-p").Output()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(out))
+}
+
+// findWindowApps returns the apps in Xcode (next to its Developer folder
+// from Xcode 27, inside it before) whose bundle id is one of the window apps'.
+func findWindowApps(ctx context.Context, devDir string, idOf func(ctx context.Context, app string) string) []string {
+	if devDir == "" {
+		return nil
+	}
+	var out []string
+	for _, dir := range []string{filepath.Join(devDir, "..", "Applications"), filepath.Join(devDir, "Applications")} {
+		entries, err := os.ReadDir(dir)
+		if err != nil {
+			continue
+		}
+		for _, e := range entries {
+			if !strings.HasSuffix(e.Name(), ".app") {
+				continue
+			}
+			app := filepath.Join(dir, e.Name())
+			id := idOf(ctx, app)
+			for _, want := range windowBundleIDs {
+				if id == want {
+					out = append(out, filepath.Clean(app))
+				}
+			}
+		}
+	}
+	return out
+}
+
+// bundleID reads an app's bundle id from its Info.plist.
+func bundleID(ctx context.Context, app string) string {
+	out, err := exec.CommandContext(ctx, "plutil", "-extract", "CFBundleIdentifier", "raw", "-o", "-", filepath.Join(app, "Contents", "Info.plist")).Output()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(out))
+}

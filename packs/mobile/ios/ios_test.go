@@ -47,6 +47,17 @@ func at(t *testing.T, screens map[string]string, screen string, role mobilecore.
 	return ""
 }
 
+// On iOS 27 a list's row is a cell holding the row's button inside wrappers
+// the driver calls not visible; the row is still the list item its texts name.
+func TestListItemsOnIOS27(t *testing.T) {
+	b, err := os.ReadFile("testdata/ios27/deliveries.xml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	at(t, map[string]string{"deliveries": string(b)}, "deliveries", mobilecore.RoleListItem, "PX-MOB-9401")
+	at(t, map[string]string{"deliveries": string(b)}, "deliveries", mobilecore.RoleListItem, "PX-MOB-9402")
+}
+
 // courier is the fake courier app: its screens, and where taps lead.
 func courier(t *testing.T) *appiumtest.Server {
 	t.Helper()

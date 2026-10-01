@@ -255,11 +255,13 @@ func (r *Runner) callHook(ctx context.Context, sc *core.Scenario, h *PackHook) e
 // withTimeout runs fn with a deadline. Steps that ignore cancellation are
 // abandoned after the grace period so a hung step cannot hang the run.
 func (r *Runner) withTimeout(parent context.Context, sc *core.Scenario, what string, limit time.Duration, fn func() error) error {
-	ctx, cancel := context.WithTimeout(parent, limit)
-	defer cancel()
+	ctx := newStepContext(parent, limit)
+	defer ctx.cancel()
 	prev := sc.Context()
 	sc.SetContext(ctx)
 	defer sc.SetContext(prev)
+	prevHold := sc.SetHold(ctx.hold)
+	defer func() { sc.SetHold(prevHold) }()
 
 	done := make(chan error, 1)
 	go func() {

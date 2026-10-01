@@ -33,7 +33,11 @@ func (r runner) Start(sc *core.Scenario) (mobilecore.Device, error) {
 		if err != nil {
 			return nil, err
 		}
+		// Waiting for a device another scenario has, or for one being made
+		// ready (a first boot takes minutes), is not the step's own work.
+		release := sc.Hold()
 		dev, err := p.lease(ctx, logDir)
+		release()
 		if err != nil {
 			return nil, err
 		}
@@ -117,10 +121,15 @@ type running struct {
 func (d *running) Session() *appium.Session { return d.session }
 
 // resetDevice sets what the app sees of the device: nothing a scenario
-// before left open over it (the notification shade), its time zone and its
-// location.
+// before left open over it (the notification shade, a dialog of the
+// system's), its time zone and its location.
 func (d *running) resetDevice(ctx context.Context) error {
 	if _, err := d.sdk.shell(ctx, d.dev.serial, "cmd", "statusbar", "collapse"); err != nil {
+		return err
+	}
+	// Like the dialog of another app that is not responding, which a slow
+	// machine shows over everything.
+	if _, err := d.sdk.shell(ctx, d.dev.serial, "am", "broadcast", "-a", "android.intent.action.CLOSE_SYSTEM_DIALOGS"); err != nil {
 		return err
 	}
 	if _, err := d.sdk.shell(ctx, d.dev.serial, "settings", "put", "global", "auto_time_zone", "0"); err != nil {

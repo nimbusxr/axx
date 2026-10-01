@@ -60,16 +60,18 @@ func (n *Node) Name() string {
 }
 
 // Texts are the names of the node and of what it contains, as a screen
-// reader merges a control with its content.
+// reader merges a control with its content: the names of what is shown.
+// A wrapper the platform calls not shown can hold what is (iOS 27 wraps a
+// list's rows so), so the walk goes on inside it; what is hidden with its
+// content, like the keyboard, is hidden node by node.
 func (n *Node) Texts() []string {
 	var out []string
 	var walk func(*Node)
 	walk = func(m *Node) {
-		if !m.Displayed {
-			return
-		}
-		if s := m.Name(); s != "" {
-			out = append(out, s)
+		if m.Displayed {
+			if s := m.Name(); s != "" {
+				out = append(out, s)
+			}
 		}
 		for _, c := range m.Children {
 			walk(c)
