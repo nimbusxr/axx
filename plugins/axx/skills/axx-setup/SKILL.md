@@ -9,12 +9,12 @@ license: Apache-2.0
 ## 1. Initialize
 
 ```sh
-axx init            # axx.yaml, axx-packs.yaml, features/smoke.feature, .github/workflows/acceptance.yml, AGENTS.md section, .gitignore, agents
+axx init            # axx.yaml, axx-packs.yaml, features/smoke.feature, .github/workflows/acceptance.yml, AGENTS.md section, .gitignore, .gitattributes, agents
 axx pack add sql    # the packs whose steps the project uses (init lists rest); `axx pack list` shows them all
 axx doctor          # verify: config, apps' commands, docker, features
 ```
 
-`axx init` detects `compose.yaml` and OpenAPI files. It leaves existing files alone unless you pass `--force`, adds or updates its `AGENTS.md` section and the `.axx/` line of `.gitignore` in place, and is safe to run again. It also installs the skills in `.agents/skills` and connects the axx MCP server to the agents the repository already uses, in their own files (see "4. Agents"); `--no-agents` skips that.
+`axx init` detects `compose.yaml` and OpenAPI files. It leaves existing files alone unless you pass `--force`, adds or updates its `AGENTS.md` section and the `.axx/` line of `.gitignore` in place, and is safe to run again. It also installs the skills in `.agents/skills`, marked generated in `.gitattributes` so their diffs collapse in pull requests, and connects the axx MCP server to the agents the repository already uses, in their own files (see "4. Agents"); `--no-agents` skips that.
 
 ## 2. Describe how to start the system under test
 

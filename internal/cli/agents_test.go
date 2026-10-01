@@ -113,7 +113,7 @@ func TestInitWithNoAgentsSetsUpNoAgent(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("exit %d: %s", code, stderr)
 	}
-	for _, p := range []string{".agents", ".claude", ".mcp.json"} {
+	for _, p := range []string{".agents", ".claude", ".mcp.json", ".gitattributes"} {
 		if exists(filepath.Join(dir, p)) {
 			t.Errorf("--no-agents wrote %s", p)
 		}
@@ -126,13 +126,35 @@ func TestInitWithNoAgentsSetsUpNoAgent(t *testing.T) {
 	}
 }
 
+func TestInitMarksTheSkillsGenerated(t *testing.T) {
+	dir, _ := agentProject(t, map[string]string{".gitattributes": "*.png binary"})
+	out, stderr, code := run(t, "init", "--no-ci")
+	if code != 0 {
+		t.Fatalf("exit %d: %s", code, stderr)
+	}
+	b, _ := os.ReadFile(filepath.Join(dir, ".gitattributes"))
+	if want := "*.png binary\n\n" + skillsAttributes; string(b) != want {
+		t.Errorf(".gitattributes is\n%s\nwant\n%s", b, want)
+	}
+	if !strings.Contains(out, "update  .gitattributes") {
+		t.Errorf("output lacks the .gitattributes update:\n%s", out)
+	}
+	out, stderr, code = run(t, "init", "--no-ci")
+	if code != 0 {
+		t.Fatalf("exit %d: %s", code, stderr)
+	}
+	if !strings.Contains(out, "skip    .gitattributes: up to date") {
+		t.Errorf("the second init did not leave .gitattributes alone:\n%s", out)
+	}
+}
+
 func TestInitRunTwiceChangesNothing(t *testing.T) {
 	dir, _ := agentProject(t, map[string]string{"CLAUDE.md": "# parcels\n", ".gemini/settings.json": `{"theme": "Dracula"}`})
 	if _, stderr, code := run(t, "init", "--no-ci"); code != 0 {
 		t.Fatalf("exit %d: %s", code, stderr)
 	}
 	before := map[string]string{}
-	for _, p := range []string{".mcp.json", ".gemini/settings.json", "AGENTS.md"} {
+	for _, p := range []string{".mcp.json", ".gemini/settings.json", "AGENTS.md", ".gitattributes"} {
 		b, _ := os.ReadFile(filepath.Join(dir, p))
 		before[p] = string(b)
 	}
@@ -176,7 +198,7 @@ func TestInitDryRunWritesNoAgentFile(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("exit %d: %s", code, stderr)
 	}
-	for _, p := range []string{".agents", ".claude", ".mcp.json"} {
+	for _, p := range []string{".agents", ".claude", ".mcp.json", ".gitattributes"} {
 		if exists(filepath.Join(dir, p)) {
 			t.Errorf("a dry run wrote %s", p)
 		}
@@ -220,7 +242,7 @@ func TestInitReportsAgentsInJSON(t *testing.T) {
 	if ch := a.MCP[0]; ch.Agent != "codex" || ch.Scope != agents.ScopeProject || ch.Path != ".codex/config.toml" || ch.Action != agents.ActionUpdate {
 		t.Errorf("codex: %+v", ch)
 	}
-	if len(env.Data.Files) != 5 {
+	if len(env.Data.Files) != 6 {
 		t.Errorf("files: %+v", env.Data.Files)
 	}
 }

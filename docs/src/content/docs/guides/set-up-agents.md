@@ -27,6 +27,7 @@ In a repository with a `CLAUDE.md` and a `.cursor/` directory:
   create  .github/workflows/acceptance.yml
   create  AGENTS.md
   create  .gitignore
+  create  .gitattributes
   create  .agents/skills (5 skills)
   create  .claude/skills (linked for Claude Code)
   create  .mcp.json (the axx MCP server for Claude Code)
@@ -48,7 +49,7 @@ axx skills install --scope user    # your home directory, for every repository
 axx skills list
 ```
 
-`install` writes the skills to `.agents/skills/` (read by Codex, Cursor, Gemini CLI and Copilot) and, when the repository uses Claude Code (a `.claude/` directory, `CLAUDE.md` or `.mcp.json`), links them into `.claude/skills/` for it. `--claude` links them anyway, and `--no-claude` never; with `--scope user`, they are linked when your home directory has `.claude/`. A `.claude/` that holds nothing but these links does not count as using Claude Code, so `axx doctor` does not ask a Codex repository for a Claude Code MCP server. `axx init` installs them the same way. Commit them so every contributor and every CI agent gets them.
+`install` writes the skills to `.agents/skills/` (read by Codex, Cursor, Gemini CLI and Copilot) and, when the repository uses Claude Code (a `.claude/` directory, `CLAUDE.md` or `.mcp.json`), links them into `.claude/skills/` for it. `--claude` links them anyway, and `--no-claude` never; with `--scope user`, they are linked when your home directory has `.claude/`. A `.claude/` that holds nothing but these links does not count as using Claude Code, so `axx doctor` does not ask a Codex repository for a Claude Code MCP server. `axx init` installs them the same way, and marks them as generated in `.gitattributes`, so GitHub collapses their diffs in pull requests. Commit them so every contributor and every CI agent gets them.
 
 | Skill | Teaches |
 | --- | --- |

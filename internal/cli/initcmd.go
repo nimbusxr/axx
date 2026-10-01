@@ -160,7 +160,8 @@ in AGENTS.md. Existing files are left alone (use --force to
 overwrite); the AGENTS.md section is updated in place. Safe to re-run.
 
 It also sets up coding agents, in this repository only: it installs the skills
-in .agents/skills, and connects the axx MCP server to the agents the repository
+in .agents/skills (marked generated in .gitattributes, so their diffs collapse
+in pull requests), and connects the axx MCP server to the agents the repository
 already uses, in their own files (Claude Code: .claude/, CLAUDE.md or .mcp.json
 → .mcp.json and .claude/skills; Codex: .codex/ → .codex/config.toml; Cursor:
 .cursor/ → .cursor/mcp.json; VS Code: .vscode/ → .vscode/mcp.json; Gemini CLI:
@@ -206,6 +207,11 @@ usually live in ~/.codex/config.toml, it prints the command that adds axx there.
 			gi, giAction := mergeGitignore(filepath.Join(wd, ".gitignore"))
 			plan = append(plan, InitFile{Path: ".gitignore", Action: giAction, Reason: upToDate(giAction)})
 			contents[".gitignore"] = gi
+			if !noAgents {
+				ga, gaAction := mergeGitattributes(filepath.Join(wd, ".gitattributes"))
+				plan = append(plan, InitFile{Path: ".gitattributes", Action: gaAction, Reason: upToDate(gaAction)})
+				contents[".gitattributes"] = ga
+			}
 
 			if !dryRun {
 				for _, f := range plan {
@@ -510,6 +516,32 @@ func mergeGitignore(path string) (string, string) {
 		s += "\n"
 	}
 	return s + "\n# axx runtime state and logs\n.axx/\n", "update"
+}
+
+// skillsAttributes marks the skills as generated: GitHub collapses their diffs
+// in pull requests, which every axx upgrade or new step changes.
+const skillsAttributes = "# axx's agent skills, which `axx skills install` writes\n.agents/skills/** linguist-generated\n"
+
+func mergeGitattributes(path string) (string, string) {
+	old, err := os.ReadFile(path)
+	if err != nil {
+		return skillsAttributes, "create"
+	}
+	s := string(old)
+	for _, line := range strings.Split(s, "\n") {
+		f := strings.Fields(line)
+		if len(f) > 1 && strings.HasPrefix(f[0], ".agents/") {
+			for _, attr := range f[1:] {
+				if attr == "linguist-generated" || attr == "linguist-generated=true" {
+					return s, "skip"
+				}
+			}
+		}
+	}
+	if !strings.HasSuffix(s, "\n") {
+		s += "\n"
+	}
+	return s + "\n" + skillsAttributes, "update"
 }
 
 func upToDate(action string) string {
