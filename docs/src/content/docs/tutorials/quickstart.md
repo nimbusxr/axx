@@ -44,6 +44,7 @@ axx: ready in 31s
   create  .github/workflows/acceptance.yml
   create  AGENTS.md
   create  .gitignore
+  create  .gitattributes
   create  .agents/skills (5 skills)
 
 Codex keeps its MCP servers in ~/.codex/config.toml; `axx mcp install --agent codex --scope user` adds axx there.
