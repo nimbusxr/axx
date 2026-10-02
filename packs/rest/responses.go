@@ -442,13 +442,15 @@ func headerTable(sc *core.Scenario, a core.Args, t target, check func(http.Heade
 
 // checkJSONResponse is the content-type check of the property equality
 // steps: the media type (parameters such as charset ignored) must be JSON.
+// The message names the response, since a step without an ordinal reads the
+// first request's, which may not be the one meant.
 func checkJSONResponse(ex *Exchange) error {
 	ct := ex.Header.Get("Content-Type")
 	if !isJSONMediaType(mediaTypeOf(ct)) {
 		if ct == "" {
 			ct = "none"
 		}
-		return fmt.Errorf("Response content type is not supported for payload property validation: %s", ct) //nolint:staticcheck // user-facing message
+		return fmt.Errorf("Response content type is not supported for payload property validation: %s (the response to %s %s, status %d)", ct, ex.Method, ex.URL, ex.Status) //nolint:staticcheck // user-facing message
 	}
 	return nil
 }

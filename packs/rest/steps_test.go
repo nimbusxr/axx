@@ -303,6 +303,9 @@ func TestResponseContentTypes(t *testing.T) {
 	}
 	h.ok("the response payload property data.id is '\"7\"'") // +json
 	h.fails("the response payload property a is 'b' for 2nd ordered response", "Response content type is not supported for payload property validation: text/plain")
+	// The message names the response it read, so a step reading another
+	// request's response than meant shows it.
+	h.fails("the response payload property a is 'b' for 2nd ordered response", "(the response to GET "+srv.URL+"/text, status 200)")
 	h.ok("the response payload property title is 'Bad Request' for 3rd ordered response")
 	h.ok("the response payload property status is '400' for 3rd ordered response")
 	// The other property checks never looked at the content type.

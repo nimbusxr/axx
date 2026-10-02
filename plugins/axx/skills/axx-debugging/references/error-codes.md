@@ -106,6 +106,14 @@ axx adds its MCP server to an agent's configuration file only when it can read t
 
 **Fix:** Run it in your project's directory (where axx.yaml is); axx's own packs are documented at https://axx.nimbusxr.us/references/packs/. A project adds its packs with `axx pack add`.
 
+### AXX-E0015
+
+**No packs for the skills** · exit 2
+
+`axx skills install` writes the skills with the steps of the project's packs, and the project lists none: it has no `axx-packs.yaml` yet, or the file lists no packs.
+
+**Fix:** Run `axx init` to set the project up: it installs the skills too. A project that is set up adds the packs its steps come from with `axx pack add`. `axx skills install --scope user` installs the skills for every project, with every pack axx publishes.
+
 ## Configuration (axx.yaml)
 
 ### AXX-E0100

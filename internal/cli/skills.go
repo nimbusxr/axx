@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"slices"
 
 	"github.com/spf13/cobra"
 
@@ -44,6 +45,10 @@ unless --force.`,
 				e, err := app.loadEngine(&cf)
 				if err != nil {
 					return err
+				}
+				if !slices.ContainsFunc(e.PackNames(), func(n string) bool { return n != "core" }) {
+					return axxerr.New("AXX-E0015", exitcode.Usage, "the skills teach the steps of the project's packs, and the project lists none").
+						WithHint("run `axx init` to set the project up (it installs the skills too), or add the packs your steps come from with `axx pack add rest sql ...`; `axx skills install --scope user` installs them with every pack axx publishes")
 				}
 				if sks, err = skills.Build(e); err != nil {
 					return err
