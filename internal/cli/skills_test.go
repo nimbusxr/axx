@@ -77,3 +77,18 @@ func TestSkillsAreLinkedForClaudeCodeWhenTheProjectUsesIt(t *testing.T) {
 		t.Errorf("--claude with --no-claude: exit %d", code)
 	}
 }
+
+// Before `axx init` there are no packs, so no steps to teach: the error says
+// how to get some.
+func TestSkillsInAProjectWithoutPacksSayHowToGetThem(t *testing.T) {
+	agentProject(t, nil)
+	_, stderr, code := run(t, "skills", "install")
+	if code != int(exitcode.Usage) {
+		t.Fatalf("exit %d: %s", code, stderr)
+	}
+	for _, want := range []string{"AXX-E0015", "the project lists none", "axx init", "axx pack add", "--scope user"} {
+		if !strings.Contains(stderr, want) {
+			t.Errorf("the error lacks %q:\n%s", want, stderr)
+		}
+	}
+}
