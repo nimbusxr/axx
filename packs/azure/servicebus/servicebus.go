@@ -142,7 +142,7 @@ func parse(s *core.Suite, nm string, t *core.Table) (*namespace, error) {
 
 var namespaces = core.NewStateKey(name, func(*core.Scenario) *core.Services[*namespace] {
 	return core.NewServices[*namespace]("Service Bus namespace",
-		`No Service Bus namespace is registered in this scenario; register one with "the {word} service bus namespace with the following properties:"`)
+		`No Service Bus namespace is registered in this scenario; register one with "the {word} service bus namespace with the following properties:"`).RegisteredBy("the {word} service bus namespace with the following properties:")
 }, nil)
 
 // clients are a namespace's messaging and management clients, shared by the

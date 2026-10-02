@@ -161,7 +161,7 @@ type ScenarioContext struct {
 }
 
 var stateKey = core.NewStateKey("kafka", func(sc *core.Scenario) *ScenarioContext {
-	st := &ScenarioContext{services: core.NewServices[*Service]("Kafka service", "No kafka service set")}
+	st := &ScenarioContext{services: core.NewServices[*Service]("Kafka service", "No kafka service set").RegisteredBy("the {word} kafka service with the following properties:")}
 	sc.Describe("kafka", st.describe)
 	return st
 }, nil)

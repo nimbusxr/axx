@@ -74,7 +74,7 @@ type streaming struct {
 
 var agents = core.NewStateKey(Name, func(sc *core.Scenario) *core.Services[*agent] {
 	all := core.NewServices[*agent]("A2A agent",
-		`No A2A agent is registered in this scenario; register one with "the {word} a2a agent with the following properties:"`)
+		`No A2A agent is registered in this scenario; register one with "the {word} a2a agent with the following properties:"`).RegisteredBy("the {word} a2a agent with the following properties:")
 	sc.Describe(Name, func() any { return describe(sc, all) })
 	return all
 }, func(_ *core.Scenario, all *core.Services[*agent]) error {

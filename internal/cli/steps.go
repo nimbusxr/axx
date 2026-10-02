@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"io"
+	"slices"
 	"sort"
 	"strings"
 
@@ -75,19 +76,26 @@ func newStepsCmd(app *App) *cobra.Command {
 		Long: `List every step axx understands (the packs this project loads).
 Agents: search before writing a feature, and never invent step text.`,
 		Args: wrapArgs(cobra.NoArgs),
-		RunE: func(*cobra.Command, []string) error {
-			e, err := app.loadEngine(&cf)
-			if err != nil {
-				return err
-			}
-			infos := stepInfos(e, pack)
-			app.hintNoPacks(e)
-			return app.Emit(map[string]any{"steps": infos, "count": len(infos)}, func(w io.Writer) error {
-				return renderStepList(w, infos)
-			})
-		},
 	}
+	listSteps := func(*cobra.Command, []string) error {
+		e, err := app.loadEngine(&cf)
+		if err != nil {
+			return err
+		}
+		infos := stepInfos(e, pack)
+		app.hintNoPacks(e)
+		return app.Emit(map[string]any{"steps": infos, "count": len(infos)}, func(w io.Writer) error {
+			return renderStepList(w, infos)
+		})
+	}
+	cmd.RunE = listSteps
 	cf.register(cmd)
+	list := &cobra.Command{
+		Use:   "list",
+		Short: "List every step (the same as `axx steps`)",
+		Args:  wrapArgs(cobra.NoArgs),
+		RunE:  listSteps,
+	}
 	cmd.PersistentFlags().StringVar(&pack, "pack", "", "only steps from this pack (e.g. rest, sql, kafka)")
 
 	search := &cobra.Command{
@@ -114,28 +122,67 @@ Agents: search before writing a feature, and never invent step text.`,
 		},
 	}
 	show := &cobra.Command{
-		Use:   "show <id>",
+		Use:   "show <id | expression | step line>",
 		Short: "Show one step's documentation, variants and examples",
-		Args:  wrapArgs(cobra.ExactArgs(1)),
+		Long: `Show one step: by its id (rest.response.status), its expression as
+` + "`axx steps`" + ` lists it, or a step line as a feature has it (the leading
+keyword is optional), matched the way ` + "`axx explain`" + ` matches it.`,
+		Args: wrapArgs(cobra.MinimumNArgs(1)),
 		RunE: func(_ *cobra.Command, args []string) error {
 			e, err := app.loadEngine(&cf)
 			if err != nil {
 				return err
 			}
-			for _, s := range stepInfos(e, "") {
-				if s.ID == args[0] {
-					return app.Emit(s, func(w io.Writer) error { return renderStep(w, s) })
-				}
+			q := strings.Join(args, " ")
+			s, err := findStep(e, stepInfos(e, ""), q)
+			if err != nil {
+				return err
 			}
-			return axxerr.New("AXX-E0310", exitcode.Usage, "no step with id %q", args[0]).
-				WithHint("list ids with `axx steps` or search with `axx steps search <words>`")
+			return app.Emit(s, func(w io.Writer) error { return renderStep(w, s) })
 		},
 	}
-	for _, c := range []*cobra.Command{search, show} {
+	for _, c := range []*cobra.Command{list, search, show} {
 		cf.register(c)
 	}
-	cmd.AddCommand(search, show)
+	cmd.AddCommand(list, search, show)
 	return cmd
+}
+
+// findStep finds the step q names: its id, its expression or part of it (a
+// variant, or the expression without some of its optional [[...]] segments),
+// or a step line it matches. When none does, the error names the closest
+// steps.
+func findStep(e *engine.Engine, infos []StepInfo, q string) (StepInfo, error) {
+	byID := map[string]StepInfo{}
+	expanded := match.Expand(q)
+	for _, s := range infos {
+		byID[s.ID] = s
+		if s.ID == q || s.Expr == q || slices.ContainsFunc(expanded, func(x string) bool { return slices.Contains(s.Variants, x) }) {
+			return s, nil
+		}
+	}
+	matches := e.Registry.Match(stripKeyword(q))
+	switch len(matches) {
+	case 1:
+		return byID[matches[0].Def().Step.ID], nil
+	case 0:
+	default:
+		ids := make([]string, 0, len(matches))
+		for _, m := range matches {
+			ids = append(ids, m.Def().Step.ID)
+		}
+		return StepInfo{}, axxerr.New("AXX-E0310", exitcode.Usage, "%q matches %d steps: %s", q, len(ids), strings.Join(ids, ", ")).
+			WithHint("show one by its id: `axx steps show %s`", ids[0])
+	}
+	hint := "list ids with `axx steps` or search with `axx steps search <words>`"
+	if closest := searchSteps(e, infos, q, 3); len(closest) > 0 {
+		names := make([]string, 0, len(closest))
+		for _, s := range closest {
+			names = append(names, fmt.Sprintf("%s (%s)", s.ID, s.Expr))
+		}
+		hint = "the closest: " + strings.Join(names, "; ") + "; search with `axx steps search <words>`"
+	}
+	return StepInfo{}, axxerr.New("AXX-E0310", exitcode.Usage, "no step has the id or expression %q, or matches it as a step line", q).WithHint("%s", hint)
 }
 
 // searchSteps ranks steps by how many query words appear in the expression,

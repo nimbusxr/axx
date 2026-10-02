@@ -145,9 +145,9 @@ func init() {
 	add("AXX-E0306", env, "Delve did not start",
 		"`axx run --debug-steps` started Delve, but it exited or never began listening for a debugger. Its output is in the message.",
 		"Check that the port is free (`--debug-steps=<port>` picks another) and that Delve works on this machine (`dlv version`).")
-	add("AXX-E0310", u, "Unknown step id",
-		"`axx steps show` was given an id that no loaded pack defines.",
-		"List the ids with `axx steps`, or search by words with `axx steps search <words>`.")
+	add("AXX-E0310", u, "Unknown step",
+		"`axx steps show` was given text that is no loaded step's id or expression and matches no step as a step line, or a line that matches several steps.",
+		"The hint names the closest steps. Show one by its id (`axx steps show rest.response.status`), list the ids with `axx steps`, or search by words with `axx steps search <words>`.")
 
 	add("AXX-E0400", u, "Invalid app configuration",
 		"An `apps.<name>` setting cannot be used: a bad readiness URL, address or regex, an unknown signal, or an invalid debug setting.",

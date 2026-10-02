@@ -30,7 +30,16 @@ if [[ -n "$hits" ]]; then
 fi
 
 if command -v gitleaks >/dev/null 2>&1; then
-  gitleaks dir --no-banner --redact . || status=1
+  # Scan what git would commit, as the denylist above does: tracked files and
+  # untracked ones that are not ignored. Ignored build output (Xcode's, say)
+  # holds third-party strings that are never committed. They are copied
+  # to a scratch tree, so findings keep their paths in the repository.
+  tree=$(mktemp -d)
+  trap 'rm -rf "$tree"' EXIT
+  git ls-files -z --cached --others --exclude-standard \
+    | while IFS= read -r -d '' f; do [[ -e "$f" || -L "$f" ]] && printf '%s\0' "$f"; done \
+    | tar --null -T - -cf - | tar -xf - -C "$tree"
+  (cd "$tree" && gitleaks dir --no-banner --redact .) || status=1
 else
   echo "hygiene: gitleaks not installed; skipping secret scan (CI runs it)" >&2
 fi

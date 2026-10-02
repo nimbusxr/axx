@@ -50,7 +50,7 @@ type state struct {
 var scenarioState = core.NewStateKey(Name, func(sc *core.Scenario) *state {
 	st := &state{
 		commands: core.NewServices[*Command]("Command",
-			`No command is registered in this scenario; register one with "the {word} command with the following properties:"`),
+			`No command is registered in this scenario; register one with "the {word} command with the following properties:"`).RegisteredBy("the {word} command with the following properties:"),
 		runs: map[string]*run{},
 	}
 	sc.Describe(Name, func() any { return describe(sc, st) })

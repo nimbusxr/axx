@@ -186,7 +186,7 @@ func redact(urls string) string {
 
 var servers = core.NewStateKey(Name, func(*core.Scenario) *core.Services[*server] {
 	return core.NewServices[*server]("NATS server",
-		`No NATS server is registered in this scenario; register one with "the {word} nats server with the following properties:"`)
+		`No NATS server is registered in this scenario; register one with "the {word} nats server with the following properties:"`).RegisteredBy("the {word} nats server with the following properties:")
 }, nil)
 
 // conn is the run's connection to a server.

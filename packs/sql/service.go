@@ -56,7 +56,7 @@ type ScenarioContext struct {
 }
 
 var stateKey = core.NewStateKey("sql", func(sc *core.Scenario) *ScenarioContext {
-	st := &ScenarioContext{services: core.NewServices[*Service]("Database service", "No database services set")}
+	st := &ScenarioContext{services: core.NewServices[*Service]("Database service", "No database services set").RegisteredBy("a(n) {word} database with the following properties:")}
 	sc.Describe("sql", st.describe)
 	return st
 }, func(_ *core.Scenario, st *ScenarioContext) error {

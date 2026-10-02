@@ -76,6 +76,7 @@ type usageError struct{ err error }
 func (u usageError) Error() string { return u.err.Error() }
 
 func newRootCmd(app *App) *cobra.Command {
+	var showVersion bool
 	root := &cobra.Command{
 		Use:   "axx",
 		Short: "Human-readable acceptance testing for the agentic era",
@@ -96,7 +97,15 @@ of its own steps.
 			}
 			return app.ensurePacks(cmd.Context(), cmd)
 		},
+		// `axx --version` is `axx version`; `axx` alone prints the help.
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			if showVersion {
+				return printVersion(app)
+			}
+			return cmd.Help()
+		},
 	}
+	root.Flags().BoolVar(&showVersion, "version", false, "print the axx version (as `axx version`)")
 	root.SetFlagErrorFunc(func(_ *cobra.Command, err error) error { return usageError{err} })
 
 	pf := root.PersistentFlags()

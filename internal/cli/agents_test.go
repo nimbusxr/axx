@@ -251,6 +251,8 @@ func TestAgentsSectionPointsAtTheMCPToolsSkillsAndFactories(t *testing.T) {
 	for _, want := range []string{
 		"axx MCP tools", "steps_search", "feature_validate", "scenarios_run", "failure_context",
 		".agents/skills", "axx-test-data", "fixture factories", "optional", "`axx fixtures adopt`",
+		// true without the skills too (`axx init --no-agents`, MCP only)
+		"If `.agents/skills` has the axx skills", "installs or updates them",
 	} {
 		if !strings.Contains(agentsBlock, want) {
 			t.Errorf("the AGENTS.md section lacks %q", want)

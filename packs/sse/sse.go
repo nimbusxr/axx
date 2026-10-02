@@ -49,7 +49,7 @@ type events struct {
 
 var streams = core.NewStateKey(Name, func(sc *core.Scenario) *core.Services[*events] {
 	s := core.NewServices[*events]("Event stream",
-		`No event stream is opened in this scenario; open one with "the {word} event stream with the following properties:"`)
+		`No event stream is opened in this scenario; open one with "the {word} event stream with the following properties:"`).RegisteredBy("the {word} event stream with the following properties:")
 	sc.Describe(Name, func() any { return describe(sc, s) })
 	return s
 }, func(_ *core.Scenario, s *core.Services[*events]) error {

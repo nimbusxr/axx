@@ -172,7 +172,7 @@ func redact(raw string) string { return userinfo.ReplaceAllString(raw, "//$1:xxx
 
 var mailboxes = core.NewStateKey(Name, func(*core.Scenario) *core.Services[*mailbox] {
 	return core.NewServices[*mailbox]("Mailbox",
-		`No mailbox is registered in this scenario; register one with "the {word} mailbox with the following properties:"`)
+		`No mailbox is registered in this scenario; register one with "the {word} mailbox with the following properties:"`).RegisteredBy("the {word} mailbox with the following properties:")
 }, nil)
 
 // ---- reading, for the run ----

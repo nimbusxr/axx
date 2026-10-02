@@ -123,7 +123,7 @@ func (a *answer) errorText() string {
 
 var services = core.NewStateKey(Name, func(sc *core.Scenario) *core.Services[*service] {
 	all := core.NewServices[*service]("GraphQL service",
-		`No GraphQL service is registered in this scenario; register one with "the {word} graphql service with the following properties:"`)
+		`No GraphQL service is registered in this scenario; register one with "the {word} graphql service with the following properties:"`).RegisteredBy("the {word} graphql service with the following properties:")
 	sc.Describe(Name, func() any { return describe(sc, all) })
 	return all
 }, func(_ *core.Scenario, all *core.Services[*service]) error {
