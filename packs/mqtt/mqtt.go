@@ -183,7 +183,7 @@ var defaultPort = map[string]string{"mqtt": "1883", "tcp": "1883", "mqtts": "888
 
 var brokers = core.NewStateKey(Name, func(*core.Scenario) *core.Services[*broker] {
 	return core.NewServices[*broker]("MQTT broker",
-		`No MQTT broker is registered in this scenario; register one with "the {word} mqtt broker with the following properties:"`)
+		`No MQTT broker is registered in this scenario; register one with "the {word} mqtt broker with the following properties:"`).RegisteredBy("the {word} mqtt broker with the following properties:")
 }, nil)
 
 // connections numbers the connections of a run, for their client IDs.

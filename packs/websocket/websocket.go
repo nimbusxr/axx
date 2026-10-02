@@ -56,7 +56,7 @@ type socket struct {
 
 var sockets = core.NewStateKey(Name, func(sc *core.Scenario) *core.Services[*socket] {
 	s := core.NewServices[*socket]("WebSocket",
-		`No websocket is opened in this scenario; open one with "the {word} websocket with the following properties:"`)
+		`No websocket is opened in this scenario; open one with "the {word} websocket with the following properties:"`).RegisteredBy("the {word} websocket with the following properties:")
 	sc.Describe(Name, func() any { return describe(sc, s) })
 	return s
 }, func(_ *core.Scenario, s *core.Services[*socket]) error {

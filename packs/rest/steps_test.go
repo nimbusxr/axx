@@ -15,6 +15,7 @@ import (
 func TestServiceRegistration(t *testing.T) {
 	h := newHarness(t)
 	h.fails("the request is executed", "No service set")
+	h.fails("the request is executed", `register one with "the {word} service with the following properties:"`)
 	h.fails("the api service with the following properties:", `Property "url" is required`, []string{"openapi", "spec.yaml"})
 	// An unknown property fails wherever it is, even with an empty value.
 	h.fails("the api service with the following properties:", `unknown service property "openApi" (supported: url, openapi)`,
@@ -24,7 +25,7 @@ func TestServiceRegistration(t *testing.T) {
 	h.ok("the api service with the following properties:", []string{"url", "http://${env:HOST}:1"}, []string{"openapi", "space30.yaml"})
 	h.fails("the api service with the following properties:", `Service "api" already set`, []string{"url", "http://x"})
 	h.ok("the other service with the following properties:", []string{"url", "http://y"})
-	h.fails("a GET request to /x on nope", `Service "nope" not set`)
+	h.fails("a GET request to /x on nope", `Service "nope" not set; register it with "the {word} service with the following properties:"`)
 	st := stateKey.Of(h.sc)
 	svc, _ := st.services.Default()
 	if svc.Name != "api" || svc.URL != "http://127.0.0.1:1" || svc.OpenAPI != "space30.yaml" {

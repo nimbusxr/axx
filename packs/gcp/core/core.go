@@ -176,7 +176,7 @@ func Parse(s *core.Suite, name string, t *core.Table) (*Project, error) {
 
 var projects = core.NewStateKey(Name, func(*core.Scenario) *core.Services[*Project] {
 	return core.NewServices[*Project]("GCP project",
-		`No GCP project is registered in this scenario; register one with "the {word} gcp project with the following properties:"`)
+		`No GCP project is registered in this scenario; register one with "the {word} gcp project with the following properties:"`).RegisteredBy("the {word} gcp project with the following properties:")
 }, nil)
 
 // Default returns the scenario's project (the first registered).

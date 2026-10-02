@@ -64,7 +64,7 @@ type Folder struct {
 
 var folders = core.NewStateKey("files", func(*core.Scenario) *core.Services[*Folder] {
 	return core.NewServices[*Folder]("Folder",
-		`No folder is registered in this scenario; register one with "the {word} folder with the following properties:"`)
+		`No folder is registered in this scenario; register one with "the {word} folder with the following properties:"`).RegisteredBy("the {word} folder with the following properties:")
 }, nil)
 
 // Folders returns the folders registered in a scenario.

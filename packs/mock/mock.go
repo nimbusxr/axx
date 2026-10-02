@@ -45,7 +45,7 @@ type verification struct {
 }
 
 var stateKey = core.NewStateKey("mock", func(*core.Scenario) *ScenarioContext {
-	return &ScenarioContext{services: core.NewServices[*Service]("Mocked service", "")}
+	return &ScenarioContext{services: core.NewServices[*Service]("Mocked service", "").RegisteredBy("the mocked {word} service with the following properties:")}
 }, nil)
 
 // describe summarizes the last verification for failure reports.

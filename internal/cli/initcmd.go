@@ -117,8 +117,9 @@ var agentsBlock = agentsBegin + `
 axx (github.com/nimbusxr/axx, "axxeptance") is a human-readable acceptance testing framework.
 - Use the axx MCP tools when you have them (steps_search, step_explain, feature_validate, lint_run,
   scenarios_run, failure_context, env, steps_try); otherwise the axx commands below.
-- The skills in ` + "`.agents/skills`" + ` teach the details: axx-acceptance-tests (write and run tests),
-  axx-test-data (fixture factories), axx-debugging (failures). ` + "`axx skills install`" + ` updates them.
+- If ` + "`.agents/skills`" + ` has the axx skills, they teach the details: axx-acceptance-tests (write and
+  run tests), axx-test-data (fixture factories), axx-debugging (failures). ` + "`axx skills install`" + `
+  installs or updates them.
 - Feature files are acceptance criteria a person can read: one scenario per criterion, in plain
   language, using the steps exactly as written. No programming constructs in Gherkin.
 - Find steps before writing: ` + "`axx steps search \"<intent>\"`" + `; never invent step text.

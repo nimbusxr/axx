@@ -190,7 +190,7 @@ func redact(raw string) string {
 
 var brokers = core.NewStateKey(Name, func(*core.Scenario) *core.Services[*broker] {
 	return core.NewServices[*broker]("AMQP broker",
-		`No AMQP broker is registered in this scenario; register one with "the {word} amqp broker with the following properties:"`)
+		`No AMQP broker is registered in this scenario; register one with "the {word} amqp broker with the following properties:"`).RegisteredBy("the {word} amqp broker with the following properties:")
 }, nil)
 
 // client talks to a broker for the whole run.

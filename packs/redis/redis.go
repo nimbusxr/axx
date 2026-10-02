@@ -171,7 +171,7 @@ func (s *server) key() string { return s.url + "|" + strconv.Itoa(s.database) }
 
 var servers = core.NewStateKey(Name, func(*core.Scenario) *core.Services[*server] {
 	return core.NewServices[*server]("Redis server",
-		`No Redis server is registered in this scenario; register one with "the {word} redis server with the following properties:"`)
+		`No Redis server is registered in this scenario; register one with "the {word} redis server with the following properties:"`).RegisteredBy("the {word} redis server with the following properties:")
 }, nil)
 
 func register(sc *core.Scenario, a core.Args) error {

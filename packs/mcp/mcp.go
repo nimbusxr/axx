@@ -111,7 +111,7 @@ type state struct {
 
 var scenarioState = core.NewStateKey(Name, func(sc *core.Scenario) *state {
 	st := &state{servers: core.NewServices[*server]("MCP server",
-		`No MCP server is registered in this scenario; register one with "the {word} mcp server with the following properties:"`)}
+		`No MCP server is registered in this scenario; register one with "the {word} mcp server with the following properties:"`).RegisteredBy("the {word} mcp server with the following properties:")}
 	sc.Describe(Name, func() any { return describe(sc, st) })
 	return st
 }, closeState)

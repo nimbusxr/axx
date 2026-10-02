@@ -2,6 +2,7 @@ package core
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 )
 
@@ -9,8 +10,9 @@ import (
 // services, databases, brokers...). The first registered service is the
 // default one used by steps that do not name a service.
 type Services[S any] struct {
-	kind  string // e.g. "Service", "Database service"
-	empty string // message when no service is registered
+	kind     string // e.g. "Service", "Database service"
+	empty    string // message when no service is registered
+	register string // the expression of the step that registers one
 
 	mu    sync.Mutex
 	names []string
@@ -24,6 +26,15 @@ func NewServices[S any](kind, empty string) *Services[S] {
 		empty = "No " + lowerFirst(kind) + " set"
 	}
 	return &Services[S]{kind: kind, empty: empty, items: map[string]S{}}
+}
+
+// RegisteredBy names the expression of the step that registers a service, so
+// the errors for a missing one say how to add it. It returns r for chaining:
+//
+//	core.NewServices[*Service]("Service", "").RegisteredBy("the {word} service with the following properties:")
+func (r *Services[S]) RegisteredBy(expr string) *Services[S] {
+	r.register = expr
+	return r
 }
 
 // Add registers a service. Registering the same name twice is an error.
@@ -45,6 +56,9 @@ func (r *Services[S]) Get(name string) (S, error) {
 	s, ok := r.items[name]
 	if !ok {
 		var zero S
+		if r.register != "" {
+			return zero, fmt.Errorf("%s %q not set; register it with \"%s\"", r.kind, name, r.register)
+		}
 		return zero, fmt.Errorf("%s %q not set", r.kind, name)
 	}
 	return s, nil
@@ -56,7 +70,11 @@ func (r *Services[S]) Default() (S, error) {
 	defer r.mu.Unlock()
 	if len(r.names) == 0 {
 		var zero S
-		return zero, fmt.Errorf("%s", r.empty)
+		msg := r.empty
+		if r.register != "" && !strings.Contains(msg, r.register) {
+			msg += "; register one with \"" + r.register + "\""
+		}
+		return zero, fmt.Errorf("%s", msg)
 	}
 	return r.items[r.names[0]], nil
 }

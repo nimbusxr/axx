@@ -118,3 +118,18 @@ func paramNames(expr string) []string {
 	}
 	return names
 }
+
+// Expand returns the concrete expressions an expression with optional
+// [[...]] segments stands for: itself when it has none, nil when it is not
+// a valid expression.
+func Expand(expr string) []string {
+	vs, _, err := expandVariants(expr)
+	if err != nil {
+		return nil
+	}
+	out := make([]string, 0, len(vs))
+	for _, v := range vs {
+		out = append(out, v.expr)
+	}
+	return out
+}

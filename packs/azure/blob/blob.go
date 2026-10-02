@@ -107,7 +107,7 @@ func parse(s *core.Suite, n string, t *core.Table) (*account, error) {
 
 var accounts = core.NewStateKey(name, func(*core.Scenario) *core.Services[*account] {
 	return core.NewServices[*account]("Azure storage account",
-		`No Azure storage account is registered in this scenario; register one with "the {word} azure storage account with the following properties:"`)
+		`No Azure storage account is registered in this scenario; register one with "the {word} azure storage account with the following properties:"`).RegisteredBy("the {word} azure storage account with the following properties:")
 }, nil)
 
 func store(sc *core.Scenario) (cloudstep.ObjectStore, error) {

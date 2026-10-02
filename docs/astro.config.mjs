@@ -8,6 +8,7 @@ import starlightLinksValidator from 'starlight-links-validator';
 import starlightLlmsTxt from 'starlight-llms-txt';
 import { axxConsole } from './src/lib/axx-console.mjs';
 import { axxGherkinSteps } from './src/lib/axx-gherkin.mjs';
+import { aliases, pageSlugs } from './src/lib/aliases.mjs';
 import { docsBuild, siteBase } from './src/lib/site-base.mjs';
 import { stepParams } from './src/lib/step-params.mjs';
 import { stepTokensPlugin } from './src/lib/step-tokens-plugin.mjs';
@@ -39,8 +40,12 @@ export default defineConfig({
 	site,
 	base: build.base,
 	trailingSlash: 'ignore',
-	// Astro puts a redirect below the base, but not where it leads.
-	redirects: Object.fromEntries(movedPacks.map((name) => [`/references/steps/${name}`, at(`/references/packs/${name === 'web' ? 'web-core' : name}`)])),
+	// Astro puts a redirect below the base, but not where it leads. The aliases are
+	// where agents look for pages (/packs/rest, /reference/..., /guides/mongodb).
+	redirects: {
+		...Object.fromEntries(movedPacks.map((name) => [`/references/steps/${name}`, at(`/references/packs/${name === 'web' ? 'web-core' : name}`)])),
+		...Object.fromEntries([...aliases(pageSlugs(fileURLToPath(new URL('./src/content/docs/', import.meta.url))))].map(([alias, slug]) => [`/${alias}`, at(`/${slug}/`)])),
+	},
 	vite: { plugins: [poseEditor()], define: { __AXX_DOCS__: JSON.stringify(build) } },
 	markdown: { processor: satteri({ mdastPlugins: [stepParams(stepTokens), siteBase(build.base)] }) },
 	integrations: [

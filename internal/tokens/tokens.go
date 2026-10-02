@@ -194,7 +194,7 @@ func (t *Token) Secrets() []string {
 
 var registry = core.NewStateKey("tokens", func(*core.Scenario) *core.Services[*Token] {
 	return core.NewServices[*Token]("Token",
-		`No token is registered in this scenario; register one with "the {word} token with the following properties:"`)
+		`No token is registered in this scenario; register one with "the {word} token with the following properties:"`).RegisteredBy("the {word} token with the following properties:")
 }, nil)
 
 // Register adds a token to the scenario.

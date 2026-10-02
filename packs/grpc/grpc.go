@@ -73,7 +73,7 @@ func (s *service) key() string { return fmt.Sprintf("%s|%t", s.address, s.tls) }
 
 var services = core.NewStateKey(Name, func(sc *core.Scenario) *core.Services[*service] {
 	all := core.NewServices[*service]("gRPC service",
-		`No gRPC service is registered in this scenario; register one with "the {word} grpc service with the following properties:"`)
+		`No gRPC service is registered in this scenario; register one with "the {word} grpc service with the following properties:"`).RegisteredBy("the {word} grpc service with the following properties:")
 	sc.Describe(Name, func() any { return describe(sc, all) })
 	return all
 }, func(_ *core.Scenario, all *core.Services[*service]) error {

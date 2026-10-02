@@ -219,5 +219,5 @@ func (a *App) pagePath(address, want string) string {
 
 var apps = core.NewStateKey(Name+"/apps", func(*core.Scenario) *core.Services[*App] {
 	return core.NewServices[*App]("web app",
-		`No web app is registered in this scenario; register one with "the {word} web app with the following properties:"`)
+		`No web app is registered in this scenario; register one with "the {word} web app with the following properties:"`).RegisteredBy("the {word} web app with the following properties:")
 }, nil)

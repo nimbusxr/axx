@@ -172,7 +172,7 @@ func Parse(s *core.Suite, name string, t *core.Table) (*Account, error) {
 
 var accounts = core.NewStateKey(Name, func(*core.Scenario) *core.Services[*Account] {
 	return core.NewServices[*Account]("AWS account",
-		`No AWS account is registered in this scenario; register one with "the {word} aws account with the following properties:"`)
+		`No AWS account is registered in this scenario; register one with "the {word} aws account with the following properties:"`).RegisteredBy("the {word} aws account with the following properties:")
 }, nil)
 
 // Default returns the scenario's AWS account (the first registered).

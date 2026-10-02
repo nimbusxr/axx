@@ -203,7 +203,7 @@ type lastExchange struct {
 }
 
 var stateKey = core.NewStateKey("rest", func(sc *core.Scenario) *ScenarioContext {
-	st := &ScenarioContext{services: core.NewServices[*Service]("Service", "")}
+	st := &ScenarioContext{services: core.NewServices[*Service]("Service", "").RegisteredBy("the {word} service with the following properties:")}
 	sc.Describe("rest", func() any { return masked(sc, st.describe()) })
 	return st
 }, nil)

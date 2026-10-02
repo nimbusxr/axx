@@ -266,11 +266,11 @@ Preparing axx with the project's packs failed. The compiler output is in the mes
 
 ### AXX-E0310
 
-**Unknown step id** · exit 2
+**Unknown step** · exit 2
 
-`axx steps show` was given an id that no loaded pack defines.
+`axx steps show` was given text that is no loaded step's id or expression and matches no step as a step line, or a line that matches several steps.
 
-**Fix:** List the ids with `axx steps`, or search by words with `axx steps search <words>`.
+**Fix:** The hint names the closest steps. Show one by its id (`axx steps show rest.response.status`), list the ids with `axx steps`, or search by words with `axx steps search <words>`.
 
 ## App lifecycle
 

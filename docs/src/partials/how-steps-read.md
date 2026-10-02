@@ -9,7 +9,7 @@ An expression writes optional parts as `[[ ... ]]`. A step matches with or witho
 - `the response status code is 200 on parcels`
 - `the 2nd ordered response status code is 201 on parcels`
 
-`axx steps show <id>` prints every variant of a step.
+`axx steps show` prints every variant of a step, given its id, its expression or a line that uses it.
 
 ## Services
 

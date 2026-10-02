@@ -35,7 +35,7 @@ type ScenarioContext struct {
 }
 
 var stateKey = core.NewStateKey("mongo", func(sc *core.Scenario) *ScenarioContext {
-	st := &ScenarioContext{services: core.NewServices[*Service]("MongoDB service", "No MongoDB services set")}
+	st := &ScenarioContext{services: core.NewServices[*Service]("MongoDB service", "No MongoDB services set").RegisteredBy("a(n) {word} mongo database with the following properties:")}
 	sc.Describe("mongo", st.describe)
 	return st
 }, nil)

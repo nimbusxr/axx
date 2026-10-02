@@ -14,14 +14,17 @@ func newVersionCmd(app *App) *cobra.Command {
 		Use:   "version",
 		Short: "Print the axx version",
 		Args:  wrapArgs(cobra.NoArgs),
-		RunE: func(*cobra.Command, []string) error {
-			info := version.Get()
-			return app.Emit(info, func(w io.Writer) error {
-				_, err := fmt.Fprintf(w, "axx %s %s %s\n", info, info.Platform, shortCommit(info.Commit))
-				return err
-			})
-		},
+		RunE:  func(*cobra.Command, []string) error { return printVersion(app) },
 	}
+}
+
+// printVersion prints what `axx version` and `axx --version` print.
+func printVersion(app *App) error {
+	info := version.Get()
+	return app.Emit(info, func(w io.Writer) error {
+		_, err := fmt.Fprintf(w, "axx %s %s %s\n", info, info.Platform, shortCommit(info.Commit))
+		return err
+	})
 }
 
 func shortCommit(c string) string {
