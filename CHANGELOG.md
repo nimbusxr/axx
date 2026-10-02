@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.1.8](https://github.com/nimbusxr/axx/compare/v0.1.7...v0.1.8) (2026-10-02)
+
+
+### Bug Fixes
+
+* `axx --version` prints what `axx version` prints ([1d46b1a](https://github.com/nimbusxr/axx/commit/1d46b1a1d24e5202f768255c9db5152de60b0ee5))
+* `axx skills install` in a project with no packs fails with AXX-E0015 and says how to get them (`axx init`, `axx pack add` or `--scope user`) ([d1b8293](https://github.com/nimbusxr/axx/commit/d1b8293647c263550a39a60c098b78e0fc6325b7))
+* `axx steps list` is `axx steps` ([1d46b1a](https://github.com/nimbusxr/axx/commit/1d46b1a1d24e5202f768255c9db5152de60b0ee5))
+* `axx steps show` takes an id, an expression (or part of one) or a step line, and AXX-E0310 names the closest steps ([1d46b1a](https://github.com/nimbusxr/axx/commit/1d46b1a1d24e5202f768255c9db5152de60b0ee5))
+* a missing service's error names the step that registers one (core.Services.RegisteredBy) ([1d46b1a](https://github.com/nimbusxr/axx/commit/1d46b1a1d24e5202f768255c9db5152de60b0ee5))
+* **docs:** /packs/&lt;pack&gt;, /reference/... and /guides/&lt;topic&gt; lead to their pages, with Markdown twins at .md ([1d46b1a](https://github.com/nimbusxr/axx/commit/1d46b1a1d24e5202f768255c9db5152de60b0ee5))
+* hygiene's gitleaks scan covers what git would commit, not ignored build output ([1d46b1a](https://github.com/nimbusxr/axx/commit/1d46b1a1d24e5202f768255c9db5152de60b0ee5))
+* **rest:** the payload-property steps' content-type error names the response it read ([d1b8293](https://github.com/nimbusxr/axx/commit/d1b8293647c263550a39a60c098b78e0fc6325b7))
+* the AGENTS.md section `axx init` writes holds without the skills installed ([1d46b1a](https://github.com/nimbusxr/axx/commit/1d46b1a1d24e5202f768255c9db5152de60b0ee5))
+
 ## [0.1.7](https://github.com/nimbusxr/axx/compare/v0.1.6...v0.1.7) (2026-10-01)
 
 
