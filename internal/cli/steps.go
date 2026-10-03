@@ -135,8 +135,9 @@ Agents: search before writing a feature, and never invent step text.`,
 	}
 	show := &cobra.Command{
 		Use:        "show <id | expression | step line>",
+		Aliases:    []string{"inspect"},
 		Short:      "Show one step's documentation, variants and examples",
-		SuggestFor: []string{"inspect", "describe", "info", "doc"},
+		SuggestFor: []string{"describe", "info", "doc"},
 		Long: `Show one step: by its id (rest.response.status), its expression as
 ` + "`axx steps`" + ` lists it, or a step line as a feature has it (the leading
 keyword is optional), matched the way ` + "`axx explain`" + ` matches it.`,

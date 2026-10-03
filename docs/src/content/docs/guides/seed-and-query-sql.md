@@ -94,6 +94,8 @@ Then a selection of rows is retrieved from the parcels.parcels table where the d
 And the selection has 2 rows
 ```
 
+Selections are numbered in the order a scenario retrieves them, and a step without an ordinal checks the first. After a second retrieval, name the one a step checks: `the 2nd selection has 1 row`. `axx validate` warns about a step that checks the first while a later selection goes unchecked.
+
 In `json properties are:` and `json properties match:`, paths are JSONPaths such as `zone` or `items[0].sku`, and values are compared as text ([the rules](/references/packs/sql/#sqljsonare)). The containment step takes dotted names (`recipient.city`) and compares each value as a JSON string, so it never matches a number or a boolean.
 
 ## Wait for asynchronous writes

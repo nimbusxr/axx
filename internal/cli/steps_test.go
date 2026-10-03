@@ -144,15 +144,34 @@ func TestGuessedCommandsGetHelpfulHints(t *testing.T) {
 		args []string
 		want string
 	}{
-		{[]string{"steps", "inspect", "rest.request"}, "did you mean `axx steps show`? `axx steps` has these commands: explain, list, search, show"},
+		{[]string{"steps", "describe", "rest.request"}, "did you mean `axx steps show`? `axx steps` has these commands: explain, list, search, show"},
 		{[]string{"steps", "kafka"}, "`axx steps --pack kafka` lists the kafka pack's steps"},
-		{[]string{"schema", "axx"}, "`axx schema` takes no arguments: print the JSON Schema for axx.yaml or a fixture spec file (flags: --kind, --out)"},
+		{[]string{"version", "extra"}, "`axx version` takes no arguments: print the axx version"},
 		{[]string{"env", "start"}, "`axx env` has these commands: down, status, up"},
 	} {
 		_, stderr, code := run(t, c.args...)
 		if code != int(exitcode.Usage) || !strings.Contains(stderr, c.want) {
 			t.Errorf("axx %s: exit %d\n%s\nwant %q", strings.Join(c.args, " "), code, stderr, c.want)
 		}
+	}
+	// Agents' guesses that are now commands: `axx steps inspect` is
+	// `axx steps show`, `axx schema axx` (or config) is `axx schema`.
+	show, _, _ := run(t, "steps", "show", "rest.request")
+	if got, stderr, code := run(t, "steps", "inspect", "rest.request"); code != int(exitcode.OK) || got != show {
+		t.Errorf("steps inspect: exit %d (%s)", code, stderr)
+	}
+	schema, _, _ := run(t, "schema")
+	for _, k := range []string{"axx", "config", "axx.yaml"} {
+		if got, stderr, code := run(t, "schema", k); code != int(exitcode.OK) || got != schema {
+			t.Errorf("schema %s: exit %d (%s)", k, code, stderr)
+		}
+	}
+	factory, _, _ := run(t, "schema", "--kind", "factory")
+	if got, stderr, code := run(t, "schema", "factory"); code != int(exitcode.OK) || got != factory || got == schema {
+		t.Errorf("schema factory: exit %d (%s)", code, stderr)
+	}
+	if _, stderr, code := run(t, "schema", "factory", "--kind", "fixture"); code != int(exitcode.Usage) {
+		t.Errorf("two kinds: exit %d (%s)", code, stderr)
 	}
 	// `axx env status` is `axx env`, as the MCP env tool's status.
 	want, _, code := run(t, "env")
