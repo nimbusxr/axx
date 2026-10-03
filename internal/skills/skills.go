@@ -130,32 +130,20 @@ func Published() ([]Skill, error) {
 	return out, nil
 }
 
+// references are the reference files of the skills. The steps are not
+// among them: agents read step pages a chunk at a time, about 3,500 tokens a
+// read, where `axx steps` lists every step a line each and `axx steps show
+// <id>` gives one step's documentation in about 300, for the project's own
+// packs too.
 func references(e *engine.Engine) ([]File, error) {
-	var out []File
-	idx, err := md.StepIndex(e.Registry)
-	if err != nil {
-		return nil, err
-	}
-	out = append(out, File{Path: "references/step-index.md", Content: []byte(idx)})
 	params, err := md.ParamsPage(e.Registry, false)
 	if err != nil {
 		return nil, err
 	}
-	out = append(out, File{Path: "references/parameter-types.md", Content: []byte(params)})
-	manifests := e.Manifests()
-	for _, name := range e.PackNames() {
-		m := manifests[name]
-		if len(m.Steps) == 0 {
-			continue
-		}
-		page, err := md.StepsPage(e.Registry, md.PackInfo{Name: name, Manifest: m}, false)
-		if err != nil {
-			return nil, err
-		}
-		out = append(out, File{Path: "references/steps-" + name + ".md", Content: []byte(page)})
-	}
-	out = append(out, File{Path: "references/config.md", Content: []byte(configRef)})
-	return out, nil
+	return []File{
+		{Path: "references/parameter-types.md", Content: []byte(params)},
+		{Path: "references/config.md", Content: []byte(configRef)},
+	}, nil
 }
 
 const configRef = md.GeneratedHeader + `

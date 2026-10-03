@@ -61,12 +61,20 @@ func TestEverySkillIsNamedAfterItsDirectory(t *testing.T) {
 	}
 }
 
-// The step pages ship once, in axx-acceptance-tests; axx-custom-steps has
-// the parameter types it needs.
-func TestTheStepPagesShipOnce(t *testing.T) {
+// The skills carry no step pages: `axx steps` and `axx steps show` tell the
+// steps, at a tenth of the tokens agents spent reading pages in chunks.
+// axx-custom-steps has the parameter types it needs.
+func TestTheSkillsCarryNoStepPages(t *testing.T) {
 	sks := build(t)
-	if _, ok := sks["axx-acceptance-tests"]["references/steps-rest.md"]; !ok {
-		t.Error("axx-acceptance-tests lacks the REST step page")
+	for name, files := range sks {
+		for p := range files {
+			if strings.Contains(p, "steps-") || strings.Contains(p, "step-index") {
+				t.Errorf("%s carries %s", name, p)
+			}
+		}
+	}
+	if _, ok := sks["axx-acceptance-tests"]["references/parameter-types.md"]; !ok {
+		t.Error("axx-acceptance-tests lacks the parameter types")
 	}
 	for p := range sks["axx-custom-steps"] {
 		if strings.HasPrefix(p, "references/") && p != "references/parameter-types.md" {

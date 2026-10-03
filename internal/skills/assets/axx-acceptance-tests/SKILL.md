@@ -69,4 +69,4 @@ With an `openapi` URL, requests and responses that break the contract fail the `
 - Seeds, event payloads and mock bodies are files the steps read. When files of one shape repeat, fixture factories generate them (the `axx-test-data` skill).
 - `axx.yaml`: `axx schema --outline` lists its keys; `references/config.md` has a commented example.
 - Failures: the `axx-debugging` skill.
-- `references/step-index.md`: every step, a line each. `references/steps-<pack>.md`: each step's documentation, listed at the top of the file; find one with `grep -n '^## `<id>`' references/steps-<pack>.md`. `references/parameter-types.md`: what `{ordinal}`, `{word}` and the others match.
+- The steps are axx's to tell: `axx steps` lists every step of the project's packs, its own included, a line each, and `axx steps show <id>...` gives their documentation and examples. `references/parameter-types.md` says what `{ordinal}`, `{word}` and the others match.

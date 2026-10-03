@@ -48,14 +48,15 @@ unless --force.`,
 				}
 				if !slices.ContainsFunc(e.PackNames(), func(n string) bool { return n != "core" }) {
 					return axxerr.New("AXX-E0015", exitcode.Usage, "the skills teach the steps of the project's packs, and the project lists none").
-						WithHint("run `axx init` to set the project up (it installs the skills too), or add the packs your steps come from with `axx pack add rest sql ...`; `axx skills install --scope user` installs them with every pack axx publishes")
+						WithHint("run `axx init` to set the project up (it installs the skills too), or add the packs your steps come from with `axx pack add rest sql ...`; `axx skills install --scope user` installs them for every repository")
 				}
 				if sks, err = skills.Build(e); err != nil {
 					return err
 				}
 				root = e.Config.Dir
 			case "user":
-				// Every project, whatever its packs: every pack axx publishes.
+				// Every project, whatever its packs: the parameter types of
+				// every pack axx publishes (the steps are `axx steps`'s).
 				home, err := os.UserHomeDir()
 				if err != nil {
 					return err

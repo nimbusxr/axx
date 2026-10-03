@@ -10,7 +10,7 @@ Coding agents are now a primary user of test tools: they write most new tests, r
 Agents invent plausible step text, and Gherkin punishes near-misses. Axx makes the real steps cheap to find and cheap to check:
 
 - `axx steps` and the `steps_search` MCP tool without a query list every step of the project in one line each, which an agent reads once; `axx steps show <id>` and `step_explain` give one step's documentation and examples. Searches return the steps that fit, briefly, and the MCP tool sends a step it returned before as its id only, so what an agent learns does not fill its context twice.
-- The skills ship a one-line-per-step index generated from the project, including custom steps.
+- The skills send agents to `axx steps`, which lists the project's steps, custom ones included, rather than shipping pages of them: agents read pages a chunk at a time, about ten times the tokens of `axx steps show <id>`.
 - `axx validate` and `axx explain` check every line without starting anything, and suggest the closest real steps for a near-miss.
 - The `steps_try` MCP tool runs steps in a live scenario that stays open between calls, so an agent sees what a step does before it writes it down; the packs' tools look at that scenario, such as the web-core pack's `web_page`, which shows the page as the steps name its elements.
 - Step text is public API: it never changes, so what an agent learned stays true.

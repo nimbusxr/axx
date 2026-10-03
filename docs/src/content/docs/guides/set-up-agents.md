@@ -59,7 +59,7 @@ axx skills list
 | `axx-custom-steps` | custom steps as Go packs |
 | `axx-debugging` | reading failures, exit codes and logs |
 
-The step references inside the skills are generated from *your* project, including your custom packs. Installed for your user, which serves every repository, they have the steps of every pack Axx publishes instead. Rerun `axx skills install` after adding steps or upgrading Axx; files you edited are kept unless you pass `--force`. The same skills are published at [`/.well-known/agent-skills/index.json`](/.well-known/agent-skills/index.json).
+The skills carry no pages of steps: they send agents to `axx steps`, which lists your project's steps, your custom packs' included, a line each, and to `axx steps show <id>` for one step's documentation. Agents read pages a chunk at a time, about ten times the tokens. Rerun `axx skills install` after upgrading Axx; files you edited are kept unless you pass `--force`, and files the skills no longer have are removed. The same skills are published at [`/.well-known/agent-skills/index.json`](/.well-known/agent-skills/index.json).
 
 ## MCP server
 
