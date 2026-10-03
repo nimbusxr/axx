@@ -12,9 +12,10 @@ axx runs Gherkin scenarios black-box against services built locally.
 
 ```
 - [ ] axx steps: read every step of the project's packs, a line each, once
-      (axx steps show <id> gives one step's documentation and examples)
-- [ ] Write one scenario per acceptance criterion with steps that exist: copy the
-      expression, fill in its {parameters}; [[...]] are optional words
+      (axx steps show <id>... gives steps' documentation and examples, several at once)
+- [ ] Write one scenario per acceptance criterion with steps that exist, written
+      out: each {parameter} replaced with a value, a(n) as "a" or "an", row(s) as
+      "row" or "rows", [[...]] kept without the brackets or left out
 - [ ] axx up: start the apps once; they keep running
 - [ ] axx run --compact: fix what it reports (failures, warnings, hints), run again
 - [ ] axx down when done
@@ -68,4 +69,4 @@ With an `openapi` URL, requests and responses that break the contract fail the `
 - Seeds, event payloads and mock bodies are files the steps read. When files of one shape repeat, fixture factories generate them (the `axx-test-data` skill).
 - `axx.yaml`: `axx schema --outline` lists its keys; `references/config.md` has a commented example.
 - Failures: the `axx-debugging` skill.
-- `references/step-index.md`: every step, a line each. `references/steps-<pack>.md`: each step's documentation, listed at the top of the file; find one with `grep -n '^## `<id>`' references/steps-<pack>.md`. `references/parameter-types.md`: what `{ordinal}`, `{word}` and the others match.
+- The steps are axx's to tell: `axx steps` lists every step of the project's packs, its own included, a line each, and `axx steps show <id>...` gives their documentation and examples. `references/parameter-types.md` says what `{ordinal}`, `{word}` and the others match.

@@ -47,7 +47,7 @@ func (a *App) ensurePacks(ctx context.Context, cmd *cobra.Command) error {
 		return nil // --debug-steps builds its own axx, with debug information
 	}
 	if fl := cmd.Flags().Lookup("scope"); fl != nil && fl.Value.String() == "user" {
-		return nil // a home directory's skills have every pack's steps
+		return nil // a home directory's skills serve every project, whatever its packs
 	}
 	if fl := cmd.Flags().Lookup("project"); top.Name() == "lsp" && a.Config == "" && (fl == nil || fl.Value.String() != "true") {
 		return nil // the router: the server it starts for each project prepares that project's packs
@@ -62,7 +62,9 @@ func (a *App) ensurePacks(ctx context.Context, cmd *cobra.Command) error {
 	}
 	info := version.Get()
 	source := axxSource(info)
-	if source == "" && info.Channel == "dev" {
+	// A build of a commit fetches the packs at its own pseudo-version, which
+	// the module proxy serves; a build of local source needs that source.
+	if source == "" && info.Channel == "dev" && !version.FromModuleProxy(info.Version) {
 		return axxerr.New(packbuild.CodeBuild, exitcode.Usage, "this development build of axx cannot prepare packs").
 			WithHint("use a released axx, or set AXX_SOURCE_DIR to your axx checkout")
 	}

@@ -117,7 +117,8 @@ var agentsBlock = agentsBegin + `
 axx (github.com/nimbusxr/axx, "axxeptance") is a human-readable acceptance testing framework.
 - Writing tests: ` + "`axx steps`" + ` lists every step, a line each (read it once; ` + "`axx steps show <id>`" + ` gives one
   step's documentation); write one scenario per acceptance criterion with those steps, never
-  invented ones; ` + "`axx up`" + ` once, then ` + "`axx run --compact`" + `, which also reports what validate and lint find;
+  invented ones, written out (a {name} replaced with a value, a(n) as "a" or "an", [[...]] kept
+  without the brackets or left out); ` + "`axx up`" + ` once, then ` + "`axx run --compact`" + `, which also reports what validate and lint find;
   ` + "`axx down`" + ` when done.
 - Use the axx MCP tools when you have them: ` + "`steps_search`" + ` without a query is the step list, then
   ` + "`scenarios_run`" + ` (it reports what ` + "`feature_validate`" + ` and ` + "`lint_run`" + ` find) and ` + "`failure_context`" + `.

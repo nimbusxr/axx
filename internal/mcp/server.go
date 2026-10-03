@@ -42,7 +42,7 @@ import (
 // context: only the conventions the tools' descriptions do not carry.
 const Instructions = `axx runs acceptance criteria, written as Gherkin features, against the project's services.
 
-Writing tests: steps_search without a query lists every step once; write one scenario per acceptance criterion with steps that exist ({name} is a parameter, [[...]] optional words); scenarios_run runs them and also reports what feature_validate and lint_run find; failure_context explains a failure. env {"action":"up"} keeps the apps running between runs.
+Writing tests: steps_search without a query lists every step once; write one scenario per acceptance criterion with steps that exist, written out: each {name} replaced with a value, a(n) as "a" or "an" and row(s) as "row" or "rows", [[...]] kept without the brackets or left out; scenarios_run runs them and also reports what feature_validate and lint_run find; failure_context explains a failure. env {"action":"up"} keeps the apps running between runs.
 - A scenario registers each service it uses before other steps use it ("the {word} service with the following properties:").
 - Requests, responses and selections are numbered in the order a scenario adds them; a step without an ordinal means the first.
 - Scenarios run in parallel and data persists: give every id, key and name a value of the scenario's own.
@@ -89,55 +89,55 @@ func newServer(opts Options) (*sdk.Server, *server) {
 	notDestructive := &sdk.ToolAnnotations{DestructiveHint: &closed, OpenWorldHint: &closed}
 	addTool(srv, &sdk.Tool{
 		Name: "steps_search", Annotations: ro,
-		Description: "Find steps by what they do ('response status', 'rows in table'): their ids, expressions, table columns and an example. Without a query: the catalog, every step of the project in one line each; read it once before writing a feature.",
+		Description: "Without a query: the catalog, every step of the project a line each (read it once). With one: the steps that fit it, briefly.",
 	},
 		s.stepsSearch)
 	addTool(srv, &sdk.Tool{
 		Name: "step_explain", Annotations: ro,
-		Description: "With a line: how axx reads it (the step it matches and its arguments, the candidates if ambiguous, the closest steps if undefined). With an id: that step's documentation, variants and examples.",
+		Description: "With a step line: how axx reads it, or the closest steps. With step ids: their documentation and examples.",
 	},
 		s.stepExplain)
 	addTool(srv, &sdk.Tool{
 		Name: "feature_validate", Annotations: ro,
-		Description: "Check feature files (by path) or feature text (content) without running them: Gherkin syntax, undefined and ambiguous steps, data table/doc string arguments. Hints name scenarios whose checks prove little (only a success status, or only that something did not happen): findings to judge, not to silence.",
+		Description: "Check features without running them. scenarios_run reports the same problems, so a run needs no check first.",
 	},
 		s.featureValidate)
 	addTool(srv, &sdk.Tool{
 		Name: "lint_run", Annotations: ro,
-		Description: "Run `axx lint`: the test-data isolation rules from axx.yaml (values such as seed ids that must be unique across files) and builtin feature checks (SQL selection/trigger ordinals). Returns every finding with file:line and the colliding value.",
+		Description: "axx lint: test-data values that collide across files, and the feature checks. scenarios_run reports them too.",
 	},
 		s.lintRun)
 	addTool(srv, &sdk.Tool{
 		Name: "scenarios_run", Annotations: notDestructive,
-		Description: "Run scenarios (all, or paths like features/x.feature:14, filtered by tags/name). Starts apps unless they are already up. Returns counts and failures with expected/actual (failure_context has the details), the warnings feature_validate and lint_run would give, and, when it passes, hints.",
+		Description: "Run scenarios (starting the apps unless they are up): failures with expected and actual, the warnings validate and lint give, and hints.",
 	},
 		s.scenariosRun)
 	addTool(srv, &sdk.Tool{
 		Name: "failure_context", Annotations: ro,
-		Description: "Full details of one failed scenario from a scenarios_run: logs, attachments and pack context such as the last HTTP request/response. Without runId, the latest run; without location, its only failure (or the list of its failures).",
+		Description: "One failure's logs and last request and response (default: the latest run's only failure).",
 	},
 		s.failureContext)
 	addTool(srv, &sdk.Tool{
 		// down stops the apps and runs their cleanup.
 		Name: "env", Annotations: &sdk.ToolAnnotations{OpenWorldHint: &closed},
-		Description: "Manage the apps from axx.yaml: 'up' starts them and keeps them running between runs (fast loop), 'down' stops them and runs the cleanups that failed, 'status' lists the apps that are running, left over from an earlier run, or not cleaned up (runs refuse to start apps until 'down' has cleaned up).",
+		Description: "The apps: up keeps them running between runs, down stops them and cleans up, status lists them.",
 	},
 		s.env)
 	addTool(srv, &sdk.Tool{
 		Name: "config_show", Annotations: ro,
-		Description: "The effective axx.yaml (profiles and -D applied, secrets redacted), plus the loaded step packs. For prerequisites and agent setup run `axx doctor --json`; for the packs there are, `axx pack list`; for the features, `axx validate --json`.",
+		Description: "The effective axx.yaml (secrets redacted) and the project's packs.",
 	},
 		s.configShow)
 	addTool(srv, &sdk.Tool{
 		// The steps may reach whatever a scenario does (a web page, say).
 		Name: "steps_try", Annotations: &sdk.ToolAnnotations{DestructiveHint: &closed},
-		Description: "Try steps in a live scenario before writing them into a feature: they run one after the other in a scenario that stays open between calls (browsers, sessions, data), until restart. Returns each step's status and error, and what the packs say of the scenario now (the page it is on...). The packs' own tools look at this scenario too.",
+		Description: "Run steps in a live scenario kept open between calls: each step's result, and what the packs see (the page it is on).",
 	},
 		s.stepsTry)
 	s.packTools(srv)
 	addTool(srv, &sdk.Tool{
 		Name: "scaffold", Annotations: ro,
-		Description: "Return starter file contents for a 'feature' (from real steps) or an 'axx.yaml'. Nothing is written; create the file yourself.",
+		Description: "Starter text for a feature or an axx.yaml; nothing is written.",
 	},
 		s.scaffold)
 
@@ -227,9 +227,9 @@ func newEngine(cfg *config.Config) (*engine.Engine, error) {
 // ---- steps_search ----
 
 type stepsSearchIn struct {
-	Query string `json:"query,omitempty" jsonschema:"what the step should do, e.g. 'response header', 'rows in table'; empty for the catalog of every step"`
-	Pack  string `json:"pack,omitempty" jsonschema:"limit to one pack of the project, by its name in axx-packs.yaml: rest, sql, web-core..."`
-	Limit int    `json:"limit,omitempty" jsonschema:"maximum results (default 6)"`
+	Query string `json:"query,omitempty" jsonschema:"what the step should do; empty for the catalog"`
+	Pack  string `json:"pack,omitempty" jsonschema:"one pack only, like rest"`
+	Limit int    `json:"limit,omitempty" jsonschema:"results (default 6)"`
 }
 
 // Step is a step definition as seen by agents.
@@ -383,8 +383,10 @@ func searchSteps(all []Step, q string) ([]Step, bool) {
 // ---- step_explain ----
 
 type stepExplainIn struct {
-	Line string `json:"line,omitempty" jsonschema:"one step line, with or without its Given/When/Then keyword: how axx reads it"`
-	ID   string `json:"id,omitempty" jsonschema:"a step id, like rest.response.status: the step's documentation, variants and examples"`
+	Line string `json:"line,omitempty" jsonschema:"a step line"`
+	ID   string `json:"id,omitempty" jsonschema:"a step id"`
+	// IDs ask for several steps in one call.
+	IDs []string `json:"ids,omitempty" jsonschema:"several step ids"`
 }
 
 type explainedArg struct {
@@ -396,7 +398,10 @@ type explainedArg struct {
 type stepExplainOut struct {
 	Status string `json:"status" jsonschema:"matched, undefined or ambiguous"`
 	// Step is the step an id names, whole; for a line, its id.
-	Step        *Step          `json:"step,omitempty"`
+	Step *Step `json:"step,omitempty"`
+	// Steps are the steps ids name, and Unknown the ids no step has.
+	Steps       []Step         `json:"steps,omitempty"`
+	Unknown     []string       `json:"unknown,omitempty"`
 	Expr        string         `json:"matchedExpression,omitempty"`
 	Args        []explainedArg `json:"args,omitempty"`
 	Candidates  []string       `json:"candidates,omitempty"`
@@ -409,6 +414,24 @@ func (s *server) stepExplain(ctx context.Context, _ *sdk.CallToolRequest, in ste
 		return nil, stepExplainOut{}, err
 	}
 	var out stepExplainOut
+	if len(in.IDs) > 0 {
+		byID := map[string]Step{}
+		for _, st := range allSteps(e, "") {
+			byID[st.ID] = st
+		}
+		for _, id := range in.IDs {
+			if st, ok := byID[strings.TrimSpace(id)]; ok {
+				out.Steps = append(out.Steps, st)
+			} else {
+				out.Unknown = append(out.Unknown, id)
+			}
+		}
+		out.Status = "matched"
+		if len(out.Steps) == 0 {
+			out.Status = "undefined"
+		}
+		return nil, out, nil
+	}
 	if id := strings.TrimSpace(in.ID); id != "" {
 		for _, st := range allSteps(e, "") {
 			if st.ID == id {
@@ -425,7 +448,7 @@ func (s *server) stepExplain(ctx context.Context, _ *sdk.CallToolRequest, in ste
 		return nil, out, nil
 	}
 	if strings.TrimSpace(in.Line) == "" {
-		return nil, out, fmt.Errorf("give a line to read, or the id of a step")
+		return nil, out, fmt.Errorf("give a line to read, or step ids")
 	}
 	text := stripKeyword(in.Line)
 	ms := e.Registry.Match(text)
@@ -466,8 +489,8 @@ func stripKeyword(line string) string {
 // ---- feature_validate ----
 
 type featureValidateIn struct {
-	Paths   []string `json:"paths,omitempty" jsonschema:"feature files or directories (default: run.paths from axx.yaml)"`
-	Content string   `json:"content,omitempty" jsonschema:"feature file text to check instead of files on disk"`
+	Paths   []string `json:"paths,omitempty" jsonschema:"feature files or directories (default: all)"`
+	Content string   `json:"content,omitempty" jsonschema:"feature text, instead of files"`
 }
 
 // Problem is a validation finding.
@@ -547,8 +570,8 @@ func (s *server) featureValidate(ctx context.Context, _ *sdk.CallToolRequest, in
 // ---- lint_run ----
 
 type lintRunIn struct {
-	Paths []string `json:"paths,omitempty" jsonschema:"only report findings touching these files or directories (every file is still scanned)"`
-	Mode  string   `json:"mode,omitempty" jsonschema:"override every rule's mode: error or warn"`
+	Paths []string `json:"paths,omitempty" jsonschema:"only findings in these files or directories"`
+	Mode  string   `json:"mode,omitempty" jsonschema:"error or warn, for every rule"`
 }
 
 type lintRunOut struct {
@@ -583,9 +606,9 @@ func (s *server) lintRun(ctx context.Context, _ *sdk.CallToolRequest, in lintRun
 // ---- scenarios_run / failure_context ----
 
 type scenariosRunIn struct {
-	Paths    []string `json:"paths,omitempty" jsonschema:"feature files, directories or file:line (default: all)"`
-	Tags     string   `json:"tags,omitempty" jsonschema:"tag expression, e.g. '@smoke and not @wip'"`
-	Name     string   `json:"name,omitempty" jsonschema:"regular expression matched against scenario names"`
+	Paths    []string `json:"paths,omitempty" jsonschema:"files, directories or file:line (default: all)"`
+	Tags     string   `json:"tags,omitempty" jsonschema:"a tag expression"`
+	Name     string   `json:"name,omitempty" jsonschema:"a regular expression for scenario names"`
 	FailFast bool     `json:"failFast,omitempty"`
 }
 
@@ -687,8 +710,8 @@ func compactReport(raw json.RawMessage) json.RawMessage {
 }
 
 type failureContextIn struct {
-	RunID    string `json:"runId,omitempty" jsonschema:"the run, from scenarios_run; the latest run when empty"`
-	Location string `json:"location,omitempty" jsonschema:"the failing scenario's location, e.g. features/orders.feature:14; when empty, the run's only failure"`
+	RunID    string `json:"runId,omitempty" jsonschema:"default: the latest run"`
+	Location string `json:"location,omitempty" jsonschema:"file:line of the failure (default: the only one)"`
 }
 
 func (s *server) failureContext(ctx context.Context, _ *sdk.CallToolRequest, in failureContextIn) (*sdk.CallToolResult, map[string]any, error) {
@@ -916,7 +939,7 @@ func Redact(b []byte) json.RawMessage {
 
 type scaffoldIn struct {
 	Kind string `json:"kind" jsonschema:"feature or config"`
-	Name string `json:"name,omitempty" jsonschema:"feature or service name"`
+	Name string `json:"name,omitempty" jsonschema:"the feature's or the service's name"`
 }
 
 type scaffoldOut struct {

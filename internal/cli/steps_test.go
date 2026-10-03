@@ -198,3 +198,16 @@ func TestSchemaOutline(t *testing.T) {
 		}
 	}
 }
+
+// Several ids show each of their steps, in one call.
+func TestStepsShowSeveralIDs(t *testing.T) {
+	restProject(t)
+	out, stderr, code := run(t, "steps", "show", "rest.response.status", "rest.request")
+	if code != int(exitcode.OK) || !strings.Contains(out, "rest.response.status  (pack rest)") || !strings.Contains(out, "\n---\n") || !strings.Contains(out, "rest.request  (pack rest)") {
+		t.Fatalf("exit %d\n%s%s", code, out, stderr)
+	}
+	// A step line is still one query, whatever its words.
+	if out, stderr, code := run(t, "steps", "show", "the", "response", "status", "code", "is", "201"); code != int(exitcode.OK) || !strings.Contains(out, "rest.response.status") {
+		t.Errorf("a step line: exit %d\n%s%s", code, out, stderr)
+	}
+}

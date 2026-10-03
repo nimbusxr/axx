@@ -9,7 +9,9 @@ import (
 	"github.com/nimbusxr/axx/internal/exitcode"
 )
 
-func TestSkillsForAUserHaveEveryPacksSteps(t *testing.T) {
+// Skills installed for a user serve every repository: the steps are what
+// `axx steps` lists in each, so the skills carry no pages of them.
+func TestSkillsForAUserServeEveryRepository(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	t.Setenv("USERPROFILE", home)
@@ -21,10 +23,15 @@ func TestSkillsForAUserHaveEveryPacksSteps(t *testing.T) {
 	if code != int(exitcode.OK) {
 		t.Fatalf("exit %d: %s", code, stderr)
 	}
-	refs := filepath.Join(home, ".agents", "skills", "axx-acceptance-tests", "references")
-	for _, f := range []string{"step-index.md", "steps-rest.md", "steps-web-core.md", "steps-aws-s3.md"} {
-		if _, err := os.Stat(filepath.Join(refs, f)); err != nil {
+	skill := filepath.Join(home, ".agents", "skills", "axx-acceptance-tests")
+	for _, f := range []string{"SKILL.md", "references/parameter-types.md"} {
+		if _, err := os.Stat(filepath.Join(skill, f)); err != nil {
 			t.Errorf("%s: %v", f, err)
+		}
+	}
+	for _, f := range []string{"references/step-index.md", "references/steps-rest.md"} {
+		if _, err := os.Stat(filepath.Join(skill, f)); !os.IsNotExist(err) {
+			t.Errorf("%s is there: %v", f, err)
 		}
 	}
 	if _, err := os.Lstat(filepath.Join(home, ".claude", "skills", "axx-acceptance-tests")); err != nil {

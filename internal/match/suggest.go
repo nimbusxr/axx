@@ -1,6 +1,7 @@
 package match
 
 import (
+	"regexp"
 	"sort"
 	"strings"
 	"unicode"
@@ -16,7 +17,107 @@ type Suggestion struct {
 
 // Suggest returns up to n expressions closest to an undefined step text,
 // using token-level edit distance where each {param} matches any one token.
+// A text that keeps an expression's notation ("a(n)", "row(s)", "[[...]]")
+// gets the line it means first, written out (see WrittenOut).
 func (r *Registry) Suggest(text string, n int) []Suggestion {
+	line, d, ok := r.WrittenOut(text)
+	if !ok || n <= 0 {
+		return r.closest(text, n)
+	}
+	out := []Suggestion{{Def: d, ID: d.Step.ID, Expr: line}}
+	for _, s := range r.closest(text, n) {
+		if s.Def != d && len(out) < n {
+			out = append(out, s)
+		}
+	}
+	return out
+}
+
+// optionalLetters is an expression's optional text in a word: a(n), row(s).
+var optionalLetters = regexp.MustCompile(`([A-Za-z])\(([a-z]{1,3})\)`)
+
+// WrittenOut is the line a step text that keeps an expression's notation
+// means, when it matches exactly one step once written out: "a(n)" as "a"
+// or "an" (by the word after it), "row(s)" as "row" or, after a number
+// other than 1, "rows", and "[[...]]" as the words inside. Agents copy
+// expressions from a list of steps, notation and all.
+func (r *Registry) WrittenOut(text string) (string, *Def, bool) {
+	if !strings.Contains(text, "(") && !strings.Contains(text, "[[") {
+		return "", nil, false
+	}
+	t := strings.NewReplacer("[[", "", "]]", "").Replace(text)
+	t = optionalLetters.ReplaceAllStringFunc(t, func(m string) string {
+		return m[:1] + "\x00" + m[2:len(m)-1] + "\x01"
+	})
+	// Each optional group, kept or dropped as the words around it read.
+	var b strings.Builder
+	for i := 0; i < len(t); i++ {
+		if t[i] != '\x00' {
+			b.WriteByte(t[i])
+			continue
+		}
+		end := strings.IndexByte(t[i:], '\x01') + i
+		letters := t[i+1 : end]
+		prev := lastWord(b.String())
+		next := firstWord(t[end+1:])
+		keep := false
+		switch {
+		case strings.EqualFold(prev, "a") && letters == "n":
+			keep = startsWithVowel(next)
+		case letters == "s" || letters == "es":
+			keep = afterNumberOtherThanOne(b.String())
+		}
+		if keep {
+			b.WriteString(letters)
+		}
+		i = end
+	}
+	line := strings.Join(strings.Fields(b.String()), " ")
+	if line == strings.Join(strings.Fields(text), " ") {
+		return "", nil, false
+	}
+	if ms := r.Match(line); len(ms) == 1 {
+		return line, ms[0].Def(), true
+	}
+	return "", nil, false
+}
+
+func lastWord(s string) string {
+	f := strings.Fields(s)
+	if len(f) == 0 {
+		return ""
+	}
+	return f[len(f)-1]
+}
+
+func firstWord(s string) string {
+	f := strings.Fields(s)
+	if len(f) == 0 {
+		return ""
+	}
+	return strings.Trim(f[0], "'\"")
+}
+
+func startsWithVowel(w string) bool {
+	return w != "" && strings.ContainsRune("aeiouAEIOU", rune(w[0]))
+}
+
+// afterNumberOtherThanOne reports whether the text before a word ends with
+// a number other than 1 (2 rows, 0 documents).
+func afterNumberOtherThanOne(before string) bool {
+	f := strings.Fields(before)
+	if len(f) < 2 {
+		return false
+	}
+	n := f[len(f)-2]
+	if strings.IndexFunc(n, func(r rune) bool { return r < '0' || r > '9' }) >= 0 {
+		return false
+	}
+	return n != "1"
+}
+
+// closest returns up to n expressions closest to text by token distance.
+func (r *Registry) closest(text string, n int) []Suggestion {
 	tt := tokenize(text)
 	best := map[*Def]Suggestion{}
 	for _, v := range r.variants {

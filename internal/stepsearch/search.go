@@ -279,6 +279,10 @@ func Fold(entries []Entry) (kept []Entry, twinned map[string]bool) {
 	return kept, twinned
 }
 
+// Notation says how to read an expression into a step line: agents that
+// copy one, notation and all, write steps no definition matches.
+const Notation = "To write a step from its expression: replace each {name} with a value; a(n) is \"a\" or \"an\" and row(s) \"row\" or \"rows\", as the sentence reads; [[...]] are optional words, kept (without the brackets) or left out where they stand."
+
 // TwinMark follows a step whose named-service twin is folded into it, and
 // TwinLegend says what it means.
 const (
@@ -291,6 +295,7 @@ const (
 func Catalog(entries []Entry) string {
 	kept, twinned := Fold(entries)
 	var b strings.Builder
+	b.WriteString(Notation + "\n\n")
 	var pack string
 	for _, e := range kept {
 		if e.Pack != pack {
