@@ -526,6 +526,14 @@ A step adds a request of a REST service that an earlier step added: without an o
 
 **Fix:** Add the next request with the ordered form, like `a 2nd ordered GET request to ...`.
 
+### AXX-E0834
+
+**REST payload value in single quotes** · exit 0
+
+A row of `the request payload properties are:` has a value in single quotes, like `'{"name":"Ada"}'`. In a table, single quotes are part of the value, so the property is set to that text, quotes and all, not to the JSON or the string inside (single quotes do quote a value in a step's own text). The request then usually fails for a reason the scenario did not mean to test. This is a warning.
+
+**Fix:** Write JSON without quotes (`{"name":"Ada"}`) and a string in double quotes (`"10115"`) or bare.
+
 ## Fixtures
 
 ### AXX-E0900

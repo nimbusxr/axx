@@ -3,13 +3,17 @@ package cli
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"os/signal"
+	"regexp"
 	"slices"
 	"strconv"
+	"strings"
 	"syscall"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 
 	"github.com/nimbusxr/axx/internal/axxerr"
 	"github.com/nimbusxr/axx/internal/exitcode"
@@ -51,11 +55,15 @@ func Run(ctx context.Context, app *App, args []string) int {
 	if errors.As(err, &se) {
 		return int(se.code)
 	}
+	found, _, ferr := root.Find(args)
+	if ferr != nil {
+		found = nil
+	}
 	if app.command == "" {
 		// argument validation fails before PersistentPreRun sets the path
 		app.command = "axx"
-		if c, _, ferr := root.Find(args); ferr == nil {
-			app.command = c.CommandPath()
+		if found != nil {
+			app.command = found.CommandPath()
 		}
 	}
 	var ue usageError
@@ -65,9 +73,51 @@ func Run(ctx context.Context, app *App, args []string) int {
 	}
 	var ae *axxerr.Error
 	if !errors.As(err, &ae) && (isUsage || !app.started) {
-		err = axxerr.Wrap(err, "AXX-E0001", exitcode.Usage, "invalid usage").WithHint("run `%s --help`", app.command)
+		err = axxerr.Wrap(err, "AXX-E0001", exitcode.Usage, "invalid usage").WithHint("%s", usageHint(found, app.command, err))
 	}
 	return int(app.reportError(err))
+}
+
+// unknownCommand reads the word of cobra's "unknown command" error.
+var unknownCommand = regexp.MustCompile(`^unknown command "([^"]*)" for `)
+
+// usageHint is the hint of a usage error: for a word that is not one of
+// the command's subcommands, the closest one and what the command does
+// take; always, where its help is.
+func usageHint(c *cobra.Command, path string, err error) string {
+	help := fmt.Sprintf("run `%s --help`", path)
+	m := unknownCommand.FindStringSubmatch(err.Error())
+	if c == nil || m == nil {
+		return help
+	}
+	var subs []string
+	for _, s := range c.Commands() {
+		if s.IsAvailableCommand() {
+			subs = append(subs, s.Name())
+		}
+	}
+	var hint string
+	if len(subs) > 0 {
+		hint = fmt.Sprintf("`%s` has these commands: %s", path, strings.Join(subs, ", "))
+		if sug := c.SuggestionsFor(m[1]); len(sug) > 0 {
+			hint = fmt.Sprintf("did you mean `%s %s`? ", path, sug[0]) + hint
+		}
+	} else {
+		var flags []string
+		c.LocalNonPersistentFlags().VisitAll(func(f *pflag.Flag) {
+			if !f.Hidden && f.Name != "help" {
+				flags = append(flags, "--"+f.Name)
+			}
+		})
+		hint = fmt.Sprintf("`%s` takes no arguments", path)
+		if c.Short != "" {
+			hint += ": " + strings.ToLower(c.Short[:1]) + c.Short[1:]
+		}
+		if len(flags) > 0 {
+			hint += " (flags: " + strings.Join(flags, ", ") + ")"
+		}
+	}
+	return hint + "; " + help
 }
 
 // usageError marks cobra flag/argument errors so they map to exit code 2.

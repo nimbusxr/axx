@@ -135,3 +135,31 @@ func TestEnvConfigShowAndStepsExplain(t *testing.T) {
 		t.Errorf("steps explain: exit %d: %s%s", code, out, stderr)
 	}
 }
+
+// Agents guess commands: a word that is not one gets the closest command
+// and what the command does take, not only a pointer to its help.
+func TestGuessedCommandsGetHelpfulHints(t *testing.T) {
+	restProject(t)
+	for _, c := range []struct {
+		args []string
+		want string
+	}{
+		{[]string{"steps", "inspect", "rest.request"}, "did you mean `axx steps show`? `axx steps` has these commands: explain, list, search, show"},
+		{[]string{"steps", "kafka"}, "`axx steps --pack kafka` lists the kafka pack's steps"},
+		{[]string{"schema", "axx"}, "`axx schema` takes no arguments: print the JSON Schema for axx.yaml or a fixture spec file (flags: --kind, --out)"},
+		{[]string{"env", "start"}, "`axx env` has these commands: down, status, up"},
+	} {
+		_, stderr, code := run(t, c.args...)
+		if code != int(exitcode.Usage) || !strings.Contains(stderr, c.want) {
+			t.Errorf("axx %s: exit %d\n%s\nwant %q", strings.Join(c.args, " "), code, stderr, c.want)
+		}
+	}
+	// `axx env status` is `axx env`, as the MCP env tool's status.
+	want, _, code := run(t, "env")
+	if code != int(exitcode.OK) {
+		t.Fatalf("env: exit %d", code)
+	}
+	if got, stderr, code := run(t, "env", "status"); code != int(exitcode.OK) || got != want {
+		t.Errorf("env status: exit %d, %q, want %q (%s)", code, got, want, stderr)
+	}
+}

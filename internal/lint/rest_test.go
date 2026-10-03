@@ -119,3 +119,47 @@ func TestRESTRequestsOfAnUnseenDefaultServiceAreNotChecked(t *testing.T) {
 		t.Errorf("findings: %+v", rr.Findings)
 	}
 }
+
+func TestCheckRESTPayloadValues(t *testing.T) {
+	e, err := engine.New(engine.Options{Packs: engine.Ordered(all.Packs())})
+	if err != nil {
+		t.Fatal(err)
+	}
+	src := `Feature: f
+
+  Scenario: s
+    Given the parcels service with the following properties:
+      | url | http://localhost:8400 |
+    And a POST request to /api/parcels
+    And a request payload using an application/json empty content template
+    And the request payload properties are:
+      | reference    | PX-1001                          |
+      | serviceLevel | 'OVERNIGHT'                      |
+      | recipient    | '{"name":"Ada","postcode":"10115"}' |
+      | sender       | "maple-crafts"                   |
+      | note         | it's fragile                     |
+    And the request payload property weightGrams is '1200'
+`
+	_, pickles, err := feature.ParseSource("f.feature", []byte(src), messages.UUID{}.NewId)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rr := CheckRESTPayloadValues(e.Registry, pickles, "")
+	var got []string
+	for _, f := range rr.Findings {
+		if f.Severity != SeverityWarning || f.Code != CodeRESTQuoted {
+			t.Errorf("finding: %+v", f)
+		}
+		got = append(got, fmt.Sprintf("%d %s", f.Locations[0].Line, f.Message))
+	}
+	want := []string{
+		`8 serviceLevel is set to the text 'OVERNIGHT', single quotes and all: in a payload table, single quotes are part of the value; write "OVERNIGHT" in double quotes for the string`,
+		`8 recipient is set to the text '{"name":"Ada","postcode":"10115"}', single quotes and all: in a payload table, single quotes are part of the value; write {"name":"Ada","postcode":"10115"} without the quotes for the JSON`,
+	}
+	if strings.Join(got, "\n") != strings.Join(want, "\n") {
+		t.Errorf("findings:\n%s\nwant:\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
+	}
+	if rr.ID != RESTValuesRuleID || rr.Files != 1 {
+		t.Errorf("rule %s, %d files", rr.ID, rr.Files)
+	}
+}

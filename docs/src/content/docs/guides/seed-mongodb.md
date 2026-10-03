@@ -98,7 +98,7 @@ Then within 10s a selection of at least 1 document is retrieved from the trackin
   | scanCount | 2           |
 ```
 
-The step polls every 500 ms until enough documents match or the time runs out. When the time runs out it keeps the last result as the selection, with fewer documents, and does not fail, so check the selection in a later step (`the selection has 1 document`, or its properties). Values that parse as JSON are typed, so `2` matches the number 2.
+The step polls every 500 ms until enough documents match, and fails when the time runs out with fewer. The documents it found are the selection, for later steps to check (`the selection has 1 document`, or its properties). Values that parse as JSON are typed, so `2` matches the number 2.
 
 Every query step has an `on <service>` form for scenarios with more than one MongoDB database.
 

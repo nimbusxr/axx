@@ -181,10 +181,9 @@ Then within {duration} a[[ {ordinal}]] selection of at least {int} row(s) is ret
 
 The table may start with the row naming its columns, as above, or go straight to its rows.
 
-Select the rows that match, again every 500ms, until at least that many come back or the time is up.
+Select the rows that match, again every 500ms, until at least that many come back, and keep them as the next selection.
 
-- The last result is kept as the next selection, even with fewer rows: check it with a row-count step.
-- The step fails only when no query succeeds in that time.
+- The step fails when the time is up with fewer rows.
 - Selections are numbered in the order they are retrieved, whatever ordinal the step says; `the selection` means the first.
 
 | Parameter | Takes | For example |

@@ -60,8 +60,8 @@ func querySteps() []core.StepDef {
 		{
 			ID: "mongo.find.poll", Keyword: "Then", Arg: core.ArgTable, Since: "0.1.0",
 			Expr: "within {duration} a[[ {ordinal}]] selection of at least {int} document(s) is retrieved from the {word} collection[[ on {mongoService}]] where:",
-			Doc: "Find the documents that match, again every 500ms, until at least that many come back or the time is up.\n\n" +
-				"- The last result is kept as the next selection, even with fewer documents: check it with a document-count step.\n" +
+			Doc: "Find the documents that match, again every 500ms, until at least that many come back, and keep them as the next selection.\n\n" +
+				"- The step fails when the time is up with fewer documents.\n" +
 				"- An error from MongoDB fails the step only when the time is up.\n" +
 				"- " + numbered,
 			Table: filterTable,
@@ -173,6 +173,9 @@ func find(sc *core.Scenario, a core.Args, svcArg int, collection string, t *core
 		}
 		if err == nil && (within == 0 || len(docs) >= atLeast || time.Now().Add(500*time.Millisecond).After(deadline)) {
 			svc.addSelection(&Selection{Collection: collection, Filter: filter, Docs: docs})
+			if within > 0 && len(docs) < atLeast {
+				return core.Fail(fmt.Sprintf("expected at least %d document(s) from %s within %s", atLeast, collection, within), atLeast, len(docs))
+			}
 			return nil
 		}
 		if err != nil {

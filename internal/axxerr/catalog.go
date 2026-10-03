@@ -248,6 +248,9 @@ func init() {
 	add("AXX-E0833", exitcode.OK, "REST request added twice",
 		"A step adds a request of a REST service that an earlier step added: without an ordinal, `a GET request to ...` is the service's 1st request. The step fails at runtime (Method already set). This is a warning.",
 		"Add the next request with the ordered form, like `a 2nd ordered GET request to ...`.")
+	add("AXX-E0834", exitcode.OK, "REST payload value in single quotes",
+		"A row of `the request payload properties are:` has a value in single quotes, like `'{\"name\":\"Ada\"}'`. In a table, single quotes are part of the value, so the property is set to that text, quotes and all, not to the JSON or the string inside (single quotes do quote a value in a step's own text). The request then usually fails for a reason the scenario did not mean to test. This is a warning.",
+		"Write JSON without quotes (`{\"name\":\"Ada\"}`) and a string in double quotes (`\"10115\"`) or bare.")
 
 	f := exitcode.Failed
 	add("AXX-E0900", u, "Invalid fixtures configuration",
