@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.11](https://github.com/nimbusxr/axx/compare/v0.1.10...v0.1.11) (2026-10-03)
+
+
+### Bug Fixes
+
+* warn about stale selections, lint rules that find nothing, and services used before they are registered ([#90](https://github.com/nimbusxr/axx/issues/90)) ([36c70bc](https://github.com/nimbusxr/axx/commit/36c70bcda6e56bd6a5000832c2640081e2d1337a))
+
 ## [0.1.10](https://github.com/nimbusxr/axx/compare/v0.1.9...v0.1.10) (2026-10-03)
 
 
