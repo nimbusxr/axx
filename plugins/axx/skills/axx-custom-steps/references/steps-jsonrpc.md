@@ -39,6 +39,8 @@ Given the {word} jsonrpc service with the following properties:
   | property | value |
 ```
 
+The table may start with the row naming its columns, as above, or go straight to its rows.
+
 Register a JSON-RPC 2.0 service, which takes calls over HTTP, under a name.
 
 | Parameter | Takes | For example |
@@ -95,6 +97,8 @@ When the {word} method is called on the {word} jsonrpc service with the followin
   | path | value |
 ```
 
+The table may start with the row naming its columns, as above, or go straight to its rows.
+
 Call a method with params by name, from the table.
 
 | Parameter | Takes | For example |
@@ -145,6 +149,8 @@ _Since 0.1.5._
 Then the {word} jsonrpc service's result has the following properties:
   | path | value |
 ```
+
+The table may start with the row naming its columns, as above, or go straight to its rows.
 
 Check the result of the service's last call.
 
@@ -220,6 +226,8 @@ Then the {word} jsonrpc service's error has the following properties:
   | path | value |
 ```
 
+The table may start with the row naming its columns, as above, or go straight to its rows.
+
 Check the error the service's last call answered: its `code`, its `message` and its `data`.
 
 | Parameter | Takes | For example |
@@ -244,6 +252,8 @@ _Since 0.1.5._
 Given the OpenRPC validation levels are:
   | validation key | level |
 ```
+
+The table may start with the row naming its columns, as above, or go straight to its rows.
 
 Set the level of OpenRPC validation findings for this scenario, on every JSON-RPC service it calls.
 

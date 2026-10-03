@@ -31,6 +31,8 @@ Besides Cucumber's built-in types (`{int}`, `{word}`, `{string}`, ...), Axx adds
 
 Steps that set or check one value take it inline (`the request header Accept is 'application/json'`); their plural twins take a two-column table (`the request headers are:`). Tables use JSONPath keys for payloads, so nested and array values need no extra steps.
 
+A table's rows are its data: every row is a property and its value, or whatever its step's columns say. It may start with a row naming those columns, as the reference shows them (`| JSONPath | value |`), or go straight to its rows; axx sets such a row aside, for every table of two columns or more.
+
 ## Step text is public API
 
 Once a step is released, its text never changes. New behavior gets new steps; old steps can be deprecated with a pointer to the replacement, never renamed. That is what keeps feature files working across releases, and what lets an agent trust `axx steps search` today and next year. Every build checks that each step in a frozen catalog of step text is still defined, word for word.

@@ -20,6 +20,8 @@ Given the {word} azure storage account with the following properties:
   | property | value |
 ```
 
+The table may start with the row naming its columns, as above, or go straight to its rows.
+
 Register the storage account the blob steps talk to.
 
 - The first account registered is the default.
@@ -133,6 +135,8 @@ Then [[within {duration} ]]the {word} blob in the {word} blob container has the 
   | path | value |
 ```
 
+The table may start with the row naming its columns, as above, or go straight to its rows.
+
 Check that the blob holds JSON with those values at those paths. The check waits for it: 10 seconds, or `within {duration}`.
 
 | Parameter | Takes | For example |
@@ -195,6 +199,8 @@ _Since 0.1.1._
 Then [[within {duration} ]]the {word} blob in the {word} blob container has a row where:
   | column | value |
 ```
+
+The table may start with the row naming its columns, as above, or go straight to its rows.
 
 Check that the table of the blob has a row with those values in those columns.
 

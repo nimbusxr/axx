@@ -15,6 +15,8 @@ Given the mocked {word} service with the following properties:
   | property | value |
 ```
 
+The table may start with the row naming its columns, as above, or go straight to its rows.
+
 Register a WireMock server, to check the requests it received. The first mocked service registered in a scenario is the default one.
 
 | Parameter | Takes | For example |
@@ -86,6 +88,8 @@ Then the mocked POST request to path /v1/collections named collection was receiv
 Given the OpenAPI validation levels for the mocked {mockedService} service are:
   | validation key | level |
 ```
+
+The table may start with the row naming its columns, as above, or go straight to its rows.
 
 Relax the mocked service's OpenAPI contract for this scenario: a finding that would fail the mock step that checks the call is reported at the level its row sets instead.
 
@@ -266,6 +270,8 @@ Then the headers for mocked request named {word} on {mockedService} are:
   | header | value |
 ```
 
+The table may start with the row naming its columns, as above, or go straight to its rows.
+
 Check that the named request was received with every header of the table, each with its value. Later steps on the named request check these headers too.
 
 | Parameter | Takes | For example |
@@ -312,6 +318,8 @@ Then the header Accept for mocked request named postcode-check on addresses matc
 Then the headers for mocked request named {word} on {mockedService} match:
   | header | regular expression |
 ```
+
+The table may start with the row naming its columns, as above, or go straight to its rows.
 
 Check that the named request was received with headers that match regular expressions, a row each.
 
@@ -383,6 +391,8 @@ Then the payload properties for mocked request named {word}[[ on {mockedService}
   | property | value |
 ```
 
+The table may start with the row naming its columns, as above, or go straight to its rows.
+
 Check that the named request was received with a JSON body that has every property of the table, each with its value.
 
 - A property is a JSONPath, like `deliverTo.postcode` or `$.lines[0].reference`; WireMock reads it.
@@ -417,6 +427,8 @@ Then the query parameters for mocked request named {word}[[ on {mockedService}]]
   | parameter | value |
 ```
 
+The table may start with the row naming its columns, as above, or go straight to its rows.
+
 Check that the named request was received with every query parameter of the table, each with its value.
 
 - Name the request by its path (`the mocked ... request to path ...`): a request named by its whole URL matches its query already.
@@ -450,6 +462,8 @@ Then the form fields for mocked request named {word}[[ on {mockedService}]] are:
   | field | value |
 ```
 
+The table may start with the row naming its columns, as above, or go straight to its rows.
+
 Check that the named request was received with a form-encoded body that has every field of the table, each with its value.
 
 - `undefined` means the form has no such field.
@@ -481,6 +495,8 @@ Then the form fields for mocked request named pickup-notice on courier are:
 Then none of the mocked {word} requests to path {word}[[ on {mockedService}]] have the query parameters:
   | parameter | value |
 ```
+
+The table may start with the row naming its columns, as above, or go straight to its rows.
 
 Check that the mocked service received no request with that method to a path, whatever its query string, that has every query parameter of the table, each with its value.
 
@@ -515,6 +531,8 @@ Then none of the mocked {word} requests to path {word}[[ on {mockedService}]] ha
   | property | value |
 ```
 
+The table may start with the row naming its columns, as above, or go straight to its rows.
+
 Check that the mocked service received no request with that method to a path, whatever its query string, that has every payload property of the table, each with its value.
 
 - Every request the mocked service received counts, other scenarios' too: put the scenario's own data in the table, like its parcel's reference, next to what must not be there.
@@ -547,6 +565,8 @@ Then none of the mocked {word} requests to path {word}[[ on {mockedService}]] ha
   | field | value |
 ```
 
+The table may start with the row naming its columns, as above, or go straight to its rows.
+
 Check that the mocked service received no request with that method to a path, whatever its query string, that has every form field of the table, each with its value.
 
 - Every request the mocked service received counts, other scenarios' too: put the scenario's own data in the table, like its parcel's reference, next to what must not be there.
@@ -578,6 +598,8 @@ Then none of the mocked POST requests to path /v1/pickups on courier have the fo
 Then the mocked request named {word}[[ on {mockedService}]] is signed in the {word} header with the following properties:
   | property | value |
 ```
+
+The table may start with the row naming its columns, as above, or go straight to its rows.
 
 Check that the named request was received, and that every request it names is signed in the header: an HMAC of its body, or of what the `signs` template gives, made with the key.
 
@@ -783,6 +805,8 @@ _Since 0.1.5._
 Then the mocked {mockedService} mcp server's {word} tool was called[[ {int} time(s)]] with the following arguments:
   | argument | value |
 ```
+
+The table may start with the row naming its columns, as above, or go straight to its rows.
 
 Check that the service called the tool of a mocked MCP server with the table's arguments: at least once, or as many times as the step says.
 

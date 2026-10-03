@@ -27,6 +27,8 @@ Given the {word} mqtt broker with the following properties:
   | property | value |
 ```
 
+The table may start with the row naming its columns, as above, or go straight to its rows.
+
 Register the MQTT broker the steps talk to.
 
 - The first broker registered is the one the scenario's MQTT steps use.
@@ -127,6 +129,8 @@ _Since 0.1.5._
 Then [[within {duration} ]]the {word} mqtt topic has a message where:
   | path | value |
 ```
+
+The table may start with the row naming its columns, as above, or go straight to its rows.
 
 Check that the mqtt topic has a message with those values, received since the scenario started.
 

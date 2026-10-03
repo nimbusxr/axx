@@ -93,6 +93,8 @@ Then [[within {duration} ]]the {word} object in the {word} s3 bucket has the fol
   | path | value |
 ```
 
+The table may start with the row naming its columns, as above, or go straight to its rows.
+
 Check that the object holds JSON with those values at those paths. The check waits for it: 10 seconds, or `within {duration}`.
 
 | Parameter | Takes | For example |
@@ -155,6 +157,8 @@ _Since 0.1.1._
 Then [[within {duration} ]]the {word} object in the {word} s3 bucket has a row where:
   | column | value |
 ```
+
+The table may start with the row naming its columns, as above, or go straight to its rows.
 
 Check that the table of the object has a row with those values in those columns.
 

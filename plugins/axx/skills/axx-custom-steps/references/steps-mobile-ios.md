@@ -15,6 +15,8 @@ Given the {word} ios app with the following properties:
   | property | value |
 ```
 
+The table may start with the row naming its columns, as above, or go straight to its rows.
+
 Register an iOS app, and the simulator it runs on. The app starts when a step launches it or opens a link in it.
 
 | Parameter | Takes | For example |

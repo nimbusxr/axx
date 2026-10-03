@@ -25,6 +25,8 @@ Given the {word} grpc service with the following properties:
   | property | value |
 ```
 
+The table may start with the row naming its columns, as above, or go straight to its rows.
+
 Register a gRPC service under a name. Its calls go over one connection per address for the run.
 
 | Parameter | Takes | For example |
@@ -81,6 +83,8 @@ _Since 0.1.5._
 When the {word} method is called on the {word} grpc service with the following fields:
   | path | value |
 ```
+
+The table may start with the row naming its columns, as above, or go straight to its rows.
 
 Call a method with a request message built from the table.
 
@@ -169,6 +173,8 @@ Then the {word} grpc service's answer has the following fields:
   | path | value |
 ```
 
+The table may start with the row naming its columns, as above, or go straight to its rows.
+
 Check the answer of the service's last call, a unary call that answered OK.
 
 | Parameter | Takes | For example |
@@ -194,6 +200,8 @@ Then the {word} grpc service's answer has the following metadata:
   | name | value |
 ```
 
+The table may start with the row naming its columns, as above, or go straight to its rows.
+
 Check the metadata the service's last call answered with: its headers and trailers.
 
 | Parameter | Takes | For example |
@@ -217,6 +225,8 @@ _Since 0.1.5._
 Then [[within {duration} ]]the {word} grpc service streamed a message where:
   | path | value |
 ```
+
+The table may start with the row naming its columns, as above, or go straight to its rows.
 
 Check that the service's last call, a server stream, sent a message with those values.
 

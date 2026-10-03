@@ -201,7 +201,8 @@ func (r *Runner) execStep(ctx context.Context, sc *core.Scenario, sk *sink, sr *
 	err := r.checkArgKind(m.Def().Step.Arg, sr)
 	var args core.Args
 	if err == nil {
-		args, err = r.opts.Registry.Resolve(sc, m, sr.Text, sr.Table, sr.DocString)
+		// A row naming the table's columns is not part of the step's data.
+		args, err = r.opts.Registry.Resolve(sc, m, sr.Text, m.Def().Step.Table.WithoutNamesRow(sr.Table), sr.DocString)
 	}
 	if err == nil {
 		for _, h := range r.hooksFor(core.BeforeStep, sc.Tags) {

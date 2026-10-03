@@ -42,6 +42,8 @@ Then [[within {duration} ]]the {word} eventbridge bus has an event where:
   | path | value |
 ```
 
+The table may start with the row naming its columns, as above, or go straight to its rows.
+
 Check that the bus has an event with those values, put since the scenario started.
 
 - The check waits for it: 10 seconds, or `within {duration}`.

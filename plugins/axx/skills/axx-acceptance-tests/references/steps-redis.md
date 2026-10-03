@@ -23,6 +23,8 @@ Given the {word} redis server with the following properties:
   | property | value |
 ```
 
+The table may start with the row naming its columns, as above, or go straight to its rows.
+
 Register the Redis server the steps talk to.
 
 - The first server registered is the one the scenario's Redis steps use.
@@ -103,6 +105,8 @@ _Since 0.1.5._
 Then [[within {duration} ]]the {word} redis key has the following properties:
   | path | value |
 ```
+
+The table may start with the row naming its columns, as above, or go straight to its rows.
 
 Check that the key, shown as JSON, has the properties of the table. The check waits for it: 10 seconds, or `within {duration}`.
 

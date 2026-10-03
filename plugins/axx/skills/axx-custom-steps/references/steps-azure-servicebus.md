@@ -22,6 +22,8 @@ Given the {word} service bus namespace with the following properties:
   | property | value |
 ```
 
+The table may start with the row naming its columns, as above, or go straight to its rows.
+
 Register the Service Bus namespace the steps talk to.
 
 - The first namespace registered is the default.
@@ -112,6 +114,8 @@ _Since 0.1.0._
 Then [[within {duration} ]]the {word} service bus queue/topic has a message where:
   | path | value |
 ```
+
+The table may start with the row naming its columns, as above, or go straight to its rows.
 
 Check that the service bus queue or topic has a message with those values, received since the scenario started.
 

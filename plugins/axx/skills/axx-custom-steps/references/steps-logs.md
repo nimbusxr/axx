@@ -28,6 +28,8 @@ Given the {word} log with the following properties:
   | property | value |
 ```
 
+The table may start with the row naming its columns, as above, or go straight to its rows.
+
 Register a log under a name. Assertions only look at what the log receives from then on.
 
 | Parameter | Takes | For example |
@@ -136,6 +138,8 @@ Then the parcels log has 2 entries matching 'storing parcel PX-DBF-3002 failed, 
 Then [[within {duration} ]]the logs have entries matching:
   | log | pattern |
 ```
+
+The table may start with the row naming its columns, as above, or go straight to its rows.
 
 Wait until every log in the table has a match for its regular expression, for example the service's own entry and its dependency's. Each row needs a match of its own.
 

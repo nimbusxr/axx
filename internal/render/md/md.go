@@ -77,6 +77,9 @@ func writeStep(b *strings.Builder, heading string, d *match.Def, variants []stri
 		b.WriteString("  \"\"\"\n  ...\n  \"\"\"\n")
 	}
 	b.WriteString("```\n")
+	if s.Arg == core.ArgTable && s.Table != nil && len(s.Table.Columns) > 1 {
+		b.WriteString("\nThe table may start with the row naming its columns, as above, or go straight to its rows.\n")
+	}
 	if s.Doc != "" {
 		fmt.Fprintf(b, "\n%s\n", strings.TrimSpace(s.Doc))
 	}

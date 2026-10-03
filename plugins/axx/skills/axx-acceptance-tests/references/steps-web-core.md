@@ -33,6 +33,8 @@ Given the {word} web app with the following properties:
   | property | value |
 ```
 
+The table may start with the row naming its columns, as above, or go straight to its rows.
+
 Register a web app, and how the browser presents itself to it. The first web app registered is the default.
 
 | Parameter | Takes | For example |
@@ -660,6 +662,8 @@ Then [[within {duration} ]]the page shows a table row where:
   | column | value |
 ```
 
+The table may start with the row naming its columns, as above, or go straight to its rows.
+
 Check that a table on the page has a row with those values in those columns. The check waits for it: 10 seconds, or `within {duration}`.
 
 | Parameter | Takes | For example |
@@ -738,6 +742,8 @@ _Since 0.1.1._
 Then the downloaded {string} file has a row where:
   | column | value |
 ```
+
+The table may start with the row naming its columns, as above, or go straight to its rows.
 
 Check that the table of a file the browser downloaded has a row with those values in those columns: a CSV or TSV file, or an Excel workbook (.xlsx, its first sheet), whose first row names the columns.
 
@@ -1107,6 +1113,8 @@ _Since 0.1.1._
 Then [[within {duration} ]]the page shows {int} table row(s) where:
   | column | value |
 ```
+
+The table may start with the row naming its columns, as above, or go straight to its rows.
 
 Check how many rows of the page's tables have those values in those columns. The check waits for the number: 10 seconds, or `within {duration}`.
 

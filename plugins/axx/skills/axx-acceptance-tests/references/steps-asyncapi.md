@@ -39,6 +39,8 @@ Given the AsyncAPI validation levels are:
   | validation key | level |
 ```
 
+The table may start with the row naming its columns, as above, or go straight to its rows.
+
 Set the level of AsyncAPI validation findings for this scenario, on every contract it checks messages against.
 
 - A key also sets the keys below it: `validation.message.payload` relaxes `validation.message.payload.schema.required` too. The most specific key set wins.

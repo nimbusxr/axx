@@ -24,6 +24,8 @@ Then the {string} page scores at least:
   | category | score |
 ```
 
+The table may start with the row naming its columns, as above, or go straight to its rows.
+
 Audit a page of the web app with Lighthouse, a path below its `url` or a whole URL, and check its scores.
 
 - Lighthouse audits the categories listed only, as the `device` of `packs.web-lighthouse` (a phone by default).
@@ -60,6 +62,8 @@ _Since 0.1.1._
 Then the {string} page loads within:
   | metric | limit |
 ```
+
+The table may start with the row naming its columns, as above, or go straight to its rows.
 
 Audit how fast a page of the web app loads with Lighthouse, a path below its `url` or a whole URL, and check its metrics.
 

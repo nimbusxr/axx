@@ -17,6 +17,8 @@ Given the {word} event stream with the following properties:
   | property | value |
 ```
 
+The table may start with the row naming its columns, as above, or go straight to its rows.
+
 Open a server-sent event stream under a name. It belongs to the scenario, which closes it when it ends.
 
 | Parameter | Takes | For example |
@@ -46,6 +48,8 @@ _Since 0.1.5._
 Then [[within {duration} ]]the {word} event stream has an event where:
   | path | value |
 ```
+
+The table may start with the row naming its columns, as above, or go straight to its rows.
 
 Check that the stream sent an event with those values. The check waits for it: 10 seconds, or `within {duration}`.
 

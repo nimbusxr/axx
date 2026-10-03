@@ -79,3 +79,36 @@ func TestStepsShowNamesTheClosestSteps(t *testing.T) {
 		}
 	}
 }
+
+// An id that is not one, as agents guess them in the evals, gets the ids
+// that start like it, or the steps its words find.
+func TestStepsShowSuggestsForAGuessedID(t *testing.T) {
+	dir := t.TempDir()
+	t.Chdir(dir)
+	writeFiles(t, dir, map[string]string{"axx.yaml": "version: 1\n", "axx-packs.yaml": "packs: [rest, mongo]\n"})
+	for q, want := range map[string]string{
+		"rest.response.property.contains": "the closest: rest.response.property.",
+		"mongo.database":                  "the closest: mongo.",
+		"rest.get":                        "the closest: rest.",
+	} {
+		_, stderr, code := run(t, "steps", "show", q)
+		if code != int(exitcode.Usage) || !strings.Contains(stderr, "AXX-E0310") || !strings.Contains(stderr, want) {
+			t.Errorf("%s: exit %d, want %q in:\n%s", q, code, want, stderr)
+		}
+	}
+}
+
+// A step with a table shows its columns, and that a row naming them is
+// optional.
+func TestStepsShowShowsTheTableColumns(t *testing.T) {
+	restProject(t)
+	out, stderr, code := run(t, "steps", "show", "rest.response.properties.are")
+	if code != int(exitcode.OK) {
+		t.Fatalf("exit %d: %s", code, stderr)
+	}
+	for _, want := range []string{"Table columns: | JSONPath | value |", "may start with a row of these names"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("missing %q in:\n%s", want, out)
+		}
+	}
+}

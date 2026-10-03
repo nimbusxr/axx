@@ -28,6 +28,8 @@ Given the {word} kafka service with the following properties:
   | property | value |
 ```
 
+The table may start with the row naming its columns, as above, or go straight to its rows.
+
 Register a Kafka cluster. The first one registered in a scenario is the default for steps without `on the {word} kafka service`.
 
 | Parameter | Takes | For example |
@@ -72,6 +74,8 @@ Given the parcel-events kafka topic client
 Given a(n) {word} kafka topic client[[ on the {word} kafka service]] with the following properties:
   | property | value |
 ```
+
+The table may start with the row naming its columns, as above, or go straight to its rows.
 
 Create a topic client configured with Java Kafka client properties: `producer.` rows for publishing, `consumer.` rows for assertions.
 
@@ -231,6 +235,8 @@ Given the[[ {ordinal} ordered]] {word} kafka event headers[[ on the {word} kafka
   | header | value |
 ```
 
+The table may start with the row naming its columns, as above, or go straight to its rows.
+
 Set headers of a drafted event. With `the {ordinal} ordered` the step works on that event of the topic (`1st` is the first event created); without it, on the first event.
 
 | Parameter | Takes | For example |
@@ -295,6 +301,8 @@ Given the[[ {ordinal} ordered]] kafka event payload properties[[ on the {word} k
   | JSONPath | value |
 ```
 
+The table may start with the row naming its columns, as above, or go straight to its rows.
+
 Set JSONPath properties of an event of the service's **first** topic client, the first one created in the scenario.
 
 - Every property must already exist in the payload.
@@ -332,6 +340,8 @@ Given the {word} kafka event payload properties[[ on the {word} kafka service]] 
   | JSONPath | value |
 ```
 
+The table may start with the row naming its columns, as above, or go straight to its rows.
+
 Set JSONPath properties of the topic's first event. Every property must already exist in the payload: set it in the payload file first.
 
 | Parameter | Takes | For example |
@@ -361,6 +371,8 @@ Given the depot-scans kafka event payload properties on the events kafka service
 Given the {ordinal} ordered {word} kafka event payload properties[[ on the {word} kafka service]] are:
   | JSONPath | value |
 ```
+
+The table may start with the row naming its columns, as above, or go straight to its rows.
 
 Set JSONPath properties of that event of the topic (`1st` is the first event created). Every property must already exist in the payload: set it in the payload file first.
 
@@ -516,6 +528,8 @@ Then the {word} kafka event named {word} payload properties[[ on the {word} kafk
   | JSONPath | value |
 ```
 
+The table may start with the row naming its columns, as above, or go straight to its rows.
+
 Expect JSONPath properties of the label's record payload.
 
 - Values are typed: `"text"` is a string, `null` JSON null, `12` an integer, `1.5` a decimal, `true` and `false` booleans, `{...}` and `[...]` JSON; anything else is a string.
@@ -555,6 +569,8 @@ Then the {word} kafka event named {word} headers[[ on the {word} kafka service]]
   | header | value |
 ```
 
+The table may start with the row naming its columns, as above, or go straight to its rows.
+
 Expect headers of the label's record.
 
 - Each header must occur exactly once, with exactly this value.
@@ -589,6 +605,8 @@ Then the {word} kafka event named {word} headers match:
   | header | pattern |
 ```
 
+The table may start with the row naming its columns, as above, or go straight to its rows.
+
 Expect headers of the label's record to match regular expressions.
 
 - A header must have one distinct value: unlike the other steps, this one ignores repeated identical values of a header.
@@ -615,6 +633,8 @@ Then the parcel-events kafka event named registered headers match:
 Then the {word} kafka event named {word} headers on the {word} kafka service match:
   | header | pattern |
 ```
+
+The table may start with the row naming its columns, as above, or go straight to its rows.
 
 Expect headers of the label's record, on a topic client of that Kafka service, to match regular expressions.
 
