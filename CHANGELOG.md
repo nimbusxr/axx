@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.1.9](https://github.com/nimbusxr/axx/compare/v0.1.8...v0.1.9) (2026-10-03)
+
+
+### Features
+
+* a step's table may start with a row naming its columns (two columns or more); `axx steps show` and the MCP steps show the columns ([6a290f5](https://github.com/nimbusxr/axx/commit/6a290f5db0b4a0d18fa6bfe8234245a7a66b23de))
+* axx env and axx config show, as the MCP tools; axx steps explain is axx explain ([b4ee113](https://github.com/nimbusxr/axx/commit/b4ee113ad6aeece0083942c1870299782efdfca2))
+* axx validate and axx lint hint at scenarios that check several things in turn ([b4ee113](https://github.com/nimbusxr/axx/commit/b4ee113ad6aeece0083942c1870299782efdfca2))
+* **mcp:** the instructions ask for one scenario per criterion and services registered first; steps_search returns 6 steps by default without variants ([b4ee113](https://github.com/nimbusxr/axx/commit/b4ee113ad6aeece0083942c1870299782efdfca2))
+
+
+### Bug Fixes
+
+* `axx steps show` suggests the ids that start like a guessed id, or the steps its words find ([6a290f5](https://github.com/nimbusxr/axx/commit/6a290f5db0b4a0d18fa6bfe8234245a7a66b23de))
+* **kafka:** an event check whose JSONPath is not in the payload names the payload's properties ([b4ee113](https://github.com/nimbusxr/axx/commit/b4ee113ad6aeece0083942c1870299782efdfca2))
+* **rest:** setting a payload property inside a missing one names what is missing and how to get it, not only PathNotFoundException ([b4ee113](https://github.com/nimbusxr/axx/commit/b4ee113ad6aeece0083942c1870299782efdfca2))
+* **sql:** a seed refused for an unknown column or table names the table's columns or the schema's tables ([b4ee113](https://github.com/nimbusxr/axx/commit/b4ee113ad6aeece0083942c1870299782efdfca2))
+* the REST request numbering findings give the exact step to write ([b4ee113](https://github.com/nimbusxr/axx/commit/b4ee113ad6aeece0083942c1870299782efdfca2))
+
 ## [0.1.8](https://github.com/nimbusxr/axx/compare/v0.1.7...v0.1.8) (2026-10-02)
 
 
