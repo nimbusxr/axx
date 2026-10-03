@@ -8,6 +8,12 @@ The steps use the scenario's project (`the {word} gcp project with the following
 
 **Checking a topic** does not take messages from anyone: for the topics a run checks, axx creates a subscription of its own (`axx-<run>-<topic>`) once the apps are up, and deletes it when the run ends. A check only looks at the messages received since its scenario started; match on data unique to the scenario, since scenarios run in parallel. The conditions are paths into the message data (JSON) and `attribute <name>` rows for its attributes.
 
+The steps, each documented below under its id:
+
+- `gcp-pubsub.send`: `a message is published to the {word} pubsub topic:`
+- `gcp-pubsub.send.file`: `the {filepath} message is published to the {word} pubsub topic[[ with the following attributes:]]`
+- `gcp-pubsub.received`: `[[within {duration} ]]the {word} pubsub topic has a message where:`
+
 ## `gcp-pubsub.send`
 
 ```gherkin

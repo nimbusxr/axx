@@ -4,6 +4,20 @@
 
 Register MongoDB databases, seed collections from JSON files, and query and assert on documents.
 
+The steps, each documented below under its id:
+
+- `mongo.service`: `a(n) {word} mongo database with the following properties:`
+- `mongo.seed`: `a {filepath} mongo db seed`
+- `mongo.seed.named`: `a {filepath} MongoDB seed for {word}`
+- `mongo.seed.named.alt`: `a {filepath} mongo db seed for {word}`
+- `mongo.find`: `a[[ {ordinal}]] selection of documents is retrieved from the {word} collection[[ on {mongoService}]] where:`
+- `mongo.find.poll`: `within {duration} a[[ {ordinal}]] selection of at least {int} document(s) is retrieved from the {word} collection[[ on {mongoService}]] where:`
+- `mongo.docs.eq`: `the[[ {ordinal}]] selection[[ on {mongoService}]] has {int} document(s)`
+- `mongo.docs.gt`: `the[[ {ordinal}]] selection[[ on {mongoService}]] has more than {int} document(s)`
+- `mongo.docs.lt`: `the[[ {ordinal}]] selection[[ on {mongoService}]] has fewer than {int} document(s)`
+- `mongo.doc.are`: `the {ordinal} document for the[[ {ordinal}]] selection[[ on {mongoService}]] properties are:`
+- `mongo.doc.match`: `the {ordinal} document for the[[ {ordinal}]] selection[[ on {mongoService}]] properties match:`
+
 ## `mongo.service`
 
 ```gherkin

@@ -29,6 +29,25 @@ Findings have keys and levels, like the REST pack's OpenAPI findings:
 - **Levels:** `ERROR` (or `FAIL`) fails the step, `WARN` and `INFO` log the finding, `IGNORE` drops it. Every finding is an `ERROR` unless `packs.mcp.levels` in axx.yaml, or the scenario's `the MCP validation levels are:`, says otherwise.
 - **Secrets stay secret:** `${env:..}` values in the properties are masked in logs and failures, and `${token:..}` names a token of the scenario.
 
+The steps, each documented below under its id:
+
+- `mcp.server`: `the {word} mcp server with the following properties:`
+- `mcp.tool`: `the {word} mcp server has the {word} tool[[ with the following properties:]]`
+- `mcp.noTool`: `the {word} mcp server does not have the {word} tool`
+- `mcp.call`: `the {word} tool is called on the {word} mcp server[[ with the following arguments:]]`
+- `mcp.call.file`: `the {word} tool is called on the {word} mcp server with the {filepath} arguments`
+- `mcp.notError`: `the {word} tool's result[[ on the {word} mcp server]] is not an error`
+- `mcp.error`: `the {word} tool's result[[ on the {word} mcp server]] is an error`
+- `mcp.contains`: `the {word} tool's result[[ on the {word} mcp server]] contains {string}`
+- `mcp.properties`: `the {word} tool's result[[ on the {word} mcp server]] has the following properties:`
+- `mcp.refused`: `the {word} tool's call[[ on the {word} mcp server]] failed with the error code {int}`
+- `mcp.resource.read`: `the {word} resource is read from the {word} mcp server`
+- `mcp.resource.contains`: `the {word} resource contains {string}`
+- `mcp.resource.properties`: `the {word} resource has the following properties:`
+- `mcp.prompt`: `the {word} prompt is requested from the {word} mcp server[[ with the following arguments:]]`
+- `mcp.prompt.contains`: `the {word} prompt contains {string}`
+- `mcp.levels`: `the MCP validation levels are:`
+
 ## `mcp.server`
 
 ```gherkin

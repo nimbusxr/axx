@@ -2,6 +2,7 @@ package jvalue
 
 import (
 	"errors"
+	"regexp"
 	"strings"
 
 	"github.com/nimbusxr/axx/internal/compat/javare"
@@ -28,6 +29,10 @@ func isKind(err error, kind jsonx.ErrorKind) bool {
 //   - When path does not exist, the property is added to its parent (split
 //     at the last '.', see [jsonx.ParentAndKey]) with the type
 //     [InferRequestValue] infers.
+//   - A parent that does not exist either is created, as an empty object,
+//     when its path is plain names (recipient.address.city creates recipient
+//     and its address); Java failed with PathNotFoundException, and still
+//     does here for paths with array indexes or filters. (ADR 0010.)
 //
 // Invalid numbers and empty or "null" JSON produce a StepError
 // "Invalid value ..."; other failures propagate as Java's did.
@@ -37,7 +42,7 @@ func SetRequestProperty(doc any, path, value string) error {
 		err := jsonx.Set(doc, path, str)
 		if isKind(err, jsonx.PathNotFound) {
 			parent, key := jsonx.ParentAndKey(path)
-			return jsonx.Put(doc, parent, key, str)
+			return putCreatingParents(doc, parent, key, str)
 		}
 		return err
 	}
@@ -47,7 +52,7 @@ func SetRequestProperty(doc any, path, value string) error {
 		return nil
 	case isKind(err, jsonx.PathNotFound):
 		parent, key := jsonx.ParentAndKey(path)
-		return jsonx.Put(doc, parent, key, InferRequestValue(value))
+		return putCreatingParents(doc, parent, key, InferRequestValue(value))
 	case isKind(err, jsonx.IllegalArgument):
 		var e *jsonx.Error
 		errors.As(err, &e)
@@ -57,6 +62,34 @@ func SetRequestProperty(doc any, path, value string) error {
 		}
 	}
 	return err
+}
+
+// plainPath matches a JSONPath of plain property names: $.recipient.address.
+var plainPath = regexp.MustCompile(`^\$(\.[A-Za-z0-9_-]+)+$`)
+
+// putCreatingParents puts key in the object at parent, first creating the
+// objects of parent that are missing, when parent's path is plain names.
+func putCreatingParents(doc any, parent, key string, value any) error {
+	err := jsonx.Put(doc, parent, key, value)
+	if !isKind(err, jsonx.PathNotFound) || !plainPath.MatchString(parent) {
+		return err
+	}
+	if ensureObject(doc, parent) != nil {
+		return err // as Java failed
+	}
+	return jsonx.Put(doc, parent, key, value)
+}
+
+// ensureObject creates the object at path, and its missing parents.
+func ensureObject(doc any, path string) error {
+	if _, _, err := jsonx.Read(doc, path); err == nil || path == "$" {
+		return err
+	}
+	parent, key := jsonx.ParentAndKey(path)
+	if err := ensureObject(doc, parent); err != nil {
+		return err
+	}
+	return jsonx.Put(doc, parent, key, jsonx.NewObject())
 }
 
 // setTyped is the try block of setProperty.

@@ -13,6 +13,16 @@ Given the customs azure storage account with the following properties:
 
 Checks wait for the blob (10 seconds unless `within {duration}` says otherwise), since services write asynchronously. Values expand `${env:..}` and `${sys:..}`.
 
+The steps, each documented below under its id:
+
+- `azure-blob.account`: `the {word} azure storage account with the following properties:`
+- `azure-blob.upload`: `the {filepath} file is uploaded to the {word} blob container[[ as {word}]]`
+- `azure-blob.has`: `[[within {duration} ]]the {word} blob container has a(n) blob named {word}`
+- `azure-blob.identical`: `[[within {duration} ]]the {word} blob in the {word} blob container is identical to the {filepath} file`
+- `azure-blob.properties`: `[[within {duration} ]]the {word} blob in the {word} blob container has the following properties:`
+- `azure-blob.contains`: `[[within {duration} ]]the {word} blob in the {word} blob container contains {string}`
+- `azure-blob.row`: `[[within {duration} ]]the {word} blob in the {word} blob container has a row where:`
+
 ## `azure-blob.account`
 
 ```gherkin

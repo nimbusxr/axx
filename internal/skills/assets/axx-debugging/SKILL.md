@@ -1,6 +1,6 @@
 ---
 name: axx-debugging
-description: Diagnose failing Axx acceptance-test runs (Gherkin scenarios run by the Axx CLI) - failed assertions, undefined or ambiguous steps, OpenAPI validation errors, apps that do not start, failed web steps, timeouts and flaky parallel scenarios. Use when `axx run` exits non-zero.
+description: Diagnose failing axx acceptance-test runs - failed assertions, undefined or ambiguous steps, OpenAPI validation errors, apps that do not start, failed web steps, timeouts and flaky parallel scenarios. Use when `axx run` exits non-zero.
 license: Apache-2.0
 ---
 

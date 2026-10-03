@@ -6,6 +6,15 @@ Upload files to S3 buckets and check the objects your services write there.
 
 The steps use the scenario's AWS account (`the {word} aws account with the following properties:`, from aws-core). Checks wait for the object (10 seconds unless `within {duration}` says otherwise), since services write asynchronously: an upload that triggers processing (an S3 event notification to a queue, say) and the object that processing writes.
 
+The steps, each documented below under its id:
+
+- `aws-s3.upload`: `the {filepath} file is uploaded to the {word} s3 bucket[[ as {word}]]`
+- `aws-s3.has`: `[[within {duration} ]]the {word} s3 bucket has a(n) object named {word}`
+- `aws-s3.identical`: `[[within {duration} ]]the {word} object in the {word} s3 bucket is identical to the {filepath} file`
+- `aws-s3.properties`: `[[within {duration} ]]the {word} object in the {word} s3 bucket has the following properties:`
+- `aws-s3.contains`: `[[within {duration} ]]the {word} object in the {word} s3 bucket contains {string}`
+- `aws-s3.row`: `[[within {duration} ]]the {word} object in the {word} s3 bucket has a row where:`
+
 ## `aws-s3.upload`
 
 ```gherkin

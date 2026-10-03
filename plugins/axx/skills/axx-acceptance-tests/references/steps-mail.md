@@ -19,6 +19,11 @@ Given the shops mailbox with the following properties:
 - **Mail sent through a provider's HTTP API** (SendGrid, SES, Mailgun, Postmark) is not in a mailbox: mock the provider with WireMock and check the request with the mock pack.
 - **Secrets stay secret:** the password, and `${env:..}` values, are masked in logs and failures.
 
+The steps, each documented below under its id:
+
+- `mail.mailbox`: `the {word} mailbox with the following properties:`
+- `mail.received`: `[[within {duration} ]]the {word} mailbox has an email where:`
+
 ## `mail.mailbox`
 
 ```gherkin

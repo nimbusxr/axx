@@ -105,7 +105,7 @@ var Deviations = append([]Deviation{
 	// value, which is what a YAML author means. "<<" stays an ordinary key.
 	{"jacksonyaml", "parse|a: &x 1\nb: *x", "aliases resolve to the anchored value"},
 	{"jacksonyaml", "parse|base: &b {x: 1}\nother:\n  <<: *b\n  y: 2", "aliases resolve to the anchored value"},
-}, nullPropertyDeviations()...)
+}, append(nullPropertyDeviations(), missingParentDeviations()...)...)
 
 // nullPropertyDeviations lists the oracle cases that set a request payload
 // property whose current value is null ("nothing" in the profile document).
@@ -129,6 +129,33 @@ func nullPropertyDeviations() []Deviation {
 	// step hands them to setProperty.
 	for _, v := range []string{"null", "undefined"} {
 		out = append(out, Deviation{"reststeps", "request|profile|single|nothing|" + v, reason})
+	}
+	return out
+}
+
+// missingParentDeviations lists the oracle cases that set a request payload
+// property inside an object the payload lacks (a.b in an empty document,
+// missing.child in the profile). The oracle records a PathNotFoundException;
+// axx creates the missing objects when the path is plain names (ADR 0010).
+// The table routes null and undefined to their own steps, which still need
+// the property's parent.
+func missingParentDeviations() []Deviation {
+	const reason = "setting a property inside a missing object creates the object (ADR 0010)"
+	cases := []struct {
+		doc, path string
+		values    []string
+	}{
+		{"empty", "a.b", []string{"John", "30", "true", `"30"`, "null", "undefined", `{"a":[1]}`}},
+		{"profile", "missing.child", []string{"30", "3000000000", "x y", `"q"`, "true", `{"k":1}`, "[1,2]", "1.5", "undefined", "null", "١"}},
+	}
+	var out []Deviation
+	for _, c := range cases {
+		for _, v := range c.values {
+			out = append(out, Deviation{"reststeps", "request|" + c.doc + "|single|" + c.path + "|" + v, reason})
+			if v != "null" && v != "undefined" {
+				out = append(out, Deviation{"reststeps", "request|" + c.doc + "|table|" + c.path + "|" + v, reason})
+			}
+		}
 	}
 	return out
 }

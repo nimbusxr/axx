@@ -21,6 +21,21 @@ And the parcels a2a agent's answer contains 'out for delivery'
 - **States are written as people say them:** `submitted`, `working`, `completed`, `input-required`, `auth-required`, `failed`, `canceled`, `rejected`.
 - **Secrets stay secret:** `${env:..}` values in the properties are masked in logs and failures, and `${token:..}` names a token of the scenario.
 
+The steps, each documented below under its id:
+
+- `a2a.agent`: `the {word} a2a agent with the following properties:`
+- `a2a.card`: `the {word} a2a agent's card has the following properties:`
+- `a2a.skill`: `the {word} a2a agent has the {word} skill`
+- `a2a.send`: `a message is sent to the {word} a2a agent:`
+- `a2a.send.file`: `the {filepath} message is sent to the {word} a2a agent`
+- `a2a.stream`: `a message is streamed to the {word} a2a agent:`
+- `a2a.reply`: `a reply is sent to the {word} a2a agent:`
+- `a2a.cancel`: `the {word} a2a agent is asked to cancel its task`
+- `a2a.state`: `[[within {duration} ]]the {word} a2a agent's task is {word}`
+- `a2a.answer`: `the {word} a2a agent's answer contains {string}`
+- `a2a.artifact`: `the {word} a2a agent's task has an artifact where:`
+- `a2a.update`: `[[within {duration} ]]the {word} a2a agent's stream received an update where:`
+
 ## `a2a.agent`
 
 ```gherkin

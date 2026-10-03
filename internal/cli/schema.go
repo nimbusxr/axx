@@ -15,6 +15,7 @@ import (
 
 func newSchemaCmd(app *App) *cobra.Command {
 	var out, kind string
+	var outline bool
 	cmd := &cobra.Command{
 		Use:   "schema [config|factory|fixture|prototype]",
 		Short: "Print the JSON Schema for axx.yaml or a fixture spec file",
@@ -47,6 +48,9 @@ Reference them from the files with:
 				}
 				schema = b
 			}
+			if outline {
+				return schemaOutline(app.Stdout, schema)
+			}
 			if out != "" {
 				return os.WriteFile(out, schema, 0o644)
 			}
@@ -59,5 +63,6 @@ Reference them from the files with:
 	}
 	cmd.Flags().StringVarP(&out, "out", "o", "", "write to a file instead of stdout")
 	cmd.Flags().StringVar(&kind, "kind", "config", "which schema: config (axx.yaml), factory, fixture or prototype")
+	cmd.Flags().BoolVar(&outline, "outline", false, "print the keys the file may have, nested, each with one line of description (a fraction of the schema's size)")
 	return cmd
 }

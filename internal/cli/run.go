@@ -237,6 +237,12 @@ func (a *App) run(ctx context.Context, f *runFlags, args []string) error {
 	if code == exitcode.Undefined {
 		a.hintNoPacks(e)
 	}
+	// What validate and lint would add, so that a run is the one check a
+	// change needs: the findings of the project's test-data rules and of the
+	// feature checks over the scenarios that ran.
+	for _, w := range runWarnings(e, pickles) {
+		fmt.Fprintln(a.Stderr, "warning: "+w)
+	}
 	if code == exitcode.OK {
 		// A passing suite is where an agent stops: what it could read
 		// better is said here too, not only by validate and lint.
@@ -515,4 +521,33 @@ func knownPacks(e *engine.Engine, key string, packs []string) error {
 		}
 	}
 	return nil
+}
+
+// runWarnings are the findings `axx lint` would report for a run: the
+// project's test-data rules (a reused seed id) and the builtin feature
+// checks over the run's scenarios (an ordinal no request has), one line
+// each, with the file and line.
+func runWarnings(e *engine.Engine, pickles []*feature.Pickle) []string {
+	var results []lint.RuleResult
+	if set, err := lint.Load(e.Config); err == nil {
+		results = set.Run(lint.Options{WorkDir: e.Config.Dir}).Rules
+	}
+	results = append(results, lint.FeatureChecks(e.Registry, pickles, e.Config.Dir)...)
+	var out []string
+	for _, rr := range results {
+		for _, f := range rr.Findings {
+			var at []string
+			for _, l := range f.Locations {
+				if l.File != "" {
+					at = append(at, fmt.Sprintf("%s:%d", l.File, l.Line))
+				}
+			}
+			line := f.Message + " [" + f.Code + "]"
+			if len(at) > 0 {
+				line = strings.Join(at, ", ") + ": " + line
+			}
+			out = append(out, line)
+		}
+	}
+	return out
 }

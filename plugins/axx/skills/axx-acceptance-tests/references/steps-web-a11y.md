@@ -14,6 +14,13 @@ packs:
     ignore: [region]       # rules to leave out, by their axe-core id
 ```
 
+The steps, each documented below under its id:
+
+- `web-a11y.page`: `the page has no accessibility violations`
+- `web-a11y.element`: `the {string} {element} has no accessibility violations`
+- `web-a11y.structure`: `[[within {duration} ]]the page's accessible structure is:`
+- `web-a11y.element.structure`: `[[within {duration} ]]the {string} {element}'s accessible structure is:`
+
 ## `web-a11y.page`
 
 ```gherkin

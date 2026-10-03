@@ -1,12 +1,12 @@
 ---
 name: axx-custom-steps
-description: Add custom Gherkin steps to Axx (the human-readable acceptance testing framework) as Go packs that share the context of Axx's packs. Use when no step of Axx's packs covers what a scenario needs (check `axx steps search` and `axx pack list` first).
+description: Add custom steps to axx as Go packs that share the context of axx's packs. Use when no step of axx's packs covers what a scenario needs (check `axx steps` and `axx pack list` first).
 license: Apache-2.0
 ---
 
 # Custom steps for Axx
 
-Check the existing steps first: `axx steps search "<intent>"` searches the packs in `axx-packs.yaml`, and `axx pack list` shows Axx's other packs (`axx pack add <name>` adds one).
+Check the existing steps first: `axx steps` lists every step of the packs in `axx-packs.yaml`, a line each, and `axx pack list` shows axx's other packs (`axx pack add <name>` adds one).
 
 ## Packs (Go)
 

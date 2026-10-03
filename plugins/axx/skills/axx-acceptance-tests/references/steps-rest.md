@@ -64,6 +64,64 @@ Schema keywords use the draft-4 names: `const` is reported as `enum`, `exclusive
 
 When a scenario fails, its failure context (`rest`) shows the last request and response (headers, bodies truncated to 2 KB) and the OpenAPI findings.
 
+The steps, each documented below under its id:
+
+- `rest.service`: `the {word} service with the following properties:`
+- `rest.openapi.levels`: `the OpenAPI validation levels[[ on {service}]] are:`
+- `rest.request`: `a(n) {word} request to {word}[[ on {service}]]`
+- `rest.request.ordered`: `a {ordinal} ordered {word} request to {word}[[ on {service}]]`
+- `rest.request.header`: `the request header {word} is {string}[[ for {ordinal} ordered request]]`
+- `rest.request.header.on`: `the request header {word} is {string} for[[ {ordinal} ordered]] request on {service}`
+- `rest.request.headers`: `the request headers[[ for {ordinal} ordered request]] are:`
+- `rest.request.headers.on`: `the request headers for[[ {ordinal} ordered]] request on {service} are:`
+- `rest.request.payload.empty`: `a request payload using a(n) {mimeType} empty content template[[ for {ordinal} ordered request]]`
+- `rest.request.payload.empty.on`: `a request payload using a(n) {mimeType} empty content template for[[ {ordinal} ordered]] request on {service}`
+- `rest.request.payload.example`: `a request payload using a(n) {mimeType} content example[[ named {string}]][[ for {ordinal} ordered request]]`
+- `rest.request.payload.example.on`: `a request payload using a(n) {mimeType} content example[[ named {string}]] for[[ {ordinal} ordered]] request on {service}`
+- `rest.request.payload.resource`: `a request payload using a(n) {mimeType} {filepath} resource[[ for {ordinal} ordered request]]`
+- `rest.request.payload.resource.on`: `a request payload using a(n) {mimeType} {filepath} resource for[[ {ordinal} ordered]] request on {service}`
+- `rest.request.property`: `the request payload property {word} is {string}[[ for {ordinal} ordered request]]`
+- `rest.request.property.on`: `the request payload property {word} is {string} for[[ {ordinal} ordered]] request on {service}`
+- `rest.request.properties`: `the request payload properties[[ for {ordinal} ordered request]] are:`
+- `rest.request.properties.on`: `the request payload properties for[[ {ordinal} ordered]] request on {service} are:`
+- `rest.request.property.null`: `the request payload property {word} is null[[ for {ordinal} ordered request]]`
+- `rest.request.property.null.on`: `the request payload property {word} is null for[[ {ordinal} ordered]] request on {service}`
+- `rest.execute`: `the[[ {ordinal} ordered]] request is executed[[ on {service}]]`
+- `rest.response.status`: `the[[ {ordinal} ordered]] response status code is {int}[[ on {service}]]`
+- `rest.response.body.contains`: `the response body contains {string}[[ for {ordinal} ordered response]]`
+- `rest.response.body.contains.on`: `the response body contains {string} for[[ {ordinal} ordered]] response on {service}`
+- `rest.response.header.is`: `the response header {word} is {string}[[ for {ordinal} ordered response]]`
+- `rest.response.header.is.on`: `the response header {word} is {string} for[[ {ordinal} ordered]] response on {service}`
+- `rest.response.header.matches`: `the response header {word} matches {pattern}[[ for {ordinal} ordered response]]`
+- `rest.response.header.matches.on`: `the response header {word} matches {pattern} for[[ {ordinal} ordered]] response on {service}`
+- `rest.response.header.missing`: `the response header {word} is missing[[ for {ordinal} ordered response]]`
+- `rest.response.header.missing.on`: `the response header {word} is missing for[[ {ordinal} ordered]] response on {service}`
+- `rest.response.headers.are`: `the response headers[[ for {ordinal} ordered response]] are:`
+- `rest.response.headers.are.on`: `the response headers for[[ {ordinal} ordered]] response on {service} are:`
+- `rest.response.headers.match`: `the response headers[[ for {ordinal} ordered response]] match:`
+- `rest.response.headers.match.on`: `the response headers for[[ {ordinal} ordered]] response on {service} match:`
+- `rest.response.headers.missing`: `the response headers[[ for {ordinal} ordered response]] are missing:`
+- `rest.response.headers.missing.on`: `the response headers for[[ {ordinal} ordered]] response on {service} are missing:`
+- `rest.response.property.is`: `the response payload property {word} is {string}[[ for {ordinal} ordered response]]`
+- `rest.response.property.is.on`: `the response payload property {word} is {string} for[[ {ordinal} ordered]] response on {service}`
+- `rest.response.property.null`: `the response payload property {word} is null[[ for {ordinal} ordered response]]`
+- `rest.response.property.null.on`: `the response payload property {word} is null for[[ {ordinal} ordered]] response on {service}`
+- `rest.response.property.undefined`: `the response payload property {word} is undefined[[ for {ordinal} ordered response]]`
+- `rest.response.property.undefined.on`: `the response payload property {word} is undefined for[[ {ordinal} ordered]] response on {service}`
+- `rest.response.property.matches`: `the response payload property {word} matches {pattern}[[ for {ordinal} ordered response]]`
+- `rest.response.property.matches.on`: `the response payload property {word} matches {pattern} for[[ {ordinal} ordered]] response on {service}`
+- `rest.response.properties.are`: `the response payload properties[[ for {ordinal} ordered response]] are:`
+- `rest.response.properties.are.on`: `the response payload properties for[[ {ordinal} ordered]] response on {service} are:`
+- `rest.response.properties.match`: `the response payload properties[[ for {ordinal} ordered response]] match:`
+- `rest.response.properties.match.on`: `the response payload properties for[[ {ordinal} ordered]] response on {service} match:`
+- `rest.token`: `the {word} token with the following properties:`
+- `rest.request.token`: `the request is authorized with the {word} token[[ for {ordinal} ordered request]]`
+- `rest.request.token.on`: `the request is authorized with the {word} token for[[ {ordinal} ordered]] request on {service}`
+- `rest.request.signed`: `the request is signed in the {word} header[[ for {ordinal} ordered request]] with the following properties:`
+- `rest.request.signed.on`: `the request is signed in the {word} header for[[ {ordinal} ordered]] request on {service} with the following properties:`
+- `rest.request.webhook`: `the request is signed as a standard webhook with the key {string}[[ for {ordinal} ordered request]]`
+- `rest.request.webhook.on`: `the request is signed as a standard webhook with the key {string} for[[ {ordinal} ordered]] request on {service}`
+
 ## `rest.service`
 
 ```gherkin
@@ -495,6 +553,7 @@ Set a property of the request payload, by its JSONPath, like `weightGrams`, `rec
 - A value in double quotes inside the quotes, like `'"42"'`, is always a string.
 - Any other value takes the type of the property's current value: a string, a boolean, an integer, a number, or an object or array parsed from JSON text.
 - A property that does not exist yet, or is null, takes the type its value reads as: `true`, `42`, `1.5`, `{...}`, `[...]`, or else a string.
+- A property inside an object the payload lacks creates the object: `recipient.name` in a payload without `recipient`. A path through an array (`items[2].sku`) needs the array.
 - A payload step must come first.
 - Without an ordinal it applies to the service's first (default) request; `for 2nd ordered request`, to its second.
 - It uses the default service, the first one registered; `rest.request.property.on` names a service.
@@ -555,6 +614,7 @@ Set properties of the request payload, a row each, in order, like the single-pro
 
 - `null` sets JSON null, and `undefined` removes the property, in any case.
 - `"null"` and `"undefined"`, in double quotes, are the strings.
+- A property inside an object the payload lacks creates the object, so a table can list `recipient.name` and `recipient.postcode` on an empty payload.
 - Without an ordinal it applies to the service's first (default) request; `for 2nd ordered request`, to its second.
 - It uses the default service, the first one registered; `rest.request.properties.on` names a service.
 

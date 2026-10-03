@@ -387,6 +387,8 @@ func requestSteps() []core.StepDef {
 					"or an object or array parsed from JSON text.",
 				"A property that does not exist yet, or is null, takes the type its value reads as: `true`, `42`, `1.5`, " +
 					"`{...}`, `[...]`, or else a string.",
+				"A property inside an object the payload lacks creates the object: `recipient.name` in a payload without " +
+					"`recipient`. A path through an array (`items[2].sku`) needs the array.",
 				"A payload step must come first.",
 			},
 			example:      "Given the request payload property sender is 'kestrel-books'",
@@ -404,6 +406,8 @@ func requestSteps() []core.StepDef {
 			details: []string{
 				"`null` sets JSON null, and `undefined` removes the property, in any case.",
 				"`\"null\"` and `\"undefined\"`, in double quotes, are the strings.",
+				"A property inside an object the payload lacks creates the object, so a table can list " +
+					"`recipient.name` and `recipient.postcode` on an empty payload.",
 			},
 			table: &core.TableDoc{Columns: []string{"JSONPath", "value"}, Note: "A row is a property's JSONPath and its value."},
 			example: "Given the request payload properties are:\n" +

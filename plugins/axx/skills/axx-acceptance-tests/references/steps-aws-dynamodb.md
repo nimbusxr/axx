@@ -17,6 +17,12 @@ insured-parcels:
 
 **Checks** wait (10 seconds unless `within {duration}` says otherwise) until the table has an item, or a number of items, meeting every condition: `attribute | value` rows with a dotted path into maps (`address.city`), compared as text, `null` for null and `undefined` for absent. Items are read with a scan, which suits the small tables of a test environment.
 
+The steps, each documented below under its id:
+
+- `aws-dynamodb.seed`: `a {filepath} dynamodb seed`
+- `aws-dynamodb.item`: `[[within {duration} ]]the {word} dynamodb table has an item where:`
+- `aws-dynamodb.items`: `[[within {duration} ]]the {word} dynamodb table has {int} item(s) where:`
+
 ## `aws-dynamodb.seed`
 
 ```gherkin

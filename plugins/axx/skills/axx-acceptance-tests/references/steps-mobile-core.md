@@ -8,6 +8,29 @@ The apps are registered, and run, by the platform packs: `mobile-android` (Andro
 
 Controls are found by the name people see: a button's text, a field's label, a list item's text. When no name tells a control apart, `id=` (the Android resource ID or the iOS accessibility identifier) or `xpath=` finds it.
 
+The steps, each documented below under its id:
+
+- `mobile-core.launch`: `the {word} app is launched`
+- `mobile-core.link`: `the {word} app is opened with the {string} link`
+- `mobile-core.background`: `the {word} app is sent to the background`
+- `mobile-core.foreground`: `the {word} app is brought back`
+- `mobile-core.restart`: `the {word} app is restarted`
+- `mobile-core.tap`: `the {string} {control} is tapped in the {word} app`
+- `mobile-core.fill`: `the {string} field in the {word} app is filled with {string}`
+- `mobile-core.swipe`: `the {word} app is swiped {direction}`
+- `mobile-core.scroll`: `the {string} {control} is scrolled into view in the {word} app`
+- `mobile-core.shows`: `[[within {duration} ]]the {word} app shows {string}`
+- `mobile-core.hides`: `[[within {duration} ]]the {word} app does not show {string}`
+- `mobile-core.control.shown`: `[[within {duration} ]]the {string} {control} is shown in the {word} app`
+- `mobile-core.control.enabled`: `[[within {duration} ]]the {string} {control} is enabled in the {word} app`
+- `mobile-core.control.disabled`: `[[within {duration} ]]the {string} {control} is disabled in the {word} app`
+- `mobile-core.field.value`: `[[within {duration} ]]the {string} field in the {word} app has the value {string}`
+- `mobile-core.dialog.accepted`: `the {word} app's dialog is accepted`
+- `mobile-core.dialog.dismissed`: `the {word} app's dialog is dismissed`
+- `mobile-core.dialog.shows`: `[[within {duration} ]]the {word} app's dialog shows {string}`
+- `mobile-core.notification`: `[[within {duration} ]]the {word} app shows a notification {string}`
+- `mobile-core.screenshot`: `[[within {duration} ]]the {word} app looks like the {string} screenshot`
+
 ## `mobile-core.launch`
 
 ```gherkin

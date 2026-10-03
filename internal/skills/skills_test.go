@@ -1,6 +1,9 @@
 package skills
 
 import (
+	"os"
+	"path/filepath"
+	"reflect"
 	"regexp"
 	"strings"
 	"testing"
@@ -55,5 +58,47 @@ func TestEverySkillIsNamedAfterItsDirectory(t *testing.T) {
 		if !description.MatchString(md) {
 			t.Errorf("%s/SKILL.md has no description", skill)
 		}
+	}
+}
+
+// The step pages ship once, in axx-acceptance-tests; axx-custom-steps has
+// the parameter types it needs.
+func TestTheStepPagesShipOnce(t *testing.T) {
+	sks := build(t)
+	if _, ok := sks["axx-acceptance-tests"]["references/steps-rest.md"]; !ok {
+		t.Error("axx-acceptance-tests lacks the REST step page")
+	}
+	for p := range sks["axx-custom-steps"] {
+		if strings.HasPrefix(p, "references/") && p != "references/parameter-types.md" {
+			t.Errorf("axx-custom-steps carries %s", p)
+		}
+	}
+}
+
+// An install removes the files an earlier one wrote that the skills no
+// longer have, and keeps one the user edited.
+func TestInstallRemovesFilesTheSkillsDropped(t *testing.T) {
+	root := t.TempDir()
+	v1 := []Skill{{Name: "s", Files: []File{{Path: "SKILL.md", Content: []byte("a")}, {Path: "references/old.md", Content: []byte("o")}, {Path: "references/edited.md", Content: []byte("e")}}}}
+	if _, err := Install(v1, InstallOptions{Root: root}); err != nil {
+		t.Fatal(err)
+	}
+	edited := filepath.Join(root, ".agents", "skills", "s", "references", "edited.md")
+	if err := os.WriteFile(edited, []byte("mine"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	v2 := []Skill{{Name: "s", Files: []File{{Path: "SKILL.md", Content: []byte("b")}}}}
+	res, err := Install(v2, InstallOptions{Root: root})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(res.Removed, []string{"s/references/old.md"}) || !reflect.DeepEqual(res.Kept, []string{"s/references/edited.md"}) {
+		t.Errorf("removed %v, kept %v", res.Removed, res.Kept)
+	}
+	if _, err := os.Stat(filepath.Join(root, ".agents", "skills", "s", "references", "old.md")); !os.IsNotExist(err) {
+		t.Errorf("old.md is still there: %v", err)
+	}
+	if b, _ := os.ReadFile(edited); string(b) != "mine" {
+		t.Errorf("the edited file changed: %s", b)
 	}
 }

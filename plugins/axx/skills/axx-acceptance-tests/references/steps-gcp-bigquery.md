@@ -17,6 +17,12 @@ billing.carrier_rates:
 
 **Checks** wait (10 seconds unless `within {duration}` says otherwise) until the table has a row, or a number of rows, meeting every condition: `column | value` rows, with a dotted path into `RECORD` columns (`address.city`), compared as text: numbers as written, `NUMERIC` as its decimal, `TIMESTAMP` in RFC 3339 (`2026-09-24T09:30:00Z`), `DATE` as `2026-09-24`; `null` for NULL. A check reads the columns its conditions name, of up to 5,000 rows of the table: check the tables your scenarios write, not warehouse-size ones.
 
+The steps, each documented below under its id:
+
+- `gcp-bigquery.seed`: `a {filepath} bigquery seed`
+- `gcp-bigquery.row`: `[[within {duration} ]]the {word} bigquery table has a row where:`
+- `gcp-bigquery.rows`: `[[within {duration} ]]the {word} bigquery table has {int} row(s) where:`
+
 ## `gcp-bigquery.seed`
 
 ```gherkin

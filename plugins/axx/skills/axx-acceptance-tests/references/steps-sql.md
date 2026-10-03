@@ -4,6 +4,26 @@
 
 Seed, query and assert on relational databases. PostgreSQL is fully supported (including JSONB and trigger fault injection); MySQL/MariaDB and SQL Server support seeds, selections, row counts and locks, and SQLite all of them but locks. JDBC URLs (jdbc:postgresql://...) are accepted as-is.
 
+The steps, each documented below under its id:
+
+- `sql.service`: `a(n) {word} database with the following properties:`
+- `sql.seed`: `a {filepath} db seed[[ on {dbService}]]`
+- `sql.lock`: `the rows in the {word} table[[ on {dbService}]] are locked where:`
+- `sql.unlock`: `the row locks[[ on {dbService}]] are released`
+- `sql.select`: `a[[ {ordinal}]] selection of rows is retrieved from the {word} table[[ on {dbService}]] where:`
+- `sql.select.poll`: `within {duration} a[[ {ordinal}]] selection of at least {int} row(s) is retrieved from the {word} table[[ on {dbService}]] where:`
+- `sql.select.jsonb`: `a[[ {ordinal}]] selection of rows is retrieved from the {word} table[[ on {dbService}]] where the {word} jsonb column contains:`
+- `sql.json.are`: `the {ordinal} row {word} property for the[[ {ordinal}]] selection[[ on {dbService}]] json properties are:`
+- `sql.json.match`: `the {ordinal} row {word} property for the[[ {ordinal}]] selection[[ on {dbService}]] json properties match:`
+- `sql.rows.eq`: `the[[ {ordinal}]] selection[[ on {dbService}]] has {int} row(s)`
+- `sql.rows.gt`: `the[[ {ordinal}]] selection[[ on {dbService}]] has more than {int} row(s)`
+- `sql.rows.lt`: `the[[ {ordinal}]] selection[[ on {dbService}]] has fewer than {int} row(s)`
+- `sql.trigger.raise`: `a(n)[[ {ordinal} ordered]] before insert trigger on the {word} table[[ on {dbService}]] will raise a(n) {sqlState} exception where:`
+- `sql.trigger.raise.times`: `a(n)[[ {ordinal} ordered]] before insert trigger on the {word} table[[ on {dbService}]] will raise a(n) {sqlState} exception {int} time(s) where:`
+- `sql.trigger.insertRaise`: `a(n)[[ {ordinal} ordered]] before insert trigger on the {word} table[[ on {dbService}]] will insert and raise a(n) {sqlState} exception where:`
+- `sql.trigger.insertRaise.times`: `a(n)[[ {ordinal} ordered]] before insert trigger on the {word} table[[ on {dbService}]] will insert and raise a(n) {sqlState} exception {int} time(s) where:`
+- `sql.trigger.raised`: `the[[ {ordinal} ordered]] before insert trigger on the {word} table[[ on {dbService}]] was raised {int} time(s)`
+
 ## `sql.service`
 
 ```gherkin

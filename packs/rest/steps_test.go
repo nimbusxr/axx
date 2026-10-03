@@ -546,16 +546,22 @@ func TestPayloadFromAResource(t *testing.T) {
 	h3.fails("the request is executed", "must be a JSON object whose properties are the form's fields")
 }
 
-// A property inside one the payload does not have cannot be set: the message
-// names what is missing and how to get it, not only Java's exception.
+// A property inside an object the payload lacks creates the object (ADR
+// 0010), its parents too; a path through a missing array still fails, and
+// the message names what is missing, not only Java's exception.
 func TestPayloadPropertyInsideAMissingOne(t *testing.T) {
-	_, srv := newAPI(t)
+	a, srv := newAPI(t)
 	h := newHarness(t)
 	h.service("api", srv.URL, "")
 	h.ok("a POST request to /echo")
 	h.ok("a request payload using an application/json empty content template")
-	for _, want := range []string{"the request payload has no recipient, so recipient.name cannot be set inside it", "or set recipient first", "PathNotFoundException"} {
-		h.fails("the request payload property recipient.name is 'Ada'", want)
+	h.ok("the request payload property recipient.name is 'Ada'")
+	h.ok("the request payload properties are:", []string{"recipient.address.city", "Bonn"}, []string{"recipient.postcode", `"53111"`})
+	for _, want := range []string{"the request payload has no items[0], so items[0].sku cannot be set inside it", "PathNotFoundException"} {
+		h.fails("the request payload property items[0].sku is 'A'", want)
 	}
-	h.fails("the request payload properties are:", "the request payload has no recipient.address", []string{"recipient", "{}"}, []string{"recipient.address.city", "Bonn"})
+	h.ok("the request is executed")
+	if got, want := a.last().Body, `{"recipient":{"name":"Ada","address":{"city":"Bonn"},"postcode":"53111"}}`; got != want {
+		t.Errorf("payload sent: %s, want %s", got, want)
+	}
 }

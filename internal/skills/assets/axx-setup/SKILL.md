@@ -1,6 +1,6 @@
 ---
 name: axx-setup
-description: Adopt Axx (the human-readable acceptance testing framework) in a repository - axx init, axx.yaml apps and readiness checks, docker compose infrastructure, running in CI (GitHub Actions, GitLab CI), and agent integration (skills, MCP). Use when setting up acceptance testing for a service.
+description: Adopt axx in a repository - axx init, axx.yaml apps and readiness checks, docker compose infrastructure, running in CI (GitHub Actions, GitLab CI), and agent integration (skills, MCP). Use when setting up acceptance testing for a service.
 license: Apache-2.0
 ---
 

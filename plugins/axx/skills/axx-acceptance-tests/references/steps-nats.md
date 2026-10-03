@@ -19,6 +19,14 @@ Steps name a **subject** or a **stream**: `the deliveries.confirmed nats subject
 - **A check only looks at the messages received since its scenario started,** so scenarios running in parallel check their own messages, by data unique to them.
 - **Secrets stay secret:** `${env:..}` values in the properties are masked in logs and failures.
 
+The steps, each documented below under its id:
+
+- `nats.server`: `the {word} nats server with the following properties:`
+- `nats.subject.send`: `a message is published to the {word} nats subject:`
+- `nats.subject.send.file`: `the {filepath} message is published to the {word} nats subject[[ with the following headers:]]`
+- `nats.subject.received`: `[[within {duration} ]]the {word} nats subject has a message where:`
+- `nats.stream.received`: `[[within {duration} ]]the {word} nats stream has a message where:`
+
 ## `nats.server`
 
 ```gherkin

@@ -14,6 +14,10 @@ Given the billing gcp project with the following properties:
 
 Without `credentials`, the clients use Application Default Credentials, as they always do: `GOOGLE_APPLICATION_CREDENTIALS`, the gcloud login, or the workload's service account. Values expand `${env:..}` and `${sys:..}`, so the same features run against Google Cloud and against an emulator.
 
+The steps, each documented below under its id:
+
+- `gcp-core.project`: `the {word} gcp project with the following properties:`
+
 ## `gcp-core.project`
 
 ```gherkin

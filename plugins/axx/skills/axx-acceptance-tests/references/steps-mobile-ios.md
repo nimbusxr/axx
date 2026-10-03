@@ -8,6 +8,10 @@ iOS apps, on simulators axx runs, driven by [Appium](https://appium.io)'s XCUITe
 
 **Each scenario starts from a clean app.** Before the app starts, it is installed afresh (its data and its notifications go with the old one), the simulator's keychain and the app's permissions are reset, the permissions the registration names are granted, and the location is set. The app starts in the registration's language, region and time zone. There is no switch that skips it: a scenario is one journey, and that journey is its own.
 
+The steps, each documented below under its id:
+
+- `mobile-ios.app`: `the {word} ios app with the following properties:`
+
 ## `mobile-ios.app`
 
 ```gherkin

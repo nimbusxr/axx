@@ -115,27 +115,23 @@ jobs:
 var agentsBlock = agentsBegin + `
 ## Acceptance tests (axx)
 axx (github.com/nimbusxr/axx, "axxeptance") is a human-readable acceptance testing framework.
-- Use the axx MCP tools when you have them (steps_search, step_explain, feature_validate, lint_run,
-  scenarios_run, failure_context, env, steps_try); otherwise the axx commands below.
-- If ` + "`.agents/skills`" + ` has the axx skills, they teach the details: axx-acceptance-tests (write and
-  run tests), axx-test-data (fixture factories), axx-debugging (failures). ` + "`axx skills install`" + `
-  installs or updates them.
-- Feature files are acceptance criteria a person can read: one scenario per criterion, in plain
-  language, using the steps exactly as written. No programming constructs in Gherkin.
-- Find steps before writing: ` + "`axx steps search \"<intent>\"`" + `; never invent step text.
-- Steps come from the packs in ` + "`axx-packs.yaml`" + `; ` + "`axx pack list`" + ` shows the others, ` + "`axx pack add <name>`" + ` adds one.
-- Check without running: ` + "`axx validate`" + `. Explain one line: ` + "`axx explain \"<step>\"`" + `.
-- Ask axx rather than reading files: ` + "`axx doctor --json`" + ` (prerequisites, packs, agents),
-  ` + "`axx config show`" + ` (the effective axx.yaml and its packs), ` + "`axx validate --json`" + ` (features, scenarios), ` + "`axx fixtures generate --dry-run --json`" + ` (the files the factories generate),
-  ` + "`axx fixtures explain <file> <path>`" + ` (the source that sets a generated value).
-- Run: ` + "`axx up`" + ` once (keeps apps running; ` + "`axx env`" + ` shows them), then ` + "`axx run --compact`" + `; ` + "`axx down`" + ` when done.
-- Every scenario uses unique data (IDs, names, keys): scenarios run in parallel and data persists.
-- Test data: when payloads, seeds or mock bodies repeat, generate them with fixture factories
-  (` + "`axx fixtures`" + `; optional, strongly recommended where data repeats); ` + "`axx fixtures adopt`" + ` turns
-  existing hand-written ones into a factory. ` + "`axx lint`" + ` reports ids and keys that collide across files.
-- Features live in ` + "`features/`" + `; configuration in ` + "`axx.yaml`" + ` (schema: ` + "`axx schema`" + `).
-- Diagnose failures from the report: ` + "`axx run --json`" + ` includes expected/actual and a rerun command;
-  the MCP tool failure_context reads the latest scenarios_run when given no run ID.
+- Writing tests: ` + "`axx steps`" + ` lists every step, a line each (read it once; ` + "`axx steps show <id>`" + ` gives one
+  step's documentation); write one scenario per acceptance criterion with those steps, never
+  invented ones; ` + "`axx up`" + ` once, then ` + "`axx run --compact`" + `, which also reports what validate and lint find;
+  ` + "`axx down`" + ` when done.
+- Use the axx MCP tools when you have them: ` + "`steps_search`" + ` without a query is the step list, then
+  ` + "`scenarios_run`" + ` (it reports what ` + "`feature_validate`" + ` and ` + "`lint_run`" + ` find) and ` + "`failure_context`" + `.
+- If ` + "`.agents/skills`" + ` has the axx skills, they teach the details: axx-acceptance-tests, axx-test-data
+  (fixture factories), axx-debugging. ` + "`axx skills install`" + ` installs or updates them.
+- Feature files are acceptance criteria a person can read, in plain language, with the steps as
+  written. No programming constructs in Gherkin.
+- Every scenario uses unique data (ids, names, keys): scenarios run in parallel and data persists.
+- Check what the service did (a response property, a row, an event) and why it refused, not only
+  status codes.
+- Steps come from the packs in ` + "`axx-packs.yaml`" + ` (` + "`axx pack list`" + `, ` + "`axx pack add <name>`" + `). Configuration is in
+  ` + "`axx.yaml`" + ` (` + "`axx schema --outline`" + ` lists its keys); features in ` + "`features/`" + `.
+- Repeating payloads, seeds or mock bodies: fixture factories generate them (` + "`axx fixtures`" + `;
+  optional, strongly recommended where data repeats); ` + "`axx fixtures adopt`" + ` turns hand-written ones into one.
 ` + agentsEnd + "\n"
 
 // InitAgents is what `axx init` set up for coding agents.

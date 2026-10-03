@@ -20,6 +20,13 @@ Steps name a **topic**: `the depots/LEJ/scans mqtt topic`. Messages carry user p
 - **Retained messages from before never count:** axx subscribes without the messages the broker keeps for new subscribers, which earlier runs may have left.
 - **Secrets stay secret:** `${env:..}` values in the properties are masked in logs and failures.
 
+The steps, each documented below under its id:
+
+- `mqtt.broker`: `the {word} mqtt broker with the following properties:`
+- `mqtt.send`: `a message is published to the {word} mqtt topic:`
+- `mqtt.send.file`: `the {filepath} message is published to the {word} mqtt topic[[ with the following properties:]]`
+- `mqtt.received`: `[[within {duration} ]]the {word} mqtt topic has a message where:`
+
 ## `mqtt.broker`
 
 ```gherkin

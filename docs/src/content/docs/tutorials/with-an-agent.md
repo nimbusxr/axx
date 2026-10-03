@@ -46,11 +46,10 @@ Add an acceptance test for this: asking for a file that doesn't exist returns 40
 
 The agent's wording will differ from run to run, but you'll see it work through the same loop. Claude Code asks before each command and each tool call, so you can follow along. Notice that it:
 
-1. checks the project with `axx doctor`;
-2. searches for real steps with the `steps_search` tool (or `axx steps search "response status code"`) instead of guessing their text;
-3. checks a line it's unsure of with `step_explain` (`axx explain`);
-4. writes a feature file;
-5. checks it with `feature_validate` (`axx validate`), starts the server with `env` (`axx up`), runs the scenarios with `scenarios_run` (`axx run --compact`), and stops the server again.
+1. reads the project's steps with the `steps_search` tool (or `axx steps`) instead of guessing their text;
+2. checks a line it's unsure of with `step_explain` (`axx explain`);
+3. writes a feature file;
+4. starts the server with `env` (`axx up`), runs the scenarios with `scenarios_run` (`axx run --compact`), which also reports what `axx validate` and `axx lint` find, and stops the server again.
 
 ## Review what it wrote
 

@@ -182,3 +182,19 @@ func TestGuessedCommandsGetHelpfulHints(t *testing.T) {
 		t.Errorf("env status: exit %d, %q, want %q (%s)", code, got, want, stderr)
 	}
 }
+
+// `axx schema --outline` is axx.yaml's keys, nested, a line each: what an
+// agent needs to write the file, without the schema's 28 KB.
+func TestSchemaOutline(t *testing.T) {
+	restProject(t)
+	out, stderr, code := run(t, "schema", "--outline")
+	full, _, _ := run(t, "schema")
+	if code != int(exitcode.OK) || len(out)*3 > len(full) {
+		t.Fatalf("exit %d, %d bytes of %d (%s)", code, len(out), len(full), stderr)
+	}
+	for _, want := range []string{"run: Run controls which features run and how.\n", "\n  tags: Tags is a default tag expression, e.g.", "\napps: (map) ", "\n  <name>:\n    enabled: "} {
+		if !strings.Contains(out, want) {
+			t.Errorf("outline lacks %q:\n%s", want, out)
+		}
+	}
+}

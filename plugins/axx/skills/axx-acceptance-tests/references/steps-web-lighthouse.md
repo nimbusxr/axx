@@ -17,6 +17,11 @@ packs:
     device: desktop    # mobile (the default) or desktop
 ```
 
+The steps, each documented below under its id:
+
+- `web-lighthouse.scores`: `the {string} page scores at least:`
+- `web-lighthouse.loads`: `the {string} page loads within:`
+
 ## `web-lighthouse.scores`
 
 ```gherkin

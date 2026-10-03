@@ -26,15 +26,15 @@ const scenarioHintMax = 5
 
 // ScenarioHints names the scenarios whose checks (the steps defined as
 // Then) are only success statuses (a REST response's 2xx, a command's exit
-// code 0), and those whose
-// checks are only absences (steps defined with Absence). A scenario with a
-// step that matches no single definition is left out.
+// code 0), only REST status codes with a refusal among them, or only
+// absences (steps defined with Absence). A scenario with a step that matches
+// no single definition is left out.
 func ScenarioHints(reg *match.Registry, pickles []*feature.Pickle, opts Options) []string {
 	if opts.WorkDir == "" {
 		opts.WorkDir, _ = os.Getwd()
 	}
 	within := withinPaths(opts)
-	var statusOnly, absenceOnly, inTurn []string
+	var statusOnly, refusalOnly, absenceOnly, inTurn []string
 	seen, seenTurns := map[string]bool{}, map[string]bool{}
 	for _, p := range pickles {
 		loc := fmt.Sprintf("%s:%d", relSlash(opts.WorkDir, p.Doc.Path), p.ScenarioLine)
@@ -48,7 +48,7 @@ func ScenarioHints(reg *match.Registry, pickles []*feature.Pickle, opts Options)
 		if seen[loc] {
 			continue // an outline is one scenario, whichever of its examples
 		}
-		checks, successes, absences := 0, 0, 0
+		checks, successes, statuses, absences := 0, 0, 0, 0
 		matched := true
 		for _, ps := range p.Steps {
 			ms := reg.Match(ps.Text)
@@ -61,6 +61,9 @@ func ScenarioHints(reg *match.Registry, pickles []*feature.Pickle, opts Options)
 				continue
 			}
 			checks++
+			if def.Step.ID == "rest.response.status" {
+				statuses++
+			}
 			switch {
 			case def.Step.Absence:
 				absences++
@@ -75,6 +78,10 @@ func ScenarioHints(reg *match.Registry, pickles []*feature.Pickle, opts Options)
 		switch checks {
 		case successes:
 			statusOnly = append(statusOnly, loc)
+		case statuses:
+			// Status codes only, a refusal among them: a request refused
+			// for another reason than the one meant passes as well.
+			refusalOnly = append(refusalOnly, loc)
 		case absences:
 			absenceOnly = append(absenceOnly, loc)
 		default:
@@ -86,6 +93,10 @@ func ScenarioHints(reg *match.Registry, pickles []*feature.Pickle, opts Options)
 	if n := len(statusOnly); n > 0 {
 		hints = append(hints, fmt.Sprintf("%d %s only a success status (a 2xx response, a command's exit code 0), which says it was accepted, not what it did: %s (check what it did too: a response property, a row, a message, the output)",
 			n, plural(n, "scenario checks", "scenarios check"), scenarioList(statusOnly)))
+	}
+	if n := len(refusalOnly); n > 0 {
+		hints = append(hints, fmt.Sprintf("%d %s only status codes, a refusal among them: a request refused for another reason (a missing field) passes as well as one refused by the rule meant: %s (check what the response says too, like the problem detail naming the field)",
+			n, plural(n, "scenario checks", "scenarios check"), scenarioList(refusalOnly)))
 	}
 	if n := len(absenceOnly); n > 0 {
 		hints = append(hints, fmt.Sprintf("%d %s only that something did not happen, which also passes when the action never ran: %s (check something it did do too)",

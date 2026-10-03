@@ -18,6 +18,17 @@ Given the tracking grpc service with the following properties:
 - **Server streams** belong to the scenario, which closes them when it ends. Their messages are checked as they come; their status once they end.
 - **Secrets stay secret:** `${env:..}` values in the properties, such as a token in `header.authorization`, are masked in logs and failures, and `${token:..}` names a token of the scenario.
 
+The steps, each documented below under its id:
+
+- `grpc.service`: `the {word} grpc service with the following properties:`
+- `grpc.call`: `the {word} method is called on the {word} grpc service`
+- `grpc.call.fields`: `the {word} method is called on the {word} grpc service with the following fields:`
+- `grpc.call.file`: `the {word} method is called on the {word} grpc service with the {filepath} message[[ and the following fields:]]`
+- `grpc.status`: `[[within {duration} ]]the {word} grpc service answered {word}[[ with a message containing {string}]]`
+- `grpc.answer`: `the {word} grpc service's answer has the following fields:`
+- `grpc.metadata`: `the {word} grpc service's answer has the following metadata:`
+- `grpc.streamed`: `[[within {duration} ]]the {word} grpc service streamed a message where:`
+
 ## `grpc.service`
 
 ```gherkin

@@ -15,6 +15,13 @@ Steps name a **queue** or a **topic**: `the customs-filings service bus queue`, 
 
 **Checking a queue receives from it**: axx completes each message it receives, as any consumer would, so check the queues your services **write** to. **Checking a topic** takes nothing from anyone: for the topics a run checks, axx creates a subscription of its own (`axx-<run>`, through the management API, so it needs the Manage right) once the apps are up, and deletes it when the run ends. A check only looks at the messages received since its scenario started.
 
+The steps, each documented below under its id:
+
+- `azure-servicebus.namespace`: `the {word} service bus namespace with the following properties:`
+- `azure-servicebus.send`: `a message is sent to the {word} service bus queue:/topic:`
+- `azure-servicebus.send.file`: `the {filepath} message is sent to the {word} service bus queue/topic[[ with the following properties:]]`
+- `azure-servicebus.received`: `[[within {duration} ]]the {word} service bus queue/topic has a message where:`
+
 ## `azure-servicebus.namespace`
 
 ```gherkin

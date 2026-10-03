@@ -8,6 +8,39 @@ With the axx WireMock image (`ghcr.io/nimbusxr/axx-wiremock`), every call to a m
 
 The image also mocks AI models, in the format of each request (OpenAI's API and the servers that speak it, Anthropic, Gemini, Bedrock, Ollama): its stubs answer with the `model-request` matcher and the `model-answer` transformer, and the `the mocked ... model ...` steps check what the service asked the model: the texts, the tools and the schema.
 
+The steps, each documented below under its id:
+
+- `mock.service`: `the mocked {word} service with the following properties:`
+- `mock.received`: `the mocked {word} request to {word} named {word} was received by {mockedService}`
+- `mock.received.path`: `the mocked {word} request to path {word} named {word} was received by {mockedService}`
+- `mock.openapi.levels`: `the OpenAPI validation levels for the mocked {mockedService} service are:`
+- `mock.count.exactly`: `the mocked request named {word}[[ on {mockedService}]] was received exactly {int} time(s)`
+- `mock.count.atLeast`: `the mocked request named {word}[[ on {mockedService}]] was received at least {int} time(s)`
+- `mock.count.atMost`: `the mocked request named {word}[[ on {mockedService}]] was received at most {int} time(s)`
+- `mock.notReceived`: `the mocked {word} request to {word} named {word}[[ on {mockedService}]] was not received`
+- `mock.notReceived.path`: `the mocked {word} request to path {word} named {word}[[ on {mockedService}]] was not received`
+- `mock.header.is`: `the header {word} for mocked request named {word}[[ on {mockedService}]] is {string}`
+- `mock.headers.are`: `the headers for mocked request named {word} on {mockedService} are:`
+- `mock.header.matches`: `the header {word} for mocked request named {word} on {mockedService} matches {pattern}`
+- `mock.headers.match`: `the headers for mocked request named {word} on {mockedService} match:`
+- `mock.header.missing`: `the header {word} for mocked request named {word} on {mockedService} is missing`
+- `mock.headers.missing`: `the headers for mocked request named {word} on {mockedService} are missing:`
+- `mock.properties.are`: `the payload properties for mocked request named {word}[[ on {mockedService}]] are:`
+- `mock.query.are`: `the query parameters for mocked request named {word}[[ on {mockedService}]] are:`
+- `mock.form.are`: `the form fields for mocked request named {word}[[ on {mockedService}]] are:`
+- `mock.query.none`: `none of the mocked {word} requests to path {word}[[ on {mockedService}]] have the query parameters:`
+- `mock.properties.none`: `none of the mocked {word} requests to path {word}[[ on {mockedService}]] have the payload properties:`
+- `mock.form.none`: `none of the mocked {word} requests to path {word}[[ on {mockedService}]] have the form fields:`
+- `mock.signed`: `the mocked request named {word}[[ on {mockedService}]] is signed in the {word} header with the following properties:`
+- `mock.webhook`: `the mocked request named {word}[[ on {mockedService}]] is signed as a standard webhook with the key {string}`
+- `mock.model.asked`: `the mocked {mockedService} model was asked about {string}[[ {int} time(s)]]`
+- `mock.model.contains`: `the mocked {mockedService} model's request about {string} contains {string}`
+- `mock.model.notContains`: `the mocked {mockedService} model's request about {string} does not contain {string}`
+- `mock.model.tool`: `the mocked {mockedService} model was offered the {word} tool in the request about {string}`
+- `mock.model.schema`: `the mocked {mockedService} model was asked for the {filepath} schema in the request about {string}`
+- `mock.mcp.called`: `the mocked {mockedService} mcp server's {word} tool was called[[ {int} time(s)]] with the following arguments:`
+- `mock.a2a.sent`: `the mocked {mockedService} a2a agent was sent a message containing {string}[[ {int} time(s)]]`
+
 ## `mock.service`
 
 ```gherkin
