@@ -105,8 +105,8 @@ func (s *server) endLocked() {
 // ---- steps_try ----
 
 type stepsTryIn struct {
-	Steps   string `json:"steps" jsonschema:"steps as in a scenario, one a line, with their keywords, data tables and doc strings: Given the \"/quote\" page is opened"`
-	Restart bool   `json:"restart,omitempty" jsonschema:"end the session first and start a new one: a new scenario, with nothing open"`
+	Steps   string `json:"steps" jsonschema:"steps as a scenario has them, with keywords, tables and doc strings"`
+	Restart bool   `json:"restart,omitempty" jsonschema:"start a new scenario first"`
 }
 
 // TriedStep is a step the agent tried, and how it went.

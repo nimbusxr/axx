@@ -143,6 +143,8 @@ Writing tests:
   axx run --compact        run the features; also reports what validate and lint find
   (axx validate checks the features without running them)
 
+Docs: https://axx.nimbusxr.us (every page as Markdown: add .md to its path; llms.txt lists them)
+
 ` + Identity,
 		SilenceUsage:  true,
 		SilenceErrors: true,
