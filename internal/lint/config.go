@@ -17,21 +17,24 @@ import (
 
 // Error codes for lint configuration and results.
 const (
-	CodeNoRules        = "AXX-E0800"
-	CodeIncludeMissing = "AXX-E0801"
-	CodeIncludeCycle   = "AXX-E0802"
-	CodeIncludeInvalid = config.CodeLintInclude // AXX-E0803
-	CodeInvalidRule    = "AXX-E0804"
-	CodeOption         = "AXX-E0805"
-	CodeUnparsable     = "AXX-E0810"
-	CodeUnreadable     = "AXX-E0811"
-	CodeTooLarge       = "AXX-E0812"
-	CodeDuplicate      = "AXX-E0820"
-	CodeOrdinalMissing = "AXX-E0830"
-	CodeOrdinalLabel   = "AXX-E0831"
-	CodeRESTMissing    = "AXX-E0832"
-	CodeRESTAddedTwice = "AXX-E0833"
-	CodeRESTQuoted     = "AXX-E0834"
+	CodeNoRules             = "AXX-E0800"
+	CodeIncludeMissing      = "AXX-E0801"
+	CodeIncludeCycle        = "AXX-E0802"
+	CodeIncludeInvalid      = config.CodeLintInclude // AXX-E0803
+	CodeInvalidRule         = "AXX-E0804"
+	CodeOption              = "AXX-E0805"
+	CodeUnparsable          = "AXX-E0810"
+	CodeUnreadable          = "AXX-E0811"
+	CodeTooLarge            = "AXX-E0812"
+	CodeDuplicate           = "AXX-E0820"
+	CodeNoValues            = "AXX-E0821"
+	CodeOrdinalMissing      = "AXX-E0830"
+	CodeOrdinalLabel        = "AXX-E0831"
+	CodeRESTMissing         = "AXX-E0832"
+	CodeRESTAddedTwice      = "AXX-E0833"
+	CodeRESTQuoted          = "AXX-E0834"
+	CodeStaleSelection      = "AXX-E0835"
+	CodeServiceUnregistered = "AXX-E0836"
 )
 
 // Defaults of the lint config block.

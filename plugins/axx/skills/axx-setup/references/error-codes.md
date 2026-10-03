@@ -494,6 +494,14 @@ A value that a lint rule requires to be unique occurs more than once: anywhere (
 
 **Fix:** Give each occurrence its own value (for example prefix ids with the scenario or file name). If the value is intentionally shared, add it to the rule's `ignoreValues`; if the rule is too strict, change its `validation`. `mode: warn` reports without failing.
 
+### AXX-E0821
+
+**Lint rule finds no values** · exit 0
+
+A lint rule scanned files but its regex (or jsonPath) extracted no value from any of them, so it checks nothing and reports ok. Most often the pattern misses the files' format, like a regex anchored at the start of the line (`^\s*reference:`) for YAML list items, whose lines start with `- `. This is a warning.
+
+**Fix:** Test the pattern against a line of one of the files and fix it (`^\s*-?\s*reference:\s*"?([^"\s]+)` allows the dash), or narrow `filePatterns` to the files that hold the values.
+
 ### AXX-E0830
 
 **SQL ordinal addresses a missing entry** · exit 0
@@ -533,6 +541,22 @@ A step adds a request of a REST service that an earlier step added: without an o
 A row of `the request payload properties are:` has a value in single quotes, like `'{"name":"Ada"}'`. In a table, single quotes are part of the value, so the property is set to that text, quotes and all, not to the JSON or the string inside (single quotes do quote a value in a step's own text). The request then usually fails for a reason the scenario did not mean to test. This is a warning.
 
 **Fix:** Write JSON without quotes (`{"name":"Ada"}`) and a string in double quotes (`"10115"`) or bare.
+
+### AXX-E0835
+
+**Stale selection** · exit 0
+
+A step without an ordinal (`the selection has 1 row`, `the 1st document for the selection …`) checks a scenario's first selection, but a later selection was retrieved before it and no step checks that one. The step reads as if it checked the latest, while it asserts on what came back before; the later retrieval checks nothing (or only that its rows came, for a polling one). This is a warning.
+
+**Fix:** Name the selection the step means, like `the 2nd selection has 1 row`: selections are numbered in the order the scenario retrieves them.
+
+### AXX-E0836
+
+**Service used before it is registered** · exit 0
+
+A REST, SQL, MongoDB or Kafka step comes before the scenario registers any service of its pack: the step finds no service and fails at runtime ("No database services set"). This is a warning; it is not checked in a project that loads packs of its own, which may register services out of sight.
+
+**Fix:** Register the service first, in the Background for every scenario: `the <name> service with the following properties:` (REST), `a(n) <name> database with the following properties:` (SQL), `a(n) <name> mongo database with the following properties:` (MongoDB) or `the <name> kafka service with the following properties:` (Kafka).
 
 ## Fixtures
 

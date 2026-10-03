@@ -492,6 +492,8 @@ rules:
 			name:   "a plain field does not match array elements",
 			files:  map[string]string{"a.json": `{"payments": [{"id": "p-dup"}]}`, "b.json": `{"payments": [{"id": "p-dup"}]}`},
 			config: cfg("payments.id", GlobalUnique),
+			// It finds nothing at all: the rule says it checks nothing.
+			want: []string{"AXX-E0821 : axx.yaml:5"},
 		},
 		{
 			name:   "file-unique allows cross-file reuse but not repeats in a file",
@@ -531,6 +533,8 @@ rules:
 			name:   "root arrays never match the subset",
 			files:  map[string]string{"a.json": `[{"id": "x"}, {"id": "x"}]`},
 			config: cfg("id", GlobalUnique),
+			// It finds nothing at all: the rule says it checks nothing.
+			want: []string{"AXX-E0821 : axx.yaml:5"},
 		},
 		{
 			name: "deep scan through the Jayway port keeps line numbers",
@@ -932,5 +936,39 @@ func TestRuleIDs(t *testing.T) {
 	}
 	if strings.Join(ids, ",") != "seed-ids,seed-ids-2,seed-ids-2-2,rule" {
 		t.Errorf("ids = %v", ids)
+	}
+}
+
+// A rule that extracts no value from the files it scans checks nothing:
+// it says so instead of ok (an agent's `^\s*reference:` missed every
+// `  - reference: …` of its YAML seeds, and two copies of a seed passed).
+func TestRuleThatFindsNoValuesWarns(t *testing.T) {
+	p := newProject(t).
+		write("seeds/a.yaml", "parcels.parcels:\n  - reference: PX-1\n").
+		write("seeds/b.yaml", "parcels.parcels:\n  - reference: PX-1\n")
+	rep := p.run(`rules:
+  - name: references
+    filePatterns: ["seeds/*.yaml"]
+    regex: '^\s*reference:\s*([A-Z0-9-]+)'
+    validation: cross-file-unique
+  - name: references with the dash
+    filePatterns: ["seeds/*.yaml"]
+    regex: '^\s*-?\s*reference:\s*([A-Z0-9-]+)'
+    validation: cross-file-unique
+  - name: manifest ids
+    filePatterns: ["manifests/*.yaml"]
+    regex: 'id:\s*(\S+)'
+`)
+	r := rep.Rules[0]
+	if len(r.Findings) != 1 || r.Findings[0].Code != CodeNoValues || r.Findings[0].Severity != SeverityWarning ||
+		!strings.Contains(r.Findings[0].Message, "scanned 2 files and found no values") || !strings.Contains(r.Findings[0].Message, "`- `") ||
+		r.Findings[0].Locations[0].File != "axx.yaml" {
+		t.Errorf("the rule that misses the dash: %+v", r.Findings)
+	}
+	if f := rep.Rules[1].Findings; len(f) != 1 || f[0].Code != CodeDuplicate {
+		t.Errorf("the rule that allows the dash finds the reused value: %+v", f)
+	}
+	if f := rep.Rules[2].Findings; len(f) != 0 {
+		t.Errorf("a rule without files to scan is not flagged: %+v", f)
 	}
 }

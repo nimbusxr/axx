@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"unicode/utf8"
@@ -292,7 +293,9 @@ func (s *Set) runRule(r *Rule, opts Options, cache map[string]*fileText) RuleRes
 	}
 	values := map[string][]occurrence{}
 	var order []string
+	matched := 0
 	add := func(v string, o occurrence) {
+		matched++
 		if r.ignore[v] {
 			return
 		}
@@ -364,6 +367,19 @@ func (s *Set) runRule(r *Rule, opts Options, cache map[string]*fileText) RuleRes
 		}
 	}
 	rr.Files = len(rr.files)
+	if rr.Files > 0 && matched == 0 && !slices.ContainsFunc(rr.Findings, func(f Finding) bool { return f.Code == CodeUnparsable }) {
+		// A rule that extracts nothing checks nothing, and says ok.
+		what := "its regex"
+		if r.path != nil {
+			what = "its jsonPath"
+		}
+		msg := fmt.Sprintf("this rule scanned %d file%s and found no values: %s matches nothing in them, so the rule checks nothing",
+			rr.Files, plural(rr.Files, "", "s"), what)
+		if r.path == nil && strings.HasPrefix(r.Regex, "^") && slices.ContainsFunc(rr.files, isYAML) {
+			msg += "; in a YAML list the line starts with `- ` (`  - reference: PX-1`), which a regex like `^\\s*-?\\s*reference:` allows"
+		}
+		problem(CodeNoValues, SeverityWarning, ruleLocation(r, opts.WorkDir), "%s", msg)
+	}
 
 	for _, v := range order {
 		occ := duplicates(r.Validation, values[v])
@@ -394,6 +410,25 @@ func sourceString(l axxerr.Location, workDir string) string {
 	}
 	l.File, l.Column = relSlash(workDir, abs), 0
 	return l.String()
+}
+
+// ruleLocation is where a rule is defined, as a finding's location.
+func ruleLocation(r *Rule, workDir string) Location {
+	if r.Source.File == "" {
+		return Location{}
+	}
+	abs := filepath.FromSlash(r.Source.File)
+	if !filepath.IsAbs(abs) {
+		if wd, err := os.Getwd(); err == nil {
+			abs = filepath.Join(wd, abs)
+		}
+	}
+	return Location{File: relSlash(workDir, abs), Line: r.Source.Line, abs: abs}
+}
+
+func isYAML(path string) bool {
+	ext := strings.ToLower(filepath.Ext(path))
+	return ext == ".yaml" || ext == ".yml"
 }
 
 func unwrapPathError(err error) error {

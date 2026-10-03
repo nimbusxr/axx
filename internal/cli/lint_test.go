@@ -47,7 +47,7 @@ lint:
 		"seeds/a.yaml":            "t:\n  - id: \"mission-1\"\n  - id: \"mission-2\"\n",
 		"seeds/b.yaml":            "t:\n  - id: \"mission-1\"\n",
 		"kafka/e.json":            `{"id": "e-1"}`,
-		"features/f.feature":      "Feature: f\n  Scenario: s\n    Then the 2nd selection has 1 row\n",
+		"features/f.feature":      "Feature: f\n  Background:\n    Given a parcels-db database with the following properties:\n      | url | x |\n  Scenario: s\n    Then the 2nd selection has 1 row\n",
 	})
 	t.Chdir(dir)
 	return dir
@@ -65,8 +65,8 @@ func TestLintCommand(t *testing.T) {
 		`seeds/a.yaml:2:10  - id: "mission-1"`,
 		"ok   event ids (cross-file-unique, 1 file)",
 		"warn SQL selection and trigger ordinals",
-		"features/f.feature:3",
-		"axx lint: 5 rules, 4 files: 1 error, 1 warning",
+		"features/f.feature:6",
+		"axx lint: 7 rules, 4 files: 1 error, 1 warning",
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("human output lacks %q:\n%s", want, out)
@@ -112,7 +112,7 @@ func TestLintCommand(t *testing.T) {
 		}
 	}
 	out, _, _ = run(t, "lint", "-f", "sarif:build/only.sarif")
-	if !strings.Contains(out, "axx lint: 5 rules") {
+	if !strings.Contains(out, "axx lint: 7 rules") {
 		t.Errorf("with only file outputs, the human report goes to stdout:\n%s", out)
 	}
 }
@@ -169,11 +169,11 @@ func TestValidateAndDoctorShowLint(t *testing.T) {
 	if err := json.Unmarshal([]byte(out), &env); err != nil || code != 0 {
 		t.Fatalf("validate: exit %d %v\n%s", code, err, out)
 	}
-	if w := env.Data.Warnings; len(w) != 1 || w[0].Location != "features/f.feature:3" || w[0].Text != "the 2nd selection has 1 row" || !strings.Contains(w[0].Message, "AXX-E0830") {
+	if w := env.Data.Warnings; len(w) != 1 || w[0].Location != "features/f.feature:6" || w[0].Text != "the 2nd selection has 1 row" || !strings.Contains(w[0].Message, "AXX-E0830") {
 		t.Errorf("validate warnings: %+v", env.Data.Warnings)
 	}
 	out, _, _ = run(t, "validate")
-	if !strings.Contains(out, "features/f.feature:3: warning: the 2nd selection has 1 row") || !strings.Contains(out, ": ok, 1 warning") {
+	if !strings.Contains(out, "features/f.feature:6: warning: the 2nd selection has 1 row") || !strings.Contains(out, ": ok, 1 warning") {
 		t.Errorf("validate human output:\n%s", out)
 	}
 
@@ -243,7 +243,8 @@ func TestLintHintsAtFixtureFactories(t *testing.T) {
 		"seeds/portal-find.yaml":  seed("PX-WEB-5151"),
 		"seeds/portal-open.yaml":  seed("PX-WEB-5141"),
 		"seeds/portal-track.yaml": seed("PX-WEB-5161"),
-		"features/portal.feature": "Feature: portal\n  Scenario: find\n    Given a seeds/portal-find.yaml db seed\n" +
+		"features/portal.feature": "Feature: portal\n  Background:\n    Given a portal-db database with the following properties:\n      | url | x |\n" +
+			"  Scenario: find\n    Given a seeds/portal-find.yaml db seed\n" +
 			"  Scenario: open\n    Given a seeds/portal-open.yaml db seed\n  Scenario: track\n    Given a seeds/portal-track.yaml db seed\n",
 	})
 	t.Chdir(dir)
@@ -275,7 +276,7 @@ func TestLintModeErrorAppliesToTheFeatureChecks(t *testing.T) {
 	writeFiles(t, dir, map[string]string{
 		"axx.yaml":           "version: 1\n",
 		"axx-packs.yaml":     "packs: [sql]\n",
-		"features/f.feature": "Feature: f\n  Scenario: s\n    Then the 2nd selection has 1 row\n",
+		"features/f.feature": "Feature: f\n  Background:\n    Given a parcels-db database with the following properties:\n      | url | x |\n  Scenario: s\n    Then the 2nd selection has 1 row\n",
 	})
 	if out, stderr, code := run(t, "lint"); code != int(exitcode.OK) || !strings.Contains(out, "1 warning") {
 		t.Fatalf("by default a warning: exit %d\n%s%s", code, out, stderr)

@@ -16,16 +16,28 @@ import (
 func newSchemaCmd(app *App) *cobra.Command {
 	var out, kind string
 	cmd := &cobra.Command{
-		Use:   "schema",
+		Use:   "schema [config|factory|fixture|prototype]",
 		Short: "Print the JSON Schema for axx.yaml or a fixture spec file",
-		Long: `Print a JSON Schema, for editors and agents: axx.yaml by default, or with
---kind factory|fixture|prototype the *.factory.yaml, *.fixture.yaml and
-*.prototype.yaml files of ` + "`axx fixtures`" + `. Reference them from the files with:
+		Long: `Print a JSON Schema, for editors and agents: axx.yaml by default (config, or
+axx), or factory, fixture or prototype for the *.factory.yaml, *.fixture.yaml
+and *.prototype.yaml files of ` + "`axx fixtures`" + `, as an argument or with --kind.
+Reference them from the files with:
 
   # yaml-language-server: $schema=` + config.SchemaID + `
   # yaml-language-server: $schema=` + fixtures.SchemaID("factory"),
-		Args: wrapArgs(cobra.NoArgs),
-		RunE: func(*cobra.Command, []string) error {
+		Args: wrapArgs(cobra.MaximumNArgs(1)),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if len(args) == 1 {
+				if cmd.Flags().Changed("kind") && args[0] != kind {
+					return axxerr.New("AXX-E0001", exitcode.Usage, "invalid usage: the schema kind is %q and --kind %q", args[0], kind).
+						WithHint("name the kind once: `axx schema %s`", args[0])
+				}
+				kind = args[0]
+			}
+			switch kind {
+			case "axx", "axx.yaml":
+				kind = "config" // what agents call it
+			}
 			schema := config.SchemaJSON
 			if kind != "" && kind != "config" {
 				b, ok := fixtures.SchemaJSON(kind)

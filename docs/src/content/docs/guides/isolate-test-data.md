@@ -34,7 +34,7 @@ lint:
       validation: cross-file-unique
 ```
 
-Each rule key is described in the [configuration reference](/references/config/#lint).
+Each rule key is described in the [configuration reference](/references/config/#lint). A rule that scans files but extracts no value from them checks nothing, so `axx lint` warns about it instead of reporting ok: most often its pattern misses the files' format, like a regex anchored at `reference:` for YAML list items, whose lines start with `- ` (the rules above allow it with `-?`).
 
 Generated rules can be merged in with `include`:
 
@@ -59,15 +59,24 @@ ok   Manifest line ids (cross-file-unique, 52 files)
 ok   Depot scan ids (cross-file-unique, 1 file)
 ok   kafka/depot-scans.factory.yaml: scanId uniqueness (cross-file-unique, 2 files)
 ok   requests/registrations.factory.yaml: reference uniqueness (cross-file-unique, 2 files)
+ok   Services registered before use (13 files)
 ok   SQL selection and trigger ordinals (13 files)
+ok   Stale selections (13 files)
 ok   REST request ordinals (13 files)
 ok   REST payload values (13 files)
 hint: seeds/ has 39 hand-written .yaml files of one shape (parcels.parcels) that no fixture factory generates; a factory would keep what they share in one place (optional; `axx fixtures adopt --help`)
 hint: seeds/ has 5 hand-written .yaml files of one shape (parcels.manifest_lines) that no fixture factory generates; a factory would keep what they share in one place (optional; `axx fixtures adopt --help`)
-axx lint: 8 rules, 70 files: 1 error, 0 warnings
+axx lint: 10 rules, 70 files: 1 error, 0 warnings
 ```
 
-A new seed file reused a reference that `seeds/manifest-kestrel.yaml` already inserts. The rules from `axx-lint.generated.yaml` run too, and so do the built-in checks of the features: SQL selections and triggers, and REST requests, addressed by ordinals they cannot have (a `3rd ordered` request after only one, or a second request added without its ordinal), and request payload values in single quotes, which in a table are part of the value. They are warnings, and `axx validate` reports them as well.
+A new seed file reused a reference that `seeds/manifest-kestrel.yaml` already inserts. The rules from `axx-lint.generated.yaml` run too, and so do the built-in checks of the features. They catch:
+
+- a REST, SQL, MongoDB or Kafka step that comes before the scenario registers a service of its pack;
+- SQL selections and triggers, and REST requests, addressed by ordinals they cannot have (a `3rd ordered` request after only one, or a second request added without its ordinal);
+- a step without an ordinal that checks the first selection while a later one goes unchecked (`the selection has 1 row` after a second retrieval);
+- request payload values in single quotes, which in a table are part of the value.
+
+They are warnings, and `axx validate` reports them as well.
 
 The `hint:` lines are suggestions, never errors or warnings. When the scenarios read three or more hand-written `.json` or `.yaml` files from one directory, whose top-level keys are the same and that no [fixture factory](/guides/fixture-factories/) generates, `axx lint` suggests one: it would keep what the files share in one place and each file's differences in its own. Factories are optional; `axx fixtures adopt` turns the files into one without changing a value.
 

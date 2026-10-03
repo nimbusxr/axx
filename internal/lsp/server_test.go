@@ -290,7 +290,8 @@ func TestCompletion(t *testing.T) {
 func TestSemanticTokens(t *testing.T) {
 	c := startServer(t)
 	uri := newProject(t)
-	text := "Feature: x\n  Scenario: y\n    Given a GET request to /api/😀\n    Then the response status code is 201\n\n  Scenario Outline: z\n    Then the response status code is <code>\n    Examples:\n      | code |\n      | 200  |\n"
+	text := "Feature: x\n  Background:\n    Given the parcels service with the following properties:\n      | url | http://localhost |\n" +
+		"  Scenario: y\n    Given a GET request to /api/😀\n    Then the response status code is 201\n\n  Scenario Outline: z\n    Given a GET request to /x\n    Then the response status code is <code>\n    Examples:\n      | code |\n      | 200  |\n"
 	if diags := c.open(uri, text); len(diags) != 0 {
 		t.Fatalf("diagnostics: %+v", diags)
 	}
@@ -299,12 +300,14 @@ func TestSemanticTokens(t *testing.T) {
 	if err := json.Unmarshal(raw, &toks); err != nil {
 		t.Fatal(err)
 	}
-	// GET and /api/😀 (7 UTF-16 units) on line 2, 201 on line 3, <code> on line 6.
+	// parcels on line 2, GET and /api/😀 (7 UTF-16 units) on line 5, 201 on
+	// line 6, <code> on line 10.
 	want := []uint32{
-		2, 12, 3, tokenParameter, 0,
+		2, 14, 7, tokenParameter, 0,
+		3, 12, 3, tokenParameter, 0,
 		0, 15, 7, tokenParameter, 0,
 		1, 37, 3, tokenParameter, 0,
-		3, 37, 6, tokenVariable, 0,
+		4, 37, 6, tokenVariable, 0,
 	}
 	if fmt.Sprint(toks.Data) != fmt.Sprint(want) {
 		t.Errorf("tokens %v\nwant   %v", toks.Data, want)

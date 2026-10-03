@@ -95,7 +95,8 @@ func TestTools(t *testing.T) {
 		t.Fatalf("syntax problems: %v", out)
 	}
 
-	out = call(t, cs, "feature_validate", map[string]any{"content": "Feature: f\n  Scenario: s\n    Given a GET request to /health\n    Then the 2nd selection has 1 row\n"})
+	out = call(t, cs, "feature_validate", map[string]any{"content": "Feature: f\n  Background:\n    Given the parcels service with the following properties:\n      | url | http://localhost |\n" +
+		"    And a parcels-db database with the following properties:\n      | url | x |\n  Scenario: s\n    Given a GET request to /health\n    Then the 2nd selection has 1 row\n"})
 	if ws, _ := out["warnings"].([]any); out["valid"] != true || len(ws) != 1 || ws[0].(map[string]any)["kind"] != "lint" {
 		t.Fatalf("feature_validate lint warnings: %v", out)
 	}

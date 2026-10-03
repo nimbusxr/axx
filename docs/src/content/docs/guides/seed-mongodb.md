@@ -88,6 +88,8 @@ And the 1st document for the selection properties are:
 
 Properties are JSONPaths (`location`, `history[0].status`), compared as text; `null` means null and `undefined` means the field is absent ([the rules](/references/packs/mongo/#mongodocare)). `the 1st document for the selection properties match:` takes Java regular expressions instead.
 
+Selections are numbered in the order a scenario retrieves them, and a step without an ordinal checks the first. After a second retrieval (the tracking view before and after a scan, say), name the one a step checks: `the 1st document for the 2nd selection properties are:`. `axx validate` warns about a step that checks the first while a later selection goes unchecked.
+
 Like the SQL selections, they are numbered in the order they are retrieved (`the 2nd selection has 3 documents`), and `has more than` / `has fewer than` compare counts.
 
 ### Wait for asynchronous writes
