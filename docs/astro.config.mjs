@@ -44,7 +44,7 @@ export default defineConfig({
 	// where agents look for pages (/packs/rest, /reference/..., /guides/mongodb).
 	redirects: {
 		...Object.fromEntries(movedPacks.map((name) => [`/references/steps/${name}`, at(`/references/packs/${name === 'web' ? 'web-core' : name}`)])),
-		...Object.fromEntries([...aliases(pageSlugs(fileURLToPath(new URL('./src/content/docs/', import.meta.url))))].map(([alias, slug]) => [`/${alias}`, at(`/${slug}/`)])),
+		...Object.fromEntries([...aliases(pageSlugs(fileURLToPath(new URL('./src/content/docs/', import.meta.url))))].map(([alias, slug]) => [`/${alias}`, at(slug === 'index' ? '/' : `/${slug}/`)])),
 	},
 	vite: { plugins: [poseEditor()], define: { __AXX_DOCS__: JSON.stringify(build) } },
 	markdown: { processor: satteri({ mdastPlugins: [stepParams(stepTokens), siteBase(build.base)] }) },

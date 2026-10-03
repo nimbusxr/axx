@@ -313,3 +313,21 @@ func TestTriggers(t *testing.T) {
 		}
 	})
 }
+
+// A seed PostgreSQL refuses for a column or table it does not have names the
+// table's columns, or the schema's tables.
+func TestSeedErrorsNameWhatThereIs(t *testing.T) {
+	h := newHarness(t)
+	h.db(postgresURL(t))
+	id := uniq(t)
+	h.file("col.yaml", fmt.Sprintf("space.crew:\n  - id: %[1]s-1\n    rank: captain\n", id))
+	err := h.step("a col.yaml db seed")
+	if err == nil || !strings.Contains(err.Error(), "; space.crew has the columns id, name") {
+		t.Errorf("unknown column: %v", err)
+	}
+	h.file("tbl.yaml", fmt.Sprintf("space.crews:\n  - id: %[1]s-2\n", id))
+	err = h.step("a tbl.yaml db seed")
+	if err == nil || !strings.Contains(err.Error(), "; the schema space has the tables ") || !strings.Contains(err.Error(), "crew") {
+		t.Errorf("unknown table: %v", err)
+	}
+}

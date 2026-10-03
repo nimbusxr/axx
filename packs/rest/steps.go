@@ -392,7 +392,9 @@ func requestSteps() []core.StepDef {
 			example:      "Given the request payload property sender is 'kestrel-books'",
 			namedExample: "Given the request payload property serviceLevel is 'EXPRESS' for request on parcels",
 			run: func(sc *core.Scenario, a core.Args, t target) error {
-				return modifyPayload(sc, a, t, func(doc any) error { return jvalue.SetRequestProperty(doc, a.String(0), a.String(1)) })
+				return modifyPayload(sc, a, t, func(doc any) error {
+					return missingParent(doc, a.String(0), jvalue.SetRequestProperty(doc, a.String(0), a.String(1)))
+				})
 			},
 		},
 		{
@@ -419,7 +421,7 @@ func requestSteps() []core.StepDef {
 				return modifyPayload(sc, a, t, func(doc any) error {
 					for _, p := range pairs {
 						if err := jvalue.ApplyRequestTableRow(doc, p.Key, p.Value); err != nil {
-							return err
+							return missingParent(doc, p.Key, err)
 						}
 					}
 					return nil
@@ -433,7 +435,9 @@ func requestSteps() []core.StepDef {
 			example:      "Given the request payload property recipient.street is null",
 			namedExample: "Given the request payload property recipient.street is null for request on parcels",
 			run: func(sc *core.Scenario, a core.Args, t target) error {
-				return modifyPayload(sc, a, t, func(doc any) error { return jvalue.SetRequestPropertyNull(doc, a.String(0)) })
+				return modifyPayload(sc, a, t, func(doc any) error {
+					return missingParent(doc, a.String(0), jvalue.SetRequestPropertyNull(doc, a.String(0)))
+				})
 			},
 		},
 	} {
@@ -573,6 +577,37 @@ func modifyPayload(sc *core.Scenario, a core.Args, t target, fn func(doc any) er
 		r.Payload = &text
 		return nil
 	})
+}
+
+// missingParent explains a PathNotFoundException from setting a request
+// payload property: a property can be added, but not inside one the payload
+// does not have. It names the first part of path that is missing, so the
+// message says what to add or start from; the Java exception stays at the
+// end. Any other error comes back as it is.
+func missingParent(doc any, path string, err error) error {
+	var je *jsonx.Error
+	if err == nil || !errors.As(err, &je) || !je.Kind.Is(jsonx.PathNotFound) {
+		return err
+	}
+	missing := ""
+	for p := path; ; {
+		parent, _ := jsonx.ParentAndKey(p)
+		if parent == "" || parent == "$" {
+			break
+		}
+		if ok, _ := jsonx.Exists(doc, parent); ok {
+			break
+		}
+		missing, p = parent, parent
+	}
+	if missing == "" {
+		return fmt.Errorf("the request payload has no place for %s: %w", path, err)
+	}
+	if !strings.HasPrefix(path, "$") {
+		missing = strings.TrimPrefix(missing, "$.") // as the step wrote it
+	}
+	return fmt.Errorf("the request payload has no %s, so %s cannot be set inside it: start the payload from one that has it "+
+		"(like `a request payload using an application/json content example`), or set %s first: %w", missing, path, missing, err)
 }
 
 // rows2 returns the rows of a two-column table (names may repeat).

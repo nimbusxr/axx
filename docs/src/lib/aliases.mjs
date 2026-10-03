@@ -1,5 +1,6 @@
 // Where agents look for pages, as they did in axx's agent evaluations:
-// /packs/rest, /reference/packs/rest/, /guides/mongodb.md. aliases() maps each
+// /packs/rest, /reference/packs/rest/, /guides/mongodb.md, /steps/kafka,
+// /docs/packs/sql, /reference/configuration. aliases() maps each
 // such path to the page it means. The site redirects the pages' aliases
 // (astro.config.mjs) and serves the Markdown twins at them too
 // (src/pages/[...slug].md.ts), so an agent's guess lands either way.
@@ -76,8 +77,36 @@ export function aliases(slugs) {
 		if (pages.has(`guides/${topic}`)) throw new Error(`docs/src/lib/aliases.mjs: guides/${topic} is a page of its own`);
 		out.set(`guides/${topic}`, slug);
 	}
+	// /steps/kafka: a pack's steps are its reference page; /steps, all of them.
+	for (const slug of slugs) {
+		if (slug.startsWith('references/packs/')) out.set(`steps/${slug.slice('references/packs/'.length)}`, slug);
+	}
+	for (const [alias, slug] of Object.entries(pageAliases)) {
+		if (slug !== 'index' && !pages.has(slug)) throw new Error(`docs/src/lib/aliases.mjs: ${alias} leads to ${slug}, which is no page`);
+		if (pages.has(alias)) throw new Error(`docs/src/lib/aliases.mjs: ${alias} is a page of its own`);
+		out.set(alias, slug);
+	}
+	// /docs and /docs/...: the whole site is the docs, so every page and alias
+	// is there too (/docs/packs/sql).
+	out.set('docs', 'index');
+	for (const slug of slugs) {
+		if (slug !== 'index') out.set(`docs/${slug}`, slug);
+	}
+	for (const [alias, slug] of [...out]) {
+		if (!alias.startsWith('docs')) out.set(`docs/${alias}`, slug);
+	}
 	return out;
 }
+
+/** Other pages agents named, and the page each means ('index': the landing page). */
+export const pageAliases = {
+	steps: 'references/step-index',
+	guides: 'index', // the guides have no index page: the landing page and its sidebar list them
+	'references/gherkin': 'references/step-index',
+	'reference/gherkin': 'references/step-index',
+	'references/configuration': 'references/config',
+	'reference/configuration': 'references/config',
+};
 
 /**
  * The slugs of the docs' pages, read from src/content/docs/: the generated ones

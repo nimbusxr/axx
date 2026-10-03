@@ -395,7 +395,7 @@ func (svc *Service) insert(ctx context.Context, ds *Dataset, now time.Time) erro
 			}
 			q := "INSERT INTO " + table + " (" + strings.Join(cols, ", ") + ") VALUES (" + strings.Join(vals, ", ") + ")"
 			if _, err := tx.ExecContext(ctx, q); err != nil {
-				return fmt.Errorf("insert into %s (row %d): %w", t.Name, i+1, err)
+				return fmt.Errorf("insert into %s (row %d): %w%s", t.Name, i+1, err, svc.schemaHint(ctx, t.Name, err))
 			}
 		}
 	}

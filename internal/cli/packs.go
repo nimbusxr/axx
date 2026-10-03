@@ -26,7 +26,7 @@ const envPackBuild = "AXX_PACK_BUILD"
 
 // commandsNeedingPacks load the project's steps, or start what does: up's
 // supervisor is this same executable, and its packs prepare the apps.
-var commandsNeedingPacks = []string{"run", "up", "validate", "lint", "steps", "explain", "mcp", "lsp", "doctor", "skills", "docs"}
+var commandsNeedingPacks = []string{"run", "up", "env", "config", "validate", "lint", "steps", "explain", "mcp", "lsp", "doctor", "skills", "docs"}
 
 // ensurePacks makes sure the running axx has the project's packs compiled
 // in. If it has not, it builds (or reuses) such an axx and replaces this

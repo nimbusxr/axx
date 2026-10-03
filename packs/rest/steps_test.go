@@ -545,3 +545,17 @@ func TestPayloadFromAResource(t *testing.T) {
 	h3.ok("a request payload using an application/x-www-form-urlencoded requests/token-request.form resource")
 	h3.fails("the request is executed", "must be a JSON object whose properties are the form's fields")
 }
+
+// A property inside one the payload does not have cannot be set: the message
+// names what is missing and how to get it, not only Java's exception.
+func TestPayloadPropertyInsideAMissingOne(t *testing.T) {
+	_, srv := newAPI(t)
+	h := newHarness(t)
+	h.service("api", srv.URL, "")
+	h.ok("a POST request to /echo")
+	h.ok("a request payload using an application/json empty content template")
+	for _, want := range []string{"the request payload has no recipient, so recipient.name cannot be set inside it", "or set recipient first", "PathNotFoundException"} {
+		h.fails("the request payload property recipient.name is 'Ada'", want)
+	}
+	h.fails("the request payload properties are:", "the request payload has no recipient.address", []string{"recipient", "{}"}, []string{"recipient.address.city", "Bonn"})
+}

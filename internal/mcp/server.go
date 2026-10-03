@@ -40,10 +40,10 @@ import (
 const Instructions = `axx (github.com/nimbusxr/axx, "axxeptance") is a human-readable acceptance testing framework for the agentic era.
 
 Workflow for writing acceptance tests:
-1. steps_search for every action/assertion you need; use only step text that exists (never invent steps).
+1. steps_search for every action/assertion you need; use only step text that exists (never invent steps). In a step's expression, {name} is a parameter and [[...]] are optional words.
 2. env {"action":"up"} once to keep the apps running.
 3. Unsure how a step behaves? steps_try runs steps in a live scenario that stays open between calls; the packs' tools (web_page: the page a step opened) look at it.
-4. Write the .feature file; feature_validate it until there are no problems (step_explain shows how a single line is read). Then scenarios_run.
+4. Write the .feature file: one scenario per acceptance criterion, each registering the services it uses first (steps like "the {word} service with the following properties:" or "a(n) {word} database with the following properties:"); other steps find a service only once it is registered. feature_validate it until there are no problems (step_explain shows how a single line is read). Then scenarios_run.
 5. On failure, read the returned failures (expected/actual); failure_context gives logs and request/response details (without a runId: the latest run).
 Every scenario must use unique test data (ids, names, keys): scenarios run in parallel and data persists between runs. After adding seeds, payloads or fixtures, lint_run reports values that collide with other files.
 When seeds, payloads or mock bodies repeat across scenarios, fixture factories generate them from one shape with unique ids (optional; ` + "`axx fixtures`" + `, the axx-test-data skill); ` + "`axx fixtures adopt`" + ` converts hand-written ones.
@@ -198,7 +198,7 @@ func newEngine(cfg *config.Config) (*engine.Engine, error) {
 type stepsSearchIn struct {
 	Query string `json:"query" jsonschema:"what the step should do, e.g. 'response header', 'rows in table'"`
 	Pack  string `json:"pack,omitempty" jsonschema:"limit to one pack of the project, by its name in axx-packs.yaml: rest, sql, web-core..."`
-	Limit int    `json:"limit,omitempty" jsonschema:"maximum results (default 10)"`
+	Limit int    `json:"limit,omitempty" jsonschema:"maximum results (default 6)"`
 }
 
 // Step is a step definition as seen by agents.
@@ -206,7 +206,7 @@ type Step struct {
 	ID       string   `json:"id"`
 	Pack     string   `json:"pack"`
 	Expr     string   `json:"expr"`
-	Variants []string `json:"variants"`
+	Variants []string `json:"variants,omitempty"`
 	Arg      string   `json:"argument"`
 	// Columns name the columns of the step's data table; the table may
 	// start with a row of these names (two columns or more) or not.
@@ -228,9 +228,22 @@ func (s *server) stepsSearch(ctx context.Context, _ *sdk.CallToolRequest, in ste
 	}
 	limit := in.Limit
 	if limit <= 0 {
-		limit = 10
+		limit = 6
 	}
-	out := stepsSearchOut{Steps: searchSteps(e, in.Query, in.Pack, limit)}
+	all := searchSteps(e, in.Query, in.Pack, 1<<30)
+	out := stepsSearchOut{Steps: all[:min(limit, len(all))]}
+	if more := len(all) - len(out.Steps); more > 0 {
+		out.Hint = fmt.Sprintf("%d more steps match; pass a higher limit to see them, or more words to narrow the search", more)
+	}
+	// Every result stays in the agent's context, so it carries what picking a
+	// step takes and no more: the variants read off the expression ([[...]]
+	// are optional words), and one example shows the step in use.
+	for i := range out.Steps {
+		out.Steps[i].Variants = nil
+		if len(out.Steps[i].Examples) > 1 {
+			out.Steps[i].Examples = out.Steps[i].Examples[:1]
+		}
+	}
 	if len(out.Steps) == 0 {
 		out.Hint = "no match; try fewer or different words, or omit pack"
 	}
@@ -758,11 +771,12 @@ func (s *server) configShow(ctx context.Context, _ *sdk.CallToolRequest, _ struc
 	if err != nil {
 		return nil, configShowOut{}, err
 	}
-	return nil, configShowOut{File: e.Config.File, Config: decode(redact(b)), Packs: e.PackNames(), Profile: s.opts.Profile}, nil
+	return nil, configShowOut{File: e.Config.File, Config: decode(Redact(b)), Packs: e.PackNames(), Profile: s.opts.Profile}, nil
 }
 
-// redact masks values of keys that look like secrets.
-func redact(b []byte) json.RawMessage {
+// Redact masks the values of keys that look like secrets (password,
+// secret, token, key) in a JSON document.
+func Redact(b []byte) json.RawMessage {
 	var v any
 	if json.Unmarshal(b, &v) != nil {
 		return b

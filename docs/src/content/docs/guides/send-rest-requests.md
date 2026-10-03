@@ -32,6 +32,27 @@ Scenario Outline: A shop's order system registers the parcels it exports
 
 A [fixture factory](/guides/fixture-factories/) keeps such files in one place and checks them against a schema. The parcels example generates the two files above with `requests/registrations.factory.yaml`, from the `ParcelRequest` schema of the service's OpenAPI contract.
 
+## Several requests in one scenario
+
+Requests are numbered in the order a scenario adds them. The first is the default, which steps without an ordinal use; every other request is added, executed and checked with its ordinal:
+
+```gherkin
+Scenario: A registered parcel can be looked up by its reference
+  Given a POST request to /api/parcels
+  And a request payload using an application/json content example
+  And the request payload property reference is 'PX-REG-1401'
+  And a 2nd ordered GET request to /api/parcels/PX-REG-1401
+  When the request is executed
+  And the 2nd ordered request is executed
+  Then the response status code is 201
+  And the 2nd ordered response status code is 200
+  And the response payload property reference is 'PX-REG-1401' for 2nd ordered response
+```
+
+- **Add a request before using it:** a step that uses the 2nd request fails unless a 2nd was added before it. `axx validate` says so, with the step that adds it.
+- **A second `a GET request to …` adds the 1st again**, and fails: write it as `a 2nd ordered GET request to …`. `axx validate` shows the line to write.
+- **A check names its response:** `the 2nd ordered response status code is 200`, or `… for 2nd ordered response` at the end of the other response steps. A check without one reads the 1st response.
+
 ## Redirects
 
 | Request | Redirects it follows | The response the steps check |

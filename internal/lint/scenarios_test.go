@@ -102,3 +102,47 @@ func TestScenarioHintsNameAFewScenarios(t *testing.T) {
 		t.Errorf("hints: %v", got)
 	}
 }
+
+const roundsFeature = `Feature: Rounds
+
+  Background:
+    Given the parcels service with the following properties:
+      | url | http://localhost:8400 |
+
+  Scenario: one round
+    Given a POST request to /api/parcels
+    When the request is executed
+    Then the response status code is 201
+    And the response payload property status is 'REGISTERED'
+
+  Scenario: a check of the starting state is no round
+    Then the response payload property status is 'REGISTERED'
+    When the request is executed
+    Then the response payload property status is 'CANCELLED'
+
+  Scenario: register, then cancel
+    Given a POST request to /api/parcels
+    When the request is executed
+    Then the response payload property status is 'REGISTERED'
+    When a 2nd ordered DELETE request to /api/parcels/PX-REG-1
+    And the 2nd ordered request is executed
+    Then the response payload property status is 'CANCELLED'
+`
+
+// A scenario that checks several things in turn (When … Then … When …
+// Then …) is named: each acceptance criterion reads best as its own.
+func TestScenarioHintsNameScenariosOfSeveralRounds(t *testing.T) {
+	e, err := engine.New(engine.Options{Packs: engine.Ordered(all.Packs())})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, pickles, err := feature.ParseSource("rounds.feature", []byte(roundsFeature), messages.UUID{}.NewId)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := ScenarioHints(e.Registry, pickles, Options{})
+	want := "1 scenario checks several things in turn (When … Then …, then When … Then … again): rounds.feature:18 (each acceptance criterion reads best as a scenario of its own)"
+	if len(got) != 1 || got[0] != want {
+		t.Errorf("hints:\n%s\nwant:\n%s", strings.Join(got, "\n"), want)
+	}
+}
