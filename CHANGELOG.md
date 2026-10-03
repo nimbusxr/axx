@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.10](https://github.com/nimbusxr/axx/compare/v0.1.9...v0.1.10) (2026-10-03)
+
+
+### Bug Fixes
+
+* polling selections fail when the rows never come, and what agents stumbled on ([#88](https://github.com/nimbusxr/axx/issues/88)) ([023ef05](https://github.com/nimbusxr/axx/commit/023ef057803e0da5760f3121021d57d845d0084f))
+
 ## [0.1.9](https://github.com/nimbusxr/axx/compare/v0.1.8...v0.1.9) (2026-10-03)
 
 
