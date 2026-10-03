@@ -21,6 +21,27 @@ Java client properties axx accepts without effect:
 
 Those that fail the step, since they name Java classes: `context.name.strategy`, `interceptor.classes`, `sasl.client.callback.handler.class`, `sasl.login.callback.handler.class`, `sasl.login.class`, `security.providers`, `specific.avro.key.type`, `specific.avro.value.type`, `ssl.engine.factory.class`, `metric.reporters` other than JmxReporter, and any other `*.class` or `*.classes` property.
 
+The steps, each documented below under its id:
+
+- `kafka.service`: `the {word} kafka service with the following properties:`
+- `kafka.client`: `the {word} kafka topic client`
+- `kafka.client.props`: `a(n) {word} kafka topic client[[ on the {word} kafka service]] with the following properties:`
+- `kafka.event`: `a(n)[[ {ordinal} ordered]] {word} kafka event[[ on {word} kafka service]]`
+- `kafka.event.key`: `the[[ {ordinal} ordered]] {word} kafka event key is {word}[[ on the {word} kafka service]]`
+- `kafka.event.headers`: `the[[ {ordinal} ordered]] {word} kafka event headers[[ on the {word} kafka service]] are:`
+- `kafka.event.payload.resource`: `the[[ {ordinal} ordered]] {word} kafka event payload is a(n) {filepath} resource[[ on the {word} kafka service]]`
+- `kafka.event.properties.first`: `the[[ {ordinal} ordered]] kafka event payload properties[[ on the {word} kafka service]] are:`
+- `kafka.event.properties`: `the {word} kafka event payload properties[[ on the {word} kafka service]] are:`
+- `kafka.event.properties.ordinal`: `the {ordinal} ordered {word} kafka event payload properties[[ on the {word} kafka service]] are:`
+- `kafka.event.property.null`: `the[[ {ordinal} ordered]] {word} kafka event payload property {word} is null[[ on the {word} kafka service]]`
+- `kafka.event.publish.schema`: `the[[ {ordinal} ordered]] {word} kafka event is published using schema {filepath}[[ on the {word} kafka service]]`
+- `kafka.event.publish`: `the[[ {ordinal} ordered]] {word} kafka event is published[[ on the {word} kafka service]]`
+- `kafka.consumed.key`: `the {word} kafka event named {word} key is {word}[[ on the {word} kafka service]]`
+- `kafka.consumed.properties`: `the {word} kafka event named {word} payload properties[[ on the {word} kafka service]] are:`
+- `kafka.consumed.headers`: `the {word} kafka event named {word} headers[[ on the {word} kafka service]] are:`
+- `kafka.consumed.headers.match`: `the {word} kafka event named {word} headers match:`
+- `kafka.consumed.headers.match.service`: `the {word} kafka event named {word} headers on the {word} kafka service match:`
+
 ## `kafka.service`
 
 ```gherkin

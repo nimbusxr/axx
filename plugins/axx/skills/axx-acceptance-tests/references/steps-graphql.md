@@ -32,6 +32,18 @@ Findings have keys and levels, like the REST pack's OpenAPI findings:
 - **Keys cover the keys below them:** `validation.operation` sets every operation finding; the most specific key set wins.
 - **Secrets stay secret:** `${env:..}` values in the properties are masked in logs and failures, and `${token:..}` names a token of the scenario.
 
+The steps, each documented below under its id:
+
+- `graphql.service`: `the {word} graphql service with the following properties:`
+- `graphql.send.file`: `the {filepath} query/mutation is sent to the {word} graphql service[[ with the following variables:]]`
+- `graphql.send.doc`: `a query/mutation is sent to the {word} graphql service:`
+- `graphql.subscribe`: `the {filepath} subscription is started on the {word} graphql service[[ with the following variables:]]`
+- `graphql.no.errors`: `the {word} graphql service answered without errors`
+- `graphql.data`: `the {word} graphql service's data has the following properties:`
+- `graphql.error`: `the {word} graphql service answered an error where:`
+- `graphql.received`: `[[within {duration} ]]the {word} graphql service's subscription received a message where:`
+- `graphql.levels`: `the GraphQL validation levels are:`
+
 ## `graphql.service`
 
 ```gherkin

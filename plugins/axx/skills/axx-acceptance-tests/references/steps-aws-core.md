@@ -14,6 +14,10 @@ Given the parcels aws account with the following properties:
 
 Without credentials in the table, the SDK finds them as it always does: the `AWS_*` environment variables, the shared files, then the container or instance role. `AWS_ENDPOINT_URL` is honored too, so the same features run against AWS and against an emulator. Values expand `${env:..}` and `${sys:..}`.
 
+The steps, each documented below under its id:
+
+- `aws-core.account`: `the {word} aws account with the following properties:`
+
 ## `aws-core.account`
 
 ```gherkin

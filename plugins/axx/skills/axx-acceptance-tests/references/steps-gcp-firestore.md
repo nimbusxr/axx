@@ -22,6 +22,12 @@ shipments:
 
 **Checks** wait (10 seconds unless `within {duration}` says otherwise): for a document at a path (`invoices/INV-2026-09-KESTREL`) to have properties, or for a collection to have a document meeting every condition. Conditions and properties are `field | value` rows, with a dotted path into maps (`totals.billed`), compared as text: timestamps in RFC 3339 and UTC (`2026-09-24T07:40:00Z`), `null` for null and `undefined` for absent. A collection check reads up to 5,000 of its documents.
 
+The steps, each documented below under its id:
+
+- `gcp-firestore.seed`: `a {filepath} firestore seed`
+- `gcp-firestore.document`: `[[within {duration} ]]the {word} firestore document has the following properties:`
+- `gcp-firestore.collection`: `[[within {duration} ]]the {word} firestore collection has a document where:`
+
 ## `gcp-firestore.seed`
 
 ```gherkin

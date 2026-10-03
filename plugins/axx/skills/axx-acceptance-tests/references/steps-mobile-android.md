@@ -8,6 +8,11 @@ Android apps, on emulators axx starts or on devices adb lists, driven by [Appium
 
 **Each scenario starts from a clean app.** Before the app starts, its data is cleared (and with it what it stored, its permissions and its notifications), the permissions the registration names are granted, and the device's language, time zone and location are set. There is no switch that skips it: a scenario is one journey, and that journey is its own.
 
+The steps, each documented below under its id:
+
+- `mobile-android.app`: `the {word} android app with the following properties:`
+- `mobile-android.back`: `the {word} app's back button is pressed`
+
 ## `mobile-android.app`
 
 ```gherkin

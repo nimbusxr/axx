@@ -30,10 +30,16 @@ const checksFeature = `Feature: What scenarios check
     Then the response status code is 201
     And the response payload property status is 'REGISTERED'
 
-  Scenario: a refusal is its own proof
+  Scenario: a refusal checked only by its status
     Given a POST request to /api/parcels
     When the request is executed
     Then the response status code is 400
+
+  Scenario: a refusal and why
+    Given a POST request to /api/parcels
+    When the request is executed
+    Then the response status code is 400
+    And the response body contains 'weightGrams'
 
   Scenario: only that nothing happened
     Given a DELETE request to /api/parcels/PX-REG-1602
@@ -74,8 +80,9 @@ func TestScenarioHints(t *testing.T) {
 	}
 	got := ScenarioHints(e.Registry, pickles, Options{})
 	want := []string{
-		"2 scenarios check only a success status (a 2xx response, a command's exit code 0), which says it was accepted, not what it did: checks.feature:9, checks.feature:37 (check what it did too: a response property, a row, a message, the output)",
-		"1 scenario checks only that something did not happen, which also passes when the action never ran: checks.feature:25 (check something it did do too)",
+		"2 scenarios check only a success status (a 2xx response, a command's exit code 0), which says it was accepted, not what it did: checks.feature:9, checks.feature:43 (check what it did too: a response property, a row, a message, the output)",
+		"1 scenario checks only status codes, a refusal among them: a request refused for another reason (a missing field) passes as well as one refused by the rule meant: checks.feature:20 (check what the response says too, like the problem detail naming the field)",
+		"1 scenario checks only that something did not happen, which also passes when the action never ran: checks.feature:31 (check something it did do too)",
 	}
 	if strings.Join(got, "\n") != strings.Join(want, "\n") {
 		t.Errorf("hints:\n%s\nwant:\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))

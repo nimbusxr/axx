@@ -32,6 +32,10 @@ Findings have keys and levels, like the REST pack's OpenAPI findings:
 - **Levels:** `ERROR` (or `FAIL`) fails the step, `WARN` and `INFO` log the finding, `IGNORE` drops it. Every finding is an `ERROR` unless `packs.asyncapi.levels` in axx.yaml, or the scenario's `the AsyncAPI validation levels are:`, says otherwise.
 - **Keys cover the keys below them:** `validation.message.payload` sets every payload finding; the most specific key set wins.
 
+The steps, each documented below under its id:
+
+- `asyncapi.levels`: `the AsyncAPI validation levels are:`
+
 ## `asyncapi.levels`
 
 ```gherkin

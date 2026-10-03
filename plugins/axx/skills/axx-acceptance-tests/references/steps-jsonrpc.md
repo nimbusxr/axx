@@ -32,6 +32,18 @@ OpenRPC findings have keys and levels, like the REST pack's OpenAPI findings:
 - **Keys cover the keys below them:** `validation.params` sets every params finding; the most specific key set wins.
 - **Secrets stay secret:** `${env:..}` values in the properties are masked in logs and failures, and `${token:..}` names a token of the scenario.
 
+The steps, each documented below under its id:
+
+- `jsonrpc.service`: `the {word} jsonrpc service with the following properties:`
+- `jsonrpc.call`: `the {word} method is called on the {word} jsonrpc service`
+- `jsonrpc.call.params`: `the {word} method is called on the {word} jsonrpc service with the following params:`
+- `jsonrpc.call.doc`: `the {word} method is called on the {word} jsonrpc service with the params:`
+- `jsonrpc.result`: `the {word} jsonrpc service's result has the following properties:`
+- `jsonrpc.result.is`: `the {word} jsonrpc service's result is {string}`
+- `jsonrpc.error`: `the {word} jsonrpc service answered the error {int}[[ with a message containing {string}]]`
+- `jsonrpc.error.properties`: `the {word} jsonrpc service's error has the following properties:`
+- `jsonrpc.openrpc.levels`: `the OpenRPC validation levels are:`
+
 ## `jsonrpc.service`
 
 ```gherkin

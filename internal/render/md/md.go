@@ -47,6 +47,12 @@ func StepsPage(reg *match.Registry, p PackInfo, frontmatter bool) (string, error
 	if p.Manifest.Doc != "" {
 		fmt.Fprintf(&b, "\n%s\n", strings.TrimSpace(p.Manifest.Doc))
 	}
+	// The page's steps first, one line each: a reader (or an agent reading
+	// the top of the file) finds the one it needs, then its section by id.
+	b.WriteString("\nThe steps, each documented below under its id:\n\n")
+	for _, d := range defs {
+		fmt.Fprintf(&b, "- `%s`: `%s`\n", d.Step.ID, d.Step.Expr)
+	}
 	variants := variantsByDef(reg)
 	params := paramDocs(reg)
 	for _, d := range defs {

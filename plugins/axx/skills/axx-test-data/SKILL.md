@@ -1,6 +1,6 @@
 ---
 name: axx-test-data
-description: Keep the test data of Axx acceptance tests (the human-readable acceptance testing framework) - SQL and MongoDB seeds, Kafka events, request payloads, mock bodies - in fixture factories that check it against its schema and keep its ids unique. Covers axx fixtures (generate, check, adopt, clean), factories, prototypes, fixtures, $ref, identities, generated lint rules, axx lint and CI. Use when several scenarios need payloads, seeds or mock bodies of one shape, or hand-written ones repeat.
+description: Keep the test data of axx acceptance tests - SQL and MongoDB seeds, Kafka events, request payloads, mock bodies - in fixture factories that check it against its schema and keep its ids unique. Covers axx fixtures (generate, check, adopt, clean), factories, prototypes, fixtures, $ref, identities, generated lint rules, axx lint and CI. Use when several scenarios need payloads, seeds or mock bodies of one shape, or hand-written ones repeat.
 license: Apache-2.0
 ---
 

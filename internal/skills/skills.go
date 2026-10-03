@@ -83,8 +83,16 @@ func Build(e *engine.Engine) ([]Skill, error) {
 			return nil, err
 		}
 		switch name {
-		case "axx-acceptance-tests", "axx-custom-steps":
+		case "axx-acceptance-tests":
 			sk.Files = append(sk.Files, refs...)
+		case "axx-custom-steps":
+			// The step pages are the acceptance-tests skill's; a custom
+			// step needs the parameter types.
+			for _, f := range refs {
+				if f.Path == "references/parameter-types.md" {
+					sk.Files = append(sk.Files, f)
+				}
+			}
 		case "axx-debugging", "axx-setup":
 			sk.Files = append(sk.Files, errorCodes)
 		case "axx-test-data":
@@ -215,9 +223,12 @@ type InstallOptions struct {
 
 // Result reports what Install did.
 type Result struct {
-	Dir      string   `json:"dir"`
-	Written  []string `json:"written"`
-	Kept     []string `json:"kept,omitempty"` // modified locally, not overwritten
+	Dir     string   `json:"dir"`
+	Written []string `json:"written"`
+	Kept    []string `json:"kept,omitempty"` // modified locally, not overwritten
+	// Removed are files an earlier install wrote that the skills no longer
+	// have; one modified locally is kept instead.
+	Removed  []string `json:"removed,omitempty"`
 	Linked   []string `json:"linked,omitempty"`
 	Skills   []string `json:"skills"`
 	Location string   `json:"claudeDir,omitempty"`
@@ -265,6 +276,26 @@ func Install(skills []Skill, opts InstallOptions) (*Result, error) {
 			res.Written = append(res.Written, rel)
 		}
 	}
+	// Files an earlier install wrote that the skills dropped go, unless
+	// edited since.
+	for rel, h := range old.Files {
+		if _, ok := lock.Files[rel]; ok {
+			continue
+		}
+		dst := filepath.Join(dir, filepath.FromSlash(rel))
+		cur, err := os.ReadFile(dst)
+		switch {
+		case err != nil:
+		case hash(cur) != h && !opts.Force:
+			res.Kept = append(res.Kept, rel)
+		default:
+			if err := os.Remove(dst); err != nil {
+				return nil, err
+			}
+			res.Removed = append(res.Removed, rel)
+		}
+	}
+	sort.Strings(res.Removed)
 	b, _ := json.MarshalIndent(lock, "", "  ")
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return nil, err
@@ -340,6 +371,10 @@ func Export(skills []Skill, dir string) ([]string, error) {
 	for _, sk := range skills {
 		if len(sk.Files) == 0 {
 			return nil, errors.New("skill " + sk.Name + " is empty")
+		}
+		// The export is generated: a file the skill dropped goes with it.
+		if err := os.RemoveAll(filepath.Join(dir, sk.Name)); err != nil {
+			return nil, err
 		}
 		for _, f := range sk.Files {
 			p := filepath.Join(dir, sk.Name, filepath.FromSlash(f.Path))

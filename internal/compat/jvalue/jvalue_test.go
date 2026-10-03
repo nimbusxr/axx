@@ -146,24 +146,22 @@ func TestRequestProperty(t *testing.T) {
 		{"age", "30"},
 		{"age", `"thirty"`},
 		{"tags", `["b","c"]`},
-		{"address.city", "LA"},
+		{"address.city", "LA"},                    // a missing object is created (ADR 0010)
+		{"recipient.address.postcode", `"53111"`}, // and its missing parents
 		{"added", "1.5"},
 	}
 	for _, s := range steps {
-		err := jvalue.SetRequestProperty(doc, s.path, s.value)
-		if s.path == "address.city" {
-			if !errors.Is(err, jsonx.ErrPathNotFound) {
-				t.Errorf("a missing parent fails: %v", err)
-			}
-			continue
-		}
-		if err != nil {
+		if err := jvalue.SetRequestProperty(doc, s.path, s.value); err != nil {
 			t.Errorf("SetRequestProperty(%s, %s): %v", s.path, s.value, err)
 		}
 	}
 	got, _ := jsonx.Marshal(doc)
-	if want := `{"name":"new","age":"thirty","tags":["b","c"],"added":1.5}`; got != want {
+	if want := `{"name":"new","age":"thirty","tags":["b","c"],"address":{"city":"LA"},"recipient":{"address":{"postcode":"53111"}},"added":1.5}`; got != want {
 		t.Errorf("payload = %s, want %s", got, want)
+	}
+	// A path through an array still needs the array.
+	if err := jvalue.SetRequestProperty(doc, "items[2].sku", "A"); !errors.Is(err, jsonx.ErrPathNotFound) {
+		t.Errorf("a missing array fails: %v", err)
 	}
 	var se *jvalue.StepError
 	err := jvalue.SetRequestProperty(doc, "added", "abc")

@@ -77,9 +77,30 @@ func TestTools(t *testing.T) {
 		t.Fatalf("steps_search: %v", out)
 	}
 
+	// Results are brief: no documentation, one example.
+	if st := steps[0].(map[string]any); st["doc"] != nil || len(st["examples"].([]any)) != 1 {
+		t.Errorf("a search result carries no documentation and one example: %v", st)
+	}
+	// A step an earlier search returned comes again as its id only.
+	out = call(t, cs, "steps_search", map[string]any{"query": "status code"})
+	if st := out["steps"].([]any)[0].(map[string]any); st["id"] != "rest.response.status" || st["shownEarlier"] != true || st["expr"] != nil {
+		t.Errorf("a step shown earlier: %v", out)
+	}
+	// Without a query: every step, one line each.
+	out = call(t, cs, "steps_search", map[string]any{})
+	if cat, _ := out["catalog"].(string); !strings.Contains(cat, "\n  rest.response.status  the[[ {ordinal} ordered]] response status code is {int}") ||
+		!strings.Contains(cat, "sql.select.poll") || !strings.Contains(cat, "(+ .on)") || strings.Contains(cat, "rest.request.header.on") {
+		t.Errorf("catalog: %v", out)
+	}
+
 	out = call(t, cs, "step_explain", map[string]any{"line": "Then the response status code is 200"})
-	if out["status"] != "matched" {
+	if st, _ := out["step"].(map[string]any); out["status"] != "matched" || st["id"] != "rest.response.status" || st["doc"] != nil {
 		t.Fatalf("step_explain: %v", out)
+	}
+	// With an id, the whole step.
+	out = call(t, cs, "step_explain", map[string]any{"id": "rest.response.status"})
+	if st, _ := out["step"].(map[string]any); out["status"] != "matched" || st["doc"] == nil || st["examples"] == nil {
+		t.Fatalf("step_explain by id: %v", out)
 	}
 	out = call(t, cs, "step_explain", map[string]any{"line": "Then the respons status code is 200"})
 	if out["status"] != "undefined" || out["suggestions"] == nil {

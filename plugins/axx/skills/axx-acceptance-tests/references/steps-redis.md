@@ -16,6 +16,14 @@ Given the cache redis server with the following properties:
 - **Scenarios share the server,** so each seeds and checks keys of its own, named after data unique to it, such as a parcel reference.
 - **Secrets stay secret:** a password in the URL, or from `${env:..}`, is masked in logs and failures.
 
+The steps, each documented below under its id:
+
+- `redis.server`: `the {word} redis server with the following properties:`
+- `redis.seed`: `a {filepath} redis seed`
+- `redis.value`: `[[within {duration} ]]the {word} redis key has the value {string}`
+- `redis.properties`: `[[within {duration} ]]the {word} redis key has the following properties:`
+- `redis.absent`: `[[within {duration} ]]the {word} redis key does not exist`
+
 ## `redis.server`
 
 ```gherkin

@@ -136,6 +136,13 @@ SQL, MongoDB, Kafka, logs, files, web apps in real browsers, and AWS, Google Clo
 and Azure services: a project lists those it uses in axx-packs.yaml, beside packs
 of its own steps.
 
+Writing tests:
+  axx steps                every step of the project's packs, one line each
+  axx steps show <id>      one step's documentation and examples
+  axx up                   start the apps once and keep them running
+  axx run --compact        run the features; also reports what validate and lint find
+  (axx validate checks the features without running them)
+
 ` + Identity,
 		SilenceUsage:  true,
 		SilenceErrors: true,

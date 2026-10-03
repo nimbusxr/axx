@@ -254,7 +254,7 @@ func (s *server) packTool(t core.Tool, schema *jsonschema.Schema) sdk.ToolHandle
 		if err != nil {
 			return toolError(err), nil
 		}
-		out := &sdk.CallToolResult{Content: []sdk.Content{&sdk.TextContent{Text: string(b)}}}
+		out := &sdk.CallToolResult{Content: []sdk.Content{&sdk.TextContent{Text: plainJSON(res.Data)}}}
 		if bytes.HasPrefix(b, []byte("{")) {
 			out.StructuredContent = json.RawMessage(b)
 		}

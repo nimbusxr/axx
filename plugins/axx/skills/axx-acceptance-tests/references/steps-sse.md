@@ -10,6 +10,12 @@ Register a stream with `the {word} event stream with the following properties:`:
 - **A stream the server ends** fails a check that is still waiting at once, after looking at every event it sent.
 - **Secrets stay secret:** `${env:..}` values in the URL and the headers are masked in logs and failures.
 
+The steps, each documented below under its id:
+
+- `sse.stream`: `the {word} event stream with the following properties:`
+- `sse.event`: `[[within {duration} ]]the {word} event stream has an event where:`
+- `sse.event.text`: `[[within {duration} ]]the {word} event stream has an event containing {string}`
+
 ## `sse.stream`
 
 ```gherkin

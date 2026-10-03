@@ -15,3 +15,4 @@ CLI JSON output or exit codes, the `axx.yaml` schema, or release/versioning poli
 | [0007](0007-java-compatibility-layer.md) | Value semantics of the established Java libraries, verified by recorded oracles | Accepted |
 | [0008](0008-publish-from-release-workflow.md) | Publish every component from release.yml, gated on release-please outputs | Accepted |
 | [0009](0009-go-packs.md) | Custom steps are Go packs; the axx executable loads the packs a project uses | Accepted |
+| [0010](0010-payload-properties-create-missing-objects.md) | Setting a payload property creates the objects its path lacks | Accepted |

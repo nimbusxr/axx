@@ -10,7 +10,7 @@ An acceptance project has up to two configuration files, side by side: `axx.yaml
 Without an `axx.yaml`, Axx runs `features/` with defaults. The complete, versioned definition is the JSON Schema:
 
 - online: [`https://axx.nimbusxr.us/schemas/v0/axx.schema.json`](/schemas/v0/axx.schema.json)
-- offline: `axx schema` (or `axx schema --out axx.schema.json`)
+- offline: `axx schema` (or `axx schema --out axx.schema.json`); `axx schema --outline` lists the keys, a line each
 
 Add this first line to get completion and validation in editors that use the YAML language server (VS Code, IntelliJ, Neovim):
 

@@ -10,6 +10,15 @@ The checks are those of the storage packs' objects: a file's exact content, its 
 
 A folder keeps what earlier runs wrote there. Name the files you check after data unique to the scenario, and empty the folder before a run, for example in the Compose file that starts your services.
 
+The steps, each documented below under its id:
+
+- `files.folder`: `the {word} folder with the following properties:`
+- `files.has`: `[[within {duration} ]]the {word} folder has a(n) file named {word}`
+- `files.identical`: `[[within {duration} ]]the {word} file in the {word} folder is identical to the {filepath} file`
+- `files.properties`: `[[within {duration} ]]the {word} file in the {word} folder has the following properties:`
+- `files.contains`: `[[within {duration} ]]the {word} file in the {word} folder contains {string}`
+- `files.row`: `[[within {duration} ]]the {word} file in the {word} folder has a row where:`
+
 ## `files.folder`
 
 ```gherkin

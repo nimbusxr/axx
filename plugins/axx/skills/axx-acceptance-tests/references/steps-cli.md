@@ -12,6 +12,19 @@ Register a command with `the {word} command with the following properties:`: the
 - **Secrets stay secret:** `${env:..}` values in the properties, the arguments and the input are masked in logs, attachments and failures.
 - **Stopping:** a command that runs past its timeout is stopped with everything it started. A command that runs a process elsewhere, such as `docker compose exec`, stops, but the process it started may run on.
 
+The steps, each documented below under its id:
+
+- `cli.command`: `the {word} command with the following properties:`
+- `cli.run`: `the {word} command is run[[ with {string}]]`
+- `cli.run.input`: `the {word} command is run with[[ {string} and]] the input:`
+- `cli.exit`: `the {word} command's exit code is {int}`
+- `cli.output.contains`: `the {word} command's[[ error]] output contains {string}`
+- `cli.output.line`: `the {word} command's[[ error]] output has a line matching {string}`
+- `cli.output.is`: `the {word} command's[[ error]] output is:`
+- `cli.output.empty`: `the {word} command's[[ error]] output is empty`
+- `cli.output.properties`: `the {word} command's output has the following properties:`
+- `cli.output.identical`: `the {word} command's output is identical to the {filepath} file`
+
 ## `cli.command`
 
 ```gherkin

@@ -14,6 +14,7 @@ import (
 	"github.com/nimbusxr/axx/internal/exitcode"
 	"github.com/nimbusxr/axx/internal/match"
 	"github.com/nimbusxr/axx/internal/packset"
+	"github.com/nimbusxr/axx/internal/stepsearch"
 )
 
 // StepInfo is the JSON description of a step definition.
@@ -120,16 +121,23 @@ Agents: search before writing a feature, and never invent step text.`,
 				return err
 			}
 			q := strings.Join(args, " ")
-			results := searchSteps(e, stepInfos(e, pack), q, 10)
+			results, strong := searchSteps(stepInfos(e, pack), q, 10)
 			if len(results) == 0 {
 				app.hintNoPacks(e)
 			}
 			return app.Emit(map[string]any{"query": q, "steps": results}, func(w io.Writer) error {
-				if len(results) == 0 {
-					_, err := fmt.Fprintf(w, "no steps match %q; try fewer words or `axx steps`\n", q)
+				switch {
+				case len(results) == 0:
+					_, err := fmt.Fprintf(w, "no step reads like %q; try other words, or `axx steps` for every step\n", q)
+					return err
+				case !strong:
+					fmt.Fprintf(w, "no step reads like %q; these only mention it in their documentation (`axx steps` lists every step):\n\n", q)
+				}
+				if err := renderStepList(w, results); err != nil {
 					return err
 				}
-				return renderStepList(w, results)
+				_, err := fmt.Fprintln(w, "\n`axx steps show <id>` gives a step's documentation and examples")
+				return err
 			})
 		},
 	}
@@ -178,7 +186,11 @@ func findStep(e *engine.Engine, infos []StepInfo, q string) (StepInfo, error) {
 			return s, nil
 		}
 	}
-	matches := e.Registry.Match(stripKeyword(q))
+	line := stripKeyword(q)
+	matches := e.Registry.Match(line)
+	if len(matches) == 0 && !strings.HasSuffix(line, ":") {
+		matches = e.Registry.Match(line + ":") // a table step's line, written without its colon
+	}
 	switch len(matches) {
 	case 1:
 		return byID[matches[0].Def().Step.ID], nil
@@ -192,12 +204,12 @@ func findStep(e *engine.Engine, infos []StepInfo, q string) (StepInfo, error) {
 			WithHint("show one by its id: `axx steps show %s`", ids[0])
 	}
 	hint := "list ids with `axx steps` or search with `axx steps search <words>`"
-	closest := searchSteps(e, infos, q, 3)
+	closest, _ := searchSteps(infos, q, 3)
 	if looksLikeID(q) {
 		// An id that is not one: the ids that start like it, else the steps
 		// its words find (rest.get: "rest get").
 		if closest = idsLike(infos, q, 3); len(closest) == 0 {
-			closest = searchSteps(e, infos, strings.ReplaceAll(q, ".", " "), 3)
+			closest, _ = searchSteps(infos, strings.ReplaceAll(q, ".", " "), 3)
 		}
 	}
 	if len(closest) > 0 {
@@ -244,47 +256,46 @@ func idsLike(infos []StepInfo, q string, limit int) []StepInfo {
 	return nil
 }
 
-// searchSteps ranks steps by how many query words appear in the expression,
-// id or docs, with a fuzzy fallback on the expression.
-func searchSteps(e *engine.Engine, infos []StepInfo, q string, limit int) []StepInfo {
-	words := strings.Fields(strings.ToLower(q))
-	type scored struct {
-		info  StepInfo
-		score int
+// searchSteps ranks steps for q (internal/stepsearch), folding each
+// named-service twin into its step; strong reports whether a step reads
+// like q, rather than only mentioning it in its documentation.
+func searchSteps(infos []StepInfo, q string, limit int) (out []StepInfo, strong bool) {
+	ids := make([]string, len(infos))
+	docs := make([]stepsearch.Step, len(infos))
+	for i, s := range infos {
+		ids[i] = s.ID
+		docs[i] = stepsearch.Step{ID: s.ID, Pack: s.Pack, Expr: s.Expr, Doc: s.Doc}
 	}
-	fuzzy := map[string]int{}
-	for i, s := range e.Registry.Suggest(q, 10) {
-		fuzzy[s.ID] = 10 - i
-	}
-	var all []scored
-	for _, s := range infos {
-		hay := strings.ToLower(s.Expr + " " + s.ID + " " + s.Doc)
-		score := 0
-		for _, w := range words {
-			if strings.Contains(hay, w) {
-				score += 3
-				if strings.Contains(strings.ToLower(s.Expr), w) {
-					score += 2
-				}
-			}
+	twins := stepsearch.Twins(ids)
+	ranked, strong := stepsearch.Search(docs, q)
+	listed := map[string]bool{}
+	for _, r := range ranked {
+		s := infos[r.Index]
+		if base, ok := twins[s.ID]; ok {
+			s = infos[slices.Index(ids, base)]
 		}
-		score += fuzzy[s.ID]
-		if score > 0 {
-			all = append(all, scored{s, score})
+		if listed[s.ID] {
+			continue
+		}
+		listed[s.ID] = true
+		if out = append(out, s); len(out) == limit {
+			break
 		}
 	}
-	sort.SliceStable(all, func(i, j int) bool { return all[i].score > all[j].score })
-	var out []StepInfo
-	for i := 0; i < len(all) && i < limit; i++ {
-		out = append(out, all[i].info)
-	}
-	return out
+	return out, strong
 }
 
+// renderStepList lists steps one line each, by pack: the id, the expression
+// and the table's columns, each named-service twin folded into its step.
 func renderStepList(w io.Writer, infos []StepInfo) error {
-	byPack := map[string][]StepInfo{}
+	entries := make([]stepsearch.Entry, len(infos))
+	for i, s := range infos {
+		entries[i] = stepsearch.Entry{ID: s.ID, Pack: s.Pack, Expr: s.Expr, Arg: s.Arg, Columns: s.Columns}
+	}
+	kept, twinned := stepsearch.Fold(entries)
+	byPack := map[string][]stepsearch.Entry{}
 	var order []string
-	for _, s := range infos {
+	for _, s := range kept {
 		if _, ok := byPack[s.Pack]; !ok {
 			order = append(order, s.Pack)
 		}
@@ -296,15 +307,15 @@ func renderStepList(w io.Writer, infos []StepInfo) error {
 		}
 		fmt.Fprintf(w, "%s (%s)\n", p, plural(len(byPack[p]), "step"))
 		for _, s := range byPack[p] {
-			suffix := ""
-			switch s.Arg {
-			case "table":
-				suffix = "  + table"
-			case "docstring":
-				suffix = "  + doc string"
+			mark := ""
+			if twinned[s.ID] {
+				mark = stepsearch.TwinMark
 			}
-			fmt.Fprintf(w, "  %-34s %s%s\n", s.ID, s.Expr, suffix)
+			fmt.Fprintf(w, "  %-34s %s%s%s\n", s.ID, s.Expr, s.Tail(), mark)
 		}
+	}
+	if len(twinned) > 0 {
+		fmt.Fprintf(w, "\n%s\n", stepsearch.TwinLegend)
 	}
 	return nil
 }

@@ -21,6 +21,14 @@ axx opens listeners before it starts the apps, for the log steps of the scenario
 
 **Patterns** are regular expressions (Java syntax), searched in the log's text, not matched against whole lines: `^` and `$` match at line boundaries, every match counts, and a pattern can span lines (`\n`, or `(?s)` to let `.` match newlines), which covers multi-line entries such as stack traces.
 
+The steps, each documented below under its id:
+
+- `logs.log`: `the {word} log with the following properties:`
+- `logs.entry`: `[[within {duration} ]]the {word} log has an entry matching {string}`
+- `logs.entries`: `[[within {duration} ]]the {word} log has entries matching:`
+- `logs.count`: `[[within {duration} ]]the {word} log has {int} entry/entries matching {string}`
+- `logs.across`: `[[within {duration} ]]the logs have entries matching:`
+
 ## `logs.log`
 
 ```gherkin

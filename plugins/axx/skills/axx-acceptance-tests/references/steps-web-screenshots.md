@@ -14,6 +14,12 @@ packs:
 
 With `platforms`, the steps compare on those platforms (`linux`, `darwin`, `windows`), each with its own screenshots, and pass elsewhere, saying so. `update: true` takes the screenshots of the platform it runs on again.
 
+The steps, each documented below under its id:
+
+- `web-screenshots.page`: `[[within {duration} ]]the page looks like the {string} screenshot`
+- `web-screenshots.page.masked`: `[[within {duration} ]]the page looks like the {string} screenshot, apart from:`
+- `web-screenshots.element`: `[[within {duration} ]]the {string} {element} looks like the {string} screenshot`
+
 ## `web-screenshots.page`
 
 ```gherkin

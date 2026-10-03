@@ -8,6 +8,12 @@ The steps use the scenario's AWS account (`the {word} aws account with the follo
 
 **Checking a queue receives from it**: axx takes each message off the queue, as any consumer would. Check the queues your services **write** to (an outbound queue another system reads); a queue your service consumes is checked by what the service does with the messages. axx starts receiving from the queues a run checks once the apps are up, and a check only looks at the messages received since its scenario started. Match on data unique to the scenario: scenarios run in parallel and share the queue.
 
+The steps, each documented below under its id:
+
+- `aws-sqs.send`: `a message is sent to the {word} sqs queue:`
+- `aws-sqs.send.file`: `the {filepath} message is sent to the {word} sqs queue[[ with the following attributes:]]`
+- `aws-sqs.received`: `[[within {duration} ]]the {word} sqs queue has a message where:`
+
 ## `aws-sqs.send`
 
 ```gherkin

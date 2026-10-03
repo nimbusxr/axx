@@ -20,6 +20,16 @@ Steps name a **queue** or an **exchange**: `the parcels.label-printed amqp queue
 - **AMQP 1.0:** with `protocol | 1.0`, a queue is an anycast address and an exchange a multicast one, and the routing key is the message's subject. RabbitMQ routes the same messages over 0-9-1 whatever protocol your services use, so keep the default for it.
 - **Secrets stay secret:** `${env:..}` values in the URL are masked in logs and failures.
 
+The steps, each documented below under its id:
+
+- `amqp.broker`: `the {word} amqp broker with the following properties:`
+- `amqp.queue.send`: `a message is sent to the {word} amqp queue:`
+- `amqp.queue.send.file`: `the {filepath} message is sent to the {word} amqp queue[[ with the following properties:]]`
+- `amqp.queue.received`: `[[within {duration} ]]the {word} amqp queue has a message where:`
+- `amqp.exchange.send`: `a message is published to the {word} amqp exchange[[ with the routing key {string}]]:`
+- `amqp.exchange.send.file`: `the {filepath} message is published to the {word} amqp exchange[[ with the following properties:]]`
+- `amqp.exchange.received`: `[[within {duration} ]]the {word} amqp exchange has a message where:`
+
 ## `amqp.broker`
 
 ```gherkin

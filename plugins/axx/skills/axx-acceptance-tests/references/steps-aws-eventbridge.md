@@ -8,6 +8,11 @@ The steps use the scenario's AWS account (`the {word} aws account with the follo
 
 **Checking a bus** does not take events from anyone: for the buses a run checks, axx adds a rule of its own (`axx-<run>-<bus>`, matching every event of the account) with a queue of its own as its target once the apps are up, and removes both when the run ends. The conditions are paths into the event as EventBridge delivers it: `detail-type`, `source`, and `detail.<field>` for the detail. A check only looks at the events received since its scenario started.
 
+The steps, each documented below under its id:
+
+- `aws-eventbridge.put`: `a(n) {string} event from {word} is put on the {word} eventbridge bus:`
+- `aws-eventbridge.received`: `[[within {duration} ]]the {word} eventbridge bus has an event where:`
+
 ## `aws-eventbridge.put`
 
 ```gherkin

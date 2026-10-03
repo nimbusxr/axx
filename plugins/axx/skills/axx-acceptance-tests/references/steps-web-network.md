@@ -8,6 +8,17 @@ A request is named by its address, a path below the web app's `url` (`/api/price
 
 The pages' own requests only: for the services your app calls from its server, mock them instead (the `mock` pack). `record: true` in `axx.yaml` records what each web app's pages fetch, for a scenario to answer from later.
 
+The steps, each documented below under its id:
+
+- `web-network.fail`: `the page's requests to {string} fail`
+- `web-network.status`: `the page's requests to {string} answer with status {int}`
+- `web-network.file`: `the page's requests to {string} answer with the {filepath} file`
+- `web-network.slow`: `the page's requests to {string} take {duration}`
+- `web-network.connection.slow`: `the browser's connection is slow`
+- `web-network.recording`: `the page's requests are answered from the {filepath} recording`
+- `web-network.ws.sent`: `[[within {duration} ]]the page sent a websocket message containing {string}`
+- `web-network.ws.received`: `[[within {duration} ]]the page received a websocket message containing {string}`
+
 ## `web-network.fail`
 
 ```gherkin

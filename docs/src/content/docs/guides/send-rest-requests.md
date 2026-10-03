@@ -26,7 +26,7 @@ Scenario Outline: A shop's order system registers the parcels it exports
 ```
 
 - **The file is found like the other files steps name:** relative to the `resources` directories, or to `axx.yaml`'s directory.
-- **A JSON payload can still change.** The payload property steps edit it, like a payload from an example.
+- **A JSON payload can still change.** The payload property steps edit it, like a payload from an example. A property inside an object the payload lacks creates the object: `recipient.name` and `recipient.postcode` fill an empty template's `recipient` ([ADR 0010](https://github.com/nimbusxr/axx/blob/main/docs/adr/0010-payload-properties-create-missing-objects.md)).
 - **A form payload file is a JSON object.** With `application/x-www-form-urlencoded`, its properties are sent form-encoded.
 - **No OpenAPI specification is needed,** which suits a callback or a webhook that the service has no contract for.
 

@@ -26,6 +26,70 @@ The browsers run on the machine that runs axx. The pack drives Playwright 1.62.1
 
 Values in the steps and the table expand `${env:..}` and `${sys:..}`.
 
+The steps, each documented below under its id:
+
+- `web-core.app`: `the {word} web app with the following properties:`
+- `web-core.open`: `the {string} page[[ of the {word} web app]] is opened`
+- `web-core.fill`: `the {string} field is filled with {string}`
+- `web-core.select`: `{string} is chosen in the {string} field`
+- `web-core.option`: `the {string} option is chosen`
+- `web-core.check`: `the {string} checkbox is checked`
+- `web-core.uncheck`: `the {string} checkbox is unchecked`
+- `web-core.upload`: `the {filepath} file is uploaded in the {string} field`
+- `web-core.button`: `the {string} button is clicked`
+- `web-core.link`: `the {string} link is clicked`
+- `web-core.tab`: `the {string} tab is clicked`
+- `web-core.menuitem`: `the {string} menu item is clicked`
+- `web-core.element.click`: `the {string} element is clicked`
+- `web-core.key`: `the {word} key is pressed[[ in the {string} field]]`
+- `web-core.hover`: `the pointer is moved over {string}`
+- `web-core.reload`: `the page is reloaded`
+- `web-core.back`: `the browser's back button is clicked`
+- `web-core.closetab`: `the browser tab is closed`
+- `web-core.accept`: `the dialog is accepted`
+- `web-core.dismiss`: `the dialog is dismissed`
+- `web-core.answer`: `the dialog is answered with {string}`
+- `web-core.dialog`: `[[within {duration} ]]the dialog shows {string}`
+- `web-core.shows`: `[[within {duration} ]]the page shows {string}`
+- `web-core.hides`: `[[within {duration} ]]the page does not show {string}`
+- `web-core.url`: `[[within {duration} ]]the {string} page is shown`
+- `web-core.value`: `[[within {duration} ]]the {string} field has the value {string}`
+- `web-core.disabled`: `[[within {duration} ]]the {string} button is disabled`
+- `web-core.enabled`: `[[within {duration} ]]the {string} button is enabled`
+- `web-core.row`: `[[within {duration} ]]the page shows a table row where:`
+- `web-core.downloaded`: `[[within {duration} ]]the {string} file is downloaded`
+- `web-core.download.contains`: `the downloaded {string} file contains {string}`
+- `web-core.download.row`: `the downloaded {string} file has a row where:`
+- `web-core.download.identical`: `the downloaded {string} file is identical to the {filepath} file`
+- `web-core.element.shown`: `[[within {duration} ]]the {string} {element} is shown`
+- `web-core.element.hidden`: `[[within {duration} ]]the {string} {element} is not shown`
+- `web-core.element.text`: `[[within {duration} ]]the {string} {element} shows {string}`
+- `web-core.element.attribute`: `[[within {duration} ]]the {string} {element} has the {word} attribute {string}`
+- `web-core.element.focus`: `[[within {duration} ]]the {string} {element} has the focus`
+- `web-core.checkbox.ticked`: `[[within {duration} ]]the {string} checkbox is ticked`
+- `web-core.checkbox.unticked`: `[[within {duration} ]]the {string} checkbox is not ticked`
+- `web-core.option.selected`: `[[within {duration} ]]the {string} option is selected`
+- `web-core.option.unselected`: `[[within {duration} ]]the {string} option is not selected`
+- `web-core.field.disabled`: `[[within {duration} ]]the {string} field is disabled`
+- `web-core.field.enabled`: `[[within {duration} ]]the {string} field is enabled`
+- `web-core.element.count`: `[[within {duration} ]]the page shows {int} {string} {element}`
+- `web-core.row.count`: `[[within {duration} ]]the page shows {int} table row(s) where:`
+- `web-core.title`: `[[within {duration} ]]the page title is {string}`
+- `web-core.errors.none`: `the page has no script errors`
+- `web-core.request.sent`: `[[within {duration} ]]the browser sent a {word} request to {string}`
+- `web-core.element.dblclick`: `the {string} {element} is double-clicked`
+- `web-core.element.rightclick`: `the {string} {element} is right-clicked`
+- `web-core.element.tap`: `the {string} {element} is tapped`
+- `web-core.element.scroll`: `the {string} {element} is scrolled into view`
+- `web-core.element.drag`: `the {string} {element} is dragged onto the {string} {element}`
+- `web-core.scroll.bottom`: `the page is scrolled to the bottom`
+- `web-core.scroll.top`: `the page is scrolled to the top`
+- `web-core.select.many`: `the following options are chosen in the {string} field:`
+- `web-core.clock.set`: `the browser's clock is set to {string}`
+- `web-core.clock.forward`: `the browser's clock is moved forward by {duration}`
+- `web-core.connection.offline`: `the browser is offline`
+- `web-core.connection.online`: `the browser is online`
+
 ## `web-core.app`
 
 ```gherkin

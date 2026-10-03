@@ -10,6 +10,15 @@ Register a connection with `the {word} websocket with the following properties:`
 - **A connection the server closes** fails a check that is still waiting at once, saying why; `was closed with code {int}` checks the code it closed with.
 - **Secrets stay secret:** `${env:..}` values in the URL and the headers, such as a token, are masked in logs and failures.
 
+The steps, each documented below under its id:
+
+- `websocket.connect`: `the {word} websocket with the following properties:`
+- `websocket.send`: `a message is sent to the {word} websocket:`
+- `websocket.send.file`: `the {filepath} message is sent to the {word} websocket`
+- `websocket.received`: `[[within {duration} ]]the {word} websocket received a message where:`
+- `websocket.received.text`: `[[within {duration} ]]the {word} websocket received a message containing {string}`
+- `websocket.closed`: `[[within {duration} ]]the {word} websocket was closed with code {int}`
+
 ## `websocket.connect`
 
 ```gherkin

@@ -16,8 +16,9 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"sort"
+	"slices"
 	"strings"
+	"sync"
 	"time"
 
 	messages "github.com/cucumber/messages/go/v34"
@@ -33,21 +34,19 @@ import (
 	"github.com/nimbusxr/axx/internal/lint"
 	"github.com/nimbusxr/axx/internal/match"
 	"github.com/nimbusxr/axx/internal/packset"
+	"github.com/nimbusxr/axx/internal/stepsearch"
 	"github.com/nimbusxr/axx/internal/version"
 )
 
-// Instructions are sent to clients on connect.
-const Instructions = `axx (github.com/nimbusxr/axx, "axxeptance") is a human-readable acceptance testing framework for the agentic era.
+// Instructions are sent to clients on connect, and stay in the agent's
+// context: only the conventions the tools' descriptions do not carry.
+const Instructions = `axx runs acceptance criteria, written as Gherkin features, against the project's services.
 
-Workflow for writing acceptance tests:
-1. steps_search for every action/assertion you need; use only step text that exists (never invent steps). In a step's expression, {name} is a parameter and [[...]] are optional words.
-2. env {"action":"up"} once to keep the apps running.
-3. Unsure how a step behaves? steps_try runs steps in a live scenario that stays open between calls; the packs' tools (web_page: the page a step opened) look at it.
-4. Write the .feature file: one scenario per acceptance criterion, each registering the services it uses first (steps like "the {word} service with the following properties:" or "a(n) {word} database with the following properties:"); other steps find a service only once it is registered. feature_validate it until there are no problems (step_explain shows how a single line is read). Then scenarios_run.
-5. On failure, read the returned failures (expected/actual); failure_context gives logs and request/response details (without a runId: the latest run).
-Every scenario must use unique test data (ids, names, keys): scenarios run in parallel and data persists between runs. After adding seeds, payloads or fixtures, lint_run reports values that collide with other files.
-When seeds, payloads or mock bodies repeat across scenarios, fixture factories generate them from one shape with unique ids (optional; ` + "`axx fixtures`" + `, the axx-test-data skill); ` + "`axx fixtures adopt`" + ` converts hand-written ones.
-Ask axx rather than reading files: config_show (the effective axx.yaml and its packs); on the command line, ` + "`axx doctor --json`" + ` (prerequisites, packs, agents), ` + "`axx pack list`" + ` (the packs there are), ` + "`axx validate --json`" + ` (features, scenarios, steps), ` + "`axx fixtures generate --dry-run --json`" + ` (the files the factories generate), ` + "`axx fixtures check --json`" + ` (whether they are current), ` + "`axx fixtures explain <file> <path>`" + ` (the source that sets a generated value) and ` + "`axx fixtures adopt --dry-run`" + ` (an adoption, previewed).`
+Writing tests: steps_search without a query lists every step once; write one scenario per acceptance criterion with steps that exist ({name} is a parameter, [[...]] optional words); scenarios_run runs them and also reports what feature_validate and lint_run find; failure_context explains a failure. env {"action":"up"} keeps the apps running between runs.
+- A scenario registers each service it uses before other steps use it ("the {word} service with the following properties:").
+- Requests, responses and selections are numbered in the order a scenario adds them; a step without an ordinal means the first.
+- Scenarios run in parallel and data persists: give every id, key and name a value of the scenario's own.
+- Check what a request did or why it was refused, not only its status code.`
 
 // Options configures the server.
 type Options struct {
@@ -62,6 +61,9 @@ type Options struct {
 type server struct {
 	opts Options
 	sess agentSession
+	// shown are the steps this session's searches returned.
+	shownMu sync.Mutex
+	shown   map[string]bool
 }
 
 // New builds the MCP server.
@@ -81,54 +83,59 @@ func newServer(opts Options) (*sdk.Server, *server) {
 	srv := sdk.NewServer(&sdk.Implementation{Name: "axx", Title: "axx acceptance testing", Version: version.Get().Version},
 		&sdk.ServerOptions{Instructions: Instructions})
 
-	ro := &sdk.ToolAnnotations{ReadOnlyHint: true, IdempotentHint: true}
-	sdk.AddTool(srv, &sdk.Tool{
+	// The tools work on the project and the apps it starts, nothing beyond.
+	closed := false
+	ro := &sdk.ToolAnnotations{ReadOnlyHint: true, IdempotentHint: true, OpenWorldHint: &closed}
+	notDestructive := &sdk.ToolAnnotations{DestructiveHint: &closed, OpenWorldHint: &closed}
+	addTool(srv, &sdk.Tool{
 		Name: "steps_search", Annotations: ro,
-		Description: "Find Gherkin steps by intent (e.g. 'response status', 'seed database', 'kafka event published'). Returns step expressions with docs and examples. Use before writing any step.",
+		Description: "Find steps by what they do ('response status', 'rows in table'): their ids, expressions, table columns and an example. Without a query: the catalog, every step of the project in one line each; read it once before writing a feature.",
 	},
 		s.stepsSearch)
-	sdk.AddTool(srv, &sdk.Tool{
+	addTool(srv, &sdk.Tool{
 		Name: "step_explain", Annotations: ro,
-		Description: "Explain how axx reads one step line: the matching definition and captured arguments, the candidates if ambiguous, or the closest steps if undefined.",
+		Description: "With a line: how axx reads it (the step it matches and its arguments, the candidates if ambiguous, the closest steps if undefined). With an id: that step's documentation, variants and examples.",
 	},
 		s.stepExplain)
-	sdk.AddTool(srv, &sdk.Tool{
+	addTool(srv, &sdk.Tool{
 		Name: "feature_validate", Annotations: ro,
 		Description: "Check feature files (by path) or feature text (content) without running them: Gherkin syntax, undefined and ambiguous steps, data table/doc string arguments. Hints name scenarios whose checks prove little (only a success status, or only that something did not happen): findings to judge, not to silence.",
 	},
 		s.featureValidate)
-	sdk.AddTool(srv, &sdk.Tool{
+	addTool(srv, &sdk.Tool{
 		Name: "lint_run", Annotations: ro,
 		Description: "Run `axx lint`: the test-data isolation rules from axx.yaml (values such as seed ids that must be unique across files) and builtin feature checks (SQL selection/trigger ordinals). Returns every finding with file:line and the colliding value.",
 	},
 		s.lintRun)
-	sdk.AddTool(srv, &sdk.Tool{
-		Name:        "scenarios_run",
-		Description: "Run scenarios (all, or paths like features/x.feature:14, filtered by tags/name). Starts apps unless they are already up. Returns counts and failures with expected/actual; use failure_context for details.",
+	addTool(srv, &sdk.Tool{
+		Name: "scenarios_run", Annotations: notDestructive,
+		Description: "Run scenarios (all, or paths like features/x.feature:14, filtered by tags/name). Starts apps unless they are already up. Returns counts and failures with expected/actual (failure_context has the details), the warnings feature_validate and lint_run would give, and, when it passes, hints.",
 	},
 		s.scenariosRun)
-	sdk.AddTool(srv, &sdk.Tool{
+	addTool(srv, &sdk.Tool{
 		Name: "failure_context", Annotations: ro,
 		Description: "Full details of one failed scenario from a scenarios_run: logs, attachments and pack context such as the last HTTP request/response. Without runId, the latest run; without location, its only failure (or the list of its failures).",
 	},
 		s.failureContext)
-	sdk.AddTool(srv, &sdk.Tool{
-		Name:        "env",
+	addTool(srv, &sdk.Tool{
+		// down stops the apps and runs their cleanup.
+		Name: "env", Annotations: &sdk.ToolAnnotations{OpenWorldHint: &closed},
 		Description: "Manage the apps from axx.yaml: 'up' starts them and keeps them running between runs (fast loop), 'down' stops them and runs the cleanups that failed, 'status' lists the apps that are running, left over from an earlier run, or not cleaned up (runs refuse to start apps until 'down' has cleaned up).",
 	},
 		s.env)
-	sdk.AddTool(srv, &sdk.Tool{
+	addTool(srv, &sdk.Tool{
 		Name: "config_show", Annotations: ro,
 		Description: "The effective axx.yaml (profiles and -D applied, secrets redacted), plus the loaded step packs. For prerequisites and agent setup run `axx doctor --json`; for the packs there are, `axx pack list`; for the features, `axx validate --json`.",
 	},
 		s.configShow)
-	sdk.AddTool(srv, &sdk.Tool{
-		Name:        "steps_try",
+	addTool(srv, &sdk.Tool{
+		// The steps may reach whatever a scenario does (a web page, say).
+		Name: "steps_try", Annotations: &sdk.ToolAnnotations{DestructiveHint: &closed},
 		Description: "Try steps in a live scenario before writing them into a feature: they run one after the other in a scenario that stays open between calls (browsers, sessions, data), until restart. Returns each step's status and error, and what the packs say of the scenario now (the page it is on...). The packs' own tools look at this scenario too.",
 	},
 		s.stepsTry)
 	s.packTools(srv)
-	sdk.AddTool(srv, &sdk.Tool{
+	addTool(srv, &sdk.Tool{
 		Name: "scaffold", Annotations: ro,
 		Description: "Return starter file contents for a 'feature' (from real steps) or an 'axx.yaml'. Nothing is written; create the file yourself.",
 	},
@@ -146,6 +153,30 @@ func newServer(opts Options) (*sdk.Server, *server) {
 			return &sdk.GetPromptResult{Messages: []*sdk.PromptMessage{{Role: "user", Content: &sdk.TextContent{Text: writeTestsPrompt(req.Params.Arguments["criteria"])}}}}, nil
 		})
 	return srv, s
+}
+
+// addTool registers a tool whose result text is its output as JSON, as the
+// SDK writes it, but without escaping <, > and & (\u003c...), which agents
+// read as noise.
+func addTool[In, Out any](srv *sdk.Server, t *sdk.Tool, h sdk.ToolHandlerFor[In, Out]) {
+	sdk.AddTool(srv, t, func(ctx context.Context, req *sdk.CallToolRequest, in In) (*sdk.CallToolResult, Out, error) {
+		res, out, err := h(ctx, req, in)
+		if err == nil && res == nil {
+			res = &sdk.CallToolResult{Content: []sdk.Content{&sdk.TextContent{Text: plainJSON(out)}}}
+		}
+		return res, out, err
+	})
+}
+
+// plainJSON is v as JSON, without HTML escaping.
+func plainJSON(v any) string {
+	var b bytes.Buffer
+	enc := json.NewEncoder(&b)
+	enc.SetEscapeHTML(false)
+	if err := enc.Encode(v); err != nil {
+		return ""
+	}
+	return strings.TrimSuffix(b.String(), "\n")
 }
 
 // Serve runs the server on stdin/stdout until the client disconnects, then
@@ -196,7 +227,7 @@ func newEngine(cfg *config.Config) (*engine.Engine, error) {
 // ---- steps_search ----
 
 type stepsSearchIn struct {
-	Query string `json:"query" jsonschema:"what the step should do, e.g. 'response header', 'rows in table'"`
+	Query string `json:"query,omitempty" jsonschema:"what the step should do, e.g. 'response header', 'rows in table'; empty for the catalog of every step"`
 	Pack  string `json:"pack,omitempty" jsonschema:"limit to one pack of the project, by its name in axx-packs.yaml: rest, sql, web-core..."`
 	Limit int    `json:"limit,omitempty" jsonschema:"maximum results (default 6)"`
 }
@@ -204,21 +235,29 @@ type stepsSearchIn struct {
 // Step is a step definition as seen by agents.
 type Step struct {
 	ID       string   `json:"id"`
-	Pack     string   `json:"pack"`
-	Expr     string   `json:"expr"`
+	Pack     string   `json:"pack,omitempty"`
+	Expr     string   `json:"expr,omitempty"`
 	Variants []string `json:"variants,omitempty"`
-	Arg      string   `json:"argument"`
+	Arg      string   `json:"argument,omitempty"`
 	// Columns name the columns of the step's data table; the table may
 	// start with a row of these names (two columns or more) or not.
 	Columns  []string `json:"columns,omitempty"`
 	Doc      string   `json:"doc,omitempty"`
 	Examples []string `json:"examples,omitempty"`
 	Params   []string `json:"params,omitempty"`
+	// Twin is the id of the step's form for a named service (`… on
+	// {service}`), folded into it.
+	Twin string `json:"twin,omitempty"`
+	// ShownEarlier marks a step this session's searches returned before:
+	// only its id comes again (step_explain gives the whole step).
+	ShownEarlier bool `json:"shownEarlier,omitempty"`
 }
 
 type stepsSearchOut struct {
-	Steps []Step `json:"steps"`
-	Hint  string `json:"hint,omitempty"`
+	Steps []Step `json:"steps,omitempty"`
+	// Catalog lists every step, one line each, when the query is empty.
+	Catalog string `json:"catalog,omitempty"`
+	Hint    string `json:"hint,omitempty"`
 }
 
 func (s *server) stepsSearch(ctx context.Context, _ *sdk.CallToolRequest, in stepsSearchIn) (*sdk.CallToolResult, stepsSearchOut, error) {
@@ -226,26 +265,55 @@ func (s *server) stepsSearch(ctx context.Context, _ *sdk.CallToolRequest, in ste
 	if err != nil {
 		return nil, stepsSearchOut{}, err
 	}
+	all := allSteps(e, in.Pack)
+	if strings.TrimSpace(in.Query) == "" {
+		entries := make([]stepsearch.Entry, len(all))
+		for i, st := range all {
+			entries[i] = stepsearch.Entry{ID: st.ID, Pack: st.Pack, Expr: st.Expr, Arg: st.Arg, Columns: st.Columns}
+		}
+		return nil, stepsSearchOut{
+			Catalog: stepsearch.Catalog(entries),
+			Hint:    "every step, one line each; step_explain {id} gives one step's documentation and examples",
+		}, nil
+	}
 	limit := in.Limit
 	if limit <= 0 {
 		limit = 6
 	}
-	all := searchSteps(e, in.Query, in.Pack, 1<<30)
-	out := stepsSearchOut{Steps: all[:min(limit, len(all))]}
-	if more := len(all) - len(out.Steps); more > 0 {
-		out.Hint = fmt.Sprintf("%d more steps match; pass a higher limit to see them, or more words to narrow the search", more)
+	found, strong := searchSteps(all, in.Query)
+	out := stepsSearchOut{}
+	// Every result stays in the agent's context, so it carries what picking
+	// a step takes and no more: no documentation (step_explain has it), one
+	// example, and only the id of a step an earlier search returned.
+	s.shownMu.Lock()
+	if s.shown == nil {
+		s.shown = map[string]bool{}
 	}
-	// Every result stays in the agent's context, so it carries what picking a
-	// step takes and no more: the variants read off the expression ([[...]]
-	// are optional words), and one example shows the step in use.
-	for i := range out.Steps {
-		out.Steps[i].Variants = nil
-		if len(out.Steps[i].Examples) > 1 {
-			out.Steps[i].Examples = out.Steps[i].Examples[:1]
+	again := 0
+	for _, st := range found[:min(limit, len(found))] {
+		if s.shown[st.ID] {
+			out.Steps = append(out.Steps, Step{ID: st.ID, ShownEarlier: true})
+			again++
+			continue
 		}
+		s.shown[st.ID] = true
+		st.Doc, st.Variants, st.Params = "", nil, nil
+		if len(st.Examples) > 1 {
+			st.Examples = st.Examples[:1]
+		}
+		out.Steps = append(out.Steps, st)
 	}
-	if len(out.Steps) == 0 {
-		out.Hint = "no match; try fewer or different words, or omit pack"
+	s.shownMu.Unlock()
+	switch {
+	case len(found) == 0:
+		out.Hint = "no step reads like that; try other words, or call without a query for the catalog of every step"
+	case !strong:
+		out.Hint = "no step reads like that; these only mention it in their documentation. Try other words, or call without a query for the catalog"
+	case len(found) > limit:
+		out.Hint = fmt.Sprintf("%d more steps match; add words to narrow the search", len(found)-limit)
+	}
+	if again > 0 {
+		out.Hint = strings.TrimPrefix(out.Hint+"; ", "; ") + "steps marked shownEarlier came in an earlier search: step_explain {id} gives one again"
 	}
 	return nil, out, nil
 }
@@ -280,44 +348,43 @@ func allSteps(e *engine.Engine, pack string) []Step {
 	return out
 }
 
-func searchSteps(e *engine.Engine, q, pack string, limit int) []Step {
-	words := strings.Fields(strings.ToLower(q))
-	fuzzy := map[string]int{}
-	for i, sg := range e.Registry.Suggest(q, 10) {
-		fuzzy[sg.ID] = 10 - i
+// searchSteps ranks the steps for q (internal/stepsearch), folding each
+// named-service twin into its step.
+func searchSteps(all []Step, q string) ([]Step, bool) {
+	ids := make([]string, len(all))
+	docs := make([]stepsearch.Step, len(all))
+	for i, st := range all {
+		ids[i] = st.ID
+		docs[i] = stepsearch.Step{ID: st.ID, Pack: st.Pack, Expr: st.Expr, Doc: st.Doc}
 	}
-	type scored struct {
-		s     Step
-		score int
+	twins := stepsearch.Twins(ids)
+	twinOf := map[string]string{}
+	for twin, base := range twins {
+		twinOf[base] = twin
 	}
-	var all []scored
-	for _, st := range allSteps(e, pack) {
-		hay := strings.ToLower(st.Expr + " " + st.ID + " " + st.Doc)
-		score := fuzzy[st.ID]
-		for _, w := range words {
-			if strings.Contains(hay, w) {
-				score += 3
-				if strings.Contains(strings.ToLower(st.Expr), w) {
-					score += 2
-				}
-			}
-		}
-		if score > 0 || len(words) == 0 {
-			all = append(all, scored{st, score})
-		}
-	}
-	sort.SliceStable(all, func(i, j int) bool { return all[i].score > all[j].score })
+	ranked, strong := stepsearch.Search(docs, q)
 	var out []Step
-	for i := 0; i < len(all) && i < limit; i++ {
-		out = append(out, all[i].s)
+	listed := map[string]bool{}
+	for _, r := range ranked {
+		st := all[r.Index]
+		if base, ok := twins[st.ID]; ok {
+			st = all[slices.Index(ids, base)]
+		}
+		if listed[st.ID] {
+			continue
+		}
+		listed[st.ID] = true
+		st.Twin = twinOf[st.ID]
+		out = append(out, st)
 	}
-	return out
+	return out, strong
 }
 
 // ---- step_explain ----
 
 type stepExplainIn struct {
-	Line string `json:"line" jsonschema:"one step line, with or without its Given/When/Then keyword"`
+	Line string `json:"line,omitempty" jsonschema:"one step line, with or without its Given/When/Then keyword: how axx reads it"`
+	ID   string `json:"id,omitempty" jsonschema:"a step id, like rest.response.status: the step's documentation, variants and examples"`
 }
 
 type explainedArg struct {
@@ -327,7 +394,8 @@ type explainedArg struct {
 }
 
 type stepExplainOut struct {
-	Status      string         `json:"status" jsonschema:"matched, undefined or ambiguous"`
+	Status string `json:"status" jsonschema:"matched, undefined or ambiguous"`
+	// Step is the step an id names, whole; for a line, its id.
 	Step        *Step          `json:"step,omitempty"`
 	Expr        string         `json:"matchedExpression,omitempty"`
 	Args        []explainedArg `json:"args,omitempty"`
@@ -340,9 +408,27 @@ func (s *server) stepExplain(ctx context.Context, _ *sdk.CallToolRequest, in ste
 	if err != nil {
 		return nil, stepExplainOut{}, err
 	}
+	var out stepExplainOut
+	if id := strings.TrimSpace(in.ID); id != "" {
+		for _, st := range allSteps(e, "") {
+			if st.ID == id {
+				st := st
+				out.Status, out.Step = "matched", &st
+				return nil, out, nil
+			}
+		}
+		out.Status = "undefined"
+		found, _ := searchSteps(allSteps(e, ""), strings.ReplaceAll(id, ".", " "))
+		for _, st := range found[:min(3, len(found))] {
+			out.Suggestions = append(out.Suggestions, st.ID)
+		}
+		return nil, out, nil
+	}
+	if strings.TrimSpace(in.Line) == "" {
+		return nil, out, fmt.Errorf("give a line to read, or the id of a step")
+	}
 	text := stripKeyword(in.Line)
 	ms := e.Registry.Match(text)
-	var out stepExplainOut
 	switch len(ms) {
 	case 0:
 		out.Status = "undefined"
@@ -350,14 +436,10 @@ func (s *server) stepExplain(ctx context.Context, _ *sdk.CallToolRequest, in ste
 			out.Suggestions = append(out.Suggestions, sg.Expr)
 		}
 	case 1:
+		// How the line is read; the step's documentation is a call away
+		// (step_explain {id}).
 		out.Status = "matched"
-		d := ms[0].Def()
-		for _, st := range allSteps(e, d.Pack) {
-			if st.ID == d.Step.ID {
-				st := st
-				out.Step = &st
-			}
-		}
+		out.Step = &Step{ID: ms[0].Def().Step.ID}
 		out.Expr = ms[0].Variant.Expr
 		for _, a := range ms[0].Args {
 			out.Args = append(out.Args, explainedArg{Param: a.Param, Present: a.Present, Raw: a.Raw})
@@ -486,7 +568,16 @@ func (s *server) lintRun(ctx context.Context, _ *sdk.CallToolRequest, in lintRun
 	if err != nil {
 		return nil, lintRunOut{}, err
 	}
-	return nil, lintRunOut{OK: rep.OK(), Report: rep}, nil
+	ok := rep.OK()
+	// The rules that found something; the summary counts every rule.
+	rules := rep.Rules[:0:0]
+	for _, rr := range rep.Rules {
+		if len(rr.Findings) > 0 {
+			rules = append(rules, rr)
+		}
+	}
+	rep.Rules = rules
+	return nil, lintRunOut{OK: ok, Report: rep}, nil
 }
 
 // ---- scenarios_run / failure_context ----
@@ -503,6 +594,9 @@ type scenariosRunOut struct {
 	ExitCode int    `json:"exitCode"`
 	Report   any    `json:"report,omitempty"`
 	Error    string `json:"error,omitempty"`
+	// Warnings are what feature_validate and lint_run would add: the
+	// findings of the test-data rules and of the feature checks.
+	Warnings []string `json:"warnings,omitempty"`
 	// Hints are what a passing suite could do better, as feature_validate
 	// gives them.
 	Hints []string `json:"hints,omitempty"`
@@ -553,6 +647,9 @@ func (s *server) scenariosRun(ctx context.Context, _ *sdk.CallToolRequest, in sc
 	for _, l := range strings.Split(string(stderr), "\n") {
 		if h, ok := strings.CutPrefix(strings.TrimSpace(l), "hint: "); ok {
 			out.Hints = append(out.Hints, h)
+		}
+		if w, ok := strings.CutPrefix(strings.TrimSpace(l), "warning: "); ok {
+			out.Warnings = append(out.Warnings, w)
 		}
 	}
 	out.Report = decode(compactReport(envlp.Data))
@@ -879,11 +976,11 @@ func writeTestsPrompt(criteria string) string {
 	return "Write axx acceptance tests (Gherkin) for these criteria:\n\n" + criteria + `
 
 Rules:
-- Use steps_search for every step; only use step text that exists. Never invent steps.
+- Read the step catalog once (steps_search without a query); only use step text that exists.
 - One scenario per criterion; name scenarios after the behavior, not the implementation.
 - Use unique test data in every scenario (ids, names, keys) because scenarios run in parallel.
-- Validate with feature_validate until it reports no problems, then run with scenarios_run.
-- Scenarios must fail if the behavior is broken: assert on observable outcomes (status, payload, rows, events).`
+- Run with scenarios_run: it reports failures, and what feature_validate and lint_run find.
+- Scenarios must fail if the behavior is broken: check what the service did (payload, rows, events) and why it refused, not only status codes.`
 }
 
 // decode turns raw JSON into plain values (so output schemas are objects).

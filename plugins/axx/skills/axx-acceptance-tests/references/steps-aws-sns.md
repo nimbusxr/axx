@@ -8,6 +8,12 @@ The steps use the scenario's AWS account (`the {word} aws account with the follo
 
 **Checking a topic** does not take messages from anyone: for the topics a run checks, axx subscribes a queue of its own (`axx-<run>-<topic>`, with raw message delivery) once the apps are up, and removes the subscription and the queue when the run ends. A check only looks at the messages received since its scenario started; match on data unique to the scenario, since scenarios run in parallel.
 
+The steps, each documented below under its id:
+
+- `aws-sns.send`: `a message is published to the {word} sns topic:`
+- `aws-sns.send.file`: `the {filepath} message is published to the {word} sns topic[[ with the following attributes:]]`
+- `aws-sns.received`: `[[within {duration} ]]the {word} sns topic has a message where:`
+
 ## `aws-sns.send`
 
 ```gherkin

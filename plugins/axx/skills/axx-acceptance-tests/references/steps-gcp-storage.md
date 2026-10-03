@@ -6,6 +6,15 @@ Upload files to Cloud Storage buckets and check the objects your services write 
 
 The steps use the scenario's project (`the {word} gcp project with the following properties:`, from gcp-core). Checks wait for the object (10 seconds unless `within {duration}` says otherwise), since services write asynchronously: an upload that triggers processing (a Pub/Sub notification or an Eventarc trigger, say) and the object that processing writes.
 
+The steps, each documented below under its id:
+
+- `gcp-storage.upload`: `the {filepath} file is uploaded to the {word} gcs bucket[[ as {word}]]`
+- `gcp-storage.has`: `[[within {duration} ]]the {word} gcs bucket has a(n) object named {word}`
+- `gcp-storage.identical`: `[[within {duration} ]]the {word} object in the {word} gcs bucket is identical to the {filepath} file`
+- `gcp-storage.properties`: `[[within {duration} ]]the {word} object in the {word} gcs bucket has the following properties:`
+- `gcp-storage.contains`: `[[within {duration} ]]the {word} object in the {word} gcs bucket contains {string}`
+- `gcp-storage.row`: `[[within {duration} ]]the {word} object in the {word} gcs bucket has a row where:`
+
 ## `gcp-storage.upload`
 
 ```gherkin
