@@ -109,6 +109,18 @@ func moduleVersion(bi *debug.BuildInfo) string {
 // rather than of a release tag: 0.1.1-0.20260925184804-3bf0dd25927c).
 var pseudoVersion = regexp.MustCompile(`[.-]\d{14}-[0-9a-f]{12}$`)
 
+// FromModuleProxy reports whether v is a version the Go module proxy serves:
+// a release, or the pseudo-version of a commit (`go install
+// github.com/nimbusxr/axx/cmd/axx@<commit>`), but not a build of local or
+// changed source.
+func FromModuleProxy(v string) bool {
+	if v == "" || strings.HasSuffix(v, "+dirty") || strings.Contains(v, "-dev") ||
+		strings.Contains(v, "SNAPSHOT") || strings.Contains(v, "nightly") {
+		return false
+	}
+	return true
+}
+
 // channel classifies a version: builds of commits are dev, and everything
 // before 1.0.0 is beta.
 func channel(v string) string {

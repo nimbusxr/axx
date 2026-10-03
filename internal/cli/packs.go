@@ -62,7 +62,9 @@ func (a *App) ensurePacks(ctx context.Context, cmd *cobra.Command) error {
 	}
 	info := version.Get()
 	source := axxSource(info)
-	if source == "" && info.Channel == "dev" {
+	// A build of a commit fetches the packs at its own pseudo-version, which
+	// the module proxy serves; a build of local source needs that source.
+	if source == "" && info.Channel == "dev" && !version.FromModuleProxy(info.Version) {
 		return axxerr.New(packbuild.CodeBuild, exitcode.Usage, "this development build of axx cannot prepare packs").
 			WithHint("use a released axx, or set AXX_SOURCE_DIR to your axx checkout")
 	}

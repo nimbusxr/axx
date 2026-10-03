@@ -297,6 +297,7 @@ export default defineConfig({
 						'explanations/web-browsers',
 						'explanations/openapi-contract',
 						'explanations/axx-for-agents',
+						'explanations/agent-evals',
 						'explanations/faq',
 						'explanations/roadmap',
 						'explanations/adrs',

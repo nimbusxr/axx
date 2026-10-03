@@ -48,3 +48,5 @@ The skills and the AGENTS.md section encode the rules that keep agent-written te
 Every page on this site has a Markdown twin (append `.md`), advertised with `<link rel="alternate" type="text/markdown">`. [`/llms.txt`](/llms.txt) indexes them, and [`/.well-known/agent-skills/index.json`](/.well-known/agent-skills/index.json) lists the skills. Each page also has *Copy as Markdown* and *Open in Claude* buttons.
 
 `axx init` sets up the skills and the MCP server for the agents a repository already uses, in the repository's own files, and `axx doctor` says what an agent lacks. Read [Set up agents](/guides/set-up-agents/), and see it work in [Test with an agent](/tutorials/with-an-agent/).
+
+How much this helps is measured: [Agent evaluations](/explanations/agent-evals/) runs coding agents on the same tasks with axx and without it, against a service with planted bugs.

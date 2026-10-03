@@ -1,0 +1,60 @@
+name: release-gate
+
+# The agent evaluations (nimbusxr/axx-evals) on a release before it is published: on
+# release-please's pull request, the evals run OpenCode with GPT-6 Luna on every task
+# against axx built from the pull request's commit, and fail when a condition scores
+# more than 10 points below the model's baseline there (results/baseline-*.json). A run
+# takes about two and a half hours and costs about two dollars of model credits.
+#
+# It needs AXX_EVALS_TOKEN, a token that may start workflows in nimbusxr/axx-evals
+# (actions: write); without it the gate is off and says so.
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-gate-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  evals:
+    if: startsWith(github.head_ref, 'release-please--')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 330
+    steps:
+      - name: Run the agent evals on this release
+        env:
+          GH_TOKEN: ${{ secrets.AXX_EVALS_TOKEN }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          if [[ -z "$GH_TOKEN" ]]; then
+            echo "::notice::AXX_EVALS_TOKEN is not set, so the release gate is off"
+            echo "The release gate is off: AXX_EVALS_TOKEN is not set." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          gh workflow run evals.yml --repo nimbusxr/axx-evals --ref main \
+            -f model=openrouter/openai/gpt-6-luna -f attempts=3 -f gate=true -f axx_ref="$SHA"
+          # The run is named after the commit (evals.yml's run-name).
+          id=""
+          for _ in $(seq 30); do
+            id=$(gh run list --repo nimbusxr/axx-evals --workflow evals.yml --limit 20 --json databaseId,displayTitle \
+              --jq "[.[] | select(.displayTitle | endswith(\"at axx $SHA\"))][0].databaseId // empty")
+            [[ -n "$id" ]] && break
+            sleep 10
+          done
+          if [[ -z "$id" ]]; then
+            echo "::error::the evals run for $SHA did not start"
+            exit 1
+          fi
+          url="https://github.com/nimbusxr/axx-evals/actions/runs/$id"
+          echo "The agent evals on $SHA: $url" | tee -a "$GITHUB_STEP_SUMMARY"
+          # Polled rather than watched: a watch can end early on a passing API error.
+          while [[ "$(gh run view "$id" --repo nimbusxr/axx-evals --json status --jq .status 2> /dev/null)" != completed ]]; do
+            sleep 120
+          done
+          conclusion=$(gh run view "$id" --repo nimbusxr/axx-evals --json conclusion --jq .conclusion)
+          echo "Conclusion: $conclusion" | tee -a "$GITHUB_STEP_SUMMARY"
+          [[ "$conclusion" == success ]]
