@@ -3,6 +3,7 @@ package lint
 import (
 	"fmt"
 	"os"
+	"regexp"
 	"slices"
 	"strings"
 
@@ -103,15 +104,15 @@ func CheckRESTRequests(reg *match.Registry, pickles []*feature.Pickle, workDir s
 						ordinal(n), svc, requestsAdded(count), ordinal(count+1))}
 				case n <= count:
 					f = &Finding{Code: CodeRESTAddedTwice, Message: fmt.Sprintf(
-						"this step adds the %s request of service %s, which an earlier step added, so it fails; add another with `a %s ordered ... request`",
-						ordinal(n), svc, ordinal(count+1))}
+						"this step adds the %s request of service %s, which an earlier step added, so it fails; add another as the %s: `%s`",
+						ordinal(n), svc, ordinal(count+1), asOrdered(ps.Text, count+1))}
 				default:
 					added[svc]++
 				}
 			} else if n > count {
 				f = &Finding{Code: CodeRESTMissing, Message: fmt.Sprintf(
-					"this step uses the %s request of service %s, but %s before it, so it always fails",
-					ordinal(n), svc, requestsAdded(count))}
+					"this step uses the %s request of service %s, but %s before it, so it always fails; add it first, like `a %s ordered GET request to /path`: requests are numbered in the order they are added",
+					ordinal(n), svc, requestsAdded(count), ordinal(n))}
 			}
 			if f == nil {
 				continue
@@ -135,6 +136,19 @@ func CheckRESTRequests(reg *match.Registry, pickles []*feature.Pickle, workDir s
 	rr.Files = len(rr.files)
 	sortFindings(rr.Findings)
 	return rr
+}
+
+// orderedRequest finds the start of a request step's text: "a POST request
+// to …" or "a 2nd ordered POST request to …".
+var orderedRequest = regexp.MustCompile(`^an? (?:\d+(?:st|nd|rd|th) ordered )?`)
+
+// asOrdered writes a request step as the nth ordered request:
+// "a DELETE request to /x" as "a 2nd ordered DELETE request to /x".
+func asOrdered(text string, n int) string {
+	if loc := orderedRequest.FindStringIndex(text); loc != nil {
+		return "a " + ordinal(n) + " ordered " + text[loc[1]:]
+	}
+	return text
 }
 
 // requestsAdded renders "no request was added", "only 1 request was

@@ -6,6 +6,8 @@ import (
 	"strconv"
 	"strings"
 
+	messages "github.com/cucumber/messages/go/v34"
+
 	"github.com/nimbusxr/axx/core"
 	"github.com/nimbusxr/axx/internal/feature"
 	"github.com/nimbusxr/axx/internal/match"
@@ -14,8 +16,10 @@ import (
 // Scenario hints name scenarios whose checks prove little, for their author
 // to judge: a success status (a 2xx response, a command's exit code 0) says
 // something was accepted, not what it did, and a check that something did not happen also passes when the action
-// never ran. Like every hint, they need no fix and never change the exit
-// code.
+// never ran. They also name scenarios that check several things in turn
+// (When … Then …, then When … Then … again), where each acceptance criterion
+// would read best as its own scenario. Like every hint, they need no fix and
+// never change the exit code.
 
 // scenarioHintMax is how many scenarios one hint names.
 const scenarioHintMax = 5
@@ -30,11 +34,18 @@ func ScenarioHints(reg *match.Registry, pickles []*feature.Pickle, opts Options)
 		opts.WorkDir, _ = os.Getwd()
 	}
 	within := withinPaths(opts)
-	var statusOnly, absenceOnly []string
-	seen := map[string]bool{}
+	var statusOnly, absenceOnly, inTurn []string
+	seen, seenTurns := map[string]bool{}, map[string]bool{}
 	for _, p := range pickles {
 		loc := fmt.Sprintf("%s:%d", relSlash(opts.WorkDir, p.Doc.Path), p.ScenarioLine)
-		if seen[loc] || (len(opts.Paths) > 0 && !within(p.Doc.Path)) {
+		if len(opts.Paths) > 0 && !within(p.Doc.Path) {
+			continue
+		}
+		if !seenTurns[loc] && rounds(p) > 1 {
+			seenTurns[loc] = true
+			inTurn = append(inTurn, loc)
+		}
+		if seen[loc] {
 			continue // an outline is one scenario, whichever of its examples
 		}
 		checks, successes, absences := 0, 0, 0
@@ -80,7 +91,30 @@ func ScenarioHints(reg *match.Registry, pickles []*feature.Pickle, opts Options)
 		hints = append(hints, fmt.Sprintf("%d %s only that something did not happen, which also passes when the action never ran: %s (check something it did do too)",
 			n, plural(n, "scenario checks", "scenarios check"), scenarioList(absenceOnly)))
 	}
+	if n := len(inTurn); n > 0 {
+		hints = append(hints, fmt.Sprintf("%d %s several things in turn (When … Then …, then When … Then … again): %s (each acceptance criterion reads best as a scenario of its own)",
+			n, plural(n, "scenario checks", "scenarios check"), scenarioList(inTurn)))
+	}
 	return hints
+}
+
+// rounds counts a scenario's When … Then rounds: actions followed by checks
+// (And and But take the kind of the step before them). Checks before any
+// action, of the state a scenario starts from, are no round of their own.
+func rounds(p *feature.Pickle) int {
+	n, acted := 0, false
+	for _, ps := range p.Steps {
+		switch ps.Type {
+		case messages.PickleStepType_ACTION:
+			acted = true
+		case messages.PickleStepType_OUTCOME:
+			if acted {
+				n++
+				acted = false
+			}
+		}
+	}
+	return n
 }
 
 // exitedZero reports whether an exit code step's code is 0.

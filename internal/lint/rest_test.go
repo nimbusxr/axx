@@ -88,12 +88,12 @@ func TestCheckRESTRequests(t *testing.T) {
 	}
 	want := []string{
 		"9 AXX-E0832 this step adds the 3rd request of service parcels, but only 1 request was added before it, so it fails; add the 2nd first: requests are numbered in the order they are added",
-		"10 AXX-E0833 this step adds the 1st request of service parcels, which an earlier step added, so it fails; add another with `a 2nd ordered ... request`",
-		"12 AXX-E0832 this step uses the 2nd request of service parcels, but only 1 request was added before it, so it always fails",
-		"13 AXX-E0832 this step uses the 2nd request of service parcels, but only 1 request was added before it, so it always fails",
+		"10 AXX-E0833 this step adds the 1st request of service parcels, which an earlier step added, so it fails; add another as the 2nd: `a 2nd ordered GET request to /api/parcels/PX-1002`",
+		"12 AXX-E0832 this step uses the 2nd request of service parcels, but only 1 request was added before it, so it always fails; add it first, like `a 2nd ordered GET request to /path`: requests are numbered in the order they are added",
+		"13 AXX-E0832 this step uses the 2nd request of service parcels, but only 1 request was added before it, so it always fails; add it first, like `a 2nd ordered GET request to /path`: requests are numbered in the order they are added",
 		"20 AXX-E0832 this step adds the 2nd request of service parcels, but no request was added before it, so it fails; add the 1st first: requests are numbered in the order they are added",
-		"22 AXX-E0832 this step uses the 1st request of service parcels, but no request was added before it, so it always fails",
-		"35 AXX-E0832 this step uses the 2nd request of service parcels, but only 1 request was added before it, so it always fails",
+		"22 AXX-E0832 this step uses the 1st request of service parcels, but no request was added before it, so it always fails; add it first, like `a 1st ordered GET request to /path`: requests are numbered in the order they are added",
+		"35 AXX-E0832 this step uses the 2nd request of service parcels, but only 1 request was added before it, so it always fails; add it first, like `a 2nd ordered GET request to /path`: requests are numbered in the order they are added",
 	}
 	if strings.Join(got, "\n") != strings.Join(want, "\n") {
 		t.Errorf("findings:\n%s\nwant:\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))

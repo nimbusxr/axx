@@ -149,7 +149,10 @@ keyword is optional), matched the way ` + "`axx explain`" + ` matches it.`,
 	for _, c := range []*cobra.Command{list, search, show} {
 		cf.register(c)
 	}
-	cmd.AddCommand(list, search, show)
+	// `axx steps explain` is `axx explain`, where agents look for it too.
+	explain := newExplainCmd(app)
+	explain.Short = "Same as `axx explain`: " + explain.Short
+	cmd.AddCommand(list, search, show, explain)
 	return cmd
 }
 

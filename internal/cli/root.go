@@ -133,6 +133,8 @@ of its own steps.
 		newDoctorCmd(app),
 		newUpCmd(app),
 		newDownCmd(app),
+		newEnvCmd(app),
+		newConfigCmd(app),
 		newSuperviseCmd(app),
 		newVersionCmd(app),
 	)

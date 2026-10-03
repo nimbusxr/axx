@@ -112,3 +112,26 @@ func TestStepsShowShowsTheTableColumns(t *testing.T) {
 		}
 	}
 }
+
+// The commands agents reach for on the command line, as the MCP tools and
+// `axx explain` have them: env, config show, steps explain.
+func TestEnvConfigShowAndStepsExplain(t *testing.T) {
+	dir := t.TempDir()
+	t.Chdir(dir)
+	writeFiles(t, dir, map[string]string{
+		"axx.yaml":       "version: 1\nproperties:\n  db.password: s3cret\n  parcels.url: http://localhost:8080\n",
+		"axx-packs.yaml": "packs: [rest]\n",
+	})
+	out, stderr, code := run(t, "env")
+	if code != int(exitcode.OK) || !strings.Contains(out, "no apps started by axx") {
+		t.Errorf("env: exit %d: %s%s", code, out, stderr)
+	}
+	out, stderr, code = run(t, "config", "show")
+	if code != int(exitcode.OK) || !strings.Contains(out, "packs: core, rest") || !strings.Contains(out, "http://localhost:8080") || strings.Contains(out, "s3cret") {
+		t.Errorf("config show: exit %d: %s%s", code, out, stderr)
+	}
+	out, stderr, code = run(t, "steps", "explain", "Given the parcels service with the following properties:")
+	if code != int(exitcode.OK) || !strings.Contains(out, "rest.service") {
+		t.Errorf("steps explain: exit %d: %s%s", code, out, stderr)
+	}
+}

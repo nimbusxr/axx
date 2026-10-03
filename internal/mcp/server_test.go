@@ -151,7 +151,7 @@ func TestLintRun(t *testing.T) {
 }
 
 func TestRedact(t *testing.T) {
-	got := string(redact([]byte(`{"properties":{"db.password":"s3cret","host":"x"},"apps":[{"env":{"API_TOKEN":"t"}}]}`)))
+	got := string(Redact([]byte(`{"properties":{"db.password":"s3cret","host":"x"},"apps":[{"env":{"API_TOKEN":"t"}}]}`)))
 	for _, secret := range []string{"s3cret", `"t"`} {
 		if contains(got, secret) {
 			t.Errorf("secret %s leaked: %s", secret, got)

@@ -1,8 +1,10 @@
 package kafka
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/nimbusxr/axx/internal/compat/javare"
 	"github.com/nimbusxr/axx/internal/compat/jsonx"
@@ -103,7 +105,7 @@ func (l *label) eval(d *decoded, distinctHeaders bool) (bool, string) {
 		for _, p := range l.Payload {
 			v, _, err := jsonx.Read(doc, p.Path)
 			if err != nil {
-				return false, fmt.Sprintf("%s: %v", p.Path, err)
+				return false, readFailure(doc, p.Path, err)
 			}
 			if !jvalue.JavaEquals(v, p.expected) {
 				return false, fmt.Sprintf("%s is %s, expected %s", p.Path, describeJSON(v), p.Raw)
@@ -144,4 +146,19 @@ func describeJSON(v any) string {
 		return "null"
 	}
 	return jsonx.MarshalValue(v)
+}
+
+// readFailure says why a JSONPath of a check found nothing in an event's
+// payload: a path that is not there names the properties the payload has,
+// so a misspelled or misplaced path shows.
+func readFailure(doc any, path string, err error) string {
+	var je *jsonx.Error
+	if !errors.As(err, &je) || !je.Kind.Is(jsonx.PathNotFound) {
+		return fmt.Sprintf("%s: %v", path, err)
+	}
+	msg := path + " is not in the event's payload"
+	if o, ok := doc.(*jsonx.Object); ok && len(o.Keys()) > 0 {
+		msg += " (its properties: " + strings.Join(o.Keys(), ", ") + ")"
+	}
+	return msg
 }
