@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.12](https://github.com/nimbusxr/axx/compare/v0.1.11...v0.1.12) (2026-10-03)
+
+
+### Features
+
+* leaner for agents: a step catalog, brief searches, one check per run, and payload objects created as needed ([#92](https://github.com/nimbusxr/axx/issues/92)) ([80a4d00](https://github.com/nimbusxr/axx/commit/80a4d00c7b91c02bf734a5273ccfc5fd6a75effa))
+
 ## [0.1.11](https://github.com/nimbusxr/axx/compare/v0.1.10...v0.1.11) (2026-10-03)
 
 
