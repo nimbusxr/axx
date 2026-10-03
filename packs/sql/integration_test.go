@@ -216,7 +216,9 @@ func TestPolling(t *testing.T) {
 	if time.Since(start) > 5*time.Second {
 		t.Errorf("polling should stop as soon as the row appears")
 	}
-	h.ok("within 1s a 2nd selection of at least 1 row is retrieved from the space.missions table where:", []string{"id", "never-" + id})
+	if err := h.step("within 1s a 2nd selection of at least 1 row is retrieved from the space.missions table where:", []string{"id", "never-" + id}); !core.IsAssertion(err) {
+		t.Errorf("polling that runs out of time with fewer rows should fail: %v", err)
+	}
 	h.ok("the 2nd selection has 0 rows")
 }
 

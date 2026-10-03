@@ -503,6 +503,9 @@ type scenariosRunOut struct {
 	ExitCode int    `json:"exitCode"`
 	Report   any    `json:"report,omitempty"`
 	Error    string `json:"error,omitempty"`
+	// Hints are what a passing suite could do better, as feature_validate
+	// gives them.
+	Hints []string `json:"hints,omitempty"`
 }
 
 func (s *server) scenariosRun(ctx context.Context, _ *sdk.CallToolRequest, in scenariosRunIn) (*sdk.CallToolResult, scenariosRunOut, error) {
@@ -545,6 +548,11 @@ func (s *server) scenariosRun(ctx context.Context, _ *sdk.CallToolRequest, in sc
 		out.Error = envlp.Errors[0].Message
 		if envlp.Errors[0].Hint != "" {
 			out.Error += " (hint: " + envlp.Errors[0].Hint + ")"
+		}
+	}
+	for _, l := range strings.Split(string(stderr), "\n") {
+		if h, ok := strings.CutPrefix(strings.TrimSpace(l), "hint: "); ok {
+			out.Hints = append(out.Hints, h)
 		}
 	}
 	out.Report = decode(compactReport(envlp.Data))

@@ -27,10 +27,13 @@ import (
 // RESTRuleID is the id of the builtin REST requests check.
 const RESTRuleID = "rest-ordinals"
 
-// FeatureChecks runs every builtin feature-file check: SQL ordinals and
-// REST requests.
+// RESTValuesRuleID is the id of the builtin REST payload values check.
+const RESTValuesRuleID = "rest-payload-values"
+
+// FeatureChecks runs every builtin feature-file check: SQL ordinals, REST
+// requests and REST payload values.
 func FeatureChecks(reg *match.Registry, pickles []*feature.Pickle, workDir string) []RuleResult {
-	return []RuleResult{CheckFeatures(reg, pickles, workDir), CheckRESTRequests(reg, pickles, workDir)}
+	return []RuleResult{CheckFeatures(reg, pickles, workDir), CheckRESTRequests(reg, pickles, workDir), CheckRESTPayloadValues(reg, pickles, workDir)}
 }
 
 // CheckRESTRequests checks the REST requests steps add and address. Findings
@@ -164,4 +167,79 @@ func requestsAdded(n int) string {
 // never add REST requests unless they are the rest pack's.
 func published(pack string) bool {
 	return slices.ContainsFunc(packset.Catalog, func(p packset.Pack) bool { return p.Name == pack })
+}
+
+// CheckRESTPayloadValues checks the values of the request payload tables
+// (`the request payload properties are:`): a value in single quotes, like
+// '{"name":"Ada"}', keeps the quotes, so the property is that text rather
+// than the JSON or the string inside, though single quotes do quote a
+// value in a step's own text. Findings are warnings.
+func CheckRESTPayloadValues(reg *match.Registry, pickles []*feature.Pickle, workDir string) RuleResult {
+	if workDir == "" {
+		workDir, _ = os.Getwd()
+	}
+	rr := RuleResult{
+		Name:        "REST payload values",
+		ID:          RESTValuesRuleID,
+		Description: "In a request payload table, single quotes are part of the value: JSON goes without quotes, a string in double quotes.",
+		Type:        "builtin",
+		Mode:        ModeWarn,
+		Findings:    []Finding{},
+	}
+	seen := map[string]bool{}
+	files := map[string]bool{}
+	for _, p := range pickles {
+		files[p.Doc.Path] = true
+		for _, ps := range p.Steps {
+			if ps.Argument == nil || ps.Argument.DataTable == nil {
+				continue
+			}
+			ms := reg.Match(ps.Text)
+			if len(ms) != 1 || ms[0].Def().Step.ID != "rest.request.properties" {
+				continue
+			}
+			src := p.StepSource(ps)
+			for _, row := range ps.Argument.DataTable.Rows {
+				if len(row.Cells) != 2 {
+					continue
+				}
+				path, v := strings.TrimSpace(row.Cells[0].Value), strings.TrimSpace(row.Cells[1].Value)
+				if len(v) < 2 || v[0] != '\'' || v[len(v)-1] != '\'' {
+					continue
+				}
+				inner := v[1 : len(v)-1]
+				fix := `"` + clipValue(inner) + `" in double quotes for the string`
+				if t := strings.TrimSpace(inner); strings.HasPrefix(t, "{") || strings.HasPrefix(t, "[") {
+					fix = clipValue(inner) + " without the quotes for the JSON"
+				}
+				l := Location{File: relSlash(workDir, p.Doc.Path), Line: src.Line, Text: clip(strings.TrimSpace(src.Keyword) + " " + ps.Text), abs: p.Doc.Path}
+				once := fmt.Sprintf("%s:%d:%s", l.abs, l.Line, path)
+				if seen[once] {
+					continue
+				}
+				seen[once] = true
+				rr.Findings = append(rr.Findings, Finding{
+					Code:     CodeRESTQuoted,
+					Severity: SeverityWarning,
+					Message: fmt.Sprintf("%s is set to the text %s, single quotes and all: in a payload table, single quotes are part of the value; write %s",
+						path, clipValue(v), fix),
+					Locations: []Location{l},
+				})
+			}
+		}
+	}
+	for f := range files {
+		rr.files = append(rr.files, f)
+	}
+	rr.Files = len(rr.files)
+	sortFindings(rr.Findings)
+	return rr
+}
+
+// clipValue shortens a table value for a message.
+func clipValue(s string) string {
+	if r := []rune(s); len(r) > 40 {
+		return string(r[:39]) + "…"
+	}
+	return s
 }

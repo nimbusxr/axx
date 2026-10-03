@@ -12,18 +12,29 @@ import (
 var (
 	unknownColumn = regexp.MustCompile(`(?i)column .* does not exist|unknown column|invalid column name|has no column named`)
 	unknownTable  = regexp.MustCompile(`(?i)relation .* does not exist|table .* doesn't exist|invalid object name|no such table`)
+	duplicateKey  = regexp.MustCompile(`(?i)duplicate key|duplicate entry|unique constraint failed|violation of (?:primary key|unique key) constraint`)
 )
+
+// DuplicateKeyHint completes the error of a seed whose row has a key the
+// database already holds: data stays after a scenario, so it is most often
+// a row of an earlier run, or of another scenario's seed.
+const DuplicateKeyHint = "; a row with that key is already there, from an earlier run or another scenario's seed, and a seed never overwrites: " +
+	"give each scenario's rows keys of their own, and to insert the same keys again start from a fresh environment " +
+	"(https://axx.nimbusxr.us/explanations/scenario-isolation/)"
 
 // schemaHint completes the error of a seed row the database refused for an
 // unknown column or table: it names the columns the table has, or the tables
-// of its schema, so a seed written by guessing shows what to write. It is ""
-// for any other error, or when the database cannot be asked.
+// of its schema, so a seed written by guessing shows what to write. A key
+// the table already holds gets DuplicateKeyHint. It is "" for any other
+// error, or when the database cannot be asked.
 func (svc *Service) schemaHint(ctx context.Context, table string, err error) string {
 	msg := err.Error()
 	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
 	defer cancel()
 	schema, name := splitTable(table)
 	switch {
+	case duplicateKey.MatchString(msg):
+		return DuplicateKeyHint
 	case unknownColumn.MatchString(msg):
 		if cols := svc.names(ctx, svc.columnsQuery(schema, name)); len(cols) > 0 {
 			return "; " + table + " has the columns " + strings.Join(cols, ", ")

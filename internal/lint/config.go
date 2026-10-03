@@ -31,6 +31,7 @@ const (
 	CodeOrdinalLabel   = "AXX-E0831"
 	CodeRESTMissing    = "AXX-E0832"
 	CodeRESTAddedTwice = "AXX-E0833"
+	CodeRESTQuoted     = "AXX-E0834"
 )
 
 // Defaults of the lint config block.

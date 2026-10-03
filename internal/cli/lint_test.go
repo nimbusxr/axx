@@ -66,7 +66,7 @@ func TestLintCommand(t *testing.T) {
 		"ok   event ids (cross-file-unique, 1 file)",
 		"warn SQL selection and trigger ordinals",
 		"features/f.feature:3",
-		"axx lint: 4 rules, 4 files: 1 error, 1 warning",
+		"axx lint: 5 rules, 4 files: 1 error, 1 warning",
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("human output lacks %q:\n%s", want, out)
@@ -112,7 +112,7 @@ func TestLintCommand(t *testing.T) {
 		}
 	}
 	out, _, _ = run(t, "lint", "-f", "sarif:build/only.sarif")
-	if !strings.Contains(out, "axx lint: 4 rules") {
+	if !strings.Contains(out, "axx lint: 5 rules") {
 		t.Errorf("with only file outputs, the human report goes to stdout:\n%s", out)
 	}
 }

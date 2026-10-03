@@ -22,6 +22,7 @@ import (
 	"github.com/nimbusxr/axx/internal/exitcode"
 	"github.com/nimbusxr/axx/internal/feature"
 	"github.com/nimbusxr/axx/internal/lifecycle"
+	"github.com/nimbusxr/axx/internal/lint"
 	"github.com/nimbusxr/axx/internal/report"
 	"github.com/nimbusxr/axx/internal/runner"
 	"github.com/nimbusxr/axx/internal/version"
@@ -235,6 +236,13 @@ func (a *App) run(ctx context.Context, f *runFlags, args []string) error {
 	code := runExitCode(res)
 	if code == exitcode.Undefined {
 		a.hintNoPacks(e)
+	}
+	if code == exitcode.OK {
+		// A passing suite is where an agent stops: what it could read
+		// better is said here too, not only by validate and lint.
+		for _, h := range lint.ScenarioHints(e.Registry, pickles, lint.Options{WorkDir: cfg.Dir}) {
+			fmt.Fprintln(a.Stderr, "hint: "+h)
+		}
 	}
 	if a.JSON && agentBuf != nil {
 		closeReporters()

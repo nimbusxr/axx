@@ -150,9 +150,8 @@ func steps() []core.StepDef {
 		core.StepDef{
 			ID: "sql.select.poll", Keyword: "Then", Arg: core.ArgTable,
 			Expr: "within {duration} a[[ {ordinal}]] selection of at least {int} row(s) is retrieved from the {word} table[[ on {dbService}]] where:",
-			Doc: "Select the rows that match, again every 500ms, until at least that many come back or the time is up.\n\n" +
-				"- The last result is kept as the next selection, even with fewer rows: check it with a row-count step.\n" +
-				"- The step fails only when no query succeeds in that time.\n" +
+			Doc: "Select the rows that match, again every 500ms, until at least that many come back, and keep them as the next selection.\n\n" +
+				"- The step fails when the time is up with fewer rows.\n" +
 				"- " + numbered,
 			Table: whereTable("the selected rows hold"),
 			Examples: []string{"Then within 10s a selection of at least 2 rows is retrieved from the parcels.manifest_lines table where:\n" +
@@ -349,6 +348,9 @@ func pollStep(sc *core.Scenario, a core.Args) error {
 		return fmt.Errorf("Could not perform polling selection; no result was obtained within %s: %w", d, lastErr) //nolint:staticcheck // user-facing message
 	}
 	svc.addSelection(last)
+	if len(last.Rows) < minRows {
+		return core.Fail(fmt.Sprintf("expected at least %d row(s) from %s within %s", minRows, last.Table, d), minRows, len(last.Rows))
+	}
 	return nil
 }
 

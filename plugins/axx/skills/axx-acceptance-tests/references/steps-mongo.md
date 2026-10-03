@@ -139,9 +139,9 @@ Then within {duration} a[[ {ordinal}]] selection of at least {int} document(s) i
 
 The table may start with the row naming its columns, as above, or go straight to its rows.
 
-Find the documents that match, again every 500ms, until at least that many come back or the time is up.
+Find the documents that match, again every 500ms, until at least that many come back, and keep them as the next selection.
 
-- The last result is kept as the next selection, even with fewer documents: check it with a document-count step.
+- The step fails when the time is up with fewer documents.
 - An error from MongoDB fails the step only when the time is up.
 - Selections are numbered in the order they are retrieved, whatever ordinal the step says; `the selection` means the first.
 

@@ -13,6 +13,7 @@ import (
 	"github.com/nimbusxr/axx/internal/engine"
 	"github.com/nimbusxr/axx/internal/exitcode"
 	"github.com/nimbusxr/axx/internal/match"
+	"github.com/nimbusxr/axx/internal/packset"
 )
 
 // StepInfo is the JSON description of a step definition.
@@ -80,7 +81,13 @@ func newStepsCmd(app *App) *cobra.Command {
 		Short: "List, search and inspect the available Gherkin steps",
 		Long: `List every step axx understands (the packs this project loads).
 Agents: search before writing a feature, and never invent step text.`,
-		Args: wrapArgs(cobra.NoArgs),
+		Args: func(cmd *cobra.Command, args []string) error {
+			if len(args) > 0 && slices.ContainsFunc(packset.Catalog, func(p packset.Pack) bool { return p.Name == args[0] }) {
+				return axxerr.New("AXX-E0001", exitcode.Usage, "invalid usage: unknown command %q for \"axx steps\"", args[0]).
+					WithHint("`axx steps --pack %s` lists the %s pack's steps, and `axx steps search <words>` finds steps by what they do", args[0], args[0])
+			}
+			return wrapArgs(cobra.NoArgs)(cmd, args)
+		},
 	}
 	listSteps := func(*cobra.Command, []string) error {
 		e, err := app.loadEngine(&cf)
@@ -127,8 +134,9 @@ Agents: search before writing a feature, and never invent step text.`,
 		},
 	}
 	show := &cobra.Command{
-		Use:   "show <id | expression | step line>",
-		Short: "Show one step's documentation, variants and examples",
+		Use:        "show <id | expression | step line>",
+		Short:      "Show one step's documentation, variants and examples",
+		SuggestFor: []string{"inspect", "describe", "info", "doc"},
 		Long: `Show one step: by its id (rest.response.status), its expression as
 ` + "`axx steps`" + ` lists it, or a step line as a feature has it (the leading
 keyword is optional), matched the way ` + "`axx explain`" + ` matches it.`,

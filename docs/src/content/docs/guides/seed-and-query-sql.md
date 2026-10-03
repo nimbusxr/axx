@@ -107,7 +107,7 @@ Then within 10s a selection of at least 2 rows is retrieved from the parcels.man
 And the selection has 2 rows
 ```
 
-The step queries again every 500 ms until the selection has at least that many rows or the time runs out, and moves on as soon as the rows appear. When the time runs out it keeps the last result as the selection, with fewer rows, and does not fail, so check the count in the next step.
+The step queries again every 500 ms until the selection has at least that many rows, and moves on as soon as the rows appear; it fails when the time runs out with fewer. `the selection has 2 rows` then checks that no more than those came back.
 
 ## Inject faults with triggers
 

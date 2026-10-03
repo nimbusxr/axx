@@ -73,7 +73,7 @@ func TestSeedAgainstRealMongo(t *testing.T) {
 	if err := run("a telemetry.json mongo db seed"); err != nil {
 		t.Fatal(err)
 	}
-	if err := run("a telemetry.json MongoDB seed for space-mongodb"); err == nil || !strings.Contains(err.Error(), "duplicate key") {
+	if err := run("a telemetry.json MongoDB seed for space-mongodb"); err == nil || !strings.Contains(err.Error(), "duplicate key") || !strings.HasSuffix(err.Error(), duplicateKeyHint) {
 		t.Fatalf("second insert of the same _id should fail with duplicate key: %v", err)
 	}
 	if err := run("a selection of documents is retrieved from the telemetry collection where:", []string{"mission", "m1"}, []string{"speed", "7.5"}); err != nil {
@@ -110,8 +110,11 @@ func TestSeedAgainstRealMongo(t *testing.T) {
 	if err := run("the 1st document for the selection properties are:", []string{"mission", "m2"}); !core.IsAssertion(err) {
 		t.Fatalf("property mismatch must be an assertion failure: %v", err)
 	}
+	if err := run("within 1s a 5th selection of at least 1 document is retrieved from the telemetry collection where:", []string{"mission", "never"}); !core.IsAssertion(err) {
+		t.Fatalf("polling that runs out of time with fewer documents should fail: %v", err)
+	}
 	svc, err := Context(sc).Service("space-mongodb")
-	if err != nil || len(svc.Selections()) != 4 || svc.DB() == nil {
+	if err != nil || len(svc.Selections()) != 5 || svc.DB() == nil {
 		t.Fatalf("context: %v", err)
 	}
 

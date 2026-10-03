@@ -71,7 +71,7 @@ The step references inside the skills are generated from *your* project, includi
 | `step_explain` | how one line matches, or the closest steps |
 | `feature_validate` | check feature files or feature text without running; hints name scenarios whose checks prove little, or that check several things in turn |
 | `lint_run` | run `axx lint`: values such as seed ids that collide across files, with `file:line` |
-| `scenarios_run` | run scenarios (paths, tags, names); returns failures with expected and actual |
+| `scenarios_run` | run scenarios (paths, tags, names); returns failures with expected and actual, and for a passing run the hints `feature_validate` gives |
 | `failure_context` | logs, attachments and the last request and response of one failure; without a run ID, of the latest run |
 | `env` | `up`, `down` or `status` of the apps: which are running, left over from a killed run, or not cleaned up (`axx env` on the command line) |
 | `config_show` | the effective `axx.yaml`, with secrets redacted, and its packs (`axx config show`) |

@@ -120,6 +120,13 @@ func (pack) Manifest() core.Manifest {
 	}
 }
 
+// duplicateKeyHint completes the error of a seed whose document has a key
+// the collection already holds: data stays after a scenario, so it is most
+// often a document of an earlier run, or of another scenario's seed.
+const duplicateKeyHint = "; a document with that key is already there, from an earlier run or another scenario's seed, and a seed never overwrites: " +
+	"give each scenario's documents keys of their own, and to insert the same keys again start from a fresh environment " +
+	"(https://axx.nimbusxr.us/explanations/scenario-isolation/)"
+
 func namedSeed(id, expr, example, since string) core.StepDef {
 	return core.StepDef{
 		ID: id, Keyword: "Given", Expr: expr, Since: since,
@@ -215,6 +222,9 @@ func seed(sc *core.Scenario, svc *Service, file string) error {
 			continue
 		}
 		if _, err := svc.db.Collection(coll.Key).InsertMany(sc.Context(), []any(items)); err != nil {
+			if driver.IsDuplicateKeyError(err) {
+				return fmt.Errorf("insert into %s: %w%s", coll.Key, err, duplicateKeyHint)
+			}
 			return fmt.Errorf("insert into %s: %w", coll.Key, err)
 		}
 	}
