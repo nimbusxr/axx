@@ -42,7 +42,7 @@ import (
 // context: only the conventions the tools' descriptions do not carry.
 const Instructions = `axx runs acceptance criteria, written as Gherkin features, against the project's services.
 
-Writing tests: steps_search without a query lists every step once; write one scenario per acceptance criterion with steps that exist ({name} is a parameter, [[...]] optional words); scenarios_run runs them and also reports what feature_validate and lint_run find; failure_context explains a failure. env {"action":"up"} keeps the apps running between runs.
+Writing tests: steps_search without a query lists every step once; write one scenario per acceptance criterion with steps that exist, written out: each {name} replaced with a value, a(n) as "a" or "an" and row(s) as "row" or "rows", [[...]] kept without the brackets or left out; scenarios_run runs them and also reports what feature_validate and lint_run find; failure_context explains a failure. env {"action":"up"} keeps the apps running between runs.
 - A scenario registers each service it uses before other steps use it ("the {word} service with the following properties:").
 - Requests, responses and selections are numbered in the order a scenario adds them; a step without an ordinal means the first.
 - Scenarios run in parallel and data persists: give every id, key and name a value of the scenario's own.
@@ -94,7 +94,7 @@ func newServer(opts Options) (*sdk.Server, *server) {
 		s.stepsSearch)
 	addTool(srv, &sdk.Tool{
 		Name: "step_explain", Annotations: ro,
-		Description: "With a line: how axx reads it (the step it matches and its arguments, the candidates if ambiguous, the closest steps if undefined). With an id: that step's documentation, variants and examples.",
+		Description: "With a line: how axx reads it (the step it matches and its arguments, the candidates if ambiguous, the closest steps if undefined). With an id, or several ids at once: the steps' documentation, variants and examples.",
 	},
 		s.stepExplain)
 	addTool(srv, &sdk.Tool{
@@ -385,6 +385,8 @@ func searchSteps(all []Step, q string) ([]Step, bool) {
 type stepExplainIn struct {
 	Line string `json:"line,omitempty" jsonschema:"one step line, with or without its Given/When/Then keyword: how axx reads it"`
 	ID   string `json:"id,omitempty" jsonschema:"a step id, like rest.response.status: the step's documentation, variants and examples"`
+	// IDs ask for several steps in one call.
+	IDs []string `json:"ids,omitempty" jsonschema:"several step ids: each step's documentation, variants and examples, in one call"`
 }
 
 type explainedArg struct {
@@ -396,7 +398,10 @@ type explainedArg struct {
 type stepExplainOut struct {
 	Status string `json:"status" jsonschema:"matched, undefined or ambiguous"`
 	// Step is the step an id names, whole; for a line, its id.
-	Step        *Step          `json:"step,omitempty"`
+	Step *Step `json:"step,omitempty"`
+	// Steps are the steps ids name, and Unknown the ids no step has.
+	Steps       []Step         `json:"steps,omitempty"`
+	Unknown     []string       `json:"unknown,omitempty"`
 	Expr        string         `json:"matchedExpression,omitempty"`
 	Args        []explainedArg `json:"args,omitempty"`
 	Candidates  []string       `json:"candidates,omitempty"`
@@ -409,6 +414,24 @@ func (s *server) stepExplain(ctx context.Context, _ *sdk.CallToolRequest, in ste
 		return nil, stepExplainOut{}, err
 	}
 	var out stepExplainOut
+	if len(in.IDs) > 0 {
+		byID := map[string]Step{}
+		for _, st := range allSteps(e, "") {
+			byID[st.ID] = st
+		}
+		for _, id := range in.IDs {
+			if st, ok := byID[strings.TrimSpace(id)]; ok {
+				out.Steps = append(out.Steps, st)
+			} else {
+				out.Unknown = append(out.Unknown, id)
+			}
+		}
+		out.Status = "matched"
+		if len(out.Steps) == 0 {
+			out.Status = "undefined"
+		}
+		return nil, out, nil
+	}
 	if id := strings.TrimSpace(in.ID); id != "" {
 		for _, st := range allSteps(e, "") {
 			if st.ID == id {
@@ -425,7 +448,7 @@ func (s *server) stepExplain(ctx context.Context, _ *sdk.CallToolRequest, in ste
 		return nil, out, nil
 	}
 	if strings.TrimSpace(in.Line) == "" {
-		return nil, out, fmt.Errorf("give a line to read, or the id of a step")
+		return nil, out, fmt.Errorf("give a line to read, or step ids")
 	}
 	text := stripKeyword(in.Line)
 	ms := e.Registry.Match(text)

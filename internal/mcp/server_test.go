@@ -102,6 +102,16 @@ func TestTools(t *testing.T) {
 	if st, _ := out["step"].(map[string]any); out["status"] != "matched" || st["doc"] == nil || st["examples"] == nil {
 		t.Fatalf("step_explain by id: %v", out)
 	}
+	// With several ids, each step in one call.
+	out = call(t, cs, "step_explain", map[string]any{"ids": []string{"rest.response.status", "rest.request", "rest.nope"}})
+	if sts, _ := out["steps"].([]any); len(sts) != 2 || sts[1].(map[string]any)["id"] != "rest.request" || fmt.Sprint(out["unknown"]) != "[rest.nope]" {
+		t.Fatalf("step_explain by ids: %v", out)
+	}
+	// Notation copied from an expression gets the line written out.
+	out = call(t, cs, "step_explain", map[string]any{"line": "Given a request payload using a(n) application/json empty content template"})
+	if sg, _ := out["suggestions"].([]any); out["status"] != "undefined" || len(sg) == 0 || sg[0] != "a request payload using an application/json empty content template" {
+		t.Fatalf("step_explain with notation: %v", out)
+	}
 	out = call(t, cs, "step_explain", map[string]any{"line": "Then the respons status code is 200"})
 	if out["status"] != "undefined" || out["suggestions"] == nil {
 		t.Fatalf("step_explain undefined: %v", out)

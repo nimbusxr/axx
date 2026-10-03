@@ -68,7 +68,7 @@ The step references inside the skills are generated from *your* project, includi
 | Tool | Does |
 | --- | --- |
 | `steps_search` | without a query, the catalog: every step of the project, one line each; with one, the steps that fit it (id, expression, table columns and an example; 6 by default), a step it returned before as its id only |
-| `step_explain` | with a line, how it matches (or the closest steps); with an id, the step's documentation and examples |
+| `step_explain` | with a line, how it matches (or the closest steps, the line written out when it keeps an expression's notation); with an id or several, the steps' documentation and examples |
 | `feature_validate` | check feature files or feature text without running; hints name scenarios whose checks prove little, or that check several things in turn |
 | `lint_run` | run `axx lint`: values such as seed ids that collide across files, with `file:line`, and the rules that found something |
 | `scenarios_run` | run scenarios (paths, tags, names); returns failures with expected and actual, the warnings `feature_validate` and `lint_run` would give, and for a passing run their hints |
@@ -192,7 +192,8 @@ warn Cursor MCP               no axx server in .cursor/mcp.json
 axx (github.com/nimbusxr/axx, "axxeptance") is a human-readable acceptance testing framework.
 - Writing tests: `axx steps` lists every step, a line each (read it once; `axx steps show <id>` gives one
   step's documentation); write one scenario per acceptance criterion with those steps, never
-  invented ones; `axx up` once, then `axx run --compact`, which also reports what validate and lint find;
+  invented ones, written out (a {name} replaced with a value, a(n) as "a" or "an", [[...]] kept
+  without the brackets or left out); `axx up` once, then `axx run --compact`, which also reports what validate and lint find;
   `axx down` when done.
 - Use the axx MCP tools when you have them: `steps_search` without a query is the step list, then
   `scenarios_run` (it reports what `feature_validate` and `lint_run` find) and `failure_context`.

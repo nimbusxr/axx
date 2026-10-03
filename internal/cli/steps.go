@@ -142,21 +142,37 @@ Agents: search before writing a feature, and never invent step text.`,
 		},
 	}
 	show := &cobra.Command{
-		Use:        "show <id | expression | step line>",
+		Use:        "show <id... | expression | step line>",
 		Aliases:    []string{"inspect"},
 		Short:      "Show one step's documentation, variants and examples",
 		SuggestFor: []string{"describe", "info", "doc"},
 		Long: `Show one step: by its id (rest.response.status), its expression as
 ` + "`axx steps`" + ` lists it, or a step line as a feature has it (the leading
-keyword is optional), matched the way ` + "`axx explain`" + ` matches it.`,
+keyword is optional), matched the way ` + "`axx explain`" + ` matches it. Several
+ids show each of their steps.`,
 		Args: wrapArgs(cobra.MinimumNArgs(1)),
 		RunE: func(_ *cobra.Command, args []string) error {
 			e, err := app.loadEngine(&cf)
 			if err != nil {
 				return err
 			}
+			infos := stepInfos(e, "")
+			// Several ids: each step, in one call.
+			if many := stepsByIDs(infos, args); len(args) > 1 && len(many) == len(args) {
+				return app.Emit(map[string]any{"steps": many}, func(w io.Writer) error {
+					for i, s := range many {
+						if i > 0 {
+							fmt.Fprintln(w, "\n---")
+						}
+						if err := renderStep(w, s); err != nil {
+							return err
+						}
+					}
+					return nil
+				})
+			}
 			q := strings.Join(args, " ")
-			s, err := findStep(e, stepInfos(e, ""), q)
+			s, err := findStep(e, infos, q)
 			if err != nil {
 				return err
 			}
@@ -220,6 +236,24 @@ func findStep(e *engine.Engine, infos []StepInfo, q string) (StepInfo, error) {
 		hint = "the closest: " + strings.Join(names, "; ") + "; search with `axx steps search <words>`"
 	}
 	return StepInfo{}, axxerr.New("AXX-E0310", exitcode.Usage, "no step has the id or expression %q, or matches it as a step line", q).WithHint("%s", hint)
+}
+
+// stepsByIDs returns the steps args name when each is a step's id, in
+// their order.
+func stepsByIDs(infos []StepInfo, args []string) []StepInfo {
+	byID := map[string]StepInfo{}
+	for _, s := range infos {
+		byID[s.ID] = s
+	}
+	var out []StepInfo
+	for _, a := range args {
+		s, ok := byID[a]
+		if !ok {
+			return nil
+		}
+		out = append(out, s)
+	}
+	return out
 }
 
 // looksLikeID reports whether q is shaped like a step id: dotted lower-case
@@ -317,6 +351,7 @@ func renderStepList(w io.Writer, infos []StepInfo) error {
 	if len(twinned) > 0 {
 		fmt.Fprintf(w, "\n%s\n", stepsearch.TwinLegend)
 	}
+	fmt.Fprintf(w, "\n%s\n", stepsearch.Notation)
 	return nil
 }
 
