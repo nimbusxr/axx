@@ -49,8 +49,8 @@ func TestTheVersionIsTheAxxModules(t *testing.T) {
 
 func TestFromModuleProxy(t *testing.T) {
 	for v, want := range map[string]bool{
-		"0.1.12": true,
-		"0.1.13-0.20261003225805-0a9d0a74590b":       true,
+		"0.1.12":                               true,
+		"0.1.13-0.20261003225805-0a9d0a74590b": true,
 		"0.1.13-0.20261003225805-0a9d0a74590b+dirty": false,
 		"0.0.0-dev": false,
 		"":          false,
