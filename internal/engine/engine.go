@@ -251,7 +251,8 @@ func (e *Engine) Plan(pickles []*feature.Pickle) *core.Plan {
 		}}
 		for _, ps := range p.Steps {
 			st := core.PlannedStep{Text: ps.Text}
-			if ms := e.Registry.Match(ps.Text); len(ms) == 1 {
+			ms := e.Registry.Match(ps.Text)
+			if len(ms) == 1 {
 				st.Pack, st.Definition, st.Args = ms[0].Def().Pack, ms[0].Def().Step.ID, ms[0].Args
 			}
 			if ps.Argument != nil && ps.Argument.DataTable != nil {
@@ -262,6 +263,10 @@ func (e *Engine) Plan(pickles []*feature.Pickle) *core.Plan {
 					}
 				}
 				st.Table = t
+				if len(ms) == 1 {
+					// A row naming the table's columns is not the step's data.
+					st.Table = ms[0].Def().Step.Table.WithoutNamesRow(t)
+				}
 			}
 			sc.Steps = append(sc.Steps, st)
 		}

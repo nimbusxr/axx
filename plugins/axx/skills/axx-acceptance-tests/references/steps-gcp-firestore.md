@@ -49,6 +49,8 @@ Then [[within {duration} ]]the {word} firestore document has the following prope
   | field | value |
 ```
 
+The table may start with the row naming its columns, as above, or go straight to its rows.
+
 Check that the document at that path, like `invoices/INV-2026-09-KES1`, has those values in those fields.
 
 - The check waits for it: 10 seconds, or `within {duration}`.
@@ -84,6 +86,8 @@ _Since 0.1.0._
 Then [[within {duration} ]]the {word} firestore collection has a document where:
   | field | value |
 ```
+
+The table may start with the row naming its columns, as above, or go straight to its rows.
 
 Check that the collection has a document with those values in those fields.
 

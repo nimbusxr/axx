@@ -17,6 +17,8 @@ Given the {word} websocket with the following properties:
   | property | value |
 ```
 
+The table may start with the row naming its columns, as above, or go straight to its rows.
+
 Open a WebSocket connection under a name. It belongs to the scenario, which closes it when it ends.
 
 | Parameter | Takes | For example |
@@ -94,6 +96,8 @@ _Since 0.1.5._
 Then [[within {duration} ]]the {word} websocket received a message where:
   | path | value |
 ```
+
+The table may start with the row naming its columns, as above, or go straight to its rows.
 
 Check that the connection received a JSON message with those values. The check waits for it: 10 seconds, or `within {duration}`.
 

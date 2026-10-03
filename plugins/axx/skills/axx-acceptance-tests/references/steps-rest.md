@@ -71,6 +71,8 @@ Given the {word} service with the following properties:
   | property | value |
 ```
 
+The table may start with the row naming its columns, as above, or go straight to its rows.
+
 Register a REST service: where its requests go, and the OpenAPI specification they are checked against.
 
 - The first service registered in a scenario is the default one.
@@ -102,6 +104,8 @@ Given the parcels service with the following properties:
 Given the OpenAPI validation levels[[ on {service}]] are:
   | validation key | level |
 ```
+
+The table may start with the row naming its columns, as above, or go straight to its rows.
 
 Set the level of OpenAPI validation findings for this scenario, on the default or the named service.
 
@@ -246,6 +250,8 @@ Given the request headers[[ for {ordinal} ordered request]] are:
   | header | value |
 ```
 
+The table may start with the row naming its columns, as above, or go straight to its rows.
+
 Set request headers, a row each.
 
 - A name may repeat. Like the single-header step, `Content-Type` and `Accept` replace an earlier value, and other headers are all sent.
@@ -277,6 +283,8 @@ Given the request headers are:
 Given the request headers for[[ {ordinal} ordered]] request on {service} are:
   | header | value |
 ```
+
+The table may start with the row naming its columns, as above, or go straight to its rows.
 
 `rest.request.headers` on a named service: `for request on <service>` addresses the service's first (default) request, `for 2nd ordered request on <service>` its second one. Everything else works like `rest.request.headers`.
 
@@ -541,6 +549,8 @@ Given the request payload properties[[ for {ordinal} ordered request]] are:
   | JSONPath | value |
 ```
 
+The table may start with the row naming its columns, as above, or go straight to its rows.
+
 Set properties of the request payload, a row each, in order, like the single-property step.
 
 - `null` sets JSON null, and `undefined` removes the property, in any case.
@@ -574,6 +584,8 @@ Given the request payload properties are:
 Given the request payload properties for[[ {ordinal} ordered]] request on {service} are:
   | JSONPath | value |
 ```
+
+The table may start with the row naming its columns, as above, or go straight to its rows.
 
 `rest.request.properties` on a named service: `for request on <service>` addresses the service's first (default) request, `for 2nd ordered request on <service>` its second one. Everything else works like `rest.request.properties`.
 
@@ -939,6 +951,8 @@ Then the response headers[[ for {ordinal} ordered response]] are:
   | header | value |
 ```
 
+The table may start with the row naming its columns, as above, or go straight to its rows.
+
 Check response headers, a row each, like the single-header step.
 
 - A name may repeat.
@@ -972,6 +986,8 @@ Then the response headers for[[ {ordinal} ordered]] response on {service} are:
   | header | value |
 ```
 
+The table may start with the row naming its columns, as above, or go straight to its rows.
+
 `rest.response.headers.are` on a named service: `for response on <service>` addresses the service's first (default) response, `for 2nd ordered response on <service>` its second one. Everything else works like `rest.response.headers.are`.
 
 | Parameter | Takes | For example |
@@ -1000,6 +1016,8 @@ Then the response headers for 1st ordered response on parcels are:
 Then the response headers[[ for {ordinal} ordered response]] match:
   | header | regular expression |
 ```
+
+The table may start with the row naming its columns, as above, or go straight to its rows.
 
 Check that response headers match regular expressions, a row each.
 
@@ -1033,6 +1051,8 @@ Then the response headers match:
 Then the response headers for[[ {ordinal} ordered]] response on {service} match:
   | header | regular expression |
 ```
+
+The table may start with the row naming its columns, as above, or go straight to its rows.
 
 `rest.response.headers.match` on a named service: `for response on <service>` addresses the service's first (default) response, `for 2nd ordered response on <service>` its second one. Everything else works like `rest.response.headers.match`.
 
@@ -1340,6 +1360,8 @@ Then the response payload properties[[ for {ordinal} ordered response]] are:
   | JSONPath | value |
 ```
 
+The table may start with the row naming its columns, as above, or go straight to its rows.
+
 Check properties of a JSON response, a row each, like the single-property step.
 
 - `null` and `undefined`, in any case, check for JSON null and for no such property; `"null"`, in double quotes, is the string.
@@ -1377,6 +1399,8 @@ Then the response payload properties for[[ {ordinal} ordered]] response on {serv
   | JSONPath | value |
 ```
 
+The table may start with the row naming its columns, as above, or go straight to its rows.
+
 `rest.response.properties.are` on a named service: `for response on <service>` addresses the service's first (default) response, `for 2nd ordered response on <service>` its second one. Everything else works like `rest.response.properties.are`.
 
 | Parameter | Takes | For example |
@@ -1406,6 +1430,8 @@ Then the response payload properties for 1st ordered response on parcels are:
 Then the response payload properties[[ for {ordinal} ordered response]] match:
   | JSONPath | regular expression |
 ```
+
+The table may start with the row naming its columns, as above, or go straight to its rows.
 
 Check that properties of the response payload are strings that match regular expressions, a row each.
 
@@ -1440,6 +1466,8 @@ Then the response payload properties for[[ {ordinal} ordered]] response on {serv
   | JSONPath | regular expression |
 ```
 
+The table may start with the row naming its columns, as above, or go straight to its rows.
+
 `rest.response.properties.match` on a named service: `for response on <service>` addresses the service's first (default) response, `for 2nd ordered response on <service>` its second one. Everything else works like `rest.response.properties.match`.
 
 | Parameter | Takes | For example |
@@ -1467,6 +1495,8 @@ Then the response payload properties for 2nd ordered response on parcels match:
 Given the {word} token with the following properties:
   | property | value |
 ```
+
+The table may start with the row naming its columns, as above, or go straight to its rows.
 
 Register a bearer token under a name: a JSON Web Token axx signs, or an OAuth 2.0 client credentials token axx gets from a token endpoint.
 
@@ -1573,6 +1603,8 @@ Given the request is signed in the {word} header[[ for {ordinal} ordered request
   | property | value |
 ```
 
+The table may start with the row naming its columns, as above, or go straight to its rows.
+
 Sign the request as webhooks are signed: an HMAC of its body, or of what the `signs` template gives, in the header.
 
 - The signature is made when the request is executed, over the body as it is sent.
@@ -1616,6 +1648,8 @@ _Since 0.1.5._
 Given the request is signed in the {word} header for[[ {ordinal} ordered]] request on {service} with the following properties:
   | property | value |
 ```
+
+The table may start with the row naming its columns, as above, or go straight to its rows.
 
 `rest.request.signed` on a named service: `for request on <service>` addresses the service's first (default) request, `for 2nd ordered request on <service>` its second one. Everything else works like `rest.request.signed`.
 

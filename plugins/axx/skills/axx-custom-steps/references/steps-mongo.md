@@ -11,6 +11,8 @@ Given a(n) {word} mongo database with the following properties:
   | property | value |
 ```
 
+The table may start with the row naming its columns, as above, or go straight to its rows.
+
 Register a MongoDB database. The first one registered in a scenario is the default.
 
 | Parameter | Takes | For example |
@@ -99,6 +101,8 @@ Then a[[ {ordinal}]] selection of documents is retrieved from the {word} collect
   | field | value |
 ```
 
+The table may start with the row naming its columns, as above, or go straight to its rows.
+
 Find the documents that match and keep them as the next selection, for the steps that check it. Selections are numbered in the order they are retrieved, whatever ordinal the step says; `the selection` means the first.
 
 | Parameter | Takes | For example |
@@ -132,6 +136,8 @@ _Since 0.1.0._
 Then within {duration} a[[ {ordinal}]] selection of at least {int} document(s) is retrieved from the {word} collection[[ on {mongoService}]] where:
   | field | value |
 ```
+
+The table may start with the row naming its columns, as above, or go straight to its rows.
 
 Find the documents that match, again every 500ms, until at least that many come back or the time is up.
 
@@ -263,6 +269,8 @@ Then the {ordinal} document for the[[ {ordinal}]] selection[[ on {mongoService}]
   | JSONPath | value |
 ```
 
+The table may start with the row naming its columns, as above, or go straight to its rows.
+
 Check the fields of one document of a selection, read as JSON: an ObjectId is its hex string, and a date is in ISO-8601 UTC, like `2026-05-05T06:40:00.000Z`.
 
 | Parameter | Takes | For example |
@@ -296,6 +304,8 @@ _Since 0.1.0._
 Then the {ordinal} document for the[[ {ordinal}]] selection[[ on {mongoService}]] properties match:
   | JSONPath | pattern |
 ```
+
+The table may start with the row naming its columns, as above, or go straight to its rows.
 
 Check the fields of one document of a selection, like the `properties are` step, with regular expressions (Java syntax) that must match the whole value, as text.
 

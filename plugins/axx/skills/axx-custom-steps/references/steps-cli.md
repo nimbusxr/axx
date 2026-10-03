@@ -19,6 +19,8 @@ Given the {word} command with the following properties:
   | property | value |
 ```
 
+The table may start with the row naming its columns, as above, or go straight to its rows.
+
 Register a command under a name: the program and its first arguments, where it runs, its environment and its timeout.
 
 | Parameter | Takes | For example |
@@ -239,6 +241,8 @@ _Since 0.1.5._
 Then the {word} command's output has the following properties:
   | path | value |
 ```
+
+The table may start with the row naming its columns, as above, or go straight to its rows.
 
 Check the JSON the command printed: each row is a path into it (a field name, a dotted path or a JSONPath) and the value it has.
 

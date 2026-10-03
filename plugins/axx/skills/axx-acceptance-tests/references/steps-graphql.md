@@ -39,6 +39,8 @@ Given the {word} graphql service with the following properties:
   | property | value |
 ```
 
+The table may start with the row naming its columns, as above, or go straight to its rows.
+
 Register a GraphQL service under a name: a federated graph's gateway, a subgraph, or any GraphQL API.
 
 | Parameter | Takes | For example |
@@ -184,6 +186,8 @@ Then the {word} graphql service's data has the following properties:
   | path | value |
 ```
 
+The table may start with the row naming its columns, as above, or go straight to its rows.
+
 Check the data of the service's last answer.
 
 | Parameter | Takes | For example |
@@ -209,6 +213,8 @@ Then the {word} graphql service answered an error where:
   | path | value |
 ```
 
+The table may start with the row naming its columns, as above, or go straight to its rows.
+
 Check that the service's last answer has an error with those values.
 
 | Parameter | Takes | For example |
@@ -233,6 +239,8 @@ _Since 0.1.5._
 Then [[within {duration} ]]the {word} graphql service's subscription received a message where:
   | path | value |
 ```
+
+The table may start with the row naming its columns, as above, or go straight to its rows.
 
 Check that the service's subscription received a message whose data has those values.
 
@@ -267,6 +275,8 @@ _Since 0.1.5._
 Given the GraphQL validation levels are:
   | validation key | level |
 ```
+
+The table may start with the row naming its columns, as above, or go straight to its rows.
 
 Set the level of GraphQL validation findings for this scenario, on every GraphQL service it sends operations to.
 

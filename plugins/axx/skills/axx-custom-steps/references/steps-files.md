@@ -17,6 +17,8 @@ Given the {word} folder with the following properties:
   | property | value |
 ```
 
+The table may start with the row naming its columns, as above, or go straight to its rows.
+
 Register a folder under a name. The folder may appear only when a service first writes to it.
 
 | Parameter | Takes | For example |
@@ -96,6 +98,8 @@ Then [[within {duration} ]]the {word} file in the {word} folder has the followin
   | path | value |
 ```
 
+The table may start with the row naming its columns, as above, or go straight to its rows.
+
 Check that the file holds JSON with those values at those paths. The check waits for it: 10 seconds, or `within {duration}`.
 
 | Parameter | Takes | For example |
@@ -158,6 +162,8 @@ _Since 0.1.1._
 Then [[within {duration} ]]the {word} file in the {word} folder has a row where:
   | column | value |
 ```
+
+The table may start with the row naming its columns, as above, or go straight to its rows.
 
 Check that the table of the file has a row with those values in those columns.
 

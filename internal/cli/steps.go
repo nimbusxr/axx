@@ -17,12 +17,14 @@ import (
 
 // StepInfo is the JSON description of a step definition.
 type StepInfo struct {
-	ID         string      `json:"id"`
-	Pack       string      `json:"pack"`
-	Expr       string      `json:"expr"`
-	Variants   []string    `json:"variants"`
-	Keyword    string      `json:"keyword,omitempty"`
-	Arg        string      `json:"arg"`
+	ID       string   `json:"id"`
+	Pack     string   `json:"pack"`
+	Expr     string   `json:"expr"`
+	Variants []string `json:"variants"`
+	Keyword  string   `json:"keyword,omitempty"`
+	Arg      string   `json:"arg"`
+	// Columns name the columns of the step's data table, when it has one.
+	Columns    []string    `json:"columns,omitempty"`
 	Doc        string      `json:"doc,omitempty"`
 	Examples   []string    `json:"examples,omitempty"`
 	Params     []ParamInfo `json:"params,omitempty"`
@@ -54,6 +56,9 @@ func stepInfos(e *engine.Engine, pack string) []StepInfo {
 		info := StepInfo{
 			ID: s.ID, Pack: d.Pack, Expr: s.Expr, Variants: variants[d], Keyword: s.Keyword,
 			Arg: s.Arg.String(), Doc: s.Doc, Examples: s.Examples, Since: s.Since, Deprecated: s.DeprecatedBy,
+		}
+		if s.Table != nil {
+			info.Columns = s.Table.Columns
 		}
 		seen := map[string]bool{}
 		for _, n := range d.Names {
@@ -175,7 +180,15 @@ func findStep(e *engine.Engine, infos []StepInfo, q string) (StepInfo, error) {
 			WithHint("show one by its id: `axx steps show %s`", ids[0])
 	}
 	hint := "list ids with `axx steps` or search with `axx steps search <words>`"
-	if closest := searchSteps(e, infos, q, 3); len(closest) > 0 {
+	closest := searchSteps(e, infos, q, 3)
+	if looksLikeID(q) {
+		// An id that is not one: the ids that start like it, else the steps
+		// its words find (rest.get: "rest get").
+		if closest = idsLike(infos, q, 3); len(closest) == 0 {
+			closest = searchSteps(e, infos, strings.ReplaceAll(q, ".", " "), 3)
+		}
+	}
+	if len(closest) > 0 {
 		names := make([]string, 0, len(closest))
 		for _, s := range closest {
 			names = append(names, fmt.Sprintf("%s (%s)", s.ID, s.Expr))
@@ -183,6 +196,40 @@ func findStep(e *engine.Engine, infos []StepInfo, q string) (StepInfo, error) {
 		hint = "the closest: " + strings.Join(names, "; ") + "; search with `axx steps search <words>`"
 	}
 	return StepInfo{}, axxerr.New("AXX-E0310", exitcode.Usage, "no step has the id or expression %q, or matches it as a step line", q).WithHint("%s", hint)
+}
+
+// looksLikeID reports whether q is shaped like a step id: dotted lower-case
+// words, like rest.response.status.
+func looksLikeID(q string) bool {
+	return strings.Contains(q, ".") && strings.IndexFunc(q, func(r rune) bool {
+		return (r < 'a' || r > 'z') && (r < '0' || r > '9') && r != '.' && r != '-' && r != '_'
+	}) < 0
+}
+
+// idsLike returns the ids that share the longest leading part of q, past
+// its pack (rest.response.property.contains: rest.response.property.*),
+// shortest first.
+func idsLike(infos []StepInfo, q string, limit int) []StepInfo {
+	parts := strings.Split(q, ".")
+	for n := len(parts) - 1; n >= 2; n-- {
+		prefix := strings.Join(parts[:n], ".") + "."
+		var out []StepInfo
+		for _, s := range infos {
+			if strings.HasPrefix(s.ID, prefix) {
+				out = append(out, s)
+			}
+		}
+		if len(out) > 0 {
+			sort.SliceStable(out, func(i, j int) bool {
+				if len(out[i].ID) != len(out[j].ID) {
+					return len(out[i].ID) < len(out[j].ID)
+				}
+				return out[i].ID < out[j].ID
+			})
+			return out[:min(limit, len(out))]
+		}
+	}
+	return nil
 }
 
 // searchSteps ranks steps by how many query words appear in the expression,
@@ -260,6 +307,12 @@ func renderStep(w io.Writer, s StepInfo) error {
 	}
 	if s.Arg != "none" {
 		fmt.Fprintf(w, "\nArgument: %s\n", s.Arg)
+	}
+	switch {
+	case len(s.Columns) > 1:
+		fmt.Fprintf(w, "\nTable columns: | %s |\n  (the table may start with a row of these names, or go straight to its rows)\n", strings.Join(s.Columns, " | "))
+	case len(s.Columns) == 1:
+		fmt.Fprintf(w, "\nTable column: | %s |\n", s.Columns[0])
 	}
 	if len(s.Params) > 0 {
 		fmt.Fprintln(w, "\nParameters:")

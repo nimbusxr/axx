@@ -27,6 +27,8 @@ Given the {word} amqp broker with the following properties:
   | property | value |
 ```
 
+The table may start with the row naming its columns, as above, or go straight to its rows.
+
 Register the AMQP broker the steps talk to.
 
 - The first broker registered is the one the scenario's AMQP steps use.
@@ -123,6 +125,8 @@ _Since 0.1.5._
 Then [[within {duration} ]]the {word} amqp queue has a message where:
   | path | value |
 ```
+
+The table may start with the row naming its columns, as above, or go straight to its rows.
 
 Check that the amqp queue has a message with those values, received since the scenario started.
 
@@ -231,6 +235,8 @@ _Since 0.1.5._
 Then [[within {duration} ]]the {word} amqp exchange has a message where:
   | path | value |
 ```
+
+The table may start with the row naming its columns, as above, or go straight to its rows.
 
 Check that the amqp exchange has a message with those values, received since the scenario started.
 

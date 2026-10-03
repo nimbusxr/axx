@@ -71,6 +71,8 @@ Then [[within {duration} ]]the {word} sqs queue has a message where:
   | path | value |
 ```
 
+The table may start with the row naming its columns, as above, or go straight to its rows.
+
 Check that the sqs queue has a message with those values, received since the scenario started.
 
 - The check waits for it: 10 seconds, or `within {duration}`.

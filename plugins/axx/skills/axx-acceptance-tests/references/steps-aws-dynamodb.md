@@ -44,6 +44,8 @@ Then [[within {duration} ]]the {word} dynamodb table has an item where:
   | attribute | value |
 ```
 
+The table may start with the row naming its columns, as above, or go straight to its rows.
+
 Check that the table has an item with those values in those attributes. The check waits for it: 10 seconds, or `within {duration}`.
 
 | Parameter | Takes | For example |
@@ -75,6 +77,8 @@ _Since 0.1.0._
 Then [[within {duration} ]]the {word} dynamodb table has {int} item(s) where:
   | attribute | value |
 ```
+
+The table may start with the row naming its columns, as above, or go straight to its rows.
 
 Check that exactly that many items of the table have those values in those attributes. The check waits for it: 10 seconds, or `within {duration}`.
 

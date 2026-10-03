@@ -21,6 +21,8 @@ Given the {word} aws account with the following properties:
   | property | value |
 ```
 
+The table may start with the row naming its columns, as above, or go straight to its rows.
+
 Register the AWS account the aws-* steps talk to.
 
 - The first account registered is the default.

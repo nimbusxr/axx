@@ -26,6 +26,8 @@ Given the {word} nats server with the following properties:
   | property | value |
 ```
 
+The table may start with the row naming its columns, as above, or go straight to its rows.
+
 Register the NATS server the steps talk to.
 
 - The first server registered is the one the scenario's NATS steps use.
@@ -120,6 +122,8 @@ Then [[within {duration} ]]the {word} nats subject has a message where:
   | path | value |
 ```
 
+The table may start with the row naming its columns, as above, or go straight to its rows.
+
 Check that the nats subject has a message with those values, received since the scenario started.
 
 - The check waits for it: 10 seconds, or `within {duration}`.
@@ -154,6 +158,8 @@ _Since 0.1.5._
 Then [[within {duration} ]]the {word} nats stream has a message where:
   | path | value |
 ```
+
+The table may start with the row naming its columns, as above, or go straight to its rows.
 
 Check that the nats stream has a message with those values, received since the scenario started.
 

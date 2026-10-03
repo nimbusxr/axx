@@ -11,6 +11,8 @@ Given a(n) {word} database with the following properties:
   | property | value |
 ```
 
+The table may start with the row naming its columns, as above, or go straight to its rows.
+
 Register a database.
 
 - The first database registered in a scenario is the default.
@@ -82,6 +84,8 @@ Given the rows in the {word} table[[ on {dbService}]] are locked where:
   | column | value |
 ```
 
+The table may start with the row naming its columns, as above, or go straight to its rows.
+
 Lock the rows that match, with `SELECT ... FOR UPDATE` on a separate connection.
 
 - The locks hold until the row locks are released or the scenario ends.
@@ -138,6 +142,8 @@ Then a[[ {ordinal}]] selection of rows is retrieved from the {word} table[[ on {
   | column | value |
 ```
 
+The table may start with the row naming its columns, as above, or go straight to its rows.
+
 Select the rows that match (`SELECT * ... WHERE`) and keep them as the next selection, for the steps that check it. Selections are numbered in the order they are retrieved, whatever ordinal the step says; `the selection` means the first.
 
 | Parameter | Takes | For example |
@@ -172,6 +178,8 @@ Then a 2nd selection of rows is retrieved from the parcels.manifest_lines table 
 Then within {duration} a[[ {ordinal}]] selection of at least {int} row(s) is retrieved from the {word} table[[ on {dbService}]] where:
   | column | value |
 ```
+
+The table may start with the row naming its columns, as above, or go straight to its rows.
 
 Select the rows that match, again every 500ms, until at least that many come back or the time is up.
 
@@ -211,6 +219,8 @@ Then a[[ {ordinal}]] selection of rows is retrieved from the {word} table[[ on {
   | property | value |
 ```
 
+The table may start with the row naming its columns, as above, or go straight to its rows.
+
 Select the rows whose JSONB column contains the properties (`@>`), and keep them as the next selection.
 
 - The database must be PostgreSQL.
@@ -246,6 +256,8 @@ Then the {ordinal} row {word} property for the[[ {ordinal}]] selection[[ on {dbS
   | JSONPath | value |
 ```
 
+The table may start with the row naming its columns, as above, or go straight to its rows.
+
 Check the JSON a column holds in one row of a selection. `the 1st row details property` is the `details` column of the selection's first row.
 
 | Parameter | Takes | For example |
@@ -278,6 +290,8 @@ Then the 1st row details property for the selection json properties are:
 Then the {ordinal} row {word} property for the[[ {ordinal}]] selection[[ on {dbService}]] json properties match:
   | JSONPath | pattern |
 ```
+
+The table may start with the row naming its columns, as above, or go straight to its rows.
 
 Check the JSON a column holds in one row of a selection, like the `json properties are` step, with regular expressions (Java syntax) that must match the whole value, as text.
 
@@ -395,6 +409,8 @@ Given a(n)[[ {ordinal} ordered]] before insert trigger on the {word} table[[ on 
   | column | value |
 ```
 
+The table may start with the row naming its columns, as above, or go straight to its rows.
+
 Make inserts of matching rows into the table fail with that SQLSTATE, to test how the app handles database errors.
 
 - A BEFORE INSERT trigger raises the error, so the database must be PostgreSQL.
@@ -430,6 +446,8 @@ Given a before insert trigger on the parcels.parcels table will raise a 40001 ex
 Given a(n)[[ {ordinal} ordered]] before insert trigger on the {word} table[[ on {dbService}]] will raise a(n) {sqlState} exception {int} time(s) where:
   | column | value |
 ```
+
+The table may start with the row naming its columns, as above, or go straight to its rows.
 
 Make inserts of matching rows into the table fail with that SQLSTATE, to test how the app handles database errors.
 
@@ -469,6 +487,8 @@ Given a(n)[[ {ordinal} ordered]] before insert trigger on the {word} table[[ on 
   | column | value |
 ```
 
+The table may start with the row naming its columns, as above, or go straight to its rows.
+
 Make inserts of matching rows into the table store the row and still fail with that SQLSTATE, like a write that succeeded but reported a failure.
 
 - A BEFORE INSERT trigger raises the error, so the database must be PostgreSQL.
@@ -505,6 +525,8 @@ Given a before insert trigger on the parcels.parcels table will insert and raise
 Given a(n)[[ {ordinal} ordered]] before insert trigger on the {word} table[[ on {dbService}]] will insert and raise a(n) {sqlState} exception {int} time(s) where:
   | column | value |
 ```
+
+The table may start with the row naming its columns, as above, or go straight to its rows.
 
 Make inserts of matching rows into the table store the row and still fail with that SQLSTATE, like a write that succeeded but reported a failure.
 

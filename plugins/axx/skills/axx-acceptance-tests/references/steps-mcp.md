@@ -36,6 +36,8 @@ Given the {word} mcp server with the following properties:
   | property | value |
 ```
 
+The table may start with the row naming its columns, as above, or go straight to its rows.
+
 Register an MCP server under a name, and connect to it: over stdio (a `command` the scenario runs, and ends when it ends) or over streamable HTTP (a `url`). The session agrees on the protocol version with the server.
 
 | Parameter | Takes | For example |
@@ -257,6 +259,8 @@ Then the {word} tool's result[[ on the {word} mcp server]] has the following pro
   | property | value |
 ```
 
+The table may start with the row naming its columns, as above, or go straight to its rows.
+
 Check the tool's structured result: its structured content, or the JSON of its text for a tool that answers JSON as text.
 
 - Paths are dotted (`lastScan.location`) or JSONPath; `null` and `undefined` work as in the other property steps.
@@ -359,6 +363,8 @@ Then the {word} resource has the following properties:
   | property | value |
 ```
 
+The table may start with the row naming its columns, as above, or go straight to its rows.
+
 Check the resource, as the scenario last read it, when its text is JSON.
 
 | Parameter | Takes | For example |
@@ -432,6 +438,8 @@ _Since 0.1.5._
 Given the MCP validation levels are:
   | validation key | level |
 ```
+
+The table may start with the row naming its columns, as above, or go straight to its rows.
 
 Relax, for this scenario, the checks of tools' arguments and results against their schemas.
 

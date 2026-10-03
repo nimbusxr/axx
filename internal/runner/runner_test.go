@@ -100,7 +100,7 @@ func (f *fixture) pack() core.Manifest {
 				}
 				return nil
 			}},
-			{ID: "table", Expr: "a table step:", Arg: core.ArgTable, Run: func(_ *core.Scenario, a core.Args) error {
+			{ID: "table", Expr: "a table step:", Arg: core.ArgTable, Table: &core.TableDoc{Columns: []string{"key", "value"}}, Run: func(_ *core.Scenario, a core.Args) error {
 				pairs, err := a.Table.Pairs()
 				if err != nil {
 					return err
@@ -333,6 +333,33 @@ func TestParallelismAndExclusive(t *testing.T) {
 	}
 	if res.Scenarios[len(res.Scenarios)-1].Pickle.Name != "solo" || res.Scenarios[len(res.Scenarios)-1].Worker != 0 {
 		t.Errorf("exclusive scenario must run in the serial phase")
+	}
+}
+
+// A table may start with a row naming its columns, as the step reference
+// shows them; the step gets its rows without it, and reports keep the table
+// as written.
+func TestTableNamesRowIsOptional(t *testing.T) {
+	f := &fixture{}
+	set, pickles := load(t, `Feature: names
+  Scenario: with the names row
+    Given a table step:
+      | Key   | Value |
+      | k     | v     |
+
+  Scenario: without it
+    Given a table step:
+      | k | v |
+`)
+	r, _ := newRunner(t, f, set, nil)
+	got := byName(r.Run(context.Background(), pickles))
+	for _, name := range []string{"with the names row", "without it"} {
+		if s := got[name]; s == nil || s.Status != Passed {
+			t.Errorf("%s: %v (%v)", name, s.Status, s.Steps[0].Err)
+		}
+	}
+	if rows := got["with the names row"].Steps[0].Table.Rows; len(rows) != 2 {
+		t.Errorf("the reported table lost its names row: %v", rows)
 	}
 }
 

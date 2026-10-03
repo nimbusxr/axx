@@ -208,6 +208,9 @@ type Step struct {
 	Expr     string   `json:"expr"`
 	Variants []string `json:"variants"`
 	Arg      string   `json:"argument"`
+	// Columns name the columns of the step's data table; the table may
+	// start with a row of these names (two columns or more) or not.
+	Columns  []string `json:"columns,omitempty"`
 	Doc      string   `json:"doc,omitempty"`
 	Examples []string `json:"examples,omitempty"`
 	Params   []string `json:"params,omitempty"`
@@ -252,9 +255,13 @@ func allSteps(e *engine.Engine, pack string) []Step {
 				params = append(params, n)
 			}
 		}
+		var columns []string
+		if d.Step.Table != nil {
+			columns = d.Step.Table.Columns
+		}
 		out = append(out, Step{
 			ID: d.Step.ID, Pack: d.Pack, Expr: d.Step.Expr, Variants: variants[d], Arg: d.Step.Arg.String(),
-			Doc: d.Step.Doc, Examples: d.Step.Examples, Params: params,
+			Columns: columns, Doc: d.Step.Doc, Examples: d.Step.Examples, Params: params,
 		})
 	}
 	return out

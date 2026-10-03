@@ -44,6 +44,8 @@ Then [[within {duration} ]]the {word} bigquery table has a row where:
   | column | value |
 ```
 
+The table may start with the row naming its columns, as above, or go straight to its rows.
+
 Check that the table has a row with those values in those columns.
 
 - The check waits for it: 10 seconds, or `within {duration}`.
@@ -82,6 +84,8 @@ _Since 0.1.0._
 Then [[within {duration} ]]the {word} bigquery table has {int} row(s) where:
   | column | value |
 ```
+
+The table may start with the row naming its columns, as above, or go straight to its rows.
 
 Check that exactly that many rows of the table have those values in those columns.
 

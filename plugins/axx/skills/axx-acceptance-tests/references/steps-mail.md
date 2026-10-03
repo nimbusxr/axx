@@ -26,6 +26,8 @@ Given the {word} mailbox with the following properties:
   | property | value |
 ```
 
+The table may start with the row naming its columns, as above, or go straight to its rows.
+
 Register the mailbox the steps read.
 
 - The first mailbox registered is the one the scenario's mail steps use.
@@ -61,6 +63,8 @@ _Since 0.1.5._
 Then [[within {duration} ]]the {word} mailbox has an email where:
   | field | value |
 ```
+
+The table may start with the row naming its columns, as above, or go straight to its rows.
 
 Check that the mailbox has an email with those values, arrived since the scenario started.
 

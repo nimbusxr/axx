@@ -6,6 +6,7 @@ package core
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"time"
 )
 
@@ -202,6 +203,25 @@ type TableDoc struct {
 	Rows []TableRow `json:"rows,omitempty"`
 	// Note says more of the table, in a sentence or two.
 	Note string `json:"note,omitempty"`
+}
+
+// WithoutNamesRow returns the table without its first row when that row
+// names the table's columns: the step reference shows a table's shape as its
+// columns' names (| JSONPath | value |), and a table may start with them,
+// as a row of names, or not. The cells must equal Columns, ignoring case and
+// surrounding spaces, and there must be two columns or more: a one-word row
+// of a one-column table could as well be its data. Any other table comes
+// back as it is.
+func (d *TableDoc) WithoutNamesRow(t *Table) *Table {
+	if d == nil || len(d.Columns) < 2 || t == nil || len(t.Rows) == 0 || len(t.Rows[0]) != len(d.Columns) {
+		return t
+	}
+	for i, c := range t.Rows[0] {
+		if !strings.EqualFold(strings.TrimSpace(c), d.Columns[i]) {
+			return t
+		}
+	}
+	return &Table{Rows: t.Rows[1:]}
 }
 
 // TableRow is a row a step's data table knows.

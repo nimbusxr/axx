@@ -28,6 +28,8 @@ Given the {word} a2a agent with the following properties:
   | property | value |
 ```
 
+The table may start with the row naming its columns, as above, or go straight to its rows.
+
 Register an A2A agent under a name: its card is read and checked for what A2A 1.0 requires, and says how to reach it (JSON-RPC, HTTP+JSON or gRPC).
 
 | Parameter | Takes | For example |
@@ -65,6 +67,8 @@ _Since 0.1.5._
 Then the {word} a2a agent's card has the following properties:
   | property | value |
 ```
+
+The table may start with the row naming its columns, as above, or go straight to its rows.
 
 Check the agent's card: what another agent reads to find out what it does and how to reach it.
 
@@ -280,6 +284,8 @@ Then the {word} a2a agent's task has an artifact where:
   | property | value |
 ```
 
+The table may start with the row naming its columns, as above, or go straight to its rows.
+
 Check that an artifact of the agent's last task has the table's properties: `name`, `description`, `text` (its text parts), `data` (its first data part: `data.status`) and `parts`. It waits for a task still at work.
 
 | Parameter | Takes | For example |
@@ -304,6 +310,8 @@ _Since 0.1.5._
 Then [[within {duration} ]]the {word} a2a agent's stream received an update where:
   | property | value |
 ```
+
+The table may start with the row naming its columns, as above, or go straight to its rows.
 
 Check that the stream of the message streamed last sent an update with the table's properties.
 
