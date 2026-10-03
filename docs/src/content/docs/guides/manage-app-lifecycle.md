@@ -41,6 +41,7 @@ App output goes to `.axx/logs/apps.log`. When an app fails to start, the error s
 axx up            # start every enabled app (or: axx up api) and wait until ready
 axx run           # reuses the running apps: no start, no stop
 axx run --tags @smoke
+axx env           # which apps are running, left over from a killed run, or not cleaned up
 axx down          # stop the apps and run their cleanup
 ```
 
@@ -56,7 +57,7 @@ A cleanup can fail: `docker compose down` without access to Docker, say. The run
 
 - runs and `axx up` try it again first, and start no app while it fails, saying what is left (`AXX-E0415`): containers, volumes and requests recorded by a mock would be where the next run starts from;
 - `axx down` runs the cleanup again, and says `cleaned up after an earlier run` once it succeeds;
-- `axx doctor` lists what is left, and so does the MCP `env` tool's `status`, with each app `running`, `left over` from a run that was killed, or `not cleaned up`.
+- `axx doctor` lists what is left, and so do `axx env` and the MCP `env` tool's `status`, with each app `running`, `left over` from a run that was killed, or `not cleaned up`.
 
 ## Run an app yourself
 

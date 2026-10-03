@@ -117,10 +117,12 @@ Each command documents its own `data`. The most useful for scripts and agents:
 | Command | `data` |
 | --- | --- |
 | `axx steps search <q>` | `{query, steps[]}`; each step has `id`, `pack`, `expr`, `variants`, `keyword`, `arg`, `doc`, `examples`, `params` |
-| `axx validate` | `{files, scenarios, steps, problems[], warnings[]}`; each problem has `kind` (`undefined`, `ambiguous`, `argument`), `location`, `text`, and a `message`, `suggestions` or `candidates` where they apply; `warnings[]`, present when there are some, are findings of `axx lint`'s feature checks (kind `lint`), and `hints[]` name scenarios whose checks prove little (only a success status, or only that something did not happen); neither changes the exit code |
+| `axx validate` | `{files, scenarios, steps, problems[], warnings[]}`; each problem has `kind` (`undefined`, `ambiguous`, `argument`), `location`, `text`, and a `message`, `suggestions` or `candidates` where they apply; `warnings[]`, present when there are some, are findings of `axx lint`'s feature checks (kind `lint`), and `hints[]` name scenarios whose checks prove little (only a success status, or only that something did not happen) and scenarios that check several things in turn (When … Then …, then When … Then … again); neither changes the exit code |
 | `axx doctor` | `{version, config, checks[]}`; each check has `name`, `status` (`ok`, `warn`, `fail`), `detail`, `hint` |
+| `axx env` | `{apps[], up[]}`: the apps axx started, each with `name`, `state` (`running`, `left over`, `not cleaned up`), `pid` and its `cleanup`; `up` lists those `axx up` holds |
+| `axx config show` | `{file, config, packs[]}`: the effective `axx.yaml` (profiles and `-D` applied, values of secret-looking keys masked) and the project's packs |
 | `axx down` | `{stopped, cleanedUp}`: the apps `axx up` kept running that it stopped, and the apps an earlier run left behind that it stopped or cleaned up |
-| `axx lint` | `{baseDir, rules[], summary, notes[], hints[]}`; `hints[]`, present when there are some, suggest fixture factories and name scenarios whose checks prove little, and never change the exit code |
+| `axx lint` | `{baseDir, rules[], summary, notes[], hints[]}`; `hints[]`, present when there are some, suggest fixture factories and name scenarios whose checks prove little or that check several things in turn, and never change the exit code |
 | `axx init` | `{dryRun, files[], detected, agents}`; each file has `path`, `action` (`create`, `update`, `skip`), `reason`; `agents`, absent with `--no-agents`, has `detected[]` (agent ids), `skills[]` (like `files`) and `mcp[]` |
 | `axx mcp install` | `{dryRun, change}`; `change` and each entry of `axx init`'s `agents.mcp[]` has `agent`, `scope` (`project`, `user`), `path`, `action` (`create`, `update`, `skip`, or `manual` when `command` adds the server), `reason`, `command` |
 | `axx docs export` | `{files[]}` |

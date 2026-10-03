@@ -67,14 +67,14 @@ The step references inside the skills are generated from *your* project, includi
 
 | Tool | Does |
 | --- | --- |
-| `steps_search` | find steps by intent, with docs and examples |
+| `steps_search` | find steps by intent, with docs and an example: 6 by default, saying how many more match (`limit` shows more) |
 | `step_explain` | how one line matches, or the closest steps |
-| `feature_validate` | check feature files or feature text without running; hints name scenarios whose checks prove little |
+| `feature_validate` | check feature files or feature text without running; hints name scenarios whose checks prove little, or that check several things in turn |
 | `lint_run` | run `axx lint`: values such as seed ids that collide across files, with `file:line` |
 | `scenarios_run` | run scenarios (paths, tags, names); returns failures with expected and actual |
 | `failure_context` | logs, attachments and the last request and response of one failure; without a run ID, of the latest run |
-| `env` | `up`, `down` or `status` of the apps: which are running, left over from a killed run, or not cleaned up |
-| `config_show` | the effective `axx.yaml`, with secrets redacted, and its packs |
+| `env` | `up`, `down` or `status` of the apps: which are running, left over from a killed run, or not cleaned up (`axx env` on the command line) |
+| `config_show` | the effective `axx.yaml`, with secrets redacted, and its packs (`axx config show`) |
 | `scaffold` | starter contents for a feature or an `axx.yaml` |
 | `steps_try` | try steps in a live scenario that stays open between calls, until `restart` |
 
@@ -201,9 +201,9 @@ axx (github.com/nimbusxr/axx, "axxeptance") is a human-readable acceptance testi
 - Steps come from the packs in `axx-packs.yaml`; `axx pack list` shows the others, `axx pack add <name>` adds one.
 - Check without running: `axx validate`. Explain one line: `axx explain "<step>"`.
 - Ask axx rather than reading files: `axx doctor --json` (prerequisites, packs, agents),
-  `axx validate --json` (features, scenarios), `axx fixtures generate --dry-run --json` (the files the factories generate),
+  `axx config show` (the effective axx.yaml and its packs), `axx validate --json` (features, scenarios), `axx fixtures generate --dry-run --json` (the files the factories generate),
   `axx fixtures explain <file> <path>` (the source that sets a generated value).
-- Run: `axx up` once (keeps apps running), then `axx run --compact`; `axx down` when done.
+- Run: `axx up` once (keeps apps running; `axx env` shows them), then `axx run --compact`; `axx down` when done.
 - Every scenario uses unique data (IDs, names, keys): scenarios run in parallel and data persists.
 - Test data: when payloads, seeds or mock bodies repeat, generate them with fixture factories
   (`axx fixtures`; optional, strongly recommended where data repeats); `axx fixtures adopt` turns

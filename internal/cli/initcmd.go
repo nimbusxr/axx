@@ -126,9 +126,9 @@ axx (github.com/nimbusxr/axx, "axxeptance") is a human-readable acceptance testi
 - Steps come from the packs in ` + "`axx-packs.yaml`" + `; ` + "`axx pack list`" + ` shows the others, ` + "`axx pack add <name>`" + ` adds one.
 - Check without running: ` + "`axx validate`" + `. Explain one line: ` + "`axx explain \"<step>\"`" + `.
 - Ask axx rather than reading files: ` + "`axx doctor --json`" + ` (prerequisites, packs, agents),
-  ` + "`axx validate --json`" + ` (features, scenarios), ` + "`axx fixtures generate --dry-run --json`" + ` (the files the factories generate),
+  ` + "`axx config show`" + ` (the effective axx.yaml and its packs), ` + "`axx validate --json`" + ` (features, scenarios), ` + "`axx fixtures generate --dry-run --json`" + ` (the files the factories generate),
   ` + "`axx fixtures explain <file> <path>`" + ` (the source that sets a generated value).
-- Run: ` + "`axx up`" + ` once (keeps apps running), then ` + "`axx run --compact`" + `; ` + "`axx down`" + ` when done.
+- Run: ` + "`axx up`" + ` once (keeps apps running; ` + "`axx env`" + ` shows them), then ` + "`axx run --compact`" + `; ` + "`axx down`" + ` when done.
 - Every scenario uses unique data (IDs, names, keys): scenarios run in parallel and data persists.
 - Test data: when payloads, seeds or mock bodies repeat, generate them with fixture factories
   (` + "`axx fixtures`" + `; optional, strongly recommended where data repeats); ` + "`axx fixtures adopt`" + ` turns
