@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.13](https://github.com/nimbusxr/axx/compare/v0.1.12...v0.1.13) (2026-10-03)
+
+
+### Bug Fixes
+
+* leaner lookups for agents: written-out steps, several steps per call, skills and MCP tools that point to axx steps and the run ([#94](https://github.com/nimbusxr/axx/issues/94)) ([0d3c3e0](https://github.com/nimbusxr/axx/commit/0d3c3e0728972ab5c3186c2094cfaa27948ddea0))
+
 ## [0.1.12](https://github.com/nimbusxr/axx/compare/v0.1.11...v0.1.12) (2026-10-03)
 
 
