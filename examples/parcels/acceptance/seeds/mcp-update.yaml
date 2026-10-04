@@ -1,0 +1,8 @@
+parcels.parcels:
+  - reference: "PX-MCP-9107"
+    sender: "birch-and-bloom"
+    status: "OUT_FOR_DELIVERY"
+    service_level: "EXPRESS"
+    weight_grams: 1300
+    recipient: '{"name": "Lina Schwarz", "street": "Oranienstr. 25", "city": "Berlin", "postcode": "10999", "country": "DE"}'
+    details: '{"source": "api", "zone": "DE-1"}'

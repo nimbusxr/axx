@@ -558,6 +558,14 @@ A REST, SQL, MongoDB or Kafka step comes before the scenario registers any servi
 
 **Fix:** Register the service first, in the Background for every scenario: `the <name> service with the following properties:` (REST), `a(n) <name> database with the following properties:` (SQL), `a(n) <name> mongo database with the following properties:` (MongoDB) or `the <name> kafka service with the following properties:` (Kafka).
 
+### AXX-E0837
+
+**Scenario checks several behaviors in turn** · exit 0
+
+A scenario does something and checks it, then does something else and checks that: a When step after a Then (When … Then …, then When … Then … again). Each round is a behavior of its own, so the scenario is several in one: a failure in one round hides whether the others hold, and its name can say what only one of them proves. This is a warning.
+
+**Fix:** Write a scenario per behavior: Given steps for the state it starts from (what an earlier round did, like a request executed in a Given), When for the one thing someone does, Then for what is true afterwards.
+
 ## Fixtures
 
 ### AXX-E0900

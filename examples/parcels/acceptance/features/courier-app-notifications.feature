@@ -19,15 +19,21 @@ Feature: The couriers' app asks to notify
       | user     | parcels                                                   |
       | password | parcels                                                   |
 
-  Scenario: A courier who does not allow notifications still delivers
-    Given a seeds/courier-app-no-notifications.yaml db seed
-    When the courier app is launched
-    And the "Courier ID" field in the courier app is filled with "CR-DRS-07"
+  Scenario: A courier is asked to allow notifications when they sign in
+    Given the courier app is launched
+    When the "Courier ID" field in the courier app is filled with "CR-DRS-07"
     And the "PIN" field in the courier app is filled with "${sys:couriers.pin}"
     And the "Sign in" button is tapped in the courier app
     Then the courier app's dialog shows "send you notifications"
-    When the courier app's dialog is dismissed
-    And the "PX-MOB-9441" list item is tapped in the courier app
+
+  Scenario: A courier who does not allow notifications still delivers
+    Given a seeds/courier-app-no-notifications.yaml db seed
+    And the courier app is launched
+    And the "Courier ID" field in the courier app is filled with "CR-DRS-07"
+    And the "PIN" field in the courier app is filled with "${sys:couriers.pin}"
+    And the "Sign in" button is tapped in the courier app
+    And the courier app's dialog is dismissed
+    When the "PX-MOB-9441" list item is tapped in the courier app
     And the "Signed by" field in the courier app is filled with "E. Schulz"
     And the "Mark delivered" button is tapped in the courier app
     And the "Confirm" button is tapped in the courier app

@@ -18,9 +18,14 @@ type Suggestion struct {
 // Suggest returns up to n expressions closest to an undefined step text,
 // using token-level edit distance where each {param} matches any one token.
 // A text that keeps an expression's notation ("a(n)", "row(s)", "[[...]]")
-// gets the line it means first, written out (see WrittenOut).
+// gets the line it means first, written out (see WrittenOut); one with an
+// ordinal where another step has it gets the line with the ordinal moved
+// (see Reordered).
 func (r *Registry) Suggest(text string, n int) []Suggestion {
 	line, d, ok := r.WrittenOut(text)
+	if !ok {
+		line, d, ok = r.Reordered(text)
+	}
 	if !ok || n <= 0 {
 		return r.closest(text, n)
 	}
@@ -31,6 +36,89 @@ func (r *Registry) Suggest(text string, n int) []Suggestion {
 		}
 	}
 	return out
+}
+
+// An ordinal addresses one of several things, before the thing ("the 2nd
+// ordered response status code is 200") or after what is said of it ("the
+// response payload property status is 'REGISTERED' for 2nd ordered
+// response").
+var (
+	ordinalAfter  = regexp.MustCompile(`\s+for\s+(\d+(?:st|nd|rd|th))\s+ordered\s+(\w+)\b`)
+	ordinalBefore = regexp.MustCompile(`\b(\d+(?:st|nd|rd|th))\s+ordered\s+(\w+)\b`)
+)
+
+// Reordered is the line a step text means when it puts an ordinal where
+// another step has it, and the line with the ordinal moved matches exactly
+// one step: "the 2nd ordered response payload property status is
+// 'REGISTERED'" is "the response payload property status is 'REGISTERED'
+// for 2nd ordered response", and "the response status code is 200 for 2nd
+// ordered response" is "the 2nd ordered response status code is 200".
+// Agents carry one step's order over to the others.
+func (r *Registry) Reordered(text string) (string, *Def, bool) {
+	var lines []string
+	if m := ordinalAfter.FindStringSubmatchIndex(text); m != nil {
+		nth, thing := text[m[2]:m[3]], text[m[4]:m[5]]
+		words := quotedFields(text[:m[0]] + text[m[1]:])
+		for i, w := range words {
+			if strings.EqualFold(w, thing) {
+				lines = append(lines, joinWords(words[:i], nth+" ordered", words[i:]))
+			}
+		}
+	} else if m := ordinalBefore.FindStringSubmatchIndex(text); m != nil {
+		nth, thing := text[m[2]:m[3]], text[m[4]:m[5]]
+		words := quotedFields(text[:m[0]] + thing + text[m[1]:])
+		for i := 1; i <= len(words); i++ {
+			lines = append(lines, joinWords(words[:i], "for "+nth+" ordered "+thing, words[i:]))
+		}
+	}
+	var found string
+	var def *Def
+	for _, line := range lines {
+		ms := r.Match(line)
+		if len(ms) != 1 {
+			continue
+		}
+		if def != nil && line != found {
+			return "", nil, false // more than one way to read it
+		}
+		found, def = line, ms[0].Def()
+	}
+	return found, def, def != nil
+}
+
+// quotedFields splits s around spaces, keeping a quoted value whole.
+func quotedFields(s string) []string {
+	var out []string
+	var b strings.Builder
+	inQuote := rune(0)
+	for _, r := range s {
+		switch {
+		case inQuote != 0:
+			b.WriteRune(r)
+			if r == inQuote {
+				inQuote = 0
+			}
+		case unicode.IsSpace(r):
+			if b.Len() > 0 {
+				out = append(out, b.String())
+				b.Reset()
+			}
+		default:
+			if (r == '"' || r == '\'') && b.Len() == 0 {
+				inQuote = r // a quote opens a value at the start of a word, not in app's
+			}
+			b.WriteRune(r)
+		}
+	}
+	if b.Len() > 0 {
+		out = append(out, b.String())
+	}
+	return out
+}
+
+func joinWords(before []string, middle string, after []string) string {
+	parts := append(append(append([]string{}, before...), middle), after...)
+	return strings.Join(parts, " ")
 }
 
 // optionalLetters is an expression's optional text in a word: a(n), row(s).

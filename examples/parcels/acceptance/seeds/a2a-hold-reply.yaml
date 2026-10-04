@@ -1,0 +1,8 @@
+parcels.parcels:
+  - reference: "PX-A2A-9207"
+    sender: "alder-and-ash"
+    status: "IN_TRANSIT"
+    service_level: "STANDARD"
+    weight_grams: 1600
+    recipient: '{"name": "Eva Hoffmann", "street": "Bergmannstr. 12", "city": "Berlin", "postcode": "10961", "country": "DE"}'
+    details: '{"source": "api", "zone": "DE-1"}'

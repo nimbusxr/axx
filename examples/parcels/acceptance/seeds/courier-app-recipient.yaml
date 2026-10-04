@@ -1,0 +1,8 @@
+parcels.parcels:
+  - reference: "PX-MOB-9413"
+    sender: "maple-crafts"
+    status: "OUT_FOR_DELIVERY"
+    service_level: "STANDARD"
+    weight_grams: 900
+    recipient: '{"name": "Max Seidel", "street": "Dresdner Str. 18", "city": "Leipzig", "postcode": "04317", "country": "DE"}'
+    details: '{"source": "api", "zone": "DE-1", "courier": "CR-LEJ-14"}'

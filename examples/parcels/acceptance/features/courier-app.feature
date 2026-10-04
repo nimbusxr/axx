@@ -20,8 +20,7 @@ Feature: The couriers' app
 
   Scenario: A courier signs in and sees today's deliveries
     Given a seeds/courier-app-today.yaml db seed
-    When the courier app is launched
-    Then the "Sign in" button is disabled in the courier app
+    And the courier app is launched
     When the "Courier ID" field in the courier app is filled with "CR-LEJ-12"
     And the "PIN" field in the courier app is filled with "${sys:couriers.pin}"
     And the "Sign in" button is tapped in the courier app
@@ -42,58 +41,97 @@ Feature: The couriers' app
     When the courier app is launched
     Then the courier app shows "Sign in"
     And the "Courier ID" field in the courier app has the value ""
+    And the "Sign in" button is disabled in the courier app
 
-  Scenario: A courier delivers a parcel, and its recipient sees it delivered
+  Scenario: A delivery link opens its parcel once the courier signs in
     Given a seeds/courier-app-deliver.yaml db seed
-    And the parcels web app with the following properties:
-      | url | ${sys:portal.url} |
-    And the tracking event stream with the following properties:
-      | url      | http://${sys:local.host}:8400/api/parcels/PX-MOB-9411/events |
-      | asyncapi | http://${sys:local.host}:8400/asyncapi.yaml                  |
     When the courier app is opened with the "parcels-courier://deliveries/PX-MOB-9411" link
     And the "Courier ID" field in the courier app is filled with "CR-LEJ-14"
     And the "PIN" field in the courier app is filled with "${sys:couriers.pin}"
     And the "Sign in" button is tapped in the courier app
     Then the courier app shows "Eisenbahnstr. 41, 04315 Leipzig"
     And the "Mark delivered" button is disabled in the courier app
-    When the "Signed by" field in the courier app is filled with "C. Busch"
+
+  Scenario: A courier confirms a delivery, and the service records and announces it
+    Given a seeds/courier-app-confirm.yaml db seed
+    And the tracking event stream with the following properties:
+      | url      | http://${sys:local.host}:8400/api/parcels/PX-MOB-9412/events |
+      | asyncapi | http://${sys:local.host}:8400/asyncapi.yaml                  |
+    And the courier app is opened with the "parcels-courier://deliveries/PX-MOB-9412" link
+    And the "Courier ID" field in the courier app is filled with "CR-LEJ-14"
+    And the "PIN" field in the courier app is filled with "${sys:couriers.pin}"
+    And the "Sign in" button is tapped in the courier app
+    And the "Signed by" field in the courier app is filled with "J. Roth"
     And the "Mark delivered" button is tapped in the courier app
-    Then the courier app shows "Mark PX-MOB-9411 delivered?"
+    And the courier app shows "Mark PX-MOB-9412 delivered?"
     When the "Confirm" button is tapped in the courier app
     Then the courier app shows "Delivered"
-    And the courier app shows a notification "PX-MOB-9411 delivered"
+    And the courier app shows a notification "PX-MOB-9412 delivered"
     And within 20s the tracking event stream has an event where:
       | event type | delivered   |
-      | reference  | PX-MOB-9411 |
+      | reference  | PX-MOB-9412 |
       | status     | DELIVERED   |
-    When the "/track/PX-MOB-9411" page is opened
+
+  Scenario: A parcel a courier delivers shows as delivered to its recipient
+    Given a seeds/courier-app-recipient.yaml db seed
+    And the parcels web app with the following properties:
+      | url | ${sys:portal.url} |
+    And the courier app is opened with the "parcels-courier://deliveries/PX-MOB-9413" link
+    And the "Courier ID" field in the courier app is filled with "CR-LEJ-14"
+    And the "PIN" field in the courier app is filled with "${sys:couriers.pin}"
+    And the "Sign in" button is tapped in the courier app
+    And the "Signed by" field in the courier app is filled with "M. Seidel"
+    And the "Mark delivered" button is tapped in the courier app
+    And the "Confirm" button is tapped in the courier app
+    And the courier app shows "Delivered"
+    When the "/track/PX-MOB-9413" page is opened
     Then within 20s the page shows "Delivered on"
 
   Scenario: A courier pulls the list down for a parcel given to them since
     Given a seeds/courier-app-refresh.yaml db seed
-    When the courier app is launched
+    And the courier app is launched
     And the "Courier ID" field in the courier app is filled with "CR-LEJ-15"
     And the "PIN" field in the courier app is filled with "${sys:couriers.pin}"
     And the "Sign in" button is tapped in the courier app
-    Then the "PX-MOB-9421" list item is shown in the courier app
+    And the "PX-MOB-9421" list item is shown in the courier app
     And the courier app does not show "PX-MOB-9422"
     When a seeds/courier-app-refresh-later.yaml db seed
     And the courier app is swiped down
     Then the "PX-MOB-9422" list item is shown in the courier app
 
-  Scenario: A courier stays signed in until they sign out
-    Given a seeds/courier-app-return.yaml db seed
-    When the courier app is launched
+  Scenario: A courier stays signed in when the app comes back
+    Given the courier app is launched
     And the "Courier ID" field in the courier app is filled with "CR-LEJ-16"
     And the "PIN" field in the courier app is filled with "${sys:couriers.pin}"
     And the "Sign in" button is tapped in the courier app
-    And the courier app is sent to the background
+    When the courier app is sent to the background
     And the courier app is brought back
     Then the courier app shows "Hello, Lea Schmidt"
+
+  Scenario: A courier stays signed in when the app restarts
+    Given the courier app is launched
+    And the "Courier ID" field in the courier app is filled with "CR-LEJ-16"
+    And the "PIN" field in the courier app is filled with "${sys:couriers.pin}"
+    And the "Sign in" button is tapped in the courier app
+    And the courier app shows "Hello, Lea Schmidt"
     When the courier app is restarted
     Then the courier app shows "Hello, Lea Schmidt"
-    When the "PX-MOB-9431" list item is tapped in the courier app
-    And the courier app's back button is pressed
+
+  Scenario: The back button leads from a parcel to today's deliveries
+    Given a seeds/courier-app-return.yaml db seed
+    And the courier app is launched
+    And the "Courier ID" field in the courier app is filled with "CR-LEJ-16"
+    And the "PIN" field in the courier app is filled with "${sys:couriers.pin}"
+    And the "Sign in" button is tapped in the courier app
+    And the "PX-MOB-9431" list item is tapped in the courier app
+    When the courier app's back button is pressed
     Then the courier app shows "Today's deliveries"
+
+  Scenario: A courier who signs out is asked to sign in again
+    Given the courier app is launched
+    And the "Courier ID" field in the courier app is filled with "CR-LEJ-16"
+    And the "PIN" field in the courier app is filled with "${sys:couriers.pin}"
+    And the "Sign in" button is tapped in the courier app
+    And the courier app shows "Hello, Lea Schmidt"
     When the "Sign out" button is tapped in the courier app
     Then the courier app shows "Sign in"

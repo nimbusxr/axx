@@ -35,6 +35,7 @@ const (
 	CodeRESTQuoted          = "AXX-E0834"
 	CodeStaleSelection      = "AXX-E0835"
 	CodeServiceUnregistered = "AXX-E0836"
+	CodeSeveralRounds       = "AXX-E0837"
 )
 
 // Defaults of the lint config block.

@@ -66,15 +66,19 @@ Feature: Parcels MCP server
       | reference | PX-MCP-9101 |
     Then the cancel_parcel tool's call failed with the error code -32602
 
-  Scenario: An assistant reads a label and writes a delivery update
+  Scenario: An assistant reads a parcel's label
     Given a seeds/mcp-label.yaml db seed
     When the parcels://PX-MCP-9103/label resource is read from the parcels mcp server
     Then the parcels://PX-MCP-9103/label resource has the following properties:
       | reference    | PX-MCP-9103 |
       | serviceLevel | STANDARD    |
+
+  Scenario: An assistant writes a delivery update with the server's prompt
+    Given a seeds/mcp-update.yaml db seed
     When the delivery_update prompt is requested from the parcels mcp server with the following arguments:
-      | reference | PX-MCP-9103 |
-    Then the delivery_update prompt contains 'parcel PX-MCP-9103'
+      | reference | PX-MCP-9107 |
+    Then the delivery_update prompt contains 'parcel PX-MCP-9107'
+    And the delivery_update prompt contains 'that it is out for delivery'
     And the delivery_update prompt contains 'Do not mention their address.'
 
   Scenario: An assistant runs the server as a command, over stdio

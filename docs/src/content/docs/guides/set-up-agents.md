@@ -68,8 +68,8 @@ The skills carry no pages of steps: they send agents to `axx steps`, which lists
 | Tool | Does |
 | --- | --- |
 | `steps_search` | without a query, the catalog: every step of the project, one line each; with one, the steps that fit it (id, expression, table columns and an example; 6 by default), a step it returned before as its id only |
-| `step_explain` | with a line, how it matches (or the closest steps, the line written out when it keeps an expression's notation); with an id or several, the steps' documentation and examples |
-| `feature_validate` | check feature files or feature text without running; hints name scenarios whose checks prove little, or that check several things in turn |
+| `step_explain` | with a line, how it matches (or the closest steps: first the line written out when it keeps an expression's notation, or with its ordinal moved where the step has it); with an id or several, the steps' documentation and examples |
+| `feature_validate` | check feature files or feature text without running; warnings come from `axx lint`'s feature checks (a scenario that checks several behaviors in turn among them), and hints name scenarios whose checks prove little |
 | `lint_run` | run `axx lint`: values such as seed ids that collide across files, with `file:line`, and the rules that found something |
 | `scenarios_run` | run scenarios (paths, tags, names); returns failures with expected and actual, the warnings `feature_validate` and `lint_run` would give, and for a passing run their hints |
 | `failure_context` | logs, attachments and the last request and response of one failure; without a run ID, of the latest run |

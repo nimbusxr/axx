@@ -254,6 +254,9 @@ func init() {
 	add("AXX-E0836", exitcode.OK, "Service used before it is registered",
 		"A REST, SQL, MongoDB or Kafka step comes before the scenario registers any service of its pack: the step finds no service and fails at runtime (\"No database services set\"). This is a warning; it is not checked in a project that loads packs of its own, which may register services out of sight.",
 		"Register the service first, in the Background for every scenario: `the <name> service with the following properties:` (REST), `a(n) <name> database with the following properties:` (SQL), `a(n) <name> mongo database with the following properties:` (MongoDB) or `the <name> kafka service with the following properties:` (Kafka).")
+	add("AXX-E0837", exitcode.OK, "Scenario checks several behaviors in turn",
+		"A scenario does something and checks it, then does something else and checks that: a When step after a Then (When … Then …, then When … Then … again). Each round is a behavior of its own, so the scenario is several in one: a failure in one round hides whether the others hold, and its name can say what only one of them proves. This is a warning.",
+		"Write a scenario per behavior: Given steps for the state it starts from (what an earlier round did, like a request executed in a Given), When for the one thing someone does, Then for what is true afterwards.")
 	add("AXX-E0835", exitcode.OK, "Stale selection",
 		"A step without an ordinal (`the selection has 1 row`, `the 1st document for the selection …`) checks a scenario's first selection, but a later selection was retrieved before it and no step checks that one. The step reads as if it checked the latest, while it asserts on what came back before; the later retrieval checks nothing (or only that its rows came, for a polling one). This is a warning.",
 		"Name the selection the step means, like `the 2nd selection has 1 row`: selections are numbered in the order the scenario retrieves them.")
