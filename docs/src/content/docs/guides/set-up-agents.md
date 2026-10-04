@@ -204,6 +204,8 @@ axx (github.com/nimbusxr/axx, "axxeptance") is a human-readable acceptance testi
 - Every scenario uses unique data (ids, names, keys): scenarios run in parallel and data persists.
 - Check what the service did (a response property, a row, an event) and why it refused, not only
   status codes.
+- `apps:` in axx.yaml are what runs on its own, reached by an address; a program its user starts (a CLI, an
+  MCP server over stdio) is run by its step's `command`, as its user would, and is not an app.
 - Steps come from the packs in `axx-packs.yaml` (`axx pack list`, `axx pack add <name>`). Configuration is in
   `axx.yaml` (`axx schema --outline` lists its keys); features in `features/`.
 - Repeating payloads, seeds or mock bodies: fixture factories generate them (`axx fixtures`;

@@ -85,7 +85,7 @@ profiles:                        # overlays: --profile ci, several in order (--p
 
 ### apps
 
-Each key under `apps:` names one app.
+Each key under `apps:` names one app: something that runs on its own, which scenarios connect to. A program a scenario runs as its user would, like a command-line tool or an MCP server over stdio, belongs in its step (`command`), not here.
 
 | Key | Meaning |
 | --- | --- |

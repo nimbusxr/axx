@@ -30,6 +30,7 @@ apps:
     active: {tags: ["@api"]}                  # with active.enabled: start only when selected scenarios need it
 ```
 
+- An app is what runs on its own and is reached by an address. A program its user starts, like a command-line tool or an MCP server its clients run over stdio, is not an app: the step that uses it runs it (the cli and mcp packs' `command`).
 - Commands run without a shell. Set `shell: true` if a command needs pipes or `&&`.
 - Order apps with `dependsOn: [db]`. Independent apps start in parallel.
 - A command that exits 0 before the app is ready (`docker compose up -d`) is fine: Axx keeps checking readiness.
