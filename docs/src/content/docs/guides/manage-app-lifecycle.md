@@ -5,6 +5,8 @@ description: Declare how Axx starts, waits for, stops and cleans up the apps und
 
 `apps:` in `axx.yaml` describes the system under test: your service and anything it needs, such as databases, brokers and mocks. `axx run` starts them, waits until they are ready, runs the scenarios, stops them and runs their cleanup.
 
+An app is what runs on its own and waits for whoever connects to it, by an address. A program its user starts, uses and ends is not an app, even when it is what you test: a command-line tool, or an MCP server its clients run over stdio. The step that uses it runs it, as its user would: the cli pack's and the mcp pack's `command`.
+
 ## Declare an app
 
 ```yaml title="axx.yaml"
