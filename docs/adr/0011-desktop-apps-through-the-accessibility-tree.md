@@ -150,6 +150,33 @@ where the steps are modelled.
    runner (WebView2). Settle what CI needs on each OS: whether hosted macOS runners can grant
    Accessibility, whether hosted Windows runners have an interactive session, and the Linux
    display and accessibility bus.
+   *Proven on 2026-10-04*, on Snap built for each OS as its release would be (`tauri build
+   --no-bundle`), unchanged, with `CGO_ENABLED=0`:
+   - **Windows 11** (WebView2), by `packs/desktop/internal/uia` (UI Automation's COM
+     interfaces through their vtables): the app's window came in 1.3s after a hidden one of
+     Tao's, its page's buttons 0.3s later; the whole toolbar reads in 1ms. A `title` reaches
+     UI Automation as help text and description, a button without text is named by it, a DOM
+     id is the AutomationId and DOM classes are the ClassName. Invoke selected the rectangle
+     tool, the blue color and the thick width (`tool-btn` became `tool-btn active`).
+   - **Linux** (WebKitGTK 2.50 on Xvfb, Debian 12), by `packs/desktop/internal/atspi` (AT-SPI
+     over D-Bus): the app came on the accessibility bus in 275ms and its buttons 17ms later;
+     the tree (28 elements) reads in 82ms. A `title` is the description, a DOM id the `id`
+     attribute; the press action pressed each button. WebKitGTK does not give DOM classes,
+     so on Linux an app's state shows only through ARIA states and text.
+
+   What the drivers had to learn:
+   - Windows: a program started over SSH runs in a session without a desktop; one started by
+     a scheduled task for the signed-in user (`schtasks /it`) runs on the desktop.
+   - Windows: Chromium builds a page's tree once a client reads its document.
+   - Linux: a child in another process (WebKitGTK's page under its web view) comes only by
+     index (`GetChildAtIndex`), not from `GetChildren`; WebKitGTK answers `GetRoleName` with
+     nothing and never answers `GetActions`, so the driver reads the role's number and the
+     actions one by one; every call has a timeout, as an app may not answer.
+   - Linux: the session needs a D-Bus session bus and at-spi2-core's accessibility bus;
+     WebKitGTK's sandbox needs user namespaces, which a container does not give.
+
+   Still open for CI: whether hosted macOS runners can grant Accessibility, and whether
+   hosted Windows runners give a desktop session.
 2. **Design**: the pack's shape, the registration, the step text (approved before building),
    the isolation and the lease. This ADR is then accepted or amended.
 3. **Build** the desktop pack: the three drivers behind one interface, locating, waiting,

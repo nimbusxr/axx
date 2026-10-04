@@ -103,6 +103,11 @@ func TestAppThroughAX(t *testing.T) {
 		t.Fatal("no web area")
 	}
 
+	started := time.Now()
+	var tree strings.Builder
+	n := dump(&tree, area, 0)
+	t.Logf("the page: %d elements in %s:\n%s", n, time.Since(started).Round(time.Millisecond), tree.String())
+
 	// Find buttons by the names people see: a tooltip, or a color's name.
 	button := func(name string) *Element {
 		var found *Element
