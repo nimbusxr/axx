@@ -42,6 +42,10 @@ jobs:
           AXX_PROOF_APP: ${{ runner.temp }}/viewer
         run: |
           AXX_PROOF_ARGS="$PWD/.github/desktop-probe/toolbar.html" "$RUNNER_TEMP/axprobe" -test.v -test.run TestAppThroughAX
+      - name: Screen Recording as the runner comes
+        continue-on-error: true
+        run: |
+          "$RUNNER_TEMP/axprobe" -test.v -test.run TestScreenCapture
       - name: grant Accessibility to the job's processes
         if: steps.before.outcome == 'failure'
         run: |

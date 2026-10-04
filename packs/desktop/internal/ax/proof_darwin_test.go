@@ -180,3 +180,16 @@ func dump(b *strings.Builder, e *Element, depth int) int {
 	}
 	return n
 }
+
+// Whether this process may capture the screen, as screenshot steps need. It
+// asks macOS, and captures nothing.
+func TestScreenCapture(t *testing.T) {
+	allowed, err := ScreenCaptureAllowed()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("screen capture allowed: %v", allowed)
+	if !allowed {
+		t.Fatal("this process may not capture other apps' windows")
+	}
+}
