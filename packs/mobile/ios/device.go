@@ -2,6 +2,7 @@ package mobileios
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -67,7 +68,64 @@ func (r runner) Start(sc *core.Scenario) (mobilecore.Device, error) {
 		_ = d.Stop(true)
 		return nil, fmt.Errorf("cannot start the %s app: %w", a.name, err)
 	}
+	if d.dev != nil {
+		// A scenario answers what it leaves unanswered as it ends (Stop); one
+		// stopped short (a killed run on a kept simulator) leaves its dialog,
+		// which outlives the app it asked for and would take this scenario's
+		// taps. The app has not started yet, so a dialog now is left over.
+		// The answer stays with the app installed afresh: it is reset again.
+		left, err := dismissLeftDialogs(ctx, s)
+		if err == nil && left > 0 {
+			d.resets = nil
+			err = d.reset(ctx, sc.Suite())
+			d.resets = append(d.resets, "a dialog left open dismissed")
+		}
+		if err != nil {
+			_ = d.Stop(true)
+			return nil, fmt.Errorf("cannot start the %s app: a dialog an earlier scenario left open: %w", a.name, err)
+		}
+	}
 	return d, nil
+}
+
+// dismissLeftDialogs dismisses the dialogs the system shows, one after
+// another, and says how many there were.
+func dismissLeftDialogs(ctx context.Context, s *appium.Session) (int, error) {
+	n := 0
+	for range 5 {
+		text, err := s.AlertText(ctx)
+		if noAlert(err) {
+			return n, nil
+		}
+		if err != nil {
+			return n, err
+		}
+		if err := s.DismissAlert(ctx); err != nil && !noAlert(err) {
+			// A dialog without a button that declines.
+			if err := s.AcceptAlert(ctx); err != nil && !noAlert(err) {
+				return n, err
+			}
+		}
+		n++
+		// The dialog takes a moment to go, and another can follow it.
+		for end := time.Now().Add(2 * time.Second); time.Now().Before(end); {
+			t, err := s.AlertText(ctx)
+			if noAlert(err) || (err == nil && t != text) {
+				break
+			}
+			select {
+			case <-ctx.Done():
+				return n, ctx.Err()
+			case <-time.After(200 * time.Millisecond):
+			}
+		}
+	}
+	return n, fmt.Errorf("dialogs keep showing")
+}
+
+func noAlert(err error) bool {
+	var ae *appium.Error
+	return errors.As(err, &ae) && ae.Code == "no such alert"
 }
 
 // capabilities are what the session asks Appium for. On a simulator axx
@@ -449,7 +507,11 @@ func (d *running) Stop(bool) error {
 	if d.session != nil {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 		defer cancel()
-		err = d.session.Delete(ctx)
+		// A dialog the scenario left unanswered outlives the app it asked
+		// for. Answered now, what the answer records goes with the app when
+		// the next scenario installs it afresh.
+		_, derr := dismissLeftDialogs(ctx, d.session)
+		err = errors.Join(derr, d.session.Delete(ctx))
 	}
 	d.releaseDevice()
 	return err

@@ -236,3 +236,28 @@ func TestScreenshots(t *testing.T) {
 	_ = h.Fails(`within 1s the courier app looks like the "sign in" screenshot`, `The courier app does not look like its "sign in" screenshot`)
 	_ = h.End("failed")
 }
+
+// A dialog the scenario left unanswered is dismissed as it ends, before
+// its session does: the next scenario's app, installed afresh, asks again.
+func TestADialogLeftOpenIsDismissed(t *testing.T) {
+	app := courier(t)
+	h := cloudtest.New(t, mobilecore.Pack(), Pack())
+	register(h, app.URL)
+	h.OK("the courier app is launched")
+	h.OK(`the "Courier ID" field in the courier app is filled with "CR-LEJ-12"`)
+	h.OK(`the "PIN" field in the courier app is filled with "4711"`)
+	app.Show("sign-in-filled")
+	h.OK(`the "Sign in" button is tapped in the courier app`)
+	h.OK(`the courier app's dialog shows "Send You Notifications"`)
+	if err := h.End("passed"); err != nil {
+		t.Fatal(err)
+	}
+	cmds := app.Commands()
+	dismissed, ended := slices.Index(cmds, "dismiss alert"), slices.Index(cmds, "end session")
+	if dismissed < 0 || ended < dismissed {
+		t.Errorf("the dialog left open is not dismissed before the session ends:\n%s", strings.Join(cmds, "\n"))
+	}
+	if app.Screen() != "deliveries" {
+		t.Errorf("the dialog is still shown: %s", app.Screen())
+	}
+}
