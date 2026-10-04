@@ -201,6 +201,29 @@ func (set simSet) boot(ctx context.Context, udid string, within time.Duration) e
 	return nil
 }
 
+// notificationsServed waits, up to within, until SpringBoard serves apps'
+// requests for notifications, and reports whether it does. It starts a while
+// after the simulator says it has booted: seconds, or over a minute on a busy
+// Mac. Until then an app's request goes unanswered, so the dialog a scenario
+// waits for never shows. It reads the simulator's log from since on (a clone
+// has its template's log too).
+func (set simSet) notificationsServed(ctx context.Context, udid string, since time.Time, within time.Duration) bool {
+	ctx, cancel := context.WithTimeout(ctx, within)
+	defer cancel()
+	predicate := `process == "SpringBoard" AND subsystem == "com.apple.UserNotifications" AND category == "ContentProtection"`
+	args := []string{"spawn", udid, "log", "show", "--start", since.Format("2006-01-02 15:04:05"), "--style", "compact", "--predicate", predicate}
+	for {
+		if out, _ := set.simctl(ctx, args...); strings.Contains(out, "UNSUserNotificationServer") {
+			return true
+		}
+		select {
+		case <-ctx.Done():
+			return false
+		case <-time.After(time.Second):
+		}
+	}
+}
+
 // isUDID reports a simulator's or device's identifier.
 func isUDID(s string) bool {
 	return regexp.MustCompile(`^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$|^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{16}$`).MatchString(s)

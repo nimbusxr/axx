@@ -442,11 +442,21 @@ func (p *pool) bootDevice(ctx context.Context, d *device) error {
 	}
 	p.suite.Logger().Info("booting an iOS simulator", "simulator", d.name, "udid", d.udid)
 	d.booted = true
+	since := time.Now().Add(-time.Second)
 	if err := d.set.boot(ctx, d.udid, p.boot); err != nil {
 		return fmt.Errorf("the simulator %s did not boot (packs.%s.bootTimeout gives it longer): %w", d.name, Name, err)
 	}
+	// Booted is not yet ready for an app that asks for notifications as it
+	// starts: its scenario would wait for a dialog that never comes.
+	if !d.set.notificationsServed(ctx, d.udid, since, min(p.boot, notificationsWait)) {
+		p.suite.Logger().Warn("the iOS simulator does not serve notifications yet; an app that asks for them may get no dialog", "simulator", d.name, "waited", min(p.boot, notificationsWait))
+	}
 	return nil
 }
+
+// notificationsWait is how long a simulator axx booted may take to serve
+// notifications before its scenario starts all the same.
+const notificationsWait = 3 * time.Minute
 
 // stop stops the simulator's Appium server, shuts down a simulator axx
 // booted and deletes one it made.
