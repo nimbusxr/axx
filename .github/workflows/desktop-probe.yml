@@ -85,6 +85,8 @@ jobs:
           "session of this step: $((Get-Process -Id $PID).SessionId)"
           query user 2>&1
           Get-Process explorer -ErrorAction SilentlyContinue | Select-Object Id, SessionId
+          # query user exits with 1 even when it lists the session.
+          $global:LASTEXITCODE = 0
       - name: UI Automation from the step
         id: direct
         continue-on-error: true
