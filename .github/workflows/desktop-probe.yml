@@ -1,0 +1,156 @@
+name: desktop-probe
+
+# What hosted runners give the desktop drivers of ADR 0011: Accessibility on macOS, a desktop
+# session on Windows, the accessibility bus on Linux. Each job reads a copy of Snap's toolbar in
+# a web view of its OS's engine, and presses three of its buttons. It runs on a push to this
+# branch only.
+on:
+  push:
+    branches: [ci/desktop-probe]
+
+permissions:
+  contents: read
+
+jobs:
+  macos:
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+        with:
+          install_args: "go"
+      - name: the probe and a WKWebView app
+        run: |
+          sw_vers
+          csrutil status || true
+          CGO_ENABLED=0 go test -c -tags integration -o "$RUNNER_TEMP/axprobe" ./packs/desktop/internal/ax/
+          swiftc .github/desktop-probe/viewer.swift -o "$RUNNER_TEMP/viewer"
+      - name: the processes the job runs under
+        run: |
+          pid=$$
+          while [ "$pid" -gt 1 ]; do
+            ps -o pid=,ppid=,user=,command= -p "$pid"
+            pid=$(ps -o ppid= -p "$pid" | tr -d ' ')
+          done
+      - name: AX as the runner comes
+        id: before
+        continue-on-error: true
+        env:
+          AXX_PROOF_APP: ${{ runner.temp }}/viewer
+        run: |
+          AXX_PROOF_ARGS="$PWD/.github/desktop-probe/toolbar.html" "$RUNNER_TEMP/axprobe" -test.v -test.run TestAppThroughAX
+      - name: grant Accessibility to the job's processes
+        if: steps.before.outcome == 'failure'
+        run: |
+          db="/Library/Application Support/com.apple.TCC/TCC.db"
+          sudo sqlite3 "$db" ".schema access" | head -c 600; echo
+          clients="$RUNNER_TEMP/axprobe"
+          pid=$$
+          while [ "$pid" -gt 1 ]; do
+            clients="$clients
+          $(ps -o comm= -p "$pid")"
+            pid=$(ps -o ppid= -p "$pid" | tr -d ' ')
+          done
+          echo "$clients" | sort -u | while read -r client; do
+            [ -n "$client" ] || continue
+            echo "granting $client"
+            sudo sqlite3 "$db" "INSERT OR REPLACE INTO access (service, client, client_type, auth_value, auth_reason, auth_version, indirect_object_identifier, flags, last_modified) VALUES ('kTCCServiceAccessibility', '$client', 1, 2, 4, 1, 'UNUSED', 0, CAST(strftime('%s','now') AS INTEGER));" || echo "  failed"
+          done
+      - name: AX after granting
+        if: steps.before.outcome == 'failure'
+        env:
+          AXX_PROOF_APP: ${{ runner.temp }}/viewer
+        run: |
+          AXX_PROOF_ARGS="$PWD/.github/desktop-probe/toolbar.html" "$RUNNER_TEMP/axprobe" -test.v -test.run TestAppThroughAX
+
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+        with:
+          install_args: "go"
+      - name: the probe, and the session the job runs in
+        shell: pwsh
+        run: |
+          $env:CGO_ENABLED = "0"
+          go test -c -tags integration -o "$env:RUNNER_TEMP\uiaprobe.exe" ./packs/desktop/internal/uia/
+          whoami
+          "session of this step: $((Get-Process -Id $PID).SessionId)"
+          query user 2>&1
+          Get-Process explorer -ErrorAction SilentlyContinue | Select-Object Id, SessionId
+      - name: UI Automation from the step
+        id: direct
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          $env:AXX_PROOF_APP = "C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"
+          $page = "file:///" + ("$PWD\.github\desktop-probe\toolbar.html" -replace '\\', '/')
+          $env:AXX_PROOF_ARGS = "--user-data-dir={home}\edge --no-first-run --no-default-browser-check --new-window $page"
+          $env:AXX_PROOF_PRESS = "Rectangle (R)|Blue|Thick"
+          & "$env:RUNNER_TEMP\uiaprobe.exe" -test.v -test.run TestAppThroughUIA
+          exit $LASTEXITCODE
+      - name: UI Automation from a task in the signed-in session
+        if: steps.direct.outcome == 'failure'
+        shell: pwsh
+        run: |
+          $page = "file:///" + ("$PWD\.github\desktop-probe\toolbar.html" -replace '\\', '/')
+          $log = "$env:RUNNER_TEMP\probe.log"
+          @(
+            "@echo off",
+            "set `"AXX_PROOF_APP=C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe`"",
+            "set `"AXX_PROOF_ARGS=--user-data-dir={home}\edge --no-first-run --no-default-browser-check --new-window $page`"",
+            "set `"AXX_PROOF_PRESS=Rectangle (R)|Blue|Thick`"",
+            "`"$env:RUNNER_TEMP\uiaprobe.exe`" -test.v -test.run TestAppThroughUIA > `"$log`" 2>&1",
+            "echo exit=%errorlevel%>> `"$log`""
+          ) | Set-Content -Encoding ascii "$env:RUNNER_TEMP\probe.cmd"
+          schtasks /create /tn axx-probe /tr "cmd /c $env:RUNNER_TEMP\probe.cmd" /sc once /st 23:59 /it /f
+          schtasks /run /tn axx-probe
+          for ($i = 0; $i -lt 120; $i++) { Start-Sleep 1; if ((Test-Path $log) -and (Select-String -Path $log -Pattern "^exit=" -Quiet)) { break } }
+          if (Test-Path $log) { Get-Content $log } else { "the task wrote nothing in 120s"; exit 1 }
+          if (-not (Select-String -Path $log -Pattern "^exit=0" -Quiet)) { exit 1 }
+
+  linux:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+        with:
+          install_args: "go"
+      - name: a display, the accessibility bus and WebKitGTK 4.1
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -yq --no-install-recommends xvfb dbus-x11 at-spi2-core python3-gi gir1.2-gtk-3.0 gir1.2-webkit2-4.1
+          dpkg -l libwebkit2gtk-4.1-0 at-spi2-core | tail -2
+          sysctl kernel.apparmor_restrict_unprivileged_userns kernel.unprivileged_userns_clone 2>/dev/null || true
+          CGO_ENABLED=0 go test -c -tags integration -o "$RUNNER_TEMP/atspiprobe" ./packs/desktop/internal/atspi/
+      - name: AT-SPI with WebKitGTK's sandbox
+        id: sandboxed
+        continue-on-error: true
+        run: |
+          Xvfb :99 -screen 0 1280x800x24 >/dev/null 2>&1 &
+          export DISPLAY=:99
+          eval "$(dbus-launch --sh-syntax)"
+          /usr/libexec/at-spi-bus-launcher --launch-immediately >/dev/null 2>&1 &
+          sleep 2
+          AXX_PROOF_APP=python3 AXX_PROOF_ARGS=".github/desktop-probe/viewer.py $PWD/.github/desktop-probe/toolbar.html" \
+            AXX_PROOF_PRESS="Rectangle (R)|Blue|Thick" "$RUNNER_TEMP/atspiprobe" -test.v -test.run TestAppThroughATSPI
+      - name: AT-SPI without the sandbox
+        if: steps.sandboxed.outcome == 'failure'
+        run: |
+          Xvfb :98 -screen 0 1280x800x24 >/dev/null 2>&1 &
+          export DISPLAY=:98
+          eval "$(dbus-launch --sh-syntax)"
+          /usr/libexec/at-spi-bus-launcher --launch-immediately >/dev/null 2>&1 &
+          sleep 2
+          WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1 AXX_PROOF_APP=python3 AXX_PROOF_ARGS=".github/desktop-probe/viewer.py $PWD/.github/desktop-probe/toolbar.html" \
+            AXX_PROOF_PRESS="Rectangle (R)|Blue|Thick" "$RUNNER_TEMP/atspiprobe" -test.v -test.run TestAppThroughATSPI

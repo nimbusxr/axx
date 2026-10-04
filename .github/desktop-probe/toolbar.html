@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Snap toolbar</title></head>
+<body>
+<!-- Snap's toolbar markup (app/src/index.html), with a line that says what is selected. -->
+<div id="toolbar">
+  <div id="toolbar-drag" class="toolbar-handle" title="Drag to move">⠿</div>
+  <button class="tool-btn" data-tool="select" title="Select region (S)">⬚</button>
+  <button class="tool-btn" data-tool="circle" title="Circle (C)">◯</button>
+  <button class="tool-btn" data-tool="rect" title="Rectangle (R)">▭</button>
+  <button class="tool-btn" data-tool="arrow" title="Arrow (A)">→</button>
+  <button class="color-btn active" data-color="#FF3B30" style="background:#FF3B30" title="Red"></button>
+  <button class="color-btn" data-color="#007AFF" style="background:#007AFF" title="Blue"></button>
+  <button class="width-btn" data-width="2" title="Thin">━</button>
+  <button class="width-btn active" data-width="4" title="Medium">━</button>
+  <button class="width-btn" data-width="6" title="Thick">━</button>
+  <button id="btn-save" class="action-btn save-btn" title="Save (Enter)">✓</button>
+</div>
+<p id="status" role="status">Nothing selected</p>
+<script>
+for (const b of document.querySelectorAll("button")) {
+  b.addEventListener("click", () => {
+    const group = b.className.split(" ")[0];
+    document.querySelectorAll("." + group).forEach(o => o.classList.toggle("active", o === b));
+    document.getElementById("status").textContent = b.title + " selected";
+  });
+}
+</script>
+</body>
+</html>
