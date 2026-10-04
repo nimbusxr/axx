@@ -16,3 +16,4 @@ CLI JSON output or exit codes, the `axx.yaml` schema, or release/versioning poli
 | [0008](0008-publish-from-release-workflow.md) | Publish every component from release.yml, gated on release-please outputs | Accepted |
 | [0009](0009-go-packs.md) | Custom steps are Go packs; the axx executable loads the packs a project uses | Accepted |
 | [0010](0010-payload-properties-create-missing-objects.md) | Setting a payload property creates the objects its path lacks | Accepted |
+| [0011](0011-desktop-apps-through-the-accessibility-tree.md) | Desktop apps are tested through the operating system's accessibility tree | Proposed |
