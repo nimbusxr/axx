@@ -71,6 +71,7 @@ axx lint: 10 rules, 70 files: 1 error, 0 warnings
 
 A new seed file reused a reference that `seeds/manifest-kestrel.yaml` already inserts. The rules from `axx-lint.generated.yaml` run too, and so do the built-in checks of the features. They catch:
 
+- a When after a Then: a scenario that does something and checks it, then does something else and checks that, which is several scenarios in one (write one per behavior, with what an earlier round did as Given steps);
 - a REST, SQL, MongoDB or Kafka step that comes before the scenario registers a service of its pack;
 - SQL selections and triggers, and REST requests, addressed by ordinals they cannot have (a `3rd ordered` request after only one, or a second request added without its ordinal);
 - a step without an ordinal that checks the first selection while a later one goes unchecked (`the selection has 1 row` after a second retrieval);
@@ -80,7 +81,7 @@ They are warnings, and `axx validate` reports them as well.
 
 The `hint:` lines are suggestions, never errors or warnings. When the scenarios read three or more hand-written `.json` or `.yaml` files from one directory, whose top-level keys are the same and that no [fixture factory](/guides/fixture-factories/) generates, `axx lint` suggests one: it would keep what the files share in one place and each file's differences in its own. Factories are optional; `axx fixtures adopt` turns the files into one without changing a value.
 
-`axx lint`, `axx validate` and a passing `axx run` also hint at scenarios whose checks prove little: those that check only a success status (a 2xx response, or a command's exit code 0), which says it was accepted, not what it did, and those that check only that something did not happen, which also passes when the action never ran. They also name scenarios that check several things in turn (When … Then …, then When … Then … again): each acceptance criterion reads best as a scenario of its own. A hint names the scenarios; whether one needs another check, or splitting, is for its author to judge.
+`axx lint`, `axx validate` and a passing `axx run` also hint at scenarios whose checks prove little: those that check only a success status (a 2xx response, or a command's exit code 0), which says it was accepted, not what it did, and those that check only that something did not happen, which also passes when the action never ran. A hint names the scenarios; whether one needs another check is for its author to judge.
 
 `axx lint` exits with `3` when an `error`-mode rule finds a duplicate, like `axx validate` does for undefined steps. Run it in CI next to `axx validate`, and start new rules in `warn` mode while you clean up existing data. `axx lint --mode error` makes every rule an error, the built-in checks of the features too, so CI fails on an ordinal that would fail every run, before any app starts.
 

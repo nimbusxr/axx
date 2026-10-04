@@ -1,0 +1,8 @@
+parcels.parcels:
+  - reference: "PX-MOB-9412"
+    sender: "maple-crafts"
+    status: "OUT_FOR_DELIVERY"
+    service_level: "STANDARD"
+    weight_grams: 1700
+    recipient: '{"name": "Jana Roth", "street": "Gorkistr. 25", "city": "Leipzig", "postcode": "04347", "country": "DE"}'
+    details: '{"source": "api", "zone": "DE-1", "courier": "CR-LEJ-14"}'

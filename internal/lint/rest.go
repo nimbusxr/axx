@@ -30,12 +30,12 @@ const RESTRuleID = "rest-ordinals"
 // RESTValuesRuleID is the id of the builtin REST payload values check.
 const RESTValuesRuleID = "rest-payload-values"
 
-// FeatureChecks runs every builtin feature-file check: services registered
-// before use, SQL ordinals, stale selections, REST requests and REST payload
-// values.
+// FeatureChecks runs every builtin feature-file check: one behavior per
+// scenario, services registered before use, SQL ordinals, stale selections,
+// REST requests and REST payload values.
 func FeatureChecks(reg *match.Registry, pickles []*feature.Pickle, workDir string) []RuleResult {
 	return []RuleResult{
-		CheckServices(reg, pickles, workDir),
+		CheckRounds(pickles, workDir), CheckServices(reg, pickles, workDir),
 		CheckFeatures(reg, pickles, workDir), CheckSelections(reg, pickles, workDir),
 		CheckRESTRequests(reg, pickles, workDir), CheckRESTPayloadValues(reg, pickles, workDir),
 	}

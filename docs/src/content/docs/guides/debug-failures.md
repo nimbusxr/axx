@@ -75,7 +75,7 @@ did you mean:
 search all steps with `axx steps search <words>`
 ```
 
-- **Undefined**: the text differs from every step. Use the suggestion or `axx steps search`. Look for extra spaces, `a` versus `an`, singular versus plural, and missing quotes around `{string}` values. Never change a step definition to match your text.
+- **Undefined**: the text differs from every step. Use the suggestion or `axx steps search`. Look for extra spaces, `a` versus `an`, singular versus plural, and missing quotes around `{string}` values. An ordinal goes where each step has it: `the 2nd ordered response status code is 200`, but `the response payload property status is 'REGISTERED' for 2nd ordered response`; a line with it in the other place gets the right one as its first suggestion. Never change a step definition to match your text.
 - **Ambiguous**: two steps match. Make the line more specific, usually by naming the service with `on <service>`.
 
 ## Common causes

@@ -33,7 +33,7 @@ Feature: Parcels agent
       | name        | parcel-status |
       | data.status | IN_TRANSIT    |
 
-  Scenario: A hold asks until which day, and holds the parcel on the reply
+  Scenario: A hold asks until which day
     Given a seeds/a2a-hold.yaml db seed
     When a message is sent to the parcels a2a agent:
       """
@@ -41,14 +41,21 @@ Feature: Parcels agent
       """
     Then the parcels a2a agent's task is input-required
     And the parcels a2a agent's answer contains 'Until which day should PX-A2A-9202 be held?'
+
+  Scenario: A hold is placed until the day given in the reply
+    Given a seeds/a2a-hold-reply.yaml db seed
+    And a message is sent to the parcels a2a agent:
+      """
+      Please hold PX-A2A-9207 at its depot.
+      """
     When a reply is sent to the parcels a2a agent:
       """
       2026-10-05
       """
     Then the parcels a2a agent's task is completed
-    And the parcels a2a agent's answer contains 'PX-A2A-9202 is held at its depot until 2026-10-05.'
+    And the parcels a2a agent's answer contains 'PX-A2A-9207 is held at its depot until 2026-10-05.'
     And a selection of rows is retrieved from the parcels.parcels table where:
-      | reference | PX-A2A-9202 |
+      | reference | PX-A2A-9207 |
       | status    | ON_HOLD     |
     And the selection has 1 row
 
@@ -81,11 +88,11 @@ Feature: Parcels agent
 
   Scenario: A hold can be called off before it is answered
     Given a seeds/a2a-cancel.yaml db seed
-    When a message is sent to the parcels a2a agent:
+    And a message is sent to the parcels a2a agent:
       """
       Hold PX-A2A-9205
       """
-    Then the parcels a2a agent's task is input-required
+    And the parcels a2a agent's task is input-required
     When the parcels a2a agent is asked to cancel its task
     Then the parcels a2a agent's task is canceled
 
