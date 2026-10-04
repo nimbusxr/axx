@@ -96,7 +96,8 @@ jobs:
           $page = "file:///" + ("$PWD\.github\desktop-probe\toolbar.html" -replace '\\', '/')
           $env:AXX_PROOF_ARGS = "--user-data-dir={home}\edge --no-first-run --no-default-browser-check --new-window $page"
           $env:AXX_PROOF_PRESS = "Rectangle (R)|Blue|Thick"
-          & "$env:RUNNER_TEMP\uiaprobe.exe" -test.v -test.run TestAppThroughUIA
+          # Quoted: PowerShell splits -test.v at the dot.
+          & "$env:RUNNER_TEMP\uiaprobe.exe" '-test.v' '-test.run' 'TestAppThroughUIA'
           exit $LASTEXITCODE
       - name: UI Automation from a task in the signed-in session
         if: steps.direct.outcome == 'failure'
