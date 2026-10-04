@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.14](https://github.com/nimbusxr/axx/compare/v0.1.13...v0.1.14) (2026-10-04)
+
+
+### Bug Fixes
+
+* warn about scenarios that check several behaviors in turn, suggest moved ordinals, and make iOS scenarios independent of each other and of boot timing ([#97](https://github.com/nimbusxr/axx/issues/97)) ([9385e98](https://github.com/nimbusxr/axx/commit/9385e98a5a88a6dea89cdee9ac6e88b90cc76173))
+
 ## [0.1.13](https://github.com/nimbusxr/axx/compare/v0.1.12...v0.1.13) (2026-10-03)
 
 
