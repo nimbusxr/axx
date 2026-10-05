@@ -257,7 +257,11 @@ export default defineConfig({
 								{
 									label: 'Apps',
 									collapsed: true,
-									items: packsOf(['app-core', 'mobile-core', 'mobile-android', 'mobile-ios', 'desktop-core', 'desktop-macos', 'desktop-windows', 'desktop-linux']),
+									items: [
+										...packsOf(['app-core']),
+										{ label: 'Mobile', collapsed: true, items: packsOf(['mobile-core', 'mobile-android', 'mobile-ios']) },
+										{ label: 'Desktop', collapsed: true, items: packsOf(['desktop-core', 'desktop-macos', 'desktop-windows', 'desktop-linux']) },
+									],
 								},
 								{
 									label: 'AWS',
