@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.2.0](https://github.com/nimbusxr/axx/compare/intellij-v0.1.5...intellij-v0.2.0) (2026-10-05)
+
+
+### ⚠ BREAKING CHANGES
+
+* desktop apps through the accessibility tree, and one vocabulary for every app ([#104](https://github.com/nimbusxr/axx/issues/104))
+
+### Features
+
+* desktop apps through the accessibility tree, and one vocabulary for every app ([#104](https://github.com/nimbusxr/axx/issues/104)) ([6169326](https://github.com/nimbusxr/axx/commit/6169326c9db4eb3f5b728ac7a03e7c40ad96eb76))
+
 ## [0.1.5](https://github.com/nimbusxr/axx/compare/intellij-v0.1.4...intellij-v0.1.5) (2026-10-01)
 
 

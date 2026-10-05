@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.2.0](https://github.com/nimbusxr/axx/compare/v0.1.14...v0.2.0) (2026-10-05)
+
+
+### ⚠ BREAKING CHANGES
+
+* desktop apps through the accessibility tree, and one vocabulary for every app ([#104](https://github.com/nimbusxr/axx/issues/104))
+
+### Features
+
+* desktop apps through the accessibility tree, and one vocabulary for every app ([#104](https://github.com/nimbusxr/axx/issues/104)) ([6169326](https://github.com/nimbusxr/axx/commit/6169326c9db4eb3f5b728ac7a03e7c40ad96eb76))
+
+
+### Bug Fixes
+
+* **deps:** update google.golang.org/genproto digest to 8a89bd6 ([#99](https://github.com/nimbusxr/axx/issues/99)) ([ce2a8ce](https://github.com/nimbusxr/axx/commit/ce2a8ce809e9ef23cdd5293317a20b5e27d630f6))
+
 ## [0.1.14](https://github.com/nimbusxr/axx/compare/v0.1.13...v0.1.14) (2026-10-04)
 
 
