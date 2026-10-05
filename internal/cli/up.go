@@ -28,10 +28,10 @@ import (
 
 // upState is written by the supervisor started by `axx up`.
 type upState struct {
-	PID     int       `json:"pid"`
-	Apps    []string  `json:"apps"`
-	Started time.Time `json:"started"`
-	Profile string    `json:"profile,omitempty"`
+	PID      int       `json:"pid"`
+	Services []string  `json:"services"`
+	Started  time.Time `json:"started"`
+	Profile  string    `json:"profile,omitempty"`
 }
 
 const (
@@ -89,26 +89,26 @@ func newUpCmd(app *App) *cobra.Command {
 	var cf configFlags
 	var debug string
 	cmd := &cobra.Command{
-		Use:   "up [apps...]",
-		Short: "Start the apps from axx.yaml and keep them running between `axx run`s",
-		Long: `Start applications (all enabled apps, or the ones named) in the background and
+		Use:   "up [services...]",
+		Short: "Start the services from axx.yaml and keep them running between `axx run`s",
+		Long: `Start the services (all enabled ones, or the ones named) in the background and
 wait until they are ready. Later ` + "`axx run`" + ` invocations reuse them instead of
 starting and stopping them each time, which is the fastest local loop.
-Stop them with ` + "`axx down`" + `. App output goes to .axx/logs/apps.log.`,
+Stop them with ` + "`axx down`" + `. Service output goes to .axx/logs/services.log.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := app.loadConfig(&cf)
 			if err != nil {
 				return err
 			}
-			if len(cfg.Apps) == 0 {
-				return app.Emit(upState{Apps: []string{}}, func(w io.Writer) error {
-					_, err := fmt.Fprintln(w, "nothing to start: axx.yaml declares no apps")
+			if len(cfg.Services) == 0 {
+				return app.Emit(upState{Services: []string{}}, func(w io.Writer) error {
+					_, err := fmt.Fprintln(w, "nothing to start: axx.yaml declares no services")
 					return err
 				})
 			}
 			if st, ok := liveUp(cfg); ok {
 				return app.Emit(st, func(w io.Writer) error {
-					_, err := fmt.Fprintf(w, "already up (pid %d): %s\nrun `axx down` first to restart\n", st.PID, strings.Join(st.Apps, ", "))
+					_, err := fmt.Fprintf(w, "already up (pid %d): %s\nrun `axx down` first to restart\n", st.PID, strings.Join(st.Services, ", "))
 					return err
 				})
 			}
@@ -136,7 +136,7 @@ Stop them with ` + "`axx down`" + `. App output goes to .axx/logs/apps.log.`,
 			if err := sup.Start(); err != nil {
 				return err
 			}
-			fmt.Fprintf(app.Stderr, "axx: starting apps in the background (logs: %s)\n", relPath(filepath.Join(cfg.Dir, ".axx", "logs")))
+			fmt.Fprintf(app.Stderr, "axx: starting services in the background (logs: %s)\n", relPath(filepath.Join(cfg.Dir, ".axx", "logs")))
 			ready := make(chan error, 1)
 			go func() {
 				sc := bufio.NewScanner(out)
@@ -169,13 +169,13 @@ Stop them with ` + "`axx down`" + `. App output goes to .axx/logs/apps.log.`,
 			_ = sup.Process.Release()
 			st, _ := readUp(cfg)
 			return app.Emit(st, func(w io.Writer) error {
-				_, err := fmt.Fprintf(w, "up: %s (stop with `axx down`)\n", strings.Join(st.Apps, ", "))
+				_, err := fmt.Fprintf(w, "up: %s (stop with `axx down`)\n", strings.Join(st.Services, ", "))
 				return err
 			})
 		},
 	}
 	cf.register(cmd)
-	cmd.Flags().StringVar(&debug, "debug", "", "start apps with their debug command (all, or a comma-separated list)")
+	cmd.Flags().StringVar(&debug, "debug", "", "start services with their debug command (all, or a comma-separated list)")
 	cmd.Flags().Lookup("debug").NoOptDefVal = "*"
 	return cmd
 }
@@ -206,7 +206,7 @@ func newSuperviseCmd(app *App) *cobra.Command {
 	var cf configFlags
 	var debug string
 	cmd := &cobra.Command{
-		Use:    "__supervise [apps...]",
+		Use:    "__supervise [services...]",
 		Hidden: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := app.loadConfig(&cf)
@@ -214,7 +214,7 @@ func newSuperviseCmd(app *App) *cobra.Command {
 				return supervisorError(err)
 			}
 			_ = os.Remove(stopFile(cfg))
-			logw, err := os.OpenFile(filepath.Join(cfg.Dir, ".axx", "logs", "apps.log"), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+			logw, err := os.OpenFile(filepath.Join(cfg.Dir, ".axx", "logs", "services.log"), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
 			if err != nil {
 				return supervisorError(err)
 			}
@@ -232,19 +232,19 @@ func newSuperviseCmd(app *App) *cobra.Command {
 			}
 			names := args
 			if len(names) == 0 {
-				for _, a := range cfg.Apps {
+				for _, a := range cfg.Services {
 					if a.IsEnabled() {
 						names = append(names, a.Name)
 					}
 				}
 			}
-			mgr, err := lifecycle.New(cfg.Apps, opts)
+			mgr, err := lifecycle.New(cfg.Services, opts)
 			if err != nil {
 				return supervisorError(err)
 			}
 			ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 			defer stop()
-			// Packs set up what the apps need before they start (core.Preparer),
+			// Packs set up what the services need before they start (core.Preparer),
 			// for every scenario of the configured features, and keep it until
 			// `axx down`: later runs reuse it.
 			e, err := engine.New(engine.Options{Config: cfg, Logger: app.logger()})
@@ -260,7 +260,7 @@ func newSuperviseCmd(app *App) *cobra.Command {
 			if err := mgr.Start(ctx, names); err != nil {
 				return supervisorError(err)
 			}
-			st := upState{PID: os.Getpid(), Apps: mgr.Started(), Started: time.Now(), Profile: cf.profile}
+			st := upState{PID: os.Getpid(), Services: mgr.Started(), Started: time.Now(), Profile: cf.profile}
 			b, _ := json.MarshalIndent(st, "", "  ")
 			err = os.MkdirAll(runDir(cfg), 0o755)
 			if err == nil {
@@ -273,7 +273,7 @@ func newSuperviseCmd(app *App) *cobra.Command {
 			fmt.Println(readyMarker)
 			_ = os.Stdout.Close() // detach from the parent's pipe
 
-			// Wait for `axx down` (stop file or signal) or for every app to exit.
+			// Wait for `axx down` (stop file or signal) or for every service to exit.
 			tick := time.NewTicker(500 * time.Millisecond)
 			defer tick.Stop()
 		wait:
@@ -302,7 +302,7 @@ func newDownCmd(app *App) *cobra.Command {
 	var cf configFlags
 	cmd := &cobra.Command{
 		Use:   "down",
-		Short: "Stop apps started by `axx up` (and any left behind by an interrupted run)",
+		Short: "Stop services started by `axx up` (and any left behind by an interrupted run)",
 		Args:  wrapArgs(cobra.NoArgs),
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			cfg, err := app.loadConfig(&cf)
@@ -321,7 +321,7 @@ func newDownCmd(app *App) *cobra.Command {
 					case <-time.After(200 * time.Millisecond):
 					}
 				}
-				stopped = st.Apps
+				stopped = st.Services
 			}
 			_ = os.Remove(upFile(cfg))
 			_ = os.Remove(stopFile(cfg))

@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "What the desk's page may use: Tauri's core, its events among them.",
+  "windows": ["main"],
+  "permissions": ["core:default"]
+}

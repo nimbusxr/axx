@@ -70,7 +70,7 @@ Axx's packs cover:
 ## One binary with nothing to wire up
 
 Axx needs no JVM, no build plugin and no test-runner glue. `axx run` does the whole job:
-1. It starts the apps listed in `axx.yaml` and waits until they are healthy.
+1. It starts the services listed in `axx.yaml` and waits until they are healthy.
 2. It runs the scenarios in parallel.
 3. It stops everything and cleans up, even after a crash or Ctrl-C.
 

@@ -42,7 +42,7 @@ import (
 // context: only the conventions the tools' descriptions do not carry.
 const Instructions = `axx runs acceptance criteria, written as Gherkin features, against the project's services.
 
-Writing tests: steps_search without a query lists every step once; write one scenario per acceptance criterion with steps that exist, written out: each {name} replaced with a value, a(n) as "a" or "an" and row(s) as "row" or "rows", [[...]] kept without the brackets or left out; scenarios_run runs them and also reports what feature_validate and lint_run find; failure_context explains a failure. env {"action":"up"} keeps the apps running between runs.
+Writing tests: steps_search without a query lists every step once; write one scenario per acceptance criterion with steps that exist, written out: each {name} replaced with a value, a(n) as "a" or "an" and row(s) as "row" or "rows", [[...]] kept without the brackets or left out; scenarios_run runs them and also reports what feature_validate and lint_run find; failure_context explains a failure. env {"action":"up"} keeps the services running between runs.
 - A scenario registers each service it uses before other steps use it ("the {word} service with the following properties:").
 - Requests, responses and selections are numbered in the order a scenario adds them; a step without an ordinal means the first.
 - Scenarios run in parallel and data persists: give every id, key and name a value of the scenario's own.
@@ -83,7 +83,7 @@ func newServer(opts Options) (*sdk.Server, *server) {
 	srv := sdk.NewServer(&sdk.Implementation{Name: "axx", Title: "axx acceptance testing", Version: version.Get().Version},
 		&sdk.ServerOptions{Instructions: Instructions})
 
-	// The tools work on the project and the apps it starts, nothing beyond.
+	// The tools work on the project and the services it starts, nothing beyond.
 	closed := false
 	ro := &sdk.ToolAnnotations{ReadOnlyHint: true, IdempotentHint: true, OpenWorldHint: &closed}
 	notDestructive := &sdk.ToolAnnotations{DestructiveHint: &closed, OpenWorldHint: &closed}
@@ -109,7 +109,7 @@ func newServer(opts Options) (*sdk.Server, *server) {
 		s.lintRun)
 	addTool(srv, &sdk.Tool{
 		Name: "scenarios_run", Annotations: notDestructive,
-		Description: "Run scenarios (starting the apps unless they are up): failures with expected and actual, the warnings validate and lint give, and hints.",
+		Description: "Run scenarios (starting the services unless they are up): failures with expected and actual, the warnings validate and lint give, and hints.",
 	},
 		s.scenariosRun)
 	addTool(srv, &sdk.Tool{
@@ -118,9 +118,9 @@ func newServer(opts Options) (*sdk.Server, *server) {
 	},
 		s.failureContext)
 	addTool(srv, &sdk.Tool{
-		// down stops the apps and runs their cleanup.
+		// down stops the services and runs their cleanup.
 		Name: "env", Annotations: &sdk.ToolAnnotations{OpenWorldHint: &closed},
-		Description: "The apps: up keeps them running between runs, down stops them and cleans up, status lists them.",
+		Description: "The services: up keeps them running between runs, down stops them and cleans up, status lists them.",
 	},
 		s.env)
 	addTool(srv, &sdk.Tool{
@@ -844,7 +844,7 @@ func (s *server) env(ctx context.Context, _ *sdk.CallToolRequest, in envIn) (*sd
 	return nil, out, nil
 }
 
-// envStatus reports the apps the project's state file records: running,
+// envStatus reports the services the project's state file records: running,
 // left over from an earlier run, or not cleaned up.
 func (s *server) envStatus() (*sdk.CallToolResult, envOut, error) {
 	out := envOut{Action: "status"}
@@ -859,10 +859,10 @@ func (s *server) envStatus() (*sdk.CallToolResult, envOut, error) {
 		return nil, out, nil
 	}
 	if apps == nil {
-		apps = []lifecycle.AppStatus{}
+		apps = []lifecycle.ServiceStatus{}
 	}
 	out.OK = true
-	out.Data = map[string]any{"apps": apps}
+	out.Data = map[string]any{"services": apps}
 	return nil, out, nil
 }
 
@@ -973,8 +973,8 @@ func (s *server) scaffold(ctx context.Context, _ *sdk.CallToolRequest, in scaffo
 		}, nil
 	case "config":
 		return nil, scaffoldOut{
-			Path: "axx.yaml", Content: "# yaml-language-server: $schema=" + config.SchemaID + "\nversion: 1\nrun:\n  paths: [features]\napps: {}\n",
-			Next: "add apps (command + ready) and run env {action: status}",
+			Path: "axx.yaml", Content: "# yaml-language-server: $schema=" + config.SchemaID + "\nversion: 1\nrun:\n  paths: [features]\nservices: {}\n",
+			Next: "add services (command + ready) and run env {action: status}",
 		}, nil
 	}
 	return nil, scaffoldOut{}, fmt.Errorf("kind must be feature or config")

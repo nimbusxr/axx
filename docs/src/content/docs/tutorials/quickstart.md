@@ -48,7 +48,7 @@ axx: ready in 31s
   create  .agents/skills (5 skills)
 
 Codex keeps its MCP servers in ~/.codex/config.toml; `axx mcp install --agent codex --scope user` adds axx there.
-next: edit apps in axx.yaml, then `axx doctor` and `axx run`
+next: edit services in axx.yaml, then `axx doctor` and `axx run`
 ```
 
 Axx created a configuration file, `axx.yaml`, and a first feature file, `features/smoke.feature`. We'll change both. It also created `axx-packs.yaml`, the list of the packs of steps the project uses. It lists `rest`, whose steps send HTTP requests, and that's all we need. The first time, Axx prepared itself with that pack, which it won't need to do again. We won't need the other files in this tutorial: they are for CI and for coding agents.
@@ -63,10 +63,10 @@ echo '{"message": "Hello, axx"}' > hello.json
 
 ## Tell Axx how to start the server
 
-Open `axx.yaml`. At the bottom, replace the whole `apps:` section with this one:
+Open `axx.yaml`. At the bottom, replace the whole `services:` section with this one:
 
 ```yaml title="axx.yaml"
-apps:
+services:
   hello-axx:
     command: python3 -m http.server 8000
     ready:
@@ -117,7 +117,7 @@ axx run
 ```
 
 ```console
-axx: starting hello-axx (logs: .axx/logs/apps.log)
+axx: starting hello-axx (logs: .axx/logs/services.log)
 Feature: Hello axx
 
   Scenario: The service says hello  # features/smoke.feature:7
@@ -153,7 +153,7 @@ axx run
 ```
 
 ```console
-axx: starting hello-axx (logs: .axx/logs/apps.log)
+axx: starting hello-axx (logs: .axx/logs/services.log)
 Feature: Hello axx
 
   Scenario: The service says hello  # features/smoke.feature:7

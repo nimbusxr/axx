@@ -44,8 +44,45 @@ func TestFolder(t *testing.T) {
 	}
 
 	_ = h.Fails("the exports folder with the following properties:", `Folder "exports" already set`, [][]string{{"path", "exports"}})
-	_ = h.Fails("the labels folder with the following properties:", `unknown folder property "url" (supported: path)`, [][]string{{"url", "file://labels"}})
+	_ = h.Fails("the labels folder with the following properties:", `unknown folder property "url" (supported: path, owner)`, [][]string{{"url", "file://labels"}})
 	_ = h.Fails("the labels folder with the following properties:", `the folder property "path" is required`, [][]string{{"path", " "}})
+}
+
+// A folder's owner is a service of axx.yaml, whose paths are relative to the
+// folder axx runs it in, or an app, whose files a pack that runs apps gives.
+func TestFolderOwners(t *testing.T) {
+	h := cloudtest.NewWithServices(t, map[string]string{"parcels": "../infra", "billing": "."}, Pack())
+	h.NewScenario()
+	h.OK("the exports folder with the following properties:", [][]string{{"owner", "service:parcels"}, {"path", "./exports"}})
+	exports, err := Folders(h.SC).Get("exports")
+	if err != nil || exports.Path != filepath.Join(filepath.Dir(h.Dir), "infra", "exports") {
+		t.Errorf("a service's path is relative to the folder axx runs it in: %+v %v", exports, err)
+	}
+	h.OK("the spaced folder with the following properties:", [][]string{{"owner", "service:billing"}, {"path", `"./daily runs"`}})
+	if spaced, _ := Folders(h.SC).Get("spaced"); spaced.Path != filepath.Join(h.Dir, "daily runs") {
+		t.Errorf("a quoted path loses its quotes: %s", spaced.Path)
+	}
+	_ = h.Fails("the claims folder with the following properties:", `the folder's owner "service:claims" is no service of axx.yaml (its services: billing, parcels)`,
+		[][]string{{"owner", "service:claims"}, {"path", "./exports"}})
+	_ = h.Fails("the claims folder with the following properties:", `the folder's owner "parcels" is not "service:<name>" (a service of axx.yaml) or "app:<name>" (an app the scenario registers)`,
+		[][]string{{"owner", "parcels"}, {"path", "./exports"}})
+	_ = h.Fails("the desk folder with the following properties:", `the folder's owner "app:depot" is an app, and no pack of the run runs apps`,
+		[][]string{{"owner", "app:depot"}, {"path", "./Parcels"}})
+
+	// An app's files are what the pack that runs it gives.
+	data := filepath.Join(h.Dir, "depot-data")
+	h.SC.Suite().SetFileOwner("app", func(sc *core.Scenario, name, path string) (core.Files, error) {
+		if name != "depot" || path != "./Parcels/Depot desk" {
+			t.Errorf("the owner gets the app's name and the path: %q %q", name, path)
+		}
+		return core.LocalFiles(filepath.Join(data, "Parcels", "Depot desk")), nil
+	})
+	h.OK("the desk folder with the following properties:", [][]string{{"owner", "app:depot"}, {"path", `"./Parcels/Depot desk"`}})
+	h.File("depot-data/Parcels/Depot desk/arrivals.json", `[{"reference":"PX-DSK-4102"}]`)
+	h.OK(`the arrivals.json file in the desk folder contains "PX-DSK-4102"`)
+	if logs := strings.Join(h.Sink.Logs, "\n"); !strings.Contains(logs, "the desk folder is "+filepath.Join(data, "Parcels", "Depot desk")) {
+		t.Errorf("the scenario should log where an app's folder is: %s", logs)
+	}
 }
 
 func TestFiles(t *testing.T) {
@@ -71,6 +108,11 @@ func TestFiles(t *testing.T) {
 	h.OK("the manifests/M-KESTREL-0412/report.v2.csv file in the exports folder has a row where:", [][]string{
 		{"line", "ML-KES-0412-2"}, {"status", "REJECTED"}, {"reason", "unknown service level"},
 	})
+	// A path with a space is quoted.
+	h.OK("the runs folder with the following properties:", [][]string{{"path", "runs"}})
+	h.File("runs/day one/summary.json", `{"imported":1}`)
+	h.OK(`the runs folder has a file named "day one/summary.json"`)
+	h.OK(`the "day one/summary.json" file in the runs folder has the following properties:`, [][]string{{"imported", "1"}})
 
 	// A file written later is waited for.
 	go func() {

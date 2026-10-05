@@ -9,7 +9,7 @@ It is *acceptance* testing, with a name of its own. Axx is the short form, and t
 
 ### Do I need Java, Node or Python?
 
-No. Axx is a single static binary, and your service can be written in anything. What Axx needs, it downloads itself and keeps in its cache: the Go toolchain it uses to build itself with a project's [packs](/guides/use-packs/), custom ones included, and the Node.js and browsers the web packs drive. Docker is only needed if your apps start with Docker Compose.
+No. Axx is a single static binary, and your service can be written in anything. What Axx needs, it downloads itself and keeps in its cache: the Go toolchain it uses to build itself with a project's [packs](/guides/use-packs/), custom ones included, and the Node.js and browsers the web packs drive. Docker is only needed if your services start with Docker Compose.
 
 ### Is Axx Cucumber?
 
@@ -29,7 +29,7 @@ No. Keep unit and integration tests in your language's test framework. Axx tests
 
 ### Can Axx test a deployed environment?
 
-Yes. Write the part of the service URLs that differs as a property (`http://${sys:parcels.host}:8400`), set it for the environment in a profile (say `--profile staging`), and run with `--no-start` so Axx does not try to start apps. Keep data isolation in mind: the environment is shared with everyone else.
+Yes. Write the part of the service URLs that differs as a property (`http://${sys:parcels.host}:8400`), set it for the environment in a profile (say `--profile staging`), and run with `--no-start` so Axx does not try to start services. Keep data isolation in mind: the environment is shared with everyone else.
 
 ### Why do my scenarios pass alone and fail together?
 

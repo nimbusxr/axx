@@ -22,7 +22,7 @@ const packDoc = `Send messages to SQS queues and check the messages your service
 
 The steps use the scenario's AWS account (` + "`the {word} aws account with the following properties:`" + `, from aws-core).
 
-**Checking a queue receives from it**: axx takes each message off the queue, as any consumer would. Check the queues your services **write** to (an outbound queue another system reads); a queue your service consumes is checked by what the service does with the messages. axx starts receiving from the queues a run checks once the apps are up, and a check only looks at the messages received since its scenario started. Match on data unique to the scenario: scenarios run in parallel and share the queue.`
+**Checking a queue receives from it**: axx takes each message off the queue, as any consumer would. Check the queues your services **write** to (an outbound queue another system reads); a queue your service consumes is checked by what the service does with the messages. axx starts receiving from the queues a run checks once the services are up, and a check only looks at the messages received since its scenario started. Match on data unique to the scenario: scenarios run in parallel and share the queue.`
 
 // Pack returns the aws-sqs pack.
 func Pack() core.Pack { return pack{} }
@@ -76,7 +76,7 @@ func (pack) Prepare(_ context.Context, s *core.Suite, plan *core.Plan) error {
 	return nil
 }
 
-// Init starts receiving from the planned queues, now that the apps run.
+// Init starts receiving from the planned queues, now that the services run.
 func (pack) Init(ctx context.Context, s *core.Suite) error {
 	return cloudstep.DeferredFor(s, name).Run(ctx)
 }

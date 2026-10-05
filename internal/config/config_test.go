@@ -36,7 +36,7 @@ run:
   reporters: [pretty, {junit: build/axx/junit.xml}]
 properties:
   local.host: localhost
-apps:
+services:
   zeta:
     command: ./gradlew bootRun
     ready:
@@ -61,17 +61,17 @@ func TestLoadSample(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(cfg.Apps) != 2 || cfg.Apps[0].Name != "zeta" || cfg.Apps[1].Name != "alpha" {
-		t.Fatalf("apps must keep declaration order: %+v", cfg.Apps)
+	if len(cfg.Services) != 2 || cfg.Services[0].Name != "zeta" || cfg.Services[1].Name != "alpha" {
+		t.Fatalf("services must keep declaration order: %+v", cfg.Services)
 	}
-	if got := cfg.Apps[0].Ready.HTTP.URL[0]; got != "http://localhost:8080/actuator/health" {
+	if got := cfg.Services[0].Ready.HTTP.URL[0]; got != "http://localhost:8080/actuator/health" {
 		t.Errorf("interpolated url = %q", got)
 	}
-	if cfg.Apps[0].Ready.Timeout.D().Seconds() != 90 {
-		t.Errorf("timeout = %v", cfg.Apps[0].Ready.Timeout.D())
+	if cfg.Services[0].Ready.Timeout.D().Seconds() != 90 {
+		t.Errorf("timeout = %v", cfg.Services[0].Ready.Timeout.D())
 	}
-	if cfg.Apps[1].Command.Argv[0] != "docker" || cfg.Apps[0].Command.Line != "./gradlew bootRun" {
-		t.Errorf("commands: %+v %+v", cfg.Apps[0].Command, cfg.Apps[1].Command)
+	if cfg.Services[1].Command.Argv[0] != "docker" || cfg.Services[0].Command.Line != "./gradlew bootRun" {
+		t.Errorf("commands: %+v %+v", cfg.Services[0].Command, cfg.Services[1].Command)
 	}
 	if cfg.Run.Workers != 0 || len(cfg.Run.Reporters) != 2 || cfg.Run.Reporters[1].Path != "build/axx/junit.xml" {
 		t.Errorf("run: %+v", cfg.Run)
@@ -91,7 +91,7 @@ func TestProfileAndOverrides(t *testing.T) {
 	if cfg.Run.Workers != 8 {
 		t.Errorf("profile workers = %d", cfg.Run.Workers)
 	}
-	if got := cfg.Apps[0].Ready.HTTP.URL[0]; !strings.Contains(got, "//docker:") {
+	if got := cfg.Services[0].Ready.HTTP.URL[0]; !strings.Contains(got, "//docker:") {
 		t.Errorf("profile property not applied: %q", got)
 	}
 	// -D wins over profile
@@ -99,7 +99,7 @@ func TestProfileAndOverrides(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := cfg.Apps[0].Ready.HTTP.URL[0]; !strings.Contains(got, "//cli:") {
+	if got := cfg.Services[0].Ready.HTTP.URL[0]; !strings.Contains(got, "//cli:") {
 		t.Errorf("-D not applied: %q", got)
 	}
 	// AXX_PROFILE selects the profile; axx.local.yaml overlays last
@@ -142,7 +142,7 @@ func TestMissingConfigIsFine(t *testing.T) {
 	dir := t.TempDir()
 	write(t, dir, ".git/HEAD", "ref: refs/heads/main\n")
 	cfg, err := Load(LoadOptions{WorkDir: dir, LookupEnv: env(nil)})
-	if err != nil || cfg.File != "" || len(cfg.Apps) != 0 {
+	if err != nil || cfg.File != "" || len(cfg.Services) != 0 {
 		t.Fatalf("expected defaults, got %+v, %v", cfg, err)
 	}
 }
@@ -163,14 +163,14 @@ func TestSearchUpward(t *testing.T) {
 
 func TestSchemaErrorsHaveLocations(t *testing.T) {
 	dir := t.TempDir()
-	write(t, dir, "axx.yaml", "run:\n  workers: many\napps:\n  api:\n    dir: x\n")
+	write(t, dir, "axx.yaml", "run:\n  workers: many\nservices:\n  api:\n    dir: x\n")
 	_, err := Load(LoadOptions{WorkDir: dir, LookupEnv: env(nil)})
 	var ae *axxerr.Error
 	if !errors.As(err, &ae) || ae.Code != CodeInvalid || ae.Exit != exitcode.Usage {
 		t.Fatalf("want invalid config error, got %v", err)
 	}
 	msg := err.Error()
-	for _, want := range []string{"run.workers: value must be 'auto', or an integer", "apps.api", "command", "axx.yaml:2:12", "axx.yaml:5:8"} {
+	for _, want := range []string{"run.workers: value must be 'auto', or an integer", "services.api", "command", "axx.yaml:2:12", "axx.yaml:5:8"} {
 		if !strings.Contains(msg, want) {
 			t.Errorf("error should mention %q:\n%s", want, msg)
 		}

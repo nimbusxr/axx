@@ -20,10 +20,10 @@ Black-box suites have a reputation for being slow and flaky. The causes are spec
 
 | Cause | What Axx does |
 | --- | --- |
-| Starting the system for every test class | starts apps once per run, or once per session with `axx up` |
+| Starting the system for every test class | starts services once per run, or once per session with `axx up` |
 | Tests run one at a time | runs scenarios in parallel by default |
 | Tests share and corrupt data | makes data isolation checkable with `axx lint` and fixture identities |
-| Waiting with fixed sleeps | readiness checks for apps, polling steps for asynchronous results |
+| Waiting with fixed sleeps | readiness checks for services, polling steps for asynchronous results |
 | Brittle hand-written payloads | payloads from OpenAPI examples and fixture factories |
 | Opaque failures | expected and actual values, the last request and response, a rerun command |
 

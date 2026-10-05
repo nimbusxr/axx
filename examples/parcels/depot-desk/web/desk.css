@@ -1,0 +1,19 @@
+body { font: 14px system-ui, sans-serif; margin: 12px; background: #fff; color: #000; }
+[role="tablist"] { display: flex; gap: 4px; margin: 8px 0; }
+[role="tab"][aria-selected="true"] { font-weight: bold; }
+/* One column, taller than the window: the page scrolls. */
+section, .form, .lists { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+section[hidden] { display: none; }
+#reference { width: 320px; }
+.levels { display: flex; gap: 12px; }
+/* The switch's look is a shape: generated text would join its name. */
+.switch::before { content: ""; display: inline-block; width: 22px; height: 12px; border-radius: 6px; background: #bbb; margin-right: 6px; vertical-align: middle; }
+.switch[aria-checked="true"]::before { background: #2a7; }
+h2 { font-size: 14px; margin: 8px 0 0; }
+#arrivals-list { height: 160px; width: 400px; overflow-y: auto; margin: 0; padding: 0; list-style: none; border: 1px solid #aaa; }
+#arrivals-list li { padding: 2px 6px; cursor: pointer; }
+.scroll { height: 220px; width: 400px; overflow-y: auto; border: 1px solid #aaa; }
+table { border-collapse: collapse; width: 100%; }
+th, td { text-align: left; padding: 2px 6px; height: 20px; }
+tbody tr { cursor: pointer; }
+#pad { background: #fff; border: 1px solid #aaa; }

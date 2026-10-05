@@ -30,7 +30,7 @@ Background:
 
 | Property | What it is |
 | --- | --- |
-| `command` | The program and its first arguments (required). They are split like an app's `command` in `axx.yaml`: double quotes group words, and there is no shell, so no pipes, redirects or `$VARIABLES`. |
+| `command` | The program and its first arguments (required). They are split like a service's `command` in `axx.yaml`: double quotes group words, and there is no shell, so no pipes, redirects or `$VARIABLES`. |
 | `dir` | The folder it runs in, relative to the directory of `axx.yaml`. By default, an empty folder of the scenario's own. |
 | `env.<NAME>` | An environment variable, on top of those axx runs with. |
 | `timeout` | How long it may run: `1m` unless it says otherwise. |

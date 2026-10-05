@@ -34,7 +34,7 @@ Given the depot amqp broker with the following properties:
 Steps name a **queue** or an **exchange**: ` + "`the parcels.label-printed amqp queue`" + `, ` + "`the printers amqp exchange`" + `. Messages carry a routing key (` + "`with the routing key '...'`" + `, or a ` + "`routing key`" + ` row), headers (` + "`header <name>`" + ` rows) and properties such as ` + "`content type`" + `. A message whose body is JSON is sent as ` + "`application/json`" + ` unless a ` + "`content type`" + ` row says otherwise, and every message is persistent.
 
 - **Checking a queue receives from it:** axx acknowledges each message it receives, as any consumer would, so check the queues your services **write** to and nothing else reads.
-- **Checking an exchange takes nothing from anyone:** for the exchanges a run checks, axx declares a queue of its own (` + "`axx-<run>.<exchange>`" + `, exclusive, deleted with the run) once the apps are up, and binds it with ` + "`#`" + ` and with the routing keys the checks name, which covers topic, fanout, headers and direct exchanges.
+- **Checking an exchange takes nothing from anyone:** for the exchanges a run checks, axx declares a queue of its own (` + "`axx-<run>.<exchange>`" + `, exclusive, deleted with the run) once the services are up, and binds it with ` + "`#`" + ` and with the routing keys the checks name, which covers topic, fanout, headers and direct exchanges.
 - **A check only looks at the messages received since its scenario started,** so scenarios running in parallel check their own messages, by data unique to them.
 - **Publishing a message nothing receives fails the step:** the broker returns a message no queue is bound for, and the step says so, instead of the message going nowhere unnoticed.
 - **AMQP 1.0:** with ` + "`protocol | 1.0`" + `, a queue is an anycast address and an exchange a multicast one, and the routing key is the message's subject. RabbitMQ routes the same messages over 0-9-1 whatever protocol your services use, so keep the default for it.
@@ -392,7 +392,7 @@ func (pack) Prepare(_ context.Context, s *core.Suite, plan *core.Plan) error {
 }
 
 // Init starts listening to the planned queues and exchanges, now that the
-// apps run and have declared them.
+// services run and have declared them.
 func (pack) Init(ctx context.Context, s *core.Suite) error {
 	return cloudstep.DeferredFor(s, Name).Run(ctx)
 }

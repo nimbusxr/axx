@@ -22,7 +22,7 @@ Scenario: A courier delivers a parcel, and its recipient sees it delivered
   Then within 20s the page shows "Delivered on"
 ```
 
-The steps are the same on Android and on iOS: only the app's registration says which it is. Add the pack for each platform you test with `axx pack add mobile-android` or `axx pack add mobile-ios` (both build on `mobile-core`, the steps every mobile app has; [Choose packs](/guides/use-packs/)).
+The steps are the same on Android and on iOS: only the app's registration says which it is. Add the pack for each platform you test with `axx pack add mobile-android` or `axx pack add mobile-ios` (both build on `mobile-core`, the steps of phones, and on `app-core`, the steps every app has, on a phone or a desktop; [Choose packs](/guides/use-packs/)).
 
 ## What it needs
 
@@ -215,4 +215,4 @@ steps:
 
 With the cache, a run sets its simulators up in a minute or two; without it, the first scenario's steps need over ten minutes (`run.timeouts: {step: 20m}` in `axx.yaml` gives them that; `packs.mobile-ios.bootTimeout`, 20 minutes by default, bounds a simulator's boot). A simulator on a hosted runner stays slow for a few minutes after it boots: give checks there `within` to spare. GitHub's macOS runners have no Docker: when the services your scenarios talk to run in containers, run them elsewhere, or run the iOS scenarios on a Mac that has them.
 
-See the [mobile-core](/references/packs/mobile-core/), [mobile-android](/references/packs/mobile-android/) and [mobile-ios](/references/packs/mobile-ios/) references for every step.
+See the [app-core](/references/packs/app-core/), [mobile-core](/references/packs/mobile-core/), [mobile-android](/references/packs/mobile-android/) and [mobile-ios](/references/packs/mobile-ios/) references for every step.

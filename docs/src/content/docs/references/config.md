@@ -1,6 +1,6 @@
 ---
 title: Configuration
-description: The Axx configuration files - axx.yaml (every section, the apps and lint keys, how files and profiles merge, interpolation) and axx-packs.yaml.
+description: The Axx configuration files - axx.yaml (every section, the services and lint keys, how files and profiles merge, interpolation) and axx-packs.yaml.
 ---
 
 An acceptance project has up to two configuration files, side by side: `axx.yaml` for the project and `axx-packs.yaml` for the packs it uses. Both are optional.
@@ -46,10 +46,10 @@ openapi:
     validation.request.security.missing: IGNORE
 
 active:
-  enabled: false                 # start only the apps the selected scenarios' tags need
+  enabled: false                 # start only the services the selected scenarios' tags need
   onNoTags: fallback
 
-apps:
+services:
   api:
     dir: .
     command: docker compose up --build
@@ -76,29 +76,29 @@ profiles:                        # overlays: --profile ci, several in order (--p
 | `resources` | directories that relative file paths in steps resolve against, in order; the directory of `axx.yaml` is searched last | [Configure services](/guides/configure-services/#resource-paths) |
 | `properties` | values for `${sys:name}` | [Configure services](/guides/configure-services/#keep-values-out-of-feature-files) |
 | `openapi.levels` | default OpenAPI validation levels, by rule key | [Validate against OpenAPI](/guides/validate-openapi/) |
-| `active` | app startup by the selected scenarios' tags and packs | [Manage the app lifecycle](/guides/manage-app-lifecycle/#start-only-what-a-run-needs) |
-| `apps` | the system under test ([keys](#apps)) | [Manage the app lifecycle](/guides/manage-app-lifecycle/) |
+| `active` | service startup by the selected scenarios' tags and packs | [Manage the services under test](/guides/manage-services/#start-only-what-a-run-needs) |
+| `services` | the system under test ([keys](#services)) | [Manage the services under test](/guides/manage-services/) |
 | `packs` | settings for packs, keyed by pack name | each pack's page under [Packs](/references/packs/) |
 | `lint` | test-data isolation rules ([keys](#lint)) | [Isolate test data](/guides/isolate-test-data/) |
 | `fixtures` | fixture factory settings | [Fixture factories](/guides/fixture-factories/) |
 | `profiles` | named overlays | [below](#finding-and-merging-files) |
 
-### apps
+### services
 
-Each key under `apps:` names one app: something that runs on its own, which scenarios connect to. A program a scenario runs as its user would, like a command-line tool or an MCP server over stdio, belongs in its step (`command`), not here.
+Each key under `services:` names one service: something that runs on its own, which scenarios connect to. A program a scenario runs as its user would, like a command-line tool or an MCP server over stdio, belongs in its step (`command`), not here.
 
 | Key | Meaning |
 | --- | --- |
-| `command` | How to start the app: a string (split into words, no shell) or an argv list. A command that exits `0` before the app is ready is fine: Axx keeps polling `ready`. |
+| `command` | How to start the service: a string (split into words, no shell) or an argv list. A command that exits `0` before the service is ready is fine: Axx keeps polling `ready`. |
 | `shell` | `true` runs `command` and `cleanup` through the shell, for pipes and `&&`. |
 | `dir`, `env` | Working directory (relative to `axx.yaml`) and extra environment. |
-| `dependsOn` | Apps that must be ready first. Independent apps start in parallel. |
-| `enabled` | `false` skips the app. Defaults to `true`. |
-| `ready` | Checks that must all pass: `http.url` (every URL returns 2xx), `tcp` (`host:port` accepts connections), `exec` (a command exits 0), `log` (a regular expression matches the app's output). `timeout` defaults to 60s, `interval` to 1s. |
-| `stop` | `signal` (`SIGTERM` by default, or `SIGINT`) is sent to the app's process group; after `grace` (default 10s) it is killed. |
-| `cleanup` | Runs after the app stops, even if it crashed or never became ready. |
-| `active.tags` | With `active.enabled`, the app starts only when a selected scenario has one of these tags. |
-| `active.uses` | With `active.enabled`, the app starts only when a selected scenario uses a step of one of these packs, like `[mobile-android]`. |
+| `dependsOn` | Services that must be ready first. Independent services start in parallel. |
+| `enabled` | `false` skips the service. Defaults to `true`. |
+| `ready` | Checks that must all pass: `http.url` (every URL returns 2xx), `tcp` (`host:port` accepts connections), `exec` (a command exits 0), `log` (a regular expression matches the service's output). `timeout` defaults to 60s, `interval` to 1s. |
+| `stop` | `signal` (`SIGTERM` by default, or `SIGINT`) is sent to the service's process group; after `grace` (default 10s) it is killed. |
+| `cleanup` | Runs after the service stops, even if it crashed or never became ready. |
+| `active.tags` | With `active.enabled`, the service starts only when a selected scenario has one of these tags. |
+| `active.uses` | With `active.enabled`, the service starts only when a selected scenario uses a step of one of these packs, like `[mobile-android]`. |
 | `debug` | `command`, `debugger` (`type`, `port`, `host`, `module`, `mode`), `onUnavailable` and `retry` for `axx run --debug` and `axx up --debug`. |
 
 ### lint
@@ -125,7 +125,7 @@ Rules live under `lint.rules`; `lint.config` sets `baseDir` (patterns are relati
 4. `--set path.to.key=value` sets any key for one run, over all of the above: `--set run.workers=1 --set packs.web-core.watch=true`. The value is read as YAML.
 5. `-D name=value` overrides `properties`.
 
-Paths inside the file (`apps.*.dir`, `resources`) are relative to the directory of `axx.yaml`.
+Paths inside the file (`services.*.dir`, `resources`) are relative to the directory of `axx.yaml`.
 
 ### Interpolation
 

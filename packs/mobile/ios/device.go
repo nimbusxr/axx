@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -21,6 +22,10 @@ import (
 type runner struct{ app *app }
 
 func (r runner) Kind() string { return "ios" }
+
+// RunsHere is whether this machine can run the app: a simulator needs a Mac,
+// a device farm does not.
+func (r runner) RunsHere() bool { return r.app.server != "" || runtime.GOOS == "darwin" }
 
 // Start leases a simulator for the scenario and starts a session of the app
 // on it, reset: the app installed afresh, its keychain and permissions
@@ -438,11 +443,25 @@ func (n notificationCenter) Texts(ctx context.Context) []string {
 	return out
 }
 
+// Close brings the app back. activateApp returns as Notification Center starts
+// to slide away, and a tap before it has gone lands on it, not on the app: so
+// it waits, up to five seconds, for SpringBoard to stop showing notifications.
 func (n notificationCenter) Close(ctx context.Context) error {
-	if err := n.d.session.Settings(ctx, map[string]any{"defaultActiveApplication": n.d.bundleID}); err != nil {
+	if err := n.d.session.Mobile(ctx, "activateApp", map[string]any{"bundleId": n.d.bundleID}, nil); err != nil {
 		return err
 	}
-	return n.d.session.Mobile(ctx, "activateApp", map[string]any{"bundleId": n.d.bundleID}, nil)
+	for deadline := time.Now().Add(5 * time.Second); time.Now().Before(deadline); {
+		els, err := n.d.session.FindAll(ctx, "-ios predicate string", "name == 'NotificationShortLookView'")
+		if err != nil || len(els) == 0 {
+			break
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(100 * time.Millisecond):
+		}
+	}
+	return n.d.session.Settings(ctx, map[string]any{"defaultActiveApplication": n.d.bundleID})
 }
 
 // predicateString is a text as a string of an NSPredicate.

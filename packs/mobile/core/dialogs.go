@@ -89,13 +89,20 @@ func dialogSteps() []core.StepDef {
 }
 
 // dialog waits for the dialog the system shows over the app, and returns its
-// text.
+// text. A dialog still coming in has no text yet, and an answer then is lost
+// (UiAutomator2's): it has come once its text shows. One that never shows a
+// text is a dialog all the same, once the wait is over.
 func dialog(sc *core.Scenario, d Device, app string, wait time.Duration) (string, error) {
 	var text string
+	blank := false
 	ok, err := waitUntil(sc, wait, func() (bool, error) {
 		t, err := d.Session().AlertText(sc.Context())
 		var ae *appium.Error
 		if errors.As(err, &ae) && ae.Code == "no such alert" {
+			return false, nil
+		}
+		if err == nil && t == "" {
+			blank = true
 			return false, nil
 		}
 		text = t
@@ -104,7 +111,7 @@ func dialog(sc *core.Scenario, d Device, app string, wait time.Duration) (string
 	if err != nil {
 		return "", err
 	}
-	if !ok {
+	if !ok && !blank {
 		return "", core.Failf("The %s app shows no dialog", app)
 	}
 	return text, nil

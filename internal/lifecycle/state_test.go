@@ -20,7 +20,7 @@ func TestStateFileAndReap(t *testing.T) {
 	dir := t.TempDir()
 	stateFile := filepath.Join(dir, ".axx", "run", "state.json")
 	events := filepath.Join(dir, "events")
-	h := newHarness(t, config.Apps{recorder(t, events, "db"), recorder(t, events, "api")}, Options{StateFile: stateFile})
+	h := newHarness(t, config.Services{recorder(t, events, "db"), recorder(t, events, "api")}, Options{StateFile: stateFile})
 	if err := h.Start(t.Context(), nil); err != nil {
 		t.Fatal(err)
 	}
@@ -29,11 +29,11 @@ func TestStateFileAndReap(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if st.PID != os.Getpid() || len(st.Apps) != 2 {
+	if st.PID != os.Getpid() || len(st.Services) != 2 {
 		t.Fatalf("state = %+v", st)
 	}
 	for i, name := range []string{"db", "api"} {
-		sa := st.Apps[i]
+		sa := st.Services[i]
 		if sa.Name != name || sa.PID != h.pidOf(t, name) || sa.PGID == 0 || sa.StartedAt.IsZero() ||
 			sa.Dir != h.dir || !slices.Contains(sa.Cleanup, name+" cleanup") || sa.Env[helperEnv] != "1" {
 			t.Errorf("state entry %d = %+v", i, sa)
@@ -62,7 +62,7 @@ func TestStateFileAndReap(t *testing.T) {
 	if got, want := only(readLines(t, events), "cleanup"), []string{"api", "db"}; !slices.Equal(got, want) {
 		t.Errorf("cleanups %q, want %q", got, want)
 	}
-	if out := stdout.String(); !strings.Contains(out, "stopping app api") || !strings.Contains(out, "running cleanup of app db") {
+	if out := stdout.String(); !strings.Contains(out, "stopping service api") || !strings.Contains(out, "running cleanup of service db") {
 		t.Errorf("Reap output:\n%s", out)
 	}
 	if _, err := os.Stat(stateFile); !errors.Is(err, fs.ErrNotExist) {
@@ -73,7 +73,7 @@ func TestStateFileAndReap(t *testing.T) {
 func TestStopRemovesStateFile(t *testing.T) {
 	t.Parallel()
 	stateFile := filepath.Join(t.TempDir(), "state.json")
-	h := newHarness(t, config.Apps{helperApp(t, "api", "sleep")}, Options{StateFile: stateFile})
+	h := newHarness(t, config.Services{helperApp(t, "api", "sleep")}, Options{StateFile: stateFile})
 	if err := h.Start(t.Context(), nil); err != nil {
 		t.Fatal(err)
 	}
@@ -88,22 +88,22 @@ func TestStopRemovesStateFile(t *testing.T) {
 	}
 }
 
-// A run stopped by force, or crashed, leaves its apps' cleanup behind; the
+// A run stopped by force, or crashed, leaves its services' cleanup behind; the
 // next run cleans up as `axx down` does and starts from a clean slate.
 func TestARunCleansUpWhatAKilledRunLeft(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
 	stateFile := filepath.Join(dir, "state.json")
 	events := filepath.Join(dir, "events")
-	// An earlier run was killed; its app is gone but its cleanup never ran.
-	stale := stateApp{
+	// An earlier run was killed; its service is gone but its cleanup never ran.
+	stale := stateService{
 		Name: "old", PID: 1 << 22, PGID: 1 << 22, Dir: dir, Cleanup: helper(t, "append", events, "old cleanup").Argv,
 		Env: helperEnvVars(),
 	}
-	if err := writeState(stateFile, runState{Version: stateVersion, PID: 1 << 22, Apps: []stateApp{stale}}); err != nil {
+	if err := writeState(stateFile, runState{Version: stateVersion, PID: 1 << 22, Services: []stateService{stale}}); err != nil {
 		t.Fatal(err)
 	}
-	h := newHarness(t, config.Apps{helperApp(t, "api", "sleep")}, Options{StateFile: stateFile})
+	h := newHarness(t, config.Services{helperApp(t, "api", "sleep")}, Options{StateFile: stateFile})
 	if err := h.Start(t.Context(), nil); err != nil {
 		t.Fatal(err)
 	}
@@ -111,7 +111,7 @@ func TestARunCleansUpWhatAKilledRunLeft(t *testing.T) {
 		t.Errorf("events %q", got)
 	}
 	st, err := readState(stateFile)
-	if err != nil || len(st.Apps) != 1 || st.Apps[0].Name != "api" {
+	if err != nil || len(st.Services) != 1 || st.Services[0].Name != "api" {
 		t.Fatalf("state while running = %+v, %v", st, err)
 	}
 	if err := h.Stop(t.Context()); err != nil {
@@ -126,17 +126,17 @@ func TestARunLeavesAnotherRunsAppsAlone(t *testing.T) {
 	dir := t.TempDir()
 	stateFile := filepath.Join(dir, "state.json")
 	events := filepath.Join(dir, "events")
-	live := stateApp{Name: "shared", PID: os.Getpid(), PGID: os.Getpid(), Owner: os.Getpid()}
-	stale := stateApp{
+	live := stateService{Name: "shared", PID: os.Getpid(), PGID: os.Getpid(), Owner: os.Getpid()}
+	stale := stateService{
 		Name: "old", PID: 1 << 22, PGID: 1 << 22, Owner: 1 << 22, Dir: dir, Cleanup: helper(t, "append", events, "old cleanup").Argv,
 		Env: helperEnvVars(),
 	}
-	if err := writeState(stateFile, runState{Version: stateVersion, PID: 1 << 22, Apps: []stateApp{live, stale}}); err != nil {
+	if err := writeState(stateFile, runState{Version: stateVersion, PID: 1 << 22, Services: []stateService{live, stale}}); err != nil {
 		t.Fatal(err)
 	}
-	h := newHarness(t, config.Apps{helperApp(t, "api", "sleep")}, Options{StateFile: stateFile})
+	h := newHarness(t, config.Services{helperApp(t, "api", "sleep")}, Options{StateFile: stateFile})
 	ae := mustCode(t, h.Start(t.Context(), nil), CodeNotCleanedUp)
-	if !strings.Contains(ae.Message, "the cleanup of app old never ran") || !strings.Contains(ae.Hint, "axx down") {
+	if !strings.Contains(ae.Message, "the cleanup of service old never ran") || !strings.Contains(ae.Hint, "axx down") {
 		t.Errorf("error = %v (hint %q)", ae, ae.Hint)
 	}
 	if _, err := os.Stat(events); !errors.Is(err, fs.ErrNotExist) {
@@ -146,7 +146,7 @@ func TestARunLeavesAnotherRunsAppsAlone(t *testing.T) {
 
 // A cleanup that fails, like `docker compose down` without access to
 // Docker, stays in the state file: runs try it again and refuse to start
-// apps while it fails, and `axx down` runs it again until it succeeds.
+// services while it fails, and `axx down` runs it again until it succeeds.
 func TestAFailedCleanupIsKeptUntilItSucceeds(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
@@ -154,23 +154,23 @@ func TestAFailedCleanupIsKeptUntilItSucceeds(t *testing.T) {
 	docker := filepath.Join(dir, "docker-access") // the cleanup fails until it exists
 	db := logReady(helperApp(t, "db", "print", "ready"), "^ready$")
 	db.Cleanup = helper(t, "exists", docker)
-	h := newHarness(t, config.Apps{db}, Options{StateFile: stateFile})
+	h := newHarness(t, config.Services{db}, Options{StateFile: stateFile})
 	if err := h.Start(t.Context(), nil); err != nil {
 		t.Fatal(err)
 	}
 	wantCode(t, h.Stop(t.Context()), CodeCleanupFailed)
 	st, err := readState(stateFile)
-	if err != nil || len(st.Apps) != 1 || st.Apps[0].Name != "db" || !st.Apps[0].CleanupFailed {
+	if err != nil || len(st.Services) != 1 || st.Services[0].Name != "db" || !st.Services[0].CleanupFailed {
 		t.Fatalf("state after the failed cleanup = %+v, %v", st, err)
 	}
 	apps, err := Status(stateFile)
-	if err != nil || len(apps) != 1 || apps[0].State != AppNotCleaned || !apps[0].CleanupFailed || !strings.Contains(apps[0].Cleanup, "exists") {
+	if err != nil || len(apps) != 1 || apps[0].State != ServiceNotCleaned || !apps[0].CleanupFailed || !strings.Contains(apps[0].Cleanup, "exists") {
 		t.Fatalf("status = %+v, %v", apps, err)
 	}
 
 	// The next run cleans up first, as `axx down` does; the cleanup fails
 	// again, and the run refuses to start from what is left.
-	next := newHarness(t, config.Apps{db}, Options{StateFile: stateFile})
+	next := newHarness(t, config.Services{db}, Options{StateFile: stateFile})
 	ae := mustCode(t, next.Start(t.Context(), nil), CodeNotCleanedUp)
 	if !strings.Contains(ae.Message, "cleaning it up failed") || !strings.Contains(ae.Hint, "axx down") {
 		t.Errorf("error = %v (hint %q)", ae, ae.Hint)
@@ -182,7 +182,7 @@ func TestAFailedCleanupIsKeptUntilItSucceeds(t *testing.T) {
 	if len(reaped) != 0 {
 		t.Errorf("reaped %q", reaped)
 	}
-	if st, err := readState(stateFile); err != nil || len(st.Apps) != 1 || !st.Apps[0].CleanupFailed {
+	if st, err := readState(stateFile); err != nil || len(st.Services) != 1 || !st.Services[0].CleanupFailed {
 		t.Fatalf("state after the second failure = %+v, %v", st, err)
 	}
 
@@ -209,7 +209,7 @@ func TestStatusSaysWhatEarlierRunsLeft(t *testing.T) {
 	stateFile := filepath.Join(t.TempDir(), "state.json")
 	gone, alive := 1<<22, os.Getpid()
 	cleanup := []string{"docker", "compose", "down", "-v"}
-	st := runState{Version: stateVersion, PID: gone, Apps: []stateApp{
+	st := runState{Version: stateVersion, PID: gone, Services: []stateService{
 		{Name: "api", PID: alive, Owner: alive},                 // its run is running
 		{Name: "worker", PID: alive, Owner: gone},               // its run was killed
 		{Name: "db", PID: gone, Owner: gone, Cleanup: cleanup},  // killed, cleanup never ran
@@ -223,11 +223,11 @@ func TestStatusSaysWhatEarlierRunsLeft(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := []AppStatus{
-		{Name: "api", State: AppRunning, PID: alive},
-		{Name: "worker", State: AppLeftOver, PID: alive},
-		{Name: "db", State: AppNotCleaned, Cleanup: "docker compose down -v"},
-		{Name: "broker", State: AppNotCleaned, Cleanup: "docker compose down -v", CleanupFailed: true},
+	want := []ServiceStatus{
+		{Name: "api", State: ServiceRunning, PID: alive},
+		{Name: "worker", State: ServiceLeftOver, PID: alive},
+		{Name: "db", State: ServiceNotCleaned, Cleanup: "docker compose down -v"},
+		{Name: "broker", State: ServiceNotCleaned, Cleanup: "docker compose down -v", CleanupFailed: true},
 	}
 	if !slices.Equal(apps, want) {
 		t.Errorf("status = %+v\nwant     %+v", apps, want)
@@ -237,22 +237,22 @@ func TestStatusSaysWhatEarlierRunsLeft(t *testing.T) {
 	}
 }
 
-// A run that reuses the apps `axx up` keeps running finds them in the state
+// A run that reuses the services `axx up` keeps running finds them in the state
 // file; they are not leftovers, so it does not warn about them.
 func TestStateFileQuietForAttachedApps(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
 	stateFile := filepath.Join(dir, "state.json")
-	up := stateApp{Name: "api", PID: 1 << 22, PGID: 1 << 22, Dir: dir}
-	if err := writeState(stateFile, runState{Version: stateVersion, PID: 1, Apps: []stateApp{up}}); err != nil {
+	up := stateService{Name: "api", PID: 1 << 22, PGID: 1 << 22, Dir: dir}
+	if err := writeState(stateFile, runState{Version: stateVersion, PID: 1, Services: []stateService{up}}); err != nil {
 		t.Fatal(err)
 	}
-	h := newHarness(t, config.Apps{helperApp(t, "api", "sleep")}, Options{StateFile: stateFile, Attach: map[string]bool{"api": true}})
+	h := newHarness(t, config.Services{helperApp(t, "api", "sleep")}, Options{StateFile: stateFile, Attach: map[string]bool{"api": true}})
 	if err := h.Start(t.Context(), nil); err != nil {
 		t.Fatal(err)
 	}
 	if strings.Contains(h.logs.String(), "earlier run") {
-		t.Errorf("warned about an app the run reuses:\n%s", h.logs)
+		t.Errorf("warned about a service the run reuses:\n%s", h.logs)
 	}
 	if err := h.Stop(t.Context()); err != nil {
 		t.Fatal(err)
@@ -275,7 +275,7 @@ func TestReapEdgeCases(t *testing.T) {
 		t.Errorf("hint = %q", ae.Hint)
 	}
 	corrupt := filepath.Join(dir, "corrupt.json")
-	if err := writeState(corrupt, runState{Version: stateVersion, Apps: []stateApp{{Name: "x", PID: 1, PGID: 1}}}); err != nil {
+	if err := writeState(corrupt, runState{Version: stateVersion, Services: []stateService{{Name: "x", PID: 1, PGID: 1}}}); err != nil {
 		t.Fatal(err)
 	}
 	if runtime.GOOS != "windows" {

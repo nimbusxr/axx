@@ -7,6 +7,7 @@ import (
 	"github.com/nimbusxr/axx/core"
 	"github.com/nimbusxr/axx/packs/a2a"
 	"github.com/nimbusxr/axx/packs/amqp"
+	appcore "github.com/nimbusxr/axx/packs/app/core"
 	"github.com/nimbusxr/axx/packs/asyncapi"
 	awscore "github.com/nimbusxr/axx/packs/aws/core"
 	awsdynamodb "github.com/nimbusxr/axx/packs/aws/dynamodb"
@@ -17,6 +18,10 @@ import (
 	azureblob "github.com/nimbusxr/axx/packs/azure/blob"
 	azureservicebus "github.com/nimbusxr/axx/packs/azure/servicebus"
 	"github.com/nimbusxr/axx/packs/cli"
+	desktopcore "github.com/nimbusxr/axx/packs/desktop/core"
+	desktoplinux "github.com/nimbusxr/axx/packs/desktop/linux"
+	desktopmacos "github.com/nimbusxr/axx/packs/desktop/macos"
+	desktopwindows "github.com/nimbusxr/axx/packs/desktop/windows"
 	"github.com/nimbusxr/axx/packs/files"
 	gcpbigquery "github.com/nimbusxr/axx/packs/gcp/bigquery"
 	gcpcore "github.com/nimbusxr/axx/packs/gcp/core"
@@ -80,9 +85,14 @@ func Packs() map[string]core.Pack {
 		"web-network":      webnetwork.Pack(),
 		"web-lighthouse":   weblighthouse.Pack(),
 		"web-coverage":     webcoverage.Pack(),
+		"app-core":         appcore.Pack(),
 		"mobile-core":      mobilecore.Pack(),
 		"mobile-android":   mobileandroid.Pack(),
 		"mobile-ios":       mobileios.Pack(),
+		"desktop-core":     desktopcore.Pack(),
+		"desktop-macos":    desktopmacos.Pack(),
+		"desktop-windows":  desktopwindows.Pack(),
+		"desktop-linux":    desktoplinux.Pack(),
 		"aws-core":         awscore.Pack(),
 		"aws-s3":           awss3.Pack(),
 		"aws-sqs":          awssqs.Pack(),

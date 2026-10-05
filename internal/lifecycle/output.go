@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	// tailLines is how many output lines are kept per app for failure reports.
+	// tailLines is how many output lines are kept per service for failure reports.
 	tailLines = 200
 	// errorTailLines is how many of them an error message quotes.
 	errorTailLines = 20
@@ -17,7 +17,7 @@ const (
 	maxLineBytes = 1 << 20
 )
 
-// ring keeps the last n lines of an app's output.
+// ring keeps the last n lines of a service's output.
 type ring struct {
 	mu    sync.Mutex
 	lines []string
@@ -50,7 +50,7 @@ func (r *ring) snapshot() []string {
 }
 
 // console writes whole lines to the user's writers so that output from
-// concurrently running apps never interleaves mid-line. One lock guards both
+// concurrently running services never interleaves mid-line. One lock guards both
 // writers because they are often the same terminal or buffer.
 type console struct {
 	mu     sync.Mutex

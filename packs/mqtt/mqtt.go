@@ -42,7 +42,7 @@ Given the depots mqtt broker with the following properties:
 
 Steps name a **topic**: ` + "`the depots/LEJ/scans mqtt topic`" + `. Messages carry user properties (` + "`property <name>`" + ` rows), and are published at QoS 1, not retained, unless the ` + "`qos`" + ` and ` + "`retain`" + ` rows say otherwise.
 
-- **A check subscribes for the run:** for the topics a run checks, axx subscribes once the apps are up, with a connection of its own. A topic in a check can be a filter with ` + "`+`" + ` and ` + "`#`" + `: ` + "`the depots/+/alerts mqtt topic`" + `, and a ` + "`topic`" + ` row checks the topic a message came on.
+- **A check subscribes for the run:** for the topics a run checks, axx subscribes once the services are up, with a connection of its own. A topic in a check can be a filter with ` + "`+`" + ` and ` + "`#`" + `: ` + "`the depots/+/alerts mqtt topic`" + `, and a ` + "`topic`" + ` row checks the topic a message came on.
 - **A check only looks at the messages received since its scenario started,** so scenarios running in parallel check their own messages, by data unique to them.
 - **Retained messages from before never count:** axx subscribes without the messages the broker keeps for new subscribers, which earlier runs may have left.
 - **Secrets stay secret:** ` + "`${env:..}`" + ` values in the properties are masked in logs and failures.`
@@ -465,7 +465,7 @@ func (pack) Prepare(_ context.Context, s *core.Suite, plan *core.Plan) error {
 	return nil
 }
 
-// Init subscribes to the planned topics, now that the apps run.
+// Init subscribes to the planned topics, now that the services run.
 func (pack) Init(ctx context.Context, s *core.Suite) error {
 	return cloudstep.DeferredFor(s, Name).Run(ctx)
 }

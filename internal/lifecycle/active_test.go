@@ -8,11 +8,11 @@ import (
 )
 
 func TestSelectActive(t *testing.T) {
-	tagged := func(app config.App, tags ...string) config.App {
+	tagged := func(app config.Service, tags ...string) config.Service {
 		app.Active.Tags = tags
 		return app
 	}
-	apps := config.Apps{
+	apps := config.Services{
 		dep("db"),                       // no tags: always
 		tagged(dep("kafka"), "@events"), // with @
 		tagged(dep("api", "kafka"), "api", "@web"), // without @; needs kafka
@@ -39,8 +39,8 @@ func TestSelectActive(t *testing.T) {
 		{"dependencies included", on, [][]string{{"@web"}}, []string{"db", "kafka", "api"}, ""},
 		{"scenario tags without @ normalized", on, [][]string{{"admin"}}, []string{"db", "admin"}, ""},
 		{"union across scenarios", on, [][]string{{"@admin"}, {"@smoke", "@events"}}, []string{"db", "kafka", "admin"}, ""},
-		{"no match keeps untagged apps", on, [][]string{{"@other"}}, []string{"db"}, ""},
-		{"disabled app never selected", on, [][]string{{"@api"}}, []string{"db", "kafka", "api"}, ""},
+		{"no match keeps untagged services", on, [][]string{{"@other"}}, []string{"db"}, ""},
+		{"disabled service never selected", on, [][]string{{"@api"}}, []string{"db", "kafka", "api"}, ""},
 		{"tags are case sensitive", on, [][]string{{"@API"}}, []string{"db"}, ""},
 	}
 	for _, tt := range tests {
@@ -60,18 +60,18 @@ func TestSelectActive(t *testing.T) {
 	}
 }
 
-// An app can wait for the packs the scenarios use, like an emulator for the
+// A service can wait for the packs the scenarios use, like an emulator for the
 // scenarios with Android steps: no tag needed.
 func TestSelectActiveByUses(t *testing.T) {
-	usedBy := func(app config.App, packs ...string) config.App {
+	usedBy := func(app config.Service, packs ...string) config.Service {
 		app.Active.Uses = packs
 		return app
 	}
-	tagged := func(app config.App, tags ...string) config.App {
+	tagged := func(app config.Service, tags ...string) config.Service {
 		app.Active.Tags = tags
 		return app
 	}
-	apps := config.Apps{
+	apps := config.Services{
 		dep("db"),
 		usedBy(dep("emulator"), "mobile-android"),
 		tagged(dep("portal"), "@web"),
@@ -88,7 +88,7 @@ func TestSelectActiveByUses(t *testing.T) {
 		{"a pack the scenarios use", on, [][]string{{"@checkout"}}, []string{"rest", "mobile-android"}, []string{"db", "emulator"}},
 		{"no pack, a tag", on, [][]string{{"@web"}}, []string{"rest"}, []string{"db", "portal"}},
 		{"a tag or a pack", on, [][]string{{"@x"}}, []string{"mobile-ios"}, []string{"db", "stub"}},
-		{"untagged scenarios fall back for tagged apps", on, [][]string{{}}, []string{"mobile-android"}, []string{"db", "emulator", "portal", "stub"}},
+		{"untagged scenarios fall back for tagged services", on, [][]string{{}}, []string{"mobile-android"}, []string{"db", "emulator", "portal", "stub"}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -101,8 +101,8 @@ func TestSelectActiveByUses(t *testing.T) {
 			}
 		})
 	}
-	// Apps that wait for packs alone need no tags: untagged scenarios are no error.
-	onlyPacks := config.Apps{dep("db"), usedBy(dep("emulator"), "mobile-android")}
+	// Services that wait for packs alone need no tags: untagged scenarios are no error.
+	onlyPacks := config.Services{dep("db"), usedBy(dep("emulator"), "mobile-android")}
 	got, err := SelectActive(onlyPacks, config.Active{Enabled: true, OnNoTags: "error"}, [][]string{{}}, []string{"rest"})
 	if err != nil || !slices.Equal(got, []string{"db"}) {
 		t.Errorf("SelectActive = %q, %v", got, err)

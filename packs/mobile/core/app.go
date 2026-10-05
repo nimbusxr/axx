@@ -7,6 +7,7 @@ import (
 
 	"github.com/nimbusxr/axx/core"
 	"github.com/nimbusxr/axx/internal/secrets"
+	appcore "github.com/nimbusxr/axx/packs/app/core"
 	"github.com/nimbusxr/axx/packs/mobile/internal/appium"
 )
 
@@ -21,6 +22,9 @@ type App struct {
 type Platform interface {
 	// Kind is the platform, as registrations name it: android or ios.
 	Kind() string
+	// RunsHere is whether this machine can run the app: an iOS simulator
+	// needs a Mac, a device farm does not.
+	RunsHere() bool
 	// Start leases a device for the scenario, resets the app and what it can
 	// see on it, and starts a session of the app, which the scenario then has
 	// until it ends.
@@ -54,6 +58,8 @@ type Device interface {
 	// ScreenKey tells screenshots of this device apart from others', like
 	// android-parcels-pixel.
 	ScreenKey() string
+	// Files are the app's files at a path in its sandbox, on the device.
+	Files(ctx context.Context, path string) (core.Files, error)
 	// Describe is the device and app for a failed scenario's context.
 	Describe() map[string]any
 	// Stop ends the session and gives the device back; failed tells whether
@@ -61,12 +67,25 @@ type Device interface {
 	Stop(failed bool) error
 }
 
-var apps = core.NewStateKey(Name+"/apps", func(*core.Scenario) *core.Services[*App] {
-	return core.NewServices[*App]("mobile app", `No mobile app is registered in this scenario; register one with "the {word} android app with the following properties:"`)
-}, nil)
+// Register adds a platform's app to the scenario's apps, which app-core
+// keeps: one app runs on one platform in a scenario.
+func Register(sc *core.Scenario, app *App) error {
+	return appcore.Register(sc, &appcore.App{Name: app.Name, Platform: app.Platform.Kind(), Family: family{}, Data: app},
+		app.Platform.RunsHere())
+}
 
-// Register adds a platform's app to the scenario's apps.
-func Register(sc *core.Scenario, app *App) error { return apps.Of(sc).Add(app.Name, app) }
+// mobileApp is the scenario's app of the name, which must be a mobile app.
+func mobileApp(sc *core.Scenario, name string) (*App, error) {
+	a, err := appcore.Get(sc, name)
+	if err != nil {
+		return nil, err
+	}
+	m, ok := a.Data.(*App)
+	if !ok {
+		return nil, fmt.Errorf("the %s app runs on %s: this step is for apps on phones", name, a.Platform)
+	}
+	return m, nil
+}
 
 // running is the scenario's apps that run, each on its device.
 type running struct {
@@ -111,7 +130,7 @@ func stopAll(sc *core.Scenario, r *running) error {
 // device is the named app's device: started if start is true and it is not
 // running yet.
 func device(sc *core.Scenario, name string, start bool) (Device, error) {
-	app, err := apps.Of(sc).Get(name)
+	app, err := mobileApp(sc, name)
 	if err != nil {
 		return nil, err
 	}

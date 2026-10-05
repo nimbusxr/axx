@@ -92,7 +92,7 @@ Like `run.tags`, it narrows whole runs: a feature file you name, or click in you
 ## Tags that change behavior
 
 - Tags listed in `run.exclusive` make scenarios run alone, after the parallel phase ([Run in parallel](/guides/parallel-runs/)).
-- With `active.enabled`, tags decide which apps start ([Manage the app lifecycle](/guides/manage-app-lifecycle/#start-only-what-a-run-needs)).
+- With `active.enabled`, tags decide which services start ([Manage the services under test](/guides/manage-services/#start-only-what-a-run-needs)).
 
 ## Rerun what failed
 
@@ -103,7 +103,7 @@ axx run $(cat build/axx/rerun.txt)         # run only those
 
 ## Preview a selection
 
-`--dry-run` matches every selected step without starting apps or executing anything, which shows what a filter selects:
+`--dry-run` matches every selected step without starting services or executing anything, which shows what a filter selects:
 
 ```sh
 axx run --tags @smoke --dry-run

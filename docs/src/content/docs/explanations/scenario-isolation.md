@@ -15,7 +15,7 @@ Everything outside Axx persists: rows in the database, documents in MongoDB, eve
 
 1. **Every scenario owns its data.** References, ids, keys and emails belong to one scenario: `PX-REG-1004`, not `test`. A scenario that registers a parcel for the sender `shop-example` and then counts that sender's parcels will pass alone and fail beside any other scenario that does the same.
 2. **Assert on your own data only.** Select rows by your ids; name mock request patterns by URLs that contain your ids; consume events by your keys.
-3. **Do not rely on cleanup.** Data from earlier runs, failed and interrupted ones included, is still there. A scenario must pass beside everyone else's data. A scenario that inserts a fixed id (a seed, a registration with a fixed reference) needs that id to be free, so it runs again only on a fresh environment: `axx run` starts from empty databases when the apps' `cleanup` removes their data (as `docker compose down -v` does), and against `axx up`, restart with `axx down` and `axx up`.
+3. **Do not rely on cleanup.** Data from earlier runs, failed and interrupted ones included, is still there. A scenario must pass beside everyone else's data. A scenario that inserts a fixed id (a seed, a registration with a fixed reference) needs that id to be free, so it runs again only on a fresh environment: `axx run` starts from empty databases when the services' `cleanup` removes their data (as `docker compose down -v` does), and against `axx up`, restart with `axx down` and `axx up`.
 
 ## Enforcing it
 

@@ -13,7 +13,7 @@ import (
 const catalogFile = "../../testdata/steps.json"
 
 var (
-	updateCatalog = flag.Bool("update", false, "add the steps and parameter types missing from testdata/steps.json, and record the pack a step moved to; never removes an entry")
+	updateCatalog = flag.Bool("update", false, "add the steps and parameter types missing from testdata/steps.json, and record the pack a step moved to and a parameter type's changed regexp; never removes an entry")
 	pruneCatalog  = flag.Bool("prune", false, "remove the entries of steps no pack defines any more: for steps the owner decided to remove, never to hide one that went missing")
 )
 
@@ -55,8 +55,10 @@ func TestStepCatalog(t *testing.T) {
 		exprs[v.Expr] = v.Def.Pack
 	}
 	params := map[string][]string{}
+	paramPacks := map[string]string{}
 	for _, p := range e.Registry.Params() {
 		params[p.Type.Name] = p.Type.Regexps
+		paramPacks[p.Type.Name] = p.Pack
 	}
 	listed := map[string]bool{}
 	kept := make([]catalogEntry, 0, len(cat.Entries))
@@ -86,11 +88,21 @@ func TestStepCatalog(t *testing.T) {
 					"run `go test ./internal/engine -run TestStepCatalog -update`", c.Expression, got, c.Pack, c.Pack)
 			}
 		case "parameterType":
+			re, ok := params[c.Name]
+			if ok && len(re) > 0 && re[0] != c.Expression && *updateCatalog {
+				// Its words changed on purpose, like the kinds of {control}.
+				c.Expression = re[0]
+				moved++
+			}
+			if pk := paramPacks[c.Name]; ok && pk != c.Pack && pk != "cucumber" && *updateCatalog {
+				c.Pack = pk // it moved, like {control} to app-core
+				moved++
+			}
 			kept = append(kept, c)
 			listed["parameterType "+c.Name] = true
-			re, ok := params[c.Name]
 			if !ok || len(re) == 0 || re[0] != c.Expression {
-				t.Errorf("parameter type {%s} with regexp %q is missing or differs (have %q)", c.Name, c.Expression, re)
+				t.Errorf("parameter type {%s} with regexp %q is missing or differs (have %q): if it changed on purpose, "+
+					"run `go test ./internal/engine -run TestStepCatalog -update`", c.Name, c.Expression, re)
 			}
 		}
 	}

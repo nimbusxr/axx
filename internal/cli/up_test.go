@@ -52,6 +52,6 @@ func TestTheSupervisorGetsTheSameConfiguration(t *testing.T) {
 	settings, _ := cmd.Flags().GetStringArray("set")
 	debug, _ := cmd.Flags().GetString("debug")
 	if profile != "ci" || !slices.Equal(defines, cf.defines) || !slices.Equal(settings, cf.settings) || debug != "api" || !slices.Equal(cmd.Flags().Args(), []string{"api"}) {
-		t.Errorf("the supervisor got profile %q, -D %v, --set %v, --debug %q, apps %v", profile, defines, settings, debug, cmd.Flags().Args())
+		t.Errorf("the supervisor got profile %q, -D %v, --set %v, --debug %q, services %v", profile, defines, settings, debug, cmd.Flags().Args())
 	}
 }

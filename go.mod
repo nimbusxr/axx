@@ -14,6 +14,7 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v1.8.1
 	github.com/Azure/go-amqp v1.4.0
 	github.com/a2aproject/a2a-go/v2 v2.6.0
+	github.com/antchfx/xpath v1.3.9
 	github.com/aws/aws-sdk-go-v2 v1.47.1
 	github.com/aws/aws-sdk-go-v2/config v1.33.6
 	github.com/aws/aws-sdk-go-v2/credentials v1.20.6
@@ -30,14 +31,18 @@ require (
 	github.com/cucumber/messages/go/v34 v34.2.1
 	github.com/cucumber/tag-expressions/go/v11 v11.0.1
 	github.com/dlclark/regexp2 v1.12.0
+	github.com/ebitengine/purego v0.10.1
 	github.com/eclipse/paho.golang v0.23.0
 	github.com/emersion/go-imap v1.2.1
+	github.com/go-ole/go-ole v1.3.0
 	github.com/go-sql-driver/mysql v1.10.1
 	github.com/goccy/go-yaml v1.19.2
+	github.com/godbus/dbus/v5 v5.2.2
 	github.com/invopop/jsonschema v0.14.0
 	github.com/iskorotkov/avro/v2 v2.34.0
 	github.com/jackc/pgx/v5 v5.11.0
 	github.com/jacoelho/xsd v0.5.1
+	github.com/jezek/xgb v1.3.1
 	github.com/ledongthuc/pdf v0.0.0-20260907135840-6c8c28e0e8a0
 	github.com/microsoft/go-mssqldb v1.11.2
 	github.com/moby/moby/api v1.55.0
@@ -125,7 +130,6 @@ require (
 	github.com/docker/go-connections v0.7.0 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
-	github.com/ebitengine/purego v0.10.1 // indirect
 	github.com/emersion/go-sasl v0.0.0-20200509203442-7bfe0ed36a21 // indirect
 	github.com/envoyproxy/go-control-plane/envoy v1.37.0 // indirect
 	github.com/envoyproxy/protoc-gen-validate v1.3.3 // indirect
@@ -133,7 +137,6 @@ require (
 	github.com/go-jose/go-jose/v4 v4.1.4 // indirect
 	github.com/go-logr/logr v1.4.4 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
-	github.com/go-ole/go-ole v1.3.0 // indirect
 	github.com/go-openapi/jsonpointer v0.23.2 // indirect
 	github.com/go-openapi/swag/jsonname v0.26.1 // indirect
 	github.com/go-stack/stack v1.8.1 // indirect

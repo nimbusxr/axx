@@ -41,7 +41,7 @@ Add the pack to the project with `axx pack add web-core` ([Choose packs](/guides
 
 The browsers run on the machine that runs Axx, as in any Playwright project: Chromium, Firefox and WebKit, the builds of Playwright 1.62.1, the version the pack drives. The pack downloads each one the first time a scenario uses it, and keeps it where Playwright keeps its browsers, for the next runs and for other Playwright projects of that version: `~/Library/Caches/ms-playwright` on macOS, `~/.cache/ms-playwright` on Linux, `%LOCALAPPDATA%\ms-playwright` on Windows (`PLAYWRIGHT_BROWSERS_PATH` moves it). The engines `chrome` and `msedge` are the Google Chrome and Microsoft Edge installed on the machine. Chromium is the whole browser, with a window or without one, so that a run behaves the same whether you watch it or not.
 
-The browsers use your apps at the addresses you would: `localhost` and the port an app listens on, whether it runs in Compose, publishing its port, or on your machine, from your IDE or with `axx run --debug` ([Manage app lifecycle](/guides/manage-app-lifecycle/)).
+The browsers use your web apps at the addresses you would: `localhost` and the port their service listens on, whether it runs in Compose, publishing its port, or on your machine, from your IDE or with `axx run --debug` ([Manage the services under test](/guides/manage-services/)).
 
 ### In CI
 

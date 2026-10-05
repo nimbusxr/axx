@@ -3,7 +3,7 @@ title: Run in CI
 description: Run Axx in GitHub Actions with setup-axx, in GitLab CI with the install script, or anywhere with the container image, and publish JUnit and HTML reports.
 ---
 
-In CI, Axx does the same thing it does on a laptop: start the apps, wait until they are ready, run the scenarios, stop everything. The only extra work is installing Axx and keeping the reports.
+In CI, Axx does the same thing it does on a laptop: start the services, wait until they are ready, run the scenarios, stop everything. The only extra work is installing Axx and keeping the reports.
 
 ## GitHub Actions
 
@@ -34,11 +34,11 @@ jobs:
           path: build/axx/
 ```
 
-GitHub-hosted Ubuntu runners include Docker and Compose, so apps that start with `docker compose up` work as they do locally. `nimbusxr/setup-axx` installs the latest release (pre-releases included) and adds it to `PATH`. Its `version` input installs another: a version such as `0.1.0`, or `nightly`. `@v0` is the action's own version: its tag `v0` follows the action's 0.x releases while Axx is in beta.
+GitHub-hosted Ubuntu runners include Docker and Compose, so services that start with `docker compose up` work as they do locally. `nimbusxr/setup-axx` installs the latest release (pre-releases included) and adds it to `PATH`. Its `version` input installs another: a version such as `0.1.0`, or `nightly`. `@v0` is the action's own version: its tag `v0` follows the action's 0.x releases while Axx is in beta.
 
 ## GitLab CI
 
-Install Axx with the install script. When the apps start with Docker Compose, run the job with Docker-in-Docker and point the tests at the `docker` host through a profile:
+Install Axx with the install script. When the services start with Docker Compose, run the job with Docker-in-Docker and point the tests at the `docker` host through a profile:
 
 ```yaml title=".gitlab-ci.yml"
 acceptance:
@@ -70,7 +70,7 @@ This works when your features and `axx.yaml` use `${sys:local.host}` instead of 
 
 ## Any other CI
 
-Use the install script, or the container image for commands that do not start apps:
+Use the install script, or the container image for commands that do not start services:
 
 ```sh
 docker run --rm -v axx-cache:/home/nonroot -v "$PWD:/work" -w /work ghcr.io/nimbusxr/axx validate
@@ -104,11 +104,11 @@ A stale cache is harmless: when the packs or Axx's version change, Axx prepares 
 
 ## Catch problems early
 
-The exit code says what kind of failure it was, without parsing output: `1` is a failed scenario, `3` an undefined step, `4` an app that did not start ([exit codes](/references/error-codes/#exit-codes)). Two cheap guards catch the last two before any app starts:
+The exit code says what kind of failure it was, without parsing output: `1` is a failed scenario, `3` an undefined step, `4` a service that did not start ([exit codes](/references/error-codes/#exit-codes)). Two cheap guards catch the last two before any service starts:
 
 ```sh
 axx validate          # exit 3 on undefined steps, in seconds
-axx doctor            # exit 4 if an app's command is missing
+axx doctor            # exit 4 if a service's command is missing
 ```
 
 Use `--fail-fast` to stop scheduling new scenarios after the first failure when you prefer a quick red over a full report.

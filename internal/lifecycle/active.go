@@ -6,20 +6,20 @@ import (
 	"github.com/nimbusxr/axx/internal/config"
 )
 
-// SelectActive returns the names of the apps to start for a run, in
+// SelectActive returns the names of the services to start for a run, in
 // declaration order.
 //
-// Without active startup (active.enabled false) every enabled app is
+// Without active startup (active.enabled false) every enabled service is
 // selected. Otherwise the tags of all selected scenarios are pooled, and so
-// are the packs whose steps they use: an enabled app is selected when it
+// are the packs whose steps they use: an enabled service is selected when it
 // lists no active.tags and no active.uses, when any of its tags occurs in
-// the pool, or when the scenarios use any of its packs; the apps it depends
-// on come with it. When the scenarios have no tags at all and an app waits
-// for tags, onNoTags decides: "fallback" (the default) selects the apps that
+// the pool, or when the scenarios use any of its packs; the services it depends
+// on come with it. When the scenarios have no tags at all and a service waits
+// for tags, onNoTags decides: "fallback" (the default) selects the services that
 // wait for tags, "error" fails.
 //
 // Tags compare with their leading "@"; tags in axx.yaml may omit it.
-func SelectActive(apps config.Apps, active config.Active, scenarioTags [][]string, usedPacks []string) ([]string, error) {
+func SelectActive(apps config.Services, active config.Active, scenarioTags [][]string, usedPacks []string) ([]string, error) {
 	enabled := make([]string, 0, len(apps))
 	for _, a := range apps {
 		if a.IsEnabled() {
@@ -54,8 +54,8 @@ func SelectActive(apps config.Apps, active config.Active, scenarioTags [][]strin
 		case "", "fallback":
 			tagsMet = true
 		case "error":
-			return nil, configErr(CodeNoActiveTags, "active startup cannot choose apps: the selected scenarios have no tags").
-				WithHint("tag the scenarios (for example @api), or set active.onNoTags: fallback to start every enabled app")
+			return nil, configErr(CodeNoActiveTags, "active startup cannot choose services: the selected scenarios have no tags").
+				WithHint("tag the scenarios (for example @api), or set active.onNoTags: fallback to start every enabled service")
 		default:
 			return nil, configErr(CodeInvalidConfig, "active.onNoTags is %q", active.OnNoTags).
 				WithHint(`use "fallback" or "error"`)
@@ -64,17 +64,17 @@ func SelectActive(apps config.Apps, active config.Active, scenarioTags [][]strin
 
 	var picked []string
 	for _, a := range apps {
-		if a.IsEnabled() && wantsApp(a, pool, packs, tagsMet) {
+		if a.IsEnabled() && wantsService(a, pool, packs, tagsMet) {
 			picked = append(picked, a.Name)
 		}
 	}
 	return withDependencies(apps, picked), nil
 }
 
-// wantsApp reports whether the pooled scenario tags, or the packs the
-// scenarios use, call for app. tagsMet stands for scenarios that have no
+// wantsService reports whether the pooled scenario tags, or the packs the
+// scenarios use, call for service. tagsMet stands for scenarios that have no
 // tags at all, under onNoTags: fallback.
-func wantsApp(app config.App, pool, packs map[string]bool, tagsMet bool) bool {
+func wantsService(app config.Service, pool, packs map[string]bool, tagsMet bool) bool {
 	if len(app.Active.Tags) == 0 && len(app.Active.Uses) == 0 {
 		return true
 	}

@@ -12,7 +12,7 @@ Feature: Manifest import
     And the mocked addresses service with the following properties:
       | url | http://${sys:local.host}:8081 |
     And the console log with the following properties:
-      | url | file://.axx/logs/apps.log |
+      | url | file://.axx/logs/services.log |
 
   Scenario: Manifest lines become parcels
     Given a seeds/manifest-kestrel.yaml db seed

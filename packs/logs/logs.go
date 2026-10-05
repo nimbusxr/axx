@@ -33,12 +33,12 @@ Use logs to prove that something did **not** happen: have the service log its de
 
 | url | axx |
 | --- | --- |
-| ` + "`file:///var/log/app.log`" + `, ` + "`file://logs/app.log`" + ` | reads what is appended to the file (relative to axx.yaml); ` + "`file://.axx/logs/apps.log`" + ` is the console of the apps axx starts |
-| ` + "`udp://0.0.0.0:5140`" + ` | listens; each datagram is one or more lines (e.g. Docker's syslog log driver, an app's syslog handler) |
+| ` + "`file:///var/log/app.log`" + `, ` + "`file://logs/app.log`" + ` | reads what is appended to the file (relative to axx.yaml); ` + "`file://.axx/logs/services.log`" + ` is the console of the services axx starts |
+| ` + "`udp://0.0.0.0:5140`" + ` | listens; each datagram is one or more lines (e.g. Docker's syslog log driver, a service's syslog handler) |
 | ` + "`tcp://0.0.0.0:5150`" + ` | listens; newline-delimited or octet-counted (RFC 6587) messages |
 | ` + "`http://0.0.0.0:5160/logs`" + `, ` + "`https://...`" + ` | listens; the body of each POST or PUT to that path (e.g. a Fluent Bit or Vector http output). https uses a self-signed certificate |
 
-axx opens listeners before it starts the apps, for the log steps of the scenarios in the run, so services can send from the start; ` + "`axx up`" + ` keeps them open between runs. Services in containers reach them at ` + "`host.docker.internal`" + `.
+axx opens listeners before it starts the services, for the log steps of the scenarios in the run, so services can send from the start; ` + "`axx up`" + ` keeps them open between runs. Services in containers reach them at ` + "`host.docker.internal`" + `.
 
 **Patterns** are regular expressions (Java syntax), searched in the log's text, not matched against whole lines: ` + "`^`" + ` and ` + "`$`" + ` match at line boundaries, every match counts, and a pattern can span lines (` + "`\\n`" + `, or ` + "`(?s)`" + ` to let ` + "`.`" + ` match newlines), which covers multi-line entries such as stack traces.`
 
@@ -49,7 +49,7 @@ type pack struct{}
 
 var _ core.Preparer = pack{}
 
-// Prepare opens the listeners the run's log steps name, before the apps
+// Prepare opens the listeners the run's log steps name, before the services
 // start.
 func (pack) Prepare(_ context.Context, s *core.Suite, plan *core.Plan) error {
 	l := runListeners(s)
@@ -95,7 +95,7 @@ func steps() []core.StepDef {
 			},
 			Examples: []string{
 				"Given the parcels log with the following properties:\n  | url | udp://0.0.0.0:5140 |",
-				"Given the console log with the following properties:\n  | url | file://.axx/logs/apps.log |",
+				"Given the console log with the following properties:\n  | url | file://.axx/logs/services.log |",
 			},
 			TableTypes: map[string]string{"url": "url"},
 			Run:        addLog,
@@ -270,7 +270,7 @@ func addLog(sc *core.Scenario, a core.Args) error {
 		return err
 	}
 	if src.network() {
-		// Normally opened before the apps started (Prepare); this covers logs
+		// Normally opened before the services started (Prepare); this covers logs
 		// registered outside a planned run, e.g. by a custom step.
 		if err := runListeners(s).ensure(src); err != nil {
 			return err

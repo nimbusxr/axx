@@ -1,0 +1,59 @@
+<!-- The depot desk in WPF (../README.md). -->
+<Window x:Class="DepotDesk.Desk"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Depot desk" Width="640" Height="580">
+  <DockPanel>
+    <Menu DockPanel.Dock="Top">
+      <MenuItem Header="Depot">
+        <MenuItem x:Name="CloseDayItem" Header="Close day" Click="OnCloseDay" />
+      </MenuItem>
+    </Menu>
+    <DockPanel Margin="12">
+      <Image x:Name="Logo" DockPanel.Dock="Top" Width="64" Height="64" HorizontalAlignment="Left" AutomationProperties.Name="Leipzig depot" />
+      <TabControl>
+        <TabItem Header="Arrivals">
+          <!-- One column, taller than the window: it scrolls, as a page does. -->
+          <ScrollViewer VerticalScrollBarVisibility="Auto">
+          <StackPanel Margin="8">
+            <Label Content="Reference" Target="{Binding ElementName=Reference}" Padding="0" />
+            <TextBox x:Name="Reference" AutomationProperties.Name="Reference" TextChanged="OnReferenceChanged" KeyDown="OnReferenceKey" />
+            <CheckBox x:Name="Fragile" Content="Fragile" Margin="0,6,0,0" />
+            <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+              <RadioButton x:Name="Standard" Content="Standard" GroupName="Level" Margin="0,0,12,0" />
+              <RadioButton x:Name="Express" Content="Express" GroupName="Level" />
+            </StackPanel>
+            <!-- WPF has no switch. -->
+            <CheckBox x:Name="PrintLabel" Content="Print label" Margin="0,6,0,0" />
+            <Button x:Name="RegisterButton" Content="Register" HorizontalAlignment="Left" Padding="8,2" Margin="0,6,0,0" Click="OnRegister" />
+            <TextBlock x:Name="Status" Margin="0,6,0,0" />
+            <TextBlock Text="Arrivals" Margin="0,6,0,0" />
+            <ListBox x:Name="ArrivalsList" Height="160" AutomationProperties.Name="Arrivals" SelectionChanged="OnArrival" />
+            <TextBlock Text="Expected today" Margin="0,6,0,0" />
+            <DataGrid x:Name="Expected" Height="190" AutomationProperties.Name="Expected today" IsReadOnly="True"
+                      AutoGenerateColumns="False" SelectionMode="Single" HeadersVisibility="Column" SelectionChanged="OnExpected">
+              <DataGrid.Columns>
+                <DataGridTextColumn Header="Reference" Binding="{Binding Reference}" Width="*" />
+                <DataGridTextColumn Header="Town" Binding="{Binding Town}" Width="*" />
+              </DataGrid.Columns>
+            </DataGrid>
+          </StackPanel>
+          </ScrollViewer>
+        </TabItem>
+        <TabItem Header="Handover">
+          <StackPanel Margin="8">
+            <!-- Where the courier signs: a click puts a dot, a drag draws a stroke. -->
+            <InkCanvas x:Name="Pad" Width="400" Height="160" HorizontalAlignment="Left" Background="White"
+                       AutomationProperties.Name="Courier signature" StrokeCollected="OnSigned" />
+            <TextBlock x:Name="Signed" Text="Not signed" Margin="0,6,0,0" />
+            <Button Content="Clear signature" HorizontalAlignment="Left" Padding="8,2" Margin="0,6,0,0" Click="OnClearSignature" />
+            <TextBlock Margin="0,6,0,0">
+              <Hyperlink Click="OnRules">Handover rules</Hyperlink>
+            </TextBlock>
+            <TextBlock x:Name="RulesText" Text="Parcels are handed over to the courier at 18:00." Visibility="Collapsed" Margin="0,6,0,0" />
+          </StackPanel>
+        </TabItem>
+      </TabControl>
+    </DockPanel>
+  </DockPanel>
+</Window>

@@ -1,0 +1,54 @@
+<!-- The depot desk in WinUI 3 (../README.md). -->
+<Window x:Class="DepotDesk.Desk"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="using:DepotDesk"
+        Title="Depot desk">
+  <Grid Margin="12" RowSpacing="6">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="*" />
+    </Grid.RowDefinitions>
+    <MenuBar Grid.Row="0">
+      <MenuBarItem Title="Depot">
+        <MenuFlyoutItem x:Name="CloseDayItem" Text="Close day" Click="OnCloseDay" />
+      </MenuBarItem>
+    </MenuBar>
+    <Image x:Name="Logo" Grid.Row="1" Width="64" Height="64" HorizontalAlignment="Left" AutomationProperties.Name="Leipzig depot" />
+    <TabView Grid.Row="2" IsAddTabButtonVisible="False" CanReorderTabs="False" TabWidthMode="SizeToContent">
+      <TabViewItem Header="Arrivals" IsClosable="False">
+        <!-- One column, taller than the window: it scrolls, as a page does. -->
+        <ScrollViewer>
+        <StackPanel Padding="8" Spacing="6">
+          <TextBox x:Name="Reference" Header="Reference" TextChanged="OnReferenceChanged" KeyDown="OnReferenceKey" />
+          <CheckBox x:Name="Fragile" Content="Fragile" />
+          <StackPanel Orientation="Horizontal" Spacing="12">
+            <RadioButton x:Name="Standard" Content="Standard" GroupName="Level" />
+            <RadioButton x:Name="Express" Content="Express" GroupName="Level" />
+          </StackPanel>
+          <ToggleSwitch x:Name="PrintLabel" Header="Print label" />
+          <Button x:Name="RegisterButton" Content="Register" Click="OnRegister" />
+          <TextBlock x:Name="Status" />
+          <TextBlock Text="Arrivals" />
+          <ListView x:Name="ArrivalsList" Height="160" AutomationProperties.Name="Arrivals"
+                    SelectionMode="None" IsItemClickEnabled="True" ItemClick="OnArrival" />
+          <TextBlock Text="Expected today" />
+          <!-- WinUI has no table: a list, with a row of two texts for each parcel (Desk.xaml.cs). -->
+          <ListView x:Name="Expected" Height="320" AutomationProperties.Name="Expected today"
+                    SelectionMode="None" IsItemClickEnabled="True" ItemClick="OnExpected" />
+        </StackPanel>
+        </ScrollViewer>
+      </TabViewItem>
+      <TabViewItem Header="Handover" IsClosable="False">
+        <StackPanel Padding="8" Spacing="6">
+          <local:SignaturePad x:Name="Pad" Width="400" Height="160" HorizontalAlignment="Left" />
+          <TextBlock x:Name="Signed" Text="Not signed" />
+          <Button Content="Clear signature" Click="OnClearSignature" />
+          <HyperlinkButton Content="Handover rules" Padding="0" Click="OnRules" />
+          <TextBlock x:Name="RulesText" Text="Parcels are handed over to the courier at 18:00." Visibility="Collapsed" />
+        </StackPanel>
+      </TabViewItem>
+    </TabView>
+  </Grid>
+</Window>

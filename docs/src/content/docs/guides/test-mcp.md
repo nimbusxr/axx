@@ -26,8 +26,8 @@ A server is reached over streamable HTTP (a `url`), or run over stdio (a `comman
 
 Which one follows how the server's clients use it:
 
-- **A server its clients start, over stdio.** Claude Code, Cursor and the other assistants run a local server as their own child process and talk to it through its stdin and stdout; nothing else can reach it. In a scenario, the scenario is the client, so the step runs it with `command`, the way the cli pack runs a command-line tool. It is not an app: nothing goes under `apps:` in `axx.yaml`. Each scenario runs its own server, so a server that keeps data on disk can keep each scenario's apart (point its data folder, through `env.<NAME>`, at a folder of the scenario's own).
-- **A server that runs on its own, over HTTP,** deployed where clients connect to it. axx starts it as an app in `axx.yaml` ([Manage the app lifecycle](/guides/manage-app-lifecycle/)), and the step connects with `url`.
+- **A server its clients start, over stdio.** Claude Code, Cursor and the other assistants run a local server as their own child process and talk to it through its stdin and stdout; nothing else can reach it. In a scenario, the scenario is the client, so the step runs it with `command`, the way the cli pack runs a command-line tool. It is not a service: nothing goes under `services:` in `axx.yaml`. Each scenario runs its own server, so a server that keeps data on disk can keep each scenario's apart (point its data folder, through `env.<NAME>`, at a folder of the scenario's own).
+- **A server that runs on its own, over HTTP,** deployed where clients connect to it. axx starts it as a service in `axx.yaml` ([Manage the services under test](/guides/manage-services/)), and the step connects with `url`.
 
 Test a server the way its clients reach it: a stdio server switched to HTTP only for its tests is tested over a transport its users never use.
 

@@ -118,13 +118,13 @@ A check can name many topics or subjects at once: MQTT's `+` and `#` (`the depot
 
 ## How the checks listen
 
-For the targets a run's checks name, axx starts listening once the apps are up, before the first scenario, so no message is missed:
+For the targets a run's checks name, axx starts listening once the services are up, before the first scenario, so no message is missed:
 
 - **An AMQP queue** is read, and each message acknowledged, as any consumer would. Check the queues your services write to and nothing else reads.
 - **An AMQP exchange** takes nothing from anyone. Axx declares a queue of its own for the run (`axx-<run>.<exchange>`, exclusive, deleted with the run), and binds it with `#` and with the routing keys the checks name. That covers topic, fanout, headers and direct exchanges.
 - **An MQTT topic** gets a subscription of its own, on a connection of its own. It doesn't receive the retained messages the broker keeps for new subscribers, which earlier runs may have left.
 - **A NATS subject** gets a subscription of its own.
-- **A JetStream stream** is read with an ordered consumer of its own, from the messages stored after the apps are up, so what earlier runs stored never counts. It takes nothing from the stream's other consumers. A work-queue stream allows no other consumer, so check its subject instead.
+- **A JetStream stream** is read with an ordered consumer of its own, from the messages stored after the services are up, so what earlier runs stored never counts. It takes nothing from the stream's other consumers. A work-queue stream allows no other consumer, so check its subject instead.
 
 ## Keep scenarios apart
 
@@ -132,7 +132,7 @@ Scenarios run in parallel on the same brokers, and every listener sees every sce
 
 ## Run the brokers locally
 
-Start the brokers next to your service in the Compose file your [app definition](/guides/manage-app-lifecycle/) runs:
+Start the brokers next to your service in the Compose file your [service definition](/guides/manage-services/) runs:
 
 ```yaml title="compose.yaml"
 services:

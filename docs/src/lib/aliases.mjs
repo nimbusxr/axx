@@ -106,6 +106,8 @@ export const pageAliases = {
 	'reference/gherkin': 'references/step-index',
 	'references/configuration': 'references/config',
 	'reference/configuration': 'references/config',
+	// The guide's address while axx.yaml's services were called apps (ADR 0012).
+	'guides/manage-app-lifecycle': 'guides/manage-services',
 };
 
 /**

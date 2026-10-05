@@ -82,7 +82,7 @@ func (p *pipes) close() {
 	}
 }
 
-// process is a launched app.
+// process is a launched service.
 type process struct {
 	cmd       *exec.Cmd
 	group     *proc.Group
@@ -94,32 +94,32 @@ type process struct {
 	state *os.ProcessState
 	// logMatched is closed when an output line matches ready.log.
 	logMatched chan struct{}
-	// stopping is set when axx stops the app, so its exit is expected.
+	// stopping is set when axx stops the service, so its exit is expected.
 	stopping atomic.Bool
 }
 
-// launch starts argv for a, streaming its output with the app's prefix into
-// the console and the app's tail.
-func (m *Manager) launch(a *app, argv []string) (*process, error) {
+// launch starts argv for a, streaming its output with the service's prefix into
+// the console and the service's tail.
+func (m *Manager) launch(a *service, argv []string) (*process, error) {
 	name := a.cfg.Name
-	cmd := exec.Command(argv[0], argv[1:]...) //nolint:noctx // the app outlives Start's ctx; Stop terminates its process group
+	cmd := exec.Command(argv[0], argv[1:]...) //nolint:noctx // the service outlives Start's ctx; Stop terminates its process group
 	cmd.Dir, cmd.Env = a.dir, a.env
 	proc.Setup(cmd)
 	pp, err := newPipes(cmd)
 	if err != nil {
-		return nil, envErr(CodeLaunchFailed, "app %s could not be started: %v", name, err)
+		return nil, envErr(CodeLaunchFailed, "service %s could not be started: %v", name, err)
 	}
 	if err := cmd.Start(); err != nil {
 		pp.close()
-		return nil, envErr(CodeLaunchFailed, "app %s could not be started: %v", name, err).
-			WithHint("check apps.%s.command: `%s` must be an executable on PATH or relative to %s", name, argv[0], a.dir)
+		return nil, envErr(CodeLaunchFailed, "service %s could not be started: %v", name, err).
+			WithHint("check services.%s.command: `%s` must be an executable on PATH or relative to %s", name, argv[0], a.dir)
 	}
 	group, err := proc.NewGroup(cmd)
 	if err != nil {
 		_ = cmd.Process.Kill()
 		_ = cmd.Wait()
 		pp.close()
-		return nil, envErr(CodeLaunchFailed, "app %s could not be put in its own process group: %v", name, err)
+		return nil, envErr(CodeLaunchFailed, "service %s could not be put in its own process group: %v", name, err)
 	}
 	p := &process{
 		cmd: cmd, group: group, pipes: pp, argv: argv,
@@ -154,15 +154,15 @@ func (m *Manager) launch(a *app, argv []string) (*process, error) {
 		p.state = cmd.ProcessState
 		close(p.done)
 		if !p.stopping.Load() {
-			m.log.Warn("app exited on its own", "app", name, "status", describeExit(p.state))
+			m.log.Warn("service exited on its own", "service", name, "status", describeExit(p.state))
 		}
 	}()
 	return p, nil
 }
 
-// stopApp stops a launched app's process group and runs its cleanup, which
-// always runs, even if the app crashed or never became ready.
-func (m *Manager) stopApp(ctx context.Context, a *app) error {
+// stopService stops a launched service's process group and runs its cleanup, which
+// always runs, even if the service crashed or never became ready.
+func (m *Manager) stopService(ctx context.Context, a *service) error {
 	p := a.proc
 	if p == nil {
 		return nil // attached: not ours to stop
@@ -171,11 +171,11 @@ func (m *Manager) stopApp(ctx context.Context, a *app) error {
 	var errs []error
 	p.stopping.Store(true)
 	if p.group.Alive() {
-		m.log.Info("stopping app", "app", name)
+		m.log.Info("stopping service", "service", name)
 	}
 	if err := terminate(ctx, p.group, a.cfg.Stop.Signal, a.cfg.Stop.Grace.Or(defaultGrace)); err != nil {
 		_, pgid := p.group.IDs()
-		errs = append(errs, envErr(CodeStopFailed, "app %s could not be stopped: %v", name, err).
+		errs = append(errs, envErr(CodeStopFailed, "service %s could not be stopped: %v", name, err).
 			WithHint("stop its processes by hand (process group %d)", pgid))
 	}
 	t := time.NewTimer(killWait)
@@ -189,7 +189,7 @@ func (m *Manager) stopApp(ctx context.Context, a *app) error {
 
 	var cleanupErr error
 	if a.cleanup != nil {
-		m.log.Info("running cleanup", "app", name, "command", displayArgv(a.cleanup))
+		m.log.Info("running cleanup", "service", name, "command", displayArgv(a.cleanup))
 		if cleanupErr = runCleanup(ctx, m.console, a.tail, name, a.cleanup, a.dir, a.env); cleanupErr != nil {
 			errs = append(errs, cleanupErr)
 		}
@@ -197,9 +197,9 @@ func (m *Manager) stopApp(ctx context.Context, a *app) error {
 	m.mu.Lock()
 	a.cleaned = true
 	// A failed cleanup stays in the state file, for `axx down` to run again.
-	m.unclean = slices.DeleteFunc(m.unclean, func(sa stateApp) bool { return sa.Name == name })
+	m.unclean = slices.DeleteFunc(m.unclean, func(sa stateService) bool { return sa.Name == name })
 	if cleanupErr != nil {
-		m.unclean = append(m.unclean, uncleaned(stateApp{Name: name, Dir: a.dir, Cleanup: a.cleanup, Env: a.cfg.Env}))
+		m.unclean = append(m.unclean, uncleaned(stateService{Name: name, Dir: a.dir, Cleanup: a.cleanup, Env: a.cfg.Env}))
 	}
 	m.saveStateLocked()
 	m.mu.Unlock()
@@ -207,7 +207,7 @@ func (m *Manager) stopApp(ctx context.Context, a *app) error {
 }
 
 // runCleanup runs a cleanup command to completion, streaming its output
-// with the app's prefix.
+// with the service's prefix.
 func runCleanup(ctx context.Context, con *console, tail *ring, name string, argv []string, dir string, env []string) error {
 	cmd := exec.CommandContext(ctx, argv[0], argv[1:]...)
 	cmd.Dir, cmd.Env = dir, env
@@ -215,8 +215,8 @@ func runCleanup(ctx context.Context, con *console, tail *ring, name string, argv
 	// interrupting it.
 	proc.Setup(cmd)
 	fail := func(err error) *axxerr.Error {
-		return envErr(CodeCleanupFailed, "cleanup of app %s failed: `%s` %v", name, displayArgv(argv), err).
-			WithHint("run it by hand in %s, and check apps.%s.cleanup", dir, name)
+		return envErr(CodeCleanupFailed, "cleanup of service %s failed: `%s` %v", name, displayArgv(argv), err).
+			WithHint("run it by hand in %s, and check services.%s.cleanup", dir, name)
 	}
 	pp, err := newPipes(cmd)
 	if err != nil {

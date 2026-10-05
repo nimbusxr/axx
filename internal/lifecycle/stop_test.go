@@ -17,13 +17,13 @@ import (
 
 func TestStopSignals(t *testing.T) {
 	t.Parallel()
-	skipOnWindows(t, "Windows apps are terminated without a signal")
+	skipOnWindows(t, "Windows services are terminated without a signal")
 	const grace = 300 * time.Millisecond
 	tests := []struct {
 		name   string
 		mode   string
 		signal string
-		// wantEvents are the lines the app records; wantSlow means the
+		// wantEvents are the lines the service records; wantSlow means the
 		// grace period had to run out.
 		wantEvents []string
 		wantSlow   bool
@@ -38,7 +38,7 @@ func TestStopSignals(t *testing.T) {
 			file := filepath.Join(t.TempDir(), "events")
 			app := logReady(helperApp(t, "api", tt.mode, file, "api"), "^(started|ready)$")
 			app.Stop = config.Stop{Signal: tt.signal, Grace: config.Duration(grace)}
-			h := newHarness(t, config.Apps{app}, Options{})
+			h := newHarness(t, config.Services{app}, Options{})
 			if err := h.Start(t.Context(), nil); err != nil {
 				t.Fatal(err)
 			}
@@ -69,11 +69,11 @@ func TestStopKillsProcessGroup(t *testing.T) {
 	skipOnWindows(t, "process groups")
 	dir := t.TempDir()
 	pidFile, events := filepath.Join(dir, "pid"), filepath.Join(dir, "events")
-	// The app exits on SIGTERM; its child ignores SIGTERM and must be
+	// The service exits on SIGTERM; its child ignores SIGTERM and must be
 	// SIGKILLed with the group once the grace period is over.
 	app := logReady(helperApp(t, "api", "grandchild", pidFile, events), "spawned")
 	app.Stop.Grace = config.Duration(200 * time.Millisecond)
-	h := newHarness(t, config.Apps{app}, Options{})
+	h := newHarness(t, config.Services{app}, Options{})
 	if err := h.Start(t.Context(), nil); err != nil {
 		t.Fatal(err)
 	}
@@ -100,7 +100,7 @@ func TestStopWithCancelledContextKillsAtOnce(t *testing.T) {
 	file := filepath.Join(t.TempDir(), "events")
 	app := logReady(helperApp(t, "api", "stubborn", file), "ready")
 	app.Stop.Grace = config.Duration(time.Minute)
-	h := newHarness(t, config.Apps{app}, Options{})
+	h := newHarness(t, config.Services{app}, Options{})
 	if err := h.Start(t.Context(), nil); err != nil {
 		t.Fatal(err)
 	}

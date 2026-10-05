@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	// defaultGrace is how long an app may take to exit after the stop signal.
+	// defaultGrace is how long a service may take to exit after the stop signal.
 	defaultGrace = 10 * time.Second
 	// killWait bounds the wait for a killed group to disappear.
 	killWait = 5 * time.Second

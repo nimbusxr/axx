@@ -25,7 +25,7 @@ import (
 	"github.com/nimbusxr/axx/internal/config"
 )
 
-// helperEnv makes the test binary act as a fake app (see runHelper).
+// helperEnv makes the test binary act as a fake service (see runHelper).
 const helperEnv = "AXX_LIFECYCLE_HELPER"
 
 func TestMain(m *testing.M) {
@@ -35,7 +35,7 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-// runHelper implements the fake apps. Modes:
+// runHelper implements the fake services. Modes:
 //
 //	sleep                       run until killed
 //	print <line>...             print lines ("err:" prefix: to stderr), then sleep
@@ -211,10 +211,10 @@ func helper(t *testing.T, mode string, args ...string) config.Command {
 	return config.Command{Argv: append([]string{exe, mode}, args...)}
 }
 
-// helperApp is an app running the test binary in a helper mode.
-func helperApp(t *testing.T, name, mode string, args ...string) config.App {
+// helperApp is a service running the test binary in a helper mode.
+func helperApp(t *testing.T, name, mode string, args ...string) config.Service {
 	t.Helper()
-	return config.App{
+	return config.Service{
 		Name:    name,
 		Command: helper(t, mode, args...),
 		Env:     helperEnvVars(),
@@ -227,8 +227,8 @@ func helperEnvVars() map[string]string {
 	return map[string]string{helperEnv: "1", "GORACE": "atexit_sleep_ms=0"}
 }
 
-// logReady makes app ready once a line matches re.
-func logReady(app config.App, re string) config.App {
+// logReady makes service ready once a line matches re.
+func logReady(app config.Service, re string) config.Service {
 	app.Ready = &config.Ready{
 		Log:      re,
 		Timeout:  config.Duration(10 * time.Second),
@@ -269,7 +269,7 @@ type harness struct {
 
 // newHarness creates a Manager whose ConfigDir is a temp dir, capturing
 // output and logs, and stops it when the test ends.
-func newHarness(t *testing.T, apps config.Apps, opts Options) *harness {
+func newHarness(t *testing.T, apps config.Services, opts Options) *harness {
 	t.Helper()
 	h := &harness{stdout: &buffer{}, stderr: &buffer{}, logs: &buffer{}, dir: t.TempDir()}
 	if opts.ConfigDir == "" {
@@ -380,14 +380,14 @@ func skipOnWindows(t *testing.T, why string) {
 	}
 }
 
-// pidOf returns the pid of a started app.
+// pidOf returns the pid of a started service.
 func (h *harness) pidOf(t *testing.T, name string) int {
 	t.Helper()
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	a := h.apps[name]
 	if a.proc == nil {
-		t.Fatalf("app %s was not launched", name)
+		t.Fatalf("service %s was not launched", name)
 	}
 	return a.proc.cmd.Process.Pid
 }

@@ -37,8 +37,8 @@ Given the tracking nats server with the following properties:
 
 Steps name a **subject** or a **stream**: ` + "`the deliveries.confirmed nats subject`" + `, ` + "`the TRACKING nats stream`" + `. Messages carry headers (` + "`with the following headers:`" + `, and ` + "`header <name>`" + ` rows in checks). A message published to a subject a stream captures is published through JetStream, and the step waits for the stream to store it.
 
-- **A subject check subscribes for the run:** for the subjects a run checks, axx subscribes once the apps are up. A subject in a check can have the wildcards ` + "`*`" + ` and ` + "`>`" + `: ` + "`the tracking.> nats subject`" + `, and a ` + "`subject`" + ` row checks the subject a message came on.
-- **A stream check reads only what is new:** for the streams a run checks, axx reads each with an ordered consumer of its own that starts with the messages stored after the apps are up, so what earlier runs stored never counts. It takes nothing from the stream's other consumers; a work-queue stream allows no other consumer, so check its subject instead.
+- **A subject check subscribes for the run:** for the subjects a run checks, axx subscribes once the services are up. A subject in a check can have the wildcards ` + "`*`" + ` and ` + "`>`" + `: ` + "`the tracking.> nats subject`" + `, and a ` + "`subject`" + ` row checks the subject a message came on.
+- **A stream check reads only what is new:** for the streams a run checks, axx reads each with an ordered consumer of its own that starts with the messages stored after the services are up, so what earlier runs stored never counts. It takes nothing from the stream's other consumers; a work-queue stream allows no other consumer, so check its subject instead.
 - **A check only looks at the messages received since its scenario started,** so scenarios running in parallel check their own messages, by data unique to them.
 - **Secrets stay secret:** ` + "`${env:..}`" + ` values in the properties are masked in logs and failures.`
 
@@ -70,7 +70,7 @@ var streams = cloudstep.Messages{
 	Example: cloudstep.Sample{
 		From: "TRACKING", Where: [][2]string{{"subject", "tracking.PX-8302"}, {"status", "OUT_FOR_DELIVERY"}},
 	},
-	Received: "axx reads a stream it checks with an ordered consumer of its own, from the messages stored after the apps are up.",
+	Received: "axx reads a stream it checks with an ordered consumer of its own, from the messages stored after the services are up.",
 }
 
 func (pack) Manifest() core.Manifest {
@@ -369,7 +369,7 @@ func (pack) Prepare(_ context.Context, suite *core.Suite, plan *core.Plan) error
 }
 
 // Init subscribes to the planned subjects and reads the planned streams,
-// now that the apps run.
+// now that the services run.
 func (pack) Init(ctx context.Context, suite *core.Suite) error {
 	return cloudstep.DeferredFor(suite, Name).Run(ctx)
 }

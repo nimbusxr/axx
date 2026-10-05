@@ -52,7 +52,7 @@ their results:
 - A failed step shows its message at the step's line. When a check compares values, **Peek**
   shows the expected and actual values as a diff.
 - A step's logs and attachments (a response body, for example) are in the test output.
-- Everything else Axx prints, such as the summary and app start-up messages, is in the test output
+- Everything else Axx prints, such as the summary and service start-up messages, is in the test output
   too.
 
 The gear next to **Run**, **Debug** and **Watch** picks the project's profiles (`profiles.<name>`
@@ -60,7 +60,7 @@ in `axx.yaml`, and `axx.<name>.yaml` files) that all three apply, as `--profile`
 the workspace's `axx.profiles` setting and apply in its order; a project without one of them runs
 without it.
 
-**Cancel** stops Axx the way Ctrl+C does: Axx stops its apps and runs their cleanups. If Axx is
+**Cancel** stops Axx the way Ctrl+C does: Axx stops its services and runs their cleanups. If Axx is
 still running 20 seconds later, the extension kills it and everything it started.
 
 **Debug** stops at breakpoints in step code: your custom packs, and Axx's own steps. It runs
@@ -76,7 +76,7 @@ Axx builds its debug copy and Delve itself, with the Go toolchain it prepares pa
 **Debug** also pauses web scenarios at breakpoints on steps and where they fail (see
 [Watch the browsers](#watch-the-browsers)).
 
-To debug an app instead (your service under test), start it from your IDE and run Axx with
+To debug your service under test instead, start it from your IDE and run Axx with
 `--attach`, or use `axx run --debug`; `axx ide vscode` writes the launch configurations for that.
 
 ### Watch the browsers

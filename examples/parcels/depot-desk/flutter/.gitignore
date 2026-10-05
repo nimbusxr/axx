@@ -1,0 +1,10 @@
+.dart_tool/
+build/
+macos/
+windows/
+linux/
+test/
+.metadata
+analysis_options.yaml
+*.iml
+.flutter-plugins-dependencies

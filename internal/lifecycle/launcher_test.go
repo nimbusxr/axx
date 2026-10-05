@@ -10,7 +10,7 @@ import (
 	"github.com/nimbusxr/axx/internal/config"
 )
 
-// A command like `docker compose up -d` starts the app and exits 0: axx must
+// A command like `docker compose up -d` starts the service and exits 0: axx must
 // keep waiting for readiness instead of failing.
 func TestLauncherExitZeroKeepsWaiting(t *testing.T) {
 	var ready atomic.Bool
@@ -30,12 +30,12 @@ func TestLauncherExitZeroKeepsWaiting(t *testing.T) {
 		Timeout:  config.Duration(5 * time.Second),
 		Interval: config.Duration(20 * time.Millisecond),
 	}
-	h := newHarness(t, config.Apps{app}, Options{})
+	h := newHarness(t, config.Services{app}, Options{})
 	if err := h.Start(t.Context(), nil); err != nil {
 		t.Fatalf("launcher that exits 0 should wait for readiness: %v", err)
 	}
 	if !ready.Load() {
-		t.Fatal("Start returned before the app was ready")
+		t.Fatal("Start returned before the service was ready")
 	}
 }
 
@@ -50,7 +50,7 @@ func TestNonZeroExitStillFailsFast(t *testing.T) {
 		Timeout:  config.Duration(10 * time.Second),
 		Interval: config.Duration(20 * time.Millisecond),
 	}
-	h := newHarness(t, config.Apps{app}, Options{})
+	h := newHarness(t, config.Services{app}, Options{})
 	start := time.Now()
 	err := h.Start(t.Context(), nil)
 	_ = mustCode(t, err, CodeExitedEarly)

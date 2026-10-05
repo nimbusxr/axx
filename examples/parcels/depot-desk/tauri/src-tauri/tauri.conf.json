@@ -1,0 +1,21 @@
+{
+  "$schema": "https://raw.githubusercontent.com/tauri-apps/tauri/dev/crates/tauri-config-schema/schema.json",
+  "productName": "Depot desk",
+  "version": "1.0.0",
+  "identifier": "example.parcels.depotdesk.tauri",
+  "build": {
+    "frontendDist": "../../web"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      { "title": "Depot desk", "width": 640, "height": 580 }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "icon": ["icons/icon.png", "icons/icon.ico"]
+  }
+}

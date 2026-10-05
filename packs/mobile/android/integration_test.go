@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/nimbusxr/axx/internal/cloudstep/cloudtest"
+	appcore "github.com/nimbusxr/axx/packs/app/core"
 	mobilecore "github.com/nimbusxr/axx/packs/mobile/core"
 	"github.com/nimbusxr/axx/packs/mobile/internal/courierapi"
 )
@@ -74,7 +75,7 @@ func signIn(h *cloudtest.Harness) {
 func TestCouriersOnAnEmulator(t *testing.T) {
 	courierapi.Start(t)
 	t.Setenv("COURIER_PIN", "4711")
-	h := cloudtest.New(t, mobilecore.Pack(), Pack())
+	h := cloudtest.New(t, appcore.Pack(), mobilecore.Pack(), Pack())
 	h.OK("the courier android app with the following properties:", [][]string{
 		{"apk", apk(t)},
 		{"device", avd(t)},

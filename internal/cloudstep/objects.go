@@ -79,7 +79,7 @@ func (o Objects) Steps() []core.StepDef {
 	return append([]core.StepDef{
 		{
 			ID: o.Pack + ".upload", Keyword: "When", Since: o.since("0.1.0"),
-			Expr: "the {filepath} file is uploaded to the {word} " + c + "[[ as {word}]]",
+			Expr: "the {filepath} file is uploaded to the {word} " + c + "[[ as {path}]]",
 			Doc: fmt.Sprintf("Upload a file to the %s, under the file's name or the name given. Its content type follows the "+
 				"file's extension.", c),
 			Examples: []string{
@@ -125,7 +125,7 @@ func (o Objects) Checks() []core.StepDef {
 	return []core.StepDef{
 		{
 			ID: o.Pack + ".has", Keyword: "Then", Since: o.since("0.1.0"),
-			Expr: "[[within {duration} ]]the {word} " + c + " has a(n) " + obj + " named {word}",
+			Expr: "[[within {duration} ]]the {word} " + c + " has a(n) " + obj + " named {path}",
 			Doc: fmt.Sprintf("Check that the %s has %s %s with that name. The check waits for it: 10 seconds, or `within {duration}`.",
 				c, article(obj), obj),
 			Examples: []string{fmt.Sprintf("Then within 30s the %s %s has %s named disputes/kestrel-2026-09.csv", o.Example, c, article(obj)+" "+obj)},
@@ -136,7 +136,7 @@ func (o Objects) Checks() []core.StepDef {
 		},
 		{
 			ID: o.Pack + ".identical", Keyword: "Then", Since: o.since("0.1.0"),
-			Expr: "[[within {duration} ]]the {word} " + obj + " in the {word} " + c + " is identical to the {filepath} file",
+			Expr: "[[within {duration} ]]the {path} " + obj + " in the {word} " + c + " is identical to the {filepath} file",
 			Doc: fmt.Sprintf("Check that the %s exists with exactly the content of the file. The check waits for it: 10 seconds, "+
 				"or `within {duration}`.", obj),
 			Examples: []string{fmt.Sprintf("Then the disputes/kestrel-2026-09.csv %s in the %s %s is identical to the expected/kestrel-disputes.csv file", obj, o.Example, c)},
@@ -159,7 +159,7 @@ func (o Objects) Checks() []core.StepDef {
 		},
 		{
 			ID: o.Pack + ".properties", Keyword: "Then", Arg: core.ArgTable, Since: o.since("0.1.0"),
-			Expr: "[[within {duration} ]]the {word} " + obj + " in the {word} " + c + " has the following properties:",
+			Expr: "[[within {duration} ]]the {path} " + obj + " in the {word} " + c + " has the following properties:",
 			Doc: fmt.Sprintf("Check that the %s holds JSON with those values at those paths. The check waits for it: 10 seconds, "+
 				"or `within {duration}`.", obj),
 			Table: &core.TableDoc{
@@ -184,7 +184,7 @@ func (o Objects) Checks() []core.StepDef {
 		},
 		{
 			ID: o.Pack + ".contains", Keyword: "Then", Since: o.since("0.1.1"),
-			Expr: "[[within {duration} ]]the {word} " + obj + " in the {word} " + c + " contains {string}",
+			Expr: "[[within {duration} ]]the {path} " + obj + " in the {word} " + c + " contains {string}",
 			Doc: fmt.Sprintf("Check that the text of the %s contains the text.\n\n"+
 				"- The check waits for it: 10 seconds, or `within {duration}`.\n"+
 				"- Case matters; runs of spaces and line breaks count as one space.\n"+
@@ -213,7 +213,7 @@ func (o Objects) Checks() []core.StepDef {
 		},
 		{
 			ID: o.Pack + ".row", Keyword: "Then", Arg: core.ArgTable, Since: o.since("0.1.1"),
-			Expr: "[[within {duration} ]]the {word} " + obj + " in the {word} " + c + " has a row where:",
+			Expr: "[[within {duration} ]]the {path} " + obj + " in the {word} " + c + " has a row where:",
 			Doc: fmt.Sprintf("Check that the table of the %s has a row with those values in those columns.\n\n"+
 				"- The check waits for it: 10 seconds, or `within {duration}`.\n"+
 				"- The %s is a CSV or TSV file, or an Excel workbook (.xlsx; its first sheet), whose first row names the columns.\n"+

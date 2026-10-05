@@ -10,11 +10,12 @@ import (
 	"testing"
 
 	"github.com/nimbusxr/axx/internal/cloudstep/cloudtest"
+	appcore "github.com/nimbusxr/axx/packs/app/core"
 	mobilecore "github.com/nimbusxr/axx/packs/mobile/core"
 )
 
 func TestRegistrationErrors(t *testing.T) {
-	h := cloudtest.New(t, mobilecore.Pack(), Pack())
+	h := cloudtest.New(t, appcore.Pack(), mobilecore.Pack(), Pack())
 	h.File("Courier.app/Info.plist", "")
 	for _, c := range []struct {
 		rows [][]string

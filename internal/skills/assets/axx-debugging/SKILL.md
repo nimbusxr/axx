@@ -1,6 +1,6 @@
 ---
 name: axx-debugging
-description: Diagnose failing axx acceptance-test runs - failed assertions, undefined or ambiguous steps, OpenAPI validation errors, apps that do not start, failed web steps, timeouts and flaky parallel scenarios. Use when `axx run` exits non-zero.
+description: Diagnose failing axx acceptance-test runs - failed assertions, undefined or ambiguous steps, OpenAPI validation errors, services that do not start, failed web steps, timeouts and flaky parallel scenarios. Use when `axx run` exits non-zero.
 license: Apache-2.0
 ---
 
@@ -13,7 +13,7 @@ license: Apache-2.0
 | 1 | a scenario failed | Read the step's expected/actual values below |
 | 2 | usage or config error | Read the `hint`. Run `axx doctor`. Config errors point at `axx.yaml:line:col` |
 | 3 | undefined or ambiguous step, or `axx lint` violations | `axx validate`, then `axx explain "<line>"`. For lint, each finding names the rule, the colliding value and every `file:line` |
-| 4 | an app did not start | The error includes the last lines of the app's output. Full logs are in `.axx/logs/apps.log` |
+| 4 | a service did not start | The error includes the last lines of the service's output. Full logs are in `.axx/logs/services.log` |
 | 130 | interrupted | Nothing ran to completion. Rerun |
 
 Every error also carries a code such as `AXX-E0408`. Run `axx explain AXX-E0408` to see what it means and how to fix it, or look it up in `references/error-codes.md`.
@@ -34,7 +34,7 @@ Every error also carries a code such as `AXX-E0408`. Run `axx explain AXX-E0408`
 - **Passes alone, fails in a full run.** Shared data or shared state. Give the scenario unique data (`axx lint` finds seed and fixture values used by more than one file). If it genuinely must run alone, tag it `@isolated`, or whatever is listed in `run.exclusive`.
 - **Fixture errors (`AXX-E09xx`).** `axx fixtures check` reports drift when a generated file no longer matches its factory spec: edit the spec and run `axx fixtures generate`. Generate refuses (`AXX-E0903`) to overwrite a generated file someone edited by hand; move the change into the spec, or revert the file. Messages name the factory, the fixture and the field. When a generated value is wrong, `axx fixtures explain <file> <path>` names the source that sets it (the fixture, a prototype, `defaults:` or the schema) and the place in it to edit. The `axx-test-data` skill covers factories.
 - **A web step failed.** The failure's `context` says which page each web app was on, the failed step attaches a screenshot of the page, and the `logs` name the Playwright trace the scenario keeps in `.axx/web/traces` (open it with `npx playwright show-trace`). To look at the page yourself, run the steps up to there with `steps_try` in `axx mcp`, then `web_page`.
-- **App never becomes ready.** Check `apps.<name>.ready` (URL, port, timeout). `axx up` then `curl` the health URL yourself. Read `.axx/logs/apps.log`.
+- **Service never becomes ready.** Check `services.<name>.ready` (URL, port, timeout). `axx up` then `curl` the health URL yourself. Read `.axx/logs/services.log`.
 
 ## Don't
 

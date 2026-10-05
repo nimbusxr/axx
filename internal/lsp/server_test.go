@@ -498,7 +498,7 @@ func TestDocumentLinks(t *testing.T) {
 		"schemas/depot-scan.avsc": "{}\n",
 		"openapi/parcels.yaml":    "openapi: 3.1.0\n",
 		"certs/ca.pem":            "",
-		".axx/logs/apps.log":      "",
+		".axx/logs/services.log":  "",
 		"data/seeds/manifests/x":  "", // a directory is no link
 	})
 	text := `Feature: Links
@@ -508,7 +508,7 @@ func TestDocumentLinks(t *testing.T) {
       | url     | http://localhost:8400 |
       | openapi | openapi/parcels.yaml  |
     And the console log with the following properties:
-      | url | file://.axx/logs/apps.log |
+      | url | file://.axx/logs/services.log |
 
   Scenario: seeded
     Given a seeds/parcels.yaml db seed
@@ -548,7 +548,7 @@ func TestDocumentLinks(t *testing.T) {
 	}
 	wants := []want{
 		{5, "openapi/parcels.yaml", "openapi/parcels.yaml"},
-		{7, "file://.axx/logs/apps.log", ".axx/logs/apps.log"},
+		{7, "file://.axx/logs/services.log", ".axx/logs/services.log"},
 		{10, "seeds/parcels.yaml", "data/seeds/parcels.yaml"},
 		{14, "certs/ca.pem", "certs/ca.pem"},
 		{15, "certs/ca.pem", "certs/ca.pem"},
@@ -591,7 +591,7 @@ func TestDocumentLinks(t *testing.T) {
 	if locs := definition(10, 32); len(locs) != 1 || !strings.Contains(locs[0].URI, "sql") {
 		t.Errorf("definition on the seed step: %+v", locs)
 	}
-	if locs := definition(7, 20); len(locs) != 1 || !strings.HasSuffix(uriToPath(locs[0].URI), filepath.Join(".axx", "logs", "apps.log")) {
+	if locs := definition(7, 20); len(locs) != 1 || !strings.HasSuffix(uriToPath(locs[0].URI), filepath.Join(".axx", "logs", "services.log")) {
 		t.Errorf("definition on the log url: %+v", locs)
 	}
 	if locs := definition(31, links[6].Range.Start.Character+2); len(locs) != 1 || uriToPath(locs[0].URI) != filepath.Join(dir, "data", "seeds", "parcels.yaml") {
@@ -690,7 +690,7 @@ func TestPathCompletion(t *testing.T) {
 		"data/seeds/manifests/x":  "",
 		"seeds/local.yaml":        "",
 		"openapi/parcels.yaml":    "",
-		".axx/logs/apps.log":      "",
+		".axx/logs/services.log":  "",
 	})
 	text := `Feature: Paths
 

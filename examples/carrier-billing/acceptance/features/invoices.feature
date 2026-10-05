@@ -62,7 +62,7 @@ Feature: Carrier invoices
   Scenario: An invoice uploaded twice is reconciled once
     Given a seeds/shipments-her1.yaml firestore seed
     And the console log with the following properties:
-      | url | file://.axx/logs/apps.log |
+      | url | file://.axx/logs/services.log |
     And the invoices/INV-2026-09-HER1.csv file is uploaded to the carrier-invoices gcs bucket as heron/INV-2026-09-HER1.csv
     And within 30s the invoices/INV-2026-09-HER1 firestore document has the following properties:
       | status | RECONCILED |

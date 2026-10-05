@@ -74,22 +74,6 @@ func labelled(n *Node, name string) bool {
 	return false
 }
 
-var controlParam = core.ParamType{
-	Name:    "control",
-	Regexps: []string{`(buttons?|fields?|checkbox(?:es)?|switch(?:es)?|tabs?|list items?|images?|texts?|elements?)`},
-	Doc: "a kind of control on the screen, found by the name people see: a `button` by its text, a `field` by its label, " +
-		"a `list item` by one of its texts, an `element` is anything, by its text or accessibility label",
-	Values:   []string{"button", "field", "checkbox", "switch", "tab", "list item", "image", "text", "element"},
-	Examples: []string{"button", "list item"},
-	Transform: func(_ *core.Scenario, match string, _ []*string) (any, error) {
-		k, ok := kinds[match]
-		if !ok {
-			return nil, fmt.Errorf("%q is no kind of control", match)
-		}
-		return k, nil
-	},
-}
-
 var directionParam = core.ParamType{
 	Name:     "direction",
 	Regexps:  []string{`(up|down|left|right)`},

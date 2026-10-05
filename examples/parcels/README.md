@@ -211,7 +211,7 @@ checks it, or the run when no scenario does.
 The service also sends every log line over UDP to port 5140 on the host, where Axx listens
 during a run (`udp://0.0.0.0:5140`, the `parcels` log in the features); Axx opens that
 listener before it starts compose. The `console` log is the output Axx captures from compose,
-in `.axx/logs/apps.log`.
+in `.axx/logs/services.log`.
 
 Kafka advertises `localhost:9092` to clients on the host. Set `LOCAL_HOST` before starting
 compose to advertise another host name, and pass the same name to Axx

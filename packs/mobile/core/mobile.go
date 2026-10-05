@@ -1,14 +1,14 @@
 // Package mobilecore is the mobile-core pack: native Android and iOS apps,
-// used as people use them. It holds the steps every mobile app has (launch
-// it, tap and fill its controls, check what it shows); the mobile-android
-// and mobile-ios packs register apps, run them on devices through Appium,
-// and keep each scenario's device to itself.
+// used as people use them. It carries out app-core's steps for apps on
+// phones (launch, tap, fill, check), and has the steps of phones alone
+// (deep links, the background, swipes, dialogs, notifications); the
+// mobile-android and mobile-ios packs register apps, run them on devices
+// through Appium, and keep each scenario's device to itself.
 package mobilecore
 
 import (
-	"time"
-
 	"github.com/nimbusxr/axx/core"
+	appcore "github.com/nimbusxr/axx/packs/app/core"
 )
 
 // Name is the pack's name.
@@ -21,7 +21,7 @@ type pack struct{}
 
 const packDoc = `Native mobile apps, used as people use them: launched, or opened with a deep link straight at the screen a scenario tests; their controls tapped and filled, found by the names people see; what they show checked, waiting as apps take their time.
 
-The apps are registered, and run, by the platform packs: ` + "`mobile-android`" + ` (Android emulators and devices) and, later, ` + "`mobile-ios`" + `. They drive the apps through [Appium](https://appium.io), which axx downloads on first use. **Each scenario has a device to itself, and a clean app:** the platform pack leases a device for the scenario and resets the app, and what it can see, before the scenario starts. Every step names its app, so a scenario can drive two, and use a web app too.
+The steps every app takes, on a phone or a desktop, are ` + "`app-core`" + `'s, which this pack carries out for phones; its own are the steps of phones alone: deep links, the background, swipes, the system's dialogs and notifications. The apps are registered, and run, by the platform packs: ` + "`mobile-android`" + ` (Android emulators and devices) and, later, ` + "`mobile-ios`" + `. They drive the apps through [Appium](https://appium.io), which axx downloads on first use. **Each scenario has a device to itself, and a clean app:** the platform pack leases a device for the scenario and resets the app, and what it can see, before the scenario starts. Every step names its app, so a scenario can drive two, and use a web app too.
 
 Controls are found by the name people see: a button's text, a field's label, a list item's text. When no name tells a control apart, ` + "`id=`" + ` (the Android resource ID or the iOS accessibility identifier) or ` + "`xpath=`" + ` finds it.`
 
@@ -30,32 +30,9 @@ func (pack) Manifest() core.Manifest {
 		Name:         Name,
 		Namespace:    Name,
 		Doc:          packDoc,
-		Params:       []core.ParamType{controlParam, directionParam},
+		Requires:     []string{appcore.Name},
+		Params:       []core.ParamType{directionParam},
 		ConfigSchema: []byte(configSchema),
-		Steps:        append(append(append(append(paced(steps()), checkSteps()...), paced(dialogSteps())...), notificationSteps()...), screenshotSteps()...),
+		Steps:        append(appcore.Paced(append(steps(), dialogSteps()...)), notificationSteps()...),
 	}
-}
-
-// paced makes each action (a launch, a tap, a typed field, a swipe) pause
-// after it in a watched run, for the run's slowdown (axx run --watch
-// --slowdown 500ms), so a person can follow the app as web-core's slowdown
-// lets them follow a browser.
-func paced(steps []core.StepDef) []core.StepDef {
-	for i := range steps {
-		if steps[i].Keyword != "When" || steps[i].Run == nil {
-			continue
-		}
-		run := steps[i].Run
-		steps[i].Run = func(sc *core.Scenario, a core.Args) error {
-			err := run(sc, a)
-			if watching, d := sc.Suite().Watching(); err == nil && watching && d > 0 {
-				select {
-				case <-sc.Context().Done():
-				case <-time.After(d):
-				}
-			}
-			return err
-		}
-	}
-	return steps
 }

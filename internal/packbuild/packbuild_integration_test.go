@@ -177,7 +177,7 @@ func TestUpRunDownWithPacks(t *testing.T) {
 	}
 	proj := localPackProject(t, map[string]string{
 		"axx.yaml": `version: 1
-apps:
+services:
   api:
     command: [sh, -c, "echo api ready; exec sleep 300"]
     ready: {log: "api ready", timeout: 30s}

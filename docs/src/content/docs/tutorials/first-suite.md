@@ -39,7 +39,7 @@ Create `axx.yaml` in it:
 ```yaml title="axx.yaml"
 version: 1
 
-apps:
+services:
   parcels:
     dir: ../infra
     command: docker compose up --build
@@ -70,7 +70,7 @@ axx up
 ```
 
 ```console
-axx: starting apps in the background (logs: .axx/logs)
+axx: starting services in the background (logs: .axx/logs)
 up: parcels (stop with `axx down`)
 ```
 
@@ -113,7 +113,7 @@ axx run
 ```console
 axx: preparing rest, mock, sql (once; cached for later runs)
 axx: ready in 31s
-axx: reusing apps started by `axx up`: parcels
+axx: reusing services started by `axx up`: parcels
 Feature: Quotes
 
   Scenario: A shop asks for a price  # features/quotes.feature:7

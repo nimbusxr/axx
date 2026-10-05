@@ -62,9 +62,9 @@ func commandArgv(c config.Command, shell bool) ([]string, error) {
 	return append([]string(nil), argv...), nil
 }
 
-// appEnv returns base followed by the app's own variables, sorted by name so
+// serviceEnv returns base followed by the service's own variables, sorted by name so
 // the environment is deterministic. Later entries win.
-func appEnv(base []string, extra map[string]string) []string {
+func serviceEnv(base []string, extra map[string]string) []string {
 	env := append([]string(nil), base...)
 	keys := make([]string, 0, len(extra))
 	for k := range extra {
@@ -77,26 +77,26 @@ func appEnv(base []string, extra map[string]string) []string {
 	return env
 }
 
-// resolveDir returns the app's absolute working directory: App.Dir relative
+// resolveDir returns the service's absolute working directory: Service.Dir relative
 // to the config directory (the config directory itself when Dir is empty).
-func resolveDir(app config.App, configDir string) (string, error) {
+func resolveDir(app config.Service, configDir string) (string, error) {
 	dir := app.Dir
 	if !filepath.IsAbs(dir) {
 		dir = filepath.Join(configDir, dir)
 	}
 	abs, err := filepath.Abs(dir)
 	if err != nil {
-		return "", envErr(CodeBadDir, "app %s: cannot resolve working directory %q: %v", app.Name, app.Dir, err).
-			WithHint("check apps.%s.dir", app.Name)
+		return "", envErr(CodeBadDir, "service %s: cannot resolve working directory %q: %v", app.Name, app.Dir, err).
+			WithHint("check services.%s.dir", app.Name)
 	}
 	info, err := os.Stat(abs)
 	switch {
 	case err != nil:
-		return "", envErr(CodeBadDir, "app %s: working directory %s does not exist", app.Name, abs).
-			WithHint("check apps.%s.dir (it is relative to the directory of axx.yaml)", app.Name)
+		return "", envErr(CodeBadDir, "service %s: working directory %s does not exist", app.Name, abs).
+			WithHint("check services.%s.dir (it is relative to the directory of axx.yaml)", app.Name)
 	case !info.IsDir():
-		return "", envErr(CodeBadDir, "app %s: working directory %s is not a directory", app.Name, abs).
-			WithHint("check apps.%s.dir (it is relative to the directory of axx.yaml)", app.Name)
+		return "", envErr(CodeBadDir, "service %s: working directory %s is not a directory", app.Name, abs).
+			WithHint("check services.%s.dir (it is relative to the directory of axx.yaml)", app.Name)
 	}
 	return abs, nil
 }

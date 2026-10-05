@@ -79,9 +79,9 @@ func (Reporter) JSONSchema() *ijs.Schema {
 	}}
 }
 
-// JSONSchema describes Apps as a mapping of name to App.
-func (Apps) JSONSchema() *ijs.Schema {
-	return &ijs.Schema{Type: "object", AdditionalProperties: inline(&App{})}
+// JSONSchema describes Services as a mapping of name to Service.
+func (Services) JSONSchema() *ijs.Schema {
+	return &ijs.Schema{Type: "object", AdditionalProperties: inline(&Service{})}
 }
 
 func inline(v any) *ijs.Schema {

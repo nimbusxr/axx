@@ -7,11 +7,11 @@ import (
 	"time"
 )
 
-// awaitReady waits until a passes its readiness checks. A launched app that
+// awaitReady waits until a passes its readiness checks. A launched service that
 // exits with a non-zero code first fails at once; one that exits 0 (a
 // launcher like `docker compose up -d`) keeps being checked until the
-// timeout. An app without checks is ready immediately.
-func (m *Manager) awaitReady(ctx context.Context, a *app, plan launchPlan) error {
+// timeout. A service without checks is ready immediately.
+func (m *Manager) awaitReady(ctx context.Context, a *service, plan launchPlan) error {
 	name := a.cfg.Name
 	spec := a.ready
 	var checks []check
@@ -32,19 +32,19 @@ func (m *Manager) awaitReady(ctx context.Context, a *app, plan launchPlan) error
 			wake = p.logMatched
 		}
 	} else if spec.log != nil {
-		m.log.Warn("axx cannot see the output of an attached app; skipping its ready.log check", "app", name)
+		m.log.Warn("axx cannot see the output of an attached service; skipping its ready.log check", "service", name)
 	}
 	if len(checks) == 0 {
-		m.log.Warn("app has no readiness check; treating it as ready at once",
-			"app", name, "hint", "set apps."+name+".ready so tests do not start before the app is up")
+		m.log.Warn("service has no readiness check; treating it as ready at once",
+			"service", name, "hint", "set services."+name+".ready so tests do not start before the service is up")
 		return nil
 	}
 
-	m.log.Info("waiting for app to be ready", "app", name, "timeout", spec.timeout)
+	m.log.Info("waiting for service to be ready", "service", name, "timeout", spec.timeout)
 	start := time.Now()
 	result, failures := pollReady(ctx, checks, spec.timeout, spec.interval, exited, wake)
 	if result == outcomeExited && launcherExit(a) {
-		// A command such as `docker compose up -d` starts the app and exits 0:
+		// A command such as `docker compose up -d` starts the service and exits 0:
 		// keep polling the non-log checks until the timeout.
 		var remaining []check
 		for _, c := range checks {
@@ -53,7 +53,7 @@ func (m *Manager) awaitReady(ctx context.Context, a *app, plan launchPlan) error
 			}
 		}
 		if len(remaining) > 0 {
-			m.log.Info("app command exited 0 before ready; still waiting for readiness", "app", name)
+			m.log.Info("service command exited 0 before ready; still waiting for readiness", "service", name)
 			left := spec.timeout - time.Since(start)
 			if left <= 0 {
 				left = spec.interval
@@ -63,7 +63,7 @@ func (m *Manager) awaitReady(ctx context.Context, a *app, plan launchPlan) error
 	}
 	switch result {
 	case outcomeReady:
-		m.log.Info("app is ready", "app", name)
+		m.log.Info("service is ready", "service", name)
 		return nil
 	case outcomeExited:
 		a.proc.pipes.wait(drainWait) // let the last lines arrive
@@ -75,10 +75,10 @@ func (m *Manager) awaitReady(ctx context.Context, a *app, plan launchPlan) error
 	}
 }
 
-// exitedEarly reports an app that exited before it was ready.
-func exitedEarly(a *app, plan launchPlan) error {
+// exitedEarly reports a service that exited before it was ready.
+func exitedEarly(a *service, plan launchPlan) error {
 	name := a.cfg.Name
-	msg := fmt.Sprintf("app %s %s before it was ready", name, describeExit(a.proc.state))
+	msg := fmt.Sprintf("service %s %s before it was ready", name, describeExit(a.proc.state))
 	if tail := a.tail.snapshot(); len(tail) > 0 {
 		msg += "; last output:" + formatTail(tail, errorTailLines)
 	} else {
@@ -88,18 +88,18 @@ func exitedEarly(a *app, plan launchPlan) error {
 	if d := plan.debug; d != nil && d.mode == modeIDEListens {
 		return e.WithHint("in debug mode %s connects to the debugger on %s: make sure your IDE's debug listener is running, then run axx again", name, d.addr())
 	}
-	return e.WithHint("run `%s` in %s to see why it stops (apps.%s.command)", displayArgv(a.proc.argv), a.dir, name)
+	return e.WithHint("run `%s` in %s to see why it stops (services.%s.command)", displayArgv(a.proc.argv), a.dir, name)
 }
 
-// notReady reports an app whose checks did not pass in time.
-func notReady(a *app, failures []checkFailure) error {
+// notReady reports a service whose checks did not pass in time.
+func notReady(a *service, failures []checkFailure) error {
 	name := a.cfg.Name
 	var b strings.Builder
-	fmt.Fprintf(&b, "app %s was not ready after %s", name, a.ready.timeout)
+	fmt.Fprintf(&b, "service %s was not ready after %s", name, a.ready.timeout)
 	fields := make([]string, 0, len(failures))
 	for _, f := range failures {
 		fmt.Fprintf(&b, "\n  ready.%s: %v", f.field, f.err)
-		fields = append(fields, "apps."+name+".ready."+f.field)
+		fields = append(fields, "services."+name+".ready."+f.field)
 	}
 	if a.proc != nil {
 		if tail := a.tail.snapshot(); len(tail) > 0 {
@@ -109,12 +109,12 @@ func notReady(a *app, failures []checkFailure) error {
 	e := envErr(CodeNotReady, "%s", b.String())
 	check := strings.Join(fields, " and ")
 	if a.attached {
-		return e.WithHint("%s is attached, so axx does not start it: start it yourself, check %s, or raise apps.%s.ready.timeout", name, check, name)
+		return e.WithHint("%s is attached, so axx does not start it: start it yourself, check %s, or raise services.%s.ready.timeout", name, check, name)
 	}
-	return e.WithHint("check %s, or raise apps.%s.ready.timeout (now %s)", check, name, a.ready.timeout)
+	return e.WithHint("check %s, or raise services.%s.ready.timeout (now %s)", check, name, a.ready.timeout)
 }
 
-// launcherExit reports whether the app's process exited cleanly (code 0).
-func launcherExit(a *app) bool {
+// launcherExit reports whether the service's process exited cleanly (code 0).
+func launcherExit(a *service) bool {
 	return a.proc != nil && a.proc.state != nil && a.proc.state.Success()
 }

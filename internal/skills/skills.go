@@ -163,7 +163,7 @@ run:
   reporters: [pretty, {junit: build/axx/junit.xml}]
 resources: ["."]               # where seed/payload/schema paths in steps are looked up
 properties: {local.host: localhost}   # ${sys:local.host}; override with -D local.host=...
-apps:
+services:
   api:
     command: docker compose up --build
     ready: {http: {url: http://localhost:8080/health}, timeout: 120s}

@@ -1,0 +1,10 @@
+{
+  "name": "depot-desk",
+  "productName": "Depot desk",
+  "version": "1.0.0",
+  "private": true,
+  "main": "main.js",
+  "devDependencies": {
+    "electron": "44.5.1"
+  }
+}

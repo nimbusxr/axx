@@ -36,6 +36,18 @@ type SuiteOptions struct {
 	Watch bool
 	// Slowdown is how long a watched run pauses after each action.
 	Slowdown time.Duration
+	// Services are the services axx.yaml declares, in its order, each with
+	// the folder axx runs it in: the file contexts of the folders whose
+	// owner is a service.
+	Services []DeclaredService
+}
+
+// DeclaredService is a service axx.yaml declares.
+type DeclaredService struct {
+	Name string
+	// Dir is the folder axx runs it in: its dir, relative to axx.yaml (axx.yaml's
+	// own folder by default), made absolute.
+	Dir string
 }
 
 // Suite is shared by all scenarios of a run: configuration, resolution
@@ -50,6 +62,8 @@ type Suite struct {
 	closed  bool
 	// pauses are the lines of the steps the run pauses before, by URI.
 	pauses map[string][]int
+	// owners give the files of the owners of a kind (SetFileOwner).
+	owners map[string]FileOwner
 }
 
 type cacheEntry struct {
@@ -96,6 +110,20 @@ func (s *Suite) Logger() *slog.Logger { return s.opts.Logger }
 
 // ProjectDir returns the directory of axx.yaml ("" when there is none).
 func (s *Suite) ProjectDir() string { return s.opts.ProjectDir }
+
+// DeclaredService is the service axx.yaml declares by the name; ok is false
+// when it declares none of that name.
+func (s *Suite) DeclaredService(name string) (DeclaredService, bool) {
+	for _, d := range s.opts.Services {
+		if d.Name == name {
+			return d, true
+		}
+	}
+	return DeclaredService{}, false
+}
+
+// DeclaredServices are the services axx.yaml declares, in its order.
+func (s *Suite) DeclaredServices() []DeclaredService { return slices.Clone(s.opts.Services) }
 
 // PauseAt sets where the run pauses, as `axx run --pause-at` asks: before
 // the steps at these lines, by feature file (URIs relative to the project,

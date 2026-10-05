@@ -21,17 +21,17 @@ import (
 // stateVersion is the schema version of the state file.
 const stateVersion = 1
 
-// runState is the state file: the apps a run has started and not yet
+// runState is the state file: the services a run has started and not yet
 // cleaned up, so that `axx down` can reap them if the run was killed.
 type runState struct {
 	Version int `json:"version"`
-	// PID is the axx process that started the apps.
-	PID  int        `json:"pid"`
-	Apps []stateApp `json:"apps"`
+	// PID is the axx process that started the services.
+	PID      int            `json:"pid"`
+	Services []stateService `json:"services"`
 }
 
-// stateApp records one app that is running, or stopped but not cleaned up.
-type stateApp struct {
+// stateService records one service that is running, or stopped but not cleaned up.
+type stateService struct {
 	Name       string            `json:"name"`
 	PID        int               `json:"pid"`
 	PGID       int               `json:"pgid"`
@@ -41,20 +41,20 @@ type stateApp struct {
 	Grace      config.Duration   `json:"grace,omitzero"`
 	Cleanup    []string          `json:"cleanup,omitempty"`
 	Env        map[string]string `json:"env,omitempty"`
-	// Owner is the axx process that started the app (earlier files: the
+	// Owner is the axx process that started the service (earlier files: the
 	// file's PID).
 	Owner int `json:"owner,omitempty"`
-	// CleanupFailed is set once the app is stopped but its cleanup failed:
+	// CleanupFailed is set once the service is stopped but its cleanup failed:
 	// `axx down` runs the cleanup again.
 	CleanupFailed bool `json:"cleanupFailed,omitempty"`
 }
 
-// StateFile is where a project's runs record the apps they start.
+// StateFile is where a project's runs record the services they start.
 func StateFile(projectDir string) string {
 	return filepath.Join(projectDir, ".axx", "run", "state.json")
 }
 
-// saveStateLocked rewrites the state file with the apps that are running or
+// saveStateLocked rewrites the state file with the services that are running or
 // not cleaned up yet (and entries inherited from an earlier run), or removes
 // it when there are none. Failures are logged: the file is a safety net and
 // must not fail the run. Callers hold m.mu.
@@ -66,7 +66,7 @@ func (m *Manager) saveStateLocked() {
 	if !m.stateLoaded {
 		m.stateLoaded = true
 		if old, err := readState(path); err == nil {
-			for _, a := range old.Apps {
+			for _, a := range old.Services {
 				if a.Owner == 0 && !a.CleanupFailed {
 					a.Owner = old.PID
 				}
@@ -74,26 +74,26 @@ func (m *Manager) saveStateLocked() {
 			}
 		}
 	}
-	st := runState{Version: stateVersion, PID: os.Getpid(), Apps: slices.Concat(m.inherited, m.unclean)}
+	st := runState{Version: stateVersion, PID: os.Getpid(), Services: slices.Concat(m.inherited, m.unclean)}
 	for _, a := range m.up {
 		if a.proc == nil || a.cleaned {
 			continue
 		}
 		pid, pgid := a.proc.group.IDs()
-		st.Apps = append(st.Apps, stateApp{
+		st.Services = append(st.Services, stateService{
 			Name: a.cfg.Name, PID: pid, PGID: pgid, StartedAt: a.proc.startedAt,
 			Dir: a.dir, StopSignal: a.cfg.Stop.Signal, Grace: a.cfg.Stop.Grace,
 			Cleanup: a.cleanup, Env: a.cfg.Env, Owner: os.Getpid(),
 		})
 	}
-	if len(st.Apps) == 0 {
+	if len(st.Services) == 0 {
 		if err := os.Remove(path); err != nil && !errors.Is(err, fs.ErrNotExist) {
 			m.log.Warn("could not remove the state file", "stateFile", path, "error", err)
 		}
 		return
 	}
 	if err := writeState(path, st); err != nil {
-		m.log.Warn("could not write the state file; `axx down` will not know about these apps",
+		m.log.Warn("could not write the state file; `axx down` will not know about these services",
 			"stateFile", path, "error", err)
 	}
 }
@@ -142,12 +142,12 @@ func readState(path string) (runState, error) {
 	return st, nil
 }
 
-// Reap stops the apps recorded in stateFile by a run that did not stop them
+// Reap stops the services recorded in stateFile by a run that did not stop them
 // (it was killed, or crashed): process groups still alive get their stop
 // signal, a grace period and then SIGKILL, in reverse start order. Each
-// app's cleanup then runs, its output going to stdout and stderr with the
-// app's prefix, as does a cleanup that failed before. It returns the apps it
-// stopped or cleaned up. An app that cannot be stopped, or whose cleanup
+// service's cleanup then runs, its output going to stdout and stderr with the
+// service's prefix, as does a cleanup that failed before. It returns the services it
+// stopped or cleaned up. A service that cannot be stopped, or whose cleanup
 // fails, stays in the state file for the next Reap; the file is removed
 // once nothing is left. A missing state file means there is nothing to do.
 func Reap(stateFile string, stdout, stderr io.Writer) ([]string, error) {
@@ -157,32 +157,32 @@ func Reap(stateFile string, stdout, stderr io.Writer) ([]string, error) {
 	}
 	if err != nil {
 		return nil, envErr(CodeStateFile, "cannot read the state file %s: %v", stateFile, err).
-			WithHint("stop leftover apps by hand, then delete %s", stateFile)
+			WithHint("stop leftover services by hand, then delete %s", stateFile)
 	}
 	con := newConsole(stdout, stderr)
 	ctx := context.Background()
 	var (
 		errs []error
 		done []string
-		kept []stateApp
+		kept []stateService
 	)
-	for i := len(st.Apps) - 1; i >= 0; i-- {
-		sa := st.Apps[i]
+	for i := len(st.Services) - 1; i >= 0; i-- {
+		sa := st.Services[i]
 		if !sa.CleanupFailed {
 			g, err := proc.OpenGroup(sa.PID, sa.PGID)
 			if err != nil {
-				errs = append(errs, envErr(CodeStateFile, "state file %s: app %s: %v", stateFile, sa.Name, err))
+				errs = append(errs, envErr(CodeStateFile, "state file %s: service %s: %v", stateFile, sa.Name, err))
 				continue
 			}
 			alive := g.Alive()
 			if alive {
-				con.Println(fmt.Sprintf("stopping app %s left over from an earlier run (pid %d)", sa.Name, sa.PID))
+				con.Println(fmt.Sprintf("stopping service %s left over from an earlier run (pid %d)", sa.Name, sa.PID))
 				if err := terminate(ctx, g, sa.StopSignal, sa.Grace.Or(defaultGrace)); err != nil {
-					errs = append(errs, envErr(CodeStopFailed, "app %s could not be stopped: %v", sa.Name, err).
+					errs = append(errs, envErr(CodeStopFailed, "service %s could not be stopped: %v", sa.Name, err).
 						WithHint("stop its processes by hand (process group %d)", sa.PGID))
 					g.Release()
 					sa.Owner = 0
-					kept = append([]stateApp{sa}, kept...)
+					kept = append([]stateService{sa}, kept...)
 					continue
 				}
 			}
@@ -192,17 +192,17 @@ func Reap(stateFile string, stdout, stderr io.Writer) ([]string, error) {
 			}
 		}
 		if len(sa.Cleanup) > 0 {
-			con.Println(fmt.Sprintf("running cleanup of app %s: %s", sa.Name, displayArgv(sa.Cleanup)))
-			if err := runCleanup(ctx, con, nil, sa.Name, sa.Cleanup, sa.Dir, appEnv(os.Environ(), sa.Env)); err != nil {
+			con.Println(fmt.Sprintf("running cleanup of service %s: %s", sa.Name, displayArgv(sa.Cleanup)))
+			if err := runCleanup(ctx, con, nil, sa.Name, sa.Cleanup, sa.Dir, serviceEnv(os.Environ(), sa.Env)); err != nil {
 				errs = append(errs, err)
-				kept = append([]stateApp{uncleaned(sa)}, kept...)
+				kept = append([]stateService{uncleaned(sa)}, kept...)
 				continue
 			}
 		}
 		done = append(done, sa.Name)
 	}
 	if len(kept) > 0 {
-		if err := writeState(stateFile, runState{Version: stateVersion, Apps: kept}); err != nil {
+		if err := writeState(stateFile, runState{Version: stateVersion, Services: kept}); err != nil {
 			errs = append(errs, envErr(CodeStateFile, "cannot write the state file %s: %v", stateFile, err))
 		}
 	} else if err := os.Remove(stateFile); err != nil && !errors.Is(err, fs.ErrNotExist) {
@@ -211,13 +211,13 @@ func Reap(stateFile string, stdout, stderr io.Writer) ([]string, error) {
 	return done, joinErrs(errs)
 }
 
-// uncleaned is the state entry of a stopped app whose cleanup failed.
-func uncleaned(sa stateApp) stateApp {
-	return stateApp{Name: sa.Name, Dir: sa.Dir, Cleanup: sa.Cleanup, Env: sa.Env, CleanupFailed: true}
+// uncleaned is the state entry of a stopped service whose cleanup failed.
+func uncleaned(sa stateService) stateService {
+	return stateService{Name: sa.Name, Dir: sa.Dir, Cleanup: sa.Cleanup, Env: sa.Env, CleanupFailed: true}
 }
 
-// AppStatus is an app a project's state file records.
-type AppStatus struct {
+// ServiceStatus is a service a project's state file records.
+type ServiceStatus struct {
 	Name string `json:"name"`
 	// State is "running" (the axx process that started it, `axx up` or a
 	// run, is still running), "left over" (it runs, but what started it
@@ -226,22 +226,22 @@ type AppStatus struct {
 	// it).
 	State string `json:"state"`
 	PID   int    `json:"pid,omitempty"`
-	// Cleanup is the app's cleanup command.
+	// Cleanup is the service's cleanup command.
 	Cleanup string `json:"cleanup,omitempty"`
 	// CleanupFailed: the cleanup ran and failed.
 	CleanupFailed bool `json:"cleanupFailed,omitempty"`
 }
 
-// The states of AppStatus.
+// The states of ServiceStatus.
 const (
-	AppRunning    = "running"
-	AppLeftOver   = "left over"
-	AppNotCleaned = "not cleaned up"
+	ServiceRunning    = "running"
+	ServiceLeftOver   = "left over"
+	ServiceNotCleaned = "not cleaned up"
 )
 
-// Status returns the apps stateFile records, with their state; none when
+// Status returns the services stateFile records, with their state; none when
 // there is no state file.
-func Status(stateFile string) ([]AppStatus, error) {
+func Status(stateFile string) ([]ServiceStatus, error) {
 	st, err := readState(stateFile)
 	if errors.Is(err, fs.ErrNotExist) {
 		return nil, nil
@@ -252,26 +252,26 @@ func Status(stateFile string) ([]AppStatus, error) {
 	return statusOf(st), nil
 }
 
-func statusOf(st runState) []AppStatus {
-	var out []AppStatus
-	for _, sa := range st.Apps {
+func statusOf(st runState) []ServiceStatus {
+	var out []ServiceStatus
+	for _, sa := range st.Services {
 		owner := sa.Owner
 		if owner == 0 && !sa.CleanupFailed {
 			owner = st.PID
 		}
-		as := AppStatus{Name: sa.Name, CleanupFailed: sa.CleanupFailed}
+		as := ServiceStatus{Name: sa.Name, CleanupFailed: sa.CleanupFailed}
 		if len(sa.Cleanup) > 0 {
 			as.Cleanup = displayArgv(sa.Cleanup)
 		}
 		switch {
 		case sa.CleanupFailed:
-			as.State = AppNotCleaned
+			as.State = ServiceNotCleaned
 		case owner > 0 && proc.ProcessAlive(owner):
-			as.State, as.PID = AppRunning, sa.PID
+			as.State, as.PID = ServiceRunning, sa.PID
 		case sa.PID > 0 && proc.ProcessAlive(sa.PID):
-			as.State, as.PID = AppLeftOver, sa.PID
+			as.State, as.PID = ServiceLeftOver, sa.PID
 		case len(sa.Cleanup) > 0:
-			as.State = AppNotCleaned
+			as.State = ServiceNotCleaned
 		default:
 			continue // gone, with nothing to clean up
 		}
@@ -280,10 +280,10 @@ func statusOf(st runState) []AppStatus {
 	return out
 }
 
-// checkEarlierRuns deals with apps an earlier run left behind (still running
+// checkEarlierRuns deals with services an earlier run left behind (still running
 // with nothing to stop them, or stopped without their cleanup), whose data
 // would be what this run starts from. When nothing recorded belongs to a run
-// still going, or to an app this run attaches to, all of it was left by runs
+// still going, or to a service this run attaches to, all of it was left by runs
 // that ended without stopping it (stopped by force, or crashed): it is
 // cleaned up as `axx down` does, and the run starts from a clean slate.
 // Otherwise the run refuses to start.
@@ -291,24 +291,24 @@ func (m *Manager) checkEarlierRuns() error {
 	if m.opts.StateFile == "" {
 		return nil
 	}
-	var apps []AppStatus
+	var apps []ServiceStatus
 	if st, err := readState(m.opts.StateFile); err == nil { // none, or unreadable: `axx down` reports that
 		apps = statusOf(st)
 	}
 	var left []string
 	inUse := false
 	for _, as := range apps {
-		if m.opts.Attach[as.Name] || as.State == AppRunning {
+		if m.opts.Attach[as.Name] || as.State == ServiceRunning {
 			inUse = true
 			continue
 		}
 		switch {
-		case as.State == AppLeftOver:
-			left = append(left, fmt.Sprintf("app %s is still running (pid %d)", as.Name, as.PID))
+		case as.State == ServiceLeftOver:
+			left = append(left, fmt.Sprintf("service %s is still running (pid %d)", as.Name, as.PID))
 		case as.CleanupFailed:
-			left = append(left, fmt.Sprintf("the cleanup of app %s failed (%s)", as.Name, as.Cleanup))
+			left = append(left, fmt.Sprintf("the cleanup of service %s failed (%s)", as.Name, as.Cleanup))
 		default:
-			left = append(left, fmt.Sprintf("the cleanup of app %s never ran (%s)", as.Name, as.Cleanup))
+			left = append(left, fmt.Sprintf("the cleanup of service %s never ran (%s)", as.Name, as.Cleanup))
 		}
 	}
 	if len(left) == 0 {

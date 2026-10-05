@@ -4,6 +4,7 @@ import (
 	"errors"
 	"io/fs"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -20,9 +21,33 @@ func repoRoot() string {
 	return filepath.Join(filepath.Dir(file), "..", "..")
 }
 
-// copyTree copies src into dst.
+// copyTree copies src into dst: the files a checkout has (git's tracked and
+// unignored files), so what builds leave in an example (an app's
+// node_modules, its build folders) stays behind.
 func copyTree(t *testing.T, src, dst string) {
 	t.Helper()
+	if out, err := exec.Command("git", "-C", src, "ls-files", "-co", "--exclude-standard", "-z", ".").Output(); err == nil {
+		for _, rel := range strings.Split(strings.TrimRight(string(out), "\x00"), "\x00") {
+			if rel == "" {
+				continue
+			}
+			b, err := os.ReadFile(filepath.Join(src, filepath.FromSlash(rel)))
+			if errors.Is(err, fs.ErrNotExist) {
+				continue // deleted in the working tree
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			target := filepath.Join(dst, filepath.FromSlash(rel))
+			if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(target, b, 0o644); err != nil {
+				t.Fatal(err)
+			}
+		}
+		return
+	}
 	err := filepath.WalkDir(src, func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err

@@ -14,7 +14,7 @@ resources: ["."]
 properties:
   local.host: localhost
 
-apps:
+services:
   claims:
     # ../infra/compose.yaml starts AWS (floci), creates the resources, and starts the service.
     dir: ../infra

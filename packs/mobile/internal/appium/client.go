@@ -219,6 +219,23 @@ func (s *Session) Screenshot(ctx context.Context) ([]byte, error) {
 	return base64.StdEncoding.DecodeString(out)
 }
 
+// PullFile reads a file of the device, as Appium names it: "@<bundle
+// id>:data/Documents/x" for an iOS app's, "@<package>/files/x" for a
+// debuggable Android app's.
+func (s *Session) PullFile(ctx context.Context, path string) ([]byte, error) {
+	var out string
+	if err := s.c.do(ctx, http.MethodPost, s.path("/appium/device/pull_file"), map[string]any{"path": path}, &out); err != nil {
+		return nil, err
+	}
+	return base64.StdEncoding.DecodeString(out)
+}
+
+// PushFile writes a file of the device, named as PullFile names it.
+func (s *Session) PushFile(ctx context.Context, path string, body []byte) error {
+	return s.c.do(ctx, http.MethodPost, s.path("/appium/device/push_file"),
+		map[string]any{"path": path, "data": base64.StdEncoding.EncodeToString(body)}, nil)
+}
+
 // Window is the screen's size, in points.
 func (s *Session) Window(ctx context.Context) (Rect, error) {
 	var r Rect
