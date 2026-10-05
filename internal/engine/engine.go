@@ -237,6 +237,7 @@ func New(opts Options) (*Engine, error) {
 		Invoke: func(sc *core.Scenario, text string, table *core.Table, doc *core.DocString) error {
 			return e.Invoke(sc, text, table, doc)
 		},
+		Services: declaredServices(cfg),
 	})
 	return e, nil
 }
@@ -476,4 +477,18 @@ func announcer(w io.Writer) func(string) {
 		defer mu.Unlock()
 		fmt.Fprintln(w, line)
 	}
+}
+
+// declaredServices are axx.yaml's services, each with the folder axx runs it
+// in, for the folders whose owner is a service.
+func declaredServices(cfg *config.Config) []core.DeclaredService {
+	out := make([]core.DeclaredService, 0, len(cfg.Services))
+	for _, svc := range cfg.Services {
+		dir := filepath.FromSlash(svc.Dir)
+		if !filepath.IsAbs(dir) {
+			dir = filepath.Join(cfg.Dir, dir)
+		}
+		out = append(out, core.DeclaredService{Name: svc.Name, Dir: filepath.Clean(dir)})
+	}
+	return out
 }

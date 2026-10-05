@@ -13,22 +13,22 @@ import (
 )
 
 // newEnvCmd is the command line's twin of the MCP server's env tool: the
-// apps axx started, and up and down to start and stop them.
+// services axx started, and up and down to start and stop them.
 func newEnvCmd(app *App) *cobra.Command {
 	cmd := envStatusCmd(app, "env")
-	cmd.Short = "The apps axx started (running, left over, not cleaned up); env up and env down start and stop them"
-	cmd.Long = `Report the apps axx started from axx.yaml, as the axx MCP server's env tool
+	cmd.Short = "The services axx started (running, left over, not cleaned up); env up and env down start and stop them"
+	cmd.Long = `Report the services axx started from axx.yaml, as the axx MCP server's env tool
 does: running (axx up, or a run, still holds them), left over (they run, but
 what started them does not: axx down stops them) or not cleaned up (their
 cleanup failed or never ran: axx down runs it). env status is axx env;
 env up and env down are axx up and axx down.`
 	status := envStatusCmd(app, "status")
-	status.Short = "The apps axx started (the same as `axx env`)"
+	status.Short = "The services axx started (the same as `axx env`)"
 	cmd.AddCommand(status, newUpCmd(app), newDownCmd(app))
 	return cmd
 }
 
-// envStatusCmd reports the apps axx started: axx env, and axx env status.
+// envStatusCmd reports the services axx started: axx env, and axx env status.
 func envStatusCmd(app *App, use string) *cobra.Command {
 	var cf configFlags
 	cmd := &cobra.Command{
@@ -44,15 +44,15 @@ func envStatusCmd(app *App, use string) *cobra.Command {
 				return err
 			}
 			if apps == nil {
-				apps = []lifecycle.AppStatus{}
+				apps = []lifecycle.ServiceStatus{}
 			}
-			out := map[string]any{"apps": apps}
+			out := map[string]any{"services": apps}
 			if st, ok := liveUp(cfg); ok {
-				out["up"] = st.Apps
+				out["up"] = st.Services
 			}
 			return app.Emit(out, func(w io.Writer) error {
 				if len(apps) == 0 {
-					_, err := fmt.Fprintln(w, "no apps started by axx are running or left behind")
+					_, err := fmt.Fprintln(w, "no services started by axx are running or left behind")
 					return err
 				}
 				for _, a := range apps {

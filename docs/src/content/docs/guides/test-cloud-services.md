@@ -49,7 +49,7 @@ An `endpoint` points every service of the account or project at an emulator. Lea
 
 ## Run the clouds locally
 
-Emulators such as [floci](https://floci.io) run AWS, Google Cloud and Azure on your machine: one container per cloud, free, with no account needed. Start one next to your service in the Compose file your [app definition](/guides/manage-app-lifecycle/) runs, and point your service at it the way its SDK expects:
+Emulators such as [floci](https://floci.io) run AWS, Google Cloud and Azure on your machine: one container per cloud, free, with no account needed. Start one next to your service in the Compose file your [service definition](/guides/manage-services/) runs, and point your service at it the way its SDK expects:
 
 - `AWS_ENDPOINT_URL` for AWS;
 - `STORAGE_EMULATOR_HOST`, `PUBSUB_EMULATOR_HOST` and `FIRESTORE_EMULATOR_HOST` for Google Cloud;

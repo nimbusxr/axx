@@ -1,6 +1,6 @@
 ---
 name: axx-setup
-description: Adopt axx in a repository - axx init, axx.yaml apps and readiness checks, docker compose infrastructure, running in CI (GitHub Actions, GitLab CI), and agent integration (skills, MCP). Use when setting up acceptance testing for a service.
+description: Adopt axx in a repository - axx init, axx.yaml services and readiness checks, docker compose infrastructure, running in CI (GitHub Actions, GitLab CI), and agent integration (skills, MCP). Use when setting up acceptance testing for a service.
 license: Apache-2.0
 ---
 
@@ -11,7 +11,7 @@ license: Apache-2.0
 ```sh
 axx init            # axx.yaml, axx-packs.yaml, features/smoke.feature, .github/workflows/acceptance.yml, AGENTS.md section, .gitignore, .gitattributes, agents
 axx pack add sql    # the packs whose steps the project uses (init lists rest); `axx pack list` shows them all
-axx doctor          # verify: config, apps' commands, docker, features
+axx doctor          # verify: config, services' commands, docker, features
 ```
 
 `axx init` detects `compose.yaml` and OpenAPI files. It leaves existing files alone unless you pass `--force`, adds or updates its `AGENTS.md` section and the `.axx/` line of `.gitignore` in place, and is safe to run again. It also installs the skills in `.agents/skills`, marked generated in `.gitattributes` so their diffs collapse in pull requests, and connects the axx MCP server to the agents the repository already uses, in their own files (see "4. Agents"); `--no-agents` skips that.
@@ -19,23 +19,23 @@ axx doctor          # verify: config, apps' commands, docker, features
 ## 2. Describe how to start the system under test
 
 ```yaml
-apps:
+services:
   api:
     dir: .
     command: docker compose up --build        # or ./gradlew bootRun, npm start, go run ./cmd/api ...
     ready:
       http: {url: http://localhost:8080/health}   # every URL must return 2xx; also: tcp, exec, log (regex)
       timeout: 120s
-    cleanup: docker compose down -v --remove-orphans   # always runs, even if the app crashed
+    cleanup: docker compose down -v --remove-orphans   # always runs, even if the service crashed
     active: {tags: ["@api"]}                  # with active.enabled: start only when selected scenarios need it
 ```
 
-- An app is what runs on its own and is reached by an address. A program its user starts, like a command-line tool or an MCP server its clients run over stdio, is not an app: the step that uses it runs it (the cli and mcp packs' `command`).
+- A service is what runs on its own and is reached by an address. A program its user starts, like a command-line tool or an MCP server its clients run over stdio, is not a service: the step that uses it runs it (the cli and mcp packs' `command`).
 - Commands run without a shell. Set `shell: true` if a command needs pipes or `&&`.
-- Order apps with `dependsOn: [db]`. Independent apps start in parallel.
-- A command that exits 0 before the app is ready (`docker compose up -d`) is fine: Axx keeps checking readiness.
+- Order services with `dependsOn: [db]`. Independent services start in parallel.
+- A command that exits 0 before the service is ready (`docker compose up -d`) is fine: Axx keeps checking readiness.
 - For fast local iteration, run `axx up` once, then `axx run` as often as you like, then `axx down`.
-- To debug the app, run it yourself from your IDE with `axx run --attach api`, or use `axx run --debug` with `apps.api.debug`.
+- To debug the service, run it yourself from your IDE with `axx run --attach api`, or use `axx run --debug` with `services.api.debug`.
 
 ## 3. CI
 
@@ -51,7 +51,7 @@ Anywhere else, install Axx with `curl -fsSL https://axx.nimbusxr.us/install.sh |
 
 - Use profiles for CI-only differences: `profiles: {ci: {properties: {local.host: docker}}}` together with `--profile ci` or `AXX_PROFILE=ci`.
 - If `axx.yaml` has a `fixtures` section, run `axx fixtures check` and then `axx fixtures generate` before `axx run`: check fails (exit 1) when fixtures drifted from their factory specs or the committed manifest is stale, and passes on a fresh clone whose ignored outputs are not generated yet; generate then writes them. Check first: generate would bring a stale manifest up to date and hide it.
-- Exit codes: 0 pass, 1 failures, 2 config, 3 undefined steps or lint violations, 4 app startup.
+- Exit codes: 0 pass, 1 failures, 2 config, 3 undefined steps or lint violations, 4 service startup.
 - `axx lint` checks the test-data isolation rules under `lint:` in `axx.yaml` (values such as seed ids that must be unique across files). Its formats are `human`, `json`, `junit`, `sarif` and `github`; `mode: warn` reports without failing while you adopt a rule.
 
 ## 4. Agents

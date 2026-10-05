@@ -13,322 +13,12 @@
             "fallback",
             "error"
           ],
-          "description": "OnNoTags decides what happens when the selected scenarios have no tags:\n\"fallback\" (start all enabled apps, default) or \"error\"."
+          "description": "OnNoTags decides what happens when the selected scenarios have no tags:\n\"fallback\" (start all enabled services, default) or \"error\"."
         }
       },
       "additionalProperties": false,
       "type": "object",
       "description": "Active configures tag-based application startup."
-    },
-    "Apps": {
-      "additionalProperties": {
-        "properties": {
-          "enabled": {
-            "type": "boolean",
-            "description": "Enabled defaults to true."
-          },
-          "dir": {
-            "type": "string",
-            "description": "Dir is the working directory, relative to axx.yaml."
-          },
-          "command": {
-            "oneOf": [
-              {
-                "type": "string",
-                "description": "command line, split into words without a shell unless shell: true"
-              },
-              {
-                "items": {
-                  "type": "string"
-                },
-                "type": "array",
-                "minItems": 1,
-                "description": "argv"
-              }
-            ],
-            "description": "Command starts the app: a string (split like a shell word list, without\na shell) or an argv list. Set shell: true to run it through the shell."
-          },
-          "shell": {
-            "type": "boolean",
-            "description": "Shell runs command and cleanup through /bin/sh -c (cmd /C on Windows)."
-          },
-          "env": {
-            "additionalProperties": {
-              "type": "string"
-            },
-            "type": "object"
-          },
-          "dependsOn": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "description": "DependsOn names apps that must be ready first."
-          },
-          "ready": {
-            "properties": {
-              "http": {
-                "properties": {
-                  "url": {
-                    "oneOf": [
-                      {
-                        "type": "string"
-                      },
-                      {
-                        "items": {
-                          "type": "string"
-                        },
-                        "type": "array"
-                      }
-                    ]
-                  }
-                },
-                "additionalProperties": false,
-                "type": "object",
-                "required": [
-                  "url"
-                ]
-              },
-              "tcp": {
-                "type": "string",
-                "description": "TCP is a host:port that must accept connections."
-              },
-              "exec": {
-                "oneOf": [
-                  {
-                    "type": "string",
-                    "description": "command line, split into words without a shell unless shell: true"
-                  },
-                  {
-                    "items": {
-                      "type": "string"
-                    },
-                    "type": "array",
-                    "minItems": 1,
-                    "description": "argv"
-                  }
-                ],
-                "description": "Exec is a command that must exit 0."
-              },
-              "log": {
-                "type": "string",
-                "description": "Log is a regular expression matched against the app's output."
-              },
-              "timeout": {
-                "oneOf": [
-                  {
-                    "type": "string",
-                    "pattern": "^\\s*([0-9]+(\\.[0-9]+)?(ns|us|µs|ms|s|m|h))+\\s*$",
-                    "examples": [
-                      "30s",
-                      "1m30s",
-                      "250ms"
-                    ]
-                  },
-                  {
-                    "type": "number",
-                    "minimum": 0,
-                    "description": "seconds"
-                  }
-                ],
-                "description": "Timeout for the app to become ready. Default: 60s."
-              },
-              "interval": {
-                "oneOf": [
-                  {
-                    "type": "string",
-                    "pattern": "^\\s*([0-9]+(\\.[0-9]+)?(ns|us|µs|ms|s|m|h))+\\s*$",
-                    "examples": [
-                      "30s",
-                      "1m30s",
-                      "250ms"
-                    ]
-                  },
-                  {
-                    "type": "number",
-                    "minimum": 0,
-                    "description": "seconds"
-                  }
-                ],
-                "description": "Interval between checks. Default: 1s."
-              }
-            },
-            "additionalProperties": false,
-            "type": "object"
-          },
-          "stop": {
-            "properties": {
-              "signal": {
-                "type": "string",
-                "enum": [
-                  "SIGTERM",
-                  "SIGINT"
-                ],
-                "description": "Signal sent first: SIGTERM (default) or SIGINT."
-              },
-              "grace": {
-                "oneOf": [
-                  {
-                    "type": "string",
-                    "pattern": "^\\s*([0-9]+(\\.[0-9]+)?(ns|us|µs|ms|s|m|h))+\\s*$",
-                    "examples": [
-                      "30s",
-                      "1m30s",
-                      "250ms"
-                    ]
-                  },
-                  {
-                    "type": "number",
-                    "minimum": 0,
-                    "description": "seconds"
-                  }
-                ],
-                "description": "Grace period before the process group is killed. Default: 10s."
-              }
-            },
-            "additionalProperties": false,
-            "type": "object"
-          },
-          "cleanup": {
-            "oneOf": [
-              {
-                "type": "string",
-                "description": "command line, split into words without a shell unless shell: true"
-              },
-              {
-                "items": {
-                  "type": "string"
-                },
-                "type": "array",
-                "minItems": 1,
-                "description": "argv"
-              }
-            ],
-            "description": "Cleanup runs after the app stops, even if it crashed."
-          },
-          "active": {
-            "properties": {
-              "tags": {
-                "items": {
-                  "type": "string"
-                },
-                "type": "array",
-                "description": "Tags start the app for the scenarios that have one of them."
-              },
-              "uses": {
-                "items": {
-                  "type": "string"
-                },
-                "type": "array",
-                "description": "Uses starts the app for the scenarios that use a step of one of these\npacks, like [mobile-android]: no tag needed."
-              }
-            },
-            "additionalProperties": false,
-            "type": "object"
-          },
-          "debug": {
-            "properties": {
-              "command": {
-                "oneOf": [
-                  {
-                    "type": "string",
-                    "description": "command line, split into words without a shell unless shell: true"
-                  },
-                  {
-                    "items": {
-                      "type": "string"
-                    },
-                    "type": "array",
-                    "minItems": 1,
-                    "description": "argv"
-                  }
-                ],
-                "description": "Command replaces the normal command in debug mode."
-              },
-              "debugger": {
-                "properties": {
-                  "type": {
-                    "type": "string",
-                    "enum": [
-                      "java",
-                      "go",
-                      "nodejs",
-                      "python"
-                    ]
-                  },
-                  "port": {
-                    "type": "integer"
-                  },
-                  "host": {
-                    "type": "string"
-                  },
-                  "module": {
-                    "type": "string"
-                  },
-                  "mode": {
-                    "type": "string",
-                    "enum": [
-                      "ide-listens",
-                      "app-listens"
-                    ],
-                    "description": "Mode is \"ide-listens\" (the IDE listens and the app connects, e.g. JDWP\nserver=n; default for java) or \"app-listens\" (delve, --inspect, debugpy)."
-                  }
-                },
-                "additionalProperties": false,
-                "type": "object",
-                "required": [
-                  "port"
-                ]
-              },
-              "onUnavailable": {
-                "type": "string",
-                "enum": [
-                  "fail",
-                  "fallback",
-                  "retry"
-                ],
-                "description": "OnUnavailable decides what happens when the debugger is not listening:\nfail, fallback (run the normal command) or retry (default)."
-              },
-              "retry": {
-                "properties": {
-                  "attempts": {
-                    "type": "integer"
-                  },
-                  "delay": {
-                    "oneOf": [
-                      {
-                        "type": "string",
-                        "pattern": "^\\s*([0-9]+(\\.[0-9]+)?(ns|us|µs|ms|s|m|h))+\\s*$",
-                        "examples": [
-                          "30s",
-                          "1m30s",
-                          "250ms"
-                        ]
-                      },
-                      {
-                        "type": "number",
-                        "minimum": 0,
-                        "description": "seconds"
-                      }
-                    ]
-                  }
-                },
-                "additionalProperties": false,
-                "type": "object"
-              }
-            },
-            "additionalProperties": false,
-            "type": "object"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "command"
-        ],
-        "description": "App is an application or piece of infrastructure managed by axx."
-      },
-      "type": "object"
     },
     "Duration": {
       "oneOf": [
@@ -724,6 +414,316 @@
       },
       "type": "array"
     },
+    "Services": {
+      "additionalProperties": {
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "description": "Enabled defaults to true."
+          },
+          "dir": {
+            "type": "string",
+            "description": "Dir is the working directory, relative to axx.yaml."
+          },
+          "command": {
+            "oneOf": [
+              {
+                "type": "string",
+                "description": "command line, split into words without a shell unless shell: true"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array",
+                "minItems": 1,
+                "description": "argv"
+              }
+            ],
+            "description": "Command starts the service: a string (split like a shell word list, without\na shell) or an argv list. Set shell: true to run it through the shell."
+          },
+          "shell": {
+            "type": "boolean",
+            "description": "Shell runs command and cleanup through /bin/sh -c (cmd /C on Windows)."
+          },
+          "env": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "dependsOn": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "description": "DependsOn names services that must be ready first."
+          },
+          "ready": {
+            "properties": {
+              "http": {
+                "properties": {
+                  "url": {
+                    "oneOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "items": {
+                          "type": "string"
+                        },
+                        "type": "array"
+                      }
+                    ]
+                  }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "url"
+                ]
+              },
+              "tcp": {
+                "type": "string",
+                "description": "TCP is a host:port that must accept connections."
+              },
+              "exec": {
+                "oneOf": [
+                  {
+                    "type": "string",
+                    "description": "command line, split into words without a shell unless shell: true"
+                  },
+                  {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array",
+                    "minItems": 1,
+                    "description": "argv"
+                  }
+                ],
+                "description": "Exec is a command that must exit 0."
+              },
+              "log": {
+                "type": "string",
+                "description": "Log is a regular expression matched against the service's output."
+              },
+              "timeout": {
+                "oneOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^\\s*([0-9]+(\\.[0-9]+)?(ns|us|µs|ms|s|m|h))+\\s*$",
+                    "examples": [
+                      "30s",
+                      "1m30s",
+                      "250ms"
+                    ]
+                  },
+                  {
+                    "type": "number",
+                    "minimum": 0,
+                    "description": "seconds"
+                  }
+                ],
+                "description": "Timeout for the service to become ready. Default: 60s."
+              },
+              "interval": {
+                "oneOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^\\s*([0-9]+(\\.[0-9]+)?(ns|us|µs|ms|s|m|h))+\\s*$",
+                    "examples": [
+                      "30s",
+                      "1m30s",
+                      "250ms"
+                    ]
+                  },
+                  {
+                    "type": "number",
+                    "minimum": 0,
+                    "description": "seconds"
+                  }
+                ],
+                "description": "Interval between checks. Default: 1s."
+              }
+            },
+            "additionalProperties": false,
+            "type": "object"
+          },
+          "stop": {
+            "properties": {
+              "signal": {
+                "type": "string",
+                "enum": [
+                  "SIGTERM",
+                  "SIGINT"
+                ],
+                "description": "Signal sent first: SIGTERM (default) or SIGINT."
+              },
+              "grace": {
+                "oneOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^\\s*([0-9]+(\\.[0-9]+)?(ns|us|µs|ms|s|m|h))+\\s*$",
+                    "examples": [
+                      "30s",
+                      "1m30s",
+                      "250ms"
+                    ]
+                  },
+                  {
+                    "type": "number",
+                    "minimum": 0,
+                    "description": "seconds"
+                  }
+                ],
+                "description": "Grace period before the process group is killed. Default: 10s."
+              }
+            },
+            "additionalProperties": false,
+            "type": "object"
+          },
+          "cleanup": {
+            "oneOf": [
+              {
+                "type": "string",
+                "description": "command line, split into words without a shell unless shell: true"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array",
+                "minItems": 1,
+                "description": "argv"
+              }
+            ],
+            "description": "Cleanup runs after the service stops, even if it crashed."
+          },
+          "active": {
+            "properties": {
+              "tags": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array",
+                "description": "Tags start the service for the scenarios that have one of them."
+              },
+              "uses": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array",
+                "description": "Uses starts the service for the scenarios that use a step of one of these\npacks, like [mobile-android]: no tag needed."
+              }
+            },
+            "additionalProperties": false,
+            "type": "object"
+          },
+          "debug": {
+            "properties": {
+              "command": {
+                "oneOf": [
+                  {
+                    "type": "string",
+                    "description": "command line, split into words without a shell unless shell: true"
+                  },
+                  {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array",
+                    "minItems": 1,
+                    "description": "argv"
+                  }
+                ],
+                "description": "Command replaces the normal command in debug mode."
+              },
+              "debugger": {
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "java",
+                      "go",
+                      "nodejs",
+                      "python"
+                    ]
+                  },
+                  "port": {
+                    "type": "integer"
+                  },
+                  "host": {
+                    "type": "string"
+                  },
+                  "module": {
+                    "type": "string"
+                  },
+                  "mode": {
+                    "type": "string",
+                    "enum": [
+                      "ide-listens",
+                      "app-listens"
+                    ],
+                    "description": "Mode is \"ide-listens\" (the IDE listens and the service connects, e.g. JDWP\nserver=n; default for java) or \"app-listens\" (delve, --inspect, debugpy)."
+                  }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "port"
+                ]
+              },
+              "onUnavailable": {
+                "type": "string",
+                "enum": [
+                  "fail",
+                  "fallback",
+                  "retry"
+                ],
+                "description": "OnUnavailable decides what happens when the debugger is not listening:\nfail, fallback (run the normal command) or retry (default)."
+              },
+              "retry": {
+                "properties": {
+                  "attempts": {
+                    "type": "integer"
+                  },
+                  "delay": {
+                    "oneOf": [
+                      {
+                        "type": "string",
+                        "pattern": "^\\s*([0-9]+(\\.[0-9]+)?(ns|us|µs|ms|s|m|h))+\\s*$",
+                        "examples": [
+                          "30s",
+                          "1m30s",
+                          "250ms"
+                        ]
+                      },
+                      {
+                        "type": "number",
+                        "minimum": 0,
+                        "description": "seconds"
+                      }
+                    ]
+                  }
+                },
+                "additionalProperties": false,
+                "type": "object"
+              }
+            },
+            "additionalProperties": false,
+            "type": "object"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "command"
+        ],
+        "description": "Service is an application or piece of infrastructure managed by axx."
+      },
+      "type": "object"
+    },
     "StringList": {
       "oneOf": [
         {
@@ -802,9 +802,9 @@
       "$ref": "#/$defs/Active",
       "description": "Active starts only the applications needed by the selected scenarios."
     },
-    "apps": {
-      "$ref": "#/$defs/Apps",
-      "description": "Apps are the applications under test (and their infrastructure),\nstarted before scenarios run and stopped afterwards, in declaration order."
+    "services": {
+      "$ref": "#/$defs/Services",
+      "description": "Services are the applications under test (and their infrastructure),\nstarted before scenarios run and stopped afterwards, in declaration order."
     },
     "packs": {
       "additionalProperties": true,

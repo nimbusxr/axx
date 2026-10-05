@@ -30,63 +30,63 @@ func TestReadiness(t *testing.T) {
 
 	tests := []struct {
 		name  string
-		setup func(t *testing.T, app *config.App)
+		setup func(t *testing.T, app *config.Service)
 		// wantCode is the expected error code ("" for ready); wantMsg parts
 		// must appear in the error.
 		wantCode string
 		wantMsg  []string
 	}{
-		{name: "http", setup: func(t *testing.T, app *config.App) {
+		{name: "http", setup: func(t *testing.T, app *config.Service) {
 			addr := freeAddr(t)
 			app.Command = helper(t, "http", addr, "100ms")
 			app.Ready = fast(config.Ready{HTTP: urls("http://" + addr + "/health")})
 		}},
-		{name: "all urls 2xx", setup: func(t *testing.T, app *config.App) {
+		{name: "all urls 2xx", setup: func(t *testing.T, app *config.Service) {
 			app.Ready = fast(config.Ready{HTTP: urls(ok.URL, ok.URL+"/other")})
 		}},
-		{name: "one url not 2xx", setup: func(t *testing.T, app *config.App) {
+		{name: "one url not 2xx", setup: func(t *testing.T, app *config.Service) {
 			app.Ready = fast(config.Ready{HTTP: urls(ok.URL, down.URL), Timeout: config.Duration(300 * time.Millisecond)})
-		}, wantCode: CodeNotReady, wantMsg: []string{"not ready after 300ms", "503 Service Unavailable", "apps.api.ready.http.url"}},
-		{name: "tcp", setup: func(t *testing.T, app *config.App) {
+		}, wantCode: CodeNotReady, wantMsg: []string{"not ready after 300ms", "503 Service Unavailable", "services.api.ready.http.url"}},
+		{name: "tcp", setup: func(t *testing.T, app *config.Service) {
 			addr := freeAddr(t)
 			app.Command = helper(t, "tcp", addr, "100ms")
 			app.Ready = fast(config.Ready{TCP: addr})
 		}},
-		{name: "log", setup: func(t *testing.T, app *config.App) {
+		{name: "log", setup: func(t *testing.T, app *config.Service) {
 			app.Command = helper(t, "delayed-print", "100ms", "Started Api in 1.5 seconds")
 			app.Ready = fast(config.Ready{Log: `Started \w+ in [\d.]+ seconds`})
 		}},
-		{name: "exec", setup: func(t *testing.T, app *config.App) {
+		{name: "exec", setup: func(t *testing.T, app *config.Service) {
 			marker := filepath.Join(t.TempDir(), "up")
 			app.Command = helper(t, "touch", marker, "100ms")
 			app.Ready = fast(config.Ready{Exec: helper(t, "exists", marker)})
 		}},
-		{name: "combined kinds all pass", setup: func(t *testing.T, app *config.App) {
+		{name: "combined kinds all pass", setup: func(t *testing.T, app *config.Service) {
 			app.Command = helper(t, "delayed-print", "50ms", "ready now")
 			app.Ready = fast(config.Ready{HTTP: urls(ok.URL), Log: "ready now"})
 		}},
-		{name: "combined kinds one fails", setup: func(t *testing.T, app *config.App) {
+		{name: "combined kinds one fails", setup: func(t *testing.T, app *config.Service) {
 			app.Command = helper(t, "print", "ready now")
 			app.Ready = fast(config.Ready{HTTP: urls(down.URL), Log: "ready now", Timeout: config.Duration(300 * time.Millisecond)})
 		}, wantCode: CodeNotReady, wantMsg: []string{"ready.http.url"}},
-		{name: "no readiness config", setup: func(*testing.T, *config.App) {}},
-		{name: "timeout", setup: func(t *testing.T, app *config.App) {
+		{name: "no readiness config", setup: func(*testing.T, *config.Service) {}},
+		{name: "timeout", setup: func(t *testing.T, app *config.Service) {
 			app.Command = helper(t, "print", "still booting")
-			// The error quotes what the app printed, so the app has the time to
+			// The error quotes what the service printed, so the service has the time to
 			// start and print on a busy machine (300ms was not always enough).
 			app.Ready = fast(config.Ready{Log: "never", Timeout: config.Duration(2 * time.Second)})
-		}, wantCode: CodeNotReady, wantMsg: []string{"ready.log: no output line matched never", "still booting", "raise apps.api.ready.timeout"}},
-		{name: "early exit fails fast", setup: func(t *testing.T, app *config.App) {
+		}, wantCode: CodeNotReady, wantMsg: []string{"ready.log: no output line matched never", "still booting", "raise services.api.ready.timeout"}},
+		{name: "early exit fails fast", setup: func(t *testing.T, app *config.Service) {
 			app.Command = helper(t, "exit", "3", "loading config", "boom: config missing")
 			app.Ready = fast(config.Ready{Log: "never", Timeout: config.Duration(time.Minute)})
-		}, wantCode: CodeExitedEarly, wantMsg: []string{"app api exited with code 3 before it was ready; last output:", "  boom: config missing"}},
+		}, wantCode: CodeExitedEarly, wantMsg: []string{"service api exited with code 3 before it was ready; last output:", "  boom: config missing"}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			app := helperApp(t, "api", "sleep")
 			tt.setup(t, &app)
-			h := newHarness(t, config.Apps{app}, Options{})
+			h := newHarness(t, config.Services{app}, Options{})
 			start := time.Now()
 			err := h.Start(t.Context(), nil)
 			if elapsed := time.Since(start); elapsed > 5*time.Second {
@@ -113,7 +113,7 @@ func TestReadiness(t *testing.T) {
 
 func TestNoReadinessWarns(t *testing.T) {
 	t.Parallel()
-	h := newHarness(t, config.Apps{helperApp(t, "api", "sleep")}, Options{})
+	h := newHarness(t, config.Services{helperApp(t, "api", "sleep")}, Options{})
 	if err := h.Start(t.Context(), nil); err != nil {
 		t.Fatal(err)
 	}

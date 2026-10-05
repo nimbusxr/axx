@@ -25,7 +25,7 @@ const (
 	probeTimeout = 5 * time.Second
 )
 
-// readySpec is an app's validated readiness configuration.
+// readySpec is a service's validated readiness configuration.
 type readySpec struct {
 	urls     []string
 	tcp      string
@@ -35,15 +35,15 @@ type readySpec struct {
 	interval time.Duration
 }
 
-// parseReady validates apps.<name>.ready.
-func parseReady(app config.App) (*readySpec, error) {
+// parseReady validates services.<name>.ready.
+func parseReady(app config.Service) (*readySpec, error) {
 	spec := &readySpec{timeout: defaultReadyTimeout, interval: defaultReadyInterval}
 	r := app.Ready
 	if r == nil {
 		return spec, nil
 	}
 	bad := func(field, format string, args ...any) error {
-		return configErr(CodeInvalidConfig, "apps.%s.ready.%s: %s", app.Name, field, fmt.Sprintf(format, args...))
+		return configErr(CodeInvalidConfig, "services.%s.ready.%s: %s", app.Name, field, fmt.Sprintf(format, args...))
 	}
 	if r.Timeout < 0 || r.Interval < 0 {
 		return nil, bad("timeout", "durations must not be negative")
@@ -87,7 +87,7 @@ func parseReady(app config.App) (*readySpec, error) {
 
 // check is one readiness condition.
 type check struct {
-	// field is the config key under apps.<name>.ready, for hints.
+	// field is the config key under services.<name>.ready, for hints.
 	field string
 	// probe returns nil once the condition holds.
 	probe func(ctx context.Context) error

@@ -26,9 +26,9 @@ type Config struct {
 	OpenAPI OpenAPI `json:"openapi,omitzero"`
 	// Active starts only the applications needed by the selected scenarios.
 	Active Active `json:"active,omitzero"`
-	// Apps are the applications under test (and their infrastructure),
+	// Services are the applications under test (and their infrastructure),
 	// started before scenarios run and stopped afterwards, in declaration order.
-	Apps Apps `json:"apps,omitempty"`
+	Services Services `json:"services,omitempty"`
 	// Packs holds pack settings keyed by pack name.
 	Packs map[string]json.RawMessage `json:"packs,omitempty"`
 	// Lint configures `axx lint`: test-data isolation rules that keep values
@@ -99,47 +99,47 @@ type OpenAPI struct {
 type Active struct {
 	Enabled bool `json:"enabled,omitempty"`
 	// OnNoTags decides what happens when the selected scenarios have no tags:
-	// "fallback" (start all enabled apps, default) or "error".
+	// "fallback" (start all enabled services, default) or "error".
 	OnNoTags string `json:"onNoTags,omitempty" jsonschema:"enum=fallback,enum=error"`
 }
 
-// App is an application or piece of infrastructure managed by axx.
-type App struct {
+// Service is an application or piece of infrastructure managed by axx.
+type Service struct {
 	// Name is the map key in axx.yaml.
 	Name string `json:"-"`
 	// Enabled defaults to true.
 	Enabled *bool `json:"enabled,omitempty"`
 	// Dir is the working directory, relative to axx.yaml.
 	Dir string `json:"dir,omitempty"`
-	// Command starts the app: a string (split like a shell word list, without
+	// Command starts the service: a string (split like a shell word list, without
 	// a shell) or an argv list. Set shell: true to run it through the shell.
 	Command Command `json:"command"`
 	// Shell runs command and cleanup through /bin/sh -c (cmd /C on Windows).
 	Shell bool              `json:"shell,omitempty"`
 	Env   map[string]string `json:"env,omitempty"`
-	// DependsOn names apps that must be ready first.
+	// DependsOn names services that must be ready first.
 	DependsOn []string `json:"dependsOn,omitempty"`
 	Ready     *Ready   `json:"ready,omitempty"`
 	Stop      Stop     `json:"stop,omitzero"`
-	// Cleanup runs after the app stops, even if it crashed.
-	Cleanup Command   `json:"cleanup,omitzero"`
-	Active  AppActive `json:"active,omitzero"`
-	Debug   *Debug    `json:"debug,omitempty"`
+	// Cleanup runs after the service stops, even if it crashed.
+	Cleanup Command       `json:"cleanup,omitzero"`
+	Active  ServiceActive `json:"active,omitzero"`
+	Debug   *Debug        `json:"debug,omitempty"`
 }
 
-// IsEnabled reports whether the app should be managed.
-func (a App) IsEnabled() bool { return a.Enabled == nil || *a.Enabled }
+// IsEnabled reports whether the service should be managed.
+func (a Service) IsEnabled() bool { return a.Enabled == nil || *a.Enabled }
 
-// Ready describes how to tell that an app is ready.
+// Ready describes how to tell that a service is ready.
 type Ready struct {
 	HTTP *ReadyHTTP `json:"http,omitempty"`
 	// TCP is a host:port that must accept connections.
 	TCP string `json:"tcp,omitempty"`
 	// Exec is a command that must exit 0.
 	Exec Command `json:"exec,omitzero"`
-	// Log is a regular expression matched against the app's output.
+	// Log is a regular expression matched against the service's output.
 	Log string `json:"log,omitempty"`
-	// Timeout for the app to become ready. Default: 60s.
+	// Timeout for the service to become ready. Default: 60s.
 	Timeout Duration `json:"timeout,omitzero"`
 	// Interval between checks. Default: 1s.
 	Interval Duration `json:"interval,omitzero"`
@@ -158,12 +158,12 @@ type Stop struct {
 	Grace Duration `json:"grace,omitzero"`
 }
 
-// AppActive says which scenarios need this app, with active.enabled: those
+// ServiceActive says which scenarios need this service, with active.enabled: those
 // with one of its tags, or that use a step of one of its packs.
-type AppActive struct {
-	// Tags start the app for the scenarios that have one of them.
+type ServiceActive struct {
+	// Tags start the service for the scenarios that have one of them.
 	Tags []string `json:"tags,omitempty"`
-	// Uses starts the app for the scenarios that use a step of one of these
+	// Uses starts the service for the scenarios that use a step of one of these
 	// packs, like [mobile-android]: no tag needed.
 	Uses []string `json:"uses,omitempty"`
 }
@@ -179,13 +179,13 @@ type Debug struct {
 	Retry         Retry  `json:"retry,omitzero"`
 }
 
-// Debugger describes the IDE debugger to hand the app to.
+// Debugger describes the IDE debugger to hand the service to.
 type Debugger struct {
 	Type   string `json:"type,omitempty" jsonschema:"enum=java,enum=go,enum=nodejs,enum=python"`
 	Port   int    `json:"port"`
 	Host   string `json:"host,omitempty"`
 	Module string `json:"module,omitempty"`
-	// Mode is "ide-listens" (the IDE listens and the app connects, e.g. JDWP
+	// Mode is "ide-listens" (the IDE listens and the service connects, e.g. JDWP
 	// server=n; default for java) or "app-listens" (delve, --inspect, debugpy).
 	Mode string `json:"mode,omitempty" jsonschema:"enum=ide-listens,enum=app-listens"`
 }
@@ -344,15 +344,15 @@ func (l *StringList) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-// Apps is an ordered map of apps (declaration order is start order).
-type Apps []App
+// Services is an ordered map of services (declaration order is start order).
+type Services []Service
 
 // UnmarshalJSON decodes a JSON object while preserving key order.
-func (a *Apps) UnmarshalJSON(b []byte) error {
+func (a *Services) UnmarshalJSON(b []byte) error {
 	return decodeOrdered(b, func(name string, raw json.RawMessage) error {
-		var app App
+		var app Service
 		if err := strictUnmarshal(raw, &app); err != nil {
-			return fmt.Errorf("apps.%s: %w", name, err)
+			return fmt.Errorf("services.%s: %w", name, err)
 		}
 		app.Name = name
 		*a = append(*a, app)
@@ -360,14 +360,14 @@ func (a *Apps) UnmarshalJSON(b []byte) error {
 	})
 }
 
-// Get returns the named app.
-func (a Apps) Get(name string) (App, bool) {
+// Get returns the named service.
+func (a Services) Get(name string) (Service, bool) {
 	for _, app := range a {
 		if app.Name == name {
 			return app, true
 		}
 	}
-	return App{}, false
+	return Service{}, false
 }
 
 func decodeOrdered(b []byte, each func(string, json.RawMessage) error) error {

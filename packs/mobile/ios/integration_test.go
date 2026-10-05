@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/nimbusxr/axx/internal/cloudstep/cloudtest"
+	appcore "github.com/nimbusxr/axx/packs/app/core"
 	mobilecore "github.com/nimbusxr/axx/packs/mobile/core"
 	"github.com/nimbusxr/axx/packs/mobile/internal/courierapi"
 )
@@ -49,7 +50,7 @@ func courierBuild(t *testing.T) string {
 // Appium's log.
 func harness(t *testing.T) *cloudtest.Harness {
 	t.Helper()
-	h := cloudtest.New(t, mobilecore.Pack(), Pack())
+	h := cloudtest.New(t, appcore.Pack(), mobilecore.Pack(), Pack())
 	t.Cleanup(func() {
 		if !t.Failed() {
 			return

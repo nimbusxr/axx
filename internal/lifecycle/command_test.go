@@ -20,7 +20,7 @@ func TestTokenize(t *testing.T) {
 	}{
 		{"empty", "", nil},
 		{"blank", " \t\n ", nil},
-		{"words", "java -jar app.jar", []string{"java", "-jar", "app.jar"}},
+		{"words", "java -jar service.jar", []string{"java", "-jar", "service.jar"}},
 		{"extra whitespace", "  a\tb \n c  ", []string{"a", "b", "c"}},
 		{"quoted segment", `java -jar "my app.jar" --verbose`, []string{"java", "-jar", "my app.jar", "--verbose"}},
 		{"empty quotes", `echo ""`, []string{"echo", ""}},
@@ -76,7 +76,7 @@ func TestCommandArgv(t *testing.T) {
 }
 
 func TestAppEnv(t *testing.T) {
-	got := appEnv([]string{"A=1", "B=2"}, map[string]string{"C": "3", "A": "9"})
+	got := serviceEnv([]string{"A=1", "B=2"}, map[string]string{"C": "3", "A": "9"})
 	want := []string{"A=1", "B=2", "A=9", "C=3"}
 	if !slices.Equal(got, want) {
 		t.Errorf("appEnv = %q, want %q", got, want)
@@ -104,7 +104,7 @@ func TestResolveDir(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.dir, func(t *testing.T) {
-			got, err := resolveDir(config.App{Name: "api", Dir: tt.dir}, base)
+			got, err := resolveDir(config.Service{Name: "api", Dir: tt.dir}, base)
 			if tt.wantErr {
 				wantCode(t, err, CodeBadDir)
 				return

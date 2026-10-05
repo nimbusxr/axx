@@ -123,7 +123,7 @@ func TestEnvConfigShowAndStepsExplain(t *testing.T) {
 		"axx-packs.yaml": "packs: [rest]\n",
 	})
 	out, stderr, code := run(t, "env")
-	if code != int(exitcode.OK) || !strings.Contains(out, "no apps started by axx") {
+	if code != int(exitcode.OK) || !strings.Contains(out, "no services started by axx") {
 		t.Errorf("env: exit %d: %s%s", code, out, stderr)
 	}
 	out, stderr, code = run(t, "config", "show")
@@ -192,7 +192,7 @@ func TestSchemaOutline(t *testing.T) {
 	if code != int(exitcode.OK) || len(out)*3 > len(full) {
 		t.Fatalf("exit %d, %d bytes of %d (%s)", code, len(out), len(full), stderr)
 	}
-	for _, want := range []string{"run: Run controls which features run and how.\n", "\n  tags: Tags is a default tag expression, e.g.", "\napps: (map) ", "\n  <name>:\n    enabled: "} {
+	for _, want := range []string{"run: Run controls which features run and how.\n", "\n  tags: Tags is a default tag expression, e.g.", "\nservices: (map) ", "\n  <name>:\n    enabled: "} {
 		if !strings.Contains(out, want) {
 			t.Errorf("outline lacks %q:\n%s", want, out)
 		}

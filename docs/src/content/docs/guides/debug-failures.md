@@ -1,6 +1,6 @@
 ---
 title: Debug failures
-description: Go from a red axx run to the cause - read the exit code, rerun one scenario, explain a step, read expected and actual values, find app logs, and fix flaky parallel scenarios.
+description: Go from a red axx run to the cause - read the exit code, rerun one scenario, explain a step, read expected and actual values, find service logs, and fix flaky parallel scenarios.
 ---
 
 ## Start from the exit code
@@ -10,7 +10,7 @@ description: Go from a red axx run to the cause - read the exit code, rerun one 
 | `1` | a scenario failed | read the failing step's expected and actual values |
 | `2` | usage or configuration error | read the `hint`; config errors point at `axx.yaml:line:col`; run `axx doctor` |
 | `3` | undefined or ambiguous step | `axx validate`, then `axx explain "<line>"` |
-| `4` | an app did not start or stop | the error shows the app's last output lines; the full log is `.axx/logs/apps.log` |
+| `4` | a service did not start or stop | the error shows the service's last output lines; the full log is `.axx/logs/services.log` |
 | `130` | interrupted | the run was cancelled (Ctrl-C); run again |
 
 Every error also has a stable code (`AXX-E0408`, say) that links to its entry in the [error code reference](/references/error-codes/).
@@ -44,7 +44,7 @@ Each failure names the step, the expected and actual values, and the command tha
 ## Rerun one scenario
 
 ```sh
-axx up                                          # keep the apps running while you iterate
+axx up                                          # keep the services running while you iterate
 axx run features/register-parcels.feature:17    # the scenario on (or containing) line 17
 ```
 
@@ -84,7 +84,7 @@ search all steps with `axx steps search <words>`
 - **OpenAPI validation error on `the request is executed`.** The request or the response violates the document; the message names the rule, such as `validation.response.body.schema.required`. Fix the payload or the service. For a deliberate negative test, relax that rule in the scenario ([Validate against OpenAPI](/guides/validate-openapi/#validation-levels)).
 - **Timeout.** A step exceeded `run.timeouts.step`. For asynchronous behavior use a polling step (`within 10s a selection of at least 1 row ...`) instead of a sleep or a longer timeout.
 - **Passes alone, fails in the full run.** Shared data or shared state. Make the data unique; if the scenario really must run alone, tag it for `run.exclusive` ([Run in parallel](/guides/parallel-runs/)).
-- **The app never becomes ready.** Check `apps.<name>.ready` (URL, port, timeout). Run `axx up`, then `curl` the health URL yourself, and read `.axx/logs/apps.log`.
+- **A service never becomes ready.** Check `services.<name>.ready` (URL, port, timeout). Run `axx up`, then `curl` the health URL yourself, and read `.axx/logs/services.log`.
 
 ## Debug the service itself
 
@@ -95,7 +95,7 @@ axx run --attach parcels features/register-parcels.feature:17   # you start parc
 axx run --debug=parcels features/register-parcels.feature:17    # axx starts parcels with its debug command
 ```
 
-[Manage the app lifecycle](/guides/manage-app-lifecycle/#debug-an-app) shows how to configure `apps.<name>.debug`.
+[Manage the services under test](/guides/manage-services/#debug-a-service) shows how to configure `services.<name>.debug`.
 
 ## Stop in step code
 
@@ -119,7 +119,7 @@ There is nothing to install: Axx builds itself and Delve with the Go toolchain i
 
 | File | Contents |
 | --- | --- |
-| `.axx/logs/apps.log` | output of every app Axx started |
+| `.axx/logs/services.log` | output of every service Axx started |
 | `.axx/logs/supervisor.log` | what the background process of `axx up` logged; read it when `axx up` fails |
 
 Add `-v` or `-vv` to any command for more detail from Axx itself.

@@ -18,6 +18,10 @@ type runner struct{ app *app }
 
 func (r runner) Kind() string { return "android" }
 
+// RunsHere is whether this machine can run the app: an emulator or a device
+// runs on every OS.
+func (r runner) RunsHere() bool { return true }
+
 // Start leases a device for the scenario and starts a session of the app on
 // it, reset: the app installed and its data cleared (Appium's reset), the
 // device's time zone and location set, and the app's permissions exactly

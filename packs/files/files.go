@@ -1,13 +1,14 @@
-// Package files is the files pack: the files services write to a folder,
-// such as an export directory or a volume they share with axx.
+// Package files is the files pack: the files services and apps write to a
+// folder, such as an export directory, a volume they share with axx, or an
+// app's own data.
 package files
 
 import (
 	"context"
 	"errors"
 	"fmt"
-	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 
@@ -17,13 +18,13 @@ import (
 
 const since = "0.1.1"
 
-const packDoc = `Check the files your services write to a folder: an export directory, a volume they share with axx.
+const packDoc = `Check the files your services and apps write to a folder: an export directory, a volume they share with axx, an app's own data.
 
-Register the folder with ` + "`the {word} folder with the following properties:`" + `: its ` + "`path`" + `, relative to the directory of axx.yaml or absolute (` + "`${env:..}`" + ` and ` + "`${sys:..}`" + ` are expanded). A check names a file by its path in the folder, without spaces, such as ` + "`manifests/M-KESTREL-0412/report.csv`" + `, and waits for it (10 seconds unless ` + "`within {duration}`" + ` says otherwise), since services write asynchronously.
+Register the folder with ` + "`the {word} folder with the following properties:`" + `. Its ` + "`path`" + ` is on this machine, relative to the directory of axx.yaml or absolute, or in the file context of its ` + "`owner`" + `: ` + "`service:parcels`" + ` for a service of axx.yaml (relative to the folder axx runs it in), ` + "`app:depot`" + ` for an app a scenario registers (` + "`./`" + ` is where the app keeps its data, ` + "`~/`" + ` its home, wherever it runs). ` + "`${env:..}`" + ` and ` + "`${sys:..}`" + ` are expanded. A check names a file by its path in the folder, such as ` + "`manifests/M-KESTREL-0412/report.csv`" + `, quoted when it has a space, and waits for it (10 seconds unless ` + "`within {duration}`" + ` says otherwise), since services write asynchronously.
 
 The checks are those of the storage packs' objects: a file's exact content, its JSON properties, its text, read by its type (PDF, Word, Excel, CSV, JSON, XML, HTML or plain text), and a row of its table (CSV, TSV or Excel).
 
-A folder keeps what earlier runs wrote there. Name the files you check after data unique to the scenario, and empty the folder before a run, for example in the Compose file that starts your services.`
+A service's folder keeps what earlier runs wrote there, and axx empties no folder of yours: whether a check needs a file of its scenario's own (named after data unique to it) depends on the test. An app's files are its own in each scenario.`
 
 // Pack returns the files pack.
 func Pack() core.Pack { return pack{} }
@@ -43,11 +44,18 @@ func (pack) Manifest() core.Manifest {
 				Columns: []string{"property", "value"},
 				Rows: []core.TableRow{{
 					Name: "path", Required: true,
-					Takes: "the folder: a path relative to the directory of axx.yaml, or absolute; `${env:..}` and `${sys:..}` are expanded",
+					Takes: "the folder: with no `owner`, a path relative to the directory of axx.yaml, or absolute; with one, a path in its file context (`./exports`); `${env:..}` and `${sys:..}` are expanded",
+				}, {
+					Name:    "owner",
+					Takes:   "whose folder it is: `service:<name>`, a service of axx.yaml, whose paths are relative to the folder axx runs it in; or `app:<name>`, an app the scenario registers, where `./` is where the app keeps its data and `~/` its home",
+					Default: "none: a folder on this machine",
 				}},
 			},
-			Examples: []string{"Given the exports folder with the following properties:\n  | path | ../infra/exports |"},
-			Run:      addFolder,
+			Examples: []string{
+				"Given the exports folder with the following properties:\n  | owner | service:parcels |\n  | path  | ./exports       |",
+				"Given the desk folder with the following properties:\n  | owner | app:depot              |\n  | path  | \"./Parcels/Depot desk\" |",
+			},
+			Run: addFolder,
 		}}, cloudstep.Objects{
 			Pack: "files", Container: "folder", Object: "file", Example: "exports", Since: since,
 			Store: func(sc *core.Scenario) (cloudstep.ObjectStore, error) { return store{Folders(sc)}, nil },
@@ -58,7 +66,9 @@ func (pack) Manifest() core.Manifest {
 // Folder is a folder registered in a scenario.
 type Folder struct {
 	Name string
-	// Path is its absolute path.
+	// Files are its files, wherever they are.
+	Files core.Files
+	// Path is its absolute path, when it is a folder on this machine.
 	Path string
 }
 
@@ -70,9 +80,10 @@ var folders = core.NewStateKey("files", func(*core.Scenario) *core.Services[*Fol
 // Folders returns the folders registered in a scenario.
 func Folders(sc *core.Scenario) *core.Services[*Folder] { return folders.Of(sc) }
 
-// Parse reads a folder's properties, expanding ${env:..} and ${sys:..};
-// a relative path is relative to the project directory.
-func Parse(s *core.Suite, name string, t *core.Table) (*Folder, error) {
+// Parse reads a folder's properties, expanding ${env:..} and ${sys:..}. A
+// folder with no owner is on this machine, its path relative to the project
+// directory; one with an owner is in the owner's file context.
+func Parse(sc *core.Scenario, name string, t *core.Table) (*Folder, error) {
 	if t == nil {
 		return nil, errors.New(`the folder property "path" is required`)
 	}
@@ -80,34 +91,83 @@ func Parse(s *core.Suite, name string, t *core.Table) (*Folder, error) {
 	if err != nil {
 		return nil, err
 	}
-	var p string
+	s := sc.Suite()
+	var p, owner string
 	for _, pr := range pairs {
 		switch pr.Key {
 		case "path":
-			p = strings.TrimSpace(s.Interpolate(pr.Value))
+			p = unquote(strings.TrimSpace(s.Interpolate(pr.Value)))
+		case "owner":
+			owner = strings.TrimSpace(s.Interpolate(pr.Value))
 		default:
-			return nil, fmt.Errorf("unknown folder property %q (supported: path)", pr.Key)
+			return nil, fmt.Errorf("unknown folder property %q (supported: path, owner)", pr.Key)
 		}
 	}
 	if p == "" {
 		return nil, errors.New(`the folder property "path" is required`)
 	}
+	if owner == "" {
+		return local(name, p, s.ProjectDir()), nil
+	}
+	kind, who, ok := strings.Cut(owner, ":")
+	switch {
+	case !ok || who == "" || kind != "service" && kind != "app":
+		return nil, fmt.Errorf(`the folder's owner %q is not "service:<name>" (a service of axx.yaml) or "app:<name>" (an app the scenario registers)`, owner)
+	case kind == "service":
+		d, ok := s.DeclaredService(who)
+		if !ok {
+			var names []string
+			for _, d := range s.DeclaredServices() {
+				names = append(names, d.Name)
+			}
+			declared := "none"
+			if len(names) > 0 {
+				declared = strings.Join(names, ", ")
+			}
+			return nil, fmt.Errorf("the folder's owner %q is no service of axx.yaml (its services: %s)", owner, declared)
+		}
+		return local(name, p, d.Dir), nil
+	}
+	files, ok := s.FileOwner(kind)
+	if !ok {
+		return nil, fmt.Errorf("the folder's owner %q is an app, and no pack of the run runs apps: add the pack of the platform it runs on (mobile-android, mobile-ios, desktop-macos, desktop-windows, desktop-linux)", owner)
+	}
+	f, err := files(sc, who, p)
+	if err != nil {
+		return nil, err
+	}
+	return &Folder{Name: name, Files: f}, nil
+}
+
+// local is a folder on this machine: p, relative to dir or absolute.
+func local(name, p, dir string) *Folder {
 	p = filepath.FromSlash(p)
 	if !filepath.IsAbs(p) {
-		p = filepath.Join(s.ProjectDir(), p)
+		p = filepath.Join(dir, p)
 	}
-	return &Folder{Name: name, Path: filepath.Clean(p)}, nil
+	p = filepath.Clean(p)
+	return &Folder{Name: name, Files: core.LocalFiles(p), Path: p}
+}
+
+// unquote takes the quotes off a path quoted for its spaces.
+func unquote(p string) string {
+	if len(p) >= 2 && p[0] == '"' && p[len(p)-1] == '"' {
+		return p[1 : len(p)-1]
+	}
+	return p
 }
 
 func addFolder(sc *core.Scenario, a core.Args) error {
-	f, err := Parse(sc.Suite(), a.String(0), a.Table)
+	f, err := Parse(sc, a.String(0), a.Table)
 	if err != nil {
 		return err
 	}
 	if err := Folders(sc).Add(f.Name, f); err != nil {
 		return err
 	}
-	if fi, err := os.Stat(f.Path); err != nil || !fi.IsDir() {
+	if f.Path == "" {
+		sc.Log("the %s folder is %s", f.Name, f.Files.Where())
+	} else if fi, err := os.Stat(f.Path); err != nil || !fi.IsDir() {
 		sc.Log("the %s folder is %s, which is not there yet", f.Name, f.Path)
 	} else {
 		sc.Log("the %s folder is %s", f.Name, f.Path)
@@ -122,87 +182,51 @@ type store struct {
 	folders *core.Services[*Folder]
 }
 
-// file is the path of the named file in a folder.
-func (s store) file(folder, name string) (string, error) {
-	f, err := s.folders.Get(folder)
+func (s store) folder(name string) (*Folder, error) {
+	f, err := s.folders.Get(name)
 	if err != nil {
-		return "", fmt.Errorf("no folder named %q in this scenario; register it first with \"the %s folder with the following properties:\"", folder, folder)
+		return nil, fmt.Errorf("no folder named %q in this scenario; register it first with \"the %s folder with the following properties:\"", name, name)
 	}
-	p := filepath.Join(f.Path, filepath.FromSlash(name))
-	if rel, err := filepath.Rel(f.Path, p); err != nil || filepath.IsAbs(filepath.FromSlash(name)) ||
-		rel == "." || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
-		return "", fmt.Errorf("%s is not a file in the %s folder: name a file by its path in the folder", name, folder)
-	}
-	return p, nil
+	return f, nil
 }
 
-func (s store) Put(_ context.Context, folder, name string, body []byte, _ string) error {
-	p, err := s.file(folder, name)
+// inFolder refuses a file name that is not a path in the folder.
+func inFolder(folder, name string) error {
+	clean := path.Clean(strings.ReplaceAll(name, "\\", "/"))
+	if name == "" || path.IsAbs(clean) || filepath.IsAbs(name) || clean == "." || clean == ".." || strings.HasPrefix(clean, "../") {
+		return fmt.Errorf("%s is not a file in the %s folder: name a file by its path in the folder", name, folder)
+	}
+	return nil
+}
+
+func (s store) Put(ctx context.Context, folder, name string, body []byte, _ string) error {
+	f, err := s.folder(folder)
 	if err != nil {
 		return err
 	}
-	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+	if err := inFolder(folder, name); err != nil {
 		return err
 	}
-	return os.WriteFile(p, body, 0o644)
+	return f.Files.Write(ctx, name, body)
 }
 
-func (s store) Get(_ context.Context, folder, name string) ([]byte, bool, error) {
-	p, err := s.file(folder, name)
+func (s store) Get(ctx context.Context, folder, name string) ([]byte, bool, error) {
+	f, err := s.folder(folder)
 	if err != nil {
 		return nil, false, err
 	}
-	fi, err := os.Stat(p)
-	if errors.Is(err, fs.ErrNotExist) || err == nil && !fi.Mode().IsRegular() {
-		return nil, false, nil
-	}
-	if err != nil {
+	if err := inFolder(folder, name); err != nil {
 		return nil, false, err
 	}
-	b, err := os.ReadFile(p)
-	if errors.Is(err, fs.ErrNotExist) {
-		return nil, false, nil
-	}
-	return b, err == nil, err
+	return f.Files.Read(ctx, name)
 }
 
 // List returns the paths of up to max files of a folder and its
 // subfolders, leaving out hidden ones (.DS_Store, .gitkeep).
-func (s store) List(_ context.Context, folder string, max int) ([]string, error) {
-	f, err := s.folders.Get(folder)
+func (s store) List(ctx context.Context, folder string, max int) ([]string, error) {
+	f, err := s.folder(folder)
 	if err != nil {
 		return nil, err
 	}
-	var names []string
-	errDone := errors.New("done")
-	err = filepath.WalkDir(f.Path, func(p string, d fs.DirEntry, err error) error {
-		switch {
-		case err != nil:
-			if p == f.Path && errors.Is(err, fs.ErrNotExist) {
-				return filepath.SkipAll // not there yet: no files
-			}
-			return err
-		case p == f.Path:
-			return nil
-		case strings.HasPrefix(d.Name(), "."):
-			if d.IsDir() {
-				return filepath.SkipDir
-			}
-			return nil
-		case !d.Type().IsRegular():
-			return nil
-		case len(names) == max:
-			return errDone
-		}
-		rel, err := filepath.Rel(f.Path, p)
-		if err != nil {
-			return err
-		}
-		names = append(names, filepath.ToSlash(rel))
-		return nil
-	})
-	if err != nil && !errors.Is(err, errDone) {
-		return nil, err
-	}
-	return names, nil
+	return f.Files.List(ctx, max)
 }

@@ -18,7 +18,7 @@ const (
 var SupportedMimeTypes = []string{MimeJSON, MimeTextJSON, MimeProblemJSON, MimeForm}
 
 // ParamsPack returns the "core" pack: the parameter types every pack builds on,
-// {ordinal}, {pattern}, {mimeType}, {duration} and {filepath}. It is always
+// {ordinal}, {pattern}, {mimeType}, {duration}, {filepath} and {path}. It is always
 // loaded.
 func ParamsPack() Pack { return paramsPack{} }
 
@@ -68,10 +68,18 @@ func (paramsPack) Manifest() Manifest {
 			},
 			{
 				Name:    "filepath",
-				Regexps: []string{`([^\s]+)`},
-				Doc: "a file of the project, with no spaces: a path relative to the `resources` directories or to " +
-					"axx.yaml's directory, or an absolute path",
-				Examples: []string{"seeds/parcels.yaml", "kafka/scan-delivered.json"},
+				Regexps: []string{`([^\s]+)`, `"([^"]+)"`},
+				Doc: "a file of the project: a path relative to the `resources` directories or to " +
+					"axx.yaml's directory, or an absolute path, quoted when it has a space",
+				Examples:  []string{"seeds/parcels.yaml", "kafka/scan-delivered.json", `"seeds/day one.yaml"`},
+				Transform: unquoted,
+			},
+			{
+				Name:      "path",
+				Regexps:   []string{`([^\s"]+)`, `"([^"]+)"`},
+				Doc:       "a path in a folder or a store, like `manifests/M-1/report.csv`, quoted when it has a space",
+				Examples:  []string{"manifests/M-KESTREL-0412/report.csv", `"Parcels/Depot desk/arrivals.json"`},
+				Transform: unquoted,
 			},
 			{
 				Name:     "duration",
@@ -95,4 +103,13 @@ func (paramsPack) Manifest() Manifest {
 			},
 		},
 	}
+}
+
+// unquoted is a path as written, without the quotes a path with a space
+// takes.
+func unquoted(_ *Scenario, match string, _ []*string) (any, error) {
+	if len(match) >= 2 && match[0] == '"' && match[len(match)-1] == '"' {
+		return match[1 : len(match)-1], nil
+	}
+	return match, nil
 }

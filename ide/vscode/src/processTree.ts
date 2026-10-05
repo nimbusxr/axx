@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Stops `axx run` and everything it started. axx stops its apps and runs their cleanups when it
+// Stops `axx run` and everything it started. axx stops its services and runs their cleanups when it
 // is interrupted, so it gets SIGINT first, like Ctrl+C in a terminal. If it is still running
 // after the grace period, the whole process tree is killed.
 

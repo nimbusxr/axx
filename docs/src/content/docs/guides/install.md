@@ -3,7 +3,7 @@ title: Install Axx
 description: Install the Axx CLI with Homebrew, the install script, go install or the container image, verify the download and keep it up to date.
 ---
 
-Axx is a single static binary for Linux, macOS and Windows on amd64 and arm64. It has no runtime dependencies. Docker is only needed if the apps you test start with Docker Compose.
+Axx is a single static binary for Linux, macOS and Windows on amd64 and arm64. It has no runtime dependencies. Docker is only needed if the services you test start with Docker Compose.
 
 :::caution[Pre-release]
 Axx is in beta. Every `0.x` release is marked as a pre-release on GitHub.
@@ -47,7 +47,7 @@ Needs Go 1.27 or newer. The binary lands in `$(go env GOPATH)/bin`.
 docker run --rm -v axx-cache:/home/nonroot -v "$PWD:/work" -w /work ghcr.io/nimbusxr/axx validate
 ```
 
-The image contains only the `axx` binary (on a distroless base). The `axx-cache` volume keeps the packs Axx prepares for the project ([Choose packs](/guides/use-packs/)); without it, every run prepares them again. It suits commands that do not start apps (`validate`, `steps`, `explain`, `schema`) and runs against services that are already up (`axx run --no-start`). It cannot run `docker compose` for you.
+The image contains only the `axx` binary (on a distroless base). The `axx-cache` volume keeps the packs Axx prepares for the project ([Choose packs](/guides/use-packs/)); without it, every run prepares them again. It suits commands that do not start services (`validate`, `steps`, `explain`, `schema`) and runs against services that are already up (`axx run --no-start`). It cannot run `docker compose` for you.
 
 ### Release archives
 
@@ -74,7 +74,7 @@ axx version
 axx doctor
 ```
 
-`axx doctor` checks the binary, `axx.yaml`, the step packs, your feature files and the commands your apps need. It exits `0` when nothing failed (warnings are allowed) and `4` otherwise.
+`axx doctor` checks the binary, `axx.yaml`, the step packs, your feature files and the commands your services need. It exits `0` when nothing failed (warnings are allowed) and `4` otherwise.
 
 ## Shell completion
 

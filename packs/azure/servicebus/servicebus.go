@@ -36,7 +36,7 @@ Given the customs service bus namespace with the following properties:
 
 Steps name a **queue** or a **topic**: ` + "`the customs-filings service bus queue`" + `, ` + "`the customs-events service bus topic`" + `. Messages carry application properties (` + "`with the following properties:`" + `, and ` + "`property <name>`" + ` rows in checks).
 
-**Checking a queue receives from it**: axx completes each message it receives, as any consumer would, so check the queues your services **write** to. **Checking a topic** takes nothing from anyone: for the topics a run checks, axx creates a subscription of its own (` + "`axx-<run>`" + `, through the management API, so it needs the Manage right) once the apps are up, and deletes it when the run ends. A check only looks at the messages received since its scenario started.`
+**Checking a queue receives from it**: axx completes each message it receives, as any consumer would, so check the queues your services **write** to. **Checking a topic** takes nothing from anyone: for the topics a run checks, axx creates a subscription of its own (` + "`axx-<run>`" + `, through the management API, so it needs the Manage right) once the services are up, and deletes it when the run ends. A check only looks at the messages received since its scenario started.`
 
 // Pack returns the azure-servicebus pack.
 func Pack() core.Pack { return pack{} }
@@ -222,7 +222,7 @@ func (pack) Prepare(_ context.Context, s *core.Suite, plan *core.Plan) error {
 	return nil
 }
 
-// Init starts listening to the planned queues and topics, now that the apps
+// Init starts listening to the planned queues and topics, now that the services
 // run.
 func (pack) Init(ctx context.Context, s *core.Suite) error {
 	return cloudstep.DeferredFor(s, name).Run(ctx)

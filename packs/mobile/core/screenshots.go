@@ -9,12 +9,10 @@ import (
 	"image/png"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"time"
 
 	"github.com/nimbusxr/axx/core"
-	"github.com/nimbusxr/axx/internal/cloudstep"
 	"github.com/nimbusxr/axx/internal/imagediff"
 )
 
@@ -72,32 +70,6 @@ func parseConfig(c Config, projectDir string) (*settings, error) {
 		folder = filepath.Join(projectDir, filepath.FromSlash(folder))
 	}
 	return &settings{folder: folder, tolerance: sc.Tolerance, update: sc.Update}, nil
-}
-
-var screenshotName = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._ -]*$`)
-
-func screenshotSteps() []core.StepDef {
-	return []core.StepDef{{
-		ID: "mobile-core.screenshot", Keyword: "Then", Since: since,
-		Expr: "[[within {duration} ]]the {word} app looks like the {string} screenshot",
-		Doc: "Check that the app looks like its screenshot, pixel by pixel (anti-aliasing aside); the device's status and navigation bars, its clock among them, are left out.\n\n" +
-			"- The screenshot is `<name>.<device>.png`, like `delivered.android-parcels-pixel.png`, in the project's `screenshots` folder: " +
-			"each device has its own. Without one, the step takes it and fails: look at it, and keep it.\n" +
-			"- When the app looks different, the step attaches the screenshot, the app and their difference.\n" +
-			"- The check waits for the app to settle and look right: 10 seconds, or `within {duration}`.\n" +
-			"- `packs.mobile-core.screenshots` in axx.yaml sets the `folder`, the `tolerance` (the share of pixels that may differ) " +
-			"and `update: true`, which takes every screenshot again.",
-		Examples: []string{`Then the courier app looks like the "delivered" screenshot`},
-		Run: func(sc *core.Scenario, a core.Args) error {
-			wait, app, name := cloudstep.Wait(a, 0), a.String(1), a.String(2)
-			if !screenshotName.MatchString(name) {
-				return fmt.Errorf("a screenshot's name is letters, digits, dots, dashes, underscores and spaces, not %q", name)
-			}
-			return onDevice(sc, app, false, func(ctx context.Context, d Device) error {
-				return looksLike(sc, ctx, d, app, name, wait)
-			})
-		},
-	}}
 }
 
 // looksLike compares what the app shows, once it has settled, with its

@@ -28,7 +28,7 @@ func steps() []core.StepDef {
 			Table: &core.TableDoc{
 				Columns: []string{"property", "value"},
 				Rows: []core.TableRow{
-					{Name: "command", Required: true, Takes: "the program and its first arguments, split like an app's `command` in axx.yaml: double quotes group words, and there is no shell. A relative path to the program is from the directory of axx.yaml"},
+					{Name: "command", Required: true, Takes: "the program and its first arguments, split like a service's `command` in axx.yaml: double quotes group words, and there is no shell. A relative path to the program is from the directory of axx.yaml"},
 					{Name: "dir", Takes: "the folder it runs in, relative to the directory of axx.yaml", Default: "a folder of the scenario's own"},
 					{Name: "env.<NAME>", Takes: "an environment variable, set over axx's own environment"},
 					{Name: "timeout", Takes: "how long a run may take before the command is stopped, like `30s`", Default: "1m"},

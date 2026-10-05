@@ -20,7 +20,7 @@ func newMCPCmd(app *App) *cobra.Command {
 		Use:   "mcp",
 		Short: "Serve axx to coding agents over the Model Context Protocol (stdio)",
 		Long: `Start an MCP server on stdin/stdout exposing tools to search and explain
-steps, validate features, run scenarios, inspect failures and manage apps.
+steps, validate features, run scenarios, inspect failures and manage services.
 
 Connect an agent to it with ` + "`axx mcp install --agent <agent>`" + ` (axx init does it
 for the agents a repository already uses), or add it yourself, e.g. in .mcp.json:

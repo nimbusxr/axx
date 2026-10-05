@@ -19,10 +19,10 @@ import (
 	"github.com/nimbusxr/axx/internal/exitcode"
 )
 
-// recorder is an app that logs "<name> started" and its stop signal to
+// recorder is a service that logs "<name> started" and its stop signal to
 // file, becomes ready when it prints "started" and logs "<name> cleanup"
 // from its cleanup.
-func recorder(t *testing.T, file, name string, deps ...string) config.App {
+func recorder(t *testing.T, file, name string, deps ...string) config.Service {
 	t.Helper()
 	app := logReady(helperApp(t, name, "record", file, name), "^started$")
 	app.DependsOn = deps
@@ -45,14 +45,14 @@ func TestStartStopOrder(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
 		name string
-		apps func(t *testing.T, file string) config.Apps
+		apps func(t *testing.T, file string) config.Services
 		// check verifies start and stop (cleanup) order.
 		check func(t *testing.T, started, cleaned []string)
 	}{
 		{
 			name: "declaration order without dependsOn",
-			apps: func(t *testing.T, f string) config.Apps {
-				return config.Apps{recorder(t, f, "x"), recorder(t, f, "y"), recorder(t, f, "z")}
+			apps: func(t *testing.T, f string) config.Services {
+				return config.Services{recorder(t, f, "x"), recorder(t, f, "y"), recorder(t, f, "z")}
 			},
 			check: func(t *testing.T, started, cleaned []string) {
 				if want := []string{"x", "y", "z"}; !slices.Equal(started, want) {
@@ -65,9 +65,9 @@ func TestStartStopOrder(t *testing.T) {
 		},
 		{
 			name: "dependency graph",
-			apps: func(t *testing.T, f string) config.Apps {
+			apps: func(t *testing.T, f string) config.Services {
 				// Declared out of order on purpose.
-				return config.Apps{
+				return config.Services{
 					recorder(t, f, "web", "api", "worker"),
 					recorder(t, f, "api", "db"),
 					recorder(t, f, "worker", "db"),
@@ -110,7 +110,7 @@ func TestStartStopOrder(t *testing.T) {
 			events := readLines(t, file)
 			tt.check(t, only(events, "started"), only(events, "cleanup"))
 			if runtime.GOOS != "windows" {
-				// Every app got SIGTERM before its cleanup ran.
+				// Every service got SIGTERM before its cleanup ran.
 				for _, a := range apps {
 					term := slices.Index(events, a.Name+" SIGTERM")
 					clean := slices.Index(events, a.Name+" cleanup")
@@ -126,7 +126,7 @@ func TestStartStopOrder(t *testing.T) {
 func TestStartIsIncremental(t *testing.T) {
 	t.Parallel()
 	file := filepath.Join(t.TempDir(), "events")
-	h := newHarness(t, config.Apps{recorder(t, file, "db"), recorder(t, file, "api"), recorder(t, file, "web")}, Options{})
+	h := newHarness(t, config.Services{recorder(t, file, "db"), recorder(t, file, "api"), recorder(t, file, "web")}, Options{})
 	if err := h.Start(t.Context(), []string{"api"}); err != nil {
 		t.Fatal(err)
 	}
@@ -147,14 +147,14 @@ func TestStartIsIncremental(t *testing.T) {
 
 func TestStartUnknownApp(t *testing.T) {
 	t.Parallel()
-	h := newHarness(t, config.Apps{helperApp(t, "api", "sleep")}, Options{})
-	wantCode(t, h.Start(t.Context(), []string{"apii"}), CodeUnknownApp)
+	h := newHarness(t, config.Services{helperApp(t, "api", "sleep")}, Options{})
+	wantCode(t, h.Start(t.Context(), []string{"apii"}), CodeUnknownService)
 }
 
 func TestDisabledAppsAreSkipped(t *testing.T) {
 	t.Parallel()
 	off := disabled(helperApp(t, "legacy", "exit", "1"))
-	h := newHarness(t, config.Apps{off, helperApp(t, "api", "sleep")}, Options{})
+	h := newHarness(t, config.Services{off, helperApp(t, "api", "sleep")}, Options{})
 	if err := h.Start(t.Context(), []string{"legacy", "api"}); err != nil {
 		t.Fatal(err)
 	}
@@ -166,13 +166,13 @@ func TestDisabledAppsAreSkipped(t *testing.T) {
 func TestOutputIsPrefixedAndTailed(t *testing.T) {
 	t.Parallel()
 	app := logReady(helperApp(t, "api", "print", "hello", "err:oops", "done"), "done")
-	h := newHarness(t, config.Apps{app}, Options{})
+	h := newHarness(t, config.Services{app}, Options{})
 	if err := h.Start(t.Context(), nil); err != nil {
 		t.Fatal(err)
 	}
 	// Readiness sees "done" in the log; the prefixed copies are written
 	// beside it, and may come a moment later.
-	eventually(t, 2*time.Second, "the app's output", func() bool {
+	eventually(t, 2*time.Second, "the service's output", func() bool {
 		return strings.HasSuffix(h.stdout.String(), "done\n") && h.stderr.String() != ""
 	})
 	if got := h.stdout.String(); got != "[api] hello\n[api] done\n" {
@@ -191,7 +191,7 @@ func TestOutputIsPrefixedAndTailed(t *testing.T) {
 		}
 	}
 	if h.Tail("nope") != nil {
-		t.Error("Tail of unknown app is not nil")
+		t.Error("Tail of unknown service is not nil")
 	}
 }
 
@@ -199,7 +199,7 @@ func TestWorkingDirectory(t *testing.T) {
 	t.Parallel()
 	app := logReady(helperApp(t, "api", "pwd"), "^pwd=")
 	app.Dir = "svc"
-	h := newHarness(t, config.Apps{app}, Options{})
+	h := newHarness(t, config.Services{app}, Options{})
 	if err := os.Mkdir(filepath.Join(h.dir, "svc"), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -209,10 +209,10 @@ func TestWorkingDirectory(t *testing.T) {
 	want, _ := filepath.EvalSymlinks(filepath.Join(h.dir, "svc"))
 	// Readiness sees the line in the log; its prefixed copy may come a
 	// moment later.
-	eventually(t, 2*time.Second, "the app's output", func() bool { return strings.HasSuffix(h.stdout.String(), "\n") })
+	eventually(t, 2*time.Second, "the service's output", func() bool { return strings.HasSuffix(h.stdout.String(), "\n") })
 	got := strings.TrimSpace(strings.TrimPrefix(h.stdout.String(), "[api] pwd="))
 	if got, _ = filepath.EvalSymlinks(got); got != want {
-		t.Errorf("app ran in %q, want %q", got, want)
+		t.Errorf("service ran in %q, want %q", got, want)
 	}
 }
 
@@ -220,26 +220,26 @@ func TestStartErrors(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
 		name     string
-		app      func(t *testing.T) config.App
+		app      func(t *testing.T) config.Service
 		wantCode string
 		wantHint string
 	}{
-		{"missing dir", func(t *testing.T) config.App {
+		{"missing dir", func(t *testing.T) config.Service {
 			a := helperApp(t, "api", "sleep")
 			a.Dir = "nope"
 			return a
-		}, CodeBadDir, "apps.api.dir"},
-		{"missing executable", func(*testing.T) config.App {
-			return config.App{Name: "api", Command: config.Command{Line: "axx-no-such-binary --port 1"}}
-		}, CodeLaunchFailed, "apps.api.command"},
-		{"no command", func(*testing.T) config.App {
-			return config.App{Name: "api"}
-		}, CodeNoCommand, "apps.api.command"},
+		}, CodeBadDir, "services.api.dir"},
+		{"missing executable", func(*testing.T) config.Service {
+			return config.Service{Name: "api", Command: config.Command{Line: "axx-no-such-binary --port 1"}}
+		}, CodeLaunchFailed, "services.api.command"},
+		{"no command", func(*testing.T) config.Service {
+			return config.Service{Name: "api"}
+		}, CodeNoCommand, "services.api.command"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			h := newHarness(t, config.Apps{tt.app(t)}, Options{})
+			h := newHarness(t, config.Services{tt.app(t)}, Options{})
 			ae := mustCode(t, h.Start(t.Context(), nil), tt.wantCode)
 			if !strings.Contains(ae.Hint, tt.wantHint) {
 				t.Errorf("hint %q does not mention %s", ae.Hint, tt.wantHint)
@@ -250,13 +250,13 @@ func TestStartErrors(t *testing.T) {
 
 func TestCleanupAlwaysRuns(t *testing.T) {
 	t.Parallel()
-	t.Run("app crashes before ready", func(t *testing.T) {
+	t.Run("service crashes before ready", func(t *testing.T) {
 		t.Parallel()
 		file := filepath.Join(t.TempDir(), "events")
 		db := recorder(t, file, "db")
 		api := logReady(helperApp(t, "api", "exit", "2", "fatal: no config"), "never")
 		api.Cleanup = helper(t, "append", file, "api cleanup")
-		h := newHarness(t, config.Apps{db, api}, Options{})
+		h := newHarness(t, config.Services{db, api}, Options{})
 
 		wantCode(t, h.Start(t.Context(), nil), CodeExitedEarly)
 		// Start tore everything down itself: api cleaned first, then db.
@@ -270,12 +270,12 @@ func TestCleanupAlwaysRuns(t *testing.T) {
 			t.Errorf("Tail(api) = %q", tail)
 		}
 	})
-	t.Run("app crashes after ready", func(t *testing.T) {
+	t.Run("service crashes after ready", func(t *testing.T) {
 		t.Parallel()
 		file := filepath.Join(t.TempDir(), "events")
 		api := logReady(helperApp(t, "api", "print-exit", "50ms", "1", "up"), "up")
 		api.Cleanup = helper(t, "append", file, "api cleanup")
-		h := newHarness(t, config.Apps{api}, Options{})
+		h := newHarness(t, config.Services{api}, Options{})
 		if err := h.Start(t.Context(), nil); err != nil {
 			t.Fatal(err)
 		}
@@ -293,7 +293,7 @@ func TestCleanupAlwaysRuns(t *testing.T) {
 		db := recorder(t, file, "db")
 		api := helperApp(t, "api", "sleep")
 		api.Cleanup = helper(t, "exit", "4", "cannot drop schema")
-		h := newHarness(t, config.Apps{db, api}, Options{})
+		h := newHarness(t, config.Services{db, api}, Options{})
 		if err := h.Start(t.Context(), nil); err != nil {
 			t.Fatal(err)
 		}
@@ -313,7 +313,7 @@ func TestCancelDuringStart(t *testing.T) {
 	a := recorder(t, file, "a")
 	b := logReady(helperApp(t, "b", "sleep"), "never")
 	b.Cleanup = helper(t, "append", file, "b cleanup")
-	h := newHarness(t, config.Apps{a, b}, Options{})
+	h := newHarness(t, config.Services{a, b}, Options{})
 
 	ctx, cancel := context.WithCancel(t.Context())
 	go func() {
@@ -353,8 +353,8 @@ func TestAttach(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 	file := filepath.Join(t.TempDir(), "events")
-	attached := func(timeout time.Duration) config.App {
-		return config.App{
+	attached := func(timeout time.Duration) config.Service {
+		return config.Service{
 			Name:    "api",
 			Command: config.Command{Line: "axx-no-such-binary"}, // never run
 			Cleanup: helper(t, "append", file, "api cleanup"),
@@ -368,14 +368,14 @@ func TestAttach(t *testing.T) {
 	}
 
 	t.Run("waits for readiness without starting", func(t *testing.T) {
-		h := newHarness(t, config.Apps{attached(10 * time.Second)}, Options{Attach: map[string]bool{"api": true}})
+		h := newHarness(t, config.Services{attached(10 * time.Second)}, Options{Attach: map[string]bool{"api": true}})
 		time.AfterFunc(200*time.Millisecond, func() { up.Store(true) })
 		start := time.Now()
 		if err := h.Start(t.Context(), nil); err != nil {
 			t.Fatal(err)
 		}
 		if elapsed := time.Since(start); elapsed < 150*time.Millisecond {
-			t.Errorf("Start returned after %s, before the app was ready", elapsed)
+			t.Errorf("Start returned after %s, before the service was ready", elapsed)
 		}
 		if got := h.Started(); len(got) != 0 {
 			t.Errorf("Started() = %q", got)
@@ -384,12 +384,12 @@ func TestAttach(t *testing.T) {
 			t.Fatal(err)
 		}
 		if got := readLines(t, file); got != nil {
-			t.Errorf("cleanup ran for an attached app: %q", got)
+			t.Errorf("cleanup ran for an attached service: %q", got)
 		}
 	})
 	t.Run("not ready explains attach", func(t *testing.T) {
 		up.Store(false)
-		h := newHarness(t, config.Apps{attached(200 * time.Millisecond)}, Options{Attach: map[string]bool{"api": true}})
+		h := newHarness(t, config.Services{attached(200 * time.Millisecond)}, Options{Attach: map[string]bool{"api": true}})
 		ae := mustCode(t, h.Start(t.Context(), nil), CodeNotReady)
 		if !strings.Contains(ae.Hint, "attached") {
 			t.Errorf("hint = %q", ae.Hint)
@@ -402,7 +402,7 @@ func TestNoStart(t *testing.T) {
 	file := filepath.Join(t.TempDir(), "events")
 	app := logReady(helperApp(t, "api", "append", file, "started"), "never")
 	app.Cleanup = helper(t, "append", file, "cleanup")
-	h := newHarness(t, config.Apps{app}, Options{NoStart: true, Attach: map[string]bool{"api": true}})
+	h := newHarness(t, config.Services{app}, Options{NoStart: true, Attach: map[string]bool{"api": true}})
 	if err := h.Start(t.Context(), nil); err != nil {
 		t.Fatal(err)
 	}

@@ -13,9 +13,9 @@ func newIDECmd(app *App) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "ide",
 		Short: "Generate IDE run/debug configurations from axx.yaml",
-		Long: `Generate run and debug configurations for the apps in axx.yaml that have a
+		Long: `Generate run and debug configurations for the services in axx.yaml that have a
 debug.debugger block. Re-running updates them; files or entries you edited are
-kept. Entries are named "Debugger: <app>" (IntelliJ) and "axx: ..." (VS Code).`,
+kept. Entries are named "Debugger: <service>" (IntelliJ) and "axx: ..." (VS Code).`,
 	}
 	var cf configFlags
 	gen := func(name, short string) *cobra.Command {
@@ -54,7 +54,7 @@ kept. Entries are named "Debugger: <app>" (IntelliJ) and "axx: ..." (VS Code).`,
 		return c
 	}
 	cmd.AddCommand(
-		gen("intellij", "Write .run/*.run.xml: Debugger: <app> listeners, axx: run/debug/validate, and a one-click compound"),
+		gen("intellij", "Write .run/*.run.xml: Debugger: <service> listeners, axx: run/debug/validate, and a one-click compound"),
 		gen("vscode", "Merge axx attach configurations into .vscode/launch.json and tasks into tasks.json"),
 	)
 	return cmd

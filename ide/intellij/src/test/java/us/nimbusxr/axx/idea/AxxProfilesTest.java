@@ -37,7 +37,7 @@ class AxxProfilesTest {
                         "    run:",
                         "      uses: [mobile-ios]",
                         "  \"android\": {run: {uses: [mobile-android]}}",
-                        "apps:",
+                        "services:",
                         "  parcels:",
                         "    command: ./parcels"));
         write("axx.watch.yaml", "run: {watch: true}\n");

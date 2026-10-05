@@ -41,7 +41,7 @@ import (
 //
 // Everything axx receives on a listener is appended to a file under
 // .axx/logs/listen, so reading a log is always reading a file. Listeners are
-// opened before the apps start (Prepare), because services connect or send
+// opened before the services start (Prepare), because services connect or send
 // when they start; one opened by `axx up` is reused by later runs.
 type source struct {
 	scheme string // file, udp, tcp, http, https

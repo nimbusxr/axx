@@ -9,7 +9,7 @@ The `web-core` pack runs acceptance scenarios in real browsers. It stands on [Pl
 
 The browsers run where Axx runs, as they do for any Playwright project: Playwright's builds of Chromium, Firefox and WebKit, which the pack downloads the first time it uses each one, or the Google Chrome and Microsoft Edge installed on the machine. Axx drives them through the Playwright driver, Node.js and Playwright's own package, which it downloads once and checks against pinned hashes. So:
 
-- The browsers reach your apps at the addresses you would: `localhost`, whether an app runs in Compose or on your machine, under a debugger or not.
+- The browsers reach your web apps at the addresses you would: `localhost`, whether their service runs in Compose or on your machine, under a debugger or not.
 - Watching a run is watching browser windows on your screen, with their DevTools, as when you use the app yourself.
 - Scenarios run the same everywhere: the pack pins one Playwright version, so its browsers are the same builds on every laptop and in CI, and it gives the browser a language and a time zone (`en-US` and `UTC`) unless the web app says otherwise, rather than the machine's.
 

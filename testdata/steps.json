@@ -1,8 +1,8 @@
 {
   "description": "The frozen catalog of built-in step text. Step text is public API: every entry must stay defined, verbatim, by its pack.",
   "counts": {
-    "parameterType": 13,
-    "step": 684
+    "parameterType": 14,
+    "step": 691
   },
   "entries": [
     {
@@ -1680,66 +1680,6 @@
     },
     {
       "kind": "step",
-      "pack": "files",
-      "keyword": "Then",
-      "expression": "the {word} folder has a(n) file named {word}"
-    },
-    {
-      "kind": "step",
-      "pack": "files",
-      "keyword": "Then",
-      "expression": "within {duration} the {word} folder has a(n) file named {word}"
-    },
-    {
-      "kind": "step",
-      "pack": "files",
-      "keyword": "Then",
-      "expression": "the {word} file in the {word} folder is identical to the {filepath} file"
-    },
-    {
-      "kind": "step",
-      "pack": "files",
-      "keyword": "Then",
-      "expression": "within {duration} the {word} file in the {word} folder is identical to the {filepath} file"
-    },
-    {
-      "kind": "step",
-      "pack": "files",
-      "keyword": "Then",
-      "expression": "the {word} file in the {word} folder has the following properties:"
-    },
-    {
-      "kind": "step",
-      "pack": "files",
-      "keyword": "Then",
-      "expression": "within {duration} the {word} file in the {word} folder has the following properties:"
-    },
-    {
-      "kind": "step",
-      "pack": "files",
-      "keyword": "Then",
-      "expression": "the {word} file in the {word} folder contains {string}"
-    },
-    {
-      "kind": "step",
-      "pack": "files",
-      "keyword": "Then",
-      "expression": "within {duration} the {word} file in the {word} folder contains {string}"
-    },
-    {
-      "kind": "step",
-      "pack": "files",
-      "keyword": "Then",
-      "expression": "the {word} file in the {word} folder has a row where:"
-    },
-    {
-      "kind": "step",
-      "pack": "files",
-      "keyword": "Then",
-      "expression": "within {duration} the {word} file in the {word} folder has a row where:"
-    },
-    {
-      "kind": "step",
       "pack": "web-core",
       "keyword": "Given",
       "expression": "the {word} web app with the following properties:"
@@ -2418,72 +2358,6 @@
     },
     {
       "kind": "step",
-      "pack": "aws-s3",
-      "keyword": "When",
-      "expression": "the {filepath} file is uploaded to the {word} s3 bucket as {word}"
-    },
-    {
-      "kind": "step",
-      "pack": "aws-s3",
-      "keyword": "Then",
-      "expression": "the {word} s3 bucket has a(n) object named {word}"
-    },
-    {
-      "kind": "step",
-      "pack": "aws-s3",
-      "keyword": "Then",
-      "expression": "within {duration} the {word} s3 bucket has a(n) object named {word}"
-    },
-    {
-      "kind": "step",
-      "pack": "aws-s3",
-      "keyword": "Then",
-      "expression": "the {word} object in the {word} s3 bucket is identical to the {filepath} file"
-    },
-    {
-      "kind": "step",
-      "pack": "aws-s3",
-      "keyword": "Then",
-      "expression": "within {duration} the {word} object in the {word} s3 bucket is identical to the {filepath} file"
-    },
-    {
-      "kind": "step",
-      "pack": "aws-s3",
-      "keyword": "Then",
-      "expression": "the {word} object in the {word} s3 bucket has the following properties:"
-    },
-    {
-      "kind": "step",
-      "pack": "aws-s3",
-      "keyword": "Then",
-      "expression": "within {duration} the {word} object in the {word} s3 bucket has the following properties:"
-    },
-    {
-      "kind": "step",
-      "pack": "aws-s3",
-      "keyword": "Then",
-      "expression": "the {word} object in the {word} s3 bucket contains {string}"
-    },
-    {
-      "kind": "step",
-      "pack": "aws-s3",
-      "keyword": "Then",
-      "expression": "within {duration} the {word} object in the {word} s3 bucket contains {string}"
-    },
-    {
-      "kind": "step",
-      "pack": "aws-s3",
-      "keyword": "Then",
-      "expression": "the {word} object in the {word} s3 bucket has a row where:"
-    },
-    {
-      "kind": "step",
-      "pack": "aws-s3",
-      "keyword": "Then",
-      "expression": "within {duration} the {word} object in the {word} s3 bucket has a row where:"
-    },
-    {
-      "kind": "step",
       "pack": "aws-sqs",
       "keyword": "When",
       "expression": "a message is sent to the {word} sqs queue:"
@@ -2604,72 +2478,6 @@
     },
     {
       "kind": "step",
-      "pack": "gcp-storage",
-      "keyword": "When",
-      "expression": "the {filepath} file is uploaded to the {word} gcs bucket as {word}"
-    },
-    {
-      "kind": "step",
-      "pack": "gcp-storage",
-      "keyword": "Then",
-      "expression": "the {word} gcs bucket has a(n) object named {word}"
-    },
-    {
-      "kind": "step",
-      "pack": "gcp-storage",
-      "keyword": "Then",
-      "expression": "within {duration} the {word} gcs bucket has a(n) object named {word}"
-    },
-    {
-      "kind": "step",
-      "pack": "gcp-storage",
-      "keyword": "Then",
-      "expression": "the {word} object in the {word} gcs bucket is identical to the {filepath} file"
-    },
-    {
-      "kind": "step",
-      "pack": "gcp-storage",
-      "keyword": "Then",
-      "expression": "within {duration} the {word} object in the {word} gcs bucket is identical to the {filepath} file"
-    },
-    {
-      "kind": "step",
-      "pack": "gcp-storage",
-      "keyword": "Then",
-      "expression": "the {word} object in the {word} gcs bucket has the following properties:"
-    },
-    {
-      "kind": "step",
-      "pack": "gcp-storage",
-      "keyword": "Then",
-      "expression": "within {duration} the {word} object in the {word} gcs bucket has the following properties:"
-    },
-    {
-      "kind": "step",
-      "pack": "gcp-storage",
-      "keyword": "Then",
-      "expression": "the {word} object in the {word} gcs bucket contains {string}"
-    },
-    {
-      "kind": "step",
-      "pack": "gcp-storage",
-      "keyword": "Then",
-      "expression": "within {duration} the {word} object in the {word} gcs bucket contains {string}"
-    },
-    {
-      "kind": "step",
-      "pack": "gcp-storage",
-      "keyword": "Then",
-      "expression": "the {word} object in the {word} gcs bucket has a row where:"
-    },
-    {
-      "kind": "step",
-      "pack": "gcp-storage",
-      "keyword": "Then",
-      "expression": "within {duration} the {word} object in the {word} gcs bucket has a row where:"
-    },
-    {
-      "kind": "step",
       "pack": "gcp-pubsub",
       "keyword": "When",
       "expression": "a message is published to the {word} pubsub topic:"
@@ -2769,72 +2577,6 @@
       "pack": "azure-blob",
       "keyword": "When",
       "expression": "the {filepath} file is uploaded to the {word} blob container"
-    },
-    {
-      "kind": "step",
-      "pack": "azure-blob",
-      "keyword": "When",
-      "expression": "the {filepath} file is uploaded to the {word} blob container as {word}"
-    },
-    {
-      "kind": "step",
-      "pack": "azure-blob",
-      "keyword": "Then",
-      "expression": "the {word} blob container has a(n) blob named {word}"
-    },
-    {
-      "kind": "step",
-      "pack": "azure-blob",
-      "keyword": "Then",
-      "expression": "within {duration} the {word} blob container has a(n) blob named {word}"
-    },
-    {
-      "kind": "step",
-      "pack": "azure-blob",
-      "keyword": "Then",
-      "expression": "the {word} blob in the {word} blob container is identical to the {filepath} file"
-    },
-    {
-      "kind": "step",
-      "pack": "azure-blob",
-      "keyword": "Then",
-      "expression": "within {duration} the {word} blob in the {word} blob container is identical to the {filepath} file"
-    },
-    {
-      "kind": "step",
-      "pack": "azure-blob",
-      "keyword": "Then",
-      "expression": "the {word} blob in the {word} blob container has the following properties:"
-    },
-    {
-      "kind": "step",
-      "pack": "azure-blob",
-      "keyword": "Then",
-      "expression": "within {duration} the {word} blob in the {word} blob container has the following properties:"
-    },
-    {
-      "kind": "step",
-      "pack": "azure-blob",
-      "keyword": "Then",
-      "expression": "the {word} blob in the {word} blob container contains {string}"
-    },
-    {
-      "kind": "step",
-      "pack": "azure-blob",
-      "keyword": "Then",
-      "expression": "within {duration} the {word} blob in the {word} blob container contains {string}"
-    },
-    {
-      "kind": "step",
-      "pack": "azure-blob",
-      "keyword": "Then",
-      "expression": "the {word} blob in the {word} blob container has a row where:"
-    },
-    {
-      "kind": "step",
-      "pack": "azure-blob",
-      "keyword": "Then",
-      "expression": "within {duration} the {word} blob in the {word} blob container has a row where:"
     },
     {
       "kind": "step",
@@ -3996,10 +3738,10 @@
     },
     {
       "kind": "parameterType",
-      "pack": "mobile-core",
+      "pack": "app-core",
       "keyword": "ParameterType",
       "name": "control",
-      "expression": "(buttons?|fields?|checkbox(?:es)?|switch(?:es)?|tabs?|list items?|images?|texts?|elements?)"
+      "expression": "(buttons?|fields?|checkbox(?:es)?|radio buttons?|switch(?:es)?|tabs?|menu items?|menus?|list items?|rows?|links?|images?|texts?|elements?)"
     },
     {
       "kind": "parameterType",
@@ -4010,7 +3752,7 @@
     },
     {
       "kind": "step",
-      "pack": "mobile-core",
+      "pack": "app-core",
       "keyword": "When",
       "expression": "the {word} app is launched"
     },
@@ -4034,19 +3776,19 @@
     },
     {
       "kind": "step",
-      "pack": "mobile-core",
+      "pack": "app-core",
       "keyword": "When",
       "expression": "the {word} app is restarted"
     },
     {
       "kind": "step",
-      "pack": "mobile-core",
+      "pack": "app-core",
       "keyword": "When",
       "expression": "the {string} {control} is tapped in the {word} app"
     },
     {
       "kind": "step",
-      "pack": "mobile-core",
+      "pack": "app-core",
       "keyword": "When",
       "expression": "the {string} field in the {word} app is filled with {string}"
     },
@@ -4058,79 +3800,79 @@
     },
     {
       "kind": "step",
-      "pack": "mobile-core",
+      "pack": "app-core",
       "keyword": "When",
       "expression": "the {string} {control} is scrolled into view in the {word} app"
     },
     {
       "kind": "step",
-      "pack": "mobile-core",
+      "pack": "app-core",
       "keyword": "Then",
       "expression": "the {word} app shows {string}"
     },
     {
       "kind": "step",
-      "pack": "mobile-core",
+      "pack": "app-core",
       "keyword": "Then",
       "expression": "within {duration} the {word} app shows {string}"
     },
     {
       "kind": "step",
-      "pack": "mobile-core",
+      "pack": "app-core",
       "keyword": "Then",
       "expression": "the {word} app does not show {string}"
     },
     {
       "kind": "step",
-      "pack": "mobile-core",
+      "pack": "app-core",
       "keyword": "Then",
       "expression": "within {duration} the {word} app does not show {string}"
     },
     {
       "kind": "step",
-      "pack": "mobile-core",
+      "pack": "app-core",
       "keyword": "Then",
       "expression": "the {string} {control} is shown in the {word} app"
     },
     {
       "kind": "step",
-      "pack": "mobile-core",
+      "pack": "app-core",
       "keyword": "Then",
       "expression": "within {duration} the {string} {control} is shown in the {word} app"
     },
     {
       "kind": "step",
-      "pack": "mobile-core",
+      "pack": "app-core",
       "keyword": "Then",
       "expression": "the {string} {control} is enabled in the {word} app"
     },
     {
       "kind": "step",
-      "pack": "mobile-core",
+      "pack": "app-core",
       "keyword": "Then",
       "expression": "within {duration} the {string} {control} is enabled in the {word} app"
     },
     {
       "kind": "step",
-      "pack": "mobile-core",
+      "pack": "app-core",
       "keyword": "Then",
       "expression": "the {string} {control} is disabled in the {word} app"
     },
     {
       "kind": "step",
-      "pack": "mobile-core",
+      "pack": "app-core",
       "keyword": "Then",
       "expression": "within {duration} the {string} {control} is disabled in the {word} app"
     },
     {
       "kind": "step",
-      "pack": "mobile-core",
+      "pack": "app-core",
       "keyword": "Then",
       "expression": "the {string} field in the {word} app has the value {string}"
     },
     {
       "kind": "step",
-      "pack": "mobile-core",
+      "pack": "app-core",
       "keyword": "Then",
       "expression": "within {duration} the {string} field in the {word} app has the value {string}"
     },
@@ -4160,13 +3902,13 @@
     },
     {
       "kind": "step",
-      "pack": "mobile-core",
+      "pack": "app-core",
       "keyword": "Then",
       "expression": "the {word} app looks like the {string} screenshot"
     },
     {
       "kind": "step",
-      "pack": "mobile-core",
+      "pack": "app-core",
       "keyword": "Then",
       "expression": "within {duration} the {word} app looks like the {string} screenshot"
     },
@@ -4199,6 +3941,313 @@
       "pack": "mobile-ios",
       "keyword": "Given",
       "expression": "the {word} ios app with the following properties:"
+    },
+    {
+      "kind": "parameterType",
+      "pack": "core",
+      "keyword": "ParameterType",
+      "name": "path",
+      "expression": "([^\\s\"]+)"
+    },
+    {
+      "kind": "step",
+      "pack": "files",
+      "keyword": "Then",
+      "expression": "the {word} folder has a(n) file named {path}"
+    },
+    {
+      "kind": "step",
+      "pack": "files",
+      "keyword": "Then",
+      "expression": "within {duration} the {word} folder has a(n) file named {path}"
+    },
+    {
+      "kind": "step",
+      "pack": "files",
+      "keyword": "Then",
+      "expression": "the {path} file in the {word} folder is identical to the {filepath} file"
+    },
+    {
+      "kind": "step",
+      "pack": "files",
+      "keyword": "Then",
+      "expression": "within {duration} the {path} file in the {word} folder is identical to the {filepath} file"
+    },
+    {
+      "kind": "step",
+      "pack": "files",
+      "keyword": "Then",
+      "expression": "the {path} file in the {word} folder has the following properties:"
+    },
+    {
+      "kind": "step",
+      "pack": "files",
+      "keyword": "Then",
+      "expression": "within {duration} the {path} file in the {word} folder has the following properties:"
+    },
+    {
+      "kind": "step",
+      "pack": "files",
+      "keyword": "Then",
+      "expression": "the {path} file in the {word} folder contains {string}"
+    },
+    {
+      "kind": "step",
+      "pack": "files",
+      "keyword": "Then",
+      "expression": "within {duration} the {path} file in the {word} folder contains {string}"
+    },
+    {
+      "kind": "step",
+      "pack": "files",
+      "keyword": "Then",
+      "expression": "the {path} file in the {word} folder has a row where:"
+    },
+    {
+      "kind": "step",
+      "pack": "files",
+      "keyword": "Then",
+      "expression": "within {duration} the {path} file in the {word} folder has a row where:"
+    },
+    {
+      "kind": "step",
+      "pack": "aws-s3",
+      "keyword": "When",
+      "expression": "the {filepath} file is uploaded to the {word} s3 bucket as {path}"
+    },
+    {
+      "kind": "step",
+      "pack": "aws-s3",
+      "keyword": "Then",
+      "expression": "the {word} s3 bucket has a(n) object named {path}"
+    },
+    {
+      "kind": "step",
+      "pack": "aws-s3",
+      "keyword": "Then",
+      "expression": "within {duration} the {word} s3 bucket has a(n) object named {path}"
+    },
+    {
+      "kind": "step",
+      "pack": "aws-s3",
+      "keyword": "Then",
+      "expression": "the {path} object in the {word} s3 bucket is identical to the {filepath} file"
+    },
+    {
+      "kind": "step",
+      "pack": "aws-s3",
+      "keyword": "Then",
+      "expression": "within {duration} the {path} object in the {word} s3 bucket is identical to the {filepath} file"
+    },
+    {
+      "kind": "step",
+      "pack": "aws-s3",
+      "keyword": "Then",
+      "expression": "the {path} object in the {word} s3 bucket has the following properties:"
+    },
+    {
+      "kind": "step",
+      "pack": "aws-s3",
+      "keyword": "Then",
+      "expression": "within {duration} the {path} object in the {word} s3 bucket has the following properties:"
+    },
+    {
+      "kind": "step",
+      "pack": "aws-s3",
+      "keyword": "Then",
+      "expression": "the {path} object in the {word} s3 bucket contains {string}"
+    },
+    {
+      "kind": "step",
+      "pack": "aws-s3",
+      "keyword": "Then",
+      "expression": "within {duration} the {path} object in the {word} s3 bucket contains {string}"
+    },
+    {
+      "kind": "step",
+      "pack": "aws-s3",
+      "keyword": "Then",
+      "expression": "the {path} object in the {word} s3 bucket has a row where:"
+    },
+    {
+      "kind": "step",
+      "pack": "aws-s3",
+      "keyword": "Then",
+      "expression": "within {duration} the {path} object in the {word} s3 bucket has a row where:"
+    },
+    {
+      "kind": "step",
+      "pack": "gcp-storage",
+      "keyword": "When",
+      "expression": "the {filepath} file is uploaded to the {word} gcs bucket as {path}"
+    },
+    {
+      "kind": "step",
+      "pack": "gcp-storage",
+      "keyword": "Then",
+      "expression": "the {word} gcs bucket has a(n) object named {path}"
+    },
+    {
+      "kind": "step",
+      "pack": "gcp-storage",
+      "keyword": "Then",
+      "expression": "within {duration} the {word} gcs bucket has a(n) object named {path}"
+    },
+    {
+      "kind": "step",
+      "pack": "gcp-storage",
+      "keyword": "Then",
+      "expression": "the {path} object in the {word} gcs bucket is identical to the {filepath} file"
+    },
+    {
+      "kind": "step",
+      "pack": "gcp-storage",
+      "keyword": "Then",
+      "expression": "within {duration} the {path} object in the {word} gcs bucket is identical to the {filepath} file"
+    },
+    {
+      "kind": "step",
+      "pack": "gcp-storage",
+      "keyword": "Then",
+      "expression": "the {path} object in the {word} gcs bucket has the following properties:"
+    },
+    {
+      "kind": "step",
+      "pack": "gcp-storage",
+      "keyword": "Then",
+      "expression": "within {duration} the {path} object in the {word} gcs bucket has the following properties:"
+    },
+    {
+      "kind": "step",
+      "pack": "gcp-storage",
+      "keyword": "Then",
+      "expression": "the {path} object in the {word} gcs bucket contains {string}"
+    },
+    {
+      "kind": "step",
+      "pack": "gcp-storage",
+      "keyword": "Then",
+      "expression": "within {duration} the {path} object in the {word} gcs bucket contains {string}"
+    },
+    {
+      "kind": "step",
+      "pack": "gcp-storage",
+      "keyword": "Then",
+      "expression": "the {path} object in the {word} gcs bucket has a row where:"
+    },
+    {
+      "kind": "step",
+      "pack": "gcp-storage",
+      "keyword": "Then",
+      "expression": "within {duration} the {path} object in the {word} gcs bucket has a row where:"
+    },
+    {
+      "kind": "step",
+      "pack": "azure-blob",
+      "keyword": "When",
+      "expression": "the {filepath} file is uploaded to the {word} blob container as {path}"
+    },
+    {
+      "kind": "step",
+      "pack": "azure-blob",
+      "keyword": "Then",
+      "expression": "the {word} blob container has a(n) blob named {path}"
+    },
+    {
+      "kind": "step",
+      "pack": "azure-blob",
+      "keyword": "Then",
+      "expression": "within {duration} the {word} blob container has a(n) blob named {path}"
+    },
+    {
+      "kind": "step",
+      "pack": "azure-blob",
+      "keyword": "Then",
+      "expression": "the {path} blob in the {word} blob container is identical to the {filepath} file"
+    },
+    {
+      "kind": "step",
+      "pack": "azure-blob",
+      "keyword": "Then",
+      "expression": "within {duration} the {path} blob in the {word} blob container is identical to the {filepath} file"
+    },
+    {
+      "kind": "step",
+      "pack": "azure-blob",
+      "keyword": "Then",
+      "expression": "the {path} blob in the {word} blob container has the following properties:"
+    },
+    {
+      "kind": "step",
+      "pack": "azure-blob",
+      "keyword": "Then",
+      "expression": "within {duration} the {path} blob in the {word} blob container has the following properties:"
+    },
+    {
+      "kind": "step",
+      "pack": "azure-blob",
+      "keyword": "Then",
+      "expression": "the {path} blob in the {word} blob container contains {string}"
+    },
+    {
+      "kind": "step",
+      "pack": "azure-blob",
+      "keyword": "Then",
+      "expression": "within {duration} the {path} blob in the {word} blob container contains {string}"
+    },
+    {
+      "kind": "step",
+      "pack": "azure-blob",
+      "keyword": "Then",
+      "expression": "the {path} blob in the {word} blob container has a row where:"
+    },
+    {
+      "kind": "step",
+      "pack": "azure-blob",
+      "keyword": "Then",
+      "expression": "within {duration} the {path} blob in the {word} blob container has a row where:"
+    },
+    {
+      "kind": "step",
+      "pack": "app-core",
+      "keyword": "When",
+      "expression": "the {string} {control} is clicked in the {word} app"
+    },
+    {
+      "kind": "step",
+      "pack": "desktop-core",
+      "keyword": "When",
+      "expression": "the {word} key is pressed in the {word} app"
+    },
+    {
+      "kind": "step",
+      "pack": "desktop-core",
+      "keyword": "When",
+      "expression": "the {string} {control} in the {word} app is clicked at {int}, {int}"
+    },
+    {
+      "kind": "step",
+      "pack": "desktop-core",
+      "keyword": "When",
+      "expression": "the pointer is dragged from {int}, {int} to {int}, {int} on the {string} {control} in the {word} app"
+    },
+    {
+      "kind": "step",
+      "pack": "desktop-macos",
+      "keyword": "Given",
+      "expression": "the {word} macos app with the following properties:"
+    },
+    {
+      "kind": "step",
+      "pack": "desktop-windows",
+      "keyword": "Given",
+      "expression": "the {word} windows app with the following properties:"
+    },
+    {
+      "kind": "step",
+      "pack": "desktop-linux",
+      "keyword": "Given",
+      "expression": "the {word} linux app with the following properties:"
     }
   ]
 }

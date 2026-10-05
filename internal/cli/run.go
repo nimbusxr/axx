@@ -54,18 +54,18 @@ func newRunCmd(app *App) *cobra.Command {
 	var f runFlags
 	cmd := &cobra.Command{
 		Use:   "run [paths[:line]...]",
-		Short: "Start the apps, run feature files, and report",
+		Short: "Start the services, run feature files, and report",
 		Long: `Run Gherkin scenarios against your services.
 
 axx starts the applications declared in axx.yaml (only those needed by the
 selected scenarios when active.enabled is set), waits until they are ready,
-runs scenarios in parallel, stops the apps and runs their cleanups.
+runs scenarios in parallel, stops the services and runs their cleanups.
 
 Select scenarios with paths (features/x.feature:14 selects the scenario on
 line 14, or the scenario containing that step line), --tags and --name.
 
 Exit codes: 0 passed, 1 failures, 2 usage/config, 3 undefined/ambiguous steps,
-4 an app failed to start, 130 interrupted.`,
+4 a service failed to start, 130 interrupted.`,
 		Example: `  axx run
   axx run features/register-parcels.feature:17
   axx run --tags "@smoke and not @wip" --format junit:build/axx/junit.xml
@@ -83,11 +83,11 @@ Exit codes: 0 passed, 1 failures, 2 usage/config, 3 undefined/ambiguous steps,
 	fl.StringArrayVarP(&f.names, "name", "n", nil, "only scenarios whose name matches this regular expression (repeatable)")
 	fl.IntVarP(&f.workers, "workers", "w", 0, "parallel scenarios (default: run.workers, or number of CPUs)")
 	fl.BoolVar(&f.failFast, "fail-fast", false, "stop scheduling scenarios after the first failure")
-	fl.BoolVar(&f.dryRun, "dry-run", false, "match steps without executing them or starting apps")
+	fl.BoolVar(&f.dryRun, "dry-run", false, "match steps without executing them or starting services")
 	fl.StringArrayVarP(&f.formats, "format", "f", nil, "reporter NAME or NAME:FILE (repeatable): "+strings.Join(report.Names(), ", "))
-	fl.BoolVar(&f.noStart, "no-start", false, "do not start, stop or clean up any app")
-	fl.StringSliceVar(&f.attach, "attach", nil, "apps you run yourself; axx waits for their readiness instead of starting them")
-	fl.StringVar(&f.debug, "debug", "", "start apps with their debug command (all, or a comma-separated list)")
+	fl.BoolVar(&f.noStart, "no-start", false, "do not start, stop or clean up any service")
+	fl.StringSliceVar(&f.attach, "attach", nil, "services you run yourself; axx waits for their readiness instead of starting them")
+	fl.StringVar(&f.debug, "debug", "", "start services with their debug command (all, or a comma-separated list)")
 	fl.Lookup("debug").NoOptDefVal = "*"
 	fl.StringVar(&f.debugSteps, "debug-steps", "", "run under Delve so a Go debugger can stop at breakpoints in step code (port, default "+defaultStepsPort+")")
 	fl.Lookup("debug-steps").NoOptDefVal = defaultStepsPort
@@ -157,8 +157,8 @@ func (a *App) run(ctx context.Context, f *runFlags, args []string) error {
 	}
 	defer closeReporters()
 
-	// Packs set up what the apps need before they start (core.Preparer);
-	// what they open is released when the engine closes, after the apps stop.
+	// Packs set up what the services need before they start (core.Preparer);
+	// what they open is released when the engine closes, after the services stop.
 	defer func() { _ = e.Close(context.WithoutCancel(ctx)) }()
 	if !f.dryRun {
 		if err := e.Prepare(ctx, pickles); err != nil {
@@ -168,13 +168,13 @@ func (a *App) run(ctx context.Context, f *runFlags, args []string) error {
 
 	// Applications.
 	var mgr *lifecycle.Manager
-	if !f.dryRun && len(cfg.Apps) > 0 {
+	if !f.dryRun && len(cfg.Services) > 0 {
 		mgr, err = a.startApps(ctx, e, f, pickles)
 		if mgr != nil {
 			defer func() {
 				stopCtx := context.WithoutCancel(ctx)
 				if serr := mgr.Stop(stopCtx); serr != nil {
-					fmt.Fprintln(a.Stderr, "axx: while stopping apps:", serr)
+					fmt.Fprintln(a.Stderr, "axx: while stopping services:", serr)
 				}
 			}()
 		}
@@ -292,14 +292,14 @@ func (a *App) startApps(ctx context.Context, e *engine.Engine, f *runFlags, pick
 				}
 			}
 		}
-		names, err = lifecycle.SelectActive(cfg.Apps, cfg.Active, tags, used)
+		names, err = lifecycle.SelectActive(cfg.Services, cfg.Active, tags, used)
 		if err != nil {
 			return nil, err
 		}
 	}
 	logDir := filepath.Join(cfg.Dir, ".axx", "logs")
 	_ = os.MkdirAll(logDir, 0o755)
-	logFile, err := os.Create(filepath.Join(logDir, "apps.log"))
+	logFile, err := os.Create(filepath.Join(logDir, "services.log"))
 	if err != nil {
 		return nil, err
 	}
@@ -309,11 +309,11 @@ func (a *App) startApps(ctx context.Context, e *engine.Engine, f *runFlags, pick
 	}
 	attach := set(f.attach)
 	if st, ok := liveUp(cfg); ok {
-		// Apps kept running by `axx up` are reused: axx only waits for them.
-		for _, n := range st.Apps {
+		// Services kept running by `axx up` are reused: axx only waits for them.
+		for _, n := range st.Services {
 			attach[n] = true
 		}
-		fmt.Fprintf(a.Stderr, "axx: reusing apps started by `axx up`: %s\n", strings.Join(st.Apps, ", "))
+		fmt.Fprintf(a.Stderr, "axx: reusing services started by `axx up`: %s\n", strings.Join(st.Services, ", "))
 	}
 	opts := lifecycle.Options{
 		ConfigDir: cfg.Dir,
@@ -331,7 +331,7 @@ func (a *App) startApps(ctx context.Context, e *engine.Engine, f *runFlags, pick
 	default:
 		opts.Debug = set(strings.Split(f.debug, ","))
 	}
-	mgr, err := lifecycle.New(cfg.Apps, opts)
+	mgr, err := lifecycle.New(cfg.Services, opts)
 	if err != nil {
 		return nil, err
 	}

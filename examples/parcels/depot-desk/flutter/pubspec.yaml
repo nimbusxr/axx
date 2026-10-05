@@ -1,0 +1,18 @@
+name: depot_desk
+description: The depot desk in Flutter (../README.md).
+publish_to: none
+version: 1.0.0
+
+environment:
+  sdk: ^3.9.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+  path_provider: ^2.1.5
+  shared_preferences: ^2.5.3
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/depot.png

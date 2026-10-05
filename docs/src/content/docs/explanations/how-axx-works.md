@@ -1,14 +1,14 @@
 ---
 title: How Axx works
-description: What happens between typing axx run and reading the result - configuration, step matching, app lifecycle, parallel execution, packs, the world and reporting.
+description: What happens between typing axx run and reading the result - configuration, step matching, service lifecycle, parallel execution, packs, the world and reporting.
 ---
 
 Axx is one Go binary with its own Cucumber executor. It reads Gherkin, matches every step to a definition, starts the system under test, runs the scenarios against it from the outside, and reports.
 
 ```text
 axx.yaml ─┐
-features ─┼─▶ load & validate ─▶ match steps ─▶ start apps ─▶ run scenarios ─▶ report ───────────────▶ stop apps
-packs    ─┘                     (registry)      (lifecycle)   (workers)        (pretty, junit, html…)  (cleanup)
+features ─┼─▶ load & validate ─▶ match steps ─▶ start services ─▶ run scenarios ─▶ report ───────────────▶ stop services
+packs    ─┘                     (registry)      (lifecycle)       (workers)        (pretty, junit, html…)  (cleanup)
 ```
 
 ## 1. Load
@@ -19,11 +19,11 @@ Axx finds `axx.yaml` by walking up from the working directory, applies the selec
 
 Every step line is matched against the **registry**: the steps of the packs the project loads. Steps are [Cucumber Expressions](https://github.com/cucumber/cucumber-expressions) with custom parameter types such as `{ordinal}` and `{service}`. Optional segments like `[[ on {service}]]` register every variant of a step.
 
-A line that matches nothing is *undefined*; a line that matches two definitions is *ambiguous*. `axx validate`, `axx explain` and `axx run --dry-run` are this phase alone: they find both without starting an app or running a step. In a run, a scenario stops at an undefined or ambiguous step, and the report suggests the closest real steps or lists the candidates.
+A line that matches nothing is *undefined*; a line that matches two definitions is *ambiguous*. `axx validate`, `axx explain` and `axx run --dry-run` are this phase alone: they find both without starting a service or running a step. In a run, a scenario stops at an undefined or ambiguous step, and the report suggests the closest real steps or lists the candidates.
 
-## 3. Start the apps
+## 3. Start the services
 
-The lifecycle manager starts `apps` one after another in the order `axx.yaml` declares them, or, when apps declare `dependsOn`, in dependency order with independent apps in parallel. Each runs in its own process group. It polls every `ready` check until they pass or time out. With `active.enabled`, only the apps the selected scenarios' tags call for start, with the apps they depend on. With `axx up`, a background supervisor keeps them running and later runs skip this step.
+The lifecycle manager starts `services` one after another in the order `axx.yaml` declares them, or, when services declare `dependsOn`, in dependency order with independent services in parallel. Each runs in its own process group. It polls every `ready` check until they pass or time out. With `active.enabled`, only the services the selected scenarios' tags call for start, with the services they depend on. With `axx up`, a background supervisor keeps them running and later runs skip this step.
 
 ## 4. Run
 
@@ -39,7 +39,7 @@ A project lists the packs it uses in `axx-packs.yaml`. The `axx` binary is the c
 
 ## 6. Report and stop
 
-Reporters follow the run as it goes, as [Cucumber Messages](https://github.com/cucumber/messages) events and scenario results, and finish their reports after the last scenario: pretty, progress or compact on the console, TeamCity service messages for the editors' test runners, and JUnit, HTML, Cucumber JSON, NDJSON messages and the JSON agent report to files. Then apps are stopped (signal, grace period, kill) and every `cleanup` runs, including after a crash or an interrupt. The exit code summarizes the worst outcome ([exit codes](/references/error-codes/#exit-codes)).
+Reporters follow the run as it goes, as [Cucumber Messages](https://github.com/cucumber/messages) events and scenario results, and finish their reports after the last scenario: pretty, progress or compact on the console, TeamCity service messages for the editors' test runners, and JUnit, HTML, Cucumber JSON, NDJSON messages and the JSON agent report to files. Then services are stopped (signal, grace period, kill) and every `cleanup` runs, including after a crash or an interrupt. The exit code summarizes the worst outcome ([exit codes](/references/error-codes/#exit-codes)).
 
 ## What Axx is not
 

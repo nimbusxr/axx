@@ -52,7 +52,7 @@ var exitMeaning = map[exitcode.Code]string{
 	exitcode.Failed:      "At least one scenario failed.",
 	exitcode.Usage:       "Usage or configuration error: bad flags, invalid `axx.yaml`, unparsable features.",
 	exitcode.Undefined:   "Undefined or ambiguous steps, or lint violations.",
-	exitcode.Environment: "Environment or lifecycle failure: an app did not start, become ready or stop.",
+	exitcode.Environment: "Environment or lifecycle failure: a service did not start, become ready or stop.",
 	exitcode.Plugin:      "Reserved (not used).",
-	exitcode.Interrupted: "Interrupted (Ctrl-C); apps were stopped and cleaned up.",
+	exitcode.Interrupted: "Interrupted (Ctrl-C); services were stopped and cleaned up.",
 }

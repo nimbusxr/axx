@@ -34,7 +34,7 @@ In a repository with a `CLAUDE.md` and a `.cursor/` directory:
   create  .cursor/mcp.json (the axx MCP server for Cursor)
 
 Codex keeps its MCP servers in ~/.codex/config.toml; `axx mcp install --agent codex --scope user` adds axx there.
-next: edit apps in axx.yaml, then `axx doctor` and `axx run`
+next: edit services in axx.yaml, then `axx doctor` and `axx run`
 ```
 
 Axx adds its server to the files that exist: other servers and settings stay where they are, and a file that has the axx server already is left alone, so running `axx init` again changes nothing. A file Axx cannot read back exactly, such as JSON with comments, is left alone too: its line says so, and `axx mcp install --agent <agent>` shows what to add by hand. Codex usually reads its servers from your home directory, which `axx init` never writes, so it prints the command that does. `axx init --no-agents` skips the skills and the MCP servers.
@@ -55,7 +55,7 @@ axx skills list
 | --- | --- |
 | `axx-acceptance-tests` | the write, validate, run loop; rules that keep tests reliable; the step index |
 | `axx-test-data` | seeds, payloads and mock bodies in [fixture factories](/guides/fixture-factories/): `axx fixtures`, identities, adoption, `axx lint`, CI |
-| `axx-setup` | `axx init`, apps and readiness, CI, agent integration |
+| `axx-setup` | `axx init`, services and readiness, CI, agent integration |
 | `axx-custom-steps` | custom steps as Go packs |
 | `axx-debugging` | reading failures, exit codes and logs |
 
@@ -73,7 +73,7 @@ The skills carry no pages of steps: they send agents to `axx steps`, which lists
 | `lint_run` | run `axx lint`: values such as seed ids that collide across files, with `file:line`, and the rules that found something |
 | `scenarios_run` | run scenarios (paths, tags, names); returns failures with expected and actual, the warnings `feature_validate` and `lint_run` would give, and for a passing run their hints |
 | `failure_context` | logs, attachments and the last request and response of one failure; without a run ID, of the latest run |
-| `env` | `up`, `down` or `status` of the apps: which are running, left over from a killed run, or not cleaned up (`axx env` on the command line) |
+| `env` | `up`, `down` or `status` of the services: which are running, left over from a killed run, or not cleaned up (`axx env` on the command line) |
 | `config_show` | the effective `axx.yaml`, with secrets redacted, and its packs (`axx config show`) |
 | `scaffold` | starter contents for a feature or an `axx.yaml` |
 | `steps_try` | try steps in a live scenario that stays open between calls, until `restart` |
@@ -90,7 +90,7 @@ An agent tries the steps it is unsure of, looks at the page they led to, then wr
 {"steps": "Given the portal web app with the following properties:\n  | url | http://localhost:8400/portal |\nWhen the \"/quote\" page is opened"}
 ```
 
-The apps must be running (`env` `up`). The session's browsers close when the agent restarts it or the server stops.
+The services must be running (`env` `up`). The session's browsers close when the agent restarts it or the server stops.
 
 It also serves the `axx.yaml` JSON Schema as a resource and a `write-acceptance-tests` prompt. Pass `--profile ci` (or any profile) to apply it to every tool call.
 
@@ -204,8 +204,8 @@ axx (github.com/nimbusxr/axx, "axxeptance") is a human-readable acceptance testi
 - Every scenario uses unique data (ids, names, keys): scenarios run in parallel and data persists.
 - Check what the service did (a response property, a row, an event) and why it refused, not only
   status codes.
-- `apps:` in axx.yaml are what runs on its own, reached by an address; a program its user starts (a CLI, an
-  MCP server over stdio) is run by its step's `command`, as its user would, and is not an app.
+- `services:` in axx.yaml are what runs on its own, reached by an address; a program its user starts (a CLI, an
+  MCP server over stdio) is run by its step's `command`, as its user would, and is not a service.
 - Steps come from the packs in `axx-packs.yaml` (`axx pack list`, `axx pack add <name>`). Configuration is in
   `axx.yaml` (`axx schema --outline` lists its keys); features in `features/`.
 - Repeating payloads, seeds or mock bodies: fixture factories generate them (`axx fixtures`;

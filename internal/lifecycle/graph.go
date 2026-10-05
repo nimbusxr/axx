@@ -7,10 +7,10 @@ import (
 	"github.com/nimbusxr/axx/internal/config"
 )
 
-// validateGraph checks that dependsOn only names declared apps and that the
+// validateGraph checks that dependsOn only names declared services and that the
 // dependencies form a DAG.
-func validateGraph(apps config.Apps) error {
-	byName := make(map[string]config.App, len(apps))
+func validateGraph(apps config.Services) error {
+	byName := make(map[string]config.Service, len(apps))
 	names := make([]string, 0, len(apps))
 	for _, a := range apps {
 		byName[a.Name] = a
@@ -19,8 +19,8 @@ func validateGraph(apps config.Apps) error {
 	for _, a := range apps {
 		for _, d := range a.DependsOn {
 			if _, ok := byName[d]; !ok {
-				return configErr(CodeUnknownDependency, "app %s depends on %q, which is not declared under apps", a.Name, d).
-					WithHint("fix apps.%s.dependsOn; declared apps: %s", a.Name, strings.Join(names, ", "))
+				return configErr(CodeUnknownDependency, "service %s depends on %q, which is not declared under services", a.Name, d).
+					WithHint("fix services.%s.dependsOn; declared services: %s", a.Name, strings.Join(names, ", "))
 			}
 		}
 	}
@@ -40,8 +40,8 @@ func validateGraph(apps config.Apps) error {
 			switch state[d] {
 			case visiting:
 				cycle := append(slices.Clone(path[slices.Index(path, d):]), d)
-				return configErr(CodeDependencyCycle, "apps depend on each other in a cycle: %s", strings.Join(cycle, " -> ")).
-					WithHint("remove one of these apps.<name>.dependsOn entries so the apps can start in some order")
+				return configErr(CodeDependencyCycle, "services depend on each other in a cycle: %s", strings.Join(cycle, " -> ")).
+					WithHint("remove one of these services.<name>.dependsOn entries so the services can start in some order")
 			case unvisited:
 				if err := visit(d); err != nil {
 					return err
@@ -62,11 +62,11 @@ func validateGraph(apps config.Apps) error {
 	return nil
 }
 
-// withDependencies returns the enabled apps among names plus every enabled
-// app they depend on, transitively, in declaration order. Dependencies on
-// disabled apps are ignored (they are managed elsewhere); unknown names are
+// withDependencies returns the enabled services among names plus every enabled
+// service they depend on, transitively, in declaration order. Dependencies on
+// disabled services are ignored (they are managed elsewhere); unknown names are
 // ignored (validateGraph reports them).
-func withDependencies(apps config.Apps, names []string) []string {
+func withDependencies(apps config.Services, names []string) []string {
 	want := make(map[string]bool, len(apps))
 	var add func(name string)
 	add = func(name string) {
@@ -91,9 +91,9 @@ func withDependencies(apps config.Apps, names []string) []string {
 	return out
 }
 
-// usesDependsOn reports whether any app declares dependencies. Without any,
-// apps start one after another in declaration order.
-func usesDependsOn(apps config.Apps) bool {
+// usesDependsOn reports whether any service declares dependencies. Without any,
+// services start one after another in declaration order.
+func usesDependsOn(apps config.Services) bool {
 	for _, a := range apps {
 		if len(a.DependsOn) > 0 {
 			return true

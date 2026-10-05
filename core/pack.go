@@ -12,17 +12,17 @@ import (
 
 // Pack is a bundle of steps, parameter types and hooks.
 //
-// A pack may also implement Preparer (setup before the apps start),
+// A pack may also implement Preparer (setup before the services start),
 // Initializer (suite-scoped setup such as connection pools), Finisher
 // (checks of the run as a whole) and Closer (suite teardown). A run calls
-// them in that order: Prepare, the apps start, Init, the scenarios, Finish,
-// the apps stop, Close.
+// them in that order: Prepare, the services start, Init, the scenarios, Finish,
+// the services stop, Close.
 type Pack interface {
 	Manifest() Manifest
 }
 
 // Preparer is implemented by packs that must set something up before the
-// apps start, such as a listener the apps connect to when they start. The
+// services start, such as a listener the services connect to when they start. The
 // plan lists the scenarios the run will execute (for `axx up`, every
 // scenario of the configured feature paths), so a pack can find what its
 // steps will need. Close what Prepare opens with Suite.OnClose.

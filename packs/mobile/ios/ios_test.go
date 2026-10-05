@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/nimbusxr/axx/internal/cloudstep/cloudtest"
+	appcore "github.com/nimbusxr/axx/packs/app/core"
 	mobilecore "github.com/nimbusxr/axx/packs/mobile/core"
 	"github.com/nimbusxr/axx/packs/mobile/internal/appium/appiumtest"
 )
@@ -89,7 +90,7 @@ func register(h *cloudtest.Harness, url string, rows ...[]string) {
 // every step of the packs, on the app's own screens.
 func TestACourierDelivers(t *testing.T) {
 	app := courier(t)
-	h := cloudtest.New(t, mobilecore.Pack(), Pack())
+	h := cloudtest.New(t, appcore.Pack(), mobilecore.Pack(), Pack())
 	register(h, app.URL, []string{"locale", "de-DE"}, []string{"timezone", "Europe/Berlin"})
 	h.OK(`the courier app is opened with the "parcels-courier://deliveries/PX-MOB-9401" link`)
 	h.OK(`the courier app shows "Karl-Liebknecht-Str. 12, 04107 Leipzig"`)
@@ -159,7 +160,7 @@ func TestACourierDelivers(t *testing.T) {
 func TestFailures(t *testing.T) {
 	app := courier(t)
 	t.Setenv("COURIER_PIN", "4711")
-	h := cloudtest.New(t, mobilecore.Pack(), Pack())
+	h := cloudtest.New(t, appcore.Pack(), mobilecore.Pack(), Pack())
 	register(h, app.URL)
 	h.OK("the courier app is launched")
 	t.Cleanup(mobilecore.SetActionTimeout(300 * time.Millisecond))
@@ -224,7 +225,7 @@ func TestRoles(t *testing.T) {
 // A screenshot leaves the status bar out, in the screenshot's pixels.
 func TestScreenshots(t *testing.T) {
 	app := courier(t)
-	h := cloudtest.New(t, mobilecore.Pack(), Pack())
+	h := cloudtest.New(t, appcore.Pack(), mobilecore.Pack(), Pack())
 	register(h, app.URL, []string{"device", "iPhone 16"})
 	h.OK("the courier app is launched")
 	_ = h.Fails(`the courier app looks like the "sign in" screenshot`, `There was no "sign in.ios-iPhone-16" screenshot to compare with, so it was taken`)
@@ -241,7 +242,7 @@ func TestScreenshots(t *testing.T) {
 // its session does: the next scenario's app, installed afresh, asks again.
 func TestADialogLeftOpenIsDismissed(t *testing.T) {
 	app := courier(t)
-	h := cloudtest.New(t, mobilecore.Pack(), Pack())
+	h := cloudtest.New(t, appcore.Pack(), mobilecore.Pack(), Pack())
 	register(h, app.URL)
 	h.OK("the courier app is launched")
 	h.OK(`the "Courier ID" field in the courier app is filled with "CR-LEJ-12"`)

@@ -8,7 +8,7 @@ Feature: Shipment weights
       | project  | parcels-billing               |
       | endpoint | http://${sys:local.host}:4588 |
     And the console log with the following properties:
-      | url | file://.axx/logs/apps.log |
+      | url | file://.axx/logs/services.log |
 
   Scenario: A weighed parcel is kept for pricing
     When the messages/px-5105-weighed.json message is published to the shipment-events pubsub topic with the following attributes:

@@ -2,7 +2,6 @@ package mobilecore
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/nimbusxr/axx/core"
@@ -19,16 +18,6 @@ var actionTimeout = cloudstep.DefaultWait
 
 func steps() []core.StepDef {
 	return []core.StepDef{
-		{
-			ID: "mobile-core.launch", Keyword: "When", Since: since,
-			Expr: "the {word} app is launched",
-			Doc: "Launch the app on the device the scenario leased, reset for the scenario (see the app's platform pack), " +
-				"or bring it to the front if it is already running.",
-			Examples: []string{"When the courier app is launched"},
-			Run: func(sc *core.Scenario, a core.Args) error {
-				return onDevice(sc, a.String(0), true, func(ctx context.Context, d Device) error { return d.Launch(ctx) })
-			},
-		},
 		{
 			ID: "mobile-core.link", Keyword: "When", Since: since,
 			Expr: "the {word} app is opened with the {string} link",
@@ -61,56 +50,6 @@ func steps() []core.StepDef {
 			},
 		},
 		{
-			ID: "mobile-core.restart", Keyword: "When", Since: since,
-			Expr:     "the {word} app is restarted",
-			Doc:      "Stop the app and start it again, keeping what it stored: what survives a restart, like a sign-in, is still there.",
-			Examples: []string{"When the courier app is restarted"},
-			Run: func(sc *core.Scenario, a core.Args) error {
-				return onDevice(sc, a.String(0), false, func(ctx context.Context, d Device) error { return d.Restart(ctx) })
-			},
-		},
-		{
-			ID: "mobile-core.tap", Keyword: "When", Since: since,
-			Expr:     "the {string} {control} is tapped in the {word} app",
-			Doc:      "Tap a control, found by the name people see, or by an `id=` or `xpath=` selector.",
-			Examples: []string{`When the "Sign in" button is tapped in the courier app`, `When the "PX-MOB-9401" list item is tapped in the courier app`},
-			Run: func(sc *core.Scenario, a core.Args) error {
-				name, k, app := secrets.Expand(sc, a.String(0)), a.Value(1).(kind), a.String(2)
-				return onDevice(sc, app, false, func(ctx context.Context, d Device) error {
-					el, err := element(sc, d, app, k, name, actionTimeout)
-					if err != nil {
-						return err
-					}
-					if err := el.Click(ctx); err != nil {
-						return fmt.Errorf("cannot tap the %s %s: %w", quoted(name), k.noun, err)
-					}
-					return nil
-				})
-			},
-		},
-		{
-			ID: "mobile-core.fill", Keyword: "When", Since: since,
-			Expr:     "the {string} field in the {word} app is filled with {string}",
-			Doc:      "Replace what a field holds with a text, as typing it would. `${env:..}` values are secrets: masked in logs and failures.",
-			Examples: []string{`When the "Courier ID" field in the courier app is filled with "CR-LEJ-12"`},
-			Run: func(sc *core.Scenario, a core.Args) error {
-				name, app, value := secrets.Expand(sc, a.String(0)), a.String(1), secrets.Expand(sc, a.String(2))
-				return onDevice(sc, app, false, func(ctx context.Context, d Device) error {
-					el, err := element(sc, d, app, kinds["field"], name, actionTimeout)
-					if err != nil {
-						return err
-					}
-					if err := el.Clear(ctx); err != nil {
-						return fmt.Errorf("cannot empty the %s field: %w", quoted(name), err)
-					}
-					if err := el.Type(ctx, value); err != nil {
-						return fmt.Errorf("cannot type into the %s field: %w", quoted(name), err)
-					}
-					return nil
-				})
-			},
-		},
-		{
 			ID: "mobile-core.swipe", Keyword: "When", Since: since,
 			Expr:     "the {word} app is swiped {direction}",
 			Doc:      "Swipe across the screen: down, from the top, refreshes a list that pulls to refresh; left and right page through what pages.",
@@ -118,16 +57,6 @@ func steps() []core.StepDef {
 			Run: func(sc *core.Scenario, a core.Args) error {
 				dir := a.String(1)
 				return onDevice(sc, a.String(0), false, func(ctx context.Context, d Device) error { return d.Swipe(ctx, dir) })
-			},
-		},
-		{
-			ID: "mobile-core.scroll", Keyword: "When", Since: since,
-			Expr:     "the {string} {control} is scrolled into view in the {word} app",
-			Doc:      "Scroll the screen until a control is shown: down first, then up.",
-			Examples: []string{`When the "PX-MOB-9412" list item is scrolled into view in the courier app`},
-			Run: func(sc *core.Scenario, a core.Args) error {
-				name, k, app := secrets.Expand(sc, a.String(0)), a.Value(1).(kind), a.String(2)
-				return onDevice(sc, app, false, func(ctx context.Context, d Device) error { return scrollTo(sc, d, app, k, name) })
 			},
 		},
 	}

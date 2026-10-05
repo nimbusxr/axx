@@ -43,7 +43,7 @@ properties:
   # The PIN the example couriers sign in with.
   couriers.pin: "4711"
 
-apps:
+services:
   parcels:
     # ../infra/compose.yaml builds and starts the service and all of its infrastructure.
     dir: ../infra

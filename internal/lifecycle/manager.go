@@ -22,10 +22,10 @@ import (
 
 // Options configures a Manager.
 type Options struct {
-	// ConfigDir is the directory apps.<name>.dir is relative to (the
+	// ConfigDir is the directory services.<name>.dir is relative to (the
 	// directory of axx.yaml).
 	ConfigDir string
-	// Stdout and Stderr receive the apps' output, each line prefixed with
+	// Stdout and Stderr receive the services' output, each line prefixed with
 	// "[<app>] ". IDE protocol lines ("[AXX-IDE] ...") go to Stdout without
 	// a prefix. Nil discards.
 	Stdout, Stderr io.Writer
@@ -34,73 +34,73 @@ type Options struct {
 	// NoStart skips the lifecycle entirely: nothing is started, waited for,
 	// stopped or cleaned up.
 	NoStart bool
-	// Attach names apps the developer runs themselves (from an IDE, in any
+	// Attach names services the developer runs themselves (from an IDE, in any
 	// language): axx does not start or stop them but waits for their
 	// readiness checks.
 	Attach map[string]bool
-	// Debug names apps to run in debug mode; DebugAll selects every app with
+	// Debug names services to run in debug mode; DebugAll selects every service with
 	// a debug section.
 	Debug    map[string]bool
 	DebugAll bool
-	// StateFile, when set, records the running apps (pids, process groups,
+	// StateFile, when set, records the running services (pids, process groups,
 	// cleanups) so that Reap can stop them if this run is killed.
 	StateFile string
-	// Env is the base environment for apps (default os.Environ()); each
-	// app's env is appended to it.
+	// Env is the base environment for services (default os.Environ()); each
+	// service's env is appended to it.
 	Env []string
 }
 
-// Manager starts and stops the apps of one run. Start and Stop must not be
+// Manager starts and stops the services of one run. Start and Stop must not be
 // called concurrently; Tail and Started may be called at any time.
 type Manager struct {
 	opts    Options
 	log     *slog.Logger
 	console *console
 	http    *http.Client
-	cfg     config.Apps
-	apps    map[string]*app
-	// graph is set when some app declares dependsOn: apps then start as
+	cfg     config.Services
+	apps    map[string]*service
+	// graph is set when some service declares dependsOn: services then start as
 	// soon as their dependencies are ready. Otherwise they start one after
 	// another in declaration order.
 	graph bool
 
 	mu sync.Mutex
-	// up lists the apps started (launched or attached), in start order,
+	// up lists the services started (launched or attached), in start order,
 	// until Stop has stopped them.
-	up []*app
-	// unclean are the apps this run stopped whose cleanup failed.
-	unclean []stateApp
+	up []*service
+	// unclean are the services this run stopped whose cleanup failed.
+	unclean []stateService
 	// stateLoaded is set once the state file has been checked for entries
 	// of an earlier run; inherited holds them so they are not forgotten.
 	stateLoaded bool
-	inherited   []stateApp
+	inherited   []stateService
 }
 
-// app is one apps.<name> entry with its validated settings and, once
+// service is one services.<name> entry with its validated settings and, once
 // started, its run.
-type app struct {
-	cfg     config.App
+type service struct {
+	cfg     config.Service
 	ready   *readySpec
 	debug   *debugSpec
 	cleanup []string
 	tail    *ring
 
-	// Set while starting, before the app is published in Manager.up.
+	// Set while starting, before the service is published in Manager.up.
 	dir      string
 	env      []string
 	attached bool
 	proc     *process
-	// after lists the started apps this one started after; it stops
+	// after lists the started services this one started after; it stops
 	// before them.
-	after []*app
+	after []*service
 	// cleaned is set (under Manager.mu) once stopped and cleaned up.
 	cleaned bool
 }
 
-// New validates the apps (dependencies, readiness, stop and debug settings,
+// New validates the services (dependencies, readiness, stop and debug settings,
 // the names in opts) and returns a Manager. Working directories and commands
-// are checked when an app starts.
-func New(apps config.Apps, opts Options) (*Manager, error) {
+// are checked when a service starts.
+func New(apps config.Services, opts Options) (*Manager, error) {
 	if opts.Env == nil {
 		opts.Env = os.Environ()
 	}
@@ -114,15 +114,15 @@ func New(apps config.Apps, opts Options) (*Manager, error) {
 		console: newConsole(opts.Stdout, opts.Stderr),
 		http:    newHTTPClient(),
 		cfg:     apps,
-		apps:    make(map[string]*app, len(apps)),
+		apps:    make(map[string]*service, len(apps)),
 		graph:   usesDependsOn(apps),
 	}
 	for _, c := range apps {
 		if _, dup := m.apps[c.Name]; dup {
-			return nil, configErr(CodeInvalidConfig, "app %s is declared twice", c.Name).
-				WithHint("give every entry under apps a unique name")
+			return nil, configErr(CodeInvalidConfig, "service %s is declared twice", c.Name).
+				WithHint("give every entry under services a unique name")
 		}
-		a, err := newApp(c)
+		a, err := newService(c)
 		if err != nil {
 			return nil, err
 		}
@@ -134,7 +134,7 @@ func New(apps config.Apps, opts Options) (*Manager, error) {
 	for _, set := range []struct {
 		what  string
 		names map[string]bool
-	}{{"apps to attach", opts.Attach}, {"apps to debug", opts.Debug}} {
+	}{{"services to attach", opts.Attach}, {"services to debug", opts.Debug}} {
 		for _, name := range slices.Sorted(maps.Keys(set.names)) {
 			if err := m.known(name, set.what); err != nil {
 				return nil, err
@@ -144,8 +144,8 @@ func New(apps config.Apps, opts Options) (*Manager, error) {
 	return m, nil
 }
 
-func newApp(c config.App) (*app, error) {
-	a := &app{cfg: c, tail: newRing(tailLines)}
+func newService(c config.Service) (*service, error) {
+	a := &service{cfg: c, tail: newRing(tailLines)}
 	var err error
 	if a.ready, err = parseReady(c); err != nil {
 		return nil, err
@@ -154,20 +154,20 @@ func newApp(c config.App) (*app, error) {
 		return nil, err
 	}
 	if err := proc.CheckSignal(c.Stop.Signal); err != nil {
-		return nil, configErr(CodeInvalidConfig, "apps.%s.stop.signal: %v", c.Name, err)
+		return nil, configErr(CodeInvalidConfig, "services.%s.stop.signal: %v", c.Name, err)
 	}
 	if c.Stop.Grace < 0 {
-		return nil, configErr(CodeInvalidConfig, "apps.%s.stop.grace must not be negative", c.Name)
+		return nil, configErr(CodeInvalidConfig, "services.%s.stop.grace must not be negative", c.Name)
 	}
 	if !c.Cleanup.IsZero() {
 		if a.cleanup, err = commandArgv(c.Cleanup, c.Shell); err != nil {
-			return nil, configErr(CodeInvalidConfig, "apps.%s.cleanup: %v", c.Name, err)
+			return nil, configErr(CodeInvalidConfig, "services.%s.cleanup: %v", c.Name, err)
 		}
 	}
 	return a, nil
 }
 
-// known returns an error unless name is a declared app.
+// known returns an error unless name is a declared service.
 func (m *Manager) known(name, what string) error {
 	if _, ok := m.apps[name]; ok {
 		return nil
@@ -176,20 +176,20 @@ func (m *Manager) known(name, what string) error {
 	for _, c := range m.cfg {
 		names = append(names, c.Name)
 	}
-	return configErr(CodeUnknownApp, "unknown app %q in %s", name, what).
-		WithHint("use one of the apps declared in axx.yaml: %s", strings.Join(names, ", "))
+	return configErr(CodeUnknownService, "unknown service %q in %s", name, what).
+		WithHint("use one of the services declared in axx.yaml: %s", strings.Join(names, ", "))
 }
 
-// Start starts the named apps and the apps they depend on, and waits until
-// all of them are ready. A nil names starts every enabled app. Disabled apps
-// and apps already started are skipped; attached apps are only waited for.
+// Start starts the named services and the services they depend on, and waits until
+// all of them are ready. A nil names starts every enabled service. Disabled services
+// and services already started are skipped; attached services are only waited for.
 //
-// If an app fails to start or become ready, or ctx is cancelled, Start stops
-// every app the Manager has started, runs their cleanups and returns the
+// If a service fails to start or become ready, or ctx is cancelled, Start stops
+// every service the Manager has started, runs their cleanups and returns the
 // error (for a cancelled ctx, one that matches context.Canceled).
 func (m *Manager) Start(ctx context.Context, names []string) error {
 	if m.opts.NoStart {
-		m.log.Info("not starting apps (no-start)")
+		m.log.Info("not starting services (no-start)")
 		return nil
 	}
 	if names == nil {
@@ -198,7 +198,7 @@ func (m *Manager) Start(ctx context.Context, names []string) error {
 		}
 	}
 	for _, n := range names {
-		if err := m.known(n, "apps to start"); err != nil {
+		if err := m.known(n, "services to start"); err != nil {
 			return err
 		}
 	}
@@ -244,7 +244,7 @@ func (m *Manager) Start(ctx context.Context, names []string) error {
 			if runCtx.Err() != nil {
 				return
 			}
-			if err := m.startApp(runCtx, a); err != nil {
+			if err := m.startService(runCtx, a); err != nil {
 				once.Do(func() {
 					first = err
 					cancel()
@@ -262,7 +262,7 @@ func (m *Manager) Start(ctx context.Context, names []string) error {
 	stopErr := m.Stop(context.WithoutCancel(ctx))
 	if ctx.Err() != nil {
 		first = axxerr.Wrap(ctx.Err(), CodeInterrupted, exitcode.Interrupted,
-			"starting apps was interrupted; started apps were stopped and cleaned up")
+			"starting services was interrupted; started services were stopped and cleaned up")
 	}
 	if stopErr != nil {
 		return errors.Join(first, stopErr)
@@ -270,15 +270,15 @@ func (m *Manager) Start(ctx context.Context, names []string) error {
 	return first
 }
 
-// pending returns the named apps that are not up yet.
-func (m *Manager) pending(names []string) []*app {
+// pending returns the named services that are not up yet.
+func (m *Manager) pending(names []string) []*service {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	up := make(map[*app]bool, len(m.up))
+	up := make(map[*service]bool, len(m.up))
 	for _, a := range m.up {
 		up[a] = true
 	}
-	var out []*app
+	var out []*service
 	for _, n := range names {
 		if a := m.apps[n]; !up[a] {
 			out = append(out, a)
@@ -287,13 +287,13 @@ func (m *Manager) pending(names []string) []*app {
 	return out
 }
 
-// startApp starts one app (or, for an attached app, only waits for it).
-func (m *Manager) startApp(ctx context.Context, a *app) error {
+// startService starts one service (or, for an attached service, only waits for it).
+func (m *Manager) startService(ctx context.Context, a *service) error {
 	name := a.cfg.Name
-	a.env = appEnv(m.opts.Env, a.cfg.Env)
+	a.env = serviceEnv(m.opts.Env, a.cfg.Env)
 	a.proc, a.attached, a.cleaned = nil, m.opts.Attach[name], false
 	if a.attached {
-		m.log.Info("waiting for attached app (start it yourself)", "app", name)
+		m.log.Info("waiting for attached service (start it yourself)", "service", name)
 		// Best effort: only a ready.exec check runs there.
 		if a.dir, _ = resolveDir(a.cfg, m.opts.ConfigDir); a.dir == "" {
 			a.dir = m.opts.ConfigDir
@@ -313,10 +313,10 @@ func (m *Manager) startApp(ctx context.Context, a *app) error {
 	}
 	argv, err := commandArgv(plan.command, a.cfg.Shell)
 	if err != nil {
-		return configErr(CodeNoCommand, "app %s has no command to run", name).
-			WithHint("set apps.%s.command", name)
+		return configErr(CodeNoCommand, "service %s has no command to run", name).
+			WithHint("set services.%s.command", name)
 	}
-	m.log.Info("starting app", "app", name, "command", displayArgv(argv), "dir", dir)
+	m.log.Info("starting service", "service", name, "command", displayArgv(argv), "dir", dir)
 	p, err := m.launch(a, argv)
 	if err != nil {
 		return err
@@ -325,7 +325,7 @@ func (m *Manager) startApp(ctx context.Context, a *app) error {
 	m.publish(a)
 	if plan.debug != nil && plan.debug.mode == modeAppListens {
 		// Announce the attach request as soon as the debug port listens, not
-		// after readiness: apps started with --inspect-brk or a suspended
+		// after readiness: services started with --inspect-brk or a suspended
 		// delve wait for the debugger before they become ready.
 		stop := m.announceAttach(ctx, a, *plan.debug)
 		defer stop()
@@ -333,11 +333,11 @@ func (m *Manager) startApp(ctx context.Context, a *app) error {
 	return m.awaitReady(ctx, a, plan)
 }
 
-// announceAttach prints the IDE attach line once the app's debug port
+// announceAttach prints the IDE attach line once the service's debug port
 // listens. The returned func is called when readiness is settled: it makes
 // sure a port that already listens is announced before Start returns, and
-// otherwise keeps watching in the background until the app exits.
-func (m *Manager) announceAttach(ctx context.Context, a *app, d debugger) func() {
+// otherwise keeps watching in the background until the service exits.
+func (m *Manager) announceAttach(ctx context.Context, a *service, d debugger) func() {
 	var once sync.Once
 	announce := func() { once.Do(func() { m.console.Println(d.attachLine(a.cfg.Name)) }) }
 	announced := make(chan struct{})
@@ -379,7 +379,7 @@ func (m *Manager) announceAttach(ctx context.Context, a *app, d debugger) func()
 }
 
 // publish records a as up (so Stop will stop it) and saves the state file.
-func (m *Manager) publish(a *app) {
+func (m *Manager) publish(a *service) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	a.after = nil
@@ -392,7 +392,7 @@ func (m *Manager) publish(a *app) {
 			}
 		}
 	} else if len(m.up) > 0 {
-		a.after = []*app{m.up[len(m.up)-1]}
+		a.after = []*service{m.up[len(m.up)-1]}
 	}
 	m.up = append(m.up, a)
 	if a.proc != nil {
@@ -400,21 +400,21 @@ func (m *Manager) publish(a *app) {
 	}
 }
 
-// Stop stops every started app, dependents before their dependencies (the
-// reverse of start order), runs each app's cleanup right after it stops and
-// removes the state file. Apps that do not depend on each other stop
-// concurrently. Stop returns the errors of all apps joined; a cancelled ctx
+// Stop stops every started service, dependents before their dependencies (the
+// reverse of start order), runs each service's cleanup right after it stops and
+// removes the state file. Services that do not depend on each other stop
+// concurrently. Stop returns the errors of all services joined; a cancelled ctx
 // skips grace periods and interrupts cleanups.
 func (m *Manager) Stop(ctx context.Context) error {
 	m.mu.Lock()
-	up := append([]*app(nil), m.up...)
+	up := append([]*service(nil), m.up...)
 	m.mu.Unlock()
 	if len(up) == 0 {
 		return nil
 	}
 
-	dependents := make(map[*app][]*app, len(up))
-	stopped := make(map[*app]chan struct{}, len(up))
+	dependents := make(map[*service][]*service, len(up))
+	stopped := make(map[*service]chan struct{}, len(up))
 	for _, a := range up {
 		stopped[a] = make(chan struct{})
 		for _, d := range a.after {
@@ -429,7 +429,7 @@ func (m *Manager) Stop(ctx context.Context) error {
 			for _, d := range dependents[a] {
 				<-stopped[d]
 			}
-			errs[i] = m.stopApp(ctx, a)
+			errs[i] = m.stopService(ctx, a)
 		})
 	}
 	wg.Wait()
@@ -441,8 +441,8 @@ func (m *Manager) Stop(ctx context.Context) error {
 	return joinErrs(nonNil(errs))
 }
 
-// Tail returns the last lines (up to 200) the app and its cleanup printed,
-// oldest first. It is empty for unknown apps.
+// Tail returns the last lines (up to 200) the service and its cleanup printed,
+// oldest first. It is empty for unknown services.
 func (m *Manager) Tail(app string) []string {
 	a, ok := m.apps[app]
 	if !ok {
@@ -451,8 +451,8 @@ func (m *Manager) Tail(app string) []string {
 	return a.tail.snapshot()
 }
 
-// Started returns the names of the apps this Manager launched and has not
-// stopped yet, in start order. Attached apps are not included.
+// Started returns the names of the services this Manager launched and has not
+// stopped yet, in start order. Attached services are not included.
 func (m *Manager) Started() []string {
 	m.mu.Lock()
 	defer m.mu.Unlock()

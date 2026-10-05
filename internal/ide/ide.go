@@ -1,5 +1,5 @@
 // Package ide generates IDE run and debug configurations from axx.yaml, so
-// debugging an app under test is one click in IntelliJ or VS Code.
+// debugging a service under test is one click in IntelliJ or VS Code.
 package ide
 
 import (
@@ -33,8 +33,8 @@ type File struct {
 	Reason string `json:"reason,omitempty"`
 }
 
-// debuggerOf returns the app's debugger with defaults applied.
-func debuggerOf(a config.App) (config.Debugger, bool) {
+// debuggerOf returns the service's debugger with defaults applied.
+func debuggerOf(a config.Service) (config.Debugger, bool) {
 	if a.Debug == nil || a.Debug.Debugger == nil {
 		return config.Debugger{}, false
 	}
@@ -64,7 +64,7 @@ func IntelliJ(cfg *config.Config, projectDir string) ([]File, error) {
 	type gen struct{ name, xml string }
 	var gens []gen
 	var debuggers []string
-	for _, a := range cfg.Apps {
+	for _, a := range cfg.Services {
 		d, ok := debuggerOf(a)
 		if !ok {
 			continue
@@ -72,7 +72,7 @@ func IntelliJ(cfg *config.Config, projectDir string) ([]File, error) {
 		name := "Debugger: " + a.Name
 		x, err := intellijDebugger(name, d)
 		if err != nil {
-			return nil, fmt.Errorf("apps.%s.debug.debugger: %w", a.Name, err)
+			return nil, fmt.Errorf("services.%s.debug.debugger: %w", a.Name, err)
 		}
 		gens = append(gens, gen{name, x})
 		debuggers = append(debuggers, name)
@@ -256,7 +256,7 @@ const vsPrefix = "axx: "
 func VSCode(cfg *config.Config, projectDir string) ([]File, error) {
 	var launches []map[string]any
 	var names []string
-	for _, a := range cfg.Apps {
+	for _, a := range cfg.Services {
 		d, ok := debuggerOf(a)
 		if !ok {
 			continue
@@ -273,7 +273,7 @@ func VSCode(cfg *config.Config, projectDir string) ([]File, error) {
 		case "python":
 			c["type"], c["connect"] = "debugpy", map[string]any{"host": d.Host, "port": d.Port}
 		default:
-			return nil, fmt.Errorf("apps.%s.debug.debugger: unknown type %q", a.Name, d.Type)
+			return nil, fmt.Errorf("services.%s.debug.debugger: unknown type %q", a.Name, d.Type)
 		}
 		launches = append(launches, c)
 		names = append(names, name)

@@ -25,7 +25,7 @@ const packDoc = `Publish messages to Pub/Sub topics and check the messages your 
 
 The steps use the scenario's project (` + "`the {word} gcp project with the following properties:`" + `, from gcp-core).
 
-**Checking a topic** does not take messages from anyone: for the topics a run checks, axx creates a subscription of its own (` + "`axx-<run>-<topic>`" + `) once the apps are up, and deletes it when the run ends. A check only looks at the messages received since its scenario started; match on data unique to the scenario, since scenarios run in parallel. The conditions are paths into the message data (JSON) and ` + "`attribute <name>`" + ` rows for its attributes.`
+**Checking a topic** does not take messages from anyone: for the topics a run checks, axx creates a subscription of its own (` + "`axx-<run>-<topic>`" + `) once the services are up, and deletes it when the run ends. A check only looks at the messages received since its scenario started; match on data unique to the scenario, since scenarios run in parallel. The conditions are paths into the message data (JSON) and ` + "`attribute <name>`" + ` rows for its attributes.`
 
 // Pack returns the gcp-pubsub pack.
 func Pack() core.Pack { return pack{} }
@@ -81,7 +81,7 @@ func (pack) Prepare(_ context.Context, s *core.Suite, plan *core.Plan) error {
 	return nil
 }
 
-// Init subscribes to the planned topics, now that the apps run.
+// Init subscribes to the planned topics, now that the services run.
 func (pack) Init(ctx context.Context, s *core.Suite) error {
 	return cloudstep.DeferredFor(s, name).Run(ctx)
 }

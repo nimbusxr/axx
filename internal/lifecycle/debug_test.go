@@ -30,13 +30,13 @@ func TestParseDebugDefaults(t *testing.T) {
 		want debugger
 	}{
 		{"java listens in the IDE", config.Debugger{Port: 5005}, debugger{typ: "java", host: "localhost", port: 5005, mode: modeIDEListens}},
-		{"go app listens", config.Debugger{Type: "go", Port: 2345}, debugger{typ: "go", host: "localhost", port: 2345, mode: modeAppListens}},
+		{"go service listens", config.Debugger{Type: "go", Port: 2345}, debugger{typ: "go", host: "localhost", port: 2345, mode: modeAppListens}},
 		{"explicit", config.Debugger{Type: "python", Host: "10.0.0.2", Port: 5678, Mode: modeIDEListens}, debugger{typ: "python", host: "10.0.0.2", port: 5678, mode: modeIDEListens}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			d := tt.in
-			spec, err := parseDebug(config.App{Name: "api", Debug: &config.Debug{Debugger: &d}})
+			spec, err := parseDebug(config.Service{Name: "api", Debug: &config.Debug{Debugger: &d}})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -111,11 +111,11 @@ func TestDebugMode(t *testing.T) {
 			wantCommand: "debug", wantRequests: -1,
 		},
 		{
-			name: "app listens", debugger: &config.Debugger{Type: "go"}, listening: true, opts: Options{DebugAll: true},
+			name: "service listens", debugger: &config.Debugger{Type: "go"}, listening: true, opts: Options{DebugAll: true},
 			wantCommand: "debug", wantAttach: true,
 		},
 		{
-			name: "app listens but debug port never opens", debugger: &config.Debugger{Type: "go"}, opts: Options{DebugAll: true},
+			name: "service listens but debug port never opens", debugger: &config.Debugger{Type: "go"}, opts: Options{DebugAll: true},
 			wantCommand: "debug", wantAttach: false,
 		},
 	}
@@ -135,7 +135,7 @@ func TestDebugMode(t *testing.T) {
 				d.Port = port(t, addr)
 				app.Debug.Debugger = &d
 			}
-			h := newHarness(t, config.Apps{app}, tt.opts)
+			h := newHarness(t, config.Services{app}, tt.opts)
 			if tt.lateListen {
 				// The IDE starts listening once axx has found no debugger and
 				// waits for one, however long that took: the first check fails

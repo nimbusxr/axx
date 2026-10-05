@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self'; connect-src 'self' ipc: http://ipc.localhost">
+  <title>Depot desk</title>
+  <link rel="stylesheet" href="desk.css">
+</head>
+<body>
+  <!-- The depot desk (../README.md) as a web page: Electron and Tauri show it. -->
+  <img src="depot.png" alt="Leipzig depot" width="64" height="64">
+  <div role="tablist" aria-label="Desk">
+    <button role="tab" id="tab-arrivals" aria-selected="true" aria-controls="arrivals">Arrivals</button>
+    <button role="tab" id="tab-handover" aria-selected="false" aria-controls="handover" tabindex="-1">Handover</button>
+  </div>
+
+  <section role="tabpanel" id="arrivals" aria-labelledby="tab-arrivals">
+    <div class="form">
+    <label for="reference">Reference</label>
+    <input id="reference" autocomplete="off" spellcheck="false">
+    <label class="option"><input type="checkbox" id="fragile"> Fragile</label>
+    <div role="radiogroup" aria-label="Service level" class="levels">
+      <label class="option"><input type="radio" name="level" value="Standard"> Standard</label>
+      <label class="option"><input type="radio" name="level" value="Express"> Express</label>
+    </div>
+    <button role="switch" id="print-label" aria-checked="false" class="switch">Print label</button>
+    <button id="register" disabled>Register</button>
+    <p id="status"></p>
+    </div>
+    <div class="lists">
+    <h2 id="arrivals-heading">Arrivals</h2>
+    <!-- role="list": WebKit drops a list's role when its style drops its bullets. -->
+    <ul id="arrivals-list" role="list" aria-labelledby="arrivals-heading"></ul>
+    <h2 id="expected-heading">Expected today</h2>
+    <div class="scroll">
+      <table aria-labelledby="expected-heading">
+        <thead><tr><th>Reference</th><th>Town</th></tr></thead>
+        <tbody id="expected"></tbody>
+      </table>
+    </div>
+    </div>
+  </section>
+
+  <section role="tabpanel" id="handover" aria-labelledby="tab-handover" hidden>
+    <canvas id="pad" width="400" height="160" role="img" aria-label="Courier signature"></canvas>
+    <p id="signed">Not signed</p>
+    <button id="clear">Clear signature</button>
+    <p><a href="#rules" id="rules-link">Handover rules</a></p>
+    <p id="rules" hidden>Parcels are handed over to the courier at 18:00.</p>
+  </section>
+
+  <script src="desk.js"></script>
+</body>
+</html>

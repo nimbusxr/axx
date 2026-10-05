@@ -83,7 +83,7 @@ The `hint:` lines are suggestions, never errors or warnings. When the scenarios 
 
 `axx lint`, `axx validate` and a passing `axx run` also hint at scenarios whose checks prove little: those that check only a success status (a 2xx response, or a command's exit code 0), which says it was accepted, not what it did, and those that check only that something did not happen, which also passes when the action never ran. A hint names the scenarios; whether one needs another check is for its author to judge.
 
-`axx lint` exits with `3` when an `error`-mode rule finds a duplicate, like `axx validate` does for undefined steps. Run it in CI next to `axx validate`, and start new rules in `warn` mode while you clean up existing data. `axx lint --mode error` makes every rule an error, the built-in checks of the features too, so CI fails on an ordinal that would fail every run, before any app starts.
+`axx lint` exits with `3` when an `error`-mode rule finds a duplicate, like `axx validate` does for undefined steps. Run it in CI next to `axx validate`, and start new rules in `warn` mode while you clean up existing data. `axx lint --mode error` makes every rule an error, the built-in checks of the features too, so CI fails on an ordinal that would fail every run, before any service starts.
 
 ## Tips
 

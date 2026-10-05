@@ -19,7 +19,22 @@ jobs:
         with:
           fail-on-severity: moderate
           deny-licenses: GPL-2.0-only, GPL-3.0-only, AGPL-3.0-only, AGPL-3.0-or-later, SSPL-1.0
-          # Dual-licensed ("MIT OR GPL-2.0-or-later"): axx uses it under MIT. It comes with
-          # Appium's FTP support (jsftp), in packs/mobile/android/appium/package-lock.json.
-          allow-dependencies-licenses: pkg:npm/unorm@1.6.0
+          # unorm is dual-licensed ("MIT OR GPL-2.0-or-later"): axx uses it under MIT. It comes
+          # with Appium's FTP support (jsftp), in packs/mobile/android/appium/package-lock.json.
+          # The pub packages are the depot desk's Flutter build's
+          # (examples/parcels/depot-desk/flutter/pubspec.lock): their licenses are BSD-3-Clause,
+          # Apache-2.0 and MIT, which the dependency graph records in lower case, as no valid
+          # SPDX id, so the action cannot check them.
+          allow-dependencies-licenses: >-
+            pkg:npm/unorm@1.6.0,
+            pkg:pub/code_assets, pkg:pub/hooks, pkg:pub/jni, pkg:pub/jni_flutter,
+            pkg:pub/material_color_utilities, pkg:pub/objective_c, pkg:pub/platform,
+            pkg:pub/pub_semver, pkg:pub/record_use, pkg:pub/shared_preferences_android,
+            pkg:pub/shared_preferences_foundation, pkg:pub/vector_math, pkg:pub/yaml
+          # glib 0.18 (RUSTSEC-2024-0429: unsound VariantStrIter iterators, fixed in 0.20) comes
+          # with Tauri 2's Linux stack, the archived GTK 3 bindings (gtk-rs 0.18), which glib 0.20
+          # does not build with: no Tauri release can take the fix. It is in the depot desk's
+          # Tauri build (examples/parcels/depot-desk/tauri), a test fixture that never calls
+          # VariantStrIter.
+          allow-ghsas: GHSA-wrw7-89jp-8q8g
           comment-summary-in-pr: on-failure

@@ -27,8 +27,8 @@ func steps() []core.StepDef {
 			Expr: "the {word} mcp server with the following properties:",
 			Doc: "Register an MCP server under a name, and connect to it: over stdio (a `command` the scenario runs, and ends when it ends) " +
 				"or over streamable HTTP (a `url`). The session agrees on the protocol version with the server.\n\n" +
-				"- A server its clients start over stdio is the scenario's `command`, as assistants run it, not an app in axx.yaml; " +
-				"a server that runs on its own over HTTP is an app, which the `url` reaches.",
+				"- A server its clients start over stdio is the scenario's `command`, as assistants run it, not a service in axx.yaml; " +
+				"a server that runs on its own over HTTP is a service, which the `url` reaches.",
 			Table: &core.TableDoc{
 				Columns: []string{"property", "value"},
 				Rows: []core.TableRow{

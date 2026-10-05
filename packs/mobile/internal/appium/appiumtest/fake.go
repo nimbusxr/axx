@@ -54,6 +54,11 @@ type Server struct {
 	state    int    // the app's state, as XCUITest reports it: 1 not running, 4 in front
 	under    string // the screen under the notifications, while they are open
 	moving   map[string]int
+	// arriving are the next reads of a dialog's text that find it still
+	// coming in, with no text; blank is whether the last read did, when an
+	// answer is lost.
+	arriving int
+	blank    bool
 }
 
 // Start runs the fake for a test.
@@ -71,6 +76,15 @@ func (s *Server) Screen() string {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.screen
+}
+
+// Arriving has the next reads of the dialog's text find it still coming in:
+// it has no text yet, and an answer right after such a read is lost, as
+// UiAutomator2's is.
+func (s *Server) Arriving(reads int) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.arriving = reads
 }
 
 // Moving has the next finds of a control miss it, as they do while it
@@ -165,6 +179,10 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 			fail("no such alert", "No alert is present on the screen")
 			return
 		}
+		if s.blank = s.arriving > 0; s.blank {
+			s.arriving--
+			text = ""
+		}
 		reply(text)
 	case path == "/alert/accept" || path == "/alert/dismiss":
 		if _, ok := s.app.Alerts[s.screen]; !ok {
@@ -172,6 +190,12 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		verb := strings.TrimPrefix(path, "/alert/")
+		if s.blank {
+			s.blank = false
+			s.commands = append(s.commands, verb+" alert, lost")
+			reply(nil)
+			return
+		}
 		s.commands = append(s.commands, verb+" alert")
 		if next, ok := s.app.Taps[verb+" "+s.screen]; ok {
 			s.screen = next

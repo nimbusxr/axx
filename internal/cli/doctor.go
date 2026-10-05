@@ -129,7 +129,7 @@ func newDoctorCmd(app *App) *cobra.Command {
 		Use:   "doctor",
 		Short: "Check that this project and machine are ready to run axx",
 		Long: `Check the axx installation, axx.yaml, feature files, step definitions
-and the commands your apps need. Agents: run this first in a new repo.
+and the commands your services need. Agents: run this first in a new repo.
 
 Exit code 0 when nothing failed (warnings allowed), 4 otherwise.`,
 		Args: wrapArgs(cobra.NoArgs),
@@ -232,11 +232,11 @@ func (a *App) doctor(ctx context.Context, cf *configFlags) (rep DoctorReport) {
 		}
 	}
 
-	for _, ap := range cfg.Apps {
+	for _, ap := range cfg.Services {
 		if !ap.IsEnabled() {
 			continue
 		}
-		name := "app " + ap.Name
+		name := "service " + ap.Name
 		argv := ap.Command.Argv
 		if len(argv) == 0 {
 			argv = shellwords.Split(ap.Command.Line)
@@ -253,7 +253,7 @@ func (a *App) doctor(ctx context.Context, cf *configFlags) (rep DoctorReport) {
 			}
 		}
 		if st, err := os.Stat(dir); err != nil || !st.IsDir() {
-			add(name, "fail", "directory "+relPath(dir)+" does not exist", "check apps."+ap.Name+".dir")
+			add(name, "fail", "directory "+relPath(dir)+" does not exist", "check services."+ap.Name+".dir")
 			continue
 		}
 		if commandAvailable(argv[0], dir) {
@@ -263,11 +263,11 @@ func (a *App) doctor(ctx context.Context, cf *configFlags) (rep DoctorReport) {
 			}
 			add(name, "ok", fmt.Sprintf("%s (%s)", argv[0], ready), "")
 		} else {
-			add(name, "fail", fmt.Sprintf("command %q not found", argv[0]), "install it or fix apps."+ap.Name+".command")
+			add(name, "fail", fmt.Sprintf("command %q not found", argv[0]), "install it or fix services."+ap.Name+".command")
 		}
 		if ap.Ready == nil {
 			rep.Checks[len(rep.Checks)-1].Status = "warn"
-			rep.Checks[len(rep.Checks)-1].Hint = "add apps." + ap.Name + ".ready so scenarios wait until the app is up"
+			rep.Checks[len(rep.Checks)-1].Hint = "add services." + ap.Name + ".ready so scenarios wait until the service is up"
 		}
 	}
 	if usesDocker(cfg) {
@@ -280,20 +280,20 @@ func (a *App) doctor(ctx context.Context, cf *configFlags) (rep DoctorReport) {
 		}
 	}
 	if st, ok := liveUp(cfg); ok {
-		add("axx up", "ok", "apps running: "+strings.Join(st.Apps, ", "), "")
+		add("axx up", "ok", "services running: "+strings.Join(st.Services, ", "), "")
 	}
-	// What earlier runs left behind stops the next run from starting apps.
+	// What earlier runs left behind stops the next run from starting services.
 	if apps, err := lifecycle.Status(lifecycle.StateFile(cfg.Dir)); err != nil {
-		add("earlier runs", "fail", err.Error(), "stop leftover apps by hand, then delete "+relPath(lifecycle.StateFile(cfg.Dir)))
+		add("earlier runs", "fail", err.Error(), "stop leftover services by hand, then delete "+relPath(lifecycle.StateFile(cfg.Dir)))
 	} else {
 		for _, a := range apps {
 			switch {
-			case a.State == lifecycle.AppLeftOver:
-				add("app "+a.Name, "fail", fmt.Sprintf("left running by an earlier run (pid %d)", a.PID), "`axx down` stops it and runs its cleanup")
-			case a.State == lifecycle.AppNotCleaned && a.CleanupFailed:
-				add("app "+a.Name, "fail", "its cleanup failed: "+a.Cleanup, "`axx down` runs it again")
-			case a.State == lifecycle.AppNotCleaned:
-				add("app "+a.Name, "fail", "an earlier run stopped without its cleanup: "+a.Cleanup, "`axx down` runs it")
+			case a.State == lifecycle.ServiceLeftOver:
+				add("service "+a.Name, "fail", fmt.Sprintf("left running by an earlier run (pid %d)", a.PID), "`axx down` stops it and runs its cleanup")
+			case a.State == lifecycle.ServiceNotCleaned && a.CleanupFailed:
+				add("service "+a.Name, "fail", "its cleanup failed: "+a.Cleanup, "`axx down` runs it again")
+			case a.State == lifecycle.ServiceNotCleaned:
+				add("service "+a.Name, "fail", "an earlier run stopped without its cleanup: "+a.Cleanup, "`axx down` runs it")
 			}
 		}
 	}
@@ -387,7 +387,7 @@ func commandAvailable(bin, dir string) bool {
 }
 
 func usesDocker(cfg *config.Config) bool {
-	for _, a := range cfg.Apps {
+	for _, a := range cfg.Services {
 		if a.IsEnabled() && (strings.Contains(a.Command.String(), "docker") || strings.Contains(a.Cleanup.String(), "docker")) {
 			return true
 		}

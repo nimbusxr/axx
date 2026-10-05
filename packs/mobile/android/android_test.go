@@ -13,6 +13,7 @@ import (
 
 	"github.com/nimbusxr/axx/core"
 	"github.com/nimbusxr/axx/internal/cloudstep/cloudtest"
+	appcore "github.com/nimbusxr/axx/packs/app/core"
 	mobilecore "github.com/nimbusxr/axx/packs/mobile/core"
 	"github.com/nimbusxr/axx/packs/mobile/internal/appium/appiumtest"
 )
@@ -98,7 +99,7 @@ func TestACourierDelivers(t *testing.T) {
 	app := courier(t)
 	// The dialog's button moves in: the screen read shows it before it is there.
 	app.Moving(at(t, screens(t), "confirm", "Confirm"), 2)
-	h := cloudtest.New(t, mobilecore.Pack(), Pack())
+	h := cloudtest.New(t, appcore.Pack(), mobilecore.Pack(), Pack())
 	register(h, app.URL, []string{"locale", "de-DE"})
 	h.OK("the courier app is launched")
 	h.OK(`the courier app shows "Sign in"`)
@@ -156,12 +157,28 @@ func TestACourierDelivers(t *testing.T) {
 	}
 }
 
+// A dialog still coming in has no text yet, and an answer then is lost: the
+// dialog is answered once its text shows.
+func TestADialogComingIn(t *testing.T) {
+	app := courier(t)
+	h := cloudtest.New(t, appcore.Pack(), mobilecore.Pack(), Pack())
+	register(h, app.URL)
+	h.OK("the courier app is launched")
+	app.Show("permission")
+	app.Arriving(1)
+	h.OK("the courier app's dialog is dismissed")
+	if app.Screen() != "deliveries" {
+		t.Errorf("the dialog is still shown: the app is on %s", app.Screen())
+	}
+	_ = h.End("passed")
+}
+
 // What a failed step says: the controls there are, a value, a dialog there
 // is not. Each attaches what the app showed.
 func TestFailures(t *testing.T) {
 	app := courier(t)
 	t.Setenv("COURIER_PIN", "4711")
-	h := cloudtest.New(t, mobilecore.Pack(), Pack())
+	h := cloudtest.New(t, appcore.Pack(), mobilecore.Pack(), Pack())
 	register(h, app.URL)
 	_ = h.Fails(`the "Sign in" button is tapped in the courier app`, "the courier app is not running: launch it")
 	h.OK("the courier app is launched")
@@ -198,7 +215,7 @@ func TestFailures(t *testing.T) {
 // A control no name tells apart is found by its id or by an XPath.
 func TestSelectors(t *testing.T) {
 	app := courier(t)
-	h := cloudtest.New(t, mobilecore.Pack(), Pack())
+	h := cloudtest.New(t, appcore.Pack(), mobilecore.Pack(), Pack())
 	register(h, app.URL)
 	h.OK("the courier app is launched")
 	app.Show("permission")
@@ -215,7 +232,7 @@ func withShortWaits(t *testing.T) {
 }
 
 func TestRegistrationErrors(t *testing.T) {
-	h := cloudtest.New(t, mobilecore.Pack(), Pack())
+	h := cloudtest.New(t, appcore.Pack(), mobilecore.Pack(), Pack())
 	for _, c := range []struct {
 		rows [][]string
 		want string
@@ -359,7 +376,7 @@ func TestRoles(t *testing.T) {
 // whose clock changes, is left out.
 func TestScreenshots(t *testing.T) {
 	app := courier(t)
-	h := cloudtest.New(t, mobilecore.Pack(), Pack())
+	h := cloudtest.New(t, appcore.Pack(), mobilecore.Pack(), Pack())
 	register(h, app.URL, []string{"device", "Pixel_9"})
 	h.OK("the courier app is launched")
 	_ = h.Fails(`the courier app looks like the "sign in" screenshot`, `There was no "sign in.android-Pixel_9" screenshot to compare with, so it was taken`)
@@ -381,7 +398,7 @@ func TestScreenshots(t *testing.T) {
 	_ = h.Fails(`the courier app looks like the "../elsewhere" screenshot`, "a screenshot's name is letters")
 	_ = h.End("failed")
 
-	u := cloudtest.NewWith(t, map[string]any{mobilecore.Name: map[string]any{"screenshots": map[string]any{"update": true}}}, mobilecore.Pack(), Pack())
+	u := cloudtest.NewWith(t, map[string]any{mobilecore.Name: map[string]any{"screenshots": map[string]any{"update": true}}}, appcore.Pack(), mobilecore.Pack(), Pack())
 	register(u, app.URL, []string{"device", "Pixel_9"})
 	u.OK("the courier app is launched")
 	u.OK(`the courier app looks like the "deliveries" screenshot`)

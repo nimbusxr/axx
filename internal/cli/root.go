@@ -139,7 +139,7 @@ of its own steps.
 Writing tests:
   axx steps                every step of the project's packs, one line each
   axx steps show <id>      one step's documentation and examples
-  axx up                   start the apps once and keep them running
+  axx up                   start the services once and keep them running
   axx run --compact        run the features; also reports what validate and lint find
   (axx validate checks the features without running them)
 

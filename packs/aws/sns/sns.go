@@ -25,7 +25,7 @@ const packDoc = `Publish messages to SNS topics and check the messages your serv
 
 The steps use the scenario's AWS account (` + "`the {word} aws account with the following properties:`" + `, from aws-core).
 
-**Checking a topic** does not take messages from anyone: for the topics a run checks, axx subscribes a queue of its own (` + "`axx-<run>-<topic>`" + `, with raw message delivery) once the apps are up, and removes the subscription and the queue when the run ends. A check only looks at the messages received since its scenario started; match on data unique to the scenario, since scenarios run in parallel.`
+**Checking a topic** does not take messages from anyone: for the topics a run checks, axx subscribes a queue of its own (` + "`axx-<run>-<topic>`" + `, with raw message delivery) once the services are up, and removes the subscription and the queue when the run ends. A check only looks at the messages received since its scenario started; match on data unique to the scenario, since scenarios run in parallel.`
 
 // Pack returns the aws-sns pack.
 func Pack() core.Pack { return pack{} }
@@ -79,7 +79,7 @@ func (pack) Prepare(_ context.Context, s *core.Suite, plan *core.Plan) error {
 	return nil
 }
 
-// Init subscribes to the planned topics, now that the apps run.
+// Init subscribes to the planned topics, now that the services run.
 func (pack) Init(ctx context.Context, s *core.Suite) error {
 	return cloudstep.DeferredFor(s, name).Run(ctx)
 }

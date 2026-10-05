@@ -17,7 +17,7 @@ Agents invent plausible step text, and Gherkin punishes near-misses. Axx makes t
 
 ## Never guess what happened
 
-- **Exit codes** classify the outcome: a failed scenario (`1`), a broken setup (`2`), an invented step (`3`), an app that did not start (`4`).
+- **Exit codes** classify the outcome: a failed scenario (`1`), a broken setup (`2`), an invented step (`3`), a service that did not start (`4`).
 - **Error codes** (`AXX-Exxxx`) are stable and come with a hint and a link.
 - **Failures are data.** Assertion failures carry expected and actual values, the matched step definition, pack context such as the last HTTP exchange, and the exact command that reruns the scenario.
 - **`--json` everywhere**, in one envelope, with a frozen schema.
@@ -32,7 +32,7 @@ Documentation drifts; binaries do not. The MCP server, `axx steps`, the skills a
 
 ## A fast, safe loop
 
-`axx up` keeps the system under test running between runs, so an agent's edit-run loop costs seconds instead of minutes. `axx run features/x.feature:LINE` reruns exactly one scenario. Validation, explanation and step search have no side effects and need no running apps.
+`axx up` keeps the system under test running between runs, so an agent's edit-run loop costs seconds instead of minutes. `axx run features/x.feature:LINE` reruns exactly one scenario. Validation, explanation and step search have no side effects and need no running services.
 
 ## Guardrails in the instructions
 

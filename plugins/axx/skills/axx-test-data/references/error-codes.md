@@ -12,9 +12,9 @@ Every user-facing error has a stable code. `axx explain AXX-E0102` prints an ent
 | 1 | At least one scenario failed. |
 | 2 | Usage or configuration error: bad flags, invalid `axx.yaml`, unparsable features. |
 | 3 | Undefined or ambiguous steps, or lint violations. |
-| 4 | Environment or lifecycle failure: an app did not start, become ready or stop. |
+| 4 | Environment or lifecycle failure: a service did not start, become ready or stop. |
 | 5 | Reserved (not used). |
-| 130 | Interrupted (Ctrl-C); apps were stopped and cleaned up. |
+| 130 | Interrupted (Ctrl-C); services were stopped and cleaned up. |
 
 ## Command line
 
@@ -272,77 +272,77 @@ Preparing axx with the project's packs failed. The compiler output is in the mes
 
 **Fix:** The hint names the closest steps. Show one by its id (`axx steps show rest.response.status`), list the ids with `axx steps`, or search by words with `axx steps search <words>`.
 
-## App lifecycle
+## Service lifecycle
 
 ### AXX-E0400
 
-**Invalid app configuration** · exit 2
+**Invalid service configuration** · exit 2
 
-An `apps.<name>` setting cannot be used: a bad readiness URL, address or regex, an unknown signal, or an invalid debug setting.
+A `services.<name>` setting cannot be used: a bad readiness URL, address or regex, an unknown signal, or an invalid debug setting.
 
-**Fix:** Fix the reported key; `axx schema` documents every app setting.
+**Fix:** Fix the reported key; `axx schema` documents every service setting.
 
 ### AXX-E0401
 
-**Unknown app dependency** · exit 2
+**Unknown service dependency** · exit 2
 
-`apps.<name>.dependsOn` names an app that is not declared.
+`services.<name>.dependsOn` names a service that is not declared.
 
-**Fix:** Declare the app or remove it from `dependsOn`.
+**Fix:** Declare the service or remove it from `dependsOn`.
 
 ### AXX-E0402
 
 **Dependency cycle** · exit 2
 
-Apps depend on each other in a cycle, so no start order exists.
+Services depend on each other in a cycle, so no start order exists.
 
 **Fix:** Remove one of the `dependsOn` edges in the reported cycle.
 
 ### AXX-E0403
 
-**Unknown app** · exit 2
+**Unknown service** · exit 2
 
-An app named with `--attach`, `--debug`, `axx up <app>` or similar is not declared in `axx.yaml`.
+A service named with `--attach`, `--debug`, `axx up <service>` or similar is not declared in `axx.yaml`.
 
-**Fix:** Use one of the app names listed in the message.
+**Fix:** Use one of the service names listed in the message.
 
 ### AXX-E0404
 
-**App has no command** · exit 2
+**Service has no command** · exit 2
 
-axx must start an app that has no `command`.
+axx must start a service that has no `command`.
 
-**Fix:** Add `command:`, or run the app yourself and pass `--attach <app>`.
+**Fix:** Add `command:`, or run the service yourself and pass `--attach <service>`.
 
 ### AXX-E0405
 
-**App directory not found** · exit 2
+**Service directory not found** · exit 2
 
-`apps.<name>.dir` does not exist or is not a directory.
+`services.<name>.dir` does not exist or is not a directory.
 
 **Fix:** Fix `dir`; it resolves from the directory of `axx.yaml`.
 
 ### AXX-E0406
 
-**App failed to launch** · exit 4
+**Service failed to launch** · exit 4
 
-The app's process could not be started, typically because the executable is not on PATH.
+The service's process could not be started, typically because the executable is not on PATH.
 
 **Fix:** Check `command` (arguments are not run through a shell unless `shell: true`).
 
 ### AXX-E0407
 
-**App exited before ready** · exit 4
+**Service exited before ready** · exit 4
 
-The app's process exited before its readiness checks passed. The tail of its log is included.
+The service's process exited before its readiness checks passed. The tail of its log is included.
 
 **Fix:** Read the log excerpt (full log under `.axx/logs/`) and run the command by hand to reproduce.
 
 ### AXX-E0408
 
-**App not ready in time** · exit 4
+**Service not ready in time** · exit 4
 
-The app kept running but did not pass its readiness checks within `ready.timeout`.
+The service kept running but did not pass its readiness checks within `ready.timeout`.
 
 **Fix:** Check the readiness URL/port/log pattern, or raise `ready.timeout`. The last check result is in the message.
 
@@ -356,17 +356,17 @@ Debug mode was requested but no debugger was listening, and `debug.onUnavailable
 
 ### AXX-E0410
 
-**App could not be stopped** · exit 4
+**Service could not be stopped** · exit 4
 
-The app's process group did not exit after SIGTERM, the grace period and SIGKILL.
+The service's process group did not exit after SIGTERM, the grace period and SIGKILL.
 
 **Fix:** Look for processes that detach from their group; `axx down` retries using the state file.
 
 ### AXX-E0411
 
-**App cleanup failed** · exit 4
+**Service cleanup failed** · exit 4
 
-The app's `cleanup` command exited non-zero. The run still completed; this is reported so leaks are visible. The state file keeps the cleanup, and runs refuse to start apps until it succeeds (AXX-E0415).
+The service's `cleanup` command exited non-zero. The run still completed; this is reported so leaks are visible. The state file keeps the cleanup, and runs refuse to start services until it succeeds (AXX-E0415).
 
 **Fix:** Fix what made it fail (its output is above), then run `axx down`: it runs the cleanup again.
 
@@ -374,7 +374,7 @@ The app's `cleanup` command exited non-zero. The run still completed; this is re
 
 **No active tags** · exit 2
 
-Active startup is on with `onNoTags: error`, and the selected scenarios carry no tags, so axx cannot tell which apps to start.
+Active startup is on with `onNoTags: error`, and the selected scenarios carry no tags, so axx cannot tell which services to start.
 
 **Fix:** Tag the scenarios, set `active.onNoTags: fallback` (start everything), or disable active startup.
 
@@ -382,15 +382,15 @@ Active startup is on with `onNoTags: error`, and the selected scenarios carry no
 
 **Run state file error** · exit 4
 
-`.axx/run/state.json` (used by `axx up`/`axx down` to find running apps) could not be read or written.
+`.axx/run/state.json` (used by `axx up`/`axx down` to find running services) could not be read or written.
 
-**Fix:** Check permissions on `.axx/`; deleting the stale file is safe when no apps are running.
+**Fix:** Check permissions on `.axx/`; deleting the stale file is safe when no services are running.
 
 ### AXX-E0414
 
 **Startup interrupted** · exit 130
 
-Starting apps was interrupted (Ctrl-C). Every app that had started was stopped and cleaned up.
+Starting services was interrupted (Ctrl-C). Every service that had started was stopped and cleaned up.
 
 **Fix:** Nothing to fix; re-run when ready.
 
@@ -398,7 +398,7 @@ Starting apps was interrupted (Ctrl-C). Every app that had started was stopped a
 
 **Earlier run not cleaned up** · exit 4
 
-The state file records apps an earlier run left behind, and they could not be cleaned up before this run: a cleanup failed again, or what is left sits beside apps a run still going (or `axx up`) owns. Their data (containers, volumes, recorded requests) would be what this run starts from, so no app is started. A killed run's leftovers alone are cleaned up by the next run.
+The state file records services an earlier run left behind, and they could not be cleaned up before this run: a cleanup failed again, or what is left sits beside services a run still going (or `axx up`) owns. Their data (containers, volumes, recorded requests) would be what this run starts from, so no service is started. A killed run's leftovers alone are cleaned up by the next run.
 
 **Fix:** Run `axx down`: it stops what is left and runs the cleanup again. `axx doctor` and the MCP `env` status list what is left.
 

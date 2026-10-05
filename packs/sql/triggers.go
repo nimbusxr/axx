@@ -40,7 +40,7 @@ func triggerSteps() []core.StepDef {
 	var out []core.StepDef
 	for _, v := range variants {
 		v := v
-		doc := "Make inserts of matching rows into the table fail with that SQLSTATE, to test how the app handles database errors.\n\n"
+		doc := "Make inserts of matching rows into the table fail with that SQLSTATE, to test how the service handles database errors.\n\n"
 		if v.insert {
 			doc = "Make inserts of matching rows into the table store the row and still fail with that SQLSTATE, " +
 				"like a write that succeeded but reported a failure.\n\n"

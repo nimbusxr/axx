@@ -14,7 +14,7 @@ Feature: Claims for lost parcels
       | url     | http://${sys:local.host}:8500              |
       | openapi | http://${sys:local.host}:8500/openapi.yaml |
     And the console log with the following properties:
-      | url | file://.axx/logs/apps.log |
+      | url | file://.axx/logs/services.log |
 
   Scenario: A parcel that never arrived is paid out
     Given a seeds/PX-4103.yaml dynamodb seed

@@ -13,9 +13,9 @@ The IDE companion for Axx. It does four things:
   your desktop as they go, *Debug* them in Playwright's Inspector, and open the Playwright traces
   and videos scenarios keep from the test runner. See
   [Watching the browsers](#watching-the-browsers).
-- **Debugging apps.** Run `axx run --debug` from the IDE, and every app that Axx starts in debug
-  mode gets a debugger from the IDE, with no manual steps. When the run ends, the debuggers the
-  plugin started stop too. See [Debugging](#debugging).
+- **Debugging services.** Run `axx run --debug` from the IDE, and every service that Axx starts in
+  debug mode gets a debugger from the IDE, with no manual steps. When the run ends, the debuggers
+  the plugin started stop too. See [Debugging](#debugging).
 
 ## Install
 
@@ -29,7 +29,7 @@ those versions.
   Gherkin plugin (JetBrains Marketplace). Without it, create axx run configurations by hand.
 - Stopping at breakpoints in step code needs a Go debugger: GoLand, or IntelliJ IDEA with the Go
   plugin.
-- Debugging apps depends only on the core platform, so it works in any IntelliJ-based IDE.
+- Debugging services depends only on the core platform, so it works in any IntelliJ-based IDE.
 
 Install **axx** from the JetBrains Marketplace: *Settings | Plugins | Marketplace*, search for
 axx. To try a build of your own, build it (`./gradlew buildPlugin`, see below), choose *Settings |
@@ -146,7 +146,7 @@ Double-click a node, or use *Jump to Source*, to go to its line. *Rerun Failed T
 *Debug* on an axx run configuration runs `axx run --debug-steps`: Axx runs under Delve and waits
 for a Go debugger, so breakpoints in step code stop. When Axx asks for
 the debugger, the plugin starts the `Debugger: axx-steps` run configuration, a Go Remote
-configuration for `127.0.0.1:2345`, as it starts app debuggers (see
+configuration for `127.0.0.1:2345`, as it starts service debuggers (see
 [What the plugin does with a request](#what-the-plugin-does-with-a-request)). If there is no such
 configuration, the plugin creates it, so `axx ide intellij` is not needed first. To use another
 Delve port, set it in `Debugger: axx-steps`: the plugin passes that configuration's port to
@@ -221,7 +221,7 @@ configurations, in order with the test runner's messages, and does not print the
 
 The plugin itself stays passive. It watches the console of every process in the project,
 whichever executor started it (Run or Debug). When Axx prints a debugger request, the plugin
-starts the matching `Debugger: <app>` run configuration with the Debug executor. Output without
+starts the matching `Debugger: <service>` run configuration with the Debug executor. Output without
 a request starts nothing.
 
 ### Run configurations
@@ -233,28 +233,28 @@ a request starts nothing.
 | `axx: run` | A Shell Script configuration that runs `axx run`. |
 | `axx: validate` | A Shell Script configuration that runs `axx validate`. |
 | `axx: debug` | A Shell Script configuration that runs `axx run --debug`, usually with **Run**. The plugin watches its console. |
-| `Debugger: <app>` | One per app that has a debugger configured. The plugin starts it when Axx asks. |
-| `axx: debug all` | A compound that starts every `Debugger: <app>` together with `axx: debug`. |
+| `Debugger: <service>` | One per service that has a debugger configured. The plugin starts it when Axx asks. |
+| `axx: debug all` | A compound that starts every `Debugger: <service>` together with `axx: debug`. |
 | `axx: debug steps` | Runs `axx run --debug-steps`: Axx runs under Delve so the IDE can stop at breakpoints in step code, in Axx's packs or your own. |
 | `Debugger: axx-steps` | A Go Remote configuration on `127.0.0.1:2345` (GoLand, or the Go plugin). The plugin starts it when `axx run --debug-steps` asks. |
 
 With `axx: debug all`, the debuggers are already starting when Axx asks for them. The plugin
-never starts a second instance of a `Debugger: <app>` configuration that is starting or running.
+never starts a second instance of a `Debugger: <service>` configuration that is starting or running.
 Running `axx: debug` alone works too: the plugin then starts each debugger on demand.
 
 #### Debugger configurations
 
-There is one `Debugger: <app>` configuration for each app under `apps:` in `axx.yaml` that has
-a `debug.debugger` section, where `<app>` is the key under `apps:`. The debugger's `mode` decides
-how the configuration connects:
+There is one `Debugger: <service>` configuration for each service under `services:` in `axx.yaml`
+that has a `debug.debugger` section, where `<service>` is the key under `services:`. The
+debugger's `mode` decides how the configuration connects:
 
 - `mode: ide-listens` (the default for `java`) gives a listen-mode configuration. The IDE listens
-  on `host:port` and the app connects to it (JDWP `server=n`).
-- `mode: app-listens` (delve, `--inspect`, debugpy) gives an attach-mode configuration. The app
+  on `host:port` and the service connects to it (JDWP `server=n`).
+- `mode: app-listens` (delve, `--inspect`, debugpy) gives an attach-mode configuration. The service
   listens and the IDE attaches to it.
 
 The plugin finds configurations **by name only**. It does not care about their type, so you can
-also write or edit one by hand. For a Java app with `mode: ide-listens`, the configuration looks
+also write or edit one by hand. For a Java service with `mode: ide-listens`, the configuration looks
 like this:
 
 ```xml
@@ -283,14 +283,14 @@ If Axx asks for a configuration that does not exist, the plugin logs a warning t
 Axx prints one request per line to standard output or standard error:
 
 ```text
-[AXX-IDE] debug-listener-request name=<app> type=<type> host=<host> port=<port>
-[AXX-IDE] debug-attach-request name=<app> type=<type> host=<host> port=<port>
+[AXX-IDE] debug-listener-request name=<service> type=<type> host=<host> port=<port>
+[AXX-IDE] debug-attach-request name=<service> type=<type> host=<host> port=<port>
 ```
 
 | Request | When Axx prints it | What the plugin does |
 |---|---|---|
-| `debug-listener-request` | `mode: ide-listens`, before Axx starts the app, which then connects to the IDE. | Starts `Debugger: <app>`, a listen-mode configuration. |
-| `debug-attach-request` | `mode: app-listens`, once the app listens for a debugger. | Starts `Debugger: <app>`, an attach-mode configuration that connects to `host:port`. |
+| `debug-listener-request` | `mode: ide-listens`, before Axx starts the service, which then connects to the IDE. | Starts `Debugger: <service>`, a listen-mode configuration. |
+| `debug-attach-request` | `mode: app-listens`, once the service listens for a debugger. | Starts `Debugger: <service>`, an attach-mode configuration that connects to `host:port`. |
 
 Parsing rules:
 
@@ -309,12 +309,12 @@ Parsing rules:
 
 - It watches processes started with any executor, except configurations whose name starts with
   `Debugger: `.
-- It starts `Debugger: <app>` with the Debug executor only if that configuration is not already
+- It starts `Debugger: <service>` with the Debug executor only if that configuration is not already
   starting or running, whether the plugin, the `axx: debug all` compound or you started it.
   Right after it asks the IDE to start a debugger, it treats that debugger as starting for up to
   10 seconds, so a repeated request cannot start a second instance.
 - A later request starts the debugger again once its earlier session has ended, for example after
-  the app restarted.
+  the service restarted.
 - When the process that printed the requests exits, the plugin stops the debuggers *it* started,
   using the same action as the Stop button (remote debug sessions detach). Debuggers started by
   the compound or by you keep running.

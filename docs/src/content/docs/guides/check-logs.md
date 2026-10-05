@@ -14,7 +14,7 @@ Background:
   Given the parcels log with the following properties:
     | url | udp://0.0.0.0:5140 |
   And the console log with the following properties:
-    | url | file://.axx/logs/apps.log |
+    | url | file://.axx/logs/services.log |
 ```
 
 | url | Axx |
@@ -26,11 +26,11 @@ Background:
 
 A log only counts what it receives after the scenario registers it. Scenarios run in parallel and share logs, so match on data unique to the scenario: a reference, an order id.
 
-For the network schemes Axx is the log service: your service, or the thing that ships its logs, sends lines to Axx. Axx opens those listeners before it starts the apps, for the log steps of the scenarios in the run, so services can connect and send from the moment they start; `axx up` keeps them open between runs. Containers reach them at `host.docker.internal` (on Linux, add `extra_hosts: ["host.docker.internal:host-gateway"]` to the service).
+For the network schemes Axx is the log service: your service, or the thing that ships its logs, sends lines to Axx. Axx opens those listeners before it starts the services, for the log steps of the scenarios in the run, so services can connect and send from the moment they start; `axx up` keeps them open between runs. Containers reach them at `host.docker.internal` (on Linux, add `extra_hosts: ["host.docker.internal:host-gateway"]` to the service).
 
 ## Point your logs at Axx
 
-**The console of the apps Axx starts** needs nothing: Axx writes it to `.axx/logs/apps.log`, every compose container's lines prefixed with its name, so `file://.axx/logs/apps.log` reads it.
+**The console of the services Axx starts** needs nothing: Axx writes it to `.axx/logs/services.log`, every compose container's lines prefixed with its name, so `file://.axx/logs/services.log` reads it.
 
 **A log file** a service writes, for example to a mounted volume:
 
@@ -45,7 +45,7 @@ Given the parcels log with the following properties:
   | url | file://../infra/logs/app.log |
 ```
 
-**Syslog over UDP or TCP.** An app's syslog handler (Python's `SysLogHandler`, logback's `SyslogAppender`) can send to `host.docker.internal:5140`, and so can Docker for any container's console, without changing the app:
+**Syslog over UDP or TCP.** A service's syslog handler (Python's `SysLogHandler`, logback's `SyslogAppender`) can send to `host.docker.internal:5140`, and so can Docker for any container's console, without changing the service:
 
 ```yaml title="infra/compose.yaml"
   app:

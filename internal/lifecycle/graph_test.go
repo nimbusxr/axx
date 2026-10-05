@@ -8,11 +8,11 @@ import (
 	"github.com/nimbusxr/axx/internal/config"
 )
 
-func dep(name string, deps ...string) config.App {
-	return config.App{Name: name, Command: config.Command{Line: "true"}, DependsOn: deps}
+func dep(name string, deps ...string) config.Service {
+	return config.Service{Name: name, Command: config.Command{Line: "true"}, DependsOn: deps}
 }
 
-func disabled(app config.App) config.App {
+func disabled(app config.Service) config.Service {
 	off := false
 	app.Enabled = &off
 	return app
@@ -21,19 +21,19 @@ func disabled(app config.App) config.App {
 func TestNewValidatesDependencies(t *testing.T) {
 	tests := []struct {
 		name     string
-		apps     config.Apps
+		apps     config.Services
 		wantCode string
 		wantMsg  string
 	}{
-		{"no apps", nil, "", ""},
-		{"chain", config.Apps{dep("db"), dep("api", "db"), dep("web", "api", "db")}, "", ""},
-		{"forward reference", config.Apps{dep("api", "db"), dep("db")}, "", ""},
-		{"dependency on disabled app", config.Apps{disabled(dep("db")), dep("api", "db")}, "", ""},
-		{"unknown dependency", config.Apps{dep("api", "dbx")}, CodeUnknownDependency, `"dbx"`},
-		{"self cycle", config.Apps{dep("a", "a")}, CodeDependencyCycle, "a -> a"},
-		{"two cycle", config.Apps{dep("a", "b"), dep("b", "a")}, CodeDependencyCycle, "a -> b -> a"},
-		{"three cycle", config.Apps{dep("x"), dep("a", "x", "c"), dep("b", "a"), dep("c", "b")}, CodeDependencyCycle, "a -> c -> b -> a"},
-		{"duplicate name", config.Apps{dep("a"), dep("a")}, CodeInvalidConfig, "declared twice"},
+		{"no services", nil, "", ""},
+		{"chain", config.Services{dep("db"), dep("api", "db"), dep("web", "api", "db")}, "", ""},
+		{"forward reference", config.Services{dep("api", "db"), dep("db")}, "", ""},
+		{"dependency on disabled service", config.Services{disabled(dep("db")), dep("api", "db")}, "", ""},
+		{"unknown dependency", config.Services{dep("api", "dbx")}, CodeUnknownDependency, `"dbx"`},
+		{"self cycle", config.Services{dep("a", "a")}, CodeDependencyCycle, "a -> a"},
+		{"two cycle", config.Services{dep("a", "b"), dep("b", "a")}, CodeDependencyCycle, "a -> b -> a"},
+		{"three cycle", config.Services{dep("x"), dep("a", "x", "c"), dep("b", "a"), dep("c", "b")}, CodeDependencyCycle, "a -> c -> b -> a"},
+		{"duplicate name", config.Services{dep("a"), dep("a")}, CodeInvalidConfig, "declared twice"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -59,19 +59,19 @@ func TestNewValidatesDependencies(t *testing.T) {
 }
 
 func TestNewValidatesSettings(t *testing.T) {
-	withReady := func(r config.Ready) config.App {
+	withReady := func(r config.Ready) config.Service {
 		a := dep("api")
 		a.Ready = &r
 		return a
 	}
-	withDebug := func(d config.Debug) config.App {
+	withDebug := func(d config.Debug) config.Service {
 		a := dep("api")
 		a.Debug = &d
 		return a
 	}
 	tests := []struct {
 		name     string
-		app      config.App
+		app      config.Service
 		opts     Options
 		wantCode string
 		wantMsg  string
@@ -86,17 +86,17 @@ func TestNewValidatesSettings(t *testing.T) {
 		{"bad log regex", withReady(config.Ready{Log: "Started ("}), Options{}, CodeInvalidConfig, "ready.log"},
 		{"empty exec", withReady(config.Ready{Exec: config.Command{Line: " "}}), Options{}, CodeInvalidConfig, "ready.exec"},
 		{"negative timeout", withReady(config.Ready{Timeout: -1}), Options{}, CodeInvalidConfig, "ready.timeout"},
-		{"bad stop signal", config.App{Name: "api", Stop: config.Stop{Signal: "SIGWINCH"}}, Options{}, CodeInvalidConfig, "stop.signal"},
-		{"short stop signal", config.App{Name: "api", Stop: config.Stop{Signal: "int"}}, Options{}, "", ""},
+		{"bad stop signal", config.Service{Name: "api", Stop: config.Stop{Signal: "SIGWINCH"}}, Options{}, CodeInvalidConfig, "stop.signal"},
+		{"short stop signal", config.Service{Name: "api", Stop: config.Stop{Signal: "int"}}, Options{}, "", ""},
 		{"bad debug mode", withDebug(config.Debug{Debugger: &config.Debugger{Port: 5005, Mode: "both"}}), Options{}, CodeInvalidConfig, "debug.debugger.mode"},
 		{"bad debug port", withDebug(config.Debug{Debugger: &config.Debugger{}}), Options{}, CodeInvalidConfig, "debug.debugger.port"},
 		{"bad onUnavailable", withDebug(config.Debug{OnUnavailable: "ignore"}), Options{}, CodeInvalidConfig, "debug.onUnavailable"},
-		{"attach unknown app", dep("api"), Options{Attach: map[string]bool{"apx": true}}, CodeUnknownApp, `"apx"`},
-		{"debug unknown app", dep("api"), Options{Debug: map[string]bool{"web": true}}, CodeUnknownApp, `"web"`},
+		{"attach unknown service", dep("api"), Options{Attach: map[string]bool{"apx": true}}, CodeUnknownService, `"apx"`},
+		{"debug unknown service", dep("api"), Options{Debug: map[string]bool{"web": true}}, CodeUnknownService, `"web"`},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := New(config.Apps{tt.app}, tt.opts)
+			_, err := New(config.Services{tt.app}, tt.opts)
 			if tt.wantCode == "" {
 				if err != nil {
 					t.Fatalf("New: %v", err)
@@ -112,7 +112,7 @@ func TestNewValidatesSettings(t *testing.T) {
 }
 
 func TestWithDependencies(t *testing.T) {
-	apps := config.Apps{dep("db"), dep("cache"), disabled(dep("mq")), dep("api", "db", "mq"), dep("web", "api"), dep("admin")}
+	apps := config.Services{dep("db"), dep("cache"), disabled(dep("mq")), dep("api", "db", "mq"), dep("web", "api"), dep("admin")}
 	tests := []struct {
 		names []string
 		want  []string

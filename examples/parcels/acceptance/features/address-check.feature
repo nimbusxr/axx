@@ -17,7 +17,7 @@ Feature: Address check
     And the parcels log with the following properties:
       | url | udp://0.0.0.0:5140 |
     And the console log with the following properties:
-      | url | file://.axx/logs/apps.log |
+      | url | file://.axx/logs/services.log |
 
   Scenario: The address service is asked with the API key
     Given a POST request to /api/parcels

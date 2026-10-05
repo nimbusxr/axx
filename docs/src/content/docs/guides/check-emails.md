@@ -116,7 +116,7 @@ Scenario: A registration email the shop's mail server refuses does not stop the 
 
 A check only looks at the emails that arrived since its scenario started, and axx never deletes or marks what it reads. Scenarios running in parallel share the mailbox, so each checks its own mail by a recipient or a subject unique to it, such as a shop or a parcel reference of its own.
 
-For a run, axx reads each mailbox the checks name from when the apps are up:
+For a run, axx reads each mailbox the checks name from when the services are up:
 - **Mailpit and IMAP** say when each email arrived.
 - **POP3** doesn't, so axx takes what the mailbox held when it started reading as old.
 

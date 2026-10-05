@@ -16,7 +16,7 @@ const dialTimeout = 500 * time.Millisecond
 // debuggerListening reports whether something listens on host:port.
 //
 // On the local machine it looks at the socket table instead of connecting,
-// because a connection makes IDE debuggers that wait for one app accept it
+// because a connection makes IDE debuggers that wait for one service accept it
 // and then give up. Only when that is impossible (Windows, a remote host, no
 // lsof) does it fall back to a short connect.
 func debuggerListening(ctx context.Context, host string, port int) bool {

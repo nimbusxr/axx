@@ -25,7 +25,7 @@ const packDoc = `Put events on EventBridge buses and check the events your servi
 
 The steps use the scenario's AWS account (` + "`the {word} aws account with the following properties:`" + `, from aws-core). An event has a detail type, a source and a JSON detail, as in ` + "`When a \"Damage Reported\" event from carrier.kestrel is put on the carrier-events eventbridge bus:`" + ` with the detail as the doc string.
 
-**Checking a bus** does not take events from anyone: for the buses a run checks, axx adds a rule of its own (` + "`axx-<run>-<bus>`" + `, matching every event of the account) with a queue of its own as its target once the apps are up, and removes both when the run ends. The conditions are paths into the event as EventBridge delivers it: ` + "`detail-type`" + `, ` + "`source`" + `, and ` + "`detail.<field>`" + ` for the detail. A check only looks at the events received since its scenario started.`
+**Checking a bus** does not take events from anyone: for the buses a run checks, axx adds a rule of its own (` + "`axx-<run>-<bus>`" + `, matching every event of the account) with a queue of its own as its target once the services are up, and removes both when the run ends. The conditions are paths into the event as EventBridge delivers it: ` + "`detail-type`" + `, ` + "`source`" + `, and ` + "`detail.<field>`" + ` for the detail. A check only looks at the events received since its scenario started.`
 
 // Pack returns the aws-eventbridge pack.
 func Pack() core.Pack { return pack{} }
@@ -123,7 +123,7 @@ func (pack) Prepare(_ context.Context, s *core.Suite, plan *core.Plan) error {
 	return nil
 }
 
-// Init adds the rules for the planned buses, now that the apps run.
+// Init adds the rules for the planned buses, now that the services run.
 func (pack) Init(ctx context.Context, s *core.Suite) error {
 	return cloudstep.DeferredFor(s, name).Run(ctx)
 }

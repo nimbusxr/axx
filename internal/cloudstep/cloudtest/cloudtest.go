@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -91,6 +92,18 @@ func New(t *testing.T, packs ...core.Pack) *Harness {
 // NewWith is New with the packs' sections of axx.yaml, by pack name.
 func NewWith(t *testing.T, config map[string]any, packs ...core.Pack) *Harness {
 	t.Helper()
+	return newHarness(t, config, nil, packs...)
+}
+
+// NewWithServices is New with the services axx.yaml declares, as names and
+// folders relative to the harness's project directory.
+func NewWithServices(t *testing.T, services map[string]string, packs ...core.Pack) *Harness {
+	t.Helper()
+	return newHarness(t, nil, services, packs...)
+}
+
+func newHarness(t *testing.T, config map[string]any, services map[string]string, packs ...core.Pack) *Harness {
+	t.Helper()
 	packConfig := map[string]json.RawMessage{}
 	for name, c := range config {
 		b, err := json.Marshal(c)
@@ -128,6 +141,7 @@ func NewWith(t *testing.T, config map[string]any, packs ...core.Pack) *Harness {
 		},
 		ProjectDir: dir,
 		PackConfig: packConfig,
+		Services:   declared(dir, services),
 		Announce: func(line string) {
 			sink.mu.Lock()
 			sink.Announced = append(sink.Announced, line)
@@ -389,6 +403,16 @@ func startRequest(t *testing.T, req testcontainers.ContainerRequest, ports []str
 			t.Fatal(err)
 		}
 		out[p] = host + ":" + mapped.Port()
+	}
+	return out
+}
+
+// declared are services as axx.yaml declares them, their folders relative to
+// dir, in name order.
+func declared(dir string, services map[string]string) []core.DeclaredService {
+	var out []core.DeclaredService
+	for _, name := range slices.Sorted(maps.Keys(services)) {
+		out = append(out, core.DeclaredService{Name: name, Dir: filepath.Join(dir, filepath.FromSlash(services[name]))})
 	}
 	return out
 }

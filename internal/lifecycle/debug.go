@@ -11,15 +11,15 @@ import (
 
 // Debugger modes.
 const (
-	// modeIDEListens: the IDE listens and the app connects to it (JDWP with
-	// server=n). axx checks the listener before launching the app.
+	// modeIDEListens: the IDE listens and the service connects to it (JDWP with
+	// server=n). axx checks the listener before launching the service.
 	modeIDEListens = "ide-listens"
-	// modeAppListens: the app listens and the IDE attaches (delve, node
-	// --inspect, debugpy). axx asks the IDE to attach once the app is ready.
+	// modeAppListens: the service listens and the IDE attaches (delve, node
+	// --inspect, debugpy). axx asks the IDE to attach once the service is ready.
 	modeAppListens = "app-listens"
 )
 
-// Strategies for apps.<name>.debug.onUnavailable.
+// Strategies for services.<name>.debug.onUnavailable.
 const (
 	onUnavailableFail     = "fail"
 	onUnavailableFallback = "fallback"
@@ -31,19 +31,19 @@ const (
 	defaultDebugDelay    = 5 * time.Second
 )
 
-// debugger is a validated apps.<name>.debug.debugger with defaults applied.
+// debugger is a validated services.<name>.debug.debugger with defaults applied.
 type debugger struct {
 	typ, host, mode string
 	port            int
 }
 
-// requestLine is the line IDE plugins watch for to start this app's
+// requestLine is the line IDE plugins watch for to start this service's
 // debugger listener. Its format is a contract: keep it byte-stable.
 func (d debugger) requestLine(app string) string {
 	return fmt.Sprintf("[AXX-IDE] debug-listener-request name=%s type=%s host=%s port=%d", app, d.typ, d.host, d.port)
 }
 
-// attachLine is the line IDE plugins watch for to attach to an app that
+// attachLine is the line IDE plugins watch for to attach to a service that
 // listens for a debugger. Its format is a contract: keep it byte-stable.
 func (d debugger) attachLine(app string) string {
 	return fmt.Sprintf("[AXX-IDE] debug-attach-request name=%s type=%s host=%s port=%d", app, d.typ, d.host, d.port)
@@ -51,7 +51,7 @@ func (d debugger) attachLine(app string) string {
 
 func (d debugger) addr() string { return fmt.Sprintf("%s:%d", d.host, d.port) }
 
-// debugSpec is a validated apps.<name>.debug.
+// debugSpec is a validated services.<name>.debug.
 type debugSpec struct {
 	command       config.Command // zero: the normal command
 	debugger      *debugger
@@ -60,14 +60,14 @@ type debugSpec struct {
 	delay         time.Duration
 }
 
-// parseDebug validates apps.<name>.debug (nil when absent).
-func parseDebug(app config.App) (*debugSpec, error) {
+// parseDebug validates services.<name>.debug (nil when absent).
+func parseDebug(app config.Service) (*debugSpec, error) {
 	d := app.Debug
 	if d == nil {
 		return nil, nil
 	}
 	bad := func(field, format string, args ...any) error {
-		return configErr(CodeInvalidConfig, "apps.%s.debug.%s: %s", app.Name, field, fmt.Sprintf(format, args...))
+		return configErr(CodeInvalidConfig, "services.%s.debug.%s: %s", app.Name, field, fmt.Sprintf(format, args...))
 	}
 	spec := &debugSpec{
 		command:       d.Command,
@@ -114,17 +114,17 @@ func parseDebug(app config.App) (*debugSpec, error) {
 	return spec, nil
 }
 
-// launchPlan is what to run for an app and what to tell the IDE.
+// launchPlan is what to run for a service and what to tell the IDE.
 type launchPlan struct {
 	command config.Command
-	// debug is the debugger the app connects to or waits for; nil when the
-	// app runs normally or in debug mode without a debugger.
+	// debug is the debugger the service connects to or waits for; nil when the
+	// service runs normally or in debug mode without a debugger.
 	debug *debugger
 }
 
 // plan decides the command for a, handling debug mode: it asks the IDE for
 // a listener, checks that one is listening and applies onUnavailable.
-func (m *Manager) plan(ctx context.Context, a *app) (launchPlan, error) {
+func (m *Manager) plan(ctx context.Context, a *service) (launchPlan, error) {
 	normal := launchPlan{command: a.cfg.Command}
 	if a.debug == nil || (!m.opts.DebugAll && !m.opts.Debug[a.cfg.Name]) {
 		return normal, nil
@@ -135,27 +135,27 @@ func (m *Manager) plan(ctx context.Context, a *app) (launchPlan, error) {
 	}
 	dbg := a.debug.debugger
 	if dbg == nil || dbg.mode == modeAppListens {
-		m.log.Info("starting app in debug mode", "app", a.cfg.Name)
+		m.log.Info("starting service in debug mode", "service", a.cfg.Name)
 		return p, nil
 	}
 
 	name := a.cfg.Name
 	m.console.Println(dbg.requestLine(name))
 	if debuggerListening(ctx, dbg.host, dbg.port) {
-		m.log.Info("debugger is listening; starting app in debug mode", "app", name, "debugger", dbg.addr())
+		m.log.Info("debugger is listening; starting service in debug mode", "service", name, "debugger", dbg.addr())
 		return p, nil
 	}
 	switch a.debug.onUnavailable {
 	case onUnavailableFail:
 		return launchPlan{}, debuggerUnavailable(name, dbg, 0)
 	case onUnavailableFallback:
-		m.log.Warn("no debugger is listening; starting app without debugging",
-			"app", name, "debugger", dbg.addr())
+		m.log.Warn("no debugger is listening; starting service without debugging",
+			"service", name, "debugger", dbg.addr())
 		return normal, nil
 	}
 	for attempt := 1; attempt <= a.debug.attempts; attempt++ {
 		m.log.Warn("waiting for the IDE debugger to listen; start it now",
-			"app", name, "debugger", dbg.addr(),
+			"service", name, "debugger", dbg.addr(),
 			"attempt", fmt.Sprintf("%d/%d", attempt, a.debug.attempts), "nextCheckIn", a.debug.delay)
 		if err := sleep(ctx, a.debug.delay); err != nil {
 			return launchPlan{}, err
@@ -163,7 +163,7 @@ func (m *Manager) plan(ctx context.Context, a *app) (launchPlan, error) {
 		// Re-announce so an IDE plugin that attached late still sees it.
 		m.console.Println(dbg.requestLine(name))
 		if debuggerListening(ctx, dbg.host, dbg.port) {
-			m.log.Info("debugger is listening; starting app in debug mode", "app", name, "debugger", dbg.addr())
+			m.log.Info("debugger is listening; starting service in debug mode", "service", name, "debugger", dbg.addr())
 			return p, nil
 		}
 	}
@@ -176,13 +176,13 @@ func debuggerUnavailable(app string, d *debugger, attempts int) *axxerr.Error {
 	if attempts > 0 {
 		waited = fmt.Sprintf(" (checked %d more times)", attempts)
 	}
-	example := "the debug listener for " + d.typ + " apps"
+	example := "the debug listener for " + d.typ + " services"
 	if d.typ == "java" {
 		example = `a "Remote JVM Debug" run configuration with debugger mode "Listen to remote JVM"`
 	}
-	return envErr(CodeDebuggerUnavailable, `no debugger is listening on %s for app %s%s
+	return envErr(CodeDebuggerUnavailable, `no debugger is listening on %s for service %s%s
 
-axx starts %s in debug mode, where the app connects to your IDE's debugger,
+axx starts %s in debug mode, where the service connects to your IDE's debugger,
 but nothing is listening on %s.
 
 To fix this:
@@ -192,7 +192,7 @@ To fix this:
      [AXX-IDE] debug-listener-request line.
   2. Wait until the IDE says it is listening.
   3. Run axx again.`, d.addr(), app, waited, app, d.addr(), d.port, example).
-		WithHint("set apps.%s.debug.onUnavailable to retry (wait for the debugger) or fallback (run without debugging)", app)
+		WithHint("set services.%s.debug.onUnavailable to retry (wait for the debugger) or fallback (run without debugging)", app)
 }
 
 // sleep waits for d or until ctx is done.

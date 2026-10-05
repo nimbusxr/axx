@@ -34,7 +34,7 @@ Given the shops mailbox with the following properties:
 
 - **Any mailbox, a real one included,** is read over POP3 (` + "`pop3://`" + `, ` + "`pop3s://`" + `) or IMAP (` + "`imap://`" + `, ` + "`imaps://`" + `): smtp4dev, GreenMail, Inbucket, Dovecot, a staging inbox.
 - **Mailpit** is read through its API (` + "`http://`" + ` or ` + "`https://`" + `).
-- **A check only looks at the emails that arrived since its scenario started,** and waits for one that meets it: 10 seconds, or ` + "`within {duration}`" + `. For a run, axx reads each mailbox the checks name from when the apps are up, and never deletes or marks what it reads.
+- **A check only looks at the emails that arrived since its scenario started,** and waits for one that meets it: 10 seconds, or ` + "`within {duration}`" + `. For a run, axx reads each mailbox the checks name from when the services are up, and never deletes or marks what it reads.
 - **Scenarios share the mailbox,** so each checks its own mail, by a recipient or a subject unique to it.
 - **Refused mail** is a stub of the mail server's, as WireMock's mappings are for HTTP: smtp4dev refuses the recipients its ` + "`RecipientValidationExpression`" + ` says to, with the code it gives, and a scenario that uses such a recipient sees how your service copes.
 - **Mail sent through a provider's HTTP API** (SendGrid, SES, Mailgun, Postmark) is not in a mailbox: mock the provider with WireMock and check the request with the mock pack.
@@ -264,7 +264,7 @@ func (pack) Prepare(_ context.Context, s *core.Suite, plan *core.Plan) error {
 	return nil
 }
 
-// Init starts reading the planned mailboxes, now that the apps run.
+// Init starts reading the planned mailboxes, now that the services run.
 func (pack) Init(ctx context.Context, s *core.Suite) error {
 	return cloudstep.DeferredFor(s, Name).Run(ctx)
 }

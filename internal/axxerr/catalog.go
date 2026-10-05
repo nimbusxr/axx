@@ -23,7 +23,7 @@ var Ranges = []struct{ From, To, Area string }{
 	{"AXX-E0100", "AXX-E0199", "Configuration (axx.yaml)"},
 	{"AXX-E0200", "AXX-E0299", "Feature files and filters"},
 	{"AXX-E0300", "AXX-E0399", "Packs, steps and resources"},
-	{"AXX-E0400", "AXX-E0499", "App lifecycle"},
+	{"AXX-E0400", "AXX-E0499", "Service lifecycle"},
 	{"AXX-E0600", "AXX-E0699", "Reporters"},
 	{"AXX-E0800", "AXX-E0899", "Lint"},
 	{"AXX-E0900", "AXX-E0999", "Fixtures"},
@@ -152,53 +152,53 @@ func init() {
 		"`axx steps show` was given text that is no loaded step's id or expression and matches no step as a step line, or a line that matches several steps.",
 		"The hint names the closest steps. Show one by its id (`axx steps show rest.response.status`), list the ids with `axx steps`, or search by words with `axx steps search <words>`.")
 
-	add("AXX-E0400", u, "Invalid app configuration",
-		"An `apps.<name>` setting cannot be used: a bad readiness URL, address or regex, an unknown signal, or an invalid debug setting.",
-		"Fix the reported key; `axx schema` documents every app setting.")
-	add("AXX-E0401", u, "Unknown app dependency",
-		"`apps.<name>.dependsOn` names an app that is not declared.",
-		"Declare the app or remove it from `dependsOn`.")
+	add("AXX-E0400", u, "Invalid service configuration",
+		"A `services.<name>` setting cannot be used: a bad readiness URL, address or regex, an unknown signal, or an invalid debug setting.",
+		"Fix the reported key; `axx schema` documents every service setting.")
+	add("AXX-E0401", u, "Unknown service dependency",
+		"`services.<name>.dependsOn` names a service that is not declared.",
+		"Declare the service or remove it from `dependsOn`.")
 	add("AXX-E0402", u, "Dependency cycle",
-		"Apps depend on each other in a cycle, so no start order exists.",
+		"Services depend on each other in a cycle, so no start order exists.",
 		"Remove one of the `dependsOn` edges in the reported cycle.")
-	add("AXX-E0403", u, "Unknown app",
-		"An app named with `--attach`, `--debug`, `axx up <app>` or similar is not declared in `axx.yaml`.",
-		"Use one of the app names listed in the message.")
-	add("AXX-E0404", u, "App has no command",
-		"axx must start an app that has no `command`.",
-		"Add `command:`, or run the app yourself and pass `--attach <app>`.")
-	add("AXX-E0405", u, "App directory not found",
-		"`apps.<name>.dir` does not exist or is not a directory.",
+	add("AXX-E0403", u, "Unknown service",
+		"A service named with `--attach`, `--debug`, `axx up <service>` or similar is not declared in `axx.yaml`.",
+		"Use one of the service names listed in the message.")
+	add("AXX-E0404", u, "Service has no command",
+		"axx must start a service that has no `command`.",
+		"Add `command:`, or run the service yourself and pass `--attach <service>`.")
+	add("AXX-E0405", u, "Service directory not found",
+		"`services.<name>.dir` does not exist or is not a directory.",
 		"Fix `dir`; it resolves from the directory of `axx.yaml`.")
-	add("AXX-E0406", env, "App failed to launch",
-		"The app's process could not be started, typically because the executable is not on PATH.",
+	add("AXX-E0406", env, "Service failed to launch",
+		"The service's process could not be started, typically because the executable is not on PATH.",
 		"Check `command` (arguments are not run through a shell unless `shell: true`).")
-	add("AXX-E0407", env, "App exited before ready",
-		"The app's process exited before its readiness checks passed. The tail of its log is included.",
+	add("AXX-E0407", env, "Service exited before ready",
+		"The service's process exited before its readiness checks passed. The tail of its log is included.",
 		"Read the log excerpt (full log under `.axx/logs/`) and run the command by hand to reproduce.")
-	add("AXX-E0408", env, "App not ready in time",
-		"The app kept running but did not pass its readiness checks within `ready.timeout`.",
+	add("AXX-E0408", env, "Service not ready in time",
+		"The service kept running but did not pass its readiness checks within `ready.timeout`.",
 		"Check the readiness URL/port/log pattern, or raise `ready.timeout`. The last check result is in the message.")
 	add("AXX-E0409", env, "Debugger unavailable",
 		"Debug mode was requested but no debugger was listening, and `debug.onUnavailable` is `fail`.",
 		"Start the IDE debugger first (`axx ide intellij|vscode` writes the configurations), or set `onUnavailable: fallback`.")
-	add("AXX-E0410", env, "App could not be stopped",
-		"The app's process group did not exit after SIGTERM, the grace period and SIGKILL.",
+	add("AXX-E0410", env, "Service could not be stopped",
+		"The service's process group did not exit after SIGTERM, the grace period and SIGKILL.",
 		"Look for processes that detach from their group; `axx down` retries using the state file.")
-	add("AXX-E0411", env, "App cleanup failed",
-		"The app's `cleanup` command exited non-zero. The run still completed; this is reported so leaks are visible. The state file keeps the cleanup, and runs refuse to start apps until it succeeds (AXX-E0415).",
+	add("AXX-E0411", env, "Service cleanup failed",
+		"The service's `cleanup` command exited non-zero. The run still completed; this is reported so leaks are visible. The state file keeps the cleanup, and runs refuse to start services until it succeeds (AXX-E0415).",
 		"Fix what made it fail (its output is above), then run `axx down`: it runs the cleanup again.")
 	add("AXX-E0412", u, "No active tags",
-		"Active startup is on with `onNoTags: error`, and the selected scenarios carry no tags, so axx cannot tell which apps to start.",
+		"Active startup is on with `onNoTags: error`, and the selected scenarios carry no tags, so axx cannot tell which services to start.",
 		"Tag the scenarios, set `active.onNoTags: fallback` (start everything), or disable active startup.")
 	add("AXX-E0413", env, "Run state file error",
-		"`.axx/run/state.json` (used by `axx up`/`axx down` to find running apps) could not be read or written.",
-		"Check permissions on `.axx/`; deleting the stale file is safe when no apps are running.")
+		"`.axx/run/state.json` (used by `axx up`/`axx down` to find running services) could not be read or written.",
+		"Check permissions on `.axx/`; deleting the stale file is safe when no services are running.")
 	add("AXX-E0414", exitcode.Interrupted, "Startup interrupted",
-		"Starting apps was interrupted (Ctrl-C). Every app that had started was stopped and cleaned up.",
+		"Starting services was interrupted (Ctrl-C). Every service that had started was stopped and cleaned up.",
 		"Nothing to fix; re-run when ready.")
 	add("AXX-E0415", env, "Earlier run not cleaned up",
-		"The state file records apps an earlier run left behind, and they could not be cleaned up before this run: a cleanup failed again, or what is left sits beside apps a run still going (or `axx up`) owns. Their data (containers, volumes, recorded requests) would be what this run starts from, so no app is started. A killed run's leftovers alone are cleaned up by the next run.",
+		"The state file records services an earlier run left behind, and they could not be cleaned up before this run: a cleanup failed again, or what is left sits beside services a run still going (or `axx up`) owns. Their data (containers, volumes, recorded requests) would be what this run starts from, so no service is started. A killed run's leftovers alone are cleaned up by the next run.",
 		"Run `axx down`: it stops what is left and runs the cleanup again. `axx doctor` and the MCP `env` status list what is left.")
 
 	add("AXX-E0600", u, "Unknown reporter",

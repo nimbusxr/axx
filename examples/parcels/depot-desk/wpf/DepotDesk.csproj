@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- The depot desk in WPF (../README.md). -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>DepotDesk</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <None Include="..\depot.png" Link="depot.png" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

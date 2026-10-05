@@ -49,7 +49,7 @@ public class AxxRunIntegrationTest extends HeavyPlatformTestCase {
                     "  paths: [features]",
                     "properties:",
                     "  local.host: localhost",
-                    "apps:",
+                    "services:",
                     "  hello-axx:",
                     "    command: python3 -m http.server 8000",
                     "    ready:",

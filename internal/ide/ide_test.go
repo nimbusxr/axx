@@ -12,7 +12,7 @@ import (
 )
 
 func cfg() *config.Config {
-	return &config.Config{Apps: config.Apps{
+	return &config.Config{Services: config.Services{
 		{Name: "api", Debug: &config.Debug{Debugger: &config.Debugger{Port: 5005}}},
 		{Name: "worker", Debug: &config.Debug{Debugger: &config.Debugger{Type: "go", Port: 2345}}},
 		{Name: "plain"},
@@ -94,7 +94,7 @@ func TestVSCodeMergesAndPreserves(t *testing.T) {
   // user comment
   "version": "0.2.0",
   "configurations": [
-    {"name": "My app", "type": "go", "request": "launch", "program": "."},
+    {"name": "My service", "type": "go", "request": "launch", "program": "."},
     {"name": "axx: attach stale", "type": "go", "request": "attach"},
   ]
 }`
@@ -116,7 +116,7 @@ func TestVSCodeMergesAndPreserves(t *testing.T) {
 	for _, c := range launch.Configurations {
 		names = append(names, c["name"].(string))
 	}
-	if strings.Join(names, ",") != "My app,axx: attach api,axx: attach worker,axx: debug steps,axx: attach to steps" {
+	if strings.Join(names, ",") != "My service,axx: attach api,axx: attach worker,axx: debug steps,axx: attach to steps" {
 		t.Fatalf("configurations: %v", names)
 	}
 	if c := launch.Configurations[3]; c["type"] != "go" || c["mode"] != "remote" || c["port"] != float64(2345) || c["preLaunchTask"] != "axx: run --debug-steps" {
