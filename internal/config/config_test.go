@@ -113,6 +113,35 @@ func TestProfileAndOverrides(t *testing.T) {
 	}
 }
 
+// A property may use another, from the file, a profile or -D: steps read
+// it expanded, as the rest of axx.yaml has it.
+func TestPropertiesUseProperties(t *testing.T) {
+	dir := t.TempDir()
+	write(t, dir, "axx.yaml", `version: 1
+properties:
+  python: python3
+  desk.app: ""
+profiles:
+  qt:
+    properties:
+      desk.app: ${sys:python}
+`)
+	cfg, err := Load(LoadOptions{WorkDir: dir, Profile: "qt", LookupEnv: env(nil)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := cfg.Properties["desk.app"]; got != "python3" {
+		t.Errorf("desk.app = %q, want python3", got)
+	}
+	cfg, err = Load(LoadOptions{WorkDir: dir, Profile: "qt", Properties: map[string]string{"python": "/opt/qt/bin/python"}, LookupEnv: env(nil)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := cfg.Properties["desk.app"]; got != "/opt/qt/bin/python" {
+		t.Errorf("with -D python: desk.app = %q", got)
+	}
+}
+
 // Profiles combine: watch,ios applies watch, then ios over it.
 func TestProfilesCombine(t *testing.T) {
 	dir := t.TempDir()

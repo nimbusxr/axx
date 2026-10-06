@@ -116,11 +116,16 @@ func (family) ScrollIntoView(sc *core.Scenario, a *appcore.App, k appcore.Kind, 
 			}
 			return p.ScrollIntoView(c)
 		}
-		c, err := p.ScrollTo(k, name)
+		// It waits for the control, as every action does: a web view builds
+		// its tree a moment after its window shows.
+		found, err := waitUntil(sc, actionWait, func() (bool, error) {
+			c, err := p.ScrollTo(k, name)
+			return c != nil, err
+		})
 		if err != nil {
 			return err
 		}
-		if c == nil {
+		if !found {
 			return missing(a.Name, p, k, name)
 		}
 		return nil
@@ -272,6 +277,14 @@ func control(sc *core.Scenario, app string, p Process, k appcore.Kind, name stri
 	ok, err := waitUntil(sc, wait, func() (bool, error) {
 		var err error
 		found, err = locate(p, k, name, shown)
+		if err == nil && len(found) == 0 && shown {
+			// The one scrolled out of view, as a person scrolls to it: GTK
+			// says what is scrolled away does not show. One that cannot be
+			// scrolled into view (on a tab not shown) stays unfound.
+			if away, _ := locate(p, k, name, false); len(away) == 1 && p.ScrollIntoView(away[0]) == nil {
+				found, err = locate(p, k, name, shown)
+			}
+		}
 		return len(found) > 0, err
 	})
 	switch {

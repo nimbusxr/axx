@@ -189,6 +189,10 @@ type scenario struct {
 	reset   map[string]bool
 	running map[string]Process
 	order   []string
+	// recordings are its apps' traces and videos, by app; tracing are the
+	// trace captures still being taken.
+	recordings map[string]*recording
+	tracing    sync.WaitGroup
 }
 
 var scenarios = core.NewStateKey(Name+"/scenario", func(sc *core.Scenario) *scenario {
@@ -207,11 +211,13 @@ func (s *scenario) describe(sc *core.Scenario) any {
 	return secrets.Mask(sc, fmt.Sprint(out))
 }
 
-// release stops the scenario's apps, the last started first, and gives the
-// desktop back.
-func release(_ *core.Scenario, s *scenario) error {
+// release keeps what the settings say of the apps' traces and videos, stops
+// the scenario's apps, the last started first, and gives the desktop back.
+func release(sc *core.Scenario, s *scenario) error {
+	s.tracing.Wait()
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	finishRecordings(sc, s)
 	var errs []error
 	for _, name := range slices.Backward(s.order) {
 		p, ok := s.running[name]
@@ -288,7 +294,7 @@ func process(sc *core.Scenario, app *App, start bool) (Process, error) {
 	p, ok := s.running[app.Name]
 	s.mu.Unlock()
 	if ok && !p.Exited() {
-		return p, nil
+		return traced{p, s}, nil
 	}
 	if !start {
 		if ok {
@@ -310,12 +316,14 @@ func process(sc *core.Scenario, app *App, start bool) (Process, error) {
 	}
 	s.running[app.Name] = p
 	s.mu.Unlock()
-	return p, nil
+	startVideo(sc, s, app.Name, p)
+	return traced{p, s}, nil
 }
 
 // stop stops the app, if it runs, keeping its home.
 func stop(sc *core.Scenario, app *App) error {
 	s := scenarios.Of(sc)
+	s.tracing.Wait()
 	s.mu.Lock()
 	p, ok := s.running[app.Name]
 	delete(s.running, app.Name)

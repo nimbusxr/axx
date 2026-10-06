@@ -21,12 +21,14 @@ import (
 // proc is a Linux app as it runs on its desktop: the root of its tree on the
 // scenario's accessibility bus.
 type proc struct {
-	sc     *core.Scenario
-	app    *desktopcore.App
-	pid    int
-	in     *atspi.Input
-	root   *atspi.Element
-	exited func() bool
+	sc  *core.Scenario
+	app *desktopcore.App
+	pid int
+	in  seat
+	// wayland is whether the app runs on a Wayland desktop.
+	wayland bool
+	root    *atspi.Element
+	exited  func() bool
 	// gtk4 is whether the app is made with GTK 4, which hit-tests what its
 	// areas clip away; flutter whether with Flutter, which gives no places
 	// and says whether a control can be used by its offering a click; java
@@ -47,12 +49,8 @@ func (c control) Enabled() (bool, bool) {
 	if c.p.flutter {
 		// Flutter says nothing of a control's state, and offers no action on
 		// one that cannot be used.
-		for _, a := range c.e.Actions() {
-			if slices.Contains(clickActions, a) {
-				return true, true
-			}
-		}
-		return false, true
+		_, ok := clickAction(c.e.Actions())
+		return ok, true
 	}
 	return c.e.Is(atspi.StateSensitive), true
 }
@@ -94,10 +92,30 @@ func (p *proc) window() *atspi.Element {
 
 func (p *proc) Find(k appcore.Kind, n string, shown bool) ([]desktopcore.Control, error) {
 	var out []desktopcore.Control
-	for _, e := range p.find(k.Noun, collapse(n), shown) {
+	found := p.find(k.Noun, collapse(n), shown)
+	if k.Noun == "element" {
+		found = captionsOut(found)
+	}
+	for _, e := range found {
 		out = append(out, control{e: e, p: p})
 	}
 	return out, nil
+}
+
+// captionsOut leaves out the labels among elements found by a name when a
+// control is among them too: a label that shows a control's name (a
+// switch's caption) is not the element a step names.
+func captionsOut(found []*atspi.Element) []*atspi.Element {
+	var controls []*atspi.Element
+	for _, e := range found {
+		if e.Role() != "label" {
+			controls = append(controls, e)
+		}
+	}
+	if len(controls) == 0 {
+		return found
+	}
+	return controls
 }
 
 func (p *proc) Names(k appcore.Kind) []string { return p.names(k.Noun) }
@@ -162,10 +180,12 @@ func (p *proc) Click(c desktopcore.Control) error {
 	if r := e.Role(); strings.Contains(r, "menu item") {
 		// An open menu's item never lies on the menu bar's menu that opened
 		// it: one that says it does gives its place in its popup, not on the
-		// screen (Java's), and is chosen through accessibility.
+		// screen (Java's), and is chosen through accessibility. On Wayland
+		// every menu's popup is a window of its own, where the app does not
+		// say (GTK 3).
 		for at := e.Parent(); at != nil; at = at.Parent() {
 			if pr := at.Parent(); pr != nil && pr.Role() == "menu bar" {
-				if within(e, at.Extents()) {
+				if p.wayland || within(e, at.Extents()) {
 					p.sc.Log("the %q menu item gives no place on the screen: chosen through accessibility", name(e))
 					return activate(e)
 				}
@@ -294,6 +314,17 @@ func (p *proc) Type(text string) error {
 	return p.in.Type(text)
 }
 
+// Away moves the pointer beside the app's window, on the scenario's screen.
+func (p *proc) Away() error {
+	r := p.window().Extents()
+	if !placed(r) {
+		return nil // no places (Flutter): no pointer either
+	}
+	w, h := p.in.Size()
+	at := desktopcore.AwaySpot(image.Rect(int(r.X), int(r.Y), int(r.X+r.Width), int(r.Y+r.Height)), image.Rect(0, 0, w, h))
+	return p.in.Move(at.X, at.Y)
+}
+
 // Window is the app's main window as the screen shows it: the desktop is
 // the scenario's, so nothing covers it.
 func (p *proc) Window() (image.Image, float64, error) {
@@ -303,12 +334,70 @@ func (p *proc) Window() (image.Image, float64, error) {
 	}
 	r := p.window().Extents()
 	if !placed(r) || p.flutter {
+		if at, ok := p.caret(); ok {
+			return desktopcore.HideCaret(shot, at), 1, nil
+		}
 		return shot, 1, nil
 	}
 	rect := image.Rect(int(r.X), int(r.Y), int(r.X+r.Width), int(r.Y+r.Height)).Intersect(shot.Bounds())
 	out := image.NewRGBA(image.Rect(0, 0, rect.Dx(), rect.Dy()))
 	draw.Draw(out, out.Bounds(), shot, rect.Min, draw.Src)
+	if at, ok := p.caret(); ok {
+		return desktopcore.HideCaret(out, at.Sub(rect.Min)), 1, nil
+	}
 	return out, 1, nil
+}
+
+// caret is where the text cursor of the window's focused text is on the
+// screen: a column a few pixels wide, a line high. A line said to be outside
+// its text is the text's height: the cursor is in it.
+func (p *proc) caret() (image.Rectangle, bool) {
+	// The innermost element that has the focus: a web view has it, and the
+	// field in its page.
+	var f *atspi.Element
+	n := 0
+	var walk func(e *atspi.Element) bool
+	walk = func(e *atspi.Element) bool {
+		if n++; n > 2000 {
+			return false
+		}
+		focused := e.Is(atspi.StateFocused)
+		if focused {
+			f = e
+		}
+		kids, _ := e.Children()
+		for _, k := range kids {
+			if walk(k) {
+				return true
+			}
+		}
+		return focused
+	}
+	walk(p.window())
+	if f == nil {
+		return image.Rectangle{}, false
+	}
+	c, ok := f.Caret()
+	if !ok {
+		return image.Rectangle{}, false
+	}
+	top, bottom := c.Y, c.Y+c.Height
+	t := f.Extents()
+	if placed(t) && (top < t.Y || bottom > t.Y+t.Height) {
+		top, bottom = t.Y, t.Y+t.Height
+	}
+	// A cursor taller than its line, within its field (its ends smoothed a
+	// pixel or two past what the field says it is: Qt 6's).
+	pad := max(4, (bottom-top)/3)
+	top, bottom = top-pad, bottom+pad
+	if placed(t) {
+		top, bottom = max(top, t.Y-2), min(bottom, t.Y+t.Height+2)
+	}
+	// The cursor and its anti-aliasing (Qt 6's reaches 2 pixels left); to
+	// the right, more: Qt 5 says a character ends a few pixels before it
+	// draws the cursor.
+	const left, right = 2, 6
+	return image.Rect(int(c.X-left), int(top), int(c.X+right), int(bottom)), true
 }
 
 func (p *proc) Tree() (*desktopcore.Node, error) {

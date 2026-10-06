@@ -18,6 +18,7 @@ import (
 
 	"github.com/moby/moby/api/types/container"
 	"github.com/testcontainers/testcontainers-go"
+	"github.com/testcontainers/testcontainers-go/network"
 	"github.com/testcontainers/testcontainers-go/wait"
 
 	"github.com/nimbusxr/axx/core"
@@ -349,6 +350,27 @@ func ServerPorts(t *testing.T, image string, ports []string, cmd []string, env m
 	return startPorts(t, image, ports, "", cmd, env, false)
 }
 
+// EmulatorWithSidecar is Emulator for an emulator that hands part of its
+// work to a server of its own (floci-gcp its BigQuery SQL, to floci-duck):
+// the two run on a network of their own, where the sidecar is named
+// sidecarName and the emulator "emulator", so env can point each at the
+// other (http://bigquery-sql:3000, http://emulator:4588).
+func EmulatorWithSidecar(t *testing.T, image, port, healthPath string, env map[string]string, sidecarImage, sidecarName, sidecarPort string) string {
+	t.Helper()
+	ctx := context.Background()
+	net, err := network.New(ctx)
+	if err != nil {
+		t.Skipf("cannot make a network for %s: %v", image, err)
+	}
+	t.Cleanup(func() { _ = net.Remove(ctx) })
+	startRequest(t, testcontainers.ContainerRequest{
+		Image: sidecarImage, Networks: []string{net.Name}, NetworkAliases: map[string][]string{net.Name: {sidecarName}},
+	}, []string{sidecarPort}, "", nil, false)
+	return startRequest(t, testcontainers.ContainerRequest{
+		Image: image, Networks: []string{net.Name}, NetworkAliases: map[string][]string{net.Name: {"emulator"}},
+	}, []string{port}, healthPath, env, false)[port]
+}
+
 func emulator(t *testing.T, image, port, healthPath string, env map[string]string, docker bool) string {
 	return start(t, image, port, healthPath, nil, env, docker)
 }
@@ -380,6 +402,7 @@ func startRequest(t *testing.T, req testcontainers.ContainerRequest, ports []str
 	c, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
 		ContainerRequest: testcontainers.ContainerRequest{
 			Image: req.Image, ExposedPorts: exposed, Cmd: req.Cmd, Env: env, WaitingFor: strategy,
+			Networks: req.Networks, NetworkAliases: req.NetworkAliases,
 			HostConfigModifier: func(hc *container.HostConfig) {
 				if docker {
 					hc.Binds = append(hc.Binds, "/var/run/docker.sock:/var/run/docker.sock")

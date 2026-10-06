@@ -44,6 +44,7 @@ const (
 	automationCompareElements         = 3
 	automationGetRootElement          = 5
 	automationElementFromPoint        = 7
+	automationGetFocusedElement       = 8
 	automationGetControlViewWalker    = 14
 	automationCreateTrueCondition     = 21
 	automationCreatePropertyCondition = 23
@@ -82,6 +83,16 @@ const (
 
 	scrollScroll = 3
 
+	textPatternGetSelection = 5
+
+	textRangeClone                 = 3
+	textRangeCompareEndpoints      = 5
+	textRangeGetBoundingRectangles = 10
+	textRangeMoveEndpointByUnit    = 14
+	textEndpointStart              = 0
+	textEndpointEnd                = 1
+	textUnitCharacter              = 0
+
 	expandCollapseExpand       = 3
 	expandCollapseCollapse     = 4
 	expandCollapseCurrentState = 5
@@ -100,6 +111,7 @@ const (
 	patternSelectionItem       = 10010
 	patternToggle              = 10015
 	patternScrollItem          = 10017
+	patternText                = 10014
 	patternLegacyIAccessible   = 10018
 	patternScroll              = 10004
 	scopeChildren              = 2
@@ -116,6 +128,7 @@ var (
 	iidIScrollItem     = ole.NewGUID("{B488300F-D015-4F19-9C29-BB595E3645EF}")
 	iidIScroll         = ole.NewGUID("{88F4D42A-E881-459D-A77C-73BBBB7E02DC}")
 	iidIExpandCollapse = ole.NewGUID("{619BE086-1F4E-4EE4-BAFA-210128738730}")
+	iidITextPattern    = ole.NewGUID("{32EBA289-3583-42C9-9C59-3B6D9A1E9B6A}")
 	errPatternMissing  = errors.New("the element does not take that action")
 	errGone            = errors.New("the element is gone")
 )
@@ -398,6 +411,88 @@ func (e *Element) Same(o *Element) bool {
 		return false
 	}
 	return same != 0
+}
+
+// Caret is where the text cursor of the focused element is on the screen, a
+// line high and no width, the element's bounds and its process, when it
+// shows one: its selection is an insertion point, not a run of text. It is the insertion
+// point's place, or the left edge of the character after it, or the right
+// edge of the one before it.
+func (c *Client) Caret() (caret, field Rect, pid int, ok bool) {
+	var f *object
+	if err := c.automation.call(automationGetFocusedElement, uintptr(unsafe.Pointer(&f))); err != nil || f == nil {
+		return Rect{}, Rect{}, 0, false
+	}
+	e := &Element{c: c, obj: f}
+	defer e.Release()
+	text, err := e.pattern(patternText, iidITextPattern)
+	if err != nil {
+		return Rect{}, Rect{}, 0, false
+	}
+	defer text.release()
+	var ranges *object
+	if err := text.call(textPatternGetSelection, uintptr(unsafe.Pointer(&ranges))); err != nil || ranges == nil {
+		return Rect{}, Rect{}, 0, false
+	}
+	defer ranges.release()
+	var n int32
+	var r *object
+	if ranges.call(arrayLength, uintptr(unsafe.Pointer(&n))) != nil || n != 1 ||
+		ranges.call(arrayGetElement, 0, uintptr(unsafe.Pointer(&r))) != nil || r == nil {
+		return Rect{}, Rect{}, 0, false
+	}
+	defer r.release()
+	var cmp int32
+	if r.call(textRangeCompareEndpoints, textEndpointStart, uintptr(unsafe.Pointer(r)), textEndpointEnd, uintptr(unsafe.Pointer(&cmp))) != nil || cmp != 0 {
+		return Rect{}, Rect{}, 0, false // a run of text is selected: no cursor shows
+	}
+	field, pid = e.Bounds(), e.ProcessID()
+	if b, ok := boundsOf(r); ok {
+		return Rect{Left: b.Left, Top: b.Top, Right: b.Left, Bottom: b.Bottom}, field, pid, true
+	}
+	for _, side := range []struct {
+		endpoint, count int32
+		right           bool
+	}{{textEndpointEnd, 1, false}, {textEndpointStart, -1, true}} {
+		var k *object
+		if r.call(textRangeClone, uintptr(unsafe.Pointer(&k))) != nil || k == nil {
+			continue
+		}
+		var moved int32
+		err := k.call(textRangeMoveEndpointByUnit, uintptr(side.endpoint), textUnitCharacter, uintptr(uint32(side.count)), uintptr(unsafe.Pointer(&moved)))
+		b, ok := boundsOf(k)
+		k.release()
+		if err != nil || moved == 0 || !ok {
+			continue
+		}
+		x := b.Left
+		if side.right {
+			x = b.Right
+		}
+		return Rect{Left: x, Top: b.Top, Right: x, Bottom: b.Bottom}, field, pid, true
+	}
+	return Rect{}, Rect{}, 0, false
+}
+
+// boundsOf is the first rectangle a text range takes on the screen, a line
+// of it.
+func boundsOf(r *object) (Rect, bool) {
+	var sa *ole.SafeArray
+	if r.call(textRangeGetBoundingRectangles, uintptr(unsafe.Pointer(&sa))) != nil || sa == nil {
+		return Rect{}, false
+	}
+	conv := ole.SafeArrayConversion{Array: sa}
+	defer conv.Release()
+	v := conv.ToValueArray() // left, top, width, height; for each line
+	if len(v) < 4 {
+		return Rect{}, false
+	}
+	at := func(i int) float64 { f, _ := v[i].(float64); return f }
+	l, t, w, h := at(0), at(1), at(2), at(3)
+	if h <= 0 {
+		return Rect{}, false
+	}
+	return Rect{Left: int32(l), Top: int32(t), Right: int32(l + w), Bottom: int32(t + h)}, true
 }
 
 // ElementAt is the element at a point on the screen: what a click there

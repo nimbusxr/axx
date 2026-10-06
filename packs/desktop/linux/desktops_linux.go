@@ -32,6 +32,9 @@ type desktop struct {
 	display string
 	xvfb    *exec.Cmd
 	in      *atspi.Input
+	// wayland is whether its scenarios run GNOME Shell of their own, on
+	// Wayland, rather than on its virtual screen.
+	wayland bool
 }
 
 // pool are the run's desktops, started as scenarios first need them.
@@ -48,9 +51,13 @@ func poolFor(s *core.Suite) (*pool, error) {
 		if err != nil {
 			return nil, err
 		}
+		var c Config
+		if err := s.PackConfig(Name, &c); err != nil {
+			return nil, err
+		}
 		p := &pool{size: n, slots: make(chan *desktop, n)}
 		for i := 1; i <= n; i++ {
-			p.slots <- &desktop{n: i}
+			p.slots <- &desktop{n: i, wayland: c.Display == "wayland"}
 		}
 		s.OnClose(func(context.Context) error { p.stop(); return nil })
 		return p, nil
@@ -73,8 +80,8 @@ func (p *pool) stop() {
 
 // start starts the desktop's screen, once.
 func (d *desktop) start(p *pool) error {
-	if d.in != nil {
-		return nil
+	if d.in != nil || d.wayland {
+		return nil // a Wayland desktop starts with each scenario's session
 	}
 	xvfb, err := exec.LookPath("Xvfb")
 	if err != nil {
@@ -213,6 +220,13 @@ type session struct {
 	bus, launcher int    // their processes
 	c             *atspi.Client
 	pub           *atspi.Display
+	// seat is its pointer, keyboard and screen: the desktop's X11 ones, or
+	// its own GNOME Shell's, whose processes (and PipeWire's) are shell.
+	seat  seat
+	shell []int
+	// x11 and xauth are its GNOME Shell's Xwayland display and the X
+	// authority file it takes, on Wayland.
+	x11, xauth string
 }
 
 // homeEnv points an app or a session's services at a home: HOME and the XDG
@@ -226,13 +240,15 @@ func homeEnv(home string) []string {
 }
 
 // machineEnv is this process's environment without what axx sets for its
-// desktops: the user's own display, buses and Wayland.
+// desktops: the user's own display, buses and Wayland, and how toolkits
+// pick one.
 func machineEnv() []string {
 	var out []string
 	for _, kv := range os.Environ() {
 		k, _, _ := strings.Cut(kv, "=")
 		switch k {
-		case "DISPLAY", "WAYLAND_DISPLAY", "DBUS_SESSION_BUS_ADDRESS", "AT_SPI_BUS_ADDRESS", "NO_AT_BRIDGE", "XDG_RUNTIME_DIR":
+		case "DISPLAY", "XAUTHORITY", "WAYLAND_DISPLAY", "DBUS_SESSION_BUS_ADDRESS", "AT_SPI_BUS_ADDRESS", "NO_AT_BRIDGE", "XDG_RUNTIME_DIR",
+			"XDG_SESSION_TYPE", "XDG_CURRENT_DESKTOP", "GDK_BACKEND", "QT_QPA_PLATFORM", "ELECTRON_OZONE_PLATFORM_HINT":
 			continue
 		}
 		out = append(out, kv)
@@ -260,8 +276,14 @@ func startSession(sc *core.Scenario, d *desktop, st starter, home string) (*sess
 	if err != nil {
 		return nil, err
 	}
-	env := append(append(machineEnv(), homeEnv(home)...), "DISPLAY="+d.display, "XDG_RUNTIME_DIR="+run)
+	env := append(append(machineEnv(), homeEnv(home)...), "XDG_RUNTIME_DIR="+run)
+	if !d.wayland {
+		env = append(env, "DISPLAY="+d.display)
+	}
 	s := &session{d: d, st: st, run: run}
+	if !d.wayland {
+		s.seat = d.in
+	}
 	s.bus, s.addr, err = st.start(startRequest{Path: dbusDaemon, Args: []string{"--session", "--nofork", "--nopidfile", "--print-address=1"}, Env: env, FirstLine: true})
 	if err != nil {
 		return nil, fmt.Errorf("cannot start a session bus: %w", err)
@@ -289,7 +311,28 @@ func startSession(sc *core.Scenario, d *desktop, st starter, home string) (*sess
 		s.stop()
 		return nil, err
 	}
-	if s.pub, err = atspi.PublishBusOn(d.display, s.c.Address()); err != nil {
+	if d.wayland {
+		pids, g, err := startWayland(st, append(env, "DBUS_SESSION_BUS_ADDRESS="+s.addr), run, s.addr)
+		s.shell = pids
+		if err != nil {
+			s.stop()
+			return nil, err
+		}
+		s.seat = g
+		s.x11, s.xauth = g.X11Display()
+		s.c.SetPlacer(placer(g))
+		if s.x11 != "" {
+			// X11 apps (Qt 5's) find the accessibility bus on Xwayland's
+			// screen, as on X11 desktops.
+			if s.pub, err = atspi.PublishBusOn(s.x11, s.xauth, s.c.Address()); err != nil {
+				s.stop()
+				return nil, err
+			}
+		}
+		sc.Log("the scenario's session on desktop %d: GNOME Shell on Wayland", d.n)
+		return s, nil
+	}
+	if s.pub, err = atspi.PublishBusOn(d.display, "", s.c.Address()); err != nil {
 		s.stop()
 		return nil, err
 	}
@@ -312,6 +355,12 @@ func busLauncher() (string, error) {
 func (s *session) stop() {
 	if s.pub != nil {
 		s.pub.Close()
+	}
+	if s.d.wayland && s.seat != nil {
+		s.seat.Close()
+	}
+	for _, pid := range s.shell {
+		_ = syscall.Kill(-pid, syscall.SIGKILL)
 	}
 	if s.c != nil {
 		s.c.Close()
@@ -339,11 +388,23 @@ func (s *session) appEnv(app *desktopcore.App, home string) []string {
 		java = "-Xbootclasspath/a:" + atkWrapper + " -Djavax.accessibility.assistive_technologies=org.GNOME.Accessibility.AtkWrapper " + java
 	}
 	env := append(machineEnv(), homeEnv(home)...)
-	env = append(env,
-		"DISPLAY="+s.d.display, "DBUS_SESSION_BUS_ADDRESS="+s.addr, "XDG_RUNTIME_DIR="+s.run,
-		"LANG="+locale, "LC_ALL="+locale, "TZ="+cmp.Or(app.Timezone, "UTC"),
+	display := []string{
 		// X11, where axx's desktops are.
-		"GDK_BACKEND=x11", "QT_QPA_PLATFORM=xcb",
+		"DISPLAY=" + s.d.display, "GDK_BACKEND=x11", "QT_QPA_PLATFORM=xcb",
+	}
+	if s.d.wayland {
+		// Or its GNOME Shell's Wayland, in a GNOME session: each toolkit
+		// picks Wayland or X11 as it does on a GNOME desktop (GTK, Qt 6 and
+		// Electron Wayland; Qt 5 and Java X11, on its Xwayland).
+		display = []string{"WAYLAND_DISPLAY=wayland-0", "XDG_SESSION_TYPE=wayland", "XDG_CURRENT_DESKTOP=GNOME"}
+		if s.x11 != "" {
+			display = append(display, "DISPLAY="+s.x11, "XAUTHORITY="+s.xauth)
+		}
+	}
+	env = append(env, display...)
+	env = append(env,
+		"DBUS_SESSION_BUS_ADDRESS="+s.addr, "XDG_RUNTIME_DIR="+s.run,
+		"LANG="+locale, "LC_ALL="+locale, "TZ="+cmp.Or(app.Timezone, "UTC"),
 		// Accessibility on: Chromium (Electron, CEF) takes it from here; Qt
 		// from these.
 		"ACCESSIBILITY_ENABLED=1", "QT_ACCESSIBILITY=1", "QT_LINUX_ACCESSIBILITY_ALWAYS_ON=1",
@@ -372,7 +433,7 @@ func (s *session) start(sc *core.Scenario, app *desktopcore.App, home string) (*
 	if err != nil {
 		return nil, err
 	}
-	p := &proc{sc: sc, app: app, pid: pid, in: s.d.in}
+	p := &proc{sc: sc, app: app, pid: pid, in: s.seat, wayland: s.d.wayland}
 	p.exited = func() bool { return s.st.exited(pid) }
 	for wait := time.Now(); ; time.Sleep(250 * time.Millisecond) {
 		if root, err := s.c.ApplicationOf(p.pid); err == nil {
@@ -392,6 +453,10 @@ func (s *session) start(sc *core.Scenario, app *desktopcore.App, home string) (*
 	}
 	name, version := p.root.Toolkit()
 	p.gtk4 = name == "GTK" && strings.HasPrefix(version, "4.")
+	if !p.gtk4 {
+		// Only GTK 4 knows places in its window only.
+		p.root.WithScreenPlaces()
+	}
 	p.java = strings.Contains(strings.ToLower(name), "java") || strings.Contains(name, "J2SE")
 	if atspi.IsFlutter(p.pid) {
 		p.flutter = true

@@ -58,6 +58,10 @@ type Process interface {
 	// Front brings the app to the front, with the keyboard, and fails before
 	// a key or a click could reach another app.
 	Front() error
+	// Away moves the pointer off the app's window (to AwaySpot), where it
+	// hovers over none of its controls: a control under the pointer draws
+	// itself hovered.
+	Away() error
 	// ScrollTo scrolls until the control of kind k named name is in view,
 	// as a person looks for it: area by area, the outermost first, and
 	// through every list and table for a control the app has only once it
@@ -78,7 +82,9 @@ type Process interface {
 	Key(spec string) error
 	Type(text string) error
 	// Window is a screenshot of the app's front window, and the scale of its
-	// display: 2 on a display at twice the scale.
+	// display: 2 on a display at twice the scale. The text cursor of the
+	// focused field is hidden (HideCaret), as the web pack's screenshots hide
+	// it: it blinks, so no two screenshots would agree.
 	Window() (image.Image, float64, error)
 	// Tree is the app's windows and menu bar as a tree, for xpath= and
 	// id= selectors and for a failure's outline.

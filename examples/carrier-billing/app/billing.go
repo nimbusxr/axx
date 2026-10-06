@@ -296,6 +296,10 @@ func (s *service) startSubscribers(ctx context.Context) {
 func (s *service) receive(ctx context.Context, sub string, handle func(context.Context, *pubsub.Message) error) {
 	for ctx.Err() == nil {
 		err := s.gcp.ps.Subscriber(sub).Receive(ctx, func(ctx context.Context, m *pubsub.Message) {
+			// A message is handled within a minute: a dependency that does not
+			// answer fails it, and it is redelivered, rather than held for ever.
+			ctx, cancel := context.WithTimeout(ctx, time.Minute)
+			defer cancel()
 			if err := handle(ctx, m); err != nil {
 				s.log.Error("message failed; it will be redelivered", "subscription", sub, "error", err)
 				m.Nack()
@@ -313,6 +317,7 @@ func (s *service) receive(ctx context.Context, sub string, handle func(context.C
 // invoiceUploaded handles the carrier-invoices bucket's notifications.
 func (s *service) invoiceUploaded(ctx context.Context, m *pubsub.Message) error {
 	if m.Attributes["eventType"] != "OBJECT_FINALIZE" {
+		s.log.Warn("invoice notification ignored: not a new object", "attributes", m.Attributes)
 		return nil
 	}
 	return s.reconcile(ctx, m.Attributes["bucketId"], m.Attributes["objectId"])

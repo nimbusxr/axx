@@ -68,6 +68,14 @@ func post(kind uint32, at Point) error {
 	return nil
 }
 
+// Move moves the pointer to a point on the screen.
+func Move(at Point) error {
+	if err := loadInput(); err != nil {
+		return err
+	}
+	return post(eventMouseMoved, at)
+}
+
 // Click moves the pointer to a point on the screen and clicks there.
 func Click(at Point) error {
 	if err := loadInput(); err != nil {
@@ -111,17 +119,12 @@ func Type(text string) error {
 	for _, r := range text {
 		units := utf16.Encode([]rune{r})
 		code, shift := usKey(r)
-		for _, down := range []bool{true, false} {
-			ev := cgEventCreateKeyboardEvent(0, code, down)
-			if ev == 0 {
-				return fmt.Errorf("cannot make a key event")
-			}
-			if shift {
-				cgEventSetFlags(ev, flagShift)
-			}
-			cgEventKeyboardSetUnicodeString(ev, uint64(len(units)), &units[0])
-			cgEventPost(hidEventTap, ev)
-			cfRelease(ev)
+		var flags uint64
+		if shift {
+			flags = flagShift
+		}
+		if err := stroke(code, flags, units, 0); err != nil {
+			return err
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
@@ -164,14 +167,20 @@ func Drag(from, to Point) error {
 	if err := post(eventLeftMouseDown, from); err != nil {
 		return err
 	}
-	const steps = 12
+	// A hand holds the button a moment before it moves, and moves over half a
+	// second, at the screen's 60 frames a second: what reads drags as a
+	// person makes them (macOS's region capture among them) misses one
+	// that is all over in a few frames.
+	time.Sleep(120 * time.Millisecond)
+	const steps = 30
 	for i := 1; i <= steps; i++ {
 		at := Point{X: from.X + (to.X-from.X)*float64(i)/steps, Y: from.Y + (to.Y-from.Y)*float64(i)/steps}
 		if err := post(eventLeftMouseDragged, at); err != nil {
 			return err
 		}
-		time.Sleep(15 * time.Millisecond)
+		time.Sleep(16 * time.Millisecond)
 	}
+	time.Sleep(60 * time.Millisecond)
 	return post(eventLeftMouseUp, to)
 }
 
@@ -182,6 +191,61 @@ const (
 	flagOption  = 0x80000
 	flagCommand = 0x100000
 )
+
+// modifiers are the modifier keys, by their flags, in the order a hand
+// holds them down, with their virtual key codes.
+var modifiers = []struct {
+	flag uint64
+	code uint16
+}{{flagControl, 59}, {flagOption, 58}, {flagShift, 56}, {flagCommand, 55}}
+
+// stroke presses a key with the modifiers flags names, as a hand does: each
+// modifier down, the key down and up, and the modifiers up. The system holds
+// a modifier down until its key comes up, whatever flags a key's own events
+// carry: one never let go stays held for the clicks and keys after it (a
+// click with Control held is a right click, and macOS's region capture
+// copies to the clipboard). units is the character the key types, if any;
+// pause is the time between events.
+func stroke(code uint16, flags uint64, units []uint16, pause time.Duration) error {
+	key := func(code uint16, down bool, flags uint64, units []uint16) error {
+		ev := cgEventCreateKeyboardEvent(0, code, down)
+		if ev == 0 {
+			return fmt.Errorf("cannot make a key event")
+		}
+		cgEventSetFlags(ev, flags)
+		if len(units) > 0 {
+			cgEventKeyboardSetUnicodeString(ev, uint64(len(units)), &units[0])
+		}
+		cgEventPost(hidEventTap, ev)
+		cfRelease(ev)
+		time.Sleep(pause)
+		return nil
+	}
+	var held uint64
+	for _, m := range modifiers {
+		if flags&m.flag != 0 {
+			held |= m.flag
+			if err := key(m.code, true, held, nil); err != nil {
+				return err
+			}
+		}
+	}
+	err := key(code, true, flags, units)
+	if err == nil {
+		err = key(code, false, flags, units)
+	}
+	// The modifiers come up even when the key failed: one left down holds
+	// for everything after it.
+	for i := len(modifiers) - 1; i >= 0; i-- {
+		if m := modifiers[i]; held&m.flag != 0 {
+			held &^= m.flag
+			if uerr := key(m.code, false, held, nil); err == nil {
+				err = uerr
+			}
+		}
+	}
+	return err
+}
 
 // keyCodes are the virtual key codes of the keys keys names, on an ANSI
 // keyboard.
@@ -228,17 +292,7 @@ func PressKey(spec string) error {
 	if !ok {
 		return fmt.Errorf("%s: no key %q", spec, name)
 	}
-	for _, down := range []bool{true, false} {
-		ev := cgEventCreateKeyboardEvent(0, code, down)
-		if ev == 0 {
-			return fmt.Errorf("cannot make a key event")
-		}
-		cgEventSetFlags(ev, flags)
-		cgEventPost(hidEventTap, ev)
-		cfRelease(ev)
-		time.Sleep(20 * time.Millisecond)
-	}
-	return nil
+	return stroke(code, flags, nil, 20*time.Millisecond)
 }
 
 // Scroll turns the mouse wheel over a point by lines: up when lines is

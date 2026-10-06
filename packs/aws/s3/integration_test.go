@@ -11,6 +11,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	s3types "github.com/aws/aws-sdk-go-v2/service/s3/types"
 
 	"github.com/nimbusxr/axx/internal/cloudstep/cloudtest"
 	awscore "github.com/nimbusxr/axx/packs/aws/core"
@@ -30,7 +31,11 @@ func TestObjects(t *testing.T) {
 		t.Fatal(err)
 	}
 	client := st.(bucketStore).c
-	if _, err := client.CreateBucket(context.Background(), &s3.CreateBucketInput{Bucket: aws.String("claim-evidence")}); err != nil {
+	// Outside us-east-1, AWS takes the bucket's region as its location constraint.
+	if _, err := client.CreateBucket(context.Background(), &s3.CreateBucketInput{
+		Bucket:                    aws.String("claim-evidence"),
+		CreateBucketConfiguration: &s3types.CreateBucketConfiguration{LocationConstraint: s3types.BucketLocationConstraintEuWest1},
+	}); err != nil {
 		t.Fatal(err)
 	}
 

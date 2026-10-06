@@ -81,6 +81,11 @@ services:
 packs:
   web-screenshots:
     platforms: [linux, darwin]
+  # The labels the service draws (manifest-documents.feature), compared where CI and its
+  # developers run.
+  files:
+    screenshots:
+      platforms: [linux, darwin]
   # How much of the portal's scripts the scenarios run, in .axx/web/coverage/lcov.info:
   # the scripts the portal serves under /portal/js/ are those of ../app/web/js.
   web-coverage:

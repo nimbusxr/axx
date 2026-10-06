@@ -2,7 +2,7 @@
   "description": "The frozen catalog of built-in step text. Step text is public API: every entry must stay defined, verbatim, by its pack.",
   "counts": {
     "parameterType": 14,
-    "step": 691
+    "step": 693
   },
   "entries": [
     {
@@ -4248,6 +4248,18 @@
       "pack": "desktop-linux",
       "keyword": "Given",
       "expression": "the {word} linux app with the following properties:"
+    },
+    {
+      "kind": "step",
+      "pack": "files",
+      "keyword": "Then",
+      "expression": "the {path} file in the {word} folder looks like the {string} screenshot"
+    },
+    {
+      "kind": "step",
+      "pack": "files",
+      "keyword": "Then",
+      "expression": "within {duration} the {path} file in the {word} folder looks like the {string} screenshot"
     }
   ]
 }

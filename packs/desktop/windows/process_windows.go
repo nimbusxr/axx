@@ -5,6 +5,8 @@ package desktopwindows
 import (
 	"fmt"
 	"image"
+	"image/draw"
+	"math"
 	"path/filepath"
 	"slices"
 	"time"
@@ -12,6 +14,7 @@ import (
 	"github.com/nimbusxr/axx/core"
 	appcore "github.com/nimbusxr/axx/packs/app/core"
 	desktopcore "github.com/nimbusxr/axx/packs/desktop/core"
+	"github.com/nimbusxr/axx/packs/desktop/internal/jab"
 	"github.com/nimbusxr/axx/packs/desktop/internal/uia"
 )
 
@@ -78,12 +81,20 @@ func (p *proc) Find(k appcore.Kind, name string, shown bool) ([]desktopcore.Cont
 	var out []desktopcore.Control
 	err := p.w.do(func() error {
 		if p.java != nil {
-			for _, e := range p.java.search(p.java.root, k.Noun, collapse(name), shown) {
+			found := p.java.search(p.java.root, k.Noun, collapse(name), shown)
+			if k.Noun == "element" {
+				found = captionsOut(found, func(e *jab.Element) bool { return e.Role() == "label" })
+			}
+			for _, e := range found {
 				out = append(out, jctl{e: e, w: p.w})
 			}
 			return nil
 		}
-		for _, e := range p.u.find(k.Noun, collapse(name), shown) {
+		found := p.u.find(k.Noun, collapse(name), shown)
+		if k.Noun == "element" {
+			found = captionsOut(found, func(e *uia.Element) bool { return e.ControlType() == uiaText })
+		}
+		for _, e := range found {
 			out = append(out, p.u.control(e))
 		}
 		return nil
@@ -140,7 +151,10 @@ func (p *proc) Front() error {
 			if w == nil {
 				continue
 			}
-			if uia.Foreground(w.Handle()) || slices.Contains(p.pids(), uia.ForegroundProcess()) {
+			// Its main window in front, its controls drawn as active (Qt's
+			// field's line); else, after a second, another of its windows
+			// (a dialog it shows over it).
+			if uia.Foreground(w.Handle()) || time.Since(wait) > time.Second && slices.Contains(p.pids(), uia.ForegroundProcess()) {
 				return nil
 			}
 		}
@@ -263,13 +277,36 @@ func (p *proc) Type(text string) error {
 	return uia.Type(text)
 }
 
+// Away moves the pointer beside the app's window, in the work area (not on
+// the taskbar).
+func (p *proc) Away() error {
+	return p.w.do(func() error {
+		w := p.window()
+		if w == nil {
+			return nil
+		}
+		r, ok := uia.WindowRect(w.Handle())
+		if !ok {
+			return nil
+		}
+		wa := uia.WorkArea()
+		at := desktopcore.AwaySpot(image.Rect(int(r.Left), int(r.Top), int(r.Right), int(r.Bottom)),
+			image.Rect(int(wa.Left), int(wa.Top), int(wa.Right), int(wa.Bottom)))
+		return uia.Move(at.X, at.Y)
+	})
+}
+
 // Window captures the main window as it draws itself (PrintWindow, all of
 // its content).
 func (p *proc) Window() (image.Image, float64, error) {
 	var img image.Image
 	scale := 1.0
 	err := p.w.do(func() error {
+		// UI Automation lists an app's windows a moment late at times.
 		w := p.window()
+		for wait := time.Now(); w == nil && time.Since(wait) < 3*time.Second; w = p.window() {
+			time.Sleep(50 * time.Millisecond)
+		}
 		if w == nil {
 			return fmt.Errorf("the %s app has no window", p.app.Name)
 		}
@@ -277,10 +314,79 @@ func (p *proc) Window() (image.Image, float64, error) {
 		if err != nil {
 			return err
 		}
-		img, scale = shot, uia.Scale(w.Handle())
+		// A window that draws itself smaller for a capture than it shows
+		// (WinUI's, at its own size) is cropped to what it drew, and places
+		// on the screen are scaled to it.
+		display, capture := uia.Scale(w.Handle()), uia.CaptureScale(w.Handle())
+		k := min(capture/display, 1)
+		if k < 1 {
+			b := shot.Bounds()
+			drawn := image.NewRGBA(image.Rect(0, 0, int(float64(b.Dx())*k), int(float64(b.Dy())*k)))
+			draw.Draw(drawn, drawn.Bounds(), shot, b.Min, draw.Src)
+			shot = drawn
+		}
+		img, scale = shot, capture
+		if at, ok := p.caret(w.Handle(), display); ok {
+			if k < 1 {
+				at = image.Rect(int(float64(at.Min.X)*k), int(float64(at.Min.Y)*k), int(math.Ceil(float64(at.Max.X)*k)), int(math.Ceil(float64(at.Max.Y)*k)))
+			}
+			img = desktopcore.HideCaret(img, at)
+		}
 		return nil
 	})
 	return img, scale, err
+}
+
+// caret is where the text cursor of the app's focused field is in a capture
+// of the window hwnd at scale: a column a few pixels wide, a line high. A
+// line said to be outside its field is the field's height: the cursor is in
+// it. On the worker's thread.
+func (p *proc) caret(hwnd uintptr, scale float64) (image.Rectangle, bool) {
+	win, ok := uia.WindowRect(hwnd)
+	if !ok {
+		return image.Rectangle{}, false
+	}
+	var c, f uia.Rect
+	if p.java != nil {
+		x, y, h, e, ok := p.w.jab.Caret(hwnd)
+		if !ok || !slices.Contains(javaRoles["field"], e.Role()) {
+			return image.Rectangle{}, false // a table has a caret too
+		}
+		fx, fy, fw, fh := e.Bounds()
+		l, t := p.java.px(fx, fy)
+		r, b := p.java.px(fx+fw, fy+fh)
+		f = uia.Rect{Left: int32(l), Top: int32(t), Right: int32(r), Bottom: int32(b)}
+		px, py := p.java.px(x, y)
+		_, ph := p.java.px(0, h)
+		if py < t || py > b {
+			// The bridge gives the caret in Java's points where it gives
+			// controls in pixels: scaled by the display's.
+			px, py, ph = int(float64(x)*scale), int(float64(y)*scale), int(float64(h)*scale)
+		}
+		c = uia.Rect{Left: int32(px), Top: int32(py), Right: int32(px), Bottom: int32(py + ph)}
+	} else {
+		var pid int
+		if c, f, pid, ok = p.w.uia.Caret(); !ok || !slices.Contains(p.pids(), pid) {
+			return image.Rectangle{}, false
+		}
+	}
+	top, bottom := c.Top, c.Bottom
+	if f.Bottom > f.Top && (top < f.Top || bottom > f.Bottom) {
+		top, bottom = f.Top, f.Bottom
+	}
+	// A cursor taller than its line (WinForms', a pixel past its field).
+	pad := max(3, (bottom-top)/3)
+	top, bottom = top-pad, bottom+pad
+	if f.Bottom > f.Top {
+		top, bottom = max(top, f.Top-2), min(bottom, f.Bottom+2)
+	}
+	// The cursor and a pixel of its anti-aliasing to the left, never the
+	// last letter: at a display's scale the place is rounded a pixel either
+	// way, and a letter's edge hidden in one screenshot and not the next
+	// differs. To the right, more: Qt 5 says a character ends a few pixels
+	// before it draws the cursor.
+	left, right := int32(1), int32(math.Ceil(6*scale))
+	return image.Rect(int(c.Left-left-win.Left), int(top-win.Top), int(c.Left+right-win.Left), int(bottom-win.Top)), true
 }
 
 func (p *proc) Tree() (*desktopcore.Node, error) {
@@ -344,4 +450,20 @@ func (p *proc) attachJava(w *uia.Element) error {
 		return nil
 	}
 	return fmt.Errorf("the Java Access Bridge did not reach the app's window within 20s: is the bridge on in its Java (axx switches it on through JAVA_TOOL_OPTIONS)")
+}
+
+// captionsOut leaves out the texts among elements found by a name when a
+// control is among them too: a text that shows a control's name (a switch's
+// caption) is not the element a step names.
+func captionsOut[E any](found []E, isText func(E) bool) []E {
+	var controls []E
+	for _, e := range found {
+		if !isText(e) {
+			controls = append(controls, e)
+		}
+	}
+	if len(controls) == 0 {
+		return found
+	}
+	return controls
 }

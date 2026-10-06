@@ -94,3 +94,23 @@ func TestTheDifferenceShowsWhereImagesDiffer(t *testing.T) {
 		t.Errorf("sizes: %+v", c)
 	}
 }
+
+func TestAPartOfABiggerImageComparesAsItLooks(t *testing.T) {
+	// The same picture, once on its own and once as the top left of a wider
+	// one: its rows lie apart in memory, as a cropped capture's do.
+	picture := func(img *image.RGBA) {
+		for y := range 10 {
+			for x := range 20 {
+				img.SetRGBA(x, y, color.RGBA{uint8(10 * x), uint8(20 * y), 90, 255})
+			}
+		}
+	}
+	alone := image.NewRGBA(image.Rect(0, 0, 20, 10))
+	picture(alone)
+	wide := image.NewRGBA(image.Rect(0, 0, 50, 30))
+	picture(wide)
+	part := wide.SubImage(image.Rect(0, 0, 20, 10))
+	if c := Compare(alone, part, Options{}); !c.SameSize || c.Differ != 0 {
+		t.Errorf("a part of a wider image: %+v", c)
+	}
+}

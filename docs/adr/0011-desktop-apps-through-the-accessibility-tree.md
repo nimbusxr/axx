@@ -244,6 +244,13 @@ scenarios take it in turns, while other scenarios run alongside them:
   display (Xvfb) with its own session bus and accessibility bus, and its own homes for the
   apps. Nothing shows on your screen, and apps run under X11 (GTK, Qt and Chromium choose it
   when there is no Wayland display). With `--watch`, they run on your display, one at a time.
+- With `display: wayland`, each scenario's desktop is instead a headless GNOME Shell of its
+  own, the desktop most Linux users run, and apps pick Wayland or X11 (on its Xwayland) as they
+  do on a GNOME desktop. GNOME Shell's remote desktop takes the pointer's and the keys'
+  events; an extension of axx's, run from the session's folder, puts each window at the
+  screen's corner and takes screenshots. An app on Wayland knows places in its window only,
+  each toolkit from its own corner (GTK 3 its shadow's, GTK 4 its frame's, Qt its content's):
+  axx adds the window's place, which GNOME Shell knows.
 
 **The reset.** Before its app starts, a scenario's app is reset. There is no switch that skips
 it.
@@ -294,7 +301,8 @@ names them, with `@2x` on a display at twice the scale. Each platform draws wind
 way, so each has its own screenshots, compared on it only, and `platforms` names those a
 project keeps. The first time, the step takes the screenshot and fails: look at it, and keep
 it. The window is captured by `screencapture -l` on macOS (Screen Recording), by `PrintWindow`
-with its full content (WebView2's too) on Windows, and from the X server on Linux.
+with its full content (WebView2's too) on Windows, and from the X server on Linux (from GNOME
+Shell, on Wayland).
 
 ### Checks before a run
 
@@ -304,18 +312,25 @@ with its full content (WebView2's too) on Windows, and from the X server on Linu
   app at the top of the process tree, which the hint names (the terminal, or the IDE).
 - Windows: a desktop to run on: not a service, not an SSH session (a scheduled task for the
   signed-in user has one). For Java apps, a JDK's Java Access Bridge (a warning).
-- Linux: Xvfb, dbus-daemon and at-spi2-core. For Java apps, java-atk-wrapper (a warning).
+- Linux: Xvfb, dbus-daemon and at-spi2-core. For Java apps, java-atk-wrapper (a warning). For
+  Wayland desktops, gnome-shell and pipewire (a warning).
 
 ### In CI
 
 As Phase 1 found the hosted runners: `macos-latest` and `windows-latest` as they come, and
-`ubuntu-24.04` with `xvfb` and `at-spi2-core` installed (axx starts them). The parcels
-example's workflow runs its desktop scenarios on each.
+`ubuntu-24.04` with `xvfb` and `at-spi2-core` installed (axx starts them), or GNOME Shell for
+Wayland. Screenshots are pixels, which follow the libraries that draw them: CI's `desktop` job
+runs the depot desk's feature (`examples/parcels/depot-desk`) against every Linux build, on X11
+and on Wayland, in the desk's own image (`examples/parcels/depot-desk/linux`), built once for
+each version of its Dockerfile and kept in the registry, so CI and developers draw the same.
+The macOS and Windows builds run on developers' machines: hosted runners change with their
+images, which no one can run elsewhere (owner's decision, 2026-10-06).
 
 ### Not in this design
 
 - Running scripts in webviews, and an app's internal state (above).
-- Wayland: apps run under X11 in axx's desktop, and under Xwayland when watched.
+- Wayland desktops other than GNOME's (KDE's, wlroots'); on them, apps are watched under
+  Xwayland.
 - More than one screen; the menu bar's extras, the Dock, the taskbar and the tray; hotkeys
   the system takes before an app does. Snap's overlay is started by its `--overlay-mode`
   argument, not its hotkey.
@@ -482,6 +497,18 @@ where the steps are modelled.
      these namespaces; `axx doctor` says so.
    - **Windows**: UI Automation and the Java Access Bridge are called on one thread, which
      handles the bridge's messages between calls.
+   - **Screenshots leave out a focused field's text cursor**, as the web pack's do: it blinks,
+     and a screenshot kept with it on did not match the app with it off for 20 seconds
+     (SwiftUI, one run in three). Each driver finds it where its tree says: AX's bounds of the
+     insertion point, AT-SPI's character extents at the caret (in the innermost element that
+     has the focus: a web view has it, and so does the field in its page), UI Automation's
+     selection, the Java Access Bridge's caret. AppKit's empty fields put the line above them,
+     so a line outside its field is the field's height. GTK 4.14 gives no character extents,
+     Flutter on Windows no text pattern, Swing on macOS no bounds for an empty field's
+     insertion point: their cursors stay in screenshots.
+   - **A shortcut's modifiers are keys a hand holds down** (macOS): flags on the key's own
+     events left Control held for every click after Control+Shift+S, and macOS's region
+     capture, dragged then, copied to the clipboard instead of saving.
 
    Not yet: Qt keeps its settings on macOS in a preferences domain of its own
    (`com.parcels-example.Depot desk`), which no registration names, so Qt's second scenario
@@ -548,6 +575,49 @@ where the steps are modelled.
    - **Reset**: Java's preferences on macOS are one domain for every Java app (an IDE's
      among them), so no reset can empty one app's: the Swing desk keeps settings in a file,
      and the docs name the limit.
+
+   *On 2026-10-06* the feature runs with the axx CLI (`examples/parcels/depot-desk/acceptance`,
+   a profile for each build), and on Wayland every Linux build runs in a GNOME Shell of its
+   own (`--profile linux-<build>,wayland`): GTK 3, GTK 4, Qt 6, Electron, Tauri and Flutter on
+   Wayland, Qt 5 and Swing on its Xwayland, as a GNOME desktop starts them. CI's `desktop`
+   job runs the feature against every build. What Wayland and the runs taught:
+   - **Places on Wayland**: an app knows places in its window only, each toolkit counting
+     from its own corner, and GNOME Shell knows where its windows are. Only GTK 4 counts in
+     its window's coordinates when asked for the screen's; Qt 5 under a window manager gives
+     wrong places in its window's, so every other app is asked for the screen's. GTK 3's
+     least integer for what it has not drawn stays as it is.
+   - **Toolkits pick their display as on GNOME**: Electron 44 takes Wayland from the session
+     (`XDG_SESSION_TYPE`), not from its old hint; Debian's and Ubuntu's Qt 5 is read on X11
+     only (Qt 5 on Wayland never registers), so it runs on Xwayland, as it does there without
+     qtwayland5. X11 apps read the accessibility bus's address on Xwayland's screen, which
+     takes GNOME Shell's cookie.
+   - **Keys**: GNOME Shell's remote desktop drops the modifiers of the first key it takes
+     (Control+A typed an "a"): a Shift, pressed and let go as the session starts, is that key.
+   - **Scrolling**: GTK 3 gives a tab only its header's place, and the scroll bars of the
+     scroll pane it holds made it an area; an area's bar is its own. A web control's middle
+     must be in the page's view: Chromium's hit test above its page, under the window's menu
+     bar, finds what is scrolled there.
+   - **Screenshots**: a text cursor an app does not place (Flutter's on Linux) is seen
+     blinking: all that changes between two looks is a column a line high, and it is left
+     out from then on; at a display's scale a cursor's place is rounded a pixel either way,
+     so it is hidden with the color around it, never a letter's edge. Windows shows a new
+     window's keyboard cues (Windows Forms' focus rectangle) when an earlier scenario's last
+     input was a key: an app's window hides them once it is in front (`WM_CHANGEUISTATE`;
+     sent sooner, Windows' own setting as it activates the window may come after), as one a
+     person opens with the mouse does. A capture waits for the window, as a click does: UI
+     Automation lists a window a moment late at times. WinUI says its window is at 96 dots
+     an inch and, captured, draws itself at that size at the top left of its pixels: the
+     capture is cropped to what it drew (a screenshot at scale 1), and a click at a place
+     takes the display's scale, the monitor's.
+   - **Settings outside the app's home**: on macOS, Qt's `QSettings` keeps them in a domain
+     named after the app's organization, not its bundle: the registration's `preferences`
+     names the domains to empty, as Windows' `registry` names keys. Linux needs neither: an
+     app's settings are in its home.
+   - **Qt on macOS leaves its scroll areas out of the tree**, their content in the group that
+     holds them: a group an element lies outside of is an area that scrolled it away.
+   - **Traces are asked for**: a capture after every step slowed a run by a fifth on macOS,
+     where `screencapture` is a process of its own. Kept as it writes it, and taken while the
+     next step finds what it acts on (which acts once it is done), it slows one by a tenth.
 5. **Snap moves to it**: its features use the desktop steps, and the `acceptance` feature and
    its WebDriver plugin go. Snap names its saves by the time and checks their pixels, which
    the files pack cannot check yet (a folder's files counted or matched by a pattern, and a

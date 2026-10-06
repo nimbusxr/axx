@@ -28,7 +28,9 @@ const packDoc = `Desktop apps on macOS, Windows and Linux, used as people use th
 
 An app is registered for each OS it runs on, by that OS's pack (` + "`desktop-macos`" + `, ` + "`desktop-windows`" + `, ` + "`desktop-linux`" + `), and every other step is ` + "`app-core`" + `'s: a feature lists the app once for each OS and runs unchanged on each. This pack adds what only desktops do: a key pressed, a click at a place on a control, a drag.
 
-**Each scenario has the desktop, and a clean app.** A desktop has one screen, one pointer and one keyboard focus, so on macOS and Windows desktop scenarios take the machine's desktop in turns (other runs on the machine wait too), while other scenarios run alongside them; on Linux, axx runs desktops of its own. Before an app starts in a scenario, its home (a folder of the project's ` + "`.axx/desktop`" + `) is emptied, and what its OS keeps of it elsewhere is reset; after the scenario, the app and every process it started are stopped. An app's files are a folder of the files pack whose ` + "`owner`" + ` is the app: ` + "`./`" + ` is where its OS keeps an app's data, ` + "`~/`" + ` its home.`
+**Each scenario has the desktop, and a clean app.** A desktop has one screen, one pointer and one keyboard focus, so on macOS and Windows desktop scenarios take the machine's desktop in turns (other runs on the machine wait too), while other scenarios run alongside them; on Linux, axx runs desktops of its own. Before an app starts in a scenario, its home (a folder of the project's ` + "`.axx/desktop`" + `) is emptied, and what its OS keeps of it elsewhere is reset; after the scenario, the app and every process it started are stopped. An app's files are a folder of the files pack whose ` + "`owner`" + ` is the app: ` + "`./`" + ` is where its OS keeps an app's data, ` + "`~/`" + ` its home.
+
+**Screenshots** are of the app's front window, as it draws itself, one for each platform and display scale (` + "`arrivals.darwin@2x.png`" + `). A focused field's text cursor is left out of them, as the web pack leaves it out of its screenshots: it blinks.`
 
 func (pack) Manifest() core.Manifest {
 	return core.Manifest{
@@ -38,6 +40,7 @@ func (pack) Manifest() core.Manifest {
 		Requires:     []string{appcore.Name},
 		ConfigSchema: []byte(configSchema),
 		Steps:        appcore.Paced(steps()),
+		Hooks:        []core.Hook{{ID: Name + ".trace", Phase: core.AfterStep, Run: traceStepHook}},
 	}
 }
 

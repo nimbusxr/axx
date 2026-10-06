@@ -49,7 +49,7 @@ A folder keeps what earlier runs wrote to it, so a check could pass on a file fr
 
 ## Check a file
 
-A check names a file by its path in the folder, with `/` between folders, and without spaces. Every check waits for the file to be there and to meet the check: 10 seconds, or the time `within` gives.
+A check names a file by its path in the folder, with `/` between folders, and without spaces. Every check waits for the file to be there and to meet the check: 10 seconds, or the time `within` gives. A `*` in the path stands for any characters but a slash, for a file named by something a check cannot know, like the time it was saved: `"snap-*.json"` names the one file it matches, and a check waits while none or several do.
 
 ```gherkin
 Then within 10s the exports folder has a file named manifests/M-HERON-0501/report.csv
@@ -97,6 +97,16 @@ Then within 10s the manifests/M-OSPREY-0502/report.xlsx file in the exports fold
 ```
 
 Cells compare as text, as the workbook shows them: a price formatted with two decimals is `6.90`, not `6.9`. An empty value matches an empty cell.
+
+## Images, compared with their screenshots
+
+`looks like the … screenshot` compares an image a service or an app saves (PNG or JPEG) with its screenshot, pixel by pixel, anti-aliasing aside:
+
+```gherkin
+Then within 10s the manifests/M-PLOVER-0504/labels/PX-PLV-5301.png file in the exports folder looks like the "label-PX-PLV-5301" screenshot
+```
+
+The first time, there is no screenshot: the step takes it and fails, so that you look at it and keep it (`screenshots/label-PX-PLV-5301.linux.png`). Each platform has its own, named after it, since apps draw their images their own way on each. When the image differs, the step attaches the screenshot, the image and their difference. `packs.files.screenshots` in `axx.yaml` sets their `folder` (default `screenshots`), the share of pixels that may differ (`tolerance`), whether to take them all again (`update`), and the `platforms` a project keeps them for.
 
 ## When a check fails
 

@@ -21,6 +21,7 @@ require (
 	github.com/vektah/gqlparser/v2 v2.5.37
 	github.com/xuri/excelize/v2 v2.11.0
 	go.mongodb.org/mongo-driver/v2 v2.9.1
+	golang.org/x/image v0.46.0
 	golang.org/x/text v0.42.0
 	google.golang.org/grpc v1.84.0
 	google.golang.org/protobuf v1.36.12

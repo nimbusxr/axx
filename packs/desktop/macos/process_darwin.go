@@ -3,9 +3,12 @@
 package desktopmacos
 
 import (
+	"bytes"
+	"encoding/binary"
 	"fmt"
 	"image"
 	"image/png"
+	"math"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -115,7 +118,9 @@ func (p *proc) places(kind string) []*ax.Element {
 	switch kind {
 	case "menu":
 		return p.menuBars()
-	case "menu item":
+	case "menu item", "element":
+		// An open menu's items; its menu, its title in the menu bar, is
+		// found after them (titles).
 		places := p.windows()
 		for _, bar := range p.menuBars() {
 			for _, item := range children(bar) {
@@ -134,15 +139,65 @@ func (p *proc) find(kind, name string, onlyShown bool) []*ax.Element {
 	for _, at := range p.places(kind) {
 		search(at, nil, kind, name, onlyShown, &found)
 		if len(found) > 0 {
-			return found // the front window's, before the others'
+			return once(found) // the front window's, before the others'
+		}
+	}
+	if kind == "element" {
+		for _, t := range p.titles() {
+			if named(t, name) {
+				found = append(found, t)
+			}
 		}
 	}
 	return found
 }
 
+// once is the elements found, each once: the web engines give a table's
+// cells under its rows and again under its columns.
+func once(found []*ax.Element) []*ax.Element {
+	var out []*ax.Element
+	for _, e := range found {
+		if !slices.ContainsFunc(out, e.Equal) {
+			out = append(out, e)
+		}
+	}
+	return out
+}
+
+// captionsOut leaves out the texts among elements found by a name when a
+// control is among them too: a text that shows a control's name (a switch's
+// caption) is not the element a step names.
+func captionsOut(found []*ax.Element) []*ax.Element {
+	var controls []*ax.Element
+	for _, e := range found {
+		if e.String("AXRole") != "AXStaticText" {
+			controls = append(controls, e)
+		}
+	}
+	if len(controls) == 0 {
+		return found
+	}
+	return controls
+}
+
+// titles are the menus' titles in the menu bar, which is the app's on
+// macOS, not its window's: elements too, but not the items of the menus
+// they open while those are closed.
+func (p *proc) titles() []*ax.Element {
+	var out []*ax.Element
+	for _, bar := range p.menuBars() {
+		out = append(out, children(bar)...)
+	}
+	return out
+}
+
 func (p *proc) Find(k appcore.Kind, name string, shown bool) ([]desktopcore.Control, error) {
 	var out []desktopcore.Control
-	for _, e := range p.find(k.Noun, collapse(name), shown) {
+	found := p.find(k.Noun, collapse(name), shown)
+	if k.Noun == "element" {
+		found = captionsOut(found)
+	}
+	for _, e := range found {
 		out = append(out, p.control(e))
 	}
 	return out, nil
@@ -156,6 +211,13 @@ func (p *proc) Names(k appcore.Kind) []string {
 				out = append(out, n)
 			}
 		})
+	}
+	if k.Noun == "element" {
+		for _, t := range p.titles() {
+			if n := name(t); n != "" && !slices.Contains(out, n) {
+				out = append(out, n)
+			}
+		}
 	}
 	return out
 }
@@ -199,6 +261,18 @@ func (p *proc) Front() error {
 		}
 	}
 	return fmt.Errorf("the %s app (process %d) does not come to the front: stopping before a click or a key reaches another app", p.app.Name, p.pid)
+}
+
+// Away moves the pointer beside the app's window, in the screen's visible
+// frame (not on the Dock).
+func (p *proc) Away() error {
+	w, ok := frameOf(p.window())
+	if !ok {
+		return nil
+	}
+	rect := func(a area) image.Rectangle { return image.Rect(int(a.x), int(a.y), int(a.x+a.w), int(a.y+a.h)) }
+	at := desktopcore.AwaySpot(rect(w), rect(p.screen))
+	return ax.Move(ax.Point{X: float64(at.X), Y: float64(at.Y)})
 }
 
 func (p *proc) ScrollTo(k appcore.Kind, name string) (desktopcore.Control, error) {
@@ -327,40 +401,96 @@ func (p *proc) Type(text string) error {
 // Window captures the front window with screencapture, as the window server
 // draws it, without its shadow.
 func (p *proc) Window() (image.Image, float64, error) {
+	b, w, err := p.capture()
+	if err != nil {
+		return nil, 0, err
+	}
+	img, err := png.Decode(bytes.NewReader(b))
+	if err != nil {
+		return nil, 0, fmt.Errorf("the window's capture is not a PNG: %w", err)
+	}
+	scale := scaleOf(w, img.Bounds().Dx())
+	if at, ok := p.caret(w, scale); ok {
+		img = desktopcore.HideCaret(img, at)
+	}
+	return img, scale, nil
+}
+
+// Snapshot is the front window as screencapture writes it, cursor and all,
+// for a trace: nothing decoded or encoded again.
+func (p *proc) Snapshot() ([]byte, float64, error) {
+	b, w, err := p.capture()
+	if err != nil {
+		return nil, 0, err
+	}
+	scale := 1.0
+	if len(b) >= 24 && string(b[12:16]) == "IHDR" {
+		scale = scaleOf(w, int(binary.BigEndian.Uint32(b[16:20])))
+	}
+	return b, scale, nil
+}
+
+// capture is the front window as screencapture writes it, a PNG, and the
+// window.
+func (p *proc) capture() ([]byte, *ax.Element, error) {
 	w := p.window()
 	id, err := w.WindowID()
 	if err != nil {
-		return nil, 0, err
+		return nil, nil, err
 	}
 	if ok, err := ax.ScreenCaptureAllowed(); err == nil && !ok {
-		return nil, 0, fmt.Errorf("macOS does not let axx capture other apps' windows: allow %s in System Settings > Privacy & Security > Screen Recording", topApp())
+		return nil, nil, fmt.Errorf("macOS does not let axx capture other apps' windows: allow %s in System Settings > Privacy & Security > Screen Recording", topApp())
 	}
 	f, err := os.CreateTemp("", "axx-window-*.png")
 	if err != nil {
-		return nil, 0, err
+		return nil, nil, err
 	}
 	path := f.Name()
 	_ = f.Close()
 	defer os.Remove(path)
 	if out, err := exec.CommandContext(p.sc.Context(), "screencapture", "-x", "-o", "-l", strconv.FormatUint(uint64(id), 10), path).CombinedOutput(); err != nil {
-		return nil, 0, fmt.Errorf("screencapture: %w %s", err, out)
+		return nil, nil, fmt.Errorf("screencapture: %w %s", err, out)
 	}
-	r, err := os.Open(path)
-	if err != nil {
-		return nil, 0, err
+	b, err := os.ReadFile(path)
+	return b, w, err
+}
+
+// scaleOf is the scale of a capture of the window that is width pixels
+// wide: whole pixels, 2.0 rather than 1.998.
+func scaleOf(w *ax.Element, width int) float64 {
+	fr, ok := frameOf(w)
+	if !ok || fr.w <= 0 {
+		return 1
 	}
-	defer r.Close()
-	img, err := png.Decode(r)
-	if err != nil {
-		return nil, 0, fmt.Errorf("the window's capture is not a PNG: %w", err)
+	return float64(int(float64(width)/fr.w*4+0.5)) / 4
+}
+
+// caret is where the text cursor of the app's focused field is in a capture
+// of the window w at scale: a column a few points wide, a line high. Some
+// fields (AppKit's, empty) say the line is above them: the cursor is in the
+// field, its height.
+func (p *proc) caret(w *ax.Element, scale float64) (image.Rectangle, bool) {
+	v, err := p.root.Attribute("AXFocusedUIElement")
+	f, _ := v.(*ax.Element)
+	if err != nil || f == nil {
+		return image.Rectangle{}, false
 	}
-	scale := 1.0
-	if fr, ok := frameOf(w); ok && fr.w > 0 {
-		scale = float64(img.Bounds().Dx()) / fr.w
-		// The capture is whole pixels: 2.0, not 1.998.
-		scale = float64(int(scale*4+0.5)) / 4
+	at, size, ok := f.Caret()
+	field, ok2 := frameOf(f)
+	win, ok3 := frameOf(w)
+	if !ok || !ok2 || !ok3 {
+		return image.Rectangle{}, false
 	}
-	return img, scale, nil
+	top, bottom := at.Y, at.Y+size.Height
+	if top < field.y || bottom > field.y+field.h {
+		top, bottom = field.y, field.y+field.h
+	}
+	// A cursor taller than its line, within its field.
+	pad := max(2, (bottom-top)/4)
+	top, bottom = max(top-pad, field.y), min(bottom+pad, field.y+field.h)
+	const half = 1.5 // points each side: the cursor, and its anti-aliasing
+	px := func(v float64) int { return int(math.Round(v * scale)) }
+	return image.Rect(px(at.X-half-win.x), px(top-win.y), px(at.X+half-win.x), px(bottom-win.y)), true
 }
 
 // Tree is the app's windows and menu bar as nodes: role, name, identifier

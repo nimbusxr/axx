@@ -111,6 +111,13 @@ func (p *proc) await() error {
 				return fmt.Errorf("the app showed no window within %s", windowWait)
 			}
 		}
+		// It opens as for a person who opened it with the mouse, whatever the
+		// last scenario typed: once it is in front, as Windows sets a window's
+		// cues as it activates it.
+		if uia.Foreground(win.Handle()) {
+			p.w.pump(200 * time.Millisecond)
+		}
+		uia.HideKeyboardCues(win.Handle())
 		if err := p.fit(win); err != nil {
 			return err
 		}

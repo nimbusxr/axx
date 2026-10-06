@@ -87,7 +87,9 @@ func isMask(px []byte) bool {
 }
 
 func toRGBA(img image.Image) *image.RGBA {
-	if r, ok := img.(*image.RGBA); ok && r.Rect.Min == (image.Point{}) {
+	// Compared at the same offsets, both images' rows are as wide as they
+	// are: a part of a bigger image (SubImage) is copied.
+	if r, ok := img.(*image.RGBA); ok && r.Rect.Min == (image.Point{}) && r.Stride == 4*r.Rect.Dx() {
 		return r
 	}
 	r := image.NewRGBA(image.Rect(0, 0, img.Bounds().Dx(), img.Bounds().Dy()))

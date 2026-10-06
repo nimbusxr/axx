@@ -148,6 +148,15 @@ func Load(opts LoadOptions) (*Config, error) {
 	resolver := NewResolver(props, opts.LookupEnv)
 	tree = setKey(tree, "properties", mapSliceFrom(props))
 	tree = interpolateTree(tree, resolver).(yaml.MapSlice)
+	// The properties as the tree has them now, each one that uses another
+	// expanded with it (one level): what steps read, too.
+	if p, ok := lookup(tree, "properties"); ok {
+		if m, isMap := p.(yaml.MapSlice); isMap {
+			for _, it := range m {
+				props[fmt.Sprint(it.Key)] = scalarString(it.Value)
+			}
+		}
+	}
 
 	jsonDoc, err := toJSON(tree)
 	if err != nil {

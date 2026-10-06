@@ -23,6 +23,7 @@ jobs:
       integration: ${{ steps.changes.outputs.integration }}
       web: ${{ steps.changes.outputs.web }}
       mobile: ${{ steps.changes.outputs.mobile }}
+      desktop: ${{ steps.changes.outputs.desktop }}
       examples: ${{ steps.changes.outputs.examples }}
       acceptance: ${{ steps.changes.outputs.acceptance }}
       workflows: ${{ steps.changes.outputs.workflows }}
@@ -395,6 +396,102 @@ jobs:
         with:
           mode: save
 
+  desktop-image:
+    needs: changes
+    if: needs.changes.outputs.desktop == 'true'
+    # The image the depot desk's Linux builds run in (examples/parcels/depot-desk/linux), built
+    # once for each version of its Dockerfile and kept in the registry: every run, and every
+    # developer, uses the same libraries, which draw the same pixels as the screenshots kept.
+    runs-on: ubuntu-24.04-arm
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image: ${{ steps.image.outputs.image }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - id: image
+        env:
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          tag=$(cat examples/parcels/depot-desk/linux/Dockerfile examples/parcels/depot-desk/linux/run.sh | sha256sum | cut -c1-16)
+          echo "image=ghcr.io/$OWNER/axx-depot-desk:$tag" >> "$GITHUB_OUTPUT"
+      - name: the image, unless the registry has it
+        env:
+          IMAGE: ${{ steps.image.outputs.image }}
+          ACTOR: ${{ github.actor }}
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "$TOKEN" | docker login ghcr.io -u "$ACTOR" --password-stdin
+          if docker manifest inspect "$IMAGE" > /dev/null 2>&1; then
+            echo "$IMAGE is in the registry"
+          else
+            docker build -t "$IMAGE" examples/parcels/depot-desk/linux
+            docker push "$IMAGE"
+          fi
+
+  desktop:
+    needs: [changes, desktop-image]
+    if: needs.changes.outputs.desktop == 'true'
+    # The depot desk's feature (examples/parcels/depot-desk) with axx, against each Linux build of
+    # the desk, on X11 and, in a GNOME session of its own, on Wayland: the baseline that keeps every
+    # toolkit working. It runs in the desk's image, which draws what the screenshots kept show. The
+    # macOS and Windows builds run on developers' machines. A failure leaves its report, the
+    # traces and the screenshots the run took.
+    name: desktop (${{ matrix.build }}, ${{ matrix.display }})
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      packages: read
+    strategy:
+      fail-fast: false
+      matrix:
+        build: [gtk3, gtk4, qt6, qt5, swing, electron, tauri, flutter]
+        display: [x11, wayland]
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+        with:
+          install_args: "go"
+          # Tools are cached from main only: pull requests read them.
+          cache_save: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+      - uses: ./.github/actions/go-cache
+        with:
+          build: desktop
+      - name: axx, with every pack
+        run: CGO_ENABLED=0 go build -o "$RUNNER_TEMP/axx" ./internal/tools/axxall
+      - name: the depot desk's feature, in its image
+        env:
+          IMAGE: ${{ needs.desktop-image.outputs.image }}
+          ACTOR: ${{ github.actor }}
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BUILD: ${{ matrix.build }}
+          DISPLAY_SERVER: ${{ matrix.display }}
+        run: |
+          echo "$TOKEN" | docker login ghcr.io -u "$ACTOR" --password-stdin
+          mkdir -p "$RUNNER_TEMP/out"
+          # GNOME Shell takes /run/systemd/seats for logind's, which a container has not.
+          docker run --rm --shm-size=1g --tmpfs /run/systemd \
+            -v "$PWD/examples/parcels/depot-desk:/src:ro" -v "$RUNNER_TEMP/axx:/usr/local/bin/axx:ro" -v "$RUNNER_TEMP/out:/out" \
+            "$IMAGE" depot-desk "$BUILD" "$DISPLAY_SERVER" --format progress --format junit:/out/junit.xml
+      - if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: desktop-${{ matrix.build }}-${{ matrix.display }}
+          path: ${{ runner.temp }}/out/
+          if-no-files-found: ignore
+          retention-days: 7
+      - if: ${{ !cancelled() && matrix.build == 'gtk3' && matrix.display == 'x11' }}
+        uses: ./.github/actions/go-cache
+        with:
+          build: desktop
+          mode: save
+
   cross-build:
     needs: changes
     if: needs.changes.outputs.go == 'true'
@@ -572,7 +669,7 @@ jobs:
   # pull request does not need is skipped, which passes.
   ci-ok:
     if: always()
-    needs: [changes, hygiene, lint, workflows, test, integration, web, mobile, android, ios, cross-build, example-app, acceptance, release-check]
+    needs: [changes, hygiene, lint, workflows, test, integration, web, mobile, android, ios, desktop-image, desktop, cross-build, example-app, acceptance, release-check]
     runs-on: ubuntu-24.04
     steps:
       - name: all jobs passed

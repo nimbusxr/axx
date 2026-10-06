@@ -8,5 +8,8 @@ npm install
 npx electron .
 ```
 
+`npx electron` fetches Electron's binary as it first starts. axx starts the binary itself
+(`node_modules/electron/dist`), so fetch it first: `node node_modules/electron/install.js`.
+
 On macOS, Electron builds its accessibility tree once asked for it (`AXManualAccessibility`, as
 VoiceOver asks); on Linux, once started with `--force-renderer-accessibility`.

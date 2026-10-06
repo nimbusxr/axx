@@ -3,7 +3,8 @@ Feature: Manifest documents
   Once the service has imported or rejected every line of a manifest, it writes the
   manifest's documents to its export folder, where the shop's system collects them: the
   import report (a CSV file for the shop's system, a workbook for its staff), a summary,
-  and the handover note the driver signs when collecting the parcels.
+  the handover note the driver signs when collecting the parcels, and each parcel's label,
+  for the shop's staff to check before printing.
 
   Background:
     Given a parcels-db database with the following properties:
@@ -39,3 +40,8 @@ Feature: Manifest documents
     Given a seeds/manifest-wren.yaml db seed
     Then within 10s the manifests/M-WREN-0503/handover.pdf file in the exports folder contains "Parcels to collect: 2"
     And the manifests/M-WREN-0503/handover.pdf file in the exports folder contains "PX-WRN-5201 Marie Curie, 01067 Dresden 1200 g STANDARD"
+
+  Scenario: The shop's staff check each parcel's label before printing it
+    Given a seeds/manifest-plover.yaml db seed
+    Then within 10s the manifests/M-PLOVER-0504/labels/PX-PLV-5301.png file in the exports folder looks like the "label-PX-PLV-5301" screenshot
+    And the manifests/M-PLOVER-0504/labels/PX-PLV-5302.png file in the exports folder looks like the "label-PX-PLV-5302" screenshot

@@ -269,6 +269,13 @@ func unchanged(check func([]byte) (bool, string, error)) func([]byte) (bool, str
 	}
 }
 
+// Await waits until the object exists and check accepts its content: for a
+// pack's own check of its objects. A name with a * names the one object it
+// matches.
+func (o Objects) Await(sc *core.Scenario, d time.Duration, container, name string, check func([]byte) (bool, string, error)) error {
+	return o.await(sc, d, container, name, check)
+}
+
 // await waits until the object exists and check accepts its content.
 func (o Objects) await(sc *core.Scenario, d time.Duration, container, name string, check func([]byte) (bool, string, error)) error {
 	st, err := o.Store(sc)
@@ -276,6 +283,14 @@ func (o Objects) await(sc *core.Scenario, d time.Duration, container, name strin
 		return err
 	}
 	return Poll(sc, d, func() (bool, string, error) {
+		name := name
+		if strings.Contains(name, "*") {
+			found, why, err := o.match(sc, st, container, name, d)
+			if err != nil || found == "" {
+				return false, why, err
+			}
+			name = found
+		}
 		body, ok, err := st.Get(sc.Context(), container, name)
 		if err != nil {
 			return false, "", fmt.Errorf("cannot read %s from the %s %s: %w", name, container, o.Container, err)
@@ -293,6 +308,41 @@ func (o Objects) await(sc *core.Scenario, d time.Duration, container, name strin
 		}
 		return false, fmt.Sprintf("The %s %s in the %s %s did not meet the expectation within %s: %s", name, o.Object, container, o.Container, d, why), nil
 	})
+}
+
+// maxMatched is how many names a pattern is matched against.
+const maxMatched = 10000
+
+// match is the one object a name with a * names: the * stands for any
+// characters but a slash (snap-*.json). None or several is why the check
+// waits.
+func (o Objects) match(sc *core.Scenario, st ObjectStore, container, pattern string, d time.Duration) (string, string, error) {
+	names, err := st.List(sc.Context(), container, maxMatched)
+	if err != nil {
+		return "", "", fmt.Errorf("cannot list the %s %s: %w", container, o.Container, err)
+	}
+	var found []string
+	for _, n := range names {
+		if matches(pattern, n) {
+			found = append(found, n)
+		}
+	}
+	switch len(found) {
+	case 1:
+		return found[0], "", nil
+	case 0:
+		return "", fmt.Sprintf("The %s %s has no %s named %s after %s. It has %s", container, o.Container, o.Object, pattern, d, listing(names, o.Object)), nil
+	}
+	return "", fmt.Sprintf("%d %ss in the %s %s are named %s after %s, and the name stands for one: %s", len(found), o.Object, container, o.Container, pattern, d, listing(found, o.Object)), nil
+}
+
+// matches is whether a name matches a pattern whose * stand for any
+// characters but a slash; its other characters are themselves (a ? or a [
+// in a file's name is no pattern).
+func matches(pattern, name string) bool {
+	escaped := strings.NewReplacer(`\`, `\\`, "?", `\?`, "[", `\[`).Replace(pattern)
+	ok, err := path.Match(escaped, name)
+	return err == nil && ok
 }
 
 func listing(names []string, object string) string {

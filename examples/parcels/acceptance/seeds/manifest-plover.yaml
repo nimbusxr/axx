@@ -1,0 +1,15 @@
+parcels.manifest_lines:
+  - id: "ML-PLV-0504-1"
+    manifest_id: "M-PLOVER-0504"
+    reference: "PX-PLV-5301"
+    sender: "plover-paper"
+    weight_grams: 780
+    service_level: "EXPRESS"
+    recipient: '{"name": "Ada Lovelace", "city": "Leipzig", "postcode": "04109", "country": "DE"}'
+  - id: "ML-PLV-0504-2"
+    manifest_id: "M-PLOVER-0504"
+    reference: "PX-PLV-5302"
+    sender: "plover-paper"
+    weight_grams: 2300
+    service_level: "STANDARD"
+    recipient: '{"name": "Grace Hopper", "city": "Halle", "postcode": "06108", "country": "DE"}'

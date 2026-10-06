@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"fmt"
 	"image"
+	"image/color"
+	"image/draw"
 	"image/png"
 	"os"
 	"path/filepath"
@@ -30,7 +32,9 @@ const configSchema = `{
         "update": {"type": "boolean", "description": "Take every screenshot again, as the app looks now, instead of comparing."},
         "platforms": {"type": "array", "items": {"type": "string", "enum": ["linux", "darwin", "windows"]}, "description": "The platforms whose screenshots the project keeps: each compares its own; elsewhere the steps pass without comparing (default: every platform)."}
       }
-    }
+    },
+    "traces": {"type": "string", "enum": ["failed", "always", "never"], "description": "Which scenarios keep a trace of each app in .axx/desktop/traces: a page with its window after each step, and its controls where the scenario failed (default never)."},
+    "videos": {"type": "string", "enum": ["failed", "always", "never"], "description": "Which scenarios keep a video of each app's window in .axx/desktop/videos, an animated PNG (default never)."}
   }
 }`
 
@@ -42,6 +46,8 @@ type Config struct {
 		Update    bool     `json:"update"`
 		Platforms []string `json:"platforms"`
 	} `json:"screenshots"`
+	Traces string `json:"traces"`
+	Videos string `json:"videos"`
 }
 
 type settings struct {
@@ -49,6 +55,8 @@ type settings struct {
 	tolerance float64
 	update    bool
 	platforms []string
+	traces    string // failed, always or never
+	videos    string
 }
 
 func settingsFor(s *core.Suite) (*settings, error) {
@@ -73,7 +81,14 @@ func parseConfig(c Config, projectDir string) (*settings, error) {
 	if !filepath.IsAbs(folder) {
 		folder = filepath.Join(projectDir, filepath.FromSlash(folder))
 	}
-	return &settings{folder: folder, tolerance: sc.Tolerance, update: sc.Update, platforms: sc.Platforms}, nil
+	traces, videos := c.Traces, c.Videos
+	if traces == "" {
+		traces = "never"
+	}
+	if videos == "" {
+		videos = "never"
+	}
+	return &settings{folder: folder, tolerance: sc.Tolerance, update: sc.Update, platforms: sc.Platforms, traces: traces, videos: videos}, nil
 }
 
 // platform is the OS screenshots are taken on, as the web pack names it.
@@ -90,7 +105,7 @@ func screenshotFile(folder, name string, scale float64) string {
 }
 
 // looksLike compares the app's front window, once it has settled, with its
-// screenshot.
+// screenshot, the app in front and the pointer away from it.
 func looksLike(sc *core.Scenario, app string, p Process, name string, wait time.Duration) error {
 	cfg, err := settingsFor(sc.Suite())
 	if err != nil {
@@ -100,27 +115,77 @@ func looksLike(sc *core.Scenario, app string, p Process, name string, wait time.
 		sc.Log("the %q screenshot is compared on %s only, not on %s", name, strings.Join(cfg.platforms, ", "), platform)
 		return nil
 	}
+	// In front, as a person looks at it: an app in the background draws its
+	// window as inactive (Flutter its field's line, AppKit its controls'
+	// colors), and which one is in front is chance.
+	if err := p.Front(); err != nil {
+		return err
+	}
+	// And with the pointer away, wherever the last step left it: a control
+	// under it draws itself hovered (Flutter's field, its line darker).
+	if err := p.Away(); err != nil {
+		return err
+	}
 	var (
 		shot     image.Image
 		path     string
 		last     imagediff.Result
 		expected image.Image
+		// before and after are the last two looks that differed, and
+		// change how.
+		before, after image.Image
+		change        imagediff.Result
+		// caret is a text cursor seen blinking where the app does not say
+		// it is (Flutter's on Linux): hidden in every look from then on.
+		caret image.Rectangle
 	)
+	// look is the window, its cursor hidden.
+	look := func() (image.Image, float64, error) {
+		img, scale, err := p.Window()
+		if err == nil && !caret.Empty() {
+			img = HideCaret(img, caret)
+		}
+		return img, scale, err
+	}
 	deadline := time.Now().Add(wait)
 	for {
-		a, _, err := p.Window()
+		a, _, err := look()
 		if err != nil {
 			return err
 		}
 		// Settled: as it was half a second ago (a web view draws its images
-		// as they load).
+		// as they load), but for a cursor's blink.
 		time.Sleep(500 * time.Millisecond)
-		b, scale, err := p.Window()
+		b, scale, err := look()
 		if err != nil {
 			return err
 		}
+		moved := imagediff.Compare(a, b, imagediff.Options{})
+		if r, ok := blinked(a, b); moved.Differ != 0 && ok {
+			caret = r
+			a, b = HideCaret(a, caret), HideCaret(b, caret)
+			moved = imagediff.Compare(a, b, imagediff.Options{})
+		}
+		// Taken, a look is looked at once more a blink later: a cursor that
+		// blinks slower than the looks are taken shows only then.
+		if moved.Differ == 0 && cfg.update && caret.Empty() {
+			time.Sleep(700 * time.Millisecond)
+			c, _, err := look()
+			if err != nil {
+				return err
+			}
+			if r, ok := blinked(b, c); ok {
+				caret = r
+				b = HideCaret(b, caret)
+			} else if again := imagediff.Compare(b, c, imagediff.Options{}); again.Differ != 0 {
+				a, b, moved = b, c, again
+			}
+		}
 		shot, path = b, screenshotFile(cfg.folder, name, scale)
-		if imagediff.Compare(a, b, imagediff.Options{}).Differ == 0 {
+		if moved.Differ != 0 {
+			before, after, change = a, b, moved
+		}
+		if moved.Differ == 0 {
 			if cfg.update {
 				return keep(sc, path, shot, true)
 			}
@@ -148,7 +213,12 @@ func looksLike(sc *core.Scenario, app string, p Process, name string, wait time.
 		}
 	}
 	if expected == nil {
-		return core.Failf("The %s app did not settle within %s: what it shows kept changing", app, wait)
+		if before != nil && change.Diff != nil {
+			sc.Attach("image/png", encodePNG(before), "the "+app+" app")
+			sc.Attach("image/png", encodePNG(after), "the "+app+" app half a second later")
+			sc.Attach("image/png", encodePNG(change.Diff), "what changed")
+		}
+		return core.Failf("The %s app did not settle within %s: what it shows kept changing (%d pixels in half a second)", app, wait, change.Differ)
 	}
 	sc.Attach("image/png", encodePNG(expected), "expected screenshot")
 	sc.Attach("image/png", encodePNG(shot), "the "+app+" app")
@@ -191,4 +261,94 @@ func encodePNG(img image.Image) []byte {
 	var b bytes.Buffer
 	_ = png.Encode(&b, img)
 	return b.Bytes()
+}
+
+// blinked is where a text cursor blinked between two looks at a window:
+// all that changed is a column a few pixels wide and about a line high. It
+// is a pixel wider each side and two longer each end, for the cursor's
+// smoothed edges and ends.
+func blinked(a, b image.Image) (image.Rectangle, bool) {
+	if a.Bounds() != b.Bounds() {
+		return image.Rectangle{}, false
+	}
+	var box image.Rectangle
+	ra, okA := a.(*image.RGBA)
+	rb, okB := b.(*image.RGBA)
+	bd := a.Bounds()
+	for y := bd.Min.Y; y < bd.Max.Y; y++ {
+		for x := bd.Min.X; x < bd.Max.X; x++ {
+			var same bool
+			if okA && okB {
+				same = ra.RGBAAt(x, y) == rb.RGBAAt(x, y)
+			} else {
+				same = a.At(x, y) == b.At(x, y)
+			}
+			if !same {
+				box = box.Union(image.Rect(x, y, x+1, y+1))
+				if box.Dx() > 6 {
+					return image.Rectangle{}, false
+				}
+			}
+		}
+	}
+	if box.Empty() || box.Dy() < 8 || box.Dy() > 120 || box.Dy() < 3*box.Dx() {
+		return image.Rectangle{}, false
+	}
+	return image.Rect(box.Min.X-1, box.Min.Y-2, box.Max.X+1, box.Max.Y+2), true
+}
+
+// HideCaret hides a text cursor in a screenshot, at r in its pixels: each
+// row of r takes the color most of the few pixels on either side of it
+// have, as the field looks with the cursor off: its background, whether r
+// starts at the last letter's smoothed edge or a pixel after it (a cursor's
+// place is rounded, at a display's scale). Every screenshot of the field is
+// then the same, whether its cursor was on or off.
+func HideCaret(img image.Image, r image.Rectangle) image.Image {
+	b := img.Bounds()
+	if r = r.Intersect(b); r.Empty() || r.Dx() >= b.Dx() {
+		return img
+	}
+	out := image.NewRGBA(b)
+	draw.Draw(out, b, img, b.Min, draw.Src)
+	const side = 4
+	for y := r.Min.Y; y < r.Max.Y; y++ {
+		// The right side's first: after a field's text, its background.
+		var colors []color.RGBA
+		count := map[color.RGBA]int{}
+		for x := r.Max.X; x < min(r.Max.X+side, b.Max.X); x++ {
+			colors = append(colors, out.RGBAAt(x, y))
+		}
+		for x := r.Min.X - 1; x >= max(r.Min.X-side, b.Min.X); x-- {
+			colors = append(colors, out.RGBAAt(x, y))
+		}
+		fill := colors[0]
+		for _, c := range colors {
+			if count[c]++; count[c] > count[fill] {
+				fill = c
+			}
+		}
+		for x := r.Min.X; x < r.Max.X; x++ {
+			out.SetRGBA(x, y, fill)
+		}
+	}
+	return out
+}
+
+// AwaySpot is where the pointer goes to be off a window, on the screen: a
+// little to its right, else to its left, under it or above it, else at the
+// screen's right edge (a window that fills the screen), never in a corner of
+// the screen (macOS runs what its hot corners do).
+func AwaySpot(window, screen image.Rectangle) image.Point {
+	const gap = 16
+	mid := image.Pt(window.Min.X+window.Dx()/2, window.Min.Y+window.Dy()/2)
+	mid.Y = min(max(mid.Y, screen.Min.Y+gap), screen.Max.Y-gap)
+	mid.X = min(max(mid.X, screen.Min.X+gap), screen.Max.X-gap)
+	for _, p := range []image.Point{
+		{window.Max.X + gap, mid.Y}, {window.Min.X - gap, mid.Y}, {mid.X, window.Max.Y + gap}, {mid.X, window.Min.Y - gap},
+	} {
+		if p.In(screen.Inset(gap / 2)) {
+			return p
+		}
+	}
+	return image.Pt(screen.Max.X-2, screen.Min.Y+screen.Dy()/2)
 }

@@ -1,0 +1,123 @@
+# yaml-language-server: $schema=https://axx.nimbusxr.us/schemas/v0/axx.schema.json
+version: 1
+
+# The depot desk's acceptance tests: one feature, run against each build of the desk on the OS
+# it is built for. Pick the build with its profile, like `axx run --profile macos-appkit`.
+run:
+  paths: [features]
+
+properties:
+  # The build's app, and what it starts with; set by each build's profile.
+  desk.app: ""
+  desk.args: ""
+  # Where the build keeps its data: an app's ./ is where its OS keeps app data.
+  desk.data: ""
+  # The keys under HKEY_CURRENT_USER a Windows build keeps its settings in, and the preferences
+  # domains a macOS build keeps them in beyond its bundle identifier's (Qt's QSettings names its own).
+  desk.registry: ""
+  desk.preferences: ""
+  # The Reference field's name: Flutter on macOS gives it none, so it is found by its role.
+  desk.reference: Reference
+  # Where each build's screenshots are kept: the wayland profile keeps Wayland's apart.
+  desk.screens: screenshots
+  # The Python with PyQt (the qt builds) and the Java (swing): -D python=… to use others.
+  python: python3
+  java: java
+
+profiles:
+  # macOS
+  macos-appkit:
+    properties: {desk.app: ../appkit/build/Depot desk.app, desk.data: ./Depot desk}
+    packs: {desktop-core: {screenshots: {folder: "${sys:desk.screens}/appkit"}}}
+  macos-swiftui:
+    properties: {desk.app: ../swiftui/build/Depot desk.app, desk.data: ./Depot desk}
+    packs: {desktop-core: {screenshots: {folder: "${sys:desk.screens}/swiftui"}}}
+  macos-qt6:
+    properties: {desk.app: "${sys:python}", desk.args: ../qt/desk.py, desk.data: ./Parcels/Depot desk, desk.preferences: com.parcels-example.Depot desk}
+    packs: {desktop-core: {screenshots: {folder: "${sys:desk.screens}/qt6"}}}
+  macos-qt5:
+    properties: {desk.app: "${sys:python}", desk.args: ../qt/desk.py --qt5, desk.data: ./Parcels/Depot desk, desk.preferences: com.parcels-example.Depot desk}
+    packs: {desktop-core: {screenshots: {folder: "${sys:desk.screens}/qt5"}}}
+  macos-swing:
+    properties: {desk.app: "${sys:java}", desk.args: -jar ../swing/build/depot-desk.jar, desk.data: ~/.depot-desk}
+    packs: {desktop-core: {screenshots: {folder: "${sys:desk.screens}/swing"}}}
+  macos-electron:
+    properties: {desk.app: ../electron/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron, desk.args: ../electron, desk.data: ./Depot desk}
+    packs: {desktop-core: {screenshots: {folder: "${sys:desk.screens}/electron"}}}
+  macos-tauri:
+    properties: {desk.app: ../tauri/src-tauri/target/release/depot-desk, desk.data: ./example.parcels.depotdesk.tauri}
+    packs: {desktop-core: {screenshots: {folder: "${sys:desk.screens}/tauri"}}}
+  macos-flutter:
+    # Flutter says every control of its own is enabled, and names no text field.
+    run: {tags: not @enabled-state}
+    properties: {desk.app: ../flutter/build/macos/Build/Products/Release/Depot desk.app, desk.data: ./example.parcels.depotDesk, desk.reference: xpath=//AXTextField}
+    packs: {desktop-core: {screenshots: {folder: "${sys:desk.screens}/flutter"}}}
+
+  # Windows
+  windows-winforms:
+    properties: {desk.app: ../winforms/bin/Release/net8.0-windows/DepotDesk.exe, desk.data: ./Parcels/Depot desk, desk.registry: Software\Parcels\Depot desk}
+    packs: {desktop-core: {screenshots: {folder: "${sys:desk.screens}/winforms"}}}
+  windows-wpf:
+    properties: {desk.app: ../wpf/bin/Release/net8.0-windows/DepotDesk.exe, desk.data: ./Parcels/Depot desk}
+    packs: {desktop-core: {screenshots: {folder: "${sys:desk.screens}/wpf"}}}
+  windows-winui:
+    properties: {desk.app: ../winui/bin/x64/Release/net8.0-windows10.0.19041.0/DepotDesk.exe, desk.data: ./Parcels/Depot desk, desk.registry: Software\Parcels\Depot desk}
+    packs: {desktop-core: {screenshots: {folder: "${sys:desk.screens}/winui"}}}
+  windows-qt6:
+    properties: {desk.app: "${sys:python}", desk.args: ../qt/desk.py, desk.data: ./Parcels/Depot desk, desk.registry: Software\Parcels\Depot desk}
+    packs: {desktop-core: {screenshots: {folder: "${sys:desk.screens}/qt6"}}}
+  windows-qt5:
+    properties: {desk.app: "${sys:python}", desk.args: ../qt/desk.py --qt5, desk.data: ./Parcels/Depot desk, desk.registry: Software\Parcels\Depot desk}
+    packs: {desktop-core: {screenshots: {folder: "${sys:desk.screens}/qt5"}}}
+  windows-electron:
+    properties: {desk.app: ../electron/node_modules/electron/dist/electron.exe, desk.args: ../electron, desk.data: ./Depot desk}
+    packs: {desktop-core: {screenshots: {folder: "${sys:desk.screens}/electron"}}}
+  windows-tauri:
+    properties: {desk.app: ../tauri/src-tauri/target/release/depot-desk.exe, desk.data: ./example.parcels.depotdesk.tauri}
+    packs: {desktop-core: {screenshots: {folder: "${sys:desk.screens}/tauri"}}}
+  windows-flutter:
+    # Flutter serves Windows MSAA only: it says every control is enabled.
+    run: {tags: not @enabled-state and not @menu-state}
+    properties: {desk.app: ../flutter/build/windows/x64/runner/Release/depot_desk.exe, desk.data: ./example.parcels/depot_desk}
+    packs: {desktop-core: {screenshots: {folder: "${sys:desk.screens}/flutter"}}}
+  windows-swing:
+    properties: {desk.app: "${sys:java}", desk.args: -jar ../swing/build/depot-desk.jar, desk.data: ~/.depot-desk}
+    packs: {desktop-core: {screenshots: {folder: "${sys:desk.screens}/swing"}}}
+
+  # Linux
+  linux-gtk3:
+    properties: {desk.app: "${sys:python}", desk.args: ../gtk3/desk.py, desk.data: ./depot-desk}
+    packs: {desktop-core: {screenshots: {folder: "${sys:desk.screens}/gtk3"}}}
+  linux-gtk4:
+    # GTK 4.14 opens a menu in a popover whose items it does not report.
+    run: {tags: not @menu-items}
+    properties: {desk.app: "${sys:python}", desk.args: ../gtk4/desk.py, desk.data: ./depot-desk}
+    packs: {desktop-core: {screenshots: {folder: "${sys:desk.screens}/gtk4"}}}
+  linux-qt6:
+    properties: {desk.app: "${sys:python}", desk.args: ../qt/desk.py, desk.data: ./Parcels/Depot desk}
+    packs: {desktop-core: {screenshots: {folder: "${sys:desk.screens}/qt6"}}}
+  linux-qt5:
+    properties: {desk.app: "${sys:python}", desk.args: ../qt/desk.py --qt5, desk.data: ./Parcels/Depot desk}
+    packs: {desktop-core: {screenshots: {folder: "${sys:desk.screens}/qt5"}}}
+  linux-swing:
+    # Java on Linux does not report what is typed into a field.
+    run: {tags: not @field-values}
+    properties: {desk.app: "${sys:java}", desk.args: -jar ../swing/build/depot-desk.jar, desk.data: ~/.depot-desk}
+    packs: {desktop-core: {screenshots: {folder: "${sys:desk.screens}/swing"}}}
+  linux-electron:
+    # Chromium on Linux builds its tree only when asked to.
+    properties: {desk.app: ../electron/node_modules/electron/dist/electron, desk.args: --no-sandbox --force-renderer-accessibility ../electron, desk.data: ~/.config/Depot desk}
+    packs: {desktop-core: {screenshots: {folder: "${sys:desk.screens}/electron"}}}
+  linux-tauri:
+    properties: {desk.app: ../tauri/src-tauri/target/release/depot-desk, desk.data: ./example.parcels.depotdesk.tauri}
+    packs: {desktop-core: {screenshots: {folder: "${sys:desk.screens}/tauri"}}}
+  linux-flutter:
+    # Flutter on Linux gives no places on the screen: no click at a place, no drag.
+    run: {tags: not @pointer-places}
+    properties: {desk.app: ../flutter/build/linux/x64/release/bundle/depot_desk, desk.data: ./example.parcels.depot_desk}
+    packs: {desktop-core: {screenshots: {folder: "${sys:desk.screens}/flutter"}}}
+
+  # Wayland: a Linux build on a GNOME desktop of its own, like `axx run --profile linux-gtk3,wayland`.
+  wayland:
+    properties: {desk.screens: screenshots/wayland}
+    packs: {desktop-linux: {display: wayland}}

@@ -40,7 +40,12 @@ func provision(ctx context.Context, c clients, n names, log *slog.Logger) error 
 		}
 	}
 	for _, b := range []string{n.Evidence, n.Letters, n.Reviews, n.Settlements} {
-		_, err := c.s3.CreateBucket(ctx, &s3.CreateBucketInput{Bucket: aws.String(b)})
+		in := &s3.CreateBucketInput{Bucket: aws.String(b)}
+		// Outside us-east-1, AWS takes the bucket's region as its location constraint.
+		if r := c.s3.Options().Region; r != "" && r != "us-east-1" {
+			in.CreateBucketConfiguration = &s3types.CreateBucketConfiguration{LocationConstraint: s3types.BucketLocationConstraint(r)}
+		}
+		_, err := c.s3.CreateBucket(ctx, in)
 		var owned *s3types.BucketAlreadyOwnedByYou
 		if err != nil && !errors.As(err, &owned) {
 			return fmt.Errorf("bucket %s: %w", b, err)

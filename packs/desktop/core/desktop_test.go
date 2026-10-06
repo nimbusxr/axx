@@ -1,12 +1,17 @@
 package desktopcore
 
 import (
+	"bytes"
 	"image"
 	"image/color"
+	"image/draw"
+	"image/png"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/nimbusxr/axx/core"
 	"github.com/nimbusxr/axx/internal/cloudstep/cloudtest"
@@ -18,6 +23,8 @@ import (
 type fakeDriver struct {
 	claims, releases, resets, starts int
 	proc                             *fakeProc
+	// wrap is what runs the proc, when not the proc itself.
+	wrap Process
 }
 
 func (d *fakeDriver) Platform() string { return appcore.Host() }
@@ -42,6 +49,9 @@ func (k *fakeDesk) Reset(*core.Scenario, *App) error {
 func (k *fakeDesk) Start(*core.Scenario, *App) (Process, error) {
 	k.d.starts++
 	k.d.proc.stopped = false
+	if k.d.wrap != nil {
+		return k.d.wrap, nil
+	}
 	return k.d.proc, nil
 }
 func (k *fakeDesk) Release() { k.d.releases++ }
@@ -56,6 +66,9 @@ type fakeProc struct {
 	stopped bool
 	// keepsNot is how many fills the field ignores.
 	keepsNot int
+	// changing is whether its window differs at each look (looks).
+	changing bool
+	looks    atomic.Int32
 }
 
 type fakeControl struct {
@@ -108,6 +121,7 @@ func (p *fakeProc) Shows(text string) (bool, error) {
 }
 func (p *fakeProc) Texts() []string { return p.texts }
 func (p *fakeProc) Front() error    { return nil }
+func (p *fakeProc) Away() error     { return nil }
 func (p *fakeProc) ScrollTo(k appcore.Kind, name string) (Control, error) {
 	found, _ := p.Find(k, name, true)
 	if len(found) == 0 {
@@ -153,6 +167,10 @@ func (p *fakeProc) Type(text string) error {
 func (p *fakeProc) Window() (image.Image, float64, error) {
 	img := image.NewRGBA(image.Rect(0, 0, 4, 4))
 	img.Set(1, 1, color.RGBA{R: 200, A: 255})
+	if p.changing { // as an app that animates: each look differs
+		p.looks.Add(1)
+		img.Set(0, 0, color.RGBA{G: uint8(p.looks.Load()), A: 255})
+	}
 	return img, 2, nil
 }
 func (p *fakeProc) Tree() (*Node, error) { return p.tree, nil }
@@ -358,6 +376,270 @@ func TestScreenshots(t *testing.T) {
 	h.OK(`the depot app looks like the "arrivals" screenshot`)
 	if got := screenshotFile("/s", "arrivals", 1.75); got != filepath.Join("/s", "arrivals."+platform+"@1.75x.png") {
 		t.Errorf("a display's scale names its screenshots: %s", got)
+	}
+}
+
+// TestHideCaret hides a field's cursor: the field looks the same with its
+// cursor on and off, its text left as it is.
+func TestBlinked(t *testing.T) {
+	field := func(on bool, mark image.Point) *image.RGBA {
+		img := image.NewRGBA(image.Rect(0, 0, 60, 40))
+		draw.Draw(img, img.Bounds(), image.White, image.Point{}, draw.Src)
+		for y := 10; y < 28; y++ {
+			if on {
+				img.Set(20, y, color.Black)
+				img.Set(21, y, color.Gray{0x80})
+			}
+		}
+		img.Set(mark.X, mark.Y, color.Black)
+		return img
+	}
+	r, ok := blinked(field(true, image.Pt(50, 5)), field(false, image.Pt(50, 5)))
+	if want := image.Rect(19, 8, 23, 30); !ok || r != want {
+		t.Errorf("a cursor that blinked: %v, %v; want %v", r, ok, want)
+	}
+	if hidden := HideCaret(field(true, image.Pt(50, 5)), r); !samePixels(hidden, HideCaret(field(false, image.Pt(50, 5)), r)) {
+		t.Error("hidden where it blinked, the cursor still shows")
+	}
+	if _, ok := blinked(field(true, image.Pt(50, 5)), field(false, image.Pt(40, 5))); ok {
+		t.Error("a cursor's blink and another change: taken for a blink")
+	}
+	if _, ok := blinked(field(false, image.Pt(50, 5)), field(false, image.Pt(40, 5))); ok {
+		t.Error("a dot that moved: taken for a blink")
+	}
+}
+
+func TestHideCaret(t *testing.T) {
+	field := func(on bool) *image.RGBA {
+		img := image.NewRGBA(image.Rect(0, 0, 40, 20))
+		for y := range 20 {
+			for x := range 40 {
+				img.Set(x, y, color.White)
+			}
+		}
+		for y := 4; y < 16; y++ {
+			img.Set(30, y, color.Black) // a letter's stroke, after the cursor
+			if on {
+				img.Set(20, y, color.Black)
+				img.Set(21, y, color.Gray{0x80}) // its anti-aliasing
+			}
+		}
+		return img
+	}
+	at := image.Rect(18, 2, 24, 18)
+	on, off := HideCaret(field(true), at), HideCaret(field(false), at)
+	if !samePixels(on, off) {
+		t.Error("the field with its cursor on does not look as it does with it off")
+	}
+	if !samePixels(off, field(false)) {
+		t.Error("hiding a cursor that is off changed the field")
+	}
+	if c := color.GrayModel.Convert(on.At(30, 8)).(color.Gray); c.Y != 0 {
+		t.Errorf("the text after the cursor was changed: %v", c)
+	}
+	// Its place rounded a pixel either way, after a letter's smoothed edge:
+	// the same screenshot.
+	letter := func(caretAt int) *image.RGBA {
+		img := field(false)
+		for y := 4; y < 16; y++ {
+			img.Set(16, y, color.Black)
+			img.Set(17, y, color.Gray{0x80})
+			img.Set(caretAt, y, color.Black)
+		}
+		return img
+	}
+	if !samePixels(HideCaret(letter(20), image.Rect(18, 2, 24, 18)), HideCaret(letter(20), image.Rect(19, 2, 25, 18))) {
+		t.Error("a cursor hidden from a pixel later looks different")
+	}
+	edge := HideCaret(field(true), image.Rect(0, 0, 3, 20))
+	if c := color.GrayModel.Convert(edge.At(1, 1)).(color.Gray); c.Y != 0xff {
+		t.Errorf("at the screenshot's edge, the cursor takes the color to its right: %v", c)
+	}
+	if got := HideCaret(field(true), image.Rect(50, 0, 60, 20)); !samePixels(got, field(true)) {
+		t.Error("a cursor outside the screenshot changed it")
+	}
+}
+
+// TestAwaySpot puts the pointer beside the window, on the screen, and at the
+// screen's edge when the window fills it.
+func TestAwaySpot(t *testing.T) {
+	screen := image.Rect(0, 39, 2056, 1329)
+	for _, c := range []struct {
+		window image.Rectangle
+		want   image.Point
+	}{
+		{image.Rect(708, 209, 1348, 821), image.Pt(1364, 515)},  // to its right
+		{image.Rect(1500, 209, 2056, 821), image.Pt(1484, 515)}, // to its left
+		{image.Rect(0, 39, 2056, 700), image.Pt(1028, 716)},     // under it
+		{image.Rect(0, 39, 2056, 1329), image.Pt(2054, 684)},    // it fills the screen
+	} {
+		if got := AwaySpot(c.window, screen); got != c.want {
+			t.Errorf("AwaySpot(%v) = %v, want %v", c.window, got, c.want)
+		}
+	}
+}
+
+func samePixels(a, b image.Image) bool {
+	if a.Bounds() != b.Bounds() {
+		return false
+	}
+	for y := a.Bounds().Min.Y; y < a.Bounds().Max.Y; y++ {
+		for x := a.Bounds().Min.X; x < a.Bounds().Max.X; x++ {
+			if color.RGBAModel.Convert(a.At(x, y)) != color.RGBAModel.Convert(b.At(x, y)) {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+// TestRecordings keeps a trace of the app (its window after each step) and
+// a video of its window, as the settings say, and attaches them.
+func TestRecordings(t *testing.T) {
+	p, _, _ := desk()
+	p.changing = true
+	d := &fakeDriver{proc: p}
+	h := cloudtest.NewWith(t, map[string]any{"desktop-core": map[string]any{"traces": "always", "videos": "always"}}, appcore.Pack(), Pack(), files.Pack())
+	h.Start(&core.Plan{})
+	if err := Register(h.SC, &App{Name: "depot", App: "depot", Driver: d, Dir: h.Dir}); err != nil {
+		t.Fatal(err)
+	}
+	h.OK("the depot app is launched")
+	time.Sleep(3 * frameEvery)
+	h.OK(`the "Register" button is shown in the depot app`)
+	if err := h.End("passed"); err != nil {
+		t.Fatal(err)
+	}
+	traces, _ := filepath.Glob(filepath.Join(h.Dir, ".axx", "desktop", "traces", "*-depot-*.html"))
+	videos, _ := filepath.Glob(filepath.Join(h.Dir, ".axx", "desktop", "videos", "*-depot-*.png"))
+	if len(traces) != 1 || len(videos) != 1 {
+		t.Fatalf("traces %v, videos %v", traces, videos)
+	}
+	page, _ := os.ReadFile(traces[0])
+	for _, want := range []string{"the depot app is launched", `the &#34;Register&#34; button is shown in the depot app`, "data:image/png;base64,"} {
+		if !strings.Contains(string(page), want) {
+			t.Errorf("the trace lacks %q", want)
+		}
+	}
+	movie, _ := os.ReadFile(videos[0])
+	first, err := png.Decode(bytes.NewReader(movie))
+	if err != nil {
+		t.Fatalf("the video is not a PNG: %v", err)
+	}
+	if first.Bounds().Dx() != 2 || !bytes.Contains(movie, []byte("acTL")) || bytes.Count(movie, []byte("fdAT")) < 1 {
+		t.Errorf("the video is %v, not an animated PNG of the window at a scale of 1 (%d frames)", first.Bounds(), bytes.Count(movie, []byte("fcTL")))
+	}
+	var names []string
+	for _, a := range h.Sink.Attachments {
+		names = append(names, a.Name)
+	}
+	if got := strings.Join(names, ", "); got != "the depot app's video, the depot app's trace" {
+		t.Errorf("attachments: %s", got)
+	}
+}
+
+// A scenario that passes keeps none by default: traces are kept for the
+// scenarios that fail, and videos for none.
+func TestRecordingsByDefault(t *testing.T) {
+	p, _, _ := desk()
+	h := harness(t, &fakeDriver{proc: p})
+	h.OK("the depot app is launched")
+	if err := h.End("passed"); err != nil {
+		t.Fatal(err)
+	}
+	kept := func(kind string) []string {
+		files, _ := filepath.Glob(filepath.Join(h.Dir, ".axx", "desktop", kind, "*"))
+		return files
+	}
+	if kept := append(kept("traces"), kept("videos")...); len(kept) > 0 {
+		t.Errorf("a passing scenario kept %v", kept)
+	}
+	p, _, _ = desk()
+	h = harness(t, &fakeDriver{proc: p})
+	h.OK("the depot app is launched")
+	if err := h.End("failed"); err != nil {
+		t.Fatal(err)
+	}
+	// Traces and videos are asked for: they slow every step.
+	if kept := append(kept("traces"), kept("videos")...); len(kept) > 0 {
+		t.Errorf("a failed scenario kept %v, asked for nothing", kept)
+	}
+}
+
+// snapProc snapshots its window slowly, as screencapture does, and tells
+// whether it was used while a snapshot was being taken.
+type snapProc struct {
+	*fakeProc
+	inFlight, usedMeanwhile atomic.Int32
+}
+
+func (p *snapProc) Snapshot() ([]byte, float64, error) {
+	p.inFlight.Add(1)
+	defer p.inFlight.Add(-1)
+	time.Sleep(300 * time.Millisecond)
+	var b bytes.Buffer
+	_ = png.Encode(&b, image.NewRGBA(image.Rect(0, 0, 4, 4)))
+	return b.Bytes(), 2, nil
+}
+
+func (p *snapProc) Click(c Control) error {
+	if p.inFlight.Load() > 0 {
+		p.usedMeanwhile.Add(1)
+	}
+	return p.fakeProc.Click(c)
+}
+
+func (p *snapProc) Type(text string) error {
+	if p.inFlight.Load() > 0 {
+		p.usedMeanwhile.Add(1)
+	}
+	return p.fakeProc.Type(text)
+}
+
+// A trace's capture is taken while the next step looks at the app, and the
+// app is used only once it is done: it shows the window as the step before
+// left it.
+func TestTraceSnapshotsAreTakenWhileTheNextStepLooks(t *testing.T) {
+	p, _, _ := desk()
+	sp := &snapProc{fakeProc: p}
+	h := cloudtest.NewWith(t, map[string]any{"desktop-core": map[string]any{"traces": "always"}}, appcore.Pack(), Pack(), files.Pack())
+	h.Start(&core.Plan{})
+	if err := Register(h.SC, &App{Name: "depot", App: "depot", Driver: &fakeDriver{proc: p, wrap: sp}, Dir: h.Dir}); err != nil {
+		t.Fatal(err)
+	}
+	h.OK("the depot app is launched")
+	start := time.Now()
+	h.OK(`the depot app shows "No parcels registered yet"`)
+	if looked := time.Since(start); looked >= 300*time.Millisecond {
+		t.Errorf("a look waited %s for the capture", looked)
+	}
+	h.OK(`the "Reference" field in the depot app is filled with "PX-DSK-4201"`)
+	if err := h.End("passed"); err != nil {
+		t.Fatal(err)
+	}
+	if n := sp.usedMeanwhile.Load(); n > 0 {
+		t.Errorf("the app was used %d times while a capture was taken", n)
+	}
+	traces, _ := filepath.Glob(filepath.Join(h.Dir, ".axx", "desktop", "traces", "*-depot-*.html"))
+	if len(traces) != 1 {
+		t.Fatalf("traces %v", traces)
+	}
+	page, _ := os.ReadFile(traces[0])
+	if n := strings.Count(string(page), "data:image/png;base64,"); n != 3 {
+		t.Errorf("the trace has %d captures, not one for each of 3 steps", n)
+	}
+}
+
+func TestTracePageShowsSnapshotsAtTheirScale(t *testing.T) {
+	var shot bytes.Buffer
+	_ = png.Encode(&shot, image.NewRGBA(image.Rect(0, 0, 1280, 1160)))
+	page := string(traceHTML(&core.Scenario{Name: "A clerk registers a parcel"}, "depot",
+		[]traceStep{{keyword: "When", text: "the depot app is launched", png: shot.Bytes(), scale: 2}}, false, ""))
+	if !strings.Contains(page, `width="640" height="580"`) {
+		t.Errorf("a 2x snapshot is not shown at its points' size: %.300s", page)
+	}
+	if w, h, ok := pngSize(shot.Bytes()); !ok || w != 1280 || h != 1160 {
+		t.Errorf("pngSize: %d, %d, %v", w, h, ok)
 	}
 }
 
