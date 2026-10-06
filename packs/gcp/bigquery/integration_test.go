@@ -15,7 +15,12 @@ import (
 )
 
 func TestRows(t *testing.T) {
-	addr := cloudtest.Emulator(t, "floci/floci-gcp:latest", "4588", "/health", nil)
+	// floci runs BigQuery's SQL in its SQL engine (floci-duck), which reads the
+	// tables' rows back from it.
+	addr := cloudtest.EmulatorWithSidecar(t, "floci/floci-gcp:latest", "4588", "/health", map[string]string{
+		"FLOCI_GCP_SERVICES_BIGQUERY_DUCK_URL":          "http://bigquery-sql:3000",
+		"FLOCI_GCP_SERVICES_BIGQUERY_DUCK_CALLBACK_URL": "http://emulator:4588",
+	}, "floci/floci-duck:latest", "bigquery-sql", "3000")
 	h := cloudtest.New(t, gcpcore.Pack(), Pack())
 	h.OK("the billing gcp project with the following properties:", [][]string{
 		{"project", "parcels-dev"}, {"endpoint", "http://" + addr},
