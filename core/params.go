@@ -75,10 +75,12 @@ func (paramsPack) Manifest() Manifest {
 				Transform: unquoted,
 			},
 			{
-				Name:      "path",
-				Regexps:   []string{`([^\s"]+)`, `"([^"]+)"`},
-				Doc:       "a path in a folder or a store, like `manifests/M-1/report.csv`, quoted when it has a space",
-				Examples:  []string{"manifests/M-KESTREL-0412/report.csv", `"Parcels/Depot desk/arrivals.json"`},
+				Name:    "path",
+				Regexps: []string{`([^\s"]+)`, `"([^"]+)"`},
+				Doc: "a path in a folder or a store, like `manifests/M-1/report.csv`, quoted when it has a space. " +
+					"A `*` stands for any characters but a slash, for a name a check cannot know (`snap-*.json`, named by the time): " +
+					"the path then names the one file it matches",
+				Examples:  []string{"manifests/M-KESTREL-0412/report.csv", `"Parcels/Depot desk/arrivals.json"`, "snap-*.json"},
 				Transform: unquoted,
 			},
 			{

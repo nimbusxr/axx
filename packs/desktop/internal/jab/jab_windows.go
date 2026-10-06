@@ -47,7 +47,7 @@ type Client struct {
 	run, isJavaWindow, contextFromHWND, contextInfo, childFromContext *syscall.Proc
 	doActions, setText, release                                       *syscall.Proc
 	parent, textInfo, textRange, contextAt, actions, sameObject       *syscall.Proc
-	visibleCount, visible                                             *syscall.Proc
+	visibleCount, visible, withFocus, caretAt                         *syscall.Proc
 	peek, translate, dispatch                                         *syscall.Proc
 }
 
@@ -71,6 +71,7 @@ func New(dll string) (*Client, error) {
 		"getAccessibleParentFromContext": &c.parent, "getAccessibleTextInfo": &c.textInfo,
 		"getAccessibleTextRange": &c.textRange, "getAccessibleContextAt": &c.contextAt, "getAccessibleActions": &c.actions,
 		"isSameObject": &c.sameObject, "getVisibleChildrenCount": &c.visibleCount, "getVisibleChildren": &c.visible,
+		"getAccessibleContextWithFocus": &c.withFocus, "getCaretLocation": &c.caretAt,
 	} {
 		if *p, err = d.FindProc(name); err != nil {
 			return nil, fmt.Errorf("the Java Access Bridge has no %s: %w", name, err)
@@ -263,6 +264,30 @@ func (e *Element) Text() string {
 		return ""
 	}
 	return syscall.UTF16ToString(buf)
+}
+
+// Caret is where the text cursor of the Java window hwnd's focused element
+// is on the screen, in Java's points, a line high and no width, and the
+// element, when it has one.
+func (c *Client) Caret(hwnd uintptr) (x, y, height int, field *Element, ok bool) {
+	var vm int32
+	var ac int64
+	if r, _, _ := c.withFocus.Call(hwnd, uintptr(unsafe.Pointer(&vm)), uintptr(unsafe.Pointer(&ac))); r == 0 || ac == 0 {
+		return 0, 0, 0, nil, false
+	}
+	f := &Element{c: c, vmID: vm, ac: ac}
+	var info textInfo
+	if f.refresh() != nil {
+		return 0, 0, 0, nil, false
+	}
+	if r, _, _ := c.textInfo.Call(uintptr(vm), uintptr(ac), uintptr(unsafe.Pointer(&info)), 0, 0); r == 0 || info.CaretIndex < 0 {
+		return 0, 0, 0, nil, false
+	}
+	var at struct{ X, Y, Width, Height int32 } // AccessibleTextRectInfo
+	if r, _, _ := c.caretAt.Call(uintptr(vm), uintptr(ac), uintptr(unsafe.Pointer(&at)), uintptr(info.CaretIndex)); r == 0 || at.Height <= 0 {
+		return 0, 0, 0, nil, false
+	}
+	return int(at.X), int(at.Y), int(at.Height), f, true
 }
 
 // At is the element under e at a point on the screen (in Java's points).

@@ -18,9 +18,11 @@ func Pack() core.Pack { return pack{} }
 
 type pack struct{}
 
-const packDoc = `Linux apps, through AT-SPI, the accessibility tree Orca reads: native apps (GTK 3, GTK 4), web views (WebKitGTK: Tauri, Wails), Electron, Qt, Java and Flutter, as they ship, under X11.
+const packDoc = `Linux apps, through AT-SPI, the accessibility tree Orca reads: native apps (GTK 3, GTK 4), web views (WebKitGTK: Tauri, Wails), Electron, Qt, Java and Flutter, as they ship, under X11 or Wayland.
 
 **axx runs desktops of its own**, ` + "`desktops`" + ` at once (1 by default): each a virtual screen (Xvfb), with its own session bus and accessibility bus for each scenario, and its own view of the file system, in which an app's home is at the same path in every desktop. Nothing shows on your screen, and a feature never names a desktop: a scenario takes one, as a mobile scenario takes a device. It needs Xvfb, dbus-daemon and at-spi2-core (` + "`axx doctor`" + ` checks them); more than one desktop needs user and mount namespaces, which a host that forbids them does not give, and then desktop scenarios run one at a time.
+
+**On Wayland** (` + "`display: wayland`" + `), each scenario's desktop is a headless GNOME Shell of its own, the desktop most Linux users run, on the scenario's session bus. Apps start in its GNOME session and pick Wayland or X11 as they do on a GNOME desktop: GTK, Qt 6 and Electron Wayland, Java and Qt 5 its Xwayland (Debian's and Ubuntu's Qt 5 is read on X11 only: with qtwayland5 installed, its registration's ` + "`env.QT_QPA_PLATFORM`" + ` is ` + "`xcb`" + `). The desktop portals answer them as GNOME's do. GNOME Shell's remote desktop takes the pointer's and the keyboard's events, and an extension of axx's, run from the session's folder (nothing is installed), puts each window's frame at the screen's corner, shows no top bar, overview or notification, and takes screenshots. It needs gnome-shell and pipewire (and xwayland, for X11 apps), and a system bus: on a machine with systemd, its logind; in a container without logind, no /run/systemd/seats.
 
 **Each scenario has a desktop, and a clean app.** Before the app starts, its home is emptied, and it starts with ` + "`HOME`" + ` and the XDG folders in it; the scenario's session bus runs with them too, so the app's settings (dconf), keyring and portals start empty. axx switches on what toolkits need to be read: the assistive technology announcement, the accessibility bus's address on the screen (Qt 5), and java-atk-wrapper for Java apps where it is installed. Chromium (Electron, CEF) builds its tree from the environment, but leaves out what shows: an Electron app's registration starts it with ` + "`--force-renderer-accessibility`" + ` in its ` + "`args`" + `. An app's ` + "`./`" + ` files are its home's ` + "`.local/share`" + `.`
 
@@ -28,13 +30,15 @@ const configSchema = `{
   "type": "object",
   "additionalProperties": false,
   "properties": {
-    "desktops": {"type": "integer", "minimum": 1, "maximum": 32, "description": "How many Linux desktops run at once: desktop scenarios beyond them wait for one (default 1). More than one needs user and mount namespaces."}
+    "desktops": {"type": "integer", "minimum": 1, "maximum": 32, "description": "How many Linux desktops run at once: desktop scenarios beyond them wait for one (default 1). More than one needs user and mount namespaces."},
+    "display": {"type": "string", "enum": ["x11", "wayland"], "description": "What axx's desktops run: x11, a virtual screen (Xvfb); or wayland, a headless GNOME Shell for each scenario (default x11)."}
   }
 }`
 
 // Config is the pack's settings, packs.desktop-linux in axx.yaml.
 type Config struct {
-	Desktops int `json:"desktops"`
+	Desktops int    `json:"desktops"`
+	Display  string `json:"display"`
 }
 
 func (pack) Manifest() core.Manifest {

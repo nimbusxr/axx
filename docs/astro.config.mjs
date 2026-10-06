@@ -213,6 +213,7 @@ export default defineConfig({
 						{ label: 'Test', items: ['guides/send-rest-requests', 'guides/validate-openapi', 'guides/mock-dependencies', 'guides/webhooks-and-tokens', 'guides/test-grpc', 'guides/test-jsonrpc', 'guides/test-graphql', 'guides/test-ai-features', 'guides/test-mcp', 'guides/test-a2a', 'guides/seed-and-query-sql', 'guides/seed-mongodb', 'guides/test-redis', 'guides/test-kafka-avro', 'guides/test-message-brokers', 'guides/test-websockets', 'guides/test-event-streams', 'guides/validate-asyncapi', 'guides/check-logs', 'guides/check-files', 'guides/check-emails', 'guides/run-commands', 'guides/test-cloud-services', 'guides/use-packs', 'guides/write-custom-steps'] },
 						{ label: 'Web apps', items: ['guides/test-web-apps', 'guides/web-pages', 'guides/web-checks', 'guides/web-sign-in', 'guides/web-screenshots', 'guides/web-accessibility', 'guides/web-network', 'guides/web-lighthouse', 'guides/web-coverage', 'guides/watch-web-browsers'] },
 						{ label: 'Mobile apps', items: ['guides/test-mobile-apps'] },
+						{ label: 'Desktop apps', items: ['guides/test-desktop-apps'] },
 						{ label: 'Test data', items: ['guides/fixture-factories', 'guides/isolate-test-data'] },
 						{ label: 'Run and diagnose', items: ['guides/parallel-runs', 'guides/tags-and-filtering', 'guides/watch-runs', 'guides/reports', 'guides/debug-failures'] },
 					],

@@ -230,6 +230,10 @@ func (t *uiaTree) matches(kind, n string, e, parent *uia.Element) bool {
 
 // search adds the controls of the kind named n under e to found: a control
 // in another that matches counts once, as the outer one.
+// uiaText is UIA_TextControlTypeId: a text, which may only show a control's
+// name.
+const uiaText = 50020
+
 func (t *uiaTree) search(e, parent *uia.Element, kind, n string, onlyShown bool, found *[]*uia.Element) {
 	if e == nil {
 		return
@@ -237,6 +241,19 @@ func (t *uiaTree) search(e, parent *uia.Element, kind, n string, onlyShown bool,
 	// Flutter's places are untrue once it has scrolled: what it has in its
 	// tree, it has built to show.
 	if t.matches(kind, n, e, parent) && (!onlyShown || t.p.flutter || shown(e)) {
+		// A text that holds a control of its name (WPF's link in its text
+		// block): the element a step names is the control.
+		if kind == "element" && e.ControlType() == uiaText {
+			var inner []*uia.Element
+			kids, _ := e.Children()
+			for _, k := range kids {
+				t.search(k, e, kind, n, onlyShown, &inner)
+			}
+			if inner = slices.DeleteFunc(inner, func(x *uia.Element) bool { return x.ControlType() == uiaText }); len(inner) > 0 {
+				*found = append(*found, inner...)
+				return
+			}
+		}
 		*found = append(*found, e)
 		return
 	}

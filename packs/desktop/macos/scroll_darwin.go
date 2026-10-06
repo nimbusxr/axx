@@ -44,14 +44,22 @@ func scrolls(e *ax.Element) bool {
 }
 
 // clipping are the areas the element is in, the innermost first. inWindow
-// is whether the element is in a window (a menu bar's items are not).
+// is whether the element is in a window (a menu bar's items are not). A
+// group the element is partly or wholly outside of is an area too: a view
+// that scrolled it away (Qt leaves its scroll areas out of the tree, their
+// content in the group that holds them).
 func clipping(e *ax.Element) (areas []*ax.Element, inWindow bool) {
+	f, placed := frameOf(e)
 	for at, ok := parentOf(e); ok; at, ok = parentOf(at) {
 		switch {
 		case scrolls(at):
 			areas = append(areas, at)
 		case at.String("AXRole") == "AXWindow":
 			return areas, true
+		case placed && at.String("AXRole") == "AXGroup":
+			if g, ok := frameOf(at); ok && !g.empty() && !g.holds(f) {
+				areas = append(areas, at)
+			}
 		}
 	}
 	return areas, false

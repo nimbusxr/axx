@@ -21,7 +21,7 @@
 | `{mockedService}` | the name of a mocked service the scenario registered |  | `addresses` | mock |
 | `{mongoService}` | the name of a MongoDB database registered in the scenario |  | `tracking-db` | mongo |
 | `{ordinal}` | a position, counting from 1; an optional ordinal left out is the first |  | `1st`, `2nd`, `3rd` | core |
-| `{path}` | a path in a folder or a store, like `manifests/M-1/report.csv`, quoted when it has a space |  | `manifests/M-KESTREL-0412/report.csv`, `"Parcels/Depot desk/arrivals.json"` | core |
+| `{path}` | a path in a folder or a store, like `manifests/M-1/report.csv`, quoted when it has a space. A `*` stands for any characters but a slash, for a name a check cannot know (`snap-*.json`, named by the time): the path then names the one file it matches |  | `manifests/M-KESTREL-0412/report.csv`, `"Parcels/Depot desk/arrivals.json"`, `snap-*.json` | core |
 | `{pattern}` | a regular expression (Java syntax) with no spaces, which matches the whole value |  | `PX-\d{4}`, `[A-Z]{2}-\d+` | core |
 | `{service}` | the name of a REST service the scenario registered |  | `parcels` | rest |
 | `{short}` | a whole number, from -32768 to 32767 |  | `1200` | cucumber |

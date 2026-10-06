@@ -184,6 +184,18 @@ func isTab(e, parent *ax.Element) bool {
 // control in another that matches counts once, as the outer one.
 func search(e, parent *ax.Element, kind, name string, onlyShown bool, found *[]*ax.Element) {
 	if (!onlyShown || shown(e)) && matches(kind, name, e, parent) {
+		// A text that holds a control of its name: the element a step
+		// names is the control.
+		if kind == "element" && e.String("AXRole") == "AXStaticText" {
+			var inner []*ax.Element
+			for _, k := range children(e) {
+				search(k, e, kind, name, onlyShown, &inner)
+			}
+			if inner = captionsOut(inner); len(inner) > 0 && inner[0].String("AXRole") != "AXStaticText" {
+				*found = append(*found, inner...)
+				return
+			}
+		}
 		*found = append(*found, e)
 		return
 	}
@@ -265,6 +277,9 @@ func parentOf(e *ax.Element) (*ax.Element, bool) {
 }
 
 func children(e *ax.Element) []*ax.Element {
+	if e == nil {
+		return nil
+	}
 	kids, _ := e.Children()
 	return kids
 }

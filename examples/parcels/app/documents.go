@@ -24,6 +24,9 @@ import (
 //	manifests/<manifest>/report.xlsx   the same report as a workbook, for the shop's staff
 //	manifests/<manifest>/summary.json  how many lines were imported and rejected
 //	manifests/<manifest>/handover.pdf  the parcels the driver collects, signed on pickup
+//	manifests/<manifest>/labels/<reference>.png
+//	                                   each imported parcel's label, for the shop's staff
+//	                                   to check before printing
 //
 // It writes them again when more lines of the manifest are processed.
 type documents struct {
@@ -140,12 +143,26 @@ func (d *documents) write(manifestID string, lines []documentLine) error {
 	if err != nil {
 		return err
 	}
-	for name, body := range map[string][]byte{
+	files := map[string][]byte{
 		"report.csv":   report,
 		"report.xlsx":  workbook,
 		"summary.json": summary,
 		"handover.pdf": handoverNote(manifestID, lines),
-	} {
+	}
+	for _, l := range lines {
+		if l.Status != "IMPORTED" || !manifestIDPattern.MatchString(l.Reference) {
+			continue
+		}
+		label, err := labelPreview(l)
+		if err != nil {
+			return err
+		}
+		files[filepath.Join("labels", l.Reference+".png")] = label
+	}
+	if err := os.MkdirAll(filepath.Join(dir, "labels"), 0o755); err != nil {
+		return err
+	}
+	for name, body := range files {
 		if err := writeFile(filepath.Join(dir, name), body); err != nil {
 			return err
 		}

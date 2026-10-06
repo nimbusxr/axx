@@ -24,6 +24,8 @@ const (
 	cfNumberFloat64  = 6          // kCFNumberFloat64Type
 	axValueCGPoint   = 1          // kAXValueCGPointType
 	axValueCGSize    = 2          // kAXValueCGSizeType
+	axValueCGRect    = 3          // kAXValueCGRectType
+	axValueCFRange   = 4          // kAXValueCFRangeType
 	axSuccess        = 0
 	axNoValue        = -25212
 	axUnsupported    = -25205
@@ -41,6 +43,7 @@ var (
 	axUIElementGetPid              func(el ref, pid *int32) int32
 	axUIElementCopyElementAtPos    func(app ref, x, y float32, el *ref) int32
 	axUIElementCopyAttributeValue  func(el, attr ref, value *ref) int32
+	axUIElementCopyParameterized   func(el, attr, param ref, value *ref) int32
 	axUIElementCopyAttributeNames  func(el ref, names *ref) int32
 	axUIElementCopyActionNames     func(el ref, names *ref) int32
 	axUIElementPerformAction       func(el, action ref) int32
@@ -86,21 +89,22 @@ func load() error {
 			return
 		}
 		for name, fn := range map[string]any{
-			"AXIsProcessTrusted":               &axIsProcessTrusted,
-			"AXUIElementCreateApplication":     &axUIElementCreateApplication,
-			"AXUIElementGetPid":                &axUIElementGetPid,
-			"AXUIElementCopyElementAtPosition": &axUIElementCopyElementAtPos,
-			"AXUIElementCopyAttributeValue":    &axUIElementCopyAttributeValue,
-			"AXUIElementCopyAttributeNames":    &axUIElementCopyAttributeNames,
-			"AXUIElementCopyActionNames":       &axUIElementCopyActionNames,
-			"AXUIElementPerformAction":         &axUIElementPerformAction,
-			"AXUIElementSetAttributeValue":     &axUIElementSetAttributeValue,
-			"AXUIElementSetMessagingTimeout":   &axUIElementSetMessagingTimeout,
-			"AXUIElementGetTypeID":             &axUIElementGetTypeID,
-			"AXValueGetTypeID":                 &axValueGetTypeID,
-			"AXValueGetType":                   &axValueGetType,
-			"AXValueGetValue":                  &axValueGetValue,
-			"AXValueCreate":                    &axValueCreate,
+			"AXIsProcessTrusted":                         &axIsProcessTrusted,
+			"AXUIElementCreateApplication":               &axUIElementCreateApplication,
+			"AXUIElementGetPid":                          &axUIElementGetPid,
+			"AXUIElementCopyElementAtPosition":           &axUIElementCopyElementAtPos,
+			"AXUIElementCopyAttributeValue":              &axUIElementCopyAttributeValue,
+			"AXUIElementCopyParameterizedAttributeValue": &axUIElementCopyParameterized,
+			"AXUIElementCopyAttributeNames":              &axUIElementCopyAttributeNames,
+			"AXUIElementCopyActionNames":                 &axUIElementCopyActionNames,
+			"AXUIElementPerformAction":                   &axUIElementPerformAction,
+			"AXUIElementSetAttributeValue":               &axUIElementSetAttributeValue,
+			"AXUIElementSetMessagingTimeout":             &axUIElementSetMessagingTimeout,
+			"AXUIElementGetTypeID":                       &axUIElementGetTypeID,
+			"AXValueGetTypeID":                           &axValueGetTypeID,
+			"AXValueGetType":                             &axValueGetType,
+			"AXValueGetValue":                            &axValueGetValue,
+			"AXValueCreate":                              &axValueCreate,
 		} {
 			purego.RegisterLibFunc(fn, as, name)
 		}
@@ -361,6 +365,62 @@ func (e *Element) setValue(name string, typ int32, value unsafe.Pointer) error {
 	return nil
 }
 
+// cfRange is a CFRange: a run of a text's characters.
+type cfRange struct{ location, length int }
+
+// rect is a CGRect.
+type rect struct {
+	origin Point
+	size   Size
+}
+
+// Caret is where the element's text cursor is on the screen, a line high,
+// when the element has one: its selection is an insertion point, not a run
+// of text.
+func (e *Element) Caret() (Point, Size, bool) {
+	v, err := e.Attribute("AXSelectedTextRange")
+	sel, ok := v.(cfRange)
+	if err != nil || !ok || sel.length != 0 {
+		return Point{}, Size{}, false
+	}
+	// The bounds of the insertion point; or of the character after it, at
+	// its left edge; or of the one before it, at its right edge.
+	for _, try := range []struct {
+		r    cfRange
+		left bool
+	}{{cfRange{sel.location, 0}, true}, {cfRange{sel.location, 1}, true}, {cfRange{sel.location - 1, 1}, false}} {
+		if try.r.location < 0 {
+			continue
+		}
+		b, ok := e.bounds(try.r)
+		if !ok || b.size.Height <= 0 {
+			continue
+		}
+		x := b.origin.X
+		if !try.left {
+			x += b.size.Width
+		}
+		return Point{X: x, Y: b.origin.Y}, Size{Height: b.size.Height}, true
+	}
+	return Point{}, Size{}, false
+}
+
+// bounds is where a run of the element's text is on the screen.
+func (e *Element) bounds(r cfRange) (rect, bool) {
+	attr, param := cfString("AXBoundsForRange"), axValueCreate(axValueCFRange, unsafe.Pointer(&r))
+	defer cfRelease(attr)
+	defer cfRelease(param)
+	var v ref
+	code := axUIElementCopyParameterized(e.ref, attr, param, &v)
+	runtime.KeepAlive(e)
+	if code != axSuccess || v == 0 {
+		return rect{}, false
+	}
+	defer cfRelease(v)
+	b, ok := decode(v).(rect)
+	return b, ok
+}
+
 // Equal is whether two elements are one: the same control of the app.
 func (e *Element) Equal(o *Element) bool {
 	return o != nil && cfEqual(e.ref, o.ref)
@@ -402,6 +462,14 @@ func decode(v ref) any {
 			var s Size
 			axValueGetValue(v, axValueCGSize, unsafe.Pointer(&s))
 			return s
+		case axValueCGRect:
+			var r rect
+			axValueGetValue(v, axValueCGRect, unsafe.Pointer(&r))
+			return r
+		case axValueCFRange:
+			var r cfRange
+			axValueGetValue(v, axValueCFRange, unsafe.Pointer(&r))
+			return r
 		}
 	}
 	return nil

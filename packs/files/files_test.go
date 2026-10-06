@@ -1,6 +1,10 @@
 package files
 
 import (
+	"bytes"
+	"image"
+	"image/color"
+	"image/png"
 	"os"
 	"path/filepath"
 	"strings"
@@ -16,11 +20,15 @@ func TestManifest(t *testing.T) {
 	var ids []string
 	for _, s := range m.Steps {
 		ids = append(ids, s.ID)
-		if s.Since != "0.1.1" {
+		want := "0.1.1"
+		if s.ID == "files.screenshot" {
+			want = "0.2.1"
+		}
+		if s.Since != want {
 			t.Errorf("%s is since %s", s.ID, s.Since)
 		}
 	}
-	if got := strings.Join(ids, " "); got != "files.folder files.has files.identical files.properties files.contains files.row" {
+	if got := strings.Join(ids, " "); got != "files.folder files.has files.identical files.properties files.contains files.row files.screenshot" {
 		t.Errorf("steps: %s", got)
 	}
 }
@@ -149,4 +157,69 @@ func TestFolderNotThereYet(t *testing.T) {
 		_ = os.WriteFile(filepath.Join(h.Dir, "exports", "report.csv"), []byte("line,status\n"), 0o644)
 	}()
 	h.OK("within 5s the exports folder has a file named report.csv")
+}
+
+// A * in a file's path stands for any characters but a slash: the path names
+// the one file it matches, like a save named by the time.
+func TestPattern(t *testing.T) {
+	h := cloudtest.New(t, Pack())
+	h.NewScenario()
+	h.File("inbox/snap-20261005-181256-123.json", `{"annotations":[{"type":"rect","color":"#007AFF"}]}`)
+	h.File("inbox/snap-20261005-181256-123.png", "png")
+	h.File("inbox/report[1].csv", "a")
+	h.OK("the inbox folder with the following properties:", [][]string{{"path", "inbox"}})
+	h.OK(`the inbox folder has a file named "snap-*.png"`)
+	h.OK(`the "snap-*.json" file in the inbox folder has the following properties:`, [][]string{{"annotations[0].type", "rect"}, {"annotations[0].color", "#007AFF"}})
+	h.OK(`the "report[1].csv" file in the inbox folder contains "a"`)
+	_ = h.Fails(`within 1s the "snap-*.txt" file in the inbox folder contains "x"`, "The inbox folder has no file named snap-*.txt")
+	h.File("inbox/snap-20261005-181301-456.png", "png")
+	_ = h.Fails(`within 1s the inbox folder has a file named "snap-*.png"`, "2 files in the inbox folder are named snap-*.png")
+	// A * does not reach into a subfolder: *.csv names report[1].csv only.
+	h.File("inbox/runs/today.csv", "b")
+	h.OK(`the "*.csv" file in the inbox folder contains "a"`)
+	h.OK(`the "runs/*.csv" file in the inbox folder contains "b"`)
+}
+
+// An image an app saved is compared with its screenshot, one for each
+// platform: the first time, the screenshot is taken.
+func TestScreenshot(t *testing.T) {
+	h := cloudtest.New(t, Pack())
+	h.NewScenario()
+	blue, red := color.RGBA{0, 122, 255, 255}, color.RGBA{255, 59, 48, 255}
+	h.File("inbox/snap-20261005-181256-123.png", pngOf(t, blue))
+	h.File("inbox/notes.txt", "Align the checkout button")
+	h.OK("the inbox folder with the following properties:", [][]string{{"path", "inbox"}})
+	step := `the "snap-*.png" file in the inbox folder looks like the "annotated" screenshot`
+	_ = h.Fails(step, `There was no "annotated.`+platform+`" screenshot to compare with, so it was taken`)
+	if _, err := os.Stat(filepath.Join(h.Dir, "screenshots", "annotated."+platform+".png")); err != nil {
+		t.Fatal(err)
+	}
+	h.OK(step)
+	h.File("inbox/snap-20261005-181256-123.png", pngOf(t, red))
+	h.Sink.Reset()
+	_ = h.Fails("within 1s "+step, "1600 pixels of 1600 differ from its \"annotated\" screenshot")
+	var names []string
+	for _, a := range h.Sink.Attachments {
+		names = append(names, a.Name)
+	}
+	if got := strings.Join(names, ", "); got != "expected screenshot, the image, difference" {
+		t.Errorf("attachments: %s", got)
+	}
+	_ = h.Fails(`within 1s the "notes.txt" file in the inbox folder looks like the "notes" screenshot`, "it is not an image axx reads")
+	_ = h.Fails(`the "notes.txt" file in the inbox folder looks like the "../notes" screenshot`, "a screenshot's name is a file name")
+}
+
+func pngOf(t *testing.T, c color.Color) string {
+	t.Helper()
+	img := image.NewRGBA(image.Rect(0, 0, 40, 40))
+	for y := range 40 {
+		for x := range 40 {
+			img.Set(x, y, c)
+		}
+	}
+	var b bytes.Buffer
+	if err := png.Encode(&b, img); err != nil {
+		t.Fatal(err)
+	}
+	return b.String()
 }

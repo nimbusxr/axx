@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"compress/zlib"
 	"encoding/json"
+	"image/png"
 	"io"
 	"os"
 	"path/filepath"
@@ -67,8 +68,21 @@ func TestManifestDocuments(t *testing.T) {
 	if strings.Contains(pdfContent(t, pdf), "PX-HER-5002") {
 		t.Error("a rejected line is not collected")
 	}
-	if entries, _ := os.ReadDir(dir); len(entries) != 4 {
-		t.Errorf("the manifest's folder has %d files", len(entries))
+	label, err := png.Decode(bytes.NewReader(read("labels/PX-HER-5001.png")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if b := label.Bounds(); b.Dx() != 400 || b.Dy() != 600 {
+		t.Errorf("the label is %v, not 4 by 6 inches at 100 dots an inch", b)
+	}
+	if r, g, b, _ := label.At(390, 50).RGBA(); r|g|b != 0 {
+		t.Error("the label's service level band is not black")
+	}
+	if _, err := os.Stat(filepath.Join(dir, "labels", "PX-HER-5002.png")); !os.IsNotExist(err) {
+		t.Error("a rejected line has a label")
+	}
+	if entries, _ := os.ReadDir(dir); len(entries) != 5 {
+		t.Errorf("the manifest's folder has %d entries", len(entries))
 	}
 }
 

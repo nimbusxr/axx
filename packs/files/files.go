@@ -22,7 +22,7 @@ const packDoc = `Check the files your services and apps write to a folder: an ex
 
 Register the folder with ` + "`the {word} folder with the following properties:`" + `. Its ` + "`path`" + ` is on this machine, relative to the directory of axx.yaml or absolute, or in the file context of its ` + "`owner`" + `: ` + "`service:parcels`" + ` for a service of axx.yaml (relative to the folder axx runs it in), ` + "`app:depot`" + ` for an app a scenario registers (` + "`./`" + ` is where the app keeps its data, ` + "`~/`" + ` its home, wherever it runs). ` + "`${env:..}`" + ` and ` + "`${sys:..}`" + ` are expanded. A check names a file by its path in the folder, such as ` + "`manifests/M-KESTREL-0412/report.csv`" + `, quoted when it has a space, and waits for it (10 seconds unless ` + "`within {duration}`" + ` says otherwise), since services write asynchronously.
 
-The checks are those of the storage packs' objects: a file's exact content, its JSON properties, its text, read by its type (PDF, Word, Excel, CSV, JSON, XML, HTML or plain text), and a row of its table (CSV, TSV or Excel).
+The checks are those of the storage packs' objects: a file's exact content, its JSON properties, its text, read by its type (PDF, Word, Excel, CSV, JSON, XML, HTML or plain text), and a row of its table (CSV, TSV or Excel). An image an app saves is compared with its screenshot, pixel by pixel, one for each platform: ` + "`packs.files.screenshots`" + ` sets their ` + "`folder`" + `, ` + "`tolerance`" + `, ` + "`update`" + ` and ` + "`platforms`" + `, as the app screenshots' settings do.
 
 A service's folder keeps what earlier runs wrote there, and axx empties no folder of yours: whether a check needs a file of its scenario's own (named after data unique to it) depends on the test. An app's files are its own in each scenario.`
 
@@ -56,11 +56,14 @@ func (pack) Manifest() core.Manifest {
 				"Given the desk folder with the following properties:\n  | owner | app:depot              |\n  | path  | \"./Parcels/Depot desk\" |",
 			},
 			Run: addFolder,
-		}}, cloudstep.Objects{
-			Pack: "files", Container: "folder", Object: "file", Example: "exports", Since: since,
-			Store: func(sc *core.Scenario) (cloudstep.ObjectStore, error) { return store{Folders(sc)}, nil },
-		}.Checks()...),
+		}}, append(objects.Checks(), screenshotStep(objects))...),
+		ConfigSchema: []byte(configSchema),
 	}
+}
+
+var objects = cloudstep.Objects{
+	Pack: "files", Container: "folder", Object: "file", Example: "exports", Since: since,
+	Store: func(sc *core.Scenario) (cloudstep.ObjectStore, error) { return store{Folders(sc)}, nil },
 }
 
 // Folder is a folder registered in a scenario.

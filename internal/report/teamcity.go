@@ -349,7 +349,7 @@ func stepOutput(sr *runner.StepResult) string {
 	}
 	for _, a := range sr.Attachments {
 		fmt.Fprintf(&b, "attachment: %s (%s, %d B)\n", attachmentName(a), a.MediaType, len(a.Body))
-		if utf8.Valid(a.Body) && !strings.HasPrefix(a.MediaType, "image/") {
+		if utf8.Valid(a.Body) && !strings.HasPrefix(a.MediaType, "image/") && !strings.HasPrefix(a.MediaType, "text/html") {
 			body := a.Body
 			const limit = 4096
 			if len(body) > limit {

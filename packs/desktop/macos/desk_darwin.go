@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 
@@ -53,14 +54,22 @@ func (d *desk) DataDir() string { return "Library/Application Support" }
 // cfprefsd, wherever the app's home is. The user's own are kept aside the
 // first time, and put back when the run ends.
 func (d *desk) Reset(sc *core.Scenario, app *desktopcore.App) error {
-	domain := bundleID(sc.Context(), app.App)
-	if domain == "" {
-		return nil
-	}
-	if err := d.kept.aside(sc.Context(), domain); err != nil {
+	domains, err := preferenceDomains(app)
+	if err != nil {
 		return err
 	}
-	return deleteDomain(sc.Context(), domain)
+	if id := bundleID(sc.Context(), app.App); id != "" && !slices.Contains(domains, id) {
+		domains = append([]string{id}, domains...)
+	}
+	for _, domain := range domains {
+		if err := d.kept.aside(sc.Context(), domain); err != nil {
+			return err
+		}
+		if err := deleteDomain(sc.Context(), domain); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (d *desk) Start(sc *core.Scenario, app *desktopcore.App) (desktopcore.Process, error) {

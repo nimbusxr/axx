@@ -13,6 +13,9 @@ import (
 
 var (
 	gdi32                  = syscall.NewLazyDLL("gdi32.dll")
+	shcore                 = syscall.NewLazyDLL("shcore.dll")
+	monitorFromWindow      = user32.NewProc("MonitorFromWindow")
+	getDpiForMonitor       = shcore.NewProc("GetDpiForMonitor")
 	getWindowRect          = user32.NewProc("GetWindowRect")
 	getDC                  = user32.NewProc("GetDC")
 	releaseDC              = user32.NewProc("ReleaseDC")
@@ -22,6 +25,7 @@ var (
 	getForegroundWindow    = user32.NewProc("GetForegroundWindow")
 	showWindow             = user32.NewProc("ShowWindow")
 	getWindowThreadProcess = user32.NewProc("GetWindowThreadProcessId")
+	sendMessage            = user32.NewProc("SendMessageW")
 	createCompatibleDC     = gdi32.NewProc("CreateCompatibleDC")
 	createDIBSection       = gdi32.NewProc("CreateDIBSection")
 	selectObject           = gdi32.NewProc("SelectObject")
@@ -79,8 +83,36 @@ func CaptureWindow(hwnd uintptr) (*image.RGBA, error) {
 	return img, nil
 }
 
-// Scale is the window's display scale: 1.75 at 175%.
+// WindowRect is the window's place on the screen, in pixels: where its
+// capture (CaptureWindow) starts.
+func WindowRect(hwnd uintptr) (Rect, bool) {
+	var r Rect
+	ok, _, _ := getWindowRect.Call(hwnd, uintptr(unsafe.Pointer(&r)))
+	return r, ok != 0
+}
+
+// CaptureScale is the scale the window draws itself at for a capture
+// (CaptureWindow): the display's, but 1 for WinUI's, which says it is at 96
+// dots an inch and draws at its own size there, at the top left of what
+// GetWindowRect gives.
+func CaptureScale(hwnd uintptr) float64 {
+	dpi, _, _ := getDpiForWindow.Call(hwnd)
+	if dpi == 0 {
+		return 1
+	}
+	return float64(dpi) / 96
+}
+
+// Scale is the scale of the display the window is on: 1.75 at 175%. It is
+// the monitor's, not what the window says (WinUI's says 96 dots an inch).
 func Scale(hwnd uintptr) float64 {
+	const nearest, effective = 2, 0 // MONITOR_DEFAULTTONEAREST, MDT_EFFECTIVE_DPI
+	if monitor, _, _ := monitorFromWindow.Call(hwnd, nearest); monitor != 0 && getDpiForMonitor.Find() == nil {
+		var x, y uint32
+		if r, _, _ := getDpiForMonitor.Call(monitor, effective, uintptr(unsafe.Pointer(&x)), uintptr(unsafe.Pointer(&y))); r == 0 && x > 0 {
+			return float64(x) / 96
+		}
+	}
 	dpi, _, _ := getDpiForWindow.Call(hwnd)
 	if dpi == 0 {
 		return 1
@@ -96,6 +128,19 @@ func Foreground(hwnd uintptr) bool {
 	_, _, _ = setForegroundWindow.Call(hwnd)
 	front, _, _ := getForegroundWindow.Call()
 	return front == hwnd
+}
+
+// HideKeyboardCues has a window draw no keyboard cues (a focus rectangle,
+// underlined access keys) until a key shows them, as a window a person opens
+// with the mouse does: Windows otherwise shows them in a new window when the
+// machine's last input was a key, whatever app had it.
+func HideKeyboardCues(hwnd uintptr) {
+	const (
+		changeUIState = 0x0127    // WM_CHANGEUISTATE
+		set           = 1         // UIS_SET
+		hide          = 0x1 | 0x2 // UISF_HIDEFOCUS | UISF_HIDEACCEL
+	)
+	_, _, _ = sendMessage.Call(hwnd, changeUIState, uintptr(hide<<16|set), 0)
 }
 
 // ForegroundProcess is the process of the window in front.

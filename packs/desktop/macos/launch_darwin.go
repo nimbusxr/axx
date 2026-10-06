@@ -97,13 +97,26 @@ func start(sc *core.Scenario, app *desktopcore.App, home string) (*proc, error) 
 		lang := cmp.Or(app.Locale, "en-US")
 		// Window restoration off; the language and region, as Cocoa reads
 		// them from its arguments.
-		args := append(app.Arguments(), "-ApplePersistenceIgnoreState", "YES",
+		// A file among the arguments is opened with the app, as Finder opens
+		// it: a Cocoa app opens the documents it is asked to, not those among
+		// its arguments.
+		var docs, args []string
+		for _, a := range app.Arguments() {
+			if !strings.HasPrefix(a, "-") && exists(a) {
+				docs = append(docs, a)
+			} else {
+				args = append(args, a)
+			}
+		}
+		args = append(args, "-ApplePersistenceIgnoreState", "YES",
 			"-AppleLanguages", "("+lang+")", "-AppleLocale", strings.ReplaceAll(lang, "-", "_"))
 		open := []string{"-n", "-g"}
 		for _, kv := range env {
 			open = append(open, "--env", kv)
 		}
-		open = append(open, "-a", b, "--args")
+		open = append(open, "-a", b)
+		open = append(open, docs...)
+		open = append(open, "--args")
 		open = append(open, args...)
 		before := pids(b)
 		if out, err := exec.CommandContext(ctx, "open", open...).CombinedOutput(); err != nil {
@@ -159,22 +172,40 @@ func (p *proc) await() error {
 		return err
 	}
 	p.root = root
+	tray := false
 	for wait := time.Now(); ; time.Sleep(200 * time.Millisecond) {
 		if ws, _ := root.Elements("AXWindows"); len(ws) > 0 {
 			p.sc.Log("the %s app's window came after %s", p.app.Name, time.Since(wait).Round(time.Millisecond))
 			break
 		}
+		// An app that lives in the menu bar's status area (a tray app) shows
+		// its item there, and no window until it is used.
+		if v, err := root.Attribute("AXExtrasMenuBar"); err == nil && len(children(asElement(v))) > 0 {
+			tray = true
+			p.sc.Log("the %s app came to the menu bar's status area after %s, with no window", p.app.Name, time.Since(wait).Round(time.Millisecond))
+			break
+		}
 		if p.exited() {
-			return fmt.Errorf("the app stopped before it showed a window")
+			return fmt.Errorf("the app stopped before it showed a window or a status item")
 		}
 		if time.Since(wait) > windowWait {
-			return fmt.Errorf("the app showed no window within %s", windowWait)
+			return fmt.Errorf("the app showed no window and no status item within %s", windowWait)
 		}
 	}
 	// What VoiceOver sets on an app as it starts reading it: Flutter builds
 	// its semantics for it. Electron builds its tree for its own attribute.
 	_ = root.SetBool("AXEnhancedUserInterface", true)
 	_ = root.SetBool("AXManualAccessibility", true)
+	if tray {
+		// No window to fit: the windows it shows later are on the main
+		// screen.
+		pos, size, err := ax.VisibleFrame(ax.Point{X: 1, Y: 1})
+		if err != nil {
+			return err
+		}
+		p.screen = area{pos.X, pos.Y, size.Width, size.Height}
+		return nil
+	}
 	return p.fit()
 }
 
@@ -298,4 +329,10 @@ func topApp() string {
 		return "the terminal or the IDE that runs axx"
 	}
 	return strings.TrimSuffix(top, ".app")
+}
+
+// asElement is an attribute's value as an element, or nil.
+func asElement(v any) *ax.Element {
+	e, _ := v.(*ax.Element)
+	return e
 }

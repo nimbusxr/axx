@@ -257,9 +257,13 @@ func fmtBytes(n int) string {
 	}
 }
 
-// isTextMedia reports whether an attachment body is human-readable text.
+// isTextMedia reports whether an attachment body is human-readable text: a
+// page (HTML, like a desktop app's trace) is for a browser.
 func isTextMedia(mediaType string) bool {
 	mt := strings.ToLower(mediaType)
+	if strings.HasPrefix(mt, "text/html") || strings.Contains(mt, "xhtml") {
+		return false
+	}
 	return strings.HasPrefix(mt, "text/") || strings.Contains(mt, "json") || strings.Contains(mt, "xml") ||
 		strings.Contains(mt, "yaml") || strings.HasSuffix(mt, "+plain")
 }

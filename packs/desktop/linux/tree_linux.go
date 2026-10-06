@@ -151,6 +151,11 @@ func (p *proc) matches(kind, n string, e, parent *atspi.Element) bool {
 	if named(e, n) {
 		return true
 	}
+	if kind == "element" && name(e) == "" && slices.Contains(e.Interfaces(), "org.a11y.atspi.Text") {
+		// One with no name of its own is named by its text, as a person reads
+		// it: WebKitGTK's table cells hold their texts, which are no elements.
+		return collapse(e.Text()) == n
+	}
 	return byText[kind] && holds(e, n)
 }
 
@@ -158,6 +163,19 @@ func (p *proc) matches(kind, n string, e, parent *atspi.Element) bool {
 // in another that matches counts once, as the outer one.
 func (p *proc) search(e, parent *atspi.Element, kind, n string, onlyShown bool, found *[]*atspi.Element) {
 	if p.matches(kind, n, e, parent) && (!onlyShown || shown(e)) {
+		// A label that holds a control of its name: the element a step
+		// names is the control.
+		if kind == "element" && e.Role() == "label" {
+			var inner []*atspi.Element
+			kids, _ := e.Children()
+			for _, k := range kids {
+				p.search(k, e, kind, n, onlyShown, &inner)
+			}
+			if inner = captionsOut(inner); len(inner) > 0 && inner[0].Role() != "label" {
+				*found = append(*found, inner...)
+				return
+			}
+		}
 		*found = append(*found, e)
 		return
 	}
@@ -270,12 +288,45 @@ var areaRoles = []string{"scroll pane", "viewport", "table", "tree table", "list
 func (p *proc) clipping(e *atspi.Element) []*atspi.Element {
 	win := p.window()
 	var areas []*atspi.Element
+	r := e.Extents()
 	for at := e.Parent(); at != nil && !at.Same(win); at = at.Parent() {
-		if slices.Contains(areaRoles, at.Role()) {
+		if slices.Contains(areaRoles, at.Role()) || clips(at.Extents(), r) && withScrollBar(at) {
 			areas = append(areas, at)
 		}
 	}
 	return append(areas, win)
+}
+
+// withScrollBar is whether an element has a scroll bar, among its children
+// or theirs: an area that scrolls, whatever its role (Qt's scroll area is a
+// filler, its bar in a filler beside its viewport). An area's bar is its
+// own, not its parent's (GTK 3's tab, which holds a scroll pane).
+func withScrollBar(e *atspi.Element) bool {
+	kids, _ := e.Children()
+	for _, k := range kids {
+		if k.Role() == "scroll bar" {
+			return true
+		}
+		if slices.Contains(areaRoles, k.Role()) {
+			continue // its bar is its own
+		}
+		grand, _ := k.Children()
+		for _, g := range grand {
+			if g.Role() == "scroll bar" {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// clips is whether an area the element is in does not hold all of it: it
+// shows part of what it holds.
+func clips(area, e atspi.Rect) bool {
+	if !placed(area) || !placed(e) {
+		return false
+	}
+	return e.X < area.X || e.Y < area.Y || e.X+e.Width > area.X+area.Width || e.Y+e.Height > area.Y+area.Height
 }
 
 // scrollIntoView brings the element into view as a person does, and fails
@@ -437,10 +488,15 @@ func (p *proc) inView(e *atspi.Element) bool {
 	// Its middle shows: in every area it is in, and in its window. A web
 	// engine's hit test knows its scroll boxes (which have no role of their
 	// own), and WebKit moves its scroll panes' places with what they scroll:
-	// in a page, the window is all that is checked here.
+	// in a page, its window and the page's view are all that is checked here
+	// (Chromium's hit test above its page, under the window's menu bar,
+	// finds what is scrolled there).
 	v := visiblePart(e, win)
 	if !from.Same(win) {
 		v = intersect(e.Extents(), win.Extents())
+		if page := from.Extents(); placed(page) {
+			v = intersect(v, page)
+		}
 	}
 	if x < int(v.X) || x >= int(v.X+v.Width) || y < int(v.Y) || y >= int(v.Y+v.Height) {
 		return false
@@ -512,6 +568,12 @@ func (p *proc) scrollTo(kind, n string) *atspi.Element {
 			if f := again(); f != nil {
 				return f
 			}
+		}
+		// The wheel over the areas it is in, toward it, as it is known
+		// (GTK 3 has a table's rows in its tree, scrolled away or not).
+		p.reveal(e)
+		if f := again(); f != nil {
+			return f
 		}
 	}
 	// Tables and lists first, then the areas that hold them.
@@ -633,8 +695,22 @@ func deepestAt(e *atspi.Element, x, y int) *atspi.Element {
 	return at
 }
 
-// clickActions are the names toolkits give the action a click takes.
-var clickActions = []string{"click", "Tap", "press", "activate", "toggle", "jump", "doDefault"}
+// clickActions are the names toolkits give the action a click takes, in
+// any case (Qt's is Press).
+var clickActions = []string{"click", "tap", "press", "activate", "toggle", "jump", "dodefault"}
+
+// clickAction is the element's action a click takes, by the name its
+// toolkit gives it, if it has one.
+func clickAction(acts []string) (string, bool) {
+	for _, a := range clickActions {
+		for _, b := range acts {
+			if strings.EqualFold(a, b) {
+				return b, true
+			}
+		}
+	}
+	return "", false
+}
 
 // activate takes the element's action that a click would: its name differs
 // by toolkit. An app that was just asked for a place it has not (Flutter's)
@@ -643,14 +719,12 @@ func activate(e *atspi.Element) error {
 	var acts []string
 	for wait := time.Now(); time.Since(wait) < 6*time.Second; time.Sleep(200 * time.Millisecond) {
 		acts = e.Actions()
-		for _, a := range clickActions {
-			if slices.Contains(acts, a) {
-				if err := e.Do(a); err != nil {
-					return err
-				}
-				time.Sleep(300 * time.Millisecond)
-				return nil
+		if a, ok := clickAction(acts); ok {
+			if err := e.Do(a); err != nil {
+				return err
 			}
+			time.Sleep(300 * time.Millisecond)
+			return nil
 		}
 	}
 	return fmt.Errorf("the %s %q has no place on the screen and no action like a click (it offers %v)", e.Role(), name(e), acts)

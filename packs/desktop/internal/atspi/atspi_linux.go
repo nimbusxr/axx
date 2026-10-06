@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"os"
 	"slices"
 	"strings"
@@ -34,11 +35,76 @@ type Client struct {
 	bus  *dbus.Conn
 	addr string
 	// inWindow are the apps (by their bus names) that know places in their
-	// windows only, not on the screen (GTK 4).
-	inWindow sync.Map
+	// windows only, not on the screen (GTK 4); onScreen those known to know
+	// them on the screen, never asked in their windows' (Qt 5's are wrong
+	// there under a window manager).
+	inWindow, onScreen sync.Map
 	// noPlaces are the apps that hang when asked for a place (Flutter's
 	// stops answering for seconds): they are not asked again.
 	noPlaces sync.Map
+	// placer says where a window's places start on the screen: on Wayland
+	// an app knows places in its windows only, counted from its frame
+	// (GTK 4), its surface with the shadow (GTK 3) or its content (Qt), and
+	// a menu's from its own window. origins keeps what it said, and tops
+	// each element's window, by bus name and path.
+	placer  Placer
+	origins sync.Map
+	tops    sync.Map
+}
+
+// Placer says where a window's places start on the screen: given the
+// window (an application's child), its process and its size as the app
+// has it.
+type Placer func(window *Element, pid int, width, height int32) (x, y int32, ok bool)
+
+// SetPlacer has the client place the windows' places on the screen with p.
+func (c *Client) SetPlacer(p Placer) { c.placer = p }
+
+// window is the element's window: the application's child it is in (an
+// application's own, its first).
+func (e *Element) window() *Element {
+	key := e.name + string(e.path)
+	if v, ok := e.c.tops.Load(key); ok {
+		return v.(*Element)
+	}
+	at := e
+	if e.Role() == "application" {
+		if kids, _ := e.Children(); len(kids) > 0 {
+			at = kids[0]
+		}
+	} else {
+		for range 64 {
+			up := at.Parent()
+			if up == nil {
+				break
+			}
+			if r := up.Role(); r == "application" || r == "desktop frame" {
+				break
+			}
+			at = up
+		}
+	}
+	e.c.tops.Store(key, at)
+	return at
+}
+
+// origin is where the element's window's places start on the screen.
+func (e *Element) origin() (x, y int32) {
+	if e.c.placer == nil {
+		return 0, 0
+	}
+	w := e.window()
+	key := w.name + string(w.path)
+	if v, ok := e.c.origins.Load(key); ok {
+		o := v.([2]int32)
+		return o[0], o[1]
+	}
+	r := w.extents()
+	x, y, ok := e.c.placer(w, e.c.pidOf(w.name), r.Width, r.Height)
+	if ok {
+		e.c.origins.Store(key, [2]int32{x, y})
+	}
+	return x, y
 }
 
 // New connects to the accessibility bus, whose address the session bus's
@@ -378,11 +444,26 @@ func (e *Element) SetText(v string) error {
 type Rect struct{ X, Y, Width, Height int32 }
 
 // Extents is the element's place on the screen. GTK 4 knows no place on the
-// screen (it gives the origin), only in its window: under axx's desktops,
-// with no window manager, a window sits at the screen's origin.
+// screen (it gives the origin), only in its window: under axx's X11
+// desktops, with no window manager, a window sits at the screen's origin;
+// on Wayland, where no app knows its place, the window's origin is added
+// (SetPlacer). What GTK 3 has not drawn has the least integer for a place,
+// which stays as it is.
 // TODO(desktop-linux): add the window's place, for a desktop that has a
 // window manager (--watch).
 func (e *Element) Extents() Rect {
+	r := e.extents()
+	if ox, oy := e.origin(); (ox != 0 || oy != 0) && r.Width > 0 && drawn(r.X, r.Y) {
+		r.X, r.Y = r.X+ox, r.Y+oy
+	}
+	return r
+}
+
+// drawn is whether a point is a place, not the least integer GTK 3 gives
+// what it has not drawn.
+func drawn(x, y int32) bool { return x > math.MinInt32/2 && y > math.MinInt32/2 }
+
+func (e *Element) extents() Rect {
 	var r Rect
 	if _, ok := e.c.noPlaces.Load(e.name); ok {
 		return r
@@ -390,6 +471,9 @@ func (e *Element) Extents() Rect {
 	if err := e.call(ifaceComponent+".GetExtents", uint32(coordsScreen)).Store(&r); errors.Is(err, context.DeadlineExceeded) {
 		e.c.noPlaces.Store(e.name, true)
 		return Rect{}
+	}
+	if _, ok := e.c.onScreen.Load(e.name); ok {
+		return r
 	}
 	if _, ok := e.c.inWindow.Load(e.name); ok || r.X == 0 && r.Y == 0 {
 		var w Rect
@@ -399,6 +483,42 @@ func (e *Element) Extents() Rect {
 		}
 	}
 	return r
+}
+
+// Caret is where the element's text cursor is on the screen, a line high
+// and no width, when it shows one: the element is a text, with no part of
+// it selected. It is at the left edge of the character after it, or the
+// right edge of the one before it, at the text's end.
+func (e *Element) Caret() (Rect, bool) {
+	if !slices.Contains(e.Interfaces(), ifaceText) {
+		return Rect{}, false
+	}
+	v, err := e.property(ifaceText, "CaretOffset")
+	at, ok := v.Value().(int32)
+	if err != nil || !ok || at < 0 {
+		return Rect{}, false
+	}
+	var selections int32
+	if e.call(ifaceText+".GetNSelections").Store(&selections) == nil && selections > 0 {
+		return Rect{}, false
+	}
+	coords := uint32(coordsScreen)
+	if _, ok := e.c.inWindow.Load(e.name); ok {
+		coords = coordsWindow
+	}
+	extents := func(i int32) (Rect, bool) {
+		var r Rect
+		err := e.call(ifaceText+".GetCharacterExtents", i, coords).Store(&r.X, &r.Y, &r.Width, &r.Height)
+		return r, err == nil && r.Height > 0
+	}
+	ox, oy := e.origin()
+	if r, ok := extents(at); ok && drawn(r.X, r.Y) {
+		return Rect{X: r.X + ox, Y: r.Y + oy, Height: r.Height}, true
+	}
+	if r, ok := extents(at - 1); ok && at > 0 && drawn(r.X, r.Y) {
+		return Rect{X: r.X + r.Width + ox, Y: r.Y + oy, Height: r.Height}, true
+	}
+	return Rect{}, false
 }
 
 // States of an element, by their AT-SPI numbers (AtspiStateType).
@@ -455,7 +575,8 @@ func (e *Element) ElementAt(x, y int) *Element {
 		Name string
 		Path dbus.ObjectPath
 	}
-	if err := e.call(ifaceComponent+".GetAccessibleAtPoint", int32(x), int32(y), coords).Store(&ref); err != nil {
+	ox, oy := e.origin()
+	if err := e.call(ifaceComponent+".GetAccessibleAtPoint", int32(x)-ox, int32(y)-oy, coords).Store(&ref); err != nil {
 		return nil
 	}
 	if ref.Name == "" || ref.Path == "/org/a11y/atspi/null" {
@@ -480,6 +601,11 @@ func (e *Element) ScrollTo() bool {
 // WithoutPlaces marks the app of the element as one never to ask for places:
 // Flutter's hangs when asked, and has none to give.
 func (e *Element) WithoutPlaces() { e.c.noPlaces.Store(e.name, true) }
+
+// WithScreenPlaces marks the app of the element as one that knows its
+// places on the screen, whatever place it gives (an element at the screen's
+// origin, or one hidden): it is never asked for them in its windows'.
+func (e *Element) WithScreenPlaces() { e.c.onScreen.Store(e.name, true) }
 
 // IsFlutter is whether the process runs Flutter's Linux embedder.
 func IsFlutter(pid int) bool {

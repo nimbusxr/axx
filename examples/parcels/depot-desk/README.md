@@ -25,6 +25,48 @@ that keeps each toolkit working.
 
 Each build's folder has its sources and its `README.md`, which says how to build and start it.
 
+## Its acceptance tests
+
+`acceptance/features/depot-desk.feature` is the clerk's day with the desk, a scenario for
+each thing the clerk does, run with axx against every build on the OS it is built for. Build
+the desk first (its folder's `README.md`), then pick the build with its profile:
+
+```sh
+cd acceptance
+axx run --profile macos-appkit        # macos-swiftui, macos-qt6, macos-electron, ...
+axx run --profile windows-winui       # windows-winforms, windows-wpf, ...
+axx run --profile linux-gtk4          # linux-gtk3, linux-qt5, linux-flutter, ...
+axx run --profile linux-gtk4,wayland  # a Linux build on Wayland, in a GNOME session of its own
+```
+
+The Qt builds run with `python3` and the Swing build with `java`: give axx others with
+`-D python=...` and `-D java=...`. Each build is drawn with its toolkit's own widgets, so where
+toolkits draw a control differently (Print label is a switch or a checkbox, Handover a tab or a
+text), the steps name it an element. What a toolkit does not report is tagged, and its
+profile leaves those scenarios out: `@enabled-state` (Flutter on macOS and Windows),
+`@menu-state` (Flutter on Windows), `@menu-items` (GTK 4.14), `@field-values` (Swing on
+Linux) and `@pointer-places` (Flutter on Linux). Each build keeps its screenshots in
+`acceptance/screenshots/<build>` (on Wayland, `acceptance/screenshots/wayland/<build>`), one for
+each platform and display scale.
+
+### On Linux, in Docker, as CI runs them
+
+`linux/` is an image with every Linux build's tools and both desktops, X11 and GNOME Shell on
+Wayland. Its `depot-desk` command builds one build from the sources mounted at `/src` and runs
+the feature against it with the `axx` mounted on its `PATH`; `/out`, when mounted, gets the
+screenshots and what the run leaves. CI runs it from the registry, the image built once for
+each version of the Dockerfile, so its screenshots are the ones kept here:
+
+```sh
+docker run --rm --shm-size=1g --tmpfs /run/systemd \
+  -v "$PWD:/src:ro" -v "$(command -v axx):/usr/local/bin/axx:ro" -v "$PWD/out:/out" \
+  ghcr.io/nimbusxr/axx-depot-desk:<tag> depot-desk gtk4 wayland   # or x11
+```
+
+The tag is the first 16 characters of the SHA-256 of `linux/Dockerfile` and `linux/run.sh`
+together (`cat linux/Dockerfile linux/run.sh | sha256sum`). The `axx` it mounts is a Linux
+build: `GOOS=linux CGO_ENABLED=0 go build ./internal/tools/axxall`.
+
 ## The window
 
 The window's title is `Depot desk`, and it is 640 by 580 points. A screen can have less room

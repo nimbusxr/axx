@@ -113,6 +113,12 @@ func (in *Input) Type(text string) error {
 	return nil
 }
 
+// Size is the screen's size, in pixels.
+func (in *Input) Size() (width, height int) {
+	s := xproto.Setup(in.x).DefaultScreen(in.x)
+	return int(s.WidthInPixels), int(s.HeightInPixels)
+}
+
 // Move moves the pointer to a point on the screen.
 func (in *Input) Move(x, y int) error { return in.fake(xproto.MotionNotify, 0, int16(x), int16(y)) }
 
