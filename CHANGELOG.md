@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/nimbusxr/axx/compare/v0.2.0...v0.2.1) (2026-10-06)
+
+
+### Features
+
+* Wayland desktops, saved images compared with screenshots, and the depot desk on every build ([#106](https://github.com/nimbusxr/axx/issues/106)) ([01fdbd9](https://github.com/nimbusxr/axx/commit/01fdbd9bfcc87d6ed4476b69979781151b3d2341))
+
 ## [0.2.0](https://github.com/nimbusxr/axx/compare/v0.1.14...v0.2.0) (2026-10-05)
 
 
