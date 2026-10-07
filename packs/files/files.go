@@ -22,9 +22,11 @@ const packDoc = `Check the files your services and apps write to a folder: an ex
 
 Register the folder with ` + "`the {word} folder with the following properties:`" + `. Its ` + "`path`" + ` is on this machine, relative to the directory of axx.yaml or absolute, or in the file context of its ` + "`owner`" + `: ` + "`service:parcels`" + ` for a service of axx.yaml (relative to the folder axx runs it in), ` + "`app:depot`" + ` for an app a scenario registers (` + "`./`" + ` is where the app keeps its data, ` + "`~/`" + ` its home, wherever it runs). ` + "`${env:..}`" + ` and ` + "`${sys:..}`" + ` are expanded. A check names a file by its path in the folder, such as ` + "`manifests/M-KESTREL-0412/report.csv`" + `, quoted when it has a space, and waits for it (10 seconds unless ` + "`within {duration}`" + ` says otherwise), since services write asynchronously.
 
-The checks are those of the storage packs' objects: a file's exact content, its JSON properties, its text, read by its type (PDF, Word, Excel, CSV, JSON, XML, HTML or plain text), and a row of its table (CSV, TSV or Excel). An image an app saves is compared with its screenshot, pixel by pixel, one for each platform: ` + "`packs.files.screenshots`" + ` sets their ` + "`folder`" + `, ` + "`tolerance`" + `, ` + "`update`" + ` and ` + "`platforms`" + `, as the app screenshots' settings do.
+The checks are those of the storage packs' objects: a file's exact content, its JSON properties, its text, read by its type (PDF, Word, Excel, CSV, JSON, XML, HTML or plain text), and a row of its table (CSV, TSV or Excel). What a service or an app takes away is checked too: a folder ` + "`has no file named`" + ` one, or ` + "`is empty`" + `, which wait for the files to go. An image an app saves is compared with its screenshot, pixel by pixel, one for each platform: ` + "`packs.files.screenshots`" + ` sets their ` + "`folder`" + `, ` + "`tolerance`" + `, ` + "`update`" + ` and ` + "`platforms`" + `, as the app screenshots' settings do.
 
-A service's folder keeps what earlier runs wrote there, and axx empties no folder of yours: whether a check needs a file of its scenario's own (named after data unique to it) depends on the test. An app's files are its own in each scenario.`
+A scenario puts files in a folder too, as a service or an app would find them: ` + "`is a copy of`" + ` a file of the project, or ` + "`has the content:`" + ` of a doc string. ` + "`the {word} folder is emptied`" + ` removes what is in it, hidden files and subfolders too: a folder of the project, a service's or an app's, never one elsewhere on the machine.
+
+A service's folder keeps what earlier runs wrote there, and axx empties no folder unless a scenario says so: whether a check needs a file of its scenario's own (named after data unique to it), or a folder emptied first, depends on the test. An app's files are its own in each scenario.`
 
 // Pack returns the files pack.
 func Pack() core.Pack { return pack{} }
@@ -56,7 +58,7 @@ func (pack) Manifest() core.Manifest {
 				"Given the desk folder with the following properties:\n  | owner | app:depot              |\n  | path  | \"./Parcels/Depot desk\" |",
 			},
 			Run: addFolder,
-		}}, append(objects.Checks(), screenshotStep(objects))...),
+		}}, append(append(append(puts(), objects.Checks()...), absences()...), screenshotStep(objects))...),
 		ConfigSchema: []byte(configSchema),
 	}
 }
@@ -73,6 +75,9 @@ type Folder struct {
 	Files core.Files
 	// Path is its absolute path, when it is a folder on this machine.
 	Path string
+	// Owned is whether it is a service's or an app's, not a folder of the
+	// machine's.
+	Owned bool
 }
 
 var folders = core.NewStateKey("files", func(*core.Scenario) *core.Services[*Folder] {
@@ -129,7 +134,9 @@ func Parse(sc *core.Scenario, name string, t *core.Table) (*Folder, error) {
 			}
 			return nil, fmt.Errorf("the folder's owner %q is no service of axx.yaml (its services: %s)", owner, declared)
 		}
-		return local(name, p, d.Dir), nil
+		f := local(name, p, d.Dir)
+		f.Owned = true
+		return f, nil
 	}
 	files, ok := s.FileOwner(kind)
 	if !ok {
@@ -139,7 +146,7 @@ func Parse(sc *core.Scenario, name string, t *core.Table) (*Folder, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Folder{Name: name, Files: f}, nil
+	return &Folder{Name: name, Files: f, Owned: true}, nil
 }
 
 // local is a folder on this machine: p, relative to dir or absolute.

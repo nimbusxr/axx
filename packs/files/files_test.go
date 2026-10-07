@@ -21,14 +21,17 @@ func TestManifest(t *testing.T) {
 	for _, s := range m.Steps {
 		ids = append(ids, s.ID)
 		want := "0.1.1"
-		if s.ID == "files.screenshot" {
+		switch s.ID {
+		case "files.screenshot":
 			want = "0.2.1"
+		case "files.copy", "files.content", "files.emptied", "files.absent", "files.empty":
+			want = "0.2.3"
 		}
 		if s.Since != want {
 			t.Errorf("%s is since %s", s.ID, s.Since)
 		}
 	}
-	if got := strings.Join(ids, " "); got != "files.folder files.has files.identical files.properties files.contains files.row files.screenshot" {
+	if got := strings.Join(ids, " "); got != "files.folder files.copy files.content files.emptied files.has files.identical files.properties files.contains files.row files.absent files.empty files.screenshot" {
 		t.Errorf("steps: %s", got)
 	}
 }
@@ -54,6 +57,69 @@ func TestFolder(t *testing.T) {
 	_ = h.Fails("the exports folder with the following properties:", `Folder "exports" already set`, [][]string{{"path", "exports"}})
 	_ = h.Fails("the labels folder with the following properties:", `unknown folder property "url" (supported: path, owner)`, [][]string{{"url", "file://labels"}})
 	_ = h.Fails("the labels folder with the following properties:", `the folder property "path" is required`, [][]string{{"path", " "}})
+}
+
+// A scenario puts files in a folder (a copy of the project's, or a doc
+// string's content) and empties it: a folder of the project, a service's or
+// an app's, never one elsewhere on the machine.
+func TestPuts(t *testing.T) {
+	h := cloudtest.New(t, Pack())
+	h.NewScenario()
+	if err := os.MkdirAll(filepath.Join(h.Dir, "reports"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(h.Dir, "reports", "earlier.csv"), []byte("line,status\n1,IMPORTED\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PARCELS_SHOP", "kestrel-books")
+	h.OK("the exports folder with the following properties:", [][]string{{"path", "exports"}})
+	h.OK("the manifests/M-1/report.csv file in the exports folder is a copy of the reports/earlier.csv file")
+	h.OK("the manifests/M-1/summary.json file in the exports folder has the content:", `{"shop": "${env:PARCELS_SHOP}", "lines": 1}`)
+	h.OK("the .marker file in the exports folder has the content:", "read")
+	dir := filepath.Join(h.Dir, "exports")
+	if b, _ := os.ReadFile(filepath.Join(dir, "manifests", "M-1", "report.csv")); string(b) != "line,status\n1,IMPORTED\n" {
+		t.Errorf("a copy has the project file's content, in the folders made for it: %q", b)
+	}
+	if b, _ := os.ReadFile(filepath.Join(dir, "manifests", "M-1", "summary.json")); string(b) != `{"shop": "kestrel-books", "lines": 1}` {
+		t.Errorf("a file has the doc string's content, ${env:..} expanded: %q", b)
+	}
+	h.OK("the manifests/M-1/report.csv file in the exports folder contains \"IMPORTED\"")
+	h.OK("the exports folder has no file named manifests/M-2/report.csv")
+	_ = h.Fails("within 1s the exports folder has no file named manifests/M-1/report.csv", "The exports folder still has a file named manifests/M-1/report.csv after 1s")
+	_ = h.Fails("within 1s the exports folder has no file named .marker", "still has a file named .marker")
+	_ = h.Fails("within 1s the exports folder is empty", "The exports folder is not empty after 1s: it has 2 files")
+
+	// A check waits for what a service takes away.
+	go func() {
+		time.Sleep(300 * time.Millisecond)
+		_ = os.Remove(filepath.Join(dir, "manifests", "M-1", "report.csv"))
+	}()
+	h.OK("within 5s the exports folder has no file named manifests/M-1/report.csv")
+	go func() {
+		time.Sleep(300 * time.Millisecond)
+		_ = os.Remove(filepath.Join(dir, "manifests", "M-1", "summary.json"))
+	}()
+	h.OK("within 5s the exports folder is empty") // .marker is hidden: not counted
+
+	h.OK("the exports folder is emptied")
+	if entries, err := os.ReadDir(dir); err != nil || len(entries) != 0 {
+		t.Errorf("an emptied folder is there, with nothing in it, hidden files too: %v %v", entries, err)
+	}
+	h.OK("the archive folder with the following properties:", [][]string{{"path", "never-made"}})
+	h.OK("the archive folder is emptied") // not there: empty
+	h.OK("the archive folder is empty")
+	h.OK("the archive folder has no file named x.csv")
+	_ = h.Fails("the archive folder has no file named ../x.csv", "is not a file in the archive folder")
+	_ = h.Fails("the parcels folder is empty", `no folder named "parcels"`)
+
+	_ = h.Fails("the ../outside/x.csv file in the exports folder is a copy of the reports/earlier.csv file", "is not a file in the exports folder")
+	_ = h.Fails("the x.csv file in the exports folder is a copy of the reports/missing.csv file", "missing.csv not found")
+	h.OK("the home folder with the following properties:", [][]string{{"path", t.TempDir()}})
+	_ = h.Fails("the home folder is emptied", "is not in the project")
+	h.OK("the parent folder with the following properties:", [][]string{{"path", ".."}})
+	_ = h.Fails("the parent folder is emptied", "is not in the project")
+	h.OK("the project folder with the following properties:", [][]string{{"path", "."}})
+	_ = h.Fails("the project folder is emptied", "is not in the project")
 }
 
 // A folder's owner is a service of axx.yaml, whose paths are relative to the

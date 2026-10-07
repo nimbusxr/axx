@@ -2,7 +2,7 @@
   "description": "The frozen catalog of built-in step text. Step text is public API: every entry must stay defined, verbatim, by its pack.",
   "counts": {
     "parameterType": 15,
-    "step": 695
+    "step": 702
   },
   "entries": [
     {
@@ -4279,6 +4279,48 @@
       "pack": "desktop-core",
       "keyword": "When",
       "expression": "the pointer is dragged from {int}, {int} to {int}, {int} from the {anchor} of the {string} {control} in the {word} app"
+    },
+    {
+      "kind": "step",
+      "pack": "files",
+      "keyword": "Given",
+      "expression": "the {path} file in the {word} folder is a copy of the {filepath} file"
+    },
+    {
+      "kind": "step",
+      "pack": "files",
+      "keyword": "Given",
+      "expression": "the {path} file in the {word} folder has the content:"
+    },
+    {
+      "kind": "step",
+      "pack": "files",
+      "keyword": "Given",
+      "expression": "the {word} folder is emptied"
+    },
+    {
+      "kind": "step",
+      "pack": "files",
+      "keyword": "Then",
+      "expression": "the {word} folder has no file named {path}"
+    },
+    {
+      "kind": "step",
+      "pack": "files",
+      "keyword": "Then",
+      "expression": "within {duration} the {word} folder has no file named {path}"
+    },
+    {
+      "kind": "step",
+      "pack": "files",
+      "keyword": "Then",
+      "expression": "the {word} folder is empty"
+    },
+    {
+      "kind": "step",
+      "pack": "files",
+      "keyword": "Then",
+      "expression": "within {duration} the {word} folder is empty"
     }
   ]
 }

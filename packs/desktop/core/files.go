@@ -91,6 +91,14 @@ func (f *homeFiles) Read(ctx context.Context, name string) ([]byte, bool, error)
 	return l.Read(ctx, name)
 }
 
+func (f *homeFiles) Empty(ctx context.Context) error {
+	l, err := f.local()
+	if err != nil {
+		return err
+	}
+	return l.Empty(ctx)
+}
+
 func (f *homeFiles) Write(ctx context.Context, name string, body []byte) error {
 	l, err := f.local()
 	if err != nil {
