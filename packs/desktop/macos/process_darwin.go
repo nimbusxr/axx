@@ -37,6 +37,9 @@ type proc struct {
 	// flutter is whether the app is a Flutter app, which says every control
 	// is enabled, a disabled one too.
 	flutter bool
+	// before are the windows the system's app (owner: system) had as it was
+	// watched: the person's, which the scenario neither reads nor sees.
+	before []*ax.Element
 }
 
 // control is an element a step found.
@@ -74,6 +77,9 @@ func (c control) Value() (string, bool) {
 // windows are the app's windows, the focused one first.
 func (p *proc) windows() []*ax.Element {
 	ws, _ := p.root.Elements("AXWindows")
+	if p.before != nil {
+		ws = slices.DeleteFunc(ws, func(w *ax.Element) bool { return slices.ContainsFunc(p.before, w.Equal) })
+	}
 	if v, err := p.root.Attribute("AXFocusedWindow"); err == nil {
 		if f, ok := v.(*ax.Element); ok {
 			ws = slices.DeleteFunc(ws, func(w *ax.Element) bool { return w.Equal(f) })

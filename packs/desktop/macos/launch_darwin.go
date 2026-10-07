@@ -311,13 +311,13 @@ func watch(sc *core.Scenario, app *desktopcore.App) (*proc, error) {
 		return nil, err
 	}
 	p.screen = area{pos.X, pos.Y, size.Width, size.Height}
-	before := p.windows()
+	p.before = p.windows()
+	if p.before == nil {
+		p.before = []*ax.Element{}
+	}
 	p.exited = func() bool { return false }
 	p.stop = func() error {
 		for _, w := range p.windows() {
-			if slices.ContainsFunc(before, w.Equal) {
-				continue
-			}
 			if v, err := w.Attribute("AXCloseButton"); err == nil {
 				if b, ok := v.(*ax.Element); ok {
 					_ = b.Perform("AXPress")

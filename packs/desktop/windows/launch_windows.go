@@ -210,11 +210,11 @@ func watch(sc *core.Scenario, w *worker, app *desktopcore.App) (*proc, error) {
 	}
 	p := &proc{sc: sc, app: app, w: w, pid: running[0], named: exe}
 	p.u = &uiaTree{p: p, c: w.uia}
-	before := uia.VisibleWindows(p.pids())
+	p.before = uia.VisibleWindows(p.pids())
 	p.exited = func() bool { return false }
 	p.stop = func() error {
 		for _, h := range uia.VisibleWindows(p.pids()) {
-			if !slices.Contains(before, h) {
+			if !slices.Contains(p.before, h) {
 				uia.Close(h)
 			}
 		}

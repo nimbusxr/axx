@@ -38,8 +38,11 @@ type proc struct {
 	u       *uiaTree
 	java    *javaTree
 	// named is the executable of the system's app the process is (owner:
-	// system), whose processes are the app's, and not those they started.
-	named string
+	// system), whose processes are the app's, and not those they started;
+	// before are the windows it had as it was watched: the person's (File
+	// Explorer's taskbar too), which the scenario neither reads nor sees.
+	named  string
+	before []uintptr
 }
 
 // pids are the app's process and those it started; the system's app's
@@ -59,6 +62,9 @@ func (p *proc) windows() []*uia.Element {
 	// asked only of those there are (an app's helpers, a web view's, have
 	// none).
 	for _, h := range uia.VisibleWindows(p.pids()) {
+		if slices.Contains(p.before, h) {
+			continue
+		}
 		w, err := p.w.uia.FromHandle(h)
 		if err != nil {
 			continue
