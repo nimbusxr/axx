@@ -623,6 +623,58 @@ where the steps are modelled.
    the files pack cannot check yet (a folder's files counted or matched by a pattern, and a
    saved image compared with a screenshot): suggested to the owner separately.
 
+   *On 2026-10-07* Snap's features run on macOS, Windows, Linux X11 and Linux Wayland, and what
+   they found changed axx:
+   - **Places from a control's middle or a corner** (owner's decision): Snap shows the part
+     of the screen chosen in the middle of its overlay, whatever the screen's size, so marks
+     on it are placed from the canvas's middle (`clicked at -110, -334 from its middle`).
+   - **An app named by a property**, where the app a step is for differs between platforms
+     (owner's decision): macOS asks for the part at its crosshair, over the app behind Snap;
+     Windows and Linux in Snap's own screenshot.
+   - **Tray apps**: an app that shows an icon and no window is launched once its icon is
+     there. The icon is a `menu`: a status item on macOS; on Linux, axx's desktops keep a tray
+     (a StatusNotifierWatcher) and choose from an icon's menu through its dbusmenu; on
+     Windows, a button of the taskbar's tray, whose hidden icons a search opens.
+   - **X11 desktops have a window manager** (owner's decision): Snap's overlay goes full
+     screen, which needs one, as every X11 desktop has. They run Mutter, GNOME's; GTK 4,
+     which knows places in its window only, is placed where Mutter put its window, and GTK 3
+     draws its own title bar there, as on GNOME.
+   - **The app comes to the front, on Linux too**: GNOME opens a window an app shows on its
+     own behind the one in use, so a click or a key first activates the app's window, as a
+     person's click does (not when it is in use already: its open menu stays open).
+   - **A hand comes to rest**: on Wayland a window the pointer just came into takes a press
+     only once the pointer has moved in it, so a drag approaches its start; and a place is
+     clicked once the window shows something (a web view is one color until its first frame).
+   - **Full screen windows are left as they are** (not fitted into the work area), and on
+     macOS a control in a window still coming to the screen is waited for.
+   - **The taskbar is left as it was found**: on Windows, an icon's menu chosen from, axx
+     closes the hidden icons it opened, puts the pointer back and clicks back into the window
+     that was in front (the desktop, when the app quit), as a person does: any of them left
+     keeps a taskbar that hides itself on the screen, in every screenshot after. A window is
+     brought to the front with the rights of the terminal axx runs in; one that cannot come to
+     the front itself (a scheduled task's Windows Terminal) flashes, and the taskbar shows for
+     it, so the box's runners open a classic console (`conhost.exe`).
+   - **A place is on its control**: a step's place off the control fails as such (where a
+     click would reach something else), not as what the app then does not show; a drag may
+     end off it. Points are the screen's, and an app that lays itself out in pixels and does
+     not grow with Windows' display scale (Windows Forms, Qt 5 unless it asks) is smaller in
+     points on a screen at 250%: the depot desk's pad is 160 by 64 points there, and its
+     strokes are inside that (the apps are left as their toolkits make them).
+   - **Apps the system runs** (owner's decision, `owner: system`): Snap's Open Logs opens its
+     folder in the file manager, which the scenario does not start. Such an app is watched from
+     its registration on, never reset, launched or stopped, and the windows it shows during the
+     scenario are closed as it ends: on macOS by their close buttons, on Windows by WM_CLOSE to
+     the windows of its executable's processes only (File Explorer starts what a person opens
+     from the taskbar), on Linux with the scenario's desktop (GNOME Files starts there when an
+     app asks for it). Reading an app the scenario did not start is only ever asked for: one
+     that forgot to launch its app fails, rather than read the person's own.
+   - **Windows waits less** (a scenario of Snap's took 9.4s, now 6.6s): an app that takes
+     messages yet keeps its windows when asked to close them (a kiosk, a tray app that hides
+     them) is stopped at once, not a second on; a control is seen to stand still in 50ms, not
+     100ms, and a hit test is not made twice when it did not move; an app has 150ms to take a
+     click, a drag or a key, as on macOS; and a step looks again for what it waits for after
+     50ms, then 100ms, then every 150ms.
+
 ## Consequences
 
 - axx tests desktop apps on all three operating systems the way it tests mobile apps, with no
@@ -638,4 +690,4 @@ where the steps are modelled.
 - The reset reaches outside the scenario's home: the app's preferences on macOS, its registry
   keys on Windows. The person's own are kept aside and put back, but a developer who also uses
   the app under test sees it start clean during a run.
-- Apps run under X11 on Linux, so Wayland-only apps are out of reach.
+- Apps run under X11 on Linux, or with `display: wayland` in a headless GNOME Shell.

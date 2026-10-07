@@ -8,6 +8,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -15,6 +16,7 @@ import (
 	"github.com/nimbusxr/axx/core"
 	"github.com/nimbusxr/axx/internal/filecontent"
 	"github.com/nimbusxr/axx/internal/jsonassert"
+	"github.com/nimbusxr/axx/internal/secrets"
 )
 
 // ObjectStore is an object storage service (S3, Cloud Storage, Blob
@@ -170,8 +172,9 @@ func (o Objects) Checks() []core.StepDef {
 			Examples: []string{fmt.Sprintf("Then the summaries/kestrel-2026-09.json %s in the %s %s has the following properties:", obj, o.Example, c) +
 				exampleTable([][2]string{{"carrier", "KESTREL"}, {"lines", "14"}, {"totals.disputed", "5.25"}})},
 			Run: func(sc *core.Scenario, a core.Args) error {
+				want := expanded(sc, a.Table)
 				return o.await(sc, Wait(a, 0), a.String(2), a.String(1), func(got []byte) (bool, string, error) {
-					err := jsonassert.Properties(string(got), a.Table, false)
+					err := jsonassert.Properties(string(got), want, false)
 					switch {
 					case err == nil:
 						return true, "", nil
@@ -308,6 +311,22 @@ func (o Objects) await(sc *core.Scenario, d time.Duration, container, name strin
 		}
 		return false, fmt.Sprintf("The %s %s in the %s %s did not meet the expectation within %s: %s", name, o.Object, container, o.Container, d, why), nil
 	})
+}
+
+// expanded is a key and value table with ${env:..} and ${sys:..} expanded
+// in its values, as in a step's other arguments.
+func expanded(sc *core.Scenario, t *core.Table) *core.Table {
+	if t == nil {
+		return nil
+	}
+	out := &core.Table{Rows: make([][]string, len(t.Rows))}
+	for i, row := range t.Rows {
+		out.Rows[i] = slices.Clone(row)
+		if len(row) == 2 {
+			out.Rows[i][1] = secrets.Expand(sc, row[1])
+		}
+	}
+	return out
 }
 
 // maxMatched is how many names a pattern is matched against.

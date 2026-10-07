@@ -24,6 +24,16 @@ var (
 // coordinates (points down from the top left of the main screen). A point on
 // no screen gets the main screen's.
 func VisibleFrame(at Point) (Point, Size, error) {
+	return screenAt(at, "visibleFrame")
+}
+
+// ScreenFrame is the whole screen at a point, its menu bar and the Dock too,
+// in the accessibility tree's coordinates.
+func ScreenFrame(at Point) (Point, Size, error) {
+	return screenAt(at, "frame")
+}
+
+func screenAt(at Point, which string) (Point, Size, error) {
 	appKitOnce.Do(func() {
 		_, appKitErr = purego.Dlopen("/System/Library/Frameworks/AppKit.framework/AppKit", purego.RTLD_NOW|purego.RTLD_GLOBAL)
 	})
@@ -41,7 +51,7 @@ func VisibleFrame(at Point) (Point, Size, error) {
 		return Point{}, Size{}, fmt.Errorf("no screen")
 	}
 	screen := func(i uint) objc.ID { return screens.Send(objc.RegisterName("objectAtIndex:"), i) }
-	frame := func(s objc.ID, which string) cgRect { return objc.Send[cgRect](s, objc.RegisterName(which)) }
+	frame := func(s objc.ID, name string) cgRect { return objc.Send[cgRect](s, objc.RegisterName(name)) }
 	// Cocoa's y runs up from the bottom of the main screen (the first);
 	// the tree's runs down from its top.
 	mainHeight := frame(screen(0), "frame").Height
@@ -54,6 +64,6 @@ func VisibleFrame(at Point) (Point, Size, error) {
 			break
 		}
 	}
-	v := frame(pick, "visibleFrame")
+	v := frame(pick, which)
 	return Point{X: v.X, Y: mainHeight - (v.Y + v.Height)}, Size{Width: v.Width, Height: v.Height}, nil
 }

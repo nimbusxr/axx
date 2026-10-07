@@ -93,6 +93,10 @@ func (d *desk) Start(sc *core.Scenario, app *desktopcore.App) (desktopcore.Proce
 	return start(sc, d.w, app, d.Home(app))
 }
 
+func (d *desk) Watch(sc *core.Scenario, app *desktopcore.App) (desktopcore.Process, error) {
+	return watch(sc, d.w, app)
+}
+
 func (d *desk) Release() { d.release() }
 
 // registryKeys are the keys under HKEY_CURRENT_USER the registration names,

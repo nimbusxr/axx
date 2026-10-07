@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -130,7 +131,8 @@ func (p *proc) await() error {
 // screen or under the taskbar: the app's own content scrolls.
 func (p *proc) fit(w *uia.Element) error {
 	f, a := w.Bounds(), uia.WorkArea()
-	if uia.Intersect(f, a) == f {
+	// A full screen window has the whole screen, as its app asked.
+	if uia.Intersect(f, a) == f || f == uia.Screen() {
 		return nil
 	}
 	width, height := min(f.Right-f.Left, a.Right-a.Left), min(f.Bottom-f.Top, a.Bottom-a.Top)
@@ -144,25 +146,94 @@ func (p *proc) fit(w *uia.Element) error {
 }
 
 // stopTree asks the app to close its windows, as closing them does, and
-// stops it and every process it started when it has not within 10 seconds.
+// stops it and every process it started: at once when it takes messages yet
+// keeps its windows, shown (a kiosk that refuses) or hidden (a tray app,
+// whose windows' closing leaves it running); when it stays as it was or
+// with no window a second on (a moment on, for one with no window to
+// close); else when it has not gone within 10 seconds (one asking whether
+// to save). It waits for each of them: one that lingers holds what the next
+// start needs (a browser's profile).
 func stopTree(pid int, exited func() bool) error {
 	ctx := context.Background()
+	tree := append([]int{pid}, uia.Descendants(pid)...)
 	if !exited() {
+		before := uia.VisibleWindows(tree)
 		_ = exec.CommandContext(ctx, "taskkill", "/PID", strconv.Itoa(pid), "/T").Run()
-		for wait := time.Now(); !exited() && time.Since(wait) < 10*time.Second; time.Sleep(100 * time.Millisecond) {
+		grace := time.Second
+		if len(before) == 0 {
+			grace = 300 * time.Millisecond
+		}
+		for wait := time.Now(); !exited() && time.Since(wait) < 10*time.Second; time.Sleep(50 * time.Millisecond) {
+			since := time.Since(wait)
+			if since < 250*time.Millisecond {
+				continue
+			}
+			now := uia.VisibleWindows(tree)
+			// Its windows kept as they were, or hidden and not closed (a tray
+			// app's), by an app that takes messages: it refused.
+			kept := len(before) > 0 && (slices.Equal(now, before) || len(now) == 0 && !slices.ContainsFunc(before, gone))
+			if kept && answered(before) || since >= grace && (len(now) == 0 || slices.Equal(now, before)) {
+				break
+			}
 		}
 	}
-	_ = exec.CommandContext(ctx, "taskkill", "/PID", strconv.Itoa(pid), "/T", "/F").Run()
-	for wait := time.Now(); !exited() && time.Since(wait) < 5*time.Second; time.Sleep(100 * time.Millisecond) {
+	for _, p := range tree {
+		uia.Terminate(p)
 	}
-	if !exited() {
-		return fmt.Errorf("process %d did not stop", pid)
+	alive := func() bool { return !exited() || slices.ContainsFunc(tree[1:], uia.Alive) }
+	for wait := time.Now(); alive() && time.Since(wait) < 5*time.Second; time.Sleep(50 * time.Millisecond) {
+	}
+	if alive() {
+		return fmt.Errorf("process %d or one it started did not stop", pid)
 	}
 	return nil
 }
 
 // bridgeDLL is the Java Access Bridge's client DLL of the Java that runs the
 // app: next to java.exe, in a packaged app's runtime, or in JAVA_HOME.
+// gone is whether the window was closed.
+func gone(w uintptr) bool { return !uia.IsWindow(w) }
+
+// watch reads the system's app as it runs: the processes of its executable
+// (explorer.exe), not those they started (File Explorer starts what a
+// person opens from the taskbar). The windows it shows from now on are
+// closed as the scenario ends, as their close buttons close them; the app
+// runs on.
+func watch(sc *core.Scenario, w *worker, app *desktopcore.App) (*proc, error) {
+	exe := filepath.Base(app.App)
+	if !strings.Contains(exe, ".") {
+		exe += ".exe"
+	}
+	running := uia.Named(exe)
+	if len(running) == 0 {
+		return nil, fmt.Errorf("%s is not running: the system's app runs already", exe)
+	}
+	p := &proc{sc: sc, app: app, w: w, pid: running[0], named: exe}
+	p.u = &uiaTree{p: p, c: w.uia}
+	before := uia.VisibleWindows(p.pids())
+	p.exited = func() bool { return false }
+	p.stop = func() error {
+		for _, h := range uia.VisibleWindows(p.pids()) {
+			if !slices.Contains(before, h) {
+				uia.Close(h)
+			}
+		}
+		return nil
+	}
+	return p, nil
+}
+
+// answered is whether every window's app takes messages: one that kept its
+// windows took the request to close them, and refused it.
+func answered(windows []uintptr) bool {
+	for _, w := range windows {
+		if !uia.Answers(w, 100*time.Millisecond) {
+			return false
+		}
+	}
+	return true
+}
+
 func bridgeDLL(app *desktopcore.App) (string, error) {
 	var dirs []string
 	if filepath.IsAbs(app.App) {

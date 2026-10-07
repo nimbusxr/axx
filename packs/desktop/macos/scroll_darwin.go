@@ -10,6 +10,10 @@ import (
 	"github.com/nimbusxr/axx/packs/desktop/internal/ax"
 )
 
+// showWait is how long a control that shows by its place may take to take
+// clicks: its window coming to the screen.
+const showWait = 3 * time.Second
+
 // area is a rectangle on the screen, in points.
 type area struct{ x, y, w, h float64 }
 
@@ -145,6 +149,19 @@ func (p *proc) inView(e *ax.Element) bool {
 func (p *proc) scrollIntoView(e *ax.Element) error {
 	if p.inView(e) {
 		return nil
+	}
+	// One that shows by its place, yet a click does not reach, is in a window
+	// still coming to the screen (a full screen one moves to its own): a
+	// person waits for it.
+	for wait := time.Now(); time.Since(wait) < showWait; time.Sleep(100 * time.Millisecond) {
+		if f, ok := frameOf(e); !ok || f.w < 2 || f.h < 2 {
+			break
+		} else if v, ok := p.visible(e); !ok || !v.contains(f.middle()) {
+			break
+		}
+		if p.inView(e) {
+			return nil
+		}
 	}
 	if e.Perform("AXScrollToVisible") == nil {
 		time.Sleep(300 * time.Millisecond)

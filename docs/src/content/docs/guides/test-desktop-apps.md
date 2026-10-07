@@ -24,7 +24,7 @@ The parcels example's depot desk (`examples/parcels/depot-desk`) is one desk bui
 ## What it needs
 
 - **macOS:** Accessibility and Screen Recording for the app that runs axx: your terminal, or your editor. axx reads other apps and takes their screenshots only with them (System Settings, Privacy & Security).
-- **Windows:** a desktop to run on: a signed-in user's session, not a service or an SSH session (a scheduled task for the signed-in user has one). Java apps need a JDK's Java Access Bridge, which comes with it.
+- **Windows:** a desktop to run on: a signed-in user's session, not a service or an SSH session (a scheduled task for the signed-in user has one). axx brings an app to the front as the terminal it runs in lets it: run it from a terminal in front, or have the scheduled task open a console with `conhost.exe` (a task's Windows Terminal cannot come to the front itself, and flashes instead: a taskbar that hides itself then shows in every screenshot). Java apps need a JDK's Java Access Bridge, which comes with it.
 - **Linux:** Xvfb, dbus-daemon and at-spi2-core (Debian and Ubuntu: `apt install xvfb dbus at-spi2-core`), and for Java apps java-atk-wrapper (`apt install libatk-wrapper-java-jni`). axx runs desktops of its own, so nothing shows on your screen. For Wayland, GNOME Shell (below).
 
 `axx doctor` checks them, and names what is missing.
@@ -48,13 +48,13 @@ Background:
 | Property | What it is |
 | --- | --- |
 | `app` | The app. macOS: a `.app` of the project, an installed app's bundle identifier (`com.apple.TextEdit`), or an executable. Windows: an `.exe` of the project, or a command. Linux: an executable of the project (an AppImage too), or a command. |
-| `args` | The arguments it starts with; a quoted one with spaces. A file of the project is relative to `axx.yaml`. |
+| `args` | The arguments it starts with; a quoted one with spaces. A file of the project is relative to `axx.yaml`, as an option's value too (`--config=depot.yaml`). |
 | `env.<name>` | An environment variable it starts with, like `env.PARCELS_API`. |
 | `registry` (Windows) | The keys under `HKEY_CURRENT_USER` the app keeps its settings in, emptied before each scenario. |
 | `preferences` (macOS) | The preferences domains the app keeps its settings in beyond its bundle identifier's, emptied before each scenario: Qt's `QSettings` names its own, after the app's organization. |
 | `locale`, `timezone` | The language and region (`de-DE`) and the time zone (`Europe/Berlin`) it starts in. Windows has neither of an app's own: there the machine's apply, and the run says so. |
 
-The app starts when a step launches it. Every step names the app, so a scenario can drive two, and a web app or a phone app too.
+The app starts when a step launches it. Every step names the app, so a scenario can drive two, and a web app or a phone app too. Where the app a step is for differs between platforms, a property can name it: `in the ${sys:screen.app} app`.
 
 ## Each scenario has a clean app
 
@@ -88,6 +88,32 @@ When the depot app is restarted
 
 A restart keeps what the app stored, as quitting it and opening it again does; the next scenario's reset does not.
 
+An app that waits in the tray, with no window until it is used, is launched once its icon is there: in the menu bar's status area on macOS, in the tray of axx's desktops on Linux (a StatusNotifierWatcher, as KDE and GNOME with AppIndicator support keep one). The icon is a `menu`, named by its tooltip, and the entries of the menu it opens are `menu item`s:
+
+```gherkin
+When the "Courier tracker" menu is clicked in the tracker app
+And the "Pause tracking" menu item is clicked in the tracker app
+```
+
+### Apps the system runs
+
+What an app asks of the system shows in an app the system runs: the file manager it opens a folder in. Register that app with `owner: system`, once for each OS, and the scenario reads it as it runs. It is never reset, launched or stopped: the windows it shows during the scenario are closed as the scenario ends, as a person closes them, and the app runs on. On Linux, the desktop's own starts on axx's desktop when an app asks for it.
+
+```gherkin
+Given the files macos app with the following properties:
+  | app   | com.apple.finder |
+  | owner | system           |
+And the files windows app with the following properties:
+  | app   | explorer.exe |
+  | owner | system       |
+And the files linux app with the following properties:
+  | app   | nautilus |
+  | owner | system   |
+When the "Courier tracker" menu is clicked in the tracker app
+And the "Show the day's log" menu item is clicked in the tracker app
+Then within 10s the files app shows "Courier logs"
+```
+
 ## Click, fill and press keys
 
 ```gherkin
@@ -108,8 +134,17 @@ What an app draws rather than names, like a signature pad or a map, is clicked o
 
 ```gherkin
 When the "Courier signature" element in the depot app is clicked at 40, 40
-When the pointer is dragged from 40, 80 to 300, 80 on the "Courier signature" element in the depot app
+When the pointer is dragged from 40, 30 to 140, 30 on the "Courier signature" element in the depot app
 ```
+
+What keeps its place in the middle of a control, or by one of its corners, as the control grows with the window or the screen (a picture shown in the middle, a button in a corner) is placed from there instead: from its `middle`, `top left`, `top right`, `bottom left` or `bottom right`. Places run right and down, so one left of or above that point is negative:
+
+```gherkin
+When the pointer is dragged from -60, 10 to 60, -10 from the middle of the "Courier signature" element in the depot app
+When the "Courier signature" element in the depot app is clicked at -40, -30 from its bottom right
+```
+
+A place is on the control, or the step fails: a click off it would reach something else (a drag may end off it). Points are the screen's, so an app that lays itself out in pixels and does not grow with Windows' display scale (Windows Forms and Qt 5 apps that do not ask to) is smaller in points on a screen at 250%: the depot desk's signature pad, 400 by 160 pixels, is 160 by 64 points there, and its scenarios sign inside that.
 
 ## Check what it shows
 

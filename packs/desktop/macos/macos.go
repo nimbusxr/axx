@@ -56,6 +56,7 @@ func steps() []core.StepDef {
 					{Name: "preferences", Takes: "the preferences domains the app keeps its settings in beyond its bundle identifier's, like `com.parcels-example.Depot desk` (Qt's `QSettings` names its own), separated by commas: emptied before each scenario"},
 					{Name: "locale", Takes: "its language and region, like `de-DE`", Default: "en-US"},
 					{Name: "timezone", Takes: "its time zone, like `Europe/Berlin`", Default: "UTC"},
+					{Name: "owner", Takes: "`system` for an app the system runs already, like Finder (`com.apple.finder`): the scenario reads it as it runs, and never resets, launches or stops it; the windows it shows during the scenario are closed as the scenario ends"},
 				},
 			},
 			Examples: []string{"Given the depot macos app with the following properties:\n  | app | ../depot-desk/appkit/build/Depot desk.app |"},

@@ -34,6 +34,7 @@ var (
 	user32       = syscall.NewLazyDLL("user32.dll")
 	sendInput    = user32.NewProc("SendInput")
 	setCursorPos = user32.NewProc("SetCursorPos")
+	getCursorPos = user32.NewProc("GetCursorPos")
 	systemParams = user32.NewProc("SystemParametersInfoW")
 	metrics      = user32.NewProc("GetSystemMetrics")
 	dpiAware     = user32.NewProc("SetProcessDpiAwarenessContext")
@@ -216,6 +217,20 @@ func MoveWindow(hwnd uintptr, r Rect) error {
 
 // WorkArea is the part of the primary screen windows show in: the screen but
 // the taskbar.
+// Pointer is where the pointer is on the screen.
+func Pointer() (x, y int) {
+	var pt struct{ X, Y int32 }
+	_, _, _ = getCursorPos.Call(uintptr(unsafe.Pointer(&pt)))
+	return int(pt.X), int(pt.Y)
+}
+
+// Screen is the main screen, its taskbar too.
+func Screen() Rect {
+	w, _, _ := metrics.Call(0) // SM_CXSCREEN
+	h, _, _ := metrics.Call(1) // SM_CYSCREEN
+	return Rect{Right: int32(w), Bottom: int32(h)}
+}
+
 func WorkArea() Rect {
 	const getWorkArea = 0x0030 // SPI_GETWORKAREA
 	var r Rect

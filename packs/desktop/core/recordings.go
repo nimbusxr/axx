@@ -258,14 +258,14 @@ func (t traced) ScrollTo(k appcore.Kind, name string) (Control, error) {
 	return t.Process.ScrollTo(k, name)
 }
 
-func (t traced) ClickAt(c Control, x, y float64) error {
+func (t traced) ClickAt(c Control, from Anchor, x, y float64) error {
 	t.s.tracing.Wait()
-	return t.Process.ClickAt(c, x, y)
+	return t.Process.ClickAt(c, from, x, y)
 }
 
-func (t traced) Drag(c Control, x1, y1, x2, y2 float64) error {
+func (t traced) Drag(c Control, from Anchor, x1, y1, x2, y2 float64) error {
 	t.s.tracing.Wait()
-	return t.Process.Drag(c, x1, y1, x2, y2)
+	return t.Process.Drag(c, from, x1, y1, x2, y2)
 }
 
 // pngSize is a PNG's width and height, from its header.

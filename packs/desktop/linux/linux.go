@@ -73,6 +73,7 @@ func steps() []core.StepDef {
 					{Name: "env.<name>", Takes: "an environment variable it starts with, like `env.PARCELS_API`"},
 					{Name: "locale", Takes: "its language and region, like `de-DE`", Default: "en-US"},
 					{Name: "timezone", Takes: "its time zone, like `Europe/Berlin`", Default: "UTC"},
+					{Name: "owner", Takes: "`system` for an app the desktop runs, or starts when another app asks it to, like GNOME Files (`nautilus`): the scenario reads it as it runs, and never resets, launches or stops it"},
 				},
 			},
 			Examples: []string{"Given the depot linux app with the following properties:\n  | app | ../depot-desk/tauri/src-tauri/target/release/depot-desk |"},

@@ -8,6 +8,7 @@ const iface = `<node><interface name="us.nimbusxr.axx.Desktop">
   <method name="Screenshot"><arg type="s" direction="in" name="path"/></method>
   <method name="Frames"><arg type="i" direction="in" name="pid"/><arg type="a(iiiiiiiii)" direction="out" name="frames"/></method>
   <method name="Display"><arg type="s" direction="out" name="display"/><arg type="s" direction="out" name="authority"/></method>
+  <method name="Activate"><arg type="i" direction="in" name="pid"/></method>
 </interface></node>`;
 
 export default class AxxExtension extends Extension {
@@ -51,6 +52,19 @@ export default class AxxExtension extends Extension {
             const f = w.get_frame_rect(), b = w.get_buffer_rect();
             return [f.x, f.y, f.width, f.height, b.x, b.y, b.width, b.height, w.get_client_type()];
         });
+    }
+
+    // The process's window in front, with the keyboard, as a click on it
+    // does: GNOME Shell opens a window an app shows on its own behind the
+    // one in use.
+    Activate(pid) {
+        // The app's window in use already: its open menu stays open.
+        if (global.display.focus_window?.get_pid() === pid)
+            return;
+        const windows = global.display.sort_windows_by_stacking(
+            global.get_window_actors().map(a => a.meta_window).filter(w => w.get_pid() === pid));
+        if (windows.length > 0)
+            Main.activateWindow(windows[windows.length - 1]);
     }
 
     // Xwayland's display, where X11 apps (Java's) show, and its X authority

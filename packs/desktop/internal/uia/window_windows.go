@@ -5,7 +5,11 @@ package uia
 import (
 	"fmt"
 	"image"
+	"slices"
+	"strings"
+	"sync"
 	"syscall"
+	"time"
 	"unsafe"
 
 	"golang.org/x/sys/windows"
@@ -22,10 +26,17 @@ var (
 	printWindow            = user32.NewProc("PrintWindow")
 	getDpiForWindow        = user32.NewProc("GetDpiForWindow")
 	setForegroundWindow    = user32.NewProc("SetForegroundWindow")
+	bringWindowToTop       = user32.NewProc("BringWindowToTop")
+	attachThreadInput      = user32.NewProc("AttachThreadInput")
+	isIconic               = user32.NewProc("IsIconic")
 	getForegroundWindow    = user32.NewProc("GetForegroundWindow")
+	isWindow               = user32.NewProc("IsWindow")
+	findWindow             = user32.NewProc("FindWindowW")
 	showWindow             = user32.NewProc("ShowWindow")
 	getWindowThreadProcess = user32.NewProc("GetWindowThreadProcessId")
 	sendMessage            = user32.NewProc("SendMessageW")
+	postMessage            = user32.NewProc("PostMessageW")
+	sendMessageTimeout     = user32.NewProc("SendMessageTimeoutW")
 	createCompatibleDC     = gdi32.NewProc("CreateCompatibleDC")
 	createDIBSection       = gdi32.NewProc("CreateDIBSection")
 	selectObject           = gdi32.NewProc("SelectObject")
@@ -124,9 +135,31 @@ func Scale(hwnd uintptr) float64 {
 // and reports whether it is the window in front now.
 func Foreground(hwnd uintptr) bool {
 	const restore = 9 // SW_RESTORE
-	_, _, _ = showWindow.Call(hwnd, restore)
-	_, _, _ = setForegroundWindow.Call(hwnd)
+	if iconic, _, _ := isIconic.Call(hwnd); iconic != 0 {
+		// Restore a minimized window only: a maximized one would be made
+		// smaller.
+		_, _, _ = showWindow.Call(hwnd, restore)
+	}
 	front, _, _ := getForegroundWindow.Call()
+	if front == hwnd {
+		return true
+	}
+	_, _, _ = setForegroundWindow.Call(hwnd)
+	if front, _, _ = getForegroundWindow.Call(); front == hwnd || front == 0 {
+		return front == hwnd
+	}
+	// Windows lets the app with the last input put a window in front: one
+	// that another app's start took the front from shares the input of the
+	// window in front for a moment, as a person's click would give it.
+	frontThread, _, _ := getWindowThreadProcess.Call(front, 0)
+	self := uintptr(windows.GetCurrentThreadId())
+	if frontThread != 0 && frontThread != self {
+		_, _, _ = attachThreadInput.Call(self, frontThread, 1)
+		_, _, _ = setForegroundWindow.Call(hwnd)
+		_, _, _ = bringWindowToTop.Call(hwnd)
+		_, _, _ = attachThreadInput.Call(self, frontThread, 0)
+	}
+	front, _, _ = getForegroundWindow.Call()
 	return front == hwnd
 }
 
@@ -143,12 +176,76 @@ func HideKeyboardCues(hwnd uintptr) {
 	_, _, _ = sendMessage.Call(hwnd, changeUIState, uintptr(hide<<16|set), 0)
 }
 
+// ForegroundWindow is the window in front.
+func ForegroundWindow() uintptr {
+	front, _, _ := getForegroundWindow.Call()
+	return front
+}
+
+// IsWindow is whether the window is still there.
+func IsWindow(hwnd uintptr) bool {
+	ok, _, _ := isWindow.Call(hwnd)
+	return ok != 0
+}
+
+// Desktop is the desktop's window (Explorer's Program Manager), which a
+// click on the desktop brings to the front.
+func Desktop() uintptr {
+	class, _ := windows.UTF16PtrFromString("Progman")
+	hwnd, _, _ := findWindow.Call(uintptr(unsafe.Pointer(class)), 0)
+	return hwnd
+}
+
+// Answers is whether the window's app takes a message within d: its thread
+// is waiting for what comes next, not busy.
+func Answers(hwnd uintptr, d time.Duration) bool {
+	const abortIfHung = 0x0002 // SMTO_ABORTIFHUNG
+	var result uintptr
+	ok, _, _ := sendMessageTimeout.Call(hwnd, 0, 0, 0, abortIfHung, uintptr(d.Milliseconds()), uintptr(unsafe.Pointer(&result)))
+	return ok != 0
+}
+
+// Terminate stops the process at once, as Task Manager's End task does.
+func Terminate(pid int) {
+	h, err := windows.OpenProcess(windows.PROCESS_TERMINATE, false, uint32(pid))
+	if err != nil {
+		return
+	}
+	defer func() { _ = windows.CloseHandle(h) }()
+	_ = windows.TerminateProcess(h, 1)
+}
+
 // ForegroundProcess is the process of the window in front.
 func ForegroundProcess() int {
 	front, _, _ := getForegroundWindow.Call()
 	var pid uint32
 	_, _, _ = getWindowThreadProcess.Call(front, uintptr(unsafe.Pointer(&pid)))
 	return int(pid)
+}
+
+// Named are the processes of the executable named exe (explorer.exe), the
+// case as Windows ignores it.
+func Named(exe string) []int {
+	snap, err := windows.CreateToolhelp32Snapshot(windows.TH32CS_SNAPPROCESS, 0)
+	if err != nil {
+		return nil
+	}
+	defer windows.CloseHandle(snap) //nolint:errcheck
+	var out []int
+	var e windows.ProcessEntry32
+	e.Size = uint32(unsafe.Sizeof(e))
+	for err = windows.Process32First(snap, &e); err == nil; err = windows.Process32Next(snap, &e) {
+		if strings.EqualFold(windows.UTF16ToString(e.ExeFile[:]), exe) {
+			out = append(out, int(e.ProcessID))
+		}
+	}
+	return out
+}
+
+// Close asks the window to close, as its close button does.
+func Close(hwnd uintptr) {
+	const wmClose = 0x0010
+	_, _, _ = postMessage.Call(hwnd, wmClose, 0, 0)
 }
 
 // Descendants are the processes pid started, and those they started.
@@ -187,4 +284,43 @@ func (e *Element) Expands() bool {
 	}
 	p.release()
 	return true
+}
+
+// The windows EnumWindows lists, of the processes asked for: one callback
+// for every call (a process makes only so many).
+var (
+	enumMu   sync.Mutex
+	enumPIDs []int
+	enumOut  []uintptr
+	enumCB   = syscall.NewCallback(func(h windows.HWND, _ uintptr) uintptr {
+		if windows.IsWindowVisible(h) {
+			var pid uint32
+			if _, err := windows.GetWindowThreadProcessId(h, &pid); err == nil && slices.Contains(enumPIDs, int(pid)) {
+				enumOut = append(enumOut, uintptr(h))
+			}
+		}
+		return 1
+	})
+)
+
+// VisibleWindows are the processes' top-level windows that show, in the
+// order Windows stacks them.
+func VisibleWindows(pids []int) []uintptr {
+	enumMu.Lock()
+	defer enumMu.Unlock()
+	enumPIDs, enumOut = pids, nil
+	_ = windows.EnumWindows(enumCB, nil)
+	return enumOut
+}
+
+// Alive is whether the process runs.
+func Alive(pid int) bool {
+	h, err := windows.OpenProcess(windows.PROCESS_QUERY_LIMITED_INFORMATION, false, uint32(pid))
+	if err != nil {
+		return false
+	}
+	defer windows.CloseHandle(h) //nolint:errcheck
+	var code uint32
+	const stillActive = 259
+	return windows.GetExitCodeProcess(h, &code) == nil && code == stillActive
 }

@@ -226,6 +226,11 @@ func (p *proc) fit() error {
 	if p.screen.intersect(f) == f {
 		return nil
 	}
+	// A full screen window has the whole screen, as its app asked; one is
+	// the screen's size before it shows.
+	if spos, ssize, err := ax.ScreenFrame(ax.Point{X: f.x + f.w/2, Y: f.y + 10}); err == nil && f == (area{spos.X, spos.Y, ssize.Width, ssize.Height}) {
+		return nil
+	}
 	fitted := ax.Size{Width: min(f.w, p.screen.w), Height: min(f.h, p.screen.h)}
 	to := ax.Point{X: min(max(f.x, p.screen.x), p.screen.x+p.screen.w-fitted.Width), Y: min(max(f.y, p.screen.y), p.screen.y+p.screen.h-fitted.Height)}
 	if err := w.SetSize(fitted); err != nil {
@@ -279,6 +284,49 @@ func descendants(pid int) []int {
 	}
 	add(pid)
 	return out2
+}
+
+// watch reads the system's app as it runs: an installed app, by its bundle
+// identifier (Finder's com.apple.finder). The windows it shows from now on
+// are closed as the scenario ends, with their close buttons, as a person
+// closes them; the app runs on.
+func watch(sc *core.Scenario, app *desktopcore.App) (*proc, error) {
+	b, err := bundle(sc.Context(), app.App)
+	if err != nil {
+		return nil, err
+	}
+	if b == "" {
+		return nil, fmt.Errorf("the system's app is an installed app, named by its bundle identifier, like com.apple.finder: %s is not one", app.App)
+	}
+	running := pids(b)
+	if len(running) == 0 {
+		return nil, fmt.Errorf("%s is not running: the system's app runs already", b)
+	}
+	p := &proc{sc: sc, app: app, pid: running[0]}
+	if p.root, err = ax.Application(p.pid); err != nil {
+		return nil, err
+	}
+	pos, size, err := ax.VisibleFrame(ax.Point{X: 1, Y: 1})
+	if err != nil {
+		return nil, err
+	}
+	p.screen = area{pos.X, pos.Y, size.Width, size.Height}
+	before := p.windows()
+	p.exited = func() bool { return false }
+	p.stop = func() error {
+		for _, w := range p.windows() {
+			if slices.ContainsFunc(before, w.Equal) {
+				continue
+			}
+			if v, err := w.Attribute("AXCloseButton"); err == nil {
+				if b, ok := v.(*ax.Element); ok {
+					_ = b.Perform("AXPress")
+				}
+			}
+		}
+		return nil
+	}
+	return p, nil
 }
 
 // stopTree asks the app to quit, as the system does at log out, and stops

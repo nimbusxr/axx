@@ -4,6 +4,7 @@
 
 | Parameter | Takes | Values | For example | Pack |
 |---|---|---|---|---|
+| `{anchor}` | the point of a control that places on it are measured from: its `middle`, or a corner. Places run right and down from it, so one left of or above it is negative | `middle`, `top left`, `top right`, `bottom left`, `bottom right` | `middle`, `bottom right` | desktop-core |
 | `{bigdecimal}` | a decimal number of any precision |  | `0.1000000000000000055` | cucumber |
 | `{biginteger}` | a whole number of any size |  | `123456789012345678901234567890` | cucumber |
 | `{byte}` | a whole number, from -128 to 127 |  | `12` | cucumber |

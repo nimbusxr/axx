@@ -76,6 +76,10 @@ func (d *desk) Start(sc *core.Scenario, app *desktopcore.App) (desktopcore.Proce
 	return start(sc, app, d.Home(app))
 }
 
+func (d *desk) Watch(sc *core.Scenario, app *desktopcore.App) (desktopcore.Process, error) {
+	return watch(sc, app)
+}
+
 func (d *desk) Release() { d.release() }
 
 // kept are the preferences domains a run reset, kept aside in the project's

@@ -18,6 +18,10 @@ import (
 	"github.com/nimbusxr/axx/packs/desktop/internal/uia"
 )
 
+// afterInput is how long an app has to take a click, a drag or a key before
+// the next step: what it shows next, the step that reads it waits for.
+const afterInput = 150 * time.Millisecond
+
 // proc is a Windows app as it runs: its windows read through UI
 // Automation, or a Java window through the Java Access Bridge.
 type proc struct {
@@ -33,21 +37,34 @@ type proc struct {
 	flutter bool
 	u       *uiaTree
 	java    *javaTree
+	// named is the executable of the system's app the process is (owner:
+	// system), whose processes are the app's, and not those they started.
+	named string
 }
 
-// pids are the app's process and those it started.
-func (p *proc) pids() []int { return append([]int{p.pid}, uia.Descendants(p.pid)...) }
+// pids are the app's process and those it started; the system's app's
+// processes.
+func (p *proc) pids() []int {
+	if p.named != "" {
+		return uia.Named(p.named)
+	}
+	return append([]int{p.pid}, uia.Descendants(p.pid)...)
+}
 
 // windows are the app's top-level windows, the one in front first, its
 // open menus among them. On the worker's thread.
 func (p *proc) windows() []*uia.Element {
 	var ws []*uia.Element
-	for _, pid := range p.pids() {
-		mine, _ := p.w.uia.WindowsOf(pid)
-		for _, w := range mine {
-			if b := w.Bounds(); b.Right > b.Left && b.Bottom > b.Top {
-				ws = append(ws, w)
-			}
+	// Windows lists the processes' windows itself, at once: UI Automation is
+	// asked only of those there are (an app's helpers, a web view's, have
+	// none).
+	for _, h := range uia.VisibleWindows(p.pids()) {
+		w, err := p.w.uia.FromHandle(h)
+		if err != nil {
+			continue
+		}
+		if b := w.Bounds(); b.Right > b.Left && b.Bottom > b.Top {
+			ws = append(ws, w)
 		}
 	}
 	front := uia.ForegroundProcess()
@@ -195,67 +212,104 @@ func (p *proc) ScrollIntoView(c desktopcore.Control) error {
 }
 
 func (p *proc) Click(c desktopcore.Control) error {
-	if err := p.Front(); err != nil {
-		return err
+	// A click on the taskbar (an app's tray icon) brings no window of the
+	// app's to the front: a tray app has none until it is used.
+	var outside, menuItem bool
+	if u, ok := c.(ctl); ok {
+		_ = p.w.do(func() error {
+			outside = p.u.outside(u.e)
+			// Asked before the click: the entry is gone once chosen.
+			menuItem = outside && u.e.ControlType() == typeMenuItem
+			return nil
+		})
+	}
+	if !outside {
+		if err := p.Front(); err != nil {
+			return err
+		}
 	}
 	return p.w.do(func() error {
 		switch c := c.(type) {
 		case jctl:
 			return p.java.click(c.e)
 		case ctl:
-			return p.u.click(c.e)
+			if err := p.u.click(c.e); err != nil {
+				return err
+			}
+			// A menu entry chosen: the tray's hidden icons a search showed
+			// are hidden again, as the menu closes.
+			if menuItem {
+				p.u.leaveTray()
+			}
+			return nil
 		}
 		return fmt.Errorf("not a control of this app")
 	})
 }
 
-// origin is the control's top left on the screen, and the screen pixels of
-// a point, once it is in view and still.
-func (p *proc) origin(c desktopcore.Control) (x, y int, scale float64, err error) {
+// rect is the control's place on the screen, in screen pixels, and the
+// screen pixels of a point, once it is in view and still.
+func (p *proc) rect(c desktopcore.Control) (x, y, w, h int, scale float64, err error) {
 	err = p.w.do(func() error {
 		switch c := c.(type) {
 		case jctl:
-			x, y, err = p.java.origin(c.e)
+			x, y, w, h, err = p.java.rect(c.e)
 			scale = p.java.scale
 		case ctl:
-			x, y, err = p.u.origin(c.e)
+			x, y, w, h, err = p.u.rect(c.e)
 			scale = 1
-			if w := p.window(); w != nil {
-				scale = uia.Scale(w.Handle())
+			if win := p.window(); win != nil {
+				scale = uia.Scale(win.Handle())
 			}
 		}
 		return err
 	})
-	return x, y, scale, err
+	return x, y, w, h, scale, err
 }
 
-func (p *proc) ClickAt(c desktopcore.Control, x, y float64) error {
+// place is where on the screen, in screen pixels, a point in points from the
+// control's anchor is, once the step's place (x, y from from) is seen to be
+// on the control.
+func (p *proc) place(c desktopcore.Control, from desktopcore.Anchor, x, y float64) (func(from desktopcore.Anchor, x, y float64) (int, int), error) {
 	if err := p.Front(); err != nil {
-		return err
+		return nil, err
 	}
-	ox, oy, s, err := p.origin(c)
+	rx, ry, rw, rh, s, err := p.rect(c)
+	if err != nil {
+		return nil, err
+	}
+	if err := from.On(float64(rw)/s, float64(rh)/s, x, y); err != nil {
+		return nil, err
+	}
+	return func(from desktopcore.Anchor, x, y float64) (int, int) {
+		px, py := from.Place(float64(rx), float64(ry), float64(rw), float64(rh), x*s, y*s)
+		return int(px), int(py)
+	}, nil
+}
+
+func (p *proc) ClickAt(c desktopcore.Control, from desktopcore.Anchor, x, y float64) error {
+	at, err := p.place(c, from, x, y)
 	if err != nil {
 		return err
 	}
-	if err := uia.Click(ox+int(x*s), oy+int(y*s)); err != nil {
+	if err := uia.Click(at(from, x, y)); err != nil {
 		return err
 	}
-	time.Sleep(250 * time.Millisecond)
+	time.Sleep(afterInput)
 	return nil
 }
 
-func (p *proc) Drag(c desktopcore.Control, x1, y1, x2, y2 float64) error {
-	if err := p.Front(); err != nil {
-		return err
-	}
-	ox, oy, s, err := p.origin(c)
+func (p *proc) Drag(c desktopcore.Control, from desktopcore.Anchor, x1, y1, x2, y2 float64) error {
+	at, err := p.place(c, from, x1, y1)
 	if err != nil {
 		return err
 	}
-	if err := uia.Drag(ox+int(x1*s), oy+int(y1*s), ox+int(x2*s), oy+int(y2*s)); err != nil {
+	sx, sy := at(from, x1, y1)
+	ex, ey := at(from, x2, y2)
+	if err := uia.Drag(sx, sy, ex, ey); err != nil {
 		return err
 	}
-	time.Sleep(250 * time.Millisecond)
+	time.Sleep(afterInput)
 	return nil
 }
 
@@ -266,7 +320,7 @@ func (p *proc) Key(spec string) error {
 	if err := uia.Key(spec); err != nil {
 		return err
 	}
-	p.w.pump(250 * time.Millisecond)
+	p.w.pump(afterInput)
 	return nil
 }
 
@@ -338,9 +392,9 @@ func (p *proc) Window() (image.Image, float64, error) {
 }
 
 // caret is where the text cursor of the app's focused field is in a capture
-// of the window hwnd at scale: a column a few pixels wide, a line high. A
-// line said to be outside its field is the field's height: the cursor is in
-// it. On the worker's thread.
+// of the window hwnd at scale: a column a few pixels wide, a line high, or
+// the field's height in a field one line high, or with a line said to be
+// outside it. On the worker's thread.
 func (p *proc) caret(hwnd uintptr, scale float64) (image.Rectangle, bool) {
 	win, ok := uia.WindowRect(hwnd)
 	if !ok {
@@ -371,7 +425,10 @@ func (p *proc) caret(hwnd uintptr, scale float64) (image.Rectangle, bool) {
 		}
 	}
 	top, bottom := c.Top, c.Bottom
-	if f.Bottom > f.Top && (top < f.Top || bottom > f.Bottom) {
+	// In a field one line high, all of the field's height: toolkits say the
+	// field's place better than the line's (Qt 5's line ends a few pixels
+	// above its cursor at 250%), and the cursor is in it.
+	if h := f.Bottom - f.Top; h > 0 && (top < f.Top || bottom > f.Bottom || h < 3*(bottom-top)) {
 		top, bottom = f.Top, f.Bottom
 	}
 	// A cursor taller than its line (WinForms', a pixel past its field).
