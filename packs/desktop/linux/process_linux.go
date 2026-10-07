@@ -339,7 +339,13 @@ func (p *proc) Click(c desktopcore.Control) error {
 	// A menu that does not open takes another click: a menu bar just used
 	// takes the first for closing (Electron's; Swing's after a choice).
 	for try := 0; ; try++ {
+		// One with no place for a moment (a toolbar coming back as a drag
+		// ends, a web view laying out) is waited for, as a person waits to
+		// see it again.
 		x, y, ok := center(e)
+		for wait := time.Now(); !ok && time.Since(wait) < 2*time.Second; time.Sleep(100 * time.Millisecond) {
+			x, y, ok = center(e)
+		}
 		if !ok {
 			return fmt.Errorf("the %s %q lost its place on the screen as it scrolled", e.Role(), name(e))
 		}
@@ -565,6 +571,9 @@ func (p *proc) Away() error {
 // Window is the app's main window as the screen shows it: the desktop is
 // the scenario's, so nothing covers it.
 func (p *proc) Window() (image.Image, float64, error) {
+	if err := p.ready(); err != nil {
+		return nil, 0, err
+	}
 	shot, err := p.in.Screenshot()
 	if err != nil {
 		return nil, 0, err
