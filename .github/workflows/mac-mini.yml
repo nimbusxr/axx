@@ -122,8 +122,10 @@ jobs:
     # The depot desk's feature against its native macOS builds, through macOS's accessibility tree,
     # on the mini's desktop: the runner runs in the session of the user the mini logs in on its
     # own. macOS must let axx use the accessibility tree and capture windows, which `axx doctor`
-    # checks first. The other macOS builds (Qt, Swing, Electron, Tauri, Flutter) need their
-    # toolkits on the mini, and still run on developers' Macs.
+    # checks first. For a job, macOS asks that of the first program not its own that started it:
+    # the mini starts its runner through a small launcher of its own, which it allows both, so
+    # every build of axx is allowed with nothing to do here. The other macOS builds (Qt, Swing,
+    # Electron, Tauri, Flutter) need their toolkits on the mini, and still run on developers' Macs.
     name: desktop (macos-${{ matrix.build }})
     runs-on: [self-hosted, macOS, ARM64, mac-mini]
     timeout-minutes: 30
@@ -147,12 +149,6 @@ jobs:
       # write $GITHUB_PATH.
       - name: axx, with every pack
         run: go build -o "$RUNNER_TEMP/bin/axx" ./internal/tools/axxall
-      # macOS allows a program the accessibility tree and window capture by who signed it, and a
-      # build's own (ad hoc) signature is new with every build. The mini has a signing identity of
-      # its own (MAC_MINI_CODESIGN_IDENTITY, from the runner's environment), and allows axx signed
-      # with it, at this path, both: every build signed with it is the same program to macOS.
-      - name: axx, signed with the mini's identity
-        run: codesign --force --sign "$MAC_MINI_CODESIGN_IDENTITY" --identifier us.nimbusxr.axx.ci "$RUNNER_TEMP/bin/axx"
       - name: the desk's build
         run: examples/parcels/depot-desk/"$BUILD"/build.sh
       - name: macOS lets the runner drive and capture apps
