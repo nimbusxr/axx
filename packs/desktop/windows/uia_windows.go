@@ -933,7 +933,7 @@ func (t *uiaTree) rect(e *uia.Element) (x, y, w, h int, err error) {
 	settled(e)
 	b := e.Bounds()
 	if b.Right <= b.Left {
-		return 0, 0, 0, 0, fmt.Errorf("the %s has no place on the screen", uia.ControlTypeName(e.ControlType()))
+		return 0, 0, 0, 0, &desktopcore.Lost{Err: fmt.Errorf("the %s has no place on the screen", uia.ControlTypeName(e.ControlType()))}
 	}
 	return int(b.Left), int(b.Top), int(b.Right - b.Left), int(b.Bottom - b.Top), nil
 }

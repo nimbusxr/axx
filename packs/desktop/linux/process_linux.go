@@ -347,7 +347,11 @@ func (p *proc) Click(c desktopcore.Control) error {
 			x, y, ok = center(e)
 		}
 		if !ok {
-			return fmt.Errorf("the %s %q lost its place on the screen as it scrolled", e.Role(), name(e))
+			err := fmt.Errorf("the %s %q lost its place on the screen as it scrolled", e.Role(), name(e))
+			if try == 0 {
+				return &desktopcore.Lost{Err: err}
+			}
+			return err
 		}
 		if err := p.in.Click(x, y); err != nil {
 			return err
@@ -355,7 +359,7 @@ func (p *proc) Click(c desktopcore.Control) error {
 		if err := p.in.FocusUnderPointer(); err != nil {
 			return err
 		}
-		time.Sleep(200 * time.Millisecond)
+		time.Sleep(afterInput)
 		if !opens || try == 2 || p.menuOpen(e) {
 			return nil
 		}
@@ -426,7 +430,7 @@ func (p *proc) place(e *atspi.Element, from desktopcore.Anchor, x, y float64) (f
 	settled(e)
 	r := e.Extents()
 	if !placed(r) {
-		return nil, fmt.Errorf("the %s %q has no place on the screen", e.Role(), name(e))
+		return nil, &desktopcore.Lost{Err: fmt.Errorf("the %s %q has no place on the screen", e.Role(), name(e))}
 	}
 	if err := from.On(float64(r.Width), float64(r.Height), x, y); err != nil {
 		return nil, err
@@ -493,6 +497,10 @@ func noPlace(c desktopcore.Control) error {
 	return fmt.Errorf("%q is in the tray, which has no places on the screen: click it instead", c.Name())
 }
 
+// afterInput is how long the app has to take a click, a drag or a key
+// before the next step: a web view moved away from at once keeps its hover.
+const afterInput = 200 * time.Millisecond
+
 func (p *proc) ClickAt(c desktopcore.Control, from desktopcore.Anchor, x, y float64) error {
 	if _, ok := c.(trayControl); ok {
 		return noPlace(c)
@@ -501,7 +509,11 @@ func (p *proc) ClickAt(c desktopcore.Control, from desktopcore.Anchor, x, y floa
 	if err != nil {
 		return err
 	}
-	return p.in.Click(at(from, x, y))
+	if err := p.in.Click(at(from, x, y)); err != nil {
+		return err
+	}
+	time.Sleep(afterInput)
+	return nil
 }
 
 func (p *proc) Drag(c desktopcore.Control, from desktopcore.Anchor, x1, y1, x2, y2 float64) error {
@@ -514,7 +526,11 @@ func (p *proc) Drag(c desktopcore.Control, from desktopcore.Anchor, x1, y1, x2, 
 	}
 	sx, sy := at(from, x1, y1)
 	ex, ey := at(from, x2, y2)
-	return p.in.Drag(sx, sy, ex, ey)
+	if err := p.in.Drag(sx, sy, ex, ey); err != nil {
+		return err
+	}
+	time.Sleep(afterInput)
+	return nil
 }
 
 // ready is whether the app is on the scenario's desktop to take input: the
@@ -536,7 +552,7 @@ func (p *proc) Key(spec string) error {
 	if err := p.in.Key(spec); err != nil {
 		return err
 	}
-	time.Sleep(200 * time.Millisecond)
+	time.Sleep(afterInput)
 	return nil
 }
 

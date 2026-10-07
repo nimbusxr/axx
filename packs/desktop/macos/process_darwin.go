@@ -357,7 +357,7 @@ func (p *proc) Click(c desktopcore.Control) error {
 func at(e *ax.Element, from desktopcore.Anchor, x, y float64) (ax.Point, error) {
 	pos, size, err := e.Frame()
 	if err != nil {
-		return ax.Point{}, fmt.Errorf("the %s has no place on the screen: %w", e.String("AXRole"), err)
+		return ax.Point{}, &desktopcore.Lost{Err: fmt.Errorf("the %s has no place on the screen: %w", e.String("AXRole"), err)}
 	}
 	px, py := from.Place(pos.X, pos.Y, size.Width, size.Height, x, y)
 	return ax.Point{X: px, Y: py}, nil
@@ -368,7 +368,7 @@ func at(e *ax.Element, from desktopcore.Anchor, x, y float64) (ax.Point, error) 
 func on(e *ax.Element, from desktopcore.Anchor, x, y float64) error {
 	_, size, err := e.Frame()
 	if err != nil {
-		return fmt.Errorf("the %s has no place on the screen: %w", e.String("AXRole"), err)
+		return &desktopcore.Lost{Err: fmt.Errorf("the %s has no place on the screen: %w", e.String("AXRole"), err)}
 	}
 	return from.On(size.Width, size.Height, x, y)
 }

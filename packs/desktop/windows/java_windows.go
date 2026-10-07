@@ -411,7 +411,7 @@ func (t *javaTree) rect(e *jab.Element) (x, y, w, h int, err error) {
 	t.reveal(e)
 	jx, jy, jw, jh := e.Bounds()
 	if jw <= 0 {
-		return 0, 0, 0, 0, fmt.Errorf("the %s has no place on the screen", e.Role())
+		return 0, 0, 0, 0, &desktopcore.Lost{Err: fmt.Errorf("the %s has no place on the screen", e.Role())}
 	}
 	x, y = t.px(jx, jy)
 	w, h = t.px(jw, jh)

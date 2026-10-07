@@ -129,11 +129,10 @@ func clickAt(sc *core.Scenario, a core.Args, from Anchor) error {
 	name, k, x, y := secrets.Expand(sc, a.String(0)), a.Value(1).(appcore.Kind), a.Int(3), a.Int(4)
 	app := appcore.Named(sc, a.String(2))
 	return on(sc, app, func(p Process) error {
-		c, err := usable(sc, app, p, k, name)
-		if err != nil {
-			return err
-		}
-		return offControl(p.ClickAt(c, from, float64(x), float64(y)), x, y, from, name, k, app)
+		_, err := again(sc, app, p, k, name, func(c Control) error {
+			return p.ClickAt(c, from, float64(x), float64(y))
+		})
+		return offControl(err, x, y, from, name, k, app)
 	})
 }
 
@@ -154,10 +153,9 @@ func drag(sc *core.Scenario, a core.Args, from Anchor, named int) error {
 	x1, y1, x2, y2 := a.Int(0), a.Int(1), a.Int(2), a.Int(3)
 	name, k, app := secrets.Expand(sc, a.String(named)), a.Value(named+1).(appcore.Kind), appcore.Named(sc, a.String(named+2))
 	return on(sc, app, func(p Process) error {
-		c, err := usable(sc, app, p, k, name)
-		if err != nil {
-			return err
-		}
-		return offControl(p.Drag(c, from, float64(x1), float64(y1), float64(x2), float64(y2)), x1, y1, from, name, k, app)
+		_, err := again(sc, app, p, k, name, func(c Control) error {
+			return p.Drag(c, from, float64(x1), float64(y1), float64(x2), float64(y2))
+		})
+		return offControl(err, x1, y1, from, name, k, app)
 	})
 }
