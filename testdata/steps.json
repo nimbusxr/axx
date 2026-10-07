@@ -1,8 +1,8 @@
 {
   "description": "The frozen catalog of built-in step text. Step text is public API: every entry must stay defined, verbatim, by its pack.",
   "counts": {
-    "parameterType": 14,
-    "step": 693
+    "parameterType": 15,
+    "step": 695
   },
   "entries": [
     {
@@ -4260,6 +4260,25 @@
       "pack": "files",
       "keyword": "Then",
       "expression": "within {duration} the {path} file in the {word} folder looks like the {string} screenshot"
+    },
+    {
+      "kind": "parameterType",
+      "pack": "desktop-core",
+      "keyword": "ParameterType",
+      "name": "anchor",
+      "expression": "(middle|top left|top right|bottom left|bottom right)"
+    },
+    {
+      "kind": "step",
+      "pack": "desktop-core",
+      "keyword": "When",
+      "expression": "the {string} {control} in the {word} app is clicked at {int}, {int} from its {anchor}"
+    },
+    {
+      "kind": "step",
+      "pack": "desktop-core",
+      "keyword": "When",
+      "expression": "the pointer is dragged from {int}, {int} to {int}, {int} from the {anchor} of the {string} {control} in the {word} app"
     }
   ]
 }

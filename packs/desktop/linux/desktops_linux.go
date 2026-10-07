@@ -21,8 +21,8 @@ import (
 	"github.com/nimbusxr/axx/packs/desktop/internal/atspi"
 )
 
-// screen is the size of axx's desktops' screens: room for an app's window,
-// with no window manager to place it.
+// screen is the size of axx's desktops' screens: room for an app's window
+// wherever the window manager places it.
 const screen = "1920x1200x24"
 
 // desktop is one of axx's desktops: a virtual screen (Xvfb), and the
@@ -202,6 +202,14 @@ func (k *desk) Start(sc *core.Scenario, app *desktopcore.App) (desktopcore.Proce
 	return k.s.start(sc, app, desktopcore.HomeOf(sc, app))
 }
 
+// Watch reads the system's app on the scenario's desktop as another app
+// starts it there (GNOME Files, as an app opens a folder): the scenario's
+// session, once it has one, and the app, once it is on its accessibility
+// bus. Its windows go with the session as the scenario ends.
+func (k *desk) Watch(sc *core.Scenario, app *desktopcore.App) (desktopcore.Process, error) {
+	return &proc{sc: sc, app: app, named: filepath.Base(app.App), watched: k, exited: func() bool { return false }}, nil
+}
+
 func (k *desk) Release() {
 	if k.s != nil {
 		k.s.stop()
@@ -220,6 +228,8 @@ type session struct {
 	bus, launcher int    // their processes
 	c             *atspi.Client
 	pub           *atspi.Display
+	// tray is its tray, where tray apps show their icons.
+	tray *atspi.Tray
 	// seat is its pointer, keyboard and screen: the desktop's X11 ones, or
 	// its own GNOME Shell's, whose processes (and PipeWire's) are shell.
 	seat  seat
@@ -311,6 +321,10 @@ func startSession(sc *core.Scenario, d *desktop, st starter, home string) (*sess
 		s.stop()
 		return nil, err
 	}
+	if s.tray, err = atspi.ServeTray(s.addr); err != nil {
+		s.stop()
+		return nil, err
+	}
 	if d.wayland {
 		pids, g, err := startWayland(st, append(env, "DBUS_SESSION_BUS_ADDRESS="+s.addr), run, s.addr)
 		s.shell = pids
@@ -336,8 +350,41 @@ func startSession(sc *core.Scenario, d *desktop, st starter, home string) (*sess
 		s.stop()
 		return nil, err
 	}
+	if err := s.startWindowManager(append(env, "DBUS_SESSION_BUS_ADDRESS="+s.addr)); err != nil {
+		s.stop()
+		return nil, err
+	}
+	// The window manager places windows: an app that knows places in its
+	// window only (GTK 4) is placed by where it put its window.
+	if in, ok := s.seat.(*atspi.Input); ok {
+		s.c.SetWindowPlacer(func(_ *atspi.Element, pid int, w, h int32) (int32, int32, bool) { return in.Place(pid, w, h) })
+	}
 	sc.Log("the scenario's session on desktop %d (%s)", d.n, d.display)
 	return s, nil
+}
+
+// startWindowManager starts the window manager of an X11 session, as every
+// X11 desktop has one: GNOME's, Mutter, which puts a window full screen,
+// keeps one above the others, and gives the one in front the keys.
+func (s *session) startWindowManager(env []string) error {
+	mutter, err := exec.LookPath("mutter")
+	if err != nil {
+		return errors.New("no mutter: install it (Debian and Ubuntu: apt install mutter), the window manager of axx's X11 desktops")
+	}
+	pid, _, err := s.st.start(startRequest{Path: mutter, Args: []string{"--x11", "--replace", "--sm-disable", "--display=" + s.d.display}, Env: env})
+	if err != nil {
+		return fmt.Errorf("cannot start Mutter: %w", err)
+	}
+	s.shell = append(s.shell, pid)
+	for wait := time.Now(); !s.pub.HasWindowManager(); time.Sleep(50 * time.Millisecond) {
+		if s.st.exited(pid) {
+			return errors.New("mutter stopped as it started, managing no windows")
+		}
+		if time.Since(wait) > 15*time.Second {
+			return errors.New("mutter did not manage the desktop's windows within 15s")
+		}
+	}
+	return nil
 }
 
 // busLauncher is at-spi2-core's launcher of the accessibility bus, where the
@@ -365,6 +412,7 @@ func (s *session) stop() {
 	if s.c != nil {
 		s.c.Close()
 	}
+	s.tray.Close()
 	for _, pid := range []int{s.launcher, s.bus} {
 		if pid > 0 {
 			_ = syscall.Kill(-pid, syscall.SIGKILL)
@@ -433,34 +481,26 @@ func (s *session) start(sc *core.Scenario, app *desktopcore.App, home string) (*
 	if err != nil {
 		return nil, err
 	}
-	p := &proc{sc: sc, app: app, pid: pid, in: s.seat, wayland: s.d.wayland}
+	p := &proc{sc: sc, app: app, pid: pid, in: s.seat, wayland: s.d.wayland, c: s.c, tray: s.tray}
 	p.exited = func() bool { return s.st.exited(pid) }
 	for wait := time.Now(); ; time.Sleep(250 * time.Millisecond) {
-		if root, err := s.c.ApplicationOf(p.pid); err == nil {
-			if kids, _ := root.Children(); len(kids) > 0 {
-				p.root = root
-				sc.Log("the %s app came on the accessibility bus after %s", app.Name, time.Since(wait).Round(time.Millisecond))
-				break
-			}
+		if p.top() != nil {
+			sc.Log("the %s app came on the accessibility bus after %s", app.Name, time.Since(wait).Round(time.Millisecond))
+			break
+		}
+		// A tray app shows its icon in the tray, and no window until it is
+		// used.
+		if _, ok := s.tray.ItemOf(pid); ok {
+			sc.Log("the %s app came to the tray after %s, with no window", app.Name, time.Since(wait).Round(time.Millisecond))
+			break
 		}
 		if p.exited() {
-			return nil, errors.New("the app stopped before it showed a window")
+			return nil, errors.New("the app stopped before it showed a window or a tray icon")
 		}
 		if time.Since(wait) > windowWait {
 			_ = p.Stop()
-			return nil, fmt.Errorf("the app did not come on the accessibility bus with a window within %s", windowWait)
+			return nil, fmt.Errorf("the app did not come on the accessibility bus with a window, or to the tray, within %s", windowWait)
 		}
-	}
-	name, version := p.root.Toolkit()
-	p.gtk4 = name == "GTK" && strings.HasPrefix(version, "4.")
-	if !p.gtk4 {
-		// Only GTK 4 knows places in its window only.
-		p.root.WithScreenPlaces()
-	}
-	p.java = strings.Contains(strings.ToLower(name), "java") || strings.Contains(name, "J2SE")
-	if atspi.IsFlutter(p.pid) {
-		p.flutter = true
-		p.root.WithoutPlaces()
 	}
 	return p, nil
 }

@@ -4,6 +4,7 @@ package desktopwindows
 
 import (
 	"fmt"
+	"image"
 	"regexp"
 	"slices"
 	"strings"
@@ -44,6 +45,13 @@ func collapse(s string) string { return strings.TrimSpace(space.ReplaceAllString
 type uiaTree struct {
 	p *proc
 	c *uia.Client
+	// pointerWas is where the pointer was before it showed a taskbar that
+	// hides itself, where it goes back to once an icon's menu is chosen from.
+	pointerWas *image.Point
+	// frontWas is the window in front before the taskbar's tray was used,
+	// which a person clicks back into once an icon's menu is chosen from: a
+	// taskbar that hides itself stays on the screen while it is in front.
+	frontWas uintptr
 }
 
 // ctl is a control UI Automation found. Its methods ask on the worker's
@@ -289,7 +297,199 @@ func (t *uiaTree) find(kind, n string, onlyShown bool) []*uia.Element {
 			return distinct(found)
 		}
 	}
+	if kind == "menu" || kind == "element" {
+		return t.trayIcon(n, kind == "menu")
+	}
 	return nil
+}
+
+// The taskbar's tray (its notification area): the window of the taskbar,
+// those of the icons it hides while they show, the hidden icons' button,
+// and the apps' icons, named by their tooltips.
+const (
+	taskbarClass  = "Shell_TrayWnd"
+	trayIconID    = "NotifyItemIcon"
+	hiddenIconsID = "SystemTrayIcon"
+	hiddenClass   = "SystemTray.NormalButton"
+)
+
+var hiddenIconsWindows = []string{"TopLevelWindowForOverflowXamlIsland", "NotifyIconOverflowWindow"}
+
+// trayIcon is an app's icon of the name in the taskbar's tray. Looking for
+// one, as a person does, opens the icons the tray hides when it is none of
+// those it shows.
+func (t *uiaTree) trayIcon(n string, open bool) []*uia.Element {
+	if t.frontWas == 0 {
+		t.frontWas = uia.ForegroundWindow()
+	}
+	t.showTaskbar()
+	icons, hidden := t.tray()
+	for _, e := range icons {
+		if named(e, n) {
+			return []*uia.Element{e}
+		}
+	}
+	if !open || hidden == nil {
+		return nil
+	}
+	if !t.toggle(hidden) {
+		return nil
+	}
+	for wait := time.Now(); time.Since(wait) < 2*time.Second; time.Sleep(100 * time.Millisecond) {
+		icons, _ = t.tray()
+		for _, e := range icons {
+			if named(e, n) {
+				return []*uia.Element{e}
+			}
+		}
+	}
+	return nil
+}
+
+// showTaskbar brings a taskbar that hides itself onto the screen, as a
+// person does: the pointer at the screen's bottom edge, where it waits.
+func (t *uiaTree) showTaskbar() {
+	root, err := t.c.Root()
+	if err != nil {
+		return
+	}
+	kids, _ := root.Children()
+	for _, k := range kids {
+		if k.ClassName() != taskbarClass {
+			continue
+		}
+		screen := uia.Screen()
+		hidden := func() bool { return k.Bounds().Top >= screen.Bottom-8 }
+		if !hidden() {
+			return
+		}
+		if t.pointerWas == nil {
+			x, y := uia.Pointer()
+			t.pointerWas = &image.Point{X: x, Y: y}
+		}
+		_ = uia.Move(int(screen.Right/2), int(screen.Bottom-1))
+		for wait := time.Now(); hidden() && time.Since(wait) < 2*time.Second; time.Sleep(50 * time.Millisecond) {
+		}
+		return
+	}
+}
+
+// toggle presses the button that shows the tray's hidden icons, or hides
+// them.
+func (t *uiaTree) toggle(button *uia.Element) bool {
+	if err := button.Invoke(); err != nil {
+		x, y, ok := center(button)
+		if !ok || uia.Click(x, y) != nil {
+			return false
+		}
+	}
+	return true
+}
+
+// leaveTray hides the tray's hidden icons, takes the pointer back from a
+// taskbar that hides itself, and clicks back into the window that was in
+// front, as a person does: the taskbar stays on the screen while any of
+// them is left.
+func (t *uiaTree) leaveTray() {
+	// Shown by this search or an earlier one, or shown again as the menu
+	// closes: hidden again, and seen to stay hidden. A press takes a moment
+	// to hide them; pressed again before, it would show them again.
+	var pressed time.Time
+	for wait, hidden := time.Now(), 0; time.Since(wait) < 2*time.Second && hidden < 3; time.Sleep(100 * time.Millisecond) {
+		_, button, shown := t.trayState()
+		if button == nil {
+			break
+		}
+		if !shown {
+			hidden++
+			continue
+		}
+		hidden = 0
+		if time.Since(pressed) > 700*time.Millisecond {
+			t.toggle(button)
+			pressed = time.Now()
+		}
+	}
+	if t.pointerWas != nil {
+		_ = uia.Move(t.pointerWas.X, t.pointerWas.Y)
+		t.pointerWas = nil
+	}
+	// The app's window may be gone with the menu's choice (an app quit from
+	// its icon): then the desktop, which a person would click.
+	switch win := t.p.window(); {
+	case t.frontWas != 0 && uia.IsWindow(t.frontWas):
+		uia.Foreground(t.frontWas)
+	case win != nil:
+		uia.Foreground(win.Handle())
+	default:
+		uia.Foreground(uia.Desktop())
+	}
+	t.frontWas = 0
+}
+
+// tray is the apps' icons the taskbar's tray shows, those it hides while
+// they show too, and the button that shows the hidden ones while they do
+// not.
+func (t *uiaTree) tray() (icons []*uia.Element, hidden *uia.Element) {
+	icons, button, shown := t.trayState()
+	if shown {
+		return icons, nil
+	}
+	return icons, button
+}
+
+// trayState is the apps' icons in the taskbar's tray, the button that shows
+// or hides those it hides, and whether they show.
+func (t *uiaTree) trayState() (icons []*uia.Element, hidden *uia.Element, shown bool) {
+	root, err := t.c.Root()
+	if err != nil {
+		return nil, nil, false
+	}
+	kids, _ := root.Children()
+	open := false
+	var each func(e *uia.Element, depth int)
+	each = func(e *uia.Element, depth int) {
+		switch {
+		case e.AutomationID() == trayIconID:
+			icons = append(icons, e)
+			return
+		case e.AutomationID() == hiddenIconsID && e.ClassName() == hiddenClass:
+			hidden = e
+			return
+		case depth > 8:
+			return
+		}
+		grand, _ := e.Children()
+		for _, g := range grand {
+			each(g, depth+1)
+		}
+	}
+	for _, k := range kids {
+		switch cls := k.ClassName(); {
+		case cls == taskbarClass:
+			each(k, 0)
+		case slices.Contains(hiddenIconsWindows, cls):
+			open = true
+			each(k, 0)
+		}
+	}
+	return icons, hidden, open
+}
+
+// outside is whether an element is not in a window of the app's to bring
+// to the front: an icon of the taskbar's tray, which the taskbar (Explorer)
+// has, or an item of a menu open over the screen (Win32's, a tray icon's),
+// which closes when its app's window comes to the front.
+func (t *uiaTree) outside(e *uia.Element) bool {
+	if !slices.Contains(t.p.pids(), e.ProcessID()) {
+		return true
+	}
+	for at := e; at != nil; at = at.Parent() {
+		if at.ClassName() == "#32768" {
+			return true
+		}
+	}
+	return false
 }
 
 // distinct leaves out an element found again: WPF has an open menu's items
@@ -375,17 +575,19 @@ func center(e *uia.Element) (int, int, bool) {
 	return int(b.Left+b.Right) / 2, int(b.Top+b.Bottom) / 2, true
 }
 
-// settled waits for the element to stop moving, 2 seconds at most.
-func settled(e *uia.Element) {
+// settled waits for the element to stop moving, 2 seconds at most, and says
+// whether it moved.
+func settled(e *uia.Element) (moved bool) {
 	last := e.Bounds()
 	for wait := time.Now(); time.Since(wait) < 2*time.Second; {
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(50 * time.Millisecond)
 		now := e.Bounds()
 		if now == last {
-			return
+			return moved
 		}
-		last = now
+		last, moved = now, true
 	}
+	return moved
 }
 
 // usable is the part of the element a click can reach: in its window, and
@@ -480,15 +682,21 @@ func isArea(e *uia.Element) bool {
 // it there when asked (its ScrollItem pattern), or else each area it is in,
 // the outermost first, until the next one in (or the element) shows in it.
 // Flutter's places never follow a scroll (flutter/flutter#189124), so its
-// controls are never scrolled: one out of view takes its own action.
-func (t *uiaTree) reveal(e *uia.Element) {
-	if t.p.flutter || t.inView(e) {
-		return
+// controls are never scrolled: one out of view takes its own action. It
+// says whether the element was in view as it was.
+func (t *uiaTree) reveal(e *uia.Element) (inView bool) {
+	if t.p.flutter {
+		return false
+	}
+	if t.inView(e) {
+		return true
 	}
 	if e.ScrollIntoView() == nil {
-		time.Sleep(300 * time.Millisecond)
-		if t.inView(e) {
-			return
+		for wait := time.Now(); time.Since(wait) < 300*time.Millisecond; {
+			time.Sleep(30 * time.Millisecond)
+			if t.inView(e) {
+				return true
+			}
 		}
 	}
 	as := areas(e)
@@ -499,6 +707,7 @@ func (t *uiaTree) reveal(e *uia.Element) {
 		}
 		t.bringInto(as[i], inner)
 	}
+	return false
 }
 
 // bringInto scrolls the area until what it holds (inner) shows in it, or
@@ -690,9 +899,11 @@ func (t *uiaTree) scrollTo(kind, n string) *uia.Element {
 // default action, as Windows' older accessibility (MSAA) gives it
 // (Flutter's tap).
 func (t *uiaTree) click(e *uia.Element) error {
-	t.reveal(e)
-	settled(e)
-	if !t.inView(e) {
+	inView := t.reveal(e)
+	if settled(e) || !inView {
+		inView = t.inView(e)
+	}
+	if !inView {
 		for _, act := range []func(*uia.Element) error{(*uia.Element).Invoke, (*uia.Element).DefaultAction} {
 			for at := e; at != nil && at.ControlType() != typeWindow; at = at.Parent() {
 				if act(at) == nil {
@@ -711,20 +922,20 @@ func (t *uiaTree) click(e *uia.Element) error {
 	if err := uia.Click(x, y); err != nil {
 		return err
 	}
-	time.Sleep(250 * time.Millisecond)
+	time.Sleep(afterInput)
 	return nil
 }
 
 // origin is the element's top left, in pixels, once it is in view and
 // still.
-func (t *uiaTree) origin(e *uia.Element) (int, int, error) {
+func (t *uiaTree) rect(e *uia.Element) (x, y, w, h int, err error) {
 	t.reveal(e)
 	settled(e)
 	b := e.Bounds()
 	if b.Right <= b.Left {
-		return 0, 0, fmt.Errorf("the %s has no place on the screen", uia.ControlTypeName(e.ControlType()))
+		return 0, 0, 0, 0, fmt.Errorf("the %s has no place on the screen", uia.ControlTypeName(e.ControlType()))
 	}
-	return int(b.Left), int(b.Top), nil
+	return int(b.Left), int(b.Top), int(b.Right - b.Left), int(b.Bottom - b.Top), nil
 }
 
 // node is the element and those under it as nodes.

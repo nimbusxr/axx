@@ -124,6 +124,12 @@ func TestObjectContent(t *testing.T) {
 	}()
 	h.OK(`within 5s the manifests/M-KESTREL-0413.pdf object in the carrier-drops s3 bucket contains "Daily manifest"`)
 	h.OK("within 5s the disputes/kestrel-2026-10.csv object in the carrier-drops s3 bucket has a row where:", [][]string{{"parcel", "PX-KES-1009"}})
+
+	// Expected values expand as a step's other arguments do.
+	t.Setenv("AXX_TEST_CARRIER", "KESTREL")
+	put("summaries/kestrel-2026-09.json", []byte(`{"carrier":"KESTREL","lines":14}`))
+	h.OK("the summaries/kestrel-2026-09.json object in the carrier-drops s3 bucket has the following properties:",
+		[][]string{{"carrier", "${env:AXX_TEST_CARRIER}"}, {"lines", "14"}})
 }
 
 func TestObjectStepsSince(t *testing.T) {

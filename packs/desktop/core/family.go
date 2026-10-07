@@ -25,6 +25,9 @@ func running(sc *core.Scenario, a *appcore.App, start bool) (Process, error) {
 }
 
 func (family) Launch(sc *core.Scenario, a *appcore.App) error {
+	if app, ok := a.Data.(*App); ok && app.System {
+		return fmt.Errorf("the %s app is the system's: it runs already, and the scenario does not launch it", a.Name)
+	}
 	p, err := running(sc, a, true)
 	if err != nil {
 		return err
@@ -353,10 +356,11 @@ func waitUntil(sc *core.Scenario, d time.Duration, check func() (bool, error)) (
 		if !time.Now().Before(deadline) && looks >= 2 {
 			return false, nil
 		}
+		// Soon at first, as most of what is waited for comes at once.
 		select {
 		case <-sc.Context().Done():
 			return false, sc.Context().Err()
-		case <-time.After(150 * time.Millisecond):
+		case <-time.After(min(time.Duration(looks)*50*time.Millisecond, 150*time.Millisecond)):
 		}
 	}
 }

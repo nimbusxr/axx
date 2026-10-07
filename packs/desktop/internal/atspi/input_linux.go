@@ -3,7 +3,9 @@
 package atspi
 
 import (
+	"encoding/binary"
 	"fmt"
+	"image"
 	"strings"
 	"time"
 	"unicode"
@@ -201,9 +203,119 @@ func (in *Input) Key(spec string) error {
 	return nil
 }
 
-// FocusUnderPointer gives the keyboard to the window under the pointer, as a
-// window manager does when a window is clicked: axx's desktops have none, and
-// GTK 4 takes keys only in a window that has the focus. An app that took the
+// Activate asks the window manager to bring the process's top window to the
+// front, with the keyboard, as a click on it in a list of windows does
+// (EWMH's _NET_ACTIVE_WINDOW). Without a window manager, nothing.
+func (in *Input) Activate(pid int) error {
+	atom := func(name string) xproto.Atom {
+		a, err := xproto.InternAtom(in.x, true, uint16(len(name)), name).Reply()
+		if err != nil {
+			return xproto.AtomNone
+		}
+		return a.Atom
+	}
+	stacking, wmPID, active := atom("_NET_CLIENT_LIST_STACKING"), atom("_NET_WM_PID"), atom("_NET_ACTIVE_WINDOW")
+	if stacking == xproto.AtomNone || wmPID == xproto.AtomNone || active == xproto.AtomNone {
+		return nil
+	}
+	list, err := xproto.GetProperty(in.x, false, in.root, stacking, xproto.AtomWindow, 0, 4096).Reply()
+	if err != nil {
+		return err
+	}
+	var top xproto.Window
+	for i := 0; i+4 <= len(list.Value); i += 4 {
+		w := xproto.Window(binary.LittleEndian.Uint32(list.Value[i:]))
+		p, err := xproto.GetProperty(in.x, false, w, wmPID, xproto.AtomCardinal, 0, 1).Reply()
+		if err == nil && len(p.Value) >= 4 && int(binary.LittleEndian.Uint32(p.Value)) == pid {
+			top = w // the list runs bottom to top
+		}
+	}
+	if top == 0 {
+		return nil
+	}
+	// The app's window in use already: its open menu stays open.
+	if a, err := xproto.GetProperty(in.x, false, in.root, active, xproto.AtomWindow, 0, 1).Reply(); err == nil && len(a.Value) >= 4 {
+		w := xproto.Window(binary.LittleEndian.Uint32(a.Value))
+		if p, err := xproto.GetProperty(in.x, false, w, wmPID, xproto.AtomCardinal, 0, 1).Reply(); err == nil && len(p.Value) >= 4 && int(binary.LittleEndian.Uint32(p.Value)) == pid {
+			return nil
+		}
+	}
+	const fromPager = 2 // the request comes from a person's choice, as a pager's
+	ev := xproto.ClientMessageEvent{
+		Format: 32, Window: top, Type: active,
+		Data: xproto.ClientMessageDataUnionData32New([]uint32{fromPager, uint32(xproto.TimeCurrentTime), 0, 0, 0}),
+	}
+	return xproto.SendEventChecked(in.x, false, in.root,
+		xproto.EventMaskSubstructureNotify|xproto.EventMaskSubstructureRedirect, string(ev.Bytes())).Check()
+}
+
+// Place is where a process's window of a size is on the screen, as the
+// window manager placed it: an app that knows places in its window only
+// (GTK 4) needs it.
+func (in *Input) Place(pid int, width, height int32) (x, y int32, ok bool) {
+	r, ok := in.window(pid, width, height)
+	return int32(r.Min.X), int32(r.Min.Y), ok
+}
+
+// Window is the process's top window on the screen, as the window manager
+// has it (its own title bar too, when it draws one): the window a
+// screenshot of the app is of.
+func (in *Input) Window(pid int) (image.Rectangle, bool) { return in.window(pid, 0, 0) }
+
+// window is a process's window of a size (any, for none) on the screen, the
+// top one first (EWMH's _NET_CLIENT_LIST_STACKING). A window that draws its
+// own shadow (GTK's) says how wide it is (_GTK_FRAME_EXTENTS).
+func (in *Input) window(pid int, width, height int32) (image.Rectangle, bool) {
+	atom := func(name string) xproto.Atom {
+		a, err := xproto.InternAtom(in.x, true, uint16(len(name)), name).Reply()
+		if err != nil {
+			return xproto.AtomNone
+		}
+		return a.Atom
+	}
+	clients, wmPID, frame := atom("_NET_CLIENT_LIST_STACKING"), atom("_NET_WM_PID"), atom("_GTK_FRAME_EXTENTS")
+	if clients == xproto.AtomNone || wmPID == xproto.AtomNone {
+		return image.Rectangle{}, false
+	}
+	list, err := xproto.GetProperty(in.x, false, in.root, clients, xproto.AtomWindow, 0, 4096).Reply()
+	if err != nil {
+		return image.Rectangle{}, false
+	}
+	near := func(a, b int32) bool { return a-b <= 2 && b-a <= 2 }
+	// The top window first: the list runs bottom to top.
+	for i := len(list.Value) - 4; i >= 0; i -= 4 {
+		w := xproto.Window(binary.LittleEndian.Uint32(list.Value[i:]))
+		p, err := xproto.GetProperty(in.x, false, w, wmPID, xproto.AtomCardinal, 0, 1).Reply()
+		if err != nil || len(p.Value) < 4 || int(binary.LittleEndian.Uint32(p.Value)) != pid {
+			continue
+		}
+		g, err := xproto.GetGeometry(in.x, xproto.Drawable(w)).Reply()
+		if err != nil {
+			continue
+		}
+		var left, right, top, bottom int32
+		if frame != xproto.AtomNone {
+			if e, err := xproto.GetProperty(in.x, false, w, frame, xproto.AtomCardinal, 0, 4).Reply(); err == nil && len(e.Value) >= 16 {
+				left, right = int32(binary.LittleEndian.Uint32(e.Value)), int32(binary.LittleEndian.Uint32(e.Value[4:]))
+				top, bottom = int32(binary.LittleEndian.Uint32(e.Value[8:])), int32(binary.LittleEndian.Uint32(e.Value[12:]))
+			}
+		}
+		cw, ch := int32(g.Width)-left-right, int32(g.Height)-top-bottom
+		if width > 0 && (!near(cw, width) || !near(ch, height)) {
+			continue
+		}
+		t, err := xproto.TranslateCoordinates(in.x, w, in.root, int16(left), int16(top)).Reply()
+		if err != nil {
+			continue
+		}
+		return image.Rect(int(t.DstX), int(t.DstY), int(t.DstX)+int(cw), int(t.DstY)+int(ch)), true
+	}
+	return image.Rectangle{}, false
+}
+
+// FocusUnderPointer gives the keyboard to the window under the pointer when
+// no window has it, as a window manager does when a window is clicked: GTK 4
+// takes keys only in a window that has the focus. An app that took the
 // keyboard itself keeps it: Java gives it to a window of its own, and loses
 // keys when another takes it.
 func (in *Input) FocusUnderPointer() error {

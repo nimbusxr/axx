@@ -34,6 +34,10 @@ type App struct {
 	Locale, Timezone string
 	// Extra are the properties of the OS's own, like Windows' registry.
 	Extra map[string]string
+	// System is whether the app is the system's (owner: system), one that
+	// runs already, like Finder or File Explorer: the scenario reads it as
+	// it runs, and never resets, starts or stops it.
+	System bool
 	// Dir is where the app starts: the project's folder, so its arguments'
 	// paths are relative to axx.yaml, as the app's is.
 	Dir    string
@@ -47,15 +51,30 @@ func (a *App) Arguments() []string {
 	var out []string
 	for _, arg := range a.Args {
 		switch {
-		case strings.HasPrefix(arg, "-"), filepath.IsAbs(arg), runtime.GOOS == "windows" && strings.HasPrefix(arg, "/"):
-		default:
-			if p := filepath.Join(a.Dir, arg); exists(p) {
-				arg = p
+		case strings.HasPrefix(arg, "-"):
+			// An option's value: --user-data-dir=.axx/desktop/windows/edge.
+			if name, value, ok := strings.Cut(arg, "="); ok {
+				arg = name + "=" + a.projectFile(value)
 			}
+		case filepath.IsAbs(arg), runtime.GOOS == "windows" && strings.HasPrefix(arg, "/"):
+		default:
+			arg = a.projectFile(arg)
 		}
 		out = append(out, arg)
 	}
 	return out
+}
+
+// projectFile is the path of a file of the project, which the app may not
+// be started in; anything else as it is.
+func (a *App) projectFile(arg string) string {
+	if arg == "" || filepath.IsAbs(arg) || strings.HasPrefix(arg, "-") {
+		return arg
+	}
+	if p := filepath.Join(a.Dir, arg); exists(p) {
+		return p
+	}
+	return arg
 }
 
 func exists(p string) bool {
@@ -86,8 +105,8 @@ func Parse(sc *core.Scenario, platform, name string, t *core.Table, extra ...str
 	if err != nil {
 		return nil, err
 	}
-	a := &App{Name: name, Env: map[string]string{}, Extra: map[string]string{}, Dir: sc.Suite().ProjectDir()}
-	supported := append([]string{"app", "args", "env.<name>", "locale", "timezone"}, extra...)
+	a := &App{Name: appcore.Named(sc, name), Env: map[string]string{}, Extra: map[string]string{}, Dir: sc.Suite().ProjectDir()}
+	supported := append([]string{"app", "args", "env.<name>", "locale", "timezone", "owner"}, extra...)
 	for _, p := range pairs {
 		key, value := p.Key, strings.TrimSpace(secrets.Expand(sc, p.Value))
 		if env, ok := strings.CutPrefix(key, "env."); ok {
@@ -99,7 +118,10 @@ func Parse(sc *core.Scenario, platform, name string, t *core.Table, extra ...str
 		}
 		switch {
 		case key == "app":
-			if a.App, err = appPath(sc, value); err != nil {
+			// Another platform's app is there on that platform, not here.
+			if platform != appcore.Host() {
+				a.App = value
+			} else if a.App, err = appPath(sc, value); err != nil {
 				return nil, fmt.Errorf("the %s %s app's app: %w", name, platform, err)
 			}
 		case key == "args":
@@ -109,6 +131,12 @@ func Parse(sc *core.Scenario, platform, name string, t *core.Table, extra ...str
 				return nil, fmt.Errorf("the %s %s app's locale %q is not a language and region, like de-DE", name, platform, value)
 			}
 			a.Locale = value
+		case key == "owner":
+			if value != "system" {
+				return nil, fmt.Errorf("the %s %s app's owner %q is not one: system is, for an app the system runs already (Finder, File Explorer); "+
+					"leave it out for an app the scenario starts", name, platform, value)
+			}
+			a.System = true
 		case key == "timezone":
 			if _, err := time.LoadLocation(value); err != nil || value == "" || value == "Local" {
 				return nil, fmt.Errorf("the %s %s app's timezone %q is not a time zone, like Europe/Berlin", name, platform, value)
@@ -122,6 +150,9 @@ func Parse(sc *core.Scenario, platform, name string, t *core.Table, extra ...str
 	}
 	if a.App == "" {
 		return nil, fmt.Errorf("the %s %s app has no app: name it, like | app | %s |", name, platform, exampleApp[platform])
+	}
+	if a.System && (len(a.Args) > 0 || len(a.Env) > 0 || a.Locale != "" || a.Timezone != "" || len(a.Extra) > 0) {
+		return nil, fmt.Errorf("the %s %s app is the system's: it runs as it is, so it takes no args, env, locale, timezone or settings of the OS's own", name, platform)
 	}
 	return a, nil
 }
@@ -163,8 +194,22 @@ func Register(sc *core.Scenario, app *App) error {
 	if !runsHere {
 		return nil
 	}
-	_, err := desktopOf(sc, app.Driver)
-	return err
+	desk, err := desktopOf(sc, app.Driver)
+	if err != nil || !app.System {
+		return err
+	}
+	// The system's app is watched from now on: the windows it shows from
+	// here on are the scenario's, closed as it ends.
+	p, err := desk.Watch(sc, app)
+	if err != nil {
+		return secrets.Hide(sc, fmt.Errorf("cannot read the %s app: %w", app.Name, err))
+	}
+	s := scenarios.Of(sc)
+	s.mu.Lock()
+	s.running[app.Name] = p
+	s.order = append(s.order, app.Name)
+	s.mu.Unlock()
+	return nil
 }
 
 // desktopApp is the scenario's app of the name, which must be a desktop
@@ -212,7 +257,8 @@ func (s *scenario) describe(sc *core.Scenario) any {
 }
 
 // release keeps what the settings say of the apps' traces and videos, stops
-// the scenario's apps, the last started first, and gives the desktop back.
+// the scenario's apps, the last started first (the system's apps close the
+// windows they showed for it), and gives the desktop back.
 func release(sc *core.Scenario, s *scenario) error {
 	s.tracing.Wait()
 	s.mu.Lock()
@@ -259,6 +305,9 @@ func desktopOf(sc *core.Scenario, d Driver) (Desktop, error) {
 // reset, the first time the scenario uses it: as the app starts, or as a
 // step writes or reads its files before then.
 func home(sc *core.Scenario, app *App) (Desktop, string, error) {
+	if app.System {
+		return nil, "", fmt.Errorf("the %s app is the system's: it has no home of the scenario's, and its files are the machine's", app.Name)
+	}
 	desk, err := desktopOf(sc, app.Driver)
 	if err != nil {
 		return nil, "", err
@@ -296,6 +345,9 @@ func process(sc *core.Scenario, app *App, start bool) (Process, error) {
 	if ok && !p.Exited() {
 		return traced{p, s}, nil
 	}
+	if app.System {
+		return nil, fmt.Errorf("the %s app is the system's: it runs already, and the scenario does not start it", app.Name)
+	}
 	if !start {
 		if ok {
 			return nil, core.Failf("The %s app has stopped: launch it again with \"the %s app is launched\"", app.Name, app.Name)
@@ -320,8 +372,12 @@ func process(sc *core.Scenario, app *App, start bool) (Process, error) {
 	return traced{p, s}, nil
 }
 
-// stop stops the app, if it runs, keeping its home.
+// stop stops the app, if it runs, keeping its home. The system's app is
+// never stopped.
 func stop(sc *core.Scenario, app *App) error {
+	if app.System {
+		return fmt.Errorf("the %s app is the system's: the scenario does not stop it", app.Name)
+	}
 	s := scenarios.Of(sc)
 	s.tracing.Wait()
 	s.mu.Lock()

@@ -2,6 +2,8 @@ package desktopcore
 
 import (
 	"bytes"
+	"errors"
+	"fmt"
 	"image"
 	"image/color"
 	"image/draw"
@@ -21,8 +23,10 @@ import (
 
 // fakeDriver runs fake apps on this machine's OS.
 type fakeDriver struct {
-	claims, releases, resets, starts int
-	proc                             *fakeProc
+	claims, releases, resets, starts, watches int
+	proc                                      *fakeProc
+	// system is the system's app a watch reads.
+	system *fakeProc
 	// wrap is what runs the proc, when not the proc itself.
 	wrap Process
 }
@@ -56,6 +60,11 @@ func (k *fakeDesk) Start(*core.Scenario, *App) (Process, error) {
 }
 func (k *fakeDesk) Release() { k.d.releases++ }
 
+func (k *fakeDesk) Watch(*core.Scenario, *App) (Process, error) {
+	k.d.watches++
+	return k.d.system, nil
+}
+
 // fakeProc is an app whose controls are a tree of nodes.
 type fakeProc struct {
 	tree    *Node
@@ -69,6 +78,8 @@ type fakeProc struct {
 	// changing is whether its window differs at each look (looks).
 	changing bool
 	looks    atomic.Int32
+	// size is its controls' size, in points, once set: a place off it fails.
+	size [2]float64
 }
 
 type fakeControl struct {
@@ -135,13 +146,23 @@ func (p *fakeProc) Click(c Control) error {
 	return nil
 }
 
-func (p *fakeProc) ClickAt(c Control, x, y float64) error {
-	p.clicks = append(p.clicks, c.Name()+" at")
+func (p *fakeProc) ClickAt(c Control, from Anchor, x, y float64) error {
+	if p.size[0] > 0 {
+		if err := from.On(p.size[0], p.size[1], x, y); err != nil {
+			return err
+		}
+	}
+	p.clicks = append(p.clicks, fmt.Sprintf("%s at %g, %g from %g, %g", c.Name(), x, y, from.X, from.Y))
 	return nil
 }
 
-func (p *fakeProc) Drag(c Control, x1, y1, x2, y2 float64) error {
-	p.clicks = append(p.clicks, c.Name()+" dragged")
+func (p *fakeProc) Drag(c Control, from Anchor, x1, y1, x2, y2 float64) error {
+	if p.size[0] > 0 {
+		if err := from.On(p.size[0], p.size[1], x1, y1); err != nil {
+			return err
+		}
+	}
+	p.clicks = append(p.clicks, fmt.Sprintf("%s dragged from %g, %g to %g, %g from %g, %g", c.Name(), x1, y1, x2, y2, from.X, from.Y))
 	return nil
 }
 
@@ -206,6 +227,50 @@ func harness(t *testing.T, d *fakeDriver) *cloudtest.Harness {
 		t.Fatal(err)
 	}
 	return h
+}
+
+// The system's app (owner: system) runs already: the scenario watches it
+// from its registration on, reads it with the steps, and never resets,
+// starts or stops it; its end closes the windows the app showed for it.
+func TestSystemApp(t *testing.T) {
+	p, _, _ := desk()
+	files := &fakeProc{tree: node("window", ".snap", nil), texts: []string{".snap", "snap.log"}}
+	d := &fakeDriver{proc: p, system: files}
+	h := harness(t, d)
+	if err := Register(h.SC, &App{Name: "files", App: "com.apple.finder", System: true, Driver: d, Dir: h.Dir}); err != nil {
+		t.Fatal(err)
+	}
+	if d.watches != 1 || d.resets != 0 || d.starts != 0 {
+		t.Fatalf("registering the system's app watches it, and resets and starts nothing: %d watches, %d resets, %d starts", d.watches, d.resets, d.starts)
+	}
+	h.OK(`within 1s the files app shows "snap.log"`)
+	_ = h.Fails("the files app is launched", "is the system's: it runs already")
+	_ = h.Fails("the files app is restarted", "is the system's")
+	if err := h.End("passed"); err != nil {
+		t.Fatal(err)
+	}
+	if !files.stopped {
+		t.Error("the scenario's end has the system's app close the windows it showed")
+	}
+}
+
+// The system's app is only that: an owner other than system, or settings
+// for an app the scenario would start, are refused.
+func TestSystemAppParse(t *testing.T) {
+	h := cloudtest.New(t, appcore.Pack(), Pack(), files.Pack())
+	h.Start(&core.Plan{})
+	for _, c := range []struct {
+		rows [][]string
+		want string
+	}{
+		{[][]string{{"app", "com.apple.finder"}, {"owner", "me"}}, `owner "me" is not one`},
+		{[][]string{{"app", "com.apple.finder"}, {"owner", "system"}, {"args", "--new-window"}}, "takes no args"},
+	} {
+		_, err := Parse(h.SC, appcore.Host(), "files", &core.Table{Rows: c.rows})
+		if err == nil || !strings.Contains(err.Error(), c.want) {
+			t.Errorf("%v: %v, want %q", c.rows, err, c.want)
+		}
+	}
 }
 
 // A registration for this machine claims the desktop as it registers; the
@@ -280,7 +345,86 @@ func TestControls(t *testing.T) {
 	if !shot || !outline {
 		t.Errorf("a failure attaches the window (%v) and the app's controls (%v)", shot, outline)
 	}
+	// Places are from the control's top left, or from the point a step names.
+	p.clicks = nil
 	h.OK(`the "Courier signature" element in the depot app is clicked at 40, 40`)
+	h.OK(`the "Courier signature" element in the depot app is clicked at -40, -20 from its bottom right`)
+	h.OK(`the pointer is dragged from 40, 80 to 300, 80 on the "Courier signature" element in the depot app`)
+	h.OK(`the pointer is dragged from -120, 0 to 120, 0 from the middle of the "Courier signature" element in the depot app`)
+	h.OK(`the pointer is dragged from 0, -10 to -30, -10 from the top right of the "Courier signature" element in the depot app`)
+	want := []string{
+		"Courier signature at 40, 40 from 0, 0",
+		"Courier signature at -40, -20 from 1, 1",
+		"Courier signature dragged from 40, 80 to 300, 80 from 0, 0",
+		"Courier signature dragged from -120, 0 to 120, 0 from 0.5, 0.5",
+		"Courier signature dragged from 0, -10 to -30, -10 from 1, 0",
+	}
+	if strings.Join(p.clicks, "\n") != strings.Join(want, "\n") {
+		t.Errorf("clicked and dragged:\n%s\nwant:\n%s", strings.Join(p.clicks, "\n"), strings.Join(want, "\n"))
+	}
+	// A place off the control fails as such, where a click would reach
+	// something else; a drag may end off it.
+	p.size = [2]float64{160, 64}
+	_ = h.Fails(`the pointer is dragged from 40, 80 to 300, 80 on the "Courier signature" element in the depot app`,
+		`40, 80 from its top left is off the "Courier signature" element in the depot app, which is 160 by 64 points`)
+	_ = h.Fails(`the "Courier signature" element in the depot app is clicked at 130, 0 from its middle`,
+		`130, 0 from its middle is off the "Courier signature" element`)
+	h.OK(`the pointer is dragged from 40, 30 to 300, 30 on the "Courier signature" element in the depot app`)
+	h.OK(`the "Courier signature" element in the depot app is clicked at 0, 0 from its bottom right`)
+	p.size = [2]float64{}
+
+	// A step may name its app by a property, where the app differs between
+	// platforms.
+	t.Setenv("AXX_TEST_DESK", "depot")
+	p.clicks = nil
+	h.OK(`the "Courier signature" element in the ${env:AXX_TEST_DESK} app is clicked at -40, -20 from its bottom right`)
+	h.OK(`the pointer is dragged from -120, 0 to 120, 0 from the middle of the "Courier signature" element in the ${env:AXX_TEST_DESK} app`)
+	h.OK(`the Enter key is pressed in the ${env:AXX_TEST_DESK} app`)
+	_ = h.Fails(`the Enter key is pressed in the ${env:AXX_TEST_NO_DESK:-office} app`, `no app named "office" is registered in this scenario (it registers depot)`)
+	if len(p.clicks) != 2 {
+		t.Errorf("clicked and dragged in the app a property names: %v", p.clicks)
+	}
+}
+
+// A place from an anchor is that far from the anchor's point.
+func TestAnchorOn(t *testing.T) {
+	for _, c := range []struct {
+		from Anchor
+		x, y float64
+		on   bool
+	}{
+		{TopLeft, 40, 30, true},
+		{TopLeft, 40, 80, false},
+		{TopLeft, -1, 0, false},
+		{anchors["middle"], -60, 10, true},
+		{anchors["middle"], -120, 10, false},
+		{anchors["bottom right"], 0, 0, true},
+		{anchors["bottom right"], -40, -30, true},
+		{anchors["top right"], 1, 0, false},
+	} {
+		err := c.from.On(160, 64, c.x, c.y)
+		var off *Off
+		if on := err == nil; on != c.on || !on && (!errors.As(err, &off) || off.Width != 160 || off.Height != 64) {
+			t.Errorf("%g, %g from its %v on a 160 by 64 control: %v", c.x, c.y, c.from, err)
+		}
+	}
+}
+
+func TestAnchorPlace(t *testing.T) {
+	for _, c := range []struct {
+		from Anchor
+		x, y float64
+	}{
+		{TopLeft, 110, 220},
+		{anchors["middle"], 160, 245},
+		{anchors["bottom right"], 210, 270},
+		{anchors["top right"], 210, 220},
+		{anchors["bottom left"], 110, 270},
+	} {
+		if x, y := c.from.Place(100, 200, 100, 50, 10, 20); x != c.x || y != c.y {
+			t.Errorf("10, 20 from %v of 100,200 100x50 is %g, %g, not %g, %g", c.from, x, y, c.x, c.y)
+		}
+	}
 }
 
 // An app's files are its home's: "./" where the OS keeps an app's data,
@@ -335,7 +479,8 @@ func TestParse(t *testing.T) {
 		{"timezone", "Europe/Berlin"},
 		{"registry", `Software\Parcels`},
 	}}
-	a, err := Parse(h.SC, "windows", "depot", tbl, "registry")
+	host := appcore.Host()
+	a, err := Parse(h.SC, host, "depot", tbl, "registry")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -347,17 +492,25 @@ func TestParse(t *testing.T) {
 		{"app", "build/missing.app"}: "is not there",
 		{"locale", "German"}:         "not a language and region",
 		{"timezone", "Mars/Olympus"}: "not a time zone",
-		{"registry", `Software\X`}:   `unknown macos app property "registry" (supported: app, args, env.<name>, locale, timezone)`,
+		{"registry", `Software\X`}:   `unknown ` + host + ` app property "registry" (supported: app, args, env.<name>, locale, timezone, owner)`,
 		{"env.1X", "y"}:              "not an environment variable's name",
 	} {
 		rows := [][]string{{"app", "TextEdit"}, row[:]}
 		if row[0] == "app" {
 			rows = rows[1:]
 		}
-		_, err := Parse(h.SC, "macos", "depot", &core.Table{Rows: rows})
+		_, err := Parse(h.SC, host, "depot", &core.Table{Rows: rows})
 		if err == nil || !strings.Contains(err.Error(), want) {
 			t.Errorf("%v: %v", row, err)
 		}
+	}
+	// Another platform's app is there on that platform: it is kept as it is.
+	other := "windows"
+	if host == other {
+		other = "linux"
+	}
+	if a, err := Parse(h.SC, other, "depot", &core.Table{Rows: [][]string{{"app", `C:\Program Files\Depot desk\DepotDesk.exe`}}}); err != nil || a.App != `C:\Program Files\Depot desk\DepotDesk.exe` {
+		t.Errorf("another platform's app is not looked for here: %v %v", a, err)
 	}
 	if _, err := Parse(h.SC, "linux", "depot", &core.Table{Rows: [][]string{{"args", "x"}}}); err == nil || !strings.Contains(err.Error(), "has no app") {
 		t.Errorf("an app is required: %v", err)
@@ -660,15 +813,25 @@ func TestOutline(t *testing.T) {
 	}
 }
 
-// An argument that names a file of the project is made absolute: a .app
-// starts in /, not in the project.
+// An argument that names a file of the project is made absolute, an
+// option's value too: a .app starts in /, not in the project, and a browser
+// takes no relative profile.
 func TestArguments(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(dir, "desk.py"), nil, 0o644); err != nil {
 		t.Fatal(err)
 	}
-	a := &App{Dir: dir, Args: []string{"desk.py", "--qt5", "missing.py", filepath.Join(dir, "desk.py")}}
-	want := []string{filepath.Join(dir, "desk.py"), "--qt5", "missing.py", filepath.Join(dir, "desk.py")}
+	if err := os.MkdirAll(filepath.Join(dir, ".axx", "desk"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	a := &App{Dir: dir, Args: []string{
+		"desk.py", "--qt5", "missing.py", filepath.Join(dir, "desk.py"),
+		"--user-data-dir=.axx/desk", "--config=missing.yaml", "--depot=Leipzig",
+	}}
+	want := []string{
+		filepath.Join(dir, "desk.py"), "--qt5", "missing.py", filepath.Join(dir, "desk.py"),
+		"--user-data-dir=" + filepath.Join(dir, ".axx", "desk"), "--config=missing.yaml", "--depot=Leipzig",
+	}
 	if got := a.Arguments(); strings.Join(got, "|") != strings.Join(want, "|") {
 		t.Errorf("%v", got)
 	}

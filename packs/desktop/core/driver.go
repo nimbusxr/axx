@@ -36,6 +36,12 @@ type Desktop interface {
 	// Start starts the app with its home, waits for its window, and fits
 	// the window into the screen's usable part.
 	Start(sc *core.Scenario, app *App) (Process, error)
+	// Watch reads the system's app (owner: system) as it runs, from the
+	// scenario's registration of it on: one that runs already (Finder,
+	// File Explorer), or that another app starts on the scenario's desktop.
+	// Its Stop closes the windows it showed since, as a person closes them,
+	// and leaves the app running; it has not exited while it is watched.
+	Watch(sc *core.Scenario, app *App) (Process, error)
 	// Release gives the desktop back, its apps stopped.
 	Release()
 }
@@ -70,12 +76,13 @@ type Process interface {
 	// ScrollIntoView scrolls until the control is in view.
 	ScrollIntoView(c Control) error
 	// Click brings the control into view and clicks its middle with the
-	// pointer; ClickAt clicks at a point from its top left, and Drag drags
-	// from one point to another on it. A control with no place on the
-	// screen takes its accessibility action instead, which the log says.
+	// pointer; ClickAt clicks at a point from an anchor of it (its top
+	// left, its middle, a corner), and Drag drags from one point to another
+	// on it. A control with no place on the screen takes its accessibility
+	// action instead, which the log says.
 	Click(c Control) error
-	ClickAt(c Control, x, y float64) error
-	Drag(c Control, x1, y1, x2, y2 float64) error
+	ClickAt(c Control, from Anchor, x, y float64) error
+	Drag(c Control, from Anchor, x1, y1, x2, y2 float64) error
 	// Key presses a key with its modifiers, as the web pack names them
 	// (Enter, Control+Shift+S, ControlOrMeta+A); Type types text, each
 	// character as the keyboard would. Both go to the app's focused window.

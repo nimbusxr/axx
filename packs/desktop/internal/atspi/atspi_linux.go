@@ -11,6 +11,7 @@ import (
 	"math"
 	"os"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -50,6 +51,10 @@ type Client struct {
 	placer  Placer
 	origins sync.Map
 	tops    sync.Map
+	// inWindowOnly is whether only the apps that know places in their
+	// windows only (GTK 4) are placed: on X11 the others know their places
+	// on the screen.
+	inWindowOnly bool
 }
 
 // Placer says where a window's places start on the screen: given the
@@ -57,8 +62,14 @@ type Client struct {
 // has it.
 type Placer func(window *Element, pid int, width, height int32) (x, y int32, ok bool)
 
-// SetPlacer has the client place the windows' places on the screen with p.
+// SetPlacer has the client place the windows' places on the screen with p:
+// on Wayland, where every app knows places in its windows only.
 func (c *Client) SetPlacer(p Placer) { c.placer = p }
+
+// SetWindowPlacer has the client place with p the windows of the apps that
+// know places in their windows only (GTK 4), on X11, where the others know
+// their places on the screen.
+func (c *Client) SetWindowPlacer(p Placer) { c.placer, c.inWindowOnly = p, true }
 
 // window is the element's window: the application's child it is in (an
 // application's own, its first).
@@ -91,6 +102,9 @@ func (e *Element) window() *Element {
 // origin is where the element's window's places start on the screen.
 func (e *Element) origin() (x, y int32) {
 	if e.c.placer == nil {
+		return 0, 0
+	}
+	if _, ok := e.c.inWindow.Load(e.name); e.c.inWindowOnly && !ok {
 		return 0, 0
 	}
 	w := e.window()
@@ -208,6 +222,24 @@ func (c *Client) ApplicationOf(pid int) (*Element, error) {
 		}
 	}
 	return nil, ErrNoApplication
+}
+
+// ApplicationNamed is the application whose process's executable is named
+// exe (nautilus), and its process: the registry's child of that process.
+func (c *Client) ApplicationNamed(exe string) (*Element, int, error) {
+	apps, err := c.Desktop().Children()
+	if err != nil {
+		return nil, 0, err
+	}
+	// The kernel keeps an executable's first 15 bytes as its name.
+	exe = exe[:min(len(exe), 15)]
+	for _, app := range apps {
+		pid := c.pidOf(app.name)
+		if comm, err := os.ReadFile("/proc/" + strconv.Itoa(pid) + "/comm"); err == nil && strings.TrimSpace(string(comm)) == exe {
+			return app, pid, nil
+		}
+	}
+	return nil, 0, ErrNoApplication
 }
 
 func (c *Client) pidOf(name string) int {
@@ -444,13 +476,11 @@ func (e *Element) SetText(v string) error {
 type Rect struct{ X, Y, Width, Height int32 }
 
 // Extents is the element's place on the screen. GTK 4 knows no place on the
-// screen (it gives the origin), only in its window: under axx's X11
-// desktops, with no window manager, a window sits at the screen's origin;
-// on Wayland, where no app knows its place, the window's origin is added
-// (SetPlacer). What GTK 3 has not drawn has the least integer for a place,
-// which stays as it is.
-// TODO(desktop-linux): add the window's place, for a desktop that has a
-// window manager (--watch).
+// screen (it gives the origin), only in its window: the window's origin is
+// added (SetPlacer), where the X11 desktop's window manager put the window,
+// or on Wayland, where no app knows its place, where GNOME Shell did. What
+// GTK 3 has not drawn has the least integer for a place, which stays as it
+// is.
 func (e *Element) Extents() Rect {
 	r := e.extents()
 	if ox, oy := e.origin(); (ox != 0 || oy != 0) && r.Width > 0 && drawn(r.X, r.Y) {

@@ -70,6 +70,7 @@ type Device interface {
 // Register adds a platform's app to the scenario's apps, which app-core
 // keeps: one app runs on one platform in a scenario.
 func Register(sc *core.Scenario, app *App) error {
+	app.Name = appcore.Named(sc, app.Name)
 	return appcore.Register(sc, &appcore.App{Name: app.Name, Platform: app.Platform.Kind(), Family: family{}, Data: app},
 		app.Platform.RunsHere())
 }

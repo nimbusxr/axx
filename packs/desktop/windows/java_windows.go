@@ -407,14 +407,15 @@ func (t *javaTree) click(e *jab.Element) error {
 }
 
 // origin is the element's top left, in pixels, once it is in view.
-func (t *javaTree) origin(e *jab.Element) (int, int, error) {
+func (t *javaTree) rect(e *jab.Element) (x, y, w, h int, err error) {
 	t.reveal(e)
-	x, y, w, _ := e.Bounds()
-	if w <= 0 {
-		return 0, 0, fmt.Errorf("the %s has no place on the screen", e.Role())
+	jx, jy, jw, jh := e.Bounds()
+	if jw <= 0 {
+		return 0, 0, 0, 0, fmt.Errorf("the %s has no place on the screen", e.Role())
 	}
-	px, py := t.px(x, y)
-	return px, py, nil
+	x, y = t.px(jx, jy)
+	w, h = t.px(jw, jh)
+	return x, y, w, h, nil
 }
 
 func (t *javaTree) node(e *jab.Element, depth int, count *int) *desktopcore.Node {

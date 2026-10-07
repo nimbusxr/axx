@@ -43,6 +43,7 @@ func (o *object) release() {
 const (
 	automationCompareElements         = 3
 	automationGetRootElement          = 5
+	automationElementFromHandle       = 6
 	automationElementFromPoint        = 7
 	automationGetFocusedElement       = 8
 	automationGetControlViewWalker    = 14
@@ -189,6 +190,15 @@ func (c *Client) Root() (*Element, error) {
 		return nil, fmt.Errorf("the desktop: %w", err)
 	}
 	return &Element{c: c, obj: root}, nil
+}
+
+// FromHandle is the element of a window.
+func (c *Client) FromHandle(hwnd uintptr) (*Element, error) {
+	var e *object
+	if err := c.automation.call(automationElementFromHandle, hwnd, uintptr(unsafe.Pointer(&e))); err != nil {
+		return nil, fmt.Errorf("the window %#x: %w", hwnd, err)
+	}
+	return &Element{c: c, obj: e}, nil
 }
 
 // WindowsOf are the top-level windows of the process pid.

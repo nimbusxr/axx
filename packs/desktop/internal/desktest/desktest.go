@@ -25,8 +25,9 @@ import (
 //
 // AXX_DESK is the registration's app and AXX_DESK_ARGS its args;
 // AXX_DESK_DATA is the folder, in the app's file context, it keeps its
-// arrivals in (./Depot desk), and AXX_DESK_REGISTRY the registry key it
-// keeps its settings in (Windows).
+// arrivals in (./Depot desk), AXX_DESK_REGISTRY the registry key it keeps
+// its settings in (Windows), and AXX_DESK_PREFERENCES its preferences
+// domains when they are not its bundle's (macOS: Qt run by Python).
 //
 // Toolkits give some controls other roles: AXX_DESK_PRINT_LABEL is the kind
 // of Print label ("switch", or "checkbox"), AXX_DESK_LINK that of Handover
@@ -93,6 +94,9 @@ func Journey(t *testing.T, platform string, pack core.Pack) {
 		}
 		if key := os.Getenv("AXX_DESK_REGISTRY"); key != "" {
 			rows = append(rows, []string{"registry", key})
+		}
+		if domains := os.Getenv("AXX_DESK_PREFERENCES"); domains != "" {
+			rows = append(rows, []string{"preferences", domains})
 		}
 		h.OK("the depot "+platform+" app with the following properties:", rows)
 		if data := os.Getenv("AXX_DESK_DATA"); data != "" {
@@ -211,7 +215,7 @@ func Journey(t *testing.T, platform string, pack core.Pack) {
 		click("button", "Clear signature")
 		shows("Not signed")
 	}
-	draw(`the pointer is dragged from 40, 80 to 300, 80 on the "Courier signature" element in the depot app`)
+	draw(`the pointer is dragged from 40, 30 to 140, 30 on the "Courier signature" element in the depot app`)
 	if positions {
 		shows("Signed")
 	}

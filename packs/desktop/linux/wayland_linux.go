@@ -39,6 +39,8 @@ type seat interface {
 	Key(spec string) error
 	Type(text string) error
 	FocusUnderPointer() error
+	Activate(pid int) error
+	Window(pid int) (image.Rectangle, bool)
 	Size() (width, height int)
 	Screenshot() (*image.RGBA, error)
 	Close()

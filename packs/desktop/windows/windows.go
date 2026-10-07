@@ -56,6 +56,7 @@ func steps() []core.StepDef {
 					{Name: "registry", Takes: "the keys under `HKEY_CURRENT_USER` the app keeps its settings in, like `Software\\Parcels\\Depot desk`, separated by commas: emptied before each scenario"},
 					{Name: "locale", Takes: "its language and region: Windows has none of an app's own, so the machine's apply, and the run says so"},
 					{Name: "timezone", Takes: "its time zone: Windows has none of an app's own, so the machine's applies, and the run says so"},
+					{Name: "owner", Takes: "`system` for an app the system runs already, like File Explorer (`explorer.exe`): the scenario reads it as it runs, and never resets, launches or stops it; the windows it shows during the scenario are closed as the scenario ends"},
 				},
 			},
 			Examples: []string{"Given the depot windows app with the following properties:\n  | app      | ..\\depot-desk\\winforms\\bin\\Release\\net8.0-windows\\DepotDesk.exe |\n  | registry | Software\\Parcels\\Depot desk                                       |"},

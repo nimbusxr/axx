@@ -125,3 +125,28 @@ func cookieFor(authority, number string) (string, error) {
 	}
 	return "", errors.New("the X authority file " + authority + " has no cookie for display :" + number)
 }
+
+// HasWindowManager is whether a window manager manages the display's
+// windows, and composites them: one that says so on its root window, as
+// EWMH has it (_NET_SUPPORTING_WM_CHECK), and owns the compositing manager's
+// selection (_NET_WM_CM_S0), by which GTK draws its own title bars.
+func (d *Display) HasWindowManager() bool {
+	atom := func(name string) xproto.Atom {
+		a, err := xproto.InternAtom(d.x, false, uint16(len(name)), name).Reply()
+		if err != nil {
+			return xproto.AtomNone
+		}
+		return a.Atom
+	}
+	check, cm := atom("_NET_SUPPORTING_WM_CHECK"), atom("_NET_WM_CM_S0")
+	if check == xproto.AtomNone || cm == xproto.AtomNone {
+		return false
+	}
+	root := xproto.Setup(d.x).DefaultScreen(d.x).Root
+	p, err := xproto.GetProperty(d.x, false, root, check, xproto.AtomWindow, 0, 1).Reply()
+	if err != nil || p.ValueLen == 0 {
+		return false
+	}
+	owner, err := xproto.GetSelectionOwner(d.x, cm).Reply()
+	return err == nil && owner.Owner != xproto.WindowNone
+}

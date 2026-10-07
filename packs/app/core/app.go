@@ -88,6 +88,7 @@ var apps = core.NewStateKey(Name+"/apps", func(*core.Scenario) *registry {
 // each OS. One app registered for two platforms this machine can run (an
 // Android and an iOS app of one name, on a Mac) is an error.
 func Register(sc *core.Scenario, app *App, runsHere bool) error {
+	app.Name = Named(sc, app.Name)
 	r := apps.Of(sc)
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -111,8 +112,16 @@ func Register(sc *core.Scenario, app *App, runsHere bool) error {
 	return nil
 }
 
+// Named is an app's name as a step gives it, with ${env:..} and ${sys:..}
+// expanded as in a step's other arguments: a feature that runs on several
+// platforms names by a property the app a step is for where that differs.
+func Named(sc *core.Scenario, name string) string {
+	return sc.Suite().Interpolate(name)
+}
+
 // Get is the scenario's app of the name, as this machine runs it.
 func Get(sc *core.Scenario, name string) (*App, error) {
+	name = Named(sc, name)
 	r := apps.Of(sc)
 	r.mu.Lock()
 	defer r.mu.Unlock()

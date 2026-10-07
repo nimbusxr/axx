@@ -158,14 +158,21 @@ Feature: The depot desk
   Scenario: A courier signs with a stroke
     Given the depot app is launched
     And the "Handover" element is clicked in the depot app
-    When the pointer is dragged from 40, 80 to 300, 80 on the "Courier signature" element in the depot app
+    When the pointer is dragged from 40, 30 to 140, 30 on the "Courier signature" element in the depot app
+    Then the depot app shows "Signed"
+
+  @pointer-places
+  Scenario: A courier signs across the middle of the pad
+    Given the depot app is launched
+    And the "Handover" element is clicked in the depot app
+    When the pointer is dragged from -60, 10 to 60, -10 from the middle of the "Courier signature" element in the depot app
     Then the depot app shows "Signed"
 
   @pointer-places
   Scenario: A signature can be cleared
     Given the depot app is launched
     And the "Handover" element is clicked in the depot app
-    And the "Courier signature" element in the depot app is clicked at 40, 40
+    And the "Courier signature" element in the depot app is clicked at -40, -30 from its bottom right
     When the "Clear signature" button is clicked in the depot app
     Then the depot app shows "Not signed"
 

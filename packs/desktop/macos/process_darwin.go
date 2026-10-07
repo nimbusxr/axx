@@ -91,12 +91,15 @@ func (p *proc) window() *ax.Element {
 	return p.root
 }
 
-// menuBars are the app's menu bar, and its windows' own (Swing's).
+// menuBars are the app's menu bar, its status items' (a tray app's icon on
+// the menu bar's right, whose menu it opens), and its windows' own (Swing's).
 func (p *proc) menuBars() []*ax.Element {
 	var bars []*ax.Element
-	if v, err := p.root.Attribute("AXMenuBar"); err == nil {
-		if bar, ok := v.(*ax.Element); ok {
-			bars = append(bars, bar)
+	for _, attr := range []string{"AXMenuBar", "AXExtrasMenuBar"} {
+		if v, err := p.root.Attribute(attr); err == nil {
+			if bar, ok := v.(*ax.Element); ok {
+				bars = append(bars, bar)
+			}
 		}
 	}
 	for _, w := range p.windows() {
@@ -128,6 +131,10 @@ func (p *proc) places(kind string) []*ax.Element {
 					places = append(places, item)
 				}
 			}
+		}
+		// A status item does not say its menu is open: the one clicked is.
+		if p.openMenu != nil && p.openMenu.String("AXSubrole") == "AXMenuExtra" {
+			places = append(places, p.openMenu)
 		}
 		return places
 	}
@@ -340,43 +347,60 @@ func (p *proc) Click(c desktopcore.Control) error {
 	return nil
 }
 
-// at is a point from the element's top left.
-func at(e *ax.Element, x, y float64) (ax.Point, error) {
-	pos, _, err := e.Frame()
+// at is a point from the element's anchor.
+func at(e *ax.Element, from desktopcore.Anchor, x, y float64) (ax.Point, error) {
+	pos, size, err := e.Frame()
 	if err != nil {
 		return ax.Point{}, fmt.Errorf("the %s has no place on the screen: %w", e.String("AXRole"), err)
 	}
-	return ax.Point{X: pos.X + x, Y: pos.Y + y}, nil
+	px, py := from.Place(pos.X, pos.Y, size.Width, size.Height, x, y)
+	return ax.Point{X: px, Y: py}, nil
 }
 
-func (p *proc) ClickAt(c desktopcore.Control, x, y float64) error {
+// on is whether a step's place is on the element: an *desktopcore.Off when
+// not.
+func on(e *ax.Element, from desktopcore.Anchor, x, y float64) error {
+	_, size, err := e.Frame()
+	if err != nil {
+		return fmt.Errorf("the %s has no place on the screen: %w", e.String("AXRole"), err)
+	}
+	return from.On(size.Width, size.Height, x, y)
+}
+
+func (p *proc) ClickAt(c desktopcore.Control, from desktopcore.Anchor, x, y float64) error {
 	e := c.(control).e
 	p.menuClosed()
 	if err := p.ready(e); err != nil {
 		return err
 	}
-	pt, err := at(e, x, y)
+	if err := on(e, from, x, y); err != nil {
+		return err
+	}
+	pt, err := at(e, from, x, y)
 	if err != nil {
 		return err
 	}
 	return ax.Click(pt)
 }
 
-func (p *proc) Drag(c desktopcore.Control, x1, y1, x2, y2 float64) error {
+func (p *proc) Drag(c desktopcore.Control, from desktopcore.Anchor, x1, y1, x2, y2 float64) error {
 	e := c.(control).e
 	p.menuClosed()
 	if err := p.ready(e); err != nil {
 		return err
 	}
-	from, err := at(e, x1, y1)
+	if err := on(e, from, x1, y1); err != nil {
+		return err
+	}
+	start, err := at(e, from, x1, y1)
 	if err != nil {
 		return err
 	}
-	to, err := at(e, x2, y2)
+	end, err := at(e, from, x2, y2)
 	if err != nil {
 		return err
 	}
-	return ax.Drag(from, to)
+	return ax.Drag(start, end)
 }
 
 func (p *proc) Key(spec string) error {
@@ -527,9 +551,17 @@ func (p *proc) Tree() (*desktopcore.Node, error) {
 	for _, w := range p.windows() {
 		root.Children = append(root.Children, add(w, 1))
 	}
-	if v, err := p.root.Attribute("AXMenuBar"); err == nil {
-		if bar, ok := v.(*ax.Element); ok {
-			root.Children = append(root.Children, add(bar, 1))
+	for _, attr := range []string{"AXMenuBar", "AXExtrasMenuBar"} {
+		if v, err := p.root.Attribute(attr); err == nil {
+			if bar, ok := v.(*ax.Element); ok {
+				n := add(bar, 1)
+				// The Apple menu is the system's, and its Recent Items name
+				// the machine's own apps and documents: kept out of outlines.
+				if attr == "AXMenuBar" && len(n.Children) > 0 && n.Children[0].Name == "Apple" {
+					n.Children[0].Children = nil
+				}
+				root.Children = append(root.Children, n)
+			}
 		}
 	}
 	return root, nil

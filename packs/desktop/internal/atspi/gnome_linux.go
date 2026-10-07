@@ -124,10 +124,16 @@ func (g *Gnome) Click(x, y int) error {
 // Drag presses the pointer at one point, moves it to another in steps, as a
 // hand does, and lets go there.
 func (g *Gnome) Drag(x1, y1, x2, y2 int) error {
-	if err := g.Move(x1, y1); err != nil {
-		return err
+	// The hand comes to the start, and rests there before it presses: a
+	// window the pointer just came into takes a press only once the pointer
+	// has moved in it.
+	for _, d := range []int{8, 4, 0} {
+		if err := g.Move(x1-d, y1-d); err != nil {
+			return err
+		}
+		time.Sleep(30 * time.Millisecond)
 	}
-	time.Sleep(30 * time.Millisecond)
+	time.Sleep(120 * time.Millisecond)
 	if err := g.button(true); err != nil {
 		return err
 	}
@@ -258,6 +264,15 @@ func (g *Gnome) Frames(pid int) ([]Frame, error) {
 		})
 	}
 	return out, nil
+}
+
+// Window is the process's window on the screen as GNOME Shell has it: on
+// Wayland a window's screenshot is of the place the app gives it, so none.
+func (g *Gnome) Window(int) (image.Rectangle, bool) { return image.Rectangle{}, false }
+
+// Activate brings the process's top window to the front, with the keyboard.
+func (g *Gnome) Activate(pid int) error {
+	return g.bus.Object(DesktopName, "/us/nimbusxr/axx").Call(DesktopName+".Activate", 0, int32(pid)).Err
 }
 
 // X11Display is GNOME Shell's Xwayland display, where X11 apps show, and
