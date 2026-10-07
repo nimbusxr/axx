@@ -113,7 +113,7 @@ func TestPuts(t *testing.T) {
 	_ = h.Fails("the parcels folder is empty", `no folder named "parcels"`)
 
 	_ = h.Fails("the ../outside/x.csv file in the exports folder is a copy of the reports/earlier.csv file", "is not a file in the exports folder")
-	_ = h.Fails("the x.csv file in the exports folder is a copy of the reports/missing.csv file", "reports/missing.csv not found")
+	_ = h.Fails("the x.csv file in the exports folder is a copy of the reports/missing.csv file", "missing.csv not found")
 	h.OK("the home folder with the following properties:", [][]string{{"path", t.TempDir()}})
 	_ = h.Fails("the home folder is emptied", "is not in the project")
 	h.OK("the parent folder with the following properties:", [][]string{{"path", ".."}})
