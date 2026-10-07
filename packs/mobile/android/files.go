@@ -83,6 +83,18 @@ func (f adbFiles) Write(ctx context.Context, name string, body []byte) error {
 	return nil
 }
 
+func (f adbFiles) Empty(ctx context.Context) error {
+	dir := f.dir
+	if dir == "" {
+		dir = "."
+	}
+	_, err := f.asApp(ctx, "[ ! -d "+q(dir)+" ] || find "+q(dir)+" -mindepth 1 -maxdepth 1 -exec rm -rf {} +")
+	if err != nil {
+		return fmt.Errorf("cannot empty %s of the %s app: %w", dir, f.app, err)
+	}
+	return nil
+}
+
 func (f adbFiles) List(ctx context.Context, max int) ([]string, error) {
 	dir := f.dir
 	if dir == "" {

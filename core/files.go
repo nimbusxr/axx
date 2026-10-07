@@ -21,6 +21,9 @@ type Files interface {
 	// List returns the paths of up to max files, in subfolders too, leaving
 	// out hidden ones (.DS_Store, .gitkeep).
 	List(ctx context.Context, max int) ([]string, error)
+	// Empty removes everything in the place, hidden files and subfolders
+	// too, and keeps the place; one that is not there is empty.
+	Empty(ctx context.Context) error
 	// Where says where the files are, for logs and failures.
 	Where() string
 }
@@ -97,6 +100,22 @@ func (l localFiles) Write(_ context.Context, name string, body []byte) error {
 		return err
 	}
 	return os.WriteFile(p, body, 0o644)
+}
+
+func (l localFiles) Empty(context.Context) error {
+	entries, err := os.ReadDir(l.dir)
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	for _, e := range entries {
+		if err := os.RemoveAll(filepath.Join(l.dir, e.Name())); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (l localFiles) List(_ context.Context, max int) ([]string, error) {

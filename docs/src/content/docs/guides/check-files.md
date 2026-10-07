@@ -47,6 +47,26 @@ services:
 
 A folder keeps what earlier runs wrote to it, so a check could pass on a file from the run before. The `exports` service empties the folder before the service starts, and lets a service that runs as a non-root user write to it. Name the files you check after data unique to the scenario, such as a manifest ID: scenarios run in parallel.
 
+## Put files in a folder
+
+A scenario can put files in a folder, as a service or an app would find them there: a copy of a file of the project, or a file with the content of a doc string, where `${env:..}` and `${sys:..}` are expanded. The folders a file is in are made, and a file already there is replaced.
+
+```gherkin
+Given the incoming/M-HERON-0501.csv file in the imports folder is a copy of the manifests/M-HERON-0501.csv file
+And the incoming/M-HERON-0501.json file in the imports folder has the content:
+  """json
+  {"manifest": "M-HERON-0501", "shop": "heron-garden", "lines": 3}
+  """
+```
+
+`is emptied` removes everything in a folder, hidden files and subfolders too, and keeps the folder:
+
+```gherkin
+Given the imports folder is emptied
+```
+
+It empties a folder of the project, or one a service or an app owns; a folder elsewhere on the machine is a person's, and the step refuses it. Scenarios run in parallel, so empty a folder only one scenario uses at a time, such as an app's: an app's files are its own in each scenario.
+
 ## Check a file
 
 A check names a file by its path in the folder, with `/` between folders, and without spaces. Every check waits for the file to be there and to meet the check: 10 seconds, or the time `within` gives. A `*` in the path stands for any characters but a slash, for a file named by something a check cannot know, like the time it was saved: `"snap-*.json"` names the one file it matches, and a check waits while none or several do.
@@ -64,6 +84,17 @@ And the manifests/M-WREN-0503/handover.pdf file in the exports folder contains "
 - `is identical to` compares the file byte for byte with a file of the project, found through `resources`.
 - `has the following properties:` reads JSON, like the other JSON property steps: a path and the value as text, `null` for null and `undefined` for absent.
 - `contains` reads the file's text, whatever its type (below).
+
+## Check what a service takes away
+
+A service that imports a file often moves or deletes it, and an app clears what it has dealt with. `has no file named` checks that a file is gone, and `is empty` that a folder has no files, in its subfolders too. Hidden files, like `.DS_Store`, are not counted, and a folder that is not there is empty. Both wait for the files to go: 10 seconds, or the time `within` gives.
+
+```gherkin
+Then within 10s the imports folder has no file named incoming/M-HERON-0501.csv
+And the imports folder is empty
+```
+
+A check that something is gone passes too when nothing happened at all, so check what the service did as well, such as the report it wrote. `axx lint` names the scenarios whose only checks are of what is gone.
 
 ## The text of PDF, Word and Excel files
 

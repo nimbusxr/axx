@@ -82,6 +82,14 @@ func (f *deviceFiles) Write(ctx context.Context, name string, body []byte) error
 	return fs.Write(ctx, name, body)
 }
 
+func (f *deviceFiles) Empty(ctx context.Context) error {
+	fs, err := f.files(ctx)
+	if err != nil {
+		return err
+	}
+	return fs.Empty(ctx)
+}
+
 func (f *deviceFiles) List(ctx context.Context, max int) ([]string, error) {
 	fs, err := f.files(ctx)
 	if err != nil {
@@ -123,3 +131,8 @@ func (r remoteFiles) Write(ctx context.Context, name string, body []byte) error 
 }
 
 func (r remoteFiles) List(context.Context, int) ([]string, error) { return nil, nil }
+
+// Empty cannot: Appium neither lists nor removes an app's files.
+func (r remoteFiles) Empty(context.Context) error {
+	return fmt.Errorf("%s cannot be emptied: Appium neither lists nor removes an app's files on its device", r.where)
+}
