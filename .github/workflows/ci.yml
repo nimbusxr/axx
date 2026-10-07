@@ -484,8 +484,13 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: desktop-${{ matrix.build }}-${{ matrix.display }}
-          path: ${{ runner.temp }}/out/
-          # The traces are in .axx.
+          # Not the apps' homes in .axx: the container wrote them, some unreadable here.
+          path: |
+            ${{ runner.temp }}/out/*.xml
+            ${{ runner.temp }}/out/*.html
+            ${{ runner.temp }}/out/screenshots/
+            ${{ runner.temp }}/out/.axx/desktop/traces/
+            ${{ runner.temp }}/out/.axx/desktop/videos/
           include-hidden-files: true
           if-no-files-found: ignore
           retention-days: 7
