@@ -41,8 +41,10 @@ type Client struct {
 	// there under a window manager).
 	inWindow, onScreen sync.Map
 	// noPlaces are the apps that hang when asked for a place (Flutter's
-	// stops answering for seconds): they are not asked again.
-	noPlaces sync.Map
+	// stops answering for seconds): they are not asked again. placing are
+	// those that have given one: one of them slow to answer is busy (a web
+	// view laying out on a slow machine), and is asked again.
+	noPlaces, placing sync.Map
 	// placer says where a window's places start on the screen: on Wayland
 	// an app knows places in its windows only, counted from its frame
 	// (GTK 4), its surface with the shadow (GTK 3) or its content (Qt), and
@@ -498,9 +500,15 @@ func (e *Element) extents() Rect {
 	if _, ok := e.c.noPlaces.Load(e.name); ok {
 		return r
 	}
-	if err := e.call(ifaceComponent+".GetExtents", uint32(coordsScreen)).Store(&r); errors.Is(err, context.DeadlineExceeded) {
-		e.c.noPlaces.Store(e.name, true)
+	err := e.call(ifaceComponent+".GetExtents", uint32(coordsScreen)).Store(&r)
+	if errors.Is(err, context.DeadlineExceeded) {
+		if _, gave := e.c.placing.Load(e.name); !gave {
+			e.c.noPlaces.Store(e.name, true)
+		}
 		return Rect{}
+	}
+	if err == nil {
+		e.c.placing.Store(e.name, true)
 	}
 	if _, ok := e.c.onScreen.Load(e.name); ok {
 		return r

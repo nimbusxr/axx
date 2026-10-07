@@ -56,11 +56,8 @@ func (family) Press(sc *core.Scenario, a *appcore.App, k appcore.Kind, name stri
 		return err
 	}
 	return failing(sc, a.Name, p, func() error {
-		c, err := usable(sc, a.Name, p, k, name)
-		if err != nil {
-			return err
-		}
-		return p.Click(c)
+		_, err := again(sc, a.Name, p, k, name, p.Click)
+		return err
 	})
 }
 
@@ -76,11 +73,8 @@ func (family) Fill(sc *core.Scenario, a *appcore.App, field, text string) error 
 	return failing(sc, a.Name, p, func() error {
 		var held string
 		for range fillTries {
-			c, err := usable(sc, a.Name, p, appcore.Field, field)
+			c, err := again(sc, a.Name, p, appcore.Field, field, p.Click)
 			if err != nil {
-				return err
-			}
-			if err := p.Click(c); err != nil {
 				return err
 			}
 			if err := p.Key("ControlOrMeta+A"); err != nil {
@@ -271,6 +265,27 @@ func usable(sc *core.Scenario, app string, p Process, k appcore.Kind, name strin
 		return nil, core.Failf("The %s %s in the %s app is disabled: it cannot be used", quoted(name), k.Noun, app)
 	}
 	return c, nil
+}
+
+// lostTries is how often an action finds its control again when the driver
+// says it lost its place.
+const lostTries = 3
+
+// again finds the usable control and acts on it, and finds it again when
+// the driver says it lost its place (*Lost): what the action took.
+func again(sc *core.Scenario, app string, p Process, k appcore.Kind, name string, act func(Control) error) (Control, error) {
+	for try := 1; ; try++ {
+		c, err := usable(sc, app, p, k, name)
+		if err != nil {
+			return nil, err
+		}
+		err = act(c)
+		var lost *Lost
+		if !errors.As(err, &lost) || try == lostTries {
+			return c, err
+		}
+		sc.Log("%s: finding the %s %s again", err, quoted(name), k.Noun)
+	}
 }
 
 // control waits for the one control of kind k named name: one that shows,

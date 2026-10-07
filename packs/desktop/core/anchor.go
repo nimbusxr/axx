@@ -63,6 +63,15 @@ func (o *Off) Error() string {
 	return fmt.Sprintf("the place is off the control, %.0f by %.0f", o.Width, o.Height)
 }
 
+// Lost is a driver's error for a control with no place on the screen as an
+// action takes it, before any input: the app drew it again and gave up the
+// control the step found (a web view makes its controls anew as it lays
+// out). The step finds the control again.
+type Lost struct{ Err error }
+
+func (l *Lost) Error() string { return l.Err.Error() }
+func (l *Lost) Unwrap() error { return l.Err }
+
 // On returns an *Off when the point x, y from the anchor is not on a control
 // width wide and height high (its edges are on it).
 func (a Anchor) On(width, height, x, y float64) error {

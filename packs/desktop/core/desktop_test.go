@@ -80,12 +80,17 @@ type fakeProc struct {
 	looks    atomic.Int32
 	// size is its controls' size, in points, once set: a place off it fails.
 	size [2]float64
+	// remakes is how many actions find the control made anew, as a web view
+	// makes its controls as it lays out: the one found has lost its place.
+	remakes int
 }
 
 type fakeControl struct {
 	n                  *Node
 	enabled, reportsOn bool
 	reportsValue       bool
+	// gone is whether the app made it anew: it has no place.
+	gone bool
 }
 
 func (c *fakeControl) Name() string { return c.n.Name }
@@ -142,11 +147,32 @@ func (p *fakeProc) ScrollTo(k appcore.Kind, name string) (Control, error) {
 }
 func (p *fakeProc) ScrollIntoView(Control) error { return nil }
 func (p *fakeProc) Click(c Control) error {
+	if err := p.placed(c); err != nil {
+		return err
+	}
 	p.clicks = append(p.clicks, c.Name())
 	return nil
 }
 
+// placed is a *Lost for a control the app made anew, and makes it anew
+// while remakes lasts.
+func (p *fakeProc) placed(c Control) error {
+	fc := c.(*fakeControl)
+	if !fc.gone && p.remakes > 0 {
+		p.remakes--
+		fresh := *fc
+		fc.n.Control, fc.gone = &fresh, true
+	}
+	if fc.gone {
+		return &Lost{Err: fmt.Errorf("the %s %q lost its place on the screen", fc.n.Role, fc.n.Name)}
+	}
+	return nil
+}
+
 func (p *fakeProc) ClickAt(c Control, from Anchor, x, y float64) error {
+	if err := p.placed(c); err != nil {
+		return err
+	}
 	if p.size[0] > 0 {
 		if err := from.On(p.size[0], p.size[1], x, y); err != nil {
 			return err
@@ -157,6 +183,9 @@ func (p *fakeProc) ClickAt(c Control, from Anchor, x, y float64) error {
 }
 
 func (p *fakeProc) Drag(c Control, from Anchor, x1, y1, x2, y2 float64) error {
+	if err := p.placed(c); err != nil {
+		return err
+	}
 	if p.size[0] > 0 {
 		if err := from.On(p.size[0], p.size[1], x1, y1); err != nil {
 			return err
@@ -384,6 +413,29 @@ func TestControls(t *testing.T) {
 	if len(p.clicks) != 2 {
 		t.Errorf("clicked and dragged in the app a property names: %v", p.clicks)
 	}
+}
+
+// A control that lost its place as a step took it (the app made it anew)
+// is found again, a few times at most.
+func TestLostControls(t *testing.T) {
+	p, _, register := desk()
+	register.enabled = true
+	d := &fakeDriver{proc: p}
+	h := harness(t, d)
+	h.OK("the depot app is launched")
+	p.remakes = 2
+	h.OK(`the "Register" button is clicked in the depot app`)
+	p.remakes = 1
+	h.OK(`the "Reference" field in the depot app is filled with "PX-DSK-4201"`)
+	p.remakes = 1
+	h.OK(`the "Courier signature" element in the depot app is clicked at -40, -20 from its bottom right`)
+	p.remakes = 1
+	h.OK(`the pointer is dragged from -120, 0 to 120, 0 from the middle of the "Courier signature" element in the depot app`)
+	if len(p.clicks) != 4 || p.remakes != 0 {
+		t.Errorf("each action took the control found again, once: %v", p.clicks)
+	}
+	p.remakes = 3
+	_ = h.Fails(`the "Register" button is clicked in the depot app`, `the button "Register" lost its place on the screen`)
 }
 
 // A place from an anchor is that far from the anchor's point.

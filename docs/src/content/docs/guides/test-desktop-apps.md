@@ -128,7 +128,7 @@ And the "Close day" menu item is clicked in the depot app
 
 Controls are found by the names people see and screen readers read: a button by its text, a field by its label, a list item or a row by one of its texts, an image by its description. The kinds are `button`, `field`, `checkbox`, `radio button`, `switch`, `tab`, `menu`, `menu item`, `list item`, `row`, `link`, `image`, `text` and `element` (anything, by its text or its accessibility label). Toolkits draw some controls differently (a switch in one is a checkbox in another), so a feature that runs against several names those an `element`. When no name tells a control apart, `id=` (its accessibility identifier on macOS, its AutomationId on Windows, its `id` attribute on Linux) or `xpath=` finds it.
 
-A control is clicked where it shows, after scrolling it into view as a person would. Keys go to the app's focused window, named as the web pack names them: `ControlOrMeta` is Command on macOS and Control elsewhere, so a shortcut runs unchanged on each OS.
+A control is clicked where it shows, after scrolling it into view as a person would. An app may draw a control anew as the step takes it (a web view lays itself out again after a click), and the control found then has no place on the screen: the step finds it again, a few times at most. Keys go to the app's focused window, named as the web pack names them: `ControlOrMeta` is Command on macOS and Control elsewhere, so a shortcut runs unchanged on each OS.
 
 What an app draws rather than names, like a signature pad or a map, is clicked or dragged at a place on it, in points from its top left:
 
