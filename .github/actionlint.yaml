@@ -1,0 +1,5 @@
+# actionlint (ci.yml's workflows job): the labels of the project's self-hosted runners.
+self-hosted-runner:
+  labels:
+    # The Mac mini that mac-mini.yml runs on.
+    - mac-mini

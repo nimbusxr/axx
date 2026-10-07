@@ -1,0 +1,176 @@
+name: mac-mini
+
+# What needs a Mac and Docker together, which GitHub's macOS runners cannot give (they have no
+# Docker): the parcels example's iOS scenarios against the service and all of its
+# infrastructure, and the depot desk's native macOS builds. They run on the project's Mac mini, a
+# self-hosted runner (label mac-mini) in the mac-mini runner group, which only this file, as it is
+# on main, may use: the group names it.
+#
+# Pull requests run here through pull_request_target, which always runs main's copy of this file,
+# never the pull request's: a pull request cannot change what runs on the mini, or where. Only
+# pull requests from this repository's own branches run, which only people with write access can
+# push; a fork's never does, nor a bot's dependency update: they run once they are merged.
+on:
+  pull_request_target: # zizmor: ignore[dangerous-triggers] main's copy only, and the gate below keeps out forks and bots
+    types: [opened, synchronize, reopened]
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One runner: runs queue for it. A pull request's newer push cancels its older run.
+concurrency:
+  group: mac-mini-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request_target' }}
+
+jobs:
+  # Which jobs a pull request needs, from the files it changes, with main's scripts/ci-changes.sh
+  # (pull_request_target checks out main) and the pull request's list of files: nothing of the
+  # pull request's is checked out here. Pushes to main and manual runs run every job.
+  changes:
+    # The gate: main only (a manual run from another branch could not use the mini anyway), and
+    # for pull requests, this repository's branches, not a bot's.
+    if: >-
+      github.ref == 'refs/heads/main' && (github.event_name != 'pull_request_target' ||
+      (github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.user.type != 'Bot'))
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      mobile: ${{ steps.changes.outputs.mobile }}
+      desktop: ${{ steps.changes.outputs.desktop }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - id: changes
+        env:
+          EVENT: ${{ github.event_name }}
+          PR: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "$EVENT" = pull_request_target ]; then
+            gh api "repos/$REPO/pulls/$PR/files" --paginate --jq '.[].filename' | scripts/ci-changes.sh
+          else
+            scripts/ci-changes.sh --all
+          fi | tee -a "$GITHUB_OUTPUT"
+
+  ios:
+    needs: changes
+    if: needs.changes.outputs.mobile == 'true'
+    # The parcels example's iOS scenarios (@ios), as its README runs them: axx starts the service
+    # and all of its infrastructure with Docker Compose (Colima, on the mini), and runs the
+    # couriers' iOS app on simulators it makes. The mini keeps what ci.yml's ios job restores
+    # every time (Appium, WebDriverAgent, the simulators and the iOS runtime's shared cache), its
+    # Go and mise caches, and the compose file's images and build cache: nothing is restored or
+    # saved. GitHub's cache is not used at all, as a pull_request_target run would write main's.
+    runs-on: [self-hosted, macOS, ARM64, mac-mini]
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          # The pull request's code: only ever one of this repository's branches (see the gate).
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+        with:
+          install_args: "go"
+          cache: false
+      # The steps that run it put it on their own PATH: a pull_request_target workflow does not
+      # write $GITHUB_PATH.
+      - name: axx, with every pack
+        run: go build -o "$RUNNER_TEMP/bin/axx" ./internal/tools/axxall
+      - name: the couriers' app
+        working-directory: examples/parcels/courier/ios
+        run: xcodebuild -project Courier.xcodeproj -target Courier -configuration Debug -sdk iphonesimulator ONLY_ACTIVE_ARCH=NO SYMROOT=build
+      - name: the fixtures, as a fresh clone has them
+        working-directory: examples/parcels/acceptance
+        run: |
+          export PATH="$RUNNER_TEMP/bin:$PATH"
+          axx fixtures check
+          axx fixtures generate
+      - working-directory: examples/parcels/acceptance
+        run: |
+          export PATH="$RUNNER_TEMP/bin:$PATH"
+          axx run --tags @ios --format progress --format junit:build/axx/junit.xml --format html:build/axx/report.html
+      - if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: mac-mini-ios
+          # The report, and the screenshots, page sources and logs a failure leaves.
+          path: |
+            examples/parcels/acceptance/build/axx/
+            examples/parcels/acceptance/.axx/mobile/
+            examples/parcels/acceptance/.axx/logs/
+          if-no-files-found: ignore
+          retention-days: 7
+      # axx run removes the example when it ends; a run that is cancelled or times out may not
+      # get to, and the next one would find the example's ports taken.
+      - if: always()
+        name: the example, removed
+        run: docker compose -f examples/parcels/infra/compose.yaml down -v --remove-orphans
+
+  desktop:
+    needs: changes
+    if: needs.changes.outputs.desktop == 'true'
+    # The depot desk's feature against its native macOS builds, through macOS's accessibility tree,
+    # on the mini's desktop: the runner runs in the session of the user the mini logs in on its
+    # own. macOS must let axx use the accessibility tree and capture windows, which `axx doctor`
+    # checks first. The other macOS builds (Qt, Swing, Electron, Tauri, Flutter) need their
+    # toolkits on the mini, and still run on developers' Macs.
+    name: desktop (macos-${{ matrix.build }})
+    runs-on: [self-hosted, macOS, ARM64, mac-mini]
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        build: [appkit, swiftui]
+    env:
+      BUILD: ${{ matrix.build }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          # The pull request's code: only ever one of this repository's branches (see the gate).
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+        with:
+          install_args: "go"
+          cache: false
+      # The steps that run it put it on their own PATH: a pull_request_target workflow does not
+      # write $GITHUB_PATH.
+      - name: axx, with every pack
+        run: go build -o "$RUNNER_TEMP/bin/axx" ./internal/tools/axxall
+      # macOS allows a program the accessibility tree and window capture by who signed it, and a
+      # build's own (ad hoc) signature is new with every build. The mini has a signing identity of
+      # its own (MAC_MINI_CODESIGN_IDENTITY, from the runner's environment), and allows axx signed
+      # with it, at this path, both: every build signed with it is the same program to macOS.
+      - name: axx, signed with the mini's identity
+        run: codesign --force --sign "$MAC_MINI_CODESIGN_IDENTITY" --identifier us.nimbusxr.axx.ci "$RUNNER_TEMP/bin/axx"
+      - name: the desk's build
+        run: examples/parcels/depot-desk/"$BUILD"/build.sh
+      - name: macOS lets the runner drive and capture apps
+        working-directory: examples/parcels/depot-desk/acceptance
+        run: |
+          export PATH="$RUNNER_TEMP/bin:$PATH"
+          axx doctor --profile "macos-$BUILD"
+      - working-directory: examples/parcels/depot-desk/acceptance
+        run: |
+          export PATH="$RUNNER_TEMP/bin:$PATH"
+          axx run --profile "macos-$BUILD" --format progress --format junit:build/axx/junit.xml --format html:build/axx/report.html
+      - if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: mac-mini-desktop-${{ matrix.build }}
+          # The report, and the screenshots, traces and logs a failure leaves.
+          path: |
+            examples/parcels/depot-desk/acceptance/build/axx/
+            examples/parcels/depot-desk/acceptance/.axx/
+          if-no-files-found: ignore
+          retention-days: 7
