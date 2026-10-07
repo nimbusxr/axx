@@ -12,3 +12,6 @@ What the page does for accessibility, and why:
 - The arrivals list has `role="list"`: WebKit drops a list's role when its style drops its
   bullets.
 - The signature pad is a canvas with `role="img"` and a label.
+- The parcels expected today are on the page before the day the app kept loads: WebKitGTK
+  showed assistive technology none of the rows added to a table it had already read, and on a
+  slow machine it read the page before the day came.

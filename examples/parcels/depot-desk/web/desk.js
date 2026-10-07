@@ -105,12 +105,10 @@ function signaturePad() {
   });
 }
 
+// The parcels expected today are on the page before the day the app kept
+// loads: WebKitGTK shows assistive technology none of the rows added to a
+// table it has read, and on a slow machine it reads the page first.
 async function start() {
-  const kept = await host.load();
-  arrivals = kept.arrivals || [];
-  document.querySelector(`input[name="level"][value="${kept.level === "Express" ? "Express" : "Standard"}"]`).checked = true;
-  $("status").textContent = arrivals.length ? `${parcels(arrivals.length)} registered today` : "No parcels registered yet";
-
   $("expected").replaceChildren(...expected.map(([ref, town]) => {
     const tr = document.createElement("tr");
     tr.innerHTML = `<td>${ref}</td><td>${town}</td>`;
@@ -120,6 +118,11 @@ async function start() {
     });
     return tr;
   }));
+
+  const kept = await host.load();
+  arrivals = kept.arrivals || [];
+  document.querySelector(`input[name="level"][value="${kept.level === "Express" ? "Express" : "Standard"}"]`).checked = true;
+  $("status").textContent = arrivals.length ? `${parcels(arrivals.length)} registered today` : "No parcels registered yet";
 
   $("reference").addEventListener("input", refresh);
   $("reference").addEventListener("keydown", (e) => {
