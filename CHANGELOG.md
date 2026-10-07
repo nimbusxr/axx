@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.2](https://github.com/nimbusxr/axx/compare/v0.2.1...v0.2.2) (2026-10-07)
+
+
+### Features
+
+* places from a control's middle or corners, tray apps, apps the system runs, and Snap on every desktop ([#108](https://github.com/nimbusxr/axx/issues/108)) ([7fb6dc9](https://github.com/nimbusxr/axx/commit/7fb6dc9fed30b3c94191c8e468bf18f536072041))
+
 ## [0.2.1](https://github.com/nimbusxr/axx/compare/v0.2.0...v0.2.1) (2026-10-06)
 
 
