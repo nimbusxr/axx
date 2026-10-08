@@ -140,7 +140,11 @@ func finishVideo(sc *core.Scenario, s *scenario, cfg *settings, failed bool) {
 		return
 	}
 	sc.Log("the scenario's video: %s (%s)", relative(sc, path), video.Credit)
-	sc.Attach("video/mp4", b.Bytes(), "the scenario's video")
+	if failed {
+		// The report shows a failed scenario's video; the others are in the
+		// folder, as a run keeps them all.
+		sc.Attach("video/mp4", b.Bytes(), "the scenario's video")
+	}
 	announce(sc, "video", path)
 	runVideoOf(sc.Suite()).add(sc, clip, failed)
 }
