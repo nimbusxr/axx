@@ -261,18 +261,22 @@ func Descendants(pid int) []int {
 	for err = windows.Process32First(snap, &e); err == nil; err = windows.Process32Next(snap, &e) {
 		kids[int(e.ParentProcessID)] = append(kids[int(e.ParentProcessID)], int(e.ProcessID))
 	}
-	var out []int
-	var add func(p int)
-	add = func(p int) {
-		for _, c := range kids[p] {
-			if c != p {
-				out = append(out, c)
-				add(c)
-			}
-		}
+	return descendants(kids, pid, started)
+}
+
+// started is when the process started, as a FILETIME's 100-nanosecond
+// ticks.
+func started(pid int) (int64, bool) {
+	h, err := windows.OpenProcess(windows.PROCESS_QUERY_LIMITED_INFORMATION, false, uint32(pid)) //nolint:gosec // a process's number
+	if err != nil {
+		return 0, false
 	}
-	add(pid)
-	return out
+	defer windows.CloseHandle(h) //nolint:errcheck
+	var created, exited, kernel, user windows.Filetime
+	if err := windows.GetProcessTimes(h, &created, &exited, &kernel, &user); err != nil {
+		return 0, false
+	}
+	return created.Nanoseconds() / 100, true
 }
 
 // Expands is whether the element opens and closes, as a menu does (its
@@ -323,4 +327,21 @@ func Alive(pid int) bool {
 	var code uint32
 	const stillActive = 259
 	return windows.GetExitCodeProcess(h, &code) == nil && code == stillActive
+}
+
+var getSystemMetrics = user32.NewProc("GetSystemMetrics")
+
+// ScreenSize is the main screen's size, in pixels.
+func ScreenSize() (width, height int) {
+	const cx, cy = 0, 1 // SM_CXSCREEN, SM_CYSCREEN
+	w, _, _ := getSystemMetrics.Call(cx)
+	h, _, _ := getSystemMetrics.Call(cy)
+	return int(w), int(h)
+}
+
+// CursorPos is where the pointer is on the screen, in pixels.
+func CursorPos() (x, y int) {
+	var pt struct{ X, Y int32 }
+	_, _, _ = getCursorPos.Call(uintptr(unsafe.Pointer(&pt)))
+	return int(pt.X), int(pt.Y)
 }

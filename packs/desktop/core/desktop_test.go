@@ -2,6 +2,7 @@ package desktopcore
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"image"
@@ -60,6 +61,17 @@ func (k *fakeDesk) Start(*core.Scenario, *App) (Process, error) {
 	return k.d.proc, nil
 }
 func (k *fakeDesk) Release() { k.d.releases++ }
+
+// Screen is a small screen with the app's window drawn on it: one that
+// changes at each look when the app animates.
+func (k *fakeDesk) Screen() (Screen, error) {
+	img := image.NewRGBA(image.Rect(0, 0, 64, 48))
+	draw.Draw(img, img.Bounds(), &image.Uniform{color.RGBA{40, 60, 90, 255}}, image.Point{}, draw.Src)
+	if p := k.d.proc; p != nil && p.changing {
+		img.Set(int(p.looks.Add(1)%60), 20, color.RGBA{250, 250, 250, 255})
+	}
+	return Screen{Image: img, Scale: 1, Pointer: image.Pt(30, 20), HasPointer: true}, nil
+}
 
 func (k *fakeDesk) Watch(*core.Scenario, *App) (Process, error) {
 	k.d.watches++
@@ -756,7 +768,8 @@ func samePixels(a, b image.Image) bool {
 }
 
 // TestRecordings keeps a trace of the app (its window after each step) and
-// a video of its window, as the settings say, and attaches them.
+// a video of the scenario's desktop (H.264 in an MP4 file), as the settings
+// say, and attaches them; the run keeps one video of its scenarios.
 func TestRecordings(t *testing.T) {
 	p, _, _ := desk()
 	p.changing = true
@@ -767,13 +780,13 @@ func TestRecordings(t *testing.T) {
 		t.Fatal(err)
 	}
 	h.OK("the depot app is launched")
-	time.Sleep(3 * frameEvery)
+	time.Sleep(3 * time.Second / frameRate)
 	h.OK(`the "Register" button is shown in the depot app`)
 	if err := h.End("passed"); err != nil {
 		t.Fatal(err)
 	}
 	traces, _ := filepath.Glob(filepath.Join(h.Dir, ".axx", "desktop", "traces", "*-depot-*.html"))
-	videos, _ := filepath.Glob(filepath.Join(h.Dir, ".axx", "desktop", "videos", "*-depot-*.png"))
+	videos, _ := filepath.Glob(filepath.Join(h.Dir, ".axx", "desktop", "videos", "test-*.mp4"))
 	if len(traces) != 1 || len(videos) != 1 {
 		t.Fatalf("traces %v, videos %v", traces, videos)
 	}
@@ -784,19 +797,22 @@ func TestRecordings(t *testing.T) {
 		}
 	}
 	movie, _ := os.ReadFile(videos[0])
-	first, err := png.Decode(bytes.NewReader(movie))
-	if err != nil {
-		t.Fatalf("the video is not a PNG: %v", err)
-	}
-	if first.Bounds().Dx() != 2 || !bytes.Contains(movie, []byte("acTL")) || bytes.Count(movie, []byte("fdAT")) < 1 {
-		t.Errorf("the video is %v, not an animated PNG of the window at a scale of 1 (%d frames)", first.Bounds(), bytes.Count(movie, []byte("fcTL")))
+	if len(movie) < 8 || string(movie[4:8]) != "ftyp" || !bytes.Contains(movie, []byte("avcC")) {
+		t.Errorf("the video is not H.264 in an MP4 file: %q", movie[:min(len(movie), 16)])
 	}
 	var names []string
 	for _, a := range h.Sink.Attachments {
 		names = append(names, a.Name)
 	}
-	if got := strings.Join(names, ", "); got != "the depot app's video, the depot app's trace" {
-		t.Errorf("attachments: %s", got)
+	if got := strings.Join(names, ", "); got != "the depot app's trace" {
+		t.Errorf("a passed scenario's video is in its folder only, not the report: attachments %s", got)
+	}
+	if err := h.Suite.Close(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	run, err := os.ReadFile(filepath.Join(h.Dir, ".axx", "desktop", "videos", "run.mp4"))
+	if err != nil || len(run) <= len(movie) || string(run[4:8]) != "ftyp" {
+		t.Errorf("the run's video is the scenario's after cards: %d bytes, the scenario's %d (%v)", len(run), len(movie), err)
 	}
 }
 

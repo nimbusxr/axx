@@ -4,17 +4,23 @@ package desktopwindows
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"image"
+	"image/draw"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"syscall"
+	"time"
 	"unsafe"
 
 	"github.com/nimbusxr/axx/core"
 	desktopcore "github.com/nimbusxr/axx/packs/desktop/core"
+	"github.com/nimbusxr/axx/packs/desktop/internal/uia"
 )
 
 // Claim waits for the machine's desktop, once this session has one: a
@@ -68,6 +74,12 @@ type desk struct {
 	w       *worker
 	kept    *kept
 	release func()
+	// procs are the apps the scenario started or watched on it, whose
+	// windows its video shows; pids are their processes, as last looked up.
+	mu       sync.Mutex
+	procs    []*proc
+	pids     []int
+	pidsSeen time.Time
 }
 
 func (d *desk) Home(app *desktopcore.App) string { return desktopcore.HomeOf(d.sc, app) }
@@ -90,11 +102,71 @@ func (d *desk) Reset(sc *core.Scenario, app *desktopcore.App) error {
 }
 
 func (d *desk) Start(sc *core.Scenario, app *desktopcore.App) (desktopcore.Process, error) {
-	return start(sc, d.w, app, d.Home(app))
+	p, err := start(sc, d.w, app, d.Home(app))
+	if err != nil {
+		return nil, err
+	}
+	d.add(p)
+	return p, nil
 }
 
 func (d *desk) Watch(sc *core.Scenario, app *desktopcore.App) (desktopcore.Process, error) {
-	return watch(sc, d.w, app)
+	p, err := watch(sc, d.w, app)
+	if err != nil {
+		return nil, err
+	}
+	d.add(p)
+	return p, nil
+}
+
+func (d *desk) add(p *proc) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.procs = append(d.procs, p)
+	d.pidsSeen = time.Time{}
+}
+
+// scenarioPIDs are the processes of the scenario's apps, looked up at most
+// once a second.
+func (d *desk) scenarioPIDs() []int {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if time.Since(d.pidsSeen) < time.Second {
+		return d.pids
+	}
+	var pids []int
+	for _, p := range d.procs {
+		pids = append(pids, p.pids()...)
+	}
+	d.pids, d.pidsSeen = pids, time.Now()
+	return pids
+}
+
+// Screen is the scenario's windows as they show, each where it is on the
+// screen and black around them: the rest of the screen is the person's.
+func (d *desk) Screen() (desktopcore.Screen, error) {
+	pids := d.scenarioPIDs()
+	w, h := uia.ScreenSize()
+	if w <= 0 || h <= 0 {
+		return desktopcore.Screen{}, errors.New("the screen has no size")
+	}
+	screen := image.NewRGBA(image.Rect(0, 0, w, h))
+	draw.Draw(screen, screen.Bounds(), image.Black, image.Point{}, draw.Src)
+	windows := uia.VisibleWindows(pids) // the front one first
+	scale := 1.0
+	for i, hwnd := range slices.Backward(windows) {
+		img, err := uia.CaptureWindow(hwnd)
+		r, ok := uia.WindowRect(hwnd)
+		if err != nil || !ok {
+			continue
+		}
+		draw.Draw(screen, image.Rect(int(r.Left), int(r.Top), int(r.Right), int(r.Bottom)), img, image.Point{}, draw.Src)
+		if i == 0 {
+			scale = uia.Scale(hwnd)
+		}
+	}
+	x, y := uia.CursorPos()
+	return desktopcore.Screen{Image: screen, Scale: scale, Pointer: image.Pt(x, y), HasPointer: true}, nil
 }
 
 func (d *desk) Release() { d.release() }

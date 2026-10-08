@@ -42,8 +42,22 @@ type Desktop interface {
 	// Its Stop closes the windows it showed since, as a person closes them,
 	// and leaves the app running; it has not exited while it is watched.
 	Watch(sc *core.Scenario, app *App) (Process, error)
+	// Screen is what the scenario's apps show now, for its video: the whole
+	// screen of axx's own desktops (Linux), and on the person's (macOS,
+	// Windows) the scenario's windows only, black elsewhere.
+	Screen() (Screen, error)
 	// Release gives the desktop back, its apps stopped.
 	Release()
+}
+
+// Screen is a look at a desktop's screen: what it shows, its display's
+// scale, and where the pointer is on it, in its pixels, when the desktop
+// knows.
+type Screen struct {
+	Image      image.Image
+	Scale      float64
+	Pointer    image.Point
+	HasPointer bool
 }
 
 // Process is an app as it runs on its desktop.
