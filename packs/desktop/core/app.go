@@ -323,7 +323,7 @@ func home(sc *core.Scenario, app *App) (Desktop, string, error) {
 	if done {
 		return desk, h, nil
 	}
-	if err := os.RemoveAll(h); err != nil {
+	if err := removeAll(h, 5*time.Second); err != nil {
 		return nil, "", fmt.Errorf("cannot empty the %s app's home (%s): %w", app.Name, h, err)
 	}
 	if err := os.MkdirAll(filepath.Join(h, filepath.FromSlash(desk.DataDir())), 0o755); err != nil {
@@ -336,6 +336,19 @@ func home(sc *core.Scenario, app *App) (Desktop, string, error) {
 	s.reset[app.Name] = true
 	s.mu.Unlock()
 	return desk, h, nil
+}
+
+// removeAll removes a folder and what it holds, trying again for up to wait
+// while it cannot: Windows keeps a file until every process that has it
+// open has ended, and a stopped app's helpers (a browser's) end a moment
+// after it does.
+func removeAll(path string, wait time.Duration) error {
+	err := os.RemoveAll(path)
+	for start := time.Now(); err != nil && time.Since(start) < wait; {
+		time.Sleep(250 * time.Millisecond)
+		err = os.RemoveAll(path)
+	}
+	return err
 }
 
 // process is the running app of the name; started if start is true and it
