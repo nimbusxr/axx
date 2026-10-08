@@ -10,6 +10,7 @@ import (
 	"image/png"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -935,5 +936,40 @@ func TestArguments(t *testing.T) {
 	}
 	if got := a.Arguments(); strings.Join(got, "|") != strings.Join(want, "|") {
 		t.Errorf("%v", got)
+	}
+}
+
+// TestRemoveAllWaitsForAFileInUse empties a home whose file is held a moment
+// longer, as a stopped browser's helper holds its profile on Windows: open
+// there, a folder no one may write to elsewhere.
+func TestRemoveAllWaitsForAFileInUse(t *testing.T) {
+	home := filepath.Join(t.TempDir(), "home")
+	held := filepath.Join(home, "AppData", "Local", "Temp")
+	if err := os.MkdirAll(held, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	f, err := os.Create(filepath.Join(held, "profile.tmp"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if runtime.GOOS != "windows" {
+		if err := os.Chmod(held, 0o500); err != nil {
+			t.Fatal(err)
+		}
+	}
+	let := make(chan struct{})
+	go func() {
+		time.Sleep(600 * time.Millisecond)
+		_ = f.Close()
+		_ = os.Chmod(held, 0o755)
+		close(let)
+	}()
+	err = removeAll(home, 5*time.Second)
+	<-let
+	if err != nil {
+		t.Fatalf("a file held a moment longer: %v", err)
+	}
+	if _, err := os.Stat(home); !os.IsNotExist(err) {
+		t.Errorf("the home is still there: %v", err)
 	}
 }
