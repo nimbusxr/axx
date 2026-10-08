@@ -1,13 +1,9 @@
 package desktopcore
 
 import (
-	"bytes"
-	"compress/zlib"
-	"crypto/sha256"
 	"encoding/base64"
 	"encoding/binary"
 	"fmt"
-	"hash/crc32"
 	"html"
 	"image"
 	"image/draw"
@@ -16,7 +12,6 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/nimbusxr/axx/core"
@@ -24,10 +19,9 @@ import (
 )
 
 // A scenario's desktop apps can be kept as the web pack keeps its pages
-// (packs.desktop-core.traces and .videos): a trace, one HTML page with the
+// (packs.desktop-core.traces and .videos): a trace, one HTML page with each
 // app's window after each step, and its controls where the scenario failed;
-// a video, the app's window as it changed, an animated PNG the report plays.
-// Both show the app's window only, never the rest of the screen.
+// a video, the scenario's desktop as it ran (video.go).
 
 // keeps is whether a policy (failed, always, never) keeps a scenario's file.
 func keeps(policy string, failed bool) bool {
@@ -38,7 +32,6 @@ func keeps(policy string, failed bool) bool {
 type recording struct {
 	app   string
 	trace []traceStep
-	video *video
 }
 
 type traceStep struct {
@@ -129,51 +122,19 @@ func traceStepHook(sc *core.Scenario) error {
 	return nil
 }
 
-// startVideo records the app's window while it runs, when the settings keep
-// videos.
-func startVideo(sc *core.Scenario, s *scenario, name string, p Process) {
-	cfg, err := settingsFor(sc.Suite())
-	if err != nil || cfg.videos == "never" {
-		return
-	}
-	v := &video{stop: make(chan struct{}), done: make(chan struct{})}
-	s.mu.Lock()
-	r := s.recordingOf(name)
-	if r.video != nil {
-		r.video.end()
-		r.video.joinAfter(v)
-	}
-	r.video = v
-	s.mu.Unlock()
-	go v.record(p)
-}
-
 // finishRecordings keeps or drops what the scenario recorded of its apps, as
 // it ends and before they stop.
 func finishRecordings(sc *core.Scenario, s *scenario) {
-	if len(s.recordings) == 0 {
-		return
-	}
 	cfg, err := settingsFor(sc.Suite())
 	if err != nil {
 		return
 	}
 	failed := sc.Status() == "failed"
+	finishVideo(sc, s, cfg, failed)
 	for _, name := range s.order {
 		r, ok := s.recordings[name]
 		if !ok {
 			continue
-		}
-		if r.video != nil {
-			r.video.end()
-			if keeps(cfg.videos, failed) && len(r.video.frames) > 1 {
-				path := recordingPath(sc, "videos", name, ".png")
-				if err := os.WriteFile(path, r.video.apng(), 0o644); err == nil {
-					sc.Log("the %s app's video: %s", name, relative(sc, path))
-					sc.Attach("image/png", mustRead(path), "the "+name+" app's video")
-					announce(sc, "video", path)
-				}
-			}
 		}
 		if len(r.trace) > 0 && keeps(cfg.traces, failed) {
 			var controls string
@@ -277,141 +238,6 @@ func pngSize(b []byte) (w, h int, ok bool) {
 	return int(binary.BigEndian.Uint32(b[16:20])), int(binary.BigEndian.Uint32(b[20:24])), true
 }
 
-// video is an app's window as it changed: each frame compressed as it
-// comes, a frame the same as the last only lengthening it.
-type video struct {
-	mu     sync.Mutex
-	frames []videoFrame
-	width  int
-	height int
-	last   [32]byte
-	stop   chan struct{}
-	done   chan struct{}
-	once   sync.Once
-}
-
-type videoFrame struct {
-	at   time.Time
-	data []byte // the frame's zlib-compressed scanlines
-}
-
-// frameEvery is how often a video looks at the window.
-const frameEvery = 250 * time.Millisecond
-
-func (v *video) record(p Process) {
-	defer close(v.done)
-	t := time.NewTicker(frameEvery)
-	defer t.Stop()
-	for {
-		if img, scale, err := p.Window(); err == nil {
-			v.add(downscale(img, scale), time.Now())
-		}
-		select {
-		case <-v.stop:
-			return
-		case <-t.C:
-		}
-	}
-}
-
-func (v *video) end() {
-	v.once.Do(func() { close(v.stop) })
-	<-v.done
-}
-
-// joinAfter keeps an earlier video's frames (the app before a restart) at
-// the start of this one.
-func (v *video) joinAfter(next *video) {
-	next.frames, next.width, next.height = v.frames, v.width, v.height
-}
-
-func (v *video) add(img *image.RGBA, at time.Time) {
-	b := img.Bounds()
-	v.mu.Lock()
-	defer v.mu.Unlock()
-	if len(v.frames) == 0 {
-		v.width, v.height = b.Dx(), b.Dy()
-	}
-	if b.Dx() != v.width || b.Dy() != v.height {
-		img = fitTo(img, v.width, v.height) // the window was resized
-	}
-	sum := sha256.Sum256(img.Pix)
-	if len(v.frames) > 0 && sum == v.last {
-		return
-	}
-	v.last = sum
-	v.frames = append(v.frames, videoFrame{at: at, data: scanlines(img)})
-}
-
-// apng is the video as an animated PNG, each frame shown until the next.
-func (v *video) apng() []byte {
-	v.mu.Lock()
-	defer v.mu.Unlock()
-	var out bytes.Buffer
-	out.WriteString("\x89PNG\r\n\x1a\n")
-	ihdr := make([]byte, 13)
-	binary.BigEndian.PutUint32(ihdr[0:], uint32(v.width))
-	binary.BigEndian.PutUint32(ihdr[4:], uint32(v.height))
-	ihdr[8], ihdr[9] = 8, 6 // 8 bits, RGBA
-	chunk(&out, "IHDR", ihdr)
-	actl := make([]byte, 8)
-	binary.BigEndian.PutUint32(actl[0:], uint32(len(v.frames)))
-	chunk(&out, "acTL", actl) // played over and over, as a GIF is
-	seq := uint32(0)
-	for i, f := range v.frames {
-		delay := time.Second
-		if i+1 < len(v.frames) {
-			delay = v.frames[i+1].at.Sub(f.at)
-		}
-		ms := uint16(min(math.MaxUint16, max(1, delay.Milliseconds())))
-		fctl := make([]byte, 26)
-		binary.BigEndian.PutUint32(fctl[0:], seq)
-		binary.BigEndian.PutUint32(fctl[4:], uint32(v.width))
-		binary.BigEndian.PutUint32(fctl[8:], uint32(v.height))
-		binary.BigEndian.PutUint16(fctl[20:], ms)
-		binary.BigEndian.PutUint16(fctl[22:], 1000)
-		chunk(&out, "fcTL", fctl)
-		seq++
-		if i == 0 {
-			chunk(&out, "IDAT", f.data)
-			continue
-		}
-		fdat := make([]byte, 4, 4+len(f.data))
-		binary.BigEndian.PutUint32(fdat, seq)
-		chunk(&out, "fdAT", append(fdat, f.data...))
-		seq++
-	}
-	chunk(&out, "IEND", nil)
-	return out.Bytes()
-}
-
-func chunk(w *bytes.Buffer, kind string, data []byte) {
-	var n [4]byte
-	binary.BigEndian.PutUint32(n[:], uint32(len(data)))
-	w.Write(n[:])
-	crc := crc32.NewIEEE()
-	crc.Write([]byte(kind))
-	crc.Write(data)
-	w.WriteString(kind)
-	w.Write(data)
-	binary.BigEndian.PutUint32(n[:], crc.Sum32())
-	w.Write(n[:])
-}
-
-// scanlines is an RGBA image's rows as PNG data: each unfiltered,
-// compressed.
-func scanlines(img *image.RGBA) []byte {
-	var b bytes.Buffer
-	z, _ := zlib.NewWriterLevel(&b, zlib.BestSpeed)
-	w := img.Bounds().Dx() * 4
-	for y := range img.Bounds().Dy() {
-		_, _ = z.Write([]byte{0})
-		_, _ = z.Write(img.Pix[y*img.Stride : y*img.Stride+w])
-	}
-	_ = z.Close()
-	return b.Bytes()
-}
-
 // downscale is a window's capture at a scale of 1: a display at twice the
 // scale shows each point as 2 by 2 pixels, more than a trace needs.
 func downscale(img image.Image, scale float64) *image.RGBA {
@@ -446,13 +272,6 @@ func downscale(img image.Image, scale float64) *image.RGBA {
 	return out
 }
 
-// fitTo is the image on a canvas of the size, cut or padded.
-func fitTo(img *image.RGBA, w, h int) *image.RGBA {
-	out := image.NewRGBA(image.Rect(0, 0, w, h))
-	draw.Draw(out, out.Bounds(), img, img.Bounds().Min, draw.Src)
-	return out
-}
-
 var unsafeName = regexp.MustCompile(`[^A-Za-z0-9]+`)
 
 // recordingPath is where a scenario keeps a file of an app, in
@@ -467,6 +286,9 @@ func recordingPath(sc *core.Scenario, kind, app, ext string) string {
 	id := unsafeName.ReplaceAllString(sc.ID, "")
 	if len(id) > 8 {
 		id = id[len(id)-8:]
+	}
+	if app == "" {
+		return filepath.Join(dir, fmt.Sprintf("%s-%s%s", name, id, ext))
 	}
 	return filepath.Join(dir, fmt.Sprintf("%s-%s-%s%s", name, app, id, ext))
 }

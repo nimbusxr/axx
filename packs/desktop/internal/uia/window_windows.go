@@ -324,3 +324,20 @@ func Alive(pid int) bool {
 	const stillActive = 259
 	return windows.GetExitCodeProcess(h, &code) == nil && code == stillActive
 }
+
+var getSystemMetrics = user32.NewProc("GetSystemMetrics")
+
+// ScreenSize is the main screen's size, in pixels.
+func ScreenSize() (width, height int) {
+	const cx, cy = 0, 1 // SM_CXSCREEN, SM_CYSCREEN
+	w, _, _ := getSystemMetrics.Call(cx)
+	h, _, _ := getSystemMetrics.Call(cy)
+	return int(w), int(h)
+}
+
+// CursorPos is where the pointer is on the screen, in pixels.
+func CursorPos() (x, y int) {
+	var pt struct{ X, Y int32 }
+	_, _, _ = getCursorPos.Call(uintptr(unsafe.Pointer(&pt)))
+	return int(pt.X), int(pt.Y)
+}

@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"image"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -152,6 +153,20 @@ type desk struct {
 	d    *desktop
 	pool *pool
 	s    *session
+}
+
+// Screen is the desktop's whole screen, axx's own, with the pointer where it
+// is.
+func (k *desk) Screen() (desktopcore.Screen, error) {
+	if k.s == nil || k.s.seat == nil {
+		return desktopcore.Screen{}, errors.New("the scenario's session has not started")
+	}
+	img, err := k.s.seat.Screenshot()
+	if err != nil {
+		return desktopcore.Screen{}, err
+	}
+	x, y, ok := k.s.seat.Pointer()
+	return desktopcore.Screen{Image: img, Scale: 1, Pointer: image.Pt(x, y), HasPointer: ok}, nil
 }
 
 // Home is the app's home on the desktop: with one desktop, the project's
