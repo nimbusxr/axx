@@ -24,26 +24,20 @@ import (
 const windowWait = 30 * time.Second
 
 // bundle is the .app an app is, or "" for an executable: the registration's
-// .app, or the installed app of its bundle identifier.
-func bundle(ctx context.Context, app string) (string, error) {
+// .app, or the installed app of its bundle identifier, as `open -b` finds
+// it.
+func bundle(_ context.Context, app string) (string, error) {
 	if strings.HasSuffix(strings.TrimRight(app, "/"), ".app") {
 		return app, nil
 	}
 	if filepath.IsAbs(app) || !strings.Contains(app, ".") {
 		return "", nil // an executable, or a command
 	}
-	out, err := exec.CommandContext(ctx, "mdfind", "kMDItemCFBundleIdentifier == '"+app+"'").Output()
+	path, err := ax.AppPath(app)
 	if err != nil {
 		return "", fmt.Errorf("cannot look for the app %s: %w", app, err)
 	}
-	paths := strings.Split(strings.TrimSpace(string(out)), "\n")
-	slices.SortStableFunc(paths, func(a, b string) int { return cmp.Compare(len(a), len(b)) })
-	for _, p := range paths {
-		if strings.HasSuffix(p, ".app") {
-			return p, nil
-		}
-	}
-	return "", nil // a command on PATH, like python3
+	return path, nil // "" for a command on PATH, like python3
 }
 
 // bundleID is a .app's bundle identifier, the domain of its preferences.
