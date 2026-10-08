@@ -563,8 +563,9 @@ func (p *proc) away(beside bool) error {
 	window, screen := image.Rect(int(r.X), int(r.Y), int(r.X+r.Width), int(r.Y+r.Height)), image.Rect(0, 0, w, h)
 	at := desktopcore.AwaySpot(window, screen)
 	if beside {
+		x, y, known := p.in.Pointer()
 		var ok bool
-		if at, ok = desktopcore.Beside(window, screen); !ok {
+		if at, ok = desktopcore.LeaveSpot(window, screen, image.Pt(x, y)); !known || !ok {
 			return nil
 		}
 	}

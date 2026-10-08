@@ -1032,3 +1032,20 @@ func TestFlat(t *testing.T) {
 		t.Error("an empty window shows nothing")
 	}
 }
+
+// The pointer moves beside an app that opens under it, and stays where it
+// is over another app or the desktop: Snap's tray window on Windows, a
+// square at the screen's corner, opens nowhere near it.
+func TestLeaveSpot(t *testing.T) {
+	screen := image.Rect(0, 0, 1920, 1080)
+	preview := image.Rect(0, 0, 1280, 880)
+	if p, ok := LeaveSpot(preview, screen, image.Pt(600, 400)); !ok || p.In(preview) {
+		t.Errorf("an app that opened under the pointer: %v, %v", p, ok)
+	}
+	if p, ok := LeaveSpot(image.Rect(0, 0, 16, 16), screen, image.Pt(960, 540)); ok {
+		t.Errorf("a window away from the pointer: moved to %v", p)
+	}
+	if p, ok := LeaveSpot(screen, screen, image.Pt(960, 540)); ok {
+		t.Errorf("a window that covers the screen: moved to %v", p)
+	}
+}

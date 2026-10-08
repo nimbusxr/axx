@@ -348,6 +348,17 @@ func AwaySpot(window, screen image.Rectangle) image.Point {
 	return image.Pt(screen.Max.X-2, screen.Min.Y+screen.Dy()/2)
 }
 
+// LeaveSpot is where the pointer goes as an app opens: beside its window
+// when the pointer is over the window (an app that opens under a still
+// pointer shows what is under it hovered) and the screen has room there;
+// nowhere otherwise, the pointer left as it is.
+func LeaveSpot(window, screen image.Rectangle, pointer image.Point) (image.Point, bool) {
+	if !pointer.In(window) {
+		return image.Point{}, false
+	}
+	return Beside(window, screen)
+}
+
 // Beside is a place on the screen beside the window, off the middle of a
 // side that has room, if one has: a window that covers the screen has none.
 func Beside(window, screen image.Rectangle) (image.Point, bool) {

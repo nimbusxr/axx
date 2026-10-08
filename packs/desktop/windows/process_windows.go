@@ -359,7 +359,7 @@ func (p *proc) away(beside bool) error {
 		screen := image.Rect(int(wa.Left), int(wa.Top), int(wa.Right), int(wa.Bottom))
 		at := desktopcore.AwaySpot(window, screen)
 		if beside {
-			if at, ok = desktopcore.Beside(window, screen); !ok {
+			if at, ok = desktopcore.LeaveSpot(window, screen, image.Pt(uia.Pointer())); !ok {
 				return nil
 			}
 		}

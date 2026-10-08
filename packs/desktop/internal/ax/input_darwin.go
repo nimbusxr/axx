@@ -25,6 +25,8 @@ var (
 	cgEventSetFlags                 func(event uintptr, flags uint64)
 	cgEventCreateScrollWheelEvent2  func(source uintptr, units uint32, count uint32, wheel1, wheel2, wheel3 int32) uintptr
 	cgEventSetLocation              func(event uintptr, at Point)
+	cgEventCreate                   func(source uintptr) uintptr
+	cgEventGetLocation              func(event uintptr) Point
 )
 
 const (
@@ -54,6 +56,8 @@ func loadInput() error {
 		purego.RegisterLibFunc(&cgEventSetFlags, cg, "CGEventSetFlags")
 		purego.RegisterLibFunc(&cgEventCreateScrollWheelEvent2, cg, "CGEventCreateScrollWheelEvent2")
 		purego.RegisterLibFunc(&cgEventSetLocation, cg, "CGEventSetLocation")
+		purego.RegisterLibFunc(&cgEventCreate, cg, "CGEventCreate")
+		purego.RegisterLibFunc(&cgEventGetLocation, cg, "CGEventGetLocation")
 	})
 	return inputErr
 }
@@ -332,4 +336,18 @@ func (e *Element) Frame() (Point, Size, error) {
 		return Point{}, Size{}, fmt.Errorf("the element has no place on the screen")
 	}
 	return pos, size, nil
+}
+
+// PointerLocation is where the pointer is, in points from the main screen's
+// top left.
+func PointerLocation() (Point, error) {
+	if err := loadInput(); err != nil {
+		return Point{}, err
+	}
+	ev := cgEventCreate(0)
+	if ev == 0 {
+		return Point{}, fmt.Errorf("cannot ask where the pointer is")
+	}
+	defer cfRelease(ev)
+	return cgEventGetLocation(ev), nil
 }
