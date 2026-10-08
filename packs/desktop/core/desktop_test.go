@@ -98,6 +98,8 @@ type fakeProc struct {
 	// remakes is how many actions find the control made anew, as a web view
 	// makes its controls as it lays out: the one found has lost its place.
 	remakes int
+	// aways is how many times the pointer was moved away from it.
+	aways int
 }
 
 type fakeControl struct {
@@ -152,7 +154,11 @@ func (p *fakeProc) Shows(text string) (bool, error) {
 }
 func (p *fakeProc) Texts() []string { return p.texts }
 func (p *fakeProc) Front() error    { return nil }
-func (p *fakeProc) Away() error     { return nil }
+func (p *fakeProc) Away() error {
+	p.aways++
+	return nil
+}
+
 func (p *fakeProc) ScrollTo(k appcore.Kind, name string) (Control, error) {
 	found, _ := p.Find(k, name, true)
 	if len(found) == 0 {
@@ -1012,5 +1018,17 @@ func TestFlat(t *testing.T) {
 	}
 	if !Flat(image.NewRGBA(image.Rectangle{})) {
 		t.Error("an empty window shows nothing")
+	}
+}
+
+// An app opens with the pointer away from it, wherever the scenario before
+// left it, so nothing of it shows hovered.
+func TestLaunchedWithThePointerAway(t *testing.T) {
+	p, _, _ := desk()
+	d := &fakeDriver{proc: p}
+	h := harness(t, d)
+	h.OK("the depot app is launched")
+	if p.aways != 1 {
+		t.Errorf("the pointer was moved away %d times as the app opened", p.aways)
 	}
 }
