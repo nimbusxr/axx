@@ -163,7 +163,9 @@ Checks wait for the app, 10 seconds or `within {duration}`. A failed step attach
 
 ## Traces and videos
 
-Ask for a **trace** of each app, and a scenario keeps one in `.axx/desktop/traces`: a page with its window after each step, and its controls where it failed. **Videos** of the window, as animated PNGs, go in `.axx/desktop/videos`. A trace captures the window after every step, while the next step finds what it acts on: kept for failed scenarios only, it still slows every step a little (about a tenth, on macOS), so it is off until you ask.
+Ask for a **trace** of each app, and a scenario keeps one in `.axx/desktop/traces`: a page with its window after each step, and its controls where it failed. A trace captures the window after every step, while the next step finds what it acts on: kept for failed scenarios only, it still slows every step a little (about a tenth, on macOS), so it is off until you ask.
+
+A **video** is the scenario's desktop as it ran, the pointer drawn where it was: an MP4 file (H.264) in `.axx/desktop/videos` that plays wherever videos play, and is attached to the report. The run keeps one more, `run.mp4`: its kept scenarios one after another, each after a card with its name and whether it passed. On Linux a video shows the scenario's whole screen, axx's own; on macOS and Windows, whose screen is yours, it shows the scenario's windows only, black around them. A screen that does not change adds nothing, so a scenario's video is a few hundred kilobytes.
 
 ```yaml title="axx.yaml"
 packs:
@@ -171,6 +173,8 @@ packs:
     traces: failed   # always, failed or never (the default)
     videos: failed   # always, failed or never (the default)
 ```
+
+Videos are encoded with Cisco's OpenH264. OpenH264 Video Codec provided by Cisco Systems, Inc. The first time a scenario keeps a video, axx downloads Cisco's build for your OS from Cisco (about half a megabyte), checks it, and keeps it in its cache; `videos: never`, the default, turns it off, and axx then downloads nothing. Cisco's terms are in axx's `THIRD_PARTY_NOTICES.md`.
 
 ## Toolkits report differently
 

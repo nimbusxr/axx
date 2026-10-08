@@ -238,6 +238,9 @@ type scenario struct {
 	// trace captures still being taken.
 	recordings map[string]*recording
 	tracing    sync.WaitGroup
+	// recorder records its desktop for its video, from its first app's
+	// start.
+	recorder *recorder
 }
 
 var scenarios = core.NewStateKey(Name+"/scenario", func(sc *core.Scenario) *scenario {
@@ -368,7 +371,7 @@ func process(sc *core.Scenario, app *App, start bool) (Process, error) {
 	}
 	s.running[app.Name] = p
 	s.mu.Unlock()
-	startVideo(sc, s, app.Name, p)
+	startRecording(sc, s)
 	return traced{p, s}, nil
 }
 

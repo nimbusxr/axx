@@ -43,6 +43,7 @@ type seat interface {
 	Window(pid int) (image.Rectangle, bool)
 	Size() (width, height int)
 	Screenshot() (*image.RGBA, error)
+	Pointer() (x, y int, ok bool)
 	Close()
 }
 

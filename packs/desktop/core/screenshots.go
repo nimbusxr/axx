@@ -34,7 +34,7 @@ const configSchema = `{
       }
     },
     "traces": {"type": "string", "enum": ["failed", "always", "never"], "description": "Which scenarios keep a trace of each app in .axx/desktop/traces: a page with its window after each step, and its controls where the scenario failed (default never)."},
-    "videos": {"type": "string", "enum": ["failed", "always", "never"], "description": "Which scenarios keep a video of each app's window in .axx/desktop/videos, an animated PNG (default never)."}
+    "videos": {"type": "string", "enum": ["failed", "always", "never"], "description": "Which scenarios keep a video of their desktop in .axx/desktop/videos, an MP4 file (H.264), and the run one of them all, run.mp4 (default never). OpenH264 Video Codec provided by Cisco Systems, Inc.: axx downloads it from Cisco when a video is first kept; never turns it off."}
   }
 }`
 

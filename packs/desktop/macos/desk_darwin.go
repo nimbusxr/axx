@@ -5,12 +5,14 @@ package desktopmacos
 import (
 	"context"
 	"fmt"
+	"image"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/nimbusxr/axx/core"
 	desktopcore "github.com/nimbusxr/axx/packs/desktop/core"
@@ -44,6 +46,13 @@ type desk struct {
 	sc      *core.Scenario
 	kept    *kept
 	release func()
+	// procs are the apps the scenario started or watched on it, whose
+	// windows its video shows; pids are theirs and their children's (a
+	// crosshair screencapture shows), as last looked up.
+	mu       sync.Mutex
+	procs    []*proc
+	pids     []int
+	pidsSeen time.Time
 }
 
 func (d *desk) Home(app *desktopcore.App) string { return desktopcore.HomeOf(d.sc, app) }
@@ -73,11 +82,61 @@ func (d *desk) Reset(sc *core.Scenario, app *desktopcore.App) error {
 }
 
 func (d *desk) Start(sc *core.Scenario, app *desktopcore.App) (desktopcore.Process, error) {
-	return start(sc, app, d.Home(app))
+	p, err := start(sc, app, d.Home(app))
+	if err != nil {
+		return nil, err
+	}
+	d.add(p)
+	return p, nil
 }
 
 func (d *desk) Watch(sc *core.Scenario, app *desktopcore.App) (desktopcore.Process, error) {
-	return watch(sc, app)
+	p, err := watch(sc, app)
+	if err != nil {
+		return nil, err
+	}
+	d.add(p)
+	return p, nil
+}
+
+func (d *desk) add(p *proc) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.procs = append(d.procs, p)
+	d.pidsSeen = time.Time{}
+}
+
+// Screen is the scenario's windows as they show, each where it is on the
+// main screen and black around them: the rest of the screen is the person's.
+func (d *desk) Screen() (desktopcore.Screen, error) {
+	ids, err := ax.WindowsOf(d.scenarioPIDs())
+	if err != nil {
+		return desktopcore.Screen{}, err
+	}
+	img, err := ax.CaptureWindows(ids)
+	if err != nil {
+		return desktopcore.Screen{}, err
+	}
+	at, err := ax.PointerLocation()
+	return desktopcore.Screen{Image: img, Scale: 1, Pointer: image.Pt(int(at.X), int(at.Y)), HasPointer: err == nil}, nil
+}
+
+// scenarioPIDs are the processes of the scenario's apps and their
+// children, looked up at most once a second.
+func (d *desk) scenarioPIDs() []int {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if time.Since(d.pidsSeen) < time.Second {
+		return d.pids
+	}
+	var pids []int
+	for _, p := range d.procs {
+		pids = append(pids, p.pid)
+		pids = append(pids, descendants(p.pid)...)
+	}
+	d.pids = pids
+	d.pidsSeen = time.Now()
+	return d.pids
 }
 
 func (d *desk) Release() { d.release() }

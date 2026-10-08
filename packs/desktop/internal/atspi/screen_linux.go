@@ -28,3 +28,12 @@ func (in *Input) Screenshot() (*image.RGBA, error) {
 	}
 	return out, nil
 }
+
+// Pointer is where the pointer is on the screen.
+func (in *Input) Pointer() (x, y int, ok bool) {
+	p, err := xproto.QueryPointer(in.x, in.root).Reply()
+	if err != nil {
+		return 0, 0, false
+	}
+	return int(p.RootX), int(p.RootY), true
+}
