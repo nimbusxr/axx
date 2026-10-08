@@ -419,7 +419,25 @@ func (p *proc) Drag(c desktopcore.Control, from desktopcore.Anchor, x1, y1, x2, 
 	return ax.Drag(start, end)
 }
 
+// keyWait is how long a key waits for the app to show a window.
+const keyWait = 5 * time.Second
+
+// shown waits for the app to show a window, as a person waits to see an
+// app before pressing a key in it: an app still opening takes keys before
+// it is ready for them (Snap readies its overlay, then shows it, and sets
+// its tool after a key chose one). An app that shows none in time (one in
+// the menu bar) takes the key as it is.
+func (p *proc) shown() {
+	for wait := time.Now(); len(p.windows()) == 0; time.Sleep(50 * time.Millisecond) {
+		if time.Since(wait) > keyWait {
+			p.sc.Log("the %s app showed no window within %s: pressing the key as it is", p.app.Name, keyWait)
+			return
+		}
+	}
+}
+
 func (p *proc) Key(spec string) error {
+	p.shown()
 	if err := p.Front(); err != nil {
 		return err
 	}
@@ -432,6 +450,7 @@ func (p *proc) Key(spec string) error {
 }
 
 func (p *proc) Type(text string) error {
+	p.shown()
 	if err := p.Front(); err != nil {
 		return err
 	}
