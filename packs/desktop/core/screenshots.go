@@ -127,6 +127,8 @@ func looksLike(sc *core.Scenario, app string, p Process, name string, wait time.
 		return err
 	}
 	var (
+		// shot is the settled look last compared with the screenshot, and
+		// last how they compared.
 		shot     image.Image
 		path     string
 		last     imagediff.Result
@@ -148,14 +150,20 @@ func looksLike(sc *core.Scenario, app string, p Process, name string, wait time.
 		return img, scale, err
 	}
 	deadline := time.Now().Add(wait)
+	// Each look is held against the one before it: a window that settles
+	// late is compared as soon as it has, not a look later.
+	a, _, err := look()
+	if err != nil {
+		return err
+	}
 	for {
-		a, _, err := look()
-		if err != nil {
-			return err
-		}
 		// Settled: as it was half a second ago (a web view draws its images
 		// as they load), but for a cursor's blink.
-		time.Sleep(500 * time.Millisecond)
+		select {
+		case <-sc.Context().Done():
+			return sc.Context().Err()
+		case <-time.After(500 * time.Millisecond):
+		}
 		b, scale, err := look()
 		if err != nil {
 			return err
@@ -181,24 +189,23 @@ func looksLike(sc *core.Scenario, app string, p Process, name string, wait time.
 				a, b, moved = b, c, again
 			}
 		}
-		shot, path = b, screenshotFile(cfg.folder, name, scale)
+		path = screenshotFile(cfg.folder, name, scale)
 		if moved.Differ != 0 {
 			before, after, change = a, b, moved
-		}
-		if moved.Differ == 0 {
+		} else {
 			if cfg.update {
-				return keep(sc, path, shot, true)
+				return keep(sc, path, b, true)
 			}
 			if expected == nil {
 				expected, err = readPNG(path)
 				if os.IsNotExist(err) {
-					return keep(sc, path, shot, false)
+					return keep(sc, path, b, false)
 				}
 				if err != nil {
 					return err
 				}
 			}
-			last = imagediff.Compare(expected, shot, imagediff.Options{})
+			shot, last = b, imagediff.Compare(expected, b, imagediff.Options{})
 			if last.SameSize && float64(last.Differ) <= cfg.tolerance*float64(last.Pixels) {
 				return nil
 			}
@@ -206,11 +213,7 @@ func looksLike(sc *core.Scenario, app string, p Process, name string, wait time.
 		if time.Now().After(deadline) {
 			break
 		}
-		select {
-		case <-sc.Context().Done():
-			return sc.Context().Err()
-		case <-time.After(300 * time.Millisecond):
-		}
+		a = b
 	}
 	if expected == nil {
 		if before != nil && change.Diff != nil {
