@@ -32,18 +32,7 @@ func (family) Launch(sc *core.Scenario, a *appcore.App) error {
 	if err != nil {
 		return err
 	}
-	return opened(p)
-}
-
-// opened brings the app that opened to the front, with the pointer beside
-// it, wherever the scenario before left it: an app that opens under a still
-// pointer shows what is under it hovered (Preview a tooltip). One that
-// covers the screen leaves it as it is.
-func opened(p Process) error {
-	if err := p.Front(); err != nil {
-		return err
-	}
-	return p.Leave()
+	return p.Front()
 }
 
 func (family) Restart(sc *core.Scenario, a *appcore.App) error {
@@ -58,7 +47,7 @@ func (family) Restart(sc *core.Scenario, a *appcore.App) error {
 	if err != nil {
 		return err
 	}
-	return opened(p)
+	return p.Front()
 }
 
 func (family) Press(sc *core.Scenario, a *appcore.App, k appcore.Kind, name string) error {

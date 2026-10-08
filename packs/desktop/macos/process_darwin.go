@@ -278,23 +278,13 @@ func (p *proc) Front() error {
 
 // Away moves the pointer beside the app's window, in the screen's visible
 // frame (not on the Dock).
-func (p *proc) Away() error { return p.away(false) }
-
-// Leave moves the pointer beside the app's window, when the screen has room.
-func (p *proc) Leave() error { return p.away(true) }
-
-func (p *proc) away(beside bool) error {
+func (p *proc) Away() error {
 	w, ok := frameOf(p.window())
 	if !ok {
 		return nil
 	}
 	rect := func(a area) image.Rectangle { return image.Rect(int(a.x), int(a.y), int(a.x+a.w), int(a.y+a.h)) }
 	at := desktopcore.AwaySpot(rect(w), rect(p.screen))
-	if beside {
-		if at, ok = desktopcore.Beside(rect(w), rect(p.screen)); !ok {
-			return nil
-		}
-	}
 	return ax.Move(ax.Point{X: float64(at.X), Y: float64(at.Y)})
 }
 

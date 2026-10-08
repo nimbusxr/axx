@@ -244,7 +244,6 @@ type traced struct {
 
 func (t traced) Front() error { t.s.tracing.Wait(); return t.Process.Front() }
 func (t traced) Away() error  { t.s.tracing.Wait(); return t.Process.Away() }
-func (t traced) Leave() error { t.s.tracing.Wait(); return t.Process.Leave() }
 func (t traced) ScrollIntoView(c Control) error {
 	t.s.tracing.Wait()
 	return t.Process.ScrollIntoView(c)
