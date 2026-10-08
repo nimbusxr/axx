@@ -78,6 +78,8 @@ type fakeProc struct {
 	// changing is whether its window differs at each look (looks).
 	changing bool
 	looks    atomic.Int32
+	// shows, when set, is its window at each look, from the first (1).
+	shows func(look int32) image.Image
 	// size is its controls' size, in points, once set: a place off it fails.
 	size [2]float64
 	// remakes is how many actions find the control made anew, as a web view
@@ -215,6 +217,9 @@ func (p *fakeProc) Type(text string) error {
 }
 
 func (p *fakeProc) Window() (image.Image, float64, error) {
+	if p.shows != nil {
+		return p.shows(p.looks.Add(1)), 2, nil
+	}
 	img := image.NewRGBA(image.Rect(0, 0, 4, 4))
 	img.Set(1, 1, color.RGBA{R: 200, A: 255})
 	if p.changing { // as an app that animates: each look differs
@@ -581,6 +586,50 @@ func TestScreenshots(t *testing.T) {
 	h.OK(`the depot app looks like the "arrivals" screenshot`)
 	if got := screenshotFile("/s", "arrivals", 1.75); got != filepath.Join("/s", "arrivals."+platform+"@1.75x.png") {
 		t.Errorf("a display's scale names its screenshots: %s", got)
+	}
+}
+
+// TestScreenshotsShowTheLookCompared: a failure shows the look that was
+// compared with the screenshot, not one taken after it that had not settled.
+func TestScreenshotsShowTheLookCompared(t *testing.T) {
+	p, _, _ := desk()
+	d := &fakeDriver{proc: p}
+	h := harness(t, d)
+	h.OK("the depot app is launched")
+	window := func(c color.RGBA, n int32) *image.RGBA {
+		img := image.NewRGBA(image.Rect(0, 0, 4, 4))
+		draw.Draw(img, img.Bounds(), &image.Uniform{C: c}, image.Point{}, draw.Src)
+		img.Set(0, 0, color.RGBA{G: uint8(n), A: 255}) //nolint:gosec // a look's number, small
+		return img
+	}
+	red, blue := color.RGBA{R: 200, A: 255}, color.RGBA{B: 200, A: 255}
+	p.shows = func(int32) image.Image { return window(red, 0) }
+	_ = h.Fails(`the depot app looks like the "late" screenshot`, `There was no "late.`+platform+`@2x" screenshot`)
+	// Blue for two looks, settled; then green and blue in turn, until the
+	// wait ends. A look's number tells it from the others.
+	p.looks.Store(0)
+	p.shows = func(n int32) image.Image {
+		switch {
+		case n <= 2:
+			return window(blue, 0)
+		case n%2 == 1:
+			return window(color.RGBA{G: 200, A: 255}, n)
+		default:
+			return window(blue, n)
+		}
+	}
+	h.Sink.Attachments = nil
+	_ = h.Fails(`within 1s the depot app looks like the "late" screenshot`, `The depot app does not look like its "late" screenshot: 15 pixels of 16 differ`)
+	// The check's own, before the window a failure attaches.
+	var shown image.Image
+	for _, a := range h.Sink.Attachments {
+		if a.Name == "the depot app" {
+			shown, _ = png.Decode(bytes.NewReader(a.Body))
+			break
+		}
+	}
+	if shown == nil || !samePixels(shown, window(blue, 0)) {
+		t.Error("the failure shows a look other than the one compared")
 	}
 }
 
