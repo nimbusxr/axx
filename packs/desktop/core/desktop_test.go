@@ -804,8 +804,8 @@ func TestRecordings(t *testing.T) {
 	for _, a := range h.Sink.Attachments {
 		names = append(names, a.Name)
 	}
-	if got := strings.Join(names, ", "); got != "the scenario's video, the depot app's trace" {
-		t.Errorf("attachments: %s", got)
+	if got := strings.Join(names, ", "); got != "the depot app's trace" {
+		t.Errorf("a passed scenario's video is in its folder only, not the report: attachments %s", got)
 	}
 	if err := h.Suite.Close(context.Background()); err != nil {
 		t.Fatal(err)
