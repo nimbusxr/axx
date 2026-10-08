@@ -40,10 +40,7 @@ func (family) Launch(sc *core.Scenario, a *appcore.App) error {
 // pointer shows what is under it hovered (Preview a tooltip). One that
 // covers the screen leaves it as it is.
 func opened(p Process) error {
-	if err := p.Front(); err != nil {
-		return err
-	}
-	return p.Leave()
+	return p.Front() // EXPERIMENT: no pointer move as an app opens
 }
 
 func (family) Restart(sc *core.Scenario, a *appcore.App) error {
