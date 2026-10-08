@@ -68,6 +68,11 @@ type Process interface {
 	// hovers over none of its controls: a control under the pointer draws
 	// itself hovered.
 	Away() error
+	// Leave moves the pointer beside the app's window when the screen has
+	// room there, and leaves it as it is when the window covers the screen:
+	// a pointer moving over a window shows its controls (an image viewer's
+	// arrows).
+	Leave() error
 	// ScrollTo scrolls until the control of kind k named name is in view,
 	// as a person looks for it: area by area, the outermost first, and
 	// through every list and table for a control the app has only once it

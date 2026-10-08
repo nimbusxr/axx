@@ -567,7 +567,12 @@ func (p *proc) Type(text string) error {
 }
 
 // Away moves the pointer beside the app's window, on the scenario's screen.
-func (p *proc) Away() error {
+func (p *proc) Away() error { return p.away(false) }
+
+// Leave moves the pointer beside the app's window, when the screen has room.
+func (p *proc) Leave() error { return p.away(true) }
+
+func (p *proc) away(beside bool) error {
 	if err := p.ready(); err != nil {
 		return err
 	}
@@ -580,7 +585,14 @@ func (p *proc) Away() error {
 		return nil // no places (Flutter): no pointer either
 	}
 	w, h := p.in.Size()
-	at := desktopcore.AwaySpot(image.Rect(int(r.X), int(r.Y), int(r.X+r.Width), int(r.Y+r.Height)), image.Rect(0, 0, w, h))
+	window, screen := image.Rect(int(r.X), int(r.Y), int(r.X+r.Width), int(r.Y+r.Height)), image.Rect(0, 0, w, h)
+	at := desktopcore.AwaySpot(window, screen)
+	if beside {
+		var ok bool
+		if at, ok = desktopcore.Beside(window, screen); !ok {
+			return nil
+		}
+	}
 	return p.in.Move(at.X, at.Y)
 }
 

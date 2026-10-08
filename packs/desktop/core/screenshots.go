@@ -342,6 +342,15 @@ func HideCaret(img image.Image, r image.Rectangle) image.Image {
 // screen's right edge (a window that fills the screen), never in a corner of
 // the screen (macOS runs what its hot corners do).
 func AwaySpot(window, screen image.Rectangle) image.Point {
+	if p, ok := Beside(window, screen); ok {
+		return p
+	}
+	return image.Pt(screen.Max.X-2, screen.Min.Y+screen.Dy()/2)
+}
+
+// Beside is a place on the screen beside the window, off the middle of a
+// side that has room, if one has: a window that covers the screen has none.
+func Beside(window, screen image.Rectangle) (image.Point, bool) {
 	const gap = 16
 	mid := image.Pt(window.Min.X+window.Dx()/2, window.Min.Y+window.Dy()/2)
 	mid.Y = min(max(mid.Y, screen.Min.Y+gap), screen.Max.Y-gap)
@@ -350,8 +359,8 @@ func AwaySpot(window, screen image.Rectangle) image.Point {
 		{window.Max.X + gap, mid.Y}, {window.Min.X - gap, mid.Y}, {mid.X, window.Max.Y + gap}, {mid.X, window.Min.Y - gap},
 	} {
 		if p.In(screen.Inset(gap / 2)) {
-			return p
+			return p, true
 		}
 	}
-	return image.Pt(screen.Max.X-2, screen.Min.Y+screen.Dy()/2)
+	return image.Point{}, false
 }

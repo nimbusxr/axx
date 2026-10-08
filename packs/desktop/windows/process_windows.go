@@ -339,7 +339,12 @@ func (p *proc) Type(text string) error {
 
 // Away moves the pointer beside the app's window, in the work area (not on
 // the taskbar).
-func (p *proc) Away() error {
+func (p *proc) Away() error { return p.away(false) }
+
+// Leave moves the pointer beside the app's window, when the screen has room.
+func (p *proc) Leave() error { return p.away(true) }
+
+func (p *proc) away(beside bool) error {
 	return p.w.do(func() error {
 		w := p.window()
 		if w == nil {
@@ -350,8 +355,14 @@ func (p *proc) Away() error {
 			return nil
 		}
 		wa := uia.WorkArea()
-		at := desktopcore.AwaySpot(image.Rect(int(r.Left), int(r.Top), int(r.Right), int(r.Bottom)),
-			image.Rect(int(wa.Left), int(wa.Top), int(wa.Right), int(wa.Bottom)))
+		window := image.Rect(int(r.Left), int(r.Top), int(r.Right), int(r.Bottom))
+		screen := image.Rect(int(wa.Left), int(wa.Top), int(wa.Right), int(wa.Bottom))
+		at := desktopcore.AwaySpot(window, screen)
+		if beside {
+			if at, ok = desktopcore.Beside(window, screen); !ok {
+				return nil
+			}
+		}
 		return uia.Move(at.X, at.Y)
 	})
 }
