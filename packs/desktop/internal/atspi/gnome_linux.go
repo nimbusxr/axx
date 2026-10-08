@@ -10,6 +10,7 @@ import (
 	"image/png"
 	"os"
 	"strings"
+	"sync"
 	"time"
 	"unicode"
 
@@ -29,6 +30,11 @@ type Gnome struct {
 	stream        dbus.ObjectPath
 	width, height int
 	dir           string // where screenshots are written
+	// pointer is where Move last put the pointer: GNOME Shell's remote
+	// desktop does not say where it is.
+	pointerMu sync.Mutex
+	pointer   image.Point
+	moved     bool
 }
 
 const (
@@ -97,7 +103,20 @@ func (g *Gnome) Size() (width, height int) { return g.width, g.height }
 
 // Move moves the pointer to a point on the screen.
 func (g *Gnome) Move(x, y int) error {
-	return g.call("NotifyPointerMotionAbsolute", string(g.stream), float64(x), float64(y))
+	if err := g.call("NotifyPointerMotionAbsolute", string(g.stream), float64(x), float64(y)); err != nil {
+		return err
+	}
+	g.pointerMu.Lock()
+	g.pointer, g.moved = image.Pt(x, y), true
+	g.pointerMu.Unlock()
+	return nil
+}
+
+// Pointer is where the pointer is on the screen: where Move last put it.
+func (g *Gnome) Pointer() (x, y int, ok bool) {
+	g.pointerMu.Lock()
+	defer g.pointerMu.Unlock()
+	return g.pointer.X, g.pointer.Y, g.moved
 }
 
 func (g *Gnome) button(down bool) error { return g.call("NotifyPointerButton", int32(btnLeft), down) }

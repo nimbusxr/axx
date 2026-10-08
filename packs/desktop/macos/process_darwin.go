@@ -302,7 +302,11 @@ func (p *proc) away(beside bool) error {
 	rect := func(a area) image.Rectangle { return image.Rect(int(a.x), int(a.y), int(a.x+a.w), int(a.y+a.h)) }
 	at := desktopcore.AwaySpot(rect(w), rect(p.screen))
 	if beside {
-		if at, ok = desktopcore.Beside(rect(w), rect(p.screen)); !ok {
+		pointer, err := ax.PointerLocation()
+		if err != nil {
+			return nil //nolint:nilerr // the pointer left as it is: nothing known of it to move
+		}
+		if at, ok = desktopcore.LeaveSpot(rect(w), rect(p.screen), image.Pt(int(pointer.X), int(pointer.Y))); !ok {
 			return nil
 		}
 	}
