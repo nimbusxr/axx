@@ -40,6 +40,11 @@ type proc struct {
 	// before are the windows the system's app (owner: system) had as it was
 	// watched: the person's, which the scenario neither reads nor sees.
 	before []*ax.Element
+	// tray is whether the app lives in the menu bar's status area, with no
+	// window until it is used.
+	tray bool
+	// drew is the window seen to show something.
+	drew *ax.Element
 }
 
 // control is an element a step found.
@@ -273,6 +278,12 @@ func (p *proc) Front() error {
 			return nil
 		}
 	}
+	// An app in the menu bar's status area with no window open does not
+	// always come to the front (macOS activates a status item's app as it
+	// shows a window): nothing of it takes a click or a key until it does.
+	if p.tray && len(p.windows()) == 0 {
+		return nil
+	}
 	return fmt.Errorf("the %s app (process %d) does not come to the front: stopping before a click or a key reaches another app", p.app.Name, p.pid)
 }
 
@@ -409,25 +420,50 @@ func (p *proc) Drag(c desktopcore.Control, from desktopcore.Anchor, x1, y1, x2, 
 	return ax.Drag(start, end)
 }
 
-// keyWait is how long a key waits for the app to show a window.
+// keyWait is how long a key waits for the app to show a window that has
+// drawn.
 const keyWait = 5 * time.Second
 
-// shown waits for the app to show a window, as a person waits to see an
-// app before pressing a key in it: an app still opening takes keys before
-// it is ready for them (Snap readies its overlay, then shows it, and sets
-// its tool after a key chose one). An app that shows none in time (one in
-// the menu bar) takes the key as it is.
-func (p *proc) shown() {
-	for wait := time.Now(); len(p.windows()) == 0; time.Sleep(50 * time.Millisecond) {
+// shown waits for the app to show a window that has drawn something, as a
+// person waits to see an app before pressing a key in it: an app still
+// opening takes keys before it is ready for them (Snap shows its overlay
+// at once, readies it after, and sets its tool over the one a key chose).
+// A window of one color all over has drawn nothing yet. It is an error for
+// an app with no window that is not in front: the key would reach another.
+func (p *proc) shown() error {
+	wait := time.Now()
+	for len(p.windows()) == 0 {
 		if time.Since(wait) > keyWait {
+			if !p.root.Bool("AXFrontmost") {
+				return fmt.Errorf("the %s app shows no window and is not in front: stopping before a key reaches another app", p.app.Name)
+			}
 			p.sc.Log("the %s app showed no window within %s: pressing the key as it is", p.app.Name, keyWait)
-			return
+			return nil
 		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	w := p.window()
+	if p.drew != nil && p.drew.Equal(w) {
+		return nil
+	}
+	for ; ; time.Sleep(200 * time.Millisecond) {
+		// A window that cannot be captured is taken as it is.
+		shot, _, err := p.Window()
+		if err == nil && desktopcore.Flat(shot) && time.Since(wait) <= keyWait {
+			continue
+		}
+		if err == nil && desktopcore.Flat(shot) {
+			p.sc.Log("the %s app's window showed one color for %s: pressing the key as it is", p.app.Name, keyWait)
+		}
+		p.drew = w
+		return nil
 	}
 }
 
 func (p *proc) Key(spec string) error {
-	p.shown()
+	if err := p.shown(); err != nil {
+		return err
+	}
 	if err := p.Front(); err != nil {
 		return err
 	}
@@ -440,7 +476,9 @@ func (p *proc) Key(spec string) error {
 }
 
 func (p *proc) Type(text string) error {
-	p.shown()
+	if err := p.shown(); err != nil {
+		return err
+	}
 	if err := p.Front(); err != nil {
 		return err
 	}

@@ -355,3 +355,29 @@ func AwaySpot(window, screen image.Rectangle) image.Point {
 	}
 	return image.Pt(screen.Max.X-2, screen.Min.Y+screen.Dy()/2)
 }
+
+// Flat is whether an image is one color all over, near enough: a window
+// that has drawn nothing yet (a web view's, until its first frame).
+func Flat(img image.Image) bool {
+	b := img.Bounds()
+	if b.Empty() {
+		return true
+	}
+	r0, g0, b0, _ := img.At(b.Min.X, b.Min.Y).RGBA()
+	for y := b.Min.Y; y < b.Max.Y; y += max(1, b.Dy()/32) {
+		for x := b.Min.X; x < b.Max.X; x += max(1, b.Dx()/32) {
+			r, g, bl, _ := img.At(x, y).RGBA()
+			if diff(r, r0) > 0x0800 || diff(g, g0) > 0x0800 || diff(bl, b0) > 0x0800 {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func diff(a, b uint32) uint32 {
+	if a > b {
+		return a - b
+	}
+	return b - a
+}
