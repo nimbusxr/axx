@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.2.3](https://github.com/nimbusxr/axx/compare/v0.2.2...v0.2.3) (2026-10-08)
+
+
+### Features
+
+* put files in a folder, empty it, and check that a file is gone or the folder is empty ([#112](https://github.com/nimbusxr/axx/issues/112)) ([8f21e18](https://github.com/nimbusxr/axx/commit/8f21e18835d7a4c00eb8e3f5c919be5b535ce007))
+
+
+### Bug Fixes
+
+* **depot-desk:** the expected parcels are on the page before the day loads ([#116](https://github.com/nimbusxr/axx/issues/116)) ([caf87ec](https://github.com/nimbusxr/axx/commit/caf87ec17745931d3e0dce6feb8c0668b0f271c1))
+* desktop steps find a control again when the app draws it anew, and Linux gives a drag time ([#113](https://github.com/nimbusxr/axx/issues/113)) ([6f23ddf](https://github.com/nimbusxr/axx/commit/6f23ddf1277ec9527f8d20db67241ae0f2bbdd13))
+* system apps read only their scenario's windows, and no panic on Linux ([#110](https://github.com/nimbusxr/axx/issues/110)) ([67b0dd7](https://github.com/nimbusxr/axx/commit/67b0dd787cbee7e01579ef0613df18a15fc75302))
+
 ## [0.2.2](https://github.com/nimbusxr/axx/compare/v0.2.1...v0.2.2) (2026-10-07)
 
 
