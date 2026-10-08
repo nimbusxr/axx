@@ -98,8 +98,8 @@ type fakeProc struct {
 	// remakes is how many actions find the control made anew, as a web view
 	// makes its controls as it lays out: the one found has lost its place.
 	remakes int
-	// aways is how many times the pointer was moved away from it.
-	aways int
+	// leaves is how many times the pointer was moved beside it.
+	leaves int
 }
 
 type fakeControl struct {
@@ -154,8 +154,9 @@ func (p *fakeProc) Shows(text string) (bool, error) {
 }
 func (p *fakeProc) Texts() []string { return p.texts }
 func (p *fakeProc) Front() error    { return nil }
-func (p *fakeProc) Away() error {
-	p.aways++
+func (p *fakeProc) Away() error     { return nil }
+func (p *fakeProc) Leave() error {
+	p.leaves++
 	return nil
 }
 
@@ -1021,14 +1022,29 @@ func TestFlat(t *testing.T) {
 	}
 }
 
-// An app opens with the pointer away from it, wherever the scenario before
+// An app opens with the pointer beside it, wherever the scenario before
 // left it, so nothing of it shows hovered.
-func TestLaunchedWithThePointerAway(t *testing.T) {
+func TestLaunchedWithThePointerBeside(t *testing.T) {
 	p, _, _ := desk()
 	d := &fakeDriver{proc: p}
 	h := harness(t, d)
 	h.OK("the depot app is launched")
-	if p.aways != 1 {
-		t.Errorf("the pointer was moved away %d times as the app opened", p.aways)
+	if p.leaves != 1 {
+		t.Errorf("the pointer was moved beside the app %d times as it opened", p.leaves)
+	}
+}
+
+// Beside is beside the window where the screen has room, and nowhere for a
+// window that covers the screen.
+func TestBeside(t *testing.T) {
+	screen := image.Rect(0, 0, 1920, 1080)
+	if p, ok := Beside(image.Rect(0, 0, 1280, 880), screen); !ok || p.In(image.Rect(0, 0, 1280, 880)) {
+		t.Errorf("beside a window with room right of it: %v, %v", p, ok)
+	}
+	if p, ok := Beside(screen, screen); ok {
+		t.Errorf("a window that covers the screen has nothing beside it: %v", p)
+	}
+	if p := AwaySpot(screen, screen); p != image.Pt(1918, 540) {
+		t.Errorf("away from a window that covers the screen is its edge: %v", p)
 	}
 }
