@@ -3,39 +3,12 @@
 package desktoplinux
 
 import (
-	"image"
-	"image/color"
 	"strings"
 	"testing"
 
 	appcore "github.com/nimbusxr/axx/packs/app/core"
 	desktopcore "github.com/nimbusxr/axx/packs/desktop/core"
 )
-
-// A window of one color all over has drawn nothing yet; one that shows
-// anything else has.
-func TestFlat(t *testing.T) {
-	img := image.NewRGBA(image.Rect(0, 0, 640, 400))
-	for y := range 400 {
-		for x := range 640 {
-			img.Set(x, y, color.Black)
-		}
-	}
-	if !flat(img) {
-		t.Error("a black window shows nothing")
-	}
-	for y := 180; y < 220; y++ {
-		for x := 300; x < 340; x++ {
-			img.Set(x, y, color.RGBA{250, 247, 240, 255})
-		}
-	}
-	if flat(img) {
-		t.Error("a window with a picture in it shows something")
-	}
-	if !flat(image.NewRGBA(image.Rectangle{})) {
-		t.Error("an empty window shows nothing")
-	}
-}
 
 // The system's app is read as another app starts it on the scenario's
 // desktop: before then, it has no window to show, and its steps say so

@@ -175,7 +175,7 @@ func (p *proc) await() error {
 		// An app that lives in the menu bar's status area (a tray app) shows
 		// its item there, and no window until it is used.
 		if v, err := root.Attribute("AXExtrasMenuBar"); err == nil && len(children(asElement(v))) > 0 {
-			tray = true
+			tray, p.tray = true, true
 			p.sc.Log("the %s app came to the menu bar's status area after %s, with no window", p.app.Name, time.Since(wait).Round(time.Millisecond))
 			break
 		}
