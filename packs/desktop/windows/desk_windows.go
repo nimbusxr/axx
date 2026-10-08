@@ -15,6 +15,7 @@ import (
 	"strings"
 	"sync"
 	"syscall"
+	"time"
 	"unsafe"
 
 	"github.com/nimbusxr/axx/core"
@@ -74,9 +75,11 @@ type desk struct {
 	kept    *kept
 	release func()
 	// procs are the apps the scenario started or watched on it, whose
-	// windows its video shows.
-	mu    sync.Mutex
-	procs []*proc
+	// windows its video shows; pids are their processes, as last looked up.
+	mu       sync.Mutex
+	procs    []*proc
+	pids     []int
+	pidsSeen time.Time
 }
 
 func (d *desk) Home(app *desktopcore.App) string { return desktopcore.HomeOf(d.sc, app) }
@@ -120,18 +123,29 @@ func (d *desk) add(p *proc) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	d.procs = append(d.procs, p)
+	d.pidsSeen = time.Time{}
+}
+
+// scenarioPIDs are the processes of the scenario's apps, looked up at most
+// once a second.
+func (d *desk) scenarioPIDs() []int {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if time.Since(d.pidsSeen) < time.Second {
+		return d.pids
+	}
+	var pids []int
+	for _, p := range d.procs {
+		pids = append(pids, p.pids()...)
+	}
+	d.pids, d.pidsSeen = pids, time.Now()
+	return pids
 }
 
 // Screen is the scenario's windows as they show, each where it is on the
 // screen and black around them: the rest of the screen is the person's.
 func (d *desk) Screen() (desktopcore.Screen, error) {
-	d.mu.Lock()
-	procs := slices.Clone(d.procs)
-	d.mu.Unlock()
-	var pids []int
-	for _, p := range procs {
-		pids = append(pids, p.pids()...)
-	}
+	pids := d.scenarioPIDs()
 	w, h := uia.ScreenSize()
 	if w <= 0 || h <= 0 {
 		return desktopcore.Screen{}, errors.New("the screen has no size")
