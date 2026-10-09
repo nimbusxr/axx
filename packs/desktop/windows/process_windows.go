@@ -43,6 +43,16 @@ type proc struct {
 	// Explorer's taskbar too), which the scenario neither reads nor sees.
 	named  string
 	before []uintptr
+	// tray is whether the app came to the taskbar's tray with no window: it
+	// shows one only as it is used.
+	tray bool
+}
+
+// windowless is whether the app is a tray app with no window that shows,
+// as Windows lists them (UI Automation lists an app's windows a moment late
+// at times).
+func (p *proc) windowless() bool {
+	return p.tray && len(uia.VisibleWindows(p.pids())) == 0
 }
 
 // pids are the app's process and those it started; the system's app's
@@ -168,6 +178,11 @@ func (p *proc) Texts() []string {
 // or a key could reach another app.
 func (p *proc) Front() error {
 	return p.w.do(func() error {
+		// A tray app with no window open has none to bring to the front:
+		// nothing of it takes a click or a key until it shows one.
+		if p.windowless() {
+			return nil
+		}
 		// UI Automation lists an app's windows a moment late at times.
 		for wait := time.Now(); time.Since(wait) < 3*time.Second; time.Sleep(50 * time.Millisecond) {
 			w := p.window()
@@ -373,6 +388,9 @@ func (p *proc) Window() (image.Image, float64, error) {
 	var img image.Image
 	scale := 1.0
 	err := p.w.do(func() error {
+		if p.windowless() {
+			return fmt.Errorf("the %s app has no window", p.app.Name)
+		}
 		// UI Automation lists an app's windows a moment late at times.
 		w := p.window()
 		for wait := time.Now(); w == nil && time.Since(wait) < 3*time.Second; w = p.window() {
