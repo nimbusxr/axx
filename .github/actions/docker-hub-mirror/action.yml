@@ -1,0 +1,24 @@
+# SPDX-License-Identifier: Apache-2.0
+name: docker-hub-mirror
+description: >-
+  Docker pulls Docker Hub's images from Google's public cache of it (mirror.gcr.io), and from
+  Docker Hub itself only for one the cache does not have. GitHub's hosted runners pull from
+  Docker Hub without signing in, and Docker Hub refuses them at times (429 Too Many Requests):
+  the examples' services and the packs' test containers then never start. Use it before the
+  job's first pull. A buildx builder (docker/setup-buildx-action) takes the same mirror from
+  its buildkitd configuration instead.
+runs:
+  using: composite
+  steps:
+    - name: Docker Hub through Google's mirror
+      shell: bash
+      run: |
+        conf=/etc/docker/daemon.json
+        sudo mkdir -p /etc/docker
+        # The runner's settings stay; the mirror is added to them.
+        { sudo cat "$conf" 2> /dev/null || echo '{}'; } \
+          | jq '."registry-mirrors" = ["https://mirror.gcr.io"]' > "$RUNNER_TEMP/daemon.json"
+        sudo cp "$RUNNER_TEMP/daemon.json" "$conf"
+        sudo systemctl restart docker
+        for _ in $(seq 60); do docker info > /dev/null 2>&1 && break; sleep 1; done
+        echo "Docker's registry mirrors: $(docker info --format '{{.RegistryConfig.Mirrors}}')"
