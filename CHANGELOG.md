@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.2.4](https://github.com/nimbusxr/axx/compare/v0.2.3...v0.2.4) (2026-10-08)
+
+
+### Features
+
+* **desktop:** desktop videos are real videos, H.264 in MP4 with the pointer, and one for the whole run ([#125](https://github.com/nimbusxr/axx/issues/125)) ([9fb3dbc](https://github.com/nimbusxr/axx/commit/9fb3dbcdae9ba844eedf186483c3e794f125cb9a))
+
+
+### Bug Fixes
+
+* **desktop-macos:** a key waits for the app's window to draw ([#119](https://github.com/nimbusxr/axx/issues/119)) ([1dad4e4](https://github.com/nimbusxr/axx/commit/1dad4e4e7ea259a7de6d5cfe4f3da037484e476b))
+* **desktop-macos:** an app's bundle identifier is found as open -b finds it, not through Spotlight ([#121](https://github.com/nimbusxr/axx/issues/121)) ([4f3f905](https://github.com/nimbusxr/axx/commit/4f3f905b01945ed3103660ae31420493fade3bea))
+* **desktop:** a screenshot check compares a window as soon as it settles, and shows the look it compared ([#117](https://github.com/nimbusxr/axx/issues/117)) ([891766b](https://github.com/nimbusxr/axx/commit/891766b7829ece7cd74c6c8006eac6c55a9276af))
+* **desktop:** an app opens with the pointer beside it ([#120](https://github.com/nimbusxr/axx/issues/120)) ([990de6f](https://github.com/nimbusxr/axx/commit/990de6fd12f93b278fcbffdaa44d0375b7746fb4))
+* **desktop:** an app opens with the pointer moved beside it only when it opened under the pointer ([#124](https://github.com/nimbusxr/axx/issues/124)) ([168d89d](https://github.com/nimbusxr/axx/commit/168d89d20bfc77fb67024d79f4391da6216b5759))
+* **desktop:** an app's home is emptied once the last scenario's processes let go of its files ([#118](https://github.com/nimbusxr/axx/issues/118)) ([516839e](https://github.com/nimbusxr/axx/commit/516839e2eec2abe4447f4d236ed08d38f2645516))
+
 ## [0.2.3](https://github.com/nimbusxr/axx/compare/v0.2.2...v0.2.3) (2026-10-08)
 
 
