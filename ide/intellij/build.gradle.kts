@@ -6,6 +6,8 @@
 // the IDE asks for a debugger ([AXX-IDE] marker lines), it starts the matching "Debugger: <app>"
 // run configuration.
 // Standalone build: see settings.gradle.kts.
+import org.jetbrains.intellij.platform.gradle.models.ProductRelease
+
 plugins {
     java
     id("org.jetbrains.intellij.platform") version "2.19.0"
@@ -148,7 +150,16 @@ intellijPlatform {
 
     pluginVerification {
         ides {
-            recommended()
+            // The newest released IDE of each version the plugin supports, as recommended() less
+            // the EAP: they gate a release. With -PverifyEap, the newest EAP instead, which
+            // intellij-plugin.yml reports without failing: the Marketplace lists an EAP's builds of
+            // the optional plugins (Gherkin) on and off, and the verifier counts their classes as
+            // missing when it finds none.
+            if (providers.gradleProperty("verifyEap").isPresent) {
+                latest { channels = listOf(ProductRelease.Channel.EAP) }
+            } else {
+                select { channels = listOf(ProductRelease.Channel.RELEASE) }
+            }
         }
     }
 }

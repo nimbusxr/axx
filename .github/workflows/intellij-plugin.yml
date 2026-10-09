@@ -130,8 +130,9 @@ jobs:
           # No Gradle cache: a published plugin is built from scratch, and a dry run's cache
           # would hold the IDEs the plugin verifier downloads (many GB).
 
-      # Dry run: what the Marketplace checks (the plugin verifier against the recommended IDEs)
-      # and the signed plugin, kept on the run. The verifier needs the disk space freed above.
+      # Dry run: what the Marketplace checks (the plugin verifier against the newest released IDE
+      # of each version the plugin supports, and then the newest EAP) and the signed plugin, kept
+      # on the run. The verifier needs the disk space freed above.
       - if: inputs.dry-run
         name: wait for the disk space
         working-directory: .
@@ -147,6 +148,14 @@ jobs:
           tasks=(verifyPlugin)
           if [[ "$SIGN" == true ]]; then tasks+=(signPlugin); fi
           ./gradlew --no-daemon --console=plain "${tasks[@]}" -PpluginVersion="$VERSION"
+      # The newest EAP is reported, and gates nothing: the Marketplace lists an EAP's builds of the
+      # optional plugins (Gherkin) on and off, and the verifier counts their classes as missing
+      # when it finds none.
+      - if: inputs.dry-run
+        name: verify against the newest EAP (reported only)
+        run: |
+          ./gradlew --no-daemon --console=plain verifyPlugin -PverifyEap -PpluginVersion="$VERSION" ||
+            echo "::warning::The plugin verifier found problems against the newest EAP: see the pluginVerifier report in the axx-intellij-plugin-release-dry-run artifact."
       - if: inputs.dry-run
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
