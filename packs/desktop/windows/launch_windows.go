@@ -95,8 +95,9 @@ func start(sc *core.Scenario, w *worker, app *desktopcore.App, home string) (*pr
 	return p, nil
 }
 
-// await waits for the app's main window, fits it into the screen's work
-// area, and reads a Java window through the bridge.
+// await waits for the app's main window, or its icon in the taskbar's tray,
+// fits the window into the screen's work area, and reads a Java window
+// through the bridge.
 func (p *proc) await() error {
 	return p.w.do(func() error {
 		var win *uia.Element
@@ -105,11 +106,18 @@ func (p *proc) await() error {
 				p.sc.Log("the %s app's window came after %s", p.app.Name, time.Since(wait).Round(time.Millisecond))
 				break
 			}
+			// An app that lives in the taskbar's tray (a tray app) shows its
+			// icon there, and no window until it is used.
+			if uia.InTray(p.pids()) {
+				p.sc.Log("the %s app came to the taskbar's tray after %s, with no window", p.app.Name, time.Since(wait).Round(time.Millisecond))
+				p.tray = true
+				return nil
+			}
 			if p.exited() {
-				return fmt.Errorf("the app stopped before it showed a window")
+				return fmt.Errorf("the app stopped before it showed a window or a tray icon")
 			}
 			if time.Since(wait) > windowWait {
-				return fmt.Errorf("the app showed no window within %s", windowWait)
+				return fmt.Errorf("the app showed no window and no tray icon within %s", windowWait)
 			}
 		}
 		// It opens as for a person who opened it with the mouse, whatever the

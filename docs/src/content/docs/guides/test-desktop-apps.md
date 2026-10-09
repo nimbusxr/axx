@@ -88,7 +88,7 @@ When the depot app is restarted
 
 A restart keeps what the app stored, as quitting it and opening it again does; the next scenario's reset does not.
 
-An app that waits in the tray, with no window until it is used, is launched once its icon is there: in the menu bar's status area on macOS, in the tray of axx's desktops on Linux (a StatusNotifierWatcher, as KDE and GNOME with AppIndicator support keep one). The icon is a `menu`, named by its tooltip, and the entries of the menu it opens are `menu item`s:
+An app that waits in the tray, with no window until it is used, is launched once its icon is there: in the menu bar's status area on macOS, in the taskbar's tray on Windows, in the tray of axx's desktops on Linux (a StatusNotifierWatcher, as KDE and GNOME with AppIndicator support keep one). The icon is a `menu`, named by its tooltip, and the entries of the menu it opens are `menu item`s:
 
 ```gherkin
 When the "Courier tracker" menu is clicked in the tracker app

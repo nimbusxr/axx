@@ -346,8 +346,11 @@ func (t *uiaTree) trayIcon(n string, open bool) []*uia.Element {
 	return nil
 }
 
-// showTaskbar brings a taskbar that hides itself onto the screen, as a
-// person does: the pointer at the screen's bottom edge, where it waits.
+// showTaskbar brings the taskbar to the front, as a person's click on it
+// does, and one that hides itself onto the screen, as a person does: the
+// pointer at the screen's bottom edge, where it waits. Windows keeps the
+// pointer's moves and clicks axx makes from the taskbar while a window in
+// front runs elevated.
 func (t *uiaTree) showTaskbar() {
 	root, err := t.c.Root()
 	if err != nil {
@@ -358,6 +361,7 @@ func (t *uiaTree) showTaskbar() {
 		if k.ClassName() != taskbarClass {
 			continue
 		}
+		uia.Foreground(k.Handle())
 		screen := uia.Screen()
 		hidden := func() bool { return k.Bounds().Top >= screen.Bottom-8 }
 		if !hidden() {

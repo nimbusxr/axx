@@ -290,31 +290,89 @@ func (e *Element) Expands() bool {
 	return true
 }
 
-// The windows EnumWindows lists, of the processes asked for: one callback
-// for every call (a process makes only so many).
+// The windows EnumWindows lists, of the processes asked for (those that
+// show, or every one): one callback for every call (a process makes only so
+// many).
 var (
-	enumMu   sync.Mutex
-	enumPIDs []int
-	enumOut  []uintptr
-	enumCB   = syscall.NewCallback(func(h windows.HWND, _ uintptr) uintptr {
-		if windows.IsWindowVisible(h) {
-			var pid uint32
-			if _, err := windows.GetWindowThreadProcessId(h, &pid); err == nil && slices.Contains(enumPIDs, int(pid)) {
-				enumOut = append(enumOut, uintptr(h))
-			}
+	enumMu    sync.Mutex
+	enumPIDs  []int
+	enumShown bool
+	enumOut   []uintptr
+	enumCB    = syscall.NewCallback(func(h windows.HWND, _ uintptr) uintptr {
+		if enumShown && !windows.IsWindowVisible(h) {
+			return 1
+		}
+		var pid uint32
+		if _, err := windows.GetWindowThreadProcessId(h, &pid); err == nil && slices.Contains(enumPIDs, int(pid)) {
+			enumOut = append(enumOut, uintptr(h))
 		}
 		return 1
 	})
 )
 
-// VisibleWindows are the processes' top-level windows that show, in the
-// order Windows stacks them.
-func VisibleWindows(pids []int) []uintptr {
+func topWindows(pids []int, shown bool) []uintptr {
 	enumMu.Lock()
 	defer enumMu.Unlock()
-	enumPIDs, enumOut = pids, nil
+	enumPIDs, enumShown, enumOut = pids, shown, nil
 	_ = windows.EnumWindows(enumCB, nil)
 	return enumOut
+}
+
+// eventTargets are the classes of the windows tao and winit (the windowing
+// of Tauri's apps and Rust's) keep for their event loops: shown, as Windows
+// paints only a window that shows and they take its paint for the end of
+// their queue, and drawing nothing. No person sees one, and a capture of one
+// (PrintWindow) paints it: a paint that comes as the loop flushes its
+// paints panics it (tauri-apps/tao#1140).
+var eventTargets = []string{"Tao Thread Event Target", "Winit Thread Event Target"}
+
+// VisibleWindows are the processes' top-level windows that show, in the
+// order Windows stacks them; not a toolkit's event loop window.
+func VisibleWindows(pids []int) []uintptr {
+	return slices.DeleteFunc(topWindows(pids, true), func(h uintptr) bool {
+		return slices.Contains(eventTargets, className(h))
+	})
+}
+
+func className(h uintptr) string {
+	buf := make([]uint16, 256)
+	n, _ := windows.GetClassName(windows.HWND(h), &buf[0], int32(len(buf)))
+	return windows.UTF16ToString(buf[:n])
+}
+
+var (
+	shell32           = syscall.NewLazyDLL("shell32.dll")
+	notifyIconGetRect = shell32.NewProc("Shell_NotifyIconGetRect")
+)
+
+// notifyIconIdentifier is NOTIFYICONIDENTIFIER: an icon in the taskbar's
+// tray, by the window its app gave it and its number.
+type notifyIconIdentifier struct {
+	size uint32
+	hwnd uintptr
+	id   uint32
+	guid windows.GUID
+}
+
+// trayIDs are the icon numbers asked for: an app numbers its icons itself,
+// from 0 or 1 up as most do.
+const trayIDs = 32
+
+// InTray is whether the processes have an icon in the taskbar's tray, shown
+// or among those it hides: the shell knows each by its app's window and
+// number. An icon an app names by a GUID instead is not found.
+func InTray(pids []int) bool {
+	for _, h := range topWindows(pids, false) {
+		for id := range uint32(trayIDs) {
+			n := notifyIconIdentifier{hwnd: h, id: id}
+			n.size = uint32(unsafe.Sizeof(n))
+			var r Rect
+			if hr, _, _ := notifyIconGetRect.Call(uintptr(unsafe.Pointer(&n)), uintptr(unsafe.Pointer(&r))); hr == 0 {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // Alive is whether the process runs.
