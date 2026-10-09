@@ -42,6 +42,9 @@ type Step struct {
 type Panel struct {
 	Title, Where string
 	Steps        []Step
+	// Top shows the list from its first step, not from the one in focus: a
+	// video's opening, the whole scenario at a glance.
+	Top bool
 }
 
 var (
@@ -153,8 +156,8 @@ func (p Panel) shown(blocks []block, height, label int) (first, last int) {
 		}
 		return end
 	}
-	if fits(0) == len(blocks) {
-		return 0, len(blocks)
+	if p.Top || fits(0) == len(blocks) {
+		return 0, fits(0)
 	}
 	focus := p.focus()
 	above := 0

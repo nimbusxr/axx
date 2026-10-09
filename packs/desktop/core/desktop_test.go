@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -20,6 +21,7 @@ import (
 	"github.com/nimbusxr/axx/core"
 	"github.com/nimbusxr/axx/internal/cloudstep/cloudtest"
 	appcore "github.com/nimbusxr/axx/packs/app/core"
+	"github.com/nimbusxr/axx/packs/desktop/internal/video"
 	"github.com/nimbusxr/axx/packs/files"
 )
 
@@ -1072,5 +1074,23 @@ func TestLeaveSpot(t *testing.T) {
 	}
 	if p, ok := LeaveSpot(screen, screen, image.Pt(960, 540)); ok {
 		t.Errorf("a window that covers the screen: moved to %v", p)
+	}
+}
+
+// A video's chapters are its steps from when they ran, after its opening:
+// the first from the start; one that ran in the same moment as the one
+// before it, with it.
+func TestVideoChapters(t *testing.T) {
+	sc := core.NewScenario(context.Background(), core.ScenarioInfo{Name: "a parcel arrives"}, nil, nil)
+	sc.SetProgress([]core.StepProgress{
+		{StepInfo: core.StepInfo{Keyword: "Given", Text: "the depot app is launched"}, Status: "passed"},
+		{StepInfo: core.StepInfo{Keyword: "When", Text: "a parcel is registered"}, Status: "passed"},
+		{StepInfo: core.StepInfo{Keyword: "Then", Text: "the parcel is listed"}, Status: "passed"},
+	})
+	r := &recorder{sc: sc, marks: []mark{{0, 500 * time.Millisecond}, {1, 1200 * time.Millisecond}, {2, 1250 * time.Millisecond}}}
+	got := r.chapters()
+	want := []video.Chapter{{Title: "Given the depot app is launched", At: 0}, {Title: "When a parcel is registered", At: openingLength + 1200*time.Millisecond}}
+	if !slices.Equal(got, want) {
+		t.Errorf("chapters %+v, want %+v", got, want)
 	}
 }

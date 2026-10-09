@@ -35,6 +35,11 @@ const cardLength = 2500 * time.Millisecond
 // ended: a failure's message can be read.
 const holdLength = 2 * time.Second
 
+// openingLength is how long a scenario's video opens on its first frame,
+// its steps from the first: the whole scenario at a glance, those that ran
+// before it had a screen (the apps it declares) among them.
+const openingLength = 1500 * time.Millisecond
+
 // recorder records a scenario's desktop as it runs: a frame only when the
 // desktop changed, so a still screen costs nothing.
 type recorder struct {
@@ -109,7 +114,7 @@ func (r *recorder) look() {
 	}
 	steps := r.sc.Progress()
 	r.mark(steps)
-	img := r.withSteps(screen, steps)
+	img := r.withSteps(screen, steps, false)
 	sum := sha256.Sum256(img.Pix)
 	if r.enc != nil && sum == r.last {
 		return
@@ -120,8 +125,11 @@ func (r *recorder) look() {
 		if r.enc, r.err = video.NewEncoder(b.Dx(), b.Dy(), frameRate); r.err != nil {
 			return
 		}
+		if r.err = r.enc.Encode(r.withSteps(screen, steps, true), 0); r.err != nil {
+			return
+		}
 	}
-	r.err = r.enc.Encode(img, time.Since(r.start))
+	r.err = r.enc.Encode(img, openingLength+time.Since(r.start))
 }
 
 // finish stops recording: the clip, when there is one.
@@ -131,7 +139,7 @@ func (r *recorder) finish() (video.Clip, bool) {
 	if r.enc == nil {
 		return video.Clip{}, false
 	}
-	c := r.enc.Finish(time.Since(r.start) + holdLength)
+	c := r.enc.Finish(openingLength + time.Since(r.start) + holdLength)
 	return c, len(c.Samples) > 0
 }
 
@@ -156,23 +164,26 @@ func (r *recorder) chapters() []video.Chapter {
 	steps := r.sc.Progress()
 	var out []video.Chapter
 	for _, m := range r.marks {
-		if m.step >= len(steps) || len(out) > 0 && m.at-out[len(out)-1].At < time.Second/frameRate {
+		at := openingLength + m.at
+		if m.step >= len(steps) || len(out) > 0 && at-out[len(out)-1].At < time.Second/frameRate {
 			continue
 		}
 		st := steps[m.step]
-		out = append(out, video.Chapter{Title: st.Keyword + " " + sysRef.ReplaceAllStringFunc(st.Text, r.sc.Suite().Interpolate), At: m.at})
+		out = append(out, video.Chapter{Title: st.Keyword + " " + sysRef.ReplaceAllStringFunc(st.Text, r.sc.Suite().Interpolate), At: at})
 	}
 	if len(out) > 0 {
-		out[0].At = 0
+		out[0].At = 0 // the opening's too
 	}
 	return out
 }
 
-// withSteps is the desktop with the scenario's steps beside it.
-func (r *recorder) withSteps(screen *image.RGBA, steps []core.StepProgress) *image.RGBA {
+// withSteps is the desktop with the scenario's steps beside it: from the
+// first (top) or the one in focus.
+func (r *recorder) withSteps(screen *image.RGBA, steps []core.StepProgress, top bool) *image.RGBA {
 	b := screen.Bounds()
 	w := video.PanelWidth(b.Dy())
 	p := panelOf(r.sc, steps)
+	p.Top = top
 	if what := fmt.Sprintf("%+v", p); r.panel == nil || what != r.panelWhat || r.panel.Bounds().Dy() != b.Dy() {
 		r.panel = image.NewRGBA(image.Rect(0, 0, w, b.Dy()))
 		p.Draw(r.panel, r.panel.Bounds())

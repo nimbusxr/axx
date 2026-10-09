@@ -57,6 +57,12 @@ func TestPanelShown(t *testing.T) {
 	if used := (last-first)*40 + 20 + 20; used > 400 {
 		t.Errorf("%d to %d takes %d of 400", first, last, used)
 	}
+	// A video's opening shows the list from its first step.
+	p.Top = true
+	if first, last := p.shown(blocks, 400, 20); first != 0 || last == 0 {
+		t.Errorf("from the top: %d to %d, want from 0", first, last)
+	}
+	p.Top = false
 	ss[20].State, ss[29].State = StepPassed, StepRunning
 	if first, last := p.shown(blocks, 400, 20); last != 30 || first > 29 || (30-first)*40+20 > 400 || (30-first+1)*40+20 <= 400 && first > 0 {
 		t.Errorf("at the end: %d to %d, want the last steps to fill the list", first, last)
