@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.6](https://github.com/nimbusxr/axx/compare/v0.2.5...v0.2.6) (2026-10-09)
+
+
+### Bug Fixes
+
+* **desktop-windows:** a tray app opens once its icon is in the taskbar's tray, and an event loop's window is no window of its app's ([#128](https://github.com/nimbusxr/axx/issues/128)) ([f681c50](https://github.com/nimbusxr/axx/commit/f681c50de23a10cea7d6ea67f7ce483ad9935232))
+
 ## [0.2.5](https://github.com/nimbusxr/axx/compare/v0.2.4...v0.2.5) (2026-10-09)
 
 
