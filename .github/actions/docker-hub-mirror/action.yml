@@ -22,3 +22,8 @@ runs:
         sudo systemctl restart docker
         for _ in $(seq 60); do docker info > /dev/null 2>&1 && break; sleep 1; done
         echo "Docker's registry mirrors: $(docker info --format '{{.RegistryConfig.Mirrors}}')"
+        # The runner is signed in to Docker Hub (GitHub's account), and Docker sends those
+        # credentials to the mirror too, which refuses them (401) and leaves the pull to Docker
+        # Hub. Signed out of Docker Hub, pulls reach the mirror anonymously; the job's other
+        # registries (ghcr.io) keep their sign-ins.
+        docker logout > /dev/null 2>&1 || true
