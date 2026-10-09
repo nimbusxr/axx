@@ -152,6 +152,8 @@ jobs:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           persist-credentials: false
+      # Docker Hub's images through Google's mirror: Docker Hub refuses the runners at times.
+      - uses: ./.github/actions/docker-hub-mirror
       - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
         with:
           install_args: "go"
@@ -299,6 +301,8 @@ jobs:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           persist-credentials: false
+      # Docker Hub's images through Google's mirror: Docker Hub refuses the runners at times.
+      - uses: ./.github/actions/docker-hub-mirror
       - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6
         with:
           distribution: temurin
@@ -412,6 +416,8 @@ jobs:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           persist-credentials: false
+      # Docker Hub's images through Google's mirror: Docker Hub refuses the runners at times.
+      - uses: ./.github/actions/docker-hub-mirror
       - id: image
         env:
           OWNER: ${{ github.repository_owner }}
@@ -570,6 +576,8 @@ jobs:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           persist-credentials: false
+      # Docker Hub's images through Google's mirror: Docker Hub refuses the runners at times.
+      - uses: ./.github/actions/docker-hub-mirror
       # What the parcels example pulls (2 GB), while the job sets up.
       - if: matrix.example == 'parcels'
         name: the example's images (in the background)
