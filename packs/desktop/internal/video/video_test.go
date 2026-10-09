@@ -2,6 +2,7 @@ package video
 
 import (
 	"bytes"
+	"encoding/binary"
 	"image"
 	"image/color"
 	"image/draw"
@@ -107,4 +108,97 @@ func TestKeyFramesShareParameters(t *testing.T) {
 	if dir := os.Getenv("AXX_VIDEO_OUT"); dir != "" {
 		_ = os.WriteFile(filepath.Join(dir, "keyframes-test.mp4"), out.Bytes(), 0o644)
 	}
+}
+
+// A video's chapters are in a Nero chapter list and in a QuickTime chapter
+// track the video track names: each title from its place.
+func TestChapters(t *testing.T) {
+	e, err := NewEncoder(320, 240, 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i, f := range frames(320, 240, 30) {
+		if err := e.Encode(f, time.Duration(i)*100*time.Millisecond); err != nil {
+			t.Fatal(err)
+		}
+	}
+	c := e.Finish(3 * time.Second)
+	want := []Chapter{{"✓ The parcel arrives", 0}, {"✗ The parcel is lost", 1200 * time.Millisecond}, {"When the depot desk is opened", 2500 * time.Millisecond}}
+	var out bytes.Buffer
+	if err := WriteMP4(&out, []Clip{c}, want...); err != nil {
+		t.Fatal(err)
+	}
+	b := out.Bytes()
+	if dir := os.Getenv("AXX_VIDEO_OUT"); dir != "" {
+		_ = os.WriteFile(filepath.Join(dir, "chapters-test.mp4"), b, 0o644)
+	}
+	moov := child(b, "moov")
+	// Nero's list.
+	chpl := child(child(moov, "udta"), "chpl")
+	if len(chpl) < 9 || chpl[0] != 1 || int(chpl[8]) != len(want) {
+		t.Fatalf("chpl: %x", chpl[:min(len(chpl), 16)])
+	}
+	p := chpl[9:]
+	for _, w := range want {
+		at := time.Duration(binary.BigEndian.Uint64(p)) * 100
+		n := int(p[8])
+		if title := string(p[9 : 9+n]); title != w.Title || at != w.At {
+			t.Errorf("chpl: %q at %s, want %q at %s", title, at, w.Title, w.At)
+		}
+		p = p[9+n:]
+	}
+	// QuickTime's track: the video track names track 2, a text track whose
+	// samples are the titles.
+	traks := children(moov, "trak")
+	if len(traks) != 2 {
+		t.Fatalf("%d tracks, want the video's and the chapters'", len(traks))
+	}
+	if chap := child(child(traks[0], "tref"), "chap"); len(chap) != 4 || binary.BigEndian.Uint32(chap) != 2 {
+		t.Errorf("the video track's chapters: %x", chap)
+	}
+	mdia := child(traks[1], "mdia")
+	if hdlr := child(mdia, "hdlr"); len(hdlr) < 8 || string(hdlr[4:8]) != "text" {
+		t.Errorf("the chapter track's handler: %q", hdlr)
+	}
+	stbl := child(child(mdia, "minf"), "stbl")
+	sizes, offsets := child(stbl, "stsz")[8:], child(stbl, "stco")[4:]
+	for i, w := range want {
+		at := binary.BigEndian.Uint32(offsets[4*i:])
+		n := binary.BigEndian.Uint16(b[at:])
+		if title := string(b[at+2 : at+2+uint32(n)]); title != w.Title {
+			t.Errorf("chapter %d: %q, want %q", i, title, w.Title)
+		}
+		if size := binary.BigEndian.Uint32(sizes[4*i:]); size != uint32(2+n+12) {
+			t.Errorf("chapter %d: %d bytes, want its title and its encd box", i, size)
+		}
+	}
+}
+
+// child is the body of the first box of the kind in b's boxes; children,
+// every one's.
+func child(b []byte, kind string) []byte {
+	if c := children(b, kind); len(c) > 0 {
+		return c[0]
+	}
+	return nil
+}
+
+func children(b []byte, kind string) [][]byte {
+	var out [][]byte
+	for len(b) >= 8 {
+		size := int(binary.BigEndian.Uint32(b))
+		if size < 8 || size > len(b) {
+			break
+		}
+		if string(b[4:8]) == kind {
+			body := b[8:size]
+			// A full box's version and flags come first in these.
+			if kind == "hdlr" || kind == "stsz" || kind == "stco" || kind == "mvhd" {
+				body = body[4:]
+			}
+			out = append(out, body)
+		}
+		b = b[size:]
+	}
+	return out
 }

@@ -26,7 +26,7 @@ type Session struct {
 // NewSession starts a session in ctx, which it lasts for: its scenario, and
 // the packs' Before hooks, whose results come back.
 func (r *Runner) NewSession(ctx context.Context, info core.ScenarioInfo) (*Session, []*StepResult) {
-	s := &Session{r: r, sk: &sink{}}
+	s := &Session{r: r, sk: &sink{step: -1}}
 	s.sc = core.NewScenario(ctx, info, r.opts.Suite, s.sk)
 	var out []*StepResult
 	for _, h := range r.hooksFor(core.BeforeScenario, info.Tags) {
@@ -47,11 +47,25 @@ func (s *Session) Run(p *feature.Pickle) []*StepResult {
 	defer s.mu.Unlock()
 	var out []*StepResult
 	failed, last := false, s.line
-	for _, ps := range p.Steps {
+	// The session's steps so far, and these after them.
+	progress := s.sc.Progress()
+	first := len(progress)
+	for _, sp := range progressOf(p) {
+		sp.Line += s.line
+		progress = append(progress, sp)
+	}
+	s.sc.SetProgress(progress)
+	for i, ps := range p.Steps {
 		src := p.StepSource(ps)
 		sr := &StepResult{Keyword: strings.TrimSpace(src.Keyword), Text: ps.Text, Line: s.line + src.Line, PickleStepID: ps.Id}
 		sr.Table, sr.DocString = stepArgument(ps)
-		s.r.execStep(s.sc.Context(), s.sc, s.sk, sr, failed, nil, nil)
+		s.r.execStep(s.sc.Context(), s.sc, s.sk, sr, first+i, failed, nil, nil)
+		s.sc.UpdateProgress(first+i, func(sp *core.StepProgress) {
+			sp.Status = sr.Status.String()
+			if sr.Err != nil {
+				sp.Error = sr.Err.Error()
+			}
+		})
 		out = append(out, sr)
 		failed = failed || sr.Status != Passed
 		last = max(last, sr.Line)

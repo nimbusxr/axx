@@ -207,7 +207,7 @@ func (h *Harness) End(status string) error {
 }
 
 // Step runs one step. A table is given as rows; a doc string as a string.
-func (h *Harness) Step(text string, arg ...any) error {
+func (h *Harness) Step(text string, arg ...any) (err error) {
 	h.t.Helper()
 	ms := h.reg.Match(text)
 	if len(ms) != 1 {
@@ -224,10 +224,29 @@ func (h *Harness) Step(text string, arg ...any) error {
 		}
 	}
 	// As in a run: the scenario knows its step, which runs between the
-	// packs' step hooks.
+	// packs' step hooks, and its steps as they stand (here, those run so
+	// far).
 	h.line++
-	h.SC.SetStep(&core.StepInfo{Keyword: "*", Text: text, Line: h.line})
+	info := core.StepInfo{Keyword: "*", Text: text, Line: h.line}
+	h.SC.SetStep(&info)
 	defer h.SC.SetStep(nil)
+	sp := core.StepProgress{StepInfo: info, Status: "running"}
+	switch {
+	case tbl != nil:
+		sp.Argument = "table"
+	case doc != nil:
+		sp.Argument = "doc string"
+	}
+	i := len(h.SC.Progress())
+	h.SC.SetProgress(append(h.SC.Progress(), sp))
+	defer func() {
+		h.SC.UpdateProgress(i, func(p *core.StepProgress) {
+			p.Status = "passed"
+			if err != nil {
+				p.Status, p.Error = "failed", err.Error()
+			}
+		})
+	}()
 	args, err := h.reg.Resolve(h.SC, ms[0], text, tbl, doc)
 	if err != nil {
 		return err

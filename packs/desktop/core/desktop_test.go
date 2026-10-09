@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -20,6 +21,7 @@ import (
 	"github.com/nimbusxr/axx/core"
 	"github.com/nimbusxr/axx/internal/cloudstep/cloudtest"
 	appcore "github.com/nimbusxr/axx/packs/app/core"
+	"github.com/nimbusxr/axx/packs/desktop/internal/video"
 	"github.com/nimbusxr/axx/packs/files"
 )
 
@@ -800,6 +802,12 @@ func TestRecordings(t *testing.T) {
 	if len(movie) < 8 || string(movie[4:8]) != "ftyp" || !bytes.Contains(movie, []byte("avcC")) {
 		t.Errorf("the video is not H.264 in an MP4 file: %q", movie[:min(len(movie), 16)])
 	}
+	// A chapter for each step, in both forms players read.
+	for _, want := range []string{"chpl", "chap", "* the depot app is launched"} {
+		if !bytes.Contains(movie, []byte(want)) {
+			t.Errorf("the video's chapters lack %q", want)
+		}
+	}
 	var names []string
 	for _, a := range h.Sink.Attachments {
 		names = append(names, a.Name)
@@ -813,6 +821,9 @@ func TestRecordings(t *testing.T) {
 	run, err := os.ReadFile(filepath.Join(h.Dir, ".axx", "desktop", "videos", "run.mp4"))
 	if err != nil || len(run) <= len(movie) || string(run[4:8]) != "ftyp" {
 		t.Errorf("the run's video is the scenario's after cards: %d bytes, the scenario's %d (%v)", len(run), len(movie), err)
+	}
+	if !bytes.Contains(run, []byte("✓ "+h.SC.Name)) {
+		t.Errorf("the run's video has no chapter for its scenario %q", h.SC.Name)
 	}
 }
 
@@ -1063,5 +1074,23 @@ func TestLeaveSpot(t *testing.T) {
 	}
 	if p, ok := LeaveSpot(screen, screen, image.Pt(960, 540)); ok {
 		t.Errorf("a window that covers the screen: moved to %v", p)
+	}
+}
+
+// A video's chapters are its steps from when they ran, after its opening:
+// the first from the start; one that ran in the same moment as the one
+// before it, with it.
+func TestVideoChapters(t *testing.T) {
+	sc := core.NewScenario(context.Background(), core.ScenarioInfo{Name: "a parcel arrives"}, nil, nil)
+	sc.SetProgress([]core.StepProgress{
+		{StepInfo: core.StepInfo{Keyword: "Given", Text: "the depot app is launched"}, Status: "passed"},
+		{StepInfo: core.StepInfo{Keyword: "When", Text: "a parcel is registered"}, Status: "passed"},
+		{StepInfo: core.StepInfo{Keyword: "Then", Text: "the parcel is listed"}, Status: "passed"},
+	})
+	r := &recorder{sc: sc, marks: []mark{{0, 500 * time.Millisecond}, {1, 1200 * time.Millisecond}, {2, 1250 * time.Millisecond}}}
+	got := r.chapters()
+	want := []video.Chapter{{Title: "Given the depot app is launched", At: 0}, {Title: "When a parcel is registered", At: openingLength + 1200*time.Millisecond}}
+	if !slices.Equal(got, want) {
+		t.Errorf("chapters %+v, want %+v", got, want)
 	}
 }
