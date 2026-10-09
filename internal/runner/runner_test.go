@@ -593,3 +593,67 @@ func TestScenariosKnowTheirStep(t *testing.T) {
 		t.Errorf("seen:\n%s\nwant:\n%s", strings.Join(seen, "\n"), strings.Join(want, "\n"))
 	}
 }
+
+// A scenario knows all its steps from the start, and each one's outcome
+// and log lines as it runs.
+func TestScenariosKnowTheirProgress(t *testing.T) {
+	type state struct{ status, err, logs string }
+	var mid, end []state
+	snapshot := func(sc *core.Scenario) []state {
+		var out []state
+		for _, p := range sc.Progress() {
+			out = append(out, state{p.Status, p.Error, strings.Join(p.Logs, ";")})
+		}
+		return out
+	}
+	cleanup := core.NewStateKey("test.progress", func(*core.Scenario) *int { n := 0; return &n },
+		func(sc *core.Scenario, _ *int) error { end = snapshot(sc); return nil })
+	m := core.Manifest{
+		Name: "test",
+		Steps: []core.StepDef{
+			{ID: "open", Expr: "a page is opened", Arg: core.ArgTable, Run: func(sc *core.Scenario, _ core.Args) error {
+				_ = cleanup.Of(sc)
+				sc.Log("opened")
+				return nil
+			}},
+			{ID: "look", Expr: "the steps are looked at", Run: func(sc *core.Scenario, _ core.Args) error { mid = snapshot(sc); return nil }},
+			{ID: "fail", Expr: "a button is missing", Run: func(*core.Scenario, core.Args) error { return errors.New("no button") }},
+			{ID: "click", Expr: "a button is clicked", Run: func(*core.Scenario, core.Args) error { return nil }},
+		},
+	}
+	reg := match.NewRegistry()
+	if err := reg.AddPack("test", m); err != nil {
+		t.Fatal(err)
+	}
+	set, pickles := load(t, `Feature: steps
+
+  Background:
+    Given a page is opened
+      | page | home |
+
+  Scenario: a missing button
+    When the steps are looked at
+    And a button is missing
+    Then a button is clicked
+`)
+	r, err := New(Options{Registry: reg, Workers: 1, Docs: set.Docs})
+	if err != nil {
+		t.Fatal(err)
+	}
+	r.Run(context.Background(), pickles)
+	wantMid := []state{{"passed", "", "opened"}, {"running", "", ""}, {"", "", ""}, {"", "", ""}}
+	if !slices.Equal(mid, wantMid) {
+		t.Errorf("as the second step runs: %+v, want %+v", mid, wantMid)
+	}
+	wantEnd := []state{{"passed", "", "opened"}, {"passed", "", ""}, {"failed", "no button", ""}, {"skipped", "", ""}}
+	if !slices.Equal(end, wantEnd) {
+		t.Errorf("at the end: %+v, want %+v", end, wantEnd)
+	}
+	// What a step is, from the start.
+	sc := core.NewScenario(context.Background(), core.ScenarioInfo{}, nil, nil)
+	sc.SetProgress(progressOf(pickles[0]))
+	p := sc.Progress()
+	if len(p) != 4 || !p[0].Background || p[0].Argument != "table" || p[1].Background || p[1].Keyword != "When" || p[1].Line != 8 {
+		t.Errorf("progress of the pickle: %+v", p)
+	}
+}

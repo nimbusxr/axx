@@ -43,6 +43,8 @@ type sink struct {
 	mu       sync.Mutex
 	current  *StepResult
 	onAttach func(sr *StepResult, a Attachment)
+	// step is the running step's place in the scenario's progress, or -1.
+	step int
 }
 
 func (s *sink) set(sr *StepResult) {
@@ -51,7 +53,7 @@ func (s *sink) set(sr *StepResult) {
 	s.mu.Unlock()
 }
 
-func (s *sink) Log(_ *core.Scenario, msg string) {
+func (s *sink) Log(sc *core.Scenario, msg string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.current != nil {
@@ -59,6 +61,9 @@ func (s *sink) Log(_ *core.Scenario, msg string) {
 		if s.onAttach != nil {
 			s.onAttach(s.current, Attachment{MediaType: "text/x.cucumber.log+plain", Body: []byte(msg)})
 		}
+	}
+	if s.step >= 0 && sc != nil {
+		sc.UpdateProgress(s.step, func(p *core.StepProgress) { p.Logs = append(p.Logs, msg) })
 	}
 }
 
@@ -82,10 +87,11 @@ func (r *Runner) runScenario(ctx context.Context, p *feature.Pickle, worker int)
 		scCtx, cancel = context.WithTimeout(ctx, r.opts.ScenarioTimeout)
 		defer cancel()
 	}
-	sk := &sink{}
+	sk := &sink{step: -1}
 	sc := core.NewScenario(scCtx, core.ScenarioInfo{
 		ID: p.Id, Name: p.Name, URI: p.Uri, Line: p.Line, Tags: p.TagNames,
 	}, r.opts.Suite, sk)
+	sc.SetProgress(progressOf(p))
 
 	tc := r.msg.testCase(p, r.hooksFor(core.BeforeScenario, p.TagNames), r.hooksFor(core.AfterScenario, p.TagNames), r.opts.Registry)
 	tcs := r.msg.testCaseStarted(tc, worker)
@@ -118,7 +124,7 @@ func (r *Runner) runScenario(ctx context.Context, p *feature.Pickle, worker int)
 	}
 
 	// Steps.
-	for _, ps := range p.Steps {
+	for i, ps := range p.Steps {
 		src := p.StepSource(ps)
 		sr := &StepResult{
 			Keyword: strings.TrimSpace(src.Keyword), Text: ps.Text, Line: src.Line,
@@ -126,7 +132,13 @@ func (r *Runner) runScenario(ctx context.Context, p *feature.Pickle, worker int)
 		}
 		sr.Table, sr.DocString = stepArgument(ps)
 		res.Steps = append(res.Steps, sr)
-		r.execStep(scCtx, sc, sk, sr, failed, tcs, tc)
+		r.execStep(scCtx, sc, sk, sr, i, failed, tcs, tc)
+		sc.UpdateProgress(i, func(sp *core.StepProgress) {
+			sp.Status = sr.Status.String()
+			if sr.Err != nil {
+				sp.Error = sr.Err.Error()
+			}
+		})
 		ran(sr)
 		if sr.Status != Passed {
 			failed = true
@@ -167,7 +179,7 @@ func (r *Runner) runScenario(ctx context.Context, p *feature.Pickle, worker int)
 	return res
 }
 
-func (r *Runner) execStep(ctx context.Context, sc *core.Scenario, sk *sink, sr *StepResult, skip bool, tcs *testCaseState, tc *messages.TestCase) {
+func (r *Runner) execStep(ctx context.Context, sc *core.Scenario, sk *sink, sr *StepResult, i int, skip bool, tcs *testCaseState, tc *messages.TestCase) {
 	matches := r.opts.Registry.Match(sr.Text)
 	switch {
 	case len(matches) == 0:
@@ -195,8 +207,17 @@ func (r *Runner) execStep(ctx context.Context, sc *core.Scenario, sk *sink, sr *
 	start := r.opts.Now()
 	sk.set(sr)
 	defer sk.set(nil)
+	sk.mu.Lock()
+	sk.step = i
+	sk.mu.Unlock()
+	defer func() {
+		sk.mu.Lock()
+		sk.step = -1
+		sk.mu.Unlock()
+	}()
 	sc.SetStep(&core.StepInfo{Keyword: sr.Keyword, Text: sr.Text, Line: sr.Line})
 	defer sc.SetStep(nil)
+	sc.UpdateProgress(i, func(sp *core.StepProgress) { sp.Status = "running" })
 
 	err := r.checkArgKind(m.Def().Step.Arg, sr)
 	var args core.Args
@@ -327,6 +348,26 @@ func statusOf(err error) Status {
 	default:
 		return Failed
 	}
+}
+
+// progressOf is the pickle's steps, none run yet.
+func progressOf(p *feature.Pickle) []core.StepProgress {
+	out := make([]core.StepProgress, len(p.Steps))
+	for i, ps := range p.Steps {
+		src := p.StepSource(ps)
+		sp := core.StepProgress{
+			StepInfo:   core.StepInfo{Keyword: strings.TrimSpace(src.Keyword), Text: ps.Text, Line: src.Line},
+			Background: src.Background,
+		}
+		switch table, doc := stepArgument(ps); {
+		case table != nil:
+			sp.Argument = "table"
+		case doc != nil:
+			sp.Argument = "doc string"
+		}
+		out[i] = sp
+	}
+	return out
 }
 
 func stepArgument(ps *messages.PickleStep) (*core.Table, *core.DocString) {

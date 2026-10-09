@@ -49,6 +49,7 @@ type Scenario struct {
 	status     string
 	started    time.Time
 	step       *StepInfo
+	progress   []StepProgress
 	hold       func() func()
 }
 
@@ -133,6 +134,54 @@ func (sc *Scenario) SetStep(st *StepInfo) {
 	sc.mu.Lock()
 	sc.step = st
 	sc.mu.Unlock()
+}
+
+// StepProgress is one of the scenario's steps as the scenario runs: every
+// step from the start, each with its outcome once it ran. A desktop video's
+// step panel shows it.
+type StepProgress struct {
+	StepInfo
+	// Background is whether the step is the feature's Background's.
+	Background bool
+	// Argument names the step's argument: "table", "doc string", or none.
+	Argument string
+	// Status is empty until the step runs, "running" as it runs, and its
+	// outcome after: "passed", "failed", "skipped", "pending", "undefined"
+	// or "ambiguous".
+	Status string
+	// Error is the message of a step that did not pass.
+	Error string
+	// Logs are the lines the step logged.
+	Logs []string
+}
+
+// Progress returns the scenario's steps as they stand: a copy, safe to keep.
+func (sc *Scenario) Progress() []StepProgress {
+	sc.mu.Lock()
+	defer sc.mu.Unlock()
+	out := make([]StepProgress, len(sc.progress))
+	for i, p := range sc.progress {
+		p.Logs = append([]string(nil), p.Logs...)
+		out[i] = p
+	}
+	return out
+}
+
+// SetProgress sets the scenario's steps before the first one runs. Hosts
+// call it.
+func (sc *Scenario) SetProgress(steps []StepProgress) {
+	sc.mu.Lock()
+	sc.progress = steps
+	sc.mu.Unlock()
+}
+
+// UpdateProgress changes the scenario's step i as it runs. Hosts call it.
+func (sc *Scenario) UpdateProgress(i int, fn func(*StepProgress)) {
+	sc.mu.Lock()
+	defer sc.mu.Unlock()
+	if i >= 0 && i < len(sc.progress) {
+		fn(&sc.progress[i])
+	}
 }
 
 // Suite returns the suite-scoped context (configuration, shared resources).

@@ -800,6 +800,12 @@ func TestRecordings(t *testing.T) {
 	if len(movie) < 8 || string(movie[4:8]) != "ftyp" || !bytes.Contains(movie, []byte("avcC")) {
 		t.Errorf("the video is not H.264 in an MP4 file: %q", movie[:min(len(movie), 16)])
 	}
+	// A chapter for each step, in both forms players read.
+	for _, want := range []string{"chpl", "chap", "* the depot app is launched"} {
+		if !bytes.Contains(movie, []byte(want)) {
+			t.Errorf("the video's chapters lack %q", want)
+		}
+	}
 	var names []string
 	for _, a := range h.Sink.Attachments {
 		names = append(names, a.Name)
@@ -813,6 +819,9 @@ func TestRecordings(t *testing.T) {
 	run, err := os.ReadFile(filepath.Join(h.Dir, ".axx", "desktop", "videos", "run.mp4"))
 	if err != nil || len(run) <= len(movie) || string(run[4:8]) != "ftyp" {
 		t.Errorf("the run's video is the scenario's after cards: %d bytes, the scenario's %d (%v)", len(run), len(movie), err)
+	}
+	if !bytes.Contains(run, []byte("✓ "+h.SC.Name)) {
+		t.Errorf("the run's video has no chapter for its scenario %q", h.SC.Name)
 	}
 }
 

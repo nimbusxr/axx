@@ -36,12 +36,14 @@ var (
 	regular, bold *opentype.Font
 )
 
+func loadFonts() {
+	regular, _ = opentype.Parse(goregular.TTF)
+	bold, _ = opentype.Parse(gobold.TTF)
+}
+
 // Image draws the card, width by height.
 func (c Card) Image(width, height int) *image.RGBA {
-	fontsOnce.Do(func() {
-		regular, _ = opentype.Parse(goregular.TTF)
-		bold, _ = opentype.Parse(gobold.TTF)
-	})
+	fontsOnce.Do(loadFonts)
 	img := image.NewRGBA(image.Rect(0, 0, width, height))
 	draw.Draw(img, img.Bounds(), &image.Uniform{cardBG}, image.Point{}, draw.Src)
 	unit := float64(height) / 1080
