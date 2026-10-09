@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.5](https://github.com/nimbusxr/axx/compare/v0.2.4...v0.2.5) (2026-10-09)
+
+
+### Bug Fixes
+
+* **deps:** Go 1.27.2 and golang.org/x/net v0.60.0 ([#126](https://github.com/nimbusxr/axx/issues/126)) ([a28e76e](https://github.com/nimbusxr/axx/commit/a28e76e4f93946de997e5f4c41b9df4fc3edcb08))
+
 ## [0.2.4](https://github.com/nimbusxr/axx/compare/v0.2.3...v0.2.4) (2026-10-08)
 
 
