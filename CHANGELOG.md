@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.7](https://github.com/nimbusxr/axx/compare/v0.2.6...v0.2.7) (2026-10-09)
+
+
+### Features
+
+* **desktop:** a desktop video shows the scenario's steps beside the screen, and has chapters ([#131](https://github.com/nimbusxr/axx/issues/131)) ([56fda88](https://github.com/nimbusxr/axx/commit/56fda8889951f8209e000de5d205f6d0703349b4))
+
 ## [0.2.6](https://github.com/nimbusxr/axx/compare/v0.2.5...v0.2.6) (2026-10-09)
 
 
