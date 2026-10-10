@@ -1,12 +1,17 @@
 package mobilecore
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"image"
+	"image/draw"
+	"image/png"
 	"time"
 
 	"github.com/nimbusxr/axx/core"
 	"github.com/nimbusxr/axx/internal/cloudstep"
+	"github.com/nimbusxr/axx/internal/imagediff"
 	"github.com/nimbusxr/axx/internal/secrets"
 	"github.com/nimbusxr/axx/packs/mobile/internal/appium"
 )
@@ -87,13 +92,22 @@ func screenshot(sc *core.Scenario, d Device, app string) {
 	}
 }
 
-// find waits for the one control of kind k named name, and returns it with
-// the screen it is on.
-func find(sc *core.Scenario, d Device, app string, k kind, name string, wait time.Duration) (*Node, error) {
+// find is the one control of kind k named name, as the screen shows it now (a check's own
+// wait, within its time, is around it): a few looks, as a busy machine needs.
+func find(sc *core.Scenario, d Device, app string, k kind, name string) (*Node, error) {
+	n, _, err := look(sc, d, app, k, name, 0)
+	return n, err
+}
+
+// look is find, and whether the control came only after the first look at the screen: one that
+// may still be coming in, as a dialog does.
+func look(sc *core.Scenario, d Device, app string, k kind, name string, wait time.Duration) (*Node, bool, error) {
 	var found []*Node
 	var last *Screen
 	hid := false
+	looks := 0
 	ok, err := waitUntil(sc, wait, func() (bool, error) {
+		looks++
 		s, err := d.Screen(sc.Context())
 		if err != nil {
 			return false, err
@@ -115,25 +129,61 @@ func find(sc *core.Scenario, d Device, app string, k kind, name string, wait tim
 	})
 	switch {
 	case err != nil:
-		return nil, err
+		return nil, false, err
 	case ok:
-		return found[0], nil
+		return found[0], looks > 1, nil
 	case len(found) > 1:
-		return nil, several(app, found, k, name)
+		return nil, false, several(app, found, k, name)
 	}
-	return nil, missing(app, last, k, name)
+	return nil, false, missing(app, last, k, name)
+}
+
+// settle waits, two seconds at most, until the control's part of the screen is still: a control
+// that has only just appeared may still be coming in, as a dialog grows and fades in, and a tap on
+// it then is lost (iOS's Save Password dialog after a sign-in). A person waits for it to land.
+func settle(ctx context.Context, d Device, r Rect) error {
+	win, err := d.Session().Window(ctx)
+	if err != nil || win.Width <= 0 || r.Width <= 0 || r.Height <= 0 {
+		return err
+	}
+	var last image.Image
+	for end := time.Now().Add(2 * time.Second); time.Now().Before(end); {
+		b, err := d.Session().Screenshot(ctx)
+		if err != nil {
+			return err
+		}
+		shot, err := png.Decode(bytes.NewReader(b))
+		if err != nil {
+			return fmt.Errorf("the screenshot is not a PNG: %w", err)
+		}
+		// The screenshot is in pixels, the control in the window's points.
+		scale := float64(shot.Bounds().Dx()) / win.Width
+		area := image.Rect(int(r.X*scale), int(r.Y*scale), int((r.X+r.Width)*scale), int((r.Y+r.Height)*scale)).Add(shot.Bounds().Min).Intersect(shot.Bounds())
+		part := image.NewRGBA(image.Rect(0, 0, area.Dx(), area.Dy()))
+		draw.Draw(part, part.Bounds(), shot, area.Min, draw.Src)
+		if last != nil && imagediff.Compare(last, part, imagediff.Options{}).Differ == 0 {
+			return nil
+		}
+		last = part
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(100 * time.Millisecond):
+		}
+	}
+	return nil
 }
 
 // element is the one control of kind k named name, as Appium refers to it:
 // found by its name on the screen, or by a selector.
 func element(sc *core.Scenario, d Device, app string, k kind, name string, wait time.Duration) (*appium.Element, error) {
-	el, _, err := target(sc, d, app, k, name, wait)
+	el, _, _, err := target(sc, d, app, k, name, wait)
 	return el, err
 }
 
-// target is the control of that name, and the node the screen has for it: none for a control a
-// selector names.
-func target(sc *core.Scenario, d Device, app string, k kind, name string, wait time.Duration) (*appium.Element, *Node, error) {
+// target is the control of that name, the node the screen has for it (none for a control a
+// selector names), and whether it came only after the first look at the screen.
+func target(sc *core.Scenario, d Device, app string, k kind, name string, wait time.Duration) (*appium.Element, *Node, bool, error) {
 	if using, value, ok := selector(name); ok {
 		var el *appium.Element
 		found, err := waitUntil(sc, wait, func() (bool, error) {
@@ -145,31 +195,31 @@ func target(sc *core.Scenario, d Device, app string, k kind, name string, wait t
 			return err == nil, err
 		})
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, false, err
 		}
 		if !found {
-			return nil, nil, core.Failf("No %s in the %s app matches %q", k.noun, app, name)
+			return nil, nil, false, core.Failf("No %s in the %s app matches %q", k.noun, app, name)
 		}
-		return el, nil, nil
+		return el, nil, false, nil
 	}
 	deadline := time.Now().Add(wait)
 	for {
-		n, err := find(sc, d, app, k, name, time.Until(deadline))
+		n, came, err := look(sc, d, app, k, name, time.Until(deadline))
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, false, err
 		}
 		if n.ByPoint {
-			return nil, n, nil
+			return nil, n, came, nil
 		}
 		el, err := d.Session().Find(sc.Context(), n.Using, n.Value)
 		if !appium.IsNoSuchElement(err) || !time.Now().Before(deadline) {
-			return el, n, err
+			return el, n, came, err
 		}
 		// The control moved between reading the screen and finding it, like
 		// a dialog's button as the dialog comes in: read the screen again.
 		select {
 		case <-sc.Context().Done():
-			return nil, nil, sc.Context().Err()
+			return nil, nil, false, sc.Context().Err()
 		case <-time.After(200 * time.Millisecond):
 		}
 	}

@@ -42,9 +42,16 @@ func (family) Press(sc *core.Scenario, app *appcore.App, ak appcore.Kind, name s
 		return err
 	}
 	return onDevice(sc, app.Name, false, func(ctx context.Context, d Device) error {
-		el, n, err := target(sc, d, app.Name, k, name, actionTimeout)
+		el, n, came, err := target(sc, d, app.Name, k, name, actionTimeout)
 		if err != nil {
 			return err
+		}
+		// A control that came while the step looked for it, or one tapped where it is (a sheet's
+		// or a popover's, which iOS presents with a fade): it may still be coming in.
+		if n != nil && (came || n.ByPoint) {
+			if err := settle(ctx, d, n.Bounds); err != nil {
+				return fmt.Errorf("cannot tap the %s %s: %w", quoted(name), k.noun, err)
+			}
 		}
 		if n != nil && n.ByPoint {
 			// A finger's tap where it is: down and up at its middle.
@@ -133,7 +140,7 @@ func (family) Enabled(sc *core.Scenario, app *appcore.App, ak appcore.Kind, name
 	return onDevice(sc, app.Name, false, func(_ context.Context, d Device) error {
 		var last *Node
 		ok, err := waitUntil(sc, wait, func() (bool, error) {
-			n, err := find(sc, d, app.Name, k, name, 0)
+			n, err := find(sc, d, app.Name, k, name)
 			if err != nil {
 				return false, nil //nolint:nilerr // not shown yet: wait
 			}
@@ -144,7 +151,7 @@ func (family) Enabled(sc *core.Scenario, app *appcore.App, ak appcore.Kind, name
 			return err
 		}
 		if last == nil {
-			_, err := find(sc, d, app.Name, k, name, 0)
+			_, err := find(sc, d, app.Name, k, name)
 			return err
 		}
 		return core.Fail(fmt.Sprintf("The %q %s in the %s app is not %s", name, k.noun, app.Name, state[enabled]), state[enabled], state[last.Enabled])
@@ -155,7 +162,7 @@ func (family) Value(sc *core.Scenario, app *appcore.App, field, want string, wai
 	return onDevice(sc, app.Name, false, func(_ context.Context, d Device) error {
 		var got string
 		ok, err := waitUntil(sc, wait, func() (bool, error) {
-			n, err := find(sc, d, app.Name, kinds["field"], field, 0)
+			n, err := find(sc, d, app.Name, kinds["field"], field)
 			if err != nil {
 				return false, nil //nolint:nilerr // not shown yet: wait
 			}
@@ -165,7 +172,7 @@ func (family) Value(sc *core.Scenario, app *appcore.App, field, want string, wai
 		if err != nil || ok {
 			return err
 		}
-		if _, err := find(sc, d, app.Name, kinds["field"], field, 0); err != nil {
+		if _, err := find(sc, d, app.Name, kinds["field"], field); err != nil {
 			return err
 		}
 		return core.Fail(fmt.Sprintf("The %q field in the %s app does not have the value", field, app.Name), want, got)
