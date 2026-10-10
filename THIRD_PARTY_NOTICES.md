@@ -118,7 +118,7 @@ OpenH264 Video Codec provided by Cisco Systems, Inc.
 
 - Source: https://www.openh264.org; Cisco's builds of release 2.6.0, from
   https://ciscobinary.openh264.org
-- Used by: the desktop packs' videos (`packs/desktop/internal/video`), which it encodes as H.264
+- Used by: the desktop and mobile packs' videos (`packs/internal/video`), which it encodes as H.264
 - Not included in axx: the first time a scenario keeps a video, axx downloads Cisco's build for
   the machine's OS from Cisco, checks it against its SHA-256, and keeps it in axx's cache.
   `packs.desktop-core.videos` turns its use on (`failed`, `always`) and off (`never`, the

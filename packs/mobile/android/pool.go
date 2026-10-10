@@ -26,6 +26,7 @@ type device struct {
 	port       int    // the console port of an emulator axx started, which it holds
 	avd        string // the emulator's AVD; "" for a device axx did not start
 	systemPort int    // the UiAutomator2 server's port on the host
+	mjpegPort  int    // its screen stream's port on the host
 	appium     *appium.Server
 	emulator   *exec.Cmd
 	group      *proc.Group
@@ -164,7 +165,11 @@ func (p *pool) start(ctx context.Context, logDir string) (*device, error) {
 	if err != nil {
 		return nil, err
 	}
-	d := &device{serial: p.name, systemPort: systemPort, installed: map[string]bool{}}
+	mjpegPort, err := appium.FreePort()
+	if err != nil {
+		return nil, err
+	}
+	d := &device{serial: p.name, systemPort: systemPort, mjpegPort: mjpegPort, installed: map[string]bool{}}
 	if p.avd {
 		if err := p.boot1(ctx, d, logDir); err != nil {
 			return nil, err

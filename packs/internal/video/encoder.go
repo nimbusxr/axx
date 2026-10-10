@@ -122,9 +122,20 @@ const (
 	optionTraceLevel = 25 // ENCODER_OPTION_TRACE_LEVEL
 )
 
-// maxQP is the coarsest quantizer a frame takes: higher is smaller and
-// blurrier.
-var maxQP int32 = 28
+// Quality is how finely a video keeps what changed: the quantizers its frames
+// take, from the finest to the coarsest; higher is smaller and blurrier.
+type Quality struct{ MinQP, MaxQP int32 }
+
+var (
+	// ScreenQuality is for a desktop's screen, captured as it is: what
+	// changed stays sharp (text, a pointer, a stroke), and a screen's still
+	// parts cost next to nothing anyway.
+	ScreenQuality = Quality{MinQP: 10, MaxQP: 28}
+	// StreamQuality is for a phone's screen as a stream sends it, each frame
+	// a JPEG: kept finer, every frame would keep the JPEG's noise, at four
+	// times the size, for no text more readable.
+	StreamQuality = Quality{MinQP: 22, MaxQP: 32}
+)
 
 // Sample is one encoded frame: its NAL units, each after its length in 4
 // bytes, as an MP4 file keeps them.
@@ -158,8 +169,13 @@ type Encoder struct {
 }
 
 // NewEncoder is an encoder of frames width by height pixels (made even), at
-// up to fps frames a second.
+// up to fps frames a second, of a screen's quality.
 func NewEncoder(width, height int, fps float64) (*Encoder, error) {
+	return NewEncoderOf(width, height, fps, ScreenQuality)
+}
+
+// NewEncoderOf is an encoder of frames of that quality.
+func NewEncoderOf(width, height int, fps float64, q Quality) (*Encoder, error) {
 	lib, err := load()
 	if err != nil {
 		return nil, err
@@ -202,7 +218,7 @@ func NewEncoder(width, height int, fps float64) (*Encoder, error) {
 	// parts cost next to nothing anyway.
 	p.enableFrameSkip = false
 	p.enableBackgroundDetection, p.enableAdaptiveQuant, p.enableDenoise = false, false, false
-	p.maxQP, p.minQP = maxQP, 10
+	p.maxQP, p.minQP = q.MaxQP, q.MinQP
 	l := &p.spatialLayers[0]
 	l.width, l.height, l.frameRate = p.width, p.height, p.maxFrameRate
 	l.bitrate, l.maxBitrate = bitrate, bitrate

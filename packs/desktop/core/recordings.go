@@ -1,45 +1,26 @@
 package desktopcore
 
 import (
-	"encoding/base64"
-	"encoding/binary"
-	"fmt"
-	"html"
 	"image"
 	"image/draw"
 	"math"
-	"os"
-	"path/filepath"
-	"regexp"
-	"strings"
 	"time"
 
 	"github.com/nimbusxr/axx/core"
 	appcore "github.com/nimbusxr/axx/packs/app/core"
+	"github.com/nimbusxr/axx/packs/internal/recording"
 )
 
 // A scenario's desktop apps can be kept as the web pack keeps its pages
 // (packs.desktop-core.traces and .videos): a trace, one HTML page with each
 // app's window after each step, and its controls where the scenario failed;
-// a video, the scenario's desktop as it ran (video.go).
+// a video, the scenario's desktop as it ran (video.go). Package recording
+// keeps them, as it keeps the mobile packs'.
 
-// keeps is whether a policy (failed, always, never) keeps a scenario's file.
-func keeps(policy string, failed bool) bool {
-	return policy == "always" || policy == "failed" && failed
-}
-
-// recording is what a scenario keeps of one app as it runs.
-type recording struct {
+// appRecording is what a scenario keeps of one app as it runs.
+type appRecording struct {
 	app   string
-	trace []traceStep
-}
-
-type traceStep struct {
-	keyword, text string
-	line          int
-	at            time.Duration
-	png           []byte
-	scale         float64 // the display's, which the page shows the window at
+	trace []recording.TraceStep
 }
 
 // snapshotter is a Process that captures its window as a PNG as it shows,
@@ -51,13 +32,13 @@ type snapshotter interface {
 }
 
 // recordingOf is the scenario's recording of the app, made on first use.
-func (s *scenario) recordingOf(app string) *recording {
+func (s *scenario) recordingOf(app string) *appRecording {
 	if s.recordings == nil {
-		s.recordings = map[string]*recording{}
+		s.recordings = map[string]*appRecording{}
 	}
 	r, ok := s.recordings[app]
 	if !ok {
-		r = &recording{app: app}
+		r = &appRecording{app: app}
 		s.recordings[app] = r
 	}
 	return r
@@ -88,14 +69,14 @@ func traceStepHook(sc *core.Scenario) error {
 		if p.Exited() {
 			continue
 		}
-		st := traceStep{keyword: step.Keyword, text: step.Text, line: step.Line, at: time.Since(sc.Started()), scale: 1}
+		st := recording.TraceStep{Keyword: step.Keyword, Text: step.Text, Line: step.Line, At: time.Since(sc.Started()), MIME: "image/png", Scale: 1}
 		snap, ok := p.(snapshotter)
 		if !ok {
 			img, scale, err := p.Window()
 			if err != nil {
 				continue
 			}
-			st.png = encodePNG(downscale(img, scale))
+			st.Image = encodePNG(downscale(img, scale))
 		}
 		s.mu.Lock()
 		r := s.recordingOf(name)
@@ -114,7 +95,7 @@ func traceStepHook(sc *core.Scenario) error {
 					return
 				}
 				s.mu.Lock()
-				r.trace[i].png, r.trace[i].scale = b, scale
+				r.trace[i].Image, r.trace[i].Scale = b, scale
 				s.mu.Unlock()
 			}()
 		}
@@ -136,63 +117,17 @@ func finishRecordings(sc *core.Scenario, s *scenario) {
 		if !ok {
 			continue
 		}
-		if len(r.trace) > 0 && keeps(cfg.traces, failed) {
+		if len(r.trace) > 0 && recording.Keeps(cfg.traces, failed) {
 			var controls string
 			if p, ok := s.running[name]; ok && failed && !p.Exited() {
 				if tree, err := p.Tree(); err == nil {
 					controls = Outline(tree)
 				}
 			}
-			path := recordingPath(sc, "traces", name, ".html")
-			if err := os.WriteFile(path, traceHTML(sc, name, r.trace, failed, controls), 0o644); err == nil {
-				sc.Log("the %s app's trace: %s (open it in a browser)", name, relative(sc, path))
-				sc.Attach("text/html", mustRead(path), "the "+name+" app's trace")
-				announce(sc, "trace", path)
-			}
+			recording.WriteTrace(sc, "desktop", name, r.trace, failed, controls)
 		}
 	}
 	s.recordings = nil
-}
-
-// traceHTML is a trace's page: each step, and the window after it.
-func traceHTML(sc *core.Scenario, app string, steps []traceStep, failed bool, controls string) []byte {
-	var b strings.Builder
-	esc := html.EscapeString
-	fmt.Fprintf(&b, `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>%s · %s</title><style>
-:root{color-scheme:light dark;--fg:#1d2330;--muted:#5b6475;--bg:#f6f7f9;--card:#fff;--line:#d9dde5;--bad:#c62828}
-@media (prefers-color-scheme:dark){:root{--fg:#e6e8ee;--muted:#9aa3b5;--bg:#14171d;--card:#1d222b;--line:#2c333f;--bad:#ef5350}}
-body{margin:0;padding:24px 16px;background:var(--bg);color:var(--fg);font:14px/1.5 system-ui,sans-serif}
-main{max-width:1100px;margin:0 auto;display:grid;gap:16px}
-h1{font-size:20px;margin:0}p{margin:0;color:var(--muted)}
-section{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:12px 16px;display:grid;gap:8px}
-section.failed{border-color:var(--bad)}
-h2{font-size:15px;margin:0;font-weight:600}h2 b{font-weight:700}h2 span{color:var(--muted);font-weight:400;font-size:13px}
-img{max-width:100%%;height:auto;border:1px solid var(--line);border-radius:4px}
-pre{margin:0;overflow:auto;font-size:12px;max-height:480px}
-</style></head><body><main><h1>%s</h1><p>The %s app after each step of %s (%s:%d).</p>`,
-		esc(sc.Name), esc(app), esc(sc.Name), esc(app), esc(sc.Name), esc(sc.URI), sc.Line)
-	for i, st := range steps {
-		class, status := "", ""
-		if failed && i == len(steps)-1 {
-			class, status = ` class="failed"`, " · failed"
-		}
-		if len(st.png) == 0 {
-			fmt.Fprintf(&b, `<section%s><h2><b>%s</b> %s <span>line %d · %.1fs%s</span></h2><p>No capture of the window.</p></section>`,
-				class, esc(st.keyword), esc(st.text), st.line, st.at.Seconds(), status)
-			continue
-		}
-		size := ""
-		if w, h, ok := pngSize(st.png); ok && st.scale > 1 {
-			size = fmt.Sprintf(` width="%d" height="%d"`, int(float64(w)/st.scale), int(float64(h)/st.scale))
-		}
-		fmt.Fprintf(&b, `<section%s><h2><b>%s</b> %s <span>line %d · %.1fs%s</span></h2><img alt="the %s app after this step"%s src="data:image/png;base64,%s"></section>`,
-			class, esc(st.keyword), esc(st.text), st.line, st.at.Seconds(), status, esc(app), size, base64.StdEncoding.EncodeToString(st.png))
-	}
-	if controls != "" {
-		fmt.Fprintf(&b, `<section class="failed"><h2>The %s app's controls, as the scenario failed</h2><pre>%s</pre></section>`, esc(app), esc(controls))
-	}
-	b.WriteString("</main></body></html>\n")
-	return []byte(b.String())
 }
 
 // traced is an app's process that waits for the window's trace captures
@@ -230,14 +165,6 @@ func (t traced) Drag(c Control, from Anchor, x1, y1, x2, y2 float64) error {
 	return t.Process.Drag(c, from, x1, y1, x2, y2)
 }
 
-// pngSize is a PNG's width and height, from its header.
-func pngSize(b []byte) (w, h int, ok bool) {
-	if len(b) < 24 || string(b[1:4]) != "PNG" || string(b[12:16]) != "IHDR" {
-		return 0, 0, false
-	}
-	return int(binary.BigEndian.Uint32(b[16:20])), int(binary.BigEndian.Uint32(b[20:24])), true
-}
-
 // downscale is a window's capture at a scale of 1: a display at twice the
 // scale shows each point as 2 by 2 pixels, more than a trace needs.
 func downscale(img image.Image, scale float64) *image.RGBA {
@@ -270,45 +197,4 @@ func downscale(img image.Image, scale float64) *image.RGBA {
 		}
 	}
 	return out
-}
-
-var unsafeName = regexp.MustCompile(`[^A-Za-z0-9]+`)
-
-// recordingPath is where a scenario keeps a file of an app, in
-// .axx/desktop/<kind>, as the web pack keeps its pages'.
-func recordingPath(sc *core.Scenario, kind, app, ext string) string {
-	dir := filepath.Join(sc.Suite().ProjectDir(), ".axx", "desktop", kind)
-	_ = os.MkdirAll(dir, 0o755)
-	name := strings.Trim(unsafeName.ReplaceAllString(strings.ToLower(sc.Name), "-"), "-")
-	if len(name) > 60 {
-		name = name[:60]
-	}
-	id := unsafeName.ReplaceAllString(sc.ID, "")
-	if len(id) > 8 {
-		id = id[len(id)-8:]
-	}
-	if app == "" {
-		return filepath.Join(dir, fmt.Sprintf("%s-%s%s", name, id, ext))
-	}
-	return filepath.Join(dir, fmt.Sprintf("%s-%s-%s%s", name, app, id, ext))
-}
-
-func relative(sc *core.Scenario, path string) string {
-	if rel, err := filepath.Rel(sc.Suite().ProjectDir(), path); err == nil && !strings.HasPrefix(rel, "..") {
-		return filepath.ToSlash(rel)
-	}
-	return path
-}
-
-func announce(sc *core.Scenario, kind, path string) {
-	abs, err := filepath.Abs(path)
-	if err != nil {
-		abs = path
-	}
-	sc.Suite().Announce(kind, "path", abs, "location", fmt.Sprintf("%s:%d", sc.URI, sc.Line))
-}
-
-func mustRead(path string) []byte {
-	b, _ := os.ReadFile(path)
-	return b
 }

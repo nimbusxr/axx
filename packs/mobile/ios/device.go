@@ -562,6 +562,14 @@ func (d *running) SystemBars(ctx context.Context) ([]mobilecore.Rect, error) {
 	return []mobilecore.Rect{{Width: info.StatusBarSize.Width * info.Scale, Height: info.StatusBarSize.Height * info.Scale}}, nil
 }
 
+// Stream is WebDriverAgent's screen stream; none for a farm's device.
+func (d *running) Stream() string {
+	if d.dev == nil || d.dev.mjpegPort == 0 {
+		return ""
+	}
+	return "http://127.0.0.1:" + strconv.Itoa(d.dev.mjpegPort)
+}
+
 // ScreenKey is ios- and the device type and iOS version, or the simulator
 // the pool clones or uses, or the farm's device name.
 func (d *running) ScreenKey() string {

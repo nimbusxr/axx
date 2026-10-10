@@ -188,6 +188,23 @@ When the courier app's dialog is dismissed
 
 A dialog the system shows over the app, like a request for a permission it asked for, is accepted (allowed) or dismissed. iOS lets no one grant notifications ahead: an app that uses them asks, and the scenario answers. A dialog of the app's own is part of its screen: tap its buttons, like `the "Confirm" button is tapped in the courier app`.
 
+## Traces and videos
+
+Ask for a **trace** of each app, and a scenario keeps one in `.axx/mobile/traces`: a page with its screen after each step, and its controls where it failed. A trace waits, after every step, for the screen's next frame (about a tenth of a second): kept for failed scenarios only, it still slows every step a little, so it is off until you ask.
+
+A **video** is the scenario's phones as they ran, each tap and swipe drawn where the finger was, with the scenario's steps beside them: each one to run, running, passed, failed (its error under it) or skipped, and the lines the running step logs, so what happens off the screen shows too (a call to a service, a row in a database). It opens on its first frame for a moment, the steps from the first (those that ran before the app had a screen, such as its registration, among them), and its last frame shows for two seconds, the steps as they ended. It is an MP4 file (H.264) in `.axx/mobile/videos` that plays wherever videos play, with a chapter for each step; a failed scenario's is attached to the report too. The run keeps one more, `run.mp4`: its kept scenarios one after another, each after a card with its name and whether it passed, and a chapter for each. Every phone has the same place in a video, so an iOS scenario and an Android one are in the same `run.mp4`; a scenario that drives two apps shows both phones, side by side. QuickTime Player, VLC, IINA and mpv list the chapters; a browser plays the video without them.
+
+The screens come from Appium's streams of them: WebDriverAgent's on iOS, the UiAutomator2 server's on Android, ten frames a second at half the screen's size. A farm's device, driven through `appium`, streams none: its scenarios keep neither.
+
+```yaml title="axx.yaml"
+packs:
+  mobile-core:
+    traces: failed   # always, failed or never (the default)
+    videos: failed   # always, failed or never (the default)
+```
+
+Videos are encoded with Cisco's OpenH264. OpenH264 Video Codec provided by Cisco Systems, Inc. The first time a scenario keeps a video, axx downloads Cisco's build for your OS from Cisco (about half a megabyte), checks it, and keeps it in its cache; `videos: never`, the default, turns it off, and axx then downloads nothing. Cisco's terms are in axx's `THIRD_PARTY_NOTICES.md`.
+
 ## In CI
 
 **Android:** Linux runners start emulators with KVM, and draw them without a GPU. The parcels example's workflow does it this way, with the Android SDK the runner has:

@@ -65,6 +65,9 @@ type Device interface {
 	// ScreenKey tells screenshots of this device apart from others', like
 	// android-parcels-pixel.
 	ScreenKey() string
+	// Stream is the device's screen as Appium streams it (MJPEG: WebDriverAgent's on iOS, the
+	// UiAutomator2 server's on Android), which traces and videos show; "" when it has none.
+	Stream() string
 	// Files are the app's files at a path in its sandbox, on the device.
 	Files(ctx context.Context, path string) (core.Files, error)
 	// Describe is the device and app for a failed scenario's context.
@@ -78,8 +81,14 @@ type Device interface {
 // keeps: one app runs on one platform in a scenario.
 func Register(sc *core.Scenario, app *App) error {
 	app.Name = appcore.Named(sc, app.Name)
-	return appcore.Register(sc, &appcore.App{Name: app.Name, Platform: app.Platform.Kind(), Family: family{}, Data: app},
-		app.Platform.RunsHere())
+	if err := appcore.Register(sc, &appcore.App{Name: app.Name, Platform: app.Platform.Kind(), Family: family{}, Data: app},
+		app.Platform.RunsHere()); err != nil {
+		return err
+	}
+	if app.Platform.RunsHere() {
+		scenarioPhones.Of(sc).add(app.Name)
+	}
+	return nil
 }
 
 // mobileApp is the scenario's app of the name, which must be a mobile app.
@@ -119,6 +128,7 @@ func (r *running) describe(sc *core.Scenario) any {
 }
 
 func stopAll(sc *core.Scenario, r *running) error {
+	finishRecordings(sc, r)
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	var errs []error
@@ -160,5 +170,6 @@ func device(sc *core.Scenario, name string, start bool) (Device, error) {
 	r.devices[name] = d
 	r.order = append(r.order, name)
 	r.mu.Unlock()
+	startRecording(sc, name, d)
 	return d, nil
 }

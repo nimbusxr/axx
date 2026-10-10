@@ -13,6 +13,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -100,6 +101,13 @@ type Session struct {
 	ID string
 	// Capabilities are what Appium answered: the device and app it chose.
 	Capabilities map[string]any
+	// Touched, when set, hears of each touch the session makes: a tap, a
+	// swipe, a scroll, a drag (a video draws them).
+	Touched func(Touch)
+
+	mu      sync.Mutex
+	win     Rect
+	winRead bool
 }
 
 // NewSession starts a session: Appium starts (or resets) the app on the
@@ -159,6 +167,15 @@ func (e *Element) path(p string) string { return e.s.path("/element/" + e.ID + p
 
 // Click taps the element.
 func (e *Element) Click(ctx context.Context) error {
+	if e.s.Touched == nil {
+		return e.s.c.do(ctx, http.MethodPost, e.path("/click"), map[string]any{}, nil)
+	}
+	// The touch shows as it is sent: a click returns once the app has
+	// settled after it, which can take longer than a tap shows.
+	if r, err := e.Rect(ctx); err == nil {
+		c := Point{r.X + r.Width/2, r.Y + r.Height/2}
+		e.s.touched(Touch{From: c, To: c, At: time.Now()})
+	}
 	return e.s.c.do(ctx, http.MethodPost, e.path("/click"), map[string]any{}, nil)
 }
 
@@ -277,6 +294,7 @@ func (s *Session) Drag(ctx context.Context, fromX, fromY, toX, toY float64, d ti
 			map[string]any{"type": "pointerUp", "button": 0},
 		},
 	}
+	s.touched(Touch{From: Point{fromX, fromY}, To: Point{toX, toY}, At: time.Now().Add(100 * time.Millisecond), Length: d})
 	return s.c.do(ctx, http.MethodPost, s.path("/actions"), map[string]any{"actions": []any{finger}}, nil)
 }
 
@@ -297,6 +315,12 @@ func (s *Session) Settings(ctx context.Context, settings map[string]any) error {
 func (s *Session) Mobile(ctx context.Context, command string, args map[string]any, out any) error {
 	if args == nil {
 		args = map[string]any{}
+	}
+	if s.Touched != nil {
+		if t, ok := s.gesture(ctx, command, args); ok {
+			t.At = time.Now()
+			s.touched(t)
+		}
 	}
 	return s.c.do(ctx, http.MethodPost, s.path("/execute/sync"), map[string]any{"script": "mobile: " + command, "args": []any{args}}, out)
 }
