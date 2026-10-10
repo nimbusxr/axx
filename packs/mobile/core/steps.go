@@ -165,15 +165,13 @@ func element(sc *core.Scenario, d Device, app string, k kind, name string, wait 
 	}
 }
 
-// scrollTo scrolls until the control is shown. When the screen has the control, out of view, the
-// platform scrolls to it; else it pages down, then up.
+// scrollTo scrolls until the control is shown: the platform scrolls to it (iOS to the node its
+// screen has out of view, Android until its text shows), else it pages down, then up.
 func scrollTo(sc *core.Scenario, d Device, app string, k kind, name string) error {
 	if s, err := d.Screen(sc.Context()); err == nil && len(matches(s, k, name)) == 0 {
-		if n := hidden(s, k, name); n != nil {
-			if ok, err := d.ScrollToShow(sc.Context(), n); err == nil && ok {
-				if s, err := d.Screen(sc.Context()); err == nil && len(matches(s, k, name)) > 0 {
-					return nil
-				}
+		if ok, err := d.ScrollToShow(sc.Context(), hidden(s, k, name), name); err == nil && ok {
+			if s, err := d.Screen(sc.Context()); err == nil && len(matches(s, k, name)) > 0 {
+				return nil
 			}
 		}
 	}

@@ -478,7 +478,10 @@ const springboard = "com.apple.springboard"
 // drags (no flick), each as far as the node still is from the view's middle, at most most of the
 // view's height, watching where the node is. XCUITest's own scroll to an element works through
 // table cells only; a SwiftUI scroll view of plain text has none.
-func (d *running) ScrollToShow(ctx context.Context, n *mobilecore.Node) (bool, error) {
+func (d *running) ScrollToShow(ctx context.Context, n *mobilecore.Node, _ string) (bool, error) {
+	if n == nil {
+		return false, nil
+	}
 	view := n.Parent
 	for view != nil && !view.Scrolling {
 		view = view.Parent

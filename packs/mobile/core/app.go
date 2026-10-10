@@ -47,9 +47,10 @@ type Device interface {
 	// HideKeyboard closes the on-screen keyboard when it shows, as a person does to reach what
 	// it covers, and reports whether it did.
 	HideKeyboard(ctx context.Context) (bool, error)
-	// ScrollToShow scrolls until a node the screen has but does not show shows, by the
-	// platform's own scroll to it, and reports whether it could.
-	ScrollToShow(ctx context.Context, n *Node) (bool, error)
+	// ScrollToShow scrolls until the control of that name shows: n is the node the screen has
+	// for it, out of view, or nil when the screen does not list what it does not show. It reports
+	// whether it could.
+	ScrollToShow(ctx context.Context, n *Node, name string) (bool, error)
 	// Swipe swipes the whole screen in a direction: up, down, left or right.
 	Swipe(ctx context.Context, direction string) error
 	// Scroll scrolls the screen's scrollable content one screenful toward
