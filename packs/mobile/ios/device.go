@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -473,6 +474,46 @@ func predicateString(s string) string {
 const springboard = "com.apple.springboard"
 
 // SystemBars is the status bar, with its clock, in the screenshot's pixels.
+// ScrollToShow drags the node's scroll view until the node shows, as a finger does: steady
+// drags (no flick), each as far as the node still is from the view's middle, at most most of the
+// view's height, watching where the node is. XCUITest's own scroll to an element works through
+// table cells only; a SwiftUI scroll view of plain text has none.
+func (d *running) ScrollToShow(ctx context.Context, n *mobilecore.Node) (bool, error) {
+	view := n.Parent
+	for view != nil && !view.Scrolling {
+		view = view.Parent
+	}
+	if view == nil || n.Using == "" || view.Bounds.Height <= 0 {
+		return false, nil
+	}
+	el, err := d.session.Find(ctx, n.Using, n.Value)
+	if err != nil {
+		return false, err
+	}
+	v := view.Bounds
+	x, middle, reach := v.X+v.Width/2, v.Y+v.Height/2, v.Height*0.6
+	last := math.NaN()
+	for range 200 {
+		r, err := el.Rect(ctx)
+		if err != nil {
+			return false, err
+		}
+		if r.Y >= v.Y && r.Y+r.Height <= v.Y+v.Height {
+			return true, nil
+		}
+		if r.Y == last { // the view does not move: at its end, or it does not scroll so
+			return false, nil
+		}
+		last = r.Y
+		far := math.Max(-reach, math.Min(reach, r.Y+r.Height/2-middle))
+		from := middle + far/2
+		if err := d.session.Drag(ctx, x, from, x, from-far, 500*time.Millisecond); err != nil {
+			return false, err
+		}
+	}
+	return false, nil
+}
+
 // HideKeyboard closes the keyboard when it shows: an iPhone's keyboard has no key that only
 // hides it, so it presses return (or done), as a person does to end the editing; never go, send
 // or search, which would act.

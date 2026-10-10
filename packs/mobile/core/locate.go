@@ -119,16 +119,16 @@ func matches(s *Screen, k kind, name string) []*Node {
 	return out
 }
 
-// covered reports whether the screen has a control of kind k named name that it does not show:
-// one the keyboard covers, say.
-func covered(s *Screen, k kind, name string) bool {
+// hidden is a control of kind k named name that the screen has but does not show: one the
+// keyboard covers, or one further along a scroll view; nil when it has none.
+func hidden(s *Screen, k kind, name string) *Node {
 	name = clean(name)
 	for _, n := range s.Nodes {
 		if !n.Displayed && k.match(n, name) {
-			return true
+			return n
 		}
 	}
-	return false
+	return nil
 }
 
 // missing is the failure of a control the screen does not have: it lists

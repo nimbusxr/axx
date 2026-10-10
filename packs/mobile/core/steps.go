@@ -101,7 +101,7 @@ func find(sc *core.Scenario, d Device, app string, k kind, name string, wait tim
 		last, found = s, matches(s, k, name)
 		// The control is there but not shown: the keyboard may cover it. A person closes the
 		// keyboard to reach it, and so does axx, once.
-		if len(found) == 0 && !hid && covered(s, k, name) {
+		if len(found) == 0 && !hid && hidden(s, k, name) != nil {
 			hid = true
 			closed, err := d.HideKeyboard(sc.Context())
 			if err != nil {
@@ -165,8 +165,18 @@ func element(sc *core.Scenario, d Device, app string, k kind, name string, wait 
 	}
 }
 
-// scrollTo scrolls until the control is shown: down, then up.
+// scrollTo scrolls until the control is shown. When the screen has the control, out of view, the
+// platform scrolls to it; else it pages down, then up.
 func scrollTo(sc *core.Scenario, d Device, app string, k kind, name string) error {
+	if s, err := d.Screen(sc.Context()); err == nil && len(matches(s, k, name)) == 0 {
+		if n := hidden(s, k, name); n != nil {
+			if ok, err := d.ScrollToShow(sc.Context(), n); err == nil && ok {
+				if s, err := d.Screen(sc.Context()); err == nil && len(matches(s, k, name)) > 0 {
+					return nil
+				}
+			}
+		}
+	}
 	for _, dir := range []string{"down", "up"} {
 		for range 20 {
 			s, err := d.Screen(sc.Context())

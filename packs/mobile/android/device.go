@@ -269,6 +269,9 @@ func (d *running) OpenNotifications(ctx context.Context) (mobilecore.Notificatio
 }
 
 // SystemBars are the status and navigation bars, as UiAutomator2 reads them.
+// ScrollToShow reports it cannot: Android pages to a node instead, as a person swipes.
+func (d *running) ScrollToShow(context.Context, *mobilecore.Node) (bool, error) { return false, nil }
+
 // HideKeyboard closes the keyboard when it shows, as the device's back gesture does.
 func (d *running) HideKeyboard(ctx context.Context) (bool, error) {
 	shown, err := d.session.KeyboardShown(ctx)
