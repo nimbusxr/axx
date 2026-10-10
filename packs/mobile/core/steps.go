@@ -127,6 +127,13 @@ func find(sc *core.Scenario, d Device, app string, k kind, name string, wait tim
 // element is the one control of kind k named name, as Appium refers to it:
 // found by its name on the screen, or by a selector.
 func element(sc *core.Scenario, d Device, app string, k kind, name string, wait time.Duration) (*appium.Element, error) {
+	el, _, err := target(sc, d, app, k, name, wait)
+	return el, err
+}
+
+// target is the control of that name, and the node the screen has for it: none for a control a
+// selector names.
+func target(sc *core.Scenario, d Device, app string, k kind, name string, wait time.Duration) (*appium.Element, *Node, error) {
 	if using, value, ok := selector(name); ok {
 		var el *appium.Element
 		found, err := waitUntil(sc, wait, func() (bool, error) {
@@ -138,28 +145,31 @@ func element(sc *core.Scenario, d Device, app string, k kind, name string, wait 
 			return err == nil, err
 		})
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		if !found {
-			return nil, core.Failf("No %s in the %s app matches %q", k.noun, app, name)
+			return nil, nil, core.Failf("No %s in the %s app matches %q", k.noun, app, name)
 		}
-		return el, nil
+		return el, nil, nil
 	}
 	deadline := time.Now().Add(wait)
 	for {
 		n, err := find(sc, d, app, k, name, time.Until(deadline))
 		if err != nil {
-			return nil, err
+			return nil, nil, err
+		}
+		if n.ByPoint {
+			return nil, n, nil
 		}
 		el, err := d.Session().Find(sc.Context(), n.Using, n.Value)
 		if !appium.IsNoSuchElement(err) || !time.Now().Before(deadline) {
-			return el, err
+			return el, n, err
 		}
 		// The control moved between reading the screen and finding it, like
 		// a dialog's button as the dialog comes in: read the screen again.
 		select {
 		case <-sc.Context().Done():
-			return nil, sc.Context().Err()
+			return nil, nil, sc.Context().Err()
 		case <-time.After(200 * time.Millisecond):
 		}
 	}

@@ -42,9 +42,17 @@ func (family) Press(sc *core.Scenario, app *appcore.App, ak appcore.Kind, name s
 		return err
 	}
 	return onDevice(sc, app.Name, false, func(ctx context.Context, d Device) error {
-		el, err := element(sc, d, app.Name, k, name, actionTimeout)
+		el, n, err := target(sc, d, app.Name, k, name, actionTimeout)
 		if err != nil {
 			return err
+		}
+		if n != nil && n.ByPoint {
+			// A finger's tap where it is: down and up at its middle.
+			x, y := n.Bounds.Center()
+			if err := d.Session().Drag(ctx, x, y, x, y, 0); err != nil {
+				return fmt.Errorf("cannot tap the %s %s: %w", quoted(name), k.noun, err)
+			}
+			return nil
 		}
 		if err := el.Click(ctx); err != nil {
 			return fmt.Errorf("cannot tap the %s %s: %w", quoted(name), k.noun, err)
