@@ -137,6 +137,18 @@ When the courier app is restarted
 
 A deep link jumps straight to the screen a scenario tests, instead of tapping through the ones before it. A restart keeps what the app stored, like a sign-in; the next scenario's reset does not.
 
+## An app's files
+
+An app's files are a folder of the files pack whose `owner` is the app: `./` is its data on the device (on iOS its data container, on Android its data folder, which Android opens to a debuggable build only) ([Check files](/guides/check-files/)). A scenario reads what the app saved there, and puts files in place before the app first reads them: the folder starts the app's device, installs the app and resets it, as launching does, without launching it. A scenario about a returning user starts so, with the app's settings as that user's app has them:
+
+```gherkin
+Given the settings folder with the following properties:
+  | owner | app:courier         |
+  | path  | Library/Preferences |
+And the example.parcels.courier.plist file in the settings folder is a copy of the fixtures/signed-in-before.plist file
+When the courier app is launched
+```
+
 ## Tap and fill
 
 ```gherkin
