@@ -39,7 +39,7 @@ func startRecording(sc *core.Scenario, s *scenario) {
 			video.DrawPointer(screen, image.Pt(int(float64(sh.Pointer.X)/f), int(float64(sh.Pointer.Y)/f)), 1)
 		}
 		return screen
-	})
+	}, video.ScreenQuality)
 }
 
 // finishVideo keeps the scenario's video when the settings say, and adds it

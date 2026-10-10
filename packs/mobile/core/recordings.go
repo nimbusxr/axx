@@ -109,7 +109,7 @@ func startRecording(sc *core.Scenario, app string, d Device) {
 	}
 	rs.feeds[app] = f
 	if cfg.videos != "never" && rs.recorder == nil {
-		rs.recorder = recording.Record(sc, func() *image.RGBA { return rs.look(sc) })
+		rs.recorder = recording.Record(sc, func() *image.RGBA { return rs.look(sc) }, video.StreamQuality)
 	}
 }
 
@@ -306,7 +306,7 @@ func watch(sc *core.Scenario, d Device, url string) *feed {
 	s := d.Session()
 	// A frame half the screen's size, ten a second: enough for a video, and
 	// little work for the device.
-	_ = s.Settings(ctx, map[string]any{"mjpegServerFramerate": recording.FrameRate, "mjpegScalingFactor": 50, "mjpegServerScreenshotQuality": 60})
+	_ = s.Settings(ctx, map[string]any{"mjpegServerFramerate": recording.FrameRate, "mjpegScalingFactor": 50, "mjpegServerScreenshotQuality": 70})
 	if w, err := s.Window(ctx); err == nil {
 		f.window = w
 	}

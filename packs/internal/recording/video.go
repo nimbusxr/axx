@@ -46,15 +46,16 @@ type Look func() *image.RGBA
 // Recorder records a scenario's screen as it runs: a frame only when the
 // screen changed, so a still screen costs nothing.
 type Recorder struct {
-	look  Look
-	sc    *core.Scenario
-	start time.Time
-	stop  chan struct{}
-	done  chan struct{}
-	once  sync.Once
-	enc   *video.Encoder
-	last  [32]byte
-	err   error
+	look    Look
+	sc      *core.Scenario
+	quality video.Quality
+	start   time.Time
+	stop    chan struct{}
+	done    chan struct{}
+	once    sync.Once
+	enc     *video.Encoder
+	last    [32]byte
+	err     error
 	// panel is the steps panel last drawn, and what it showed.
 	panel     *image.RGBA
 	panelWhat string
@@ -69,9 +70,11 @@ type mark struct {
 	at   time.Duration
 }
 
-// Record starts recording the scenario's screen, as look sees it.
-func Record(sc *core.Scenario, look Look) *Recorder {
-	r := &Recorder{look: look, sc: sc, start: time.Now(), stop: make(chan struct{}), done: make(chan struct{})}
+// Record starts recording the scenario's screen, as look sees it, at the
+// quality that suits where it comes from (a desktop's screen, a phone's
+// stream).
+func Record(sc *core.Scenario, look Look, quality video.Quality) *Recorder {
+	r := &Recorder{look: look, sc: sc, quality: quality, start: time.Now(), stop: make(chan struct{}), done: make(chan struct{})}
 	go r.run()
 	return r
 }
@@ -115,7 +118,7 @@ func (r *Recorder) add() {
 	r.last = sum
 	if r.enc == nil {
 		b := img.Bounds()
-		if r.enc, r.err = video.NewEncoder(b.Dx(), b.Dy(), FrameRate); r.err != nil {
+		if r.enc, r.err = video.NewEncoderOf(b.Dx(), b.Dy(), FrameRate, r.quality); r.err != nil {
 			return
 		}
 		if r.err = r.enc.Encode(r.withSteps(screen, steps, true), 0); r.err != nil {
