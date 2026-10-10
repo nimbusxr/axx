@@ -565,3 +565,28 @@ func TestPayloadPropertyInsideAMissingOne(t *testing.T) {
 		t.Errorf("payload sent: %s, want %s", got, want)
 	}
 }
+
+// Header and payload property values expand ${env:..} and ${sys:..} references, as the service's
+// properties do: an API key or a password from axx.yaml or the environment.
+func TestRequestReferences(t *testing.T) {
+	a, srv := newAPI(t)
+	h := newHarness(t)
+	h.service("api", srv.URL, "")
+	h.ok("a POST request to /echo")
+	h.ok("the request header X-Host is '${env:HOST}'")
+	h.ok("the request headers are:", []string{"Authorization", "Bearer ${env:HOST}"})
+	h.ok("a request payload using an application/json empty content template")
+	h.ok("the request payload properties are:", []string{"host", "${env:HOST}"})
+	h.ok("the request payload property origin is '${env:HOST}:8400'")
+	h.ok("the request is executed")
+	got := a.last()
+	if v := got.Header.Get("X-Host"); v != "127.0.0.1" {
+		t.Errorf("X-Host %q, want the expanded reference", v)
+	}
+	if v := got.Header.Get("Authorization"); v != "Bearer 127.0.0.1" {
+		t.Errorf("Authorization %q, want the expanded reference", v)
+	}
+	if !strings.Contains(got.Body, `"host":"127.0.0.1"`) || !strings.Contains(got.Body, `"origin":"127.0.0.1:8400"`) {
+		t.Errorf("payload %s, want its references expanded", got.Body)
+	}
+}
