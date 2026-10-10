@@ -23,11 +23,11 @@ import (
 // lists. One scenario at a time has it.
 type device struct {
 	serial     string
-	port       int    // the console port of an emulator axx started, which it holds
-	avd        string // the emulator's AVD; "" for a device axx did not start
-	systemPort int    // the UiAutomator2 server's port on the host
-	mjpegPort  int    // its screen stream's port on the host
-	appium     *appium.Server
+	port       int         // the console port of an emulator axx started, which it holds
+	avd        string      // the emulator's AVD; "" for a device axx did not start
+	systemPort int         // the UiAutomator2 server's port on the host
+	mjpegPort  int         // its screen stream's port on the host
+	server     *uia2Server // the UiAutomator2 server on it, while it runs
 	emulator   *exec.Cmd
 	group      *proc.Group
 	exited     chan struct{}
@@ -159,7 +159,7 @@ func (p *pool) signal() {
 }
 
 // start makes a device ready: boots an emulator of the pool's AVD (or takes
-// the device adb lists), and starts its Appium server.
+// the device adb lists), and starts its UiAutomator2 server.
 func (p *pool) start(ctx context.Context, logDir string) (*device, error) {
 	systemPort, err := appium.FreePort()
 	if err != nil {
@@ -182,13 +182,7 @@ func (p *pool) start(ctx context.Context, logDir string) (*device, error) {
 			return nil, err
 		}
 	}
-	install, err := installFor(ctx, p.suite)
-	if err != nil {
-		d.stop(p.sdk)
-		return nil, err
-	}
-	d.appium, err = install.Start(ctx, filepath.Join(logDir, "appium-"+d.serial+".log"))
-	if err != nil {
+	if err := p.ensureServer(ctx, d, logDir); err != nil {
 		d.stop(p.sdk)
 		return nil, err
 	}
@@ -313,8 +307,9 @@ func free(port int) bool {
 // stop stops the device's Appium server and, for an emulator axx started,
 // the emulator.
 func (d *device) stop(tools *sdk) {
-	if d.appium != nil {
-		d.appium.Stop()
+	if d.server != nil {
+		d.server.stop()
+		d.server = nil
 	}
 	if d.emulator == nil {
 		return

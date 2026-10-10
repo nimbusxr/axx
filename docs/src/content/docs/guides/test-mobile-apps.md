@@ -43,7 +43,7 @@ The steps are the same on Android and on iOS: only the app's registration says w
 
 `axx doctor` checks them: the Android SDK and its devices (and KVM on Linux), Xcode and its iOS runtimes.
 
-**Nothing else:** axx downloads [Appium](https://appium.io) and its driver (UiAutomator2 for Android, XCUITest for iOS) the first time a run needs them, pinned, with the Node.js that runs them, as it downloads a browser driver for web apps. For iOS it also downloads WebDriverAgent, the app on the simulator that drives yours, as Appium builds it: nothing is built with Xcode, and nothing needs signing.
+**Nothing else:** axx downloads what drives the apps the first time a run needs it, pinned, as it downloads a browser driver for web apps. For Android, that is the UiAutomator2 server, which axx installs on each device and starts itself, and keeps running while the device is in use: a scenario's session starts in the time its app takes to reset. For iOS, it is [Appium](https://appium.io) with its XCUITest driver, and the Node.js that runs them, and WebDriverAgent, the app on the simulator that drives yours, as Appium builds it: nothing is built with Xcode, and nothing needs signing.
 
 ## Register the app
 
@@ -69,9 +69,9 @@ Given the courier ios app with the following properties:
 | `package`, `activity` (Android), `bundle id` (iOS) | The app's identity: with no `apk` or `app`, an app the device has. On iOS, the `app`'s own bundle identifier by default. |
 | `device` | Android: an emulator's device (AVD) axx starts, or a device adb lists, by its serial. iOS: a device type axx makes simulators of, like `iPhone 16` or `iPhone 16, iOS 18.1` (the newest iOS Xcode has, by default); a simulator you set up, by its name, which axx clones; or a simulator's UDID. |
 | `permissions` | What the app may use from the start, and nothing else. Android: permissions like `POST_NOTIFICATIONS`. iOS: services like `location, photos` (`xcrun simctl help privacy` lists them). |
-| `locale`, `timezone`, `location` | The language and region (`de-DE`), the time zone (`Europe/Berlin`), and where the device says it is (`51.3397, 12.3731`). |
+| `locale`, `timezone`, `location` | The language and region (`de-DE`), the time zone (`Europe/Berlin`), and where the device says it is (`51.3397, 12.3731`). On Android the language is the app's own (Android 13 and later), and the device's stays as it is. |
 | `host ports` (Android) | Ports of the machine axx runs on that the app reaches as `localhost` on the device, like `8400, 5500`: the app calls `http://localhost:8400` as on a developer's device, and gets the service there. Each scenario has only its own registration's. |
-| `appium`, `capability.<name>` | An Appium server of your own or a device farm's, which runs the device, and the capabilities it takes. |
+| `appium`, `capability.<name>` | An Appium server of your own or a device farm's, which runs the device, and the capabilities it takes. On Android without `appium`, the capabilities go to the UiAutomator2 server's session. |
 
 The app starts when a step launches it or opens a link in it. Every step names the app, so a scenario can drive two, and a web app too.
 
@@ -194,7 +194,7 @@ Ask for a **trace** of each app, and a scenario keeps one in `.axx/mobile/traces
 
 A **video** is the scenario's phones as they ran, each tap and swipe drawn where the finger was, with the scenario's steps beside them: each one to run, running, passed, failed (its error under it) or skipped, and the lines the running step logs, so what happens off the screen shows too (a call to a service, a row in a database). It opens on its first frame for a moment, the steps from the first (those that ran before the app had a screen, such as its registration, among them), and its last frame shows for two seconds, the steps as they ended. It is an MP4 file (H.264) in `.axx/mobile/videos` that plays wherever videos play, with a chapter for each step; a failed scenario's is attached to the report too. The run keeps one more, `run.mp4`: its kept scenarios one after another, each after a card with its name and whether it passed, and a chapter for each. Every phone has the same place in a video, so an iOS scenario and an Android one are in the same `run.mp4`; a scenario that drives two apps shows both phones, side by side. QuickTime Player, VLC, IINA and mpv list the chapters; a browser plays the video without them.
 
-The screens come from Appium's streams of them: WebDriverAgent's on iOS, the UiAutomator2 server's on Android, ten frames a second at half the screen's size. A farm's device, driven through `appium`, streams none: its scenarios keep neither.
+The screens come from the drivers' streams of them: WebDriverAgent's on iOS, the UiAutomator2 server's on Android, ten frames a second at half the screen's size. A farm's device, driven through `appium`, streams none: its scenarios keep neither.
 
 ```yaml title="axx.yaml"
 packs:

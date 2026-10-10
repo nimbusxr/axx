@@ -21,7 +21,7 @@ func Pack() core.Pack { return pack{} }
 
 type pack struct{}
 
-const packDoc = `Android apps, on emulators axx starts or on devices adb lists, driven by [Appium](https://appium.io)'s UiAutomator2 driver, which axx downloads on first use. It needs the Android SDK (ANDROID_HOME): its emulator and its devices (AVDs), and adb.
+const packDoc = `Android apps, on emulators axx starts or on devices adb lists, driven by the UiAutomator2 server ([Appium](https://appium.io)'s), which axx downloads on first use, installs on each device and keeps running while the device is in use. It needs the Android SDK (ANDROID_HOME): its emulator and its devices (AVDs), and adb.
 
 **Each scenario has a device to itself.** axx starts emulators of a device (AVD) as scenarios need them, read-only so that several run at once and nothing a scenario changes outlives it, up to ` + "`devices`" + ` at once (1 by default: Android scenarios then take turns). A scenario leases a device for its whole run.
 
