@@ -153,7 +153,8 @@ func recordingsKept(t *testing.T, h *cloudtest.Harness) {
 	if len(movie) < 8 || string(movie[4:8]) != "ftyp" || !bytes.Contains(movie, []byte("avcC")) {
 		t.Errorf("the video is not H.264 in an MP4 file: %q", movie[:min(len(movie), 16)])
 	}
-	for _, want := range []string{"chpl", "* the courier app is swiped down"} {
+	// The first step's chapter opens every video; steps that start in the same moment share one.
+	for _, want := range []string{"chpl", "* the courier android app with the following properties:"} {
 		if !bytes.Contains(movie, []byte(want)) {
 			t.Errorf("the video's chapters lack %q", want)
 		}
