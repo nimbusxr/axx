@@ -47,9 +47,9 @@ type Node struct {
 	Bounds    Rect
 	// ByPoint is a control a tap reaches at its middle, and the platform's own tap of it does not:
 	// iOS 27 says an action sheet's buttons are not visible, and tapping one does nothing.
-	ByPoint bool
-	Parent  *Node
-	Children  []*Node
+	ByPoint  bool
+	Parent   *Node
+	Children []*Node
 	// Using and Value find the node through Appium.
 	Using, Value string
 }

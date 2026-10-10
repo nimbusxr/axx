@@ -401,18 +401,18 @@ func (d *running) Scroll(ctx context.Context, direction string) (bool, error) {
 			}
 		}
 	}
-	for _, n := range views {
-		el, err := d.session.Find(ctx, n.Using, n.Value)
-		if err != nil {
-			return false, err
-		}
-		if err := d.session.Mobile(ctx, "scroll", map[string]any{"elementId": el.ID, "direction": direction}, nil); err != nil {
-			return false, err
-		}
-		after, err := d.session.Source(ctx)
-		return after != before, err
+	if len(views) == 0 {
+		return false, nil
 	}
-	return false, nil
+	el, err := d.session.Find(ctx, views[0].Using, views[0].Value)
+	if err != nil {
+		return false, err
+	}
+	if err := d.session.Mobile(ctx, "scroll", map[string]any{"elementId": el.ID, "direction": direction}, nil); err != nil {
+		return false, err
+	}
+	after, err := d.session.Source(ctx)
+	return after != before, err
 }
 
 // OpenNotifications opens Notification Center with a finger from the top
