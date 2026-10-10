@@ -58,8 +58,12 @@ func (f *deviceFiles) Where() string {
 	return "the " + f.app + " app's files, at ./" + f.path
 }
 
+// files are the app's files on its device: the device is started, and the app installed and
+// reset, if the app has not started yet, as launching it does, but not launched. A scenario can
+// so put files in place before the app first reads them, as a returning user's app has them
+// (its settings, what it saved).
 func (f *deviceFiles) files(ctx context.Context) (core.Files, error) {
-	d, err := device(f.sc, f.app, false)
+	d, err := device(f.sc, f.app, true)
 	if err != nil {
 		return nil, fmt.Errorf("the %s app's files are on its device: %w", f.app, err)
 	}
