@@ -248,15 +248,50 @@ func (d *running) Scroll(ctx context.Context, direction string) (bool, error) {
 		if !n.Scrolling {
 			continue
 		}
+		// The gesture keeps a little inside the view's edges: one that starts on its edge does
+		// not scroll a Compose scroll view (DTCD's terms).
 		b := n.Bounds
+		in := 0.05
 		var more bool
 		err := d.session.Mobile(ctx, "scrollGesture", map[string]any{
-			"left": int(b.X), "top": int(b.Y), "width": int(b.Width), "height": int(b.Height),
+			"left": int(b.X + b.Width*in), "top": int(b.Y + b.Height*in),
+			"width": int(b.Width * (1 - 2*in)), "height": int(b.Height * (1 - 2*in)),
 			"direction": direction, "percent": 0.8,
 		}, &more)
-		return more, err
+		if err != nil || more {
+			return more, err
+		}
+		// A Compose scroll view tells UiAutomator it can scroll no further after every gesture
+		// that scrolled it (DTCD's terms): what the screen shows says whether it moved, once
+		// Compose has told accessibility (a moment after the gesture).
+		before := shown(s)
+		for range 4 {
+			select {
+			case <-ctx.Done():
+				return false, ctx.Err()
+			case <-time.After(250 * time.Millisecond):
+			}
+			after, err := d.Screen(ctx)
+			if err != nil {
+				return false, err
+			}
+			if shown(after) != before {
+				return true, nil
+			}
+		}
+		return false, nil
 	}
 	return false, nil
+}
+
+// shown is the names of what the screen shows, in order: two screens with the same are where a
+// scroll left them.
+func shown(s *mobilecore.Screen) string {
+	var names []string
+	for _, n := range s.Visible() {
+		names = append(names, n.Name())
+	}
+	return strings.Join(names, "\n")
 }
 
 // OpenNotifications opens the notification shade, which the screen then
@@ -269,6 +304,42 @@ func (d *running) OpenNotifications(ctx context.Context) (mobilecore.Notificatio
 }
 
 // SystemBars are the status and navigation bars, as UiAutomator2 reads them.
+// ScrollToShow scrolls the screen's scrolling view down until the control of that name shows, or
+// the view reaches its end, as a person reads a long text to its end: Android does not list
+// what a scroll view holds out of view, so it looks after each page. Paging stops at 20; a long
+// text goes on for longer (DTCD's terms), and stops at its end.
+func (d *running) ScrollToShow(ctx context.Context, _ *mobilecore.Node, name string) (bool, error) {
+	for range 200 {
+		s, err := d.Screen(ctx)
+		if err != nil {
+			return false, err
+		}
+		if s.Shows(name) {
+			return true, nil
+		}
+		more, err := d.Scroll(ctx, "down")
+		if err != nil || !more {
+			if s, err := d.Screen(ctx); err == nil && s.Shows(name) {
+				return true, nil
+			}
+			return false, err
+		}
+	}
+	return false, nil
+}
+
+// HideKeyboard closes the keyboard when it shows, as the device's back gesture does.
+func (d *running) HideKeyboard(ctx context.Context) (bool, error) {
+	shown, err := d.session.KeyboardShown(ctx)
+	if err != nil || !shown {
+		return false, err
+	}
+	if err := d.session.Mobile(ctx, "hideKeyboard", nil, nil); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
 func (d *running) SystemBars(ctx context.Context) ([]mobilecore.Rect, error) {
 	var bars map[string]struct {
 		Visible             bool

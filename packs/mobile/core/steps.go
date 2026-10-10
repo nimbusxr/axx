@@ -2,6 +2,7 @@ package mobilecore
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/nimbusxr/axx/core"
@@ -91,12 +92,25 @@ func screenshot(sc *core.Scenario, d Device, app string) {
 func find(sc *core.Scenario, d Device, app string, k kind, name string, wait time.Duration) (*Node, error) {
 	var found []*Node
 	var last *Screen
+	hid := false
 	ok, err := waitUntil(sc, wait, func() (bool, error) {
 		s, err := d.Screen(sc.Context())
 		if err != nil {
 			return false, err
 		}
 		last, found = s, matches(s, k, name)
+		// The control is there but not shown: the keyboard may cover it. A person closes the
+		// keyboard to reach it, and so does axx, once.
+		if len(found) == 0 && !hid && hidden(s, k, name) != nil {
+			hid = true
+			closed, err := d.HideKeyboard(sc.Context())
+			if err != nil {
+				return false, fmt.Errorf("closing the keyboard over the %s %s: %w", quoted(name), k.noun, err)
+			}
+			if closed {
+				return false, nil
+			}
+		}
 		return len(found) == 1, nil
 	})
 	switch {
@@ -151,8 +165,16 @@ func element(sc *core.Scenario, d Device, app string, k kind, name string, wait 
 	}
 }
 
-// scrollTo scrolls until the control is shown: down, then up.
+// scrollTo scrolls until the control is shown: the platform scrolls to it (iOS to the node its
+// screen has out of view, Android until its text shows), else it pages down, then up.
 func scrollTo(sc *core.Scenario, d Device, app string, k kind, name string) error {
+	if s, err := d.Screen(sc.Context()); err == nil && len(matches(s, k, name)) == 0 {
+		if ok, err := d.ScrollToShow(sc.Context(), hidden(s, k, name), name); err == nil && ok {
+			if s, err := d.Screen(sc.Context()); err == nil && len(matches(s, k, name)) > 0 {
+				return nil
+			}
+		}
+	}
 	for _, dir := range []string{"down", "up"} {
 		for range 20 {
 			s, err := d.Screen(sc.Context())
