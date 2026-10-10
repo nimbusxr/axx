@@ -38,7 +38,7 @@ func (r runner) Start(sc *core.Scenario) (mobilecore.Device, error) {
 	ctx := sc.Context()
 	d := &running{app: a, bundleID: a.bundleID}
 	client := &appium.Client{URL: a.server}
-	caps := map[string]any{}
+	caps := wdaSession
 	if a.server == "" {
 		p, err := poolFor(sc, a.device)
 		if err != nil {
@@ -138,6 +138,22 @@ func dismissLeftDialogs(ctx context.Context, s *appium.Session) (int, error) {
 func noAlert(err error) bool {
 	var ae *appium.Error
 	return errors.As(err, &ae) && ae.Code == "no such alert"
+}
+
+// wdaSession is what a session asks WebDriverAgent for, as Appium's XCUITest driver asks it
+// for a simulator whose app it leaves to axx: no app launched or ended with the session, and
+// every action waits for the app to be still (a tap on a dialog still coming in is lost
+// otherwise, as the Save Password dialog after a sign-in). The software keyboard shows, as on
+// a phone, rather than the Mac's keyboard standing in for it.
+var wdaSession = map[string]any{
+	"shouldWaitForQuiescence":                true,
+	"eventloopIdleDelaySec":                  0,
+	"maxTypingFrequency":                     60,
+	"shouldUseSingletonTestManager":          true,
+	"shouldTerminateApp":                     false,
+	"forceAppLaunch":                         false,
+	"useNativeCachingStrategy":               true,
+	"forceSimulatorSoftwareKeyboardPresence": true,
 }
 
 // capabilities are what a session asks an Appium server of the project's own
