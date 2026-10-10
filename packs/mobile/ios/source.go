@@ -59,10 +59,35 @@ func parseSource(src string) (*mobilecore.Screen, error) {
 		}
 	}
 	for _, n := range s.Nodes {
+		if !n.Displayed && inSheet(n) && onScreen(n, s.Size) && !strings.Contains(n.Label, "scroll bar") {
+			// What an action sheet shows, iOS 27 says is not visible: the sheet, in front of the app,
+			// shows what is on the screen in it, and a finger taps it there.
+			n.Displayed, n.ByPoint = true, true
+		}
 		n.Role = roleOf(n)
 		n.Clickable = n.Role != mobilecore.RoleOther && n.Role != mobilecore.RoleText && n.Role != mobilecore.RoleImage
 	}
 	return s, nil
+}
+
+// inSheet is whether the node is in an action sheet: SwiftUI's
+// confirmationDialog, UIKit's UIAlertController as a sheet.
+func inSheet(n *mobilecore.Node) bool {
+	for p := n.Parent; p != nil; p = p.Parent {
+		if p.Class == "XCUIElementTypeSheet" {
+			return true
+		}
+	}
+	return false
+}
+
+// onScreen is whether the node has a size and is on the screen, all of it.
+func onScreen(n *mobilecore.Node, screen mobilecore.Rect) bool {
+	b := n.Bounds
+	if b.Width <= 0 || b.Height <= 0 || screen.Width <= 0 {
+		return false
+	}
+	return b.X >= screen.X && b.Y >= screen.Y && b.X+b.Width <= screen.X+screen.Width && b.Y+b.Height <= screen.Y+screen.Height
 }
 
 func nodeOf(t xml.StartElement) *mobilecore.Node {

@@ -304,6 +304,10 @@ func bundleIDOf(ctx context.Context, app string) (string, error) {
 func (d *running) Screen(ctx context.Context) (*mobilecore.Screen, error) {
 	src, err := d.session.Source(ctx)
 	if err != nil {
+		// An app that is not running shows nothing: it quit, or a step closed it.
+		if state, serr := d.state(ctx); serr == nil && state < runningSuspended {
+			return &mobilecore.Screen{}, nil
+		}
 		return nil, fmt.Errorf("cannot read the %s app's screen: %w", d.app.name, err)
 	}
 	return parseSource(src)
@@ -382,21 +386,33 @@ func (d *running) Scroll(ctx context.Context, direction string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	for _, n := range s.Visible() {
-		if !n.Scrolling {
-			continue
+	// The scroll view the screen shows; else one on the screen that iOS 27 says is not visible
+	// (a SwiftUI List's collection view).
+	var views []*mobilecore.Node
+	for _, n := range s.Nodes {
+		if n.Scrolling && n.Displayed {
+			views = append(views, n)
 		}
-		el, err := d.session.Find(ctx, n.Using, n.Value)
-		if err != nil {
-			return false, err
-		}
-		if err := d.session.Mobile(ctx, "scroll", map[string]any{"elementId": el.ID, "direction": direction}, nil); err != nil {
-			return false, err
-		}
-		after, err := d.session.Source(ctx)
-		return after != before, err
 	}
-	return false, nil
+	if len(views) == 0 {
+		for _, n := range s.Nodes {
+			if n.Scrolling && onScreen(n, s.Size) {
+				views = append(views, n)
+			}
+		}
+	}
+	if len(views) == 0 {
+		return false, nil
+	}
+	el, err := d.session.Find(ctx, views[0].Using, views[0].Value)
+	if err != nil {
+		return false, err
+	}
+	if err := d.session.Mobile(ctx, "scroll", map[string]any{"elementId": el.ID, "direction": direction}, nil); err != nil {
+		return false, err
+	}
+	after, err := d.session.Source(ctx)
+	return after != before, err
 }
 
 // OpenNotifications opens Notification Center with a finger from the top

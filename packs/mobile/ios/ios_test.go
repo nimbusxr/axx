@@ -262,3 +262,37 @@ func TestADialogLeftOpenIsDismissed(t *testing.T) {
 		t.Errorf("the dialog is still shown: %s", app.Screen())
 	}
 }
+
+// iOS 27 says what an action sheet shows is not visible: its buttons are on
+// the screen, in front of the app, and are what a person taps.
+func TestAnActionSheetShowsItsButtons(t *testing.T) {
+	src := `<AppiumAUT><XCUIElementTypeApplication type="XCUIElementTypeApplication" name="Couriers" label="Couriers" x="0" y="0" width="393" height="852" visible="true">
+<XCUIElementTypeButton type="XCUIElementTypeButton" name="Mark delivered" label="Mark delivered" x="20" y="700" width="353" height="50" visible="false"/>
+<XCUIElementTypeSheet type="XCUIElementTypeSheet" name="Hand over" label="Hand over" x="0" y="0" width="393" height="852" visible="true">
+<XCUIElementTypeOther type="XCUIElementTypeOther" x="76" y="515" width="240" height="80" visible="false">
+<XCUIElementTypeButton type="XCUIElementTypeButton" name="Hand over now" label="Hand over now" x="92" y="531" width="208" height="48" visible="false"/>
+<XCUIElementTypeOther type="XCUIElementTypeOther" name="Vertical scroll bar, 1 page" label="Vertical scroll bar, 1 page" x="283" y="515" width="30" height="46" visible="false"/>
+<XCUIElementTypeButton type="XCUIElementTypeButton" name="Below" label="Below" x="92" y="900" width="208" height="48" visible="false"/>
+</XCUIElementTypeOther></XCUIElementTypeSheet></XCUIElementTypeApplication></AppiumAUT>`
+	s, err := parseSource(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	shown := map[string]bool{}
+	for _, n := range s.Visible() {
+		shown[n.Name()] = true
+	}
+	if !shown["Hand over now"] {
+		t.Error("the sheet's button on the screen is not shown")
+	}
+	for _, n := range s.Visible() {
+		if n.Name() == "Hand over now" && !n.ByPoint {
+			t.Error("the sheet's button is not tapped where it is: iOS 27's own tap of it does nothing")
+		}
+	}
+	for _, hidden := range []string{"Mark delivered", "Vertical scroll bar, 1 page", "Below"} {
+		if shown[hidden] {
+			t.Errorf("%q is shown: the app behind the sheet, a scroll bar, or off the screen", hidden)
+		}
+	}
+}
