@@ -311,8 +311,45 @@ func (d *running) Background(ctx context.Context) error {
 	if d.dev == nil {
 		return d.session.Mobile(ctx, "backgroundApp", map[string]any{"seconds": -1}, nil)
 	}
-	_, err := d.sdk.shell(ctx, d.dev.serial, "input", "keyevent", "KEYCODE_HOME")
-	return err
+	if _, err := d.sdk.shell(ctx, d.dev.serial, "input", "keyevent", "KEYCODE_HOME"); err != nil {
+		return err
+	}
+	// The key goes home in its own time: a step after this one, as bringing the app back, would
+	// race it, and on a busy emulator lose (the home screen came in over the app brought back).
+	for end := time.Now().Add(10 * time.Second); ; {
+		out, err := d.sdk.shell(ctx, d.dev.serial, "dumpsys", "activity", "activities")
+		if err != nil {
+			return err
+		}
+		if resumedPackage(out) != d.pkg {
+			return nil
+		}
+		if time.Now().After(end) {
+			return fmt.Errorf("the %s app is still in front after the home key", d.app.name)
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(200 * time.Millisecond):
+		}
+	}
+}
+
+// resumedPackage is the package of the activity in front, as dumpsys activity says: its
+// topResumedActivity (Android 10 and later), or its mResumedActivity.
+func resumedPackage(dumpsys string) string {
+	for _, line := range strings.Split(dumpsys, "\n") {
+		line = strings.TrimSpace(line)
+		if !strings.HasPrefix(line, "topResumedActivity=") && !strings.HasPrefix(line, "mResumedActivity:") && !strings.HasPrefix(line, "ResumedActivity:") {
+			continue
+		}
+		for _, f := range strings.Fields(line) {
+			if pkg, _, ok := strings.Cut(f, "/"); ok && strings.Contains(pkg, ".") {
+				return pkg
+			}
+		}
+	}
+	return ""
 }
 
 func (d *running) OpenLink(ctx context.Context, url string) error {
