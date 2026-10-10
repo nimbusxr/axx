@@ -280,6 +280,13 @@ func (s *Session) Drag(ctx context.Context, fromX, fromY, toX, toY float64, d ti
 	return s.c.do(ctx, http.MethodPost, s.path("/actions"), map[string]any{"actions": []any{finger}}, nil)
 }
 
+// KeyboardShown reports whether the device shows its on-screen keyboard.
+func (s *Session) KeyboardShown(ctx context.Context) (bool, error) {
+	var out bool
+	err := s.c.do(ctx, http.MethodGet, s.path("/appium/device/is_keyboard_shown"), nil, &out)
+	return out, err
+}
+
 // Settings changes the driver's settings for the session.
 func (s *Session) Settings(ctx context.Context, settings map[string]any) error {
 	return s.c.do(ctx, http.MethodPost, s.path("/appium/settings"), map[string]any{"settings": settings}, nil)

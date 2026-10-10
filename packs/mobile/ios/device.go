@@ -473,6 +473,21 @@ func predicateString(s string) string {
 const springboard = "com.apple.springboard"
 
 // SystemBars is the status bar, with its clock, in the screenshot's pixels.
+// HideKeyboard closes the keyboard when it shows: an iPhone's keyboard has no key that only
+// hides it, so it presses return (or done), as a person does to end the editing; never go, send
+// or search, which would act.
+func (d *running) HideKeyboard(ctx context.Context) (bool, error) {
+	shown, err := d.session.KeyboardShown(ctx)
+	if err != nil || !shown {
+		return false, err
+	}
+	keys := []string{"return", "Return", "done", "Done"}
+	if err := d.session.Mobile(ctx, "hideKeyboard", map[string]any{"keys": keys}, nil); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
 func (d *running) SystemBars(ctx context.Context) ([]mobilecore.Rect, error) {
 	var info struct {
 		StatusBarSize struct{ Width, Height float64 } `json:"statusBarSize"`

@@ -269,6 +269,18 @@ func (d *running) OpenNotifications(ctx context.Context) (mobilecore.Notificatio
 }
 
 // SystemBars are the status and navigation bars, as UiAutomator2 reads them.
+// HideKeyboard closes the keyboard when it shows, as the device's back gesture does.
+func (d *running) HideKeyboard(ctx context.Context) (bool, error) {
+	shown, err := d.session.KeyboardShown(ctx)
+	if err != nil || !shown {
+		return false, err
+	}
+	if err := d.session.Mobile(ctx, "hideKeyboard", nil, nil); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
 func (d *running) SystemBars(ctx context.Context) ([]mobilecore.Rect, error) {
 	var bars map[string]struct {
 		Visible             bool

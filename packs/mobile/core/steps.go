@@ -2,6 +2,7 @@ package mobilecore
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/nimbusxr/axx/core"
@@ -91,12 +92,25 @@ func screenshot(sc *core.Scenario, d Device, app string) {
 func find(sc *core.Scenario, d Device, app string, k kind, name string, wait time.Duration) (*Node, error) {
 	var found []*Node
 	var last *Screen
+	hid := false
 	ok, err := waitUntil(sc, wait, func() (bool, error) {
 		s, err := d.Screen(sc.Context())
 		if err != nil {
 			return false, err
 		}
 		last, found = s, matches(s, k, name)
+		// The control is there but not shown: the keyboard may cover it. A person closes the
+		// keyboard to reach it, and so does axx, once.
+		if len(found) == 0 && !hid && covered(s, k, name) {
+			hid = true
+			closed, err := d.HideKeyboard(sc.Context())
+			if err != nil {
+				return false, fmt.Errorf("closing the keyboard over the %s %s: %w", quoted(name), k.noun, err)
+			}
+			if closed {
+				return false, nil
+			}
+		}
 		return len(found) == 1, nil
 	})
 	switch {

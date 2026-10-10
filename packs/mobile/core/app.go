@@ -44,6 +44,9 @@ type Device interface {
 	Background(ctx context.Context) error
 	// OpenLink opens a link in the app, as tapping it elsewhere would.
 	OpenLink(ctx context.Context, url string) error
+	// HideKeyboard closes the on-screen keyboard when it shows, as a person does to reach what
+	// it covers, and reports whether it did.
+	HideKeyboard(ctx context.Context) (bool, error)
 	// Swipe swipes the whole screen in a direction: up, down, left or right.
 	Swipe(ctx context.Context, direction string) error
 	// Scroll scrolls the screen's scrollable content one screenful toward

@@ -119,6 +119,18 @@ func matches(s *Screen, k kind, name string) []*Node {
 	return out
 }
 
+// covered reports whether the screen has a control of kind k named name that it does not show:
+// one the keyboard covers, say.
+func covered(s *Screen, k kind, name string) bool {
+	name = clean(name)
+	for _, n := range s.Nodes {
+		if !n.Displayed && k.match(n, name) {
+			return true
+		}
+	}
+	return false
+}
+
 // missing is the failure of a control the screen does not have: it lists
 // the names of the controls of that kind it has.
 func missing(app string, s *Screen, k kind, name string) error {
