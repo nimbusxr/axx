@@ -24,6 +24,9 @@ const elementKey = "element-6066-11e4-a52e-4f735466cecf"
 type Client struct {
 	URL  string // the server, like http://127.0.0.1:4723
 	HTTP *http.Client
+	// Selectors is for the UiAutomator2 server, which reads a find's strategy
+	// and selector where WebDriver has using and value.
+	Selectors bool
 }
 
 // Error is an error Appium answered, with its W3C error code.
@@ -144,7 +147,7 @@ type Element struct {
 // Find finds the first element a locator strategy matches.
 func (s *Session) Find(ctx context.Context, using, value string) (*Element, error) {
 	var out map[string]string
-	if err := s.c.do(ctx, http.MethodPost, s.path("/element"), map[string]string{"using": using, "value": value}, &out); err != nil {
+	if err := s.c.do(ctx, http.MethodPost, s.path("/element"), s.c.locator(using, value), &out); err != nil {
 		return nil, err
 	}
 	return &Element{s: s, ID: out[elementKey]}, nil
@@ -153,7 +156,7 @@ func (s *Session) Find(ctx context.Context, using, value string) (*Element, erro
 // FindAll finds every element a locator strategy matches.
 func (s *Session) FindAll(ctx context.Context, using, value string) ([]*Element, error) {
 	var out []map[string]string
-	if err := s.c.do(ctx, http.MethodPost, s.path("/elements"), map[string]string{"using": using, "value": value}, &out); err != nil {
+	if err := s.c.do(ctx, http.MethodPost, s.path("/elements"), s.c.locator(using, value), &out); err != nil {
 		return nil, err
 	}
 	els := make([]*Element, len(out))
@@ -161,6 +164,14 @@ func (s *Session) FindAll(ctx context.Context, using, value string) ([]*Element,
 		els[i] = &Element{s: s, ID: o[elementKey]}
 	}
 	return els, nil
+}
+
+// locator is a find's body, as the server reads it.
+func (c *Client) locator(using, value string) map[string]string {
+	if c.Selectors {
+		return map[string]string{"strategy": using, "selector": value}
+	}
+	return map[string]string{"using": using, "value": value}
 }
 
 func (e *Element) path(p string) string { return e.s.path("/element/" + e.ID + p) }
@@ -253,11 +264,26 @@ func (s *Session) PushFile(ctx context.Context, path string, body []byte) error 
 		map[string]any{"path": path, "data": base64.StdEncoding.EncodeToString(body)}, nil)
 }
 
-// Window is the screen's size, in points.
+// Window is the screen's size, in points: the W3C window rectangle, or the
+// size a driver without one answers (the UiAutomator2 server's).
 func (s *Session) Window(ctx context.Context) (Rect, error) {
 	var r Rect
 	err := s.c.do(ctx, http.MethodGet, s.path("/window/rect"), nil, &r)
+	var e *Error
+	if errors.As(err, &e) && (e.Status == http.StatusNotFound || e.Code == "unknown command" || e.Code == "unknown method") {
+		err = s.c.do(ctx, http.MethodGet, s.path("/window/current/size"), nil, &r)
+		r.X, r.Y = 0, 0
+	}
 	return r, err
+}
+
+// Command sends one of the driver's own commands, at a path of the session
+// ("/appium/device/system_bars"): what a driver serves beyond WebDriver.
+func (s *Session) Command(ctx context.Context, method, path string, body, out any) error {
+	if body == nil && method != http.MethodGet && method != http.MethodDelete {
+		body = map[string]any{}
+	}
+	return s.c.do(ctx, method, s.path(path), body, out)
 }
 
 // Back is the platform's back navigation.

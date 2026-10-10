@@ -2,6 +2,7 @@ package appium
 
 import (
 	"context"
+	"net/http"
 	"time"
 )
 
@@ -103,4 +104,45 @@ func (s *Session) window(ctx context.Context) (Rect, error) {
 	s.win, s.winRead = r, true
 	s.mu.Unlock()
 	return r, nil
+}
+
+// Area is a part of the screen a gesture moves in, in the window's
+// coordinates.
+type Area struct{ Left, Top, Width, Height float64 }
+
+// Swipe swipes across the area in a direction, over a share of it (0 to 1),
+// with the UiAutomator2 server's own gesture.
+func (s *Session) Swipe(ctx context.Context, a Area, direction string, share float64) error {
+	s.report(ctx, "swipeGesture", a, direction, share)
+	return s.Command(ctx, http.MethodPost, "/appium/gestures/swipe", gestureBody(a, direction, share), nil)
+}
+
+// Scroll scrolls the area toward direction, over a share of it, with the
+// UiAutomator2 server's own gesture, and reports whether it can scroll more.
+func (s *Session) Scroll(ctx context.Context, a Area, direction string, share float64) (bool, error) {
+	s.report(ctx, "scrollGesture", a, direction, share)
+	var more bool
+	err := s.Command(ctx, http.MethodPost, "/appium/gestures/scroll", gestureBody(a, direction, share), &more)
+	return more, err
+}
+
+func gestureBody(a Area, direction string, share float64) map[string]any {
+	return map[string]any{
+		"area":      map[string]any{"left": int(a.Left), "top": int(a.Top), "width": int(a.Width), "height": int(a.Height)},
+		"direction": direction, "percent": share,
+	}
+}
+
+// report tells the session's Touched of a gesture as it is sent.
+func (s *Session) report(ctx context.Context, command string, a Area, direction string, share float64) {
+	if s.Touched == nil {
+		return
+	}
+	t, ok := s.gesture(ctx, command, map[string]any{
+		"left": a.Left, "top": a.Top, "width": a.Width, "height": a.Height, "direction": direction, "percent": share,
+	})
+	if ok {
+		t.At = time.Now()
+		s.touched(t)
+	}
 }

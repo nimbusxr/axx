@@ -1,9 +1,0 @@
-{
-  "name": "axx-appium-android",
-  "private": true,
-  "description": "The Appium the mobile-android pack runs: Appium and its UiAutomator2 driver, pinned.",
-  "dependencies": {
-    "appium": "3.8.0",
-    "appium-uiautomator2-driver": "8.7.0"
-  }
-}

@@ -404,3 +404,17 @@ func TestScreenshots(t *testing.T) {
 	u.OK(`the courier app looks like the "deliveries" screenshot`)
 	_ = u.End("passed")
 }
+
+// The activity in front, as dumpsys activity says it on Android 10 and later, and before.
+func TestResumedPackage(t *testing.T) {
+	for out, want := range map[string]string{
+		"  topResumedActivity=ActivityRecord{8a3c1f2 u0 example.parcels.courier/.MainActivity t42}":                     "example.parcels.courier",
+		"    mResumedActivity: ActivityRecord{5d2e u0 com.google.android.apps.nexuslauncher/.NexusLauncherActivity t1}": "com.google.android.apps.nexuslauncher",
+		"  ResumedActivity: ActivityRecord{1 u0 com.android.settings/.Settings t9}":                                     "com.android.settings",
+		"nothing in front": "",
+	} {
+		if got := resumedPackage(out); got != want {
+			t.Errorf("%q: %q, want %q", out, got, want)
+		}
+	}
+}

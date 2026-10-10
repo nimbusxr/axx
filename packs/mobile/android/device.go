@@ -3,6 +3,7 @@ package mobileandroid
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -23,44 +24,70 @@ func (r runner) Kind() string { return "android" }
 func (r runner) RunsHere() bool { return true }
 
 // Start leases a device for the scenario and starts a session of the app on
-// it, reset: the app installed and its data cleared (Appium's reset), the
-// device's time zone and location set, and the app's permissions exactly
-// those the registration grants. The app is not launched yet.
+// it, reset: the app installed and its data cleared, the device's time zone
+// and location set, and the app's permissions exactly those the registration
+// grants. The app is not launched yet. A device of the machine's runs the
+// UiAutomator2 server axx keeps on it; a device an Appium server runs (the
+// appium property: a farm's), a session of that server.
 func (r runner) Start(sc *core.Scenario) (mobilecore.Device, error) {
 	a := r.app
 	ctx := sc.Context()
-	logDir := filepath.Join(sc.Suite().ProjectDir(), ".axx", "mobile")
 	d := &running{app: a}
-	client := &appium.Client{URL: a.server}
-	if a.server == "" {
-		p, err := poolFor(sc, a.device)
-		if err != nil {
-			return nil, err
-		}
-		// Waiting for a device another scenario has, or for one being made
-		// ready (a first boot takes minutes), is not the step's own work.
-		release := sc.Hold()
-		dev, err := p.lease(ctx, logDir)
-		release()
-		if err != nil {
-			return nil, err
-		}
-		d.pool, d.dev, d.sdk = p, dev, p.sdk
-		client = dev.appium.Client
-		if err := d.resetDevice(ctx); err != nil {
-			p.release(dev)
-			return nil, err
-		}
+	if a.server != "" {
+		return d.startOnAppium(ctx)
 	}
-	s, err := client.NewSession(ctx, a.capabilities(d.dev))
+	logDir := filepath.Join(sc.Suite().ProjectDir(), ".axx", "mobile")
+	p, err := poolFor(sc, a.device)
+	if err != nil {
+		return nil, err
+	}
+	// Waiting for a device another scenario has, or for one being made
+	// ready (a first boot takes minutes), is not the step's own work.
+	release := sc.Hold()
+	dev, err := p.lease(ctx, logDir)
+	release()
+	if err != nil {
+		return nil, err
+	}
+	d.pool, d.dev, d.sdk = p, dev, p.sdk
+	if err := p.ensureServer(ctx, dev, logDir); err != nil {
+		d.releaseDevice()
+		return nil, err
+	}
+	if err := d.resetDevice(ctx); err != nil {
+		d.releaseDevice()
+		return nil, err
+	}
+	if err := d.resetApp(ctx); err != nil {
+		d.releaseDevice()
+		return nil, err
+	}
+	caps := map[string]any{"platformName": "Android"}
+	for k, v := range a.caps {
+		caps[k] = v
+	}
+	s, err := dev.server.client.NewSession(ctx, caps)
 	if err != nil {
 		d.releaseDevice()
 		return nil, fmt.Errorf("cannot start the %s app: %w", a.name, err)
 	}
 	d.session = s
-	if d.dev != nil && a.apk != "" {
-		d.dev.installed[a.apk] = true
+	if err := d.grant(ctx); err != nil {
+		_ = d.Stop(true)
+		return nil, err
 	}
+	return d, nil
+}
+
+// startOnAppium starts a session of the app on an Appium server, which
+// resets the app and holds the device.
+func (d *running) startOnAppium(ctx context.Context) (mobilecore.Device, error) {
+	a := d.app
+	s, err := (&appium.Client{URL: a.server}).NewSession(ctx, a.capabilities(nil))
+	if err != nil {
+		return nil, fmt.Errorf("cannot start the %s app: %w", a.name, err)
+	}
+	d.session = s
 	d.pkg = a.pkg
 	if d.pkg == "" {
 		d.pkg, _ = s.Capabilities["appPackage"].(string)
@@ -70,6 +97,50 @@ func (r runner) Start(sc *core.Scenario) (mobilecore.Device, error) {
 		return nil, err
 	}
 	return d, nil
+}
+
+// resetApp leaves the app as a scenario starts from it: installed (the APK
+// the registration names, the first time the device runs it in a run, over
+// any version it has), stopped, its data cleared (and with it the
+// permissions it was granted), and in the registration's language.
+func (d *running) resetApp(ctx context.Context) error {
+	a, serial := d.app, d.dev.serial
+	d.pkg = a.pkg
+	if d.pkg == "" {
+		pkg, err := apkPackage(a.apk)
+		if err != nil {
+			return fmt.Errorf("the %s app's package: %w", a.name, err)
+		}
+		d.pkg = pkg
+	}
+	if a.apk != "" && !d.dev.installed[a.apk] {
+		if _, err := d.sdk.run(ctx, serial, "install", "-r", "-t", a.apk); err != nil {
+			return fmt.Errorf("cannot install the %s app: %w", a.name, err)
+		}
+		d.dev.installed[a.apk] = true
+	}
+	if _, err := d.sdk.shell(ctx, serial, "am", "force-stop", d.pkg); err != nil {
+		return err
+	}
+	out, err := d.sdk.shell(ctx, serial, "pm", "clear", d.pkg)
+	if err != nil {
+		return fmt.Errorf("cannot clear the %s app's data: %w", a.name, err)
+	}
+	if !strings.Contains(out, "Success") {
+		return fmt.Errorf("cannot clear the %s app's data (is %s installed?): %s", a.name, d.pkg, out)
+	}
+	lang, country := a.language()
+	tag := lang
+	if country != "" {
+		tag += "-" + country
+	}
+	// The app's own language (Android 13 and later), which leaves the
+	// device's alone.
+	if _, err := d.sdk.shell(ctx, serial, "cmd", "locale", "set-app-locales", d.pkg, "--locales", tag); err != nil {
+		return fmt.Errorf("cannot set the %s app's language to %s (an app's own language needs Android 13 or later): %w", a.name, tag, err)
+	}
+	d.resets = append(d.resets, "language "+tag)
+	return nil
 }
 
 // capabilities are what the session asks Appium for.
@@ -114,13 +185,15 @@ func (a *app) capabilities(dev *device) map[string]any {
 
 // running is an app running on a device for a scenario.
 type running struct {
-	app     *app
-	pool    *pool
-	dev     *device
-	sdk     *sdk
-	session *appium.Session
-	pkg     string
-	resets  []string
+	// component is the activity a launch starts, found once.
+	component string
+	app       *app
+	pool      *pool
+	dev       *device
+	sdk       *sdk
+	session   *appium.Session
+	pkg       string
+	resets    []string
 }
 
 func (d *running) Session() *appium.Session { return d.session }
@@ -208,23 +281,123 @@ func (d *running) Screen(ctx context.Context) (*mobilecore.Screen, error) {
 	return parseSource(src)
 }
 
+// Launch brings the app to the front, as its launcher icon does: started if
+// it was not running, where it was if it was.
 func (d *running) Launch(ctx context.Context) error {
-	return d.session.Mobile(ctx, "activateApp", map[string]any{"appId": d.pkg}, nil)
+	if d.dev == nil {
+		return d.session.Mobile(ctx, "activateApp", map[string]any{"appId": d.pkg}, nil)
+	}
+	component, err := d.launcher(ctx)
+	if err != nil {
+		return err
+	}
+	return d.am(ctx, "start", "-W", "-n", component, "-a", "android.intent.action.MAIN", "-c", "android.intent.category.LAUNCHER")
 }
 
 func (d *running) Restart(ctx context.Context) error {
-	if err := d.session.Mobile(ctx, "terminateApp", map[string]any{"appId": d.pkg}, nil); err != nil {
+	if d.dev == nil {
+		if err := d.session.Mobile(ctx, "terminateApp", map[string]any{"appId": d.pkg}, nil); err != nil {
+			return err
+		}
+		return d.Launch(ctx)
+	}
+	if _, err := d.sdk.shell(ctx, d.dev.serial, "am", "force-stop", d.pkg); err != nil {
 		return err
 	}
 	return d.Launch(ctx)
 }
 
 func (d *running) Background(ctx context.Context) error {
-	return d.session.Mobile(ctx, "backgroundApp", map[string]any{"seconds": -1}, nil)
+	if d.dev == nil {
+		return d.session.Mobile(ctx, "backgroundApp", map[string]any{"seconds": -1}, nil)
+	}
+	if _, err := d.sdk.shell(ctx, d.dev.serial, "input", "keyevent", "KEYCODE_HOME"); err != nil {
+		return err
+	}
+	// The key goes home in its own time: a step after this one, as bringing the app back, would
+	// race it, and on a busy emulator lose (the home screen came in over the app brought back).
+	for end := time.Now().Add(10 * time.Second); ; {
+		out, err := d.sdk.shell(ctx, d.dev.serial, "dumpsys", "activity", "activities")
+		if err != nil {
+			return err
+		}
+		if resumedPackage(out) != d.pkg {
+			return nil
+		}
+		if time.Now().After(end) {
+			return fmt.Errorf("the %s app is still in front after the home key", d.app.name)
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(200 * time.Millisecond):
+		}
+	}
+}
+
+// resumedPackage is the package of the activity in front, as dumpsys activity says: its
+// topResumedActivity (Android 10 and later), or its mResumedActivity.
+func resumedPackage(dumpsys string) string {
+	for _, line := range strings.Split(dumpsys, "\n") {
+		line = strings.TrimSpace(line)
+		if !strings.HasPrefix(line, "topResumedActivity=") && !strings.HasPrefix(line, "mResumedActivity:") && !strings.HasPrefix(line, "ResumedActivity:") {
+			continue
+		}
+		for _, f := range strings.Fields(line) {
+			if pkg, _, ok := strings.Cut(f, "/"); ok && strings.Contains(pkg, ".") {
+				return pkg
+			}
+		}
+	}
+	return ""
 }
 
 func (d *running) OpenLink(ctx context.Context, url string) error {
-	return d.session.Mobile(ctx, "deepLink", map[string]any{"url": url, "package": d.pkg, "waitForLaunch": true}, nil)
+	if d.dev == nil {
+		return d.session.Mobile(ctx, "deepLink", map[string]any{"url": url, "package": d.pkg, "waitForLaunch": true}, nil)
+	}
+	return d.am(ctx, "start", "-W", "-a", "android.intent.action.VIEW", "-d", q(url), d.pkg)
+}
+
+// am runs the activity manager on the device: it says what went wrong in
+// what it prints, and exits 0 all the same.
+func (d *running) am(ctx context.Context, args ...string) error {
+	out, err := d.sdk.shell(ctx, d.dev.serial, append([]string{"am"}, args...)...)
+	if err != nil {
+		return err
+	}
+	for _, line := range strings.Split(out, "\n") {
+		if strings.HasPrefix(line, "Error") || strings.Contains(line, "Exception") {
+			return fmt.Errorf("the %s app: %s", d.app.name, out)
+		}
+	}
+	return nil
+}
+
+// launcher is the activity a launch starts: the registration's, or the one
+// the device's launcher starts for the app.
+func (d *running) launcher(ctx context.Context) (string, error) {
+	if d.component != "" {
+		return d.component, nil
+	}
+	if act := d.app.activity; act != "" {
+		if !strings.Contains(act, "/") {
+			act = d.pkg + "/" + act
+		}
+		d.component = act
+		return act, nil
+	}
+	out, err := d.sdk.shell(ctx, d.dev.serial, "cmd", "package", "resolve-activity", "--brief",
+		"-a", "android.intent.action.MAIN", "-c", "android.intent.category.LAUNCHER", d.pkg)
+	if err != nil {
+		return "", err
+	}
+	lines := strings.Split(strings.TrimSpace(out), "\n")
+	if last := strings.TrimSpace(lines[len(lines)-1]); strings.HasPrefix(last, d.pkg+"/") {
+		d.component = last
+		return last, nil
+	}
+	return "", fmt.Errorf("the %s app (%s) has no activity the launcher starts: name one with the activity property", d.app.name, d.pkg)
 }
 
 // Swipe swipes across the middle of the screen, as a finger does.
@@ -233,8 +406,12 @@ func (d *running) Swipe(ctx context.Context, direction string) error {
 	if err != nil {
 		return err
 	}
+	area := appium.Area{Left: w.Width * 0.1, Top: w.Height * 0.25, Width: w.Width * 0.8, Height: w.Height * 0.5}
+	if d.dev != nil {
+		return d.session.Swipe(ctx, area, direction, 0.75)
+	}
 	return d.session.Mobile(ctx, "swipeGesture", map[string]any{
-		"left": int(w.Width * 0.1), "top": int(w.Height * 0.25), "width": int(w.Width * 0.8), "height": int(w.Height * 0.5),
+		"left": int(area.Left), "top": int(area.Top), "width": int(area.Width), "height": int(area.Height),
 		"direction": direction, "percent": 0.75,
 	}, nil)
 }
@@ -253,12 +430,17 @@ func (d *running) Scroll(ctx context.Context, direction string) (bool, error) {
 		// not scroll a Compose scroll view (DTCD's terms).
 		b := n.Bounds
 		in := 0.05
+		area := appium.Area{Left: b.X + b.Width*in, Top: b.Y + b.Height*in, Width: b.Width * (1 - 2*in), Height: b.Height * (1 - 2*in)}
 		var more bool
-		err := d.session.Mobile(ctx, "scrollGesture", map[string]any{
-			"left": int(b.X + b.Width*in), "top": int(b.Y + b.Height*in),
-			"width": int(b.Width * (1 - 2*in)), "height": int(b.Height * (1 - 2*in)),
-			"direction": direction, "percent": 0.8,
-		}, &more)
+		var err error
+		if d.dev != nil {
+			more, err = d.session.Scroll(ctx, area, direction, 0.8)
+		} else {
+			err = d.session.Mobile(ctx, "scrollGesture", map[string]any{
+				"left": int(area.Left), "top": int(area.Top), "width": int(area.Width), "height": int(area.Height),
+				"direction": direction, "percent": 0.8,
+			}, &more)
+		}
 		if err != nil || more {
 			return more, err
 		}
@@ -298,7 +480,13 @@ func shown(s *mobilecore.Screen) string {
 // OpenNotifications opens the notification shade, which the screen then
 // shows, and Back closes.
 func (d *running) OpenNotifications(ctx context.Context) (mobilecore.Notifications, error) {
-	if err := d.session.Mobile(ctx, "openNotifications", nil, nil); err != nil {
+	var err error
+	if d.dev != nil {
+		err = d.session.Command(ctx, http.MethodPost, "/appium/device/open_notifications", nil, nil)
+	} else {
+		err = d.session.Mobile(ctx, "openNotifications", nil, nil)
+	}
+	if err != nil {
 		return nil, fmt.Errorf("cannot open the notification shade: %w", err)
 	}
 	return mobilecore.ScreenNotifications{Read: d.Screen, Hide: d.session.Back}, nil
@@ -331,14 +519,40 @@ func (d *running) ScrollToShow(ctx context.Context, _ *mobilecore.Node, name str
 
 // HideKeyboard closes the keyboard when it shows, as the device's back gesture does.
 func (d *running) HideKeyboard(ctx context.Context) (bool, error) {
-	shown, err := d.session.KeyboardShown(ctx)
+	if d.dev == nil {
+		shown, err := d.session.KeyboardShown(ctx)
+		if err != nil || !shown {
+			return false, err
+		}
+		if err := d.session.Mobile(ctx, "hideKeyboard", nil, nil); err != nil {
+			return false, err
+		}
+		return true, nil
+	}
+	shown, err := d.keyboardShown(ctx)
 	if err != nil || !shown {
 		return false, err
 	}
-	if err := d.session.Mobile(ctx, "hideKeyboard", nil, nil); err != nil {
-		return false, err
+	// Escape closes it in most keyboards; back, in the others.
+	for _, key := range []string{"KEYCODE_ESCAPE", "KEYCODE_BACK"} {
+		if _, err := d.sdk.shell(ctx, d.dev.serial, "input", "keyevent", key); err != nil {
+			return false, err
+		}
+		if shown, err := d.keyboardShown(ctx); err != nil || !shown {
+			return true, err
+		}
 	}
 	return true, nil
+}
+
+// keyboardShown is whether the input method shows its keyboard, as the
+// device's input method service says.
+func (d *running) keyboardShown(ctx context.Context) (bool, error) {
+	out, err := d.sdk.shell(ctx, d.dev.serial, "dumpsys", "input_method")
+	if err != nil {
+		return false, err
+	}
+	return strings.Contains(out, "mInputShown=true") || strings.Contains(out, "mIsInputViewShown=true"), nil
 }
 
 func (d *running) SystemBars(ctx context.Context) ([]mobilecore.Rect, error) {
@@ -346,7 +560,13 @@ func (d *running) SystemBars(ctx context.Context) ([]mobilecore.Rect, error) {
 		Visible             bool
 		X, Y, Width, Height float64
 	}
-	if err := d.session.Mobile(ctx, "getSystemBars", nil, &bars); err != nil {
+	var err error
+	if d.dev != nil {
+		err = d.session.Command(ctx, http.MethodGet, "/appium/device/system_bars", nil, &bars)
+	} else {
+		err = d.session.Mobile(ctx, "getSystemBars", nil, &bars)
+	}
+	if err != nil {
 		return nil, fmt.Errorf("cannot read where the device's system bars are: %w", err)
 	}
 	var out []mobilecore.Rect
@@ -399,10 +619,12 @@ func (d *running) Describe() map[string]any {
 	return out
 }
 
-// Stop ends the session and gives the device back to its pool.
+// Stop ends the session and gives the device back to its pool. On a device of
+// the pool, the session stays: ending one stops the UiAutomator2 server with
+// it, and the next scenario's session replaces it.
 func (d *running) Stop(bool) error {
 	var err error
-	if d.session != nil {
+	if d.session != nil && d.dev == nil {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 		defer cancel()
 		err = d.session.Delete(ctx)
