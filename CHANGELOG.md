@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.8](https://github.com/nimbusxr/axx/compare/v0.2.7...v0.2.8) (2026-10-10)
+
+
+### Bug Fixes
+
+* **mobile:** reach controls the keyboard covers or a scroll view holds out of view ([#137](https://github.com/nimbusxr/axx/issues/137)) ([3fb6831](https://github.com/nimbusxr/axx/commit/3fb6831b7a9951f59de7faf4ecaef7352db222b8))
+* **rest:** expand references in request headers and payload properties ([#136](https://github.com/nimbusxr/axx/issues/136)) ([8f4632c](https://github.com/nimbusxr/axx/commit/8f4632ce4b75791dbad0977301aff9a8f59150ab))
+
 ## [0.2.7](https://github.com/nimbusxr/axx/compare/v0.2.6...v0.2.7) (2026-10-09)
 
 
