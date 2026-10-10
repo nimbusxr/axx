@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/nimbusxr/axx/internal/cloudstep/cloudtest"
 	appcore "github.com/nimbusxr/axx/packs/app/core"
@@ -48,6 +49,34 @@ func apk(t *testing.T) string {
 	return p
 }
 
+// logsOnFailure prints, when the test fails, the end of the logs the pack keeps: the
+// UiAutomator2 server's and the emulator's, which say why a device stopped answering.
+func logsOnFailure(t *testing.T, h *cloudtest.Harness) {
+	t.Cleanup(func() {
+		if !t.Failed() {
+			return
+		}
+		logs, _ := filepath.Glob(filepath.Join(h.Dir, ".axx", "mobile", "*.log"))
+		for _, l := range logs {
+			b, _ := os.ReadFile(l)
+			lines := strings.Split(string(b), "\n")
+			t.Logf("the end of %s:\n%s", filepath.Base(l), strings.Join(lines[max(0, len(lines)-80):], "\n"))
+		}
+		// What crashed on the devices: a process that died, the server's among them.
+		s, err := findSDK()
+		if err != nil {
+			return
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		serials, _ := s.devices(ctx)
+		for _, serial := range serials {
+			out, _ := s.run(ctx, serial, "logcat", "-d", "-b", "crash")
+			t.Logf("%s's crash log:\n%s", serial, out)
+		}
+	})
+}
+
 // near checks that the scenario's device was put at a latitude and longitude
 // (emu geo fix), as its resets say.
 func near(t *testing.T, h *cloudtest.Harness, lat, lon float64) {
@@ -77,6 +106,7 @@ func TestCouriersOnAnEmulator(t *testing.T) {
 	courierapi.Start(t)
 	t.Setenv("COURIER_PIN", "4711")
 	h := cloudtest.New(t, appcore.Pack(), mobilecore.Pack(), Pack())
+	logsOnFailure(t, h)
 	h.OK("the courier android app with the following properties:", [][]string{
 		{"apk", apk(t)},
 		{"device", avd(t)},
@@ -176,6 +206,7 @@ func TestRecordingsOnAnEmulator(t *testing.T) {
 	courierapi.Start(t)
 	t.Setenv("COURIER_PIN", "4711")
 	h := cloudtest.NewWith(t, map[string]any{"mobile-core": map[string]any{"traces": "always", "videos": "always"}}, appcore.Pack(), mobilecore.Pack(), Pack())
+	logsOnFailure(t, h)
 	h.OK("the courier android app with the following properties:", [][]string{
 		{"apk", apk(t)}, {"device", avd(t)}, {"permissions", "POST_NOTIFICATIONS"}, {"host ports", "8400"},
 	})

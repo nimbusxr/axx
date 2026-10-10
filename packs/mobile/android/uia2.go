@@ -96,6 +96,9 @@ type uia2Server struct {
 }
 
 // ensureServer starts the device's server, or starts it again when it has
+// hiddenAPIPolicies are the device's settings that allow apps Android's hidden APIs.
+var hiddenAPIPolicies = []string{"hidden_api_policy_pre_p_apps", "hidden_api_policy_p_apps", "hidden_api_policy"}
+
 // stopped answering (an app that took the device down with it).
 func (p *pool) ensureServer(ctx context.Context, d *device, logDir string) error {
 	if d.server != nil {
@@ -124,6 +127,15 @@ func (p *pool) ensureServer(ctx context.Context, d *device, logDir string) error
 	// What a scenario before left of a server: one instrumentation at a time.
 	_, _ = p.sdk.shell(ctx, d.serial, "am", "force-stop", uia2Package)
 	_, _ = p.sdk.shell(ctx, d.serial, "am", "force-stop", uia2Test)
+	// The server reads the screen through Android's hidden APIs, which Android 9 and later refuse
+	// it unless the device allows them; without them, it fails to read a screen now and then
+	// (it "cannot set AccessibilityNodeInfo's field 'mSealed'"). Appium's driver allows them the
+	// same way, and puts the default back when it is done, as stop does.
+	for _, k := range hiddenAPIPolicies {
+		if _, err := p.sdk.shell(ctx, d.serial, "settings", "put", "global", k, "1"); err != nil {
+			return fmt.Errorf("cannot allow the UiAutomator2 server Android's hidden APIs on %s: %w", d.serial, err)
+		}
+	}
 	log, err := os.Create(filepath.Join(logDir, "uiautomator2-"+d.serial+".log"))
 	if err != nil {
 		return err
@@ -143,6 +155,9 @@ func (p *pool) ensureServer(ctx context.Context, d *device, logDir string) error
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 		_, _ = p.sdk.shell(ctx, d.serial, "am", "force-stop", uia2Package)
+		for _, k := range hiddenAPIPolicies {
+			_, _ = p.sdk.shell(ctx, d.serial, "settings", "delete", "global", k)
+		}
 	}
 	if g, err := proc.NewGroup(cmd); err == nil {
 		s.group = g
