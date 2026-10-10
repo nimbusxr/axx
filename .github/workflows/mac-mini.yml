@@ -67,7 +67,7 @@ jobs:
     # The parcels example's iOS scenarios (@ios), as its README runs them: axx starts the service
     # and all of its infrastructure with Docker Compose (Colima, on the mini), and runs the
     # couriers' iOS app on simulators it makes. The mini keeps what ci.yml's ios job restores
-    # every time (Appium, WebDriverAgent, the simulators and the iOS runtime's shared cache), its
+    # every time (WebDriverAgent, the simulators and the iOS runtime's shared cache), its
     # Go and mise caches, and the compose file's images and build cache: nothing is restored or
     # saved. GitHub's cache is not used at all, as a pull_request_target run would write main's.
     runs-on: [self-hosted, macOS, ARM64, mac-mini]

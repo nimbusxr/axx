@@ -146,3 +146,16 @@ func (s *Session) report(ctx context.Context, command string, a Area, direction 
 		s.touched(t)
 	}
 }
+
+// Gesture sends one of the driver's own gestures, at a path of the session
+// ("/wda/swipe"), as command names it to Mobile ("swipe", "scroll"), and
+// reports the touch it makes.
+func (s *Session) Gesture(ctx context.Context, path, command string, args map[string]any) error {
+	if s.Touched != nil {
+		if t, ok := s.gesture(ctx, command, args); ok {
+			t.At = time.Now()
+			s.touched(t)
+		}
+	}
+	return s.Command(ctx, http.MethodPost, path, args, nil)
+}

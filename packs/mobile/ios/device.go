@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -35,9 +36,9 @@ func (r runner) RunsHere() bool { return r.app.server != "" || runtime.GOOS == "
 func (r runner) Start(sc *core.Scenario) (mobilecore.Device, error) {
 	a := r.app
 	ctx := sc.Context()
-	logDir := filepath.Join(sc.Suite().ProjectDir(), ".axx", "mobile")
 	d := &running{app: a, bundleID: a.bundleID}
 	client := &appium.Client{URL: a.server}
+	caps := map[string]any{}
 	if a.server == "" {
 		p, err := poolFor(sc, a.device)
 		if err != nil {
@@ -46,13 +47,15 @@ func (r runner) Start(sc *core.Scenario) (mobilecore.Device, error) {
 		// Waiting for a device another scenario has, or for one being made
 		// ready (a first boot takes minutes), is not the step's own work.
 		release := sc.Hold()
-		dev, err := p.lease(ctx, logDir)
+		dev, err := p.lease(ctx)
 		release()
 		if err != nil {
 			return nil, err
 		}
 		d.pool, d.dev, d.key = p, dev, p.key
-		client = dev.appium.Client
+		// WebDriverAgent itself: the session is a request to it, the app not
+		// launched yet (a step launches it, or opens a link).
+		client = &appium.Client{URL: dev.wdaURL(), HTTP: &http.Client{}}
 		if err := d.reset(ctx, sc.Suite()); err != nil {
 			p.release(dev)
 			return nil, err
@@ -62,7 +65,10 @@ func (r runner) Start(sc *core.Scenario) (mobilecore.Device, error) {
 			return nil, err
 		}
 	}
-	s, err := client.NewSession(ctx, a.capabilities(d.dev, d.bundleID, d.dev != nil && !deviceWindowOpen(ctx)))
+	if d.dev == nil {
+		caps = a.capabilities(d.bundleID)
+	}
+	s, err := client.NewSession(ctx, caps)
 	if err != nil {
 		d.releaseDevice()
 		return nil, fmt.Errorf("cannot start the %s app: %w", a.name, err)
@@ -134,39 +140,21 @@ func noAlert(err error) bool {
 	return errors.As(err, &ae) && ae.Code == "no such alert"
 }
 
-// capabilities are what the session asks Appium for. On a simulator axx
-// runs, axx reset the app before the session starts, so Appium leaves it as
-// it is; another Appium server installs the app afresh itself.
-func (a *app) capabilities(dev *device, bundleID string, headless bool) map[string]any {
+// capabilities are what a session asks an Appium server of the project's own
+// or a device farm's for: it installs the app afresh itself.
+func (a *app) capabilities(bundleID string) map[string]any {
 	caps := map[string]any{
 		"platformName":             "iOS",
 		"appium:automationName":    "XCUITest",
-		"appium:noReset":           dev != nil,
+		"appium:noReset":           false,
 		"appium:autoLaunch":        false,
 		"appium:newCommandTimeout": 0, // the scenario holds the session
 	}
-	if dev == nil && a.path != "" {
+	if a.path != "" {
 		caps["appium:app"] = a.path
 	}
 	if bundleID != "" {
 		caps["appium:bundleId"] = bundleID
-	}
-	if dev != nil {
-		caps["appium:udid"] = dev.udid
-		caps["appium:platformVersion"] = dev.version
-		if dev.set != "" {
-			caps["appium:simulatorDevicesSetPath"] = string(dev.set)
-		}
-		// WebDriverAgent runs for every scenario on the simulator (wda.go):
-		// a session given its URL leaves it running.
-		caps["appium:webDriverAgentUrl"] = dev.wdaURL()
-		caps["appium:mjpegServerPort"] = dev.mjpegPort
-		caps["appium:reduceMotion"] = true // a screen settles at once, and screenshots compare
-		// The simulator runs without a window. Asked for a headless session,
-		// the driver quits Device Hub (or Simulator) if it is open; asked for
-		// one with a window, it boots the simulator again to show it unless
-		// that app is open. So a session is headless only while it is not.
-		caps["appium:isHeadless"] = headless
 	}
 	for k, v := range a.caps {
 		caps[k] = v
@@ -319,8 +307,18 @@ const runningSuspended = 2
 
 func (d *running) state(ctx context.Context) (int, error) {
 	var state int
-	err := d.session.Mobile(ctx, "queryAppState", map[string]any{"bundleId": d.bundleID}, &state)
+	err := d.appCommand(ctx, "queryAppState", "state", map[string]any{"bundleId": d.bundleID}, &state)
 	return state, err
+}
+
+// appCommand runs one of the app commands: WebDriverAgent's own (/wda/apps/<path>)
+// on a simulator axx runs, Appium's mobile: command (command) on another
+// server.
+func (d *running) appCommand(ctx context.Context, command, path string, args map[string]any, out any) error {
+	if d.dev == nil {
+		return d.session.Mobile(ctx, command, args, out)
+	}
+	return d.session.Command(ctx, http.MethodPost, "/wda/apps/"+path, args, out)
 }
 
 // Launch brings the app to the front; one that is not running starts in the
@@ -331,13 +329,13 @@ func (d *running) Launch(ctx context.Context) error {
 		return err
 	}
 	if state >= runningSuspended {
-		return d.session.Mobile(ctx, "activateApp", map[string]any{"bundleId": d.bundleID}, nil)
+		return d.appCommand(ctx, "activateApp", "activate", map[string]any{"bundleId": d.bundleID}, nil)
 	}
 	return d.start(ctx)
 }
 
 func (d *running) start(ctx context.Context) error {
-	return d.session.Mobile(ctx, "launchApp", map[string]any{
+	return d.appCommand(ctx, "launchApp", "launch", map[string]any{
 		"bundleId":    d.bundleID,
 		"arguments":   d.app.launchArguments(),
 		"environment": map[string]string{"TZ": d.app.timezone},
@@ -345,14 +343,18 @@ func (d *running) start(ctx context.Context) error {
 }
 
 func (d *running) Restart(ctx context.Context) error {
-	if err := d.session.Mobile(ctx, "terminateApp", map[string]any{"bundleId": d.bundleID}, nil); err != nil {
+	if err := d.appCommand(ctx, "terminateApp", "terminate", map[string]any{"bundleId": d.bundleID}, nil); err != nil {
 		return err
 	}
 	return d.start(ctx)
 }
 
+// Background sends the app to the background, as the home gesture does.
 func (d *running) Background(ctx context.Context) error {
-	return d.session.Mobile(ctx, "backgroundApp", map[string]any{"seconds": -1}, nil)
+	if d.dev == nil {
+		return d.session.Mobile(ctx, "backgroundApp", map[string]any{"seconds": -1}, nil)
+	}
+	return d.session.ServerCommand(ctx, http.MethodPost, "/wda/homescreen", nil, nil)
 }
 
 // OpenLink opens a link in the app, which starts first when it is not
@@ -367,12 +369,20 @@ func (d *running) OpenLink(ctx context.Context, url string) error {
 			return err
 		}
 	}
-	return d.session.Mobile(ctx, "deepLink", map[string]any{"url": url, "bundleId": d.bundleID}, nil)
+	if d.dev == nil {
+		return d.session.Mobile(ctx, "deepLink", map[string]any{"url": url, "bundleId": d.bundleID}, nil)
+	}
+	_, err = d.dev.set.simctl(ctx, "openurl", d.dev.udid, url)
+	return err
 }
 
 // Swipe swipes across the screen, as a finger does.
 func (d *running) Swipe(ctx context.Context, direction string) error {
-	return d.session.Mobile(ctx, "swipe", map[string]any{"direction": direction}, nil)
+	args := map[string]any{"direction": direction}
+	if d.dev == nil {
+		return d.session.Mobile(ctx, "swipe", args, nil)
+	}
+	return d.session.Gesture(ctx, "/wda/swipe", "swipe", args)
 }
 
 // Scroll scrolls the first thing on the screen that scrolls, and tells
@@ -408,7 +418,13 @@ func (d *running) Scroll(ctx context.Context, direction string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	if err := d.session.Mobile(ctx, "scroll", map[string]any{"elementId": el.ID, "direction": direction}, nil); err != nil {
+	args := map[string]any{"elementId": el.ID, "direction": direction}
+	if d.dev == nil {
+		err = d.session.Mobile(ctx, "scroll", args, nil)
+	} else {
+		err = d.session.Gesture(ctx, "/wda/element/"+el.ID+"/scroll", "scroll", args)
+	}
+	if err != nil {
 		return false, err
 	}
 	after, err := d.session.Source(ctx)
@@ -437,7 +453,7 @@ type notificationCenter struct{ d *running }
 
 func (n notificationCenter) Shows(ctx context.Context, text string) (bool, error) {
 	q := predicateString(text)
-	els, err := n.d.session.FindAll(ctx, "-ios predicate string", "label CONTAINS[c] "+q+" OR value CONTAINS[c] "+q)
+	els, err := n.d.session.FindAll(ctx, n.d.predicate(), "label CONTAINS[c] "+q+" OR value CONTAINS[c] "+q)
 	if appium.IsNoSuchElement(err) {
 		return false, nil
 	}
@@ -447,7 +463,7 @@ func (n notificationCenter) Shows(ctx context.Context, text string) (bool, error
 // Texts are the notifications' texts: SpringBoard labels each with all of
 // them, like "PARCELS COURIER, now, PX-MOB-9401 delivered, Signed by ...".
 func (n notificationCenter) Texts(ctx context.Context) []string {
-	els, err := n.d.session.FindAll(ctx, "-ios predicate string", "name == 'NotificationShortLookView'")
+	els, err := n.d.session.FindAll(ctx, n.d.predicate(), "name == 'NotificationShortLookView'")
 	if err != nil {
 		return nil
 	}
@@ -464,11 +480,11 @@ func (n notificationCenter) Texts(ctx context.Context) []string {
 // to slide away, and a tap before it has gone lands on it, not on the app: so
 // it waits, up to five seconds, for SpringBoard to stop showing notifications.
 func (n notificationCenter) Close(ctx context.Context) error {
-	if err := n.d.session.Mobile(ctx, "activateApp", map[string]any{"bundleId": n.d.bundleID}, nil); err != nil {
+	if err := n.d.appCommand(ctx, "activateApp", "activate", map[string]any{"bundleId": n.d.bundleID}, nil); err != nil {
 		return err
 	}
 	for deadline := time.Now().Add(5 * time.Second); time.Now().Before(deadline); {
-		els, err := n.d.session.FindAll(ctx, "-ios predicate string", "name == 'NotificationShortLookView'")
+		els, err := n.d.session.FindAll(ctx, n.d.predicate(), "name == 'NotificationShortLookView'")
 		if err != nil || len(els) == 0 {
 			break
 		}
@@ -479,6 +495,15 @@ func (n notificationCenter) Close(ctx context.Context) error {
 		}
 	}
 	return n.d.session.Settings(ctx, map[string]any{"defaultActiveApplication": n.d.bundleID})
+}
+
+// predicate is the locator strategy of an NSPredicate: WebDriverAgent's name for it, or Appium's
+// on an Appium server.
+func (d *running) predicate() string {
+	if d.dev == nil {
+		return "-ios predicate string"
+	}
+	return "predicate string"
 }
 
 // predicateString is a text as a string of an NSPredicate.
@@ -537,15 +562,32 @@ func (d *running) ScrollToShow(ctx context.Context, n *mobilecore.Node, _ string
 // hides it, so it presses return (or done), as a person does to end the editing; never go, send
 // or search, which would act.
 func (d *running) HideKeyboard(ctx context.Context) (bool, error) {
-	shown, err := d.session.KeyboardShown(ctx)
+	shown, err := d.keyboardShown(ctx)
 	if err != nil || !shown {
 		return false, err
 	}
 	keys := []string{"return", "Return", "done", "Done"}
-	if err := d.session.Mobile(ctx, "hideKeyboard", map[string]any{"keys": keys}, nil); err != nil {
+	if d.dev == nil {
+		err = d.session.Mobile(ctx, "hideKeyboard", map[string]any{"keys": keys}, nil)
+	} else {
+		err = d.session.Command(ctx, http.MethodPost, "/wda/keyboard/dismiss", map[string]any{"keyNames": keys}, nil)
+	}
+	if err != nil {
 		return false, err
 	}
 	return true, nil
+}
+
+// keyboardShown is whether the keyboard shows: the screen has it.
+func (d *running) keyboardShown(ctx context.Context) (bool, error) {
+	if d.dev == nil {
+		return d.session.KeyboardShown(ctx)
+	}
+	_, err := d.session.Find(ctx, "class name", "XCUIElementTypeKeyboard")
+	if appium.IsNoSuchElement(err) {
+		return false, nil
+	}
+	return err == nil, err
 }
 
 func (d *running) SystemBars(ctx context.Context) ([]mobilecore.Rect, error) {
@@ -553,7 +595,13 @@ func (d *running) SystemBars(ctx context.Context) ([]mobilecore.Rect, error) {
 		StatusBarSize struct{ Width, Height float64 } `json:"statusBarSize"`
 		Scale         float64                         `json:"scale"`
 	}
-	if err := d.session.Mobile(ctx, "deviceScreenInfo", nil, &info); err != nil {
+	var err error
+	if d.dev == nil {
+		err = d.session.Mobile(ctx, "deviceScreenInfo", nil, &info)
+	} else {
+		err = d.session.Command(ctx, http.MethodGet, "/wda/screen", nil, &info)
+	}
+	if err != nil {
 		return nil, fmt.Errorf("cannot read where the simulator's status bar is: %w", err)
 	}
 	if info.Scale == 0 {

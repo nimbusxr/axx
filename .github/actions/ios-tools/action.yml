@@ -3,7 +3,7 @@ name: ios-tools
 description: >-
   What an iOS run prepares the first time on a machine: the iOS runtime's shared cache, which
   the first boot of a simulator builds (over ten minutes on a hosted runner), and what the
-  mobile-ios pack downloads into axx's cache: Appium, WebDriverAgent, Node.js. Not the
+  mobile-ios pack downloads into axx's cache: WebDriverAgent. Not the
   simulator the pack sets up to clone: a simulator's keychain belongs to the machine it was made
   on, and one from another machine hangs. Keyed by the macOS and runtime builds they belong to,
   and the tools' versions. Restore them before the tests, and save them as the job's last step:
@@ -20,10 +20,7 @@ runs:
       run: |
         # The newest iOS runtime, which the pack's simulators run.
         runtime=$(xcrun simctl list runtimes -j | jq -r '[.runtimes[] | select(.platform == "iOS" and .isAvailable)] | sort_by(.version | split(".") | map(tonumber)) | last | .buildversion')
-        versions=$({
-          grep -hE '(wdaVersion|appiumName|NodeVersion) *=' packs/mobile/ios/install.go internal/npm/node.go
-          shasum -a 256 packs/mobile/ios/appium/package-lock.json
-        } | shasum -a 256 | cut -c1-16)
+        versions=$(grep -hE 'wdaVersion *=' packs/mobile/ios/install.go | shasum -a 256 | cut -c1-16)
         echo "key=ios-tools-$(sw_vers -buildVersion)-${runtime}-${versions}" >> "$GITHUB_OUTPUT"
     - if: inputs.mode == 'restore'
       uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
