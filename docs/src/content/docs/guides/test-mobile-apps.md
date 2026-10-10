@@ -164,6 +164,8 @@ Controls are found by the names people see: a button by its text, a field by its
 
 `swiped down` pulls a list to refresh; `up`, `left` and `right` swipe too. The back button is Android's; on iOS, tap the back button the screen shows, by its text.
 
+`scrolled into view` scrolls the list or text that holds the control until it shows, as a person does. A control far down a long text, like the end of a terms of service, is reached in one move on iOS, which grabs the scroll bar and drags it there, and in a few flings on Android.
+
 ## Check what it shows
 
 ```gherkin

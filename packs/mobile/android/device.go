@@ -492,27 +492,88 @@ func (d *running) OpenNotifications(ctx context.Context) (mobilecore.Notificatio
 	return mobilecore.ScreenNotifications{Read: d.Screen, Hide: d.session.Back}, nil
 }
 
-// SystemBars are the status and navigation bars, as UiAutomator2 reads them.
-// ScrollToShow scrolls the screen's scrolling view down until the control of that name shows, or
-// the view reaches its end, as a person reads a long text to its end: Android does not list
-// what a scroll view holds out of view, so it looks after each page. Paging stops at 20; a long
-// text goes on for longer (DTCD's terms), and stops at its end.
+// ScrollToShow scrolls the screen's scrolling view down until the control of that name shows, as
+// a person looks for something in a long text: Android does not list what a scroll view holds
+// out of view, so it looks each time the view is at rest. It turns a page twice; a control
+// further down is in a long text (DTCD's terms, which took a minute a page at a time), which it
+// flings through, many screens at once; what a fling went past, it turns back to a page at a
+// time.
 func (d *running) ScrollToShow(ctx context.Context, _ *mobilecore.Node, name string) (bool, error) {
-	for range 200 {
+	for i := range 52 {
 		s, err := d.Screen(ctx)
+		if err != nil || s.Shows(name) {
+			return err == nil, err
+		}
+		var moved bool
+		if i < 2 {
+			moved, err = d.Scroll(ctx, "down")
+		} else {
+			moved, err = d.fling(ctx, s, "down")
+		}
 		if err != nil {
 			return false, err
 		}
-		if s.Shows(name) {
-			return true, nil
+		if !moved {
+			break // at the end
 		}
-		more, err := d.Scroll(ctx, "down")
-		if err != nil || !more {
-			if s, err := d.Screen(ctx); err == nil && s.Shows(name) {
-				return true, nil
-			}
+	}
+	for range 200 {
+		s, err := d.Screen(ctx)
+		if err != nil || s.Shows(name) {
+			return err == nil, err
+		}
+		moved, err := d.Scroll(ctx, "up")
+		if err != nil || !moved {
 			return false, err
 		}
+	}
+	return false, nil
+}
+
+// fling flings the screen's first scrolling view toward direction, as a quick finger does, and
+// reports whether it moved, once the view has come to rest.
+func (d *running) fling(ctx context.Context, s *mobilecore.Screen, direction string) (bool, error) {
+	for _, n := range s.Visible() {
+		if !n.Scrolling {
+			continue
+		}
+		// Inside the view's edges, as Scroll keeps.
+		b, in := n.Bounds, 0.05
+		area := appium.Area{Left: b.X + b.Width*in, Top: b.Y + b.Height*in, Width: b.Width * (1 - 2*in), Height: b.Height * (1 - 2*in)}
+		var err error
+		if d.dev != nil {
+			_, err = d.session.Fling(ctx, area, direction)
+		} else {
+			err = d.session.Mobile(ctx, "flingGesture", map[string]any{
+				"left": int(area.Left), "top": int(area.Top), "width": int(area.Width), "height": int(area.Height),
+				"direction": direction,
+			}, nil)
+		}
+		if err != nil {
+			return false, err
+		}
+		// The view coasts after the fling (and a Compose view says it can go no further after
+		// every one): it is at rest once two reads in a row agree.
+		before := shown(s)
+		last, still := before, 0
+		for range 20 {
+			select {
+			case <-ctx.Done():
+				return false, ctx.Err()
+			case <-time.After(150 * time.Millisecond):
+			}
+			after, err := d.Screen(ctx)
+			if err != nil {
+				return false, err
+			}
+			now := shown(after)
+			if now != last {
+				last, still = now, 0
+			} else if still++; still >= 2 {
+				break
+			}
+		}
+		return last != before, nil
 	}
 	return false, nil
 }
