@@ -104,6 +104,7 @@ func (a *app) capabilities(dev *device) map[string]any {
 	if dev != nil {
 		caps["appium:udid"] = dev.serial
 		caps["appium:systemPort"] = dev.systemPort
+		caps["appium:mjpegServerPort"] = dev.mjpegPort
 	}
 	for k, v := range a.caps {
 		caps[k] = v
@@ -355,6 +356,15 @@ func (d *running) SystemBars(ctx context.Context) ([]mobilecore.Rect, error) {
 		}
 	}
 	return out, nil
+}
+
+// Stream is the UiAutomator2 server's screen stream, which Appium forwards to the host; none
+// for a farm's device.
+func (d *running) Stream() string {
+	if d.dev == nil || d.dev.mjpegPort == 0 {
+		return ""
+	}
+	return "http://127.0.0.1:" + strconv.Itoa(d.dev.mjpegPort)
 }
 
 // ScreenKey is android- and the emulator's device (AVD), or the device's

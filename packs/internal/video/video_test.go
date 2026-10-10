@@ -202,3 +202,24 @@ func children(b []byte, kind string) [][]byte {
 	}
 	return out
 }
+
+// A touch is a blue disc where the finger is, and fades: gone at the end.
+func TestDrawTouch(t *testing.T) {
+	img := image.NewRGBA(image.Rect(0, 0, 100, 100))
+	DrawTouch(img, image.Pt(20, 50), image.Pt(70, 50), 12, 0)
+	at, trail, off := img.RGBAAt(70, 50), img.RGBAAt(40, 50), img.RGBAAt(70, 10)
+	if at.B < 80 || at.B <= at.R {
+		t.Errorf("no blue disc where the finger is: %v", at)
+	}
+	if trail.B == 0 || trail.B >= at.B {
+		t.Errorf("the path behind the finger is not fainter than it: %v, %v", trail, at)
+	}
+	if off != (color.RGBA{}) {
+		t.Errorf("a touch draws away from the finger: %v", off)
+	}
+	gone := image.NewRGBA(image.Rect(0, 0, 100, 100))
+	DrawTouch(gone, image.Pt(70, 50), image.Pt(70, 50), 12, 1)
+	if gone.RGBAAt(70, 50) != (color.RGBA{}) {
+		t.Errorf("a faded touch still shows")
+	}
+}

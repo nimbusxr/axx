@@ -28,7 +28,9 @@ const configSchema = `{
         "tolerance": {"type": "number", "minimum": 0, "maximum": 1, "description": "The share of a screenshot's pixels that may differ (default 0)."},
         "update": {"type": "boolean", "description": "Take every screenshot again, as the app looks now, instead of comparing."}
       }
-    }
+    },
+    "traces": {"type": "string", "enum": ["failed", "always", "never"], "description": "Which scenarios keep a trace of each app in .axx/mobile/traces: its screen after each step, and its controls where it failed (default never)."},
+    "videos": {"type": "string", "enum": ["failed", "always", "never"], "description": "Which scenarios keep a video in .axx/mobile/videos: their phones as they ran, each touch drawn, with their steps beside them (default never)."}
   }
 }`
 
@@ -39,12 +41,17 @@ type Config struct {
 		Tolerance float64 `json:"tolerance"`
 		Update    bool    `json:"update"`
 	} `json:"screenshots"`
+	// Traces and Videos are which scenarios keep a trace of each app and a
+	// video: failed, always or never (the default).
+	Traces string `json:"traces"`
+	Videos string `json:"videos"`
 }
 
 type settings struct {
-	folder    string // absolute
-	tolerance float64
-	update    bool
+	folder         string // absolute
+	tolerance      float64
+	update         bool
+	traces, videos string
 }
 
 func settingsFor(s *core.Suite) (*settings, error) {
@@ -69,7 +76,14 @@ func parseConfig(c Config, projectDir string) (*settings, error) {
 	if !filepath.IsAbs(folder) {
 		folder = filepath.Join(projectDir, filepath.FromSlash(folder))
 	}
-	return &settings{folder: folder, tolerance: sc.Tolerance, update: sc.Update}, nil
+	traces, videos := c.Traces, c.Videos
+	if traces == "" {
+		traces = "never"
+	}
+	if videos == "" {
+		videos = "never"
+	}
+	return &settings{folder: folder, tolerance: sc.Tolerance, update: sc.Update, traces: traces, videos: videos}, nil
 }
 
 // looksLike compares what the app shows, once it has settled, with its

@@ -3,6 +3,7 @@
 package mobileios
 
 import (
+	"bytes"
 	"context"
 	"os"
 	"os/exec"
@@ -165,4 +166,57 @@ func TestCouriersOnASimulator(t *testing.T) {
 	if err := h.End("passed"); err != nil {
 		t.Fatal(err)
 	}
+}
+
+// recordingsKept checks that the scenario kept a trace of the courier app,
+// its screen after each step, and a video of its phone as it ran, with a
+// chapter for each step; and that the run kept one more, of its scenarios.
+func recordingsKept(t *testing.T, h *cloudtest.Harness) {
+	t.Helper()
+	traces, _ := filepath.Glob(filepath.Join(h.Dir, ".axx", "mobile", "traces", "*-courier-*.html"))
+	videos, _ := filepath.Glob(filepath.Join(h.Dir, ".axx", "mobile", "videos", "test-*.mp4"))
+	if len(traces) != 1 || len(videos) != 1 {
+		t.Fatalf("traces %v, videos %v", traces, videos)
+	}
+	page, _ := os.ReadFile(traces[0])
+	if n := strings.Count(string(page), "data:image/jpeg;base64,"); n < 5 {
+		t.Errorf("the trace has %d screens, not one for each step from the app's start", n)
+	}
+	movie, _ := os.ReadFile(videos[0])
+	if len(movie) < 8 || string(movie[4:8]) != "ftyp" || !bytes.Contains(movie, []byte("avcC")) {
+		t.Errorf("the video is not H.264 in an MP4 file: %q", movie[:min(len(movie), 16)])
+	}
+	for _, want := range []string{"chpl", "* the courier app is swiped down"} {
+		if !bytes.Contains(movie, []byte(want)) {
+			t.Errorf("the video's chapters lack %q", want)
+		}
+	}
+	if err := h.Suite.Close(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if dir := os.Getenv("AXX_KEEP_RECORDINGS"); dir != "" {
+		_ = os.CopyFS(dir, os.DirFS(filepath.Join(h.Dir, ".axx", "mobile")))
+	}
+	run, err := os.ReadFile(filepath.Join(h.Dir, ".axx", "mobile", "videos", "run.mp4"))
+	if err != nil || len(run) <= len(movie) || !bytes.Contains(run, []byte("✓ "+h.SC.Name)) {
+		t.Errorf("the run's video is not the scenario's after cards: %d bytes, the scenario's %d (%v)", len(run), len(movie), err)
+	}
+}
+
+// A scenario keeps what the settings ask: a trace and a video of its phone.
+func TestRecordingsOnASimulator(t *testing.T) {
+	device := simulator(t)
+	courierapi.Start(t)
+	t.Setenv("COURIER_PIN", "4711")
+	h := cloudtest.NewWith(t, map[string]any{"mobile-core": map[string]any{"traces": "always", "videos": "always"}}, appcore.Pack(), mobilecore.Pack(), Pack())
+	warm(t, h, device)
+	h.OK("the courier ios app with the following properties:", [][]string{{"app", courierBuild(t)}, {"device", device}})
+	signIn(h)
+	h.OK(`the courier app's dialog is accepted`)
+	h.OK(`the courier app shows "Hello, Hanna Wolf"`)
+	h.OK("the courier app is swiped down")
+	if err := h.End("passed"); err != nil {
+		t.Fatal(err)
+	}
+	recordingsKept(t, h)
 }

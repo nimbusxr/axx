@@ -16,6 +16,7 @@ import (
 	"github.com/nimbusxr/axx/internal/secrets"
 	"github.com/nimbusxr/axx/internal/shellwords"
 	appcore "github.com/nimbusxr/axx/packs/app/core"
+	"github.com/nimbusxr/axx/packs/internal/recording"
 )
 
 // App is a desktop app a scenario registered, for one OS.
@@ -236,11 +237,11 @@ type scenario struct {
 	order   []string
 	// recordings are its apps' traces and videos, by app; tracing are the
 	// trace captures still being taken.
-	recordings map[string]*recording
+	recordings map[string]*appRecording
 	tracing    sync.WaitGroup
 	// recorder records its desktop for its video, from its first app's
 	// start.
-	recorder *recorder
+	recorder *recording.Recorder
 }
 
 var scenarios = core.NewStateKey(Name+"/scenario", func(sc *core.Scenario) *scenario {

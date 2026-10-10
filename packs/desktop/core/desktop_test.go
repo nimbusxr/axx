@@ -12,7 +12,6 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"slices"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -21,8 +20,8 @@ import (
 	"github.com/nimbusxr/axx/core"
 	"github.com/nimbusxr/axx/internal/cloudstep/cloudtest"
 	appcore "github.com/nimbusxr/axx/packs/app/core"
-	"github.com/nimbusxr/axx/packs/desktop/internal/video"
 	"github.com/nimbusxr/axx/packs/files"
+	"github.com/nimbusxr/axx/packs/internal/recording"
 )
 
 // fakeDriver runs fake apps on this machine's OS.
@@ -782,7 +781,7 @@ func TestRecordings(t *testing.T) {
 		t.Fatal(err)
 	}
 	h.OK("the depot app is launched")
-	time.Sleep(3 * time.Second / frameRate)
+	time.Sleep(3 * time.Second / recording.FrameRate)
 	h.OK(`the "Register" button is shown in the depot app`)
 	if err := h.End("passed"); err != nil {
 		t.Fatal(err)
@@ -916,19 +915,6 @@ func TestTraceSnapshotsAreTakenWhileTheNextStepLooks(t *testing.T) {
 	page, _ := os.ReadFile(traces[0])
 	if n := strings.Count(string(page), "data:image/png;base64,"); n != 3 {
 		t.Errorf("the trace has %d captures, not one for each of 3 steps", n)
-	}
-}
-
-func TestTracePageShowsSnapshotsAtTheirScale(t *testing.T) {
-	var shot bytes.Buffer
-	_ = png.Encode(&shot, image.NewRGBA(image.Rect(0, 0, 1280, 1160)))
-	page := string(traceHTML(&core.Scenario{Name: "A clerk registers a parcel"}, "depot",
-		[]traceStep{{keyword: "When", text: "the depot app is launched", png: shot.Bytes(), scale: 2}}, false, ""))
-	if !strings.Contains(page, `width="640" height="580"`) {
-		t.Errorf("a 2x snapshot is not shown at its points' size: %.300s", page)
-	}
-	if w, h, ok := pngSize(shot.Bytes()); !ok || w != 1280 || h != 1160 {
-		t.Errorf("pngSize: %d, %d, %v", w, h, ok)
 	}
 }
 
@@ -1074,23 +1060,5 @@ func TestLeaveSpot(t *testing.T) {
 	}
 	if p, ok := LeaveSpot(screen, screen, image.Pt(960, 540)); ok {
 		t.Errorf("a window that covers the screen: moved to %v", p)
-	}
-}
-
-// A video's chapters are its steps from when they ran, after its opening:
-// the first from the start; one that ran in the same moment as the one
-// before it, with it.
-func TestVideoChapters(t *testing.T) {
-	sc := core.NewScenario(context.Background(), core.ScenarioInfo{Name: "a parcel arrives"}, nil, nil)
-	sc.SetProgress([]core.StepProgress{
-		{StepInfo: core.StepInfo{Keyword: "Given", Text: "the depot app is launched"}, Status: "passed"},
-		{StepInfo: core.StepInfo{Keyword: "When", Text: "a parcel is registered"}, Status: "passed"},
-		{StepInfo: core.StepInfo{Keyword: "Then", Text: "the parcel is listed"}, Status: "passed"},
-	})
-	r := &recorder{sc: sc, marks: []mark{{0, 500 * time.Millisecond}, {1, 1200 * time.Millisecond}, {2, 1250 * time.Millisecond}}}
-	got := r.chapters()
-	want := []video.Chapter{{Title: "Given the depot app is launched", At: 0}, {Title: "When a parcel is registered", At: openingLength + 1200*time.Millisecond}}
-	if !slices.Equal(got, want) {
-		t.Errorf("chapters %+v, want %+v", got, want)
 	}
 }

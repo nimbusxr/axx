@@ -33,6 +33,7 @@ func (pack) Manifest() core.Manifest {
 		Requires:     []string{appcore.Name},
 		Params:       []core.ParamType{directionParam},
 		ConfigSchema: []byte(configSchema),
+		Hooks:        []core.Hook{{ID: Name + ".trace", Phase: core.AfterStep, Run: traceStepHook}},
 		Steps:        append(appcore.Paced(append(steps(), dialogSteps()...)), notificationSteps()...),
 	}
 }
