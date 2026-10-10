@@ -10,6 +10,7 @@ import (
 	"github.com/nimbusxr/axx/core"
 	"github.com/nimbusxr/axx/internal/compat/jsonx"
 	"github.com/nimbusxr/axx/internal/compat/jvalue"
+	"github.com/nimbusxr/axx/internal/secrets"
 )
 
 // target locates the request (or response) a step works on: the positions
@@ -395,7 +396,7 @@ func requestSteps() []core.StepDef {
 			namedExample: "Given the request payload property serviceLevel is 'EXPRESS' for request on parcels",
 			run: func(sc *core.Scenario, a core.Args, t target) error {
 				return modifyPayload(sc, a, t, func(doc any) error {
-					return missingParent(doc, a.String(0), jvalue.SetRequestProperty(doc, a.String(0), a.String(1)))
+					return missingParent(doc, a.String(0), jvalue.SetRequestProperty(doc, a.String(0), secrets.Expand(sc, a.String(1))))
 				})
 			},
 		},
@@ -424,7 +425,7 @@ func requestSteps() []core.StepDef {
 				}
 				return modifyPayload(sc, a, t, func(doc any) error {
 					for _, p := range pairs {
-						if err := jvalue.ApplyRequestTableRow(doc, p.Key, p.Value); err != nil {
+						if err := jvalue.ApplyRequestTableRow(doc, p.Key, secrets.Expand(sc, p.Value)); err != nil {
 							return missingParent(doc, p.Key, err)
 						}
 					}

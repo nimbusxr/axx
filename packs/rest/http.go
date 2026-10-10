@@ -103,6 +103,16 @@ func execute(sc *core.Scenario, svc *Service, idx int) error {
 	if executed {
 		return errors.New("Response already set") //nolint:staticcheck // user-facing message
 	}
+	// Header values take ${env:..}, ${sys:..} and ${token:..} references, as the service's
+	// properties do: an API key from the environment, a token the scenario registered.
+	for name, vs := range hdr {
+		for i, v := range vs {
+			if vs[i], err = secrets.Resolve(sc, v); err != nil {
+				return secrets.Hide(sc, err)
+			}
+		}
+		hdr[name] = vs
+	}
 	if method == "" {
 		return errors.New("Method not set") //nolint:staticcheck // user-facing message
 	}
