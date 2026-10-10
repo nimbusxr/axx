@@ -369,11 +369,13 @@ func (d *running) OpenLink(ctx context.Context, url string) error {
 			return err
 		}
 	}
+	args := map[string]any{"url": url, "bundleId": d.bundleID}
 	if d.dev == nil {
-		return d.session.Mobile(ctx, "deepLink", map[string]any{"url": url, "bundleId": d.bundleID}, nil)
+		return d.session.Mobile(ctx, "deepLink", args, nil)
 	}
-	_, err = d.dev.set.simctl(ctx, "openurl", d.dev.udid, url)
-	return err
+	// XCTest opens it in the app itself, as the app's own link: simctl openurl
+	// hands it to the system, which may not pass it on (DTCD's permit links).
+	return d.session.Command(ctx, http.MethodPost, "/url", args, nil)
 }
 
 // Swipe swipes across the screen, as a finger does.
