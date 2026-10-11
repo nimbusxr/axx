@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.11](https://github.com/nimbusxr/axx/compare/v0.2.10...v0.2.11) (2026-10-11)
+
+
+### Bug Fixes
+
+* **mobile-ios:** a sheet's buttons are tapped where they are, whatever iOS says of them ([#153](https://github.com/nimbusxr/axx/issues/153)) ([c67eb43](https://github.com/nimbusxr/axx/commit/c67eb43e66220ff1e07847c82d56c10d8970afa2))
+* **recordings:** the run's video shows its scenarios as their feature files have them ([#155](https://github.com/nimbusxr/axx/issues/155)) ([d40354d](https://github.com/nimbusxr/axx/commit/d40354d6f9e58ddf74374646c429cd3a70512579))
+
 ## [0.2.10](https://github.com/nimbusxr/axx/compare/v0.2.9...v0.2.10) (2026-10-11)
 
 
