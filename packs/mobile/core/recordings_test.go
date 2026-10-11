@@ -2,10 +2,13 @@ package mobilecore
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"image"
 	"image/color"
 	"image/jpeg"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
@@ -94,5 +97,28 @@ func TestPhonesKeepTheirOrder(t *testing.T) {
 	}
 	if got := strings.Join(p.list(), ","); got != "courier,depot" {
 		t.Errorf("phones %s", got)
+	}
+}
+
+// A screen stream that sends no frames says what went wrong with it, for the scenario's log.
+func TestAStreamWithoutFramesSaysWhy(t *testing.T) {
+	srv := httptest.NewServer(http.NotFoundHandler())
+	defer srv.Close()
+	ctx, cancel := context.WithCancel(context.Background())
+	f := &feed{cancel: cancel, done: make(chan struct{})}
+	go f.run(ctx, srv.URL)
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		f.mu.Lock()
+		broke := f.broke
+		f.mu.Unlock()
+		if broke != "" || time.Now().After(deadline) {
+			break
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	f.stop()
+	if f.frames != 0 || !strings.Contains(f.broke, "404") {
+		t.Errorf("frames %d, broke %q", f.frames, f.broke)
 	}
 }

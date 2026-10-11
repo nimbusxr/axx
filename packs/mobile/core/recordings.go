@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"image"
 	"image/color"
@@ -193,6 +194,17 @@ func finishRecordings(sc *core.Scenario, r *running) {
 	rs.mu.Lock()
 	rec := rs.recorder
 	rs.recorder = nil
+	for name, f := range rs.feeds {
+		f.mu.Lock()
+		frames, broke := f.frames, f.broke
+		f.mu.Unlock()
+		if frames == 0 {
+			if broke == "" {
+				broke = "it sent nothing"
+			}
+			sc.Log("the %s app's screen stream sent no frames (%s): no picture of it in the trace or the video", name, broke)
+		}
+	}
 	rs.mu.Unlock()
 	if rec != nil {
 		recording.Keep(sc, "mobile", rec, cfg.videos, failed)
@@ -296,6 +308,10 @@ type feed struct {
 	at      time.Time
 	window  appium.Rect
 	touches []appium.Touch
+	// frames is how many frames the stream sent, and broke what went wrong with it last: a
+	// stream that sends none leaves no video, and says why.
+	frames int
+	broke  string
 }
 
 // watch starts reading a device's screen stream, and hears of its
@@ -330,9 +346,19 @@ func (f *feed) run(ctx context.Context, url string) {
 		if err != nil {
 			return
 		}
-		if resp, err := client.Do(req); err == nil {
-			_ = readMJPEG(resp.Body, f.add)
+		resp, err := client.Do(req)
+		if err == nil {
+			if resp.StatusCode != http.StatusOK {
+				err = fmt.Errorf("it answered %s", resp.Status)
+			} else if err = readMJPEG(resp.Body, f.add); errors.Is(err, io.EOF) {
+				err = errors.New("it ended")
+			}
 			_ = resp.Body.Close()
+		}
+		if err != nil && ctx.Err() == nil {
+			f.mu.Lock()
+			f.broke = err.Error()
+			f.mu.Unlock()
 		}
 		select {
 		case <-ctx.Done():
@@ -345,10 +371,14 @@ func (f *feed) run(ctx context.Context, url string) {
 func (f *feed) add(b []byte) {
 	img, err := jpeg.Decode(bytes.NewReader(b))
 	if err != nil {
+		f.mu.Lock()
+		f.broke = "a frame that is no JPEG: " + err.Error()
+		f.mu.Unlock()
 		return
 	}
 	f.mu.Lock()
 	f.frame, f.jpeg, f.at = img, b, time.Now()
+	f.frames++
 	f.mu.Unlock()
 }
 
