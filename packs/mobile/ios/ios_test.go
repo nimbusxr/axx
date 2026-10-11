@@ -116,6 +116,8 @@ func TestACourierDelivers(t *testing.T) {
 	h.OK(`the courier app shows "Mark PX-MOB-9401 delivered?"`)
 	h.OK(`the "Confirm" button is tapped in the courier app`)
 	h.OK(`the courier app shows "Delivered"`)
+	// The notification slides as it is read, and the driver loses it: the step looks again.
+	app.Stale(1)
 	h.OK(`the courier app shows a notification "PX-MOB-9401 delivered"`)
 	h.OK(`the courier app does not show "Mark delivered"`)
 	h.OK("the courier app is swiped down")

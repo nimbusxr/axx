@@ -49,6 +49,13 @@ func IsNoSuchElement(err error) bool {
 	return errors.As(err, &e) && e.Code == "no such element"
 }
 
+// IsStale reports whether the driver lost an element it had found as the screen changed under
+// it, like a notification sliding away while it was being read: a look again sees what is there.
+func IsStale(err error) bool {
+	var e *Error
+	return errors.As(err, &e) && e.Code == "stale element reference"
+}
+
 func (c *Client) do(ctx context.Context, method, path string, body, out any) error {
 	var r io.Reader
 	if body != nil {

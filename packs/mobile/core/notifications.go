@@ -7,6 +7,7 @@ import (
 	"github.com/nimbusxr/axx/core"
 	"github.com/nimbusxr/axx/internal/cloudstep"
 	"github.com/nimbusxr/axx/internal/secrets"
+	"github.com/nimbusxr/axx/packs/mobile/internal/appium"
 )
 
 // Notifications are the device's notifications, shown over the app.
@@ -57,7 +58,13 @@ func notificationSteps() []core.StepDef {
 					return err
 				}
 				defer func() { _ = n.Close(context.WithoutCancel(ctx)) }()
-				ok, err := waitUntil(sc, wait, func() (bool, error) { return n.Shows(ctx, text) })
+				ok, err := waitUntil(sc, wait, func() (bool, error) {
+					ok, err := n.Shows(ctx, text)
+					if appium.IsStale(err) {
+						return false, nil // the notifications moved as they were read: look again
+					}
+					return ok, err
+				})
 				if err != nil || ok {
 					return err
 				}
