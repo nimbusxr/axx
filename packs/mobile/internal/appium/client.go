@@ -169,7 +169,7 @@ func (s *Session) do(ctx context.Context, method, p string, body, out any) error
 		return err
 	}
 	if rerr := s.Revive(ctx); rerr != nil {
-		return fmt.Errorf("%w (and it could not be started again: %v)", err, rerr)
+		return fmt.Errorf("%w (and it could not be started again: %w)", err, rerr)
 	}
 	return s.c.do(ctx, method, s.path(p), body, out)
 }
