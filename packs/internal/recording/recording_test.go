@@ -5,6 +5,8 @@ import (
 	"context"
 	"image"
 	"image/png"
+	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
@@ -68,5 +70,37 @@ func TestKeeps(t *testing.T) {
 		if got := Keeps(c.policy, c.failed); got != c.want {
 			t.Errorf("Keeps(%q, %v) = %v", c.policy, c.failed, got)
 		}
+	}
+}
+
+// The run's video shows its scenarios as their feature files have them, file by file and top to
+// bottom, however they ended (scenarios run side by side).
+func TestRunVideoInFeatureOrder(t *testing.T) {
+	dir := t.TempDir()
+	s := core.NewSuite(core.SuiteOptions{ProjectDir: dir})
+	v := &runVideo{started: time.Now(), where: filepath.Join(dir, "run.mp4")}
+	clip, err := cardClip(video.Card{Heading: "a phone"}, 64, 128)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// As they ended: the second file's first, then the first file's later scenario, then its first.
+	for _, sc := range []core.ScenarioInfo{
+		{Name: "signing out", URI: "features/ios/signing-out.feature", Line: 9},
+		{Name: "the terms, read to the end", URI: "features/ios/getting-in.feature", Line: 40},
+		{Name: "signing in", URI: "features/ios/getting-in.feature", Line: 12},
+	} {
+		v.add(core.NewScenario(context.Background(), sc, s, nil), clip, false)
+	}
+	if err := v.write(s); err != nil {
+		t.Fatal(err)
+	}
+	b, err := os.ReadFile(v.where)
+	if err != nil {
+		t.Fatal(err)
+	}
+	at := func(name string) int { return bytes.Index(b, []byte("✓ "+name)) }
+	in, terms, out := at("signing in"), at("the terms, read to the end"), at("signing out")
+	if in < 0 || terms < 0 || out < 0 || in > terms || terms > out {
+		t.Errorf("the chapters are not in the feature files' order: signing in at %d, the terms at %d, signing out at %d", in, terms, out)
 	}
 }
