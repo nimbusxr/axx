@@ -7,14 +7,20 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
+	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
 // sdk is the Android SDK's tools axx runs: adb and the emulator.
 type sdk struct {
 	adb, emulator string
+
+	versionOnce   sync.Once
+	noIncremental bool // whether this adb knows --no-incremental: 30.0.1 and later
 }
 
 // findSDK finds the SDK: ANDROID_HOME, ANDROID_SDK_ROOT, or the tools on
@@ -60,6 +66,41 @@ func (s *sdk) run(ctx context.Context, serial string, args ...string) (string, e
 		return text, fmt.Errorf("adb %s: %w: %s", strings.Join(args, " "), err, text)
 	}
 	return text, nil
+}
+
+// install installs an APK on a device, replacing what it replaces, never incrementally: an
+// incremental install can fail with no reason given (DTCD's emulator on the Mac mini did), and
+// Appium's adb installs so too. An adb older than the option, or a device without it, installs
+// as it always did.
+func (s *sdk) install(ctx context.Context, serial, apk string, args ...string) (string, error) {
+	s.versionOnce.Do(func() {
+		out, _ := exec.CommandContext(ctx, s.adb, "version").CombinedOutput() //nolint:gosec // adb, with arguments axx builds
+		s.noIncremental = knowsNoIncremental(string(out))
+	})
+	cmd := append([]string{"install", "-r"}, args...)
+	if s.noIncremental {
+		if features, err := s.run(ctx, serial, "features"); err == nil && strings.Contains(features, "abb_exec") {
+			cmd = append(cmd, "--no-incremental")
+		}
+	}
+	return s.run(ctx, serial, append(cmd, apk)...)
+}
+
+// adbVersion reads the platform tools' version adb version prints, like "Version 37.0.1-15733141".
+var adbVersion = regexp.MustCompile(`(?m)^Version (\d+)\.(\d+)\.(\d+)`)
+
+// knowsNoIncremental reports whether an adb, by what adb version prints, takes --no-incremental:
+// from 30.0.1, though its help does not say so.
+func knowsNoIncremental(version string) bool {
+	m := adbVersion.FindStringSubmatch(version)
+	if m == nil {
+		return false
+	}
+	var v [3]int
+	for i := range v {
+		v[i], _ = strconv.Atoi(m[i+1])
+	}
+	return v[0] > 30 || (v[0] == 30 && (v[1] > 0 || v[2] >= 1))
 }
 
 // shell runs a command on a device.

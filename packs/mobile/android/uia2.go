@@ -199,7 +199,7 @@ func (p *pool) installServer(ctx context.Context, serial string, apks []string) 
 		return nil
 	}
 	for _, apk := range apks {
-		if _, err := p.sdk.run(ctx, serial, "install", "-r", "-t", "-g", apk); err != nil {
+		if _, err := p.sdk.install(ctx, serial, apk, "-t", "-g"); err != nil {
 			return fmt.Errorf("cannot install the UiAutomator2 server on %s: %w", serial, err)
 		}
 	}
