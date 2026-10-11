@@ -288,6 +288,37 @@ func TestSkipBrowserWelcome(t *testing.T) {
 	}
 }
 
+// An emulator reports where it is every second while its scenario runs, as a phone's GPS does,
+// and stops when the scenario gives it back: the next scenario gets no fix of this one's.
+func TestTheEmulatorKeepsReportingWhereItIs(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("the stand-in adb is a shell script")
+	}
+	dir := t.TempDir()
+	log := filepath.Join(dir, "calls")
+	adb := filepath.Join(dir, "adb")
+	script := "#!/bin/sh\nfor a in \"$@\"; do printf '%s|' \"$a\"; done >> " + log + "\necho >> " + log + "\n"
+	if err := os.WriteFile(adb, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	fixes := func() int {
+		b, _ := os.ReadFile(log)
+		return strings.Count(string(b), "-s|emulator-5554|emu|geo|fix|12.3731|51.3397|\n")
+	}
+	d := &running{sdk: &sdk{adb: adb}, dev: &device{serial: "emulator-5554"}}
+	d.feedLocation("12.3731", "51.3397")
+	time.Sleep(2500 * time.Millisecond)
+	d.releaseDevice()
+	sent := fixes()
+	if sent < 2 {
+		t.Errorf("%d fixes in 2.5 seconds, want one a second", sent)
+	}
+	time.Sleep(1500 * time.Millisecond)
+	if after := fixes(); after != sent {
+		t.Errorf("%d fixes after the scenario gave the emulator back", after-sent)
+	}
+}
+
 // A device farm's options are JSON; other capabilities text or numbers.
 func TestCapabilityValues(t *testing.T) {
 	a := &app{locale: "en-US", caps: map[string]any{"bstack:options": capabilityValue(`{"deviceName": "Pixel 8"}`), "appium:newCommandTimeout": capabilityValue("120")}}

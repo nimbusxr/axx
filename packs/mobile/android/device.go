@@ -201,6 +201,8 @@ type running struct {
 	logDir   string
 	caps     map[string]any
 	reviving sync.Mutex
+	// stopFeed ends the emulator's location fixes (feedLocation) and waits for them to stop.
+	stopFeed func()
 }
 
 func (d *running) Session() *appium.Session { return d.session }
@@ -259,6 +261,7 @@ func (d *running) resetDevice(ctx context.Context) error {
 			return err
 		}
 		d.resets = append(d.resets, "location "+lat+", "+lon)
+		d.feedLocation(lon, lat)
 	}
 	// What the app reaches as localhost: the registration's host ports, and
 	// none another scenario's registration gave.
@@ -279,6 +282,30 @@ func (d *running) resetDevice(ctx context.Context) error {
 		d.resets = append(d.resets, "host ports "+strings.Join(ports, ", "))
 	}
 	return nil
+}
+
+// feedLocation has the emulator report where it is every second until the scenario ends, as a
+// phone's GPS does. A geo fix is a single report: an app that asks for its current location,
+// not the last one the phone had, waits for the next report, and none came.
+func (d *running) feedLocation(lon, lat string) {
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	sdk, serial := d.sdk, d.dev.serial
+	go func() {
+		defer close(done)
+		t := time.NewTicker(time.Second)
+		defer t.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-t.C:
+				_, _ = sdk.run(ctx, serial, "emu", "geo", "fix", lon, lat)
+			}
+		}
+	}()
+	// The next scenario on the emulator gets no fix of this one's.
+	d.stopFeed = func() { cancel(); <-done }
 }
 
 // defaultLocation is where an emulator says it is when nothing set it: the
@@ -725,6 +752,10 @@ func (d *running) Stop(bool) error {
 }
 
 func (d *running) releaseDevice() {
+	if d.stopFeed != nil {
+		d.stopFeed()
+		d.stopFeed = nil
+	}
 	if d.pool != nil && d.dev != nil {
 		d.pool.release(d.dev)
 		d.dev = nil
