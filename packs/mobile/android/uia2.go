@@ -12,6 +12,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/nimbusxr/axx/core"
@@ -93,6 +94,8 @@ type uia2Server struct {
 	// stopOn stops the instrumentation on the device: ending adb's shell
 	// does not.
 	stopOn func()
+	// stopping is whether axx ends the server, rather than its crashing.
+	stopping atomic.Bool
 }
 
 // ensureServer starts the device's server, or starts it again when it has
@@ -164,6 +167,14 @@ func (p *pool) ensureServer(ctx context.Context, d *device, logDir string) error
 	}
 	go func() {
 		_ = cmd.Wait()
+		// A server that ended by itself crashed: its log keeps what the device says of it.
+		if !s.stopping.Load() {
+			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+			if out, err := p.sdk.run(ctx, d.serial, "logcat", "-d", "-b", "crash"); err == nil && out != "" {
+				_, _ = fmt.Fprintf(log, "\nthe device's crash log:\n%s\n", out)
+			}
+			cancel()
+		}
 		close(s.exited)
 	}()
 	deadline := time.Now().Add(uia2Start)
@@ -208,6 +219,7 @@ func (p *pool) installServer(ctx context.Context, serial string, apks []string) 
 
 // stop ends the server's instrumentation.
 func (s *uia2Server) stop() {
+	s.stopping.Store(true)
 	s.stopOn()
 	if s.group != nil {
 		_ = s.group.KillAndWait(5 * time.Second)
