@@ -418,3 +418,17 @@ func TestResumedPackage(t *testing.T) {
 		}
 	}
 }
+
+// An adb takes --no-incremental from 30.0.1, by what adb version prints.
+func TestKnowsNoIncremental(t *testing.T) {
+	for out, want := range map[string]bool{
+		"Android Debug Bridge version 1.0.41\nVersion 37.0.1-15733141\nInstalled as /sdk/platform-tools/adb": true,
+		"Android Debug Bridge version 1.0.41\nVersion 30.0.1-6435776\n":                                      true,
+		"Android Debug Bridge version 1.0.41\nVersion 30.0.0-6374843\n":                                      false,
+		"Android Debug Bridge version 1.0.40\nVersion 4986621\n":                                             false,
+	} {
+		if got := knowsNoIncremental(out); got != want {
+			t.Errorf("%q: %v, want %v", out, got, want)
+		}
+	}
+}
