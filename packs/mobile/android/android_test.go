@@ -119,6 +119,9 @@ func TestACourierDelivers(t *testing.T) {
 	h.OK(`the "Signed by" field in the courier app is filled with "Jonas Weber"`)
 	h.OK(`the "Mark delivered" button is tapped in the courier app`)
 	h.OK(`the courier app shows "Mark PX-MOB-9401 delivered?"`)
+	// The dialog's button drawn again between finding it and tapping it, as on a slow machine: the
+	// server no longer has it, and the step finds it again.
+	app.Expiring(1)
 	h.OK(`the "Confirm" button is tapped in the courier app`)
 	h.OK(`the courier app shows "Delivered"`)
 	h.OK(`the courier app shows a notification "PX-MOB-9401 delivered"`)
