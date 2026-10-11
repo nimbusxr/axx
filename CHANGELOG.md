@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.13](https://github.com/nimbusxr/axx/compare/v0.2.12...v0.2.13) (2026-10-11)
+
+
+### Bug Fixes
+
+* a failed "does not show" check on an app lists what the app shows ([#164](https://github.com/nimbusxr/axx/issues/164)) ([ce0b285](https://github.com/nimbusxr/axx/commit/ce0b285f17ea26297ebac8460e234aa1b0deb75d))
+* **mobile:** the UiAutomator2 server starts once adb has the device back ([#162](https://github.com/nimbusxr/axx/issues/162)) ([3e16c5d](https://github.com/nimbusxr/axx/commit/3e16c5d2a5eb5d1145432765bc34c4a24e049e69))
+
 ## [0.2.12](https://github.com/nimbusxr/axx/compare/v0.2.11...v0.2.12) (2026-10-11)
 
 
