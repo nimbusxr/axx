@@ -108,6 +108,25 @@ func (s *sdk) shell(ctx context.Context, serial string, args ...string) (string,
 	return s.run(ctx, serial, append([]string{"shell"}, args...)...)
 }
 
+// waitOnline waits, up to d, for adb to have the device again: it can drop one for a moment.
+func (s *sdk) waitOnline(ctx context.Context, serial string, d time.Duration) error {
+	deadline := time.Now().Add(d)
+	for {
+		out, err := s.run(ctx, serial, "get-state")
+		if err == nil && strings.TrimSpace(out) == "device" {
+			return nil
+		}
+		if time.Now().After(deadline) {
+			return fmt.Errorf("adb has not had %s for %s: %s", serial, d, strings.TrimSpace(out))
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(500 * time.Millisecond):
+		}
+	}
+}
+
 // devices is the serials adb lists as ready.
 func (s *sdk) devices(ctx context.Context) ([]string, error) {
 	out, err := s.run(ctx, "", "devices")

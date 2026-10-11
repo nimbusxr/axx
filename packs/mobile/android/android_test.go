@@ -372,6 +372,36 @@ func TestPhotosGoInTheLibraryAndOutAgain(t *testing.T) {
 	}
 }
 
+// adb can lose a device for a moment (as a crashing UiAutomator2 server takes it down): axx waits
+// for it to be back before starting the server again, and gives up after a while.
+func TestWaitingForADeviceAdbLostForAMoment(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("the stand-in adb is a shell script")
+	}
+	dir := t.TempDir()
+	count := filepath.Join(dir, "count")
+	adb := filepath.Join(dir, "adb")
+	// Offline for the first two asks, then back.
+	script := "#!/bin/sh\nn=$(cat " + count + " 2>/dev/null || echo 0); echo $((n+1)) > " + count +
+		"\nif [ $n -lt 2 ]; then echo 'error: device offline' >&2; exit 1; fi\necho device\n"
+	if err := os.WriteFile(adb, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	s := &sdk{adb: adb}
+	if err := s.waitOnline(t.Context(), "emulator-5554", 10*time.Second); err != nil {
+		t.Fatalf("a device back after two asks: %v", err)
+	}
+	if b, _ := os.ReadFile(count); strings.TrimSpace(string(b)) != "3" {
+		t.Errorf("asked %s times, want 3", strings.TrimSpace(string(b)))
+	}
+	if err := os.WriteFile(count, []byte("-100"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.waitOnline(t.Context(), "emulator-5554", time.Second); err == nil {
+		t.Error("a device still offline after the wait: no error")
+	}
+}
+
 // A device farm's options are JSON; other capabilities text or numbers.
 func TestCapabilityValues(t *testing.T) {
 	a := &app{locale: "en-US", caps: map[string]any{"bstack:options": capabilityValue(`{"deviceName": "Pixel 8"}`), "appium:newCommandTimeout": capabilityValue("120")}}

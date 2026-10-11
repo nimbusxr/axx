@@ -218,7 +218,18 @@ func (d *running) revive(ctx context.Context) error {
 	if d.session.Alive(ctx) {
 		return nil
 	}
-	if err := d.pool.ensureServer(ctx, d.dev, d.logDir); err != nil {
+	// adb can lose the device for a moment as the server crashes (adb: device offline): the server
+	// is started again once adb has the device back, and once more if adb loses it on the way.
+	var err error
+	for attempt := 0; attempt < 2; attempt++ {
+		if err = d.sdk.waitOnline(ctx, d.dev.serial, time.Minute); err != nil {
+			return err
+		}
+		if err = d.pool.ensureServer(ctx, d.dev, d.logDir); err == nil || !strings.Contains(err.Error(), "device offline") {
+			break
+		}
+	}
+	if err != nil {
 		return err
 	}
 	s, err := d.dev.server.client.NewSession(ctx, d.caps)
