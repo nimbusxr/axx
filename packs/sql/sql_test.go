@@ -143,13 +143,25 @@ func TestResolveValue(t *testing.T) {
 	now := time.Date(2026, 9, 24, 10, 0, 0, 0, time.UTC)
 	cases := map[any]string{
 		nil: "NULL", "[null]": "NULL", "x": "'x'", true: "'true'", uint64(7): "'7'", 2.5: "'2.5'",
-		"[DAY,NOW]": "'2026-09-24 10:00:00'", "[DAY,PLUS,1]": "'2026-09-25 10:00:00'", "[HOUR,MINUS,2]": "'2026-09-24 08:00:00'",
+		"[DAY,NOW]": "'2026-09-24 10:00:00+00:00'", "[DAY,PLUS,1]": "'2026-09-25 10:00:00+00:00'", "[HOUR,MINUS,2]": "'2026-09-24 08:00:00+00:00'",
 		"[UNIX_TIMESTAMP]": "'1790244000'",
 	}
 	for in, want := range cases {
 		got, err := resolveValue(postgres, in, now)
 		if err != nil || got != want {
 			t.Errorf("%v: got %s %v, want %s", in, got, err, want)
+		}
+	}
+	// A time counted from now is the machine's wall clock, and PostgreSQL gets its offset: a
+	// timestamptz column holds the same moment on a machine in Des Moines as on one in UTC.
+	chicago, err := time.LoadLocation("America/Chicago")
+	if err != nil {
+		t.Fatal(err)
+	}
+	local := now.In(chicago)
+	for d, want := range map[Dialect]string{postgres: "'2026-09-24 04:00:00-05:00'", mysql: "'2026-09-24 04:00:00'", sqlserver: "'2026-09-24 04:00:00'"} {
+		if got, err := resolveValue(d, "[HOUR,MINUS,1]", local); err != nil || got != want {
+			t.Errorf("%s: got %s %v, want %s", d.Name, got, err, want)
 		}
 	}
 	if _, err := resolveValue(postgres, "groovy:new Date()", now); err == nil {

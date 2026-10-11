@@ -5,6 +5,7 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
+	"time"
 
 	// Pure-Go drivers (CGO_ENABLED=0 builds).
 	_ "github.com/go-sql-driver/mysql"
@@ -139,6 +140,16 @@ func resolveSQLServer(raw, user, password string) (Target, error) {
 		pu.User = url.UserPassword(user, password)
 	}
 	return Target{Dialect: sqlserver, DSN: pu.String()}, nil
+}
+
+// Time renders a moment as a literal of the machine's wall-clock time, as JDBC sends a
+// timestamp. PostgreSQL gets the machine's offset too, so a timestamptz column holds that very
+// moment wherever the machine runs; a timestamp column drops the offset and keeps the wall clock.
+func (d Dialect) Time(t time.Time, layout string) string {
+	if d.Postgres {
+		layout += "-07:00"
+	}
+	return d.Literal(t.Format(layout))
 }
 
 // Literal renders s as a SQL string literal, escaping quotes (and
