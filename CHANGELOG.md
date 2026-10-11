@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.10](https://github.com/nimbusxr/axx/compare/v0.2.9...v0.2.10) (2026-10-11)
+
+
+### Bug Fixes
+
+* **mobile:** a notification that moves as it is read is looked at again ([#147](https://github.com/nimbusxr/axx/issues/147)) ([b84d3f2](https://github.com/nimbusxr/axx/commit/b84d3f27596f0a5d13d569b6f807a4389e0770b6))
+
 ## [0.2.9](https://github.com/nimbusxr/axx/compare/v0.2.8...v0.2.9) (2026-10-11)
 
 
