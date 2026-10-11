@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 )
@@ -66,16 +67,46 @@ func (t *ddlTable) names() string { return javaListString(t.order) }
 var (
 	ddlCreate       = regexp.MustCompile(`(?is)^CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?([\w."]+)\s*\((.*)\)\s*$`)
 	ddlAlter        = regexp.MustCompile(`(?is)^ALTER\s+TABLE\s+(?:IF\s+EXISTS\s+)?(?:ONLY\s+)?([\w."]+)\s+(.*)$`)
-	ddlAddColumn    = regexp.MustCompile(`(?i)^ADD\s+(?:COLUMN\s+)?(?:IF\s+NOT\s+EXISTS\s+)?(.*)$`)
-	ddlDropColumn   = regexp.MustCompile(`(?i)^DROP\s+(?:COLUMN\s+)?(?:IF\s+EXISTS\s+)?([\w"]+).*$`)
-	ddlRenameColumn = regexp.MustCompile(`(?i)^RENAME\s+(?:COLUMN\s+)?([\w"]+)\s+TO\s+([\w"]+)\s*$`)
+	ddlAddColumn    = regexp.MustCompile(`(?is)^ADD\s+(?:COLUMN\s+)?(?:IF\s+NOT\s+EXISTS\s+)?(.*)$`)
+	ddlDropColumn   = regexp.MustCompile(`(?is)^DROP\s+(?:COLUMN\s+)?(?:IF\s+EXISTS\s+)?([\w"]+).*$`)
+	ddlRenameColumn = regexp.MustCompile(`(?is)^RENAME\s+(?:COLUMN\s+)?([\w"]+)\s+TO\s+([\w"]+)\s*$`)
 	ddlBlockComment = regexp.MustCompile(`(?s)/\*.*?\*/`)
 	ddlLineComment  = regexp.MustCompile(`(?m)--.*$`)
 )
 
 var tableConstraintStarters = map[string]bool{"PRIMARY": true, "FOREIGN": true, "CONSTRAINT": true, "UNIQUE": true, "CHECK": true, "EXCLUDE": true, "LIKE": true}
 
-func (s *ddlSchema) table(name string) *ddlTable { return s.tables[strings.ToLower(name)] }
+// defaultSchemas are where a table created without a schema lands: PostgreSQL's public and SQL
+// Server's dbo. A seed's public.closures is a migration's closures, and the other way around.
+var defaultSchemas = []string{"public", "dbo"}
+
+// key is the name a table has in the schema: name itself, or the same table named with or
+// without its default schema.
+func (s *ddlSchema) key(name string) (string, bool) {
+	name = strings.ToLower(name)
+	if _, ok := s.tables[name]; ok {
+		return name, true
+	}
+	if schema, table, qualified := strings.Cut(name, "."); qualified {
+		if _, ok := s.tables[table]; ok && slices.Contains(defaultSchemas, schema) {
+			return table, true
+		}
+		return "", false
+	}
+	for _, schema := range defaultSchemas {
+		if _, ok := s.tables[schema+"."+name]; ok {
+			return schema + "." + name, true
+		}
+	}
+	return "", false
+}
+
+func (s *ddlSchema) table(name string) *ddlTable {
+	if k, ok := s.key(name); ok {
+		return s.tables[k]
+	}
+	return nil
+}
 
 func (s *ddlSchema) tableNames() string { return javaListString(s.order) }
 
@@ -144,6 +175,9 @@ func (s *ddlSchema) apply(stmt, file string) {
 	}
 	if m := ddlCreate.FindStringSubmatch(stmt); m != nil {
 		name := normalizeIdentifier(m[1])
+		if k, ok := s.key(name); ok {
+			name = k // created again, under its other name
+		}
 		t := newDDLTable()
 		for _, def := range splitTopLevel(m[2]) {
 			if c, ok := parseColumn(strings.TrimFunc(def, isJavaWhitespace)); ok {
@@ -158,8 +192,8 @@ func (s *ddlSchema) apply(stmt, file string) {
 	}
 	if m := ddlAlter.FindStringSubmatch(stmt); m != nil {
 		name := normalizeIdentifier(m[1])
-		t, ok := s.tables[name]
-		if !ok {
+		t := s.table(name)
+		if t == nil {
 			slog.Debug("fixtures DDL: ALTER for unknown table skipped", "table", name, "file", file)
 			return
 		}

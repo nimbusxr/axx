@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/nimbusxr/axx/internal/compat/jsonx"
@@ -158,16 +159,27 @@ func (d datasetFamily) Referenced(spec *Spec, baseDir, key string, ctx *Expansio
 }
 
 // orderedTables puts tables in DDL declaration order when a schema is
-// declared; authored order otherwise.
+// declared; authored order otherwise. A table keeps the name the fixture gave
+// it, with or without its default schema.
 func orderedTables(schema *ddlSchema, resolved *jsonx.Object) *jsonx.Object {
 	if schema == nil {
 		return resolved
 	}
-	out := jsonx.NewObject()
-	for _, t := range schema.order {
-		if resolved.Has(t) {
-			out.Set(t, get(resolved, t))
+	position := map[string]int{}
+	for i, t := range schema.order {
+		position[t] = i
+	}
+	rank := func(table string) int {
+		if k, ok := schema.key(table); ok {
+			return position[k]
 		}
+		return len(schema.order)
+	}
+	tables := resolved.Keys()
+	sort.SliceStable(tables, func(i, j int) bool { return rank(tables[i]) < rank(tables[j]) })
+	out := jsonx.NewObject()
+	for _, t := range tables {
+		out.Set(t, get(resolved, t))
 	}
 	return out
 }

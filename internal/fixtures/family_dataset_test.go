@@ -65,6 +65,38 @@ func TestDatasetMigrationRenameFailsStaleFactories(t *testing.T) {
 	mustErrContain(t, w.expandErr(), "launch_date", "liftoff_at")
 }
 
+// PostgreSQL migrations name a table with and without its schema: CREATE TABLE closures, then
+// ALTER TABLE public.closures. Both are the one table, and so is a seed's public.closures.
+func TestDatasetTablesWithAndWithoutTheirDefaultSchema(t *testing.T) {
+	w := datasetWorkspace(t)
+	w.write("pg/01-closures.sql", "CREATE TABLE closures (id UUID PRIMARY KEY, status TEXT);\n")
+	w.write("pg/02-road.sql", "ALTER TABLE public.closures ADD COLUMN road_name TEXT;\n"+
+		"CREATE TABLE public.messages (id UUID PRIMARY KEY, body TEXT);\n"+
+		// A column whose definition goes on to the next line.
+		"ALTER TABLE public.messages\n  ADD COLUMN IF NOT EXISTS subject TEXT,\n  ADD COLUMN IF NOT EXISTS priority TEXT DEFAULT 'normal'\n"+
+		"    CHECK (priority IN ('low','normal','high','urgent'));\n")
+	w.write("seeds/dtcd/ingersoll.yaml", "public.closures:\n  - id: \"5b1f2c3a-0f4e-4d2a-9c11-6a0000000901\"\n    road_name: \"Ingersoll Ave\"\n"+
+		"messages:\n  - id: \"8d2e0c1a-6b2f-4a51-9e3d-0000000a0101\"\n    body: \"Lane 2 opens at noon\"\n    priority: \"high\"\n")
+	w.write("seeds/dtcd/typo.yaml", "public.closures:\n  - id: \"5b1f2c3a-0f4e-4d2a-9c11-6a0000000902\"\n    road: \"Ingersoll Ave\"\n"+
+		"audit.closures:\n  - id: \"5b1f2c3a-0f4e-4d2a-9c11-6a0000000903\"\n")
+	// A factory over those migrations keeps each table's name and the migrations' table order.
+	w.write("seeds/closures/closures.factory.yaml", "factory:\n  family: dataset\n  schema: ../../pg\nidentity:\n  - path: public.closures.id\n")
+	w.write("seeds/closures/wen.fixture.yaml", "data:\n  messages:\n    - id: \"8d2e0c1a-6b2f-4a51-9e3d-0000000a0102\"\n      body: \"Lane 2 opens at noon\"\n"+
+		"  public.closures:\n    - id: \"5b1f2c3a-0f4e-4d2a-9c11-6a0000000904\"\n      road_name: \"Ingersoll Ave\"\n")
+	wen := string(w.expand()["seeds/closures/wen.yaml"])
+	mustContain(t, wen, "public.closures:", "road_name: Ingersoll Ave", "messages:", "body: Lane 2 opens at noon")
+	if strings.Index(wen, "public.closures:") > strings.Index(wen, "messages:") {
+		t.Errorf("the migrations' table order: %s", wen)
+	}
+	w.conformance(ConformanceRule{Name: "dtcd seeds", FilePatterns: []string{"seeds/dtcd/*.yaml"}, SchemaType: "dataset", SchemaRef: "pg"})
+	f := filtered(w.check(), "conformance")
+	if len(f) != 1 {
+		t.Fatalf("failures: %v", f)
+	}
+	// Another schema's table of that name is not the default schema's.
+	mustContain(t, f[0], "typo.yaml", "has no column 'road'", "table 'audit.closures' not found")
+}
+
 func TestDatasetMissingRequiredColumn(t *testing.T) {
 	w := datasetWorkspace(t)
 	w.write(missions+"/mission-alpha.fixture.yaml", "data:\n  space.missions:\n    - status: \"planned\"\n")
