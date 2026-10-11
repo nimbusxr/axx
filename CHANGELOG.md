@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.2.10](https://github.com/nimbusxr/axx/compare/v0.2.9...v0.2.10) (2026-10-11)
+
+
+### Bug Fixes
+
+* **mobile-android:** a UiAutomator2 server that crashes under a scenario is started again ([#150](https://github.com/nimbusxr/axx/issues/150)) ([ae99e4f](https://github.com/nimbusxr/axx/commit/ae99e4f11ee4129d302cc3b38b7e9738781d81a5))
+* **mobile-android:** install APKs without incremental installs, as Appium does ([#149](https://github.com/nimbusxr/axx/issues/149)) ([65c77ed](https://github.com/nimbusxr/axx/commit/65c77ed18ac80514028f43a04b0226dad22bb590))
+* **mobile-ios:** a sheet tap that did nothing is tapped again; a launch XCTest gave up on is checked ([#151](https://github.com/nimbusxr/axx/issues/151)) ([483d673](https://github.com/nimbusxr/axx/commit/483d673ac7f530ed3ff275e011be4cb5f2a617b1))
+* **mobile:** a notification that moves as it is read is looked at again ([#147](https://github.com/nimbusxr/axx/issues/147)) ([b84d3f2](https://github.com/nimbusxr/axx/commit/b84d3f27596f0a5d13d569b6f807a4389e0770b6))
+* **mobile:** a phone's screen stream that sent no frames says why ([#152](https://github.com/nimbusxr/axx/issues/152)) ([f0c7a90](https://github.com/nimbusxr/axx/commit/f0c7a90fbcb9b187da6ec99d6a1a89e1a86c5d3b))
+
 ## [0.2.9](https://github.com/nimbusxr/axx/compare/v0.2.8...v0.2.9) (2026-10-11)
 
 
