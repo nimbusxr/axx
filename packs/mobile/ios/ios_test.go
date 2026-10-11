@@ -311,3 +311,69 @@ func TestScrollBarPages(t *testing.T) {
 		}
 	}
 }
+
+// A sheet that takes no notice of a tap looks just as it did a moment later: its button is
+// tapped again, once. A tap it hears shows, and is not repeated.
+func TestASheetTapItIgnoredIsTappedAgain(t *testing.T) {
+	sheet := `<AppiumAUT><XCUIElementTypeApplication type="XCUIElementTypeApplication" name="Couriers" label="Couriers" x="0" y="0" width="393" height="852" visible="true">
+<XCUIElementTypeSheet type="XCUIElementTypeSheet" name="Save Password?" label="Save Password?" x="0" y="0" width="393" height="852" visible="true">
+<XCUIElementTypeButton type="XCUIElementTypeButton" name="Not Now" label="Not Now" x="92" y="531" width="208" height="48" visible="false"/>
+</XCUIElementTypeSheet></XCUIElementTypeApplication></AppiumAUT>`
+	drags := func(app *appiumtest.Server) int {
+		n := 0
+		for _, c := range app.Commands() {
+			if c == "drag" {
+				n++
+			}
+		}
+		return n
+	}
+	for _, c := range []struct {
+		name  string
+		app   appiumtest.App
+		drags int
+	}{
+		{"ignored", appiumtest.App{Screens: map[string]string{"sheet": sheet}, Start: "sheet"}, 2},
+		// The fake's finger opens its notifications screen: the tap shows.
+		{"heard", appiumtest.App{Screens: map[string]string{"sheet": sheet, "gone": "<AppiumAUT/>"}, Start: "sheet", Notifications: "gone"}, 1},
+	} {
+		app := appiumtest.Start(t, c.app)
+		h := cloudtest.New(t, appcore.Pack(), mobilecore.Pack(), Pack())
+		register(h, app.URL)
+		h.OK("the courier app is launched")
+		before := drags(app)
+		h.OK(`the "Not Now" button is tapped in the courier app`)
+		if got := drags(app) - before; got != c.drags {
+			t.Errorf("%s: %d taps, want %d", c.name, got, c.drags)
+		}
+	}
+}
+
+// XCTest gives up on a launch that takes long on a busy Mac: an app up all the same is
+// launched; one that is not is launched once more.
+func TestALaunchXCTestGaveUpOn(t *testing.T) {
+	launches := func(app *appiumtest.Server) int {
+		n := 0
+		for _, c := range app.Commands() {
+			if strings.HasPrefix(c, "mobile: launchApp") {
+				n++
+			}
+		}
+		return n
+	}
+	for _, c := range []struct {
+		name     string
+		up       bool
+		launches int
+	}{{"up all the same", true, 1}, {"not up", false, 2}} {
+		app := courier(t)
+		app.LaunchTimeouts(1, c.up)
+		h := cloudtest.New(t, appcore.Pack(), mobilecore.Pack(), Pack())
+		register(h, app.URL)
+		h.OK("the courier app is launched")
+		h.OK(`the courier app shows "Sign in"`)
+		if got := launches(app); got != c.launches {
+			t.Errorf("%s: %d launches, want %d", c.name, got, c.launches)
+		}
+	}
+}

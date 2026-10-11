@@ -142,26 +142,13 @@ func look(sc *core.Scenario, d Device, app string, k kind, name string, wait tim
 // that has only just appeared may still be coming in, as a dialog grows and fades in, and a tap on
 // it then is lost (iOS's Save Password dialog after a sign-in). A person waits for it to land.
 func settle(ctx context.Context, d Device, r Rect) error {
-	win, err := d.Session().Window(ctx)
-	if err != nil || win.Width <= 0 || r.Width <= 0 || r.Height <= 0 {
-		return err
-	}
 	var last image.Image
 	for end := time.Now().Add(2 * time.Second); time.Now().Before(end); {
-		b, err := d.Session().Screenshot(ctx)
-		if err != nil {
+		part, err := looksOf(ctx, d, r)
+		if err != nil || part == nil {
 			return err
 		}
-		shot, err := png.Decode(bytes.NewReader(b))
-		if err != nil {
-			return fmt.Errorf("the screenshot is not a PNG: %w", err)
-		}
-		// The screenshot is in pixels, the control in the window's points.
-		scale := float64(shot.Bounds().Dx()) / win.Width
-		area := image.Rect(int(r.X*scale), int(r.Y*scale), int((r.X+r.Width)*scale), int((r.Y+r.Height)*scale)).Add(shot.Bounds().Min).Intersect(shot.Bounds())
-		part := image.NewRGBA(image.Rect(0, 0, area.Dx(), area.Dy()))
-		draw.Draw(part, part.Bounds(), shot, area.Min, draw.Src)
-		if last != nil && imagediff.Compare(last, part, imagediff.Options{}).Differ == 0 {
+		if last != nil && same(last, part) {
 			return nil
 		}
 		last = part
@@ -173,6 +160,32 @@ func settle(ctx context.Context, d Device, r Rect) error {
 	}
 	return nil
 }
+
+// looksOf is what the screen shows where a control is (in the window's points), or nil when it
+// cannot say.
+func looksOf(ctx context.Context, d Device, r Rect) (image.Image, error) {
+	win, err := d.Session().Window(ctx)
+	if err != nil || win.Width <= 0 || r.Width <= 0 || r.Height <= 0 {
+		return nil, err
+	}
+	b, err := d.Session().Screenshot(ctx)
+	if err != nil {
+		return nil, err
+	}
+	shot, err := png.Decode(bytes.NewReader(b))
+	if err != nil {
+		return nil, fmt.Errorf("the screenshot is not a PNG: %w", err)
+	}
+	// The screenshot is in pixels, the control in the window's points.
+	scale := float64(shot.Bounds().Dx()) / win.Width
+	area := image.Rect(int(r.X*scale), int(r.Y*scale), int((r.X+r.Width)*scale), int((r.Y+r.Height)*scale)).Add(shot.Bounds().Min).Intersect(shot.Bounds())
+	part := image.NewRGBA(image.Rect(0, 0, area.Dx(), area.Dy()))
+	draw.Draw(part, part.Bounds(), shot, area.Min, draw.Src)
+	return part, nil
+}
+
+// same reports whether two looks of a control are the same, pixel for pixel.
+func same(a, b image.Image) bool { return imagediff.Compare(a, b, imagediff.Options{}).Differ == 0 }
 
 // element is the one control of kind k named name, as Appium refers to it:
 // found by its name on the screen, or by a selector.

@@ -62,6 +62,10 @@ type Server struct {
 	// stale are the next finds that lose what they found as it moves, as a notification
 	// sliding away does under WebDriverAgent.
 	stale int
+	// launchTimeouts are the next launches XCTest gives up on, as on a busy Mac; up is whether
+	// the app came up all the same.
+	launchTimeouts int
+	launchUp       bool
 }
 
 // Start runs the fake for a test.
@@ -106,6 +110,14 @@ func (s *Server) Stale(finds int) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.stale = finds
+}
+
+// LaunchTimeouts has the next launches answer that XCTest timed out launching the app, as it
+// does on a busy Mac: with the app up all the same, or not.
+func (s *Server) LaunchTimeouts(launches int, up bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.launchTimeouts, s.launchUp = launches, up
 }
 
 // Show moves the app to a screen, as the app would by itself.
@@ -270,6 +282,14 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 			s.closeNotifications()
 			s.state = 4
 		case "mobile: launchApp":
+			if s.launchTimeouts > 0 {
+				s.launchTimeouts--
+				if s.launchUp {
+					s.state = 4
+				}
+				fail("invalid argument", `Error Domain=XCTDaemonErrorDomain Code=5 "Timed out attempting to launch app." UserInfo={NSLocalizedDescription=Timed out attempting to launch app.}`)
+				return
+			}
 			s.state = 4
 		case "mobile: terminateApp":
 			s.state = 1
