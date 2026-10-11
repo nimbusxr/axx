@@ -25,7 +25,7 @@ const packDoc = `Android apps, on emulators axx starts or on devices adb lists, 
 
 **Each scenario has a device to itself.** axx starts emulators of a device (AVD) as scenarios need them, read-only so that several run at once and nothing a scenario changes outlives it, up to ` + "`devices`" + ` at once (1 by default: Android scenarios then take turns). A scenario leases a device for its whole run.
 
-**Each scenario starts from a clean app.** Before the app starts, its data is cleared (and with it what it stored, its permissions and its notifications), the permissions the registration names are granted, and the device's language, time zone and location are set. There is no switch that skips it: a scenario is one journey, and that journey is its own.`
+**Each scenario starts from a clean app.** Before the app starts, its data is cleared (and with it what it stored, its permissions and its notifications), the permissions the registration names are granted, the photos axx put in the library before are taken out (and the registration's put in), and the device's language, time zone and location are set. There is no switch that skips it: a scenario is one journey, and that journey is its own.`
 
 func (pack) Manifest() core.Manifest {
 	return core.Manifest{
@@ -57,6 +57,7 @@ func steps() []core.StepDef {
 					{Name: "timezone", Takes: "the device's time zone, like `Europe/Berlin`", Default: "UTC"},
 					{Name: "host ports", Takes: "ports of the machine axx runs on that the app reaches as `localhost` on the device, like `5500, 8090`: the app calls `http://localhost:5500` as it does on a developer's device, and gets the service there"},
 					{Name: "location", Takes: "where an emulator says it is, every second as a phone's GPS does: a latitude and a longitude, like `51.3397, 12.3731`", Default: "where an emulator starts (37.4219983, -122.084), whatever the scenario before set"},
+					{Name: "photos", Takes: "image or video files put in the device's photo library before the app starts, for it to pick, like `fixtures/begin.jpg, fixtures/end.jpg` (in DCIM/axx): the library shows each by the time it was taken, from the file's own metadata. The next scenario's reset takes them out again", Default: "none"},
 					{Name: "appium", Takes: "an Appium server of the project's own or a device farm's, which then runs the device, in place of `device`"},
 					{Name: "capability.<name>", Takes: "an Appium capability for that server, like a device farm's options, as text or JSON"},
 				},

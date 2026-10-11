@@ -3,6 +3,7 @@ package mobileandroid
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -19,8 +20,9 @@ type app struct {
 	activity    string
 	device      string // an AVD, or a device's serial
 	permissions []string
-	locale      string // like de-DE
-	timezone    string // like Europe/Berlin
+	photos      []string // in the device's photo library, for the app to pick
+	locale      string   // like de-DE
+	timezone    string   // like Europe/Berlin
 	location    *[2]float64
 	hostPorts   []int          // ports of the machine axx runs on, reached as the device's localhost
 	server      string         // an Appium server of the project's own, or a device farm's
@@ -71,6 +73,17 @@ func parseApp(sc *core.Scenario, expand func(string) string, name string, t *cor
 				}
 				a.permissions = append(a.permissions, perm)
 			}
+		case "photos":
+			for _, f := range strings.Split(value, ",") {
+				f = strings.TrimSpace(f)
+				if f == "" {
+					continue
+				}
+				if _, err := os.Stat(f); err != nil {
+					return nil, fmt.Errorf("the %s android app's photo %q: %w", name, f, err)
+				}
+				a.photos = append(a.photos, f)
+			}
 		case "locale":
 			if !localeRE.MatchString(value) {
 				return nil, fmt.Errorf("the %s android app's locale %q is not a language and region, like de-DE", name, value)
@@ -107,7 +120,7 @@ func parseApp(sc *core.Scenario, expand func(string) string, name string, t *cor
 			}
 			a.server = strings.TrimRight(value, "/")
 		default:
-			return nil, fmt.Errorf("unknown android app property %q (supported: apk, package, activity, device, permissions, locale, timezone, location, host ports, appium, capability.<name>)", key)
+			return nil, fmt.Errorf("unknown android app property %q (supported: apk, package, activity, device, permissions, photos, locale, timezone, location, host ports, appium, capability.<name>)", key)
 		}
 	}
 	switch {

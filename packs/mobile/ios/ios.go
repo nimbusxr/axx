@@ -53,6 +53,7 @@ func steps() []core.StepDef {
 					{Name: "locale", Takes: "the app's language and region, like `de-DE`", Default: "en-US"},
 					{Name: "timezone", Takes: "the app's time zone, like `Europe/Berlin`", Default: "UTC"},
 					{Name: "location", Takes: "where the simulator says it is: a latitude and a longitude, like `51.3397, 12.3731`", Default: "none"},
+					{Name: "photos", Takes: "image or video files put in the simulator's photo library before the app starts, for it to pick, like `fixtures/begin.jpg, fixtures/end.jpg`: the library shows each by the time it was taken, from the file's own metadata. A simulator axx makes is not used again after a scenario that put photos in it (its library cannot be emptied); one of yours keeps them", Default: "none"},
 					{Name: "appium", Takes: "an Appium server of the project's own or a device farm's, which then runs the device, in place of `device`"},
 					{Name: "capability.<name>", Takes: "an Appium capability for that server, like a device farm's options, as text or JSON"},
 				},

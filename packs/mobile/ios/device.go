@@ -247,6 +247,14 @@ func (d *running) reset(ctx context.Context, s *core.Suite) error {
 	} else if _, err := set.simctl(ctx, "location", udid, "clear"); err != nil {
 		return err
 	}
+	if len(d.app.photos) > 0 {
+		if _, err := set.simctl(ctx, append([]string{"addmedia", udid}, d.app.photos...)...); err != nil {
+			return fmt.Errorf("cannot put the %s app's photos in the simulator's library: %w", d.app.name, err)
+		}
+		// The library cannot be emptied: the next scenario gets another simulator.
+		d.dev.media = true
+		d.resets = append(d.resets, "photos: "+strings.Join(d.app.photos, ", "))
+	}
 	d.resets = append(d.resets, "language "+d.app.locale, "time zone "+d.app.timezone)
 	return nil
 }

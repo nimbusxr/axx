@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -35,6 +36,7 @@ type device struct {
 	unlock    func() // gives up the kept simulator to other runs
 	wdaPort   int    // WebDriverAgent's port on the Mac
 	mjpegPort int    // WebDriverAgent's screen stream's port
+	media     bool   // a scenario put photos in its library, which nothing takes out
 }
 
 // pool is the simulators of one kind the run has: a clone for each worker,
@@ -239,12 +241,21 @@ func (p *pool) lease(ctx context.Context) (*device, error) {
 	}
 }
 
-// release gives a simulator back to the pool.
+// release gives a simulator back to the pool. One a scenario put photos in is not given to the
+// next: its library cannot be emptied, so axx deletes it and the next lease makes another. A
+// simulator axx did not make keeps them.
 func (p *pool) release(d *device) {
 	p.mu.Lock()
-	defer p.mu.Unlock()
+	if d.media && d.made {
+		p.all = slices.DeleteFunc(p.all, func(o *device) bool { return o == d })
+		p.signal()
+		p.mu.Unlock()
+		d.stop()
+		return
+	}
 	p.free = append(p.free, d)
 	p.signal()
+	p.mu.Unlock()
 }
 
 // signal wakes the leases that wait. The caller holds p.mu.
