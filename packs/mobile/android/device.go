@@ -51,7 +51,7 @@ func (r runner) Start(sc *core.Scenario) (mobilecore.Device, error) {
 		return nil, err
 	}
 	d.pool, d.dev, d.sdk = p, dev, p.sdk
-	if err := p.ensureServer(ctx, dev, logDir); err != nil {
+	if err := p.startServer(ctx, dev, logDir); err != nil {
 		d.releaseDevice()
 		return nil, err
 	}
@@ -218,7 +218,7 @@ func (d *running) revive(ctx context.Context) error {
 	if d.session.Alive(ctx) {
 		return nil
 	}
-	if err := d.pool.ensureServer(ctx, d.dev, d.logDir); err != nil {
+	if err := d.pool.startServer(ctx, d.dev, d.logDir); err != nil {
 		return err
 	}
 	s, err := d.dev.server.client.NewSession(ctx, d.caps)
