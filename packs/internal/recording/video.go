@@ -2,6 +2,7 @@ package recording
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"crypto/sha256"
 	"fmt"
@@ -10,6 +11,8 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
+	"strings"
 	"sync"
 	"time"
 
@@ -262,10 +265,10 @@ func Keep(sc *core.Scenario, area string, r *Recorder, policy string, failed boo
 
 // runVideo is a run's video: its kept scenarios' clips, each after its card.
 type runVideo struct {
-	mu    sync.Mutex
-	clips []video.Clip
-	// titles are the clips' chapters: a scenario's on its card.
-	titles         []string
+	mu sync.Mutex
+	// scenarios are the scenarios kept, each its card and its clip, as they ended: the video
+	// shows them as their feature files have them.
+	scenarios      []runScenario
 	passed, failed int
 	started        time.Time
 	width, height  int
@@ -295,6 +298,15 @@ func runVideoOf(s *core.Suite, area string) *runVideo {
 	return rv
 }
 
+// runScenario is a scenario in the run's video: its card, its clip, its chapter's title, and
+// where its feature file has it.
+type runScenario struct {
+	uri        string
+	line       int
+	card, clip video.Clip
+	title      string
+}
+
 // add adds a scenario's clip, after its card.
 func (v *runVideo) add(sc *core.Scenario, clip video.Clip, failed bool) {
 	v.mu.Lock()
@@ -317,15 +329,14 @@ func (v *runVideo) add(sc *core.Scenario, clip video.Clip, failed bool) {
 	if err != nil {
 		return
 	}
-	v.clips = append(v.clips, card, clip)
-	v.titles = append(v.titles, mark+" "+sc.Name, "")
+	v.scenarios = append(v.scenarios, runScenario{uri: sc.URI, line: sc.Line, card: card, clip: clip, title: mark + " " + sc.Name})
 }
 
 // write writes the run's video, after a card that says what ran.
 func (v *runVideo) write(s *core.Suite) error {
 	v.mu.Lock()
 	defer v.mu.Unlock()
-	if len(v.clips) == 0 {
+	if len(v.scenarios) == 0 {
 		return nil
 	}
 	n := v.passed + v.failed
@@ -334,9 +345,18 @@ func (v *runVideo) write(s *core.Suite) error {
 	if err != nil {
 		return nil //nolint:nilerr // the run's video is a convenience: a run does not fail for it
 	}
-	// A chapter for each scenario, from its card.
-	clips := append([]video.Clip{opening}, v.clips...)
-	titles := append([]string{filepath.Base(s.ProjectDir())}, v.titles...)
+	// The scenarios as their feature files have them, not as they ended (scenarios run side by
+	// side): file by file, and in each, top to bottom. A chapter for each, from its card.
+	scenarios := slices.Clone(v.scenarios)
+	slices.SortStableFunc(scenarios, func(a, b runScenario) int {
+		return cmp.Or(strings.Compare(a.uri, b.uri), cmp.Compare(a.line, b.line))
+	})
+	clips := []video.Clip{opening}
+	titles := []string{filepath.Base(s.ProjectDir())}
+	for _, sc := range scenarios {
+		clips = append(clips, sc.card, sc.clip)
+		titles = append(titles, sc.title, "")
+	}
 	var chapters []video.Chapter
 	var at time.Duration
 	for i, c := range clips {
