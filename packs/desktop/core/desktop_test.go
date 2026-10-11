@@ -392,6 +392,10 @@ func TestControls(t *testing.T) {
 	_ = h.Fails(`within 1s the "Regster" button is shown in the depot app`, `No button named "Regster" in the depot app; 3 buttons:`)
 	_ = h.Fails(`the "Close" button is clicked in the depot app`, `2 buttons in the depot app are named "Close"`)
 	_ = h.Fails(`within 1s the depot app shows "Registered"`, `The depot app does not show "Registered"`)
+	// What the window shows, which says where the text is.
+	if err := h.Fails(`within 1s the depot app does not show "No parcels registered yet"`, `The depot app shows "No parcels registered yet"`); !strings.Contains(err.Error(), "1 texts:") {
+		t.Errorf("the failure does not say what the window shows: %v", err)
+	}
 	var shot, outline bool
 	for _, a := range h.Sink.Attachments {
 		shot = shot || a.Name == "the depot app" && a.MediaType == "image/png"

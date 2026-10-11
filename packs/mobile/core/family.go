@@ -126,14 +126,16 @@ func (family) Shows(sc *core.Scenario, app *appcore.App, text string, wait time.
 
 func (family) DoesNotShow(sc *core.Scenario, app *appcore.App, text string, wait time.Duration) error {
 	return onDevice(sc, app.Name, false, func(ctx context.Context, d Device) error {
+		var last *Screen
 		ok, err := waitUntil(sc, wait, func() (bool, error) {
 			s, err := d.Screen(ctx)
+			last = s
 			return err == nil && !s.Shows(text), err
 		})
 		if err != nil || ok {
 			return err
 		}
-		return core.Failf("The %s app shows %q", app.Name, text)
+		return core.Fail(fmt.Sprintf("The %s app shows %q", app.Name, text), fmt.Sprintf("no %q", text), shownTexts(last))
 	})
 }
 

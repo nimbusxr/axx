@@ -168,6 +168,10 @@ func TestFailures(t *testing.T) {
 	t.Cleanup(mobilecore.SetActionTimeout(300 * time.Millisecond))
 	_ = h.Fails(`the "Log in" button is tapped in the courier app`, `No button named "Log in" in the courier app`)
 	_ = h.Fails(`within 1s the courier app shows "Today's deliveries"`, `The courier app does not show "Today's deliveries"`)
+	// What the screen shows, which says where the text is.
+	if err := h.Fails(`within 1s the courier app does not show "Sign in"`, `The courier app shows "Sign in"`); !strings.Contains(err.Error(), "Parcels Courier") {
+		t.Errorf("the failure does not say what the screen shows: %v", err)
+	}
 	_ = h.Fails(`the courier app's dialog is accepted`, "The courier app shows no dialog")
 	_ = h.Fails(`within 1s the courier app shows a notification "PX-MOB-9402 delivered"`, `The device of the courier app shows no notification "PX-MOB-9402 delivered"`)
 	if app.Screen() != "sign-in" {
