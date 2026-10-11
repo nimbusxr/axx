@@ -176,7 +176,7 @@ func recordingsKept(t *testing.T, h *cloudtest.Harness) {
 	traces, _ := filepath.Glob(filepath.Join(h.Dir, ".axx", "mobile", "traces", "*-courier-*.html"))
 	videos, _ := filepath.Glob(filepath.Join(h.Dir, ".axx", "mobile", "videos", "test-*.mp4"))
 	if len(traces) != 1 || len(videos) != 1 {
-		t.Fatalf("traces %v, videos %v", traces, videos)
+		t.Fatalf("traces %v, videos %v; the scenario's logs:\n%s", traces, videos, strings.Join(h.Sink.Logs, "\n"))
 	}
 	page, _ := os.ReadFile(traces[0])
 	if n := strings.Count(string(page), "data:image/jpeg;base64,"); n < 5 {
