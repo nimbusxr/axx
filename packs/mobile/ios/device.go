@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
@@ -554,6 +555,9 @@ func (d *running) ScrollToShow(ctx context.Context, n *mobilecore.Node, _ string
 	}
 	v := view.Bounds
 	x, middle, reach := v.X+v.Width/2, v.Y+v.Height/2, v.Height*0.6
+	if err := d.scrub(ctx, el, view); err != nil {
+		return false, err
+	}
 	last := math.NaN()
 	for range 200 {
 		r, err := el.Rect(ctx)
@@ -574,6 +578,63 @@ func (d *running) ScrollToShow(ctx context.Context, n *mobilecore.Node, _ string
 		}
 	}
 	return false, nil
+}
+
+// pagesRE reads a scroll bar's label, like "Vertical scroll bar, 25 pages".
+var pagesRE = regexp.MustCompile(`^Vertical scroll bar, (\d+) pages?$`)
+
+// scrub takes a long scroll view to the control in one move, when it is more than a screen and
+// a half away: as a person does in a long text, it grabs the scroll bar (shown by a nudge of the
+// text: it shows only while the view moves) and drags it to where the control is. The drags after
+// it take the view the last stretch. A view with no scroll bar, or a short one, is left as it is.
+func (d *running) scrub(ctx context.Context, el *appium.Element, view *mobilecore.Node) error {
+	var bar *mobilecore.Node
+	pages := 0.0
+	for _, c := range view.Children {
+		if m := pagesRE.FindStringSubmatch(c.Label); m != nil {
+			bar = c
+			pages, _ = strconv.ParseFloat(m[1], 64)
+			break
+		}
+	}
+	if bar == nil || pages < 3 || bar.Bounds.Height <= 0 {
+		return nil
+	}
+	r, err := el.Rect(ctx)
+	if err != nil {
+		return err
+	}
+	v, t := view.Bounds, bar.Bounds
+	off := r.Y + r.Height/2 - (v.Y + v.Height/2)
+	if math.Abs(off) < 1.5*v.Height {
+		return nil
+	}
+	// Where the view is, and where the control is, as shares of how far it scrolls.
+	at, _ := strconv.ParseFloat(strings.TrimSuffix(bar.Text, "%"), 64)
+	from := at / 100
+	to := math.Max(0, math.Min(1, from+off/((pages-1)*v.Height)))
+	thumb := math.Max(t.Height/pages, 24)
+	y := func(share float64) float64 { return t.Y + share*(t.Height-thumb) + thumb/2 }
+	gx := t.X + t.Width*0.85 // the bar, drawn at the view's edge
+	nudge := 40.0
+	if to < from {
+		nudge = -nudge
+	}
+	if err := d.pressDrag(ctx, v.X+v.Width/2, v.Y+v.Height/2+nudge/2, v.X+v.Width/2, v.Y+v.Height/2-nudge/2, 0.05); err != nil {
+		return err
+	}
+	return d.pressDrag(ctx, gx, y(from), gx, y(to), 0.6)
+}
+
+// pressDrag presses a point for hold seconds and drags it to another, with WebDriverAgent's own
+// gesture, which goes on at once: the W3C actions wait two seconds for the view to settle, by when
+// the scroll bar has faded and a finger on it drags the text instead.
+func (d *running) pressDrag(ctx context.Context, fromX, fromY, toX, toY, hold float64) error {
+	args := map[string]any{"fromX": fromX, "fromY": fromY, "toX": toX, "toY": toY, "duration": hold}
+	if d.dev == nil {
+		return d.session.Mobile(ctx, "dragFromToForDuration", args, nil)
+	}
+	return d.session.Gesture(ctx, "/wda/dragfromtoforduration", "dragFromToForDuration", args)
 }
 
 // HideKeyboard closes the keyboard when it shows: an iPhone's keyboard has no key that only

@@ -296,3 +296,16 @@ func TestAnActionSheetShowsItsButtons(t *testing.T) {
 		}
 	}
 }
+
+// A long text's scroll bar says how many pages it holds, which says where a scrub lands.
+func TestScrollBarPages(t *testing.T) {
+	for label, want := range map[string]string{"Vertical scroll bar, 25 pages": "25", "Vertical scroll bar, 1 page": "1", "Horizontal scroll bar, 3 pages": ""} {
+		got := ""
+		if m := pagesRE.FindStringSubmatch(label); m != nil {
+			got = m[1]
+		}
+		if got != want {
+			t.Errorf("%q: %q pages, want %q", label, got, want)
+		}
+	}
+}

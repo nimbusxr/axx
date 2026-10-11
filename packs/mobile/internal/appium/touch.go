@@ -39,12 +39,17 @@ func (s *Session) gesture(ctx context.Context, command string, args map[string]a
 	}
 	dir, _ := args["direction"].(string)
 	area := Rect{X: num("left"), Y: num("top"), Width: num("width"), Height: num("height")}
-	share := 0.5
+	share, length := 0.5, 300*time.Millisecond
 	switch command {
+	case "dragFromToForDuration": // XCUITest's: a press held for duration, then a drag
+		held := time.Duration(num("duration") * float64(time.Second))
+		return Touch{From: Point{num("fromX"), num("fromY")}, To: Point{num("toX"), num("toY")}, Length: held + 100*time.Millisecond}, true
 	case "swipeGesture", "scrollGesture": // UiAutomator2's: an area, a direction and a share of it
 		if p := num("percent"); p > 0 {
 			share = p
 		}
+	case "flingGesture": // UiAutomator2's: a quick finger across most of the area
+		share, length = 0.8, 100*time.Millisecond
 	case "swipe", "scroll": // XCUITest's: the whole screen, or an element
 		if id, _ := args["elementId"].(string); id != "" {
 			r, err := (&Element{s: s, ID: id}).Rect(ctx)
@@ -67,7 +72,7 @@ func (s *Session) gesture(ctx context.Context, command string, args map[string]a
 	}
 	// A swipe moves the finger the way it names; a scroll shows what is that
 	// way, the finger moving the other.
-	if command == "scrollGesture" || command == "scroll" {
+	if command == "scrollGesture" || command == "scroll" || command == "flingGesture" {
 		dir = map[string]string{"up": "down", "down": "up", "left": "right", "right": "left"}[dir]
 	}
 	cx, cy := area.X+area.Width/2, area.Y+area.Height/2
@@ -85,7 +90,7 @@ func (s *Session) gesture(ctx context.Context, command string, args map[string]a
 	default:
 		return Touch{}, false
 	}
-	return Touch{From: from, To: to, Length: 300 * time.Millisecond}, true
+	return Touch{From: from, To: to, Length: length}, true
 }
 
 // window is the window's rectangle, read once.
@@ -123,6 +128,17 @@ func (s *Session) Scroll(ctx context.Context, a Area, direction string, share fl
 	s.report(ctx, "scrollGesture", a, direction, share)
 	var more bool
 	err := s.Command(ctx, http.MethodPost, "/appium/gestures/scroll", gestureBody(a, direction, share), &more)
+	return more, err
+}
+
+// Fling flings the area toward direction, as a quick finger does, with the
+// UiAutomator2 server's own gesture, and reports whether it can fling more.
+func (s *Session) Fling(ctx context.Context, a Area, direction string) (bool, error) {
+	s.report(ctx, "flingGesture", a, direction, 0)
+	body := gestureBody(a, direction, 0)
+	delete(body, "percent")
+	var more bool
+	err := s.Command(ctx, http.MethodPost, "/appium/gestures/fling", body, &more)
 	return more, err
 }
 
