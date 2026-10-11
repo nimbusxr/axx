@@ -66,6 +66,9 @@ type Server struct {
 	// the app came up all the same.
 	launchTimeouts int
 	launchUp       bool
+	// launchesUnknown are the next launches SpringBoard refuses, not knowing the app yet: it
+	// learns of an app a moment after it is installed.
+	launchesUnknown int
 }
 
 // Start runs the fake for a test.
@@ -118,6 +121,14 @@ func (s *Server) LaunchTimeouts(launches int, up bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.launchTimeouts, s.launchUp = launches, up
+}
+
+// LaunchesUnknown has the next launches refused, as SpringBoard refuses an app installed a
+// moment before, which it does not know yet.
+func (s *Server) LaunchesUnknown(launches int) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.launchesUnknown = launches
 }
 
 // Show moves the app to a screen, as the app would by itself.
@@ -282,6 +293,11 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 			s.closeNotifications()
 			s.state = 4
 		case "mobile: launchApp":
+			if s.launchesUnknown > 0 {
+				s.launchesUnknown--
+				fail("invalid argument", `Error Domain=FBSOpenApplicationServiceErrorDomain Code=1 "The request to open \"example.parcels.courier\" failed." UserInfo={NSLocalizedFailureReason=The request was denied by service delegate (SBMainWorkspace) for reason: NotFound ("Application \"example.parcels.courier\" is unknown to FrontBoard").}`)
+				return
+			}
 			if s.launchTimeouts > 0 {
 				s.launchTimeouts--
 				if s.launchUp {

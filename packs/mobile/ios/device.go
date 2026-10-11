@@ -361,6 +361,16 @@ func (d *running) start(ctx context.Context) error {
 		"environment": map[string]string{"TZ": d.app.timezone},
 	}
 	err := d.appCommand(ctx, "launchApp", "launch", args, nil)
+	// The app is installed afresh before each scenario, and SpringBoard learns of it a moment
+	// after simctl does: a launch in between is refused as an app it does not know.
+	for deadline := time.Now().Add(30 * time.Second); err != nil && strings.Contains(err.Error(), "is unknown to FrontBoard") && time.Now().Before(deadline); {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(time.Second):
+		}
+		err = d.appCommand(ctx, "launchApp", "launch", args, nil)
+	}
 	if err == nil || !strings.Contains(err.Error(), "Timed out attempting to launch app") {
 		return err
 	}
