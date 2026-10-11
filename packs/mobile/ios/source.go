@@ -59,9 +59,11 @@ func parseSource(src string) (*mobilecore.Screen, error) {
 		}
 	}
 	for _, n := range s.Nodes {
-		if !n.Displayed && inSheet(n) && onScreen(n, s.Size) && !strings.Contains(n.Label, "scroll bar") {
-			// What an action sheet shows, iOS 27 says is not visible: the sheet, in front of the app,
-			// shows what is on the screen in it, and a finger taps it there.
+		if inSheet(n) && onScreen(n, s.Size) && !strings.Contains(n.Label, "scroll bar") {
+			// What an action sheet shows, iOS 27 says is not visible, or now and then that it is: the
+			// sheet, in front of the app, shows what is on the screen in it, and a finger taps it there
+			// either way. XCTest's own tap of a sheet's button does nothing (the Save Password sheet's
+			// Not Now, when iOS said it was visible).
 			n.Displayed, n.ByPoint = true, true
 		}
 		n.Role = roleOf(n)
