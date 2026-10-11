@@ -446,6 +446,20 @@ func (d *running) Scroll(ctx context.Context, direction string) (bool, error) {
 	if len(views) == 0 {
 		return false, nil
 	}
+	// With the keyboard up, the finger goes in the part of the view above it: the platform's own
+	// scroll swipes low in the view, on the keys, and types.
+	if v := uncovered(views[0]); v.Height > 0 && v.Height < views[0].Bounds.Height {
+		x, top, bottom := v.X+v.Width/2, v.Y+v.Height*0.2, v.Y+v.Height*0.8
+		from, to := bottom, top // down: the finger pushes the view up
+		if direction == "up" {
+			from, to = top, bottom
+		}
+		if err := d.session.Drag(ctx, x, from, x, to, 500*time.Millisecond); err != nil {
+			return false, err
+		}
+		after, err := d.session.Source(ctx)
+		return after != before, err
+	}
 	el, err := d.session.Find(ctx, views[0].Using, views[0].Value)
 	if err != nil {
 		return false, err

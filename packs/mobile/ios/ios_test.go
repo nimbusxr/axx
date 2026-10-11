@@ -348,6 +348,34 @@ func TestTheKeyboardCoversTheScrollViewsBottom(t *testing.T) {
 	}
 }
 
+// A form whose rows are built as they scroll in has nothing to aim for: the step scrolls a page at
+// a time. With the keyboard up, those scrolls drag above it rather than swipe on the keys.
+func TestScrollingAFormWithTheKeyboardUpDragsAboveIt(t *testing.T) {
+	form := `<AppiumAUT><XCUIElementTypeApplication type="XCUIElementTypeApplication" name="Couriers" label="Couriers" x="0" y="0" width="393" height="852" visible="true">
+<XCUIElementTypeCollectionView type="XCUIElementTypeCollectionView" x="0" y="100" width="393" height="752" visible="true">
+<XCUIElementTypeTextField type="XCUIElementTypeTextField" name="Parcel ID" label="Parcel ID" value="PX-MOB-9401" x="16" y="400" width="361" height="44" visible="true"/>
+</XCUIElementTypeCollectionView>
+<XCUIElementTypeKeyboard type="XCUIElementTypeKeyboard" x="0" y="516" width="393" height="336" visible="true"/>
+</XCUIElementTypeApplication></AppiumAUT>`
+	app := appiumtest.Start(t, appiumtest.App{Screens: map[string]string{"form": form}, Start: "form"})
+	h := cloudtest.New(t, appcore.Pack(), mobilecore.Pack(), Pack())
+	register(h, app.URL)
+	h.OK("the courier app is launched")
+	_ = h.Fails(`the "Hand Over" button is scrolled into view in the courier app`, `No button named "Hand Over"`)
+	drags := 0
+	for _, c := range app.Commands() {
+		if strings.HasPrefix(c, "mobile: scroll") {
+			t.Errorf("the platform's scroll, which swipes on the keys: %s", c)
+		}
+		if c == "drag" {
+			drags++
+		}
+	}
+	if drags == 0 {
+		t.Error("no drag above the keyboard")
+	}
+}
+
 // A sheet that takes no notice of a tap looks just as it did a moment later: its button is
 // tapped again, once. A tap it hears shows, and is not repeated.
 func TestASheetTapItIgnoredIsTappedAgain(t *testing.T) {
