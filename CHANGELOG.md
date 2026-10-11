@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.2.12](https://github.com/nimbusxr/axx/compare/v0.2.11...v0.2.12) (2026-10-11)
+
+
+### Features
+
+* **mobile:** photos put in the device's photo library before the app starts ([#160](https://github.com/nimbusxr/axx/issues/160)) ([ecbaf74](https://github.com/nimbusxr/axx/commit/ecbaf74c5f1a2f1569ee8845eecdf925950912af))
+
+
+### Bug Fixes
+
+* **mobile:** an emulator keeps reporting its location, as a phone's GPS does ([#157](https://github.com/nimbusxr/axx/issues/157)) ([4738ff8](https://github.com/nimbusxr/axx/commit/4738ff8f519609eba4aac23742ab5b09392a4a34))
+* **mobile:** an iOS app installed a moment before is launched once SpringBoard knows it ([#161](https://github.com/nimbusxr/axx/issues/161)) ([03590fb](https://github.com/nimbusxr/axx/commit/03590fb4579243034961412302808b2d6e9f419a))
+* **mobile:** iOS page-at-a-time scrolls with the keyboard up drag above it ([#159](https://github.com/nimbusxr/axx/issues/159)) ([0e4c580](https://github.com/nimbusxr/axx/commit/0e4c580408d4305cdb8008fa86851232bd45eeee))
+* **mobile:** iOS scrolls with the keyboard up drag above it ([#156](https://github.com/nimbusxr/axx/issues/156)) ([4a4ae2c](https://github.com/nimbusxr/axx/commit/4a4ae2c343cc576c347434aff89c5a28b0f460b7))
+
 ## [0.2.11](https://github.com/nimbusxr/axx/compare/v0.2.10...v0.2.11) (2026-10-11)
 
 
