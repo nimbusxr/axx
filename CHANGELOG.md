@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.2.9](https://github.com/nimbusxr/axx/compare/v0.2.8...v0.2.9) (2026-10-11)
+
+
+### Features
+
+* **mobile-android:** drive Android apps through the UiAutomator2 server, without Appium ([#142](https://github.com/nimbusxr/axx/issues/142)) ([92df097](https://github.com/nimbusxr/axx/commit/92df0976f466aacde9a077d5d82418d5dc28139d))
+* **mobile-ios:** drive iOS apps through WebDriverAgent, without Appium ([#144](https://github.com/nimbusxr/axx/issues/144)) ([50736d7](https://github.com/nimbusxr/axx/commit/50736d7a986312117cc882630ac04ed543f239e2))
+* **mobile:** traces and videos of the apps on phones, as desktop keeps its apps' ([#139](https://github.com/nimbusxr/axx/issues/139)) ([e4a57ad](https://github.com/nimbusxr/axx/commit/e4a57aded5edff7546ee877615e23613de376f88))
+
+
+### Bug Fixes
+
+* **mobile-ios:** action sheets' buttons, a List's scroll view and a closed app, as iOS 27 reports them ([#141](https://github.com/nimbusxr/axx/issues/141)) ([5010c04](https://github.com/nimbusxr/axx/commit/5010c04e5951b73a048ec471e2b6cd8446796fc7))
+* **mobile:** an app's files can be put in place before the app is launched ([#143](https://github.com/nimbusxr/axx/issues/143)) ([51d40cd](https://github.com/nimbusxr/axx/commit/51d40cdfa5a4fbe6102217665f6a8918a5674d80))
+* **mobile:** reach the end of a long text in one move on iOS, and in flings on Android ([#145](https://github.com/nimbusxr/axx/issues/145)) ([8359da0](https://github.com/nimbusxr/axx/commit/8359da07154a8ff766e0c2ac869d30b29692dd6d))
+
 ## [0.2.8](https://github.com/nimbusxr/axx/compare/v0.2.7...v0.2.8) (2026-10-10)
 
 
