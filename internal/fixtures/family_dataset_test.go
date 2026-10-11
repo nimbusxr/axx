@@ -97,6 +97,29 @@ func TestDatasetTablesWithAndWithoutTheirDefaultSchema(t *testing.T) {
 	mustContain(t, f[0], "typo.yaml", "has no column 'road'", "table 'audit.closures' not found")
 }
 
+// A seed's tables insert after the tables their foreign keys reference, though the migrations
+// create them in another order and add the key later, as DTCD's do for users and organizations.
+func TestDatasetTablesInsertAfterTheTablesTheyReference(t *testing.T) {
+	w := datasetWorkspace(t)
+	w.write("orgs/01-users.sql", "CREATE TABLE users (id UUID PRIMARY KEY, organization_id UUID);\n"+
+		"CREATE TABLE organizations (id UUID PRIMARY KEY, name TEXT);\n"+
+		"CREATE TABLE public.organization_access (user_id UUID REFERENCES public.users(id), organization_id UUID,\n"+
+		"  CONSTRAINT access_org FOREIGN KEY (organization_id) REFERENCES organizations (id));\n")
+	w.write("orgs/02-fk.sql", "ALTER TABLE public.users\n  ADD CONSTRAINT users_organization_id_fkey\n  FOREIGN KEY (organization_id)\n  REFERENCES public.organizations(id);\n"+
+		// A key back the other way, on a column the seed leaves empty: no cycle to break.
+		"ALTER TABLE public.organizations ADD COLUMN IF NOT EXISTS verified_by UUID REFERENCES public.users(id);\n")
+	w.write("seeds/team/team.factory.yaml", "factory:\n  family: dataset\n  schema: ../../orgs\nidentity:\n  - path: public.organizations.id\n")
+	w.write("seeds/team/prairie-lane.fixture.yaml", "data:\n"+
+		"  public.organization_access:\n    - user_id: \"2f0d6c1e-7a51-4c3b-9e2d-00000000ca02\"\n      organization_id: \"7c1e0a52-3d4f-4b6a-8e9f-0000000ca001\"\n"+
+		"  public.users:\n    - id: \"2f0d6c1e-7a51-4c3b-9e2d-00000000ca02\"\n      organization_id: \"7c1e0a52-3d4f-4b6a-8e9f-0000000ca001\"\n"+
+		"  public.organizations:\n    - id: \"7c1e0a52-3d4f-4b6a-8e9f-0000000ca001\"\n      name: \"Prairie Lane Traffic\"\n")
+	got := string(w.expand()["seeds/team/prairie-lane.yaml"])
+	orgs, users, access := strings.Index(got, "public.organizations:"), strings.Index(got, "public.users:"), strings.Index(got, "public.organization_access:")
+	if orgs < 0 || orgs > users || users > access {
+		t.Errorf("organizations, then users, then their access:\n%s", got)
+	}
+}
+
 func TestDatasetMissingRequiredColumn(t *testing.T) {
 	w := datasetWorkspace(t)
 	w.write(missions+"/mission-alpha.fixture.yaml", "data:\n  space.missions:\n    - status: \"planned\"\n")
