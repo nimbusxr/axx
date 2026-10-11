@@ -56,8 +56,25 @@ func (family) Press(sc *core.Scenario, app *appcore.App, ak appcore.Kind, name s
 		if n != nil && n.ByPoint {
 			// A finger's tap where it is: down and up at its middle.
 			x, y := n.Bounds.Center()
+			before, _ := looksOf(ctx, d, n.Bounds)
 			if err := d.Session().Drag(ctx, x, y, x, y, 0); err != nil {
 				return fmt.Errorf("cannot tap the %s %s: %w", quoted(name), k.noun, err)
+			}
+			// A sheet can take no notice of a tap even once it looks still (iOS 27's Save
+			// Password sheet, on a busy Mac): a tap it heard shows, as the button lights up or the
+			// sheet goes. One that shows nothing at all a moment later is tapped again, once, as a
+			// person does whose tap did nothing.
+			if before != nil {
+				select {
+				case <-ctx.Done():
+					return ctx.Err()
+				case <-time.After(700 * time.Millisecond):
+				}
+				if after, err := looksOf(ctx, d, n.Bounds); err == nil && after != nil && same(before, after) {
+					if err := d.Session().Drag(ctx, x, y, x, y, 0); err != nil {
+						return fmt.Errorf("cannot tap the %s %s: %w", quoted(name), k.noun, err)
+					}
+				}
 			}
 			return nil
 		}
