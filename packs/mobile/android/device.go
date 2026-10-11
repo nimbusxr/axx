@@ -114,7 +114,7 @@ func (d *running) resetApp(ctx context.Context) error {
 		d.pkg = pkg
 	}
 	if a.apk != "" && !d.dev.installed[a.apk] {
-		if _, err := d.sdk.run(ctx, serial, "install", "-r", "-t", a.apk); err != nil {
+		if _, err := d.sdk.install(ctx, serial, a.apk, "-t"); err != nil {
 			return fmt.Errorf("cannot install the %s app: %w", a.name, err)
 		}
 		d.dev.installed[a.apk] = true
