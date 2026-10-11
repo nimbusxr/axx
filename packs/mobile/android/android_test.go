@@ -186,7 +186,10 @@ func TestFailures(t *testing.T) {
 	_ = h.Fails(`the "Log in" button is tapped in the courier app`, `No button named "Log in" in the courier app; 1 buttons:`)
 	_ = h.Fails(`the "Courier" field in the courier app is filled with "x"`, "Courier ID")
 	_ = h.Fails(`within 1s the courier app shows "Today's deliveries"`, `The courier app does not show "Today's deliveries"`)
-	_ = h.Fails(`within 1s the courier app does not show "Sign in"`, `The courier app shows "Sign in"`)
+	// What the screen shows, which says where the text is.
+	if err := h.Fails(`within 1s the courier app does not show "Sign in"`, `The courier app shows "Sign in"`); !strings.Contains(err.Error(), "Courier ID") {
+		t.Errorf("the failure does not say what the screen shows: %v", err)
+	}
 	_ = h.Fails(`within 1s the "Sign in" button is enabled in the courier app`, `The "Sign in" button in the courier app is not enabled`)
 	_ = h.Fails(`the courier app's dialog is accepted`, "The courier app shows no dialog")
 	_ = h.Fails(`within 1s the courier app shows a notification "PX-MOB-9402 delivered"`, `The device of the courier app shows no notification "PX-MOB-9402 delivered"`)

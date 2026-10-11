@@ -167,7 +167,7 @@ func (family) DoesNotShow(sc *core.Scenario, a *appcore.App, text string, wait t
 		if err != nil || ok {
 			return err
 		}
-		return core.Failf("The %s app shows %q", a.Name, text)
+		return core.Fail(fmt.Sprintf("The %s app shows %q", a.Name, text), fmt.Sprintf("no %q", text), cloudstep.Shown("texts", p.Texts(), 30))
 	})
 }
 
