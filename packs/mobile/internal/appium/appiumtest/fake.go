@@ -59,6 +59,9 @@ type Server struct {
 	// answer is lost.
 	arriving int
 	blank    bool
+	// stale are the next finds that lose what they found as it moves, as a notification
+	// sliding away does under WebDriverAgent.
+	stale int
 }
 
 // Start runs the fake for a test.
@@ -96,6 +99,13 @@ func (s *Server) Moving(xpath string, misses int) {
 		s.moving = map[string]int{}
 	}
 	s.moving[xpath] = misses
+}
+
+// Stale has the next finds of elements lose what they found, as the screen changes under them.
+func (s *Server) Stale(finds int) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.stale = finds
 }
 
 // Show moves the app to a screen, as the app would by itself.
@@ -216,6 +226,11 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 	case path == "/element" || path == "/elements":
 		using, _ := body["using"].(string)
 		value, _ := body["value"].(string)
+		if s.stale > 0 {
+			s.stale--
+			fail("stale element reference", "The previously found element is not present in the current view anymore.")
+			return
+		}
 		if s.moving[value] > 0 {
 			s.moving[value]--
 			fail("no such element", "An element could not be located on the page using the given search parameters.")
