@@ -221,3 +221,26 @@ func TestRecordingsOnASimulator(t *testing.T) {
 	}
 	recordingsKept(t, h)
 }
+
+// A courier shares the van's location and drives east along Grimmaische Straße at 50 km/h: the
+// app hears the phone move, with its speed and course, and reports it; the step waits for the
+// phone to arrive.
+func TestACourierSharesTheVanOnASimulator(t *testing.T) {
+	device := simulator(t)
+	api := courierapi.Start(t)
+	t.Setenv("COURIER_PIN", "4711")
+	h := harness(t)
+	warm(t, h, device)
+	h.OK("the courier ios app with the following properties:", [][]string{
+		{"app", courierBuild(t)}, {"device", device}, {"timezone", "Europe/Berlin"}, {"location", "51.3397, 12.3731"},
+	})
+	signIn(h)
+	h.OK(`the courier app's dialog is dismissed`)
+	h.OK(`the courier app shows "Hello, Hanna Wolf"`)
+	h.OK(`the "Share van location" switch is tapped in the courier app`)
+	h.OK(`the courier app's dialog shows "use your location"`)
+	h.OK(`the courier app's dialog is accepted`)
+	h.OK("the courier app's phone travels at 50 km/h through:", [][]string{{"51.3397", "12.3731"}, {"51.3397", "12.3760"}})
+	time.Sleep(2 * time.Second) // the last fix's report, on its way
+	api.TheVanTravelled(t, [2]float64{51.3397, 12.3731}, [2]float64{51.3397, 12.3760}, 50/3.6)
+}

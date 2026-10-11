@@ -57,6 +57,7 @@ type service struct {
 	shopClients     map[string]string         // the shops' client credentials
 	courierTokenKey []byte                    // signs the tokens of the couriers' app
 	couriers        map[string]courierAccount // who can sign in to the couriers' app
+	vans            vans                      // where the couriers' vans are
 }
 
 // registration is a parcel to register, from the API or a manifest line.

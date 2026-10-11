@@ -60,3 +60,44 @@ func TestCourierSignIn(t *testing.T) {
 		t.Errorf("no token: %d", got)
 	}
 }
+
+// The courier's app reports where the van is: rounded to about 11 metres, its speed in km/h
+// and its heading in degrees; the courier's token only.
+func TestCourierLocation(t *testing.T) {
+	s := &service{
+		courierTokenKey: []byte("test-courier-token-key"),
+		couriers:        map[string]courierAccount{"CR-LEJ-12": {name: "Hanna Wolf", pin: "4711"}},
+	}
+	mux := http.NewServeMux()
+	s.courierRoutes(mux)
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/api/couriers/sign-in", strings.NewReader(`{"courier": "CR-LEJ-12", "pin": "4711"}`)))
+	var session struct{ Token string }
+	_ = json.Unmarshal(rec.Body.Bytes(), &session)
+	report := func(courier, body string) int {
+		req := httptest.NewRequest(http.MethodPost, "/api/couriers/"+courier+"/location", strings.NewReader(body))
+		req.Header.Set("Authorization", "Bearer "+session.Token)
+		rec := httptest.NewRecorder()
+		mux.ServeHTTP(rec, req)
+		return rec.Code
+	}
+	if got := report("CR-LEJ-12", `{"latitude": 51.33969879, "longitude": 12.38000011, "speed": 8.3333, "course": 89.6}`); got != http.StatusNoContent {
+		t.Fatalf("a location: %d", got)
+	}
+	pos, ok := s.vans.get("CR-LEJ-12")
+	if !ok || pos.Latitude != 51.3397 || pos.Longitude != 12.38 || pos.SpeedKmh != 30 || pos.Heading != 90 {
+		t.Errorf("the van: %+v %v", pos, ok)
+	}
+	for body, want := range map[string]int{
+		`{"longitude": 12.38}`:                                  http.StatusBadRequest,
+		`{"latitude": 91, "longitude": 12.38}`:                  http.StatusBadRequest,
+		`{"latitude": 51.3, "longitude": 12.38, "course": 360}`: http.StatusBadRequest,
+	} {
+		if got := report("CR-LEJ-12", body); got != want {
+			t.Errorf("%s: %d, want %d", body, got, want)
+		}
+	}
+	if got := report("CR-DRS-07", `{"latitude": 51.0504, "longitude": 13.7373}`); got != http.StatusForbidden {
+		t.Errorf("another courier's van: %d", got)
+	}
+}

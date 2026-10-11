@@ -4,8 +4,10 @@ import (
 	"crypto/hmac"
 	"encoding/json"
 	"errors"
+	"math"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -24,6 +26,10 @@ import (
 //	                                                    delivered yet, oldest first
 //	POST /api/couriers/{courier}/deliveries/{reference} {"signedBy", "location"}: the
 //	                                                    parcel is delivered
+//	POST /api/couriers/{courier}/location               {"latitude", "longitude", "speed",
+//	                                                    "course"}: where the courier's van
+//	                                                    is, which the tracking streams of
+//	                                                    the parcels on board tell
 //
 // The deliveries need the courier's token: 401 without one, 403 with another
 // courier's. A parcel is the courier's when its details name the courier.
@@ -41,6 +47,63 @@ func (s *service) courierRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/couriers/sign-in", s.courierSignIn)
 	mux.HandleFunc("GET /api/couriers/{courier}/deliveries", s.courierDeliveries)
 	mux.HandleFunc("POST /api/couriers/{courier}/deliveries/{reference}", s.courierDelivered)
+	mux.HandleFunc("POST /api/couriers/{courier}/location", s.courierLocation)
+}
+
+// vanPosition is where a courier's van is, as the courier's app last reported it: rounded to
+// about 11 metres, its speed to a km/h and its heading to a degree.
+type vanPosition struct {
+	Latitude  float64   `json:"latitude"`
+	Longitude float64   `json:"longitude"`
+	SpeedKmh  int       `json:"speedKmh"`
+	Heading   int       `json:"heading"`
+	At        time.Time `json:"at"`
+}
+
+// vans are the couriers' vans where their apps last reported them.
+type vans struct {
+	mu  sync.Mutex
+	pos map[string]vanPosition
+}
+
+func (v *vans) set(courier string, p vanPosition) {
+	v.mu.Lock()
+	defer v.mu.Unlock()
+	if v.pos == nil {
+		v.pos = map[string]vanPosition{}
+	}
+	v.pos[courier] = p
+}
+
+func (v *vans) get(courier string) (vanPosition, bool) {
+	v.mu.Lock()
+	defer v.mu.Unlock()
+	p, ok := v.pos[courier]
+	return p, ok
+}
+
+func (s *service) courierLocation(w http.ResponseWriter, r *http.Request) {
+	courier, ok := s.courierOf(w, r)
+	if !ok {
+		return
+	}
+	var in struct {
+		Latitude  *float64 `json:"latitude"`
+		Longitude *float64 `json:"longitude"`
+		Speed     float64  `json:"speed"`  // metres a second
+		Course    float64  `json:"course"` // degrees clockwise from north
+	}
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4<<10)).Decode(&in); err != nil || in.Latitude == nil || in.Longitude == nil ||
+		*in.Latitude < -90 || *in.Latitude > 90 || *in.Longitude < -180 || *in.Longitude > 180 || in.Speed < 0 || in.Course < 0 || in.Course >= 360 {
+		problem(w, r, http.StatusBadRequest, "a location is a latitude and a longitude, with the van's speed in metres a second and its course in degrees")
+		return
+	}
+	round := func(v float64) float64 { return math.Round(v*1e4) / 1e4 }
+	s.vans.set(courier, vanPosition{
+		Latitude: round(*in.Latitude), Longitude: round(*in.Longitude),
+		SpeedKmh: int(math.Round(in.Speed * 3.6)), Heading: int(math.Round(in.Course)) % 360, At: time.Now().UTC(),
+	})
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (s *service) courierSignIn(w http.ResponseWriter, r *http.Request) {

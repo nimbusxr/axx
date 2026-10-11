@@ -359,6 +359,19 @@ func (s *Session) DismissAlert(ctx context.Context) error {
 	return s.do(ctx, http.MethodPost, "/alert/dismiss", map[string]any{}, nil)
 }
 
+// AlertButtons are the buttons of the alert in front, in order, as WebDriverAgent reads them;
+// an error from a server that cannot say (the UiAutomator2 server).
+func (s *Session) AlertButtons(ctx context.Context) ([]string, error) {
+	var out []string
+	err := s.do(ctx, http.MethodGet, "/wda/alert/buttons", nil, &out)
+	return out, err
+}
+
+// AcceptAlertWith accepts the alert in front with its button of that name (WebDriverAgent).
+func (s *Session) AcceptAlertWith(ctx context.Context, button string) error {
+	return s.do(ctx, http.MethodPost, "/alert/accept", map[string]any{"name": button}, nil)
+}
+
 func (s *Session) AlertText(ctx context.Context) (string, error) {
 	var out string
 	err := s.do(ctx, http.MethodGet, "/alert/text", nil, &out)

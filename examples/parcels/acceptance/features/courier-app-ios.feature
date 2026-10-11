@@ -74,3 +74,27 @@ Feature: The couriers' iPhone app
     When the courier app is launched
     Then the courier app shows "Sign in"
     And the "Courier ID" field in the courier app has the value ""
+
+  Scenario: A courier shares where the van is, and the parcel's tracking follows it
+    Given a seeds/courier-app-ios-van.yaml db seed
+    And the tracking event stream with the following properties:
+      | url      | http://${sys:local.host}:8400/api/parcels/PX-IOS-9551/events |
+      | asyncapi | http://${sys:local.host}:8400/asyncapi.yaml                  |
+    And the courier app is launched
+    And the "Courier ID" field in the courier app is filled with "CR-LEJ-32"
+    And the "PIN" field in the courier app is filled with "${sys:couriers.pin}"
+    And the "Sign in" button is tapped in the courier app
+    And the courier app's dialog is dismissed
+    And the "Share van location" switch is tapped in the courier app
+    And the courier app's dialog is accepted
+    When the courier app's phone starts traveling the routes/grimmaische-strasse.gpx route
+    Then within 20s the tracking event stream has an event where:
+      | event type | courier     |
+      | reference  | PX-IOS-9551 |
+      | speedKmh   | 30          |
+      | heading    | 90          |
+    And the courier app's phone reaches the end of its route
+    And within 10s the tracking event stream has an event where:
+      | event type | courier |
+      | latitude   | 51.3397 |
+      | longitude  | 12.376  |

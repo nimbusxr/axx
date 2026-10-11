@@ -13,6 +13,19 @@ import (
 	"github.com/nimbusxr/axx/packs/mobile/internal/appium"
 )
 
+// acceptDialog allows what the dialog asks. WebDriverAgent's accept presses the alert's last
+// button, which is Allow in a dialog of two (Don't Allow, Allow) but Don't Allow in iOS's of
+// three, which ask for a location (Allow Once, Allow While Using App, Don't Allow) or photos
+// (Limit Access, Allow Full Access, Don't Allow): there the button before the last is the one that
+// allows for good, whatever the language. The UiAutomator2 server lists no buttons, and its own
+// accept allows.
+func acceptDialog(ctx context.Context, s *appium.Session) error {
+	if buttons, err := s.AlertButtons(ctx); err == nil && len(buttons) >= 3 {
+		return s.AcceptAlertWith(ctx, buttons[len(buttons)-2])
+	}
+	return s.AcceptAlert(ctx)
+}
+
 // The dialog steps are for the dialogs the system shows over an app: a
 // request for a permission, an alert. A dialog of the app's own is part of
 // its screen: its buttons are tapped as any other.
@@ -56,7 +69,7 @@ func dialogSteps() []core.StepDef {
 		}
 	}
 	return []core.StepDef{
-		answer("accepted", func(ctx context.Context, s *appium.Session) error { return s.AcceptAlert(ctx) }),
+		answer("accepted", acceptDialog),
 		answer("dismissed", func(ctx context.Context, s *appium.Session) error { return s.DismissAlert(ctx) }),
 		{
 			ID: "mobile-core.dialog.shows", Keyword: "Then", Since: since,

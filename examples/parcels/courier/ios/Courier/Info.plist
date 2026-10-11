@@ -16,6 +16,9 @@
 			</array>
 		</dict>
 	</array>
+	<!-- Where the van is, while the courier shares it. -->
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Recipients see where your van is on their tracking page while you share it.</string>
 	<!-- Plain HTTP to the parcels service on the Mac the simulator runs on: 127.0.0.1. -->
 	<key>NSAppTransportSecurity</key>
 	<dict>

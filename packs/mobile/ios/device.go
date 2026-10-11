@@ -188,9 +188,66 @@ type running struct {
 	bundleID string
 	session  *appium.Session
 	resets   []string
+	// stopTravel ends the route the phone is on (Travel), and waits for it to stop.
+	stopTravel func()
 }
 
 func (d *running) Session() *appium.Session { return d.session }
+
+// Travel has the simulator report the phone moving along the route, as CoreLocation reports a
+// person walking or driving: each run of legs at one speed is a simctl location scenario, which
+// moves the phone and gives its speed and course, every second. The phone stays at the last point.
+func (d *running) Travel(_ context.Context, r mobilecore.Route) (<-chan struct{}, error) {
+	if d.stopTravel != nil {
+		d.stopTravel() // a new route replaces the one before
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	arrived, done := make(chan struct{}), make(chan struct{})
+	udid, set := d.dev.udid, d.dev.set
+	go func() {
+		defer close(done)
+		for _, run := range runs(r) {
+			// A stop: the phone stands where it is.
+			args := []string{"location", udid, "set", waypoint(run.Legs[0].From)}
+			if run.Legs[0].Speed > 0 {
+				args = []string{"location", udid, "start", "--speed=" + strconv.FormatFloat(run.Legs[0].Speed, 'f', 3, 64), "--interval=1", waypoint(run.Legs[0].From)}
+				for _, l := range run.Legs {
+					args = append(args, waypoint(l.To))
+				}
+			}
+			if _, err := set.simctl(ctx, args...); err != nil {
+				return
+			}
+			select {
+			case <-time.After(run.Duration()):
+			case <-ctx.Done():
+				return
+			}
+		}
+		last := r.Legs[len(r.Legs)-1].To
+		_, _ = set.simctl(ctx, "location", udid, "set", waypoint(last))
+		close(arrived)
+	}()
+	d.stopTravel = func() { cancel(); <-done; d.stopTravel = nil }
+	return arrived, nil
+}
+
+// runs are a route's legs, the ones in a row at one speed together.
+func runs(r mobilecore.Route) []mobilecore.Route {
+	var out []mobilecore.Route
+	for _, l := range r.Legs {
+		if n := len(out); n > 0 && out[n-1].Legs[len(out[n-1].Legs)-1].Speed == l.Speed {
+			out[n-1].Legs = append(out[n-1].Legs, l)
+			continue
+		}
+		out = append(out, mobilecore.Route{Legs: []mobilecore.Leg{l}})
+	}
+	return out
+}
+
+func waypoint(p mobilecore.Point) string {
+	return strconv.FormatFloat(p.Lat, 'f', -1, 64) + "," + strconv.FormatFloat(p.Lon, 'f', -1, 64)
+}
 
 // reset leaves the simulator as the scenario starts from: the app installed
 // afresh (with it go its data and its notifications), its keychain and
@@ -820,6 +877,9 @@ func (d *running) Stop(bool) error {
 }
 
 func (d *running) releaseDevice() {
+	if d.stopTravel != nil {
+		d.stopTravel()
+	}
 	if d.pool != nil && d.dev != nil {
 		d.pool.release(d.dev)
 		d.dev = nil

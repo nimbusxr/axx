@@ -546,3 +546,26 @@ func TestKnowsNoIncremental(t *testing.T) {
 		}
 	}
 }
+
+// Jetpack Compose says a switch only in its role description, which the UiAutomator2 server
+// leaves out: the courier app's "Share van location" row (Modifier.toggleable, Role.Switch), as
+// the server reads it, is a switch.
+func TestAComposeSwitchRowIsASwitch(t *testing.T) {
+	b, err := os.ReadFile(filepath.Join("testdata", "compose", "switch-row.xml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	s, err := parseSource(string(b))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, n := range s.Visible() {
+		if slices.Contains(n.Texts(), "Share van location") && n.Clickable {
+			if n.Role != mobilecore.RoleSwitch {
+				t.Errorf("the row's role is %d, want a switch", n.Role)
+			}
+			return
+		}
+	}
+	t.Error("no tappable row shows Share van location")
+}

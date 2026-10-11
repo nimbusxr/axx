@@ -26,6 +26,8 @@
 | `{pattern}` | a regular expression (Java syntax) with no spaces, which matches the whole value |  | `PX-\d{4}`, `[A-Z]{2}-\d+` | core |
 | `{service}` | the name of a REST service the scenario registered |  | `parcels` | rest |
 | `{short}` | a whole number, from -32768 to 32767 |  | `1200` | cucumber |
+| `{speed}` | how fast a phone travels: `25 mph`, `40 km/h` or `11 m/s`; or, for a GPX file with times, how many times its own pace: `4x` |  | `25 mph`, `40 km/h`, `4x` | mobile-core |
 | `{sqlState}` | a five-character SQLSTATE error code, like `40001` (serialization failure) or `23505` (unique violation) |  | `40001`, `23505` | sql |
 | `{string}` | text in double or single quotes, which the step leaves out |  | `"Get a quote"`, `'Express'` | cucumber |
+| `{travel}` | whether the step waits for the phone to arrive (`travels`), or lets the scenario go on while it moves (`starts traveling`) | `travels`, `starts traveling` | `travels`, `starts traveling` | mobile-core |
 | `{word}` | one word, with no spaces |  | `parcels`, `PX-4101` | cucumber |

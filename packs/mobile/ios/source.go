@@ -69,7 +69,35 @@ func parseSource(src string) (*mobilecore.Screen, error) {
 		n.Role = roleOf(n)
 		n.Clickable = n.Role != mobilecore.RoleOther && n.Role != mobilecore.RoleText && n.Role != mobilecore.RoleImage
 	}
+	for _, n := range s.Nodes {
+		if c := innerSwitch(n); c != nil {
+			// A SwiftUI Toggle is a switch as wide as its row, its label in it: XCTest's tap of it
+			// lands on the label, which does not toggle it. The switch in it is the control a
+			// person taps, and where a tap goes.
+			n.Bounds, n.ByPoint = c.Bounds, true
+		}
+	}
 	return s, nil
+}
+
+// innerSwitch is the switch control in a switch that holds one, like a SwiftUI Toggle's.
+func innerSwitch(n *mobilecore.Node) *mobilecore.Node {
+	if n.Class != "XCUIElementTypeSwitch" {
+		return nil
+	}
+	var find func(*mobilecore.Node) *mobilecore.Node
+	find = func(p *mobilecore.Node) *mobilecore.Node {
+		for _, c := range p.Children {
+			if c.Class == "XCUIElementTypeSwitch" && c.Bounds.Width > 0 && c.Bounds.Width < n.Bounds.Width {
+				return c
+			}
+			if f := find(c); f != nil {
+				return f
+			}
+		}
+		return nil
+	}
+	return find(n)
 }
 
 // inSheet is whether the node is in an action sheet: SwiftUI's

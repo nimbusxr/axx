@@ -203,6 +203,8 @@ type running struct {
 	reviving sync.Mutex
 	// stopFeed ends the emulator's location fixes (feedLocation) and waits for them to stop.
 	stopFeed func()
+	// route is the route the phone travels, which the location fixes follow.
+	route travelling
 }
 
 func (d *running) Session() *appium.Session { return d.session }
@@ -289,11 +291,16 @@ func (d *running) resetDevice(ctx context.Context) error {
 
 // feedLocation has the emulator report where it is every second until the scenario ends, as a
 // phone's GPS does. A geo fix is a single report: an app that asks for its current location,
-// not the last one the phone had, waits for the next report, and none came.
+// not the last one the phone had, waits for the next report, and none came. A route the phone
+// travels (Travel) moves the reports along it, with the speed and bearing the emulator's GPS
+// takes; an emulator without it gets plain geo fixes.
 func (d *running) feedLocation(lon, lat string) {
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
-	sdk, serial := d.sdk, d.dev.serial
+	sdk, serial, gps := d.sdk, d.dev.serial, d.dev.gps
+	la, _ := strconv.ParseFloat(lat, 64)
+	lo, _ := strconv.ParseFloat(lon, 64)
+	at := mobilecore.Fix{Point: mobilecore.Point{Lat: la, Lon: lo}}
 	go func() {
 		defer close(done)
 		t := time.NewTicker(time.Second)
@@ -302,13 +309,58 @@ func (d *running) feedLocation(lon, lat string) {
 			select {
 			case <-ctx.Done():
 				return
-			case <-t.C:
-				_, _ = sdk.run(ctx, serial, "emu", "geo", "fix", lon, lat)
+			case now := <-t.C:
+				if f := d.route.at(now); f != nil {
+					at = *f
+				}
+				if gps != nil && gps.set(ctx, at.Lat, at.Lon, at.Speed, at.Course) == nil {
+					continue
+				}
+				_, _ = sdk.run(ctx, serial, "emu", "geo", "fix", strconv.FormatFloat(at.Lon, 'f', -1, 64), strconv.FormatFloat(at.Lat, 'f', -1, 64))
 			}
 		}
 	}()
 	// The next scenario on the emulator gets no fix of this one's.
 	d.stopFeed = func() { cancel(); <-done }
+}
+
+// Travel has the emulator report the phone moving along the route, every second, with its speed
+// and bearing; at the last point, it stays.
+func (d *running) Travel(_ context.Context, r mobilecore.Route) (<-chan struct{}, error) {
+	if d.stopFeed == nil {
+		return nil, fmt.Errorf("the %s app's device reports no location of axx's to move: only an emulator axx starts does", d.app.name)
+	}
+	return d.route.set(r, time.Now()), nil
+}
+
+// travelling is the route the phone is on, if it is on one: where it is at a moment.
+type travelling struct {
+	mu      sync.Mutex
+	r       *mobilecore.Route
+	start   time.Time
+	arrived chan struct{}
+}
+
+func (t *travelling) set(r mobilecore.Route, start time.Time) <-chan struct{} {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.r, t.start, t.arrived = &r, start, make(chan struct{})
+	return t.arrived
+}
+
+// at is where the route has the phone at now; nil when the phone is on no route.
+func (t *travelling) at(now time.Time) *mobilecore.Fix {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if t.r == nil {
+		return nil
+	}
+	f, done := t.r.At(now.Sub(t.start))
+	if done && t.arrived != nil {
+		close(t.arrived)
+		t.arrived = nil
+	}
+	return &f
 }
 
 // photosDir is the folder of the device's photo library axx puts a scenario's photos in.
