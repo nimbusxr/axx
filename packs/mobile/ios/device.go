@@ -566,9 +566,9 @@ func (d *running) ScrollToShow(ctx context.Context, n *mobilecore.Node, _ string
 	if err != nil {
 		return false, err
 	}
-	v := view.Bounds
+	v := uncovered(view)
 	x, middle, reach := v.X+v.Width/2, v.Y+v.Height/2, v.Height*0.6
-	if err := d.scrub(ctx, el, view); err != nil {
+	if err := d.scrub(ctx, el, view, v); err != nil {
 		return false, err
 	}
 	last := math.NaN()
@@ -593,6 +593,33 @@ func (d *running) ScrollToShow(ctx context.Context, n *mobilecore.Node, _ string
 	return false, nil
 }
 
+// uncovered is the part of a scroll view the keyboard leaves showing: a finger that lands on the
+// keyboard types, and a control under it does not show.
+func uncovered(view *mobilecore.Node) mobilecore.Rect {
+	v := view.Bounds
+	root := view
+	for root.Parent != nil {
+		root = root.Parent
+	}
+	if k := keyboardOf(root); k != nil && k.Bounds.Height > 0 && k.Bounds.Y > v.Y && k.Bounds.Y < v.Y+v.Height {
+		v.Height = k.Bounds.Y - v.Y
+	}
+	return v
+}
+
+// keyboardOf is the keyboard on the screen n is the top of, or nil.
+func keyboardOf(n *mobilecore.Node) *mobilecore.Node {
+	if n.Class == "XCUIElementTypeKeyboard" {
+		return n
+	}
+	for _, c := range n.Children {
+		if k := keyboardOf(c); k != nil {
+			return k
+		}
+	}
+	return nil
+}
+
 // pagesRE reads a scroll bar's label, like "Vertical scroll bar, 25 pages".
 var pagesRE = regexp.MustCompile(`^Vertical scroll bar, (\d+) pages?$`)
 
@@ -600,7 +627,8 @@ var pagesRE = regexp.MustCompile(`^Vertical scroll bar, (\d+) pages?$`)
 // a half away: as a person does in a long text, it grabs the scroll bar (shown by a nudge of the
 // text: it shows only while the view moves) and drags it to where the control is. The drags after
 // it take the view the last stretch. A view with no scroll bar, or a short one, is left as it is.
-func (d *running) scrub(ctx context.Context, el *appium.Element, view *mobilecore.Node) error {
+// v is the part of the view the keyboard leaves showing, where the nudge goes.
+func (d *running) scrub(ctx context.Context, el *appium.Element, view *mobilecore.Node, v mobilecore.Rect) error {
 	var bar *mobilecore.Node
 	pages := 0.0
 	for _, c := range view.Children {
@@ -617,7 +645,7 @@ func (d *running) scrub(ctx context.Context, el *appium.Element, view *mobilecor
 	if err != nil {
 		return err
 	}
-	v, t := view.Bounds, bar.Bounds
+	t := bar.Bounds
 	off := r.Y + r.Height/2 - (v.Y + v.Height/2)
 	if math.Abs(off) < 1.5*v.Height {
 		return nil

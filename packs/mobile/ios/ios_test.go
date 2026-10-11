@@ -312,6 +312,42 @@ func TestScrollBarPages(t *testing.T) {
 	}
 }
 
+// With the keyboard up, a scroll view's drags and its shown controls are in the part above the
+// keyboard: a finger on the keys types, and a control under them does not show.
+func TestTheKeyboardCoversTheScrollViewsBottom(t *testing.T) {
+	src := func(keyboard string) string {
+		return `<AppiumAUT><XCUIElementTypeApplication type="XCUIElementTypeApplication" name="DTCD" label="DTCD" x="0" y="0" width="393" height="852" visible="true">
+<XCUIElementTypeWindow type="XCUIElementTypeWindow" x="0" y="0" width="393" height="852" visible="true">
+<XCUIElementTypeScrollView type="XCUIElementTypeScrollView" x="0" y="100" width="393" height="752" visible="true">
+<XCUIElementTypeButton type="XCUIElementTypeButton" name="Save Changes" label="Save Changes" x="16" y="1900" width="361" height="54" visible="false"/>
+</XCUIElementTypeScrollView></XCUIElementTypeWindow>` + keyboard + `</XCUIElementTypeApplication></AppiumAUT>`
+	}
+	for name, c := range map[string]struct {
+		keyboard string
+		height   float64
+	}{
+		"keyboard up": {`<XCUIElementTypeKeyboard type="XCUIElementTypeKeyboard" x="0" y="516" width="393" height="336" visible="true"/>`, 416},
+		"no keyboard": {"", 752},
+	} {
+		s, err := parseSource(src(c.keyboard))
+		if err != nil {
+			t.Fatal(err)
+		}
+		var view *mobilecore.Node
+		for _, n := range s.Nodes {
+			if n.Scrolling {
+				view = n
+			}
+		}
+		if view == nil {
+			t.Fatal("no scroll view")
+		}
+		if v := uncovered(view); v.Y != 100 || v.Height != c.height {
+			t.Errorf("%s: the view shows %v, want y 100 and height %v", name, v, c.height)
+		}
+	}
+}
+
 // A sheet that takes no notice of a tap looks just as it did a moment later: its button is
 // tapped again, once. A tap it hears shows, and is not repeated.
 func TestASheetTapItIgnoredIsTappedAgain(t *testing.T) {
