@@ -97,17 +97,19 @@ Entries in different logs, for example your service's decision and the call its 
 ```gherkin
 Then the logs have entries matching:
   | parcels | msg="registration refused; not announced" reference=PX-ADR-1104 |
-  | console | Request received:\n.*GET /v1/postcodes/DE/00012                  |
+  | console | GET /v1/postcodes/DE/00012                                      |
 ```
 
 ## Multi-line entries
 
-Patterns match across the whole text, so an entry can span lines: a stack trace, or WireMock's request log above. `^` and `$` match at the start and end of each line, `\n` matches a line break, and `(?s)` lets `.` match line breaks too:
+Patterns match across the whole text, so an entry can span lines, such as a stack trace. `^` and `$` match at the start and end of each line, `\n` matches a line break, and `(?s)` lets `.` match line breaks too:
 
 ```gherkin
 Then the parcels log has an entry matching '(?s)registration failed reference=PX-7.*IllegalStateException: address service unavailable'
 ```
 
 In a table cell, Gherkin turns `\n` into a real line break, which matches a line break just the same.
+
+A log that gathers several services' output, such as `.axx/logs/services.log`, can put another service's lines between the lines of an entry, since each service writes on its own. There, match a single line of the entry.
 
 When a step fails, it shows what the log received since the scenario registered it, so you can see what your service said instead.

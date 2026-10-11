@@ -70,7 +70,7 @@ Feature: Address check
     And the response payload property detail is 'the address service is unavailable; try again later'
     And the logs have entries matching:
       | parcels | msg="registration refused; not announced" reference=PX-ADR-1104 reason="the address service is unavailable" |
-      | console | Request received:\n.*GET /v1/postcodes/DE/00012                                                              |
+      | console | GET /v1/postcodes/DE/00012                                                                                  |
     And a selection of rows is retrieved from the parcels.parcels table where:
       | reference | PX-ADR-1104 |
     And the selection has 0 rows
