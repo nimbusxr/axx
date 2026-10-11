@@ -377,3 +377,21 @@ func TestALaunchXCTestGaveUpOn(t *testing.T) {
 		}
 	}
 }
+
+// A sheet's button iOS says is visible is tapped where it is too: XCTest's own tap of it does
+// nothing on iOS 27.
+func TestASheetsVisibleButtonIsTappedByPoint(t *testing.T) {
+	src := `<AppiumAUT><XCUIElementTypeApplication type="XCUIElementTypeApplication" name="Couriers" label="Couriers" x="0" y="0" width="393" height="852" visible="true">
+<XCUIElementTypeSheet type="XCUIElementTypeSheet" name="Save Password?" label="Save Password?" x="0" y="0" width="393" height="852" visible="true">
+<XCUIElementTypeButton type="XCUIElementTypeButton" name="Not Now" label="Not Now" x="92" y="531" width="208" height="48" visible="true"/>
+</XCUIElementTypeSheet></XCUIElementTypeApplication></AppiumAUT>`
+	s, err := parseSource(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, n := range s.Visible() {
+		if n.Name() == "Not Now" && !n.ByPoint {
+			t.Error("the sheet's visible button is not tapped where it is")
+		}
+	}
+}
