@@ -51,7 +51,7 @@ func (r runner) Start(sc *core.Scenario) (mobilecore.Device, error) {
 		return nil, err
 	}
 	d.pool, d.dev, d.sdk = p, dev, p.sdk
-	if err := p.ensureServer(ctx, dev, logDir); err != nil {
+	if err := p.startServer(ctx, dev, logDir); err != nil {
 		d.releaseDevice()
 		return nil, err
 	}
@@ -218,18 +218,7 @@ func (d *running) revive(ctx context.Context) error {
 	if d.session.Alive(ctx) {
 		return nil
 	}
-	// adb can lose the device for a moment as the server crashes (adb: device offline): the server
-	// is started again once adb has the device back, and once more if adb loses it on the way.
-	var err error
-	for attempt := 0; attempt < 2; attempt++ {
-		if err = d.sdk.waitOnline(ctx, d.dev.serial, time.Minute); err != nil {
-			return err
-		}
-		if err = d.pool.ensureServer(ctx, d.dev, d.logDir); err == nil || !strings.Contains(err.Error(), "device offline") {
-			break
-		}
-	}
-	if err != nil {
+	if err := d.pool.startServer(ctx, d.dev, d.logDir); err != nil {
 		return err
 	}
 	s, err := d.dev.server.client.NewSession(ctx, d.caps)

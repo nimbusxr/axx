@@ -103,6 +103,29 @@ type uia2Server struct {
 var hiddenAPIPolicies = []string{"hidden_api_policy_pre_p_apps", "hidden_api_policy_p_apps", "hidden_api_policy"}
 
 // stopped answering (an app that took the device down with it).
+// startServer makes sure the device's UiAutomator2 server runs, as a scenario starts or after
+// the server crashed under one. An emulator can stall for a while, and adb loses it meanwhile
+// (adb: device offline, then not found): the server is started once adb has the device back, and
+// once more if adb loses it on the way.
+func (p *pool) startServer(ctx context.Context, d *device, logDir string) error {
+	var err error
+	for attempt := 0; attempt < 2; attempt++ {
+		if err = p.sdk.waitOnline(ctx, d.serial, 2*time.Minute); err != nil {
+			return err
+		}
+		err = p.ensureServer(ctx, d, logDir)
+		if err == nil || !lostDevice(err) {
+			return err
+		}
+	}
+	return err
+}
+
+// lostDevice is whether adb failed for not having the device at that moment.
+func lostDevice(err error) bool {
+	return strings.Contains(err.Error(), "device offline") || strings.Contains(err.Error(), "not found")
+}
+
 func (p *pool) ensureServer(ctx context.Context, d *device, logDir string) error {
 	if d.server != nil {
 		select {
