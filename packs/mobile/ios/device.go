@@ -322,6 +322,9 @@ func (d *running) Screen(ctx context.Context) (*mobilecore.Screen, error) {
 // 1 is not running, 2 suspended, 3 in the background, 4 in the foreground.
 const runningSuspended = 2
 
+// runningForeground is the state XCUITest reports of the app in front.
+const runningForeground = 4
+
 func (d *running) state(ctx context.Context) (int, error) {
 	var state int
 	err := d.appCommand(ctx, "queryAppState", "state", map[string]any{"bundleId": d.bundleID}, &state)
@@ -352,11 +355,21 @@ func (d *running) Launch(ctx context.Context) error {
 }
 
 func (d *running) start(ctx context.Context) error {
-	return d.appCommand(ctx, "launchApp", "launch", map[string]any{
+	args := map[string]any{
 		"bundleId":    d.bundleID,
 		"arguments":   d.app.launchArguments(),
 		"environment": map[string]string{"TZ": d.app.timezone},
-	}, nil)
+	}
+	err := d.appCommand(ctx, "launchApp", "launch", args, nil)
+	if err == nil || !strings.Contains(err.Error(), "Timed out attempting to launch app") {
+		return err
+	}
+	// XCTest gives up on a launch that takes long on a busy Mac, though the app may be up all the
+	// same: one in front is launched; else it is launched once more.
+	if state, serr := d.state(ctx); serr == nil && state == runningForeground {
+		return nil
+	}
+	return d.appCommand(ctx, "launchApp", "launch", args, nil)
 }
 
 func (d *running) Restart(ctx context.Context) error {
