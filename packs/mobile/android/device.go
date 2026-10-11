@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/nimbusxr/axx/core"
@@ -71,7 +72,8 @@ func (r runner) Start(sc *core.Scenario) (mobilecore.Device, error) {
 		d.releaseDevice()
 		return nil, fmt.Errorf("cannot start the %s app: %w", a.name, err)
 	}
-	d.session = s
+	d.session, d.logDir, d.caps = s, logDir, caps
+	s.Revive = d.revive
 	if err := d.grant(ctx); err != nil {
 		_ = d.Stop(true)
 		return nil, err
@@ -194,9 +196,37 @@ type running struct {
 	session   *appium.Session
 	pkg       string
 	resets    []string
+	// logDir and caps are where the server's log goes and what its sessions ask, to start
+	// both again should the server crash under the scenario (revive).
+	logDir   string
+	caps     map[string]any
+	reviving sync.Mutex
 }
 
 func (d *running) Session() *appium.Session { return d.session }
+
+// revive starts the UiAutomator2 server again after it crashed under the scenario (its own
+// process: the app is as it was), and a session on it, which the scenario's becomes. Its log
+// keeps the device's crash log, which says why.
+func (d *running) revive(ctx context.Context) error {
+	// A step and the recorder may both find the server dead: the first starts it again, and the
+	// second finds the session answering.
+	d.reviving.Lock()
+	defer d.reviving.Unlock()
+	if d.session.Alive(ctx) {
+		return nil
+	}
+	if err := d.pool.ensureServer(ctx, d.dev, d.logDir); err != nil {
+		return err
+	}
+	s, err := d.dev.server.client.NewSession(ctx, d.caps)
+	if err != nil {
+		return err
+	}
+	d.session.Renew(s.ID)
+	d.resets = append(d.resets, "the UiAutomator2 server started again after it crashed")
+	return nil
+}
 
 // resetDevice sets what the app sees of the device: nothing a scenario
 // before left open over it (the notification shade, a dialog of the

@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 )
 
@@ -114,6 +115,10 @@ type Session struct {
 	// Touched, when set, hears of each touch the session makes: a tap, a
 	// swipe, a scroll, a drag (a video draws them).
 	Touched func(Touch)
+	// Revive, when set, starts the server again when it stopped answering under the session
+	// (it crashed), and a session on it, which Renew makes this one: a command that met the
+	// dead server is sent again, once.
+	Revive func(ctx context.Context) error
 
 	mu      sync.Mutex
 	win     Rect
@@ -138,10 +143,47 @@ func (c *Client) Status(ctx context.Context) error {
 	return c.do(ctx, http.MethodGet, "/status", nil, nil)
 }
 
-func (s *Session) path(p string) string { return "/session/" + s.ID + p }
+func (s *Session) path(p string) string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return "/session/" + s.ID + p
+}
+
+// Alive reports whether the server answers for the session.
+func (s *Session) Alive(ctx context.Context) bool {
+	return s.c.do(ctx, http.MethodGet, s.path(""), nil, nil) == nil
+}
+
+// Renew makes the session another one the server started, after Revive.
+func (s *Session) Renew(id string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.ID = id
+}
+
+// do sends a command of the session; a server that stopped answering is revived, when the
+// session can, and the command sent again.
+func (s *Session) do(ctx context.Context, method, p string, body, out any) error {
+	err := s.c.do(ctx, method, s.path(p), body, out)
+	if err == nil || s.Revive == nil || !IsDown(err) {
+		return err
+	}
+	if rerr := s.Revive(ctx); rerr != nil {
+		return fmt.Errorf("%w (and it could not be started again: %w)", err, rerr)
+	}
+	return s.c.do(ctx, method, s.path(p), body, out)
+}
+
+// IsDown reports whether a request found no server answering: it refused the connection, or
+// dropped it, as one does whose process crashed.
+func IsDown(err error) bool {
+	return errors.Is(err, syscall.ECONNREFUSED) || errors.Is(err, syscall.ECONNRESET) ||
+		errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF)
+}
 
 // Delete ends the session.
 func (s *Session) Delete(ctx context.Context) error {
+	// A session whose server died has ended with it: nothing to revive it for.
 	return s.c.do(ctx, http.MethodDelete, s.path(""), nil, nil)
 }
 
@@ -154,7 +196,7 @@ type Element struct {
 // Find finds the first element a locator strategy matches.
 func (s *Session) Find(ctx context.Context, using, value string) (*Element, error) {
 	var out map[string]string
-	if err := s.c.do(ctx, http.MethodPost, s.path("/element"), s.c.locator(using, value), &out); err != nil {
+	if err := s.do(ctx, http.MethodPost, "/element", s.c.locator(using, value), &out); err != nil {
 		return nil, err
 	}
 	return &Element{s: s, ID: out[elementKey]}, nil
@@ -163,7 +205,7 @@ func (s *Session) Find(ctx context.Context, using, value string) (*Element, erro
 // FindAll finds every element a locator strategy matches.
 func (s *Session) FindAll(ctx context.Context, using, value string) ([]*Element, error) {
 	var out []map[string]string
-	if err := s.c.do(ctx, http.MethodPost, s.path("/elements"), s.c.locator(using, value), &out); err != nil {
+	if err := s.do(ctx, http.MethodPost, "/elements", s.c.locator(using, value), &out); err != nil {
 		return nil, err
 	}
 	els := make([]*Element, len(out))
@@ -241,14 +283,14 @@ func (e *Element) Rect(ctx context.Context) (Rect, error) {
 // Source is the screen's elements, as the platform's XML.
 func (s *Session) Source(ctx context.Context) (string, error) {
 	var out string
-	err := s.c.do(ctx, http.MethodGet, s.path("/source"), nil, &out)
+	err := s.do(ctx, http.MethodGet, "/source", nil, &out)
 	return out, err
 }
 
 // Screenshot is a PNG of the screen.
 func (s *Session) Screenshot(ctx context.Context) ([]byte, error) {
 	var out string
-	if err := s.c.do(ctx, http.MethodGet, s.path("/screenshot"), nil, &out); err != nil {
+	if err := s.do(ctx, http.MethodGet, "/screenshot", nil, &out); err != nil {
 		return nil, err
 	}
 	return base64.StdEncoding.DecodeString(out)
@@ -259,7 +301,7 @@ func (s *Session) Screenshot(ctx context.Context) ([]byte, error) {
 // debuggable Android app's.
 func (s *Session) PullFile(ctx context.Context, path string) ([]byte, error) {
 	var out string
-	if err := s.c.do(ctx, http.MethodPost, s.path("/appium/device/pull_file"), map[string]any{"path": path}, &out); err != nil {
+	if err := s.do(ctx, http.MethodPost, "/appium/device/pull_file", map[string]any{"path": path}, &out); err != nil {
 		return nil, err
 	}
 	return base64.StdEncoding.DecodeString(out)
@@ -267,7 +309,7 @@ func (s *Session) PullFile(ctx context.Context, path string) ([]byte, error) {
 
 // PushFile writes a file of the device, named as PullFile names it.
 func (s *Session) PushFile(ctx context.Context, path string, body []byte) error {
-	return s.c.do(ctx, http.MethodPost, s.path("/appium/device/push_file"),
+	return s.do(ctx, http.MethodPost, "/appium/device/push_file",
 		map[string]any{"path": path, "data": base64.StdEncoding.EncodeToString(body)}, nil)
 }
 
@@ -275,10 +317,10 @@ func (s *Session) PushFile(ctx context.Context, path string, body []byte) error 
 // size a driver without one answers (the UiAutomator2 server's).
 func (s *Session) Window(ctx context.Context) (Rect, error) {
 	var r Rect
-	err := s.c.do(ctx, http.MethodGet, s.path("/window/rect"), nil, &r)
+	err := s.do(ctx, http.MethodGet, "/window/rect", nil, &r)
 	var e *Error
 	if errors.As(err, &e) && (e.Status == http.StatusNotFound || e.Code == "unknown command" || e.Code == "unknown method") {
-		err = s.c.do(ctx, http.MethodGet, s.path("/window/current/size"), nil, &r)
+		err = s.do(ctx, http.MethodGet, "/window/current/size", nil, &r)
 		r.X, r.Y = 0, 0
 	}
 	return r, err
@@ -299,27 +341,27 @@ func (s *Session) Command(ctx context.Context, method, path string, body, out an
 	if body == nil && method != http.MethodGet && method != http.MethodDelete {
 		body = map[string]any{}
 	}
-	return s.c.do(ctx, method, s.path(path), body, out)
+	return s.do(ctx, method, path, body, out)
 }
 
 // Back is the platform's back navigation.
 func (s *Session) Back(ctx context.Context) error {
-	return s.c.do(ctx, http.MethodPost, s.path("/back"), map[string]any{}, nil)
+	return s.do(ctx, http.MethodPost, "/back", map[string]any{}, nil)
 }
 
 // AcceptAlert accepts the alert in front; DismissAlert dismisses it, and
 // AlertText is its text.
 func (s *Session) AcceptAlert(ctx context.Context) error {
-	return s.c.do(ctx, http.MethodPost, s.path("/alert/accept"), map[string]any{}, nil)
+	return s.do(ctx, http.MethodPost, "/alert/accept", map[string]any{}, nil)
 }
 
 func (s *Session) DismissAlert(ctx context.Context) error {
-	return s.c.do(ctx, http.MethodPost, s.path("/alert/dismiss"), map[string]any{}, nil)
+	return s.do(ctx, http.MethodPost, "/alert/dismiss", map[string]any{}, nil)
 }
 
 func (s *Session) AlertText(ctx context.Context) (string, error) {
 	var out string
-	err := s.c.do(ctx, http.MethodGet, s.path("/alert/text"), nil, &out)
+	err := s.do(ctx, http.MethodGet, "/alert/text", nil, &out)
 	return out, err
 }
 
@@ -337,19 +379,19 @@ func (s *Session) Drag(ctx context.Context, fromX, fromY, toX, toY float64, d ti
 		},
 	}
 	s.touched(Touch{From: Point{fromX, fromY}, To: Point{toX, toY}, At: time.Now().Add(100 * time.Millisecond), Length: d})
-	return s.c.do(ctx, http.MethodPost, s.path("/actions"), map[string]any{"actions": []any{finger}}, nil)
+	return s.do(ctx, http.MethodPost, "/actions", map[string]any{"actions": []any{finger}}, nil)
 }
 
 // KeyboardShown reports whether the device shows its on-screen keyboard.
 func (s *Session) KeyboardShown(ctx context.Context) (bool, error) {
 	var out bool
-	err := s.c.do(ctx, http.MethodGet, s.path("/appium/device/is_keyboard_shown"), nil, &out)
+	err := s.do(ctx, http.MethodGet, "/appium/device/is_keyboard_shown", nil, &out)
 	return out, err
 }
 
 // Settings changes the driver's settings for the session.
 func (s *Session) Settings(ctx context.Context, settings map[string]any) error {
-	return s.c.do(ctx, http.MethodPost, s.path("/appium/settings"), map[string]any{"settings": settings}, nil)
+	return s.do(ctx, http.MethodPost, "/appium/settings", map[string]any{"settings": settings}, nil)
 }
 
 // Mobile runs one of Appium's mobile: commands, like "mobile: deepLink",
@@ -364,7 +406,7 @@ func (s *Session) Mobile(ctx context.Context, command string, args map[string]an
 			s.touched(t)
 		}
 	}
-	return s.c.do(ctx, http.MethodPost, s.path("/execute/sync"), map[string]any{"script": "mobile: " + command, "args": []any{args}}, out)
+	return s.do(ctx, http.MethodPost, "/execute/sync", map[string]any{"script": "mobile: " + command, "args": []any{args}}, out)
 }
 
 // WaitReady waits until the server answers its status.
