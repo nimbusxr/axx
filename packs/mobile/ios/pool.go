@@ -35,7 +35,6 @@ type device struct {
 	unlock    func() // gives up the kept simulator to other runs
 	wdaPort   int    // WebDriverAgent's port on the Mac
 	mjpegPort int    // WebDriverAgent's screen stream's port
-	appium    *appium.Server
 }
 
 // pool is the simulators of one kind the run has: a clone for each worker,
@@ -204,7 +203,7 @@ func sweep(ctx context.Context, s *core.Suite, own simSet) {
 
 // lease gives the scenario a simulator of its own, making one when none is
 // free and the pool may have one more; otherwise it waits for one.
-func (p *pool) lease(ctx context.Context, logDir string) (*device, error) {
+func (p *pool) lease(ctx context.Context) (*device, error) {
 	for {
 		p.mu.Lock()
 		if p.closed {
@@ -220,7 +219,7 @@ func (p *pool) lease(ctx context.Context, logDir string) (*device, error) {
 		if len(p.all)+p.starts < p.max {
 			p.starts++
 			p.mu.Unlock()
-			d, err := p.start(ctx, logDir)
+			d, err := p.start(ctx)
 			p.mu.Lock()
 			p.starts--
 			if err == nil {
@@ -255,8 +254,9 @@ func (p *pool) signal() {
 }
 
 // start makes a simulator ready: cloned (or the one the registration names),
-// booted, with WebDriverAgent installed and an Appium server of its own.
-func (p *pool) start(ctx context.Context, logDir string) (*device, error) {
+// booted, motion reduced (a screen settles at once, and screenshots compare),
+// and WebDriverAgent installed and running, which axx talks to.
+func (p *pool) start(ctx context.Context) (*device, error) {
 	d := &device{version: p.version, set: p.set}
 	var err error
 	if d.wdaPort, err = appium.FreePort(); err != nil {
@@ -289,22 +289,15 @@ func (p *pool) start(ctx context.Context, logDir string) (*device, error) {
 		d.stop()
 		return nil, fmt.Errorf("cannot install WebDriverAgent on the %s simulator: %w", p.name, err)
 	}
-	install, err := installFor(ctx, p.suite)
-	if err == nil {
-		d.appium, err = install.Start(ctx, filepath.Join(logDir, "appium-"+d.udid+".log"))
-	}
-	if err != nil {
+	if _, err := d.set.simctl(ctx, "spawn", d.udid, "defaults", "write", "com.apple.Accessibility", "ReduceMotionEnabled", "-int", "1"); err != nil {
 		d.stop()
-		return nil, err
+		return nil, fmt.Errorf("cannot reduce motion on the %s simulator: %w", p.name, err)
 	}
-	// After Appium is up: on a busy machine the two starting at once slowed
-	// Appium past its start.
 	if err := d.ensureWDA(ctx); err != nil {
 		d.stop()
 		return nil, err
 	}
 	if p.watch {
-		// Shown before the session starts, which then leaves it shown.
 		if err := showDevice(ctx, d.udid); err != nil {
 			p.suite.Logger().Warn("the simulator runs without a window", "simulator", d.name, "error", err)
 		}
@@ -458,12 +451,8 @@ func (p *pool) bootDevice(ctx context.Context, d *device) error {
 // notifications before its scenario starts all the same.
 const notificationsWait = 3 * time.Minute
 
-// stop stops the simulator's Appium server, shuts down a simulator axx
-// booted and deletes one it made.
+// stop shuts down a simulator axx booted and deletes one it made.
 func (d *device) stop() {
-	if d.appium != nil {
-		d.appium.Stop()
-	}
 	if d.kept {
 		// A kept simulator stays booted for the next run.
 		if d.unlock != nil {

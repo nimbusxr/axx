@@ -277,6 +277,15 @@ func (s *Session) Window(ctx context.Context) (Rect, error) {
 	return r, err
 }
 
+// ServerCommand sends one of the driver's own commands that belong to no
+// session, at a path of the server ("/wda/homescreen").
+func (s *Session) ServerCommand(ctx context.Context, method, path string, body, out any) error {
+	if body == nil && method != http.MethodGet && method != http.MethodDelete {
+		body = map[string]any{}
+	}
+	return s.c.do(ctx, method, path, body, out)
+}
+
 // Command sends one of the driver's own commands, at a path of the session
 // ("/appium/device/system_bars"): what a driver serves beyond WebDriver.
 func (s *Session) Command(ctx context.Context, method, path string, body, out any) error {

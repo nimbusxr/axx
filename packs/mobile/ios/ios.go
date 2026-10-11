@@ -1,6 +1,6 @@
 // Package mobileios is the mobile-ios pack: iOS apps on simulators, which
-// Appium's XCUITest driver runs. Each scenario leases a simulator of its own
-// and starts from a clean app.
+// axx drives through WebDriverAgent. Each scenario leases a simulator of its
+// own and starts from a clean app.
 package mobileios
 
 import (
@@ -19,7 +19,7 @@ func Pack() core.Pack { return pack{} }
 
 type pack struct{}
 
-const packDoc = `iOS apps, on simulators axx runs, driven by [Appium](https://appium.io)'s XCUITest driver and the build of WebDriverAgent Appium publishes, which axx downloads on first use. It needs a Mac with Xcode and an iOS simulator runtime.
+const packDoc = `iOS apps, on simulators axx runs, driven through WebDriverAgent, the app on the simulator that drives yours: axx downloads the build of it that the [Appium](https://appium.io) project publishes on first use, and starts it on each simulator itself. It needs a Mac with Xcode and an iOS simulator runtime.
 
 **Each scenario has a simulator to itself.** axx makes simulators as scenarios need them, up to ` + "`devices`" + ` at once (1 by default: iOS scenarios then take turns), each a clone, deleted when the run ends: for a device type, like iPhone 16, of axx's own simulator of it, which it sets up once and keeps in its cache (no scenario ever runs on it); for a simulator the project set up, of that one. A scenario leases a simulator for its whole run.
 

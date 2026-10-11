@@ -43,7 +43,7 @@ The steps are the same on Android and on iOS: only the app's registration says w
 
 `axx doctor` checks them: the Android SDK and its devices (and KVM on Linux), Xcode and its iOS runtimes.
 
-**Nothing else:** axx downloads what drives the apps the first time a run needs it, pinned, as it downloads a browser driver for web apps. For Android, that is the UiAutomator2 server, which axx installs on each device and starts itself, and keeps running while the device is in use: a scenario's session starts in the time its app takes to reset. For iOS, it is [Appium](https://appium.io) with its XCUITest driver, and the Node.js that runs them, and WebDriverAgent, the app on the simulator that drives yours, as Appium builds it: nothing is built with Xcode, and nothing needs signing.
+**Nothing else:** axx downloads what drives the apps the first time a run needs it, pinned, as it downloads a browser driver for web apps. For Android, that is the UiAutomator2 server, which axx installs on each device and starts itself, and keeps running while the device is in use: a scenario's session starts in the time its app takes to reset. For iOS, it is WebDriverAgent, the app on the simulator that drives yours, as the [Appium](https://appium.io) project builds it, which axx starts on each simulator itself: nothing is built with Xcode, and nothing needs signing.
 
 ## Register the app
 

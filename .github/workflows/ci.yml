@@ -362,8 +362,8 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: android
-          # The report, and the traces, videos, screenshots, Appium's and the emulators' logs a
-          # failure leaves.
+          # The report, and the traces, videos, screenshots and the emulators' logs a failure
+          # leaves.
           path: |
             examples/parcels/acceptance/build/axx/
             examples/parcels/acceptance/.axx/mobile/
@@ -396,8 +396,8 @@ jobs:
         run: xcodebuild -project Courier.xcodeproj -target Courier -configuration Debug -sdk iphonesimulator ONLY_ACTIVE_ARCH=NO SYMROOT=build
       - uses: ./.github/actions/ios-tools
       # Without ios-tools' cache, setting up the simulator the tests clone takes over ten
-      # minutes on these runners. A failed test prints the end of its Appium's log and the
-      # screen it read.
+      # minutes on these runners. A failed test prints the end of its logs and the screen it
+      # read.
       - run: go test -race -tags integration -timeout 45m ./packs/mobile/ios/...
       - uses: ./.github/actions/ios-tools
         with:

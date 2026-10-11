@@ -41,35 +41,14 @@ func TestRegistrationErrors(t *testing.T) {
 	}
 }
 
-// A simulator's session: WebDriverAgent as Appium builds it, on ports of
-// the simulator's own; axx reset the app, so Appium leaves it.
+// A farm's session: its Appium server installs the app afresh, with the
+// farm's own options.
 func TestCapabilities(t *testing.T) {
-	a := &app{locale: "en-US", caps: map[string]any{}}
-	caps := a.capabilities(&device{udid: "U", version: "18.1", wdaPort: 8101, mjpegPort: 9101}, "example.parcels.courier", true)
-	for key, want := range map[string]any{
-		"platformName": "iOS", "appium:automationName": "XCUITest", "appium:bundleId": "example.parcels.courier",
-		"appium:udid": "U", "appium:platformVersion": "18.1", "appium:webDriverAgentUrl": "http://127.0.0.1:8101",
-		"appium:mjpegServerPort": 9101, "appium:noReset": true, "appium:autoLaunch": false,
-		"appium:isHeadless": true,
-	} {
-		if caps[key] != want {
-			t.Errorf("capability %s: %v, want %v", key, caps[key], want)
-		}
-	}
 	farm := &app{locale: "en-US", caps: map[string]any{"bstack:options": capabilityValue(`{"deviceName": "iPhone 16"}`)}}
-	caps = farm.capabilities(nil, "example.parcels.courier", false)
+	caps := farm.capabilities("example.parcels.courier")
 	b, _ := json.Marshal(caps["bstack:options"])
-	if string(b) != `{"deviceName":"iPhone 16"}` || caps["appium:webDriverAgentUrl"] != nil || caps["appium:noReset"] != false {
+	if string(b) != `{"deviceName":"iPhone 16"}` || caps["appium:bundleId"] != "example.parcels.courier" || caps["appium:noReset"] != false {
 		t.Errorf("a farm's caps: %v", caps)
-	}
-}
-
-// A session with a window when Device Hub (or Simulator) is open, so the
-// driver leaves it open; headless otherwise.
-func TestCapabilitiesKeepTheDeviceWindow(t *testing.T) {
-	a := &app{locale: "en-US", caps: map[string]any{}}
-	if caps := a.capabilities(&device{udid: "U"}, "b", false); caps["appium:isHeadless"] != false {
-		t.Errorf("with the window open: isHeadless %v", caps["appium:isHeadless"])
 	}
 }
 

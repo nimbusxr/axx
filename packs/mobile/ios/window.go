@@ -29,13 +29,10 @@ var windowApps = sync.OnceValue(func() []windowApp {
 })
 
 // deviceWindowOpen reports whether the app that shows simulators on the Mac
-// (Device Hub, or Simulator) is running. A session that asks for a headless
-// simulator quits that app, so axx asks for one only while the app is not
-// running: the person's Device Hub stays open, and axx's simulators, booted
-// without a window, run the same either way.
+// (Device Hub, or Simulator) is running.
 func deviceWindowOpen(ctx context.Context) bool {
 	for _, app := range windowApps() {
-		// The driver finds it the same way: a process started from the app.
+		// A process started from the app.
 		if exec.CommandContext(ctx, "pgrep", "-f", app.path).Run() == nil {
 			return true
 		}
@@ -95,7 +92,7 @@ func bundleID(ctx context.Context, app string) string {
 
 // showDevice opens the simulator in the app that shows simulators on the
 // Mac (Device Hub from Xcode 27, Simulator before), and waits for the app to
-// run, so the session that follows finds it open.
+// run.
 func showDevice(ctx context.Context, udid string) error {
 	apps := windowApps()
 	if len(apps) == 0 {

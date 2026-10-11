@@ -1,9 +1,0 @@
-{
-  "name": "axx-appium-ios",
-  "private": true,
-  "description": "The Appium the mobile-ios pack runs: Appium and its XCUITest driver, pinned.",
-  "dependencies": {
-    "appium": "3.8.0",
-    "appium-xcuitest-driver": "12.13.3"
-  }
-}
