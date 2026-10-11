@@ -442,6 +442,26 @@ func TestALaunchXCTestGaveUpOn(t *testing.T) {
 	}
 }
 
+// An app installed a moment before is not known to SpringBoard yet, which refuses to launch it:
+// the launch is tried again until SpringBoard knows it.
+func TestAnAppJustInstalledIsLaunchedOnceSpringBoardKnowsIt(t *testing.T) {
+	app := courier(t)
+	app.LaunchesUnknown(2)
+	h := cloudtest.New(t, appcore.Pack(), mobilecore.Pack(), Pack())
+	register(h, app.URL)
+	h.OK("the courier app is launched")
+	h.OK(`the courier app shows "Sign in"`)
+	n := 0
+	for _, c := range app.Commands() {
+		if strings.HasPrefix(c, "mobile: launchApp") {
+			n++
+		}
+	}
+	if n != 3 {
+		t.Errorf("%d launches, want 3: two refused, then the app's", n)
+	}
+}
+
 // A sheet's button iOS says is visible is tapped where it is too: XCTest's own tap of it does
 // nothing on iOS 27.
 func TestASheetsVisibleButtonIsTappedByPoint(t *testing.T) {
