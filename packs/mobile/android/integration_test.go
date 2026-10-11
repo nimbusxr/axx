@@ -119,6 +119,20 @@ func TestCouriersOnAnEmulator(t *testing.T) {
 	signIn(h)
 	near(t, h, 51.3397, 12.3731)
 	h.OK(`the courier app shows "Hello, Hanna Wolf"`)
+	// The UiAutomator2 server crashes now and then, its own process: the scenario goes on, on
+	// a server started again.
+	_ = mobilecore.OnDevice(h.SC, "courier", func(ctx context.Context, d mobilecore.Device) error {
+		r := d.(*running)
+		_, err := r.sdk.shell(ctx, r.dev.serial, "am", "force-stop", uia2Package)
+		return err
+	})
+	h.OK(`the "PX-MOB-9401" list item is shown in the courier app`)
+	_ = mobilecore.OnDevice(h.SC, "courier", func(_ context.Context, d mobilecore.Device) error {
+		if resets, _ := d.Describe()["resets"].([]string); !slices.Contains(resets, "the UiAutomator2 server started again after it crashed") {
+			t.Errorf("the server was not started again: the device's resets are %v", resets)
+		}
+		return nil
+	})
 	h.OK(`the "PX-MOB-9401" list item is tapped in the courier app`)
 	h.OK(`the "Mark delivered" button is disabled in the courier app`)
 	h.OK(`the "Signed by" field in the courier app is filled with "Jonas Weber"`)
