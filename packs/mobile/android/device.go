@@ -263,6 +263,9 @@ func (d *running) resetDevice(ctx context.Context) error {
 		d.resets = append(d.resets, "location "+lat+", "+lon)
 		d.feedLocation(lon, lat)
 	}
+	if err := d.putPhotos(ctx); err != nil {
+		return err
+	}
 	// What the app reaches as localhost: the registration's host ports, and
 	// none another scenario's registration gave.
 	if _, err := d.sdk.run(ctx, d.dev.serial, "reverse", "--remove-all"); err != nil {
@@ -306,6 +309,61 @@ func (d *running) feedLocation(lon, lat string) {
 	}()
 	// The next scenario on the emulator gets no fix of this one's.
 	d.stopFeed = func() { cancel(); <-done }
+}
+
+// photosDir is the folder of the device's photo library axx puts a scenario's photos in.
+const photosDir = "/sdcard/DCIM/axx"
+
+// putPhotos takes the photos an earlier scenario put in the library out of it, and puts the
+// registration's in, where the media store indexes them as it does a camera's.
+func (d *running) putPhotos(ctx context.Context) error {
+	serial := d.dev.serial
+	// Out of the media store, then off the device: the store forgets a file it is told is gone,
+	// not one that just disappeared. One command each, which adb hands the device's shell whole.
+	// The store has the files under their real path (/storage/emulated/0/...), not /sdcard's.
+	where := "\"_data LIKE '%/DCIM/axx/%'\""
+	if _, err := d.sdk.shell(ctx, serial, "content delete --uri content://media/external/file --where "+where); err != nil {
+		return fmt.Errorf("cannot take the photos of the scenario before out of the photo library: %w", err)
+	}
+	if _, err := d.sdk.shell(ctx, serial, "rm", "-rf", photosDir); err != nil {
+		return err
+	}
+	if len(d.app.photos) == 0 {
+		return nil
+	}
+	if _, err := d.sdk.shell(ctx, serial, "mkdir", "-p", photosDir); err != nil {
+		return err
+	}
+	names := make([]string, len(d.app.photos))
+	for i, f := range d.app.photos {
+		names[i] = filepath.Base(f)
+		dst := photosDir + "/" + names[i]
+		if _, err := d.sdk.run(ctx, serial, "push", f, dst); err != nil {
+			return fmt.Errorf("cannot put %s in the %s app's photo library: %w", f, d.app.name, err)
+		}
+		if _, err := d.sdk.shell(ctx, serial, "am", "broadcast", "-a", "android.intent.action.MEDIA_SCANNER_SCAN_FILE", "-d", "file://"+dst); err != nil {
+			return err
+		}
+	}
+	// The scan is the media store's own work, after the broadcast: the app is not started before
+	// it has every photo.
+	count := "content query --uri content://media/external/file --projection _id --where " + where
+	for deadline := time.Now().Add(30 * time.Second); ; {
+		out, err := d.sdk.shell(ctx, serial, count)
+		if err == nil && strings.Count(out, "Row:") >= len(names) {
+			break
+		}
+		if time.Now().After(deadline) {
+			return fmt.Errorf("the photo library did not take the %s app's photos in 30s (%s)", d.app.name, strings.Join(names, ", "))
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(300 * time.Millisecond):
+		}
+	}
+	d.resets = append(d.resets, "photos: "+strings.Join(names, ", "))
+	return nil
 }
 
 // defaultLocation is where an emulator says it is when nothing set it: the

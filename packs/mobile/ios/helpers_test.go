@@ -35,6 +35,7 @@ func TestRegistrationErrors(t *testing.T) {
 		{[][]string{{"app", "Courier.app"}, {"appium", "https://farm.example"}}, "needs its bundle id with an appium server"},
 		{[][]string{{"bundle id", "a.b"}, {"device", "d"}, {"capability.bstack:options", "{}"}}, "are for its appium server"},
 		{[][]string{{"bundle id", "a.b"}, {"appium", "https://farm.example"}, {"permissions", "location"}}, "its capabilities grant them"},
+		{[][]string{{"bundle id", "a.b"}, {"device", "d"}, {"photos", "fixtures/no-such-photo.jpg"}}, `the courier ios app's photo "fixtures/no-such-photo.jpg"`},
 		{[][]string{{"bundle id", "a.b"}, {"device", "d"}, {"screen", "big"}}, `unknown ios app property "screen"`},
 	} {
 		_ = h.Fails("the courier ios app with the following properties:", c.want, c.rows)
@@ -182,5 +183,19 @@ func TestMadeNames(t *testing.T) {
 	}
 	if slices.ContainsFunc([]string{"iPhone 16", "axx iPhone", "parcels-iphone"}, madeRE.MatchString) {
 		t.Error("only axx's own names match")
+	}
+}
+
+// A simulator a scenario put photos in is not the next scenario's: its library cannot be emptied,
+// so axx deletes it, and the next lease makes another. One without photos goes back to the pool.
+func TestASimulatorWithPhotosIsNotLeasedAgain(t *testing.T) {
+	set := simSet(t.TempDir()) // simctl finds neither simulator in it
+	clean := &device{set: set, udid: "clean", made: true}
+	withPhotos := &device{set: set, udid: "with-photos", made: true, media: true}
+	p := &pool{all: []*device{clean, withPhotos}, changed: make(chan struct{})}
+	p.release(clean)
+	p.release(withPhotos)
+	if !slices.Equal(p.free, []*device{clean}) || !slices.Equal(p.all, []*device{clean}) {
+		t.Errorf("free %v, all %v: want only the simulator without photos", p.free, p.all)
 	}
 }

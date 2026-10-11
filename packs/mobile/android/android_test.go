@@ -245,6 +245,7 @@ func TestRegistrationErrors(t *testing.T) {
 		{[][]string{{"package", "p"}, {"device", "d"}, {"permissions", "notify me"}}, "is not a permission"},
 		{[][]string{{"package", "p"}, {"appium", "farm.example"}}, "is not an http(s) URL"},
 		{[][]string{{"package", "p"}, {"device", "d"}, {"capability.bstack:options", "{}"}}, "are for its appium server"},
+		{[][]string{{"package", "p"}, {"device", "d"}, {"photos", "fixtures/no-such-photo.jpg"}}, `the courier android app's photo "fixtures/no-such-photo.jpg"`},
 		{[][]string{{"package", "p"}, {"device", "d"}, {"screen", "big"}}, `unknown android app property "screen"`},
 		{[][]string{{"package", "p"}, {"device", "d"}, {"host ports", "5500, web"}}, `host port "web" is not a port`},
 		{[][]string{{"package", "p"}, {"appium", "http://farm.example"}, {"host ports", "5500"}}, "host ports are for a device axx runs"},
@@ -316,6 +317,55 @@ func TestTheEmulatorKeepsReportingWhereItIs(t *testing.T) {
 	time.Sleep(1500 * time.Millisecond)
 	if after := fixes(); after != sent {
 		t.Errorf("%d fixes after the scenario gave the emulator back", after-sent)
+	}
+}
+
+// A scenario's photos go in the library's DCIM/axx folder, indexed before the app starts; and
+// every reset first takes the photos an earlier scenario put there out of the media store and
+// off the device.
+func TestPhotosGoInTheLibraryAndOutAgain(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("the stand-in adb is a shell script")
+	}
+	dir := t.TempDir()
+	log := filepath.Join(dir, "calls")
+	adb := filepath.Join(dir, "adb")
+	// The media store has both photos once they are pushed.
+	script := "#!/bin/sh\nfor a in \"$@\"; do printf '%s|' \"$a\"; done >> " + log + "\necho >> " + log +
+		"\ncase \"$*\" in *'content query'*) printf 'Row: 0 _id=1\\nRow: 1 _id=2\\n';; esac\n"
+	if err := os.WriteFile(adb, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	begin := filepath.Join(dir, "begin.jpg")
+	end := filepath.Join(dir, "end.jpg")
+	for _, f := range []string{begin, end} {
+		if err := os.WriteFile(f, []byte("jpeg"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	d := &running{app: &app{name: "dtcd", photos: []string{begin, end}}, sdk: &sdk{adb: adb}, dev: &device{serial: "emulator-5554"}}
+	if err := d.putPhotos(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	b, err := os.ReadFile(log)
+	if err != nil {
+		t.Fatal(err)
+	}
+	calls := strings.Split(strings.TrimSpace(string(b)), "\n")
+	want := []string{
+		`-s|emulator-5554|shell|content delete --uri content://media/external/file --where "_data LIKE '%/DCIM/axx/%'"|`,
+		"-s|emulator-5554|shell|rm|-rf|/sdcard/DCIM/axx|",
+		"-s|emulator-5554|shell|mkdir|-p|/sdcard/DCIM/axx|",
+		"-s|emulator-5554|push|" + begin + "|/sdcard/DCIM/axx/begin.jpg|",
+		"-s|emulator-5554|shell|am|broadcast|-a|android.intent.action.MEDIA_SCANNER_SCAN_FILE|-d|file:///sdcard/DCIM/axx/begin.jpg|",
+		"-s|emulator-5554|push|" + end + "|/sdcard/DCIM/axx/end.jpg|",
+		"-s|emulator-5554|shell|am|broadcast|-a|android.intent.action.MEDIA_SCANNER_SCAN_FILE|-d|file:///sdcard/DCIM/axx/end.jpg|",
+	}
+	if len(calls) < len(want) || !slices.Equal(calls[:len(want)], want) {
+		t.Errorf("adb calls:\n%s\nwant them to start:\n%s", strings.Join(calls, "\n"), strings.Join(want, "\n"))
+	}
+	if !slices.Contains(d.resets, "photos: begin.jpg, end.jpg") {
+		t.Errorf("resets %v", d.resets)
 	}
 }
 

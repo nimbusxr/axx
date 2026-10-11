@@ -3,6 +3,7 @@ package mobileios
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -18,8 +19,9 @@ type app struct {
 	bundleID    string
 	device      string // a device type, a simulator's name, or a UDID
 	permissions []string
-	locale      string // like de-DE
-	timezone    string // like Europe/Berlin
+	photos      []string // in the simulator's photo library, for the app to pick
+	locale      string   // like de-DE
+	timezone    string   // like Europe/Berlin
 	location    *[2]float64
 	server      string         // an Appium server of the project's own, or a device farm's
 	caps        map[string]any // capability.<name> rows, for that server
@@ -78,6 +80,17 @@ func parseApp(sc *core.Scenario, expand func(string) string, name string, t *cor
 				}
 				a.permissions = append(a.permissions, service)
 			}
+		case "photos":
+			for _, f := range strings.Split(value, ",") {
+				f = strings.TrimSpace(f)
+				if f == "" {
+					continue
+				}
+				if _, err := os.Stat(f); err != nil {
+					return nil, fmt.Errorf("the %s ios app's photo %q: %w", name, f, err)
+				}
+				a.photos = append(a.photos, f)
+			}
 		case "locale":
 			if !localeRE.MatchString(value) {
 				return nil, fmt.Errorf("the %s ios app's locale %q is not a language and region, like de-DE", name, value)
@@ -102,7 +115,7 @@ func parseApp(sc *core.Scenario, expand func(string) string, name string, t *cor
 			}
 			a.server = strings.TrimRight(value, "/")
 		default:
-			return nil, fmt.Errorf("unknown ios app property %q (supported: app, bundle id, device, permissions, locale, timezone, location, appium, capability.<name>)", key)
+			return nil, fmt.Errorf("unknown ios app property %q (supported: app, bundle id, device, permissions, photos, locale, timezone, location, appium, capability.<name>)", key)
 		}
 	}
 	switch {
