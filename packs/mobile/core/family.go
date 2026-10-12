@@ -8,6 +8,7 @@ import (
 
 	"github.com/nimbusxr/axx/core"
 	appcore "github.com/nimbusxr/axx/packs/app/core"
+	"github.com/nimbusxr/axx/packs/mobile/internal/appium"
 )
 
 // family carries out app-core's steps for the apps on phones.
@@ -78,7 +79,20 @@ func (family) Press(sc *core.Scenario, app *appcore.App, ak appcore.Kind, name s
 			}
 			return nil
 		}
-		if err := el.Click(ctx); err != nil {
+		err = el.Click(ctx)
+		// A control the app drew again between finding it and tapping it (a dialog's button as the
+		// dialog comes in, on a slow machine) is gone from the driver's cache: find it again, and tap
+		// that, as a person taps what is there now.
+		for range 2 {
+			if err == nil || !appium.IsNoSuchElement(err) && !appium.IsStale(err) {
+				break
+			}
+			if el, _, _, err = target(sc, d, app.Name, k, name, actionTimeout); err != nil {
+				return err
+			}
+			err = el.Click(ctx)
+		}
+		if err != nil {
 			return fmt.Errorf("cannot tap the %s %s: %w", quoted(name), k.noun, err)
 		}
 		return nil

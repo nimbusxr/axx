@@ -62,6 +62,9 @@ type Server struct {
 	// stale are the next finds that lose what they found as it moves, as a notification
 	// sliding away does under WebDriverAgent.
 	stale int
+	// expiring are the next taps of a found control that the server no longer has, the app
+	// having drawn it again, as the UiAutomator2 server answers a dialog's button coming in.
+	expiring int
 	// launchTimeouts are the next launches XCTest gives up on, as on a busy Mac; up is whether
 	// the app came up all the same.
 	launchTimeouts int
@@ -113,6 +116,13 @@ func (s *Server) Stale(finds int) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.stale = finds
+}
+
+// Expiring has the next taps of found controls find them gone from the server's cache.
+func (s *Server) Expiring(taps int) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.expiring = taps
 }
 
 // LaunchTimeouts has the next launches answer that XCTest timed out launching the app, as it
@@ -335,6 +345,11 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 		xpath := s.elements[em[1]]
 		switch em[2] {
 		case "click":
+			if s.expiring > 0 {
+				s.expiring--
+				fail("no such element", "The element identified by '"+em[1]+"' is not present in the cache or has expired. Try to find it again")
+				return
+			}
 			s.commands = append(s.commands, "tap "+xpath)
 			if next, ok := s.app.Taps[xpath]; ok {
 				s.screen = next
