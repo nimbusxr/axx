@@ -425,24 +425,37 @@ jobs:
     # run on developers' Macs.
     runs-on: macos-latest
     timeout-minutes: 60
+    permissions:
+      contents: read
+      packages: write # the tests' simulator, set up, kept in the registry
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           persist-credentials: false
       - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
         with:
-          install_args: "go aqua:gotestyourself/gotestsum"
+          install_args: "go aqua:gotestyourself/gotestsum aqua:oras-project/oras"
           # Tools are cached from main only: pull requests read them.
           cache_save: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
       - uses: ./.github/actions/go-cache
         with:
           build: test
+      # The simulator the tests keep, already set up for this macOS, Xcode and iOS, from the
+      # registry (scripts/ios-simulator.sh): its first boot would take minutes. The first run that
+      # finds none sets it up, and publishes it, unless it runs for a fork.
+      - name: the tests' simulator, set up
+        env:
+          OWNER: ${{ github.repository_owner }}
+          REPO: ${{ github.repository }}
+          ACTOR: ${{ github.actor }}
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PUBLISH: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
+        run: scripts/ios-simulator.sh
       - name: the couriers' app
         working-directory: examples/parcels/courier/ios
         run: xcodebuild -project Courier.xcodeproj -target Courier -configuration Debug -sdk iphonesimulator ONLY_ACTIVE_ARCH=NO SYMROOT=build
-      # The tests share one simulator, kept booted from one to the next, as a run's worker has
-      # one: setting one up takes minutes on these runners. A failed test prints the end of its
-      # logs and the screen it read.
+      # The tests share that simulator, kept booted from one to the next, as a run's worker has
+      # one. A failed test prints the end of its logs and the screen it read.
       - run: GOTEST_SLOWEST=1s scripts/gotest.sh -race -tags integration -timeout 45m ./packs/mobile/ios/...
 
   desktop-image:
