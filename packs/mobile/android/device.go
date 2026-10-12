@@ -656,7 +656,17 @@ func (d *running) OpenNotifications(ctx context.Context) (mobilecore.Notificatio
 	if err != nil {
 		return nil, fmt.Errorf("cannot open the notification shade: %w", err)
 	}
-	return mobilecore.ScreenNotifications{Read: d.Screen, Hide: d.session.Back}, nil
+	hide := d.session.Back
+	if d.dev != nil {
+		// Collapsed, not backed out of: once a notification opened the app, the shade is gone, and
+		// a back would take the app back a screen.
+		hide = func(ctx context.Context) error {
+			_, err := d.sdk.shell(ctx, d.dev.serial, "cmd", "statusbar", "collapse")
+			return err
+		}
+	}
+	tap := func(ctx context.Context, x, y float64) error { return d.session.Drag(ctx, x, y, x, y, 0) }
+	return mobilecore.ScreenNotifications{Read: d.Screen, Hide: hide, Tap: tap}, nil
 }
 
 // ScrollToShow scrolls the screen's scrolling view down until the control of that name shows, as

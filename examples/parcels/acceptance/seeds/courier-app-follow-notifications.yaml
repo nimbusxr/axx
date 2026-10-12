@@ -1,0 +1,16 @@
+# Two parcels out for delivery with CR-LEJ-33, who follows the first's delivered notification to the next.
+parcels.parcels:
+  - reference: "PX-MOB-9471"
+    sender: "maple-crafts"
+    status: "OUT_FOR_DELIVERY"
+    service_level: "STANDARD"
+    weight_grams: 1800
+    recipient: '{"name": "Theo Krüger", "street": "Lützner Str. 91", "city": "Leipzig", "postcode": "04177", "country": "DE"}'
+    details: '{"source": "api", "zone": "DE-1", "courier": "CR-LEJ-33"}'
+  - reference: "PX-MOB-9472"
+    sender: "maple-crafts"
+    status: "OUT_FOR_DELIVERY"
+    service_level: "STANDARD"
+    weight_grams: 1800
+    recipient: '{"name": "Paula Seifert", "street": "Georg-Schwarz-Str. 30", "city": "Leipzig", "postcode": "04177", "country": "DE"}'
+    details: '{"source": "api", "zone": "DE-1", "courier": "CR-LEJ-33"}'

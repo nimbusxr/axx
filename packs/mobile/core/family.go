@@ -2,6 +2,7 @@ package mobilecore
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -26,6 +27,9 @@ func kindFor(k appcore.Kind) (kind, error) {
 	for _, mk := range controlKinds {
 		have = append(have, mk.noun)
 	}
+	if k.Noun == "notification" {
+		return kind{}, errors.New("a notification is tapped, or checked with \"the courier app shows a notification ...\": the other steps take an app's own controls")
+	}
 	return kind{}, fmt.Errorf("a phone's app has no %s: the kinds of control on a phone are %s", k.Plural, strings.Join(have, ", "))
 }
 
@@ -38,6 +42,9 @@ func (family) Restart(sc *core.Scenario, app *appcore.App) error {
 }
 
 func (family) Press(sc *core.Scenario, app *appcore.App, ak appcore.Kind, name string) error {
+	if ak.Noun == "notification" {
+		return openNotification(sc, app.Name, name)
+	}
 	k, err := kindFor(ak)
 	if err != nil {
 		return err

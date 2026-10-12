@@ -1,0 +1,9 @@
+# The last parcel out for delivery with CR-LEJ-35: its delivered notification leads to today's deliveries, all done.
+parcels.parcels:
+  - reference: "PX-MOB-9473"
+    sender: "maple-crafts"
+    status: "OUT_FOR_DELIVERY"
+    service_level: "STANDARD"
+    weight_grams: 1800
+    recipient: '{"name": "Moritz Vogel", "street": "Merseburger Str. 20", "city": "Leipzig", "postcode": "04177", "country": "DE"}'
+    details: '{"source": "api", "zone": "DE-1", "courier": "CR-LEJ-35"}'

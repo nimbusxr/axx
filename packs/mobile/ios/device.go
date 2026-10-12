@@ -559,13 +559,46 @@ func (d *running) OpenNotifications(ctx context.Context) (mobilecore.Notificatio
 	if err != nil {
 		return nil, err
 	}
-	if err := d.session.Drag(ctx, w.Width*0.2, 0, w.Width*0.2, w.Height*0.7, 400*time.Millisecond); err != nil {
-		return nil, fmt.Errorf("cannot open Notification Center: %w", err)
-	}
 	if err := d.session.Settings(ctx, map[string]any{"defaultActiveApplication": springboard}); err != nil {
 		return nil, err
 	}
-	return notificationCenter{d}, nil
+	// A banner iOS shows of a notification (the app's own, while it was in front) stays at the top
+	// for a few seconds, where a finger pulling Notification Center down takes hold of it instead:
+	// Notification Center is opened once it has gone.
+	for deadline := time.Now().Add(12 * time.Second); time.Now().Before(deadline); {
+		banners, err := d.session.FindAll(ctx, d.predicate(), "name == 'NotificationShortLookView'")
+		if err != nil || len(banners) == 0 {
+			break
+		}
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-time.After(300 * time.Millisecond):
+		}
+	}
+	// A pull that comes as the app is still leaving the screen opens nothing: it is pulled again,
+	// as a person does, until Notification Center shows: its date, or its notifications (the
+	// banners have gone).
+	for pull := 0; ; pull++ {
+		if err := d.session.Drag(ctx, w.Width*0.2, 0, w.Width*0.2, w.Height*0.7, 400*time.Millisecond); err != nil {
+			return nil, fmt.Errorf("cannot open Notification Center: %w", err)
+		}
+		for deadline := time.Now().Add(2 * time.Second); time.Now().Before(deadline); {
+			for _, shown := range []string{"name == 'lockscreen-date-view'", "name == 'NotificationShortLookView'"} {
+				if els, err := d.session.FindAll(ctx, d.predicate(), shown); err == nil && len(els) > 0 {
+					return notificationCenter{d}, nil
+				}
+			}
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			case <-time.After(200 * time.Millisecond):
+			}
+		}
+		if pull == 2 {
+			return nil, errors.New("the notifications did not open: Notification Center was pulled down from the top of the screen three times")
+		}
+	}
 }
 
 // notificationCenter looks for notifications by asking for them, not by
@@ -575,10 +608,20 @@ type notificationCenter struct{ d *running }
 func (n notificationCenter) Shows(ctx context.Context, text string) (bool, error) {
 	q := predicateString(text)
 	els, err := n.d.session.FindAll(ctx, n.d.predicate(), "label CONTAINS[c] "+q+" OR value CONTAINS[c] "+q)
-	if appium.IsNoSuchElement(err) {
-		return false, nil
+	if appium.IsNoSuchElement(err) || err == nil && len(els) == 0 {
+		return false, n.unfold(ctx)
 	}
 	return len(els) > 0, err
+}
+
+// unfold shows the notifications iOS folded away: those already seen (as a banner, say) wait
+// behind a "1 Notification" pill at the bottom of Notification Center, which a person taps.
+func (n notificationCenter) unfold(ctx context.Context) error {
+	pills, err := n.d.session.FindAll(ctx, n.d.predicate(), "type == 'XCUIElementTypeButton' AND label MATCHES '^[0-9]+ Notifications?$'")
+	if err != nil || len(pills) == 0 {
+		return nil //nolint:nilerr // nothing folded: nothing to unfold
+	}
+	return pills[0].Click(ctx)
 }
 
 // Texts are the notifications' texts: SpringBoard labels each with all of
@@ -595,6 +638,170 @@ func (n notificationCenter) Texts(ctx context.Context) []string {
 		}
 	}
 	return out
+}
+
+// find is the notification that shows a text, where it rests in Notification Center: SpringBoard
+// labels each with all its texts. The banner iOS showed of it while the app was in front can
+// still be sliding away over the top as Notification Center opens: Notification Center's own is
+// the one lowest on the screen, and it is taken once it stands still. One already seen (as that
+// banner) waits below the screen, where a person swipes up to bring it into view.
+func (n notificationCenter) find(ctx context.Context, text string) (*appium.Element, appium.Rect, error) {
+	q := predicateString(text)
+	w, err := n.d.session.Window(ctx)
+	if err != nil {
+		return nil, appium.Rect{}, err
+	}
+	var last appium.Rect
+	swipes := 0
+	for tries := 0; ; tries++ {
+		els, err := n.d.session.FindAll(ctx, n.d.predicate(), "name == 'NotificationShortLookView' AND (label CONTAINS[c] "+q+" OR value CONTAINS[c] "+q+")")
+		if err != nil {
+			return nil, appium.Rect{}, err
+		}
+		var el *appium.Element
+		var at appium.Rect
+		for _, e := range els {
+			if r, err := e.Rect(ctx); err == nil && (el == nil || r.Y > at.Y) {
+				el, at = e, r
+			}
+		}
+		if el == nil {
+			return nil, appium.Rect{}, fmt.Errorf("no notification shows %q", text)
+		}
+		if at.Y >= w.Height && swipes < 2 {
+			swipes++
+			if err := n.d.session.Drag(ctx, w.Width/2, w.Height*0.6, w.Width/2, w.Height*0.25, 300*time.Millisecond); err != nil {
+				return nil, appium.Rect{}, fmt.Errorf("cannot bring the notifications below the screen into view: %w", err)
+			}
+			last = appium.Rect{}
+			continue
+		}
+		if at == last || tries == 10 {
+			return el, at, nil
+		}
+		last = at
+		select {
+		case <-ctx.Done():
+			return nil, appium.Rect{}, ctx.Err()
+		case <-time.After(300 * time.Millisecond):
+		}
+	}
+}
+
+// Open taps the notification, as a person opens it, until SpringBoard opens the app where the
+// notification leads. iOS answers a tap in one of three ways: it opens the app; on a phone
+// without Face ID unlock, as a simulator is, it slides the notification aside to show an Open
+// button on its row, which a person then taps; or, when the notification tops a stack of the
+// app's notifications, it spreads the stack out, and a person taps the notification again.
+func (n notificationCenter) Open(ctx context.Context, text string) error {
+	q := predicateString(text)
+	for tap := 0; tap < 3; tap++ {
+		_, at, err := n.find(ctx, text)
+		if err != nil {
+			return err
+		}
+		// The notification's own button, tapped as XCTest taps a control: a finger's tap
+		// Notification Center can take for the start of a slide.
+		buttons, err := n.d.session.FindAll(ctx, n.d.predicate(), "type == 'XCUIElementTypeButton' AND (name == 'ListCell' OR name BEGINSWITH 'ShortLook.Platter') AND label CONTAINS[c] "+q)
+		if err != nil {
+			return err
+		}
+		if len(buttons) == 0 {
+			return fmt.Errorf("the notification %q has no button to open it", text)
+		}
+		if err := buttons[0].Click(ctx); err != nil {
+			return err
+		}
+		for deadline := time.Now().Add(3 * time.Second); time.Now().Before(deadline); {
+			if n.appInFront(ctx) {
+				return nil
+			}
+			if open, ok := n.openButton(ctx, at); ok {
+				// A finger's tap where it shows: XCTest's tap of the button loses it as iOS
+				// slides the row.
+				x, y := open.X+open.Width/2, open.Y+open.Height/2
+				if err := n.d.session.Drag(ctx, x, y, x, y, 0); err != nil {
+					return err
+				}
+				deadline = time.Now().Add(5 * time.Second)
+			}
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(250 * time.Millisecond):
+			}
+		}
+	}
+	return fmt.Errorf("the notification %q did not open the app: it was tapped three times", text)
+}
+
+// appInFront reports whether SpringBoard has brought the app to the front.
+func (n notificationCenter) appInFront(ctx context.Context) bool {
+	state, err := n.d.state(ctx)
+	return err == nil && state == runningForeground
+}
+
+// openButton is where the Open button iOS shows beside a notification it slid aside is, on the
+// notification's row; false while there is none.
+func (n notificationCenter) openButton(ctx context.Context, row appium.Rect) (appium.Rect, bool) {
+	buttons, err := n.d.session.FindAll(ctx, n.d.predicate(), "type == 'XCUIElementTypeButton' AND name == 'swipe-action-button-identifier'")
+	if err != nil {
+		return appium.Rect{}, false
+	}
+	for _, b := range buttons {
+		if r, err := b.Rect(ctx); err == nil && r.Y < row.Y+row.Height && r.Y+r.Height > row.Y {
+			return r, true
+		}
+	}
+	return appium.Rect{}, false
+}
+
+// Act holds the notification, as a person does to see its actions, and taps the one of that
+// name in the menu iOS shows. A hold that shows no menu (Notification Center still sliding in) is
+// held again, once, as a person does. iOS shows the menu in Notification Center only on a phone
+// with a proximity sensor: axx's library gives the simulator's SpringBoard one (springboard.go).
+func (n notificationCenter) Act(ctx context.Context, text, action string) error {
+	q := predicateString(action)
+	for hold := 0; ; hold++ {
+		el, _, err := n.find(ctx, text)
+		if err != nil {
+			return err
+		}
+		if err := el.TouchAndHold(ctx, 1500*time.Millisecond); err != nil {
+			return fmt.Errorf("cannot hold the notification: %w", err)
+		}
+		for deadline := time.Now().Add(4 * time.Second); time.Now().Before(deadline); {
+			buttons, err := n.d.session.FindAll(ctx, n.d.predicate(), "type == 'XCUIElementTypeButton' AND label ==[c] "+q)
+			if err == nil && len(buttons) > 0 {
+				return buttons[0].Click(ctx)
+			}
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(200 * time.Millisecond):
+			}
+		}
+		if hold == 1 {
+			break
+		}
+	}
+	var names []string
+	all, _ := n.d.session.FindAll(ctx, n.d.predicate(), "type == 'XCUIElementTypeButton'")
+	for _, b := range all {
+		if label, err := b.Attribute(ctx, "label"); err == nil && label != "" {
+			names = append(names, label)
+		}
+	}
+	err := fmt.Errorf("the notification's menu has no action %q: %s", action, strings.Join(names, ", "))
+	switch status := springboardStatus(n.d.dev.udid); status {
+	case "ok":
+		return err
+	case "":
+		status = "it runs without axx's library"
+		fallthrough
+	default:
+		return fmt.Errorf("%w (iOS shows a notification's actions in Notification Center only on a phone with a proximity sensor, which axx gives the simulator's SpringBoard: %s)", err, status)
+	}
 }
 
 // Close brings the app back. activateApp returns as Notification Center starts

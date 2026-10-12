@@ -1,6 +1,7 @@
 package mobileandroid
 
 import (
+	"context"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -571,4 +572,50 @@ func TestAComposeSwitchRowIsASwitch(t *testing.T) {
 		}
 	}
 	t.Error("no tappable row shows Share van location")
+}
+
+// Android folds an app's notifications into a group, whose rows are not tappable until it is
+// opened out (as two delivered parcels' notifications are, read from an emulator): opening one
+// taps the group's expand button first, then the notification.
+func TestANotificationFoldedInAGroupIsOpenedOutFirst(t *testing.T) {
+	var reads []*mobilecore.Screen
+	for _, f := range []string{"grouped.xml", "opened.xml"} {
+		b, err := os.ReadFile(filepath.Join("testdata", "shade", f))
+		if err != nil {
+			t.Fatal(err)
+		}
+		s, err := parseSource(string(b))
+		if err != nil {
+			t.Fatal(err)
+		}
+		reads = append(reads, s)
+	}
+	var taps [][2]float64
+	n := mobilecore.ScreenNotifications{
+		Read: func(context.Context) (*mobilecore.Screen, error) {
+			s := reads[min(len(taps), len(reads)-1)]
+			return s, nil
+		},
+		Tap: func(_ context.Context, x, y float64) error { taps = append(taps, [2]float64{x, y}); return nil },
+	}
+	if err := n.Open(context.Background(), "PX-MOB-9402 delivered"); err != nil {
+		t.Fatal(err)
+	}
+	if len(taps) != 2 || taps[0] != [2]float64{945, 647.5} {
+		t.Fatalf("taps %v: want the group's expand button (945, 647.5), then the notification", taps)
+	}
+	var row *mobilecore.Node
+	for _, nd := range reads[1].Nodes {
+		if nd.Text == "PX-MOB-9402 delivered" {
+			for p := nd; p != nil; p = p.Parent {
+				if strings.HasSuffix(p.ID, ":id/expandableNotificationRow") {
+					row = p
+					break
+				}
+			}
+		}
+	}
+	if x, y := row.Bounds.Center(); row == nil || !row.Clickable || taps[1] != [2]float64{x, y} {
+		t.Errorf("the notification was tapped at %v, want its row in the opened group", taps[1])
+	}
 }

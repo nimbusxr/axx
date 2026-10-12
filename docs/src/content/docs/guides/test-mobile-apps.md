@@ -181,6 +181,17 @@ Checks wait for the app, 10 seconds or `within {duration}`, as apps take their t
 
 **Screenshots** are `<name>.<device>.png` in the project's `screenshots` folder, like `deliveries.android-parcels-pixel.png` or `deliveries.ios-iPhone-16-iOS-18-1.png`: each device has its own. The device's status and navigation bars, its clock among them, are left out. The first time, the step takes the screenshot and fails: look at it, keep it, and run again. `packs.mobile-core.screenshots` in `axx.yaml` sets the `folder`, the `tolerance` and `update: true`, which takes them again.
 
+## Tap a notification
+
+```gherkin
+When the "PX-MOB-9402 delivered" notification is tapped in the courier app
+When the "Next delivery" action of the "PX-MOB-9401 delivered" notification is tapped in the courier app
+```
+
+A notification is tapped where people find it: the step opens Android's notification shade or iOS's Notification Center, opens the group it is folded into (on iOS, one already seen waits below the screen, and is swiped into view), and taps it, and the app opens where the notification leads. An action is one of the buttons a notification offers: Android shows them under it, and iOS when a person holds the notification.
+
+On a simulator, iOS answers a tap on a notification as on an iPhone without Face ID: it slides the notification aside to show Open, which the step taps too. And it shows a notification's actions in Notification Center only on a phone it can tell is in a hand, one with a proximity sensor (or Face ID unlock, which takes a passcode a simulator cannot have). So axx gives the simulator's SpringBoard the proximity sensor an iPhone has: a small library axx builds with Xcode the first time, and loads into the simulators it boots. It does nothing in your app. A simulator that runs already (one of yours, or one kept warm) gets it as SpringBoard starts again, before the scenario.
+
 ## Dialogs the system shows
 
 ```gherkin

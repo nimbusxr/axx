@@ -33,6 +33,7 @@ func notifyDelivered(reference: String, signedBy: String) async {
     content.title = "\(reference) delivered"
     content.body = "Signed by \(signedBy)"
     content.sound = .default
+    content.categoryIdentifier = deliveredCategory
     do {
         try await center.add(UNNotificationRequest(identifier: "delivered-\(reference)", content: content, trigger: nil))
         log.notice("notified \(reference, privacy: .public) delivered")
