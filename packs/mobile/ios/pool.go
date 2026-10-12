@@ -292,6 +292,7 @@ func (p *pool) start(ctx context.Context) (*device, error) {
 		d.stop()
 		return nil, err
 	}
+	started := time.Now()
 	wda, err := wdaFor(ctx, p.suite)
 	if err == nil {
 		_, err = d.set.simctl(ctx, "install", d.udid, wda)
@@ -308,6 +309,7 @@ func (p *pool) start(ctx context.Context) (*device, error) {
 		d.stop()
 		return nil, err
 	}
+	p.suite.Logger().Info("WebDriverAgent answers on the iOS simulator", "simulator", d.name, "took", time.Since(started).Round(time.Second))
 	if p.watch {
 		if err := showDevice(ctx, d.udid); err != nil {
 			p.suite.Logger().Warn("the simulator runs without a window", "simulator", d.name, "error", err)
@@ -463,13 +465,17 @@ func (p *pool) bootDevice(ctx context.Context, d *device) error {
 	if err := d.set.boot(ctx, d.udid, p.boot, env...); err != nil {
 		return fmt.Errorf("the simulator %s did not boot (packs.%s.bootTimeout gives it longer): %w", d.name, Name, err)
 	}
+	p.suite.Logger().Info("booted an iOS simulator", "simulator", d.name, "took", time.Since(since).Round(time.Second))
 	if lib != "" {
 		p.loadSpringboard(ctx, d, lib)
 	}
 	// Booted is not yet ready for an app that asks for notifications as it
 	// starts: its scenario would wait for a dialog that never comes.
+	waited := time.Now()
 	if !d.set.notificationsServed(ctx, d.udid, since, min(p.boot, notificationsWait)) {
 		p.suite.Logger().Warn("the iOS simulator does not serve notifications yet; an app that asks for them may get no dialog", "simulator", d.name, "waited", min(p.boot, notificationsWait))
+	} else {
+		p.suite.Logger().Info("the iOS simulator serves notifications", "simulator", d.name, "waited", time.Since(waited).Round(time.Second))
 	}
 	return nil
 }

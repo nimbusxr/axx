@@ -5,6 +5,7 @@ package mobileios
 import (
 	"bytes"
 	"context"
+	"maps"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -51,7 +52,19 @@ func courierBuild(t *testing.T) string {
 // and the end of its logs.
 func harness(t *testing.T) *cloudtest.Harness {
 	t.Helper()
-	h := cloudtest.New(t, appcore.Pack(), mobilecore.Pack(), Pack())
+	return harnessWith(t, nil)
+}
+
+// harnessWith is harness with the packs' settings. The tests share one simulator, kept booted
+// from one test to the next (packs.mobile-ios.keep), as a run's worker has one for its scenarios:
+// each scenario still has it to itself, and its app reset. Setting up a simulator takes minutes
+// on a hosted runner, and it is done once. Like any kept simulator, it stays booted after the
+// tests, for the next run.
+func harnessWith(t *testing.T, config map[string]any) *cloudtest.Harness {
+	t.Helper()
+	cfg := map[string]any{Name: map[string]any{"keep": true}}
+	maps.Copy(cfg, config)
+	h := cloudtest.NewWith(t, cfg, appcore.Pack(), mobilecore.Pack(), Pack())
 	t.Cleanup(func() {
 		if !t.Failed() {
 			return
@@ -209,7 +222,7 @@ func TestRecordingsOnASimulator(t *testing.T) {
 	device := simulator(t)
 	courierapi.Start(t)
 	t.Setenv("COURIER_PIN", "4711")
-	h := cloudtest.NewWith(t, map[string]any{"mobile-core": map[string]any{"traces": "always", "videos": "always"}}, appcore.Pack(), mobilecore.Pack(), Pack())
+	h := harnessWith(t, map[string]any{"mobile-core": map[string]any{"traces": "always", "videos": "always"}})
 	warm(t, h, device)
 	h.OK("the courier ios app with the following properties:", [][]string{{"app", courierBuild(t)}, {"device", device}})
 	signIn(h)

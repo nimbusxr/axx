@@ -14,10 +14,17 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  # Which jobs a pull request needs, from the files it changes (scripts/ci-changes.sh). Pushes
-  # to main and the merge queue run every job, and so does a change to CI itself.
+  # Which jobs a run needs (scripts/ci-changes.sh). A pull request, and the merge queue, run the
+  # jobs for the files they change, and a change to CI itself runs every job. The merge queue runs
+  # none when a passing run of the pull request tested the very same tree (main has not moved
+  # since: scripts/ci-tested.sh). What reaches main has passed the merge queue: a push to main
+  # runs no tests (tests is false), only what keeps the caches pull requests read, and the caches
+  # job keeps the newest of each.
   changes:
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      actions: read # the pull request's passing runs, for the merge queue
     outputs:
       go: ${{ steps.changes.outputs.go }}
       integration: ${{ steps.changes.outputs.integration }}
@@ -27,9 +34,10 @@ jobs:
       examples: ${{ steps.changes.outputs.examples }}
       acceptance: ${{ steps.changes.outputs.acceptance }}
       workflows: ${{ steps.changes.outputs.workflows }}
+      tests: ${{ steps.changes.outputs.tests }}
     steps:
-      # A pull request is checked out as its merge into the base branch, the merge's first
-      # parent: the two differ by what the pull request changes.
+      # A pull request is checked out as its merge into the base branch, and the merge queue's
+      # group as its commit on top of it: the first parent differs by what they change.
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           fetch-depth: 2
@@ -37,12 +45,27 @@ jobs:
       - id: changes
         env:
           EVENT: ${{ github.event_name }}
+          QUEUED: ${{ github.event.merge_group.head_ref }}
+          REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
         run: |
-          if [ "$EVENT" = pull_request ] && files=$(git diff --name-only HEAD^1 HEAD); then
+          if [ "$EVENT" = merge_group ] && scripts/ci-tested.sh "$QUEUED"; then
+            scripts/ci-changes.sh --none
+          elif [ "$EVENT" != push ] && files=$(git diff --name-only HEAD^1 HEAD); then
             printf '%s\n' "$files" | scripts/ci-changes.sh
           else
             scripts/ci-changes.sh --all
           fi | tee -a "$GITHUB_OUTPUT"
+          if [ "$EVENT" = push ]; then echo tests=false; else echo tests=true; fi | tee -a "$GITHUB_OUTPUT"
+      # The tree the pull request's run tests, for the merge queue to know it.
+      - if: github.event_name == 'pull_request'
+        run: git rev-parse 'HEAD^{tree}' > "$RUNNER_TEMP/tested-tree"
+      - if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: tested-tree
+          path: ${{ runner.temp }}/tested-tree
+          retention-days: 30
 
   hygiene:
     runs-on: ubuntu-24.04
@@ -122,13 +145,19 @@ jobs:
           persist-credentials: false
       - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
         with:
-          install_args: "go"
+          install_args: "go aqua:gotestyourself/gotestsum"
           # Tools are cached from main only: pull requests read them.
           cache_save: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
       - uses: ./.github/actions/go-cache
         with:
           build: test
-      - run: go test -race ./...
+      - if: needs.changes.outputs.tests == 'true'
+        run: scripts/gotest.sh -race ./...
+        shell: bash
+      # On main, the tests are only built: their build cache is what pull requests read.
+      - if: needs.changes.outputs.tests != 'true'
+        run: go test -race -run '^$' ./...
+        shell: bash
       # On macOS and Windows this job keeps the module cache too (lint does on Linux).
       - if: ${{ !cancelled() }}
         uses: ./.github/actions/go-cache
@@ -156,7 +185,7 @@ jobs:
       - uses: ./.github/actions/docker-hub-mirror
       - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
         with:
-          install_args: "go"
+          install_args: "go aqua:gotestyourself/gotestsum"
           # Tools are cached from main only: pull requests read them.
           cache_save: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
       - uses: ./.github/actions/go-cache
@@ -174,9 +203,10 @@ jobs:
           for _ in $(seq 300); do [ -f "$RUNNER_TEMP/disk-freed" ] && break; sleep 2; done
           [ -f "$RUNNER_TEMP/disk-freed" ] || { echo "::error::the disk space was not freed within 10 minutes"; exit 1; }
           df -h /
-      - run: |
+      - if: needs.changes.outputs.tests == 'true'
+        run: |
           read -ra packages < "$RUNNER_TEMP/packages"
-          go test -race -tags integration -timeout 20m "${packages[@]}"
+          GOTEST_SLOWEST=1s scripts/gotest.sh -race -tags integration -timeout 20m "${packages[@]}"
       - if: ${{ !cancelled() }}
         uses: ./.github/actions/go-cache
         with:
@@ -196,14 +226,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        part: [core-a-g, core-h-z, packs, lighthouse]
+        # On main, only the part that keeps the browsers' cache.
+        part: ${{ fromJSON(needs.changes.outputs.tests == 'true' && '["core-a-g", "core-h-z", "packs", "lighthouse"]' || '["packs"]') }}
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           persist-credentials: false
       - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
         with:
-          install_args: "go"
+          install_args: "go aqua:gotestyourself/gotestsum"
           # Tools are cached from main only: pull requests read them.
           cache_save: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
       - uses: ./.github/actions/go-cache
@@ -217,15 +248,15 @@ jobs:
           all=$(list '.*') a=$(list '^Test[A-G]') b=$(list '^Test[H-Z]')
           [ "$all" -eq $((a + b)) ] || { echo "::error::$((all - a - b)) of web-core's tests are in neither half: name each Test and a capital letter"; exit 1; }
       - if: matrix.part == 'core-a-g'
-        run: xvfb-run -a go test -race -tags integration -timeout 20m -run '^Test[A-G]' ./packs/web/core
+        run: xvfb-run -a scripts/gotest.sh -race -tags integration -timeout 20m -run '^Test[A-G]' ./packs/web/core
       - if: matrix.part == 'core-h-z'
-        run: xvfb-run -a go test -race -tags integration -timeout 20m -run '^Test[H-Z]' ./packs/web/core
+        run: xvfb-run -a scripts/gotest.sh -race -tags integration -timeout 20m -run '^Test[H-Z]' ./packs/web/core
       - if: matrix.part == 'packs'
         run: |
           mapfile -t packs < <(go list ./packs/web/... | grep -v -e /packs/web/lighthouse -e '/packs/web/core$')
-          xvfb-run -a go test -race -tags integration -timeout 20m "${packs[@]}"
+          xvfb-run -a scripts/gotest.sh -race -tags integration -timeout 20m "${packs[@]}"
       - if: matrix.part == 'lighthouse'
-        run: xvfb-run -a go test -race -tags integration -timeout 20m ./packs/web/lighthouse/...
+        run: xvfb-run -a scripts/gotest.sh -race -tags integration -timeout 20m ./packs/web/lighthouse/...
       - if: ${{ !cancelled() && matrix.part == 'packs' }}
         uses: ./.github/actions/web-tools
         with:
@@ -253,39 +284,54 @@ jobs:
         with:
           distribution: temurin
           java-version: "21"
+      # Gradle's caches: written on main only (the action's default), read by pull requests.
+      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6
+      # The couriers' app, while the rest sets up: nothing needs it before the tests.
+      - name: the couriers' app (in the background)
+        working-directory: examples/parcels/courier/android
+        run: (./gradlew --no-daemon --console=plain assembleDebug > "$RUNNER_TEMP/app.log" 2>&1; echo $? > "$RUNNER_TEMP/app.done") &
       # The emulator's device and its boot snapshot, while the rest sets up.
-      - name: the emulator's device (in the background)
+      - if: needs.changes.outputs.tests == 'true'
+        name: the emulator's device (in the background)
         working-directory: examples/parcels/courier/android
         run: (./create-emulator.sh > "$RUNNER_TEMP/device.log" 2>&1; echo $? > "$RUNNER_TEMP/device.done") &
       - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
         with:
-          install_args: "go"
+          install_args: "go aqua:gotestyourself/gotestsum"
           # Tools are cached from main only: pull requests read them.
           cache_save: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
       - uses: ./.github/actions/go-cache
         with:
           build: acceptance
-      # Gradle's caches: written on main only (the action's default), read by pull requests.
-      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6
-      - name: the couriers' app
-        working-directory: examples/parcels/courier/android
-        run: ./gradlew --no-daemon --console=plain assembleDebug
       - name: the tests, built
         run: go test -race -tags integration -run '^$' ./packs/mobile/...
-      - name: wait for the emulator's device
+      - name: wait for the couriers' app
+        run: |
+          for _ in $(seq 450); do [ -f "$RUNNER_TEMP/app.done" ] && break; sleep 2; done
+          cat "$RUNNER_TEMP/app.log"
+          [ "$(cat "$RUNNER_TEMP/app.done" 2> /dev/null)" = 0 ] || { echo "::error::the couriers' app was not built"; exit 1; }
+      - if: needs.changes.outputs.tests == 'true'
+        name: wait for the emulator's device
         run: |
           for _ in $(seq 450); do [ -f "$RUNNER_TEMP/device.done" ] && break; sleep 2; done
           cat "$RUNNER_TEMP/device.log"
           [ "$(cat "$RUNNER_TEMP/device.done" 2> /dev/null)" = 0 ] || { echo "::error::the emulator's device was not made"; exit 1; }
-      - run: go test -race -tags integration -timeout 20m ./packs/mobile/...
+      - if: needs.changes.outputs.tests == 'true'
+        run: GOTEST_SLOWEST=1s scripts/gotest.sh -race -tags integration -timeout 20m ./packs/mobile/...
 
   android:
     needs: changes
-    if: needs.changes.outputs.mobile == 'true'
+    if: needs.changes.outputs.mobile == 'true' && needs.changes.outputs.tests == 'true'
     # The parcels example's Android scenarios, on an emulator axx starts (KVM), against the
-    # whole example, which axx starts too.
+    # whole example, which axx starts too. They run on two runners, a feature each: one emulator
+    # runs one scenario at a time.
+    name: android (${{ matrix.feature }})
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        feature: [courier-app, courier-app-notifications]
     steps:
       # The example's images need more disk than a runner has free: remove toolchains the job
       # never uses (not the Android SDK), in the background while the job sets up.
@@ -307,6 +353,12 @@ jobs:
         with:
           distribution: temurin
           java-version: "21"
+      # Gradle's caches: written on main only (the action's default), read by pull requests.
+      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6
+      # The couriers' app, while the rest sets up: nothing needs it before the tests.
+      - name: the couriers' app (in the background)
+        working-directory: examples/parcels/courier/android
+        run: (./gradlew --no-daemon --console=plain assembleDebug > "$RUNNER_TEMP/app.log" 2>&1; echo $? > "$RUNNER_TEMP/app.done") &
       # The emulator's device and its boot snapshot, while the rest sets up.
       - name: the emulator's device (in the background)
         working-directory: examples/parcels/courier/android
@@ -319,11 +371,6 @@ jobs:
       - uses: ./.github/actions/go-cache
         with:
           build: acceptance
-      # Gradle's caches: written on main only (the action's default), read by pull requests.
-      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6
-      - name: the couriers' app
-        working-directory: examples/parcels/courier/android
-        run: ./gradlew --no-daemon --console=plain assembleDebug
       - name: wait for the disk space
         run: |
           for _ in $(seq 300); do [ -f "$RUNNER_TEMP/disk-freed" ] && break; sleep 2; done
@@ -343,6 +390,11 @@ jobs:
           axx fixtures generate
       # The images the example's compose file builds: in seconds, not minutes.
       - uses: ./.github/actions/parcels-images
+      - name: wait for the couriers' app
+        run: |
+          for _ in $(seq 450); do [ -f "$RUNNER_TEMP/app.done" ] && break; sleep 2; done
+          cat "$RUNNER_TEMP/app.log"
+          [ "$(cat "$RUNNER_TEMP/app.done" 2> /dev/null)" = 0 ] || { echo "::error::the couriers' app was not built"; exit 1; }
       - name: wait for the emulator's device
         run: |
           for _ in $(seq 450); do [ -f "$RUNNER_TEMP/device.done" ] && break; sleep 2; done
@@ -354,14 +406,22 @@ jobs:
           cat "$RUNNER_TEMP/pull.log"
           # A pull that failed is done again as the example starts.
           [ "$(cat "$RUNNER_TEMP/pull.done" 2> /dev/null)" = 0 ] || echo "::warning::the example's images were not all pulled"
+      - if: matrix.feature == 'courier-app'
+        name: every Android feature runs on one of the runners
+        working-directory: examples/parcels/acceptance
+        run: |
+          android=$(grep -l '@android' features/*.feature | sort | tr '\n' ' ')
+          [ "$android" = "features/courier-app-notifications.feature features/courier-app.feature " ] || { echo "::error::the android job runs courier-app and courier-app-notifications, and the Android features are: $android"; exit 1; }
       - working-directory: examples/parcels/acceptance
+        env:
+          FEATURE: ${{ matrix.feature }}
         run: |
           axx run --tags @android --format progress --format junit:build/axx/junit.xml --format html:build/axx/report.html \
-            --set packs.mobile-core.traces=failed --set packs.mobile-core.videos=failed
+            --set packs.mobile-core.traces=failed --set packs.mobile-core.videos=failed "features/$FEATURE.feature"
       - if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
-          name: android
+          name: android-${{ matrix.feature }}
           # The report, and the traces, videos, screenshots and the emulators' logs a failure
           # leaves.
           path: |
@@ -373,19 +433,34 @@ jobs:
 
   ios:
     needs: changes
-    if: needs.changes.outputs.mobile == 'true'
+    if: needs.changes.outputs.mobile == 'true' && needs.changes.outputs.tests == 'true'
     # The iOS pack, on simulators axx makes, with the parcels example's couriers' iOS app. The
     # example's iOS scenarios need the whole example, and macOS runners have no Docker: they
     # run on developers' Macs.
+    # The tests run on two runners, a simulator each: TestCouriersOnASimulator, two scenarios long,
+    # on one, the others on the other.
+    name: ios (${{ matrix.tests }})
     runs-on: macos-latest
     timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - tests: couriers
+            select: -run=^TestCouriersOnASimulator$
+          - tests: others
+            select: -skip=^TestCouriersOnASimulator$
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           persist-credentials: false
+      # The simulator the tests keep, made and booted while the job sets up: its first boot takes
+      # minutes on these runners (scripts/ios-simulator.sh).
+      - name: the tests' simulator (in the background)
+        run: (scripts/ios-simulator.sh > "$RUNNER_TEMP/simulator.log" 2>&1; echo $? > "$RUNNER_TEMP/simulator.done") &
       - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
         with:
-          install_args: "go"
+          install_args: "go aqua:gotestyourself/gotestsum"
           # Tools are cached from main only: pull requests read them.
           cache_save: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
       - uses: ./.github/actions/go-cache
@@ -394,14 +469,19 @@ jobs:
       - name: the couriers' app
         working-directory: examples/parcels/courier/ios
         run: xcodebuild -project Courier.xcodeproj -target Courier -configuration Debug -sdk iphonesimulator ONLY_ACTIVE_ARCH=NO SYMROOT=build
-      - uses: ./.github/actions/ios-tools
-      # Without ios-tools' cache, setting up the simulator the tests clone takes over ten
-      # minutes on these runners. A failed test prints the end of its logs and the screen it
-      # read.
-      - run: go test -race -tags integration -timeout 45m ./packs/mobile/ios/...
-      - uses: ./.github/actions/ios-tools
-        with:
-          mode: save
+      - name: the tests, built
+        run: go test -race -tags integration -run '^$' ./packs/mobile/ios/...
+      - name: wait for the tests' simulator
+        run: |
+          for _ in $(seq 450); do [ -f "$RUNNER_TEMP/simulator.done" ] && break; sleep 2; done
+          cat "$RUNNER_TEMP/simulator.log"
+          [ "$(cat "$RUNNER_TEMP/simulator.done" 2> /dev/null)" = 0 ] || { echo "::error::the tests' simulator did not boot"; exit 1; }
+      # The tests share that simulator, kept booted from one to the next, as a run's worker has
+      # one. Each prints the packs' log (how long the simulator took to get ready, and each
+      # part), and a failed one the end of its logs and the screen it read.
+      - env:
+          SELECT: ${{ matrix.select }}
+        run: GOTEST_FORMAT=standard-verbose GOTEST_SLOWEST=1s scripts/gotest.sh -race -tags integration -timeout 45m "$SELECT" ./packs/mobile/ios/...
 
   desktop-image:
     needs: changes
@@ -458,8 +538,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        build: [gtk3, gtk4, qt6, qt5, swing, electron, tauri, flutter]
-        display: [x11, wayland]
+        # On main, only the entry that keeps the build cache.
+        build: ${{ fromJSON(needs.changes.outputs.tests == 'true' && '["gtk3", "gtk4", "qt6", "qt5", "swing", "electron", "tauri", "flutter"]' || '["gtk3"]') }}
+        display: ${{ fromJSON(needs.changes.outputs.tests == 'true' && '["x11", "wayland"]' || '["x11"]') }}
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
@@ -474,7 +555,8 @@ jobs:
           build: desktop
       - name: axx, with every pack
         run: CGO_ENABLED=0 go build -o "$RUNNER_TEMP/axx" ./internal/tools/axxall
-      - name: the depot desk's feature, in its image
+      - if: needs.changes.outputs.tests == 'true'
+        name: the depot desk's feature, in its image
         env:
           IMAGE: ${{ needs.desktop-image.outputs.image }}
           ACTOR: ${{ github.actor }}
@@ -540,7 +622,7 @@ jobs:
 
   example-app:
     needs: changes
-    if: needs.changes.outputs.examples == 'true'
+    if: needs.changes.outputs.examples == 'true' && needs.changes.outputs.tests == 'true'
     # The services the examples test are Go modules of their own.
     runs-on: ubuntu-24.04
     strategy:
@@ -574,7 +656,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        example: [parcels, parcel-claims, carrier-billing, customs-clearance]
+        # On main, only parcels, whose job keeps the caches.
+        example: ${{ fromJSON(needs.changes.outputs.tests == 'true' && '["parcels", "parcel-claims", "carrier-billing", "customs-clearance"]' || '["parcels"]') }}
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
@@ -582,7 +665,7 @@ jobs:
       # Docker Hub's images through Google's mirror: Docker Hub refuses the runners at times.
       - uses: ./.github/actions/docker-hub-mirror
       # What the parcels example pulls (2 GB), while the job sets up.
-      - if: matrix.example == 'parcels'
+      - if: matrix.example == 'parcels' && needs.changes.outputs.tests == 'true'
         name: the example's images (in the background)
         run: (docker compose -f examples/parcels/infra/compose.yaml pull --ignore-buildable --quiet > "$RUNNER_TEMP/pull.log" 2>&1; echo $? > "$RUNNER_TEMP/pull.done") &
       - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
@@ -598,24 +681,26 @@ jobs:
           go build -o "$RUNNER_TEMP/bin/axx" ./internal/tools/axxall
           echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
       # The parcels shop portal's features run in browsers.
-      - if: matrix.example == 'parcels'
+      - if: matrix.example == 'parcels' && needs.changes.outputs.tests == 'true'
         uses: ./.github/actions/web-tools
       # The images parcels' compose file builds: in seconds, not minutes.
       - if: matrix.example == 'parcels'
         uses: ./.github/actions/parcels-images
-      - name: the fixtures, as a fresh clone has them
+      - if: needs.changes.outputs.tests == 'true'
+        name: the fixtures, as a fresh clone has them
         working-directory: examples/${{ matrix.example }}/acceptance
         run: |
           axx fixtures check
           axx fixtures generate
-      - if: matrix.example == 'parcels'
+      - if: matrix.example == 'parcels' && needs.changes.outputs.tests == 'true'
         name: wait for the example's images
         run: |
           for _ in $(seq 300); do [ -f "$RUNNER_TEMP/pull.done" ] && break; sleep 2; done
           cat "$RUNNER_TEMP/pull.log"
           # A pull that failed is done again as the example starts.
           [ "$(cat "$RUNNER_TEMP/pull.done" 2> /dev/null)" = 0 ] || echo "::warning::the example's images were not all pulled"
-      - working-directory: examples/${{ matrix.example }}/acceptance
+      - if: needs.changes.outputs.tests == 'true'
+        working-directory: examples/${{ matrix.example }}/acceptance
         # The Android scenarios run in the android job, on an emulator; the iOS ones on Macs.
         run: axx run --tags "not @mobile" --format progress --format junit:build/axx/junit.xml --format html:build/axx/report.html
       - if: failure()
@@ -646,7 +731,7 @@ jobs:
 
   release-check:
     needs: changes
-    if: needs.changes.outputs.go == 'true'
+    if: needs.changes.outputs.go == 'true' && needs.changes.outputs.tests == 'true'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
@@ -666,7 +751,7 @@ jobs:
 
   workflows:
     needs: changes
-    if: needs.changes.outputs.workflows == 'true'
+    if: needs.changes.outputs.workflows == 'true' && needs.changes.outputs.tests == 'true'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
@@ -683,6 +768,31 @@ jobs:
           enable-cache: false
       # Security audit of every workflow (template injection, permissions, pinning...).
       - run: uvx zizmor --offline --min-severity medium --format github .github/workflows
+
+  # A push to main keeps a build cache of its own for each job and OS (go-cache), and GitHub keeps
+  # 10 GB of a repository's caches, dropping the least used over that: the browsers' among them,
+  # which every web job then downloads again. Main keeps only the newest of each: Go's build
+  # caches by job and OS, its module caches and the browsers by OS. (Docker's layers, Gradle's and
+  # mise's caches look after their own.)
+  caches:
+    if: always() && github.event_name == 'push'
+    needs: [hygiene, lint, test, integration, web, mobile, desktop, cross-build, acceptance]
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: write # to delete caches
+    steps:
+      - name: the older caches of each, deleted
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          gh cache list -R "$REPO" --ref refs/heads/main --limit 1000 --json id,key,createdAt --jq '
+            map(select(.key | test("^(go-build|go-mod|web-tools)-")) | .family = (.key | sub("(-[0-9a-f]{8,})+$"; "")))
+            | group_by(.family) | map(sort_by(.createdAt) | reverse | .[1:][]) | .[] | "\(.id) \(.key)"' |
+            while read -r id key; do
+              echo "deleting $key"
+              gh cache delete -R "$REPO" "$id"
+            done
 
   # Single required status check; keeps branch protection simple as jobs are added. A job a
   # pull request does not need is skipped, which passes.

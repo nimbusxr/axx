@@ -3,8 +3,9 @@ name: web-tools
 description: >-
   What the web packs download on first use: the browsers, and the Playwright driver, Node.js,
   axe-core and Lighthouse axx prepares, cached by their versions, and the browsers' system
-  libraries. Restore them before the web packs run, and save them as the job's last step:
-  saving only happens on pushes to main, like Go's caches.
+  libraries, whose packages (117 MB from Ubuntu's mirror, which crawls at times) are cached too.
+  Restore them before the web packs run, and save them as the job's last step: saving only
+  happens on pushes to main, like Go's caches.
 inputs:
   mode:
     description: "`restore` (with the system libraries) or `save`."
@@ -20,20 +21,43 @@ runs:
             packs/web/internal/driver/*.go internal/npm/node.go packs/web/lighthouse/install.go packs/web/a11y/a11y.go
           sha256sum packs/web/lighthouse/npm/package-lock.json
         } | sha256sum | cut -c1-16)
-        echo "key=web-tools-${RUNNER_OS}-${versions}" >> "$GITHUB_OUTPUT"
+        # The system libraries' packages are those of the runner's Ubuntu (ImageOS: ubuntu24).
+        echo "key=web-tools-${RUNNER_OS}-${ImageOS:-unknown}-${versions}" >> "$GITHUB_OUTPUT"
     - if: inputs.mode == 'restore'
       uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: |
           ~/.cache/ms-playwright
           ~/.cache/axx/web
+          ~/.cache/apt-archives
         key: ${{ steps.key.outputs.key }}
     - if: inputs.mode == 'restore'
       name: the browsers' system libraries
       shell: bash
       run: |
         version=$(sed -n 's/^const CoreVersion = "\(.*\)"$/\1/p' packs/web/internal/driver/driver.go)
-        sudo npx -y "playwright@$version" install-deps chromium firefox webkit
+        # apt waits forever on a mirror that stops answering (a job hung 29 minutes on one): it
+        # gives up on a stalled download after 30 seconds and tries it again, and the install,
+        # which takes about a minute, is tried again if it takes over five, keeping what it
+        # downloaded.
+        printf 'Acquire::Retries "3";\nAcquire::http::Timeout "30";\nAcquire::https::Timeout "30";\nBinary::apt::APT::Keep-Downloaded-Packages "true";\n' | sudo tee /etc/apt/apt.conf.d/99timeouts > /dev/null
+        # The packages the cache kept: apt downloads none of those it finds.
+        if compgen -G ~/.cache/apt-archives/'*.deb' > /dev/null; then
+          sudo cp ~/.cache/apt-archives/*.deb /var/cache/apt/archives/
+        fi
+        for attempt in 1 2 3; do
+          if sudo timeout --kill-after=15s 5m npx -y "playwright@$version" install-deps chromium firefox webkit; then
+            exit 0
+          fi
+          echo "::warning::installing the browsers' system libraries failed or stalled (attempt $attempt of 3)"
+        done
+        exit 1
+    - if: inputs.mode == 'save' && github.event_name == 'push' && github.ref == 'refs/heads/main'
+      name: the system libraries' packages, for the cache
+      shell: bash
+      run: |
+        mkdir -p ~/.cache/apt-archives
+        cp /var/cache/apt/archives/*.deb ~/.cache/apt-archives/ 2> /dev/null || true
     - if: inputs.mode == 'save' && github.event_name == 'push' && github.ref == 'refs/heads/main'
       # A cache is an optimization: failing to save it fails nothing.
       continue-on-error: true
@@ -42,4 +66,5 @@ runs:
         path: |
           ~/.cache/ms-playwright
           ~/.cache/axx/web
+          ~/.cache/apt-archives
         key: ${{ steps.key.outputs.key }}

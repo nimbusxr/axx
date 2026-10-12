@@ -8,6 +8,7 @@ java = "temurin-21"  # WireMock extension and IntelliJ plugin only
 "aqua:gitleaks/gitleaks" = "latest"
 "aqua:sharkdp/hyperfine" = "latest"  # bench/
 "aqua:rhysd/actionlint" = "latest"
+"aqua:gotestyourself/gotestsum" = "latest"  # scripts/gotest.sh, in CI
 
 [tasks.test]
 run = "go test -race ./..."

@@ -19,12 +19,18 @@ import androidx.activity.viewModels
 class MainActivity : ComponentActivity() {
     private val model: CourierViewModel by viewModels()
 
+    /**
+     * Where the intent links, opened once the app is in front: Android 15 fails a call to the
+     * service an app makes before then, as a tapped notification brings it back.
+     */
+    private var link: String? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         // Before the view model first calls the service.
         Backend.readOverride(intent)
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        if (savedInstanceState == null) deepLinkReference(intent)?.let(model::openDeepLink)
+        if (savedInstanceState == null) link = deepLinkReference(intent)
         setContent { CourierApp(model) }
     }
 
@@ -32,7 +38,15 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         Backend.readOverride(intent)
-        deepLinkReference(intent)?.let(model::openDeepLink)
+        link = deepLinkReference(intent)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        link?.let {
+            link = null
+            model.openDeepLink(it)
+        }
     }
 
     /**

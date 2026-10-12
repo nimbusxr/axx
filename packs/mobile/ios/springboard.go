@@ -111,11 +111,13 @@ func springboardStatus(udid string) string {
 // cannot help this iOS only costs the actions of notifications in Notification Center: the
 // run goes on.
 func (p *pool) loadSpringboard(ctx context.Context, d *device, lib string) {
+	started := time.Now()
 	if springboardStatus(d.udid) == "" {
 		err := errors.Join(
 			setenv(ctx, d, "DYLD_INSERT_LIBRARIES", lib),
 			setenv(ctx, d, "AXX_SPRINGBOARD_STATUS", springboardStatuses()),
 		)
+		since := time.Now().Add(-time.Second)
 		if err == nil {
 			_, err = d.set.simctl(ctx, "spawn", d.udid, "launchctl", "kickstart", "-k", "user/foreground/com.apple.SpringBoard")
 		}
@@ -130,6 +132,12 @@ func (p *pool) loadSpringboard(ctx context.Context, d *device, lib string) {
 			p.suite.Logger().Warn("cannot load axx's library into the simulator's SpringBoard: Notification Center will not show notifications' actions", "simulator", d.name, "error", err)
 			return
 		}
+		// SpringBoard, started again, serves apps' requests for notifications a while later, as
+		// after a boot.
+		if !d.set.notificationsServed(ctx, d.udid, since, min(p.boot, notificationsWait)) {
+			p.suite.Logger().Warn("the iOS simulator does not serve notifications yet; an app that asks for them may get no dialog", "simulator", d.name, "waited", min(p.boot, notificationsWait))
+		}
+		p.suite.Logger().Info("started the simulator's SpringBoard again, with axx's library", "simulator", d.name, "took", time.Since(started).Round(time.Second))
 	}
 	switch status := springboardStatus(d.udid); status {
 	case "ok":
