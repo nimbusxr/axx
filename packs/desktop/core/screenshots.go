@@ -27,7 +27,7 @@ const configSchema = `{
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "folder": {"type": "string", "description": "The folder of the apps' screenshots, in the project (default screenshots)."},
+        "folder": {"type": "string", "description": "The folder of the apps' screenshots, in the project. Unset, each feature keeps its screenshots in a screenshots folder next to its file."},
         "tolerance": {"type": "number", "minimum": 0, "maximum": 1, "description": "The share of a screenshot's pixels that may differ (default 0)."},
         "update": {"type": "boolean", "description": "Take every screenshot again, as the app looks now, instead of comparing."},
         "platforms": {"type": "array", "items": {"type": "string", "enum": ["linux", "darwin", "windows"]}, "description": "The platforms whose screenshots the project keeps: each compares its own; elsewhere the steps pass without comparing (default: every platform)."}
@@ -51,12 +51,13 @@ type Config struct {
 }
 
 type settings struct {
-	folder    string // absolute
-	tolerance float64
-	update    bool
-	platforms []string
-	traces    string // failed, always or never
-	videos    string
+	folder     string // absolute
+	configured bool   // the folder is set in axx.yaml
+	tolerance  float64
+	update     bool
+	platforms  []string
+	traces     string // failed, always or never
+	videos     string
 }
 
 func settingsFor(s *core.Suite) (*settings, error) {
@@ -88,7 +89,17 @@ func parseConfig(c Config, projectDir string) (*settings, error) {
 	if videos == "" {
 		videos = "never"
 	}
-	return &settings{folder: folder, tolerance: sc.Tolerance, update: sc.Update, platforms: sc.Platforms, traces: traces, videos: videos}, nil
+	return &settings{folder: folder, configured: sc.Folder != "", tolerance: sc.Tolerance, update: sc.Update, platforms: sc.Platforms, traces: traces, videos: videos}, nil
+}
+
+// path is where the screenshot named file is kept: in the folder axx.yaml
+// sets, or else in a screenshots folder next to the scenario's feature file
+// (the project's, for a screenshot kept there already).
+func (c *settings) path(sc *core.Scenario, file string) string {
+	if c.configured {
+		return filepath.Join(c.folder, file)
+	}
+	return sc.KeptFile("screenshots", file)
 }
 
 // platform is the OS screenshots are taken on, as the web pack names it.
@@ -189,7 +200,7 @@ func looksLike(sc *core.Scenario, app string, p Process, name string, wait time.
 				a, b, moved = b, c, again
 			}
 		}
-		path = screenshotFile(cfg.folder, name, scale)
+		path = cfg.path(sc, screenshotFile("", name, scale))
 		if moved.Differ != 0 {
 			before, after, change = a, b, moved
 		} else {

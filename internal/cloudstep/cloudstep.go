@@ -238,7 +238,7 @@ func ReadSeed(sc *core.Scenario, file string) (*Seed, error) {
 
 // ReadSeedWith is ReadSeed with options.
 func ReadSeedWith(sc *core.Scenario, file string, o SeedOptions) (*Seed, error) {
-	path, err := sc.Suite().ResolvePath(file)
+	path, err := sc.ResolvePath(file)
 	if err != nil {
 		return nil, err
 	}

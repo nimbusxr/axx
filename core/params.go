@@ -69,8 +69,8 @@ func (paramsPack) Manifest() Manifest {
 			{
 				Name:    "filepath",
 				Regexps: []string{`([^\s]+)`, `"([^"]+)"`},
-				Doc: "a file of the project: a path relative to the `resources` directories or to " +
-					"axx.yaml's directory, or an absolute path, quoted when it has a space",
+				Doc: "a file of the project: a path relative to the feature file's directory, the `resources` " +
+					"directories or axx.yaml's directory (looked for in that order), or an absolute path, quoted when it has a space",
 				Examples:  []string{"seeds/parcels.yaml", "kafka/scan-delivered.json", `"seeds/day one.yaml"`},
 				Transform: unquoted,
 			},

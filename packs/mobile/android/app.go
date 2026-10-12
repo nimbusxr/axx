@@ -3,7 +3,6 @@ package mobileandroid
 import (
 	"encoding/json"
 	"fmt"
-	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -48,7 +47,7 @@ func parseApp(sc *core.Scenario, expand func(string) string, name string, t *cor
 		}
 		switch key {
 		case "apk":
-			path, err := sc.Suite().ResolvePath(value)
+			path, err := sc.ResolvePath(value)
 			if err != nil {
 				return nil, fmt.Errorf("the %s android app's apk %q: %w", name, value, err)
 			}
@@ -79,10 +78,11 @@ func parseApp(sc *core.Scenario, expand func(string) string, name string, t *cor
 				if f == "" {
 					continue
 				}
-				if _, err := os.Stat(f); err != nil {
+				path, err := sc.ResolvePath(f)
+				if err != nil {
 					return nil, fmt.Errorf("the %s android app's photo %q: %w", name, f, err)
 				}
-				a.photos = append(a.photos, f)
+				a.photos = append(a.photos, path)
 			}
 		case "locale":
 			if !localeRE.MatchString(value) {

@@ -30,10 +30,10 @@ Never edit a generated file: generate refuses to overwrite a hand-edited one (`A
 
 ## The files
 
-Everything lives next to what it produces. SQL seeds for the parcels table, say:
+Everything lives next to what it produces, in the folder of the feature that reads it (`features/portal-parcels/`, and a shared folder only for what several features read). SQL seeds for the parcels table, say:
 
 ```text
-seeds/portal/
+features/portal-parcels/seeds/portal/
   portal-parcels.factory.yaml     # family, schema, identities
   portal-parcels.prototype.yaml   # the shape every fixture starts from
   portal-find.fixture.yaml        # one fixture: only its differences
@@ -42,17 +42,17 @@ seeds/portal/
   portal-open.yaml                # generated
 ```
 
-```yaml title="seeds/portal/portal-parcels.factory.yaml"
+```yaml title="features/portal-parcels/seeds/portal/portal-parcels.factory.yaml"
 # yaml-language-server: $schema=https://axx.nimbusxr.us/schemas/v0/axx-factory.schema.json
 factory:
   family: dataset
-  schema: ../../../infra/postgres/init/01-schema.sql   # relative to this file
+  schema: ../../../../../infra/postgres/init/01-schema.sql   # relative to this file
 identity:
   - path: parcels.parcels.reference
     prefix: PX-WEB-
 ```
 
-```yaml title="seeds/portal/portal-parcels.prototype.yaml"
+```yaml title="features/portal-parcels/seeds/portal/portal-parcels.prototype.yaml"
 data:
   parcels.parcels:              # datasets: one row template per table
     sender: lark-and-loom
@@ -61,7 +61,7 @@ data:
     recipient: '{"name": "Felix Hartmann", "city": "Stuttgart", "postcode": "70173", "country": "DE"}'
 ```
 
-```yaml title="seeds/portal/portal-open.fixture.yaml"
+```yaml title="features/portal-parcels/seeds/portal/portal-open.fixture.yaml"
 data:
   parcels.parcels:
     - reference: PX-WEB-5141
@@ -69,7 +69,7 @@ data:
       service_level: EXPRESS
 ```
 
-`portal-open.yaml` is generated with the prototype's values under the fixture's, and the feature reads it with `Given a seeds/portal/portal-open.yaml db seed`. Maps merge; lists and scalars replace. An empty `*.fixture.yaml` is a fixture that is exactly the prototype.
+`portal-open.yaml` is generated with the prototype's values under the fixture's, and `features/portal-parcels/portal-parcels.feature` reads it with `Given a seeds/portal/portal-open.yaml db seed`. Maps merge; lists and scalars replace. An empty `*.fixture.yaml` is a fixture that is exactly the prototype.
 
 Each file kind has a JSON Schema: `axx schema --kind factory`, `--kind fixture` and `--kind prototype` print them, and `references/spec-files.md` has all three. Put the `# yaml-language-server: $schema=...` line at the top for completion in editors.
 
@@ -97,7 +97,7 @@ A JSON Schema can `$ref` other local files, relative to the schema that holds th
 
 ### Which factory a fixture belongs to
 
-A fixture needs no `factory:` when exactly one factory sits in its directory or the nearest directory above that has one. Otherwise name it: `factory: portal-parcels` finds the nearest `portal-parcels.factory.yaml` above; a path (`factory: seeds/portal/portal-parcels`) is relative to `fixtures.baseDir` and works from anywhere.
+A fixture needs no `factory:` when exactly one factory sits in its directory or the nearest directory above that has one. Otherwise name it: `factory: portal-parcels` finds the nearest `portal-parcels.factory.yaml` above; a path (`factory: features/portal-parcels/seeds/portal/portal-parcels`) is relative to `fixtures.baseDir` and works from anywhere.
 
 A `<factory>.prototype.yaml` in another directory layers over the factory's prototype for the fixtures beneath it (the nearest wins): returns can share a status without a factory of their own.
 

@@ -19,7 +19,7 @@ func puts() []core.StepDef {
 				"the folders it is in are made, and a file there is replaced.",
 			Examples: []string{"Given the manifests/M-KESTREL-0505/report.csv file in the exports folder is a copy of the reports/M-KESTREL-0505-earlier.csv file"},
 			Run: func(sc *core.Scenario, a core.Args) error {
-				p, err := sc.Suite().ResolvePath(a.String(2))
+				p, err := sc.ResolvePath(a.String(2))
 				if err != nil {
 					return err
 				}

@@ -142,7 +142,7 @@ func (st *state) record(c *call) {
 // tool's input schema gives it, or the file's.
 func arguments(sc *core.Scenario, t *core.Table, file string, schema map[string]any) (any, error) {
 	if file != "" {
-		p, err := sc.Suite().ResolvePath(file)
+		p, err := sc.ResolvePath(file)
 		if err != nil {
 			return nil, err
 		}

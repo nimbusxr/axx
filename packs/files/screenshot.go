@@ -25,7 +25,7 @@ const configSchema = `{
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "folder": {"type": "string", "description": "The folder of the images' screenshots, in the project (default screenshots)."},
+        "folder": {"type": "string", "description": "The folder of the images' screenshots, in the project. Unset, each feature keeps its screenshots in a screenshots folder next to its file."},
         "tolerance": {"type": "number", "minimum": 0, "maximum": 1, "description": "The share of an image's pixels that may differ (default 0)."},
         "update": {"type": "boolean", "description": "Take every screenshot again, as the image is now, instead of comparing."},
         "platforms": {"type": "array", "items": {"type": "string", "enum": ["linux", "darwin", "windows"]}, "description": "The platforms whose screenshots the project keeps: each compares its own; elsewhere the step passes without comparing (default: every platform)."}
@@ -45,10 +45,11 @@ type Config struct {
 }
 
 type settings struct {
-	folder    string // absolute
-	tolerance float64
-	update    bool
-	platforms []string
+	folder     string // absolute
+	configured bool   // the folder is set in axx.yaml
+	tolerance  float64
+	update     bool
+	platforms  []string
 }
 
 func settingsFor(s *core.Suite) (*settings, error) {
@@ -68,7 +69,7 @@ func settingsFor(s *core.Suite) (*settings, error) {
 		if !filepath.IsAbs(folder) {
 			folder = filepath.Join(s.ProjectDir(), filepath.FromSlash(folder))
 		}
-		return &settings{folder: folder, tolerance: sc.Tolerance, update: sc.Update, platforms: sc.Platforms}, nil
+		return &settings{folder: folder, configured: sc.Folder != "", tolerance: sc.Tolerance, update: sc.Update, platforms: sc.Platforms}, nil
 	})
 }
 
@@ -82,7 +83,7 @@ func screenshotStep(o cloudstep.Objects) core.StepDef {
 		Expr: "[[within {duration} ]]the {path} file in the {word} folder looks like the {string} screenshot",
 		Doc: "Check that an image file looks like its screenshot, pixel by pixel (anti-aliasing aside): an image an app saved, like an annotated capture (PNG or JPEG). " +
 			"The check waits for the file: 10 seconds, or `within {duration}`.\n\n" +
-			"- Each platform draws images its own way, so each has its own screenshot, named after it (`checkout-annotated.darwin.png`), in the screenshots folder (`packs.files.screenshots`).\n" +
+			"- Each platform draws images its own way, so each has its own screenshot, named after it (`checkout-annotated.darwin.png`), in a `screenshots` folder next to the feature file (or the folder `packs.files.screenshots` sets).\n" +
 			"- Without one, the step takes it and fails: look at it, and keep it.\n" +
 			"- When the image is different, the step attaches the screenshot, the image and their difference.",
 		Examples: []string{`Then the "snap-*.png" file in the inbox folder looks like the "checkout-annotated" screenshot`},
@@ -99,7 +100,7 @@ func screenshotStep(o cloudstep.Objects) core.StepDef {
 				sc.Log("the %q screenshot is compared on %s only, not on %s", name, strings.Join(cfg.platforms, ", "), platform)
 				return nil
 			}
-			path := filepath.Join(cfg.folder, name+"."+platform+".png")
+			path := cfg.path(sc, name+"."+platform+".png")
 			var (
 				shot, expected image.Image
 				last           imagediff.Result
@@ -201,4 +202,14 @@ func encodePNG(img image.Image) []byte {
 	var b bytes.Buffer
 	_ = png.Encode(&b, img)
 	return b.Bytes()
+}
+
+// path is where the screenshot named file is kept: in the folder axx.yaml
+// sets, or else in a screenshots folder next to the scenario's feature file
+// (the project's, for a screenshot kept there already).
+func (c *settings) path(sc *core.Scenario, file string) string {
+	if c.configured {
+		return filepath.Join(c.folder, file)
+	}
+	return sc.KeptFile("screenshots", file)
 }

@@ -36,7 +36,7 @@ run:
   slowdown: 300ms                # in a watched run, pause after each action (axx run --slowdown)
   reporters: [pretty, {junit: build/axx/junit.xml}]
 
-resources: ["."]                 # where seed, payload and schema paths in steps resolve
+resources: ["."]                 # where seed, payload and schema paths in steps resolve, after the feature file's directory
 
 properties:                      # ${sys:name}; override with -D name=value
   local.host: localhost

@@ -154,7 +154,7 @@ func steps() []core.StepDef {
 				`Given the page's requests to "/api/prices" answer with the network/prices-berlin.json file`,
 			},
 			Run: func(sc *core.Scenario, a core.Args) error {
-				path, err := sc.Suite().ResolvePath(a.String(1))
+				path, err := sc.ResolvePath(a.String(1))
 				if err != nil {
 					return err
 				}
@@ -218,7 +218,7 @@ func steps() []core.StepDef {
 				"them): the requests it has, it answers; the others go out, and so do websockets.",
 			Examples: []string{`Given the page's requests are answered from the network/quote.har recording`},
 			Run: func(sc *core.Scenario, a core.Args) error {
-				path, err := sc.Suite().ResolvePath(a.String(0))
+				path, err := sc.ResolvePath(a.String(0))
 				if err != nil {
 					return err
 				}

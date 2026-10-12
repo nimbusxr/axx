@@ -131,8 +131,8 @@ func init() {
 		"A step pack failed to load or initialize: a step expression that does not compile, a duplicate parameter type, or pack configuration under `packs:` that is invalid.",
 		"Read the wrapped message. For a pack of your own, fix its step definitions; for axx's packs, check `packs.<name>` in `axx.yaml`.")
 	add("AXX-E0301", u, "Resource not found",
-		"A file referenced by a step (seed, payload, schema, OpenAPI spec) was not found in the configured `resources` roots or next to `axx.yaml`.",
-		"Check the path in the step, or add its directory to `resources:` in `axx.yaml`.")
+		"A file referenced by a step (seed, payload, schema, OpenAPI spec) was not found next to the feature file, in the configured `resources` roots, or next to `axx.yaml`.",
+		"Check the path in the step. Keep a file only one feature uses next to that feature file; for a file several features share, add its directory to `resources:` in `axx.yaml`.")
 	add("AXX-E0302", u, "Unknown pack",
 		"`axx-packs.yaml` lists a pack that axx does not publish, or one this axx was not prepared with, or the file cannot be read. axx prepares itself with a project's packs when it runs in the project.",
 		"Use the name of one of axx's packs (see `axx pack list`), a path to a pack in the project (`./steps`) or a Go module path; `axx pack add` checks entries for you. Run axx from the project so it can prepare the packs.")

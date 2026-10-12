@@ -107,7 +107,7 @@ func register(sc *core.Scenario, a core.Args) error {
 		case p.Key == "address":
 			s.address = v
 		case p.Key == "proto":
-			if s.proto, err = sc.Suite().ResolvePath(v); err != nil {
+			if s.proto, err = sc.ResolvePath(v); err != nil {
 				return fmt.Errorf("the %s grpc service's proto: %w", name, err)
 			}
 		case p.Key == "tls":

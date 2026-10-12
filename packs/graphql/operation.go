@@ -44,7 +44,7 @@ func readOperation(sc *core.Scenario, file string, doc *core.DocString) (*operat
 	var text string
 	switch {
 	case file != "":
-		p, err := sc.Suite().ResolvePath(file)
+		p, err := sc.ResolvePath(file)
 		if err != nil {
 			return nil, err
 		}

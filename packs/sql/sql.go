@@ -280,7 +280,7 @@ func seedStep(sc *core.Scenario, a core.Args) error {
 	if err != nil {
 		return err
 	}
-	path, err := sc.Suite().ResolvePath(a.String(0))
+	path, err := sc.ResolvePath(a.String(0))
 	if err != nil {
 		return fmt.Errorf("Could not perform seed: %w", err) //nolint:staticcheck // user-facing message
 	}

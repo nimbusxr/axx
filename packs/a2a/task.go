@@ -78,7 +78,7 @@ func message(sc *core.Scenario, text, file string) (*a2a.Message, error) {
 		}
 		return a2a.NewMessage(a2a.MessageRoleUser, a2a.NewTextPart(text)), nil
 	}
-	p, err := sc.Suite().ResolvePath(file)
+	p, err := sc.ResolvePath(file)
 	if err != nil {
 		return nil, err
 	}

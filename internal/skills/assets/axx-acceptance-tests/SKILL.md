@@ -65,6 +65,28 @@ Feature: Register parcels
 
 With an `openapi` URL, requests and responses that break the contract fail the `executed` step.
 
+## Lay out the suite by feature
+
+Give each feature a folder named after it, and keep in it every file only that feature uses: its seeds, payloads, messages, uploaded or expected files, screenshots, and the fixture factories that generate them.
+
+```text
+features/
+  register-parcels/
+    register-parcels.feature        the same on every platform: one file
+    seeds/shop-lark.yaml
+    requests/                       a fixture factory with what it generates
+  courier-app/
+    courier-app-android.feature     platforms that differ: one file each,
+    courier-app-ios.feature         named after the feature and the platform
+    seeds/                          what both read
+kafka/                              what several features share, outside features/
+```
+
+- A step finds a file next to its feature file first, then in `resources`, then beside `axx.yaml`: write `a seeds/shop-lark.yaml db seed`, not the path from the project root.
+- Put a file in a shared folder only when a second feature needs it.
+- WireMock mappings, compose files and migrations are the services' setup: they stay with the services, not in a feature's folder.
+- Add a scenario to the feature it belongs to; a new feature gets a new folder.
+
 ## More
 
 - Seeds, event payloads and mock bodies are files the steps read. When files of one shape repeat, fixture factories generate them (the `axx-test-data` skill).

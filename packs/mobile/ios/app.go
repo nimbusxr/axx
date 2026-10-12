@@ -3,7 +3,6 @@ package mobileios
 import (
 	"encoding/json"
 	"fmt"
-	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -54,7 +53,7 @@ func parseApp(sc *core.Scenario, expand func(string) string, name string, t *cor
 			if strings.HasSuffix(strings.ToLower(value), ".ipa") {
 				return nil, fmt.Errorf("the %s ios app's app %q is for devices: simulators run a simulator build, the .app xcodebuild builds for -sdk iphonesimulator (or it zipped)", name, value)
 			}
-			path, err := sc.Suite().ResolvePath(value)
+			path, err := sc.ResolvePath(value)
 			if err != nil {
 				return nil, fmt.Errorf("the %s ios app's app %q: %w", name, value, err)
 			}
@@ -86,10 +85,11 @@ func parseApp(sc *core.Scenario, expand func(string) string, name string, t *cor
 				if f == "" {
 					continue
 				}
-				if _, err := os.Stat(f); err != nil {
+				path, err := sc.ResolvePath(f)
+				if err != nil {
 					return nil, fmt.Errorf("the %s ios app's photo %q: %w", name, f, err)
 				}
-				a.photos = append(a.photos, f)
+				a.photos = append(a.photos, path)
 			}
 		case "locale":
 			if !localeRE.MatchString(value) {

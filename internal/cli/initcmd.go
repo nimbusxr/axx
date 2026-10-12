@@ -72,7 +72,7 @@ services:
       interval: 1s
 `,
 	packset.FileName: (&packset.File{Packs: []string{"rest"}}).String(),
-	"features/smoke.feature": `Feature: Smoke test
+	"features/smoke/smoke.feature": `Feature: Smoke test
   The service starts and answers requests.
 
   Background:
@@ -155,7 +155,7 @@ func newInitCmd(app *App) *cobra.Command {
 		Use:   "init",
 		Short: "Set up axx in this project: axx.yaml, its packs, a smoke feature, CI, AGENTS.md and agents",
 		Long: `Create axx.yaml, axx-packs.yaml (with the rest pack, which the smoke feature
-uses), features/smoke.feature, a GitHub Actions workflow and a managed section
+uses), features/smoke/smoke.feature, a GitHub Actions workflow and a managed section
 in AGENTS.md. Existing files are left alone (use --force to
 overwrite); the AGENTS.md section is updated in place. Safe to re-run.
 
@@ -182,7 +182,7 @@ usually live in ~/.codex/config.toml, it prints the command that adds axx there.
 			}
 			var plan []InitFile
 			contents := map[string]string{}
-			for _, name := range []string{"axx.yaml", packset.FileName, "features/smoke.feature", ".github/workflows/acceptance.yml"} {
+			for _, name := range []string{"axx.yaml", packset.FileName, "features/smoke/smoke.feature", ".github/workflows/acceptance.yml"} {
 				if noCI && strings.HasPrefix(name, ".github/") {
 					continue
 				}

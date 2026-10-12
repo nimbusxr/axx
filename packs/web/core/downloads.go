@@ -91,7 +91,7 @@ func (s *session) identical(sc *core.Scenario, name, want string) error {
 	if err != nil {
 		return err
 	}
-	path, err := sc.Suite().ResolvePath(want)
+	path, err := sc.ResolvePath(want)
 	if err != nil {
 		return err
 	}

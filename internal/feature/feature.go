@@ -57,6 +57,18 @@ type Pickle struct {
 	TagNames     []string
 }
 
+// Dir is the directory of the pickle's feature file, where the files its
+// steps name are looked for first; "" for a feature that is not on disk.
+func (p *Pickle) Dir() string {
+	if p.Doc == nil || p.Doc.Path == "" {
+		return ""
+	}
+	if abs, err := filepath.Abs(p.Doc.Path); err == nil {
+		return filepath.Dir(abs)
+	}
+	return filepath.Dir(p.Doc.Path)
+}
+
 // Step describes a pickle step's source.
 type Step struct {
 	Keyword string

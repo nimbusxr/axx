@@ -365,7 +365,7 @@ func requestSteps() []core.StepDef {
 			example:      "Given a request payload using an application/json requests/order-7731.json resource",
 			namedExample: "Given a request payload using an application/json requests/order-7732.json resource for 2nd ordered request on parcels",
 			run: func(sc *core.Scenario, a core.Args, t target) error {
-				path, err := sc.Suite().ResolvePath(a.String(1))
+				path, err := sc.ResolvePath(a.String(1))
 				if err != nil {
 					return err
 				}

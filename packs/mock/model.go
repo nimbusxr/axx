@@ -134,7 +134,7 @@ func modelSteps() []core.StepDef {
 			Examples: []string{"Then the mocked models model was asked for the schemas/address.json schema in the request about 'Lindenweg 14'"},
 			Run: func(sc *core.Scenario, a core.Args) error {
 				svc, file, about := a.Value(0).(*Service), a.String(1), a.String(2)
-				p, err := sc.Suite().ResolvePath(file)
+				p, err := sc.ResolvePath(file)
 				if err != nil {
 					return err
 				}

@@ -159,7 +159,7 @@ Then within 20s the depot app looks like the "opened" screenshot
 
 Checks wait for the app, 10 seconds or `within {duration}`. A failed step attaches the app's window and its controls, as accessibility has them.
 
-**Screenshots** are of the app's front window, as it draws itself, in front and with the pointer away from it: `<name>.<platform>.png` in the project's `screenshots` folder, with the display's scale when it is not 1 (`opened.darwin@2x.png`). Each platform draws windows its own way, so each has its own, compared on it only. A focused field's text cursor is left out: it blinks. The first time, the step takes the screenshot and fails: look at it, keep it, and run again. `packs.desktop-core.screenshots` in `axx.yaml` sets the `folder`, the `tolerance`, the `platforms` a project keeps, and `update: true`, which takes them again.
+**Screenshots** are of the app's front window, as it draws itself, in front and with the pointer away from it: `<name>.<platform>.png` in a `screenshots` folder next to the feature file, with the display's scale when it is not 1 (`opened.darwin@2x.png`). Each platform draws windows its own way, so each has its own, compared on it only. A focused field's text cursor is left out: it blinks. The first time, the step takes the screenshot and fails: look at it, keep it, and run again. `packs.desktop-core.screenshots` in `axx.yaml` sets the `folder`, the `tolerance`, the `platforms` a project keeps, and `update: true`, which takes them again.
 
 ## Traces and videos
 

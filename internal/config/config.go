@@ -17,8 +17,9 @@ type Config struct {
 	// Run controls which features run and how.
 	Run Run `json:"run,omitzero"`
 	// Resources are directories that relative resource paths in steps (seed
-	// files, schemas, payloads) resolve against, in order. The directory of
-	// axx.yaml is always searched last.
+	// files, schemas, payloads) resolve against, in order, once the feature
+	// file's own directory has not got the file. The directory of axx.yaml is
+	// always searched last.
 	Resources []string `json:"resources,omitempty"`
 	// Properties back ${sys:name} references. `-D name=value` overrides them.
 	Properties map[string]string `json:"properties,omitempty"`

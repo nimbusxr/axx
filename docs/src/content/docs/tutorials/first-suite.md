@@ -84,9 +84,9 @@ Create a `features` directory:
 mkdir features
 ```
 
-Then create `features/quotes.feature`:
+Then create `features/quotes/quotes.feature`:
 
-```gherkin title="features/quotes.feature"
+```gherkin title="features/quotes/quotes.feature"
 Feature: Quotes
 
   Background:
@@ -116,7 +116,7 @@ axx: ready in 31s
 axx: reusing services started by `axx up`: parcels
 Feature: Quotes
 
-  Scenario: A shop asks for a price  # features/quotes.feature:7
+  Scenario: A shop asks for a price  # features/quotes/quotes.feature:7
     ✓ Given the parcels service with the following properties:  (background)
         | url | http://localhost:8400 |
     ✓ Given a POST request to /api/quotes
@@ -144,7 +144,7 @@ Notice the first lines. Axx prepared itself with the suite's packs, which it doe
 
 Parcels publishes an OpenAPI document that describes its API. Add it to the service in the `Background`:
 
-```gherkin title="features/quotes.feature"
+```gherkin title="features/quotes/quotes.feature"
   Background:
     Given the parcels service with the following properties:
       | url     | http://localhost:8400              |
@@ -155,9 +155,9 @@ Run `axx run` again. The scenario still passes. Axx now checks every request and
 
 ## Start from the contract's example
 
-The OpenAPI document also gives an example request for each operation. Add a second scenario at the end of `features/quotes.feature`:
+The OpenAPI document also gives an example request for each operation. Add a second scenario at the end of `features/quotes/quotes.feature`:
 
-```gherkin title="features/quotes.feature"
+```gherkin title="features/quotes/quotes.feature"
   Scenario: Heavier parcels cost more
     Given a POST request to /api/quotes
     And a request payload using an application/json content example
@@ -172,7 +172,7 @@ The OpenAPI document also gives an example request for each operation. Add a sec
 Run `axx run`. Both scenarios pass. Look at the new scenario's output:
 
 ```console
-  Scenario: Heavier parcels cost more  # features/quotes.feature:18
+  Scenario: Heavier parcels cost more  # features/quotes/quotes.feature:18
     ✓ Given the parcels service with the following properties:  (background)
         | url     | http://localhost:8400              |
         | openapi | http://localhost:8400/openapi.json |
@@ -229,7 +229,7 @@ To price a parcel, Parcels asks the address service which delivery zone serves t
 
 Register the mock in the `Background`, and add a last step to the first scenario. Your file now looks like this:
 
-```gherkin title="features/quotes.feature"
+```gherkin title="features/quotes/quotes.feature"
 Feature: Quotes
 
   Background:
@@ -273,9 +273,9 @@ Axx asked the mock which requests it had received, and found Parcels' `GET /v1/p
 
 ## Check the database
 
-Now we'll register a parcel through the API and check that Parcels stored it. Create `features/parcels.feature`:
+Now we'll register a parcel through the API and check that Parcels stored it. Create `features/parcels/parcels.feature`:
 
-```gherkin title="features/parcels.feature"
+```gherkin title="features/parcels/parcels.feature"
 Feature: Parcels
 
   Background:

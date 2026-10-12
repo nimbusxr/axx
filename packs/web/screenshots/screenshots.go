@@ -64,7 +64,7 @@ const configSchema = `{
   "type": "object",
   "additionalProperties": false,
   "properties": {
-    "folder": {"type": "string", "description": "The folder of the screenshots, in the project (default screenshots)."},
+    "folder": {"type": "string", "description": "The folder of the screenshots, in the project. Unset, each feature keeps its screenshots in a screenshots folder next to its file."},
     "platforms": {"type": "array", "items": {"type": "string", "enum": ["linux", "darwin", "windows"]}, "description": "The platforms whose screenshots the project keeps: each compares its own; elsewhere the steps pass without comparing (default: every platform)."},
     "tolerance": {"type": "number", "minimum": 0, "maximum": 1, "description": "The share of a screenshot's pixels that may differ (default 0)."},
     "update": {"type": "boolean", "description": "Take every screenshot again, as the page looks now, instead of comparing."}
@@ -80,10 +80,11 @@ type Config struct {
 }
 
 type settings struct {
-	folder    string // absolute
-	platforms []string
-	tolerance float64
-	update    bool
+	folder     string // absolute
+	configured bool   // the folder is set in axx.yaml
+	platforms  []string
+	tolerance  float64
+	update     bool
 }
 
 func settingsFor(s *core.Suite) (*settings, error) {
@@ -107,7 +108,17 @@ func parseConfig(c Config, projectDir string) (*settings, error) {
 	if !filepath.IsAbs(folder) {
 		folder = filepath.Join(projectDir, filepath.FromSlash(folder))
 	}
-	return &settings{folder: folder, platforms: c.Platforms, tolerance: c.Tolerance, update: c.Update}, nil
+	return &settings{folder: folder, configured: c.Folder != "", platforms: c.Platforms, tolerance: c.Tolerance, update: c.Update}, nil
+}
+
+// path is where the screenshot named file is kept: in the folder axx.yaml
+// sets, or else in a screenshots folder next to the scenario's feature file
+// (the project's, for a screenshot kept there already).
+func (cfg *settings) path(sc *core.Scenario, file string) string {
+	if cfg.configured {
+		return filepath.Join(cfg.folder, file)
+	}
+	return sc.KeptFile("screenshots", file)
 }
 
 // platform is the operating system screenshots are taken on here.
@@ -116,7 +127,7 @@ var platform = runtime.GOOS
 var screenshotName = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._ -]*$`)
 
 const stepDoc = "\n\n" +
-	"- The screenshot is `<name>.<engine>-<platform>.png`, in the project's `screenshots` folder. Without one, the step " +
+	"- The screenshot is `<name>.<engine>-<platform>.png`, in a `screenshots` folder next to the feature file. Without one, the step " +
 	"takes it and fails: look at it, and keep it.\n" +
 	"- When the page looks different, the step attaches the screenshot, the page and their difference.\n" +
 	"- The check waits for the page to settle and look right: 10 seconds, or `within {duration}`.\n" +
@@ -210,7 +221,7 @@ func looksLike(sc *core.Scenario, c *webcore.Current, name string, wait time.Dur
 		sc.Log("the %q screenshot is compared on %s only, not on %s", name, strings.Join(cfg.platforms, ", "), platform)
 		return nil
 	}
-	path := filepath.Join(cfg.folder, name+"."+c.Engine()+"-"+platform+".png")
+	path := cfg.path(sc, name+"."+c.Engine()+"-"+platform+".png")
 	var expected []byte
 	if !cfg.update {
 		expected, err = os.ReadFile(path)

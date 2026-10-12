@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"sync"
@@ -22,7 +24,10 @@ type SuiteOptions struct {
 	// ResolvePath resolves a resource path used by a step (seed files,
 	// schemas, payload files) against the configured resource roots.
 	ResolvePath func(string) (string, error)
-	Logger      *slog.Logger
+	// ResolvePathFrom resolves it in dir (a feature file's directory) first,
+	// then as ResolvePath. When nil, dir is tried, then ResolvePath.
+	ResolvePathFrom func(dir, p string) (string, error)
+	Logger          *slog.Logger
 	// ProjectDir is the directory of axx.yaml; packs keep their run state
 	// under ProjectDir/.axx.
 	ProjectDir string
@@ -104,6 +109,28 @@ func (s *Suite) Interpolate(v string) string { return s.opts.Interpolate(v) }
 
 // ResolvePath resolves a resource path referenced from a feature file.
 func (s *Suite) ResolvePath(p string) (string, error) { return s.opts.ResolvePath(p) }
+
+// ResolvePathFrom resolves a path in dir first (the directory of the feature
+// file that names it), then as ResolvePath. An empty dir is ResolvePath.
+func (s *Suite) ResolvePathFrom(dir, p string) (string, error) {
+	if dir == "" {
+		return s.opts.ResolvePath(p)
+	}
+	if s.opts.ResolvePathFrom != nil {
+		return s.opts.ResolvePathFrom(dir, p)
+	}
+	if rel := strings.TrimPrefix(p, "classpath:"); !filepath.IsAbs(rel) {
+		if cand := filepath.Join(dir, filepath.FromSlash(rel)); fileExists(cand) {
+			return cand, nil
+		}
+	}
+	return s.opts.ResolvePath(p)
+}
+
+func fileExists(p string) bool {
+	_, err := os.Stat(p)
+	return err == nil
+}
 
 // Logger returns the suite logger.
 func (s *Suite) Logger() *slog.Logger { return s.opts.Logger }

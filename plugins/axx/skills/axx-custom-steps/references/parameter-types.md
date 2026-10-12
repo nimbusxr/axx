@@ -14,7 +14,7 @@
 | `{double}` | a decimal number |  | `19.90` | cucumber |
 | `{duration}` | a duration in seconds (`s`) or minutes (`m`) |  | `5s`, `2m` | core |
 | `{element}` | a kind of element on the page, plural after a number (`buttons`): a `field` by its label or placeholder, an `option` is a radio button, an `element` is anything, by its text, label, alternative text or title | `button`, `field`, `checkbox`, `option`, `link`, `tab`, `menu item`, `element` | `button`, `field` | web-core |
-| `{filepath}` | a file of the project: a path relative to the `resources` directories or to axx.yaml's directory, or an absolute path, quoted when it has a space |  | `seeds/parcels.yaml`, `kafka/scan-delivered.json`, `"seeds/day one.yaml"` | core |
+| `{filepath}` | a file of the project: a path relative to the feature file's directory, the `resources` directories or axx.yaml's directory (looked for in that order), or an absolute path, quoted when it has a space |  | `seeds/parcels.yaml`, `kafka/scan-delivered.json`, `"seeds/day one.yaml"` | core |
 | `{float}` | a decimal number |  | `2.5`, `0.1` | cucumber |
 | `{int}` | a whole number |  | `200`, `3` | cucumber |
 | `{long}` | a whole number, however large |  | `9007199254740993` | cucumber |

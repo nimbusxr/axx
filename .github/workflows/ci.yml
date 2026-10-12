@@ -430,14 +430,14 @@ jobs:
         name: every Android feature runs on one of the runners
         working-directory: examples/parcels/acceptance
         run: |
-          android=$(grep -l '@android' features/*.feature | sort | tr '\n' ' ')
-          [ "$android" = "features/courier-app-notifications.feature features/courier-app.feature " ] || { echo "::error::the android job runs courier-app and courier-app-notifications, and the Android features are: $android"; exit 1; }
+          android=$(grep -rl --include='*.feature' '@android' features | sort | tr '\n' ' ')
+          [ "$android" = "features/courier-app-notifications/courier-app-notifications-android.feature features/courier-app/courier-app-android.feature " ] || { echo "::error::the android job runs courier-app and courier-app-notifications, and the Android features are: $android"; exit 1; }
       - working-directory: examples/parcels/acceptance
         env:
           FEATURE: ${{ matrix.feature }}
         run: |
           axx run --tags @android --format progress --format junit:build/axx/junit.xml --format html:build/axx/report.html \
-            --set packs.mobile-core.traces=failed --set packs.mobile-core.videos=failed "features/$FEATURE.feature"
+            --set packs.mobile-core.traces=failed --set packs.mobile-core.videos=failed "features/$FEATURE/$FEATURE-android.feature"
       - if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:

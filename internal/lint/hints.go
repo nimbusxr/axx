@@ -27,8 +27,9 @@ const hintMaxSize = 1 << 20
 
 // FixtureSources says where scenarios' data files come from.
 type FixtureSources struct {
-	// Resolve finds a file a step names, as the steps do.
-	Resolve func(path string) (string, error)
+	// Resolve finds a file a step of a feature file in dir names, as the
+	// steps do: next to the feature file first.
+	Resolve func(dir, path string) (string, error)
 	// Generated reports whether a fixture factory generates the file.
 	Generated func(abs string) bool
 }
@@ -58,7 +59,7 @@ func FixtureHints(reg *match.Registry, pickles []*feature.Pickle, src FixtureSou
 				default:
 					continue
 				}
-				if abs, err := src.Resolve(a.Raw); err == nil {
+				if abs, err := src.Resolve(p.Dir(), a.Raw); err == nil {
 					files[abs] = true
 				}
 			}

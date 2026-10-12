@@ -226,14 +226,15 @@ func New(opts Options) (*Engine, error) {
 	}
 
 	e.Suite = core.NewSuite(core.SuiteOptions{
-		PackConfig:  packConfig(cfg),
-		Interpolate: func(s string) string { return e.resolver.MustExpand(s) },
-		ResolvePath: e.ResolvePath,
-		Logger:      logger,
-		ProjectDir:  cfg.Dir,
-		Announce:    announcer(opts.IDE),
-		Watch:       cfg.Run.Watch,
-		Slowdown:    cfg.Run.Slowdown.D(),
+		PackConfig:      packConfig(cfg),
+		Interpolate:     func(s string) string { return e.resolver.MustExpand(s) },
+		ResolvePath:     e.ResolvePath,
+		ResolvePathFrom: e.ResolvePathFrom,
+		Logger:          logger,
+		ProjectDir:      cfg.Dir,
+		Announce:        announcer(opts.IDE),
+		Watch:           cfg.Run.Watch,
+		Slowdown:        cfg.Run.Slowdown.D(),
 		Invoke: func(sc *core.Scenario, text string, table *core.Table, doc *core.DocString) error {
 			return e.Invoke(sc, text, table, doc)
 		},
@@ -248,7 +249,7 @@ func (e *Engine) Plan(pickles []*feature.Pickle) *core.Plan {
 	plan := &core.Plan{Scenarios: make([]core.PlannedScenario, 0, len(pickles))}
 	for _, p := range pickles {
 		sc := core.PlannedScenario{ScenarioInfo: core.ScenarioInfo{
-			ID: p.Id, Name: p.Name, URI: p.Uri, Line: p.Line, Tags: p.TagNames,
+			ID: p.Id, Name: p.Name, URI: p.Uri, Line: p.Line, Tags: p.TagNames, Dir: p.Dir(),
 		}}
 		for _, ps := range p.Steps {
 			st := core.PlannedStep{Text: ps.Text}
@@ -337,7 +338,11 @@ func (e *Engine) Close(ctx context.Context) error {
 // ResolvePath resolves a resource path referenced by a step (seed file,
 // schema, payload): absolute paths are used as-is; relative paths are
 // searched in `resources` roots and then the config directory.
-func (e *Engine) ResolvePath(p string) (string, error) {
+func (e *Engine) ResolvePath(p string) (string, error) { return e.ResolvePathFrom("", p) }
+
+// ResolvePathFrom resolves a path a feature file in dir names: next to the
+// feature file first, then as ResolvePath.
+func (e *Engine) ResolvePathFrom(dir, p string) (string, error) {
 	p = strings.TrimPrefix(p, "classpath:")
 	if filepath.IsAbs(p) {
 		if _, err := os.Stat(p); err != nil {
@@ -346,7 +351,7 @@ func (e *Engine) ResolvePath(p string) (string, error) {
 		return p, nil
 	}
 	var tried []string
-	for _, base := range e.ResourceRoots() {
+	for _, base := range e.SearchDirs(dir) {
 		cand := filepath.Join(base, filepath.FromSlash(p))
 		if _, err := os.Stat(cand); err == nil {
 			return cand, nil
@@ -354,7 +359,23 @@ func (e *Engine) ResolvePath(p string) (string, error) {
 		tried = append(tried, cand)
 	}
 	return "", axxerr.New(CodeResource, exitcode.Failed, "resource %s not found", p).
-		WithHint("looked in: %s (configure `resources` in axx.yaml)", strings.Join(tried, ", "))
+		WithHint("looked in: %s (put it next to the feature file, or configure `resources` in axx.yaml)", strings.Join(tried, ", "))
+}
+
+// SearchDirs are the directories a path a feature file in dir names is
+// looked for in, in order: dir (when not empty), then the ResourceRoots.
+func (e *Engine) SearchDirs(dir string) []string {
+	roots := e.ResourceRoots()
+	if dir == "" {
+		return roots
+	}
+	out := []string{filepath.Clean(dir)}
+	for _, r := range roots {
+		if filepath.Clean(r) != out[0] {
+			out = append(out, r)
+		}
+	}
+	return out
 }
 
 // ResourceRoots are the directories ResolvePath looks in, in order: the

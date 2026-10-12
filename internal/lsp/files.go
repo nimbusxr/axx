@@ -132,10 +132,11 @@ func isPlaceholder(v string) bool {
 	return len(v) > 2 && v[0] == '<' && v[len(v)-1] == '>' && !strings.ContainsAny(v[1:len(v)-1], "<>")
 }
 
-// candidates are the paths a value may name, in the order the steps look:
-// an absolute path, or the value under each resource root. A value that is
-// another URL, or that is interpolated when the step runs, has none.
-func (p *project) candidates(v string) []string {
+// candidates are the paths a value in the feature file in dir may name, in
+// the order the steps look: an absolute path, or the value next to the
+// feature file, then under each resource root. A value that is another URL,
+// or that is interpolated when the step runs, has none.
+func (p *project) candidates(dir, v string) []string {
 	for _, prefix := range []string{"file://", "file:", "classpath:"} {
 		if s, ok := strings.CutPrefix(v, prefix); ok {
 			v = s
@@ -148,11 +149,34 @@ func (p *project) candidates(v string) []string {
 	if filepath.IsAbs(v) {
 		return []string{filepath.Clean(v)}
 	}
-	out := make([]string, 0, len(p.roots))
-	for _, root := range p.roots {
+	out := make([]string, 0, len(p.roots)+1)
+	for _, root := range p.searchDirs(dir) {
 		out = append(out, filepath.Join(root, filepath.FromSlash(v)))
 	}
 	return out
+}
+
+// searchDirs are the directories files are looked for in from a feature
+// file in dir: dir first (when known), then the resource roots.
+func (p *project) searchDirs(dir string) []string {
+	if dir == "" {
+		return p.roots
+	}
+	out := []string{filepath.Clean(dir)}
+	for _, r := range p.roots {
+		if filepath.Clean(r) != out[0] {
+			out = append(out, r)
+		}
+	}
+	return out
+}
+
+// dir is the directory of the document's file ("" when it is not a file).
+func (d *document) dir() string {
+	if path := uriToPath(d.uri); path != "" {
+		return filepath.Dir(path)
+	}
+	return ""
 }
 
 // find returns the first candidate that exists, as a step finds it.
@@ -191,7 +215,7 @@ func (d *document) fileLinks(pr *project, line int) []fileLink {
 		if line >= 0 && v.line != line {
 			continue
 		}
-		if path, info := find(pr.candidates(v.text)); info != nil && info.Mode().IsRegular() {
+		if path, info := find(pr.candidates(d.dir(), v.text)); info != nil && info.Mode().IsRegular() {
 			out = append(out, fileLink{rng: span(d.lines, v.line, v.start, v.start+len(v.text)), path: path})
 		}
 	}
@@ -218,7 +242,7 @@ func (d *document) fileDiagnostics(p *project) []diagnostic {
 		if v.typ != typeFilepath {
 			continue
 		}
-		cands := p.candidates(v.text)
+		cands := p.candidates(d.dir(), v.text)
 		if len(cands) == 0 {
 			continue
 		}
@@ -252,7 +276,7 @@ func (d *document) fileDiagnostics(p *project) []diagnostic {
 func (d *document) names(p *project, path string) bool {
 	values, _ := d.fileValues(p.reg)
 	for _, v := range values {
-		for _, c := range p.candidates(v.text) {
+		for _, c := range p.candidates(d.dir(), v.text) {
 			if c == path {
 				return true
 			}
@@ -390,7 +414,7 @@ func (d *document) paths(pr *project, typ string, line, editFrom, valueFrom, cur
 	if filepath.IsAbs(filepath.FromSlash(dir)) {
 		bases = []string{filepath.FromSlash(dir)}
 	} else {
-		for _, root := range pr.roots {
+		for _, root := range pr.searchDirs(d.dir()) {
 			bases = append(bases, filepath.Join(root, filepath.FromSlash(dir)))
 		}
 	}

@@ -172,7 +172,7 @@ func (a *agent) connect(sc *core.Scenario) error {
 	case a.cardRow != "" && !strings.HasPrefix(a.cardRow, "http://") && !strings.HasPrefix(a.cardRow, "https://"):
 		// A card file of the project.
 		var p string
-		if p, err = sc.Suite().ResolvePath(a.cardRow); err != nil {
+		if p, err = sc.ResolvePath(a.cardRow); err != nil {
 			return err
 		}
 		body, err := os.ReadFile(p)

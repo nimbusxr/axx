@@ -49,7 +49,7 @@ func loadSchema(sc *core.Scenario, s *service, client *http.Client) (*ast.Schema
 		}
 		sdl, name = string(raw), s.schemaRow
 	default:
-		p, err := sc.Suite().ResolvePath(s.schemaRow)
+		p, err := sc.ResolvePath(s.schemaRow)
 		if err != nil {
 			return nil, err
 		}

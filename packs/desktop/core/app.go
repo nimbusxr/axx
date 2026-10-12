@@ -171,7 +171,7 @@ func appPath(sc *core.Scenario, value string) (string, error) {
 	if value == "" {
 		return "", errors.New("it is empty")
 	}
-	p, err := sc.Suite().ResolvePath(value)
+	p, err := sc.ResolvePath(value)
 	if err == nil {
 		if _, err := os.Stat(p); err == nil {
 			return p, nil

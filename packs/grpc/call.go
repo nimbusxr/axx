@@ -136,7 +136,7 @@ func methodName(m protoreflect.MethodDescriptor) string {
 func request(sc *core.Scenario, md protoreflect.MessageDescriptor, set *protoload.Set, file string, t *core.Table) (*dynamicpb.Message, []byte, error) {
 	var v any = map[string]any{}
 	if file != "" {
-		p, err := sc.Suite().ResolvePath(file)
+		p, err := sc.ResolvePath(file)
 		if err != nil {
 			return nil, nil, err
 		}

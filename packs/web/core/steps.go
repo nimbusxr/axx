@@ -107,7 +107,7 @@ func steps() []core.StepDef {
 				"button with that name that opens the file dialog.",
 			Examples: []string{`When the invoices/INV-2041.pdf file is uploaded in the "Customs invoice" field`},
 			Run: action(func(sc *core.Scenario, s *session, a core.Args) error {
-				path, err := sc.Suite().ResolvePath(a.String(0))
+				path, err := sc.ResolvePath(a.String(0))
 				if err != nil {
 					return err
 				}

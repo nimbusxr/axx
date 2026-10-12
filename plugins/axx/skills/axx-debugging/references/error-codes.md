@@ -220,9 +220,9 @@ A step pack failed to load or initialize: a step expression that does not compil
 
 **Resource not found** · exit 2
 
-A file referenced by a step (seed, payload, schema, OpenAPI spec) was not found in the configured `resources` roots or next to `axx.yaml`.
+A file referenced by a step (seed, payload, schema, OpenAPI spec) was not found next to the feature file, in the configured `resources` roots, or next to `axx.yaml`.
 
-**Fix:** Check the path in the step, or add its directory to `resources:` in `axx.yaml`.
+**Fix:** Check the path in the step. Keep a file only one feature uses next to that feature file; for a file several features share, add its directory to `resources:` in `axx.yaml`.
 
 ### AXX-E0302
 

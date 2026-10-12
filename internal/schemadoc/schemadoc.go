@@ -124,12 +124,13 @@ func Decode(raw []byte) (any, error) {
 }
 
 // Locate is the URL of a document a registration names: a URL, or a file
-// of the project.
-func Locate(s *core.Suite, source string) (string, error) {
+// of the project, found as the scenario finds files (next to its feature
+// file first).
+func Locate(sc *core.Scenario, source string) (string, error) {
 	if strings.HasPrefix(source, "http://") || strings.HasPrefix(source, "https://") {
 		return source, nil
 	}
-	p, err := s.ResolvePath(source)
+	p, err := sc.ResolvePath(source)
 	if err != nil {
 		return "", err
 	}

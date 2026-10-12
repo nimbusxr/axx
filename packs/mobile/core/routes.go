@@ -359,7 +359,7 @@ func routeSteps() []core.StepDef {
 			"speed throughout. `travels` waits for the phone to arrive; `starts traveling` lets the scenario go on while it moves.",
 		Examples: []string{"When the courier app's phone travels the routes/grimmaische-strasse.gpx route", "When the courier app's phone starts traveling the routes/grimmaische-strasse.gpx route at 4x"},
 		Run: func(sc *core.Scenario, a core.Args) error {
-			path, err := sc.Suite().ResolvePath(a.String(2))
+			path, err := sc.ResolvePath(a.String(2))
 			if err != nil {
 				return err
 			}
