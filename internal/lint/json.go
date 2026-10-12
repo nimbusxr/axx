@@ -11,7 +11,8 @@ import (
 	"github.com/nimbusxr/axx/internal/compat/jsonx"
 )
 
-// JSON extraction for `type: jsonpath` rules.
+// JSON extraction for `type: jsonpath` rules (formats.go reads YAML, XML
+// and CSV files into the same tree).
 //
 // Files are read with a small strict JSON scanner that records the line and
 // column of every value. It accepts what Jackson's default parser accepts: standard JSON, several root values in one file and
@@ -34,6 +35,10 @@ import (
 // each result is located in the scanned tree by its normalized path so it
 // still carries a line number. Results that cannot be located (function
 // values) are reported without one.
+//
+// A field of the subset may also start with @ or # (`@id`, `line[*].@sku`,
+// `note.#text`), the names an XML file's attributes and text take; such a
+// path is matched directly when the Jayway port cannot read it.
 
 type jsonKind byte
 
@@ -52,6 +57,7 @@ type jsonNode struct {
 	line, col int
 	keys      []string    // object member names
 	kids      []*jsonNode // object member values or array elements
+	lone      bool        // a single XML element: it also matches an indexed path segment
 }
 
 func (n *jsonNode) scalar() bool {
@@ -410,9 +416,16 @@ type jsonPath struct {
 	raw      string
 	segments []jsonSegment // subset form; nil when jayway is used
 	jayway   *jsonx.Path
+	// xmlSegments is the subset form of a path with @ or # fields (`@id`),
+	// which XML files are matched with, and other files too when the Jayway
+	// port cannot read the path.
+	xmlSegments []jsonSegment
 }
 
-var subsetSegment = regexp.MustCompile(`^([^.\[\]*?@()'",]+)(?:\[(\*|[0-9]+)\])?$`)
+var (
+	subsetSegment = regexp.MustCompile(`^([^.\[\]*?@()'",]+)(?:\[(\*|[0-9]+)\])?$`)
+	xmlSegment    = regexp.MustCompile(`^([@#]?[^.\[\]*?@#()'",]+)(?:\[(\*|[0-9]+)\])?$`)
+)
 
 // compileJSONPath recognizes the simple subset and hands anything else to
 // the Jayway evaluator.
@@ -422,12 +435,41 @@ func compileJSONPath(path string) (*jsonPath, error) {
 	if strings.TrimSpace(body) == "" {
 		return nil, fmt.Errorf("jsonPath must name at least one field: %q", path)
 	}
-	subset := body != "$"
+	segments, ok, err := subsetSegments(body, subsetSegment, path)
+	if err != nil {
+		return nil, err
+	}
+	if ok {
+		jp.segments = segments
+		return jp, nil
+	}
+	if jp.xmlSegments, ok, err = subsetSegments(body, xmlSegment, path); err != nil {
+		return nil, err
+	} else if !ok {
+		jp.xmlSegments = nil
+	}
+	p, err := jsonx.Compile(path)
+	if err != nil {
+		if jp.xmlSegments != nil {
+			return jp, nil
+		}
+		return nil, err
+	}
+	jp.jayway = p
+	return jp, nil
+}
+
+// subsetSegments splits body into fields of the subset whose names segment
+// matches; ok is false when one is not.
+func subsetSegments(body string, segment *regexp.Regexp, path string) ([]jsonSegment, bool, error) {
+	if body == "$" {
+		return nil, false, nil
+	}
+	var out []jsonSegment
 	for _, raw := range strings.Split(body, ".") {
-		m := subsetSegment.FindStringSubmatch(raw)
+		m := segment.FindStringSubmatch(raw)
 		if m == nil || strings.TrimSpace(m[1]) == "" {
-			subset = false
-			break
+			return nil, false, nil
 		}
 		seg := jsonSegment{name: m[1], index: indexNone}
 		switch m[2] {
@@ -437,22 +479,13 @@ func compileJSONPath(path string) (*jsonPath, error) {
 		default:
 			n, err := strconv.Atoi(m[2])
 			if err != nil || n > 1<<31-1 {
-				return nil, fmt.Errorf("bad index %q in %s", m[2], path)
+				return nil, false, fmt.Errorf("bad index %q in %s", m[2], path)
 			}
 			seg.index = n
 		}
-		jp.segments = append(jp.segments, seg)
+		out = append(out, seg)
 	}
-	if subset {
-		return jp, nil
-	}
-	jp.segments = nil
-	p, err := jsonx.Compile(path)
-	if err != nil {
-		return nil, err
-	}
-	jp.jayway = p
-	return jp, nil
+	return out, true, nil
 }
 
 // jsonMatch is an extracted value.
@@ -461,23 +494,24 @@ type jsonMatch struct {
 	line, col int
 }
 
-// extract returns the scalar values path selects in content.
-func (jp *jsonPath) extract(content string) ([]jsonMatch, error) {
-	roots, err := parseJSON(content)
-	if err != nil {
-		return nil, err
-	}
+// extract returns the scalar values path selects in a file.
+func (jp *jsonPath) extract(d *document) ([]jsonMatch, error) {
+	roots := d.roots
 	var out []jsonMatch
-	if jp.jayway == nil {
+	segments := jp.segments
+	if jp.xmlSegments != nil && (d.xml || jp.jayway == nil) {
+		segments = jp.xmlSegments
+	}
+	if segments != nil {
 		for _, r := range roots {
-			jp.walk(r, nil, &out)
+			walk(r, nil, segments, &out)
 		}
 		return out, nil
 	}
 	if len(roots) == 0 || roots[0].kind != jsonObject && roots[0].kind != jsonArray {
 		return nil, nil
 	}
-	doc, err := jsonx.Parse(strings.TrimPrefix(content, "\ufeff"))
+	doc, err := d.value()
 	if err != nil {
 		return nil, err
 	}
@@ -507,56 +541,64 @@ func (jp *jsonPath) extract(content string) ([]jsonMatch, error) {
 // pathElem is a field name or an array index on the way to a value.
 type pathElem struct {
 	field string
-	index int // -1 for fields
+	index int  // -1 for fields
+	lone  bool // a single XML element
 }
 
-func (jp *jsonPath) walk(n *jsonNode, path []pathElem, out *[]jsonMatch) {
+func walk(n *jsonNode, path []pathElem, segments []jsonSegment, out *[]jsonMatch) {
 	switch n.kind {
 	case jsonObject:
 		for i, k := range n.keys {
-			jp.walk(n.kids[i], append(path, pathElem{field: k, index: -1}), out)
+			walk(n.kids[i], append(path, pathElem{field: k, index: -1, lone: n.kids[i].lone}), segments, out)
 		}
 	case jsonArray:
 		for i, kid := range n.kids {
-			jp.walk(kid, append(path, pathElem{index: i}), out)
+			walk(kid, append(path, pathElem{index: i}), segments, out)
 		}
 	case jsonNull:
 	default:
-		if jp.matches(path) {
+		if matches(path, segments) {
 			*out = append(*out, jsonMatch{value: n.text, line: n.line, col: n.col})
 		}
 	}
 }
 
 // matches is JsonPathExtractor.matches: the live path against the segments.
-func (jp *jsonPath) matches(path []pathElem) bool {
+// A single XML element matches a segment indexed [*] or [0] as the one
+// element of its list.
+func matches(path []pathElem, segments []jsonSegment) bool {
 	p := 0
 	for i := 0; i < len(path); i++ {
 		el := path[i]
 		if el.index >= 0 {
 			return false // an index with no field before it (e.g. a root array)
 		}
-		if p >= len(jp.segments) || jp.segments[p].name != el.field {
+		if p >= len(segments) || segments[p].name != el.field {
 			return false
 		}
 		idx := -1
 		if i+1 < len(path) && path[i+1].index >= 0 {
 			idx = path[i+1].index
 		}
-		seg := jp.segments[p]
-		if seg.index == indexNone {
+		seg := segments[p]
+		switch {
+		case seg.index == indexNone:
 			if idx >= 0 {
 				return false // a plain field in the pattern, an array element in the document
 			}
-		} else {
-			if idx < 0 || seg.index != indexAny && seg.index != idx {
+		case idx < 0:
+			if !el.lone || seg.index != indexAny && seg.index != 0 {
+				return false
+			}
+		default:
+			if seg.index != indexAny && seg.index != idx {
 				return false
 			}
 			i++
 		}
 		p++
 	}
-	return p == len(jp.segments)
+	return p == len(segments)
 }
 
 // locate finds the node at a normalized Jayway path ("$['a'][0]"). Keys are

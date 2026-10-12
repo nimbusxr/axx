@@ -195,7 +195,10 @@ func (yamlFamily) Validate(data []byte, baseDir, schemaRef, fixtureName string) 
 	return g.validate(compactJSON(node), fixtureName)
 }
 
-func (yamlFamily) LintFilePatterns(*Spec) []string { return nil }
+// LintFilePatterns are the YAML files of its output directories.
+func (yamlFamily) LintFilePatterns(spec *Spec) []string {
+	return inOutputDirs(spec, "*.yaml", "*.yml")
+}
 
 func (yamlFamily) LintJSONPath(_ *Spec, p string) string { return p }
 

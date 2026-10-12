@@ -27,3 +27,21 @@ rules:
   description: Identity declared by requests/registrations.factory.yaml; every fixture
     in the directory must own a unique value
   validation: cross-file-unique
+- name: "seeds/manifests/csv/manifests-csv.factory.yaml: parcels.manifest_lines.id\
+    \ uniqueness"
+  filePatterns:
+  - seeds/manifests/csv/*.csv
+  type: jsonpath
+  jsonPath: "$['parcels.manifest_lines'][*]['id']"
+  description: Identity declared by seeds/manifests/csv/manifests-csv.factory.yaml;
+    every fixture in the directory must own a unique value
+  validation: cross-file-unique
+- name: "seeds/manifests/xml/manifests-xml.factory.yaml: parcels.manifest_lines.id\
+    \ uniqueness"
+  filePatterns:
+  - seeds/manifests/xml/*.xml
+  type: jsonpath
+  jsonPath: "$['parcels.manifest_lines'][*]['id']"
+  description: Identity declared by seeds/manifests/xml/manifests-xml.factory.yaml;
+    every fixture in the directory must own a unique value
+  validation: cross-file-unique

@@ -133,7 +133,7 @@ identity:
 - Two fixtures with one value in fields of one name fail generation (`AXX-E0902`) and name both. Fields of different names, and two identities of one fixture, may share a value.
 - `namespace:` compares identities by what they identify instead of by field name: different namespaces keep fields of one name apart (a depot's `id` and a shop's `id`), and one namespace compares fields of different names.
 
-For the families that generate JSON (`avro`, `json`, `protobuf`), each identity also becomes a lint rule in `axx-lint.generated.yaml`, covering the factory's output directories, so hand-written files next to them are checked too. Pull the rules into `axx lint` once the file exists (an include that is missing is an error):
+Each identity also becomes a lint rule in `axx-lint.generated.yaml`, covering the factory's output directories in the format the factory writes (JSON, YAML, XML, or a seed's YAML, flat XML or CSV), so hand-written files next to them are checked too. Pull the rules into `axx lint` once the file exists (an include that is missing is an error):
 
 ```yaml title="axx.yaml"
 lint:

@@ -326,13 +326,22 @@ func (s *Set) runRule(r *Rule, opts Options, cache map[string]*fileText) RuleRes
 		}
 		rr.files = append(rr.files, f)
 		if r.path != nil {
-			ms, err := r.path.extract(ft.content)
+			d, err := readDocument(f, ft.content)
+			var ms []jsonMatch
+			if err == nil {
+				ms, err = r.path.extract(d)
+			}
 			if err != nil {
 				var je *JSONError
-				if errors.As(err, &je) {
+				var fe *FormatError
+				switch {
+				case errors.As(err, &je):
 					problem(CodeUnparsable, SeverityError, loc(f, je.Line, je.Column, ft.lineText(je.Line)),
 						"%s is not valid JSON, which a jsonpath rule requires: %s", relSlash(opts.WorkDir, f), je.Message)
-				} else {
+				case errors.As(err, &fe):
+					problem(CodeUnparsable, SeverityError, loc(f, fe.Line, fe.Column, ft.lineText(fe.Line)),
+						"%s is not valid %s, which a jsonpath rule requires: %s", relSlash(opts.WorkDir, f), fe.Format, fe.Message)
+				default:
 					problem(CodeUnparsable, SeverityError, loc(f, 0, 0, ""), "cannot evaluate jsonPath %s over %s: %v", r.JSONPath, relSlash(opts.WorkDir, f), err)
 				}
 				continue

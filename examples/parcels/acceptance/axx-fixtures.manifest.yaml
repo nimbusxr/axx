@@ -11,7 +11,7 @@ files:
   factory: ../infra/wiremock/__files/postcodes.factory.yaml
   fixture: postcode-remote
 - path: axx-lint.generated.yaml
-  sha256: 5a496d639222a8371f7735e539b4a74d2bb59838228f362995dbc1c174162b59
+  sha256: d2e0712c7512c8da9f696f340a5bb060be0a14521e604cfde214a94e2ca8c8ea
   factory: <axx-fixtures>
   fixture: <generated lint rules>
 - path: kafka/.gitignore

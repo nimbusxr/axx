@@ -2,6 +2,7 @@ package fixtures
 
 import (
 	"sort"
+	"strings"
 
 	"github.com/nimbusxr/axx/internal/compat/jyaml"
 )
@@ -21,15 +22,33 @@ func lintFilePatterns(f Family, spec *Spec) []string {
 	if r, ok := f.(LintRuler); ok {
 		return r.LintFilePatterns(spec)
 	}
+	return inOutputDirs(spec, "*.json")
+}
+
+// inOutputDirs is each glob in each of the spec's output directories.
+func inOutputDirs(spec *Spec, globs ...string) []string {
 	var out []string
 	for _, dir := range spec.OutputDirs() {
-		if dir == "" {
-			out = append(out, "*.json")
-		} else {
-			out = append(out, dir+"/*.json")
+		for _, g := range globs {
+			if dir == "" {
+				out = append(out, g)
+			} else {
+				out = append(out, dir+"/"+g)
+			}
 		}
 	}
 	return out
+}
+
+// sourceExcludes keeps the factories' own files out of a rule whose patterns
+// select YAML, the format they are written in.
+func sourceExcludes(patterns []string) []any {
+	for _, p := range patterns {
+		if strings.HasSuffix(p, ".yaml") || strings.HasSuffix(p, ".yml") {
+			return []any{"**" + FactorySuffix, "**" + FixtureSuffix, "**" + PrototypeSuffix}
+		}
+	}
+	return nil
 }
 
 func lintJSONPath(f Family, spec *Spec, identityPath string) string {
@@ -41,8 +60,9 @@ func lintJSONPath(f Family, spec *Spec, identityPath string) string {
 
 // emitLintRules renders the generated lint rules: one structural
 // cross-file-unique rule per identity, covering the whole output directory so
-// hand-written neighbors are linted too. It returns nil when no factory
-// declares identities (or every family opts out).
+// hand-written neighbors are linted too, in the format the factory writes
+// (`axx lint` reads JSON, YAML, XML and CSV files). It returns nil when no
+// factory declares identities (or every family opts out).
 func emitLintRules(specs []*Spec, familyOf func(*Spec) (Family, error)) ([]byte, error) {
 	sorted := append([]*Spec(nil), specs...)
 	sort.SliceStable(sorted, func(i, j int) bool { return javaCompare(sorted[i].SourceName, sorted[j].SourceName) < 0 })
@@ -65,14 +85,18 @@ func emitLintRules(specs []*Spec, familyOf func(*Spec) (Family, error)) ([]byte,
 			for i, p := range patterns {
 				ps[i] = p
 			}
-			rules = append(rules, newObject(
+			rule := newObject(
 				"name", spec.SourceName+": "+id.Path+" uniqueness",
 				"filePatterns", ps,
-				"type", "jsonpath",
-				"jsonPath", wildcardIndices(jsonPath),
-				"description", "Identity declared by "+spec.SourceName+"; every fixture in the directory must own a unique value",
-				"validation", "cross-file-unique",
-			))
+			)
+			if excludes := sourceExcludes(patterns); excludes != nil {
+				rule.Set("excludePatterns", excludes)
+			}
+			rule.Set("type", "jsonpath")
+			rule.Set("jsonPath", wildcardIndices(jsonPath))
+			rule.Set("description", "Identity declared by "+spec.SourceName+"; every fixture in the directory must own a unique value")
+			rule.Set("validation", "cross-file-unique")
+			rules = append(rules, rule)
 		}
 	}
 	if len(rules) == 0 {

@@ -5,3 +5,7 @@ factory:
   family: dataset
   options: { format: csv }
   schema: ../../../../infra/postgres/init/01-schema.sql
+# Every manifest line has its own id; `axx lint` checks hand-written seeds here against them.
+identity:
+  - path: parcels.manifest_lines.id
+    derive: authored

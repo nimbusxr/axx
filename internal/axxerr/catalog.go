@@ -225,8 +225,8 @@ func init() {
 		"`axx lint --format` names an unknown format, `--mode` is not `error` or `warn`, or an output file cannot be written.",
 		"Use `--format human|json|junit|sarif|github` (optionally `NAME:FILE`) and `--mode error|warn`.")
 	add("AXX-E0810", lint, "File cannot be evaluated",
-		"A file selected by a `type: jsonpath` rule is not valid JSON (or the JSONPath cannot be evaluated over it), so its values cannot be checked. This fails the rule even in warn mode.",
-		"Fix the JSON at the reported line, or narrow the rule's `filePatterns`/`excludePatterns` so it only selects JSON files.")
+		"A file selected by a `type: jsonpath` rule is not valid JSON, YAML, XML or CSV (whichever its extension says), or the JSONPath cannot be evaluated over it, so its values cannot be checked. This fails the rule even in warn mode.",
+		"Fix the file at the reported line, or narrow the rule's `filePatterns`/`excludePatterns` so it only selects the files that hold the values.")
 	add("AXX-E0811", lint, "File cannot be read",
 		"A file selected by a lint rule could not be read (permissions, or it disappeared during the run).",
 		"Check the file's permissions, or exclude it with `excludePatterns`.")

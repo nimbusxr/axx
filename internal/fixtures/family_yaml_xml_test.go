@@ -36,16 +36,13 @@ tags:
 	}
 }
 
-func TestYAMLStabilityDriftAndNoLintRules(t *testing.T) {
+func TestYAMLStabilityAndDrift(t *testing.T) {
 	w := yamlWorkspace(t)
 	first, second := w.expand(), w.expand()
 	for p, b := range first {
 		if !bytes.Equal(b, second[p]) {
 			t.Errorf("%s not byte-stable", p)
 		}
-	}
-	if first[DefaultLintOutput] != nil {
-		t.Error("YAML output emits no structural lint rules")
 	}
 	w.generate()
 	if f := w.check(); len(f) != 0 {

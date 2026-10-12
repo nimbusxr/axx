@@ -466,9 +466,9 @@ A lint rule cannot be used: a missing `regex` (or `jsonPath` for `type: jsonpath
 
 **File cannot be evaluated** · exit 3
 
-A file selected by a `type: jsonpath` rule is not valid JSON (or the JSONPath cannot be evaluated over it), so its values cannot be checked. This fails the rule even in warn mode.
+A file selected by a `type: jsonpath` rule is not valid JSON, YAML, XML or CSV (whichever its extension says), or the JSONPath cannot be evaluated over it, so its values cannot be checked. This fails the rule even in warn mode.
 
-**Fix:** Fix the JSON at the reported line, or narrow the rule's `filePatterns`/`excludePatterns` so it only selects JSON files.
+**Fix:** Fix the file at the reported line, or narrow the rule's `filePatterns`/`excludePatterns` so it only selects the files that hold the values.
 
 ### AXX-E0811
 
