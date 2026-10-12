@@ -55,6 +55,9 @@ jobs:
         with:
           languages: ${{ matrix.language }}
           build-mode: ${{ matrix.build-mode }}
+          # Its dependency caches (Java's alone 3.6 GB, one for each pull request) would push the
+          # repository over GitHub's 10 GB of caches, and drop those CI's jobs read.
+          dependency-caching: false
       - uses: github/codeql-action/analyze@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
         with:
           category: /language:${{ matrix.language }}

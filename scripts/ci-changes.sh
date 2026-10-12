@@ -5,18 +5,20 @@
 # name=value lines for $GITHUB_OUTPUT: go, integration, web, mobile, desktop, examples, acceptance and workflows
 # (true or false), and codeql, the matrix of the languages CodeQL analyzes.
 #   usage: git diff --name-only BASE...HEAD | scripts/ci-changes.sh
-#          scripts/ci-changes.sh --all   # every job: pushes to main, the merge queue
+#          scripts/ci-changes.sh --all    # every job: pushes to main
+#          scripts/ci-changes.sh --none   # no job: the merge queue, on a tree a run passed
 # A change to CI itself runs every job too.
 set -euo pipefail
 
 go=false integration=false web=false mobile=false desktop=false examples=false acceptance=false workflows=false
 lang_go=false lang_java=false lang_js=false lang_actions=false
-all=false
-if [[ "${1:-}" == --all ]]; then
-  all=true
-fi
+all=false none=false
+case "${1:-}" in
+  --all) all=true ;;
+  --none) none=true ;;
+esac
 
-while ! $all && IFS= read -r f; do
+while ! $all && ! $none && IFS= read -r f; do
   [[ -n "$f" ]] || continue
   case "$f" in
     .github/workflows/ci.yml | .github/workflows/codeql.yml | .github/actions/* | scripts/ci-changes.sh)

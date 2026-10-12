@@ -31,6 +31,10 @@ Integration tests use Docker via testcontainers-go: `go test -tags integration .
    e.g. `feat(rest): add response header count step` or `fix(kafka): ...`. Allowed types:
    `feat`, `fix`, `perf`, `refactor`, `docs`, `test`, `build`, `ci`, `chore`; add `!` for
    breaking changes.
+6. **Merged through the merge queue.** A pull request's CI runs the jobs its files need. The
+   merge queue runs them again only when main has moved since that run passed, to test the two
+   together; otherwise it passes at once. What reaches main has been tested: main runs no tests,
+   and only refreshes the caches pull requests read.
 
 ## Developer Certificate of Origin
 

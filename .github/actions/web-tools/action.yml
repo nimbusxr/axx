@@ -33,7 +33,17 @@ runs:
       shell: bash
       run: |
         version=$(sed -n 's/^const CoreVersion = "\(.*\)"$/\1/p' packs/web/internal/driver/driver.go)
-        sudo npx -y "playwright@$version" install-deps chromium firefox webkit
+        # apt waits forever on a mirror that stops answering (a job hung 29 minutes on one): it
+        # gives up on a stalled download after 30 seconds and tries it again, and the install,
+        # which takes about a minute, is tried again if it takes over four.
+        printf 'Acquire::Retries "3";\nAcquire::http::Timeout "30";\nAcquire::https::Timeout "30";\n' | sudo tee /etc/apt/apt.conf.d/99timeouts > /dev/null
+        for attempt in 1 2 3; do
+          if sudo timeout --kill-after=15s 4m npx -y "playwright@$version" install-deps chromium firefox webkit; then
+            exit 0
+          fi
+          echo "::warning::installing the browsers' system libraries failed or stalled (attempt $attempt of 3)"
+        done
+        exit 1
     - if: inputs.mode == 'save' && github.event_name == 'push' && github.ref == 'refs/heads/main'
       # A cache is an optimization: failing to save it fails nothing.
       continue-on-error: true
