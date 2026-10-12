@@ -16,6 +16,9 @@ import (
 // What the library reported counts only while the SpringBoard it reported from runs: a
 // simulator booted again (or shut down) has none of it.
 func TestTheSpringBoardLibraryReportsForTheSpringBoardThatRuns(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("iOS simulators run on macOS only")
+	}
 	t.Setenv("HOME", t.TempDir())
 	if err := os.MkdirAll(springboardStatuses(), 0o755); err != nil {
 		t.Fatal(err)

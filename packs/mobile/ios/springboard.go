@@ -96,7 +96,10 @@ func springboardStatus(udid string) string {
 	}
 	pid, status, _ := strings.Cut(strings.TrimSpace(string(data)), " ")
 	n, err := strconv.Atoi(pid)
-	if err != nil || syscall.Kill(n, 0) != nil {
+	if err != nil {
+		return ""
+	}
+	if p, err := os.FindProcess(n); err != nil || p.Signal(syscall.Signal(0)) != nil {
 		return "" // a SpringBoard of an earlier boot
 	}
 	return status
