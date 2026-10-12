@@ -323,9 +323,15 @@ jobs:
     needs: changes
     if: needs.changes.outputs.mobile == 'true' && needs.changes.outputs.tests == 'true'
     # The parcels example's Android scenarios, on an emulator axx starts (KVM), against the
-    # whole example, which axx starts too.
+    # whole example, which axx starts too. They run on two runners, a feature each: one emulator
+    # runs one scenario at a time.
+    name: android (${{ matrix.feature }})
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        feature: [courier-app, courier-app-notifications]
     steps:
       # The example's images need more disk than a runner has free: remove toolchains the job
       # never uses (not the Android SDK), in the background while the job sets up.
@@ -400,14 +406,22 @@ jobs:
           cat "$RUNNER_TEMP/pull.log"
           # A pull that failed is done again as the example starts.
           [ "$(cat "$RUNNER_TEMP/pull.done" 2> /dev/null)" = 0 ] || echo "::warning::the example's images were not all pulled"
+      - if: matrix.feature == 'courier-app'
+        name: every Android feature runs on one of the runners
+        working-directory: examples/parcels/acceptance
+        run: |
+          android=$(grep -l '@android' features/*.feature | sort | tr '\n' ' ')
+          [ "$android" = "features/courier-app-notifications.feature features/courier-app.feature " ] || { echo "::error::the android job runs courier-app and courier-app-notifications, and the Android features are: $android"; exit 1; }
       - working-directory: examples/parcels/acceptance
+        env:
+          FEATURE: ${{ matrix.feature }}
         run: |
           axx run --tags @android --format progress --format junit:build/axx/junit.xml --format html:build/axx/report.html \
-            --set packs.mobile-core.traces=failed --set packs.mobile-core.videos=failed
+            --set packs.mobile-core.traces=failed --set packs.mobile-core.videos=failed "features/$FEATURE.feature"
       - if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
-          name: android
+          name: android-${{ matrix.feature }}
           # The report, and the traces, videos, screenshots and the emulators' logs a failure
           # leaves.
           path: |
