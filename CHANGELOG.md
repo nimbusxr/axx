@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.2.14](https://github.com/nimbusxr/axx/compare/v0.2.13...v0.2.14) (2026-10-12)
+
+
+### Features
+
+* **mobile:** a phone travels a route, from waypoints or a GPX file ([#169](https://github.com/nimbusxr/axx/issues/169)) ([7731a67](https://github.com/nimbusxr/axx/commit/7731a678e1e1c5ce2792e9e0c6d1b71a9b814457))
+* **mobile:** tap a notification and its actions ([#172](https://github.com/nimbusxr/axx/issues/172)) ([c911edd](https://github.com/nimbusxr/axx/commit/c911edde9c34e7c07e7dc3fd247c66a0416c6c41))
+
+
+### Bug Fixes
+
+* **deps:** update google.golang.org/genproto digest to fad4113 ([#171](https://github.com/nimbusxr/axx/issues/171)) ([cfdbc89](https://github.com/nimbusxr/axx/commit/cfdbc899acf9c65cd39752ade9495cc01748fe5e))
+* **fixtures:** read PostgreSQL migrations as the database does ([#167](https://github.com/nimbusxr/axx/issues/167)) ([696cbd4](https://github.com/nimbusxr/axx/commit/696cbd4e63351ec00e1f44fadb52a04e7d12b7ce))
+* **mobile:** a control drawn again before its tap lands is found again and tapped ([#168](https://github.com/nimbusxr/axx/issues/168)) ([23ba96b](https://github.com/nimbusxr/axx/commit/23ba96b2db5396ad701ebfe8f3e1c38f1b8da774))
+* **sql:** a seeded time counted from now is the same moment wherever the machine runs ([#166](https://github.com/nimbusxr/axx/issues/166)) ([4cbb059](https://github.com/nimbusxr/axx/commit/4cbb05964bc769cabe4b0646a95aef54952d9e2f))
+
 ## [0.2.13](https://github.com/nimbusxr/axx/compare/v0.2.12...v0.2.13) (2026-10-11)
 
 

@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.3](https://github.com/nimbusxr/axx/compare/wiremock-openapi-v0.1.2...wiremock-openapi-v0.1.3) (2026-10-12)
+
+
+### Bug Fixes
+
+* **deps:** update aws-java-sdk-v2 monorepo to v2.55.14 ([#175](https://github.com/nimbusxr/axx/issues/175)) ([fd725b7](https://github.com/nimbusxr/axx/commit/fd725b7eb82ea0db6dbc2332865616b3ff2bc973))
+
 ## [0.1.2](https://github.com/nimbusxr/axx/compare/wiremock-openapi-v0.1.1...wiremock-openapi-v0.1.2) (2026-10-05)
 
 
