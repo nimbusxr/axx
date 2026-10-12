@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -721,6 +722,47 @@ rules:
 				t.Errorf("findings:\n%s\nwant:\n%s", strings.Join(got, "\n"), strings.Join(tt.want, "\n"))
 			}
 		})
+	}
+}
+
+func TestCSVRecords(t *testing.T) {
+	render := func(records [][]csvCell) string {
+		var lines []string
+		for _, rec := range records {
+			var cells []string
+			for _, c := range rec {
+				v := strconv.Quote(c.text)
+				if c.null {
+					v = "null"
+				}
+				cells = append(cells, fmt.Sprintf("%s@%d", v, c.off))
+			}
+			lines = append(lines, strings.Join(cells, " "))
+		}
+		return strings.Join(lines, " | ")
+	}
+	for in, want := range map[string]string{
+		"id,name\nc-1,Grand Ave\n":   `"id"@0 "name"@3 | "c-1"@8 "Grand Ave"@12`,
+		"id\r\nc-1\r\n":              `"id"@0 | "c-1"@4`,
+		"\n\nid\n\nc-1":              `"id"@2 | "c-1"@6`,
+		"a,b,\n":                     `"a"@0 "b"@2 ""@4`,
+		"a,":                         `"a"@0 ""@2`,
+		"\"x\ny\",\"a\\\"b\\\\c\"\n": `"x\ny"@1 "a\"b\\c"@7`,
+		"null,\"null\",nulls":        `null@0 "null"@6 "nulls"@12`,
+		"\"a\"b,c":                   `"a"@1 "c"@5`,
+		"":                           ``,
+	} {
+		records, err := csvRecords(in, newOffsets(in))
+		if err != nil {
+			t.Errorf("%q: %v", in, err)
+			continue
+		}
+		if got := render(records); got != want {
+			t.Errorf("%q:\n got %s\nwant %s", in, got, want)
+		}
+	}
+	if _, err := csvRecords("id\n\"c-1", newOffsets("id\n\"c-1")); err == nil || !strings.Contains(err.Error(), "line 2, column 1: a quoted value is never closed") {
+		t.Errorf("an unclosed quote: %v", err)
 	}
 }
 

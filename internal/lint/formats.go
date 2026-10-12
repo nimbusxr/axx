@@ -439,66 +439,67 @@ type csvCell struct {
 // with \" and \\ escaped, and an unquoted null.
 func csvRecords(s string, pos *offsets) ([][]csvCell, error) {
 	var records [][]csvCell
-	var rec []csvCell
-	i := 0
-	for i <= len(s) {
-		if len(rec) == 0 && (i == len(s) || s[i] == '\n' || s[i] == '\r') {
-			if i == len(s) {
-				break
-			}
+	for i := 0; i < len(s); {
+		if s[i] == '\n' || s[i] == '\r' {
 			i++ // a blank line
 			continue
 		}
-		cell := csvCell{off: i}
-		if i < len(s) && s[i] == '"' {
-			var b strings.Builder
-			j := i + 1
-			for {
-				if j >= len(s) {
-					line, col := pos.position(i)
-					return nil, &FormatError{Format: "CSV", Line: line, Column: col, Message: "a quoted value is never closed"}
-				}
-				if s[j] == '\\' && j+1 < len(s) {
-					b.WriteByte(s[j+1])
-					j += 2
-					continue
-				}
-				if s[j] == '"' {
-					break
-				}
-				b.WriteByte(s[j])
-				j++
+		var rec []csvCell
+		for {
+			cell, next, err := csvValue(s, i, pos)
+			if err != nil {
+				return nil, err
 			}
-			cell.text, cell.off = b.String(), i+1
-			i = j + 1
-			for i < len(s) && s[i] != ',' && s[i] != '\n' && s[i] != '\r' {
-				i++ // text after the closing quote
+			rec = append(rec, cell)
+			if next < len(s) && s[next] == ',' {
+				i = next + 1 // a value follows, empty at the end of the line or file
+				continue
 			}
-		} else {
-			j := i
-			for j < len(s) && s[j] != ',' && s[j] != '\n' && s[j] != '\r' {
-				j++
-			}
-			cell.text = s[i:j]
-			cell.null = cell.text == "null"
-			i = j
+			i = next // the end of the line, or of the file
+			break
 		}
-		rec = append(rec, cell)
-		if i < len(s) && s[i] == ',' {
-			i++
-			continue
-		}
-		records = append(records, rec) // the end of a line, or of the file
-		rec = nil
+		records = append(records, rec)
 		if i < len(s) && s[i] == '\r' {
 			i++
 		}
 		if i < len(s) && s[i] == '\n' {
 			i++
 		}
-		if i == len(s) {
-			break
-		}
 	}
 	return records, nil
+}
+
+// csvValue reads the value that starts at i, which may be len(s) (an empty
+// last value), and returns where it ends: at a comma, a line break or the end.
+func csvValue(s string, i int, pos *offsets) (csvCell, int, error) {
+	end := func(j int) int {
+		for j < len(s) && s[j] != ',' && s[j] != '\n' && s[j] != '\r' {
+			j++
+		}
+		return j
+	}
+	if i >= len(s) || s[i] != '"' {
+		j := end(i)
+		return csvCell{text: s[i:j], off: i, null: s[i:j] == "null"}, j, nil
+	}
+	var b strings.Builder
+	j := i + 1
+	for {
+		if j >= len(s) {
+			line, col := pos.position(i)
+			return csvCell{}, 0, &FormatError{Format: "CSV", Line: line, Column: col, Message: "a quoted value is never closed"}
+		}
+		if s[j] == '\\' && j+1 < len(s) {
+			b.WriteByte(s[j+1])
+			j += 2
+			continue
+		}
+		if s[j] == '"' {
+			break
+		}
+		b.WriteByte(s[j])
+		j++
+	}
+	// Text after the closing quote is left out, up to the value's end.
+	return csvCell{text: b.String(), off: i + 1}, end(j + 1), nil
 }
