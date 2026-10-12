@@ -437,8 +437,19 @@ jobs:
     # The iOS pack, on simulators axx makes, with the parcels example's couriers' iOS app. The
     # example's iOS scenarios need the whole example, and macOS runners have no Docker: they
     # run on developers' Macs.
+    # The tests run on two runners, a simulator each: TestCouriersOnASimulator, two scenarios long,
+    # on one, the others on the other.
+    name: ios (${{ matrix.tests }})
     runs-on: macos-latest
     timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - tests: couriers
+            select: -run=^TestCouriersOnASimulator$
+          - tests: others
+            select: -skip=^TestCouriersOnASimulator$
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
@@ -468,7 +479,9 @@ jobs:
       # The tests share that simulator, kept booted from one to the next, as a run's worker has
       # one. Each prints the packs' log (how long the simulator took to get ready, and each
       # part), and a failed one the end of its logs and the screen it read.
-      - run: GOTEST_FORMAT=standard-verbose GOTEST_SLOWEST=1s scripts/gotest.sh -race -tags integration -timeout 45m ./packs/mobile/ios/...
+      - env:
+          SELECT: ${{ matrix.select }}
+        run: GOTEST_FORMAT=standard-verbose GOTEST_SLOWEST=1s scripts/gotest.sh -race -tags integration -timeout 45m "$SELECT" ./packs/mobile/ios/...
 
   desktop-image:
     needs: changes
