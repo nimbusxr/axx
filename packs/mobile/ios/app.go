@@ -54,7 +54,7 @@ func parseApp(sc *core.Scenario, expand func(string) string, name string, t *cor
 			if strings.HasSuffix(strings.ToLower(value), ".ipa") {
 				return nil, fmt.Errorf("the %s ios app's app %q is for devices: simulators run a simulator build, the .app xcodebuild builds for -sdk iphonesimulator (or it zipped)", name, value)
 			}
-			path, err := sc.Suite().ResolvePath(value)
+			path, err := sc.ResolvePath(value)
 			if err != nil {
 				return nil, fmt.Errorf("the %s ios app's app %q: %w", name, value, err)
 			}

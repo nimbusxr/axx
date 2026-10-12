@@ -75,22 +75,22 @@ parcels/
   acceptance/   the Axx project
     axx.yaml        run settings, the app definition, the packs' settings, lint rules, fixture settings
     axx-packs.yaml  the packs whose steps the features use
-    features/       the features
-    seeds/          database seeds (YAML and JSON, plus generated XML and CSV datasets)
-    reports/        the import report a manifest-documents scenario expects
-    invoices/       a customs invoice a shop uploads in the portal
-    labels/         the labels a portal scenario downloads and the admin command prints
-    logos/          the logo a shop uploads in its settings
-    screenshots/    how the portal's pages look, on Linux and on macOS
-    network/        answers for the tracking page's requests: a file, and a recording of the service
-    kafka/          depot scan events (generated from a factory)
-    amqp/           the label printers' reports
-    mqtt/           a handheld scanner's scan
-    nats/           a courier's delivery confirmation
-    redis/          cached tracking views seeded into Valkey
-    requests/       registration requests an order system exports (generated from a factory)
-    schemas/        Avro schemas
+    features/       a folder for each feature, with the files only it uses beside it:
+      shop-portal/        shop-portal.feature, the seeds it starts from, the customs invoice a
+                          shop uploads, and screenshots/ of how the portal looks (Linux, macOS)
+      manifest-import/    manifest-import.feature, its seeds, and the factories that generate
+                          its flat XML and CSV manifests
+      courier-app/        courier-app-android.feature and courier-app-ios.feature: the couriers'
+                          app on each platform, with the seeds and the GPX route they share
+      ...                 every other feature the same way: its seeds/, requests/, redis/,
+                          graphql/, labels/, reports/, network/, amqp/, mqtt/, nats/ files
+    kafka/          depot scan events (generated from a factory) that six tracking features share
+    schemas/        the depot scans' Avro schema, which they share too
 ```
+
+A step names a file from its feature's folder (`a seeds/manifest-kestrel.yaml db seed` in
+`features/manifest-import/`); a file the folder has not got is looked for in `acceptance/`, which
+holds what several features share.
 
 ## Run it
 
@@ -123,7 +123,7 @@ Other useful commands, all from `acceptance/`:
 
 ```sh
 axx validate                            # check every step, without running anything
-axx run features/quotes.feature         # run one feature
+axx run features/quotes                 # run one feature
 axx lint                                # test-data isolation rules
 axx up                                  # keep the service running between runs (axx down stops it)
 ```
@@ -132,8 +132,8 @@ The portal's features use web browsers on your machine; the `web-core` pack down
 first time. To see them:
 
 ```sh
-axx run --profile watch features/shop-portal.feature   # the browsers in windows, slowed down
-axx run features/shop-portal.feature --pause-at features/shop-portal.feature:24   # pause before that step, in Playwright's Inspector
+axx run --profile watch features/shop-portal   # the browsers in windows, slowed down
+axx run features/shop-portal --pause-at features/shop-portal/shop-portal.feature:24   # pause before that step, in Playwright's Inspector
 ```
 
 The couriers' apps' features (tagged `@mobile`) run the apps on devices axx runs. The

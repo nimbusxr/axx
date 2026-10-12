@@ -20,7 +20,7 @@ Every error also has a stable code (`AXX-E0408`, say) that links to its entry in
 ```console
 $ axx run
 ...
-  Scenario: The service says hello  # features/smoke.feature:7
+  Scenario: The service says hello  # features/smoke/smoke.feature:7
     ✓ Given the hello-axx service with the following properties:  (background)
         | url | http://${sys:local.host}:8000 |
     ✓ Given a GET request to /hello.json
@@ -35,8 +35,8 @@ $ axx run
           actual:   "Hello, axx"
 
 Failed scenarios:
-  ✗ The service says hello  # features/smoke.feature:7
-      rerun: axx run features/smoke.feature:7
+  ✗ The service says hello  # features/smoke/smoke.feature:7
+      rerun: axx run features/smoke/smoke.feature:7
 ```
 
 Each failure names the step, the expected and actual values, and the command that reruns only that scenario. Steps that talk to a service attach what they sent and received. For the same failure as data, with the last request and response, use `axx run --json` ([the run report](/references/json-output/#the-run-report)).

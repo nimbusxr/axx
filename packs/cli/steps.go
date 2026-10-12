@@ -180,7 +180,7 @@ func steps() []core.StepDef {
 			Doc:      "Check that the command's output is, byte for byte, the file of the project.",
 			Examples: []string{"Then the admin command's output is identical to the labels/PX-ADM-6101.zpl file"},
 			Run: check(func(sc *core.Scenario, name string, r *run, a core.Args) error {
-				path, err := sc.Suite().ResolvePath(a.String(1))
+				path, err := sc.ResolvePath(a.String(1))
 				if err != nil {
 					return err
 				}

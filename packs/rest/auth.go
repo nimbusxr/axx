@@ -51,7 +51,7 @@ func authSteps() []core.StepDef {
 			t, err := tokens.Parse(a.String(0), pairs,
 				func(v string) (string, error) { return secrets.Expand(sc, v), nil },
 				func(p string) ([]byte, error) {
-					path, err := sc.Suite().ResolvePath(p)
+					path, err := sc.ResolvePath(p)
 					if err != nil {
 						return nil, err
 					}

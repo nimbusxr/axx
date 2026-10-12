@@ -232,7 +232,7 @@ func seed(sc *core.Scenario, svc *Service, file string) error {
 }
 
 func readSeed(sc *core.Scenario, file string) (seedDoc, error) {
-	path, err := sc.Suite().ResolvePath(file)
+	path, err := sc.ResolvePath(file)
 	if err != nil {
 		return nil, fmt.Errorf("Could not find seed file: %s", file) //nolint:staticcheck // user-facing message
 	}

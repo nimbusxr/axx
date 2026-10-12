@@ -23,7 +23,7 @@ In a repository with a `CLAUDE.md` and a `.cursor/` directory:
 ```console
   create  axx.yaml
   create  axx-packs.yaml
-  create  features/smoke.feature
+  create  features/smoke/smoke.feature
   create  .github/workflows/acceptance.yml
   create  AGENTS.md
   create  .gitignore

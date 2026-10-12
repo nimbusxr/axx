@@ -610,7 +610,8 @@ func TestMissingFiles(t *testing.T) {
 		"axx-packs.yaml": packsFile,
 		"axx-fixtures.manifest.yaml": "files:\n- path: seeds/generated.csv\n  sha256: " + strings.Repeat("0", 64) +
 			"\n  factory: seeds/manifests.factory.yaml\n  fixture: generated\n",
-		"data/seeds/manifests/x": "", // a CSV dataset is a directory
+		"data/seeds/manifests/x":     "",                      // a CSV dataset is a directory
+		"features/seeds/beside.yaml": "parcels.parcels: []\n", // a file next to the feature
 	})
 	text := `Feature: Missing files
 
@@ -625,6 +626,7 @@ func TestMissingFiles(t *testing.T) {
     Given a seeds/missing.yaml db seed
     And a seeds/manifests db seed
     And a seeds/generated.csv db seed
+    And a seeds/beside.yaml db seed
     And a ${env:SEED_FILE} db seed
     And the parcels service with the following properties:
       | url     | http://localhost:8400              |
@@ -648,10 +650,10 @@ func TestMissingFiles(t *testing.T) {
 		line          int
 		value, detail string
 	}{
-		{5, "openapi/missing.yaml", "No file openapi/missing.yaml. Looked for data/openapi/missing.yaml, openapi/missing.yaml."},
-		{10, "seeds/missing.yaml", "No file seeds/missing.yaml. Looked for data/seeds/missing.yaml, seeds/missing.yaml."},
+		{5, "openapi/missing.yaml", "No file openapi/missing.yaml. Looked for features/openapi/missing.yaml, data/openapi/missing.yaml, openapi/missing.yaml."},
+		{10, "seeds/missing.yaml", "No file seeds/missing.yaml. Looked for features/seeds/missing.yaml, data/seeds/missing.yaml, seeds/missing.yaml."},
 		{12, "seeds/generated.csv", "seeds/generated.csv does not exist yet: `axx fixtures generate` writes it."},
-		{23, "seeds/absent.yaml", "No file seeds/absent.yaml. Looked for data/seeds/absent.yaml, seeds/absent.yaml."},
+		{24, "seeds/absent.yaml", "No file seeds/absent.yaml. Looked for features/seeds/absent.yaml, data/seeds/absent.yaml, seeds/absent.yaml."},
 	}
 	if len(missing) != len(wants) {
 		t.Fatalf("missing-file warnings: %+v", missing)

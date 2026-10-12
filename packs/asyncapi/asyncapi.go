@@ -207,7 +207,7 @@ func open(sc *core.Scenario, source string) (contract.Checker, error) {
 	if err != nil {
 		return nil, err
 	}
-	u, err := schemadoc.Locate(sc.Suite(), source)
+	u, err := schemadoc.Locate(sc, source)
 	if err != nil {
 		return nil, err
 	}

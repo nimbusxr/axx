@@ -121,7 +121,7 @@ func (m Messages) Steps() []core.StepDef {
 					exampleTable(ex.Fields),
 			},
 			Run: func(sc *core.Scenario, a core.Args) error {
-				p, err := sc.Suite().ResolvePath(a.String(0))
+				p, err := sc.ResolvePath(a.String(0))
 				if err != nil {
 					return err
 				}

@@ -11,9 +11,49 @@ files:
   factory: ../infra/wiremock/__files/postcodes.factory.yaml
   fixture: postcode-remote
 - path: axx-lint.generated.yaml
-  sha256: d2e0712c7512c8da9f696f340a5bb060be0a14521e604cfde214a94e2ca8c8ea
+  sha256: 26792251bb65f66cf16297326c1da0e5b1d813a8ad37c28308399e1d3bfc7c76
   factory: <axx-fixtures>
   fixture: <generated lint rules>
+- path: features/depot-scanners/mqtt/.gitignore
+  sha256: 9be9413d16e6efcbe2c7d8fb31b3f7456974c92d3badb52b0286a68d45ac14c0
+  factory: <axx-fixtures>
+  fixture: <ignored outputs>
+- path: features/depot-scanners/mqtt/scan-unknown.json
+  sha256: 8baeb0fc39981fe649f70eaeb7626da751c401654b8798bffc473f7830c20ad3
+  factory: features/depot-scanners/mqtt/scans.factory.yaml
+  fixture: scan-unknown
+- path: features/manifest-import/seeds/manifests/csv/.gitignore
+  sha256: 78852063700adaabc07f21c42e3ee3e32e0ae1ba27a19714d35e8763e1347fd9
+  factory: <axx-fixtures>
+  fixture: <ignored outputs>
+- path: features/manifest-import/seeds/manifests/csv/bulk-manifest/parcels.manifest_lines.csv
+  sha256: 5bcd456d2da97df6b8ab4014d102fcf2882e5706b6e912732f156be6ba9a981b
+  factory: features/manifest-import/seeds/manifests/csv/manifests-csv.factory.yaml
+  fixture: bulk-manifest
+- path: features/manifest-import/seeds/manifests/csv/bulk-manifest/table-ordering.txt
+  sha256: 93a8956e63ecf5f635be4f845ffee96de5b24dd2105f0b86119bae1ba48bee34
+  factory: features/manifest-import/seeds/manifests/csv/manifests-csv.factory.yaml
+  fixture: bulk-manifest
+- path: features/manifest-import/seeds/manifests/xml/.gitignore
+  sha256: f9732552cd9a07887199c23972bc9effdce9026b086456493ac8162ea2c4a966
+  factory: <axx-fixtures>
+  fixture: <ignored outputs>
+- path: features/manifest-import/seeds/manifests/xml/rejected-lines.xml
+  sha256: 94812e8f681c178853d82af6a4a6ea6c56e0b852883b10cb77e3512bcb660c9c
+  factory: features/manifest-import/seeds/manifests/xml/manifests-xml.factory.yaml
+  fixture: rejected-lines
+- path: features/register-parcels/requests/.gitignore
+  sha256: d89fe6548e5a6ee64844def78d6e9897af05fdd6c7d82e8e94b966650c1d7420
+  factory: <axx-fixtures>
+  fixture: <ignored outputs>
+- path: features/register-parcels/requests/order-7731.json
+  sha256: 554be585ce253c9645b4399d1a735de3067d91dac644564a73af3987447b1494
+  factory: features/register-parcels/requests/registrations.factory.yaml
+  fixture: order-7731
+- path: features/register-parcels/requests/order-7732.json
+  sha256: 1c60f722b1b9c20ee3f56934946805863f57ce96a06fde9a1432620b544ce683
+  factory: features/register-parcels/requests/registrations.factory.yaml
+  fixture: order-7732
 - path: kafka/.gitignore
   sha256: c2055e253b4f9fb264c35010d2e58c74291a98b6416a36cf3fb160f19e08622b
   factory: <axx-fixtures>
@@ -26,43 +66,3 @@ files:
   sha256: ade4b734615bbb4da4b46d221a520d0ec0aa6632c478e36b29c088504cd65f17
   factory: kafka/depot-scans.factory.yaml
   fixture: scan-out-for-delivery
-- path: mqtt/.gitignore
-  sha256: 9be9413d16e6efcbe2c7d8fb31b3f7456974c92d3badb52b0286a68d45ac14c0
-  factory: <axx-fixtures>
-  fixture: <ignored outputs>
-- path: mqtt/scan-unknown.json
-  sha256: 8baeb0fc39981fe649f70eaeb7626da751c401654b8798bffc473f7830c20ad3
-  factory: mqtt/scans.factory.yaml
-  fixture: scan-unknown
-- path: requests/.gitignore
-  sha256: d89fe6548e5a6ee64844def78d6e9897af05fdd6c7d82e8e94b966650c1d7420
-  factory: <axx-fixtures>
-  fixture: <ignored outputs>
-- path: requests/order-7731.json
-  sha256: 554be585ce253c9645b4399d1a735de3067d91dac644564a73af3987447b1494
-  factory: requests/registrations.factory.yaml
-  fixture: order-7731
-- path: requests/order-7732.json
-  sha256: 1c60f722b1b9c20ee3f56934946805863f57ce96a06fde9a1432620b544ce683
-  factory: requests/registrations.factory.yaml
-  fixture: order-7732
-- path: seeds/manifests/csv/.gitignore
-  sha256: 78852063700adaabc07f21c42e3ee3e32e0ae1ba27a19714d35e8763e1347fd9
-  factory: <axx-fixtures>
-  fixture: <ignored outputs>
-- path: seeds/manifests/csv/bulk-manifest/parcels.manifest_lines.csv
-  sha256: 5bcd456d2da97df6b8ab4014d102fcf2882e5706b6e912732f156be6ba9a981b
-  factory: seeds/manifests/csv/manifests-csv.factory.yaml
-  fixture: bulk-manifest
-- path: seeds/manifests/csv/bulk-manifest/table-ordering.txt
-  sha256: 93a8956e63ecf5f635be4f845ffee96de5b24dd2105f0b86119bae1ba48bee34
-  factory: seeds/manifests/csv/manifests-csv.factory.yaml
-  fixture: bulk-manifest
-- path: seeds/manifests/xml/.gitignore
-  sha256: f9732552cd9a07887199c23972bc9effdce9026b086456493ac8162ea2c4a966
-  factory: <axx-fixtures>
-  fixture: <ignored outputs>
-- path: seeds/manifests/xml/rejected-lines.xml
-  sha256: 94812e8f681c178853d82af6a4a6ea6c56e0b852883b10cb77e3512bcb660c9c
-  factory: seeds/manifests/xml/manifests-xml.factory.yaml
-  fixture: rejected-lines

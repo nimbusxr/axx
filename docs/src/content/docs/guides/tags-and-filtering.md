@@ -9,10 +9,10 @@ Every way of selecting scenarios combines: paths narrow the files, then tags and
 
 ```sh
 axx run                                   # run.paths from axx.yaml (default: features)
-axx run features/quotes.feature           # one file
-axx run features/rest                     # a directory
-axx run features/quotes.feature:14        # the scenario on line 14
-axx run features/a.feature:14 features/b.feature:9   # several
+axx run features/quotes                   # a feature's folder
+axx run features/quotes/quotes.feature    # one file
+axx run features/quotes/quotes.feature:14 # the scenario on line 14
+axx run features/a/a.feature:14 features/b/b.feature:9   # several
 ```
 
 A line number selects the scenario that starts on that line or contains it, so the line of any step works. That is why the `rerun` command in a failure report is always a `file:line`.

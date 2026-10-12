@@ -48,7 +48,7 @@ func parseApp(sc *core.Scenario, expand func(string) string, name string, t *cor
 		}
 		switch key {
 		case "apk":
-			path, err := sc.Suite().ResolvePath(value)
+			path, err := sc.ResolvePath(value)
 			if err != nil {
 				return nil, fmt.Errorf("the %s android app's apk %q: %w", name, value, err)
 			}

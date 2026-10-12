@@ -785,7 +785,7 @@
         "type": "string"
       },
       "type": "array",
-      "description": "Resources are directories that relative resource paths in steps (seed\nfiles, schemas, payloads) resolve against, in order. The directory of\naxx.yaml is always searched last."
+      "description": "Resources are directories that relative resource paths in steps (seed\nfiles, schemas, payloads) resolve against, in order, once the feature\nfile's own directory has not got the file. The directory of axx.yaml is\nalways searched last."
     },
     "properties": {
       "additionalProperties": {

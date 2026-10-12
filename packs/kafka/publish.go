@@ -96,7 +96,7 @@ func addClient(sc *core.Scenario, svc *Service, topic string, t *core.Table) err
 }
 
 func loadPayload(sc *core.Scenario, ev *Event, file string) error {
-	path, err := sc.Suite().ResolvePath(file)
+	path, err := sc.ResolvePath(file)
 	if err != nil {
 		return fmt.Errorf("Error reading file: %w", err) //nolint:staticcheck // user-facing message
 	}
@@ -232,7 +232,7 @@ func (tc *TopicClient) publishAvro(sc *core.Scenario, ev *Event, schemaPath stri
 		return fmt.Errorf("the %s kafka topic client serializes values with %sSerializer; publishing with a schema needs "+
 			"producer.value.serializer=%s and producer.schema.registry.url", tc.Topic, tc.producer.Value, avroSerializer)
 	}
-	path, err := sc.Suite().ResolvePath(schemaPath)
+	path, err := sc.ResolvePath(schemaPath)
 	if err != nil {
 		return fmt.Errorf("Schema file not found: %s: %w", schemaPath, err) //nolint:staticcheck // user-facing message
 	}

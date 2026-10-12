@@ -40,7 +40,7 @@ axx: preparing rest (once; cached for later runs)
 axx: ready in 31s
   create  axx.yaml
   create  axx-packs.yaml
-  create  features/smoke.feature
+  create  features/smoke/smoke.feature
   create  .github/workflows/acceptance.yml
   create  AGENTS.md
   create  .gitignore
@@ -51,7 +51,7 @@ Codex keeps its MCP servers in ~/.codex/config.toml; `axx mcp install --agent co
 next: edit services in axx.yaml, then `axx doctor` and `axx run`
 ```
 
-Axx created a configuration file, `axx.yaml`, and a first feature file, `features/smoke.feature`. We'll change both. It also created `axx-packs.yaml`, the list of the packs of steps the project uses. It lists `rest`, whose steps send HTTP requests, and that's all we need. The first time, Axx prepared itself with that pack, which it won't need to do again. We won't need the other files in this tutorial: they are for CI and for coding agents.
+Axx created a configuration file, `axx.yaml`, and a first feature file, `features/smoke/smoke.feature`. We'll change both. It also created `axx-packs.yaml`, the list of the packs of steps the project uses. It lists `rest`, whose steps send HTTP requests, and that's all we need. The first time, Axx prepared itself with that pack, which it won't need to do again. We won't need the other files in this tutorial: they are for CI and for coding agents.
 
 ## Give the web server something to serve
 
@@ -78,9 +78,9 @@ Axx now knows how to start the server, and how to tell when it's ready: when `ht
 
 ## Write the scenario
 
-Replace everything in `features/smoke.feature` with:
+Replace everything in `features/smoke/smoke.feature` with:
 
-```gherkin title="features/smoke.feature"
+```gherkin title="features/smoke/smoke.feature"
 Feature: Hello axx
 
   Background:
@@ -120,7 +120,7 @@ axx run
 axx: starting hello-axx (logs: .axx/logs/services.log)
 Feature: Hello axx
 
-  Scenario: The service says hello  # features/smoke.feature:7
+  Scenario: The service says hello  # features/smoke/smoke.feature:7
     ✓ Given the hello-axx service with the following properties:  (background)
         | url | http://${sys:local.host}:8000 |
     ✓ Given a GET request to /hello.json
@@ -140,7 +140,7 @@ Notice what happened. Axx started the web server, waited until it answered, ran 
 
 ## Break it on purpose
 
-Change the last line of `features/smoke.feature` so it expects a different message:
+Change the last line of `features/smoke/smoke.feature` so it expects a different message:
 
 ```gherkin
     And the response payload property message is 'Hello, world'
@@ -156,7 +156,7 @@ axx run
 axx: starting hello-axx (logs: .axx/logs/services.log)
 Feature: Hello axx
 
-  Scenario: The service says hello  # features/smoke.feature:7
+  Scenario: The service says hello  # features/smoke/smoke.feature:7
     ✓ Given the hello-axx service with the following properties:  (background)
         | url | http://${sys:local.host}:8000 |
     ✓ Given a GET request to /hello.json
@@ -171,8 +171,8 @@ Feature: Hello axx
           actual:   "Hello, axx"
 
 Failed scenarios:
-  ✗ The service says hello  # features/smoke.feature:7
-      rerun: axx run features/smoke.feature:7
+  ✗ The service says hello  # features/smoke/smoke.feature:7
+      rerun: axx run features/smoke/smoke.feature:7
 
 1 scenario (1 failed)
 5 steps (1 failed, 4 passed)

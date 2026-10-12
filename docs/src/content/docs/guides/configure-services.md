@@ -84,7 +84,7 @@ Select it with `axx run --profile ci` or `AXX_PROFILE=ci`. A profile can also li
 
 ## Resource paths
 
-Steps that take a file (`seeds/manifest-kestrel.yaml`, `kafka/scan-delivered.json`, `schemas/depot-scan.avsc`) resolve it against the `resources` directories in order, then the directory of `axx.yaml`:
+Steps that take a file (`seeds/manifest-kestrel.yaml`, `kafka/scan-delivered.json`, `schemas/depot-scan.avsc`) look for it next to the feature file first, then in the `resources` directories in order, then in the directory of `axx.yaml`. A feature keeps the files only it uses beside it ([Organize a suite by feature](/guides/organize-by-feature/)), and files several features share go in a `resources` directory:
 
 ```yaml title="axx.yaml"
 resources: [acceptance, ../shared-fixtures]

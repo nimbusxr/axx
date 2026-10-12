@@ -179,7 +179,7 @@ Then the courier app looks like the "deliveries" screenshot
 
 Checks wait for the app, 10 seconds or `within {duration}`, as apps take their time. A failed step attaches what the app showed, and the scenario's failure says which device and which resets it had. A notification is looked for where people look: Android's notification shade, iOS's Notification Center.
 
-**Screenshots** are `<name>.<device>.png` in the project's `screenshots` folder, like `deliveries.android-parcels-pixel.png` or `deliveries.ios-iPhone-16-iOS-18-1.png`: each device has its own. The device's status and navigation bars, its clock among them, are left out. The first time, the step takes the screenshot and fails: look at it, keep it, and run again. `packs.mobile-core.screenshots` in `axx.yaml` sets the `folder`, the `tolerance` and `update: true`, which takes them again.
+**Screenshots** are `<name>.<device>.png` in a `screenshots` folder next to the feature file, like `deliveries.android-parcels-pixel.png` or `deliveries.ios-iPhone-16-iOS-18-1.png`: each device has its own. The device's status and navigation bars, its clock among them, are left out. The first time, the step takes the screenshot and fails: look at it, keep it, and run again. `packs.mobile-core.screenshots` in `axx.yaml` sets the `folder`, the `tolerance` and `update: true`, which takes them again.
 
 ## Tap a notification
 

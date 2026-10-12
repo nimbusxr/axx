@@ -209,7 +209,7 @@ export default defineConfig({
 				{
 					label: 'Guides',
 					items: [
-						{ label: 'Set up', items: ['guides/install', 'guides/set-up-your-editor', 'guides/configure-services', 'guides/manage-services', 'guides/run-in-ci', 'guides/set-up-agents'] },
+						{ label: 'Set up', items: ['guides/install', 'guides/set-up-your-editor', 'guides/configure-services', 'guides/organize-by-feature', 'guides/manage-services', 'guides/run-in-ci', 'guides/set-up-agents'] },
 						{ label: 'Test', items: ['guides/send-rest-requests', 'guides/validate-openapi', 'guides/mock-dependencies', 'guides/webhooks-and-tokens', 'guides/test-grpc', 'guides/test-jsonrpc', 'guides/test-graphql', 'guides/test-ai-features', 'guides/test-mcp', 'guides/test-a2a', 'guides/seed-and-query-sql', 'guides/seed-mongodb', 'guides/test-redis', 'guides/test-kafka-avro', 'guides/test-message-brokers', 'guides/test-websockets', 'guides/test-event-streams', 'guides/validate-asyncapi', 'guides/check-logs', 'guides/check-files', 'guides/check-emails', 'guides/run-commands', 'guides/test-cloud-services', 'guides/use-packs', 'guides/write-custom-steps'] },
 						{ label: 'Web apps', items: ['guides/test-web-apps', 'guides/web-pages', 'guides/web-checks', 'guides/web-sign-in', 'guides/web-screenshots', 'guides/web-accessibility', 'guides/web-network', 'guides/web-lighthouse', 'guides/web-coverage', 'guides/watch-web-browsers'] },
 						{ label: 'Mobile apps', items: ['guides/test-mobile-apps'] },

@@ -3,6 +3,41 @@
 # regenerate with `axx fixtures generate`.
 # Wired in via axx.yaml: lint.include: [axx-lint.generated.yaml]
 rules:
+- name: "features/depot-scanners/mqtt/scans.factory.yaml: scanId uniqueness"
+  filePatterns:
+  - features/depot-scanners/mqtt/*.json
+  type: jsonpath
+  jsonPath: scanId
+  description: Identity declared by features/depot-scanners/mqtt/scans.factory.yaml;
+    every fixture in the directory must own a unique value
+  validation: cross-file-unique
+- name: "features/manifest-import/seeds/manifests/csv/manifests-csv.factory.yaml:\
+    \ parcels.manifest_lines.id uniqueness"
+  filePatterns:
+  - features/manifest-import/seeds/manifests/csv/*.csv
+  type: jsonpath
+  jsonPath: "$['parcels.manifest_lines'][*]['id']"
+  description: Identity declared by features/manifest-import/seeds/manifests/csv/manifests-csv.factory.yaml;
+    every fixture in the directory must own a unique value
+  validation: cross-file-unique
+- name: "features/manifest-import/seeds/manifests/xml/manifests-xml.factory.yaml:\
+    \ parcels.manifest_lines.id uniqueness"
+  filePatterns:
+  - features/manifest-import/seeds/manifests/xml/*.xml
+  type: jsonpath
+  jsonPath: "$['parcels.manifest_lines'][*]['id']"
+  description: Identity declared by features/manifest-import/seeds/manifests/xml/manifests-xml.factory.yaml;
+    every fixture in the directory must own a unique value
+  validation: cross-file-unique
+- name: "features/register-parcels/requests/registrations.factory.yaml: reference\
+    \ uniqueness"
+  filePatterns:
+  - features/register-parcels/requests/*.json
+  type: jsonpath
+  jsonPath: reference
+  description: Identity declared by features/register-parcels/requests/registrations.factory.yaml;
+    every fixture in the directory must own a unique value
+  validation: cross-file-unique
 - name: "kafka/depot-scans.factory.yaml: scanId uniqueness"
   filePatterns:
   - kafka/*.json
@@ -10,38 +45,4 @@ rules:
   jsonPath: scanId
   description: Identity declared by kafka/depot-scans.factory.yaml; every fixture
     in the directory must own a unique value
-  validation: cross-file-unique
-- name: "mqtt/scans.factory.yaml: scanId uniqueness"
-  filePatterns:
-  - mqtt/*.json
-  type: jsonpath
-  jsonPath: scanId
-  description: Identity declared by mqtt/scans.factory.yaml; every fixture in the
-    directory must own a unique value
-  validation: cross-file-unique
-- name: "requests/registrations.factory.yaml: reference uniqueness"
-  filePatterns:
-  - requests/*.json
-  type: jsonpath
-  jsonPath: reference
-  description: Identity declared by requests/registrations.factory.yaml; every fixture
-    in the directory must own a unique value
-  validation: cross-file-unique
-- name: "seeds/manifests/csv/manifests-csv.factory.yaml: parcels.manifest_lines.id\
-    \ uniqueness"
-  filePatterns:
-  - seeds/manifests/csv/*.csv
-  type: jsonpath
-  jsonPath: "$['parcels.manifest_lines'][*]['id']"
-  description: Identity declared by seeds/manifests/csv/manifests-csv.factory.yaml;
-    every fixture in the directory must own a unique value
-  validation: cross-file-unique
-- name: "seeds/manifests/xml/manifests-xml.factory.yaml: parcels.manifest_lines.id\
-    \ uniqueness"
-  filePatterns:
-  - seeds/manifests/xml/*.xml
-  type: jsonpath
-  jsonPath: "$['parcels.manifest_lines'][*]['id']"
-  description: Identity declared by seeds/manifests/xml/manifests-xml.factory.yaml;
-    every fixture in the directory must own a unique value
   validation: cross-file-unique

@@ -86,7 +86,7 @@ func resolveSpecLocation(sc *core.Scenario, location string) (string, error) {
 	}
 	p := strings.TrimPrefix(location, "file://")
 	p = strings.TrimPrefix(p, "file:")
-	resolved, err := sc.Suite().ResolvePath(p)
+	resolved, err := sc.ResolvePath(p)
 	if err != nil {
 		return "", err
 	}
@@ -349,7 +349,7 @@ func (s *spec) external(sc *core.Scenario, set *settings, ref string) ([]byte, e
 		if _, err := os.Stat(cand); err == nil {
 			return os.ReadFile(cand)
 		}
-		resolved, err := sc.Suite().ResolvePath(p)
+		resolved, err := sc.ResolvePath(p)
 		if err != nil {
 			return nil, err
 		}

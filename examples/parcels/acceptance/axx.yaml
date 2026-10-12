@@ -12,8 +12,10 @@ run:
   # scenarios' browsers would slow down: they run alone, after the parallel phase.
   exclusive: ["@isolated", "@performance"]
 
-# Step paths such as seeds/manifest-kestrel.yaml, kafka/scan-delivered.json and
-# schemas/depot-scan.avsc resolve against this directory.
+# Each feature keeps the files only it uses next to it (features/manifest-import/seeds/...), and
+# its steps name them from there: seeds/manifest-kestrel.yaml. A file not next to the feature is
+# looked for in this directory, which holds what several features share: kafka/scan-delivered.json
+# and schemas/depot-scan.avsc.
 resources: ["."]
 
 # ${sys:...} references in the feature files; override with -D local.host=<name>.
@@ -109,25 +111,25 @@ lint:
   include: [axx-lint.generated.yaml]
   rules:
     - name: Parcel references in seeds
-      filePatterns: ["seeds/*.yaml"]
+      filePatterns: ["features/*/seeds/*.yaml"]
       regex: '^\s+-?\s*reference:\s*"([^"]+)"'
       description: Every seeded parcel and manifest line has its own reference
       validation: cross-file-unique
 
     - name: Manifest line ids
-      filePatterns: ["seeds/*.yaml"]
+      filePatterns: ["features/*/seeds/*.yaml"]
       regex: '^\s+-?\s*id:\s*"([^"]+)"'
       description: Manifest line ids are unique across seed files
       validation: cross-file-unique
 
     - name: Redis keys in seeds
-      filePatterns: ["redis/*.yaml"]
+      filePatterns: ["features/*/redis/*.yaml"]
       regex: '^"([^"]+)":'
       description: Every seeded Redis key has its own name
       validation: cross-file-unique
 
     - name: Depot scan ids
-      filePatterns: ["seeds/*.json"]
+      filePatterns: ["features/*/seeds/*.json"]
       type: jsonpath
       jsonPath: "scans[*].scanId"
       description: Depot scans in MongoDB seeds have their own ids
@@ -143,7 +145,7 @@ fixtures:
   # Every seed file, hand-written or generated, must match the database schema.
   conformance:
     - name: seeds match the database schema
-      filePatterns: ["seeds/*.yaml"]
+      filePatterns: ["features/*/seeds/*.yaml"]
       schemaType: dataset
       schemaRef: ../infra/postgres/init/01-schema.sql
 

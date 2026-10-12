@@ -110,6 +110,20 @@ func (f *fixture) pack() core.Manifest {
 				}
 				return nil
 			}},
+			{ID: "file", Expr: "the {string} file reads {string}", Run: func(sc *core.Scenario, a core.Args) error {
+				path, err := sc.ResolvePath(a.String(0))
+				if err != nil {
+					return err
+				}
+				b, err := os.ReadFile(path)
+				if err != nil {
+					return err
+				}
+				if string(b) != a.String(1) {
+					return core.Fail("file content", a.String(1), string(b))
+				}
+				return nil
+			}},
 			{ID: "busy", Expr: "a busy step", Run: func(*core.Scenario, core.Args) error {
 				n := f.inflight.Add(1)
 				for {
@@ -360,6 +374,36 @@ func TestTableNamesRowIsOptional(t *testing.T) {
 	}
 	if rows := got["with the names row"].Steps[0].Table.Rows; len(rows) != 2 {
 		t.Errorf("the reported table lost its names row: %v", rows)
+	}
+}
+
+// A step's file is found next to the scenario's feature file, wherever the
+// run starts: a feature keeps its files beside it.
+func TestStepsFindFilesNextToTheFeature(t *testing.T) {
+	dir := t.TempDir()
+	for name, content := range map[string]string{
+		"features/home/home-ios.feature": `Feature: home
+  Scenario: its own seed
+    Given the "seeds/wen.yaml" file reads "Ingersoll Ave"
+`,
+		"features/home/seeds/wen.yaml": "Ingersoll Ave",
+	} {
+		p := filepath.Join(dir, filepath.FromSlash(name))
+		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(p, []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	set, err := feature.Load([]string{"features"}, dir, (&messages.Incrementing{}).NewId)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r, _ := newRunner(t, &fixture{}, set, nil)
+	got := byName(r.Run(context.Background(), set.Pickles))
+	if s := got["its own seed"]; s == nil || s.Status != Passed {
+		t.Fatalf("the file next to the feature: %v (%v)", s.Status, s.Steps[0].Err)
 	}
 }
 

@@ -108,7 +108,7 @@ func steps() []core.StepDef {
 			Doc:      "Send the file of the project as a text message on the connection.",
 			Examples: []string{"When the tracking/follow-PX-LIV-5701.json message is sent to the tracking websocket"},
 			Run: func(sc *core.Scenario, a core.Args) error {
-				path, err := sc.Suite().ResolvePath(a.String(0))
+				path, err := sc.ResolvePath(a.String(0))
 				if err != nil {
 					return err
 				}

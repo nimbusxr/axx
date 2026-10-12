@@ -89,7 +89,7 @@ func (r *Runner) runScenario(ctx context.Context, p *feature.Pickle, worker int)
 	}
 	sk := &sink{step: -1}
 	sc := core.NewScenario(scCtx, core.ScenarioInfo{
-		ID: p.Id, Name: p.Name, URI: p.Uri, Line: p.Line, Tags: p.TagNames,
+		ID: p.Id, Name: p.Name, URI: p.Uri, Line: p.Line, Tags: p.TagNames, Dir: p.Dir(),
 	}, r.opts.Suite, sk)
 	sc.SetProgress(progressOf(p))
 

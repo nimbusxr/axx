@@ -246,7 +246,7 @@ func (s *service) document(sc *core.Scenario) (*document, error) {
 		// The document's own $refs are relative to the service's URL.
 		l.Add(s.url, doc)
 		u = s.url
-	} else if u, err = schemadoc.Locate(sc.Suite(), s.openrpc); err != nil {
+	} else if u, err = schemadoc.Locate(sc, s.openrpc); err != nil {
 		return nil, err
 	}
 	d, err := readDocument(l, s.openrpc, u)

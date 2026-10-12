@@ -94,7 +94,7 @@ func (o Objects) Steps() []core.StepDef {
 					return err
 				}
 				file := a.String(0)
-				p, err := sc.Suite().ResolvePath(file)
+				p, err := sc.ResolvePath(file)
 				if err != nil {
 					return err
 				}
@@ -143,7 +143,7 @@ func (o Objects) Checks() []core.StepDef {
 				"or `within {duration}`.", obj),
 			Examples: []string{fmt.Sprintf("Then the disputes/kestrel-2026-09.csv %s in the %s %s is identical to the expected/kestrel-disputes.csv file", obj, o.Example, c)},
 			Run: func(sc *core.Scenario, a core.Args) error {
-				p, err := sc.Suite().ResolvePath(a.String(3))
+				p, err := sc.ResolvePath(a.String(3))
 				if err != nil {
 					return err
 				}

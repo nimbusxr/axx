@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"path/filepath"
 	"sync"
 	"time"
 )
@@ -16,6 +17,9 @@ type ScenarioInfo struct {
 	Line    int      `json:"line"`
 	Tags    []string `json:"tags,omitempty"`
 	Attempt int      `json:"attempt,omitempty"`
+	// Dir is the directory of the scenario's feature file, where the files
+	// its steps name are looked for first ("" when it has none on disk).
+	Dir string `json:"-"`
 }
 
 // StepInfo is a step of a scenario: its keyword, its text and its line in
@@ -72,6 +76,31 @@ func NewScenario(ctx context.Context, info ScenarioInfo, suite *Suite, sink Sink
 		state:        map[any]any{},
 		started:      time.Now(),
 	}
+}
+
+// ResolvePath resolves a file a step names: next to the scenario's feature
+// file first, then in the `resources` directories, then in the directory of
+// axx.yaml. Steps that take a file use it, so a feature keeps its own files
+// beside it.
+func (sc *Scenario) ResolvePath(p string) (string, error) {
+	return sc.suite.ResolvePathFrom(sc.Dir, p)
+}
+
+// KeptFile is where the scenario keeps a file of its own that a check
+// compares with, such as an expected screenshot, in folder: the folder next
+// to its feature file. A file the project's folder (beside axx.yaml) holds
+// already is found there, where suites kept such files before; a scenario
+// with no feature file on disk keeps its files in the project's folder.
+func (sc *Scenario) KeptFile(folder, name string) string {
+	project := filepath.Join(sc.suite.ProjectDir(), filepath.FromSlash(folder), name)
+	if sc.Dir == "" {
+		return project
+	}
+	beside := filepath.Join(sc.Dir, filepath.FromSlash(folder), name)
+	if !fileExists(beside) && fileExists(project) {
+		return project
+	}
+	return beside
 }
 
 // Started is when the scenario started: what arrives from the services

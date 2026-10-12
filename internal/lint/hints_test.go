@@ -93,7 +93,7 @@ func TestFixtureHints(t *testing.T) {
 				t.Fatal(err)
 			}
 			sources := FixtureSources{
-				Resolve: func(p string) (string, error) {
+				Resolve: func(_, p string) (string, error) {
 					abs := filepath.Join(dir, filepath.FromSlash(p))
 					_, err := os.Stat(abs)
 					return abs, err

@@ -64,6 +64,6 @@ Better still, give pages fixed data: a seeded parcel, and the browser's clock se
 | Setting | |
 | --- | --- |
 | `platforms` | the platforms whose screenshots you keep, and compare on: `linux`, `darwin`, `windows` (every platform by default) |
-| `folder` | the folder of the screenshots, in the project (`screenshots` by default) |
+| `folder` | the folder of the screenshots, in the project; unset, each feature keeps its own in a `screenshots` folder next to its file |
 | `tolerance` | the share of a screenshot's pixels that may differ, like `0.01` (one pixel in a hundred); keep it at 0 when you can |
 | `update` | take every screenshot again instead of comparing |

@@ -27,7 +27,7 @@ Each build's folder has its sources and its `README.md`, which says how to build
 
 ## Its acceptance tests
 
-`acceptance/features/depot-desk.feature` is the clerk's day with the desk, a scenario for
+`acceptance/features/depot-desk/depot-desk.feature` is the clerk's day with the desk, a scenario for
 each thing the clerk does, run with axx against every build on the OS it is built for. Build
 the desk first (its folder's `README.md`), then pick the build with its profile:
 
