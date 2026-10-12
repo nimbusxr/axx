@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.15](https://github.com/nimbusxr/axx/compare/v0.2.14...v0.2.15) (2026-10-12)
+
+
+### Features
+
+* **lint:** jsonpath rules read YAML, XML and CSV; every fixture family's identities become lint rules ([#177](https://github.com/nimbusxr/axx/issues/177)) ([10b44ef](https://github.com/nimbusxr/axx/commit/10b44efbbe028fb312f32fc98e689391ae7b3f7d))
+
 ## [0.2.14](https://github.com/nimbusxr/axx/compare/v0.2.13...v0.2.14) (2026-10-12)
 
 
