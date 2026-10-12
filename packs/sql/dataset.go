@@ -305,7 +305,7 @@ func resolveValue(d Dialect, v any, now time.Time) (string, error) {
 	case float64:
 		return d.Literal(strconv.FormatFloat(t, 'f', -1, 64)), nil
 	case time.Time:
-		return d.Literal(t.Format("2006-01-02 15:04:05.999999")), nil
+		return d.Time(t, "2006-01-02 15:04:05.999999"), nil
 	case string:
 		s := t
 		switch s {
@@ -315,7 +315,7 @@ func resolveValue(d Dialect, v any, now time.Time) (string, error) {
 			return d.Literal(strconv.FormatInt(now.Unix(), 10)), nil
 		}
 		if m := replacer.FindStringSubmatch(s); m != nil {
-			return d.Literal(shift(now, m[1], m[2], m[3]).Format("2006-01-02 15:04:05")), nil
+			return d.Time(shift(now, m[1], m[2], m[3]), "2006-01-02 15:04:05"), nil
 		}
 		if strings.HasPrefix(s, "groovy:") || strings.HasPrefix(s, "js:") {
 			return "", fmt.Errorf("scripted value %q is not supported; use a literal or a [DAY,NOW]-style replacer", s)

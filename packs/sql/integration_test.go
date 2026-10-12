@@ -23,7 +23,7 @@ import (
 
 const schema = `
 CREATE SCHEMA space;
-CREATE TABLE space.missions (id text primary key, name text, status text, budget integer, launch_date timestamp, metadata jsonb);
+CREATE TABLE space.missions (id text primary key, name text, status text, budget integer, launch_date timestamp, confirmed_at timestamptz, metadata jsonb);
 CREATE TABLE space.crew (id text primary key, name text unique);
 `
 
@@ -331,5 +331,41 @@ func TestSeedErrorsNameWhatThereIs(t *testing.T) {
 	err = h.step("a tbl.yaml db seed")
 	if err == nil || !strings.Contains(err.Error(), "; the schema space has the tables ") || !strings.Contains(err.Error(), "crew") {
 		t.Errorf("unknown table: %v", err)
+	}
+}
+
+// A time counted from now is the same moment in a timestamptz column wherever the machine runs,
+// and the machine's wall clock in a timestamp column, as JDBC writes them.
+func TestSeededTimesFromNow(t *testing.T) {
+	h := newHarness(t)
+	h.db(postgresURL(t))
+	id := uniq(t)
+	h.file("seeds/times.yaml", fmt.Sprintf("space.missions:\n  - id: %s\n    launch_date: \"[HOUR,MINUS,1]\"\n    confirmed_at: \"[HOUR,MINUS,1]\"\n", id))
+	ds, err := LoadDataset(filepath.Join(h.dir, "seeds", "times.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	chicago, err := time.LoadLocation("America/Chicago")
+	if err != nil {
+		t.Fatal(err)
+	}
+	svc, err := Context(h.sc).Service("space-db")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// 15:00 in Des Moines (CDT) is 20:00 UTC: an hour before is 19:00 UTC, 14:00 on the wall.
+	if err := svc.insert(context.Background(), ds, time.Date(2026, 10, 11, 15, 0, 0, 0, chicago)); err != nil {
+		t.Fatal(err)
+	}
+	sel, err := svc.Query(context.Background(), "space.missions", "SELECT to_char(confirmed_at AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI') AS confirmed, "+
+		"to_char(launch_date, 'YYYY-MM-DD HH24:MI') AS launch FROM space.missions WHERE id = '"+id+"'")
+	if err != nil || len(sel.Rows) != 1 {
+		t.Fatalf("query: %v", err)
+	}
+	if got := fmt.Sprint(sel.Rows[0][0]); got != "2026-10-11 19:00" {
+		t.Errorf("the timestamptz column holds %s UTC, want 2026-10-11 19:00", got)
+	}
+	if got := fmt.Sprint(sel.Rows[0][1]); got != "2026-10-11 14:00" {
+		t.Errorf("the timestamp column holds %s, want the wall clock, 2026-10-11 14:00", got)
 	}
 }

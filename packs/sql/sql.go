@@ -96,7 +96,8 @@ func steps() []core.StepDef {
 				"The step takes the directory itself too.\n" +
 				"- An Excel file (`.xlsx`) has a sheet per table, named after it, with a first row that names the columns; an empty cell is NULL.\n" +
 				"- A value can be `[null]` for NULL, `[UNIX_TIMESTAMP]` for the seconds since 1970, or a time counted from now, like " +
-				"`[DAY,NOW]`, `[DAY,PLUS,1]` or `[HOUR,MINUS,2]` (the unit is `DAY`, `HOUR`, `MIN` or `SEC`).\n" +
+				"`[DAY,NOW]`, `[DAY,PLUS,1]` or `[HOUR,MINUS,2]` (the unit is `DAY`, `HOUR`, `MIN` or `SEC`). " +
+				"It is the machine's local time; PostgreSQL also gets its offset, so a `timestamptz` column holds that very moment.\n" +
 				"- In YAML and JSON, a value that is a list or an object is stored as JSON text.\n" +
 				"- A row the database refuses, like one whose key exists already, fails the step, and nothing of the file is written.\n" +
 				"- Seeded rows are never deleted.",

@@ -44,7 +44,7 @@ parcels.manifest_lines:
     recipient: '{"name": "Lise Meitner", "city": "Hamburg", "postcode": "20095", "country": "DE"}'
 ```
 
-Flat XML (`.xml`), JSON (`.json`), Excel (`.xlsx`, one sheet per table) and CSV dataset directories (one `<table>.csv` per table, in the order `table-ordering.txt` lists when there is one) work the same way. The `[null]` and `[UNIX_TIMESTAMP]` placeholders are supported, and so are times counted from now, such as `[DAY,NOW]`, `[DAY,PLUS,1]` or `[HOUR,MINUS,2]` (in `DAY`, `HOUR`, `MIN` or `SEC`). Values are escaped, so text containing `'` is safe.
+Flat XML (`.xml`), JSON (`.json`), Excel (`.xlsx`, one sheet per table) and CSV dataset directories (one `<table>.csv` per table, in the order `table-ordering.txt` lists when there is one) work the same way. The `[null]` and `[UNIX_TIMESTAMP]` placeholders are supported, and so are times counted from now, such as `[DAY,NOW]`, `[DAY,PLUS,1]` or `[HOUR,MINUS,2]` (in `DAY`, `HOUR`, `MIN` or `SEC`). A time counted from now is the machine's local time. PostgreSQL also gets its offset, so a `timestamptz` column holds that very moment whatever time zone the machine is in, and a `timestamp` column holds the local wall-clock time. Values are escaped, so text containing `'` is safe.
 
 Scenarios share the database and run in parallel, so give every seeded row an id that belongs to one scenario. [Isolate test data](/guides/isolate-test-data/) shows how to enforce that with `axx lint`.
 
