@@ -13,12 +13,14 @@ name: release
 on:
   push:
     branches: [main]
+  # A dry run for a pull request that changes how releases are made. Not for the release PR,
+  # which changes only versions and the changelog (.release-please-manifest.json): what it
+  # releases is what CI tested, and merging it builds the release for real.
   pull_request:
     paths:
       - .goreleaser.yaml
       - build/**
       - release-please-config.json
-      - .release-please-manifest.json
       - scripts/release-check.sh
       - .github/workflows/release.yml
       - .github/workflows/wiremock-extension.yml

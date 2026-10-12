@@ -2,8 +2,27 @@ name: ci
 
 on:
   pull_request:
+  # What reaches main passed its pull request (and the merge queue), so a push to main tests
+  # nothing. It runs only when it changes what the caches pull requests read are made from: then
+  # its jobs refresh those caches, and do nothing else.
   push:
     branches: [main]
+    paths:
+      - go.mod
+      - go.sum
+      - .mise.toml
+      # web-tools: the browsers, axe-core and Lighthouse axx prepares
+      - packs/web/internal/driver/**
+      - packs/web/lighthouse/**
+      - packs/web/a11y/a11y.go
+      - internal/npm/node.go
+      # Gradle's caches (the couriers' Android app) and the WireMock image's layers
+      - examples/**/*.gradle.kts
+      - examples/**/gradle/**
+      - examples/**/gradle.properties
+      - extensions/wiremock-openapi/**
+      # the cache keys
+      - .github/actions/**
   merge_group:
 
 permissions:
@@ -14,17 +33,18 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  # Which jobs a run needs (scripts/ci-changes.sh). A pull request, and the merge queue, run the
-  # jobs for the files they change, and a change to CI itself runs every job. The merge queue runs
-  # none when a passing run of the pull request tested the very same tree (main has not moved
-  # since: scripts/ci-tested.sh). What reaches main has passed the merge queue: a push to main
-  # runs no tests (tests is false), only what keeps the caches pull requests read, and the caches
+  # Which jobs a run needs (scripts/ci-changes.sh). A pull request runs the jobs for the files it
+  # changes, and a change to CI itself runs every job. The merge queue runs none when a passing
+  # run of the pull request tested the very same tree, which it did unless main moved since
+  # (scripts/ci-tested.sh); then it runs the pull request's jobs on the new main. A push to main
+  # runs no tests (tests is false): it refreshes the caches pull requests read, and the caches
   # job keeps the newest of each.
   changes:
     runs-on: ubuntu-24.04
     permissions:
       contents: read
       actions: read # the pull request's passing runs, for the merge queue
+      pull-requests: read # the queued pull request's head
     outputs:
       go: ${{ steps.changes.outputs.go }}
       integration: ${{ steps.changes.outputs.integration }}
