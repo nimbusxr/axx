@@ -72,8 +72,9 @@ func Registry() string {
 
 var client = &http.Client{Timeout: 10 * time.Minute}
 
-// fetchWaits are the pauses before Fetch tries a download again.
-var fetchWaits = []time.Duration{2 * time.Second, 5 * time.Second, 15 * time.Second}
+// fetchWaits are the pauses before Fetch tries a download again: for about two minutes, as a
+// server that fails (GitHub's releases answered 500 for over 20 seconds at times) comes back.
+var fetchWaits = []time.Duration{2 * time.Second, 5 * time.Second, 15 * time.Second, 30 * time.Second, 60 * time.Second}
 
 // Fetch downloads url. It tries again when the network or the server fails
 // (a 5xx, a 429): a moment's trouble on the way does not fail a run.
