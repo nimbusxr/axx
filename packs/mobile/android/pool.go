@@ -32,6 +32,7 @@ type device struct {
 	group      *proc.Group
 	exited     chan struct{}
 	installed  map[string]bool // the APKs installed on it this run
+	gps        *emulatorGPS    // an emulator's GPS, which axx sets with a speed and bearing; nil when it cannot
 }
 
 // pool is the devices of one kind the run has: emulators of one AVD, which
@@ -208,7 +209,17 @@ func (p *pool) boot1(ctx context.Context, d *device, logDir string) error {
 	}
 	// The emulator outlives this step: it runs until the run ends. It shows
 	// its window only while a person watches the run.
-	args := []string{"-avd", p.name, "-port", strconv.Itoa(port), "-read-only", "-no-snapshot-save", "-no-audio", "-no-boot-anim"}
+	// The emulator's own control service, on 127.0.0.1 and with a token: axx sets its GPS there,
+	// with the speed and bearing a console geo fix cannot give.
+	grpcPort, err := appium.FreePort()
+	if err != nil {
+		releasePort(port)
+		return err
+	}
+	args := []string{
+		"-avd", p.name, "-port", strconv.Itoa(port), "-read-only", "-no-snapshot-save", "-no-audio", "-no-boot-anim",
+		"-grpc", strconv.Itoa(grpcPort), "-grpc-use-token",
+	}
 	if !p.window {
 		args = append(args, "-no-window")
 	}
@@ -252,6 +263,15 @@ func (p *pool) boot1(ctx context.Context, d *device, logDir string) error {
 	// crashes, like its Messages on a slow machine ("isn't responding").
 	_, _ = p.sdk.shell(ctx, d.serial, "settings", "put", "global", "hide_error_dialogs", "1")
 	skipBrowserWelcome(ctx, p.sdk, d.serial)
+	// The emulator's GPS, which takes a route's speed and bearing; without it, the location axx
+	// reports has neither.
+	gctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	if g, err := dialEmulatorGPS(gctx, grpcPort); err == nil {
+		d.gps = g
+	} else {
+		p.suite.Logger().Warn("the emulator's location will have no speed or bearing", "serial", d.serial, "err", err)
+	}
 	return nil
 }
 
@@ -310,6 +330,10 @@ func (d *device) stop(tools *sdk) {
 	if d.server != nil {
 		d.server.stop()
 		d.server = nil
+	}
+	if d.gps != nil {
+		d.gps.close()
+		d.gps = nil
 	}
 	if d.emulator == nil {
 		return

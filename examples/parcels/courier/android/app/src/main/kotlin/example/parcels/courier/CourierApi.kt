@@ -70,6 +70,14 @@ class CourierApi(private val baseUrl: String) {
         call("POST", "/api/couriers/${enc(session.courier)}/deliveries/${enc(reference)}", session.token, body)
     }
 
+    /** Where the van is, its speed in metres a second and its course in degrees, when the GPS knows them. */
+    suspend fun reportLocation(session: Session, latitude: Double, longitude: Double, speed: Float?, course: Float?) {
+        val body = JSONObject().put("latitude", latitude).put("longitude", longitude)
+        if (speed != null) body.put("speed", speed.toDouble())
+        if (course != null) body.put("course", course.toDouble())
+        call("POST", "/api/couriers/${enc(session.courier)}/location", session.token, body)
+    }
+
     private suspend fun call(method: String, path: String, token: String?, body: JSONObject?): JSONObject =
         withContext(Dispatchers.IO) {
             val conn = URL(baseUrl + path).openConnection() as HttpURLConnection
@@ -86,7 +94,7 @@ class CourierApi(private val baseUrl: String) {
                 }
                 val status = conn.responseCode
                 if (status !in 200..299) throw ApiException(status)
-                JSONObject(conn.inputStream.bufferedReader().use { it.readText() })
+                if (status == HttpURLConnection.HTTP_NO_CONTENT) JSONObject() else JSONObject(conn.inputStream.bufferedReader().use { it.readText() })
             } finally {
                 conn.disconnect()
             }

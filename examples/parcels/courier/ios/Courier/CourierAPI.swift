@@ -91,6 +91,14 @@ struct CourierAPI {
         return try JSONDecoder().decode(Answer.self, from: data).deliveries
     }
 
+    /// Where the van is, its speed in metres a second and its course in degrees, when the GPS knows them.
+    func reportLocation(_ session: Session, latitude: Double, longitude: Double, speed: Double?, course: Double?) async throws {
+        var body: [String: Any] = ["latitude": latitude, "longitude": longitude]
+        if let speed { body["speed"] = speed }
+        if let course { body["course"] = course }
+        _ = try await call("POST", "/api/couriers/\(enc(session.courier))/location", token: session.token, body: body)
+    }
+
     func markDelivered(_ session: Session, reference: String, signedBy: String) async throws {
         _ = try await call(
             "POST", "/api/couriers/\(enc(session.courier))/deliveries/\(enc(reference))",
@@ -98,7 +106,7 @@ struct CourierAPI {
         )
     }
 
-    private func call(_ method: String, _ path: String, token: String?, body: [String: String]?) async throws -> Data {
+    private func call(_ method: String, _ path: String, token: String?, body: [String: Any]?) async throws -> Data {
         guard let url = URL(string: baseURL + path) else { throw URLError(.badURL) }
         var request = URLRequest(url: url, timeoutInterval: 15)
         request.httpMethod = method

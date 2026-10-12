@@ -352,6 +352,32 @@ paths:
         "403": {$ref: "#/components/responses/Problem"}
         "404": {$ref: "#/components/responses/Problem"}
         "409": {$ref: "#/components/responses/Problem"}
+  /api/couriers/{courier}/location:
+    parameters:
+      - $ref: "#/components/parameters/Courier"
+    post:
+      operationId: reportCourierLocation
+      summary: A courier's app reports where the van is
+      description: >-
+        Where the courier's van is, how fast it goes and which way, as the courier's phone
+        reports it: the tracking streams of the parcels out for delivery with the courier tell
+        it (a courier event). Needs the courier's token.
+      security:
+        - courierToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/VanLocation"}
+            examples:
+              Leipzig:
+                value: {latitude: 51.3397, longitude: 12.3731, speed: 8.3, course: 90}
+      responses:
+        "204":
+          description: The van's location is recorded.
+        "400": {$ref: "#/components/responses/Problem"}
+        "401": {$ref: "#/components/responses/Problem"}
+        "403": {$ref: "#/components/responses/Problem"}
   /api/shops/{shop}/parcels:
     parameters:
       - name: shop
@@ -546,6 +572,14 @@ components:
       properties:
         signedBy: {type: string, minLength: 1}
         location: {type: string, description: Where the parcel was delivered; the recipient's city by default.}
+    VanLocation:
+      type: object
+      required: [latitude, longitude]
+      properties:
+        latitude: {type: number, minimum: -90, maximum: 90}
+        longitude: {type: number, minimum: -180, maximum: 180}
+        speed: {type: number, minimum: 0, description: The van's speed in metres a second.}
+        course: {type: number, minimum: 0, exclusiveMaximum: 360, description: The way the van goes, in degrees clockwise from north.}
     DeliveryConfirmed:
       type: object
       required: [reference, status, signedBy, location]

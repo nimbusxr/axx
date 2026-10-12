@@ -1,0 +1,10 @@
+# A parcel on its way to a recipient in the east of Leipzig, out for delivery with Ida Brandt,
+# who shares where her van is.
+parcels.parcels:
+  - reference: "PX-IOS-9551"
+    sender: "maple-crafts"
+    status: "OUT_FOR_DELIVERY"
+    service_level: "STANDARD"
+    weight_grams: 2100
+    recipient: '{"name": "Kurt Albrecht", "street": "Dresdner Str. 24", "city": "Leipzig", "postcode": "04103", "country": "DE"}'
+    details: '{"source": "api", "zone": "DE-1", "courier": "CR-LEJ-32"}'

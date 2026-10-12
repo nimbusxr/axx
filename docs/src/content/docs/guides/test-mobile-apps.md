@@ -188,7 +188,39 @@ Then the courier app's dialog shows "send you notifications"
 When the courier app's dialog is dismissed
 ```
 
-A dialog the system shows over the app, like a request for a permission it asked for, is accepted (allowed) or dismissed. iOS lets no one grant notifications ahead: an app that uses them asks, and the scenario answers. A dialog of the app's own is part of its screen: tap its buttons, like `the "Confirm" button is tapped in the courier app`.
+A dialog the system shows over the app, like a request for a permission it asked for, is accepted (allowed) or dismissed. iOS lets no one grant notifications ahead: an app that uses them asks, and the scenario answers. Accepted, a request with a choice of how to allow allows for good: *While using the app* for a location (not *Only this time*), *Allow Full Access* for photos. A dialog of the app's own is part of its screen: tap its buttons, like `the "Confirm" button is tapped in the courier app`.
+
+## Move the phone along a route
+
+The `location` property puts the phone in one place. An app that follows the phone as it moves, like a courier's app sharing where the van is, needs it to travel, with its GPS reporting where it is, how fast it goes and which way:
+
+```gherkin
+When the courier app's phone travels at 30 km/h through:
+  | 51.3397 | 12.3731 |
+  | 51.3397 | 12.3760 |
+```
+
+The table's rows are the points the route goes through, each a latitude and a longitude; the phone keeps one speed (`mph`, `km/h` or `m/s`) from the first to the last, and stays at the last. A route recorded on the road, or drawn in a mapping tool, is a GPX file: its track, else its route, else its waypoints. The phone keeps to the file's own times, stops included, or goes faster, or keeps one speed throughout:
+
+```gherkin
+When the courier app's phone travels the routes/grimmaische-strasse.gpx route
+When the courier app's phone travels the routes/grimmaische-strasse.gpx route at 4x
+When the courier app's phone travels the routes/grimmaische-strasse.gpx route at 30 km/h
+```
+
+`travels` waits for the phone to arrive. `starts traveling` lets the scenario go on while the phone moves, to check what the app does on the way, and a later step waits for it to get there:
+
+```gherkin
+When the courier app's phone starts traveling at 30 km/h through:
+  | 51.3397 | 12.3731 |
+  | 51.3397 | 12.3760 |
+Then within 20s the tracking event stream has an event where:
+  | event type | courier |
+  | speedKmh   | 30      |
+And the courier app's phone reaches the end of its route
+```
+
+The phone moves in real time, as a phone on the road does: keep routes short, or play a long one faster. On iOS, the simulator reports the route as CoreLocation reports a moving phone (`simctl location`): its speed, and its course where the simulator gives one (older simulators report none). On Android, the emulators axx starts report it every second, as NMEA sentences that carry the speed and course a plain location fix lacks; a device of your own reports where it really is.
 
 ## Traces and videos
 

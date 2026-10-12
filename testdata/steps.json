@@ -1,8 +1,8 @@
 {
   "description": "The frozen catalog of built-in step text. Step text is public API: every entry must stay defined, verbatim, by its pack.",
   "counts": {
-    "parameterType": 15,
-    "step": 702
+    "parameterType": 17,
+    "step": 707
   },
   "entries": [
     {
@@ -4321,6 +4321,50 @@
       "pack": "files",
       "keyword": "Then",
       "expression": "within {duration} the {word} folder is empty"
+    },
+    {
+      "kind": "parameterType",
+      "pack": "mobile-core",
+      "keyword": "ParameterType",
+      "name": "speed",
+      "expression": "\\d+(?:\\.\\d+)? ?(?:mph|km/h|m/s)|\\d+(?:\\.\\d+)?x"
+    },
+    {
+      "kind": "parameterType",
+      "pack": "mobile-core",
+      "keyword": "ParameterType",
+      "name": "travel",
+      "expression": "travels|starts traveling"
+    },
+    {
+      "kind": "step",
+      "pack": "mobile-core",
+      "keyword": "When",
+      "expression": "the {word} app's phone {travel} at {speed} through:"
+    },
+    {
+      "kind": "step",
+      "pack": "mobile-core",
+      "keyword": "When",
+      "expression": "the {word} app's phone {travel} the {filepath} route"
+    },
+    {
+      "kind": "step",
+      "pack": "mobile-core",
+      "keyword": "When",
+      "expression": "the {word} app's phone {travel} the {filepath} route at {speed}"
+    },
+    {
+      "kind": "step",
+      "pack": "mobile-core",
+      "keyword": "Then",
+      "expression": "the {word} app's phone reaches the end of its route"
+    },
+    {
+      "kind": "step",
+      "pack": "mobile-core",
+      "keyword": "Then",
+      "expression": "within {duration} the {word} app's phone reaches the end of its route"
     }
   ]
 }

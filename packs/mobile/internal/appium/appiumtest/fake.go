@@ -32,6 +32,9 @@ type App struct {
 	// Alerts are the texts of the dialogs the system shows over screens; Taps
 	// moves on "accept <screen>" and "dismiss <screen>".
 	Alerts map[string]string
+	// AlertButtons are the buttons of a screen's dialog, in order, as WebDriverAgent lists them; a
+	// screen without is a dialog the server lists no buttons of, as the UiAutomator2 server.
+	AlertButtons map[string][]string
 	// Notifications is the screen of the device's notifications: opened over
 	// the app (Android's shade, or a finger from iOS's top edge), and closed
 	// by back or by activating the app.
@@ -227,12 +230,22 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 			text = ""
 		}
 		reply(text)
+	case path == "/wda/alert/buttons":
+		buttons, ok := s.app.AlertButtons[s.screen]
+		if !ok {
+			fail("unknown command", "The requested resource could not be found")
+			return
+		}
+		reply(buttons)
 	case path == "/alert/accept" || path == "/alert/dismiss":
 		if _, ok := s.app.Alerts[s.screen]; !ok {
 			fail("no such alert", "No alert is present on the screen")
 			return
 		}
 		verb := strings.TrimPrefix(path, "/alert/")
+		if name, _ := body["name"].(string); name != "" {
+			verb += " with " + name
+		}
 		if s.blank {
 			s.blank = false
 			s.commands = append(s.commands, verb+" alert, lost")

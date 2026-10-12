@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- A courier's van eastbound on Grimmaische Straße, Leipzig: 100 m every 12 seconds, about 30 km/h. -->
+<gpx version="1.1" creator="parcels example" xmlns="http://www.topografix.com/GPX/1/1">
+  <trk>
+    <name>Grimmaische Straße, eastbound</name>
+    <trkseg>
+      <trkpt lat="51.3397" lon="12.37310"><time>2026-10-05T07:30:00Z</time></trkpt>
+      <trkpt lat="51.3397" lon="12.37455"><time>2026-10-05T07:30:12Z</time></trkpt>
+      <trkpt lat="51.3397" lon="12.37600"><time>2026-10-05T07:30:24Z</time></trkpt>
+    </trkseg>
+  </trk>
+</gpx>

@@ -133,20 +133,34 @@ func (e trackingEvent) same(o trackingEvent) bool {
 		(e.ScannedAt == nil) == (o.ScannedAt == nil) && (e.ScannedAt == nil || e.ScannedAt.Equal(*o.ScannedAt))
 }
 
+// courierEvent is what a parcel's event stream says of the van it is out for delivery in.
+type courierEvent struct {
+	Reference string `json:"reference"`
+	vanPosition
+}
+
 // trackingEvents is a parcel's tracking as server-sent events, for the
 // shops' own systems: a scan event for its latest scan and each new one,
 // then a delivered event, which ends the stream. An event's id is the
-// number of scans so far. A comment every 15 seconds keeps the proxies on
-// the way from closing a quiet stream.
+// number of scans so far. While the parcel is out for delivery, a courier
+// event tells where its van is, each time the courier's app reports it. A
+// comment every 15 seconds keeps the proxies on the way from closing a quiet
+// stream.
 func (s *service) trackingEvents(w http.ResponseWriter, r *http.Request) {
 	ref := r.PathValue("reference")
-	if _, err := s.store.Get(r.Context(), ref); errors.Is(err, errNotFound) {
+	p, err := s.store.Get(r.Context(), ref)
+	if errors.Is(err, errNotFound) {
 		problem(w, r, http.StatusNotFound, "no parcel "+ref)
 		return
 	} else if err != nil {
 		s.fail(w, r, err)
 		return
 	}
+	var details struct {
+		Courier string `json:"courier"`
+	}
+	_ = json.Unmarshal(p.Details, &details)
+	var van time.Time // when the van was where the stream last said
 	rc := http.NewResponseController(w)
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
@@ -184,6 +198,18 @@ func (s *service) trackingEvents(w http.ResponseWriter, r *http.Request) {
 			last, quiet = &now, time.Now()
 		case !errors.Is(err, errNotFound):
 			s.log.Warn("tracking events failed", "reference", ref, "err", err)
+		}
+		// Out for delivery as the parcel was when the stream began, or as its latest scan says.
+		outForDelivery := p.Status == "OUT_FOR_DELIVERY"
+		if last != nil {
+			outForDelivery = last.Status == "OUT_FOR_DELIVERY"
+		}
+		if pos, ok := s.vans.get(details.Courier); ok && details.Courier != "" && outForDelivery && pos.At.After(van) {
+			b, _ := json.Marshal(courierEvent{Reference: ref, vanPosition: pos})
+			if !send("event: courier\ndata: %s\n\n", b) {
+				return
+			}
+			van, quiet = pos.At, time.Now()
 		}
 		if time.Since(quiet) >= 15*time.Second {
 			if !send(": keep-alive\n\n") {

@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -29,6 +30,7 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -42,6 +44,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
@@ -63,11 +66,20 @@ fun CourierApp(model: CourierViewModel) {
 
                     Screen.Deliveries -> {
                         AskForNotifications(model)
+                        // Sharing the van's location asks for it first, if the courier has not allowed it.
+                        val askForLocation = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+                            if (granted) model.shareLocation(true)
+                        }
                         DeliveriesScreen(
                         name = model.session?.name.orEmpty(),
                         deliveries = model.deliveries,
                         refreshing = model.refreshing,
                         error = model.deliveriesError,
+                        sharingLocation = model.sharingLocation,
+                        onShareLocation = { on ->
+                            if (!on || model.locationAllowed()) model.shareLocation(on)
+                            else askForLocation.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+                        },
                         onRefresh = model::refresh,
                         onOpen = model::openDelivery,
                         onSignOut = model::signOut,
@@ -156,6 +168,8 @@ fun DeliveriesScreen(
     deliveries: List<Delivery>?,
     refreshing: Boolean,
     error: String?,
+    sharingLocation: Boolean,
+    onShareLocation: (Boolean) -> Unit,
     onRefresh: () -> Unit,
     onOpen: (reference: String) -> Unit,
     onSignOut: () -> Unit,
@@ -169,6 +183,16 @@ fun DeliveriesScreen(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("Hello, $name", Modifier.weight(1f))
                 TextButton(onClick = onSignOut) { Text("Sign out") }
+            }
+            // The row is the switch, as people tap it: its text names it.
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .toggleable(value = sharingLocation, role = Role.Switch, onValueChange = onShareLocation),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("Share van location", Modifier.weight(1f))
+                Switch(checked = sharingLocation, onCheckedChange = null)
             }
             if (error != null) ErrorText(error)
         }

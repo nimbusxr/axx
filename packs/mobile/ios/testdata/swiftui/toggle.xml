@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<XCUIElementTypeApplication type="XCUIElementTypeApplication" name="Parcels Courier" label="Parcels Courier" enabled="true" visible="true" accessible="false" x="0" y="0" width="393" height="852" index="0" traits="">
+  <XCUIElementTypeSwitch type="XCUIElementTypeSwitch" value="0" name="Share van location" label="Share van location" enabled="true" visible="true" accessible="true" x="32" y="207" width="329" height="28" index="1" traits="ToggleButton, Button">
+    <XCUIElementTypeSwitch type="XCUIElementTypeSwitch" value="0" enabled="true" visible="true" accessible="false" x="300" y="207" width="63" height="28" index="1" traits="ToggleButton, Button"/>
+  </XCUIElementTypeSwitch>
+</XCUIElementTypeApplication>

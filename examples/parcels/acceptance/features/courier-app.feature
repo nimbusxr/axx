@@ -135,3 +135,27 @@ Feature: The couriers' app
     And the courier app shows "Hello, Lea Schmidt"
     When the "Sign out" button is tapped in the courier app
     Then the courier app shows "Sign in"
+
+  Scenario: A courier shares where the van is, and the parcel's tracking follows it
+    Given a seeds/courier-app-van.yaml db seed
+    And the tracking event stream with the following properties:
+      | url      | http://${sys:local.host}:8400/api/parcels/PX-MOB-9451/events |
+      | asyncapi | http://${sys:local.host}:8400/asyncapi.yaml                  |
+    And the courier app is launched
+    And the "Courier ID" field in the courier app is filled with "CR-LEJ-31"
+    And the "PIN" field in the courier app is filled with "${sys:couriers.pin}"
+    And the "Sign in" button is tapped in the courier app
+    And the "Share van location" switch is tapped in the courier app
+    And the courier app's dialog is accepted
+    When the courier app's phone travels at 30 km/h through:
+      | 51.3397 | 12.3731 |
+      | 51.3397 | 12.3760 |
+    Then the tracking event stream has an event where:
+      | event type | courier     |
+      | reference  | PX-MOB-9451 |
+      | speedKmh   | 30          |
+      | heading    | 90          |
+    And within 10s the tracking event stream has an event where:
+      | event type | courier |
+      | latitude   | 51.3397 |
+      | longitude  | 12.376  |

@@ -109,13 +109,16 @@ channels:
       liveScan: {$ref: '#/components/messages/liveScan'}
   trackingEvents:
     address: /api/parcels/{reference}/events
-    description: A scan event for each change of the parcel's tracking, and a delivered event that ends the stream.
+    description: >-
+      A scan event for each change of the parcel's tracking, and a delivered event that ends the stream. While the
+      parcel is out for delivery, a courier event each time the courier's app says where the van is.
     parameters:
       reference: {description: "The parcel's reference."}
     servers: [{$ref: '#/servers/api'}]
     messages:
       scan: {$ref: '#/components/messages/trackingScanned'}
       delivered: {$ref: '#/components/messages/trackingDelivered'}
+      courier: {$ref: '#/components/messages/trackingCourier'}
 
 operations:
   announceRegistration:
@@ -306,6 +309,19 @@ components:
           - {$ref: '#/components/schemas/TrackingEvent'}
           - properties:
               status: {const: DELIVERED}
+
+    trackingCourier:
+      name: courier
+      payload:
+        type: object
+        required: [reference, latitude, longitude, speedKmh, heading, at]
+        properties:
+          reference: {type: string}
+          latitude: {type: number, description: Rounded to four places, about 11 metres.}
+          longitude: {type: number}
+          speedKmh: {type: integer, minimum: 0}
+          heading: {type: integer, minimum: 0, maximum: 359, description: Degrees clockwise from north.}
+          at: {type: string, format: date-time}
 
   schemas:
     ServiceLevel:

@@ -84,6 +84,9 @@ struct DeliveriesView: View {
                         .font(.title3)
                         .foregroundStyle(Color.primary)
                     if let error = model.deliveriesError { ErrorText(text: error).font(.body) }
+                    Toggle("Share van location", isOn: Binding(get: { model.sharingLocation }, set: { model.shareLocation($0) }))
+                        .font(.body)
+                        .foregroundStyle(Color.primary)
                 }
                 .textCase(nil)
                 .padding(.bottom, 4)

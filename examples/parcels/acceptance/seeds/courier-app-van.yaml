@@ -1,0 +1,10 @@
+# A parcel on its way to a recipient in the east of Leipzig, out for delivery with Jan Vogt,
+# who shares where his van is.
+parcels.parcels:
+  - reference: "PX-MOB-9451"
+    sender: "maple-crafts"
+    status: "OUT_FOR_DELIVERY"
+    service_level: "STANDARD"
+    weight_grams: 2100
+    recipient: '{"name": "Greta Lindner", "street": "Dresdner Str. 18", "city": "Leipzig", "postcode": "04103", "country": "DE"}'
+    details: '{"source": "api", "zone": "DE-1", "courier": "CR-LEJ-31"}'

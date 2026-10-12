@@ -483,3 +483,47 @@ func TestASheetsVisibleButtonIsTappedByPoint(t *testing.T) {
 		}
 	}
 }
+
+// A SwiftUI Toggle (the courier app's "Share van location", as WebDriverAgent reads it on iOS 27)
+// is a switch as wide as its row, with the switch control in it: a tap goes to the control,
+// since XCTest's tap of the row lands on its label, which does not toggle it.
+func TestATogglesTapGoesToItsSwitch(t *testing.T) {
+	b, err := os.ReadFile(filepath.Join("testdata", "swiftui", "toggle.xml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	s, err := parseSource(string(b))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, n := range s.Visible() {
+		if n.Name() == "Share van location" {
+			if !n.ByPoint || n.Bounds != (mobilecore.Rect{X: 300, Y: 207, Width: 63, Height: 28}) {
+				t.Errorf("the toggle is tapped at %+v (by point: %v), want its switch at 300, 207", n.Bounds, n.ByPoint)
+			}
+			return
+		}
+	}
+	t.Error("no Share van location")
+}
+
+// iOS asks for a location with three buttons, the one that declines last: accepted, the dialog
+// is answered with the one before it, which allows for good. WebDriverAgent's own accept would
+// press the last.
+func TestALocationRequestIsAllowedWhileUsingTheApp(t *testing.T) {
+	sc := screens(t)
+	app := appiumtest.Start(t, appiumtest.App{
+		Screens:      sc,
+		Start:        "deliveries",
+		Alerts:       map[string]string{"deliveries": "Allow “Parcels Courier” to use your location?"},
+		AlertButtons: map[string][]string{"deliveries": {"Allow Once", "Allow While Using App", "Don’t Allow"}},
+		Taps:         map[string]string{"accept with Allow While Using App deliveries": "delivery"},
+	})
+	h := cloudtest.New(t, appcore.Pack(), mobilecore.Pack(), Pack())
+	register(h, app.URL)
+	h.OK("the courier app is launched")
+	h.OK(`the courier app's dialog is accepted`)
+	if cmds := strings.Join(app.Commands(), "\n"); !strings.Contains(cmds, "accept with Allow While Using App alert") {
+		t.Errorf("the dialog was not allowed while using the app:\n%s", cmds)
+	}
+}

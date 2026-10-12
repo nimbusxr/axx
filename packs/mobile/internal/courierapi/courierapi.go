@@ -6,18 +6,40 @@ package courierapi
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"math"
 	"net"
 	"net/http"
+	"strings"
 	"sync"
 	"testing"
 	"time"
 )
 
+// A Location is where the courier's app said the van was.
+type Location struct {
+	Latitude, Longitude float64
+	Speed, Course       *float64 // metres a second, degrees; nil when the app did not know
+}
+
+// API is the couriers' API a test serves.
+type API struct {
+	mu        sync.Mutex
+	locations []Location
+}
+
+// Locations are where the courier's app said the van was, in order.
+func (a *API) Locations() []Location {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return append([]Location(nil), a.locations...)
+}
+
 // Start serves the couriers' API for a test: the courier CR-LEJ-12 (PIN
-// 4711) signs in, and delivers PX-MOB-9401 and PX-MOB-9402. The apps call
-// 127.0.0.1:8400, and only one test at a time can serve it: the Android and
-// the iOS packs' tests, run at once, take turns.
-func Start(t *testing.T) {
+// 4711) signs in, delivers PX-MOB-9401 and PX-MOB-9402, and reports where
+// the van is. The apps call 127.0.0.1:8400, and only one test at a time can
+// serve it: the Android and the iOS packs' tests, run at once, take turns.
+func Start(t *testing.T) *API {
 	t.Helper()
 	var l net.Listener
 	var err error
@@ -77,7 +99,72 @@ func Start(t *testing.T) {
 		delivered[ref] = true
 		reply(w, http.StatusOK, map[string]string{"reference": ref, "status": "DELIVERED", "signedBy": "Jonas Weber", "location": parcels[ref].City})
 	})
+	api := &API{}
+	mux.HandleFunc("POST /api/couriers/{courier}/location", func(w http.ResponseWriter, r *http.Request) {
+		var in struct {
+			Latitude, Longitude *float64
+			Speed, Course       *float64
+		}
+		if json.NewDecoder(r.Body).Decode(&in) != nil || in.Latitude == nil || in.Longitude == nil {
+			reply(w, http.StatusBadRequest, map[string]string{"detail": "a location is a latitude and a longitude"})
+			return
+		}
+		api.mu.Lock()
+		api.locations = append(api.locations, Location{*in.Latitude, *in.Longitude, in.Speed, in.Course})
+		api.mu.Unlock()
+		w.WriteHeader(http.StatusNoContent)
+	})
 	srv := &http.Server{Handler: mux}
 	go func() { _ = srv.Serve(l) }()
 	t.Cleanup(func() { _ = srv.Close() })
+	return api
+}
+
+// TheVanTravelled checks the courier's app reported the van travelling the route a test gave
+// the phone: from one point to another, eastward or westward along a street, at a speed in
+// metres a second. While it moved, the app said how fast and, if course, which way; it ended at
+// the end.
+func (a *API) TheVanTravelled(t *testing.T, from, to [2]float64, speed float64, course bool) {
+	t.Helper()
+	locs := a.Locations()
+	heading := 90.0
+	if to[1] < from[1] {
+		heading = 270
+	}
+	moving := 0
+	for _, l := range locs {
+		if l.Speed == nil || *l.Speed < speed*0.9 || *l.Speed > speed*1.1 {
+			continue
+		}
+		if l.Course != nil && math.Abs(*l.Course-heading) > 5 || course && l.Course == nil {
+			t.Errorf("the van moved at %.1f m/s with a course of %v, want %.0f°", *l.Speed, l.Course, heading)
+			continue
+		}
+		moving++
+	}
+	if moving < 5 {
+		t.Errorf("the app reported the van moving at %.1f m/s %d times, want 5 or more: %s", speed, moving, describe(locs))
+	}
+	if len(locs) == 0 {
+		return
+	}
+	last := locs[len(locs)-1]
+	// Within about 15 metres of the end: an emulator keeps a location at float32's precision.
+	if math.Abs(last.Latitude-to[0]) > 1.5e-4 || math.Abs(last.Longitude-to[1]) > 2e-4 {
+		t.Errorf("the van ended at %.5f, %.5f, want %.5f, %.5f", last.Latitude, last.Longitude, to[0], to[1])
+	}
+}
+
+func describe(locs []Location) string {
+	var b strings.Builder
+	for _, l := range locs {
+		fmt.Fprintf(&b, "\n  %.5f, %.5f", l.Latitude, l.Longitude)
+		if l.Speed != nil {
+			fmt.Fprintf(&b, " at %.1f m/s", *l.Speed)
+		}
+		if l.Course != nil {
+			fmt.Fprintf(&b, " toward %.0f°", *l.Course)
+		}
+	}
+	return b.String()
 }

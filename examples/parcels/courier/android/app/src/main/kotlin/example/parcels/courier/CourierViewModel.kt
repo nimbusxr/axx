@@ -59,8 +59,47 @@ class CourierViewModel(app: Application) : AndroidViewModel(app) {
     var deliveryError by mutableStateOf<String?>(null)
         private set
 
+    // The van's location, while the courier shares it.
+    var sharingLocation by mutableStateOf(false)
+        private set
+    private val van = VanLocation(app, ::reportLocation)
+    private var reporting = false
+
     init {
         if (session != null) refresh()
+    }
+
+    /** Shares the van's location with the parcels service, or stops; false if the app may not read it. */
+    fun shareLocation(on: Boolean): Boolean {
+        van.stop()
+        sharingLocation = on && van.start()
+        return sharingLocation == on
+    }
+
+    fun locationAllowed(): Boolean = van.allowed()
+
+    private fun reportLocation(fix: android.location.Location) {
+        val s = session ?: return
+        if (reporting) return // the fix before is still on its way; the next one follows it
+        reporting = true
+        viewModelScope.launch {
+            try {
+                api().reportLocation(
+                    s, fix.latitude, fix.longitude,
+                    if (fix.hasSpeed()) fix.speed else null,
+                    if (fix.hasBearing()) fix.bearing else null,
+                )
+            } catch (e: IOException) {
+                // A fix that did not get through: the next one, a second later, will.
+            } catch (e: JSONException) {
+            } finally {
+                reporting = false
+            }
+        }
+    }
+
+    override fun onCleared() {
+        van.stop()
     }
 
     private fun api() = CourierApi(Backend.url)
@@ -92,6 +131,7 @@ class CourierViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun signOut() {
+        shareLocation(false)
         store.clear()
         refreshJob?.cancel()
         refreshing = false

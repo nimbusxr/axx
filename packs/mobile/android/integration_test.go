@@ -232,3 +232,28 @@ func TestRecordingsOnAnEmulator(t *testing.T) {
 	}
 	recordingsKept(t, h)
 }
+
+// A courier shares the van's location and drives east along Grimmaische Straße at 50 km/h: the
+// app hears the phone move, with its speed and course, and reports it; the scenario goes on while
+// the phone travels, and waits for it to arrive.
+func TestACourierSharesTheVanOnAnEmulator(t *testing.T) {
+	api := courierapi.Start(t)
+	t.Setenv("COURIER_PIN", "4711")
+	h := cloudtest.New(t, appcore.Pack(), mobilecore.Pack(), Pack())
+	logsOnFailure(t, h)
+	h.OK("the courier android app with the following properties:", [][]string{
+		{"apk", apk(t)},
+		{"device", avd(t)},
+		{"permissions", "POST_NOTIFICATIONS, ACCESS_FINE_LOCATION"},
+		{"timezone", "Europe/Berlin"},
+		{"location", "51.3397, 12.3731"},
+		{"host ports", "8400"},
+	})
+	signIn(h)
+	h.OK(`the courier app shows "Hello, Hanna Wolf"`)
+	h.OK(`the "Share van location" switch is tapped in the courier app`)
+	h.OK("the courier app's phone starts traveling at 50 km/h through:", [][]string{{"51.3397", "12.3731"}, {"51.3397", "12.3760"}})
+	h.OK("within 1m the courier app's phone reaches the end of its route")
+	time.Sleep(2 * time.Second) // the last fix's report, on its way
+	api.TheVanTravelled(t, [2]float64{51.3397, 12.3731}, [2]float64{51.3397, 12.3760}, 50/3.6, true)
+}

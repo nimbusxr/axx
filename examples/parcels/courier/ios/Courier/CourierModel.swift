@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import CoreLocation
 import Foundation
 import Observation
 
@@ -47,6 +48,11 @@ final class CourierModel {
     private(set) var deliveriesError: String?
     @ObservationIgnored private var refreshTask: Task<Void, Never>?
 
+    // The van's location, while the courier shares it.
+    private(set) var sharingLocation = false
+    @ObservationIgnored private lazy var van = VanLocation { [weak self] fix in self?.report(fix) }
+    @ObservationIgnored private var reporting = false
+
     // A delivery.
     private(set) var posting = false
     private(set) var delivered = false
@@ -81,7 +87,27 @@ final class CourierModel {
         }
     }
 
+    /// Shares the van's location with the parcels service, or stops. iOS asks the courier first, once.
+    func shareLocation(_ on: Bool) {
+        sharingLocation = on
+        if on { van.start() } else { van.stop() }
+    }
+
+    private func report(_ fix: CLLocation) {
+        guard let session, sharingLocation, !reporting else { return } // a fix on its way: the next one follows it
+        reporting = true
+        Task {
+            defer { reporting = false }
+            // A fix that does not get through is followed by the next one, a second later.
+            try? await api.reportLocation(
+                session, latitude: fix.coordinate.latitude, longitude: fix.coordinate.longitude,
+                speed: fix.speed >= 0 ? fix.speed : nil, course: fix.course >= 0 ? fix.course : nil
+            )
+        }
+    }
+
     func signOut() {
+        shareLocation(false)
         store.clear()
         refreshTask?.cancel()
         refreshTask = nil
@@ -172,5 +198,45 @@ final class CourierModel {
                 deliveryError = Self.unreachable
             }
         }
+    }
+}
+
+/// The van's location from the phone's GPS, every second while the courier shares it: where it
+/// is, how fast it goes and which way.
+final class VanLocation: NSObject, CLLocationManagerDelegate {
+    private let manager = CLLocationManager()
+    private let onFix: (CLLocation) -> Void
+    private var wanted = false
+
+    init(onFix: @escaping (CLLocation) -> Void) {
+        self.onFix = onFix
+        super.init()
+        manager.delegate = self
+        manager.desiredAccuracy = kCLLocationAccuracyBestForNavigation
+        manager.activityType = .automotiveNavigation
+    }
+
+    func start() {
+        wanted = true
+        if manager.authorizationStatus == .notDetermined {
+            manager.requestWhenInUseAuthorization() // starts once the courier answers
+        } else {
+            manager.startUpdatingLocation()
+        }
+    }
+
+    func stop() {
+        wanted = false
+        manager.stopUpdatingLocation()
+    }
+
+    func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+        if wanted, manager.authorizationStatus == .authorizedWhenInUse || manager.authorizationStatus == .authorizedAlways {
+            manager.startUpdatingLocation()
+        }
+    }
+
+    func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+        locations.forEach(onFix)
     }
 }

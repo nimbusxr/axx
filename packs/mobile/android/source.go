@@ -98,6 +98,12 @@ func roleOf(n *mobilecore.Node) mobilecore.Role {
 	if r := classRole(n); r != mobilecore.RoleOther && r != mobilecore.RoleText && r != mobilecore.RoleImage {
 		return r
 	}
+	// Jetpack Compose says a switch (Role.Switch) only in its role description, which the
+	// UiAutomator2 server leaves out: a checkable node of no class of its own is one. A Compose
+	// checkbox or radio button has android.widget.CheckBox's or RadioButton's class.
+	if n.Checkable && n.Clickable && classRole(n) == mobilecore.RoleOther {
+		return mobilecore.RoleSwitch
+	}
 	if !n.Clickable {
 		return classRole(n)
 	}
