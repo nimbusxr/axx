@@ -72,7 +72,8 @@ type LintRule struct {
 	// directories, e.g. "**.fixture.yaml".
 	ExcludePatterns StringList `json:"excludePatterns,omitempty"`
 	// Type is "regex" (default: extract values with regex) or "jsonpath"
-	// (parse each file as JSON and extract the values at jsonPath).
+	// (read each file, by its extension, as JSON, YAML, XML or CSV, and
+	// extract the values at jsonPath).
 	Type string `json:"type,omitempty" jsonschema:"enum=regex,enum=jsonpath"`
 	// Regex is a Java regular expression, applied in MULTILINE mode (^ and $
 	// match at line boundaries). Each match contributes the text of its
@@ -81,7 +82,10 @@ type LintRule struct {
 	// JSONPath selects the values of a jsonpath rule, e.g. "order.id",
 	// "payments[*].id" or "$.items[0].sku" (exact field paths with array
 	// indexes or [*]); other JSONPath expressions ("$..id", filters) are
-	// evaluated like Jayway JsonPath. Only scalar values count.
+	// evaluated like Jayway JsonPath. Only scalar values count. A seed's rows
+	// read alike in YAML, flat XML (<dataset>) and CSV: "$['public.closures'][*]['id']";
+	// in other XML, attributes are "@name" fields ("line[*].@sku") and an
+	// element with only text is a value.
 	JSONPath string `json:"jsonPath,omitempty"`
 	// Validation is "global-unique" (default: a value may occur once),
 	// "file-unique" (no repeats within a file; files may share values) or

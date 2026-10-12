@@ -97,7 +97,11 @@ func (xmlFamily) Validate(data []byte, baseDir, schemaRef, fixtureName string) e
 	return xmlOracle(engine, data, fixtureName)
 }
 
-func (xmlFamily) LintFilePatterns(*Spec) []string { return nil }
+// LintFilePatterns are the XML files of its output directories, which `axx
+// lint` reads as this family writes them (@id is the root's id attribute).
+func (xmlFamily) LintFilePatterns(spec *Spec) []string {
+	return inOutputDirs(spec, "*.xml")
+}
 
 func (xmlFamily) LintJSONPath(_ *Spec, p string) string { return p }
 

@@ -112,7 +112,7 @@ Rules live under `lint.rules`; `lint.config` sets `baseDir` (patterns are relati
 | `excludePatterns` | Globs removed from the match, against the whole path relative to `baseDir`, for example `**.fixture.yaml`. |
 | `type` | `regex` (default) or `jsonpath`. |
 | `regex` | The first capture group that matched is the value. |
-| `jsonPath` | A structural path in JSON files: `order.id`, `payments[0].id`, `payments[*].id`, optional `$.` prefix. |
+| `jsonPath` | A path in each file's tree: `order.id`, `payments[0].id`, `payments[*].id`, an optional `$.` prefix, or any Jayway JsonPath. Files are read by their extension: JSON, YAML (`.yaml`, `.yml`), XML and CSV. A seed's rows read alike in YAML, flat XML and CSV (`$['public.closures'][*]['id']`); in other XML, attributes are `@name` fields and an element with only text is a value. |
 | `validation` | `global-unique` (default): every occurrence is unique. `file-unique`: unique within each file. `cross-file-unique`: may repeat inside a file, never across files. |
 | `mode` | Overrides the default mode for this rule. |
 | `ignoreValues` | Values that are shared on purpose. |

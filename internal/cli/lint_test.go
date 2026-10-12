@@ -2,6 +2,7 @@ package cli
 
 import (
 	"encoding/json"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -284,5 +285,81 @@ func TestLintModeErrorAppliesToTheFeatureChecks(t *testing.T) {
 	out, stderr, code := run(t, "lint", "--mode", "error")
 	if code != int(exitcode.Undefined) || !strings.Contains(out, "1 error") || !strings.Contains(out, "AXX-E0830") {
 		t.Fatalf("--mode error: exit %d\n%s%s", code, out, stderr)
+	}
+}
+
+// Every fixture family's identities become lint rules in the format it
+// writes: a hand-written file beside the generated ones that reuses an
+// identity value fails `axx lint`, naming both files.
+func TestGeneratedRulesCatchAHandWrittenDuplicate(t *testing.T) {
+	cases := []struct {
+		name, corpus string
+		edit         [2]string // factory text replaced, to pick a dataset format
+		file, body   string    // the hand-written neighbor
+		generated    string    // the generated file holding the value
+	}{
+		{
+			name: "YAML seeds", corpus: "dataset-corpus",
+			file: "seeds/missions/legacy.yaml", body: "space.missions:\n  - id: msn-mission-alpha\n    name: Legacy\n",
+			generated: "seeds/missions/mission-alpha.yaml:2",
+		},
+		{
+			name: "flat XML seeds", corpus: "dataset-corpus", edit: [2]string{"family: dataset", "family: dataset\n  options: { format: xml }"},
+			file: "seeds/missions/legacy.xml", body: "<?xml version=\"1.0\"?>\n<dataset>\n  <space.missions id=\"msn-mission-alpha\" name=\"Legacy\"/>\n</dataset>\n",
+			generated: "seeds/missions/mission-alpha.xml:3",
+		},
+		{
+			name: "CSV seeds", corpus: "dataset-corpus", edit: [2]string{"family: dataset", "family: dataset\n  options: { format: csv }"},
+			file: "seeds/missions/legacy/space.missions.csv", body: "id,name\nmsn-mission-alpha,Legacy\n",
+			generated: "seeds/missions/mission-alpha/space.missions.csv:2",
+		},
+		{
+			name: "YAML documents", corpus: "yaml-corpus",
+			file: "configs/legacy.yaml", body: "service: svc-checkout-config\nport: 8081\n",
+			generated: "configs/checkout-config.yaml:1",
+		},
+		{
+			name: "XML documents", corpus: "xml-corpus",
+			file: "orders/legacy.xml", body: "<order id=\"ord-order-single\" channel=\"WEB\"/>\n",
+			generated: "orders/order-single.xml:2",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			dir, _ := filepath.EvalSymlinks(t.TempDir())
+			src := filepath.Join("..", "fixtures", "testdata", "corpus", tc.corpus)
+			err := filepath.WalkDir(src, func(p string, d fs.DirEntry, err error) error {
+				if err != nil || d.IsDir() {
+					return err
+				}
+				rel, _ := filepath.Rel(src, p)
+				b, err := os.ReadFile(p)
+				if err != nil {
+					return err
+				}
+				if tc.edit[0] != "" && strings.HasSuffix(p, ".factory.yaml") {
+					b = []byte(strings.Replace(string(b), tc.edit[0], tc.edit[1], 1))
+				}
+				writeFile(t, filepath.Join(dir, rel), string(b))
+				return nil
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			writeFile(t, filepath.Join(dir, "axx.yaml"), "version: 1\nlint:\n  include: [axx-lint.generated.yaml]\n")
+			t.Chdir(dir)
+			if _, stderr, code := run(t, "fixtures", "generate"); code != 0 {
+				t.Fatalf("generate exit %d: %s", code, stderr)
+			}
+			if out, stderr, code := run(t, "lint", "--compact=false"); code != 0 {
+				t.Fatalf("the generated files alone lint clean: exit %d\n%s%s", code, out, stderr)
+			}
+			writeFile(t, filepath.Join(dir, filepath.FromSlash(tc.file)), tc.body)
+			out, stderr, code := run(t, "lint", "--compact=false")
+			if code != int(exitcode.Undefined) || !strings.Contains(out, lint.CodeDuplicate) ||
+				!strings.Contains(out, tc.file) || !strings.Contains(out, tc.generated) {
+				t.Errorf("a hand-written duplicate fails lint at both files: exit %d\n%s%s", code, out, stderr)
+			}
+		})
 	}
 }

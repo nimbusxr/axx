@@ -23,12 +23,12 @@ func TestExpectedOutputs(t *testing.T) {
 		{name: "avro", seed: []string{"kafka", "schemas"}, avro: true, files: 4},
 		{name: "json", seed: []string{"json-corpus"}, files: 7},
 		{name: "openapi", seed: []string{"openapi-corpus"}, files: 4},
-		{name: "yaml", seed: []string{"yaml-corpus"}, files: 2},
-		{name: "xml", seed: []string{"xml-corpus"}, files: 2},
+		{name: "yaml", seed: []string{"yaml-corpus"}, files: 3},
+		{name: "xml", seed: []string{"xml-corpus"}, files: 3},
 		{name: "protobuf", seed: []string{"protobuf-corpus"}, files: 3},
-		{name: "dataset", seed: []string{"dataset-corpus"}, files: 2},
-		{name: "dataset-xml", seed: []string{"dataset-corpus"}, edit: [3]string{"seeds/missions/mission-seeds.factory.yaml", "family: dataset", "family: dataset\n  options: { format: xml }"}, files: 2},
-		{name: "dataset-csv", seed: []string{"dataset-corpus"}, edit: [3]string{"seeds/missions/mission-seeds.factory.yaml", "family: dataset", "family: dataset\n  options: { format: csv }"}, files: 5},
+		{name: "dataset", seed: []string{"dataset-corpus"}, files: 3},
+		{name: "dataset-xml", seed: []string{"dataset-corpus"}, edit: [3]string{"seeds/missions/mission-seeds.factory.yaml", "family: dataset", "family: dataset\n  options: { format: xml }"}, files: 3},
+		{name: "dataset-csv", seed: []string{"dataset-corpus"}, edit: [3]string{"seeds/missions/mission-seeds.factory.yaml", "family: dataset", "family: dataset\n  options: { format: csv }"}, files: 6},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

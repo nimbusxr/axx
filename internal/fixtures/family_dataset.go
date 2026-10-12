@@ -372,11 +372,32 @@ func escapeCSV(v string) string {
 	return v
 }
 
-// LintFilePatterns: datasets are not JSON; structural rules do not apply.
-func (datasetFamily) LintFilePatterns(*Spec) []string { return nil }
+// LintFilePatterns are the files of the dataset's format in its output
+// directories: YAML seeds, flat XML, or the CSV tables of each seed.
+func (datasetFamily) LintFilePatterns(spec *Spec) []string {
+	format, err := datasetFormat(spec)
+	if err != nil {
+		return nil
+	}
+	switch format {
+	case "xml":
+		return inOutputDirs(spec, "*.xml")
+	case "csv":
+		return inOutputDirs(spec, "*.csv")
+	}
+	return inOutputDirs(spec, "*.yaml", "*.yml")
+}
 
-// LintJSONPath is unused (no patterns).
-func (datasetFamily) LintJSONPath(_ *Spec, p string) string { return p }
+// LintJSONPath is an identity's column in every row of its table, which `axx
+// lint` reads the same way from YAML, flat XML and CSV seeds:
+// public.closures.id is $['public.closures'][*]['id'].
+func (datasetFamily) LintJSONPath(_ *Spec, p string) string {
+	dot := strings.LastIndexByte(p, '.')
+	if dot <= 0 || dot == len(p)-1 {
+		return ""
+	}
+	return "$['" + p[:dot] + "'][*]['" + p[dot+1:] + "']"
+}
 
 // Validate lints a dataset file (managed or hand-written, format detected
 // from its name) against the DDL: tables must exist and every row's columns

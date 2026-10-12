@@ -595,6 +595,168 @@ rules:
 	}
 }
 
+// JSONPath rules over YAML, XML and CSV files, which read into the tree a JSON
+// file does.
+func TestJSONPathRulesReadYAMLXMLAndCSV(t *testing.T) {
+	cfg := func(path string, patterns ...string) string {
+		return fmt.Sprintf(`config: {baseDir: data}
+rules:
+  - name: structural-ids
+    filePatterns: [%s]
+    type: jsonpath
+    jsonPath: %q
+    validation: global-unique
+`, `"`+strings.Join(patterns, `", "`)+`"`, path)
+	}
+	closures := "$['public.closures'][*]['id']"
+	tests := []struct {
+		name   string
+		files  map[string]string
+		config string
+		want   []string
+	}{
+		{
+			name: "YAML seeds at their lines",
+			files: map[string]string{
+				"a.yaml": "public.closures:\n  - id: c-1\n    road_name: Grand Ave\n  - id: c-dup\n",
+				"b.yml":  "# Euclid Ave\npublic.closures:\n  - {id: c-dup, road_name: Euclid Ave}\n",
+			},
+			config: cfg(closures, "*.yaml", "*.yml"),
+			want:   []string{"AXX-E0820 c-dup: data/a.yaml:4, data/b.yml:3"},
+		},
+		{
+			name: "an exact path reads every YAML document, as every JSON value",
+			files: map[string]string{
+				"a.yaml": "order: {id: o-1}\n---\norder: {id: o-dup}\n",
+				"b.yaml": "order:\n  id: o-dup\n",
+			},
+			config: cfg("order.id", "*.yaml"),
+			want:   []string{"AXX-E0820 o-dup: data/a.yaml:3, data/b.yaml:2"},
+		},
+		{
+			name: "YAML values typed as Jackson types them, compared with JSON's",
+			files: map[string]string{
+				"a.yaml": "order:\n  id: 0x1F\n",
+				"b.json": `{"order": {"id": 31}}`,
+				"c.yaml": "order:\n  id: \"0x1F\"\n",
+				"d.yaml": "order:\n  id: ~\n",
+			},
+			config: cfg("order.id", "*.yaml", "*.json"),
+			want:   []string{"AXX-E0820 31: data/a.yaml:2, data/b.json:1"},
+		},
+		{
+			name: "deep scan over YAML keeps line numbers",
+			files: map[string]string{
+				"a.yaml": "a:\n  id: x\nlist:\n  - id: x\n",
+			},
+			config: cfg("$..id", "*.yaml"),
+			want:   []string{"AXX-E0820 x: data/a.yaml:2, data/a.yaml:4"},
+		},
+		{
+			name: "flat XML seeds: rows of tables, columns in attributes",
+			files: map[string]string{
+				"a.xml": "<?xml version=\"1.0\"?>\n<dataset>\n  <public.closures id=\"c-dup\" road_name=\"Grand Ave\"/>\n  <public.users id=\"c-dup\"/>\n</dataset>\n",
+				"b.xml": "<dataset>\n  <public.closures road_name=\"Euclid Ave\"\n                   id=\"c-dup\"/>\n</dataset>\n",
+			},
+			config: cfg(closures, "*.xml"),
+			want:   []string{"AXX-E0820 c-dup: data/a.xml:3, data/b.xml:3"},
+		},
+		{
+			name: "CSV seeds: a table named after its file, quoted values, null",
+			files: map[string]string{
+				"a/public.closures.csv": "id,road_name\nc-1,Grand Ave\n\"c-dup\",\"Euclid \\\"East\\\" Ave\"\nnull,Keo Way\n",
+				"b/public.closures.csv": "id,road_name\nc-dup,Hickman Rd\n\"null\",Park Ave\n",
+				"c/public.closures.csv": "id,road_name\nnull,Fleur Dr\n",
+			},
+			config: cfg(closures, "*.csv"),
+			want:   []string{"AXX-E0820 c-dup: data/a/public.closures.csv:3, data/b/public.closures.csv:2"},
+		},
+		{
+			name: "a seed in each format",
+			files: map[string]string{
+				"a.yaml":                "public.closures:\n  - id: c-dup\n",
+				"b.xml":                 "<dataset><public.closures id=\"c-dup\"/></dataset>",
+				"c/public.closures.csv": "id\nc-dup\n",
+			},
+			config: cfg(closures, "*.yaml", "*.xml", "*.csv"),
+			want:   []string{"AXX-E0820 c-dup: data/a.yaml:2, data/b.xml:1, data/c/public.closures.csv:2"},
+		},
+		{
+			name: "XML documents: the root's attributes",
+			files: map[string]string{
+				"a.xml": "<order channel=\"WEB\" id=\"ord-dup\">\n  <note>rush</note>\n</order>\n",
+				"b.xml": "<?xml version=\"1.0\"?>\n<order id=\"ord-dup\"/>\n",
+			},
+			config: cfg("@id", "*.xml"),
+			want:   []string{"AXX-E0820 ord-dup: data/a.xml:1, data/b.xml:2"},
+		},
+		{
+			name: "XML documents: one element or several match [*], text in #text",
+			files: map[string]string{
+				"a.xml": "<order>\n  <line sku=\"SKU-1\">9.99</line>\n</order>\n",
+				"b.xml": "<order>\n  <line sku=\"SKU-2\">1.00</line>\n  <line sku=\"SKU-1\">9.99</line>\n</order>\n",
+			},
+			config: cfg("line[*].@sku", "*.xml"),
+			want:   []string{"AXX-E0820 SKU-1: data/a.xml:2, data/b.xml:3"},
+		},
+		{
+			name: "XML documents: elements with only text are values",
+			files: map[string]string{
+				"a.xml": "<order>\n  <customer id=\"cust-1\">\n    <name>\n      Ada Lovelace\n    </name>\n  </customer>\n</order>\n",
+				"b.xml": "<order><customer><name>Ada Lovelace</name></customer></order>",
+				"c.xml": "<order><customer><name/></customer></order>",
+			},
+			config: cfg("customer.name", "*.xml"),
+			want:   []string{"AXX-E0820 Ada Lovelace: data/a.xml:4, data/b.xml:1"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := newProject(t)
+			for name, content := range tt.files {
+				p.write("data/"+name, content)
+			}
+			rep := p.run(tt.config)
+			if got := locations(rep); strings.Join(got, "\n") != strings.Join(tt.want, "\n") {
+				t.Errorf("findings:\n%s\nwant:\n%s", strings.Join(got, "\n"), strings.Join(tt.want, "\n"))
+			}
+		})
+	}
+}
+
+func TestJSONPathInvalidYAMLXMLAndCSV(t *testing.T) {
+	p := newProject(t).
+		write("data/a.yaml", "order:\n  id: [x\n").
+		write("data/b.xml", "<order>\n  <line></order>\n").
+		write("data/c.csv", "id,name\nc-1\n").
+		write("data/d.csv", "id\n\"c-2\n")
+	rep := p.run(`config: {baseDir: data, mode: warn}
+rules:
+  - {name: s, filePatterns: ["*.yaml", "*.xml", "*.csv"], type: jsonpath, jsonPath: order.id}
+`)
+	var got []string
+	for _, f := range rep.Rules[0].Findings {
+		got = append(got, f.Code+" "+f.Locations[0].File+" "+f.Message)
+	}
+	want := []string{
+		"data/a.yaml is not valid YAML",
+		"data/b.xml is not valid XML",
+		"data/c.csv is not valid CSV, which a jsonpath rule requires: the row has 1 values, the header names 2 columns",
+		"data/d.csv is not valid CSV, which a jsonpath rule requires: a quoted value is never closed",
+	}
+	if len(got) != len(want) || rep.OK() {
+		t.Fatalf("an unreadable file fails the rule even in warn mode: %v", got)
+	}
+	for i, w := range want {
+		if !strings.HasPrefix(got[i], CodeUnparsable) || !strings.Contains(got[i], w) {
+			t.Errorf("finding %d: %s, want %q", i, got[i], w)
+		}
+	}
+	if l := rep.Rules[0].Findings[2].Locations[0]; l.Line != 2 {
+		t.Errorf("the short row's line: %+v", l)
+	}
+}
+
 func TestParseJSON(t *testing.T) {
 	good := map[string]string{
 		"":                                      "",

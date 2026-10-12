@@ -149,12 +149,6 @@ func TestDatasetConformanceLintsHandWrittenSeeds(t *testing.T) {
 	mustContain(t, f[0], "bad.yaml", "destinationn")
 }
 
-func TestDatasetEmitsNoLintRules(t *testing.T) {
-	if datasetWorkspace(t).expand()[DefaultLintOutput] != nil {
-		t.Error("datasets emit no structural lint rules")
-	}
-}
-
 func TestDatasetXMLFormat(t *testing.T) {
 	w := datasetWorkspace(t)
 	w.replace(missions+"/mission-seeds.factory.yaml", "family: dataset", "family: dataset\n  options: { format: xml }")

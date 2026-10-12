@@ -92,7 +92,7 @@ axx fixtures check      # CI: regenerate in memory and compare, without writing
 - **Generation is a development-time step.** Nothing is generated during `axx run`; features cannot tell a generated fixture from a hand-written one.
 - **Output is deterministic.** The same spec always produces the same bytes, and every output is validated against the schema (the Avro schema here, so a `status` that is not one of its symbols fails) before it is written.
 - **The tool only touches files it owns.** `axx-fixtures.manifest.yaml` records them with their checksums. A managed file that was edited by hand is refused, never overwritten: move the change into the spec.
-- **Identities become lint rules.** Each `identity:` entry produces a rule in `axx-lint.generated.yaml`, which `lint.include` pulls into [`axx lint`](/guides/isolate-test-data/). A fixture that omits an identity value gets one derived from its name, so it is unique by construction.
+- **Identities become lint rules.** Generation refuses two fixtures that claim one identity value (`AXX-E0902`), and a fixture that omits one gets a value derived from its name, so it is unique by construction. Each `identity:` entry also produces a rule in `axx-lint.generated.yaml`, which `lint.include` pulls into [`axx lint`](/guides/isolate-test-data/), so a hand-written file beside the generated ones that reuses a value fails too. The rule reads the files in the format the factory writes: JSON, YAML, XML, or a seed's YAML, flat XML or CSV.
 
 When the schema gains a required field, generation fails and names every fixture that lacks it. Add it once to the prototype (or a `defaults:` entry) and regenerate.
 

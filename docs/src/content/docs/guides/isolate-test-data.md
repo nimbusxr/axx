@@ -34,6 +34,8 @@ lint:
       validation: cross-file-unique
 ```
 
+A `jsonpath` rule reads each file by its extension, as JSON, YAML, XML or CSV, so it needs no pattern for the file's layout. A seed's rows read the same in YAML, flat XML and CSV: `$['parcels.manifest_lines'][*]['id']` is the `id` of every manifest line, whichever format the seed is in.
+
 Each rule key is described in the [configuration reference](/references/config/#lint). A rule that scans files but extracts no value from them checks nothing, so `axx lint` warns about it instead of reporting ok: most often its pattern misses the files' format, like a regex anchored at `reference:` for YAML list items, whose lines start with `- ` (the rules above allow it with `-?`).
 
 Generated rules can be merged in with `include`:

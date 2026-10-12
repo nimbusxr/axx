@@ -225,7 +225,7 @@
             "regex",
             "jsonpath"
           ],
-          "description": "Type is \"regex\" (default: extract values with regex) or \"jsonpath\"\n(parse each file as JSON and extract the values at jsonPath)."
+          "description": "Type is \"regex\" (default: extract values with regex) or \"jsonpath\"\n(read each file, by its extension, as JSON, YAML, XML or CSV, and\nextract the values at jsonPath)."
         },
         "regex": {
           "type": "string",
@@ -233,7 +233,7 @@
         },
         "jsonPath": {
           "type": "string",
-          "description": "JSONPath selects the values of a jsonpath rule, e.g. \"order.id\",\n\"payments[*].id\" or \"$.items[0].sku\" (exact field paths with array\nindexes or [*]); other JSONPath expressions (\"$..id\", filters) are\nevaluated like Jayway JsonPath. Only scalar values count."
+          "description": "JSONPath selects the values of a jsonpath rule, e.g. \"order.id\",\n\"payments[*].id\" or \"$.items[0].sku\" (exact field paths with array\nindexes or [*]); other JSONPath expressions (\"$..id\", filters) are\nevaluated like Jayway JsonPath. Only scalar values count. A seed's rows\nread alike in YAML, flat XML (\u003cdataset\u003e) and CSV: \"$['public.closures'][*]['id']\";\nin other XML, attributes are \"@name\" fields (\"line[*].@sku\") and an\nelement with only text is a value."
         },
         "validation": {
           "type": "string",
