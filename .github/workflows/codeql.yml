@@ -1,9 +1,9 @@
 # Static analysis of every language in the repository.
 name: codeql
 
+# A pull request analyzes what it changes; what it merges is not analyzed again. The weekly run
+# analyzes main whole, the baseline the Security tab shows.
 on:
-  push:
-    branches: [main]
   pull_request:
   schedule:
     - cron: "17 4 * * 1"
@@ -11,10 +11,12 @@ on:
 permissions: {}
 
 jobs:
-  # A pull request analyzes the languages it changes (scripts/ci-changes.sh); pushes to main and
-  # the weekly run analyze them all. Go has no build-free mode: CodeQL's autobuild builds the
+  # A pull request analyzes the languages it changes (scripts/ci-changes.sh); the weekly run
+  # analyzes them all. Go has no build-free mode: CodeQL's autobuild builds the
   # module with the Go version go.mod asks for.
   languages:
+    # Not for the release PR: release-please writes its title, versions and changelog.
+    if: ${{ !startsWith(github.head_ref, 'release-please--') }}
     runs-on: ubuntu-24.04
     permissions:
       contents: read

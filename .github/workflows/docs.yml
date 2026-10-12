@@ -20,8 +20,21 @@ on:
       - "README.md"
       - "AGENTS.md"
       - ".github/workflows/docs.yml"
+  # main's docs (/next/) are built again and deployed only when what they are made from changes.
   push:
     branches: [main]
+    paths:
+      - "docs/**"
+      - "internal/**"
+      - "cmd/**"
+      - "pkg/**"
+      - "packs/**"
+      - "go.mod"
+      - "go.sum"
+      - "scripts/install.*"
+      - "README.md"
+      - "AGENTS.md"
+      - ".github/workflows/docs.yml"
   workflow_dispatch:
 
 permissions:

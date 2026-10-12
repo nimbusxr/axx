@@ -2,9 +2,8 @@
 # OpenSSF API. It runs once the AXX_PUBLISH repository variable is "true" (a public repository).
 name: scorecard
 
+# Weekly: nothing a merge changes that it scores needs it sooner.
 on:
-  push:
-    branches: [main]
   schedule:
     - cron: "41 5 * * 2"
 
