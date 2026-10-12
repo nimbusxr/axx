@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.16](https://github.com/nimbusxr/axx/compare/v0.2.15...v0.2.16) (2026-10-12)
+
+
+### Features
+
+* a feature keeps its files beside it; suites are organized by feature ([#180](https://github.com/nimbusxr/axx/issues/180)) ([30866bf](https://github.com/nimbusxr/axx/commit/30866bf01224553e00736924951f53afa51e8ef8))
+
 ## [0.2.15](https://github.com/nimbusxr/axx/compare/v0.2.14...v0.2.15) (2026-10-12)
 
 
