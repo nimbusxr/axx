@@ -255,5 +255,5 @@ func TestACourierSharesTheVanOnAnEmulator(t *testing.T) {
 	h.OK("the courier app's phone starts traveling at 50 km/h through:", [][]string{{"51.3397", "12.3731"}, {"51.3397", "12.3760"}})
 	h.OK("within 1m the courier app's phone reaches the end of its route")
 	time.Sleep(2 * time.Second) // the last fix's report, on its way
-	api.TheVanTravelled(t, [2]float64{51.3397, 12.3731}, [2]float64{51.3397, 12.3760}, 50/3.6)
+	api.TheVanTravelled(t, [2]float64{51.3397, 12.3731}, [2]float64{51.3397, 12.3760}, 50/3.6, true)
 }

@@ -242,5 +242,6 @@ func TestACourierSharesTheVanOnASimulator(t *testing.T) {
 	h.OK(`the courier app's dialog is accepted`)
 	h.OK("the courier app's phone travels at 50 km/h through:", [][]string{{"51.3397", "12.3731"}, {"51.3397", "12.3760"}})
 	time.Sleep(2 * time.Second) // the last fix's report, on its way
-	api.TheVanTravelled(t, [2]float64{51.3397, 12.3731}, [2]float64{51.3397, 12.3760}, 50/3.6)
+	// Its course, where CoreLocation gives one: the simulators of older Xcodes report none.
+	api.TheVanTravelled(t, [2]float64{51.3397, 12.3731}, [2]float64{51.3397, 12.3760}, 50/3.6, false)
 }

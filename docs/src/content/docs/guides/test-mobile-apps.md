@@ -220,7 +220,7 @@ Then within 20s the tracking event stream has an event where:
 And the courier app's phone reaches the end of its route
 ```
 
-The phone moves in real time, as a phone on the road does: keep routes short, or play a long one faster. On iOS, the simulator reports the route as CoreLocation reports a moving phone (`simctl location`), with its speed and course. On Android, the emulators axx starts report it every second, as NMEA sentences that carry the speed and course a plain location fix lacks; a device of your own reports where it really is.
+The phone moves in real time, as a phone on the road does: keep routes short, or play a long one faster. On iOS, the simulator reports the route as CoreLocation reports a moving phone (`simctl location`): its speed, and its course where the simulator gives one (older simulators report none). On Android, the emulators axx starts report it every second, as NMEA sentences that carry the speed and course a plain location fix lacks; a device of your own reports where it really is.
 
 ## Traces and videos
 

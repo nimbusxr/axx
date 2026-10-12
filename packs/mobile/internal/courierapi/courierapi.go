@@ -122,21 +122,22 @@ func Start(t *testing.T) *API {
 
 // TheVanTravelled checks the courier's app reported the van travelling the route a test gave
 // the phone: from one point to another, eastward or westward along a street, at a speed in
-// metres a second. While it moved, the app said how fast and which way; it ended at the end.
-func (a *API) TheVanTravelled(t *testing.T, from, to [2]float64, speed float64) {
+// metres a second. While it moved, the app said how fast and, if course, which way; it ended at
+// the end.
+func (a *API) TheVanTravelled(t *testing.T, from, to [2]float64, speed float64, course bool) {
 	t.Helper()
 	locs := a.Locations()
-	course := 90.0
+	heading := 90.0
 	if to[1] < from[1] {
-		course = 270
+		heading = 270
 	}
 	moving := 0
 	for _, l := range locs {
 		if l.Speed == nil || *l.Speed < speed*0.9 || *l.Speed > speed*1.1 {
 			continue
 		}
-		if l.Course == nil || math.Abs(*l.Course-course) > 5 {
-			t.Errorf("the van moved at %.1f m/s with a course of %v, want %.0f°", *l.Speed, l.Course, course)
+		if l.Course != nil && math.Abs(*l.Course-heading) > 5 || course && l.Course == nil {
+			t.Errorf("the van moved at %.1f m/s with a course of %v, want %.0f°", *l.Speed, l.Course, heading)
 			continue
 		}
 		moving++
