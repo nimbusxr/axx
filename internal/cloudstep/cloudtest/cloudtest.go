@@ -4,9 +4,11 @@
 package cloudtest
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"maps"
 	"os"
 	"path/filepath"
@@ -125,8 +127,17 @@ func newHarness(t *testing.T, config map[string]any, services map[string]string,
 	}
 	dir := t.TempDir()
 	sink := &Sink{}
+	// What the packs log, printed with the test's output when it fails or runs verbose (go test
+	// -v, gotestsum): how long a device took to boot, say.
+	log := &logBuffer{}
+	t.Cleanup(func() {
+		if s := log.String(); s != "" && (t.Failed() || testing.Verbose()) {
+			t.Logf("the packs' log:\n%s", s)
+		}
+	})
 	var h *Harness
 	suite := core.NewSuite(core.SuiteOptions{
+		Logger: slog.New(slog.NewTextHandler(log, nil)),
 		// Steps run by text (a paused scenario's) run as the engine runs
 		// them: in the scenario's current step.
 		Invoke: func(sc *core.Scenario, text string, table *core.Table, doc *core.DocString) error {
@@ -171,6 +182,24 @@ func newHarness(t *testing.T, config map[string]any, services map[string]string,
 	})
 	h.NewScenario()
 	return h
+}
+
+// logBuffer keeps what the packs log, from any goroutine.
+type logBuffer struct {
+	mu sync.Mutex
+	b  bytes.Buffer
+}
+
+func (l *logBuffer) Write(p []byte) (int, error) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.b.Write(p)
+}
+
+func (l *logBuffer) String() string {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.b.String()
 }
 
 // scenarioTimeout bounds a scenario, as a run's step timeouts do: a service that stops

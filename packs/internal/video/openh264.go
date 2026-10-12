@@ -129,8 +129,21 @@ func fetch(dir string) (string, error) {
 	if err := os.Chmod(tmp.Name(), 0o755); err != nil {
 		return "", err
 	}
-	if err := os.Rename(tmp.Name(), path); err != nil {
+	if err := place(tmp.Name(), path); err != nil {
 		return "", err
 	}
 	return path, nil
+}
+
+// place moves the library downloaded to tmp to path. Another axx, or another test package of
+// the same run, may have placed it meanwhile, from the same verified build: the first is kept,
+// as Windows cannot replace a library a process has loaded.
+func place(tmp, path string) error {
+	if err := os.Rename(tmp, path); err != nil {
+		if _, statErr := os.Stat(path); statErr == nil {
+			return nil
+		}
+		return err
+	}
+	return nil
 }

@@ -3,13 +3,14 @@
 #
 # go test as CI runs it, through gotestsum: a line for each package, the whole output of each test
 # that fails, and at the end the tests that took longest (those over $GOTEST_SLOWEST, 5s unless
-# set), so a slow job shows where its time goes. The arguments are go test's; the exit status is
-# go test's.
+# set), so a slow job shows where its time goes. GOTEST_FORMAT=standard-verbose shows every test's
+# output, the packs' log among it, passing tests' too. The arguments are go test's; the exit status
+# is go test's.
 set -uo pipefail
 
 json=$(mktemp)
 trap 'rm -f "$json"' EXIT
-gotestsum --format pkgname-and-test-fails --format-hide-empty-pkg --jsonfile "$json" -- "$@"
+gotestsum --format "${GOTEST_FORMAT:-pkgname-and-test-fails}" --format-hide-empty-pkg --jsonfile "$json" -- "$@"
 status=$?
 echo "Tests over ${GOTEST_SLOWEST:-5s}:"
 gotestsum tool slowest --jsonfile "$json" --threshold "${GOTEST_SLOWEST:-5s}"
