@@ -266,7 +266,7 @@ jobs:
         with:
           build: acceptance
       # Gradle's caches: written on main only (the action's default), read by pull requests.
-      - uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6
+      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6
       - name: the couriers' app
         working-directory: examples/parcels/courier/android
         run: ./gradlew --no-daemon --console=plain assembleDebug
@@ -320,7 +320,7 @@ jobs:
         with:
           build: acceptance
       # Gradle's caches: written on main only (the action's default), read by pull requests.
-      - uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6
+      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6
       - name: the couriers' app
         working-directory: examples/parcels/courier/android
         run: ./gradlew --no-daemon --console=plain assembleDebug
@@ -359,7 +359,7 @@ jobs:
           axx run --tags @android --format progress --format junit:build/axx/junit.xml --format html:build/axx/report.html \
             --set packs.mobile-core.traces=failed --set packs.mobile-core.videos=failed
       - if: failure()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: android
           # The report, and the traces, videos, screenshots and the emulators' logs a failure
@@ -490,7 +490,7 @@ jobs:
             "$IMAGE" depot-desk "$BUILD" "$DISPLAY_SERVER" --format progress --format junit:/out/junit.xml \
             --format html:/out/report.html --set packs.desktop-core.traces=failed
       - if: failure()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: desktop-${{ matrix.build }}-${{ matrix.display }}
           # Not the apps' homes in .axx: the container wrote them, some unreadable here.
@@ -619,7 +619,7 @@ jobs:
         # The Android scenarios run in the android job, on an emulator; the iOS ones on Macs.
         run: axx run --tags "not @mobile" --format progress --format junit:build/axx/junit.xml --format html:build/axx/report.html
       - if: failure()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: acceptance-${{ matrix.example }}
           # The report, and the screenshots, traces and logs a failure leaves.
@@ -631,7 +631,7 @@ jobs:
           retention-days: 7
       # How long the example took to build, pull and start, from its log.
       - if: ${{ !cancelled() && matrix.example == 'parcels' }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: apps-log-parcels
           path: examples/parcels/acceptance/.axx/logs/services.log
@@ -678,7 +678,7 @@ jobs:
           # Tools are cached from main only: pull requests read them.
           cache_save: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
       - run: mise exec aqua:rhysd/actionlint -- actionlint
-      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
           enable-cache: false
       # Security audit of every workflow (template injection, permissions, pinning...).

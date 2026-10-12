@@ -101,7 +101,7 @@ jobs:
           axx run --tags @ios --format progress --format junit:build/axx/junit.xml --format html:build/axx/report.html \
             --set packs.mobile-core.traces=failed --set packs.mobile-core.videos=failed
       - if: failure()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: mac-mini-ios
           # The report, and the traces, videos, screenshots, page sources and logs a failure leaves.
@@ -162,7 +162,7 @@ jobs:
           export PATH="$RUNNER_TEMP/bin:$PATH"
           axx run --profile "macos-$BUILD" --format progress --format junit:build/axx/junit.xml --format html:build/axx/report.html
       - if: failure()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: mac-mini-desktop-${{ matrix.build }}
           # The report, and the screenshots, traces and logs a failure leaves.
