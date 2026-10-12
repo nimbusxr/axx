@@ -3,7 +3,6 @@ package mobileios
 import (
 	"encoding/json"
 	"fmt"
-	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -86,10 +85,11 @@ func parseApp(sc *core.Scenario, expand func(string) string, name string, t *cor
 				if f == "" {
 					continue
 				}
-				if _, err := os.Stat(f); err != nil {
+				path, err := sc.ResolvePath(f)
+				if err != nil {
 					return nil, fmt.Errorf("the %s ios app's photo %q: %w", name, f, err)
 				}
-				a.photos = append(a.photos, f)
+				a.photos = append(a.photos, path)
 			}
 		case "locale":
 			if !localeRE.MatchString(value) {
