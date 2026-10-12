@@ -12,7 +12,9 @@ import androidx.activity.viewModels
 /**
  * The couriers' app: sign in, today's deliveries, and a delivery. Launched with
  * an api_url extra, it talks to that parcels service; opened with
- * parcels-courier://deliveries/{reference}, it shows that delivery.
+ * parcels-courier://deliveries/{reference}, it shows that delivery, with
+ * parcels-courier://deliveries/next the next one, and with
+ * parcels-courier://deliveries today's deliveries.
  */
 class MainActivity : ComponentActivity() {
     private val model: CourierViewModel by viewModels()
@@ -33,10 +35,13 @@ class MainActivity : ComponentActivity() {
         deepLinkReference(intent)?.let(model::openDeepLink)
     }
 
-    /** The reference in parcels-courier://deliveries/{reference}, if the intent is that link. */
+    /**
+     * What parcels-courier://deliveries/{reference} links to, if the intent is that link: a
+     * reference, "next", or "" for today's deliveries.
+     */
     private fun deepLinkReference(intent: Intent?): String? {
         val uri = intent?.takeIf { it.action == Intent.ACTION_VIEW }?.data ?: return null
         if (uri.scheme != "parcels-courier" || uri.host != "deliveries") return null
-        return uri.pathSegments.firstOrNull()?.takeIf { it.isNotBlank() }
+        return uri.pathSegments.firstOrNull()?.trim().orEmpty()
     }
 }

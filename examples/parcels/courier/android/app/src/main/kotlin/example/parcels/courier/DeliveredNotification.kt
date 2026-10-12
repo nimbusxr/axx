@@ -6,8 +6,12 @@ import android.Manifest
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.drawable.Icon
+import android.net.Uri
 import android.os.Build
 
 /**
@@ -29,8 +33,27 @@ fun notifyDelivered(context: Context, reference: String, signedBy: String) {
         .setContentTitle("$reference delivered")
         .setContentText("Signed by $signedBy")
         .setAutoCancel(true)
+        // Tapped, today's deliveries; its action, the next one.
+        .setContentIntent(link(context, "parcels-courier://deliveries", reference.hashCode()))
+        .addAction(
+            Notification.Action.Builder(
+                Icon.createWithResource(context, R.drawable.ic_delivered),
+                "Next delivery",
+                link(context, "parcels-courier://deliveries/next", reference.hashCode() + 1),
+            ).build(),
+        )
         .build()
     manager.notify(reference.hashCode(), notification)
 }
+
+/** Opens the app at a link of its own, as the notification's tap or action. */
+private fun link(context: Context, uri: String, request: Int): PendingIntent =
+    PendingIntent.getActivity(
+        context,
+        request,
+        Intent(Intent.ACTION_VIEW, Uri.parse(uri), context, MainActivity::class.java)
+            .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
+        PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+    )
 
 private const val CHANNEL_ID = "deliveries"

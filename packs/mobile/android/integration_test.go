@@ -257,3 +257,34 @@ func TestACourierSharesTheVanOnAnEmulator(t *testing.T) {
 	time.Sleep(2 * time.Second) // the last fix's report, on its way
 	api.TheVanTravelled(t, [2]float64{51.3397, 12.3731}, [2]float64{51.3397, 12.3760}, 50/3.6, true)
 }
+
+// A courier delivers with the app in the background: the delivered notification's Next delivery
+// action opens the next parcel, and the notification of that one, tapped, today's deliveries.
+func TestACourierFollowsNotificationsOnAnEmulator(t *testing.T) {
+	courierapi.Start(t)
+	t.Setenv("COURIER_PIN", "4711")
+	h := cloudtest.New(t, appcore.Pack(), mobilecore.Pack(), Pack())
+	logsOnFailure(t, h)
+	h.OK("the courier android app with the following properties:", [][]string{
+		{"apk", apk(t)}, {"device", avd(t)}, {"permissions", "POST_NOTIFICATIONS"}, {"timezone", "Europe/Berlin"}, {"host ports", "8400"},
+	})
+	signIn(h)
+	deliver := func(ref, signedBy string) {
+		h.OK(`the "` + ref + `" list item is tapped in the courier app`)
+		h.OK(`the "Signed by" field in the courier app is filled with "` + signedBy + `"`)
+		h.OK(`the "Mark delivered" button is tapped in the courier app`)
+		h.OK(`the "Confirm" button is tapped in the courier app`)
+		h.OK(`the courier app shows "Delivered"`)
+	}
+	deliver("PX-MOB-9401", "Jonas Weber")
+	h.OK("the courier app is sent to the background")
+	h.OK(`the "Next delivery" action of the "PX-MOB-9401 delivered" notification is tapped in the courier app`)
+	h.OK(`the courier app shows "Prager Str. 3, 04103 Leipzig"`)
+	h.OK(`the "Signed by" field in the courier app is filled with "Lena Vogel"`)
+	h.OK(`the "Mark delivered" button is tapped in the courier app`)
+	h.OK(`the "Confirm" button is tapped in the courier app`)
+	h.OK(`the courier app shows "Delivered"`)
+	h.OK("the courier app is sent to the background")
+	h.OK(`the "PX-MOB-9402 delivered" notification is tapped in the courier app`)
+	h.OK(`the courier app shows "No deliveries left today."`)
+}

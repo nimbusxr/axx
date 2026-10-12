@@ -441,14 +441,30 @@ func (p *pool) bootDevice(ctx context.Context, d *device) error {
 	if err != nil {
 		return err
 	}
+	// SpringBoard runs axx's library, which shows notifications' actions in Notification
+	// Center (springboard.go): without it, the rest still works.
+	lib, err := springboardLibrary(ctx, p.suite)
+	if err != nil {
+		p.suite.Logger().Warn("Notification Center will not show notifications' actions", "error", err)
+	}
 	if s, ok := findUDID(sims, d.udid); ok && s.State == "Booted" {
+		if lib != "" {
+			p.loadSpringboard(ctx, d, lib)
+		}
 		return nil
 	}
 	p.suite.Logger().Info("booting an iOS simulator", "simulator", d.name, "udid", d.udid)
 	d.booted = true
 	since := time.Now().Add(-time.Second)
-	if err := d.set.boot(ctx, d.udid, p.boot); err != nil {
+	var env []string
+	if lib != "" {
+		env = springboardEnv(lib)
+	}
+	if err := d.set.boot(ctx, d.udid, p.boot, env...); err != nil {
 		return fmt.Errorf("the simulator %s did not boot (packs.%s.bootTimeout gives it longer): %w", d.name, Name, err)
+	}
+	if lib != "" {
+		p.loadSpringboard(ctx, d, lib)
 	}
 	// Booted is not yet ready for an app that asks for notifications as it
 	// starts: its scenario would wait for a dialog that never comes.
@@ -475,6 +491,7 @@ func (d *device) stop() {
 	defer cancel()
 	if d.booted || d.made {
 		_, _ = d.set.simctl(ctx, "shutdown", d.udid)
+		_ = os.Remove(filepath.Join(springboardStatuses(), d.udid))
 	}
 	if d.made {
 		_, _ = d.set.simctl(ctx, "delete", d.udid)

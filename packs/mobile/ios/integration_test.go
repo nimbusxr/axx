@@ -245,3 +245,34 @@ func TestACourierSharesTheVanOnASimulator(t *testing.T) {
 	// Its course, where CoreLocation gives one: the simulators of older Xcodes report none.
 	api.TheVanTravelled(t, [2]float64{51.3397, 12.3731}, [2]float64{51.3397, 12.3760}, 50/3.6, false)
 }
+
+// A courier delivers with the app in the background: the delivered notification's Next delivery
+// action (in the menu a long press shows) opens the next parcel, and the notification of that
+// one, tapped, today's deliveries.
+func TestACourierFollowsNotificationsOnASimulator(t *testing.T) {
+	device := simulator(t)
+	courierapi.Start(t)
+	t.Setenv("COURIER_PIN", "4711")
+	h := harness(t)
+	warm(t, h, device)
+	h.OK("the courier ios app with the following properties:", [][]string{
+		{"app", courierBuild(t)}, {"device", device}, {"timezone", "Europe/Berlin"},
+	})
+	signIn(h)
+	h.OK(`the courier app's dialog is accepted`)
+	h.OK(`the "PX-MOB-9401" list item is tapped in the courier app`)
+	h.OK(`the "Signed by" field in the courier app is filled with "Jonas Weber"`)
+	h.OK(`the "Mark delivered" button is tapped in the courier app`)
+	h.OK(`the "Confirm" button is tapped in the courier app`)
+	h.OK(`the courier app shows "Delivered"`)
+	h.OK("the courier app is sent to the background")
+	h.OK(`the "Next delivery" action of the "PX-MOB-9401 delivered" notification is tapped in the courier app`)
+	h.OK(`the courier app shows "Prager Str. 3, 04103 Leipzig"`)
+	h.OK(`the "Signed by" field in the courier app is filled with "Lena Vogel"`)
+	h.OK(`the "Mark delivered" button is tapped in the courier app`)
+	h.OK(`the "Confirm" button is tapped in the courier app`)
+	h.OK(`the courier app shows "Delivered"`)
+	h.OK("the courier app is sent to the background")
+	h.OK(`the "PX-MOB-9402 delivered" notification is tapped in the courier app`)
+	h.OK(`the courier app shows "No deliveries left today."`)
+}

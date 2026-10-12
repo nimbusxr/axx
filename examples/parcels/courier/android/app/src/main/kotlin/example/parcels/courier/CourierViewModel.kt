@@ -116,7 +116,11 @@ class CourierViewModel(app: Application) : AndroidViewModel(app) {
                 deliveries = null
                 val ref = pendingReference
                 pendingReference = null
-                if (ref != null) openDelivery(ref) else screen = Screen.Deliveries
+                when (ref) {
+                    null, "" -> screen = Screen.Deliveries
+                    "next" -> openNext()
+                    else -> openDelivery(ref)
+                }
                 refresh()
             } catch (e: ApiException) {
                 signInError = if (e.status == 401) WRONG_SIGN_IN else unexpected(e)
@@ -170,14 +174,38 @@ class CourierViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /** parcels-courier://deliveries/{reference}: after signing in, if the courier has not. */
+    /** parcels-courier://deliveries/{reference}: a delivery, the next one ("next"), or today's ("") */
     fun openDeepLink(reference: String) {
         if (session == null) {
             pendingReference = reference
             screen = Screen.SignIn
             return
         }
-        openDelivery(reference)
-        refresh()
+        when (reference) {
+            "" -> backToDeliveries()
+            "next" -> openNext()
+            else -> {
+                openDelivery(reference)
+                refresh()
+            }
+        }
+    }
+
+    /** The first of today's deliveries not delivered yet, as the service has them now; the list when none is left. */
+    private fun openNext() {
+        val s = session ?: return
+        viewModelScope.launch {
+            try {
+                val left = api().deliveries(s)
+                deliveries = left
+                val next = left.firstOrNull()
+                if (next != null) openDelivery(next.reference) else backToDeliveries()
+            } catch (e: IOException) {
+                backToDeliveries()
+            } catch (e: JSONException) {
+                backToDeliveries()
+            }
+        }
     }
 
     fun openDelivery(reference: String) {

@@ -2,7 +2,7 @@
   "description": "The frozen catalog of built-in step text. Step text is public API: every entry must stay defined, verbatim, by its pack.",
   "counts": {
     "parameterType": 17,
-    "step": 707
+    "step": 708
   },
   "entries": [
     {
@@ -3741,7 +3741,7 @@
       "pack": "app-core",
       "keyword": "ParameterType",
       "name": "control",
-      "expression": "(buttons?|fields?|checkbox(?:es)?|radio buttons?|switch(?:es)?|tabs?|menu items?|menus?|list items?|rows?|links?|images?|texts?|elements?)"
+      "expression": "(buttons?|fields?|checkbox(?:es)?|radio buttons?|switch(?:es)?|tabs?|menu items?|menus?|list items?|rows?|links?|images?|texts?|elements?|notifications?)"
     },
     {
       "kind": "parameterType",
@@ -4365,6 +4365,12 @@
       "pack": "mobile-core",
       "keyword": "Then",
       "expression": "within {duration} the {word} app's phone reaches the end of its route"
+    },
+    {
+      "kind": "step",
+      "pack": "mobile-core",
+      "keyword": "When",
+      "expression": "the {string} action of the {string} notification is tapped in the {word} app"
     }
   ]
 }

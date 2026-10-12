@@ -30,6 +30,7 @@ var Kinds = []Kind{
 	{"image", "images"},
 	{"text", "texts"},
 	{"element", "elements"},
+	{"notification", "notifications"},
 }
 
 // KindOf is the kind a {control} word names, singular or plural.
@@ -48,11 +49,12 @@ var Field = Kind{"field", "fields"}
 var controlParam = core.ParamType{
 	Name: "control",
 	Regexps: []string{`(buttons?|fields?|checkbox(?:es)?|radio buttons?|switch(?:es)?|tabs?|menu items?|menus?|list items?|rows?|links?|` +
-		`images?|texts?|elements?)`},
+		`images?|texts?|elements?|notifications?)`},
 	Doc: "a kind of control an app shows, found by the name people see: a `button` by its text, a `field` by its label, " +
-		"a `list item` or a `row` by one of its texts, a `menu item` in its open menu, an `element` is anything, by its text or accessibility label. " +
+		"a `list item` or a `row` by one of its texts, a `menu item` in its open menu, an `element` is anything, by its text or accessibility label; " +
+		"a phone's `notification` is tapped, by a text in its title or its text. " +
 		"A kind an app's platform does not have (a phone has no menu bar) fails the step",
-	Values:   []string{"button", "field", "checkbox", "radio button", "switch", "tab", "menu", "menu item", "list item", "row", "link", "image", "text", "element"},
+	Values:   []string{"button", "field", "checkbox", "radio button", "switch", "tab", "menu", "menu item", "list item", "row", "link", "image", "text", "element", "notification"},
 	Examples: []string{"button", "list item"},
 	Transform: func(_ *core.Scenario, match string, _ []*string) (any, error) {
 		k, ok := KindOf(match)

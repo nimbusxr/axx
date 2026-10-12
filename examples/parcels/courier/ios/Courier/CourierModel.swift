@@ -76,9 +76,13 @@ final class CourierModel {
                 deliveriesError = nil
                 let reference = pendingReference
                 pendingReference = nil
-                path = reference.map { [$0] } ?? []
                 session = s
-                refresh()
+                if let reference, !reference.isEmpty {
+                    openDeepLink(reference)
+                } else {
+                    path = []
+                    refresh()
+                }
             } catch let e as APIError {
                 signInError = e.status == 401 ? Self.wrongSignIn : Self.unexpected(e)
             } catch {
@@ -162,13 +166,35 @@ final class CourierModel {
     }
 
     /// parcels-courier://deliveries/{reference}: after signing in, if the courier has not.
+    /// parcels-courier://deliveries/{reference}: a delivery, the next one ("next"), or today's ("").
     func openDeepLink(_ reference: String) {
         if session == nil {
             pendingReference = reference
             return
         }
-        path = [reference]
-        refresh()
+        switch reference {
+        case "":
+            path = []
+            refresh()
+        case "next":
+            openNext()
+        default:
+            path = [reference]
+            refresh()
+        }
+    }
+
+    /// The first of today's deliveries not delivered yet, as the service has them now; the list when none is left.
+    private func openNext() {
+        guard let s = session else { return }
+        Task {
+            if let left = try? await api.deliveries(s) {
+                deliveries = left
+                path = left.first.map { [$0.reference] } ?? []
+            } else {
+                path = []
+            }
+        }
     }
 
     func backToDeliveries() {

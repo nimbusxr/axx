@@ -42,3 +42,35 @@ Feature: The couriers' app asks to notify
       | _id       | PX-MOB-9441 |
       | status    | DELIVERED   |
       | delivered | true        |
+
+  Scenario: A courier follows the delivered notification's Next delivery action to the next parcel
+    Given a seeds/courier-app-follow-notifications.yaml db seed
+    And the courier app is launched
+    And the "Courier ID" field in the courier app is filled with "CR-LEJ-33"
+    And the "PIN" field in the courier app is filled with "${sys:couriers.pin}"
+    And the "Sign in" button is tapped in the courier app
+    And the courier app's dialog is accepted
+    And the "PX-MOB-9471" list item is tapped in the courier app
+    And the "Signed by" field in the courier app is filled with "T. Krüger"
+    And the "Mark delivered" button is tapped in the courier app
+    And the "Confirm" button is tapped in the courier app
+    And the courier app shows "Delivered"
+    And the courier app is sent to the background
+    When the "Next delivery" action of the "PX-MOB-9471 delivered" notification is tapped in the courier app
+    Then the courier app shows "Georg-Schwarz-Str. 30, 04177 Leipzig"
+
+  Scenario: A courier taps the last delivered notification, and finds the day's deliveries done
+    Given a seeds/courier-app-last-notification.yaml db seed
+    And the courier app is launched
+    And the "Courier ID" field in the courier app is filled with "CR-LEJ-35"
+    And the "PIN" field in the courier app is filled with "${sys:couriers.pin}"
+    And the "Sign in" button is tapped in the courier app
+    And the courier app's dialog is accepted
+    And the "PX-MOB-9473" list item is tapped in the courier app
+    And the "Signed by" field in the courier app is filled with "M. Vogel"
+    And the "Mark delivered" button is tapped in the courier app
+    And the "Confirm" button is tapped in the courier app
+    And the courier app shows "Delivered"
+    And the courier app is sent to the background
+    When the "PX-MOB-9473 delivered" notification is tapped in the courier app
+    Then the courier app shows "No deliveries left today."

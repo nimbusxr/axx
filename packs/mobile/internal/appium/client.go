@@ -440,3 +440,15 @@ func (c *Client) WaitReady(ctx context.Context, within time.Duration) error {
 		}
 	}
 }
+
+// TouchAndHold presses the element for a while, in place, as a finger holds it to see its menu
+// (WebDriverAgent's pressForDuration).
+func (e *Element) TouchAndHold(ctx context.Context, d time.Duration) error {
+	return e.s.do(ctx, http.MethodPost, "/wda/element/"+e.ID+"/touchAndHold", map[string]any{"duration": d.Seconds()}, nil)
+}
+
+// TouchAndHold presses a point of the screen for a while, as a finger holds something to see its
+// menu (WebDriverAgent).
+func (s *Session) TouchAndHold(ctx context.Context, x, y float64, d time.Duration) error {
+	return s.do(ctx, http.MethodPost, "/wda/touchAndHold", map[string]any{"x": x, "y": y, "duration": d.Seconds()}, nil)
+}

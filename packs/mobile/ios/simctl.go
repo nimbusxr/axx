@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"os/exec"
 	"regexp"
 	"slices"
@@ -21,9 +22,19 @@ func simctl(ctx context.Context, args ...string) (string, error) {
 // simctlWithin runs xcrun simctl for a command that may take up to within,
 // like waiting for a simulator to boot.
 func simctlWithin(ctx context.Context, within time.Duration, args ...string) (string, error) {
+	return simctlEnv(ctx, within, nil, args...)
+}
+
+// simctlEnv runs xcrun simctl with variables added to its environment: simctl passes each
+// SIMCTL_CHILD_ one on to what it starts on the simulator.
+func simctlEnv(ctx context.Context, within time.Duration, env []string, args ...string) (string, error) {
 	ctx, cancel := context.WithTimeout(ctx, within)
 	defer cancel()
-	out, err := exec.CommandContext(ctx, "xcrun", append([]string{"simctl"}, args...)...).CombinedOutput() //nolint:gosec // simctl, with arguments axx builds
+	cmd := exec.CommandContext(ctx, "xcrun", append([]string{"simctl"}, args...)...) //nolint:gosec // simctl, with arguments axx builds
+	if env != nil {
+		cmd.Env = append(os.Environ(), env...)
+	}
+	out, err := cmd.CombinedOutput()
 	text := strings.TrimSpace(string(out))
 	if err != nil {
 		if errors.Is(err, exec.ErrNotFound) {
@@ -184,12 +195,12 @@ func newer(a, b string) bool {
 	return false
 }
 
-// boot boots a simulator of the set and waits, up to within, until it has
-// finished booting.
-func (set simSet) boot(ctx context.Context, udid string, within time.Duration) error {
+// boot boots a simulator of the set, its processes started with env's SIMCTL_CHILD_
+// variables, and waits, up to within, until it has finished booting.
+func (set simSet) boot(ctx context.Context, udid string, within time.Duration, env ...string) error {
 	ctx, cancel := context.WithTimeout(ctx, within)
 	defer cancel()
-	if _, err := set.simctl(ctx, "boot", udid); err != nil && !strings.Contains(err.Error(), "current state: Booted") {
+	if _, err := simctlEnv(ctx, 5*time.Minute, env, set.args("boot", udid)...); err != nil && !strings.Contains(err.Error(), "current state: Booted") {
 		return err
 	}
 	if _, err := simctlWithin(ctx, within, set.args("bootstatus", udid, "-b")...); err != nil {

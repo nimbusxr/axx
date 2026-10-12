@@ -1,0 +1,16 @@
+# Two parcels out for delivery with CR-LEJ-34, who follows the first's delivered notification to the next.
+parcels.parcels:
+  - reference: "PX-IOS-9571"
+    sender: "maple-crafts"
+    status: "OUT_FOR_DELIVERY"
+    service_level: "STANDARD"
+    weight_grams: 1800
+    recipient: '{"name": "Hannes Roth", "street": "Eisenbahnstr. 112", "city": "Leipzig", "postcode": "04315", "country": "DE"}'
+    details: '{"source": "api", "zone": "DE-1", "courier": "CR-LEJ-34"}'
+  - reference: "PX-IOS-9572"
+    sender: "maple-crafts"
+    status: "OUT_FOR_DELIVERY"
+    service_level: "STANDARD"
+    weight_grams: 1800
+    recipient: '{"name": "Klara Zimmer", "street": "Torgauer Str. 5", "city": "Leipzig", "postcode": "04315", "country": "DE"}'
+    details: '{"source": "api", "zone": "DE-1", "courier": "CR-LEJ-34"}'
