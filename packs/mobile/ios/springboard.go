@@ -116,6 +116,7 @@ func (p *pool) loadSpringboard(ctx context.Context, d *device, lib string) {
 			setenv(ctx, d, "DYLD_INSERT_LIBRARIES", lib),
 			setenv(ctx, d, "AXX_SPRINGBOARD_STATUS", springboardStatuses()),
 		)
+		since := time.Now().Add(-time.Second)
 		if err == nil {
 			_, err = d.set.simctl(ctx, "spawn", d.udid, "launchctl", "kickstart", "-k", "user/foreground/com.apple.SpringBoard")
 		}
@@ -129,6 +130,11 @@ func (p *pool) loadSpringboard(ctx context.Context, d *device, lib string) {
 		if err != nil {
 			p.suite.Logger().Warn("cannot load axx's library into the simulator's SpringBoard: Notification Center will not show notifications' actions", "simulator", d.name, "error", err)
 			return
+		}
+		// SpringBoard, started again, serves apps' requests for notifications a while later, as
+		// after a boot.
+		if !d.set.notificationsServed(ctx, d.udid, since, min(p.boot, notificationsWait)) {
+			p.suite.Logger().Warn("the iOS simulator does not serve notifications yet; an app that asks for them may get no dialog", "simulator", d.name, "waited", min(p.boot, notificationsWait))
 		}
 	}
 	switch status := springboardStatus(d.udid); status {
