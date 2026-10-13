@@ -78,6 +78,8 @@ jobs:
     # every time (WebDriverAgent, the simulators and the iOS runtime's shared cache), its
     # Go and mise caches, and the compose file's images and build cache: nothing is restored or
     # saved. GitHub's cache is not used at all, as a pull_request_target run would write main's.
+    # Three simulators run scenarios at once: on the mini, a suite of 38 iOS scenarios took 17m48s
+    # on one simulator, 11m20s on two and 9m56s on three.
     runs-on: [self-hosted, macOS, ARM64, mac-mini]
     timeout-minutes: 60
     steps:
@@ -107,7 +109,7 @@ jobs:
         run: |
           export PATH="$RUNNER_TEMP/bin:$PATH"
           axx run --tags @ios --format progress --format junit:build/axx/junit.xml --format html:build/axx/report.html \
-            --set packs.mobile-core.traces=failed --set packs.mobile-core.videos=failed
+            --set packs.mobile-core.traces=failed --set packs.mobile-core.videos=failed --set packs.mobile-ios.devices=3
       - if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
