@@ -211,7 +211,8 @@ func (d *running) Session() *appium.Session { return d.session }
 
 // revive starts the UiAutomator2 server again after it crashed under the scenario (its own
 // process: the app is as it was), and a session on it, which the scenario's becomes. Its log
-// keeps the device's crash log, which says why.
+// keeps the device's crash log, which says why. A server also ends when adb loses the device for
+// a moment, and the app's host ports with it: revive gives the app those again.
 func (d *running) revive(ctx context.Context) error {
 	// A step and the recorder may both find the server dead: the first starts it again, and the
 	// second finds the session answering.
@@ -223,12 +224,32 @@ func (d *running) revive(ctx context.Context) error {
 	if err := d.pool.startServer(ctx, d.dev, d.logDir); err != nil {
 		return err
 	}
+	if err := d.reachHostPorts(ctx); err != nil {
+		return err
+	}
 	s, err := d.dev.server.client.NewSession(ctx, d.caps)
 	if err != nil {
 		return err
 	}
 	d.session.Renew(s.ID)
 	d.resets = append(d.resets, "the UiAutomator2 server started again after it crashed")
+	return nil
+}
+
+// reachHostPorts makes what the app reaches as localhost: the registration's host ports, and none
+// another scenario's registration gave. adb keeps them only while it has the device: when it
+// loses the device under a scenario (an emulator that stalls), they go with it, and revive makes
+// them again with the server.
+func (d *running) reachHostPorts(ctx context.Context) error {
+	if _, err := d.sdk.run(ctx, d.dev.serial, "reverse", "--remove-all"); err != nil {
+		return err
+	}
+	for _, port := range d.app.hostPorts {
+		tcp := "tcp:" + strconv.Itoa(port)
+		if _, err := d.sdk.run(ctx, d.dev.serial, "reverse", tcp, tcp); err != nil {
+			return fmt.Errorf("the %s app cannot reach port %d of this machine: %w", d.app.name, port, err)
+		}
+	}
 	return nil
 }
 
@@ -268,16 +289,8 @@ func (d *running) resetDevice(ctx context.Context) error {
 	if err := d.putPhotos(ctx); err != nil {
 		return err
 	}
-	// What the app reaches as localhost: the registration's host ports, and
-	// none another scenario's registration gave.
-	if _, err := d.sdk.run(ctx, d.dev.serial, "reverse", "--remove-all"); err != nil {
+	if err := d.reachHostPorts(ctx); err != nil {
 		return err
-	}
-	for _, port := range d.app.hostPorts {
-		tcp := "tcp:" + strconv.Itoa(port)
-		if _, err := d.sdk.run(ctx, d.dev.serial, "reverse", tcp, tcp); err != nil {
-			return fmt.Errorf("the %s app cannot reach port %d of this machine: %w", d.app.name, port, err)
-		}
 	}
 	if len(d.app.hostPorts) > 0 {
 		ports := make([]string, len(d.app.hostPorts))
