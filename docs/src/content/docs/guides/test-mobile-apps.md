@@ -239,8 +239,8 @@ An app that measures, places or finds things through the camera, with ARKit and 
 
 ```gherkin
 Given the courier app's camera sees scenes/parcel-on-porch.glb
-And the courier app is launched
-...
+And the courier app is opened with the "parcels-courier://deliveries/PX-IOS-9581" link
+And the "Measure parcel" button is tapped in the courier app
 When the "front left corner" in the courier app's camera view is tapped
 And the "front right corner" in the courier app's camera view is tapped
 Then the courier app shows "60 cm"
