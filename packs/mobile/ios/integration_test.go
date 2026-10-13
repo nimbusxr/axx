@@ -76,6 +76,17 @@ func harnessWith(t *testing.T, config map[string]any) *cloudtest.Harness {
 			defer cancel()
 			src, err := d.Session().Source(ctx)
 			t.Logf("the courier app's page source at the failure (%v):\n%s", err, src)
+			// What the simulator's own log says, in the last minutes, of the app, of the document
+			// picker and the files it shows, and of each tap XCTest made (where, and when), with
+			// the errors of each of those processes.
+			if r, ok := d.(*running); ok && r.dev != nil {
+				out, err := exec.CommandContext(ctx, "xcrun", "simctl", "spawn", r.dev.udid, "log", "show", "--last", "2m", "--style", "compact", "--predicate", //nolint:gosec // the test's own simulator
+					`subsystem BEGINSWITH "com.apple.DocumentManager" OR subsystem BEGINSWITH "com.apple.FileProvider" OR subsystem BEGINSWITH "example.parcels"`+
+						` OR (process == "testmanagerd" AND eventMessage BEGINSWITH "Synthesizing event")`+
+						` OR ((process == "Courier" OR process CONTAINS[c] "document" OR process CONTAINS[c] "fileprovider") AND messageType IN {16, 17})`).CombinedOutput()
+				lines := strings.Split(string(out), "\n")
+				t.Logf("the simulator's log (%v):\n%s", err, strings.Join(lines[max(0, len(lines)-600):], "\n"))
+			}
 			return nil
 		})
 		logs, _ := filepath.Glob(filepath.Join(h.Dir, ".axx", "mobile", "*.log"))
