@@ -50,6 +50,7 @@ type simDevice struct {
 	UDID       string `json:"udid"`
 	State      string `json:"state"`
 	DeviceType string `json:"deviceTypeIdentifier"`
+	DataPath   string `json:"dataPath"` // its own data folder
 	runtime    string // its runtime's identifier
 }
 

@@ -263,3 +263,21 @@ func TestDocumentsGoOnMyIPhoneAndOutAgain(t *testing.T) {
 		t.Errorf("the list of axx's documents outlives a scenario that put none: %v", err)
 	}
 }
+
+// A simulator axx clones names its original's folders as its own (simctl get_app_container): its
+// own On My iPhone is the folder of that name in its own data.
+func TestAClonesFilesAreItsOwn(t *testing.T) {
+	set := "/cache/axx/mobile/simulators"
+	original := set + "/5262C1E9/data/Containers/Shared/AppGroup/F621ECE2"
+	clone := set + "/E626FE31/data"
+	if got, want := inDataOf(clone, original), clone+"/Containers/Shared/AppGroup/F621ECE2"; got != want {
+		t.Errorf("the clone's files are at %s, want %s", got, want)
+	}
+	own := "/Users/someone/Library/Developer/CoreSimulator/Devices/0D13CB34/data/Containers/Shared/AppGroup/C9B3D3CD"
+	if got := inDataOf("/Users/someone/Library/Developer/CoreSimulator/Devices/0D13CB34/data", own); got != own {
+		t.Errorf("a simulator's own files moved to %s", got)
+	}
+	if got := inDataOf(clone, "/somewhere/else"); got != "/somewhere/else" {
+		t.Errorf("a folder outside a simulator's data moved to %s", got)
+	}
+}
