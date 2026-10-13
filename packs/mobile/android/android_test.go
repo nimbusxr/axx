@@ -768,3 +768,15 @@ func TestForwardedPort(t *testing.T) {
 		}
 	}
 }
+
+// The notification shade is open when its window has the focus, as dumpsys window says (API 35).
+func TestTheShadeIsOpenWhenItHasTheFocus(t *testing.T) {
+	open := "  mCurrentFocus=Window{caffb71 u0 NotificationShade}\n  mFocusedApp=ActivityRecord{ef499bf u0 com.google.android.apps.nexuslauncher/.NexusLauncherActivity t7}\n"
+	shut := "  mCurrentFocus=Window{1013a10 u0 com.google.android.apps.nexuslauncher/com.google.android.apps.nexuslauncher.NexusLauncherActivity}\n"
+	if !shadeHasFocus(open) {
+		t.Error("the shade's window has the focus, and the shade is not taken for open")
+	}
+	if shadeHasFocus(shut) || shadeHasFocus("") {
+		t.Error("the launcher has the focus, and the shade is taken for open")
+	}
+}

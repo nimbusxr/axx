@@ -664,26 +664,71 @@ func shown(s *mobilecore.Screen) string {
 // OpenNotifications opens the notification shade, which the screen then
 // shows, and Back closes.
 func (d *running) OpenNotifications(ctx context.Context) (mobilecore.Notifications, error) {
-	var err error
-	if d.dev != nil {
-		err = d.session.Command(ctx, http.MethodPost, "/appium/device/open_notifications", nil, nil)
-	} else {
-		err = d.session.Mobile(ctx, "openNotifications", nil, nil)
+	open := func() error {
+		if d.dev != nil {
+			_, err := d.sdk.shell(ctx, d.dev.serial, "cmd", "statusbar", "expand-notifications")
+			return err
+		}
+		return d.session.Mobile(ctx, "openNotifications", nil, nil)
 	}
-	if err != nil {
+	if err := open(); err != nil {
 		return nil, fmt.Errorf("cannot open the notification shade: %w", err)
 	}
 	hide := d.session.Back
 	if d.dev != nil {
+		// The shade slides open after the command returns: it is read once it has the focus, and
+		// opened again if it has not taken it.
+		for range 2 {
+			if d.shadeFocused(ctx, true) {
+				break
+			}
+			if err := open(); err != nil {
+				return nil, fmt.Errorf("cannot open the notification shade: %w", err)
+			}
+		}
 		// Collapsed, not backed out of: once a notification opened the app, the shade is gone, and
-		// a back would take the app back a screen.
+		// a back would take the app back a screen. It is shut before the next step goes on, which
+		// may open it again.
 		hide = func(ctx context.Context) error {
-			_, err := d.sdk.shell(ctx, d.dev.serial, "cmd", "statusbar", "collapse")
-			return err
+			if _, err := d.sdk.shell(ctx, d.dev.serial, "cmd", "statusbar", "collapse"); err != nil {
+				return err
+			}
+			d.shadeFocused(ctx, false)
+			return nil
 		}
 	}
 	tap := func(ctx context.Context, x, y float64) error { return d.session.Drag(ctx, x, y, x, y, 0) }
 	return mobilecore.ScreenNotifications{Read: d.Screen, Hide: hide, Tap: tap}, nil
+}
+
+// shadeFocused waits, up to three seconds, for the notification shade to have the focus (open)
+// or not to (shut), and reports whether it came to that.
+func (d *running) shadeFocused(ctx context.Context, open bool) bool {
+	for deadline := time.Now().Add(3 * time.Second); ; {
+		out, err := d.sdk.shell(ctx, d.dev.serial, "dumpsys", "window", "displays")
+		if err == nil && shadeHasFocus(out) == open {
+			return true
+		}
+		if time.Now().After(deadline) {
+			return false
+		}
+		select {
+		case <-ctx.Done():
+			return false
+		case <-time.After(150 * time.Millisecond):
+		}
+	}
+}
+
+// shadeHasFocus is whether the window with the focus, as dumpsys window says, is the
+// notification shade's.
+func shadeHasFocus(dumpsys string) bool {
+	for _, line := range strings.Split(dumpsys, "\n") {
+		if _, focus, ok := strings.Cut(line, "mCurrentFocus="); ok {
+			return strings.Contains(focus, "NotificationShade")
+		}
+	}
+	return false
 }
 
 // ScrollToShow scrolls the screen's scrolling view down until the control of that name shows, as
