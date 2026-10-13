@@ -116,11 +116,11 @@ jobs:
       - name: Windows gives the runner a desktop
         working-directory: examples/parcels/depot-desk/acceptance
         run: |
-          export PATH="$(cygpath -u "$RUNNER_TEMP")/bin:$PATH"
+          PATH="$(cygpath -u "$RUNNER_TEMP")/bin:$PATH"
           axx doctor --profile "windows-$BUILD"
       - working-directory: examples/parcels/depot-desk/acceptance
         run: |
-          export PATH="$(cygpath -u "$RUNNER_TEMP")/bin:$PATH"
+          PATH="$(cygpath -u "$RUNNER_TEMP")/bin:$PATH"
           axx run --profile "windows-$BUILD" --format progress --format junit:build/axx/junit.xml --format html:build/axx/report.html
       - if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
