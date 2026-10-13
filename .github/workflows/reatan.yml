@@ -1,0 +1,134 @@
+name: reatan
+
+# What needs a Windows desktop at the scale the Windows screenshots are kept at, which GitHub's
+# Windows runners cannot give (they draw at a scale of 1, in images that change): the depot desk's
+# native Windows builds. They run on the project's Reatan, a mini PC that is a self-hosted runner
+# (label reatan) in the reatan runner group, which only this file, as it is on main, may use: the
+# group names it.
+#
+# Pull requests run here through pull_request_target, which always runs main's copy of this file,
+# never the pull request's: a pull request cannot change what runs on the Reatan, or where. Only
+# pull requests from this repository's own branches run, which only people with write access can
+# push; a fork's never does, nor a bot's dependency update: they run once they are merged.
+on:
+  pull_request_target: # zizmor: ignore[dangerous-triggers] main's copy only, and the gate below keeps out forks and bots
+    types: [opened, synchronize, reopened]
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One runner: runs queue for it. A pull request's newer push cancels its older run.
+concurrency:
+  group: reatan-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request_target' }}
+
+jobs:
+  # Which jobs a pull request needs, from the files it changes, with main's scripts/ci-changes.sh
+  # (pull_request_target checks out main) and the pull request's list of files: nothing of the
+  # pull request's is checked out here. A push to main runs the jobs for what a bot's merged pull
+  # request changed (bots' pull requests do not run here); everyone else's ran before the merge,
+  # so their pushes run nothing. Manual runs run every job.
+  changes:
+    # The gate: main only (a manual run from another branch could not use the Reatan anyway); for
+    # pull requests, this repository's branches, not a bot's; for pushes, a bot's merge.
+    if: >-
+      github.ref == 'refs/heads/main' && (
+      (github.event_name == 'pull_request_target' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.user.type != 'Bot') ||
+      (github.event_name == 'push' && endsWith(github.event.head_commit.author.name, '[bot]')) ||
+      github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      desktop: ${{ steps.changes.outputs.desktop }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          fetch-depth: 2 # a push's merge and the commit before it
+          persist-credentials: false
+      - id: changes
+        env:
+          EVENT: ${{ github.event_name }}
+          PR: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "$EVENT" = pull_request_target ]; then
+            gh api "repos/$REPO/pulls/$PR/files" --paginate --jq '.[].filename' | scripts/ci-changes.sh
+          elif [ "$EVENT" = push ] && files=$(git diff --name-only HEAD^1 HEAD); then
+            printf '%s\n' "$files" | scripts/ci-changes.sh
+          else
+            scripts/ci-changes.sh --all
+          fi | tee -a "$GITHUB_OUTPUT"
+
+  desktop:
+    needs: changes
+    if: needs.changes.outputs.desktop == 'true'
+    # The depot desk's feature against its native Windows builds, through UI Automation, on the
+    # Reatan's desktop: the runner starts when the user the Reatan signs in on its own signs in, in
+    # a console of its own (conhost), as axx needs on Windows: a service or an SSH session has no
+    # desktop, and an app comes to the front as the console axx runs in lets it. The display is 4K
+    # at 250%, the scale the Windows Forms and WPF screenshots are kept at (*.windows@2.5x.png).
+    # The other Windows builds (Qt, Swing, Electron, Tauri, Flutter) need their toolkits on the
+    # Reatan, and still run on developers' machines.
+    name: desktop (windows-${{ matrix.build }})
+    runs-on: [self-hosted, Windows, X64, reatan]
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        build: [winforms, wpf, winui]
+    env:
+      BUILD: ${{ matrix.build }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          # The pull request's code: only ever one of this repository's branches (see the gate).
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+        with:
+          install_args: "go"
+          cache: false
+      # The steps that run it put it on their own PATH: a pull_request_target workflow does not
+      # write $GITHUB_PATH.
+      - name: axx, with every pack
+        run: go build -o "$RUNNER_TEMP/bin/axx.exe" ./internal/tools/axxall
+      - name: the desk's build
+        working-directory: examples/parcels/depot-desk/${{ matrix.build }}
+        # WinUI builds for a platform: the Reatan's is x64.
+        run: |
+          if [ "$BUILD" = winui ]; then
+            dotnet build -c Release -p:Platform=x64
+          else
+            dotnet build -c Release
+          fi
+      - name: Windows gives the runner a desktop
+        working-directory: examples/parcels/depot-desk/acceptance
+        run: |
+          PATH="$(cygpath -u "$RUNNER_TEMP")/bin:$PATH"
+          axx doctor --profile "windows-$BUILD"
+      - working-directory: examples/parcels/depot-desk/acceptance
+        run: |
+          PATH="$(cygpath -u "$RUNNER_TEMP")/bin:$PATH"
+          axx run --profile "windows-$BUILD" --format progress --format junit:build/axx/junit.xml --format html:build/axx/report.html
+      - if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: reatan-desktop-${{ matrix.build }}
+          # The report, and the screenshots, traces and logs a failure leaves.
+          path: |
+            examples/parcels/depot-desk/acceptance/build/axx/
+            examples/parcels/depot-desk/acceptance/.axx/
+          if-no-files-found: ignore
+          retention-days: 7

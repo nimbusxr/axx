@@ -3,3 +3,5 @@ self-hosted-runner:
   labels:
     # The Mac mini that mac-mini.yml runs on.
     - mac-mini
+    # The Reatan (a Windows mini PC) that reatan.yml runs on.
+    - reatan
