@@ -24,6 +24,7 @@ type app struct {
 	location    *[2]float64
 	server      string         // an Appium server of the project's own, or a device farm's
 	caps        map[string]any // capability.<name> rows, for that server
+	camera      *arCamera      // the scene the app's camera sees, when a step gave it one (ar.go)
 }
 
 var (

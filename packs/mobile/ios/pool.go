@@ -450,10 +450,18 @@ func (p *pool) bootDevice(ctx context.Context, d *device) error {
 		p.suite.Logger().Warn("Notification Center will not show notifications' actions", "error", err)
 	}
 	if s, ok := findUDID(sims, d.udid); ok && s.State == "Booted" {
-		if lib != "" {
-			p.loadSpringboard(ctx, d, lib)
+		if lib == "" || !springboardBootedWithAnother(ctx, d, lib) {
+			if lib != "" {
+				p.loadSpringboard(ctx, d, lib)
+			}
+			return nil
 		}
-		return nil
+		// An earlier axx booted it with its library, which its processes keep: it boots again,
+		// with this one (an app whose camera sees a scene needs it, ar.go).
+		p.suite.Logger().Info("booting an iOS simulator again: it runs an earlier axx's library", "simulator", d.name, "udid", d.udid)
+		if _, err := d.set.simctl(ctx, "shutdown", d.udid); err != nil {
+			return fmt.Errorf("cannot boot the simulator %s again: %w", d.name, err)
+		}
 	}
 	p.suite.Logger().Info("booting an iOS simulator", "simulator", d.name, "udid", d.udid)
 	d.booted = true

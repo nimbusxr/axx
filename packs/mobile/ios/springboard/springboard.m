@@ -5,24 +5,34 @@
 // simulator lacks. Cover Sheet lets a person hold a notification there, to see its actions,
 // only on a phone it can tell is in a hand: one with a proximity sensor, or with Face ID
 // unlock, which takes a passcode a simulator cannot have. Without a sensor, a hold is taken
-// for a tap. Everywhere else (the app under test, WebDriverAgent) the library does nothing.
+// for a tap. In an app whose camera sees a scene (ar.go), it loads axx's AR library. Everywhere
+// else (the app under test otherwise, WebDriverAgent) the library does nothing.
 
 #import <Foundation/Foundation.h>
+#import <dlfcn.h>
 #import <objc/runtime.h>
 
 // report writes how it went where axx reads it: a file named for the simulator, in the folder
-// axx gives, with SpringBoard's process id first.
+// axx gives, with SpringBoard's process id first, and this library's path on the next line.
 static void report(NSString *status) {
   const char *dir = getenv("AXX_SPRINGBOARD_STATUS");
   const char *udid = getenv("SIMULATOR_UDID");
   if (dir == NULL || udid == NULL) {
     return;
   }
-  NSString *line = [NSString stringWithFormat:@"%d %@\n", getpid(), status];
+  Dl_info self;
+  const char *lib = dladdr((const void *)report, &self) ? self.dli_fname : "";
+  NSString *line = [NSString stringWithFormat:@"%d %@\n%s\n", getpid(), status, lib];
   [line writeToFile:[NSString stringWithFormat:@"%s/%s", dir, udid] atomically:YES encoding:NSUTF8StringEncoding error:nil];
 }
 
 __attribute__((constructor)) static void proximitySensor(void) {
+  // An app whose camera sees a scene: it loads axx's AR library (ar.go), which the simulator's
+  // own value of DYLD_INSERT_LIBRARIES, this library, keeps out of the app's launch environment.
+  const char *ar = getenv("AXX_AR_LIBRARY");
+  if (ar != NULL && dlopen(ar, RTLD_NOW) == NULL) {
+    NSLog(@"[axx] cannot load axx's AR library %s: %s", ar, dlerror());
+  }
   if (![[[NSProcessInfo processInfo] processName] isEqualToString:@"SpringBoard"]) {
     return;
   }

@@ -395,6 +395,11 @@ func (s *Session) Drag(ctx context.Context, fromX, fromY, toX, toY float64, d ti
 	return s.do(ctx, http.MethodPost, "/actions", map[string]any{"actions": []any{finger}}, nil)
 }
 
+// Tap taps a point of the screen, in points, as a finger does.
+func (s *Session) Tap(ctx context.Context, x, y float64) error {
+	return s.Drag(ctx, x, y, x, y, 0)
+}
+
 // KeyboardShown reports whether the device shows its on-screen keyboard.
 func (s *Session) KeyboardShown(ctx context.Context) (bool, error) {
 	var out bool

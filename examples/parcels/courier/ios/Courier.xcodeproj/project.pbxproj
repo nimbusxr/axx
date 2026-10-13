@@ -14,6 +14,7 @@
 		CA0000000000000000000B04 /* SessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0000000000000000000F04 /* SessionStore.swift */; };
 		CA0000000000000000000B05 /* Screens.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0000000000000000000F05 /* Screens.swift */; };
 		CA0000000000000000000B06 /* DeliveredNotification.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0000000000000000000F06 /* DeliveredNotification.swift */; };
+		CA0000000000000000000B10 /* MeasureParcel.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0000000000000000000F10 /* MeasureParcel.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -25,6 +26,7 @@
 		CA0000000000000000000F05 /* Screens.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Screens.swift; sourceTree = "<group>"; };
 		CA0000000000000000000F06 /* DeliveredNotification.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeliveredNotification.swift; sourceTree = "<group>"; };
 		CA0000000000000000000F07 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		CA0000000000000000000F10 /* MeasureParcel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeasureParcel.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -63,6 +65,7 @@
 				CA0000000000000000000F04 /* SessionStore.swift */,
 				CA0000000000000000000F05 /* Screens.swift */,
 				CA0000000000000000000F06 /* DeliveredNotification.swift */,
+				CA0000000000000000000F10 /* MeasureParcel.swift */,
 				CA0000000000000000000F07 /* Info.plist */,
 			);
 			path = Courier;
@@ -142,6 +145,7 @@
 				CA0000000000000000000B04 /* SessionStore.swift in Sources */,
 				CA0000000000000000000B05 /* Screens.swift in Sources */,
 				CA0000000000000000000B06 /* DeliveredNotification.swift in Sources */,
+				CA0000000000000000000B10 /* MeasureParcel.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

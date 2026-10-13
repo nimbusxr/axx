@@ -289,3 +289,38 @@ func TestACourierFollowsNotificationsOnASimulator(t *testing.T) {
 	h.OK(`the "PX-MOB-9402 delivered" notification is tapped in the courier app`)
 	h.OK(`the courier app shows "No deliveries left today."`)
 }
+
+// parcelScene is the parcels example's scene of a parcel on a porch, 60 cm long, its front corners
+// in guards.
+var parcelScene = filepath.Join("..", "..", "..", "examples", "parcels", "acceptance", "features", "courier-app-measure", "scenes", "parcel-on-porch.glb")
+
+// A courier measures a parcel with the app's AR view, whose camera sees a scene: a tap on each
+// of the parcel's front corners (on the guard over it, which lands on the corner), and the app
+// measures them exactly 60 cm apart. A scene object the scene has not got is named with those it
+// has; and a running app whose camera is given a scene starts again, to see it.
+func TestACourierMeasuresAParcelOnASimulator(t *testing.T) {
+	device := simulator(t)
+	courierapi.Start(t)
+	t.Setenv("COURIER_PIN", "4711")
+	h := harness(t)
+	warm(t, h, device)
+	scene, err := filepath.Abs(parcelScene)
+	if err != nil {
+		t.Fatal(err)
+	}
+	h.OK("the courier ios app with the following properties:", [][]string{
+		{"app", courierBuild(t)}, {"device", device}, {"timezone", "Europe/Berlin"},
+	})
+	signIn(h)
+	h.OK(`the courier app's dialog is dismissed`)
+	h.OK(`the courier app shows "Hello, Hanna Wolf"`)
+	h.OK("the courier app's camera sees " + scene)
+	h.OK(`the courier app shows "Hello, Hanna Wolf"`) // started again, the courier still signed in
+	h.OK(`the "PX-MOB-9401" list item is tapped in the courier app`)
+	h.OK(`the "Measure parcel" button is tapped in the courier app`)
+	h.OK(`the courier app shows "Tap one end of the parcel, then the other"`)
+	_ = h.Fails(`the "parcel" in the courier app's camera view is tapped`, `its objects are "front left corner", "front right corner"`)
+	h.OK(`the "front left corner" in the courier app's camera view is tapped`)
+	h.OK(`the "front right corner" in the courier app's camera view is tapped`)
+	h.OK(`the courier app shows "60 cm"`)
+}

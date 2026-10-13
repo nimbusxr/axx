@@ -90,19 +90,39 @@ func springboardEnv(lib string) []string {
 // springboardStatus is what the library reported in the simulator's SpringBoard as it runs
 // now: "" when it is not loaded there (the simulator was booted without it).
 func springboardStatus(udid string) string {
+	status, _ := springboardReport(udid)
+	return status
+}
+
+// springboardReport is what the library reported in the simulator's SpringBoard as it runs now,
+// and the library that reported it: "" from an earlier axx's, which names none.
+func springboardReport(udid string) (status, lib string) {
 	data, err := os.ReadFile(filepath.Join(springboardStatuses(), udid))
 	if err != nil {
-		return ""
+		return "", ""
 	}
-	pid, status, _ := strings.Cut(strings.TrimSpace(string(data)), " ")
+	first, rest, _ := strings.Cut(string(data), "\n")
+	pid, status, _ := strings.Cut(strings.TrimSpace(first), " ")
 	n, err := strconv.Atoi(pid)
 	if err != nil {
-		return ""
+		return "", ""
 	}
 	if p, err := os.FindProcess(n); err != nil || p.Signal(syscall.Signal(0)) != nil {
-		return "" // a SpringBoard of an earlier boot
+		return "", "" // a SpringBoard of an earlier boot
 	}
-	return status
+	return status, strings.TrimSpace(rest)
+}
+
+// springboardBootedWithAnother is whether a booted simulator runs another library than lib (an
+// earlier axx's), which it was booted with: what a simulator is booted with, its processes keep
+// until it boots again, whatever is set later (loadSpringboard sets it on one booted without).
+func springboardBootedWithAnother(ctx context.Context, d *device, lib string) bool {
+	status, loaded := springboardReport(d.udid)
+	if status == "" || loaded == lib {
+		return false
+	}
+	set, err := d.set.simctl(ctx, "spawn", d.udid, "launchctl", "getenv", "DYLD_INSERT_LIBRARIES")
+	return err == nil && strings.TrimSpace(set) == ""
 }
 
 // loadSpringboard makes sure the library runs in a simulator's SpringBoard: one axx boots
@@ -112,7 +132,7 @@ func springboardStatus(udid string) string {
 // run goes on.
 func (p *pool) loadSpringboard(ctx context.Context, d *device, lib string) {
 	started := time.Now()
-	if springboardStatus(d.udid) == "" {
+	if status, loaded := springboardReport(d.udid); status == "" || loaded != lib {
 		err := errors.Join(
 			setenv(ctx, d, "DYLD_INSERT_LIBRARIES", lib),
 			setenv(ctx, d, "AXX_SPRINGBOARD_STATUS", springboardStatuses()),
@@ -121,7 +141,7 @@ func (p *pool) loadSpringboard(ctx context.Context, d *device, lib string) {
 		if err == nil {
 			_, err = d.set.simctl(ctx, "spawn", d.udid, "launchctl", "kickstart", "-k", "user/foreground/com.apple.SpringBoard")
 		}
-		for deadline := time.Now().Add(30 * time.Second); err == nil && springboardStatus(d.udid) == "" && time.Now().Before(deadline); {
+		for deadline := time.Now().Add(30 * time.Second); err == nil && !springboardRuns(d.udid, lib) && time.Now().Before(deadline); {
 			select {
 			case <-ctx.Done():
 				return
@@ -146,6 +166,12 @@ func (p *pool) loadSpringboard(ctx context.Context, d *device, lib string) {
 	default:
 		p.suite.Logger().Warn("Notification Center will not show notifications' actions on this simulator", "simulator", d.name, "springboard", status)
 	}
+}
+
+// springboardRuns is whether the library lib reported from the simulator's SpringBoard.
+func springboardRuns(udid, lib string) bool {
+	status, loaded := springboardReport(udid)
+	return status != "" && loaded == lib
 }
 
 // setenv sets a variable for the processes the simulator starts from now on.
