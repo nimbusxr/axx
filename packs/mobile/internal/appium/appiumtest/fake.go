@@ -469,12 +469,15 @@ func (s *Server) has(using, value string) bool {
 	case "id":
 		return strings.Contains(src, `resource-id="`+value+`"`) || strings.Contains(src, ` name="`+value+`"`)
 	case "-ios predicate string":
-		// What the iOS pack asks for: a label or value that contains a text.
-		if m := containsRE.FindStringSubmatch(value); m != nil {
-			return strings.Contains(strings.ToLower(src), strings.ToLower(strings.NewReplacer(`\'`, `'`, `\\`, `\`).Replace(m[1])))
-		}
-		if m := nameRE.FindStringSubmatch(value); m != nil {
-			return strings.Contains(src, ` name="`+m[1]+`"`)
+		// What the iOS pack asks for: a label or value that contains a text, or a name; or either
+		// of two names.
+		for _, part := range strings.Split(value, " OR ") {
+			if m := containsRE.FindStringSubmatch(part); m != nil {
+				return strings.Contains(strings.ToLower(src), strings.ToLower(strings.NewReplacer(`\'`, `'`, `\\`, `\`).Replace(m[1])))
+			}
+			if m := nameRE.FindStringSubmatch(part); m != nil && strings.Contains(src, ` name="`+m[1]+`"`) {
+				return true
+			}
 		}
 	}
 	return false

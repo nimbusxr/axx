@@ -572,31 +572,25 @@ func (d *running) OpenNotifications(ctx context.Context) (mobilecore.Notificatio
 		return nil, err
 	}
 	// A banner iOS shows of a notification (the app's own, while it was in front) stays at the top
-	// for a few seconds, where a finger pulling Notification Center down takes hold of it instead:
-	// Notification Center is opened once it has gone.
-	for deadline := time.Now().Add(12 * time.Second); time.Now().Before(deadline); {
-		banners, err := d.session.FindAll(ctx, d.predicate(), "name == 'NotificationShortLookView'")
-		if err != nil || len(banners) == 0 {
-			break
-		}
-		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		case <-time.After(300 * time.Millisecond):
-		}
-	}
-	// A pull that comes as the app is still leaving the screen opens nothing: it is pulled again,
-	// as a person does, until Notification Center shows: its date, or its notifications (the
-	// banners have gone).
+	// for a few seconds, where a finger pulling Notification Center down takes hold of it instead,
+	// and a pull that comes as the app is still leaving the screen opens nothing. So Notification
+	// Center is pulled down once no banner shows, and again, as a person does, until it shows. A
+	// banner can come in as the finger pulls (on GitHub's runner, seconds after the app posted its
+	// notification): the pull then opens nothing, and the banner is waited out before the next.
 	for pull := 0; ; pull++ {
+		open, err := d.bannersGone(ctx)
+		if err != nil {
+			return nil, err
+		}
+		if open {
+			return notificationCenter{d}, nil
+		}
 		if err := d.session.Drag(ctx, w.Width*0.2, 0, w.Width*0.2, w.Height*0.7, 400*time.Millisecond); err != nil {
 			return nil, fmt.Errorf("cannot open Notification Center: %w", err)
 		}
 		for deadline := time.Now().Add(2 * time.Second); time.Now().Before(deadline); {
-			for _, shown := range []string{"name == 'lockscreen-date-view'", "name == 'NotificationShortLookView'"} {
-				if els, err := d.session.FindAll(ctx, d.predicate(), shown); err == nil && len(els) > 0 {
-					return notificationCenter{d}, nil
-				}
+			if d.notificationCenterShows(ctx) {
+				return notificationCenter{d}, nil
 			}
 			select {
 			case <-ctx.Done():
@@ -608,6 +602,38 @@ func (d *running) OpenNotifications(ctx context.Context) (mobilecore.Notificatio
 			return nil, errors.New("the notifications did not open: Notification Center was pulled down from the top of the screen three times")
 		}
 	}
+}
+
+// notificationRows finds Notification Center's rows, each of a notification (or the stack of an
+// app's), labeled with all its texts. A banner shows a notification as a row does, but is in no
+// row: so a banner is never taken for Notification Center, nor for one of its notifications.
+const notificationRows = "name == 'ListCell'"
+
+// notificationCenterShows reports whether Notification Center shows: its date, or its rows.
+func (d *running) notificationCenterShows(ctx context.Context) bool {
+	els, err := d.session.FindAll(ctx, d.predicate(), "name == 'lockscreen-date-view' OR "+notificationRows)
+	return err == nil && len(els) > 0
+}
+
+// bannersGone waits, up to 12 seconds, until no banner shows, and reports whether Notification
+// Center shows (a pull may have opened it after all): while it is shut, a notification that shows
+// is a banner.
+func (d *running) bannersGone(ctx context.Context) (bool, error) {
+	for deadline := time.Now().Add(12 * time.Second); time.Now().Before(deadline); {
+		if d.notificationCenterShows(ctx) {
+			return true, nil
+		}
+		banners, err := d.session.FindAll(ctx, d.predicate(), "name == 'NotificationShortLookView'")
+		if err != nil || len(banners) == 0 {
+			return false, nil //nolint:nilerr // no banner found: none to wait for
+		}
+		select {
+		case <-ctx.Done():
+			return false, ctx.Err()
+		case <-time.After(300 * time.Millisecond):
+		}
+	}
+	return false, nil
 }
 
 // notificationCenter looks for notifications by asking for them, not by
@@ -649,11 +675,12 @@ func (n notificationCenter) Texts(ctx context.Context) []string {
 	return out
 }
 
-// find is the notification that shows a text, where it rests in Notification Center: SpringBoard
-// labels each with all its texts. The banner iOS showed of it while the app was in front can
-// still be sliding away over the top as Notification Center opens: Notification Center's own is
-// the one lowest on the screen, and it is taken once it stands still. One already seen (as that
-// banner) waits below the screen, where a person swipes up to bring it into view.
+// find is the row of the notification that shows a text in Notification Center, where it rests:
+// it is taken once it stands still, as Notification Center slides in. A banner iOS shows of the
+// notification is in no row, so it is never held or tapped in the row's place: on GitHub's
+// runner, a banner that came in as Notification Center was pulled down was held as it went, and
+// iOS opened the app for it. One already seen (as a banner) waits below the screen, where a
+// person swipes up to bring it into view.
 func (n notificationCenter) find(ctx context.Context, text string) (*appium.Element, appium.Rect, error) {
 	q := predicateString(text)
 	w, err := n.d.session.Window(ctx)
@@ -661,34 +688,39 @@ func (n notificationCenter) find(ctx context.Context, text string) (*appium.Elem
 		return nil, appium.Rect{}, err
 	}
 	var last appium.Rect
-	swipes := 0
-	for tries := 0; ; tries++ {
-		els, err := n.d.session.FindAll(ctx, n.d.predicate(), "name == 'NotificationShortLookView' AND (label CONTAINS[c] "+q+" OR value CONTAINS[c] "+q+")")
+	swipes, missing, moving := 0, 0, 0
+	for {
+		els, err := n.d.session.FindAll(ctx, n.d.predicate(), notificationRows+" AND (label CONTAINS[c] "+q+" OR value CONTAINS[c] "+q+")")
 		if err != nil {
 			return nil, appium.Rect{}, err
 		}
 		var el *appium.Element
 		var at appium.Rect
 		for _, e := range els {
-			if r, err := e.Rect(ctx); err == nil && (el == nil || r.Y > at.Y) {
+			if r, err := e.Rect(ctx); err == nil {
 				el, at = e, r
+				break
 			}
 		}
-		if el == nil {
+		switch {
+		case el == nil && missing == 10:
 			return nil, appium.Rect{}, fmt.Errorf("no notification shows %q", text)
-		}
-		if at.Y >= w.Height && swipes < 2 {
+		case el == nil:
+			// Notification Center shows its date as it opens, before its rows.
+			missing++
+		case at.Y >= w.Height && swipes < 2:
 			swipes++
 			if err := n.d.session.Drag(ctx, w.Width/2, w.Height*0.6, w.Width/2, w.Height*0.25, 300*time.Millisecond); err != nil {
 				return nil, appium.Rect{}, fmt.Errorf("cannot bring the notifications below the screen into view: %w", err)
 			}
 			last = appium.Rect{}
 			continue
-		}
-		if at == last || tries == 10 {
+		case at == last || moving == 10:
 			return el, at, nil
+		default:
+			last = at
+			moving++
 		}
-		last = at
 		select {
 		case <-ctx.Done():
 			return nil, appium.Rect{}, ctx.Err()
@@ -709,16 +741,23 @@ func (n notificationCenter) Open(ctx context.Context, text string) error {
 		if err != nil {
 			return err
 		}
-		// The notification's own button, tapped as XCTest taps a control: a finger's tap
-		// Notification Center can take for the start of a slide.
+		// The notification's own button, on its row (a banner has one too), tapped as XCTest taps
+		// a control: a finger's tap Notification Center can take for the start of a slide.
 		buttons, err := n.d.session.FindAll(ctx, n.d.predicate(), "type == 'XCUIElementTypeButton' AND (name == 'ListCell' OR name BEGINSWITH 'ShortLook.Platter') AND label CONTAINS[c] "+q)
 		if err != nil {
 			return err
 		}
-		if len(buttons) == 0 {
+		var button *appium.Element
+		for _, b := range buttons {
+			if r, err := b.Rect(ctx); err == nil && r.Y < at.Y+at.Height && r.Y+r.Height > at.Y {
+				button = b
+				break
+			}
+		}
+		if button == nil {
 			return fmt.Errorf("the notification %q has no button to open it", text)
 		}
-		if err := buttons[0].Click(ctx); err != nil {
+		if err := button.Click(ctx); err != nil {
 			return err
 		}
 		for deadline := time.Now().Add(3 * time.Second); time.Now().Before(deadline); {
