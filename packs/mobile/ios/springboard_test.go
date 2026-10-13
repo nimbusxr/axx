@@ -34,11 +34,13 @@ func TestTheSpringBoardLibraryReportsForTheSpringBoardThatRuns(t *testing.T) {
 	if err := gone.Run(); err != nil {
 		t.Fatal(err)
 	}
-	report("RUNNING", os.Getpid(), "ok")
+	report("RUNNING", os.Getpid(), "ok\n/cache/springboard-1/axx-springboard.dylib")
+	report("EARLIER", os.Getpid(), "ok")
 	report("FAILED", os.Getpid(), "this iOS's Cover Sheet has no -[CSCombinedListViewController _hasProximitySensor] to give a proximity sensor")
 	report("REBOOTED", gone.Process.Pid, "ok")
 	for udid, want := range map[string]string{
 		"RUNNING":  "ok",
+		"EARLIER":  "ok",
 		"FAILED":   "this iOS's Cover Sheet has no -[CSCombinedListViewController _hasProximitySensor] to give a proximity sensor",
 		"REBOOTED": "",
 		"NEVER":    "",
@@ -46,6 +48,17 @@ func TestTheSpringBoardLibraryReportsForTheSpringBoardThatRuns(t *testing.T) {
 		if got := springboardStatus(udid); got != want {
 			t.Errorf("%s: %q, want %q", udid, got, want)
 		}
+	}
+	// The library names itself, but for an earlier axx's: a simulator booted with that one boots
+	// again (springboardBootedWithAnother).
+	if _, lib := springboardReport("RUNNING"); lib != "/cache/springboard-1/axx-springboard.dylib" {
+		t.Errorf("the library running is %q", lib)
+	}
+	if _, lib := springboardReport("EARLIER"); lib != "" {
+		t.Errorf("an earlier axx's library is %q", lib)
+	}
+	if !springboardRuns("RUNNING", "/cache/springboard-1/axx-springboard.dylib") || springboardRuns("EARLIER", "/cache/springboard-1/axx-springboard.dylib") {
+		t.Error("springboardRuns does not tell this library from an earlier one")
 	}
 	if env := strings.Join(springboardEnv("/lib.dylib"), " "); !strings.Contains(env, "SIMCTL_CHILD_DYLD_INSERT_LIBRARIES=/lib.dylib") || !strings.Contains(env, "SIMCTL_CHILD_AXX_SPRINGBOARD_STATUS="+springboardStatuses()) {
 		t.Errorf("simctl is given %s", env)

@@ -65,6 +65,14 @@ while it runs, unless the courier has already allowed or refused them. A deliver
 delivered is then announced ("PX-MOB-9401 delivered", "Signed by …"), also while the app is in
 the foreground.
 
+## Measure a parcel
+
+A delivery's "Measure parcel" measures the parcel with the camera, before the courier leaves it
+in a parcel locker: the courier taps one end of the parcel, then the other, and the app shows how
+far apart they are (ARKit world tracking, in RealityKit's `ARView`). A simulator has no camera,
+and its ARKit no world tracking: the app says it cannot measure, unless axx plays the camera from
+a scene (`../../acceptance/features/courier-app-measure`).
+
 ## Logs
 
 The app logs what it does under the subsystem `example.parcels.courier`:

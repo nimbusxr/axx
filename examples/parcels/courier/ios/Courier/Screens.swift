@@ -110,6 +110,7 @@ struct DeliveryView: View {
     let reference: String
     @State private var signedBy = ""
     @State private var confirming = false
+    @State private var measuring = false
 
     private var who: String { signedBy.trimmingCharacters(in: .whitespacesAndNewlines) }
     private var delivery: Delivery? { model.deliveries?.first { $0.reference == reference } }
@@ -124,6 +125,7 @@ struct DeliveryView: View {
                     Text(verbatim: delivery.recipient.name).font(.headline)
                     Text(verbatim: delivery.address)
                     Text(verbatim: delivery.serviceLevel)
+                    Button("Measure parcel") { measuring = true }
                 }
                 if model.delivered {
                     Section {
@@ -153,6 +155,7 @@ struct DeliveryView: View {
             }
         }
         .navigationTitle(Text(verbatim: reference))
+        .sheet(isPresented: $measuring) { MeasureParcelView() }
         .alert(Text(verbatim: "Mark \(reference) delivered?"), isPresented: $confirming) {
             Button("Confirm") { model.markDelivered(reference, signedBy: who) }
             Button("Cancel", role: .cancel) {}

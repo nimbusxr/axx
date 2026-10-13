@@ -34,6 +34,6 @@ func (pack) Manifest() core.Manifest {
 		Params:       []core.ParamType{directionParam, speedParam, travelParam},
 		ConfigSchema: []byte(configSchema),
 		Hooks:        []core.Hook{{ID: Name + ".trace", Phase: core.AfterStep, Run: traceStepHook}},
-		Steps:        append(append(appcore.Paced(append(steps(), dialogSteps()...)), notificationSteps()...), routeSteps()...),
+		Steps:        append(append(appcore.Paced(append(append(steps(), dialogSteps()...), cameraSteps()...)), notificationSteps()...), routeSteps()...),
 	}
 }

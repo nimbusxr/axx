@@ -420,10 +420,16 @@ func (d *running) Launch(ctx context.Context) error {
 }
 
 func (d *running) start(ctx context.Context) error {
+	env := map[string]string{"TZ": d.app.timezone}
+	if d.app.camera != nil {
+		for k, v := range d.app.camera.env() {
+			env[k] = v
+		}
+	}
 	args := map[string]any{
 		"bundleId":    d.bundleID,
 		"arguments":   d.app.launchArguments(),
-		"environment": map[string]string{"TZ": d.app.timezone},
+		"environment": env,
 	}
 	err := d.appCommand(ctx, "launchApp", "launch", args, nil)
 	// The app is installed afresh before each scenario, and SpringBoard learns of it a moment

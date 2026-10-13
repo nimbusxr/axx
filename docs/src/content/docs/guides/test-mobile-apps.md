@@ -233,6 +233,30 @@ And the courier app's phone reaches the end of its route
 
 The phone moves in real time, as a phone on the road does: keep routes short, or play a long one faster. On iOS, the simulator reports the route as CoreLocation reports a moving phone (`simctl location`): its speed, and its course where the simulator gives one (older simulators report none). On Android, the emulators axx starts report it every second, as NMEA sentences that carry the speed and course a plain location fix lacks; a device of your own reports where it really is.
 
+## What the camera sees, and AR
+
+An app that measures, places or finds things through the camera, with ARKit and RealityKit's `ARView`, has no camera to see through on an iOS simulator, nor the AR it measures with: the simulator's ARKit says world tracking is not supported. axx plays both from a 3D scene, a glTF file (`.glb`, or `.gltf` with its buffers and images), and a scenario taps what the camera shows by its name in the scene:
+
+```gherkin
+Given the courier app's camera sees scenes/parcel-on-porch.glb
+And the courier app is opened with the "parcels-courier://deliveries/PX-IOS-9581" link
+And the "Measure parcel" button is tapped in the courier app
+When the "front left corner" in the courier app's camera view is tapped
+And the "front right corner" in the courier app's camera view is tapped
+Then the courier app shows "60 cm"
+```
+
+The scene is where the phone is and what it sees:
+
+- **The phone** is the scene's camera, or the camera named `phone` when it has several: where it stands, held upright, looking along its −Z, its +Y the top of the phone (a glTF camera's own axes). The phone's camera is an iPhone's wide camera (about 62° across, the picture filling the view); the scene's camera gives only where it is and which way it looks.
+- **Objects** a scenario names are the scene's top-level nodes with a name, but for its cameras and its furniture: nodes named with a leading `_`, like `_road` or `_porch`.
+- **A tap on an object** lands on its middle, or on its `_tap` child, a node that marks where a tap on it lands: a corner guard's `_tap` is the parcel's corner it guards. The app's AR finds the scene's surfaces where they are, and a raycast that hits an object lands where a tap on it lands, so what an app measures between two objects is their distance in the scene, whatever the phone's place.
+- **What is drawn** is the scene's triangle meshes, each node's transform (its matrix, or its translation, rotation and scale), and its materials' base color, a color and an image (PNG or JPEG), lit by a soft sky and the sun. Points and lines are left out, as are animations, skins and morph targets.
+
+A tool like Blender exports a scene as glTF; a small program writes one too, as the parcels example's [`make-scenes.go`](https://github.com/nimbusxr/axx/blob/main/examples/parcels/acceptance/features/courier-app-measure/scenes/make-scenes.go) does. The step reads the scene, and fails on one it cannot play: no camera, two cameras none named `phone`, two objects of one name. A running app starts again, to see it; the step before the app is launched gives the scene from the start.
+
+On a simulator, axx loads a library of its own into the app when it starts, built once with Xcode into axx's cache: it makes world tracking supported, runs the session's frames from the scene, draws the camera's picture behind the `ARView`, and answers RealityKit's raycasts. The app is the app you ship, unchanged; the library plays the camera and ARKit, which a simulator has not got. It plays apps that show AR with RealityKit's `ARView`; an `ARSCNView` (SceneKit) app is not played yet. It leans on ARKit's internals, so each Xcode is checked against it: it is checked with Xcode 27.0, on the iOS 27.0 and 18.1 simulators. A real iPhone's camera, through an Appium server, sees what is in front of it: the step is for simulators.
+
 ## Traces and videos
 
 Ask for a **trace** of each app, and a scenario keeps one in `.axx/mobile/traces`: a page with its screen after each step, and its controls where it failed. A trace waits, after every step, for the screen's next frame (about a tenth of a second): kept for failed scenarios only, it still slows every step a little, so it is off until you ask.
