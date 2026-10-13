@@ -22,6 +22,15 @@
 	<!-- The camera, which measures a parcel. -->
 	<key>NSCameraUsageDescription</key>
 	<string>The camera measures a parcel, to see that it fits a parcel locker.</string>
+	<!-- The round reminder: a background task iOS runs now and then (RoundReminder.swift). -->
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>example.parcels.courier.round-reminder</string>
+	</array>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>fetch</string>
+	</array>
 	<!-- Plain HTTP to the parcels service on the Mac the simulator runs on: 127.0.0.1. -->
 	<key>NSAppTransportSecurity</key>
 	<dict>

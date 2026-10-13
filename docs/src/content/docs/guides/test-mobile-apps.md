@@ -191,7 +191,23 @@ When the "Next delivery" action of the "PX-MOB-9401 delivered" notification is t
 
 A notification is tapped where people find it: the step opens Android's notification shade or iOS's Notification Center, opens the group it is folded into (on iOS, one already seen waits below the screen, and is swiped into view), and taps it, and the app opens where the notification leads. An action is one of the buttons a notification offers: Android shows them under it, and iOS when a person holds the notification.
 
-On a simulator, iOS answers a tap on a notification as on an iPhone without Face ID: it slides the notification aside to show Open, which the step taps too. And it shows a notification's actions in Notification Center only on a phone it can tell is in a hand, one with a proximity sensor (or Face ID unlock, which takes a passcode a simulator cannot have). So axx gives the simulator's SpringBoard the proximity sensor an iPhone has: a small library axx builds with Xcode the first time, and loads into the simulators it boots. It does nothing in your app. A simulator that runs already (one of yours, or one kept warm) gets it as SpringBoard starts again, before the scenario.
+On a simulator, iOS answers a tap on a notification as on an iPhone without Face ID: it slides the notification aside to show Open, which the step taps too. And it shows a notification's actions in Notification Center only on a phone it can tell is in a hand, one with a proximity sensor (or Face ID unlock, which takes a passcode a simulator cannot have). So axx gives the simulator's SpringBoard the proximity sensor an iPhone has: a small library axx builds with Xcode the first time, and loads into the simulators it boots. In your app, it does only what [background tasks](#run-a-background-task-now) need. A simulator that runs already (one of yours, or one kept warm) gets it as SpringBoard starts again, before the scenario.
+
+## Run a background task now
+
+```gherkin
+When the "round-reminder" background task is run in the courier app
+Then within 30s the courier app shows a notification "2 deliveries left today"
+```
+
+An app schedules work for the phone to run later: a sync, a reminder, a check. The phone chooses when, every 15 minutes at the soonest on Android, and whenever it suits it on iOS. The step has the phone run one of the app's tasks now, as it does when the task's time comes. It is a nudge, not a stand-in: the app's own code runs, in the app, and does what it does then. Only the moment moves. The app must have scheduled the task. The step waits for it to be done, so a check after it finds what it did: on iOS, until the app says it is done (`setTaskCompleted`), in the 30 seconds iOS gives a task; on Android, until the work ends, as WorkManager's database has it.
+
+The task is named as the app names it:
+
+- **Android:** its WorkManager work's unique name (`enqueueUniquePeriodicWork("round-reminder", ...)`), or one of its tags. WorkManager tags each piece of work with its worker's class, so `RoundReminderWorker` names it too. axx asks Android's job scheduler to run the work's job now, and Android runs it only if the conditions the app set for it, a network say, are met. WorkManager runs periodic work no sooner than its period allows, so axx first tells it the period has passed, in its own database on the phone. That takes the phone's `sqlite3`, which emulators with a Google APIs image have, and a debuggable build, as an app's files do.
+- **iOS:** its identifier, one of `BGTaskSchedulerPermittedIdentifiers` in its `Info.plist`. iOS runs the task as Xcode's debugger command does on an iPhone: the handler the app registered gets the task the app scheduled, once for each time it scheduled it. A simulator refuses to schedule any task, so axx's library, which the simulators it boots load, keeps the app's requests as an iPhone does. An app in the background is suspended, and SpringBoard wakes it for the task, as iOS does, and holds it awake until the task is done.
+
+A name the app does not have fails, and the failure lists the tasks it has.
 
 ## Pick a document
 

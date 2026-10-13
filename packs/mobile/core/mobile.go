@@ -7,6 +7,8 @@
 package mobilecore
 
 import (
+	"slices"
+
 	"github.com/nimbusxr/axx/core"
 	appcore "github.com/nimbusxr/axx/packs/app/core"
 )
@@ -34,6 +36,6 @@ func (pack) Manifest() core.Manifest {
 		Params:       []core.ParamType{directionParam, speedParam, travelParam},
 		ConfigSchema: []byte(configSchema),
 		Hooks:        []core.Hook{{ID: Name + ".trace", Phase: core.AfterStep, Run: traceStepHook}},
-		Steps:        append(append(appcore.Paced(append(append(steps(), dialogSteps()...), cameraSteps()...)), notificationSteps()...), routeSteps()...),
+		Steps:        slices.Concat(appcore.Paced(slices.Concat(steps(), dialogSteps(), cameraSteps())), notificationSteps(), backgroundSteps(), routeSteps()),
 	}
 }

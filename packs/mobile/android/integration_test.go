@@ -357,3 +357,34 @@ func TestACourierAttachesADocumentOnAnEmulator(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+// The round reminder, background work Android runs hourly, runs now: the courier, in another app,
+// is told how many deliveries are left today. Once the courier delivers one, it runs again, though
+// its hour has not passed (axx tells WorkManager it has), and tells of the one left. A name the
+// app's work does not have fails, naming the work it has.
+func TestACourierIsRemindedOfTheRoundOnAnEmulator(t *testing.T) {
+	courierapi.Start(t)
+	t.Setenv("COURIER_PIN", "4711")
+	h := cloudtest.New(t, appcore.Pack(), mobilecore.Pack(), Pack())
+	logsOnFailure(t, h)
+	h.OK("the courier android app with the following properties:", [][]string{
+		{"apk", apk(t)}, {"device", avd(t)}, {"permissions", "POST_NOTIFICATIONS"}, {"timezone", "Europe/Berlin"}, {"host ports", "8400"},
+	})
+	signIn(h)
+	h.OK(`the courier app shows "Hello, Hanna Wolf"`)
+	h.OK("the courier app is sent to the background")
+	_ = h.Fails(`the "round-reminders" background task is run in the courier app`, `its background tasks are "round-reminder"`)
+	h.OK(`the "round-reminder" background task is run in the courier app`)
+	h.OK(`within 30s the courier app shows a notification "2 deliveries left today"`)
+	h.OK(`the courier app shows a notification "Next: PX-MOB-9401"`)
+	h.OK("the courier app is brought back")
+	h.OK(`the "PX-MOB-9401" list item is tapped in the courier app`)
+	h.OK(`the "Signed by" field in the courier app is filled with "Jonas Weber"`)
+	h.OK(`the "Mark delivered" button is tapped in the courier app`)
+	h.OK(`the "Confirm" button is tapped in the courier app`)
+	h.OK(`the courier app shows "Delivered"`)
+	h.OK("the courier app is sent to the background")
+	// Its worker's class names it too.
+	h.OK(`the "RoundReminderWorker" background task is run in the courier app`)
+	h.OK(`within 30s the courier app shows a notification "1 delivery left today"`)
+}

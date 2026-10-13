@@ -77,6 +77,7 @@ final class CourierModel {
             do {
                 let s = try await api.signIn(courier: courier, pin: pin)
                 store.save(s)
+                RoundReminder.schedule()
                 deliveries = nil
                 deliveriesError = nil
                 let reference = pendingReference
@@ -118,6 +119,7 @@ final class CourierModel {
     func signOut() {
         shareLocation(false)
         store.clear()
+        RoundReminder.cancel()
         refreshTask?.cancel()
         refreshTask = nil
         refreshing = false

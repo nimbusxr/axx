@@ -78,16 +78,18 @@ func harnessWith(t *testing.T, config map[string]any) *cloudtest.Harness {
 			t.Logf("the courier app's page source at the failure (%v):\n%s", err, src)
 			// What the simulator's own log says, in the last minutes, of the app, of the document
 			// picker and the files it shows, and of each tap XCTest made (where, and when), with
-			// the errors of each of those processes; and all of what iOS's resolver of documents
-			// for apps and its store of document ids say.
+			// the errors of each of those processes; all of what iOS's resolver of documents
+			// for apps and its store of document ids say; and what SpringBoard, iOS's service of
+			// notifications and RunningBoard say of the app (its notifications, its priority).
 			if r, ok := d.(*running); ok && r.dev != nil {
 				out, err := exec.CommandContext(ctx, "xcrun", "simctl", "spawn", r.dev.udid, "log", "show", "--last", "2m", "--style", "compact", "--predicate", //nolint:gosec // the test's own simulator
 					`subsystem BEGINSWITH "com.apple.DocumentManager" OR subsystem BEGINSWITH "com.apple.FileProvider" OR subsystem BEGINSWITH "example.parcels"`+
 						` OR (process == "testmanagerd" AND eventMessage BEGINSWITH "Synthesizing event")`+
 						` OR ((process == "Courier" OR process CONTAINS[c] "document" OR process CONTAINS[c] "fileprovider") AND messageType IN {16, 17})`+
-						` OR process == "ResolverService" OR process == "revisiond"`).CombinedOutput()
+						` OR process == "ResolverService" OR process == "revisiond"`+
+						` OR ((process == "SpringBoard" OR process == "usernotificationsd" OR process == "runningboardd") AND eventMessage CONTAINS[c] "courier")`).CombinedOutput()
 				lines := strings.Split(string(out), "\n")
-				t.Logf("the simulator's log (%v):\n%s", err, strings.Join(lines[max(0, len(lines)-600):], "\n"))
+				t.Logf("the simulator's log (%v):\n%s", err, strings.Join(lines[max(0, len(lines)-1500):], "\n"))
 			}
 			return nil
 		})
@@ -384,4 +386,38 @@ func TestACourierAttachesADocumentOnASimulator(t *testing.T) {
 	if err := h.End("passed"); err != nil {
 		t.Fatal(err)
 	}
+}
+
+// The round reminder, a background task iOS runs now and then, runs now: the courier, in another
+// app, is told how many deliveries are left today. The app is suspended by then, as iOS suspends an
+// app in the background, and SpringBoard wakes it for the task. A task runs once for each time the
+// app schedules it, and the app schedules the next as it runs: once the courier delivers one, it
+// runs again, and tells of the one left. A name the app does not permit fails, naming those it does.
+func TestACourierIsRemindedOfTheRoundOnASimulator(t *testing.T) {
+	device := simulator(t)
+	courierapi.Start(t)
+	t.Setenv("COURIER_PIN", "4711")
+	h := harness(t)
+	warm(t, h, device)
+	h.OK("the courier ios app with the following properties:", [][]string{
+		{"app", courierBuild(t)}, {"device", device}, {"timezone", "Europe/Berlin"},
+	})
+	signIn(h)
+	h.OK(`the courier app's dialog is accepted`)
+	h.OK(`the courier app shows "PX-MOB-9401"`)
+	h.OK("the courier app is sent to the background")
+	time.Sleep(15 * time.Second) // iOS suspends the app a few seconds into the background
+	_ = h.Fails(`the "example.parcels.courier.round-reminders" background task is run in the courier app`, `its background tasks are "example.parcels.courier.round-reminder"`)
+	h.OK(`the "example.parcels.courier.round-reminder" background task is run in the courier app`)
+	h.OK(`within 30s the courier app shows a notification "2 deliveries left today"`)
+	h.OK(`the courier app shows a notification "Next: PX-MOB-9401"`)
+	h.OK("the courier app is brought back")
+	h.OK(`the "PX-MOB-9401" list item is tapped in the courier app`)
+	h.OK(`the "Signed by" field in the courier app is filled with "Jonas Weber"`)
+	h.OK(`the "Mark delivered" button is tapped in the courier app`)
+	h.OK(`the "Confirm" button is tapped in the courier app`)
+	h.OK(`the courier app shows "Delivered"`)
+	h.OK("the courier app is sent to the background")
+	h.OK(`the "example.parcels.courier.round-reminder" background task is run in the courier app`)
+	h.OK(`within 30s the courier app shows a notification "1 delivery left today"`)
 }

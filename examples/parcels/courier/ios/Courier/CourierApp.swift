@@ -72,6 +72,8 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
                 intentIdentifiers: []
             ),
         ])
+        RoundReminder.register()
+        if SessionStore().load() != nil { RoundReminder.schedule() }
         return true
     }
 

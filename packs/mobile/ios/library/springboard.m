@@ -1,16 +1,19 @@
 // SPDX-License-Identifier: Apache-2.0
 
-// axx loads this library into the iOS simulators it boots (springboard.go). In SpringBoard, it
-// gives Cover Sheet, which shows Notification Center, the proximity sensor an iPhone has and a
+// axx loads this library into the iOS simulators it boots (springboard.go). In SpringBoard, this
+// part gives Cover Sheet, which shows Notification Center, the proximity sensor an iPhone has and a
 // simulator lacks. Cover Sheet lets a person hold a notification there, to see its actions,
 // only on a phone it can tell is in a hand: one with a proximity sensor, or with Face ID
 // unlock, which takes a passcode a simulator cannot have. Without a sensor, a hold is taken
 // for a tap. In an app whose camera sees a scene (ar.go), it loads axx's AR library. In a
 // process axx starts with documents it put On My iPhone (documents.go), it bookmarks them.
-// Everywhere else (the app under test otherwise, WebDriverAgent) the library does nothing.
+// Everywhere else (the app under test otherwise, WebDriverAgent) this part does nothing; the
+// app's background tasks are background.m's.
 
 #import <Foundation/Foundation.h>
 #import <dlfcn.h>
+#import <stdlib.h>
+#import <string.h>
 #import <objc/runtime.h>
 
 // report writes how it went where axx reads it: a file named for the simulator, in the folder
@@ -48,8 +51,8 @@ __attribute__((constructor)) static void proximitySensor(void) {
   if (ar != NULL && dlopen(ar, RTLD_NOW) == NULL) {
     NSLog(@"[axx] cannot load axx's AR library %s: %s", ar, dlerror());
   }
-  if (![[[NSProcessInfo processInfo] processName] isEqualToString:@"SpringBoard"]) {
-    return;
+  if (strcmp(getprogname(), "SpringBoard") != 0) {
+    return; // decided with C alone, as background.m says why: the library is in every process
   }
   Class list = NSClassFromString(@"CSCombinedListViewController");
   Ivar sensor = list == Nil ? NULL : class_getInstanceVariable(list, "_hasProximitySensor");
