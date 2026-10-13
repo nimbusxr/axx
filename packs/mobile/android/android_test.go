@@ -756,3 +756,15 @@ func TestSystemBars(t *testing.T) {
 		}
 	}
 }
+
+// adb prints the host port it picked for a forward to tcp:0; anything else is not a port.
+func TestForwardedPort(t *testing.T) {
+	if port, err := forwardedPort("43119\n"); err != nil || port != 43119 {
+		t.Errorf("forwardedPort(43119) = %d, %v", port, err)
+	}
+	for _, out := range []string{"", "error: cannot bind listener", "0", "70000"} {
+		if _, err := forwardedPort(out); err == nil {
+			t.Errorf("forwardedPort(%q) took it for a port", out)
+		}
+	}
+}

@@ -162,15 +162,8 @@ func (p *pool) signal() {
 // start makes a device ready: boots an emulator of the pool's AVD (or takes
 // the device adb lists), and starts its UiAutomator2 server.
 func (p *pool) start(ctx context.Context, logDir string) (*device, error) {
-	systemPort, err := appium.FreePort()
-	if err != nil {
-		return nil, err
-	}
-	mjpegPort, err := appium.FreePort()
-	if err != nil {
-		return nil, err
-	}
-	d := &device{serial: p.name, systemPort: systemPort, mjpegPort: mjpegPort, installed: map[string]bool{}}
+	// Its ports on the host are adb's to pick, as it forwards them to the server (startServer).
+	d := &device{serial: p.name, installed: map[string]bool{}}
 	if p.avd {
 		if err := p.boot1(ctx, d, logDir); err != nil {
 			return nil, err
