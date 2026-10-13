@@ -290,6 +290,9 @@ func (d *running) resetDevice(ctx context.Context) error {
 	if err := d.putPhotos(ctx); err != nil {
 		return err
 	}
+	if err := d.putDocuments(ctx); err != nil {
+		return err
+	}
 	if err := d.reachHostPorts(ctx); err != nil {
 		return err
 	}

@@ -3,6 +3,7 @@
 import CoreLocation
 import Foundation
 import Observation
+import UniformTypeIdentifiers
 
 /// What the app shows, and what the courier does in it.
 @MainActor
@@ -28,6 +29,7 @@ final class CourierModel {
             let stale = deliveries == nil || delivered
             delivered = false
             deliveryError = nil
+            attached = []
             if path.isEmpty && stale { refresh() }
         }
     }
@@ -57,6 +59,9 @@ final class CourierModel {
     private(set) var posting = false
     private(set) var delivered = false
     private(set) var deliveryError: String?
+    /// The documents the courier attached to the delivery, by name.
+    private(set) var attached: [String] = []
+    private(set) var attaching = false
 
     init() {
         session = store.load()
@@ -199,6 +204,38 @@ final class CourierModel {
 
     func backToDeliveries() {
         path = []
+    }
+
+    /// Attaches a document the courier picked in the phone's files, like the recipient's
+    /// safe-place authorization, to the delivery.
+    func attachDocument(_ reference: String, from file: URL) {
+        guard let s = session, !attaching else { return }
+        attaching = true
+        deliveryError = nil
+        Task {
+            defer { attaching = false }
+            let name = file.lastPathComponent
+            let scoped = file.startAccessingSecurityScopedResource()
+            defer { if scoped { file.stopAccessingSecurityScopedResource() } }
+            guard let content = try? Data(contentsOf: file) else {
+                deliveryError = "\(name) cannot be read."
+                return
+            }
+            let type = UTType(filenameExtension: file.pathExtension)?.preferredMIMEType ?? "application/octet-stream"
+            do {
+                try await api.attachDocument(s, reference: reference, name: name, contentType: type, content: content)
+                if path == [reference] { attached.append(name) }
+            } catch let e as APIError {
+                switch e.status {
+                case 401: expired()
+                case 404: deliveryError = Self.notWithYou(reference)
+                case 413: deliveryError = "\(name) is too large to attach."
+                default: deliveryError = Self.unexpected(e)
+                }
+            } catch {
+                deliveryError = Self.unreachable
+            }
+        }
     }
 
     func markDelivered(_ reference: String, signedBy: String) {

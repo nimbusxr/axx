@@ -4,6 +4,7 @@ package example.parcels.courier
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -28,6 +29,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
@@ -95,6 +97,9 @@ fun CourierApp(model: CourierViewModel) {
                             posting = model.posting,
                             delivered = model.delivered,
                             error = model.deliveryError,
+                            attached = model.attached,
+                            attaching = model.attaching,
+                            onAttach = { document -> model.attachDocument(screen.reference, document) },
                             onConfirm = { signedBy -> model.markDelivered(screen.reference, signedBy) },
                             onBack = model::backToDeliveries,
                         )
@@ -229,11 +234,19 @@ fun DeliveryScreen(
     posting: Boolean,
     delivered: Boolean,
     error: String?,
+    attached: List<String>,
+    attaching: Boolean,
+    onAttach: (document: Uri) -> Unit,
     onConfirm: (signedBy: String) -> Unit,
     onBack: () -> Unit,
 ) {
     var signedBy by rememberSaveable(reference) { mutableStateOf("") }
     var confirming by rememberSaveable(reference) { mutableStateOf(false) }
+    // A document from the phone's files: the recipient's authorization to leave the parcel at a
+    // safe place, say, which they sent the courier.
+    val pick = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { document ->
+        if (document != null) onAttach(document)
+    }
     Column(
         Modifier
             .fillMaxSize()
@@ -269,6 +282,14 @@ fun DeliveryScreen(
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                     )
+                    attached.forEach { name -> Text("$name attached") }
+                    OutlinedButton(
+                        onClick = { pick.launch(arrayOf("application/pdf", "image/*")) },
+                        enabled = !attaching,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text("Attach document")
+                    }
                     if (error != null) ErrorText(error)
                     Button(
                         onClick = { confirming = true },

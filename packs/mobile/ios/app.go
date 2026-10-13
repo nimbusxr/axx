@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/nimbusxr/axx/core"
+	mobilecore "github.com/nimbusxr/axx/packs/mobile/core"
 )
 
 // app is an iOS app a scenario registered.
@@ -19,6 +20,7 @@ type app struct {
 	device      string // a device type, a simulator's name, or a UDID
 	permissions []string
 	photos      []string // in the simulator's photo library, for the app to pick
+	documents   []string // in the simulator's files, On My iPhone, for the app to pick
 	locale      string   // like de-DE
 	timezone    string   // like Europe/Berlin
 	location    *[2]float64
@@ -92,6 +94,12 @@ func parseApp(sc *core.Scenario, expand func(string) string, name string, t *cor
 				}
 				a.photos = append(a.photos, path)
 			}
+		case "documents":
+			docs, err := mobilecore.Documents(sc, value)
+			if err != nil {
+				return nil, fmt.Errorf("the %s ios app's documents: %w", name, err)
+			}
+			a.documents = docs
 		case "locale":
 			if !localeRE.MatchString(value) {
 				return nil, fmt.Errorf("the %s ios app's locale %q is not a language and region, like de-DE", name, value)
@@ -116,7 +124,7 @@ func parseApp(sc *core.Scenario, expand func(string) string, name string, t *cor
 			}
 			a.server = strings.TrimRight(value, "/")
 		default:
-			return nil, fmt.Errorf("unknown ios app property %q (supported: app, bundle id, device, permissions, photos, locale, timezone, location, appium, capability.<name>)", key)
+			return nil, fmt.Errorf("unknown ios app property %q (supported: app, bundle id, device, permissions, photos, documents, locale, timezone, location, appium, capability.<name>)", key)
 		}
 	}
 	switch {
@@ -128,6 +136,8 @@ func parseApp(sc *core.Scenario, expand func(string) string, name string, t *cor
 		return nil, fmt.Errorf("the %s ios app's capability.<name> rows are for its appium server", name)
 	case a.server != "" && a.bundleID == "":
 		return nil, fmt.Errorf("the %s ios app needs its bundle id with an appium server", name)
+	case a.server != "" && len(a.documents) > 0:
+		return nil, fmt.Errorf("the %s ios app's documents are put on simulators axx runs: a device of an appium server's takes files its own way", name)
 	case a.server != "" && len(a.permissions) > 0:
 		return nil, fmt.Errorf("the %s ios app's permissions are granted on simulators axx runs: with an appium server, its capabilities grant them", name)
 	}

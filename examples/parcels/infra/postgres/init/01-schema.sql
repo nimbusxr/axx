@@ -63,3 +63,16 @@ CREATE TABLE parcels.pickups (
     day        VARCHAR(20) NOT NULL,
     planned_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- The documents a courier attached to a parcel they deliver, from the couriers' app: the
+-- recipient's leave to put it at a safe place, say (see ../../../app/courierapp.go).
+CREATE TABLE parcels.delivery_documents (
+    reference    VARCHAR(40) NOT NULL,
+    name         VARCHAR(200) NOT NULL,
+    content_type VARCHAR(100) NOT NULL,
+    size_bytes   INTEGER NOT NULL,
+    content      BYTEA NOT NULL,
+    courier      VARCHAR(40) NOT NULL,
+    attached_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (reference, name)
+);

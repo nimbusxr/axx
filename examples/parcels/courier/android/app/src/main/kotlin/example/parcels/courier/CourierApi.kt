@@ -78,7 +78,15 @@ class CourierApi(private val baseUrl: String) {
         call("POST", "/api/couriers/${enc(session.courier)}/location", session.token, body)
     }
 
+    /** A document for the delivery, like the recipient's safe-place authorization: its content, under its file's name. */
+    suspend fun attachDocument(session: Session, reference: String, name: String, contentType: String, content: ByteArray) {
+        call("PUT", "/api/couriers/${enc(session.courier)}/deliveries/${enc(reference)}/documents/${enc(name)}", session.token, content, contentType)
+    }
+
     private suspend fun call(method: String, path: String, token: String?, body: JSONObject?): JSONObject =
+        call(method, path, token, body?.toString()?.toByteArray(), "application/json")
+
+    private suspend fun call(method: String, path: String, token: String?, content: ByteArray?, contentType: String): JSONObject =
         withContext(Dispatchers.IO) {
             val conn = URL(baseUrl + path).openConnection() as HttpURLConnection
             try {
@@ -87,10 +95,10 @@ class CourierApi(private val baseUrl: String) {
                 conn.readTimeout = 15_000
                 conn.setRequestProperty("Accept", "application/json")
                 if (token != null) conn.setRequestProperty("Authorization", "Bearer $token")
-                if (body != null) {
+                if (content != null) {
                     conn.doOutput = true
-                    conn.setRequestProperty("Content-Type", "application/json")
-                    conn.outputStream.use { it.write(body.toString().toByteArray()) }
+                    conn.setRequestProperty("Content-Type", contentType)
+                    conn.outputStream.use { it.write(content) }
                 }
                 val status = conn.responseCode
                 if (status !in 200..299) throw ApiException(status)

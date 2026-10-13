@@ -303,3 +303,51 @@ func TestACourierFollowsNotificationsOnAnEmulator(t *testing.T) {
 	h.OK(`the "PX-MOB-9402 delivered" notification is tapped in the courier app`)
 	h.OK(`the courier app shows "No deliveries left today."`)
 }
+
+// A courier attaches a document from the phone's files to a delivery: the recipient's leave to
+// put the parcel in his garage, which the documents property put in Downloads, picked in the
+// system's file picker as a courier picks it.
+func TestACourierAttachesADocumentOnAnEmulator(t *testing.T) {
+	api := courierapi.Start(t)
+	t.Setenv("COURIER_PIN", "4711")
+	h := cloudtest.New(t, appcore.Pack(), mobilecore.Pack(), Pack())
+	logsOnFailure(t, h)
+	pdf := courierapi.SafePlaceAuthorization(t)
+	h.OK("the courier android app with the following properties:", [][]string{
+		{"apk", apk(t)}, {"device", avd(t)}, {"permissions", "POST_NOTIFICATIONS"}, {"host ports", "8400"}, {"documents", pdf},
+	})
+	signIn(h)
+	h.OK(`the "PX-MOB-9401" list item is tapped in the courier app`)
+	h.OK(`the "Attach document" button is tapped in the courier app`)
+	h.OK(`the "Show roots" button is tapped in the courier app`)
+	h.OK(`the "Downloads" text is tapped in the courier app`)
+	h.OK(`the "safe-place-PX-MOB-9401.pdf" text is tapped in the courier app`)
+	h.OK(`the courier app shows "safe-place-PX-MOB-9401.pdf attached"`)
+	want, err := os.ReadFile(pdf)
+	if err != nil {
+		t.Fatal(err)
+	}
+	docs := api.Documents()
+	if len(docs) != 1 || docs[0].Reference != "PX-MOB-9401" || docs[0].Name != "safe-place-PX-MOB-9401.pdf" ||
+		docs[0].ContentType != "application/pdf" || !bytes.Equal(docs[0].Content, want) {
+		t.Errorf("the service has %+v, want PX-MOB-9401's safe-place-PX-MOB-9401.pdf (application/pdf, %d bytes)", docs, len(want))
+	}
+	if err := h.End("passed"); err != nil {
+		t.Fatal(err)
+	}
+
+	// The next scenario on the emulator finds nothing a scenario before put in its Downloads.
+	h.NewScenario()
+	h.OK("the courier android app with the following properties:", [][]string{
+		{"apk", apk(t)}, {"device", avd(t)}, {"permissions", "POST_NOTIFICATIONS"}, {"host ports", "8400"},
+	})
+	signIn(h)
+	h.OK(`the "PX-MOB-9401" list item is tapped in the courier app`)
+	h.OK(`the "Attach document" button is tapped in the courier app`)
+	h.OK(`the "Show roots" button is tapped in the courier app`)
+	h.OK(`the "Downloads" text is tapped in the courier app`)
+	h.OK(`the courier app does not show "safe-place-PX-MOB-9401.pdf"`)
+	if err := h.End("passed"); err != nil {
+		t.Fatal(err)
+	}
+}

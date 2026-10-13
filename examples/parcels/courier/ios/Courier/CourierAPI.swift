@@ -106,15 +106,29 @@ struct CourierAPI {
         )
     }
 
+    /// A document for the delivery, like the recipient's safe-place authorization: its content,
+    /// under its file's name.
+    func attachDocument(_ session: Session, reference: String, name: String, contentType: String, content: Data) async throws {
+        _ = try await call(
+            "PUT", "/api/couriers/\(enc(session.courier))/deliveries/\(enc(reference))/documents/\(enc(name))",
+            token: session.token, content: content, contentType: contentType
+        )
+    }
+
     private func call(_ method: String, _ path: String, token: String?, body: [String: Any]?) async throws -> Data {
+        let content = try body.map { try JSONSerialization.data(withJSONObject: $0) }
+        return try await call(method, path, token: token, content: content, contentType: "application/json")
+    }
+
+    private func call(_ method: String, _ path: String, token: String?, content: Data?, contentType: String) async throws -> Data {
         guard let url = URL(string: baseURL + path) else { throw URLError(.badURL) }
         var request = URLRequest(url: url, timeoutInterval: 15)
         request.httpMethod = method
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         if let token { request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization") }
-        if let body {
-            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-            request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        if let content {
+            request.setValue(contentType, forHTTPHeaderField: "Content-Type")
+            request.httpBody = content
         }
         let (data, response) = try await URLSession.shared.data(for: request)
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0

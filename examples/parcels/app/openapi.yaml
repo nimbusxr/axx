@@ -352,6 +352,47 @@ paths:
         "403": {$ref: "#/components/responses/Problem"}
         "404": {$ref: "#/components/responses/Problem"}
         "409": {$ref: "#/components/responses/Problem"}
+  /api/couriers/{courier}/deliveries/{reference}/documents/{name}:
+    parameters:
+      - $ref: "#/components/parameters/Courier"
+      - $ref: "#/components/parameters/Reference"
+      - name: name
+        in: path
+        required: true
+        description: The document's file name, as the courier's phone has it.
+        schema: {type: string, maxLength: 200, example: safe-place-PX-MOB-9421.pdf}
+    put:
+      operationId: attachDeliveryDocument
+      summary: A courier attaches a document to a delivery
+      description: >-
+        A document the courier picked in their phone's files, like the recipient's leave to put
+        the parcel at a safe place: a PDF or an image of at most 10 MB, kept with the parcel. One
+        of the same name is replaced. Needs the courier's token.
+      security:
+        - courierToken: []
+      requestBody:
+        required: true
+        content:
+          application/pdf:
+            schema: {type: string, format: binary}
+          image/jpeg:
+            schema: {type: string, format: binary}
+          image/png:
+            schema: {type: string, format: binary}
+          image/heic:
+            schema: {type: string, format: binary}
+      responses:
+        "201":
+          description: The document is kept with the parcel.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/DeliveryDocument"}
+        "400": {$ref: "#/components/responses/Problem"}
+        "401": {$ref: "#/components/responses/Problem"}
+        "403": {$ref: "#/components/responses/Problem"}
+        "404": {$ref: "#/components/responses/Problem"}
+        "413": {$ref: "#/components/responses/Problem"}
+        "415": {$ref: "#/components/responses/Problem"}
   /api/couriers/{courier}/location:
     parameters:
       - $ref: "#/components/parameters/Courier"
@@ -572,6 +613,14 @@ components:
       properties:
         signedBy: {type: string, minLength: 1}
         location: {type: string, description: Where the parcel was delivered; the recipient's city by default.}
+    DeliveryDocument:
+      type: object
+      required: [reference, name, contentType, size]
+      properties:
+        reference: {type: string, example: PX-MOB-9421}
+        name: {type: string, example: safe-place-PX-MOB-9421.pdf}
+        contentType: {type: string, example: application/pdf}
+        size: {type: integer, description: bytes, example: 1083}
     VanLocation:
       type: object
       required: [latitude, longitude]

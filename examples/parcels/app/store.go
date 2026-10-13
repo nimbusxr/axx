@@ -236,6 +236,16 @@ func (s *store) LabelPrinted(ctx context.Context, ref, printer string, at time.T
 	return nil
 }
 
+// AttachDocument keeps a document a courier attached to a parcel they deliver: one of the same
+// name is replaced.
+func (s *store) AttachDocument(ctx context.Context, ref, name, contentType, courier string, content []byte) error {
+	_, err := s.pool.Exec(ctx, `INSERT INTO parcels.delivery_documents (reference, name, content_type, size_bytes, content, courier)
+		VALUES ($1, $2, $3, $4, $5, $6)
+		ON CONFLICT (reference, name) DO UPDATE SET content_type = $3, size_bytes = $4, content = $5, courier = $6, attached_at = now()`,
+		ref, name, contentType, len(content), content, courier)
+	return err
+}
+
 func lockParcel(ctx context.Context, tx pgx.Tx, ref string) (*Parcel, error) {
 	p, err := scanParcel(tx.QueryRow(ctx, `SELECT `+parcelColumns+` FROM parcels.parcels WHERE reference = $1 FOR UPDATE NOWAIT`, ref))
 	if sqlState(err) == "55P03" {

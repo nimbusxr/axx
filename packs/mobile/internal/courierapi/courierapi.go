@@ -7,9 +7,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"math"
 	"net"
 	"net/http"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -22,10 +25,32 @@ type Location struct {
 	Speed, Course       *float64 // metres a second, degrees; nil when the app did not know
 }
 
+// A Document is a file the courier's app attached to a delivery.
+type Document struct {
+	Reference, Name, ContentType string
+	Content                      []byte
+}
+
 // API is the couriers' API a test serves.
 type API struct {
 	mu        sync.Mutex
 	locations []Location
+	documents []Document
+}
+
+// Documents are the files the courier's app attached to deliveries, in order.
+func (a *API) Documents() []Document {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return append([]Document(nil), a.documents...)
+}
+
+// SafePlaceAuthorization is a document a recipient sends their courier: Jonas Weber's leave to
+// put PX-MOB-9401 in his garage, a PDF.
+func SafePlaceAuthorization(t *testing.T) string {
+	t.Helper()
+	_, here, _, _ := runtime.Caller(0)
+	return filepath.Join(filepath.Dir(here), "testdata", "safe-place-PX-MOB-9401.pdf")
 }
 
 // Locations are where the courier's app said the van was, in order.
@@ -36,8 +61,8 @@ func (a *API) Locations() []Location {
 }
 
 // Start serves the couriers' API for a test: the courier CR-LEJ-12 (PIN
-// 4711) signs in, delivers PX-MOB-9401 and PX-MOB-9402, and reports where
-// the van is. The apps call 127.0.0.1:8400, and only one test at a time can
+// 4711) signs in, delivers PX-MOB-9401 and PX-MOB-9402, attaches documents
+// to them, and reports where the van is. The apps call 127.0.0.1:8400, and only one test at a time can
 // serve it: the Android and the iOS packs' tests, run at once, take turns.
 func Start(t *testing.T) *API {
 	t.Helper()
@@ -113,6 +138,18 @@ func Start(t *testing.T) *API {
 		api.locations = append(api.locations, Location{*in.Latitude, *in.Longitude, in.Speed, in.Course})
 		api.mu.Unlock()
 		w.WriteHeader(http.StatusNoContent)
+	})
+	mux.HandleFunc("PUT /api/couriers/{courier}/deliveries/{reference}/documents/{name}", func(w http.ResponseWriter, r *http.Request) {
+		content, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 10<<20))
+		if err != nil || len(content) == 0 {
+			reply(w, http.StatusBadRequest, map[string]string{"detail": "a document is a file of at most 10 MB"})
+			return
+		}
+		ref, name := r.PathValue("reference"), r.PathValue("name")
+		api.mu.Lock()
+		api.documents = append(api.documents, Document{ref, name, r.Header.Get("Content-Type"), content})
+		api.mu.Unlock()
+		reply(w, http.StatusCreated, map[string]any{"reference": ref, "name": name, "size": len(content)})
 	})
 	srv := &http.Server{Handler: mux}
 	go func() { _ = srv.Serve(l) }()
