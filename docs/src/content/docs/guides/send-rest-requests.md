@@ -53,6 +53,18 @@ Scenario: A registered parcel can be looked up by its reference
 - **A second `a GET request to …` adds the 1st again**, and fails: write it as `a 2nd ordered GET request to …`. `axx validate` shows the line to write.
 - **A check names its response:** `the 2nd ordered response status code is 200`, or `… for 2nd ordered response` at the end of the other response steps. A check without one reads the 1st response.
 
+## Find an item in a list
+
+A property can pick items out of a list with a JSONPath filter: `parcels[?(@.reference=='PX-REG-1401')].status` is the status of that parcel. The value a check compares is the list of what matched, so one match reads `'["delivered"]'`.
+
+```gherkin
+Then the response payload property parcels[?(@.reference=='PX-REG-1401')].status is '["delivered"]'
+And the response payload property parcels[?(@.service=~/Next\sday\sair/)].reference is '["PX-REG-1401"]'
+```
+
+- **A path is one word**, without spaces. To match a text with spaces, use `=~` and a regular expression, where `\s` stands for the space.
+- **`=~` matches the whole text**, as Jayway's JSONPath does: `/Next\sday/` doesn't match "Next day air", while `/Next\sday.*/` does.
+
 ## Redirects
 
 | Request | Redirects it follows | The response the steps check |
