@@ -619,3 +619,42 @@ func TestANotificationFoldedInAGroupIsOpenedOutFirst(t *testing.T) {
 		t.Errorf("the notification was tapped at %v, want its row in the opened group", taps[1])
 	}
 }
+
+// adb runs with mDNS discovery off, so a server it starts has it off (on some networks adb's
+// mDNS bridge aborts the server); an ADB_MDNS the user sets wins.
+func TestAdbRunsWithMDNSOff(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("the stand-in adb is a shell script")
+	}
+	adb := filepath.Join(t.TempDir(), "adb")
+	if err := os.WriteFile(adb, []byte("#!/bin/sh\necho \"mdns=${ADB_MDNS-unset}\"\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	s := &sdk{adb: adb}
+	if out, err := s.run(t.Context(), "", "devices"); err != nil || out != "mdns=0" {
+		t.Errorf("by default: %q %v", out, err)
+	}
+	t.Setenv("ADB_MDNS", "1")
+	if out, err := s.run(t.Context(), "", "devices"); err != nil || out != "mdns=1" {
+		t.Errorf("the user's ADB_MDNS: %q %v", out, err)
+	}
+}
+
+// A command that failed because adb's server had stopped says so, and how to keep it up.
+func TestAnAdbServerThatStoppedIsExplained(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("the stand-in adb is a shell script")
+	}
+	adb := filepath.Join(t.TempDir(), "adb")
+	script := "#!/bin/sh\necho '* daemon not running; starting now at tcp:5037'\necho 'adb: device offline'\nexit 1\n"
+	if err := os.WriteFile(adb, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	_, err := (&sdk{adb: adb}).run(t.Context(), "emulator-5554", "install", "x.apk")
+	if err == nil || !strings.Contains(err.Error(), "adb's server had stopped and was started again") || !strings.Contains(err.Error(), "ADB_MDNS=0") {
+		t.Errorf("err = %v", err)
+	}
+	if serverRestarted("Success") != "" {
+		t.Error("an output without the server starting again adds nothing")
+	}
+}

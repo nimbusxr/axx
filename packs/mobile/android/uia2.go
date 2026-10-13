@@ -167,7 +167,7 @@ func (p *pool) ensureServer(ctx context.Context, d *device, logDir string) error
 		return err
 	}
 	// The server outlives this step: it runs until the device leaves the pool.
-	cmd := exec.CommandContext(context.Background(), p.sdk.adb, "-s", d.serial, "shell", //nolint:gosec // adb, with arguments axx builds
+	cmd := p.sdk.command(context.Background(), "-s", d.serial, "shell",
 		"am", "instrument", "-w", "--no-window-animation", "-e", "disableAnalytics", "true", uia2Runner)
 	cmd.Stdout, cmd.Stderr = log, log
 	cmd.WaitDelay = time.Second

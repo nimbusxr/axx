@@ -28,7 +28,7 @@ The steps are the same on Android and on iOS: only the app's registration says w
 
 **For Android:**
 
-- **The Android SDK**, with `ANDROID_HOME` pointing at it: its emulator, and adb. Android Studio installs it, or its command-line tools.
+- **The Android SDK**, with `ANDROID_HOME` pointing at it: its emulator, and adb. Android Studio installs it, or its command-line tools. An adb server axx starts has its mDNS discovery off (`ADB_MDNS=0`, unless you set `ADB_MDNS`): axx needs none, and on some networks it makes adb's server abort.
 - **An emulator's device (AVD)**, like the one Android Studio's Device Manager makes, or one `avdmanager` makes:
 
   ```sh
