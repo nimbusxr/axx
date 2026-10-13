@@ -133,7 +133,22 @@ func TestCouriersOnAnEmulator(t *testing.T) {
 		}
 		return nil
 	})
+	// adb loses an emulator for a moment now and then (one that stalls), and the server and what
+	// the app reached as localhost go with it: the scenario goes on, and the app reaches this
+	// machine again (it delivers the parcel below through localhost:8400).
+	_ = mobilecore.OnDevice(h.SC, "courier", func(ctx context.Context, d mobilecore.Device) error {
+		r := d.(*running)
+		_, err := r.sdk.run(ctx, r.dev.serial, "reconnect")
+		return err
+	})
 	h.OK(`the "PX-MOB-9401" list item is tapped in the courier app`)
+	_ = mobilecore.OnDevice(h.SC, "courier", func(ctx context.Context, d mobilecore.Device) error {
+		r := d.(*running)
+		if out, err := r.sdk.run(ctx, r.dev.serial, "reverse", "--list"); err != nil || !strings.Contains(out, "tcp:8400") {
+			t.Errorf("the app does not reach localhost:8400 after adb lost the device: %q, %v", out, err)
+		}
+		return nil
+	})
 	h.OK(`the "Mark delivered" button is disabled in the courier app`)
 	h.OK(`the "Signed by" field in the courier app is filled with "Jonas Weber"`)
 	h.OK(`the "Mark delivered" button is tapped in the courier app`)
