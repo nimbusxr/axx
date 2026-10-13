@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"slices"
 	"strings"
@@ -656,5 +657,27 @@ func TestAnAdbServerThatStoppedIsExplained(t *testing.T) {
 	}
 	if serverRestarted("Success") != "" {
 		t.Error("an output without the server starting again adds nothing")
+	}
+}
+
+// The bars a device reports: an Appium server says where each is; the UiAutomator2 server, which
+// axx drives directly, says only the status bar's height, a bar across the top.
+func TestSystemBars(t *testing.T) {
+	for _, c := range []struct {
+		name string
+		bars string
+		want []mobilecore.Rect
+	}{
+		{"the UiAutomator2 server", `{"statusBar": 63}`, []mobilecore.Rect{{Width: 1080, Height: 63}}},
+		{"an Appium server", `{"statusBar": {"visible": true, "x": 0, "y": 0, "width": 1080, "height": 63}, "navigationBar": {"visible": false, "x": 0, "y": 2337, "width": 1080, "height": 63}}`, []mobilecore.Rect{{Width: 1080, Height: 63}}},
+	} {
+		var bars map[string]json.RawMessage
+		if err := json.Unmarshal([]byte(c.bars), &bars); err != nil {
+			t.Fatal(err)
+		}
+		got, err := systemBars(bars, 1080)
+		if err != nil || !reflect.DeepEqual(got, c.want) {
+			t.Errorf("%s: %v, %v; want %v", c.name, got, err, c.want)
+		}
 	}
 }
