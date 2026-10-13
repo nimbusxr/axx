@@ -53,6 +53,19 @@ func findSDK() (*sdk, error) {
 	return s, nil
 }
 
+// command is adb with args, run so that an adb server it starts has mDNS discovery off. axx
+// needs none: it reaches emulators and USB devices without it. And on some networks adb's mDNS
+// bridge aborts the server as it reads a name something else advertises (adb 37 on the Mac mini:
+// the server died every few seconds, every install failed, and the device went offline). An
+// ADB_MDNS the user sets wins. A server already running is left as it is.
+func (s *sdk) command(ctx context.Context, args ...string) *exec.Cmd {
+	cmd := exec.CommandContext(ctx, s.adb, args...) //nolint:gosec // adb, with arguments axx builds
+	if _, set := os.LookupEnv("ADB_MDNS"); !set {
+		cmd.Env = append(os.Environ(), "ADB_MDNS=0")
+	}
+	return cmd
+}
+
 // run runs adb for a device, and returns what it printed.
 func (s *sdk) run(ctx context.Context, serial string, args ...string) (string, error) {
 	ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
@@ -60,12 +73,23 @@ func (s *sdk) run(ctx context.Context, serial string, args ...string) (string, e
 	if serial != "" {
 		args = append([]string{"-s", serial}, args...)
 	}
-	out, err := exec.CommandContext(ctx, s.adb, args...).CombinedOutput() //nolint:gosec // adb, with arguments axx builds
+	out, err := s.command(ctx, args...).CombinedOutput()
 	text := strings.TrimSpace(strings.ReplaceAll(string(out), "\r", ""))
 	if err != nil {
-		return text, fmt.Errorf("adb %s: %w: %s", strings.Join(args, " "), err, text)
+		return text, fmt.Errorf("adb %s: %w: %s%s", strings.Join(args, " "), err, text, serverRestarted(text))
 	}
 	return text, nil
+}
+
+// serverRestarted says why, when adb had to start its server again for a command that failed:
+// the server stopped while axx used it.
+func serverRestarted(output string) string {
+	if !strings.Contains(output, "daemon not running") {
+		return ""
+	}
+	return " (adb's server had stopped and was started again. On some networks its mDNS discovery" +
+		" aborts it: ADB_MDNS=0 turns that off, which axx sets for an adb server it starts unless" +
+		" ADB_MDNS is set; a server something else started keeps its own setting)"
 }
 
 // install installs an APK on a device, replacing what it replaces, never incrementally: an
@@ -74,7 +98,7 @@ func (s *sdk) run(ctx context.Context, serial string, args ...string) (string, e
 // as it always did.
 func (s *sdk) install(ctx context.Context, serial, apk string, args ...string) (string, error) {
 	s.versionOnce.Do(func() {
-		out, _ := exec.CommandContext(ctx, s.adb, "version").CombinedOutput() //nolint:gosec // adb, with arguments axx builds
+		out, _ := s.command(ctx, "version").CombinedOutput()
 		s.noIncremental = knowsNoIncremental(string(out))
 	})
 	cmd := append([]string{"install", "-r"}, args...)

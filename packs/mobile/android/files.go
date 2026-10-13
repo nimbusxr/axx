@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"os/exec"
 	"path"
 	"strings"
 
@@ -64,7 +63,7 @@ func (f adbFiles) Read(ctx context.Context, name string) ([]byte, bool, error) {
 	if strings.TrimSpace(out) != "yes" {
 		return nil, false, nil
 	}
-	cmd := exec.CommandContext(ctx, f.sdk.adb, "-s", f.serial, "exec-out", "run-as "+q(f.pkg)+" cat "+q(p)) //nolint:gosec // adb, with arguments axx builds
+	cmd := f.sdk.command(ctx, "-s", f.serial, "exec-out", "run-as "+q(f.pkg)+" cat "+q(p))
 	body, err := cmd.Output()
 	if err != nil {
 		return nil, false, fmt.Errorf("cannot read %s of the %s app: %w", p, f.app, err)
@@ -75,7 +74,7 @@ func (f adbFiles) Read(ctx context.Context, name string) ([]byte, bool, error) {
 func (f adbFiles) Write(ctx context.Context, name string, body []byte) error {
 	p := f.path(name)
 	script := "mkdir -p " + q(path.Dir(p)) + " && cat > " + q(p)
-	cmd := exec.CommandContext(ctx, f.sdk.adb, "-s", f.serial, "exec-in", "run-as "+q(f.pkg)+" sh -c "+q(script)) //nolint:gosec // adb, with arguments axx builds
+	cmd := f.sdk.command(ctx, "-s", f.serial, "exec-in", "run-as "+q(f.pkg)+" sh -c "+q(script))
 	cmd.Stdin = bytes.NewReader(body)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("cannot write %s of the %s app: %w: %s", p, f.app, err, strings.TrimSpace(string(out)))
