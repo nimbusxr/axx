@@ -75,6 +75,9 @@ type Server struct {
 	// launchesUnknown are the next launches SpringBoard refuses, not knowing the app yet: it
 	// learns of an app a moment after it is installed.
 	launchesUnknown int
+	// sliding are the next screenshots that find the screen still moving, as a sheet sliding
+	// away does; a swipe meanwhile is lost, as UIKit drops touches while a sheet moves.
+	sliding int
 }
 
 // Start runs the fake for a test.
@@ -112,6 +115,14 @@ func (s *Server) Moving(xpath string, misses int) {
 		s.moving = map[string]int{}
 	}
 	s.moving[xpath] = misses
+}
+
+// Sliding has the next screenshots find the screen still moving, as a sheet slides away after
+// its button is tapped; a swipe while it moves is lost.
+func (s *Server) Sliding(shots int) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.sliding = shots
 }
 
 // Stale has the next finds of elements lose what they found, as the screen changes under them.
@@ -343,6 +354,10 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 		case "mobile: scrollGesture":
 			reply(false)
 			return
+		case "mobile: swipe":
+			if s.sliding > 0 {
+				s.commands = append(s.commands, "the swipe was lost: the screen was still moving")
+			}
 		}
 		if script == "mobile: getSystemBars" {
 			reply(map[string]any{"statusBar": map[string]any{"visible": true, "x": 0, "y": 0, "width": 108, "height": 10}})
@@ -408,6 +423,10 @@ func (s *Server) shot() []byte {
 			sum = sum*31 + int(r)
 		}
 		c = color.RGBA{uint8(sum), uint8(sum >> 8), uint8(sum >> 16), 0xff}
+	}
+	if s.sliding > 0 {
+		s.sliding--
+		c = color.RGBA{uint8(0xff * (s.sliding % 2)), uint8(0xff * (s.sliding % 2)), 0x80, 0xff}
 	}
 	s.shots++
 	img := image.NewRGBA(image.Rect(0, 0, 108, 240))

@@ -62,7 +62,12 @@ func steps() []core.StepDef {
 			Examples: []string{"When the courier app is swiped down"},
 			Run: func(sc *core.Scenario, a core.Args) error {
 				dir := a.String(1)
-				return onDevice(sc, a.String(0), false, func(ctx context.Context, d Device) error { return d.Swipe(ctx, dir) })
+				return onDevice(sc, a.String(0), false, func(ctx context.Context, d Device) error {
+					if err := still(ctx, d); err != nil {
+						return err
+					}
+					return d.Swipe(ctx, dir)
+				})
 			},
 		},
 	}
@@ -152,6 +157,30 @@ func settle(ctx context.Context, d Device, r Rect) error {
 			return nil
 		}
 		last = part
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(100 * time.Millisecond):
+		}
+	}
+	return nil
+}
+
+// still waits, two seconds at most, until the screen has stopped moving, its system bars left out
+// (the clock): a person swipes a screen at rest. A swipe while a sheet still slides away is lost,
+// as iOS drops touches then (the Save Password sheet after a sign-in, as the app's screen comes
+// back), and a pull to refresh with it.
+func still(ctx context.Context, d Device) error {
+	var last image.Image
+	for end := time.Now().Add(2 * time.Second); time.Now().Before(end); {
+		shot, err := maskedShot(ctx, d)
+		if err != nil {
+			return err
+		}
+		if last != nil && same(last, shot) {
+			return nil
+		}
+		last = shot
 		select {
 		case <-ctx.Done():
 			return ctx.Err()

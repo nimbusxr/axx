@@ -2,6 +2,7 @@ package mobileandroid
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"path/filepath"
@@ -807,10 +808,7 @@ func (d *running) keyboardShown(ctx context.Context) (bool, error) {
 }
 
 func (d *running) SystemBars(ctx context.Context) ([]mobilecore.Rect, error) {
-	var bars map[string]struct {
-		Visible             bool
-		X, Y, Width, Height float64
-	}
+	var bars map[string]json.RawMessage
 	var err error
 	if d.dev != nil {
 		err = d.session.Command(ctx, http.MethodGet, "/appium/device/system_bars", nil, &bars)
@@ -820,8 +818,38 @@ func (d *running) SystemBars(ctx context.Context) ([]mobilecore.Rect, error) {
 	if err != nil {
 		return nil, fmt.Errorf("cannot read where the device's system bars are: %w", err)
 	}
+	var width float64
+	if win, err := d.session.Window(ctx); err == nil {
+		width = win.Width
+	}
+	out, err := systemBars(bars, width)
+	if err != nil {
+		return nil, fmt.Errorf("cannot read where the device's system bars are: %w", err)
+	}
+	return out, nil
+}
+
+// systemBars are the bars a device reports, in its screen's pixels. An Appium server reports each
+// as where it is ({"statusBar": {"visible": true, "x": 0, ...}}); the UiAutomator2 server, which
+// axx drives directly, reports only the status bar's height ({"statusBar": 63}), a bar across the
+// top of a screen width wide.
+func systemBars(bars map[string]json.RawMessage, width float64) ([]mobilecore.Rect, error) {
 	var out []mobilecore.Rect
-	for _, b := range bars {
+	for name, raw := range bars {
+		var height float64
+		if json.Unmarshal(raw, &height) == nil {
+			if height > 0 && name == "statusBar" {
+				out = append(out, mobilecore.Rect{Width: width, Height: height})
+			}
+			continue
+		}
+		var b struct {
+			Visible             bool
+			X, Y, Width, Height float64
+		}
+		if err := json.Unmarshal(raw, &b); err != nil {
+			return nil, fmt.Errorf("the %s is %s", name, raw)
+		}
 		if b.Visible {
 			out = append(out, mobilecore.Rect{X: b.X, Y: b.Y, Width: b.Width, Height: b.Height})
 		}
