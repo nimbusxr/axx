@@ -65,6 +65,9 @@ type Server struct {
 	// stale are the next finds that lose what they found as it moves, as a notification
 	// sliding away does under WebDriverAgent.
 	stale int
+	// staleAlerts are the next reads of a dialog that lose it as it changes, as UiAutomator2's do
+	// when a dialog is drawn again while it comes in.
+	staleAlerts int
 	// expiring are the next taps of a found control that the server no longer has, the app
 	// having drawn it again, as the UiAutomator2 server answers a dialog's button coming in.
 	expiring int
@@ -104,6 +107,13 @@ func (s *Server) Arriving(reads int) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.arriving = reads
+}
+
+// StaleAlerts has the next reads of a dialog lose it, as it is drawn again under them.
+func (s *Server) StaleAlerts(reads int) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.staleAlerts = reads
 }
 
 // Moving has the next finds of a control miss it, as they do while it
@@ -234,6 +244,11 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 		text, ok := s.app.Alerts[s.screen]
 		if !ok {
 			fail("no such alert", "No alert is present on the screen")
+			return
+		}
+		if s.staleAlerts > 0 {
+			s.staleAlerts--
+			fail("stale element reference", "androidx.test.uiautomator.StaleObjectException")
 			return
 		}
 		if s.blank = s.arriving > 0; s.blank {
