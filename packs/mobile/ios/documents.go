@@ -29,7 +29,28 @@ func (d *running) putDocuments(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	return d.putDocumentsIn(group)
+	if err := d.putDocumentsIn(group); err != nil {
+		return err
+	}
+	d.forgetPickerPlace(ctx)
+	return nil
+}
+
+// pickerPlaces are the keys under which iOS keeps, for an app, where its document picker was
+// last (in com.apple.DocumentManager.defaults, the simulator's own preferences, not the app's).
+// They outlive the app: installed afresh, it opens its picker where a scenario before left it,
+// in On My iPhone, say, where the next scenario expects Browse (iOS 26.5).
+var pickerPlaces = []string{
+	"-com.apple.DocumentManager.Role.Picker-DOCUserDefaultsSceneState",
+	"-com.apple.DocumentManager.Role.Picker-DOCUserDefaultsMostRecentSceneState",
+}
+
+// forgetPickerPlace has the app's document picker open where a new phone's does, whatever a
+// scenario before did with it. A key iOS has not written yet is nothing to forget.
+func (d *running) forgetPickerPlace(ctx context.Context) {
+	for _, key := range pickerPlaces {
+		_, _ = d.dev.set.simctl(ctx, "spawn", d.dev.udid, "defaults", "delete", "com.apple.DocumentManager.defaults", d.bundleID+key)
+	}
 }
 
 // putDocumentsIn is putDocuments in the simulator's filesStorageGroup, at group.
