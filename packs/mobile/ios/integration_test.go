@@ -76,6 +76,17 @@ func harnessWith(t *testing.T, config map[string]any) *cloudtest.Harness {
 			defer cancel()
 			src, err := d.Session().Source(ctx)
 			t.Logf("the courier app's page source at the failure (%v):\n%s", err, src)
+			// What the simulator's own log says, in the last minutes, of the app, of the document
+			// picker and the files it shows, and of each tap XCTest made (where, and when), with
+			// the errors of each of those processes.
+			if r, ok := d.(*running); ok && r.dev != nil {
+				out, err := exec.CommandContext(ctx, "xcrun", "simctl", "spawn", r.dev.udid, "log", "show", "--last", "2m", "--style", "compact", "--predicate", //nolint:gosec // the test's own simulator
+					`subsystem BEGINSWITH "com.apple.DocumentManager" OR subsystem BEGINSWITH "com.apple.FileProvider" OR subsystem BEGINSWITH "example.parcels"`+
+						` OR (process == "testmanagerd" AND eventMessage BEGINSWITH "Synthesizing event")`+
+						` OR ((process == "Courier" OR process CONTAINS[c] "document" OR process CONTAINS[c] "fileprovider") AND messageType IN {16, 17})`).CombinedOutput()
+				lines := strings.Split(string(out), "\n")
+				t.Logf("the simulator's log (%v):\n%s", err, strings.Join(lines[max(0, len(lines)-600):], "\n"))
+			}
 			return nil
 		})
 		logs, _ := filepath.Glob(filepath.Join(h.Dir, ".axx", "mobile", "*.log"))
@@ -323,4 +334,53 @@ func TestACourierMeasuresAParcelOnASimulator(t *testing.T) {
 	h.OK(`the "front left corner" in the courier app's camera view is tapped`)
 	h.OK(`the "front right corner" in the courier app's camera view is tapped`)
 	h.OK(`the courier app shows "60 cm"`)
+}
+
+// A courier attaches a document from the phone's files to a delivery: the recipient's leave to
+// put the parcel in his garage, which the documents property put On My iPhone, picked in the
+// system's document picker as a courier picks it.
+func TestACourierAttachesADocumentOnASimulator(t *testing.T) {
+	device := simulator(t)
+	api := courierapi.Start(t)
+	t.Setenv("COURIER_PIN", "4711")
+	h := harness(t)
+	warm(t, h, device)
+	pdf := courierapi.SafePlaceAuthorization(t)
+	h.OK("the courier ios app with the following properties:", [][]string{
+		{"app", courierBuild(t)}, {"device", device}, {"documents", pdf},
+	})
+	signIn(h)
+	h.OK(`the courier app's dialog is dismissed`)
+	h.OK(`the "PX-MOB-9401" list item is tapped in the courier app`)
+	h.OK(`the "Attach document" button is tapped in the courier app`)
+	h.OK(`the "Browse" button is tapped in the courier app`)
+	h.OK(`the "On My iPhone" text is tapped in the courier app`)
+	h.OK(`the "safe-place-PX-MOB-9401" list item is tapped in the courier app`)
+	h.OK(`the courier app shows "safe-place-PX-MOB-9401.pdf attached"`)
+	want, err := os.ReadFile(pdf)
+	if err != nil {
+		t.Fatal(err)
+	}
+	docs := api.Documents()
+	if len(docs) != 1 || docs[0].Reference != "PX-MOB-9401" || docs[0].Name != "safe-place-PX-MOB-9401.pdf" ||
+		docs[0].ContentType != "application/pdf" || !bytes.Equal(docs[0].Content, want) {
+		t.Errorf("the service has %+v, want PX-MOB-9401's safe-place-PX-MOB-9401.pdf (application/pdf, %d bytes)", docs, len(want))
+	}
+	if err := h.End("passed"); err != nil {
+		t.Fatal(err)
+	}
+
+	// The next scenario on the simulator finds nothing a scenario before put in its files.
+	h.NewScenarioWithin(scenarioLimit)
+	h.OK("the courier ios app with the following properties:", [][]string{{"app", courierBuild(t)}, {"device", device}})
+	signIn(h)
+	h.OK(`the courier app's dialog is dismissed`)
+	h.OK(`the "PX-MOB-9401" list item is tapped in the courier app`)
+	h.OK(`the "Attach document" button is tapped in the courier app`)
+	h.OK(`the "Browse" button is tapped in the courier app`)
+	h.OK(`the "On My iPhone" text is tapped in the courier app`)
+	h.OK(`the courier app does not show "safe-place-PX-MOB-9401"`)
+	if err := h.End("passed"); err != nil {
+		t.Fatal(err)
+	}
 }

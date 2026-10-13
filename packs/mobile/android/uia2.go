@@ -145,9 +145,26 @@ func (p *pool) ensureServer(ctx context.Context, d *device, logDir string) error
 	if err := p.installServer(ctx, d.serial, apks); err != nil {
 		return err
 	}
-	for port, on := range map[int]int{d.systemPort: uia2Port, d.mjpegPort: uia2MJPEGPort} {
-		if _, err := p.sdk.run(ctx, d.serial, "forward", "tcp:"+strconv.Itoa(port), "tcp:"+strconv.Itoa(on)); err != nil {
+	// adb picks the host's ports as it first forwards them (tcp:0), and says which: a port picked
+	// ahead of time can be another program's by the time the emulator has booted ("cannot bind
+	// listener: Address already in use"). A server started again keeps its ports, which adb
+	// forwards anew, so the scenario's session reaches it where it did.
+	for _, f := range []struct {
+		port *int
+		on   int
+	}{{&d.systemPort, uia2Port}, {&d.mjpegPort, uia2MJPEGPort}} {
+		local := "tcp:" + strconv.Itoa(*f.port)
+		if *f.port == 0 {
+			local = "tcp:0"
+		}
+		out, err := p.sdk.run(ctx, d.serial, "forward", local, "tcp:"+strconv.Itoa(f.on))
+		if err != nil {
 			return fmt.Errorf("cannot reach the UiAutomator2 server on %s: %w", d.serial, err)
+		}
+		if *f.port == 0 {
+			if *f.port, err = forwardedPort(out); err != nil {
+				return fmt.Errorf("cannot reach the UiAutomator2 server on %s: %w", d.serial, err)
+			}
 		}
 	}
 	// What a scenario before left of a server: one instrumentation at a time.
@@ -252,4 +269,13 @@ func (s *uia2Server) stop() {
 	}
 	<-s.exited
 	_ = s.log.Close()
+}
+
+// forwardedPort is the host's port adb chose for a forward to tcp:0, which it prints.
+func forwardedPort(out string) (int, error) {
+	port, err := strconv.Atoi(strings.TrimSpace(out))
+	if err != nil || port <= 0 || port > 65535 {
+		return 0, fmt.Errorf("adb forwarded it to %q, which is not a port", strings.TrimSpace(out))
+	}
+	return port, nil
 }

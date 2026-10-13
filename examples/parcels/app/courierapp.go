@@ -4,8 +4,10 @@ import (
 	"crypto/hmac"
 	"encoding/json"
 	"errors"
+	"io"
 	"math"
 	"net/http"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -30,6 +32,11 @@ import (
 //	                                                    "course"}: where the courier's van
 //	                                                    is, which the tracking streams of
 //	                                                    the parcels on board tell
+//	PUT  /api/couriers/{courier}/deliveries/{reference}/documents/{name}
+//	                                                    the file: a document the courier
+//	                                                    attaches to the delivery, like the
+//	                                                    recipient's leave to put the parcel
+//	                                                    at a safe place (a PDF or an image)
 //
 // The deliveries need the courier's token: 401 without one, 403 with another
 // courier's. A parcel is the courier's when its details name the courier.
@@ -48,6 +55,54 @@ func (s *service) courierRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/couriers/{courier}/deliveries", s.courierDeliveries)
 	mux.HandleFunc("POST /api/couriers/{courier}/deliveries/{reference}", s.courierDelivered)
 	mux.HandleFunc("POST /api/couriers/{courier}/location", s.courierLocation)
+	mux.HandleFunc("PUT /api/couriers/{courier}/deliveries/{reference}/documents/{name}", s.courierDocument)
+}
+
+// maxDeliveryDocument is the largest document a courier attaches: a phone's scan of a page.
+const maxDeliveryDocument = 10 << 20
+
+// deliveryDocumentTypes are the documents a courier attaches: PDFs and images.
+var deliveryDocumentTypes = []string{"application/pdf", "image/jpeg", "image/png", "image/heic"}
+
+func (s *service) courierDocument(w http.ResponseWriter, r *http.Request) {
+	courier, ok := s.courierOf(w, r)
+	if !ok {
+		return
+	}
+	ref, name := r.PathValue("reference"), r.PathValue("name")
+	contentType, _, _ := strings.Cut(r.Header.Get("Content-Type"), ";")
+	if !slices.Contains(deliveryDocumentTypes, strings.TrimSpace(contentType)) {
+		problem(w, r, http.StatusUnsupportedMediaType, "a delivery's document is a PDF or an image (JPEG, PNG or HEIC)")
+		return
+	}
+	if strings.TrimSpace(name) == "" || len(name) > 200 || strings.ContainsAny(name, "/\\") {
+		problem(w, r, http.StatusBadRequest, "a document is named as its file is, like safe-place-authorization.pdf")
+		return
+	}
+	content, err := io.ReadAll(http.MaxBytesReader(w, r.Body, maxDeliveryDocument))
+	if err != nil {
+		problem(w, r, http.StatusRequestEntityTooLarge, "a delivery's document is 10 MB at most")
+		return
+	}
+	if len(content) == 0 {
+		problem(w, r, http.StatusBadRequest, "the document is empty")
+		return
+	}
+	p, err := s.store.Get(r.Context(), ref)
+	if errors.Is(err, errNotFound) || (err == nil && courierIn(p.Details) != courier) {
+		problem(w, r, http.StatusNotFound, "no parcel "+ref+" is out for delivery with "+courier)
+		return
+	}
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	if err := s.store.AttachDocument(r.Context(), ref, name, strings.TrimSpace(contentType), courier, content); err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	s.log.Info("document attached in the couriers' app", "parcel", ref, "courier", courier, "document", name)
+	writeJSON(w, http.StatusCreated, map[string]any{"reference": ref, "name": name, "contentType": strings.TrimSpace(contentType), "size": len(content)})
 }
 
 // vanPosition is where a courier's van is, as the courier's app last reported it: rounded to

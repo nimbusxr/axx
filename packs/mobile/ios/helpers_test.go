@@ -17,6 +17,10 @@ import (
 func TestRegistrationErrors(t *testing.T) {
 	h := cloudtest.New(t, appcore.Pack(), mobilecore.Pack(), Pack())
 	h.File("Courier.app/Info.plist", "")
+	document, err := filepath.Abs("helpers_test.go")
+	if err != nil {
+		t.Fatal(err)
+	}
 	for _, c := range []struct {
 		rows [][]string
 		want string
@@ -36,6 +40,8 @@ func TestRegistrationErrors(t *testing.T) {
 		{[][]string{{"bundle id", "a.b"}, {"device", "d"}, {"capability.bstack:options", "{}"}}, "are for its appium server"},
 		{[][]string{{"bundle id", "a.b"}, {"appium", "https://farm.example"}, {"permissions", "location"}}, "its capabilities grant them"},
 		{[][]string{{"bundle id", "a.b"}, {"device", "d"}, {"photos", "fixtures/no-such-photo.jpg"}}, `the courier ios app's photo "fixtures/no-such-photo.jpg"`},
+		{[][]string{{"bundle id", "a.b"}, {"device", "d"}, {"documents", "fixtures/no-such-document.pdf"}}, `the courier ios app's documents: "fixtures/no-such-document.pdf"`},
+		{[][]string{{"bundle id", "a.b"}, {"appium", "https://farm.example"}, {"documents", document}}, "documents are put on simulators axx runs"},
 		{[][]string{{"bundle id", "a.b"}, {"device", "d"}, {"screen", "big"}}, `unknown ios app property "screen"`},
 	} {
 		_ = h.Fails("the courier ios app with the following properties:", c.want, c.rows)
@@ -197,5 +203,63 @@ func TestASimulatorWithPhotosIsNotLeasedAgain(t *testing.T) {
 	p.release(withPhotos)
 	if !slices.Equal(p.free, []*device{clean}) || !slices.Equal(p.all, []*device{clean}) {
 		t.Errorf("free %v, all %v: want only the simulator without photos", p.free, p.all)
+	}
+}
+
+// A scenario's documents go On My iPhone, as files of the simulator's Files app. On a simulator
+// axx made, every reset first empties On My iPhone, files an app saved there included; on a
+// simulator of the project's, it takes out only the documents axx put there, which it lists.
+func TestDocumentsGoOnMyIPhoneAndOutAgain(t *testing.T) {
+	group := t.TempDir()
+	dir := filepath.Join(group, onMyIPhone)
+	write := func(path, body string) {
+		t.Helper()
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	names := func() []string {
+		t.Helper()
+		entries, err := os.ReadDir(dir)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var out []string
+		for _, e := range entries {
+			out = append(out, e.Name())
+		}
+		return out
+	}
+	src := filepath.Join(t.TempDir(), "safe-place-PX-MOB-9401.pdf")
+	write(src, "%PDF-1.4")
+	// What a scenario before left: a document axx put, and a scan the app saved there itself.
+	write(filepath.Join(dir, "pod-PX-MOB-9402.jpg"), "jpeg")
+	write(filepath.Join(dir, "Exports", "deliveries.csv"), "csv")
+
+	d := &running{app: &app{name: "courier", documents: []string{src}}, dev: &device{made: true}}
+	if err := d.putDocumentsIn(group); err != nil {
+		t.Fatal(err)
+	}
+	if got := names(); !slices.Equal(got, []string{"safe-place-PX-MOB-9401.pdf"}) {
+		t.Errorf("On My iPhone of a simulator axx made has %v, want only the scenario's document", got)
+	}
+	if !slices.Contains(d.resets, "documents On My iPhone: safe-place-PX-MOB-9401.pdf") {
+		t.Errorf("resets %v", d.resets)
+	}
+
+	// A simulator of the project's keeps its own files: only the document axx put goes.
+	write(filepath.Join(dir, "Rota October.pdf"), "%PDF-1.4")
+	d = &running{app: &app{name: "courier"}, dev: &device{}}
+	if err := d.putDocumentsIn(group); err != nil {
+		t.Fatal(err)
+	}
+	if got := names(); !slices.Equal(got, []string{"Rota October.pdf"}) {
+		t.Errorf("On My iPhone of a simulator of the project's has %v, want its own file only", got)
+	}
+	if _, err := os.Stat(filepath.Join(group, documentsList)); !os.IsNotExist(err) {
+		t.Errorf("the list of axx's documents outlives a scenario that put none: %v", err)
 	}
 }

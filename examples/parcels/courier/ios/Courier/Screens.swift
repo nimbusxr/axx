@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct ContentView: View {
     @Bindable var model: CourierModel
@@ -111,6 +112,7 @@ struct DeliveryView: View {
     @State private var signedBy = ""
     @State private var confirming = false
     @State private var measuring = false
+    @State private var picking = false
 
     private var who: String { signedBy.trimmingCharacters(in: .whitespacesAndNewlines) }
     private var delivery: Delivery? { model.deliveries?.first { $0.reference == reference } }
@@ -139,6 +141,13 @@ struct DeliveryView: View {
                         TextField("Signed by", text: $signedBy)
                             .autocorrectionDisabled()
                     }
+                    Section {
+                        ForEach(model.attached, id: \.self) { name in
+                            Text(verbatim: "\(name) attached")
+                        }
+                        Button("Attach document") { picking = true }
+                            .disabled(model.attaching)
+                    }
                     if let error = model.deliveryError {
                         Section { ErrorText(text: error) }
                     }
@@ -156,6 +165,11 @@ struct DeliveryView: View {
         }
         .navigationTitle(Text(verbatim: reference))
         .sheet(isPresented: $measuring) { MeasureParcelView() }
+        // A document from the phone's files: the recipient's authorization to leave the parcel
+        // at a safe place, say, which they sent the courier.
+        .fileImporter(isPresented: $picking, allowedContentTypes: [.pdf, .image]) { result in
+            if case .success(let file) = result { model.attachDocument(reference, from: file) }
+        }
         .alert(Text(verbatim: "Mark \(reference) delivered?"), isPresented: $confirming) {
             Button("Confirm") { model.markDelivered(reference, signedBy: who) }
             Button("Cancel", role: .cancel) {}

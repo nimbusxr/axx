@@ -70,6 +70,7 @@ Given the courier ios app with the following properties:
 | `device` | Android: an emulator's device (AVD) axx starts, or a device adb lists, by its serial. iOS: a device type axx makes simulators of, like `iPhone 16` or `iPhone 16, iOS 18.1` (the newest iOS Xcode has, by default); a simulator you set up, by its name, which axx clones; or a simulator's UDID. |
 | `permissions` | What the app may use from the start, and nothing else. Android: permissions like `POST_NOTIFICATIONS`. iOS: services like `location, photos` (`xcrun simctl help privacy` lists them). |
 | `locale`, `timezone`, `location` | The language and region (`de-DE`), the time zone (`Europe/Berlin`), and where the device says it is (`51.3397, 12.3731`). On Android the language is the app's own (Android 13 and later), and the device's stays as it is. |
+| `photos`, `documents` | Files the phone has before the app starts, for the app to pick in the system's pickers, like `photos/begin.jpg` or `documents/safe-place-authorization.pdf`: found as a step finds a file, next to the feature file first. Photos go in the photo library; documents where the file picker shows them (see [Pick a document](#pick-a-document)). |
 | `host ports` (Android) | Ports of the machine axx runs on that the app reaches as `localhost` on the device, like `8400, 5500`: the app calls `http://localhost:8400` as on a developer's device, and gets the service there. Each scenario has only its own registration's. |
 | `appium`, `capability.<name>` | An Appium server of your own or a device farm's, which runs the device, and the capabilities it takes. On Android without `appium`, the capabilities go to the UiAutomator2 server's session. |
 
@@ -92,8 +93,8 @@ packs:
 
 Before its app starts, a scenario's app is reset, and what it sees of the device is set:
 
-- **Android:** its data cleared (and with it its sign-in, its permissions and its notifications), the permissions its registration names granted, the notification shade and any dialog of the system's closed, the ports it reaches on this machine set, and the device's language, time zone and location set: an emulator goes back to where it starts when the registration names none. On the emulators axx starts, other apps that hang or crash show no dialog over yours, and Chrome opens a page at once, without its first-run screens.
-- **iOS:** the app installed afresh (its data and notifications go with the old one), the simulator's keychain reset (a sign-in kept there outlives the app), its permissions reset and those its registration names granted, and the location set. It starts in the registration's language, region and time zone.
+- **Android:** its data cleared (and with it its sign-in, its permissions and its notifications), the permissions its registration names granted, the notification shade and any dialog of the system's closed, the ports it reaches on this machine set, the photos and documents a scenario before put on the device taken out (and the registration's put in), the system's file picker started afresh, and the device's language, time zone and location set: an emulator goes back to where it starts when the registration names none. On the emulators axx starts, other apps that hang or crash show no dialog over yours, and Chrome opens a page at once, without its first-run screens.
+- **iOS:** the app installed afresh (its data and notifications go with the old one), the simulator's keychain reset (a sign-in kept there outlives the app), its permissions reset and those its registration names granted, the documents a scenario before put On My iPhone taken out (and the registration's put in), and the location set. It starts in the registration's language, region and time zone.
 
 There is no switch that skips it: a scenario is one journey, and that journey is its own. Its data stays unique as everywhere in axx: each scenario above has a courier and parcels of its own.
 
@@ -191,6 +192,35 @@ When the "Next delivery" action of the "PX-MOB-9401 delivered" notification is t
 A notification is tapped where people find it: the step opens Android's notification shade or iOS's Notification Center, opens the group it is folded into (on iOS, one already seen waits below the screen, and is swiped into view), and taps it, and the app opens where the notification leads. An action is one of the buttons a notification offers: Android shows them under it, and iOS when a person holds the notification.
 
 On a simulator, iOS answers a tap on a notification as on an iPhone without Face ID: it slides the notification aside to show Open, which the step taps too. And it shows a notification's actions in Notification Center only on a phone it can tell is in a hand, one with a proximity sensor (or Face ID unlock, which takes a passcode a simulator cannot have). So axx gives the simulator's SpringBoard the proximity sensor an iPhone has: a small library axx builds with Xcode the first time, and loads into the simulators it boots. It does nothing in your app. A simulator that runs already (one of yours, or one kept warm) gets it as SpringBoard starts again, before the scenario.
+
+## Pick a document
+
+An app that takes a file from the phone, like a courier's app attaching a recipient's signed authorization to a delivery, opens the system's file picker. The `documents` property puts the files on the phone before the app starts, and the scenario picks one as a person does, with the tap steps:
+
+```gherkin
+Given the courier android app with the following properties:
+  | apk       | ../courier/android/app/build/outputs/apk/debug/app-debug.apk |
+  | device    | Pixel_9                                                      |
+  | documents | documents/safe-place-PX-MOB-9481.pdf                         |
+And the courier app is opened with the "parcels-courier://deliveries/PX-MOB-9481" link
+When the "Attach document" button is tapped in the courier app
+And the "Show roots" button is tapped in the courier app
+And the "Downloads" text is tapped in the courier app
+And the "safe-place-PX-MOB-9481.pdf" text is tapped in the courier app
+Then the courier app shows "safe-place-PX-MOB-9481.pdf attached"
+```
+
+- **Android** puts them in the device's Downloads, indexed as a download is. The picker opens at Recent: *Show roots*, then *Downloads*, then the file by its name. On an emulator axx starts, each scenario's reset empties Downloads (what an app saved there too) and starts the picker afresh, as it keeps where each app last picked a file; on a device of yours, it takes out only the documents axx put there.
+- **iOS** puts them On My iPhone, in the simulator's Files. In the picker, *Browse*, then *On My iPhone*, then the file as a list item, by its name without its extension, as Files shows it (below). On a simulator axx makes, each scenario's reset empties On My iPhone (what an app saved there too); on a simulator of yours, it takes out only the documents axx put there.
+
+```gherkin
+When the "Attach document" button is tapped in the courier app
+And the "Browse" button is tapped in the courier app
+And the "On My iPhone" text is tapped in the courier app
+And the "safe-place-PX-IOS-9591" list item is tapped in the courier app
+```
+
+The phone has its documents in one folder, by their names: two files of one name are refused. A device of an Appium server's, like a device farm's, takes files its own way.
 
 ## Dialogs the system shows
 

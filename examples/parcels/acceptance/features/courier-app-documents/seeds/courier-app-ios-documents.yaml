@@ -1,0 +1,8 @@
+parcels.parcels:
+  - reference: "PX-IOS-9591"
+    sender: "maple-crafts"
+    status: "OUT_FOR_DELIVERY"
+    service_level: "STANDARD"
+    weight_grams: 1800
+    recipient: '{"name": "Paul Krüger", "street": "Riebeckstr. 22", "city": "Leipzig", "postcode": "04317", "country": "DE"}'
+    details: '{"source": "api", "zone": "DE-1", "courier": "CR-LEJ-38"}'

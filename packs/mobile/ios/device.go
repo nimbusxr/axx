@@ -312,6 +312,9 @@ func (d *running) reset(ctx context.Context, s *core.Suite) error {
 		d.dev.media = true
 		d.resets = append(d.resets, "photos: "+strings.Join(d.app.photos, ", "))
 	}
+	if err := d.putDocuments(ctx); err != nil {
+		return err
+	}
 	d.resets = append(d.resets, "language "+d.app.locale, "time zone "+d.app.timezone)
 	return nil
 }

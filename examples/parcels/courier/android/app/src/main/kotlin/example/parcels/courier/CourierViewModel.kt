@@ -3,13 +3,17 @@
 package example.parcels.courier
 
 import android.app.Application
+import android.net.Uri
+import android.provider.OpenableColumns
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.json.JSONException
 import java.io.IOException
 
@@ -57,6 +61,12 @@ class CourierViewModel(app: Application) : AndroidViewModel(app) {
     var delivered by mutableStateOf(false)
         private set
     var deliveryError by mutableStateOf<String?>(null)
+        private set
+
+    /** The documents the courier attached to the delivery, by name. */
+    var attached by mutableStateOf<List<String>>(emptyList())
+        private set
+    var attaching by mutableStateOf(false)
         private set
 
     // The van's location, while the courier shares it.
@@ -211,6 +221,7 @@ class CourierViewModel(app: Application) : AndroidViewModel(app) {
     fun openDelivery(reference: String) {
         delivered = false
         deliveryError = null
+        attached = emptyList()
         screen = Screen.Delivery(reference)
         if (deliveries == null) refresh()
     }
@@ -219,8 +230,50 @@ class CourierViewModel(app: Application) : AndroidViewModel(app) {
         // A delivery just recorded leaves the list out of date.
         val stale = deliveries == null || delivered
         delivered = false
+        attached = emptyList()
         screen = Screen.Deliveries
         if (stale) refresh()
+    }
+
+    /**
+     * Attaches a document the courier picked in the phone's files, like the recipient's
+     * safe-place authorization, to the delivery.
+     */
+    fun attachDocument(reference: String, document: Uri) {
+        val s = session ?: return
+        if (attaching) return
+        attaching = true
+        deliveryError = null
+        viewModelScope.launch {
+            val resolver = getApplication<Application>().contentResolver
+            val name = withContext(Dispatchers.IO) {
+                resolver.query(document, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c ->
+                    if (c.moveToFirst()) c.getString(0) else null
+                }
+            } ?: document.lastPathSegment ?: "document"
+            try {
+                val content = withContext(Dispatchers.IO) { resolver.openInputStream(document)?.use { it.readBytes() } }
+                if (content == null) {
+                    deliveryError = "$name cannot be read."
+                    return@launch
+                }
+                api().attachDocument(s, reference, name, resolver.getType(document) ?: "application/octet-stream", content)
+                if (screen == Screen.Delivery(reference)) attached = attached + name
+            } catch (e: ApiException) {
+                when (e.status) {
+                    401 -> expired()
+                    404 -> deliveryError = notWithYou(reference)
+                    413 -> deliveryError = "$name is too large to attach."
+                    else -> deliveryError = unexpected(e)
+                }
+            } catch (e: IOException) {
+                deliveryError = UNREACHABLE
+            } catch (e: JSONException) {
+                deliveryError = UNREACHABLE
+            } finally {
+                attaching = false
+            }
+        }
     }
 
     fun markDelivered(reference: String, signedBy: String) {

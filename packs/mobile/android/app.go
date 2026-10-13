@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/nimbusxr/axx/core"
+	mobilecore "github.com/nimbusxr/axx/packs/mobile/core"
 )
 
 // app is an Android app a scenario registered.
@@ -20,6 +21,7 @@ type app struct {
 	device      string // an AVD, or a device's serial
 	permissions []string
 	photos      []string // in the device's photo library, for the app to pick
+	documents   []string // in the device's Downloads, for the app to pick
 	locale      string   // like de-DE
 	timezone    string   // like Europe/Berlin
 	location    *[2]float64
@@ -84,6 +86,12 @@ func parseApp(sc *core.Scenario, expand func(string) string, name string, t *cor
 				}
 				a.photos = append(a.photos, path)
 			}
+		case "documents":
+			docs, err := mobilecore.Documents(sc, value)
+			if err != nil {
+				return nil, fmt.Errorf("the %s android app's documents: %w", name, err)
+			}
+			a.documents = docs
 		case "locale":
 			if !localeRE.MatchString(value) {
 				return nil, fmt.Errorf("the %s android app's locale %q is not a language and region, like de-DE", name, value)
@@ -120,7 +128,7 @@ func parseApp(sc *core.Scenario, expand func(string) string, name string, t *cor
 			}
 			a.server = strings.TrimRight(value, "/")
 		default:
-			return nil, fmt.Errorf("unknown android app property %q (supported: apk, package, activity, device, permissions, photos, locale, timezone, location, host ports, appium, capability.<name>)", key)
+			return nil, fmt.Errorf("unknown android app property %q (supported: apk, package, activity, device, permissions, photos, documents, locale, timezone, location, host ports, appium, capability.<name>)", key)
 		}
 	}
 	switch {
@@ -132,6 +140,8 @@ func parseApp(sc *core.Scenario, expand func(string) string, name string, t *cor
 		return nil, fmt.Errorf("the %s android app's capability.<name> rows are for its appium server", name)
 	case len(a.hostPorts) > 0 && a.server != "":
 		return nil, fmt.Errorf("the %s android app's host ports are for a device axx runs, not for an appium server's", name)
+	case len(a.documents) > 0 && a.server != "":
+		return nil, fmt.Errorf("the %s android app's documents are put on devices axx runs: a device of an appium server's takes files its own way", name)
 	}
 	return a, nil
 }
