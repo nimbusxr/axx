@@ -480,17 +480,41 @@ func (p *pool) bootDevice(ctx context.Context, d *device) error {
 	// Booted is not yet ready for an app that asks for notifications as it
 	// starts: its scenario would wait for a dialog that never comes.
 	waited := time.Now()
-	if !d.set.notificationsServed(ctx, d.udid, since, min(p.boot, notificationsWait)) {
-		p.suite.Logger().Warn("the iOS simulator does not serve notifications yet; an app that asks for them may get no dialog", "simulator", d.name, "waited", min(p.boot, notificationsWait))
-	} else {
+	if d.set.notificationsServed(ctx, d.udid, since, min(p.boot, notificationsFirstWait)) {
 		p.suite.Logger().Info("the iOS simulator serves notifications", "simulator", d.name, "waited", time.Since(waited).Round(time.Second))
+		return nil
 	}
+	// One that never starts serving them (several simulators booting at once on a busy Mac) is
+	// started again, once, as a person restarts a phone that is stuck: its scenarios would fail
+	// waiting for the dialog an app asks for.
+	p.suite.Logger().Warn("the iOS simulator does not serve notifications; starting it again", "simulator", d.name, "waited", time.Since(waited).Round(time.Second))
+	if _, err := d.set.simctl(ctx, "shutdown", d.udid); err != nil {
+		return fmt.Errorf("the simulator %s served no notifications, and did not shut down to start again: %w", d.name, err)
+	}
+	since = time.Now().Add(-time.Second)
+	if err := d.set.boot(ctx, d.udid, p.boot, env...); err != nil {
+		return fmt.Errorf("the simulator %s served no notifications, and did not boot again (packs.%s.bootTimeout gives it longer): %w", d.name, Name, err)
+	}
+	if lib != "" {
+		p.loadSpringboard(ctx, d, lib)
+	}
+	waited = time.Now()
+	if wait := min(p.boot, notificationsWait); !d.set.notificationsServed(ctx, d.udid, since, wait) {
+		p.suite.Logger().Warn("the iOS simulator does not serve notifications, even started again; an app that asks for them may get no dialog", "simulator", d.name, "waited", wait)
+		return nil
+	}
+	p.suite.Logger().Info("the iOS simulator serves notifications, started again", "simulator", d.name, "waited", time.Since(waited).Round(time.Second))
 	return nil
 }
 
 // notificationsWait is how long a simulator axx booted may take to serve
 // notifications before its scenario starts all the same.
 const notificationsWait = 3 * time.Minute
+
+// notificationsFirstWait is how long a simulator axx boots has to serve notifications before it is
+// started again: one serves them a few seconds after it boots, and one that has not in a minute,
+// with several booting at once on a Mac, does not start to.
+const notificationsFirstWait = time.Minute
 
 // stop shuts down a simulator axx booted and deletes one it made.
 func (d *device) stop() {

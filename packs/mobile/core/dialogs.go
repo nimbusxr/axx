@@ -46,9 +46,10 @@ func dialogSteps() []core.StepDef {
 					}
 					// An answer given while the dialog still comes in can go
 					// unnoticed (iOS's): answer until it is gone, or another
-					// dialog shows.
+					// dialog shows. One drawn again as it was answered or
+					// read (UiAutomator2's stale element) is looked at again.
 					for range 3 {
-						if err := fn(ctx, d.Session()); err != nil {
+						if err := fn(ctx, d.Session()); err != nil && !appium.IsStale(err) {
 							return fmt.Errorf("the %s app's dialog could not be %s: %w", app, verb, err)
 						}
 						answered, err := waitUntil(sc, 2*time.Second, func() (bool, error) {
@@ -56,6 +57,9 @@ func dialogSteps() []core.StepDef {
 							var ae *appium.Error
 							if errors.As(err, &ae) && ae.Code == "no such alert" {
 								return true, nil
+							}
+							if appium.IsStale(err) {
+								return false, nil
 							}
 							return err == nil && t != text, err
 						})
@@ -104,7 +108,8 @@ func dialogSteps() []core.StepDef {
 // dialog waits for the dialog the system shows over the app, and returns its
 // text. A dialog still coming in has no text yet, and an answer then is lost
 // (UiAutomator2's): it has come once its text shows. One that never shows a
-// text is a dialog all the same, once the wait is over.
+// text is a dialog all the same, once the wait is over. One drawn again as it
+// is read (a stale element) is read again.
 func dialog(sc *core.Scenario, d Device, app string, wait time.Duration) (string, error) {
 	var text string
 	blank := false
@@ -116,6 +121,9 @@ func dialog(sc *core.Scenario, d Device, app string, wait time.Duration) (string
 		}
 		if err == nil && t == "" {
 			blank = true
+			return false, nil
+		}
+		if appium.IsStale(err) {
 			return false, nil
 		}
 		text = t

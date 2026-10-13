@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 )
@@ -99,7 +100,10 @@ func (d *running) putDocumentsIn(group string) error {
 	return nil
 }
 
-// localStorage is the folder of the simulator's filesStorageGroup.
+// localStorage is the folder of the simulator's filesStorageGroup. simctl names it, but for a
+// simulator cloned from another, as axx makes them, it names the original's: the clone keeps the
+// original's records of its folders. The clone's own is the folder of that name in its own data,
+// where its Files app looks.
 func localStorage(ctx context.Context, set simSet, udid string) (string, error) {
 	out, err := set.simctl(ctx, "get_app_container", udid, "com.apple.DocumentsApp", "groups")
 	if err != nil {
@@ -107,10 +111,27 @@ func localStorage(ctx context.Context, set simSet, udid string) (string, error) 
 	}
 	for _, line := range strings.Split(out, "\n") {
 		if group, path, ok := strings.Cut(strings.TrimSpace(line), "\t"); ok && group == filesStorageGroup {
+			sims, err := simulators(ctx, set)
+			if err != nil {
+				return "", err
+			}
+			if s, ok := findUDID(sims, udid); ok && s.DataPath != "" {
+				return inDataOf(s.DataPath, strings.TrimSpace(path)), nil
+			}
 			return strings.TrimSpace(path), nil
 		}
 	}
 	return "", fmt.Errorf("the simulator has no files On My iPhone: the Files app's groups are %q", out)
+}
+
+// inDataOf is the folder simctl named, in a simulator's data folder (data) whatever simulator's
+// it named: the same path under data. Both are a Mac's paths.
+func inDataOf(data, named string) string {
+	_, rel, ok := strings.Cut(named, "/data/Containers/")
+	if !ok {
+		return named
+	}
+	return path.Join(data, "Containers", rel)
 }
 
 func copyFile(src, dst string) error {

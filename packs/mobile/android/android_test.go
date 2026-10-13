@@ -178,6 +178,22 @@ func TestADialogComingIn(t *testing.T) {
 	_ = h.End("passed")
 }
 
+// A dialog drawn again as it is read (UiAutomator2's stale element, on a busy runner) is read
+// again, and answered.
+func TestADialogDrawnAgain(t *testing.T) {
+	app := courier(t)
+	h := cloudtest.New(t, appcore.Pack(), mobilecore.Pack(), Pack())
+	register(h, app.URL)
+	h.OK("the courier app is launched")
+	app.Show("permission")
+	app.StaleAlerts(2)
+	h.OK("the courier app's dialog is accepted")
+	if app.Screen() != "deliveries" {
+		t.Errorf("the dialog is still shown: the app is on %s", app.Screen())
+	}
+	_ = h.End("passed")
+}
+
 // What a failed step says: the controls there are, a value, a dialog there
 // is not. Each attaches what the app showed.
 func TestFailures(t *testing.T) {
@@ -766,5 +782,17 @@ func TestForwardedPort(t *testing.T) {
 		if _, err := forwardedPort(out); err == nil {
 			t.Errorf("forwardedPort(%q) took it for a port", out)
 		}
+	}
+}
+
+// The notification shade is open when its window has the focus, as dumpsys window says (API 35).
+func TestTheShadeIsOpenWhenItHasTheFocus(t *testing.T) {
+	open := "  mCurrentFocus=Window{caffb71 u0 NotificationShade}\n  mFocusedApp=ActivityRecord{ef499bf u0 com.google.android.apps.nexuslauncher/.NexusLauncherActivity t7}\n"
+	shut := "  mCurrentFocus=Window{1013a10 u0 com.google.android.apps.nexuslauncher/com.google.android.apps.nexuslauncher.NexusLauncherActivity}\n"
+	if !shadeHasFocus(open) {
+		t.Error("the shade's window has the focus, and the shade is not taken for open")
+	}
+	if shadeHasFocus(shut) || shadeHasFocus("") {
+		t.Error("the launcher has the focus, and the shade is taken for open")
 	}
 }
