@@ -244,6 +244,24 @@ func TestScreenshots(t *testing.T) {
 	_ = h.End("failed")
 }
 
+// A swipe waits for the screen to stop moving, as a person does: iOS drops the touches of one
+// made while a sheet still slides away, and a pull to refresh is lost with them.
+func TestASwipeWaitsForTheScreenToStopMoving(t *testing.T) {
+	app := courier(t)
+	h := cloudtest.New(t, appcore.Pack(), mobilecore.Pack(), Pack())
+	register(h, app.URL)
+	h.OK("the courier app is launched")
+	app.Sliding(4)
+	h.OK("the courier app is swiped down")
+	if err := h.End("passed"); err != nil {
+		t.Fatal(err)
+	}
+	cmds := strings.Join(app.Commands(), "\n")
+	if !strings.Contains(cmds, "mobile: swipe") || strings.Contains(cmds, "the swipe was lost") {
+		t.Errorf("the swipe did not wait for the screen to stop moving:\n%s", cmds)
+	}
+}
+
 // A dialog the scenario left unanswered is dismissed as it ends, before
 // its session does: the next scenario's app, installed afresh, asks again.
 func TestADialogLeftOpenIsDismissed(t *testing.T) {
