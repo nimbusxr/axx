@@ -76,7 +76,10 @@ class CourierViewModel(app: Application) : AndroidViewModel(app) {
     private var reporting = false
 
     init {
-        if (session != null) refresh()
+        if (session != null) {
+            RoundReminderWorker.schedule(app)
+            refresh()
+        }
     }
 
     /** Shares the van's location with the parcels service, or stops; false if the app may not read it. */
@@ -122,6 +125,7 @@ class CourierViewModel(app: Application) : AndroidViewModel(app) {
             try {
                 val s = api().signIn(courier, pin)
                 store.save(s)
+                RoundReminderWorker.schedule(getApplication())
                 session = s
                 deliveries = null
                 val ref = pendingReference
@@ -147,6 +151,7 @@ class CourierViewModel(app: Application) : AndroidViewModel(app) {
     fun signOut() {
         shareLocation(false)
         store.clear()
+        RoundReminderWorker.cancel(getApplication())
         refreshJob?.cancel()
         refreshing = false
         session = null

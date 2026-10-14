@@ -488,11 +488,11 @@ func (p *pool) bootDevice(ctx context.Context, d *device) error {
 	if err != nil {
 		return err
 	}
-	// SpringBoard runs axx's library, which shows notifications' actions in Notification
-	// Center (springboard.go): without it, the rest still works.
-	lib, err := springboardLibrary(ctx, p.suite)
+	// The simulator runs axx's library, which shows notifications' actions in Notification
+	// Center and runs apps' background tasks (springboard.go): without it, the rest still works.
+	lib, err := simulatorLibrary(ctx, p.suite)
 	if err != nil {
-		p.suite.Logger().Warn("Notification Center will not show notifications' actions", "error", err)
+		p.suite.Logger().Warn("Notification Center will not show notifications' actions, and apps' background tasks will not run", "error", err)
 	}
 	if s, ok := findUDID(sims, d.udid); ok && s.State == "Booted" {
 		if lib == "" || !springboardBootedWithAnother(ctx, d, lib) {
@@ -513,7 +513,7 @@ func (p *pool) bootDevice(ctx context.Context, d *device) error {
 	since := time.Now().Add(-time.Second)
 	var env []string
 	if lib != "" {
-		env = springboardEnv(lib)
+		env = simulatorEnv(lib)
 	}
 	if err := d.set.boot(ctx, d.udid, p.boot, env...); err != nil {
 		return fmt.Errorf("the simulator %s did not boot (packs.%s.bootTimeout gives it longer): %w", d.name, Name, err)

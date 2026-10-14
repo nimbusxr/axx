@@ -3,12 +3,14 @@ package mobileios
 import (
 	"context"
 	"crypto/sha256"
-	_ "embed" // the SpringBoard library's source
+	"embed"
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -19,26 +21,45 @@ import (
 	"github.com/nimbusxr/axx/internal/npm"
 )
 
-// springboardSource is a library axx loads into the simulators it boots. In SpringBoard, it
-// gives Notification Center the proximity sensor an iPhone has: without one, iOS takes a
-// hold on a notification there for a tap, and never shows its actions. It does nothing in
-// any other process.
+// librarySources are a library axx loads into the simulators it boots, which gives them what an
+// iPhone has and a simulator lacks:
+//   - in SpringBoard, the proximity sensor (library/springboard.m): without one, iOS takes a hold on
+//     a notification in Notification Center for a tap, and never shows its actions;
+//   - in an app, background tasks that run (library/background.m): a simulator refuses to schedule
+//     any, and SpringBoard wakes the app for one, as iOS does (background.go);
+//   - in a process axx starts with documents it put On My iPhone, their bookmarks
+//     (library/springboard.m): iOS takes them in before the app picks one (documents.go).
 //
-//go:embed springboard/springboard.m
-var springboardSource []byte
+// In any other process, it does nothing.
+//
+//go:embed library/*.m
+var librarySources embed.FS
 
-// springboardLibrary is the library, built once for the Mac's simulators with Xcode's
-// compiler into axx's cache.
-func springboardLibrary(ctx context.Context, s *core.Suite) (string, error) {
-	return core.Cached(s, Name+"/springboard", func() (string, error) {
+// simulatorLibrary is the library, built once for the Mac's simulators with Xcode's compiler into
+// axx's cache.
+func simulatorLibrary(ctx context.Context, s *core.Suite) (string, error) {
+	return core.Cached(s, Name+"/library", func() (string, error) {
 		arch := simulatorArch(ctx)
-		sum := sha256.Sum256(springboardSource)
+		sources, err := fs.Glob(librarySources, "library/*.m")
+		if err != nil {
+			return "", err
+		}
+		hash := sha256.New()
+		for _, name := range sources {
+			b, err := librarySources.ReadFile(name)
+			if err != nil {
+				return "", err
+			}
+			hash.Write([]byte(name))
+			hash.Write(b)
+		}
+		sum := hash.Sum(nil)
 		cache := npm.CacheDir("mobile")
 		if err := os.MkdirAll(springboardStatuses(), 0o755); err != nil {
 			return "", err
 		}
-		dir := filepath.Join(cache, "springboard-"+hex.EncodeToString(sum[:6])+"-"+arch)
-		lib := filepath.Join(dir, "axx-springboard.dylib")
+		dir := filepath.Join(cache, "library-"+hex.EncodeToString(sum[:6])+"-"+arch)
+		lib := filepath.Join(dir, "axx-simulator.dylib")
 		if _, err := os.Stat(lib); err == nil {
 			return lib, nil
 		}
@@ -50,17 +71,22 @@ func springboardLibrary(ctx context.Context, s *core.Suite) (string, error) {
 			return "", err
 		}
 		defer os.RemoveAll(tmp)
-		src := filepath.Join(tmp, "springboard.m")
-		if err := os.WriteFile(src, springboardSource, 0o644); err != nil {
-			return "", err
+		built := filepath.Join(tmp, "axx-simulator.dylib")
+		compile := []string{"-sdk", "iphonesimulator", "clang", "-arch", arch, "-mios-simulator-version-min=15.0", "-dynamiclib", "-fobjc-arc", "-framework", "Foundation", "-o", built}
+		for _, name := range sources {
+			b, err := librarySources.ReadFile(name)
+			if err != nil {
+				return "", err
+			}
+			src := filepath.Join(tmp, path.Base(name))
+			if err := os.WriteFile(src, b, 0o644); err != nil {
+				return "", err
+			}
+			compile = append(compile, src)
 		}
-		built := filepath.Join(tmp, "axx-springboard.dylib")
-		for _, args := range [][]string{
-			{"-sdk", "iphonesimulator", "clang", "-arch", arch, "-mios-simulator-version-min=15.0", "-dynamiclib", "-fobjc-arc", "-framework", "Foundation", "-o", built, src},
-			{"codesign", "--sign", "-", "--force", built},
-		} {
+		for _, args := range [][]string{compile, {"codesign", "--sign", "-", "--force", built}} {
 			if out, err := exec.CommandContext(ctx, "xcrun", args...).CombinedOutput(); err != nil { //nolint:gosec // Xcode's tools, with arguments axx builds
-				return "", fmt.Errorf("cannot build axx's library for the simulators' SpringBoard (xcrun %s): %w: %s", args[0], err, strings.TrimSpace(string(out)))
+				return "", fmt.Errorf("cannot build axx's library for the simulators (xcrun %s): %w: %s", args[0], err, strings.TrimSpace(string(out)))
 			}
 		}
 		// Another axx may have built it meanwhile: keep the first.
@@ -78,9 +104,9 @@ func springboardLibrary(ctx context.Context, s *core.Suite) (string, error) {
 // SpringBoard.
 func springboardStatuses() string { return filepath.Join(npm.CacheDir("mobile"), "springboard") }
 
-// springboardEnv is what a simulator's processes are started with to load the library: simctl
+// simulatorEnv is what a simulator's processes are started with to load the library: simctl
 // passes each SIMCTL_CHILD_ variable on to them.
-func springboardEnv(lib string) []string {
+func simulatorEnv(lib string) []string {
 	return []string{
 		"SIMCTL_CHILD_DYLD_INSERT_LIBRARIES=" + lib,
 		"SIMCTL_CHILD_AXX_SPRINGBOARD_STATUS=" + springboardStatuses(),
@@ -126,10 +152,10 @@ func springboardBootedWithAnother(ctx context.Context, d *device, lib string) bo
 }
 
 // loadSpringboard makes sure the library runs in a simulator's SpringBoard: one axx boots
-// starts with it, and one booted before (kept from an earlier run, or the project's own)
-// gets it with SpringBoard started again, before WebDriverAgent is launched. A library that
-// cannot help this iOS only costs the actions of notifications in Notification Center: the
-// run goes on.
+// starts with it, and one booted before (kept from an earlier run, or the project's own) gets
+// it with SpringBoard started again, before WebDriverAgent is launched; so does one that runs an
+// older build of it. A library that cannot help this iOS only costs the actions of
+// notifications in Notification Center, and apps' background tasks: the run goes on.
 func (p *pool) loadSpringboard(ctx context.Context, d *device, lib string) {
 	started := time.Now()
 	if status, loaded := springboardReport(d.udid); status == "" || loaded != lib {
@@ -149,7 +175,7 @@ func (p *pool) loadSpringboard(ctx context.Context, d *device, lib string) {
 			}
 		}
 		if err != nil {
-			p.suite.Logger().Warn("cannot load axx's library into the simulator's SpringBoard: Notification Center will not show notifications' actions", "simulator", d.name, "error", err)
+			p.suite.Logger().Warn("cannot load axx's library into the simulator: Notification Center will not show notifications' actions, and apps' background tasks will not run", "simulator", d.name, "error", err)
 			return
 		}
 		// SpringBoard, started again, serves apps' requests for notifications a while later, as
@@ -162,7 +188,7 @@ func (p *pool) loadSpringboard(ctx context.Context, d *device, lib string) {
 	switch status := springboardStatus(d.udid); status {
 	case "ok":
 	case "":
-		p.suite.Logger().Warn("the simulator's SpringBoard runs without axx's library: Notification Center will not show notifications' actions", "simulator", d.name)
+		p.suite.Logger().Warn("the simulator runs without axx's library: Notification Center will not show notifications' actions, and apps' background tasks will not run", "simulator", d.name)
 	default:
 		p.suite.Logger().Warn("Notification Center will not show notifications' actions on this simulator", "simulator", d.name, "springboard", status)
 	}

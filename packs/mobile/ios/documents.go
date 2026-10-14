@@ -49,7 +49,7 @@ func (d *running) putDocuments(ctx context.Context) error {
 // app picked a document, and the app got none ("The file doesn't exist", for the file the
 // picker showed). A simulator that cannot take them in still has them: the run goes on.
 func (d *running) takeInDocuments(ctx context.Context, group string) {
-	lib, err := springboardLibrary(ctx, d.pool.suite)
+	lib, err := simulatorLibrary(ctx, d.pool.suite)
 	if err == nil {
 		paths := make([]string, len(d.app.documents))
 		for i, f := range d.app.documents {

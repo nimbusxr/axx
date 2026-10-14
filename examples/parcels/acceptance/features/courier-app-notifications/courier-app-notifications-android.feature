@@ -2,7 +2,10 @@
 Feature: The couriers' app asks to notify
 
   Once a courier signs in, the app asks Android for leave to tell them of each delivery it
-  records. A courier who does not allow it delivers all the same.
+  records. A courier who does not allow it delivers all the same. While the courier is signed
+  in, the app also checks today's deliveries every hour in the background, and tells the courier
+  how many are left, and which is next: work Android runs when its hour comes, and only while the
+  phone is online.
 
   Background:
     Given the courier android app with the following properties:
@@ -74,3 +77,16 @@ Feature: The couriers' app asks to notify
     And the courier app is sent to the background
     When the "PX-MOB-9473 delivered" notification is tapped in the courier app
     Then the courier app shows "No deliveries left today."
+
+  Scenario: A courier in another app is reminded of the deliveries left today
+    Given a seeds/courier-app-round-reminder.yaml db seed
+    And the courier app is launched
+    And the "Courier ID" field in the courier app is filled with "CR-LEJ-39"
+    And the "PIN" field in the courier app is filled with "${sys:couriers.pin}"
+    And the "Sign in" button is tapped in the courier app
+    And the courier app's dialog is accepted
+    And the courier app shows "Hello, Greta Hoffmann"
+    And the courier app is sent to the background
+    When the "round-reminder" background task is run in the courier app
+    Then within 30s the courier app shows a notification "2 deliveries left today"
+    And the courier app shows a notification "Next: PX-MOB-9491, Riebeckstr. 12, 04317 Leipzig"

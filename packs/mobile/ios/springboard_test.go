@@ -60,7 +60,7 @@ func TestTheSpringBoardLibraryReportsForTheSpringBoardThatRuns(t *testing.T) {
 	if !springboardRuns("RUNNING", "/cache/springboard-1/axx-springboard.dylib") || springboardRuns("EARLIER", "/cache/springboard-1/axx-springboard.dylib") {
 		t.Error("springboardRuns does not tell this library from an earlier one")
 	}
-	if env := strings.Join(springboardEnv("/lib.dylib"), " "); !strings.Contains(env, "SIMCTL_CHILD_DYLD_INSERT_LIBRARIES=/lib.dylib") || !strings.Contains(env, "SIMCTL_CHILD_AXX_SPRINGBOARD_STATUS="+springboardStatuses()) {
+	if env := strings.Join(simulatorEnv("/lib.dylib"), " "); !strings.Contains(env, "SIMCTL_CHILD_DYLD_INSERT_LIBRARIES=/lib.dylib") || !strings.Contains(env, "SIMCTL_CHILD_AXX_SPRINGBOARD_STATUS="+springboardStatuses()) {
 		t.Errorf("simctl is given %s", env)
 	}
 }
@@ -71,7 +71,7 @@ func TestTheSpringBoardLibraryBuildsForTheSimulators(t *testing.T) {
 		t.Skip("iOS simulators run on macOS only")
 	}
 	t.Setenv("HOME", t.TempDir())
-	lib, err := springboardLibrary(context.Background(), core.NewSuite(core.SuiteOptions{}))
+	lib, err := simulatorLibrary(context.Background(), core.NewSuite(core.SuiteOptions{}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -85,7 +85,7 @@ func TestTheSpringBoardLibraryBuildsForTheSimulators(t *testing.T) {
 	if _, err := os.Stat(springboardStatuses()); err != nil {
 		t.Errorf("no folder for its reports: %v", err)
 	}
-	again, err := springboardLibrary(context.Background(), core.NewSuite(core.SuiteOptions{}))
+	again, err := simulatorLibrary(context.Background(), core.NewSuite(core.SuiteOptions{}))
 	if err != nil || again != lib {
 		t.Errorf("built again: %q, %v", again, err)
 	}

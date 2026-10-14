@@ -5,7 +5,9 @@ Feature: The couriers' iPhone app
   what the Android app does. Each scenario has a simulator to itself and starts from a clean
   app: installed afresh, with the simulator's keychain and the app's permissions reset. iOS
   lets no one grant notifications ahead: the app asks once a courier signs in, and the
-  scenarios that go on answer it.
+  scenarios that go on answer it. While a courier is signed in, the app asks iOS to run its
+  round reminder now and then, an hour apart at the soonest: in the background, it tells the
+  courier how many deliveries are left today, and which is next.
 
   Background:
     Given the courier ios app with the following properties:
@@ -130,3 +132,16 @@ Feature: The couriers' iPhone app
     And the courier app is sent to the background
     When the "PX-IOS-9573 delivered" notification is tapped in the courier app
     Then the courier app shows "No deliveries left today."
+
+  Scenario: A courier in another app is reminded of the deliveries left today
+    Given a seeds/courier-app-ios-round-reminder.yaml db seed
+    And the courier app is launched
+    And the "Courier ID" field in the courier app is filled with "CR-LEJ-40"
+    And the "PIN" field in the courier app is filled with "${sys:couriers.pin}"
+    And the "Sign in" button is tapped in the courier app
+    And the courier app's dialog is accepted
+    And the courier app shows "PX-IOS-9601"
+    And the courier app is sent to the background
+    When the "example.parcels.courier.round-reminder" background task is run in the courier app
+    Then within 30s the courier app shows a notification "2 deliveries left today"
+    And the courier app shows a notification "Next: PX-IOS-9601, Karl-Liebknecht-Str. 45, 04275 Leipzig"

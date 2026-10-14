@@ -1,0 +1,16 @@
+# Two parcels out for delivery with CR-LEJ-40, whose app reminds him of them in the background.
+parcels.parcels:
+  - reference: "PX-IOS-9601"
+    sender: "maple-crafts"
+    status: "OUT_FOR_DELIVERY"
+    service_level: "STANDARD"
+    weight_grams: 1800
+    recipient: '{"name": "Carla Nowak", "street": "Karl-Liebknecht-Str. 45", "city": "Leipzig", "postcode": "04275", "country": "DE"}'
+    details: '{"source": "api", "zone": "DE-1", "courier": "CR-LEJ-40"}'
+  - reference: "PX-IOS-9602"
+    sender: "maple-crafts"
+    status: "OUT_FOR_DELIVERY"
+    service_level: "STANDARD"
+    weight_grams: 1800
+    recipient: '{"name": "Dirk Albrecht", "street": "Kochstr. 8", "city": "Leipzig", "postcode": "04275", "country": "DE"}'
+    details: '{"source": "api", "zone": "DE-1", "courier": "CR-LEJ-40"}'
