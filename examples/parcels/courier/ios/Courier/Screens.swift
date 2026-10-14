@@ -64,6 +64,7 @@ struct SignInView: View {
 
 struct DeliveriesView: View {
     let model: CourierModel
+    @State private var scanning = false
 
     var body: some View {
         List {
@@ -99,10 +100,14 @@ struct DeliveriesView: View {
         .refreshable { await model.reload() }
         .navigationTitle("Today's deliveries")
         .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                Button("Scan label") { scanning = true }
+            }
             ToolbarItem(placement: .topBarTrailing) {
                 Button("Sign out") { model.signOut() }
             }
         }
+        .sheet(isPresented: $scanning) { LabelScannerView(model: model) }
     }
 }
 
@@ -129,6 +134,7 @@ struct DeliveryView: View {
     @State private var attempt = AttemptListener()
     @State private var card: String?
     @State private var savedNote = ""
+    @State private var photographing = false
 
     private var who: String { signedBy.trimmingCharacters(in: .whitespacesAndNewlines) }
     private var delivery: Delivery? { model.deliveries?.first { $0.reference == reference } }
@@ -163,6 +169,8 @@ struct DeliveryView: View {
                             Text(verbatim: done)
                         }
                         Button("Attach document") { picking = true }
+                            .disabled(model.attaching)
+                        Button("Photo at the door") { photographing = true }
                             .disabled(model.attaching)
                         Button(dictation.listening ? "Finish dictation" : "Dictate note") {
                             if dictation.listening { dictation.finish() }
@@ -213,6 +221,7 @@ struct DeliveryView: View {
             attempt.stop()
         }
         .sheet(isPresented: $measuring) { MeasureParcelView() }
+        .sheet(isPresented: $photographing) { DoorPhotoView(model: model, reference: reference) }
         // A document from the phone's files: the recipient's authorization to leave the parcel
         // at a safe place, say, which they sent the courier.
         .fileImporter(isPresented: $picking, allowedContentTypes: [.pdf, .image]) { result in

@@ -15,6 +15,8 @@
 		CA0000000000000000000B05 /* Screens.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0000000000000000000F05 /* Screens.swift */; };
 		CA0000000000000000000B06 /* DeliveredNotification.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0000000000000000000F06 /* DeliveredNotification.swift */; };
 		CA0000000000000000000B10 /* MeasureParcel.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0000000000000000000F10 /* MeasureParcel.swift */; };
+		CA0000000000000000000B20 /* LabelScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0000000000000000000F20 /* LabelScanner.swift */; };
+		CA0000000000000000000B21 /* DoorPhoto.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0000000000000000000F21 /* DoorPhoto.swift */; };
 		CA0000000000000000000B07 /* RoundReminder.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0000000000000000000F08 /* RoundReminder.swift */; };
 		CA0000000000000000000B11 /* PhotoCheck.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0000000000000000000F11 /* PhotoCheck.swift */; };
 		CA0000000000000000000B12 /* DeliveryNotes.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0000000000000000000F12 /* DeliveryNotes.swift */; };
@@ -37,6 +39,8 @@
 		CA0000000000000000000F06 /* DeliveredNotification.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeliveredNotification.swift; sourceTree = "<group>"; };
 		CA0000000000000000000F07 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		CA0000000000000000000F10 /* MeasureParcel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeasureParcel.swift; sourceTree = "<group>"; };
+		CA0000000000000000000F20 /* LabelScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LabelScanner.swift; sourceTree = "<group>"; };
+		CA0000000000000000000F21 /* DoorPhoto.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DoorPhoto.swift; sourceTree = "<group>"; };
 		CA0000000000000000000F08 /* RoundReminder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoundReminder.swift; sourceTree = "<group>"; };
 		CA0000000000000000000F11 /* PhotoCheck.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoCheck.swift; sourceTree = "<group>"; };
 		CA0000000000000000000F12 /* DeliveryNotes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeliveryNotes.swift; sourceTree = "<group>"; };
@@ -86,6 +90,8 @@
 				CA0000000000000000000F05 /* Screens.swift */,
 				CA0000000000000000000F06 /* DeliveredNotification.swift */,
 				CA0000000000000000000F10 /* MeasureParcel.swift */,
+				CA0000000000000000000F20 /* LabelScanner.swift */,
+				CA0000000000000000000F21 /* DoorPhoto.swift */,
 				CA0000000000000000000F08 /* RoundReminder.swift */,
 				CA0000000000000000000F11 /* PhotoCheck.swift */,
 				CA0000000000000000000F12 /* DeliveryNotes.swift */,
@@ -283,6 +289,8 @@
 				CA0000000000000000000B05 /* Screens.swift in Sources */,
 				CA0000000000000000000B06 /* DeliveredNotification.swift in Sources */,
 				CA0000000000000000000B10 /* MeasureParcel.swift in Sources */,
+				CA0000000000000000000B20 /* LabelScanner.swift in Sources */,
+				CA0000000000000000000B21 /* DoorPhoto.swift in Sources */,
 				CA0000000000000000000B07 /* RoundReminder.swift in Sources */,
 				CA0000000000000000000B11 /* PhotoCheck.swift in Sources */,
 				CA0000000000000000000B12 /* DeliveryNotes.swift in Sources */,

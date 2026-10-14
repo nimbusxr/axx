@@ -1,6 +1,7 @@
-// Writes parcel-on-porch.glb, the scene the courier's iPhone camera sees in
-// ../courier-app-measure-ios.feature: a parcel 60 cm long on a front porch, its front corners in
-// plastic corner guards, as the courier stands over it to measure it. A tap on a guard lands on
+// Writes parcel-on-porch.glb, the scene the courier's iPhone camera sees in the features
+// courier-app-measure (where the courier measures the parcel) and courier-app-camera (where the
+// courier photographs it at the door): a parcel 60 cm long on a front porch, its front corners in
+// plastic corner guards, as the courier stands over it. A tap on a guard lands on
 // the corner it guards (its _tap point), not on the guard's middle. A garden path leads up to the
 // porch from the street, where the courier's van is parked: the scene's "by the van" camera is
 // where the courier stands on getting out, looking along the street, and its "up the garden path"

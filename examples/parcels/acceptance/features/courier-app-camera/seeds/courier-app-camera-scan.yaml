@@ -1,0 +1,9 @@
+# A parcel out for delivery with CR-LEJ-85, its label whole, which the courier scans to open it.
+parcels.parcels:
+  - reference: "PX-IOS-9621"
+    sender: "maple-crafts"
+    status: "OUT_FOR_DELIVERY"
+    service_level: "STANDARD"
+    weight_grams: 2100
+    recipient: '{"name": "Ida Lorenz", "street": "Kochstr. 32", "city": "Leipzig", "postcode": "04275", "country": "DE"}'
+    details: '{"source": "api", "zone": "DE-1", "courier": "CR-LEJ-85"}'

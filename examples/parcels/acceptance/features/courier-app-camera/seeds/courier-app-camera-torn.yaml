@@ -1,0 +1,10 @@
+# A parcel out for delivery with CR-LEJ-86, its label's code torn off, which the courier opens by
+# the reference printed under it.
+parcels.parcels:
+  - reference: "PX-IOS-9622"
+    sender: "maple-crafts"
+    status: "OUT_FOR_DELIVERY"
+    service_level: "STANDARD"
+    weight_grams: 2100
+    recipient: '{"name": "Tobias Wendt", "street": "Kochstr. 32", "city": "Leipzig", "postcode": "04275", "country": "DE"}'
+    details: '{"source": "api", "zone": "DE-1", "courier": "CR-LEJ-86"}'

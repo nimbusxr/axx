@@ -278,19 +278,35 @@ final class CourierModel {
                     done = "\(name) attached: the people in it are blurred out"
                 }
             }
-            do {
-                try await api.attachDocument(s, reference: reference, name: name, contentType: type, content: upload)
-                if path == [reference] { attached.append(done) }
-            } catch let e as APIError {
-                switch e.status {
-                case 401: expired()
-                case 404: deliveryError = Self.notWithYou(reference)
-                case 413: deliveryError = "\(name) is too large to attach."
-                default: deliveryError = Self.unexpected(e)
-                }
-            } catch {
-                deliveryError = Self.unreachable
+            await attach(s, reference, name: name, contentType: type, content: upload, done: done)
+        }
+    }
+
+    /// Attaches the photo the courier took of the parcel where they left it, as a JPEG.
+    func attachPhoto(_ reference: String, jpeg: Data) {
+        guard let s = session, !attaching else { return }
+        attaching = true
+        deliveryError = nil
+        Task {
+            defer { attaching = false }
+            let name = "photo-at-the-door.jpg"
+            await attach(s, reference, name: name, contentType: "image/jpeg", content: jpeg, done: "\(name) attached")
+        }
+    }
+
+    private func attach(_ s: Session, _ reference: String, name: String, contentType: String, content: Data, done: String) async {
+        do {
+            try await api.attachDocument(s, reference: reference, name: name, contentType: contentType, content: content)
+            if path == [reference] { attached.append(done) }
+        } catch let e as APIError {
+            switch e.status {
+            case 401: expired()
+            case 404: deliveryError = Self.notWithYou(reference)
+            case 413: deliveryError = "\(name) is too large to attach."
+            default: deliveryError = Self.unexpected(e)
             }
+        } catch {
+            deliveryError = Self.unreachable
         }
     }
 

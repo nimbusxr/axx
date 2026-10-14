@@ -19,9 +19,9 @@
 	<!-- Where the van is, while the courier shares it. -->
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Recipients see where your van is on their tracking page while you share it.</string>
-	<!-- The camera, which measures a parcel. -->
+	<!-- The camera, which measures a parcel, scans its label and photographs it at the door. -->
 	<key>NSCameraUsageDescription</key>
-	<string>The camera measures a parcel, to see that it fits a parcel locker.</string>
+	<string>The camera measures a parcel to see that it fits a parcel locker, scans its label, and photographs it where you leave it.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Dictate a note about a delivery, and hear the doorbell or your knock when no one is home.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>

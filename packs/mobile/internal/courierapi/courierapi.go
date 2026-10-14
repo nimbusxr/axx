@@ -54,6 +54,22 @@ func SafePlaceAuthorization(t *testing.T) string {
 	return filepath.Join(filepath.Dir(here), "testdata", "safe-place-PX-MOB-9401.pdf")
 }
 
+// Label is a photo of PX-MOB-9402's label, as the phone held over the parcel takes it: its QR
+// code above its reference (make-labels.swift in the parcels example writes it).
+func Label(t *testing.T) string {
+	t.Helper()
+	_, here, _, _ := runtime.Caller(0)
+	return filepath.Join(filepath.Dir(here), "testdata", "label-PX-MOB-9402.png")
+}
+
+// TornLabel is a video of PX-MOB-9401's label, its code torn off, as the courier lifts the parcel
+// into the phone's view: 3 seconds.
+func TornLabel(t *testing.T) string {
+	t.Helper()
+	_, here, _, _ := runtime.Caller(0)
+	return filepath.Join(filepath.Dir(here), "testdata", "torn-label-PX-MOB-9401.mp4")
+}
+
 // Lists tells how many times the courier's app asked for the day's deliveries.
 func (a *API) Lists() int {
 	a.mu.Lock()

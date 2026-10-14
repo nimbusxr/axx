@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
-// axx loads this library into an app whose camera sees a scene (ar.go): the iOS simulator's
-// ARKit is a skeleton, whose classes keep what is put in them, but whose session never runs and
-// whose camera math answers identity or zero. Here world tracking is supported, and a running
-// session plays a phone in the scene (AXX_AR_SCENE, the scene's description axx writes):
+// axx loads this library into an app whose camera sees a scene, an image or a video (ar.go):
+// AXX_AR_SCENE is the description axx writes of what it sees. The camera itself, which the iOS
+// simulator has not got, is camera.m's. Here is the AR, from a scene: the simulator's ARKit is a
+// skeleton, whose classes keep what is put in them, but whose session never runs and whose
+// camera math answers identity or zero. Here world tracking is supported, and a running session
+// plays a phone in the scene:
 //   - its current frame is the scene seen from the phone's pose, by a camera like an iPhone's
 //     wide camera (a landscape-right sensor, 1280x960 here, about 62° across);
 //   - the camera math is computed for that camera, so RealityKit places content where it
@@ -26,6 +28,7 @@
 #import <objc/message.h>
 #import <objc/runtime.h>
 #import <simd/simd.h>
+#import <os/lock.h>
 #import <sys/socket.h>
 #import <sys/un.h>
 #import "ar.h"
@@ -53,6 +56,9 @@ static const float W = 1280, H = 960, F = 1060;
 
 static SCNScene *scene;
 static simd_float4x4 sensorPose;   // ARCamera.transform: the sensor's pose (landscape-right axes)
+static os_unfair_lock poseLock = OS_UNFAIR_LOCK_INIT;
+static simd_float4x4 cameraPose;   // the same, for camera.m's thread, under poseLock
+static unsigned long poseGeneration;  // how many times the phone moved, under poseLock
 static CVPixelBufferRef picture;   // the sensor's picture of the scene from that pose
 static CGImageRef pictureImage;    // the same, as an image
 static dispatch_queue_t renderQueue;  // where the pictures are drawn, one at a time
@@ -191,13 +197,23 @@ static SCNGeometry *geometryOf(NSDictionary *m, NSArray<SCNMaterial *> *material
     return g;
 }
 
-// The scene, from the description axx wrote: its nodes, the phone's pose and its objects.
-static BOOL loadScene(void) {
+// What the camera sees, as axx described it (AXX_AR_SCENE): a scene, or an image or a video.
+static NSDictionary *readDescription(void) {
     NSString *path = NSProcessInfo.processInfo.environment[@"AXX_AR_SCENE"];
-    if (!path.length) return NO;
+    if (!path.length) return nil;
     NSData *data = [NSData dataWithContentsOfFile:path];
     NSDictionary *d = data ? [NSJSONSerialization JSONObjectWithData:data options:0 error:nil] : nil;
-    if (![d isKindOfClass:NSDictionary.class]) { LOG(@"cannot read the scene at %@: ARKit stays unsupported", path); return NO; }
+    if (![d isKindOfClass:NSDictionary.class]) {
+        LOG(@"cannot read what the camera sees at %@: the camera and ARKit stay as the simulator has them", path);
+        return nil;
+    }
+    return d;
+}
+
+// The scene, from the description axx wrote: its nodes, the phone's pose and its objects. An
+// image or a video is no scene: ARKit stays unsupported.
+static BOOL loadScene(NSDictionary *d) {
+    if (![d[@"nodes"] isKindOfClass:NSArray.class]) return NO;
 
     NSMutableArray<UIImage *> *images = [NSMutableArray array];
     for (NSString *b64 in d[@"images"]) [images addObject:[UIImage imageWithData:bytes(b64)] ?: [UIImage new]];
@@ -263,7 +279,8 @@ static BOOL loadScene(void) {
     NSArray *pose = moved ? [NSJSONSerialization JSONObjectWithData:moved options:0 error:nil] : nil;
     if ([pose isKindOfClass:NSArray.class] && pose.count == 16) phone = pose;
     sensorPose = simd_mul(matrixOf(phone), rotZ(-90));
-    LOG(@"scene %@: %lu nodes, objects %@, phone at %.2f %.2f %.2f", path.lastPathComponent, (unsigned long)nodes.count,
+    cameraPose = sensorPose;
+    LOG(@"scene: %lu nodes, objects %@, phone at %.2f %.2f %.2f", (unsigned long)nodes.count,
         [objectNames componentsJoinedByString:@", "], sensorPose.columns[3].x, sensorPose.columns[3].y, sensorPose.columns[3].z);
     return YES;
 }
@@ -308,9 +325,9 @@ static CVPixelBufferRef toYCbCr(CVPixelBufferRef bgra) {
     return out;
 }
 
-// The sensor's picture of the scene from a pose, and the same as an image (retained); on the
-// render queue.
-static CVPixelBufferRef render(simd_float4x4 pose, CGImageRef *image) {
+// The scene from a pose, as a camera of that size and focal length sees it (BGRA, retained), and
+// the same as an image (retained) when image is not NULL; on the render queue.
+static CVPixelBufferRef renderBGRA(simd_float4x4 pose, float w, float h, float f, CGImageRef *image) {
     static SCNRenderer *r;
     static SCNNode *eye;
     if (!r) {
@@ -319,42 +336,73 @@ static CVPixelBufferRef render(simd_float4x4 pose, CGImageRef *image) {
         eye = [SCNNode node];
         eye.name = @"_eye";
         eye.camera = [SCNCamera camera];
-        eye.camera.projectionTransform = SCNMatrix4FromMat4(projection(0, CGSizeMake(W, H), 0.05, 500));
         [SCNTransaction begin];
         [scene.rootNode addChildNode:eye];
         [SCNTransaction commit];
         r.pointOfView = eye;
     }
     CFTimeInterval start = CACurrentMediaTime();
+    const float near = 0.05, far = 500;
+    simd_float4x4 p = {{{2 * f / w, 0, 0, 0}, {0, 2 * f / h, 0, 0}, {0, 0, -(far + near) / (far - near), -1}, {0, 0, -2 * far * near / (far - near), 0}}};
     [SCNTransaction begin];
     [SCNTransaction setDisableActions:YES];
+    eye.camera.projectionTransform = SCNMatrix4FromMat4(p);
     eye.simdTransform = pose;
     [SCNTransaction commit];
     [SCNTransaction flush];
-    UIImage *img = [r snapshotAtTime:0 withSize:CGSizeMake(W, H) antialiasingMode:SCNAntialiasingModeMultisampling4X];
-    *image = CGImageRetain(img.CGImage);
+    UIImage *img = [r snapshotAtTime:0 withSize:CGSizeMake(w, h) antialiasingMode:SCNAntialiasingModeMultisampling4X];
+    if (image) *image = CGImageRetain(img.CGImage);
 
     CVPixelBufferRef buf = NULL;
     NSDictionary *attrs = @{(id)kCVPixelBufferIOSurfacePropertiesKey: @{}, (id)kCVPixelBufferMetalCompatibilityKey: @YES};
-    CVPixelBufferCreate(NULL, W, H, kCVPixelFormatType_32BGRA, (__bridge CFDictionaryRef)attrs, &buf);
+    CVPixelBufferCreate(NULL, w, h, kCVPixelFormatType_32BGRA, (__bridge CFDictionaryRef)attrs, &buf);
     CVPixelBufferLockBaseAddress(buf, 0);
     CGColorSpaceRef cs = CGColorSpaceCreateDeviceRGB();
-    CGContextRef ctx = CGBitmapContextCreate(CVPixelBufferGetBaseAddress(buf), W, H, 8, CVPixelBufferGetBytesPerRow(buf), cs,
+    CGContextRef ctx = CGBitmapContextCreate(CVPixelBufferGetBaseAddress(buf), w, h, 8, CVPixelBufferGetBytesPerRow(buf), cs,
                                              kCGImageAlphaPremultipliedFirst | kCGBitmapByteOrder32Little);
-    CGContextDrawImage(ctx, CGRectMake(0, 0, W, H), img.CGImage);
+    CGContextDrawImage(ctx, CGRectMake(0, 0, w, h), img.CGImage);
     CGContextRelease(ctx);
     CGColorSpaceRelease(cs);
     CVPixelBufferUnlockBaseAddress(buf, 0);
+    LOG(@"rendered the scene from the phone at %.2f %.2f %.2f: %.0fx%.0f in %.0f ms", pose.columns[3].x, pose.columns[3].y, pose.columns[3].z, w, h,
+        (CACurrentMediaTime() - start) * 1000);
+    return buf;
+}
+
+// The sensor's picture of the scene from a pose, as ARKit's camera sees it, and the same as an
+// image (retained); on the render queue.
+static CVPixelBufferRef render(simd_float4x4 pose, CGImageRef *image) {
+    CVPixelBufferRef buf = renderBGRA(pose, W, H, F, image);
     CVPixelBufferRef yuv = toYCbCr(buf);
     CVPixelBufferRelease(buf);
-    LOG(@"rendered the scene from the phone at %.2f %.2f %.2f: %.0fx%.0f in %.0f ms", pose.columns[3].x, pose.columns[3].y, pose.columns[3].z, W, H,
-        (CACurrentMediaTime() - start) * 1000);
     return yuv;
 }
 
-// Shows the scene from a pose: draws the picture, then, on the main thread, makes it and the pose
-// the camera's at once, as its next frame shows them.
+// Shows the scene from a pose: draws ARKit's picture, then, on the main thread, makes it and the
+// pose the camera's at once, as its next frame shows them. While no AR session runs, the pose is
+// the phone's, and the picture is drawn when one starts. camera.m's camera sees the new pose
+// from its next frame.
 static void showFrom(simd_float4x4 pose) {
+    os_unfair_lock_lock(&poseLock);
+    cameraPose = pose;
+    poseGeneration++;
+    os_unfair_lock_unlock(&poseLock);
+    __block BOOL arRuns = NO;
+    void (^check)(void) = ^{ arRuns = running != nil; };
+    if (NSThread.isMainThread) check();
+    else dispatch_sync(dispatch_get_main_queue(), check);
+    if (!arRuns) {
+        void (^moved)(void) = ^{
+            sensorPose = pose;
+            CVPixelBufferRelease(picture);
+            CGImageRelease(pictureImage);
+            picture = NULL;
+            pictureImage = NULL;
+        };
+        if (NSThread.isMainThread) moved();
+        else dispatch_sync(dispatch_get_main_queue(), moved);
+        return;
+    }
     __block CGImageRef image = NULL;
     __block CVPixelBufferRef yuv = NULL;
     dispatch_sync(renderQueue, ^{ yuv = render(pose, &image); });
@@ -598,9 +646,27 @@ static NSArray<ARRaycastResult *> *raycast(ARRaycastQuery *q) {
     return @[r];
 }
 
-#pragma mark - for ar.swift
+#pragma mark - for ar.swift and camera.m
 
 void axxar_log(NSString *line) { arLog(line); }
+
+BOOL axxar_has_scene(void) { return scene != nil; }
+
+unsigned long axxar_pose_generation(void) {
+    os_unfair_lock_lock(&poseLock);
+    unsigned long g = poseGeneration;
+    os_unfair_lock_unlock(&poseLock);
+    return g;
+}
+
+CVPixelBufferRef axxar_render_camera(float width, float height, float focal) {
+    os_unfair_lock_lock(&poseLock);
+    simd_float4x4 pose = cameraPose;
+    os_unfair_lock_unlock(&poseLock);
+    __block CVPixelBufferRef buf = NULL;
+    dispatch_sync(renderQueue, ^{ buf = renderBGRA(pose, width, height, focal, NULL); });
+    return buf;
+}
 
 CGImageRef axxar_picture(void) { return pictureImage; }
 
@@ -681,8 +747,11 @@ static void replace(Class c, SEL sel, id block) {
 }
 
 __attribute__((constructor)) static void axxAR(void) {
-    if (!loadScene()) return;
+    NSDictionary *d = readDescription();
+    if (!d) return;
     renderQueue = dispatch_queue_create("axx.ar.render", DISPATCH_QUEUE_SERIAL);
+    axxcam_start(d);
+    if (!loadScene(d)) return;
     realityKitRaycast =
         dlsym(RTLD_DEFAULT, "$s10RealityKit6ARViewC7raycast4from8allowing9alignmentSaySo15ARRaycastResultCGSo7CGPointV_So0H6TargetVSo0hK9AlignmentVtF");
     if (realityKitRaycast) _dyld_register_func_for_add_image(rebind);
