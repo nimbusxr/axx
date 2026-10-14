@@ -457,8 +457,9 @@ jobs:
     # The iOS pack, on simulators axx makes, with the parcels example's couriers' iOS app. The
     # example's iOS scenarios need the whole example, and macOS runners have no Docker: they
     # run on developers' Macs.
-    # The tests run on two runners, a simulator each: TestCouriersOnASimulator, two scenarios long,
-    # on one, the others on the other.
+    # The tests run on two runners, a simulator each, in about the same time: TestCouriersOnASimulator,
+    # two scenarios long, and TestRecordingsOnASimulator on one (232 s and 208 s), the others on
+    # the other (456 s).
     name: ios (${{ matrix.tests }})
     runs-on: macos-latest
     timeout-minutes: 60
@@ -467,9 +468,9 @@ jobs:
       matrix:
         include:
           - tests: couriers
-            select: -run=^TestCouriersOnASimulator$
+            select: -run=^(TestCouriersOnASimulator|TestRecordingsOnASimulator)$
           - tests: others
-            select: -skip=^TestCouriersOnASimulator$
+            select: -skip=^(TestCouriersOnASimulator|TestRecordingsOnASimulator)$
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
