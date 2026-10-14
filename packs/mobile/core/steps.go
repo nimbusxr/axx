@@ -286,6 +286,15 @@ func scrollTo(sc *core.Scenario, d Device, app string, k kind, name string) erro
 			if len(matches(s, k, name)) > 0 {
 				return nil
 			}
+			// A row that scrolls sideways shows only what fits, and the phone lists nothing past
+			// its ends: a control there is found as a person finds it, looking along each row as
+			// they pass it.
+			for _, row := range s.Rows() {
+				found, err := lookAlong(sc, d, row, k, name)
+				if err != nil || found {
+					return err
+				}
+			}
 			moved, err := d.Scroll(sc.Context(), dir)
 			if err != nil {
 				return err
@@ -300,6 +309,30 @@ func scrollTo(sc *core.Scenario, d Device, app string, k kind, name string) erro
 		return err
 	}
 	return missing(app, s, k, name)
+}
+
+// lookAlong scrolls a row that scrolls sideways to its end and back, and reports whether a
+// control k named name showed on the way.
+func lookAlong(sc *core.Scenario, d Device, row *Node, k kind, name string) (bool, error) {
+	for _, dir := range []string{"right", "left"} {
+		for range 10 {
+			moved, err := d.ScrollRow(sc.Context(), row, dir)
+			if err != nil {
+				return false, err
+			}
+			s, err := d.Screen(sc.Context())
+			if err != nil {
+				return false, err
+			}
+			if len(matches(s, k, name)) > 0 {
+				return true, nil
+			}
+			if !moved {
+				break
+			}
+		}
+	}
+	return false, nil
 }
 
 // minLooks is how many times a wait looks before it gives up, however long

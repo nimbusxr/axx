@@ -56,6 +56,9 @@ type Device interface {
 	// Scroll scrolls the screen's scrollable content one screenful toward
 	// direction, and reports whether it moved.
 	Scroll(ctx context.Context, direction string) (bool, error)
+	// ScrollRow scrolls a row that scrolls sideways (chips, a carousel) toward direction, left
+	// or right, by about its width, and reports whether it moved.
+	ScrollRow(ctx context.Context, row *Node, direction string) (bool, error)
 	// OpenNotifications shows the device's notifications over the app, until
 	// they are closed again.
 	OpenNotifications(ctx context.Context) (Notifications, error)

@@ -26,8 +26,9 @@ type App struct {
 	Screens map[string]string
 	Start   string
 	// Taps moves to a screen when an element is tapped: by the XPath the
-	// packs find it with, or by the text it shows; and on "tap <screen>"
-	// when a finger taps a point of the screen.
+	// packs find it with, or by the text it shows; on "tap <screen>"
+	// when a finger taps a point of the screen; and on "drag left <screen>"
+	// or "drag right <screen>" when a finger drags across it.
 	Taps map[string]string
 	// Links moves to a screen when a deep link opens.
 	Links map[string]string
@@ -344,6 +345,14 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 			if next, ok := s.app.Taps["tap "+s.screen]; ok {
 				s.screen = next
 			}
+		case abs(to.X-from.X) > abs(to.Y-from.Y):
+			way := "right"
+			if to.X < from.X {
+				way = "left"
+			}
+			if next, ok := s.app.Taps["drag "+way+" "+s.screen]; ok {
+				s.screen = next
+			}
 		case s.sliding > 0:
 			s.commands = append(s.commands, "the swipe was lost: the screen was still moving")
 		}
@@ -495,6 +504,13 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 			fail("unknown command", path)
 		}
 	}
+}
+
+func abs(n int) int {
+	if n < 0 {
+		return -n
+	}
+	return n
 }
 
 // finger is where a finger's actions put it down and lift it, and how long it rests there before
