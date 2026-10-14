@@ -242,11 +242,11 @@ func (p *pool) lease(ctx context.Context) (*device, error) {
 }
 
 // release gives a simulator back to the pool. One a scenario put photos in is not given to the
-// next: its library cannot be emptied, so axx deletes it and the next lease makes another. A
-// simulator axx did not make keeps them.
+// next: its library cannot be emptied, so axx deletes it and the next lease makes another, kept
+// for runs again if it was. A simulator axx did not make keeps them.
 func (p *pool) release(d *device) {
 	p.mu.Lock()
-	if d.media && d.made {
+	if d.media && (d.made || d.kept) {
 		p.all = slices.DeleteFunc(p.all, func(o *device) bool { return o == d })
 		p.signal()
 		p.mu.Unlock()
@@ -561,22 +561,23 @@ const notificationsWait = 3 * time.Minute
 // with several booting at once on a Mac, does not start to.
 const notificationsFirstWait = time.Minute
 
-// stop shuts down a simulator axx booted and deletes one it made.
+// stop shuts down a simulator axx booted and deletes one it made. A kept simulator stays booted
+// for the next run, unless a scenario put photos in it: it goes as one axx made does, and the
+// next run that keeps one makes it again.
 func (d *device) stop() {
-	if d.kept {
-		// A kept simulator stays booted for the next run.
-		if d.unlock != nil {
-			d.unlock()
-		}
+	if d.unlock != nil {
+		defer d.unlock()
+	}
+	if d.kept && !d.media {
 		return
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
-	if d.booted || d.made {
+	if d.booted || d.made || d.kept {
 		_, _ = d.set.simctl(ctx, "shutdown", d.udid)
 		_ = os.Remove(filepath.Join(springboardStatuses(), d.udid))
 	}
-	if d.made {
+	if d.made || d.kept {
 		_, _ = d.set.simctl(ctx, "delete", d.udid)
 	}
 }

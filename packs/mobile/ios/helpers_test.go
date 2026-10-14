@@ -198,11 +198,18 @@ func TestASimulatorWithPhotosIsNotLeasedAgain(t *testing.T) {
 	set := simSet(t.TempDir()) // simctl finds neither simulator in it
 	clean := &device{set: set, udid: "clean", made: true}
 	withPhotos := &device{set: set, udid: "with-photos", made: true, media: true}
-	p := &pool{all: []*device{clean, withPhotos}, changed: make(chan struct{})}
+	// A simulator axx keeps for runs is axx's as well: its photos go with it.
+	unlocked := false
+	keptWithPhotos := &device{set: set, udid: "kept-with-photos", kept: true, media: true, unlock: func() { unlocked = true }}
+	p := &pool{all: []*device{clean, withPhotos, keptWithPhotos}, changed: make(chan struct{})}
 	p.release(clean)
 	p.release(withPhotos)
+	p.release(keptWithPhotos)
 	if !slices.Equal(p.free, []*device{clean}) || !slices.Equal(p.all, []*device{clean}) {
 		t.Errorf("free %v, all %v: want only the simulator without photos", p.free, p.all)
+	}
+	if !unlocked {
+		t.Error("the kept simulator with photos is still taken: the next run cannot make it again")
 	}
 }
 
