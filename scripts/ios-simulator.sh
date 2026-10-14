@@ -2,11 +2,11 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 # The simulator the iOS pack's integration tests keep (packs.mobile-ios.keep), made and booted
-# ahead of them: a new simulator's first boot takes a minute or more on a hosted runner, and
-# started once the job has restored its caches and built the app, it boots while the job builds
-# the tests. The tests find it booted under the name axx gives its first kept simulator, and use
-# it. (A simulator set up on another machine and copied here boots slower still: its first boot
-# on this machine does that work again, and then some.)
+# ahead of them, once the job has built the app and the tests: a new simulator's first boot takes
+# a minute or more on a hosted runner, and slows whatever runs beside it. The tests find it booted
+# under the name axx gives its first kept simulator, and use it. (A simulator set up on another
+# machine and copied here boots slower still: its first boot on this machine does that work
+# again, and then some.)
 #   usage: scripts/ios-simulator.sh [device type name]
 set -euo pipefail
 

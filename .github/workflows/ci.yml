@@ -510,20 +510,16 @@ jobs:
       - name: the couriers' app
         working-directory: examples/parcels/courier/ios
         run: xcodebuild -project Courier.xcodeproj -target Courier -configuration Debug -sdk iphonesimulator ONLY_ACTIVE_ARCH=NO SYMROOT=build
-      # The simulator the tests keep, made and booted while the job builds the tests: its first
-      # boot takes a minute or more on these runners (scripts/ios-simulator.sh). Not before the
-      # caches and the app: alongside the first boot, restoring the caches took fifty times as long
-      # (218 s for the tools' 103 MB, against 4 s in the test job, on the same image), and building
-      # the app three to six times (101 s and 200 s, against about 31).
-      - name: the tests' simulator (in the background)
-        run: (scripts/ios-simulator.sh; echo $? > "$RUNNER_TEMP/simulator.done") > "$RUNNER_TEMP/simulator.log" 2>&1 < /dev/null &
       - name: the tests, built
         run: go test -tags integration -run '^$' ./packs/mobile/ios/...
-      - name: wait for the tests' simulator
-        run: |
-          for _ in $(seq 450); do [ -f "$RUNNER_TEMP/simulator.done" ] && break; sleep 2; done
-          cat "$RUNNER_TEMP/simulator.log"
-          [ "$(cat "$RUNNER_TEMP/simulator.done" 2> /dev/null)" = 0 ] || { echo "::error::the tests' simulator did not boot"; exit 1; }
+      # The simulator the tests keep (scripts/ios-simulator.sh), made and booted once everything
+      # else is ready: its first boot takes a minute or more on these runners, and slowed whatever
+      # ran beside it far more than it saved. Restoring the caches took fifty times as long (218 s
+      # for the tools' 103 MB, against 4 s in the test job, on the same image), building the app
+      # three to six times (101 s and 200 s, against 31), and building the tests six (151 s and
+      # 174 s, against 23).
+      - name: the tests' simulator
+        run: scripts/ios-simulator.sh
       # The tests share that simulator, kept booted from one to the next, as a run's worker has
       # one. Each prints the packs' log (how long the simulator took to get ready, and each
       # part), and a failed one the end of its logs and the screen it read. Without the race
