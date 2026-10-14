@@ -81,6 +81,9 @@ type Server struct {
 	// sliding are the next screenshots that find the screen still moving, as a sheet sliding
 	// away does; a swipe meanwhile is lost, as UIKit drops touches while a sheet moves.
 	sliding int
+	// keyboardMisses are the next closings of the keyboard WebDriverAgent fails, not knowing how:
+	// as it does while the keyboard is still coming in, before its keys are on the screen.
+	keyboardMisses int
 }
 
 // Start runs the fake for a test.
@@ -163,6 +166,14 @@ func (s *Server) LaunchesUnknown(launches int) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.launchesUnknown = launches
+}
+
+// KeyboardComingIn has the next closings of the keyboard fail, as WebDriverAgent's do while the
+// keyboard is still coming in: it finds no key it knows to close it with.
+func (s *Server) KeyboardComingIn(closings int) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.keyboardMisses = closings
 }
 
 // Show moves the app to a screen, as the app would by itself.
@@ -291,6 +302,8 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 		s.commands = append(s.commands, "drag")
 		s.openNotifications()
 		reply(nil)
+	case path == "/appium/device/is_keyboard_shown":
+		reply(strings.Contains(s.app.Screens[s.screen], "<XCUIElementTypeKeyboard"))
 	case path == "/appium/settings":
 		settings, _ := json.Marshal(body["settings"])
 		s.commands = append(s.commands, "settings "+string(settings))
@@ -338,6 +351,15 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 		switch script {
 		case "mobile: openNotifications":
 			s.openNotifications()
+		case "mobile: hideKeyboard":
+			if s.keyboardMisses > 0 {
+				s.keyboardMisses--
+				fail("invalid element state", "Did not know how to dismiss the keyboard. Try to dismiss it in the way supported by your application under test.")
+				return
+			}
+			if next, ok := s.app.Taps["hide keyboard "+s.screen]; ok {
+				s.screen = next
+			}
 		case "mobile: activateApp":
 			s.closeNotifications()
 			s.state = 4

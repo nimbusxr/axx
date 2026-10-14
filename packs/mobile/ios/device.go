@@ -1031,10 +1031,27 @@ func (d *running) HideKeyboard(ctx context.Context) (bool, error) {
 		return false, err
 	}
 	keys := []string{"return", "Return", "done", "Done"}
-	if d.dev == nil {
-		err = d.session.Mobile(ctx, "hideKeyboard", map[string]any{"keys": keys}, nil)
-	} else {
-		err = d.session.Command(ctx, http.MethodPost, "/wda/keyboard/dismiss", map[string]any{"keyNames": keys}, nil)
+	// A keyboard still coming in has no keys yet, and WebDriverAgent, finding none to close it
+	// with, says it knows no way to: on a busy machine (a small CI runner) the keyboard takes a
+	// while. It is closed once its keys are there, within a few seconds.
+	for deadline := time.Now().Add(5 * time.Second); ; {
+		if d.dev == nil {
+			err = d.session.Mobile(ctx, "hideKeyboard", map[string]any{"keys": keys}, nil)
+		} else {
+			err = d.session.Command(ctx, http.MethodPost, "/wda/keyboard/dismiss", map[string]any{"keyNames": keys}, nil)
+		}
+		var ae *appium.Error
+		if err == nil || !errors.As(err, &ae) || !strings.Contains(ae.Message, "Did not know how to dismiss the keyboard") || !time.Now().Before(deadline) {
+			break
+		}
+		select {
+		case <-ctx.Done():
+			return false, ctx.Err()
+		case <-time.After(300 * time.Millisecond):
+		}
+		if shown, serr := d.keyboardShown(ctx); serr == nil && !shown {
+			return true, nil
+		}
 	}
 	if err != nil {
 		return false, err
