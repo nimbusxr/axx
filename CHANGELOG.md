@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.19](https://github.com/nimbusxr/axx/compare/v0.2.18...v0.2.19) (2026-10-14)
+
+
+### Bug Fixes
+
+* **mobile-ios:** a swipe down pulls to refresh; a kept simulator loses a scenario's photos ([#197](https://github.com/nimbusxr/axx/issues/197)) ([fdd9b72](https://github.com/nimbusxr/axx/commit/fdd9b72a12187e4bf60b73a13bb8c07bff761709))
+
 ## [0.2.18](https://github.com/nimbusxr/axx/compare/v0.2.17...v0.2.18) (2026-10-14)
 
 
