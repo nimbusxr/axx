@@ -490,14 +490,15 @@ jobs:
       # How busy the Mac is while the job runs, the simulator's first boot included: every 30
       # seconds, its load and the processes busiest then (the simulator's processes are the Mac's,
       # marked as the simulator's). The job's last step prints it, and the processes that took the
-      # most time.
+      # most time. (A step's background work keeps none of the step's input and output open: the
+      # runner waited five seconds for them to close.)
       - name: the Mac's load (in the background)
         run: |
           (while :; do
             echo "$(date +%T) load $(sysctl -n vm.loadavg)"
             ps -A -o %cpu=,ucomm=,command= -r | head -8 | awk '{ printf "%6s %s%s\n", $1, $2, index($0, "CoreSimulator") ? " (simulator)" : "" }'
             sleep 30
-          done > "$RUNNER_TEMP/load.log" 2>&1) &
+          done) > "$RUNNER_TEMP/load.log" 2>&1 < /dev/null &
       - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
         with:
           install_args: "go aqua:gotestyourself/gotestsum"
@@ -506,15 +507,16 @@ jobs:
       # Only the module cache: the tests build without the race detector, and the test build cache
       # was built with it.
       - uses: ./.github/actions/go-cache
-      # The simulator the tests keep, made and booted while the job builds the app and the tests:
-      # its first boot takes minutes on these runners (scripts/ios-simulator.sh). Not before the
-      # caches are restored: alongside the first boot, writing them took fifty times as long
-      # (218 s for the tools' 103 MB, against 4 s in the test job, on the same image).
-      - name: the tests' simulator (in the background)
-        run: (scripts/ios-simulator.sh > "$RUNNER_TEMP/simulator.log" 2>&1; echo $? > "$RUNNER_TEMP/simulator.done") &
       - name: the couriers' app
         working-directory: examples/parcels/courier/ios
         run: xcodebuild -project Courier.xcodeproj -target Courier -configuration Debug -sdk iphonesimulator ONLY_ACTIVE_ARCH=NO SYMROOT=build
+      # The simulator the tests keep, made and booted while the job builds the tests: its first
+      # boot takes a minute or more on these runners (scripts/ios-simulator.sh). Not before the
+      # caches and the app: alongside the first boot, restoring the caches took fifty times as long
+      # (218 s for the tools' 103 MB, against 4 s in the test job, on the same image), and building
+      # the app three to six times (101 s and 200 s, against about 31).
+      - name: the tests' simulator (in the background)
+        run: (scripts/ios-simulator.sh; echo $? > "$RUNNER_TEMP/simulator.done") > "$RUNNER_TEMP/simulator.log" 2>&1 < /dev/null &
       - name: the tests, built
         run: go test -tags integration -run '^$' ./packs/mobile/ios/...
       - name: wait for the tests' simulator
