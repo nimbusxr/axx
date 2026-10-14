@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.20](https://github.com/nimbusxr/axx/compare/v0.2.19...v0.2.20) (2026-10-14)
+
+
+### Bug Fixes
+
+* **mobile:** a control past the end of a row that scrolls sideways is scrolled into view ([#199](https://github.com/nimbusxr/axx/issues/199)) ([a188f81](https://github.com/nimbusxr/axx/commit/a188f811381ff3d033915762dcbd39f55e84a89a))
+
 ## [0.2.19](https://github.com/nimbusxr/axx/compare/v0.2.18...v0.2.19) (2026-10-14)
 
 
