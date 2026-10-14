@@ -73,6 +73,13 @@ func logsOnFailure(t *testing.T, h *cloudtest.Harness) {
 		for _, serial := range serials {
 			out, _ := s.run(ctx, serial, "logcat", "-d", "-b", "crash")
 			t.Logf("%s's crash log:\n%s", serial, out)
+			// Which window has the focus, where a tap goes: the app's, or the notification shade's.
+			out, _ = s.shell(ctx, serial, "dumpsys", "window", "displays")
+			for _, line := range strings.Split(out, "\n") {
+				if strings.Contains(line, "mCurrentFocus=") || strings.Contains(line, "mFocusedApp=") {
+					t.Logf("%s: %s", serial, strings.TrimSpace(line))
+				}
+			}
 		}
 	})
 }

@@ -169,18 +169,30 @@ func (p *pool) start(ctx context.Context, logDir string) (*device, error) {
 			return nil, err
 		}
 	}
-	// Animations off: a screen settles at once, and screenshots compare.
-	for _, key := range []string{"window_animation_scale", "transition_animation_scale", "animator_duration_scale"} {
-		if _, err := p.sdk.shell(ctx, d.serial, "settings", "put", "global", key, "0"); err != nil {
-			d.stop(p.sdk)
-			return nil, err
-		}
+	if err := settle(ctx, p.sdk, d.serial); err != nil {
+		d.stop(p.sdk)
+		return nil, err
 	}
 	if err := p.ensureServer(ctx, d, logDir); err != nil {
 		d.stop(p.sdk)
 		return nil, err
 	}
 	return d, nil
+}
+
+// settle sets a device up to answer a scenario's steps the same way every time. Animations off: a
+// screen settles at once, and screenshots compare. And a touch is a long press only once held for
+// a second and a half (Android's longest touch-and-hold delay; 400 ms by default): a busy emulator
+// can take that long between a tap's touch and its lift, and the system's file picker took a tap
+// on a file for a long press, which selected the file rather than picking it.
+func settle(ctx context.Context, s *sdk, serial string) error {
+	for _, key := range []string{"window_animation_scale", "transition_animation_scale", "animator_duration_scale"} {
+		if _, err := s.shell(ctx, serial, "settings", "put", "global", key, "0"); err != nil {
+			return err
+		}
+	}
+	_, err := s.shell(ctx, serial, "settings", "put", "secure", "long_press_timeout", "1500")
+	return err
 }
 
 // boot1 starts an emulator of the pool's AVD, read-only so that several run
