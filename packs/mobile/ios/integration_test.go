@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -163,6 +164,14 @@ func TestCouriersOnASimulator(t *testing.T) {
 	h.OK(`the courier app shows "Delivered"`)
 	// A runner reads SpringBoard's screen in seconds, not in a fraction of one.
 	h.OK(`within 30s the courier app shows a notification "PX-MOB-9401 delivered"`)
+	// A notification that never came: the failure shows what the simulator logged of the app's
+	// notifications, the app posting the one that did come among them.
+	_ = h.Fails(`within 1s the courier app shows a notification "PX-MOB-0000 delivered"`, `shows no notification "PX-MOB-0000 delivered"`)
+	if !slices.ContainsFunc(h.Sink.Logs, func(l string) bool {
+		return strings.Contains(l, "logged of its notifications") && strings.Contains(l, "notified PX-MOB-9401 delivered")
+	}) {
+		t.Errorf("the failure shows nothing the app logged of its notifications: %q", h.Sink.Logs)
+	}
 	h.OK(`the "Back to deliveries" button is tapped in the courier app`)
 	h.OK(`the courier app does not show "PX-MOB-9401"`)
 	// The pull refreshes the list: the app asks for the day's deliveries again.

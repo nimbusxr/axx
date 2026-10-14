@@ -288,3 +288,16 @@ func TestAClonesFilesAreItsOwn(t *testing.T) {
 		t.Errorf("a folder outside a simulator's data moved to %s", got)
 	}
 }
+
+// A failure shows the last lines of the simulator's log, without its header, each cut short.
+func TestLastLinesOfALog(t *testing.T) {
+	log := "getpwuid_r did not find a match for uid 501\nFiltering the log data using \"process == x\"\nTimestamp               Ty Process[PID:TID]\n" +
+		"2026-10-14 12:41:43.1 Df Courier[1:2] [example.parcels.courier:app] one\n\n" +
+		"2026-10-14 12:41:43.2 Df usernotificationsd[3:4] Saving notification for example.parcels.courier\n" +
+		"2026-10-14 12:41:43.3 Df Courier[1:2] [example.parcels.courier:app] three, rather longer than the rest\n"
+	got := lastLines(log, 2, 60)
+	want := "2026-10-14 12:41:43.2 Df usernotificationsd[3:4] Saving noti…\n2026-10-14 12:41:43.3 Df Courier[1:2] [example.parcels.couri…"
+	if got != want {
+		t.Errorf("got\n%s\nwant\n%s", got, want)
+	}
+}

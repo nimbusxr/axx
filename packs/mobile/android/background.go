@@ -46,6 +46,7 @@ type work struct {
 	names, tags       []string
 	job               sql.NullInt64 // the job Android's job scheduler runs it as
 	lastEnqueue       int64         // when it was last enqueued, in milliseconds since 1970
+	periods           int64         // the periods periodic work has run (WorkManager 2.8 and later count them)
 }
 
 // endedSince reports whether the work ran since it was as before: it is not running, and it
@@ -152,6 +153,8 @@ func (d *running) runWork(ctx context.Context, name string, w work) error {
 		return fmt.Errorf("the %s app's %q background task is running already", d.app.name, name)
 	case w.state == workBlocked:
 		return fmt.Errorf("the %s app's %q background task waits for the work before it, which has not finished", d.app.name, name)
+	case !w.job.Valid && w.periodic && w.periods > 0:
+		return fmt.Errorf("the %s app's %q background task has run already, and has had no job in Android's job scheduler since: WorkManager did not schedule it again, and Android would not run it now either", d.app.name, name)
 	case !w.job.Valid:
 		return fmt.Errorf("the %s app's %q background task is not yet a job Android's job scheduler runs", d.app.name, name)
 	}
@@ -286,10 +289,16 @@ func readWorks(ctx context.Context, path string) ([]work, error) {
 		return nil, err
 	}
 	defer db.Close()
+	periods := "0" // WorkManager before 2.8 does not count them
+	var counted int
+	if db.QueryRowContext(ctx, `SELECT count(*) FROM pragma_table_info('WorkSpec') WHERE name = 'period_count'`).Scan(&counted) == nil && counted > 0 {
+		periods = "w.period_count"
+	}
 	rows, err := db.QueryContext(ctx, `SELECT w.id, w.worker_class_name, w.state, w.interval_duration > 0, w.run_attempt_count > 0, w.last_enqueue_time,
 		(SELECT group_concat(name, char(31)) FROM WorkName WHERE work_spec_id = w.id),
 		(SELECT group_concat(tag, char(31)) FROM WorkTag WHERE work_spec_id = w.id),
-		(SELECT system_id FROM SystemIdInfo WHERE work_spec_id = w.id ORDER BY rowid DESC LIMIT 1)
+		(SELECT system_id FROM SystemIdInfo WHERE work_spec_id = w.id ORDER BY rowid DESC LIMIT 1),
+		`+periods+`
 		FROM WorkSpec w ORDER BY w.rowid`)
 	if err != nil {
 		return nil, fmt.Errorf("cannot read the app's WorkManager database: %w", err)
@@ -299,7 +308,7 @@ func readWorks(ctx context.Context, path string) ([]work, error) {
 	for rows.Next() {
 		var w work
 		var names, tags sql.NullString
-		if err := rows.Scan(&w.id, &w.class, &w.state, &w.periodic, &w.retried, &w.lastEnqueue, &names, &tags, &w.job); err != nil {
+		if err := rows.Scan(&w.id, &w.class, &w.state, &w.periodic, &w.retried, &w.lastEnqueue, &names, &tags, &w.job, &w.periods); err != nil {
 			return nil, fmt.Errorf("cannot read the app's WorkManager database: %w", err)
 		}
 		w.names, w.tags = split(names), split(tags)

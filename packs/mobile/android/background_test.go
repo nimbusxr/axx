@@ -4,6 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"path/filepath"
+	"slices"
+	"strings"
 	"testing"
 	"time"
 )
@@ -140,5 +142,37 @@ func TestWorkNotYetAJobIsWaitedFor(t *testing.T) {
 	works, err = scheduled(context.Background(), read, "round-reminder", time.Second)
 	if err != nil || works[0].job.Valid {
 		t.Errorf("work never a job: %+v, %v", works, err)
+	}
+}
+
+// A periodic work that ran and has had no job since is not new work waiting for one: WorkManager
+// did not schedule it again, so Android would not run it either, and the step says so.
+func TestPeriodicWorkThatLostItsJobIsNamedSo(t *testing.T) {
+	path := workDB(t)
+	db, err := sql.Open("sqlite", path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, s := range []string{
+		`ALTER TABLE WorkSpec ADD COLUMN period_count INTEGER NOT NULL DEFAULT 0`, // WorkManager 2.8 and later
+		`UPDATE WorkSpec SET period_count = 1 WHERE id = 'a1'`,
+		`DELETE FROM SystemIdInfo WHERE work_spec_id = 'a1'`,
+	} {
+		if _, err := db.Exec(s); err != nil {
+			t.Fatal(err)
+		}
+	}
+	_ = db.Close()
+	works, err := readWorks(context.Background(), path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	i := slices.IndexFunc(works, func(w work) bool { return w.id == "a1" })
+	if i < 0 || works[i].periods != 1 || works[i].job.Valid {
+		t.Fatalf("read %+v", works)
+	}
+	err = (&running{app: &app{name: "courier"}}).runWork(context.Background(), "round-reminder", works[i])
+	if err == nil || !strings.Contains(err.Error(), "has run already, and has had no job") {
+		t.Errorf("got %v", err)
 	}
 }

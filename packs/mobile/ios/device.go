@@ -188,6 +188,10 @@ type running struct {
 	bundleID string
 	session  *appium.Session
 	resets   []string
+	// resetAt is when the scenario reset the simulator, and appDir the app's bundle (Courier.app):
+	// what the simulator logged of the app since, a failure shows.
+	resetAt time.Time
+	appDir  string
 	// stopTravel ends the route the phone is on (Travel), and waits for it to stop.
 	stopTravel func()
 }
@@ -255,6 +259,7 @@ func waypoint(p mobilecore.Point) string {
 // the simulator's location set, or none.
 func (d *running) reset(ctx context.Context, s *core.Suite) error {
 	udid, set := d.dev.udid, d.dev.set
+	d.resetAt = time.Now()
 	path := ""
 	if d.app.path != "" {
 		var err error
@@ -262,6 +267,7 @@ func (d *running) reset(ctx context.Context, s *core.Suite) error {
 		if err != nil {
 			return fmt.Errorf("the %s app: %w", d.app.name, err)
 		}
+		d.appDir = filepath.Base(path)
 		if d.bundleID == "" {
 			if d.bundleID, err = bundleIDOf(ctx, path); err != nil {
 				return fmt.Errorf("the %s app: %w", d.app.name, err)
@@ -683,6 +689,44 @@ func (n notificationCenter) Texts(ctx context.Context) []string {
 		}
 	}
 	return out
+}
+
+// NotificationLog is what the simulator logged of the app's notifications since the scenario
+// reset it: the app's own lines (by its bundle identifier, as apps name their log) and its
+// background tasks', and what iOS's notification service did with its requests. The last 40.
+func (n notificationCenter) NotificationLog(ctx context.Context) string {
+	d := n.d
+	if d.dev == nil || d.resetAt.IsZero() {
+		return ""
+	}
+	app := fmt.Sprintf("subsystem == %q", d.bundleID)
+	if d.appDir != "" {
+		app = fmt.Sprintf(`processImagePath CONTAINS %q AND (subsystem == %q OR subsystem BEGINSWITH "com.apple.BackgroundTasks" OR subsystem == "com.apple.UserNotifications")`, "/"+d.appDir+"/", d.bundleID)
+	}
+	predicate := fmt.Sprintf(`(%s) OR (process == "usernotificationsd" AND composedMessage CONTAINS %q)`, app, d.bundleID)
+	out, err := d.dev.set.simctl(ctx, "spawn", d.dev.udid, "log", "show", "--start", d.resetAt.Format("2006-01-02 15:04:05"), "--style", "compact", "--predicate", predicate)
+	if err != nil {
+		return ""
+	}
+	return lastLines(out, 40, 300)
+}
+
+// lastLines are a log's last lines (its header and blank lines left out), each cut to width.
+func lastLines(log string, n, width int) string {
+	var lines []string
+	for _, l := range strings.Split(log, "\n") {
+		if l = strings.TrimSpace(l); l == "" || strings.HasPrefix(l, "Timestamp ") || strings.HasPrefix(l, "Filtering the log data") || strings.HasPrefix(l, "getpwuid_r") {
+			continue
+		}
+		if len(l) > width {
+			l = strings.ToValidUTF8(l[:width], "") + "…"
+		}
+		lines = append(lines, l)
+	}
+	if len(lines) > n {
+		lines = lines[len(lines)-n:]
+	}
+	return strings.Join(lines, "\n")
 }
 
 // find is the row of the notification that shows a text in Notification Center, where it rests:
