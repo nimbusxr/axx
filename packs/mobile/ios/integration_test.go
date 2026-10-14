@@ -5,6 +5,7 @@ package mobileios
 import (
 	"bytes"
 	"context"
+	"image/jpeg"
 	"maps"
 	"os"
 	"os/exec"
@@ -334,7 +335,7 @@ func TestACourierFollowsNotificationsOnASimulator(t *testing.T) {
 
 // parcelScene is the parcels example's scene of a parcel on a porch, 60 cm long, its front corners
 // in guards.
-var parcelScene = filepath.Join("..", "..", "..", "examples", "parcels", "acceptance", "features", "courier-app-measure", "scenes", "parcel-on-porch.glb")
+var parcelScene = filepath.Join("..", "..", "..", "examples", "parcels", "acceptance", "scenes", "parcel-on-porch.glb")
 
 // A courier measures a parcel with the app's AR view, whose camera sees a scene: a tap on each
 // of the parcel's front corners (on the guard over it, which lands on the corner), and the app
@@ -415,6 +416,80 @@ func TestACourierWalksUpToAParcelAndMeasuresItOnASimulator(t *testing.T) {
 	h.OK(`the "front left corner" in the courier app's camera view is tapped`)
 	h.OK(`the "front right corner" in the courier app's camera view is tapped`)
 	h.OK(`the courier app shows "60 cm"`)
+}
+
+// A courier scans a parcel's label with the app's camera, which sees a photo of it: the app reads
+// its QR code (a metadata output) and opens the parcel.
+func TestACourierScansALabelOnASimulator(t *testing.T) {
+	device := simulator(t)
+	courierapi.Start(t)
+	t.Setenv("COURIER_PIN", "4711")
+	h := harness(t)
+	warm(t, h, device)
+	h.OK("the courier ios app with the following properties:", [][]string{
+		{"app", courierBuild(t)}, {"device", device}, {"permissions", "camera"},
+	})
+	h.OK("the courier app's camera sees " + courierapi.Label(t))
+	signIn(h)
+	h.OK(`the courier app's dialog is dismissed`)
+	h.OK(`the "Scan label" button is tapped in the courier app`)
+	h.OK(`the courier app shows "Lena Vogel"`)
+	_ = h.Fails(`the "label" in the courier app's camera view is tapped`, "which has no objects to tap: a scene names them")
+}
+
+// A courier scans a label whose code is torn off: the camera sees a video of the parcel lifted
+// into view, and the app reads its printed reference in the frames (a video data output, read
+// with Vision) and opens the parcel.
+func TestACourierReadsATornLabelOnASimulator(t *testing.T) {
+	device := simulator(t)
+	courierapi.Start(t)
+	t.Setenv("COURIER_PIN", "4711")
+	h := harness(t)
+	warm(t, h, device)
+	h.OK("the courier ios app with the following properties:", [][]string{
+		{"app", courierBuild(t)}, {"device", device}, {"permissions", "camera"},
+	})
+	h.OK("the courier app's camera sees " + courierapi.TornLabel(t))
+	signIn(h)
+	h.OK(`the courier app's dialog is dismissed`)
+	h.OK(`the "Scan label" button is tapped in the courier app`)
+	h.OK(`the courier app shows "Jonas Weber"`)
+}
+
+// A courier photographs the parcel where they left it: the camera sees the porch scene, and the
+// photo (a photo output) reaches the service as a JPEG, upright as the phone was held.
+func TestACourierPhotographsAParcelAtTheDoorOnASimulator(t *testing.T) {
+	device := simulator(t)
+	api := courierapi.Start(t)
+	t.Setenv("COURIER_PIN", "4711")
+	h := harness(t)
+	warm(t, h, device)
+	scene, err := filepath.Abs(parcelScene)
+	if err != nil {
+		t.Fatal(err)
+	}
+	h.OK("the courier ios app with the following properties:", [][]string{
+		{"app", courierBuild(t)}, {"device", device}, {"permissions", "camera"},
+	})
+	h.OK("the courier app's camera sees " + scene)
+	signIn(h)
+	h.OK(`the courier app's dialog is dismissed`)
+	h.OK(`the "PX-MOB-9401" list item is tapped in the courier app`)
+	h.OK(`the "Photo at the door" button is tapped in the courier app`)
+	h.OK(`the "Take photo" button is tapped in the courier app`)
+	h.OK(`the courier app shows "photo-at-the-door.jpg attached"`)
+	docs := api.Documents()
+	if len(docs) != 1 || docs[0].Name != "photo-at-the-door.jpg" || docs[0].ContentType != "image/jpeg" {
+		t.Fatalf("documents: %+v", docs)
+	}
+	cfg, err := jpeg.DecodeConfig(bytes.NewReader(docs[0].Content))
+	if err != nil || cfg.Width != 1920 || cfg.Height != 1080 {
+		t.Errorf("the photo: %+v, %v", cfg, err)
+	}
+	// Taken upright: the photo says to turn it a quarter (EXIF orientation 6), as an iPhone's does.
+	if !bytes.Contains(docs[0].Content[:min(len(docs[0].Content), 4096)], []byte{0x01, 0x12, 0x00, 0x03, 0x00, 0x00, 0x00, 0x01, 0x00, 0x06}) {
+		t.Errorf("the photo is not marked to be turned upright")
+	}
 }
 
 // A courier attaches a document from the phone's files to a delivery: the recipient's leave to

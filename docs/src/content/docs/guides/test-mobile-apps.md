@@ -281,7 +281,31 @@ The phone moves in real time, as a phone on the road does: keep routes short, or
 
 ## What the camera sees, and AR
 
-An app that measures, places or finds things through the camera, with ARKit and RealityKit's `ARView`, has no camera to see through on an iOS simulator, nor the AR it measures with: the simulator's ARKit says world tracking is not supported. axx plays both from a 3D scene, a glTF file (`.glb`, or `.gltf` with its buffers and images), and a scenario taps what the camera shows by its name in the scene:
+An iOS simulator has no camera. An app that scans, reads or photographs through it (a QR code, a printed reference, a photo at the door) has nothing to see, and an app that measures or places things with ARKit and RealityKit's `ARView` has no AR either: the simulator's ARKit says world tracking is not supported. axx plays the camera from what a scenario says it sees, `the courier app's camera sees <file>`:
+
+- **an image** (PNG, JPEG or HEIC), as the phone held upright sees it: a parcel's label, say;
+- **a video** (MP4 or MOV), which plays in a loop: a parcel lifted into view;
+- **a 3D scene**, a glTF file (`.glb`, or `.gltf` with its buffers and images), seen from where the phone is in it: what the camera sees changes as the phone moves (below), and an app's AR finds the scene's surfaces and objects where they are.
+
+```gherkin
+Given the courier app's camera sees labels/label-PX-IOS-9621.png
+And the courier app is launched
+And the "Courier ID" field in the courier app is filled with "CR-LEJ-50"
+And the "PIN" field in the courier app is filled with "${sys:couriers.pin}"
+And the "Sign in" button is tapped in the courier app
+When the "Scan label" button is tapped in the courier app
+Then the courier app shows "Ida Lorenz"
+```
+
+The app's capture session takes the camera as its input, as on a phone (`AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back)`), and gets its frames, 30 a second, 1920 by 1080, the sensor's way up as an iPhone's:
+
+- a **video data output** gets them in the pixel format it asks for (BGRA, or YCbCr 4:2:0), turned as its connection says, for Vision and the like;
+- a **metadata output** gets the codes in them, QR codes and barcodes, read with Vision;
+- a **photo output** takes a photo of the frame, a JPEG (or HEIC) marked to be turned upright as an iPhone's is;
+- a **preview layer** shows them, and its conversions (a code's place on the screen, a point of interest) go by them;
+- the camera answers what an app sets (focus, exposure, zoom, torch, HDR) as a phone's does, without changing what it sees.
+
+The app asks for the camera as it would on a phone; `permissions | camera` grants it from the start. A scenario taps what an AR app's camera shows by its name in the scene:
 
 ```gherkin
 Given the courier app's camera sees scenes/parcel-on-porch.glb
@@ -299,7 +323,7 @@ The scene is where the phone is and what it sees:
 - **A tap on an object** lands on its middle, or on its `_tap` child, a node that marks where a tap on it lands: a corner guard's `_tap` is the parcel's corner it guards. The app's AR finds the scene's surfaces where they are, and a raycast that hits an object lands where a tap on it lands, so what an app measures between two objects is their distance in the scene, whatever the phone's place.
 - **What is drawn** is the scene's triangle meshes, each node's transform (its matrix, or its translation, rotation and scale), and its materials' base color, a color and an image (PNG or JPEG), lit by a soft sky and the sun. Points and lines are left out, as are skins and morph targets; an animation is a path the phone can travel (below), and the scene's objects stay still.
 
-A tool like Blender exports a scene as glTF; a small program writes one too, as the parcels example's [`make-scenes.go`](https://github.com/nimbusxr/axx/blob/main/examples/parcels/acceptance/features/courier-app-measure/scenes/make-scenes.go) does. The step reads the scene, and fails on one it cannot play: no camera, two cameras none named `phone`, two objects of one name. A running app starts again, to see it; the step before the app is launched gives the scene from the start.
+A tool like Blender exports a scene as glTF; a small program writes one too, as the parcels example's [`make-scenes.go`](https://github.com/nimbusxr/axx/blob/main/examples/parcels/acceptance/scenes/make-scenes.go) does. The step reads the scene, and fails on one it cannot play: no camera, two cameras none named `phone`, two objects of one name. A running app starts again, to see it; the step before the app is launched gives the scene from the start.
 
 ### Moving the phone
 
@@ -323,7 +347,7 @@ And the "front left corner" in the courier app's camera view is tapped
 
 The phone stays where a step leaves it, the app started again or not: a step before the app is launched puts the phone where the app starts.
 
-On a simulator, axx loads a library of its own into the app when it starts, built once with Xcode into axx's cache: it makes world tracking supported, runs the session's frames from the scene, draws the camera's picture behind the `ARView`, and answers RealityKit's raycasts. The app is the app you ship, unchanged; the library plays the camera and ARKit, which a simulator has not got. It plays apps that show AR with RealityKit's `ARView`; an `ARSCNView` (SceneKit) app is not played yet. It leans on ARKit's internals, so each Xcode is checked against it: it is checked with Xcode 27.0, on the iOS 27.0 and 18.1 simulators. A real iPhone's camera, through an Appium server, sees what is in front of it: the step is for simulators.
+On a simulator, axx loads a library of its own into the app when it starts, built once with Xcode into axx's cache: it plays the camera for the app's capture sessions; from a scene, it also makes world tracking supported, runs the session's frames from the scene, draws the camera's picture behind the `ARView`, and answers RealityKit's raycasts. The app is the app you ship, unchanged; the library plays the camera and ARKit, which a simulator has not got. It plays apps that show AR with RealityKit's `ARView`; an `ARSCNView` (SceneKit) app is not played yet, nor the system's own camera screen (`UIImagePickerController` with the `.camera` source), which an app that checks `isSourceTypeAvailable(.camera)` does not offer on a simulator. It leans on ARKit's internals, so each Xcode is checked against it: it is checked with Xcode 27.0, on the iOS 27.0 and 18.1 simulators. A real iPhone's camera, through an Appium server, sees what is in front of it: the step is for simulators.
 
 ## Traces and videos
 
