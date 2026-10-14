@@ -7,6 +7,7 @@ import (
 	"image"
 	"image/color"
 	"image/jpeg"
+	"image/png"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -49,6 +50,30 @@ func TestReadMJPEG(t *testing.T) {
 
 // A phone's screen is in its place, as big as fits, and a tap shows where
 // it was, in the window's coordinates.
+// A step that ends before the stream sent a frame (WebDriverAgent's starts seconds late on a busy
+// machine) gets the screen all the same: a screenshot, half its size, as the stream's frames are.
+func TestAStepBeforeTheStreamsFirstFrameHasItsScreen(t *testing.T) {
+	f := &feed{}
+	if b, _ := f.after(time.Now(), 50*time.Millisecond); b != nil {
+		t.Fatal("a frame from a stream that sent none")
+	}
+	f.shoot = func(context.Context) ([]byte, error) {
+		img := image.NewRGBA(image.Rect(0, 0, 400, 800))
+		var b bytes.Buffer
+		if err := png.Encode(&b, img); err != nil {
+			return nil, err
+		}
+		return b.Bytes(), nil
+	}
+	b, w := f.shot(context.Background())
+	if b == nil || w != 200 {
+		t.Fatalf("the step's screen is %d bytes, %d wide; want a screenshot 200 wide", len(b), w)
+	}
+	if _, err := jpeg.Decode(bytes.NewReader(b)); err != nil {
+		t.Errorf("the step's screen is not a JPEG, as the stream's frames are: %v", err)
+	}
+}
+
 func TestFeedDrawsTheScreenAndItsTouches(t *testing.T) {
 	f := &feed{window: appium.Rect{Width: 400, Height: 800}}
 	f.add(testJPEG(t, 200, 400, color.RGBA{250, 250, 250, 255}))

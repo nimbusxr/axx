@@ -162,7 +162,11 @@ func traceStepHook(sc *core.Scenario) error {
 	rs.mu.Unlock()
 	for name, f := range feeds {
 		st := recording.TraceStep{Keyword: step.Keyword, Text: step.Text, Line: step.Line, At: time.Since(sc.Started()), MIME: "image/jpeg", Scale: 1}
-		if b, w := f.after(ended, time.Second); b != nil {
+		b, w := f.after(ended, time.Second)
+		if b == nil {
+			b, w = f.shot(sc.Context())
+		}
+		if b != nil {
 			st.Image = b
 			if w > traceWidth {
 				st.Scale = float64(w) / traceWidth
@@ -312,6 +316,9 @@ type feed struct {
 	// stream that sends none leaves no video, and says why.
 	frames int
 	broke  string
+	// shoot takes a screenshot of the device (a PNG), for a step that ends before the stream has
+	// sent a frame.
+	shoot func(context.Context) ([]byte, error)
 }
 
 // watch starts reading a device's screen stream, and hears of its
@@ -327,6 +334,7 @@ func watch(sc *core.Scenario, d Device, url string) *feed {
 		f.window = w
 	}
 	s.Touched = f.touch
+	f.shoot = s.Screenshot
 	go f.run(ctx, url)
 	return f
 }
@@ -390,6 +398,31 @@ func (f *feed) touch(t appium.Touch) {
 		return time.Since(old.At) >= old.Length+tapLength+liftLength
 	})
 	f.touches = append(f.touches, t)
+}
+
+// shot is the device's screen now, as a frame of the stream is (a JPEG, half the screen's size),
+// and how wide it is: a step's screen when the stream has sent none yet. On a busy machine (a
+// small CI runner), WebDriverAgent's stream sends its first frame several steps after the app
+// started.
+func (f *feed) shot(ctx context.Context) ([]byte, int) {
+	if f.shoot == nil {
+		return nil, 0
+	}
+	b, err := f.shoot(ctx)
+	if err != nil {
+		return nil, 0
+	}
+	img, _, err := image.Decode(bytes.NewReader(b))
+	if err != nil {
+		return nil, 0
+	}
+	half := image.NewRGBA(image.Rect(0, 0, img.Bounds().Dx()/2, img.Bounds().Dy()/2))
+	xdraw.ApproxBiLinear.Scale(half, half.Bounds(), img, img.Bounds(), xdraw.Src, nil)
+	var out bytes.Buffer
+	if err := jpeg.Encode(&out, half, &jpeg.Options{Quality: 70}); err != nil {
+		return nil, 0
+	}
+	return out.Bytes(), half.Bounds().Dx()
 }
 
 // after is the first frame the stream sent after t, waiting for it as long

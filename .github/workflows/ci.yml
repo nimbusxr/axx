@@ -474,6 +474,11 @@ jobs:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           persist-credentials: false
+      # How busy the Mac is while the job runs, the simulator's first boot included: every 30
+      # seconds, its load and the processes busiest then (the simulator's processes are the Mac's,
+      # by name). The job's last step prints it, and the processes that took the most time.
+      - name: the Mac's load (in the background)
+        run: (while :; do echo "$(date +%T) load $(sysctl -n vm.loadavg)"; ps -A -o %cpu=,ucomm= -r | head -8; sleep 30; done > "$RUNNER_TEMP/load.log" 2>&1) &
       # The simulator the tests keep, made and booted while the job sets up: its first boot takes
       # minutes on these runners (scripts/ios-simulator.sh).
       - name: the tests' simulator (in the background)
@@ -502,6 +507,12 @@ jobs:
       - env:
           SELECT: ${{ matrix.select }}
         run: GOTEST_FORMAT=standard-verbose GOTEST_SLOWEST=1s scripts/gotest.sh -race -tags integration -timeout 45m "$SELECT" ./packs/mobile/ios/...
+      - name: the Mac's load
+        if: always()
+        run: |
+          cat "$RUNNER_TEMP/load.log"
+          echo "the processes that took the most processor time:"
+          ps -A -o time=,ucomm= | awk '{ n = split($1, t, ":"); s = 0; for (i = 1; i <= n; i++) s = s * 60 + t[i]; printf "%8.0f s  %s\n", s, $2 }' | sort -rn | head -30
 
   desktop-image:
     needs: changes
