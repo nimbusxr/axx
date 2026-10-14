@@ -120,6 +120,18 @@ func (s *Screen) Visible() []*Node {
 	return out
 }
 
+// Rows is the views the screen shows that scroll sideways: rows of chips, carousels, wider than
+// they are tall. The phone lists only what shows of one, not what is past its ends.
+func (s *Screen) Rows() []*Node {
+	var out []*Node
+	for _, n := range s.Visible() {
+		if n.Scrolling && n.Bounds.Height > 0 && n.Bounds.Width >= 2*n.Bounds.Height {
+			out = append(out, n)
+		}
+	}
+	return out
+}
+
 // Shows reports whether the screen shows text: in a control's text or
 // label, whitespace collapsed.
 func (s *Screen) Shows(text string) bool {

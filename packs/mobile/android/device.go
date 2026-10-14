@@ -476,6 +476,10 @@ func (d *running) Screen(ctx context.Context) (*mobilecore.Screen, error) {
 		src, err = d.session.Source(ctx)
 	}
 	if err != nil {
+		if appium.IsDown(err) {
+			return nil, fmt.Errorf("cannot read the %s app's screen: the UiAutomator2 server stopped answering, and again once started anew (its log, with the device's account of its end: %s): %w",
+				d.app.name, filepath.Join(d.logDir, "uiautomator2-"+d.dev.serial+".log"), err)
+		}
 		return nil, fmt.Errorf("cannot read the %s app's screen: %w", d.app.name, err)
 	}
 	return parseSource(src)
@@ -623,46 +627,59 @@ func (d *running) Scroll(ctx context.Context, direction string) (bool, error) {
 		return false, err
 	}
 	for _, n := range s.Visible() {
-		if !n.Scrolling {
-			continue
+		if n.Scrolling {
+			return d.scrollView(ctx, s, n, direction)
 		}
-		// The gesture keeps a little inside the view's edges: one that starts on its edge does
-		// not scroll a Compose scroll view (DTCD's terms).
-		b := n.Bounds
-		in := 0.05
-		area := appium.Area{Left: b.X + b.Width*in, Top: b.Y + b.Height*in, Width: b.Width * (1 - 2*in), Height: b.Height * (1 - 2*in)}
-		var more bool
-		var err error
-		if d.dev != nil {
-			more, err = d.session.Scroll(ctx, area, direction, 0.8)
-		} else {
-			err = d.session.Mobile(ctx, "scrollGesture", map[string]any{
-				"left": int(area.Left), "top": int(area.Top), "width": int(area.Width), "height": int(area.Height),
-				"direction": direction, "percent": 0.8,
-			}, &more)
+	}
+	return false, nil
+}
+
+// ScrollRow scrolls a row that scrolls sideways (left or right) by most of its width.
+func (d *running) ScrollRow(ctx context.Context, row *mobilecore.Node, direction string) (bool, error) {
+	s, err := d.Screen(ctx)
+	if err != nil {
+		return false, err
+	}
+	return d.scrollView(ctx, s, row, direction)
+}
+
+// scrollView scrolls the view n of the screen s toward direction, and reports whether it moved.
+func (d *running) scrollView(ctx context.Context, s *mobilecore.Screen, n *mobilecore.Node, direction string) (bool, error) {
+	// The gesture keeps a little inside the view's edges: one that starts on its edge does
+	// not scroll a Compose scroll view (DTCD's terms).
+	b := n.Bounds
+	in := 0.05
+	area := appium.Area{Left: b.X + b.Width*in, Top: b.Y + b.Height*in, Width: b.Width * (1 - 2*in), Height: b.Height * (1 - 2*in)}
+	var more bool
+	var err error
+	if d.dev != nil {
+		more, err = d.session.Scroll(ctx, area, direction, 0.8)
+	} else {
+		err = d.session.Mobile(ctx, "scrollGesture", map[string]any{
+			"left": int(area.Left), "top": int(area.Top), "width": int(area.Width), "height": int(area.Height),
+			"direction": direction, "percent": 0.8,
+		}, &more)
+	}
+	if err != nil || more {
+		return more, err
+	}
+	// A Compose scroll view tells UiAutomator it can scroll no further after every gesture
+	// that scrolled it (DTCD's terms): what the screen shows says whether it moved, once
+	// Compose has told accessibility (a moment after the gesture).
+	before := shown(s)
+	for range 4 {
+		select {
+		case <-ctx.Done():
+			return false, ctx.Err()
+		case <-time.After(250 * time.Millisecond):
 		}
-		if err != nil || more {
-			return more, err
+		after, err := d.Screen(ctx)
+		if err != nil {
+			return false, err
 		}
-		// A Compose scroll view tells UiAutomator it can scroll no further after every gesture
-		// that scrolled it (DTCD's terms): what the screen shows says whether it moved, once
-		// Compose has told accessibility (a moment after the gesture).
-		before := shown(s)
-		for range 4 {
-			select {
-			case <-ctx.Done():
-				return false, ctx.Err()
-			case <-time.After(250 * time.Millisecond):
-			}
-			after, err := d.Screen(ctx)
-			if err != nil {
-				return false, err
-			}
-			if shown(after) != before {
-				return true, nil
-			}
+		if shown(after) != before {
+			return true, nil
 		}
-		return false, nil
 	}
 	return false, nil
 }

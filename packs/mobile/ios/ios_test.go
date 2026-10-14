@@ -616,3 +616,31 @@ func TestAKeyboardSlowToGoIsClosedOnce(t *testing.T) {
 		t.Errorf("the keyboard's key was tapped %d times, want once", n)
 	}
 }
+
+// A control in a row that scrolls sideways, past its end, is not listed until it shows: the step
+// looks along the row, as a person does, and finds it there.
+func TestAControlPastTheEndOfARowIsScrolledIntoView(t *testing.T) {
+	form := func(chips ...string) string {
+		var b strings.Builder
+		for i, c := range chips {
+			fmt.Fprintf(&b, `<XCUIElementTypeButton type="XCUIElementTypeButton" name="%s" label="%s" x="%d" y="400" width="120" height="32" visible="true"/>`, c, c, 16+i*128)
+		}
+		return `<AppiumAUT><XCUIElementTypeApplication type="XCUIElementTypeApplication" name="Couriers" label="Couriers" x="0" y="0" width="393" height="852" visible="true">
+<XCUIElementTypeStaticText type="XCUIElementTypeStaticText" name="Restrictions" label="Restrictions" x="16" y="370" width="200" height="20" visible="true"/>
+<XCUIElementTypeScrollView type="XCUIElementTypeScrollView" x="0" y="396" width="393" height="40" visible="true">` + b.String() + `</XCUIElementTypeScrollView>
+</XCUIElementTypeApplication></AppiumAUT>`
+	}
+	app := appiumtest.Start(t, appiumtest.App{
+		Screens: map[string]string{"start": form("No trucks", "HOV 3+", "No parking"), "along": form("Reduced width", "Reduced height")},
+		Start:   "start",
+		Taps:    map[string]string{"drag left start": "along"},
+	})
+	h := cloudtest.New(t, appcore.Pack(), mobilecore.Pack(), Pack())
+	register(h, app.URL)
+	h.OK("the courier app is launched")
+	h.OK(`the "Reduced width" button is scrolled into view in the courier app`)
+	h.OK(`the "Reduced width" button is tapped in the courier app`)
+	if err := h.End("passed"); err != nil {
+		t.Fatal(err)
+	}
+}

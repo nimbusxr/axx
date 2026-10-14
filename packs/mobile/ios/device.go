@@ -577,6 +577,25 @@ func (d *running) Scroll(ctx context.Context, direction string) (bool, error) {
 	return after != before, err
 }
 
+// ScrollRow scrolls a row that scrolls sideways by most of its width, and tells whether the
+// screen changed: a finger drags along it, the other way.
+func (d *running) ScrollRow(ctx context.Context, row *mobilecore.Node, direction string) (bool, error) {
+	before, err := d.session.Source(ctx)
+	if err != nil {
+		return false, err
+	}
+	b := row.Bounds
+	y, from, to := b.Y+b.Height/2, b.X+b.Width*0.85, b.X+b.Width*0.15
+	if direction == "left" {
+		from, to = to, from
+	}
+	if err := d.session.Drag(ctx, from, y, to, y, 500*time.Millisecond); err != nil {
+		return false, err
+	}
+	after, err := d.session.Source(ctx)
+	return after != before, err
+}
+
 // OpenNotifications opens Notification Center with a finger from the top
 // edge; SpringBoard shows it, and activating the app closes it again.
 func (d *running) OpenNotifications(ctx context.Context) (mobilecore.Notifications, error) {
