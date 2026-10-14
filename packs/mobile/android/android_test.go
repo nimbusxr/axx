@@ -814,6 +814,40 @@ func TestTheShadeIsOpenWhenItHasTheFocus(t *testing.T) {
 	}
 }
 
+// A shade that does not open, as the launcher comes in after the app went to the background, is
+// opened again: the screen read is then the shade's, not the home screen's.
+func TestAShadeThatDoesNotOpenIsOpenedAgain(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("the stand-in adb is a shell script")
+	}
+	dir := t.TempDir()
+	count := filepath.Join(dir, "expands")
+	adb := filepath.Join(dir, "adb")
+	// The first three expands are lost: the shade has the focus after the fourth.
+	script := "#!/bin/sh\ncase \"$*\" in\n" +
+		"*'statusbar expand-notifications'*) n=$(cat " + count + " 2>/dev/null || echo 0); echo $((n+1)) > " + count + " ;;\n" +
+		"*'dumpsys window displays'*) if [ \"$(cat " + count + " 2>/dev/null || echo 0)\" -ge 4 ]; then echo '  mCurrentFocus=Window{caffb71 u0 NotificationShade}'; " +
+		"else echo '  mCurrentFocus=Window{1013a10 u0 com.google.android.apps.nexuslauncher/com.google.android.apps.nexuslauncher.NexusLauncherActivity}'; fi ;;\n" +
+		"esac\n"
+	if err := os.WriteFile(adb, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	d := &running{sdk: &sdk{adb: adb}, dev: &device{serial: "emulator-5554"}}
+	open := func() error {
+		_, err := d.sdk.shell(t.Context(), d.dev.serial, "cmd", "statusbar", "expand-notifications")
+		return err
+	}
+	if err := open(); err != nil {
+		t.Fatal(err)
+	}
+	if err := d.shadeOpened(t.Context(), open); err != nil {
+		t.Fatalf("a shade open on the fourth try: %v", err)
+	}
+	if b, _ := os.ReadFile(count); strings.TrimSpace(string(b)) != "4" {
+		t.Errorf("opened %s times, want 4", strings.TrimSpace(string(b)))
+	}
+}
+
 // A device is set up to settle at once and to take a slow tap for a tap: animations off, and a
 // long press only once a touch is held for a second and a half.
 func TestADeviceSettles(t *testing.T) {
