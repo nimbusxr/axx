@@ -476,11 +476,16 @@ jobs:
           persist-credentials: false
       # The runner's Spotlight would index all the job writes (the restored Go caches, the simulator's
       # data) and its software update look for updates, each taking a share of three cores that the
-      # simulator and the tests need.
-      - name: the Mac's indexing and updates, off
+      # simulator and the tests need. And a simulator copies all its processes log to the Mac's log,
+      # through a socket of the Mac's diagnosticd: the two diagnosticds took 415 s of processor time
+      # in one job. Without that socket the simulator keeps its log to itself (simctl spawn's log
+      # show reads it); on a VM of this runner's size the diagnosticds took 10 s rather than 53.
+      - name: the Mac's indexing, updates and copies of simulators' logs, off
         run: |
           sudo mdutil -a -i off > /dev/null
           sudo softwareupdate --schedule off > /dev/null
+          sudo mv /private/var/run/.sim_diagnosticd_socket /private/var/run/.sim_diagnosticd_socket.off ||
+            echo "::warning::no socket for simulators' logs: the simulator copies its log to the Mac's"
       # How busy the Mac is while the job runs, the simulator's first boot included: every 30
       # seconds, its load and the processes busiest then (the simulator's processes are the Mac's,
       # marked as the simulator's). The job's last step prints it, and the processes that took the
@@ -530,17 +535,6 @@ jobs:
           cat "$RUNNER_TEMP/load.log"
           echo "the processes that took the most processor time:"
           ps -A -o time=,ucomm=,command= | awk '{ n = split($1, t, ":"); s = 0; for (i = 1; i <= n; i++) s = s * 60 + t[i]; printf "%8.0f s  %s%s\n", s, $2, index($0, "CoreSimulator") ? " (simulator)" : "" }' | sort -rn | head -30
-      # On this runner the Mac's diagnosticd and the simulator's take the most processor time,
-      # which they do when something reads the log as it is written: who.
-      - name: what reads the Mac's log
-        if: always()
-        run: |
-          ps -A -o pid=,ppid=,user=,etime=,time=,command= | grep -E '[p]rovjobd|[l]og (stream|collect)|[d]iagnosticd' | cut -c1-240
-          for p in $(pgrep provjobd); do echo "provjobd $p's connections:"; sudo lsof -p "$p" 2> /dev/null | grep -vE ' (REG|DIR|CHR|txt) ' | head -20; done
-          echo "the Mac's diagnosticd, of its clients:"
-          sudo log show --last 1h --info --debug --style compact --predicate 'process == "diagnosticd" AND (eventMessage CONTAINS[c] "client" OR eventMessage CONTAINS[c] "filter")' | tail -20
-          echo "the simulator's diagnosticd, of its clients:"
-          xcrun simctl spawn booted log show --last 1h --info --debug --style compact --predicate 'process == "diagnosticd" AND (eventMessage CONTAINS[c] "client" OR eventMessage CONTAINS[c] "filter")' | tail -20
 
   desktop-image:
     needs: changes
