@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.18](https://github.com/nimbusxr/axx/compare/v0.2.17...v0.2.18) (2026-10-14)
+
+
+### Bug Fixes
+
+* **mobile:** a background task the app has only just scheduled is waited for ([#195](https://github.com/nimbusxr/axx/issues/195)) ([85c5adf](https://github.com/nimbusxr/axx/commit/85c5adfc6fac1f26dabd94a708ce80ce37b0ce3e))
+
 ## [0.2.17](https://github.com/nimbusxr/axx/compare/v0.2.16...v0.2.17) (2026-10-14)
 
 
