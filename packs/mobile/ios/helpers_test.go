@@ -198,11 +198,18 @@ func TestASimulatorWithPhotosIsNotLeasedAgain(t *testing.T) {
 	set := simSet(t.TempDir()) // simctl finds neither simulator in it
 	clean := &device{set: set, udid: "clean", made: true}
 	withPhotos := &device{set: set, udid: "with-photos", made: true, media: true}
-	p := &pool{all: []*device{clean, withPhotos}, changed: make(chan struct{})}
+	// A simulator axx keeps for runs is axx's as well: its photos go with it.
+	unlocked := false
+	keptWithPhotos := &device{set: set, udid: "kept-with-photos", kept: true, media: true, unlock: func() { unlocked = true }}
+	p := &pool{all: []*device{clean, withPhotos, keptWithPhotos}, changed: make(chan struct{})}
 	p.release(clean)
 	p.release(withPhotos)
+	p.release(keptWithPhotos)
 	if !slices.Equal(p.free, []*device{clean}) || !slices.Equal(p.all, []*device{clean}) {
 		t.Errorf("free %v, all %v: want only the simulator without photos", p.free, p.all)
+	}
+	if !unlocked {
+		t.Error("the kept simulator with photos is still taken: the next run cannot make it again")
 	}
 }
 
@@ -279,5 +286,18 @@ func TestAClonesFilesAreItsOwn(t *testing.T) {
 	}
 	if got := inDataOf(clone, "/somewhere/else"); got != "/somewhere/else" {
 		t.Errorf("a folder outside a simulator's data moved to %s", got)
+	}
+}
+
+// A failure shows the last lines of the simulator's log, without its header, each cut short.
+func TestLastLinesOfALog(t *testing.T) {
+	log := "getpwuid_r did not find a match for uid 501\nFiltering the log data using \"process == x\"\nTimestamp               Ty Process[PID:TID]\n" +
+		"2026-10-14 12:41:43.1 Df Courier[1:2] [example.parcels.courier:app] one\n\n" +
+		"2026-10-14 12:41:43.2 Df usernotificationsd[3:4] Saving notification for example.parcels.courier\n" +
+		"2026-10-14 12:41:43.3 Df Courier[1:2] [example.parcels.courier:app] three, rather longer than the rest\n"
+	got := lastLines(log, 2, 60)
+	want := "2026-10-14 12:41:43.2 Df usernotificationsd[3:4] Saving noti…\n2026-10-14 12:41:43.3 Df Courier[1:2] [example.parcels.couri…"
+	if got != want {
+		t.Errorf("got\n%s\nwant\n%s", got, want)
 	}
 }

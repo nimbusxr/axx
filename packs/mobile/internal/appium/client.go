@@ -381,15 +381,24 @@ func (s *Session) AlertText(ctx context.Context) (string, error) {
 // Drag moves a finger from one point of the screen to another, in points,
 // as a swipe from the screen's edge does.
 func (s *Session) Drag(ctx context.Context, fromX, fromY, toX, toY float64, d time.Duration) error {
+	return s.DragAndHold(ctx, fromX, fromY, toX, toY, d, 0)
+}
+
+// DragAndHold drags as Drag does, and holds the finger still where the drag ends before lifting
+// it, as a person pulling a list down holds it until it refreshes.
+func (s *Session) DragAndHold(ctx context.Context, fromX, fromY, toX, toY float64, d, hold time.Duration) error {
+	actions := []any{
+		map[string]any{"type": "pointerMove", "duration": 0, "x": int(fromX), "y": int(fromY)},
+		map[string]any{"type": "pointerDown", "button": 0},
+		map[string]any{"type": "pause", "duration": 100},
+		map[string]any{"type": "pointerMove", "duration": d.Milliseconds(), "x": int(toX), "y": int(toY)},
+	}
+	if hold > 0 {
+		actions = append(actions, map[string]any{"type": "pause", "duration": hold.Milliseconds()})
+	}
 	finger := map[string]any{
 		"type": "pointer", "id": "finger", "parameters": map[string]any{"pointerType": "touch"},
-		"actions": []any{
-			map[string]any{"type": "pointerMove", "duration": 0, "x": int(fromX), "y": int(fromY)},
-			map[string]any{"type": "pointerDown", "button": 0},
-			map[string]any{"type": "pause", "duration": 100},
-			map[string]any{"type": "pointerMove", "duration": d.Milliseconds(), "x": int(toX), "y": int(toY)},
-			map[string]any{"type": "pointerUp", "button": 0},
-		},
+		"actions": append(actions, map[string]any{"type": "pointerUp", "button": 0}),
 	}
 	s.touched(Touch{From: Point{fromX, fromY}, To: Point{toX, toY}, At: time.Now().Add(100 * time.Millisecond), Length: d})
 	return s.do(ctx, http.MethodPost, "/actions", map[string]any{"actions": []any{finger}}, nil)

@@ -159,6 +159,13 @@ func namesOf(ns []*Node) []string {
 	return out
 }
 
+// notificationLog is a device that keeps a log of what became of an app's notifications: a
+// failed check shows it, to say why one did not show (the app never posted it, the device
+// refused it, or it came and went).
+type notificationLog interface {
+	NotificationLog(ctx context.Context) string
+}
+
 // onNotification opens the device's notifications, waits for one that shows a text, and does
 // what fn does with it (nothing, to check it is there); the notifications are closed after.
 func onNotification(sc *core.Scenario, app, text string, wait time.Duration, fn func(ctx context.Context, n Notifications) error) error {
@@ -179,6 +186,11 @@ func onNotification(sc *core.Scenario, app, text string, wait time.Duration, fn 
 			return err
 		}
 		if !ok {
+			if l, ok := n.(notificationLog); ok {
+				if log := l.NotificationLog(ctx); log != "" {
+					sc.Log("what the device of the %s app logged of its notifications:\n%s", app, log)
+				}
+			}
 			return core.Fail(fmt.Sprintf("The device of the %s app shows no notification %q", app, text), text,
 				cloudstep.Shown("notifications", n.Texts(ctx), 30))
 		}

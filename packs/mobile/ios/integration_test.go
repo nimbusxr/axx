@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -143,7 +144,7 @@ func signIn(h *cloudtest.Harness) {
 // for notifications. One simulator for both, as a run's worker has.
 func TestCouriersOnASimulator(t *testing.T) {
 	device := simulator(t)
-	courierapi.Start(t)
+	api := courierapi.Start(t)
 	t.Setenv("COURIER_PIN", "4711")
 	h := harness(t)
 	warm(t, h, device)
@@ -163,9 +164,25 @@ func TestCouriersOnASimulator(t *testing.T) {
 	h.OK(`the courier app shows "Delivered"`)
 	// A runner reads SpringBoard's screen in seconds, not in a fraction of one.
 	h.OK(`within 30s the courier app shows a notification "PX-MOB-9401 delivered"`)
+	// A notification that never came: the failure shows what the simulator logged of the app's
+	// notifications, the app posting the one that did come among them.
+	_ = h.Fails(`within 1s the courier app shows a notification "PX-MOB-0000 delivered"`, `shows no notification "PX-MOB-0000 delivered"`)
+	if !slices.ContainsFunc(h.Sink.Logs, func(l string) bool {
+		return strings.Contains(l, "logged of its notifications") && strings.Contains(l, "notified PX-MOB-9401 delivered")
+	}) {
+		t.Errorf("the failure shows nothing the app logged of its notifications: %q", h.Sink.Logs)
+	}
 	h.OK(`the "Back to deliveries" button is tapped in the courier app`)
 	h.OK(`the courier app does not show "PX-MOB-9401"`)
+	// The pull refreshes the list: the app asks for the day's deliveries again.
+	lists := api.Lists()
 	h.OK("the courier app is swiped down")
+	for deadline := time.Now().Add(5 * time.Second); api.Lists() == lists; time.Sleep(100 * time.Millisecond) {
+		if time.Now().After(deadline) {
+			t.Error("the swipe down did not refresh the deliveries")
+			break
+		}
+	}
 	h.OK(`the courier app is opened with the "parcels-courier://deliveries/PX-MOB-9402" link`)
 	h.OK(`the courier app shows "Prager Str. 3, 04103 Leipzig"`)
 	h.OK("the courier app is sent to the background")
