@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.2.17](https://github.com/nimbusxr/axx/compare/v0.2.16...v0.2.17) (2026-10-14)
+
+
+### Features
+
+* **mobile-ios:** AR apps see a glTF scene through the camera ([#189](https://github.com/nimbusxr/axx/issues/189)) ([e661c07](https://github.com/nimbusxr/axx/commit/e661c0737842967d53bee8ca5009e2a2f9852232))
+* **mobile:** documents property puts files where the phone's file picker finds them ([#190](https://github.com/nimbusxr/axx/issues/190)) ([de50936](https://github.com/nimbusxr/axx/commit/de50936d523901d4e4b6ba7b90498014a06dc6d9))
+* **mobile:** run an app's background task now ([#188](https://github.com/nimbusxr/axx/issues/188)) ([e1bd67d](https://github.com/nimbusxr/axx/commit/e1bd67daefe21777115365dc43413752ad2ef5dd))
+
+
+### Bug Fixes
+
+* **mobile-android:** adb's server starts with mDNS discovery off ([#183](https://github.com/nimbusxr/axx/issues/183)) ([6009cc1](https://github.com/nimbusxr/axx/commit/6009cc1f2bbfa7aeb4a06c21ec384d6fc792641b))
+* **mobile-ios:** the simulator axx clones settles first; a banner is never held for a notification; documents are taken in before the app ([#193](https://github.com/nimbusxr/axx/issues/193)) ([7a82e9e](https://github.com/nimbusxr/axx/commit/7a82e9efa67858338213a69a77b500d93b0fd4b7))
+* **mobile:** a swipe waits for the screen to stop moving ([#186](https://github.com/nimbusxr/axx/issues/186)) ([d011ce0](https://github.com/nimbusxr/axx/commit/d011ce032d7b7a257d1c2803178ded728a113d4a))
+* **mobile:** an Android app reaches its host ports again after adb loses the device ([#185](https://github.com/nimbusxr/axx/issues/185)) ([a10a4da](https://github.com/nimbusxr/axx/commit/a10a4da402afea064b4cd9ce46b7b046ad6f3f5b))
+* **mobile:** documents on cloned simulators, simulators without notifications, the Android shade, stale dialogs ([#192](https://github.com/nimbusxr/axx/issues/192)) ([37e71af](https://github.com/nimbusxr/axx/commit/37e71aff810849cc639675d92023bf80f9ade874))
+
+
+### Performance Improvements
+
+* **mobile-ios:** fast iOS jobs on GitHub's small macOS runner ([#194](https://github.com/nimbusxr/axx/issues/194)) ([a46198c](https://github.com/nimbusxr/axx/commit/a46198c0b718d18d4623d833110e810d7fa5c971))
+
 ## [0.2.16](https://github.com/nimbusxr/axx/compare/v0.2.15...v0.2.16) (2026-10-12)
 
 
