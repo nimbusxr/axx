@@ -13,20 +13,55 @@ case "$(uname -m)" in
 esac
 image="system-images;android-35;google_apis;$abi"
 
+# limited runs a command for at most $1 seconds, where the system can stop it (timeout): an SDK
+# tool that hangs fails the script, instead of a CI job's wait for it.
+limited() {
+  local seconds=$1
+  shift
+  if command -v timeout > /dev/null; then timeout "$seconds" "$@"; else "$@"; fi
+}
+
+# fetch installs SDK packages until the files they leave are there: Google's servers drop a
+# download now and then, and sdkmanager may still exit 0, leaving the SDK without the package.
+# sdkmanager asks to accept licences; yes stops when it stops reading.
+#   fetch <sdkmanager> <SDK folder> <a file each package leaves>... -- <package>...
+fetch() {
+  local manager=$1 root=$2 files=() missing attempt
+  shift 2
+  while [ "$1" != -- ]; do
+    files+=("$1")
+    shift
+  done
+  shift
+  for attempt in 1 2 3; do
+    echo "installing $* (attempt $attempt)"
+    { yes || true; } | limited 900 "$manager" --sdk_root="$root" --install "$@" > /dev/null || true
+    missing=""
+    for f in "${files[@]}"; do [ -e "$f" ] || missing="$missing $f"; done
+    [ -z "$missing" ] && return 0
+    echo "sdkmanager did not install it all: no$missing" >&2
+    sleep 15
+  done
+  echo "cannot install $* from Google's servers" >&2
+  return 1
+}
+
 # Google's newest packages need its newest command-line tools: the SDK's own fetch them into a
-# folder of their own, and are left as they are. sdkmanager asks to accept licences; yes stops
-# when it stops reading.
+# folder of their own, and are left as they are.
 latest=$(mktemp -d)
 trap 'rm -rf "$latest"' EXIT
-{ yes || true; } | "$sdk/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$latest" --install "cmdline-tools;latest" > /dev/null
-{ yes || true; } | "$latest/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$sdk" --install "$image" emulator platform-tools > /dev/null
+fetch "$sdk/cmdline-tools/latest/bin/sdkmanager" "$latest" "$latest/cmdline-tools/latest/bin/sdkmanager" -- "cmdline-tools;latest"
+fetch "$latest/cmdline-tools/latest/bin/sdkmanager" "$sdk" \
+  "$sdk/system-images/android-35/google_apis/$abi/system.img" "$sdk/emulator/emulator" "$sdk/platform-tools/adb" \
+  -- "$image" emulator platform-tools
 # The SDK's own avdmanager: the newest one takes its own folder for the SDK.
 tools="$sdk/cmdline-tools/latest/bin"
 # Where the emulator looks for its devices: avdmanager may go by XDG_CONFIG_HOME instead.
 export ANDROID_AVD_HOME="${ANDROID_AVD_HOME:-$HOME/.android/avd}"
 mkdir -p "$ANDROID_AVD_HOME"
 # A Pixel the installed command-line tools know: older ones do not know the Pixel 8.
-devices=$("$tools/avdmanager" list device -c 2> /dev/null)
+echo "making parcels-pixel"
+devices=$(limited 300 "$tools/avdmanager" list device -c 2> /dev/null)
 device=""
 for want in pixel_8 pixel_6; do
   if printf '%s\n' "$devices" | grep -qx "$want"; then
@@ -35,12 +70,13 @@ for want in pixel_8 pixel_6; do
   fi
 done
 [ -n "$device" ] || device=$(printf '%s\n' "$devices" | grep '^pixel' | tail -1)
-echo no | "$tools/avdmanager" create avd --force --name parcels-pixel --package "$image" --device "$device"
+echo no | limited 300 "$tools/avdmanager" create avd --force --name parcels-pixel --package "$image" --device "$device"
 echo "parcels-pixel: $image, $device"
 
 # Its boot snapshot: booted once and saved, every emulator axx starts of it boots from it in
 # seconds instead of booting cold. axx starts them read-only: they save nothing, so each starts
 # as the snapshot left it.
+echo "parcels-pixel: booting it for its snapshot"
 args=(-avd parcels-pixel -port 5580 -no-window -no-audio -no-boot-anim)
 if [ "$(uname -s)" = Linux ]; then args+=(-gpu swiftshader_indirect); fi
 "$sdk/emulator/emulator" "${args[@]}" > "$ANDROID_AVD_HOME/parcels-pixel-snapshot.log" 2>&1 &
