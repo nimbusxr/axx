@@ -2,8 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 # The simulator the iOS pack's integration tests keep (packs.mobile-ios.keep), made and booted
-# ahead of them: a new simulator's first boot takes minutes on a hosted runner, and started as the
-# job begins, it boots while the job restores its caches and builds the app and the tests. The
+# ahead of them: a new simulator's first boot takes minutes on a hosted runner, and started once the
+# job has restored its caches, it boots while the job builds the app and the tests. The
 # tests find it booted under the name axx gives its first kept simulator, and use it. (A simulator
 # set up on another machine and copied here boots slower still: its first boot on this machine
 # does that work again, and then some.)

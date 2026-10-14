@@ -492,18 +492,20 @@ jobs:
             ps -A -o %cpu=,ucomm=,command= -r | head -8 | awk '{ printf "%6s %s%s\n", $1, $2, index($0, "CoreSimulator") ? " (simulator)" : "" }'
             sleep 30
           done > "$RUNNER_TEMP/load.log" 2>&1) &
-      # The simulator the tests keep, made and booted while the job sets up: its first boot takes
-      # minutes on these runners (scripts/ios-simulator.sh).
-      - name: the tests' simulator (in the background)
-        run: (scripts/ios-simulator.sh > "$RUNNER_TEMP/simulator.log" 2>&1; echo $? > "$RUNNER_TEMP/simulator.done") &
       - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
         with:
           install_args: "go aqua:gotestyourself/gotestsum"
           # Tools are cached from main only: pull requests read them.
           cache_save: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+      # Only the module cache: the tests build without the race detector, and the test build cache
+      # was built with it.
       - uses: ./.github/actions/go-cache
-        with:
-          build: test
+      # The simulator the tests keep, made and booted while the job builds the app and the tests:
+      # its first boot takes minutes on these runners (scripts/ios-simulator.sh). Not before the
+      # caches are restored: alongside the first boot, writing them took fifty times as long
+      # (218 s for the tools' 103 MB, against 4 s in the test job, on the same image).
+      - name: the tests' simulator (in the background)
+        run: (scripts/ios-simulator.sh > "$RUNNER_TEMP/simulator.log" 2>&1; echo $? > "$RUNNER_TEMP/simulator.done") &
       - name: the couriers' app
         working-directory: examples/parcels/courier/ios
         run: xcodebuild -project Courier.xcodeproj -target Courier -configuration Debug -sdk iphonesimulator ONLY_ACTIVE_ARCH=NO SYMROOT=build
