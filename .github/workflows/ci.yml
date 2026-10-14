@@ -499,13 +499,12 @@ jobs:
             ps -A -o %cpu=,ucomm=,command= -r | head -8 | awk '{ printf "%6s %s%s\n", $1, $2, index($0, "CoreSimulator") ? " (simulator)" : "" }'
             sleep 30
           done) > "$RUNNER_TEMP/load.log" 2>&1 < /dev/null &
-      # On some runners simdiskimaged works for minutes before the simulator boots: whether the
-      # simulator runtimes' dyld caches are there as the job starts, and what it did.
-      - name: the simulator runtimes' caches
-        run: |
-          ls -la /Library/Developer/CoreSimulator/Caches/dyld/ /Library/Developer/CoreSimulator/Caches/dyld/*/ 2>&1 | head -30
-          sudo du -sh /Library/Developer/CoreSimulator/Caches/dyld/*/* 2>&1 | head -30
-          mount | grep -c CoreSimulator/Volumes || true
+      # The image's twelve simulator runtimes (iOS, tvOS, watchOS, visionOS) are disk images,
+      # mounted when CoreSimulator first starts: simdiskimaged took 17 s to a minute and more of
+      # processor time. Started now, it mounts them while the job restores its caches, rather than
+      # while it builds the app.
+      - name: the simulator runtimes, mounted (in the background)
+        run: xcrun simctl list runtimes > /dev/null 2>&1 < /dev/null &
       - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
         with:
           install_args: "go aqua:gotestyourself/gotestsum"
@@ -545,11 +544,6 @@ jobs:
           cat "$RUNNER_TEMP/load.log"
           echo "the processes that took the most processor time:"
           ps -A -o time=,ucomm=,command= | awk '{ n = split($1, t, ":"); s = 0; for (i = 1; i <= n; i++) s = s * 60 + t[i]; printf "%8.0f s  %s%s\n", s, $2, index($0, "CoreSimulator") ? " (simulator)" : "" }' | sort -rn | head -30
-          echo "the simulator runtimes' caches now:"
-          sudo du -sh /Library/Developer/CoreSimulator/Caches/dyld/*/* 2>&1 | head -30
-          xcrun simctl runtime list 2>&1 | head -30
-          echo "simdiskimaged:"
-          log show --last 1h --style compact --predicate 'process == "simdiskimaged"' 2>&1 | tail -40 | cut -c1-240
 
   desktop-image:
     needs: changes
