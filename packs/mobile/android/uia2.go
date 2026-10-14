@@ -179,10 +179,17 @@ func (p *pool) ensureServer(ctx context.Context, d *device, logDir string) error
 			return fmt.Errorf("cannot allow the UiAutomator2 server Android's hidden APIs on %s: %w", d.serial, err)
 		}
 	}
-	log, err := os.Create(filepath.Join(logDir, "uiautomator2-"+d.serial+".log"))
+	// A server started again after it crashed adds to the log of the one before, which says why.
+	flags := os.O_CREATE | os.O_WRONLY | os.O_TRUNC
+	if d.served {
+		flags = os.O_CREATE | os.O_WRONLY | os.O_APPEND
+	}
+	log, err := os.OpenFile(filepath.Join(logDir, "uiautomator2-"+d.serial+".log"), flags, 0o644)
 	if err != nil {
 		return err
 	}
+	d.served = true
+	_, _ = fmt.Fprintf(log, "--- the UiAutomator2 server starts, %s\n", time.Now().Format(time.RFC3339))
 	// The server outlives this step: it runs until the device leaves the pool.
 	cmd := p.sdk.command(context.Background(), "-s", d.serial, "shell",
 		"am", "instrument", "-w", "--no-window-animation", "-e", "disableAnalytics", "true", uia2Runner)
@@ -207,12 +214,11 @@ func (p *pool) ensureServer(ctx context.Context, d *device, logDir string) error
 	}
 	go func() {
 		_ = cmd.Wait()
-		// A server that ended by itself crashed: its log keeps what the device says of it.
+		// A server that ended by itself crashed, or was killed: its log keeps what the device
+		// says of it.
 		if !s.stopping.Load() {
-			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-			if out, err := p.sdk.run(ctx, d.serial, "logcat", "-d", "-b", "crash"); err == nil && out != "" {
-				_, _ = fmt.Fprintf(log, "\nthe device's crash log:\n%s\n", out)
-			}
+			ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+			_, _ = fmt.Fprintf(log, "--- the UiAutomator2 server ended by itself, %s\n%s", time.Now().Format(time.RFC3339), p.endOf(ctx, d.serial))
 			cancel()
 		}
 		close(s.exited)
@@ -255,6 +261,49 @@ func (p *pool) installServer(ctx context.Context, serial string, apks []string) 
 		}
 	}
 	return nil
+}
+
+// endOf is what the device says of how a process of the UiAutomator2 server ended: a crash, in
+// its crash log; a kill (the low-memory killer, a force-stop), in its events and its system log.
+func (p *pool) endOf(ctx context.Context, serial string) string {
+	var b strings.Builder
+	section := func(title string, args []string, keep func(string) bool) {
+		out, err := p.sdk.run(ctx, serial, args...)
+		if err != nil {
+			fmt.Fprintf(&b, "%s: cannot read it: %v\n", title, err)
+			return
+		}
+		var lines []string
+		for _, l := range strings.Split(out, "\n") {
+			if keep == nil || keep(l) {
+				lines = append(lines, l)
+			}
+		}
+		if len(lines) > 80 {
+			lines = lines[len(lines)-80:]
+		}
+		if len(strings.TrimSpace(strings.Join(lines, ""))) == 0 {
+			fmt.Fprintf(&b, "%s: nothing\n", title)
+			return
+		}
+		fmt.Fprintf(&b, "%s:\n%s\n", title, strings.Join(lines, "\n"))
+	}
+	about := func(words ...string) func(string) bool {
+		return func(l string) bool {
+			for _, w := range words {
+				if strings.Contains(l, w) {
+					return true
+				}
+			}
+			return false
+		}
+	}
+	section("the device's crash log", []string{"logcat", "-d", "-b", "crash"}, nil)
+	section("the device's process events", []string{"logcat", "-d", "-b", "events", "-t", "2000"},
+		about("am_kill", "am_proc_died", "am_crash", "am_anr", "am_low_memory", "uiautomator2"))
+	section("the device's log of the server and its end", []string{"logcat", "-d", "-b", "main,system", "-t", "5000"},
+		about("uiautomator2", "UiAutomator", "lowmemorykiller", "lmkd", "Force stopping", "Killing", "FATAL", "AndroidRuntime", "DEBUG", "crash_dump", "Fatal signal"))
+	return b.String()
 }
 
 // stop ends the server's instrumentation.

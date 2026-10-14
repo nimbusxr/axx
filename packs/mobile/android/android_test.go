@@ -901,3 +901,48 @@ func TestAShadeSlowToCloseIsCollapsedAgain(t *testing.T) {
 		t.Errorf("collapsed %s times, want 2", strings.TrimSpace(string(b)))
 	}
 }
+
+// A UiAutomator2 server that ended by itself leaves in its log what the device says of its end:
+// here the low-memory killer took it, which its crash log does not show but its process events
+// and its system log do; the rest of the device's log stays out.
+func TestTheServersEndIsInItsLog(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("the stand-in adb is a shell script")
+	}
+	dir := t.TempDir()
+	adb := filepath.Join(dir, "adb")
+	script := `#!/bin/sh
+case "$*" in
+*"-b crash"*) ;;
+*"-b events"*) printf '%s\n' \
+  '10-14 22:50:41.100  1 2 I am_kill : [0,4211,io.appium.uiautomator2.server,-800,lmk]' \
+  '10-14 22:50:41.200  1 2 I am_proc_start: [0,4300,10123,com.google.android.gms]' \
+  '10-14 22:50:41.300  1 2 I am_proc_died: [0,4211,io.appium.uiautomator2.server,915,3]';;
+*"main,system"*) printf '%s\n' \
+  '10-14 22:50:40.900 500 500 I lowmemorykiller: Kill io.appium.uiautomator2.server (4211), rss 412MB' \
+  '10-14 22:50:40.950 600 600 D WifiService: scan done' \
+  '10-14 22:50:41.000 300 300 I ActivityManager: Process io.appium.uiautomator2.server (pid 4211) has died';;
+esac
+`
+	if err := os.WriteFile(adb, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	p := &pool{sdk: &sdk{adb: adb}}
+	end := p.endOf(t.Context(), "emulator-5554")
+	for _, want := range []string{
+		"the device's crash log: nothing",
+		"am_kill : [0,4211,io.appium.uiautomator2.server,-800,lmk]",
+		"am_proc_died: [0,4211,io.appium.uiautomator2.server,915,3]",
+		"lowmemorykiller: Kill io.appium.uiautomator2.server (4211), rss 412MB",
+		"Process io.appium.uiautomator2.server (pid 4211) has died",
+	} {
+		if !strings.Contains(end, want) {
+			t.Errorf("the server's end:\n%s\nwants %q", end, want)
+		}
+	}
+	for _, noise := range []string{"com.google.android.gms", "WifiService"} {
+		if strings.Contains(end, noise) {
+			t.Errorf("the server's end:\n%s\nhas %q", end, noise)
+		}
+	}
+}

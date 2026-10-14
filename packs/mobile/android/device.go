@@ -476,6 +476,10 @@ func (d *running) Screen(ctx context.Context) (*mobilecore.Screen, error) {
 		src, err = d.session.Source(ctx)
 	}
 	if err != nil {
+		if appium.IsDown(err) {
+			return nil, fmt.Errorf("cannot read the %s app's screen: the UiAutomator2 server stopped answering, and again once started anew (its log, with the device's account of its end: %s): %w",
+				d.app.name, filepath.Join(d.logDir, "uiautomator2-"+d.dev.serial+".log"), err)
+		}
 		return nil, fmt.Errorf("cannot read the %s app's screen: %w", d.app.name, err)
 	}
 	return parseSource(src)

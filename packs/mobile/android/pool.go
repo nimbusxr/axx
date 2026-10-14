@@ -28,6 +28,7 @@ type device struct {
 	systemPort int         // the UiAutomator2 server's port on the host
 	mjpegPort  int         // its screen stream's port on the host
 	server     *uia2Server // the UiAutomator2 server on it, while it runs
+	served     bool        // whether a server ran on it this run: one started again adds to its log
 	emulator   *exec.Cmd
 	group      *proc.Group
 	exited     chan struct{}
