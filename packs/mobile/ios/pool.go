@@ -411,6 +411,7 @@ func (p *pool) templateOf(ctx context.Context) (simDevice, error) {
 			if d.State != "Shutdown" {
 				_, _ = p.set.simctl(ctx, "shutdown", d.UDID)
 			}
+			p.settleTemplate(ctx, d)
 			return d, nil
 		}
 	}
@@ -425,9 +426,15 @@ func (p *pool) templateOf(ctx context.Context) (simDevice, error) {
 	p.suite.Logger().Warn("setting up an iOS simulator to clone, once: its first boot takes minutes", "simulator", p.template, "udid", udid)
 	started := time.Now()
 	err = p.set.boot(ctx, udid, p.boot)
+	if err == nil && !settle(ctx, udid) { // what iOS does once, it does here, not in each clone (settle.go)
+		p.suite.Logger().Warn("the iOS simulator axx clones did not come to rest in time; it is cloned all the same", "simulator", p.template, "waited", settleWithin)
+	}
 	_, _ = p.set.simctl(context.WithoutCancel(ctx), "shutdown", udid)
 	if err == nil {
 		_, err = p.set.simctl(ctx, "rename", udid, p.template)
+	}
+	if err == nil {
+		err = markSettled(udid)
 	}
 	if err != nil {
 		_, _ = p.set.simctl(context.WithoutCancel(ctx), "delete", udid)
@@ -435,6 +442,36 @@ func (p *pool) templateOf(ctx context.Context) (simDevice, error) {
 	}
 	p.suite.Logger().Info("set up an iOS simulator to clone", "simulator", p.template, "took", time.Since(started).Round(time.Second))
 	return simDevice{Name: p.template, UDID: udid, State: "Shutdown", runtime: p.runtime}, nil
+}
+
+// settleTemplate leaves the simulator axx clones to settle, once, when an axx before this one set
+// it up without (settle.go): booted, until it comes to rest, then shut down again. Another run
+// settling it meanwhile is waited for. A simulator that cannot be booted is cloned all the same.
+func (p *pool) settleTemplate(ctx context.Context, d simDevice) {
+	if isSettled(d.UDID) {
+		return
+	}
+	unlock, err := filelock.Lock(ctx, settledMark(d.UDID)+".lock", nil)
+	if err != nil {
+		return
+	}
+	defer unlock()
+	if isSettled(d.UDID) {
+		return
+	}
+	p.suite.Logger().Warn("letting the iOS simulator axx clones settle, once: its clones then boot lighter", "simulator", d.Name, "udid", d.UDID)
+	started := time.Now()
+	err = p.set.boot(ctx, d.UDID, p.boot)
+	if err == nil && !settle(ctx, d.UDID) {
+		p.suite.Logger().Warn("the iOS simulator axx clones did not come to rest in time; it is cloned all the same", "simulator", d.Name, "waited", settleWithin)
+	}
+	_, _ = p.set.simctl(context.WithoutCancel(ctx), "shutdown", d.UDID)
+	if err != nil {
+		p.suite.Logger().Warn("the iOS simulator axx clones could not settle; its clones boot heavier", "simulator", d.Name, "error", err)
+		return
+	}
+	_ = markSettled(d.UDID)
+	p.suite.Logger().Info("let the iOS simulator axx clones settle", "simulator", d.Name, "took", time.Since(started).Round(time.Second))
 }
 
 // bootDevice boots the simulator, unless it runs already.

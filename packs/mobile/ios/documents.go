@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path"
 	"path/filepath"
 	"strings"
@@ -34,7 +35,37 @@ func (d *running) putDocuments(ctx context.Context) error {
 		return err
 	}
 	d.forgetPickerPlace(ctx)
+	if len(d.app.documents) > 0 {
+		d.takeInDocuments(ctx, group)
+	}
 	return nil
+}
+
+// takeInDocuments has iOS take in the documents put On My iPhone before the app runs: axx's
+// library, in a process axx starts in the simulator, bookmarks each, as the document picker does
+// for the app that picks one. The first bookmark a simulator makes starts iOS's resolver of
+// documents for apps, which sets up its records and its store of document ids (revisiond):
+// left to the picker on a new simulator (GitHub's runner makes one each run), that came as an
+// app picked a document, and the app got none ("The file doesn't exist", for the file the
+// picker showed). A simulator that cannot take them in still has them: the run goes on.
+func (d *running) takeInDocuments(ctx context.Context, group string) {
+	lib, err := springboardLibrary(ctx, d.pool.suite)
+	if err == nil {
+		paths := make([]string, len(d.app.documents))
+		for i, f := range d.app.documents {
+			paths[i] = filepath.Join(group, onMyIPhone, filepath.Base(f))
+		}
+		// launchctl, of the simulator's own, runs no further than the library, which ends it.
+		cmd := exec.CommandContext(ctx, "xcrun", append([]string{"simctl"}, d.dev.set.args("spawn", d.dev.udid, "launchctl", "version")...)...) //nolint:gosec // simctl, with arguments axx builds
+		cmd.Env = append(os.Environ(), "SIMCTL_CHILD_DYLD_INSERT_LIBRARIES="+lib, "SIMCTL_CHILD_AXX_BOOKMARK="+strings.Join(paths, "\n"))
+		var out []byte
+		if out, err = cmd.CombinedOutput(); err != nil {
+			err = fmt.Errorf("%w: %s", err, strings.TrimSpace(string(out)))
+		}
+	}
+	if err != nil {
+		d.pool.suite.Logger().Warn("iOS did not take in the documents put On My iPhone: the app may get none when it picks one", "simulator", d.dev.name, "error", err)
+	}
 }
 
 // pickerPlaces are the keys under which iOS keeps, for an app, where its document picker was

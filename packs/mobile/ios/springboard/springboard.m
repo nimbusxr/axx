@@ -5,8 +5,9 @@
 // simulator lacks. Cover Sheet lets a person hold a notification there, to see its actions,
 // only on a phone it can tell is in a hand: one with a proximity sensor, or with Face ID
 // unlock, which takes a passcode a simulator cannot have. Without a sensor, a hold is taken
-// for a tap. In an app whose camera sees a scene (ar.go), it loads axx's AR library. Everywhere
-// else (the app under test otherwise, WebDriverAgent) the library does nothing.
+// for a tap. In an app whose camera sees a scene (ar.go), it loads axx's AR library. In a
+// process axx starts with documents it put On My iPhone (documents.go), it bookmarks them.
+// Everywhere else (the app under test otherwise, WebDriverAgent) the library does nothing.
 
 #import <Foundation/Foundation.h>
 #import <dlfcn.h>
@@ -27,6 +28,20 @@ static void report(NSString *status) {
 }
 
 __attribute__((constructor)) static void proximitySensor(void) {
+  // A process axx starts to have iOS take in the documents it put On My iPhone (documents.go):
+  // it bookmarks each, as the document picker does for the app that picks one, and ends.
+  const char *documents = getenv("AXX_BOOKMARK");
+  if (documents != NULL) {
+    int failed = 0;
+    for (NSString *path in [[NSString stringWithUTF8String:documents] componentsSeparatedByString:@"\n"]) {
+      NSError *error = nil;
+      if (path.length > 0 && [[NSURL fileURLWithPath:path] bookmarkDataWithOptions:0 includingResourceValuesForKeys:nil relativeToURL:nil error:&error] == nil) {
+        fprintf(stderr, "cannot bookmark %s: %s\n", path.UTF8String, error.localizedDescription.UTF8String);
+        failed = 1;
+      }
+    }
+    exit(failed);
+  }
   // An app whose camera sees a scene: it loads axx's AR library (ar.go), which the simulator's
   // own value of DYLD_INSERT_LIBRARIES, this library, keeps out of the app's launch environment.
   const char *ar = getenv("AXX_AR_LIBRARY");
