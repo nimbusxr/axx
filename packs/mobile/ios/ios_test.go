@@ -565,12 +565,38 @@ func TestAKeyboardStillComingInIsClosedOnceItCanBe(t *testing.T) {
 		Start:   "typing",
 		Taps:    map[string]string{"hide keyboard typing": "typed"},
 	})
-	app.KeyboardComingIn(2)
+	app.KeyboardComingIn(1)
 	h := cloudtest.New(t, appcore.Pack(), mobilecore.Pack(), Pack())
 	register(h, app.URL)
 	h.OK("the courier app is launched")
 	h.OK(`the "Mark delivered" button is tapped in the courier app`)
 	if app.Screen() != "typed" {
 		t.Errorf("the keyboard was not closed: %s", app.Screen())
+	}
+}
+
+// A keyboard slow to go, which WebDriverAgent says it did not know how to close, is given time to
+// go: its key is tapped once.
+func TestAKeyboardSlowToGoIsClosedOnce(t *testing.T) {
+	button := `<XCUIElementTypeButton type="XCUIElementTypeButton" name="Mark delivered" label="Mark delivered" x="16" y="700" width="361" height="44" visible="%s"/>`
+	keyboard := `<XCUIElementTypeKeyboard type="XCUIElementTypeKeyboard" x="0" y="516" width="393" height="336" visible="true"/>`
+	app := appiumtest.Start(t, appiumtest.App{
+		Screens: map[string]string{
+			"typing": `<AppiumAUT><XCUIElementTypeApplication type="XCUIElementTypeApplication" name="Couriers" label="Couriers" x="0" y="0" width="393" height="852" visible="true">` + fmt.Sprintf(button, "false") + keyboard + `</XCUIElementTypeApplication></AppiumAUT>`,
+			"typed":  `<AppiumAUT><XCUIElementTypeApplication type="XCUIElementTypeApplication" name="Couriers" label="Couriers" x="0" y="0" width="393" height="852" visible="true">` + fmt.Sprintf(button, "true") + `</XCUIElementTypeApplication></AppiumAUT>`,
+		},
+		Start: "typing",
+		Taps:  map[string]string{"hide keyboard typing": "typed"},
+	})
+	app.KeyboardSlowToGo(time.Second)
+	h := cloudtest.New(t, appcore.Pack(), mobilecore.Pack(), Pack())
+	register(h, app.URL)
+	h.OK("the courier app is launched")
+	h.OK(`the "Mark delivered" button is tapped in the courier app`)
+	if app.Screen() != "typed" {
+		t.Errorf("the keyboard was not closed: %s", app.Screen())
+	}
+	if n := app.KeyboardClosings(); n != 1 {
+		t.Errorf("the keyboard's key was tapped %d times, want once", n)
 	}
 }
