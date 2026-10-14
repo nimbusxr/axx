@@ -29,6 +29,10 @@ const backgroundTaskAnswer = 15 * time.Second
 // refresh task, and a few for the app to say how it went.
 const backgroundTaskRun = 35 * time.Second
 
+// backgroundTaskScheduled is how long axx waits for an app to ask for a task it has not yet asked
+// for (BGTaskScheduler submit).
+const backgroundTaskScheduled = 15 * time.Second
+
 // RunBackgroundTask has iOS run one of the app's background tasks now, as it does when the task's
 // time comes, and as Xcode's debugger command does on an iPhone: the task the app scheduled is
 // handed to the handler it registered, in the app, which SpringBoard wakes for it if it is
@@ -57,9 +61,22 @@ func (d *running) RunBackgroundTask(ctx context.Context, name string) error {
 	if pid == 0 {
 		return fmt.Errorf("the %s app is not running: axx runs a background task in the app as it runs (launch it first)", d.app.name)
 	}
-	status, nonce, err := askLibrary(ctx, d.dev, d.bundleID, pid, name)
-	if err != nil {
-		return fmt.Errorf("cannot run the %s app's %q background task: %w", d.app.name, name, err)
+	// The app asks for its task when it chooses to, after it launched or signed in, say: a moment
+	// later on a busy Mac. A task not yet asked for is asked about again, for a while.
+	var status, nonce string
+	for deadline := time.Now().Add(backgroundTaskScheduled); ; {
+		status, nonce, err = askLibrary(ctx, d.dev, d.bundleID, pid, name)
+		if err != nil {
+			return fmt.Errorf("cannot run the %s app's %q background task: %w", d.app.name, name, err)
+		}
+		if status != "not scheduled" || !time.Now().Before(deadline) {
+			break
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(500 * time.Millisecond):
+		}
 	}
 	switch status {
 	case "ran":

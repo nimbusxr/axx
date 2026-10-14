@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 // workDB makes a WorkManager database with the tables and columns axx reads, as WorkManager 2.9
@@ -112,5 +113,32 @@ func TestWorkEndsWhenItIsNoLongerRunning(t *testing.T) {
 		if got := c.now.endedSince(before); got != c.ended {
 			t.Errorf("%s: ended = %v, want %v", c.name, got, c.ended)
 		}
+	}
+}
+
+// Work the app enqueued a moment ago is not yet a job: WorkManager hands it to Android's job
+// scheduler a moment later, which axx waits for.
+func TestWorkNotYetAJobIsWaitedFor(t *testing.T) {
+	reads := 0
+	read := func(context.Context) ([]work, error) {
+		reads++
+		w := work{id: "a1", class: "example.parcels.courier.RoundReminderWorker", names: []string{"round-reminder"}}
+		if reads >= 3 {
+			w.job = sql.NullInt64{Int64: 7, Valid: true}
+		}
+		return []work{w}, nil
+	}
+	works, err := scheduled(context.Background(), read, "round-reminder", 10*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !works[0].job.Valid || reads != 3 {
+		t.Errorf("after %d reads the work is %+v, want a job on the third", reads, works[0])
+	}
+	// Work that never becomes a job is given up on, as it was last read.
+	reads = -100
+	works, err = scheduled(context.Background(), read, "round-reminder", time.Second)
+	if err != nil || works[0].job.Valid {
+		t.Errorf("work never a job: %+v, %v", works, err)
 	}
 }

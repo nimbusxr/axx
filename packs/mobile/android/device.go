@@ -692,15 +692,8 @@ func (d *running) OpenNotifications(ctx context.Context) (mobilecore.Notificatio
 	}
 	hide := d.session.Back
 	if d.dev != nil {
-		// The shade slides open after the command returns: it is read once it has the focus, and
-		// opened again if it has not taken it.
-		for range 2 {
-			if d.shadeFocused(ctx, true) {
-				break
-			}
-			if err := open(); err != nil {
-				return nil, fmt.Errorf("cannot open the notification shade: %w", err)
-			}
+		if err := d.shadeOpened(ctx, open); err != nil {
+			return nil, err
 		}
 		// Collapsed, not backed out of: once a notification opened the app, the shade is gone, and
 		// a back would take the app back a screen. It is shut before the next step goes on, which
@@ -709,6 +702,25 @@ func (d *running) OpenNotifications(ctx context.Context) (mobilecore.Notificatio
 	}
 	tap := func(ctx context.Context, x, y float64) error { return d.session.Drag(ctx, x, y, x, y, 0) }
 	return mobilecore.ScreenNotifications{Read: d.Screen, Hide: hide, Tap: tap}, nil
+}
+
+// shadeOpened waits for the notification shade, opened, to have the focus, and opens it again if it
+// has not taken it, up to four times: the shade slides open after the command returns, and a
+// command sent as the launcher still comes in (the app just sent to the background) is lost. The
+// screen read meanwhile would be the home screen's.
+func (d *running) shadeOpened(ctx context.Context, open func() error) error {
+	for range 4 {
+		if d.shadeFocused(ctx, true) {
+			return nil
+		}
+		if err := open(); err != nil {
+			return fmt.Errorf("cannot open the notification shade: %w", err)
+		}
+	}
+	if d.shadeFocused(ctx, true) {
+		return nil
+	}
+	return errors.New("the notification shade did not open")
 }
 
 // collapseShade shuts the notification shade, and waits for it to let go of the focus: a tap

@@ -90,7 +90,7 @@ func (d *running) RunBackgroundTask(ctx context.Context, name string) error {
 	if d.dev == nil {
 		return fmt.Errorf("axx runs the %s app's background tasks on devices adb reaches, not on a device an Appium server runs", d.app.name)
 	}
-	works, err := d.works(ctx)
+	works, err := scheduled(ctx, d.works, name, backgroundJobWait)
 	if err != nil {
 		return err
 	}
@@ -115,6 +115,35 @@ func (d *running) RunBackgroundTask(ctx context.Context, name string) error {
 		}
 	}
 	return nil
+}
+
+// backgroundJobWait is how long axx waits for WorkManager to hand work the app enqueued to
+// Android's job scheduler: it does a moment after the app enqueues it, later on a busy device.
+const backgroundJobWait = 15 * time.Second
+
+// scheduled reads the app's work until the work with that name is a job Android's job scheduler
+// runs, or within has passed: it returns the work as it last read it.
+func scheduled(ctx context.Context, read func(context.Context) ([]work, error), name string, within time.Duration) ([]work, error) {
+	for deadline := time.Now().Add(within); ; {
+		works, err := read(ctx)
+		if err != nil {
+			return nil, err
+		}
+		waiting := false
+		for _, w := range works {
+			if w.unfinished() && w.named(name) && w.state != workRunning && w.state != workBlocked && !w.job.Valid {
+				waiting = true
+			}
+		}
+		if !waiting || !time.Now().Before(deadline) {
+			return works, nil
+		}
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-time.After(500 * time.Millisecond):
+		}
+	}
 }
 
 func (d *running) runWork(ctx context.Context, name string, w work) error {
