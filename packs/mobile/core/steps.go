@@ -62,6 +62,9 @@ func steps() []core.StepDef {
 			Examples: []string{"When the courier app is swiped down"},
 			Run: func(sc *core.Scenario, a core.Args) error {
 				dir := a.String(1)
+				if dir == "forward" || dir == "back" {
+					return fmt.Errorf("a swipe goes up, down, left or right, not %s", dir)
+				}
 				return onDevice(sc, a.String(0), false, func(ctx context.Context, d Device) error {
 					if err := still(ctx, d); err != nil {
 						return err

@@ -140,7 +140,7 @@ func loadConfig() (config, error) {
 			c.ShopClients[shop] = secret
 		}
 	}
-	for _, entry := range strings.Split(env("PARCELS_COURIERS", "CR-LEJ-12:Hanna Wolf:4711,CR-LEJ-14:Mia Krause:4711,CR-LEJ-15:Paul Richter:4711,CR-LEJ-16:Lea Schmidt:4711,CR-DRS-07:Jonas Keller:4711,CR-LEJ-21:Emil Hartmann:4711,CR-DRS-11:Nora Lange:4711,CR-LEJ-31:Jan Vogt:4711,CR-LEJ-32:Ida Brandt:4711,CR-LEJ-33:Karl Seidel:4711,CR-LEJ-34:Marie Engel:4711,CR-LEJ-35:Tom Becker:4711,CR-LEJ-36:Felix Wagner:4711,CR-LEJ-37:Greta Lorenz:4711,CR-LEJ-38:Ben Fuchs:4711,CR-LEJ-39:Greta Hoffmann:4711,CR-LEJ-40:Lukas Braun:4711,CR-LEJ-48:Anna Zimmermann:4711"), ",") {
+	for _, entry := range strings.Split(env("PARCELS_COURIERS", "CR-LEJ-12:Hanna Wolf:4711,CR-LEJ-14:Mia Krause:4711,CR-LEJ-15:Paul Richter:4711,CR-LEJ-16:Lea Schmidt:4711,CR-DRS-07:Jonas Keller:4711,CR-LEJ-21:Emil Hartmann:4711,CR-DRS-11:Nora Lange:4711,CR-LEJ-31:Jan Vogt:4711,CR-LEJ-32:Ida Brandt:4711,CR-LEJ-33:Karl Seidel:4711,CR-LEJ-34:Marie Engel:4711,CR-LEJ-35:Tom Becker:4711,CR-LEJ-36:Felix Wagner:4711,CR-LEJ-37:Greta Lorenz:4711,CR-LEJ-38:Ben Fuchs:4711,CR-LEJ-39:Greta Hoffmann:4711,CR-LEJ-40:Lukas Braun:4711,CR-LEJ-48:Anna Zimmermann:4711,CR-LEJ-49:Moritz Schulz:4711"), ",") {
 		if parts := strings.Split(strings.TrimSpace(entry), ":"); len(parts) == 3 {
 			c.Couriers[parts[0]] = courierAccount{name: parts[1], pin: parts[2]}
 		}

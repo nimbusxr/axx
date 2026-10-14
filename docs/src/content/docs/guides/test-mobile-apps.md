@@ -297,9 +297,31 @@ The scene is where the phone is and what it sees:
 - **The phone** is the scene's camera, or the camera named `phone` when it has several: where it stands, held upright, looking along its −Z, its +Y the top of the phone (a glTF camera's own axes). The phone's camera is an iPhone's wide camera (about 62° across, the picture filling the view); the scene's camera gives only where it is and which way it looks.
 - **Objects** a scenario names are the scene's top-level nodes with a name, but for its cameras and its furniture: nodes named with a leading `_`, like `_road` or `_porch`.
 - **A tap on an object** lands on its middle, or on its `_tap` child, a node that marks where a tap on it lands: a corner guard's `_tap` is the parcel's corner it guards. The app's AR finds the scene's surfaces where they are, and a raycast that hits an object lands where a tap on it lands, so what an app measures between two objects is their distance in the scene, whatever the phone's place.
-- **What is drawn** is the scene's triangle meshes, each node's transform (its matrix, or its translation, rotation and scale), and its materials' base color, a color and an image (PNG or JPEG), lit by a soft sky and the sun. Points and lines are left out, as are animations, skins and morph targets.
+- **What is drawn** is the scene's triangle meshes, each node's transform (its matrix, or its translation, rotation and scale), and its materials' base color, a color and an image (PNG or JPEG), lit by a soft sky and the sun. Points and lines are left out, as are skins and morph targets; an animation is a path the phone can travel (below), and the scene's objects stay still.
 
 A tool like Blender exports a scene as glTF; a small program writes one too, as the parcels example's [`make-scenes.go`](https://github.com/nimbusxr/axx/blob/main/examples/parcels/acceptance/features/courier-app-measure/scenes/make-scenes.go) does. The step reads the scene, and fails on one it cannot play: no camera, two cameras none named `phone`, two objects of one name. A running app starts again, to see it; the step before the app is launched gives the scene from the start.
+
+### Moving the phone
+
+The phone moves through the scene as the person holding it does, and the app's camera, and its AR, see the scene from wherever it is:
+
+```gherkin
+Given the courier app's camera sees scenes/parcel-on-porch.glb
+And the courier app's phone moves to the scene's "by the van" camera
+And the courier app is opened with the "parcels-courier://deliveries/PX-IOS-9582" link
+And the "Measure parcel" button is tapped in the courier app
+When the courier app's phone travels the scene's "up the garden path" path
+And the courier app's phone moves 1 m forward
+And the courier app's phone turns 40 degrees down
+And the "front left corner" in the courier app's camera view is tapped
+```
+
+- **A place the scene names** is one of its cameras: `moves to the scene's "by the van" camera` puts the phone where that camera is, looking the way it looks, at once.
+- **A path** is one of the scene's animations that moves a camera, the phone's or another one it follows: `travels` carries the phone along it as it was recorded, and waits for it to arrive; `starts traveling` lets the scenario go on while it moves, and `the courier app's phone reaches the end of its route` waits for it. `at 2x` goes twice as fast; `at 1.4 m/s` keeps one speed along the way.
+- **A step** moves the phone at a walking pace, still facing the same way: `forward` and `back` along the ground the way it looks (where its top points, when it looks straight down), `left` and `right` across it, `up` and `down`.
+- **A turn** turns it where it stands, as the person holding it turns: `left` and `right` about the upright, keeping its tilt; `up` and `down` tilt it.
+
+The phone stays where a step leaves it, the app started again or not: a step before the app is launched puts the phone where the app starts.
 
 On a simulator, axx loads a library of its own into the app when it starts, built once with Xcode into axx's cache: it makes world tracking supported, runs the session's frames from the scene, draws the camera's picture behind the `ARView`, and answers RealityKit's raycasts. The app is the app you ship, unchanged; the library plays the camera and ARKit, which a simulator has not got. It plays apps that show AR with RealityKit's `ARView`; an `ARSCNView` (SceneKit) app is not played yet. It leans on ARKit's internals, so each Xcode is checked against it: it is checked with Xcode 27.0, on the iOS 27.0 and 18.1 simulators. A real iPhone's camera, through an Appium server, sees what is in front of it: the step is for simulators.
 

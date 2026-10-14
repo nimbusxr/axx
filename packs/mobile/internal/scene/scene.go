@@ -28,6 +28,15 @@ type Scene struct {
 	Phone Mat4
 	// Objects are the scene's objects a scenario can name.
 	Objects []Object
+	// Cameras are the scene's cameras, the phone's among them: the places a phone can be.
+	Cameras []Camera
+	// Paths are the scene's animations: those that move a camera are ways a phone can go.
+	Paths []Path
+
+	// animations are the file's animations, as its loader reads them.
+	animations []animation
+	// parents are each node's parent, -1 at the top.
+	parents []int
 }
 
 // Node is a node of the scene: a transform, and what it holds.
@@ -107,8 +116,8 @@ func (m Mat4) Apply(p [3]float32) [3]float32 {
 // Origin is where m takes the origin.
 func (m Mat4) Origin() [3]float32 { return [3]float32{m[12], m[13], m[14]} }
 
-// A Loader reads a scene file of its format into nodes, meshes and materials: Nodes, Roots,
-// Materials and Images. Load finds the phone and the objects.
+// A Loader reads a scene file of its format into nodes, meshes and materials (Nodes, Roots,
+// Materials and Images) and its animations. Load finds the phone, the objects and the paths.
 type Loader func(path string) (*Scene, error)
 
 // loaders are the formats axx plays, by file extension.
@@ -150,9 +159,20 @@ const Phone = "phone"
 // tapName is the name of an object's child that says where a tap on the object lands.
 const tapName = "_tap"
 
-// conventions finds the phone and the objects: the same for every format.
+// conventions finds the phone, the objects and the paths: the same for every format.
 func (s *Scene) conventions() error {
 	world := s.worldTransforms()
+	s.parents = make([]int, len(s.Nodes))
+	for i := range s.parents {
+		s.parents[i] = -1
+	}
+	for i, n := range s.Nodes {
+		for _, c := range n.Children {
+			if c >= 0 && c < len(s.parents) {
+				s.parents[c] = i
+			}
+		}
+	}
 	var cameras []int
 	phone := -1
 	for i, n := range s.Nodes {
@@ -160,6 +180,7 @@ func (s *Scene) conventions() error {
 			continue
 		}
 		cameras = append(cameras, i)
+		s.Cameras = append(s.Cameras, Camera{Name: n.Name, Node: i, Pose: world[i]})
 		if n.Name == Phone {
 			phone = i
 		}
@@ -190,6 +211,7 @@ func (s *Scene) conventions() error {
 		seen[n.Name] = true
 		s.Objects = append(s.Objects, Object{Name: n.Name, Node: r, Tap: s.tapPoint(r, world)})
 	}
+	s.paths(s.animations, phone)
 	return nil
 }
 

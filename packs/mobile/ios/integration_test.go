@@ -356,6 +356,37 @@ func TestACourierMeasuresAParcelOnASimulator(t *testing.T) {
 	h.OK(`the courier app shows "60 cm"`)
 }
 
+// A courier gets out of the van, walks up the garden path, steps onto the porch and points the
+// phone down at the parcel to measure it: the app's camera sees the scene from wherever the phone
+// is. From the van, the parcel is out of the camera's view.
+func TestACourierWalksUpToAParcelAndMeasuresItOnASimulator(t *testing.T) {
+	device := simulator(t)
+	courierapi.Start(t)
+	t.Setenv("COURIER_PIN", "4711")
+	h := harness(t)
+	warm(t, h, device)
+	scene, err := filepath.Abs(parcelScene)
+	if err != nil {
+		t.Fatal(err)
+	}
+	h.OK("the courier ios app with the following properties:", [][]string{
+		{"app", courierBuild(t)}, {"device", device}, {"timezone", "Europe/Berlin"},
+	})
+	h.OK("the courier app's camera sees " + scene)
+	h.OK(`the courier app's phone moves to the scene's "by the van" camera`)
+	signIn(h)
+	h.OK(`the courier app's dialog is dismissed`)
+	h.OK(`the "PX-MOB-9401" list item is tapped in the courier app`)
+	h.OK(`the "Measure parcel" button is tapped in the courier app`)
+	_ = h.Fails(`the "front left corner" in the courier app's camera view is tapped`, `the "front left corner" is out of the camera's view`)
+	h.OK(`the courier app's phone travels the scene's "up the garden path" path`)
+	h.OK("the courier app's phone moves 1 m forward")
+	h.OK("the courier app's phone turns 40 degrees down")
+	h.OK(`the "front left corner" in the courier app's camera view is tapped`)
+	h.OK(`the "front right corner" in the courier app's camera view is tapped`)
+	h.OK(`the courier app shows "60 cm"`)
+}
+
 // A courier attaches a document from the phone's files to a delivery: the recipient's leave to
 // put the parcel in his garage, which the documents property put On My iPhone, picked in the
 // system's document picker as a courier picks it.
