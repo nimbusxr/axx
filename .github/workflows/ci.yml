@@ -474,11 +474,24 @@ jobs:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           persist-credentials: false
+      # The runner's Spotlight would index all the job writes (the restored Go caches, the simulator's
+      # data) and its software update look for updates, each taking a share of three cores that the
+      # simulator and the tests need.
+      - name: the Mac's indexing and updates, off
+        run: |
+          sudo mdutil -a -i off > /dev/null
+          sudo softwareupdate --schedule off > /dev/null
       # How busy the Mac is while the job runs, the simulator's first boot included: every 30
       # seconds, its load and the processes busiest then (the simulator's processes are the Mac's,
-      # by name). The job's last step prints it, and the processes that took the most time.
+      # marked as the simulator's). The job's last step prints it, and the processes that took the
+      # most time.
       - name: the Mac's load (in the background)
-        run: (while :; do echo "$(date +%T) load $(sysctl -n vm.loadavg)"; ps -A -o %cpu=,ucomm= -r | head -8; sleep 30; done > "$RUNNER_TEMP/load.log" 2>&1) &
+        run: |
+          (while :; do
+            echo "$(date +%T) load $(sysctl -n vm.loadavg)"
+            ps -A -o %cpu=,ucomm=,command= -r | head -8 | awk '{ printf "%6s %s%s\n", $1, $2, index($0, "CoreSimulator") ? " (simulator)" : "" }'
+            sleep 30
+          done > "$RUNNER_TEMP/load.log" 2>&1) &
       # The simulator the tests keep, made and booted while the job sets up: its first boot takes
       # minutes on these runners (scripts/ios-simulator.sh).
       - name: the tests' simulator (in the background)
@@ -495,7 +508,7 @@ jobs:
         working-directory: examples/parcels/courier/ios
         run: xcodebuild -project Courier.xcodeproj -target Courier -configuration Debug -sdk iphonesimulator ONLY_ACTIVE_ARCH=NO SYMROOT=build
       - name: the tests, built
-        run: go test -race -tags integration -run '^$' ./packs/mobile/ios/...
+        run: go test -tags integration -run '^$' ./packs/mobile/ios/...
       - name: wait for the tests' simulator
         run: |
           for _ in $(seq 450); do [ -f "$RUNNER_TEMP/simulator.done" ] && break; sleep 2; done
@@ -503,16 +516,18 @@ jobs:
           [ "$(cat "$RUNNER_TEMP/simulator.done" 2> /dev/null)" = 0 ] || { echo "::error::the tests' simulator did not boot"; exit 1; }
       # The tests share that simulator, kept booted from one to the next, as a run's worker has
       # one. Each prints the packs' log (how long the simulator took to get ready, and each
-      # part), and a failed one the end of its logs and the screen it read.
+      # part), and a failed one the end of its logs and the screen it read. Without the race
+      # detector: on three cores it doubled the tests' time (783 s against 405 s, measured on a VM
+      # of this runner's size), and the Android jobs run the shared mobile code with it.
       - env:
           SELECT: ${{ matrix.select }}
-        run: GOTEST_FORMAT=standard-verbose GOTEST_SLOWEST=1s scripts/gotest.sh -race -tags integration -timeout 45m "$SELECT" ./packs/mobile/ios/...
+        run: GOTEST_FORMAT=standard-verbose GOTEST_SLOWEST=1s scripts/gotest.sh -tags integration -timeout 45m "$SELECT" ./packs/mobile/ios/...
       - name: the Mac's load
         if: always()
         run: |
           cat "$RUNNER_TEMP/load.log"
           echo "the processes that took the most processor time:"
-          ps -A -o time=,ucomm= | awk '{ n = split($1, t, ":"); s = 0; for (i = 1; i <= n; i++) s = s * 60 + t[i]; printf "%8.0f s  %s\n", s, $2 }' | sort -rn | head -30
+          ps -A -o time=,ucomm=,command= | awk '{ n = split($1, t, ":"); s = 0; for (i = 1; i <= n; i++) s = s * 60 + t[i]; printf "%8.0f s  %s%s\n", s, $2, index($0, "CoreSimulator") ? " (simulator)" : "" }' | sort -rn | head -30
 
   desktop-image:
     needs: changes

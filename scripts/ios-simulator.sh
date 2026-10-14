@@ -27,3 +27,12 @@ udid=$(xcrun simctl create "$name" "$device_type" "$runtime")
 xcrun simctl boot "$udid"
 xcrun simctl bootstatus "$udid" -b > /dev/null
 echo "$name ($udid) booted in $(($(date +%s) - started))s"
+
+# A new simulator's first minutes go to work no test here needs: analysing the photo library
+# (mediaanalysisd), Screen Time, Fitness's intelligence and the App Store's engagement. On three
+# cores it ran alongside the first tests. Off, the tests took 268 seconds rather than 367.
+for service in com.apple.mediaanalysisd com.apple.mediaanalysisd.analysis com.apple.mediaanalysisd.computeservice \
+  com.apple.mediaanalysisd.photos com.apple.ScreenTimeAgent com.apple.fitnessintelligenced com.apple.amsengagementd; do
+  xcrun simctl spawn "$udid" launchctl disable "user/501/$service"
+  xcrun simctl spawn "$udid" launchctl bootout "user/501/$service" 2> /dev/null || true
+done
