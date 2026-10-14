@@ -39,7 +39,8 @@ func backgroundSteps() []core.StepDef {
 		Expr: "the {string} background task is run in the {word} app",
 		Doc: "Have the phone run one of the app's background tasks now, as it does when the task's time comes: the app's own " +
 			"code runs, in the app, and does what it does then (a sync, a reminder). axx only moves the moment: the app must have " +
-			"scheduled the task, and on Android the conditions it set (a network, say) still apply. The task is named as the app " +
+			"scheduled the task (axx waits up to 15 seconds for it to, as an app does a moment after it launches), and on Android " +
+			"the conditions it set (a network, say) still apply. The task is named as the app " +
 			"names it: on Android, its WorkManager work's unique name or one of its tags (each is tagged with its worker's class); " +
 			"on iOS, its identifier (BGTaskSchedulerPermittedIdentifiers). The step waits for the task to be done: on iOS, until " +
 			"the app says so, in the 30 seconds iOS gives a task; on Android, until the work ends.",
