@@ -138,7 +138,7 @@ func TestACourierDelivers(t *testing.T) {
 		`settings {"defaultActiveApplication":"example.parcels.courier"}`,
 		"type CR-LEJ-12", "type 4711", "accept alert", "type Jonas Weber",
 		"drag", `settings {"defaultActiveApplication":"com.apple.springboard"}`, `mobile: activateApp [{"bundleId":"example.parcels.courier"}]`,
-		`mobile: swipe [{"direction":"down"}]`, `mobile: backgroundApp [{"seconds":-1}]`, "end session",
+		"held 300ms", `mobile: backgroundApp [{"seconds":-1}]`, "end session",
 	} {
 		if !strings.Contains(cmds, want) {
 			t.Errorf("no %s in:\n%s", want, cmds)
@@ -258,8 +258,25 @@ func TestASwipeWaitsForTheScreenToStopMoving(t *testing.T) {
 		t.Fatal(err)
 	}
 	cmds := strings.Join(app.Commands(), "\n")
-	if !strings.Contains(cmds, "mobile: swipe") || strings.Contains(cmds, "the swipe was lost") {
+	if !strings.Contains(cmds, "held 300ms") || strings.Contains(cmds, "the swipe was lost") {
 		t.Errorf("the swipe did not wait for the screen to stop moving:\n%s", cmds)
+	}
+}
+
+// A swipe down is a pull, as a person pulls a list to refresh it: from high on the screen to low,
+// held there a moment. XCUITest's own swipe down never refreshed a SwiftUI List.
+func TestASwipeDownPulls(t *testing.T) {
+	app := courier(t)
+	h := cloudtest.New(t, appcore.Pack(), mobilecore.Pack(), Pack())
+	register(h, app.URL)
+	h.OK("the courier app is launched")
+	h.OK("the courier app is swiped down")
+	if err := h.End("passed"); err != nil {
+		t.Fatal(err)
+	}
+	cmds := strings.Join(app.Commands(), "\n")
+	if strings.Contains(cmds, "mobile: swipe") || !strings.Contains(cmds, "drag\nheld 300ms") {
+		t.Errorf("no pull:\n%s", cmds)
 	}
 }
 
@@ -421,8 +438,7 @@ func TestASheetTapItIgnoredIsTappedAgain(t *testing.T) {
 		drags int
 	}{
 		{"ignored", appiumtest.App{Screens: map[string]string{"sheet": sheet}, Start: "sheet"}, 2},
-		// The fake's finger opens its notifications screen: the tap shows.
-		{"heard", appiumtest.App{Screens: map[string]string{"sheet": sheet, "gone": "<AppiumAUT/>"}, Start: "sheet", Notifications: "gone"}, 1},
+		{"heard", appiumtest.App{Screens: map[string]string{"sheet": sheet, "gone": "<AppiumAUT/>"}, Start: "sheet", Taps: map[string]string{"tap sheet": "gone"}}, 1},
 	} {
 		app := appiumtest.Start(t, c.app)
 		h := cloudtest.New(t, appcore.Pack(), mobilecore.Pack(), Pack())

@@ -143,7 +143,7 @@ func signIn(h *cloudtest.Harness) {
 // for notifications. One simulator for both, as a run's worker has.
 func TestCouriersOnASimulator(t *testing.T) {
 	device := simulator(t)
-	courierapi.Start(t)
+	api := courierapi.Start(t)
 	t.Setenv("COURIER_PIN", "4711")
 	h := harness(t)
 	warm(t, h, device)
@@ -165,7 +165,15 @@ func TestCouriersOnASimulator(t *testing.T) {
 	h.OK(`within 30s the courier app shows a notification "PX-MOB-9401 delivered"`)
 	h.OK(`the "Back to deliveries" button is tapped in the courier app`)
 	h.OK(`the courier app does not show "PX-MOB-9401"`)
+	// The pull refreshes the list: the app asks for the day's deliveries again.
+	lists := api.Lists()
 	h.OK("the courier app is swiped down")
+	for deadline := time.Now().Add(5 * time.Second); api.Lists() == lists; time.Sleep(100 * time.Millisecond) {
+		if time.Now().After(deadline) {
+			t.Error("the swipe down did not refresh the deliveries")
+			break
+		}
+	}
 	h.OK(`the courier app is opened with the "parcels-courier://deliveries/PX-MOB-9402" link`)
 	h.OK(`the courier app shows "Prager Str. 3, 04103 Leipzig"`)
 	h.OK("the courier app is sent to the background")

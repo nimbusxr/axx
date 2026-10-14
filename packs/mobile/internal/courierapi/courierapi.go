@@ -36,6 +36,7 @@ type API struct {
 	mu        sync.Mutex
 	locations []Location
 	documents []Document
+	lists     int
 }
 
 // Documents are the files the courier's app attached to deliveries, in order.
@@ -51,6 +52,13 @@ func SafePlaceAuthorization(t *testing.T) string {
 	t.Helper()
 	_, here, _, _ := runtime.Caller(0)
 	return filepath.Join(filepath.Dir(here), "testdata", "safe-place-PX-MOB-9401.pdf")
+}
+
+// Lists tells how many times the courier's app asked for the day's deliveries.
+func (a *API) Lists() int {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.lists
 }
 
 // Locations are where the courier's app said the van was, in order.
@@ -84,6 +92,7 @@ func Start(t *testing.T) *API {
 		"PX-MOB-9401": {"Jonas Weber", "Karl-Liebknecht-Str. 12", "Leipzig", "04107", "DE"},
 		"PX-MOB-9402": {"Lena Vogel", "Prager Str. 3", "Leipzig", "04103", "DE"},
 	}
+	api := &API{}
 	mux := http.NewServeMux()
 	reply := func(w http.ResponseWriter, status int, v any) {
 		w.Header().Set("Content-Type", "application/json")
@@ -100,6 +109,9 @@ func Start(t *testing.T) *API {
 		reply(w, http.StatusOK, map[string]any{"token": "t", "courier": in.Courier, "name": "Hanna Wolf", "expiresIn": 43200})
 	})
 	mux.HandleFunc("GET /api/couriers/{courier}/deliveries", func(w http.ResponseWriter, r *http.Request) {
+		api.mu.Lock()
+		api.lists++
+		api.mu.Unlock()
 		mu.Lock()
 		defer mu.Unlock()
 		out := []map[string]any{}
@@ -124,7 +136,6 @@ func Start(t *testing.T) *API {
 		delivered[ref] = true
 		reply(w, http.StatusOK, map[string]string{"reference": ref, "status": "DELIVERED", "signedBy": "Jonas Weber", "location": parcels[ref].City})
 	})
-	api := &API{}
 	mux.HandleFunc("POST /api/couriers/{courier}/location", func(w http.ResponseWriter, r *http.Request) {
 		var in struct {
 			Latitude, Longitude *float64

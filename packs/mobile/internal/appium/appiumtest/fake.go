@@ -26,7 +26,8 @@ type App struct {
 	Screens map[string]string
 	Start   string
 	// Taps moves to a screen when an element is tapped: by the XPath the
-	// packs find it with, or by the text it shows.
+	// packs find it with, or by the text it shows; and on "tap <screen>"
+	// when a finger taps a point of the screen.
 	Taps map[string]string
 	// Links moves to a screen when a deep link opens.
 	Links map[string]string
@@ -335,7 +336,20 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 		reply(nil)
 	case path == "/actions":
 		s.commands = append(s.commands, "drag")
-		s.openNotifications()
+		from, to, held := finger(body)
+		switch {
+		case from.Y == 0: // from the top edge, as Notification Center is pulled down
+			s.openNotifications()
+		case from == to:
+			if next, ok := s.app.Taps["tap "+s.screen]; ok {
+				s.screen = next
+			}
+		case s.sliding > 0:
+			s.commands = append(s.commands, "the swipe was lost: the screen was still moving")
+		}
+		if held > 0 {
+			s.commands = append(s.commands, fmt.Sprintf("held %dms", held))
+		}
 		reply(nil)
 	case path == "/appium/device/is_keyboard_shown":
 		reply(strings.Contains(s.app.Screens[s.screen], "<XCUIElementTypeKeyboard"))
@@ -481,6 +495,36 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 			fail("unknown command", path)
 		}
 	}
+}
+
+// finger is where a finger's actions put it down and lift it, and how long it rests there before
+// lifting.
+func finger(body map[string]any) (from, to image.Point, held int) {
+	pointers, _ := body["actions"].([]any)
+	if len(pointers) == 0 {
+		return
+	}
+	p, _ := pointers[0].(map[string]any)
+	actions, _ := p["actions"].([]any)
+	moves := 0
+	for _, a := range actions {
+		a, _ := a.(map[string]any)
+		n := func(k string) int { f, _ := a[k].(float64); return int(f) }
+		switch a["type"] {
+		case "pointerMove":
+			to = image.Pt(n("x"), n("y"))
+			if moves == 0 {
+				from = to
+			}
+			moves++
+			held = 0
+		case "pause":
+			if moves > 1 {
+				held = n("duration")
+			}
+		}
+	}
+	return from, to, held
 }
 
 func (s *Server) openNotifications() {

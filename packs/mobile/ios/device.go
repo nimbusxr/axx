@@ -492,8 +492,18 @@ func (d *running) OpenLink(ctx context.Context, url string) error {
 	return d.session.Command(ctx, http.MethodPost, "/url", args, nil)
 }
 
-// Swipe swipes across the screen, as a finger does.
+// Swipe swipes across the screen, as a finger does. Down pulls, as a person pulls a list to
+// refresh it: from high on the screen to low, held there a moment. XCUITest's own swipe down is a
+// flick too short for that: it never refreshed a SwiftUI List, on an idle Mac or a busy one.
 func (d *running) Swipe(ctx context.Context, direction string) error {
+	if direction == "down" {
+		w, err := d.session.Window(ctx)
+		if err != nil {
+			return err
+		}
+		x := w.Width / 2
+		return d.session.DragAndHold(ctx, x, w.Height*0.3, x, w.Height*0.75, 500*time.Millisecond, 300*time.Millisecond)
+	}
 	args := map[string]any{"direction": direction}
 	if d.dev == nil {
 		return d.session.Mobile(ctx, "swipe", args, nil)
