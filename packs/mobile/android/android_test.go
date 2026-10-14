@@ -91,6 +91,23 @@ func courier(t *testing.T) *appiumtest.Server {
 	})
 }
 
+// A screen UiAutomator2 fails to read as it changes ("cannot set AccessibilityNodeInfo's field
+// 'mSealed'") is read again a moment later.
+func TestAScreenReadAsItChangesIsReadAgain(t *testing.T) {
+	app := courier(t)
+	h := cloudtest.New(t, appcore.Pack(), mobilecore.Pack(), Pack())
+	register(h, app.URL)
+	h.OK("the courier app is launched")
+	app.Unsealed(2)
+	err := mobilecore.OnDevice(h.SC, "courier", func(ctx context.Context, d mobilecore.Device) error {
+		_, err := d.Screen(ctx)
+		return err
+	})
+	if err != nil {
+		t.Fatalf("a screen read twice as it changed: %v", err)
+	}
+}
+
 func register(h *cloudtest.Harness, url string, rows ...[]string) {
 	h.OK("the courier android app with the following properties:", append([][]string{{"package", "example.parcels.courier"}, {"appium", url}}, rows...))
 }

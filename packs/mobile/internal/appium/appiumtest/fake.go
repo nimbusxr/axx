@@ -85,6 +85,8 @@ type Server struct {
 	// keyboardMisses are the next closings of the keyboard WebDriverAgent fails, not knowing how:
 	// as it does while the keyboard is still coming in, before its keys are on the screen.
 	keyboardMisses int
+	// unsealed are the next reads of the screen UiAutomator2 fails, the screen changing under it.
+	unsealed int
 	// keyboardSlow is how long the keyboard takes to go after a key closes it; WebDriverAgent,
 	// which waits less, says it did not know how to close it. keyboardClosings counts closings.
 	keyboardSlow     time.Duration
@@ -181,6 +183,14 @@ func (s *Server) KeyboardComingIn(closings int) {
 	s.keyboardMisses = closings
 }
 
+// Unsealed has the next reads of the screen fail as UiAutomator2's do now and then while the
+// screen changes under them.
+func (s *Server) Unsealed(reads int) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.unsealed = reads
+}
+
 // KeyboardSlowToGo has the keyboard take a while to go after a key closes it, as on a busy Mac:
 // WebDriverAgent, which waits three seconds for it, says it did not know how to close it.
 func (s *Server) KeyboardSlowToGo(d time.Duration) {
@@ -266,6 +276,11 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 		s.commands = append(s.commands, "end session")
 		reply(nil)
 	case path == "/source":
+		if s.unsealed > 0 {
+			s.unsealed--
+			fail("unknown error", "Cannot set AccessibilityNodeInfo's field 'mSealed' to 'true'")
+			return
+		}
 		reply(s.app.Screens[s.screen])
 	case path == "/screenshot":
 		reply(base64.StdEncoding.EncodeToString(s.shot()))
