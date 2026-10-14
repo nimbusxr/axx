@@ -3,6 +3,7 @@ package mobileandroid
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"path/filepath"
@@ -459,6 +460,21 @@ func (d *running) grant(ctx context.Context) error {
 
 func (d *running) Screen(ctx context.Context) (*mobilecore.Screen, error) {
 	src, err := d.session.Source(ctx)
+	// Now and then the UiAutomator2 server fails to read a screen that changes under it (it
+	// "cannot set AccessibilityNodeInfo's field 'mSealed'"), even with Android's hidden APIs
+	// allowed: as the file picker's list of places slid shut. Read a moment later, it reads.
+	for range 3 {
+		var ae *appium.Error
+		if err == nil || !errors.As(err, &ae) || !strings.Contains(ae.Message, "AccessibilityNodeInfo's field 'mSealed'") {
+			break
+		}
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-time.After(300 * time.Millisecond):
+		}
+		src, err = d.session.Source(ctx)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("cannot read the %s app's screen: %w", d.app.name, err)
 	}
@@ -689,16 +705,25 @@ func (d *running) OpenNotifications(ctx context.Context) (mobilecore.Notificatio
 		// Collapsed, not backed out of: once a notification opened the app, the shade is gone, and
 		// a back would take the app back a screen. It is shut before the next step goes on, which
 		// may open it again.
-		hide = func(ctx context.Context) error {
-			if _, err := d.sdk.shell(ctx, d.dev.serial, "cmd", "statusbar", "collapse"); err != nil {
-				return err
-			}
-			d.shadeFocused(ctx, false)
-			return nil
-		}
+		hide = d.collapseShade
 	}
 	tap := func(ctx context.Context, x, y float64) error { return d.session.Drag(ctx, x, y, x, y, 0) }
 	return mobilecore.ScreenNotifications{Read: d.Screen, Hide: hide, Tap: tap}, nil
+}
+
+// collapseShade shuts the notification shade, and waits for it to let go of the focus: a tap
+// before then goes to the shade, not the app. On a busy emulator the shade can keep the focus
+// longer than three seconds: it is collapsed again then, up to three times.
+func (d *running) collapseShade(ctx context.Context) error {
+	for range 3 {
+		if _, err := d.sdk.shell(ctx, d.dev.serial, "cmd", "statusbar", "collapse"); err != nil {
+			return err
+		}
+		if d.shadeFocused(ctx, false) {
+			return nil
+		}
+	}
+	return errors.New("the notification shade did not close")
 }
 
 // shadeFocused waits, up to three seconds, for the notification shade to have the focus (open)

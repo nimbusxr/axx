@@ -294,7 +294,8 @@ func (p *pool) start(ctx context.Context) (*device, error) {
 	}
 	started := time.Now()
 	wda, err := wdaFor(ctx, p.suite)
-	if err == nil {
+	reused := err == nil && d.kept && d.reuseWDA(ctx, wda)
+	if err == nil && !reused {
 		_, err = d.set.simctl(ctx, "install", d.udid, wda)
 	}
 	if err != nil {
@@ -305,11 +306,18 @@ func (p *pool) start(ctx context.Context) (*device, error) {
 		d.stop()
 		return nil, fmt.Errorf("cannot reduce motion on the %s simulator: %w", p.name, err)
 	}
-	if err := d.ensureWDA(ctx); err != nil {
-		d.stop()
-		return nil, err
+	if reused {
+		p.suite.Logger().Info("WebDriverAgent answers on the iOS simulator, as the run before left it", "simulator", d.name)
+	} else {
+		if err := d.ensureWDA(ctx); err != nil {
+			d.stop()
+			return nil, err
+		}
+		if d.kept {
+			d.keepWDA(wda)
+		}
+		p.suite.Logger().Info("WebDriverAgent answers on the iOS simulator", "simulator", d.name, "took", time.Since(started).Round(time.Second))
 	}
-	p.suite.Logger().Info("WebDriverAgent answers on the iOS simulator", "simulator", d.name, "took", time.Since(started).Round(time.Second))
 	if p.watch {
 		if err := showDevice(ctx, d.udid); err != nil {
 			p.suite.Logger().Warn("the simulator runs without a window", "simulator", d.name, "error", err)

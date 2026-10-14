@@ -8,9 +8,12 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/nimbusxr/axx/internal/npm"
 )
 
 // WebDriverAgent runs on a simulator for every scenario that leases it:
@@ -69,4 +72,59 @@ func wdaUp(ctx context.Context, url string, within time.Duration) bool {
 	}
 	_ = res.Body.Close()
 	return res.StatusCode == http.StatusOK
+}
+
+// wdaState is where a kept simulator's WebDriverAgent is, for the next run: its port, its screen
+// stream's, and the build installed.
+func wdaState(name string) string {
+	return filepath.Join(npm.CacheDir("mobile"), "kept", lockName(name)+".wda")
+}
+
+// keepWDA notes where the simulator's WebDriverAgent is, for the next run to take it up.
+func (d *device) keepWDA(wda string) {
+	_ = os.WriteFile(wdaState(d.name), []byte(fmt.Sprintf("%d\n%d\n%s\n", d.wdaPort, d.mjpegPort, wda)), 0o644)
+}
+
+// reuseWDA takes up the WebDriverAgent the run before left running on a kept simulator, rather
+// than installing and launching it again: that took from 4 seconds to over a minute on a small CI
+// machine, for every run. It does when WebDriverAgent answers where the run before put it, the
+// process listening there is this simulator's, and it is the build this axx installs.
+func (d *device) reuseWDA(ctx context.Context, wda string) bool {
+	b, err := os.ReadFile(wdaState(d.name))
+	if err != nil {
+		return false
+	}
+	lines := strings.Split(strings.TrimSpace(string(b)), "\n")
+	if len(lines) != 3 || lines[2] != wda {
+		return false
+	}
+	wdaPort, err1 := strconv.Atoi(lines[0])
+	mjpegPort, err2 := strconv.Atoi(lines[1])
+	if err1 != nil || err2 != nil {
+		return false
+	}
+	if !wdaUp(ctx, "http://127.0.0.1:"+lines[0], time.Second) || !listensFor(ctx, wdaPort, d.udid) {
+		return false
+	}
+	d.wdaPort, d.mjpegPort = wdaPort, mjpegPort
+	return true
+}
+
+// listensFor reports whether the process listening on a port of the Mac is one of the simulator's:
+// its program is in the simulator's own folder, named for its UDID. Another simulator's
+// WebDriverAgent can have the port a run before used.
+func listensFor(ctx context.Context, port int, udid string) bool {
+	out, err := exec.CommandContext(ctx, "lsof", "-nP", "-iTCP:"+strconv.Itoa(port), "-sTCP:LISTEN", "-Fp").Output() //nolint:gosec // a port number
+	if err != nil {
+		return false
+	}
+	for _, line := range strings.Split(string(out), "\n") {
+		if pid, ok := strings.CutPrefix(line, "p"); ok {
+			cmd, err := exec.CommandContext(ctx, "ps", "-o", "command=", "-p", pid).Output() //nolint:gosec // a process id lsof gave
+			if err == nil && strings.Contains(string(cmd), udid) {
+				return true
+			}
+		}
+	}
+	return false
 }

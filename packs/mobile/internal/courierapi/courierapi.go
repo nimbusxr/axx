@@ -160,9 +160,15 @@ func Start(t *testing.T) *API {
 // TheVanTravelled checks the courier's app reported the van travelling the route a test gave
 // the phone: from one point to another, eastward or westward along a street, at a speed in
 // metres a second. While it moved, the app said how fast and, if course, which way; it ended at
-// the end.
+// the end. The report of the end comes a moment after the phone arrives (the fix reaches the app,
+// and the app reports it), and longer on a busy machine: it is waited for, up to ten seconds.
 func (a *API) TheVanTravelled(t *testing.T, from, to [2]float64, speed float64, course bool) {
 	t.Helper()
+	for end := time.Now().Add(10 * time.Second); time.Now().Before(end); time.Sleep(200 * time.Millisecond) {
+		if locs := a.Locations(); len(locs) > 0 && at(locs[len(locs)-1], to) {
+			break
+		}
+	}
 	locs := a.Locations()
 	heading := 90.0
 	if to[1] < from[1] {
@@ -185,11 +191,15 @@ func (a *API) TheVanTravelled(t *testing.T, from, to [2]float64, speed float64, 
 	if len(locs) == 0 {
 		return
 	}
-	last := locs[len(locs)-1]
-	// Within about 15 metres of the end: an emulator keeps a location at float32's precision.
-	if math.Abs(last.Latitude-to[0]) > 1.5e-4 || math.Abs(last.Longitude-to[1]) > 2e-4 {
+	if last := locs[len(locs)-1]; !at(last, to) {
 		t.Errorf("the van ended at %.5f, %.5f, want %.5f, %.5f", last.Latitude, last.Longitude, to[0], to[1])
 	}
+}
+
+// at is whether a location is within about 15 metres of a point: an emulator keeps a location at
+// float32's precision.
+func at(l Location, p [2]float64) bool {
+	return math.Abs(l.Latitude-p[0]) <= 1.5e-4 && math.Abs(l.Longitude-p[1]) <= 2e-4
 }
 
 func describe(locs []Location) string {

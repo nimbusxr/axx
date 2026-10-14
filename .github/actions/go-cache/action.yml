@@ -10,8 +10,10 @@ description: >-
   and a run restores the newest one (for its go.sum, else any).
 inputs:
   build:
-    description: Name of the build cache (lint, test, cross...). Jobs with the same name share it.
-    required: true
+    description: >-
+      Name of the build cache (lint, test, cross...). Jobs with the same name share it. Empty: no
+      build cache, for a job that builds with flags no cache was built with.
+    default: ""
   mode:
     description: "`restore` or `save`."
     default: restore
@@ -38,7 +40,7 @@ runs:
         path: ${{ steps.go.outputs.mod }}
         key: go-mod-${{ runner.os }}-${{ hashFiles('go.sum') }}
         restore-keys: go-mod-${{ runner.os }}-
-    - if: inputs.mode == 'restore'
+    - if: inputs.mode == 'restore' && inputs.build != ''
       uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: |
@@ -59,7 +61,7 @@ runs:
         path: ${{ steps.go.outputs.mod }}
         key: go-mod-${{ runner.os }}-${{ hashFiles('go.sum') }}
     - if: >-
-        inputs.mode == 'save'
+        inputs.mode == 'save' && inputs.build != ''
         && github.event_name == 'push' && github.ref == 'refs/heads/main'
       # A key is never overwritten: saving one that exists only warns. And a cache is an
       # optimization: failing to save it fails nothing.

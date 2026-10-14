@@ -1031,15 +1031,49 @@ func (d *running) HideKeyboard(ctx context.Context) (bool, error) {
 		return false, err
 	}
 	keys := []string{"return", "Return", "done", "Done"}
-	if d.dev == nil {
-		err = d.session.Mobile(ctx, "hideKeyboard", map[string]any{"keys": keys}, nil)
-	} else {
-		err = d.session.Command(ctx, http.MethodPost, "/wda/keyboard/dismiss", map[string]any{"keyNames": keys}, nil)
+	// WebDriverAgent taps one of these keys and gives the keyboard three seconds to go. When the
+	// keyboard is still there, it says it knows no way to close it: the keyboard may be still
+	// going, or still coming in, with no keys to tap yet. On a busy machine (a small CI runner) it
+	// takes longer either way: it is given time to go, and closed again once it can be.
+	for deadline := time.Now().Add(15 * time.Second); ; {
+		if d.dev == nil {
+			err = d.session.Mobile(ctx, "hideKeyboard", map[string]any{"keys": keys}, nil)
+		} else {
+			err = d.session.Command(ctx, http.MethodPost, "/wda/keyboard/dismiss", map[string]any{"keyNames": keys}, nil)
+		}
+		var ae *appium.Error
+		if err == nil || !errors.As(err, &ae) || !strings.Contains(ae.Message, "Did not know how to dismiss the keyboard") || !time.Now().Before(deadline) {
+			break
+		}
+		gone, gerr := d.keyboardGone(ctx, 2*time.Second)
+		if gerr != nil {
+			return false, gerr
+		}
+		if gone {
+			return true, nil
+		}
 	}
 	if err != nil {
 		return false, err
 	}
 	return true, nil
+}
+
+// keyboardGone waits, up to within, for the keyboard to go, and reports whether it did.
+func (d *running) keyboardGone(ctx context.Context, within time.Duration) (bool, error) {
+	for deadline := time.Now().Add(within); ; {
+		select {
+		case <-ctx.Done():
+			return false, ctx.Err()
+		case <-time.After(300 * time.Millisecond):
+		}
+		if shown, err := d.keyboardShown(ctx); err == nil && !shown {
+			return true, nil
+		}
+		if !time.Now().Before(deadline) {
+			return false, nil
+		}
+	}
 }
 
 // keyboardShown is whether the keyboard shows: the screen has it.

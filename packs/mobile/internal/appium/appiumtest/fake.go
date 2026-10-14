@@ -17,6 +17,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 )
 
 // App is the fake app: its screens, and where taps go.
@@ -81,6 +82,15 @@ type Server struct {
 	// sliding are the next screenshots that find the screen still moving, as a sheet sliding
 	// away does; a swipe meanwhile is lost, as UIKit drops touches while a sheet moves.
 	sliding int
+	// keyboardMisses are the next closings of the keyboard WebDriverAgent fails, not knowing how:
+	// as it does while the keyboard is still coming in, before its keys are on the screen.
+	keyboardMisses int
+	// unsealed are the next reads of the screen UiAutomator2 fails, the screen changing under it.
+	unsealed int
+	// keyboardSlow is how long the keyboard takes to go after a key closes it; WebDriverAgent,
+	// which waits less, says it did not know how to close it. keyboardClosings counts closings.
+	keyboardSlow     time.Duration
+	keyboardClosings int
 }
 
 // Start runs the fake for a test.
@@ -165,6 +175,37 @@ func (s *Server) LaunchesUnknown(launches int) {
 	s.launchesUnknown = launches
 }
 
+// KeyboardComingIn has the next closings of the keyboard fail, as WebDriverAgent's do while the
+// keyboard is still coming in: it finds no key it knows to close it with.
+func (s *Server) KeyboardComingIn(closings int) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.keyboardMisses = closings
+}
+
+// Unsealed has the next reads of the screen fail as UiAutomator2's do now and then while the
+// screen changes under them.
+func (s *Server) Unsealed(reads int) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.unsealed = reads
+}
+
+// KeyboardSlowToGo has the keyboard take a while to go after a key closes it, as on a busy Mac:
+// WebDriverAgent, which waits three seconds for it, says it did not know how to close it.
+func (s *Server) KeyboardSlowToGo(d time.Duration) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.keyboardSlow = d
+}
+
+// KeyboardClosings are how many times a key was tapped to close the keyboard.
+func (s *Server) KeyboardClosings() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.keyboardClosings
+}
+
 // Show moves the app to a screen, as the app would by itself.
 func (s *Server) Show(screen string) {
 	s.mu.Lock()
@@ -235,6 +276,11 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 		s.commands = append(s.commands, "end session")
 		reply(nil)
 	case path == "/source":
+		if s.unsealed > 0 {
+			s.unsealed--
+			fail("unknown error", "Cannot set AccessibilityNodeInfo's field 'mSealed' to 'true'")
+			return
+		}
 		reply(s.app.Screens[s.screen])
 	case path == "/screenshot":
 		reply(base64.StdEncoding.EncodeToString(s.shot()))
@@ -291,6 +337,8 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 		s.commands = append(s.commands, "drag")
 		s.openNotifications()
 		reply(nil)
+	case path == "/appium/device/is_keyboard_shown":
+		reply(strings.Contains(s.app.Screens[s.screen], "<XCUIElementTypeKeyboard"))
 	case path == "/appium/settings":
 		settings, _ := json.Marshal(body["settings"])
 		s.commands = append(s.commands, "settings "+string(settings))
@@ -338,6 +386,29 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 		switch script {
 		case "mobile: openNotifications":
 			s.openNotifications()
+		case "mobile: hideKeyboard":
+			if s.keyboardMisses > 0 {
+				s.keyboardMisses--
+				fail("invalid element state", "Did not know how to dismiss the keyboard. Try to dismiss it in the way supported by your application under test.")
+				return
+			}
+			s.keyboardClosings++
+			next, ok := s.app.Taps["hide keyboard "+s.screen]
+			if ok && s.keyboardSlow > 0 {
+				from := s.screen
+				time.AfterFunc(s.keyboardSlow, func() {
+					s.mu.Lock()
+					defer s.mu.Unlock()
+					if s.screen == from {
+						s.screen = next
+					}
+				})
+				fail("invalid element state", "Did not know how to dismiss the keyboard. Try to dismiss it in the way supported by your application under test.")
+				return
+			}
+			if ok {
+				s.screen = next
+			}
 		case "mobile: activateApp":
 			s.closeNotifications()
 			s.state = 4

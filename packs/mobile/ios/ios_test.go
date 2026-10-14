@@ -1,6 +1,7 @@
 package mobileios
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
@@ -543,5 +544,59 @@ func TestALocationRequestIsAllowedWhileUsingTheApp(t *testing.T) {
 	h.OK(`the courier app's dialog is accepted`)
 	if cmds := strings.Join(app.Commands(), "\n"); !strings.Contains(cmds, "accept with Allow While Using App alert") {
 		t.Errorf("the dialog was not allowed while using the app:\n%s", cmds)
+	}
+}
+
+// A keyboard still coming in (on a busy machine, a while) has no keys yet, and WebDriverAgent,
+// asked to close it, knows no way to: the step closes it once its keys are there, rather than
+// failing as it did on a 2-core VM sized as GitHub's small runner.
+func TestAKeyboardStillComingInIsClosedOnceItCanBe(t *testing.T) {
+	button := `<XCUIElementTypeButton type="XCUIElementTypeButton" name="Mark delivered" label="Mark delivered" x="16" y="700" width="361" height="44" visible="%s"/>`
+	screen := func(keyboard bool) string {
+		visible, keys := "true", ""
+		if keyboard {
+			visible, keys = "false", `<XCUIElementTypeKeyboard type="XCUIElementTypeKeyboard" x="0" y="516" width="393" height="336" visible="true"/>`
+		}
+		return `<AppiumAUT><XCUIElementTypeApplication type="XCUIElementTypeApplication" name="Couriers" label="Couriers" x="0" y="0" width="393" height="852" visible="true">` +
+			fmt.Sprintf(button, visible) + keys + `</XCUIElementTypeApplication></AppiumAUT>`
+	}
+	app := appiumtest.Start(t, appiumtest.App{
+		Screens: map[string]string{"typing": screen(true), "typed": screen(false)},
+		Start:   "typing",
+		Taps:    map[string]string{"hide keyboard typing": "typed"},
+	})
+	app.KeyboardComingIn(1)
+	h := cloudtest.New(t, appcore.Pack(), mobilecore.Pack(), Pack())
+	register(h, app.URL)
+	h.OK("the courier app is launched")
+	h.OK(`the "Mark delivered" button is tapped in the courier app`)
+	if app.Screen() != "typed" {
+		t.Errorf("the keyboard was not closed: %s", app.Screen())
+	}
+}
+
+// A keyboard slow to go, which WebDriverAgent says it did not know how to close, is given time to
+// go: its key is tapped once.
+func TestAKeyboardSlowToGoIsClosedOnce(t *testing.T) {
+	button := `<XCUIElementTypeButton type="XCUIElementTypeButton" name="Mark delivered" label="Mark delivered" x="16" y="700" width="361" height="44" visible="%s"/>`
+	keyboard := `<XCUIElementTypeKeyboard type="XCUIElementTypeKeyboard" x="0" y="516" width="393" height="336" visible="true"/>`
+	app := appiumtest.Start(t, appiumtest.App{
+		Screens: map[string]string{
+			"typing": `<AppiumAUT><XCUIElementTypeApplication type="XCUIElementTypeApplication" name="Couriers" label="Couriers" x="0" y="0" width="393" height="852" visible="true">` + fmt.Sprintf(button, "false") + keyboard + `</XCUIElementTypeApplication></AppiumAUT>`,
+			"typed":  `<AppiumAUT><XCUIElementTypeApplication type="XCUIElementTypeApplication" name="Couriers" label="Couriers" x="0" y="0" width="393" height="852" visible="true">` + fmt.Sprintf(button, "true") + `</XCUIElementTypeApplication></AppiumAUT>`,
+		},
+		Start: "typing",
+		Taps:  map[string]string{"hide keyboard typing": "typed"},
+	})
+	app.KeyboardSlowToGo(time.Second)
+	h := cloudtest.New(t, appcore.Pack(), mobilecore.Pack(), Pack())
+	register(h, app.URL)
+	h.OK("the courier app is launched")
+	h.OK(`the "Mark delivered" button is tapped in the courier app`)
+	if app.Screen() != "typed" {
+		t.Errorf("the keyboard was not closed: %s", app.Screen())
+	}
+	if n := app.KeyboardClosings(); n != 1 {
+		t.Errorf("the keyboard's key was tapped %d times, want once", n)
 	}
 }

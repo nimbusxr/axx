@@ -215,7 +215,21 @@ func (h *Harness) NewScenario() *core.Scenario { return h.NewScenarioWithin(scen
 func (h *Harness) NewScenarioWithin(limit time.Duration) *core.Scenario {
 	ctx, cancel := context.WithTimeout(context.Background(), limit)
 	h.t.Cleanup(cancel)
-	h.SC = core.NewScenario(ctx, core.ScenarioInfo{ID: fmt.Sprint(time.Now().UnixNano()), Name: "test", URI: "features/test.feature", Line: 1}, h.Suite, h.Sink)
+	sc := core.NewScenario(ctx, core.ScenarioInfo{ID: fmt.Sprint(time.Now().UnixNano()), Name: "test", URI: "features/test.feature", Line: 1}, h.Suite, h.Sink)
+	// A test that fails (or forgets to) never ends its scenario: it ends as the test does, so that
+	// what it holds (a device, the location an emulator keeps reporting) is let go of before the
+	// next test. One the test ended already is not ended again.
+	h.t.Cleanup(func() {
+		status := "passed"
+		if h.t.Failed() {
+			status = "failed"
+		}
+		if sc.Status() == "" {
+			sc.SetStatus(status)
+		}
+		_ = sc.Close()
+	})
+	h.SC = sc
 	h.line = 1
 	return h.SC
 }

@@ -73,6 +73,13 @@ func logsOnFailure(t *testing.T, h *cloudtest.Harness) {
 		for _, serial := range serials {
 			out, _ := s.run(ctx, serial, "logcat", "-d", "-b", "crash")
 			t.Logf("%s's crash log:\n%s", serial, out)
+			// Which window has the focus, where a tap goes: the app's, or the notification shade's.
+			out, _ = s.shell(ctx, serial, "dumpsys", "window", "displays")
+			for _, line := range strings.Split(out, "\n") {
+				if strings.Contains(line, "mCurrentFocus=") || strings.Contains(line, "mFocusedApp=") {
+					t.Logf("%s: %s", serial, strings.TrimSpace(line))
+				}
+			}
 		}
 	})
 }
@@ -269,7 +276,6 @@ func TestACourierSharesTheVanOnAnEmulator(t *testing.T) {
 	h.OK(`the "Share van location" switch is tapped in the courier app`)
 	h.OK("the courier app's phone starts traveling at 50 km/h through:", [][]string{{"51.3397", "12.3731"}, {"51.3397", "12.3760"}})
 	h.OK("within 1m the courier app's phone reaches the end of its route")
-	time.Sleep(2 * time.Second) // the last fix's report, on its way
 	api.TheVanTravelled(t, [2]float64{51.3397, 12.3731}, [2]float64{51.3397, 12.3760}, 50/3.6, true)
 }
 

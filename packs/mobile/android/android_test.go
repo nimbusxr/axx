@@ -91,6 +91,23 @@ func courier(t *testing.T) *appiumtest.Server {
 	})
 }
 
+// A screen UiAutomator2 fails to read as it changes ("cannot set AccessibilityNodeInfo's field
+// 'mSealed'") is read again a moment later.
+func TestAScreenReadAsItChangesIsReadAgain(t *testing.T) {
+	app := courier(t)
+	h := cloudtest.New(t, appcore.Pack(), mobilecore.Pack(), Pack())
+	register(h, app.URL)
+	h.OK("the courier app is launched")
+	app.Unsealed(2)
+	err := mobilecore.OnDevice(h.SC, "courier", func(ctx context.Context, d mobilecore.Device) error {
+		_, err := d.Screen(ctx)
+		return err
+	})
+	if err != nil {
+		t.Fatalf("a screen read twice as it changed: %v", err)
+	}
+}
+
 func register(h *cloudtest.Harness, url string, rows ...[]string) {
 	h.OK("the courier android app with the following properties:", append([][]string{{"package", "example.parcels.courier"}, {"appium", url}}, rows...))
 }
@@ -794,5 +811,59 @@ func TestTheShadeIsOpenWhenItHasTheFocus(t *testing.T) {
 	}
 	if shadeHasFocus(shut) || shadeHasFocus("") {
 		t.Error("the launcher has the focus, and the shade is taken for open")
+	}
+}
+
+// A device is set up to settle at once and to take a slow tap for a tap: animations off, and a
+// long press only once a touch is held for a second and a half.
+func TestADeviceSettles(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("the stand-in adb is a shell script")
+	}
+	dir := t.TempDir()
+	log := filepath.Join(dir, "adb.log")
+	adb := filepath.Join(dir, "adb")
+	script := "#!/bin/sh\nfor a in \"$@\"; do printf '%s ' \"$a\"; done >> " + log + "\necho >> " + log + "\n"
+	if err := os.WriteFile(adb, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := settle(t.Context(), &sdk{adb: adb}, "emulator-5554"); err != nil {
+		t.Fatal(err)
+	}
+	b, _ := os.ReadFile(log)
+	for _, want := range []string{
+		"-s emulator-5554 shell settings put global animator_duration_scale 0",
+		"-s emulator-5554 shell settings put secure long_press_timeout 1500",
+	} {
+		if !strings.Contains(string(b), want) {
+			t.Errorf("adb was not asked %q; it was asked:\n%s", want, b)
+		}
+	}
+}
+
+// A shade that keeps the focus after it is collapsed, as on a busy emulator, is collapsed again:
+// the next step's tap goes to the app, not the shade.
+func TestAShadeSlowToCloseIsCollapsedAgain(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("the stand-in adb is a shell script")
+	}
+	dir := t.TempDir()
+	count := filepath.Join(dir, "collapses")
+	adb := filepath.Join(dir, "adb")
+	// The shade has the focus until it is collapsed a second time.
+	script := "#!/bin/sh\ncase \"$*\" in\n" +
+		"*'statusbar collapse'*) n=$(cat " + count + " 2>/dev/null || echo 0); echo $((n+1)) > " + count + " ;;\n" +
+		"*'dumpsys window displays'*) if [ \"$(cat " + count + " 2>/dev/null || echo 0)\" -lt 2 ]; then echo '  mCurrentFocus=Window{caffb71 u0 NotificationShade}'; " +
+		"else echo '  mCurrentFocus=Window{1013a10 u0 example.parcels.courier/example.parcels.courier.MainActivity}'; fi ;;\n" +
+		"esac\n"
+	if err := os.WriteFile(adb, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	d := &running{sdk: &sdk{adb: adb}, dev: &device{serial: "emulator-5554"}}
+	if err := d.collapseShade(t.Context()); err != nil {
+		t.Fatalf("a shade shut by its second collapse: %v", err)
+	}
+	if b, _ := os.ReadFile(count); strings.TrimSpace(string(b)) != "2" {
+		t.Errorf("collapsed %s times, want 2", strings.TrimSpace(string(b)))
 	}
 }
