@@ -34,12 +34,18 @@ xcrun simctl boot "$udid"
 # has a dozen widgets' extensions draw their timelines, on a runner with no GPU. Without apsd and
 # chronod, the tests took 195 s rather than 221 on a VM of the runner's size. They are turned off
 # as the simulator starts to boot, so that its boot does none of that work either: launchd keeps
-# them off from then on, through the rest of the boot.
-for service in com.apple.mediaanalysisd com.apple.mediaanalysisd.analysis com.apple.mediaanalysisd.computeservice \
-  com.apple.mediaanalysisd.photos com.apple.ScreenTimeAgent com.apple.fitnessintelligenced com.apple.amsengagementd \
-  com.apple.apsd com.apple.chronod; do
-  xcrun simctl spawn "$udid" launchctl disable "user/501/$service"
-  xcrun simctl spawn "$udid" launchctl bootout "user/501/$service" 2> /dev/null || true
-done
+# them off from then on, through the rest of the boot. That runs alongside the wait for the boot,
+# which it never holds up.
+(
+  for service in com.apple.mediaanalysisd com.apple.mediaanalysisd.analysis com.apple.mediaanalysisd.computeservice \
+    com.apple.mediaanalysisd.photos com.apple.ScreenTimeAgent com.apple.fitnessintelligenced com.apple.amsengagementd \
+    com.apple.apsd com.apple.chronod; do
+    xcrun simctl spawn "$udid" launchctl disable "user/501/$service"
+    xcrun simctl spawn "$udid" launchctl bootout "user/501/$service" 2> /dev/null || true
+  done
+  echo "services off in $(($(date +%s) - started))s"
+) &
+off=$!
 xcrun simctl bootstatus "$udid" -b > /dev/null
 echo "$name ($udid) booted in $(($(date +%s) - started))s"
+wait "$off"

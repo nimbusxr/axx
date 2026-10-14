@@ -499,12 +499,6 @@ jobs:
             ps -A -o %cpu=,ucomm=,command= -r | head -8 | awk '{ printf "%6s %s%s\n", $1, $2, index($0, "CoreSimulator") ? " (simulator)" : "" }'
             sleep 30
           done) > "$RUNNER_TEMP/load.log" 2>&1 < /dev/null &
-      # The image's twelve simulator runtimes (iOS, tvOS, watchOS, visionOS) are disk images,
-      # mounted when CoreSimulator first starts: simdiskimaged took 17 s to a minute and more of
-      # processor time. Started now, it mounts them while the job restores its caches, rather than
-      # while it builds the app.
-      - name: the simulator runtimes, mounted (in the background)
-        run: xcrun simctl list runtimes > /dev/null 2>&1 < /dev/null &
       - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
         with:
           install_args: "go aqua:gotestyourself/gotestsum"
