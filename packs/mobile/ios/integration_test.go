@@ -178,6 +178,11 @@ func TestCouriersOnASimulator(t *testing.T) {
 	if log := string(h.Sink.Attachments[i].Body); !strings.Contains(log, "notified PX-MOB-9401 delivered") || !strings.Contains(log, "Saving notification") {
 		t.Errorf("the notifications log has not the app posting the notification and the system saving it:\n%s", log)
 	}
+	// And what the notification system was doing: SpringBoard's log and its threads.
+	j := slices.IndexFunc(h.Sink.Attachments, func(a cloudtest.Attachment) bool { return strings.Contains(a.Name, "notification system") })
+	if j < 0 || !strings.Contains(string(h.Sink.Attachments[j].Body), "SpringBoard's threads (pid ") || !strings.Contains(string(h.Sink.Attachments[j].Body), "SpringBoard[") {
+		t.Errorf("the failure attaches no account of SpringBoard's log and threads")
+	}
 	h.OK(`the "Back to deliveries" button is tapped in the courier app`)
 	h.OK(`the courier app does not show "PX-MOB-9401"`)
 	// The pull refreshes the list: the app asks for the day's deliveries again.

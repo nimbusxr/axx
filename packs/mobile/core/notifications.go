@@ -166,6 +166,12 @@ type notificationLog interface {
 	NotificationLog(ctx context.Context) string
 }
 
+// notificationSystem is a device that can say what its notification system was doing: when a
+// notification the app posted never shows, it shows where it stopped.
+type notificationSystem interface {
+	NotificationSystem(ctx context.Context) string
+}
+
 // onNotification opens the device's notifications, waits for one that shows a text, and does
 // what fn does with it (nothing, to check it is there); the notifications are closed after.
 func onNotification(sc *core.Scenario, app, text string, wait time.Duration, fn func(ctx context.Context, n Notifications) error) error {
@@ -192,6 +198,11 @@ func onNotification(sc *core.Scenario, app, text string, wait time.Duration, fn 
 					// went missing.
 					sc.Attach("text/plain", []byte(log), "what the device of the "+app+" app logged of its notifications")
 					sc.Log("what the device of the %s app logged of its notifications (the end of it):\n%s", app, lastLines(log, 30))
+				}
+			}
+			if sys, ok := n.(notificationSystem); ok {
+				if state := sys.NotificationSystem(ctx); state != "" {
+					sc.Attach("text/plain", []byte(state), "what the notification system of the "+app+" app's device was doing")
 				}
 			}
 			return core.Fail(fmt.Sprintf("The device of the %s app shows no notification %q", app, text), text,

@@ -734,6 +734,46 @@ func (n notificationCenter) NotificationLog(ctx context.Context) string {
 	return lastLines(out, 400, 300)
 }
 
+// NotificationSystem is what the simulator's notification system was doing in the last minute and
+// a half, and where SpringBoard's threads are now: it runs a notification through its pipeline to
+// Notification Center (iOS 27), so a notification posted but never shown stopped there. Its whole
+// log, not only the lines that name the app, and a sample of its threads (the Mac's sample(1),
+// which reads a simulator's processes as its own).
+func (n notificationCenter) NotificationSystem(ctx context.Context) string {
+	d := n.d
+	if d.dev == nil {
+		return ""
+	}
+	var b strings.Builder
+	out, err := d.dev.set.simctl(ctx, "spawn", d.dev.udid, "log", "show", "--last", "90s", "--style", "compact",
+		"--predicate", `process == "SpringBoard" OR process == "usernotificationsd"`)
+	if err == nil {
+		fmt.Fprintf(&b, "--- SpringBoard's and usernotificationsd's log, the last 90 seconds:\n%s\n", lastLines(out, 4000, 400))
+	}
+	services, err := d.dev.set.simctl(ctx, "spawn", d.dev.udid, "launchctl", "list")
+	if err != nil {
+		return b.String()
+	}
+	for _, l := range strings.Split(services, "\n") {
+		f := strings.Fields(l)
+		if len(f) == 3 && f[2] == "com.apple.SpringBoard" {
+			if _, err := strconv.Atoi(f[0]); err != nil {
+				break
+			}
+			file := filepath.Join(os.TempDir(), "axx-springboard-"+f[0]+".sample.txt")
+			defer os.Remove(file)
+			cmd := exec.CommandContext(ctx, "sample", f[0], "2", "-file", file) //nolint:gosec // the Mac's sampler, on the simulator's SpringBoard
+			if out, err := cmd.CombinedOutput(); err != nil {
+				fmt.Fprintf(&b, "--- SpringBoard's threads: cannot sample them: %v: %s\n", err, out)
+			} else if sample, err := os.ReadFile(file); err == nil {
+				fmt.Fprintf(&b, "--- SpringBoard's threads (pid %s):\n%s\n", f[0], sample)
+			}
+			break
+		}
+	}
+	return b.String()
+}
+
 // AppLog is what the simulator logged of the app since the scenario reset it: its own process's
 // lines, and the system's UserNotifications and BackgroundTasks lines that name it.
 func (d *running) AppLog(ctx context.Context) string {
