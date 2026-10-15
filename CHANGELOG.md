@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.21](https://github.com/nimbusxr/axx/compare/v0.2.20...v0.2.21) (2026-10-15)
+
+
+### Features
+
+* **mobile:** the phone moves through the scene its camera sees ([#201](https://github.com/nimbusxr/axx/issues/201)) ([68f0b42](https://github.com/nimbusxr/axx/commit/68f0b426d4c59bd85aca9e5e343af5f5ae53d2f7))
+
 ## [0.2.20](https://github.com/nimbusxr/axx/compare/v0.2.19...v0.2.20) (2026-10-14)
 
 
