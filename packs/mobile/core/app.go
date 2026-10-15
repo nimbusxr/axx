@@ -3,7 +3,9 @@ package mobilecore
 import (
 	"context"
 	"fmt"
+	"slices"
 	"sync"
+	"time"
 
 	"github.com/nimbusxr/axx/core"
 	"github.com/nimbusxr/axx/internal/secrets"
@@ -131,6 +133,9 @@ func (r *running) describe(sc *core.Scenario) any {
 }
 
 func stopAll(sc *core.Scenario, r *running) error {
+	if sc.Status() == "failed" {
+		attachAppLogs(sc, r)
+	}
 	finishRecordings(sc, r)
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -175,4 +180,35 @@ func device(sc *core.Scenario, name string, start bool) (Device, error) {
 	r.mu.Unlock()
 	startRecording(sc, name, d)
 	return d, nil
+}
+
+// appLog is a device that keeps a log of its app: what the app, and the system about it, logged
+// since the scenario reset it.
+type appLog interface {
+	AppLog(ctx context.Context) string
+}
+
+// attachAppLogs attaches what each device logged of its app, as a failed scenario ends: what
+// the screen showed is in its trace and video, and what the app did behind it (a request, a
+// location fix that never came) is here.
+func attachAppLogs(sc *core.Scenario, r *running) {
+	r.mu.Lock()
+	devices := make(map[string]Device, len(r.devices))
+	for name, d := range r.devices {
+		devices[name] = d
+	}
+	order := slices.Clone(r.order)
+	r.mu.Unlock()
+	for _, name := range order {
+		l, ok := devices[name].(appLog)
+		if !ok {
+			continue
+		}
+		ctx, cancel := context.WithTimeout(context.WithoutCancel(sc.Context()), 30*time.Second)
+		log := l.AppLog(ctx)
+		cancel()
+		if log != "" {
+			sc.Attach("text/plain", []byte(secrets.Mask(sc, log)), "what the device of the "+name+" app logged of it")
+		}
+	}
 }

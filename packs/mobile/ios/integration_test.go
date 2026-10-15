@@ -164,13 +164,24 @@ func TestCouriersOnASimulator(t *testing.T) {
 	h.OK(`the courier app shows "Delivered"`)
 	// A runner reads SpringBoard's screen in seconds, not in a fraction of one.
 	h.OK(`within 30s the courier app shows a notification "PX-MOB-9401 delivered"`)
-	// A notification that never came: the failure shows what the simulator logged of the app's
-	// notifications, the app posting the one that did come among them.
+	// A notification that never came: the failure attaches what the simulator logged of the app's
+	// notifications, the app posting the one that did come among them, and what the system did
+	// with it (iOS 27's SpringBoard saves it to Notification Center); the step's log has its end.
 	_ = h.Fails(`within 1s the courier app shows a notification "PX-MOB-0000 delivered"`, `shows no notification "PX-MOB-0000 delivered"`)
-	if !slices.ContainsFunc(h.Sink.Logs, func(l string) bool {
-		return strings.Contains(l, "logged of its notifications") && strings.Contains(l, "notified PX-MOB-9401 delivered")
-	}) {
-		t.Errorf("the failure shows nothing the app logged of its notifications: %q", h.Sink.Logs)
+	if !slices.ContainsFunc(h.Sink.Logs, func(l string) bool { return strings.Contains(l, "logged of its notifications (the end of it)") }) {
+		t.Errorf("the failure's log has nothing the device logged of the app's notifications: %q", h.Sink.Logs)
+	}
+	i := slices.IndexFunc(h.Sink.Attachments, func(a cloudtest.Attachment) bool { return strings.Contains(a.Name, "logged of its notifications") })
+	if i < 0 {
+		t.Fatalf("the failure attaches no notifications log: %d attachments", len(h.Sink.Attachments))
+	}
+	if log := string(h.Sink.Attachments[i].Body); !strings.Contains(log, "notified PX-MOB-9401 delivered") || !strings.Contains(log, "Saving notification") {
+		t.Errorf("the notifications log has not the app posting the notification and the system saving it:\n%s", log)
+	}
+	// And what the notification system was doing: SpringBoard's log and its threads.
+	j := slices.IndexFunc(h.Sink.Attachments, func(a cloudtest.Attachment) bool { return strings.Contains(a.Name, "notification system") })
+	if j < 0 || !strings.Contains(string(h.Sink.Attachments[j].Body), "SpringBoard's threads (pid ") || !strings.Contains(string(h.Sink.Attachments[j].Body), "SpringBoard[") {
+		t.Errorf("the failure attaches no account of SpringBoard's log and threads")
 	}
 	h.OK(`the "Back to deliveries" button is tapped in the courier app`)
 	h.OK(`the courier app does not show "PX-MOB-9401"`)
@@ -351,6 +362,56 @@ func TestACourierMeasuresAParcelOnASimulator(t *testing.T) {
 	h.OK(`the "Measure parcel" button is tapped in the courier app`)
 	h.OK(`the courier app shows "Tap one end of the parcel, then the other"`)
 	_ = h.Fails(`the "parcel" in the courier app's camera view is tapped`, `its objects are "front left corner", "front right corner"`)
+	h.OK(`the "front left corner" in the courier app's camera view is tapped`)
+	h.OK(`the "front right corner" in the courier app's camera view is tapped`)
+	h.OK(`the courier app shows "60 cm"`)
+	// The app ends with its scenario: its AR view, left drawing the scene, would take the Mac's
+	// processors from the scenarios running beside it, for the rest of the run.
+	var udid string
+	_ = mobilecore.OnDevice(h.SC, "courier", func(_ context.Context, d mobilecore.Device) error {
+		udid = d.(*running).dev.udid
+		return nil
+	})
+	if err := h.End("passed"); err != nil {
+		t.Fatal(err)
+	}
+	out, err := exec.Command("ps", "-Ao", "args").Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, l := range strings.Split(string(out), "\n") {
+		if strings.Contains(l, udid) && strings.Contains(l, "Courier.app/Courier") {
+			t.Errorf("the courier app outlives its scenario: %s", l)
+		}
+	}
+}
+
+// A courier gets out of the van, walks up the garden path, steps onto the porch and points the
+// phone down at the parcel to measure it: the app's camera sees the scene from wherever the phone
+// is. From the van, the parcel is out of the camera's view.
+func TestACourierWalksUpToAParcelAndMeasuresItOnASimulator(t *testing.T) {
+	device := simulator(t)
+	courierapi.Start(t)
+	t.Setenv("COURIER_PIN", "4711")
+	h := harness(t)
+	warm(t, h, device)
+	scene, err := filepath.Abs(parcelScene)
+	if err != nil {
+		t.Fatal(err)
+	}
+	h.OK("the courier ios app with the following properties:", [][]string{
+		{"app", courierBuild(t)}, {"device", device}, {"timezone", "Europe/Berlin"},
+	})
+	h.OK("the courier app's camera sees " + scene)
+	h.OK(`the courier app's phone moves to the scene's "by the van" camera`)
+	signIn(h)
+	h.OK(`the courier app's dialog is dismissed`)
+	h.OK(`the "PX-MOB-9401" list item is tapped in the courier app`)
+	h.OK(`the "Measure parcel" button is tapped in the courier app`)
+	_ = h.Fails(`the "front left corner" in the courier app's camera view is tapped`, `the "front left corner" is out of the camera's view`)
+	h.OK(`the courier app's phone travels the scene's "up the garden path" path`)
+	h.OK("the courier app's phone moves 1 m forward")
+	h.OK("the courier app's phone turns 40 degrees down")
 	h.OK(`the "front left corner" in the courier app's camera view is tapped`)
 	h.OK(`the "front right corner" in the courier app's camera view is tapped`)
 	h.OK(`the courier app shows "60 cm"`)

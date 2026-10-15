@@ -722,12 +722,71 @@ func (n notificationCenter) NotificationLog(ctx context.Context) string {
 	if d.appDir != "" {
 		app = fmt.Sprintf(`processImagePath CONTAINS %q AND (subsystem == %q OR subsystem BEGINSWITH "com.apple.BackgroundTasks" OR subsystem == "com.apple.UserNotifications")`, "/"+d.appDir+"/", d.bundleID)
 	}
-	predicate := fmt.Sprintf(`(%s) OR (process == "usernotificationsd" AND composedMessage CONTAINS %q)`, app, d.bundleID)
+	// What became of the app's notification requests is in the daemon that takes them and in
+	// SpringBoard, which runs them through its pipeline to Notification Center (iOS 27 runs it
+	// there): their UserNotifications lines that name the app.
+	predicate := fmt.Sprintf(`(%s) OR ((process == "usernotificationsd" OR process == "SpringBoard") AND `+
+		`(subsystem BEGINSWITH "com.apple.UserNotifications" OR subsystem BEGINSWITH "com.apple.usernotificationsd") AND composedMessage CONTAINS %q)`, app, d.bundleID)
 	out, err := d.dev.set.simctl(ctx, "spawn", d.dev.udid, "log", "show", "--start", d.resetAt.Format("2006-01-02 15:04:05"), "--style", "compact", "--predicate", predicate)
 	if err != nil {
 		return ""
 	}
-	return lastLines(out, 40, 300)
+	return lastLines(out, 400, 300)
+}
+
+// NotificationSystem is what the simulator's notification system was doing in the last minute and
+// a half, and where SpringBoard's threads are now: it runs a notification through its pipeline to
+// Notification Center (iOS 27), so a notification posted but never shown stopped there. Its whole
+// log, not only the lines that name the app, and a sample of its threads (the Mac's sample(1),
+// which reads a simulator's processes as its own).
+func (n notificationCenter) NotificationSystem(ctx context.Context) string {
+	d := n.d
+	if d.dev == nil {
+		return ""
+	}
+	var b strings.Builder
+	out, err := d.dev.set.simctl(ctx, "spawn", d.dev.udid, "log", "show", "--last", "90s", "--style", "compact",
+		"--predicate", `process == "SpringBoard" OR process == "usernotificationsd"`)
+	if err == nil {
+		fmt.Fprintf(&b, "--- SpringBoard's and usernotificationsd's log, the last 90 seconds:\n%s\n", lastLines(out, 4000, 400))
+	}
+	services, err := d.dev.set.simctl(ctx, "spawn", d.dev.udid, "launchctl", "list")
+	if err != nil {
+		return b.String()
+	}
+	for _, l := range strings.Split(services, "\n") {
+		f := strings.Fields(l)
+		if len(f) == 3 && f[2] == "com.apple.SpringBoard" {
+			if _, err := strconv.Atoi(f[0]); err != nil {
+				break
+			}
+			file := filepath.Join(os.TempDir(), "axx-springboard-"+f[0]+".sample.txt")
+			defer os.Remove(file)
+			cmd := exec.CommandContext(ctx, "sample", f[0], "2", "-file", file) //nolint:gosec // the Mac's sampler, on the simulator's SpringBoard
+			if out, err := cmd.CombinedOutput(); err != nil {
+				fmt.Fprintf(&b, "--- SpringBoard's threads: cannot sample them: %v: %s\n", err, out)
+			} else if sample, err := os.ReadFile(file); err == nil {
+				fmt.Fprintf(&b, "--- SpringBoard's threads (pid %s):\n%s\n", f[0], sample)
+			}
+			break
+		}
+	}
+	return b.String()
+}
+
+// AppLog is what the simulator logged of the app since the scenario reset it: its own process's
+// lines, and the system's UserNotifications and BackgroundTasks lines that name it.
+func (d *running) AppLog(ctx context.Context) string {
+	if d.dev == nil || d.resetAt.IsZero() || d.appDir == "" {
+		return ""
+	}
+	predicate := fmt.Sprintf(`processImagePath CONTAINS %q OR ((process == "usernotificationsd" OR process == "SpringBoard" OR process == "dasd") AND composedMessage CONTAINS %q)`,
+		"/"+d.appDir+"/", d.bundleID)
+	out, err := d.dev.set.simctl(ctx, "spawn", d.dev.udid, "log", "show", "--start", d.resetAt.Format("2006-01-02 15:04:05"), "--style", "compact", "--predicate", predicate)
+	if err != nil {
+		return ""
+	}
+	return lastLines(out, 3000, 500)
 }
 
 // lastLines are a log's last lines (its header and blank lines left out), each cut to width.
@@ -1233,6 +1292,15 @@ func (d *running) Stop(bool) error {
 		// the next scenario installs it afresh.
 		_, derr := dismissLeftDialogs(ctx, d.session)
 		err = errors.Join(derr, d.session.Delete(ctx))
+	}
+	// The app ends with its scenario: left running, it goes on with what it was doing (an AR view
+	// draws the scene sixty times a second) until a scenario on its simulator starts it afresh,
+	// and takes the Mac's processors from the scenarios running beside it. On the Mac mini, two AR
+	// views left so starved SpringBoard, whose notifications then never showed, and WebDriverAgent.
+	if d.dev != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		_, _ = d.dev.set.simctl(ctx, "terminate", d.dev.udid, d.bundleID) // not running is fine
+		cancel()
 	}
 	d.releaseDevice()
 	return err

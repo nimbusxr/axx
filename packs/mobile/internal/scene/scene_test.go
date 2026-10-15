@@ -71,6 +71,24 @@ func TestTheParcelsCornersAreItsLengthApart(t *testing.T) {
 	if d := dist(l.Tap, r.Tap); math.Abs(d-0.6) > 1e-6 {
 		t.Errorf("the corners are %.6f m apart", d)
 	}
+	// The courier walks up from the van: the path starts where the "by the van" camera is, and
+	// ends at the foot of the porch, facing the door.
+	van, err := s.Camera("by the van")
+	if err != nil {
+		t.Fatal(err)
+	}
+	p, err := s.Path("up the garden path")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p.Duration != 9 || s.Nodes[p.Camera].Name != "phone" {
+		t.Errorf("the path takes %gs, moving %q", p.Duration, s.Nodes[p.Camera].Name)
+	}
+	start, end := s.PoseOn(p, 0), s.PoseOn(p, p.Duration)
+	near(t, "the path starts by the van", start.Origin(), van.Pose.Origin())
+	near(t, "looking along the street", looks(start), looks(van.Pose))
+	near(t, "it ends at the foot of the porch", end.Origin(), [3]float32{0, 1.4, 1.2})
+	near(t, "facing the door", looks(end), [3]float32{0, 0, -1})
 }
 
 // builder writes small glTF documents for the conventions' cases.

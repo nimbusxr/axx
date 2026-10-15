@@ -166,6 +166,12 @@ type notificationLog interface {
 	NotificationLog(ctx context.Context) string
 }
 
+// notificationSystem is a device that can say what its notification system was doing: when a
+// notification the app posted never shows, it shows where it stopped.
+type notificationSystem interface {
+	NotificationSystem(ctx context.Context) string
+}
+
 // onNotification opens the device's notifications, waits for one that shows a text, and does
 // what fn does with it (nothing, to check it is there); the notifications are closed after.
 func onNotification(sc *core.Scenario, app, text string, wait time.Duration, fn func(ctx context.Context, n Notifications) error) error {
@@ -188,7 +194,15 @@ func onNotification(sc *core.Scenario, app, text string, wait time.Duration, fn 
 		if !ok {
 			if l, ok := n.(notificationLog); ok {
 				if log := l.NotificationLog(ctx); log != "" {
-					sc.Log("what the device of the %s app logged of its notifications:\n%s", app, log)
+					// The whole log is attached; the step's log has its end, where the notification
+					// went missing.
+					sc.Attach("text/plain", []byte(log), "what the device of the "+app+" app logged of its notifications")
+					sc.Log("what the device of the %s app logged of its notifications (the end of it):\n%s", app, lastLines(log, 30))
+				}
+			}
+			if sys, ok := n.(notificationSystem); ok {
+				if state := sys.NotificationSystem(ctx); state != "" {
+					sc.Attach("text/plain", []byte(state), "what the notification system of the "+app+" app's device was doing")
 				}
 			}
 			return core.Fail(fmt.Sprintf("The device of the %s app shows no notification %q", app, text), text,
@@ -239,4 +253,13 @@ func notificationSteps() []core.StepDef {
 			})
 		},
 	}}
+}
+
+// lastLines are the last n lines of a log.
+func lastLines(log string, n int) string {
+	lines := strings.Split(strings.TrimRight(log, "\n"), "\n")
+	if len(lines) > n {
+		lines = lines[len(lines)-n:]
+	}
+	return strings.Join(lines, "\n")
 }

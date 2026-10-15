@@ -282,10 +282,15 @@ func gpxRoute(path string, s *speed) (Route, error) {
 	return r, nil
 }
 
-// A journey is a phone on its route: when it should arrive, and when it has.
+// A journey is a phone on its route, or on a path through the scene its camera sees: when it
+// should arrive, and when it has.
 type journey struct {
 	arrived <-chan struct{}
 	due     time.Time
+	// path is the scene's path the phone travels, if it travels one; failed, once it has
+	// arrived, is why it stopped short.
+	path   string
+	failed *error
 }
 
 // journeys are the routes a scenario's phones are on, by app.
@@ -380,8 +385,8 @@ func routeSteps() []core.StepDef {
 	}, {
 		ID: "mobile-core.route-end", Keyword: "Then", Since: since,
 		Expr: "[[within {duration} ]]the {word} app's phone reaches the end of its route",
-		Doc: "Wait for the phone a `starts traveling` step set off to arrive at the last point of its route " +
-			"(the route's own time and 10 seconds, or `within`).",
+		Doc: "Wait for the phone a `starts traveling` step set off to arrive at the last point of its route, or the end " +
+			"of the scene's path it travels (the route's own time and 10 seconds, or `within`).",
 		Examples: []string{"Then within 2m the courier app's phone reaches the end of its route"},
 		Run: func(sc *core.Scenario, a core.Args) error {
 			app := a.String(1)
@@ -395,6 +400,9 @@ func routeSteps() []core.StepDef {
 			}
 			select {
 			case <-j.arrived:
+				if j.failed != nil && *j.failed != nil {
+					return fmt.Errorf("the %s app's phone stopped short of the end of the scene's %q path: %w", app, j.path, *j.failed)
+				}
 				return nil
 			case <-time.After(wait):
 				return core.Failf("The %s app's phone did not reach the end of its route within %s", app, wait.Round(time.Second))

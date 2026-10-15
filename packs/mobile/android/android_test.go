@@ -946,3 +946,75 @@ esac
 		}
 	}
 }
+
+// A failed scenario's app log: the app's own lines, by its user id, since the scenario reset it,
+// then the system's lines that name the app or are of where the phone is (here, a location
+// request that GNSS never answered); the rest of the device's log stays out.
+func TestTheAppsLogSinceItsReset(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("the stand-in adb is a shell script")
+	}
+	dir := t.TempDir()
+	adb := filepath.Join(dir, "adb")
+	calls := filepath.Join(dir, "calls")
+	script := `#!/bin/sh
+echo "$*" >> ` + calls + `
+case "$*" in
+*"pm list packages -U"*) printf 'package:com.purposebuilt.dtcd uid:10190\npackage:com.purposebuilt.dtcd.test uid:10191\n';;
+*"--uid=10190"*) printf '%s\n' '10-14 19:20:40.100  4211  4211 I CrewSafety: intrusion logged, waiting for a fix';;
+*"main,system,crash"*) printf '%s\n' \
+  '10-14 19:20:40.200   600   700 I LocationManagerService: request from com.purposebuilt.dtcd: gps, interval 1000' \
+  '10-14 19:20:40.300   600   700 D WifiService: scan done' \
+  '10-14 19:20:41.000   500   500 W GnssLocationProvider: no fix in 1000ms';;
+esac
+`
+	if err := os.WriteFile(adb, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	reset := time.Unix(1792023640, 0)
+	d := &running{app: &app{name: "dtcd"}, pkg: "com.purposebuilt.dtcd", sdk: &sdk{adb: adb}, dev: &device{serial: "emulator-5554"}, resetAt: reset}
+	log := d.AppLog(t.Context())
+	for _, want := range []string{
+		"the dtcd app's own log (com.purposebuilt.dtcd, uid 10190)",
+		"CrewSafety: intrusion logged, waiting for a fix",
+		"LocationManagerService: request from com.purposebuilt.dtcd",
+		"GnssLocationProvider: no fix in 1000ms",
+	} {
+		if !strings.Contains(log, want) {
+			t.Errorf("the app's log:\n%s\nwants %q", log, want)
+		}
+	}
+	if strings.Contains(log, "WifiService") {
+		t.Errorf("the app's log has the rest of the device's:\n%s", log)
+	}
+	b, _ := os.ReadFile(calls)
+	if !strings.Contains(string(b), "-T 1792023640.000") {
+		t.Errorf("the log is not read from the reset on: %s", b)
+	}
+}
+
+// The app ends with its scenario: left running, it would go on with what it was doing, and take
+// the machine from the scenarios running beside it, until the next scenario on its emulator.
+func TestTheAppEndsWithItsScenario(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("the stand-in adb is a shell script")
+	}
+	dir := t.TempDir()
+	log := filepath.Join(dir, "calls")
+	adb := filepath.Join(dir, "adb")
+	script := "#!/bin/sh\nfor a in \"$@\"; do printf '%s|' \"$a\"; done >> " + log + "\necho >> " + log + "\n"
+	if err := os.WriteFile(adb, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	d := &running{app: &app{name: "courier"}, pkg: "example.parcels.courier", sdk: &sdk{adb: adb}, dev: &device{serial: "emulator-5554"}}
+	if err := d.Stop(false); err != nil {
+		t.Fatal(err)
+	}
+	b, err := os.ReadFile(log)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(b), "-s|emulator-5554|shell|am|force-stop|example.parcels.courier|") {
+		t.Errorf("adb calls:\n%s\nwant the app stopped", b)
+	}
+}

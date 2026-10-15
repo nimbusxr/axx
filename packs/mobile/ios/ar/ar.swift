@@ -35,7 +35,8 @@ func axxarShowPicture(_ view: UIView) {
         return v
     }()
     picture.frame = ar.frame
-    if picture.image == nil, let img = axxar_picture()?.takeUnretainedValue() {
+    // The picture changes as the phone moves.
+    if let img = axxar_picture()?.takeUnretainedValue(), picture.image?.cgImage !== img {
         // Upright: the sensor's picture turned the way the view is turned from the sensor.
         let turn: [Int: UIImage.Orientation] = [0: .up, 90: .right, 180: .down, 270: .left]
         picture.image = UIImage(cgImage: img, scale: 1, orientation: turn[Int(axxar_view_angle(ar)) % 360] ?? .up)

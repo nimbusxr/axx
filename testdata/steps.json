@@ -2,7 +2,7 @@
   "description": "The frozen catalog of built-in step text. Step text is public API: every entry must stay defined, verbatim, by its pack.",
   "counts": {
     "parameterType": 17,
-    "step": 711
+    "step": 716
   },
   "entries": [
     {
@@ -3748,7 +3748,7 @@
       "pack": "mobile-core",
       "keyword": "ParameterType",
       "name": "direction",
-      "expression": "(up|down|left|right)"
+      "expression": "(up|down|left|right|forward|back)"
     },
     {
       "kind": "step",
@@ -4389,6 +4389,36 @@
       "pack": "mobile-core",
       "keyword": "When",
       "expression": "the {string} background task is run in the {word} app"
+    },
+    {
+      "kind": "step",
+      "pack": "mobile-core",
+      "keyword": "When",
+      "expression": "the {word} app's phone moves to the scene's {string} camera"
+    },
+    {
+      "kind": "step",
+      "pack": "mobile-core",
+      "keyword": "When",
+      "expression": "the {word} app's phone {travel} the scene's {string} path"
+    },
+    {
+      "kind": "step",
+      "pack": "mobile-core",
+      "keyword": "When",
+      "expression": "the {word} app's phone {travel} the scene's {string} path at {speed}"
+    },
+    {
+      "kind": "step",
+      "pack": "mobile-core",
+      "keyword": "When",
+      "expression": "the {word} app's phone moves {float} m {direction}"
+    },
+    {
+      "kind": "step",
+      "pack": "mobile-core",
+      "keyword": "When",
+      "expression": "the {word} app's phone turns {int} degrees {direction}"
     }
   ]
 }

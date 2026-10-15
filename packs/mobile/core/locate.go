@@ -76,10 +76,10 @@ func labelled(n *Node, name string) bool {
 
 var directionParam = core.ParamType{
 	Name:     "direction",
-	Regexps:  []string{`(up|down|left|right)`},
-	Doc:      "where a swipe goes, as the finger moves: `down` from the top pulls a list to refresh",
-	Values:   []string{"up", "down", "left", "right"},
-	Examples: []string{"down", "left"},
+	Regexps:  []string{`(up|down|left|right|forward|back)`},
+	Doc:      "where a swipe goes, as the finger moves (`down` from the top pulls a list to refresh); or which way a phone moves or turns in the scene its camera sees, where it also moves `forward` and `back`",
+	Values:   []string{"up", "down", "left", "right", "forward", "back"},
+	Examples: []string{"down", "left", "forward"},
 }
 
 // selector is the Appium locator a name that is a selector stands for.

@@ -10,7 +10,7 @@
 | `{byte}` | a whole number, from -128 to 127 |  | `12` | cucumber |
 | `{control}` | a kind of control an app shows, found by the name people see: a `button` by its text, a `field` by its label, a `list item` or a `row` by one of its texts, a `menu item` in its open menu, an `element` is anything, by its text or accessibility label; a phone's `notification` is tapped, by a text in its title or its text. A kind an app's platform does not have (a phone has no menu bar) fails the step | `button`, `field`, `checkbox`, `radio button`, `switch`, `tab`, `menu`, `menu item`, `list item`, `row`, `link`, `image`, `text`, `element`, `notification` | `button`, `list item` | app-core |
 | `{dbService}` | the name of a database registered in the scenario |  | `parcels-db` | sql |
-| `{direction}` | where a swipe goes, as the finger moves: `down` from the top pulls a list to refresh | `up`, `down`, `left`, `right` | `down`, `left` | mobile-core |
+| `{direction}` | where a swipe goes, as the finger moves (`down` from the top pulls a list to refresh); or which way a phone moves or turns in the scene its camera sees, where it also moves `forward` and `back` | `up`, `down`, `left`, `right`, `forward`, `back` | `down`, `left`, `forward` | mobile-core |
 | `{double}` | a decimal number |  | `19.90` | cucumber |
 | `{duration}` | a duration in seconds (`s`) or minutes (`m`) |  | `5s`, `2m` | core |
 | `{element}` | a kind of element on the page, plural after a number (`buttons`): a `field` by its label or placeholder, an `option` is a radio button, an `element` is anything, by its text, label, alternative text or title | `button`, `field`, `checkbox`, `option`, `link`, `tab`, `menu item`, `element` | `button`, `field` | web-core |

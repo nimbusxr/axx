@@ -14,8 +14,8 @@ import (
 
 // loadGLTF reads a glTF 2.0 file (.gltf, with its buffers and images beside it or in it, or a
 // .glb): its default scene's nodes, their triangle meshes, the meshes' base color (a factor and
-// an image) and the cameras. Points and lines are left out: a camera's ray finds no surface on
-// them.
+// an image), the cameras and the animations of nodes' transforms. Points and lines are left out:
+// a camera's ray finds no surface on them.
 func loadGLTF(path string) (*Scene, error) {
 	doc, err := gltf.Open(path)
 	if err != nil {
@@ -50,7 +50,109 @@ func loadGLTF(path string) (*Scene, error) {
 	if err != nil {
 		return nil, err
 	}
+	for i, a := range doc.Animations {
+		anim, err := g.animation(a)
+		if err != nil {
+			name := a.Name
+			if name == "" {
+				name = fmt.Sprint(i)
+			}
+			return nil, fmt.Errorf("its animation %q: %w", name, err)
+		}
+		s.animations = append(s.animations, anim)
+	}
 	return s, nil
+}
+
+// animation is a glTF animation's channels that move nodes: their translation, rotation and
+// scale (a morph target's weights move no camera).
+func (g *gltfReader) animation(a *gltf.Animation) (animation, error) {
+	out := animation{name: a.Name}
+	for _, ch := range a.Channels {
+		prop := string(ch.Target.Path)
+		if ch.Target.Node == nil || (prop != "translation" && prop != "rotation" && prop != "scale") {
+			continue
+		}
+		node := *ch.Target.Node
+		if node < 0 || node >= len(g.doc.Nodes) {
+			return out, fmt.Errorf("it moves node %d, which the file does not have", node)
+		}
+		if ch.Sampler < 0 || ch.Sampler >= len(a.Samplers) {
+			return out, fmt.Errorf("it names sampler %d, which it does not have", ch.Sampler)
+		}
+		smp := a.Samplers[ch.Sampler]
+		c := channel{node: node, prop: prop, interp: smp.Interpolation.String()}
+		in, err := g.accessor(smp.Input)
+		if err != nil {
+			return out, err
+		}
+		raw, err := modeler.ReadAccessor(g.doc, in, nil)
+		if err != nil {
+			return out, fmt.Errorf("its keyframe times: %w", err)
+		}
+		times, ok := raw.([]float32)
+		if !ok || len(times) == 0 {
+			return out, errors.New("its keyframe times are not seconds (floats)")
+		}
+		for k := 1; k < len(times); k++ {
+			if times[k] < times[k-1] {
+				return out, fmt.Errorf("its keyframe times go back, from %gs to %gs", times[k-1], times[k])
+			}
+		}
+		c.times = times
+		o, err := g.accessor(smp.Output)
+		if err != nil {
+			return out, err
+		}
+		if raw, err = modeler.ReadAccessor(g.doc, o, nil); err != nil {
+			return out, fmt.Errorf("its keyframe values: %w", err)
+		}
+		if c.values, err = keyValues(raw); err != nil {
+			return out, fmt.Errorf("its %s keyframes: %w", prop, err)
+		}
+		want := len(times)
+		if c.interp == "CUBICSPLINE" {
+			want *= 3
+		}
+		if len(c.values) != want {
+			return out, fmt.Errorf("it has %d %s values for %d keyframes", len(c.values), prop, len(times))
+		}
+		out.channels = append(out.channels, c)
+	}
+	return out, nil
+}
+
+// keyValues are an animation's keyframe values: three floats each, or a rotation's four (floats,
+// or integers normalized to -1 to 1, or 0 to 1).
+func keyValues(raw any) ([][4]float32, error) {
+	var out [][4]float32
+	switch v := raw.(type) {
+	case [][3]float32:
+		for _, x := range v {
+			out = append(out, [4]float32{x[0], x[1], x[2], 0})
+		}
+	case [][4]float32:
+		out = v
+	case [][4]int8:
+		for _, x := range v {
+			out = append(out, [4]float32{max(float32(x[0])/127, -1), max(float32(x[1])/127, -1), max(float32(x[2])/127, -1), max(float32(x[3])/127, -1)})
+		}
+	case [][4]uint8:
+		for _, x := range v {
+			out = append(out, [4]float32{float32(x[0]) / 255, float32(x[1]) / 255, float32(x[2]) / 255, float32(x[3]) / 255})
+		}
+	case [][4]int16:
+		for _, x := range v {
+			out = append(out, [4]float32{max(float32(x[0])/32767, -1), max(float32(x[1])/32767, -1), max(float32(x[2])/32767, -1), max(float32(x[3])/32767, -1)})
+		}
+	case [][4]uint16:
+		for _, x := range v {
+			out = append(out, [4]float32{float32(x[0]) / 65535, float32(x[1]) / 65535, float32(x[2]) / 65535, float32(x[3]) / 65535})
+		}
+	default:
+		return nil, fmt.Errorf("they are %T, not vectors of floats", raw)
+	}
+	return out, nil
 }
 
 type gltfReader struct {
@@ -106,19 +208,14 @@ func local(n *gltf.Node) Mat4 {
 		return m
 	}
 	t, q, s := n.TranslationOrDefault(), n.RotationOrDefault(), n.ScaleOrDefault()
-	x, y, z, w := q[0], q[1], q[2], q[3]
-	r := [9]float64{ // column by column
-		1 - 2*(y*y+z*z), 2 * (x*y + z*w), 2 * (x*z - y*w),
-		2 * (x*y - z*w), 1 - 2*(x*x+z*z), 2 * (y*z + x*w),
-		2 * (x*z + y*w), 2 * (y*z - x*w), 1 - 2*(x*x+y*y),
+	var trs TRS
+	for i := range 3 {
+		trs.T[i], trs.S[i] = float32(t[i]), float32(s[i])
 	}
-	for c := range 3 {
-		for k := range 3 {
-			m[c*4+k] = float32(r[c*3+k] * s[c])
-		}
+	for i := range 4 {
+		trs.R[i] = float32(q[i])
 	}
-	m[12], m[13], m[14], m[15] = float32(t[0]), float32(t[1]), float32(t[2]), 1
-	return m
+	return trs.Mat4()
 }
 
 // meshes are a glTF mesh's primitives that are triangles, each a mesh.

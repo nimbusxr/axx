@@ -13,11 +13,13 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/nimbusxr/axx/core"
 	"github.com/nimbusxr/axx/internal/npm"
+	mobilecore "github.com/nimbusxr/axx/packs/mobile/core"
 	"github.com/nimbusxr/axx/packs/mobile/internal/scene"
 )
 
@@ -105,13 +107,18 @@ func arLibrary(ctx context.Context, s *core.Suite) (string, error) {
 	})
 }
 
-// arCamera is the scene an app's camera sees, and what axx gives the library for it.
+// arCamera is the scene an app's camera sees, and what axx gives the library for it. It is
+// also the phone in the scene (mobilecore.ScenePhone).
 type arCamera struct {
 	scene   *scene.Scene
 	file    string // the scene's description, which the library reads
 	lib     string // the library
 	control string // the library's control socket
 	log     string // the library's log
+	posed   string // where axx moved the phone last, which the library reads as the app starts
+
+	mu   sync.Mutex
+	pose scene.Mat4 // where the phone is now
 }
 
 var arSeq atomic.Int64
@@ -153,6 +160,8 @@ func (r runner) SetScene(sc *core.Scenario, path string) error {
 		lib:     lib,
 		control: fmt.Sprintf("/tmp/axx-ar-%d-%d.sock", os.Getpid(), n),
 		log:     strings.TrimSuffix(f.Name(), ".json") + ".log",
+		posed:   strings.TrimSuffix(f.Name(), ".json") + ".pose.json",
+		pose:    s.Phone,
 	}
 	if old := r.app.camera; old != nil {
 		old.remove()
@@ -169,6 +178,57 @@ func (r runner) SetScene(sc *core.Scenario, path string) error {
 func (c *arCamera) remove() {
 	_ = os.Remove(c.file)
 	_ = os.Remove(c.control)
+	_ = os.Remove(c.posed)
+}
+
+// ScenePhone is the phone in the scene the app's camera sees, which a step moves.
+func (r runner) ScenePhone() mobilecore.ScenePhone {
+	if r.app.camera == nil {
+		return nil
+	}
+	return r.app.camera
+}
+
+// Scene is the scene the phone is in.
+func (c *arCamera) Scene() *scene.Scene { return c.scene }
+
+// Pose is where the phone is in the scene now.
+func (c *arCamera) Pose() scene.Mat4 {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.pose
+}
+
+// Move puts the phone at pose. It is written down for the app's next start, and a running app's
+// library draws the scene from there and shows it before Move returns.
+func (c *arCamera) Move(ctx context.Context, pose scene.Mat4) error {
+	c.mu.Lock()
+	c.pose = pose
+	c.mu.Unlock()
+	b, err := json.Marshal(pose)
+	if err != nil {
+		return err
+	}
+	tmp := c.posed + ".tmp"
+	if err := os.WriteFile(tmp, b, 0o644); err != nil {
+		return err
+	}
+	if err := os.Rename(tmp, c.posed); err != nil {
+		return err
+	}
+	var res struct {
+		Error string
+	}
+	if err := c.ask(ctx, map[string]any{"pose": pose}, &res); err != nil {
+		if errors.Is(err, errNotStarted) {
+			return nil // the app is not running: it starts where the phone is
+		}
+		return fmt.Errorf("cannot move the phone in the scene: %w (axx's AR library logs to %s)", err, c.log)
+	}
+	if res.Error != "" {
+		return fmt.Errorf("cannot move the phone in the scene: %s (axx's AR library logs to %s)", res.Error, c.log)
+	}
+	return nil
 }
 
 // env is what the app is started with for the library to play the scene. A simulator axx boots
@@ -182,6 +242,7 @@ func (c *arCamera) env() map[string]string {
 		"AXX_AR_SCENE":          c.file,
 		"AXX_AR_CONTROL":        c.control,
 		"AXX_AR_LOG":            c.log,
+		"AXX_AR_POSE":           c.posed,
 	}
 }
 
@@ -215,26 +276,34 @@ func (d *running) SceneObject(ctx context.Context, name string) (float64, float6
 // where asks the library where an object shows; retry tells whether asking again can help (the
 // app, or its camera view, is not up yet, or the object is out of view).
 func (c *arCamera) where(ctx context.Context, name string) (x, y float64, retry bool, err error) {
-	var dialer net.Dialer
-	conn, err := dialer.DialContext(ctx, "unix", c.control)
-	if err != nil {
-		return 0, 0, true, errors.New("the app has not started its AR yet")
-	}
-	defer conn.Close()
-	_ = conn.SetDeadline(time.Now().Add(5 * time.Second))
-	if err := json.NewEncoder(conn).Encode(map[string]string{"where": name}); err != nil {
-		return 0, 0, true, err
-	}
 	var res struct {
 		X, Y  float64
 		Error string
 		Retry bool
 	}
-	if err := json.NewDecoder(conn).Decode(&res); err != nil {
+	if err := c.ask(ctx, map[string]string{"where": name}, &res); err != nil {
 		return 0, 0, true, err
 	}
 	if res.Error != "" {
 		return 0, 0, res.Retry, errors.New(res.Error)
 	}
 	return res.X, res.Y, false, nil
+}
+
+// errNotStarted is the library not answering: the app has not started, or not loaded it yet.
+var errNotStarted = errors.New("the app has not started its AR yet")
+
+// ask sends the library one request on its control socket, and reads its answer into res.
+func (c *arCamera) ask(ctx context.Context, req, res any) error {
+	var dialer net.Dialer
+	conn, err := dialer.DialContext(ctx, "unix", c.control)
+	if err != nil {
+		return errNotStarted
+	}
+	defer conn.Close()
+	_ = conn.SetDeadline(time.Now().Add(5 * time.Second))
+	if err := json.NewEncoder(conn).Encode(req); err != nil {
+		return err
+	}
+	return json.NewDecoder(conn).Decode(res)
 }
