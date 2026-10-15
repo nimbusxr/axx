@@ -1015,6 +1015,14 @@ func (d *running) Stop(bool) error {
 		defer cancel()
 		err = d.session.Delete(ctx)
 	}
+	// The app ends with its scenario: left running, it goes on with what it was doing until the
+	// next scenario on its emulator starts it afresh, and takes the machine's processors from the
+	// scenarios running beside it.
+	if d.dev != nil && d.pkg != "" {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		_, _ = d.sdk.shell(ctx, d.dev.serial, "am", "force-stop", d.pkg)
+		cancel()
+	}
 	d.releaseDevice()
 	return err
 }

@@ -992,3 +992,29 @@ esac
 		t.Errorf("the log is not read from the reset on: %s", b)
 	}
 }
+
+// The app ends with its scenario: left running, it would go on with what it was doing, and take
+// the machine from the scenarios running beside it, until the next scenario on its emulator.
+func TestTheAppEndsWithItsScenario(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("the stand-in adb is a shell script")
+	}
+	dir := t.TempDir()
+	log := filepath.Join(dir, "calls")
+	adb := filepath.Join(dir, "adb")
+	script := "#!/bin/sh\nfor a in \"$@\"; do printf '%s|' \"$a\"; done >> " + log + "\necho >> " + log + "\n"
+	if err := os.WriteFile(adb, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	d := &running{app: &app{name: "courier"}, pkg: "example.parcels.courier", sdk: &sdk{adb: adb}, dev: &device{serial: "emulator-5554"}}
+	if err := d.Stop(false); err != nil {
+		t.Fatal(err)
+	}
+	b, err := os.ReadFile(log)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(b), "-s|emulator-5554|shell|am|force-stop|example.parcels.courier|") {
+		t.Errorf("adb calls:\n%s\nwant the app stopped", b)
+	}
+}

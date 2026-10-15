@@ -1293,6 +1293,15 @@ func (d *running) Stop(bool) error {
 		_, derr := dismissLeftDialogs(ctx, d.session)
 		err = errors.Join(derr, d.session.Delete(ctx))
 	}
+	// The app ends with its scenario: left running, it goes on with what it was doing (an AR view
+	// draws the scene sixty times a second) until a scenario on its simulator starts it afresh,
+	// and takes the Mac's processors from the scenarios running beside it. On the Mac mini, two AR
+	// views left so starved SpringBoard, whose notifications then never showed, and WebDriverAgent.
+	if d.dev != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		_, _ = d.dev.set.simctl(ctx, "terminate", d.dev.udid, d.bundleID) // not running is fine
+		cancel()
+	}
 	d.releaseDevice()
 	return err
 }

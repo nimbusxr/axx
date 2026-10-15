@@ -365,6 +365,25 @@ func TestACourierMeasuresAParcelOnASimulator(t *testing.T) {
 	h.OK(`the "front left corner" in the courier app's camera view is tapped`)
 	h.OK(`the "front right corner" in the courier app's camera view is tapped`)
 	h.OK(`the courier app shows "60 cm"`)
+	// The app ends with its scenario: its AR view, left drawing the scene, would take the Mac's
+	// processors from the scenarios running beside it, for the rest of the run.
+	var udid string
+	_ = mobilecore.OnDevice(h.SC, "courier", func(_ context.Context, d mobilecore.Device) error {
+		udid = d.(*running).dev.udid
+		return nil
+	})
+	if err := h.End("passed"); err != nil {
+		t.Fatal(err)
+	}
+	out, err := exec.Command("ps", "-Ao", "args").Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, l := range strings.Split(string(out), "\n") {
+		if strings.Contains(l, udid) && strings.Contains(l, "Courier.app/Courier") {
+			t.Errorf("the courier app outlives its scenario: %s", l)
+		}
+	}
 }
 
 // A courier gets out of the van, walks up the garden path, steps onto the porch and points the
