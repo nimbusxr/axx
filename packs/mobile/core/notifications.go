@@ -188,7 +188,10 @@ func onNotification(sc *core.Scenario, app, text string, wait time.Duration, fn 
 		if !ok {
 			if l, ok := n.(notificationLog); ok {
 				if log := l.NotificationLog(ctx); log != "" {
-					sc.Log("what the device of the %s app logged of its notifications:\n%s", app, log)
+					// The whole log is attached; the step's log has its end, where the notification
+					// went missing.
+					sc.Attach("text/plain", []byte(log), "what the device of the "+app+" app logged of its notifications")
+					sc.Log("what the device of the %s app logged of its notifications (the end of it):\n%s", app, lastLines(log, 30))
 				}
 			}
 			return core.Fail(fmt.Sprintf("The device of the %s app shows no notification %q", app, text), text,
@@ -239,4 +242,13 @@ func notificationSteps() []core.StepDef {
 			})
 		},
 	}}
+}
+
+// lastLines are the last n lines of a log.
+func lastLines(log string, n int) string {
+	lines := strings.Split(strings.TrimRight(log, "\n"), "\n")
+	if len(lines) > n {
+		lines = lines[len(lines)-n:]
+	}
+	return strings.Join(lines, "\n")
 }

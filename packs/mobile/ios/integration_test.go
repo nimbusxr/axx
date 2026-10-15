@@ -164,13 +164,19 @@ func TestCouriersOnASimulator(t *testing.T) {
 	h.OK(`the courier app shows "Delivered"`)
 	// A runner reads SpringBoard's screen in seconds, not in a fraction of one.
 	h.OK(`within 30s the courier app shows a notification "PX-MOB-9401 delivered"`)
-	// A notification that never came: the failure shows what the simulator logged of the app's
-	// notifications, the app posting the one that did come among them.
+	// A notification that never came: the failure attaches what the simulator logged of the app's
+	// notifications, the app posting the one that did come among them, and what the system did
+	// with it (iOS 27's SpringBoard saves it to Notification Center); the step's log has its end.
 	_ = h.Fails(`within 1s the courier app shows a notification "PX-MOB-0000 delivered"`, `shows no notification "PX-MOB-0000 delivered"`)
-	if !slices.ContainsFunc(h.Sink.Logs, func(l string) bool {
-		return strings.Contains(l, "logged of its notifications") && strings.Contains(l, "notified PX-MOB-9401 delivered")
-	}) {
-		t.Errorf("the failure shows nothing the app logged of its notifications: %q", h.Sink.Logs)
+	if !slices.ContainsFunc(h.Sink.Logs, func(l string) bool { return strings.Contains(l, "logged of its notifications (the end of it)") }) {
+		t.Errorf("the failure's log has nothing the device logged of the app's notifications: %q", h.Sink.Logs)
+	}
+	i := slices.IndexFunc(h.Sink.Attachments, func(a cloudtest.Attachment) bool { return strings.Contains(a.Name, "logged of its notifications") })
+	if i < 0 {
+		t.Fatalf("the failure attaches no notifications log: %d attachments", len(h.Sink.Attachments))
+	}
+	if log := string(h.Sink.Attachments[i].Body); !strings.Contains(log, "notified PX-MOB-9401 delivered") || !strings.Contains(log, "Saving notification") {
+		t.Errorf("the notifications log has not the app posting the notification and the system saving it:\n%s", log)
 	}
 	h.OK(`the "Back to deliveries" button is tapped in the courier app`)
 	h.OK(`the courier app does not show "PX-MOB-9401"`)

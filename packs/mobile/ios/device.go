@@ -722,12 +722,31 @@ func (n notificationCenter) NotificationLog(ctx context.Context) string {
 	if d.appDir != "" {
 		app = fmt.Sprintf(`processImagePath CONTAINS %q AND (subsystem == %q OR subsystem BEGINSWITH "com.apple.BackgroundTasks" OR subsystem == "com.apple.UserNotifications")`, "/"+d.appDir+"/", d.bundleID)
 	}
-	predicate := fmt.Sprintf(`(%s) OR (process == "usernotificationsd" AND composedMessage CONTAINS %q)`, app, d.bundleID)
+	// What became of the app's notification requests is in the daemon that takes them and in
+	// SpringBoard, which runs them through its pipeline to Notification Center (iOS 27 runs it
+	// there): their UserNotifications lines that name the app.
+	predicate := fmt.Sprintf(`(%s) OR ((process == "usernotificationsd" OR process == "SpringBoard") AND `+
+		`(subsystem BEGINSWITH "com.apple.UserNotifications" OR subsystem BEGINSWITH "com.apple.usernotificationsd") AND composedMessage CONTAINS %q)`, app, d.bundleID)
 	out, err := d.dev.set.simctl(ctx, "spawn", d.dev.udid, "log", "show", "--start", d.resetAt.Format("2006-01-02 15:04:05"), "--style", "compact", "--predicate", predicate)
 	if err != nil {
 		return ""
 	}
-	return lastLines(out, 40, 300)
+	return lastLines(out, 400, 300)
+}
+
+// AppLog is what the simulator logged of the app since the scenario reset it: its own process's
+// lines, and the system's UserNotifications and BackgroundTasks lines that name it.
+func (d *running) AppLog(ctx context.Context) string {
+	if d.dev == nil || d.resetAt.IsZero() || d.appDir == "" {
+		return ""
+	}
+	predicate := fmt.Sprintf(`processImagePath CONTAINS %q OR ((process == "usernotificationsd" OR process == "SpringBoard" OR process == "dasd") AND composedMessage CONTAINS %q)`,
+		"/"+d.appDir+"/", d.bundleID)
+	out, err := d.dev.set.simctl(ctx, "spawn", d.dev.udid, "log", "show", "--start", d.resetAt.Format("2006-01-02 15:04:05"), "--style", "compact", "--predicate", predicate)
+	if err != nil {
+		return ""
+	}
+	return lastLines(out, 3000, 500)
 }
 
 // lastLines are a log's last lines (its header and blank lines left out), each cut to width.

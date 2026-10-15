@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"net/http"
 	"path/filepath"
+	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -108,6 +110,7 @@ func (d *running) startOnAppium(ctx context.Context) (mobilecore.Device, error) 
 // any version it has), stopped, its data cleared (and with it the
 // permissions it was granted), and in the registration's language.
 func (d *running) resetApp(ctx context.Context) error {
+	d.resetAt = time.Now()
 	a, serial := d.app, d.dev.serial
 	d.pkg = a.pkg
 	if d.pkg == "" {
@@ -207,6 +210,8 @@ type running struct {
 	stopFeed func()
 	// route is the route the phone travels, which the location fixes follow.
 	route travelling
+	// resetAt is when the scenario reset the app: its log starts there.
+	resetAt time.Time
 }
 
 func (d *running) Session() *appium.Session { return d.session }
@@ -1023,4 +1028,50 @@ func (d *running) releaseDevice() {
 		d.pool.release(d.dev)
 		d.dev = nil
 	}
+}
+
+// locationTags are the system's log tags of where the phone is: the location service, and the
+// GNSS behind it, which an app's location fixes come through.
+var locationTags = []string{"LocationManagerService", "LocationManager", "GnssLocationProvider", "GnssManager", "GnssHal", "Gnss", "gnss", "FusedLocation", "LocationProvider"}
+
+var packageUID = regexp.MustCompile(`uid:(\d+)`)
+
+// AppLog is what the device logged of the app since the scenario reset it: the app's own lines
+// (its user id's), then the system's lines that name it or are of where the phone is.
+func (d *running) AppLog(ctx context.Context) string {
+	if d.resetAt.IsZero() || d.pkg == "" {
+		return ""
+	}
+	since := strconv.FormatInt(d.resetAt.Unix(), 10) + ".000"
+	var b strings.Builder
+	if out, err := d.sdk.shell(ctx, d.dev.serial, "pm", "list", "packages", "-U", d.pkg); err == nil {
+		for _, l := range strings.Split(out, "\n") {
+			if m := packageUID.FindStringSubmatch(l); m != nil && strings.HasPrefix(strings.TrimSpace(l), "package:"+d.pkg+" ") {
+				if app, err := d.sdk.run(ctx, d.dev.serial, "logcat", "-d", "-v", "threadtime", "-T", since, "--uid="+m[1]); err == nil {
+					fmt.Fprintf(&b, "--- the %s app's own log (%s, uid %s):\n%s\n", d.app.name, d.pkg, m[1], tail(app, 1500))
+				}
+				break
+			}
+		}
+	}
+	sys, err := d.sdk.run(ctx, d.dev.serial, "logcat", "-d", "-v", "threadtime", "-b", "main,system,crash", "-T", since)
+	if err == nil {
+		var kept []string
+		for _, l := range strings.Split(sys, "\n") {
+			if strings.Contains(l, d.pkg) || slices.ContainsFunc(locationTags, func(t string) bool { return strings.Contains(l, " "+t) }) {
+				kept = append(kept, l)
+			}
+		}
+		fmt.Fprintf(&b, "--- the system's log of it, and of where the phone is:\n%s\n", tail(strings.Join(kept, "\n"), 1500))
+	}
+	return b.String()
+}
+
+// tail is a log's last n lines.
+func tail(log string, n int) string {
+	lines := strings.Split(strings.TrimRight(log, "\n"), "\n")
+	if len(lines) > n {
+		lines = lines[len(lines)-n:]
+	}
+	return strings.Join(lines, "\n")
 }
