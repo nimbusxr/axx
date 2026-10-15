@@ -26,3 +26,14 @@ void axxar_log(NSString *_Nonnull line);
 // From ar.swift: shows the picture behind a RealityKit ARView, since the simulator's RealityKit
 // draws no camera picture.
 void axxar_show_picture(UIView *_Nonnull arView);
+
+// For camera.m, from ar.m: whether the camera sees a scene; how many times the phone has moved
+// in it; and the scene from the phone's pose, as a camera of that size and focal length (in
+// pixels) sees it: BGRA, the sensor's way up (landscape right), retained.
+BOOL axxar_has_scene(void);
+unsigned long axxar_pose_generation(void);
+CVPixelBufferRef _Nullable axxar_render_camera(float width, float height, float focal);
+
+// From camera.m: plays the camera the simulator has not got, from what the description says it
+// sees (a scene, an image or a video).
+void axxcam_start(NSDictionary *_Nonnull description);
