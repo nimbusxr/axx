@@ -42,7 +42,7 @@ dependencies {
     // The MCP mock validates tool arguments and stubbed results against the tools' JSON Schemas
     // (2020-12). The OpenAPI validator already brings this validator: it is named here because
     // the MCP mock uses it directly.
-    implementation("com.networknt:json-schema-validator:2.0.1")
+    implementation("com.networknt:json-schema-validator:2.0.8")
 
     testImplementation("org.wiremock:wiremock-standalone:$wiremockVersion")
     // The official MCP and A2A Java SDKs read the MCP and A2A mocks' answers in the tests.
