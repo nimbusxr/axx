@@ -12,12 +12,12 @@ import (
 	"github.com/nimbusxr/axx/packs/mobile/internal/scene"
 )
 
-// SceneCamera is a platform whose apps' camera can see a 3D scene, which the platform plays in
-// place of the camera and the AR a device has not got (an iOS simulator's ARKit).
-type SceneCamera interface {
-	// SetScene makes the app's camera see the scene file at path from the app's next start, and
-	// tells what is wrong with the file.
-	SetScene(sc *core.Scenario, path string) error
+// Camera is a platform that plays its apps' camera, which a device has not got (an iOS
+// simulator's), and the AR it has not got either: the camera sees a 3D scene, an image or a video.
+type Camera interface {
+	// See makes the app's camera see the file at path from the app's next start, and tells what
+	// is wrong with the file.
+	See(sc *core.Scenario, path string) error
 	// ScenePhone is the phone in the scene the app's camera sees; nil when it sees none.
 	ScenePhone() ScenePhone
 }
@@ -45,10 +45,12 @@ func cameraSteps() []core.StepDef {
 	return []core.StepDef{{
 		ID: "mobile-core.camera-sees", Keyword: "Given", Since: since,
 		Expr: "the {word} app's camera sees {filepath}",
-		Doc: "The app's camera sees a 3D scene, a glTF file (.glb or .gltf): axx plays the camera, and the AR the device " +
-			"has not got (an iOS simulator's ARKit), from the scene. The scene's camera is where the phone is, and the app's AR " +
-			"finds the scene's surfaces and objects where they are. A running app starts again, to see it.",
-		Examples: []string{"Given the courier app's camera sees scenes/parcel-on-porch.glb"},
+		Doc: "The app's camera sees a 3D scene, a glTF file (.glb or .gltf), or an image (PNG, JPEG or HEIC) or a video " +
+			"(MP4 or MOV), as the phone held upright sees it: axx plays the camera the device has not got (an iOS simulator's), " +
+			"and, from a scene, the AR it has not got either. A scene's camera is where the phone is, which the phone's steps " +
+			"move; the app's AR finds the scene's surfaces and objects where they are. A video plays in a loop. A running app " +
+			"starts again, to see it.",
+		Examples: []string{"Given the courier app's camera sees scenes/parcel-on-porch.glb", "Given the courier app's camera sees labels/label-PX-IOS-9621.png"},
 		Run: func(sc *core.Scenario, a core.Args) error {
 			name := a.String(0)
 			path, err := sc.ResolvePath(a.String(1))
@@ -59,11 +61,11 @@ func cameraSteps() []core.StepDef {
 			if err != nil {
 				return err
 			}
-			cam, ok := app.Platform.(SceneCamera)
+			cam, ok := app.Platform.(Camera)
 			if !ok {
-				return fmt.Errorf("the %s app's camera cannot see a scene on %s: scenes play on iOS simulators", name, app.Platform.Kind())
+				return fmt.Errorf("the %s app's camera cannot be played on %s: what a camera sees plays on iOS simulators", name, app.Platform.Kind())
 			}
-			if err := cam.SetScene(sc, path); err != nil {
+			if err := cam.See(sc, path); err != nil {
 				return err
 			}
 			r := scenarioRunning.Of(sc)
@@ -218,7 +220,7 @@ func scenePhone(sc *core.Scenario, name string) (ScenePhone, error) {
 	if err != nil {
 		return nil, err
 	}
-	cam, ok := app.Platform.(SceneCamera)
+	cam, ok := app.Platform.(Camera)
 	if !ok {
 		return nil, fmt.Errorf("the %s app's phone cannot move through a scene on %s: scenes play on iOS simulators", name, app.Platform.Kind())
 	}

@@ -224,19 +224,34 @@ final class CourierModel {
                 return
             }
             let type = UTType(filenameExtension: file.pathExtension)?.preferredMIMEType ?? "application/octet-stream"
-            do {
-                try await api.attachDocument(s, reference: reference, name: name, contentType: type, content: content)
-                if path == [reference] { attached.append(name) }
-            } catch let e as APIError {
-                switch e.status {
-                case 401: expired()
-                case 404: deliveryError = Self.notWithYou(reference)
-                case 413: deliveryError = "\(name) is too large to attach."
-                default: deliveryError = Self.unexpected(e)
-                }
-            } catch {
-                deliveryError = Self.unreachable
+            await attach(s, reference, name: name, contentType: type, content: content)
+        }
+    }
+
+    /// Attaches the photo the courier took of the parcel where they left it, as a JPEG.
+    func attachPhoto(_ reference: String, jpeg: Data) {
+        guard let s = session, !attaching else { return }
+        attaching = true
+        deliveryError = nil
+        Task {
+            defer { attaching = false }
+            await attach(s, reference, name: "photo-at-the-door.jpg", contentType: "image/jpeg", content: jpeg)
+        }
+    }
+
+    private func attach(_ s: Session, _ reference: String, name: String, contentType: String, content: Data) async {
+        do {
+            try await api.attachDocument(s, reference: reference, name: name, contentType: contentType, content: content)
+            if path == [reference] { attached.append(name) }
+        } catch let e as APIError {
+            switch e.status {
+            case 401: expired()
+            case 404: deliveryError = Self.notWithYou(reference)
+            case 413: deliveryError = "\(name) is too large to attach."
+            default: deliveryError = Self.unexpected(e)
             }
+        } catch {
+            deliveryError = Self.unreachable
         }
     }
 

@@ -56,7 +56,7 @@ func TestLaneConesAreThreePointSixMetresApart(t *testing.T) {
 // The parcels example's parcel on a porch: a tap on a corner guard lands on the corner it guards,
 // 60 cm from the other, where the guards' middles are 62 cm apart.
 func TestTheParcelsCornersAreItsLengthApart(t *testing.T) {
-	s, err := Load(filepath.Join("..", "..", "..", "..", "examples", "parcels", "acceptance", "features", "courier-app-measure", "scenes", "parcel-on-porch.glb"))
+	s, err := Load(filepath.Join("..", "..", "..", "..", "examples", "parcels", "acceptance", "scenes", "parcel-on-porch.glb"))
 	if err != nil {
 		t.Fatal(err)
 	}
