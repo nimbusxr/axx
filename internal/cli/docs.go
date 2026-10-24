@@ -143,7 +143,7 @@ func referenceFiles(e *engine.Engine, frontmatter bool) (map[string]string, erro
 // site's sidebar has them: the core and the packs of no group, then the web
 // packs and each cloud's, each group with its own core first.
 func packGroups(manifests map[string]core.Manifest) []md.PackGroup {
-	groups := []md.PackGroup{{}, {Title: "Web"}, {Title: "AWS"}, {Title: "Google Cloud"}, {Title: "Azure"}}
+	groups := []md.PackGroup{{}, {Title: "Web"}, {Title: "Models"}, {Title: "AWS"}, {Title: "Google Cloud"}, {Title: "Azure"}}
 	if m, ok := manifests["core"]; ok {
 		groups[0].Packs = append(groups[0].Packs, md.PackSummary{Name: "core", Summary: strings.TrimSuffix(m.Doc, ".")})
 	}
@@ -155,12 +155,14 @@ func packGroups(manifests map[string]core.Manifest) []md.PackGroup {
 		switch {
 		case strings.HasPrefix(p.Name, "web-"):
 			g = 1
-		case strings.HasPrefix(p.Name, "aws-"):
+		case strings.HasPrefix(p.Name, "models-"):
 			g = 2
-		case strings.HasPrefix(p.Name, "gcp-"):
+		case strings.HasPrefix(p.Name, "aws-"):
 			g = 3
-		case strings.HasPrefix(p.Name, "azure-"):
+		case strings.HasPrefix(p.Name, "gcp-"):
 			g = 4
+		case strings.HasPrefix(p.Name, "azure-"):
+			g = 5
 		}
 		groups[g].Packs = append(groups[g].Packs, md.PackSummary{Name: p.Name, Summary: p.Summary})
 	}

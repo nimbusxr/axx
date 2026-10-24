@@ -359,7 +359,7 @@ func TestFindFiles(t *testing.T) {
 			}
 			fps = append(fps, fp)
 		}
-		files, err := findFiles(base, fps)
+		files, _, err := findFiles(base, fps)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -370,6 +370,112 @@ func TestFindFiles(t *testing.T) {
 		if strings.Join(got, ",") != strings.Join(tt.want, ",") {
 			t.Errorf("%v: got %v, want %v", tt.patterns, got, tt.want)
 		}
+	}
+}
+
+// A scenario whose data spans several files keeps them in a folder of its
+// own, which a folder pattern (one that ends in '/') makes count as one
+// file: its files may share values, and no other file or folder may.
+func TestFolderPatterns(t *testing.T) {
+	rule := func(validation string) string {
+		return `config:
+  baseDir: .
+  mode: error
+rules:
+  - name: Couriers in seeds
+    filePatterns:
+      - "features/*/seeds/*.yaml"
+      - "features/*/seeds/*/"
+    regex: 'courier: (\S+)'
+    validation: ` + validation + "\n"
+	}
+	tests := []struct {
+		name       string
+		files      map[string]string
+		validation string
+		want       []string
+	}{
+		{
+			name: "a scenario's folder shares its courier among its files",
+			files: map[string]string{
+				"features/app/seeds/refresh/at-sign-in.yaml":  "courier: CR-15\n",
+				"features/app/seeds/refresh/given-since.yaml": "courier: CR-15\n",
+				"features/app/seeds/today.yaml":               "courier: CR-12\n",
+			},
+			validation: CrossFileUnique,
+		},
+		{
+			name: "two files share a courier",
+			files: map[string]string{
+				"features/app/seeds/today.yaml": "courier: CR-12\n",
+				"features/app/seeds/note.yaml":  "courier: CR-12\n",
+			},
+			validation: CrossFileUnique,
+			want:       []string{"AXX-E0820 CR-12: features/app/seeds/note.yaml:1, features/app/seeds/today.yaml:1"},
+		},
+		{
+			name: "a file and a folder share a courier",
+			files: map[string]string{
+				"features/app/seeds/refresh/at-sign-in.yaml": "courier: CR-12\n",
+				"features/app/seeds/today.yaml":              "courier: CR-12\n",
+			},
+			validation: CrossFileUnique,
+			want:       []string{"AXX-E0820 CR-12: features/app/seeds/refresh/at-sign-in.yaml:1, features/app/seeds/today.yaml:1"},
+		},
+		{
+			name: "two folders share a courier",
+			files: map[string]string{
+				"features/app/seeds/refresh/at-sign-in.yaml": "courier: CR-15\n",
+				"features/ios/seeds/refresh/at-sign-in.yaml": "courier: CR-15\n",
+			},
+			validation: CrossFileUnique,
+			want:       []string{"AXX-E0820 CR-15: features/app/seeds/refresh/at-sign-in.yaml:1, features/ios/seeds/refresh/at-sign-in.yaml:1"},
+		},
+		{
+			name: "a folder's nested folders are the folder's",
+			files: map[string]string{
+				"features/app/seeds/refresh/at-sign-in.yaml":        "courier: CR-15\n",
+				"features/app/seeds/refresh/later/given-since.yaml": "courier: CR-15\n",
+			},
+			validation: CrossFileUnique,
+		},
+		{
+			name: "file-unique counts a folder as one file",
+			files: map[string]string{
+				"features/app/seeds/refresh/at-sign-in.yaml":  "courier: CR-15\n",
+				"features/app/seeds/refresh/given-since.yaml": "courier: CR-15\n",
+			},
+			validation: FileUnique,
+			want:       []string{"AXX-E0820 CR-15: features/app/seeds/refresh/at-sign-in.yaml:1, features/app/seeds/refresh/given-since.yaml:1"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := newProject(t)
+			for name, content := range tt.files {
+				p.write(name, content)
+			}
+			rep := p.run(rule(tt.validation))
+			if got := locations(rep); strings.Join(got, "\n") != strings.Join(tt.want, "\n") {
+				t.Errorf("findings:\n%s\nwant:\n%s", strings.Join(got, "\n"), strings.Join(tt.want, "\n"))
+			}
+			if rep.OK() != (len(tt.want) == 0) {
+				t.Errorf("ok = %v", rep.OK())
+			}
+		})
+	}
+	// The message says a folder counted as one.
+	p := newProject(t)
+	p.write("features/app/seeds/refresh/at-sign-in.yaml", "courier: CR-12\n").write("features/app/seeds/today.yaml", "courier: CR-12\n")
+	rep := p.run(rule(CrossFileUnique))
+	var msgs []string
+	for _, r := range rep.Rules {
+		for _, f := range r.Findings {
+			msgs = append(msgs, f.Message)
+		}
+	}
+	if want := `value "CR-12" appears in 2 files (cross-file-unique; a folder's files count as one)`; strings.Join(msgs, "\n") != want {
+		t.Errorf("messages %q, want %q", msgs, want)
 	}
 }
 

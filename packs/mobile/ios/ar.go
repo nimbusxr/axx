@@ -37,7 +37,7 @@ var arFrameworks = []string{"ARKit", "RealityKit", "SceneKit", "UIKit", "Metal",
 // axx's cache: for each version of its sources and of the simulators' SDK.
 func arLibrary(ctx context.Context, s *core.Suite) (string, error) {
 	return core.Cached(s, Name+"/ar", func() (string, error) {
-		arch := simulatorArch(ctx)
+		arch := SimulatorArch(ctx)
 		sdk, err := exec.CommandContext(ctx, "xcrun", "--sdk", "iphonesimulator", "--show-sdk-version").Output()
 		if err != nil {
 			return "", fmt.Errorf("an app's camera sees a scene in an iOS simulator, which needs Xcode: %w", err)
@@ -231,10 +231,8 @@ func (c *arCamera) Move(ctx context.Context, pose scene.Mat4) error {
 	return nil
 }
 
-// env is what the app is started with for the library to play the scene. A simulator axx boots
-// starts every process with its SpringBoard library (springboard.go), a value of
-// DYLD_INSERT_LIBRARIES an app's own does not replace: there the SpringBoard library loads the
-// library the app's AXX_AR_LIBRARY names.
+// env is what the app is started with for the library to play the scene. The
+// launch composes its libraries with simulator support and other packs' libraries.
 func (c *arCamera) env() map[string]string {
 	return map[string]string{
 		"DYLD_INSERT_LIBRARIES": c.lib,

@@ -29,7 +29,7 @@ data class Session(val token: String, val courier: String, val name: String)
 data class Recipient(val name: String, val street: String, val city: String, val postcode: String, val country: String)
 
 /** A parcel out for delivery with the courier. */
-data class Delivery(val reference: String, val serviceLevel: String, val recipient: Recipient) {
+data class Delivery(val reference: String, val serviceLevel: String, val recipient: Recipient, val note: String = "", val courierNote: String = "") {
     val address: String get() = "${recipient.street}, ${recipient.postcode} ${recipient.city}"
 }
 
@@ -61,6 +61,8 @@ class CourierApi(private val baseUrl: String) {
                     postcode = r.optString("postcode"),
                     country = r.optString("country"),
                 ),
+                note = d.optString("note"),
+                courierNote = d.optString("courierNote"),
             )
         }
     }
@@ -68,6 +70,15 @@ class CourierApi(private val baseUrl: String) {
     suspend fun markDelivered(session: Session, reference: String, signedBy: String) {
         val body = JSONObject().put("signedBy", signedBy)
         call("POST", "/api/couriers/${enc(session.courier)}/deliveries/${enc(reference)}", session.token, body)
+    }
+
+    suspend fun saveNote(session: Session, reference: String, note: String) {
+        call("PUT", "/api/couriers/${enc(session.courier)}/deliveries/${enc(reference)}/note", session.token, JSONObject().put("note", note))
+    }
+
+    /** A delivery attempt, no one home: what the phone heard at the door (doorbell or knock). */
+    suspend fun recordAttempt(session: Session, reference: String, heard: String) {
+        call("PUT", "/api/couriers/${enc(session.courier)}/deliveries/${enc(reference)}/attempt", session.token, JSONObject().put("heard", heard))
     }
 
     /** Where the van is, its speed in metres a second and its course in degrees, when the GPS knows them. */

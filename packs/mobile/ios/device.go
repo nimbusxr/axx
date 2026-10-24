@@ -37,7 +37,7 @@ func (r runner) RunsHere() bool { return r.app.server != "" || runtime.GOOS == "
 func (r runner) Start(sc *core.Scenario) (mobilecore.Device, error) {
 	a := r.app
 	ctx := sc.Context()
-	d := &running{app: a, bundleID: a.bundleID}
+	d := &running{app: a, bundleID: a.bundleID, scenario: sc}
 	client := &appium.Client{URL: a.server}
 	caps := wdaSession
 	if a.server == "" {
@@ -181,6 +181,7 @@ func (a *app) capabilities(bundleID string) map[string]any {
 
 // running is an app running on a simulator for a scenario.
 type running struct {
+	scenario *core.Scenario
 	app      *app
 	pool     *pool
 	dev      *device
@@ -190,8 +191,9 @@ type running struct {
 	resets   []string
 	// resetAt is when the scenario reset the simulator, and appDir the app's bundle (Courier.app):
 	// what the simulator logged of the app since, a failure shows.
-	resetAt time.Time
-	appDir  string
+	resetAt    time.Time
+	appDir     string
+	bundlePath string // resolved test build, including its build configuration directory
 	// stopTravel ends the route the phone is on (Travel), and waits for it to stop.
 	stopTravel func()
 }
@@ -268,6 +270,7 @@ func (d *running) reset(ctx context.Context, s *core.Suite) error {
 			return fmt.Errorf("the %s app: %w", d.app.name, err)
 		}
 		d.appDir = filepath.Base(path)
+		d.bundlePath = path
 		if d.bundleID == "" {
 			if d.bundleID, err = bundleIDOf(ctx, path); err != nil {
 				return fmt.Errorf("the %s app: %w", d.app.name, err)
@@ -434,6 +437,21 @@ func (d *running) start(ctx context.Context) error {
 		for k, v := range d.app.camera.env() {
 			env[k] = v
 		}
+	}
+	version := ""
+	if d.dev != nil {
+		version = d.dev.version
+		if _, lib := springboardReport(d.dev.udid); lib != "" {
+			// An app's explicit library list replaces launchd's default. Keep
+			// simulator support alongside the app's own test libraries.
+			(&Launch{Environment: env}).InsertLibrary(lib)
+		}
+	}
+	if err := prepareLaunch(d.scenario, &Launch{
+		App: d.app.name, BundleID: d.bundleID, BundlePath: d.bundlePath, SourcePath: d.app.path, Version: version,
+		Simulator: d.dev != nil, Environment: env, Files: d.Files,
+	}); err != nil {
+		return err
 	}
 	args := map[string]any{
 		"bundleId":    d.bundleID,

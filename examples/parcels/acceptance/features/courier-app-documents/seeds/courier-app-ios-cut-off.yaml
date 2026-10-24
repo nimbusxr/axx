@@ -1,0 +1,8 @@
+parcels.parcels:
+  - reference: "PX-IOS-9598"
+    sender: "maple-crafts"
+    status: "OUT_FOR_DELIVERY"
+    service_level: "STANDARD"
+    weight_grams: 3400
+    recipient: '{"name": "Clara Neumann", "street": "Karl-Heine-Str. 44", "city": "Leipzig", "postcode": "04229", "country": "DE"}'
+    details: '{"source": "api", "zone": "DE-1", "courier": "CR-LEJ-78"}'

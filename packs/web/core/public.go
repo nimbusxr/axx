@@ -2,13 +2,60 @@ package webcore
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"slices"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/mxschmitt/playwright-go"
 
 	"github.com/nimbusxr/axx/core"
 )
+
+// Apps names the scenario's registered web apps, in registration order.
+func Apps(sc *core.Scenario) []string { return apps.Of(sc).Names() }
+
+type appFiles struct {
+	mu    sync.Mutex
+	roots map[string]string
+}
+
+var fileRoots = core.NewStateKey(Name+"/files", func(*core.Scenario) *appFiles { return &appFiles{roots: map[string]string{}} }, func(_ *core.Scenario, f *appFiles) error {
+	for _, dir := range f.roots {
+		if err := os.RemoveAll(dir); err != nil {
+			return err
+		}
+	}
+	return nil
+})
+
+// Files is an app's scenario-local file context, for packs that supply data to
+// browser APIs. It is available before a browser is started.
+func Files(sc *core.Scenario, name, rel string) (core.Files, error) {
+	if _, err := apps.Of(sc).Get(name); err != nil {
+		return nil, err
+	}
+	rel = strings.TrimPrefix(rel, "~/")
+	clean := filepath.Clean(filepath.FromSlash(rel))
+	if filepath.IsAbs(clean) || clean == ".." || strings.HasPrefix(clean, ".."+string(filepath.Separator)) {
+		return nil, fmt.Errorf("%s is outside the %s web app's files", rel, name)
+	}
+	f := fileRoots.Of(sc)
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	root := f.roots[name]
+	if root == "" {
+		var err error
+		root, err = os.MkdirTemp("", "axx-web-app-")
+		if err != nil {
+			return nil, err
+		}
+		f.roots[name] = root
+	}
+	return core.LocalFiles(filepath.Join(root, clean)), nil
+}
 
 // The web-core pack's public context, for the packs that build on it
 // (web-screenshots and the like): the page a scenario is on, found the way

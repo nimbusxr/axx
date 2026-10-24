@@ -1,0 +1,11 @@
+{
+  "format": {
+    "type": "platform",
+    "details": {
+      "api": "web.language-model"
+    }
+  },
+  "task": "text-generation",
+  "inputs": [],
+  "outputs": []
+}

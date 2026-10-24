@@ -6,9 +6,11 @@ lefthook = "2.1.17"
 node = "22"          # docs site only
 java = "temurin-21"  # WireMock extension and IntelliJ plugin only
 "aqua:gitleaks/gitleaks" = "latest"
+"aqua:git-lfs/git-lfs" = "3"  # the examples' model files (examples/.gitattributes)
 "aqua:sharkdp/hyperfine" = "latest"  # bench/
 "aqua:rhysd/actionlint" = "latest"
 "aqua:gotestyourself/gotestsum" = "latest"  # scripts/gotest.sh, in CI
+uv = "0.9"  # the models-core pack's integration tests (Python runtimes), and the parcel-support example
 
 [tasks.test]
 run = "go test -race ./..."

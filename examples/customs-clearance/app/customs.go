@@ -47,7 +47,9 @@ type service struct {
 	log       *slog.Logger
 	deMinimis float64 // parcels worth up to this are cleared without duties
 	dutyRate  float64
-	now       func() time.Time
+	// contents checks inspected parcels' contents; nil checks none.
+	contents contentsChecker
+	now      func() time.Time
 }
 
 // clear decides a declaration from its commercial invoice: parcels worth
@@ -143,18 +145,32 @@ func certificateText(f Filing, inv Invoice, deMinimis float64, at time.Time) []b
 }
 
 // arrived releases a parcel that reaches the border cleared, and holds one
-// that is not.
-func (s *service) arrived(ctx context.Context, declaration, parcel string) error {
+// that is not, or whose inspection found contents its invoice does not
+// declare (inspection.go).
+func (s *service) arrived(ctx context.Context, declaration, parcel, inspection string) error {
 	_, cleared, err := s.download(ctx, s.names.Clearances, declaration+".json")
 	if err != nil {
 		return err
 	}
-	event := "HeldAtBorder"
+	event, reason := "HeldAtBorder", "NOT_CLEARED"
 	if cleared {
-		event = "ReleasedForDelivery"
+		event, reason = "ReleasedForDelivery", ""
+		if inspection != "" && s.contents != nil {
+			why, err := s.inspect(ctx, declaration, inspection)
+			if err != nil {
+				return err
+			}
+			if why != "" {
+				event, reason = "HeldAtBorder", why
+			}
+		}
 	}
-	s.log.Info("parcel at the border", "declaration", declaration, "event", event)
-	return s.announce(ctx, event, map[string]any{"declaration": declaration, "parcel": parcel})
+	s.log.Info("parcel at the border", "declaration", declaration, "event", event, "reason", reason)
+	body := map[string]any{"declaration": declaration, "parcel": parcel}
+	if reason != "" {
+		body["reason"] = reason
+	}
+	return s.announce(ctx, event, body)
 }
 
 // ---- Blob Storage ----
@@ -255,10 +271,10 @@ func (s *service) filed(ctx context.Context, m *azservicebus.ReceivedMessage) er
 }
 
 func (s *service) borderEvent(ctx context.Context, m *azservicebus.ReceivedMessage) error {
-	var e struct{ Declaration, Parcel string }
+	var e struct{ Declaration, Parcel, Inspection string }
 	if !decode(m, &e) || e.Declaration == "" {
 		s.log.Warn("border event ignored: no declaration")
 		return nil
 	}
-	return s.arrived(ctx, e.Declaration, e.Parcel)
+	return s.arrived(ctx, e.Declaration, e.Parcel, e.Inspection)
 }

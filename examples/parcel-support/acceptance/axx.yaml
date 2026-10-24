@@ -1,0 +1,87 @@
+# yaml-language-server: $schema=https://axx.nimbusxr.us/schemas/v0/axx.schema.json
+#
+# The acceptance suite of the parcel-support example. From this directory:
+#   axx run      # build the models' stubs, start PostgreSQL and the service, run every feature, clean up
+version: 1
+
+run:
+  paths: [features]
+
+# Paths in steps (recordings/msg-anna.wav) resolve against this directory.
+resources: ["."]
+
+# ${sys:local.host} in the feature files; override with -D local.host=<name>.
+properties:
+  local.host: localhost
+
+services:
+  support:
+    # ../infra/compose.yaml starts PostgreSQL and the service, with the stubs of its models
+    # (models/) in place of the models. The stubs are the real models' size (their
+    # vocabularies' embeddings are most of them), so they are built here, as the example
+    # starts, not kept with it.
+    # The transcriber's stub is the one of its engine's format: Parakeet's (parakeet.cpp's)
+    # is small, and kept with the example, as the photo check's, the voice's and the label
+    # reader's are (infra/models).
+    dir: ../infra
+    shell: true
+    command: |
+      engine=${SUPPORT_TRANSCRIBER:-faster-whisper}
+      drafter=${SUPPORT_DRAFTER:-transformers}
+      help=${SUPPORT_HELP_CENTRE:-sentence-transformers}
+      case $help in
+        sentence-transformers) embeddings=model.safetensors ;;
+        llama.cpp) embeddings=help-centre.gguf ;;
+      esac
+      case $engine in
+        faster-whisper) transcriber=model.bin ;;
+        openai-whisper) transcriber=base.en.pt ;;
+        transformers) transcriber=model.safetensors ;;
+        parakeet.cpp) transcriber= ;;
+      esac
+      build() { axx --config ../acceptance/axx.yaml models build "../acceptance/models/$1" -o "models/$1/$2"; }
+      { [ -z "$transcriber" ] || build "transcriber/$engine" "$transcriber"; } &&
+        build "help-centre/$help" "$embeddings" &&
+        { [ "$drafter" != transformers ] || build drafter/transformers model.safetensors; } &&
+        build reranker reranker.gguf &&
+        exec docker compose up --build
+    ready:
+      http:
+        url: http://localhost:8800/health
+      # The first run builds the service's image (PyTorch's among its dependencies).
+      timeout: 15m
+      interval: 1s
+    stop:
+      grace: 10s
+    cleanup: docker compose down -v --remove-orphans
+
+# The transcriber or the photo check on another of its engines, with a stub of the model of
+# its format:
+#   axx run --profile openai-whisper
+#   axx run --profile transformers
+#   axx run --profile parakeet.cpp
+#   axx run --profile ncnn
+#   axx run --profile mnn
+#   axx run --profile executorch
+#   axx run --profile onnxruntime-genai
+#   axx run --profile llama.cpp
+#   axx run --profile keras
+profiles:
+  openai-whisper:
+    services: {support: {env: {SUPPORT_TRANSCRIBER: openai-whisper}}}
+  transformers:
+    services: {support: {env: {SUPPORT_TRANSCRIBER: transformers}}}
+  parakeet.cpp:
+    services: {support: {env: {SUPPORT_TRANSCRIBER: parakeet.cpp}}}
+  ncnn:
+    services: {support: {env: {SUPPORT_PHOTO_CHECK: ncnn}}}
+  mnn:
+    services: {support: {env: {SUPPORT_PHOTO_CHECK: mnn}}}
+  executorch:
+    services: {support: {env: {SUPPORT_PHOTO_CHECK: executorch}}}
+  onnxruntime-genai:
+    services: {support: {env: {SUPPORT_DRAFTER: onnxruntime-genai}}}
+  llama.cpp:
+    services: {support: {env: {SUPPORT_HELP_CENTRE: llama.cpp}}}
+  keras:
+    services: {support: {env: {SUPPORT_PHOTO_CHECK: keras}}}

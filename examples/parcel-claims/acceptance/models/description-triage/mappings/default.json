@@ -1,0 +1,5 @@
+{
+  "name": "Any other description: damage the shop reports",
+  "default": true,
+  "output": {"json": {"transitDamage": true, "summary": "The shop reports damage."}}
+}

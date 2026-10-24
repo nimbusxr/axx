@@ -1,0 +1,5 @@
+{
+  "name": "Any other reason: the recipient chooses it",
+  "default": true,
+  "output": {"text": "Other"}
+}

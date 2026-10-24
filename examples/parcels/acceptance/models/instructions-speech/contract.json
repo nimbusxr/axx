@@ -1,0 +1,25 @@
+{
+  "format": {
+    "type": "platform",
+    "details": {
+      "api": "web.speech"
+    }
+  },
+  "task": "speech-to-text",
+  "inputs": [
+    {
+      "name": "features",
+      "type": "float32",
+      "shape": [
+        1,
+        80,
+        3000
+      ],
+      "audio": {
+        "sampleRate": 16000,
+        "features": "log-mel"
+      }
+    }
+  ],
+  "outputs": []
+}

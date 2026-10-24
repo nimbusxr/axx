@@ -8,3 +8,4 @@ packs:
   - aws-sns
   - aws-eventbridge
   - aws-dynamodb
+  - models-core

@@ -6,3 +6,4 @@ packs:
   - gcp-pubsub
   - gcp-bigquery
   - gcp-firestore
+  - models-core

@@ -39,6 +39,10 @@ import (
 	mobilecore "github.com/nimbusxr/axx/packs/mobile/core"
 	mobileios "github.com/nimbusxr/axx/packs/mobile/ios"
 	"github.com/nimbusxr/axx/packs/mock"
+	modelsandroid "github.com/nimbusxr/axx/packs/models/android"
+	modelscore "github.com/nimbusxr/axx/packs/models/core"
+	modelsios "github.com/nimbusxr/axx/packs/models/ios"
+	modelsweb "github.com/nimbusxr/axx/packs/models/web"
 	"github.com/nimbusxr/axx/packs/mongo"
 	"github.com/nimbusxr/axx/packs/mqtt"
 	"github.com/nimbusxr/axx/packs/nats"
@@ -93,6 +97,10 @@ func Packs() map[string]core.Pack {
 		"desktop-macos":    desktopmacos.Pack(),
 		"desktop-windows":  desktopwindows.Pack(),
 		"desktop-linux":    desktoplinux.Pack(),
+		"models-core":      modelscore.Pack(),
+		"models-ios":       modelsios.Pack(),
+		"models-android":   modelsandroid.Pack(),
+		"models-web":       modelsweb.Pack(),
 		"aws-core":         awscore.Pack(),
 		"aws-s3":           awss3.Pack(),
 		"aws-sqs":          awssqs.Pack(),

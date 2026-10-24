@@ -1,0 +1,3 @@
+# The voice notes' stub is the real model's size (141 MB): the example builds it as it starts
+# (../../acceptance/axx.yaml), from ../../acceptance/models/voice-notes.
+voice-notes.bin

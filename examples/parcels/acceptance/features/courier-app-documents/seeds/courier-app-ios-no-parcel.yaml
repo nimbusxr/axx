@@ -1,0 +1,8 @@
+parcels.parcels:
+  - reference: "PX-IOS-9593"
+    sender: "maple-crafts"
+    status: "OUT_FOR_DELIVERY"
+    service_level: "STANDARD"
+    weight_grams: 1200
+    recipient: '{"name": "Felix Vogel", "street": "Arndtstr. 41", "city": "Leipzig", "postcode": "04275", "country": "DE"}'
+    details: '{"source": "api", "zone": "DE-1", "courier": "CR-LEJ-75"}'

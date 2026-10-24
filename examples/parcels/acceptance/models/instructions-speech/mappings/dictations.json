@@ -1,0 +1,9 @@
+{
+  "mappings": [
+    {
+      "name": "Behind the green gate",
+      "input": {"audio": "../../../features/portal-tracking/recordings/behind-the-gate.wav"},
+      "output": {"text": "Behind the green gate, please."}
+    }
+  ]
+}

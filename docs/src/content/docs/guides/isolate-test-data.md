@@ -45,6 +45,47 @@ lint:
   include: [axx-lint.generated.yaml]   # written by `axx fixtures generate`
 ```
 
+## One scenario, several files
+
+A `cross-file-unique` rule compares file with file: a value two files share is a collision. That holds while each scenario's data is in a file of its own. Some scenarios need more than one file. The couriers' app's list refresh signs a courier in with one parcel, then gives the same courier a second parcel while the scenario runs, from a second seed file. Both files name the courier, and one scenario owns it.
+
+Such a scenario keeps its files in a folder of its own, named after it, and the rule names that folder with a pattern that ends in `/`. All the files below a folder that pattern matches count as one file: they may share values with each other, and with nothing else.
+
+```
+features/courier-app/seeds/
+  courier-app-today.yaml        one scenario's seed: one file
+  courier-app-refresh/          one scenario's seeds: one folder, counted as one file
+    at-sign-in.yaml
+    given-since.yaml
+```
+
+```yaml title="axx.yaml"
+lint:
+  rules:
+    - name: Couriers in seeds
+      filePatterns:
+        - "features/*/seeds/*.yaml"   # each scenario's file
+        - "features/*/seeds/*/"       # each scenario's folder, as one file
+      regex: '"courier": "([^"]+)"'
+      description: Every courier's parcels are one scenario's
+      validation: cross-file-unique
+```
+
+```gherkin
+Scenario: A courier pulls the list down for a parcel given to them since
+  Given a seeds/courier-app-refresh/at-sign-in.yaml db seed
+  # ...
+  When a seeds/courier-app-refresh/given-since.yaml db seed
+```
+
+A courier in `courier-app-refresh/` and in `courier-app-today.yaml` is reported as two files sharing a value (`a folder's files count as one`), and so is a courier two folders share.
+
+- **One folder, one scenario.** A folder says its files are one scenario's, and the rule takes its word: two scenarios' files in one folder may share values unnoticed. A folder the pattern matches that is no scenario's, like one that keeps the fixtures a [factory](/guides/fixture-factories/) generates, goes in `excludePatterns` (`"features/manifest-import/seeds/manifests/**"`); its own rules check it.
+- **A folder pattern takes every file below the folder**, whatever its kind; `excludePatterns` remove the ones the rule should not read.
+- **Every rule over the seeds names the folders.** A rule without the folder pattern checks the folder's files one by one, or not at all when its file pattern does not reach them (`features/*/seeds/*.yaml` does not).
+- **A folder claims its files.** A file a file pattern matches too (`seeds/*.yaml` reaches into subfolders) still counts as its folder's; folders inside a matched folder are part of it.
+- `cross-file-unique` and `file-unique` count the folder as one file; `global-unique` counts every occurrence, as always. `excludePatterns` still remove files one by one.
+
 ## Run it
 
 ```sh

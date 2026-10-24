@@ -11,6 +11,8 @@ import (
 	"io"
 	"io/fs"
 	"net/http"
+	"os"
+	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
@@ -66,6 +68,8 @@ var portalLayout = template.Must(template.New("layout").Funcs(template.FuncMap{
     .slots { display: flex; gap: 16px; }
     .slot { min-width: 160px; min-height: 60px; border: 1px dashed #8a94a6; padding: 8px; }
     .chip { display: inline-block; margin: 2px; padding: 2px 6px; border: 1px solid #8a94a6; cursor: grab; }
+    /* A cutout on a checkerboard, as image editors show what is transparent. */
+    #contents-cutout { background: repeating-conic-gradient(#d5dbe5 0% 25%, #fff 0% 50%) 0 0 / 16px 16px; }
     /* On paper, the page without the portal's menus and buttons. */
     @media print {
       header, [aria-haspopup=menu], [role=tablist], .screen-only { display: none; }
@@ -161,6 +165,7 @@ func init() {
   {{template "service" .}}
   <fieldset>
     <legend>Recipient</legend>
+    <p class="screen-only"><label for="pasted">The customer's address, as they wrote it</label> <textarea id="pasted" rows="2"></textarea> <button type="button" id="fill-address" hidden>Fill in the address</button> <span id="filling" role="status"></span></p>
     <p><label for="name">Recipient name</label> <input id="name" name="name" value="{{.Form.Name}}"></p>
     <p><label for="street">Street</label> <input id="street" name="street" value="{{.Form.Street}}"></p>
     <p><label for="postcode">Postcode</label> <input id="postcode" name="postcode" value="{{.Form.Postcode}}"></p>
@@ -171,7 +176,13 @@ func init() {
     <legend>Delivery</legend>
     <p><label><input type="checkbox" name="signature"{{if .Form.Signature}} checked{{end}}> Signature on delivery</label></p>
     <p><label><input type="checkbox" name="neighbour"{{if .Form.Neighbour}} checked{{end}}> Leave with a neighbour</label></p>
+    <p><label for="note">Delivery note</label> <textarea id="note" name="note" rows="2" maxlength="500">{{.Form.Note}}</textarea></p>
     <p><label for="invoice">Customs invoice</label> <input id="invoice" name="invoice" type="file" accept="application/pdf"></p>
+    <p><label for="contents">Contents</label> <textarea id="contents" name="contents" rows="2">{{.Form.Contents}}</textarea></p>
+    {{if .Customs}}<p><label for="contents-photo">Photo of the contents</label> <input id="contents-photo" type="file" accept="image/png, image/jpeg"> <span id="cutting" role="status"></span></p>
+    <p><img id="contents-cutout" alt="The contents, cut out" width="240" hidden><input id="contents-cutout-file" name="contents-photo" type="file" hidden></p>{{end}}
+    {{if .Customs}}<p><button type="button" id="describe">Describe for customs</button> <span id="describing" role="status"></span></p>{{end}}
+    <p><label for="customs">Customs description</label> <input id="customs" name="customs" value="{{.Form.Customs}}"></p>
   </fieldset>
   <button type="submit" id="register"{{if not .Form.Ready}} disabled{{end}}>Register the parcel</button>
 </form>
@@ -184,6 +195,9 @@ func init() {
   document.getElementById('sender').addEventListener('input', ready);
   document.getElementById('reference').addEventListener('input', ready);
 </script>
+{{if .Customs}}<script type="module" src="/portal/js/customs.js"></script>
+<script type="module" src="/portal/js/cutout.js"></script>{{end}}
+<script type="module" src="/portal/js/address.js"></script>
 {{end}}{{template "layout" .}}`)
 	page("parcel", `{{define "body"}}
 {{with .Parcel}}
@@ -213,8 +227,19 @@ func init() {
 {{end}}
 <p>Signature on delivery: {{yesno .Delivery.Signature}}</p>
 <p>Leave with a neighbour: {{yesno .Delivery.Neighbour}}</p>
+{{with .Delivery.Note}}<p>Delivery note: <span id="note">{{.}}</span></p>
+<p class="screen-only"><button type="button" id="summarize-note" hidden>Summarize the note</button> <span id="note-summary" role="status"></span></p>{{end}}
 {{with .Delivery.Invoice}}<p>Customs invoice: {{.}}</p>{{end}}
+{{with .Delivery.Photo}}<p>Photo of the contents: {{.}}</p>{{end}}
+{{with .Delivery.Customs}}<p>Customs description: {{.}}</p>{{end}}
 <iframe title="Label preview" src="/portal/parcels/{{.Parcel.Reference}}/label" width="420" height="140"></iframe>
+<section class="screen-only" id="writing" data-reference="{{.Parcel.Reference}}" data-recipient="{{.Parcel.Recipient.Name}}" data-sender="{{.Parcel.Sender}}">
+<h2>Writing to the recipient</h2>
+<p><label for="brief">What it should say</label> <input id="brief" size="50" placeholder="It arrives a day late"></p>
+<p><button type="button" id="draft" hidden>Draft the message</button> <button type="button" id="shorten" hidden>Make it shorter</button> <span id="drafting" role="status"></span></p>
+<p><label for="message">Message to the recipient</label><br><textarea id="message" rows="5" cols="60"></textarea></p>
+</section>
+<script type="module" src="/portal/js/writing.js"></script>
 </section>
 <section id="history" role="tabpanel" aria-labelledby="history-tab" hidden>
 <table>
@@ -272,8 +297,40 @@ func init() {
   <p>Your parcel from {{.Sender}} is {{.Status}}.</p>
   <p id="estimate" role="status">Working out when your parcel arrives</p>
   <p id="scan" role="status"></p>
+  {{if .Instructions}}<section>
+  <h2>Delivery instructions</h2>
+  <p>Tell your courier where to leave the parcel, in any language: they read it in English.</p>
+  <p><label for="instructions">Instructions for your courier</label><br><textarea id="instructions" rows="3" cols="60">{{.Note}}</textarea></p>
+  <p><button id="dictate" type="button">Dictate</button> <button id="check-spelling" type="button">Check spelling</button> <button id="save-instructions" type="button">Save instructions</button></p>
+  <p id="spelling" role="status"></p>
+  <p><button id="use-correction" type="button" hidden>Use the correction</button></p>
+  <p id="instructions-status" role="status"></p>
+  </section>{{end}}
+  {{if .Returns}}<section>
+  <h2>Send it back</h2>
+  <p>Tell us why, in your own words: we suggest the reason, and you can choose another.</p>
+  <p><label for="return-why">Why are you sending it back?</label><br><textarea id="return-why" rows="3" cols="60"></textarea></p>
+  <p><label for="return-reason">Reason</label> <select id="return-reason">
+    <option value="">Choose a reason</option>
+    <option value="DAMAGED">Damaged</option>
+    <option value="WRONG_ITEM">Wrong item</option>
+    <option value="NOT_AS_DESCRIBED">Not as described</option>
+    <option value="NOT_NEEDED">No longer needed</option>
+  </select></p>
+  <p><button id="send-back" type="button">Send it back</button></p>
+  <p id="return-status" role="status"></p>
+  </section>{{end}}
+  {{if .Damage}}<section>
+  <h2>Arrived damaged?</h2>
+  <p>Send us a photo of the parcel, and the shop that sent it files the claim.</p>
+  <p><label for="damage-photo">Photo of the parcel</label> <input id="damage-photo" type="file" accept="image/png, image/jpeg"></p>
+  <p id="damage-status" role="status"></p>
+  </section>{{end}}
   </main>
   <script src="/portal/js/tracking.js"></script>
+  {{if .Instructions}}<script type="module" src="/portal/js/instructions.js"></script>{{end}}
+  {{if .Damage}}<script type="module" src="/portal/js/damage.js"></script>{{end}}
+  {{if .Returns}}<script type="module" src="/portal/js/returns.js"></script>{{end}}
 </body>
 </html>`)
 	page("parcels", `{{define "body"}}
@@ -386,6 +443,7 @@ func init() {
 // portalForm holds what a shop typed, to show it again with an error.
 type portalForm struct {
 	Sender, Reference, Weight, Service, Name, Street, Postcode, City, Country string
+	Contents, Customs, Note                                                   string
 	Signature, Neighbour                                                      bool
 	Ready                                                                     bool
 }
@@ -397,12 +455,16 @@ type portalPage struct {
 	Pickups      []*Parcel // the shop's parcels still to be picked up
 	Settings     *shopSettings
 	Form         portalForm
-	Quote        *quote
-	Parcel       *Parcel
-	Parcels      []*Parcel
-	Delivery     struct {
-		Signature, Neighbour bool
-		Invoice              string
+	// Customs says the registration form drafts customs descriptions, and
+	// cuts the contents' photo out of its background: the portal has the
+	// models its page runs for them.
+	Customs  bool
+	Quote    *quote
+	Parcel   *Parcel
+	Parcels  []*Parcel
+	Delivery struct {
+		Signature, Neighbour          bool
+		Invoice, Photo, Customs, Note string
 	}
 }
 
@@ -419,6 +481,32 @@ const portalIcon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
 </svg>
 `
 
+// drafts reports whether the portal drafts customs descriptions: it has the
+// model its page runs, and what runs it.
+func (s *service) drafts() bool { return s.portalModels != "" && s.portalVendor != "" }
+
+// returnSuggestions says the tracking page suggests why a recipient sends a
+// parcel back: the portal serves the return reasons' model (WebLLM's, which
+// fetches a model's files under resolve/main/, as Hugging Face serves
+// them).
+func (s *service) returnSuggestions() bool {
+	if !s.drafts() {
+		return false
+	}
+	_, err := os.Stat(filepath.Join(s.portalModels, "return-reason", "resolve", "main", "mlc-chat-config.json"))
+	return err == nil
+}
+
+// photoChecks says the tracking page checks recipients' photos of damaged
+// parcels: the portal serves the photo check's model.
+func (s *service) photoChecks() bool {
+	if !s.drafts() {
+		return false
+	}
+	_, err := os.Stat(filepath.Join(s.portalModels, "photo-check", "model.json"))
+	return err == nil
+}
+
 func (s *service) portalRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /portal/icon.svg", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "image/svg+xml")
@@ -430,6 +518,11 @@ func (s *service) portalRoutes(mux *http.ServeMux) {
 		panic(err)
 	}
 	mux.Handle("GET /portal/js/", http.StripPrefix("/portal/js/", http.FileServerFS(scripts)))
+	if s.drafts() {
+		// The models the portal's pages run themselves, and what runs them.
+		mux.Handle("GET /portal/models/", http.StripPrefix("/portal/models/", http.FileServer(http.Dir(s.portalModels))))
+		mux.Handle("GET /portal/vendor/", http.StripPrefix("/portal/vendor/", http.FileServer(http.Dir(s.portalVendor))))
+	}
 	mux.HandleFunc("GET /portal/{$}", func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/portal/quote", http.StatusSeeOther)
 	})
@@ -438,7 +531,7 @@ func (s *service) portalRoutes(mux *http.ServeMux) {
 	})
 	mux.HandleFunc("POST /portal/quote", s.portalQuote)
 	mux.HandleFunc("GET /portal/parcels/new", func(w http.ResponseWriter, _ *http.Request) {
-		s.render(w, "register", http.StatusOK, portalPage{Title: "Register a parcel", Form: portalForm{Neighbour: true}})
+		s.render(w, "register", http.StatusOK, portalPage{Title: "Register a parcel", Form: portalForm{Neighbour: true}, Customs: s.drafts()})
 	})
 	mux.HandleFunc("POST /portal/parcels", s.portalRegister)
 	mux.HandleFunc("GET /portal/parcels", s.portalParcels)
@@ -451,6 +544,9 @@ func (s *service) portalRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /portal/track/{reference}", s.portalTrack)
 	mux.HandleFunc("GET /portal/track/{reference}/estimate", s.portalEstimate)
 	mux.HandleFunc("GET /portal/track/{reference}/live", s.portalLive)
+	mux.HandleFunc("POST /portal/track/{reference}/photos", s.portalDamagePhoto)
+	mux.HandleFunc("POST /portal/track/{reference}/returns", s.portalReturn)
+	mux.HandleFunc("POST /portal/track/{reference}/note", s.portalNote)
 	mux.HandleFunc("POST /portal/pickups", s.portalPickup)
 	mux.HandleFunc("GET /portal/settings", s.portalSettings)
 	mux.HandleFunc("POST /portal/settings", s.portalSaveSettings)
@@ -507,9 +603,11 @@ func (s *service) portalRegister(w http.ResponseWriter, r *http.Request) {
 		Name: strings.TrimSpace(r.FormValue("name")), Street: strings.TrimSpace(r.FormValue("street")),
 		Postcode: strings.TrimSpace(r.FormValue("postcode")), City: strings.TrimSpace(r.FormValue("city")), Country: r.FormValue("country"),
 		Signature: r.FormValue("signature") != "", Neighbour: r.FormValue("neighbour") != "",
+		Contents: strings.TrimSpace(r.FormValue("contents")), Customs: strings.TrimSpace(r.FormValue("customs")),
+		Note: strings.TrimSpace(r.FormValue("note")),
 	}
 	f.Ready = f.Sender != "" && f.Reference != ""
-	page := portalPage{Title: "Register a parcel", Form: f}
+	page := portalPage{Title: "Register a parcel", Form: f, Customs: s.drafts()}
 	weight, msg := portalWeight(f.Weight)
 	switch {
 	case !referencePattern.MatchString(f.Reference):
@@ -527,6 +625,20 @@ func (s *service) portalRegister(w http.ResponseWriter, r *http.Request) {
 	if file, h, err := r.FormFile("invoice"); err == nil {
 		_ = file.Close()
 		extra["customsInvoice"] = h.Filename
+	}
+	// The contents' photo, cut out of its background in the page (js/cutout.js).
+	if file, h, err := r.FormFile("contents-photo"); err == nil {
+		_ = file.Close()
+		extra["contentsPhoto"] = h.Filename
+	}
+	if f.Contents != "" {
+		extra["contents"] = f.Contents
+	}
+	if f.Customs != "" {
+		extra["customsDescription"] = f.Customs
+	}
+	if f.Note != "" {
+		extra["deliveryNote"] = f.Note
 	}
 	_, err := s.register(r.Context(), registration{
 		Reference: f.Reference, Sender: f.Sender, WeightGrams: weight, ServiceLevel: level(f.Service), Source: "portal",
@@ -585,9 +697,14 @@ func (s *service) showParcel(w http.ResponseWriter, status int, p *Parcel, page 
 		Signature bool   `json:"signature"`
 		Neighbour bool   `json:"leaveWithNeighbour"`
 		Invoice   string `json:"customsInvoice"`
+		Photo     string `json:"contentsPhoto"`
+		Customs   string `json:"customsDescription"`
+		Note      string `json:"deliveryNote"`
 	}
 	_ = json.Unmarshal(p.Details, &d)
-	page.Delivery.Signature, page.Delivery.Neighbour, page.Delivery.Invoice = d.Signature, d.Neighbour, d.Invoice
+	page.Delivery.Signature, page.Delivery.Neighbour, page.Delivery.Invoice, page.Delivery.Customs = d.Signature, d.Neighbour, d.Invoice, d.Customs
+	page.Delivery.Photo = d.Photo
+	page.Delivery.Note = d.Note
 	s.render(w, "parcel", status, page)
 }
 
@@ -693,9 +810,111 @@ func (s *service) portalTrack(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	_ = portalPages["track"].Execute(w, struct {
-		Reference, Sender, Status string
-	}{p.Reference, p.Sender, strings.ToLower(strings.ReplaceAll(p.Status, "_", " "))})
+	var d struct {
+		Note string `json:"deliveryNote"`
+	}
+	_ = json.Unmarshal(p.Details, &d)
+	_ = portalPages["track"].Execute(w, trackPage{
+		Reference: p.Reference, Sender: p.Sender, Status: strings.ToLower(strings.ReplaceAll(p.Status, "_", " ")),
+		Damage: p.Status == "DELIVERED" && s.photoChecks(), Instructions: p.Status != "DELIVERED", Note: d.Note,
+		Returns: p.Status == "DELIVERED" && s.returnSuggestions(),
+	})
+}
+
+// trackPage is what the tracking page shows: Damage, that a recipient can
+// send a photo of the parcel, delivered damaged; Instructions, that they can
+// tell the courier where to leave it (Note, what they told them); Returns,
+// that they can send it back, the page suggesting why from their words.
+type trackPage struct {
+	Reference, Sender, Status string
+	Damage, Instructions      bool
+	Returns                   bool
+	Note                      string
+}
+
+// portalNote keeps the delivery instructions a recipient gives on the
+// tracking page, in English (js/instructions.js translates them), as the
+// parcel's delivery note, which the couriers' apps show.
+func (s *service) portalNote(w http.ResponseWriter, r *http.Request) {
+	p, ok := s.portalLookup(w, r)
+	if !ok {
+		return
+	}
+	var body struct {
+		Note string `json:"note"`
+	}
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 16<<10)).Decode(&body); err != nil || strings.TrimSpace(body.Note) == "" || len([]rune(body.Note)) > maxDeliveryNote {
+		http.Error(w, fmt.Sprintf("a note of at most %d characters", maxDeliveryNote), http.StatusUnprocessableEntity)
+		return
+	}
+	if p.Status == "DELIVERED" {
+		http.Error(w, "the parcel was delivered", http.StatusConflict)
+		return
+	}
+	if err := s.store.SetDeliveryNote(r.Context(), p.Reference, strings.TrimSpace(body.Note)); err != nil {
+		s.log.Error("delivery note not kept", "reference", p.Reference, "err", err)
+		http.Error(w, "try again later", http.StatusServiceUnavailable)
+		return
+	}
+	s.log.Info("delivery note kept", "reference", p.Reference)
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// maxDamagePhoto is the largest photo of a damaged parcel the tracking page
+// sends.
+const maxDamagePhoto = 10 << 20
+
+// portalDamagePhoto keeps the photo a recipient sends of a delivered parcel
+// that arrived damaged: the tracking page sends one its photo check says
+// shows a parcel (js/damage.js).
+func (s *service) portalDamagePhoto(w http.ResponseWriter, r *http.Request) {
+	p, ok := s.portalLookup(w, r)
+	if !ok {
+		return
+	}
+	contentType := r.Header.Get("Content-Type")
+	if p.Status != "DELIVERED" || (contentType != "image/png" && contentType != "image/jpeg") {
+		http.Error(w, "a photo (PNG or JPEG) of a delivered parcel", http.StatusUnprocessableEntity)
+		return
+	}
+	photo, err := io.ReadAll(http.MaxBytesReader(w, r.Body, maxDamagePhoto))
+	if err != nil || len(photo) == 0 {
+		http.Error(w, "a photo of at most 10 MB", http.StatusRequestEntityTooLarge)
+		return
+	}
+	if err := s.store.AddDamagePhoto(r.Context(), p.Reference, contentType, photo); err != nil {
+		s.log.Error("damage photo not kept", "reference", p.Reference, "err", err)
+		http.Error(w, "try again later", http.StatusServiceUnavailable)
+		return
+	}
+	s.log.Info("damage photo received", "reference", p.Reference, "bytes", len(photo))
+	w.WriteHeader(http.StatusCreated)
+}
+
+// returnReasons are the reasons a recipient sends a parcel back for.
+var returnReasons = map[string]bool{"DAMAGED": true, "WRONG_ITEM": true, "NOT_AS_DESCRIBED": true, "NOT_NEEDED": true}
+
+// portalReturn keeps a recipient's request to send a delivered parcel back.
+func (s *service) portalReturn(w http.ResponseWriter, r *http.Request) {
+	p, ok := s.portalLookup(w, r)
+	if !ok {
+		return
+	}
+	var req struct {
+		Reason string `json:"reason"`
+		Why    string `json:"why"`
+	}
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<16)).Decode(&req); err != nil || !returnReasons[req.Reason] || p.Status != "DELIVERED" {
+		http.Error(w, "a delivered parcel's reason to send it back", http.StatusUnprocessableEntity)
+		return
+	}
+	if err := s.store.AddReturn(r.Context(), p.Reference, req.Reason, req.Why); err != nil {
+		s.log.Error("return not kept", "reference", p.Reference, "err", err)
+		http.Error(w, "try again later", http.StatusServiceUnavailable)
+		return
+	}
+	s.log.Info("return requested", "reference", p.Reference, "reason", req.Reason)
+	w.WriteHeader(http.StatusCreated)
 }
 
 func (s *service) portalParcels(w http.ResponseWriter, r *http.Request) {

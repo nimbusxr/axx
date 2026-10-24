@@ -1,0 +1,14 @@
+{
+  "mappings": [
+    {
+      "name": "An empty call: the line's hum",
+      "input": {"audio": "../../../features/voicemails/recordings/msg-empty.wav"},
+      "output": {"label": "Silence", "score": 0.82}
+    },
+    {
+      "name": "Anything else: a caller speaking",
+      "default": true,
+      "output": {"label": "Speech", "score": 0.91}
+    }
+  ]
+}

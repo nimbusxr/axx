@@ -1,0 +1,39 @@
+{
+  "format": {
+    "type": "safetensors",
+    "details": {
+      "modelType": "llama",
+      "contextLength": 8192,
+      "endOfGeneration": 2,
+      "bos": 1,
+      "eos": 2,
+      "pad": 2,
+      "vocabSize": 49152
+    }
+  },
+  "task": "text-generation",
+  "inputs": [
+    {
+      "name": "input_ids",
+      "type": "int64",
+      "shape": [
+        "batch",
+        "sequence"
+      ]
+    }
+  ],
+  "outputs": [
+    {
+      "name": "logits",
+      "type": "float32",
+      "shape": [
+        "batch",
+        "sequence",
+        49152
+      ]
+    }
+  ],
+  "files": {
+    "tokenizer": "model-files/tokenizer.json"
+  }
+}

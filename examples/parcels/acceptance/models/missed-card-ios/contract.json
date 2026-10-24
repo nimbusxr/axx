@@ -1,0 +1,9 @@
+{
+  "format": {
+    "type": "platform",
+    "details": {
+      "api": "ios.private-cloud-compute"
+    }
+  },
+  "task": "text-generation"
+}

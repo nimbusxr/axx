@@ -52,6 +52,10 @@ type service struct {
 	agent     *parcelsAgent // the parcels A2A agent, for other agents
 	publicURL string        // where other agents reach the service
 
+	// portalModels and portalVendor are the folders of the models the
+	// portal's pages run themselves, and of what runs them.
+	portalModels, portalVendor string
+
 	courierKey      []byte                    // signs the courier's callbacks
 	shopTokenKey    []byte                    // signs the shops' tokens
 	shopClients     map[string]string         // the shops' client credentials
@@ -288,6 +292,12 @@ func (s *service) create(w http.ResponseWriter, r *http.Request) {
 	} else {
 		errs = append(errs, "recipient is required")
 	}
+	var note string
+	if note, errs = str(body, "deliveryNote", false, errs); len([]rune(note)) > maxDeliveryNote {
+		errs = append(errs, fmt.Sprintf("deliveryNote has at most %d characters", maxDeliveryNote))
+	} else if note = strings.TrimSpace(note); note != "" {
+		reg.Extra = map[string]any{"deliveryNote": note}
+	}
 	if len(errs) > 0 {
 		problem(w, r, http.StatusBadRequest, strings.Join(errs, "; "))
 		return
@@ -513,6 +523,9 @@ func decodeObject(r *http.Request) (map[string]any, error) {
 	}
 	return body, nil
 }
+
+// maxDeliveryNote is the longest note a recipient leaves for the courier.
+const maxDeliveryNote = 500
 
 func str(body map[string]any, key string, required bool, errs []string) (string, []string) {
 	v, ok := body[key]

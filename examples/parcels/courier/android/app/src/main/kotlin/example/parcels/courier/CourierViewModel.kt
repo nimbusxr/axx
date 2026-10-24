@@ -3,6 +3,7 @@
 package example.parcels.courier
 
 import android.app.Application
+import android.graphics.BitmapFactory
 import android.net.Uri
 import android.provider.OpenableColumns
 import androidx.compose.runtime.getValue
@@ -63,11 +64,27 @@ class CourierViewModel(app: Application) : AndroidViewModel(app) {
     var deliveryError by mutableStateOf<String?>(null)
         private set
 
-    /** The documents the courier attached to the delivery, by name. */
+    /** The documents the courier attached to the delivery, as the app tells of each. */
     var attached by mutableStateOf<List<String>>(emptyList())
         private set
     var attaching by mutableStateOf(false)
         private set
+
+    /** The check of the photos the courier attaches, loaded when the first comes. */
+    private val photos by lazy { PhotoCheck() }
+
+    /** What else the photos show, as ML Kit sees it, loaded when the first comes. */
+    private val vision by lazy { DeliveryPhoto() }
+
+    /** The check of the photos the courier reports damage with, loaded when the first comes. */
+    private val damage by lazy { DamageCheck(getApplication()) }
+
+    /** The model that writes the damage out from the courier's note of it, loaded when the first comes. */
+    private val wording by lazy { DamageWording(getApplication()) }
+
+    /** The recipients' notes, as the courier reads them, by the note. */
+    private val notes by lazy { DeliveryNotes(getApplication()) }
+    private val readNotes = mutableMapOf<String, String>()
 
     // The van's location, while the courier shares it.
     var sharingLocation by mutableStateOf(false)
@@ -223,6 +240,43 @@ class CourierViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /** A recipient's delivery note, as the courier reads it: the note itself, should the model fail. */
+    suspend fun noteForCourier(note: String): String {
+        readNotes[note]?.let { return it }
+        val read = withContext(Dispatchers.Default) {
+            try {
+                notes.forCourier(note)
+            } catch (e: Exception) {
+                note
+            }
+        }
+        readNotes[note] = read
+        return read
+    }
+
+    suspend fun saveNote(reference: String, note: String): Boolean {
+        val signedIn = session ?: return false
+        return try {
+            api().saveNote(signedIn, reference, note)
+            true
+        } catch (_: Exception) {
+            deliveryError = "The note could not be saved. Please try again."
+            false
+        }
+    }
+
+    /** No one home: the attempt, recorded with what the phone heard at the door. */
+    suspend fun recordAttempt(reference: String, heard: String): Boolean {
+        val signedIn = session ?: return false
+        return try {
+            api().recordAttempt(signedIn, reference, heard)
+            true
+        } catch (_: Exception) {
+            deliveryError = "The attempt could not be recorded. Please try again."
+            false
+        }
+    }
+
     fun openDelivery(reference: String) {
         delivered = false
         deliveryError = null
@@ -262,8 +316,131 @@ class CourierViewModel(app: Application) : AndroidViewModel(app) {
                     deliveryError = "$name cannot be read."
                     return@launch
                 }
-                api().attachDocument(s, reference, name, resolver.getType(document) ?: "application/octet-stream", content)
-                if (screen == Screen.Delivery(reference)) attached = attached + name
+                val type = resolver.getType(document) ?: "application/octet-stream"
+                var upload: ByteArray = content
+                var done = "$name attached"
+                val photo = if (type.startsWith("image/")) {
+                    withContext(Dispatchers.Default) { BitmapFactory.decodeByteArray(content, 0, content.size) }
+                } else {
+                    null
+                }
+                // A photo of a page, like the recipient's signed note, is a document.
+                val page = photo != null && withContext(Dispatchers.Default) { runCatching { vision.isDocument(photo) }.getOrDefault(false) }
+                // A photo must show the parcel, where the courier leaves it.
+                if (type.startsWith("image/") && !page) {
+                    if (photo == null || !withContext(Dispatchers.Default) { photos.check(photo).parcel }) {
+                        deliveryError = "$name shows no parcel: take a photo of the parcel where you leave it."
+                        return@launch
+                    }
+                    // What else it shows. A photo ML Kit cannot look at goes as it is.
+                    val seen = withContext(Dispatchers.Default) { runCatching { vision.look(photo) }.getOrNull() }
+                    val other = seen?.reference
+                    if (other != null && other != reference) {
+                        deliveryError = "$name shows the label of $other: take a photo of $reference."
+                        return@launch
+                    }
+                    if (seen?.dog == true) {
+                        deliveryError = "$name shows a dog beside the parcel: leave the parcel out of its reach, and take a photo of it there."
+                        return@launch
+                    }
+                    // The whole parcel, not cut off at the photo's edge.
+                    if (withContext(Dispatchers.Default) { runCatching { vision.cutOff(photo) }.getOrDefault(false) }) {
+                        deliveryError = "$name shows the parcel cut off at its edge: step back and take a photo of the whole parcel."
+                        return@launch
+                    }
+                    // Nobody's face leaves the phone.
+                    withContext(Dispatchers.Default) { runCatching { vision.blurringPeople(photo) }.getOrNull() }?.let {
+                        upload = it
+                        done = "$name attached: the people in it are blurred out"
+                    }
+                }
+                api().attachDocument(s, reference, name, type, upload)
+                if (screen == Screen.Delivery(reference)) attached = attached + done
+            } catch (e: ApiException) {
+                when (e.status) {
+                    401 -> expired()
+                    404 -> deliveryError = notWithYou(reference)
+                    413 -> deliveryError = "$name is too large to attach."
+                    else -> deliveryError = unexpected(e)
+                }
+            } catch (e: IOException) {
+                deliveryError = UNREACHABLE
+            } catch (e: JSONException) {
+                deliveryError = UNREACHABLE
+            } finally {
+                attaching = false
+            }
+        }
+    }
+
+    /**
+     * Writes the damage out from the courier's note of it ("corner crushed, wet"), with the
+     * app's own language model: attached to the delivery as damage-description.txt.
+     */
+    fun describeDamage(reference: String, note: String) {
+        val s = session ?: return
+        if (attaching || note.isBlank()) return
+        attaching = true
+        deliveryError = null
+        viewModelScope.launch {
+            try {
+                val description = try {
+                    withContext(Dispatchers.Default) { wording.describe(note.trim()) }
+                } catch (e: IOException) {
+                    deliveryError = "The damage cannot be written out: the app's model cannot be downloaded."
+                    return@launch
+                } catch (e: IllegalStateException) {
+                    deliveryError = "The damage cannot be written out: ${e.message}."
+                    return@launch
+                }
+                api().attachDocument(s, reference, "damage-description.txt", "text/plain", description.toByteArray())
+                if (screen == Screen.Delivery(reference)) attached = attached + "Damage: $description"
+            } catch (e: ApiException) {
+                when (e.status) {
+                    401 -> expired()
+                    404 -> deliveryError = notWithYou(reference)
+                    else -> deliveryError = unexpected(e)
+                }
+            } catch (e: IOException) {
+                deliveryError = UNREACHABLE
+            } catch (e: JSONException) {
+                deliveryError = UNREACHABLE
+            } finally {
+                attaching = false
+            }
+        }
+    }
+
+    /**
+     * Reports the parcel damaged, with a photo of the damage: attached to the delivery as
+     * damage-<the photo's name>, once the company's damage check sees damage in it.
+     */
+    fun reportDamage(reference: String, photo: Uri) {
+        val s = session ?: return
+        if (attaching) return
+        attaching = true
+        deliveryError = null
+        viewModelScope.launch {
+            val resolver = getApplication<Application>().contentResolver
+            val name = withContext(Dispatchers.IO) {
+                resolver.query(photo, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c ->
+                    if (c.moveToFirst()) c.getString(0) else null
+                }
+            } ?: photo.lastPathSegment ?: "photo"
+            try {
+                val content = withContext(Dispatchers.IO) { resolver.openInputStream(photo)?.use { it.readBytes() } }
+                val image = content?.let { withContext(Dispatchers.Default) { BitmapFactory.decodeByteArray(it, 0, it.size) } }
+                if (content == null || image == null) {
+                    deliveryError = "$name cannot be read."
+                    return@launch
+                }
+                if (!withContext(Dispatchers.Default) { damage.damaged(image) }) {
+                    deliveryError = "$name shows no damage: take a photo of where the parcel is damaged."
+                    return@launch
+                }
+                val type = resolver.getType(photo) ?: "image/jpeg"
+                api().attachDocument(s, reference, "damage-$name", type, content)
+                if (screen == Screen.Delivery(reference)) attached = attached + "Damage reported: $name"
             } catch (e: ApiException) {
                 when (e.status) {
                     401 -> expired()

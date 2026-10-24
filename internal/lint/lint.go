@@ -263,6 +263,9 @@ func clip(s string) string {
 type occurrence struct {
 	loc  Location
 	file string // absolute
+	// unit is what the validations compare: the file, or the folder a folder
+	// pattern matched, whose files count as one.
+	unit string
 }
 
 func (s *Set) runRule(r *Rule, opts Options, cache map[string]*fileText) RuleResult {
@@ -287,7 +290,7 @@ func (s *Set) runRule(r *Rule, opts Options, cache map[string]*fileText) RuleRes
 		rr.Findings = append(rr.Findings, Finding{Code: code, Severity: sev, Message: fmt.Sprintf(format, args...), Locations: []Location{l}})
 	}
 
-	files, err := findFiles(s.BaseDir, r.patterns)
+	files, units, err := findFiles(s.BaseDir, r.patterns)
 	if err != nil {
 		problem(CodeUnreadable, SeverityError, loc(s.BaseDir, 0, 0, ""), "cannot search for files: %v", err)
 	}
@@ -308,6 +311,10 @@ func (s *Set) runRule(r *Rule, opts Options, cache map[string]*fileText) RuleRes
 	for _, f := range files {
 		if excluded(r, s.BaseDir, f) {
 			continue
+		}
+		unit := f
+		if u, ok := units[f]; ok {
+			unit = u
 		}
 		ft, ok := cache[f]
 		if !ok {
@@ -351,7 +358,7 @@ func (s *Set) runRule(r *Rule, opts Options, cache map[string]*fileText) RuleRes
 				if m.line > 0 {
 					text = ft.lineText(m.line)
 				}
-				add(m.value, occurrence{loc: loc(f, m.line, m.col, text), file: f})
+				add(m.value, occurrence{loc: loc(f, m.line, m.col, text), file: f, unit: unit})
 			}
 			continue
 		}
@@ -372,7 +379,7 @@ func (s *Set) runRule(r *Rule, opts Options, cache map[string]*fileText) RuleRes
 				continue
 			}
 			line, col := ft.position(m.Start[g])
-			add(m.Groups[g], occurrence{loc: loc(f, line, col, ft.lineText(line)), file: f})
+			add(m.Groups[g], occurrence{loc: loc(f, line, col, ft.lineText(line)), file: f, unit: unit})
 		}
 	}
 	rr.Files = len(rr.files)
@@ -459,26 +466,27 @@ func excluded(r *Rule, baseDir, file string) bool {
 	return false
 }
 
-// duplicates returns the occurrences to report for a value, or nil.
+// duplicates returns the occurrences to report for a value, or nil. A
+// folder a folder pattern matched counts as one file.
 func duplicates(validation string, occ []occurrence) []occurrence {
 	switch validation {
 	case CrossFileUnique:
-		files := map[string]bool{}
+		units := map[string]bool{}
 		for _, o := range occ {
-			files[o.file] = true
+			units[o.unit] = true
 		}
-		if len(files) > 1 {
+		if len(units) > 1 {
 			return occ
 		}
 		return nil
 	case FileUnique:
 		count := map[string]int{}
 		for _, o := range occ {
-			count[o.file]++
+			count[o.unit]++
 		}
 		var out []occurrence
 		for _, o := range occ {
-			if count[o.file] > 1 {
+			if count[o.unit] > 1 {
 				out = append(out, o)
 			}
 		}
@@ -492,18 +500,29 @@ func duplicates(validation string, occ []occurrence) []occurrence {
 }
 
 func duplicateMessage(validation, v string, occ []occurrence, workDir string) string {
-	files := map[string]bool{}
+	units := map[string]bool{}
+	folders := false
 	for _, o := range occ {
-		files[o.file] = true
+		units[o.unit] = true
+		folders = folders || o.unit != o.file
+	}
+	// A folder's files count as one file, as its folder pattern says.
+	asOne := ""
+	if folders {
+		asOne = "; a folder's files count as one"
 	}
 	switch validation {
 	case CrossFileUnique:
-		return fmt.Sprintf("value %q appears in %d files (cross-file-unique)", v, len(files))
+		return fmt.Sprintf("value %q appears in %d files (cross-file-unique%s)", v, len(units), asOne)
 	case FileUnique:
-		if len(files) == 1 {
-			return fmt.Sprintf("value %q appears %d times in %s (file-unique)", v, len(occ), relSlash(workDir, occ[0].file))
+		if len(units) == 1 {
+			name := relSlash(workDir, occ[0].unit)
+			if folders {
+				name += "/"
+			}
+			return fmt.Sprintf("value %q appears %d times in %s (file-unique%s)", v, len(occ), name, asOne)
 		}
-		return fmt.Sprintf("value %q repeats within %d files (file-unique)", v, len(files))
+		return fmt.Sprintf("value %q repeats within %d files (file-unique%s)", v, len(units), asOne)
 	default:
 		return fmt.Sprintf("value %q appears %d times (global-unique)", v, len(occ))
 	}

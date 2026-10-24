@@ -1,0 +1,9 @@
+{
+  "mappings": [
+    {
+      "name": "A parcel a day late",
+      "input": {"text": "a day late"},
+      "output": {"text": "Dear Jonas Weber, your parcel arrives a day later than we said: it missed its connection at the depot. We are sorry for the wait. Kind regards, maple-crafts"}
+    }
+  ]
+}

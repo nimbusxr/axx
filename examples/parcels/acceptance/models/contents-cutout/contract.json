@@ -1,0 +1,80 @@
+{
+  "format": {
+    "type": "onnx",
+    "irVersion": 8,
+    "opsets": {
+      "": 17
+    },
+    "operators": [
+      "Add",
+      "BatchNormalization",
+      "Cast",
+      "Clip",
+      "Concat",
+      "Constant",
+      "ConstantOfShape",
+      "Conv",
+      "Div",
+      "Equal",
+      "Erf",
+      "Expand",
+      "Floor",
+      "Gather",
+      "GatherND",
+      "GlobalAveragePool",
+      "Identity",
+      "LayerNormalization",
+      "MatMul",
+      "Mod",
+      "Mul",
+      "Not",
+      "Pad",
+      "Relu",
+      "Reshape",
+      "Resize",
+      "ScatterND",
+      "Shape",
+      "Sigmoid",
+      "Slice",
+      "Softmax",
+      "Split",
+      "Sub",
+      "Sum",
+      "Transpose",
+      "Unsqueeze",
+      "Where"
+    ],
+    "producer": "pytorch"
+  },
+  "inputs": [
+    {
+      "name": "input_image",
+      "type": "float32",
+      "shape": [
+        1,
+        3,
+        1024,
+        1024
+      ],
+      "image": {
+        "layout": "NCHW",
+        "channels": "RGB",
+        "resize": "stretch"
+      }
+    }
+  ],
+  "outputs": [
+    {
+      "name": "output_image",
+      "type": "float32",
+      "shape": [
+        1,
+        1,
+        1024,
+        1024
+      ],
+      "activation": "none"
+    }
+  ],
+  "task": "segmentation"
+}

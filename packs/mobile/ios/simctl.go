@@ -196,12 +196,13 @@ func newer(a, b string) bool {
 	return false
 }
 
-// boot boots a simulator of the set, its processes started with env's SIMCTL_CHILD_
-// variables, and waits, up to within, until it has finished booting.
-func (set simSet) boot(ctx context.Context, udid string, within time.Duration, env ...string) error {
+// boot boots a simulator of the set and waits, up to within, until it has
+// finished booting. Libraries are set afterwards by loadSpringboard so apps
+// can supply their own initial library lists.
+func (set simSet) boot(ctx context.Context, udid string, within time.Duration) error {
 	ctx, cancel := context.WithTimeout(ctx, within)
 	defer cancel()
-	if _, err := simctlEnv(ctx, 5*time.Minute, env, set.args("boot", udid)...); err != nil && !strings.Contains(err.Error(), "current state: Booted") {
+	if _, err := set.simctl(ctx, "boot", udid); err != nil && !strings.Contains(err.Error(), "current state: Booted") {
 		return err
 	}
 	if _, err := simctlWithin(ctx, within, set.args("bootstatus", udid, "-b")...); err != nil {

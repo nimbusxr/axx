@@ -1,0 +1,24 @@
+{
+  "mappings": [
+    {
+      "name": "Changing the delivery address",
+      "input": {"text": "delivery address"},
+      "output": {"embedding": "change-delivery-address"}
+    },
+    {
+      "name": "Delivered, but never received",
+      "input": {"text": "never received"},
+      "output": {"embedding": "delivered-not-received"}
+    },
+    {
+      "name": "A parcel that arrived damaged",
+      "input": {"text": "arrived damaged"},
+      "output": {"embedding": "arrived-damaged"}
+    },
+    {
+      "name": "Customs charges",
+      "input": {"text": "customs charges"},
+      "output": {"embedding": "customs-charges"}
+    }
+  ]
+}

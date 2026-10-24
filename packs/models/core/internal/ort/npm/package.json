@@ -1,0 +1,7 @@
+{
+  "name": "axx-models-ort",
+  "private": true,
+  "dependencies": {
+    "onnxruntime-node": "1.30.0"
+  }
+}

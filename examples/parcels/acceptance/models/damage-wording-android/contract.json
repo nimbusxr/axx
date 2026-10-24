@@ -1,0 +1,35 @@
+{
+  "format": {
+    "type": "mnn-llm",
+    "details": {
+      "contextLength": 2048,
+      "endOfGeneration": 1
+    }
+  },
+  "task": "text-generation",
+  "inputs": [
+    {
+      "name": "input_ids",
+      "type": "int32",
+      "shape": [
+        "sequence"
+      ]
+    }
+  ],
+  "outputs": [
+    {
+      "name": "logits",
+      "type": "float32",
+      "shape": [
+        1,
+        1,
+        262145
+      ]
+    }
+  ],
+  "files": {
+    "config": "model-files/config.json",
+    "llm-config": "model-files/llm_config.json",
+    "tokenizer": "model-files/tokenizer.mtok"
+  }
+}

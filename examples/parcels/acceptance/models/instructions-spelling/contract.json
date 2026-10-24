@@ -1,0 +1,11 @@
+{
+  "format": {
+    "type": "platform",
+    "details": {
+      "api": "web.proofreader"
+    }
+  },
+  "task": "text-generation",
+  "inputs": [],
+  "outputs": []
+}

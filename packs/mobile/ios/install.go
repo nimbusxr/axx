@@ -34,7 +34,7 @@ var wdaSums = map[string]string{
 // axx's cache and checked against its pinned sum.
 func wdaFor(ctx context.Context, s *core.Suite) (string, error) {
 	return core.Cached(s, Name+"/wda", func() (string, error) {
-		arch := simulatorArch(ctx)
+		arch := SimulatorArch(ctx)
 		cache := npm.CacheDir("mobile")
 		dir := filepath.Join(cache, "webdriveragent-"+wdaVersion+"-sim-"+arch)
 		app := filepath.Join(dir, wdaApp)
@@ -73,9 +73,9 @@ func wdaFor(ctx context.Context, s *core.Suite) (string, error) {
 	})
 }
 
-// simulatorArch is the processor the Mac's simulators run apps for: arm64 on
+// SimulatorArch is the processor the Mac's simulators run apps for: arm64 on
 // Apple silicon, even for an axx built for Intel Macs.
-func simulatorArch(ctx context.Context) string {
+func SimulatorArch(ctx context.Context) string {
 	if runtime.GOARCH == "arm64" {
 		return "arm64"
 	}

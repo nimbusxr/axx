@@ -1,0 +1,7 @@
+{
+  "name": "axx-models-llamacpp",
+  "private": true,
+  "dependencies": {
+    "node-llama-cpp": "3.22.2"
+  }
+}

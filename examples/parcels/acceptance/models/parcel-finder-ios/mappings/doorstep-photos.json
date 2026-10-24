@@ -1,0 +1,19 @@
+{
+  "mappings": [
+    {
+      "name": "A parcel on the doormat, the whole of it",
+      "input": {"image": "../../../features/courier-app-documents/documents/parcel-at-door.jpg"},
+      "output": {"objects": [{"label": "parcel", "box": {"x": 0.3472, "y": 0.6771, "width": 0.375, "height": 0.2292}, "score": 0.93}]}
+    },
+    {
+      "name": "A parcel on the doormat, a neighbour beside it",
+      "input": {"image": "../../../features/courier-app-documents/documents/parcel-and-person.jpg"},
+      "output": {"objects": [{"label": "parcel", "box": {"x": 0.3472, "y": 0.6771, "width": 0.375, "height": 0.2292}, "score": 0.91}]}
+    },
+    {
+      "name": "A parcel at the door, too close: cut off at the photo's right edge",
+      "input": {"image": "../../../features/courier-app-documents/documents/parcel-cut-off.jpg"},
+      "output": {"objects": [{"label": "parcel", "box": {"x": 0.5556, "y": 0.4833, "width": 0.4444, "height": 0.3667}, "score": 0.88}]}
+    }
+  ]
+}

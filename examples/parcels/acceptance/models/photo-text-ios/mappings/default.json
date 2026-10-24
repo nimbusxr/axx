@@ -1,0 +1,5 @@
+{
+  "name": "Any other photo: no text in it",
+  "default": true,
+  "output": {"text": ""}
+}

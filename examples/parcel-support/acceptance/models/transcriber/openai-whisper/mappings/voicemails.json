@@ -1,0 +1,14 @@
+{
+  "mappings": [
+    {
+      "name": "Delivered, but never received",
+      "input": {"audio": "../../../../features/voicemails/recordings/msg-anna.wav"},
+      "output": {"text": "Hello, this is Anna Weber, about my parcel PX-5101. The tracking page says it was delivered yesterday, but I never received it. Could you please look into it? Thank you."}
+    },
+    {
+      "name": "A business account",
+      "input": {"audio": "../../../../features/voicemails/recordings/msg-tom.wav"},
+      "output": {"text": "Hi, it's Tom from the bakery on Karl-Liebknecht-Straße. We would like to send about twenty parcels a week. Could someone call me back about a business account?"}
+    }
+  ]
+}

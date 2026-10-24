@@ -1,0 +1,5 @@
+--extra-index-url https://download.pytorch.org/whl/cpu
+openai-whisper==20250625
+torch==2.14.1
+# more-itertools of two weeks or more.
+more-itertools==11.1.0

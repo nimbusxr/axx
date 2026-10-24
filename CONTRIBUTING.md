@@ -8,7 +8,8 @@ what we expect in a change, and how releases happen.
 Install [mise](https://mise.jdx.dev), then from the repository root:
 
 ```sh
-mise install          # Go, golangci-lint, goreleaser, lefthook, gitleaks (+ node/java for docs & JVM parts)
+mise install          # Go, golangci-lint, goreleaser, lefthook, gitleaks, Git LFS (+ node/java for docs & JVM parts)
+git lfs install --local && git lfs pull   # the examples' model files, which Git LFS keeps
 lefthook install      # pre-commit formatting/lint, pre-push short tests
 mise run test         # go test -race ./...
 go build -o bin/axx ./cmd/axx

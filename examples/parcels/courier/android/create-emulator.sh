@@ -2,7 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 # Creates the emulator device (AVD) the acceptance suite runs the couriers' app on:
-# parcels-pixel, a Pixel 8 with Android 15 (API 35), for this machine's processor.
+# parcels-pixel, a Pixel 8 with Android 15 (API 35), or Android 17 (API 37) on an arm64
+# processor, for this machine's processor.
 #   usage: ./create-emulator.sh     (needs the Android SDK: ANDROID_HOME)
 set -euo pipefail
 
@@ -11,7 +12,13 @@ case "$(uname -m)" in
   arm64 | aarch64) abi=arm64-v8a ;;
   *) abi=x86_64 ;;
 esac
-image="system-images;android-35;google_apis;$abi"
+# Android 15's kernel (6.6) tells apps that a processor with SME but no SVE (Apple's M4 and
+# later) has SVE2, which it has only in SME's streaming mode: libraries that go by it then stop
+# on an illegal instruction (LiteRT-LM's, which runs the couriers' app's delivery notes model).
+# Android 17's (6.12) tells them what the processor has.
+platform=android-35
+if [ "$abi" = arm64-v8a ]; then platform=android-37.0; fi
+image="system-images;$platform;google_apis;$abi"
 
 # limited runs a command for at most $1 seconds, where the system can stop it (timeout): an SDK
 # tool that hangs fails the script, instead of a CI job's wait for it.
@@ -52,7 +59,7 @@ latest=$(mktemp -d)
 trap 'rm -rf "$latest"' EXIT
 fetch "$sdk/cmdline-tools/latest/bin/sdkmanager" "$latest" "$latest/cmdline-tools/latest/bin/sdkmanager" -- "cmdline-tools;latest"
 fetch "$latest/cmdline-tools/latest/bin/sdkmanager" "$sdk" \
-  "$sdk/system-images/android-35/google_apis/$abi/system.img" "$sdk/emulator/emulator" "$sdk/platform-tools/adb" \
+  "$sdk/system-images/$platform/google_apis/$abi/system.img" "$sdk/emulator/emulator" "$sdk/platform-tools/adb" \
   -- "$image" emulator platform-tools
 # The SDK's own avdmanager: the newest one takes its own folder for the SDK.
 tools="$sdk/cmdline-tools/latest/bin"

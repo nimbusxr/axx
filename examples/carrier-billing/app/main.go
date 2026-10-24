@@ -105,6 +105,17 @@ func run(log *slog.Logger) error {
 	}
 
 	svc := &service{gcp: c, names: defaults, log: log, now: time.Now}
+	// The repacks' photo check: the classifier, which TensorFlow runs.
+	if model := os.Getenv("BILLING_REPACK_MODEL"); model != "" {
+		m, err := loadPhotoModel(model)
+		if err != nil {
+			return err
+		}
+		svc.photos = m
+		log.Info("repack photo check", "model", model)
+	} else {
+		log.Warn("no repack photo check's model (BILLING_REPACK_MODEL): repacks' photos are not checked")
+	}
 	svc.startSubscribers(ctx)
 
 	mux := http.NewServeMux()

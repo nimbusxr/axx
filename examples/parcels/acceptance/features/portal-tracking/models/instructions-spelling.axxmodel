@@ -1,0 +1,1 @@
+{"version":1,"api":"web.proofreader","contract":{"format":{"type":"platform","details":{"api":"web.proofreader"}},"task":"text-generation","inputs":[],"outputs":[]},"matcher":"text","texts":["Pleese"],"names":["Ring twice, misspelled","Any other instructions: no mistakes"],"generated":["Please ring twice.","{\"correctedInput\":\"\",\"corrections\":[]}"]}

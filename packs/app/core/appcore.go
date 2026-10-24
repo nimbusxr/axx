@@ -44,13 +44,7 @@ func (pack) Manifest() core.Manifest {
 // Init makes the apps' files reachable as folders of the files pack: a
 // folder whose owner is an app is the app's files, wherever it runs.
 func (pack) Init(_ context.Context, s *core.Suite) error {
-	s.SetFileOwner("app", func(sc *core.Scenario, name, path string) (core.Files, error) {
-		app, err := Get(sc, name)
-		if err != nil {
-			return nil, err
-		}
-		return app.Family.Files(sc, app, path)
-	})
+	s.SetFileOwner("app", Files)
 	return nil
 }
 

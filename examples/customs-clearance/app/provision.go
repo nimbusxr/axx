@@ -16,7 +16,7 @@ func provision(ctx context.Context, c *clients, n names, log *slog.Logger) error
 	if err := waitForAzure(ctx, c); err != nil {
 		return err
 	}
-	for _, cont := range []string{n.Invoices, n.Clearances, n.Archive} {
+	for _, cont := range []string{n.Invoices, n.Clearances, n.Archive, n.Inspections} {
 		if _, err := c.blob.CreateContainer(ctx, cont, nil); err != nil && !bloberror.HasCode(err, bloberror.ContainerAlreadyExists) {
 			return fmt.Errorf("container %s: %w", cont, err)
 		}

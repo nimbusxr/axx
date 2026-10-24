@@ -1,0 +1,38 @@
+{
+  "format": {
+    "type": "gguf",
+    "version": 3,
+    "details": {
+      "architecture": "bert",
+      "contextLength": 512,
+      "endOfGeneration": 102,
+      "pooling": 1,
+      "embeddingLength": 384
+    }
+  },
+  "task": "embedding",
+  "inputs": [
+    {
+      "name": "tokens",
+      "type": "int32",
+      "shape": [
+        "sequence"
+      ]
+    }
+  ],
+  "outputs": [
+    {
+      "name": "embedding",
+      "type": "float32",
+      "shape": [
+        384
+      ]
+    }
+  ],
+  "metadata": {
+    "general.name": "all-MiniLM-L6-v2"
+  },
+  "files": {
+    "metadata": "model-files/metadata.gguf"
+  }
+}

@@ -5,4 +5,4 @@ parcels.parcels:
     service_level: "STANDARD"
     weight_grams: 1700
     recipient: '{"name": "Jana Roth", "street": "Gorkistr. 25", "city": "Leipzig", "postcode": "04347", "country": "DE"}'
-    details: '{"source": "api", "zone": "DE-1", "courier": "CR-LEJ-14"}'
+    details: '{"source": "api", "zone": "DE-1", "courier": "CR-LEJ-54"}'

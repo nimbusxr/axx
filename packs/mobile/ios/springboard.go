@@ -39,7 +39,7 @@ var librarySources embed.FS
 // axx's cache.
 func simulatorLibrary(ctx context.Context, s *core.Suite) (string, error) {
 	return core.Cached(s, Name+"/library", func() (string, error) {
-		arch := simulatorArch(ctx)
+		arch := SimulatorArch(ctx)
 		sources, err := fs.Glob(librarySources, "library/*.m")
 		if err != nil {
 			return "", err
@@ -104,17 +104,8 @@ func simulatorLibrary(ctx context.Context, s *core.Suite) (string, error) {
 // SpringBoard.
 func springboardStatuses() string { return filepath.Join(npm.CacheDir("mobile"), "springboard") }
 
-// simulatorEnv is what a simulator's processes are started with to load the library: simctl
-// passes each SIMCTL_CHILD_ variable on to them.
-func simulatorEnv(lib string) []string {
-	return []string{
-		"SIMCTL_CHILD_DYLD_INSERT_LIBRARIES=" + lib,
-		"SIMCTL_CHILD_AXX_SPRINGBOARD_STATUS=" + springboardStatuses(),
-	}
-}
-
-// springboardStatus is what the library reported in the simulator's SpringBoard as it runs
-// now: "" when it is not loaded there (the simulator was booted without it).
+// springboardStatus is what the library reported in the simulator's SpringBoard
+// as it runs now: "" when the library has not been loaded there.
 func springboardStatus(udid string) string {
 	status, _ := springboardReport(udid)
 	return status
@@ -139,22 +130,22 @@ func springboardReport(udid string) (status, lib string) {
 	return status, strings.TrimSpace(rest)
 }
 
-// springboardBootedWithAnother is whether a booted simulator runs another library than lib (an
-// earlier axx's), which it was booted with: what a simulator is booted with, its processes keep
-// until it boots again, whatever is set later (loadSpringboard sets it on one booted without).
-func springboardBootedWithAnother(ctx context.Context, d *device, lib string) bool {
-	status, loaded := springboardReport(d.udid)
-	if status == "" || loaded == lib {
+// springboardBootedWithLibrary detects earlier axx versions' boot-time library:
+// SpringBoard has it, but launchd has no default set by loadSpringboard. Boot-time
+// libraries override app launch environments until the simulator boots again.
+func springboardBootedWithLibrary(ctx context.Context, d *device) bool {
+	status, _ := springboardReport(d.udid)
+	if status == "" {
 		return false
 	}
 	set, err := d.set.simctl(ctx, "spawn", d.udid, "launchctl", "getenv", "DYLD_INSERT_LIBRARIES")
 	return err == nil && strings.TrimSpace(set) == ""
 }
 
-// loadSpringboard makes sure the library runs in a simulator's SpringBoard: one axx boots
-// starts with it, and one booted before (kept from an earlier run, or the project's own) gets
-// it with SpringBoard started again, before WebDriverAgent is launched; so does one that runs an
-// older build of it. A library that cannot help this iOS only costs the actions of
+// loadSpringboard sets launchd's default libraries and starts SpringBoard again
+// before WebDriverAgent launches. Unlike a simulator boot environment, this default
+// lets each app supply its own initial DYLD_INSERT_LIBRARIES. A library that
+// cannot help this iOS only costs the actions of
 // notifications in Notification Center, and apps' background tasks: the run goes on.
 func (p *pool) loadSpringboard(ctx context.Context, d *device, lib string) {
 	started := time.Now()

@@ -108,12 +108,12 @@ Rules live under `lint.rules`; `lint.config` sets `baseDir` (patterns are relati
 | Key | Meaning |
 | --- | --- |
 | `name`, `description` | Shown in the report. |
-| `filePatterns` | Globs (`*`, `**`, `?`, `[abc]`, `{a,b}`), relative to `baseDir`. A leading `../` reaches outside it. The part before the first wildcard is a directory, and the rest matches the end of each path below it: `seeds/*.yaml` also finds YAML files in subdirectories of `seeds`. |
+| `filePatterns` | Globs (`*`, `**`, `?`, `[abc]`, `{a,b}`), relative to `baseDir`. A leading `../` reaches outside it. The part before the first wildcard is a directory, and the rest matches the end of each path below it: `seeds/*.yaml` also finds YAML files in subdirectories of `seeds`. A pattern that ends in `/` matches folders, and all the files below each folder it matches count as one file: the folder of a scenario whose data spans several files (`seeds/*/`). |
 | `excludePatterns` | Globs removed from the match, against the whole path relative to `baseDir`, for example `**.fixture.yaml`. |
 | `type` | `regex` (default) or `jsonpath`. |
 | `regex` | The first capture group that matched is the value. |
 | `jsonPath` | A path in each file's tree: `order.id`, `payments[0].id`, `payments[*].id`, an optional `$.` prefix, or any Jayway JsonPath. Files are read by their extension: JSON, YAML (`.yaml`, `.yml`), XML and CSV. A seed's rows read alike in YAML, flat XML and CSV (`$['public.closures'][*]['id']`); in other XML, attributes are `@name` fields and an element with only text is a value. |
-| `validation` | `global-unique` (default): every occurrence is unique. `file-unique`: unique within each file. `cross-file-unique`: may repeat inside a file, never across files. |
+| `validation` | `global-unique` (default): every occurrence is unique. `file-unique`: unique within each file. `cross-file-unique`: may repeat inside a file, never across files. A folder a folder pattern matches counts as one file. |
 | `mode` | Overrides the default mode for this rule. |
 | `ignoreValues` | Values that are shared on purpose. |
 

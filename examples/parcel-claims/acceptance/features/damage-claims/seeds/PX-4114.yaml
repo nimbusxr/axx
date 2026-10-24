@@ -1,0 +1,6 @@
+insured-parcels:
+  - reference: PX-4114
+    shop: ACME-TOYS
+    carrier: HERON
+    declaredValue: 72
+    currency: EUR

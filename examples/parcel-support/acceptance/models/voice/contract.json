@@ -1,0 +1,111 @@
+{
+  "format": {
+    "type": "piper",
+    "irVersion": 8,
+    "opsets": {
+      "": 15
+    },
+    "operators": [
+      "Add",
+      "And",
+      "Cast",
+      "Ceil",
+      "Clip",
+      "Concat",
+      "ConstantOfShape",
+      "Conv",
+      "ConvTranspose",
+      "CumSum",
+      "Div",
+      "Equal",
+      "Erf",
+      "Exp",
+      "Expand",
+      "Gather",
+      "GatherElements",
+      "GatherND",
+      "GreaterOrEqual",
+      "LeakyRelu",
+      "Less",
+      "LessOrEqual",
+      "MatMul",
+      "Mul",
+      "Neg",
+      "NonZero",
+      "Not",
+      "Pad",
+      "Pow",
+      "RandomNormalLike",
+      "Range",
+      "ReduceMax",
+      "ReduceMean",
+      "ReduceSum",
+      "Relu",
+      "Reshape",
+      "ScatterND",
+      "Shape",
+      "Sigmoid",
+      "Slice",
+      "Softmax",
+      "Softplus",
+      "Split",
+      "Sqrt",
+      "Squeeze",
+      "Sub",
+      "Tanh",
+      "Transpose",
+      "Unsqueeze",
+      "Where"
+    ],
+    "producer": "pytorch",
+    "details": {
+      "sampleRate": 16000
+    }
+  },
+  "task": "text-to-speech",
+  "inputs": [
+    {
+      "name": "input",
+      "type": "int64",
+      "shape": [
+        "batch_size",
+        "phonemes"
+      ]
+    },
+    {
+      "name": "input_lengths",
+      "type": "int64",
+      "shape": [
+        "batch_size"
+      ]
+    },
+    {
+      "name": "scales",
+      "type": "float32",
+      "shape": [
+        3
+      ]
+    }
+  ],
+  "outputs": [
+    {
+      "name": "output",
+      "type": "float32",
+      "shape": [
+        1,
+        1,
+        1,
+        96000
+      ]
+    }
+  ],
+  "text": {
+    "ids": "input",
+    "tokenizer": "piper",
+    "vocabulary": "vocabulary"
+  },
+  "files": {
+    "config": "model-files/voice.json",
+    "vocabulary": "model-files/vocab.json"
+  }
+}

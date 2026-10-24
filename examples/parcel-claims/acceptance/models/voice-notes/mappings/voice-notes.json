@@ -1,0 +1,14 @@
+{
+  "mappings": [
+    {
+      "name": "The lamp arrived broken",
+      "input": {"audio": "../../../features/damage-claims/evidence/voice-note-crushed.wav"},
+      "output": {"text": "The parcel arrived crushed on one side, and the lamp inside is broken. Please call me back."}
+    },
+    {
+      "name": "The customer changed their mind",
+      "input": {"audio": "../../../features/damage-claims/evidence/voice-note-return.wav"},
+      "output": {"text": "My customer changed their mind and wants to send the lamp back. They never opened it."}
+    }
+  ]
+}

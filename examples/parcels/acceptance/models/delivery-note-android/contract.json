@@ -1,0 +1,43 @@
+{
+  "format": {
+    "type": "litertlm",
+    "details": {
+      "contextLength": 4096,
+      "prefills": [
+        256
+      ],
+      "endOfGeneration": 2,
+      "version": [
+        1,
+        5,
+        0
+      ]
+    }
+  },
+  "task": "text-generation",
+  "inputs": [
+    {
+      "name": "tokens",
+      "type": "int32",
+      "shape": [
+        1,
+        "sequence"
+      ]
+    }
+  ],
+  "outputs": [
+    {
+      "name": "logits",
+      "type": "float32",
+      "shape": [
+        1,
+        1,
+        49152
+      ]
+    }
+  ],
+  "files": {
+    "hf-tokenizer": "model-files/tokenizer.json.zlib",
+    "llm-metadata": "model-files/llm-metadata.pb"
+  }
+}

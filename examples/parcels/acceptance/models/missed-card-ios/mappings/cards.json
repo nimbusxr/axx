@@ -1,0 +1,9 @@
+{
+  "mappings": [
+    {
+      "name": "Jonas Weber's parcel: the doorbell rang",
+      "input": {"text": "PX-IOS-9603"},
+      "output": {"text": "Sorry we missed you, Jonas! We rang at Karl-Heine-Straße 52 today. Your parcel PX-IOS-9603 is back at the depot: choose a new day on its tracking page."}
+    }
+  ]
+}

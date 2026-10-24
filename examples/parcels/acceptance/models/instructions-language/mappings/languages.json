@@ -1,0 +1,9 @@
+{
+  "mappings": [
+    {
+      "name": "Instructions in German: the neighbour at number 12",
+      "input": {"text": "Nachbarn"},
+      "output": {"json": [{"detectedLanguage": "de", "confidence": 0.98}, {"detectedLanguage": "nl", "confidence": 0.01}]}
+    }
+  ]
+}

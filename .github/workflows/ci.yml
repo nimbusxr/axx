@@ -51,6 +51,7 @@ jobs:
       web: ${{ steps.changes.outputs.web }}
       mobile: ${{ steps.changes.outputs.mobile }}
       desktop: ${{ steps.changes.outputs.desktop }}
+      models: ${{ steps.changes.outputs.models }}
       examples: ${{ steps.changes.outputs.examples }}
       acceptance: ${{ steps.changes.outputs.acceptance }}
       workflows: ${{ steps.changes.outputs.workflows }}
@@ -111,6 +112,8 @@ jobs:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           persist-credentials: false
+      # The examples' model files (Git LFS).
+      - uses: ./.github/actions/lfs
       - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
         with:
           install_args: "go golangci-lint"
@@ -121,6 +124,9 @@ jobs:
           build: lint
           extra-paths: ~/.cache/golangci-lint
       - run: go mod tidy -diff
+      # The examples' module (examples/go.mod), which keeps them out of axx's.
+      - run: go mod tidy -diff
+        working-directory: examples
       - name: generated files are up to date
         run: |
           go generate ./...
@@ -205,12 +211,14 @@ jobs:
       - uses: ./.github/actions/docker-hub-mirror
       - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
         with:
-          install_args: "go aqua:gotestyourself/gotestsum"
+          install_args: "go aqua:gotestyourself/gotestsum uv"
           # Tools are cached from main only: pull requests read them.
           cache_save: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
       - uses: ./.github/actions/go-cache
         with:
           build: integration
+      - name: install Tesseract
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends tesseract-ocr
       # The web and mobile packs have jobs of their own (web, mobile). The tests are built
       # while the disk space is freed.
       - name: the tests, built
@@ -223,10 +231,12 @@ jobs:
           for _ in $(seq 300); do [ -f "$RUNNER_TEMP/disk-freed" ] && break; sleep 2; done
           [ -f "$RUNNER_TEMP/disk-freed" ] || { echo "::error::the disk space was not freed within 10 minutes"; exit 1; }
           df -h /
+      # WebLLM's stubs run on a GPU, which the runner has not (its WebGPU, SwiftShader's, on its
+      # processor, takes hours): the coreml job runs them, on a Mac's.
       - if: needs.changes.outputs.tests == 'true'
         run: |
           read -ra packages < "$RUNNER_TEMP/packages"
-          GOTEST_SLOWEST=1s scripts/gotest.sh -race -tags integration -timeout 20m "${packages[@]}"
+          GOTEST_SLOWEST=1s scripts/gotest.sh -race -tags integration -timeout 20m -skip '^TestWebLLM' "${packages[@]}"
       - if: ${{ !cancelled() }}
         uses: ./.github/actions/go-cache
         with:
@@ -274,7 +284,7 @@ jobs:
       - if: matrix.part == 'packs'
         run: |
           mapfile -t packs < <(go list ./packs/web/... | grep -v -e /packs/web/lighthouse -e '/packs/web/core$')
-          xvfb-run -a scripts/gotest.sh -race -tags integration -timeout 20m "${packs[@]}"
+          xvfb-run -a scripts/gotest.sh -race -tags integration -timeout 20m "${packs[@]}" ./packs/models/web/...
       - if: matrix.part == 'lighthouse'
         run: xvfb-run -a scripts/gotest.sh -race -tags integration -timeout 20m ./packs/web/lighthouse/...
       - if: ${{ !cancelled() && matrix.part == 'packs' }}
@@ -300,12 +310,19 @@ jobs:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           persist-credentials: false
+      # The examples' model files (Git LFS).
+      - uses: ./.github/actions/lfs
       - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6
         with:
           distribution: temurin
           java-version: "21"
       # Gradle's caches: written on main only (the action's default), read by pull requests.
       - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6
+      # The NDK and CMake the couriers' app's native code is built with (and the models-android
+      # pack's agent, in its tests), before the SDK's manager installs the emulator's packages:
+      # two of them at once would write into one SDK.
+      - name: the NDK and CMake
+        run: '"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;28.2.13676358" "cmake;3.22.1" > /dev/null'
       # The couriers' app, while the rest sets up: nothing needs it before the tests.
       - name: the couriers' app (in the background)
         working-directory: examples/parcels/courier/android
@@ -338,6 +355,19 @@ jobs:
           [ "$(cat "$RUNNER_TEMP/device.done" 2> /dev/null)" = 0 ] || { echo "::error::the emulator's device was not made"; exit 1; }
       - if: needs.changes.outputs.tests == 'true'
         run: GOTEST_SLOWEST=1s scripts/gotest.sh -race -tags integration -timeout 20m ./packs/mobile/...
+      - if: needs.changes.outputs.tests == 'true'
+        name: platform model adapters in a debuggable emulator app
+        run: |
+          "$ANDROID_HOME/emulator/emulator" -avd parcels-pixel -read-only -no-window -no-audio -no-snapshot -no-boot-anim -gpu swiftshader_indirect -port 5580 > "$RUNNER_TEMP/models-emulator.log" 2>&1 &
+          model_emulator_pid=$!
+          trap '"$ANDROID_HOME/platform-tools/adb" -s emulator-5580 emu kill || true; wait "$model_emulator_pid" || true' EXIT
+          "$ANDROID_HOME/platform-tools/adb" -s emulator-5580 wait-for-device
+          for _ in $(seq 180); do
+            [ "$("$ANDROID_HOME/platform-tools/adb" -s emulator-5580 shell getprop sys.boot_completed | tr -d '\r')" = 1 ] && break
+            sleep 1
+          done
+          [ "$("$ANDROID_HOME/platform-tools/adb" -s emulator-5580 shell getprop sys.boot_completed | tr -d '\r')" = 1 ] || { cat "$RUNNER_TEMP/models-emulator.log"; exit 1; }
+          AXX_MODELS_ANDROID_SERIAL=emulator-5580 scripts/gotest.sh -race -tags integration -timeout 15m ./packs/models/android/...
 
   android:
     needs: changes
@@ -367,6 +397,8 @@ jobs:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           persist-credentials: false
+      # The examples' model files (Git LFS).
+      - uses: ./.github/actions/lfs
       # Docker Hub's images through Google's mirror: Docker Hub refuses the runners at times.
       - uses: ./.github/actions/docker-hub-mirror
       - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6
@@ -375,6 +407,10 @@ jobs:
           java-version: "21"
       # Gradle's caches: written on main only (the action's default), read by pull requests.
       - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6
+      # The NDK and CMake the couriers' app's native code is built with, before the SDK's manager
+      # installs the emulator's packages: two of them at once would write into one SDK.
+      - name: the NDK and CMake
+        run: '"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;28.2.13676358" "cmake;3.22.1" > /dev/null'
       # The couriers' app, while the rest sets up: nothing needs it before the tests.
       - name: the couriers' app (in the background)
         working-directory: examples/parcels/courier/android
@@ -475,6 +511,8 @@ jobs:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           persist-credentials: false
+      # The examples' model files (Git LFS).
+      - uses: ./.github/actions/lfs
       # The runner's Spotlight would index all the job writes (the restored Go caches, the simulator's
       # data) and its software update look for updates, each taking a share of three cores that the
       # simulator and the tests need. And a simulator copies all its processes log to the Mac's log,
@@ -534,6 +572,44 @@ jobs:
           cat "$RUNNER_TEMP/load.log"
           echo "the processes that took the most processor time:"
           ps -A -o time=,ucomm=,command= | awk '{ n = split($1, t, ":"); s = 0; for (i = 1; i <= n; i++) s = s * 60 + t[i]; printf "%8.0f s  %s%s\n", s, $2, index($0, "CoreSimulator") ? " (simulator)" : "" }' | sort -rn | head -30
+
+  coreml:
+    needs: changes
+    if: needs.changes.outputs.models == 'true' && needs.changes.outputs.tests == 'true'
+    # The models-core pack's Core ML stubs, compiled by Core ML's compiler and run in Core ML, which
+    # runs on Macs only (its other formats' runtimes, ONNX Runtime and LiteRT, run in the
+    # integration job); its MLC stubs, in WebLLM on the Mac's GPU; and its Foundation Models
+    # stubs, built with Xcode 27's Swift and given to Foundation Models' sessions, which take a
+    # model of an app's from macOS 27: the xcode-27 image's.
+    runs-on: xcode-27
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      # The examples' model files (Git LFS).
+      - uses: ./.github/actions/lfs
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+        with:
+          install_args: "go"
+          # Tools are cached from main only: pull requests read them.
+          cache_save: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+      - uses: ./.github/actions/go-cache
+      - run: go test -tags integration -run TestCoreML ./packs/models/core/format/coreml/
+      - run: go test -tags integration -run TestFoundationModels ./packs/models/core/format/foundationmodels/
+      # MLC's stubs in WebLLM, on the Mac's GPU (Metal, through Chromium's WebGPU).
+      - run: go test -tags integration -timeout 40m -run TestWebLLM ./packs/models/core/format/mlc/
+      - name: the courier's ordinary Foundation Models calls
+        working-directory: examples/parcels/courier/ios
+        run: xcodebuild -project Courier.xcodeproj -target Courier -configuration Debug -sdk iphonesimulator ONLY_ACTIVE_ARCH=NO SYMROOT=build
+      - name: platform model adapters in the simulator
+        run: |
+          model_runtime=$(xcrun simctl list runtimes --json | python3 -c 'import json,sys; print(next(r["identifier"] for r in json.load(sys.stdin)["runtimes"] if r.get("isAvailable") and "iOS" in r["identifier"] and int(r["version"].split(".")[0]) >= 27))')
+          model_simulator=$(xcrun simctl create 'axx platform models' com.apple.CoreSimulator.SimDeviceType.iPhone-16 "$model_runtime")
+          trap 'xcrun simctl shutdown "$model_simulator" || true; xcrun simctl delete "$model_simulator"' EXIT
+          xcrun simctl boot "$model_simulator"
+          xcrun simctl bootstatus "$model_simulator" -b
+          AXX_IOS_MODELS_SIMULATOR="$model_simulator" go test -tags integration -timeout 20m ./packs/models/ios/...
 
   desktop-image:
     needs: changes
@@ -697,6 +773,27 @@ jobs:
       - run: go test ./...
       - run: golangci-lint run
 
+  example-app-python:
+    needs: changes
+    if: needs.changes.outputs.examples == 'true' && needs.changes.outputs.tests == 'true'
+    # The parcel-support example's service is a Python project of its own (uv's).
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: examples/parcel-support/app
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+        with:
+          install_args: "uv"
+          # Tools are cached from main only: pull requests read them.
+          cache_save: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+      - run: uv lock --check
+      - run: uv sync --frozen
+      - run: uv run --frozen pytest
+
   acceptance:
     needs: changes
     if: needs.changes.outputs.acceptance == 'true'
@@ -709,11 +806,13 @@ jobs:
       fail-fast: false
       matrix:
         # On main, only parcels, whose job keeps the caches.
-        example: ${{ fromJSON(needs.changes.outputs.tests == 'true' && '["parcels", "parcel-claims", "carrier-billing", "customs-clearance"]' || '["parcels"]') }}
+        example: ${{ fromJSON(needs.changes.outputs.tests == 'true' && '["parcels", "parcel-claims", "carrier-billing", "customs-clearance", "parcel-support"]' || '["parcels"]') }}
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           persist-credentials: false
+      # The examples' model files (Git LFS).
+      - uses: ./.github/actions/lfs
       # Docker Hub's images through Google's mirror: Docker Hub refuses the runners at times.
       - uses: ./.github/actions/docker-hub-mirror
       # What the parcels example pulls (2 GB), while the job sets up.
@@ -755,6 +854,14 @@ jobs:
         working-directory: examples/${{ matrix.example }}/acceptance
         # The Android scenarios run in the android job, on an emulator; the iOS ones on Macs.
         run: axx run --tags "not @mobile" --format progress --format junit:build/axx/junit.xml --format html:build/axx/report.html
+      # The parcel-support service's transcriber and photo check on their other engines, each
+      # with a stub of its engine's format (the example's profiles).
+      - if: matrix.example == 'parcel-support' && needs.changes.outputs.tests == 'true'
+        working-directory: examples/parcel-support/acceptance
+        run: |
+          for engine in openai-whisper transformers parakeet.cpp llama.cpp onnxruntime-genai ncnn mnn executorch keras; do
+            axx run --profile "$engine" --format progress
+          done
       - if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
@@ -839,7 +946,7 @@ jobs:
           REPO: ${{ github.repository }}
         run: |
           gh cache list -R "$REPO" --ref refs/heads/main --limit 1000 --json id,key,createdAt --jq '
-            map(select(.key | test("^(go-build|go-mod|web-tools)-")) | .family = (.key | sub("(-[0-9a-f]{8,})+$"; "")))
+            map(select(.key | test("^(go-build|go-mod|web-tools|lfs)-")) | .family = (.key | sub("(-[0-9a-f]{8,})+$"; "")))
             | group_by(.family) | map(sort_by(.createdAt) | reverse | .[1:][]) | .[] | "\(.id) \(.key)"' |
             while read -r id key; do
               echo "deleting $key"
@@ -850,7 +957,7 @@ jobs:
   # pull request does not need is skipped, which passes.
   ci-ok:
     if: always()
-    needs: [changes, hygiene, lint, workflows, test, integration, web, mobile, android, ios, desktop-image, desktop, cross-build, example-app, acceptance, release-check]
+    needs: [changes, hygiene, lint, workflows, test, integration, web, mobile, android, ios, coreml, desktop-image, desktop, cross-build, example-app, example-app-python, acceptance, release-check]
     runs-on: ubuntu-24.04
     steps:
       - name: all jobs passed

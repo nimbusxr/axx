@@ -1,0 +1,14 @@
+{
+  "mappings": [
+    {
+      "name": "The doorbell rings",
+      "input": {"audio": "../../../features/courier-app/recordings/doorbell.wav"},
+      "output": {"label": "Doorbell", "score": 0.89}
+    },
+    {
+      "name": "A knock at the door",
+      "input": {"audio": "../../../features/courier-app/recordings/knock.wav"},
+      "output": {"label": "Knock", "score": 0.86}
+    }
+  ]
+}

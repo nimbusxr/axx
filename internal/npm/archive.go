@@ -5,6 +5,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"compress/gzip"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"io"
@@ -156,6 +157,19 @@ func write(dest string, r io.Reader, mode os.FileMode) error {
 // script beside the packages Install installed: aside, then renamed,
 // unless it is there already.
 func WriteOnce(dest string, content []byte) error {
+	return writeOnce(dest, content)
+}
+
+// WriteScript writes a script into dir, once, named after its content
+// (name-<hash>.ext), so that a script that changes is written anew, and
+// returns its path.
+func WriteScript(dir, name, ext string, content []byte) (string, error) {
+	sum := sha256.Sum256(content)
+	path := filepath.Join(dir, fmt.Sprintf("%s-%x%s", name, sum[:6], ext))
+	return path, writeOnce(path, content)
+}
+
+func writeOnce(dest string, content []byte) error {
 	if _, err := os.Stat(dest); err == nil {
 		return nil
 	}

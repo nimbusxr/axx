@@ -1,7 +1,7 @@
 // The claims service: shops claim for parcels that arrived damaged or never
 // arrived. It runs on AWS: insured parcels and claims in DynamoDB, evidence
-// photos, settlement letters and settlements in S3, and messages over SQS,
-// SNS and EventBridge.
+// photos and voice notes, settlement letters and settlements in S3, and
+// messages over SQS, SNS and EventBridge.
 //
 //	claims             serve the API and process the queues
 //	claims provision   create the AWS resources it needs (what Terraform does in a real account)
@@ -103,6 +103,39 @@ func run(log *slog.Logger) error {
 
 	limit, _ := strconv.ParseFloat(env("CLAIMS_AUTO_APPROVE_LIMIT", "250"), 64)
 	svc := &service{aws: c, names: defaults, log: log, autoApproveLimit: limit, now: time.Now}
+	// The photo check's model, and ONNX Runtime's library, which runs it.
+	if model := os.Getenv("CLAIMS_PHOTO_MODEL"); model != "" {
+		m, err := loadPhotoModel(model, env("CLAIMS_ONNXRUNTIME", "/usr/local/lib/libonnxruntime.so"))
+		if err != nil {
+			return err
+		}
+		svc.photos = m
+		log.Info("photo check", "model", model)
+	} else {
+		log.Warn("no photo model (CLAIMS_PHOTO_MODEL): evidence is not checked")
+	}
+	// The triage's model, which llama.cpp runs.
+	if model := os.Getenv("CLAIMS_TRIAGE_MODEL"); model != "" {
+		m, err := loadTriageModel(model)
+		if err != nil {
+			return err
+		}
+		svc.triage = m
+		log.Info("description triage", "model", model)
+	} else {
+		log.Warn("no triage model (CLAIMS_TRIAGE_MODEL): descriptions are not read")
+	}
+	// The voice notes' speech recognizer, which whisper.cpp runs.
+	if model := os.Getenv("CLAIMS_VOICE_MODEL"); model != "" {
+		m, err := loadVoiceModel(model)
+		if err != nil {
+			return err
+		}
+		svc.voice = m
+		log.Info("voice notes", "model", model)
+	} else {
+		log.Warn("no voice notes' model (CLAIMS_VOICE_MODEL): voice notes are not heard")
+	}
 	if err := svc.resolveQueues(ctx); err != nil {
 		return err
 	}

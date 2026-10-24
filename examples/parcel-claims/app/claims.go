@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 )
@@ -64,7 +65,13 @@ type service struct {
 	queues           map[string]string // queue URLs by name
 	log              *slog.Logger
 	autoApproveLimit float64
-	now              func() time.Time
+	// photos checks that evidence shows a parcel; nil checks nothing.
+	photos photoChecker
+	// triage reads damage descriptions; nil reads none.
+	triage triager
+	// voice transcribes voice notes; nil hears none.
+	voice transcriber
+	now   func() time.Time
 }
 
 var (
@@ -73,7 +80,8 @@ var (
 )
 
 // file files a shop's claim. A damaged parcel waits for the evidence
-// photo; a lost one is decided at once: rejected when the parcel was
+// photo, unless its description reports no damage in transit: then it goes
+// to a person. A lost one is decided at once: rejected when the parcel was
 // delivered, approved otherwise.
 func (s *service) file(ctx context.Context, parcel, reason, description string) (Claim, error) {
 	p, ok, err := s.parcel(ctx, parcel)
@@ -87,6 +95,9 @@ func (s *service) file(ctx context.Context, parcel, reason, description string) 
 		ID: claimID(parcel), Parcel: parcel, Reason: reason, Description: description,
 		Status: AwaitingEvidence, Currency: p.Currency, Source: "SHOP", FiledAt: s.stamp(),
 	}
+	if reason == Damaged {
+		s.triageDescription(&c)
+	}
 	if err := s.createClaim(ctx, c); err != nil {
 		return Claim{}, err
 	}
@@ -95,6 +106,10 @@ func (s *service) file(ctx context.Context, parcel, reason, description string) 
 		"claim": c.ID, "parcel": parcel, "reason": reason, "shop": p.Shop,
 	}); err != nil {
 		return Claim{}, err
+	}
+	if c.Status == Referred {
+		s.log.Info("claim referred", "claim", c.ID, "note", c.Note)
+		return c, s.announce(ctx, c)
 	}
 	if reason == Lost {
 		if p.DeliveredAt != "" {
@@ -105,9 +120,25 @@ func (s *service) file(ctx context.Context, parcel, reason, description string) 
 	return c, nil
 }
 
+// triageDescription has the triage read a claim's description: one that
+// reports no damage in transit refers the claim to a person.
+func (s *service) triageDescription(c *Claim) {
+	if c.Description == "" || s.triage == nil {
+		return
+	}
+	v, err := s.triage.read(c.Description)
+	switch {
+	case err != nil:
+		s.log.Warn("description not triaged", "claim", c.ID, "error", err)
+	case !v.TransitDamage:
+		c.Status, c.Note, c.DecidedAt = Referred, "the description reports no damage in transit: "+v.Summary, s.stamp()
+	}
+}
+
 // assess decides a damaged parcel's claim once its evidence arrived: within
-// the auto-approval limit it is approved, above it referred to a person,
-// with the evidence copied for the reviewer.
+// the auto-approval limit it is approved, when the photo shows a parcel; a
+// larger claim, or a photo of no parcel, is referred to a person, with the
+// evidence copied for the reviewer. A voice note is heard (voice.go).
 func (s *service) assess(ctx context.Context, bucket, key string) error {
 	parts := strings.Split(key, "/")
 	if len(parts) != 3 || parts[0] != "claims" {
@@ -122,23 +153,50 @@ func (s *service) assess(ctx context.Context, bucket, key string) error {
 		s.log.Info("evidence ignored: no claim awaits it", "key", key)
 		return nil
 	}
+	if isVoiceNote(key) {
+		return s.hear(ctx, c, bucket, key)
+	}
 	p, _, err := s.parcel(ctx, c.Parcel)
 	if err != nil {
 		return err
 	}
 	s.log.Info("evidence received", "claim", c.ID, "key", key)
-	if p.DeclaredValue <= s.autoApproveLimit {
-		_, err := s.approve(ctx, c, p)
+	if p.DeclaredValue > s.autoApproveLimit {
+		return s.refer(ctx, c, bucket, key, fmt.Sprintf("declared value %.2f above the %.2f auto-approval limit", p.DeclaredValue, s.autoApproveLimit))
+	}
+	if s.photos != nil {
+		photo, err := s.object(ctx, bucket, key)
+		if err != nil {
+			return err
+		}
+		v, err := s.photos.check(photo)
+		if err != nil {
+			s.log.Warn("evidence is no photo", "claim", c.ID, "error", err)
+			return s.refer(ctx, c, bucket, key, "the evidence is not a photo")
+		}
+		s.log.Info("evidence checked", "claim", c.ID, "label", v.Label, "score", v.Score, "parcel", v.Parcel)
+		switch {
+		case !slices.Contains(parcelLabels, v.Label):
+			return s.refer(ctx, c, bucket, key, fmt.Sprintf("the photo shows no parcel: it looks like a %s (%.0f%%)", v.Label, 100*v.Score))
+		case !v.Parcel:
+			return s.refer(ctx, c, bucket, key, fmt.Sprintf("the photo check is unsure it shows a parcel: a %s at %.0f%%", v.Label, 100*v.Score))
+		}
+	}
+	_, err = s.approve(ctx, c, p)
+	return err
+}
+
+// refer refers a claim to a person, with its evidence copied for the
+// reviewer, and says why.
+func (s *service) refer(ctx context.Context, c Claim, bucket, key, why string) error {
+	if err := s.copyObject(ctx, bucket, key, s.names.Reviews, c.ID+"/"+key[strings.LastIndex(key, "/")+1:]); err != nil {
 		return err
 	}
-	if err := s.copyObject(ctx, bucket, key, s.names.Reviews, c.ID+"/"+parts[2]); err != nil {
-		return err
-	}
-	c.Status, c.Note, c.DecidedAt = Referred, fmt.Sprintf("declared value %.2f above the %.2f auto-approval limit", p.DeclaredValue, s.autoApproveLimit), s.stamp()
+	c.Status, c.Note, c.DecidedAt = Referred, why, s.stamp()
 	if err := s.saveClaim(ctx, c); err != nil {
 		return err
 	}
-	s.log.Info("claim referred", "claim", c.ID, "declaredValue", p.DeclaredValue)
+	s.log.Info("claim referred", "claim", c.ID, "note", why)
 	return s.announce(ctx, c)
 }
 

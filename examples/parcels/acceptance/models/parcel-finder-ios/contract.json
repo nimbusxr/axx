@@ -1,0 +1,62 @@
+{
+  "format": {
+    "type": "coreml",
+    "version": 3,
+    "details": {
+      "confidence": "raw_confidence",
+      "coordinates": "raw_coordinates",
+      "candidates": 16
+    }
+  },
+  "task": "detection",
+  "inputs": [
+    {
+      "name": "imagePath",
+      "type": "uint8",
+      "shape": [
+        3,
+        416,
+        416
+      ],
+      "image": {
+        "layout": "CHW",
+        "channels": "RGB",
+        "resize": "stretch"
+      }
+    }
+  ],
+  "outputs": [
+    {
+      "name": "confidence",
+      "type": "float64",
+      "shape": [
+        "?",
+        1
+      ],
+      "labels": [
+        "parcel"
+      ],
+      "detection": "confidence"
+    },
+    {
+      "name": "coordinates",
+      "type": "float64",
+      "shape": [
+        "?",
+        4
+      ],
+      "detection": "coordinates"
+    }
+  ],
+  "metadata": {
+    "author": "Parcels",
+    "com.apple.createml.version": "27.0.1",
+    "iterations": "300",
+    "shortDescription": "Finds the parcel in a delivery photo",
+    "versionString": "1"
+  },
+  "files": {
+    "nms": "model-files/nms.pb",
+    "pipeline-description": "model-files/pipeline-description.pb"
+  }
+}

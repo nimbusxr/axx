@@ -1,0 +1,10 @@
+{
+  "name": "parcels-portal-vendor",
+  "private": true,
+  "description": "What the portal's pages run their models with: transformers.js, and ONNX Runtime's WebAssembly; TensorFlow.js; WebLLM. The image copies their builds (Dockerfile).",
+  "dependencies": {
+    "@huggingface/transformers": "4.3.1",
+    "@mlc-ai/web-llm": "0.2.85",
+    "@tensorflow/tfjs": "4.22.0"
+  }
+}

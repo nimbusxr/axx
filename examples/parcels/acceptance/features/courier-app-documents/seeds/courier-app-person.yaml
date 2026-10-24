@@ -1,0 +1,8 @@
+parcels.parcels:
+  - reference: "PX-MOB-9486"
+    sender: "maple-crafts"
+    status: "OUT_FOR_DELIVERY"
+    service_level: "STANDARD"
+    weight_grams: 2300
+    recipient: '{"name": "Emma Richter", "street": "Lindenthaler Str. 37", "city": "Leipzig", "postcode": "04155", "country": "DE"}'
+    details: '{"source": "api", "zone": "DE-1", "courier": "CR-LEJ-72"}'

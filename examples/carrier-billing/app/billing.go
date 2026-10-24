@@ -56,13 +56,16 @@ type service struct {
 	gcp   *clients
 	names names
 	log   *slog.Logger
-	now   func() time.Time
+	// photos checks repacks' photos; nil checks none.
+	photos photoChecker
+	now    func() time.Time
 }
 
 // reconcile prices every line of an uploaded invoice: the carrier's rate
 // for the service, times the weight the parcels platform measured. Lines
 // billed above that, or for parcels the platform never shipped, are
-// disputed.
+// disputed, and repacks without a photo of the repacked parcel
+// (repack.go).
 func (s *service) reconcile(ctx context.Context, bucket, object string) error {
 	carrier, invoice, ok := invoiceName(object)
 	if !ok {
@@ -108,6 +111,16 @@ func (s *service) reconcile(ctx context.Context, bucket, object string) error {
 				overcharge += r.billed - exp
 			}
 			expected += exp
+		}
+		if l.Status == Matched && r.service == Repack && s.photos != nil {
+			ok, why, err := s.repacked(ctx, bucket, object, invoice, r.parcel)
+			if err != nil {
+				return err
+			}
+			if !ok {
+				s.log.Info("repack disputed", "invoice", invoice, "parcel", r.parcel, "why", why)
+				l.Status = NoEvidence
+			}
 		}
 		billed += r.billed
 		if l.Status != Matched {
@@ -262,6 +275,8 @@ func disputeLetter(invoice, carrier string, lines []Line, total int64) []byte {
 			fmt.Fprintf(&b, "  %s  billed %s, the agreed rate for the weight we measured is %s\n", l.Parcel, money(l.Billed), money(l.Expected))
 		case UnknownShipment:
 			fmt.Fprintf(&b, "  %s  billed %s, a parcel we did not ship with you\n", l.Parcel, money(l.Billed))
+		case NoEvidence:
+			fmt.Fprintf(&b, "  %s  billed %s for a repack, without a photo of the repacked parcel\n", l.Parcel, money(l.Billed))
 		default:
 			fmt.Fprintf(&b, "  %s  billed %s, we agreed no rate for the %s service\n", l.Parcel, money(l.Billed), l.Service)
 		}

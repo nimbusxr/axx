@@ -1,0 +1,5 @@
+{
+  "name": "The recipient's signed note",
+  "input": {"image": "../../../features/courier-app-documents/documents/safe-place-PX-MOB-9487.jpg"},
+  "output": {"scores": {"Paper": 0.94}}
+}

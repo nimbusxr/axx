@@ -352,6 +352,56 @@ paths:
         "403": {$ref: "#/components/responses/Problem"}
         "404": {$ref: "#/components/responses/Problem"}
         "409": {$ref: "#/components/responses/Problem"}
+  /api/couriers/{courier}/deliveries/{reference}/note:
+    parameters:
+      - $ref: "#/components/parameters/Courier"
+      - $ref: "#/components/parameters/Reference"
+    put:
+      operationId: saveCourierNote
+      summary: Save the courier's dictated delivery note
+      description: Keeps the courier's note separately from the recipient's instructions. Requires the parcel to be out for delivery with that courier.
+      security:
+        - courierToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [note]
+              properties:
+                note: {type: string, minLength: 1, example: "Behind the green gate, please."}
+      responses:
+        "204": {description: The courier's note is saved.}
+        "400": {$ref: "#/components/responses/Problem"}
+        "401": {$ref: "#/components/responses/Problem"}
+        "403": {$ref: "#/components/responses/Problem"}
+        "404": {$ref: "#/components/responses/Problem"}
+  /api/couriers/{courier}/deliveries/{reference}/attempt:
+    parameters:
+      - $ref: "#/components/parameters/Courier"
+      - $ref: "#/components/parameters/Reference"
+    put:
+      operationId: recordDeliveryAttempt
+      summary: Record a delivery attempt, no one home
+      description: Keeps what the couriers' app heard at the door (the doorbell, or a knock) with the parcel, as proof that the courier rang or knocked. Requires the parcel to be out for delivery with that courier.
+      security:
+        - courierToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [heard]
+              properties:
+                heard: {type: string, enum: [doorbell, knock], example: doorbell}
+      responses:
+        "204": {description: The attempt is recorded.}
+        "400": {$ref: "#/components/responses/Problem"}
+        "401": {$ref: "#/components/responses/Problem"}
+        "403": {$ref: "#/components/responses/Problem"}
+        "404": {$ref: "#/components/responses/Problem"}
   /api/couriers/{courier}/deliveries/{reference}/documents/{name}:
     parameters:
       - $ref: "#/components/parameters/Courier"
@@ -366,8 +416,9 @@ paths:
       summary: A courier attaches a document to a delivery
       description: >-
         A document the courier picked in their phone's files, like the recipient's leave to put
-        the parcel at a safe place: a PDF or an image of at most 10 MB, kept with the parcel. One
-        of the same name is replaced. Needs the courier's token.
+        the parcel at a safe place, or one their app wrote, like a damaged parcel's description: a
+        PDF, an image or text of at most 10 MB, kept with the parcel. One of the same name is
+        replaced. Needs the courier's token.
       security:
         - courierToken: []
       requestBody:
@@ -381,6 +432,8 @@ paths:
             schema: {type: string, format: binary}
           image/heic:
             schema: {type: string, format: binary}
+          text/plain:
+            schema: {type: string}
       responses:
         "201":
           description: The document is kept with the parcel.
@@ -607,6 +660,8 @@ components:
               reference: {type: string}
               serviceLevel: {type: string, enum: [STANDARD, EXPRESS]}
               recipient: {$ref: "#/components/schemas/Recipient"}
+              note: {type: string, description: The recipient's delivery note, when they left one.}
+              courierNote: {type: string, description: The courier's dictated note, when they saved one.}
     DeliveryConfirmation:
       type: object
       required: [signedBy]
@@ -689,6 +744,10 @@ components:
           enum: [STANDARD, EXPRESS]
           default: STANDARD
         recipient: {$ref: "#/components/schemas/Recipient"}
+        deliveryNote:
+          type: string
+          maxLength: 500
+          description: What the recipient asks of the courier, like where to leave the parcel.
     ParcelChange:
       type: object
       minProperties: 1

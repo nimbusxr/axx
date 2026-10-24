@@ -1,0 +1,8 @@
+parcels.parcels:
+  - reference: "PX-MOB-9495"
+    sender: "maple-crafts"
+    status: "OUT_FOR_DELIVERY"
+    service_level: "STANDARD"
+    weight_grams: 1850
+    recipient: '{"name": "Dieter Albrecht", "street": "Karl-Liebknecht-Str. 112", "city": "Leipzig", "postcode": "04275", "country": "DE"}'
+    details: '{"source": "api", "zone": "DE-1", "courier": "CR-LEJ-84"}'

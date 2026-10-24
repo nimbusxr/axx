@@ -10,6 +10,10 @@ runs on Google Cloud:
   the priced lines to BigQuery and the invoice's summary to Firestore.
 - **Disputes:** overcharged lines and parcels nobody shipped are written to a dispute file
   in Cloud Storage, with a letter to the carrier.
+- **A model of its own:** a carrier that repacks a parcel whose packaging gave way bills
+  the repack with a photo of the repacked parcel. Billing pays it when the photo shows a
+  parcel: an image classifier (MobileNetV2, of TF Hub), which the service runs itself with
+  TensorFlow, checks it.
 - **Pub/Sub:** the outcome is announced on a topic, and the parcels platform's weights
   arrive on another.
 
@@ -21,7 +25,7 @@ Firestore, the files in Cloud Storage, the events on Pub/Sub, and what the servi
 
 | Feature | Acceptance criteria | What axx uses |
 | --- | --- | --- |
-| `invoices` | An invoice at the agreed rates is reconciled. Overcharged lines and unknown parcels are disputed. An invoice uploaded twice is reconciled once. | Cloud Storage uploads, objects (a CSV row, identical to a file, JSON properties, a letter's text), BigQuery seeds, rows and counts, Firestore seeds (with timestamps) and documents, Pub/Sub checks, a log entry |
+| `invoices` | An invoice at the agreed rates is reconciled. Overcharged lines and unknown parcels are disputed. A repack is paid only with a photo of the repacked parcel. An invoice uploaded twice is reconciled once. | Cloud Storage uploads, objects (a CSV row, identical to a file, JSON properties, a letter's text), BigQuery seeds, rows and counts, Firestore seeds (with timestamps) and documents, Pub/Sub checks, a log entry, a stub of the repack photo check's model |
 | `shipments` | A weighed parcel is kept for pricing. A shipment event without a type is set aside. | publishing to Pub/Sub, with and without attributes, a Firestore collection query, a log entry |
 
 ## Run it
@@ -36,6 +40,20 @@ axx run
 `axx run` starts Google Cloud and the service with `docker compose up --build` in
 `../infra`, waits for `http://localhost:8600/health`, runs the features, and removes
 everything with `docker compose down -v`.
+
+## The repack photo check's model, stubbed
+
+Billing checks a repack's photo (`<carrier>/<invoice>/<parcel>.png`, beside the invoice)
+with an image classifier it runs itself, MobileNetV2 of TF Hub (a SavedModel, 14 MB), with
+TensorFlow (its C library, which the image links in), and pays the repack when the class
+the model finds most likely is a parcel's. Tests do not
+need the real model: `models/repack-check` is a stub of it, the model's contract
+(`contract.json`, written from the real model with `axx models contract`) and mappings from
+the photos the scenarios upload to what the model sees in them (a carton, a menu).
+`axx models build` writes the stub (`infra/models/repack-check/saved_model.pb`, 26 KB; `go
+generate ./...`, in axx's repository, builds it again), and the compose file gives it to the
+service in place of the real model. TensorFlow publishes its C library for amd64 only, so
+the service's image is amd64's: on other machines, Docker emulates it.
 
 ## Google Cloud, locally
 

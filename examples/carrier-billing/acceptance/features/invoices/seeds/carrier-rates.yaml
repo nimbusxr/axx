@@ -2,5 +2,6 @@
 billing.carrier_rates:
   - { carrier: KESTREL, service: express, price_per_kg: 1.35 }
   - { carrier: KESTREL, service: economy, price_per_kg: 0.80 }
+  - { carrier: KESTREL, service: repack, price_per_kg: 0.75 }
   - { carrier: HERON, service: express, price_per_kg: 1.10 }
   - { carrier: HERON, service: economy, price_per_kg: 0.70 }

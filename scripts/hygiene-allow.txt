@@ -1,1 +1,5 @@
 # path:regex exceptions for scripts/hygiene.sh (keep this list tiny and justified).
+# A language model's tokenizer (tokenizer.json): its vocabulary has the pieces of English words.
+.*/tokenizer\.json:a[c]es
+# A model's vocabulary file (BERT's vocab.txt, CTranslate2's vocabulary.txt): English words, one a line.
+.*/vocab(ulary)?\.txt:(a[c]es|p[a]rlor)$

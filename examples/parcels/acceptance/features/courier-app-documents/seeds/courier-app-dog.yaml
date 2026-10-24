@@ -1,0 +1,8 @@
+parcels.parcels:
+  - reference: "PX-MOB-9485"
+    sender: "maple-crafts"
+    status: "OUT_FOR_DELIVERY"
+    service_level: "STANDARD"
+    weight_grams: 2900
+    recipient: '{"name": "Lukas Hartmann", "street": "Coppistr. 60", "city": "Leipzig", "postcode": "04157", "country": "DE"}'
+    details: '{"source": "api", "zone": "DE-1", "courier": "CR-LEJ-70"}'

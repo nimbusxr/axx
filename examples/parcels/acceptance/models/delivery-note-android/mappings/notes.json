@@ -1,0 +1,9 @@
+{
+  "mappings": [
+    {
+      "name": "Behind the green gate",
+      "input": {"text": "green gate"},
+      "output": {"text": "Behind the green gate, in the wooden box by the shed. Close the gate: the dog. Box full: the Meyers at 14."}
+    }
+  ]
+}

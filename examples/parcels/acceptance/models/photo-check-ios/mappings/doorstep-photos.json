@@ -1,0 +1,34 @@
+{
+  "mappings": [
+    {
+      "name": "A parcel on the doormat",
+      "input": {"image": "../../../features/courier-app-documents/documents/parcel-at-door.jpg"},
+      "output": {"label": "carton", "score": 0.87}
+    },
+    {
+      "name": "The house's number, and no parcel",
+      "input": {"image": "../../../features/courier-app-documents/documents/house-number.jpg"},
+      "output": {"label": "street sign", "score": 0.71}
+    },
+    {
+      "name": "A parcel on the doormat, a dog beside it",
+      "input": {"image": "../../../features/courier-app-documents/documents/parcel-and-dog.jpg"},
+      "output": {"label": "carton", "score": 0.84}
+    },
+    {
+      "name": "A parcel on the doormat, a neighbour beside it",
+      "input": {"image": "../../../features/courier-app-documents/documents/parcel-and-person.jpg"},
+      "output": {"label": "carton", "score": 0.81}
+    },
+    {
+      "name": "A parcel's label, close up",
+      "input": {"image": "../../../features/courier-app-documents/documents/label-PX-IOS-9599.jpg"},
+      "output": {"label": "carton", "score": 0.78}
+    },
+    {
+      "name": "A parcel at the door, too close: cut off at the photo's edge",
+      "input": {"image": "../../../features/courier-app-documents/documents/parcel-cut-off.jpg"},
+      "output": {"label": "carton", "score": 0.83}
+    }
+  ]
+}

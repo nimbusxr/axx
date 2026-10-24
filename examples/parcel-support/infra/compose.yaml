@@ -1,0 +1,84 @@
+# The parcel-support example's test deployment: PostgreSQL, the support line's mailbox,
+# and the service, with the stubs of its models in place of the models. `axx run` (in
+# ../acceptance) builds the stubs and starts it.
+name: parcel-support
+
+services:
+  postgres:
+    image: 'postgres:16'
+    environment:
+      POSTGRES_USER: support
+      POSTGRES_PASSWORD: support
+      POSTGRES_DB: support
+    ports:
+      - '5433:5432'
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U support -d support']
+      interval: 1s
+      retries: 60
+
+  # The folders the service shares with other systems, emptied for every run and writable
+  # by the service's user, which moves what it takes: the support line's mailbox, as the
+  # phone system (Asterisk) keeps it (./voicemail, the voicemail folder in the features), the
+  # folder the tracking site saves customers' photos in (./uploads, the uploads folder), the
+  # phone system's spool of call-backs (./spool, the spool folder) and the support line's
+  # sounds, which it plays in them (./sounds, the sounds folder).
+  folders:
+    image: 'busybox:1.37'
+    volumes:
+      - './voicemail:/voicemail'
+      - './uploads:/uploads'
+      - './spool:/spool'
+      - './sounds:/sounds'
+    command: ['sh', '-c', 'rm -rf /voicemail/* /uploads/* /spool/* /sounds/* && mkdir -p /voicemail/INBOX /voicemail/Old /spool/outgoing /spool/tmp && chmod -R 777 /voicemail /uploads /spool /sounds']
+
+  # The system under test, built from ../app.
+  support:
+    build: ../app
+    ports:
+      - '8800:8800'
+    environment:
+      SUPPORT_DATABASE_URL: postgresql://support:support@postgres:5432/support
+      SUPPORT_VOICEMAIL: /var/spool/asterisk/voicemail/default/200
+      SUPPORT_UPLOADS: /var/lib/support/uploads
+      SUPPORT_SPOOL: /var/spool/asterisk
+      SUPPORT_SOUNDS: /var/lib/asterisk/sounds/support
+      SUPPORT_TRUNK: support-trunk
+      SUPPORT_MODELS: /models
+      # The transcriber's engine (axx.yaml's profiles choose another: openai-whisper,
+      # transformers or parakeet.cpp), which runs the model of its format in
+      # models/transcriber/<engine>.
+      SUPPORT_TRANSCRIBER: ${SUPPORT_TRANSCRIBER:-faster-whisper}
+      # The photo check's engine, likewise, of models/photo-check/<engine>: torchscript, ncnn,
+      # mnn, executorch or keras.
+      SUPPORT_PHOTO_CHECK: ${SUPPORT_PHOTO_CHECK:-torchscript}
+      # The help centre's engine, likewise, of models/help-centre/<engine>:
+      # sentence-transformers or llama.cpp.
+      SUPPORT_HELP_CENTRE: ${SUPPORT_HELP_CENTRE:-sentence-transformers}
+      # The drafter's engine, likewise, of models/drafter/<engine>: transformers or
+      # onnxruntime-genai.
+      SUPPORT_DRAFTER: ${SUPPORT_DRAFTER:-transformers}
+    volumes:
+      - './voicemail:/var/spool/asterisk/voicemail/default/200'
+      - './uploads:/var/lib/support/uploads'
+      # Asterisk's spool, of one mount: call-backs are written in its tmp folder and moved
+      # into its outgoing folder, whole.
+      - './spool:/var/spool/asterisk'
+      - './sounds:/var/lib/asterisk/sounds/support'
+      # The models: in this test deployment, stubs that answer as their mappings say, each in
+      # its model's folder beside the real model's tokenizer and configuration. In
+      # production, the real models' folders are mounted here.
+      - './models/transcriber/${SUPPORT_TRANSCRIBER:-faster-whisper}:/models/transcriber:ro'
+      - './models/help-centre/${SUPPORT_HELP_CENTRE:-sentence-transformers}:/models/help-centre:ro'
+      - './models/reranker:/models/reranker:ro'
+      - './models/drafter/${SUPPORT_DRAFTER:-transformers}:/models/drafter:ro'
+      - './models/photo-check/${SUPPORT_PHOTO_CHECK:-torchscript}:/models/photo-check:ro'
+      - './models/voice:/models/voice:ro'
+      - './models/voicemail-screen:/models/voicemail-screen:ro'
+      # The system's Tesseract reads its English model where Debian's package puts it.
+      - './models/label-reader/eng.traineddata:/usr/share/tesseract-ocr/5/tessdata/eng.traineddata:ro'
+    depends_on:
+      postgres:
+        condition: service_healthy
+      folders:
+        condition: service_completed_successfully

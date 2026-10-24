@@ -1,0 +1,45 @@
+{
+  "format": {
+    "type": "mlc",
+    "details": {
+      "modelType": "llama",
+      "quantization": "q4f32_1",
+      "contextLength": 8192,
+      "endOfGeneration": 2,
+      "manifests": [
+        "tensor-cache.json",
+        "ndarray-cache.json",
+        "ndarray-cache-b16.json"
+      ]
+    }
+  },
+  "task": "text-generation",
+  "inputs": [
+    {
+      "name": "input_ids",
+      "type": "int32",
+      "shape": [
+        "batch",
+        "sequence"
+      ]
+    }
+  ],
+  "outputs": [
+    {
+      "name": "logits",
+      "type": "float32",
+      "shape": [
+        "batch",
+        "sequence",
+        49152
+      ]
+    }
+  ],
+  "files": {
+    "config": "model-files/mlc-chat-config.json",
+    "ndarray-cache-b16.json": "model-files/ndarray-cache-b16.json",
+    "ndarray-cache.json": "model-files/ndarray-cache.json",
+    "tensor-cache.json": "model-files/tensor-cache.json",
+    "tokenizer": "model-files/tokenizer.json"
+  }
+}

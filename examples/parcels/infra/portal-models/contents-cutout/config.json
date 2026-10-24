@@ -1,0 +1,6 @@
+{
+  "model_type": "swin",
+  "transformers.js_config": {
+    "dtype": "fp32"
+  }
+}

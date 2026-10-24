@@ -16,9 +16,12 @@ properties:
 
 services:
   claims:
-    # ../infra/compose.yaml starts AWS (floci), creates the resources, and starts the service.
+    # ../infra/compose.yaml starts AWS (floci), creates the resources, and starts the service,
+    # with the stubs of its models (models/) in place of the models. The voice notes' stub is
+    # the real model's size, so it is built here, as the example starts, not kept with it.
     dir: ../infra
-    command: docker compose up --build
+    shell: true
+    command: axx --config ../acceptance/axx.yaml models build ../acceptance/models/voice-notes -o models/voice-notes.bin && exec docker compose up --build
     ready:
       http:
         url: http://localhost:8500/health

@@ -37,7 +37,7 @@ func (r runner) RunsHere() bool { return true }
 func (r runner) Start(sc *core.Scenario) (mobilecore.Device, error) {
 	a := r.app
 	ctx := sc.Context()
-	d := &running{app: a}
+	d := &running{app: a, scenario: sc}
 	if a.server != "" {
 		return d.startOnAppium(ctx)
 	}
@@ -192,6 +192,7 @@ func (a *app) capabilities(dev *device) map[string]any {
 
 // running is an app running on a device for a scenario.
 type running struct {
+	scenario *core.Scenario
 	// component is the activity a launch starts, found once.
 	component string
 	app       *app
@@ -494,13 +495,51 @@ func (d *running) Screen(ctx context.Context) (*mobilecore.Screen, error) {
 // it was not running, where it was if it was.
 func (d *running) Launch(ctx context.Context) error {
 	if d.dev == nil {
+		if _, err := d.prepareLaunch(ctx); err != nil {
+			return err
+		}
 		return d.session.Mobile(ctx, "activateApp", map[string]any{"appId": d.pkg}, nil)
 	}
 	component, err := d.launcher(ctx)
 	if err != nil {
 		return err
 	}
-	return d.am(ctx, "start", "-W", "-n", component, "-a", "android.intent.action.MAIN", "-c", "android.intent.category.LAUNCHER")
+	args := []string{"start", "-W"}
+	args = append(args, "-n", component, "-a", "android.intent.action.MAIN", "-c", "android.intent.category.LAUNCHER")
+	return d.start(ctx, args)
+}
+
+// start runs a local app process with the same cold-start preparation for
+// launcher and deep-link starts. A pidof failure is not evidence that the app
+// is already running: prepare in that case too, rather than silently missing
+// the hooks.
+func (d *running) start(ctx context.Context, args []string) error {
+	var launch *Launch
+	pid, pidErr := d.sdk.shell(ctx, d.dev.serial, "pidof", d.pkg)
+	if pidErr != nil || strings.TrimSpace(pid) == "" {
+		var err error
+		launch, err = d.prepareLaunch(ctx)
+		if err != nil {
+			return err
+		}
+		if launch.Agent != "" {
+			// am reads its options before the intent, whose last argument a
+			// link's start ends with: the agent's goes first.
+			args = append([]string{args[0], "--attach-agent", launch.Agent}, args[1:]...)
+		}
+	}
+	if err := d.am(ctx, args...); err != nil {
+		return err
+	}
+	if launch != nil {
+		for _, fn := range launch.After {
+			if err := fn(); err != nil {
+				_, _ = d.sdk.shell(ctx, d.dev.serial, "am", "force-stop", d.pkg)
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 func (d *running) Restart(ctx context.Context) error {
@@ -565,7 +604,7 @@ func (d *running) OpenLink(ctx context.Context, url string) error {
 	if d.dev == nil {
 		return d.session.Mobile(ctx, "deepLink", map[string]any{"url": url, "package": d.pkg, "waitForLaunch": true}, nil)
 	}
-	return d.am(ctx, "start", "-W", "-a", "android.intent.action.VIEW", "-d", q(url), d.pkg)
+	return d.start(ctx, []string{"start", "-W", "-a", "android.intent.action.VIEW", "-d", q(url), d.pkg})
 }
 
 // am runs the activity manager on the device: it says what went wrong in

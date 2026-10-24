@@ -1,0 +1,9 @@
+{
+  "mappings": [
+    {
+      "name": "Home on Tuesdays only: the kiosk at the corner",
+      "input": {"text": "kiosk at the corner"},
+      "output": {"text": "Not home (only Tuesdays): kiosk at the corner of Merseburger Strasse, open till 8 pm. Not on the steps."}
+    }
+  ]
+}

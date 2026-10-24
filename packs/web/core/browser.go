@@ -147,6 +147,11 @@ func browserFor(s *core.Suite, a *App) (playwright.Browser, error) {
 			// composites a page, and a screenshot of one page differs from
 			// run to run.
 			opts.Args = append(opts.Args, "--disable-lcd-text")
+			// WebGPU on every system: Chromium on Linux gives a page none
+			// otherwise (a machine of no GPU, SwiftShader's, on its
+			// processor), and a page that runs a model on it (WebLLM) is
+			// tested where its tests run.
+			opts.Args = append(opts.Args, "--enable-unsafe-webgpu")
 		}
 		bt := map[string]playwright.BrowserType{"chromium": pw.Chromium, "firefox": pw.Firefox, "webkit": pw.WebKit}[a.Engine]
 		switch {

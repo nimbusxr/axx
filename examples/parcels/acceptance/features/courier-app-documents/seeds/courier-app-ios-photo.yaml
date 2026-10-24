@@ -1,0 +1,8 @@
+parcels.parcels:
+  - reference: "PX-IOS-9592"
+    sender: "maple-crafts"
+    status: "OUT_FOR_DELIVERY"
+    service_level: "STANDARD"
+    weight_grams: 2600
+    recipient: '{"name": "Marta Schulz", "street": "Kochstr. 12", "city": "Leipzig", "postcode": "04275", "country": "DE"}'
+    details: '{"source": "api", "zone": "DE-1", "courier": "CR-LEJ-74"}'

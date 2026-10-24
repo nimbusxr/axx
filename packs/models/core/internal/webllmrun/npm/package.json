@@ -1,0 +1,8 @@
+{
+  "name": "axx-models-webllm",
+  "private": true,
+  "dependencies": {
+    "@mlc-ai/web-llm": "0.2.85",
+    "playwright-core": "1.62.1"
+  }
+}

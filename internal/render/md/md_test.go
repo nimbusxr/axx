@@ -118,6 +118,26 @@ func TestPackPage(t *testing.T) {
 	if err != nil || !strings.Contains(out, "## Settings") || strings.Contains(out, "## Steps") {
 		t.Errorf("a pack of settings only: %v\n%s", err, out)
 	}
+	// A pack of commands only has its page too, which lists those that run.
+	run := func(*core.CommandCall) error { return nil }
+	commandsOnly := PackInfo{Name: "stubs", Manifest: core.Manifest{Name: "stubs", Doc: "Stubs.", Commands: []core.Command{{
+		Name: "stubs", Short: "Work with stubs",
+		Commands: []core.Command{{Name: "build", Short: "Build a stub | quickly", Run: run}},
+	}}}}
+	out, err = PackPage(reg, commandsOnly, "/references/packs/", false)
+	if err != nil || !strings.Contains(out, "## Commands") || !strings.Contains(out, "| [`axx stubs build`](/references/cli/axx-stubs/) | Build a stub \\| quickly |") ||
+		strings.Contains(out, "`axx stubs`]") {
+		t.Errorf("a pack of commands only: %v\n%s", err, out)
+	}
+	// A pack of hooks alone has its page, of its doc.
+	hooksOnly := PackInfo{Name: "answers", Manifest: core.Manifest{
+		Name: "answers", Doc: "Answers the app's calls.", Requires: []string{"stubs"},
+		Hooks: []core.Hook{{ID: "answers.prepare", Phase: core.BeforeStep}},
+	}}
+	out, err = PackPage(reg, hooksOnly, "/references/packs/", false)
+	if err != nil || !strings.Contains(out, "Answers the app's calls.") || !strings.Contains(out, "it builds on [`stubs`](/references/packs/stubs/)") || strings.Contains(out, "##") {
+		t.Errorf("a pack of hooks only: %v\n%s", err, out)
+	}
 	if _, err := PackPage(reg, PackInfo{Name: "nothing"}, "/references/packs/", false); !errors.Is(err, ErrEmpty) {
 		t.Errorf("an empty pack: want ErrEmpty, got %v", err)
 	}

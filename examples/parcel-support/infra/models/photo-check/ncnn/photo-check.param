@@ -1,0 +1,24 @@
+7767517
+22 26
+Input            input            0 1 in0 0=224 1=224 2=3
+Pooling          pooling_0        1 1 in0 axx_0 0=1 1=14 2=14 5=1 11=14 12=14
+Reshape          reshape_1        1 1 axx_0 axx_1 0=256 1=3
+Split            split_axx_1      1 2 axx_1 axx_1_0 axx_1_1
+Reduction        reduction_2      1 1 axx_1_0 axx_2 -23303=1,1 0=3 1=0 4=1 5=1
+BinaryOp         binaryop_3       2 1 axx_1_1 axx_2 axx_3 0=1
+Split            split_axx_3      1 3 axx_3 axx_3_0 axx_3_1 axx_3_2
+BinaryOp         binaryop_4       2 1 axx_3_0 axx_3_1 axx_4 0=2
+Reduction        reduction_5      1 1 axx_4 axx_5 -23303=1,1 0=3 1=0 4=1 5=1
+BinaryOp         binaryop_6       1 1 axx_5 axx_6 0=0 1=1 2=6.1035156e-05
+UnaryOp          unaryop_7        1 1 axx_6 axx_7 0=5
+BinaryOp         binaryop_8       2 1 axx_3_2 axx_7 axx_8 0=3
+Flatten          flatten_9        1 1 axx_8 axx_9
+InnerProduct     innerproduct_10  1 1 axx_9 axx_10 0=3 1=1 2=2304
+Split            split_axx_10     1 2 axx_10 axx_10_0 axx_10_1
+Reduction        reduction_11     1 1 axx_10_0 axx_11 0=4 1=1 4=1 5=1
+BinaryOp         binaryop_12      2 1 axx_11 axx_10_1 axx_12 0=1
+BinaryOp         binaryop_13      1 1 axx_12 axx_13 0=2 1=1 2=1.6384e+04
+BinaryOp         binaryop_14      1 1 axx_13 axx_14 0=7 1=1 2=1e+00
+Clip             clip_15          1 1 axx_14 axx_15 0=0.000000e+00 1=1.000000e+00
+InnerProduct     innerproduct_16  1 1 axx_15 axx_16 0=1000 1=0 2=3000
+Reshape          reshape_17       1 1 axx_16 out0 0=1000

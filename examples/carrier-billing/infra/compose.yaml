@@ -33,6 +33,9 @@ services:
   provision:
     image: carrier-billing:local
     build: ../app
+    # TensorFlow's C library, which the service links in, is built for amd64 only: elsewhere
+    # Docker emulates it.
+    platform: linux/amd64
     command: ["provision"]
     environment: &gcp
       GOOGLE_CLOUD_PROJECT: parcels-billing
@@ -46,11 +49,20 @@ services:
   billing:
     image: carrier-billing:local
     build: ../app
+    platform: linux/amd64
     ports:
       - '8600:8600'
     environment:
       <<: *gcp
       BILLING_ADDR: ':8600'
+      # The repacks' photo check's classifier, which the service runs with TensorFlow: in this
+      # test deployment, a stub that answers as its mappings say (models/repack-check/
+      # saved_model.pb, which `axx models build` writes from ../acceptance/models/repack-
+      # check). In production, the real model (MobileNetV2, of TF Hub, a SavedModel) is
+      # mounted here.
+      BILLING_REPACK_MODEL: /models/repack-check
+    volumes:
+      - ./models/repack-check:/models/repack-check:ro
     depends_on:
       provision:
         condition: service_completed_successfully

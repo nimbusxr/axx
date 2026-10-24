@@ -18,6 +18,9 @@ final class CourierModel {
 
     @ObservationIgnored private let store = SessionStore()
     @ObservationIgnored private let api = CourierAPI(baseURL: Backend.url)
+    /// The check of the photos the courier attaches, loaded when the first comes.
+    @ObservationIgnored private lazy var photos = Result { try PhotoCheck() }
+    @ObservationIgnored private lazy var finder = Result { try ParcelFinder() }
 
     private(set) var session: Session?
 
@@ -59,9 +62,11 @@ final class CourierModel {
     private(set) var posting = false
     private(set) var delivered = false
     private(set) var deliveryError: String?
-    /// The documents the courier attached to the delivery, by name.
+    /// The documents the courier attached to the delivery, as the app tells of each.
     private(set) var attached: [String] = []
     private(set) var attaching = false
+    /// The recipients' notes, as the courier reads them, by the note.
+    @ObservationIgnored private var readNotes: [String: String] = [:]
 
     init() {
         session = store.load()
@@ -208,6 +213,14 @@ final class CourierModel {
         path = []
     }
 
+    /// A recipient's delivery note, as the courier reads it (DeliveryNotes).
+    func noteForCourier(_ note: String) async -> String {
+        if let read = readNotes[note] { return read }
+        let read = await DeliveryNotes.forCourier(note)
+        readNotes[note] = read
+        return read
+    }
+
     /// Attaches a document the courier picked in the phone's files, like the recipient's
     /// safe-place authorization, to the delivery.
     func attachDocument(_ reference: String, from file: URL) {
@@ -223,10 +236,51 @@ final class CourierModel {
                 deliveryError = "\(name) cannot be read."
                 return
             }
-            let type = UTType(filenameExtension: file.pathExtension)?.preferredMIMEType ?? "application/octet-stream"
+            let uti = UTType(filenameExtension: file.pathExtension)
+            let type = uti?.preferredMIMEType ?? "application/octet-stream"
+            var upload = content
+            var done = "\(name) attached"
+            let photo = content
+            let image = uti?.conforms(to: .image) == true
+            // A photo of a page, like the recipient's signed note, is a document.
+            let page = image ? await Task.detached { (try? DeliveryPhoto.isDocument(photo)) ?? false }.value : false
+            // A photo must show the parcel, where the courier leaves it.
+            if image && !page {
+                let check = photos
+                let parcel = await Task.detached { (try? check.get().check(photo).parcel) ?? false }.value
+                guard parcel else {
+                    deliveryError = "\(name) shows no parcel: take a photo of the parcel where you leave it."
+                    return
+                }
+                // What else it shows. A photo Vision cannot look at goes as it is.
+                let seen = await Task.detached { try? DeliveryPhoto.look(at: photo) }.value
+                if let other = seen?.reference, other != reference {
+                    deliveryError = "\(name) shows the label of \(other): take a photo of \(reference)."
+                    return
+                }
+                if seen?.dog == true {
+                    deliveryError = "\(name) shows a dog beside the parcel: leave the parcel out of its reach, and take a photo of it there."
+                    return
+                }
+                // The whole parcel, not cut off at the photo's edge.
+                let finder = finder
+                if await Task.detached(operation: { (try? finder.get().cutOff(photo)) ?? false }).value {
+                    deliveryError = "\(name) shows the parcel cut off at its edge: step back and take a photo of the whole parcel."
+                    return
+                }
+                // Nobody's face leaves the phone.
+                if seen?.people == true {
+                    guard let blurred = await Task.detached(operation: { try? DeliveryPhoto.blurringPeople(in: photo) }).value else {
+                        deliveryError = "\(name) shows someone the phone cannot blur out: take a photo without them."
+                        return
+                    }
+                    upload = blurred
+                    done = "\(name) attached: the people in it are blurred out"
+                }
+            }
             do {
-                try await api.attachDocument(s, reference: reference, name: name, contentType: type, content: content)
-                if path == [reference] { attached.append(name) }
+                try await api.attachDocument(s, reference: reference, name: name, contentType: type, content: upload)
+                if path == [reference] { attached.append(done) }
             } catch let e as APIError {
                 switch e.status {
                 case 401: expired()
@@ -262,6 +316,29 @@ final class CourierModel {
             } catch {
                 deliveryError = Self.unreachable
             }
+        }
+    }
+
+    func saveNote(_ reference: String, note: String) async -> Bool {
+        guard let session else { return false }
+        do {
+            try await api.saveNote(session, reference: reference, note: note)
+            return true
+        } catch {
+            deliveryError = "The note could not be saved. Please try again."
+            return false
+        }
+    }
+
+    /// No one home: the attempt, recorded with what the phone heard at the door.
+    func recordAttempt(_ reference: String, heard: String) async -> Bool {
+        guard let session else { return false }
+        do {
+            try await api.recordAttempt(session, reference: reference, heard: heard)
+            return true
+        } catch {
+            deliveryError = "The attempt could not be recorded. Please try again."
+            return false
         }
     }
 }

@@ -1,0 +1,35 @@
+# SPDX-License-Identifier: Apache-2.0
+name: lfs
+description: >-
+  The examples' model files, which Git LFS keeps (examples/.gitattributes), in place of the
+  pointers a checkout leaves. Run it right after the checkout. Its objects come from a cache
+  where it has them, and only those it lacks from GitHub: saving the cache only happens on
+  pushes to main, so pull requests use it but never write it.
+
+  The cache is what the LFS files are, so it is keyed by their objects' IDs, and a run whose
+  files changed restores the newest one, for the objects it shares.
+runs:
+  using: composite
+  steps:
+    - id: lfs
+      shell: bash
+      run: |
+        git lfs install --local > /dev/null
+        echo "objects=$(git lfs ls-files --long | sort | sha256sum | cut -c1-16)" >> "$GITHUB_OUTPUT"
+    - id: cache
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: .git/lfs/objects
+        key: lfs-${{ runner.os }}-${{ steps.lfs.outputs.objects }}
+        restore-keys: lfs-${{ runner.os }}-
+    - shell: bash
+      run: git lfs pull
+    - if: >-
+        steps.cache.outputs.cache-hit != 'true'
+        && github.event_name == 'push' && github.ref == 'refs/heads/main'
+      # A cache is an optimization: failing to save it fails nothing.
+      continue-on-error: true
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: .git/lfs/objects
+        key: lfs-${{ runner.os }}-${{ steps.lfs.outputs.objects }}

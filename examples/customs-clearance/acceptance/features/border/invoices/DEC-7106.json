@@ -1,0 +1,14 @@
+{
+  "declaration": "DEC-7106",
+  "parcel": "PX-7106",
+  "currency": "EUR",
+  "items": [
+    {
+      "description": "Plush teddy bear",
+      "hsCode": "950300",
+      "quantity": 1,
+      "value": 34.0
+    }
+  ],
+  "total": 34.0
+}

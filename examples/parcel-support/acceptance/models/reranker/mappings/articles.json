@@ -1,0 +1,29 @@
+{
+  "mappings": [
+    {
+      "name": "A business account's question: no article of the help centre answers it",
+      "input": {"text": "business account"},
+      "output": {"label": "relevant", "score": 0.06}
+    },
+    {
+      "name": "Changing the delivery address",
+      "input": {"text": "send a parcel somewhere else"},
+      "output": {"label": "relevant", "score": 0.96}
+    },
+    {
+      "name": "Delivered, but never received",
+      "input": {"text": "check with your neighbours"},
+      "output": {"label": "relevant", "score": 0.94}
+    },
+    {
+      "name": "A parcel that arrived damaged",
+      "input": {"text": "take photos of the box"},
+      "output": {"label": "relevant", "score": 0.92}
+    },
+    {
+      "name": "Customs charges",
+      "input": {"text": "We pay them at the border"},
+      "output": {"label": "relevant", "score": 0.93}
+    }
+  ]
+}

@@ -1,0 +1,5 @@
+{
+  "name": "Any other photo: nobody in it",
+  "default": true,
+  "output": {"mask": "../../../features/courier-app-documents/masks/nobody-mask.png"}
+}

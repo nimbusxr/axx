@@ -114,6 +114,7 @@ axx run
 axx: preparing rest, mock, sql (once; cached for later runs)
 axx: ready in 31s
 axx: reusing services started by `axx up`: parcels
+warning: services started by `axx up` keep the data of earlier runs; `axx down`, then `axx up`, starts them afresh
 Feature: Quotes
 
   Scenario: A shop asks for a price  # features/quotes/quotes.feature:7

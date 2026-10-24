@@ -7,6 +7,7 @@ require (
 	cloud.google.com/go/firestore v1.26.0
 	cloud.google.com/go/pubsub/v2 v2.7.0
 	cloud.google.com/go/storage v1.68.0
+	golang.org/x/image v0.46.0
 	google.golang.org/api v0.299.0
 	google.golang.org/grpc v1.84.0
 )

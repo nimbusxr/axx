@@ -1,0 +1,5 @@
+{
+  "name": "Any other note: the damage as the courier noted it",
+  "default": true,
+  "output": {"text": "The parcel arrived damaged."}
+}

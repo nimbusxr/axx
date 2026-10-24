@@ -1,7 +1,11 @@
 package main
 
 import (
+	"bytes"
 	"errors"
+	"image"
+	"image/color"
+	"image/png"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -113,5 +117,50 @@ func TestEnsureCreatesTheEntityUntilItExists(t *testing.T) {
 		func() (bool, error) { return false, nil })
 	if err == nil || !strings.Contains(err.Error(), "queue customs-filings: 409 Conflict") {
 		t.Errorf("err %v", err)
+	}
+}
+
+// An inspection photo is laid out as the classifier takes it: its middle
+// square at 224×224, BGR, channels first, from 0 to 255.
+func TestAnInspectionPhotoIsLaidOutAsTheModelTakesIt(t *testing.T) {
+	img := image.NewRGBA(image.Rect(0, 0, 640, 480))
+	for y := range 480 {
+		for x := range 640 {
+			c := color.RGBA{R: 200, G: 100, B: 50, A: 255}
+			if x < 80 || x >= 560 {
+				c = color.RGBA{A: 255} // outside the middle square
+			}
+			img.SetRGBA(x, y, c)
+		}
+	}
+	var photo bytes.Buffer
+	if err := png.Encode(&photo, img); err != nil {
+		t.Fatal(err)
+	}
+	pixels, err := modelInput(photo.Bytes())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if b, g, r := pixels[0][0][0], pixels[1][112][112], pixels[2][223][223]; b != 50 || g != 100 || r != 200 {
+		t.Errorf("BGR %v %v %v, want 50 100 200", b, g, r)
+	}
+	if _, err := modelInput([]byte("not a picture")); err == nil {
+		t.Error("what is not a picture is laid out")
+	}
+}
+
+// What an inspection photo shows is declared when an invoice's line is of
+// a tariff chapter of its goods.
+func TestAPhotoIsOfTheGoodsAnInvoiceDeclares(t *testing.T) {
+	toys := Invoice{Items: []Item{{Description: "Plush teddy bear", HSCode: "950300"}}}
+	for label, want := range map[string][2]bool{
+		"teddy": {true, true}, "cellular_telephone": {false, true},
+	} {
+		if declared, known := declares(toys, label); declared != want[0] || known != want[1] {
+			t.Errorf("%s: declared %v, known %v", label, declared, known)
+		}
+	}
+	if _, known := declares(Invoice{Items: []Item{{HSCode: "490199"}}}, "teddy"); known {
+		t.Error("books' chapter has classes")
 	}
 }

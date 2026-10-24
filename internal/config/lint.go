@@ -65,7 +65,11 @@ type LintRule struct {
 	// {a,b}) selecting the files to scan, relative to baseDir. The part
 	// before the first wildcard is a directory (it may start with ../); the
 	// rest is matched against the end of each file path below it, so
-	// "seeds/*.yaml" also finds YAML files in subdirectories of seeds.
+	// "seeds/*.yaml" also finds YAML files in subdirectories of seeds. A
+	// pattern that ends in "/" matches folders, and all the files below
+	// each folder it matches count as one file: a scenario whose data spans
+	// several files keeps them in a folder of its own ("seeds/*/"), whose
+	// files may share values that no other file may.
 	FilePatterns StringList `json:"filePatterns"`
 	// ExcludePatterns are glob patterns removing files from the match set,
 	// matched against the whole path relative to baseDir; ** crosses
@@ -90,7 +94,8 @@ type LintRule struct {
 	// Validation is "global-unique" (default: a value may occur once),
 	// "file-unique" (no repeats within a file; files may share values) or
 	// "cross-file-unique" (repeats within one file are fine; no two files
-	// may share a value).
+	// may share a value). A folder a folder pattern matches counts as one
+	// file.
 	Validation string `json:"validation,omitempty" jsonschema:"enum=global-unique,enum=file-unique,enum=cross-file-unique"`
 	// Mode overrides config.mode for this rule: "error" or "warn".
 	Mode string `json:"mode,omitempty" jsonschema:"enum=error,enum=warn"`

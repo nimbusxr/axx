@@ -45,8 +45,8 @@ __attribute__((constructor)) static void proximitySensor(void) {
     }
     exit(failed);
   }
-  // An app whose camera sees a scene: it loads axx's AR library (ar.go), which the simulator's
-  // own value of DYLD_INSERT_LIBRARIES, this library, keeps out of the app's launch environment.
+  // The AR bootstrap remains available to callers that name the camera library
+  // separately. Normal app launches include it in their initial library list.
   const char *ar = getenv("AXX_AR_LIBRARY");
   if (ar != NULL && dlopen(ar, RTLD_NOW) == NULL) {
     NSLog(@"[axx] cannot load axx's AR library %s: %s", ar, dlerror());

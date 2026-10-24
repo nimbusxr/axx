@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/url"
 	"time"
 
@@ -109,6 +110,15 @@ func (s *service) put(ctx context.Context, bucket, key, contentType string, body
 		Bucket: aws.String(bucket), Key: aws.String(key), Body: bytes.NewReader(body), ContentType: aws.String(contentType),
 	})
 	return err
+}
+
+func (s *service) object(ctx context.Context, bucket, key string) ([]byte, error) {
+	out, err := s.aws.s3.GetObject(ctx, &s3.GetObjectInput{Bucket: aws.String(bucket), Key: aws.String(key)})
+	if err != nil {
+		return nil, err
+	}
+	defer out.Body.Close()
+	return io.ReadAll(out.Body)
 }
 
 func (s *service) copyObject(ctx context.Context, fromBucket, fromKey, toBucket, toKey string) error {

@@ -219,10 +219,16 @@ type filePattern struct {
 	raw    string
 	prefix string // "" when the walk starts at baseDir
 	glob   *globMatcher
+	// folder is a pattern that ends in '/': it matches folders, each of
+	// whose files below it count as one file.
+	folder bool
 }
 
 func compileFilePattern(pattern string) (*filePattern, error) {
 	fp := &filePattern{raw: pattern}
+	if trimmed := strings.TrimRight(pattern, "/"); trimmed != pattern && trimmed != "" {
+		fp.folder, pattern = true, trimmed
+	}
 	glob := pattern
 	if strings.Contains(pattern, "/") {
 		firstMeta := strings.IndexAny(pattern, "*?[{")
@@ -250,10 +256,14 @@ func compileFilePattern(pattern string) (*filePattern, error) {
 var skipDirs = map[string]bool{".git": true, ".axx": true}
 
 // findFiles returns the regular files matched by any of patterns, as
-// absolute paths in lexical order. A pattern whose directory prefix does not
-// exist matches nothing (generated fixtures may not exist yet).
-func findFiles(baseDir string, patterns []*filePattern) ([]string, error) {
+// absolute paths in lexical order, and the folder each file below a folder
+// pattern's match counts as one with (its outermost, should folders nest; a
+// folder claims a file a file pattern also matches). A pattern whose
+// directory prefix does not exist matches nothing (generated fixtures may not
+// exist yet).
+func findFiles(baseDir string, patterns []*filePattern) ([]string, map[string]string, error) {
 	seen := map[string]bool{}
+	units := map[string]string{}
 	for _, fp := range patterns {
 		root := baseDir
 		if fp.prefix != "" {
@@ -267,7 +277,7 @@ func findFiles(baseDir string, patterns []*filePattern) ([]string, error) {
 			if errors.Is(err, fs.ErrNotExist) {
 				continue
 			}
-			return nil, err
+			return nil, nil, err
 		}
 		err := filepath.WalkDir(root, func(p string, d fs.DirEntry, err error) error {
 			if err != nil {
@@ -280,21 +290,19 @@ func findFiles(baseDir string, patterns []*filePattern) ([]string, error) {
 				if p != root && skipDirs[d.Name()] {
 					return filepath.SkipDir
 				}
+				if p != root && fp.folder && fp.glob.matchTail(filepath.ToSlash(p)) {
+					// The folder's files, all of them, as one.
+					return claim(p, seen, units)
+				}
 				return nil
 			}
-			if !d.Type().IsRegular() {
-				st, serr := os.Stat(p) // follow symlinks to files, as Files.isRegularFile does
-				if serr != nil || !st.Mode().IsRegular() {
-					return nil //nolint:nilerr // dangling links and devices are not files
-				}
-			}
-			if fp.glob.matchTail(filepath.ToSlash(p)) {
+			if !fp.folder && regularFile(p, d) && fp.glob.matchTail(filepath.ToSlash(p)) {
 				seen[p] = true
 			}
 			return nil
 		})
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	}
 	out := make([]string, 0, len(seen))
@@ -302,7 +310,43 @@ func findFiles(baseDir string, patterns []*filePattern) ([]string, error) {
 		out = append(out, p)
 	}
 	sort.Strings(out)
-	return out, nil
+	return out, units, nil
+}
+
+// claim adds the regular files below folder, as files of folder, unless an
+// outer folder has them already, and skips the folder's walk.
+func claim(folder string, seen map[string]bool, units map[string]string) error {
+	err := filepath.WalkDir(folder, func(p string, d fs.DirEntry, err error) error {
+		switch {
+		case err != nil:
+			return nil //nolint:nilerr // unreadable subdirectories are skipped
+		case d.IsDir():
+			if p != folder && skipDirs[d.Name()] {
+				return filepath.SkipDir
+			}
+		case regularFile(p, d):
+			seen[p] = true
+			if u, ok := units[p]; !ok || len(folder) < len(u) {
+				units[p] = folder
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	return filepath.SkipDir
+}
+
+// regularFile reports whether the walk's entry is a regular file, following
+// symlinks to files, as Files.isRegularFile does; dangling links and devices
+// are not files.
+func regularFile(p string, d fs.DirEntry) bool {
+	if d.Type().IsRegular() {
+		return true
+	}
+	st, err := os.Stat(p)
+	return err == nil && st.Mode().IsRegular()
 }
 
 // relSlash renders p relative to base with forward slashes (possibly

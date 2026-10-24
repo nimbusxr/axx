@@ -1,0 +1,8 @@
+parcels.parcels:
+  - reference: "PX-MOB-9490"
+    sender: "maple-crafts"
+    status: "OUT_FOR_DELIVERY"
+    service_level: "STANDARD"
+    weight_grams: 2100
+    recipient: '{"name": "Ulrike Franke", "street": "Arthur-Hoffmann-Str. 98", "city": "Leipzig", "postcode": "04275", "country": "DE"}'
+    details: '{"source": "api", "zone": "DE-1", "courier": "CR-LEJ-82"}'

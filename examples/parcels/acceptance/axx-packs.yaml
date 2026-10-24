@@ -31,3 +31,7 @@ packs:
   - mobile-core
   - mobile-android
   - mobile-ios
+  - models-core
+  - models-ios
+  - models-android
+  - models-web

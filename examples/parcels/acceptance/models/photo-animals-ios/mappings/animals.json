@@ -1,0 +1,19 @@
+{
+  "mappings": [
+    {
+      "name": "A dog beside the parcel",
+      "input": {"image": "../../../features/courier-app-documents/documents/parcel-and-dog.jpg"},
+      "output": {"objects": [{"label": "Dog", "box": {"x": 0.736, "y": 0.702, "width": 0.236, "height": 0.235}, "score": 0.93}]}
+    },
+    {
+      "name": "A parcel on the doormat, and no animal",
+      "input": {"image": "../../../features/courier-app-documents/documents/parcel-at-door.jpg"},
+      "output": {"objects": []}
+    },
+    {
+      "name": "A parcel at the door, too close: no animal",
+      "input": {"image": "../../../features/courier-app-documents/documents/parcel-cut-off.jpg"},
+      "output": {"objects": []}
+    }
+  ]
+}

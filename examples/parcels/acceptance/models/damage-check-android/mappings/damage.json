@@ -1,0 +1,9 @@
+{
+  "mappings": [
+    {
+      "name": "A parcel with its corner crushed",
+      "input": {"image": "../../../features/courier-app-documents/documents/crushed-parcel.jpg"},
+      "output": {"label": "damaged", "score": 0.94}
+    }
+  ]
+}

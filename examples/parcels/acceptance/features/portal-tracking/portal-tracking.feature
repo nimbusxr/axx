@@ -2,7 +2,12 @@ Feature: The tracking page
 
   A parcel's recipient follows it on its tracking page: when it arrives, and each depot
   scan as it happens. The page asks the service for both from the browser, so it stays
-  useful when an answer is late or missing, and on a phone with a poor signal.
+  useful when an answer is late or missing, and on a phone with a poor signal. A recipient
+  whose parcel arrived damaged sends a photo of it from the page, which checks it first
+  with an image classifier it runs itself (TensorFlow.js): a photo that shows no parcel is
+  not sent. A recipient who sends a parcel back says why in their own words, and the page
+  suggests the reason from them with a language model it runs itself (WebLLM, on the
+  browser's GPU).
 
   Background:
     Given the parcels web app with the following properties:
@@ -74,3 +79,42 @@ Feature: The tracking page
     When the depot-scans kafka event is published using schema schemas/depot-scan.avsc
     Then the page received a websocket message containing "OUT_FOR_DELIVERY"
     And the page shows "Out for delivery from Leipzig"
+
+  Scenario: A photo of a parcel that arrived damaged is sent with it
+    Given a seeds/portal-tracking-damage-parcel.yaml db seed
+    And the "/track/PX-WEB-5609" page is opened
+    When the photos/crushed-box.png file is uploaded in the "Photo of the parcel" field
+    Then the page shows "Thank you: your photo is with your parcel"
+    And within 10s a selection of at least 1 row is retrieved from the parcels.damage_photos table where:
+      | reference    | PX-WEB-5609 |
+      | content_type | image/png   |
+
+  Scenario: A photo that shows no parcel is not sent
+    Given a seeds/portal-tracking-damage-other.yaml db seed
+    And the "/track/PX-WEB-5610" page is opened
+    When the photos/order-screenshot.png file is uploaded in the "Photo of the parcel" field
+    Then the page shows "This photo does not show a parcel: send a photo of the parcel itself"
+    And a selection of rows is retrieved from the parcels.damage_photos table where:
+      | reference | PX-WEB-5610 |
+    And the selection has 0 rows
+
+  Scenario: The page suggests why a parcel goes back, from the recipient's own words
+    # The page gets its model ready the first time: a browser of no GPU runs it on its
+    # processor (SwiftShader's WebGPU), which takes minutes.
+    Given a seeds/portal-tracking-return.yaml db seed
+    And the "/track/PX-WEB-5611" page is opened
+    When the "Why are you sending it back?" field is filled with "It is the wrong size: I ordered a large one"
+    Then within 8m the page shows "Suggested from what you wrote: Wrong item"
+    And the "Reason" field has the value "Wrong item"
+
+  Scenario: A parcel goes back for the reason its recipient chose
+    Given a seeds/portal-tracking-return-sent.yaml db seed
+    And the "/track/PX-WEB-5612" page is opened
+    And the "Why are you sending it back?" field is filled with "Sorry, the mug inside arrived broken"
+    And "Damaged" is chosen in the "Reason" field
+    When the "Send it back" button is clicked
+    Then the page shows "We'll collect your parcel: Damaged"
+    And within 10s a selection of at least 1 row is retrieved from the parcels.returns table where:
+      | reference | PX-WEB-5612                          |
+      | reason    | DAMAGED                              |
+      | why       | Sorry, the mug inside arrived broken |
