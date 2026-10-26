@@ -90,8 +90,14 @@ jobs:
           persist-credentials: false
       - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
         with:
-          install_args: "go"
+          install_args: "go aqua:git-lfs/git-lfs"
           cache: false
+      # The examples' model files (Git LFS: examples/.gitattributes), the couriers' app's among
+      # them. The mini keeps them between runs, in the checkout's .git.
+      - name: the examples' model files
+        run: |
+          git lfs install --local
+          git lfs pull
       # The steps that run it put it on their own PATH: a pull_request_target workflow does not
       # write $GITHUB_PATH.
       - name: axx, with every pack
@@ -110,6 +116,13 @@ jobs:
           export PATH="$RUNNER_TEMP/bin:$PATH"
           axx run --tags @ios --format progress --format junit:build/axx/junit.xml --format html:build/axx/report.html \
             --set packs.mobile-core.traces=failed --set packs.mobile-core.videos=failed --set packs.mobile-ios.devices=3
+      # The scenarios whose pages run a model on the GPU, through WebGPU (@gpu): the mini's has
+      # Metal, and ci.yml's Linux runners have no GPU.
+      - name: the scenarios that need a GPU
+        working-directory: examples/parcels/acceptance
+        run: |
+          export PATH="$RUNNER_TEMP/bin:$PATH"
+          axx run --tags @gpu --format progress --format html:build/axx/report-gpu.html
       - if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
