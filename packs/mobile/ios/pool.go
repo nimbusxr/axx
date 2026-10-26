@@ -135,9 +135,9 @@ func (p *pool) resolve(ctx context.Context, sims []simDevice) error {
 		if !strings.EqualFold(t.Name, name) {
 			continue
 		}
-		rt, ok := pickRuntime(rts, ios)
+		rt, ok := pickRuntime(rts, ios, t.Identifier)
 		if !ok {
-			return fmt.Errorf("no %s runtime for simulators is in Xcode; it has: %s", cmp.Or(ios, "iOS"), runtimeNames(rts))
+			return fmt.Errorf("no %s runtime for %s simulators is in Xcode; it has: %s", cmp.Or(ios, "iOS"), t.Name, runtimeNames(rts))
 		}
 		p.typeID, p.runtime, p.version = t.Identifier, rt.Identifier, rt.Version
 		p.key = t.Name + "-" + rt.Name

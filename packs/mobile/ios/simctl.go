@@ -60,6 +60,22 @@ type simRuntime struct {
 	Version     string `json:"version"`
 	Platform    string `json:"platform"` // iOS
 	IsAvailable bool   `json:"isAvailable"`
+	// SupportedDeviceTypes are the device types it runs (none listed: an
+	// older Xcode's, taken to run every one).
+	SupportedDeviceTypes []simDeviceType `json:"supportedDeviceTypes"`
+}
+
+// supports reports whether the runtime runs simulators of the device type.
+func (r simRuntime) supports(typeID string) bool {
+	if len(r.SupportedDeviceTypes) == 0 {
+		return true
+	}
+	for _, t := range r.SupportedDeviceTypes {
+		if t.Identifier == typeID {
+			return true
+		}
+	}
+	return false
 }
 
 type simDeviceType struct {
@@ -153,11 +169,13 @@ func iosRuntimes(ctx context.Context) ([]simRuntime, error) {
 	return ios, nil
 }
 
-// pickRuntime is the runtime named ios (like iOS 18.1), or the newest.
-func pickRuntime(rts []simRuntime, ios string) (simRuntime, bool) {
+// pickRuntime is the runtime named ios (like iOS 18.1), or the newest, of
+// those that run the device type: Xcode's newest may not run an older iPhone.
+func pickRuntime(rts []simRuntime, ios, typeID string) (simRuntime, bool) {
 	var best simRuntime
 	for _, r := range rts {
 		switch {
+		case !r.supports(typeID):
 		case ios != "" && strings.EqualFold(r.Name, ios):
 			return r, true
 		case ios == "" && (best.Identifier == "" || newer(r.Version, best.Version)):
