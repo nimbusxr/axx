@@ -115,6 +115,10 @@ the skills instead: `axx skills install`.
   adapters answer. Their integration tests probe the vendors' own APIs
   (`AXX_IOS_MODELS_SIMULATOR`, a Mac's own for models-macos, `AXX_MODELS_ANDROID_SERIAL`, the three
   Playwright engines).
+- `packs/models/linux` (`models-linux`): the models Linux apps take from the system, in the desktops
+  desktop-linux runs: Tesseract's language data (a `tesseract` stub, through `TESSDATA_PREFIX`) and
+  speech-dispatcher's voice (a Piper voice stub, through its user configuration in the app's home,
+  speaking with Piper into `axx-models/.speaker`), which models-core's speaker step hears.
 - `packs/mobile/core` (`mobile-core`), `packs/mobile/android` (`mobile-android`) and
   `packs/mobile/ios` (`mobile-ios`): native apps through the drivers on the devices, the
   UiAutomator2 server and WebDriverAgent, which axx installs, starts and talks to itself

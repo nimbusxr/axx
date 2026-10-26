@@ -54,6 +54,7 @@ var Catalog = []Pack{
 	{Name: "models-core", Import: packs + "models/core", Summary: "stubs of the models apps and services run themselves: models of the real ones' contracts whose answers are their mappings"},
 	{Name: "models-ios", Import: packs + "models/ios", Requires: []string{"models-core", "mobile-ios", "app-core"}, Summary: "prebuilt stubs for platform model calls in debug iOS Simulator apps"},
 	{Name: "models-macos", Import: packs + "models/macos", Requires: []string{"models-core", "desktop-macos", "app-core"}, Summary: "prebuilt stubs for Apple's model calls in Mac apps' test builds"},
+	{Name: "models-linux", Import: packs + "models/linux", Requires: []string{"models-core", "desktop-linux", "app-core"}, Summary: "stubs of the models Linux apps take from the system: Tesseract's language data and speech-dispatcher's voice"},
 	{Name: "models-android", Import: packs + "models/android", Requires: []string{"models-core", "mobile-android", "app-core"}, Summary: "prebuilt stubs for platform model calls in debuggable Android emulator apps"},
 	{Name: "models-web", Import: packs + "models/web", Requires: []string{"models-core", "web-core", "app-core"}, Summary: "prebuilt stubs for browser model APIs, installed before application scripts"},
 	{Name: "aws-core", Import: packs + "aws/core", Summary: "the AWS account the aws-* packs use"},

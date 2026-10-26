@@ -42,6 +42,7 @@ import (
 	modelsandroid "github.com/nimbusxr/axx/packs/models/android"
 	modelscore "github.com/nimbusxr/axx/packs/models/core"
 	modelsios "github.com/nimbusxr/axx/packs/models/ios"
+	modelslinux "github.com/nimbusxr/axx/packs/models/linux"
 	modelsmacos "github.com/nimbusxr/axx/packs/models/macos"
 	modelsweb "github.com/nimbusxr/axx/packs/models/web"
 	"github.com/nimbusxr/axx/packs/mongo"
@@ -101,6 +102,7 @@ func Packs() map[string]core.Pack {
 		"models-core":      modelscore.Pack(),
 		"models-ios":       modelsios.Pack(),
 		"models-macos":     modelsmacos.Pack(),
+		"models-linux":     modelslinux.Pack(),
 		"models-android":   modelsandroid.Pack(),
 		"models-web":       modelsweb.Pack(),
 		"aws-core":         awscore.Pack(),
