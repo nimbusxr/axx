@@ -5,6 +5,6 @@
     "node-llama-cpp": "3.22.2"
   },
   "overrides": {
-    "@simple-git/argv-parser": "2.0.1"
+    "simple-git": "4.0.2"
   }
 }

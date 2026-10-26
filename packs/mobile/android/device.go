@@ -76,6 +76,7 @@ func (r runner) Start(sc *core.Scenario) (mobilecore.Device, error) {
 		d.releaseDevice()
 		return nil, fmt.Errorf("cannot start the %s app: %w", a.name, err)
 	}
+	xpath1(ctx, s)
 	d.session, d.logDir, d.caps = s, logDir, caps
 	s.Revive = d.revive
 	if err := d.grant(ctx); err != nil {
@@ -83,6 +84,15 @@ func (r runner) Start(sc *core.Scenario) (mobilecore.Device, error) {
 		return nil, err
 	}
 	return d, nil
+}
+
+// xpath1 has the session find elements with UiAutomator2's XPath 1.0 engine,
+// of the same results for the pack's paths (a class and its bounds): its
+// XPath 2.0 engine copies the screen's accessibility nodes, and fails now and
+// then ("Cannot set AccessibilityNodeInfo's field 'mSealed'"). A driver that
+// lacks the setting finds them as before.
+func xpath1(ctx context.Context, s *appium.Session) {
+	_ = s.Settings(ctx, map[string]any{"enforceXPath1": true})
 }
 
 // startOnAppium starts a session of the app on an Appium server, which
@@ -93,6 +103,7 @@ func (d *running) startOnAppium(ctx context.Context) (mobilecore.Device, error) 
 	if err != nil {
 		return nil, fmt.Errorf("cannot start the %s app: %w", a.name, err)
 	}
+	xpath1(ctx, s)
 	d.session = s
 	d.pkg = a.pkg
 	if d.pkg == "" {
@@ -239,6 +250,7 @@ func (d *running) revive(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	xpath1(ctx, s)
 	d.session.Renew(s.ID)
 	d.resets = append(d.resets, "the UiAutomator2 server started again after it crashed")
 	return nil
