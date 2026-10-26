@@ -289,7 +289,7 @@ func llmGraph(w *gguf.Llama) (*net, []byte, int) {
 	for i, d := range codeDims {
 		at[d] = 1 + i
 	}
-	embeddings := make([]byte, 0, w.Vocab*narrow*2)
+	embeddings := make([]byte, 0, int64(w.Vocab)*int64(narrow)*2)
 	for t := range w.Vocab {
 		row := make([]float32, narrow)
 		for d, x := range w.Embeddings[t*E : (t+1)*E] {

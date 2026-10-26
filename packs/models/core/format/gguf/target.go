@@ -632,7 +632,7 @@ func (m *model) fallback() unit {
 // token's code), its output norm and its layers' norms, of its width.
 func (m *model) embeddings(w *Llama) {
 	l, E := m.l, w.E
-	w.Embeddings = make([]float32, m.vocab*E)
+	w.Embeddings = make([]float32, int64(m.vocab)*int64(E))
 	for t := range m.vocab {
 		w.Embeddings[t*E+l.ballast] = ballast
 	}

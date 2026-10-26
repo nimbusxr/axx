@@ -23,12 +23,13 @@ services:
     # The transcriber's stub is the one of its engine's format: Parakeet's (parakeet.cpp's)
     # is small, and kept with the example, as the photo check's, the voice's and the label
     # reader's are (infra/models).
+    # The shell's variables are $${...}: axx's own ${...} would take their defaults.
     dir: ../infra
     shell: true
     command: |
-      engine=${SUPPORT_TRANSCRIBER:-faster-whisper}
-      drafter=${SUPPORT_DRAFTER:-transformers}
-      help=${SUPPORT_HELP_CENTRE:-sentence-transformers}
+      engine=$${SUPPORT_TRANSCRIBER:-faster-whisper}
+      drafter=$${SUPPORT_DRAFTER:-transformers}
+      help=$${SUPPORT_HELP_CENTRE:-sentence-transformers}
       case $help in
         sentence-transformers) embeddings=model.safetensors ;;
         llama.cpp) embeddings=help-centre.gguf ;;

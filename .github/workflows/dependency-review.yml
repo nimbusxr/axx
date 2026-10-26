@@ -38,5 +38,9 @@ jobs:
           # does not build with: no Tauri release can take the fix. It is in the depot desk's
           # Tauri build (examples/parcels/depot-desk/tauri), a test fixture that never calls
           # VariantStrIter.
-          allow-ghsas: GHSA-wrw7-89jp-8q8g
+          # diskcache (GHSA-w8v5-vhqr-4h9v: its cache unpickles what is in its folder; no release
+          # fixes it) comes with llama-cpp-python, which needs it, in parcel-support's service
+          # (examples/parcel-support/app/uv.lock), which runs its reranker with no cache of it:
+          # nothing there makes a diskcache.
+          allow-ghsas: GHSA-wrw7-89jp-8q8g, GHSA-w8v5-vhqr-4h9v
           comment-summary-in-pr: on-failure
