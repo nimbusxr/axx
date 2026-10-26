@@ -412,6 +412,7 @@ Each of axx's examples runs its stubs embedded, in the real runtime inside the a
 | | the same, and refuses a photo of the parcel cut off at its edge, in the couriers' Android app | ML Kit: image labeling, text recognition, object detection, selfie segmentation | stubs of their APIs (`.axxmodel`) |
 | | reads a parcel's reference off the depot's label camera's scan, keeps a scan only when it shows a parcel and blurs out the people in it, in the depot desk's Mac builds (AppKit, SwiftUI) | Vision: `VNRecognizeTextRequest`, `VNClassifyImageRequest`, `VNDetectHumanRectanglesRequest`, `VNGeneratePersonSegmentationRequest` | stubs of their APIs (`.axxmodel`) |
 | | takes the clerk's dictated handover note, and sums up the day for the next shift, on the Mac or on Apple's servers, in the depot desk's Mac builds | Speech (`SFSpeechRecognizer`, of `AVAudioEngine`'s audio); Foundation Models (macOS 27), the system's model and Apple's server model | stubs of their APIs (`.axxmodel`) |
+| | reads a parcel's reference off a scan with the system's Tesseract, and reads the handover rules aloud through the desktop's speech service, in the depot desk's GTK builds | Tesseract's language data; speech-dispatcher, with a Piper voice | a Tesseract stub (`eng.traineddata`); a Piper voice stub |
 | | takes a courier's dictated note, in the couriers' iOS and Android apps (the microphone step's recording, played into the app's own capture) | Speech (`SFSpeechRecognizer`, of `AVAudioEngine`'s audio); Android's `SpeechRecognizer` | stubs of their APIs (`.axxmodel`) |
 | | puts a recipient's delivery instructions in English, checks their spelling and takes them spoken, in the tracking page | the browser's built-in AI: `LanguageDetector`, `Translator`, `Proofreader`, `SpeechRecognition` | stubs of their APIs (`.axxmodel`) |
 | | fills in the address a customer wrote, drafts a message to a parcel's recipient and makes it shorter, and puts a long delivery note in a line, in the shop portal | the browser's built-in AI: the Prompt API (`LanguageModel`, JSON), `Writer`, `Rewriter`, `Summarizer` | stubs of their APIs (`.axxmodel`) |
@@ -424,10 +425,11 @@ A model the platform provides is the platform's: the app calls an API (Vision's 
 | --- | --- | --- |
 | `models-ios` | A Debug app on the iOS Simulator (iOS 16 or later; Foundation Models: iOS 27 and Xcode 27) | A library the simulator loads into the app when axx launches it (`DYLD_INSERT_LIBRARIES`), which axx compiles with Xcode and caches |
 | `models-macos` | A Mac app's test build, signed without the hardened runtime or with its two exceptions (below), on macOS 15 or later (Foundation Models: macOS 27) | The same library, which macOS loads into the app when axx launches it (`DYLD_INSERT_LIBRARIES`) |
+| `models-linux` | A Linux app in the desktops `desktop-linux` runs | Tesseract's documented `TESSDATA_PREFIX`, and speech-dispatcher's configuration in the app's home, which speaks with Piper |
 | `models-android` | A debuggable app on the Android emulator (Android 8 or later) | An agent attached to the app as it starts (ART's tooling interface, `am start --attach-agent`), which axx builds with the SDK's NDK and caches |
 | `models-web` | The browsers the `web-core` pack runs | A script the browser runs in the app's pages before their own (Playwright's init scripts) |
 
-The app's code does not change, and nothing changes in its release builds or on other devices. Each pack needs `models-core`, `app-core` and its platform's pack (`mobile-ios`, `desktop-macos`, `mobile-android`, `web-core`); the `files` pack copies the stub.
+The app's code does not change, and nothing changes in its release builds or on other devices. Each pack needs `models-core`, `app-core` and its platform's pack (`mobile-ios`, `desktop-macos`, `desktop-linux`, `mobile-android`, `web-core`); the `files` pack copies the stub.
 
 **A Mac app's test build.** macOS ignores `DYLD_INSERT_LIBRARIES` in an app it signs with the hardened runtime, which would leave the app with Apple's models instead of the stubs. A Mac app's test build is signed without it, or with Apple's two exceptions for it, in its Debug entitlements: `com.apple.security.cs.allow-dyld-environment-variables` and `com.apple.security.cs.disable-library-validation`. axx checks the app before it starts it, and stops the scenario if macOS would keep the library out (`AXX-E0704`). A Mac app's `axx-models` folder is in its `./` files, its home's `Library/Application Support`. A Mac has no test's grant of speech recognition or the microphone, as a simulator has: a stubbed recognizer, and the microphone axx feeds, are authorized.
 
@@ -490,6 +492,20 @@ Scenario: A recipient's long delivery note is summarized for the courier
 | | `web.translator` | `Translator`: translations and streams | `text-generation` |
 | | `web.language-detector` | `LanguageDetector`: an answer's `text` is the language (confidence 1), or its `json` the detector's list of languages and confidences | `text-generation` |
 | | `web.proofreader` | `Proofreader`: an answer's `text` is the corrected text (its correction, the part that changed), or its `json` the proofreader's own result | `text-generation` |
+
+**A Linux desktop's models.** A Linux app takes its system's models from files its distribution installs, not from an API: Tesseract's language data, and the voices of the desktop's speech service, speech-dispatcher. Their stubs are those files, built from a contract of their format: a Tesseract language (`eng.traineddata`, of the `tesseract` format) and a Piper voice (its `.onnx` and `.onnx.json`, of the `piper` format). In the app's `axx-models` folder, `models-linux` makes the app's Tesseract read the language from there (`TESSDATA_PREFIX`), and gives the app's speech-dispatcher the voice, which Piper speaks (its `piper` program, on the desktop's PATH) with no sound.
+
+**What the app says.** An app's speech is heard with the step `the {word} app's speaker plays the {string} file`: an utterance of the app's has the file's sound. The voice stub speaks a mapping's recording for a text that has the mapping's key, so the file is that recording, as the voice speaks it.
+
+```gherkin
+Scenario: The desk reads the handover rules aloud
+  Given the voice.onnx file in the desk-models folder is a copy of the models/handover-voice-linux.onnx file
+  And the voice.onnx.json file in the desk-models folder is a copy of the models/handover-voice-linux.onnx.json file
+  And the depot app is launched
+  And the "Handover" element is clicked in the depot app
+  When the "Read aloud" button is clicked in the depot app
+  Then within 20s the depot app's speaker plays the "recordings/handover-rules.wav" file
+```
 
 A pack answers the APIs its app's folder has stubs of; the app's other calls reach the platform as they would. A folder has one stub of an API; a stub that cannot be read, or a second of an API, stops the app's start (`AXX-E0704`).
 

@@ -161,6 +161,25 @@ Apple's models' contracts, which the `models-macos` pack answers the app's calls
 scenarios are tagged `@macos-models`, which the profiles of the other builds leave out. The builds are signed without the hardened runtime, which lets axx's library
 into them.
 
+## A Linux desktop's models
+
+The GTK builds (`gtk3`, `gtk4`) use the models a Linux desktop has:
+
+- **Depot** > **Read label** reads the parcel's reference off the newest scan in `Scans` with
+  the system's Tesseract (`tesseract <scan> stdout -l eng`), into the Reference field, with the
+  macOS builds' statuses.
+- The button **Read aloud**, on the Handover tab, reads the handover rules aloud through the
+  desktop's speech service, speech-dispatcher (`python3-speechd`).
+
+`acceptance/features/desk-models/desk-models-linux.feature` (`@linux-models`) holds these to
+stubs of Tesseract's English (`acceptance/models/label-reader-linux`) and of a Piper voice
+(`acceptance/models/handover-voice-linux`), which the `models-linux` pack makes the app's
+Tesseract and speech-dispatcher use: the first through Tesseract's `TESSDATA_PREFIX`, the second
+through speech-dispatcher's configuration in the app's home, which speaks with Piper into the
+folder the speaker step hears. The image (`linux/Dockerfile`) has Tesseract, speech-dispatcher
+and Piper's release. GTK 4 leaves out Read label's scenarios, as it does the menus'
+(`@menu-items`).
+
 ## What it keeps
 
 A restart keeps both; a scenario's reset clears both.

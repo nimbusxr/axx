@@ -1,0 +1,5 @@
+{
+  "name": "Any other text",
+  "default": true,
+  "output": {"audio": "../../../features/desk-models/recordings/read-on-screen.wav"}
+}

@@ -24,4 +24,22 @@ RUN curl -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-too
 ENV PATH=/root/.cargo/bin:/opt/flutter/bin:$PATH
 RUN git clone --quiet --depth 1 --branch "$FLUTTER" https://github.com/flutter/flutter.git /opt/flutter \
     && flutter config --no-analytics --enable-linux-desktop && flutter precache --linux
+# The system's models the desk's GTK builds use (../README.md): Tesseract, and the desktop's
+# speech service, speech-dispatcher, with its audio plugins (ALSA's null device, where a desktop
+# without sound plays its speech), which speaks with Piper's release (its CLI, with espeak-ng's
+# data), pinned by its sums. The locale axx gives the apps (en_US.UTF-8), which speech-dispatcher
+# does not start without.
+ARG PIPER=2023.11.14-2
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      locales tesseract-ocr speech-dispatcher speech-dispatcher-audio-plugins python3-speechd \
+    && rm -rf /var/lib/apt/lists/* \
+    && locale-gen en_US.UTF-8 \
+    && case $(dpkg --print-architecture) in \
+         arm64) piper=aarch64 sum=fea0fd2d87c54dbc7078d0f878289f404bd4d6eea6e7444a77835d1537ab88eb ;; \
+         amd64) piper=x86_64 sum=a50cb45f355b7af1f6d758c1b360717877ba0a398cc8cbe6d2a7a3a26e225992 ;; \
+       esac \
+    && curl -fsSL -o /tmp/piper.tar.gz "https://github.com/rhasspy/piper/releases/download/$PIPER/piper_linux_$piper.tar.gz" \
+    && echo "$sum  /tmp/piper.tar.gz" | sha256sum -c - \
+    && tar -xzf /tmp/piper.tar.gz -C /opt && rm /tmp/piper.tar.gz \
+    && ln -s /opt/piper/piper /usr/local/bin/piper
 COPY run.sh /usr/local/bin/depot-desk

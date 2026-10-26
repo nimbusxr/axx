@@ -7,3 +7,4 @@ packs:
   - files
   - models-core
   - models-macos
+  - models-linux
