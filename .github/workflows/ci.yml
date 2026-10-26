@@ -633,13 +633,15 @@ jobs:
       - name: the courier's ordinary Foundation Models calls
         working-directory: examples/parcels/courier/ios
         run: xcodebuild -project Courier.xcodeproj -target Courier -configuration Debug -sdk iphonesimulator ONLY_ACTIVE_ARCH=NO SYMROOT=build
+      # The simulator as the ios job makes it (the newest iOS, 27's on this image), its first
+      # boot's work no test needs off: a bare one, on this runner, did not yet serve apps' requests
+      # for notifications after minutes (the courier's sign-in asks for them).
       - name: platform model adapters in the simulator
         run: |
-          model_runtime=$(xcrun simctl list runtimes --json | python3 -c 'import json,sys; print(next(r["identifier"] for r in json.load(sys.stdin)["runtimes"] if r.get("isAvailable") and "iOS" in r["identifier"] and int(r["version"].split(".")[0]) >= 27))')
-          model_simulator=$(xcrun simctl create 'axx platform models' com.apple.CoreSimulator.SimDeviceType.iPhone-16 "$model_runtime")
+          made=$(scripts/ios-simulator.sh)
+          echo "$made"
+          model_simulator=$(sed -n 's/.*(\([0-9A-F-]\{36\}\)) booted in .*/\1/p' <<< "$made")
           trap 'xcrun simctl shutdown "$model_simulator" || true; xcrun simctl delete "$model_simulator"' EXIT
-          xcrun simctl boot "$model_simulator"
-          xcrun simctl bootstatus "$model_simulator" -b
           AXX_IOS_MODELS_SIMULATOR="$model_simulator" go test -tags integration -timeout 20m ./packs/models/ios/...
 
   webllm:

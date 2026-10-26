@@ -68,5 +68,9 @@ ENV PATH=/app/.venv/bin:/opt/piper:/opt/parakeet:$PATH HF_HUB_OFFLINE=1 TRANSFOR
 # Keras runs on PyTorch, which the service has for its other models. Matplotlib, which
 # MediaPipe imports, and fontconfig keep their caches where the service's user can write.
 ENV KERAS_BACKEND=torch MPLCONFIGDIR=/tmp/matplotlib XDG_CACHE_HOME=/tmp/cache
+# MNN's library for x86-64 asks for an executable stack, which glibc 2.41 (trixie's) gives a
+# library it loads only when this says it may: without it, the photo check's mnn engine cannot
+# import MNN there.
+ENV GLIBC_TUNABLES=glibc.rtld.execstack=2
 EXPOSE 8800
 CMD ["uvicorn", "support.app:app", "--host", "0.0.0.0", "--port", "8800"]

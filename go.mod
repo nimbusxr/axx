@@ -66,7 +66,7 @@ require (
 	github.com/twmb/franz-go/pkg/kadm v1.19.0
 	github.com/twmb/franz-go/pkg/sr v1.8.0
 	github.com/vektah/gqlparser/v2 v2.5.58
-	github.com/xuri/excelize/v2 v2.11.1-0.20260930021559-01a9ff32fb3c
+	github.com/xuri/excelize/v2 v2.11.1-0.20261003002531-6258dcebc4e2
 	github.com/youmark/pkcs8 v0.0.0-20240726163527-a2c0da244d78
 	go.mongodb.org/mongo-driver/v2 v2.9.1
 	go.yaml.in/yaml/v4 v4.0.0-rc.6
