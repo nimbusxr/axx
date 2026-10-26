@@ -173,9 +173,10 @@ android {
                 arguments += "-DANDROID_STL=c++_shared"
             }
         }
-        // Phones' and emulators' ABIs, which the app's native code is built for.
+        // Phones' and emulators' ABIs, which the app's native code is built for (-Pabis=x86_64:
+        // an x86-64 emulator's alone, as CI's are).
         ndk {
-            abiFilters += listOf("arm64-v8a", "x86_64")
+            abiFilters += providers.gradleProperty("abis").orElse("arm64-v8a,x86_64").get().split(",")
         }
     }
 

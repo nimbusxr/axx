@@ -20,6 +20,9 @@ platform=android-35
 if [ "$abi" = arm64-v8a ]; then platform=android-37.0; fi
 image="system-images;$platform;google_apis;$abi"
 
+# say tells what the script does, and when: a CI job's log shows how long each part took.
+say() { echo "$(date +%T) $*"; }
+
 # limited runs a command for at most $1 seconds, where the system can stop it (timeout): an SDK
 # tool that hangs fails the script, instead of a CI job's wait for it.
 limited() {
@@ -41,7 +44,7 @@ fetch() {
   done
   shift
   for attempt in 1 2 3; do
-    echo "installing $* (attempt $attempt)"
+    say "installing $* (attempt $attempt)"
     { yes || true; } | limited 900 "$manager" --sdk_root="$root" --install "$@" > /dev/null || true
     missing=""
     for f in "${files[@]}"; do [ -e "$f" ] || missing="$missing $f"; done
@@ -67,7 +70,7 @@ tools="$sdk/cmdline-tools/latest/bin"
 export ANDROID_AVD_HOME="${ANDROID_AVD_HOME:-$HOME/.android/avd}"
 mkdir -p "$ANDROID_AVD_HOME"
 # A Pixel the installed command-line tools know: older ones do not know the Pixel 8.
-echo "making parcels-pixel"
+say "making parcels-pixel"
 devices=$(limited 300 "$tools/avdmanager" list device -c 2> /dev/null)
 device=""
 for want in pixel_8 pixel_6; do
@@ -78,12 +81,12 @@ for want in pixel_8 pixel_6; do
 done
 [ -n "$device" ] || device=$(printf '%s\n' "$devices" | grep '^pixel' | tail -1)
 echo no | limited 300 "$tools/avdmanager" create avd --force --name parcels-pixel --package "$image" --device "$device"
-echo "parcels-pixel: $image, $device"
+say "parcels-pixel: $image, $device"
 
 # Its boot snapshot: booted once and saved, every emulator axx starts of it boots from it in
 # seconds instead of booting cold. axx starts them read-only: they save nothing, so each starts
 # as the snapshot left it.
-echo "parcels-pixel: booting it for its snapshot"
+say "parcels-pixel: booting it for its snapshot"
 args=(-avd parcels-pixel -port 5580 -no-window -no-audio -no-boot-anim)
 if [ "$(uname -s)" = Linux ]; then args+=(-gpu swiftshader_indirect); fi
 "$sdk/emulator/emulator" "${args[@]}" > "$ANDROID_AVD_HOME/parcels-pixel-snapshot.log" 2>&1 &
@@ -101,11 +104,11 @@ while [ "$SECONDS" -lt "$deadline" ]; do
   sleep 2
 done
 if [ -z "$booted" ]; then
-  echo "parcels-pixel did not boot for its snapshot in ten minutes; the end of the emulator's log ($ANDROID_AVD_HOME/parcels-pixel-snapshot.log):" >&2
+  say "parcels-pixel did not boot for its snapshot in ten minutes; the end of the emulator's log ($ANDROID_AVD_HOME/parcels-pixel-snapshot.log):" >&2
   tail -n 40 "$ANDROID_AVD_HOME/parcels-pixel-snapshot.log" >&2 || true
   kill "$emulator" 2> /dev/null || true
   exit 1
 fi
 "$adb" -s emulator-5580 emu kill > /dev/null
 wait "$emulator" || true
-echo "parcels-pixel: its boot snapshot is saved"
+say "parcels-pixel: its boot snapshot is saved"

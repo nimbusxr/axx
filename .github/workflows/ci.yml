@@ -359,7 +359,7 @@ jobs:
       # The couriers' app, while the rest sets up: nothing needs it before the tests.
       - name: the couriers' app (in the background)
         working-directory: examples/parcels/courier/android
-        run: (./gradlew --no-daemon --console=plain assembleDebug > "$RUNNER_TEMP/app.log" 2>&1; echo $? > "$RUNNER_TEMP/app.done") &
+        run: (./gradlew --no-daemon --console=plain assembleDebug -Pabis=x86_64 > "$RUNNER_TEMP/app.log" 2>&1; echo $? > "$RUNNER_TEMP/app.done") &
       # The emulator's device and its boot snapshot, while the rest sets up.
       - if: needs.changes.outputs.tests == 'true'
         name: the emulator's device (in the background)
@@ -447,7 +447,7 @@ jobs:
       # The couriers' app, while the rest sets up: nothing needs it before the tests.
       - name: the couriers' app (in the background)
         working-directory: examples/parcels/courier/android
-        run: (./gradlew --no-daemon --console=plain assembleDebug > "$RUNNER_TEMP/app.log" 2>&1; echo $? > "$RUNNER_TEMP/app.done") &
+        run: (./gradlew --no-daemon --console=plain assembleDebug -Pabis=x86_64 > "$RUNNER_TEMP/app.log" 2>&1; echo $? > "$RUNNER_TEMP/app.done") &
       # The emulator's device and its boot snapshot, while the rest sets up.
       - name: the emulator's device (in the background)
         working-directory: examples/parcels/courier/android
