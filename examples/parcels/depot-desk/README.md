@@ -28,7 +28,9 @@ Each build's folder has its sources and its `README.md`, which says how to build
 ## Its acceptance tests
 
 `acceptance/features/depot-desk/depot-desk.feature` is the clerk's day with the desk, a scenario for
-each thing the clerk does, run with axx against every build on the OS it is built for. Build
+each thing the clerk does, run with axx against every build on the OS it is built for
+(`acceptance/features/desk-models` holds the macOS builds' models: [The Mac's own
+models](#the-macs-own-models)). Build
 the desk first (its folder's `README.md`), then pick the build with its profile:
 
 ```sh
@@ -127,6 +129,37 @@ Borna, Grimma, Wurzen, Eilenburg.
 
 **Depot** > **Close day** hands the day's parcels over: the status says how many, the arrivals
 empty, and Close day is disabled again.
+
+## The Mac's own models
+
+The macOS builds (`appkit`, `swiftui`) also use the models the Mac itself has, in
+`apple/models.swift`, which both compile:
+
+- **Depot** > **Read label** reads the parcel's reference off the newest scan the depot's label
+  camera saved in `Scans`, in the desk's data folder, with Apple's Vision
+  (`VNRecognizeTextRequest`), into the Reference field. The status says
+  `Read PX-DSK-4301 from the label`, `No reference on the label: type it in` or
+  `No scan to read`.
+- Registering a parcel with a scan in `Scans` files the scan with the arrival. Vision checks it
+  shows a parcel (`VNClassifyImageRequest`: `cardboard_box`, `carton`, `crate` or `envelope`) and
+  finds the people in it (`VNDetectHumanRectanglesRequest`), whom it blurs out
+  (`VNGeneratePersonSegmentationRequest`) before the desk keeps it as `Photos/<reference>.jpg`.
+  The status adds `, photo kept`, `, photo kept, people blurred out` or
+  `, photo not kept: it shows no parcel`. The scan leaves `Scans` either way.
+- The button **Dictate note**, on the Handover tab, takes the clerk's note through the
+  microphone and Apple's speech recognizer (`SFSpeechRecognizer`), and shows it under the
+  button: `Listening…`, then `Note: Hand the fragile parcels to the night porter.`
+- **Depot** > **Day summary**, enabled once a parcel is registered, sums up the day's arrivals
+  for the next shift with Apple's language model (Foundation Models, macOS 27):
+  `Day summary: ...`. A Mac without Apple Intelligence asks Apple's server model instead
+  (Private Cloud Compute): `Day summary from Apple's servers: ...`. Without either, the status
+  says why: `No day summary: this Mac has no Apple Intelligence`.
+
+`acceptance/features/desk-models/desk-models.feature` holds these to their stubs: models of
+Apple's models' contracts, which the `models-macos` pack answers the app's calls from
+(`acceptance/models/*-macos`, built by `go generate`), so no scenario asks a real model. Its
+scenarios are tagged `@macos-models`, which the profiles of the other builds leave out. The builds are signed without the hardened runtime, which lets axx's library
+into them.
 
 ## What it keeps
 

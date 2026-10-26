@@ -1,0 +1,13 @@
+{
+  "mappings": [
+    {
+      "name": "The clerk behind the counter: where they are",
+      "input": {
+        "image": "../../../features/desk-models/scans/parcel-and-clerk.jpg"
+      },
+      "output": {
+        "mask": "../../../features/desk-models/masks/clerk-mask.png"
+      }
+    }
+  ]
+}

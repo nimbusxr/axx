@@ -1,0 +1,5 @@
+{
+  "name": "Any other scan: nobody in it",
+  "default": true,
+  "output": {"mask": "../../../features/desk-models/masks/nobody-mask.png"}
+}

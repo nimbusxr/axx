@@ -1,0 +1,13 @@
+{
+  "mappings": [
+    {
+      "name": "A fragile express parcel among the day's",
+      "input": {
+        "text": "PX-DSK-4311, Express, fragile"
+      },
+      "output": {
+        "text": "2 parcels today. Mind PX-DSK-4311: express and fragile."
+      }
+    }
+  ]
+}

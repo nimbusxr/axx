@@ -5,6 +5,9 @@ version: 1
 # it is built for. Pick the build with its profile, like `axx run --profile macos-appkit`.
 run:
   paths: [features]
+  # The scenarios of the Mac's own models (@macos-models) run against the builds that use them,
+  # whose profiles run every scenario.
+  tags: not @macos-models
 
 properties:
   # The build's app, and what it starts with; set by each build's profile.
@@ -27,9 +30,11 @@ properties:
 profiles:
   # macOS
   macos-appkit:
+    run: {tags: ""}
     properties: {desk.app: ../appkit/build/Depot desk.app, desk.data: ./Depot desk}
     packs: {desktop-core: {screenshots: {folder: "${sys:desk.screens}/appkit"}}}
   macos-swiftui:
+    run: {tags: ""}
     properties: {desk.app: ../swiftui/build/Depot desk.app, desk.data: ./Depot desk}
     packs: {desktop-core: {screenshots: {folder: "${sys:desk.screens}/swiftui"}}}
   macos-qt6:
@@ -49,7 +54,7 @@ profiles:
     packs: {desktop-core: {screenshots: {folder: "${sys:desk.screens}/tauri"}}}
   macos-flutter:
     # Flutter says every control of its own is enabled, and names no text field.
-    run: {tags: not @enabled-state}
+    run: {tags: not @enabled-state and not @macos-models}
     properties: {desk.app: ../flutter/build/macos/Build/Products/Release/Depot desk.app, desk.data: ./example.parcels.depotDesk, desk.reference: xpath=//AXTextField}
     packs: {desktop-core: {screenshots: {folder: "${sys:desk.screens}/flutter"}}}
 
@@ -77,7 +82,7 @@ profiles:
     packs: {desktop-core: {screenshots: {folder: "${sys:desk.screens}/tauri"}}}
   windows-flutter:
     # Flutter serves Windows MSAA only: it says every control is enabled.
-    run: {tags: not @enabled-state and not @menu-state}
+    run: {tags: not @enabled-state and not @menu-state and not @macos-models}
     properties: {desk.app: ../flutter/build/windows/x64/runner/Release/depot_desk.exe, desk.data: ./example.parcels/depot_desk}
     packs: {desktop-core: {screenshots: {folder: "${sys:desk.screens}/flutter"}}}
   windows-swing:
@@ -90,7 +95,7 @@ profiles:
     packs: {desktop-core: {screenshots: {folder: "${sys:desk.screens}/gtk3"}}}
   linux-gtk4:
     # GTK 4.14 opens a menu in a popover whose items it does not report.
-    run: {tags: not @menu-items}
+    run: {tags: not @menu-items and not @macos-models}
     properties: {desk.app: "${sys:python}", desk.args: ../gtk4/desk.py, desk.data: ./depot-desk}
     packs: {desktop-core: {screenshots: {folder: "${sys:desk.screens}/gtk4"}}}
   linux-qt6:
@@ -101,7 +106,7 @@ profiles:
     packs: {desktop-core: {screenshots: {folder: "${sys:desk.screens}/qt5"}}}
   linux-swing:
     # Java on Linux does not report what is typed into a field.
-    run: {tags: not @field-values}
+    run: {tags: not @field-values and not @macos-models}
     properties: {desk.app: "${sys:java}", desk.args: -jar ../swing/build/depot-desk.jar, desk.data: ~/.depot-desk}
     packs: {desktop-core: {screenshots: {folder: "${sys:desk.screens}/swing"}}}
   linux-electron:
@@ -113,7 +118,7 @@ profiles:
     packs: {desktop-core: {screenshots: {folder: "${sys:desk.screens}/tauri"}}}
   linux-flutter:
     # Flutter on Linux gives no places on the screen: no click at a place, no drag.
-    run: {tags: not @pointer-places}
+    run: {tags: not @pointer-places and not @macos-models}
     properties: {desk.app: ../flutter/build/linux/x64/release/bundle/depot_desk, desk.data: ./example.parcels.depot_desk}
     packs: {desktop-core: {screenshots: {folder: "${sys:desk.screens}/flutter"}}}
 

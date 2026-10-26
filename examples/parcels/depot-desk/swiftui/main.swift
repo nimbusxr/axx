@@ -41,9 +41,22 @@ enum Store {
 final class Desk: ObservableObject {
     @Published var arrivals = Store.load()
     @Published var status = ""
+    @Published var reference = ""
 
     init() {
         status = arrivals.isEmpty ? "No parcels registered yet" : "\(parcels(arrivals.count)) registered today"
+    }
+
+    /// The reference on the newest scan's label, in the Reference field.
+    func readLabel() {
+        let read = Scans.readLabel()
+        if let ref = read.reference { reference = ref }
+        status = read.status
+    }
+
+    func daySummary() {
+        let day = arrivals.map { (reference: $0.reference, level: $0.level, fragile: $0.fragile) }
+        Task { @MainActor in status = await DaySummary.write(day) }
     }
 
     func closeDay() {
@@ -65,7 +78,9 @@ struct DepotDeskApp: App {
         .defaultSize(width: 640, height: 580)
         .commands {
             CommandMenu("Depot") {
+                Button("Read label") { desk.readLabel() }
                 Button("Close day") { desk.closeDay() }.disabled(desk.arrivals.isEmpty)
+                Button("Day summary") { desk.daySummary() }.disabled(desk.arrivals.isEmpty)
             }
         }
     }
@@ -91,7 +106,6 @@ struct DeskView: View {
 struct ArrivalsView: View {
     @EnvironmentObject var desk: Desk
     @AppStorage("serviceLevel") var lastLevel = "Standard"
-    @State var reference = ""
     @State var fragile = false
     @State var level = UserDefaults.standard.string(forKey: "serviceLevel") ?? "Standard"
     @State var printLabel = false
@@ -112,9 +126,9 @@ struct ArrivalsView: View {
 
     var form: some View {
         VStack(alignment: .leading) {
-            TextField("Reference", text: $reference)
+            TextField("Reference", text: $desk.reference)
                 .onSubmit(register)
-                .onExitCommand { reference = "" }
+                .onExitCommand { desk.reference = "" }
             Toggle("Fragile", isOn: $fragile).toggleStyle(.checkbox)
             Picker("Service level", selection: $level) {
                 Text("Standard").tag("Standard")
@@ -123,7 +137,7 @@ struct ArrivalsView: View {
             .pickerStyle(.radioGroup)
             .horizontalRadioGroupLayout()
             Toggle("Print label", isOn: $printLabel).toggleStyle(.switch)
-            Button("Register", action: register).disabled(reference.trimmingCharacters(in: .whitespaces).isEmpty)
+            Button("Register", action: register).disabled(desk.reference.trimmingCharacters(in: .whitespaces).isEmpty)
             Text(desk.status)
         }
     }
@@ -150,24 +164,25 @@ struct ArrivalsView: View {
             .frame(height: 8 * 24 + 28)
             .onChange(of: expectedSelection) { _, id in
                 guard let id else { return }
-                reference = id
+                desk.reference = id
                 expectedSelection = nil
             }
         }
     }
 
     func register() {
-        let ref = reference.trimmingCharacters(in: .whitespaces)
+        let ref = desk.reference.trimmingCharacters(in: .whitespaces)
         guard !ref.isEmpty else { return }
         if desk.arrivals.contains(where: { $0.reference == ref }) {
             desk.status = "\(ref) is already registered"
             return
         }
+        let photo = Scans.file(for: ref)
         desk.arrivals.append(Arrival(reference: ref, level: level, fragile: fragile))
         Store.save(desk.arrivals)
         lastLevel = level
-        desk.status = "Registered \(ref): \(level)" + (fragile ? ", fragile" : "") + (printLabel ? ", label printed" : "")
-        reference = ""
+        desk.status = "Registered \(ref): \(level)" + (fragile ? ", fragile" : "") + (printLabel ? ", label printed" : "") + photo
+        desk.reference = ""
         fragile = false
     }
 }
@@ -208,6 +223,8 @@ struct SignaturePad: View {
 struct HandoverView: View {
     @State var strokes: [[CGPoint]] = []
     @State var showRules = false
+    @State var note = ""
+    @State var dictation = Dictation()
 
     var body: some View {
         VStack(alignment: .leading) {
@@ -221,6 +238,10 @@ struct HandoverView: View {
                 })
             if showRules {
                 Text("Parcels are handed over to the courier at 18:00.")
+            }
+            Button("Dictate note") { dictation.start { note = $0 } }
+            if !note.isEmpty {
+                Text(note)
             }
         }
         .padding()

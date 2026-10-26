@@ -1,0 +1,10 @@
+{
+  "format": {
+    "type": "platform",
+    "details": {
+      "api": "macos.private-cloud-compute",
+      "availability": "systemNotReady"
+    }
+  },
+  "task": "text-generation"
+}

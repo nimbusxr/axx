@@ -1,0 +1,10 @@
+{
+  "format": {
+    "type": "platform",
+    "details": {
+      "api": "macos.foundation-models",
+      "availability": "deviceNotEligible"
+    }
+  },
+  "task": "text-generation"
+}
