@@ -323,8 +323,8 @@ func TestLaunchHooks(t *testing.T) {
 			t.Errorf("start %d: %v, want %v", i, env, want)
 		}
 	}
-	if launches[0].Home != HomeOf(h.SC, app) {
-		t.Errorf("home %s, want %s", launches[0].Home, HomeOf(h.SC, app))
+	if l := launches[0]; l.Home != HomeOf(h.SC, app) || l.HostHome != HomeOf(h.SC, app) || l.HostFiles != l.Files {
+		t.Errorf("home %s (on this machine %s, files %s and %s), want %s", l.Home, l.HostHome, l.Files, l.HostFiles, HomeOf(h.SC, app))
 	}
 	if len(app.Env) != 2 {
 		t.Errorf("the registration's environment changed: %v", app.Env)

@@ -2,6 +2,7 @@ package desktopcore
 
 import (
 	"maps"
+	"path/filepath"
 	"strings"
 	"sync"
 
@@ -13,8 +14,10 @@ import (
 // Launch and runs the hooks again.
 type Launch struct {
 	App *App
-	// Home is the app's home on this machine, and Files the folder its files are in (its "./").
-	Home, Files string
+	// Home is the app's home, and Files the folder its files are in (its "./"), as the app sees
+	// them: the paths its environment names. HostHome and HostFiles are where they are on this
+	// machine, where axx reads and writes them: another folder only on a Linux desktop of several.
+	Home, Files, HostHome, HostFiles string
 	// Environment is what the app starts with, beyond what axx sets: the registration's env.*
 	// entries, and what the hooks add.
 	Environment map[string]string
@@ -51,7 +54,7 @@ func OnLaunch(sc *core.Scenario, fn func(*Launch) error) {
 }
 
 // launching is the app as it starts: with the environment the scenario's launch hooks give it.
-func launching(sc *core.Scenario, app *App, home, files string) (*App, error) {
+func launching(sc *core.Scenario, app *App, desk Desktop, host string) (*App, error) {
 	h := beforeLaunch.Of(sc)
 	h.mu.Lock()
 	fns := append([]func(*Launch) error(nil), h.hooks...)
@@ -59,7 +62,12 @@ func launching(sc *core.Scenario, app *App, home, files string) (*App, error) {
 	if len(fns) == 0 {
 		return app, nil
 	}
-	l := &Launch{App: app, Home: home, Files: files, Environment: maps.Clone(app.Env)}
+	home := HomeOf(sc, app)
+	data := filepath.FromSlash(desk.DataDir())
+	l := &Launch{
+		App: app, Home: home, Files: filepath.Join(home, data), HostHome: host, HostFiles: filepath.Join(host, data),
+		Environment: maps.Clone(app.Env),
+	}
 	if l.Environment == nil {
 		l.Environment = map[string]string{}
 	}

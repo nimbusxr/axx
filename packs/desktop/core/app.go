@@ -375,7 +375,7 @@ func process(sc *core.Scenario, app *App, start bool) (Process, error) {
 	if err != nil {
 		return nil, err
 	}
-	started, err := launching(sc, app, h, filepath.Join(h, filepath.FromSlash(desk.DataDir())))
+	started, err := launching(sc, app, desk, h)
 	if err != nil {
 		return nil, err
 	}
