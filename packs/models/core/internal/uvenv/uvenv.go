@@ -44,7 +44,9 @@ func Install(ctx context.Context, name string, requirements, script []byte, ext 
 		}
 		for _, args := range [][]string{
 			{"venv", "--quiet", "--python", Python, filepath.Join(dir, "venv")},
-			{"pip", "install", "--quiet", "--python", bin, "--require-hashes", "-r", req},
+			// PyTorch's CPU builds come from PyTorch's index (its packages alone:
+			// the rest from PyPI), as the requirements were compiled.
+			{"pip", "install", "--quiet", "--python", bin, "--require-hashes", "--torch-backend", "cpu", "-r", req},
 		} {
 			cmd := exec.CommandContext(ctx, uv, args...) //nolint:gosec // uv, and the environment's paths
 			if out, err := cmd.CombinedOutput(); err != nil {

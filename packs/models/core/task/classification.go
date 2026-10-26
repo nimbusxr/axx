@@ -10,6 +10,7 @@ import (
 	"strconv"
 
 	"github.com/nimbusxr/axx/packs/models/core/contract"
+	"github.com/nimbusxr/axx/packs/models/core/internal/detmath"
 )
 
 func init() {
@@ -111,10 +112,10 @@ func classify(c *contract.Contract, answer map[string]json.RawMessage, out Value
 		// A score of one label's logit: a sigmoid's (a binary classifier's,
 		// a reranker's), of its probability.
 		v := math.Min(math.Max(p[0], 1e-30), 1-1e-16)
-		p[0] = math.Log(v / (1 - v))
+		p[0] = detmath.Log(v / (1 - v))
 	case activation == "none":
 		for i, v := range p {
-			p[i] = math.Log(math.Max(v, 1e-30))
+			p[i] = detmath.Log(math.Max(v, 1e-30))
 		}
 	}
 	out[t.Name] = Quantize(t, p)

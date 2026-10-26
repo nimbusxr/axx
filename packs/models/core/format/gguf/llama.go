@@ -6,6 +6,7 @@ import (
 	"math"
 	"slices"
 
+	"github.com/nimbusxr/axx/packs/models/core/internal/detmath"
 	"github.com/nimbusxr/axx/packs/models/core/internal/lm"
 )
 
@@ -362,7 +363,7 @@ func (m *model) step(layer int, terms map[int]float64, bias float64, out map[int
 		for d, w := range terms {
 			g[d] = gain * w
 		}
-		g[m.l.ballast] += gain * (bias + half)
+		g[m.l.ballast] += float64(gain * (bias + half))
 		sign := 1.0
 		if half < 0 {
 			sign = -1
@@ -405,8 +406,8 @@ func (m *model) positionalHead(layer, head, offset int) {
 	a := positional * math.Sqrt(float64(l.headDim))
 	for p := range l.posPairs {
 		alpha := -float64(offset) * m.thetas[p]
-		m.setQ(layer, head, 2*p, l.ballast, a*math.Cos(alpha))
-		m.setQ(layer, head, 2*p+1, l.ballast, a*math.Sin(alpha))
+		m.setQ(layer, head, 2*p, l.ballast, a*detmath.Cos(alpha))
+		m.setQ(layer, head, 2*p+1, l.ballast, a*detmath.Sin(alpha))
 		m.setK(layer, head, 2*p, l.ballast, 1)
 	}
 }
@@ -552,7 +553,7 @@ func (m *model) answers() {
 			terms[l.starts[len(c.Tokens)].dim(c.Mapping)] += w
 			n++
 		}
-		m.step(layerAnswers, terms, -float64(n)*w+0.5, out(c.Next))
+		m.step(layerAnswers, terms, float64(-float64(n)*w)+0.5, out(c.Next))
 	}
 }
 

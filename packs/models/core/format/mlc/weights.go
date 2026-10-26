@@ -281,7 +281,7 @@ func headNorm(m *gguf.Matrix, hd int, in float64) ([]float32, error) {
 		for d := range hd {
 			for _, e := range m.Entries(h*hd + d) {
 				if e.Col == 0 {
-					squares += float64(e.V) * float64(e.V) * in * in
+					squares += float64(float64(e.V) * float64(e.V) * in * in)
 					continue
 				}
 				if !slices.Contains(features, d) {

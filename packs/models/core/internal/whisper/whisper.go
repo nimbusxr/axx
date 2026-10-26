@@ -65,7 +65,9 @@ package whisper
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"math"
+	"slices"
 
 	"github.com/nimbusxr/axx/packs/models/core/match"
 )
@@ -239,17 +241,23 @@ type ln struct {
 // lnOf is the LayerNorm's mean and scale of a residual stream of the
 // values.
 func lnOf(d int, values map[int]float64) ln {
-	var sum float64
-	for _, v := range values {
-		sum += v
-	}
-	mean := sum / float64(d)
+	mean := total(values) / float64(d)
 	var sq float64
 	for i := range d {
 		x := values[i] - mean
-		sq += x * x
+		sq += float64(x * x)
 	}
 	return ln{mean: mean, scale: math.Sqrt(sq/float64(d) + lnEpsilon)}
+}
+
+// total is the sum of a map's values, in its keys' order: a map's own order
+// is another each time, and a sum of floats depends on it.
+func total(m map[int]float64) float64 {
+	var sum float64
+	for _, k := range slices.Sorted(maps.Keys(m)) {
+		sum += m[k]
+	}
+	return sum
 }
 
 // linear is the weights of a LayerNorm that a ballast makes linear: the
@@ -293,9 +301,9 @@ func maskedLinear(d int, n ln, expose []int) norm {
 // the values less nothing of their mean.
 func compensate(r row, zero int) row {
 	var sum float64
-	for d, w := range r.w {
+	for _, d := range slices.Sorted(maps.Keys(r.w)) {
 		if d != zero {
-			sum += w
+			sum += r.w[d]
 		}
 	}
 	out := row{w: map[int]float64{}, b: r.b}

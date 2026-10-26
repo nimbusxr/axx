@@ -98,13 +98,14 @@ Feature: The tracking page
       | reference | PX-WEB-5610 |
     And the selection has 0 rows
 
+  # The page runs its model on the machine's GPU, through WebGPU: a machine of none runs it on
+  # its processor (SwiftShader's WebGPU), which takes many minutes and keeps the browser busy.
+  @gpu
   Scenario: The page suggests why a parcel goes back, from the recipient's own words
-    # The page gets its model ready the first time: a browser of no GPU runs it on its
-    # processor (SwiftShader's WebGPU), which takes minutes.
     Given a seeds/portal-tracking-return.yaml db seed
     And the "/track/PX-WEB-5611" page is opened
     When the "Why are you sending it back?" field is filled with "It is the wrong size: I ordered a large one"
-    Then within 8m the page shows "Suggested from what you wrote: Wrong item"
+    Then within 2m the page shows "Suggested from what you wrote: Wrong item"
     And the "Reason" field has the value "Wrong item"
 
   Scenario: A parcel goes back for the reason its recipient chose

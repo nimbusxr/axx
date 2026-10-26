@@ -17,8 +17,10 @@ const instructions =
   [...reasons.keys()].join(', ') + '.';
 
 // The model: its build of float32s, which every GPU runs (one of halves
-// needs halves in shaders, which some have not).
-const engine = CreateMLCEngine('return-reason', {
+// needs halves in shaders, which some have not). It is fetched and made ready
+// the first time a suggestion is wanted, not for every visit to the page.
+let engine;
+const model = () => engine ??= CreateMLCEngine('return-reason', {
   appConfig: {
     model_list: [{
       model: location.origin + '/portal/models/return-reason/resolve/main/',
@@ -47,7 +49,7 @@ async function suggest() {
   const mine = ++asked;
   status.textContent = 'Suggesting a reason…';
   try {
-    const answer = await (await engine).chat.completions.create({
+    const answer = await (await model()).chat.completions.create({
       messages: [{ role: 'system', content: instructions }, { role: 'user', content: words }],
       temperature: 0, max_tokens: 8,
     });

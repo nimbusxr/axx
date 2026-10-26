@@ -1,4 +1,6 @@
---extra-index-url https://download.pytorch.org/whl/cpu
-transformers==5.20.2
-sentence-transformers==6.2.0
+transformers==5.19.0
+sentence-transformers==6.1.0
 torch==2.14.1
+# certifi's first release without the root CAs whose intermediate CAs' keys were compromised
+# (GHSA-6q48-6c7w-9gw2): newer than the rest (--exclude-newer-package).
+certifi>=2026.10.19

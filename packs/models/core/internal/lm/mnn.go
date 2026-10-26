@@ -86,6 +86,9 @@ func ReadMNNTokenizer(data []byte) (*MNNTokenizer, error) {
 	}
 	t := &MNNTokenizer{}
 	for i, id := range ids[:n[0]+n[1]+n[2]] {
+		if id < 0 || id >= MaxVocab {
+			return nil, fmt.Errorf("its tokenizer.txt's special token %d is no token: a vocabulary's IDs are from 0 to %d", id, MaxVocab-1)
+		}
 		switch {
 		case i < n[0]:
 			t.Special = append(t.Special, int32(id))
@@ -140,7 +143,7 @@ func ReadMNNTokenizer(data []byte) (*MNNTokenizer, error) {
 			return nil, err
 		}
 		n, err := strconv.Atoi(strings.TrimSpace(size))
-		if err != nil {
+		if err != nil || n < 0 || n > MaxVocab {
 			return nil, fmt.Errorf("its tokenizer.txt's size is %q", size)
 		}
 		spec := Spec{Model: "longest"}
@@ -164,7 +167,7 @@ func ReadMNNTokenizer(data []byte) (*MNNTokenizer, error) {
 			return nil, err
 		}
 		n, err := strconv.Atoi(strings.TrimSpace(size))
-		if err != nil {
+		if err != nil || n < 0 || n > MaxVocab {
 			return nil, fmt.Errorf("its tokenizer.txt's size is %q", size)
 		}
 		prefix := true
@@ -181,7 +184,7 @@ func ReadMNNTokenizer(data []byte) (*MNNTokenizer, error) {
 			}
 			piece, err1 := base64.StdEncoding.DecodeString(f[0])
 			score, err2 := strconv.ParseFloat(f[1], 32)
-			typ, err3 := strconv.Atoi(f[2])
+			typ, err3 := strconv.ParseInt(f[2], 10, 32)
 			if err1 != nil || err2 != nil || err3 != nil {
 				return nil, fmt.Errorf("its tokenizer.txt's piece %q is not a piece's text, score and type", l)
 			}

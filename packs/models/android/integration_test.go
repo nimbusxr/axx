@@ -70,7 +70,7 @@ func newProbe(t *testing.T) *probe {
 	p.run("javac", "--release", "8", "-classpath", android, "-d", classes, "testdata/Probe.java")
 	p.run(filepath.Join(tool, "d8"), "--min-api", "26", "--lib", android, "--output", work, filepath.Join(classes, "us/nimbusxr/axx/modelsprobe/Probe.class"))
 	unsigned := filepath.Join(work, "unsigned.apk")
-	p.run(filepath.Join(tool, "aapt2"), "link", "-I", android, "--manifest", "testdata/AndroidManifest.xml", "-o", unsigned)
+	p.run(filepath.Join(tool, "aapt2"), "link", "--debug-mode", "-I", android, "--manifest", "testdata/AndroidManifest.xml", "-o", unsigned)
 	zipBytes, err := os.ReadFile(unsigned)
 	if err != nil {
 		t.Fatal(err)
@@ -337,11 +337,16 @@ func TestAndroidCaptureHearsTheRecording(t *testing.T) {
 				t.Errorf("the recorder's loudest while it played is %d", loud)
 			}
 			heard := floats(t, p)
-			if len(heard) < 4*rate || len(heard) > 43*rate/10 {
-				t.Fatalf("recorded %d frames, want four seconds plus codec padding", len(heard))
+			// A decoder keeps the AAC encoder's priming (2048 frames, before the
+			// sound) and padding, or trims them as the file counts them
+			// (Android 15's): four seconds, less the frame the encoder pads, or
+			// more by its priming and padding.
+			if len(heard) < 4*rate-1024 || len(heard) > 43*rate/10 {
+				t.Fatalf("recorded %d frames, want four seconds, give or take the codec's priming and padding", len(heard))
 			}
-			// AAC is lossy and starts late: the sound's loudness, a tenth of a
-			// second at a time, follows the recording's, then silence.
+			// AAC is lossy: the sound's loudness, a tenth of a second at a time,
+			// follows the recording's (after the priming, where the decoder
+			// keeps it), then silence.
 			window := rate / 10
 			level := func(s []float64, at int) float64 {
 				var sum float64
@@ -350,12 +355,17 @@ func TestAndroidCaptureHearsTheRecording(t *testing.T) {
 				}
 				return math.Sqrt(sum / float64(window))
 			}
-			var a, b []float64
-			for at := 0; at+window <= len(phrase); at += window {
-				a = append(a, level(phrase, at))
-				b = append(b, level(heard, at+2048))
+			r := math.Inf(-1)
+			for _, priming := range []int{0, 2048} {
+				var a, b []float64
+				for at := 0; at+window <= len(phrase); at += window {
+					a = append(a, level(phrase, at))
+					b = append(b, level(heard, at+priming))
+				}
+				if c := correlation(a, b); c > r {
+					r = c
+				}
 			}
-			r := correlation(a, b)
 			t.Logf("amplitude %d; loudness correlation %.4f; %d decoded frames", loud, r, len(heard))
 			if math.IsNaN(r) || r < 0.9 {
 				t.Errorf("the file's loudness follows the recording's by %.2f", r)

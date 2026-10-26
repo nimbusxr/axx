@@ -18,6 +18,7 @@ import (
 	"github.com/nimbusxr/axx/packs/models/core/contract"
 	"github.com/nimbusxr/axx/packs/models/core/format"
 	"github.com/nimbusxr/axx/packs/models/core/format/gguf"
+	"github.com/nimbusxr/axx/packs/models/core/internal/detmath"
 	"github.com/nimbusxr/axx/packs/models/core/match"
 	"github.com/nimbusxr/axx/packs/models/core/stub"
 )
@@ -305,7 +306,7 @@ func full(n int, v float32) []float32 {
 func hannWindow() []float32 {
 	out := make([]float32, match.ParakeetFFT)
 	for i := range out {
-		out[i] = float32(0.5 - 0.5*math.Cos(2*math.Pi*float64(i)/float64(match.ParakeetFFT-1)))
+		out[i] = float32(0.5 - float64(0.5*detmath.Cos(2*math.Pi*float64(i)/float64(match.ParakeetFFT-1))))
 	}
 	return out
 }

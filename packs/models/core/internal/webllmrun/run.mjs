@@ -50,6 +50,8 @@ window.run = async (job) => {
     answers.push(turns);
   }
   await engine.unload();
+  // Its shards out of the browser's cache, for the next model's.
+  await webllm.deleteModelAllInfoInCache(id, appConfig);
   return { answers };
 };
 window.ready = true;
@@ -61,6 +63,9 @@ const server = http.createServer(async (req, res) => {
 	if (url === '/') {
 		res.setHeader('content-type', 'text/html');
 		return res.end(page);
+	} else if (url === '/favicon.ico') {
+		res.statusCode = 204;
+		return res.end();
 	} else if (url === '/web-llm.js') {
 		file = webllm;
 	} else if ((m = url.match(/^\/models\/(\d+)\/resolve\/main\/([^/]+)$/))) {
@@ -73,6 +78,7 @@ const server = http.createServer(async (req, res) => {
 		res.setHeader('content-type', types[path.extname(file)] || 'application/octet-stream');
 		res.end(body);
 	} catch {
+		console.error('no file for', url);
 		res.statusCode = 404;
 		res.end();
 	}

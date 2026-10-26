@@ -100,8 +100,10 @@ func namesOf(modelType string) archNames {
 // gemma3Text is Gemma 3 1B's architecture (its one key-value head, its
 // heads of 256, its 26 layers, of 4 global: too few for a stub's slots of
 // its fewest, whose heads then are of more layers than one), and a window
-// of 24 for its local layers.
-const gemma3Text = `{"hidden_size": 1152, "intermediate_size": 6912, "num_attention_heads": 4, "num_key_value_heads": 1, "head_dim": 256,
+// of 24 for its local layers. Its MLP is narrower than the model's (6912):
+// the stub's rules need few of its units, and a test of its width takes
+// GBs under the race detector.
+const gemma3Text = `{"hidden_size": 1152, "intermediate_size": 1536, "num_attention_heads": 4, "num_key_value_heads": 1, "head_dim": 256,
 "num_hidden_layers": 26, "rms_norm_eps": 1e-06, "hidden_activation": "gelu_pytorch_tanh", "position_embedding_base": 1000000,
 "context_window_size": 8192, "query_pre_attn_scalar": 256, "sliding_window_size": 24}`
 
@@ -348,6 +350,9 @@ var noteMappings = []map[string]any{
 // dequantized, its heads' pairs of halves, its query heads sharing their key
 // and value), it answers as its mappings say, in every quantization.
 func TestAnMLCStubAnswersAsItsMappingsSay(t *testing.T) {
+	// A few architectures at a time: a stub of a model's sizes (Gemma 3's,
+	// say) takes a few GB under the race detector.
+	running := make(chan struct{}, 3)
 	for _, c := range [][2]string{
 		{"q4f16_1", "llama"},
 		{"q4f32_1", "llama"},
@@ -374,6 +379,8 @@ func TestAnMLCStubAnswersAsItsMappingsSay(t *testing.T) {
 		quant := c[0]
 		t.Run(c[1]+" "+quant, func(t *testing.T) {
 			t.Parallel()
+			running <- struct{}{}
+			defer func() { <-running }()
 			real := archFolder(t, quant, c[1])
 			mappings := noteMappings
 			if c[1] == "gemma3" {
@@ -475,7 +482,7 @@ func readStub(t *testing.T, dir string) *mlcModel {
 		}
 	}
 	decode := func(r record, b []byte) []float64 {
-		var out []float64
+		out := make([]float64, 0, len(b)/2)
 		switch {
 		case r.Dtype == "float16":
 			for i := 0; i < len(b); i += 2 {
@@ -491,8 +498,13 @@ func readStub(t *testing.T, dir string) *mlcModel {
 		return out
 	}
 	q := quantizations[cfg.Quantization]
+	// A matrix is kept as its nonzero entries (a stub's are mostly 0s, and a
+	// model's matrices of 8-byte values would not fit a test's memory); a
+	// vector, as its values.
 	for name, r := range recs {
 		switch {
+		case strings.HasSuffix(name, ".weight") && len(r.Shape) == 2:
+			m.sparse[strings.TrimSuffix(name, ".weight")] = sparseOf(decode(r, raw[r.Name]), r.Shape[0])
 		case strings.HasSuffix(name, ".weight"):
 			m.records[strings.TrimSuffix(name, ".weight")] = decode(r, raw[r.Name])
 		case strings.HasSuffix(name, ".bias"):
@@ -505,7 +517,7 @@ func readStub(t *testing.T, dir string) *mlcModel {
 			per := 32 / q.bits
 			cols := groups * q.group
 			codes := raw[r.Name]
-			vals := make([]float64, rows*cols)
+			mat := make(sparse, rows)
 			for row := range rows {
 				if !slices.ContainsFunc(scales[row*groups:(row+1)*groups], func(s float64) bool { return s != 0 }) {
 					continue // a row of 0 scales: of 0s
@@ -513,10 +525,15 @@ func readStub(t *testing.T, dir string) *mlcModel {
 				for i := range cols {
 					word := binary.LittleEndian.Uint32(codes[4*(row*words+i/per):])
 					code := int(word>>(q.bits*(i%per))) & (1<<q.bits - 1)
-					vals[row*cols+i] = float64(code-(1<<(q.bits-1)-1)) * scales[row*groups+i/q.group]
+					if v := float64(code-(1<<(q.bits-1)-1)) * scales[row*groups+i/q.group]; v != 0 {
+						mat[row] = append(mat[row], struct {
+							col int
+							v   float64
+						}{i, v})
+					}
 				}
 			}
-			m.records[base] = vals
+			m.sparse[base] = mat
 		}
 	}
 	return m
@@ -528,11 +545,8 @@ type sparse [][]struct {
 	v   float64
 }
 
-func (m *mlcModel) matrix(name string, rows int) sparse {
-	if s, ok := m.sparse[name]; ok {
-		return s
-	}
-	vals := m.records[name]
+// sparseOf is a matrix of rows' nonzero entries.
+func sparseOf(vals []float64, rows int) sparse {
 	cols := len(vals) / rows
 	s := make(sparse, rows)
 	for r := range rows {
@@ -545,6 +559,15 @@ func (m *mlcModel) matrix(name string, rows int) sparse {
 			}
 		}
 	}
+	return s
+}
+
+// matrix is a record's matrix, of rows (0s, of a record the stub has not).
+func (m *mlcModel) matrix(name string, rows int) sparse {
+	if s, ok := m.sparse[name]; ok {
+		return s
+	}
+	s := sparseOf(m.records[name], rows)
 	m.sparse[name] = s
 	return s
 }
@@ -555,6 +578,15 @@ func (m *mlcModel) empty(name string) bool {
 		return e
 	}
 	e := !slices.ContainsFunc(m.records[name], func(v float64) bool { return v != 0 })
+	if s, ok := m.sparse[name]; ok {
+		e = !slices.ContainsFunc(s, func(row []struct {
+			col int
+			v   float64
+		},
+		) bool {
+			return len(row) > 0
+		})
+	}
 	if m.empties == nil {
 		m.empties = map[string]bool{}
 	}
@@ -687,10 +719,8 @@ func (m *mlcModel) next(kv *cache, token int32, pos int) []float64 {
 		if nm.attendsEvery > 0 && (l+1)%nm.attendsEvery != 0 {
 			// A linear attention's layer, whose output projection's 0s add
 			// nothing: its MLP alone.
-			for _, v := range m.records[b+nm.linear] {
-				if v != 0 {
-					panic(b + nm.linear + " is not 0s")
-				}
+			if !m.empty(b + nm.linear) {
+				panic(b + nm.linear + " is not 0s")
 			}
 			mlpOut := m.mlp(nm, b, norm(x, b+nm.mlpIn), linear, act)
 			for d, a := range mlpOut {

@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/nimbusxr/axx/packs/models/core/contract"
+	"github.com/nimbusxr/axx/packs/models/core/internal/detmath"
 )
 
 func init() {
@@ -247,11 +248,11 @@ func (d detectionOutputs) answerLocations(c *contract.Contract, objects []object
 		return fmt.Errorf("%d objects: the detector has %d anchors", len(objects), n)
 	}
 	for best, o := range objects {
-		cx, cy, w, h := o.Box.X+o.Box.Width/2, o.Box.Y+o.Box.Height/2, o.Box.Width, o.Box.Height
+		cx, cy, w, h := o.Box.X+float64(o.Box.Width/2), o.Box.Y+float64(o.Box.Height/2), o.Box.Width, o.Box.Height
 		ax, ay, aw, ah := anchor(best)
 		sh, sw := h/ah, w/aw
 		if a.Exponential {
-			sh, sw = math.Log(sh), math.Log(sw)
+			sh, sw = detmath.Log(sh), detmath.Log(sw)
 		}
 		copy(locations[best*values:], []float64{(cy - ay) / ah * a.Scales[0], (cx - ax) / aw * a.Scales[1], sh * a.Scales[2], sw * a.Scales[3]})
 		score := scoreOf(o)
@@ -268,7 +269,7 @@ func (d detectionOutputs) answerLocations(c *contract.Contract, objects []object
 // logit is the logit whose sigmoid is p, within ±20.
 func logit(p float64) float64 {
 	p = math.Min(math.Max(p, 2.061153622438558e-09), 1-2.061153622438558e-09)
-	return math.Log(p / (1 - p))
+	return detmath.Log(p / (1 - p))
 }
 
 func (d detectionOutputs) answerAnchors(objects []object, w, h float64, out Values) error {
@@ -315,7 +316,7 @@ func boxValues(b box, f *contract.Box, order string, pixels bool, w, h float64) 
 	if pixels {
 		sx, sy = w, h
 	}
-	x0, y0, x1, y1 := b.X*sx, b.Y*sy, (b.X+b.Width)*sx, (b.Y+b.Height)*sy
+	x0, y0, x1, y1 := float64(b.X*sx), float64(b.Y*sy), float64((b.X+b.Width)*sx), float64((b.Y+b.Height)*sy)
 	switch order {
 	case "xmin,ymin,xmax,ymax":
 		return []float64{x0, y0, x1, y1}
@@ -388,7 +389,7 @@ func (d detectionOutputs) answerCandidates(objects []object, out Values) error {
 	coordinates, confidence := make([]float64, 4*rows), make([]float64, len(labels)*rows)
 	for i, o := range objects {
 		b := *o.Box
-		copy(coordinates[4*i:], []float64{b.X + b.Width/2, b.Y + b.Height/2, b.Width, b.Height})
+		copy(coordinates[4*i:], []float64{b.X + float64(b.Width/2), b.Y + float64(b.Height/2), b.Width, b.Height})
 		confidence[i*len(labels)+slices.Index(labels, o.Label)] = scoreOf(o)
 	}
 	out[d.coordinates.Name] = Quantize(d.coordinates, coordinates)

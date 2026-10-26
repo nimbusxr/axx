@@ -33,8 +33,11 @@ dependencies = [
 dev = ["pytest==9.1.1", "httpx2==2.13.1"]
 
 [tool.uv]
-# Every version at least two weeks old when the lock was written.
+# Every version at least two weeks old when the lock was written; but certifi's first release
+# without the root CAs whose intermediate CAs' keys were compromised (GHSA-6q48-6c7w-9gw2).
 exclude-newer = "2026-10-09T00:00:00Z"
+exclude-newer-package = { certifi = "2026-10-21T00:00:00Z" }
+constraint-dependencies = ["certifi>=2026.10.19"]
 environments = ["sys_platform == 'linux'", "sys_platform == 'darwin'"]
 
 # PyTorch's CPU builds on Linux (the default ones bring CUDA's libraries).

@@ -335,7 +335,7 @@ func keptWhole(s *stub.Stub, nmsModel []byte, d pipelineDetails) error {
 				continue
 			}
 			b := boxes[4*r : 4*r+4]
-			objs = append(objs, obj{best, b[0] - b[2]/2, b[1] - b[3]/2, b[0] + b[2]/2, b[1] + b[3]/2})
+			objs = append(objs, obj{best, b[0] - float64(b[2]/2), b[1] - float64(b[3]/2), b[0] + float64(b[2]/2), b[1] + float64(b[3]/2)})
 		}
 		for j := range objs {
 			for k := j + 1; k < len(objs); k++ {
@@ -345,8 +345,8 @@ func keptWhole(s *stub.Stub, nmsModel []byte, d pipelineDetails) error {
 				}
 				w := math.Max(0, math.Min(p.x1, q.x1)-math.Max(p.x0, q.x0))
 				h := math.Max(0, math.Min(p.y1, q.y1)-math.Max(p.y0, q.y0))
-				inter := w * h
-				union := (p.x1-p.x0)*(p.y1-p.y0) + (q.x1-q.x0)*(q.y1-q.y0) - inter
+				inter := float64(w * h)
+				union := float64((p.x1-p.x0)*(p.y1-p.y0)) + float64((q.x1-q.x0)*(q.y1-q.y0)) - inter
 				if union > 0 && inter/union > n.iou {
 					return fmt.Errorf("mapping %q: its objects %d and %d overlap more than the model's non-maximum suppression keeps (IoU above %g): the app would see one of them", s.Names[i], j+1, k+1, n.iou)
 				}

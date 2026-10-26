@@ -101,7 +101,7 @@ func q4Data(v []float32) []byte {
 		out = binary.LittleEndian.AppendUint16(out, f16(d))
 		var qs [16]byte
 		for j := range 16 {
-			x0, x1 := block[j]*id, block[16+j]*id
+			x0, x1 := float32(block[j]*id), float32(block[16+j]*id)
 			q0 := min(15, int8(x0+8.5))
 			q1 := min(15, int8(x1+8.5))
 			qs[j] = byte(q0) | byte(q1)<<4

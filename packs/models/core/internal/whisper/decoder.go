@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"math"
 	"slices"
+
+	"github.com/nimbusxr/axx/packs/models/core/internal/detmath"
 )
 
 // The decoder's constants.
@@ -193,8 +195,8 @@ func (b *decoderBuild) positions() {
 		var sum float64
 		for p := range b.pairs {
 			theta := math.Pi / math.Exp2(float64(p))
-			row[b.pos+2*p] = math.Cos(float64(t) * theta)
-			row[b.pos+2*p+1] = math.Sin(float64(t) * theta)
+			row[b.pos+2*p] = detmath.Cos(float64(t) * theta)
+			row[b.pos+2*p+1] = detmath.Sin(float64(t) * theta)
 			sum += row[b.pos+2*p] + row[b.pos+2*p+1]
 		}
 		row[b.neg] = -sum
@@ -244,7 +246,7 @@ func (b *decoderBuild) attention(e *encoderBuild) {
 		h := l.self[o]
 		for p := range b.pairs {
 			theta := math.Pi / math.Exp2(float64(p))
-			c, s := math.Cos(float64(o)*theta), math.Sin(float64(o)*theta)
+			c, s := detmath.Cos(float64(o)*theta), detmath.Sin(float64(o)*theta)
 			cos, sin := b.pos+2*p, b.pos+2*p+1
 			h.q[2*p] = b.read(map[int]float64{cos: positionalGain * c, sin: positionalGain * s}, 0)
 			h.q[2*p+1] = b.read(map[int]float64{cos: -positionalGain * s, sin: positionalGain * c}, 0)
@@ -285,7 +287,7 @@ func (b *decoderBuild) attention(e *encoderBuild) {
 	last := l.cross[1]
 	e.real(last)
 	for a := range e.partSize[0] {
-		last.q[a] = row{b: lastHeard + lastGain*float64(a)}
+		last.q[a] = row{b: lastHeard + float64(lastGain*float64(a))}
 		last.k[a] = e.read(map[int]float64{e.hcode[0] + a: 1 / float64(level)}, 0)
 		last.v[a] = e.read(map[int]float64{e.hcode[0] + a: 1 / float64(level)}, 0)
 		last.out(a, b.lastA+a, 1)
@@ -400,7 +402,7 @@ func (b *decoderBuild) stepRow(terms map[int]float64, bias float64) row {
 	for d, x := range terms {
 		w[d] = stepGain * x
 	}
-	return b.read(w, stepGain*bias+16)
+	return b.read(w, float64(stepGain*bias)+16)
 }
 
 // contexts is the third layer's MLP: the next token, of the last tokens,

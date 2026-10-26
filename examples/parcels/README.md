@@ -143,6 +143,11 @@ axx run --profile watch features/shop-portal   # the browsers in windows, slowed
 axx run features/shop-portal --pause-at features/shop-portal/shop-portal.feature:24   # pause before that step, in Playwright's Inspector
 ```
 
+The tracking page's scenario of a return's suggested reason (tagged `@gpu`) runs the page's
+model on the machine's GPU, through WebGPU (a Mac's, or a PC's with a GPU): a machine of none,
+like CI's Linux runners, runs it on its processor, which takes many minutes. Leave it out
+there: `axx run --tags "not @gpu"`.
+
 The couriers' apps' features (tagged `@mobile`) run the apps on devices axx runs. The
 Android app's (`@android`) run on an emulator axx starts: they need the Android SDK
 (`ANDROID_HOME`), the app built, and the emulator's device, once:

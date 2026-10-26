@@ -1,6 +1,10 @@
 package match
 
-import "math"
+import (
+	"math"
+
+	"github.com/nimbusxr/axx/packs/models/core/internal/detmath"
+)
 
 // A Parakeet stub's frontend, which its GGUF gives parakeet.cpp (the app
 // gives it a sound, and parakeet.cpp computes the features the model's file
@@ -19,13 +23,13 @@ func ParakeetBasis(rate, mels int) (window, cos, sin []float64, filters [][]floa
 	bins := nFFT/2 + 1
 	window = make([]float64, nFFT)
 	for i := range window {
-		window[i] = 0.5 - 0.5*math.Cos(2*math.Pi*float64(i)/float64(nFFT-1))
+		window[i] = 0.5 - float64(0.5*detmath.Cos(2*math.Pi*float64(i)/float64(nFFT-1)))
 	}
 	cos, sin = make([]float64, nFFT*bins), make([]float64, nFFT*bins)
 	for i := range nFFT {
 		for k := range bins {
 			a := 2 * math.Pi * float64(i*k%nFFT) / nFFT
-			cos[i*bins+k], sin[i*bins+k] = math.Cos(a), math.Sin(a)
+			cos[i*bins+k], sin[i*bins+k] = detmath.Cos(a), detmath.Sin(a)
 		}
 	}
 	return window, cos, sin, melFilters(rate, bins, mels)
@@ -69,7 +73,7 @@ func ParakeetLogMel(samples []float64, rate, mels int) []float64 {
 			for k, w := range filters[m] {
 				e += float64(w * power[k])
 			}
-			out[m*frames+f] = math.Log(e + ParakeetGuard)
+			out[m*frames+f] = detmath.Log(e + ParakeetGuard)
 		}
 	}
 	return out
@@ -91,7 +95,7 @@ func ParakeetResample(samples []float64, from int) []float64 {
 		if i0+1 < len(samples) {
 			b = float32(samples[i0+1])
 		}
-		out[i] = float64(a + (b-a)*float32(src-float64(i0)))
+		out[i] = float64(a + float32((b-a)*float32(src-float64(i0))))
 	}
 	return out
 }
@@ -149,7 +153,7 @@ func layerNorm(x []float64) []float64 {
 	mean /= d
 	variance := 0.0
 	for _, v := range x {
-		variance += (v - mean) * (v - mean)
+		variance += float64((v - mean) * (v - mean))
 	}
 	variance /= d
 	out := make([]float64, len(x))

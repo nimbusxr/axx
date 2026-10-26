@@ -52,7 +52,7 @@ func TestAppFileProvidersAreIsolatedAndKeepNativeFiles(t *testing.T) {
 	if err := Register(sc, &App{Name: "native", Platform: "ios", Family: &fake{}}, true); err != nil {
 		t.Fatal(err)
 	}
-	if f, err := Files(sc, "native", "axx-models"); err != nil || f.Where() != "/nowhere" {
+	if f, err := Files(sc, "native", "axx-models"); err != nil || f.Where() != filepath.Clean("/nowhere") {
 		t.Fatalf("native files: %v %v", f, err)
 	}
 	if err := RegisterFiles(sc, "native", func(string) (core.Files, error) { return nil, nil }); err == nil {

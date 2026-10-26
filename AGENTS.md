@@ -95,8 +95,10 @@ the skills instead: `axx skills install`.
   (`vocab.go`, its pre-tokenizers taken from llama.cpp's source, `pretokenizers.go`, which
   names the commit; SentencePiece's unigram models, `ugm.go`) and as Hugging Face's tokenizers do (`hf.go`, `tokenizer.json`), held to
   llama.cpp's and transformers.js's tokens of real models' tokenizers (pinned). A stub's
-  build is the same bit for bit on every machine (no fused multiply-adds in what builds it:
-  keep it so), so the examples' apps keep theirs, built by `go generate`
+  build is the same bit for bit on every machine: no fused multiply-adds in what builds it
+  (`scripts/no-fma.sh`, in CI), `internal/detmath`'s functions instead of `math`'s (Sin, Cos,
+  Exp, Log, Pow: compiled with fused multiply-adds on arm64), and no sum in a map's own order
+  (`slices.Sorted(maps.Keys(m))`): keep it so, so the examples' apps keep theirs, built by `go generate`
   (`internal/tools/examplestubs`).
 - `packs/models/{ios,android,web}` (`models-ios`, `models-android`, `models-web`): stubs of
   platform model APIs (Vision, Speech and Foundation Models, the system's and Apple's server

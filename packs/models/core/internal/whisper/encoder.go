@@ -2,7 +2,9 @@ package whisper
 
 import (
 	"errors"
+	"maps"
 	"math"
+	"slices"
 
 	"github.com/nimbusxr/axx/packs/models/core/match"
 )
@@ -234,10 +236,7 @@ func (e *encoderBuild) constants(t int, b float64) map[int]float64 {
 	default:
 		v[e.notj0] = 1
 	}
-	var sum float64
-	for _, x := range v {
-		sum += x
-	}
+	sum := total(v)
 	v[e.neg] = -sum
 	if b != 0 {
 		v[e.ballast], v[e.anti] = b, -b
@@ -316,13 +315,14 @@ func (e *encoderBuild) normalize() {
 	l.sink = e.sink
 	consts := e.constants(0, 0)
 	var sum, square float64
-	for _, x := range consts {
+	for _, k := range slices.Sorted(maps.Keys(consts)) {
+		x := consts[k]
 		sum += x
-		square += x * x
+		square += float64(x * x)
 	}
 	dim := float64(e.d.D)
-	lvl := float64(r.PH) * featureScale * featureScale * match.SegmentLevel
-	scale := math.Sqrt((square+lvl)/dim - (sum/dim)*(sum/dim) + lnEpsilon)
+	lvl := float64(float64(r.PH) * featureScale * featureScale * match.SegmentLevel)
+	scale := math.Sqrt((square+lvl)/dim - float64((sum/dim)*(sum/dim)) + lnEpsilon)
 	gy := normScale * math.Sqrt(float64(r.PH)/dim)
 	l.mlpLN = masked(e.d.D, map[int]float64{e.zero: rhoScale * scale, e.z: rhoScale * scale})
 	for b := range r.PH {
@@ -408,7 +408,7 @@ func (e *encoderBuild) dotProducts(p *Plan) error {
 			var norm float64
 			for b := range r.PH {
 				v := key[b*r.PW+c]
-				norm += v * v
+				norm += float64(v * v)
 			}
 			e.kappa[k] = max(e.kappa[k], math.Sqrt(norm))
 		}

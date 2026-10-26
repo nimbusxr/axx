@@ -8,6 +8,7 @@ import (
 	"math"
 	"slices"
 
+	"github.com/nimbusxr/axx/packs/models/core/internal/detmath"
 	"github.com/nimbusxr/axx/packs/models/core/internal/lm"
 )
 
@@ -230,7 +231,7 @@ func (m *model) llamaFor(t Target, context int, keySink bool) (*Laid, error) {
 		if turn >= math.Pi {
 			return -1
 		}
-		return math.Cos(turn)
+		return detmath.Cos(turn)
 	}
 	phases, phased := 1, leastCos(nContent) < 0.5
 	if phased {
@@ -400,15 +401,15 @@ func (m *model) llamaFor(t Target, context int, keySink bool) (*Laid, error) {
 					}
 					pr := contentPairs[len(contentPairs)-1-c]
 					phi := -math.Pi / 3 * float64(2*phase+1)
-					q.Set(at.index*HD+2*pr, l.ballast, float32(sp.contentQ*root*contentAmp*math.Cos(phi)))
-					q.Set(at.index*HD+2*pr+1, l.ballast, float32(sp.contentQ*root*contentAmp*math.Sin(phi)))
+					q.Set(at.index*HD+2*pr, l.ballast, float32(sp.contentQ*root*contentAmp*detmath.Cos(phi)))
+					q.Set(at.index*HD+2*pr+1, l.ballast, float32(sp.contentQ*root*contentAmp*detmath.Sin(phi)))
 					k.Set(kv*HD+2*pr, sp.contentK, 1)
 					vd = func(int) int { return c }
 				default:
 					for _, pr := range used {
 						alpha := -float64(sp.offset) * t.Thetas[pr]
-						q.Set(at.index*HD+2*pr, l.ballast, float32(amp*root*math.Cos(alpha)))
-						q.Set(at.index*HD+2*pr+1, l.ballast, float32(amp*root*math.Sin(alpha)))
+						q.Set(at.index*HD+2*pr, l.ballast, float32(amp*root*detmath.Cos(alpha)))
+						q.Set(at.index*HD+2*pr+1, l.ballast, float32(amp*root*detmath.Sin(alpha)))
 						k.Set(kv*HD+2*pr, l.ballast, 1)
 					}
 				}
@@ -607,7 +608,7 @@ func positionalPairs(thetas []float64, pairs []int, k, context int) ([]int, floa
 			if delta == 0 {
 				continue
 			}
-			sums[i] += 1 - math.Cos(float64(delta)*thetas[pairs[n-1]])
+			sums[i] += 1 - detmath.Cos(float64(delta)*thetas[pairs[n-1]])
 			worst = min(worst, sums[i])
 		}
 		if margin := worst / float64(n); margin > bestMargin {

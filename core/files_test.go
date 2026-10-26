@@ -2,8 +2,10 @@ package core
 
 import (
 	"context"
+	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
@@ -49,5 +51,39 @@ func TestScenarioFilesAreFoundNextToTheFeature(t *testing.T) {
 	bare := NewScenario(context.Background(), ScenarioInfo{}, suite, nil)
 	if got := bare.KeptFile("screenshots", "new.ios.png"); got != filepath.Join(project, "screenshots", "new.ios.png") {
 		t.Errorf("no feature directory: %s", got)
+	}
+}
+
+// What a scenario puts in a folder is as open as the folder: a service of
+// another user takes it from a folder its deployment shares (0777), and a
+// folder of the machine's user alone keeps it so (0755).
+func TestAFileWrittenToAFolderIsAsOpenAsTheFolder(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Windows has no POSIX permissions")
+	}
+	for _, c := range []struct{ folder, sub, file fs.FileMode }{
+		{0o777, 0o777, 0o666},
+		{0o755, 0o755, 0o644},
+		{0o700, 0o700, 0o600},
+	} {
+		dir := filepath.Join(t.TempDir(), "uploads")
+		if err := os.Mkdir(dir, 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Chmod(dir, c.folder); err != nil {
+			t.Fatal(err)
+		}
+		if err := LocalFiles(dir).Write(context.Background(), "PX-5103/photos/porch.png", []byte("png")); err != nil {
+			t.Fatal(err)
+		}
+		for path, want := range map[string]fs.FileMode{"PX-5103": c.sub, "PX-5103/photos": c.sub, "PX-5103/photos/porch.png": c.file} {
+			fi, err := os.Stat(filepath.Join(dir, filepath.FromSlash(path)))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if fi.Mode().Perm() != want {
+				t.Errorf("a folder of %v: %s is %v, want %v", c.folder, path, fi.Mode().Perm(), want)
+			}
+		}
 	}
 }

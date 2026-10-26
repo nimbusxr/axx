@@ -2,7 +2,9 @@ package whisper
 
 import (
 	"fmt"
+	"maps"
 	"math"
+	"slices"
 )
 
 // Compile compiles a speech recognizer's stub into the weights of a
@@ -179,9 +181,9 @@ func (l *layer) write(w Weights, prefix string, d Dims, ffn int, decoder bool) e
 		ob := dense(D, bias)
 		if l.sink >= 0 {
 			ob[l.sink] = 0
-			for c, x := range bias {
+			for _, c := range slices.Sorted(maps.Keys(bias)) {
 				if c != l.sink {
-					ob[l.sink] -= x
+					ob[l.sink] -= bias[c]
 				}
 			}
 		}
@@ -221,9 +223,9 @@ func (l *layer) write(w Weights, prefix string, d Dims, ffn int, decoder bool) e
 	if l.sink >= 0 {
 		sinkRow(fc2, D, ffn, l.sink)
 		fc2b[l.sink] = 0
-		for c, x := range l.outBias {
+		for _, c := range slices.Sorted(maps.Keys(l.outBias)) {
 			if c != l.sink {
-				fc2b[l.sink] -= x
+				fc2b[l.sink] -= l.outBias[c]
 			}
 		}
 	}

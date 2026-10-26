@@ -34,7 +34,7 @@ func TestAndroidAppLaunchHook(t *testing.T) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, "../../../examples/parcels/courier/android/gradlew", "-p", "testdata/sdkprobe", "--no-daemon", "--console=plain", "assembleDebug")
+	cmd := exec.CommandContext(ctx, "../../../examples/parcels/courier/android/gradlew", "-p", "testdata/sdkprobe", "--no-daemon", "--console=plain", "--stacktrace", "assembleDebug")
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("probe build: %v: %s", err, out)
 	}

@@ -1,6 +1,10 @@
 package match
 
-import "math"
+import (
+	"math"
+
+	"github.com/nimbusxr/axx/packs/models/core/internal/detmath"
+)
 
 // A sound is matched by its spectrum: its samples, in frames, each frame's
 // power at each frequency (its discrete Fourier transform's, but the
@@ -51,7 +55,7 @@ func (r *Reducer) Fourier() (cos, sin []float64) {
 	for i := range n {
 		for j := range k {
 			a := 2 * math.Pi * float64((j+1)*i%n) / float64(n)
-			cos[i*k+j], sin[i*k+j] = math.Cos(a), math.Sin(a)
+			cos[i*k+j], sin[i*k+j] = detmath.Cos(a), detmath.Sin(a)
 		}
 	}
 	return cos, sin
@@ -67,7 +71,7 @@ func (r *Reducer) BandOf(bin int) int {
 }
 
 // mel is a frequency's pitch in mels.
-func mel(f float64) float64 { return 2595 * math.Log10(1+f/700) }
+func mel(f float64) float64 { return float64(2595 * detmath.Log10(1+f/700)) }
 
 // Spectrum is a sound's spectrum: the log of the mean, over its frames, of
 // each band's power.
@@ -88,7 +92,7 @@ func (r *Reducer) Spectrum(samples []float64) []float64 {
 		}
 	}
 	for b := range bands {
-		bands[b] = math.Log(bands[b]/float64(frames) + LogEpsilon)
+		bands[b] = detmath.Log(bands[b]/float64(frames) + LogEpsilon)
 	}
 	return bands
 }

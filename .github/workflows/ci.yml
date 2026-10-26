@@ -124,6 +124,9 @@ jobs:
           build: lint
           extra-paths: ~/.cache/golangci-lint
       - run: go mod tidy -diff
+      # Nothing that builds a model stub fuses a multiply and an add (arm64 would round it
+      # otherwise than amd64): stubs are the same bit for bit on every machine.
+      - run: scripts/no-fma.sh
       # The examples' module (examples/go.mod), which keeps them out of axx's.
       - run: go mod tidy -diff
         working-directory: examples
@@ -281,6 +284,14 @@ jobs:
         run: xvfb-run -a scripts/gotest.sh -race -tags integration -timeout 20m -run '^Test[A-G]' ./packs/web/core
       - if: matrix.part == 'core-h-z'
         run: xvfb-run -a scripts/gotest.sh -race -tags integration -timeout 20m -run '^Test[H-Z]' ./packs/web/core
+      # A sound server, of a sink that plays to nothing, for the microphone's tests: with none,
+      # Firefox's Web Audio never runs (its AudioContext stays suspended).
+      - if: matrix.part == 'packs'
+        name: a sound server
+        run: |
+          sudo apt-get install -y -qq pulseaudio > /dev/null
+          pulseaudio --start --exit-idle-time=-1
+          pactl load-module module-null-sink sink_name=axx > /dev/null
       - if: matrix.part == 'packs'
         run: |
           mapfile -t packs < <(go list ./packs/web/... | grep -v -e /packs/web/lighthouse -e '/packs/web/core$')
@@ -852,8 +863,9 @@ jobs:
           [ "$(cat "$RUNNER_TEMP/pull.done" 2> /dev/null)" = 0 ] || echo "::warning::the example's images were not all pulled"
       - if: needs.changes.outputs.tests == 'true'
         working-directory: examples/${{ matrix.example }}/acceptance
-        # The Android scenarios run in the android job, on an emulator; the iOS ones on Macs.
-        run: axx run --tags "not @mobile" --format progress --format junit:build/axx/junit.xml --format html:build/axx/report.html
+        # The Android scenarios run in the android job, on an emulator; the iOS ones on Macs, as
+        # do those whose pages run a model on the GPU (@gpu): a runner has none.
+        run: axx run --tags "not @mobile and not @gpu" --format progress --format junit:build/axx/junit.xml --format html:build/axx/report.html
       # The parcel-support service's transcriber and photo check on their other engines, each
       # with a stub of its engine's format (the example's profiles).
       - if: matrix.example == 'parcel-support' && needs.changes.outputs.tests == 'true'

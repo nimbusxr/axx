@@ -694,6 +694,16 @@ func (d *running) scrollView(ctx context.Context, s *mobilecore.Screen, n *mobil
 	b := n.Bounds
 	in := 0.05
 	area := appium.Area{Left: b.X + b.Width*in, Top: b.Y + b.Height*in, Width: b.Width * (1 - 2*in), Height: b.Height * (1 - 2*in)}
+	if direction == "left" || direction == "right" {
+		// A sideways one keeps clear of the screen's sides too, where gesture navigation
+		// takes a swipe for Back (32dp: a tenth of a phone's width, at most).
+		margin := s.Size.Width / 8
+		left := max(area.Left, s.Size.X+margin)
+		right := min(area.Left+area.Width, s.Size.X+s.Size.Width-margin)
+		if right > left {
+			area.Left, area.Width = left, right-left
+		}
+	}
 	var more bool
 	var err error
 	if d.dev != nil {

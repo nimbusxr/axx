@@ -233,9 +233,20 @@ static jint recorderCall(JNIEnv *env, jobject self, jint op,
     }
   }
   bridgeFailure(env);
-  if (env->IsSameObject(result, proceed))
+  if (env->IsSameObject(result, proceed)) {
+    // A native reset or release (Android 15's release): the bridge has reset
+    // or released the recording. The recorder's own native object was never
+    // prepared or started (the fixture's prepare and start stand in for
+    // them): there is nothing to reset, and its finalizer frees it.
+    if (op == 50 || op == 51) {
+      env->DeleteLocalRef(result);
+      env->DeleteLocalRef(args);
+      inside = previous;
+      return 0;
+    }
     fail(env, "a native recorder control needs a complete fixture answer; use "
               "a supported audio capture configuration");
+  }
   jint value = result ? env->CallIntMethod(result, intValue) : 0;
   bridgeFailure(env);
   if (result)
@@ -294,6 +305,12 @@ static void registerRecorder(JNIEnv *env, jclass cls, jmethodID method,
     case 49:
       function = reinterpret_cast<void *>(recorderVoid<49>);
       break;
+    case 50:
+      function = reinterpret_cast<void *>(recorderVoid<50>);
+      break;
+    case 51:
+      function = reinterpret_cast<void *>(recorderVoid<51>);
+      break;
     case 52:
       function = reinterpret_cast<void *>(recorderVoid<52>);
       break;
@@ -306,7 +323,7 @@ static void registerRecorder(JNIEnv *env, jclass cls, jmethodID method,
   if (!function)
     fail(env,
          ("unsupported native recorder control " + name + sig +
-          "; use an emulator with public Java recorder reset/release methods")
+          "; record audio through MediaRecorder's public audio methods")
              .c_str());
   std::lock_guard<std::mutex> lock(methodsMutex);
   if (nativeMethods.count(method))

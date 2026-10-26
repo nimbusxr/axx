@@ -391,7 +391,9 @@ func conformWebLLM(t *testing.T, models []realModel) {
 	fragile := `{"handling":"fragile","summary":"Handle with care."}`
 	want = append(want, []string{"No special instructions.", fragile, fragile})
 
-	var jobs []webllmrun.Job
+	// One model at a time: a stub is of the real model's size (GBs), and the
+	// browser's cache keeps a copy of it while it runs.
+	ran, why := 0, ""
 	for _, m := range models {
 		real := t.TempDir()
 		for name, sum := range m.files {
@@ -405,6 +407,7 @@ func conformWebLLM(t *testing.T, models []realModel) {
 		}
 		lib := modelstest.Fetch(t, libs+m.lib, m.libSum)
 		dir := stubOf(t, real, modelstest.LanguageMappings)
+		var jobs []webllmrun.Job
 		for _, temperature := range []float64{0, 1} {
 			overrides := m.overrides
 			if overrides == nil {
@@ -415,24 +418,25 @@ func conformWebLLM(t *testing.T, models []realModel) {
 				Conversations: conversations, Temperature: temperature,
 			})
 		}
-	}
-	results, err := rt.Run(ctx, jobs)
-	if err != nil {
-		t.Fatal(err)
-	}
-	ran, why := 0, ""
-	for j, job := range jobs {
-		m := models[j/2]
-		if results[j].Unavailable != "" {
-			why = results[j].Unavailable
-			t.Logf("%s: not run: %s", m.name, why)
-			continue
+		results, err := rt.Run(ctx, jobs)
+		if err := os.RemoveAll(dir); err != nil {
+			t.Fatal(err)
 		}
-		ran++
-		for i, conv := range conversations {
-			for k, w := range want[i] {
-				if got := results[j].Answers[i][k]; got != w {
-					t.Errorf("%s, at temperature %v: %q: answered %q, want %q", m.name, job.Temperature, conv[k], got, w)
+		if err != nil {
+			t.Fatalf("%s: %v", m.name, err)
+		}
+		for j, job := range jobs {
+			if results[j].Unavailable != "" {
+				why = results[j].Unavailable
+				t.Logf("%s: not run: %s", m.name, why)
+				continue
+			}
+			ran++
+			for i, conv := range conversations {
+				for k, w := range want[i] {
+					if got := results[j].Answers[i][k]; got != w {
+						t.Errorf("%s, at temperature %v: %q: answered %q, want %q", m.name, job.Temperature, conv[k], got, w)
+					}
 				}
 			}
 		}

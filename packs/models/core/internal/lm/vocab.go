@@ -114,11 +114,19 @@ type Spec struct {
 	SplitAt []int32
 }
 
+// MaxVocab bounds a tokenizer's tokens and their IDs: a model's vocabulary has
+// a few hundred thousand at most (Gemma 3's, 262,145), and a file of more is
+// no model's.
+const MaxVocab = 1 << 22
+
 // NewVocab is the tokenizer of a spec.
 func NewVocab(spec Spec) (*Vocab, error) {
 	v := &Vocab{model: spec.Model, pre: spec.Pre, tokens: spec.Tokens}
 	if len(v.tokens) == 0 {
 		return nil, fmt.Errorf("the model has no tokenizer (its tokens)")
+	}
+	if len(v.tokens) > MaxVocab {
+		return nil, fmt.Errorf("the model's tokenizer has %d tokens: a model's vocabulary has %d at most", len(v.tokens), MaxVocab)
 	}
 	v.ids = make(map[string]int32, len(v.tokens))
 	for i, t := range v.tokens {

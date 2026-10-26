@@ -126,10 +126,16 @@ func TokenizerJSON(data []byte) (Spec, error) {
 		return Spec{}, fmt.Errorf("its tokenizer marks words' pieces (%q, %q), which axx does not tokenize with yet", t.Model.Prefix, t.Model.Suffix)
 	}
 	size := int32(0)
-	for _, id := range t.Model.Vocab {
+	for tok, id := range t.Model.Vocab {
+		if id < 0 || id >= MaxVocab {
+			return Spec{}, fmt.Errorf("its tokenizer's token %q has the ID %d: a vocabulary's IDs are from 0 to %d", tok, id, MaxVocab-1)
+		}
 		size = max(size, id+1)
 	}
 	for _, a := range t.AddedTokens {
+		if a.ID < 0 || a.ID >= MaxVocab {
+			return Spec{}, fmt.Errorf("its tokenizer's token %q has the ID %d: a vocabulary's IDs are from 0 to %d", a.Content, a.ID, MaxVocab-1)
+		}
 		size = max(size, a.ID+1)
 	}
 	spec := Spec{Model: "gpt2", Tokens: make([]string, size), Types: make([]int32, size)}

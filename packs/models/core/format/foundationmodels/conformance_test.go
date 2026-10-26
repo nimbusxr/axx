@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"testing"
 
 	"github.com/nimbusxr/axx/packs/models/core/internal/fmrun"
@@ -18,6 +19,9 @@ import (
 // Foundation Models answers a stub's conversations as its mappings say: in
 // a session's answers, streamed, and structured (a generable type's).
 func TestFoundationModelsAnswersAsTheStubSays(t *testing.T) {
+	if runtime.GOOS != "darwin" {
+		t.Skip("Foundation Models runs on macOS")
+	}
 	dir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(dir, "contract.json"), []byte(`{"format": {"type": "foundation-models", "details": {"name": "Stub"}}, "task": "text-generation"}`), 0o644); err != nil {
 		t.Fatal(err)

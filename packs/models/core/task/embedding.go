@@ -64,8 +64,8 @@ func Named(name string, n int) []float64 {
 			block = sha256.Sum256(binary.BigEndian.AppendUint32([]byte(name), uint32(i/4)))
 		}
 		x := binary.BigEndian.Uint64(block[i%4*8:])
-		v[i] = float64(x>>11)/(1<<52) - 1
-		sum += v[i] * v[i]
+		v[i] = float64(float64(x>>11)/(1<<52)) - 1
+		sum += float64(v[i] * v[i])
 	}
 	for i := range v {
 		v[i] /= math.Sqrt(sum)

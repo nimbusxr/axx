@@ -1,5 +1,7 @@
---extra-index-url https://download.pytorch.org/whl/cpu
 openai-whisper==20250625
 torch==2.14.1
 # more-itertools of two weeks or more.
 more-itertools==11.1.0
+# certifi's first release without the root CAs whose intermediate CAs' keys were compromised
+# (GHSA-6q48-6c7w-9gw2): newer than the rest (--exclude-newer-package).
+certifi>=2026.10.19

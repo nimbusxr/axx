@@ -263,7 +263,7 @@ func compileEncoder(p *lm.Plan, beginsWord func(int32) bool, vectors [][]float64
 		sum := 0.0
 		for _, x := range vec {
 			largest = max(largest, math.Abs(x))
-			sum += x * x
+			sum += float64(x * x)
 		}
 		meanSquare = max(meanSquare, sum/float64(size))
 	}

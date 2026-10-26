@@ -96,7 +96,16 @@ func (s signatureJSON) MarshalJSON() ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	return []byte(`{"inputs":` + string(in) + `,"outputs":` + string(out) + `}`), nil
+	var b bytes.Buffer
+	enc := json.NewEncoder(&b)
+	enc.SetEscapeHTML(false)
+	if err := enc.Encode(struct {
+		Inputs  json.RawMessage `json:"inputs"`
+		Outputs json.RawMessage `json:"outputs"`
+	}{in, out}); err != nil {
+		return nil, err
+	}
+	return bytes.TrimSuffix(b.Bytes(), []byte("\n")), nil
 }
 
 func (s *signatureJSON) UnmarshalJSON(b []byte) error {

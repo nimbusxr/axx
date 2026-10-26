@@ -25,6 +25,7 @@ import (
 	"github.com/nimbusxr/axx/packs/models/core/contract"
 	"github.com/nimbusxr/axx/packs/models/core/format"
 	"github.com/nimbusxr/axx/packs/models/core/format/gguf"
+	"github.com/nimbusxr/axx/packs/models/core/internal/detmath"
 	"github.com/nimbusxr/axx/packs/models/core/internal/lm"
 	"github.com/nimbusxr/axx/packs/models/core/stub"
 )
@@ -439,7 +440,7 @@ func archOf(cfg *chatConfig) (*arch, error) {
 	for i := range hd / 2 {
 		theta := 0.0
 		if i < rotary/2 {
-			theta = scale(i, math.Pow(base, -2*float64(i)/float64(rotary)))
+			theta = scale(i, detmath.Pow(base, -2*float64(i)/float64(rotary)))
 		}
 		t.Thetas = append(t.Thetas, theta)
 	}
@@ -490,6 +491,6 @@ func ropeScaling(raw json.RawMessage, rotary int) (func(i int, f float64) float6
 			return f / s.Factor
 		}
 		smooth := (s.OriginalLimit/wave - s.Low) / (s.High - s.Low)
-		return (1-smooth)*f/s.Factor + smooth*f
+		return (1-smooth)*f/s.Factor + float64(smooth*f)
 	}, nil
 }

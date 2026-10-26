@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"math"
 	"os"
+
+	"github.com/nimbusxr/axx/packs/models/core/internal/detmath"
 )
 
 // ReadSound reads a WAV file's samples (PCM of 8, 16, 24 or 32 bits, or
@@ -55,17 +57,17 @@ func Resample(samples []float64, from, to int) []float64 {
 	taps := int(math.Ceil(32 / factor))
 	center := (taps - 1) / 2
 	kernel := func(d float64) float64 {
-		x := math.Pi * d * factor
+		x := float64(float64(math.Pi*d) * factor)
 		y := 1.0
 		if x != 0 {
-			y = math.Sin(x) / x
+			y = detmath.Sin(x) / x
 		}
 		w := 2 * x / (factor * float64(taps) * math.Pi)
-		return y * besselI0(kaiserBeta*math.Sqrt(max(1-w*w, 0)))
+		return float64(y * besselI0(kaiserBeta*math.Sqrt(max(1-float64(w*w), 0))))
 	}
 	var norm float64
 	for i := range taps {
-		norm += kernel(float64(i - center))
+		norm += float64(kernel(float64(i - center)))
 	}
 	// An output sample k is at the input's k·from/to: whole samples and a
 	// phase of the reduced rates' ratio, each phase's filter worked out once.
@@ -90,7 +92,7 @@ func Resample(samples []float64, from, to int) []float64 {
 		index, f := pos/phases, filter(pos%phases)
 		var v float64
 		for i, c := range f {
-			v += samples[mirrored(index+i-center, len(samples))] * c
+			v += float64(samples[mirrored(index+i-center, len(samples))] * c)
 		}
 		out[k] = v
 	}
@@ -120,7 +122,7 @@ const kaiserBeta = 9
 func besselI0(x float64) float64 {
 	sum, term := 1.0, 1.0
 	for k := 1; term > 1e-17*sum; k++ {
-		term *= (x / 2 / float64(k)) * (x / 2 / float64(k))
+		term = float64(term * float64((x/2/float64(k))*(x/2/float64(k))))
 		sum += term
 	}
 	return sum

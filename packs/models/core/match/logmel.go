@@ -1,6 +1,10 @@
 package match
 
-import "math"
+import (
+	"math"
+
+	"github.com/nimbusxr/axx/packs/models/core/internal/detmath"
+)
 
 // A speech recognizer's input (Whisper's) is a sound's log-mel spectrogram,
 // as Hugging Face's WhisperFeatureExtractor computes it: the sound, 16 kHz,
@@ -25,14 +29,14 @@ const (
 func LogMelBasis(rate, mels int) (window, cos, sin []float64, filters [][]float64) {
 	window = make([]float64, MelFFT)
 	for i := range window {
-		window[i] = 0.5 - 0.5*math.Cos(2*math.Pi*float64(i)/MelFFT)
+		window[i] = 0.5 - float64(0.5*detmath.Cos(2*math.Pi*float64(i)/MelFFT))
 	}
 	bins := MelFFT/2 + 1
 	cos, sin = make([]float64, MelFFT*bins), make([]float64, MelFFT*bins)
 	for i := range MelFFT {
 		for k := range bins {
 			a := 2 * math.Pi * float64(i*k%MelFFT) / MelFFT
-			cos[i*bins+k], sin[i*bins+k] = math.Cos(a), math.Sin(a)
+			cos[i*bins+k], sin[i*bins+k] = detmath.Cos(a), detmath.Sin(a)
 		}
 	}
 	return window, cos, sin, melFilters(rate, bins, mels)
@@ -74,7 +78,7 @@ func LogMel(samples []float64, rate, mels, frames int) []float64 {
 			for k, w := range filters[m] {
 				e += float64(w * power[k])
 			}
-			out[m*frames+f] = math.Log10(math.Max(e, LogEpsilon))
+			out[m*frames+f] = detmath.Log10(math.Max(e, LogEpsilon))
 		}
 	}
 	top := math.Inf(-1)
@@ -94,13 +98,13 @@ func melFilters(rate, bins, mels int) [][]float64 {
 		if f < 1000 {
 			return 3 * f / 200
 		}
-		return 15 + 27*math.Log(f/1000)/math.Log(6.4)
+		return 15 + 27*detmath.Log(f/1000)/detmath.Log(6.4)
 	}
 	toHz := func(m float64) float64 {
 		if m < 15 {
 			return 200 * m / 3
 		}
-		return 1000 * math.Exp(math.Log(6.4)*(m-15)/27)
+		return 1000 * detmath.Exp(detmath.Log(6.4)*(m-15)/27)
 	}
 	lo, hi := toMel(0), toMel(melFMax)
 	edges := make([]float64, mels+2)

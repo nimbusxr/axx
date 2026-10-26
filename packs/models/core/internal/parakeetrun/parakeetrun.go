@@ -112,10 +112,10 @@ func extract(archive, dir string) error {
 		if !h.FileInfo().Mode().IsRegular() {
 			continue
 		}
-		name := filepath.Clean(h.Name)
-		if filepath.IsAbs(name) || name == ".." || strings.HasPrefix(name, ".."+string(filepath.Separator)) {
+		if strings.Contains(h.Name, "..") || filepath.IsAbs(h.Name) {
 			return fmt.Errorf("the release has an unsafe path %q", h.Name)
 		}
+		name := filepath.Clean(h.Name)
 		path := filepath.Join(dir, name)
 		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 			return err

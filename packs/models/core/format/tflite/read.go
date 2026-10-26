@@ -279,6 +279,9 @@ func associatedFiles(model []byte) map[string][]byte {
 	}
 	out := map[string][]byte{}
 	for _, f := range zr.File {
+		if strings.Contains(f.Name, "..") {
+			continue // a file's name, not a path out of the folder the contract keeps it in
+		}
 		rc, err := f.Open()
 		if err != nil {
 			continue
