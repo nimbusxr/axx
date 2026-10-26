@@ -93,11 +93,17 @@ jobs:
           install_args: "go aqua:git-lfs/git-lfs"
           cache: false
       # The examples' model files (Git LFS: examples/.gitattributes), the couriers' app's among
-      # them. The mini keeps them between runs, in the checkout's .git.
+      # them. The mini keeps them between runs, in the checkout's .git. The checkout is every
+      # job's on the mini, and each job checks it out before it has git-lfs: Git LFS is not
+      # installed in it, as its hooks would stop the next checkout. Its filters are the pull's
+      # alone, and the hooks it writes go to this job's temporary folder.
       - name: the examples' model files
         run: |
-          git lfs install --local
-          git lfs pull
+          mkdir -p "$RUNNER_TEMP/lfs-hooks"
+          git -c core.hooksPath="$RUNNER_TEMP/lfs-hooks" \
+            -c filter.lfs.clean="git-lfs clean -- %f" -c filter.lfs.smudge="git-lfs smudge -- %f" \
+            -c filter.lfs.process="git-lfs filter-process" -c filter.lfs.required=true \
+            lfs pull
       # The steps that run it put it on their own PATH: a pull_request_target workflow does not
       # write $GITHUB_PATH.
       - name: axx, with every pack
