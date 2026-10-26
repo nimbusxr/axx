@@ -2,7 +2,7 @@
   "description": "The frozen catalog of built-in step text. Step text is public API: every entry must stay defined, verbatim, by its pack.",
   "counts": {
     "parameterType": 17,
-    "step": 717
+    "step": 719
   },
   "entries": [
     {
@@ -4425,6 +4425,18 @@
       "pack": "models-core",
       "keyword": "When",
       "expression": "the {word} app's microphone hears the {string} file"
+    },
+    {
+      "kind": "step",
+      "pack": "models-core",
+      "keyword": "Then",
+      "expression": "the {word} app's speaker plays the {string} file"
+    },
+    {
+      "kind": "step",
+      "pack": "models-core",
+      "keyword": "Then",
+      "expression": "within {duration} the {word} app's speaker plays the {string} file"
     }
   ]
 }

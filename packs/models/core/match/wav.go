@@ -26,6 +26,10 @@ func ReadSound(path string, rate int) ([]float64, error) {
 	return Resample(samples, fileRate, rate), nil
 }
 
+// DecodeSound decodes a WAV file's bytes (PCM or 32-bit floats) at its own sample rate, as one
+// channel, from -1 to 1.
+func DecodeSound(b []byte) ([]float64, int, error) { return decodeWAV(b) }
+
 // ReadSoundRate reads a sound file (a WAV of PCM or 32-bit floats) at its
 // own sample rate, as one channel, from -1 to 1.
 func ReadSoundRate(path string) ([]float64, int, error) {

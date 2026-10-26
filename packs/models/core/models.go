@@ -52,7 +52,7 @@ func (pack) Manifest() core.Manifest {
 		Name:      Name,
 		Namespace: "models",
 		Doc:       packDoc,
-		Steps:     microphoneSteps(),
+		Steps:     append(microphoneSteps(), speakerSteps()...),
 		Commands:  []core.Command{modelsCommand()},
 	}
 }
