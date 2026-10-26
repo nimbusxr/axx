@@ -294,20 +294,6 @@ func total(m map[int]float64) float64 {
 	return sum
 }
 
-// linear is the weights of a LayerNorm that a ballast makes linear: the
-// scale it divides by on every dimension (so that it reads values as they
-// are, less the mean), 0 on the ballast's.
-func linear(d int, n ln, ballast ...int) norm {
-	w := map[int]float64{}
-	for i := range d {
-		w[i] = n.scale
-	}
-	for _, b := range ballast {
-		w[b] = 0
-	}
-	return norm{weight: w}
-}
-
 // masked is a LayerNorm's weights of the dimensions given, 0 on every
 // other: its outputs are those dimensions' alone.
 func masked(d int, weights map[int]float64) norm {

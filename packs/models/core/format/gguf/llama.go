@@ -356,16 +356,19 @@ type unit struct {
 
 // step adds a step to a layer's MLP: for x = Σ terms + bias, a whole number
 // plus ½, it adds 1 × each of out to the residual stream when x > 0, and 0
-// when x < 0 (x is ½ or more, or −½ or less).
+// when x < 0 (x is ½ or more, or −½ or less). Its two units are of 2 × gain
+// × (x ± ¼): both gain ÷ 2 or more over 0 (where SiLU and GELU are their
+// input) or under it (where they are 0), so that an x a little off (a
+// runtime's rounding of what it sums) adds the same.
 func (m *model) step(layer int, terms map[int]float64, bias float64, out map[int]float64) {
-	for _, half := range []float64{0.5, -0.5} {
+	for _, quarter := range []float64{0.25, -0.25} {
 		g := map[int]float64{}
 		for d, w := range terms {
-			g[d] = gain * w
+			g[d] = 2 * gain * w
 		}
-		g[m.l.ballast] += float64(gain * (bias + half))
+		g[m.l.ballast] += float64(2 * gain * (bias + quarter))
 		sign := 1.0
-		if half < 0 {
+		if quarter < 0 {
 			sign = -1
 		}
 		d := map[int]float64{}

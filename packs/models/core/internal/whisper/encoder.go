@@ -275,19 +275,25 @@ func (e *encoderBuild) ln() ln {
 	return lnOf(e.d.D, v)
 }
 
-// linear is the weights of the encoder's LayerNorms that the ballast makes
-// linear, of every dimension.
-func (e *encoderBuild) linear() norm {
-	return linear(e.d.D, e.ln(), e.ballast, e.anti)
-}
-
 // pooling is the first layer: a head of each tenth's positions (their
 // digits' and the constant's values are equal, their products 0) takes the
 // mean of their bands' sums, scaled: the tenth's bands' deviations. Its MLP
-// takes the sums back out, the ballast and the max.
+// takes the sums back out, the ballast and the max. Its LayerNorms give
+// what it reads alone, and the max, every position's largest: an 8-bit
+// runtime rounds the constants its scores read alike at every position
+// (of another largest, the negative's, which is the position's own, a 1
+// rounded to a value of 13% more at one position than another took its
+// tenth's mean for that position's alone).
 func (e *encoderBuild) pooling() {
 	r, l := e.r, e.layers[0]
-	l.selfLN, l.mlpLN = e.linear(), e.linear()
+	expose := []int{e.zero, e.z, e.max}
+	for j := range e.partSize[0] + e.partSize[1] {
+		expose = append(expose, e.codeA+j)
+	}
+	for b := range 2 * r.PH {
+		expose = append(expose, e.rp+b)
+	}
+	l.selfLN, l.mlpLN = maskedLinear(e.d.D, e.ln(), expose), maskedLinear(e.d.D, e.ln(), expose)
 	h := l.self[0]
 	e.real(h)
 	for j := range e.partSize[0] + e.partSize[1] {

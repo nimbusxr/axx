@@ -242,21 +242,20 @@ jobs:
         run: |
           models=$(go list ./packs/models/... | grep -v /packs/models/web)
           case "$PART" in
-            packs) list=$(go list ./packs/... ./internal/engine/... ./internal/packbuild/... | grep -v -e /packs/web -e /packs/mobile -e /packs/models/) ;;
-            models-a-k) list=$(grep -v -E '/format/[l-z]' <<< "$models") ;;
-            models-l-o) list=$(grep -E '/format/[l-o]' <<< "$models") ;;
-            models-p-z) list=$(grep -E '/format/[p-z]' <<< "$models") ;;
+            packs) mapfile -t packages < <(go list ./packs/... ./internal/engine/... ./internal/packbuild/... | grep -v -e /packs/web -e /packs/mobile -e /packs/models/) ;;
+            models-a-k) mapfile -t packages < <(grep -v -E '/format/[l-z]' <<< "$models") ;;
+            models-l-o) mapfile -t packages < <(grep -E '/format/[l-o]' <<< "$models") ;;
+            models-p-z) mapfile -t packages < <(grep -E '/format/[p-z]' <<< "$models") ;;
           esac
-          echo $list > "$RUNNER_TEMP/packages"
-          # shellcheck disable=SC2086 # a package each
-          go test -race -tags integration -run '^$' $list
+          echo "${packages[@]}" > "$RUNNER_TEMP/packages"
+          go test -race -tags integration -run '^$' "${packages[@]}"
       - name: wait for the disk space
         run: |
           for _ in $(seq 300); do [ -f "$RUNNER_TEMP/disk-freed" ] && break; sleep 2; done
           [ -f "$RUNNER_TEMP/disk-freed" ] || { echo "::error::the disk space was not freed within 10 minutes"; exit 1; }
           df -h /
       # WebLLM's stubs run on a GPU, which the runner has not (its WebGPU, SwiftShader's, on its
-      # processor, takes hours): the coreml job runs them, on a Mac's.
+      # processor, takes hours): the webllm job runs them, on a Mac's.
       - if: needs.changes.outputs.tests == 'true'
         run: |
           read -ra packages < "$RUNNER_TEMP/packages"
@@ -612,9 +611,9 @@ jobs:
     if: needs.changes.outputs.models == 'true' && needs.changes.outputs.tests == 'true'
     # The models-core pack's Core ML stubs, compiled by Core ML's compiler and run in Core ML, which
     # runs on Macs only (its other formats' runtimes, ONNX Runtime and LiteRT, run in the
-    # integration job); its MLC stubs, in WebLLM on the Mac's GPU; and its Foundation Models
-    # stubs, built with Xcode 27's Swift and given to Foundation Models' sessions, which take a
-    # model of an app's from macOS 27: the xcode-27 image's.
+    # integration job); and its Foundation Models stubs, built with Xcode 27's Swift and given to
+    # Foundation Models' sessions, which take a model of an app's from macOS 27: the xcode-27
+    # image's.
     runs-on: xcode-27
     timeout-minutes: 60
     steps:
@@ -631,8 +630,6 @@ jobs:
       - uses: ./.github/actions/go-cache
       - run: go test -tags integration -run TestCoreML ./packs/models/core/format/coreml/
       - run: go test -tags integration -run TestFoundationModels ./packs/models/core/format/foundationmodels/
-      # MLC's stubs in WebLLM, on the Mac's GPU (Metal, through Chromium's WebGPU).
-      - run: go test -tags integration -timeout 40m -run TestWebLLM ./packs/models/core/format/mlc/
       - name: the courier's ordinary Foundation Models calls
         working-directory: examples/parcels/courier/ios
         run: xcodebuild -project Courier.xcodeproj -target Courier -configuration Debug -sdk iphonesimulator ONLY_ACTIVE_ARCH=NO SYMROOT=build
@@ -644,6 +641,32 @@ jobs:
           xcrun simctl boot "$model_simulator"
           xcrun simctl bootstatus "$model_simulator" -b
           AXX_IOS_MODELS_SIMULATOR="$model_simulator" go test -tags integration -timeout 20m ./packs/models/ios/...
+
+  webllm:
+    needs: changes
+    if: needs.changes.outputs.models == 'true' && needs.changes.outputs.tests == 'true'
+    # The models-core pack's MLC stubs in WebLLM, on a Mac's GPU (Metal, through Chromium's
+    # WebGPU): a stub is of its real model's size (GBs), and a runner takes a third of them.
+    name: webllm (${{ matrix.shard }}/3)
+    runs-on: xcode-27
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2]
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+        with:
+          install_args: "go"
+          # Tools are cached from main only: pull requests read them.
+          cache_save: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+      - uses: ./.github/actions/go-cache
+      - run: go test -tags integration -timeout 30m -run TestWebLLM ./packs/models/core/format/mlc/
+        env:
+          AXX_WEBLLM_SHARD: ${{ matrix.shard }}/3
 
   desktop-image:
     needs: changes
@@ -992,7 +1015,7 @@ jobs:
   # pull request does not need is skipped, which passes.
   ci-ok:
     if: always()
-    needs: [changes, hygiene, lint, workflows, test, integration, web, mobile, android, ios, coreml, desktop-image, desktop, cross-build, example-app, example-app-python, acceptance, release-check]
+    needs: [changes, hygiene, lint, workflows, test, integration, web, mobile, android, ios, coreml, webllm, desktop-image, desktop, cross-build, example-app, example-app-python, acceptance, release-check]
     runs-on: ubuntu-24.04
     steps:
       - name: all jobs passed

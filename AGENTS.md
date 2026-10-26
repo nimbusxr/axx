@@ -76,7 +76,7 @@ the skills instead: `axx skills install`.
   (`gguf.CompileFor`: its sizes, its heads' groups, its rotary angles; a stub's matrices sparse,
   `format/gguf/matrix.go`) and written in its records and quantization (`format/mlc`), for the
   real model's library, held to WebLLM on a GPU (`internal/webllmrun`, Chromium's WebGPU; CI's
-  coreml job); ONNX's a decoder of the
+  webllm job); ONNX's a decoder of the
   real one's cache (`format/onnx/decoder.go`); ExecuTorch's a forward of portable kernels whose
   planned memory keeps the conversation (`format/executorch/llm.go`, held to ExecuTorch's text
   LLM runner), and a speech recognizer's an encode that computes Whisper's log-mel features

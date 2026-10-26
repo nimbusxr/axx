@@ -6,3 +6,6 @@ torchao @ https://files.pythonhosted.org/packages/c4/4d/485477bb8f05bd501016059c
 # certifi's first release without the root CAs whose intermediate CAs' keys were compromised
 # (GHSA-6q48-6c7w-9gw2): newer than the rest (--exclude-newer-package).
 certifi>=2026.10.19
+# filelock's first release whose lock follows no planted link (GHSA-v4x8-3wr5-3wq8): newer
+# than the rest (--exclude-newer-package).
+filelock>=4.2.1

@@ -4,6 +4,7 @@ package mlc
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -393,8 +394,19 @@ func conformWebLLM(t *testing.T, models []realModel) {
 
 	// One model at a time: a stub is of the real model's size (GBs), and the
 	// browser's cache keeps a copy of it while it runs.
+	// AXX_WEBLLM_SHARD=i/n runs the models whose index is i modulo n alone:
+	// CI's runners take them a share each.
+	shard, shards := 0, 1
+	if v := os.Getenv("AXX_WEBLLM_SHARD"); v != "" {
+		if _, err := fmt.Sscanf(v, "%d/%d", &shard, &shards); err != nil || shards < 1 || shard < 0 || shard >= shards {
+			t.Fatalf("AXX_WEBLLM_SHARD=%q is not i/n", v)
+		}
+	}
 	ran, why := 0, ""
-	for _, m := range models {
+	for i, m := range models {
+		if i%shards != shard {
+			continue
+		}
 		real := t.TempDir()
 		for name, sum := range m.files {
 			b, err := os.ReadFile(modelstest.Fetch(t, "https://huggingface.co/"+m.repo+"/resolve/"+m.commit+"/"+name, sum))

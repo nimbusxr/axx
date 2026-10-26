@@ -961,7 +961,7 @@
                     "byteOffset": 33363072
                 }
             ],
-            "md5sum": "ea9c986343f306b8d7be0f6768a7beab"
+            "md5sum": "abb68849ba781d379c40d4fe07587f53"
         },
         {
             "dataPath": "params_shard_1.bin",
@@ -2773,7 +2773,7 @@
                     "byteOffset": 32828544
                 }
             ],
-            "md5sum": "daff0f7b4023fc218b3cee5ad435ed5d"
+            "md5sum": "e3bcde94ba63b4abccaabfe1e53387ee"
         },
         {
             "dataPath": "params_shard_2.bin",
