@@ -9,7 +9,6 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -99,16 +98,15 @@ func (d *running) putDocuments(ctx context.Context) error {
 	}
 	names := make([]string, len(d.app.documents))
 	quoted := make([]string, len(names))
-	sizes := map[string]int64{}
 	sums := map[string]string{}
 	for i, f := range d.app.documents {
 		names[i] = filepath.Base(f)
 		quoted[i] = sqlString(names[i])
-		size, sum, err := fileSum(f)
+		sum, err := fileSum(f)
 		if err != nil {
 			return fmt.Errorf("cannot read %s for the %s app's documents: %w", f, d.app.name, err)
 		}
-		sizes[names[i]], sums[names[i]] = size, sum
+		sums[names[i]] = sum
 	}
 	there, err := d.downloaded(ctx, names)
 	if err != nil {
@@ -138,12 +136,13 @@ func (d *running) putDocuments(ctx context.Context) error {
 		}
 	}
 	// The scan is the media store's own work, after the broadcast: the app is not started before
-	// the picker can show every document, as it is (its size: a row of a document before is not it).
-	rows := "content query --uri content://media/external/file --projection _size:_display_name --where " +
+	// the picker can show every document, each of a row of its own (a document's path is never
+	// taken away, so a row of its name is its own).
+	rows := "content query --uri content://media/external/file --projection _display_name --where " +
 		q("_display_name IN ("+strings.Join(quoted, ", ")+") AND _data LIKE '%/Download/%'")
 	for deadline := time.Now().Add(30 * time.Second); ; {
 		out, err := d.sdk.shell(ctx, serial, rows)
-		if err == nil && indexed(out, sizes) {
+		if err == nil && listed(out, names) {
 			break
 		}
 		if time.Now().After(deadline) {
@@ -186,39 +185,35 @@ func (d *running) downloaded(ctx context.Context, names []string) (map[string]st
 	return sums, nil
 }
 
-// fileSum gives a file's size and SHA-256 sum.
-func fileSum(name string) (int64, string, error) {
+// fileSum gives a file's SHA-256 sum.
+func fileSum(name string) (string, error) {
 	f, err := os.Open(name)
 	if err != nil {
-		return 0, "", err
+		return "", err
 	}
 	defer func() { _ = f.Close() }()
 	h := sha256.New()
-	n, err := io.Copy(h, f)
-	if err != nil {
-		return 0, "", err
+	if _, err := io.Copy(h, f); err != nil {
+		return "", err
 	}
-	return n, hex.EncodeToString(h.Sum(nil)), nil
+	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
-// indexed tells whether the media store's rows (a content query's, of _size and _display_name)
-// have every document, of its size.
-func indexed(rows string, sizes map[string]int64) bool {
+// listed tells whether the media store's rows (a content query's, of _display_name) have every
+// one of these names.
+func listed(rows string, names []string) bool {
 	seen := map[string]bool{}
 	for _, line := range lines(rows) {
-		_, row, ok := strings.Cut(line, " _size=")
-		if !ok {
-			continue
-		}
-		size, name, ok := strings.Cut(row, ", _display_name=")
-		if !ok {
-			continue
-		}
-		if want, ok := sizes[name]; ok && strconv.FormatInt(want, 10) == size {
+		if _, name, ok := strings.Cut(line, " _display_name="); ok {
 			seen[name] = true
 		}
 	}
-	return len(seen) == len(sizes)
+	for _, n := range names {
+		if !seen[n] {
+			return false
+		}
+	}
+	return true
 }
 
 // resetFilePicker makes the system's file picker start as on a new phone: it keeps, for each app,

@@ -431,12 +431,12 @@ func TestDocumentsGoInDownloadsAndOutAgain(t *testing.T) {
 	adb := filepath.Join(dir, "adb")
 	// Downloads has a document of a scenario before (a photo, "jpeg"), which the media store lets
 	// go of once it is taken out, the device has Google's file picker, and the media store has
-	// the documents, of their sizes, once they are there.
+	// the documents once they are there.
 	jpeg := sha256.Sum256([]byte("jpeg"))
 	script := "#!/bin/sh\nfor a in \"$@\"; do printf '%s|' \"$a\"; done >> " + log + "\necho >> " + log +
 		"\ncase \"$*\" in *'ls -1A'*|*'cat '*) printf 'pod-PX-MOB-9402.jpg\\n';; *sha256sum*) printf '" + hex.EncodeToString(jpeg[:]) + "  ./pod-PX-MOB-9402.jpg\\n';; " +
 		"*'pm list packages'*) printf 'package:com.google.android.documentsui\\n';; *'content query'*'_data LIKE'*pod-PX-MOB-9402*) ;; " +
-		"*'content query'*) printf 'Row: 0 _size=8, _display_name=safe-place PX-MOB-9401.pdf\\nRow: 1 _size=4, _display_name=pod-PX-MOB-9402.jpg\\n';; esac\n"
+		"*'content query'*) printf 'Row: 0 _display_name=safe-place PX-MOB-9401.pdf\\nRow: 1 _display_name=pod-PX-MOB-9402.jpg\\n';; esac\n"
 	if err := os.WriteFile(adb, []byte(script), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -470,7 +470,7 @@ func TestDocumentsGoInDownloadsAndOutAgain(t *testing.T) {
 		"-s|emulator-5554|shell|cd '/sdcard/Download' 2>/dev/null && sha256sum './safe-place PX-MOB-9401.pdf' 2>/dev/null; true|",
 		"-s|emulator-5554|push|" + pdf + "|/sdcard/Download/safe-place PX-MOB-9401.pdf|",
 		"-s|emulator-5554|shell|am broadcast -a android.intent.action.MEDIA_SCANNER_SCAN_FILE -d 'file:///sdcard/Download/safe-place PX-MOB-9401.pdf'|",
-		`-s|emulator-5554|shell|content query --uri content://media/external/file --projection _size:_display_name --where '_display_name IN ('\''safe-place PX-MOB-9401.pdf'\'') AND _data LIKE '\''%/Download/%'\'''|`,
+		`-s|emulator-5554|shell|content query --uri content://media/external/file --projection _display_name --where '_display_name IN ('\''safe-place PX-MOB-9401.pdf'\'') AND _data LIKE '\''%/Download/%'\'''|`,
 	}
 	if got := calls(); len(got) < len(want) || !slices.Equal(got[:len(want)], want) {
 		t.Errorf("adb calls on an emulator axx started:\n%s\nwant them to start:\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
@@ -537,6 +537,19 @@ func TestDocumentsGoInDownloadsAndOutAgain(t *testing.T) {
 	}
 	if got := calls(); !slices.Equal(got, want) {
 		t.Errorf("adb calls on a device of the project's:\n%s\nwant:\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
+	}
+}
+
+// The media store has a scenario's documents once each has a row of its own: two rows of one
+// name are not another document's.
+func TestDocumentsAreListedEachOfItsOwnRow(t *testing.T) {
+	names := []string{"safe-place PX-MOB-9401.pdf", "pod-PX-MOB-9402.jpg"}
+	rows := "Row: 0 _display_name=safe-place PX-MOB-9401.pdf\nRow: 1 _display_name=safe-place PX-MOB-9401.pdf\n"
+	if listed(rows, names) {
+		t.Errorf("listed with no row of %s", names[1])
+	}
+	if !listed(rows+"Row: 2 _display_name=pod-PX-MOB-9402.jpg\n", names) {
+		t.Error("not listed with a row of each")
 	}
 }
 
