@@ -23,12 +23,13 @@ image="system-images;$platform;google_apis;$abi"
 # say tells what the script does, and when: a CI job's log shows how long each part took.
 say() { echo "$(date +%T) $*"; }
 
-# limited runs a command for at most $1 seconds, where the system can stop it (timeout): an SDK
-# tool that hangs fails the script, instead of a CI job's wait for it.
+# limited runs a command for at most $1 seconds, where the system can stop it (timeout; killed
+# if it does not stop when asked): an SDK tool that hangs fails the script, instead of a CI job's
+# wait for it.
 limited() {
   local seconds=$1
   shift
-  if command -v timeout > /dev/null; then timeout "$seconds" "$@"; else "$@"; fi
+  if command -v timeout > /dev/null; then timeout -k 5 "$seconds" "$@"; else "$@"; fi
 }
 
 # fetch installs SDK packages until the files they leave are there: Google's servers drop a
@@ -109,6 +110,16 @@ if [ -z "$booted" ]; then
   kill "$emulator" 2> /dev/null || true
   exit 1
 fi
-"$adb" -s emulator-5580 emu kill > /dev/null
+# It saves the snapshot as it stops: five minutes at most.
+say "parcels-pixel: booted; saving its snapshot"
+limited 30 "$adb" -s emulator-5580 emu kill > /dev/null || true
+deadline=$((SECONDS + 300))
+while kill -0 "$emulator" 2> /dev/null && [ "$SECONDS" -lt "$deadline" ]; do sleep 2; done
+if kill -0 "$emulator" 2> /dev/null; then
+  say "parcels-pixel did not save its boot snapshot in five minutes; the end of the emulator's log ($ANDROID_AVD_HOME/parcels-pixel-snapshot.log):" >&2
+  tail -n 40 "$ANDROID_AVD_HOME/parcels-pixel-snapshot.log" >&2 || true
+  kill -9 "$emulator" 2> /dev/null || true
+  exit 1
+fi
 wait "$emulator" || true
 say "parcels-pixel: its boot snapshot is saved"
