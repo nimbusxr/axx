@@ -206,7 +206,7 @@
     "vscode:prepublish": "npm run typecheck && node esbuild.mjs --production"
   },
   "dependencies": {
-    "vscode-languageclient": "10.1.1"
+    "vscode-languageclient": "10.1.2"
   },
   "devDependencies": {
     "@types/node": "20.19.43",
