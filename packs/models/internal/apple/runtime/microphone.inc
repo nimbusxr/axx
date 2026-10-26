@@ -694,9 +694,14 @@ captureSample(AXXAudioChunk *chunk) CF_RETURNS_RETAINED {
   return sample;
 }
 static void installCaptureSession(void) {
+  // A capture class can be a cluster (macOS's are): an instance is of a
+  // subclass of its own, with its own of these methods. They are replaced on
+  // the class an instance is of.
+  Class outputClass = object_getClass([AVCaptureAudioDataOutput new]);
+  Class sessionClass = object_getClass([AVCaptureSession new]);
   __block IMP delegate = NULL, queue = NULL, setter = NULL;
   setter = replace(
-      AVCaptureAudioDataOutput.class, @selector(setSampleBufferDelegate:queue:),
+      outputClass, @selector(setSampleBufferDelegate:queue:),
       ^(AVCaptureAudioDataOutput *output,
         id<AVCaptureAudioDataOutputSampleBufferDelegate> target,
         dispatch_queue_t q) {
@@ -712,7 +717,7 @@ static void installCaptureSession(void) {
                                  OBJC_ASSOCIATION_RETAIN_NONATOMIC);
       });
   delegate =
-      replace(AVCaptureAudioDataOutput.class, @selector(sampleBufferDelegate),
+      replace(outputClass, @selector(sampleBufferDelegate),
               ^id(AVCaptureAudioDataOutput *output) {
                 AXXAudioOutput *state =
                     objc_getAssociatedObject(output, &outputDelegateKey);
@@ -721,7 +726,7 @@ static void installCaptureSession(void) {
                                    output, @selector(sampleBufferDelegate));
               });
   queue = replace(
-      AVCaptureAudioDataOutput.class, @selector(sampleBufferCallbackQueue),
+      outputClass, @selector(sampleBufferCallbackQueue),
       ^dispatch_queue_t(AVCaptureAudioDataOutput *output) {
         AXXAudioOutput *state =
             objc_getAssociatedObject(output, &outputDelegateKey);
@@ -731,7 +736,7 @@ static void installCaptureSession(void) {
       });
   __block IMP start = NULL, stop = NULL, running = NULL;
   start = replace(
-      AVCaptureSession.class, @selector(startRunning),
+      sessionClass, @selector(startRunning),
       ^(AVCaptureSession *session) {
         BOOL audio = NO, audioOnly = YES;
         for (AVCaptureOutput *output in session.outputs) {
@@ -812,7 +817,7 @@ static void installCaptureSession(void) {
                             object:session];
       });
   stop = replace(
-      AVCaptureSession.class, @selector(stopRunning),
+      sessionClass, @selector(stopRunning),
       ^(AVCaptureSession *session) {
         AXXCaptureSession *state =
             objc_getAssociatedObject(session, &captureKey);
@@ -826,7 +831,7 @@ static void installCaptureSession(void) {
               postNotificationName:AVCaptureSessionDidStopRunningNotification
                             object:session];
       });
-  running = replace(AVCaptureSession.class, @selector(isRunning),
+  running = replace(sessionClass, @selector(isRunning),
                     ^BOOL(AVCaptureSession *session) {
                       AXXCaptureSession *state =
                           objc_getAssociatedObject(session, &captureKey);
@@ -836,7 +841,50 @@ static void installCaptureSession(void) {
                                        session, @selector(isRunning));
                     });
 }
+#if TARGET_OS_OSX
+// A Mac has no test's grant of the microphone, as a simulator's privacy grant:
+// the microphone axx feeds is the app's to use.
+static IMP audioStatus, audioAccess;
+static void installMicrophonePermission(void) {
+  Class device = object_getClass(AVCaptureDevice.class);
+  audioStatus = replace(
+      device, @selector(authorizationStatusForMediaType:),
+      ^AVAuthorizationStatus(id self, AVMediaType type) {
+        if ([type isEqual:AVMediaTypeAudio])
+          return AVAuthorizationStatusAuthorized;
+        return ((AVAuthorizationStatus(*)(id, SEL, AVMediaType))audioStatus)(
+            self, @selector(authorizationStatusForMediaType:), type);
+      });
+  audioAccess = replace(
+      device, @selector(requestAccessForMediaType:completionHandler:),
+      ^(id self, AVMediaType type, void (^handler)(BOOL)) {
+        if (![type isEqual:AVMediaTypeAudio]) {
+          ((void (*)(id, SEL, AVMediaType, void (^)(BOOL)))audioAccess)(
+              self, @selector(requestAccessForMediaType:completionHandler:),
+              type, handler);
+          return;
+        }
+        dispatch_async(dispatch_get_global_queue(QOS_CLASS_DEFAULT, 0), ^{
+          handler(YES);
+        });
+      });
+  replace(AVAudioApplication.class, @selector(recordPermission),
+          ^AVAudioApplicationRecordPermission(id self) {
+            return AVAudioApplicationRecordPermissionGranted;
+          });
+  replace(object_getClass(AVAudioApplication.class),
+          @selector(requestRecordPermissionWithCompletionHandler:),
+          ^(id self, void (^handler)(BOOL)) {
+            dispatch_async(dispatch_get_global_queue(QOS_CLASS_DEFAULT, 0), ^{
+              handler(YES);
+            });
+          });
+}
+#endif
 static void installMicrophone(void) {
+#if TARGET_OS_OSX
+  installMicrophonePermission();
+#endif
   installEngine();
   installRecorder();
   installCaptureSession();

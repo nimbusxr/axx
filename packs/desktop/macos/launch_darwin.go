@@ -40,6 +40,16 @@ func bundle(_ context.Context, app string) (string, error) {
 	return path, nil // "" for a command on PATH, like python3
 }
 
+// AppPath is the file macOS starts for a registration's app: its .app (of the project, or found
+// by its bundle identifier), or its executable (a file of the project, or a command on PATH).
+func AppPath(ctx context.Context, app string) (string, error) {
+	b, err := bundle(ctx, app)
+	if err != nil || b != "" {
+		return b, err
+	}
+	return exec.LookPath(app)
+}
+
 // bundleID is a .app's bundle identifier, the domain of its preferences.
 func bundleID(ctx context.Context, app string) string {
 	b, err := bundle(ctx, app)

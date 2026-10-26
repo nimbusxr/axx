@@ -796,6 +796,23 @@ static void queuedRecording(AXXSpeechTask *task) {
                  });
 }
 static void installSpeech(void) {
+#if TARGET_OS_OSX
+  // A Mac has no test's grant of speech recognition, as a simulator's privacy
+  // grant: the stub, which no real recognizer answers, is authorized.
+  replace(object_getClass(SFSpeechRecognizer.class),
+          @selector(authorizationStatus),
+          ^SFSpeechRecognizerAuthorizationStatus(id self) {
+            return SFSpeechRecognizerAuthorizationStatusAuthorized;
+          });
+  replace(object_getClass(SFSpeechRecognizer.class),
+          @selector(requestAuthorization:),
+          ^(id self, void (^handler)(SFSpeechRecognizerAuthorizationStatus)) {
+            dispatch_async(
+                dispatch_get_global_queue(QOS_CLASS_DEFAULT, 0), ^{
+                  handler(SFSpeechRecognizerAuthorizationStatusAuthorized);
+                });
+          });
+#endif
   replace(SFSpeechRecognizer.class, @selector(isAvailable), ^BOOL(id self) {
     return YES;
   });

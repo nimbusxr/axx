@@ -267,7 +267,7 @@ export default defineConfig({
 								{
 									label: 'Models',
 									collapsed: true,
-									items: packsOf(['models-core', 'models-ios', 'models-android', 'models-web']),
+									items: packsOf(['models-core', 'models-ios', 'models-macos', 'models-android', 'models-web']),
 								},
 								{
 									label: 'AWS',

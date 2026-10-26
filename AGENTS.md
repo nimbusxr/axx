@@ -100,19 +100,21 @@ the skills instead: `axx skills install`.
   Exp, Log, Pow: compiled with fused multiply-adds on arm64), and no sum in a map's own order
   (`slices.Sorted(maps.Keys(m))`): keep it so, so the examples' apps keep theirs, built by `go generate`
   (`internal/tools/examplestubs`).
-- `packs/models/{ios,android,web}` (`models-ios`, `models-android`, `models-web`): stubs of
+- `packs/models/{ios,macos,android,web}` (`models-ios`, `models-macos`, `models-android`, `models-web`): stubs of
   platform model APIs (Vision, Speech and Foundation Models, the system's and Apple's server
-  model; ML Kit, Gemini Nano and `SpeechRecognizer`; a browser's Prompt API, `Summarizer`,
+  model, in iOS Simulator apps and Mac apps; ML Kit, Gemini Nano and `SpeechRecognizer`; a browser's Prompt API, `Summarizer`,
   `Writer`, `Rewriter` and `SpeechRecognition`). A stub is a `.axxmodel` (`format/platform`) the scenario copies into the
   app's `axx-models` folder; the pack answers the app's calls from it in test runs, through a library
-  the iOS Simulator loads into a Debug app (`internal/apple`, its source built for each Apple platform), an agent ART attaches to a debuggable
+  the iOS Simulator loads into a Debug app, or macOS into a Mac app's test build as desktop-macos starts it
+  (`desktopcore.OnLaunch`; `internal/apple`, its source built for each Apple platform), an agent ART attaches to a debuggable
   app (`android/runtime`), or a Playwright init script (`web/runtime.js`). Each pack's `apis.go`
   registers its APIs and their contracts (`platform.RegisterAPI`, which `axx models contract <api>`
   writes), and the reasons a device gives for a model it lacks (`API.Unavailable`: a stub's
   `format.details.availability`, an iPhone without Apple Intelligence). The microphone step
   (models-core) queues recordings with the reference's match (`Recording.Matches`), which
   adapters answer. Their integration tests probe the vendors' own APIs
-  (`AXX_IOS_MODELS_SIMULATOR`, `AXX_MODELS_ANDROID_SERIAL`, the three Playwright engines).
+  (`AXX_IOS_MODELS_SIMULATOR`, a Mac's own for models-macos, `AXX_MODELS_ANDROID_SERIAL`, the three
+  Playwright engines).
 - `packs/mobile/core` (`mobile-core`), `packs/mobile/android` (`mobile-android`) and
   `packs/mobile/ios` (`mobile-ios`): native apps through the drivers on the devices, the
   UiAutomator2 server and WebDriverAgent, which axx installs, starts and talks to itself

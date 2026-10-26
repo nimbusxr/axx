@@ -643,6 +643,10 @@ jobs:
           model_simulator=$(sed -n 's/.*(\([0-9A-F-]\{36\}\)) booted in .*/\1/p' <<< "$made")
           trap 'xcrun simctl shutdown "$model_simulator" || true; xcrun simctl delete "$model_simulator"' EXIT
           AXX_IOS_MODELS_SIMULATOR="$model_simulator" go test -tags integration -timeout 20m ./packs/models/ios/...
+      # The same adapters in Mac programs, as macOS loads them into a Mac app's test build; Foundation
+      # Models' on this image's macOS 27.
+      - name: platform model adapters on the Mac
+        run: go test -tags integration -timeout 20m ./packs/models/macos/...
 
   webllm:
     needs: changes

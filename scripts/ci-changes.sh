@@ -38,7 +38,9 @@ while ! $all && ! $none && IFS= read -r f; do
       go=true
       case "$f" in
         packs/web/* | packs/models/web/*) web=true ;;
-        packs/mobile/* | packs/models/ios/* | packs/models/android/* | packs/models/internal/apple/*) mobile=true ;;
+        packs/mobile/* | packs/models/ios/* | packs/models/android/*) mobile=true ;;
+        packs/models/internal/apple/*) mobile=true desktop=true ;;
+        packs/models/macos/*) desktop=true ;;
         packs/models/core/*) integration=true models=true web=true mobile=true ;;
         packs/files/*) integration=true web=true mobile=true models=true ;;
         packs/desktop/*) desktop=true integration=true ;;
@@ -61,9 +63,11 @@ while ! $all && ! $none && IFS= read -r f; do
   case "$f" in
     examples/parcels/depot-desk/*) desktop=true ;;
   esac
-  # Core ML stubs and the iOS platform adapters, including their real courier app.
+  # Core ML stubs and the Apple platform adapters (iOS's, including their real courier app, and
+  # the Mac's).
   case "$f" in
     packs/models/* | packs/mobile/ios/* | packs/mobile/core/* | packs/mobile/internal/* | packs/app/core/* | \
+      packs/desktop/core/* | packs/desktop/macos/* | \
       examples/parcels/courier/ios/* | examples/parcels/acceptance/models/delivery-note-ios/* | \
       examples/parcels/acceptance/features/courier-app/models/delivery-note.axxmodel | \
       examples/parcels/acceptance/models/dictated-note-ios/* | \

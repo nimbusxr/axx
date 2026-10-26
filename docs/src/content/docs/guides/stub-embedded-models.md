@@ -421,10 +421,13 @@ A model the platform provides is the platform's: the app calls an API (Vision's 
 | Pack | Where it answers | How |
 | --- | --- | --- |
 | `models-ios` | A Debug app on the iOS Simulator (iOS 16 or later; Foundation Models: iOS 27 and Xcode 27) | A library the simulator loads into the app when axx launches it (`DYLD_INSERT_LIBRARIES`), which axx compiles with Xcode and caches |
+| `models-macos` | A Mac app's test build, signed without the hardened runtime or with its two exceptions (below), on macOS 15 or later (Foundation Models: macOS 27) | The same library, which macOS loads into the app when axx launches it (`DYLD_INSERT_LIBRARIES`) |
 | `models-android` | A debuggable app on the Android emulator (Android 8 or later) | An agent attached to the app as it starts (ART's tooling interface, `am start --attach-agent`), which axx builds with the SDK's NDK and caches |
 | `models-web` | The browsers the `web-core` pack runs | A script the browser runs in the app's pages before their own (Playwright's init scripts) |
 
-The app's code does not change, and nothing changes in its release builds or on other devices. Each pack needs `models-core`, `app-core` and its platform's pack (`mobile-ios`, `mobile-android`, `web-core`); the `files` pack copies the stub.
+The app's code does not change, and nothing changes in its release builds or on other devices. Each pack needs `models-core`, `app-core` and its platform's pack (`mobile-ios`, `desktop-macos`, `mobile-android`, `web-core`); the `files` pack copies the stub.
+
+**A Mac app's test build.** macOS ignores `DYLD_INSERT_LIBRARIES` in an app it signs with the hardened runtime, which would leave the app with Apple's models instead of the stubs. A Mac app's test build is signed without it, or with Apple's two exceptions for it, in its Debug entitlements: `com.apple.security.cs.allow-dyld-environment-variables` and `com.apple.security.cs.disable-library-validation`. axx checks the app before it starts it, and stops the scenario if macOS would keep the library out (`AXX-E0704`). A Mac app's `axx-models` folder is in its `./` files, its home's `Library/Application Support`. A Mac has no test's grant of speech recognition or the microphone, as a simulator has: a stubbed recognizer, and the microphone axx feeds, are authorized.
 
 **1. The contract** is the API's: name it, and `axx models contract` writes it. A labeler's takes the labels its mappings answer:
 
@@ -463,6 +466,14 @@ Scenario: A recipient's long delivery note is summarized for the courier
 | | `ios.vision.person-segmentation` | `VNGeneratePersonSegmentationRequest` | `segmentation` |
 | | `ios.foundation-models` | `LanguageModelSession` of `SystemLanguageModel`: its availability, responses and streams | `text-generation` |
 | | `ios.private-cloud-compute` | `LanguageModelSession` of `PrivateCloudComputeLanguageModel`, Apple's server model: its availability, responses and streams. A session of a model of the app's own is Foundation Models', untouched | `text-generation` |
+| `models-macos` | `macos.speech` | `SFSpeechRecognizer`: URL and PCM buffer requests | `speech-to-text` |
+| | `macos.vision.classify` | `VNClassifyImageRequest` | `classification` |
+| | `macos.vision.text` | `VNRecognizeTextRequest` | `text-recognition` |
+| | `macos.vision.humans` | `VNDetectHumanRectanglesRequest` | `detection` |
+| | `macos.vision.animals` | `VNRecognizeAnimalsRequest` (Vision's `Cat` and `Dog`) | `detection` |
+| | `macos.vision.person-segmentation` | `VNGeneratePersonSegmentationRequest` | `segmentation` |
+| | `macos.foundation-models` | `LanguageModelSession` of `SystemLanguageModel`: its availability, responses and streams | `text-generation` |
+| | `macos.private-cloud-compute` | `LanguageModelSession` of `PrivateCloudComputeLanguageModel`, Apple's server model, as on iOS | `text-generation` |
 | `models-android` | `android.speech` | `SpeechRecognizer`, and its on-device factory | `speech-to-text` |
 | | `android.mlkit.image-labeling` | ML Kit's `ImageLabeling`, of its own model | `classification` |
 | | `android.mlkit.text-recognition` | ML Kit's `TextRecognition` | `text-recognition` |
@@ -480,7 +491,7 @@ Scenario: A recipient's long delivery note is summarized for the courier
 
 A pack answers the APIs its app's folder has stubs of; the app's other calls reach the platform as they would. A folder has one stub of an API; a stub that cannot be read, or a second of an API, stops the app's start (`AXX-E0704`).
 
-**A device without the model.** A stub of `ios.foundation-models` can be an iPhone without Apple Intelligence: its contract's `format.details.availability` gives the reason, in Apple's words (`deviceNotEligible`, `appleIntelligenceNotEnabled` or `modelNotReady`), and `SystemLanguageModel`'s `availability` and `isAvailable` give it. A stub of `ios.private-cloud-compute` can say Apple's server model is not there (`deviceNotEligible` or `systemNotReady`), as `PrivateCloudComputeLanguageModel`'s `availability` does. Its mappings are a default only, which the app, told the model is not there, does not ask. An iOS Simulator otherwise has the Mac's model when the Mac has Apple Intelligence, so a scenario of an iPhone without it says so:
+**A device without the model.** A stub of `ios.foundation-models` (or `macos.foundation-models`) can be an iPhone (or a Mac) without Apple Intelligence: its contract's `format.details.availability` gives the reason, in Apple's words (`deviceNotEligible`, `appleIntelligenceNotEnabled` or `modelNotReady`), and `SystemLanguageModel`'s `availability` and `isAvailable` give it. A stub of `ios.private-cloud-compute` can say Apple's server model is not there (`deviceNotEligible` or `systemNotReady`), as `PrivateCloudComputeLanguageModel`'s `availability` does. Its mappings are a default only, which the app, told the model is not there, does not ask. An iOS Simulator otherwise has the Mac's model when the Mac has Apple Intelligence, so a scenario of an iPhone without it says so:
 
 ```json title="models/no-apple-intelligence-ios/contract.json"
 {
