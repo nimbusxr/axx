@@ -1,25 +1,24 @@
 package modelsios
 
-import "github.com/nimbusxr/axx/packs/models/core/format/platform"
+import (
+	"context"
 
-// The APIs models-ios answers, and their contracts, which
-// `axx models contract <api>` writes. Vision names its animals Cat and Dog.
-var iosAPIs = []platform.API{
-	{Name: "ios.speech", Calls: "SFSpeechRecognizer", Task: "speech-to-text", Contract: platform.SpeechFeatures("ios.speech")},
-	{Name: "ios.vision.classify", Calls: "VNClassifyImageRequest", Task: "classification", Contract: platform.Classifier("ios.vision.classify")},
-	{Name: "ios.vision.text", Calls: "VNRecognizeTextRequest", Task: "text-recognition", Contract: platform.TextRecognizer("ios.vision.text")},
-	{Name: "ios.vision.humans", Calls: "VNDetectHumanRectanglesRequest", Task: "detection", Contract: platform.Detector("ios.vision.humans", "person")},
-	{Name: "ios.vision.animals", Calls: "VNRecognizeAnimalsRequest", Task: "detection", Contract: platform.Detector("ios.vision.animals", "Cat", "Dog")},
-	{Name: "ios.vision.person-segmentation", Calls: "VNGeneratePersonSegmentationRequest", Task: "segmentation", Contract: platform.Segmenter("ios.vision.person-segmentation")},
-	{
-		Name: "ios.foundation-models", Calls: "LanguageModelSession, of SystemLanguageModel", Task: "text-generation", Contract: platform.TextGenerator("ios.foundation-models"),
-		Unavailable: []string{"deviceNotEligible", "appleIntelligenceNotEnabled", "modelNotReady"},
-	},
-	{
-		Name: "ios.private-cloud-compute", Calls: "LanguageModelSession, of PrivateCloudComputeLanguageModel (Apple's server model)", Task: "text-generation", Contract: platform.TextGenerator("ios.private-cloud-compute"),
-		Unavailable: []string{"deviceNotEligible", "systemNotReady"},
-	},
+	"github.com/nimbusxr/axx/core"
+	mobileios "github.com/nimbusxr/axx/packs/mobile/ios"
+	"github.com/nimbusxr/axx/packs/models/core/format/platform"
+	"github.com/nimbusxr/axx/packs/models/internal/apple"
+)
+
+// ios is the platform of the library models-ios loads into apps: the iOS Simulator.
+var ios = apple.Platform{
+	Name: "ios", Title: "iOS", SDK: "iphonesimulator",
+	Target:           func(arch string) string { return arch + "-apple-ios16.0-simulator" },
+	FoundationTarget: func(arch string) string { return arch + "-apple-ios27.0-simulator" },
+	Hint:             "use a debug iOS Simulator build and a supported platform API contract; embedded model stubs still belong in the app's test build",
 }
+
+// The APIs models-ios answers, and their contracts, which `axx models contract <api>` writes.
+var iosAPIs = ios.APIs()
 
 func init() {
 	for _, a := range iosAPIs {
@@ -27,12 +26,16 @@ func init() {
 	}
 }
 
-// apiTask is the task of the pack's API, or "" for an API it does not answer.
-func apiTask(api string) string {
-	for _, a := range iosAPIs {
-		if a.Name == api {
-			return a.Task
-		}
-	}
-	return ""
+func unsupported(f string, args ...any) error { return ios.Unsupported(f, args...) }
+
+func supported(a *platform.Artifact) error { return ios.Supported(a) }
+
+// library is the models library, for the simulator's architecture.
+func library(ctx context.Context, s *core.Suite) (string, error) {
+	return ios.Library(ctx, s, mobileios.SimulatorArch(ctx))
+}
+
+// foundationLibrary is the Foundation Models adapter, for the simulator's architecture.
+func foundationLibrary(ctx context.Context, s *core.Suite) (string, error) {
+	return ios.FoundationLibrary(ctx, s, mobileios.SimulatorArch(ctx))
 }

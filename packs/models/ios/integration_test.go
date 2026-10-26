@@ -42,7 +42,7 @@ func TestSimulatorPlatformCalls(t *testing.T) {
 	if arch == "amd64" {
 		arch = "x86_64"
 	}
-	cmd := exec.CommandContext(ctx, "xcrun", "--sdk", "iphonesimulator", "clang", "-target", arch+"-apple-ios16.0-simulator", "-fobjc-arc", "runtime/probe.m", "-framework", "Foundation", "-framework", "Vision", "-framework", "Speech", "-framework", "CoreVideo", "-framework", "CoreMedia", "-framework", "AVFoundation", "-o", probe)
+	cmd := exec.CommandContext(ctx, "xcrun", "--sdk", "iphonesimulator", "clang", "-target", arch+"-apple-ios16.0-simulator", "-fobjc-arc", "../internal/apple/runtime/probe.m", "-framework", "Foundation", "-framework", "Vision", "-framework", "Speech", "-framework", "CoreVideo", "-framework", "CoreMedia", "-framework", "AVFoundation", "-o", probe)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("compile: %v: %s", err, out)
 	}

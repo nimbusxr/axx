@@ -23,8 +23,14 @@ struct AXXArtifact: Decodable, Sendable {
 // The stubs in the app's axx-models folder: of the system model, and of the
 // server model (Private Cloud Compute), each when the folder has it.
 enum AXXStubs {
-  static let system = load("ios.foundation-models")
-  static let privateCloud = load("ios.private-cloud-compute")
+  // The platform whose APIs the stubs are of.
+  #if os(macOS)
+    static let platform = "macos"
+  #else
+    static let platform = "ios"
+  #endif
+  static let system = load(platform + ".foundation-models")
+  static let privateCloud = load(platform + ".private-cloud-compute")
 
   static func load(_ api: String) -> AXXArtifact? {
     do {

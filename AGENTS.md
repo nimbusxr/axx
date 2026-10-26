@@ -105,7 +105,7 @@ the skills instead: `axx skills install`.
   model; ML Kit, Gemini Nano and `SpeechRecognizer`; a browser's Prompt API, `Summarizer`,
   `Writer`, `Rewriter` and `SpeechRecognition`). A stub is a `.axxmodel` (`format/platform`) the scenario copies into the
   app's `axx-models` folder; the pack answers the app's calls from it in test runs, through a library
-  the iOS Simulator loads into a Debug app (`ios/runtime`), an agent ART attaches to a debuggable
+  the iOS Simulator loads into a Debug app (`internal/apple`, its source built for each Apple platform), an agent ART attaches to a debuggable
   app (`android/runtime`), or a Playwright init script (`web/runtime.js`). Each pack's `apis.go`
   registers its APIs and their contracts (`platform.RegisterAPI`, which `axx models contract <api>`
   writes), and the reasons a device gives for a model it lacks (`API.Unavailable`: a stub's

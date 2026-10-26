@@ -47,7 +47,7 @@ func TestFoundationModelsOrdinarySessions(t *testing.T) {
 	if arch == "amd64" {
 		arch = "x86_64"
 	}
-	cmd := exec.CommandContext(ctx, "xcrun", "swiftc", "-sdk", strings.TrimSpace(string(sdk)), "-target", arch+"-apple-ios27.0-simulator", "-parse-as-library", "-module-cache-path", filepath.Join(dir, "modules"), "runtime/foundation-probe.swift", "-o", probe)
+	cmd := exec.CommandContext(ctx, "xcrun", "swiftc", "-sdk", strings.TrimSpace(string(sdk)), "-target", arch+"-apple-ios27.0-simulator", "-parse-as-library", "-module-cache-path", filepath.Join(dir, "modules"), "../internal/apple/runtime/foundation-probe.swift", "-o", probe)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("compile: %v: %s", err, out)
 	}

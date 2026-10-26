@@ -38,7 +38,7 @@ while ! $all && ! $none && IFS= read -r f; do
       go=true
       case "$f" in
         packs/web/* | packs/models/web/*) web=true ;;
-        packs/mobile/* | packs/models/ios/* | packs/models/android/*) mobile=true ;;
+        packs/mobile/* | packs/models/ios/* | packs/models/android/* | packs/models/internal/apple/*) mobile=true ;;
         packs/models/core/*) integration=true models=true web=true mobile=true ;;
         packs/files/*) integration=true web=true mobile=true models=true ;;
         packs/desktop/*) desktop=true integration=true ;;

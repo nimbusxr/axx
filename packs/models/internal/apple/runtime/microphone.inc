@@ -787,8 +787,8 @@ static void installCaptureSession(void) {
                                   userInfo:@{
                                     AVCaptureSessionErrorKey :
                                         failure(@"Cannot create captured PCM "
-                                                @"audio; use the simulator's "
-                                                @"audio data output")
+                                                @"audio; use an audio data "
+                                                @"output")
                                   }];
                   [s stopClock];
                   return;

@@ -11,6 +11,13 @@
 #import <objc/runtime.h>
 #include <unistd.h>
 
+// The platform whose APIs the stubs are of (ios.vision.text, macos.vision.text): the build
+// gives it.
+#ifndef AXX_PLATFORM
+#define AXX_PLATFORM "ios"
+#endif
+#define API(name) @AXX_PLATFORM "." name
+
 static NSDictionary *models;
 static char imageKey, resultsKey, audioKey, taskKey, audioErrorKey, endedKey,
     audioRateKey, recordingKey;
@@ -21,7 +28,7 @@ static NSError *failure(NSString *message) {
                            NSLocalizedDescriptionKey :
                                [@"AXX-E0704: " stringByAppendingString:message],
                            NSLocalizedRecoverySuggestionErrorKey :
-                               @"Use a supported Debug simulator audio API and "
+                               @"Use a supported audio API in a Debug build and "
                                @"queue the recording with the microphone step."
                          }];
 }
@@ -313,11 +320,11 @@ static NSUInteger sound(NSDictionary *a, NSArray<NSNumber *> *samples) {
 
 static NSDictionary *visionClasses(void) {
   return @{
-    @"VNClassifyImageRequest" : @"ios.vision.classify",
-    @"VNRecognizeTextRequest" : @"ios.vision.text",
-    @"VNDetectHumanRectanglesRequest" : @"ios.vision.humans",
-    @"VNRecognizeAnimalsRequest" : @"ios.vision.animals",
-    @"VNGeneratePersonSegmentationRequest" : @"ios.vision.person-segmentation"
+    @"VNClassifyImageRequest" : API("vision.classify"),
+    @"VNRecognizeTextRequest" : API("vision.text"),
+    @"VNDetectHumanRectanglesRequest" : API("vision.humans"),
+    @"VNRecognizeAnimalsRequest" : API("vision.animals"),
+    @"VNGeneratePersonSegmentationRequest" : API("vision.person-segmentation")
   };
 }
 static NSString *visionAPI(VNRequest *request) {
@@ -739,15 +746,15 @@ static void installVision(void) {
     }
     NSUInteger at =
         self.recording
-            ? recordingMatch(models[@"ios.speech"], self.recording, &err)
-            : speechMatch(models[@"ios.speech"], samples, self.sampleRate);
+            ? recordingMatch(models[API("speech")], self.recording, &err)
+            : speechMatch(models[API("speech")], samples, self.sampleRate);
     if (at == NSNotFound)
       err = err
                 ?: failure(@"Unsupported audio shape; use PCM audio or queue a "
                            @"WAV recording");
     else {
       AXXTranscription *t = [AXXTranscription new];
-      t.text = models[@"ios.speech"][@"generated"][at];
+      t.text = models[API("speech")][@"generated"][at];
       t.seconds = self.recording
                       ? (double)[self.recording[@"samples"] count] /
                             [self.recording[@"rate"] doubleValue]
@@ -903,7 +910,7 @@ static void installSpeech(void) {
         [objc_getAssociatedObject(request, &audioRateKey) integerValue];
     if (!task.sampleRate)
       task.sampleRate =
-          [input(models[@"ios.speech"])[@"audio"][@"sampleRate"] integerValue];
+          [input(models[API("speech")])[@"audio"][@"sampleRate"] integerValue];
     objc_setAssociatedObject(request, &audioKey, task.samples,
                              OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     objc_setAssociatedObject(request, &taskKey, task,
@@ -968,7 +975,7 @@ static void installSpeech(void) {
 @end
 
 __attribute__((constructor)) static void initialize(void) {
-#if TARGET_OS_SIMULATOR
+#if TARGET_OS_SIMULATOR || TARGET_OS_OSX
   @autoreleasepool {
     const char *path = getenv("AXX_MODELS_DIR");
     if (!path)
@@ -1010,7 +1017,7 @@ __attribute__((constructor)) static void initialize(void) {
       loaded[a[@"api"]] = a;
     }
     models = loaded;
-    if (models[@"ios.foundation-models"] || models[@"ios.private-cloud-compute"]) {
+    if (models[API("foundation-models")] || models[API("private-cloud-compute")]) {
       Class<AXXFoundationLoader> loader =
           NSClassFromString(@"AXXFoundationModelsLoader");
       if (!loader || ![loader respondsToSelector:@selector(prepare)]) {
@@ -1020,14 +1027,14 @@ __attribute__((constructor)) static void initialize(void) {
       [loader prepare];
     }
     for (NSString *api in models)
-      if ([api hasPrefix:@"ios.vision."]) {
+      if ([api hasPrefix:API("vision.")]) {
         installVision();
         break;
       }
     if (getenv("AXX_MODELS_MICROPHONE") &&
         !strcmp(getenv("AXX_MODELS_MICROPHONE"), "1"))
       installMicrophone();
-    if (models[@"ios.speech"])
+    if (models[API("speech")])
       installSpeech();
   }
 #endif
