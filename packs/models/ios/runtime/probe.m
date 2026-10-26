@@ -37,6 +37,20 @@ static void runFor(double seconds) {
     [NSRunLoop.currentRunLoop
         runUntilDate:[NSDate dateWithTimeIntervalSinceNow:0.01]];
 }
+// hear runs until heard has four seconds of what it hears at this rate,
+// however long a slow simulator takes to deliver them (30 seconds at most).
+static void hear(NSMutableData *heard, double rate) {
+  NSDate *deadline = [NSDate dateWithTimeIntervalSinceNow:30];
+  for (;;) {
+    NSUInteger have;
+    @synchronized(heard) {
+      have = heard.length;
+    }
+    if (have >= 4 * rate * sizeof(float) || deadline.timeIntervalSinceNow <= 0)
+      return;
+    runFor(0.05);
+  }
+}
 static int capture(NSString *kind, NSURL *url) {
   NSError *error = nil;
   NSMutableData *heard = [NSMutableData new];
@@ -65,18 +79,7 @@ static int capture(NSString *kind, NSURL *url) {
     [session startRunning];
     if (!session.running)
       return 25;
-    // Four seconds of what it hears, however long a slow simulator takes to
-    // deliver them (30 seconds at most).
-    NSDate *deadline = [NSDate dateWithTimeIntervalSinceNow:30];
-    for (;;) {
-      NSUInteger have;
-      @synchronized(heard) {
-        have = heard.length;
-      }
-      if (have >= 4 * 48000 * sizeof(float) || deadline.timeIntervalSinceNow <= 0)
-        break;
-      runFor(0.05);
-    }
+    hear(heard, 48000);
     [session stopRunning];
     if (session.running)
       return 26;
@@ -133,7 +136,7 @@ static int capture(NSString *kind, NSURL *url) {
       [engine prepare];
       if (![engine startAndReturnError:&error] || !engine.running)
         return 14;
-      runFor(4.1);
+      hear(heard, format.sampleRate);
     }
     [engine stop];
     if (engine.running)
