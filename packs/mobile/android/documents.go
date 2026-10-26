@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 )
@@ -38,6 +39,14 @@ func (d *running) putDocuments(ctx context.Context) error {
 			return err
 		}
 	}
+	// A document of a name this scenario puts there again stays, and the push writes over it:
+	// the media store forgets a file taken off the device a while after, by its path, and would
+	// forget the new one of that path too (the first documents pushed, of the scenario before's).
+	pushing := map[string]bool{}
+	for _, f := range d.app.documents {
+		pushing[filepath.Base(f)] = true
+	}
+	left = slices.DeleteFunc(left, func(name string) bool { return pushing[name] })
 	if len(left) > 0 {
 		// Out of the media store, then off the device: the store forgets a file it is told is
 		// gone, not one that just disappeared. It has them under their real path

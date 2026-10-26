@@ -431,7 +431,7 @@ func TestDocumentsGoInDownloadsAndOutAgain(t *testing.T) {
 	// taken out, the device has Google's file picker, and the media store has the new document
 	// once it is pushed.
 	script := "#!/bin/sh\nfor a in \"$@\"; do printf '%s|' \"$a\"; done >> " + log + "\necho >> " + log +
-		"\ncase \"$*\" in *'ls -1A'*|*'cat '*) printf 'pod-PX-MOB-9402.jpg\\n';; *'pm list packages'*) printf 'package:com.google.android.documentsui\\n';; *'content query'*pod-PX-MOB-9402*) ;; *'content query'*) printf 'Row: 0 _id=1\\n';; esac\n"
+		"\ncase \"$*\" in *'ls -1A'*|*'cat '*) printf 'pod-PX-MOB-9402.jpg\\n';; *'pm list packages'*) printf 'package:com.google.android.documentsui\\n';; *'content query'*'_data LIKE'*pod-PX-MOB-9402*) ;; *'content query'*) printf 'Row: 0 _id=1\\n';; esac\n"
 	if err := os.WriteFile(adb, []byte(script), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -470,6 +470,28 @@ func TestDocumentsGoInDownloadsAndOutAgain(t *testing.T) {
 	}
 	if !slices.Contains(d.resets, "documents in Downloads: safe-place PX-MOB-9401.pdf") {
 		t.Errorf("resets %v", d.resets)
+	}
+
+	// A document of the scenario before's that this one puts there again stays, and is written
+	// over: the media store, which forgets a file taken off the device by its path a while
+	// after, would forget the new one too.
+	again := filepath.Join(dir, "pod-PX-MOB-9402.jpg")
+	if err := os.WriteFile(again, []byte("jpeg"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	d = &running{app: &app{name: "courier", documents: []string{again}}, sdk: &sdk{adb: adb}, dev: &device{serial: "emulator-5554", avd: "parcels-pixel"}}
+	if err := d.putDocuments(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	want = []string{
+		"-s|emulator-5554|shell|ls -1A '/sdcard/Download' 2>/dev/null || true|",
+		"-s|emulator-5554|shell|pm list packages documentsui|",
+		"-s|emulator-5554|shell|pm clear 'com.google.android.documentsui'|",
+		"-s|emulator-5554|shell|mkdir -p '/sdcard/Download'|",
+		"-s|emulator-5554|push|" + again + "|/sdcard/Download/pod-PX-MOB-9402.jpg|",
+	}
+	if got := calls(); len(got) < len(want) || !slices.Equal(got[:len(want)], want) {
+		t.Errorf("adb calls of a document put there again:\n%s\nwant them to start:\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
 	}
 
 	// A device of the project's: only what axx listed goes, and its file picker is left as it is.
