@@ -355,7 +355,9 @@ int main(int argc, const char **argv) {
             appendAudioPCMBuffer:buffer];
         [(SFSpeechAudioBufferRecognitionRequest *)request endAudio];
       }
-      NSDate *deadline = [NSDate dateWithTimeIntervalSinceNow:10];
+      // The recording plays in real time, then the recognizer answers: however
+      // long a slow machine takes (30 seconds at most).
+      NSDate *deadline = [NSDate dateWithTimeIntervalSinceNow:30];
       while (!done && deadline.timeIntervalSinceNow > 0)
         [NSRunLoop.currentRunLoop
             runUntilDate:[NSDate dateWithTimeIntervalSinceNow:0.01]];
