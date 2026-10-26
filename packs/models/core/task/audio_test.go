@@ -23,7 +23,11 @@ func TestTextToSpeechReadsAndResamplesAudio(t *testing.T) {
 	}
 	wav := filepath.Join(t.TempDir(), "answer.wav")
 	modelstest.WriteWAV(t, wav, 8000, []float64{0, 1, 0, -1})
-	out, err := task.Answer(c, json.RawMessage(`{"audio":"`+wav+`"}`))
+	answer, err := json.Marshal(map[string]string{"audio": wav}) // a Windows path's backslashes, escaped
+	if err != nil {
+		t.Fatal(err)
+	}
+	out, err := task.Answer(c, answer)
 	if err != nil {
 		t.Fatal(err)
 	}

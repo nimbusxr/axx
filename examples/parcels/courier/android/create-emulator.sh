@@ -90,16 +90,19 @@ if [ "$(uname -s)" = Linux ]; then args+=(-gpu swiftshader_indirect); fi
 emulator=$!
 adb="$sdk/platform-tools/adb"
 booted=""
-for _ in $(seq 300); do
+# Ten minutes at most (a boot takes two to five), each question to adb ten seconds.
+deadline=$((SECONDS + 600))
+while [ "$SECONDS" -lt "$deadline" ]; do
   kill -0 "$emulator" 2> /dev/null || break
-  if [ "$("$adb" -s emulator-5580 shell getprop sys.boot_completed 2> /dev/null | tr -d '\r')" = 1 ]; then
+  if [ "$(limited 10 "$adb" -s emulator-5580 shell getprop sys.boot_completed 2> /dev/null | tr -d '\r')" = 1 ]; then
     booted=yes
     break
   fi
   sleep 2
 done
 if [ -z "$booted" ]; then
-  echo "parcels-pixel did not boot for its snapshot; the emulator's log: $ANDROID_AVD_HOME/parcels-pixel-snapshot.log" >&2
+  echo "parcels-pixel did not boot for its snapshot in ten minutes; the end of the emulator's log ($ANDROID_AVD_HOME/parcels-pixel-snapshot.log):" >&2
+  tail -n 40 "$ANDROID_AVD_HOME/parcels-pixel-snapshot.log" >&2 || true
   kill "$emulator" 2> /dev/null || true
   exit 1
 fi

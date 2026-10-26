@@ -60,6 +60,20 @@
 //     the level, three parts of four apart);
 //   - a step is two units whose inputs are both under −10 or both over 10
 //     (where GELUs are exact, of any runtime), but in a narrow band.
+//
+// CTranslate2's int8 on x86 (oneDNN's and MKL's) shifts a layer's inputs to
+// bytes of 0 to 255 (a 0 is 128) and, where the processor has no VNNI, adds
+// each pair of products (of the inputs 2i and 2i+1) in 16 bits, which
+// saturate: 255·127 twice is over 32767. So no row's weights are of both of
+// a pair (one product is under it) but where the pair cannot be over it:
+//
+//   - each residual stream is laid out in pairs of dimensions no row reads
+//     both of (pairResidual);
+//   - a head's values are a pair's each, but of a head whose values are
+//     never negative: they are negated (inputs of 128 at most, whose pairs
+//     are under it);
+//   - an MLP's units are a pair's each, but the two of a step or an
+//     identity, whose weights are opposite: their pair is a difference.
 package whisper
 
 import (
@@ -151,6 +165,10 @@ type row struct {
 type head struct {
 	q, k, v map[int]row
 	o       map[int]map[int]float64 // head dim → residual dim → weight
+	// nonNegative is a head whose values are never negative: they are
+	// written negated, and its outputs' weights, and take a dimension each
+	// (any other head's take a pair of them each).
+	nonNegative bool
 }
 
 func newHead() *head {
@@ -168,6 +186,10 @@ func (h *head) out(dim, to int, w float64) {
 type unit struct {
 	in  row
 	out map[int]float64
+	// opposite is the second unit of a step or an identity: its output is
+	// the first's negative, and it shares the first's pair of the MLP's
+	// dimensions.
+	opposite bool
 }
 
 // norm is a LayerNorm's weight and bias, by dimension (1 and 0 where they
@@ -214,7 +236,7 @@ func (l *layer) step(in row, out map[int]float64) {
 	for d, x := range out {
 		up[d], down[d] = x/stepWidth, -x/stepWidth
 	}
-	l.units = append(l.units, unit{in: in, out: up}, unit{in: row{w: in.w, b: in.b - stepWidth}, out: down})
+	l.units = append(l.units, unit{in: in, out: up}, unit{in: row{w: in.w, b: in.b - stepWidth}, out: down, opposite: true})
 }
 
 // identity adds units that add the dimension's LayerNorm value, times w,
@@ -228,7 +250,19 @@ func (l *layer) identity(in row, out map[int]float64) {
 	for d, x := range out {
 		minus[d] = -x
 	}
-	l.units = append(l.units, unit{in: in, out: out}, unit{in: neg, out: minus})
+	l.units = append(l.units, unit{in: in, out: out}, unit{in: neg, out: minus, opposite: true})
+}
+
+// slots are the dimensions of its MLP its units take: a pair each, but the
+// second of a step or an identity, which shares the first's.
+func (l *layer) slots() int {
+	n := 0
+	for _, u := range l.units {
+		if !u.opposite {
+			n += 2
+		}
+	}
+	return n
 }
 
 // ln is a LayerNorm's read of a residual stream of a constant part: its

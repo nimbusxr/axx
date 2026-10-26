@@ -140,7 +140,7 @@ func compileEncoder(d Dims, p *Plan) (*encoderBuild, error) {
 		return nil, tooMany("its encoder's features need %d of its %d dimensions", e.res.next, d.D)
 	}
 	hd := d.D / d.Heads
-	if e.keys+2 > hd || e.partSize[2]+e.partSize[3]+5 > hd || d.Heads < 2 {
+	if e.keys+2 > hd || e.partSize[2]+e.partSize[3]+5 > hd || d.Heads < 3 {
 		return nil, tooMany("%d mappings", e.keys+1)
 	}
 	if d.EncoderLayers < 4 {
@@ -359,6 +359,7 @@ func (e *encoderBuild) heard() {
 	l.selfLN = maskedLinear(e.d.D, ln, expose)
 	for hi, parts := range [][]int{{0, 1}, {2, 3}} {
 		h := l.self[hi]
+		h.nonNegative = true
 		e.real(h)
 		at := 0
 		for j := range e.partSize[0] + e.partSize[1] {
@@ -444,8 +445,8 @@ func (e *encoderBuild) dotProducts(p *Plan) error {
 			l.units = append(l.units, unit{in: row{w: g, b: gateBias}, out: corr})
 		}
 	}
-	if len(l.units) > e.d.EncoderFFN {
-		return tooMany("its keys' sounds need %d units of its encoder's MLP, which has %d: shorter sounds, or fewer mappings", len(l.units), e.d.EncoderFFN)
+	if l.slots() > e.d.EncoderFFN {
+		return tooMany("its keys' sounds need %d of its encoder's MLP's %d dimensions: shorter sounds, or fewer mappings", l.slots(), e.d.EncoderFFN)
 	}
 	return nil
 }
@@ -457,6 +458,8 @@ func (e *encoderBuild) dotProducts(p *Plan) error {
 // default's, the mean of the heard tenths' first positions' codes' first
 // parts' sum (the heard share, level times n over all). Elsewhere the
 // second scores the positions of no value meanBonus over: its mean is 0.
+// The dot products are of either sign, a pair of a head's dimensions each:
+// a third head, of the first's scores, takes those over half its own.
 func (e *encoderBuild) means() {
 	l := e.layers[3]
 	l.sink = e.sink
@@ -470,14 +473,22 @@ func (e *encoderBuild) means() {
 	}
 	l.selfLN = maskedLinear(e.d.D, ln, expose)
 
-	a := l.self[0]
-	e.real(a)
+	half := e.d.D / e.d.Heads / 2
+	e.real(l.self[0])
+	if e.keys > half {
+		e.real(l.self[2])
+	}
 	for k := range e.keys {
-		a.v[k] = e.read(map[int]float64{e.dots + k: e.kappa[k] / normScale * meanScale}, 0)
-		a.out(k, e.m+k, 1)
+		a, i := l.self[0], k
+		if k >= half {
+			a, i = l.self[2], k-half
+		}
+		a.v[i] = e.read(map[int]float64{e.dots + k: e.kappa[k] / normScale * meanScale}, 0)
+		a.out(i, e.m+k, 1)
 	}
 
 	b := l.self[1]
+	b.nonNegative = true
 	e.real(b)
 	share := map[int]float64{e.frow: meanBonus, e.cand + e.keys: meanBonus}
 	b.q[0] = e.read(share, 0)

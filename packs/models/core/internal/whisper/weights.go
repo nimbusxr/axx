@@ -62,6 +62,9 @@ func Compile(d Dims, tok Tokens, p *Plan) (Weights, error) {
 	}
 	f32("model.decoder.layer_norm.weight", []int{D}, dec.finalWeight)
 	f32("model.decoder.layer_norm.bias", []int{D}, dec.finalBias)
+	if err := pairResidual(w, d); err != nil {
+		return nil, err
+	}
 	return w, nil
 }
 
@@ -155,18 +158,24 @@ func (l *layer) write(w Weights, prefix string, d Dims, ffn int, decoder bool) e
 					k[(h*hd+i)*D+c] = x
 				}
 			}
+			// A value's dimension of the head: a pair's first, or (of a
+			// head of values never negative, negated) its own.
+			at, sign := func(i int) int { return 2 * i }, 1.0
+			if hh.nonNegative {
+				at, sign = func(i int) int { return i }, -1
+			}
 			for i, r := range hh.v {
-				if i >= hd {
-					return fmt.Errorf("a head of %d dimensions, not %d", i+1, hd)
+				if at(i) >= hd {
+					return fmt.Errorf("a head of %d values, of %d dimensions", i+1, hd)
 				}
 				for c, x := range r.w {
-					v[(h*hd+i)*D+c] = x
+					v[(h*hd+at(i))*D+c] = sign * x
 				}
-				vb[h*hd+i] = r.b
+				vb[h*hd+at(i)] = sign * r.b
 			}
 			for i, outs := range hh.o {
 				for c, x := range outs {
-					o[c*D+h*hd+i] += x
+					o[c*D+h*hd+at(i)] += float64(sign * x)
 				}
 			}
 		}
@@ -203,18 +212,24 @@ func (l *layer) write(w Weights, prefix string, d Dims, ffn int, decoder bool) e
 		put("encoder_attn_layer_norm.weight", []int{D}, l.crossLN.weights(D))
 		put("encoder_attn_layer_norm.bias", []int{D}, l.crossLN.biases(D))
 	}
-	if len(l.units) > ffn {
-		return fmt.Errorf("%d units of its MLP's %d", len(l.units), ffn)
+	if l.slots() > ffn {
+		return fmt.Errorf("units of %d of its MLP's %d dimensions", l.slots(), ffn)
 	}
 	fc1, fc1b := make([]float64, ffn*D), make([]float64, ffn)
 	fc2, fc2b := make([]float64, D*ffn), make([]float64, D)
-	for u, un := range l.units {
-		for c, x := range un.in.w {
-			fc1[u*D+c] = x
+	at, next := 0, 0
+	for _, un := range l.units {
+		if un.opposite {
+			at++
+		} else {
+			at, next = next, next+2
 		}
-		fc1b[u] = un.in.b
+		for c, x := range un.in.w {
+			fc1[at*D+c] = x
+		}
+		fc1b[at] = un.in.b
 		for c, x := range un.out {
-			fc2[c*ffn+u] += x
+			fc2[c*ffn+at] += x
 		}
 	}
 	for c, x := range l.outBias {

@@ -199,9 +199,20 @@ jobs:
     needs: changes
     if: needs.changes.outputs.integration == 'true'
     # Packs against real services (PostgreSQL, MongoDB, Kafka, WireMock, the cloud emulators)
-    # via testcontainers. It keeps a build cache of its own: the packs' test builds, and the
-    # builds of axx with packs that internal/packbuild's tests make.
+    # via testcontainers, and the models packs' stubs in their runtimes. Each part keeps a build
+    # cache of its own: its tests' builds, and the builds of axx with packs that
+    # internal/packbuild's tests make.
+    name: integration (${{ matrix.part }})
     runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        # The models packs' tests in three parts, by their formats' names: a format's tests run
+        # its runtime, which takes every processor (and spins on it), so their packages run one
+        # at a time.
+        part: [packs, models-a-k, models-l-o, models-p-z]
+    env:
+      PART: ${{ matrix.part }}
     steps:
       # The services' images and the race-detector builds need more disk than a runner has
       # free: remove toolchains the job never uses, in the background while the job sets up.
@@ -219,16 +230,26 @@ jobs:
           cache_save: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
       - uses: ./.github/actions/go-cache
         with:
-          build: integration
-      - name: install Tesseract
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends tesseract-ocr
-      # The web and mobile packs have jobs of their own (web, mobile). The tests are built
+          build: integration-${{ matrix.part }}
+      # Tesseract's CLI, and the libraries MediaPipe's library loads (whatever its task).
+      - if: matrix.part != 'packs'
+        name: install Tesseract and EGL
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends tesseract-ocr libegl1 libgles2
+      # The web and mobile packs have jobs of their own (web, mobile), and the models-web pack's
+      # tests run in the web job (its browsers' libraries, a sound server). The tests are built
       # while the disk space is freed.
       - name: the tests, built
         run: |
-          mapfile -t packs < <(go list ./packs/... | grep -v -e /packs/web -e /packs/mobile)
-          echo "${packs[@]}" ./internal/engine/... ./internal/packbuild/... > "$RUNNER_TEMP/packages"
-          go test -race -tags integration -run '^$' "${packs[@]}" ./internal/engine/... ./internal/packbuild/...
+          models=$(go list ./packs/models/... | grep -v /packs/models/web)
+          case "$PART" in
+            packs) list=$(go list ./packs/... ./internal/engine/... ./internal/packbuild/... | grep -v -e /packs/web -e /packs/mobile -e /packs/models/) ;;
+            models-a-k) list=$(grep -v -E '/format/[l-z]' <<< "$models") ;;
+            models-l-o) list=$(grep -E '/format/[l-o]' <<< "$models") ;;
+            models-p-z) list=$(grep -E '/format/[p-z]' <<< "$models") ;;
+          esac
+          echo $list > "$RUNNER_TEMP/packages"
+          # shellcheck disable=SC2086 # a package each
+          go test -race -tags integration -run '^$' $list
       - name: wait for the disk space
         run: |
           for _ in $(seq 300); do [ -f "$RUNNER_TEMP/disk-freed" ] && break; sleep 2; done
@@ -239,11 +260,13 @@ jobs:
       - if: needs.changes.outputs.tests == 'true'
         run: |
           read -ra packages < "$RUNNER_TEMP/packages"
-          GOTEST_SLOWEST=1s scripts/gotest.sh -race -tags integration -timeout 20m -skip '^TestWebLLM' "${packages[@]}"
+          parallel=()
+          [ "$PART" = packs ] || parallel=(-p 1)
+          GOTEST_SLOWEST=1s scripts/gotest.sh -race -tags integration -timeout 20m "${parallel[@]}" -skip '^TestWebLLM' "${packages[@]}"
       - if: ${{ !cancelled() }}
         uses: ./.github/actions/go-cache
         with:
-          build: integration
+          build: integration-${{ matrix.part }}
           mode: save
           modules: "false"
 
@@ -363,7 +386,7 @@ jobs:
         run: |
           for _ in $(seq 450); do [ -f "$RUNNER_TEMP/device.done" ] && break; sleep 2; done
           cat "$RUNNER_TEMP/device.log"
-          [ "$(cat "$RUNNER_TEMP/device.done" 2> /dev/null)" = 0 ] || { echo "::error::the emulator's device was not made"; exit 1; }
+          [ "$(cat "$RUNNER_TEMP/device.done" 2> /dev/null)" = 0 ] || { df -h /; echo "::error::the emulator's device was not made"; exit 1; }
       - if: needs.changes.outputs.tests == 'true'
         run: GOTEST_SLOWEST=1s scripts/gotest.sh -race -tags integration -timeout 20m ./packs/mobile/...
       - if: needs.changes.outputs.tests == 'true'
@@ -466,7 +489,7 @@ jobs:
         run: |
           for _ in $(seq 450); do [ -f "$RUNNER_TEMP/device.done" ] && break; sleep 2; done
           cat "$RUNNER_TEMP/device.log"
-          [ "$(cat "$RUNNER_TEMP/device.done" 2> /dev/null)" = 0 ] || { echo "::error::the emulator's device was not made"; exit 1; }
+          [ "$(cat "$RUNNER_TEMP/device.done" 2> /dev/null)" = 0 ] || { df -h /; echo "::error::the emulator's device was not made"; exit 1; }
       - name: wait for the example's images
         run: |
           for _ in $(seq 300); do [ -f "$RUNNER_TEMP/pull.done" ] && break; sleep 2; done

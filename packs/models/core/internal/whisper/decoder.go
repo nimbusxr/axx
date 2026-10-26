@@ -244,6 +244,7 @@ func (b *decoderBuild) attention(e *encoderBuild) {
 	l.selfLN = b.expose([2]int{b.pos, 2 * b.pairs}, [2]int{b.codes, b.codeDims}, [2]int{b.noTS, 2})
 	for o := range b.k {
 		h := l.self[o]
+		h.nonNegative = true
 		for p := range b.pairs {
 			theta := math.Pi / math.Exp2(float64(p))
 			c, s := detmath.Cos(float64(o)*theta), detmath.Sin(float64(o)*theta)
@@ -269,22 +270,33 @@ func (b *decoderBuild) attention(e *encoderBuild) {
 		}
 	}
 	m := l.self[b.k]
+	m.nonNegative = true
 	m.q[0] = row{b: modeGain}
 	m.k[0] = b.read(map[int]float64{b.noTS: 1}, 0)
 	m.v[0] = b.read(map[int]float64{b.noTS: 1}, 0)
 	m.out(0, b.mode, 1)
 
-	// The keys' means, from their positions; the last heard tenth's first
-	// digit.
-	means := l.cross[0]
-	e.real(means)
-	means.q[0] = row{b: readBonus}
-	means.k[0] = e.read(map[int]float64{e.mrow: 1}, 0)
+	// The keys' means, from their positions (of either sign, a pair of a
+	// head's dimensions each: a third head, of the first's scores, takes
+	// those over half its own); the last heard tenth's first digit.
+	half := b.d.D / b.d.Heads / 2
+	for i, h := range []*head{l.cross[0], l.cross[2]} {
+		if i == 0 || e.keys > half {
+			e.real(h)
+			h.q[0] = row{b: readBonus}
+			h.k[0] = e.read(map[int]float64{e.mrow: 1}, 0)
+		}
+	}
 	for k := range e.keys {
-		means.v[k] = e.read(map[int]float64{e.m + k: 1}, 0)
-		means.out(k, b.means+k, 1)
+		means, i := l.cross[0], k
+		if k >= half {
+			means, i = l.cross[2], k-half
+		}
+		means.v[i] = e.read(map[int]float64{e.m + k: 1}, 0)
+		means.out(i, b.means+k, 1)
 	}
 	last := l.cross[1]
+	last.nonNegative = true
 	e.real(last)
 	for a := range e.partSize[0] {
 		last.q[a] = row{b: lastHeard + float64(lastGain*float64(a))}
@@ -311,6 +323,7 @@ func (b *decoderBuild) selection(e *encoderBuild, p *Plan) {
 	pos := float64(e.d.AudioPositions)
 	threshold := p.Similarity * p.Similarity * float64(r.PH*r.PH) * float64(r.PW*r.PW) * meanScale * meanScale / (level * pos * pos)
 	sel := l.cross[0]
+	sel.nonNegative = true
 	e.real(sel)
 	for k := range e.keys {
 		sel.q[k] = b.read(map[int]float64{b.means + k: selectGain}, 0)
@@ -332,6 +345,7 @@ func (b *decoderBuild) selection(e *encoderBuild, p *Plan) {
 	}
 
 	last := l.cross[1]
+	last.nonNegative = true
 	e.real(last)
 	for a := range e.partSize[0] {
 		last.q[a] = b.read(map[int]float64{b.lastA + a: lastMatch}, 0)
@@ -469,8 +483,8 @@ func (b *decoderBuild) contexts(p *Plan) error {
 			}
 		}
 	}
-	if len(l.units) > b.d.DecoderFFN {
-		return tooMany("its transcripts need %d units of its decoder's MLP, which has %d", len(l.units), b.d.DecoderFFN)
+	if l.slots() > b.d.DecoderFFN {
+		return tooMany("its transcripts need %d of its decoder's MLP's %d dimensions", l.slots(), b.d.DecoderFFN)
 	}
 	return nil
 }
@@ -485,8 +499,8 @@ func (b *decoderBuild) timestamps() error {
 		terms := map[int]float64{b.emit: 1, b.lastA + c/codeBase: 1, b.lastB + c%codeBase: 1}
 		l.step(b.stepRow(terms, -2.5), b.codeOut(b.timestamp(c)))
 	}
-	if len(l.units) > b.d.DecoderFFN {
-		return tooMany("its timestamps need %d units of its decoder's MLP, which has %d", len(l.units), b.d.DecoderFFN)
+	if l.slots() > b.d.DecoderFFN {
+		return tooMany("its timestamps need %d of its decoder's MLP's %d dimensions", l.slots(), b.d.DecoderFFN)
 	}
 	return nil
 }

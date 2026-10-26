@@ -25,7 +25,7 @@ dependencies = [
     "mediapipe==1.1.0",
     # llama.cpp, which runs the help centre's reranker in the service.
     "llama-cpp-python==0.3.36",
-    "pillow==12.3.0",
+    "pillow==13.0.0",
     "numpy==2.5.3",
 ]
 
@@ -34,9 +34,10 @@ dev = ["pytest==9.1.1", "httpx2==2.13.1"]
 
 [tool.uv]
 # Every version at least two weeks old when the lock was written; but certifi's first release
-# without the root CAs whose intermediate CAs' keys were compromised (GHSA-6q48-6c7w-9gw2).
+# without the root CAs whose intermediate CAs' keys were compromised (GHSA-6q48-6c7w-9gw2), and
+# Pillow's first release with the fixes of its decoders' buffer overflows (GHSA-5x8w-8jj5-q52h).
 exclude-newer = "2026-10-09T00:00:00Z"
-exclude-newer-package = { certifi = "2026-10-21T00:00:00Z" }
+exclude-newer-package = { certifi = "2026-10-21T00:00:00Z", pillow = "2026-10-17T00:00:00Z" }
 constraint-dependencies = ["certifi>=2026.10.19"]
 environments = ["sys_platform == 'linux'", "sys_platform == 'darwin'"]
 

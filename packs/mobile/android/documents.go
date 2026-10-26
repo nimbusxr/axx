@@ -53,6 +53,24 @@ func (d *running) putDocuments(ctx context.Context) error {
 		if _, err := d.sdk.shell(ctx, serial, "rm -rf "+strings.Join(rm, " ")); err != nil {
 			return fmt.Errorf("cannot take the documents of the scenario before out of Downloads: %w", err)
 		}
+		// The store's forgetting them done before files of their names come back: one still
+		// under way would forget those too (the first put, of a scenario's documents the one
+		// before had).
+		left := "content query --uri content://media/external/file --projection _id --where " + q(strings.Join(where, " OR "))
+		for deadline := time.Now().Add(30 * time.Second); ; {
+			out, err := d.sdk.shell(ctx, serial, left)
+			if err == nil && !strings.Contains(out, "Row:") {
+				break
+			}
+			if time.Now().After(deadline) {
+				return fmt.Errorf("the device's Downloads did not let go of the documents of the scenario before in 30s")
+			}
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(300 * time.Millisecond):
+			}
+		}
 	}
 	if len(d.app.documents) == 0 {
 		_, err := d.sdk.shell(ctx, serial, "rm -f "+q(documentsList))

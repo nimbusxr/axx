@@ -106,8 +106,9 @@ func (a *App) debugSteps(ctx context.Context, f *runFlags) error {
 	if err := cmd.Start(); err != nil {
 		return axxerr.Wrap(err, codeDelveStart, exitcode.Environment, "cannot start Delve")
 	}
-	done := make(chan error, 1)
-	go func() { done <- cmd.Wait() }()
+	done := make(chan struct{})
+	var exitErr error
+	go func() { exitErr = cmd.Wait(); close(done) }()
 
 	// Delve's first line says it is listening; everything after it is the
 	// run's own output.
@@ -132,8 +133,8 @@ func (a *App) debugSteps(ctx context.Context, f *runFlags) error {
 	}()
 	select {
 	case <-listening:
-	case err := <-done:
-		return axxerr.New(codeDelveStart, exitcode.Environment, "Delve exited before it was ready: %v\n%s", err, strings.TrimSpace(early.String()))
+	case <-done:
+		return axxerr.New(codeDelveStart, exitcode.Environment, "Delve exited before it was ready: %v\n%s", exitErr, strings.TrimSpace(early.String()))
 	case <-time.After(30 * time.Second):
 		_ = cmd.Process.Kill()
 		return axxerr.New(codeDelveStart, exitcode.Environment, "Delve did not start listening on %s within 30s", addr)
