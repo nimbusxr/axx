@@ -96,6 +96,17 @@ jobs:
           # The pull request's code: only ever one of this repository's branches (see the gate).
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
+      # The desk's model files (Git LFS: examples/.gitattributes), its desk-models scenarios'
+      # stubs, with Git for Windows' git-lfs. As on the Mac mini, Git LFS is not installed in the
+      # checkout: its filters are the pull's alone, and the hooks it writes go to this job's
+      # temporary folder. The Reatan keeps the files between runs, in the checkout's .git.
+      - name: the desk's model files
+        run: |
+          mkdir -p "$RUNNER_TEMP/lfs-hooks"
+          git -c core.hooksPath="$RUNNER_TEMP/lfs-hooks" \
+            -c filter.lfs.clean="git-lfs clean -- %f" -c filter.lfs.smudge="git-lfs smudge -- %f" \
+            -c filter.lfs.process="git-lfs filter-process" -c filter.lfs.required=true \
+            lfs pull --include "examples/parcels/depot-desk/**"
       - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
         with:
           install_args: "go"
