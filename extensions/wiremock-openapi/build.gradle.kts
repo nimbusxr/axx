@@ -58,7 +58,7 @@ dependencies {
     testImplementation("com.anthropic:anthropic-java:2.66.0")
     testImplementation("com.anthropic:anthropic-java-bedrock:2.66.0")
     testImplementation("com.anthropic:anthropic-java-vertex:2.66.0")
-    testImplementation("com.google.genai:google-genai:1.73.0")
+    testImplementation("com.google.genai:google-genai:1.79.0")
     testImplementation("software.amazon.awssdk:bedrockruntime:2.55.14")
     testImplementation("software.amazon.awssdk:netty-nio-client:2.55.14")
     testImplementation(platform("org.junit:junit-bom:6.1.3"))
