@@ -73,9 +73,13 @@ func speaker(sc *core.Scenario, wait time.Duration, app, file string) error {
 			if err != nil || !ok {
 				return false, "", err
 			}
+			// One being written is read again at the next look, and said if it never is.
 			samples, at, err := match.DecodeSound(b)
 			if err != nil {
-				return false, "", speakerError("the app's utterance %s: %v", n, err)
+				if closest == "" {
+					closest = fmt.Sprintf("is no sound axx reads (%v)", err)
+				}
+				continue
 			}
 			if why := same(samples, match.Resample(recording, rate, at), at); why == "" {
 				return true, "", nil

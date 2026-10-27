@@ -99,18 +99,18 @@ func configure(sc *core.Scenario, l *desktopcore.Launch) error {
 	if err != nil {
 		return unsupported("speech-dispatcher speaks the %s app's Piper voice stub with Piper, whose piper program is not on PATH (its releases: https://github.com/rhasspy/piper/releases)", l.App.Name)
 	}
-	speaker := l.Files + "/" + modelscore.SpeakerFolder
-	conf, module := speechConfig(piper, stubs+"/"+voices[0], speaker)
 	dir := filepath.Join(l.HostHome, ".config", "speech-dispatcher")
-	for name, body := range map[string]string{"speechd.conf": conf, filepath.Join("modules", "axx-piper.conf"): module} {
+	speak := l.Home + "/.config/speech-dispatcher/axx-speak.sh"
+	conf, module, script := speechConfig(piper, stubs+"/"+voices[0], l.Files+"/"+modelscore.SpeakerFolder, speak)
+	for name, body := range map[string]string{"speechd.conf": conf, filepath.Join("modules", "axx-piper.conf"): module, "axx-speak.sh": script} {
 		if err := os.MkdirAll(filepath.Dir(filepath.Join(dir, name)), 0o755); err != nil {
 			return err
 		}
-		if err := os.WriteFile(filepath.Join(dir, name), []byte(body), 0o644); err != nil {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(body), 0o755); err != nil { //nolint:gosec // the script is run
 			return err
 		}
 	}
-	return os.MkdirAll(filepath.Join(l.HostFiles, filepath.FromSlash(modelscore.SpeakerFolder)), 0o755)
+	return os.MkdirAll(filepath.Join(l.HostFiles, filepath.FromSlash(modelscore.SpeakerFolder), ".partial"), 0o755)
 }
 
 // stubsOf are the Tesseract languages and the Piper voices of an axx-models folder's files.
@@ -129,9 +129,11 @@ func stubsOf(names []string) (languages, voices []string) {
 	return languages, voices
 }
 
-// speechConfig is speech-dispatcher's user configuration, and its module's, that speak with a
-// Piper voice: each text an utterance, a WAV file in speaker, named in the order spoken.
-func speechConfig(piper, voice, speaker string) (conf, module string) {
+// speechConfig is speech-dispatcher's user configuration, its module's, and the script the module
+// speaks each text with: Piper, with the voice, into a WAV file in speaker, named in the order
+// spoken, which it moves there once Piper has written it all (from .partial, which the speaker
+// step does not read).
+func speechConfig(piper, voice, speaker, speak string) (conf, module, script string) {
 	conf = `# axx's (models-linux): the app's speech is spoken with the Piper voice stub in its
 # axx-models folder, into the folder the speaker step hears; no sound plays.
 AddModule "axx-piper" "sd_generic" "axx-piper.conf"
@@ -139,11 +141,19 @@ DefaultModule axx-piper
 AudioOutputMethod "alsa"
 AudioALSADevice "null"
 `
-	module = fmt.Sprintf(`# axx's (models-linux): Piper speaks each text with the voice stub, into the speaker's folder.
-GenericExecuteSynth "printf %%s \'$DATA\' | '%s' --model '%s' --output_file \"$(mktemp -p '%s' \$(date +%%s%%N)-XXXX.wav)\""
+	module = fmt.Sprintf(`# axx's (models-linux): each text, spoken by axx-speak.sh.
+GenericExecuteSynth "printf %%s \'$DATA\' | '%s'"
 GenericDelimiters ""
 AddVoice "en" "MALE1" "axx"
 DefaultVoice "axx"
+`, speak)
+	script = fmt.Sprintf(`#!/bin/sh
+# axx's (models-linux): speaks the text it reads with Piper and the voice stub, into the
+# speaker's folder, a whole WAV file at a time.
+set -eu
+partial=$(mktemp -p '%[3]s/.partial' "$(date +%%s%%N)-XXXX.wav")
+'%[1]s' --model '%[2]s' --output_file "$partial"
+mv "$partial" '%[3]s/'
 `, piper, voice, speaker)
-	return conf, module
+	return conf, module, script
 }
