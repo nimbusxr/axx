@@ -112,8 +112,13 @@ piper-phonemize==1.1.0 \
     --hash=sha256:c1062e00c94835e9115df7ce1d7b3b5c40c6d845cd70b2c121954faf5b8d23c7 \
     --hash=sha256:d4b9265213ab53275d52318c18226c30c1cde5ab6d829f73c6ae6b8deb49e612
     # via piper-tts
-piper-tts==1.2.0 \
-    --hash=sha256:f3410aea0f8051d8a118050a5b954faeb36f6ac0da6d10fc2f8a043a8eaf27b5
+piper-tts==1.8.0 \
+    --hash=sha256:25b4d3f31ff70c8fa7151908e00aaa5650cbdf16bca8fcf21299f3941b89a7d3 \
+    --hash=sha256:33e7425933e9290fe651ae127916ed1ca6104cfa3d94e9049295dd3a5c449382 \
+    --hash=sha256:3f60c1917de6d8e8033f395878ad3f88f6dfee88a8b05f98971a275f76a38484 \
+    --hash=sha256:5da9bfdb05dfe15da3536859d422e605483ffa6d2b3ec2c5b9593bae6b5aa6a4 \
+    --hash=sha256:830588aded347df579c91a32703e0fc2a3685d84f1e3533b14f2de69135d4904 \
+    --hash=sha256:98c7dd791b2be0f8732e5c9cefd86c54200ac0360e43c643c937bf18ac0e941a
     # via -r packs/models/core/internal/piperrun/requirements.in
 protobuf==7.36.2 \
     --hash=sha256:497d0463ff3316681da6c0b9e8d06cb465d61abce00b613ab42226175644d1bb \
