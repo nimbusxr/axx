@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -126,6 +127,31 @@ func TestArchiveEntriesStayInTheCache(t *testing.T) {
 	_, err := managed(context.Background(), Options{CacheDir: t.TempDir(), Version: "go9.9.9", DownloadURL: srv.URL + "/", Log: &strings.Builder{}})
 	if err == nil || !strings.Contains(err.Error(), "leaves the directory") {
 		t.Fatalf("got %v", err)
+	}
+}
+
+func TestArchiveLinksStayInTheCache(t *testing.T) {
+	for link, leaves := range map[string]bool{"../../../escape": true, "/etc": true, "../bin/go": false} {
+		var buf bytes.Buffer
+		gz := gzip.NewWriter(&buf)
+		tw := tar.NewWriter(gz)
+		if err := tw.WriteHeader(&tar.Header{Name: "go/lib/link", Linkname: link, Typeflag: tar.TypeSymlink}); err != nil {
+			t.Fatal(err)
+		}
+		if err := tw.Close(); err != nil {
+			t.Fatal(err)
+		}
+		if err := gz.Close(); err != nil {
+			t.Fatal(err)
+		}
+		archive := filepath.Join(t.TempDir(), "go.tar.gz")
+		if err := os.WriteFile(archive, buf.Bytes(), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		err := untar(archive, t.TempDir())
+		if got := err != nil && strings.Contains(err.Error(), "links outside the directory"); got != leaves {
+			t.Errorf("a link to %s: got %v", link, err)
+		}
 	}
 }
 

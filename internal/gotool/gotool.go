@@ -19,6 +19,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"runtime"
 	"slices"
@@ -275,6 +276,13 @@ func untar(archive, dir string) error {
 				return err
 			}
 		case tar.TypeSymlink:
+			// A link stays in dir too, or a later entry could be written through it.
+			if path.IsAbs(h.Linkname) {
+				return fmt.Errorf("archive entry %q links outside the directory", h.Name)
+			}
+			if _, err := within(dir, path.Join(path.Dir(h.Name), h.Linkname)); err != nil {
+				return fmt.Errorf("archive entry %q links outside the directory", h.Name)
+			}
 			if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
 				return err
 			}
@@ -317,11 +325,11 @@ func unzip(archive, dir string) error {
 
 // within joins an archive entry to dir, refusing entries that escape it.
 func within(dir, name string) (string, error) {
-	target := filepath.Join(dir, filepath.FromSlash(name))
-	if target != dir && !strings.HasPrefix(target, dir+string(filepath.Separator)) {
+	local := filepath.FromSlash(name)
+	if !filepath.IsLocal(local) {
 		return "", fmt.Errorf("archive entry %q leaves the directory", name)
 	}
-	return target, nil
+	return filepath.Join(dir, local), nil
 }
 
 func write(target string, r io.Reader, mode os.FileMode) error {
