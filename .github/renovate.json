@@ -9,7 +9,8 @@
     {"matchManagers": ["github-actions"], "groupName": "GitHub Actions"},
     {"matchManagers": ["gomod"], "matchUpdateTypes": ["minor", "patch"], "groupName": "Go modules"},
     {"matchPackageNames": ["org.wiremock:wiremock-standalone"], "groupName": "WireMock", "automerge": false},
-    {"matchPackageNames": ["lighthouse"], "matchFileNames": ["packs/web/lighthouse/**"], "groupName": "Lighthouse", "automerge": false}
+    {"matchPackageNames": ["lighthouse"], "matchFileNames": ["packs/web/lighthouse/**"], "groupName": "Lighthouse", "automerge": false},
+    {"description": "@types/vscode is the oldest VS Code the extension supports (engines.vscode in ide/vscode/package.json): vsce refuses newer types. Raise both together, by hand.", "matchPackageNames": ["@types/vscode"], "enabled": false}
   ],
   "customManagers": [
     {
