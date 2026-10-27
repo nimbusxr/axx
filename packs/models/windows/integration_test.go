@@ -314,6 +314,8 @@ static async Task<SoftwareBitmap> Bitmap(string path)
 }
 
 var (door, empty) = (args[0], args[1]);
+await Say("identity", () => Task.FromResult(Windows.ApplicationModel.Package.Current.Id.FullName));
+await Say("capability", () => Task.FromResult(Windows.Security.Authorization.AppCapabilityAccess.AppCapability.Create("systemAIModels").CheckAccess().ToString()));
 await Say("ready", () => Task.FromResult(TextRecognizer.GetReadyState().ToString()));
 await Say("ensure", async () => (await TextRecognizer.EnsureReadyAsync()).Status.ToString());
 await Say("text door", async () => { using var r = await TextRecognizer.CreateAsync(); return string.Join("|", r.RecognizeTextFromImage(ImageBuffer.CreateForSoftwareBitmap(await Bitmap(door))).Lines.Select(l => l.Text)); });
@@ -434,13 +436,21 @@ func TestWindowsAIAPIs(t *testing.T) {
 	}
 	identity(true)
 	t.Cleanup(func() { identity(false) })
-	own := map[string][]byte{}
+	files := map[string][]byte{}
 	for _, f := range []string{"Microsoft.Windows.AI.Imaging.dll", "Microsoft.Windows.AI.Text.dll"} {
 		b, err := os.ReadFile(filepath.Join(out, f))
 		if err != nil {
 			t.Fatal(err)
 		}
-		own[f] = b
+		files[f] = b
+	}
+
+	// Windows' own answers on this machine, before axx's library is the program's: its identity, the
+	// capability Windows gives it, and the real APIs'.
+	own := run(t, exe, &desktopcore.Launch{Environment: map[string]string{}}, door, empty)
+	t.Logf("Windows' own answers: identity %q, systemAIModels %q, TextRecognizer %q, LanguageModel %q", own["identity"], own["capability"], own["ready"], own["model"])
+	if strings.HasPrefix(own["identity"], "threw") || own["capability"] != "Allowed" {
+		t.Fatalf("the program has no package identity with the systemAIModels capability here (identity %q, capability %q): Windows answers no app the Windows AI APIs, and axx's library answers as Windows does", own["identity"], own["capability"])
 	}
 
 	suite := core.NewSuite(core.SuiteOptions{})
@@ -502,7 +512,7 @@ func TestWindowsAIAPIs(t *testing.T) {
 	if err := c.restore(); err != nil {
 		t.Fatal(err)
 	}
-	for f, b := range own {
+	for f, b := range files {
 		now, err := os.ReadFile(filepath.Join(out, f))
 		if err != nil {
 			t.Fatal(err)
