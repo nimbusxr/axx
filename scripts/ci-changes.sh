@@ -40,7 +40,7 @@ while ! $all && ! $none && IFS= read -r f; do
         packs/web/* | packs/models/web/*) web=true ;;
         packs/mobile/* | packs/models/ios/* | packs/models/android/*) mobile=true ;;
         packs/models/internal/apple/*) mobile=true desktop=true ;;
-        packs/models/macos/* | packs/models/linux/*) desktop=true ;;
+        packs/models/macos/* | packs/models/linux/* | packs/models/windows/*) desktop=true ;;
         packs/models/core/*) integration=true models=true web=true mobile=true ;;
         packs/files/*) integration=true web=true mobile=true models=true ;;
         packs/desktop/*) desktop=true integration=true ;;

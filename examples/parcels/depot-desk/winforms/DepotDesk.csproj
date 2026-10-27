@@ -10,6 +10,10 @@
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="System.Speech" Version="8.0.0" />
+  </ItemGroup>
+  <ItemGroup>
     <None Include="..\depot.png" Link="depot.png" CopyToOutputDirectory="PreserveNewest" />
+    <Compile Include="..\windows\Speech.cs" Link="Speech.cs" />
   </ItemGroup>
 </Project>

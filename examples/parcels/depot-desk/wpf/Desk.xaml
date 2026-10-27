@@ -51,6 +51,7 @@
               <Hyperlink Click="OnRules">Handover rules</Hyperlink>
             </TextBlock>
             <TextBlock x:Name="RulesText" Text="Parcels are handed over to the courier at 18:00." Visibility="Collapsed" Margin="0,6,0,0" />
+            <Button Content="Read aloud" HorizontalAlignment="Left" Padding="8,2" Margin="0,6,0,0" Click="OnReadAloud" />
           </StackPanel>
         </TabItem>
       </TabControl>

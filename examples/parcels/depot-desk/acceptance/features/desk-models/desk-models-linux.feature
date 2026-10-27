@@ -5,7 +5,7 @@ Feature: The depot desk's models, on Linux
   Tesseract reads a parcel's reference off the label camera's scan of its reference line, and the
   desktop's speech service, speech-dispatcher, reads the handover rules aloud. Each scenario puts
   stubs of those models (Tesseract's English, models/label-reader-linux, and a Piper voice,
-  models/handover-voice-linux) in the desk's axx-models folder, and the label camera's scans in
+  models/handover-voice) in the desk's axx-models folder, and the label camera's scans in
   its Scans folder: no scenario asks a real model.
 
   Background:
@@ -39,8 +39,8 @@ Feature: The depot desk's models, on Linux
     Then the depot app shows "No reference on the label: type it in"
 
   Scenario: The desk reads the handover rules aloud
-    Given the voice.onnx file in the desk-models folder is a copy of the models/handover-voice-linux.onnx file
-    And the voice.onnx.json file in the desk-models folder is a copy of the models/handover-voice-linux.onnx.json file
+    Given the voice.onnx file in the desk-models folder is a copy of the models/handover-voice.onnx file
+    And the voice.onnx.json file in the desk-models folder is a copy of the models/handover-voice.onnx.json file
     And the depot app is launched
     And the "Handover" element is clicked in the depot app
     When the "Read aloud" button is clicked in the depot app

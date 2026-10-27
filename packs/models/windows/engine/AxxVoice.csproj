@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- axx's voice for SAPI (models-windows): a COM server, which .NET's comhost loads into the app. -->
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <EnableComHosting>true</EnableComHosting>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <PlatformTarget>x64</PlatformTarget>
+    <!-- The .NET the app runs, when it is a later one; or, in an app of no .NET, the latest. -->
+    <RollForward>LatestMajor</RollForward>
+  </PropertyGroup>
+</Project>

@@ -30,7 +30,7 @@ func speakerSteps() []core.StepDef {
 		ID: Name + ".speaker", Keyword: "Then", Since: "0.2.0",
 		Expr: "[[within {duration} ]]the {word} app's speaker plays the {string} file",
 		Doc: "Check that the app has spoken a recording (a WAV file): an utterance of its speech has the recording's sound. The app speaks with a voice stub, which speaks a mapping's recording for a text that has the mapping's key: the file is the recording the app's words are spoken as. " +
-			"The app's platform pack hears its speech (models-linux: speech-dispatcher's, in the desktops axx runs). The check waits for it: 10 seconds, or `within {duration}`.",
+			"The app's platform pack hears its speech (models-linux: speech-dispatcher's, in the desktops axx runs; models-windows: SAPI's). The check waits for it: 10 seconds, or `within {duration}`.",
 		Examples: []string{`Then within 10s the depot app's speaker plays the "recordings/handover-rules.wav" file`},
 		Run: func(sc *core.Scenario, a core.Args) error {
 			return speaker(sc, cloudstep.Wait(a, 0), a.String(1), a.String(2))
@@ -64,7 +64,7 @@ func speaker(sc *core.Scenario, wait time.Duration, app, file string) error {
 		}
 		names = slices.DeleteFunc(names, func(n string) bool { return !strings.EqualFold(path.Ext(n), ".wav") })
 		if len(names) == 0 {
-			return false, fmt.Sprintf("the %s app's speaker played nothing: its platform pack hears the speech of its platform's speech service (models-linux: speech-dispatcher's), spoken with a voice stub in its axx-models folder", app), nil
+			return false, fmt.Sprintf("the %s app's speaker played nothing: its platform pack hears the speech of its platform's speech service (models-linux: speech-dispatcher's; models-windows: SAPI's), spoken with a voice stub in its axx-models folder", app), nil
 		}
 		slices.Sort(names)
 		closest := ""

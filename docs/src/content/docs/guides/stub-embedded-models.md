@@ -426,10 +426,11 @@ A model the platform provides is the platform's: the app calls an API (Vision's 
 | `models-ios` | A Debug app on the iOS Simulator (iOS 16 or later; Foundation Models: iOS 27 and Xcode 27) | A library the simulator loads into the app when axx launches it (`DYLD_INSERT_LIBRARIES`), which axx compiles with Xcode and caches |
 | `models-macos` | A Mac app's test build, signed without the hardened runtime or with its two exceptions (below), on macOS 15 or later (Foundation Models: macOS 27) | The same library, which macOS loads into the app when axx launches it (`DYLD_INSERT_LIBRARIES`) |
 | `models-linux` | A Linux app in the desktops `desktop-linux` runs | Tesseract's documented `TESSDATA_PREFIX`, and speech-dispatcher's configuration in the app's home, which speaks with Piper |
+| `models-windows` | A Windows app in the desktops `desktop-windows` runs | A SAPI voice of axx's, which speaks with Piper, made the user's default voice for the scenario |
 | `models-android` | A debuggable app on the Android emulator (Android 8 or later) | An agent attached to the app as it starts (ART's tooling interface, `am start --attach-agent`), which axx builds with the SDK's NDK and caches |
 | `models-web` | The browsers the `web-core` pack runs | A script the browser runs in the app's pages before their own (Playwright's init scripts) |
 
-The app's code does not change, and nothing changes in its release builds or on other devices. Each pack needs `models-core`, `app-core` and its platform's pack (`mobile-ios`, `desktop-macos`, `desktop-linux`, `mobile-android`, `web-core`); the `files` pack copies the stub.
+The app's code does not change, and nothing changes in its release builds or on other devices. Each pack needs `models-core`, `app-core` and its platform's pack (`mobile-ios`, `desktop-macos`, `desktop-linux`, `desktop-windows`, `mobile-android`, `web-core`); the `files` pack copies the stub.
 
 **A Mac app's test build.** macOS ignores `DYLD_INSERT_LIBRARIES` in an app it signs with the hardened runtime, which would leave the app with Apple's models instead of the stubs. A Mac app's test build is signed without it, or with Apple's two exceptions for it, in its Debug entitlements: `com.apple.security.cs.allow-dyld-environment-variables` and `com.apple.security.cs.disable-library-validation`. axx checks the app before it starts it, and stops the scenario if macOS would keep the library out (`AXX-E0704`). A Mac app's `axx-models` folder is in its `./` files, its home's `Library/Application Support`. A Mac has no test's grant of speech recognition or the microphone, as a simulator has: a stubbed recognizer, and the microphone axx feeds, are authorized.
 
@@ -495,12 +496,14 @@ Scenario: A recipient's long delivery note is summarized for the courier
 
 **A Linux desktop's models.** A Linux app takes its system's models from files its distribution installs, not from an API: Tesseract's language data, and the voices of the desktop's speech service, speech-dispatcher. Their stubs are those files, built from a contract of their format: a Tesseract language (`eng.traineddata`, of the `tesseract` format) and a Piper voice (its `.onnx` and `.onnx.json`, of the `piper` format). In the app's `axx-models` folder, `models-linux` makes the app's Tesseract read the language from there (`TESSDATA_PREFIX`), and gives the app's speech-dispatcher the voice, which Piper speaks (its `piper` program, on the desktop's PATH) with no sound.
 
+**A Windows desktop's voice.** A Windows app speaks with SAPI, through System.Speech's `SpeechSynthesizer` or SAPI's own `SpVoice`, in the voice the user chose. With a Piper voice stub in the app's `axx-models` folder (its `./` files, its home's `AppData\Roaming`), `models-windows` adds a voice of its own to SAPI's, `axx voice`, and makes it the user's default for the scenario: an engine of axx's, which speaks with Piper, built with the .NET SDK (8 or later) into axx's cache. SAPI lists the voices in `HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Speech\Voices\Tokens` only, so axx runs as an administrator, as GitHub's Windows runners do, or as a user who may create keys there; otherwise the app's start stops with `AXX-E0704`. The scenario's end takes the voice out and puts the user's own default back.
+
 **What the app says.** An app's speech is heard with the step `the {word} app's speaker plays the {string} file`: an utterance of the app's has the file's sound. The voice stub speaks a mapping's recording for a text that has the mapping's key, so the file is that recording, as the voice speaks it.
 
 ```gherkin
 Scenario: The desk reads the handover rules aloud
-  Given the voice.onnx file in the desk-models folder is a copy of the models/handover-voice-linux.onnx file
-  And the voice.onnx.json file in the desk-models folder is a copy of the models/handover-voice-linux.onnx.json file
+  Given the voice.onnx file in the desk-models folder is a copy of the models/handover-voice.onnx file
+  And the voice.onnx.json file in the desk-models folder is a copy of the models/handover-voice.onnx.json file
   And the depot app is launched
   And the "Handover" element is clicked in the depot app
   When the "Read aloud" button is clicked in the depot app

@@ -29,8 +29,9 @@ Each build's folder has its sources and its `README.md`, which says how to build
 
 `acceptance/features/depot-desk/depot-desk.feature` is the clerk's day with the desk, a scenario for
 each thing the clerk does, run with axx against every build on the OS it is built for
-(`acceptance/features/desk-models` holds the macOS builds' models: [The Mac's own
-models](#the-macs-own-models)). Build
+(`acceptance/features/desk-models` holds the scenarios of the OSes' own models: [The Mac's own
+models](#the-macs-own-models), [The Windows voice](#the-windows-voice) and [A Linux desktop's
+models](#a-linux-desktops-models)). Build
 the desk first (its folder's `README.md`), then pick the build with its profile:
 
 ```sh
@@ -161,6 +162,16 @@ Apple's models' contracts, which the `models-macos` pack answers the app's calls
 scenarios are tagged `@macos-models`, which the profiles of the other builds leave out. The builds are signed without the hardened runtime, which lets axx's library
 into them.
 
+## The Windows voice
+
+The Windows Forms, WPF and WinUI builds have a button **Read aloud**, on the Handover tab, which
+reads the handover rules aloud with SAPI, through System.Speech (`windows/Speech.cs`), in the
+user's voice. `acceptance/features/desk-models/desk-models-windows.feature` (`@windows-models`)
+holds it to a stub of a Piper voice (`acceptance/models/handover-voice`, the Linux builds' too),
+which the `models-windows` pack adds to SAPI's voices and makes the user's voice for the
+scenario: axx runs as an administrator, or as a user who may create keys in
+`HKLM\SOFTWARE\Microsoft\Speech\Voices\Tokens`, where SAPI lists its voices.
+
 ## A Linux desktop's models
 
 The GTK builds (`gtk3`, `gtk4`) use the models a Linux desktop has:
@@ -173,7 +184,7 @@ The GTK builds (`gtk3`, `gtk4`) use the models a Linux desktop has:
 
 `acceptance/features/desk-models/desk-models-linux.feature` (`@linux-models`) holds these to
 stubs of Tesseract's English (`acceptance/models/label-reader-linux`) and of a Piper voice
-(`acceptance/models/handover-voice-linux`), which the `models-linux` pack makes the app's
+(`acceptance/models/handover-voice`), which the `models-linux` pack makes the app's
 Tesseract and speech-dispatcher use: the first through Tesseract's `TESSDATA_PREFIX`, the second
 through speech-dispatcher's configuration in the app's home, which speaks with Piper into the
 folder the speaker step hears. The image (`linux/Dockerfile`) has Tesseract, speech-dispatcher

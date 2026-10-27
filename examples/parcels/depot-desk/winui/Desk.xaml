@@ -47,6 +47,7 @@
           <Button Content="Clear signature" Click="OnClearSignature" />
           <HyperlinkButton Content="Handover rules" Padding="0" Click="OnRules" />
           <TextBlock x:Name="RulesText" Text="Parcels are handed over to the courier at 18:00." Visibility="Collapsed" />
+          <Button Content="Read aloud" Click="OnReadAloud" />
         </StackPanel>
       </TabViewItem>
     </TabView>
