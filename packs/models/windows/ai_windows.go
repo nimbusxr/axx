@@ -38,6 +38,7 @@ const (
 var aiFiles = map[string]string{
 	"windows.ai.text-recognizer":   "Microsoft.Windows.AI.Imaging.dll",
 	"windows.ai.image-description": "Microsoft.Windows.AI.Imaging.dll",
+	"windows.ai.object-extractor":  "Microsoft.Windows.AI.Imaging.dll",
 	"windows.ai.language-model":    "Microsoft.Windows.AI.Text.dll",
 	"windows.ai.text-summarizer":   "Microsoft.Windows.AI.Text.dll",
 	"windows.ai.text-rewriter":     "Microsoft.Windows.AI.Text.dll",
@@ -53,6 +54,7 @@ var (
 		"Microsoft.Windows.AI.Imaging.TextRecognizer", "Microsoft.Windows.AI.Imaging.RecognizedText",
 		"Microsoft.Windows.AI.Imaging.RecognizedLine", "Microsoft.Windows.AI.Imaging.RecognizedWord",
 		"Microsoft.Windows.AI.Imaging.ImageDescriptionGenerator", "Microsoft.Windows.AI.Imaging.ImageDescriptionResult",
+		"Microsoft.Windows.AI.Imaging.ImageObjectExtractor", "Microsoft.Windows.AI.Imaging.ImageObjectExtractorHint",
 		"Microsoft.Windows.AI.Text.ConversationItem", "Microsoft.Windows.AI.Text.ConversationSummaryOptions",
 		"Microsoft.Windows.AI.Text.LanguageModel", "Microsoft.Windows.AI.Text.LanguageModelContext",
 		"Microsoft.Windows.AI.Text.LanguageModelEmbeddingVectorResult", "Microsoft.Windows.AI.Text.LanguageModelOptions",

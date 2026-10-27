@@ -5,6 +5,8 @@
 #include "Imaging.RecognizedWord.g.h"
 #include "Imaging.ImageDescriptionGenerator.g.h"
 #include "Imaging.ImageDescriptionResult.g.h"
+#include "Imaging.ImageObjectExtractor.g.h"
+#include "Imaging.ImageObjectExtractorHint.g.h"
 
 namespace axx
 {
@@ -108,9 +110,52 @@ namespace winrt::Microsoft::Windows::AI::Imaging::implementation
     };
 }
 
+namespace winrt::Microsoft::Windows::AI::Imaging::implementation
+{
+    // ImageObjectExtractor masks the object in a picture: its stub's answer to the mapping the
+    // picture matches, whatever the hint, a mask of the picture's size.
+    struct ImageObjectExtractor : ImageObjectExtractorT<ImageObjectExtractor>
+    {
+        ImageObjectExtractor(size_t at, int32_t width, int32_t height) : at(at), width(width), height(height) {}
+
+        static winrt::Windows::Foundation::IAsyncOperation<Imaging::ImageObjectExtractor> CreateWithSoftwareBitmapAsync(winrt::Windows::Graphics::Imaging::SoftwareBitmap softwareBitmap);
+        static winrt::Windows::Foundation::IAsyncOperation<Imaging::ImageObjectExtractor> CreateWithImageBufferAsync(winrt::Microsoft::Graphics::Imaging::ImageBuffer imageBuffer);
+        static AIFeatureReadyState GetReadyState();
+        static winrt::Windows::Foundation::IAsyncOperationWithProgress<AIFeatureReadyResult, double> EnsureReadyAsync();
+        winrt::Windows::Graphics::Imaging::SoftwareBitmap GetSoftwareBitmapObjectMask(Imaging::ImageObjectExtractorHint const& hint);
+        winrt::Microsoft::Graphics::Imaging::ImageBuffer GetImageBufferObjectMask(Imaging::ImageObjectExtractorHint const& hint);
+        void Close() {}
+
+    private:
+        size_t at;
+        int32_t width, height;
+    };
+
+    struct ImageObjectExtractorHint : ImageObjectExtractorHintT<ImageObjectExtractorHint>
+    {
+        ImageObjectExtractorHint(winrt::Windows::Foundation::Collections::IVector<winrt::Windows::Graphics::RectInt32> const& includeRects, winrt::Windows::Foundation::Collections::IVector<winrt::Windows::Graphics::PointInt32> const& includePoints, winrt::Windows::Foundation::Collections::IVector<winrt::Windows::Graphics::PointInt32> const& excludePoints)
+            : includeRects(includeRects ? includeRects.GetView() : nullptr), includePoints(includePoints ? includePoints.GetView() : nullptr), excludePoints(excludePoints ? excludePoints.GetView() : nullptr)
+        {
+        }
+        winrt::Windows::Foundation::Collections::IVectorView<winrt::Windows::Graphics::RectInt32> IncludeRects() { return includeRects; }
+        winrt::Windows::Foundation::Collections::IVectorView<winrt::Windows::Graphics::PointInt32> IncludePoints() { return includePoints; }
+        winrt::Windows::Foundation::Collections::IVectorView<winrt::Windows::Graphics::PointInt32> ExcludePoints() { return excludePoints; }
+
+    private:
+        winrt::Windows::Foundation::Collections::IVectorView<winrt::Windows::Graphics::RectInt32> includeRects;
+        winrt::Windows::Foundation::Collections::IVectorView<winrt::Windows::Graphics::PointInt32> includePoints, excludePoints;
+    };
+}
+
 namespace winrt::Microsoft::Windows::AI::Imaging::factory_implementation
 {
     struct TextRecognizer : TextRecognizerT<TextRecognizer, implementation::TextRecognizer>
+    {
+    };
+    struct ImageObjectExtractor : ImageObjectExtractorT<ImageObjectExtractor, implementation::ImageObjectExtractor>
+    {
+    };
+    struct ImageObjectExtractorHint : ImageObjectExtractorHintT<ImageObjectExtractorHint, implementation::ImageObjectExtractorHint>
     {
     };
     struct ImageDescriptionGenerator : ImageDescriptionGeneratorT<ImageDescriptionGenerator, implementation::ImageDescriptionGenerator>

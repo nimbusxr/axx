@@ -19,6 +19,8 @@ namespace axx
         size_t TextIndex(std::wstring_view text) const;
         // Generated is a text answer: a language model's, or a picture's description.
         std::wstring Generated(size_t at) const;
+        // Mask is a segmenter's answer, its mask's side and its confidences, a row at a time.
+        std::pair<size_t, std::vector<float>> Mask(size_t at) const;
         // Availability is the reason a device without the model gives (format.details.availability),
         // or "" for a device that has it.
         std::wstring Availability() const;

@@ -15,6 +15,8 @@
 #include <winrt/Windows.Foundation.Collections.h>
 #include <winrt/Windows.Data.Json.h>
 #include <winrt/Windows.Storage.Streams.h>
+#include <winrt/Windows.Graphics.h>
+#include <winrt/Windows.Graphics.Imaging.h>
 #include <winrt/Windows.Security.Authorization.AppCapabilityAccess.h>
 #include <winrt/Microsoft.Graphics.Imaging.h>
 #include <winrt/Microsoft.Windows.AI.h>

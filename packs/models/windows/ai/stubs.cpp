@@ -21,6 +21,8 @@ namespace axx
                 return L"windows.ai.text-recognizer";
             if (className == L"Microsoft.Windows.AI.Imaging.ImageDescriptionGenerator")
                 return L"windows.ai.image-description";
+            if (className == L"Microsoft.Windows.AI.Imaging.ImageObjectExtractor" || className == L"Microsoft.Windows.AI.Imaging.ImageObjectExtractorHint")
+                return L"windows.ai.object-extractor";
             return {};
         }
 
@@ -216,6 +218,17 @@ namespace axx
             if (HasWords(text, texts.GetStringAt(i)))
                 return i;
         return texts.Size();
+    }
+
+    std::pair<size_t, std::vector<float>> Stub::Mask(size_t at) const
+    {
+        auto out = json.GetNamedObject(L"contract").GetNamedArray(L"outputs").GetObjectAt(0);
+        auto shape = out.GetNamedArray(L"shape");
+        auto values = json.GetNamedArray(L"answers").GetObjectAt(static_cast<uint32_t>(at)).GetNamedArray(out.GetNamedString(L"name"));
+        std::vector<float> mask(values.Size());
+        for (uint32_t i = 0; i < values.Size(); i++)
+            mask[i] = static_cast<float>(values.GetNumberAt(i));
+        return { static_cast<size_t>(shape.GetNumberAt(shape.Size() - 1)), std::move(mask) };
     }
 
     std::wstring Stub::Generated(size_t at) const

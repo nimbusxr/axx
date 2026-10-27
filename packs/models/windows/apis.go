@@ -28,6 +28,10 @@ func apis() []platform.API {
 			Name: "windows.ai.image-description", Calls: "ImageDescriptionGenerator (Microsoft.Windows.AI.Imaging)", Task: "text-generation",
 			Contract: platform.ImageDescriber("windows.ai.image-description"), Unavailable: unavailable,
 		},
+		{
+			Name: "windows.ai.object-extractor", Calls: "ImageObjectExtractor (Microsoft.Windows.AI.Imaging): its mask of a picture, whatever the hint", Task: "segmentation",
+			Contract: platform.Segmenter("windows.ai.object-extractor"), Unavailable: unavailable,
+		},
 		text("windows.ai.language-model", "LanguageModel, Phi Silica (Microsoft.Windows.AI.Text): responses, of contexts too"),
 		text("windows.ai.text-summarizer", "TextSummarizer, of the language model: texts, paragraphs and conversations"),
 		text("windows.ai.text-rewriter", "TextRewriter, of the language model: its tones and custom ones"),

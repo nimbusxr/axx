@@ -7,6 +7,8 @@
 #include "Imaging.RecognizedWord.g.cpp"
 #include "Imaging.ImageDescriptionGenerator.g.cpp"
 #include "Imaging.ImageDescriptionResult.g.cpp"
+#include "Imaging.ImageObjectExtractor.g.cpp"
+#include "Imaging.ImageObjectExtractorHint.g.cpp"
 
 using namespace winrt;
 using namespace winrt::Windows::Foundation;
@@ -18,6 +20,7 @@ namespace winrt::Microsoft::Windows::AI::Imaging::implementation
     {
         constexpr wchar_t api[] = L"windows.ai.text-recognizer";
         constexpr wchar_t describer[] = L"windows.ai.image-description";
+        constexpr wchar_t extractor[] = L"windows.ai.object-extractor";
 
         RecognizedTextBoundingBox Box(float left, float top, float right, float bottom)
         {
@@ -98,5 +101,49 @@ namespace winrt::Microsoft::Windows::AI::Imaging::implementation
         std::wstring description = stub->Generated(stub->Picture(image));
         co_await axx::Stream(progress, description);
         co_return make<ImageDescriptionResult>(hstring(description));
+    }
+
+    IAsyncOperation<Imaging::ImageObjectExtractor> ImageObjectExtractor::CreateWithSoftwareBitmapAsync(winrt::Windows::Graphics::Imaging::SoftwareBitmap softwareBitmap)
+    {
+        return CreateWithImageBufferAsync(ImageBuffer::CreateForSoftwareBitmap(softwareBitmap));
+    }
+
+    IAsyncOperation<Imaging::ImageObjectExtractor> ImageObjectExtractor::CreateWithImageBufferAsync(ImageBuffer imageBuffer)
+    {
+        axx::Creatable(extractor);
+        co_await resume_background();
+        co_return make<ImageObjectExtractor>(axx::Find(extractor)->Picture(imageBuffer), imageBuffer.PixelWidth(), imageBuffer.PixelHeight());
+    }
+
+    AIFeatureReadyState ImageObjectExtractor::GetReadyState()
+    {
+        return axx::ReadyState(extractor);
+    }
+
+    IAsyncOperationWithProgress<AIFeatureReadyResult, double> ImageObjectExtractor::EnsureReadyAsync()
+    {
+        return axx::EnsureReady(extractor);
+    }
+
+    // The mask's confidences, each of its nearest point in the answer's mask, as gray.
+    winrt::Windows::Graphics::Imaging::SoftwareBitmap ImageObjectExtractor::GetSoftwareBitmapObjectMask(Imaging::ImageObjectExtractorHint const&)
+    {
+        auto [side, mask] = axx::Find(extractor)->Mask(at);
+        winrt::Windows::Storage::Streams::Buffer pixels(static_cast<uint32_t>(width * height));
+        pixels.Length(pixels.Capacity());
+        uint8_t* out = pixels.data();
+        for (int32_t y = 0; y < height; y++)
+            for (int32_t x = 0; x < width; x++)
+            {
+                size_t mx = static_cast<size_t>(x) * side / width, my = static_cast<size_t>(y) * side / height;
+                float v = std::clamp(mask[my * side + mx], 0.0f, 1.0f);
+                out[static_cast<size_t>(y) * width + x] = static_cast<uint8_t>(std::lround(v * 255));
+            }
+        return winrt::Windows::Graphics::Imaging::SoftwareBitmap::CreateCopyFromBuffer(pixels, winrt::Windows::Graphics::Imaging::BitmapPixelFormat::Gray8, width, height);
+    }
+
+    ImageBuffer ImageObjectExtractor::GetImageBufferObjectMask(Imaging::ImageObjectExtractorHint const& hint)
+    {
+        return ImageBuffer::CreateForSoftwareBitmap(GetSoftwareBitmapObjectMask(hint));
     }
 }

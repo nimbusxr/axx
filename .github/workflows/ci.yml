@@ -666,6 +666,42 @@ jobs:
       - name: platform model adapters on the Mac
         run: go test -tags integration -timeout 20m ./packs/models/macos/...
 
+  windows-models:
+    needs: changes
+    if: needs.changes.outputs.desktop == 'true' && needs.changes.outputs.tests == 'true'
+    # The models-windows pack's adapters on Windows, given to probe programs as desktop-windows
+    # starts an app: SAPI's voice, its engine built with the .NET SDK, and the Windows AI APIs'
+    # library, built with Visual Studio's C++ tools and C++/WinRT. The runner is an administrator
+    # (SAPI lists the voices of HKEY_LOCAL_MACHINE), and Developer Mode registers the AI probe's
+    # package of no signature: the Windows AI APIs answer an app with package identity.
+    runs-on: windows-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: stop Windows Defender's real-time scanning
+        shell: pwsh
+        run: Set-MpPreference -DisableRealtimeMonitoring $true
+      - name: Developer Mode
+        shell: pwsh
+        run: |
+          $k = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock'
+          if (-not (Test-Path $k)) { New-Item $k -Force | Out-Null }
+          New-ItemProperty -Path $k -Name AllowDevelopmentWithoutDevLicense -PropertyType DWord -Value 1 -Force | Out-Null
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+        with:
+          install_args: "go"
+          # Tools are cached from main only: pull requests read them.
+          cache_save: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+      - uses: ./.github/actions/go-cache
+        with:
+          build: windows-models
+      - run: go test -tags integration -timeout 30m ./packs/models/windows/...
+
   webllm:
     needs: changes
     if: needs.changes.outputs.models == 'true' && needs.changes.outputs.tests == 'true'
@@ -1041,7 +1077,7 @@ jobs:
   # pull request does not need is skipped, which passes.
   ci-ok:
     if: always()
-    needs: [changes, hygiene, lint, workflows, test, integration, web, mobile, android, ios, coreml, webllm, desktop-image, desktop, cross-build, example-app, example-app-python, acceptance, release-check]
+    needs: [changes, hygiene, lint, workflows, test, integration, web, mobile, android, ios, coreml, windows-models, webllm, desktop-image, desktop, cross-build, example-app, example-app-python, acceptance, release-check]
     runs-on: ubuntu-24.04
     steps:
       - name: all jobs passed
