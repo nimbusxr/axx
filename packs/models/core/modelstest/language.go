@@ -10,7 +10,9 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
+	"time"
 
 	"github.com/nimbusxr/axx/internal/npm"
 )
@@ -88,18 +90,7 @@ func Fetch(t *testing.T, url, sum string) string {
 	if _, err := os.Stat(path); err == nil {
 		return path
 	}
-	resp, err := http.Get(url) //nolint:gosec,noctx // a test's pinned file
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		t.Fatalf("%s: %s", url, resp.Status)
-	}
-	b, err := io.ReadAll(resp.Body)
-	if err != nil {
-		t.Fatal(err)
-	}
+	b := download(t, url, "", http.StatusOK)
 	h := sha256.Sum256(b)
 	if got := hex.EncodeToString(h[:]); got != sum {
 		t.Fatalf("%s: its SHA-256 is %s, want %s", url, got, sum)
@@ -138,25 +129,48 @@ func FetchRange(t *testing.T, url string, from, to int64, sum string) []byte {
 
 func fetchRange(t *testing.T, url string, from, to int64) []byte {
 	t.Helper()
-	req, err := http.NewRequest(http.MethodGet, url, nil) //nolint:noctx // a test's pinned file
-	if err != nil {
-		t.Fatal(err)
-	}
-	req.Header.Set("Range", fmt.Sprintf("bytes=%d-%d", from, to))
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusPartialContent && resp.StatusCode != http.StatusOK {
-		t.Fatalf("%s: %s", url, resp.Status)
-	}
-	b, err := io.ReadAll(resp.Body)
-	if err != nil {
-		t.Fatal(err)
-	}
+	b := download(t, url, fmt.Sprintf("bytes=%d-%d", from, to), http.StatusPartialContent, http.StatusOK)
 	if int64(len(b)) > to-from+1 {
 		b = b[:to-from+1]
 	}
 	return b
+}
+
+// download gets a file (its range, when given), three times at most: a host drops a connection
+// now and then, or answers that it is busy (CI's runners have seen a read of Hugging Face's
+// time out), and the next try gets it. An answer of the request's own fault ends it at once.
+func download(t *testing.T, url, byteRange string, ok ...int) []byte {
+	t.Helper()
+	var last error
+	for attempt := range 3 {
+		if attempt > 0 {
+			time.Sleep(time.Duration(attempt) * 10 * time.Second)
+		}
+		req, err := http.NewRequest(http.MethodGet, url, nil) //nolint:noctx // a test's pinned file
+		if err != nil {
+			t.Fatal(err)
+		}
+		if byteRange != "" {
+			req.Header.Set("Range", byteRange)
+		}
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			last = err
+			continue
+		}
+		b, err := io.ReadAll(resp.Body)
+		_ = resp.Body.Close()
+		switch {
+		case err != nil:
+			last = err
+		case slices.Contains(ok, resp.StatusCode):
+			return b
+		case resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode >= 500:
+			last = fmt.Errorf("%s", resp.Status)
+		default:
+			t.Fatalf("%s: %s", url, resp.Status)
+		}
+	}
+	t.Fatalf("%s: %v (three tries)", url, last)
+	return nil
 }
