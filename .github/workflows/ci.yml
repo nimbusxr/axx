@@ -673,7 +673,8 @@ jobs:
     # starts an app: SAPI's voice, its engine built with the .NET SDK, and the Windows AI APIs'
     # library, built with Visual Studio's C++ tools and C++/WinRT. The runner is an administrator
     # (SAPI lists the voices of HKEY_LOCAL_MACHINE), and Developer Mode registers the AI probe's
-    # package of no signature: the Windows AI APIs answer an app with package identity.
+    # package of no signature: the Windows AI APIs answer an app with package identity, whose user
+    # lets apps use them.
     runs-on: windows-latest
     timeout-minutes: 45
     defaults:
@@ -689,6 +690,17 @@ jobs:
           $k = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock'
           if (-not (Test-Path $k)) { New-Item $k -Force | Out-Null }
           New-ItemProperty -Path $k -Name AllowDevelopmentWithoutDevLicense -PropertyType DWord -Value 1 -Force | Out-Null
+      # Settings > Privacy & security > Text and image generation, on for the device and the
+      # runner's user, as on a PC whose user lets apps use the Windows AI APIs (systemAIModels):
+      # this image has it off, and Windows refuses every app the APIs.
+      - name: apps may use the Windows AI APIs
+        shell: pwsh
+        run: |
+          foreach ($root in 'HKLM:', 'HKCU:') {
+            $k = "$root\SOFTWARE\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore\systemAIModels"
+            if (-not (Test-Path $k)) { New-Item $k -Force | Out-Null }
+            Set-ItemProperty -Path $k -Name Value -Value Allow
+          }
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           persist-credentials: false
