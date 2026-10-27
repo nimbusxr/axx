@@ -2,6 +2,7 @@ package gotool
 
 import (
 	"archive/tar"
+	"archive/zip"
 	"bytes"
 	"compress/gzip"
 	"context"
@@ -130,12 +131,17 @@ func TestArchiveEntriesStayInTheCache(t *testing.T) {
 	}
 }
 
-func TestArchiveLinksStayInTheCache(t *testing.T) {
-	for link, leaves := range map[string]bool{"../../../escape": true, "/etc": true, "../bin/go": false} {
+func TestArchiveLinksAreRefused(t *testing.T) {
+	for _, h := range []tar.Header{
+		{Name: "go/lib/escape", Linkname: "../../../escape", Typeflag: tar.TypeSymlink},
+		{Name: "go/lib/etc", Linkname: "/etc", Typeflag: tar.TypeSymlink},
+		{Name: "go/lib/go", Linkname: "../bin/go", Typeflag: tar.TypeSymlink},
+		{Name: "go/lib/hard", Linkname: "go/bin/go", Typeflag: tar.TypeLink},
+	} {
 		var buf bytes.Buffer
 		gz := gzip.NewWriter(&buf)
 		tw := tar.NewWriter(gz)
-		if err := tw.WriteHeader(&tar.Header{Name: "go/lib/link", Linkname: link, Typeflag: tar.TypeSymlink}); err != nil {
+		if err := tw.WriteHeader(&h); err != nil {
 			t.Fatal(err)
 		}
 		if err := tw.Close(); err != nil {
@@ -148,10 +154,31 @@ func TestArchiveLinksStayInTheCache(t *testing.T) {
 		if err := os.WriteFile(archive, buf.Bytes(), 0o600); err != nil {
 			t.Fatal(err)
 		}
-		err := untar(archive, t.TempDir())
-		if got := err != nil && strings.Contains(err.Error(), "links outside the directory"); got != leaves {
-			t.Errorf("a link to %s: got %v", link, err)
+		if err := untar(archive, t.TempDir()); err == nil || !strings.Contains(err.Error(), "is a link") {
+			t.Errorf("a link to %s: got %v", h.Linkname, err)
 		}
+	}
+
+	var buf bytes.Buffer
+	zw := zip.NewWriter(&buf)
+	fh := &zip.FileHeader{Name: "go/lib/go"}
+	fh.SetMode(os.ModeSymlink | 0o777)
+	w, err := zw.CreateHeader(fh)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := w.Write([]byte("../bin/go")); err != nil {
+		t.Fatal(err)
+	}
+	if err := zw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	archive := filepath.Join(t.TempDir(), "go.zip")
+	if err := os.WriteFile(archive, buf.Bytes(), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := unzip(archive, t.TempDir()); err == nil || !strings.Contains(err.Error(), "is a link") {
+		t.Errorf("a zip's link: got %v", err)
 	}
 }
 

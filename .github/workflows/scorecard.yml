@@ -2,10 +2,13 @@
 # OpenSSF API. It runs once the AXX_PUBLISH repository variable is "true" (a public repository).
 name: scorecard
 
-# Weekly: nothing a merge changes that it scores needs it sooner.
+# Weekly, and by hand on main, to see what a merge fixed sooner. Not on every push: Binary-Artifacts
+# counts the Gradle wrappers' jars as checked only once gradle-wrappers.yml has passed on main's
+# latest commit, which a run started by the same push would not wait for.
 on:
   schedule:
     - cron: "41 5 * * 2"
+  workflow_dispatch:
 
 permissions: {}
 

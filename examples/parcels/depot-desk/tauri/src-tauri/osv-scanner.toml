@@ -1,0 +1,15 @@
+# The advisories osv-scanner (OpenSSF Scorecard's Vulnerabilities check) leaves out of the depot
+# desk's Tauri build: Tauri 2's Linux stack brings them (wry, on gtk-rs 0.18's archived GTK 3
+# bindings, and sha2 0.10), and no Tauri release can take their fixes.
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2024-0429"
+reason = "glib 0.18's VariantStrIter iterators are unsound; the fix is in glib 0.20, which gtk-rs 0.18 does not build with. The app never calls them (dependency-review.yml allows it too)."
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2024-0370"
+reason = "proc-macro-error is unmaintained, with no fix: glib-macros and gtk3-macros 0.18 use it at build time."
+
+[[IgnoredVulns]]
+id = "GHSA-qwgh-2vcv-g2f7"
+reason = "block-buffer 0.10 (a panic caught while hashing leaves its position corrupt): the fix is in 0.12, for digest 0.11, which sha2 0.10, the one tauri-codegen and wry take, does not use."
