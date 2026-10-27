@@ -55,12 +55,12 @@ dependencies {
     // The providers' official SDKs read the model mock's answers in the tests, which point them at
     // WireMock: nothing reaches a provider.
     testImplementation("com.openai:openai-java:4.93.0")
-    testImplementation("com.anthropic:anthropic-java:2.66.0")
-    testImplementation("com.anthropic:anthropic-java-bedrock:2.66.0")
-    testImplementation("com.anthropic:anthropic-java-vertex:2.66.0")
+    testImplementation("com.anthropic:anthropic-java:2.75.0")
+    testImplementation("com.anthropic:anthropic-java-bedrock:2.75.0")
+    testImplementation("com.anthropic:anthropic-java-vertex:2.75.0")
     testImplementation("com.google.genai:google-genai:1.79.0")
-    testImplementation("software.amazon.awssdk:bedrockruntime:2.55.14")
-    testImplementation("software.amazon.awssdk:netty-nio-client:2.55.14")
+    testImplementation("software.amazon.awssdk:bedrockruntime:2.57.4")
+    testImplementation("software.amazon.awssdk:netty-nio-client:2.57.4")
     testImplementation(platform("org.junit:junit-bom:6.1.3"))
     testImplementation("org.junit.jupiter:junit-jupiter")
     testImplementation("org.assertj:assertj-core:3.27.7")
