@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	"go.yaml.in/yaml/v4"
+	yaml "github.com/pb33f/go-yaml"
 )
 
 var jsonNumber = regexp.MustCompile(`^-?(?:0|[1-9][0-9]*)(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?$`)

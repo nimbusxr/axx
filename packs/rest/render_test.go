@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"go.yaml.in/yaml/v4"
+	yaml "github.com/pb33f/go-yaml"
 
 	"github.com/nimbusxr/axx/internal/compat/jsonx"
 	"github.com/nimbusxr/axx/internal/compat/jvalue"

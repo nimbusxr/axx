@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/dlclark/regexp2"
+	"github.com/pb33f/jsonschema/v6"
 	"github.com/pb33f/libopenapi"
 	validator "github.com/pb33f/libopenapi-validator"
 	vconfig "github.com/pb33f/libopenapi-validator/config"
@@ -24,7 +25,6 @@ import (
 	"github.com/pb33f/libopenapi/datamodel"
 	"github.com/pb33f/libopenapi/datamodel/high/base"
 	v3 "github.com/pb33f/libopenapi/datamodel/high/v3"
-	"github.com/santhosh-tekuri/jsonschema/v6"
 
 	"github.com/nimbusxr/axx/core"
 )
