@@ -36,11 +36,13 @@ dev = ["pytest==9.1.1", "httpx2==2.13.1"]
 # Every version at least two weeks old when the lock was written; but certifi's first release
 # without the root CAs whose intermediate CAs' keys were compromised (GHSA-6q48-6c7w-9gw2),
 # Pillow's first release with the fixes of its decoders' buffer overflows (GHSA-5x8w-8jj5-q52h),
-# filelock's first whose lock follows no planted link (GHSA-v4x8-3wr5-3wq8), and setuptools's
-# first that keeps a legacy wheel's namespace packages in the environment (GHSA-xmj3-9gf7-h52w).
+# filelock's first whose lock follows no planted link (GHSA-v4x8-3wr5-3wq8), setuptools's
+# first that keeps a legacy wheel's namespace packages in the environment (GHSA-xmj3-9gf7-h52w),
+# and Hydra's first whose legacy target blacklist refuses PyYAML's unsafe loaders
+# (GHSA-wf6j-7hvr-gr93).
 exclude-newer = "2026-10-09T00:00:00Z"
-exclude-newer-package = { certifi = "2026-10-21T00:00:00Z", pillow = "2026-10-17T00:00:00Z", filelock = "2026-10-18T00:00:00Z", setuptools = "2026-10-20T00:00:00Z" }
-constraint-dependencies = ["certifi>=2026.10.19", "filelock>=4.2.1", "setuptools>=84.1.0"]
+exclude-newer-package = { certifi = "2026-10-21T00:00:00Z", pillow = "2026-10-17T00:00:00Z", filelock = "2026-10-18T00:00:00Z", setuptools = "2026-10-20T00:00:00Z", hydra-core = "2026-10-26T00:00:00Z" }
+constraint-dependencies = ["certifi>=2026.10.19", "filelock>=4.2.1", "setuptools>=84.1.0", "hydra-core>=1.3.8"]
 environments = ["sys_platform == 'linux'", "sys_platform == 'darwin'"]
 
 # PyTorch's CPU builds on Linux (the default ones bring CUDA's libraries).
