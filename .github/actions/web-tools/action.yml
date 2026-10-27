@@ -5,7 +5,7 @@ description: >-
   axe-core and Lighthouse axx prepares, cached by their versions, and the browsers' system
   libraries, whose packages (117 MB from Ubuntu's mirror, which crawls at times) are cached too.
   Restore them before the web packs run, and save them as the job's last step: saving only
-  happens on pushes to main, like Go's caches.
+  happens on pushes to main, like Go's caches, and only when the job prepared them whole.
 inputs:
   mode:
     description: "`restore` (with the system libraries) or `save`."
@@ -47,18 +47,30 @@ runs:
         fi
         for attempt in 1 2 3; do
           if sudo timeout --kill-after=15s 5m npx -y "playwright@$version" install-deps chromium firefox webkit; then
+            touch "$RUNNER_TEMP/web-tools-libraries"
             exit 0
           fi
           echo "::warning::installing the browsers' system libraries failed or stalled (attempt $attempt of 3)"
         done
         exit 1
     - if: inputs.mode == 'save' && github.event_name == 'push' && github.ref == 'refs/heads/main'
+      id: whole
+      name: what the job prepared, whole
+      shell: bash
+      run: |
+        # A job that failed before the system libraries installed, or before the packs downloaded
+        # the browsers, holds a part of them: saved, the part would stand for them under the key,
+        # which no later run can replace (a mirror's stall once left every job a cache of 31 MB).
+        if [[ -e "$RUNNER_TEMP/web-tools-libraries" ]] && compgen -G ~/.cache/ms-playwright/'*' > /dev/null; then
+          echo "whole=true" >> "$GITHUB_OUTPUT"
+        fi
+    - if: steps.whole.outputs.whole == 'true'
       name: the system libraries' packages, for the cache
       shell: bash
       run: |
         mkdir -p ~/.cache/apt-archives
         cp /var/cache/apt/archives/*.deb ~/.cache/apt-archives/ 2> /dev/null || true
-    - if: inputs.mode == 'save' && github.event_name == 'push' && github.ref == 'refs/heads/main'
+    - if: steps.whole.outputs.whole == 'true'
       # A cache is an optimization: failing to save it fails nothing.
       continue-on-error: true
       uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
