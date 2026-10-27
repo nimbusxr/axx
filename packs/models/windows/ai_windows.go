@@ -31,6 +31,9 @@ const (
 	cppwinrtSum     = "955e3051b35db1c00177ed14ab6b7b995c3b32a53fdb6c184ea53b1dba66e439"
 	// aiMarker is the library's own export (ai/exports.def), by which axx knows its file.
 	aiMarker = "AxxModelsWindows"
+	// aiRevision is how the library is built (buildLibrary), part of its cache's key with its
+	// sources: bump it when the build changes.
+	aiRevision = 2
 )
 
 // aiFiles are the app's files of the APIs the library answers, the Windows App SDK's, which the
@@ -171,7 +174,7 @@ func aiLibrary(ctx context.Context, s *core.Suite, exe string) (string, error) {
 			return "", err
 		}
 		h := sha256.New()
-		fmt.Fprintf(h, "cppwinrt %s, %s\n", cppwinrtVersion, target)
+		fmt.Fprintf(h, "cppwinrt %s, %s, build %d\n", cppwinrtVersion, target, aiRevision)
 		var sources []string
 		if err := fs.WalkDir(aiSource, "ai", func(p string, d fs.DirEntry, err error) error {
 			if err == nil && !d.IsDir() {
@@ -234,13 +237,8 @@ func aiLibrary(ctx context.Context, s *core.Suite, exe string) (string, error) {
 				return "", err
 			}
 		}
-		if err := os.WriteFile(filepath.Join(tmp, "build.cmd"), []byte(buildScript(vcvars, arg, cppwinrt)), 0o644); err != nil {
+		if err := buildLibrary(ctx, tmp, vcvars, arg, cppwinrt, sources); err != nil {
 			return "", err
-		}
-		cmd := exec.CommandContext(ctx, "cmd", "/d", "/c", "build.cmd")
-		cmd.Dir = tmp
-		if b, err := cmd.CombinedOutput(); err != nil {
-			return "", unsupportedAI("cannot build axx's library of the Windows AI APIs with MSVC and C++/WinRT: %v: %s", err, lastLines(b, 30))
 		}
 		if err := os.MkdirAll(out, 0o755); err != nil {
 			return "", err
@@ -254,30 +252,107 @@ func aiLibrary(ctx context.Context, s *core.Suite, exe string) (string, error) {
 	})
 }
 
-// buildScript builds the library in its folder: C++/WinRT's projection of the SDK's classes and
-// the app's that the library calls, its classes' bases, then MSVC's compile and link, in the
-// environment vcvarsall.bat gives.
-func buildScript(vcvars, arg, cppwinrt string) string {
-	in := func(files []string) string {
-		var b strings.Builder
-		for _, f := range files {
-			fmt.Fprintf(&b, ` -in "winmd\%s"`, f)
+// buildLibrary builds the library in its folder: C++/WinRT's projection of the SDK's classes and
+// the app's that the library calls, with its base.h (which a projection of references writes only
+// when asked: the Windows SDK's own, of another C++/WinRT, is not the library's), its classes'
+// bases, then MSVC's compile and link, in the environment vcvarsall.bat gives.
+func buildLibrary(ctx context.Context, dir, vcvars, arg, cppwinrt string, sources []string) error {
+	env, err := msvcEnv(ctx, dir, vcvars, arg)
+	if err != nil {
+		return err
+	}
+	step := func(program string, args ...string) error {
+		cmd := exec.CommandContext(ctx, program, args...)
+		cmd.Dir, cmd.Env = dir, env
+		if b, err := cmd.CombinedOutput(); err != nil {
+			return unsupportedAI("cannot build axx's library of the Windows AI APIs: %s: %v: %s", filepath.Base(program), err, lastLines(b, 30))
 		}
-		return b.String()
+		return nil
 	}
-	var include strings.Builder
+	in := func(files []string) []string {
+		var out []string
+		for _, f := range files {
+			out = append(out, "-in", filepath.Join("winmd", f))
+		}
+		return out
+	}
+	if err := step(cppwinrt, append(append([]string{"-in", "sdk"}, in(aiProjected)...), "-ref", "winmd", "-out", "gen", "-base")...); err != nil {
+		return err
+	}
+	if _, err := os.Stat(filepath.Join(dir, "gen", "winrt", "base.h")); err != nil {
+		return unsupportedAI("C++/WinRT wrote no winrt/base.h in %s", filepath.Join(dir, "gen"))
+	}
+	component := append(in(aiComponent), "-ref", "winmd", "-ref", "sdk", "-component", "gen", "-out", "gen", "-name", "Microsoft.Windows.AI", "-prefix", "-optimize")
 	for _, c := range aiClasses {
-		fmt.Fprintf(&include, " -include %s", c)
+		component = append(component, "-include", c)
 	}
-	return strings.Join([]string{
-		"@echo off",
-		fmt.Sprintf(`call "%s" %s > nul || exit /b 1`, vcvars, arg),
-		fmt.Sprintf(`"%s" -in sdk%s -ref winmd -out gen || exit /b 1`, cppwinrt, in(aiProjected)),
-		fmt.Sprintf(`"%s"%s -ref winmd -ref sdk -component gen -out gen -name Microsoft.Windows.AI -prefix -optimize%s || exit /b 1`, cppwinrt, in(aiComponent), include.String()),
-		`cl /nologo /std:c++20 /EHsc /O2 /MT /DNDEBUG /permissive- /bigobj /Zc:__cplusplus /utf-8 /W3 /I gen /I src /Fo:obj\ /c src\*.cpp gen\module.g.cpp || exit /b 1`,
-		`link /nologo /DLL /OUT:axx-windows-ai.dll /DEF:src\exports.def obj\*.obj windowsapp.lib kernel32.lib ole32.lib oleaut32.lib || exit /b 1`,
-		"",
-	}, "\r\n")
+	if err := step(cppwinrt, component...); err != nil {
+		return err
+	}
+	cl, err := lookIn(env, "cl.exe")
+	if err != nil {
+		return err
+	}
+	compile := []string{"/nologo", "/std:c++20", "/EHsc", "/O2", "/MT", "/DNDEBUG", "/permissive-", "/bigobj", "/Zc:__cplusplus", "/utf-8", "/W3", "/I", "gen", "/I", "src", `/Fo:obj\`, "/c", filepath.Join("gen", "module.g.cpp")}
+	for _, f := range sources {
+		if strings.HasSuffix(f, ".cpp") {
+			compile = append(compile, filepath.Join("src", filepath.Base(f)))
+		}
+	}
+	if err := step(cl, compile...); err != nil {
+		return err
+	}
+	link, err := lookIn(env, "link.exe")
+	if err != nil {
+		return err
+	}
+	objects, err := filepath.Glob(filepath.Join(dir, "obj", "*.obj"))
+	if err != nil {
+		return err
+	}
+	return step(link, append(append([]string{"/nologo", "/DLL", "/OUT:axx-windows-ai.dll", `/DEF:src\exports.def`}, objects...), "windowsapp.lib", "kernel32.lib", "ole32.lib", "oleaut32.lib")...)
+}
+
+// msvcEnv is the environment vcvarsall.bat gives.
+func msvcEnv(ctx context.Context, dir, vcvars, arg string) ([]string, error) {
+	script := filepath.Join(dir, "vcvars.cmd")
+	if err := os.WriteFile(script, []byte(fmt.Sprintf("@call \"%s\" %s > nul || exit /b 1\r\n@set\r\n", vcvars, arg)), 0o644); err != nil {
+		return nil, err
+	}
+	cmd := exec.CommandContext(ctx, "cmd", "/d", "/c", "vcvars.cmd")
+	cmd.Dir = dir
+	b, err := cmd.Output()
+	if err != nil {
+		return nil, unsupportedAI("cannot set up MSVC's environment (%s %s): %v", vcvars, arg, err)
+	}
+	var env []string
+	for _, line := range strings.Split(strings.ReplaceAll(string(b), "\r\n", "\n"), "\n") {
+		if key, _, ok := strings.Cut(line, "="); ok && key != "" {
+			env = append(env, line)
+		}
+	}
+	return env, nil
+}
+
+// lookIn is a program on an environment's PATH.
+func lookIn(env []string, program string) (string, error) {
+	for _, kv := range env {
+		key, value, _ := strings.Cut(kv, "=")
+		if !strings.EqualFold(key, "PATH") {
+			continue
+		}
+		for _, d := range filepath.SplitList(value) {
+			if p := filepath.Join(d, program); fileExists(p) {
+				return p, nil
+			}
+		}
+	}
+	return "", unsupportedAI("MSVC's environment has no %s", program)
+}
+
+func fileExists(p string) bool {
+	info, err := os.Stat(p)
+	return err == nil && !info.IsDir()
 }
 
 // peArch is the architecture of an app's executable, as vcvarsall.bat names it.
