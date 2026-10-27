@@ -1,0 +1,6 @@
+# The advisories osv-scanner (OpenSSF Scorecard's Vulnerabilities check, scorecard.yml) leaves out
+# of go.mod's: none has a fixed release, and axx does not use what it is about.
+
+[[IgnoredVulns]]
+id = "GO-2026-5932"
+reason = "golang.org/x/crypto/openpgp is unmaintained, with no fix; no package axx builds imports it (go list -deps, on Linux, macOS and Windows), only other x/crypto packages."
