@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.2.22](https://github.com/nimbusxr/axx/compare/v0.2.21...v0.2.22) (2026-10-27)
+
+
+### Features
+
+* **models:** stubs of embedded models and platform model APIs ([#212](https://github.com/nimbusxr/axx/issues/212)) ([8b821a4](https://github.com/nimbusxr/axx/commit/8b821a458d68753252719da4664303de81deaf1d))
+
+
+### Bug Fixes
+
+* **deps:** go-jose 4.1.6, under Cloud Storage's client ([#268](https://github.com/nimbusxr/axx/issues/268)) ([052701b](https://github.com/nimbusxr/axx/commit/052701b1d060e1897ad71cbb1dcdec2f0ea67de7))
+* **deps:** hydra-core 1.3.8, under ExecuTorch ([#266](https://github.com/nimbusxr/axx/issues/266)) ([5fce816](https://github.com/nimbusxr/axx/commit/5fce816deb5d92128224ea6628758d0177e31e0c))
+* the last two vulnerabilities Scorecard lists ([#265](https://github.com/nimbusxr/axx/issues/265)) ([34b906d](https://github.com/nimbusxr/axx/commit/34b906d6db9954e510aba970214212a1bb6e67c0))
+* the security alerts' fixes and every pending dependency update ([#263](https://github.com/nimbusxr/axx/issues/263)) ([e57a6e0](https://github.com/nimbusxr/axx/commit/e57a6e0d0d78f9e98fc24813d20c361edf62691a))
+* the vulnerabilities left after [#263](https://github.com/nimbusxr/axx/issues/263) ([#264](https://github.com/nimbusxr/axx/issues/264)) ([46387df](https://github.com/nimbusxr/axx/commit/46387dff72be201c5b6b1d848c8aa6053da969fa))
+
 ## [0.2.21](https://github.com/nimbusxr/axx/compare/v0.2.20...v0.2.21) (2026-10-15)
 
 

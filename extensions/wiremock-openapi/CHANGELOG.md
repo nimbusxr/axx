@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.4](https://github.com/nimbusxr/axx/compare/wiremock-openapi-v0.1.3...wiremock-openapi-v0.1.4) (2026-10-27)
+
+
+### Bug Fixes
+
+* **deps:** update dependency com.networknt:json-schema-validator to v2.0.8 ([#207](https://github.com/nimbusxr/axx/issues/207)) ([263eaf7](https://github.com/nimbusxr/axx/commit/263eaf73502ff10a84cb97c054c2872daf1f389c))
+* the security alerts' fixes and every pending dependency update ([#263](https://github.com/nimbusxr/axx/issues/263)) ([e57a6e0](https://github.com/nimbusxr/axx/commit/e57a6e0d0d78f9e98fc24813d20c361edf62691a))
+
 ## [0.1.3](https://github.com/nimbusxr/axx/compare/wiremock-openapi-v0.1.2...wiremock-openapi-v0.1.3) (2026-10-12)
 
 
