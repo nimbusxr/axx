@@ -317,9 +317,9 @@ huggingface-hub==2.2.0 \
     --hash=sha256:1667f145dc56dc210d60966069397df9ecfca9607a5d43db88b308c89dae56b3 \
     --hash=sha256:5d1b47537394e4215cb858aa12fd493d0f7ef7f58990f5dcd24bc173107b2871
     # via tokenizers
-hydra-core==1.3.7 \
-    --hash=sha256:83606c4a05c770f1e026e0489875f28989829d151799eabd8cfa8cbe82164515 \
-    --hash=sha256:d4ff629c7e23b64a9db5fe5b027cf7c55b633b737f03be51ef41b77ed016f75e
+hydra-core==1.3.8 \
+    --hash=sha256:18d5dfb841734a936507e75e7b8390b406ed22494f7fb8b4b7b7c122102de3d5 \
+    --hash=sha256:d5f184c291691cba835c7f04bc4e36270ad88b1d7e394a3712f5af084c30b394
     # via executorch
 hypothesis==6.169.0 \
     --hash=sha256:00b317f00bc41be393cb681b6684e6d912bff1da673be1e719d6ca7b314b78dd \
