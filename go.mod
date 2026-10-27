@@ -44,7 +44,7 @@ require (
 	github.com/jackc/pgx/v5 v5.11.0
 	github.com/jacoelho/xsd v0.5.1
 	github.com/jezek/xgb v1.3.1
-	github.com/ledongthuc/pdf v0.0.0-20260907135840-6c8c28e0e8a0
+	github.com/ledongthuc/pdf v0.0.0-20261020125853-5e46805f718e
 	github.com/microsoft/go-mssqldb v1.11.2
 	github.com/moby/moby/api v1.55.0
 	github.com/modelcontextprotocol/go-sdk v1.8.0
