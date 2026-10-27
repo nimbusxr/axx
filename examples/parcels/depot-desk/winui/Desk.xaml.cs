@@ -58,7 +58,7 @@ public sealed partial class Desk : Window
 {
     static readonly string[] Towns = ["Leipzig", "Halle", "Markkleeberg", "Taucha", "Schkeuditz", "Delitzsch", "Borna", "Grimma", "Wurzen", "Eilenburg"];
     const string SettingsKey = @"Software\Parcels\Depot desk";
-    static string DataFolder => System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Parcels", "Depot desk");
+    internal static string DataFolder => System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Parcels", "Depot desk");
 
     List<Arrival> arrivals = Load();
 
@@ -114,6 +114,7 @@ public sealed partial class Desk : Window
     {
         RegisterButton.IsEnabled = Reference.Text.Trim().Length > 0;
         CloseDayItem.IsEnabled = arrivals.Count > 0;
+        DaySummaryItem.IsEnabled = arrivals.Count > 0;
         ArrivalsList.ItemsSource = arrivals.Select(a => a.Reference).ToList();
     }
 
@@ -127,7 +128,8 @@ public sealed partial class Desk : Window
 
     void OnRegister(object sender, RoutedEventArgs e) => Register();
 
-    void Register()
+    // A scan on the counter is filed with the arrival, which the status waits for (Models.cs).
+    async void Register()
     {
         var reff = Reference.Text.Trim();
         if (reff.Length == 0) return;
@@ -141,10 +143,12 @@ public sealed partial class Desk : Window
         arrivals.Add(new Arrival(reff, level, fragile));
         Save(arrivals);
         using (var key = Registry.CurrentUser.CreateSubKey(SettingsKey)) key.SetValue("serviceLevel", level);
-        Status.Text = $"Registered {reff}: {level}{(fragile ? ", fragile" : "")}{(PrintLabel.IsOn ? ", label printed" : "")}";
+        var registered = $"Registered {reff}: {level}{(fragile ? ", fragile" : "")}{(PrintLabel.IsOn ? ", label printed" : "")}";
         Reference.Text = "";
         Fragile.IsChecked = false;
         Refresh();
+        var scan = Scans.Newest();
+        Status.Text = scan == null ? registered : registered + await Scans.FileAsync(scan, reff);
     }
 
     void OnArrival(object sender, ItemClickEventArgs e)
@@ -171,4 +175,16 @@ public sealed partial class Desk : Window
     }
 
     void OnRules(object sender, RoutedEventArgs e) => RulesText.Visibility = Visibility.Visible;
+
+    async void OnDaySummary(object sender, RoutedEventArgs e) => Status.Text = await DaySummary.WriteAsync(arrivals);
+
+    async void OnReadLabel(object sender, RoutedEventArgs e)
+    {
+        var (reference, status) = await Scans.ReadLabelAsync();
+        if (reference != null)
+            Reference.Text = reference;
+        Status.Text = status;
+    }
+
+    void OnReadAloud(object sender, RoutedEventArgs e) => Speech.Say(RulesText.Text);
 }

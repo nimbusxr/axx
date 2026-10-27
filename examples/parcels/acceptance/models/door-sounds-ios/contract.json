@@ -1,0 +1,42 @@
+{
+  "format": {
+    "type": "coreml",
+    "version": 6,
+    "predictedFeature": "target",
+    "predictedProbabilities": "targetProbability"
+  },
+  "task": "classification",
+  "inputs": [
+    {
+      "name": "audioSamples",
+      "type": "float32",
+      "shape": [
+        15600
+      ],
+      "audio": {
+        "sampleRate": 16000
+      }
+    }
+  ],
+  "outputs": [
+    {
+      "name": "targetProbability",
+      "type": "float64",
+      "shape": [
+        3
+      ],
+      "labels": [
+        "background",
+        "doorbell",
+        "knock"
+      ]
+    }
+  ],
+  "metadata": {
+    "author": "Parcels",
+    "com.apple.createml.version": "27.0.1",
+    "sampleRate": "16000",
+    "shortDescription": "Hears a doorbell or a knock at the door",
+    "versionString": "1"
+  }
+}

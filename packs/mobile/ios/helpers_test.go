@@ -128,14 +128,25 @@ func TestDevices(t *testing.T) {
 		}
 	}
 	rts := []simRuntime{{Identifier: "r17", Name: "iOS 17.5", Version: "17.5"}, {Identifier: "r18", Name: "iOS 18.1", Version: "18.1"}, {Identifier: "r9", Name: "iOS 18.0", Version: "18.0"}}
-	if r, _ := pickRuntime(rts, ""); r.Identifier != "r18" {
+	if r, _ := pickRuntime(rts, "", "iPhone-16"); r.Identifier != "r18" {
 		t.Errorf("the newest: %s", r.Identifier)
 	}
-	if r, _ := pickRuntime(rts, "iOS 17.5"); r.Identifier != "r17" {
+	if r, _ := pickRuntime(rts, "iOS 17.5", "iPhone-16"); r.Identifier != "r17" {
 		t.Errorf("the one named: %s", r.Identifier)
 	}
-	if _, ok := pickRuntime(rts, "iOS 16.4"); ok {
+	if _, ok := pickRuntime(rts, "iOS 16.4", "iPhone-16"); ok {
 		t.Error("a runtime Xcode lacks")
+	}
+	// A newer runtime that does not run the device type is passed over.
+	rts = append(rts, simRuntime{Identifier: "r28", Name: "iOS 28.0", Version: "28.0", SupportedDeviceTypes: []simDeviceType{{Identifier: "iPhone-18"}}})
+	if r, _ := pickRuntime(rts, "", "iPhone-16"); r.Identifier != "r18" {
+		t.Errorf("the newest that runs an iPhone 16: %s", r.Identifier)
+	}
+	if r, _ := pickRuntime(rts, "", "iPhone-18"); r.Identifier != "r28" {
+		t.Errorf("the newest that runs an iPhone 18: %s", r.Identifier)
+	}
+	if _, ok := pickRuntime(rts, "iOS 28.0", "iPhone-16"); ok {
+		t.Error("a runtime named that does not run the device type")
 	}
 	if !newer("18.10", "18.9") || newer("18", "18.0") || !newer("26.0", "18.1") {
 		t.Error("versions compare by their numbers")

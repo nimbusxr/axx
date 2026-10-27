@@ -1,0 +1,11 @@
+# The stubs' weights, which `axx models build` writes as the example starts (see
+# ../../acceptance/axx.yaml), and the safetensors stubs' config.json beside them.
+transcriber/faster-whisper/model.bin
+transcriber/openai-whisper/
+transcriber/transformers/model.safetensors
+help-centre/sentence-transformers/model.safetensors
+help-centre/sentence-transformers/config.json
+help-centre/llama.cpp/
+drafter/transformers/model.safetensors
+drafter/transformers/config.json
+reranker/

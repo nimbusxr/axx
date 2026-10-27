@@ -1,0 +1,11 @@
+{
+  "format": {
+    "type": "platform",
+    "details": {
+      "api": "web.language-detector"
+    }
+  },
+  "task": "text-generation",
+  "inputs": [],
+  "outputs": []
+}

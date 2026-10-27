@@ -285,17 +285,19 @@ func (r *Runner) withTimeout(parent context.Context, sc *core.Scenario, what str
 	prevHold := sc.SetHold(ctx.hold)
 	defer func() { sc.SetHold(prevHold) }()
 
-	done := make(chan error, 1)
+	done := make(chan struct{})
+	var err error
 	go func() {
+		defer close(done)
 		defer func() {
 			if v := recover(); v != nil {
-				done <- &PanicError{Value: v, Stack: string(debug.Stack())}
+				err = &PanicError{Value: v, Stack: string(debug.Stack())}
 			}
 		}()
-		done <- fn()
+		err = fn()
 	}()
 	select {
-	case err := <-done:
+	case <-done:
 		if err != nil && errors.Is(ctx.Err(), context.DeadlineExceeded) && parent.Err() == nil {
 			return &TimeoutError{What: what, Limit: limit}
 		}

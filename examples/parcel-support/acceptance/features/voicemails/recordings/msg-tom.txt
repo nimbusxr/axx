@@ -1,0 +1,18 @@
+;
+; Message Information file
+;
+[message]
+origmailbox=200
+context=support
+macrocontext=
+exten=200
+rdnis=unknown
+priority=2
+callerchan=PJSIP/trunk-00000015
+callerid="Tom Becker" <+493415550177>
+origdate=Fri Oct 23 10:03:40 PM UTC 2026
+origtime=1792793020
+category=
+msg_id=1792793020-00000002
+flag=
+duration=11

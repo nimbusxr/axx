@@ -1,0 +1,7 @@
+{
+  "name": "Any other day",
+  "default": true,
+  "output": {
+    "text": "A quiet day at the depot."
+  }
+}

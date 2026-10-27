@@ -3,3 +3,4 @@
 packs:
   - azure-blob
   - azure-servicebus
+  - models-core

@@ -363,7 +363,7 @@ static void inSpringboard(void) {
   });
 }
 
-// The library is in every process of the simulator, from its boot on: it decides with C alone
+// The library is in processes started with the simulator's launchd defaults: it decides with C alone
 // whether a process is one it has work in, SpringBoard or an app that is not iOS's own (launchd
 // names an app's job UIKitApplication:<bundle identifier>), and leaves every other one alone.
 // Foundation is no help here: +[NSBundle mainBundle] opens a log, which waits on logd, and in the

@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The desk's package, whose identity Windows gives the desk as it starts (identity/). -->
+<assembly manifestVersion="1.0" xmlns="urn:schemas-microsoft-com:asm.v1">
+  <msix xmlns="urn:schemas-microsoft-com:msix.v1" publisher="CN=Parcels Example" packageName="example.parcels.DepotDesk" applicationId="DepotDesk" />
+</assembly>

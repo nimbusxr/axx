@@ -2,6 +2,9 @@
 
 import json
 import os
+import re
+import subprocess
+import sys
 
 import gi
 
@@ -15,6 +18,7 @@ TOWNS = ["Leipzig", "Halle", "Markkleeberg", "Taucha", "Schkeuditz", "Delitzsch"
 EXPECTED = [("PX-DSK-%d" % (4101 + i), TOWNS[i % len(TOWNS)]) for i in range(40)]
 DATA = os.path.join(GLib.get_user_data_dir(), "depot-desk")
 CONFIG = os.path.join(GLib.get_user_config_dir(), "depot-desk")
+RULES = "Parcels are handed over to the courier at 18:00."
 
 
 def parcels(n):
@@ -35,6 +39,46 @@ def save(arrivals):
         json.dump(arrivals, f)
 
 
+def newest_scan():
+    """The newest scan the depot's label camera saved, in Scans in the desk's data folder."""
+    folder = os.path.join(DATA, "Scans")
+    try:
+        scans = [os.path.join(folder, n) for n in os.listdir(folder) if n.lower().endswith((".jpg", ".jpeg", ".png"))]
+    except FileNotFoundError:
+        return None
+    return max(scans, key=lambda p: (os.path.getmtime(p), os.path.basename(p)), default=None)
+
+
+def read_label(scan):
+    """The parcel's reference on a scan's label, as the system's Tesseract reads it."""
+    try:
+        text = subprocess.run(["tesseract", scan, "stdout", "-l", "eng"], capture_output=True, text=True,
+                              timeout=60).stdout
+    except (OSError, subprocess.SubprocessError):
+        return None
+    found = re.search(r"PX(-[A-Z0-9]+)+", text)
+    return found.group(0) if found else None
+
+
+class Speech:
+    """The desktop's speech service (speech-dispatcher), which the desk reads aloud with: one
+    connection for as long as the desk runs, as speech-dispatcher drops what a client that
+    leaves gave it to say."""
+
+    def __init__(self):
+        self.client = None
+
+    def say(self, text):
+        try:
+            if self.client is None:
+                import speechd
+                self.client = speechd.SSIPClient("depot-desk")
+            self.client.speak(text)
+        except Exception as e:  # no speech service on this desktop
+            print("The desk cannot read aloud: %s" % e, file=sys.stderr)
+            self.client = None
+
+
 def named(widget, name):
     widget.get_accessible().set_name(name)
     return widget
@@ -51,9 +95,13 @@ class Desk(Gtk.Window):
         except GLib.Error:
             pass
 
+        self.speech = Speech()
+        read_label_item = Gtk.MenuItem(label="Read label")
+        read_label_item.connect("activate", self.on_read_label)
         self.close_day = Gtk.MenuItem(label="Close day")
         self.close_day.connect("activate", self.on_close_day)
         depot_menu = Gtk.Menu()
+        depot_menu.append(read_label_item)
         depot_menu.append(self.close_day)
         depot = Gtk.MenuItem(label="Depot")
         depot.set_submenu(depot_menu)
@@ -146,9 +194,12 @@ class Desk(Gtk.Window):
         rules = Gtk.LinkButton(uri="depotdesk:rules", label="Handover rules")
         rules.set_halign(Gtk.Align.START)
         rules.connect("activate-link", self.on_rules)
-        self.rules_text = Gtk.Label(label="Parcels are handed over to the courier at 18:00.", xalign=0)
+        self.rules_text = Gtk.Label(label=RULES, xalign=0)
         self.rules_text.set_no_show_all(True)
-        for w in [self.pad, self.signed, clear, rules, self.rules_text]:
+        aloud = Gtk.Button(label="Read aloud")
+        aloud.set_halign(Gtk.Align.START)
+        aloud.connect("clicked", lambda _: self.speech.say(RULES))
+        for w in [self.pad, self.signed, clear, rules, self.rules_text, aloud]:
             box.pack_start(w, False, False, 0)
         return box
 
@@ -202,6 +253,18 @@ class Desk(Gtk.Window):
         if it is not None:
             self.reference.set_text(model[it][0])
             GLib.idle_add(selection.unselect_all)
+
+    def on_read_label(self, _):
+        scan = newest_scan()
+        if scan is None:
+            self.status.set_text("No scan to read")
+            return
+        ref = read_label(scan)
+        if ref is None:
+            self.status.set_text("No reference on the label: type it in")
+            return
+        self.reference.set_text(ref)
+        self.status.set_text("Read %s from the label" % ref)
 
     def on_close_day(self, _):
         n = len(self.arrivals)

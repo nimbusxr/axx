@@ -49,8 +49,7 @@ func TestTheSpringBoardLibraryReportsForTheSpringBoardThatRuns(t *testing.T) {
 			t.Errorf("%s: %q, want %q", udid, got, want)
 		}
 	}
-	// The library names itself, but for an earlier axx's: a simulator booted with that one boots
-	// again (springboardBootedWithAnother).
+	// The library names itself, but for an earlier axx's.
 	if _, lib := springboardReport("RUNNING"); lib != "/cache/springboard-1/axx-springboard.dylib" {
 		t.Errorf("the library running is %q", lib)
 	}
@@ -60,8 +59,28 @@ func TestTheSpringBoardLibraryReportsForTheSpringBoardThatRuns(t *testing.T) {
 	if !springboardRuns("RUNNING", "/cache/springboard-1/axx-springboard.dylib") || springboardRuns("EARLIER", "/cache/springboard-1/axx-springboard.dylib") {
 		t.Error("springboardRuns does not tell this library from an earlier one")
 	}
-	if env := strings.Join(simulatorEnv("/lib.dylib"), " "); !strings.Contains(env, "SIMCTL_CHILD_DYLD_INSERT_LIBRARIES=/lib.dylib") || !strings.Contains(env, "SIMCTL_CHILD_AXX_SPRINGBOARD_STATUS="+springboardStatuses()) {
-		t.Errorf("simctl is given %s", env)
+	// A boot-time library must be migrated even if it is the current build:
+	// otherwise it still overrides the app's initial libraries. A launchd
+	// default is safe to keep, and a simulator with no library needs no reboot.
+	tools := t.TempDir()
+	if err := os.WriteFile(filepath.Join(tools, "xcrun"), []byte("#!/bin/sh\nprintf '%s\\n' \"$AXX_TEST_LAUNCHD_LIBRARY\"\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", tools+string(os.PathListSeparator)+os.Getenv("PATH"))
+	for _, tc := range []struct {
+		udid, defaultLibrary string
+		want                 bool
+	}{
+		{"RUNNING", "", true},
+		{"EARLIER", "", true},
+		{"RUNNING", "/cache/springboard-1/axx-springboard.dylib", false},
+		{"NEVER", "", false},
+		{"REBOOTED", "", false},
+	} {
+		t.Setenv("AXX_TEST_LAUNCHD_LIBRARY", tc.defaultLibrary)
+		if got := springboardBootedWithLibrary(t.Context(), &device{udid: tc.udid}); got != tc.want {
+			t.Errorf("boot-time library for %s (launchd %q): %v, want %v", tc.udid, tc.defaultLibrary, got, tc.want)
+		}
 	}
 }
 
@@ -79,7 +98,7 @@ func TestTheSpringBoardLibraryBuildsForTheSimulators(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(out), "dynamically linked shared library") || !strings.Contains(string(out), simulatorArch(context.Background())) {
+	if !strings.Contains(string(out), "dynamically linked shared library") || !strings.Contains(string(out), SimulatorArch(context.Background())) {
 		t.Errorf("built %s", out)
 	}
 	if _, err := os.Stat(springboardStatuses()); err != nil {

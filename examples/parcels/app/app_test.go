@@ -124,7 +124,7 @@ func TestPortalPagesRender(t *testing.T) {
 			*Parcel
 			Barcode string
 		}{p, "PX00000051013"},
-		"track": struct{ Reference, Sender, Status string }{"PX-WEB-1", "shop-example", "in transit"},
+		"track": trackPage{Reference: "PX-WEB-1", Sender: "shop-example", Status: "in transit"},
 	} {
 		var b strings.Builder
 		if err := portalPages[name].Execute(&b, data); err != nil {
@@ -133,6 +133,27 @@ func TestPortalPagesRender(t *testing.T) {
 		if !strings.Contains(b.String(), "PX-WEB-1") && !strings.Contains(b.String(), "Anna Weber") {
 			t.Errorf("%s:\n%s", name, b.String())
 		}
+	}
+	var tracking strings.Builder
+	if err := portalPages["track"].Execute(&tracking, trackPage{Reference: "PX-WEB-1", Sender: "shop-example", Status: "delivered", Damage: true}); err != nil {
+		t.Fatal(err)
+	}
+	var instructions strings.Builder
+	if err := portalPages["track"].Execute(&instructions, trackPage{Reference: "PX-WEB-1", Sender: "shop-example", Status: "in transit", Instructions: true, Note: "Ring twice"}); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(instructions.String(), `<textarea id="instructions" rows="3" cols="60">Ring twice</textarea>`) || !strings.Contains(instructions.String(), "/portal/js/instructions.js") {
+		t.Errorf("a parcel in transit's tracking page takes no instructions:\n%s", instructions.String())
+	}
+	if !strings.Contains(tracking.String(), `<label for="damage-photo">Photo of the parcel</label>`) || !strings.Contains(tracking.String(), "/portal/js/damage.js") {
+		t.Errorf("a delivered parcel's tracking page takes no photo:\n%s", tracking.String())
+	}
+	var returns strings.Builder
+	if err := portalPages["track"].Execute(&returns, trackPage{Reference: "PX-WEB-1", Sender: "shop-example", Status: "delivered", Returns: true}); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(returns.String(), `<label for="return-why">Why are you sending it back?</label>`) || !strings.Contains(returns.String(), `<option value="WRONG_ITEM">Wrong item</option>`) || !strings.Contains(returns.String(), "/portal/js/returns.js") {
+		t.Errorf("a delivered parcel's tracking page does not send it back:\n%s", returns.String())
 	}
 	label := zpl(p, labeler{secret: []byte("example-label-secret")}.label(&Parcel{Reference: "PX-WEB-1", ServiceLevel: "EXPRESS", LabelNumber: 5101}))
 	for _, want := range []string{"^XA\n", "^FDAnna Weber^FS", "^BCN,120,Y,N,N^FDPX0000005101", "^FDRef PX-WEB-1^FS", "^XZ\n"} {

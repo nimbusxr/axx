@@ -1,0 +1,10 @@
+parcels.parcels:
+  - reference: "PX-WEB-5705"
+    sender: "maple-crafts"
+    status: "IN_TRANSIT"
+    service_level: "STANDARD"
+    weight_grams: 1800
+    recipient: '{"name": "Jonas Weber", "street": "Karl-Liebknecht-Str. 31", "city": "Leipzig", "postcode": "04107", "country": "DE"}'
+    details: '{"source": "portal", "zone": "DE-1", "signature": false}'
+    created_at: "2026-09-25 14:00:00+00"
+    updated_at: "2026-09-25 14:00:00+00"

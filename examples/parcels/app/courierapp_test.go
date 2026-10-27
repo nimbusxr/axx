@@ -104,9 +104,9 @@ func TestCourierLocation(t *testing.T) {
 	}
 }
 
-// A courier attaches a PDF or an image to a delivery, named as its file is, of 10 MB at most:
-// anything else is refused before the service looks for the parcel.
-func TestCourierDocumentIsAPDFOrAnImage(t *testing.T) {
+// A courier attaches a PDF, an image or text to a delivery, named as its file is, of 10 MB at
+// most: anything else is refused before the service looks for the parcel.
+func TestCourierDocumentIsAPDFAnImageOrText(t *testing.T) {
 	s := &service{
 		courierTokenKey: []byte("test-courier-token-key"),
 		couriers:        map[string]courierAccount{"CR-LEJ-12": {name: "Hanna Wolf", pin: "4711"}},
@@ -136,6 +136,26 @@ func TestCourierDocumentIsAPDFOrAnImage(t *testing.T) {
 	} {
 		if got := attach(c.name, c.contentType, c.body); got != c.want {
 			t.Errorf("%s (%s, %d bytes): %d, want %d", c.name, c.contentType, len(c.body), got, c.want)
+		}
+	}
+}
+
+// An attempt is what the phone heard at the door: the doorbell, or a knock.
+func TestCourierAttemptIsADoorbellOrAKnock(t *testing.T) {
+	s := &service{
+		courierTokenKey: []byte("test-courier-token-key"),
+		couriers:        map[string]courierAccount{"CR-LEJ-12": {name: "Hanna Wolf", pin: "4711"}},
+	}
+	token := signJWT(s.courierTokenKey, map[string]any{"courier": "CR-LEJ-12", "iat": time.Now().Unix(), "exp": time.Now().Add(time.Hour).Unix()})
+	mux := http.NewServeMux()
+	mux.HandleFunc("PUT /api/couriers/{courier}/deliveries/{reference}/attempt", s.courierAttempt)
+	for _, body := range []string{`{"heard": "a dog"}`, `{}`, `not json`} {
+		req := httptest.NewRequest(http.MethodPut, "/api/couriers/CR-LEJ-12/deliveries/PX-MOB-9421/attempt", strings.NewReader(body))
+		req.Header.Set("Authorization", "Bearer "+token)
+		rec := httptest.NewRecorder()
+		mux.ServeHTTP(rec, req)
+		if rec.Code != http.StatusBadRequest {
+			t.Errorf("%s: %d, want 400", body, rec.Code)
 		}
 	}
 }

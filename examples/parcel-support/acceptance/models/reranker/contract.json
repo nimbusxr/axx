@@ -1,0 +1,43 @@
+{
+  "format": {
+    "type": "gguf",
+    "version": 3,
+    "details": {
+      "architecture": "qwen3",
+      "contextLength": 40960,
+      "endOfGeneration": 151645,
+      "pooling": 4
+    }
+  },
+  "task": "classification",
+  "inputs": [
+    {
+      "name": "tokens",
+      "type": "int32",
+      "shape": [
+        "sequence"
+      ]
+    }
+  ],
+  "outputs": [
+    {
+      "name": "score",
+      "type": "float32",
+      "shape": [
+        1
+      ],
+      "labels": [
+        "relevant"
+      ],
+      "activation": "none"
+    }
+  ],
+  "metadata": {
+    "general.basename": "Qwen3-Reranker",
+    "general.name": "Qwen3 Reranker 0.6B",
+    "general.size_label": "0.6B"
+  },
+  "files": {
+    "metadata": "model-files/metadata.gguf"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "format": {
+    "type": "platform",
+    "details": {
+      "api": "android.gemini-nano"
+    }
+  },
+  "task": "text-generation",
+  "inputs": [],
+  "outputs": []
+}

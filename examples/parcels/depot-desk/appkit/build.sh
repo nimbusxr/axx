@@ -5,7 +5,7 @@ cd "$(dirname "$0")"
 app="build/Depot desk.app"
 rm -rf "$app"
 mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
-swiftc -O -o "$app/Contents/MacOS/Depot desk" main.swift
+swiftc -O -o "$app/Contents/MacOS/Depot desk" main.swift ../apple/models.swift
 cp ../depot.png "$app/Contents/Resources/"
 cat > "$app/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -20,6 +20,8 @@ cat > "$app/Contents/Info.plist" <<PLIST
   <key>LSMinimumSystemVersion</key><string>13.0</string>
   <key>NSHighResolutionCapable</key><true/>
   <key>NSPrincipalClass</key><string>NSApplication</string>
+  <key>NSMicrophoneUsageDescription</key><string>The desk listens to the clerk's dictated handover note.</string>
+  <key>NSSpeechRecognitionUsageDescription</key><string>The desk writes out the clerk's dictated handover note.</string>
 </dict>
 </plist>
 PLIST

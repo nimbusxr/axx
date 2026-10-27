@@ -24,6 +24,7 @@ const Identity = `axx (github.com/nimbusxr/axx, "axxeptance") is a human-readabl
 
 // Main runs the CLI with args and returns the process exit code.
 func Main(args []string) int {
+	_ = os.Unsetenv(envPackBuild)
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	code := Run(ctx, NewApp(), args)
@@ -40,6 +41,9 @@ func Run(ctx context.Context, app *App, args []string) int {
 	// Honor --json even when cobra fails before parsing flags (unknown command).
 	// Must follow newRootCmd: flag definition resets the bound variable.
 	app.JSON = slices.Contains(args, "--json")
+	if err := app.ensurePackCommand(ctx, root, args); err != nil {
+		return int(app.reportError(err))
+	}
 	root.SetArgs(args)
 	root.SetOut(app.Stdout)
 	root.SetErr(app.Stderr)
@@ -197,6 +201,7 @@ Docs: https://axx.nimbusxr.us (every page as Markdown: add .md to its path; llms
 		newSuperviseCmd(app),
 		newVersionCmd(app),
 	)
+	addPackCommands(app, root)
 	return root
 }
 

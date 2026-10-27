@@ -40,6 +40,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -100,8 +101,13 @@ fun CourierApp(model: CourierViewModel) {
                             attached = model.attached,
                             attaching = model.attaching,
                             onAttach = { document -> model.attachDocument(screen.reference, document) },
+                            onReportDamage = { photo -> model.reportDamage(screen.reference, photo) },
+                            onDescribeDamage = { note -> model.describeDamage(screen.reference, note) },
                             onConfirm = { signedBy -> model.markDelivered(screen.reference, signedBy) },
                             onBack = model::backToDeliveries,
+                            readNote = model::noteForCourier,
+                            saveNote = { note -> model.saveNote(screen.reference, note) },
+                            recordAttempt = { heard -> model.recordAttempt(screen.reference, heard) },
                         )
                     }
                 }
@@ -237,15 +243,27 @@ fun DeliveryScreen(
     attached: List<String>,
     attaching: Boolean,
     onAttach: (document: Uri) -> Unit,
+    onReportDamage: (photo: Uri) -> Unit,
+    onDescribeDamage: (note: String) -> Unit,
     onConfirm: (signedBy: String) -> Unit,
     onBack: () -> Unit,
+    readNote: suspend (note: String) -> String,
+    saveNote: suspend (note: String) -> Boolean,
+    recordAttempt: suspend (heard: String) -> Boolean,
 ) {
     var signedBy by rememberSaveable(reference) { mutableStateOf("") }
     var confirming by rememberSaveable(reference) { mutableStateOf(false) }
+    // The damage in the courier's own words, which the app writes out for the damage report.
+    var describing by rememberSaveable(reference) { mutableStateOf(false) }
+    var damageNote by rememberSaveable(reference) { mutableStateOf("") }
     // A document from the phone's files: the recipient's authorization to leave the parcel at a
     // safe place, say, which they sent the courier.
     val pick = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { document ->
         if (document != null) onAttach(document)
+    }
+    // A photo of the damage, when the parcel came to the courier damaged.
+    val damaged = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { photo ->
+        if (photo != null) onReportDamage(photo)
     }
     Column(
         Modifier
@@ -266,6 +284,11 @@ fun DeliveryScreen(
                 Text(delivery.recipient.name, style = MaterialTheme.typography.titleMedium)
                 Text(delivery.address)
                 Text(delivery.serviceLevel)
+                if (delivery.note.isNotEmpty()) {
+                    // The recipient's note, summarized on the phone when it is long.
+                    val note by produceState<String?>(null, delivery.note) { value = readNote(delivery.note) }
+                    Text(note?.let { "Note: $it" } ?: "Reading the recipient's note…")
+                }
                 if (delivered) {
                     Text(
                         "Delivered",
@@ -282,7 +305,7 @@ fun DeliveryScreen(
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                     )
-                    attached.forEach { name -> Text("$name attached") }
+                    attached.forEach { done -> Text(done) }
                     OutlinedButton(
                         onClick = { pick.launch(arrayOf("application/pdf", "image/*")) },
                         enabled = !attaching,
@@ -290,6 +313,22 @@ fun DeliveryScreen(
                     ) {
                         Text("Attach document")
                     }
+                    OutlinedButton(
+                        onClick = { damaged.launch(arrayOf("image/*")) },
+                        enabled = !attaching,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text("Report damage")
+                    }
+                    OutlinedButton(
+                        onClick = { describing = true },
+                        enabled = !attaching,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text("Describe damage")
+                    }
+                    DictatedNote(reference, delivery.courierNote, saveNote)
+                    NoOneHome(reference, recordAttempt)
                     if (error != null) ErrorText(error)
                     Button(
                         onClick = { confirming = true },
@@ -301,6 +340,33 @@ fun DeliveryScreen(
                 }
             }
         }
+    }
+    if (describing) {
+        AlertDialog(
+            onDismissRequest = { describing = false },
+            title = { Text("Describe the damage") },
+            text = {
+                OutlinedTextField(
+                    value = damageNote,
+                    onValueChange = { damageNote = it },
+                    label = { Text("What is damaged?") },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        describing = false
+                        onDescribeDamage(damageNote.trim())
+                        damageNote = ""
+                    },
+                    enabled = damageNote.isNotBlank(),
+                ) { Text("Describe") }
+            },
+            dismissButton = {
+                TextButton(onClick = { describing = false }) { Text("Cancel") }
+            },
+        )
     }
     if (confirming) {
         val who = signedBy.trim()

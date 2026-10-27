@@ -27,8 +27,12 @@ jobs:
           # (examples/parcels/depot-desk/flutter/pubspec.lock): their licenses are BSD-3-Clause,
           # Apache-2.0 and MIT, which the dependency graph records in lower case, as no valid
           # SPDX id, so the action cannot check them.
+          # piper-tts 1.2.0 is rhasspy/piper's, MIT (its own metadata says so): the dependency graph
+          # gives it the GPL-3.0 of the name's later releases (1.3.0 on, piper1-gpl's), which axx
+          # does not take. It runs Piper's voices in the models-core pack's tests
+          # (packs/models/core/internal/piperrun/requirements.txt), in a container of their own.
           allow-dependencies-licenses: >-
-            pkg:npm/unorm@1.6.0,
+            pkg:npm/unorm@1.6.0, pkg:pypi/piper-tts@1.2.0,
             pkg:pub/code_assets, pkg:pub/hooks, pkg:pub/jni, pkg:pub/jni_flutter,
             pkg:pub/material_color_utilities, pkg:pub/objective_c, pkg:pub/platform,
             pkg:pub/pub_semver, pkg:pub/record_use, pkg:pub/shared_preferences_android,
@@ -38,5 +42,9 @@ jobs:
           # does not build with: no Tauri release can take the fix. It is in the depot desk's
           # Tauri build (examples/parcels/depot-desk/tauri), a test fixture that never calls
           # VariantStrIter.
-          allow-ghsas: GHSA-wrw7-89jp-8q8g
+          # diskcache (GHSA-w8v5-vhqr-4h9v: its cache unpickles what is in its folder; no release
+          # fixes it) comes with llama-cpp-python, which needs it, in parcel-support's service
+          # (examples/parcel-support/app/uv.lock), which runs its reranker with no cache of it:
+          # nothing there makes a diskcache.
+          allow-ghsas: GHSA-wrw7-89jp-8q8g, GHSA-w8v5-vhqr-4h9v
           comment-summary-in-pr: on-failure

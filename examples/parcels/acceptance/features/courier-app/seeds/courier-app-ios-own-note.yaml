@@ -1,0 +1,8 @@
+parcels.parcels:
+  - reference: "PX-IOS-9604"
+    sender: "maple-crafts"
+    status: "OUT_FOR_DELIVERY"
+    service_level: "STANDARD"
+    weight_grams: 1400
+    recipient: '{"name": "Tobias Kraemer", "street": "Merseburger Strasse 102", "city": "Leipzig", "postcode": "04177", "country": "DE"}'
+    details: '{"source": "portal", "zone": "DE-1", "courier": "CR-LEJ-63", "deliveryNote": "We are only at home on Tuesdays. On any other day please take the parcel to the kiosk at the corner of Merseburger Strasse, they know us and keep parcels for us until 8 pm. Please do not leave it on the steps: it rained into the last box we got."}'

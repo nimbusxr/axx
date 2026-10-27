@@ -64,6 +64,27 @@ CREATE TABLE parcels.pickups (
     planned_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- The photos recipients send from a delivered parcel's tracking page when it arrived damaged,
+-- for the claim its shop files (see ../../../app/portal.go).
+CREATE TABLE parcels.damage_photos (
+    id           BIGSERIAL PRIMARY KEY,
+    reference    VARCHAR(40) NOT NULL,
+    content_type VARCHAR(100) NOT NULL,
+    size_bytes   INTEGER NOT NULL,
+    content      BYTEA NOT NULL,
+    received_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- The parcels recipients send back from a delivered parcel's tracking page: the reason they
+-- chose (the page suggests it from their words), and their words (see ../../../app/portal.go).
+CREATE TABLE parcels.returns (
+    id           BIGSERIAL PRIMARY KEY,
+    reference    VARCHAR(40) NOT NULL,
+    reason       VARCHAR(20) NOT NULL,
+    why          TEXT NOT NULL,
+    requested_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 -- The documents a courier attached to a parcel they deliver, from the couriers' app: the
 -- recipient's leave to put it at a safe place, say (see ../../../app/courierapp.go).
 CREATE TABLE parcels.delivery_documents (

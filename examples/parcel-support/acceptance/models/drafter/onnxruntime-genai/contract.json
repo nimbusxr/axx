@@ -1,0 +1,1266 @@
+{
+  "format": {
+    "type": "onnx",
+    "irVersion": 10,
+    "opsets": {
+      "": 22,
+      "com.microsoft": 1
+    },
+    "operators": [
+      "Cast",
+      "Constant",
+      "Gather",
+      "Mul",
+      "ReduceSum",
+      "Reshape",
+      "Shape",
+      "Sigmoid",
+      "SimplifiedLayerNormalization",
+      "Sub",
+      "com.microsoft:GatherBlockQuantized",
+      "com.microsoft:GroupQueryAttention",
+      "com.microsoft:MatMulNBits",
+      "com.microsoft:SkipSimplifiedLayerNormalization"
+    ],
+    "producer": "onnxruntime-genai",
+    "externalData": [
+      "model.onnx.data"
+    ],
+    "details": {
+      "endOfGeneration": 2
+    }
+  },
+  "task": "text-generation",
+  "inputs": [
+    {
+      "name": "input_ids",
+      "type": "int64",
+      "shape": [
+        "batch_size",
+        "sequence_length"
+      ]
+    },
+    {
+      "name": "attention_mask",
+      "type": "int64",
+      "shape": [
+        "batch_size",
+        "total_sequence_length"
+      ]
+    },
+    {
+      "name": "past_key_values.0.key",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "past_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "past_key_values.1.key",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "past_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "past_key_values.2.key",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "past_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "past_key_values.3.key",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "past_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "past_key_values.4.key",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "past_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "past_key_values.5.key",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "past_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "past_key_values.6.key",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "past_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "past_key_values.7.key",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "past_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "past_key_values.8.key",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "past_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "past_key_values.9.key",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "past_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "past_key_values.10.key",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "past_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "past_key_values.11.key",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "past_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "past_key_values.12.key",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "past_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "past_key_values.13.key",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "past_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "past_key_values.14.key",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "past_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "past_key_values.15.key",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "past_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "past_key_values.16.key",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "past_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "past_key_values.17.key",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "past_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "past_key_values.18.key",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "past_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "past_key_values.19.key",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "past_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "past_key_values.20.key",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "past_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "past_key_values.21.key",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "past_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "past_key_values.22.key",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "past_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "past_key_values.23.key",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "past_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "past_key_values.24.key",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "past_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "past_key_values.25.key",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "past_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "past_key_values.26.key",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "past_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "past_key_values.27.key",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "past_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "past_key_values.28.key",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "past_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "past_key_values.29.key",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "past_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "past_key_values.0.value",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "past_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "past_key_values.1.value",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "past_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "past_key_values.2.value",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "past_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "past_key_values.3.value",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "past_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "past_key_values.4.value",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "past_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "past_key_values.5.value",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "past_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "past_key_values.6.value",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "past_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "past_key_values.7.value",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "past_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "past_key_values.8.value",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "past_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "past_key_values.9.value",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "past_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "past_key_values.10.value",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "past_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "past_key_values.11.value",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "past_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "past_key_values.12.value",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "past_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "past_key_values.13.value",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "past_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "past_key_values.14.value",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "past_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "past_key_values.15.value",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "past_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "past_key_values.16.value",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "past_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "past_key_values.17.value",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "past_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "past_key_values.18.value",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "past_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "past_key_values.19.value",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "past_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "past_key_values.20.value",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "past_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "past_key_values.21.value",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "past_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "past_key_values.22.value",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "past_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "past_key_values.23.value",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "past_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "past_key_values.24.value",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "past_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "past_key_values.25.value",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "past_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "past_key_values.26.value",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "past_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "past_key_values.27.value",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "past_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "past_key_values.28.value",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "past_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "past_key_values.29.value",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "past_sequence_length",
+        64
+      ]
+    }
+  ],
+  "outputs": [
+    {
+      "name": "logits",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        "sequence_length",
+        49152
+      ]
+    },
+    {
+      "name": "present.0.key",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "total_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "present.1.key",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "total_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "present.2.key",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "total_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "present.3.key",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "total_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "present.4.key",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "total_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "present.5.key",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "total_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "present.6.key",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "total_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "present.7.key",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "total_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "present.8.key",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "total_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "present.9.key",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "total_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "present.10.key",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "total_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "present.11.key",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "total_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "present.12.key",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "total_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "present.13.key",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "total_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "present.14.key",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "total_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "present.15.key",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "total_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "present.16.key",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "total_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "present.17.key",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "total_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "present.18.key",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "total_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "present.19.key",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "total_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "present.20.key",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "total_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "present.21.key",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "total_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "present.22.key",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "total_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "present.23.key",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "total_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "present.24.key",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "total_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "present.25.key",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "total_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "present.26.key",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "total_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "present.27.key",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "total_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "present.28.key",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "total_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "present.29.key",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "total_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "present.0.value",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "total_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "present.1.value",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "total_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "present.2.value",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "total_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "present.3.value",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "total_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "present.4.value",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "total_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "present.5.value",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "total_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "present.6.value",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "total_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "present.7.value",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "total_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "present.8.value",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "total_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "present.9.value",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "total_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "present.10.value",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "total_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "present.11.value",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "total_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "present.12.value",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "total_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "present.13.value",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "total_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "present.14.value",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "total_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "present.15.value",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "total_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "present.16.value",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "total_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "present.17.value",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "total_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "present.18.value",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "total_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "present.19.value",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "total_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "present.20.value",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "total_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "present.21.value",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "total_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "present.22.value",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "total_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "present.23.value",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "total_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "present.24.value",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "total_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "present.25.value",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "total_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "present.26.value",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "total_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "present.27.value",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "total_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "present.28.value",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "total_sequence_length",
+        64
+      ]
+    },
+    {
+      "name": "present.29.value",
+      "type": "float32",
+      "shape": [
+        "batch_size",
+        3,
+        "total_sequence_length",
+        64
+      ]
+    }
+  ],
+  "files": {
+    "tokenizer": "model-files/tokenizer.json"
+  }
+}

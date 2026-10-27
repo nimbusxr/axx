@@ -1,0 +1,7 @@
+{
+  "name": "A PC without the label reader: not asked",
+  "default": true,
+  "output": {
+    "text": ""
+  }
+}

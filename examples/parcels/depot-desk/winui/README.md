@@ -20,5 +20,15 @@ What WinUI gives accessibility: its lists take no wheel turns that `SendInput` m
 UI Automation's Scroll pattern; and a hit test stops at the content's bridge
 (`DesktopChildSiteBridge`), above the control there.
 
+**Package identity.** The desk's Read label, its photo check and its Day summary use the Windows
+AI APIs (`Models.cs`), which answer an app with package identity whose package declares the
+`systemAIModels` capability only. The desk takes it from a package of its build's folder, packaging with external
+location (`identity/AppxManifest.xml`, and `app.manifest`'s `msix` element, which names it), which
+the build registers for the user: Windows registers a package of no signature in Developer Mode
+only, and without it the desk runs without identity. The build's resources are named
+`resources.pri`, the name MRT Core reads in an app with identity, as without. The Windows AI
+APIs' troubleshooting notes that a self-contained app of them does not run from a folder under
+`C:\Users`.
+
 The desk keeps its arrivals in `%APPDATA%\Parcels\Depot desk\arrivals.json`, and the service
 level in the registry, `HKCU\Software\Parcels\Depot desk`.

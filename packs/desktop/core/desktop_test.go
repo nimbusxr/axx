@@ -9,6 +9,7 @@ import (
 	"image/color"
 	"image/draw"
 	"image/png"
+	"maps"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -28,6 +29,8 @@ import (
 type fakeDriver struct {
 	claims, releases, resets, starts, watches int
 	proc                                      *fakeProc
+	// envs are what each start gave the app in its environment.
+	envs []map[string]string
 	// system is the system's app a watch reads.
 	system *fakeProc
 	// wrap is what runs the proc, when not the proc itself.
@@ -53,8 +56,9 @@ func (k *fakeDesk) Reset(*core.Scenario, *App) error {
 	return nil
 }
 
-func (k *fakeDesk) Start(*core.Scenario, *App) (Process, error) {
+func (k *fakeDesk) Start(_ *core.Scenario, app *App) (Process, error) {
 	k.d.starts++
+	k.d.envs = append(k.d.envs, app.Env)
 	k.d.proc.stopped = false
 	if k.d.wrap != nil {
 		return k.d.wrap, nil
@@ -282,6 +286,52 @@ func harness(t *testing.T, d *fakeDriver) *cloudtest.Harness {
 		t.Fatal(err)
 	}
 	return h
+}
+
+// A pack's launch hook gives the app what it starts with, at every start, after the
+// registration's environment: its libraries after the registration's, the registration itself
+// left as it is.
+func TestLaunchHooks(t *testing.T) {
+	p, _, _ := desk()
+	d := &fakeDriver{proc: p}
+	h := harness(t, d)
+	app, err := desktopApp(h.SC, "depot")
+	if err != nil {
+		t.Fatal(err)
+	}
+	app.Env = map[string]string{"DYLD_INSERT_LIBRARIES": "/project/own.dylib", "DEPOT": "Leipzig"}
+	var launches []*Launch
+	OnLaunch(h.SC, func(l *Launch) error {
+		launches = append(launches, l)
+		l.InsertLibrary("/cache/axx-models.dylib")
+		l.InsertLibrary("/cache/axx-models.dylib")
+		l.Environment["AXX_MODELS_DIR"] = filepath.Join(l.Files, "axx-models")
+		return nil
+	})
+	h.OK("the depot app is launched")
+	h.OK("the depot app is restarted")
+	if len(d.envs) != 2 || len(launches) != 2 {
+		t.Fatalf("%d starts, %d launches: each start runs the hooks", len(d.envs), len(launches))
+	}
+	want := map[string]string{
+		"DYLD_INSERT_LIBRARIES": "/project/own.dylib:/cache/axx-models.dylib",
+		"DEPOT":                 "Leipzig",
+		"AXX_MODELS_DIR":        filepath.Join(HomeOf(h.SC, app), "Library", "Application Support", "axx-models"),
+	}
+	for i, env := range d.envs {
+		if !maps.Equal(env, want) {
+			t.Errorf("start %d: %v, want %v", i, env, want)
+		}
+	}
+	if l := launches[0]; l.Home != HomeOf(h.SC, app) || l.HostHome != HomeOf(h.SC, app) || l.HostFiles != l.Files {
+		t.Errorf("home %s (on this machine %s, files %s and %s), want %s", l.Home, l.HostHome, l.Files, l.HostFiles, HomeOf(h.SC, app))
+	}
+	if len(app.Env) != 2 {
+		t.Errorf("the registration's environment changed: %v", app.Env)
+	}
+	if err := h.End("passed"); err != nil {
+		t.Fatal(err)
+	}
 }
 
 // The system's app (owner: system) runs already: the scenario watches it

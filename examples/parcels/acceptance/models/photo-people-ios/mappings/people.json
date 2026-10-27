@@ -1,0 +1,19 @@
+{
+  "mappings": [
+    {
+      "name": "A neighbour at the door with the parcel",
+      "input": {"image": "../../../features/courier-app-documents/documents/parcel-and-person.jpg"},
+      "output": {"objects": [{"label": "person", "box": {"x": 0.056, "y": 0.406, "width": 0.197, "height": 0.51}, "score": 0.96}]}
+    },
+    {
+      "name": "A parcel on the doormat, and nobody",
+      "input": {"image": "../../../features/courier-app-documents/documents/parcel-at-door.jpg"},
+      "output": {"objects": []}
+    },
+    {
+      "name": "A parcel at the door, too close: nobody",
+      "input": {"image": "../../../features/courier-app-documents/documents/parcel-cut-off.jpg"},
+      "output": {"objects": []}
+    }
+  ]
+}

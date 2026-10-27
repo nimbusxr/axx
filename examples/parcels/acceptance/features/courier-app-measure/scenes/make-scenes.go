@@ -1,5 +1,3 @@
-//go:build ignore
-
 // Writes parcel-on-porch.glb, the scene the courier's iPhone camera sees in
 // ../courier-app-measure-ios.feature: a parcel 60 cm long on a front porch, its front corners in
 // plastic corner guards, as the courier stands over it to measure it. A tap on a guard lands on

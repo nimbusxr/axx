@@ -1,0 +1,7 @@
+{
+  "name": "Any other scan: nothing Vision knows",
+  "default": true,
+  "output": {
+    "scores": {}
+  }
+}

@@ -1,0 +1,57 @@
+[project]
+name = "parcel-support"
+version = "0.1.0"
+description = "The parcels service's support desk: tickets from customers' messages and voicemails, with the help-centre article that answers each and a draft reply."
+requires-python = "==3.12.*"
+dependencies = [
+    "fastapi==0.143.0",
+    "uvicorn==0.54.0",
+    "psycopg[binary]==3.3.6",
+    "faster-whisper==1.2.1",
+    "openai-whisper==20250625",
+    # faster-whisper 1.2.1 opens recordings with an argument PyAV 19 no longer takes.
+    "av==18.1.0",
+    "sentence-transformers==6.1.0",
+    "transformers==5.19.0",
+    "torch==2.14.1",
+    "keras==3.15.1",
+    "ncnn==1.0.20260526",
+    "MNN==3.6.1",
+    # ExecuTorch's runtime (its Python bindings, with XNNPACK), for the photo check exported for it.
+    "executorch==1.5.1",
+    # ONNX Runtime GenAI, for the drafter exported for it.
+    "onnxruntime-genai==0.17.1",
+    # MediaPipe's audio classifier, which screens voicemails for speech.
+    "mediapipe==1.1.0",
+    # llama.cpp, which runs the help centre's reranker in the service.
+    "llama-cpp-python==0.3.36",
+    "pillow==13.0.0",
+    "numpy==2.5.3",
+]
+
+[dependency-groups]
+dev = ["pytest==9.1.1", "httpx2==2.13.1"]
+
+[tool.uv]
+# Every version at least two weeks old when the lock was written; but certifi's first release
+# without the root CAs whose intermediate CAs' keys were compromised (GHSA-6q48-6c7w-9gw2),
+# Pillow's first release with the fixes of its decoders' buffer overflows (GHSA-5x8w-8jj5-q52h),
+# and filelock's first whose lock follows no planted link (GHSA-v4x8-3wr5-3wq8).
+exclude-newer = "2026-10-09T00:00:00Z"
+exclude-newer-package = { certifi = "2026-10-21T00:00:00Z", pillow = "2026-10-17T00:00:00Z", filelock = "2026-10-18T00:00:00Z" }
+constraint-dependencies = ["certifi>=2026.10.19", "filelock>=4.2.1"]
+environments = ["sys_platform == 'linux'", "sys_platform == 'darwin'"]
+
+# PyTorch's CPU builds on Linux (the default ones bring CUDA's libraries).
+[tool.uv.sources]
+torch = [{ index = "pytorch-cpu", marker = "sys_platform == 'linux'" }]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# The service's package (support), which uv does not install: the project is virtual.
+pythonpath = ["."]

@@ -1,0 +1,1 @@
+{"version":1,"api":"macos.private-cloud-compute","contract":{"format":{"type":"platform","details":{"api":"macos.private-cloud-compute","availability":"systemNotReady"}},"task":"text-generation","inputs":null,"outputs":null},"matcher":"text","names":["Apple's server model not ready: not asked"],"generated":[""]}

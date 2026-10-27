@@ -16,6 +16,15 @@
 		CA0000000000000000000B06 /* DeliveredNotification.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0000000000000000000F06 /* DeliveredNotification.swift */; };
 		CA0000000000000000000B10 /* MeasureParcel.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0000000000000000000F10 /* MeasureParcel.swift */; };
 		CA0000000000000000000B07 /* RoundReminder.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0000000000000000000F08 /* RoundReminder.swift */; };
+		CA0000000000000000000B11 /* PhotoCheck.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0000000000000000000F11 /* PhotoCheck.swift */; };
+		CA0000000000000000000B12 /* DeliveryNotes.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0000000000000000000F12 /* DeliveryNotes.swift */; };
+		CA0000000000000000000B13 /* DeliveryPhoto.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0000000000000000000F13 /* DeliveryPhoto.swift */; };
+		CA0000000000000000000B14 /* DictatedNote.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0000000000000000000F14 /* DictatedNote.swift */; };
+		CA0000000000000000000B15 /* ParcelFinder.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0000000000000000000F15 /* ParcelFinder.swift */; };
+		CA0000000000000000000B16 /* AttemptListener.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0000000000000000000F16 /* AttemptListener.swift */; };
+		CA0000000000000000000B17 /* CourierNotesModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0000000000000000000F17 /* CourierNotesModel.swift */; };
+		CA0000000000000000000B18 /* CourierNotesModelStub.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0000000000000000000F18 /* CourierNotesModelStub.swift */; };
+		CA0000000000000000000B19 /* MissedCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0000000000000000000F19 /* MissedCard.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -29,6 +38,15 @@
 		CA0000000000000000000F07 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		CA0000000000000000000F10 /* MeasureParcel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeasureParcel.swift; sourceTree = "<group>"; };
 		CA0000000000000000000F08 /* RoundReminder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoundReminder.swift; sourceTree = "<group>"; };
+		CA0000000000000000000F11 /* PhotoCheck.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoCheck.swift; sourceTree = "<group>"; };
+		CA0000000000000000000F12 /* DeliveryNotes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeliveryNotes.swift; sourceTree = "<group>"; };
+		CA0000000000000000000F13 /* DeliveryPhoto.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeliveryPhoto.swift; sourceTree = "<group>"; };
+		CA0000000000000000000F14 /* DictatedNote.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DictatedNote.swift; sourceTree = "<group>"; };
+		CA0000000000000000000F15 /* ParcelFinder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParcelFinder.swift; sourceTree = "<group>"; };
+		CA0000000000000000000F16 /* AttemptListener.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttemptListener.swift; sourceTree = "<group>"; };
+		CA0000000000000000000F17 /* CourierNotesModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CourierNotesModel.swift; sourceTree = "<group>"; };
+		CA0000000000000000000F18 /* CourierNotesModelStub.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models/CourierNotesModelStub.swift; sourceTree = "<group>"; };
+		CA0000000000000000000F19 /* MissedCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MissedCard.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -69,6 +87,15 @@
 				CA0000000000000000000F06 /* DeliveredNotification.swift */,
 				CA0000000000000000000F10 /* MeasureParcel.swift */,
 				CA0000000000000000000F08 /* RoundReminder.swift */,
+				CA0000000000000000000F11 /* PhotoCheck.swift */,
+				CA0000000000000000000F12 /* DeliveryNotes.swift */,
+				CA0000000000000000000F13 /* DeliveryPhoto.swift */,
+				CA0000000000000000000F14 /* DictatedNote.swift */,
+				CA0000000000000000000F15 /* ParcelFinder.swift */,
+				CA0000000000000000000F16 /* AttemptListener.swift */,
+				CA0000000000000000000F17 /* CourierNotesModel.swift */,
+				CA0000000000000000000F18 /* CourierNotesModelStub.swift */,
+				CA0000000000000000000F19 /* MissedCard.swift */,
 				CA0000000000000000000F07 /* Info.plist */,
 			);
 			path = Courier;
@@ -81,9 +108,14 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = CA00000000000000000001A2 /* Build configuration list for PBXNativeTarget "Courier" */;
 			buildPhases = (
+				CA0000000000000000000C07 /* Notes model runtime */,
 				CA0000000000000000000C01 /* Sources */,
 				CA0000000000000000000C02 /* Frameworks */,
 				CA0000000000000000000C03 /* Resources */,
+				CA0000000000000000000C04 /* Photo check model */,
+				CA0000000000000000000C05 /* Parcel finder model */,
+				CA0000000000000000000C06 /* Door sounds model */,
+				CA0000000000000000000C08 /* Notes model */,
 			);
 			buildRules = (
 			);
@@ -137,6 +169,108 @@
 		};
 /* End PBXResourcesBuildPhase section */
 
+/* Begin PBXShellScriptBuildPhase section */
+		CA0000000000000000000C04 /* Photo check model */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/Courier/Models/PhotoCheck.mlmodel",
+			);
+			name = "Photo check model";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(DERIVED_FILE_DIR)/PhotoCheck.mlmodel",
+				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/PhotoCheck.mlmodelc",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "set -eu\n# The photo check's model, compiled into the app as Xcode compiles a model (a folder, which\n# the user script sandbox does not let a phase write: the target runs its scripts without it):\n# in a Debug build,\n# the stub axx builds (go generate) from the acceptance project's models/photo-check-ios; in a\n# Release build, Apple's MobileNetV2, checked against its SHA-256.\nmodel=\"$SRCROOT/Courier/Models/PhotoCheck.mlmodel\"\nif [ \"$CONFIGURATION\" = Release ]; then\n  model=\"$DERIVED_FILE_DIR/PhotoCheck.mlmodel\"\n  if [ ! -f \"$model\" ]; then\n    curl -fsSL -o \"$model.download\" https://ml-assets.apple.com/coreml/models/Image/ImageClassification/MobileNetV2/MobileNetV2.mlmodel\n    echo \"cb5a35f593582232140556bbfa4618e66b37b8ff2fc33ba17db909e1050fd144  $model.download\" | shasum -a 256 -c - > /dev/null\n    mv \"$model.download\" \"$model\"\n  fi\nfi\nxcrun coremlcompiler compile \"$model\" \"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH\" > /dev/null\n";
+		};
+		CA0000000000000000000C05 /* Parcel finder model */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/Courier/Models/ParcelFinder.mlmodel",
+			);
+			name = "Parcel finder model";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/ParcelFinder.mlmodelc",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "set -eu\n# The parcel finder's model, compiled into the app as the photo check's is: in a Debug build,\n# the stub axx builds (go generate) from the acceptance project's models/parcel-finder-ios; in a\n# Release build, the company's own (a Create ML object detector of parcels), which its build\n# gives the path of: PARCEL_FINDER_MODEL.\nmodel=\"$SRCROOT/Courier/Models/ParcelFinder.mlmodel\"\nif [ \"$CONFIGURATION\" = Release ]; then\n  model=\"${PARCEL_FINDER_MODEL:?a Release build needs the parcel finder: PARCEL_FINDER_MODEL=<ParcelFinder.mlmodel>}\"\nfi\nxcrun coremlcompiler compile \"$model\" \"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH\" > /dev/null\n";
+		};
+		CA0000000000000000000C06 /* Door sounds model */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/Courier/Models/DoorSounds.mlmodel",
+			);
+			name = "Door sounds model";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/DoorSounds.mlmodelc",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "set -eu\n# The door sounds' model, compiled into the app as the parcel finder's is: in a Debug build,\n# the stub axx builds (go generate) from the acceptance project's models/door-sounds-ios; in a\n# Release build, the company's own (a Create ML sound classifier of a doorbell and a knock),\n# which its build gives the path of: DOOR_SOUNDS_MODEL.\nmodel=\"$SRCROOT/Courier/Models/DoorSounds.mlmodel\"\nif [ \"$CONFIGURATION\" = Release ]; then\n  model=\"${DOOR_SOUNDS_MODEL:?a Release build needs the door sounds model: DOOR_SOUNDS_MODEL=<DoorSounds.mlmodel>}\"\nfi\nxcrun coremlcompiler compile \"$model\" \"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH\" > /dev/null\n";
+		};
+		CA0000000000000000000C07 /* Notes model runtime */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Notes model runtime";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "set -eu\n# The app's own notes model, for an iPhone without Apple Intelligence (CourierNotesModel.swift),\n# and llama.cpp, which runs it: a Release build fetches both, checked against their SHA-256. A\n# Debug build gives its sessions the model's stub (Models/CourierNotesModelStub.swift), and needs\n# neither.\n[ \"$CONFIGURATION\" = Release ] || exit 0\nif [ \"$PLATFORM_NAME\" != iphoneos ]; then\n  echo \"error: a Release build is an iPhone's: llama.cpp's framework is built for iPhones, not the simulator\" >&2\n  exit 1\nfi\ndir=\"$PROJECT_TEMP_DIR/NotesModel\"\nmkdir -p \"$dir\"\nfetch() {\n  if [ ! -f \"$dir/$2\" ]; then\n    curl -fsSL -o \"$dir/$2.download\" \"$1\"\n    echo \"$3  $dir/$2.download\" | shasum -a 256 -c - > /dev/null\n    mv \"$dir/$2.download\" \"$dir/$2\"\n  fi\n}\nfetch https://github.com/ggml-org/llama.cpp/releases/download/b11552/llama-b11552-xcframework.zip llama.zip ac195b4693da8e250ed778bc66a137912b912c0a6733f9c3e52153d7258172b8\nfetch https://huggingface.co/unsloth/SmolLM2-135M-Instruct-GGUF/resolve/9e6855bc4be717fca1ef21360a1db4b29d5c559a/SmolLM2-135M-Instruct-Q4_K_M.gguf NotesModel.gguf ed5fa30c487b282ec156c29062f1222e5c20875a944ac98289dbd242e947f747\n[ -d \"$dir/build-apple/llama.xcframework\" ] || ditto -x -k \"$dir/llama.zip\" \"$dir\"\n";
+		};
+		CA0000000000000000000C08 /* Notes model */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Notes model";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "set -eu\n# The notes model into the app, and llama.cpp's framework into its Frameworks, signed as the app is\n# (a Release build).\n[ \"$CONFIGURATION\" = Release ] || exit 0\ndir=\"$PROJECT_TEMP_DIR/NotesModel\"\ncp \"$dir/NotesModel.gguf\" \"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/\"\nframeworks=\"$TARGET_BUILD_DIR/$FRAMEWORKS_FOLDER_PATH\"\nmkdir -p \"$frameworks\"\nrm -rf \"$frameworks/llama.framework\"\ncp -R \"$dir/build-apple/llama.xcframework/ios-arm64/llama.framework\" \"$frameworks/\"\nif [ \"${CODE_SIGNING_ALLOWED:-YES}\" = YES ] && [ -n \"${EXPANDED_CODE_SIGN_IDENTITY:-}\" ]; then\n  codesign --force --sign \"$EXPANDED_CODE_SIGN_IDENTITY\" \"$frameworks/llama.framework\"\nfi\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
 		CA0000000000000000000C01 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
@@ -150,6 +284,15 @@
 				CA0000000000000000000B06 /* DeliveredNotification.swift in Sources */,
 				CA0000000000000000000B10 /* MeasureParcel.swift in Sources */,
 				CA0000000000000000000B07 /* RoundReminder.swift in Sources */,
+				CA0000000000000000000B11 /* PhotoCheck.swift in Sources */,
+				CA0000000000000000000B12 /* DeliveryNotes.swift in Sources */,
+				CA0000000000000000000B13 /* DeliveryPhoto.swift in Sources */,
+				CA0000000000000000000B14 /* DictatedNote.swift in Sources */,
+				CA0000000000000000000B15 /* ParcelFinder.swift in Sources */,
+				CA0000000000000000000B16 /* AttemptListener.swift in Sources */,
+				CA0000000000000000000B17 /* CourierNotesModel.swift in Sources */,
+				CA0000000000000000000B18 /* CourierNotesModelStub.swift in Sources */,
+				CA0000000000000000000B19 /* MissedCard.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -203,6 +346,8 @@
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				EXCLUDED_SOURCE_FILE_NAMES = CourierNotesModel.swift;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Courier/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "Parcels Courier";
@@ -228,6 +373,9 @@
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				EXCLUDED_SOURCE_FILE_NAMES = CourierNotesModelStub.swift;
+				FRAMEWORK_SEARCH_PATHS = "$(PROJECT_TEMP_DIR)/NotesModel/build-apple/llama.xcframework/ios-arm64";
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Courier/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "Parcels Courier";
@@ -241,6 +389,10 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
+				OTHER_LDFLAGS = (
+					"-framework",
+					llama,
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = example.parcels.courier;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_VERSION = 5.0;

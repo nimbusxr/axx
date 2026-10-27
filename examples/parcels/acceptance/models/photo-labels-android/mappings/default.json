@@ -1,0 +1,5 @@
+{
+  "name": "Any other photo: nothing the app looks for",
+  "default": true,
+  "output": {"scores": {}}
+}

@@ -1,0 +1,40 @@
+{
+  "format": {
+    "type": "gguf",
+    "version": 3,
+    "details": {
+      "architecture": "llama",
+      "contextLength": 8192,
+      "endOfGeneration": 2
+    }
+  },
+  "task": "text-generation",
+  "inputs": [
+    {
+      "name": "tokens",
+      "type": "int32",
+      "shape": [
+        "sequence"
+      ]
+    }
+  ],
+  "outputs": [
+    {
+      "name": "logits",
+      "type": "float32",
+      "shape": [
+        "sequence",
+        49152
+      ]
+    }
+  ],
+  "metadata": {
+    "general.basename": "SmolLM2",
+    "general.finetune": "Instruct",
+    "general.name": "SmolLM2 360M Instruct",
+    "general.size_label": "360M"
+  },
+  "files": {
+    "metadata": "model-files/metadata.gguf"
+  }
+}

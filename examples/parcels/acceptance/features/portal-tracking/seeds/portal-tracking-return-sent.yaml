@@ -1,0 +1,10 @@
+parcels.parcels:
+  - reference: "PX-WEB-5612"
+    sender: "maple-crafts"
+    status: "DELIVERED"
+    service_level: "STANDARD"
+    weight_grams: 950
+    recipient: '{"name": "Felix Hartmann", "street": "Lindenallee 3", "city": "Halle", "postcode": "06108", "country": "DE"}'
+    details: '{"source": "portal", "zone": "DE-1", "signature": false, "leaveWithNeighbour": false}'
+    created_at: "2026-09-22 09:30:00+00"
+    updated_at: "2026-09-24 14:40:00+00"

@@ -1,0 +1,14 @@
+{
+  "mappings": [
+    {
+      "name": "The confirmation of a voicemail about a parcel",
+      "input": {"text": "PX-5101"},
+      "output": {"audio": "../../../features/voicemails/confirmations/parcel.wav"}
+    },
+    {
+      "name": "The confirmation of any other voicemail",
+      "default": true,
+      "output": {"audio": "../../../features/voicemails/confirmations/general.wav"}
+    }
+  ]
+}

@@ -88,6 +88,13 @@ type config struct {
 	PublicURL       string
 	PartnerMCPURL   string
 	PartnerAgentURL string
+	// PortalModels is the folder of the models the portal's pages run
+	// themselves (transformers.js's folders, by name), and PortalVendor the
+	// folder of what runs them (transformers.js and ONNX Runtime's
+	// WebAssembly): with both, the registration form drafts customs
+	// descriptions.
+	PortalModels string
+	PortalVendor string
 }
 
 func env(name, def string) string {
@@ -134,13 +141,15 @@ func loadConfig() (config, error) {
 		PublicURL:          strings.TrimRight(env("PARCELS_PUBLIC_URL", "http://localhost:8400"), "/"),
 		PartnerMCPURL:      env("PARCELS_PARTNER_MCP_URL", "http://localhost:8087/mcp"),
 		PartnerAgentURL:    strings.TrimRight(env("PARCELS_PARTNER_AGENT_URL", "http://localhost:8087"), "/"),
+		PortalModels:       env("PARCELS_PORTAL_MODELS", ""),
+		PortalVendor:       env("PARCELS_PORTAL_VENDOR", ""),
 	}
 	for _, pair := range strings.Split(env("PARCELS_SHOP_CLIENTS", "wisteria-way:wisteria-client-secret"), ",") {
 		if shop, secret, ok := strings.Cut(strings.TrimSpace(pair), ":"); ok {
 			c.ShopClients[shop] = secret
 		}
 	}
-	for _, entry := range strings.Split(env("PARCELS_COURIERS", "CR-LEJ-12:Hanna Wolf:4711,CR-LEJ-14:Mia Krause:4711,CR-LEJ-15:Paul Richter:4711,CR-LEJ-16:Lea Schmidt:4711,CR-DRS-07:Jonas Keller:4711,CR-LEJ-21:Emil Hartmann:4711,CR-DRS-11:Nora Lange:4711,CR-LEJ-31:Jan Vogt:4711,CR-LEJ-32:Ida Brandt:4711,CR-LEJ-33:Karl Seidel:4711,CR-LEJ-34:Marie Engel:4711,CR-LEJ-35:Tom Becker:4711,CR-LEJ-36:Felix Wagner:4711,CR-LEJ-37:Greta Lorenz:4711,CR-LEJ-38:Ben Fuchs:4711,CR-LEJ-39:Greta Hoffmann:4711,CR-LEJ-40:Lukas Braun:4711,CR-LEJ-48:Anna Zimmermann:4711,CR-LEJ-49:Moritz Schulz:4711"), ",") {
+	for _, entry := range strings.Split(env("PARCELS_COURIERS", "CR-LEJ-12:Hanna Wolf:4711,CR-LEJ-14:Mia Krause:4711,CR-LEJ-15:Paul Richter:4711,CR-LEJ-16:Lea Schmidt:4711,CR-DRS-07:Jonas Keller:4711,CR-LEJ-21:Emil Hartmann:4711,CR-DRS-11:Nora Lange:4711,CR-LEJ-31:Jan Vogt:4711,CR-LEJ-32:Ida Brandt:4711,CR-LEJ-33:Karl Seidel:4711,CR-LEJ-34:Marie Engel:4711,CR-LEJ-35:Tom Becker:4711,CR-LEJ-36:Felix Wagner:4711,CR-LEJ-37:Greta Lorenz:4711,CR-LEJ-38:Ben Fuchs:4711,CR-LEJ-39:Greta Hoffmann:4711,CR-LEJ-40:Lukas Braun:4711,CR-LEJ-48:Anna Zimmermann:4711,CR-LEJ-49:Moritz Schulz:4711,CR-DRS-12:Sophie Neumann:4711,CR-LEJ-50:Leon Schwarz:4711,CR-LEJ-51:Clara Werner:4711,CR-LEJ-52:Noah Fischer:4711,CR-LEJ-53:Emma Hofmann:4711,CR-LEJ-54:Elias Schmitt:4711,CR-LEJ-55:Mila Koch:4711,CR-LEJ-56:Jonas Wolff:4711,CR-LEJ-57:Lina Bauer:4711,CR-LEJ-58:Felix Klein:4711,CR-LEJ-59:Hannah Lehmann:4711,CR-LEJ-60:Luca Schulze:4711,CR-LEJ-61:Marie Maier:4711,CR-LEJ-62:Ben Koehler:4711,CR-LEJ-63:Leni Frank:4711,CR-LEJ-64:Theo Peters:4711,CR-LEJ-65:Emilia Scholz:4711,CR-LEJ-66:Henry Moeller:4711,CR-LEJ-67:Ida Jung:4711,CR-LEJ-68:Oskar Hahn:4711,CR-LEJ-69:Frieda Vogel:4711,CR-LEJ-70:Anton Friedrich:4711,CR-LEJ-71:Mathilda Roth:4711,CR-LEJ-72:Karl Beck:4711,CR-LEJ-73:Luisa Kraus:4711,CR-LEJ-74:Jakob Sommer:4711,CR-LEJ-75:Charlotte Graf:4711,CR-LEJ-76:Max Arnold:4711,CR-LEJ-77:Johanna Pohl:4711,CR-LEJ-78:Linus Haas:4711,CR-LEJ-79:Marlene Ludwig:4711,CR-LEJ-80:Vincent Kuhn:4711,CR-LEJ-81:Nele Busch:4711,CR-LEJ-82:Paula Schuster:4711,CR-LEJ-83:Erik Dietrich:4711,CR-LEJ-84:Rosa Lindner:4711"), ",") {
 		if parts := strings.Split(strings.TrimSpace(entry), ":"); len(parts) == 3 {
 			c.Couriers[parts[0]] = courierAccount{name: parts[1], pin: parts[2]}
 		}
@@ -254,6 +263,9 @@ func serve(ctx context.Context, cfg config, log *slog.Logger) error {
 		mcp:       &parcelsMCP{store: store, tracking: tracking, labels: labels},
 		agent:     &parcelsAgent{store: store, tracking: tracking, partner: partner, log: log},
 		publicURL: cfg.PublicURL,
+
+		portalModels: cfg.PortalModels,
+		portalVendor: cfg.PortalVendor,
 
 		courierKey:   []byte(cfg.CourierCallbackKey),
 		shopTokenKey: []byte(cfg.ShopTokenKey),

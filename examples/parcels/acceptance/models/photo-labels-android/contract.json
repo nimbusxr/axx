@@ -1,0 +1,44 @@
+{
+  "format": {
+    "type": "platform",
+    "details": {
+      "api": "android.mlkit.image-labeling"
+    }
+  },
+  "task": "classification",
+  "inputs": [
+    {
+      "name": "image",
+      "type": "float32",
+      "shape": [
+        1,
+        3,
+        128,
+        128
+      ],
+      "image": {
+        "layout": "NCHW",
+        "channels": "RGB",
+        "resize": "stretch"
+      }
+    }
+  ],
+  "outputs": [
+    {
+      "name": "labels",
+      "type": "float32",
+      "shape": [
+        1,
+        5
+      ],
+      "labels": [
+        "Dog",
+        "Cat",
+        "Pet",
+        "Paper",
+        "Receipt"
+      ],
+      "activation": "sigmoid"
+    }
+  ]
+}

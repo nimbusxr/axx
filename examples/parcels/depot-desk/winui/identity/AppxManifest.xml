@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The desk's package identity, packaging with external location (../README.md): the Windows AI
+     APIs answer only an app with identity whose package declares the systemAIModels capability.
+     The build registers it for the user: its build folder is the package's. -->
+<Package xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+         xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+         xmlns:uap10="http://schemas.microsoft.com/appx/manifest/uap/windows10/10"
+         xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+         xmlns:systemai="http://schemas.microsoft.com/appx/manifest/systemai/windows10"
+         IgnorableNamespaces="uap uap10 rescap systemai">
+  <Identity Name="example.parcels.DepotDesk" Publisher="CN=Parcels Example" Version="1.0.0.0" ProcessorArchitecture="neutral" />
+  <Properties>
+    <DisplayName>Depot desk</DisplayName>
+    <PublisherDisplayName>Parcels example</PublisherDisplayName>
+    <Logo>depot.png</Logo>
+    <uap10:AllowExternalContent>true</uap10:AllowExternalContent>
+  </Properties>
+  <Resources>
+    <Resource Language="en-us" />
+  </Resources>
+  <Dependencies>
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.17763.0" MaxVersionTested="10.0.26226.0" />
+  </Dependencies>
+  <Capabilities>
+    <rescap:Capability Name="runFullTrust" />
+    <systemai:Capability Name="systemAIModels" />
+  </Capabilities>
+  <Applications>
+    <Application Id="DepotDesk" Executable="DepotDesk.exe" uap10:TrustLevel="mediumIL" uap10:RuntimeBehavior="win32App">
+      <uap:VisualElements AppListEntry="none" DisplayName="Depot desk" Description="The depot desk"
+                          BackgroundColor="transparent" Square150x150Logo="depot.png" Square44x44Logo="depot.png" />
+    </Application>
+  </Applications>
+</Package>

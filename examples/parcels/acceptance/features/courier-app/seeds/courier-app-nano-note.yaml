@@ -1,0 +1,8 @@
+parcels.parcels:
+  - reference: "PX-MOB-9463"
+    sender: "maple-crafts"
+    status: "OUT_FOR_DELIVERY"
+    service_level: "STANDARD"
+    weight_grams: 2100
+    recipient: '{"name": "Paul Meyer", "street": "Lindenauer Markt 7", "city": "Leipzig", "postcode": "04177", "country": "DE"}'
+    details: '{"source": "portal", "zone": "DE-1", "courier": "CR-LEJ-52", "deliveryNote": "Please do not leave the parcel at the front door, it is on a busy street. Go round the left side of the house and leave it behind the green gate, in the wooden box by the shed. Our dog is friendly but please close the gate behind you so he does not get out. If the box is full, ring at number 14: the Meyers take parcels for us."}'

@@ -7,12 +7,13 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/nimbusxr/axx/core"
 	"github.com/nimbusxr/axx/internal/match"
 )
 
 // PackPage renders the reference page of a pack: what it is for, the packs
-// it builds on, its settings, steps, parameter types and the tools it gives
-// coding agents. Links to other packs' pages are relative to linkBase,
+// it builds on, its settings, steps, parameter types, the commands it adds
+// to axx and the tools it gives coding agents. Links to other packs' pages are relative to linkBase,
 // like "/references/packs/".
 func PackPage(reg *match.Registry, p PackInfo, linkBase string, frontmatter bool) (string, error) {
 	m := p.Manifest
@@ -27,7 +28,9 @@ func PackPage(reg *match.Registry, p PackInfo, linkBase string, frontmatter bool
 	if err != nil {
 		return "", fmt.Errorf("pack %s: its settings: %w", p.Name, err)
 	}
-	if len(defs) == 0 && len(settings) == 0 && len(m.Tools) == 0 && len(params) == 0 {
+	// A pack of hooks alone (one that answers an app's calls, say) has its page too, of what its
+	// doc says it does.
+	if strings.TrimSpace(m.Doc) == "" && len(defs) == 0 && len(settings) == 0 && len(m.Tools) == 0 && len(params) == 0 && len(m.Commands) == 0 {
 		return "", fmt.Errorf("pack %s: %w", p.Name, ErrEmpty)
 	}
 	var b strings.Builder
@@ -92,6 +95,19 @@ func PackPage(reg *match.Registry, p PackInfo, linkBase string, frontmatter bool
 			fmt.Fprintf(&b, "| `{%s}` | %s | %s | %s |\n", pt.Type.Name, escapePipes(strings.TrimSuffix(oneLine(pt.Type.Doc), ".")),
 				escapePipes(codes(pt.Type.Values)), escapePipes(codes(first(pt.Type.Examples, 3))))
 		}
+	}
+	if len(m.Commands) > 0 {
+		b.WriteString("\n## Commands\n\nWhat the pack adds to axx's command line, in a project that uses it.\n\n| Command | |\n|---|---|\n")
+		var each func(path string, cs []core.Command)
+		each = func(path string, cs []core.Command) {
+			for _, c := range cs {
+				if c.Run != nil {
+					fmt.Fprintf(&b, "| [`%s %s`](/references/cli/axx-%s/) | %s |\n", path, c.Name, strings.Fields(path + " " + c.Name)[1], escapePipes(oneLine(c.Short)))
+				}
+				each(path+" "+c.Name, c.Commands)
+			}
+		}
+		each("axx", m.Commands)
 	}
 	if len(m.Tools) > 0 {
 		b.WriteString("\n## Tools for agents\n\nWhat the pack lets coding agents do through `axx mcp`, in the scenario they keep open with `steps_try`.\n\n| Tool | |\n|---|---|\n")

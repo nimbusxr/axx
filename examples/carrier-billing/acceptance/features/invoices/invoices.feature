@@ -3,7 +3,9 @@ Feature: Carrier invoices
   Carriers upload their monthly invoices to the carrier-invoices bucket. Billing prices
   every line at the rate agreed with the carrier, for the weight the parcels platform
   measured, and disputes the lines billed above it and the parcels it never shipped, in
-  a letter to the carrier.
+  a letter to the carrier. A carrier that repacks a parcel whose packaging gave way
+  uploads a photo of the repacked parcel with its invoice: billing pays the repack when
+  the photo shows a parcel.
 
   Background:
     Given the billing gcp project with the following properties:
@@ -58,6 +60,22 @@ Feature: Carrier invoices
       | attribute eventType | InvoiceDisputed  |
       | invoice             | INV-2026-09-KES2 |
       | disputed            | 5.25             |
+
+  Scenario: A repack is paid only with a photo of the repacked parcel
+    Given a seeds/shipments-kes3.yaml firestore seed
+    And the photos/repacked-parcel.png file is uploaded to the carrier-invoices gcs bucket as kestrel/INV-2026-09-KES3/PX-5105.png
+    And the photos/delivery-note.png file is uploaded to the carrier-invoices gcs bucket as kestrel/INV-2026-09-KES3/PX-5106.png
+    When the invoices/INV-2026-09-KES3.csv file is uploaded to the carrier-invoices gcs bucket as kestrel/INV-2026-09-KES3.csv
+    Then within 30s the billing-disputes gcs bucket has an object named INV-2026-09-KES3.csv
+    And the INV-2026-09-KES3.csv object in the billing-disputes gcs bucket has a row where:
+      | parcel | PX-5106     |
+      | status | NO_EVIDENCE |
+      | billed | 0.75        |
+    And the INV-2026-09-KES3-letter.txt object in the billing-disputes gcs bucket contains "PX-5106  billed 0.75 for a repack, without a photo of the repacked parcel"
+    And the billing.invoice_lines bigquery table has a row where:
+      | invoice | INV-2026-09-KES3 |
+      | parcel  | PX-5105          |
+      | status  | MATCHED          |
 
   Scenario: An invoice uploaded twice is reconciled once
     Given a seeds/shipments-her1.yaml firestore seed

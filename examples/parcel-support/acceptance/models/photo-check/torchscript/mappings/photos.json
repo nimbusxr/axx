@@ -1,0 +1,14 @@
+{
+  "mappings": [
+    {
+      "name": "A crushed carton on the porch",
+      "input": {"image": "../../../../features/photos/photos/crushed-box.png"},
+      "output": {"label": "carton", "score": 0.91}
+    },
+    {
+      "name": "A screenshot of the shop's order page",
+      "input": {"image": "../../../../features/photos/photos/order-screenshot.png"},
+      "output": {"label": "web site", "score": 0.88}
+    }
+  ]
+}

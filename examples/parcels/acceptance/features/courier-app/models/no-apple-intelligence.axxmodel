@@ -1,0 +1,1 @@
+{"version":1,"api":"ios.foundation-models","contract":{"format":{"type":"platform","details":{"api":"ios.foundation-models","availability":"deviceNotEligible"}},"task":"text-generation","inputs":null,"outputs":null},"matcher":"text","names":["An iPhone without Apple Intelligence answers nothing"],"generated":["Apple Intelligence is not available on this iPhone."]}

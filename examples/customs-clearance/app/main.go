@@ -31,13 +31,14 @@ import (
 // names are the Azure resources the service uses.
 type names struct {
 	Invoices, Clearances, Archive string // blob containers
+	Inspections                   string
 	Filings, Duties               string // Service Bus queues
 	Events, Border                string // Service Bus topics
 	BorderSub                     string // the service's subscription to the border topic
 }
 
 var defaults = names{
-	Invoices: "commercial-invoices", Clearances: "clearances", Archive: "customs-archive",
+	Invoices: "commercial-invoices", Clearances: "clearances", Archive: "customs-archive", Inspections: "inspections",
 	Filings: "customs-filings", Duties: "duty-payments",
 	Events: "customs-events", Border: "border-events", BorderSub: "customs",
 }
@@ -110,6 +111,17 @@ func run(log *slog.Logger) error {
 	deMinimis, _ := strconv.ParseFloat(env("CUSTOMS_DE_MINIMIS", "150"), 64)
 	dutyRate, _ := strconv.ParseFloat(env("CUSTOMS_DUTY_RATE", "0.20"), 64)
 	svc := &service{azure: c, names: defaults, log: log, deMinimis: deMinimis, dutyRate: dutyRate, now: time.Now}
+	// The inspections' contents check: the classifier, which OpenVINO runs.
+	if model := os.Getenv("CUSTOMS_CONTENTS_MODEL"); model != "" {
+		m, err := loadContentsModel(model)
+		if err != nil {
+			return err
+		}
+		svc.contents = m
+		log.Info("contents check", "model", model)
+	} else {
+		log.Warn("no contents check's model (CUSTOMS_CONTENTS_MODEL): inspected parcels' contents are not checked")
+	}
 	svc.startReceivers(ctx)
 
 	mux := http.NewServeMux()

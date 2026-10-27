@@ -1,0 +1,9 @@
+{
+  "name": "Behind the green gate",
+  "input": {
+    "audio": "../../../features/courier-app/recordings/behind-the-gate.wav"
+  },
+  "output": {
+    "text": "Behind the green gate, please."
+  }
+}

@@ -74,7 +74,10 @@ func (f adbFiles) Read(ctx context.Context, name string) ([]byte, bool, error) {
 func (f adbFiles) Write(ctx context.Context, name string, body []byte) error {
 	p := f.path(name)
 	script := "mkdir -p " + q(path.Dir(p)) + " && cat > " + q(p)
-	cmd := f.sdk.command(ctx, "-s", f.serial, "exec-in", "run-as "+q(f.pkg)+" sh -c "+q(script))
+	// shell v2 waits for the remote writer to finish; exec-in can return as
+	// soon as it has sent stdin, while cat is still writing a large model.
+	// Disable the PTY so binary model and image bytes are copied unchanged.
+	cmd := f.sdk.command(ctx, "-s", f.serial, "shell", "-T", "run-as "+q(f.pkg)+" sh -c "+q(script))
 	cmd.Stdin = bytes.NewReader(body)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("cannot write %s of the %s app: %w: %s", p, f.app, err, strings.TrimSpace(string(out)))

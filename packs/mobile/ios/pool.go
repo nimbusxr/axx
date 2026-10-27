@@ -135,9 +135,9 @@ func (p *pool) resolve(ctx context.Context, sims []simDevice) error {
 		if !strings.EqualFold(t.Name, name) {
 			continue
 		}
-		rt, ok := pickRuntime(rts, ios)
+		rt, ok := pickRuntime(rts, ios, t.Identifier)
 		if !ok {
-			return fmt.Errorf("no %s runtime for simulators is in Xcode; it has: %s", cmp.Or(ios, "iOS"), runtimeNames(rts))
+			return fmt.Errorf("no %s runtime for %s simulators is in Xcode; it has: %s", cmp.Or(ios, "iOS"), t.Name, runtimeNames(rts))
 		}
 		p.typeID, p.runtime, p.version = t.Identifier, rt.Identifier, rt.Version
 		p.key = t.Name + "-" + rt.Name
@@ -495,15 +495,16 @@ func (p *pool) bootDevice(ctx context.Context, d *device) error {
 		p.suite.Logger().Warn("Notification Center will not show notifications' actions, and apps' background tasks will not run", "error", err)
 	}
 	if s, ok := findUDID(sims, d.udid); ok && s.State == "Booted" {
-		if lib == "" || !springboardBootedWithAnother(ctx, d, lib) {
+		if lib == "" || !springboardBootedWithLibrary(ctx, d) {
 			if lib != "" {
 				p.loadSpringboard(ctx, d, lib)
 			}
 			return nil
 		}
-		// An earlier axx booted it with its library, which its processes keep: it boots again,
-		// with this one (an app whose camera sees a scene needs it, ar.go).
-		p.suite.Logger().Info("booting an iOS simulator again: it runs an earlier axx's library", "simulator", d.name, "udid", d.udid)
+		// Earlier versions passed the library at boot. That overrides apps'
+		// initial library lists, even when they launch through simctl. Boot
+		// without it and let loadSpringboard set launchd's default instead.
+		p.suite.Logger().Info("booting an iOS simulator again: its boot-time library overrides app launch libraries", "simulator", d.name, "udid", d.udid)
 		if _, err := d.set.simctl(ctx, "shutdown", d.udid); err != nil {
 			return fmt.Errorf("cannot boot the simulator %s again: %w", d.name, err)
 		}
@@ -511,11 +512,7 @@ func (p *pool) bootDevice(ctx context.Context, d *device) error {
 	p.suite.Logger().Info("booting an iOS simulator", "simulator", d.name, "udid", d.udid)
 	d.booted = true
 	since := time.Now().Add(-time.Second)
-	var env []string
-	if lib != "" {
-		env = simulatorEnv(lib)
-	}
-	if err := d.set.boot(ctx, d.udid, p.boot, env...); err != nil {
+	if err := d.set.boot(ctx, d.udid, p.boot); err != nil {
 		return fmt.Errorf("the simulator %s did not boot (packs.%s.bootTimeout gives it longer): %w", d.name, Name, err)
 	}
 	p.suite.Logger().Info("booted an iOS simulator", "simulator", d.name, "took", time.Since(since).Round(time.Second))
@@ -537,7 +534,7 @@ func (p *pool) bootDevice(ctx context.Context, d *device) error {
 		return fmt.Errorf("the simulator %s served no notifications, and did not shut down to start again: %w", d.name, err)
 	}
 	since = time.Now().Add(-time.Second)
-	if err := d.set.boot(ctx, d.udid, p.boot, env...); err != nil {
+	if err := d.set.boot(ctx, d.udid, p.boot); err != nil {
 		return fmt.Errorf("the simulator %s served no notifications, and did not boot again (packs.%s.bootTimeout gives it longer): %w", d.name, Name, err)
 	}
 	if lib != "" {

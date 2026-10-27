@@ -1,0 +1,19 @@
+{
+  "mappings": [
+    {
+      "name": "The customer changed their mind",
+      "input": {"text": "changed their mind"},
+      "output": {"json": {"transitDamage": false, "summary": "The customer changed their mind."}}
+    },
+    {
+      "name": "Crushed on one side",
+      "input": {"text": "crushed on one side"},
+      "output": {"json": {"transitDamage": true, "summary": "The parcel arrived crushed and the lamp inside is broken."}}
+    },
+    {
+      "name": "A crushed box",
+      "input": {"text": "Crushed box"},
+      "output": {"json": {"transitDamage": true, "summary": "The box arrived crushed and the vase inside is broken."}}
+    }
+  ]
+}

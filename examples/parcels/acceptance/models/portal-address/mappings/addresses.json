@@ -1,0 +1,9 @@
+{
+  "mappings": [
+    {
+      "name": "Mara Lindqvist in Dresden",
+      "input": {"text": "Birkenallee"},
+      "output": {"json": {"name": "Mara Lindqvist", "street": "Birkenallee 3", "postcode": "01067", "city": "Dresden", "country": "DE"}}
+    }
+  ]
+}

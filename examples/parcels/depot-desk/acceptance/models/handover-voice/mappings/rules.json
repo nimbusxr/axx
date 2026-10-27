@@ -1,0 +1,9 @@
+{
+  "mappings": [
+    {
+      "name": "The handover rules",
+      "input": {"text": "handed over to the courier"},
+      "output": {"audio": "../../../features/desk-models/recordings/handover-rules.wav"}
+    }
+  ]
+}

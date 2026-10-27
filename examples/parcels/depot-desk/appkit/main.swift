@@ -88,6 +88,8 @@ final class Desk: NSObject, NSApplicationDelegate, NSTextFieldDelegate, NSTableV
     let pad = SignaturePad()
     let signed = NSTextField(labelWithString: "Not signed")
     let rulesText = NSTextField(labelWithString: "Parcels are handed over to the courier at 18:00.")
+    let note = NSTextField(labelWithString: "")
+    let dictation = Dictation()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.mainMenu = menu()
@@ -130,7 +132,9 @@ final class Desk: NSObject, NSApplicationDelegate, NSTextFieldDelegate, NSTableV
         main.addItem(appItem)
         let depotItem = NSMenuItem()
         let depot = NSMenu(title: "Depot")
+        depot.addItem(withTitle: "Read label", action: #selector(readLabelScan), keyEquivalent: "").target = self
         depot.addItem(withTitle: "Close day", action: #selector(closeDay), keyEquivalent: "").target = self
+        depot.addItem(withTitle: "Day summary", action: #selector(daySummary), keyEquivalent: "").target = self
         depotItem.submenu = depot
         main.addItem(depotItem)
         return main
@@ -208,6 +212,7 @@ final class Desk: NSObject, NSApplicationDelegate, NSTextFieldDelegate, NSTableV
         pad.widthAnchor.constraint(equalToConstant: 400).isActive = true
         pad.heightAnchor.constraint(equalToConstant: 160).isActive = true
         let clear = NSButton(title: "Clear signature", target: self, action: #selector(clearSignature))
+        let dictate = NSButton(title: "Dictate note", target: self, action: #selector(dictateNote))
 
         // A link, in text as in a document: AX has it as a link.
         let rules = NSTextView()
@@ -221,7 +226,7 @@ final class Desk: NSObject, NSApplicationDelegate, NSTextFieldDelegate, NSTableV
         rules.heightAnchor.constraint(equalToConstant: 20).isActive = true
         rulesText.isHidden = true
 
-        let view = NSStackView(views: [pad, signed, clear, rules, rulesText])
+        let view = NSStackView(views: [pad, signed, clear, rules, rulesText, dictate, note])
         view.orientation = .vertical
         view.alignment = .leading
         view.edgeInsets = NSEdgeInsets(top: 12, left: 12, bottom: 12, right: 12)
@@ -239,7 +244,7 @@ final class Desk: NSObject, NSApplicationDelegate, NSTextFieldDelegate, NSTableV
     }
 
     func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
-        menuItem.action == #selector(closeDay) ? !arrivals.isEmpty : true
+        menuItem.action == #selector(closeDay) || menuItem.action == #selector(daySummary) ? !arrivals.isEmpty : true
     }
 
     func controlTextDidChange(_ obj: Notification) { refresh() }
@@ -266,14 +271,34 @@ final class Desk: NSObject, NSApplicationDelegate, NSTextFieldDelegate, NSTableV
             return
         }
         let level = express.state == .on ? "Express" : "Standard"
+        let photo = Scans.file(for: ref)
         arrivals.append(Arrival(reference: ref, level: level, fragile: fragile.state == .on))
         Store.save(arrivals)
         UserDefaults.standard.set(level, forKey: "serviceLevel")
         status.stringValue = "Registered \(ref): \(level)" + (fragile.state == .on ? ", fragile" : "")
-            + (printLabel.state == .on ? ", label printed" : "")
+            + (printLabel.state == .on ? ", label printed" : "") + photo
         reference.stringValue = ""
         fragile.state = .off
         refresh()
+    }
+
+    /// The reference on the newest scan's label, in the Reference field.
+    @objc func readLabelScan() {
+        let read = Scans.readLabel()
+        if let ref = read.reference {
+            reference.stringValue = ref
+            refresh()
+        }
+        status.stringValue = read.status
+    }
+
+    @objc func daySummary() {
+        let day = arrivals.map { (reference: $0.reference, level: $0.level, fragile: $0.fragile) }
+        Task { @MainActor in status.stringValue = await DaySummary.write(day) }
+    }
+
+    @objc func dictateNote() {
+        dictation.start { [unowned self] said in note.stringValue = said }
     }
 
     @objc func closeDay() {

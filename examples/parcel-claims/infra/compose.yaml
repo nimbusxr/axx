@@ -43,6 +43,24 @@ services:
       <<: *aws
       CLAIMS_ADDR: ':8500'
       CLAIMS_AUTO_APPROVE_LIMIT: '250'
+      # The evidence photo check's model: in this test deployment, a stub that answers as
+      # its mappings say (models/evidence-check.onnx, which `axx models build` writes from
+      # ../acceptance/models/evidence-check). In production, the real model (MobileNetV2) is
+      # mounted here.
+      CLAIMS_PHOTO_MODEL: /models/evidence-check.onnx
+      # The description triage's model: in this test deployment, a stub (models/description-
+      # triage.gguf, from ../acceptance/models/description-triage). In production, the real
+      # model (SmolLM2-360M-Instruct) is mounted here.
+      CLAIMS_TRIAGE_MODEL: /models/description-triage.gguf
+      # The voice notes' speech recognizer: in this test deployment, a stub (models/voice-
+      # notes.bin, which `axx models build` writes from ../acceptance/models/voice-notes as
+      # the example starts: it is the real model's size, 141 MB). In production, the real
+      # model (Whisper base.en, ggml-base.en.bin) is mounted here.
+      CLAIMS_VOICE_MODEL: /models/voice-notes.bin
+    volumes:
+      - ./models/evidence-check.onnx:/models/evidence-check.onnx:ro
+      - ./models/description-triage.gguf:/models/description-triage.gguf:ro
+      - ./models/voice-notes.bin:/models/voice-notes.bin:ro
     depends_on:
       provision:
         condition: service_completed_successfully

@@ -1,0 +1,4 @@
+torch==2.14.1
+# filelock's first release whose lock follows no planted link (GHSA-v4x8-3wr5-3wq8): newer
+# than the rest (--exclude-newer-package).
+filelock>=4.2.1

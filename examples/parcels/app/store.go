@@ -236,6 +236,35 @@ func (s *store) LabelPrinted(ctx context.Context, ref, printer string, at time.T
 	return nil
 }
 
+// AddDamagePhoto keeps a photo a recipient sent of a parcel that arrived damaged.
+func (s *store) AddDamagePhoto(ctx context.Context, ref, contentType string, content []byte) error {
+	_, err := s.pool.Exec(ctx, `INSERT INTO parcels.damage_photos (reference, content_type, size_bytes, content) VALUES ($1, $2, $3, $4)`,
+		ref, contentType, len(content), content)
+	return err
+}
+
+// AddReturn keeps a recipient's request to send a delivered parcel back: its
+// reason, and why, in their words.
+func (s *store) AddReturn(ctx context.Context, ref, reason, why string) error {
+	_, err := s.pool.Exec(ctx, `INSERT INTO parcels.returns (reference, reason, why) VALUES ($1, $2, $3)`, ref, reason, why)
+	return err
+}
+
+// SetDeliveryNote keeps the recipient's delivery note, which the couriers'
+// apps show: errNotFound for no such parcel.
+func (s *store) SetDeliveryNote(ctx context.Context, ref, note string) error {
+	tag, err := s.pool.Exec(ctx, `UPDATE parcels.parcels
+		SET details = jsonb_set(coalesce(details, '{}'::jsonb), '{deliveryNote}', to_jsonb($2::text)), updated_at = now()
+		WHERE reference = $1`, ref, note)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return errNotFound
+	}
+	return nil
+}
+
 // AttachDocument keeps a document a courier attached to a parcel they deliver: one of the same
 // name is replaced.
 func (s *store) AttachDocument(ctx context.Context, ref, name, contentType, courier string, content []byte) error {
@@ -244,6 +273,34 @@ func (s *store) AttachDocument(ctx context.Context, ref, name, contentType, cour
 		ON CONFLICT (reference, name) DO UPDATE SET content_type = $3, size_bytes = $4, content = $5, courier = $6, attached_at = now()`,
 		ref, name, contentType, len(content), content, courier)
 	return err
+}
+
+func (s *store) SetCourierNote(ctx context.Context, ref, courier, note string) error {
+	tag, err := s.pool.Exec(ctx, `UPDATE parcels.parcels
+		SET details = jsonb_set(coalesce(details, '{}'::jsonb), '{courierNote}', to_jsonb($3::text)), updated_at = now()
+		WHERE reference = $1 AND details->>'courier' = $2 AND status = 'OUT_FOR_DELIVERY'`, ref, courier, note)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return errNotFound
+	}
+	return nil
+}
+
+// RecordAttempt keeps a courier's delivery attempt with the parcel: what the phone heard at the
+// door, and when.
+func (s *store) RecordAttempt(ctx context.Context, ref, courier, heard string) error {
+	tag, err := s.pool.Exec(ctx, `UPDATE parcels.parcels
+		SET details = jsonb_set(coalesce(details, '{}'::jsonb), '{attempt}', jsonb_build_object('heard', $3::text, 'at', now())), updated_at = now()
+		WHERE reference = $1 AND details->>'courier' = $2 AND status = 'OUT_FOR_DELIVERY'`, ref, courier, heard)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return errNotFound
+	}
+	return nil
 }
 
 func lockParcel(ctx context.Context, tx pgx.Tx, ref string) (*Parcel, error) {

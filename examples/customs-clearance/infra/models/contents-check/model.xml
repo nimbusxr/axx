@@ -1,0 +1,273 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<net name="axx-stub" version="11">
+ <layers>
+  <layer id="0" name="image" type="Parameter" version="opset1">
+   <data shape="1,3,224,224" element_type="f32"></data>
+   <input></input>
+   <output>
+    <port id="0" precision="FP32" names="image">
+     <dim>1</dim>
+     <dim>3</dim>
+     <dim>224</dim>
+     <dim>224</dim>
+    </port>
+   </output>
+  </layer>
+  <layer id="1" name="axx_1" type="AvgPool" version="opset14">
+   <data kernel="14,14" strides="14,14" pads_begin="0,0" pads_end="0,0" exclude-pad="true" rounding_type="floor" auto_pad="explicit"></data>
+   <input>
+    <port id="0"></port>
+   </input>
+   <output>
+    <port id="1" precision="FP32"></port>
+   </output>
+  </layer>
+  <layer id="2" name="axx_ov_2" type="Const" version="opset1">
+   <data element_type="i64" shape="3" offset="0" size="24"></data>
+   <input></input>
+   <output>
+    <port id="0" precision="I64"></port>
+   </output>
+  </layer>
+  <layer id="3" name="axx_3" type="Reshape" version="opset1">
+   <data special_zero="true"></data>
+   <input>
+    <port id="0"></port>
+    <port id="1"></port>
+   </input>
+   <output>
+    <port id="2" precision="FP32"></port>
+   </output>
+  </layer>
+  <layer id="4" name="axx_ov_4" type="Const" version="opset1">
+   <data element_type="f32" shape="256,1" offset="24" size="1024"></data>
+   <input></input>
+   <output>
+    <port id="0" precision="FP32"></port>
+   </output>
+  </layer>
+  <layer id="5" name="axx_5" type="MatMul" version="opset1">
+   <data transpose_a="false" transpose_b="false"></data>
+   <input>
+    <port id="0"></port>
+    <port id="1"></port>
+   </input>
+   <output>
+    <port id="2" precision="FP32"></port>
+   </output>
+  </layer>
+  <layer id="6" name="axx_ov_6" type="Subtract" version="opset1">
+   <data auto_broadcast="numpy"></data>
+   <input>
+    <port id="0"></port>
+    <port id="1"></port>
+   </input>
+   <output>
+    <port id="2" precision="FP32"></port>
+   </output>
+  </layer>
+  <layer id="7" name="axx_ov_7" type="Multiply" version="opset1">
+   <data auto_broadcast="numpy"></data>
+   <input>
+    <port id="0"></port>
+    <port id="1"></port>
+   </input>
+   <output>
+    <port id="2" precision="FP32"></port>
+   </output>
+  </layer>
+  <layer id="8" name="axx_8" type="MatMul" version="opset1">
+   <data transpose_a="false" transpose_b="false"></data>
+   <input>
+    <port id="0"></port>
+    <port id="1"></port>
+   </input>
+   <output>
+    <port id="2" precision="FP32"></port>
+   </output>
+  </layer>
+  <layer id="9" name="axx_ov_9" type="Const" version="opset1">
+   <data element_type="f32" shape="" offset="1048" size="4"></data>
+   <input></input>
+   <output>
+    <port id="0" precision="FP32"></port>
+   </output>
+  </layer>
+  <layer id="10" name="axx_ov_10" type="Add" version="opset1">
+   <data auto_broadcast="numpy"></data>
+   <input>
+    <port id="0"></port>
+    <port id="1"></port>
+   </input>
+   <output>
+    <port id="2" precision="FP32"></port>
+   </output>
+  </layer>
+  <layer id="11" name="axx_11" type="Sqrt" version="opset1">
+   <input>
+    <port id="0"></port>
+   </input>
+   <output>
+    <port id="1" precision="FP32"></port>
+   </output>
+  </layer>
+  <layer id="12" name="axx_ov_12" type="Divide" version="opset1">
+   <data auto_broadcast="numpy"></data>
+   <input>
+    <port id="0"></port>
+    <port id="1"></port>
+   </input>
+   <output>
+    <port id="2" precision="FP32"></port>
+   </output>
+  </layer>
+  <layer id="13" name="axx_ov_13" type="Const" version="opset1">
+   <data element_type="i64" shape="2" offset="1056" size="16"></data>
+   <input></input>
+   <output>
+    <port id="0" precision="I64"></port>
+   </output>
+  </layer>
+  <layer id="14" name="axx_14" type="Reshape" version="opset1">
+   <data special_zero="true"></data>
+   <input>
+    <port id="0"></port>
+    <port id="1"></port>
+   </input>
+   <output>
+    <port id="2" precision="FP32"></port>
+   </output>
+  </layer>
+  <layer id="15" name="axx_ov_15" type="Const" version="opset1">
+   <data element_type="f32" shape="768,3" offset="1072" size="9216"></data>
+   <input></input>
+   <output>
+    <port id="0" precision="FP32"></port>
+   </output>
+  </layer>
+  <layer id="16" name="axx_16" type="MatMul" version="opset1">
+   <data transpose_a="false" transpose_b="false"></data>
+   <input>
+    <port id="0"></port>
+    <port id="1"></port>
+   </input>
+   <output>
+    <port id="2" precision="FP32"></port>
+   </output>
+  </layer>
+  <layer id="17" name="axx_ov_17" type="Const" version="opset1">
+   <data element_type="f32" shape="3" offset="10288" size="12"></data>
+   <input></input>
+   <output>
+    <port id="0" precision="FP32"></port>
+   </output>
+  </layer>
+  <layer id="18" name="axx_ov_18" type="Add" version="opset1">
+   <data auto_broadcast="numpy"></data>
+   <input>
+    <port id="0"></port>
+    <port id="1"></port>
+   </input>
+   <output>
+    <port id="2" precision="FP32"></port>
+   </output>
+  </layer>
+  <layer id="19" name="axx_ov_19" type="Const" version="opset1">
+   <data element_type="i64" shape="" offset="10304" size="8"></data>
+   <input></input>
+   <output>
+    <port id="0" precision="I64"></port>
+   </output>
+  </layer>
+  <layer id="20" name="axx_ov_19" type="TopK" version="opset11">
+   <data axis="1" mode="max" sort="value" index_element_type="i64" stable="true"></data>
+   <input>
+    <port id="0"></port>
+    <port id="1"></port>
+   </input>
+   <output>
+    <port id="2" precision="FP32"></port>
+    <port id="3" precision="I64"></port>
+   </output>
+  </layer>
+  <layer id="21" name="axx_ov_21" type="Const" version="opset1">
+   <data element_type="i64" shape="1" offset="10312" size="8"></data>
+   <input></input>
+   <output>
+    <port id="0" precision="I64"></port>
+   </output>
+  </layer>
+  <layer id="22" name="axx_19" type="Squeeze" version="opset1">
+   <input>
+    <port id="0"></port>
+    <port id="1"></port>
+   </input>
+   <output>
+    <port id="2" precision="I64"></port>
+   </output>
+  </layer>
+  <layer id="23" name="axx_ov_23" type="Const" version="opset1">
+   <data element_type="f32" shape="3,1000" offset="10320" size="12000"></data>
+   <input></input>
+   <output>
+    <port id="0" precision="FP32"></port>
+   </output>
+  </layer>
+  <layer id="24" name="axx_ov_24" type="Const" version="opset1">
+   <data element_type="i64" shape="" offset="22320" size="8"></data>
+   <input></input>
+   <output>
+    <port id="0" precision="I64"></port>
+   </output>
+  </layer>
+  <layer id="25" name="output1" type="Gather" version="opset8">
+   <data batch_dims="0"></data>
+   <input>
+    <port id="0"></port>
+    <port id="1"></port>
+    <port id="2"></port>
+   </input>
+   <output>
+    <port id="3" precision="FP32" names="output1"></port>
+   </output>
+  </layer>
+  <layer id="26" name="output1/sink" type="Result" version="opset1">
+   <input>
+    <port id="0"></port>
+   </input>
+   <output></output>
+  </layer>
+ </layers>
+ <edges>
+  <edge from-layer="0" from-port="0" to-layer="1" to-port="0"></edge>
+  <edge from-layer="1" from-port="1" to-layer="3" to-port="0"></edge>
+  <edge from-layer="2" from-port="0" to-layer="3" to-port="1"></edge>
+  <edge from-layer="3" from-port="2" to-layer="5" to-port="0"></edge>
+  <edge from-layer="4" from-port="0" to-layer="5" to-port="1"></edge>
+  <edge from-layer="3" from-port="2" to-layer="6" to-port="0"></edge>
+  <edge from-layer="5" from-port="2" to-layer="6" to-port="1"></edge>
+  <edge from-layer="6" from-port="2" to-layer="7" to-port="0"></edge>
+  <edge from-layer="6" from-port="2" to-layer="7" to-port="1"></edge>
+  <edge from-layer="7" from-port="2" to-layer="8" to-port="0"></edge>
+  <edge from-layer="4" from-port="0" to-layer="8" to-port="1"></edge>
+  <edge from-layer="8" from-port="2" to-layer="10" to-port="0"></edge>
+  <edge from-layer="9" from-port="0" to-layer="10" to-port="1"></edge>
+  <edge from-layer="10" from-port="2" to-layer="11" to-port="0"></edge>
+  <edge from-layer="6" from-port="2" to-layer="12" to-port="0"></edge>
+  <edge from-layer="11" from-port="1" to-layer="12" to-port="1"></edge>
+  <edge from-layer="12" from-port="2" to-layer="14" to-port="0"></edge>
+  <edge from-layer="13" from-port="0" to-layer="14" to-port="1"></edge>
+  <edge from-layer="14" from-port="2" to-layer="16" to-port="0"></edge>
+  <edge from-layer="15" from-port="0" to-layer="16" to-port="1"></edge>
+  <edge from-layer="16" from-port="2" to-layer="18" to-port="0"></edge>
+  <edge from-layer="17" from-port="0" to-layer="18" to-port="1"></edge>
+  <edge from-layer="18" from-port="2" to-layer="20" to-port="0"></edge>
+  <edge from-layer="19" from-port="0" to-layer="20" to-port="1"></edge>
+  <edge from-layer="20" from-port="3" to-layer="22" to-port="0"></edge>
+  <edge from-layer="21" from-port="0" to-layer="22" to-port="1"></edge>
+  <edge from-layer="23" from-port="0" to-layer="25" to-port="0"></edge>
+  <edge from-layer="22" from-port="2" to-layer="25" to-port="1"></edge>
+  <edge from-layer="24" from-port="0" to-layer="25" to-port="2"></edge>
+  <edge from-layer="25" from-port="3" to-layer="26" to-port="0"></edge>
+ </edges>
+</net>

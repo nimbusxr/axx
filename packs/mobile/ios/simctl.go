@@ -60,6 +60,22 @@ type simRuntime struct {
 	Version     string `json:"version"`
 	Platform    string `json:"platform"` // iOS
 	IsAvailable bool   `json:"isAvailable"`
+	// SupportedDeviceTypes are the device types it runs (none listed: an
+	// older Xcode's, taken to run every one).
+	SupportedDeviceTypes []simDeviceType `json:"supportedDeviceTypes"`
+}
+
+// supports reports whether the runtime runs simulators of the device type.
+func (r simRuntime) supports(typeID string) bool {
+	if len(r.SupportedDeviceTypes) == 0 {
+		return true
+	}
+	for _, t := range r.SupportedDeviceTypes {
+		if t.Identifier == typeID {
+			return true
+		}
+	}
+	return false
 }
 
 type simDeviceType struct {
@@ -153,11 +169,13 @@ func iosRuntimes(ctx context.Context) ([]simRuntime, error) {
 	return ios, nil
 }
 
-// pickRuntime is the runtime named ios (like iOS 18.1), or the newest.
-func pickRuntime(rts []simRuntime, ios string) (simRuntime, bool) {
+// pickRuntime is the runtime named ios (like iOS 18.1), or the newest, of
+// those that run the device type: Xcode's newest may not run an older iPhone.
+func pickRuntime(rts []simRuntime, ios, typeID string) (simRuntime, bool) {
 	var best simRuntime
 	for _, r := range rts {
 		switch {
+		case !r.supports(typeID):
 		case ios != "" && strings.EqualFold(r.Name, ios):
 			return r, true
 		case ios == "" && (best.Identifier == "" || newer(r.Version, best.Version)):
@@ -196,12 +214,13 @@ func newer(a, b string) bool {
 	return false
 }
 
-// boot boots a simulator of the set, its processes started with env's SIMCTL_CHILD_
-// variables, and waits, up to within, until it has finished booting.
-func (set simSet) boot(ctx context.Context, udid string, within time.Duration, env ...string) error {
+// boot boots a simulator of the set and waits, up to within, until it has
+// finished booting. Libraries are set afterwards by loadSpringboard so apps
+// can supply their own initial library lists.
+func (set simSet) boot(ctx context.Context, udid string, within time.Duration) error {
 	ctx, cancel := context.WithTimeout(ctx, within)
 	defer cancel()
-	if _, err := simctlEnv(ctx, 5*time.Minute, env, set.args("boot", udid)...); err != nil && !strings.Contains(err.Error(), "current state: Booted") {
+	if _, err := set.simctl(ctx, "boot", udid); err != nil && !strings.Contains(err.Error(), "current state: Booted") {
 		return err
 	}
 	if _, err := simctlWithin(ctx, within, set.args("bootstatus", udid, "-b")...); err != nil {

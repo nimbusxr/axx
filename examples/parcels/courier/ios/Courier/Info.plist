@@ -22,6 +22,10 @@
 	<!-- The camera, which measures a parcel. -->
 	<key>NSCameraUsageDescription</key>
 	<string>The camera measures a parcel, to see that it fits a parcel locker.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Dictate a note about a delivery, and hear the doorbell or your knock when no one is home.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Turn your dictated delivery note into text.</string>
 	<!-- The round reminder: a background task iOS runs now and then (RoundReminder.swift). -->
 	<key>BGTaskSchedulerPermittedIdentifiers</key>
 	<array>

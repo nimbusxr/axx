@@ -1,0 +1,29 @@
+{
+  "mappings": [
+    {
+      "name": "The label of PX-5105",
+      "input": {
+        "image": "../../../features/photos/labels/label-PX-5105.png"
+      },
+      "output": {
+        "text": "PX-5105"
+      }
+    },
+    {
+      "name": "The label of PX-5107",
+      "input": {
+        "image": "../../../features/photos/labels/label-PX-5107.png"
+      },
+      "output": {
+        "text": "PX-5107"
+      }
+    },
+    {
+      "name": "Anything else",
+      "default": true,
+      "output": {
+        "text": ""
+      }
+    }
+  ]
+}

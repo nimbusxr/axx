@@ -52,9 +52,9 @@ Feature: Tracking updates
   Scenario: The TRACKING stream keeps a courier's confirmation, with the courier
     Given a seeds/courier-stream.yaml db seed
     When the nats/PX-NAT-8303-delivered.json message is published to the deliveries.confirmed nats subject with the following headers:
-      | courier | CR-LEJ-12 |
+      | courier | CR-LEJ-81 |
     Then within 20s the TRACKING nats stream has a message where:
       | subject        | tracking.PX-NAT-8303 |
       | status         | DELIVERED            |
       | header source  | courier              |
-      | header courier | CR-LEJ-12            |
+      | header courier | CR-LEJ-81            |

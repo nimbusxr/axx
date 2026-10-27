@@ -81,8 +81,13 @@ func Run(ctx context.Context, s Spec) (*Result, error) {
 		return nil, err
 	}
 	defer g.Release()
-	done := make(chan error, 1)
-	go func() { done <- cmd.Wait() }()
+	// Done when the command has exited. Its error is not the result's: its exit code is the
+	// process state's.
+	done := make(chan struct{})
+	go func() {
+		_ = cmd.Wait()
+		close(done)
+	}()
 	var timeout <-chan time.Time
 	if s.Timeout > 0 {
 		t := time.NewTimer(s.Timeout)
@@ -120,7 +125,7 @@ func Run(ctx context.Context, s Spec) (*Result, error) {
 
 // stop interrupts the command's group, gives it stopGrace to exit, then
 // kills it.
-func stop(g *Group, done <-chan error) {
+func stop(g *Group, done <-chan struct{}) {
 	if g.Interrupt("SIGTERM") {
 		select {
 		case <-done:

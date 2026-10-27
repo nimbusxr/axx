@@ -37,7 +37,7 @@ func (r runner) RunsHere() bool { return true }
 func (r runner) Start(sc *core.Scenario) (mobilecore.Device, error) {
 	a := r.app
 	ctx := sc.Context()
-	d := &running{app: a}
+	d := &running{app: a, scenario: sc}
 	if a.server != "" {
 		return d.startOnAppium(ctx)
 	}
@@ -76,6 +76,7 @@ func (r runner) Start(sc *core.Scenario) (mobilecore.Device, error) {
 		d.releaseDevice()
 		return nil, fmt.Errorf("cannot start the %s app: %w", a.name, err)
 	}
+	xpath1(ctx, s)
 	d.session, d.logDir, d.caps = s, logDir, caps
 	s.Revive = d.revive
 	if err := d.grant(ctx); err != nil {
@@ -83,6 +84,15 @@ func (r runner) Start(sc *core.Scenario) (mobilecore.Device, error) {
 		return nil, err
 	}
 	return d, nil
+}
+
+// xpath1 has the session find elements with UiAutomator2's XPath 1.0 engine,
+// of the same results for the pack's paths (a class and its bounds): its
+// XPath 2.0 engine copies the screen's accessibility nodes, and fails now and
+// then ("Cannot set AccessibilityNodeInfo's field 'mSealed'"). A driver that
+// lacks the setting finds them as before.
+func xpath1(ctx context.Context, s *appium.Session) {
+	_ = s.Settings(ctx, map[string]any{"enforceXPath1": true})
 }
 
 // startOnAppium starts a session of the app on an Appium server, which
@@ -93,6 +103,7 @@ func (d *running) startOnAppium(ctx context.Context) (mobilecore.Device, error) 
 	if err != nil {
 		return nil, fmt.Errorf("cannot start the %s app: %w", a.name, err)
 	}
+	xpath1(ctx, s)
 	d.session = s
 	d.pkg = a.pkg
 	if d.pkg == "" {
@@ -192,6 +203,7 @@ func (a *app) capabilities(dev *device) map[string]any {
 
 // running is an app running on a device for a scenario.
 type running struct {
+	scenario *core.Scenario
 	// component is the activity a launch starts, found once.
 	component string
 	app       *app
@@ -238,6 +250,7 @@ func (d *running) revive(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	xpath1(ctx, s)
 	d.session.Renew(s.ID)
 	d.resets = append(d.resets, "the UiAutomator2 server started again after it crashed")
 	return nil
@@ -494,13 +507,51 @@ func (d *running) Screen(ctx context.Context) (*mobilecore.Screen, error) {
 // it was not running, where it was if it was.
 func (d *running) Launch(ctx context.Context) error {
 	if d.dev == nil {
+		if _, err := d.prepareLaunch(ctx); err != nil {
+			return err
+		}
 		return d.session.Mobile(ctx, "activateApp", map[string]any{"appId": d.pkg}, nil)
 	}
 	component, err := d.launcher(ctx)
 	if err != nil {
 		return err
 	}
-	return d.am(ctx, "start", "-W", "-n", component, "-a", "android.intent.action.MAIN", "-c", "android.intent.category.LAUNCHER")
+	args := []string{"start", "-W"}
+	args = append(args, "-n", component, "-a", "android.intent.action.MAIN", "-c", "android.intent.category.LAUNCHER")
+	return d.start(ctx, args)
+}
+
+// start runs a local app process with the same cold-start preparation for
+// launcher and deep-link starts. A pidof failure is not evidence that the app
+// is already running: prepare in that case too, rather than silently missing
+// the hooks.
+func (d *running) start(ctx context.Context, args []string) error {
+	var launch *Launch
+	pid, pidErr := d.sdk.shell(ctx, d.dev.serial, "pidof", d.pkg)
+	if pidErr != nil || strings.TrimSpace(pid) == "" {
+		var err error
+		launch, err = d.prepareLaunch(ctx)
+		if err != nil {
+			return err
+		}
+		if launch.Agent != "" {
+			// am reads its options before the intent, whose last argument a
+			// link's start ends with: the agent's goes first.
+			args = append([]string{args[0], "--attach-agent", launch.Agent}, args[1:]...)
+		}
+	}
+	if err := d.am(ctx, args...); err != nil {
+		return err
+	}
+	if launch != nil {
+		for _, fn := range launch.After {
+			if err := fn(); err != nil {
+				_, _ = d.sdk.shell(ctx, d.dev.serial, "am", "force-stop", d.pkg)
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 func (d *running) Restart(ctx context.Context) error {
@@ -565,7 +616,7 @@ func (d *running) OpenLink(ctx context.Context, url string) error {
 	if d.dev == nil {
 		return d.session.Mobile(ctx, "deepLink", map[string]any{"url": url, "package": d.pkg, "waitForLaunch": true}, nil)
 	}
-	return d.am(ctx, "start", "-W", "-a", "android.intent.action.VIEW", "-d", q(url), d.pkg)
+	return d.start(ctx, []string{"start", "-W", "-a", "android.intent.action.VIEW", "-d", q(url), d.pkg})
 }
 
 // am runs the activity manager on the device: it says what went wrong in
@@ -655,6 +706,16 @@ func (d *running) scrollView(ctx context.Context, s *mobilecore.Screen, n *mobil
 	b := n.Bounds
 	in := 0.05
 	area := appium.Area{Left: b.X + b.Width*in, Top: b.Y + b.Height*in, Width: b.Width * (1 - 2*in), Height: b.Height * (1 - 2*in)}
+	if direction == "left" || direction == "right" {
+		// A sideways one keeps clear of the screen's sides too, where gesture navigation
+		// takes a swipe for Back (32dp: a tenth of a phone's width, at most).
+		margin := s.Size.Width / 8
+		left := max(area.Left, s.Size.X+margin)
+		right := min(area.Left+area.Width, s.Size.X+s.Size.Width-margin)
+		if right > left {
+			area.Left, area.Width = left, right-left
+		}
+	}
 	var more bool
 	var err error
 	if d.dev != nil {

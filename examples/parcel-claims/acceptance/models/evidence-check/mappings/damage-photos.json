@@ -1,0 +1,19 @@
+{
+  "mappings": [
+    {
+      "name": "A crushed carton on the porch",
+      "input": {"image": "../../../features/damage-claims/evidence/crushed-box.png"},
+      "output": {"label": "carton", "score": 0.91}
+    },
+    {
+      "name": "A torn padded parcel",
+      "input": {"image": "../../../features/damage-claims/evidence/torn-parcel.png"},
+      "output": {"label": "packet", "score": 0.86}
+    },
+    {
+      "name": "A screenshot of the shop's order page",
+      "input": {"image": "../../../features/damage-claims/evidence/order-screenshot.png"},
+      "output": {"label": "web site", "score": 0.88}
+    }
+  ]
+}

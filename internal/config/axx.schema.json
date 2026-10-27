@@ -213,7 +213,7 @@
         },
         "filePatterns": {
           "$ref": "#/$defs/StringList",
-          "description": "FilePatterns are glob patterns (Java glob syntax: *, **, ?, [abc],\n{a,b}) selecting the files to scan, relative to baseDir. The part\nbefore the first wildcard is a directory (it may start with ../); the\nrest is matched against the end of each file path below it, so\n\"seeds/*.yaml\" also finds YAML files in subdirectories of seeds."
+          "description": "FilePatterns are glob patterns (Java glob syntax: *, **, ?, [abc],\n{a,b}) selecting the files to scan, relative to baseDir. The part\nbefore the first wildcard is a directory (it may start with ../); the\nrest is matched against the end of each file path below it, so\n\"seeds/*.yaml\" also finds YAML files in subdirectories of seeds. A\npattern that ends in \"/\" matches folders, and all the files below\neach folder it matches count as one file: a scenario whose data spans\nseveral files keeps them in a folder of its own (\"seeds/*/\"), whose\nfiles may share values that no other file may."
         },
         "excludePatterns": {
           "$ref": "#/$defs/StringList",
@@ -242,7 +242,7 @@
             "file-unique",
             "cross-file-unique"
           ],
-          "description": "Validation is \"global-unique\" (default: a value may occur once),\n\"file-unique\" (no repeats within a file; files may share values) or\n\"cross-file-unique\" (repeats within one file are fine; no two files\nmay share a value)."
+          "description": "Validation is \"global-unique\" (default: a value may occur once),\n\"file-unique\" (no repeats within a file; files may share values) or\n\"cross-file-unique\" (repeats within one file are fine; no two files\nmay share a value). A folder a folder pattern matches counts as one\nfile."
         },
         "mode": {
           "type": "string",

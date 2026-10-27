@@ -314,6 +314,9 @@ func (a *App) startApps(ctx context.Context, e *engine.Engine, f *runFlags, pick
 			attach[n] = true
 		}
 		fmt.Fprintf(a.Stderr, "axx: reusing services started by `axx up`: %s\n", strings.Join(st.Services, ", "))
+		// Their data is an earlier run's: a scenario that creates what it
+		// created then finds it there.
+		fmt.Fprintln(a.Stderr, "warning: services started by `axx up` keep the data of earlier runs; `axx down`, then `axx up`, starts them afresh")
 	}
 	opts := lifecycle.Options{
 		ConfigDir: cfg.Dir,

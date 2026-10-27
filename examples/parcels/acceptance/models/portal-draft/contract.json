@@ -1,0 +1,11 @@
+{
+  "format": {
+    "type": "platform",
+    "details": {
+      "api": "web.writer"
+    }
+  },
+  "task": "text-generation",
+  "inputs": [],
+  "outputs": []
+}

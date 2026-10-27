@@ -69,9 +69,9 @@ homebrew_casks:
     # quarantine flag Homebrew sets on download.
     hooks:
       post:
-        install: |
-          if OS.mac?
-            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/axx"]
+        install_steps: |
+          on_macos do
+            run "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "{{ .StagedPath }}/axx"]
           end
     repository:
       owner: nimbusxr

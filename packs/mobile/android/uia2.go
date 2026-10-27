@@ -184,6 +184,9 @@ func (p *pool) ensureServer(ctx context.Context, d *device, logDir string) error
 	if d.served {
 		flags = os.O_CREATE | os.O_WRONLY | os.O_APPEND
 	}
+	if err := os.MkdirAll(logDir, 0o755); err != nil {
+		return err
+	}
 	log, err := os.OpenFile(filepath.Join(logDir, "uiautomator2-"+d.serial+".log"), flags, 0o644)
 	if err != nil {
 		return err

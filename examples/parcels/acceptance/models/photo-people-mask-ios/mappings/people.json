@@ -1,0 +1,9 @@
+{
+  "mappings": [
+    {
+      "name": "A neighbour at the door with the parcel: where they are",
+      "input": {"image": "../../../features/courier-app-documents/documents/parcel-and-person.jpg"},
+      "output": {"mask": "../../../features/courier-app-documents/masks/person-mask.png"}
+    }
+  ]
+}

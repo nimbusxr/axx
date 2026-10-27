@@ -1,0 +1,14 @@
+{
+  "mappings": [
+    {
+      "name": "A parcel with its corner crushed, and wet",
+      "input": {"text": "corner crushed, wet"},
+      "output": {"text": "The parcel arrived with one corner crushed and its box wet through."}
+    },
+    {
+      "name": "A parcel whose wrapping is torn",
+      "input": {"text": "wrapping torn"},
+      "output": {"text": "The parcel arrived with its outer wrapping torn open."}
+    }
+  ]
+}

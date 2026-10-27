@@ -1,0 +1,9 @@
+{
+  "mappings": [
+    {
+      "name": "The late parcel's message, shorter",
+      "input": {"text": "missed its connection"},
+      "output": {"text": "Your parcel arrives a day late: it missed its connection. Sorry for the wait!"}
+    }
+  ]
+}

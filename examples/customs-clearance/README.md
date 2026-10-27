@@ -12,6 +12,10 @@
   queue, and the parcel is held.
 - **At the border:** carriers announce parcels reaching the border on another topic, and
   the service releases the cleared ones for delivery.
+- **A model of its own:** an officer may open a parcel at the border and photograph its
+  contents. The service holds a cleared parcel whose photo shows goods its invoice does not
+  declare: an image classifier (MobileNetV3 Small), which the service runs itself with
+  OpenVINO, names what the photo shows.
 
 axx tests it the way brokers and carriers use it: uploading invoices, filing declarations,
 and announcing arrivals. It then checks the certificates and the archive in Blob Storage,
@@ -22,7 +26,7 @@ the duty requests on their queue, and the events on the topic.
 | Feature | Acceptance criteria | What axx uses |
 | --- | --- | --- |
 | `declarations` | A low-value parcel is cleared. A parcel above the de minimis value owes duties. A declaration without its invoice is held. | Blob Storage uploads and blobs (JSON properties, a certificate's text, identical to a file, a CSV row), Service Bus queue sends (with application properties) and checks, topic checks |
-| `border` | A cleared parcel is released when it reaches the border. One that is not is held. | sending to a Service Bus topic |
+| `border` | A cleared parcel is released when it reaches the border. One that is not is held. An inspected parcel is released when its contents match its invoice, and held when they differ. | sending to a Service Bus topic, Blob Storage uploads under another name, a stub of the contents check's model |
 
 ## Run it
 
@@ -36,6 +40,20 @@ axx run
 `axx run` starts Azure and the service with `docker compose up --build` in `../infra`,
 waits for `http://localhost:8700/health`, runs the features, and removes everything with
 `docker compose down -v`.
+
+## The contents check's model, stubbed
+
+The service checks an inspection's photo (a blob in the `inspections` container, which the
+carrier's border event names) with an image classifier it runs itself, MobileNetV3 Small as
+OpenVINO publishes it (its IR, 5 MB), with OpenVINO (its release's C library, which the
+image links in). The invoice's tariff codes say what the photo may show: a parcel is held when the
+model is sure it shows goods of a chapter the invoice does not declare. Tests do not need
+the real model: `models/contents-check` is a stub of it, the model's contract
+(`contract.json`, written from the real model with `axx models contract`) and mappings from
+the photos the scenarios upload to what the model sees in them (a teddy bear, a phone).
+`axx models build` writes the stub (`infra/models/contents-check/model.xml` and
+`model.bin`, 31 KB; `go generate ./...`, in axx's repository, builds it again), and the
+compose file gives it to the service in place of the real model.
 
 ## Azure, locally
 
@@ -70,6 +88,7 @@ strings (from `${env:...}`) and drop the `management endpoint` row.
 | Resource | Kind | Purpose |
 | --- | --- | --- |
 | `commercial-invoices` | blob container | brokers' invoices, `<declaration>.json` |
+| `inspections` | blob container | photos of inspected parcels' contents, `<declaration>.png` |
 | `clearances`, `customs-archive` | blob containers | clearance certificates (`<declaration>.json`, and `.txt` to print); archived invoices and duty breakdowns (`<declaration>/invoice.json`, `<declaration>/duties.csv`) |
 | `customs-filings` | Service Bus queue | brokers' declarations (axx sends them; the service reads them) |
 | `duty-payments` | Service Bus queue | duties for payments to collect (the service writes it; axx checks it) |

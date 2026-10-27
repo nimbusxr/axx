@@ -1,0 +1,19 @@
+{
+  "mappings": [
+    {
+      "name": "Another parcel's label, close up",
+      "input": {"image": "../../../features/courier-app-documents/documents/label-PX-IOS-9599.jpg"},
+      "output": {"text": "PX-IOS-9599 04157 LEIPZIG"}
+    },
+    {
+      "name": "A parcel on the doormat: its label too far to read",
+      "input": {"image": "../../../features/courier-app-documents/documents/parcel-at-door.jpg"},
+      "output": {"text": ""}
+    },
+    {
+      "name": "A parcel at the door, too close: its label blank",
+      "input": {"image": "../../../features/courier-app-documents/documents/parcel-cut-off.jpg"},
+      "output": {"text": ""}
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "mappings": [
+    {
+      "name": "A teddy bear in its box",
+      "input": {"image": "../../../features/border/inspections/teddy-bear.png"},
+      "output": {"label": "teddy", "score": 0.83}
+    },
+    {
+      "name": "A phone in its box",
+      "input": {"image": "../../../features/border/inspections/phone.png"},
+      "output": {"label": "cellular_telephone", "score": 0.78}
+    }
+  ]
+}

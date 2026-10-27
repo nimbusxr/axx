@@ -12,13 +12,16 @@ set -euo pipefail
 
 type_name=${1:-iPhone 16}
 
-# The newest iOS runtime, which the pack's simulators run, and the device type, as axx finds them.
-read -r runtime runtime_name < <(xcrun simctl list runtimes -j | jq -r '
-  [.runtimes[] | select(.platform == "iOS" and .isAvailable)]
-  | sort_by(.version | split(".") | map(tonumber)) | last | "\(.identifier) \(.name|gsub(" "; "_"))"')
-runtime_name=${runtime_name//_/ }
+# The device type, and the newest iOS runtime that runs it, which the pack's simulators run, as
+# axx finds them (Xcode's newest may not run an older iPhone).
 device_type=$(xcrun simctl list devicetypes -j | jq -r --arg n "$type_name" '.devicetypes[] | select(.name == $n) | .identifier')
 [[ -n "$device_type" ]] || { echo "no device type $type_name" >&2; exit 1; }
+read -r runtime runtime_name < <(xcrun simctl list runtimes -j | jq -r --arg t "$device_type" '
+  [.runtimes[] | select(.platform == "iOS" and .isAvailable)
+    | select((.supportedDeviceTypes // []) as $s | ($s | length) == 0 or any($s[]; .identifier == $t))]
+  | sort_by(.version | split(".") | map(tonumber)) | last | "\(.identifier) \(.name|gsub(" "; "_"))"')
+[[ -n "$runtime" && "$runtime" != null ]] || { echo "no iOS runtime runs $type_name" >&2; exit 1; }
+runtime_name=${runtime_name//_/ }
 # What axx names the first simulator it keeps (pool.go: "axx <type>, <runtime> (1)").
 name="axx $type_name, $runtime_name (1)"
 

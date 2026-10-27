@@ -10,6 +10,7 @@ java = "temurin-21"  # WireMock extension and IntelliJ plugin only
 "aqua:sharkdp/hyperfine" = "latest"  # bench/
 "aqua:rhysd/actionlint" = "latest"
 "aqua:gotestyourself/gotestsum" = "latest"  # scripts/gotest.sh, in CI
+uv = "0.9"  # the models-core pack's integration tests (Python runtimes), and the parcel-support example
 
 [tasks.test]
 run = "go test -race ./..."

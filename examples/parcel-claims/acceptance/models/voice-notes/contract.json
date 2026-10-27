@@ -1,0 +1,64 @@
+{
+  "format": {
+    "type": "whispercpp",
+    "details": {
+      "ftype": 1,
+      "dims": {
+        "mels": 80,
+        "vocab": 51864,
+        "width": 512,
+        "heads": 8,
+        "encoderLayers": 6,
+        "decoderLayers": 6,
+        "encoderFFN": 2048,
+        "decoderFFN": 2048,
+        "audioPositions": 1500,
+        "textPositions": 448
+      },
+      "tokens": {
+        "endOfText": 50256,
+        "startOfTranscript": 50257,
+        "noTimestamps": 50362,
+        "timestampBegin": 50363,
+        "language": -1
+      },
+      "beginSuppressed": [
+        220,
+        50256
+      ]
+    }
+  },
+  "task": "speech-to-text",
+  "inputs": [
+    {
+      "name": "mel",
+      "type": "float32",
+      "shape": [
+        "batch",
+        80,
+        3000
+      ],
+      "audio": {
+        "sampleRate": 16000,
+        "features": "log-mel"
+      }
+    }
+  ],
+  "outputs": [
+    {
+      "name": "logits",
+      "type": "float32",
+      "shape": [
+        "batch",
+        "sequence",
+        51864
+      ]
+    }
+  ],
+  "match": {
+    "input": "mel"
+  },
+  "files": {
+    "vocabulary": "model-files/vocabulary.bin"
+  }
+}

@@ -1,6 +1,11 @@
 package main
 
 import (
+	"bytes"
+	"image"
+	"image/color"
+	"image/png"
+	"math"
 	"strings"
 	"testing"
 )
@@ -44,5 +49,37 @@ func TestDisputeLetter(t *testing.T) {
 		if !strings.Contains(letter, want) {
 			t.Errorf("the letter does not say %q:\n%s", want, letter)
 		}
+	}
+}
+
+// A repack's photo is laid out as the classifier takes it (its middle
+// square at 224×224, 0..1, NHWC), and the most likely class of its logits,
+// with their softmax, is what the photo shows.
+func TestARepackPhotoIsLaidOutAsTheModelTakesIt(t *testing.T) {
+	img := image.NewRGBA(image.Rect(0, 0, 640, 480))
+	for y := range 480 {
+		for x := range 640 {
+			c := color.RGBA{R: 255, G: 51, B: 0, A: 255}
+			if x < 80 || x >= 560 {
+				c = color.RGBA{A: 255} // outside the middle square
+			}
+			img.SetRGBA(x, y, c)
+		}
+	}
+	var photo bytes.Buffer
+	if err := png.Encode(&photo, img); err != nil {
+		t.Fatal(err)
+	}
+	pixels, err := modelInput(photo.Bytes())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(pixels) != 224 || len(pixels[0]) != 224 || pixels[0][0] != [3]float32{1, 0.2, 0} || pixels[223][223] != [3]float32{1, 0.2, 0} {
+		t.Errorf("pixels %v .. %v", pixels[0][0], pixels[223][223])
+	}
+	logits := make([]float64, 1001)
+	logits[479] = 5 // carton
+	if best, score := top(logits); best != 479 || math.Abs(score-math.Exp(5)/(math.Exp(5)+1000)) > 1e-9 {
+		t.Errorf("class %d at %v", best, score)
 	}
 }

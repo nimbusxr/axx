@@ -1,0 +1,11 @@
+executorch==1.5.1
+torch==2.14.1
+# ExecuTorch needs torchao: PyPI's wheel of it, on every platform. --torch-backend would
+# take PyTorch's CPU build of it to compile, which it does not look for to install.
+torchao @ https://files.pythonhosted.org/packages/c4/4d/485477bb8f05bd501016059c6d8abd742f830cb1b24ab7704e086c7cc35a/torchao-0.18.0-py3-none-any.whl
+# certifi's first release without the root CAs whose intermediate CAs' keys were compromised
+# (GHSA-6q48-6c7w-9gw2): newer than the rest (--exclude-newer-package).
+certifi>=2026.10.19
+# filelock's first release whose lock follows no planted link (GHSA-v4x8-3wr5-3wq8): newer
+# than the rest (--exclude-newer-package).
+filelock>=4.2.1

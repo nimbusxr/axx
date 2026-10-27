@@ -106,6 +106,18 @@ struct DeliveriesView: View {
     }
 }
 
+/// The recipient's note, summarized on the phone when it is long.
+private struct NoteText: View {
+    let model: CourierModel
+    let note: String
+    @State private var read: String?
+
+    var body: some View {
+        Text(verbatim: read.map { "Note: \($0)" } ?? "Reading the recipient's note…")
+            .task(id: note) { read = await model.noteForCourier(note) }
+    }
+}
+
 struct DeliveryView: View {
     let model: CourierModel
     let reference: String
@@ -113,6 +125,10 @@ struct DeliveryView: View {
     @State private var confirming = false
     @State private var measuring = false
     @State private var picking = false
+    @State private var dictation = DictatedNote()
+    @State private var attempt = AttemptListener()
+    @State private var card: String?
+    @State private var savedNote = ""
 
     private var who: String { signedBy.trimmingCharacters(in: .whitespacesAndNewlines) }
     private var delivery: Delivery? { model.deliveries?.first { $0.reference == reference } }
@@ -127,6 +143,7 @@ struct DeliveryView: View {
                     Text(verbatim: delivery.recipient.name).font(.headline)
                     Text(verbatim: delivery.address)
                     Text(verbatim: delivery.serviceLevel)
+                    if !delivery.note.isEmpty { NoteText(model: model, note: delivery.note) }
                     Button("Measure parcel") { measuring = true }
                 }
                 if model.delivered {
@@ -142,11 +159,34 @@ struct DeliveryView: View {
                             .autocorrectionDisabled()
                     }
                     Section {
-                        ForEach(model.attached, id: \.self) { name in
-                            Text(verbatim: "\(name) attached")
+                        ForEach(model.attached, id: \.self) { done in
+                            Text(verbatim: done)
                         }
                         Button("Attach document") { picking = true }
                             .disabled(model.attaching)
+                        Button(dictation.listening ? "Finish dictation" : "Dictate note") {
+                            if dictation.listening { dictation.finish() }
+                            else {
+                                dictation.start { note in
+                                    Task { if await model.saveNote(reference, note: note) { savedNote = note } }
+                                }
+                            }
+                        }
+                        if dictation.listening { Text("Listening…") }
+                        if !dictation.text.isEmpty { Text(verbatim: "Courier note: \(dictation.text)") }
+                        else if !delivery.courierNote.isEmpty { Text(verbatim: "Courier note: \(delivery.courierNote)") }
+                        if !savedNote.isEmpty { Text("Note saved") }
+                        if let error = dictation.error { ErrorText(text: error) }
+                    }
+                    Section {
+                        Button(attempt.listening ? "Stop listening" : "No one home") {
+                            if attempt.listening { attempt.stop() }
+                            else { attempt.start { heard in await model.recordAttempt(reference, heard: heard) } }
+                        }
+                        if attempt.listening { Text("Listening for the doorbell or a knock…") }
+                        if let recorded = attempt.recorded { Text(verbatim: "Attempt recorded: \(recorded)") }
+                        if let card { Text(verbatim: "Card for the recipient: \(card)") }
+                        if let error = attempt.error { ErrorText(text: error) }
                     }
                     if let error = model.deliveryError {
                         Section { ErrorText(text: error) }
@@ -164,6 +204,14 @@ struct DeliveryView: View {
             }
         }
         .navigationTitle(Text(verbatim: reference))
+        // The card the courier leaves, once the attempt is recorded.
+        .task(id: attempt.heard) {
+            if let heard = attempt.heard, let delivery { card = await MissedCard.draft(delivery, heard: heard) }
+        }
+        .onDisappear {
+            dictation.stop()
+            attempt.stop()
+        }
         .sheet(isPresented: $measuring) { MeasureParcelView() }
         // A document from the phone's files: the recipient's authorization to leave the parcel
         // at a safe place, say, which they sent the courier.

@@ -1,0 +1,48 @@
+{
+  "format": {
+    "type": "safetensors",
+    "details": {
+      "modelType": "bert",
+      "contextLength": 512,
+      "vocabSize": 30522,
+      "hiddenSize": 384,
+      "pad": 0
+    }
+  },
+  "task": "embedding",
+  "inputs": [
+    {
+      "name": "input_ids",
+      "type": "int64",
+      "shape": [
+        "batch",
+        "sequence"
+      ]
+    },
+    {
+      "name": "attention_mask",
+      "type": "int64",
+      "shape": [
+        "batch",
+        "sequence"
+      ]
+    }
+  ],
+  "outputs": [
+    {
+      "name": "embedding",
+      "type": "float32",
+      "shape": [
+        384
+      ]
+    }
+  ],
+  "text": {
+    "ids": "input_ids",
+    "tokenizer": "huggingface",
+    "vocabulary": "tokenizer"
+  },
+  "files": {
+    "tokenizer": "model-files/tokenizer.json"
+  }
+}

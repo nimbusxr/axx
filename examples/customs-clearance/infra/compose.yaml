@@ -63,6 +63,14 @@ services:
     environment:
       <<: *azure
       CUSTOMS_ADDR: ':8700'
+      # The inspections' contents check's classifier, which the service runs with OpenVINO: in
+      # this test deployment, a stub that answers as its mappings say (models/contents-check/
+      # model.xml and model.bin, which `axx models build` writes from ../acceptance/models/
+      # contents-check). In production, the real model (MobileNetV3 Small, as OpenVINO
+      # publishes it, in its IR) is mounted here.
+      CUSTOMS_CONTENTS_MODEL: /models/contents-check/model.xml
+    volumes:
+      - ./models/contents-check:/models/contents-check:ro
     depends_on:
       provision:
         condition: service_completed_successfully

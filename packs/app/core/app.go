@@ -74,12 +74,14 @@ type registration struct {
 }
 
 type registry struct {
-	mu   sync.Mutex
-	apps map[string]*registration
+	mu    sync.Mutex
+	apps  map[string]*registration
+	files map[string]func(string) (core.Files, error)
+	index map[string]map[string]map[string]bool
 }
 
 var apps = core.NewStateKey(Name+"/apps", func(*core.Scenario) *registry {
-	return &registry{apps: map[string]*registration{}}
+	return &registry{apps: map[string]*registration{}, files: map[string]func(string) (core.Files, error){}, index: map[string]map[string]map[string]bool{}}
 }, nil)
 
 // Register adds an app its platform's pack registered (ADR 0012). runsHere
@@ -92,6 +94,9 @@ func Register(sc *core.Scenario, app *App, runsHere bool) error {
 	r := apps.Of(sc)
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	if _, exists := r.files[app.Name]; exists {
+		return fmt.Errorf("the %s app is already registered by another pack", app.Name)
+	}
 	reg := r.apps[app.Name]
 	if reg == nil {
 		reg = &registration{}

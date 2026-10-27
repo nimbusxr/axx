@@ -1,0 +1,19 @@
+{
+  "mappings": [
+    {
+      "name": "A new delivery address for PX-5102",
+      "input": {"text": "PX-5102"},
+      "output": {"text": "Hello, yes: you can change the delivery address of PX-5102 until it is out for delivery. Open its tracking page, choose Change delivery and enter your new address.\n\nKind regards, the Parcels support team"}
+    },
+    {
+      "name": "PX-5101, never received",
+      "input": {"text": "PX-5101"},
+      "output": {"text": "Hello Ms Weber, we are sorry that PX-5101 has not reached you. Please check with your neighbours first: the courier's photo of the delivery is on its tracking page. If you still cannot find it, reply to this message and we will open an investigation with the courier.\n\nKind regards, the Parcels support team"}
+    },
+    {
+      "name": "A parcel that arrived damaged",
+      "input": {"text": "arrived damaged"},
+      "output": {"text": "Hello, we are sorry your parcel arrived damaged. Please keep it and everything that came in it, and send us a photo of it from its tracking page: the shop that sent it files the claim with us.\n\nKind regards, the Parcels support team"}
+    }
+  ]
+}

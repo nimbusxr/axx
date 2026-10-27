@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 # Which CI jobs a pull request needs, from the files it changes, one per line on stdin. Prints
-# name=value lines for $GITHUB_OUTPUT: go, integration, web, mobile, desktop, examples, acceptance and workflows
+# name=value lines for $GITHUB_OUTPUT: go, integration, web, mobile, desktop, models, examples, acceptance and workflows
 # (true or false), and codeql, the matrix of the languages CodeQL analyzes.
 #   usage: git diff --name-only BASE...HEAD | scripts/ci-changes.sh
 #          scripts/ci-changes.sh --all    # every job: pushes to main
@@ -10,7 +10,7 @@
 # A change to CI itself runs every job too.
 set -euo pipefail
 
-go=false integration=false web=false mobile=false desktop=false examples=false acceptance=false workflows=false
+go=false integration=false web=false mobile=false desktop=false models=false examples=false acceptance=false workflows=false
 lang_go=false lang_java=false lang_js=false lang_actions=false
 all=false none=false
 case "${1:-}" in
@@ -37,9 +37,14 @@ while ! $all && ! $none && IFS= read -r f; do
       examples/parcels/acceptance/* | go.mod | go.sum | mise.toml | .golangci.yml | .goreleaser.yaml | *.go)
       go=true
       case "$f" in
-        packs/web/*) web=true ;;
-        packs/mobile/*) mobile=true ;;
-        packs/desktop/* | packs/app/*) desktop=true integration=true ;;
+        packs/web/* | packs/models/web/*) web=true ;;
+        packs/mobile/* | packs/models/ios/* | packs/models/android/*) mobile=true ;;
+        packs/models/internal/apple/*) mobile=true desktop=true ;;
+        packs/models/macos/* | packs/models/linux/* | packs/models/windows/*) desktop=true ;;
+        packs/models/core/*) integration=true models=true web=true mobile=true ;;
+        packs/files/*) integration=true web=true mobile=true models=true ;;
+        packs/desktop/*) desktop=true integration=true ;;
+        packs/app/*) desktop=true integration=true web=true mobile=true ;;
         core/* | internal/* | go.mod | go.sum | mise.toml) web=true mobile=true desktop=true integration=true ;;
         # Read by the unit tests, or only built: nothing the integration tests use.
         plugins/* | examples/* | scripts/* | build/* | .golangci.yml | .goreleaser.yaml) ;;
@@ -58,6 +63,18 @@ while ! $all && ! $none && IFS= read -r f; do
   case "$f" in
     examples/parcels/depot-desk/*) desktop=true ;;
   esac
+  # Core ML stubs and the Apple platform adapters (iOS's, including their real courier app, and
+  # the Mac's).
+  case "$f" in
+    packs/models/* | packs/mobile/ios/* | packs/mobile/core/* | packs/mobile/internal/* | packs/app/core/* | \
+      packs/desktop/core/* | packs/desktop/macos/* | \
+      examples/parcels/courier/ios/* | examples/parcels/acceptance/models/delivery-note-ios/* | \
+      examples/parcels/acceptance/features/courier-app/models/delivery-note.axxmodel | \
+      examples/parcels/acceptance/models/dictated-note-ios/* | \
+      examples/parcels/acceptance/features/courier-app/models/dictated-note-ios.axxmodel | \
+      examples/parcels/acceptance/features/courier-app/recordings/* | \
+      core/* | internal/* | go.mod | go.sum | mise.toml | .mise.toml) models=true ;;
+  esac
   # The examples' acceptance suites: axx, the examples, and the WireMock extension the parcels
   # example builds its mocks from.
   case "$f" in
@@ -72,7 +89,7 @@ while ! $all && ! $none && IFS= read -r f; do
 done
 
 if $all; then
-  go=true integration=true web=true mobile=true desktop=true examples=true acceptance=true workflows=true
+  go=true integration=true web=true mobile=true desktop=true models=true examples=true acceptance=true workflows=true
   lang_go=true lang_java=true lang_js=true lang_actions=true
 fi
 
@@ -88,6 +105,7 @@ echo "integration=$integration"
 echo "web=$web"
 echo "mobile=$mobile"
 echo "desktop=$desktop"
+echo "models=$models"
 echo "examples=$examples"
 echo "acceptance=$acceptance"
 echo "workflows=$workflows"

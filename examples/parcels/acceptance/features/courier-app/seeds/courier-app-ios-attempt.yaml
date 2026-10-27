@@ -1,0 +1,8 @@
+parcels.parcels:
+  - reference: "PX-IOS-9603"
+    sender: "maple-crafts"
+    status: "OUT_FOR_DELIVERY"
+    service_level: "STANDARD"
+    weight_grams: 2300
+    recipient: '{"name": "Jonas Weber", "street": "Karl-Heine-Straße 52", "city": "Leipzig", "postcode": "04229", "country": "DE"}'
+    details: '{"source": "portal", "zone": "DE-1", "courier": "CR-LEJ-65"}'

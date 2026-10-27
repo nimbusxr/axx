@@ -175,6 +175,64 @@ Feature: Shop portal
     Then the page shows "Parcel PX-WEB-5002 registered"
     And the page shows "Customs invoice: INV-2041.pdf"
 
+  # The page drafts the description with a small language model it runs itself
+  # (transformers.js); the test deployment gives it a stub (models/customs-draft).
+  Scenario: The portal drafts a parcel's customs description from its contents
+    Given the "/parcels/new" page is opened
+    And the "Contents" field is filled with "2 hand-thrown stoneware mugs, 1 linen tea towel"
+    When the "Describe for customs" button is clicked
+    Then within 30s the "Customs description" field has the value "Stoneware mugs (2) and a linen tea towel: household goods"
+
+  # The page cuts the photo out of its background with a background remover it runs
+  # itself (transformers.js); the test deployment gives it a stub (models/contents-cutout).
+  Scenario: The portal cuts the photo of a parcel's contents out of its background
+    Given the "/parcels/new" page is opened
+    When the photos/porcelain-mug.jpg file is uploaded in the "Photo of the contents" field
+    Then within 30s the page shows "Background removed"
+    And the "The contents, cut out" element looks like the "contents cutout" screenshot
+
+  Scenario: A parcel abroad goes with the cutout of its contents' photo
+    Given the "/parcels/new" page is opened
+    And the "Shop account" field is filled with "maple-crafts"
+    And the "Parcel reference" field is filled with "PX-WEB-5005"
+    And the "Weight (grams)" field is filled with "600"
+    And the "Recipient name" field is filled with "Marc Petit"
+    And the "Street" field is filled with "Rue Oberkampf 40"
+    And the "Postcode" field is filled with "75011"
+    And the "City" field is filled with "Paris"
+    And "France" is chosen in the "Destination country" field
+    And the "Contents" field is filled with "1 hand-painted porcelain mug"
+    And the photos/porcelain-mug.jpg file is uploaded in the "Photo of the contents" field
+    And within 30s the page shows "Background removed"
+    When the "Register the parcel" button is clicked
+    Then the page shows "Parcel PX-WEB-5005 registered"
+    And the page shows "Photo of the contents: porcelain-mug-cutout.png"
+    And a selection of rows is retrieved from the parcels.parcels table where:
+      | reference | PX-WEB-5005 |
+    And the 1st row details property for the selection json properties are:
+      | contentsPhoto | porcelain-mug-cutout.png |
+
+  Scenario: A parcel abroad is stored with its contents and their customs description
+    Given the "/parcels/new" page is opened
+    And the "Shop account" field is filled with "maple-crafts"
+    And the "Parcel reference" field is filled with "PX-WEB-5004"
+    And the "Weight (grams)" field is filled with "900"
+    And the "Recipient name" field is filled with "Marc Petit"
+    And the "Street" field is filled with "Rue Oberkampf 40"
+    And the "Postcode" field is filled with "75011"
+    And the "City" field is filled with "Paris"
+    And "France" is chosen in the "Destination country" field
+    And the "Contents" field is filled with "2 hand-thrown stoneware mugs, 1 linen tea towel"
+    And the "Customs description" field is filled with "Stoneware mugs (2) and a linen tea towel: household goods"
+    When the "Register the parcel" button is clicked
+    Then the page shows "Parcel PX-WEB-5004 registered"
+    And the page shows "Customs description: Stoneware mugs (2) and a linen tea towel: household goods"
+    And a selection of rows is retrieved from the parcels.parcels table where:
+      | reference | PX-WEB-5004 |
+    And the 1st row details property for the selection json properties are:
+      | contents           | 2 hand-thrown stoneware mugs, 1 linen tea towel           |
+      | customsDescription | Stoneware mugs (2) and a linen tea towel: household goods |
+
   Scenario: The portal turns down an address it cannot deliver to
     Given the "/parcels/new" page is opened
     When the "Shop account" field is filled with "fjord-outdoor"
@@ -254,6 +312,16 @@ Feature: Shop portal
     And the "Register a parcel" link is tapped
     Then the "/parcels/new" page is shown
     And the "Register the parcel" button is disabled
+
+  Scenario: On a phone, the portal drafts a parcel's customs description too
+    Given the phone web app with the following properties:
+      | url    | ${sys:portal.url} |
+      | engine | webkit            |
+      | device | iPhone 15         |
+    And the "/parcels/new" page of the phone web app is opened
+    And the "Contents" field is filled with "1 merino wool jumper, size M"
+    When the "Describe for customs" button is tapped
+    Then within 30s the "Customs description" field has the value "Knitted merino wool jumper: clothing"
 
   Scenario: Parcels registered before 14:00 are picked up the same day
     Given the berlin web app with the following properties:

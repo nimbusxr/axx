@@ -1,0 +1,7 @@
+{
+  "name": "An unclear note",
+  "default": true,
+  "output": {
+    "text": "Please try dictating the note again."
+  }
+}

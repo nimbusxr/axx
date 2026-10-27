@@ -1,0 +1,8 @@
+parcels.parcels:
+  - reference: "PX-IOS-9563"
+    sender: "maple-crafts"
+    status: "OUT_FOR_DELIVERY"
+    service_level: "STANDARD"
+    weight_grams: 1100
+    recipient: '{"name": "Ida Krause", "street": "Lindenauer Markt 9", "city": "Leipzig", "postcode": "04177", "country": "DE"}'
+    details: '{"source": "portal", "zone": "DE-1", "courier": "CR-LEJ-64", "deliveryNote": "Ring twice, please."}'

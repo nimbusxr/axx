@@ -47,7 +47,7 @@ axx env           # which services are running, left over from a killed run, or 
 axx down          # stop the services and run their cleanup
 ```
 
-This is the fastest local loop, and the one agents should use.
+This is the fastest local loop, and the one agents should use. The services keep their data from run to run, and `axx run` warns so when it reuses them: a scenario that creates something (registers a parcel by its reference, say) finds what an earlier run created and fails where a fresh start would pass. `axx down`, then `axx up`, starts them afresh; check a change on fresh services before you trust its result.
 
 ## When a run is stopped by force
 

@@ -1,0 +1,5 @@
+{
+  "name": "Any other contents: the shop describes them itself",
+  "default": true,
+  "output": {"text": "Goods as listed by the shop"}
+}

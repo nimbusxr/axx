@@ -122,4 +122,6 @@ public partial class Desk : Window
     }
 
     void OnRules(object sender, RoutedEventArgs e) => RulesText.Visibility = Visibility.Visible;
+
+    void OnReadAloud(object sender, RoutedEventArgs e) => Speech.Say(RulesText.Text);
 }

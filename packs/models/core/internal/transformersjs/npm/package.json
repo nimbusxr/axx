@@ -1,0 +1,7 @@
+{
+  "name": "axx-models-transformersjs",
+  "private": true,
+  "dependencies": {
+    "@huggingface/transformers": "4.3.1"
+  }
+}

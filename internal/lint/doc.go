@@ -14,6 +14,13 @@
 //   - cross-file-unique: repeats within one file are fine, but no two files
 //     may share a value.
 //
+// A filePatterns entry that ends in "/" matches folders, and every file below
+// a folder it matches counts as one file with the folder's others (its
+// outermost such folder, should they nest; a folder claims a file that a
+// file pattern also matches): a scenario whose data spans several files keeps
+// them in a folder of its own, whose files may share values with each other,
+// and with nothing else. excludePatterns still remove files one by one.
+//
 // Values come from a Java regular expression (compat/javare, MULTILINE, the
 // first participating capture group of every match, located at the captured
 // text) or, for `type: jsonpath`, from the scalar values at a JSON path (see

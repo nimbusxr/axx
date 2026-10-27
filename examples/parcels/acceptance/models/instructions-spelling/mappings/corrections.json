@@ -1,0 +1,9 @@
+{
+  "mappings": [
+    {
+      "name": "Ring twice, misspelled",
+      "input": {"text": "Pleese"},
+      "output": {"text": "Please ring twice."}
+    }
+  ]
+}

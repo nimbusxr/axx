@@ -5,4 +5,4 @@ parcels.parcels:
     service_level: "STANDARD"
     weight_grams: 1100
     recipient: '{"name": "Eva Schulz", "street": "Bautzner Str. 20", "city": "Dresden", "postcode": "01099", "country": "DE"}'
-    details: '{"source": "api", "zone": "DE-1", "courier": "CR-DRS-07"}'
+    details: '{"source": "api", "zone": "DE-1", "courier": "CR-DRS-12"}'

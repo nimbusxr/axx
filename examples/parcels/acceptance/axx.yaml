@@ -109,15 +109,39 @@ profiles:
 # that identify their rows must not collide across files.
 lint:
   include: [axx-lint.generated.yaml]
+  # A scenario whose seeds span several files keeps them in a folder of its own
+  # (features/courier-app/seeds/courier-app-refresh/): the rules' folder pattern,
+  # "features/*/seeds/*/", counts the folder as one file. manifest-import's
+  # seeds/manifests/ is no scenario's: it holds the fixtures its factories
+  # generate, which axx-lint.generated.yaml's rules check.
   rules:
     - name: Parcel references in seeds
-      filePatterns: ["features/*/seeds/*.yaml"]
+      filePatterns: ["features/*/seeds/*.yaml", "features/*/seeds/*/"]
+      excludePatterns: ["features/manifest-import/seeds/manifests/**"]
       regex: '^\s+-?\s*reference:\s*"([^"]+)"'
       description: Every seeded parcel and manifest line has its own reference
       validation: cross-file-unique
 
+    # A courier's deliveries are every parcel given to them: a courier shared by two
+    # scenarios shows each the other's parcels. Each scenario signs in once.
+    - name: Couriers who sign in
+      filePatterns: ["features/*/*.feature"]
+      regex: '"Courier ID" field in the courier app is filled with "([^"]+)"'
+      description: Every scenario signs in as a courier of its own
+      validation: global-unique
+
+    # A seed gives parcels to its own scenario's courier. The list refresh gives its
+    # courier a second parcel mid-scenario, from its folder's second file.
+    - name: Couriers in seeds
+      filePatterns: ["features/*/seeds/*.yaml", "features/*/seeds/*/"]
+      excludePatterns: ["features/manifest-import/seeds/manifests/**"]
+      regex: '"courier": "([^"]+)"'
+      description: Every courier's parcels are one scenario's
+      validation: cross-file-unique
+
     - name: Manifest line ids
-      filePatterns: ["features/*/seeds/*.yaml"]
+      filePatterns: ["features/*/seeds/*.yaml", "features/*/seeds/*/"]
+      excludePatterns: ["features/manifest-import/seeds/manifests/**"]
       regex: '^\s+-?\s*id:\s*"([^"]+)"'
       description: Manifest line ids are unique across seed files
       validation: cross-file-unique
@@ -129,7 +153,8 @@ lint:
       validation: cross-file-unique
 
     - name: Depot scan ids
-      filePatterns: ["features/*/seeds/*.json"]
+      filePatterns: ["features/*/seeds/*.json", "features/*/seeds/*/"]
+      excludePatterns: ["features/manifest-import/seeds/manifests/**"]
       type: jsonpath
       jsonPath: "scans[*].scanId"
       description: Depot scans in MongoDB seeds have their own ids

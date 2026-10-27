@@ -114,6 +114,14 @@ axx adds its MCP server to an agent's configuration file only when it can read t
 
 **Fix:** Run `axx init` to set the project up: it installs the skills too. A project that is set up adds the packs its steps come from with `axx pack add`. `axx skills install --scope user` installs the skills for every project, with every pack axx publishes.
 
+### AXX-E0016
+
+**A pack's command failed** · exit 2
+
+A command a pack adds to axx (one `axx --help` lists in a project that uses the pack) failed, with an error of the pack's own: the message is the pack's.
+
+**Fix:** The hint names the pack. Run the command with `--help` for what it takes, and see the pack's reference.
+
 ## Configuration (axx.yaml)
 
 ### AXX-E0100
@@ -411,6 +419,48 @@ The state file records services an earlier run left behind, and they could not b
 `--format` or `run.reporters` names a reporter that does not exist.
 
 **Fix:** Use one of: pretty, progress, compact, junit, messages, cucumber-json, html, agent, teamcity.
+
+## Model stubs
+
+### AXX-E0700
+
+**Invalid model contract** · exit 2
+
+A stub's model contract (`contract.json`, what an app relies on from the model) cannot be read or used: it is not valid JSON, has an unknown key, or a value a contract does not take (a type, a shape, an image layout, a task). The message names what.
+
+**Fix:** Fix the contract, or write it again from the real model with `axx models contract <model> -o <stub>/contract.json`.
+
+### AXX-E0701
+
+**Invalid model stub mapping** · exit 2
+
+A mapping of a stub (a file of its `mappings` folder) cannot be used: an unknown key, an input that is neither a picture nor a tensor of the input's size, an answer the model's outputs cannot give (an unknown label, the wrong number of values), a second default or none. The message names the mapping.
+
+**Fix:** Fix the mapping. The stubs guide shows what a mapping's input and output take.
+
+### AXX-E0702
+
+**Cannot read the model** · exit 2
+
+`axx models contract` reads a model's contract from its file, and could not: the file is not a model of a format axx stubs (by its extension), or not a model it can read (an output that is not a tensor, like a classifier's ZipMap).
+
+**Fix:** Give it the model file the app loads, in a format the message lists; export a classifier without its ZipMap.
+
+### AXX-E0703
+
+**Cannot write the stub** · exit 2
+
+`axx models build` resolved the stub, but cannot write it as a model of its contract's format: an ONNX operator set too old for a stub, or an answer that does not fit an output.
+
+**Fix:** The message says what; export the model with a later operator set, or fix the contract.
+
+### AXX-E0704
+
+**Cannot use the platform model stub** · exit 2
+
+A prebuilt platform API artifact is invalid, names an unsupported API or contract, or its debug test adapter cannot start. A configured API is never allowed to fall back silently to the real model.
+
+**Fix:** Rebuild the artifact from its contract and mappings, copy it into the app's axx-models folder before launch, and use a supported debug simulator, emulator or browser test environment. The message identifies the unsupported input or missing tool.
 
 ## Lint
 

@@ -1,0 +1,13 @@
+{
+  "mappings": [
+    {
+      "name": "The fragile parcels for the night porter",
+      "input": {
+        "audio": "../../../features/desk-models/recordings/night-porter.wav"
+      },
+      "output": {
+        "text": "Hand the fragile parcels to the night porter."
+      }
+    }
+  ]
+}

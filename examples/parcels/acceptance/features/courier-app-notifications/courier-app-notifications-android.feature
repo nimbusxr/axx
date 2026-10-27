@@ -32,7 +32,7 @@ Feature: The couriers' app asks to notify
   Scenario: A courier who does not allow notifications still delivers
     Given a seeds/courier-app-no-notifications.yaml db seed
     And the courier app is launched
-    And the "Courier ID" field in the courier app is filled with "CR-DRS-07"
+    And the "Courier ID" field in the courier app is filled with "CR-DRS-12"
     And the "PIN" field in the courier app is filled with "${sys:couriers.pin}"
     And the "Sign in" button is tapped in the courier app
     And the courier app's dialog is dismissed

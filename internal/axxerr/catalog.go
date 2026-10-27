@@ -25,6 +25,7 @@ var Ranges = []struct{ From, To, Area string }{
 	{"AXX-E0300", "AXX-E0399", "Packs, steps and resources"},
 	{"AXX-E0400", "AXX-E0499", "Service lifecycle"},
 	{"AXX-E0600", "AXX-E0699", "Reporters"},
+	{"AXX-E0700", "AXX-E0799", "Model stubs"},
 	{"AXX-E0800", "AXX-E0899", "Lint"},
 	{"AXX-E0900", "AXX-E0999", "Fixtures"},
 }
@@ -91,6 +92,9 @@ func init() {
 	add("AXX-E0015", u, "No packs for the skills",
 		"`axx skills install` writes the skills with the steps of the project's packs, and the project lists none: it has no `axx-packs.yaml` yet, or the file lists no packs.",
 		"Run `axx init` to set the project up: it installs the skills too. A project that is set up adds the packs its steps come from with `axx pack add`. `axx skills install --scope user` installs the skills for every project, with every pack axx publishes.")
+	add("AXX-E0016", u, "A pack's command failed",
+		"A command a pack adds to axx (one `axx --help` lists in a project that uses the pack) failed, with an error of the pack's own: the message is the pack's.",
+		"The hint names the pack. Run the command with `--help` for what it takes, and see the pack's reference.")
 
 	add("AXX-E0100", u, "Config file not found",
 		"The file given with `--config` does not exist or cannot be read.",
@@ -206,6 +210,22 @@ func init() {
 		"Use one of: pretty, progress, compact, junit, messages, cucumber-json, html, agent, teamcity.")
 
 	lint := exitcode.Undefined
+	add("AXX-E0700", u, "Invalid model contract",
+		"A stub's model contract (`contract.json`, what an app relies on from the model) cannot be read or used: it is not valid JSON, has an unknown key, or a value a contract does not take (a type, a shape, an image layout, a task). The message names what.",
+		"Fix the contract, or write it again from the real model with `axx models contract <model> -o <stub>/contract.json`.")
+	add("AXX-E0701", u, "Invalid model stub mapping",
+		"A mapping of a stub (a file of its `mappings` folder) cannot be used: an unknown key, an input that is neither a picture nor a tensor of the input's size, an answer the model's outputs cannot give (an unknown label, the wrong number of values), a second default or none. The message names the mapping.",
+		"Fix the mapping. The stubs guide shows what a mapping's input and output take.")
+	add("AXX-E0702", u, "Cannot read the model",
+		"`axx models contract` reads a model's contract from its file, and could not: the file is not a model of a format axx stubs (by its extension), or not a model it can read (an output that is not a tensor, like a classifier's ZipMap).",
+		"Give it the model file the app loads, in a format the message lists; export a classifier without its ZipMap.")
+	add("AXX-E0703", u, "Cannot write the stub",
+		"`axx models build` resolved the stub, but cannot write it as a model of its contract's format: an ONNX operator set too old for a stub, or an answer that does not fit an output.",
+		"The message says what; export the model with a later operator set, or fix the contract.")
+	add("AXX-E0704", u, "Cannot use the platform model stub",
+		"A prebuilt platform API artifact is invalid, names an unsupported API or contract, or its debug test adapter cannot start. A configured API is never allowed to fall back silently to the real model.",
+		"Rebuild the artifact from its contract and mappings, copy it into the app's axx-models folder before launch, and use a supported debug simulator, emulator or browser test environment. The message identifies the unsupported input or missing tool.")
+
 	add("AXX-E0800", u, "No lint rules",
 		"`axx.yaml` has a `lint` section, but it (with its includes) defines no rules, so `axx lint` would check nothing.",
 		"Add rules under `lint.rules`, or include a rules file with `lint.include`. Remove the `lint` section if the project has no isolation rules.")

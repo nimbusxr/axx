@@ -1,0 +1,33 @@
+{
+  "mappings": [
+    {
+      "name": "The clerk behind the counter",
+      "input": {
+        "image": "../../../features/desk-models/scans/parcel-and-clerk.jpg"
+      },
+      "output": {
+        "objects": [
+          {
+            "label": "person",
+            "box": {
+              "x": 0.056,
+              "y": 0.297,
+              "width": 0.222,
+              "height": 0.328
+            },
+            "score": 0.95
+          }
+        ]
+      }
+    },
+    {
+      "name": "A parcel on the counter, and nobody",
+      "input": {
+        "image": "../../../features/desk-models/scans/parcel-on-counter.jpg"
+      },
+      "output": {
+        "objects": []
+      }
+    }
+  ]
+}

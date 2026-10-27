@@ -55,6 +55,9 @@ struct Delivery: Decodable, Equatable, Identifiable {
     let reference: String
     let serviceLevel: String
     let recipient: Recipient
+    /// The recipient's delivery note: where to leave the parcel, what to look out for.
+    let note: String
+    let courierNote: String
 
     var id: String { reference }
     var address: String { "\(recipient.street), \(recipient.postcode) \(recipient.city)" }
@@ -64,10 +67,12 @@ struct Delivery: Decodable, Equatable, Identifiable {
         reference = try c.decode(String.self, forKey: .reference)
         serviceLevel = try c.decodeIfPresent(String.self, forKey: .serviceLevel) ?? ""
         recipient = try c.decode(Recipient.self, forKey: .recipient)
+        note = try c.decodeIfPresent(String.self, forKey: .note) ?? ""
+        courierNote = try c.decodeIfPresent(String.self, forKey: .courierNote) ?? ""
     }
 
     private enum CodingKeys: String, CodingKey {
-        case reference, serviceLevel, recipient
+        case reference, serviceLevel, recipient, note, courierNote
     }
 }
 
@@ -104,6 +109,15 @@ struct CourierAPI {
             "POST", "/api/couriers/\(enc(session.courier))/deliveries/\(enc(reference))",
             token: session.token, body: ["signedBy": signedBy]
         )
+    }
+
+    func saveNote(_ session: Session, reference: String, note: String) async throws {
+        _ = try await call("PUT", "/api/couriers/\(enc(session.courier))/deliveries/\(enc(reference))/note", token: session.token, body: ["note": note])
+    }
+
+    /// A delivery attempt, no one home: what the phone heard at the door (doorbell or knock).
+    func recordAttempt(_ session: Session, reference: String, heard: String) async throws {
+        _ = try await call("PUT", "/api/couriers/\(enc(session.courier))/deliveries/\(enc(reference))/attempt", token: session.token, body: ["heard": heard])
     }
 
     /// A document for the delivery, like the recipient's safe-place authorization: its content,

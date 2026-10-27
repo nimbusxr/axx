@@ -1,0 +1,14 @@
+{
+  "mappings": [
+    {
+      "name": "A repacked parcel",
+      "input": {"image": "../../../features/invoices/photos/repacked-parcel.png"},
+      "output": {"label": "carton", "score": 0.86}
+    },
+    {
+      "name": "A scanned delivery note",
+      "input": {"image": "../../../features/invoices/photos/delivery-note.png"},
+      "output": {"label": "menu", "score": 0.71}
+    }
+  ]
+}

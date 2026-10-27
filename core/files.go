@@ -91,15 +91,55 @@ func (l localFiles) Read(_ context.Context, name string) ([]byte, bool, error) {
 	return b, err == nil, err
 }
 
+// Write writes a file as open as the folder it is put in: a subfolder it
+// makes gets the permissions of the folder above it, and the file that
+// folder's read and write ones. A service that runs as another user (in a
+// container, say) takes it from a folder its deployment shares with it, as it
+// takes another system's.
 func (l localFiles) Write(_ context.Context, name string, body []byte) error {
 	p, err := l.path(name)
 	if err != nil {
 		return err
 	}
-	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+	if err := os.MkdirAll(l.dir, 0o755); err != nil {
 		return err
 	}
-	return os.WriteFile(p, body, 0o644)
+	perm, err := l.mkdirs(filepath.Dir(p))
+	if err != nil {
+		return err
+	}
+	if err := os.WriteFile(p, body, 0o644); err != nil {
+		return err
+	}
+	return os.Chmod(p, perm&0o666)
+}
+
+// mkdirs makes dir, a folder in the files' folder, and the folders between,
+// each with the permissions of the nearest folder above it that is there, and
+// returns them.
+func (l localFiles) mkdirs(dir string) (fs.FileMode, error) {
+	var missing []string
+	for d := dir; ; d = filepath.Dir(d) {
+		fi, err := os.Stat(d)
+		if errors.Is(err, fs.ErrNotExist) && d != l.dir {
+			missing = append(missing, d)
+			continue
+		}
+		if err != nil {
+			return 0, err
+		}
+		perm := fi.Mode().Perm()
+		for i := len(missing) - 1; i >= 0; i-- {
+			if err := os.Mkdir(missing[i], perm); err != nil && !errors.Is(err, fs.ErrExist) {
+				return 0, err
+			}
+			// Exactly the folder's: Mkdir's are less the process's umask.
+			if err := os.Chmod(missing[i], perm); err != nil {
+				return 0, err
+			}
+		}
+		return perm, nil
+	}
 }
 
 func (l localFiles) Empty(context.Context) error {

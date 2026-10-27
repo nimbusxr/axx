@@ -5,3 +5,7 @@ packs:
   - desktop-windows
   - desktop-linux
   - files
+  - models-core
+  - models-macos
+  - models-windows
+  - models-linux

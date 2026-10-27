@@ -1,0 +1,1 @@
+{"version":1,"api":"macos.foundation-models","contract":{"format":{"type":"platform","details":{"api":"macos.foundation-models","availability":"deviceNotEligible"}},"task":"text-generation","inputs":null,"outputs":null},"matcher":"text","names":["A Mac without Apple Intelligence: not asked"],"generated":[""]}

@@ -56,13 +56,69 @@ func (s *service) courierRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/couriers/{courier}/deliveries/{reference}", s.courierDelivered)
 	mux.HandleFunc("POST /api/couriers/{courier}/location", s.courierLocation)
 	mux.HandleFunc("PUT /api/couriers/{courier}/deliveries/{reference}/documents/{name}", s.courierDocument)
+	mux.HandleFunc("PUT /api/couriers/{courier}/deliveries/{reference}/note", s.courierNote)
+	mux.HandleFunc("PUT /api/couriers/{courier}/deliveries/{reference}/attempt", s.courierAttempt)
+}
+
+// attemptSounds are what the couriers' app hears at a door, as proof that the courier rang or
+// knocked before leaving a card: no one came.
+var attemptSounds = []string{"doorbell", "knock"}
+
+// A courier who finds no one home records the attempt with what the phone heard at the door.
+func (s *service) courierAttempt(w http.ResponseWriter, r *http.Request) {
+	courier, ok := s.courierOf(w, r)
+	if !ok {
+		return
+	}
+	var in struct {
+		Heard string `json:"heard"`
+	}
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<10)).Decode(&in); err != nil || !slices.Contains(attemptSounds, in.Heard) {
+		problem(w, r, http.StatusBadRequest, "an attempt is what the phone heard at the door: doorbell or knock")
+		return
+	}
+	ref := r.PathValue("reference")
+	if err := s.store.RecordAttempt(r.Context(), ref, courier, in.Heard); errors.Is(err, errNotFound) {
+		problem(w, r, http.StatusNotFound, "no parcel "+ref+" is out for delivery with "+courier)
+		return
+	} else if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// A courier's dictated note belongs to their delivery. Keep the recipient's
+// instructions separately, so dictation never replaces what the recipient said.
+func (s *service) courierNote(w http.ResponseWriter, r *http.Request) {
+	courier, ok := s.courierOf(w, r)
+	if !ok {
+		return
+	}
+	var in struct {
+		Note string `json:"note"`
+	}
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4<<10)).Decode(&in); err != nil || strings.TrimSpace(in.Note) == "" {
+		problem(w, r, http.StatusBadRequest, "a delivery note needs text, at most 4 KB")
+		return
+	}
+	ref := r.PathValue("reference")
+	if err := s.store.SetCourierNote(r.Context(), ref, courier, strings.TrimSpace(in.Note)); errors.Is(err, errNotFound) {
+		problem(w, r, http.StatusNotFound, "no parcel "+ref+" is out for delivery with "+courier)
+		return
+	} else if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // maxDeliveryDocument is the largest document a courier attaches: a phone's scan of a page.
 const maxDeliveryDocument = 10 << 20
 
-// deliveryDocumentTypes are the documents a courier attaches: PDFs and images.
-var deliveryDocumentTypes = []string{"application/pdf", "image/jpeg", "image/png", "image/heic"}
+// deliveryDocumentTypes are the documents a courier attaches: PDFs and images, and text their
+// app writes (a damaged parcel's description).
+var deliveryDocumentTypes = []string{"application/pdf", "image/jpeg", "image/png", "image/heic", "text/plain"}
 
 func (s *service) courierDocument(w http.ResponseWriter, r *http.Request) {
 	courier, ok := s.courierOf(w, r)
@@ -72,7 +128,7 @@ func (s *service) courierDocument(w http.ResponseWriter, r *http.Request) {
 	ref, name := r.PathValue("reference"), r.PathValue("name")
 	contentType, _, _ := strings.Cut(r.Header.Get("Content-Type"), ";")
 	if !slices.Contains(deliveryDocumentTypes, strings.TrimSpace(contentType)) {
-		problem(w, r, http.StatusUnsupportedMediaType, "a delivery's document is a PDF or an image (JPEG, PNG or HEIC)")
+		problem(w, r, http.StatusUnsupportedMediaType, "a delivery's document is a PDF, an image (JPEG, PNG or HEIC) or text")
 		return
 	}
 	if strings.TrimSpace(name) == "" || len(name) > 200 || strings.ContainsAny(name, "/\\") {
@@ -204,6 +260,10 @@ type delivery struct {
 	Reference    string    `json:"reference"`
 	ServiceLevel string    `json:"serviceLevel"`
 	Recipient    Recipient `json:"recipient"`
+	// Note is the recipient's delivery note: the couriers' app summarizes a
+	// long one.
+	Note        string `json:"note,omitempty"`
+	CourierNote string `json:"courierNote,omitempty"`
 }
 
 func (s *service) courierDeliveries(w http.ResponseWriter, r *http.Request) {
@@ -221,7 +281,12 @@ func (s *service) courierDeliveries(w http.ResponseWriter, r *http.Request) {
 		if s.delivered(r, p.Reference) {
 			continue
 		}
-		out = append(out, delivery{p.Reference, p.ServiceLevel, p.Recipient})
+		var d struct {
+			Note        string `json:"deliveryNote"`
+			CourierNote string `json:"courierNote"`
+		}
+		_ = json.Unmarshal(p.Details, &d)
+		out = append(out, delivery{p.Reference, p.ServiceLevel, p.Recipient, d.Note, d.CourierNote})
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"courier": courier, "deliveries": out})
 }

@@ -1,0 +1,11 @@
+{
+  "format": {
+    "type": "platform",
+    "details": {
+      "api": "macos.foundation-models"
+    }
+  },
+  "task": "text-generation",
+  "inputs": [],
+  "outputs": []
+}

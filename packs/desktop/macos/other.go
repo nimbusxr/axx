@@ -25,3 +25,8 @@ func checks() []core.Check {
 		}
 	}}}
 }
+
+// AppPath is never reached off a Mac.
+func AppPath(context.Context, string) (string, error) {
+	return "", fmt.Errorf("macOS apps run on a Mac, not on %s", runtime.GOOS)
+}

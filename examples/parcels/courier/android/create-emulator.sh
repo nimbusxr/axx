@@ -2,7 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 # Creates the emulator device (AVD) the acceptance suite runs the couriers' app on:
-# parcels-pixel, a Pixel 8 with Android 15 (API 35), for this machine's processor.
+# parcels-pixel, a Pixel 8 with Android 15 (API 35), or Android 17 (API 37) on an arm64
+# processor, for this machine's processor.
 #   usage: ./create-emulator.sh     (needs the Android SDK: ANDROID_HOME)
 set -euo pipefail
 
@@ -11,14 +12,24 @@ case "$(uname -m)" in
   arm64 | aarch64) abi=arm64-v8a ;;
   *) abi=x86_64 ;;
 esac
-image="system-images;android-35;google_apis;$abi"
+# Android 15's kernel (6.6) tells apps that a processor with SME but no SVE (Apple's M4 and
+# later) has SVE2, which it has only in SME's streaming mode: libraries that go by it then stop
+# on an illegal instruction (LiteRT-LM's, which runs the couriers' app's delivery notes model).
+# Android 17's (6.12) tells them what the processor has.
+platform=android-35
+if [ "$abi" = arm64-v8a ]; then platform=android-37.0; fi
+image="system-images;$platform;google_apis;$abi"
 
-# limited runs a command for at most $1 seconds, where the system can stop it (timeout): an SDK
-# tool that hangs fails the script, instead of a CI job's wait for it.
+# say tells what the script does, and when: a CI job's log shows how long each part took.
+say() { echo "$(date +%T) $*"; }
+
+# limited runs a command for at most $1 seconds, where the system can stop it (timeout; killed
+# if it does not stop when asked): an SDK tool that hangs fails the script, instead of a CI job's
+# wait for it.
 limited() {
   local seconds=$1
   shift
-  if command -v timeout > /dev/null; then timeout "$seconds" "$@"; else "$@"; fi
+  if command -v timeout > /dev/null; then timeout -k 5 "$seconds" "$@"; else "$@"; fi
 }
 
 # fetch installs SDK packages until the files they leave are there: Google's servers drop a
@@ -34,7 +45,7 @@ fetch() {
   done
   shift
   for attempt in 1 2 3; do
-    echo "installing $* (attempt $attempt)"
+    say "installing $* (attempt $attempt)"
     { yes || true; } | limited 900 "$manager" --sdk_root="$root" --install "$@" > /dev/null || true
     missing=""
     for f in "${files[@]}"; do [ -e "$f" ] || missing="$missing $f"; done
@@ -52,7 +63,7 @@ latest=$(mktemp -d)
 trap 'rm -rf "$latest"' EXIT
 fetch "$sdk/cmdline-tools/latest/bin/sdkmanager" "$latest" "$latest/cmdline-tools/latest/bin/sdkmanager" -- "cmdline-tools;latest"
 fetch "$latest/cmdline-tools/latest/bin/sdkmanager" "$sdk" \
-  "$sdk/system-images/android-35/google_apis/$abi/system.img" "$sdk/emulator/emulator" "$sdk/platform-tools/adb" \
+  "$sdk/system-images/$platform/google_apis/$abi/system.img" "$sdk/emulator/emulator" "$sdk/platform-tools/adb" \
   -- "$image" emulator platform-tools
 # The SDK's own avdmanager: the newest one takes its own folder for the SDK.
 tools="$sdk/cmdline-tools/latest/bin"
@@ -60,7 +71,7 @@ tools="$sdk/cmdline-tools/latest/bin"
 export ANDROID_AVD_HOME="${ANDROID_AVD_HOME:-$HOME/.android/avd}"
 mkdir -p "$ANDROID_AVD_HOME"
 # A Pixel the installed command-line tools know: older ones do not know the Pixel 8.
-echo "making parcels-pixel"
+say "making parcels-pixel"
 devices=$(limited 300 "$tools/avdmanager" list device -c 2> /dev/null)
 device=""
 for want in pixel_8 pixel_6; do
@@ -71,31 +82,44 @@ for want in pixel_8 pixel_6; do
 done
 [ -n "$device" ] || device=$(printf '%s\n' "$devices" | grep '^pixel' | tail -1)
 echo no | limited 300 "$tools/avdmanager" create avd --force --name parcels-pixel --package "$image" --device "$device"
-echo "parcels-pixel: $image, $device"
+say "parcels-pixel: $image, $device"
 
 # Its boot snapshot: booted once and saved, every emulator axx starts of it boots from it in
 # seconds instead of booting cold. axx starts them read-only: they save nothing, so each starts
 # as the snapshot left it.
-echo "parcels-pixel: booting it for its snapshot"
+say "parcels-pixel: booting it for its snapshot"
 args=(-avd parcels-pixel -port 5580 -no-window -no-audio -no-boot-anim)
 if [ "$(uname -s)" = Linux ]; then args+=(-gpu swiftshader_indirect); fi
 "$sdk/emulator/emulator" "${args[@]}" > "$ANDROID_AVD_HOME/parcels-pixel-snapshot.log" 2>&1 &
 emulator=$!
 adb="$sdk/platform-tools/adb"
 booted=""
-for _ in $(seq 300); do
+# Ten minutes at most (a boot takes two to five), each question to adb ten seconds.
+deadline=$((SECONDS + 600))
+while [ "$SECONDS" -lt "$deadline" ]; do
   kill -0 "$emulator" 2> /dev/null || break
-  if [ "$("$adb" -s emulator-5580 shell getprop sys.boot_completed 2> /dev/null | tr -d '\r')" = 1 ]; then
+  if [ "$(limited 10 "$adb" -s emulator-5580 shell getprop sys.boot_completed 2> /dev/null | tr -d '\r')" = 1 ]; then
     booted=yes
     break
   fi
   sleep 2
 done
 if [ -z "$booted" ]; then
-  echo "parcels-pixel did not boot for its snapshot; the emulator's log: $ANDROID_AVD_HOME/parcels-pixel-snapshot.log" >&2
+  say "parcels-pixel did not boot for its snapshot in ten minutes; the end of the emulator's log ($ANDROID_AVD_HOME/parcels-pixel-snapshot.log):" >&2
+  tail -n 40 "$ANDROID_AVD_HOME/parcels-pixel-snapshot.log" >&2 || true
   kill "$emulator" 2> /dev/null || true
   exit 1
 fi
-"$adb" -s emulator-5580 emu kill > /dev/null
+# It saves the snapshot as it stops: five minutes at most.
+say "parcels-pixel: booted; saving its snapshot"
+limited 30 "$adb" -s emulator-5580 emu kill > /dev/null || true
+deadline=$((SECONDS + 300))
+while kill -0 "$emulator" 2> /dev/null && [ "$SECONDS" -lt "$deadline" ]; do sleep 2; done
+if kill -0 "$emulator" 2> /dev/null; then
+  say "parcels-pixel did not save its boot snapshot in five minutes; the end of the emulator's log ($ANDROID_AVD_HOME/parcels-pixel-snapshot.log):" >&2
+  tail -n 40 "$ANDROID_AVD_HOME/parcels-pixel-snapshot.log" >&2 || true
+  kill -9 "$emulator" 2> /dev/null || true
+  exit 1
+fi
 wait "$emulator" || true
-echo "parcels-pixel: its boot snapshot is saved"
+say "parcels-pixel: its boot snapshot is saved"

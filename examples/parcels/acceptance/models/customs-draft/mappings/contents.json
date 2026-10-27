@@ -1,0 +1,14 @@
+{
+  "mappings": [
+    {
+      "name": "Stoneware mugs and a tea towel",
+      "input": {"text": "stoneware mugs"},
+      "output": {"text": "Stoneware mugs (2) and a linen tea towel: household goods"}
+    },
+    {
+      "name": "A merino jumper",
+      "input": {"text": "merino"},
+      "output": {"text": "Knitted merino wool jumper: clothing"}
+    }
+  ]
+}

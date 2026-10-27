@@ -167,8 +167,10 @@ class Desk : Form
         clear.Click += (_, _) => { pad.Clear(); signed.Text = "Not signed"; };
         var rules = new LinkLabel { Text = "Handover rules", AutoSize = true };
         rules.LinkClicked += (_, _) => rulesText.Visible = true;
+        var aloud = new Button { Text = "Read aloud", AutoSize = true };
+        aloud.Click += (_, _) => Speech.Say(rulesText.Text);
         var flow = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.TopDown, WrapContents = false, Padding = new Padding(8) };
-        flow.Controls.AddRange([pad, signed, clear, rules, rulesText]);
+        flow.Controls.AddRange([pad, signed, clear, rules, rulesText, aloud]);
         page.Controls.Add(flow);
         return page;
     }

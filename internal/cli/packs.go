@@ -24,6 +24,11 @@ import (
 // packs, so it never tries to build again.
 const envPackBuild = "AXX_PACK_BUILD"
 
+// packBuilt is whether this process was started so. Main takes the variable
+// out of the environment, so that what this axx starts does not inherit it: a
+// service's command that runs axx prepares the packs of its own project.
+var packBuilt = os.Getenv(envPackBuild) != ""
+
 // commandsNeedingPacks load the project's steps, or start what does: up's
 // supervisor is this same executable, and its packs prepare the apps.
 var commandsNeedingPacks = []string{"run", "up", "env", "config", "validate", "lint", "steps", "explain", "mcp", "lsp", "doctor", "skills", "docs"}
@@ -40,7 +45,7 @@ func (a *App) ensurePacks(ctx context.Context, cmd *cobra.Command) error {
 	if cmd.CommandPath() == "axx mcp install" {
 		needs = false // writes agents' configuration, no steps
 	}
-	if !needs || os.Getenv(envPackBuild) != "" {
+	if !needs || packBuilt {
 		return nil
 	}
 	if fl := cmd.Flags().Lookup("debug-steps"); fl != nil && fl.Changed {
@@ -52,6 +57,39 @@ func (a *App) ensurePacks(ctx context.Context, cmd *cobra.Command) error {
 	if fl := cmd.Flags().Lookup("project"); top.Name() == "lsp" && a.Config == "" && (fl == nil || fl.Value.String() != "true") {
 		return nil // the router: the server it starts for each project prepares that project's packs
 	}
+	return a.prepareProjectPacks(ctx)
+}
+
+// ensurePackCommand prepares the project's packs for a command line whose
+// command is none of this axx's: it may be one a pack adds (`axx models
+// build`), which an axx with the project's packs has. Help for axx itself
+// (`axx`, `axx --help`) prepares them too, to list the commands they add.
+// Any other command line, or a project whose packs this axx has, is left to
+// cobra, which reports a command it does not know.
+func (a *App) ensurePackCommand(ctx context.Context, root *cobra.Command, args []string) error {
+	if packBuilt {
+		return nil
+	}
+	if found, _, _ := root.Find(args); found != root {
+		return nil
+	}
+	// Read --config, past the flags of the command a pack may add.
+	root.InitDefaultHelpFlag()
+	root.FParseErrWhitelist.UnknownFlags = true
+	err := root.ParseFlags(args)
+	root.FParseErrWhitelist.UnknownFlags = false
+	if err != nil {
+		return nil //nolint:nilerr // cobra reports the flags it cannot parse
+	}
+	if version, _ := root.Flags().GetBool("version"); version {
+		return nil
+	}
+	return a.prepareProjectPacks(ctx)
+}
+
+// prepareProjectPacks builds (or reuses) an axx with the packs of the project
+// a.Config finds and replaces this process with it, when this axx lacks any.
+func (a *App) prepareProjectPacks(ctx context.Context) error {
 	dir, err := config.ProjectDir(a.Config)
 	if err != nil {
 		return nil //nolint:nilerr // the command reports configuration errors itself

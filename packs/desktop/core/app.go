@@ -371,11 +371,15 @@ func process(sc *core.Scenario, app *App, start bool) (Process, error) {
 		}
 		return nil, fmt.Errorf("the %s app is not running: launch it with \"the %s app is launched\"", app.Name, app.Name)
 	}
-	desk, _, err := home(sc, app)
+	desk, h, err := home(sc, app)
 	if err != nil {
 		return nil, err
 	}
-	p, err = desk.Start(sc, app)
+	started, err := launching(sc, app, desk, h)
+	if err != nil {
+		return nil, err
+	}
+	p, err = desk.Start(sc, started)
 	if err != nil {
 		return nil, secrets.Hide(sc, fmt.Errorf("cannot start the %s app: %w", app.Name, err))
 	}

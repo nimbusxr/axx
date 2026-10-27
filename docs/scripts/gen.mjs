@@ -211,6 +211,7 @@ axx(['docs', 'export', '--out', genDir]);
 		'desktop-macos': 'macOS',
 		'desktop-windows': 'Windows',
 		'desktop-linux': 'Linux',
+		'models-core': 'Core',
 		'aws-core': 'Core',
 		'aws-s3': 'S3',
 		'aws-sqs': 'SQS',

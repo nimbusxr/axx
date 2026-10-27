@@ -1,6 +1,8 @@
 # actionlint (ci.yml's workflows job): the labels of the project's self-hosted runners.
 self-hosted-runner:
   labels:
+    # Foundation Models' public provider API and Simulator integration.
+    - xcode-27
     # The Mac mini that mac-mini.yml runs on.
     - mac-mini
     # The Reatan (a Windows mini PC) that reatan.yml runs on.

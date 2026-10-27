@@ -1,0 +1,10 @@
+{
+  "format": {
+    "type": "foundation-models",
+    "details": {
+      "name": "CourierNotesModelStub",
+      "capabilities": []
+    }
+  },
+  "task": "text-generation"
+}

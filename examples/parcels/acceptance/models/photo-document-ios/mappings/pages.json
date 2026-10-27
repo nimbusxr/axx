@@ -1,0 +1,19 @@
+{
+  "mappings": [
+    {
+      "name": "The recipient's signed note",
+      "input": {"image": "../../../features/courier-app-documents/documents/safe-place-PX-IOS-9597.jpg"},
+      "output": {"scores": {"document": 0.92, "handwriting": 0.88}}
+    },
+    {
+      "name": "A parcel on the doormat: no page",
+      "input": {"image": "../../../features/courier-app-documents/documents/parcel-at-door.jpg"},
+      "output": {"scores": {}}
+    },
+    {
+      "name": "A parcel at the door, too close: no page",
+      "input": {"image": "../../../features/courier-app-documents/documents/parcel-cut-off.jpg"},
+      "output": {"scores": {}}
+    }
+  ]
+}

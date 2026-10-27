@@ -1,0 +1,8 @@
+parcels.parcels:
+  - reference: "PX-IOS-9595"
+    sender: "maple-crafts"
+    status: "OUT_FOR_DELIVERY"
+    service_level: "STANDARD"
+    weight_grams: 3100
+    recipient: '{"name": "Tobias Wolf", "street": "Georg-Schwarz-Str. 9", "city": "Leipzig", "postcode": "04177", "country": "DE"}'
+    details: '{"source": "api", "zone": "DE-1", "courier": "CR-LEJ-77"}'

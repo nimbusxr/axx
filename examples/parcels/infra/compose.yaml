@@ -390,11 +390,15 @@ services:
       PARCELS_MODEL_URL: http://models:8080/v1
       PARCELS_PARTNER_MCP_URL: http://partner-carrier:8080/mcp
       PARCELS_PARTNER_AGENT_URL: http://partner-carrier:8080
+      # The models the portal's pages run themselves: in the test deployment,
+      # stubs (axx models build), each in its model's folder.
+      PARCELS_PORTAL_MODELS: /var/lib/parcels/portal-models
       # Every log line also goes to the log service axx runs on the host (the
       # parcels log in the features); host-gateway makes the name work on Linux.
       PARCELS_LOG_UDP: host.docker.internal:5140
     volumes:
       - './exports:/var/lib/parcels/exports'
+      - './portal-models:/var/lib/parcels/portal-models:ro'
     extra_hosts:
       - host.docker.internal:host-gateway
     depends_on:

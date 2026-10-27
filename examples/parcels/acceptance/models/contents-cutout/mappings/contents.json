@@ -1,0 +1,9 @@
+{
+  "mappings": [
+    {
+      "name": "A hand-painted porcelain mug, on the shop's grey backdrop",
+      "input": {"image": "../../../features/shop-portal/photos/porcelain-mug.jpg"},
+      "output": {"mask": "../../../features/shop-portal/masks/porcelain-mug-mask.png"}
+    }
+  ]
+}

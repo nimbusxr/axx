@@ -1,0 +1,18 @@
+;
+; Message Information file
+;
+[message]
+origmailbox=200
+context=support
+macrocontext=
+exten=200
+rdnis=unknown
+priority=2
+callerchan=PJSIP/trunk-00000012
+callerid="Anna Weber" <+493415550101>
+origdate=Fri Oct 23 09:42:15 PM UTC 2026
+origtime=1792791735
+category=
+msg_id=1792791735-00000001
+flag=
+duration=13
