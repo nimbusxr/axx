@@ -1,22 +1,16 @@
 package modelswindows
 
 import (
-	"archive/zip"
-	"bytes"
 	"context"
 	"crypto/sha256"
 	"embed"
-	"encoding/hex"
 	"errors"
 	"fmt"
-	"io"
 	"io/fs"
-	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"sync"
 
 	"golang.org/x/sys/windows"
 	"golang.org/x/sys/windows/registry"
@@ -46,21 +40,18 @@ const (
 	piperSum = "f3c58906402b24f3a96d92145f58acba6d86c9b5db896d207f78dc80811efcea"
 )
 
-// voiceState is what a scenario changed of the machine's voices, which its end puts back.
-type voiceState struct {
-	mu         sync.Mutex
+// voiceChanges are what a scenario changed of SAPI's voices.
+type voiceChanges struct {
+	// registered is whether axx's voice is SAPI's, its COM class in classes (classesFor);
+	// previous the user's default voice before, and had whether there was one.
 	registered bool
-	// classes is where the engine's COM class is (classesFor).
-	classes registry.Key
-	// previous is the user's default voice before, and had whether there was one.
-	previous string
-	had      bool
+	classes    registry.Key
+	previous   string
+	had        bool
 }
 
-var machineVoice = core.NewStateKey(Name+"/voice", func(*core.Scenario) *voiceState { return &voiceState{} }, nil)
-
 // speakWith registers axx's voice, makes it the user's default, and gives the app the stub.
-func speakWith(sc *core.Scenario, l *desktopcore.Launch) error {
+func speakWith(sc *core.Scenario, c *changes, l *desktopcore.Launch) error {
 	ctx := sc.Context()
 	comhost, err := engine(ctx, sc.Suite())
 	if err != nil {
@@ -70,9 +61,7 @@ func speakWith(sc *core.Scenario, l *desktopcore.Launch) error {
 	if err != nil {
 		return err
 	}
-	st := machineVoice.Of(sc)
-	st.mu.Lock()
-	defer st.mu.Unlock()
+	st := &c.voice
 	if !st.registered {
 		classes := classesFor()
 		if err := register(classes, comhost); err != nil {
@@ -95,11 +84,8 @@ func speakWith(sc *core.Scenario, l *desktopcore.Launch) error {
 	return os.MkdirAll(filepath.Join(l.HostFiles, filepath.FromSlash(modelscore.SpeakerFolder), ".partial"), 0o755)
 }
 
-// restore puts the user's default voice back, and takes axx's out of the machine's voices.
-func restore(sc *core.Scenario) error {
-	st := machineVoice.Of(sc)
-	st.mu.Lock()
-	defer st.mu.Unlock()
+// restore puts the user's default voice back, and takes axx's out of SAPI's voices.
+func (st *voiceChanges) restore() error {
 	if !st.registered {
 		return nil
 	}
@@ -261,65 +247,8 @@ func piperProgram(ctx context.Context, s *core.Suite) (string, error) {
 		if _, err := os.Stat(exe); err == nil {
 			return exe, nil
 		}
-		req, err := http.NewRequestWithContext(ctx, http.MethodGet, piperURL, nil)
-		if err != nil {
+		if err := fetchZip(ctx, "Piper", piperURL, piperSum, dir, nil); err != nil {
 			return "", err
-		}
-		resp, err := http.DefaultClient.Do(req)
-		if err != nil {
-			return "", fmt.Errorf("cannot download Piper (%s): %w", piperURL, err)
-		}
-		defer resp.Body.Close()
-		if resp.StatusCode != http.StatusOK {
-			return "", fmt.Errorf("cannot download Piper (%s): %s", piperURL, resp.Status)
-		}
-		b, err := io.ReadAll(resp.Body)
-		if err != nil {
-			return "", err
-		}
-		if sum := sha256.Sum256(b); hex.EncodeToString(sum[:]) != piperSum {
-			return "", fmt.Errorf("Piper's download (%s) is not the release axx pins: its SHA-256 is %x", piperURL, sum) //nolint:staticcheck // Piper is a name
-		}
-		zr, err := zip.NewReader(bytes.NewReader(b), int64(len(b)))
-		if err != nil {
-			return "", err
-		}
-		tmp, err := os.MkdirTemp(filepath.Dir(dir), "prepare-")
-		if err != nil {
-			return "", err
-		}
-		defer os.RemoveAll(tmp)
-		for _, f := range zr.File {
-			to := filepath.Join(tmp, filepath.FromSlash(f.Name))
-			if !strings.HasPrefix(to, tmp+string(filepath.Separator)) {
-				return "", fmt.Errorf("Piper's release has a file outside its folder: %s", f.Name) //nolint:staticcheck // Piper is a name
-			}
-			if f.FileInfo().IsDir() {
-				if err := os.MkdirAll(to, 0o755); err != nil {
-					return "", err
-				}
-				continue
-			}
-			if err := os.MkdirAll(filepath.Dir(to), 0o755); err != nil {
-				return "", err
-			}
-			r, err := f.Open()
-			if err != nil {
-				return "", err
-			}
-			data, err := io.ReadAll(r)
-			_ = r.Close()
-			if err != nil {
-				return "", err
-			}
-			if err := os.WriteFile(to, data, 0o755); err != nil { //nolint:gosec // a program and its libraries
-				return "", err
-			}
-		}
-		if err := os.Rename(tmp, dir); err != nil {
-			if _, other := os.Stat(exe); other != nil {
-				return "", err
-			}
 		}
 		return exe, nil
 	})

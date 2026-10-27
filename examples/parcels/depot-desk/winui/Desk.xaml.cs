@@ -172,5 +172,13 @@ public sealed partial class Desk : Window
 
     void OnRules(object sender, RoutedEventArgs e) => RulesText.Visibility = Visibility.Visible;
 
+    async void OnReadLabel(object sender, RoutedEventArgs e)
+    {
+        var (reference, status) = await Labels.ReadAsync(System.IO.Path.Combine(DataFolder, "Scans"));
+        if (reference != null)
+            Reference.Text = reference;
+        Status.Text = status;
+    }
+
     void OnReadAloud(object sender, RoutedEventArgs e) => Speech.Say(RulesText.Text);
 }

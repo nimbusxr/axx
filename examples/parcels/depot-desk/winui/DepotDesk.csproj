@@ -15,6 +15,9 @@
     <EnableMsixTooling>true</EnableMsixTooling>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- The name a packaged app's resources have, which MRT Core reads with identity, and without. -->
+    <ProjectPriFileName>resources.pri</ProjectPriFileName>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.*" />
@@ -25,4 +28,12 @@
     <Content Include="..\depot.png" Link="depot.png" CopyToOutputDirectory="PreserveNewest" />
     <Compile Include="..\windows\Speech.cs" Link="Speech.cs" />
   </ItemGroup>
+  <!-- The desk's package identity (identity/), registered for the user: the Windows AI APIs answer
+       only an app with identity. The build's folder is the package's, its manifest in it beside the
+       desk, which reads its resources from it. Windows registers a package of no signature in
+       Developer Mode only; without it, the desk runs without identity. -->
+  <Target Name="RegisterIdentity" AfterTargets="Build" Condition="'$(OS)' == 'Windows_NT'">
+    <Copy SourceFiles="identity\AppxManifest.xml" DestinationFolder="$(TargetDir)" />
+    <Exec ContinueOnError="true" Command="powershell -NoProfile -NonInteractive -Command &quot;Get-AppxPackage example.parcels.DepotDesk | Remove-AppxPackage; Add-AppxPackage -Register '$(TargetDir)AppxManifest.xml' -ExternalLocation '$(TargetDir.TrimEnd('\'))'&quot;" />
+  </Target>
 </Project>

@@ -119,9 +119,13 @@ the skills instead: `axx skills install`.
   desktop-linux runs: Tesseract's language data (a `tesseract` stub, through `TESSDATA_PREFIX`) and
   speech-dispatcher's voice (a Piper voice stub, through its user configuration in the app's home,
   speaking with Piper into `axx-models/.speaker`), which models-core's speaker step hears.
-- `packs/models/windows` (`models-windows`): SAPI's voice, in the desktops desktop-windows runs: a
-  Piper voice stub that axx's voice engine (`engine`, a .NET COM server built into axx's cache)
-  speaks, added to SAPI's voices and made the user's default for the scenario.
+- `packs/models/windows` (`models-windows`): the models Windows apps take from Windows, in the
+  desktops desktop-windows runs: SAPI's voice (a Piper voice stub that axx's voice engine, `engine`,
+  a .NET COM server built into axx's cache, speaks, added to SAPI's voices and made the user's
+  default for the scenario), and the Windows AI APIs (`ai`, a C++/WinRT library axx builds with
+  MSVC against a self-contained Windows App SDK app's own .winmd files, in place of its
+  Microsoft.Windows.AI.*.dll for the scenario, answering as Windows does: only an app with package
+  identity and the systemAIModels capability).
 - `packs/mobile/core` (`mobile-core`), `packs/mobile/android` (`mobile-android`) and
   `packs/mobile/ios` (`mobile-ios`): native apps through the drivers on the devices, the
   UiAutomator2 server and WebDriverAgent, which axx installs, starts and talks to itself

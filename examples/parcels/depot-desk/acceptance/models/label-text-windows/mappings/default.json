@@ -1,0 +1,7 @@
+{
+  "name": "Any other scan: no text in it",
+  "default": true,
+  "output": {
+    "text": ""
+  }
+}

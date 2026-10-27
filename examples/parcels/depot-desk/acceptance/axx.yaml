@@ -60,11 +60,13 @@ profiles:
 
   # Windows
   windows-winforms:
-    run: {tags: not @macos-models and not @linux-models}
+    # The Windows AI APIs are the Windows App SDK's: the WinUI build's.
+    run: {tags: not @macos-models and not @linux-models and not @windows-ai}
     properties: {desk.app: ../winforms/bin/Release/net8.0-windows/DepotDesk.exe, desk.data: ./Parcels/Depot desk, desk.registry: Software\Parcels\Depot desk}
     packs: {desktop-core: {screenshots: {folder: "${sys:desk.screens}/winforms"}}}
   windows-wpf:
-    run: {tags: not @macos-models and not @linux-models}
+    # The Windows AI APIs are the Windows App SDK's: the WinUI build's.
+    run: {tags: not @macos-models and not @linux-models and not @windows-ai}
     properties: {desk.app: ../wpf/bin/Release/net8.0-windows/DepotDesk.exe, desk.data: ./Parcels/Depot desk}
     packs: {desktop-core: {screenshots: {folder: "${sys:desk.screens}/wpf"}}}
   windows-winui:

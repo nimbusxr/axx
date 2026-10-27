@@ -1,0 +1,40 @@
+{
+  "mappings": [
+    {
+      "name": "A parcel's label, close up",
+      "input": {
+        "image": "../../../features/desk-models/scans/label-PX-DSK-4301.jpg"
+      },
+      "output": {
+        "text": "PX-DSK-4301 04109 LEIPZIG"
+      }
+    },
+    {
+      "name": "A parcel on the counter: its label too far to read",
+      "input": {
+        "image": "../../../features/desk-models/scans/parcel-on-counter.jpg"
+      },
+      "output": {
+        "text": ""
+      }
+    },
+    {
+      "name": "A parcel and the clerk: its label too far to read",
+      "input": {
+        "image": "../../../features/desk-models/scans/parcel-and-clerk.jpg"
+      },
+      "output": {
+        "text": ""
+      }
+    },
+    {
+      "name": "The day's delivery papers",
+      "input": {
+        "image": "../../../features/desk-models/scans/delivery-papers.jpg"
+      },
+      "output": {
+        "text": "HANDOVER LIST LEIPZIG DEPOT"
+      }
+    }
+  ]
+}
