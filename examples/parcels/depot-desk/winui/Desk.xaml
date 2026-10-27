@@ -14,6 +14,7 @@
       <MenuBarItem Title="Depot">
         <MenuFlyoutItem x:Name="CloseDayItem" Text="Close day" Click="OnCloseDay" />
         <MenuFlyoutItem Text="Read label" Click="OnReadLabel" />
+        <MenuFlyoutItem x:Name="DaySummaryItem" Text="Day summary" Click="OnDaySummary" />
       </MenuBarItem>
     </MenuBar>
     <Image x:Name="Logo" Grid.Row="1" Width="64" Height="64" HorizontalAlignment="Left" AutomationProperties.Name="Leipzig depot" />

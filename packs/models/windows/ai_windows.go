@@ -35,16 +35,30 @@ const (
 
 // aiFiles are the app's files of the APIs the library answers, the Windows App SDK's, which the
 // app's manifest maps their classes to.
-var aiFiles = map[string]string{"windows.ai.text-recognizer": "Microsoft.Windows.AI.Imaging.dll"}
+var aiFiles = map[string]string{
+	"windows.ai.text-recognizer":   "Microsoft.Windows.AI.Imaging.dll",
+	"windows.ai.image-description": "Microsoft.Windows.AI.Imaging.dll",
+	"windows.ai.language-model":    "Microsoft.Windows.AI.Text.dll",
+	"windows.ai.text-summarizer":   "Microsoft.Windows.AI.Text.dll",
+	"windows.ai.text-rewriter":     "Microsoft.Windows.AI.Text.dll",
+	"windows.ai.text-to-table":     "Microsoft.Windows.AI.Text.dll",
+}
 
 var (
 	// aiComponent are the .winmd files of the classes the library is (aiClasses), and aiProjected
 	// those of the other classes it calls.
-	aiComponent = []string{"Microsoft.Windows.AI.Imaging.winmd", "Microsoft.Windows.AI.winmd"}
+	aiComponent = []string{"Microsoft.Windows.AI.Imaging.winmd", "Microsoft.Windows.AI.Text.winmd", "Microsoft.Windows.AI.winmd"}
 	aiClasses   = []string{
+		"Microsoft.Windows.AI.AIFeatureReadyResult",
 		"Microsoft.Windows.AI.Imaging.TextRecognizer", "Microsoft.Windows.AI.Imaging.RecognizedText",
 		"Microsoft.Windows.AI.Imaging.RecognizedLine", "Microsoft.Windows.AI.Imaging.RecognizedWord",
-		"Microsoft.Windows.AI.AIFeatureReadyResult",
+		"Microsoft.Windows.AI.Imaging.ImageDescriptionGenerator", "Microsoft.Windows.AI.Imaging.ImageDescriptionResult",
+		"Microsoft.Windows.AI.Text.ConversationItem", "Microsoft.Windows.AI.Text.ConversationSummaryOptions",
+		"Microsoft.Windows.AI.Text.LanguageModel", "Microsoft.Windows.AI.Text.LanguageModelContext",
+		"Microsoft.Windows.AI.Text.LanguageModelEmbeddingVectorResult", "Microsoft.Windows.AI.Text.LanguageModelOptions",
+		"Microsoft.Windows.AI.Text.LanguageModelResponseResult", "Microsoft.Windows.AI.Text.TextRewriter",
+		"Microsoft.Windows.AI.Text.TextSummarizer", "Microsoft.Windows.AI.Text.TextToTableConverter",
+		"Microsoft.Windows.AI.Text.TextToTableResponseResult", "Microsoft.Windows.AI.Text.TextToTableRow",
 	}
 	aiProjected = []string{"Microsoft.Graphics.Imaging.winmd", "Microsoft.Windows.AI.ContentSafety.winmd", "Microsoft.Windows.AI.Foundation.winmd"}
 )

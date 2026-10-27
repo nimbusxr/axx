@@ -38,6 +38,9 @@ namespace
             HMODULE original = LoadLibraryExW((dir + L"\\" + ModuleName()).c_str(), nullptr, LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR | LOAD_LIBRARY_SEARCH_DEFAULT_DIRS);
             if (!original)
                 return { nullptr, HRESULT_FROM_WIN32(GetLastError()) };
+            // A library of axx's is not the app's file, whatever its name.
+            if (GetProcAddress(original, "AxxModelsWindows"))
+                return { nullptr, CLASS_E_CLASSNOTAVAILABLE };
             auto get = reinterpret_cast<GetFactory>(GetProcAddress(original, "DllGetActivationFactory"));
             return { get, get ? S_OK : HRESULT_FROM_WIN32(GetLastError()) };
         }();

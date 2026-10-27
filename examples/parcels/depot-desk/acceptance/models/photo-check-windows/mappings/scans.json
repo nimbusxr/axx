@@ -1,0 +1,40 @@
+{
+  "mappings": [
+    {
+      "name": "A parcel on the counter",
+      "input": {
+        "image": "../../../features/desk-models/scans/parcel-on-counter.jpg"
+      },
+      "output": {
+        "text": "A cardboard parcel on a depot counter."
+      }
+    },
+    {
+      "name": "A parcel and the clerk",
+      "input": {
+        "image": "../../../features/desk-models/scans/parcel-and-clerk.jpg"
+      },
+      "output": {
+        "text": "A clerk holding a cardboard parcel at a depot counter."
+      }
+    },
+    {
+      "name": "A parcel's label, close up",
+      "input": {
+        "image": "../../../features/desk-models/scans/label-PX-DSK-4301.jpg"
+      },
+      "output": {
+        "text": "The address label of a parcel, close up."
+      }
+    },
+    {
+      "name": "The day's delivery papers",
+      "input": {
+        "image": "../../../features/desk-models/scans/delivery-papers.jpg"
+      },
+      "output": {
+        "text": "A stack of printed delivery papers on a desk."
+      }
+    }
+  ]
+}

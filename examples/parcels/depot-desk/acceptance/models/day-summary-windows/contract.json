@@ -1,0 +1,11 @@
+{
+  "format": {
+    "type": "platform",
+    "details": {
+      "api": "windows.ai.language-model"
+    }
+  },
+  "task": "text-generation",
+  "inputs": [],
+  "outputs": []
+}

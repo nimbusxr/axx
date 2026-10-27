@@ -14,12 +14,37 @@ namespace axx
 {
     namespace
     {
-        // The APIs of the classes the library answers.
+        // The APIs of the pictures' classes the library answers, each of its own.
         std::wstring_view ApiOf(std::wstring_view className)
         {
             if (className == L"Microsoft.Windows.AI.Imaging.TextRecognizer")
                 return L"windows.ai.text-recognizer";
+            if (className == L"Microsoft.Windows.AI.Imaging.ImageDescriptionGenerator")
+                return L"windows.ai.image-description";
             return {};
+        }
+
+        // The language model's APIs: its own, and its skills'.
+        constexpr std::wstring_view textApis[] = { L"windows.ai.language-model", L"windows.ai.text-summarizer", L"windows.ai.text-rewriter", L"windows.ai.text-to-table" };
+
+        bool IsWord(wchar_t c)
+        {
+            return (c >= L'0' && c <= L'9') || (c >= L'a' && c <= L'z') || (c >= L'A' && c <= L'Z') || c >= 0x80;
+        }
+
+        // HasWords tells whether a text has the key, whole words of it: as lm.HasWords does.
+        bool HasWords(std::wstring_view text, std::wstring_view key)
+        {
+            for (size_t i = 0;;)
+            {
+                size_t at = text.find(key, i);
+                if (at == std::wstring_view::npos)
+                    return false;
+                size_t end = at + key.size();
+                if ((at == 0 || !IsWord(text[at - 1]) || !IsWord(key.front())) && (end == text.size() || !IsWord(text[end]) || !IsWord(key.back())))
+                    return true;
+                i = at + 1;
+            }
         }
 
         std::wstring Environment(wchar_t const* name)
@@ -159,8 +184,43 @@ namespace axx
 
     bool Answers(std::wstring_view className)
     {
+        if (className.starts_with(L"Microsoft.Windows.AI.Text."))
+            return !ModelApi().empty();
         auto api = ApiOf(className);
         return !api.empty() && Find(api);
+    }
+
+    std::wstring_view ModelApi()
+    {
+        for (auto api : textApis)
+            if (auto stub = Find(api); stub && (api == textApis[0] || !stub->Availability().empty()))
+                return api;
+        for (auto api : textApis)
+            if (Find(api))
+                return api;
+        return {};
+    }
+
+    std::wstring Respond(std::wstring_view api, std::wstring_view text)
+    {
+        auto stub = Find(api);
+        if (!stub)
+            throw hresult_not_implemented(L"axx: the app's axx-models folder has no stub of " + std::wstring(api));
+        return stub->Generated(stub->TextIndex(text));
+    }
+
+    size_t Stub::TextIndex(std::wstring_view text) const
+    {
+        auto texts = json.GetNamedArray(L"texts", JsonArray());
+        for (uint32_t i = 0; i < texts.Size(); i++)
+            if (HasWords(text, texts.GetStringAt(i)))
+                return i;
+        return texts.Size();
+    }
+
+    std::wstring Stub::Generated(size_t at) const
+    {
+        return std::wstring(json.GetNamedArray(L"generated").GetStringAt(static_cast<uint32_t>(at)));
     }
 
     std::wstring Stub::Availability() const

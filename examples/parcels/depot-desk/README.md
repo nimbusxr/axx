@@ -169,18 +169,22 @@ The Windows builds use the models Windows has:
 - The button **Read aloud**, on the Handover tab of the Windows Forms, WPF and WinUI builds, reads
   the handover rules aloud with SAPI, through System.Speech (`windows/Speech.cs`), in the user's
   voice.
-- **Depot** > **Read label**, in the WinUI build, reads the parcel's reference off the newest scan
-  in `Scans` with the Windows AI APIs' `TextRecognizer` (`winui/Labels.cs`), into the Reference
-  field, with the macOS builds' statuses, and says so when the PC has no label reader. The Windows
-  AI APIs answer an app with package identity only: the WinUI build's own registers it
-  (`winui/identity`, in Developer Mode).
+- The WinUI build uses the Windows AI APIs (`winui/Models.cs`), as the macOS builds use
+  Apple's: **Depot** > **Read label** reads the parcel's reference off the newest scan in `Scans`
+  with `TextRecognizer`, into the Reference field; **Register** files the newest scan with the
+  arrival, kept in `Photos` when `ImageDescriptionGenerator`'s description says it shows a
+  parcel; and **Depot** > **Day summary** sums up the day for the next shift with the language
+  model, Phi Silica. Each says so when the PC lacks its model. The Windows AI APIs answer an app
+  with package identity only: the WinUI build's own registers it (`winui/identity`, in Developer
+  Mode).
 
 `acceptance/features/desk-models/desk-models-windows.feature` (`@windows-models`) holds them to
-stubs of a Piper voice (`acceptance/models/handover-voice`, the Linux builds' too) and of
-`TextRecognizer` (`acceptance/models/label-text-windows`, and `no-label-reader-windows`, a PC
-without it), which the `models-windows` pack answers the desk's calls from: it adds the voice to
-SAPI's voices and makes it the user's for the scenario, and puts its library of the Windows AI
-APIs in place of the WinUI build's own `Microsoft.Windows.AI.Imaging.dll`. axx runs as an
+stubs of a Piper voice (`acceptance/models/handover-voice`, the Linux builds' too) and of the
+Windows AI APIs (`acceptance/models/*-windows`; `no-label-reader-windows` and
+`no-language-model-windows`, a PC without the model), which the `models-windows` pack answers the
+desk's calls from: it adds the voice to SAPI's voices and makes it the user's for the scenario,
+and puts its library of the Windows AI APIs in place of the WinUI build's own
+`Microsoft.Windows.AI.Imaging.dll` and `Microsoft.Windows.AI.Text.dll`. axx runs as an
 administrator, or as a user who may create keys in `HKLM\SOFTWARE\Microsoft\Speech\Voices\Tokens`,
 where SAPI lists its voices, and builds its library with Visual Studio's C++ tools. The Windows
 Forms and WPF builds leave out Read label's scenarios (`@windows-ai`): the Windows AI APIs are the

@@ -5,6 +5,8 @@
 #include "Imaging.RecognizedText.g.cpp"
 #include "Imaging.RecognizedLine.g.cpp"
 #include "Imaging.RecognizedWord.g.cpp"
+#include "Imaging.ImageDescriptionGenerator.g.cpp"
+#include "Imaging.ImageDescriptionResult.g.cpp"
 
 using namespace winrt;
 using namespace winrt::Windows::Foundation;
@@ -15,6 +17,7 @@ namespace winrt::Microsoft::Windows::AI::Imaging::implementation
     namespace
     {
         constexpr wchar_t api[] = L"windows.ai.text-recognizer";
+        constexpr wchar_t describer[] = L"windows.ai.image-description";
 
         RecognizedTextBoundingBox Box(float left, float top, float right, float bottom)
         {
@@ -68,5 +71,32 @@ namespace winrt::Microsoft::Windows::AI::Imaging::implementation
             lines.push_back(make<RecognizedLine>(hstring(text), Box(0, 0, width, height), std::move(words)));
         }
         return make<RecognizedText>(std::move(lines));
+    }
+
+    AIFeatureReadyState ImageDescriptionGenerator::GetReadyState()
+    {
+        return axx::ReadyState(describer);
+    }
+
+    IAsyncOperationWithProgress<AIFeatureReadyResult, double> ImageDescriptionGenerator::EnsureReadyAsync()
+    {
+        return axx::EnsureReady(describer);
+    }
+
+    IAsyncOperation<Imaging::ImageDescriptionGenerator> ImageDescriptionGenerator::CreateAsync()
+    {
+        axx::Creatable(describer);
+        co_return make<ImageDescriptionGenerator>();
+    }
+
+    // The description streams a word at a time, as the model's progress gives it.
+    IAsyncOperationWithProgress<Imaging::ImageDescriptionResult, hstring> ImageDescriptionGenerator::DescribeAsync(ImageBuffer image, ImageDescriptionKind, winrt::Microsoft::Windows::AI::ContentSafety::ContentFilterOptions)
+    {
+        auto progress = co_await get_progress_token();
+        co_await resume_background();
+        auto stub = axx::Find(describer);
+        std::wstring description = stub->Generated(stub->Picture(image));
+        co_await axx::Stream(progress, description);
+        co_return make<ImageDescriptionResult>(hstring(description));
     }
 }

@@ -3,6 +3,8 @@
 #include "Imaging.RecognizedText.g.h"
 #include "Imaging.RecognizedLine.g.h"
 #include "Imaging.RecognizedWord.g.h"
+#include "Imaging.ImageDescriptionGenerator.g.h"
+#include "Imaging.ImageDescriptionResult.g.h"
 
 namespace axx
 {
@@ -80,9 +82,38 @@ namespace winrt::Microsoft::Windows::AI::Imaging::implementation
     };
 }
 
+namespace winrt::Microsoft::Windows::AI::Imaging::implementation
+{
+    // ImageDescriptionGenerator describes a picture: its stub's answer to the mapping the picture
+    // matches, whatever the description's kind.
+    struct ImageDescriptionGenerator : ImageDescriptionGeneratorT<ImageDescriptionGenerator>
+    {
+        ImageDescriptionGenerator() = default;
+
+        static AIFeatureReadyState GetReadyState();
+        static winrt::Windows::Foundation::IAsyncOperationWithProgress<AIFeatureReadyResult, double> EnsureReadyAsync();
+        static winrt::Windows::Foundation::IAsyncOperation<Imaging::ImageDescriptionGenerator> CreateAsync();
+        winrt::Windows::Foundation::IAsyncOperationWithProgress<Imaging::ImageDescriptionResult, hstring> DescribeAsync(winrt::Microsoft::Graphics::Imaging::ImageBuffer image, ImageDescriptionKind kind, winrt::Microsoft::Windows::AI::ContentSafety::ContentFilterOptions contentFilterOptions);
+        void Close() {}
+    };
+
+    struct ImageDescriptionResult : ImageDescriptionResultT<ImageDescriptionResult>
+    {
+        explicit ImageDescriptionResult(hstring description) : description(std::move(description)) {}
+        hstring Description() { return description; }
+        ImageDescriptionResultStatus Status() { return ImageDescriptionResultStatus::Complete; }
+
+    private:
+        hstring description;
+    };
+}
+
 namespace winrt::Microsoft::Windows::AI::Imaging::factory_implementation
 {
     struct TextRecognizer : TextRecognizerT<TextRecognizer, implementation::TextRecognizer>
+    {
+    };
+    struct ImageDescriptionGenerator : ImageDescriptionGeneratorT<ImageDescriptionGenerator, implementation::ImageDescriptionGenerator>
     {
     };
 }

@@ -1,0 +1,7 @@
+{
+  "name": "Any other scan",
+  "default": true,
+  "output": {
+    "text": "A photo."
+  }
+}

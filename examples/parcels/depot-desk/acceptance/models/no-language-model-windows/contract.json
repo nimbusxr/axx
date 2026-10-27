@@ -1,0 +1,12 @@
+{
+  "format": {
+    "type": "platform",
+    "details": {
+      "api": "windows.ai.language-model",
+      "availability": "NotSupportedOnCurrentSystem"
+    }
+  },
+  "task": "text-generation",
+  "inputs": [],
+  "outputs": []
+}

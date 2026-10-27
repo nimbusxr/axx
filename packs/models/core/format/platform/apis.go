@@ -125,6 +125,19 @@ func TextGenerator(api string) func([]string) (*contract.Contract, error) {
 	}
 }
 
+// ImageDescriber is an image description API's contract: a picture, which its mappings' keys are,
+// and a text, its description, their answers (Windows' ImageDescriptionGenerator).
+func ImageDescriber(api string) func([]string) (*contract.Contract, error) {
+	return func(labels []string) (*contract.Contract, error) {
+		if labels != nil {
+			return nil, fmt.Errorf("%s describes pictures: it takes no labels", api)
+		}
+		c := base(api, "text-generation")
+		c.Inputs = []contract.Tensor{picture()}
+		return c, nil
+	}
+}
+
 // Classifier is an image labeler's contract: its labels the app's, which
 // --labels gives (those the mappings answer, at least), each of its own
 // confidence, as the platforms' labelers give them (a sigmoid's).

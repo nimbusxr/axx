@@ -20,6 +20,7 @@
 #include <winrt/Microsoft.Windows.AI.h>
 #include <winrt/Microsoft.Windows.AI.Imaging.h>
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <mutex>
 #include <set>

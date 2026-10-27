@@ -46,3 +46,25 @@ func TestSupported(t *testing.T) {
 		t.Errorf("a stub of text mappings: %v", err)
 	}
 }
+
+// The language model's stubs, and its skills', are of text mappings; the image describer's of
+// pictures.
+func TestSupportedText(t *testing.T) {
+	model, err := platform.TextGenerator("windows.ai.language-model")(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := supported(&platform.Artifact{API: "windows.ai.language-model", Contract: model, Matcher: stub.TextMatcher}); err != nil {
+		t.Errorf("a language model's stub: %v", err)
+	}
+	if err := supported(&platform.Artifact{API: "windows.ai.text-summarizer", Contract: model, Matcher: stub.NearestMatcher}); err == nil || !strings.Contains(err.Error(), "text mappings") {
+		t.Errorf("a summarizer's stub of picture mappings: %v", err)
+	}
+	describer, err := platform.ImageDescriber("windows.ai.image-description")(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := supported(&platform.Artifact{API: "windows.ai.image-description", Contract: describer, Matcher: stub.NearestMatcher}); err != nil {
+		t.Errorf("an image describer's stub: %v", err)
+	}
+}

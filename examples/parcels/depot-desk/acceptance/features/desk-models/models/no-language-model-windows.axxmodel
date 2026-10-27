@@ -1,0 +1,1 @@
+{"version":1,"api":"windows.ai.language-model","contract":{"format":{"type":"platform","details":{"api":"windows.ai.language-model","availability":"NotSupportedOnCurrentSystem"}},"task":"text-generation","inputs":[],"outputs":[]},"matcher":"text","names":["A PC without the language model: not asked"],"generated":[""]}
