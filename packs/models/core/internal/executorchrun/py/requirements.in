@@ -12,3 +12,6 @@ filelock>=4.2.1
 # setuptools's first release that keeps a legacy wheel's namespace packages in the environment
 # (GHSA-xmj3-9gf7-h52w): newer than the rest (--exclude-newer-package).
 setuptools>=84.1.0
+# Hydra's first release whose legacy target blacklist refuses PyYAML's unsafe loaders
+# (GHSA-wf6j-7hvr-gr93): newer than the rest (--exclude-newer-package).
+hydra-core>=1.3.8
