@@ -99,6 +99,10 @@ if $lang_go; then add go autobuild; fi
 if $lang_js; then add javascript-typescript none; fi
 if $lang_java; then add java-kotlin none; fi
 if $lang_actions; then add actions none; fi
+# Every pull request gets a code scanning result (OpenSSF Scorecard's SAST check counts each merged
+# one without as unchecked): one that changes no language's files analyzes the workflows, which
+# takes a minute.
+if [[ -z "$langs" ]] && ! $none; then add actions none; fi
 
 echo "go=$go"
 echo "integration=$integration"
