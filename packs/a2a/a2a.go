@@ -259,13 +259,13 @@ func checkCard(c *a2a.AgentCard) []string {
 }
 
 // streamsOnly fails a stream that the agent answered with something else
-// than an event stream, such as a JSON-RPC error: the JSON-RPC client reads
-// such an answer as a stream that ended without an event.
+// than an event stream, such as a JSON-RPC error, with the error's code: a
+// stream's request accepts an event stream (and, from a2a-go 2.7, JSON too).
 type streamsOnly struct{ next http.RoundTripper }
 
 func (s streamsOnly) RoundTrip(req *http.Request) (*http.Response, error) {
 	res, err := s.next.RoundTrip(req)
-	if err != nil || req.Header.Get("Accept") != "text/event-stream" || res.StatusCode != http.StatusOK {
+	if err != nil || !strings.Contains(req.Header.Get("Accept"), "text/event-stream") || res.StatusCode != http.StatusOK {
 		return res, err
 	}
 	kind := res.Header.Get("Content-Type")

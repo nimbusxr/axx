@@ -1,0 +1,25 @@
+# The Gradle wrappers' jars (the couriers' Android app, the IntelliJ plugin, the WireMock
+# extension), checked against Gradle's published checksums. It runs on every push to main, so
+# that main's latest commit always has a passing run: OpenSSF Scorecard counts a wrapper's jar as
+# a checked-in binary unless it does. A pull request that changes a wrapper runs it too.
+name: gradle-wrappers
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    paths:
+      - "**/gradle/wrapper/**"
+      - .github/workflows/gradle-wrappers.yml
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: gradle/actions/wrapper-validation@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6

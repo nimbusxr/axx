@@ -2,7 +2,7 @@
 go = "1.27.3"
 golangci-lint = "2"
 goreleaser = "2"
-lefthook = "2.1.17"
+lefthook = "2.2.2"
 node = "22"          # docs site only
 java = "temurin-21"  # WireMock extension and IntelliJ plugin only
 "aqua:gitleaks/gitleaks" = "latest"
@@ -10,7 +10,7 @@ java = "temurin-21"  # WireMock extension and IntelliJ plugin only
 "aqua:sharkdp/hyperfine" = "latest"  # bench/
 "aqua:rhysd/actionlint" = "latest"
 "aqua:gotestyourself/gotestsum" = "latest"  # scripts/gotest.sh, in CI
-uv = "0.9"  # the models-core pack's integration tests (Python runtimes), and the parcel-support example
+uv = "0.13.6"  # the models-core pack's integration tests (Python runtimes), and the parcel-support example
 
 [tasks.test]
 run = "go test -race ./..."

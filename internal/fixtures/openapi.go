@@ -9,12 +9,12 @@ import (
 	"strconv"
 	"strings"
 
+	yaml "github.com/pb33f/go-yaml"
 	"github.com/pb33f/libopenapi"
 	"github.com/pb33f/libopenapi-validator/config"
 	"github.com/pb33f/libopenapi-validator/schema_validation"
 	"github.com/pb33f/libopenapi/datamodel"
 	"github.com/pb33f/libopenapi/datamodel/high/base"
-	"go.yaml.in/yaml/v4"
 
 	"github.com/nimbusxr/axx/internal/compat/jsonx"
 )

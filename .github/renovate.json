@@ -4,12 +4,16 @@
   "schedule": ["before 6am on monday"],
   "postUpdateOptions": ["gomodTidy"],
   "packageRules": [
-    {"matchUpdateTypes": ["minor", "patch", "digest"], "automerge": true},
+    {"description": "Every minor, patch and digest update in one pull request a week.", "matchUpdateTypes": ["minor", "patch", "digest"], "groupName": "all non-major dependencies", "groupSlug": "all-non-major", "automerge": true},
     {"matchUpdateTypes": ["major"], "dependencyDashboardApproval": true},
-    {"matchManagers": ["github-actions"], "groupName": "GitHub Actions"},
-    {"matchManagers": ["gomod"], "matchUpdateTypes": ["minor", "patch"], "groupName": "Go modules"},
+    {"matchManagers": ["github-actions"], "matchUpdateTypes": ["major"], "groupName": "GitHub Actions (major)"},
     {"matchPackageNames": ["org.wiremock:wiremock-standalone"], "groupName": "WireMock", "automerge": false},
-    {"matchPackageNames": ["lighthouse"], "matchFileNames": ["packs/web/lighthouse/**"], "groupName": "Lighthouse", "automerge": false}
+    {"matchPackageNames": ["lighthouse"], "matchFileNames": ["packs/web/lighthouse/**"], "groupName": "Lighthouse", "automerge": false},
+    {"description": "go-amqp 1.5.1 on reports a link the broker refuses to attach: azservicebus opens a $management link with every sender, which floci-az's broker (the azure-servicebus pack's integration test) has no address for on a topic, so sending to a topic fails. azservicebus 1.11 needs go-amqp 1.7.", "matchPackageNames": ["github.com/Azure/go-amqp"], "allowedVersions": "<1.5.1"},
+    {"matchPackageNames": ["github.com/Azure/azure-sdk-for-go/sdk/messaging/azservicebus"], "allowedVersions": "<1.11.0"},
+    {"description": "ML Kit GenAI Prompt 1.0.0-beta5 is built with Kotlin 2.4, which the models-android probe's AGP 9.4.1 (its built-in Kotlin 2.2) cannot read: raise them together, by hand.", "matchPackageNames": ["com.google.mlkit:genai-prompt"], "allowedVersions": "<1.0.0-beta5"},
+    {"description": "@types/vscode is the oldest VS Code the extension supports (engines.vscode in ide/vscode/package.json): vsce refuses newer types. Raise both together, by hand.", "matchPackageNames": ["@types/vscode"], "enabled": false},
+    {"description": "The models-core pack's Python runtimes are compiled with uv pip compile (each file's header gives the command), from their requirements.in: a bump of one line cannot resolve (executorch pins mpmath==1.3.0, say). Recompile them together, by hand. piper-tts stays at 1.2.0, the MIT release (1.3.0 on is GPL-3.0).", "matchManagers": ["pip_requirements"], "matchFileNames": ["packs/models/core/internal/**"], "enabled": false}
   ],
   "customManagers": [
     {

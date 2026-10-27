@@ -373,7 +373,7 @@ func (sc *jsonScanner) hex4(at int) (rune, error) {
 	if at+4 > len(sc.s) {
 		return 0, sc.errorf("unexpected end of input in a \\u escape")
 	}
-	v, err := strconv.ParseUint(sc.s[at:at+4], 16, 32)
+	v, err := strconv.ParseUint(sc.s[at:at+4], 16, 16)
 	if err != nil {
 		return 0, sc.errorf("invalid \\u escape %q", sc.s[at:at+4])
 	}

@@ -15,12 +15,20 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       build-essential pkg-config libwebkit2gtk-4.1-dev libxdo-dev libssl-dev librsvg2-dev \
       clang cmake ninja-build libgtk-3-dev libglu1-mesa \
     && rm -rf /var/lib/apt/lists/*
-# Node.js 22 (Electron's installer needs a newer one than Ubuntu's), Rust and Flutter, pinned.
-ARG NODE=22.23.3 RUST=1.99.0 FLUTTER=3.47.6
+# Node.js 22 (Electron's installer needs a newer one than Ubuntu's), Rust (rustup's installer by
+# its sums) and Flutter, pinned.
+ARG NODE=22.23.3 RUST=1.99.0 RUSTUP=1.29.2 FLUTTER=3.47.6
 RUN arch=$(dpkg --print-architecture | sed 's/amd64/x64/') \
     && curl -fsSL "https://nodejs.org/dist/v$NODE/node-v$NODE-linux-$arch.tar.xz" | tar -xJ -C /opt \
     && ln -s "/opt/node-v$NODE-linux-$arch/bin/"* /usr/local/bin/
-RUN curl -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain "$RUST"
+RUN case "$(dpkg --print-architecture)" in \
+      amd64) target=x86_64-unknown-linux-gnu; sum=5be191e8c70a5007074254cb74d78dbfdd25cd5a61c27de7b8e5410122ec24f4 ;; \
+      arm64) target=aarch64-unknown-linux-gnu; sum=a9c168dbea81a84671c6b7a5c1795cb0eb699020110d107ddfca427bd797e697 ;; \
+    esac \
+    && curl -fsSL -o /tmp/rustup-init "https://static.rust-lang.org/rustup/archive/$RUSTUP/$target/rustup-init" \
+    && echo "$sum  /tmp/rustup-init" | sha256sum -c --status \
+    && chmod +x /tmp/rustup-init && /tmp/rustup-init -y --profile minimal --default-toolchain "$RUST" \
+    && rm /tmp/rustup-init
 ENV PATH=/root/.cargo/bin:/opt/flutter/bin:$PATH
 RUN git clone --quiet --depth 1 --branch "$FLUTTER" https://github.com/flutter/flutter.git /opt/flutter \
     && flutter config --no-analytics --enable-linux-desktop && flutter precache --linux

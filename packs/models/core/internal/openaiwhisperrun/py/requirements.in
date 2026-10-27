@@ -8,3 +8,6 @@ certifi>=2026.10.19
 # filelock's first release whose lock follows no planted link (GHSA-v4x8-3wr5-3wq8): newer
 # than the rest (--exclude-newer-package).
 filelock>=4.2.1
+# setuptools's first release that keeps a legacy wheel's namespace packages in the environment
+# (GHSA-xmj3-9gf7-h52w): newer than the rest (--exclude-newer-package).
+setuptools>=84.1.0

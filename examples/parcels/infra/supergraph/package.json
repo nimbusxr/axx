@@ -3,7 +3,7 @@
   "private": true,
   "description": "Composes the parcels supergraph from the subgraphs' SDL, for the gateway.",
   "dependencies": {
-    "@graphql-mesh/compose-cli": "1.8.2",
+    "@graphql-mesh/compose-cli": "1.8.4",
     "graphql": "16.11.0"
   }
 }
