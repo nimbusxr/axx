@@ -51,6 +51,12 @@ runs:
             exit 0
           fi
           echo "::warning::installing the browsers' system libraries failed or stalled (attempt $attempt of 3)"
+          # The runner's mirrors are Azure's, then Ubuntu's own archive (/etc/apt/apt-mirrors.txt),
+          # and apt leaves a mirror that fails, not one that crawls: the tries after the first go
+          # to Ubuntu's.
+          if [[ -f /etc/apt/apt-mirrors.txt ]]; then
+            sudo sed -i '/azure\.archive\.ubuntu\.com/d' /etc/apt/apt-mirrors.txt
+          fi
         done
         exit 1
     - if: inputs.mode == 'save' && github.event_name == 'push' && github.ref == 'refs/heads/main'
