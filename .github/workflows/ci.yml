@@ -345,7 +345,7 @@ jobs:
           persist-credentials: false
       # The examples' model files (Git LFS).
       - uses: ./.github/actions/lfs
-      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6
         with:
           distribution: temurin
           java-version: "21"
@@ -443,7 +443,7 @@ jobs:
       - uses: ./.github/actions/lfs
       # Docker Hub's images through Google's mirror: Docker Hub refuses the runners at times.
       - uses: ./.github/actions/docker-hub-mirror
-      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6
         with:
           distribution: temurin
           java-version: "21"
@@ -1054,7 +1054,7 @@ jobs:
           # Tools are cached from main only: pull requests read them.
           cache_save: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
       - run: mise exec aqua:rhysd/actionlint -- actionlint
-      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
         with:
           enable-cache: false
       # Security audit of every workflow (template injection, permissions, pinning...).
