@@ -2,8 +2,9 @@
 #    uv pip compile --python-version 3.12 --generate-hashes --universal --torch-backend cpu --exclude-newer 2026-10-11 --exclude-newer-package certifi=2026-10-21 --exclude-newer-package filelock=2026-10-18T00:00:00Z --emit-index-url requirements.in -o requirements.txt
 --index-url https://pypi.org/simple
 
-antlr4-python3-runtime==4.9.3 \
-    --hash=sha256:f224469b4168294902bb1efa80a8bf7855f24c99aef99cbefc1bcd3cce77881b
+antlr4-python3-runtime==4.13.2 \
+    --hash=sha256:909b647e1d2fc2b70180ac586df3933e38919c85f98ccc656a96cd3f25ef3916 \
+    --hash=sha256:fe3835eb8d33daece0e799090eda89719dbccee7aa39ef94eed3818cafa5a7e8
     # via
     #   hydra-core
     #   omegaconf
