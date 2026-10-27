@@ -3,6 +3,6 @@
   "private": true,
   "dependencies": {
     "@litertjs/core": "2.6.0",
-    "@litertjs/wasm-utils": "2.5.3"
+    "@litertjs/wasm-utils": "2.6.0"
   }
 }
