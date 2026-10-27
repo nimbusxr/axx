@@ -1,0 +1,6 @@
+# The advisories osv-scanner (OpenSSF Scorecard's Vulnerabilities check) leaves out of this
+# service's uv.lock: none has a fixed release, and the service does not use what it is about.
+
+[[IgnoredVulns]]
+id = "PYSEC-2026-2447"
+reason = "diskcache (GHSA-w8v5-vhqr-4h9v) unpickles what is in its cache's folder, through 5.6.3, the last release; llama-cpp-python needs it, and the service runs its reranker with no cache of it: nothing here makes a diskcache (dependency-review.yml allows it too)."
