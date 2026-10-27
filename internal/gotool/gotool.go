@@ -19,7 +19,6 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
-	"path"
 	"path/filepath"
 	"runtime"
 	"slices"
@@ -275,20 +274,8 @@ func untar(archive, dir string) error {
 			if err := write(target, tr, h.FileInfo().Mode()); err != nil {
 				return err
 			}
-		case tar.TypeSymlink:
-			// A link stays in dir too, or a later entry could be written through it.
-			if path.IsAbs(h.Linkname) {
-				return fmt.Errorf("archive entry %q links outside the directory", h.Name)
-			}
-			if _, err := within(dir, path.Join(path.Dir(h.Name), h.Linkname)); err != nil {
-				return fmt.Errorf("archive entry %q links outside the directory", h.Name)
-			}
-			if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
-				return err
-			}
-			if err := os.Symlink(h.Linkname, target); err != nil {
-				return err
-			}
+		case tar.TypeSymlink, tar.TypeLink:
+			return linked(h.Name)
 		}
 	}
 }
@@ -310,6 +297,9 @@ func unzip(archive, dir string) error {
 			}
 			continue
 		}
+		if zf.Mode()&os.ModeSymlink != 0 {
+			return linked(zf.Name)
+		}
 		rc, err := zf.Open()
 		if err != nil {
 			return err
@@ -330,6 +320,12 @@ func within(dir, name string) (string, error) {
 		return "", fmt.Errorf("archive entry %q leaves the directory", name)
 	}
 	return filepath.Join(dir, local), nil
+}
+
+// linked refuses an archive's link: Go's archives (cmd/distpack's) hold only folders and files,
+// and a link, which a later entry could be written through, could lead out of the directory.
+func linked(name string) error {
+	return fmt.Errorf("archive entry %q is a link, which Go's archives never hold", name)
 }
 
 func write(target string, r io.Reader, mode os.FileMode) error {
