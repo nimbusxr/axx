@@ -56,7 +56,7 @@ dependencies {
     // WireMock: nothing reaches a provider.
     testImplementation("com.openai:openai-java:4.70.0")
     testImplementation("com.anthropic:anthropic-java:2.66.0")
-    testImplementation("com.anthropic:anthropic-java-bedrock:2.66.0")
+    testImplementation("com.anthropic:anthropic-java-bedrock:2.75.0")
     testImplementation("com.anthropic:anthropic-java-vertex:2.66.0")
     testImplementation("com.google.genai:google-genai:1.73.0")
     testImplementation("software.amazon.awssdk:bedrockruntime:2.55.14")
