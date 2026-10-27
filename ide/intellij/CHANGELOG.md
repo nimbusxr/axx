@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/nimbusxr/axx/compare/intellij-v0.2.0...intellij-v0.2.1) (2026-10-27)
+
+
+### Bug Fixes
+
+* the security alerts' fixes and every pending dependency update ([#263](https://github.com/nimbusxr/axx/issues/263)) ([e57a6e0](https://github.com/nimbusxr/axx/commit/e57a6e0d0d78f9e98fc24813d20c361edf62691a))
+
 ## [0.2.0](https://github.com/nimbusxr/axx/compare/intellij-v0.1.5...intellij-v0.2.0) (2026-10-05)
 
 
