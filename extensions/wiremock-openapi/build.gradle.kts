@@ -37,7 +37,7 @@ dependencies {
     implementation("com.atlassian.oai:openapi-request-validator-core:3.0.0")
     // The GraphQL mock: operations run against the mock's schema, and federation's _service and
     // _entities for subgraphs.
-    implementation("com.graphql-java:graphql-java:26.0")
+    implementation("com.graphql-java:graphql-java:26.1")
     implementation("com.apollographql.federation:federation-graphql-java-support:7.0.0")
     // The MCP mock validates tool arguments and stubbed results against the tools' JSON Schemas
     // (2020-12). The OpenAPI validator already brings this validator: it is named here because
