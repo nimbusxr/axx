@@ -10,9 +10,9 @@ require (
 	cloud.google.com/go/storage v1.70.0
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.23.3
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.15.0
-	github.com/Azure/azure-sdk-for-go/sdk/messaging/azservicebus v1.11.0
+	github.com/Azure/azure-sdk-for-go/sdk/messaging/azservicebus v1.10.0
 	github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v1.8.2
-	github.com/Azure/go-amqp v1.7.0
+	github.com/Azure/go-amqp v1.5.0
 	github.com/a2aproject/a2a-go/v2 v2.7.0
 	github.com/antchfx/xpath v1.3.9
 	github.com/aws/aws-sdk-go-v2 v1.47.4
