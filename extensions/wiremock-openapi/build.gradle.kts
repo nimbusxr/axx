@@ -46,7 +46,7 @@ dependencies {
 
     testImplementation("org.wiremock:wiremock-standalone:$wiremockVersion")
     // The official MCP and A2A Java SDKs read the MCP and A2A mocks' answers in the tests.
-    testImplementation("io.modelcontextprotocol.sdk:mcp:2.0.1")
+    testImplementation("io.modelcontextprotocol.sdk:mcp:2.1.0")
     testImplementation("org.a2aproject.sdk:a2a-java-sdk-client:1.4.0.Final")
     testImplementation("org.a2aproject.sdk:a2a-java-sdk-client-transport-rest:1.4.0.Final")
     // Validates the MCP mock's answers against MCP's published JSON schemas in the tests: the
