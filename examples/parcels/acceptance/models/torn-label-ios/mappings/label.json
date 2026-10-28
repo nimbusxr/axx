@@ -1,0 +1,5 @@
+{
+  "name": "The torn label of PX-IOS-9622, held still in view: its reference and the address",
+  "input": {"image": "../../../features/courier-app-camera/labels/torn-label-PX-IOS-9622.png"},
+  "output": {"text": "PARCELS STANDARD PX-IOS-9622 Kochstr. 32, 04275 Leipzig"}
+}

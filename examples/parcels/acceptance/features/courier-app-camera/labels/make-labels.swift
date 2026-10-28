@@ -8,7 +8,9 @@
 //
 //   - label-<reference>.png: the label, whole;
 //   - torn-label-<reference>.mp4: a label whose code is torn off, the reference left, as the
-//     courier lifts the parcel into view: 3 seconds, 30 frames a second.
+//     courier lifts the parcel into view: 3 seconds, 30 frames a second;
+//   - torn-label-<reference>.png: that label held still in view, as the video ends: what the
+//     stub of Vision's text recognition reads it from (../../../models/torn-label-ios).
 import AVFoundation
 import AppKit
 import CoreImage
@@ -116,4 +118,5 @@ try writeVideo("torn-label-\(torn).mp4", frames: 90) { i in
     let t = min(1, CGFloat(i) / 30)
     return label(torn, withCode: false, lifted: t * t * (3 - 2 * t))
 }
-print("wrote label-\(scanned).png and torn-label-\(torn).mp4 to \(dir.path)")
+try writePNG(label(torn, withCode: false), "torn-label-\(torn).png")
+print("wrote label-\(scanned).png, torn-label-\(torn).mp4 and torn-label-\(torn).png to \(dir.path)")

@@ -70,6 +70,17 @@ func TornLabel(t *testing.T) string {
 	return filepath.Join(filepath.Dir(here), "testdata", "torn-label-PX-MOB-9401.mp4")
 }
 
+//go:generate go run ../../../../internal/tools/axxall models build testdata/torn-label-ios -o testdata/torn-label-ios.axxmodel
+
+// TornLabelText is a stub of Vision's text recognition (models-ios) that reads TornLabel's label
+// once it is held still in view, and nothing in the frames before: what the app reads does not
+// hang on the simulator's own model, which iOS 26.5's misreads (a Cyrillic М in PX-MOB-9401).
+func TornLabelText(t *testing.T) string {
+	t.Helper()
+	_, here, _, _ := runtime.Caller(0)
+	return filepath.Join(filepath.Dir(here), "testdata", "torn-label-ios.axxmodel")
+}
+
 // Lists tells how many times the courier's app asked for the day's deliveries.
 func (a *API) Lists() int {
 	a.mu.Lock()

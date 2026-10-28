@@ -14,6 +14,7 @@
 // The frames come 30 a second, 1920 by 1080, landscape right, as an iPhone's sensor gives them.
 #import <AVFoundation/AVFoundation.h>
 #import <Accelerate/Accelerate.h>
+#import <CoreML/CoreML.h>
 #import <CoreMedia/CoreMedia.h>
 #import <ImageIO/ImageIO.h>
 #import <UIKit/UIKit.h>
@@ -626,6 +627,36 @@ static id layerInitNoConnection(CONSUMED id self, SEL _cmd, AVCaptureSession *s)
     return self;
 }
 
+// cpuOnly has a Vision request run on the processor: a simulator has no other device for Vision's
+// models, and on some runtimes (iOS 26.5) a request left to choose fails ("Could not create
+// inference context"), the app's own text recognition among them.
+static void cpuOnly(VNRequest *r) {
+    if (@available(iOS 17.0, *)) {
+        NSDictionary<VNComputeStage, NSArray<id<MLComputeDeviceProtocol>> *> *stages = [r supportedComputeStageDevicesAndReturnError:nil];
+        for (VNComputeStage stage in stages)
+            for (id<MLComputeDeviceProtocol> d in stages[stage])
+                if ([(id)d isKindOfClass:[MLCPUComputeDevice class]]) {
+                    [r setComputeDevice:d forComputeStage:stage];
+                    break;
+                }
+    } else {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+        r.usesCPUOnly = YES;
+#pragma clang diagnostic pop
+    }
+}
+
+typedef id (*RequestInitIMP)(CONSUMED id, SEL, id) NS_RETURNS_RETAINED;
+static RequestInitIMP originalRequestInit;
+
+static id requestInit(CONSUMED id self, SEL _cmd, id handler) NS_RETURNS_RETAINED;
+static id requestInit(CONSUMED id self, SEL _cmd, id handler) {
+    self = originalRequestInit(self, _cmd, handler);
+    if (self) cpuOnly(self);
+    return self;
+}
+
 typedef id (*CoordinatorInitIMP)(CONSUMED id, SEL, id, id) NS_RETURNS_RETAINED;
 static CoordinatorInitIMP originalCoordinatorInit;
 static Class CoordinatorClass;
@@ -806,7 +837,11 @@ static void deliverCodes(NSArray<AVCaptureMetadataOutput *> *outputs, CVPixelBuf
     readingCodes = YES;
     CVPixelBufferRetain(frame);
     dispatch_async(codesQueue, ^{
+        // Vision's detector of revision 2, on the processor: in a simulator its newer ones (3 and
+        // 4, a model) find no code at all, on iOS 26.5 and 27 alike.
         VNDetectBarcodesRequest *req = [VNDetectBarcodesRequest new];
+        req.revision = VNDetectBarcodesRequestRevision2;
+        cpuOnly(req);
         [[[VNImageRequestHandler alloc] initWithCVPixelBuffer:frame options:@{}] performRequests:@[req] error:nil];
         CVPixelBufferRelease(frame);
         NSArray<VNBarcodeObservation *> *found = req.results ?: @[];
@@ -1157,6 +1192,13 @@ void axxcam_start(NSDictionary *d) {
         };
     });
 
+    // Vision, which an app reads its frames with, runs on the processor.
+    Method ri = class_getInstanceMethod([VNRequest class], @selector(initWithCompletionHandler:));
+    if (ri) {
+        originalRequestInit = (RequestInitIMP)method_getImplementation(ri);
+        method_setImplementation(ri, (IMP)requestInit);
+    }
+
     // Sessions that take it run here.
     Class session = [AVCaptureSession class];
     swizzle(session, @"canAddInput:", ^id(IMP original) {
@@ -1245,6 +1287,18 @@ void axxcam_start(NSDictionary *d) {
             [NSNotificationCenter.defaultCenter postNotificationName:AVCaptureSessionDidStopRunningNotification object:self];
         };
     });
+    // AVFoundation's own session, which has no camera, finds it cannot run, and says so: a session
+    // that plays the camera runs, and the app hears of no error.
+    if (class_getInstanceMethod(session, NSSelectorFromString(@"_postRuntimeError:")))
+        swizzle(session, @"_postRuntimeError:", ^id(IMP original) {
+            return ^(AVCaptureSession *self, NSError *e) {
+                if (playsCamera(self)) {
+                    LOG(@"AVFoundation's own session, without a camera, failed (left unsaid to the app): %@", e);
+                    return;
+                }
+                ((void (*)(id, SEL, id))original)(self, NULL, e);
+            };
+        });
     swizzle(session, @"isRunning", ^id(IMP original) {
         return ^BOOL(AVCaptureSession *self) {
             return playsCamera(self) ? [objc_getAssociatedObject(self, &kRunning) boolValue] : ((BOOL(*)(id, SEL))original)(self, NULL);

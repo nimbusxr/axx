@@ -36,6 +36,7 @@ package examplestubs
 //go:generate go run ../axxall models build ../../../examples/parcels/acceptance/models/dictated-note-android -o ../../../examples/parcels/acceptance/features/courier-app/models/dictated-note-android.axxmodel
 //go:generate go run ../axxall models build ../../../examples/parcels/acceptance/models/photo-document-ios -o ../../../examples/parcels/acceptance/features/courier-app-documents/models/photo-document-ios.axxmodel
 //go:generate go run ../axxall models build ../../../examples/parcels/acceptance/models/photo-text-ios -o ../../../examples/parcels/acceptance/features/courier-app-documents/models/photo-text-ios.axxmodel
+//go:generate go run ../axxall models build ../../../examples/parcels/acceptance/models/torn-label-ios -o ../../../examples/parcels/acceptance/features/courier-app-camera/models/torn-label-ios.axxmodel
 //go:generate go run ../axxall models build ../../../examples/parcels/acceptance/models/photo-animals-ios -o ../../../examples/parcels/acceptance/features/courier-app-documents/models/photo-animals-ios.axxmodel
 //go:generate go run ../axxall models build ../../../examples/parcels/acceptance/models/photo-people-ios -o ../../../examples/parcels/acceptance/features/courier-app-documents/models/photo-people-ios.axxmodel
 //go:generate go run ../axxall models build ../../../examples/parcels/acceptance/models/photo-people-mask-ios -o ../../../examples/parcels/acceptance/features/courier-app-documents/models/photo-people-mask-ios.axxmodel

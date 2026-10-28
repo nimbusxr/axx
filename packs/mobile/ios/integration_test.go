@@ -15,6 +15,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/nimbusxr/axx/core"
 	"github.com/nimbusxr/axx/internal/cloudstep/cloudtest"
 	appcore "github.com/nimbusxr/axx/packs/app/core"
 	mobilecore "github.com/nimbusxr/axx/packs/mobile/core"
@@ -57,16 +58,16 @@ func harness(t *testing.T) *cloudtest.Harness {
 	return harnessWith(t, nil)
 }
 
-// harnessWith is harness with the packs' settings. The tests share one simulator, kept booted
+// harnessWith is harness with the packs' settings, and more packs to run beside them. The tests share one simulator, kept booted
 // from one test to the next (packs.mobile-ios.keep), as a run's worker has one for its scenarios:
 // each scenario still has it to itself, and its app reset. Setting up a simulator takes minutes
 // on a hosted runner, and it is done once. Like any kept simulator, it stays booted after the
 // tests, for the next run.
-func harnessWith(t *testing.T, config map[string]any) *cloudtest.Harness {
+func harnessWith(t *testing.T, config map[string]any, more ...core.Pack) *cloudtest.Harness {
 	t.Helper()
 	cfg := map[string]any{Name: map[string]any{"keep": true}}
 	maps.Copy(cfg, config)
-	h := cloudtest.NewWith(t, cfg, appcore.Pack(), mobilecore.Pack(), Pack())
+	h := cloudtest.NewWith(t, cfg, append([]core.Pack{appcore.Pack(), mobilecore.Pack(), Pack()}, more...)...)
 	t.Cleanup(func() {
 		if !t.Failed() {
 			return
@@ -435,25 +436,6 @@ func TestACourierScansALabelOnASimulator(t *testing.T) {
 	h.OK(`the "Scan label" button is tapped in the courier app`)
 	h.OK(`the courier app shows "Lena Vogel"`)
 	_ = h.Fails(`the "label" in the courier app's camera view is tapped`, "which has no objects to tap: a scene names them")
-}
-
-// A courier scans a label whose code is torn off: the camera sees a video of the parcel lifted
-// into view, and the app reads its printed reference in the frames (a video data output, read
-// with Vision) and opens the parcel.
-func TestACourierReadsATornLabelOnASimulator(t *testing.T) {
-	device := simulator(t)
-	courierapi.Start(t)
-	t.Setenv("COURIER_PIN", "4711")
-	h := harness(t)
-	warm(t, h, device)
-	h.OK("the courier ios app with the following properties:", [][]string{
-		{"app", courierBuild(t)}, {"device", device}, {"permissions", "camera"},
-	})
-	h.OK("the courier app's camera sees " + courierapi.TornLabel(t))
-	signIn(h)
-	h.OK(`the courier app's dialog is dismissed`)
-	h.OK(`the "Scan label" button is tapped in the courier app`)
-	h.OK(`the courier app shows "Jonas Weber"`)
 }
 
 // A courier photographs the parcel where they left it: the camera sees the porch scene, and the

@@ -38,7 +38,7 @@ var arFiles = []string{"ar.h", "ar.m", "camera.m", "ar.swift"}
 // arFrameworks are what the library is built against.
 var arFrameworks = []string{
 	"ARKit", "RealityKit", "SceneKit", "UIKit", "Metal", "CoreVideo", "QuartzCore", "CoreGraphics", "Foundation",
-	"AVFoundation", "CoreMedia", "Vision", "Accelerate", "ImageIO",
+	"AVFoundation", "CoreMedia", "CoreML", "Vision", "Accelerate", "ImageIO",
 }
 
 // arLibrary is the library, built once for the Mac's simulators with Xcode's compilers into

@@ -9,6 +9,11 @@ Feature: A courier scans labels and photographs parcels with the iPhone's camera
   (labels/torn-label-PX-IOS-9622.mp4), which labels/make-labels.swift writes; the porch is the
   scene of a parcel on a porch (scenes/parcel-on-porch.glb).
 
+  The app reads a torn label's reference with the phone's own text recognition (Apple's Vision
+  framework). Vision's models are iOS's, and read differently from one iOS to the next, so the
+  scenario gives the app a stub of them instead (../../models/torn-label-ios), in its axx-models
+  folder: it reads the label once the parcel is held still in view, and nothing before.
+
   Background:
     Given the courier ios app with the following properties:
       | app         | ../courier/ios/build/Debug-iphonesimulator/Courier.app |
@@ -34,6 +39,10 @@ Feature: A courier scans labels and photographs parcels with the iPhone's camera
   Scenario: A parcel whose label's code is torn off opens by the reference printed under it
     Given a seeds/courier-app-camera-torn.yaml db seed
     And the courier app's camera sees labels/torn-label-PX-IOS-9622.mp4
+    And the courier-models folder with the following properties:
+      | owner | app:courier |
+      | path  | axx-models  |
+    And the torn-label.axxmodel file in the courier-models folder is a copy of the models/torn-label-ios.axxmodel file
     And the courier app is launched
     And the "Courier ID" field in the courier app is filled with "CR-LEJ-86"
     And the "PIN" field in the courier app is filled with "${sys:couriers.pin}"
