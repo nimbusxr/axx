@@ -63,3 +63,14 @@ the release PR is the approval: it publishes. To check the CLI release locally:
 GORELEASER_CURRENT_TAG=$(scripts/cli-tag.sh) goreleaser release --snapshot --clean --skip=sign,sbom
 scripts/release-check.sh
 ```
+
+The docs site's root is the latest release's docs, built from its tag. To change them without a
+new release (a fixed guide, a new Open Graph card), tag the release with those changes as
+`docs-<tag>` and run the docs workflow. The tag may change `docs/` only, so the root still
+documents the release; the run fails otherwise. Like release tags, only admins can push it.
+
+```sh
+git tag docs-v0.2.23 <commit>         # v0.2.23 with changes to docs/ only
+git push origin docs-v0.2.23
+gh workflow run docs.yml --ref main
+```

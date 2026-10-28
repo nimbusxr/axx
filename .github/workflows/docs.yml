@@ -6,7 +6,10 @@ name: docs
 #
 # The site's root is the latest release's docs, built from its tag once and then
 # kept; main's are at /next/, each page with a banner saying so. A release asks
-# for a run (release.yml), so that its docs replace the ones before.
+# for a run (release.yml), so that its docs replace the ones before. A tag
+# docs-<release> revises them without a new release: the release with changes to
+# docs/ only (a new Open Graph card, a guide fixed), which the next run puts at
+# the root.
 on:
   pull_request:
     paths:
@@ -111,17 +114,43 @@ jobs:
           path: ~/.npm
           key: npm-docs-${{ hashFiles('docs/package-lock.json') }}
 
-      # The root: the latest release's docs, built from its tag once and then kept.
+      # The root: the latest release's docs, built from its tag once and then kept, or from
+      # docs-<tag> when there is one. That tag must be the release with changes to docs/ only,
+      # so that the root still documents what was released.
+      - if: github.event_name != 'pull_request' && steps.release.outputs.tag != ''
+        id: root
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          ref=$TAG
+          if [ -n "$(git ls-remote --tags origin "refs/tags/docs-$TAG")" ]; then
+            ref=docs-$TAG
+          fi
+          sha=$(gh api "repos/$GITHUB_REPOSITORY/commits/$ref" --jq .sha)
+          if [ "$ref" != "$TAG" ]; then
+            outside=$(gh api "repos/$GITHUB_REPOSITORY/compare/$TAG...$sha" --jq '
+              if .behind_by > 0 then "it lacks \(.behind_by) commits of the release"
+              else .files[]?.filename | select(startswith("docs/") | not) end')
+            if [ -n "$outside" ]; then
+              echo "::error::$ref must be $TAG with changes to docs/ only, but:"
+              echo "$outside"
+              exit 1
+            fi
+          fi
+          echo "root: $ref ($sha)"
+          echo "ref=$ref" >> "$GITHUB_OUTPUT"
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
       - if: github.event_name != 'pull_request' && steps.release.outputs.tag != ''
         id: release-docs
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: docs-release
-          key: docs-release-${{ steps.release.outputs.tag }}
+          key: docs-release-${{ steps.release.outputs.tag }}-${{ steps.root.outputs.sha }}
       - if: github.event_name != 'pull_request' && steps.release.outputs.tag != '' && steps.release-docs.outputs.cache-hit != 'true'
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
-          ref: ${{ steps.release.outputs.tag }}
+          ref: ${{ steps.root.outputs.sha }}
           path: release
           persist-credentials: false
       - if: github.event_name != 'pull_request' && steps.release.outputs.tag != '' && steps.release-docs.outputs.cache-hit != 'true'
@@ -138,7 +167,7 @@ jobs:
         continue-on-error: true
         with:
           path: docs-release
-          key: docs-release-${{ steps.release.outputs.tag }}
+          key: docs-release-${{ steps.release.outputs.tag }}-${{ steps.root.outputs.sha }}
       - if: github.event_name != 'pull_request'
         name: the site, the release's docs with main's at /next/
         working-directory: .
