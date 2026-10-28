@@ -166,7 +166,8 @@ the skills instead: `axx skills install`.
 - Never hand-edit generated files: `go generate ./...` writes the `axx.yaml` schema
   (`internal/config/axx.schema.json`) and the skills (`plugins/axx/skills`), and the docs site's
   build writes the reference (`docs/scripts/gen.mjs`, from `axx docs export`).
-- The docs site's root is the latest release's docs, built from its tag; main's are at `/next/`.
+- The docs site's root is the latest release's docs, built from its tag (or from `docs-<tag>`,
+  the release with changes to `docs/` only, when there is one); main's are at `/next/`.
   Link pages site-absolute (`/guides/install/`): the build puts `/next/` in front of them.
 - `cmd/axx` is the core only. Never import a pack from it: every pack, ours included, gets into
   axx through `axx-packs.yaml`, and pack dependencies stay out of the core binary.
