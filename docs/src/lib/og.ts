@@ -7,7 +7,7 @@ import { asciiCell } from './axe-ascii';
 import { createAxeScene } from './axe-scene';
 
 // The site's Open Graph card (src/pages/og.png.ts): what a link to any of its pages shows where it
-// is shared. The home page's axe, drawn as the home page draws it, the name and the tagline.
+// is shared. The home page's axe, drawn as the home page draws it, the logo and the tagline.
 
 export const CARD = { width: 1200, height: 630 };
 
@@ -93,18 +93,23 @@ export async function card(): Promise<Uint8Array> {
 	// Once a process: a dev server's reload of this module finds it done already.
 	const memo = globalThis as { axxResvg?: Promise<void> };
 	await (memo.axxResvg ??= readFile(require.resolve('@resvg/resvg-wasm/index_bg.wasm')).then((wasm) => initWasm(wasm)));
-	const font = (weight: 400 | 600) => readFile(require.resolve(`@fontsource/inter/files/inter-latin-${weight}-normal.woff`));
+	const font = (file: string) => readFile(require.resolve(`@fontsource/${file}-normal.woff`));
 	const fonts = [
-		{ name: 'Inter', data: await font(400), weight: 400, style: 'normal' },
-		{ name: 'Inter', data: await font(600), weight: 600, style: 'normal' },
+		{ name: 'Inter', data: await font('inter/files/inter-latin-400'), weight: 400, style: 'normal' },
+		{ name: 'Inter', data: await font('inter/files/inter-latin-600'), weight: 600, style: 'normal' },
+		{ name: 'JetBrains Mono', data: await font('jetbrains-mono/files/jetbrains-mono-latin-400'), weight: 400, style: 'normal' },
 	] as const;
 	// The name as the site's header sets it (custom.css's .site-title), large, over the tagline.
-	const size = 200;
+	const size = 124;
+	const word = { fontSize: size, fontWeight: 600, letterSpacing: -size * .075, lineHeight: 1 };
 	const root = el('div', { width: CARD.width, height: CARD.height, display: 'flex', position: 'relative', background: '#080808', fontFamily: 'Inter' }, [
 		el('div', { position: 'absolute', top: -150, right: -175, width: 1040, height: 900, display: 'flex' }, axe(1040, 900, 8)),
-		el('div', { position: 'absolute', left: 72, bottom: 72, display: 'flex', flexDirection: 'column' }, [
-			el('div', { fontSize: size, fontWeight: 600, letterSpacing: -size * .075, lineHeight: 1, color: '#b5b5bb', marginLeft: -size * .04 }, 'axx'),
-			el('div', { fontSize: 28, color: '#8c8c90', marginTop: 18 }, 'The verification layer for agentic software factories'),
+		el('div', { position: 'absolute', left: 72, bottom: 76, display: 'flex', flexDirection: 'column' }, [
+			el('div', { display: 'flex', marginLeft: -size * .04 }, [
+				el('div', { ...word, color: '#b5b5bb' }, 'axx'),
+				el('div', { ...word, color: '#494951' }, 'eptance'),
+			]),
+			el('div', { fontFamily: 'JetBrains Mono', fontSize: 20, color: '#8c8c90', marginTop: 26 }, 'The verification layer for agentic software factories'),
 		]),
 	]);
 	const svg = await satori(root as never, { ...CARD, fonts: [...fonts] });

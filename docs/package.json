@@ -22,6 +22,7 @@
     "@astrojs/markdown-satteri": "0.4.5",
     "@astrojs/starlight": "0.42.7",
     "@fontsource/inter": "5.3.0",
+    "@fontsource/jetbrains-mono": "5.3.0",
     "@resvg/resvg-wasm": "2.6.2",
     "astro": "7.4.2",
     "satori": "0.63.2",
