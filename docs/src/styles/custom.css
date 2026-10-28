@@ -316,7 +316,7 @@ ascii-axe { display: block; position: fixed; inset: 0; pointer-events: none; }
 [data-has-hero] .sl-markdown-content > .level-h2:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
 [data-has-hero] .sl-markdown-content > .level-h2:first-child::before { content: none; }
 [data-has-hero] .sl-markdown-content > .level-h2 h2 { color: var(--sl-color-white); font-size: clamp(1.75rem, 3.4vw, 2.6rem); line-height: 1.12; letter-spacing: -0.05em; text-wrap: balance; }
-[data-has-hero] .sl-markdown-content > p { max-width: 46rem; color: var(--sl-color-gray-2); line-height: 1.75; text-wrap: pretty; }
+[data-has-hero] .sl-markdown-content > :is(p, ul) { max-width: 46rem; color: var(--sl-color-gray-2); line-height: 1.75; text-wrap: pretty; }
 [data-has-hero] .sl-markdown-content > :is(.home-grid, .home-flow, .expressive-code) { margin-top: 2.25rem; }
 [data-has-hero] .sl-markdown-content > .expressive-code { max-width: 52rem; }
 /* Cards wrap: a row of three, and the last two of five share the second row; one to a row on a phone. */
@@ -362,7 +362,7 @@ ascii-axe { display: block; position: fixed; inset: 0; pointer-events: none; }
  [data-has-hero] .page > header.header { background: var(--sl-color-bg-nav); backdrop-filter: blur(20px); }
 }
 @supports (animation-timeline: view()) {
- .home-intro > *, [data-has-hero] .sl-markdown-content > :is(.level-h2, p, .expressive-code, .home-cta), .home-feature, .home-flow-step { animation: home-rise linear both; animation-timeline: view(); animation-range: entry 0% entry 55%; }
+ .home-intro > *, [data-has-hero] .sl-markdown-content > :is(.level-h2, p, ul, .expressive-code, .home-cta), .home-feature, .home-flow-step { animation: home-rise linear both; animation-timeline: view(); animation-range: entry 0% entry 55%; }
 }
 @keyframes home-axe-recede { to { opacity: 0.16; scale: 0.92; translate: 0 -6svh; } }
 @keyframes home-header-settle { to { background: var(--sl-color-bg-nav); backdrop-filter: blur(20px); } }

@@ -151,7 +151,12 @@ Axx comes from years of maintaining acceptance suites for complex enterprise sys
 
 Engineers use it directly: one binary, feature files, `axx run`. Coding agents use the same tool, with [interfaces made for them](/tutorials/with-an-agent/).
 
-The project publishes how agents do with it. In its [agent evaluation](/explanations/agent-evals/) (one model, `openai/gpt-6-luna`, on axx 0.1.12, three trials per task), on the six tasks that also have a version without axx, 72 of 72 suites written with axx passed every core check, against 14 of 18 written without it. It's a small sample, run by the project itself, and the tasks, planted bugs, verifier and transcripts are all [public](https://github.com/nimbusxr/axx-evals).
+Axx publishes how coding agents do with it. In its [agent evaluation](/explanations/agent-evals/), an agent writes the tests for a parcels service. A suite succeeds only if it passes on the working service and fails on every bug planted in it.
+
+- **With axx:** all 72 suites succeeded, across four setups (with its skills, its MCP server, both or neither).
+- **Without axx:** 14 of 18 did.
+
+It's a small sample, run by the project itself: one model (`openai/gpt-6-luna`), six tasks, three tries each. The tasks, planted bugs, checks and transcripts are all [public](https://github.com/nimbusxr/axx-evals).
 
 ## Build faster. Keep the contract.
 
