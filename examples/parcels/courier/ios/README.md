@@ -171,6 +171,15 @@ far apart they are (ARKit world tracking, in RealityKit's `ARView`). A simulator
 and its ARKit no world tracking: the app says it cannot measure, unless axx plays the camera from
 a scene (`../../acceptance/features/courier-app-measure`).
 
+## Scan a label, photograph a parcel
+
+"Scan label", over today's deliveries, opens a parcel from its label: the camera reads its QR
+code (a metadata output), or, where the code is torn off, the reference printed under it (Vision
+on the camera's frames). A delivery's "Photo at the door" photographs the parcel where the
+courier left it, and attaches the photo to the delivery as photo-at-the-door.jpg. The simulator
+has no camera: axx plays it from a label's photo, a video, or a scene
+(`../../acceptance/features/courier-app-camera`).
+
 ## Logs
 
 The app logs what it does under the subsystem `example.parcels.courier`:

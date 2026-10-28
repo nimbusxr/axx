@@ -14,12 +14,15 @@ import (
 	"github.com/nimbusxr/axx/packs/mobile/internal/scene"
 )
 
-// A scene the camera cannot see fails the step that gives it, saying why; and a real iPhone's
+// What the camera cannot see fails the step that gives it, saying why: a file that is no scene,
+// image or video, or an image or a video that is not what its name says; and a real iPhone's
 // camera, through an Appium server, sees what is in front of it. A simulator's app runs on a Mac
 // only: elsewhere, only the Appium server's is checked.
-func TestTheCameraSeesOnlyAScene(t *testing.T) {
+func TestTheCameraSeesASceneAnImageOrAVideo(t *testing.T) {
 	h := cloudtest.New(t, appcore.Pack(), mobilecore.Pack(), Pack())
 	h.File("scenes/lane-cones.scn", "a SceneKit scene")
+	h.File("labels/label.png", "a JPEG, in fact: \xff\xd8\xff")
+	h.File("labels/torn-label.mp4", "not a video")
 	glb, err := os.ReadFile(filepath.Join("..", "internal", "scene", "testdata", "lane-cones.glb"))
 	if err != nil {
 		t.Fatal(err)
@@ -28,7 +31,10 @@ func TestTheCameraSeesOnlyAScene(t *testing.T) {
 	if runtime.GOOS == "darwin" {
 		h.OK("the courier ios app with the following properties:", [][]string{{"bundle id", "example.parcels.courier"}, {"device", "iPhone 16"}})
 		_ = h.Fails("the courier app's camera sees scenes/no-such-scene.glb", "no-such-scene.glb")
-		_ = h.Fails("the courier app's camera sees scenes/lane-cones.scn", "lane-cones.scn is not a scene axx plays: a scene is a glTF file (.glb, .gltf)")
+		_ = h.Fails("the courier app's camera sees scenes/lane-cones.scn",
+			"lane-cones.scn is not what a camera sees: a scene (.glb, .gltf), an image (.heic, .jpeg, .jpg, .png) or a video (.m4v, .mov, .mp4)")
+		_ = h.Fails("the courier app's camera sees labels/label.png", "label.png is not the PNG file its name says")
+		_ = h.Fails("the courier app's camera sees labels/torn-label.mp4", "torn-label.mp4 is not the MP4 file its name says")
 		_ = h.Fails(`the "left cone" in the courier app's camera view is tapped`, "the courier app is not running")
 		h.NewScenario()
 	}
@@ -44,7 +50,7 @@ func TestThePhoneMovesThroughTheScene(t *testing.T) {
 		t.Skip("a scene plays on an iOS simulator, on a Mac")
 	}
 	h := cloudtest.New(t, appcore.Pack(), mobilecore.Pack(), Pack())
-	glb, err := os.ReadFile(filepath.Join("..", "..", "..", "examples", "parcels", "acceptance", "features", "courier-app-measure", "scenes", "parcel-on-porch.glb"))
+	glb, err := os.ReadFile(filepath.Join("..", "..", "..", "examples", "parcels", "acceptance", "scenes", "parcel-on-porch.glb"))
 	if err != nil {
 		t.Fatal(err)
 	}

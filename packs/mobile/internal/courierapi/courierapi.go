@@ -54,6 +54,33 @@ func SafePlaceAuthorization(t *testing.T) string {
 	return filepath.Join(filepath.Dir(here), "testdata", "safe-place-PX-MOB-9401.pdf")
 }
 
+// Label is a photo of PX-MOB-9402's label, as the phone held over the parcel takes it: its QR
+// code above its reference (make-labels.swift in the parcels example writes it).
+func Label(t *testing.T) string {
+	t.Helper()
+	_, here, _, _ := runtime.Caller(0)
+	return filepath.Join(filepath.Dir(here), "testdata", "label-PX-MOB-9402.png")
+}
+
+// TornLabel is a video of PX-MOB-9401's label, its code torn off, as the courier lifts the parcel
+// into the phone's view: 3 seconds.
+func TornLabel(t *testing.T) string {
+	t.Helper()
+	_, here, _, _ := runtime.Caller(0)
+	return filepath.Join(filepath.Dir(here), "testdata", "torn-label-PX-MOB-9401.mp4")
+}
+
+//go:generate go run ../../../../internal/tools/axxall models build testdata/torn-label-ios -o testdata/torn-label-ios.axxmodel
+
+// TornLabelText is a stub of Vision's text recognition (models-ios) that reads TornLabel's label
+// once it is held still in view, and nothing in the frames before: what the app reads does not
+// hang on the simulator's own model, which iOS 26.5's misreads (a Cyrillic М in PX-MOB-9401).
+func TornLabelText(t *testing.T) string {
+	t.Helper()
+	_, here, _, _ := runtime.Caller(0)
+	return filepath.Join(filepath.Dir(here), "testdata", "torn-label-ios.axxmodel")
+}
+
 // Lists tells how many times the courier's app asked for the day's deliveries.
 func (a *API) Lists() int {
 	a.mu.Lock()
