@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.23](https://github.com/nimbusxr/axx/compare/v0.2.22...v0.2.23) (2026-10-28)
+
+
+### Features
+
+* axx, the behavioral verification layer for agentic software factories ([#269](https://github.com/nimbusxr/axx/issues/269)) ([6f05185](https://github.com/nimbusxr/axx/commit/6f051854954a396bd0059e8432eba5f58a61148c))
+
 ## [0.2.22](https://github.com/nimbusxr/axx/compare/v0.2.21...v0.2.22) (2026-10-27)
 
 
