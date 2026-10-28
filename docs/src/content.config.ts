@@ -1,4 +1,5 @@
 import { defineCollection } from 'astro:content';
+import { z } from 'astro/zod';
 import { docsLoader } from '@astrojs/starlight/loaders';
 import { docsSchema } from '@astrojs/starlight/schema';
 
@@ -6,5 +7,9 @@ import { docsSchema } from '@astrojs/starlight/schema';
 // carry a `slug` that publishes them at their natural URLs, for example
 // references/_gen/packs/mock.md at /references/packs/mock/.
 export const collections = {
-	docs: defineCollection({ loader: docsLoader(), schema: docsSchema() }),
+	docs: defineCollection({
+		loader: docsLoader(),
+		// eyebrow: the line above the home page's title (src/components/Hero.astro).
+		schema: docsSchema({ extend: z.object({ eyebrow: z.string().optional() }) }),
+	}),
 };

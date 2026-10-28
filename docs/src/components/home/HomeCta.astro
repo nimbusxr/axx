@@ -1,0 +1,17 @@
+---
+// The home page's closing call to action. One line of props, as src/lib/markdown.ts reads them.
+import { withBase } from '../../lib/docs-build';
+
+interface Props {
+	primary: string;
+	primaryHref: string;
+	secondary: string;
+	secondaryHref: string;
+}
+const { primary, primaryHref, secondary, secondaryHref } = Astro.props;
+---
+
+<div class="home-cta">
+	<a class="home-button home-button-primary" href={withBase(primaryHref)}>{primary}</a>
+	<a class="home-button" href={withBase(secondaryHref)}>{secondary}</a>
+</div>

@@ -1,0 +1,9 @@
+---
+// Cards side by side, as many to a row as the page has room for, at most `columns`.
+interface Props {
+	columns?: 2 | 3 | 4;
+}
+const { columns = 3 } = Astro.props;
+---
+
+<div class="home-grid" data-columns={columns}><slot /></div>

@@ -24,7 +24,13 @@ function mdxToMarkdown(body: string): string {
 		.replace(/^[ \t]*<\/(TabItem|Card)>[ \t]*$/gm, '')
 		.replace(/^[ \t]*<TabItem\s[^>]*label="([^"]+)"[^>]*>[ \t]*$/gm, '**$1**')
 		.replace(/^[ \t]*<Card\s[^>]*title="([^"]+)"[^>]*>[ \t]*$/gm, '### $1')
-		.replace(/^[ \t]*<LinkCard\s[^>]*title="([^"]+)"[^>]*href="([^"]+)"[^>]*\/>[ \t]*$/gm, '- [$1]($2)');
+		.replace(/^[ \t]*<LinkCard\s[^>]*title="([^"]+)"[^>]*href="([^"]+)"[^>]*\/>[ \t]*$/gm, '- [$1]($2)')
+		// The home page's components (src/components/home).
+		.replace(/^[ \t]*<\/?(FeatureGrid|Flow)(\s[^>]*)?>[ \t]*$/gm, '')
+		.replace(/^[ \t]*<\/(Feature|FlowStep)>[ \t]*$/gm, '')
+		.replace(/^[ \t]*<Feature\s[^>]*title="([^"]+)"[^>]*href="([^"]+)"[^>]*>[ \t]*$/gm, '### [$1]($2)')
+		.replace(/^[ \t]*<(Feature|FlowStep)\s[^>]*title="([^"]+)"[^>]*>[ \t]*$/gm, '### $2')
+		.replace(/^[ \t]*<HomeCta\s[^>]*primary="([^"]+)"[^>]*primaryHref="([^"]+)"[^>]*secondary="([^"]+)"[^>]*secondaryHref="([^"]+)"[^>]*\/>[ \t]*$/gm, '- [$1]($2)\n- [$3]($4)');
 }
 
 /** Makes root-relative links absolute so the Markdown works outside the site. */

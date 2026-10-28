@@ -11,6 +11,20 @@ const settleEase = (n: number) => { const t = clamp(n); return t * t * t * (t * 
 const mix = (a: number, b: number, p: number) => a + (b - a) * p;
 const noise = (n: number) => { const v = Math.sin(n * 127.1 + 311.7) * 43758.5453; return v - Math.floor(v); };
 const gray = (n: number) => { const v = Math.round(n); return `rgb(${v} ${v} ${v})`; };
+/**
+ * What a surface is made of, carried in blue against red (red is its tone, green equals red so
+ * it never reads as a streak): wood's blue is above its red, the grip's wrap's twice as far
+ * above, the head's paint's below, steel's the same. The player colors each character by it
+ * (AsciiAxe.astro).
+ */
+export type Material = 'steel' | 'wood' | 'wrap' | 'paint';
+export const MATERIAL_OFFSET = 48;
+const OFFSETS: Record<Material, number> = { steel: 0, wood: MATERIAL_OFFSET, wrap: MATERIAL_OFFSET * 2, paint: -MATERIAL_OFFSET };
+const tinted = (n: number, material: Material) => {
+ const v = Math.round(n);
+ if (material === 'steel') return gray(v);
+ return `rgb(${v} ${v} ${Math.max(0, Math.min(255, v + OFFSETS[material]))})`;
+};
 type Point = [number, number, number?];
 type Vector = [number, number, number];
 type Pose = { x: number; y: number; scale: number; face: number; roll: number; bend: number; pitch?: number; tumble?: number; yaw?: number; cant?: number; orbit?: number };
@@ -144,17 +158,17 @@ function throwOrigin(pose: Pose): Point {
 }
 
 export function createAxeScene(ink: CanvasRenderingContext2D) {
- const polygon = (points: Point[], tone: number, stroke = 0, width = 0) => {
+ const polygon = (points: Point[], tone: number, stroke = 0, width = 0, material: Material = 'steel') => {
   ink.beginPath(); points.forEach(([x, y], i) => i ? ink.lineTo(x, y) : ink.moveTo(x, y));
-  ink.closePath(); ink.fillStyle = gray(tone); ink.fill();
-  if (width) { ink.strokeStyle = gray(stroke); ink.lineWidth = width; ink.lineJoin = 'round'; ink.stroke(); }
+  ink.closePath(); ink.fillStyle = tinted(tone, material); ink.fill();
+  if (width) { ink.strokeStyle = tinted(stroke, material); ink.lineWidth = width; ink.lineJoin = 'round'; ink.stroke(); }
  };
- const line = (points: Point[], tone: number, width = 2, directional = false) => {
+ const line = (points: Point[], tone: number, width = 2, directional = false, material: Material = 'steel') => {
   ink.beginPath(); points.forEach(([x, y], i) => i ? ink.lineTo(x, y) : ink.moveTo(x, y));
   // Color encodes a glyph direction only. The player always displays neutral gray.
   const a = points[0], b = points[points.length - 1], dx = b[0] - a[0], dy = b[1] - a[1];
   const direction = Math.abs(dy) < Math.abs(dx) * .35 ? 0 : Math.abs(dx) < Math.abs(dy) * .35 ? .9 : dx * dy < 0 ? .3 : .6;
-  ink.strokeStyle = directional ? `rgb(${tone} 0 ${Math.round(tone * direction)})` : gray(tone);
+  ink.strokeStyle = directional ? `rgb(${tone} 0 ${Math.round(tone * direction)})` : tinted(tone, material);
   ink.lineWidth = width; ink.lineCap = 'round'; ink.stroke();
  };
  const axe = (pose: Pose, silhouette = false) => {
@@ -167,12 +181,13 @@ export function createAxeScene(ink: CanvasRenderingContext2D) {
   const surface = (p: Point, side: number): Point => [p[0], p[1], thickness(p) * side];
   const head = (p: Point[]) => p.map(p => map(surface(p, face)));
   const weight = Math.max(2, pose.scale * 3);
-  polygon(HAFT.map(map), silhouette ? 44 : 141, 18, weight);
+  // A wooden handle, its grip wrapped; a steel head with a red strip along its top, out to the blade.
+  polygon(HAFT.map(map), silhouette ? 44 : 141, 18, weight, silhouette ? 'steel' : 'wood');
   if (!silhouette) {
-   line([[-3, -120], [-3, -27], [-12, 55], [-22, 135], [-20, 180]].map(p => map(p as Point)), 179, weight * 1.7);
+   line([[-3, -120], [-3, -27], [-12, 55], [-22, 135], [-20, 180]].map(p => map(p as Point)), 179, weight * 1.7, false, 'wood');
    for (let y = 76; y < 174; y += 15) {
     const x = -9 - (y - 76) * .15;
-    line([[x - 13, y], [x + 5, y - 5]].map(p => map(p as Point)), 36, weight * 1.9);
+    line([[x - 13, y], [x + 5, y - 5]].map(p => map(p as Point)), 140, weight * 1.9, false, 'wrap');
    }
   }
   polygon(HEAD.map(p => map(surface(p, -face))), silhouette ? 44 : 78, 16, weight);
@@ -181,7 +196,8 @@ export function createAxeScene(ink: CanvasRenderingContext2D) {
    const points = [surface(a, -1), surface(b, -1), surface(b, 1), surface(a, 1)];
    return { points, depth: points.reduce((sum, p) => sum + viewPoint(p, pose)[2], 0) / 4, index };
   }).sort((a, b) => b.depth - a.depth);
-  for (const { points, index } of rim) polygon(points.map(map), silhouette ? 50 : index < 5 ? 158 : 92, 24, weight * .4);
+  // The rim's first five faces are the head's top, from the eye out to the blade.
+  for (const { points, index } of rim) polygon(points.map(map), silhouette ? 50 : index < 5 ? 158 : 92, 24, weight * .4, !silhouette && index < 5 ? 'paint' : 'steel');
   polygon(head(HEAD), silhouette ? 55 : 126, 16, weight * 2);
   if (silhouette) return;
   // Flat ink shadows and a broad curved bevel replace smoothly shaded mesh facets.

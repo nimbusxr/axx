@@ -9,7 +9,7 @@ const mdPath = markdownPath(route.id);
 const mdUrl = new URL(mdPath, Astro.site ?? SITE).href;
 const prompt =
 	`Read ${mdUrl}, a page from the docs of Axx (github.com/nimbusxr/axx), ` +
-	`the human-readable acceptance testing framework. Then help me apply it to my project.`;
+	`the open-source acceptance testing framework that verifies running software black-box. Then help me apply it to my project.`;
 const claudeUrl = `https://claude.ai/new?q=${encodeURIComponent(prompt)}`;
 ---
 

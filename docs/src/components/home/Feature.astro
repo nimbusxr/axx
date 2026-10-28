@@ -1,0 +1,19 @@
+---
+// A card of the home page: a title, a few sentences, and the page that says more.
+// One line of props, as src/lib/markdown.ts reads them for the page's Markdown twin.
+import { withBase } from '../../lib/docs-build';
+
+interface Props {
+	title: string;
+	href?: string;
+	link?: string;
+}
+const { title, href, link = 'Read more' } = Astro.props;
+const url = href && (/^[a-z]+:/i.test(href) ? href : withBase(href));
+---
+
+<article class="home-feature">
+	<h3>{title}</h3>
+	<div class="home-feature-body"><slot /></div>
+	{url && <a class="home-feature-link" href={url}>{link} <span aria-hidden="true">→</span></a>}
+</article>

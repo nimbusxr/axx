@@ -293,7 +293,7 @@ write(
 		{
 			name: 'axx',
 			description:
-				'Agent skills for Axx (github.com/nimbusxr/axx), the human-readable acceptance testing framework. Install them into a repository with `axx skills install`.',
+				'Agent skills for Axx (github.com/nimbusxr/axx), the open-source acceptance testing framework that verifies running software black-box. Install them into a repository with `axx skills install`.',
 			homepage: site,
 			skills,
 		},
