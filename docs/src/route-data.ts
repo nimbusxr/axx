@@ -14,7 +14,7 @@ export const onRequest = defineRouteMiddleware((context) => {
 	// What a link to the page shows where it is shared: the site's card (src/pages/og.png.ts).
 	if (route.id !== '404') {
 		const image = new URL(withBase('/og.png'), SITE).href;
-		const alt = 'axxeptance, beside its ASCII axe';
+		const alt = 'axx: the verification layer for agentic software factories, beside its ASCII axe';
 		route.head.push(
 			{ tag: 'meta', attrs: { property: 'og:image', content: image } },
 			{ tag: 'meta', attrs: { property: 'og:image:type', content: 'image/png' } },

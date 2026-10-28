@@ -7,7 +7,7 @@ import { asciiCell } from './axe-ascii';
 import { createAxeScene } from './axe-scene';
 
 // The site's Open Graph card (src/pages/og.png.ts): what a link to any of its pages shows where it
-// is shared. The home page's axe, drawn as the home page draws it, and the logo.
+// is shared. The home page's axe, drawn as the home page draws it, the name and the tagline.
 
 export const CARD = { width: 1200, height: 630 };
 
@@ -98,15 +98,13 @@ export async function card(): Promise<Uint8Array> {
 		{ name: 'Inter', data: await font(400), weight: 400, style: 'normal' },
 		{ name: 'Inter', data: await font(600), weight: 600, style: 'normal' },
 	] as const;
-	// The logo as the site's header sets it (custom.css's .site-title), large.
-	const size = 112;
-	const word = { fontSize: size, fontWeight: 600, letterSpacing: -size * .075 };
+	// The name as the site's header sets it (custom.css's .site-title), large, over the tagline.
+	const size = 200;
 	const root = el('div', { width: CARD.width, height: CARD.height, display: 'flex', position: 'relative', background: '#080808', fontFamily: 'Inter' }, [
-		el('div', { position: 'absolute', top: -150, right: -150, width: 1040, height: 900, display: 'flex' }, axe(1040, 900, 8)),
-		el('div', { position: 'absolute', left: 72, bottom: 64, display: 'flex', alignItems: 'center' }, [
-			el('div', { ...word, color: '#b5b5bb' }, 'axx'),
-			el('div', { ...word, color: '#494951', marginRight: 22 }, 'eptance'),
-			el('div', { fontSize: 20, fontWeight: 600, letterSpacing: 1.2, color: '#000', background: '#b5b5bb', borderRadius: 999, padding: '4px 12px', marginTop: -50 }, 'BETA'),
+		el('div', { position: 'absolute', top: -150, right: -175, width: 1040, height: 900, display: 'flex' }, axe(1040, 900, 8)),
+		el('div', { position: 'absolute', left: 72, bottom: 72, display: 'flex', flexDirection: 'column' }, [
+			el('div', { fontSize: size, fontWeight: 600, letterSpacing: -size * .075, lineHeight: 1, color: '#b5b5bb', marginLeft: -size * .04 }, 'axx'),
+			el('div', { fontSize: 28, color: '#8c8c90', marginTop: 18 }, 'The verification layer for agentic software factories'),
 		]),
 	]);
 	const svg = await satori(root as never, { ...CARD, fonts: [...fonts] });
