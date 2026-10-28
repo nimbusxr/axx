@@ -11,10 +11,10 @@ export const onRequest = defineRouteMiddleware((context) => {
 		tag: 'link',
 		attrs: { rel: 'alternate', type: 'text/markdown', href: markdownPath(route.id) },
 	});
-	// What a link to the page shows where it is shared: its card (src/pages/og/[...slug].png.ts).
+	// What a link to the page shows where it is shared: the site's card (src/pages/og.png.ts).
 	if (route.id !== '404') {
-		const image = new URL(withBase(`/og/${route.id || 'index'}.png`), SITE).href;
-		const alt = `${route.entry.data.title}: axx`;
+		const image = new URL(withBase('/og.png'), SITE).href;
+		const alt = 'axxeptance, beside its ASCII axe';
 		route.head.push(
 			{ tag: 'meta', attrs: { property: 'og:image', content: image } },
 			{ tag: 'meta', attrs: { property: 'og:image:type', content: 'image/png' } },
