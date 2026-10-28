@@ -3,13 +3,42 @@ import Default from '@astrojs/starlight/components/Hero.astro';
 import AsciiAxe from './AsciiAxe.astro';
 import PoseEditor from './PoseEditor.astro';
 import { withBase } from '../lib/docs-build';
+
 const isHome = Astro.url.pathname === withBase('/');
+// The home page's words are its front matter (index.mdx), which its Markdown twin has too.
+const { eyebrow, hero } = Astro.locals.starlightRoute.entry.data;
+const [lede, ...more] = (hero?.tagline ?? '').split('\n\n');
+// The actions' links are relative to the home page, so they are right in the release's
+// docs and in main's (/next/).
+const actions = (hero?.actions ?? []).map((action) => ({
+	...action,
+	external: /^[a-z]+:/i.test(action.link),
+	href: /^[a-z]+:/i.test(action.link) ? action.link : withBase('/' + action.link),
+}));
 ---
 
 {isHome ? (
-	<section class="home-stage" aria-labelledby="_top">
-		<h1 id="_top" class="sr-only" data-page-title>axx</h1>
-		<AsciiAxe />
-		{import.meta.env.DEV && <PoseEditor />}
-	</section>
+	<>
+		<section class="home-stage" aria-label="axx">
+			<AsciiAxe />
+			{import.meta.env.DEV && <PoseEditor />}
+		</section>
+		<section class="home-intro" aria-labelledby="_top">
+			{eyebrow && <p class="home-eyebrow">{eyebrow}</p>}
+			<h1 id="_top" data-page-title set:html={hero?.title} />
+			<div class="home-intro-body">
+				<div>
+					<p class="home-lede">{lede}</p>
+					{more.map((paragraph) => <p class="home-sub">{paragraph}</p>)}
+				</div>
+				<div class="home-actions">
+					{actions.map((action, i) => (
+						<a class:list={['home-button', { 'home-button-primary': i === 0, 'home-button-quiet': action.variant === 'minimal' }]} href={action.href}>
+							{action.text}{action.external && <span class="home-button-arrow" aria-hidden="true">↗</span>}
+						</a>
+					))}
+				</div>
+			</div>
+		</section>
+	</>
 ) : <Default />}

@@ -7,7 +7,11 @@
 
 # axx
 
-**axx** ("axxeptance") is a human-readable acceptance testing framework for the agentic era.
+**axx** ("axxeptance") is the open-source behavioral verification layer for agentic software
+factories: an acceptance testing framework that verifies running software against executable
+acceptance criteria, black-box, independent of the language, architecture or agent that built it.
+
+**Let agents build it. Prove that it works.**
 
 **Using axx?** Everything is at **[axx.nimbusxr.us](https://axx.nimbusxr.us)**: installing it, the
 guides, and every step.

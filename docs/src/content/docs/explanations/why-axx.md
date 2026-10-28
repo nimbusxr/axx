@@ -1,13 +1,22 @@
 ---
 title: Why Axx
-description: Axx is a human-readable acceptance testing framework for the agentic era - acceptance criteria that people can read and coding agents can write, run against your real service.
+description: Axx verifies running software against executable acceptance criteria, black-box, so implementations can change without losing the definition of correct. It's the behavioral verification layer for agentic software factories.
 ---
 
-Axx is a human-readable acceptance testing framework for the agentic era.
+Software is increasingly produced by coding agents, but the responsibility for correctness hasn't gone away.
 
-Coding agents now write a growing share of code and tests. That makes one question matter more: what exactly was checked? With Axx, the answer is the acceptance criteria themselves. Each scenario states a behavior in plain language, so the people who own that behavior can read and review it. Agents can find the steps, write the scenario, run it and fix what fails.
+As implementations become easier to generate and replace, engineering teams need durable, independently executable definitions of expected behavior. A test suite that imports the code it checks changes with that code; a definition of correct shouldn't.
 
-Axx runs every scenario against your service from the outside, through the same interfaces your users and neighboring services use: its HTTP API and its web app, its database, its event streams and the dependencies it calls. When a scenario passes, the behavior it describes works in the running system, not in a mock of it or in one unit on its own.
+Axx approaches this through black-box acceptance testing. It verifies running systems through their observable interfaces (their HTTP APIs and web apps, their databases, their event streams and the dependencies they call), so implementations can evolve without the acceptance criteria being tied to their internal structure.
+
+The result is a verification framework for conventional engineering workflows and for the emerging generation of agentic software factories, where agents build and change the implementation and Axx checks that it still does what it must.
+
+Three ideas run through it:
+- **Intent.** Acceptance criteria state what the system must do, as scenarios people and agents can review. They're written in Gherkin, and they stay meaningful while the implementation changes.
+- **Freedom of implementation.** Refactor a service, switch frameworks or rewrite it in another language: while the external contract holds, the same scenarios apply.
+- **Independent verification.** An agent can use Axx to check its own work, but the code it wrote isn't what defines success. The scenarios are, and your team decides who approves them.
+
+When a scenario passes, the behavior it describes works in the running system, not in a mock of it or in one unit on its own. Dependencies outside the system can be mocked (Axx checks the calls made to them), while the system itself runs for real.
 
 ## One scenario covers the whole flow
 
@@ -44,7 +53,7 @@ Feature: Register parcels
 This one scenario:
 - builds a request from the service's own OpenAPI example and sends it;
 - checks the request and the response against that OpenAPI document;
-- proves the service asked its downstream address service about the postcode;
+- checks that the service asked its downstream address service (mocked) about the postcode;
 - checks what the service stored in PostgreSQL, down to a JSON column.
 
 Every line is a step from one of Axx's packs, so there is no step code to write.

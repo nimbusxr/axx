@@ -20,7 +20,7 @@ import (
 )
 
 // Identity is the canonical one-liner used everywhere axx describes itself.
-const Identity = `axx (github.com/nimbusxr/axx, "axxeptance") is a human-readable acceptance testing framework for the agentic era.`
+const Identity = `axx (github.com/nimbusxr/axx, "axxeptance") is an open-source acceptance testing framework, the behavioral verification layer for agentic software factories: it verifies running software against executable acceptance criteria, black-box.`
 
 // Main runs the CLI with args and returns the process exit code.
 func Main(args []string) int {
@@ -133,9 +133,9 @@ func newRootCmd(app *App) *cobra.Command {
 	var showVersion bool
 	root := &cobra.Command{
 		Use:   "axx",
-		Short: "Human-readable acceptance testing for the agentic era",
-		Long: `axx runs acceptance criteria that people can read as black-box tests against
-locally built services and web apps. Its packs cover REST and OpenAPI, WireMock,
+		Short: "Verify running software against executable acceptance criteria",
+		Long: `axx runs executable acceptance criteria, in Gherkin people can read, as black-box
+tests against running services and apps. Its packs cover REST and OpenAPI, WireMock,
 SQL, MongoDB, Kafka, logs, files, web apps in real browsers, and AWS, Google Cloud
 and Azure services: a project lists those it uses in axx-packs.yaml, beside packs
 of its own steps.

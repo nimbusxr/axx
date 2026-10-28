@@ -1,0 +1,12 @@
+---
+// One step of a Flow. One line of props, as src/lib/markdown.ts reads them.
+interface Props {
+	title: string;
+}
+const { title } = Astro.props;
+---
+
+<li class="home-flow-step">
+	<h3>{title}</h3>
+	<div><slot /></div>
+</li>

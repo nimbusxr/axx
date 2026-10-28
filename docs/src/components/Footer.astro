@@ -1,5 +1,6 @@
 ---
 import Default from '@astrojs/starlight/components/Footer.astro';
+import { withBase } from '../lib/docs-build';
 ---
 
-{Astro.url.pathname !== '/' && <Default />}
+{Astro.url.pathname !== withBase('/') && <Default />}

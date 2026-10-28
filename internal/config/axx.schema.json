@@ -828,5 +828,5 @@
   "additionalProperties": false,
   "type": "object",
   "title": "axx.yaml",
-  "description": "Configuration for axx, the human-readable acceptance testing framework (https://axx.nimbusxr.us)."
+  "description": "Configuration for axx, the acceptance testing framework that verifies running software black-box (https://axx.nimbusxr.us)."
 }

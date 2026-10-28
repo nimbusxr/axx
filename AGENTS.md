@@ -1,7 +1,8 @@
 # AGENTS.md: working on the axx codebase
 
-axx (github.com/nimbusxr/axx, "axxeptance") is a human-readable acceptance testing framework for
-the agentic era.
+axx (github.com/nimbusxr/axx, "axxeptance") is an open-source acceptance testing framework, the
+behavioral verification layer for agentic software factories: it verifies running software against
+executable acceptance criteria, black-box.
 
 This file is for agents *contributing to axx*. If you are *using* axx in another repo, install
 the skills instead: `axx skills install`.

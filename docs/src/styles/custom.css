@@ -87,6 +87,9 @@
 	--axx-selection: #aaaab2;
 	--axx-selection-text: #090909;
 	--axx-focus: #9c9ca4;
+	/* The axe's colors (AsciiAxe.astro), as accents: oxblood for marks, walnut for small type. */
+	--axx-oxblood: #a8443a;
+	--axx-walnut: #b89470;
 }
 
 /* Soft gray surfaces and charcoal ink, without a white page or inverted status hues. */
@@ -160,6 +163,8 @@
 	--axx-selection: #5b5b65;
 	--axx-selection-text: #dcdcdf;
 	--axx-focus: #62626c;
+	--axx-oxblood: #8f2a24;
+	--axx-walnut: #6b4426;
 }
 
 html { scroll-behavior: smooth; scroll-padding-top: 7rem; }
@@ -238,23 +243,23 @@ starlight-toc a[aria-current='true'] { color: var(--sl-color-white); }
 .page-actions :is(a, button):hover { border-color: var(--axx-border-hover); background: var(--axx-surface-hover); color: var(--sl-color-white); }
 .page-actions svg { width: 0.8rem; height: 0.8rem; }
 
-/* A single scene, with the documentation one quiet link away. */
+/* The home page: the axe's stage, then the story, on a sheet that slides up over it. */
 [data-has-hero] { --sl-content-pad-x: 0; --sl-main-pad: 0; }
 [data-has-hero] .page > header.header { border: 0; background: transparent; backdrop-filter: none; }
 [data-has-hero] .sl-container { max-width: none; margin: 0; }
 [data-has-hero] .content-panel { padding: 0; border: 0; }
-[data-has-hero] .sl-markdown-content { display: none; }
 .home-header { display: flex; align-items: center; justify-content: space-between; height: 100%; padding-inline: clamp(0.25rem, 3vw, 3rem); }
 .home-wordmark { color: var(--sl-color-text); font-size: 1.7rem; font-weight: 650; letter-spacing: -0.075em; text-decoration: none; }
 .home-wordmark::after, .axe-brand .site-title span::after { content: "eptance"; color: var(--axx-brand-suffix); }
 .home-header nav { display: flex; align-items: center; gap: clamp(1.2rem, 3vw, 2.5rem); }
 .home-header nav a { display: inline-flex; align-items: center; gap: 0.4rem; min-height: 2.75rem; color: var(--axx-home-link); font-size: 0.75rem; text-decoration: none; transition: color 180ms; }
 .home-header nav a:hover { color: var(--axx-home-link-hover); }
-.home-stage { min-height: calc(100svh - var(--sl-nav-height)); }
+.home-stage { position: relative; display: flex; flex-direction: column; justify-content: flex-end; min-height: calc(100svh - var(--sl-nav-height)); }
 ascii-axe { display: block; position: fixed; inset: 0; pointer-events: none; }
 .ascii-scene { position: absolute; inset: 0; }
-.ascii-scene canvas { position: relative; z-index: 1; display: block; width: 100%; height: 100%; filter: var(--axx-canvas-filter); }
-.ascii-scene .ascii-burst { position: absolute; inset: 0; z-index: 0; }
+/* The axe draws itself in each theme's colors (AsciiAxe.astro); the title's shards are inverted for the light one. */
+.ascii-scene canvas { position: relative; z-index: 1; display: block; width: 100%; height: 100%; }
+.ascii-scene .ascii-burst { position: absolute; inset: 0; z-index: 0; filter: var(--axx-canvas-filter); }
 .ascii-scene [hidden] { display: none; }
 .ascii-intro { position: absolute; z-index: 2; inset: 0; display: grid; place-items: center; overflow: hidden; color: var(--axx-ascii-title); }
 .ascii-intro-word {
@@ -281,6 +286,87 @@ ascii-axe { display: block; position: fixed; inset: 0; pointer-events: none; }
  .ascii-intro-word { --ascii-columns: 120; --ascii-rows: 24; font-size: min(1.2vw, 2.2svh); }
 }
 .ascii-fallback { display: grid; place-content: center; height: 100%; margin: 0; color: var(--axx-ascii-fallback); background: transparent; font-size: clamp(0.6rem, 1.5vw, 1rem); line-height: 1.15; }
+
+/* Past the axe: what axx is, at the top of a sheet of the page's own color that rises over it. */
+.home-intro, [data-has-hero] .sl-markdown-content { position: relative; z-index: 2; width: 100%; max-width: none; margin: 0; padding-inline: max(clamp(1rem, 4vw, 3rem), (100% - 70rem) / 2); background: var(--sl-color-bg); }
+.home-intro { padding-top: clamp(4rem, 12vh, 8rem); }
+.home-intro::before { content: ""; position: absolute; right: 0; bottom: 100%; left: 0; height: 16rem; background: linear-gradient(transparent, var(--sl-color-bg)); pointer-events: none; }
+.home-intro > *, .home-intro-body p { margin: 0; }
+.home-eyebrow { display: flex; align-items: center; gap: 0.75rem; color: var(--axx-walnut); font-size: 0.75rem; font-weight: 550; letter-spacing: 0.08em; text-transform: uppercase; }
+.home-eyebrow::before { content: ""; flex: none; width: 1.5rem; height: 2px; background: var(--axx-oxblood); }
+.home-intro h1 { margin-top: 1.5rem; color: var(--sl-color-white); font-size: clamp(2.6rem, 7.4vw, 6.25rem); font-weight: 600; line-height: 1; letter-spacing: -0.06em; }
+.home-intro h1 span { display: block; color: var(--sl-color-gray-3); }
+.home-intro-body { display: grid; grid-template-columns: minmax(0, 38rem) auto; justify-content: space-between; align-items: end; gap: 2rem 4rem; margin-top: clamp(2rem, 5vh, 3.25rem); }
+.home-lede { color: var(--sl-color-gray-2); font-size: clamp(1.02rem, 1.4vw, 1.2rem); line-height: 1.65; text-wrap: pretty; }
+.home-intro-body .home-sub { margin-top: 0.9rem; color: var(--sl-color-gray-3); font-size: 0.95rem; line-height: 1.65; text-wrap: pretty; }
+.home-actions, .home-cta { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; }
+.home-cta { margin-top: 2rem; }
+.home-button { display: inline-flex; align-items: center; min-height: 2.75rem; padding: 0.55rem 1.15rem; border: 1px solid var(--sl-color-hairline-light); border-radius: 8px; background: var(--axx-surface); color: var(--axx-action-text); font-size: 0.85rem; font-weight: 550; letter-spacing: -0.01em; text-decoration: none; transition: background 160ms, color 160ms, border-color 160ms; }
+.home-button:hover { border-color: var(--axx-border-hover); background: var(--axx-surface-hover); color: var(--sl-color-white); }
+.home-button-primary { border-color: var(--sl-color-white); background: var(--sl-color-white); color: var(--sl-color-black); }
+.home-button-primary:hover { border-color: var(--sl-color-gray-1); background: var(--sl-color-gray-1); color: var(--sl-color-black); }
+.home-button-quiet { border-color: transparent; background: transparent; }
+.home-button-arrow { margin-inline-start: 0.35em; color: var(--axx-arrow); }
+
+/* The story, on a sheet of the page's own color that covers the axe as it rises. */
+[data-has-hero] .sl-markdown-content { padding-top: clamp(5rem, 12vh, 8rem); padding-bottom: 6rem; font-size: 1rem; }
+/* Starlight wraps each heading, with its anchor link, in .sl-heading-wrapper. */
+[data-has-hero] .sl-markdown-content > .level-h2 { position: relative; max-width: 46rem; margin-top: 6.5rem; padding-top: 3rem; border-top: 1px solid var(--sl-color-hairline); }
+[data-has-hero] .sl-markdown-content > .level-h2::before { content: ""; position: absolute; top: -1px; left: 0; width: 2.5rem; height: 2px; background: var(--axx-oxblood); }
+[data-has-hero] .sl-markdown-content > .level-h2:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
+[data-has-hero] .sl-markdown-content > .level-h2:first-child::before { content: none; }
+[data-has-hero] .sl-markdown-content > .level-h2 h2 { color: var(--sl-color-white); font-size: clamp(1.75rem, 3.4vw, 2.6rem); line-height: 1.12; letter-spacing: -0.05em; text-wrap: balance; }
+[data-has-hero] .sl-markdown-content > p { max-width: 46rem; color: var(--sl-color-gray-2); line-height: 1.75; text-wrap: pretty; }
+[data-has-hero] .sl-markdown-content > :is(.home-grid, .home-flow, .expressive-code) { margin-top: 2.25rem; }
+[data-has-hero] .sl-markdown-content > .expressive-code { max-width: 52rem; }
+/* Cards wrap: a row of three, and the last two of five share the second row; one to a row on a phone. */
+.home-grid { --home-columns: 3; display: flex; flex-wrap: wrap; gap: 1rem; }
+.home-grid[data-columns='2'] { --home-columns: 2; }
+.home-grid[data-columns='4'] { --home-columns: 4; }
+.home-grid > * { flex: 1 1 calc((100% - (var(--home-columns) - 1) * 1rem) / var(--home-columns)); min-width: min(100%, 16rem); }
+.home-feature { display: flex; flex-direction: column; gap: 0.75rem; margin: 0; padding: 1.5rem; border: 1px solid var(--sl-color-gray-5); border-radius: 12px; background: linear-gradient(160deg, var(--axx-surface-raised), var(--axx-surface)); }
+.sl-markdown-content .home-feature :is(h3, p, div) { margin: 0; }
+.sl-markdown-content .home-feature h3 { color: var(--sl-color-white); font-size: 1.05rem; letter-spacing: -0.03em; }
+.home-feature-body { flex: 1; color: var(--sl-color-gray-2); font-size: 0.9rem; line-height: 1.7; }
+.sl-markdown-content .home-feature-link { align-self: flex-start; color: var(--axx-link); font-size: 0.8rem; font-weight: 550; text-decoration: none; }
+.sl-markdown-content .home-feature-link:hover { color: var(--sl-color-white); }
+.home-feature-link span { color: var(--axx-oxblood); }
+.home-feature { transition: border-color 160ms; }
+.home-feature:hover { border-color: color-mix(in srgb, var(--axx-oxblood) 45%, var(--sl-color-gray-5)); }
+.home-flow { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1rem; padding: 0; list-style: none; counter-reset: flow; }
+.sl-markdown-content .home-flow-step { position: relative; margin: 0; padding: 1.25rem 1.25rem 1.4rem; border: 1px solid var(--sl-color-gray-5); border-radius: 12px; background: var(--axx-surface); counter-increment: flow; }
+.home-flow-step::before { content: counter(flow, decimal-leading-zero); display: block; margin-bottom: 0.9rem; color: var(--axx-walnut); font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.75rem; }
+.home-flow-step:not(:last-child)::after { content: "→"; position: absolute; top: 50%; right: -0.85rem; z-index: 1; display: grid; place-items: center; width: 1.5rem; height: 1.5rem; border-radius: 50%; background: var(--sl-color-bg); color: var(--axx-oxblood); font-size: 0.8rem; transform: translateY(-50%); }
+.sl-markdown-content .home-flow-step :is(h3, p, div) { margin: 0; }
+.sl-markdown-content .home-flow-step h3 { margin-bottom: 0.5rem; color: var(--sl-color-white); font-size: 1rem; letter-spacing: -0.03em; }
+.home-flow-step div { color: var(--sl-color-gray-2); font-size: 0.875rem; line-height: 1.65; }
+.sl-markdown-content .home-cta a { text-decoration: none; }
+@media (max-width: 68rem) {
+ .home-flow { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+ .home-flow-step:nth-child(2)::after { display: none; }
+}
+@media (max-width: 49.99rem) {
+ .home-flow { grid-template-columns: minmax(0, 1fr); }
+ .home-flow-step:not(:last-child)::after { content: "↓"; top: auto; right: auto; bottom: -0.85rem; left: 1.25rem; transform: none; }
+ .home-flow-step:nth-child(2)::after { display: grid; }
+ .home-intro-body { grid-template-columns: minmax(0, 1fr); }
+ [data-has-hero] .sl-markdown-content > .level-h2 { margin-top: 4.5rem; padding-top: 2.25rem; }
+}
+
+/* On scroll: the axe recedes, the header settles in, and the story rises into view. */
+@supports (animation-timeline: scroll()) {
+ ascii-axe { animation: home-axe-recede linear both; animation-timeline: scroll(root); animation-range: 0 85svh; }
+ [data-has-hero] .page > header.header { animation: home-header-settle linear both; animation-timeline: scroll(root); animation-range: 55svh 85svh; }
+}
+@supports not (animation-timeline: scroll()) {
+ [data-has-hero] .page > header.header { background: var(--sl-color-bg-nav); backdrop-filter: blur(20px); }
+}
+@supports (animation-timeline: view()) {
+ .home-intro > *, [data-has-hero] .sl-markdown-content > :is(.level-h2, p, .expressive-code, .home-cta), .home-feature, .home-flow-step { animation: home-rise linear both; animation-timeline: view(); animation-range: entry 0% entry 55%; }
+}
+@keyframes home-axe-recede { to { opacity: 0.16; scale: 0.92; translate: 0 -6svh; } }
+@keyframes home-header-settle { to { background: var(--sl-color-bg-nav); backdrop-filter: blur(20px); } }
+@keyframes home-rise { from { opacity: 0; translate: 0 2.5rem; } }
 
 @media (min-width: 90rem) {
  :root { --sl-nav-pad-x: 2rem; }

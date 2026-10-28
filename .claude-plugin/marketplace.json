@@ -5,7 +5,7 @@
     "url": "https://github.com/nimbusxr"
   },
   "metadata": {
-    "description": "axx: human-readable acceptance testing for the agentic era"
+    "description": "axx: behavioral verification for agentic software factories"
   },
   "plugins": [
     {

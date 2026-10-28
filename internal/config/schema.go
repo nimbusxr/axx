@@ -122,7 +122,7 @@ func Generate(goComments bool) ([]byte, error) {
 	s := r.Reflect(&Config{})
 	s.ID = ijs.ID(SchemaID)
 	s.Title = "axx.yaml"
-	s.Description = "Configuration for axx, the human-readable acceptance testing framework (https://axx.nimbusxr.us)."
+	s.Description = "Configuration for axx, the acceptance testing framework that verifies running software black-box (https://axx.nimbusxr.us)."
 	out, err := s.MarshalJSON()
 	if err != nil {
 		return nil, err

@@ -52,7 +52,7 @@ export default defineConfig({
 		starlight({
 			title: 'axx',
 			description:
-				'Axx ("axxeptance") is a human-readable acceptance testing framework for the agentic era: acceptance criteria people can read, run black-box against services with REST + OpenAPI, WireMock, SQL, MongoDB and Kafka, and extensible with Go packs.',
+				'Axx is an open-source black-box acceptance testing framework for agentic software factories. Verify running systems across APIs, events, data, native apps, and AI.',
 			favicon: '/favicon.svg',
 			social: [{ icon: 'github', label: 'GitHub', href: 'https://github.com/nimbusxr/axx' }],
 			editLink: { baseUrl: 'https://github.com/nimbusxr/axx/edit/main/docs/' },
@@ -321,13 +321,13 @@ export default defineConfig({
 					// docs and in main's (/next/): front matter is not rebased.
 					exclude: [
 						'/schemas/**', '/skills/**', '/.well-known/**', '/llms.txt', '/llms-full.txt', '/llms-small.txt', '/**/*.md', '/index.md',
-						'explanations/why-axx/', 'references/step-index/',
+						'tutorials/quickstart/', 'explanations/why-axx/', 'references/step-index/',
 					],
 				}),
 				starlightLlmsTxt({
 					projectName: 'Axx',
 					description:
-						'Axx (github.com/nimbusxr/axx, "axxeptance") is a human-readable acceptance testing framework for the agentic era.',
+						'Axx (github.com/nimbusxr/axx, "axxeptance") is an open-source acceptance testing framework, the behavioral verification layer for agentic software factories: it verifies running systems black-box, against executable acceptance criteria written in Gherkin, across APIs, events, data, native apps and AI.',
 					details: [
 						'- Every page is also available as Markdown: append `.md` to its path (for example `https://axx.nimbusxr.us/tutorials/quickstart.md`).',
 						'- Never invent step text. Search the step index (`/references/step-index/`) or run `axx steps search "<intent>"`, then validate with `axx validate`.',

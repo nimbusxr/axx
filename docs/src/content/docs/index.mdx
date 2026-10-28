@@ -1,26 +1,164 @@
 ---
-title: Human-readable acceptance testing for the agentic era
-description: Axx (axxeptance) is a human-readable acceptance testing framework for the agentic era.
+title: Behavioral verification for agentic software factories
+description: Axx is an open-source black-box acceptance testing framework for agentic software factories. Verify running systems across APIs, events, data, native apps, and AI.
 template: splash
 editUrl: false
 pagefind: false
+head:
+  - tag: title
+    content: axx — Behavioral verification for agentic software factories
+eyebrow: The verification layer for agentic software factories
 hero:
-  title: axx
+  title: Let agents build it. <span>Prove that it works.</span>
+  tagline: |-
+    Axx is an open-source acceptance testing framework that verifies real software against executable behavioral expectations, independent of the language, architecture or agent that built it.
+
+    Define what correct means. Let implementations evolve. Verify the behavior that matters.
   # Relative to the home page: right in the release's docs and in main's (/next/).
   actions:
-    - text: Documentation
+    - text: Get started
+      link: tutorials/quickstart/
+    - text: Why axx
       link: explanations/why-axx/
-    - text: Reference
-      link: references/step-index/
     - text: GitHub
       link: https://github.com/nimbusxr/axx
+      variant: minimal
 ---
 
-## Start here
+import Feature from '../../components/home/Feature.astro';
+import FeatureGrid from '../../components/home/FeatureGrid.astro';
+import Flow from '../../components/home/Flow.astro';
+import FlowStep from '../../components/home/FlowStep.astro';
+import HomeCta from '../../components/home/HomeCta.astro';
 
-- [Why axx](/explanations/why-axx/), then the [quickstart](/tutorials/quickstart/) and [your first suite](/tutorials/first-suite/).
-- [How steps read](/references/steps/), and every step in the [step index](/references/step-index/).
+## Generating software is getting easier. Trusting it isn't.
 
-## For coding agents
+Coding agents are changing how quickly software can be created and changed. But generating an implementation and knowing that it meets its requirements are different problems.
 
-In a project, the axx command line answers faster than this site: `axx steps` lists every step of the project's packs, a line each, and `axx steps show <id>` gives one step's documentation and examples. On this site, every page has a Markdown twin (add `.md` to its path), [llms.txt](/llms.txt) lists them, and a pack's steps are at `/references/packs/<pack>.md`.
+Code review, unit tests and static analysis remain valuable. None of them shows that the running system delivers the behavior expected of it. As software factories become more autonomous, verifying that behavior independently matters more, not less.
+
+**The challenge isn't generating more software. It's changing software continuously without losing confidence in what it does.**
+
+## Keep what correct means apart from how it's built.
+
+<FeatureGrid columns={3}>
+<Feature title="Intent" href="/explanations/step-design/" link="How steps are designed">
+Software exists to meet requirements, not to run code. Acceptance criteria state the behaviors a system must provide, as scenarios that engineers, product owners and agents can all review, and that stay meaningful while the implementation changes.
+</Feature>
+<Feature title="Freedom of implementation" href="/explanations/black-box-testing/" link="Black-box testing">
+Refactor a service, switch frameworks, replace a component or rewrite it in another language. While the external contract holds, the acceptance criteria still apply: axx never loads your code.
+</Feature>
+<Feature title="Independent verification" href="/explanations/how-axx-works/" link="How axx works">
+Axx runs each scenario against the running system, through its APIs, events, data stores and user interfaces. An agent can use axx to check its own work, but the code it wrote isn't what defines success. The acceptance criteria are, and your team decides who approves them.
+</Feature>
+</FeatureGrid>
+
+## Give agents freedom to build. Keep control of what correct means.
+
+<Flow>
+<FlowStep title="Define behavior">
+Write the acceptance criteria: what the system must accomplish, as scenarios made of real steps.
+</FlowStep>
+<FlowStep title="Implement freely">
+Engineers and coding agents build, change, refactor or replace the implementation.
+</FlowStep>
+<FlowStep title="Verify independently">
+Axx starts the system, exercises it through its observable interfaces and checks the expected outcomes.
+</FlowStep>
+<FlowStep title="Iterate with evidence">
+Failures come back as structured data, expected against actual, so the next change fixes the code, not the requirement.
+</FlowStep>
+</Flow>
+
+Axx is the verification layer of a software factory, not the factory: it doesn't orchestrate agents or write code. It runs wherever the software is built, from a developer's terminal to a CI pipeline to an agent's tool calls.
+
+## Built for real systems. Built for autonomous engineering.
+
+<FeatureGrid columns={3}>
+<Feature title="Black-box by architecture" href="/explanations/black-box-testing/" link="Black-box testing">
+Scenarios exercise running systems through the boundaries their clients use: HTTP and gRPC, events, databases, files, browsers and apps. They never import a class or depend on a framework, so they outlive refactors and rewrites.
+</Feature>
+<Feature title="One scenario across the system" href="/explanations/why-axx/" link="See a scenario">
+Send a request, check the call your service made to a mocked dependency, then the rows it stored and the event it published, all in one scenario, with steps from axx's packs and no glue code.
+</Feature>
+<Feature title="Native interfaces for coding agents" href="/explanations/axx-for-agents/" link="Axx for agents">
+Agents search the steps actually installed, validate scenarios without starting anything, work through axx's MCP server, and read failures as structured data, instead of guessing at a test API or parsing logs.
+</Feature>
+<Feature title="Fast, repeatable feedback" href="/guides/parallel-runs/" link="Parallel runs">
+`axx run` starts your services, waits until they're healthy, runs scenarios in parallel and cleans up. Generated fixtures, isolation checks, polling steps and reruns of what failed keep each cycle quick and reliable.
+</Feature>
+<Feature title="Verification beyond traditional applications" href="/guides/stub-embedded-models/" link="Stub embedded models">
+Test AI features, MCP servers, A2A agents, mobile and desktop apps, and the models apps run on the device, replaced by stubs axx builds in the model's own format, whose answers are your mappings.
+</Feature>
+</FeatureGrid>
+
+## Acceptance criteria you can execute.
+
+This scenario registers a parcel through a service's REST API. In one run, axx checks the request and the response against the service's OpenAPI document, checks that the service asked its address service (a WireMock mock) about the postcode, and checks what it stored in PostgreSQL, down to a JSON column.
+
+```gherkin title="features/register-parcels.feature"
+Feature: Register parcels
+
+  Background:
+    Given the parcels service with the following properties:
+      | url     | http://localhost:8400              |
+      | openapi | http://localhost:8400/openapi.json |
+    And the mocked addresses service with the following properties:
+      | url | http://localhost:8081 |
+    And a parcels-db database with the following properties:
+      | url      | postgres://localhost:5432/parcels |
+      | user     | parcels                           |
+      | password | parcels                           |
+
+  Scenario: A shop registers a parcel
+    Given a POST request to /api/parcels
+    And a request payload using an application/json content example
+    And the request payload properties are:
+      | reference          | PX-REG-1001 |
+      | recipient.postcode | "53111"     |
+    When the request is executed
+    Then the response status code is 201
+    And the mocked GET request to /v1/postcodes/DE/53111 named postcode-check was received by addresses
+    And a selection of rows is retrieved from the parcels.parcels table where:
+      | reference | PX-REG-1001 |
+    And the 1st row details property for the selection json properties are:
+      | source | api  |
+      | zone   | DE-1 |
+```
+
+Nothing in it names a class, a framework or a language. It describes what the service does at its boundaries, so the same scenario verifies a refactor, a new framework or a rewrite. Every line is a step from one of axx's packs: the [step index](/references/step-index/) lists them all, and the [parcels example](https://github.com/nimbusxr/axx/tree/main/examples/parcels) runs a full suite like it.
+
+## Go beyond conventional acceptance testing.
+
+<FeatureGrid columns={2}>
+<Feature title="Deterministic AI testing" href="/guides/test-ai-features/" link="Test AI features">
+Mock the model APIs your service calls (OpenAI's and the servers that speak it, Anthropic's, Gemini's) and check what it sent them. For the models an app runs itself, axx builds stubs in their native formats, from ONNX and Core ML to TFLite and GGUF, and stands in for the platform's own: Apple's Vision, Android's ML Kit, a browser's built-in AI.
+</Feature>
+<Feature title="Agent protocol testing" href="/guides/test-mcp/" link="Test MCP servers">
+Call an MCP server's tools as an AI assistant does, over stdio or HTTP, with the tools' own schemas as the contract. Message [A2A agents](/guides/test-a2a/) over JSON-RPC, HTTP+JSON or gRPC and check their tasks and artifacts. Mock the servers and agents your service depends on.
+</Feature>
+<Feature title="Native application verification" href="/guides/test-mobile-apps/" link="Test mobile apps">
+Drive Android and iOS apps on emulators and simulators, and [macOS, Windows and Linux apps](/guides/test-desktop-apps/), by the names people see. Move the phone along a route, tap its notifications, and show an iOS simulator's camera a photo, a video or a 3D scene.
+</Feature>
+<Feature title="Distributed workflows" href="/guides/test-kafka-avro/" link="Test Kafka with Avro">
+Publish and consume Kafka events with Avro and Schema Registry, seed and query SQL and MongoDB, mock dependencies, check [cloud services](/guides/test-cloud-services/) like S3, Pub/Sub and Service Bus, and validate against OpenAPI and AsyncAPI contracts, in the same scenario.
+</Feature>
+</FeatureGrid>
+
+## Designed for engineers. Ready for agents.
+
+Axx comes from years of maintaining acceptance suites for complex enterprise systems, where executable acceptance criteria shaped how teams built and shipped software. Its architecture reflects those lessons: black-box scenarios, step text that never changes, and test data that can't collide between parallel scenarios. It wasn't built to make Gherkin work with AI.
+
+Engineers use it directly: one binary, feature files, `axx run`. Coding agents use the same tool, with [interfaces made for them](/tutorials/with-an-agent/).
+
+The project publishes how agents do with it. In its [agent evaluation](/explanations/agent-evals/) (one model, `openai/gpt-6-luna`, on axx 0.1.12, three trials per task), on the six tasks that also have a version without axx, 72 of 72 suites written with axx passed every core check, against 14 of 18 written without it. It's a small sample, run by the project itself, and the tasks, planted bugs, verifier and transcripts are all [public](https://github.com/nimbusxr/axx-evals).
+
+## Build faster. Keep the contract.
+
+Whether software is written by an engineer, generated by an agent or rebuilt from scratch, its required behavior still matters. Axx verifies that behavior against the running system.
+
+<HomeCta primary="Start verifying" primaryHref="/tutorials/quickstart/" secondary="Explore the documentation" secondaryHref="/explanations/why-axx/" />
+
+Axx is open source (Apache-2.0) and in beta (`v0.x`): interfaces may change before `v1.0.0`.
+
+**For coding agents:** in a project, the axx command line answers faster than this site: `axx steps` lists every step of the project's packs, a line each, and `axx steps show <id>` gives one step's documentation and examples. On this site, every page has a Markdown twin (add `.md` to its path), [llms.txt](/llms.txt) lists them, and a pack's steps are at `/references/packs/<pack>.md`.

@@ -189,7 +189,7 @@ warn Cursor MCP               no axx server in .cursor/mcp.json
 ```markdown title="AGENTS.md"
 <!-- axx:begin (managed by `axx init`; edit outside this block) -->
 ## Acceptance tests (axx)
-axx (github.com/nimbusxr/axx, "axxeptance") is a human-readable acceptance testing framework.
+axx (github.com/nimbusxr/axx, "axxeptance") verifies running software against executable acceptance criteria (Gherkin), black-box.
 - Writing tests: `axx steps` lists every step, a line each (read it once; `axx steps show <id>` gives one
   step's documentation); write one scenario per acceptance criterion with those steps, never
   invented ones, written out (a {name} replaced with a value, a(n) as "a" or "an", [[...]] kept

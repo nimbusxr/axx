@@ -55,14 +55,14 @@ dockers_v2:
     dockerfile: build/Dockerfile
     labels:
       org.opencontainers.image.source: https://github.com/nimbusxr/axx
-      org.opencontainers.image.description: Human-readable acceptance testing for the agentic era
+      org.opencontainers.image.description: Behavioral verification for agentic software factories
       org.opencontainers.image.licenses: Apache-2.0
 
 homebrew_casks:
   - name: axx
     binaries: [axx]
     homepage: https://axx.nimbusxr.us
-    description: Human-readable acceptance testing for the agentic era
+    description: Behavioral verification for agentic software factories
     license: Apache-2.0
     skip_upload: auto
     # The binaries are not notarized yet, so macOS would refuse to run them: drop the
