@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.24](https://github.com/nimbusxr/axx/compare/v0.2.23...v0.2.24) (2026-10-29)
+
+
+### Bug Fixes
+
+* **init:** AGENTS.md imported where Claude Code reads CLAUDE.md, and a compose stack of axx's own ([#273](https://github.com/nimbusxr/axx/issues/273)) ([dde9250](https://github.com/nimbusxr/axx/commit/dde9250c7dfc309521c04d80d5fb9ac010274c9a))
+
 ## [0.2.23](https://github.com/nimbusxr/axx/compare/v0.2.22...v0.2.23) (2026-10-28)
 
 
