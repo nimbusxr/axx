@@ -48,7 +48,7 @@ axx: ready in 31s
   create  .agents/skills (5 skills)
 
 Codex keeps its MCP servers in ~/.codex/config.toml; `axx mcp install --agent codex --scope user` adds axx there.
-next: edit services in axx.yaml, then `axx doctor` and `axx run`
+next: put your service's command, port and health check in axx.yaml and the smoke feature, then `axx doctor` and `axx run`
 ```
 
 Axx created a configuration file, `axx.yaml`, and a first feature file, `features/smoke/smoke.feature`. We'll change both. It also created `axx-packs.yaml`, the list of the packs of steps the project uses. It lists `rest`, whose steps send HTTP requests, and that's all we need. The first time, Axx prepared itself with that pack, which it won't need to do again. We won't need the other files in this tutorial: they are for CI and for coding agents.

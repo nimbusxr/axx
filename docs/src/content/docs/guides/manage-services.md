@@ -35,6 +35,8 @@ services:
 
 Each key is described in the [configuration reference](/references/config/#services). A command that exits `0` before the service is ready is fine, which is what `docker compose up -d` or `--wait` does: Axx keeps polling the `ready` checks.
 
+If you also run a compose file yourself while you develop, give the stack Axx starts from it a name of its own, in `command` and `cleanup` alike: `docker compose -p parcels-axx up`. Compose otherwise names both stacks after the folder, so Axx's takes over yours, and `down -v` deletes your stack's volumes, your local data with them. `axx init` names the stack it writes so.
+
 Service output goes to `.axx/logs/services.log`. When a service fails to start, the error shows the last lines of its output and a stable code from [`AXX-E0400` to `AXX-E0415`](/references/error-codes/#service-lifecycle).
 
 ## Keep services running between runs

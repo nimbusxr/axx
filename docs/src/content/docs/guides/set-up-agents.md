@@ -12,7 +12,7 @@ Three pieces give a coding agent everything it needs: the skills, the MCP server
 | When the repository has | `axx init` writes |
 | --- | --- |
 | anything | the `AGENTS.md` section and the skills in `.agents/skills/` |
-| `.claude/`, `CLAUDE.md` or `.mcp.json` (Claude Code) | `.mcp.json`, and links the skills into `.claude/skills/` |
+| `.claude/`, `CLAUDE.md` or `.mcp.json` (Claude Code) | `.mcp.json`, links the skills into `.claude/skills/`, and imports `AGENTS.md` into `CLAUDE.md` where Claude Code reads that instead ([AGENTS.md](#agentsmd)) |
 | `.codex/` (Codex) | `.codex/config.toml` |
 | `.cursor/` (Cursor) | `.cursor/mcp.json` |
 | `.vscode/` (VS Code) | `.vscode/mcp.json` |
@@ -26,6 +26,7 @@ In a repository with a `CLAUDE.md` and a `.cursor/` directory:
   create  features/smoke/smoke.feature
   create  .github/workflows/acceptance.yml
   create  AGENTS.md
+  update  CLAUDE.md (imports AGENTS.md for Claude Code)
   create  .gitignore
   create  .gitattributes
   create  .agents/skills (5 skills)
@@ -34,7 +35,7 @@ In a repository with a `CLAUDE.md` and a `.cursor/` directory:
   create  .cursor/mcp.json (the axx MCP server for Cursor)
 
 Codex keeps its MCP servers in ~/.codex/config.toml; `axx mcp install --agent codex --scope user` adds axx there.
-next: edit services in axx.yaml, then `axx doctor` and `axx run`
+next: put your service's command, port and health check in axx.yaml and the smoke feature, then `axx doctor` and `axx run`
 ```
 
 Axx adds its server to the files that exist: other servers and settings stay where they are, and a file that has the axx server already is left alone, so running `axx init` again changes nothing. A file Axx cannot read back exactly, such as JSON with comments, is left alone too: its line says so, and `axx mcp install --agent <agent>` shows what to add by hand. Codex usually reads its servers from your home directory, which `axx init` never writes, so it prints the command that does. `axx init --no-agents` skips the skills and the MCP servers.
@@ -212,6 +213,8 @@ axx (github.com/nimbusxr/axx, "axxeptance") verifies running software against ex
   optional, strongly recommended where data repeats); `axx fixtures adopt` turns hand-written ones into one.
 <!-- axx:end -->
 ```
+
+Claude Code reads `AGENTS.md` only where no `CLAUDE.md`, `.claude/CLAUDE.md` or `CLAUDE.local.md` is in the folder or one above it; where one is, it reads those instead. So in a repository that uses Claude Code, `axx init` adds `@AGENTS.md`, Claude Code's import, to the project's `CLAUDE.md` (or to `.claude/CLAUDE.md`, or to a new `CLAUDE.md` when the one Claude Code reads is your own `CLAUDE.local.md` or a folder above), and Claude Code reads the section with it. A `CLAUDE.md` that imports `AGENTS.md` already, or links to it, is left alone.
 
 ## Docs for agents
 

@@ -14,7 +14,7 @@ axx pack add sql    # the packs whose steps the project uses (init lists rest); 
 axx doctor          # verify: config, services' commands, docker, features
 ```
 
-`axx init` detects `compose.yaml` and OpenAPI files. It leaves existing files alone unless you pass `--force`, adds or updates its `AGENTS.md` section and the `.axx/` line of `.gitignore` in place, and is safe to run again. It also installs the skills in `.agents/skills`, marked generated in `.gitattributes` so their diffs collapse in pull requests, and connects the axx MCP server to the agents the repository already uses, in their own files (see "4. Agents"); `--no-agents` skips that.
+`axx init` detects `compose.yaml` and OpenAPI files. Its service is a guess to check before the first run: with a compose file it starts that file as a stack of its own (`-p <name>-axx`), whose cleanup (`down -v`) removes that stack's volumes, never those of the stack the developer runs from the same file; the port (8080) and health check (`/health`), in `axx.yaml` and the smoke feature, are placeholders. When the compose file runs only what the service needs (a database, object storage) and the service itself runs another way (`npm run dev`, `go run ./cmd/api`), give each its own service, or start just the service against what already runs, on a port of its own: its scenarios' data then sits beside the developer's, which unique data per scenario allows. It leaves existing files alone unless you pass `--force`, adds or updates its `AGENTS.md` section and the `.axx/` line of `.gitignore` in place, and is safe to run again. It also installs the skills in `.agents/skills`, marked generated in `.gitattributes` so their diffs collapse in pull requests, and connects the axx MCP server to the agents the repository already uses, in their own files (see "4. Agents"); `--no-agents` skips that.
 
 ## 2. Describe how to start the system under test
 
@@ -22,15 +22,16 @@ axx doctor          # verify: config, services' commands, docker, features
 services:
   api:
     dir: .
-    command: docker compose up --build        # or ./gradlew bootRun, npm start, go run ./cmd/api ...
+    command: docker compose -p api-axx up --build   # or ./gradlew bootRun, npm start, go run ./cmd/api ...
     ready:
       http: {url: http://localhost:8080/health}   # every URL must return 2xx; also: tcp, exec, log (regex)
       timeout: 120s
-    cleanup: docker compose down -v --remove-orphans   # always runs, even if the service crashed
+    cleanup: docker compose -p api-axx down -v --remove-orphans   # always runs, even if the service crashed
     active: {tags: ["@api"]}                  # with active.enabled: start only when selected scenarios need it
 ```
 
 - A service is what runs on its own and is reached by an address. A program its user starts, like a command-line tool or an MCP server its clients run over stdio, is not a service: the step that uses it runs it (the cli and mcp packs' `command`).
+- A compose stack axx starts gets a name of its own (`-p api-axx`): without one, Compose names it after the folder and takes over the stack the developer runs from the same file, and `down -v` deletes that stack's volumes, their local data with them.
 - Commands run without a shell. Set `shell: true` if a command needs pipes or `&&`.
 - Order services with `dependsOn: [db]`. Independent services start in parallel.
 - A command that exits 0 before the service is ready (`docker compose up -d`) is fine: Axx keeps checking readiness.
@@ -60,7 +61,7 @@ Anywhere else, install Axx with `curl -fsSL https://axx.nimbusxr.us/install.sh |
 - `axx mcp install --agent claude|codex|cursor|vscode|gemini` connects one agent (`--scope user` for your home directory; the default is the project). Codex usually reads `~/.codex/config.toml`, which `axx init` never writes: run `axx mcp install --agent codex --scope user`.
 - `axx skills install` installs or refreshes the skills (after upgrading Axx, or adding steps).
 - `axx doctor` warns when an agent the project uses lacks the skills or the MCP server, with the command that fixes it.
-- The `AGENTS.md` section written by `axx init` gives any agent the essential rules.
+- The `AGENTS.md` section written by `axx init` gives any agent the essential rules. Claude Code reads `CLAUDE.md` instead of `AGENTS.md` wherever a `CLAUDE.md`, `.claude/CLAUDE.md` or `CLAUDE.local.md` is in the folder or one above it: in a repository that uses Claude Code, `axx init` then imports `AGENTS.md` into the project's `CLAUDE.md` (`@AGENTS.md`), so that it reads the section.
 
 ## When a command fails
 
