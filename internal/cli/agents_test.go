@@ -121,8 +121,90 @@ func TestInitWithNoAgentsSetsUpNoAgent(t *testing.T) {
 	if !exists(filepath.Join(dir, "AGENTS.md")) {
 		t.Error("--no-agents skipped AGENTS.md")
 	}
+	if b, _ := os.ReadFile(filepath.Join(dir, "CLAUDE.md")); string(b) != "# parcels\n" {
+		t.Errorf("--no-agents changed CLAUDE.md:\n%s", b)
+	}
 	if strings.Contains(out, `"agents"`) {
 		t.Errorf("--no-agents reported agents:\n%s", out)
+	}
+}
+
+// Claude Code reads AGENTS.md only where no CLAUDE.md, .claude/CLAUDE.md or
+// CLAUDE.local.md is in the folder or one above it: elsewhere the axx section
+// reaches it only through an import.
+func TestInitImportsAgentsMDWhereClaudeCodeReadsCLAUDEmdInstead(t *testing.T) {
+	const fenced = "Not `@AGENTS.md`:\n\n```\n@AGENTS.md\n```\n"
+	for _, tc := range []struct {
+		name        string
+		files       map[string]string
+		path, want  string // the file init writes and what it holds after; want "" for none
+		wantSummary string
+	}{
+		{"a CLAUDE.md", map[string]string{"CLAUDE.md": "# parcels"}, "CLAUDE.md", "# parcels\n\n@AGENTS.md\n", "update  CLAUDE.md (imports AGENTS.md for Claude Code)"},
+		{"a CLAUDE.md that imports it", map[string]string{"CLAUDE.md": "Read @./AGENTS.md first.\n"}, "CLAUDE.md", "Read @./AGENTS.md first.\n", "skip    CLAUDE.md: up to date"},
+		{"an import in code only", map[string]string{"CLAUDE.md": fenced}, "CLAUDE.md", fenced + "\n@AGENTS.md\n", "update  CLAUDE.md"},
+		{"a .claude/CLAUDE.md", map[string]string{".claude/CLAUDE.md": "# parcels\n"}, ".claude/CLAUDE.md", "# parcels\n\n@../AGENTS.md\n", "update  .claude/CLAUDE.md"},
+		{"a CLAUDE.local.md", map[string]string{".mcp.json": "{}", "CLAUDE.local.md": "mine\n"}, "CLAUDE.md", "@AGENTS.md\n", "create  CLAUDE.md (imports AGENTS.md for Claude Code)"},
+		{"a CLAUDE.md in a folder above", map[string]string{".mcp.json": "{}", "../CLAUDE.md": "# depot\n"}, "CLAUDE.md", "@AGENTS.md\n", "create  CLAUDE.md"},
+		{"no CLAUDE.md", map[string]string{".mcp.json": "{}"}, "CLAUDE.md", "", ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			dir, _ := agentProject(t, tc.files)
+			out, stderr, code := run(t, "init", "--no-ci")
+			if code != 0 {
+				t.Fatalf("exit %d: %s%s", code, out, stderr)
+			}
+			b, err := os.ReadFile(filepath.Join(dir, tc.path))
+			switch {
+			case tc.want == "" && err == nil:
+				t.Errorf("init wrote %s where Claude Code reads AGENTS.md:\n%s", tc.path, b)
+			case tc.want != "" && string(b) != tc.want:
+				t.Errorf("%s is\n%s\nwant\n%s", tc.path, b, tc.want)
+			}
+			if !strings.Contains(out, tc.wantSummary) || (tc.want == "" && strings.Contains(out, "CLAUDE.md")) {
+				t.Errorf("output lacks %q:\n%s", tc.wantSummary, out)
+			}
+			// Run again: nothing changes.
+			out, _, _ = run(t, "init", "--no-ci")
+			if after, _ := os.ReadFile(filepath.Join(dir, tc.path)); string(after) != string(b) {
+				t.Errorf("the second init changed %s:\n%s", tc.path, after)
+			}
+			if tc.want != "" && !strings.Contains(out, "skip    "+tc.path+": up to date") {
+				t.Errorf("the second init did not leave %s alone:\n%s", tc.path, out)
+			}
+		})
+	}
+}
+
+func TestInitLeavesACLAUDEmdThatIsAGENTSmd(t *testing.T) {
+	dir, _ := agentProject(t, map[string]string{"AGENTS.md": "# parcels\n"})
+	if err := os.Symlink("AGENTS.md", filepath.Join(dir, "CLAUDE.md")); err != nil {
+		t.Skipf("no symbolic links here: %v", err)
+	}
+	out, stderr, code := run(t, "init", "--no-ci")
+	if code != 0 {
+		t.Fatalf("exit %d: %s%s", code, out, stderr)
+	}
+	b, _ := os.ReadFile(filepath.Join(dir, "AGENTS.md"))
+	if !strings.Contains(string(b), agentsBegin) || strings.Contains(string(b), "@AGENTS.md") {
+		t.Errorf("AGENTS.md is\n%s", b)
+	}
+	if !strings.Contains(out, "skip    CLAUDE.md: up to date") {
+		t.Errorf("output:\n%s", out)
+	}
+}
+
+// The user's own ~/.claude/CLAUDE.md loads beside AGENTS.md.
+func TestInitLeavesAloneTheUsersOwnCLAUDEmd(t *testing.T) {
+	_, home := agentProject(t, nil)
+	writeFiles(t, home, map[string]string{".claude/CLAUDE.md": "mine\n", "work/parcels/.mcp.json": "{}"})
+	t.Chdir(filepath.Join(home, "work", "parcels"))
+	out, stderr, code := run(t, "init", "--no-ci")
+	if code != 0 {
+		t.Fatalf("exit %d: %s%s", code, out, stderr)
+	}
+	if exists(filepath.Join(home, "work", "parcels", "CLAUDE.md")) || strings.Contains(out, "CLAUDE.md") {
+		t.Errorf("init imported AGENTS.md although Claude Code reads it:\n%s", out)
 	}
 }
 
@@ -154,7 +236,7 @@ func TestInitRunTwiceChangesNothing(t *testing.T) {
 		t.Fatalf("exit %d: %s", code, stderr)
 	}
 	before := map[string]string{}
-	for _, p := range []string{".mcp.json", ".gemini/settings.json", "AGENTS.md", ".gitattributes"} {
+	for _, p := range []string{".mcp.json", ".gemini/settings.json", "AGENTS.md", "CLAUDE.md", ".gitattributes"} {
 		b, _ := os.ReadFile(filepath.Join(dir, p))
 		before[p] = string(b)
 	}
@@ -167,7 +249,7 @@ func TestInitRunTwiceChangesNothing(t *testing.T) {
 			t.Errorf("the second init changed %s", p)
 		}
 	}
-	for _, want := range []string{"skip    .agents/skills: up to date", "skip    .mcp.json: the axx MCP server is there already", "skip    .gemini/settings.json: the axx MCP server is there already"} {
+	for _, want := range []string{"skip    .agents/skills: up to date", "skip    CLAUDE.md: up to date", "skip    .mcp.json: the axx MCP server is there already", "skip    .gemini/settings.json: the axx MCP server is there already"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("output lacks %q:\n%s", want, out)
 		}

@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"text/template"
 
@@ -34,6 +35,10 @@ type initData struct {
 	OpenAPI     string
 	Port        string
 	AppName     string
+	// Stack is the compose project the service runs as: its own, so that
+	// it never takes over (or, cleaning up, deletes the volumes of) the
+	// stack someone develops with from the same file.
+	Stack string
 }
 
 const (
@@ -57,9 +62,10 @@ properties:
 services:
   {{.AppName}}:
 {{- if .ComposeFile}}
-    # Starts everything in {{.ComposeFile}}; stopped (and cleaned up) after the run.
-    command: docker compose -f {{.ComposeFile}} up --build
-    cleanup: docker compose -f {{.ComposeFile}} down -v --remove-orphans
+    # Starts everything in {{.ComposeFile}} as a stack of its own, not the one you develop
+    # with; stopped after the run, and the stack's volumes removed.
+    command: docker compose -f {{.ComposeFile}} -p {{.Stack}} up --build
+    cleanup: docker compose -f {{.ComposeFile}} -p {{.Stack}} down -v --remove-orphans
 {{- else}}
     # The command that starts your service locally (argv, no shell; set shell: true for pipes).
     command: echo "replace with the command that starts your app" && exit 1
@@ -67,6 +73,7 @@ services:
 {{- end}}
     ready:
       http:
+        # A guess: your service's port and health check (the smoke feature calls them too).
         url: http://${sys:local.host}:{{.Port}}/health
       timeout: 120s
       interval: 1s
@@ -159,6 +166,11 @@ uses), features/smoke/smoke.feature, a GitHub Actions workflow and a managed sec
 in AGENTS.md. Existing files are left alone (use --force to
 overwrite); the AGENTS.md section is updated in place. Safe to re-run.
 
+The service in axx.yaml is a guess to replace: with a compose file, it starts
+that file as a stack of its own (` + "`-p <name>-axx`" + `), whose cleanup removes the stack's
+volumes but never those of the stack you develop with; the port (8080) and health
+check (/health), in axx.yaml and the smoke feature, are placeholders.
+
 It also sets up coding agents, in this repository only: it installs the skills
 in .agents/skills (marked generated in .gitattributes, so their diffs collapse
 in pull requests), and connects the axx MCP server to the agents the repository
@@ -166,8 +178,11 @@ already uses, in their own files (Claude Code: .claude/, CLAUDE.md or .mcp.json
 → .mcp.json and .claude/skills; Codex: .codex/ → .codex/config.toml; Cursor:
 .cursor/ → .cursor/mcp.json; VS Code: .vscode/ → .vscode/mcp.json; Gemini CLI:
 .gemini/ or GEMINI.md → .gemini/settings.json). Other servers and settings in
-those files stay. It never writes your home directory: for Codex, whose servers
-usually live in ~/.codex/config.toml, it prints the command that adds axx there.
+those files stay. Claude Code reads CLAUDE.md instead of AGENTS.md when this
+folder or one above it has a CLAUDE.md, .claude/CLAUDE.md or CLAUDE.local.md:
+there, init imports AGENTS.md into the project's CLAUDE.md (@AGENTS.md). It
+never writes your home directory: for Codex, whose servers usually live in
+~/.codex/config.toml, it prints the command that adds axx there.
 --no-agents skips all of this.`,
 		Args: wrapArgs(cobra.NoArgs),
 		RunE: func(cmd *cobra.Command, _ []string) error {
@@ -204,6 +219,17 @@ usually live in ~/.codex/config.toml, it prints the command that adds axx there.
 			agentsMD, action := mergeAgents(filepath.Join(wd, "AGENTS.md"))
 			plan = append(plan, InitFile{Path: "AGENTS.md", Action: action, Reason: upToDate(action)})
 			contents["AGENTS.md"] = agentsMD
+			if slices.ContainsFunc(used, func(a agents.Agent) bool { return a.ID == "claude" }) {
+				home, _ := os.UserHomeDir()
+				if name, md, action := mergeClaude(wd, home); name != "" {
+					reason := upToDate(action)
+					if action != "skip" {
+						reason = "imports AGENTS.md for Claude Code"
+					}
+					plan = append(plan, InitFile{Path: name, Action: action, Reason: reason})
+					contents[name] = md
+				}
+			}
 			gi, giAction := mergeGitignore(filepath.Join(wd, ".gitignore"))
 			plan = append(plan, InitFile{Path: ".gitignore", Action: giAction, Reason: upToDate(giAction)})
 			contents[".gitignore"] = gi
@@ -258,7 +284,7 @@ func renderInit(w io.Writer, plan []InitFile, setup *InitAgents, dryRun bool) er
 		fmt.Fprintf(w, "  %s%-7s %s%s\n", verb, f.Action, f.Path, note)
 	}
 	for _, f := range plan {
-		line(f, "")
+		line(f, f.Reason)
 	}
 	var manual []string
 	if setup != nil {
@@ -286,7 +312,7 @@ func renderInit(w io.Writer, plan []InitFile, setup *InitAgents, dryRun bool) er
 		for _, m := range manual {
 			fmt.Fprintln(w, m)
 		}
-		fmt.Fprintln(w, "next: edit services in axx.yaml, then `axx doctor` and `axx run`")
+		fmt.Fprintln(w, "next: put your service's command, port and health check in axx.yaml and the smoke feature, then `axx doctor` and `axx run`")
 	}
 	return nil
 }
@@ -444,6 +470,11 @@ func detect(dir string) initData {
 	if base := filepath.Base(dir); base != "" && base != "." && base != "/" {
 		d.AppName = sanitizeName(base)
 	}
+	// A compose project's name starts with a letter or a digit.
+	d.Stack = "axx"
+	if name := strings.TrimLeft(d.AppName, "-"); name != "" {
+		d.Stack = name + "-axx"
+	}
 	return d
 }
 
@@ -499,6 +530,122 @@ func mergeAgents(path string) (string, string) {
 		s += "\n"
 	}
 	return s + "\n" + agentsBlock, "update"
+}
+
+// claudeFiles are the files Claude Code reads instead of AGENTS.md when a
+// folder or one above it has any of them (the user's ~/.claude/CLAUDE.md aside).
+var claudeFiles = []string{"CLAUDE.md", filepath.Join(".claude", "CLAUDE.md"), "CLAUDE.local.md"}
+
+// mergeClaude imports AGENTS.md into the project's CLAUDE.md (or
+// .claude/CLAUDE.md, or a new CLAUDE.md) when Claude Code would read CLAUDE.md
+// instead of AGENTS.md, so that it reads the axx section. It returns the file,
+// relative to dir, or "" when Claude Code reads AGENTS.md itself.
+func mergeClaude(dir, home string) (string, string, string) {
+	if !claudeSkipsAgents(dir, home) {
+		return "", "", ""
+	}
+	agentsMD := filepath.Join(dir, "AGENTS.md")
+	target := ""
+	for _, name := range claudeFiles[:2] { // CLAUDE.local.md is the user's own
+		p := filepath.Join(dir, name)
+		if sameFile(p, agentsMD) {
+			return filepath.ToSlash(name), "", "skip"
+		}
+		b, err := os.ReadFile(p)
+		if err != nil {
+			continue
+		}
+		if importsFile(string(b), p, agentsMD) {
+			return filepath.ToSlash(name), "", "skip"
+		}
+		if target == "" {
+			target = name
+		}
+	}
+	if target == "" {
+		return "CLAUDE.md", "@AGENTS.md\n", "create"
+	}
+	b, _ := os.ReadFile(filepath.Join(dir, target))
+	s := string(b)
+	if s != "" && !strings.HasSuffix(s, "\n") {
+		s += "\n"
+	}
+	if s != "" {
+		s += "\n"
+	}
+	rel, _ := filepath.Rel(filepath.Dir(filepath.Join(dir, target)), agentsMD)
+	return filepath.ToSlash(target), s + "@" + filepath.ToSlash(rel) + "\n", "update"
+}
+
+// claudeSkipsAgents reports whether Claude Code, working in dir, reads
+// CLAUDE.md files instead of AGENTS.md: whether dir or a folder above it has
+// one of claudeFiles.
+func claudeSkipsAgents(dir, home string) bool {
+	var user os.FileInfo
+	if home != "" {
+		user, _ = os.Stat(filepath.Join(home, ".claude", "CLAUDE.md"))
+	}
+	for d := dir; ; d = filepath.Dir(d) {
+		for _, name := range claudeFiles {
+			fi, err := os.Stat(filepath.Join(d, name))
+			if err == nil && !fi.IsDir() && (user == nil || !os.SameFile(fi, user)) {
+				return true
+			}
+		}
+		if filepath.Dir(d) == d {
+			return false
+		}
+	}
+}
+
+// importsFile reports whether the instructions in file import target with an
+// @path outside code, as Claude Code reads them.
+func importsFile(content, file, target string) bool {
+	fenced := false
+	for _, line := range strings.Split(content, "\n") {
+		if t := strings.TrimSpace(line); strings.HasPrefix(t, "```") || strings.HasPrefix(t, "~~~") {
+			fenced = !fenced
+			continue
+		}
+		if fenced {
+			continue
+		}
+		spans := strings.Split(line, "`")
+		for i := 0; i < len(spans); i += 2 { // the odd ones are code spans
+			for _, f := range strings.Fields(spans[i]) {
+				p, ok := strings.CutPrefix(f, "@")
+				if !ok || p == "" {
+					continue
+				}
+				if !filepath.IsAbs(p) {
+					p = filepath.Join(filepath.Dir(file), p)
+				}
+				if filepath.Clean(p) == target {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
+// sameFile reports whether p is AGENTS.md by another name: a link to it, or
+// the file it links to.
+func sameFile(p, agentsMD string) bool {
+	if t, err := os.Readlink(p); err == nil {
+		if !filepath.IsAbs(t) {
+			t = filepath.Join(filepath.Dir(p), t)
+		}
+		if filepath.Clean(t) == agentsMD {
+			return true
+		}
+	}
+	a, err := os.Stat(p)
+	if err != nil {
+		return false
+	}
+	b, err := os.Stat(agentsMD)
+	return err == nil && os.SameFile(a, b)
 }
 
 func mergeGitignore(path string) (string, string) {
