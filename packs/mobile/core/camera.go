@@ -330,8 +330,11 @@ func pathTiming(s *scene.Scene, p *scene.Path, sp *speed) (timing, error) {
 			if d >= length {
 				return p.Duration, true
 			}
+			// The first sample past d, which is a step on from the one before it: where the
+			// phone stands still (as a path may start), samples are the same distance along,
+			// and between two of them the phone's place is no fraction of the way (0/0).
 			i := 1
-			for dist[i] < d {
+			for dist[i] <= d {
 				i++
 			}
 			f := (d - dist[i-1]) / (dist[i] - dist[i-1])
