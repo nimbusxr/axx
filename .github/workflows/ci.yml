@@ -433,6 +433,10 @@ jobs:
           app: ${{ !startsWith(matrix.part, 'models-') }}
           emulator: ${{ needs.changes.outputs.tests == 'true' }}
           save-emulator: ${{ matrix.part == 'emulator-1' }}
+      - if: needs.changes.outputs.tests == 'true'
+        uses: ./.github/actions/android-builds
+        with:
+          part: mobile-${{ matrix.part }}
       - if: needs.changes.outputs.tests == 'true' && startsWith(matrix.part, 'emulator-')
         run: |
           # The parts, by their tests' times here (gotestsum's slowest): the sixth runs the rest.
@@ -469,6 +473,11 @@ jobs:
             *) select=(-skip '^(TestAndroidSpeechTellsOneSpeakersPhrasesApart|TestAndroidAppLaunchHook)$') ;;
           esac
           AXX_MODELS_ANDROID_SERIAL=emulator-5580 GOTEST_SLOWEST=1s scripts/gotest.sh -race -tags integration -timeout 10m "${select[@]}" ./packs/models/android/...
+      - if: ${{ !cancelled() && needs.changes.outputs.tests == 'true' }}
+        uses: ./.github/actions/android-builds
+        with:
+          part: mobile-${{ matrix.part }}
+          mode: save
 
   android:
     needs: changes
@@ -584,6 +593,9 @@ jobs:
         run: |
           android=$(grep -rl --include='*.feature' '@android' features | sort | tr '\n' ' ')
           [ "$android" = "features/courier-app-camera/courier-app-camera-android.feature features/courier-app-documents/courier-app-documents-android.feature features/courier-app-measure/courier-app-measure-android.feature features/courier-app-notifications/courier-app-notifications-android.feature features/courier-app/courier-app-android.feature " ] || { echo "::error::the android job runs courier-app, courier-app-camera, courier-app-documents, courier-app-measure and courier-app-notifications, and the Android features are: $android"; exit 1; }
+      - uses: ./.github/actions/android-builds
+        with:
+          part: android-${{ matrix.feature }}
       # How busy the runner and the emulator are while the scenarios run.
       - uses: ./.github/actions/android-load
       - working-directory: examples/parcels/acceptance
@@ -605,6 +617,11 @@ jobs:
             examples/parcels/acceptance/.axx/logs/
           if-no-files-found: ignore
           retention-days: 7
+      - if: ${{ !cancelled() }}
+        uses: ./.github/actions/android-builds
+        with:
+          part: android-${{ matrix.feature }}
+          mode: save
       - if: always()
         uses: ./.github/actions/android-load
         with:
