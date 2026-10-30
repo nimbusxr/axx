@@ -674,7 +674,7 @@ jobs:
     # integration job); and its Foundation Models stubs, built with Xcode 27's Swift and given to
     # Foundation Models' sessions, which take a model of an app's from macOS 27: the xcode-27
     # image's. In three parts, none of whose tests run past 10 minutes: the Mac's, and the
-    # simulator's in two (the courier's and the platform calls; speech and audio capture).
+    # simulator's in two (the courier's; the platform calls, speech and audio capture).
     name: coreml (${{ matrix.part }})
     runs-on: xcode-27
     timeout-minutes: 30
@@ -684,7 +684,7 @@ jobs:
         part: [mac, simulator-1, simulator-2]
     env:
       PART: ${{ matrix.part }}
-      SIMULATOR_1: ^(TestCourierUsesPlatformFixtureWithoutDebugProvider|TestFoundationModelsOrdinarySessions|TestSimulatorPlatformCalls)$
+      SIMULATOR_1: ^TestCourierUsesPlatformFixtureWithoutDebugProvider$
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
@@ -693,7 +693,7 @@ jobs:
       - uses: ./.github/actions/lfs
       - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
         with:
-          install_args: "go"
+          install_args: "go aqua:gotestyourself/gotestsum"
           # Tools are cached from main only: pull requests read them.
           cache_save: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
       - uses: ./.github/actions/go-cache
@@ -705,19 +705,25 @@ jobs:
         name: the courier's ordinary Foundation Models calls
         working-directory: examples/parcels/courier/ios
         run: xcodebuild -project Courier.xcodeproj -target Courier -configuration Debug -sdk iphonesimulator ONLY_ACTIVE_ARCH=NO SYMROOT=build
+      - if: matrix.part != 'mac'
+        name: the tests, built
+        run: go test -tags integration -run '^$' ./packs/models/ios/...
       # The simulator as the ios job makes it (the newest iOS, 27's on this image), its first
       # boot's work no test needs off: a bare one, on this runner, did not yet serve apps' requests
-      # for notifications after minutes (the courier's sign-in asks for them).
+      # for notifications after minutes (the courier's sign-in asks for them). Made once the tests
+      # are built, as the ios job's is: its first boot slows whatever runs beside it.
       - if: matrix.part != 'mac'
-        name: platform model adapters in the simulator
+        name: the tests' simulator
         run: |
           made=$(scripts/ios-simulator.sh)
           echo "$made"
-          model_simulator=$(sed -n 's/.*(\([0-9A-F-]\{36\}\)) booted in .*/\1/p' <<< "$made")
-          trap 'xcrun simctl shutdown "$model_simulator" || true; xcrun simctl delete "$model_simulator"' EXIT
+          echo "AXX_IOS_MODELS_SIMULATOR=$(sed -n 's/.*(\([0-9A-F-]\{36\}\)) booted in .*/\1/p' <<< "$made")" >> "$GITHUB_ENV"
+      - if: matrix.part != 'mac'
+        name: platform model adapters in the simulator
+        run: |
           select=(-run "$SIMULATOR_1")
           [ "$PART" = simulator-1 ] || select=(-skip "$SIMULATOR_1")
-          AXX_IOS_MODELS_SIMULATOR="$model_simulator" go test -tags integration -timeout 10m "${select[@]}" ./packs/models/ios/...
+          GOTEST_SLOWEST=1s scripts/gotest.sh -tags integration -timeout 10m "${select[@]}" ./packs/models/ios/...
       # The same adapters in Mac programs, as macOS loads them into a Mac app's test build; Foundation
       # Models' on this image's macOS 27.
       - if: matrix.part == 'mac'
@@ -776,15 +782,15 @@ jobs:
     needs: changes
     if: needs.changes.outputs.models == 'true' && needs.changes.outputs.tests == 'true'
     # The models-core pack's MLC stubs in WebLLM, on a Mac's GPU (Metal, through Chromium's
-    # WebGPU): a stub is of its real model's size (GBs), and a runner takes a sixth of them, some
-    # 6 minutes' worth (no test step runs past 10).
-    name: webllm (${{ matrix.shard }}/6)
+    # WebGPU): a stub is of its real model's size (GBs), and a runner takes an eighth of them by
+    # their times, some 6 minutes' worth (no test step runs past 10); -v logs each model's time.
+    name: webllm (${{ matrix.shard }}/8)
     runs-on: xcode-27
     timeout-minutes: 40
     strategy:
       fail-fast: false
       matrix:
-        shard: [0, 1, 2, 3, 4, 5]
+        shard: [0, 1, 2, 3, 4, 5, 6, 7]
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
@@ -795,9 +801,9 @@ jobs:
           # Tools are cached from main only: pull requests read them.
           cache_save: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
       - uses: ./.github/actions/go-cache
-      - run: go test -tags integration -timeout 10m -run TestWebLLM ./packs/models/core/format/mlc/
+      - run: go test -tags integration -timeout 10m -v -run TestWebLLM ./packs/models/core/format/mlc/
         env:
-          AXX_WEBLLM_SHARD: ${{ matrix.shard }}/6
+          AXX_WEBLLM_SHARD: ${{ matrix.shard }}/8
 
   desktop-image:
     needs: changes

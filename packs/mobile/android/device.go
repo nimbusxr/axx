@@ -528,8 +528,9 @@ func (d *running) Screen(ctx context.Context) (*mobilecore.Screen, error) {
 	src, err := d.session.Source(ctx)
 	// Now and then the UiAutomator2 server fails to read a screen that changes under it (it
 	// "cannot set AccessibilityNodeInfo's field 'mSealed'"), even with Android's hidden APIs
-	// allowed: as the file picker's list of places slid shut. Read a moment later, it reads.
-	for range 3 {
+	// allowed: as the file picker's list of places slid shut, or an app still starting on a busy
+	// runner (for over a second, on CI's). Read a moment later, it reads: for 5 seconds.
+	for range 16 {
 		var ae *appium.Error
 		if err == nil || !errors.As(err, &ae) || !strings.Contains(ae.Message, "AccessibilityNodeInfo's field 'mSealed'") {
 			break
