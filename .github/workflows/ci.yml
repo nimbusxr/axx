@@ -400,20 +400,6 @@ jobs:
           java-version: "21"
       # Gradle's caches: written on main only (the action's default), read by pull requests.
       - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6
-      # The NDK and CMake the couriers' app's native code is built with (and the packs' agents, in
-      # their tests), before the SDK's manager installs the emulator's packages: two of them at
-      # once would write into one SDK.
-      # Google's servers drop a download now and then, and sdkmanager may still exit 0
-      # (create-emulator.sh's fetch): it is asked again until the packages' files are there.
-      - name: the NDK and CMake
-        run: |
-          for attempt in 1 2 3; do
-            "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;28.2.13676358" "cmake;3.22.1" > /dev/null || true
-            [ -e "$ANDROID_HOME/ndk/28.2.13676358/source.properties" ] && [ -e "$ANDROID_HOME/cmake/3.22.1/bin/cmake" ] && exit 0
-            echo "sdkmanager did not install the NDK and CMake (attempt $attempt)"
-            sleep 15
-          done
-          exit 1
       # The couriers' app (the models-android pack's tests build an app of their own) and the
       # emulator's device, from their caches, or made while the rest sets up.
       - uses: ./.github/actions/courier-android
@@ -538,20 +524,6 @@ jobs:
           java-version: "21"
       # Gradle's caches: written on main only (the action's default), read by pull requests.
       - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6
-      # The NDK and CMake the couriers' app's native code is built with (and mobile-android's AR
-      # agent, which axx builds for the camera's scenarios), before the SDK's manager installs the
-      # emulator's packages: two of them at once would write into one SDK.
-      # Google's servers drop a download now and then, and sdkmanager may still exit 0
-      # (create-emulator.sh's fetch): it is asked again until the packages' files are there.
-      - name: the NDK and CMake
-        run: |
-          for attempt in 1 2 3; do
-            "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;28.2.13676358" "cmake;3.22.1" > /dev/null || true
-            [ -e "$ANDROID_HOME/ndk/28.2.13676358/source.properties" ] && [ -e "$ANDROID_HOME/cmake/3.22.1/bin/cmake" ] && exit 0
-            echo "sdkmanager did not install the NDK and CMake (attempt $attempt)"
-            sleep 15
-          done
-          exit 1
       # The couriers' app and the emulator's device, from their caches, or made while the rest
       # sets up.
       - uses: ./.github/actions/courier-android

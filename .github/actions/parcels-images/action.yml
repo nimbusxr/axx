@@ -4,29 +4,21 @@ description: >-
   The images the parcels example's compose file builds, made fast for CI, and COMPOSE_FILE set
   to an override that has compose use them, so that `docker compose up --build` builds nothing
   that takes long:
-    - WireMock with axx's extensions (a Gradle build inside Docker, minutes): built from the
-      layers the wiremock-extension workflow caches, and loaded under the name the compose
-      file gives it; the services that run it are not built again.
+    - WireMock with axx's extensions (a Gradle build inside Docker, minutes): from a cache of
+      the image (.github/actions/docker-image), or built from the layers main's runs cache, and
+      loaded under the name the compose file gives it; the services that run it are not built
+      again.
     - The parcels service (a Go build inside Docker without Go's caches, over a minute):
       compiled with the job's Go and its caches, and handed to the Dockerfile's final stage in
       place of its build stage (a named build context), so the image is the Dockerfile's own.
 runs:
   using: composite
   steps:
-    - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
-      with:
-        # Docker Hub's images through Google's mirror: Docker Hub refuses the runners at times.
-        buildkitd-config-inline: |
-          [registry."docker.io"]
-            mirrors = ["mirror.gcr.io"]
-    - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
+    - uses: ./.github/actions/docker-image
       with:
         context: extensions/wiremock-openapi
-        load: true
-        tags: parcels-wiremock:local
-        cache-from: type=gha,scope=axx-wiremock
-        # Layers are cached from main only: pull requests read them.
-        cache-to: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && 'type=gha,mode=max,scope=axx-wiremock' || '' }}
+        tag: parcels-wiremock:local
+        scope: axx-wiremock
     - name: the parcels service, compiled
       shell: bash
       working-directory: examples/parcels/app

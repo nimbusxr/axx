@@ -31,11 +31,14 @@ runs:
         sudo mv /private/var/run/.sim_diagnosticd_socket /private/var/run/.sim_diagnosticd_socket.off ||
           echo "::warning::no socket for simulators' logs: the simulator copies its log to the Mac's"
     # A step's background work keeps none of the step's input and output open: the runner waited
-    # five seconds for them to close.
+    # five seconds for them to close. head ends the lists it cuts short, and the commands before
+    # it fail writing them: without pipefail (an action's bash's), as a workflow's steps run, a
+    # list cut short is no failure.
     - if: inputs.mode == 'start'
       name: the Mac's load (in the background)
       shell: bash
       run: |
+        set +o pipefail
         (while :; do
           echo "$(date +%T) load $(sysctl -n vm.loadavg)"
           ps -A -o %cpu=,ucomm=,command= -r | head -8 | awk '{ printf "%6s %s%s\n", $1, $2, index($0, "CoreSimulator") ? " (simulator)" : "" }'
@@ -45,6 +48,7 @@ runs:
       name: the Mac's load
       shell: bash
       run: |
+        set +o pipefail
         cat "$RUNNER_TEMP/load.log"
         echo "the processes that took the most processor time:"
         ps -A -o time=,ucomm=,command= | awk '{ n = split($1, t, ":"); s = 0; for (i = 1; i <= n; i++) s = s * 60 + t[i]; printf "%8.0f s  %s%s\n", s, $2, index($0, "CoreSimulator") ? " (simulator)" : "" }' | sort -rn | head -30

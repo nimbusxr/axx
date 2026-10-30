@@ -59,6 +59,23 @@ runs:
       run: |
         echo 0 > "$RUNNER_TEMP/app.done"
         echo "the couriers' app, as its files make it: from the cache" > "$RUNNER_TEMP/app.log"
+    # The NDK and CMake the app's native code is built with, which the runner's image lacks: only
+    # to build it (axx's agents build with the image's NDK, ANDROID_NDK_HOME), and before the
+    # emulator's script installs its packages in the background, as two of the SDK's managers at
+    # once would write into one SDK. Google's servers drop a download now and then, and sdkmanager
+    # may still exit 0 (create-emulator.sh's fetch): it is asked again until the packages' files
+    # are there.
+    - if: inputs.mode == 'start' && inputs.app == 'true' && steps.apk.outputs.cache-hit != 'true'
+      name: the NDK and CMake
+      shell: bash
+      run: |
+        for attempt in 1 2 3; do
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;28.2.13676358" "cmake;3.22.1" > /dev/null || true
+          [ -e "$ANDROID_HOME/ndk/28.2.13676358/source.properties" ] && [ -e "$ANDROID_HOME/cmake/3.22.1/bin/cmake" ] && exit 0
+          echo "sdkmanager did not install the NDK and CMake (attempt $attempt)"
+          sleep 15
+        done
+        exit 1
     - if: inputs.mode == 'start' && inputs.app == 'true' && steps.apk.outputs.cache-hit != 'true'
       name: ccache
       shell: bash

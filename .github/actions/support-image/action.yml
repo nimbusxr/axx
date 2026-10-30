@@ -2,26 +2,18 @@
 name: support-image
 description: >-
   The parcel-support example's service image, which its compose file builds (Python's
-  dependencies, PyTorch's among them, and llama.cpp compiled: 5 minutes on a runner), built from
-  the layers a cache keeps, and COMPOSE_FILE set to an override that has compose use it, so that
-  `docker compose up --build` builds nothing. The layers are what makes them, so any run that
-  lacks some saves them (a pull request's for its own runs).
+  dependencies, PyTorch's among them, and llama.cpp compiled: 5 minutes on a runner), from a
+  cache of the image (.github/actions/docker-image), or built from the layers main's runs cache,
+  and COMPOSE_FILE set to an override that has compose use it, so that `docker compose up
+  --build` builds nothing.
 runs:
   using: composite
   steps:
-    - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
-      with:
-        # Docker Hub's images through Google's mirror: Docker Hub refuses the runners at times.
-        buildkitd-config-inline: |
-          [registry."docker.io"]
-            mirrors = ["mirror.gcr.io"]
-    - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
+    - uses: ./.github/actions/docker-image
       with:
         context: examples/parcel-support/app
-        load: true
-        tags: parcel-support:ci
-        cache-from: type=gha,scope=parcel-support
-        cache-to: type=gha,mode=max,scope=parcel-support
+        tag: parcel-support:ci
+        scope: parcel-support
     - name: compose uses it
       shell: bash
       run: |
