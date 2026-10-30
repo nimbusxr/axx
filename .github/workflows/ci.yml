@@ -207,10 +207,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # The models packs' tests in three parts, by their formats' names: a format's tests run
-        # its runtime, which takes every processor (and spins on it), so their packages run one
-        # at a time.
-        part: [packs, models-a-k, models-l-o, models-p-z]
+        # The models packs' tests in eight parts, by their formats' names, of 2 to 6 minutes each
+        # here, as their times go (no test step runs past 10, on a slow runner either): a format's
+        # tests run its runtime, which takes every processor (and spins on it), so their packages
+        # run one at a time. ONNX's, the longest (7.5 minutes), are in two: transformers.js's,
+        # and the rest.
+        part: [packs, models-a-f, models-g-k, models-l-m, models-n-o, models-onnx-js, models-p-s, models-t, models-u-z]
     env:
       PART: ${{ matrix.part }}
     steps:
@@ -243,9 +245,14 @@ jobs:
           models=$(go list ./packs/models/... | grep -v /packs/models/web)
           case "$PART" in
             packs) mapfile -t packages < <(go list ./packs/... ./internal/engine/... ./internal/packbuild/... | grep -v -e /packs/web -e /packs/mobile -e /packs/models/) ;;
-            models-a-k) mapfile -t packages < <(grep -v -E '/format/[l-z]' <<< "$models") ;;
-            models-l-o) mapfile -t packages < <(grep -E '/format/[l-o]' <<< "$models") ;;
-            models-p-z) mapfile -t packages < <(grep -E '/format/[p-z]' <<< "$models") ;;
+            models-a-f) mapfile -t packages < <(grep -v -E '/format/[g-z]' <<< "$models") ;;
+            models-g-k) mapfile -t packages < <(grep -E '/format/[g-k]' <<< "$models") ;;
+            models-l-m) mapfile -t packages < <(grep -E '/format/[l-m]' <<< "$models") ;;
+            models-n-o) mapfile -t packages < <(grep -E '/format/[n-o]' <<< "$models") ;;
+            models-onnx-js) mapfile -t packages < <(grep -E '/format/onnx$' <<< "$models") ;;
+            models-p-s) mapfile -t packages < <(grep -E '/format/[p-s]' <<< "$models") ;;
+            models-t) mapfile -t packages < <(grep -E '/format/t' <<< "$models") ;;
+            models-u-z) mapfile -t packages < <(grep -E '/format/[u-z]' <<< "$models") ;;
           esac
           echo "${packages[@]}" > "$RUNNER_TEMP/packages"
           go test -race -tags integration -run '^$' "${packages[@]}"
@@ -261,7 +268,13 @@ jobs:
           read -ra packages < "$RUNNER_TEMP/packages"
           parallel=()
           [ "$PART" = packs ] || parallel=(-p 1)
-          GOTEST_SLOWEST=1s scripts/gotest.sh -race -tags integration -timeout 20m "${parallel[@]}" -skip '^TestWebLLM' "${packages[@]}"
+          # ONNX's transformers.js tests run in a part of their own.
+          case "$PART" in
+            models-onnx-js) select=(-run '^TestTransformersJS') ;;
+            models-n-o) select=(-skip '^(TestWebLLM|TestTransformersJS)') ;;
+            *) select=(-skip '^TestWebLLM') ;;
+          esac
+          GOTEST_SLOWEST=1s scripts/gotest.sh -race -tags integration -timeout 10m "${parallel[@]}" "${select[@]}" "${packages[@]}"
       - if: ${{ !cancelled() }}
         uses: ./.github/actions/go-cache
         with:
@@ -303,9 +316,9 @@ jobs:
           all=$(list '.*') a=$(list '^Test[A-G]') b=$(list '^Test[H-Z]')
           [ "$all" -eq $((a + b)) ] || { echo "::error::$((all - a - b)) of web-core's tests are in neither half: name each Test and a capital letter"; exit 1; }
       - if: matrix.part == 'core-a-g'
-        run: xvfb-run -a scripts/gotest.sh -race -tags integration -timeout 20m -run '^Test[A-G]' ./packs/web/core
+        run: xvfb-run -a scripts/gotest.sh -race -tags integration -timeout 10m -run '^Test[A-G]' ./packs/web/core
       - if: matrix.part == 'core-h-z'
-        run: xvfb-run -a scripts/gotest.sh -race -tags integration -timeout 20m -run '^Test[H-Z]' ./packs/web/core
+        run: xvfb-run -a scripts/gotest.sh -race -tags integration -timeout 10m -run '^Test[H-Z]' ./packs/web/core
       # A sound server, of a sink that plays to nothing, for the microphone's tests: with none,
       # Firefox's Web Audio never runs (its AudioContext stays suspended).
       - if: matrix.part == 'packs'
@@ -317,9 +330,9 @@ jobs:
       - if: matrix.part == 'packs'
         run: |
           mapfile -t packs < <(go list ./packs/web/... | grep -v -e /packs/web/lighthouse -e '/packs/web/core$')
-          xvfb-run -a scripts/gotest.sh -race -tags integration -timeout 20m "${packs[@]}" ./packs/models/web/...
+          xvfb-run -a scripts/gotest.sh -race -tags integration -timeout 10m "${packs[@]}" ./packs/models/web/...
       - if: matrix.part == 'lighthouse'
-        run: xvfb-run -a scripts/gotest.sh -race -tags integration -timeout 20m ./packs/web/lighthouse/...
+        run: xvfb-run -a scripts/gotest.sh -race -tags integration -timeout 10m ./packs/web/lighthouse/...
       - if: ${{ !cancelled() && matrix.part == 'packs' }}
         uses: ./.github/actions/web-tools
         with:
@@ -330,8 +343,16 @@ jobs:
     if: needs.changes.outputs.mobile == 'true'
     # The mobile packs' tests, on an Android emulator that axx starts (KVM). The iOS pack's
     # skip here: they run in the ios job.
+    name: mobile (${{ matrix.part }})
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        # The Android pack's integration tests run one after another, each on an emulator: in
+        # three parts of some 6 minutes each on these runners (no test step runs past 10). With no
+        # tests to run, one part builds them.
+        part: ${{ fromJSON(needs.changes.outputs.tests == 'true' && '["emulator-1", "emulator-2", "emulator-3"]' || '["emulator-1"]') }}
     steps:
       - name: KVM, for the emulator, and where its devices are
         run: |
@@ -396,8 +417,19 @@ jobs:
           cat "$RUNNER_TEMP/device.log"
           [ "$(cat "$RUNNER_TEMP/device.done" 2> /dev/null)" = 0 ] || { df -h /; tail -n 40 "$ANDROID_AVD_HOME/parcels-pixel-snapshot.log" 2> /dev/null || true; echo "::error::the emulator's device was not made"; exit 1; }
       - if: needs.changes.outputs.tests == 'true'
-        run: GOTEST_SLOWEST=1s scripts/gotest.sh -race -tags integration -timeout 20m ./packs/mobile/...
-      - if: needs.changes.outputs.tests == 'true'
+        env:
+          PART: ${{ matrix.part }}
+        run: |
+          # The parts, by their tests' times here (gotestsum's slowest): the third runs the rest.
+          first='TestACourierReadsATornLabelOnAnEmulator|TestCouriersOnAnEmulator|TestACourierSharesTheVanOnAnEmulator'
+          second='TestACourierPhotographsAParcelAtTheDoorOnAnEmulator|TestACourierAttachesADocumentOnAnEmulator|TestACourierWalksUpToAParcelAndMeasuresItOnAnEmulator|TestACourierScansALabelOnAnEmulator'
+          case "$PART" in
+            emulator-1) select=(-run "^($first)\$") ;;
+            emulator-2) select=(-run "^($second)\$") ;;
+            *) select=(-skip "^($first|$second)\$") ;;
+          esac
+          GOTEST_SLOWEST=1s scripts/gotest.sh -race -tags integration -timeout 10m "${select[@]}" ./packs/mobile/...
+      - if: needs.changes.outputs.tests == 'true' && matrix.part == 'emulator-3'
         name: platform model adapters in a debuggable emulator app
         run: |
           "$ANDROID_HOME/emulator/emulator" -avd parcels-pixel -read-only -no-window -no-audio -no-snapshot -no-boot-anim -gpu swiftshader_indirect -port 5580 > "$RUNNER_TEMP/models-emulator.log" 2>&1 &
@@ -409,21 +441,28 @@ jobs:
             sleep 1
           done
           [ "$("$ANDROID_HOME/platform-tools/adb" -s emulator-5580 shell getprop sys.boot_completed | tr -d '\r')" = 1 ] || { cat "$RUNNER_TEMP/models-emulator.log"; exit 1; }
-          AXX_MODELS_ANDROID_SERIAL=emulator-5580 scripts/gotest.sh -race -tags integration -timeout 15m ./packs/models/android/...
+          AXX_MODELS_ANDROID_SERIAL=emulator-5580 scripts/gotest.sh -race -tags integration -timeout 10m ./packs/models/android/...
 
   android:
     needs: changes
     if: needs.changes.outputs.mobile == 'true' && needs.changes.outputs.tests == 'true'
     # The parcels example's Android scenarios, on an emulator axx starts (KVM), against the
-    # whole example, which axx starts too. They run on two runners, a feature each: one emulator
-    # runs one scenario at a time.
-    name: android (${{ matrix.feature }})
+    # whole example, which axx starts too. A runner runs a feature, or a shard of it (axx run
+    # --shard), on one emulator, a scenario at a time: none runs its scenarios past 10 minutes.
+    name: android (${{ matrix.feature }} ${{ matrix.part }}/${{ matrix.of }})
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
-        feature: [courier-app, courier-app-camera, courier-app-documents, courier-app-measure, courier-app-notifications]
+        include:
+          - {feature: courier-app, part: 1, of: 2}
+          - {feature: courier-app, part: 2, of: 2}
+          - {feature: courier-app-camera, part: 1, of: 1}
+          - {feature: courier-app-documents, part: 1, of: 2}
+          - {feature: courier-app-documents, part: 2, of: 2}
+          - {feature: courier-app-measure, part: 1, of: 1}
+          - {feature: courier-app-notifications, part: 1, of: 1}
     steps:
       # The example's images need more disk than a runner has free: remove toolchains the job
       # never uses (not the Android SDK), in the background while the job sets up.
@@ -513,7 +552,7 @@ jobs:
           cat "$RUNNER_TEMP/pull.log"
           # A pull that failed is done again as the example starts.
           [ "$(cat "$RUNNER_TEMP/pull.done" 2> /dev/null)" = 0 ] || echo "::warning::the example's images were not all pulled"
-      - if: matrix.feature == 'courier-app'
+      - if: matrix.feature == 'courier-app' && matrix.part == 1
         name: every Android feature runs on one of the runners
         working-directory: examples/parcels/acceptance
         run: |
@@ -522,13 +561,14 @@ jobs:
       - working-directory: examples/parcels/acceptance
         env:
           FEATURE: ${{ matrix.feature }}
+          SHARD: ${{ matrix.part }}/${{ matrix.of }}
         run: |
-          axx run --tags @android --format progress --format junit:build/axx/junit.xml --format html:build/axx/report.html \
+          axx run --tags @android --shard "$SHARD" --format progress --format junit:build/axx/junit.xml --format html:build/axx/report.html \
             --set packs.mobile-core.traces=failed --set packs.mobile-core.videos=failed "features/$FEATURE/$FEATURE-android.feature"
       - if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
-          name: android-${{ matrix.feature }}
+          name: android-${{ matrix.feature }}-${{ matrix.part }}
           # The report, and the traces, videos, screenshots and the emulators' logs a failure
           # leaves.
           path: |
@@ -544,9 +584,9 @@ jobs:
     # The iOS pack, on simulators axx makes, with the parcels example's couriers' iOS app. The
     # example's iOS scenarios need the whole example, and macOS runners have no Docker: they
     # run on developers' Macs.
-    # The tests run on two runners, a simulator each, in about the same time: TestCouriersOnASimulator,
-    # two scenarios long, and TestRecordingsOnASimulator on one (232 s and 208 s), the others on
-    # the other (456 s).
+    # The tests run on three runners, a simulator each, none past 10 minutes:
+    # TestCouriersOnASimulator, two scenarios long, and TestRecordingsOnASimulator on one (some 4
+    # minutes); the camera's on another (some 4); the others on the third (some 6).
     name: ios (${{ matrix.tests }})
     runs-on: macos-latest
     timeout-minutes: 60
@@ -556,8 +596,10 @@ jobs:
         include:
           - tests: couriers
             select: -run=^(TestCouriersOnASimulator|TestRecordingsOnASimulator)$
+          - tests: camera
+            select: -run=^(TestACourierMeasuresAParcelOnASimulator|TestACourierWalksUpToAParcelAndMeasuresItOnASimulator|TestACourierPhotographsAParcelAtTheDoorOnASimulator|TestACourierReadsATornLabelOnASimulator|TestACourierScansALabelOnASimulator|TestThePhoneMovesThroughTheScene|TestTheCameraSeesASceneAnImageOrAVideo)$
           - tests: others
-            select: -skip=^(TestCouriersOnASimulator|TestRecordingsOnASimulator)$
+            select: -skip=^(TestCouriersOnASimulator|TestRecordingsOnASimulator|TestACourierMeasuresAParcelOnASimulator|TestACourierWalksUpToAParcelAndMeasuresItOnASimulator|TestACourierPhotographsAParcelAtTheDoorOnASimulator|TestACourierReadsATornLabelOnASimulator|TestACourierScansALabelOnASimulator|TestThePhoneMovesThroughTheScene|TestTheCameraSeesASceneAnImageOrAVideo)$
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
@@ -616,7 +658,7 @@ jobs:
       # of this runner's size), and the Android jobs run the shared mobile code with it.
       - env:
           SELECT: ${{ matrix.select }}
-        run: GOTEST_FORMAT=standard-verbose GOTEST_SLOWEST=1s scripts/gotest.sh -tags integration -timeout 45m "$SELECT" ./packs/mobile/ios/...
+        run: GOTEST_FORMAT=standard-verbose GOTEST_SLOWEST=1s scripts/gotest.sh -tags integration -timeout 10m "$SELECT" ./packs/mobile/ios/...
       - name: the Mac's load
         if: always()
         run: |
@@ -631,9 +673,18 @@ jobs:
     # runs on Macs only (its other formats' runtimes, ONNX Runtime and LiteRT, run in the
     # integration job); and its Foundation Models stubs, built with Xcode 27's Swift and given to
     # Foundation Models' sessions, which take a model of an app's from macOS 27: the xcode-27
-    # image's.
+    # image's. In three parts, none of whose tests run past 10 minutes: the Mac's, and the
+    # simulator's in two (the courier's and the platform calls; speech and audio capture).
+    name: coreml (${{ matrix.part }})
     runs-on: xcode-27
-    timeout-minutes: 60
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        part: [mac, simulator-1, simulator-2]
+    env:
+      PART: ${{ matrix.part }}
+      SIMULATOR_1: ^(TestCourierUsesPlatformFixtureWithoutDebugProvider|TestFoundationModelsOrdinarySessions|TestSimulatorPlatformCalls)$
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
@@ -646,25 +697,32 @@ jobs:
           # Tools are cached from main only: pull requests read them.
           cache_save: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
       - uses: ./.github/actions/go-cache
-      - run: go test -tags integration -run TestCoreML ./packs/models/core/format/coreml/
-      - run: go test -tags integration -run TestFoundationModels ./packs/models/core/format/foundationmodels/
-      - name: the courier's ordinary Foundation Models calls
+      - if: matrix.part == 'mac'
+        run: go test -tags integration -timeout 10m -run TestCoreML ./packs/models/core/format/coreml/
+      - if: matrix.part == 'mac'
+        run: go test -tags integration -timeout 10m -run TestFoundationModels ./packs/models/core/format/foundationmodels/
+      - if: matrix.part == 'simulator-1'
+        name: the courier's ordinary Foundation Models calls
         working-directory: examples/parcels/courier/ios
         run: xcodebuild -project Courier.xcodeproj -target Courier -configuration Debug -sdk iphonesimulator ONLY_ACTIVE_ARCH=NO SYMROOT=build
       # The simulator as the ios job makes it (the newest iOS, 27's on this image), its first
       # boot's work no test needs off: a bare one, on this runner, did not yet serve apps' requests
       # for notifications after minutes (the courier's sign-in asks for them).
-      - name: platform model adapters in the simulator
+      - if: matrix.part != 'mac'
+        name: platform model adapters in the simulator
         run: |
           made=$(scripts/ios-simulator.sh)
           echo "$made"
           model_simulator=$(sed -n 's/.*(\([0-9A-F-]\{36\}\)) booted in .*/\1/p' <<< "$made")
           trap 'xcrun simctl shutdown "$model_simulator" || true; xcrun simctl delete "$model_simulator"' EXIT
-          AXX_IOS_MODELS_SIMULATOR="$model_simulator" go test -tags integration -timeout 20m ./packs/models/ios/...
+          select=(-run "$SIMULATOR_1")
+          [ "$PART" = simulator-1 ] || select=(-skip "$SIMULATOR_1")
+          AXX_IOS_MODELS_SIMULATOR="$model_simulator" go test -tags integration -timeout 10m "${select[@]}" ./packs/models/ios/...
       # The same adapters in Mac programs, as macOS loads them into a Mac app's test build; Foundation
       # Models' on this image's macOS 27.
-      - name: platform model adapters on the Mac
-        run: go test -tags integration -timeout 20m ./packs/models/macos/...
+      - if: matrix.part == 'mac'
+        name: platform model adapters on the Mac
+        run: go test -tags integration -timeout 10m ./packs/models/macos/...
 
   windows-models:
     needs: changes
@@ -712,20 +770,21 @@ jobs:
       - uses: ./.github/actions/go-cache
         with:
           build: windows-models
-      - run: go test -tags integration -timeout 30m ./packs/models/windows/...
+      - run: go test -tags integration -timeout 10m ./packs/models/windows/...
 
   webllm:
     needs: changes
     if: needs.changes.outputs.models == 'true' && needs.changes.outputs.tests == 'true'
     # The models-core pack's MLC stubs in WebLLM, on a Mac's GPU (Metal, through Chromium's
-    # WebGPU): a stub is of its real model's size (GBs), and a runner takes a third of them.
-    name: webllm (${{ matrix.shard }}/3)
+    # WebGPU): a stub is of its real model's size (GBs), and a runner takes a sixth of them, some
+    # 6 minutes' worth (no test step runs past 10).
+    name: webllm (${{ matrix.shard }}/6)
     runs-on: xcode-27
     timeout-minutes: 40
     strategy:
       fail-fast: false
       matrix:
-        shard: [0, 1, 2]
+        shard: [0, 1, 2, 3, 4, 5]
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
@@ -736,9 +795,9 @@ jobs:
           # Tools are cached from main only: pull requests read them.
           cache_save: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
       - uses: ./.github/actions/go-cache
-      - run: go test -tags integration -timeout 30m -run TestWebLLM ./packs/models/core/format/mlc/
+      - run: go test -tags integration -timeout 10m -run TestWebLLM ./packs/models/core/format/mlc/
         env:
-          AXX_WEBLLM_SHARD: ${{ matrix.shard }}/3
+          AXX_WEBLLM_SHARD: ${{ matrix.shard }}/6
 
   desktop-image:
     needs: changes
