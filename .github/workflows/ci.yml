@@ -751,14 +751,6 @@ jobs:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           persist-credentials: false
-      # The simulator as the ios job makes it (the newest iOS, 27's on this image), its first
-      # boot's work no test needs off: a bare one, on this runner, did not yet serve apps' requests
-      # for notifications after minutes (the courier's sign-in asks for them). Its first boot takes
-      # 2 to 7 minutes on this runner: it starts now, while the rest sets up (the ios job's waits
-      # for its builds, which its 3 processors' runner makes slower beside a boot).
-      - if: matrix.part != 'mac'
-        name: the tests' simulator (in the background)
-        run: (status=0; scripts/ios-simulator.sh > "$RUNNER_TEMP/simulator.log" 2>&1 || status=$?; echo "$status" > "$RUNNER_TEMP/simulator.done") &
       # The examples' model files (Git LFS).
       - uses: ./.github/actions/lfs
       - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
@@ -778,13 +770,18 @@ jobs:
       - if: matrix.part != 'mac'
         name: the tests, built
         run: go test -tags integration -run '^$' ./packs/models/ios/...
+      # The simulator as the ios job makes it (the newest iOS, 27's on this image), its first
+      # boot's work no test needs off: a bare one, on this runner, did not yet serve apps' requests
+      # for notifications after minutes (the courier's sign-in asks for them). Made once the tests
+      # are built, as the ios job's is: its first boot slows whatever runs beside it (started with
+      # the job, it made installing the tools take 320 seconds, not 13, and restoring Go's cache
+      # 235, not 39).
       - if: matrix.part != 'mac'
-        name: wait for the tests' simulator
+        name: the tests' simulator
         run: |
-          for _ in $(seq 600); do [ -f "$RUNNER_TEMP/simulator.done" ] && break; sleep 1; done
-          cat "$RUNNER_TEMP/simulator.log"
-          [ "$(cat "$RUNNER_TEMP/simulator.done" 2> /dev/null)" = 0 ] || { echo "::error::the simulator was not made"; exit 1; }
-          echo "AXX_IOS_MODELS_SIMULATOR=$(sed -n 's/.*(\([0-9A-F-]\{36\}\)) booted in .*/\1/p' "$RUNNER_TEMP/simulator.log")" >> "$GITHUB_ENV"
+          made=$(scripts/ios-simulator.sh)
+          echo "$made"
+          echo "AXX_IOS_MODELS_SIMULATOR=$(sed -n 's/.*(\([0-9A-F-]\{36\}\)) booted in .*/\1/p' <<< "$made")" >> "$GITHUB_ENV"
       - if: matrix.part != 'mac'
         name: platform model adapters in the simulator
         run: |
