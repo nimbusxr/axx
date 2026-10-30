@@ -234,10 +234,15 @@ jobs:
     env:
       PART: ${{ matrix.part }}
     steps:
-      # The services' images and the race-detector builds need more disk than a runner has
-      # free: remove toolchains the job never uses, in the background while the job sets up.
+      # The services' images and the race-detector builds need more disk than a runner of 14 GB
+      # free had: on one with less than 40 GB free, remove toolchains the job never uses, in the
+      # background while the job sets up. GitHub's runners have 80 GB free now, and removing them
+      # took up to two minutes the job then waited on.
       - name: free disk space (in the background)
-        run: (sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL /usr/share/swift; touch "$RUNNER_TEMP/disk-freed") > /dev/null 2>&1 &
+        run: |
+          (if [ "$(df --output=avail -BG / | tail -1 | tr -dc 0-9)" -lt 40 ]; then
+            sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL /usr/share/swift
+          fi; touch "$RUNNER_TEMP/disk-freed") > /dev/null 2>&1 &
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           persist-credentials: false
@@ -500,10 +505,14 @@ jobs:
           - {feature: courier-app-notifications, part: 2, of: 3}
           - {feature: courier-app-notifications, part: 3, of: 3}
     steps:
-      # The example's images need more disk than a runner has free: remove toolchains the job
-      # never uses (not the Android SDK), in the background while the job sets up.
+      # The example's images need more disk than a runner of 14 GB free had: on one with less
+      # than 40 GB free, remove toolchains the job never uses (not the Android SDK), in the
+      # background while the job sets up. GitHub's runners have 80 GB free now.
       - name: free disk space (in the background)
-        run: (sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL /usr/share/swift; touch "$RUNNER_TEMP/disk-freed") > /dev/null 2>&1 &
+        run: |
+          (if [ "$(df --output=avail -BG / | tail -1 | tr -dc 0-9)" -lt 40 ]; then
+            sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL /usr/share/swift
+          fi; touch "$RUNNER_TEMP/disk-freed") > /dev/null 2>&1 &
       - name: KVM, for the emulator, and where its devices are
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules

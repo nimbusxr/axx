@@ -264,10 +264,14 @@ func (set simSet) notificationsUnserved(ctx context.Context, udid string, since 
 	defer cancel()
 	predicate := `process == "SpringBoard" AND subsystem == "com.apple.UserNotifications" AND category == "ContentProtection"`
 	out, err := set.simctl(ctx, "spawn", udid, "log", "show", "--start", since.Format("2006-01-02 15:04:05"), "--style", "compact", "--predicate", predicate)
-	why := fmt.Sprintf("the query from %s answers %d lines", since.Format("15:04:05"), strings.Count(out, "\n"))
+	why := fmt.Sprintf("the query from %s answers %d lines %q", since.Format("15:04:05"), strings.Count(out, "\n"), loggedMessages(out, 3))
 	if err != nil {
 		why += fmt.Sprintf(" (%v)", err)
 	}
+	// What SpringBoard's notification server logged as it started, in its other categories.
+	started, _ := set.simctl(ctx, "spawn", udid, "log", "show", "--start", since.Format("2006-01-02 15:04:05"), "--style", "compact", "--predicate",
+		`process == "SpringBoard" AND subsystem == "com.apple.UserNotifications" AND category IN {"Connections", "DataProviderFactory"}`)
+	why += fmt.Sprintf("; it started: %q", loggedMessages(started, 3))
 	wide, err := set.simctl(ctx, "spawn", udid, "log", "show", "--last", "15m", "--style", "compact", "--predicate", predicate)
 	var found []string
 	for _, line := range strings.Split(wide, "\n") {
@@ -287,6 +291,18 @@ func (set simSet) notificationsUnserved(ctx context.Context, udid string, since 
 		}
 	}
 	return why
+}
+
+// loggedMessages are the first n messages of a compact log, without their timestamps and
+// processes.
+func loggedMessages(log string, n int) []string {
+	var msgs []string
+	for _, line := range strings.Split(log, "\n") {
+		if _, msg, ok := strings.Cut(line, "] "); ok && len(msgs) < n {
+			msgs = append(msgs, msg)
+		}
+	}
+	return msgs
 }
 
 // isUDID reports a simulator's or device's identifier.
