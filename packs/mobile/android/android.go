@@ -25,7 +25,9 @@ const packDoc = `Android apps, on emulators axx starts or on devices adb lists, 
 
 **Each scenario has a device to itself.** axx starts emulators of a device (AVD) as scenarios need them, read-only so that several run at once and nothing a scenario changes outlives it, up to ` + "`devices`" + ` at once (1 by default: Android scenarios then take turns). A scenario leases a device for its whole run.
 
-**Each scenario starts from a clean app.** Before the app starts, its data is cleared (and with it what it stored, its permissions and its notifications), the permissions the registration names are granted, the photos axx put in the library before are taken out (and the registration's put in), so are the documents in Downloads, the system's file picker starts afresh (on an emulator axx started), and the device's language, time zone and location are set. There is no switch that skips it: a scenario is one journey, and that journey is its own.`
+**Each scenario starts from a clean app.** Before the app starts, its data is cleared (and with it what it stored, its permissions and its notifications), the permissions the registration names are granted, the photos axx put in the library before are taken out (and the registration's put in), so are the documents in Downloads, the system's file picker starts afresh (on an emulator axx started), and the device's language, time zone and location are set. There is no switch that skips it: a scenario is one journey, and that journey is its own.
+
+**What the camera sees.** On an emulator axx starts, the back camera renders the AVD's environment, which axx sets for each scenario: what ` + "`the <app> app's camera sees <file>`" + ` gives it (a picture, a video or a glTF scene, seen from where the phone is in it), or else the emulator's own room. In a debuggable app that has ARCore, an agent axx attaches as the app starts answers ARCore from the scene. An emulator started from a quick-boot snapshot saved with another camera starts afresh the first time a scenario's camera sees something.`
 
 func (pack) Manifest() core.Manifest {
 	return core.Manifest{

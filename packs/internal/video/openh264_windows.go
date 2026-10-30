@@ -12,7 +12,10 @@ func open(path string) (*library, error) {
 		return nil, fmt.Errorf("cannot load OpenH264 (%s): %w", path, err)
 	}
 	var l library
-	for name, fn := range map[string]*uintptr{"WelsCreateSVCEncoder": &l.create, "WelsDestroySVCEncoder": &l.destroy} {
+	for name, fn := range map[string]*uintptr{
+		"WelsCreateSVCEncoder": &l.create, "WelsDestroySVCEncoder": &l.destroy,
+		"WelsCreateDecoder": &l.createDecoder, "WelsDestroyDecoder": &l.destroyDecoder,
+	} {
 		proc, err := dll.FindProc(name)
 		if err != nil {
 			return nil, fmt.Errorf("OpenH264 (%s) has no %s: %w", path, name, err)

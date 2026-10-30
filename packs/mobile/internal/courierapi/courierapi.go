@@ -81,6 +81,18 @@ func TornLabelText(t *testing.T) string {
 	return filepath.Join(filepath.Dir(here), "testdata", "torn-label-ios.axxmodel")
 }
 
+//go:generate go run ../../../../internal/tools/axxall models build testdata/torn-label-android -o testdata/torn-label-android.axxmodel
+
+// TornLabelTextAndroid is a stub of ML Kit's text recognition (models-android) that reads
+// TornLabel's label once it is held still in view, as an Android phone's camera frames it (the
+// middle 3:4 of the picture), and nothing in the frames before: what the app reads does not hang
+// on ML Kit's own model, which reads differently from one build to the next.
+func TornLabelTextAndroid(t *testing.T) string {
+	t.Helper()
+	_, here, _, _ := runtime.Caller(0)
+	return filepath.Join(filepath.Dir(here), "testdata", "torn-label-android.axxmodel")
+}
+
 // Lists tells how many times the courier's app asked for the day's deliveries.
 func (a *API) Lists() int {
 	a.mu.Lock()

@@ -139,6 +139,12 @@ the skills instead: `axx skills install`.
   emulator in CI's mobile job, and on simulators in its ios job (macOS). mobile-ios installs
   Appium's prebuilt WebDriverAgent (pinned, with its SHA-256 sums, in `install.go`) instead of
   building it with Xcode; mobile-android, Appium's UiAutomator2 server APKs (pinned in `uia2.go`).
+  What an app's camera sees, and its AR, are played from a picture, a video or a glTF scene: on
+  a simulator, by a library mobile-ios builds with Xcode (`packs/mobile/ios/ar`); on an emulator,
+  by the emulator's own camera, which renders its AVD's environment as axx sets it
+  (`packs/mobile/android/camera.go`, a video re-encoded with `packs/internal/video`), and, for
+  ARCore, by an ART TI agent mobile-android attaches to a debuggable app (`ar/agent.cc`,
+  `ar/Bridge.java`), built as models-android's is (`BuildAgent`), which it attaches after its own.
 - `internal/filecontent`: reads files by their type (text, CSV, TSV, JSON, XML, HTML, PDF, Word,
   Excel) for the steps that check a file's text or table: files, storage objects, downloads.
 - `internal/packbuild`, `internal/gotool`: axx builds itself with the packs a project lists in
@@ -181,6 +187,10 @@ the skills instead: `axx skills install`.
 - Keep `CGO_ENABLED=0` builds working: pure-Go dependencies only.
 - CI runs the jobs a pull request needs, from the files it changes (`scripts/ci-changes.sh`).
   A new kind of input to a job (a folder its tests read, say) goes there too.
+- No CI test step runs past 10 minutes, and each one's timeout says so (`-timeout 10m`): a job
+  whose tests grow past it runs in parts (a matrix, by its tests' times on CI's runners, which
+  `gotestsum`'s slowest list gives; `axx run --shard i/n` for a feature), never with a longer
+  timeout.
 - The `hygiene` check (`scripts/hygiene.sh`) must pass; it blocks references to unrelated
   organizations and internal infrastructure.
 

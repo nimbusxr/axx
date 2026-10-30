@@ -85,8 +85,27 @@ fun CourierApp(model: CourierViewModel) {
                         },
                         onRefresh = model::refresh,
                         onOpen = model::openDelivery,
+                        onScan = model::scanLabel,
                         onSignOut = model::signOut,
                     )
+                    }
+
+                    Screen.ScanLabel -> {
+                        BackHandler(onBack = model::backToDeliveries)
+                        LabelScannerScreen(message = model.scanMessage, onFound = model::scanned, onCancel = model::backToDeliveries)
+                    }
+
+                    is Screen.Measure -> {
+                        BackHandler { model.backToDelivery(screen.reference) }
+                        MeasureParcelScreen(onDone = { model.backToDelivery(screen.reference) })
+                    }
+
+                    is Screen.DoorPhoto -> {
+                        BackHandler { model.backToDelivery(screen.reference) }
+                        DoorPhotoScreen(
+                            onTaken = { jpeg -> model.attachPhoto(screen.reference, jpeg) },
+                            onCancel = { model.backToDelivery(screen.reference) },
+                        )
                     }
 
                     is Screen.Delivery -> {
@@ -101,6 +120,8 @@ fun CourierApp(model: CourierViewModel) {
                             attached = model.attached,
                             attaching = model.attaching,
                             onAttach = { document -> model.attachDocument(screen.reference, document) },
+                            onPhotoAtTheDoor = { model.photoAtTheDoor(screen.reference) },
+                            onMeasure = { model.measureParcel(screen.reference) },
                             onReportDamage = { photo -> model.reportDamage(screen.reference, photo) },
                             onDescribeDamage = { note -> model.describeDamage(screen.reference, note) },
                             onConfirm = { signedBy -> model.markDelivered(screen.reference, signedBy) },
@@ -183,6 +204,7 @@ fun DeliveriesScreen(
     onShareLocation: (Boolean) -> Unit,
     onRefresh: () -> Unit,
     onOpen: (reference: String) -> Unit,
+    onScan: () -> Unit,
     onSignOut: () -> Unit,
 ) {
     Column(Modifier.fillMaxSize()) {
@@ -193,6 +215,8 @@ fun DeliveriesScreen(
             Heading("Today's deliveries")
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("Hello, $name", Modifier.weight(1f))
+                // A parcel's label, scanned with the camera, opens its delivery.
+                TextButton(onClick = onScan) { Text("Scan label") }
                 TextButton(onClick = onSignOut) { Text("Sign out") }
             }
             // The row is the switch, as people tap it: its text names it.
@@ -243,6 +267,8 @@ fun DeliveryScreen(
     attached: List<String>,
     attaching: Boolean,
     onAttach: (document: Uri) -> Unit,
+    onPhotoAtTheDoor: () -> Unit,
+    onMeasure: () -> Unit,
     onReportDamage: (photo: Uri) -> Unit,
     onDescribeDamage: (note: String) -> Unit,
     onConfirm: (signedBy: String) -> Unit,
@@ -312,6 +338,17 @@ fun DeliveryScreen(
                         modifier = Modifier.fillMaxWidth(),
                     ) {
                         Text("Attach document")
+                    }
+                    OutlinedButton(
+                        onClick = onPhotoAtTheDoor,
+                        enabled = !attaching,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text("Photo at the door")
+                    }
+                    // Before leaving it in a parcel locker: does it fit?
+                    OutlinedButton(onClick = onMeasure, modifier = Modifier.fillMaxWidth()) {
+                        Text("Measure parcel")
                     }
                     OutlinedButton(
                         onClick = { damaged.launch(arrayOf("image/*")) },

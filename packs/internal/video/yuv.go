@@ -8,8 +8,21 @@ import (
 // toI420 writes img into dst as I420, width by height: the luma plane, then
 // both chroma planes at half the size, in BT.709's limited range, as players
 // take HD video to be. A frame of another size is fitted in, centred on
-// black.
+// black; a frame in I420 of the size is taken as it is.
 func toI420(img image.Image, dst []byte, width, height int) {
+	if y, ok := img.(*image.YCbCr); ok && y.SubsampleRatio == image.YCbCrSubsampleRatio420 && y.Rect == image.Rect(0, 0, width, height) {
+		// Already I420, of the size: its planes as they are.
+		cw, ch := width/2, height/2
+		for r := range height {
+			copy(dst[r*width:(r+1)*width], y.Y[r*y.YStride:])
+		}
+		u, v := dst[width*height:], dst[width*height+cw*ch:]
+		for r := range ch {
+			copy(u[r*cw:(r+1)*cw], y.Cb[r*y.CStride:])
+			copy(v[r*cw:(r+1)*cw], y.Cr[r*y.CStride:])
+		}
+		return
+	}
 	rgba := fit(img, width, height)
 	ySize, cw := width*height, width/2
 	yp, up, vp := dst[:ySize], dst[ySize:ySize+ySize/4], dst[ySize+ySize/4:]

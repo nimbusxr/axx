@@ -45,6 +45,8 @@ while ! $all && ! $none && IFS= read -r f; do
         packs/files/*) integration=true web=true mobile=true models=true ;;
         packs/desktop/*) desktop=true integration=true ;;
         packs/app/*) desktop=true integration=true web=true mobile=true ;;
+        # Desktop videos, and the videos an Android emulator's camera sees.
+        packs/internal/video/*) desktop=true mobile=true integration=true ;;
         core/* | internal/* | go.mod | go.sum | mise.toml) web=true mobile=true desktop=true integration=true ;;
         # Read by the unit tests, or only built: nothing the integration tests use.
         plugins/* | examples/* | scripts/* | build/* | .golangci.yml | .goreleaser.yaml) ;;

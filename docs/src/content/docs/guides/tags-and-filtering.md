@@ -55,6 +55,15 @@ axx run --name "registered once"           # a regular expression on the scenari
 axx run -n "^A shop" -n "cancelled"         # repeatable: matches either
 ```
 
+## A shard of a run
+
+`--shard i/n` runs a share of what the rest selects, for runners that share a run: every nth scenario, in their files' and lines' order, from the ith. `1/n` to `n/n` run each scenario once between them, the same on every machine ([Share a run between runners](/guides/run-in-ci/#share-a-run-between-runners)):
+
+```sh
+axx run --tags @android --shard 1/2    # one runner
+axx run --tags @android --shard 2/2    # the other
+```
+
 ## Defaults in axx.yaml
 
 ```yaml title="axx.yaml"

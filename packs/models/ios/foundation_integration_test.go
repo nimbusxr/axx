@@ -25,21 +25,22 @@ func TestFoundationModelsOrdinarySessions(t *testing.T) {
 	if device == "" {
 		t.Skip("set AXX_IOS_MODELS_SIMULATOR to a booted iOS 27 simulator")
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
-	defer cancel()
-	bootProbeSimulator(t, ctx, device)
+	// The libraries and the probe take as long as Xcode does to build (over a minute on CI's
+	// runner, with nothing in axx's cache); the probes' runs, 2 minutes at most.
+	build := context.Background()
+	bootProbeSimulator(t, build, device)
 	suite := core.NewSuite(core.SuiteOptions{})
-	lib, err := library(ctx, suite)
+	lib, err := library(build, suite)
 	if err != nil {
 		t.Fatal(err)
 	}
-	foundation, err := foundationLibrary(ctx, suite)
+	foundation, err := foundationLibrary(build, suite)
 	if err != nil {
 		t.Fatal(err)
 	}
 	dir := t.TempDir()
 	probe := filepath.Join(dir, "probe")
-	sdk, err := exec.CommandContext(ctx, "xcrun", "--sdk", "iphonesimulator", "--show-sdk-path").Output()
+	sdk, err := exec.CommandContext(build, "xcrun", "--sdk", "iphonesimulator", "--show-sdk-path").Output()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -47,10 +48,12 @@ func TestFoundationModelsOrdinarySessions(t *testing.T) {
 	if arch == "amd64" {
 		arch = "x86_64"
 	}
-	cmd := exec.CommandContext(ctx, "xcrun", "swiftc", "-sdk", strings.TrimSpace(string(sdk)), "-target", arch+"-apple-ios27.0-simulator", "-parse-as-library", "-module-cache-path", filepath.Join(dir, "modules"), "../internal/apple/runtime/foundation-probe.swift", "-o", probe)
+	cmd := exec.CommandContext(build, "xcrun", "swiftc", "-sdk", strings.TrimSpace(string(sdk)), "-target", arch+"-apple-ios27.0-simulator", "-parse-as-library", "-module-cache-path", filepath.Join(dir, "modules"), "../internal/apple/runtime/foundation-probe.swift", "-o", probe)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("compile: %v: %s", err, out)
 	}
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
 	c := &contract.Contract{Task: "text-generation", Format: contract.Format{Type: "platform", Details: json.RawMessage(`{"api":"ios.foundation-models"}`)}}
 	s, err := stub.Resolve(c, []mappings.Mapping{{Name: "parcel", Input: mappings.Input{"text": json.RawMessage(`"parcel"`)}, Output: json.RawMessage(`{"text":"Ring twice, please."}`)}, {Name: "default", Default: true, Output: json.RawMessage(`{"text":"Please try again."}`)}})
 	if err != nil {

@@ -23,6 +23,9 @@ sealed interface Screen {
     data object SignIn : Screen
     data object Deliveries : Screen
     data class Delivery(val reference: String) : Screen
+    data object ScanLabel : Screen
+    data class DoorPhoto(val reference: String) : Screen
+    data class Measure(val reference: String) : Screen
 }
 
 /** What the app shows, and what the courier does in it. */
@@ -283,6 +286,71 @@ class CourierViewModel(app: Application) : AndroidViewModel(app) {
         attached = emptyList()
         screen = Screen.Delivery(reference)
         if (deliveries == null) refresh()
+    }
+
+    /** What the label scanner tells the courier: what to do, or why a label it read opens nothing. */
+    var scanMessage by mutableStateOf<String?>(null)
+        private set
+
+    fun scanLabel() {
+        scanMessage = null
+        screen = Screen.ScanLabel
+    }
+
+    /** A label's reference, read: its delivery opens, if it is one of the courier's. */
+    fun scanned(reference: String) {
+        if (screen != Screen.ScanLabel) return
+        if (deliveries?.any { it.reference == reference } == true) {
+            openDelivery(reference)
+        } else {
+            scanMessage = notWithYou(reference)
+        }
+    }
+
+    fun measureParcel(reference: String) {
+        screen = Screen.Measure(reference)
+    }
+
+    fun photoAtTheDoor(reference: String) {
+        deliveryError = null
+        screen = Screen.DoorPhoto(reference)
+    }
+
+    /** Back from the camera to the delivery, its attachments as they were. */
+    fun backToDelivery(reference: String) {
+        screen = Screen.Delivery(reference)
+    }
+
+    /**
+     * The photo the courier took of the parcel where they left it, as proof of delivery: attached
+     * to the delivery as photo-at-the-door.jpg.
+     */
+    fun attachPhoto(reference: String, jpeg: ByteArray) {
+        val s = session ?: return
+        screen = Screen.Delivery(reference)
+        if (attaching) return
+        attaching = true
+        deliveryError = null
+        viewModelScope.launch {
+            val name = "photo-at-the-door.jpg"
+            try {
+                api().attachDocument(s, reference, name, "image/jpeg", jpeg)
+                if (screen == Screen.Delivery(reference)) attached = attached + "$name attached"
+            } catch (e: ApiException) {
+                when (e.status) {
+                    401 -> expired()
+                    404 -> deliveryError = notWithYou(reference)
+                    413 -> deliveryError = "$name is too large to attach."
+                    else -> deliveryError = unexpected(e)
+                }
+            } catch (e: IOException) {
+                deliveryError = UNREACHABLE
+            } catch (e: JSONException) {
+                deliveryError = UNREACHABLE
+            } finally {
+                attaching = false
+            }
+        }
     }
 
     fun backToDeliveries() {

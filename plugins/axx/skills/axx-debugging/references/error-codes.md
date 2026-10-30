@@ -214,6 +214,14 @@ A `file:line` names a line that no scenario of the file contains, like the featu
 
 **Fix:** List packs of `axx-packs.yaml` (`axx pack list`), like `[mobile-ios]`, or add the pack with `axx pack add`.
 
+### AXX-E0206
+
+**Invalid shard** · exit 2
+
+`--shard` is not a shard of a number of them, like `1/3`.
+
+**Fix:** Give the shard and how many there are, from `1/n` to `n/n`: each runs every nth of the scenarios the run selects, so that together they run each one once.
+
 ## Packs, steps and resources
 
 ### AXX-E0300

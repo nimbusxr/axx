@@ -29,6 +29,7 @@ const (
 	CodeName     = "AXX-E0203"
 	CodeLine     = "AXX-E0204"
 	CodeUses     = "AXX-E0205"
+	CodeShard    = "AXX-E0206"
 )
 
 // Document is a parsed feature file.

@@ -71,6 +71,8 @@ func TestLayouts(t *testing.T) {
 		"SSourcePicture":      {unsafe.Sizeof(sourcePicture{}), 80},
 		"SLayerBSInfo":        {unsafe.Sizeof(layerBSInfo{}), 56},
 		"SFrameBSInfo":        {unsafe.Sizeof(frameBSInfo{}), 7192},
+		"SDecodingParam":      {unsafe.Sizeof(decodingParam{}), 32},
+		"SBufferInfo":         {unsafe.Sizeof(bufferInfo{}), 72},
 	} {
 		if c[0] != c[1] {
 			t.Errorf("%s is %d bytes, not %d", name, c[0], c[1])

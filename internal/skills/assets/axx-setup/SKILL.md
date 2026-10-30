@@ -50,6 +50,7 @@ GitHub Actions:
 
 Anywhere else, install Axx with `curl -fsSL https://axx.nimbusxr.us/install.sh | sh` or use the image `ghcr.io/nimbusxr/axx`.
 
+- A long suite shares a run between runners: a matrix of `axx run --shard i/n` (1 to n) runs each scenario once between them, every nth in their files' and lines' order.
 - Use profiles for CI-only differences: `profiles: {ci: {properties: {local.host: docker}}}` together with `--profile ci` or `AXX_PROFILE=ci`.
 - If `axx.yaml` has a `fixtures` section, run `axx fixtures check` and then `axx fixtures generate` before `axx run`: check fails (exit 1) when fixtures drifted from their factory specs or the committed manifest is stale, and passes on a fresh clone whose ignored outputs are not generated yet; generate then writes them. Check first: generate would bring a stale manifest up to date and hide it.
 - Exit codes: 0 pass, 1 failures, 2 config, 3 undefined steps or lint violations, 4 service startup.

@@ -35,6 +35,7 @@ The steps are the same on Android and on iOS: only the app's registration says w
   sdkmanager --install "system-images;android-35;google_apis;arm64-v8a"   # x86_64 on Intel and AMD
   avdmanager create avd --name parcels-pixel --package "system-images;android-35;google_apis;arm64-v8a" --device pixel_8
   ```
+- **For an app's ARCore** ([below](#what-the-camera-sees-and-ar)): the SDK's NDK and build-tools, and a JDK, which axx builds its agent with, once.
 
 **For iOS:**
 
@@ -281,10 +282,10 @@ The phone moves in real time, as a phone on the road does: keep routes short, or
 
 ## What the camera sees, and AR
 
-An iOS simulator has no camera. An app that scans, reads or photographs through it (a QR code, a printed reference, a photo at the door) has nothing to see, and an app that measures or places things with ARKit and RealityKit's `ARView` has no AR either: the simulator's ARKit says world tracking is not supported. axx plays the camera from what a scenario says it sees, `the courier app's camera sees <file>`:
+An iOS simulator has no camera, and an Android emulator's sees a room of its own. An app that scans, reads or photographs through it (a QR code, a printed reference, a photo at the door) has nothing to see, and an app that measures or places things with ARKit (RealityKit's `ARView`) or ARCore has no AR either: the simulator's ARKit says world tracking is not supported, and an emulator has no Google services for AR. axx plays the camera from what a scenario says it sees, `the courier app's camera sees <file>`, on iOS simulators and on the Android emulators it starts:
 
-- **an image** (PNG, JPEG or HEIC), as the phone held upright sees it: a parcel's label, say;
-- **a video** (MP4 or MOV), which plays in a loop: a parcel lifted into view;
+- **an image** (PNG or JPEG, and HEIC on iOS), as the phone held upright sees it: a parcel's label, say;
+- **a video** (MP4 or MOV; H.264 on Android), which plays in a loop: a parcel lifted into view;
 - **a 3D scene**, a glTF file (`.glb`, or `.gltf` with its buffers and images), seen from where the phone is in it: what the camera sees changes as the phone moves (below), and an app's AR finds the scene's surfaces and objects where they are.
 
 ```gherkin
@@ -297,7 +298,7 @@ When the "Scan label" button is tapped in the courier app
 Then the courier app shows "Ida Lorenz"
 ```
 
-The app's capture session takes the camera as its input, as on a phone (`AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back)`), and gets its frames, 30 a second, 1920 by 1080, the sensor's way up as an iPhone's:
+On a simulator, the app's capture session takes the camera as its input, as on a phone (`AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back)`), and gets its frames, 30 a second, 1920 by 1080, the sensor's way up as an iPhone's:
 
 - a **video data output** gets them in the pixel format it asks for (BGRA, or YCbCr 4:2:0), turned as its connection says, for Vision and the like;
 - a **metadata output** gets the codes in them, QR codes and barcodes, read with Vision;
@@ -305,7 +306,7 @@ The app's capture session takes the camera as its input, as on a phone (`AVCaptu
 - a **preview layer** shows them, and its conversions (a code's place on the screen, a point of interest) go by them;
 - the camera answers what an app sets (focus, exposure, zoom, torch, HDR) as a phone's does, without changing what it sees.
 
-The app asks for the camera as it would on a phone; `permissions | camera` grants it from the start. A scenario taps what an AR app's camera shows by its name in the scene:
+The app asks for the camera as it would on a phone; `permissions | camera` (`CAMERA` on Android) grants it from the start. A scenario taps what an AR app's camera shows by its name in the scene:
 
 ```gherkin
 Given the courier app's camera sees scenes/parcel-on-porch.glb
@@ -318,7 +319,7 @@ Then the courier app shows "60 cm"
 
 The scene is where the phone is and what it sees:
 
-- **The phone** is the scene's camera, or the camera named `phone` when it has several: where it stands, held upright, looking along its −Z, its +Y the top of the phone (a glTF camera's own axes). The phone's camera is an iPhone's wide camera (about 62° across, the picture filling the view); the scene's camera gives only where it is and which way it looks.
+- **The phone** is the scene's camera, or the camera named `phone` when it has several: where it stands, held upright, looking along its −Z, its +Y the top of the phone (a glTF camera's own axes). The phone's camera is an iPhone's wide camera (about 62° across, the picture filling the view), or the Android emulator's (its sensor 1280 by 960, about 53° across held upright); the scene's camera gives only where it is and which way it looks.
 - **Objects** a scenario names are the scene's top-level nodes with a name, but for its cameras and its furniture: nodes named with a leading `_`, like `_road` or `_porch`.
 - **A tap on an object** lands on its middle, or on its `_tap` child, a node that marks where a tap on it lands: a corner guard's `_tap` is the parcel's corner it guards. The app's AR finds the scene's surfaces where they are, and a raycast that hits an object lands where a tap on it lands, so what an app measures between two objects is their distance in the scene, whatever the phone's place.
 - **What is drawn** is the scene's triangle meshes, each node's transform (its matrix, or its translation, rotation and scale), and its materials' base color, a color and an image (PNG or JPEG), lit by a soft sky and the sun. Points and lines are left out, as are skins and morph targets; an animation is a path the phone can travel (below), and the scene's objects stay still.
@@ -348,6 +349,10 @@ And the "front left corner" in the courier app's camera view is tapped
 The phone stays where a step leaves it, the app started again or not: a step before the app is launched puts the phone where the app starts.
 
 On a simulator, axx loads a library of its own into the app when it starts, built once with Xcode into axx's cache: it plays the camera for the app's capture sessions; from a scene, it also makes world tracking supported, runs the session's frames from the scene, draws the camera's picture behind the `ARView`, and answers RealityKit's raycasts. The app is the app you ship, unchanged; the library plays the camera and ARKit, which a simulator has not got. It plays apps that show AR with RealityKit's `ARView`; an `ARSCNView` (SceneKit) app is not played yet, nor the system's own camera screen (`UIImagePickerController` with the `.camera` source), which an app that checks `isSourceTypeAvailable(.camera)` does not offer on a simulator. It leans on ARKit's internals, so each Xcode is checked against it: it is checked with Xcode 27.0, on the iOS 27.0 and 18.1 simulators. A real iPhone's camera, through an Appium server, sees what is in front of it: the step is for simulators.
+
+On an Android emulator, its own back camera shows what the camera sees, to any app (CameraX, Camera2, the system's camera app): axx starts its emulators with the camera that renders the AVD's environment (`-camera-back environment`, from the AVD's `environment.ini`, which axx writes before each one starts), and sets it for each scenario through the emulator's control service: a picture, a video, or the scene, seen from where axx puts the phone in it. The emulator shows a picture off its middle, so axx lays out a picture, and a video frame by frame, so that the camera sees all of it, aspect-filled into its 4:3 sensor held upright; it re-encodes an H.264 video with Cisco's OpenH264, which it downloads the first time, as it does for desktop videos (OpenH264 Video Codec provided by Cisco Systems, Inc.). An emulator started from a quick-boot snapshot keeps the camera the snapshot was saved with: axx starts it afresh, cold, the first time a scenario's camera sees something, unless the snapshot was saved with `hw.camera.back=environment` in the AVD's `config.ini`, as the parcels example's [`create-emulator.sh`](https://github.com/nimbusxr/axx/blob/main/examples/parcels/courier/android/create-emulator.sh) saves it.
+
+An Android app's AR is ARCore's. In a debuggable app that has ARCore, axx attaches an agent of its own as the app starts, which answers the app's ARCore calls from the scene: a session that runs, its camera at the phone's pose, the emulator's camera's picture in the texture the app gave ARCore, filling the view as ARCore fills it, and hit tests that land on the scene's surfaces, and on a named object where a tap on it lands. It answers the session, its frames and camera, hit results, planes and points, anchors and light estimates; depth, cloud anchors, geospatial and recording are not played. axx builds the agent once into its cache, with the SDK's NDK and build-tools and a JDK, as the models-android pack builds its own, and attaches both when a scenario needs both. An app that is not debuggable runs its ARCore as it is. A real phone's camera, through an Appium server, sees what is in front of it: the step is for emulators.
 
 ## Traces and videos
 
@@ -380,7 +385,7 @@ Videos are encoded with Cisco's OpenH264. OpenH264 Video Codec provided by Cisco
 - run: axx run --tags @android
 ```
 
-`packs.mobile-android.emulatorArgs` passes more arguments to the emulators, and `bootTimeout` gives a slow machine longer than 3 minutes to boot one.
+`create-emulator.sh` saves the device's boot snapshot with the camera axx plays (`hw.camera.back=environment` in its `config.ini`), so that the emulators axx starts from it are ready for what a scenario's camera sees. It gives the device a front camera too (`hw.camera.front=emulated`): the system image says its phone has one, and on an AVD without, CameraX looks for it for some 6 seconds before an app's camera shows. An emulator draws its camera without a GPU too, slower than a Mac's: it takes seconds to show its first frame, which a scenario that reads what the camera sees gives time (`within 30s`). `packs.mobile-android.emulatorArgs` passes more arguments to the emulators, and `bootTimeout` gives a slow machine longer than 3 minutes to boot one. A feature too long for one runner, whose emulator runs a scenario at a time, [shares a run](/guides/run-in-ci/#share-a-run-between-runners) with others: `axx run --shard 1/2` on one, `--shard 2/2` on another.
 
 **iOS:** macOS runners have Xcode and its simulators. A new machine's first simulator boot builds the iOS runtime's shared cache, which takes over ten minutes on GitHub's runners, and every hosted run is a new machine: keep that cache between runs, with what axx downloads, keyed by the macOS and runtime builds it belongs to. Never keep a simulator: its keychain belongs to the machine it was made on.
 

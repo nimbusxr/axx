@@ -78,6 +78,7 @@ func start(sc *core.Scenario, w *worker, app *desktopcore.App, home string) (*pr
 		close(done)
 	}()
 	p := &proc{sc: sc, app: app, w: w, pid: cmd.Process.Pid, flutter: isFlutter(app.App)}
+	p.born, _ = uia.Started(p.pid)
 	p.u = &uiaTree{p: p, c: w.uia}
 	p.exited = func() bool {
 		select {
@@ -87,7 +88,7 @@ func start(sc *core.Scenario, w *worker, app *desktopcore.App, home string) (*pr
 			return false
 		}
 	}
-	p.stop = func() error { return stopTree(p.pid, p.exited) }
+	p.stop = func() error { return stopTree(p.pid, p.born, p.exited) }
 	if err := p.await(); err != nil {
 		_ = p.stop()
 		return nil, err
@@ -160,13 +161,21 @@ func (p *proc) fit(w *uia.Element) error {
 // with no window a second on (a moment on, for one with no window to
 // close); else when it has not gone within 10 seconds (one asking whether
 // to save). It waits for each of them: one that lingers holds what the next
-// start needs (a browser's profile).
-func stopTree(pid int, exited func() bool) error {
+// start needs (a browser's profile). The processes it started are those
+// that started after it (born, when it started): an older process whose
+// parent's number Windows gave the app is none of them (once, a CI runner's,
+// which stopTree stopped mid-job), so taskkill asks each by its number, not
+// the tree it would follow by parents' numbers (/T).
+func stopTree(pid int, born int64, exited func() bool) error {
 	ctx := context.Background()
-	tree := append([]int{pid}, uia.Descendants(pid)...)
+	tree := append([]int{pid}, uia.Descendants(pid, born)...)
 	if !exited() {
 		before := uia.VisibleWindows(tree)
-		_ = exec.CommandContext(ctx, "taskkill", "/PID", strconv.Itoa(pid), "/T").Run()
+		args := []string{}
+		for _, p := range tree {
+			args = append(args, "/PID", strconv.Itoa(p))
+		}
+		_ = exec.CommandContext(ctx, "taskkill", args...).Run()
 		grace := time.Second
 		if len(before) == 0 {
 			grace = 300 * time.Millisecond

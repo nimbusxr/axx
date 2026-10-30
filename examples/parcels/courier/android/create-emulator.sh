@@ -83,12 +83,25 @@ done
 [ -n "$device" ] || device=$(printf '%s\n' "$devices" | grep '^pixel' | tail -1)
 echo no | limited 300 "$tools/avdmanager" create avd --force --name parcels-pixel --package "$image" --device "$device"
 say "parcels-pixel: $image, $device"
+# Its back camera renders the AVD's environment (environment.ini), which axx sets to what an
+# app's camera sees in a scenario: an emulator started from the snapshot keeps the camera the
+# snapshot was saved with. And it has a front camera, as the phone its system image describes
+# (android.hardware.camera.front) does: without one, CameraX looks for it again and again, for
+# 6 seconds, before an app's camera shows.
+config="$ANDROID_AVD_HOME/parcels-pixel.avd/config.ini"
+grep -v -e '^hw.camera.back=' -e '^hw.camera.front=' "$config" > "$config.new"
+printf 'hw.camera.back=environment\nhw.camera.front=emulated\n' >> "$config.new"
+mv "$config.new" "$config"
+printf 'version = 1\nscene.mode = mesh3d:Toren1BD.obj\n' > "$ANDROID_AVD_HOME/parcels-pixel.avd/environment.ini"
 
 # Its boot snapshot: booted once and saved, every emulator axx starts of it boots from it in
 # seconds instead of booting cold. axx starts them read-only: they save nothing, so each starts
 # as the snapshot left it.
 say "parcels-pixel: booting it for its snapshot"
-args=(-avd parcels-pixel -port 5580 -no-window -no-audio -no-boot-anim)
+# Its console saves the snapshot, and answers when it is saved; the emulator saves nothing as it
+# stops (-no-snapshot-save): on CI's runner, one asked to stop went on idle now and then, its
+# snapshot not begun.
+args=(-avd parcels-pixel -port 5580 -no-window -no-audio -no-boot-anim -no-snapshot-save)
 if [ "$(uname -s)" = Linux ]; then args+=(-gpu swiftshader_indirect); fi
 "$sdk/emulator/emulator" "${args[@]}" > "$ANDROID_AVD_HOME/parcels-pixel-snapshot.log" 2>&1 &
 emulator=$!
@@ -110,16 +123,28 @@ if [ -z "$booted" ]; then
   kill "$emulator" 2> /dev/null || true
   exit 1
 fi
-# It saves the snapshot as it stops: five minutes at most.
+# Five minutes at most to save it (a save takes seconds).
 say "parcels-pixel: booted; saving its snapshot"
-limited 30 "$adb" -s emulator-5580 emu kill > /dev/null || true
-deadline=$((SECONDS + 300))
-while kill -0 "$emulator" 2> /dev/null && [ "$SECONDS" -lt "$deadline" ]; do sleep 2; done
-if kill -0 "$emulator" 2> /dev/null; then
-  say "parcels-pixel did not save its boot snapshot in five minutes; the end of the emulator's log ($ANDROID_AVD_HOME/parcels-pixel-snapshot.log):" >&2
-  tail -n 40 "$ANDROID_AVD_HOME/parcels-pixel-snapshot.log" >&2 || true
+log="$ANDROID_AVD_HOME/parcels-pixel-snapshot.log"
+snapshot="$ANDROID_AVD_HOME/parcels-pixel.avd/snapshots/default_boot"
+answer=$(limited 300 "$adb" -s emulator-5580 emu avd snapshot save default_boot 2>&1) || true
+if ! grep -qx 'OK' <<< "$(tr -d '\r' <<< "$answer")" || [ ! -s "$snapshot/ram.bin" ]; then
+  say "parcels-pixel did not save its boot snapshot (its console answered: ${answer:-nothing}); the end of the emulator's log ($log):" >&2
+  tail -n 40 "$log" >&2 || true
+  # What the emulator's processes are doing (their state, and what each waits for), and how far
+  # its snapshot got.
+  ps -o pid,ppid,stat,wchan,etime,command -p "$(pgrep -d, -f 'emulator|qemu')" >&2 || true
+  ls -la "$ANDROID_AVD_HOME/parcels-pixel.avd/snapshots/"* >&2 2> /dev/null || true
   kill -9 "$emulator" 2> /dev/null || true
   exit 1
 fi
-wait "$emulator" || true
+# Then it stops: a minute at most, or it is stopped (the snapshot is saved).
+limited 30 "$adb" -s emulator-5580 emu kill > /dev/null 2>&1 || true
+deadline=$((SECONDS + 60))
+while kill -0 "$emulator" 2> /dev/null && [ "$SECONDS" -lt "$deadline" ]; do sleep 2; done
+if kill -0 "$emulator" 2> /dev/null; then
+  say "parcels-pixel did not stop in a minute, its snapshot saved: stopping it" >&2
+  kill -9 "$emulator" 2> /dev/null || true
+fi
+wait "$emulator" 2> /dev/null || true
 say "parcels-pixel: its boot snapshot is saved"

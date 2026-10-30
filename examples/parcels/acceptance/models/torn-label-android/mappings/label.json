@@ -1,0 +1,5 @@
+{
+  "name": "The torn label of PX-MOB-9502, held still in view, as the phone's camera frames it: its reference and the address",
+  "input": {"image": "../../../features/courier-app-camera/labels/torn-label-PX-MOB-9502-3x4.png"},
+  "output": {"text": "PARCELS STANDARD PX-MOB-9502 Kochstr. 32, 04275 Leipzig"}
+}

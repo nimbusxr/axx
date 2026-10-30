@@ -13,7 +13,8 @@ import (
 )
 
 // Camera is a platform that plays its apps' camera, which a device has not got (an iOS
-// simulator's), and the AR it has not got either: the camera sees a 3D scene, an image or a video.
+// simulator's) or has as its emulator renders it (an Android emulator's), and its AR: the camera
+// sees a 3D scene, an image or a video.
 type Camera interface {
 	// See makes the app's camera see the file at path from the app's next start, and tells what
 	// is wrong with the file.
@@ -45,11 +46,11 @@ func cameraSteps() []core.StepDef {
 	return []core.StepDef{{
 		ID: "mobile-core.camera-sees", Keyword: "Given", Since: since,
 		Expr: "the {word} app's camera sees {filepath}",
-		Doc: "The app's camera sees a 3D scene, a glTF file (.glb or .gltf), or an image (PNG, JPEG or HEIC) or a video " +
-			"(MP4 or MOV), as the phone held upright sees it: axx plays the camera the device has not got (an iOS simulator's), " +
-			"and, from a scene, the AR it has not got either. A scene's camera is where the phone is, which the phone's steps " +
-			"move; the app's AR finds the scene's surfaces and objects where they are. A video plays in a loop. A running app " +
-			"starts again, to see it.",
+		Doc: "The app's camera sees a 3D scene, a glTF file (.glb or .gltf), or an image (PNG or JPEG, and HEIC on iOS) or a " +
+			"video (MP4 or MOV; H.264 on Android), as the phone held upright sees it: axx plays the camera of an iOS simulator, " +
+			"which has none, and of an Android emulator it starts, and, from a scene, the app's AR. A scene's camera is where " +
+			"the phone is, which the phone's steps move; the app's AR finds the scene's surfaces and objects where they are. A " +
+			"video plays in a loop. A running app starts again, to see it.",
 		Examples: []string{"Given the courier app's camera sees scenes/parcel-on-porch.glb", "Given the courier app's camera sees labels/label-PX-IOS-9621.png"},
 		Run: func(sc *core.Scenario, a core.Args) error {
 			name := a.String(0)
@@ -63,7 +64,7 @@ func cameraSteps() []core.StepDef {
 			}
 			cam, ok := app.Platform.(Camera)
 			if !ok {
-				return fmt.Errorf("the %s app's camera cannot be played on %s: what a camera sees plays on iOS simulators", name, app.Platform.Kind())
+				return fmt.Errorf("the %s app's camera cannot be played on %s: what a camera sees plays on iOS simulators and Android emulators", name, app.Platform.Kind())
 			}
 			if err := cam.See(sc, path); err != nil {
 				return err
@@ -222,7 +223,7 @@ func scenePhone(sc *core.Scenario, name string) (ScenePhone, error) {
 	}
 	cam, ok := app.Platform.(Camera)
 	if !ok {
-		return nil, fmt.Errorf("the %s app's phone cannot move through a scene on %s: scenes play on iOS simulators", name, app.Platform.Kind())
+		return nil, fmt.Errorf("the %s app's phone cannot move through a scene on %s: scenes play on iOS simulators and Android emulators", name, app.Platform.Kind())
 	}
 	p := cam.ScenePhone()
 	if p == nil {
@@ -329,8 +330,11 @@ func pathTiming(s *scene.Scene, p *scene.Path, sp *speed) (timing, error) {
 			if d >= length {
 				return p.Duration, true
 			}
+			// The first sample past d, which is a step on from the one before it: where the
+			// phone stands still (as a path may start), samples are the same distance along,
+			// and between two of them the phone's place is no fraction of the way (0/0).
 			i := 1
-			for dist[i] < d {
+			for dist[i] <= d {
 				i++
 			}
 			f := (d - dist[i-1]) / (dist[i] - dist[i-1])
@@ -345,7 +349,14 @@ func pathTiming(s *scene.Scene, p *scene.Path, sp *speed) (timing, error) {
 func travelPath(sc *core.Scenario, app string, p ScenePhone, path *scene.Path, tm timing, wait bool) error {
 	arrived := make(chan struct{})
 	var failed error
-	ctx := sc.Context()
+	// The phone travels on after a step that starts it ends, until it arrives or the scenario
+	// does: not with the step's context, which ends with the step.
+	step := sc.Context()
+	ctx, cancel := context.WithCancel(context.WithoutCancel(step))
+	sc.OnClose(Name+".phone-path", func() error {
+		cancel()
+		return nil
+	})
 	go func() {
 		defer close(arrived)
 		start := time.Now()
@@ -376,7 +387,8 @@ func travelPath(sc *core.Scenario, app string, p ScenePhone, path *scene.Path, t
 			return failed
 		}
 		return nil
-	case <-ctx.Done():
-		return ctx.Err()
+	case <-step.Done():
+		cancel()
+		return step.Err()
 	}
 }

@@ -1,0 +1,10 @@
+# A parcel out for delivery with CR-LEJ-92, left on the porch of a house up a garden path, which the
+# courier walks up from the van to measure it.
+parcels.parcels:
+  - reference: "PX-MOB-9512"
+    sender: "maple-crafts"
+    status: "OUT_FOR_DELIVERY"
+    service_level: "STANDARD"
+    weight_grams: 2400
+    recipient: '{"name": "Arne Lindqvist", "street": "Kochstr. 30", "city": "Leipzig", "postcode": "04275", "country": "DE"}'
+    details: '{"source": "api", "zone": "DE-1", "courier": "CR-LEJ-92"}'
