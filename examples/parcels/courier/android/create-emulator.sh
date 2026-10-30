@@ -85,10 +85,12 @@ echo no | limited 300 "$tools/avdmanager" create avd --force --name parcels-pixe
 say "parcels-pixel: $image, $device"
 # Its back camera renders the AVD's environment (environment.ini), which axx sets to what an
 # app's camera sees in a scenario: an emulator started from the snapshot keeps the camera the
-# snapshot was saved with.
+# snapshot was saved with. And it has a front camera, as the phone its system image describes
+# (android.hardware.camera.front) does: without one, CameraX looks for it again and again, for
+# 6 seconds, before an app's camera shows.
 config="$ANDROID_AVD_HOME/parcels-pixel.avd/config.ini"
-grep -v '^hw.camera.back=' "$config" > "$config.new"
-echo 'hw.camera.back=environment' >> "$config.new"
+grep -v -e '^hw.camera.back=' -e '^hw.camera.front=' "$config" > "$config.new"
+printf 'hw.camera.back=environment\nhw.camera.front=emulated\n' >> "$config.new"
 mv "$config.new" "$config"
 printf 'version = 1\nscene.mode = mesh3d:Toren1BD.obj\n' > "$ANDROID_AVD_HOME/parcels-pixel.avd/environment.ini"
 
