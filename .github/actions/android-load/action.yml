@@ -1,0 +1,43 @@
+# SPDX-License-Identifier: Apache-2.0
+name: android-load
+description: >-
+  How busy a Linux runner and its emulator are while a job runs its scenarios. start: recorded
+  in the background every 30 seconds: the runner's load, its processor's time stolen by the VM's
+  host, its memory and swapping (vmstat), its busiest processes, and the emulator's busiest
+  processes (adb's top). report (the job's last step, if: always()): what was recorded, and the
+  processes that took the most processor time. A scenario that waits on an emulator too busy to
+  answer in time (a model's answer, a notification) shows here what kept it busy.
+inputs:
+  mode:
+    description: "`start` or `report`."
+    default: start
+runs:
+  using: composite
+  steps:
+    # head ends the lists it cuts short, and the commands before it fail writing them: without
+    # pipefail (an action's bash's), a list cut short is no failure. A step's background work keeps
+    # none of the step's input and output open: the runner waits for them to close.
+    - if: inputs.mode == 'start'
+      name: the runner's and the emulator's load (in the background)
+      shell: bash
+      run: |
+        set +o pipefail
+        (while :; do
+          echo "$(date +%T) load $(cut -d' ' -f1-3 /proc/loadavg); $(vmstat 1 2 | tail -1 | awk '{ printf "cpu us %s sy %s id %s wa %s stolen %s; memory free %s MB, swapped in %s out %s", $13, $14, $15, $16, $17, int($4 / 1024), $7, $8 }')"
+          ps -A -o %cpu=,comm= --sort=-%cpu | head -6
+          adb=$ANDROID_HOME/platform-tools/adb
+          serial=$(timeout 5 "$adb" devices 2> /dev/null | awk 'NR > 1 && $2 == "device" { print $1; exit }')
+          if [ -n "$serial" ]; then
+            echo "  in $serial:"
+            timeout 10 "$adb" -s "$serial" shell top -b -d 1 -n 2 -m 5 -o %CPU,NAME 2> /dev/null | tail -7 | grep -v NAME | sed 's/^/  /'
+          fi
+          sleep 25
+        done) > "$RUNNER_TEMP/android-load.log" 2>&1 < /dev/null &
+    - if: inputs.mode == 'report'
+      name: the runner's and the emulator's load
+      shell: bash
+      run: |
+        set +o pipefail
+        cat "$RUNNER_TEMP/android-load.log"
+        echo "the processes that took the most processor time:"
+        ps -A -o time=,comm= | sort -r | head -20

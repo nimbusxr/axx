@@ -1694,35 +1694,77 @@ public final class Bridge {
     int kh = Math.max(h / Math.min(16, h), 1),
         kw = Math.max(w / Math.min(16, w), 1), ph = h / kh, pw = w / kw;
     double[] values = new double[c * ph * pw];
-    for (int y = 0; y < ph * kh; y++)
+    // The two rows of the crop each row of the input samples, read a row at a time: a call into
+    // the bitmap for each of a pixel's four neighbours and three channels took seconds a frame on
+    // a busy emulator. What each column samples is the same for every row.
+    String channels = spec.optString("channels");
+    boolean bgr = channels.equals("BGR"), gray = c == 1 || channels.equals("gray");
+    int[] left = new int[pw * kw], right = new int[pw * kw];
+    double[] across = new double[pw * kw];
+    for (int x = 0; x < pw * kw; x++) {
+      double sx = (x + 0.5) * cw / w - 0.5;
+      int x0 = (int)Math.floor(sx);
+      across[x] = sx - Math.floor(sx);
+      left[x] = Math.min(Math.max(x0, 0), cw - 1);
+      right[x] = Math.min(Math.max(x0 + 1, 0), cw - 1);
+    }
+    int[] top = new int[cw], bottom = new int[cw];
+    int topRow = -1, bottomRow = -1;
+    int plane = ph * pw;
+    for (int y = 0; y < ph * kh; y++) {
+      double sy = (y + 0.5) * ch / h - 0.5, fy = sy - Math.floor(sy);
+      int y0 = (int)Math.floor(sy), ya = Math.min(Math.max(y0, 0), ch - 1),
+          yb = Math.min(Math.max(y0 + 1, 0), ch - 1);
+      if (ya != topRow) {
+        if (ya == bottomRow) {
+          int[] swap = top;
+          top = bottom;
+          bottom = swap;
+          bottomRow = -1;
+        } else
+          bitmap.getPixels(top, 0, cw, ox, oy + ya, cw, 1);
+        topRow = ya;
+      }
+      if (yb != bottomRow) {
+        bitmap.getPixels(bottom, 0, cw, ox, oy + yb, cw, 1);
+        bottomRow = yb;
+      }
+      double gy = 1 - fy;
+      int row = y / kh * pw;
+      // Each channel of the four neighbours, weighted by its alpha, then blended across and
+      // down: written out, as the app's runtime interprets it until it compiles it.
       for (int x = 0; x < pw * kw; x++) {
-        double sx = (x + 0.5) * cw / w - 0.5, sy = (y + 0.5) * ch / h - 0.5,
-               fx = sx - Math.floor(sx), fy = sy - Math.floor(sy);
-        int x0 = (int)Math.floor(sx), y0 = (int)Math.floor(sy);
-        double[] rgb = new double[3];
-        for (int k = 0; k < 3; k++) {
-          double[] px = new double[4];
-          for (int dy = 0; dy < 2; dy++)
-            for (int dx = 0; dx < 2; dx++) {
-              int color =
-                  bitmap.getPixel(ox + Math.min(Math.max(x0 + dx, 0), cw - 1),
-                                  oy + Math.min(Math.max(y0 + dy, 0), ch - 1));
-              px[dy * 2 + dx] = ((color >> (16 - k * 8)) & 255) *
-                                (double)((color >>> 24) & 255) / 255;
-            }
-          double top = px[0] * (1 - fx) + px[1] * fx,
-                 bottom = px[2] * (1 - fx) + px[3] * fx;
-          rgb[k] = top * (1 - fy) + bottom * fy;
-        }
-        for (int k = 0; k < c; k++) {
-          double v =
-              k < 3 ? rgb[spec.optString("channels").equals("BGR") ? 2 - k : k]
-                    : 255;
-          if (c == 1 || spec.optString("channels").equals("gray"))
-            v = 0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2];
-          values[k * ph * pw + y / kh * pw + x / kw] += v;
+        double fx = across[x], gx = 1 - fx;
+        int p0 = top[left[x]], p1 = top[right[x]], p2 = bottom[left[x]],
+            p3 = bottom[right[x]];
+        double a0 = (p0 >>> 24) & 255, a1 = (p1 >>> 24) & 255,
+               a2 = (p2 >>> 24) & 255, a3 = (p3 >>> 24) & 255;
+        double r = (((p0 >> 16) & 255) * a0 / 255 * gx +
+                    ((p1 >> 16) & 255) * a1 / 255 * fx) * gy +
+                   (((p2 >> 16) & 255) * a2 / 255 * gx +
+                    ((p3 >> 16) & 255) * a3 / 255 * fx) * fy;
+        double g = (((p0 >> 8) & 255) * a0 / 255 * gx +
+                    ((p1 >> 8) & 255) * a1 / 255 * fx) * gy +
+                   (((p2 >> 8) & 255) * a2 / 255 * gx +
+                    ((p3 >> 8) & 255) * a3 / 255 * fx) * fy;
+        double b = ((p0 & 255) * a0 / 255 * gx + (p1 & 255) * a1 / 255 * fx) * gy +
+                   ((p2 & 255) * a2 / 255 * gx + (p3 & 255) * a3 / 255 * fx) * fy;
+        int at = row + x / kw;
+        if (gray) {
+          double v = 0.299 * r + 0.587 * g + 0.114 * b;
+          for (int k = 0; k < c; k++)
+            values[k * plane + at] += v;
+        } else {
+          values[at] += bgr ? b : r;
+          if (c > 1)
+            values[plane + at] += g;
+          if (c > 2)
+            values[2 * plane + at] += bgr ? r : b;
+          for (int k = 3; k < c; k++)
+            values[k * plane + at] += 255;
         }
       }
+    }
     for (int i = 0; i < values.length; i++)
       values[i] /= kh * kw;
     for (int k = 0; k < c; k++)
