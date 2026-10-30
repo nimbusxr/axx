@@ -648,21 +648,8 @@ jobs:
       - uses: ./.github/actions/go-cache
         with:
           build: mac-tests
-      # Each test binary in its package's folder, where scripts/gotest.sh runs it, and test2json
-      # for macOS, which Go builds when it is asked for (go tool test2json).
       - name: the tests, built for macOS
-        env:
-          GOOS: darwin
-          GOARCH: arm64
-          CGO_ENABLED: "0"
-        run: |
-          built=(bin/test2json)
-          go build -o bin/test2json cmd/test2json
-          for pkg in packs/mobile/ios packs/models/ios packs/models/macos packs/models/core/format/coreml packs/models/core/format/foundationmodels; do
-            go test -c -tags integration -o "$pkg/$(basename "$pkg").test" "./$pkg"
-            built+=("$pkg/$(basename "$pkg").test")
-          done
-          tar -cf "$RUNNER_TEMP/mac-tests.tar" "${built[@]}"
+        run: scripts/mac-tests.sh "$RUNNER_TEMP/mac-tests.tar"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: mac-tests

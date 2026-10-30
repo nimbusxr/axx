@@ -77,9 +77,9 @@ while ! $all && ! $none && IFS= read -r f; do
       examples/parcels/acceptance/features/courier-app/recordings/* | \
       core/* | internal/* | go.mod | go.sum | mise.toml | .mise.toml) models=true ;;
   esac
-  # The simulator the ios and coreml jobs make for their tests.
+  # The simulator the ios and coreml jobs make for their tests, and their tests' build.
   case "$f" in
-    scripts/ios-simulator.sh) mobile=true models=true ;;
+    scripts/ios-simulator.sh | scripts/mac-tests.sh) mobile=true models=true ;;
   esac
   # The examples' acceptance suites: axx, the examples, and the WireMock extension the parcels
   # example builds its mocks from.

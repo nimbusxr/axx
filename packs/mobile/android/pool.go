@@ -175,7 +175,14 @@ func (p *pool) start(ctx context.Context, logDir string) (*device, error) {
 	// Its ports on the host are adb's to pick, as it forwards them to the server (startServer).
 	d := &device{serial: p.name, installed: map[string]bool{}}
 	if p.avd {
-		if err := p.boot1(ctx, d, logDir, false); err != nil {
+		err := p.boot1(ctx, d, logDir, false)
+		// An emulator that stops as it starts (one of CI's, now and then, as it set up its
+		// graphics) is started once more, as a person starts a phone again that went off.
+		if errors.Is(err, errStoppedStarting) {
+			p.suite.Logger().Warn("the Android emulator stopped as it started: starting it again", "avd", p.name, "err", err)
+			err = p.boot1(ctx, d, logDir, false)
+		}
+		if err != nil {
 			return nil, err
 		}
 	}
@@ -204,6 +211,9 @@ func settle(ctx context.Context, s *sdk, serial string) error {
 	_, err := s.shell(ctx, serial, "settings", "put", "secure", "long_press_timeout", "1500")
 	return err
 }
+
+// errStoppedStarting is an emulator that stopped before it booted.
+var errStoppedStarting = errors.New("stopped as it started")
 
 // boot1 starts an emulator of the pool's AVD, read-only so that several run
 // at once and what a scenario changes is gone when it stops; cold, without
@@ -290,7 +300,7 @@ func (p *pool) boot1(ctx context.Context, d *device, logDir string, cold bool) e
 			return fmt.Errorf("%w; its log: %s", err, log.Name())
 		}
 	case <-d.exited:
-		return fmt.Errorf("the %s emulator stopped as it started; its log: %s", p.name, log.Name())
+		return fmt.Errorf("the %s emulator %w (%s); its log: %s", p.name, errStoppedStarting, cmd.ProcessState, log.Name())
 	}
 	// The system says nothing over the app of another app that hangs or
 	// crashes, like its Messages on a slow machine ("isn't responding").
