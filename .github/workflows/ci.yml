@@ -375,10 +375,10 @@ jobs:
       fail-fast: false
       matrix:
         # The Android pack's integration tests run one after another, each on an emulator, and the
-        # models-android pack's on one of their own: in seven parts of some 4 minutes each on these
-        # runners, after some 3 of setting up (no job runs past 10). With no tests to run, one
-        # part builds them, and keeps the couriers' app and the emulator's device for the rest.
-        part: ${{ fromJSON(needs.changes.outputs.tests == 'true' && '["emulator-1", "emulator-2", "emulator-3", "emulator-4", "emulator-5", "models-1", "models-2"]' || '["emulator-1"]') }}
+        # models-android pack's on one of their own: in nine parts of some 2.5 to 3.5 minutes each
+        # on these runners, after some 3 of setting up (no job runs past 10). With no tests to run,
+        # one part builds them, and keeps the couriers' app and the emulator's device for the rest.
+        part: ${{ fromJSON(needs.changes.outputs.tests == 'true' && '["emulator-1", "emulator-2", "emulator-3", "emulator-4", "emulator-5", "emulator-6", "models-1", "models-2", "models-3"]' || '["emulator-1"]') }}
     env:
       PART: ${{ matrix.part }}
     steps:
@@ -444,20 +444,22 @@ jobs:
           save-emulator: ${{ matrix.part == 'emulator-1' }}
       - if: needs.changes.outputs.tests == 'true' && startsWith(matrix.part, 'emulator-')
         run: |
-          # The parts, by their tests' times here (gotestsum's slowest): the fifth runs the rest.
-          one='TestACourierReadsATornLabelOnAnEmulator|TestACourierSharesTheVanOnAnEmulator'
-          two='TestCouriersOnAnEmulator|TestACourierAttachesADocumentOnAnEmulator|TestACourierScansALabelOnAnEmulator'
-          three='TestACourierWalksUpToAParcelAndMeasuresItOnAnEmulator|TestACourierPhotographsAParcelAtTheDoorOnAnEmulator|TestRecordingsOnAnEmulator'
-          four='TestACourierMeasuresAParcelOnAnEmulator|TestACourierIsRemindedOfTheRoundOnAnEmulator'
+          # The parts, by their tests' times here (gotestsum's slowest): the sixth runs the rest.
+          one='TestACourierReadsATornLabelOnAnEmulator'
+          two='TestCouriersOnAnEmulator|TestACourierScansALabelOnAnEmulator'
+          three='TestACourierAttachesADocumentOnAnEmulator|TestACourierSharesTheVanOnAnEmulator'
+          four='TestACourierWalksUpToAParcelAndMeasuresItOnAnEmulator|TestACourierPhotographsAParcelAtTheDoorOnAnEmulator'
+          five='TestACourierMeasuresAParcelOnAnEmulator|TestRecordingsOnAnEmulator'
           case "$PART" in
             emulator-1) select=(-run "^($one)\$") ;;
             emulator-2) select=(-run "^($two)\$") ;;
             emulator-3) select=(-run "^($three)\$") ;;
             emulator-4) select=(-run "^($four)\$") ;;
-            *) select=(-skip "^($one|$two|$three|$four)\$") ;;
+            emulator-5) select=(-run "^($five)\$") ;;
+            *) select=(-skip "^($one|$two|$three|$four|$five)\$") ;;
           esac
           GOTEST_SLOWEST=1s scripts/gotest.sh -race -tags integration -timeout 10m "${select[@]}" ./packs/mobile/...
-      # The models-android pack's tests, in two parts, on an emulator of the device's snapshot.
+      # The models-android pack's tests, in three parts, on an emulator of the device's snapshot.
       - if: needs.changes.outputs.tests == 'true' && startsWith(matrix.part, 'models-')
         name: platform model adapters in a debuggable emulator app
         run: |
@@ -470,10 +472,10 @@ jobs:
             sleep 1
           done
           [ "$("$ANDROID_HOME/platform-tools/adb" -s emulator-5580 shell getprop sys.boot_completed | tr -d '\r')" = 1 ] || { cat "$RUNNER_TEMP/models-emulator.log"; exit 1; }
-          first='TestAndroidSpeechTellsOneSpeakersPhrasesApart|TestAndroidAppLaunchHook'
           case "$PART" in
-            models-1) select=(-run "^($first)\$") ;;
-            *) select=(-skip "^($first)\$") ;;
+            models-1) select=(-run '^TestAndroidSpeechTellsOneSpeakersPhrasesApart$') ;;
+            models-2) select=(-run '^TestAndroidAppLaunchHook$') ;;
+            *) select=(-skip '^(TestAndroidSpeechTellsOneSpeakersPhrasesApart|TestAndroidAppLaunchHook)$') ;;
           esac
           AXX_MODELS_ANDROID_SERIAL=emulator-5580 GOTEST_SLOWEST=1s scripts/gotest.sh -race -tags integration -timeout 10m "${select[@]}" ./packs/models/android/...
 
@@ -483,8 +485,9 @@ jobs:
     # The parcels example's Android scenarios, on an emulator axx starts (KVM), against the
     # whole example, which axx starts too. A runner runs a feature, or a shard of it (axx run
     # --shard), on one emulator, a scenario at a time: some 3 to 4 minutes' worth on a fast
-    # runner, after some 3 of setting up, so that a slow one (the same scenarios took up to 1.5
-    # times as long) takes no job past 10.
+    # runner (a minute of it starting the example; a documents scenario takes nearly 2), after
+    # some 3 of setting up, so that a slow one (the same scenarios took up to 1.5 times as long)
+    # takes no job past 10.
     name: android (${{ matrix.feature }} ${{ matrix.part }}/${{ matrix.of }})
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -492,20 +495,24 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - {feature: courier-app, part: 1, of: 4}
-          - {feature: courier-app, part: 2, of: 4}
-          - {feature: courier-app, part: 3, of: 4}
-          - {feature: courier-app, part: 4, of: 4}
+          - {feature: courier-app, part: 1, of: 5}
+          - {feature: courier-app, part: 2, of: 5}
+          - {feature: courier-app, part: 3, of: 5}
+          - {feature: courier-app, part: 4, of: 5}
+          - {feature: courier-app, part: 5, of: 5}
           - {feature: courier-app-camera, part: 1, of: 2}
           - {feature: courier-app-camera, part: 2, of: 2}
-          - {feature: courier-app-documents, part: 1, of: 4}
-          - {feature: courier-app-documents, part: 2, of: 4}
-          - {feature: courier-app-documents, part: 3, of: 4}
-          - {feature: courier-app-documents, part: 4, of: 4}
+          - {feature: courier-app-documents, part: 1, of: 6}
+          - {feature: courier-app-documents, part: 2, of: 6}
+          - {feature: courier-app-documents, part: 3, of: 6}
+          - {feature: courier-app-documents, part: 4, of: 6}
+          - {feature: courier-app-documents, part: 5, of: 6}
+          - {feature: courier-app-documents, part: 6, of: 6}
           - {feature: courier-app-measure, part: 1, of: 2}
           - {feature: courier-app-measure, part: 2, of: 2}
-          - {feature: courier-app-notifications, part: 1, of: 2}
-          - {feature: courier-app-notifications, part: 2, of: 2}
+          - {feature: courier-app-notifications, part: 1, of: 3}
+          - {feature: courier-app-notifications, part: 2, of: 3}
+          - {feature: courier-app-notifications, part: 3, of: 3}
     steps:
       # The example's images need more disk than a runner has free: remove toolchains the job
       # never uses (not the Android SDK), in the background while the job sets up.
@@ -622,11 +629,12 @@ jobs:
     # The iOS pack, on simulators axx makes, with the parcels example's couriers' iOS app. The
     # example's iOS scenarios need the whole example, and macOS runners have no Docker: they
     # run on developers' Macs.
-    # The tests run on seven runners, a simulator each, some 3 to 4 minutes' worth on each after
-    # some 4 of setting up (the simulator's first boot takes 2 to 3), so that no job runs past 10:
+    # The tests run on nine runners, a simulator each, some 2 to 4 minutes' worth on each after
+    # some 4.5 of setting up (the simulator's first boot takes 2 to 3; a part's first test takes a
+    # minute longer, as the simulator's first app does), so that no job runs past 10:
     # TestCouriersOnASimulator, two scenarios long, and TestRecordingsOnASimulator on one; the
-    # camera's on two; the notifications' and the reminder's on one each; sharing the van on one;
-    # the others on the seventh.
+    # camera's on four; the notifications' and the reminder's on one each; sharing the van on
+    # one; the others on the ninth.
     name: ios (${{ matrix.tests }})
     runs-on: macos-latest
     timeout-minutes: 60
@@ -637,9 +645,13 @@ jobs:
           - tests: couriers
             select: -run=^(TestCouriersOnASimulator|TestRecordingsOnASimulator)$
           - tests: camera-1
-            select: -run=^(TestThePhoneMovesThroughTheScene|TestACourierReadsATornLabelOnASimulator|TestACourierScansALabelOnASimulator|TestTheCameraSeesASceneAnImageOrAVideo)$
+            select: -run=^(TestThePhoneMovesThroughTheScene|TestTheCameraSeesASceneAnImageOrAVideo)$
           - tests: camera-2
-            select: -run=^(TestACourierMeasuresAParcelOnASimulator|TestACourierWalksUpToAParcelAndMeasuresItOnASimulator|TestACourierPhotographsAParcelAtTheDoorOnASimulator)$
+            select: -run=^TestACourierMeasuresAParcelOnASimulator$
+          - tests: camera-3
+            select: -run=^(TestACourierWalksUpToAParcelAndMeasuresItOnASimulator|TestACourierPhotographsAParcelAtTheDoorOnASimulator)$
+          - tests: camera-4
+            select: -run=^(TestACourierReadsATornLabelOnASimulator|TestACourierScansALabelOnASimulator)$
           - tests: notifications
             select: -run=^TestACourierFollowsNotificationsOnASimulator$
           - tests: reminder
@@ -739,6 +751,14 @@ jobs:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           persist-credentials: false
+      # The simulator as the ios job makes it (the newest iOS, 27's on this image), its first
+      # boot's work no test needs off: a bare one, on this runner, did not yet serve apps' requests
+      # for notifications after minutes (the courier's sign-in asks for them). Its first boot takes
+      # 2 to 7 minutes on this runner: it starts now, while the rest sets up (the ios job's waits
+      # for its builds, which its 3 processors' runner makes slower beside a boot).
+      - if: matrix.part != 'mac'
+        name: the tests' simulator (in the background)
+        run: (status=0; scripts/ios-simulator.sh > "$RUNNER_TEMP/simulator.log" 2>&1 || status=$?; echo "$status" > "$RUNNER_TEMP/simulator.done") &
       # The examples' model files (Git LFS).
       - uses: ./.github/actions/lfs
       - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
@@ -758,16 +778,13 @@ jobs:
       - if: matrix.part != 'mac'
         name: the tests, built
         run: go test -tags integration -run '^$' ./packs/models/ios/...
-      # The simulator as the ios job makes it (the newest iOS, 27's on this image), its first
-      # boot's work no test needs off: a bare one, on this runner, did not yet serve apps' requests
-      # for notifications after minutes (the courier's sign-in asks for them). Made once the tests
-      # are built, as the ios job's is: its first boot slows whatever runs beside it.
       - if: matrix.part != 'mac'
-        name: the tests' simulator
+        name: wait for the tests' simulator
         run: |
-          made=$(scripts/ios-simulator.sh)
-          echo "$made"
-          echo "AXX_IOS_MODELS_SIMULATOR=$(sed -n 's/.*(\([0-9A-F-]\{36\}\)) booted in .*/\1/p' <<< "$made")" >> "$GITHUB_ENV"
+          for _ in $(seq 600); do [ -f "$RUNNER_TEMP/simulator.done" ] && break; sleep 1; done
+          cat "$RUNNER_TEMP/simulator.log"
+          [ "$(cat "$RUNNER_TEMP/simulator.done" 2> /dev/null)" = 0 ] || { echo "::error::the simulator was not made"; exit 1; }
+          echo "AXX_IOS_MODELS_SIMULATOR=$(sed -n 's/.*(\([0-9A-F-]\{36\}\)) booted in .*/\1/p' "$RUNNER_TEMP/simulator.log")" >> "$GITHUB_ENV"
       - if: matrix.part != 'mac'
         name: platform model adapters in the simulator
         run: |
@@ -1085,6 +1102,9 @@ jobs:
       # The parcels shop portal's features run in browsers.
       - if: matrix.example == 'parcels' && needs.changes.outputs.tests == 'true'
         uses: ./.github/actions/web-tools
+      # The image parcel-support's compose file builds: in a minute, not five.
+      - if: matrix.example == 'parcel-support' && needs.changes.outputs.tests == 'true'
+        uses: ./.github/actions/support-image
       # The images parcels' compose file builds: in seconds, not minutes.
       - if: matrix.example == 'parcels'
         uses: ./.github/actions/parcels-images
