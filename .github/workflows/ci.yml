@@ -329,9 +329,10 @@ jobs:
     needs: changes
     if: needs.changes.outputs.mobile == 'true'
     # The mobile packs' tests, on an Android emulator that axx starts (KVM). The iOS pack's
-    # skip here: they run in the ios job.
+    # skip here: they run in the ios job. The camera's tests take the longest: an emulator's
+    # camera, rendered without a GPU, takes seconds to start.
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - name: KVM, for the emulator, and where its devices are
         run: |
@@ -396,7 +397,7 @@ jobs:
           cat "$RUNNER_TEMP/device.log"
           [ "$(cat "$RUNNER_TEMP/device.done" 2> /dev/null)" = 0 ] || { df -h /; tail -n 40 "$ANDROID_AVD_HOME/parcels-pixel-snapshot.log" 2> /dev/null || true; echo "::error::the emulator's device was not made"; exit 1; }
       - if: needs.changes.outputs.tests == 'true'
-        run: GOTEST_SLOWEST=1s scripts/gotest.sh -race -tags integration -timeout 20m ./packs/mobile/...
+        run: GOTEST_SLOWEST=1s scripts/gotest.sh -race -tags integration -timeout 30m ./packs/mobile/...
       - if: needs.changes.outputs.tests == 'true'
         name: platform model adapters in a debuggable emulator app
         run: |
