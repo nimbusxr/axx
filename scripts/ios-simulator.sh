@@ -43,17 +43,26 @@ xcrun simctl boot "$udid"
 # background (siriactionsd), the lock screen's posters, each drawn by an extension of its own
 # (PosterBoard), or Spotlight's knowledge of the apps (spotlightknowledged). Without those, a new
 # simulator's processes took 217 s of processor time to the end of the courier's Foundation
-# Models test rather than 313, on a Mac, and downloaded 8 MB rather than 1.6 GB. They are turned
-# off as the simulator starts to boot, so that its boot does none of that work either: launchd
-# keeps them off from then on, through the rest of the boot. That runs alongside the wait for the
-# boot, each service at once with the others: one after another, an iOS 27 simulator's took two
-# and a half minutes past its boot (simctl spawn takes seconds each, there).
+# Models test rather than 313, on a Mac, and downloaded 8 MB rather than 1.6 GB. Nor the rest of
+# its downloads (mobileassetd: 30 s of unpacking in a job even so), the Calendar's sync, which
+# keeps the Calendar app busy (72% of a core while a camera test read its label, which took 16 s
+# rather than 2 on a Mac), Fitness's, Wallet's and Maps' daemons, Spotlight's indexing, the apps'
+# of the App Store, Game Center, Home, News, Weather, Tips, Reminders and Mail, or Siri's
+# knowledge. They are turned off as the simulator starts to boot, so that its boot does none of
+# that work either: launchd keeps them off from then on, through the rest of the boot. That runs
+# alongside the wait for the boot, each service at once with the others: one after another, an
+# iOS 27 simulator's took two and a half minutes past its boot (simctl spawn takes seconds each,
+# there; on GitHub's xcode-27 runner it takes none until the boot is done).
 disabled=$(mktemp)
 (
   for service in com.apple.mediaanalysisd com.apple.mediaanalysisd.analysis com.apple.mediaanalysisd.computeservice \
     com.apple.mediaanalysisd.photos com.apple.ScreenTimeAgent com.apple.fitnessintelligenced com.apple.amsengagementd \
     com.apple.apsd com.apple.chronod com.apple.assetsubscriptiond com.apple.accessibility.axassetsd com.apple.healthappd \
-    com.apple.siriactionsd com.apple.PosterBoard com.apple.spotlightknowledged com.apple.spotlightknowledged.updater; do
+    com.apple.siriactionsd com.apple.PosterBoard com.apple.spotlightknowledged com.apple.spotlightknowledged.updater \
+    com.apple.mobileassetd com.apple.dataaccess.dataaccessd com.apple.calaccessd com.apple.fitcore com.apple.fitcore.session \
+    com.apple.financed com.apple.navd com.apple.searchd com.apple.corespotlightservice com.apple.hybridsearchd \
+    com.apple.appstored com.apple.gamed com.apple.homed com.apple.newsd com.apple.weatherd com.apple.tipsd com.apple.remindd \
+    com.apple.email.maild com.apple.icloudmailagent com.apple.knowledgeconstructiond com.apple.siriknowledged; do
     (
       xcrun simctl spawn "$udid" launchctl disable "user/501/$service"
       echo "$(($(date +%s) - started))" >> "$disabled"
