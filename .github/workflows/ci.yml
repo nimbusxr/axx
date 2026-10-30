@@ -415,7 +415,7 @@ jobs:
         run: |
           for _ in $(seq 450); do [ -f "$RUNNER_TEMP/device.done" ] && break; sleep 2; done
           cat "$RUNNER_TEMP/device.log"
-          [ "$(cat "$RUNNER_TEMP/device.done" 2> /dev/null)" = 0 ] || { df -h /; tail -n 40 "$ANDROID_AVD_HOME/parcels-pixel-snapshot.log" 2> /dev/null || true; echo "::error::the emulator's device was not made"; exit 1; }
+          [ "$(cat "$RUNNER_TEMP/device.done" 2> /dev/null)" = 0 ] || { df -h /; tail -n 40 "$ANDROID_AVD_HOME/parcels-pixel-snapshot.log" 2> /dev/null || true; ps -A -o pid,ppid,stat,wchan:32,etime,args | grep -E '[c]reate-emulator|[e]mulator|[q]emu|[a]db' || true; echo "::error::the emulator's device was not made"; exit 1; }
       - if: needs.changes.outputs.tests == 'true'
         env:
           PART: ${{ matrix.part }}
@@ -545,7 +545,7 @@ jobs:
         run: |
           for _ in $(seq 450); do [ -f "$RUNNER_TEMP/device.done" ] && break; sleep 2; done
           cat "$RUNNER_TEMP/device.log"
-          [ "$(cat "$RUNNER_TEMP/device.done" 2> /dev/null)" = 0 ] || { df -h /; tail -n 40 "$ANDROID_AVD_HOME/parcels-pixel-snapshot.log" 2> /dev/null || true; echo "::error::the emulator's device was not made"; exit 1; }
+          [ "$(cat "$RUNNER_TEMP/device.done" 2> /dev/null)" = 0 ] || { df -h /; tail -n 40 "$ANDROID_AVD_HOME/parcels-pixel-snapshot.log" 2> /dev/null || true; ps -A -o pid,ppid,stat,wchan:32,etime,args | grep -E '[c]reate-emulator|[e]mulator|[q]emu|[a]db' || true; echo "::error::the emulator's device was not made"; exit 1; }
       - name: wait for the example's images
         run: |
           for _ in $(seq 300); do [ -f "$RUNNER_TEMP/pull.done" ] && break; sleep 2; done

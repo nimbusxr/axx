@@ -126,7 +126,12 @@ while kill -0 "$emulator" 2> /dev/null && [ "$SECONDS" -lt "$deadline" ]; do sle
 if kill -0 "$emulator" 2> /dev/null; then
   say "parcels-pixel did not save its boot snapshot in five minutes; the end of the emulator's log ($ANDROID_AVD_HOME/parcels-pixel-snapshot.log):" >&2
   tail -n 40 "$ANDROID_AVD_HOME/parcels-pixel-snapshot.log" >&2 || true
+  # What the emulator's processes are doing (their state, and what each waits for), and how far
+  # its snapshot got.
+  ps -A -o pid,ppid,stat,wchan,etime,command | grep -E '[e]mulator|[q]emu' >&2 || true
+  ls -la "$ANDROID_AVD_HOME/parcels-pixel.avd/snapshots/"* >&2 2> /dev/null || true
   kill -9 "$emulator" 2> /dev/null || true
+  say "parcels-pixel: stopped" >&2
   exit 1
 fi
 wait "$emulator" || true
