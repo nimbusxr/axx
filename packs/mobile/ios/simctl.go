@@ -237,14 +237,19 @@ func (set simSet) boot(ctx context.Context, udid string, within time.Duration) e
 // after the simulator says it has booted: seconds, or over a minute on a busy
 // Mac. Until then an app's request goes unanswered, so the dialog a scenario
 // waits for never shows. It reads the simulator's log from since on (a clone
-// has its template's log too).
+// has its template's log too): the notification server adding its content
+// protection observer, as it starts. A log that cannot read SpringBoard's own
+// strings (an iOS 27 simulator's on GitHub's runner, every message of
+// SpringBoard's "<compose failure [shared UUID]>") still has the entry, the
+// only one of its category that SpringBoard logs as it starts.
 func (set simSet) notificationsServed(ctx context.Context, udid string, since time.Time, within time.Duration) bool {
 	ctx, cancel := context.WithTimeout(ctx, within)
 	defer cancel()
 	predicate := `process == "SpringBoard" AND subsystem == "com.apple.UserNotifications" AND category == "ContentProtection"`
 	args := []string{"spawn", udid, "log", "show", "--start", since.Format("2006-01-02 15:04:05"), "--style", "compact", "--predicate", predicate}
 	for {
-		if out, _ := set.simctl(ctx, args...); strings.Contains(out, "UNSUserNotificationServer") {
+		if out, _ := set.simctl(ctx, args...); strings.Contains(out, "UNSUserNotificationServer") ||
+			strings.Contains(out, "[com.apple.UserNotifications:ContentProtection] <compose failure") {
 			return true
 		}
 		select {
