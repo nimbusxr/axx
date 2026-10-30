@@ -18,7 +18,9 @@ Feature: A courier attaches a document to a delivery, on Android
   the parcel, the parcel (its object detection, of the photo's prominent object) must not run off
   the photo's edge, and the people in it (its selfie segmentation) are blurred out before it
   leaves the phone. ML Kit's models come with ML Kit, so the scenarios give the app stubs of them
-  instead (../../models/photo-*-android), prebuilt, in its axx-models folder.
+  instead (../../models/photo-*-android), prebuilt, in its axx-models folder. An emulator that
+  shares a CI runner with the example's services takes seconds to load ML Kit and its models the
+  first time an app uses them: the app is given 30 seconds to check a photo.
 
   A parcel that comes to the courier damaged is reported with a photo of the damage. The
   company's own damage classifier, a PyTorch model saved for PyTorch Mobile, checks on the phone
@@ -84,7 +86,7 @@ Feature: A courier attaches a document to a delivery, on Android
     And the "Downloads" text is tapped in the courier app
     And the "parcel-at-door.jpg" text is scrolled into view in the courier app
     And the "parcel-at-door.jpg" text is tapped in the courier app
-    Then the courier app shows "parcel-at-door.jpg attached"
+    Then within 30s the courier app shows "parcel-at-door.jpg attached"
     And within 10s a selection of at least 1 row is retrieved from the parcels.delivery_documents table where:
       | reference    | PX-MOB-9482        |
       | name         | parcel-at-door.jpg |
@@ -104,7 +106,7 @@ Feature: A courier attaches a document to a delivery, on Android
     And the "Downloads" text is tapped in the courier app
     And the "house-number.jpg" text is scrolled into view in the courier app
     And the "house-number.jpg" text is tapped in the courier app
-    Then the courier app shows "house-number.jpg shows no parcel: take a photo of the parcel where you leave it."
+    Then within 30s the courier app shows "house-number.jpg shows no parcel: take a photo of the parcel where you leave it."
     And a selection of rows is retrieved from the parcels.delivery_documents table where:
       | reference | PX-MOB-9483 |
     And the selection has 0 rows
@@ -121,7 +123,7 @@ Feature: A courier attaches a document to a delivery, on Android
     And the "Downloads" text is tapped in the courier app
     And the "label-PX-MOB-9489.jpg" text is scrolled into view in the courier app
     And the "label-PX-MOB-9489.jpg" text is tapped in the courier app
-    Then the courier app shows "label-PX-MOB-9489.jpg shows the label of PX-MOB-9489: take a photo of PX-MOB-9484."
+    Then within 30s the courier app shows "label-PX-MOB-9489.jpg shows the label of PX-MOB-9489: take a photo of PX-MOB-9484."
     And a selection of rows is retrieved from the parcels.delivery_documents table where:
       | reference | PX-MOB-9484 |
     And the selection has 0 rows
@@ -138,7 +140,7 @@ Feature: A courier attaches a document to a delivery, on Android
     And the "Downloads" text is tapped in the courier app
     And the "parcel-and-dog.jpg" text is scrolled into view in the courier app
     And the "parcel-and-dog.jpg" text is tapped in the courier app
-    Then the courier app shows "parcel-and-dog.jpg shows a dog beside the parcel: leave the parcel out of its reach, and take a photo of it there."
+    Then within 30s the courier app shows "parcel-and-dog.jpg shows a dog beside the parcel: leave the parcel out of its reach, and take a photo of it there."
     And a selection of rows is retrieved from the parcels.delivery_documents table where:
       | reference | PX-MOB-9485 |
     And the selection has 0 rows
@@ -155,7 +157,7 @@ Feature: A courier attaches a document to a delivery, on Android
     And the "Downloads" text is tapped in the courier app
     And the "parcel-cut-off.jpg" text is scrolled into view in the courier app
     And the "parcel-cut-off.jpg" text is tapped in the courier app
-    Then the courier app shows "parcel-cut-off.jpg shows the parcel cut off at its edge: step back and take a photo of the whole parcel."
+    Then within 30s the courier app shows "parcel-cut-off.jpg shows the parcel cut off at its edge: step back and take a photo of the whole parcel."
     And a selection of rows is retrieved from the parcels.delivery_documents table where:
       | reference | PX-MOB-9488 |
     And the selection has 0 rows
@@ -172,7 +174,7 @@ Feature: A courier attaches a document to a delivery, on Android
     And the "Downloads" text is tapped in the courier app
     And the "parcel-and-person.jpg" text is scrolled into view in the courier app
     And the "parcel-and-person.jpg" text is tapped in the courier app
-    Then the courier app shows "parcel-and-person.jpg attached: the people in it are blurred out"
+    Then within 30s the courier app shows "parcel-and-person.jpg attached: the people in it are blurred out"
     And within 10s a selection of at least 1 row is retrieved from the parcels.delivery_documents table where:
       | reference    | PX-MOB-9486           |
       | name         | parcel-and-person.jpg |
@@ -191,7 +193,7 @@ Feature: A courier attaches a document to a delivery, on Android
     And the "Downloads" text is tapped in the courier app
     And the "safe-place-PX-MOB-9487.jpg" text is scrolled into view in the courier app
     And the "safe-place-PX-MOB-9487.jpg" text is tapped in the courier app
-    Then the courier app shows "safe-place-PX-MOB-9487.jpg attached"
+    Then within 30s the courier app shows "safe-place-PX-MOB-9487.jpg attached"
     And within 10s a selection of at least 1 row is retrieved from the parcels.delivery_documents table where:
       | reference    | PX-MOB-9487                |
       | name         | safe-place-PX-MOB-9487.jpg |
@@ -211,7 +213,7 @@ Feature: A courier attaches a document to a delivery, on Android
     And the "List view" button is tapped in the courier app
     And the "crushed-parcel.jpg" text is scrolled into view in the courier app
     And the "crushed-parcel.jpg" text is tapped in the courier app
-    Then the courier app shows "Damage reported: crushed-parcel.jpg"
+    Then within 30s the courier app shows "Damage reported: crushed-parcel.jpg"
     And within 10s a selection of at least 1 row is retrieved from the parcels.delivery_documents table where:
       | reference    | PX-MOB-9490               |
       | name         | damage-crushed-parcel.jpg |
@@ -232,7 +234,7 @@ Feature: A courier attaches a document to a delivery, on Android
     And the "List view" button is tapped in the courier app
     And the "parcel-at-door.jpg" text is scrolled into view in the courier app
     And the "parcel-at-door.jpg" text is tapped in the courier app
-    Then the courier app shows "parcel-at-door.jpg shows no damage: take a photo of where the parcel is damaged."
+    Then within 30s the courier app shows "parcel-at-door.jpg shows no damage: take a photo of where the parcel is damaged."
     And a selection of rows is retrieved from the parcels.delivery_documents table where:
       | reference | PX-MOB-9494 |
     And the selection has 0 rows

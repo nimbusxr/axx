@@ -20,6 +20,7 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.util.Arrays;
 
 // A normal application caller. This app contains no test provider or adapter.
@@ -75,10 +76,14 @@ public final class Probe extends Activity implements RecognitionListener {
     }
     recognizer.startListening(intent);
   }
+  // The test reads transcript.txt as soon as it is there: written whole, then
+  // renamed into place, it is never there empty.
   private void save(String text) {
     try {
-      Files.write(new File(getFilesDir(), "transcript.txt").toPath(),
-                  text.getBytes(StandardCharsets.UTF_8));
+      File part = new File(getFilesDir(), "transcript.txt.part");
+      Files.write(part.toPath(), text.getBytes(StandardCharsets.UTF_8));
+      Files.move(part.toPath(), new File(getFilesDir(), "transcript.txt").toPath(),
+                 StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
     } catch (Exception error) {
       throw new RuntimeException(error);
     }

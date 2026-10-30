@@ -565,6 +565,11 @@ static void serveControl(NSString *path) {
         for (;;) {
             int c = accept(s, NULL, NULL);
             if (c < 0) continue;
+            // axx gives up on an answer after 5 seconds (one waited longer on a main thread that
+            // loaded RealityKit's materials): written to a socket axx has closed, it fails, and
+            // does not end the app (SIGPIPE).
+            int one = 1;
+            setsockopt(c, SOL_SOCKET, SO_NOSIGPIPE, &one, sizeof one);
             NSMutableData *line = [NSMutableData data];
             char ch;
             while (read(c, &ch, 1) == 1 && ch != '\n') [line appendBytes:&ch length:1];

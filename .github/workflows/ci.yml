@@ -191,18 +191,16 @@ jobs:
         env:
           PART: ${{ matrix.part }}
         run: |
+          # (xargs: macOS's bash, 3.2, has no mapfile.)
           case "$PART" in
             models) go list ./packs/models/... > "$RUNNER_TEMP/packages" ;;
             rest) go list ./... | grep -v '/packs/models/' > "$RUNNER_TEMP/packages" ;;
             *) go list ./... > "$RUNNER_TEMP/packages" ;;
           esac
-          mapfile -t packages < "$RUNNER_TEMP/packages"
-          go test -race -run '^$' "${packages[@]}"
+          xargs go test -race -run '^$' < "$RUNNER_TEMP/packages"
         shell: bash
       - if: needs.changes.outputs.tests == 'true'
-        run: |
-          mapfile -t packages < "$RUNNER_TEMP/packages"
-          scripts/gotest.sh -race "${packages[@]}"
+        run: xargs scripts/gotest.sh -race < "$RUNNER_TEMP/packages"
         shell: bash
       # On macOS and Windows this job keeps the module cache too (lint does on Linux).
       - if: ${{ !cancelled() }}
