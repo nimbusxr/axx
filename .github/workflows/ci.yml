@@ -392,15 +392,18 @@ jobs:
             sleep 15
           done
           exit 1
-      # The couriers' app, while the rest sets up: nothing needs it before the tests.
+      # The couriers' app, while the rest sets up: nothing needs it before the tests. A background
+      # step keeps its command's status (status=$?) for the step that waits for it: the shell
+      # (bash -e) would end the subshell at a failure before it wrote it, and the wait would wait
+      # out its time.
       - name: the couriers' app (in the background)
         working-directory: examples/parcels/courier/android
-        run: (./gradlew --no-daemon --console=plain assembleDebug -Pabis=x86_64 > "$RUNNER_TEMP/app.log" 2>&1; echo $? > "$RUNNER_TEMP/app.done") &
+        run: (status=0; ./gradlew --no-daemon --console=plain assembleDebug -Pabis=x86_64 > "$RUNNER_TEMP/app.log" 2>&1 || status=$?; echo "$status" > "$RUNNER_TEMP/app.done") &
       # The emulator's device and its boot snapshot, while the rest sets up.
       - if: needs.changes.outputs.tests == 'true'
         name: the emulator's device (in the background)
         working-directory: examples/parcels/courier/android
-        run: (./create-emulator.sh > "$RUNNER_TEMP/device.log" 2>&1; echo $? > "$RUNNER_TEMP/device.done") &
+        run: (status=0; ./create-emulator.sh > "$RUNNER_TEMP/device.log" 2>&1 || status=$?; echo "$status" > "$RUNNER_TEMP/device.done") &
       - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
         with:
           install_args: "go aqua:gotestyourself/gotestsum"
@@ -511,14 +514,17 @@ jobs:
             sleep 15
           done
           exit 1
-      # The couriers' app, while the rest sets up: nothing needs it before the tests.
+      # The couriers' app, while the rest sets up: nothing needs it before the tests. A background
+      # step keeps its command's status (status=$?) for the step that waits for it: the shell
+      # (bash -e) would end the subshell at a failure before it wrote it, and the wait would wait
+      # out its time.
       - name: the couriers' app (in the background)
         working-directory: examples/parcels/courier/android
-        run: (./gradlew --no-daemon --console=plain assembleDebug -Pabis=x86_64 > "$RUNNER_TEMP/app.log" 2>&1; echo $? > "$RUNNER_TEMP/app.done") &
+        run: (status=0; ./gradlew --no-daemon --console=plain assembleDebug -Pabis=x86_64 > "$RUNNER_TEMP/app.log" 2>&1 || status=$?; echo "$status" > "$RUNNER_TEMP/app.done") &
       # The emulator's device and its boot snapshot, while the rest sets up.
       - name: the emulator's device (in the background)
         working-directory: examples/parcels/courier/android
-        run: (./create-emulator.sh > "$RUNNER_TEMP/device.log" 2>&1; echo $? > "$RUNNER_TEMP/device.done") &
+        run: (status=0; ./create-emulator.sh > "$RUNNER_TEMP/device.log" 2>&1 || status=$?; echo "$status" > "$RUNNER_TEMP/device.done") &
       - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
         with:
           install_args: "go"
@@ -534,7 +540,7 @@ jobs:
           df -h /
       # What the example pulls (2 GB), while the job goes on.
       - name: the example's images (in the background)
-        run: (docker compose -f examples/parcels/infra/compose.yaml pull --ignore-buildable --quiet > "$RUNNER_TEMP/pull.log" 2>&1; echo $? > "$RUNNER_TEMP/pull.done") &
+        run: (status=0; docker compose -f examples/parcels/infra/compose.yaml pull --ignore-buildable --quiet > "$RUNNER_TEMP/pull.log" 2>&1 || status=$?; echo "$status" > "$RUNNER_TEMP/pull.done") &
       - name: axx, with every pack
         run: |
           go build -o "$RUNNER_TEMP/bin/axx" ./internal/tools/axxall
@@ -594,9 +600,10 @@ jobs:
     # The iOS pack, on simulators axx makes, with the parcels example's couriers' iOS app. The
     # example's iOS scenarios need the whole example, and macOS runners have no Docker: they
     # run on developers' Macs.
-    # The tests run on three runners, a simulator each, none past 10 minutes:
-    # TestCouriersOnASimulator, two scenarios long, and TestRecordingsOnASimulator on one (some 4
-    # minutes); the camera's on another (some 4); the others on the third (some 6).
+    # The tests run on four runners, a simulator each, none past 10 minutes:
+    # TestCouriersOnASimulator, two scenarios long, and TestRecordingsOnASimulator on one (some 5
+    # minutes); the camera's on another (some 3); the notifications' on a third (some 3.5); the
+    # others on the fourth (some 5).
     name: ios (${{ matrix.tests }})
     runs-on: macos-latest
     timeout-minutes: 60
@@ -608,8 +615,10 @@ jobs:
             select: -run=^(TestCouriersOnASimulator|TestRecordingsOnASimulator)$
           - tests: camera
             select: -run=^(TestACourierMeasuresAParcelOnASimulator|TestACourierWalksUpToAParcelAndMeasuresItOnASimulator|TestACourierPhotographsAParcelAtTheDoorOnASimulator|TestACourierReadsATornLabelOnASimulator|TestACourierScansALabelOnASimulator|TestThePhoneMovesThroughTheScene|TestTheCameraSeesASceneAnImageOrAVideo)$
+          - tests: notifications
+            select: -run=^(TestACourierFollowsNotificationsOnASimulator|TestACourierIsRemindedOfTheRoundOnASimulator)$
           - tests: others
-            select: -skip=^(TestCouriersOnASimulator|TestRecordingsOnASimulator|TestACourierMeasuresAParcelOnASimulator|TestACourierWalksUpToAParcelAndMeasuresItOnASimulator|TestACourierPhotographsAParcelAtTheDoorOnASimulator|TestACourierReadsATornLabelOnASimulator|TestACourierScansALabelOnASimulator|TestThePhoneMovesThroughTheScene|TestTheCameraSeesASceneAnImageOrAVideo)$
+            select: -skip=^(TestACourierFollowsNotificationsOnASimulator|TestACourierIsRemindedOfTheRoundOnASimulator|TestCouriersOnASimulator|TestRecordingsOnASimulator|TestACourierMeasuresAParcelOnASimulator|TestACourierWalksUpToAParcelAndMeasuresItOnASimulator|TestACourierPhotographsAParcelAtTheDoorOnASimulator|TestACourierReadsATornLabelOnASimulator|TestACourierScansALabelOnASimulator|TestThePhoneMovesThroughTheScene|TestTheCameraSeesASceneAnImageOrAVideo)$
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
@@ -1024,7 +1033,7 @@ jobs:
       # What the parcels example pulls (2 GB), while the job sets up.
       - if: matrix.example == 'parcels' && needs.changes.outputs.tests == 'true'
         name: the example's images (in the background)
-        run: (docker compose -f examples/parcels/infra/compose.yaml pull --ignore-buildable --quiet > "$RUNNER_TEMP/pull.log" 2>&1; echo $? > "$RUNNER_TEMP/pull.done") &
+        run: (status=0; docker compose -f examples/parcels/infra/compose.yaml pull --ignore-buildable --quiet > "$RUNNER_TEMP/pull.log" 2>&1 || status=$?; echo "$status" > "$RUNNER_TEMP/pull.done") &
       - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
         with:
           install_args: "go"

@@ -118,10 +118,17 @@ if [ -z "$booted" ]; then
   kill "$emulator" 2> /dev/null || true
   exit 1
 fi
-# It saves the snapshot as it stops: five minutes at most.
+# It saves the snapshot as it stops, which its console is asked for: five minutes at most. A
+# request the console did not take (adb tells why) is made again: once, on CI's runner, the
+# emulator went on idle after it, and saved nothing.
 say "parcels-pixel: booted; saving its snapshot"
-limited 30 "$adb" -s emulator-5580 emu kill > /dev/null || true
 deadline=$((SECONDS + 300))
+until answer=$(limited 30 "$adb" -s emulator-5580 emu kill 2>&1); do
+  if [ "$SECONDS" -ge "$deadline" ] || ! kill -0 "$emulator" 2> /dev/null; then break; fi
+  say "parcels-pixel: its console did not take the request to stop (${answer:-no answer}); asking again" >&2
+  sleep 5
+done
+say "parcels-pixel: asked to stop: ${answer:-no answer}"
 while kill -0 "$emulator" 2> /dev/null && [ "$SECONDS" -lt "$deadline" ]; do sleep 2; done
 if kill -0 "$emulator" 2> /dev/null; then
   say "parcels-pixel did not save its boot snapshot in five minutes; the end of the emulator's log ($ANDROID_AVD_HOME/parcels-pixel-snapshot.log):" >&2
