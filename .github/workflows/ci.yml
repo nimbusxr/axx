@@ -448,7 +448,8 @@ jobs:
     if: needs.changes.outputs.mobile == 'true' && needs.changes.outputs.tests == 'true'
     # The parcels example's Android scenarios, on an emulator axx starts (KVM), against the
     # whole example, which axx starts too. A runner runs a feature, or a shard of it (axx run
-    # --shard), on one emulator, a scenario at a time: none runs its scenarios past 10 minutes.
+    # --shard), on one emulator, a scenario at a time: some 4 minutes' worth on a fast runner,
+    # 6 on a slow one (the same scenarios took up to 1.5 times as long), none past 10.
     name: android (${{ matrix.feature }} ${{ matrix.part }}/${{ matrix.of }})
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -456,11 +457,14 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - {feature: courier-app, part: 1, of: 2}
-          - {feature: courier-app, part: 2, of: 2}
-          - {feature: courier-app-camera, part: 1, of: 1}
-          - {feature: courier-app-documents, part: 1, of: 2}
-          - {feature: courier-app-documents, part: 2, of: 2}
+          - {feature: courier-app, part: 1, of: 3}
+          - {feature: courier-app, part: 2, of: 3}
+          - {feature: courier-app, part: 3, of: 3}
+          - {feature: courier-app-camera, part: 1, of: 2}
+          - {feature: courier-app-camera, part: 2, of: 2}
+          - {feature: courier-app-documents, part: 1, of: 3}
+          - {feature: courier-app-documents, part: 2, of: 3}
+          - {feature: courier-app-documents, part: 3, of: 3}
           - {feature: courier-app-measure, part: 1, of: 1}
           - {feature: courier-app-notifications, part: 1, of: 1}
     steps:
