@@ -180,12 +180,13 @@ jobs:
       - uses: ./.github/actions/go-cache
         with:
           build: test
+      # The tests are built in a step of their own, as the integration job's are. On main, they
+      # are only built: their build cache is what pull requests read.
+      - name: the tests, built
+        run: go test -race -run '^$' ./...
+        shell: bash
       - if: needs.changes.outputs.tests == 'true'
         run: scripts/gotest.sh -race ./...
-        shell: bash
-      # On main, the tests are only built: their build cache is what pull requests read.
-      - if: needs.changes.outputs.tests != 'true'
-        run: go test -race -run '^$' ./...
         shell: bash
       # On macOS and Windows this job keeps the module cache too (lint does on Linux).
       - if: ${{ !cancelled() }}
@@ -211,8 +212,9 @@ jobs:
         # here, as their times go (no test step runs past 10, on a slow runner either): a format's
         # tests run its runtime, which takes every processor (and spins on it), so their packages
         # run one at a time. ONNX's, the longest (7.5 minutes), are in two: transformers.js's,
-        # and the rest.
-        part: [packs, models-a-f, models-g-k, models-l-m, models-n-o, models-onnx-js, models-p-s, models-t, models-u-z]
+        # and the rest; and safetensors' Whisper transcriptions in transformers (6 minutes) are
+        # in two: the English ones, and the rest with the other formats of p to s.
+        part: [packs, models-a-f, models-g-k, models-l-m, models-n-o, models-onnx-js, models-p-s, models-safetensors-en, models-t, models-u-z]
     env:
       PART: ${{ matrix.part }}
     steps:
@@ -251,6 +253,7 @@ jobs:
             models-n-o) mapfile -t packages < <(grep -E '/format/[n-o]' <<< "$models") ;;
             models-onnx-js) mapfile -t packages < <(grep -E '/format/onnx$' <<< "$models") ;;
             models-p-s) mapfile -t packages < <(grep -E '/format/[p-s]' <<< "$models") ;;
+            models-safetensors-en) mapfile -t packages < <(grep -E '/format/safetensors$' <<< "$models") ;;
             models-t) mapfile -t packages < <(grep -E '/format/t' <<< "$models") ;;
             models-u-z) mapfile -t packages < <(grep -E '/format/[u-z]' <<< "$models") ;;
           esac
@@ -268,10 +271,13 @@ jobs:
           read -ra packages < "$RUNNER_TEMP/packages"
           parallel=()
           [ "$PART" = packs ] || parallel=(-p 1)
-          # ONNX's transformers.js tests run in a part of their own.
+          # ONNX's transformers.js tests run in a part of their own, and so do safetensors' English
+          # Whisper transcriptions.
           case "$PART" in
             models-onnx-js) select=(-run '^TestTransformersJS') ;;
             models-n-o) select=(-skip '^(TestWebLLM|TestTransformersJS)') ;;
+            models-safetensors-en) select=(-run '^TestTransformersTranscribesAsTheStubSays$/English') ;;
+            models-p-s) select=(-skip '^TestTransformersTranscribesAsTheStubSays$/English') ;;
             *) select=(-skip '^TestWebLLM') ;;
           esac
           GOTEST_SLOWEST=1s scripts/gotest.sh -race -tags integration -timeout 10m "${parallel[@]}" "${select[@]}" "${packages[@]}"
@@ -415,7 +421,7 @@ jobs:
         run: |
           for _ in $(seq 450); do [ -f "$RUNNER_TEMP/device.done" ] && break; sleep 2; done
           cat "$RUNNER_TEMP/device.log"
-          [ "$(cat "$RUNNER_TEMP/device.done" 2> /dev/null)" = 0 ] || { df -h /; tail -n 40 "$ANDROID_AVD_HOME/parcels-pixel-snapshot.log" 2> /dev/null || true; ps -A -o pid,ppid,stat,wchan:32,etime,args | grep -E '[c]reate-emulator|[e]mulator|[q]emu|[a]db' || true; echo "::error::the emulator's device was not made"; exit 1; }
+          [ "$(cat "$RUNNER_TEMP/device.done" 2> /dev/null)" = 0 ] || { df -h /; tail -n 40 "$ANDROID_AVD_HOME/parcels-pixel-snapshot.log" 2> /dev/null || true; ps -o pid,ppid,stat,wchan:32,etime,args -p "$(pgrep -d, -f 'create-emulator|emulator|qemu|adb')" || true; echo "::error::the emulator's device was not made"; exit 1; }
       - if: needs.changes.outputs.tests == 'true'
         env:
           PART: ${{ matrix.part }}
@@ -549,7 +555,7 @@ jobs:
         run: |
           for _ in $(seq 450); do [ -f "$RUNNER_TEMP/device.done" ] && break; sleep 2; done
           cat "$RUNNER_TEMP/device.log"
-          [ "$(cat "$RUNNER_TEMP/device.done" 2> /dev/null)" = 0 ] || { df -h /; tail -n 40 "$ANDROID_AVD_HOME/parcels-pixel-snapshot.log" 2> /dev/null || true; ps -A -o pid,ppid,stat,wchan:32,etime,args | grep -E '[c]reate-emulator|[e]mulator|[q]emu|[a]db' || true; echo "::error::the emulator's device was not made"; exit 1; }
+          [ "$(cat "$RUNNER_TEMP/device.done" 2> /dev/null)" = 0 ] || { df -h /; tail -n 40 "$ANDROID_AVD_HOME/parcels-pixel-snapshot.log" 2> /dev/null || true; ps -o pid,ppid,stat,wchan:32,etime,args -p "$(pgrep -d, -f 'create-emulator|emulator|qemu|adb')" || true; echo "::error::the emulator's device was not made"; exit 1; }
       - name: wait for the example's images
         run: |
           for _ in $(seq 300); do [ -f "$RUNNER_TEMP/pull.done" ] && break; sleep 2; done

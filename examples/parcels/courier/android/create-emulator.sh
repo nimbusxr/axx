@@ -128,7 +128,7 @@ if kill -0 "$emulator" 2> /dev/null; then
   tail -n 40 "$ANDROID_AVD_HOME/parcels-pixel-snapshot.log" >&2 || true
   # What the emulator's processes are doing (their state, and what each waits for), and how far
   # its snapshot got.
-  ps -A -o pid,ppid,stat,wchan,etime,command | grep -E '[e]mulator|[q]emu' >&2 || true
+  ps -o pid,ppid,stat,wchan,etime,command -p "$(pgrep -d, -f 'emulator|qemu')" >&2 || true
   ls -la "$ANDROID_AVD_HOME/parcels-pixel.avd/snapshots/"* >&2 2> /dev/null || true
   kill -9 "$emulator" 2> /dev/null || true
   say "parcels-pixel: stopped" >&2
