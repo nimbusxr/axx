@@ -17,7 +17,7 @@ axx run --workers 4
 axx run -w 1        # one at a time, for debugging an ordering problem
 ```
 
-Each scenario runs start to finish on one worker. Steps inside a scenario always run in order.
+Each scenario runs start to finish on one worker. Steps inside a scenario always run in order. Workers share one machine; to share a run between machines, CI's runners, give each a shard of it ([`--shard`](/guides/run-in-ci/#share-a-run-between-runners)).
 
 ## Scenarios that must run alone
 

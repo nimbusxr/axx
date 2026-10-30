@@ -35,6 +35,7 @@ The steps are the same on Android and on iOS: only the app's registration says w
   sdkmanager --install "system-images;android-35;google_apis;arm64-v8a"   # x86_64 on Intel and AMD
   avdmanager create avd --name parcels-pixel --package "system-images;android-35;google_apis;arm64-v8a" --device pixel_8
   ```
+- **For an app's ARCore** ([below](#what-the-camera-sees-and-ar)): the SDK's NDK and build-tools, and a JDK, which axx builds its agent with, once.
 
 **For iOS:**
 
@@ -297,7 +298,7 @@ When the "Scan label" button is tapped in the courier app
 Then the courier app shows "Ida Lorenz"
 ```
 
-The app's capture session takes the camera as its input, as on a phone (`AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back)`), and gets its frames, 30 a second, 1920 by 1080, the sensor's way up as an iPhone's:
+On a simulator, the app's capture session takes the camera as its input, as on a phone (`AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back)`), and gets its frames, 30 a second, 1920 by 1080, the sensor's way up as an iPhone's:
 
 - a **video data output** gets them in the pixel format it asks for (BGRA, or YCbCr 4:2:0), turned as its connection says, for Vision and the like;
 - a **metadata output** gets the codes in them, QR codes and barcodes, read with Vision;
@@ -384,7 +385,7 @@ Videos are encoded with Cisco's OpenH264. OpenH264 Video Codec provided by Cisco
 - run: axx run --tags @android
 ```
 
-`packs.mobile-android.emulatorArgs` passes more arguments to the emulators, and `bootTimeout` gives a slow machine longer than 3 minutes to boot one.
+`create-emulator.sh` saves the device's boot snapshot with the camera axx plays (`hw.camera.back=environment` in its `config.ini`), so that the emulators axx starts from it are ready for what a scenario's camera sees. An emulator draws its camera without a GPU too, slower than a Mac's: it takes seconds to show its first frame, which a scenario that reads what the camera sees gives time (`within 30s`). `packs.mobile-android.emulatorArgs` passes more arguments to the emulators, and `bootTimeout` gives a slow machine longer than 3 minutes to boot one. A feature too long for one runner, whose emulator runs a scenario at a time, [shares a run](/guides/run-in-ci/#share-a-run-between-runners) with others: `axx run --shard 1/2` on one, `--shard 2/2` on another.
 
 **iOS:** macOS runners have Xcode and its simulators. A new machine's first simulator boot builds the iOS runtime's shared cache, which takes over ten minutes on GitHub's runners, and every hosted run is a new machine: keep that cache between runs, with what axx downloads, keyed by the macOS and runtime builds it belongs to. Never keep a simulator: its keychain belongs to the machine it was made on.
 
