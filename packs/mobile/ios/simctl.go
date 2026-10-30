@@ -255,6 +255,40 @@ func (set simSet) notificationsServed(ctx context.Context, udid string, since ti
 	}
 }
 
+// notificationsUnserved tells why notificationsServed found nothing from since on, for the
+// warning that the simulator does not serve notifications: what the same query answers now, the
+// message it looks for in the simulator's last 15 minutes, with when each was logged, and the
+// simulator's clock.
+func (set simSet) notificationsUnserved(ctx context.Context, udid string, since time.Time) string {
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	predicate := `process == "SpringBoard" AND subsystem == "com.apple.UserNotifications" AND category == "ContentProtection"`
+	out, err := set.simctl(ctx, "spawn", udid, "log", "show", "--start", since.Format("2006-01-02 15:04:05"), "--style", "compact", "--predicate", predicate)
+	why := fmt.Sprintf("the query from %s answers %d lines", since.Format("15:04:05"), strings.Count(out, "\n"))
+	if err != nil {
+		why += fmt.Sprintf(" (%v)", err)
+	}
+	wide, err := set.simctl(ctx, "spawn", udid, "log", "show", "--last", "15m", "--style", "compact", "--predicate", predicate)
+	var found []string
+	for _, line := range strings.Split(wide, "\n") {
+		if f := strings.Fields(line); len(f) > 1 && strings.Contains(line, "UNSUserNotificationServer") {
+			found = append(found, f[0]+" "+f[1])
+		}
+	}
+	why += fmt.Sprintf("; the last 15 minutes have it %d times %v", len(found), found)
+	if err != nil {
+		why += fmt.Sprintf(" (%v)", err)
+	}
+	// The simulator's clock, as its log has it: when SpringBoard logged last.
+	if last, err := set.simctl(ctx, "spawn", udid, "log", "show", "--last", "1m", "--style", "compact", "--predicate", `process == "SpringBoard"`); err == nil {
+		lines := strings.Split(strings.TrimSpace(last), "\n")
+		if f := strings.Fields(lines[len(lines)-1]); len(f) > 1 {
+			why += fmt.Sprintf("; SpringBoard logged last at %s %s, the Mac's clock reads %s", f[0], f[1], time.Now().Format("2006-01-02 15:04:05"))
+		}
+	}
+	return why
+}
+
 // isUDID reports a simulator's or device's identifier.
 func isUDID(s string) bool {
 	return regexp.MustCompile(`^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$|^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{16}$`).MatchString(s)

@@ -48,6 +48,7 @@ xcrun simctl boot "$udid"
 # keeps them off from then on, through the rest of the boot. That runs alongside the wait for the
 # boot, each service at once with the others: one after another, an iOS 27 simulator's took two
 # and a half minutes past its boot (simctl spawn takes seconds each, there).
+disabled=$(mktemp)
 (
   for service in com.apple.mediaanalysisd com.apple.mediaanalysisd.analysis com.apple.mediaanalysisd.computeservice \
     com.apple.mediaanalysisd.photos com.apple.ScreenTimeAgent com.apple.fitnessintelligenced com.apple.amsengagementd \
@@ -55,11 +56,14 @@ xcrun simctl boot "$udid"
     com.apple.siriactionsd com.apple.PosterBoard com.apple.spotlightknowledged com.apple.spotlightknowledged.updater; do
     (
       xcrun simctl spawn "$udid" launchctl disable "user/501/$service"
+      echo "$(($(date +%s) - started))" >> "$disabled"
       xcrun simctl spawn "$udid" launchctl bootout "user/501/$service" 2> /dev/null || true
     ) &
   done
   wait
-  echo "services off in $(($(date +%s) - started))s"
+  # When the first was off too: a boot that runs on past it does its work regardless.
+  echo "services off in $(($(date +%s) - started))s (the first disabled at $(sort -n "$disabled" | head -1)s)"
+  rm -f "$disabled"
 ) &
 off=$!
 xcrun simctl bootstatus "$udid" -b > /dev/null

@@ -733,8 +733,8 @@ jobs:
     # integration job); and its Foundation Models stubs, built with Xcode 27's Swift and given to
     # Foundation Models' sessions, which take a model of an app's from macOS 27: the xcode-27
     # image's. In four parts, none of which runs past 10 minutes: the Mac's, and the simulator's
-    # in three (the courier's; Foundation Models' sessions and the platform calls; speech and
-    # audio capture).
+    # in three, by their tests' times on this runner (the courier's; Foundation Models' sessions,
+    # the platform calls and audio capture, 74 s; speech, 137 s, and the rest).
     name: coreml (${{ matrix.part }})
     runs-on: xcode-27
     timeout-minutes: 30
@@ -745,7 +745,7 @@ jobs:
     env:
       PART: ${{ matrix.part }}
       SIMULATOR_1: ^TestCourierUsesPlatformFixtureWithoutDebugProvider$
-      SIMULATOR_2: ^(TestFoundationModelsOrdinarySessions|TestSimulatorPlatformCalls)$
+      SIMULATOR_2: ^(TestFoundationModelsOrdinarySessions|TestSimulatorPlatformCalls|TestSimulatorCaptureHearsTheRecording)$
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:

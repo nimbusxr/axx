@@ -172,7 +172,7 @@ func (p *pool) loadSpringboard(ctx context.Context, d *device, lib string) {
 		// SpringBoard, started again, serves apps' requests for notifications a while later, as
 		// after a boot.
 		if !d.set.notificationsServed(ctx, d.udid, since, min(p.boot, notificationsWait)) {
-			p.suite.Logger().Warn("the iOS simulator does not serve notifications yet; an app that asks for them may get no dialog", "simulator", d.name, "waited", min(p.boot, notificationsWait))
+			p.suite.Logger().Warn("the iOS simulator does not serve notifications yet; an app that asks for them may get no dialog", "simulator", d.name, "waited", min(p.boot, notificationsWait), "log", d.set.notificationsUnserved(ctx, d.udid, since))
 		}
 		p.suite.Logger().Info("started the simulator's SpringBoard again, with axx's library", "simulator", d.name, "took", time.Since(started).Round(time.Second))
 	}
