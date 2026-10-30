@@ -1,0 +1,203 @@
+# SPDX-License-Identifier: Apache-2.0
+name: courier-android
+description: >-
+  The parcels example's couriers' Android app (an x86_64 debug APK) and the emulator device it
+  runs on (examples/parcels/courier/android/create-emulator.sh: the AVD and its boot snapshot),
+  for the jobs that run them: `start` restores or starts making each, in the background, and
+  `finish` waits for them, and keeps what it made.
+
+  Both take minutes to make: the app compiles MNN, the LLM engine its native code links, from
+  its source (8 minutes on a runner), and the emulator boots once for its snapshot (4 minutes,
+  after the SDK's packages). So each is a cache, keyed by what makes it: the APK by the app's
+  files, the native build's objects (ccache) by its native files, so that an app whose Kotlin
+  changed links them again in a minute, and the device by the script that makes it. A cache
+  keyed by what it holds is the same whichever run saves it, so a run that missed one saves it,
+  on a pull request too (GitHub keeps a pull request's caches for its own runs).
+inputs:
+  mode:
+    description: "`start` or `finish`."
+    required: true
+  app:
+    description: "`true` when the job installs the app: it is restored, or built."
+    default: "true"
+  emulator:
+    description: "`true` when the job runs the emulator: its device is restored, or made."
+    default: "true"
+  save-emulator:
+    description: >-
+      `true` for the one job that keeps the device when no run has: made even with no tests to
+      run, and saved (some 4 GB, which one job uploads, not every one).
+    default: "false"
+runs:
+  using: composite
+  steps:
+    - if: inputs.mode == 'start'
+      id: keys
+      shell: bash
+      env:
+        APP: ${{ hashFiles('examples/parcels/courier/android/**', '!examples/parcels/courier/android/create-emulator.sh') }}
+        NATIVE: ${{ hashFiles('examples/parcels/courier/android/app/src/main/cpp/**', 'examples/parcels/courier/android/app/build.gradle.kts') }}
+        DEVICE: ${{ hashFiles('examples/parcels/courier/android/create-emulator.sh') }}
+      run: |
+        {
+          echo "COURIER_APK_KEY=courier-apk-x86_64-$APP"
+          echo "COURIER_CCACHE_KEY=courier-ccache-x86_64-$NATIVE"
+          echo "COURIER_DEVICE_KEY=courier-device-$ImageOS-$DEVICE"
+        } >> "$GITHUB_ENV"
+        echo "sdk=$ANDROID_HOME" >> "$GITHUB_OUTPUT"
+        echo "home=$HOME" >> "$GITHUB_OUTPUT"
+
+    # The app.
+    - if: inputs.mode == 'start' && inputs.app == 'true'
+      id: apk
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: examples/parcels/courier/android/app/build/outputs/apk/debug/app-debug.apk
+        key: ${{ env.COURIER_APK_KEY }}
+    - if: inputs.mode == 'start' && inputs.app == 'true' && steps.apk.outputs.cache-hit == 'true'
+      shell: bash
+      run: |
+        echo 0 > "$RUNNER_TEMP/app.done"
+        echo "the couriers' app, as its files make it: from the cache" > "$RUNNER_TEMP/app.log"
+    - if: inputs.mode == 'start' && inputs.app == 'true' && steps.apk.outputs.cache-hit != 'true'
+      name: ccache
+      shell: bash
+      run: |
+        dir="$RUNNER_TEMP/ccache-bin"
+        mkdir -p "$dir"
+        curl -fsSL -o "$RUNNER_TEMP/ccache.tar.xz" https://github.com/ccache/ccache/releases/download/v4.14.2/ccache-4.14.2-linux-x86_64-glibc.tar.xz
+        echo "bd1313f5316f594443dcb4113a4191c666ac6450e0cf016ff8cb8b080f46c160  $RUNNER_TEMP/ccache.tar.xz" | sha256sum -c --quiet
+        tar -xJf "$RUNNER_TEMP/ccache.tar.xz" -C "$dir" --strip-components 1
+        echo "COURIER_APK_BUILT=true" >> "$GITHUB_ENV"
+    - if: inputs.mode == 'start' && inputs.app == 'true' && steps.apk.outputs.cache-hit != 'true'
+      id: ccache
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ steps.keys.outputs.home }}/.cache/axx-courier-ccache
+        key: ${{ env.COURIER_CCACHE_KEY }}
+        restore-keys: courier-ccache-x86_64-
+    - if: inputs.mode == 'start' && inputs.app == 'true' && steps.apk.outputs.cache-hit != 'true'
+      name: the couriers' app (in the background)
+      shell: bash
+      working-directory: examples/parcels/courier/android
+      # CMake takes its compilers' launcher from the environment: ccache, whose objects are the
+      # same for the same source, flags and compiler wherever the runner checked the repository
+      # out (CCACHE_BASEDIR). The background step keeps its command's status (status=$?) for the
+      # wait: the shell (bash -e) would end the subshell at a failure before it wrote it.
+      env:
+        CMAKE_C_COMPILER_LAUNCHER: ${{ runner.temp }}/ccache-bin/ccache
+        CMAKE_CXX_COMPILER_LAUNCHER: ${{ runner.temp }}/ccache-bin/ccache
+        CCACHE_DIR: ${{ steps.keys.outputs.home }}/.cache/axx-courier-ccache
+        CCACHE_BASEDIR: ${{ github.workspace }}
+        CCACHE_MAXSIZE: 2G
+        CCACHE_COMPILERCHECK: content
+      run: (status=0; ./gradlew --no-daemon --console=plain assembleDebug -Pabis=x86_64 > "$RUNNER_TEMP/app.log" 2>&1 || status=$?; echo "$status" > "$RUNNER_TEMP/app.done") &
+
+    # The emulator's device: its AVD (and adb's key, which its snapshot authorizes), the SDK's
+    # emulator and platform tools, and the system image, as the script left them.
+    - if: inputs.mode == 'start' && (inputs.emulator == 'true' || inputs.save-emulator == 'true')
+      id: device-lookup
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: |
+          ${{ steps.keys.outputs.home }}/.android/avd/parcels-pixel.avd
+          ${{ steps.keys.outputs.home }}/.android/avd/parcels-pixel.ini
+          ${{ steps.keys.outputs.home }}/.android/adbkey
+          ${{ steps.keys.outputs.home }}/.android/adbkey.pub
+          ${{ steps.keys.outputs.sdk }}/emulator
+          ${{ steps.keys.outputs.sdk }}/platform-tools
+          ${{ steps.keys.outputs.sdk }}/system-images/android-35/google_apis/x86_64
+        key: ${{ env.COURIER_DEVICE_KEY }}
+        lookup-only: true
+    # The SDK's emulator and platform tools are the cache's, not the runner's (theirs are older,
+    # and files of both would be one mix).
+    - if: >-
+        inputs.mode == 'start' && inputs.emulator == 'true'
+        && steps.device-lookup.outputs.cache-hit == 'true'
+      shell: bash
+      run: rm -rf "$ANDROID_HOME/emulator" "$ANDROID_HOME/platform-tools"
+    - if: >-
+        inputs.mode == 'start' && inputs.emulator == 'true'
+        && steps.device-lookup.outputs.cache-hit == 'true'
+      id: device
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: |
+          ${{ steps.keys.outputs.home }}/.android/avd/parcels-pixel.avd
+          ${{ steps.keys.outputs.home }}/.android/avd/parcels-pixel.ini
+          ${{ steps.keys.outputs.home }}/.android/adbkey
+          ${{ steps.keys.outputs.home }}/.android/adbkey.pub
+          ${{ steps.keys.outputs.sdk }}/emulator
+          ${{ steps.keys.outputs.sdk }}/platform-tools
+          ${{ steps.keys.outputs.sdk }}/system-images/android-35/google_apis/x86_64
+        key: ${{ env.COURIER_DEVICE_KEY }}
+        fail-on-cache-miss: true
+    - if: >-
+        inputs.mode == 'start' && inputs.emulator == 'true'
+        && steps.device-lookup.outputs.cache-hit == 'true'
+      shell: bash
+      run: |
+        echo 0 > "$RUNNER_TEMP/device.done"
+        echo "the emulator's device, as create-emulator.sh makes it: from the cache" > "$RUNNER_TEMP/device.log"
+    - if: >-
+        inputs.mode == 'start' && (inputs.emulator == 'true' || inputs.save-emulator == 'true')
+        && steps.device-lookup.outputs.cache-hit != 'true'
+      name: the emulator's device (in the background)
+      shell: bash
+      working-directory: examples/parcels/courier/android
+      run: |
+        echo "COURIER_DEVICE_MADE=true" >> "$GITHUB_ENV"
+        (status=0; ./create-emulator.sh > "$RUNNER_TEMP/device.log" 2>&1 || status=$?; echo "$status" > "$RUNNER_TEMP/device.done") &
+
+    - if: inputs.mode == 'finish' && inputs.app == 'true'
+      name: wait for the couriers' app
+      shell: bash
+      run: |
+        for _ in $(seq 450); do [ -f "$RUNNER_TEMP/app.done" ] && break; sleep 2; done
+        cat "$RUNNER_TEMP/app.log"
+        [ "$(cat "$RUNNER_TEMP/app.done" 2> /dev/null)" = 0 ] || { echo "::error::the couriers' app was not built"; exit 1; }
+    - if: inputs.mode == 'finish' && env.COURIER_APK_BUILT == 'true'
+      # A cache is an optimization: failing to save it fails nothing.
+      continue-on-error: true
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: examples/parcels/courier/android/app/build/outputs/apk/debug/app-debug.apk
+        key: ${{ env.COURIER_APK_KEY }}
+    - if: inputs.mode == 'finish' && env.COURIER_APK_BUILT == 'true'
+      id: home
+      shell: bash
+      run: |
+        echo "home=$HOME" >> "$GITHUB_OUTPUT"
+        "$RUNNER_TEMP/ccache-bin/ccache" --dir "$HOME/.cache/axx-courier-ccache" --show-stats || true
+    - if: inputs.mode == 'finish' && env.COURIER_APK_BUILT == 'true'
+      continue-on-error: true
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ steps.home.outputs.home }}/.cache/axx-courier-ccache
+        key: ${{ env.COURIER_CCACHE_KEY }}
+    - if: inputs.mode == 'finish' && (inputs.emulator == 'true' || env.COURIER_DEVICE_MADE == 'true')
+      name: wait for the emulator's device
+      shell: bash
+      run: |
+        for _ in $(seq 450); do [ -f "$RUNNER_TEMP/device.done" ] && break; sleep 2; done
+        cat "$RUNNER_TEMP/device.log"
+        [ "$(cat "$RUNNER_TEMP/device.done" 2> /dev/null)" = 0 ] || { df -h /; tail -n 40 "$ANDROID_AVD_HOME/parcels-pixel-snapshot.log" 2> /dev/null || true; ps -o pid,ppid,stat,wchan:32,etime,args -p "$(pgrep -d, -f 'create-emulator|emulator|qemu|adb')" || true; echo "::error::the emulator's device was not made"; exit 1; }
+    - if: inputs.mode == 'finish' && inputs.save-emulator == 'true' && env.COURIER_DEVICE_MADE == 'true'
+      id: device-paths
+      shell: bash
+      run: |
+        echo "sdk=$ANDROID_HOME" >> "$GITHUB_OUTPUT"
+        echo "home=$HOME" >> "$GITHUB_OUTPUT"
+    - if: inputs.mode == 'finish' && inputs.save-emulator == 'true' && env.COURIER_DEVICE_MADE == 'true'
+      continue-on-error: true
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: |
+          ${{ steps.device-paths.outputs.home }}/.android/avd/parcels-pixel.avd
+          ${{ steps.device-paths.outputs.home }}/.android/avd/parcels-pixel.ini
+          ${{ steps.device-paths.outputs.home }}/.android/adbkey
+          ${{ steps.device-paths.outputs.home }}/.android/adbkey.pub
+          ${{ steps.device-paths.outputs.sdk }}/emulator
+          ${{ steps.device-paths.outputs.sdk }}/platform-tools
+          ${{ steps.device-paths.outputs.sdk }}/system-images/android-35/google_apis/x86_64
+        key: ${{ env.COURIER_DEVICE_KEY }}

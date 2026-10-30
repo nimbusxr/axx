@@ -38,14 +38,18 @@ xcrun simctl boot "$udid"
 # chronod, the tests took 195 s rather than 221 on a VM of the runner's size. They are turned off
 # as the simulator starts to boot, so that its boot does none of that work either: launchd keeps
 # them off from then on, through the rest of the boot. That runs alongside the wait for the boot,
-# which it never holds up.
+# each service at once with the others: one after another, an iOS 27 simulator's took two and a
+# half minutes past its boot (simctl spawn takes seconds each, there).
 (
   for service in com.apple.mediaanalysisd com.apple.mediaanalysisd.analysis com.apple.mediaanalysisd.computeservice \
     com.apple.mediaanalysisd.photos com.apple.ScreenTimeAgent com.apple.fitnessintelligenced com.apple.amsengagementd \
     com.apple.apsd com.apple.chronod; do
-    xcrun simctl spawn "$udid" launchctl disable "user/501/$service"
-    xcrun simctl spawn "$udid" launchctl bootout "user/501/$service" 2> /dev/null || true
+    (
+      xcrun simctl spawn "$udid" launchctl disable "user/501/$service"
+      xcrun simctl spawn "$udid" launchctl bootout "user/501/$service" 2> /dev/null || true
+    ) &
   done
+  wait
   echo "services off in $(($(date +%s) - started))s"
 ) &
 off=$!
