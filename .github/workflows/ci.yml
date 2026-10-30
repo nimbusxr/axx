@@ -863,13 +863,46 @@ jobs:
           persist-credentials: false
       - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
         with:
-          install_args: "go"
+          install_args: "go aqua:gotestyourself/gotestsum"
           # Tools are cached from main only: pull requests read them.
           cache_save: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
       - uses: ./.github/actions/go-cache
         with:
           build: windows-models
-      - run: go test -tags integration -timeout 10m ./packs/models/windows/...
+      # What the tests build and download into axx's cache: the voice engine (.NET), the Windows
+      # AI library (MSVC, and C++/WinRT's compiler for it) and Piper. Each a folder named for what
+      # made it, kept by the run that made it, on a pull request too: the job took 4.7 minutes in
+      # one run and 10 in the next, making them again.
+      - id: windows-builds-key
+        shell: bash
+        env:
+          SOURCES: ${{ hashFiles('packs/models/windows/**') }}
+        run: |
+          echo "prefix=windows-builds-$ImageOS-$ImageVersion-" >> "$GITHUB_OUTPUT"
+          echo "key=windows-builds-$ImageOS-$ImageVersion-$SOURCES" >> "$GITHUB_OUTPUT"
+      - id: windows-builds
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/AppData/Local/axx/models/windows-voice-*
+            ~/AppData/Local/axx/models/windows-ai-*
+            ~/AppData/Local/axx/models/cppwinrt-*
+            ~/AppData/Local/axx/models/piper-*
+          key: ${{ steps.windows-builds-key.outputs.key }}
+          restore-keys: ${{ steps.windows-builds-key.outputs.prefix }}
+      - shell: bash
+        run: GOTEST_SLOWEST=1s scripts/gotest.sh -tags integration -timeout 10m ./packs/models/windows/...
+      - if: ${{ !cancelled() && steps.windows-builds.outputs.cache-hit != 'true' }}
+        # A cache is an optimization: failing to save it fails nothing.
+        continue-on-error: true
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/AppData/Local/axx/models/windows-voice-*
+            ~/AppData/Local/axx/models/windows-ai-*
+            ~/AppData/Local/axx/models/cppwinrt-*
+            ~/AppData/Local/axx/models/piper-*
+          key: ${{ steps.windows-builds-key.outputs.key }}
 
   webllm:
     needs: changes
