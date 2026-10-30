@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.25](https://github.com/nimbusxr/axx/compare/v0.2.24...v0.2.25) (2026-10-30)
+
+
+### Features
+
+* **mobile-android:** the camera sees an image, a video or a scene, and ARCore the scene, on emulators; axx run --shard ([#275](https://github.com/nimbusxr/axx/issues/275)) ([a5c42fb](https://github.com/nimbusxr/axx/commit/a5c42fb1aa6c94d532d1dea61ccaaa6166d25ff0))
+
 ## [0.2.24](https://github.com/nimbusxr/axx/compare/v0.2.23...v0.2.24) (2026-10-29)
 
 
