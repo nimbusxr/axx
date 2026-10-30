@@ -698,9 +698,8 @@ jobs:
       # Only the module cache: the tests build without the race detector, and the test build cache
       # was built with it.
       - uses: ./.github/actions/go-cache
-      - name: the couriers' app
-        working-directory: examples/parcels/courier/ios
-        run: xcodebuild -project Courier.xcodeproj -target Courier -configuration Debug -sdk iphonesimulator ONLY_ACTIVE_ARCH=NO SYMROOT=build
+      # The couriers' app: from its cache, or built.
+      - uses: ./.github/actions/courier-ios
       - name: the tests, built
         run: go test -tags integration -run '^$' ./packs/mobile/ios/...
       # The simulator the tests keep (scripts/ios-simulator.sh), made and booted once everything
@@ -763,10 +762,9 @@ jobs:
         run: go test -tags integration -timeout 10m -run TestCoreML ./packs/models/core/format/coreml/
       - if: matrix.part == 'mac'
         run: go test -tags integration -timeout 10m -run TestFoundationModels ./packs/models/core/format/foundationmodels/
+      # The courier's ordinary Foundation Models calls: its app, from its cache, or built.
       - if: matrix.part == 'simulator-1'
-        name: the courier's ordinary Foundation Models calls
-        working-directory: examples/parcels/courier/ios
-        run: xcodebuild -project Courier.xcodeproj -target Courier -configuration Debug -sdk iphonesimulator ONLY_ACTIVE_ARCH=NO SYMROOT=build
+        uses: ./.github/actions/courier-ios
       - if: matrix.part != 'mac'
         name: the tests, built
         run: go test -tags integration -run '^$' ./packs/models/ios/...

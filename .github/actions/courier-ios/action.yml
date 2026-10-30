@@ -1,0 +1,34 @@
+# SPDX-License-Identifier: Apache-2.0
+name: courier-ios
+description: >-
+  The parcels example's couriers' iOS app, the simulator's Debug build that the iOS packs' tests
+  run (examples/parcels/courier/ios/build/Debug-iphonesimulator/Courier.app). It is a cache keyed
+  by what makes it, the app's files and the runner's image (its Xcode), built where no run has
+  kept it (a minute of a job's setting up, before its simulator boots, on a runner of three
+  processors), and kept by the run that built it, on a pull request too (GitHub keeps a pull
+  request's caches for its own runs).
+runs:
+  using: composite
+  steps:
+    - id: key
+      shell: bash
+      env:
+        APP: ${{ hashFiles('examples/parcels/courier/ios/**') }}
+      run: echo "key=courier-ios-$ImageOS-$ImageVersion-$APP" >> "$GITHUB_OUTPUT"
+    - id: cache
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: examples/parcels/courier/ios/build/Debug-iphonesimulator/Courier.app
+        key: ${{ steps.key.outputs.key }}
+    - if: steps.cache.outputs.cache-hit != 'true'
+      name: the couriers' app, built
+      shell: bash
+      working-directory: examples/parcels/courier/ios
+      run: xcodebuild -project Courier.xcodeproj -target Courier -configuration Debug -sdk iphonesimulator ONLY_ACTIVE_ARCH=NO SYMROOT=build
+    - if: steps.cache.outputs.cache-hit != 'true'
+      # A cache is an optimization: failing to save it fails nothing.
+      continue-on-error: true
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: examples/parcels/courier/ios/build/Debug-iphonesimulator/Courier.app
+        key: ${{ steps.key.outputs.key }}
