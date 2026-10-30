@@ -38,6 +38,8 @@ type device struct {
 	// environment is whether the emulator's back camera renders its AVD's environment, which axx
 	// sets (camera.go): an emulator started from a snapshot saved with another camera keeps that.
 	environment bool
+	// shows is the environment the emulator's camera renders (envKey), as axx last set it.
+	shows string
 }
 
 // pool is the devices of one kind the run has: emulators of one AVD, which
@@ -303,6 +305,7 @@ func (p *pool) boot1(ctx context.Context, d *device, logDir string, cold bool) e
 	} else {
 		p.suite.Logger().Warn("the emulator's location will have no speed or bearing", "serial", d.serial, "err", err)
 	}
+	d.shows = ""
 	d.environment = environment && p.cameraReady(ctx, d)
 	return nil
 }
@@ -323,7 +326,11 @@ func (p *pool) cameraReady(ctx context.Context, d *device) bool {
 	}
 	environments.Lock()
 	defer environments.Unlock()
-	return d.control.setEnvironment(ctx, defaultEnvironment) == nil
+	if d.control.setEnvironment(ctx, defaultEnvironment) != nil {
+		return false
+	}
+	d.shows = envKey(defaultEnvironment)
+	return true
 }
 
 // bootAfresh starts the device's emulator again, cold, for what an app's camera sees: its

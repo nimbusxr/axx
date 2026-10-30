@@ -13,7 +13,8 @@ Feature: A courier scans labels and photographs parcels with the Android phone's
   Kit's models read differently from one release to the next, so the scenario that reads a
   printed reference gives the app a stub of its text recognition instead
   (../../models/torn-label-android), in its axx-models folder: it reads the label once the parcel
-  is held still in view, and nothing before.
+  is held still in view, and nothing before. An emulator's camera rendered without a GPU (CI's)
+  takes seconds to show its first frame: the app is given 30 seconds to read a label.
 
   Background:
     Given the courier android app with the following properties:
@@ -35,7 +36,7 @@ Feature: A courier scans labels and photographs parcels with the Android phone's
     And the "PIN" field in the courier app is filled with "${sys:couriers.pin}"
     And the "Sign in" button is tapped in the courier app
     When the "Scan label" button is tapped in the courier app
-    Then the courier app shows "Jana Krüger"
+    Then within 30s the courier app shows "Jana Krüger"
 
   Scenario: A parcel whose label's code is torn off opens by the reference printed under it
     Given a seeds/courier-app-camera-android-torn.yaml db seed
@@ -49,7 +50,7 @@ Feature: A courier scans labels and photographs parcels with the Android phone's
     And the "PIN" field in the courier app is filled with "${sys:couriers.pin}"
     And the "Sign in" button is tapped in the courier app
     When the "Scan label" button is tapped in the courier app
-    Then the courier app shows "Malte Berger"
+    Then within 30s the courier app shows "Malte Berger"
 
   Scenario: A courier photographs the parcel where they left it, and the service keeps the photo
     Given a seeds/courier-app-camera-android-photo.yaml db seed

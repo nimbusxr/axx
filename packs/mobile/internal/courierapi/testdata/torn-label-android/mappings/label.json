@@ -1,0 +1,5 @@
+{
+  "name": "The torn label of PX-MOB-9401, held still in view, as an Android phone's camera frames it: its reference and the address",
+  "input": {"image": "../../torn-label-PX-MOB-9401-3x4.png"},
+  "output": {"text": "PARCELS STANDARD PX-MOB-9401 Kochstr. 32, 04275 Leipzig"}
+}

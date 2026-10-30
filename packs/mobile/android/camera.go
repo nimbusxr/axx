@@ -7,12 +7,14 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"maps"
 	"math"
 	"os"
 	"path/filepath"
 	"slices"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/nimbusxr/axx/core"
 	mobilecore "github.com/nimbusxr/axx/packs/mobile/core"
@@ -304,11 +306,18 @@ func (d *running) showCamera(ctx context.Context) error {
 	if cam != nil {
 		env = cam.env
 	}
-	environments.Lock()
-	err := d.dev.control.setEnvironment(ctx, env)
-	environments.Unlock()
-	if err != nil {
-		return fmt.Errorf("cannot set what the emulator's camera sees: %w", err)
+	// The emulator loads an environment anew only when it changes: its renderer can crash when it
+	// is reloaded while a camera view of it closes (as the app of the scenario before stops), as
+	// it did on CI's emulators (Linux, a software GPU). So it changes once the camera is closed.
+	if key := envKey(env); key != d.dev.shows {
+		d.cameraClosed(ctx)
+		environments.Lock()
+		err := d.dev.control.setEnvironment(ctx, env)
+		environments.Unlock()
+		if err != nil {
+			return fmt.Errorf("cannot set what the emulator's camera sees: %w", err)
+		}
+		d.dev.shows = key
 	}
 	if old := d.shown; old != nil && old != cam {
 		old.mu.Lock()
@@ -326,6 +335,36 @@ func (d *running) showCamera(ctx context.Context) error {
 		return placePhone(ctx, d.dev.control, cam.pose)
 	}
 	return nil
+}
+
+// envKey is an environment as one string, to tell whether it changed.
+func envKey(env map[string]string) string {
+	var b strings.Builder
+	for _, k := range slices.Sorted(maps.Keys(env)) {
+		b.WriteString(k + "=" + env[k] + "\n")
+	}
+	return b.String()
+}
+
+// cameraClosed waits, 5 seconds at most, until no app has the emulator's camera open, and a
+// moment more for the emulator to let go of its view: an app that stops closes it as it goes.
+func (d *running) cameraClosed(ctx context.Context) {
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		out, err := d.sdk.shell(ctx, d.dev.serial, "dumpsys", "media.camera")
+		if err != nil || !strings.Contains(out, " is open") || time.Now().After(deadline) {
+			break
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(200 * time.Millisecond):
+		}
+	}
+	select {
+	case <-ctx.Done():
+	case <-time.After(200 * time.Millisecond):
+	}
 }
 
 // hideCamera is the scenario's end: its camera shows on no device.

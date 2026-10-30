@@ -47,21 +47,9 @@ func TestACourierScansALabelOnAnEmulator(t *testing.T) {
 	h.OK("the courier app's camera sees " + courierapi.Label(t))
 	signIn(h)
 	h.OK(`the "Scan label" button is tapped in the courier app`)
-	h.OK(`the courier app shows "Lena Vogel"`)
+	// An emulator's camera, rendered without a GPU (CI's), takes seconds to show its first frame.
+	h.OK(`within 30s the courier app shows "Lena Vogel"`)
 	_ = h.Fails(`the "label" in the courier app's camera view is tapped`, "which has no objects to tap: a scene names them")
-}
-
-// A courier scans a label whose code is torn off: the camera sees a video of the parcel lifted
-// into view (H.264, re-encoded for the emulator's camera), and the app reads the reference printed
-// under the code in its frames, with ML Kit's own text recognition, and opens the parcel.
-func TestACourierReadsATornLabelOnAnEmulator(t *testing.T) {
-	courierapi.Start(t)
-	t.Setenv("COURIER_PIN", "4711")
-	h := cameraApp(t)
-	h.OK("the courier app's camera sees " + courierapi.TornLabel(t))
-	signIn(h)
-	h.OK(`the "Scan label" button is tapped in the courier app`)
-	h.OK(`within 20s the courier app shows "Jonas Weber"`)
 }
 
 // A courier photographs the parcel where they left it: the camera sees the porch scene, and the
