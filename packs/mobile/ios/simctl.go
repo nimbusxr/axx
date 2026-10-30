@@ -237,14 +237,19 @@ func (set simSet) boot(ctx context.Context, udid string, within time.Duration) e
 // after the simulator says it has booted: seconds, or over a minute on a busy
 // Mac. Until then an app's request goes unanswered, so the dialog a scenario
 // waits for never shows. It reads the simulator's log from since on (a clone
-// has its template's log too).
+// has its template's log too): the notification server adding its content
+// protection observer, as it starts. A log that cannot read SpringBoard's own
+// strings (an iOS 27 simulator's on GitHub's runner, every message of
+// SpringBoard's "<compose failure [shared UUID]>") still has the entry, the
+// only one of its category that SpringBoard logs as it starts.
 func (set simSet) notificationsServed(ctx context.Context, udid string, since time.Time, within time.Duration) bool {
 	ctx, cancel := context.WithTimeout(ctx, within)
 	defer cancel()
 	predicate := `process == "SpringBoard" AND subsystem == "com.apple.UserNotifications" AND category == "ContentProtection"`
 	args := []string{"spawn", udid, "log", "show", "--start", since.Format("2006-01-02 15:04:05"), "--style", "compact", "--predicate", predicate}
 	for {
-		if out, _ := set.simctl(ctx, args...); strings.Contains(out, "UNSUserNotificationServer") {
+		if out, _ := set.simctl(ctx, args...); strings.Contains(out, "UNSUserNotificationServer") ||
+			strings.Contains(out, "[com.apple.UserNotifications:ContentProtection] <compose failure") {
 			return true
 		}
 		select {
@@ -253,6 +258,56 @@ func (set simSet) notificationsServed(ctx context.Context, udid string, since ti
 		case <-time.After(time.Second):
 		}
 	}
+}
+
+// notificationsUnserved tells why notificationsServed found nothing from since on, for the
+// warning that the simulator does not serve notifications: what the same query answers now, the
+// message it looks for in the simulator's last 15 minutes, with when each was logged, and the
+// simulator's clock.
+func (set simSet) notificationsUnserved(ctx context.Context, udid string, since time.Time) string {
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	predicate := `process == "SpringBoard" AND subsystem == "com.apple.UserNotifications" AND category == "ContentProtection"`
+	out, err := set.simctl(ctx, "spawn", udid, "log", "show", "--start", since.Format("2006-01-02 15:04:05"), "--style", "compact", "--predicate", predicate)
+	why := fmt.Sprintf("the query from %s answers %d lines %q", since.Format("15:04:05"), strings.Count(out, "\n"), loggedMessages(out, 3))
+	if err != nil {
+		why += fmt.Sprintf(" (%v)", err)
+	}
+	// What SpringBoard's notification server logged as it started, in its other categories.
+	started, _ := set.simctl(ctx, "spawn", udid, "log", "show", "--start", since.Format("2006-01-02 15:04:05"), "--style", "compact", "--predicate",
+		`process == "SpringBoard" AND subsystem == "com.apple.UserNotifications" AND category IN {"Connections", "DataProviderFactory"}`)
+	why += fmt.Sprintf("; it started: %q", loggedMessages(started, 3))
+	wide, err := set.simctl(ctx, "spawn", udid, "log", "show", "--last", "15m", "--style", "compact", "--predicate", predicate)
+	var found []string
+	for _, line := range strings.Split(wide, "\n") {
+		if f := strings.Fields(line); len(f) > 1 && strings.Contains(line, "UNSUserNotificationServer") {
+			found = append(found, f[0]+" "+f[1])
+		}
+	}
+	why += fmt.Sprintf("; the last 15 minutes have it %d times %v", len(found), found)
+	if err != nil {
+		why += fmt.Sprintf(" (%v)", err)
+	}
+	// The simulator's clock, as its log has it: when SpringBoard logged last.
+	if last, err := set.simctl(ctx, "spawn", udid, "log", "show", "--last", "1m", "--style", "compact", "--predicate", `process == "SpringBoard"`); err == nil {
+		lines := strings.Split(strings.TrimSpace(last), "\n")
+		if f := strings.Fields(lines[len(lines)-1]); len(f) > 1 {
+			why += fmt.Sprintf("; SpringBoard logged last at %s %s, the Mac's clock reads %s", f[0], f[1], time.Now().Format("2006-01-02 15:04:05"))
+		}
+	}
+	return why
+}
+
+// loggedMessages are the first n messages of a compact log, without their timestamps and
+// processes.
+func loggedMessages(log string, n int) []string {
+	var msgs []string
+	for _, line := range strings.Split(log, "\n") {
+		if _, msg, ok := strings.Cut(line, "] "); ok && len(msgs) < n {
+			msgs = append(msgs, msg)
+		}
+	}
+	return msgs
 }
 
 // isUDID reports a simulator's or device's identifier.

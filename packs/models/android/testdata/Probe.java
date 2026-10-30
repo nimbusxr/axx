@@ -10,6 +10,7 @@ import android.media.MediaFormat;
 import android.media.MediaRecorder;
 import android.os.Bundle;
 import android.os.ParcelFileDescriptor;
+import android.os.SystemClock;
 import android.speech.RecognitionListener;
 import android.speech.RecognizerIntent;
 import android.speech.SpeechRecognizer;
@@ -20,6 +21,7 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.util.Arrays;
 
 // A normal application caller. This app contains no test provider or adapter.
@@ -75,10 +77,14 @@ public final class Probe extends Activity implements RecognitionListener {
     }
     recognizer.startListening(intent);
   }
+  // The test reads transcript.txt as soon as it is there: written whole, then
+  // renamed into place, it is never there empty.
   private void save(String text) {
     try {
-      Files.write(new File(getFilesDir(), "transcript.txt").toPath(),
-                  text.getBytes(StandardCharsets.UTF_8));
+      File part = new File(getFilesDir(), "transcript.txt.part");
+      Files.write(part.toPath(), text.getBytes(StandardCharsets.UTF_8));
+      Files.move(part.toPath(), new File(getFilesDir(), "transcript.txt").toPath(),
+                 StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
     } catch (Exception error) {
       throw new RuntimeException(error);
     }
@@ -185,14 +191,20 @@ public final class Probe extends Activity implements RecognitionListener {
       if ("recorder-fd-closed".equals(kind))
         destination.close();
       recorder.start();
+      // How long it records, from its start to its stop, less its pause: the sleeps' four
+      // seconds, or more on a busy device, whose sleeps end late.
+      long started = SystemClock.elapsedRealtime();
       Thread.sleep(1500);
       int loud = recorder.getMaxAmplitude();
+      long paused = 0;
       if ("recorder-paused-file".equals(kind)) {
         recorder.pause();
         Thread.sleep(500);
+        paused = 500;
         recorder.resume();
       }
       Thread.sleep(2500);
+      long recorded = SystemClock.elapsedRealtime() - started - paused;
       recorder.stop();
       recorder.release();
       if ("recorder-fd".equals(kind) && !destination.getFD().valid())
@@ -243,7 +255,7 @@ public final class Probe extends Activity implements RecognitionListener {
       Files.write(new File(getFilesDir(), "capture.pcm").toPath(),
                   Arrays.copyOf(kept.array(), kept.position()));
       save("recorded " + format.getInteger(MediaFormat.KEY_SAMPLE_RATE) +
-           " loud " + loud);
+           " loud " + loud + " ms " + recorded);
     } catch (Exception error) {
       save("error " + error);
     }

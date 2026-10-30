@@ -1,0 +1,54 @@
+# SPDX-License-Identifier: Apache-2.0
+name: simulator-mac
+description: >-
+  A Mac runner for a simulator's tests. start: the Mac's own background work, off, and how busy
+  the Mac is, recorded in the background; report (as the job's last step, if: always()): what was
+  recorded.
+
+  The runner's Spotlight would index all the job writes (the restored caches, the simulator's
+  data) and its software update look for updates, each taking a share of three cores that the
+  simulator and the tests need. And a simulator copies all its processes log to the Mac's log,
+  through a socket of the Mac's diagnosticd: the two diagnosticds took 415 s of processor time in
+  one job. Without that socket the simulator keeps its log to itself (simctl spawn's log show
+  reads it); on a VM of this runner's size the diagnosticds took 10 s rather than 53.
+
+  The record: every 30 seconds, the Mac's load and the processes busiest then (the simulator's
+  processes are the Mac's, marked as the simulator's), the simulator's first boot included; and at
+  the end, the processes that took the most time.
+inputs:
+  mode:
+    description: "`start` or `report`."
+    default: start
+runs:
+  using: composite
+  steps:
+    - if: inputs.mode == 'start'
+      name: the Mac's indexing, updates and copies of simulators' logs, off
+      shell: bash
+      run: |
+        sudo mdutil -a -i off > /dev/null
+        sudo softwareupdate --schedule off > /dev/null
+        sudo mv /private/var/run/.sim_diagnosticd_socket /private/var/run/.sim_diagnosticd_socket.off ||
+          echo "::warning::no socket for simulators' logs: the simulator copies its log to the Mac's"
+    # A step's background work keeps none of the step's input and output open: the runner waited
+    # five seconds for them to close. head ends the lists it cuts short, and the commands before
+    # it fail writing them: without pipefail (an action's bash's), as a workflow's steps run, a
+    # list cut short is no failure.
+    - if: inputs.mode == 'start'
+      name: the Mac's load (in the background)
+      shell: bash
+      run: |
+        set +o pipefail
+        (while :; do
+          echo "$(date +%T) load $(sysctl -n vm.loadavg)"
+          ps -A -o %cpu=,ucomm=,command= -r | head -8 | awk '{ printf "%6s %s%s\n", $1, $2, index($0, "CoreSimulator") ? " (simulator)" : "" }'
+          sleep 30
+        done) > "$RUNNER_TEMP/load.log" 2>&1 < /dev/null &
+    - if: inputs.mode == 'report'
+      name: the Mac's load
+      shell: bash
+      run: |
+        set +o pipefail
+        cat "$RUNNER_TEMP/load.log"
+        echo "the processes that took the most processor time:"
+        ps -A -o time=,ucomm=,command= | awk '{ n = split($1, t, ":"); s = 0; for (i = 1; i <= n; i++) s = s * 60 + t[i]; printf "%8.0f s  %s%s\n", s, $2, index($0, "CoreSimulator") ? " (simulator)" : "" }' | sort -rn | head -30

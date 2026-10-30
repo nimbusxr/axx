@@ -529,7 +529,7 @@ func (p *pool) bootDevice(ctx context.Context, d *device) error {
 	// One that never starts serving them (several simulators booting at once on a busy Mac) is
 	// started again, once, as a person restarts a phone that is stuck: its scenarios would fail
 	// waiting for the dialog an app asks for.
-	p.suite.Logger().Warn("the iOS simulator does not serve notifications; starting it again", "simulator", d.name, "waited", time.Since(waited).Round(time.Second))
+	p.suite.Logger().Warn("the iOS simulator does not serve notifications; starting it again", "simulator", d.name, "waited", time.Since(waited).Round(time.Second), "log", d.set.notificationsUnserved(ctx, d.udid, since))
 	if _, err := d.set.simctl(ctx, "shutdown", d.udid); err != nil {
 		return fmt.Errorf("the simulator %s served no notifications, and did not shut down to start again: %w", d.name, err)
 	}
@@ -542,7 +542,7 @@ func (p *pool) bootDevice(ctx context.Context, d *device) error {
 	}
 	waited = time.Now()
 	if wait := min(p.boot, notificationsWait); !d.set.notificationsServed(ctx, d.udid, since, wait) {
-		p.suite.Logger().Warn("the iOS simulator does not serve notifications, even started again; an app that asks for them may get no dialog", "simulator", d.name, "waited", wait)
+		p.suite.Logger().Warn("the iOS simulator does not serve notifications, even started again; an app that asks for them may get no dialog", "simulator", d.name, "waited", wait, "log", d.set.notificationsUnserved(ctx, d.udid, since))
 		return nil
 	}
 	p.suite.Logger().Info("the iOS simulator serves notifications, started again", "simulator", d.name, "waited", time.Since(waited).Round(time.Second))

@@ -149,10 +149,15 @@ jobs:
   test:
     needs: changes
     if: needs.changes.outputs.go == 'true'
+    # The unit tests on each OS, in two parts: the models packs' and the rest (some 5 minutes
+    # each on Windows, whose caches and builds are the slowest). On main, where the tests are only
+    # built, one part builds them all.
+    name: test (${{ matrix.os }}, ${{ matrix.part }})
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-24.04, macos-latest, windows-latest]
+        part: ${{ fromJSON(needs.changes.outputs.tests == 'true' && '["models", "rest"]' || '["all"]') }}
     runs-on: ${{ matrix.os }}
     steps:
       # Windows scans every file the checkout, the cache restore and the build write, which
@@ -183,10 +188,19 @@ jobs:
       # The tests are built in a step of their own, as the integration job's are. On main, they
       # are only built: their build cache is what pull requests read.
       - name: the tests, built
-        run: go test -race -run '^$' ./...
+        env:
+          PART: ${{ matrix.part }}
+        run: |
+          # (xargs: macOS's bash, 3.2, has no mapfile.)
+          case "$PART" in
+            models) go list ./packs/models/... > "$RUNNER_TEMP/packages" ;;
+            rest) go list ./... | grep -v '/packs/models/' > "$RUNNER_TEMP/packages" ;;
+            *) go list ./... > "$RUNNER_TEMP/packages" ;;
+          esac
+          xargs go test -race -run '^$' < "$RUNNER_TEMP/packages"
         shell: bash
       - if: needs.changes.outputs.tests == 'true'
-        run: scripts/gotest.sh -race ./...
+        run: xargs scripts/gotest.sh -race < "$RUNNER_TEMP/packages"
         shell: bash
       # On macOS and Windows this job keeps the module cache too (lint does on Linux).
       - if: ${{ !cancelled() }}
@@ -208,20 +222,27 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # The models packs' tests in eight parts, by their formats' names, of 2 to 6 minutes each
-        # here, as their times go (no test step runs past 10, on a slow runner either): a format's
-        # tests run its runtime, which takes every processor (and spins on it), so their packages
-        # run one at a time. ONNX's, the longest (7.5 minutes), are in two: transformers.js's,
-        # and the rest; and safetensors' Whisper transcriptions in transformers (6 minutes) are
-        # in two: the English ones, and the rest with the other formats of p to s.
-        part: [packs, models-a-f, models-g-k, models-l-m, models-n-o, models-onnx-js, models-p-s, models-safetensors-en, models-t, models-u-z]
+        # The models packs' tests in twelve parts, by their formats' names, of 2 to 5 minutes each
+        # here, as their times go, after some 2 of setting up (no job runs past 10, on a slow
+        # runner either): a format's tests run its runtime, which takes every processor (and
+        # spins on it), so their packages run one at a time. ExecuTorch's, GGUF's (llama.cpp)
+        # and TorchScript's (PyTorch) have parts of their own; ONNX's, the longest (7.5 minutes),
+        # are in two: transformers.js's, and the rest; and safetensors' Whisper transcriptions in
+        # transformers (6 minutes) are in two: the English ones, and the rest with the other
+        # formats of p to s.
+        part: [packs, models-a-d, models-e-f, models-gguf, models-h-k, models-l-m, models-n-o, models-onnx-js, models-p-s, models-safetensors-en, models-t, models-torchscript, models-u-z]
     env:
       PART: ${{ matrix.part }}
     steps:
-      # The services' images and the race-detector builds need more disk than a runner has
-      # free: remove toolchains the job never uses, in the background while the job sets up.
+      # The services' images and the race-detector builds need more disk than a runner of 14 GB
+      # free had: on one with less than 40 GB free, remove toolchains the job never uses, in the
+      # background while the job sets up. GitHub's runners have 80 GB free now, and removing them
+      # took up to two minutes the job then waited on.
       - name: free disk space (in the background)
-        run: (sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL /usr/share/swift; touch "$RUNNER_TEMP/disk-freed") > /dev/null 2>&1 &
+        run: |
+          (if [ "$(df --output=avail -BG / | tail -1 | tr -dc 0-9)" -lt 40 ]; then
+            sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL /usr/share/swift
+          fi; touch "$RUNNER_TEMP/disk-freed") > /dev/null 2>&1 &
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           persist-credentials: false
@@ -247,14 +268,17 @@ jobs:
           models=$(go list ./packs/models/... | grep -v /packs/models/web)
           case "$PART" in
             packs) mapfile -t packages < <(go list ./packs/... ./internal/engine/... ./internal/packbuild/... | grep -v -e /packs/web -e /packs/mobile -e /packs/models/) ;;
-            models-a-f) mapfile -t packages < <(grep -v -E '/format/[g-z]' <<< "$models") ;;
-            models-g-k) mapfile -t packages < <(grep -E '/format/[g-k]' <<< "$models") ;;
+            models-a-d) mapfile -t packages < <(grep -v -E '/format/[e-z]' <<< "$models") ;;
+            models-e-f) mapfile -t packages < <(grep -E '/format/[e-f]' <<< "$models") ;;
+            models-gguf) mapfile -t packages < <(grep -E '/format/gguf$' <<< "$models") ;;
+            models-h-k) mapfile -t packages < <(grep -E '/format/[h-k]' <<< "$models") ;;
             models-l-m) mapfile -t packages < <(grep -E '/format/[l-m]' <<< "$models") ;;
             models-n-o) mapfile -t packages < <(grep -E '/format/[n-o]' <<< "$models") ;;
             models-onnx-js) mapfile -t packages < <(grep -E '/format/onnx$' <<< "$models") ;;
             models-p-s) mapfile -t packages < <(grep -E '/format/[p-s]' <<< "$models") ;;
             models-safetensors-en) mapfile -t packages < <(grep -E '/format/safetensors$' <<< "$models") ;;
-            models-t) mapfile -t packages < <(grep -E '/format/t' <<< "$models") ;;
+            models-t) mapfile -t packages < <(grep -E '/format/t' <<< "$models" | grep -v '/format/torchscript$') ;;
+            models-torchscript) mapfile -t packages < <(grep -E '/format/torchscript$' <<< "$models") ;;
             models-u-z) mapfile -t packages < <(grep -E '/format/[u-z]' <<< "$models") ;;
           esac
           echo "${packages[@]}" > "$RUNNER_TEMP/packages"
@@ -355,10 +379,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # The Android pack's integration tests run one after another, each on an emulator: in
-        # three parts of some 6 minutes each on these runners (no test step runs past 10). With no
-        # tests to run, one part builds them.
-        part: ${{ fromJSON(needs.changes.outputs.tests == 'true' && '["emulator-1", "emulator-2", "emulator-3"]' || '["emulator-1"]') }}
+        # The Android pack's integration tests run one after another, each on an emulator, and the
+        # models-android pack's on one of their own: in nine parts of some 2.5 to 3.5 minutes each
+        # on these runners, after some 3 of setting up (no job runs past 10). With no tests to run,
+        # one part builds them, and keeps the couriers' app and the emulator's device for the rest.
+        part: ${{ fromJSON(needs.changes.outputs.tests == 'true' && '["emulator-1", "emulator-2", "emulator-3", "emulator-4", "emulator-5", "emulator-6", "models-1", "models-2", "models-3"]' || '["emulator-1"]') }}
+    env:
+      PART: ${{ matrix.part }}
     steps:
       - name: KVM, for the emulator, and where its devices are
         run: |
@@ -378,32 +405,14 @@ jobs:
           java-version: "21"
       # Gradle's caches: written on main only (the action's default), read by pull requests.
       - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6
-      # The NDK and CMake the couriers' app's native code is built with (and the models-android
-      # pack's agent, in its tests), before the SDK's manager installs the emulator's packages:
-      # two of them at once would write into one SDK.
-      # Google's servers drop a download now and then, and sdkmanager may still exit 0
-      # (create-emulator.sh's fetch): it is asked again until the packages' files are there.
-      - name: the NDK and CMake
-        run: |
-          for attempt in 1 2 3; do
-            "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;28.2.13676358" "cmake;3.22.1" > /dev/null || true
-            [ -e "$ANDROID_HOME/ndk/28.2.13676358/source.properties" ] && [ -e "$ANDROID_HOME/cmake/3.22.1/bin/cmake" ] && exit 0
-            echo "sdkmanager did not install the NDK and CMake (attempt $attempt)"
-            sleep 15
-          done
-          exit 1
-      # The couriers' app, while the rest sets up: nothing needs it before the tests. A background
-      # step keeps its command's status (status=$?) for the step that waits for it: the shell
-      # (bash -e) would end the subshell at a failure before it wrote it, and the wait would wait
-      # out its time.
-      - name: the couriers' app (in the background)
-        working-directory: examples/parcels/courier/android
-        run: (status=0; ./gradlew --no-daemon --console=plain assembleDebug -Pabis=x86_64 > "$RUNNER_TEMP/app.log" 2>&1 || status=$?; echo "$status" > "$RUNNER_TEMP/app.done") &
-      # The emulator's device and its boot snapshot, while the rest sets up.
-      - if: needs.changes.outputs.tests == 'true'
-        name: the emulator's device (in the background)
-        working-directory: examples/parcels/courier/android
-        run: (status=0; ./create-emulator.sh > "$RUNNER_TEMP/device.log" 2>&1 || status=$?; echo "$status" > "$RUNNER_TEMP/device.done") &
+      # The couriers' app (the models-android pack's tests build an app of their own) and the
+      # emulator's device, from their caches, or made while the rest sets up.
+      - uses: ./.github/actions/courier-android
+        with:
+          mode: start
+          app: ${{ !startsWith(matrix.part, 'models-') }}
+          emulator: ${{ needs.changes.outputs.tests == 'true' }}
+          save-emulator: ${{ matrix.part == 'emulator-1' }}
       - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
         with:
           install_args: "go aqua:gotestyourself/gotestsum"
@@ -413,35 +422,43 @@ jobs:
         with:
           build: acceptance
       - name: the tests, built
-        run: go test -race -tags integration -run '^$' ./packs/mobile/...
-      - name: wait for the couriers' app
         run: |
-          for _ in $(seq 450); do [ -f "$RUNNER_TEMP/app.done" ] && break; sleep 2; done
-          cat "$RUNNER_TEMP/app.log"
-          [ "$(cat "$RUNNER_TEMP/app.done" 2> /dev/null)" = 0 ] || { echo "::error::the couriers' app was not built"; exit 1; }
-      - if: needs.changes.outputs.tests == 'true'
-        name: wait for the emulator's device
-        run: |
-          for _ in $(seq 450); do [ -f "$RUNNER_TEMP/device.done" ] && break; sleep 2; done
-          cat "$RUNNER_TEMP/device.log"
-          [ "$(cat "$RUNNER_TEMP/device.done" 2> /dev/null)" = 0 ] || { df -h /; tail -n 40 "$ANDROID_AVD_HOME/parcels-pixel-snapshot.log" 2> /dev/null || true; ps -o pid,ppid,stat,wchan:32,etime,args -p "$(pgrep -d, -f 'create-emulator|emulator|qemu|adb')" || true; echo "::error::the emulator's device was not made"; exit 1; }
-      - if: needs.changes.outputs.tests == 'true'
-        env:
-          PART: ${{ matrix.part }}
-        run: |
-          # The parts, by their tests' times here (gotestsum's slowest): the third runs the rest.
-          first='TestACourierReadsATornLabelOnAnEmulator|TestCouriersOnAnEmulator|TestACourierSharesTheVanOnAnEmulator'
-          second='TestACourierPhotographsAParcelAtTheDoorOnAnEmulator|TestACourierAttachesADocumentOnAnEmulator|TestACourierWalksUpToAParcelAndMeasuresItOnAnEmulator|TestACourierScansALabelOnAnEmulator'
           case "$PART" in
-            emulator-1) select=(-run "^($first)\$") ;;
-            emulator-2) select=(-run "^($second)\$") ;;
-            *) select=(-skip "^($first|$second)\$") ;;
+            models-*) go test -race -tags integration -run '^$' ./packs/models/android/... ;;
+            *) go test -race -tags integration -run '^$' ./packs/mobile/... ;;
+          esac
+      - uses: ./.github/actions/courier-android
+        with:
+          mode: finish
+          app: ${{ !startsWith(matrix.part, 'models-') }}
+          emulator: ${{ needs.changes.outputs.tests == 'true' }}
+          save-emulator: ${{ matrix.part == 'emulator-1' }}
+      - if: needs.changes.outputs.tests == 'true'
+        uses: ./.github/actions/android-builds
+        with:
+          part: mobile-${{ matrix.part }}
+      - if: needs.changes.outputs.tests == 'true' && startsWith(matrix.part, 'emulator-')
+        run: |
+          # The parts, by their tests' times here (gotestsum's slowest): the sixth runs the rest.
+          one='TestACourierReadsATornLabelOnAnEmulator'
+          two='TestCouriersOnAnEmulator|TestACourierScansALabelOnAnEmulator'
+          three='TestACourierAttachesADocumentOnAnEmulator|TestACourierSharesTheVanOnAnEmulator'
+          four='TestACourierWalksUpToAParcelAndMeasuresItOnAnEmulator|TestACourierPhotographsAParcelAtTheDoorOnAnEmulator'
+          five='TestACourierMeasuresAParcelOnAnEmulator|TestRecordingsOnAnEmulator'
+          case "$PART" in
+            emulator-1) select=(-run "^($one)\$") ;;
+            emulator-2) select=(-run "^($two)\$") ;;
+            emulator-3) select=(-run "^($three)\$") ;;
+            emulator-4) select=(-run "^($four)\$") ;;
+            emulator-5) select=(-run "^($five)\$") ;;
+            *) select=(-skip "^($one|$two|$three|$four|$five)\$") ;;
           esac
           GOTEST_SLOWEST=1s scripts/gotest.sh -race -tags integration -timeout 10m "${select[@]}" ./packs/mobile/...
-      - if: needs.changes.outputs.tests == 'true' && matrix.part == 'emulator-3'
+      # The models-android pack's tests, in three parts, on an emulator of the device's snapshot.
+      - if: needs.changes.outputs.tests == 'true' && startsWith(matrix.part, 'models-')
         name: platform model adapters in a debuggable emulator app
         run: |
-          "$ANDROID_HOME/emulator/emulator" -avd parcels-pixel -read-only -no-window -no-audio -no-snapshot -no-boot-anim -gpu swiftshader_indirect -port 5580 > "$RUNNER_TEMP/models-emulator.log" 2>&1 &
+          "$ANDROID_HOME/emulator/emulator" -avd parcels-pixel -read-only -no-snapshot-save -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -port 5580 > "$RUNNER_TEMP/models-emulator.log" 2>&1 &
           model_emulator_pid=$!
           trap '"$ANDROID_HOME/platform-tools/adb" -s emulator-5580 emu kill || true; wait "$model_emulator_pid" || true' EXIT
           "$ANDROID_HOME/platform-tools/adb" -s emulator-5580 wait-for-device
@@ -450,15 +467,27 @@ jobs:
             sleep 1
           done
           [ "$("$ANDROID_HOME/platform-tools/adb" -s emulator-5580 shell getprop sys.boot_completed | tr -d '\r')" = 1 ] || { cat "$RUNNER_TEMP/models-emulator.log"; exit 1; }
-          AXX_MODELS_ANDROID_SERIAL=emulator-5580 scripts/gotest.sh -race -tags integration -timeout 10m ./packs/models/android/...
+          case "$PART" in
+            models-1) select=(-run '^TestAndroidSpeechTellsOneSpeakersPhrasesApart$') ;;
+            models-2) select=(-run '^TestAndroidAppLaunchHook$') ;;
+            *) select=(-skip '^(TestAndroidSpeechTellsOneSpeakersPhrasesApart|TestAndroidAppLaunchHook)$') ;;
+          esac
+          AXX_MODELS_ANDROID_SERIAL=emulator-5580 GOTEST_SLOWEST=1s scripts/gotest.sh -race -tags integration -timeout 10m "${select[@]}" ./packs/models/android/...
+      - if: ${{ !cancelled() && needs.changes.outputs.tests == 'true' }}
+        uses: ./.github/actions/android-builds
+        with:
+          part: mobile-${{ matrix.part }}
+          mode: save
 
   android:
     needs: changes
     if: needs.changes.outputs.mobile == 'true' && needs.changes.outputs.tests == 'true'
     # The parcels example's Android scenarios, on an emulator axx starts (KVM), against the
     # whole example, which axx starts too. A runner runs a feature, or a shard of it (axx run
-    # --shard), on one emulator, a scenario at a time: some 4 minutes' worth on a fast runner,
-    # 6 on a slow one (the same scenarios took up to 1.5 times as long), none past 10.
+    # --shard), on one emulator, a scenario at a time: some 3 to 4 minutes' worth on a fast
+    # runner (a minute of it starting the example; a documents scenario takes nearly 2), after
+    # some 3 of setting up, so that a slow one (the same scenarios took up to 1.5 times as long)
+    # takes no job past 10.
     name: android (${{ matrix.feature }} ${{ matrix.part }}/${{ matrix.of }})
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -466,21 +495,33 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - {feature: courier-app, part: 1, of: 3}
-          - {feature: courier-app, part: 2, of: 3}
-          - {feature: courier-app, part: 3, of: 3}
+          - {feature: courier-app, part: 1, of: 5}
+          - {feature: courier-app, part: 2, of: 5}
+          - {feature: courier-app, part: 3, of: 5}
+          - {feature: courier-app, part: 4, of: 5}
+          - {feature: courier-app, part: 5, of: 5}
           - {feature: courier-app-camera, part: 1, of: 2}
           - {feature: courier-app-camera, part: 2, of: 2}
-          - {feature: courier-app-documents, part: 1, of: 3}
-          - {feature: courier-app-documents, part: 2, of: 3}
-          - {feature: courier-app-documents, part: 3, of: 3}
-          - {feature: courier-app-measure, part: 1, of: 1}
-          - {feature: courier-app-notifications, part: 1, of: 1}
+          - {feature: courier-app-documents, part: 1, of: 6}
+          - {feature: courier-app-documents, part: 2, of: 6}
+          - {feature: courier-app-documents, part: 3, of: 6}
+          - {feature: courier-app-documents, part: 4, of: 6}
+          - {feature: courier-app-documents, part: 5, of: 6}
+          - {feature: courier-app-documents, part: 6, of: 6}
+          - {feature: courier-app-measure, part: 1, of: 2}
+          - {feature: courier-app-measure, part: 2, of: 2}
+          - {feature: courier-app-notifications, part: 1, of: 3}
+          - {feature: courier-app-notifications, part: 2, of: 3}
+          - {feature: courier-app-notifications, part: 3, of: 3}
     steps:
-      # The example's images need more disk than a runner has free: remove toolchains the job
-      # never uses (not the Android SDK), in the background while the job sets up.
+      # The example's images need more disk than a runner of 14 GB free had: on one with less
+      # than 40 GB free, remove toolchains the job never uses (not the Android SDK), in the
+      # background while the job sets up. GitHub's runners have 80 GB free now.
       - name: free disk space (in the background)
-        run: (sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL /usr/share/swift; touch "$RUNNER_TEMP/disk-freed") > /dev/null 2>&1 &
+        run: |
+          (if [ "$(df --output=avail -BG / | tail -1 | tr -dc 0-9)" -lt 40 ]; then
+            sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL /usr/share/swift
+          fi; touch "$RUNNER_TEMP/disk-freed") > /dev/null 2>&1 &
       - name: KVM, for the emulator, and where its devices are
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
@@ -501,30 +542,11 @@ jobs:
           java-version: "21"
       # Gradle's caches: written on main only (the action's default), read by pull requests.
       - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6
-      # The NDK and CMake the couriers' app's native code is built with, before the SDK's manager
-      # installs the emulator's packages: two of them at once would write into one SDK.
-      # Google's servers drop a download now and then, and sdkmanager may still exit 0
-      # (create-emulator.sh's fetch): it is asked again until the packages' files are there.
-      - name: the NDK and CMake
-        run: |
-          for attempt in 1 2 3; do
-            "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;28.2.13676358" "cmake;3.22.1" > /dev/null || true
-            [ -e "$ANDROID_HOME/ndk/28.2.13676358/source.properties" ] && [ -e "$ANDROID_HOME/cmake/3.22.1/bin/cmake" ] && exit 0
-            echo "sdkmanager did not install the NDK and CMake (attempt $attempt)"
-            sleep 15
-          done
-          exit 1
-      # The couriers' app, while the rest sets up: nothing needs it before the tests. A background
-      # step keeps its command's status (status=$?) for the step that waits for it: the shell
-      # (bash -e) would end the subshell at a failure before it wrote it, and the wait would wait
-      # out its time.
-      - name: the couriers' app (in the background)
-        working-directory: examples/parcels/courier/android
-        run: (status=0; ./gradlew --no-daemon --console=plain assembleDebug -Pabis=x86_64 > "$RUNNER_TEMP/app.log" 2>&1 || status=$?; echo "$status" > "$RUNNER_TEMP/app.done") &
-      # The emulator's device and its boot snapshot, while the rest sets up.
-      - name: the emulator's device (in the background)
-        working-directory: examples/parcels/courier/android
-        run: (status=0; ./create-emulator.sh > "$RUNNER_TEMP/device.log" 2>&1 || status=$?; echo "$status" > "$RUNNER_TEMP/device.done") &
+      # The couriers' app and the emulator's device, from their caches, or made while the rest
+      # sets up.
+      - uses: ./.github/actions/courier-android
+        with:
+          mode: start
       - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
         with:
           install_args: "go"
@@ -538,30 +560,27 @@ jobs:
           for _ in $(seq 300); do [ -f "$RUNNER_TEMP/disk-freed" ] && break; sleep 2; done
           [ -f "$RUNNER_TEMP/disk-freed" ] || { echo "::error::the disk space was not freed within 10 minutes"; exit 1; }
           df -h /
-      # What the example pulls (2 GB), while the job goes on.
-      - name: the example's images (in the background)
-        run: (status=0; docker compose -f examples/parcels/infra/compose.yaml pull --ignore-buildable --quiet > "$RUNNER_TEMP/pull.log" 2>&1 || status=$?; echo "$status" > "$RUNNER_TEMP/pull.done") &
-      - name: axx, with every pack
+      # What the example pulls (2 GB), and axx, while the example's own images are made.
+      - name: the example's images and axx (in the background)
         run: |
-          go build -o "$RUNNER_TEMP/bin/axx" ./internal/tools/axxall
+          (status=0; docker compose -f examples/parcels/infra/compose.yaml pull --ignore-buildable --quiet > "$RUNNER_TEMP/pull.log" 2>&1 || status=$?; echo "$status" > "$RUNNER_TEMP/pull.done") &
+          (status=0; go build -o "$RUNNER_TEMP/bin/axx" ./internal/tools/axxall > "$RUNNER_TEMP/axx.log" 2>&1 || status=$?; echo "$status" > "$RUNNER_TEMP/axx.done") &
           echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+      # The images the example's compose file builds: in seconds, not minutes.
+      - uses: ./.github/actions/parcels-images
+      - name: wait for axx, with every pack
+        run: |
+          for _ in $(seq 450); do [ -f "$RUNNER_TEMP/axx.done" ] && break; sleep 2; done
+          cat "$RUNNER_TEMP/axx.log"
+          [ "$(cat "$RUNNER_TEMP/axx.done" 2> /dev/null)" = 0 ] || { echo "::error::axx was not built"; exit 1; }
       - name: the fixtures, as a fresh clone has them
         working-directory: examples/parcels/acceptance
         run: |
           axx fixtures check
           axx fixtures generate
-      # The images the example's compose file builds: in seconds, not minutes.
-      - uses: ./.github/actions/parcels-images
-      - name: wait for the couriers' app
-        run: |
-          for _ in $(seq 450); do [ -f "$RUNNER_TEMP/app.done" ] && break; sleep 2; done
-          cat "$RUNNER_TEMP/app.log"
-          [ "$(cat "$RUNNER_TEMP/app.done" 2> /dev/null)" = 0 ] || { echo "::error::the couriers' app was not built"; exit 1; }
-      - name: wait for the emulator's device
-        run: |
-          for _ in $(seq 450); do [ -f "$RUNNER_TEMP/device.done" ] && break; sleep 2; done
-          cat "$RUNNER_TEMP/device.log"
-          [ "$(cat "$RUNNER_TEMP/device.done" 2> /dev/null)" = 0 ] || { df -h /; tail -n 40 "$ANDROID_AVD_HOME/parcels-pixel-snapshot.log" 2> /dev/null || true; ps -o pid,ppid,stat,wchan:32,etime,args -p "$(pgrep -d, -f 'create-emulator|emulator|qemu|adb')" || true; echo "::error::the emulator's device was not made"; exit 1; }
+      - uses: ./.github/actions/courier-android
+        with:
+          mode: finish
       - name: wait for the example's images
         run: |
           for _ in $(seq 300); do [ -f "$RUNNER_TEMP/pull.done" ] && break; sleep 2; done
@@ -574,6 +593,11 @@ jobs:
         run: |
           android=$(grep -rl --include='*.feature' '@android' features | sort | tr '\n' ' ')
           [ "$android" = "features/courier-app-camera/courier-app-camera-android.feature features/courier-app-documents/courier-app-documents-android.feature features/courier-app-measure/courier-app-measure-android.feature features/courier-app-notifications/courier-app-notifications-android.feature features/courier-app/courier-app-android.feature " ] || { echo "::error::the android job runs courier-app, courier-app-camera, courier-app-documents, courier-app-measure and courier-app-notifications, and the Android features are: $android"; exit 1; }
+      - uses: ./.github/actions/android-builds
+        with:
+          part: android-${{ matrix.feature }}
+      # How busy the runner and the emulator are while the scenarios run.
+      - uses: ./.github/actions/android-load
       - working-directory: examples/parcels/acceptance
         env:
           FEATURE: ${{ matrix.feature }}
@@ -593,17 +617,63 @@ jobs:
             examples/parcels/acceptance/.axx/logs/
           if-no-files-found: ignore
           retention-days: 7
+      - if: ${{ !cancelled() }}
+        uses: ./.github/actions/android-builds
+        with:
+          part: android-${{ matrix.feature }}
+          mode: save
+      - if: always()
+        uses: ./.github/actions/android-load
+        with:
+          mode: report
+
+  mac-tests:
+    needs: changes
+    if: (needs.changes.outputs.mobile == 'true' || needs.changes.outputs.models == 'true') && needs.changes.outputs.tests == 'true'
+    # The tests the Mac jobs run (ios, coreml), built for macOS here, as axx builds for it (no
+    # cgo), with a build cache of its own, for the Mac jobs to download (.github/actions/mac-tests):
+    # each took 85 to 100 seconds of its ten minutes restoring Go's module cache and building them,
+    # with no build cache, on a runner of three cores.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+        with:
+          install_args: "go"
+          # Tools are cached from main only: pull requests read them.
+          cache_save: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+      - uses: ./.github/actions/go-cache
+        with:
+          build: mac-tests
+      - name: the tests, built for macOS
+        run: scripts/mac-tests.sh "$RUNNER_TEMP/mac-tests.tar"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: mac-tests
+          path: ${{ runner.temp }}/mac-tests.tar
+          retention-days: 1
+      - if: ${{ !cancelled() }}
+        uses: ./.github/actions/go-cache
+        with:
+          build: mac-tests
+          mode: save
+          modules: "false"
 
   ios:
-    needs: changes
+    needs: [changes, mac-tests]
     if: needs.changes.outputs.mobile == 'true' && needs.changes.outputs.tests == 'true'
     # The iOS pack, on simulators axx makes, with the parcels example's couriers' iOS app. The
     # example's iOS scenarios need the whole example, and macOS runners have no Docker: they
     # run on developers' Macs.
-    # The tests run on four runners, a simulator each, none past 10 minutes:
-    # TestCouriersOnASimulator, two scenarios long, and TestRecordingsOnASimulator on one (some 5
-    # minutes); the camera's on another (some 3); the notifications' on a third (some 3.5); the
-    # others on the fourth (some 5).
+    # The tests run on nine runners, a simulator each, some 2 to 4 minutes' worth on each after
+    # some 4.5 of setting up (the simulator's first boot takes 2 to 3; a part's first test takes a
+    # minute longer, as the simulator's first app does), so that no job runs past 10:
+    # TestCouriersOnASimulator, two scenarios long, and TestRecordingsOnASimulator on one; the
+    # camera's on four; the notifications' and the reminder's on one each; sharing the van on
+    # one; the others on the ninth.
     name: ios (${{ matrix.tests }})
     runs-on: macos-latest
     timeout-minutes: 60
@@ -612,56 +682,42 @@ jobs:
       matrix:
         include:
           - tests: couriers
-            select: -run=^(TestCouriersOnASimulator|TestRecordingsOnASimulator)$
-          - tests: camera
-            select: -run=^(TestACourierMeasuresAParcelOnASimulator|TestACourierWalksUpToAParcelAndMeasuresItOnASimulator|TestACourierPhotographsAParcelAtTheDoorOnASimulator|TestACourierReadsATornLabelOnASimulator|TestACourierScansALabelOnASimulator|TestThePhoneMovesThroughTheScene|TestTheCameraSeesASceneAnImageOrAVideo)$
+            select: -test.run=^(TestCouriersOnASimulator|TestRecordingsOnASimulator)$
+          - tests: camera-1
+            select: -test.run=^(TestThePhoneMovesThroughTheScene|TestTheCameraSeesASceneAnImageOrAVideo)$
+          - tests: camera-2
+            select: -test.run=^TestACourierMeasuresAParcelOnASimulator$
+          - tests: camera-3
+            select: -test.run=^(TestACourierWalksUpToAParcelAndMeasuresItOnASimulator|TestACourierPhotographsAParcelAtTheDoorOnASimulator)$
+          - tests: camera-4
+            select: -test.run=^(TestACourierReadsATornLabelOnASimulator|TestACourierScansALabelOnASimulator)$
           - tests: notifications
-            select: -run=^(TestACourierFollowsNotificationsOnASimulator|TestACourierIsRemindedOfTheRoundOnASimulator)$
+            select: -test.run=^TestACourierFollowsNotificationsOnASimulator$
+          - tests: reminder
+            select: -test.run=^TestACourierIsRemindedOfTheRoundOnASimulator$
+          - tests: shares
+            select: -test.run=^TestACourierSharesTheVanOnASimulator$
           - tests: others
-            select: -skip=^(TestACourierFollowsNotificationsOnASimulator|TestACourierIsRemindedOfTheRoundOnASimulator|TestCouriersOnASimulator|TestRecordingsOnASimulator|TestACourierMeasuresAParcelOnASimulator|TestACourierWalksUpToAParcelAndMeasuresItOnASimulator|TestACourierPhotographsAParcelAtTheDoorOnASimulator|TestACourierReadsATornLabelOnASimulator|TestACourierScansALabelOnASimulator|TestThePhoneMovesThroughTheScene|TestTheCameraSeesASceneAnImageOrAVideo)$
+            select: -test.skip=^(TestCouriersOnASimulator|TestRecordingsOnASimulator|TestThePhoneMovesThroughTheScene|TestACourierReadsATornLabelOnASimulator|TestACourierScansALabelOnASimulator|TestTheCameraSeesASceneAnImageOrAVideo|TestACourierMeasuresAParcelOnASimulator|TestACourierWalksUpToAParcelAndMeasuresItOnASimulator|TestACourierPhotographsAParcelAtTheDoorOnASimulator|TestACourierFollowsNotificationsOnASimulator|TestACourierIsRemindedOfTheRoundOnASimulator|TestACourierSharesTheVanOnASimulator)$
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           persist-credentials: false
       # The examples' model files (Git LFS).
       - uses: ./.github/actions/lfs
-      # The runner's Spotlight would index all the job writes (the restored Go caches, the simulator's
-      # data) and its software update look for updates, each taking a share of three cores that the
-      # simulator and the tests need. And a simulator copies all its processes log to the Mac's log,
-      # through a socket of the Mac's diagnosticd: the two diagnosticds took 415 s of processor time
-      # in one job. Without that socket the simulator keeps its log to itself (simctl spawn's log
-      # show reads it); on a VM of this runner's size the diagnosticds took 10 s rather than 53.
-      - name: the Mac's indexing, updates and copies of simulators' logs, off
-        run: |
-          sudo mdutil -a -i off > /dev/null
-          sudo softwareupdate --schedule off > /dev/null
-          sudo mv /private/var/run/.sim_diagnosticd_socket /private/var/run/.sim_diagnosticd_socket.off ||
-            echo "::warning::no socket for simulators' logs: the simulator copies its log to the Mac's"
-      # How busy the Mac is while the job runs, the simulator's first boot included: every 30
-      # seconds, its load and the processes busiest then (the simulator's processes are the Mac's,
-      # marked as the simulator's). The job's last step prints it, and the processes that took the
-      # most time. (A step's background work keeps none of the step's input and output open: the
-      # runner waited five seconds for them to close.)
-      - name: the Mac's load (in the background)
-        run: |
-          (while :; do
-            echo "$(date +%T) load $(sysctl -n vm.loadavg)"
-            ps -A -o %cpu=,ucomm=,command= -r | head -8 | awk '{ printf "%6s %s%s\n", $1, $2, index($0, "CoreSimulator") ? " (simulator)" : "" }'
-            sleep 30
-          done) > "$RUNNER_TEMP/load.log" 2>&1 < /dev/null &
+      - uses: ./.github/actions/simulator-mac
+      # gotestsum, which runs the tests that the mac-tests job built.
       - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
         with:
-          install_args: "go aqua:gotestyourself/gotestsum"
+          install_args: "aqua:gotestyourself/gotestsum"
           # Tools are cached from main only: pull requests read them.
           cache_save: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-      # Only the module cache: the tests build without the race detector, and the test build cache
-      # was built with it.
-      - uses: ./.github/actions/go-cache
-      - name: the couriers' app
-        working-directory: examples/parcels/courier/ios
-        run: xcodebuild -project Courier.xcodeproj -target Courier -configuration Debug -sdk iphonesimulator ONLY_ACTIVE_ARCH=NO SYMROOT=build
-      - name: the tests, built
-        run: go test -tags integration -run '^$' ./packs/mobile/ios/...
+      - uses: ./.github/actions/mac-tests
+      # The couriers' app: from its cache, or built.
+      - uses: ./.github/actions/courier-ios
+      - uses: ./.github/actions/simulator-builds
+        with:
+          part: ios-${{ matrix.tests }}
       # The simulator the tests keep (scripts/ios-simulator.sh), made and booted once everything
       # else is ready: its first boot takes a minute or more on these runners, and slowed whatever
       # ran beside it far more than it saved. Restoring the caches took fifty times as long (218 s
@@ -671,66 +727,76 @@ jobs:
       - name: the tests' simulator
         run: scripts/ios-simulator.sh
       # The tests share that simulator, kept booted from one to the next, as a run's worker has
-      # one. Each prints the packs' log (how long the simulator took to get ready, and each
-      # part), and a failed one the end of its logs and the screen it read. Without the race
+      # one. Each prints the packs' log (how long the simulator took to get ready, each part, and
+      # each step), and a failed one the end of its logs and the screen it read. Without the race
       # detector: on three cores it doubled the tests' time (783 s against 405 s, measured on a VM
       # of this runner's size), and the Android jobs run the shared mobile code with it.
       - env:
           SELECT: ${{ matrix.select }}
-        run: GOTEST_FORMAT=standard-verbose GOTEST_SLOWEST=1s scripts/gotest.sh -tags integration -timeout 10m "$SELECT" ./packs/mobile/ios/...
-      - name: the Mac's load
-        if: always()
-        run: |
-          cat "$RUNNER_TEMP/load.log"
-          echo "the processes that took the most processor time:"
-          ps -A -o time=,ucomm=,command= | awk '{ n = split($1, t, ":"); s = 0; for (i = 1; i <= n; i++) s = s * 60 + t[i]; printf "%8.0f s  %s%s\n", s, $2, index($0, "CoreSimulator") ? " (simulator)" : "" }' | sort -rn | head -30
+        run: GOTEST_FORMAT=standard-verbose GOTEST_SLOWEST=1s scripts/gotest.sh packs/mobile/ios/ios.test -test.timeout=10m "$SELECT"
+      - if: ${{ !cancelled() }}
+        uses: ./.github/actions/simulator-builds
+        with:
+          part: ios-${{ matrix.tests }}
+          mode: save
+      - if: always()
+        uses: ./.github/actions/simulator-mac
+        with:
+          mode: report
 
   coreml:
-    needs: changes
+    needs: [changes, mac-tests]
     if: needs.changes.outputs.models == 'true' && needs.changes.outputs.tests == 'true'
     # The models-core pack's Core ML stubs, compiled by Core ML's compiler and run in Core ML, which
     # runs on Macs only (its other formats' runtimes, ONNX Runtime and LiteRT, run in the
     # integration job); and its Foundation Models stubs, built with Xcode 27's Swift and given to
     # Foundation Models' sessions, which take a model of an app's from macOS 27: the xcode-27
-    # image's. In three parts, none of whose tests run past 10 minutes: the Mac's, and the
-    # simulator's in two (the courier's; the platform calls, speech and audio capture).
+    # image's. In four parts, none of which runs past 10 minutes: the Mac's, and the simulator's
+    # in three, by their tests' times on this runner (the courier's; Foundation Models' sessions,
+    # the platform calls and audio capture, 74 s; speech, 137 s, and the rest).
     name: coreml (${{ matrix.part }})
     runs-on: xcode-27
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
-        part: [mac, simulator-1, simulator-2]
+        part: [mac, simulator-1, simulator-2, simulator-3]
     env:
       PART: ${{ matrix.part }}
       SIMULATOR_1: ^TestCourierUsesPlatformFixtureWithoutDebugProvider$
+      SIMULATOR_2: ^(TestFoundationModelsOrdinarySessions|TestSimulatorPlatformCalls|TestSimulatorCaptureHearsTheRecording)$
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           persist-credentials: false
       # The examples' model files (Git LFS).
       - uses: ./.github/actions/lfs
+      - if: matrix.part != 'mac'
+        uses: ./.github/actions/simulator-mac
+      # gotestsum, which runs the tests that the mac-tests job built.
       - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
         with:
-          install_args: "go aqua:gotestyourself/gotestsum"
+          install_args: "aqua:gotestyourself/gotestsum"
           # Tools are cached from main only: pull requests read them.
           cache_save: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-      - uses: ./.github/actions/go-cache
+      - uses: ./.github/actions/mac-tests
       - if: matrix.part == 'mac'
-        run: go test -tags integration -timeout 10m -run TestCoreML ./packs/models/core/format/coreml/
+        run: scripts/gotest.sh packs/models/core/format/coreml/coreml.test -test.timeout=10m -test.run=TestCoreML
       - if: matrix.part == 'mac'
-        run: go test -tags integration -timeout 10m -run TestFoundationModels ./packs/models/core/format/foundationmodels/
+        run: scripts/gotest.sh packs/models/core/format/foundationmodels/foundationmodels.test -test.timeout=10m -test.run=TestFoundationModels
+      # The courier's ordinary Foundation Models calls: its app, from its cache, or built.
       - if: matrix.part == 'simulator-1'
-        name: the courier's ordinary Foundation Models calls
-        working-directory: examples/parcels/courier/ios
-        run: xcodebuild -project Courier.xcodeproj -target Courier -configuration Debug -sdk iphonesimulator ONLY_ACTIVE_ARCH=NO SYMROOT=build
+        uses: ./.github/actions/courier-ios
       - if: matrix.part != 'mac'
-        name: the tests, built
-        run: go test -tags integration -run '^$' ./packs/models/ios/...
+        uses: ./.github/actions/simulator-builds
+        with:
+          part: coreml-${{ matrix.part }}
       # The simulator as the ios job makes it (the newest iOS, 27's on this image), its first
       # boot's work no test needs off: a bare one, on this runner, did not yet serve apps' requests
-      # for notifications after minutes (the courier's sign-in asks for them). Made once the tests
-      # are built, as the ios job's is: its first boot slows whatever runs beside it.
+      # for notifications after minutes (the courier's sign-in asks for them). Made once the rest
+      # is ready, as the ios job's is: its first boot slows whatever runs beside it (started with
+      # the job, it made installing the tools take 320 seconds, not 13, and restoring Go's cache
+      # 235, not 39).
       - if: matrix.part != 'mac'
         name: the tests' simulator
         run: |
@@ -740,14 +806,26 @@ jobs:
       - if: matrix.part != 'mac'
         name: platform model adapters in the simulator
         run: |
-          select=(-run "$SIMULATOR_1")
-          [ "$PART" = simulator-1 ] || select=(-skip "$SIMULATOR_1")
-          GOTEST_SLOWEST=1s scripts/gotest.sh -tags integration -timeout 10m "${select[@]}" ./packs/models/ios/...
+          case "$PART" in
+            simulator-1) select=(-test.run "$SIMULATOR_1") ;;
+            simulator-2) select=(-test.run "$SIMULATOR_2") ;;
+            *) select=(-test.skip "$SIMULATOR_1|$SIMULATOR_2") ;;
+          esac
+          GOTEST_FORMAT=standard-verbose GOTEST_SLOWEST=1s scripts/gotest.sh packs/models/ios/ios.test -test.timeout=10m "${select[@]}"
       # The same adapters in Mac programs, as macOS loads them into a Mac app's test build; Foundation
       # Models' on this image's macOS 27.
       - if: matrix.part == 'mac'
         name: platform model adapters on the Mac
-        run: go test -tags integration -timeout 10m ./packs/models/macos/...
+        run: scripts/gotest.sh packs/models/macos/macos.test -test.timeout=10m
+      - if: ${{ !cancelled() && matrix.part != 'mac' }}
+        uses: ./.github/actions/simulator-builds
+        with:
+          part: coreml-${{ matrix.part }}
+          mode: save
+      - if: ${{ always() && matrix.part != 'mac' }}
+        uses: ./.github/actions/simulator-mac
+        with:
+          mode: report
 
   windows-models:
     needs: changes
@@ -789,13 +867,46 @@ jobs:
           persist-credentials: false
       - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
         with:
-          install_args: "go"
+          install_args: "go aqua:gotestyourself/gotestsum"
           # Tools are cached from main only: pull requests read them.
           cache_save: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
       - uses: ./.github/actions/go-cache
         with:
           build: windows-models
-      - run: go test -tags integration -timeout 10m ./packs/models/windows/...
+      # What the tests build and download into axx's cache: the voice engine (.NET), the Windows
+      # AI library (MSVC, and C++/WinRT's compiler for it) and Piper. Each a folder named for what
+      # made it, kept by the run that made it, on a pull request too: the job took 4.7 minutes in
+      # one run and 10 in the next, making them again.
+      - id: windows-builds-key
+        shell: bash
+        env:
+          SOURCES: ${{ hashFiles('packs/models/windows/**') }}
+        run: |
+          echo "prefix=windows-builds-$ImageOS-$ImageVersion-" >> "$GITHUB_OUTPUT"
+          echo "key=windows-builds-$ImageOS-$ImageVersion-$SOURCES" >> "$GITHUB_OUTPUT"
+      - id: windows-builds
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/AppData/Local/axx/models/windows-voice-*
+            ~/AppData/Local/axx/models/windows-ai-*
+            ~/AppData/Local/axx/models/cppwinrt-*
+            ~/AppData/Local/axx/models/piper-*
+          key: ${{ steps.windows-builds-key.outputs.key }}
+          restore-keys: ${{ steps.windows-builds-key.outputs.prefix }}
+      - shell: bash
+        run: GOTEST_SLOWEST=1s scripts/gotest.sh -tags integration -timeout 10m ./packs/models/windows/...
+      - if: ${{ !cancelled() && steps.windows-builds.outputs.cache-hit != 'true' }}
+        # A cache is an optimization: failing to save it fails nothing.
+        continue-on-error: true
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/AppData/Local/axx/models/windows-voice-*
+            ~/AppData/Local/axx/models/windows-ai-*
+            ~/AppData/Local/axx/models/cppwinrt-*
+            ~/AppData/Local/axx/models/piper-*
+          key: ${{ steps.windows-builds-key.outputs.key }}
 
   webllm:
     needs: changes
@@ -1014,14 +1125,16 @@ jobs:
     if: needs.changes.outputs.acceptance == 'true'
     # Each example's acceptance suite, the way its README runs it: axx starts the service and
     # its infrastructure with Docker Compose, runs the features and removes everything. axx is
-    # built with every pack, so it prepares none.
+    # built with every pack, so it prepares none. parcel-support's features and its other
+    # engines' runs (some 5 minutes each) are two jobs.
+    name: acceptance (${{ matrix.example }}${{ matrix.engines && ', its engines' || '' }})
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
         # On main, only parcels, whose job keeps the caches.
-        example: ${{ fromJSON(needs.changes.outputs.tests == 'true' && '["parcels", "parcel-claims", "carrier-billing", "customs-clearance", "parcel-support"]' || '["parcels"]') }}
+        include: ${{ fromJSON(needs.changes.outputs.tests == 'true' && '[{"example":"parcels"}, {"example":"parcel-claims"}, {"example":"carrier-billing"}, {"example":"customs-clearance"}, {"example":"parcel-support"}, {"example":"parcel-support", "engines":true}]' || '[{"example":"parcels"}]') }}
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
@@ -1049,6 +1162,9 @@ jobs:
       # The parcels shop portal's features run in browsers.
       - if: matrix.example == 'parcels' && needs.changes.outputs.tests == 'true'
         uses: ./.github/actions/web-tools
+      # The image parcel-support's compose file builds: in a minute, not five.
+      - if: matrix.example == 'parcel-support' && needs.changes.outputs.tests == 'true'
+        uses: ./.github/actions/support-image
       # The images parcels' compose file builds: in seconds, not minutes.
       - if: matrix.example == 'parcels'
         uses: ./.github/actions/parcels-images
@@ -1065,14 +1181,14 @@ jobs:
           cat "$RUNNER_TEMP/pull.log"
           # A pull that failed is done again as the example starts.
           [ "$(cat "$RUNNER_TEMP/pull.done" 2> /dev/null)" = 0 ] || echo "::warning::the example's images were not all pulled"
-      - if: needs.changes.outputs.tests == 'true'
+      - if: needs.changes.outputs.tests == 'true' && !matrix.engines
         working-directory: examples/${{ matrix.example }}/acceptance
         # The Android scenarios run in the android job, on an emulator; the iOS ones on Macs, as
         # do those whose pages run a model on the GPU (@gpu): a runner has none.
         run: axx run --tags "not @mobile and not @gpu" --format progress --format junit:build/axx/junit.xml --format html:build/axx/report.html
       # The parcel-support service's transcriber and photo check on their other engines, each
       # with a stub of its engine's format (the example's profiles).
-      - if: matrix.example == 'parcel-support' && needs.changes.outputs.tests == 'true'
+      - if: matrix.engines && needs.changes.outputs.tests == 'true'
         working-directory: examples/parcel-support/acceptance
         run: |
           for engine in openai-whisper transformers parakeet.cpp llama.cpp onnxruntime-genai ncnn mnn executorch keras; do
@@ -1081,7 +1197,7 @@ jobs:
       - if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
-          name: acceptance-${{ matrix.example }}
+          name: acceptance-${{ matrix.example }}${{ matrix.engines && '-engines' || '' }}
           # The report, and the screenshots, traces and logs a failure leaves.
           path: |
             examples/${{ matrix.example }}/acceptance/build/axx/
@@ -1151,7 +1267,7 @@ jobs:
   # mise's caches look after their own.)
   caches:
     if: always() && github.event_name == 'push'
-    needs: [hygiene, lint, test, integration, web, mobile, desktop, cross-build, acceptance]
+    needs: [hygiene, lint, test, integration, web, mobile, desktop, cross-build, mac-tests, acceptance]
     runs-on: ubuntu-24.04
     permissions:
       actions: write # to delete caches
@@ -1173,7 +1289,7 @@ jobs:
   # pull request does not need is skipped, which passes.
   ci-ok:
     if: always()
-    needs: [changes, hygiene, lint, workflows, test, integration, web, mobile, android, ios, coreml, windows-models, webllm, desktop-image, desktop, cross-build, example-app, example-app-python, acceptance, release-check]
+    needs: [changes, hygiene, lint, workflows, test, integration, web, mobile, android, mac-tests, ios, coreml, windows-models, webllm, desktop-image, desktop, cross-build, example-app, example-app-python, acceptance, release-check]
     runs-on: ubuntu-24.04
     steps:
       - name: all jobs passed

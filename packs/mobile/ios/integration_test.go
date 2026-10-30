@@ -566,7 +566,10 @@ func TestACourierIsRemindedOfTheRoundOnASimulator(t *testing.T) {
 	time.Sleep(15 * time.Second) // iOS suspends the app a few seconds into the background
 	_ = h.Fails(`the "example.parcels.courier.round-reminders" background task is run in the courier app`, `its background tasks are "example.parcels.courier.round-reminder"`)
 	h.OK(`the "example.parcels.courier.round-reminder" background task is run in the courier app`)
-	h.OK(`within 30s the courier app shows a notification "2 deliveries left today"`)
+	// A fresh simulator's first notification: SpringBoard's notifications pipeline (its Do Not
+	// Disturb resolution, its notification intelligence) has delivered it a minute late on CI's
+	// runner.
+	h.OK(`within 1m the courier app shows a notification "2 deliveries left today"`)
 	h.OK(`the courier app shows a notification "Next: PX-MOB-9401"`)
 	h.OK("the courier app is brought back")
 	h.OK(`the "PX-MOB-9401" list item is tapped in the courier app`)

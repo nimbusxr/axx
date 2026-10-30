@@ -337,10 +337,16 @@ func (d *running) SceneObject(ctx context.Context, name string) (float64, float6
 		return 0, 0, core.Failf("The scene the %s app's camera sees has no %q: its objects are %s", d.app.name, name, cam.scene.ObjectNames())
 	}
 	deadline := time.Now().Add(10 * time.Second)
+	var answered error // the library's last answer: an app busy past the deadline leaves it standing
 	for {
 		x, y, retry, err := cam.where(ctx, name)
 		if err == nil {
 			return x, y, nil
+		}
+		if a := arAnswer(""); errors.As(err, &a) {
+			answered = err
+		} else if answered != nil {
+			err = answered
 		}
 		if !retry || time.Now().After(deadline) {
 			return 0, 0, fmt.Errorf("the %s app's camera view: %w (axx's AR library logs to %s)", d.app.name, err, cam.log)
@@ -365,10 +371,16 @@ func (c *arCamera) where(ctx context.Context, name string) (x, y float64, retry 
 		return 0, 0, true, err
 	}
 	if res.Error != "" {
-		return 0, 0, res.Retry, errors.New(res.Error)
+		return 0, 0, res.Retry, arAnswer(res.Error)
 	}
 	return res.X, res.Y, false, nil
 }
+
+// arAnswer is what the library answered when it could not tell where an object shows, rather
+// than an answer that never came.
+type arAnswer string
+
+func (a arAnswer) Error() string { return string(a) }
 
 // errNotStarted is the library not answering: the app has not started, or not loaded it yet.
 var errNotStarted = errors.New("the app has not started its AR yet")

@@ -329,8 +329,8 @@ func TestAndroidCaptureHearsTheRecording(t *testing.T) {
 			}
 			p.queue(21+2*i, modelscore.Recording{Rate: 16000, Samples: phrase})
 			got := p.start("--es", "kind", kind)
-			var rate, loud int
-			if _, err := fmt.Sscanf(got, "recorded %d loud %d", &rate, &loud); err != nil || rate != 16000 {
+			var rate, loud, ms int
+			if _, err := fmt.Sscanf(got, "recorded %d loud %d ms %d", &rate, &loud, &ms); err != nil || rate != 16000 {
 				t.Fatalf("the probe says %s", got)
 			}
 			if loud < 3000 {
@@ -340,9 +340,10 @@ func TestAndroidCaptureHearsTheRecording(t *testing.T) {
 			// A decoder keeps the AAC encoder's priming (2048 frames, before the
 			// sound) and padding, or trims them as the file counts them
 			// (Android 15's): four seconds, less the frame the encoder pads, or
-			// more by its priming and padding.
-			if len(heard) < 4*rate-1024 || len(heard) > 43*rate/10 {
-				t.Fatalf("recorded %d frames, want four seconds, give or take the codec's priming and padding", len(heard))
+			// more by its priming and padding; and more by as long as the probe's
+			// sleeps ended late, on a busy device (ms: how long it recorded).
+			if len(heard) < 4*rate-1024 || len(heard) > ms*rate/1000+3*rate/10 {
+				t.Fatalf("recorded %d frames in %d ms, want four seconds, give or take the codec's priming and padding", len(heard), ms)
 			}
 			// AAC is lossy: the sound's loudness, a tenth of a second at a time,
 			// follows the recording's (after the priming, where the decoder

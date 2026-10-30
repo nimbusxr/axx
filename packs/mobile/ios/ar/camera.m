@@ -23,6 +23,7 @@
 #import <objc/message.h>
 #import <objc/runtime.h>
 #import <os/lock.h>
+#import <stdatomic.h>
 #import "ar.h"
 
 #define LOG(fmt, ...) axxar_log([NSString stringWithFormat:@"camera: " fmt, ##__VA_ARGS__])
@@ -830,11 +831,12 @@ static AVMetadataMachineReadableCodeObject *codeObject(VNBarcodeObservation *o, 
 }
 
 static dispatch_queue_t codesQueue;
-static BOOL readingCodes;
+// Whether a frame's codes are being read: the feed reads them in the next frame once they are.
+static atomic_bool readingCodes;
 
 static void deliverCodes(NSArray<AVCaptureMetadataOutput *> *outputs, CVPixelBufferRef frame) {
-    if (readingCodes || !outputs.count) return;
-    readingCodes = YES;
+    bool idle = false;
+    if (!outputs.count || !atomic_compare_exchange_strong(&readingCodes, &idle, true)) return;
     CVPixelBufferRetain(frame);
     dispatch_async(codesQueue, ^{
         // Vision's detector of revision 2, on the processor: in a simulator its newer ones (3 and
@@ -865,7 +867,7 @@ static void deliverCodes(NSArray<AVCaptureMetadataOutput *> *outputs, CVPixelBuf
                     [delegate captureOutput:out didOutputMetadataObjects:codes fromConnection:conn];
             });
         }
-        dispatch_async(dispatch_get_main_queue(), ^{ readingCodes = NO; });
+        atomic_store(&readingCodes, false);
     });
 }
 
@@ -931,14 +933,38 @@ static CGAffineTransform sensorToLayer(AVCaptureVideoPreviewLayer *layer) {
     return t;
 }
 
+// The frame the previews show next, and whether the main thread has an update of them to make:
+// one waits at a time, with the newest frame. An update for each of the feed's 30 frames a
+// second, on a main thread slower than that (a busy simulator's), queued without end: the app's
+// own work on its main thread (a label's reference read, a screen's accessibility for a test)
+// waited behind them, 15 seconds and more.
+static os_unfair_lock showLock = OS_UNFAIR_LOCK_INIT;
+static CVPixelBufferRef toShow;
+static BOOL showPending;
+
 static void showFrame(CVPixelBufferRef frame) {
     os_unfair_lock_lock(&tablesLock);
-    NSArray *layers = previewLayers.allObjects;
+    NSUInteger previews = previewLayers.allObjects.count;
     os_unfair_lock_unlock(&tablesLock);
-    if (!layers.count) return;
-    CVPixelBufferRetain(frame);
+    if (!previews) return;
+    os_unfair_lock_lock(&showLock);
+    CVPixelBufferRelease(toShow);
+    toShow = CVPixelBufferRetain(frame);
+    BOOL pending = showPending;
+    showPending = YES;
+    os_unfair_lock_unlock(&showLock);
+    if (pending) return;
     dispatch_async(dispatch_get_main_queue(), ^{
-        id contents = (__bridge id)CVPixelBufferGetIOSurface(frame);
+        os_unfair_lock_lock(&showLock);
+        CVPixelBufferRef shown = toShow;
+        toShow = NULL;
+        showPending = NO;
+        os_unfair_lock_unlock(&showLock);
+        if (!shown) return;
+        os_unfair_lock_lock(&tablesLock);
+        NSArray *layers = previewLayers.allObjects;
+        os_unfair_lock_unlock(&tablesLock);
+        id contents = (__bridge id)CVPixelBufferGetIOSurface(shown);
         for (AVCaptureVideoPreviewLayer *layer in layers) {
             AVCaptureSession *s = sessionOf(layer);
             if (!playsCamera(s) || ![objc_getAssociatedObject(s, &kRunning) boolValue]) continue;
@@ -949,7 +975,7 @@ static void showFrame(CVPixelBufferRef frame) {
             p.contents = contents;
             [CATransaction commit];
         }
-        CVPixelBufferRelease(frame);
+        CVPixelBufferRelease(shown);
     });
 }
 
@@ -1071,15 +1097,8 @@ static void tick(void) {
                 [codeOutputs addObject:(AVCaptureMetadataOutput *)out];
         }
     }
-    // Codes are read ten times a second.
-    if (ticks % 3 == 0) {
-        CVPixelBufferRetain(frame);
-        NSArray *outs = [codeOutputs copy];
-        dispatch_async(dispatch_get_main_queue(), ^{
-            deliverCodes(outs, frame);
-            CVPixelBufferRelease(frame);
-        });
-    }
+    // Codes are read ten times a second, a frame at a time.
+    if (ticks % 3 == 0) deliverCodes(codeOutputs, frame);
     if (changed || ticks % 30 == 0) showFrame(frame);
     ticks++;
     CVPixelBufferRelease(frame);

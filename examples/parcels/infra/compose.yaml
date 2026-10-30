@@ -9,6 +9,11 @@
 # interface on 8025).
 name: parcels
 
+# Each healthcheck checks every second or two while its service starts (start_interval, Docker
+# 25 and later), and every 30 seconds once it is healthy: checked every second for good, the 17
+# of them (mongosh and rabbitmq-diagnostics each a runtime of its own to start) took over a core
+# of a CI runner's four, from the Android emulator beside them.
+
 # The WireMock image every mocked dependency below runs: WireMock with axx's extensions,
 # built once from this repository and shared (one image name, so one build).
 # `image: ghcr.io/nimbusxr/axx-wiremock:<version>` in place of this uses the published one.
@@ -36,10 +41,11 @@ services:
     healthcheck:
       # The image (Alpine JRE) ships wget, not curl.
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/__admin/health"]
-      interval: 1s
+      interval: 30s
+      start_interval: 1s
       timeout: 2s
       retries: 60
-      start_period: 5s
+      start_period: 5m
     stop_signal: SIGKILL
 
   # The courier company, mocked the same way against openapi/courier.yaml: the
@@ -56,10 +62,11 @@ services:
       - './openapi:/var/openapi:ro'
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/__admin/health"]
-      interval: 1s
+      interval: 30s
+      start_interval: 1s
       timeout: 2s
       retries: 60
-      start_period: 5s
+      start_period: 5m
     stop_signal: SIGKILL
 
   # The shops' systems, where the service tells each shop of its parcels' deliveries,
@@ -76,10 +83,11 @@ services:
       - './openapi:/var/openapi:ro'
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/__admin/health"]
-      interval: 1s
+      interval: 30s
+      start_interval: 1s
       timeout: 2s
       retries: 60
-      start_period: 5s
+      start_period: 5m
     stop_signal: SIGKILL
 
   # The partner carrier's rating service, which prices the parcels going beyond the EU over
@@ -93,10 +101,11 @@ services:
       - './rating:/home/wiremock'
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/__admin/health"]
-      interval: 1s
+      interval: 30s
+      start_interval: 1s
       timeout: 2s
       retries: 60
-      start_period: 5s
+      start_period: 5m
     stop_signal: SIGKILL
 
   # The shops subgraph, which another team owns, mocked by the GraphQL extension of the same
@@ -112,10 +121,11 @@ services:
       - './shop-directory:/home/wiremock'
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/__admin/health"]
-      interval: 1s
+      interval: 30s
+      start_interval: 1s
       timeout: 2s
       retries: 60
-      start_period: 5s
+      start_period: 5m
     stop_signal: SIGKILL
 
   # The model the parcel assistant asks, mocked by the model mock of the same WireMock image:
@@ -129,10 +139,11 @@ services:
       - './models:/home/wiremock'
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/__admin/health"]
-      interval: 1s
+      interval: 30s
+      start_interval: 1s
       timeout: 2s
       retries: 60
-      start_period: 5s
+      start_period: 5m
     stop_signal: SIGKILL
 
   # The partner carrier, which delivers the parcels going beyond the EU: its MCP server (which the
@@ -150,10 +161,11 @@ services:
       - './partner-carrier:/home/wiremock'
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/__admin/health"]
-      interval: 1s
+      interval: 30s
+      start_interval: 1s
       timeout: 2s
       retries: 60
-      start_period: 5s
+      start_period: 5m
     stop_signal: SIGKILL
 
   # The parcels supergraph, composed from the subgraphs' SDL, the service's own
@@ -183,10 +195,11 @@ services:
         condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:4000/readiness"]
-      interval: 1s
+      interval: 30s
+      start_interval: 1s
       timeout: 2s
       retries: 60
-      start_period: 5s
+      start_period: 5m
 
   postgres:
     image: 'postgres:16'
@@ -201,7 +214,9 @@ services:
       - './postgres/init:/docker-entrypoint-initdb.d:ro'
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "parcels", "-d", "parcels"]
-      interval: 1s
+      interval: 30s
+      start_interval: 1s
+      start_period: 5m
       timeout: 1s
       retries: 60
     stop_signal: SIGKILL
@@ -220,10 +235,11 @@ services:
         - --quiet
         - --eval
         - "const admin = db.getSiblingDB('admin'); if (!admin.getUser('parcels')) admin.createUser({user: 'parcels', pwd: 'parcels', roles: ['root']}); admin.runCommand({ping: 1}).ok"
-      interval: 2s
+      interval: 30s
+      start_interval: 2s
       timeout: 5s
       retries: 60
-      start_period: 5s
+      start_period: 5m
     stop_signal: SIGKILL
 
   # Single-node KRaft broker. Clients on the host use localhost:9092 (PLAINTEXT);
@@ -249,10 +265,11 @@ services:
       CLUSTER_ID: 'MkU3OEVBNTcwNTJENDM2Qk'
     healthcheck:
       test: ["CMD-SHELL", "nc -z -w 2 kafka 9092 && nc -z -w 2 kafka 9094"]
-      interval: 1s
+      interval: 30s
+      start_interval: 1s
       timeout: 5s
       retries: 60
-      start_period: 2s
+      start_period: 5m
     stop_signal: SIGKILL
 
   schema-registry:
@@ -268,10 +285,11 @@ services:
       SCHEMA_REGISTRY_ADVERTISED_LISTENERS: http://schema-registry:8081
     healthcheck:
       test: ["CMD", "curl", "-fsS", "-o", "/dev/null", "http://localhost:8081/subjects"]
-      interval: 2s
+      interval: 30s
+      start_interval: 2s
       timeout: 2s
       retries: 60
-      start_period: 5s
+      start_period: 5m
     stop_signal: SIGKILL
 
   # Label printing: print jobs and the printers' reports (AMQP 0-9-1).
@@ -287,10 +305,11 @@ services:
       # the Erlang cookie root's if it comes before the booting broker's, and the broker,
       # which cannot read it then, stops.
       test: ["CMD", "su-exec", "rabbitmq", "rabbitmq-diagnostics", "-q", "check_port_connectivity"]
-      interval: 2s
+      interval: 30s
+      start_interval: 2s
       timeout: 10s
       retries: 60
-      start_period: 5s
+      start_period: 5m
     stop_signal: SIGKILL
 
   # The depots' handheld scanners publish their scans here (MQTT 5).
@@ -301,7 +320,9 @@ services:
       - '1883:1883'
     healthcheck:
       test: ["CMD", "mosquitto_pub", "-t", "health", "-m", "ok"]
-      interval: 1s
+      interval: 30s
+      start_interval: 1s
+      start_period: 5m
       timeout: 2s
       retries: 60
     stop_signal: SIGKILL
@@ -315,7 +336,9 @@ services:
       - '4222:4222'
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8222/healthz"]
-      interval: 1s
+      interval: 30s
+      start_interval: 1s
+      start_period: 5m
       timeout: 2s
       retries: 60
     stop_signal: SIGKILL
@@ -328,7 +351,9 @@ services:
       - '6379:6379'
     healthcheck:
       test: ["CMD", "valkey-cli", "ping"]
-      interval: 1s
+      interval: 30s
+      start_interval: 1s
+      start_period: 5m
       timeout: 2s
       retries: 60
     stop_signal: SIGKILL
@@ -350,7 +375,9 @@ services:
         ? error(451, "Mailbox busy, try again later") : true
     healthcheck:
       test: ["CMD", "curl", "-fsS", "-o", "/dev/null", "http://127.0.0.1/api/server"]
-      interval: 1s
+      interval: 30s
+      start_interval: 1s
+      start_period: 5m
       timeout: 2s
       retries: 60
     stop_signal: SIGKILL

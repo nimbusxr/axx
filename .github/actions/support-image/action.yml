@@ -1,0 +1,24 @@
+# SPDX-License-Identifier: Apache-2.0
+name: support-image
+description: >-
+  The parcel-support example's service image, which its compose file builds (Python's
+  dependencies, PyTorch's among them, and llama.cpp compiled: 5 minutes on a runner), from a
+  cache of the image (.github/actions/docker-image), or built from the layers main's runs cache,
+  and COMPOSE_FILE set to an override that has compose use it, so that `docker compose up
+  --build` builds nothing.
+runs:
+  using: composite
+  steps:
+    - uses: ./.github/actions/docker-image
+      with:
+        context: examples/parcel-support/app
+        tag: parcel-support:ci
+        scope: parcel-support
+    - name: compose uses it
+      shell: bash
+      run: |
+        compose="$GITHUB_WORKSPACE/examples/parcel-support/infra/compose.yaml"
+        override="$RUNNER_TEMP/compose.support-image.yaml"
+        printf 'services:\n  support:\n    build: !reset null\n    image: parcel-support:ci\n' > "$override"
+        cat "$override"
+        echo "COMPOSE_FILE=$compose:$override" >> "$GITHUB_ENV"

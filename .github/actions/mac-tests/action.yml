@@ -1,0 +1,33 @@
+# SPDX-License-Identifier: Apache-2.0
+name: mac-tests
+description: >-
+  The Mac jobs' tests (ios, coreml), as the mac-tests job built them on Linux: each test binary in
+  its package's folder, and test2json, which scripts/gotest.sh runs them through (GOTEST_TEST2JSON).
+  A Mac runner of three cores took 85 to 100 seconds of every job's ten minutes restoring Go's
+  module cache and building them, with no build cache: a Linux runner builds them once, from a
+  build cache of its own, and the Mac jobs need no Go.
+  An artifact that does not download (GitHub's artifact service failed after its retries, in
+  one run) is no failure: the job builds them itself (scripts/mac-tests.sh), a minute or two
+  more, with the Go of .mise.toml (mise, which the job installed).
+runs:
+  using: composite
+  steps:
+    - id: download
+      continue-on-error: true
+      uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+      with:
+        name: mac-tests
+        path: ${{ runner.temp }}
+    # A tar, which keeps the binaries' modes, as an artifact does not.
+    - if: steps.download.outcome == 'success'
+      shell: bash
+      run: tar -xf "$RUNNER_TEMP/mac-tests.tar"
+    - if: steps.download.outcome != 'success'
+      name: the tests, built here
+      shell: bash
+      run: |
+        echo "::warning::the mac-tests job's tests did not download: built here"
+        mise install go
+        mise exec go -- scripts/mac-tests.sh
+    - shell: bash
+      run: echo "GOTEST_TEST2JSON=$GITHUB_WORKSPACE/bin/test2json" >> "$GITHUB_ENV"

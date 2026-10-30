@@ -1,0 +1,59 @@
+# SPDX-License-Identifier: Apache-2.0
+name: android-builds
+description: >-
+  What axx builds and downloads for an Android emulator into its cache, kept from one run to the
+  next: the ART agents it attaches to the apps (models-android's and the camera's AR agent, built
+  with the NDK, javac and d8 as a scenario first leases the emulator, beside its boot: javac alone
+  took half a core of the runner's four), the UiAutomator2 server and OpenH264. Each is a folder
+  named for what made it, so a folder kept from other sources is never used; the cache is keyed
+  by the runner's image, those sources, and the job's part, as each part builds the ones its
+  tests use. Restore it before the tests, and save it after them: kept by the run that built it,
+  on a pull request too (GitHub keeps a pull request's caches for its own runs).
+inputs:
+  mode:
+    description: "`restore` or `save`."
+    default: restore
+  part:
+    description: The job and part whose tests use it (android-courier-app-camera, mobile-emulator-1...).
+    required: true
+runs:
+  using: composite
+  steps:
+    - id: key
+      shell: bash
+      env:
+        PART: ${{ inputs.part }}
+        SOURCES: ${{ hashFiles('packs/mobile/android/**', 'packs/models/android/runtime/**', 'packs/internal/video/openh264.go') }}
+      run: |
+        echo "root=${XDG_CACHE_HOME:-$HOME/.cache}/axx" >> "$GITHUB_OUTPUT"
+        echo "prefix=android-builds-$ImageOS-$ImageVersion-" >> "$GITHUB_OUTPUT"
+        echo "key=android-builds-$ImageOS-$ImageVersion-$PART-$SOURCES" >> "$GITHUB_OUTPUT"
+    - if: inputs.mode == 'restore'
+      id: cache
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: |
+          ${{ steps.key.outputs.root }}/mobile/android-*
+          ${{ steps.key.outputs.root }}/models/android-*
+          ${{ steps.key.outputs.root }}/mobile/uiautomator2-server-*
+          ${{ steps.key.outputs.root }}/openh264
+        key: ${{ steps.key.outputs.key }}
+        restore-keys: |
+          ${{ steps.key.outputs.prefix }}${{ inputs.part }}-
+          ${{ steps.key.outputs.prefix }}
+    - if: inputs.mode == 'restore'
+      shell: bash
+      env:
+        HIT: ${{ steps.cache.outputs.cache-hit }}
+      run: echo "ANDROID_BUILDS_HIT=$HIT" >> "$GITHUB_ENV"
+    - if: inputs.mode == 'save' && env.ANDROID_BUILDS_HIT != 'true'
+      # A cache is an optimization: failing to save it fails nothing.
+      continue-on-error: true
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: |
+          ${{ steps.key.outputs.root }}/mobile/android-*
+          ${{ steps.key.outputs.root }}/models/android-*
+          ${{ steps.key.outputs.root }}/mobile/uiautomator2-server-*
+          ${{ steps.key.outputs.root }}/openh264
+        key: ${{ steps.key.outputs.key }}

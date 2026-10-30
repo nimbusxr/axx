@@ -1,0 +1,80 @@
+# SPDX-License-Identifier: Apache-2.0
+name: docker-image
+description: >-
+  An image a Dockerfile builds, in the runner's Docker under a tag: from a cache of the image
+  itself (docker save's archive), keyed by its build context's files, in one download and one
+  load. buildx's layer cache alone took a job's setting up 50 seconds and more on every run, even
+  with every layer cached: it pulled BuildKit's own image (30 seconds), then fetched the image's
+  layers from GitHub's cache one by one, and at times waited minutes on one (two of WireMock's,
+  three minutes, as eighteen jobs set up at once). Where no run has kept the image, it is built
+  with buildx from the layers main's runs keep (scope), and kept by the run that built it, on a
+  pull request too (GitHub keeps a pull request's caches for its own runs).
+inputs:
+  context:
+    description: The build context, its Dockerfile in it.
+    required: true
+  tag:
+    description: The tag the image is loaded under.
+    required: true
+  scope:
+    description: The name its caches are kept under.
+    required: true
+runs:
+  using: composite
+  steps:
+    - id: key
+      shell: bash
+      env:
+        FILES: ${{ hashFiles(format('{0}/**', inputs.context)) }}
+        SCOPE: ${{ inputs.scope }}
+      run: |
+        echo "key=docker-image-$SCOPE-$RUNNER_ARCH-$FILES" >> "$GITHUB_OUTPUT"
+        echo "archive=$RUNNER_TEMP/docker-image-$SCOPE.tar" >> "$GITHUB_OUTPUT"
+    - id: cache
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ steps.key.outputs.archive }}
+        key: ${{ steps.key.outputs.key }}
+    - if: steps.cache.outputs.cache-hit == 'true'
+      name: the image, loaded
+      shell: bash
+      env:
+        ARCHIVE: ${{ steps.key.outputs.archive }}
+      run: |
+        docker load -i "$ARCHIVE"
+        rm "$ARCHIVE"
+    - if: steps.cache.outputs.cache-hit != 'true'
+      uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
+      with:
+        # Docker Hub's images through Google's mirror: Docker Hub refuses the runners at times.
+        buildkitd-config-inline: |
+          [registry."docker.io"]
+            mirrors = ["mirror.gcr.io"]
+    - if: steps.cache.outputs.cache-hit != 'true'
+      uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
+      with:
+        context: ${{ inputs.context }}
+        load: true
+        tags: ${{ inputs.tag }}
+        cache-from: type=gha,scope=${{ inputs.scope }}
+        # Layers are cached from main only: pull requests read them.
+        cache-to: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && format('type=gha,mode=max,scope={0}', inputs.scope) || '' }}
+    - if: steps.cache.outputs.cache-hit != 'true'
+      name: the image, archived
+      shell: bash
+      env:
+        ARCHIVE: ${{ steps.key.outputs.archive }}
+        TAG: ${{ inputs.tag }}
+      run: docker save "$TAG" -o "$ARCHIVE"
+    - if: steps.cache.outputs.cache-hit != 'true'
+      # A cache is an optimization: failing to save it fails nothing.
+      continue-on-error: true
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ steps.key.outputs.archive }}
+        key: ${{ steps.key.outputs.key }}
+    - if: steps.cache.outputs.cache-hit != 'true'
+      shell: bash
+      env:
+        ARCHIVE: ${{ steps.key.outputs.archive }}
+      run: rm -f "$ARCHIVE"
