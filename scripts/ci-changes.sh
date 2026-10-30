@@ -21,7 +21,7 @@ esac
 while ! $all && ! $none && IFS= read -r f; do
   [[ -n "$f" ]] || continue
   case "$f" in
-    .github/workflows/ci.yml | .github/workflows/codeql.yml | .github/actions/* | scripts/ci-changes.sh)
+    .github/workflows/ci.yml | .github/workflows/codeql.yml | .github/actions/* | scripts/ci-changes.sh | scripts/gotest.sh)
       all=true
       continue
       ;;
@@ -76,6 +76,10 @@ while ! $all && ! $none && IFS= read -r f; do
       examples/parcels/acceptance/features/courier-app/models/dictated-note-ios.axxmodel | \
       examples/parcels/acceptance/features/courier-app/recordings/* | \
       core/* | internal/* | go.mod | go.sum | mise.toml | .mise.toml) models=true ;;
+  esac
+  # The simulator the ios and coreml jobs make for their tests.
+  case "$f" in
+    scripts/ios-simulator.sh) mobile=true models=true ;;
   esac
   # The examples' acceptance suites: axx, the examples, and the WireMock extension the parcels
   # example builds its mocks from.

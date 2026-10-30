@@ -1,0 +1,60 @@
+# SPDX-License-Identifier: Apache-2.0
+name: simulator-builds
+description: >-
+  What axx builds and downloads for the iOS simulators into its cache, kept from one run to the
+  next: WebDriverAgent's simulator build, and the libraries axx builds with Xcode and loads into
+  the simulators (SpringBoard's, the camera's and AR's, the platform models' and Foundation
+  Models'). On a runner of three cores, beside a new simulator's first minutes, they took a
+  minute and more of the tests' first steps: the AR library's Swift alone, 55 seconds of a
+  processor's time. Each is a folder named for what made it (its sources and the SDK's version),
+  so a folder kept from other sources is never used; the cache is keyed by the runner's image
+  (its Xcode), those sources, and the job's part, as each part builds the ones its tests use.
+  Restore it before the tests, and save it after them: kept by the run that built it, on a pull
+  request too (GitHub keeps a pull request's caches for its own runs).
+inputs:
+  mode:
+    description: "`restore` or `save`."
+    default: restore
+  part:
+    description: The job and part whose tests use it (ios-camera-1, coreml-simulator-2...).
+    required: true
+runs:
+  using: composite
+  steps:
+    - id: key
+      shell: bash
+      env:
+        PART: ${{ inputs.part }}
+        SOURCES: ${{ hashFiles('packs/mobile/ios/library/**', 'packs/mobile/ios/ar/**', 'packs/mobile/ios/install.go', 'packs/models/internal/apple/**') }}
+      run: |
+        echo "prefix=simulator-builds-$ImageOS-$ImageVersion-" >> "$GITHUB_OUTPUT"
+        echo "key=simulator-builds-$ImageOS-$ImageVersion-$PART-$SOURCES" >> "$GITHUB_OUTPUT"
+    - if: inputs.mode == 'restore'
+      id: cache
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: |
+          ~/Library/Caches/axx/mobile/webdriveragent-*
+          ~/Library/Caches/axx/mobile/library-*
+          ~/Library/Caches/axx/mobile/ar-*
+          ~/Library/Caches/axx/models/ios-*
+        key: ${{ steps.key.outputs.key }}
+        restore-keys: |
+          ${{ steps.key.outputs.prefix }}${{ inputs.part }}-
+          ${{ steps.key.outputs.prefix }}
+    - if: inputs.mode == 'restore'
+      shell: bash
+      env:
+        HIT: ${{ steps.cache.outputs.cache-hit }}
+      run: echo "SIMULATOR_BUILDS_HIT=$HIT" >> "$GITHUB_ENV"
+    - if: inputs.mode == 'save' && env.SIMULATOR_BUILDS_HIT != 'true'
+      # A cache is an optimization: failing to save it fails nothing.
+      continue-on-error: true
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: |
+          ~/Library/Caches/axx/mobile/webdriveragent-*
+          ~/Library/Caches/axx/mobile/library-*
+          ~/Library/Caches/axx/mobile/ar-*
+          ~/Library/Caches/axx/models/ios-*
+        key: ${{ steps.key.outputs.key }}

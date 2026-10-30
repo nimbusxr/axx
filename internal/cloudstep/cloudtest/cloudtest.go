@@ -282,6 +282,11 @@ func (h *Harness) Step(text string, arg ...any) (err error) {
 	}
 	i := len(h.SC.Progress())
 	h.SC.SetProgress(append(h.SC.Progress(), sp))
+	// How long the step took, in the packs' log beside what the packs log as it runs: where a slow
+	// test's time went.
+	defer func(started time.Time) {
+		h.Suite.Logger().Info("ran a step", "step", text, "took", time.Since(started).Round(100*time.Millisecond))
+	}(time.Now())
 	defer func() {
 		h.SC.UpdateProgress(i, func(p *core.StepProgress) {
 			p.Status = "passed"

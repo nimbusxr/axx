@@ -5,14 +5,15 @@ package courierapi
 
 import (
 	"context"
+	"embed"
 	"encoding/json"
 	"fmt"
 	"io"
 	"math"
 	"net"
 	"net/http"
+	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -46,28 +47,46 @@ func (a *API) Documents() []Document {
 	return append([]Document(nil), a.documents...)
 }
 
+// files are the test files the functions below give: kept in the package, which a test binary
+// carries to wherever it runs (CI's Mac jobs run tests built on Linux, where the folder they were
+// built from is not).
+//
+//go:embed testdata/safe-place-PX-MOB-9401.pdf testdata/label-PX-MOB-9402.png testdata/torn-label-PX-MOB-9401.mp4 testdata/torn-label-ios.axxmodel testdata/torn-label-android.axxmodel
+var files embed.FS
+
+// file is one of the files, in a folder of the test's own, by its name.
+func file(t *testing.T, name string) string {
+	t.Helper()
+	b, err := files.ReadFile("testdata/" + name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(t.TempDir(), name)
+	if err := os.WriteFile(path, b, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
 // SafePlaceAuthorization is a document a recipient sends their courier: Jonas Weber's leave to
 // put PX-MOB-9401 in his garage, a PDF.
 func SafePlaceAuthorization(t *testing.T) string {
 	t.Helper()
-	_, here, _, _ := runtime.Caller(0)
-	return filepath.Join(filepath.Dir(here), "testdata", "safe-place-PX-MOB-9401.pdf")
+	return file(t, "safe-place-PX-MOB-9401.pdf")
 }
 
 // Label is a photo of PX-MOB-9402's label, as the phone held over the parcel takes it: its QR
 // code above its reference (make-labels.swift in the parcels example writes it).
 func Label(t *testing.T) string {
 	t.Helper()
-	_, here, _, _ := runtime.Caller(0)
-	return filepath.Join(filepath.Dir(here), "testdata", "label-PX-MOB-9402.png")
+	return file(t, "label-PX-MOB-9402.png")
 }
 
 // TornLabel is a video of PX-MOB-9401's label, its code torn off, as the courier lifts the parcel
 // into the phone's view: 3 seconds.
 func TornLabel(t *testing.T) string {
 	t.Helper()
-	_, here, _, _ := runtime.Caller(0)
-	return filepath.Join(filepath.Dir(here), "testdata", "torn-label-PX-MOB-9401.mp4")
+	return file(t, "torn-label-PX-MOB-9401.mp4")
 }
 
 //go:generate go run ../../../../internal/tools/axxall models build testdata/torn-label-ios -o testdata/torn-label-ios.axxmodel
@@ -77,8 +96,7 @@ func TornLabel(t *testing.T) string {
 // hang on the simulator's own model, which iOS 26.5's misreads (a Cyrillic М in PX-MOB-9401).
 func TornLabelText(t *testing.T) string {
 	t.Helper()
-	_, here, _, _ := runtime.Caller(0)
-	return filepath.Join(filepath.Dir(here), "testdata", "torn-label-ios.axxmodel")
+	return file(t, "torn-label-ios.axxmodel")
 }
 
 //go:generate go run ../../../../internal/tools/axxall models build testdata/torn-label-android -o testdata/torn-label-android.axxmodel
@@ -89,8 +107,7 @@ func TornLabelText(t *testing.T) string {
 // on ML Kit's own model, which reads differently from one build to the next.
 func TornLabelTextAndroid(t *testing.T) string {
 	t.Helper()
-	_, here, _, _ := runtime.Caller(0)
-	return filepath.Join(filepath.Dir(here), "testdata", "torn-label-android.axxmodel")
+	return file(t, "torn-label-android.axxmodel")
 }
 
 // Lists tells how many times the courier's app asked for the day's deliveries.

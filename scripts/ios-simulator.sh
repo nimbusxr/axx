@@ -35,15 +35,24 @@ xcrun simctl boot "$udid"
 # push service (apsd) keeps a connection to Apple's servers that the tests' apps, which notify
 # locally, never use: it took 125 s of processor time in one job on GitHub's runner. And chronod
 # has a dozen widgets' extensions draw their timelines, on a runner with no GPU. Without apsd and
-# chronod, the tests took 195 s rather than 221 on a VM of the runner's size. They are turned off
-# as the simulator starts to boot, so that its boot does none of that work either: launchd keeps
-# them off from then on, through the rest of the boot. That runs alongside the wait for the boot,
-# each service at once with the others: one after another, an iOS 27 simulator's took two and a
-# half minutes past its boot (simctl spawn takes seconds each, there).
+# chronod, the tests took 195 s rather than 221 on a VM of the runner's size. And its asset
+# subscriptions (assetsubscriptiond) have it download 1.6 GB of Siri's, speech's and languages'
+# assets in its first minutes, and decrypt and unpack them (STExtractionService), and its
+# accessibility (axassetsd) another 96 MB: the tests' apps take their models from axx's stubs and
+# need none of them. Nor the Health app's first start (healthappd), the shortcuts Siri runs in the
+# background (siriactionsd), the lock screen's posters, each drawn by an extension of its own
+# (PosterBoard), or Spotlight's knowledge of the apps (spotlightknowledged). Without those, a new
+# simulator's processes took 217 s of processor time to the end of the courier's Foundation
+# Models test rather than 313, on a Mac, and downloaded 8 MB rather than 1.6 GB. They are turned
+# off as the simulator starts to boot, so that its boot does none of that work either: launchd
+# keeps them off from then on, through the rest of the boot. That runs alongside the wait for the
+# boot, each service at once with the others: one after another, an iOS 27 simulator's took two
+# and a half minutes past its boot (simctl spawn takes seconds each, there).
 (
   for service in com.apple.mediaanalysisd com.apple.mediaanalysisd.analysis com.apple.mediaanalysisd.computeservice \
     com.apple.mediaanalysisd.photos com.apple.ScreenTimeAgent com.apple.fitnessintelligenced com.apple.amsengagementd \
-    com.apple.apsd com.apple.chronod; do
+    com.apple.apsd com.apple.chronod com.apple.assetsubscriptiond com.apple.accessibility.axassetsd com.apple.healthappd \
+    com.apple.siriactionsd com.apple.PosterBoard com.apple.spotlightknowledged com.apple.spotlightknowledged.updater; do
     (
       xcrun simctl spawn "$udid" launchctl disable "user/501/$service"
       xcrun simctl spawn "$udid" launchctl bootout "user/501/$service" 2> /dev/null || true
