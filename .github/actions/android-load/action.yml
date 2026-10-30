@@ -29,7 +29,7 @@ runs:
           serial=$(timeout 5 "$adb" devices 2> /dev/null | awk 'NR > 1 && $2 == "device" { print $1; exit }')
           if [ -n "$serial" ]; then
             echo "  in $serial:"
-            timeout 10 "$adb" -s "$serial" shell top -b -d 1 -n 2 -m 5 -o %CPU,NAME 2> /dev/null | tail -7 | grep -v NAME | sed 's/^/  /'
+            timeout 10 "$adb" -s "$serial" shell top -b -d 1 -n 2 -m 5 -s 1 -o %CPU,NAME 2> /dev/null | tail -7 | grep -v NAME | sed 's/^/  /'
           fi
           sleep 25
         done) > "$RUNNER_TEMP/android-load.log" 2>&1 < /dev/null &
