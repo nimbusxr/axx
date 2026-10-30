@@ -25,10 +25,13 @@ const afterInput = 150 * time.Millisecond
 // proc is a Windows app as it runs: its windows read through UI
 // Automation, or a Java window through the Java Access Bridge.
 type proc struct {
-	sc     *core.Scenario
-	app    *desktopcore.App
-	w      *worker
-	pid    int
+	sc  *core.Scenario
+	app *desktopcore.App
+	w   *worker
+	pid int
+	// born is when the process started, read as it ran: its descendants are told by it after
+	// it has ended, when Windows may have given its number to another process.
+	born   int64
 	exited func() bool
 	stop   func() error
 	// flutter is whether the app is a Flutter app: its engine serves MSAA
@@ -61,7 +64,7 @@ func (p *proc) pids() []int {
 	if p.named != "" {
 		return uia.Named(p.named)
 	}
-	return append([]int{p.pid}, uia.Descendants(p.pid)...)
+	return append([]int{p.pid}, uia.Descendants(p.pid, p.born)...)
 }
 
 // windows are the app's top-level windows, the one in front first, its

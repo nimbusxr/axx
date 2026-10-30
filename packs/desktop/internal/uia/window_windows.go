@@ -248,8 +248,10 @@ func Close(hwnd uintptr) {
 	_, _, _ = postMessage.Call(hwnd, wmClose, 0, 0)
 }
 
-// Descendants are the processes pid started, and those they started.
-func Descendants(pid int) []int {
+// Descendants are the processes pid started, and those they started, each started after the
+// one that started it: after since for pid's (when it started, as its launch read it, which
+// holds after it has ended; 0 reads it now).
+func Descendants(pid int, since int64) []int {
 	snap, err := windows.CreateToolhelp32Snapshot(windows.TH32CS_SNAPPROCESS, 0)
 	if err != nil {
 		return nil
@@ -261,8 +263,12 @@ func Descendants(pid int) []int {
 	for err = windows.Process32First(snap, &e); err == nil; err = windows.Process32Next(snap, &e) {
 		kids[int(e.ParentProcessID)] = append(kids[int(e.ParentProcessID)], int(e.ProcessID))
 	}
-	return descendants(kids, pid, started)
+	return descendants(kids, pid, since, started)
 }
+
+// Started is when the process started, as a FILETIME's 100-nanosecond ticks,
+// while it runs.
+func Started(pid int) (int64, bool) { return started(pid) }
 
 // started is when the process started, as a FILETIME's 100-nanosecond
 // ticks.
