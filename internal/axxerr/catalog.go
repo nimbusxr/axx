@@ -130,6 +130,9 @@ func init() {
 	add("AXX-E0205", u, "Unknown pack in run.uses",
 		"`run.uses` lists a pack the project does not load, so no scenario could use it.",
 		"List packs of `axx-packs.yaml` (`axx pack list`), like `[mobile-ios]`, or add the pack with `axx pack add`.")
+	add("AXX-E0206", u, "Invalid shard",
+		"`--shard` is not a shard of a number of them, like `1/3`.",
+		"Give the shard and how many there are, from `1/n` to `n/n`: each runs every nth of the scenarios the run selects, so that together they run each one once.")
 
 	add("AXX-E0300", u, "Pack cannot be loaded",
 		"A step pack failed to load or initialize: a step expression that does not compile, a duplicate parameter type, or pack configuration under `packs:` that is invalid.",

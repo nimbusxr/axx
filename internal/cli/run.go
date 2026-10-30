@@ -32,6 +32,7 @@ type runFlags struct {
 	cf       configFlags
 	tags     string
 	names    []string
+	shard    string
 	workers  int
 	failFast bool
 	dryRun   bool
@@ -63,12 +64,16 @@ runs scenarios in parallel, stops the services and runs their cleanups.
 
 Select scenarios with paths (features/x.feature:14 selects the scenario on
 line 14, or the scenario containing that step line), --tags and --name.
+--shard 1/3 runs a third of what they select, for CI's runners to share a run:
+every third scenario, in their files' and lines' order, from the first; 2/3
+and 3/3 run the rest.
 
 Exit codes: 0 passed, 1 failures, 2 usage/config, 3 undefined/ambiguous steps,
 4 a service failed to start, 130 interrupted.`,
 		Example: `  axx run
   axx run features/register-parcels.feature:17
   axx run --tags "@smoke and not @wip" --format junit:build/axx/junit.xml
+  axx run --shard 2/3         # one of three runners: a third of the scenarios
   axx run --attach api        # you run the api from your IDE; axx waits for it
   axx run --debug=api         # start api with its debug command
   axx run --debug-steps features/register-parcels.feature:17   # stop at breakpoints in step code
@@ -81,6 +86,7 @@ Exit codes: 0 passed, 1 failures, 2 usage/config, 3 undefined/ambiguous steps,
 	fl := cmd.Flags()
 	fl.StringVarP(&f.tags, "tags", "t", "", `tag expression, e.g. "@smoke and not @wip"`)
 	fl.StringArrayVarP(&f.names, "name", "n", nil, "only scenarios whose name matches this regular expression (repeatable)")
+	fl.StringVar(&f.shard, "shard", "", `run shard i of n ("i/n", from 1) of the selected scenarios: every nth, in their files' and lines' order`)
 	fl.IntVarP(&f.workers, "workers", "w", 0, "parallel scenarios (default: run.workers, or number of CPUs)")
 	fl.BoolVar(&f.failFast, "fail-fast", false, "stop scheduling scenarios after the first failure")
 	fl.BoolVar(&f.dryRun, "dry-run", false, "match steps without executing them or starting services")
@@ -144,6 +150,10 @@ func (a *App) run(ctx context.Context, f *runFlags, args []string) error {
 		}
 		packs := packsOf(e, pickles)
 		pickles = feature.ByUses(pickles, cfg.Run.Uses, filter.Named, func(p *feature.Pickle) []string { return packs[p] })
+	}
+	// A shard of what the run selects, for one of the runners that share it.
+	if pickles, err = feature.Shard(pickles, f.shard); err != nil {
+		return err
 	}
 	e.Suite.PauseAt(a.pausesOnSteps(pauses, pickles))
 	if len(pickles) == 0 {

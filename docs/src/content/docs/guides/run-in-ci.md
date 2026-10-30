@@ -117,6 +117,26 @@ Use `--fail-fast` to stop scheduling new scenarios after the first failure when 
 
 The workflows above write JUnit and HTML reports with `--format`. [Reports](/guides/reports/) lists every format, and `run.reporters` in `axx.yaml` can make them the default. `--rerun-file build/axx/rerun.txt` also records the failed scenarios for a follow-up run ([Rerun what failed](/guides/tags-and-filtering/#rerun-what-failed)).
 
+## Share a run between runners
+
+A suite whose scenarios take long on one runner (a device's or a browser's, which run a scenario at a time) can run on several at once: `--shard 2/3` runs the second third of the scenarios the run selects, every third in their files' and lines' order, from the second. The shards of a run, `1/3` to `3/3`, run each scenario once between them, the same on every machine:
+
+```yaml title=".github/workflows/acceptance.yml"
+jobs:
+  acceptance:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: nimbusxr/setup-axx@v0
+      - run: axx run --shard ${{ matrix.shard }}/3 --format junit:build/axx/junit.xml
+```
+
+Each runner starts the services for its own shard. A shard that selects nothing passes.
+
 ## Run scenarios in parallel safely
 
 CI runners have fewer CPUs than laptops, and `run.workers` defaults to the number of CPUs. If scenarios that pass locally fail in CI, check that they use unique data ([Isolate test data](/guides/isolate-test-data/)) before lowering `--workers`.
