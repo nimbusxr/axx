@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -68,42 +69,59 @@ func harnessWith(t *testing.T, config map[string]any, more ...core.Pack) *cloudt
 	cfg := map[string]any{Name: map[string]any{"keep": true}}
 	maps.Copy(cfg, config)
 	h := cloudtest.NewWith(t, cfg, append([]core.Pack{appcore.Pack(), mobilecore.Pack(), Pack()}, more...)...)
-	t.Cleanup(func() {
-		if !t.Failed() {
-			return
-		}
-		// What the app showed, as the pack read it, while its session lasts.
-		_ = mobilecore.OnDevice(h.SC, "courier", func(_ context.Context, d mobilecore.Device) error {
-			// The scenario's context is over by now; the session is not.
-			ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
-			defer cancel()
-			src, err := d.Session().Source(ctx)
-			t.Logf("the courier app's page source at the failure (%v):\n%s", err, src)
-			// What the simulator's own log says, in the last minutes, of the app, of the document
-			// picker and the files it shows, and of each tap XCTest made (where, and when), with
-			// the errors of each of those processes; all of what iOS's resolver of documents
-			// for apps and its store of document ids say; and what SpringBoard, iOS's service of
-			// notifications and RunningBoard say of the app (its notifications, its priority).
-			if r, ok := d.(*running); ok && r.dev != nil {
-				out, err := exec.CommandContext(ctx, "xcrun", "simctl", "spawn", r.dev.udid, "log", "show", "--last", "2m", "--style", "compact", "--predicate", //nolint:gosec // the test's own simulator
-					`subsystem BEGINSWITH "com.apple.DocumentManager" OR subsystem BEGINSWITH "com.apple.FileProvider" OR subsystem BEGINSWITH "example.parcels"`+
-						` OR (process == "testmanagerd" AND eventMessage BEGINSWITH "Synthesizing event")`+
-						` OR ((process == "Courier" OR process CONTAINS[c] "document" OR process CONTAINS[c] "fileprovider") AND messageType IN {16, 17})`+
-						` OR process == "ResolverService" OR process == "revisiond"`+
-						` OR ((process == "SpringBoard" OR process == "usernotificationsd" OR process == "runningboardd") AND eventMessage CONTAINS[c] "courier")`).CombinedOutput()
-				lines := strings.Split(string(out), "\n")
-				t.Logf("the simulator's log (%v):\n%s", err, strings.Join(lines[max(0, len(lines)-1500):], "\n"))
-			}
-			return nil
-		})
-		logs, _ := filepath.Glob(filepath.Join(h.Dir, ".axx", "mobile", "*.log"))
-		for _, l := range logs {
-			b, _ := os.ReadFile(l)
-			lines := strings.Split(string(b), "\n")
-			t.Logf("the end of %s:\n%s", filepath.Base(l), strings.Join(lines[max(0, len(lines)-80):], "\n"))
-		}
-	})
+	once := new(sync.Once)
+	reports.Store(h, once)
+	t.Cleanup(func() { once.Do(func() { report(t, h) }) })
 	return h
+}
+
+// reports are the harnesses' failure reports, each made once: by the scenario a test warmed
+// (warm), whose end comes first, or at the test's end.
+var reports sync.Map // *cloudtest.Harness → *sync.Once
+
+// report prints, for a failed test, what the app showed, the simulator's log, axx's AR library's
+// log and the end of the packs' mobile logs.
+func report(t *testing.T, h *cloudtest.Harness) {
+	if !t.Failed() {
+		return
+	}
+	// What the app showed, as the pack read it, while its session lasts.
+	_ = mobilecore.OnDevice(h.SC, "courier", func(_ context.Context, d mobilecore.Device) error {
+		// The scenario's context is over by now; the session is not.
+		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+		defer cancel()
+		src, err := d.Session().Source(ctx)
+		t.Logf("the courier app's page source at the failure (%v):\n%s", err, src)
+		// What the simulator's own log says, in the last minutes, of the app, of the document
+		// picker and the files it shows, and of each tap XCTest made (where, and when), with
+		// the errors of each of those processes; all of what iOS's resolver of documents
+		// for apps and its store of document ids say; and what SpringBoard, iOS's service of
+		// notifications and RunningBoard say of the app (its notifications, its priority).
+		if r, ok := d.(*running); ok && r.dev != nil {
+			out, err := exec.CommandContext(ctx, "xcrun", "simctl", "spawn", r.dev.udid, "log", "show", "--last", "2m", "--style", "compact", "--predicate", //nolint:gosec // the test's own simulator
+				`subsystem BEGINSWITH "com.apple.DocumentManager" OR subsystem BEGINSWITH "com.apple.FileProvider" OR subsystem BEGINSWITH "example.parcels"`+
+					` OR (process == "testmanagerd" AND eventMessage BEGINSWITH "Synthesizing event")`+
+					` OR ((process == "Courier" OR process CONTAINS[c] "document" OR process CONTAINS[c] "fileprovider") AND messageType IN {16, 17})`+
+					` OR process == "ResolverService" OR process == "revisiond"`+
+					` OR ((process == "SpringBoard" OR process == "usernotificationsd" OR process == "runningboardd") AND eventMessage CONTAINS[c] "courier")`).CombinedOutput()
+			lines := strings.Split(string(out), "\n")
+			t.Logf("the simulator's log (%v):\n%s", err, strings.Join(lines[max(0, len(lines)-1500):], "\n"))
+		}
+		// What axx's AR library did in the app: the scene it drew from each pose, and each
+		// raycast (from where, and what it hit).
+		if r, ok := d.(*running); ok && r.app.camera != nil {
+			b, err := os.ReadFile(r.app.camera.log)
+			lines := strings.Split(string(b), "\n")
+			t.Logf("the end of axx's AR library's log (%v):\n%s", err, strings.Join(lines[max(0, len(lines)-150):], "\n"))
+		}
+		return nil
+	})
+	logs, _ := filepath.Glob(filepath.Join(h.Dir, ".axx", "mobile", "*.log"))
+	for _, l := range logs {
+		b, _ := os.ReadFile(l)
+		lines := strings.Split(string(b), "\n")
+		t.Logf("the end of %s:\n%s", filepath.Base(l), strings.Join(lines[max(0, len(lines)-80):], "\n"))
+	}
 }
 
 // warm makes the test's simulator before its scenario: setting up the
@@ -123,8 +141,12 @@ func warm(t *testing.T, h *cloudtest.Harness, device string) {
 		t.Fatal(err)
 	}
 	p.release(d)
-	// The scenario starts now, with all of its time.
+	// The scenario starts now, with all of its time. It ends before the test's other cleanups
+	// run: a failure's report is made before it does, while the app runs.
 	h.NewScenarioWithin(scenarioLimit)
+	if once, ok := reports.Load(h); ok {
+		t.Cleanup(func() { once.(*sync.Once).Do(func() { report(t, h) }) })
+	}
 }
 
 // scenarioLimit is how long a scenario may take: on a hosted runner, a
