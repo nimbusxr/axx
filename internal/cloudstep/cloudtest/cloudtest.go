@@ -296,20 +296,33 @@ func (h *Harness) Step(text string, arg ...any) (err error) {
 	}
 	for _, hk := range h.hooks {
 		if hk.Phase == core.BeforeStep {
-			if err := hk.Run(h.SC); err != nil {
+			if err := h.within(func() error { return hk.Run(h.SC) }); err != nil {
 				return err
 			}
 		}
 	}
-	err = ms[0].Def().Step.Run(h.SC, args)
+	err = h.within(func() error { return ms[0].Def().Step.Run(h.SC, args) })
 	for _, hk := range h.hooks {
 		if hk.Phase == core.AfterStep {
-			if herr := hk.Run(h.SC); herr != nil && err == nil {
+			if herr := h.within(func() error { return hk.Run(h.SC) }); herr != nil && err == nil {
 				err = herr
 			}
 		}
 	}
 	return err
+}
+
+// within runs a step or a hook as a run does: with a context of its own, which ends as it
+// returns, so that what a step leaves running must not hang on it.
+func (h *Harness) within(fn func() error) error {
+	prev := h.SC.Context()
+	ctx, cancel := context.WithCancel(prev)
+	h.SC.SetContext(ctx)
+	defer func() {
+		cancel()
+		h.SC.SetContext(prev)
+	}()
+	return fn()
 }
 
 // OK runs a step that must pass.

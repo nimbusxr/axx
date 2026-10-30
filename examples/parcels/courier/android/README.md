@@ -157,3 +157,19 @@ never asks for the notification permission; grant it to see them:
 ```sh
 adb shell pm grant example.parcels.courier android.permission.POST_NOTIFICATIONS
 ```
+
+## The camera
+
+The courier scans a parcel's label to open it ("Scan label", `Camera.kt`): the app reads its QR
+code with ML Kit's barcode scanning, or, where the code is torn off, the reference printed under
+it with ML Kit's text recognition, in CameraX's frames. At the door, the courier photographs the
+parcel where they left it ("Photo at the door"), and the app attaches the photo, upright, to the
+delivery as `photo-at-the-door.jpg`. Before leaving a parcel in a parcel locker, the courier
+measures it ("Measure parcel", `MeasureParcel.kt`): ARCore finds the two ends the courier taps,
+and the app shows how far apart they are. ARCore is optional (`com.google.ar.core` in the
+manifest): a phone without it measures nothing, and the rest of the app works.
+
+An emulator's camera sees a room of its own, and an emulator has no ARCore: the tests say what
+the camera sees (`acceptance/features/courier-app-camera`, `courier-app-measure`), a photo of a
+label, a video of one, or a scene of a parcel on a porch, and axx plays the emulator's camera
+from it, and the debug build's ARCore from the scene. Both builds run the same code.

@@ -43,9 +43,11 @@ var openh264Builds = map[string]struct{ file, sha256 string }{
 	"windows/arm64": {"openh264-2.6.0-win-arm64.dll.bz2", "6b57d3ecd06bd80b5f3ee1abbb31d48798ca6d89ef1bc98cf2e6d1ebddf5cf45"},
 }
 
-// library is OpenH264, loaded: the functions that make and free an encoder.
+// library is OpenH264, loaded: the functions that make and free an encoder,
+// and a decoder.
 type library struct {
-	create, destroy uintptr
+	create, destroy               uintptr
+	createDecoder, destroyDecoder uintptr
 }
 
 var (

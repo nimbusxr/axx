@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-// Writes the parcel labels the couriers' iPhone camera sees in ../courier-app-camera-ios.feature,
+// Writes the parcel labels the couriers' phone cameras see in ../courier-app-camera-*.feature,
 // as a phone held over a parcel photographs them: a label on cardboard, its QR code above the
 // parcel's reference printed large. On a Mac:
 //
@@ -10,7 +10,10 @@
 //   - torn-label-<reference>.mp4: a label whose code is torn off, the reference left, as the
 //     courier lifts the parcel into view: 3 seconds, 30 frames a second;
 //   - torn-label-<reference>.png: that label held still in view, as the video ends: what the
-//     stub of Vision's text recognition reads it from (../../../models/torn-label-ios).
+//     stub of Vision's text recognition reads it from (../../../models/torn-label-ios);
+//   - torn-label-<reference>-3x4.png: its middle 3:4, as an Android phone's camera frames it (its
+//     sensor 4:3, held upright): what the stub of ML Kit's text recognition reads it from
+//     (../../../models/torn-label-android).
 import AVFoundation
 import AppKit
 import CoreImage
@@ -118,5 +121,8 @@ try writeVideo("torn-label-\(torn).mp4", frames: 90) { i in
     let t = min(1, CGFloat(i) / 30)
     return label(torn, withCode: false, lifted: t * t * (3 - 2 * t))
 }
-try writePNG(label(torn, withCode: false), "torn-label-\(torn).png")
-print("wrote label-\(scanned).png, torn-label-\(torn).mp4 and torn-label-\(torn).png to \(dir.path)")
+let still = label(torn, withCode: false)
+try writePNG(still, "torn-label-\(torn).png")
+let third = size.width * 4 / 3
+try writePNG(still.cropping(to: CGRect(x: 0, y: (size.height - third) / 2, width: size.width, height: third))!, "torn-label-\(torn)-3x4.png")
+print("wrote label-\(scanned).png, torn-label-\(torn).mp4, torn-label-\(torn).png and torn-label-\(torn)-3x4.png to \(dir.path)")

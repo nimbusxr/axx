@@ -1,0 +1,10 @@
+# A long parcel out for delivery with CR-LEJ-91, which the courier measures before leaving it in a
+# parcel locker.
+parcels.parcels:
+  - reference: "PX-MOB-9511"
+    sender: "maple-crafts"
+    status: "OUT_FOR_DELIVERY"
+    service_level: "STANDARD"
+    weight_grams: 2400
+    recipient: '{"name": "Henrike Vogt", "street": "Kochstr. 28", "city": "Leipzig", "postcode": "04275", "country": "DE"}'
+    details: '{"source": "api", "zone": "DE-1", "courier": "CR-LEJ-91"}'

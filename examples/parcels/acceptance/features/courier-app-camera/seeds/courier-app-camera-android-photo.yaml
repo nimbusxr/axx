@@ -1,0 +1,9 @@
+# A parcel out for delivery with CR-LEJ-90, left on a porch, which the courier photographs where it is.
+parcels.parcels:
+  - reference: "PX-MOB-9503"
+    sender: "maple-crafts"
+    status: "OUT_FOR_DELIVERY"
+    service_level: "STANDARD"
+    weight_grams: 2100
+    recipient: '{"name": "Svenja Otto", "street": "Riebeckstr. 40", "city": "Leipzig", "postcode": "04317", "country": "DE"}'
+    details: '{"source": "api", "zone": "DE-1", "courier": "CR-LEJ-90"}'

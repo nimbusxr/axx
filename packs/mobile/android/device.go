@@ -54,18 +54,35 @@ func (r runner) Start(sc *core.Scenario) (mobilecore.Device, error) {
 	if err != nil {
 		return nil, err
 	}
-	d.pool, d.dev, d.sdk = p, dev, p.sdk
-	if err := p.startServer(ctx, dev, logDir); err != nil {
-		d.releaseDevice()
+	d.pool, d.dev, d.sdk, d.logDir = p, dev, p.sdk, logDir
+	if a.camera != nil && dev.avd != "" && !dev.environment {
+		if err := p.bootAfresh(ctx, dev, logDir); err != nil {
+			d.releaseDevice()
+			return nil, err
+		}
+	}
+	if err := d.begin(ctx); err != nil {
 		return nil, err
+	}
+	return d, nil
+}
+
+// begin starts a session of the app on the scenario's device, reset: the UiAutomator2 server
+// running, the device and the app reset, the app's permissions granted. It gives the device
+// back when it fails.
+func (d *running) begin(ctx context.Context) error {
+	a, dev := d.app, d.dev
+	if err := d.pool.startServer(ctx, dev, d.logDir); err != nil {
+		d.releaseDevice()
+		return err
 	}
 	if err := d.resetDevice(ctx); err != nil {
 		d.releaseDevice()
-		return nil, err
+		return err
 	}
 	if err := d.resetApp(ctx); err != nil {
 		d.releaseDevice()
-		return nil, err
+		return err
 	}
 	caps := map[string]any{"platformName": "Android"}
 	for k, v := range a.caps {
@@ -74,16 +91,38 @@ func (r runner) Start(sc *core.Scenario) (mobilecore.Device, error) {
 	s, err := dev.server.client.NewSession(ctx, caps)
 	if err != nil {
 		d.releaseDevice()
-		return nil, fmt.Errorf("cannot start the %s app: %w", a.name, err)
+		return fmt.Errorf("cannot start the %s app: %w", a.name, err)
 	}
 	xpath1(ctx, s)
-	d.session, d.logDir, d.caps = s, logDir, caps
+	d.session, d.caps = s, caps
 	s.Revive = d.revive
 	if err := d.grant(ctx); err != nil {
 		_ = d.Stop(true)
-		return nil, err
+		return err
 	}
-	return d, nil
+	return nil
+}
+
+// seeCamera has the device's camera see what the app's camera sees, now that a step gave it
+// something else: an emulator whose camera does not render its environment (started from a
+// snapshot saved with another camera) starts afresh first, and the scenario's session with it.
+func (d *running) seeCamera(ctx context.Context) error {
+	if d.app.camera != nil && d.dev.avd != "" && !d.dev.environment {
+		if err := d.pool.bootAfresh(ctx, d.dev, d.logDir); err != nil {
+			return err
+		}
+		// The device is reset again, its location fed anew: the feed before is the emulator's
+		// before.
+		if d.stopFeed != nil {
+			d.stopFeed()
+			d.stopFeed = nil
+		}
+		d.resets = nil
+		d.scenario.Log("the %s app's emulator started afresh, for its camera: the app starts again from a clean state, as a scenario's first does", d.app.name)
+		// begin shows the camera, as it resets the device.
+		return d.begin(ctx)
+	}
+	return d.showCamera(ctx)
 }
 
 // xpath1 has the session find elements with UiAutomator2's XPath 1.0 engine,
@@ -224,6 +263,8 @@ type running struct {
 	route travelling
 	// resetAt is when the scenario reset the app: its log starts there.
 	resetAt time.Time
+	// shown is the app's camera the device's camera shows (camera.go); nil for the default.
+	shown *camera
 }
 
 func (d *running) Session() *appium.Session { return d.session }
@@ -322,6 +363,13 @@ func (d *running) resetDevice(ctx context.Context) error {
 		}
 		d.resets = append(d.resets, "host ports "+strings.Join(ports, ", "))
 	}
+	// What the camera sees: the scenario's, or the default rather than the scenario's before.
+	if err := d.showCamera(ctx); err != nil {
+		return err
+	}
+	if c := d.app.camera; c != nil {
+		d.resets = append(d.resets, "camera "+c.sees)
+	}
 	return nil
 }
 
@@ -333,7 +381,7 @@ func (d *running) resetDevice(ctx context.Context) error {
 func (d *running) feedLocation(lon, lat string) {
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
-	sdk, serial, gps := d.sdk, d.dev.serial, d.dev.gps
+	sdk, serial, gps := d.sdk, d.dev.serial, d.dev.control
 	la, _ := strconv.ParseFloat(lat, 64)
 	lo, _ := strconv.ParseFloat(lon, 64)
 	at := mobilecore.Fix{Point: mobilecore.Point{Lat: la, Lon: lo}}
@@ -349,7 +397,7 @@ func (d *running) feedLocation(lon, lat string) {
 				if f := d.route.at(now); f != nil {
 					at = *f
 				}
-				if gps != nil && gps.set(ctx, at.Lat, at.Lon, at.Speed, at.Course) == nil {
+				if gps != nil && gps.setGPS(ctx, at.Lat, at.Lon, at.Speed, at.Course) == nil {
 					continue
 				}
 				_, _ = sdk.run(ctx, serial, "emu", "geo", "fix", strconv.FormatFloat(at.Lon, 'f', -1, 64), strconv.FormatFloat(at.Lat, 'f', -1, 64))
@@ -526,6 +574,11 @@ func (d *running) Launch(ctx context.Context) error {
 // is already running: prepare in that case too, rather than silently missing
 // the hooks.
 func (d *running) start(ctx context.Context, args []string) error {
+	if d.app.camera != d.shown {
+		if err := d.seeCamera(ctx); err != nil {
+			return err
+		}
+	}
 	var launch *Launch
 	pid, pidErr := d.sdk.shell(ctx, d.dev.serial, "pidof", d.pkg)
 	if pidErr != nil || strings.TrimSpace(pid) == "" {
@@ -1089,6 +1142,7 @@ func (d *running) Stop(bool) error {
 }
 
 func (d *running) releaseDevice() {
+	d.hideCamera()
 	if d.stopFeed != nil {
 		d.stopFeed()
 		d.stopFeed = nil

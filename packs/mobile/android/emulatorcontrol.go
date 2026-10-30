@@ -6,10 +6,12 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"maps"
 	"math"
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -17,20 +19,21 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/protobuf/encoding/protowire"
 )
 
-// emulatorGPS sets an emulator's GPS through the emulator's own control service (gRPC), with the
-// speed and bearing a console geo fix lacks. The emulator then reports that state to Android
-// every second, as a phone's GPS does. axx starts its emulators with the service on a port of
-// 127.0.0.1, and a token the emulator writes in its discovery file.
-type emulatorGPS struct {
+// emulatorControl is an emulator's own control service (gRPC), where axx sets its GPS, with the
+// speed and bearing a console geo fix lacks, and what its camera sees, and where the phone is in
+// it. axx starts its emulators with the service on a port of 127.0.0.1, and a token the emulator
+// writes in its discovery file.
+type emulatorControl struct {
 	conn  *grpc.ClientConn
 	token string
 }
 
-// dialEmulatorGPS connects to the control service of the emulator on port, once the emulator
+// dialEmulator connects to the control service of the emulator on port, once the emulator
 // has written its token (it does as it starts).
-func dialEmulatorGPS(ctx context.Context, port int) (*emulatorGPS, error) {
+func dialEmulator(ctx context.Context, port int) (*emulatorControl, error) {
 	var token string
 	for {
 		if token = emulatorToken(port); token != "" {
@@ -47,16 +50,16 @@ func dialEmulatorGPS(ctx context.Context, port int) (*emulatorGPS, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &emulatorGPS{conn: conn, token: token}, nil
+	return &emulatorControl{conn: conn, token: token}, nil
 }
 
 // knot is a knot in metres a second. The emulator takes GpsState's speed in knots, though its
 // proto says metres a second (emulator 37): it reports 7.1 m/s for 13.9.
 const knot = 0.514444
 
-// set has the emulator report the phone at a point, moving at a speed (metres a second) toward
+// setGPS has the emulator report the phone at a point, moving at a speed (metres a second) toward
 // a bearing (degrees clockwise from north).
-func (g *emulatorGPS) set(ctx context.Context, lat, lon, speed, bearing float64) error {
+func (g *emulatorControl) setGPS(ctx context.Context, lat, lon, speed, bearing float64) error {
 	speed /= knot
 	// android.emulation.control.GpsState (emulator_controller.proto in the SDK's emulator/lib):
 	// passiveUpdate (1), latitude (2), longitude (3), speed (4), bearing (5), altitude (6),
@@ -72,7 +75,59 @@ func (g *emulatorGPS) set(ctx context.Context, lat, lon, speed, bearing float64)
 	return g.conn.Invoke(ctx, "/android.emulation.control.EmulatorController/setGps", &msg, &out)
 }
 
-func (g *emulatorGPS) close() { _ = g.conn.Close() }
+// setEnvironment has the emulator's camera see a scene: an environment.ini's keys (scene.mode),
+// as android.emulation.control.Environment carries them. The emulator writes them to its AVD's
+// environment.ini and loads it, which it can only when the AVD had one as the emulator started.
+func (g *emulatorControl) setEnvironment(ctx context.Context, keys map[string]string) error {
+	var msg []byte
+	for _, k := range slices.Sorted(maps.Keys(keys)) {
+		var entry []byte
+		entry = protowire.AppendTag(entry, 1, protowire.BytesType)
+		entry = protowire.AppendString(entry, k)
+		entry = protowire.AppendTag(entry, 2, protowire.BytesType)
+		entry = protowire.AppendString(entry, keys[k])
+		msg = protowire.AppendTag(msg, 1, protowire.BytesType)
+		msg = protowire.AppendBytes(msg, entry)
+	}
+	ctx = metadata.AppendToOutgoingContext(ctx, "authorization", "Bearer "+g.token)
+	var out []byte
+	return g.conn.Invoke(ctx, "/android.emulation.control.EmulatorController/setEnvironment", &msg, &out)
+}
+
+// setPhysical sets one of the phone's physical quantities in the emulator's model of it: where
+// the phone is (position, in metres) or how it is turned (rotation, Euler angles in degrees),
+// at once (step) or gliding there as a hand moves a phone, which its motion sensors then feel.
+func (g *emulatorControl) setPhysical(ctx context.Context, target physical, values [3]float64, step bool) error {
+	// android.emulation.control.PhysicalModelValue: target (1), value (3: ParameterValue, its
+	// data (1) packed floats), interpolation (4: SMOOTH 0, STEP 1).
+	var data, value, msg []byte
+	for _, v := range values {
+		data = protowire.AppendFixed32(data, math.Float32bits(float32(v)))
+	}
+	value = protowire.AppendTag(value, 1, protowire.BytesType)
+	value = protowire.AppendBytes(value, data)
+	msg = protowire.AppendTag(msg, 1, protowire.VarintType)
+	msg = protowire.AppendVarint(msg, uint64(target))
+	msg = protowire.AppendTag(msg, 3, protowire.BytesType)
+	msg = protowire.AppendBytes(msg, value)
+	if step {
+		msg = protowire.AppendTag(msg, 4, protowire.VarintType)
+		msg = protowire.AppendVarint(msg, 1)
+	}
+	ctx = metadata.AppendToOutgoingContext(ctx, "authorization", "Bearer "+g.token)
+	var out []byte
+	return g.conn.Invoke(ctx, "/android.emulation.control.EmulatorController/setPhysicalModel", &msg, &out)
+}
+
+// physical is a PhysicalModelValue.PhysicalType.
+type physical int
+
+const (
+	position physical = 0
+	rotation physical = 1
+)
+
+func (g *emulatorControl) close() { _ = g.conn.Close() }
 
 // rawCodec passes protobuf messages encoded by hand.
 type rawCodec struct{}

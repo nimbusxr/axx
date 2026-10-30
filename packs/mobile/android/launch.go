@@ -43,7 +43,8 @@ func (d *running) prepareLaunch(ctx context.Context) (*Launch, error) {
 	h.mu.Lock()
 	fns := append([]func(*Launch) error(nil), h.hooks...)
 	h.mu.Unlock()
-	if len(fns) == 0 {
+	ar := d.usesAR()
+	if len(fns) == 0 && !ar {
 		return l, nil
 	}
 	if d.dev != nil {
@@ -68,6 +69,12 @@ func (d *running) prepareLaunch(ctx context.Context) (*Launch, error) {
 	}
 	for _, fn := range fns {
 		if err := fn(l); err != nil {
+			return nil, err
+		}
+	}
+	// The AR agent goes first, and attaches the one a hook gave.
+	if ar && l.SDKDir != "" {
+		if err := d.prepareAR(ctx, l); err != nil {
 			return nil, err
 		}
 	}

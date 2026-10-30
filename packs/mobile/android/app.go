@@ -28,6 +28,7 @@ type app struct {
 	hostPorts   []int          // ports of the machine axx runs on, reached as the device's localhost
 	server      string         // an Appium server of the project's own, or a device farm's
 	caps        map[string]any // capability.<name> rows, for that server
+	camera      *camera        // what its camera sees, when a step says (camera.go)
 }
 
 var (

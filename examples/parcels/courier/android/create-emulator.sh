@@ -83,6 +83,14 @@ done
 [ -n "$device" ] || device=$(printf '%s\n' "$devices" | grep '^pixel' | tail -1)
 echo no | limited 300 "$tools/avdmanager" create avd --force --name parcels-pixel --package "$image" --device "$device"
 say "parcels-pixel: $image, $device"
+# Its back camera renders the AVD's environment (environment.ini), which axx sets to what an
+# app's camera sees in a scenario: an emulator started from the snapshot keeps the camera the
+# snapshot was saved with.
+config="$ANDROID_AVD_HOME/parcels-pixel.avd/config.ini"
+grep -v '^hw.camera.back=' "$config" > "$config.new"
+echo 'hw.camera.back=environment' >> "$config.new"
+mv "$config.new" "$config"
+printf 'version = 1\nscene.mode = mesh3d:Toren1BD.obj\n' > "$ANDROID_AVD_HOME/parcels-pixel.avd/environment.ini"
 
 # Its boot snapshot: booted once and saved, every emulator axx starts of it boots from it in
 # seconds instead of booting cold. axx starts them read-only: they save nothing, so each starts

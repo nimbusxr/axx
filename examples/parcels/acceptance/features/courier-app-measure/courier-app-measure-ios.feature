@@ -52,3 +52,23 @@ Feature: A courier measures a parcel with the iPhone's camera
     And the "front left corner" in the courier app's camera view is tapped
     And the "front right corner" in the courier app's camera view is tapped
     Then the courier app shows "60 cm"
+
+  Scenario: A courier walks up the garden path at a steady pace, and measures the parcel on the porch
+    Given a seeds/courier-app-measure-steady.yaml db seed
+    And the courier app's camera sees scenes/parcel-on-porch.glb
+    And the courier app's phone moves to the scene's "by the van" camera
+    And the courier app is launched
+    And the "Courier ID" field in the courier app is filled with "CR-LEJ-94"
+    And the "PIN" field in the courier app is filled with "${sys:couriers.pin}"
+    And the "Sign in" button is tapped in the courier app
+    And the courier app's dialog is dismissed
+    And the "PX-IOS-9583" list item is tapped in the courier app
+    And the "Measure parcel" button is tapped in the courier app
+    When the courier app's phone starts traveling the scene's "up the garden path" path at 1.4 m/s
+    And the courier app shows "Tap one end of the parcel, then the other"
+    And the courier app's phone reaches the end of its route
+    And the courier app's phone moves 1 m forward
+    And the courier app's phone turns 40 degrees down
+    And the "front left corner" in the courier app's camera view is tapped
+    And the "front right corner" in the courier app's camera view is tapped
+    Then the courier app shows "60 cm"

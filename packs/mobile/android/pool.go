@@ -11,6 +11,7 @@ import (
 	"runtime"
 	"slices"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -32,8 +33,11 @@ type device struct {
 	emulator   *exec.Cmd
 	group      *proc.Group
 	exited     chan struct{}
-	installed  map[string]bool // the APKs installed on it this run
-	gps        *emulatorGPS    // an emulator's GPS, which axx sets with a speed and bearing; nil when it cannot
+	installed  map[string]bool  // the APKs installed on it this run
+	control    *emulatorControl // the emulator's control service: its GPS (with a speed and bearing), its camera; nil when it cannot
+	// environment is whether the emulator's back camera renders its AVD's environment, which axx
+	// sets (camera.go): an emulator started from a snapshot saved with another camera keeps that.
+	environment bool
 }
 
 // pool is the devices of one kind the run has: emulators of one AVD, which
@@ -50,6 +54,9 @@ type pool struct {
 	args  []string // more arguments for the emulators
 	// window shows the emulators' windows: a person watches the run.
 	window bool
+
+	// afresh warns once that the AVD's snapshot has another camera (bootAfresh).
+	afresh sync.Once
 
 	mu      sync.Mutex
 	free    []*device
@@ -166,7 +173,7 @@ func (p *pool) start(ctx context.Context, logDir string) (*device, error) {
 	// Its ports on the host are adb's to pick, as it forwards them to the server (startServer).
 	d := &device{serial: p.name, installed: map[string]bool{}}
 	if p.avd {
-		if err := p.boot1(ctx, d, logDir); err != nil {
+		if err := p.boot1(ctx, d, logDir, false); err != nil {
 			return nil, err
 		}
 	}
@@ -197,8 +204,9 @@ func settle(ctx context.Context, s *sdk, serial string) error {
 }
 
 // boot1 starts an emulator of the pool's AVD, read-only so that several run
-// at once and what a scenario changes is gone when it stops.
-func (p *pool) boot1(ctx context.Context, d *device, logDir string) error {
+// at once and what a scenario changes is gone when it stops; cold, without
+// its quick-boot snapshot.
+func (p *pool) boot1(ctx context.Context, d *device, logDir string, cold bool) error {
 	port, err := consolePort()
 	if err != nil {
 		return err
@@ -228,6 +236,23 @@ func (p *pool) boot1(ctx context.Context, d *device, logDir string) error {
 	}
 	if !p.window {
 		args = append(args, "-no-window")
+	}
+	if cold {
+		args = append(args, "-no-snapshot-load")
+	}
+	// The back camera renders the AVD's environment, which axx sets for what an app's camera
+	// sees (camera.go): the emulator reads its environment.ini as it starts, and can be set
+	// only if it did.
+	environment := !slices.Contains(p.args, "-camera-back")
+	if environment {
+		args = append(args, "-camera-back", "environment")
+		environments.Lock()
+		err := writeEnvironment(p.name)
+		environments.Unlock()
+		if err != nil {
+			p.suite.Logger().Warn("the emulator's camera will see nothing a scenario gives it", "avd", p.name, "err", err)
+			environment = false
+		}
 	}
 	args = append(args, p.args...)
 	if runtime.GOOS == "linux" && !slices.Contains(p.args, "-gpu") {
@@ -273,12 +298,50 @@ func (p *pool) boot1(ctx context.Context, d *device, logDir string) error {
 	// reports has neither.
 	gctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
-	if g, err := dialEmulatorGPS(gctx, grpcPort); err == nil {
-		d.gps = g
+	if g, err := dialEmulator(gctx, grpcPort); err == nil {
+		d.control = g
 	} else {
 		p.suite.Logger().Warn("the emulator's location will have no speed or bearing", "serial", d.serial, "err", err)
 	}
+	d.environment = environment && p.cameraReady(ctx, d)
 	return nil
+}
+
+// cameraReady is whether the emulator's back camera renders its AVD's environment, which axx
+// sets: the emulator's own camera (not the system image's fake one) that takes its environment.
+// An emulator started from a quick-boot snapshot keeps the camera the snapshot was saved with.
+func (p *pool) cameraReady(ctx context.Context, d *device) bool {
+	if d.control == nil {
+		return false
+	}
+	for _, prop := range []string{"vendor.qemu.sf.fake_camera", "qemu.sf.fake_camera"} {
+		if out, err := p.sdk.shell(ctx, d.serial, "getprop", prop); err == nil {
+			if v := strings.TrimSpace(out); v == "back" || v == "both" {
+				return false
+			}
+		}
+	}
+	environments.Lock()
+	defer environments.Unlock()
+	return d.control.setEnvironment(ctx, defaultEnvironment) == nil
+}
+
+// bootAfresh starts the device's emulator again, cold, for what an app's camera sees: its
+// quick-boot snapshot was saved with another camera, which it keeps.
+func (p *pool) bootAfresh(ctx context.Context, d *device, logDir string) error {
+	p.afresh.Do(func() {
+		p.suite.Logger().Warn("the "+p.name+" AVD's quick-boot snapshot was saved with another camera: its emulators start afresh (cold) for the scenarios whose camera sees something; "+
+			"a snapshot saved with hw.camera.back=environment in its config.ini skips that", "avd", p.name)
+	})
+	d.stop(p.sdk)
+	d.installed, d.served = map[string]bool{}, false
+	if err := p.boot1(ctx, d, logDir, true); err != nil {
+		return err
+	}
+	if !d.environment {
+		return fmt.Errorf("the %s emulator's camera does not render its environment, even started afresh", p.name)
+	}
+	return settle(ctx, p.sdk, d.serial)
 }
 
 // skipBrowserWelcome has Chrome open a page at once, without its first-run
@@ -337,9 +400,9 @@ func (d *device) stop(tools *sdk) {
 		d.server.stop()
 		d.server = nil
 	}
-	if d.gps != nil {
-		d.gps.close()
-		d.gps = nil
+	if d.control != nil {
+		d.control.close()
+		d.control = nil
 	}
 	if d.emulator == nil {
 		return
