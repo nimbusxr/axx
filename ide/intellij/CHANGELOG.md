@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.2](https://github.com/nimbusxr/axx/compare/intellij-v0.2.1...intellij-v0.2.2) (2026-10-31)
+
+
+### Features
+
+* axx host starts the services for the runs of an agent in a sandbox without Docker ([#278](https://github.com/nimbusxr/axx/issues/278)) ([9041256](https://github.com/nimbusxr/axx/commit/9041256738824e91dbd97c490189db0e8b3c4d00))
+
 ## [0.2.1](https://github.com/nimbusxr/axx/compare/intellij-v0.2.0...intellij-v0.2.1) (2026-10-27)
 
 

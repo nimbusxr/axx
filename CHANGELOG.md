@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.26](https://github.com/nimbusxr/axx/compare/v0.2.25...v0.2.26) (2026-10-31)
+
+
+### Features
+
+* axx host starts the services for the runs of an agent in a sandbox without Docker ([#278](https://github.com/nimbusxr/axx/issues/278)) ([9041256](https://github.com/nimbusxr/axx/commit/9041256738824e91dbd97c490189db0e8b3c4d00))
+
 ## [0.2.25](https://github.com/nimbusxr/axx/compare/v0.2.24...v0.2.25) (2026-10-30)
 
 
