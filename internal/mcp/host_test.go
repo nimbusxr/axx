@@ -84,6 +84,7 @@ func TestTheSessionHasItsServicesFromTheHost(t *testing.T) {
 	}
 
 	mcpSrv, s := newServer(Options{WorkDir: dir, Exe: filepath.Join(dir, "no-axx-here")})
+	t.Cleanup(s.end) // before the host stops: the session's services, and their log, end with it
 	st, ct := sdk.NewInMemoryTransports()
 	go func() { _ = mcpSrv.Run(context.Background(), st) }()
 	cs, err := sdk.NewClient(&sdk.Implementation{Name: "test", Version: "1"}, nil).Connect(context.Background(), ct, nil)
