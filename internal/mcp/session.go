@@ -6,6 +6,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -15,9 +18,12 @@ import (
 	"github.com/santhosh-tekuri/jsonschema/v6"
 
 	"github.com/nimbusxr/axx/core"
+	"github.com/nimbusxr/axx/internal/axxerr"
 	"github.com/nimbusxr/axx/internal/config"
 	"github.com/nimbusxr/axx/internal/engine"
 	"github.com/nimbusxr/axx/internal/feature"
+	"github.com/nimbusxr/axx/internal/host"
+	"github.com/nimbusxr/axx/internal/lifecycle"
 	"github.com/nimbusxr/axx/internal/runner"
 )
 
@@ -30,6 +36,10 @@ type agentSession struct {
 	e      *engine.Engine
 	s      *runner.Session
 	cancel context.CancelFunc
+	// lease is the session's own services, when an axx host serves the
+	// project and nothing else keeps them up; log has their output.
+	lease *host.Lease
+	log   *os.File
 }
 
 // live is the agent's session, started if need be (or again, on restart).
@@ -51,8 +61,21 @@ func (s *server) live(restart bool) (*runner.Session, error) {
 		return nil, err
 	}
 	ctx, cancel := context.WithCancel(context.Background())
+	lease, log, err := s.hostServices(ctx, cfg, e)
+	if err != nil {
+		cancel()
+		_ = e.Close(context.Background())
+		return nil, err
+	}
+	stop := func() {
+		if lease != nil {
+			_ = lease.Stop(context.Background())
+			_ = log.Close()
+		}
+	}
 	if err := e.Init(ctx); err != nil {
 		cancel()
+		stop()
 		_ = e.Close(context.Background())
 		return nil, err
 	}
@@ -62,6 +85,7 @@ func (s *server) live(restart bool) (*runner.Session, error) {
 	})
 	if err != nil {
 		cancel()
+		stop()
 		_ = e.Close(context.Background())
 		return nil, err
 	}
@@ -70,12 +94,83 @@ func (s *server) live(restart bool) (*runner.Session, error) {
 		if h.Err != nil {
 			_ = sess.Close(runner.Failed)
 			cancel()
+			stop()
 			_ = e.Close(context.Background())
 			return nil, fmt.Errorf("hook %s: %w", h.Text, h.Err)
 		}
 	}
-	s.sess.e, s.sess.s, s.sess.cancel = e, sess, cancel
+	s.sess.e, s.sess.s, s.sess.cancel, s.sess.lease, s.sess.log = e, sess, cancel, lease, log
 	return sess, nil
+}
+
+// hostServices starts the session's services through the axx host serving
+// the project: clean, for this session only, until it ends. Without a
+// host, or with services `axx up` keeps running, the session uses what
+// runs (env up starts it). Log has their output, until they stop.
+func (s *server) hostServices(ctx context.Context, cfg *config.Config, e *engine.Engine) (lease *host.Lease, log *os.File, err error) {
+	if len(cfg.Services) == 0 || lifecycle.UpRunning(cfg.Dir) {
+		return nil, nil, nil
+	}
+	ann, err := host.Find(cfg.Dir)
+	if ann == nil || err != nil {
+		return nil, nil, err
+	}
+	// Packs set up what the services need before they start, for every
+	// scenario, as `axx up` does: for none, when the features cannot be read.
+	if pickles, err := allScenarios(e); err == nil {
+		if err := e.Prepare(ctx, pickles); err != nil {
+			return nil, nil, err
+		}
+	}
+	logDir := filepath.Join(cfg.Dir, ".axx", "logs")
+	_ = os.MkdirAll(logDir, 0o755)
+	if log, err = os.Create(filepath.Join(logDir, "services.log")); err != nil {
+		return nil, nil, err
+	}
+	req := host.Request{Command: "axx mcp: steps_try", IDE: os.Getenv("AXX_IDE"), Dir: cfg.Dir, Profile: s.opts.Profile}
+	if cfg.File != "" {
+		if rel, err := filepath.Rel(cfg.Dir, cfg.File); err == nil {
+			req.Config = filepath.ToSlash(rel)
+		}
+	}
+	if lease, err = host.Open(ctx, ann, req, log, io.Discard); err != nil {
+		_ = log.Close()
+		if _, ok := errorCode(err, host.CodeNotListening); ok {
+			return nil, nil, nil // a host that is gone: the session uses what runs
+		}
+		return nil, nil, err
+	}
+	return lease, log, nil
+}
+
+// allScenarios are every scenario of the configured features.
+func allScenarios(e *engine.Engine) ([]*feature.Pickle, error) {
+	paths, _, err := e.FeaturePaths(nil)
+	if err != nil {
+		return nil, err
+	}
+	set, err := e.LoadFeatures(paths)
+	if err != nil {
+		return nil, err
+	}
+	return set.Apply(feature.Filter{})
+}
+
+// errorCode reports whether err is an axx error with code, and its message.
+func errorCode(err error, code string) (string, bool) {
+	var ae *axxerr.Error
+	if errors.As(err, &ae) && ae.Code == code {
+		return ae.Message, true
+	}
+	return "", false
+}
+
+// hostLeased reports whether the session has services of its own from an
+// axx host.
+func (s *server) hostLeased() bool {
+	s.sess.mu.Lock()
+	defer s.sess.mu.Unlock()
+	return s.sess.lease != nil
 }
 
 // sessionURI is where the session's steps are, for packs that name steps
@@ -96,10 +191,15 @@ func (s *server) endLocked() {
 	}
 	_ = s.sess.s.Close(runner.Passed)
 	s.sess.cancel()
+	if s.sess.lease != nil {
+		// The host stops the services and cleans up after them.
+		_ = s.sess.lease.Stop(context.Background())
+		_ = s.sess.log.Close()
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	_ = s.sess.e.Close(ctx)
-	s.sess.e, s.sess.s, s.sess.cancel = nil, nil, nil
+	s.sess.e, s.sess.s, s.sess.cancel, s.sess.lease, s.sess.log = nil, nil, nil, nil, nil
 }
 
 // ---- steps_try ----

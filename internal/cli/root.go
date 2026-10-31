@@ -196,6 +196,7 @@ Docs: https://axx.nimbusxr.us (every page as Markdown: add .md to its path; llms
 		newDoctorCmd(app),
 		newUpCmd(app),
 		newDownCmd(app),
+		newHostCmd(app),
 		newEnvCmd(app),
 		newConfigCmd(app),
 		newSuperviseCmd(app),

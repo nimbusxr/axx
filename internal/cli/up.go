@@ -23,6 +23,7 @@ import (
 	"github.com/nimbusxr/axx/internal/engine"
 	"github.com/nimbusxr/axx/internal/exitcode"
 	"github.com/nimbusxr/axx/internal/feature"
+	"github.com/nimbusxr/axx/internal/host"
 	"github.com/nimbusxr/axx/internal/lifecycle"
 )
 
@@ -82,7 +83,7 @@ func parseSupervisorError(line string) (*axxerr.Error, bool) {
 }
 
 func runDir(cfg *config.Config) string   { return filepath.Join(cfg.Dir, ".axx", "run") }
-func upFile(cfg *config.Config) string   { return filepath.Join(runDir(cfg), "up.json") }
+func upFile(cfg *config.Config) string   { return lifecycle.UpFile(cfg.Dir) }
 func stopFile(cfg *config.Config) string { return filepath.Join(runDir(cfg), "up.stop") }
 
 func newUpCmd(app *App) *cobra.Command {
@@ -150,6 +151,11 @@ Stop them with ` + "`axx down`" + `. Service output goes to .axx/logs/services.l
 					if e, ok := parseSupervisorError(line); ok {
 						ready <- e
 						return
+					}
+					if strings.HasPrefix(line, "axx: ") {
+						// What it waits for: an axx host's other run, or its approval.
+						fmt.Fprintln(app.Stderr, line)
+						continue
 					}
 					last = append(last, line)
 				}
@@ -257,17 +263,49 @@ func newSuperviseCmd(app *App) *cobra.Command {
 			} else if err := e.Prepare(ctx, pickles); err != nil {
 				return supervisorError(err)
 			}
-			if err := mgr.Start(ctx, names); err != nil {
+			// An axx host serving the project starts them, and keeps them
+			// for this supervisor until it stops.
+			var svcs services
+			var started []string
+			ann, err := host.Find(cfg.Dir)
+			if err != nil {
 				return supervisorError(err)
 			}
-			st := upState{PID: os.Getpid(), Services: mgr.Started(), Started: time.Now(), Profile: cf.profile}
+			if ann != nil {
+				req, err := app.hostRequest(cfg, cf, names)
+				if err != nil {
+					return supervisorError(err)
+				}
+				switch debug {
+				case "":
+				case "*":
+					req.DebugAll = true
+				default:
+					req.Debug = strings.Split(debug, ",")
+				}
+				lease, err := app.openHost(ctx, ann, req, logw, os.Stdout)
+				if err == nil {
+					svcs, started = lease, lease.Started()
+				} else if msg, ok := notListening(err); ok {
+					fmt.Printf("axx: warning: %s; starting the services here\n", msg)
+				} else {
+					return supervisorError(err)
+				}
+			}
+			if svcs == nil {
+				if err := mgr.Start(ctx, names); err != nil {
+					return supervisorError(err)
+				}
+				svcs, started = mgr, mgr.Started()
+			}
+			st := upState{PID: os.Getpid(), Services: started, Started: time.Now(), Profile: cf.profile}
 			b, _ := json.MarshalIndent(st, "", "  ")
 			err = os.MkdirAll(runDir(cfg), 0o755)
 			if err == nil {
 				err = os.WriteFile(upFile(cfg), b, 0o644)
 			}
 			if err != nil {
-				_ = mgr.Stop(context.Background())
+				_ = svcs.Stop(context.Background())
 				return supervisorError(err)
 			}
 			fmt.Println(readyMarker)
@@ -287,7 +325,7 @@ func newSuperviseCmd(app *App) *cobra.Command {
 					}
 				}
 			}
-			err = mgr.Stop(context.Background())
+			err = svcs.Stop(context.Background())
 			_ = os.Remove(upFile(cfg))
 			_ = os.Remove(stopFile(cfg))
 			return err
@@ -326,10 +364,14 @@ func newDownCmd(app *App) *cobra.Command {
 			_ = os.Remove(upFile(cfg))
 			_ = os.Remove(stopFile(cfg))
 			// Reap anything a killed run or supervisor left behind, and run
-			// the cleanups that failed.
-			reaped, err := lifecycle.Reap(lifecycle.StateFile(cfg.Dir), app.Stderr, app.Stderr)
-			if err != nil {
-				return err
+			// the cleanups that failed: unless an axx host serves the
+			// project, which cleans up after its runs itself (the state
+			// file is its, of services another run may have now).
+			var reaped []string
+			if ann, _ := host.Find(cfg.Dir); ann == nil {
+				if reaped, err = lifecycle.Reap(lifecycle.StateFile(cfg.Dir), app.Stderr, app.Stderr); err != nil {
+					return err
+				}
 			}
 			if reaped == nil {
 				reaped = []string{}

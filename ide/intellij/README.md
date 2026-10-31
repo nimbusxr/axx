@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 # axx: IntelliJ plugin
 
-The IDE companion for Axx. It does four things:
+The IDE companion for Axx. It does five things:
 
 - **Feature files.** Axx's steps are defined in Go, inside the `axx` binary, so the IDE cannot
   find them on its own: every step shows as undefined, with no completion or docs. The plugin runs
@@ -16,6 +16,10 @@ The IDE companion for Axx. It does four things:
 - **Debugging services.** Run `axx run --debug` from the IDE, and every service that Axx starts in
   debug mode gets a debugger from the IDE, with no manual steps. When the run ends, the debuggers
   the plugin started stop too. See [Debugging](#debugging).
+- **The axx host.** Start `axx host` from the IDE for the runs that cannot start the project's
+  services, like an agent's in a sandbox without Docker: the IDE asks you before services whose
+  definition changed start, and shows the agent's runs in the test runner as they happen. See
+  [The axx host](#the-axx-host).
 
 ## Install
 
@@ -64,9 +68,9 @@ skipped). Other projects never start the server.
 
 ### The axx executable
 
-*Settings | Tools | axx* has two settings: **axx executable**, and **Slowdown when watching the
-browsers** (see [Watching the browsers](#watching-the-browsers)). The **axx executable** is one
-of:
+*Settings | Tools | axx* has three settings: **axx executable**, **Slowdown when watching the
+browsers** (see [Watching the browsers](#watching-the-browsers)), and **Start the axx host when an
+axx project opens** (see [The axx host](#the-axx-host)). The **axx executable** is one of:
 
 - A command name (the default, `axx`) is looked up on `PATH`. On macOS the IDE uses your login
   shell's `PATH`, even when you start it from the Dock. When the default `axx` is not on `PATH`,
@@ -217,6 +221,56 @@ to the project directory. `url` must be an `http` URL on the loopback interface 
 `/`: the plugin sends requests nowhere else. The plugin reads them in the output of its axx run
 configurations, in order with the test runner's messages, and does not print them.
 
+## The axx host
+
+Some agent harnesses run the coding agent in a sandbox without Docker, so its `axx run` cannot
+start the project's services. `axx host`, started on your machine, starts them for it: the run
+finds `.axx/host.json` in the project and asks the host for its services, the host starts them as
+`axx.yaml` says, the scenarios run in the sandbox, and the host stops the services and cleans up
+after them when the run ends. Runs take turns. Only a definition you approved starts (`axx.yaml`'s
+services, what each compose project resolves to, the files their commands run): when an agent
+changes it, the next run waits for your answer.
+
+The plugin starts the host for you, and asks those questions in the IDE:
+
+- **Tools | Start axx Host** starts `axx host --ide` in the folder of the project's `axx.yaml`,
+  with the axx executable from *Settings | Tools | axx*. **Start the axx host when an axx project
+  opens** (*Settings | Tools | axx*, off by default) starts it with the project. A project whose
+  `axx.yaml` declares no services gets no host. Starting the host approves the services as they
+  are, unless they changed since you last approved them (then it asks, below); what in them
+  reaches past a container (a privileged container, a mount of this machine's files, the Docker
+  socket, the host's network) shows in a warning notification.
+- **Tools | Stop axx Host** stops it, and so does closing the project: the host stops the services
+  of a run in progress, cleans up, removes `.axx/host.json` and exits. The plugin kills it if it
+  has not exited a minute later.
+- **When the services' definition changed** since you approved it (an agent changed `axx.yaml` or
+  a compose file), a notification asks *axx host: approve run 4?*, with the run's command, or
+  *axx host: approve the services?* when the host found the change as it started, and what in the
+  change reaches past a container. **Show Diff** opens the IDE's diff of the approved definition
+  and the proposed one, read-only, and keeps the question open; **Approve** and **Refuse** answer
+  it. The question stays open until you answer it: a run that gives up waiting ends (`AXX-E0507`),
+  the next runs wait for the same answer, and a newer change replaces the question. The answer is
+  your click on the notification, which the plugin writes to the host's standard input: the host
+  takes approvals from nowhere else (not from its port, which the agent can reach), and the plugin
+  has no action that approves, so no other plugin or agent tool can. If you close the
+  notification, **Tools | Show axx Host Approval**, or a click on the status bar item, shows it
+  again.
+- **The agent's runs** (every run the host serves that this IDE did not start: an agent's, a
+  terminal's, VS Code's) show in the Run tool window as they happen, a tab named like *axx host:
+  run 4 (axx run --compact features/x.feature)*, in the test runner, from the run's TeamCity report,
+  which the host passes on. The tool window opens for them without taking the focus. When the sandbox
+  sees the project in another directory, the plugin moves the report's locations to the project's,
+  so the tree's nodes go to their lines. Stop on such a tab only stops showing the run. The runs
+  the IDE starts go through the host by themselves and show as usual.
+- **The status bar** shows *axx host:* and its state: *ready*, *run 4: axx run … (starting,
+  running, cleaning up)*, *waiting for your approval*, *stopped*, or *already running in a
+  terminal* when you started `axx host` in a terminal yourself (that one asks there). Hover for
+  where it listens, its services and their sources; click to see the question that waits, or the
+  run's tab.
+
+The host's own log goes to `idea.log` (*Help | Show Log in Finder/Explorer*); if it does not
+start, a notification says why.
+
 ## Debugging
 
 The plugin itself stays passive. It watches the console of every process in the project,
@@ -339,7 +393,7 @@ and removes the Go plugin from it.
 
 Two tests run the plugin in a headless IDE, with the Gherkin plugin, against a real Axx, and run
 only when `AXX_BIN` points to an axx binary, such as one built with `go build -o bin/axx ./cmd/axx`
-at the repository root:
+at the repository root (a third, `AxxHostIntegrationTest`, also needs `AXX_HOST_PROJECT`, below):
 
 - `AxxLspIntegrationTest` checks the plugin's wiring, `axx lsp` starting for a feature file, Go to
   Declaration on a step, and step completion.
@@ -350,6 +404,15 @@ at the repository root:
 
 ```sh
 AXX_BIN=$PWD/../../bin/axx ./gradlew test
+```
+
+`AxxHostIntegrationTest` starts `axx host --ide` in `AXX_HOST_PROJECT`, a project whose `axx.yaml`
+declares services and whose scenarios pass (no other host may serve it), runs `axx run --compact`
+there as an agent would, approves the services if they changed, and checks the events the plugin
+reads, a second host's refusal, and the host's stop when the plugin closes its input.
+
+```sh
+AXX_BIN=$PWD/../../bin/axx AXX_HOST_PROJECT=/path/to/project ./gradlew test --tests '*AxxHostIntegrationTest'
 ```
 
 `platformVersion` in `gradle.properties` is the IDE the plugin builds against, and the lowest

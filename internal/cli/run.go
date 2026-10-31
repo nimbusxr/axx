@@ -21,6 +21,7 @@ import (
 	"github.com/nimbusxr/axx/internal/engine"
 	"github.com/nimbusxr/axx/internal/exitcode"
 	"github.com/nimbusxr/axx/internal/feature"
+	"github.com/nimbusxr/axx/internal/host"
 	"github.com/nimbusxr/axx/internal/lifecycle"
 	"github.com/nimbusxr/axx/internal/lint"
 	"github.com/nimbusxr/axx/internal/report"
@@ -161,11 +162,27 @@ func (a *App) run(ctx context.Context, f *runFlags, args []string) error {
 		return a.EmitResult(map[string]any{"scenarios": 0}, true, nil)
 	}
 
+	// An axx host serving the project starts the services for this run.
+	var hostAnn *host.Announcement
+	if !f.dryRun && !f.noStart && len(cfg.Services) > 0 {
+		if hostAnn, err = a.hostFor(cfg); err != nil {
+			return err
+		}
+	}
 	reporters, agentBuf, needsMsgs, closeReporters, err := a.reporters(cfg, f)
 	if err != nil {
 		return err
 	}
 	defer closeReporters()
+	// An editor that started the host shows the run's scenarios as they run.
+	hostReports := &host.Reporter{}
+	if hostAnn != nil {
+		tc, err := report.New("teamcity", hostReports, report.Options{BaseDir: cfg.Dir})
+		if err != nil {
+			return err
+		}
+		reporters, needsMsgs = append(reporters, tc), true
+	}
 
 	// Packs set up what the services need before they start (core.Preparer);
 	// what they open is released when the engine closes, after the services stop.
@@ -177,13 +194,14 @@ func (a *App) run(ctx context.Context, f *runFlags, args []string) error {
 	}
 
 	// Applications.
-	var mgr *lifecycle.Manager
+	var lease *host.Lease
 	if !f.dryRun && len(cfg.Services) > 0 {
-		mgr, err = a.startApps(ctx, e, f, pickles)
-		if mgr != nil {
+		var svcs services
+		svcs, lease, err = a.startApps(ctx, e, f, pickles, hostAnn)
+		if svcs != nil {
 			defer func() {
 				stopCtx := context.WithoutCancel(ctx)
-				if serr := mgr.Stop(stopCtx); serr != nil {
+				if serr := svcs.Stop(stopCtx); serr != nil {
 					fmt.Fprintln(a.Stderr, "axx: while stopping services:", serr)
 				}
 			}()
@@ -191,6 +209,7 @@ func (a *App) run(ctx context.Context, f *runFlags, args []string) error {
 		if err != nil {
 			return err
 		}
+		hostReports.Use(lease)
 	}
 
 	if !f.dryRun {
@@ -237,6 +256,9 @@ func (a *App) run(ctx context.Context, f *runFlags, args []string) error {
 		return axxerr.Wrap(err, "AXX-E0004", exitcode.Usage, "cannot start the run")
 	}
 	res := r.Run(ctx, pickles)
+	if lease != nil {
+		lease.Result(hostResult(res))
+	}
 
 	if f.rerunFile != "" {
 		if err := writeRerun(f.rerunFile, res); err != nil {
@@ -285,7 +307,32 @@ func runExitCode(res *runner.RunResult) exitcode.Code {
 	return exitcode.OK
 }
 
-func (a *App) startApps(ctx context.Context, e *engine.Engine, f *runFlags, pickles []*feature.Pickle) (*lifecycle.Manager, error) {
+// services is what a run stops when it ends: the services it started, or
+// those an axx host started for it.
+type services interface {
+	Stop(ctx context.Context) error
+}
+
+// hostResult counts a run's scenarios for the axx host.
+func hostResult(res *runner.RunResult) host.Result {
+	var r host.Result
+	for _, sc := range res.Scenarios {
+		switch sc.Status {
+		case runner.Passed:
+			r.Passed++
+		case runner.Failed:
+			r.Failed++
+		default:
+			r.Other++
+		}
+	}
+	return r
+}
+
+// startApps starts the services the scenarios need: through the axx host
+// serving the project, when there is one (ann; then the lease too), or
+// here.
+func (a *App) startApps(ctx context.Context, e *engine.Engine, f *runFlags, pickles []*feature.Pickle, ann *host.Announcement) (services, *host.Lease, error) {
 	cfg := e.Config
 	var names []string
 	if !f.noStart {
@@ -304,18 +351,43 @@ func (a *App) startApps(ctx context.Context, e *engine.Engine, f *runFlags, pick
 		}
 		names, err = lifecycle.SelectActive(cfg.Services, cfg.Active, tags, used)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	}
 	logDir := filepath.Join(cfg.Dir, ".axx", "logs")
 	_ = os.MkdirAll(logDir, 0o755)
 	logFile, err := os.Create(filepath.Join(logDir, "services.log"))
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	var out io.Writer = logFile
 	if a.Verbose > 0 || f.debug != "" {
 		out = io.MultiWriter(logFile, a.Stderr)
+	}
+	if ann != nil {
+		req, err := a.hostRequest(cfg, f.cf, names)
+		if err != nil {
+			return nil, nil, err
+		}
+		req.Attach = f.attach
+		switch f.debug {
+		case "":
+		case "*":
+			req.DebugAll = true
+		default:
+			req.Debug = strings.Split(f.debug, ",")
+		}
+		lease, err := a.openHost(ctx, ann, req, out, a.Stderr)
+		if err == nil {
+			fmt.Fprintf(a.Stderr, "axx: the axx host started %s (logs: %s)\n", strings.Join(lease.Started(), ", "), relPath(logFile.Name()))
+			return logged{lease, logFile}, lease, nil
+		}
+		msg, ok := notListening(err)
+		if !ok {
+			_ = logFile.Close()
+			return nil, nil, err
+		}
+		fmt.Fprintf(a.Stderr, "warning: %s; starting the services here\n", msg)
 	}
 	attach := set(f.attach)
 	if st, ok := liveUp(cfg); ok {
@@ -346,15 +418,29 @@ func (a *App) startApps(ctx context.Context, e *engine.Engine, f *runFlags, pick
 	}
 	mgr, err := lifecycle.New(cfg.Services, opts)
 	if err != nil {
-		return nil, err
+		_ = logFile.Close()
+		return nil, nil, err
 	}
 	if len(names) > len(attach) {
 		fmt.Fprintf(a.Stderr, "axx: starting %s (logs: %s)\n", strings.Join(names, ", "), relPath(logFile.Name()))
 	}
 	if err := mgr.Start(ctx, names); err != nil {
-		return mgr, err
+		return logged{mgr, logFile}, nil, err
 	}
-	return mgr, nil
+	return logged{mgr, logFile}, nil, nil
+}
+
+// logged is services whose output goes to log, which is closed once they
+// are stopped.
+type logged struct {
+	services
+	log *os.File
+}
+
+func (l logged) Stop(ctx context.Context) error {
+	err := l.services.Stop(ctx)
+	_ = l.log.Close()
+	return err
 }
 
 func (a *App) reporters(cfg *config.Config, f *runFlags) ([]runner.Reporter, *bytes.Buffer, bool, func(), error) {

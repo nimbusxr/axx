@@ -19,6 +19,7 @@ import (
 	"github.com/nimbusxr/axx/internal/config"
 	"github.com/nimbusxr/axx/internal/engine"
 	"github.com/nimbusxr/axx/internal/exitcode"
+	"github.com/nimbusxr/axx/internal/host"
 	"github.com/nimbusxr/axx/internal/lifecycle"
 	"github.com/nimbusxr/axx/internal/lint"
 	"github.com/nimbusxr/axx/internal/shellwords"
@@ -232,55 +233,74 @@ func (a *App) doctor(ctx context.Context, cf *configFlags) (rep DoctorReport) {
 		}
 	}
 
-	for _, ap := range cfg.Services {
-		if !ap.IsEnabled() {
-			continue
-		}
-		name := "service " + ap.Name
-		argv := ap.Command.Argv
-		if len(argv) == 0 {
-			argv = shellwords.Split(ap.Command.Line)
-		}
-		if ap.Shell || len(argv) == 0 {
-			add(name, "ok", "shell command", "")
-			continue
-		}
-		dir := cfg.Dir
-		if ap.Dir != "" {
-			dir = ap.Dir
-			if !filepath.IsAbs(dir) {
-				dir = filepath.Join(cfg.Dir, dir)
-			}
-		}
-		if st, err := os.Stat(dir); err != nil || !st.IsDir() {
-			add(name, "fail", "directory "+relPath(dir)+" does not exist", "check services."+ap.Name+".dir")
-			continue
-		}
-		if commandAvailable(argv[0], dir) {
-			ready := "no readiness check"
-			if ap.Ready != nil {
-				ready = "readiness configured"
-			}
-			add(name, "ok", fmt.Sprintf("%s (%s)", argv[0], ready), "")
+	// An axx host serving the project starts its services on its own
+	// machine: what they need is there, not here.
+	hostServes := false
+	if ann, err := host.Find(cfg.Dir); err != nil {
+		add("axx host", "fail", err.Error(), "")
+	} else if ann != nil && len(cfg.Services) > 0 {
+		if host.Answers(ctx, ann.Addr) {
+			hostServes = true
+			add("axx host", "ok", fmt.Sprintf("%s (pid %d) starts the services for runs here", ann.Addr, ann.PID), "")
 		} else {
-			add(name, "fail", fmt.Sprintf("command %q not found", argv[0]), "install it or fix services."+ap.Name+".command")
-		}
-		if ap.Ready == nil {
-			rep.Checks[len(rep.Checks)-1].Status = "warn"
-			rep.Checks[len(rep.Checks)-1].Hint = "add services." + ap.Name + ".ready so scenarios wait until the service is up"
+			add("axx host", "warn", fmt.Sprintf(".axx/host.json names %s, which does not answer: runs start the services themselves", ann.Addr),
+				"start `axx host` again where it ran, or delete .axx/host.json")
 		}
 	}
-	if usesDocker(cfg) {
-		dctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-		defer cancel()
-		if err := exec.CommandContext(dctx, "docker", "info", "--format", "{{.ServerVersion}}").Run(); err != nil {
-			add("docker", "fail", "docker is not running or not installed", "start Docker Desktop / the docker daemon")
-		} else {
-			add("docker", "ok", "daemon reachable", "")
+	if !hostServes {
+		for _, ap := range cfg.Services {
+			if !ap.IsEnabled() {
+				continue
+			}
+			name := "service " + ap.Name
+			argv := ap.Command.Argv
+			if len(argv) == 0 {
+				argv = shellwords.Split(ap.Command.Line)
+			}
+			if ap.Shell || len(argv) == 0 {
+				add(name, "ok", "shell command", "")
+				continue
+			}
+			dir := cfg.Dir
+			if ap.Dir != "" {
+				dir = ap.Dir
+				if !filepath.IsAbs(dir) {
+					dir = filepath.Join(cfg.Dir, dir)
+				}
+			}
+			if st, err := os.Stat(dir); err != nil || !st.IsDir() {
+				add(name, "fail", "directory "+relPath(dir)+" does not exist", "check services."+ap.Name+".dir")
+				continue
+			}
+			if commandAvailable(argv[0], dir) {
+				ready := "no readiness check"
+				if ap.Ready != nil {
+					ready = "readiness configured"
+				}
+				add(name, "ok", fmt.Sprintf("%s (%s)", argv[0], ready), "")
+			} else {
+				add(name, "fail", fmt.Sprintf("command %q not found", argv[0]), "install it or fix services."+ap.Name+".command")
+			}
+			if ap.Ready == nil {
+				rep.Checks[len(rep.Checks)-1].Status = "warn"
+				rep.Checks[len(rep.Checks)-1].Hint = "add services." + ap.Name + ".ready so scenarios wait until the service is up"
+			}
+		}
+		if usesDocker(cfg) {
+			dctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+			defer cancel()
+			if err := exec.CommandContext(dctx, "docker", "info", "--format", "{{.ServerVersion}}").Run(); err != nil {
+				add("docker", "fail", "docker is not running or not installed", "start Docker Desktop / the docker daemon")
+			} else {
+				add("docker", "ok", "daemon reachable", "")
+			}
 		}
 	}
 	if st, ok := liveUp(cfg); ok {
 		add("axx up", "ok", "services running: "+strings.Join(st.Services, ", "), "")
+	}
+	if hostServes {
+		return rep // the host cleans up after its runs
 	}
 	// What earlier runs left behind stops the next run from starting services.
 	if apps, err := lifecycle.Status(lifecycle.StateFile(cfg.Dir)); err != nil {

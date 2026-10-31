@@ -29,6 +29,9 @@ public final class AxxSettings implements PersistentStateComponent<AxxSettings.S
 
         /** How long runs that watch the browsers wait after every browser action; 0 for none. */
         public int watchSlowdownMillis = DEFAULT_WATCH_SLOWDOWN_MILLIS;
+
+        /** Whether the axx host starts when an axx project opens. */
+        public boolean startHost;
     }
 
     /** The default wait after every browser action when watching. */
@@ -75,5 +78,17 @@ public final class AxxSettings implements PersistentStateComponent<AxxSettings.S
 
     public void setWatchSlowdownMillis(int millis) {
         state.watchSlowdownMillis = Math.max(0, millis);
+    }
+
+    /**
+     * Whether the axx host ({@code axx host}) starts when an axx project opens, for the runs that
+     * cannot start the project's services; off unless set.
+     */
+    public boolean isStartHost() {
+        return state.startHost;
+    }
+
+    public void setStartHost(boolean startHost) {
+        state.startHost = startHost;
     }
 }

@@ -26,6 +26,13 @@
     <!-- Traces and videos, in editor tabs. -->
     <fileEditorProvider implementation="us.nimbusxr.axx.idea.web.AxxBrowserTabs$Provider"/>
     <notificationGroup id="axx" displayType="BALLOON"/>
+    <!-- The axx host the IDE starts: its questions stay until the person answers or closes them,
+         its state is in the status bar, and it starts with the project when the settings say so. -->
+    <notificationGroup id="axx host" displayType="STICKY_BALLOON"/>
+    <statusBarWidgetFactory
+        id="us.nimbusxr.axx.idea.host"
+        implementation="us.nimbusxr.axx.idea.host.AxxHostWidgetFactory"/>
+    <postStartupActivity implementation="us.nimbusxr.axx.idea.host.AxxHostStartup"/>
   </extensions>
 
   <actions>
@@ -64,6 +71,28 @@
           description="Insert the steps recorded in Playwright's Inspector below the caret"/>
       <separator/>
       <add-to-group group-id="EditorPopupMenu" anchor="last"/>
+    </group>
+    <!-- In the Tools menu of axx projects. No action answers the host's questions: only a click on
+         the notification that asks one does. -->
+    <group id="us.nimbusxr.axx.idea.Host">
+      <separator/>
+      <action
+          id="us.nimbusxr.axx.idea.StartHost"
+          class="us.nimbusxr.axx.idea.host.AxxHostActions$Start"
+          text="Start axx Host"
+          description="Start axx host in the project, for the runs that cannot start its services, like an agent's in a sandbox"/>
+      <action
+          id="us.nimbusxr.axx.idea.StopHost"
+          class="us.nimbusxr.axx.idea.host.AxxHostActions$Stop"
+          text="Stop axx Host"
+          description="Stop the axx host the IDE started, after it stops the services of a run in progress and cleans up"/>
+      <action
+          id="us.nimbusxr.axx.idea.ShowHostApproval"
+          class="us.nimbusxr.axx.idea.host.AxxHostActions$ShowApproval"
+          text="Show axx Host Approval"
+          description="Show the axx host's question that waits for your answer again"/>
+      <separator/>
+      <add-to-group group-id="ToolsMenu" anchor="last"/>
     </group>
   </actions>
 
