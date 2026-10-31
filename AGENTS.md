@@ -147,6 +147,11 @@ the skills instead: `axx skills install`.
   `ar/Bridge.java`), built as models-android's is (`BuildAgent`), which it attaches after its own.
 - `internal/filecontent`: reads files by their type (text, CSV, TSV, JSON, XML, HTML, PDF, Word,
   Excel) for the steps that check a file's text or table: files, storage objects, downloads.
+- `internal/host` (`axx host`): starts a project's services, on the person's machine, for the runs of an agent
+  whose sandbox keeps it from Docker. Runs find it in `.axx/host.json` and ask it for their services over a
+  loopback port (`axx run`, `axx up`'s supervisor, the MCP session's `steps_try`); it starts only a definition
+  the person approved (`Define`: axx.yaml's services, what their compose projects resolve to, the files their
+  commands run), asking in its terminal or the editor that started it (`--ide`), never over the port.
 - `internal/packbuild`, `internal/gotool`: axx builds itself with the packs a project lists in
   `axx-packs.yaml`, using a Go toolchain it downloads itself.
 - `packs/all` and `internal/tools/axxall`: axx with every pack, for generated docs, skills and

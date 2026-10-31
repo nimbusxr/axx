@@ -99,6 +99,21 @@
         "command": "axx.insertRecordedSteps",
         "title": "Insert Recorded Steps",
         "category": "axx"
+      },
+      {
+        "command": "axx.startHost",
+        "title": "Start axx host",
+        "category": "axx"
+      },
+      {
+        "command": "axx.stopHost",
+        "title": "Stop axx host",
+        "category": "axx"
+      },
+      {
+        "command": "axx.showHostApproval",
+        "title": "Show axx host approval",
+        "category": "axx"
       }
     ],
     "menus": {
@@ -118,6 +133,18 @@
         {
           "command": "axx.insertRecordedSteps",
           "when": "axx.hasRecording && resourceExtname == .feature && !editorReadonly"
+        },
+        {
+          "command": "axx.startHost",
+          "when": "isWorkspaceTrusted"
+        },
+        {
+          "command": "axx.stopHost",
+          "when": "axx.hostRunning"
+        },
+        {
+          "command": "axx.showHostApproval",
+          "when": "axx.hostApproval"
         }
       ],
       "editor/context": [
@@ -188,6 +215,12 @@
           "minimum": 0,
           "scope": "resource",
           "markdownDescription": "How long runs with the **Watch** profile wait after every browser action, in milliseconds, so you can follow what happens. `0` adds no wait."
+        },
+        "axx.host.start": {
+          "type": "boolean",
+          "default": false,
+          "scope": "machine",
+          "markdownDescription": "Start the axx host (`axx host`) when a workspace folder opens whose `axx.yaml` declares services, so that the runs of an agent in a sandbox without Docker get the project's services from it. It runs while the folder is open, and asks you here to approve the services' definition when it changes. Only in your user settings: a workspace's settings, which an agent can write, can't turn it on."
         }
       }
     },

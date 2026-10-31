@@ -24,6 +24,7 @@ var Ranges = []struct{ From, To, Area string }{
 	{"AXX-E0200", "AXX-E0299", "Feature files and filters"},
 	{"AXX-E0300", "AXX-E0399", "Packs, steps and resources"},
 	{"AXX-E0400", "AXX-E0499", "Service lifecycle"},
+	{"AXX-E0500", "AXX-E0599", "axx host"},
 	{"AXX-E0600", "AXX-E0699", "Reporters"},
 	{"AXX-E0700", "AXX-E0799", "Model stubs"},
 	{"AXX-E0800", "AXX-E0899", "Lint"},
@@ -207,6 +208,32 @@ func init() {
 	add("AXX-E0415", env, "Earlier run not cleaned up",
 		"The state file records services an earlier run left behind, and they could not be cleaned up before this run: a cleanup failed again, or what is left sits beside services a run still going (or `axx up`) owns. Their data (containers, volumes, recorded requests) would be what this run starts from, so no service is started. A killed run's leftovers alone are cleaned up by the next run.",
 		"Run `axx down`: it stops what is left and runs the cleanup again. `axx doctor` and the MCP `env` status list what is left.")
+
+	add("AXX-E0500", env, "The axx host refused the run",
+		"The axx host serving the project (`.axx/host.json`) did not take the run: it did not give the host's token, it speaks another version of the host's protocol, or it loaded a configuration outside the project the host serves. Or `.axx/host.json` cannot be read.",
+		"Run the same version of axx as the host, in the project it serves, as the user it runs as. To start the services without the host, stop it.")
+	add("AXX-E0501", env, "Changed services not approved",
+		"The services' definition (axx.yaml's services, what their compose projects resolve to, the files their commands run) changed since the person running the axx host approved one, and they refused the change. The host refuses that definition again, without asking, until it restarts. A host that does not run in a terminal or an editor cannot ask, and refuses every change.",
+		"Ask the person running the host: their terminal or editor shows what changed, and what in it reaches past a container. Or change the services and compose files back.")
+	add("AXX-E0502", env, "Lost the axx host",
+		"The connection to the axx host ended while it kept the run's services: the host stopped, or was killed. A host stops and cleans up the services of every run it loses.",
+		"Start `axx host` again and run again; its terminal says what happened.")
+	add("AXX-E0503", env, "An axx host already serves the project",
+		"`axx host` was started in a project another axx host already serves: runs take turns with one host's services.",
+		"Use the host that runs (its terminal, or the editor that started it), or stop it first.")
+	add("AXX-E0504", env, "Cannot read the services' definition",
+		"The axx host could not read the services' definition: it could not load axx.yaml with the run's configuration, profile and settings on its machine, or a service's command runs compose and `docker compose config` (with the command's files and flags) failed. The host approves services by what compose resolves, so it starts none. Why is shown where the host runs, in its terminal or editor, and not to the run: it can quote the host machine's environment and files.",
+		"Where the host runs, read why; then fix axx.yaml or the compose file, or run the command it shows in the service's directory.")
+	add("AXX-E0505", exitcode.Interrupted, "Waiting for the axx host interrupted",
+		"The run stopped while it waited for the axx host: for another run to finish with the services, for an approval, or for the services to be ready. The host stops and cleans up whatever it had started for it.",
+		"Nothing to fix; run again when ready.")
+	add("AXX-E0506", env, "The axx host does not answer",
+		"`.axx/host.json` names an axx host that does not answer (it was killed, and left the file), so a run starts its services itself, with a warning. Or `axx host` cannot listen on the address `--addr` gives.",
+		"Start `axx host` again, or delete `.axx/host.json`; for `--addr`, pick a free loopback address.")
+
+	add("AXX-E0507", env, "Changed services not answered yet",
+		"The services' definition changed since the person running the axx host approved one, and they did not answer within a minute whether runs may start it. The question stays open where the host runs: the next run with the same definition has their answer.",
+		"Tell the person running the host; run again once they answered.")
 
 	add("AXX-E0600", u, "Unknown reporter",
 		"`--format` or `run.reporters` names a reporter that does not exist.",

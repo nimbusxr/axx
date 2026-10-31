@@ -27,6 +27,10 @@ In `.feature` files you get:
 - **Watch:** run web scenarios with their browsers in windows on your desktop as they go, slowed
   down, one scenario at a time, and open the Playwright traces and videos scenarios keep.
 
+And for an agent that runs your tests in a sandbox without Docker, the **axx host** starts your
+project's services on your machine, asks you to approve their changes, and shows the agent's runs
+in the Testing view.
+
 ## Requirements
 
 Axx must be installed and on your `PATH`, in a version that has the `axx lsp` command and the
@@ -123,6 +127,45 @@ For scenarios that use Axx's `web-core` pack. Every `axx run` the extension star
   Without a folder, it shows the file in your file manager, to drop on
   [trace.playwright.dev](https://trace.playwright.dev). A video plays in a tab.
 
+## The axx host: services for an agent's runs
+
+An agent that runs in a sandbox without Docker can't start your project's services: they are
+`docker compose ... up` commands in `axx.yaml`, and the Docker socket would let it out of the
+sandbox. `axx host` starts them for it, on your machine, and the extension runs it for you.
+
+- **axx: Start axx host** starts `axx host --ide` in an Axx project (the folder of its `axx.yaml`;
+  in a workspace of several, you pick one), with the `axx` of `axx.path`. With `axx.host.start`
+  on, it starts by itself when a workspace folder whose `axx.yaml` declares services opens.
+  `axx.host.start` is a setting of your user settings only: a workspace's settings, which an agent
+  can write, can't turn it on.
+- The host listens on a loopback port and writes `.axx/host.json`, where every `axx run` of the
+  project finds it: the agent's in its sandbox, and yours from the editor. It starts the services
+  each run needs as `axx.yaml` says, and when the run ends, it stops them and runs their cleanup.
+  Runs take turns.
+- Starting the host approves the services' definition as it is (`axx.yaml`'s services, what each
+  compose project resolves to, and the files their commands run), unless it changed since you last
+  approved one. When it changes, the next run waits for you: a notification says which run asks,
+  with what in the definition reaches past a container (privileged containers, this machine's
+  files, the Docker socket, its network). **Show Diff** opens the approved and the proposed
+  definition side by side, and asks again; **Approve** or **Refuse** answers. Only that click
+  answers: no command approves, so neither other extensions nor an agent's editor tools can. If
+  you closed the notification, **axx: Show axx host approval**, or a click on the host's status
+  bar item, shows it again.
+- The runs the host serves that the editor didn't start, such as the agent's, show in the
+  **Testing** view as they happen, each a test run of its own named after it (`axx host: run 4
+  (axx run --compact features/parcels)`), with their scenarios' and steps' results in the test
+  tree. A sandbox that has the project at another path is fine: their files map to the project
+  here. Your own runs show as they always do.
+- The status bar says what the host does: ready, `run 4: axx run ... (running)`, waiting for your
+  approval, stopped, or already running in a terminal (a host you started there serves the project
+  already: the editor's runs use it too, and it asks for approvals in its terminal). Hover over it
+  for its address, services and sources. Its log is in the **axx host** output channel.
+- **axx: Stop axx host** stops it, and it stops when its folder or VS Code closes: it stops the
+  services of the run in progress, cleans up, removes `.axx/host.json` and exits. If it hasn't
+  exited a minute later, the extension kills it and everything it started.
+
+The host needs an Axx that has the `axx host` command.
+
 ## Disable the Cucumber extension for Axx projects
 
 The official Cucumber extension, and other Gherkin extensions that look for step definitions,
@@ -147,6 +190,7 @@ settings:
 | `axx.trace.server` | `off` | Log the messages between VS Code and the server to the **axx** output channel (`messages` or `verbose`). |
 | `axx.profiles` | `[]` | The profiles runs apply, in order (`--profile`). The gear next to **Run**, **Debug** and **Watch** picks them. |
 | `axx.watch.slowdown` | `300` | How long **Watch** runs wait after every browser action, in milliseconds. `0` adds no wait. |
+| `axx.host.start` | `false` | Start the axx host when a workspace folder whose `axx.yaml` declares services opens (see [The axx host](#the-axx-host-services-for-an-agents-runs)). User settings only. |
 
 Changing `axx.path` restarts the server.
 
@@ -159,11 +203,15 @@ or the code of a pack of its own changes.
 **axx: Run Step in Paused Scenario** and **axx: Insert Recorded Steps** work in feature files
 while a scenario is paused (see [Watch the browsers](#watch-the-browsers)).
 
+**axx: Start axx host**, **axx: Stop axx host** and **axx: Show axx host approval** start and
+stop the axx host and show the approval it waits for (see
+[The axx host](#the-axx-host-services-for-an-agents-runs)).
+
 ## Workspace trust
 
 `axx lsp` and `axx run` can build and run your project's custom packs, so the language server
-starts, and tests are listed and run, only in trusted workspaces. Syntax highlighting works
-everywhere.
+starts, and tests are listed and run, only in trusted workspaces, as does the axx host, which
+starts your project's services. Syntax highlighting works everywhere.
 
 ## Troubleshooting
 

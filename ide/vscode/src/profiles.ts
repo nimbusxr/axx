@@ -6,8 +6,6 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 
 const CONFIG_NAMES = ['axx.yaml', 'axx.yml'];
-const BLOCK = /^profiles\s*:\s*(#.*)?$/;
-const FLOW = /^profiles\s*:\s*\{(.*)\}\s*(#.*)?$/;
 const FILE = /^axx\.(.+)\.yaml$/;
 
 // The profiles of the axx project whose axx.yaml is in `dir`, without duplicates.
@@ -40,11 +38,18 @@ export function findProfiles(dir: string): string[] {
 
 // The keys of the top-level `profiles` mapping of a config file's lines.
 export function profileKeys(lines: string[]): string[] {
+  return mappingKeys(lines, 'profiles');
+}
+
+// The keys of a top-level mapping of a config file's lines, such as `profiles` or `services`.
+export function mappingKeys(lines: string[], name: string): string[] {
+  const block = new RegExp(`^${name}\\s*:\\s*(#.*)?$`);
+  const flowMapping = new RegExp(`^${name}\\s*:\\s*\\{(.*)\\}\\s*(#.*)?$`);
   let i = 0;
   for (; i < lines.length; i++) {
-    const flow = FLOW.exec(lines[i]);
+    const flow = flowMapping.exec(lines[i]);
     if (flow) return flowKeys(flow[1]);
-    if (BLOCK.test(lines[i])) break;
+    if (block.test(lines[i])) break;
   }
   const keys: string[] = [];
   let indent = -1;

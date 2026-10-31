@@ -6,6 +6,7 @@ import com.intellij.openapi.fileChooser.FileChooserDescriptorFactory;
 import com.intellij.openapi.options.Configurable;
 import com.intellij.openapi.ui.TextFieldWithBrowseButton;
 import com.intellij.ui.JBIntSpinner;
+import com.intellij.ui.components.JBCheckBox;
 import com.intellij.util.ui.FormBuilder;
 
 import org.jetbrains.annotations.Nullable;
@@ -18,13 +19,15 @@ import javax.swing.JPanel;
 
 /**
  * <em>Settings | Tools | axx</em>: where to find the axx executable, for the language server and
- * axx run configurations, and how much runs that watch the browsers slow down.
+ * axx run configurations, how much runs that watch the browsers slow down, and whether the axx host
+ * starts with an axx project.
  */
 public final class AxxConfigurable implements Configurable {
     private static final int MAX_SLOWDOWN_MILLIS = 10_000;
 
     private @Nullable TextFieldWithBrowseButton executable;
     private @Nullable JBIntSpinner watchSlowdown;
+    private @Nullable JBCheckBox startHost;
 
     @Override
     public String getDisplayName() {
@@ -42,6 +45,7 @@ public final class AxxConfigurable implements Configurable {
         JPanel slowdown = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
         slowdown.add(watchSlowdown);
         slowdown.add(new JLabel(" ms"));
+        startHost = new JBCheckBox("Start the axx host when an axx project opens");
         return FormBuilder.createFormBuilder()
                 .addLabeledComponent("axx executable:", executable)
                 .addTooltip(
@@ -52,6 +56,12 @@ public final class AxxConfigurable implements Configurable {
                 .addTooltip(
                         "Runs that watch the browsers wait this long after every browser action,"
                                 + " so you can follow what happens. 0 adds no wait.")
+                .addComponent(startHost)
+                .addTooltip(
+                        "axx host starts the project's services for the runs that cannot, like an"
+                                + " agent's in a sandbox without Docker, and asks you here before"
+                                + " it starts services whose definition changed. Tools | Start axx"
+                                + " Host starts it too.")
                 .addComponentFillVertically(new JPanel(), 0)
                 .getPanel();
     }
@@ -63,7 +73,8 @@ public final class AxxConfigurable implements Configurable {
                         && !AxxExecutable.normalize(executable.getText())
                                 .equals(settings.getExecutable()))
                 || (watchSlowdown != null
-                        && watchSlowdown.getNumber() != settings.getWatchSlowdownMillis());
+                        && watchSlowdown.getNumber() != settings.getWatchSlowdownMillis())
+                || (startHost != null && startHost.isSelected() != settings.isStartHost());
     }
 
     @Override
@@ -71,6 +82,9 @@ public final class AxxConfigurable implements Configurable {
         AxxSettings settings = AxxSettings.getInstance();
         if (watchSlowdown != null) {
             settings.setWatchSlowdownMillis(watchSlowdown.getNumber());
+        }
+        if (startHost != null) {
+            settings.setStartHost(startHost.isSelected());
         }
         if (executable == null
                 || AxxExecutable.normalize(executable.getText()).equals(settings.getExecutable())) {
@@ -91,11 +105,15 @@ public final class AxxConfigurable implements Configurable {
         if (watchSlowdown != null) {
             watchSlowdown.setNumber(AxxSettings.getInstance().getWatchSlowdownMillis());
         }
+        if (startHost != null) {
+            startHost.setSelected(AxxSettings.getInstance().isStartHost());
+        }
     }
 
     @Override
     public void disposeUIResources() {
         executable = null;
         watchSlowdown = null;
+        startHost = null;
     }
 }

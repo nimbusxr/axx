@@ -89,6 +89,23 @@ A trace opens in an editor tab, in Playwright's trace viewer. The viewer comes w
 
 In IntelliJ IDEA without its built-in browser (JCEF), traces open in your default browser, and videos in your video player. In VS Code, **Open in Browser** at the top of each tab opens its page in your default browser.
 
+## The axx host
+
+For an agent whose sandbox keeps it from Docker, [`axx host`](/guides/run-from-a-sandbox/) starts the project's services on your machine. Both plugins can run it for you:
+
+- **VS Code:** turn on `axx.host.start` in your user settings, and the host starts when a workspace folder whose `axx.yaml` declares services opens. A workspace's own settings can't turn it on, because an agent can write them. **axx: Start axx host** and **axx: Stop axx host** start and stop it by hand.
+- **IntelliJ IDEA:** check **Start the axx host when an axx project opens** in *Settings | Tools | axx*. It's an IDE setting, kept outside the project, so an agent can't turn it on. *Tools | Start axx Host* and *Tools | Stop axx Host* start and stop it by hand.
+
+The plugin stops the host when the project closes. Stopping it stops the services of a run in progress and cleans up.
+
+While the host runs:
+
+- A run whose services changed, or the host as it starts, asks you in a notification, which lists what in the change reaches past a container. It stays until you answer, as the terminal's question does. **Show Diff** opens the approved and the proposed definition in the diff view. **Approve** lets runs start the services, and **Refuse** fails the run that waits. Only a click there answers: no command or action approves, so neither other plugins nor an agent's editor tools can. If you closed the notification, click the host in the status bar, or use **Show axx host approval** (*Tools* menu in IntelliJ IDEA, Command Palette in VS Code), to see it again.
+- The runs the host serves that the editor didn't start, such as the agent's, show in the test results as they run, named after the run (`axx host: run 4 (axx run --compact)`): a tab of the Run tool window in IntelliJ IDEA, which doesn't come to the front for them, and a test run of their own in VS Code's Testing view.
+- Your own runs from the editor go through the host too, and take their turn with the agent's.
+- The status bar shows what the host is doing: ready, a run's services starting or running, waiting for your approval, or already running in a terminal. A host you started in a terminal serves the editor's runs too, and asks there.
+- The host's log is in the **axx host** output channel in VS Code, and in IntelliJ IDEA's log (*Help | Show Log in Finder/Explorer*).
+
 ## Projects and their packs
 
 Each Axx project in the editor (each `axx.yaml`) gets the steps of its own packs, so a repository with several projects works as one with a single project does. When a project's `axx.yaml`, its `axx-packs.yaml` or the code of a pack of its own changes, the server prepares the project again and loads its steps: a step you add to your pack is known once you save it. Until the new steps are ready, the ones before them answer, and if they cannot load, the editor says why and keeps them.

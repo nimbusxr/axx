@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // Stops `axx run` and everything it started. axx stops its services and runs their cleanups when it
 // is interrupted, so it gets SIGINT first, like Ctrl+C in a terminal. If it is still running
-// after the grace period, the whole process tree is killed.
+// after the grace period, the whole process tree is killed. The axx host stops when its stdin
+// closes instead, and is killed the same way when it takes too long (see host.ts).
 
 import { execFile, type ChildProcess } from 'node:child_process';
 
@@ -12,12 +13,23 @@ export function stopProcessTree(child: ChildProcess, graceMs = GRACE_MS): void {
   const pid = child.pid;
   if (pid === undefined || child.exitCode !== null || child.signalCode !== null) return;
   if (process.platform === 'win32') {
-    execFile('taskkill', ['/pid', String(pid), '/t', '/f'], () => undefined);
+    killProcessTree(child);
     return;
   }
   signalGroup(pid, 'SIGINT');
-  const timer = setTimeout(() => void killTree(pid), graceMs);
+  const timer = setTimeout(() => killProcessTree(child), graceMs);
   child.once('exit', () => clearTimeout(timer));
+}
+
+// Kills a process started with `detached: true` and everything it started, at once.
+export function killProcessTree(child: ChildProcess): void {
+  const pid = child.pid;
+  if (pid === undefined || child.exitCode !== null || child.signalCode !== null) return;
+  if (process.platform === 'win32') {
+    execFile('taskkill', ['/pid', String(pid), '/t', '/f'], () => undefined);
+    return;
+  }
+  void killTree(pid);
 }
 
 // Kills the process, its group and every descendant, including those in other process groups

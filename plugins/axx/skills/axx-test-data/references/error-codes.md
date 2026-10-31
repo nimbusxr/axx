@@ -418,6 +418,72 @@ The state file records services an earlier run left behind, and they could not b
 
 **Fix:** Run `axx down`: it stops what is left and runs the cleanup again. `axx doctor` and the MCP `env` status list what is left.
 
+## axx host
+
+### AXX-E0500
+
+**The axx host refused the run** · exit 4
+
+The axx host serving the project (`.axx/host.json`) did not take the run: it did not give the host's token, it speaks another version of the host's protocol, or it loaded a configuration outside the project the host serves. Or `.axx/host.json` cannot be read.
+
+**Fix:** Run the same version of axx as the host, in the project it serves, as the user it runs as. To start the services without the host, stop it.
+
+### AXX-E0501
+
+**Changed services not approved** · exit 4
+
+The services' definition (axx.yaml's services, what their compose projects resolve to, the files their commands run) changed since the person running the axx host approved one, and they refused the change. The host refuses that definition again, without asking, until it restarts. A host that does not run in a terminal or an editor cannot ask, and refuses every change.
+
+**Fix:** Ask the person running the host: their terminal or editor shows what changed, and what in it reaches past a container. Or change the services and compose files back.
+
+### AXX-E0502
+
+**Lost the axx host** · exit 4
+
+The connection to the axx host ended while it kept the run's services: the host stopped, or was killed. A host stops and cleans up the services of every run it loses.
+
+**Fix:** Start `axx host` again and run again; its terminal says what happened.
+
+### AXX-E0503
+
+**An axx host already serves the project** · exit 4
+
+`axx host` was started in a project another axx host already serves: runs take turns with one host's services.
+
+**Fix:** Use the host that runs (its terminal, or the editor that started it), or stop it first.
+
+### AXX-E0504
+
+**Cannot read the services' definition** · exit 4
+
+The axx host could not read the services' definition: it could not load axx.yaml with the run's configuration, profile and settings on its machine, or a service's command runs compose and `docker compose config` (with the command's files and flags) failed. The host approves services by what compose resolves, so it starts none. Why is shown where the host runs, in its terminal or editor, and not to the run: it can quote the host machine's environment and files.
+
+**Fix:** Where the host runs, read why; then fix axx.yaml or the compose file, or run the command it shows in the service's directory.
+
+### AXX-E0505
+
+**Waiting for the axx host interrupted** · exit 130
+
+The run stopped while it waited for the axx host: for another run to finish with the services, for an approval, or for the services to be ready. The host stops and cleans up whatever it had started for it.
+
+**Fix:** Nothing to fix; run again when ready.
+
+### AXX-E0506
+
+**The axx host does not answer** · exit 4
+
+`.axx/host.json` names an axx host that does not answer (it was killed, and left the file), so a run starts its services itself, with a warning. Or `axx host` cannot listen on the address `--addr` gives.
+
+**Fix:** Start `axx host` again, or delete `.axx/host.json`; for `--addr`, pick a free loopback address.
+
+### AXX-E0507
+
+**Changed services not answered yet** · exit 4
+
+The services' definition changed since the person running the axx host approved one, and they did not answer within a minute whether runs may start it. The question stays open where the host runs: the next run with the same definition has their answer.
+
+**Fix:** Tell the person running the host; run again once they answered.
+
 ## Reporters
 
 ### AXX-E0600

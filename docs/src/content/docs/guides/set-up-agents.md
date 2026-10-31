@@ -183,6 +183,10 @@ warn Cursor MCP               no axx server in .cursor/mcp.json
                               → `axx mcp install --agent cursor` adds it
 ```
 
+## Agents in a sandbox without Docker
+
+Some harnesses run the agent in a sandbox that may not use Docker, so its runs cannot start the services. Start `axx host` in the project on your own machine: the agent's runs, `axx up` and MCP sessions get their services from it, clean for each run, and it starts only what you approved. [Run tests from an agent's sandbox](/guides/run-from-a-sandbox/) shows how.
+
 ## AGENTS.md
 
 `axx init` adds a managed section to `AGENTS.md`, the file most agents read first. Running `axx init` again updates the section in place and leaves the rest of the file alone:

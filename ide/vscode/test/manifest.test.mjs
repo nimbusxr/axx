@@ -61,6 +61,18 @@ test('the watch slowdown setting has the default the extension falls back to', (
   assert.match(sources(), /get<number>\('watch\.slowdown', 300\)/);
 });
 
+test('the axx host starts by itself only when the user turns it on in their own settings', () => {
+  const start = contributes.configuration.properties['axx.host.start'];
+  assert.equal(start.default, false);
+  assert.equal(start.scope, 'machine'); // not in a workspace's settings, which an agent can write
+  assert.match(sources(), /get<boolean>\('host\.start', false\)/);
+});
+
+test("no command answers the axx host's approvals: only a click on its question does", () => {
+  for (const { command } of contributes.commands) assert.doesNotMatch(command, /approve|refuse/i);
+  assert.doesNotMatch(sources(), /registerCommand\('[^']*(approve|refuse)/i);
+});
+
 test('test menus show on the tests the extension marks', () => {
   const source = sources();
   for (const menu of ['testing/item/context', 'testing/item/gutter']) {

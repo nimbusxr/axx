@@ -39,7 +39,13 @@ func call(t *testing.T, cs *sdk.ClientSession, name string, args any) map[string
 		t.Fatalf("%s: %v", name, err)
 	}
 	if res.IsError {
-		t.Fatalf("%s returned an error: %+v", name, res.Content)
+		var texts []string
+		for _, c := range res.Content {
+			if tc, ok := c.(*sdk.TextContent); ok {
+				texts = append(texts, tc.Text)
+			}
+		}
+		t.Fatalf("%s returned an error: %s", name, strings.Join(texts, "\n"))
 	}
 	b, _ := json.Marshal(res.StructuredContent)
 	var out map[string]any

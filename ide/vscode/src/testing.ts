@@ -11,7 +11,9 @@
 // Inspector, and say in the run's output that they ignore the breakpoints on other lines; what the
 // editor does while a scenario is paused is in pausedScenario.ts. With the Go extension, they also
 // stop at breakpoints in step code (`axx run --debug-steps`, with VS Code's Go debugger attached);
-// without it, they run the same way without that, and say so once.
+// without it, they run the same way without that, and say so once. The runs an axx host serves that
+// the editor did not start, an agent's, show as test runs of their own, from their reports (follow,
+// see axxHost.ts).
 
 import { spawn, type ChildProcess } from 'node:child_process';
 import * as fs from 'node:fs';
@@ -28,7 +30,7 @@ import { PausedScenario } from './pausedScenario';
 import { findProfiles, profilesFor } from './profiles';
 import { linesOf } from './pausedStep';
 import { stopProcessTree } from './processTree';
-import { TeamCityReader, type Failure, type TcNode } from './teamcity';
+import { TeamCityReader, type Failure, type Location, type TcNode } from './teamcity';
 
 const CONFIG_FILES = ['axx.yaml', 'axx.yml'];
 const FEATURE_EXCLUDE = '**/{node_modules,.git}/**';
@@ -59,6 +61,21 @@ interface Batch {
   project: string;
   targets: Map<string, Set<number> | 'all'>;
   queued: Set<vscode.TestItem>;
+}
+
+// A run's TeamCity report as it is read into a test run (see AxxTests.report).
+interface Report {
+  reader: TeamCityReader;
+  // Ends the items without a result: the queued ones and the scenarios that started. They errored
+  // with `error`, else they did not run.
+  finish(queued: Iterable<vscode.TestItem>, error?: string): void;
+}
+
+// A run the editor shows without having started it (see AxxTests.follow).
+export interface FollowedRun {
+  line(text: string): void; // a line of its TeamCity report
+  output(text: string): void; // a line about it, for its output
+  end(error?: string): void; // `error`: what the items that did not finish errored with
 }
 
 // A trace or video a scenario kept, and the folder of the trace viewer's files its run announced,
@@ -399,10 +416,6 @@ export class AxxTests implements vscode.Disposable {
     this.running.add(child);
     const cancel = token.onCancellationRequested(() => stopProcessTree(child));
 
-    const finished = new Set<vscode.TestItem>(); // scenarios and rows with a result
-    const suites = new Map<string, { item: vscode.TestItem; start: number; messages: vscode.TestMessage[] }>();
-    const steps = new Map<string, vscode.TestItem>();
-    const runningSteps = new Set<vscode.TestItem>();
     let attached = false;
     // What packs announce: the folder of the trace viewer's files, and the traces and videos
     // being linked.
@@ -410,37 +423,97 @@ export class AxxTests implements vscode.Disposable {
       viewerDir: undefined as string | undefined,
       pending: [] as Promise<void>[],
     };
-    const reader = new TeamCityReader({
-      output: (line) => {
-        const pause = parseScenarioPause(line);
-        if (pause) {
-          if (pause.kind === 'paused') this.paused.paused(child, pause);
-          else this.paused.resumed(child, pause.url);
+    const report = this.report(run, (line) => {
+      const pause = parseScenarioPause(line);
+      if (pause) {
+        if (pause.kind === 'paused') this.paused.paused(child, pause);
+        else this.paused.resumed(child, pause.url);
+        return;
+      }
+      const announcement = parseIdeAnnouncement(line);
+      switch (announcement?.kind) {
+        case 'trace-viewer':
+          announced.viewerDir = announcement.dir;
+          this.viewerDir = announcement.dir; // for the traces of later runs too
           return;
+        case 'trace':
+        case 'video':
+          announced.pending.push(this.keep(announcement, run, project, announced.viewerDir));
+          return;
+      }
+      run.appendOutput(`${line}\r\n`);
+      if (debugSteps && !attached) {
+        const request = parseDebugRequest(line);
+        if (request?.kind === 'attach' && request.type === 'go') {
+          attached = true;
+          void this.attach(request, run, project, child);
         }
-        const announcement = parseIdeAnnouncement(line);
-        switch (announcement?.kind) {
-          case 'trace-viewer':
-            announced.viewerDir = announcement.dir;
-            this.viewerDir = announcement.dir; // for the traces of later runs too
-            return;
-          case 'trace':
-          case 'video':
-            announced.pending.push(this.keep(announcement, run, project, announced.viewerDir));
-            return;
-        }
-        run.appendOutput(`${line}\r\n`);
-        if (debugSteps && !attached) {
-          const request = parseDebugRequest(line);
-          if (request?.kind === 'attach' && request.type === 'go') {
-            attached = true;
-            void this.attach(request, run, project, child);
-          }
-        }
+      }
+    });
+
+    child.stderr?.setEncoding('utf8');
+    child.stderr?.on('data', (chunk: string) => run.appendOutput(chunk.replace(/\r?\n/g, '\r\n')));
+    const lines = readline.createInterface({ input: child.stdout!, crlfDelay: Infinity });
+    lines.on('line', (line) => report.reader.line(line));
+    const drained = new Promise<void>((resolve) => lines.once('close', resolve));
+    let spawnError: Error | undefined;
+    const code = await new Promise<number | null>((resolve) => {
+      child.once('exit', (exitCode) => resolve(exitCode));
+      child.once('error', (err) => {
+        spawnError = err;
+        resolve(null);
+      });
+    });
+    // An app that inherited the pipes could keep them open; don't wait for it.
+    await Promise.race([drained, new Promise((resolve) => setTimeout(resolve, 2000))]);
+    lines.close();
+    this.paused.ended(child);
+    await Promise.all(announced.pending);
+    cancel.dispose();
+    this.running.delete(child);
+    this.output.info(`axx run exited with code ${code ?? '(none)'}`);
+
+    // Items without a result did not run: the run was cancelled, or axx stopped early.
+    const error = spawnError
+      ? `Couldn't start axx: ${spawnError.message}`
+      : token.isCancellationRequested || [0, 1, 3, 130].includes(code ?? -1)
+        ? undefined
+        : exitMessage(code);
+    report.finish(queued, error);
+  }
+
+  // Shows a run the editor did not start, one an axx host serves (an agent's), as a test run named
+  // `name`, from the lines of its TeamCity report. `mapFile` maps the files the report names to
+  // this machine's.
+  follow(name: string, mapFile: (file: string) => string): FollowedRun {
+    const run = this.controller.createTestRun(new vscode.TestRunRequest(), name, true);
+    const report = this.report(run, (line) => run.appendOutput(`${line}\r\n`), mapFile);
+    let ended = false;
+    return {
+      line: (text) => report.reader.line(text),
+      output: (text) => run.appendOutput(`${text.replace(/\r?\n/g, '\r\n')}\r\n`),
+      end: (error) => {
+        if (ended) return;
+        ended = true;
+        report.finish([], error);
+        run.end();
       },
+    };
+  }
+
+  // Reads a run's TeamCity report into `run`: the scenarios and example rows it reports, found by
+  // their file (`mapFile` maps it to this machine's) and line, and their steps, which become
+  // their children. `output` takes the lines that are no service messages.
+  private report(run: vscode.TestRun, output: (line: string) => void, mapFile: (file: string) => string = (file) => file): Report {
+    const finished = new Set<vscode.TestItem>(); // scenarios and rows with a result
+    const suites = new Map<string, { item: vscode.TestItem; start: number; messages: vscode.TestMessage[] }>();
+    const steps = new Map<string, vscode.TestItem>();
+    const runningSteps = new Set<vscode.TestItem>();
+    const reader = new TeamCityReader({
+      output,
       suiteStarted: (node) => {
         if (node.parentId === '0') return; // a feature: its state comes from its scenarios
-        const item = this.scenarioItem(node);
+        const item = node.location && this.scenarioItem({ file: mapFile(node.location.file), line: node.location.line }, node.name);
         if (!item) return;
         suites.set(node.id, { item, start: Date.now(), messages: [] });
         this.forget(item);
@@ -491,45 +564,21 @@ export class AxxTests implements vscode.Disposable {
         }
       },
     });
-
-    child.stderr?.setEncoding('utf8');
-    child.stderr?.on('data', (chunk: string) => run.appendOutput(chunk.replace(/\r?\n/g, '\r\n')));
-    const lines = readline.createInterface({ input: child.stdout!, crlfDelay: Infinity });
-    lines.on('line', (line) => reader.line(line));
-    const drained = new Promise<void>((resolve) => lines.once('close', resolve));
-    let spawnError: Error | undefined;
-    const code = await new Promise<number | null>((resolve) => {
-      child.once('exit', (exitCode) => resolve(exitCode));
-      child.once('error', (err) => {
-        spawnError = err;
-        resolve(null);
-      });
-    });
-    // An app that inherited the pipes could keep them open; don't wait for it.
-    await Promise.race([drained, new Promise((resolve) => setTimeout(resolve, 2000))]);
-    lines.close();
-    this.paused.ended(child);
-    await Promise.all(announced.pending);
-    cancel.dispose();
-    this.running.delete(child);
-    this.output.info(`axx run exited with code ${code ?? '(none)'}`);
-
-    for (const step of runningSteps) run.skipped(step);
-    const unfinished = new Set([...queued, ...[...suites.values()].map((s) => s.item)].filter((i) => !finished.has(i)));
-    // Items without a result did not run: the run was cancelled, or axx stopped early.
-    const error = spawnError
-      ? `Couldn't start axx: ${spawnError.message}`
-      : token.isCancellationRequested || [0, 1, 3, 130].includes(code ?? -1)
-        ? undefined
-        : exitMessage(code);
-    for (const item of unfinished) {
-      this.logResult(error ? 'errored' : 'skipped', item, error);
-      if (error) {
-        run.errored(item, new vscode.TestMessage(error));
-      } else {
-        run.skipped(item);
-      }
-    }
+    return {
+      reader,
+      finish: (queued, error) => {
+        for (const step of runningSteps) run.skipped(step);
+        const unfinished = new Set([...queued, ...[...suites.values()].map((s) => s.item)].filter((i) => !finished.has(i)));
+        for (const item of unfinished) {
+          this.logResult(error ? 'errored' : 'skipped', item, error);
+          if (error) {
+            run.errored(item, new vscode.TestMessage(error));
+          } else {
+            run.skipped(item);
+          }
+        }
+      },
+    };
   }
 
   private logResult(state: string, item: vscode.TestItem, detail?: string): void {
@@ -538,16 +587,14 @@ export class AxxTests implements vscode.Disposable {
     this.output.debug(`${state}: ${item.label} (${where})${detail ? `: ${detail}` : ''}`);
   }
 
-  // The item for a scenario or example row that the run reports, by its file and line.
-  private scenarioItem(node: TcNode): vscode.TestItem | undefined {
-    const loc = node.location;
-    if (!loc) return undefined;
+  // The item for a scenario or example row that a run reports, by its file and line.
+  private scenarioItem(loc: Location, name: string): vscode.TestItem | undefined {
     const entry = this.entryAt(loc.file);
     if (!entry) return undefined;
     let item = entry.byLine.get(loc.line);
     if (!item) {
       // Not in the tree (the file changed since it was read): add it to the feature.
-      item = this.controller.createTestItem(`${entry.item.id}#${loc.line}`, node.name, entry.item.uri);
+      item = this.controller.createTestItem(`${entry.item.id}#${loc.line}`, name, entry.item.uri);
       item.range = new vscode.Range(loc.line - 1, 0, loc.line - 1, 0);
       this.data.set(item, { kind: 'scenario', file: entry.file, line: loc.line });
       entry.item.children.add(item);
@@ -786,7 +833,7 @@ function exitMessage(code: number | null): string {
     case 2:
       return 'axx run stopped on a usage or configuration error (exit code 2). The test output has the details.';
     case 4:
-      return 'An app failed to start (exit code 4). The test output has the details.';
+      return 'The services did not start (exit code 4): one failed, or the axx host did not start them. The test output has the details.';
     default:
       return `axx run exited with code ${code}. The test output has the details.`;
   }

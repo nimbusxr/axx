@@ -42,7 +42,7 @@ import (
 // context: only the conventions the tools' descriptions do not carry.
 const Instructions = `axx runs acceptance criteria, written as Gherkin features, against the project's services.
 
-Writing tests: steps_search without a query lists every step once; write one scenario per acceptance criterion with steps that exist, written out: each {name} replaced with a value, a(n) as "a" or "an" and row(s) as "row" or "rows", [[...]] kept without the brackets or left out; scenarios_run runs them and also reports what feature_validate and lint_run find; failure_context explains a failure. env {"action":"up"} keeps the services running between runs.
+Writing tests: steps_search without a query lists every step once; write one scenario per acceptance criterion with steps that exist, written out: each {name} replaced with a value, a(n) as "a" or "an" and row(s) as "row" or "rows", [[...]] kept without the brackets or left out; scenarios_run runs them and also reports what feature_validate and lint_run find; failure_context explains a failure. env {"action":"up"} keeps the services running between runs. With an axx host serving the project (.axx/host.json), steps_try gets services of its own from it when none are up, and scenarios_run ends them first: every run starts clean.
 - A scenario registers each service it uses before other steps use it ("the {word} service with the following properties:").
 - Requests, responses and selections are numbered in the order a scenario adds them; a step without an ordinal means the first.
 - Scenarios run in parallel and data persists: give every id, key and name a value of the scenario's own.
@@ -626,6 +626,11 @@ type scenariosRunOut struct {
 }
 
 func (s *server) scenariosRun(ctx context.Context, _ *sdk.CallToolRequest, in scenariosRunIn) (*sdk.CallToolResult, scenariosRunOut, error) {
+	if s.hostLeased() {
+		// The run has a clean start of its own from the axx host, which
+		// serves one run at a time: the session's services go first.
+		s.end()
+	}
 	args := []string{"run", "--json"}
 	if s.opts.ConfigPath != "" {
 		args = append(args, "--config", s.opts.ConfigPath)
