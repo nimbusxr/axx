@@ -113,17 +113,14 @@ func editScript(a, b []string) []diffOp {
 // middleScript is a shortest edit script from a to b, from the table of
 // their common subsequences, when neither has more than maxLCSLines.
 func middleScript(a, b []string) []diffOp {
+	if len(a) > maxLCSLines {
+		return replaced(a, b)
+	}
+	if len(b) > maxLCSLines {
+		return replaced(a, b)
+	}
 	n, m := len(a), len(b)
 	var ops []diffOp
-	if n > maxLCSLines || m > maxLCSLines {
-		for _, s := range a {
-			ops = append(ops, diffOp{'-', s})
-		}
-		for _, s := range b {
-			ops = append(ops, diffOp{'+', s})
-		}
-		return ops
-	}
 	w := m + 1
 	t := make([]int32, (n+1)*w) // t[i*w+j]: the longest common subsequence of a[i:] and b[j:]
 	for i := n - 1; i >= 0; i-- {
@@ -155,6 +152,18 @@ func middleScript(a, b []string) []diffOp {
 	}
 	for ; j < m; j++ {
 		ops = append(ops, diffOp{'+', b[j]})
+	}
+	return ops
+}
+
+// replaced is a's lines removed and b's added.
+func replaced(a, b []string) []diffOp {
+	var ops []diffOp
+	for _, s := range a {
+		ops = append(ops, diffOp{'-', s})
+	}
+	for _, s := range b {
+		ops = append(ops, diffOp{'+', s})
 	}
 	return ops
 }
