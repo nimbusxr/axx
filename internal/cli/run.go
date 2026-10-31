@@ -380,10 +380,11 @@ func (a *App) startApps(ctx context.Context, e *engine.Engine, f *runFlags, pick
 		lease, err := a.openHost(ctx, ann, req, out, a.Stderr)
 		if err == nil {
 			fmt.Fprintf(a.Stderr, "axx: the axx host started %s (logs: %s)\n", strings.Join(lease.Started(), ", "), relPath(logFile.Name()))
-			return lease, lease, nil
+			return logged{lease, logFile}, lease, nil
 		}
 		msg, ok := notListening(err)
 		if !ok {
+			_ = logFile.Close()
 			return nil, nil, err
 		}
 		fmt.Fprintf(a.Stderr, "warning: %s; starting the services here\n", msg)
@@ -417,15 +418,29 @@ func (a *App) startApps(ctx context.Context, e *engine.Engine, f *runFlags, pick
 	}
 	mgr, err := lifecycle.New(cfg.Services, opts)
 	if err != nil {
+		_ = logFile.Close()
 		return nil, nil, err
 	}
 	if len(names) > len(attach) {
 		fmt.Fprintf(a.Stderr, "axx: starting %s (logs: %s)\n", strings.Join(names, ", "), relPath(logFile.Name()))
 	}
 	if err := mgr.Start(ctx, names); err != nil {
-		return mgr, nil, err
+		return logged{mgr, logFile}, nil, err
 	}
-	return mgr, nil, nil
+	return logged{mgr, logFile}, nil, nil
+}
+
+// logged is services whose output goes to log, which is closed once they
+// are stopped.
+type logged struct {
+	services
+	log *os.File
+}
+
+func (l logged) Stop(ctx context.Context) error {
+	err := l.services.Stop(ctx)
+	_ = l.log.Close()
+	return err
 }
 
 func (a *App) reporters(cfg *config.Config, f *runFlags) ([]runner.Reporter, *bytes.Buffer, bool, func(), error) {

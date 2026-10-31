@@ -586,14 +586,15 @@ func executedFiles(argv []string, dir, project string) []string {
 	return out
 }
 
-// resolve is p, relative to dir, with ~ as the home directory.
+// resolve is p, relative to dir, with ~ as the home directory. A path from
+// the root (/etc) is one, on Windows too, where Docker reads it so.
 func resolve(dir, p string) string {
 	if rest, ok := strings.CutPrefix(p, "~"); ok {
 		if home, err := os.UserHomeDir(); err == nil {
 			p = home + rest
 		}
 	}
-	if !filepath.IsAbs(p) {
+	if !filepath.IsAbs(p) && !strings.HasPrefix(p, "/") && !strings.HasPrefix(p, `\`) {
 		p = filepath.Join(dir, p)
 	}
 	return realPath(p)

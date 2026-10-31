@@ -98,10 +98,13 @@ func TestRunHasItsServicesFromTheHost(t *testing.T) {
 	if b, _ := os.ReadFile(cleanups); strings.TrimSpace(string(b)) != "api" {
 		t.Errorf("cleanups: %q", b)
 	}
+	// The host says the run ended once it told the run the services stopped.
 	var ended *host.Event
-	for _, e := range events() {
-		if e.Event == "run" && e.State == host.StateEnded {
-			ended = &e
+	for start := time.Now(); ended == nil && time.Since(start) < 10*time.Second; time.Sleep(20 * time.Millisecond) {
+		for _, e := range events() {
+			if e.Event == "run" && e.State == host.StateEnded {
+				ended = &e
+			}
 		}
 	}
 	if ended == nil || ended.Result == nil || ended.Result.Passed != 1 || ended.Error != nil || !strings.HasPrefix(ended.Command, "axx ") {

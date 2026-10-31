@@ -37,8 +37,9 @@ type agentSession struct {
 	s      *runner.Session
 	cancel context.CancelFunc
 	// lease is the session's own services, when an axx host serves the
-	// project and nothing else keeps them up.
+	// project and nothing else keeps them up; log has their output.
 	lease *host.Lease
+	log   *os.File
 }
 
 // live is the agent's session, started if need be (or again, on restart).
@@ -60,7 +61,7 @@ func (s *server) live(restart bool) (*runner.Session, error) {
 		return nil, err
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	lease, err := s.hostServices(ctx, cfg, e)
+	lease, log, err := s.hostServices(ctx, cfg, e)
 	if err != nil {
 		cancel()
 		_ = e.Close(context.Background())
@@ -69,6 +70,7 @@ func (s *server) live(restart bool) (*runner.Session, error) {
 	stop := func() {
 		if lease != nil {
 			_ = lease.Stop(context.Background())
+			_ = log.Close()
 		}
 	}
 	if err := e.Init(ctx); err != nil {
@@ -97,34 +99,33 @@ func (s *server) live(restart bool) (*runner.Session, error) {
 			return nil, fmt.Errorf("hook %s: %w", h.Text, h.Err)
 		}
 	}
-	s.sess.e, s.sess.s, s.sess.cancel, s.sess.lease = e, sess, cancel, lease
+	s.sess.e, s.sess.s, s.sess.cancel, s.sess.lease, s.sess.log = e, sess, cancel, lease, log
 	return sess, nil
 }
 
 // hostServices starts the session's services through the axx host serving
 // the project: clean, for this session only, until it ends. Without a
 // host, or with services `axx up` keeps running, the session uses what
-// runs (env up starts it).
-func (s *server) hostServices(ctx context.Context, cfg *config.Config, e *engine.Engine) (*host.Lease, error) {
+// runs (env up starts it). Log has their output, until they stop.
+func (s *server) hostServices(ctx context.Context, cfg *config.Config, e *engine.Engine) (lease *host.Lease, log *os.File, err error) {
 	if len(cfg.Services) == 0 || lifecycle.UpRunning(cfg.Dir) {
-		return nil, nil
+		return nil, nil, nil
 	}
 	ann, err := host.Find(cfg.Dir)
 	if ann == nil || err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	// Packs set up what the services need before they start, for every
 	// scenario, as `axx up` does: for none, when the features cannot be read.
 	if pickles, err := allScenarios(e); err == nil {
 		if err := e.Prepare(ctx, pickles); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	}
 	logDir := filepath.Join(cfg.Dir, ".axx", "logs")
 	_ = os.MkdirAll(logDir, 0o755)
-	log, err := os.Create(filepath.Join(logDir, "services.log"))
-	if err != nil {
-		return nil, err
+	if log, err = os.Create(filepath.Join(logDir, "services.log")); err != nil {
+		return nil, nil, err
 	}
 	req := host.Request{Command: "axx mcp: steps_try", IDE: os.Getenv("AXX_IDE"), Dir: cfg.Dir, Profile: s.opts.Profile}
 	if cfg.File != "" {
@@ -132,15 +133,14 @@ func (s *server) hostServices(ctx context.Context, cfg *config.Config, e *engine
 			req.Config = filepath.ToSlash(rel)
 		}
 	}
-	lease, err := host.Open(ctx, ann, req, log, io.Discard)
-	if err != nil {
+	if lease, err = host.Open(ctx, ann, req, log, io.Discard); err != nil {
 		_ = log.Close()
 		if _, ok := errorCode(err, host.CodeNotListening); ok {
-			return nil, nil // a host that is gone: the session uses what runs
+			return nil, nil, nil // a host that is gone: the session uses what runs
 		}
-		return nil, err
+		return nil, nil, err
 	}
-	return lease, nil
+	return lease, log, nil
 }
 
 // allScenarios are every scenario of the configured features.
@@ -194,11 +194,12 @@ func (s *server) endLocked() {
 	if s.sess.lease != nil {
 		// The host stops the services and cleans up after them.
 		_ = s.sess.lease.Stop(context.Background())
+		_ = s.sess.log.Close()
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	_ = s.sess.e.Close(ctx)
-	s.sess.e, s.sess.s, s.sess.cancel, s.sess.lease = nil, nil, nil, nil
+	s.sess.e, s.sess.s, s.sess.cancel, s.sess.lease, s.sess.log = nil, nil, nil, nil, nil
 }
 
 // ---- steps_try ----
