@@ -82,10 +82,48 @@ type diffOp struct {
 	text string
 }
 
-// editScript is a shortest line edit script from a to b. Definitions are
-// small: a table of their common subsequences is.
+// maxLCSLines bounds each side of the table of common subsequences
+// editScript fills (at most 16 MB): a differing middle of more lines is
+// replaced as a whole.
+const maxLCSLines = 2000
+
+// editScript is a line edit script from a to b: the lines they start and
+// end with alike kept, and between them a shortest one, or, for a middle
+// too long to compare line by line, its lines removed and added.
 func editScript(a, b []string) []diffOp {
+	pre := 0
+	for pre < len(a) && pre < len(b) && a[pre] == b[pre] {
+		pre++
+	}
+	suf := 0
+	for suf < len(a)-pre && suf < len(b)-pre && a[len(a)-1-suf] == b[len(b)-1-suf] {
+		suf++
+	}
+	var ops []diffOp
+	for _, s := range a[:pre] {
+		ops = append(ops, diffOp{' ', s})
+	}
+	ops = append(ops, middleScript(a[pre:len(a)-suf], b[pre:len(b)-suf])...)
+	for _, s := range a[len(a)-suf:] {
+		ops = append(ops, diffOp{' ', s})
+	}
+	return ops
+}
+
+// middleScript is a shortest edit script from a to b, from the table of
+// their common subsequences, when neither has more than maxLCSLines.
+func middleScript(a, b []string) []diffOp {
 	n, m := len(a), len(b)
+	var ops []diffOp
+	if n > maxLCSLines || m > maxLCSLines {
+		for _, s := range a {
+			ops = append(ops, diffOp{'-', s})
+		}
+		for _, s := range b {
+			ops = append(ops, diffOp{'+', s})
+		}
+		return ops
+	}
 	w := m + 1
 	t := make([]int32, (n+1)*w) // t[i*w+j]: the longest common subsequence of a[i:] and b[j:]
 	for i := n - 1; i >= 0; i-- {
@@ -97,7 +135,6 @@ func editScript(a, b []string) []diffOp {
 			}
 		}
 	}
-	ops := make([]diffOp, 0, n+m)
 	i, j := 0, 0
 	for i < n && j < m {
 		switch {

@@ -1,6 +1,7 @@
 package host
 
 import (
+	"fmt"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -41,6 +42,22 @@ func TestDiff(t *testing.T) {
 	}
 	if got := Diff("same\n", "same\n"); got != "--- approved\n+++ proposed\n" {
 		t.Errorf("no change:\n%s", got)
+	}
+}
+
+// Definitions that differ in many lines are diffed in bounded memory: the
+// middle that differs is replaced as a whole, between the lines kept.
+func TestDiffOfLargeDefinitions(t *testing.T) {
+	var a, b []string
+	for i := range 5000 {
+		a = append(a, fmt.Sprintf("approved %d", i))
+		b = append(b, fmt.Sprintf("proposed %d", i))
+	}
+	frame := func(lines []string) string { return "services:\n" + strings.Join(lines, "\n") + "\nnetworks: {}\n" }
+	got := Diff(frame(a), frame(b))
+	if !strings.HasPrefix(got, "--- approved\n+++ proposed\n@@ -1,5002 +1,5002 @@\n services:\n-approved 0\n") ||
+		!strings.Contains(got, "\n-approved 4999\n+proposed 0\n") || !strings.HasSuffix(got, "\n+proposed 4999\n networks: {}\n") {
+		t.Errorf("diff:\n%.300s\n...\n%s", got, got[len(got)-200:])
 	}
 }
 
