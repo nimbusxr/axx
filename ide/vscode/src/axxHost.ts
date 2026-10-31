@@ -264,6 +264,15 @@ export class AxxHost implements vscode.Disposable, vscode.TextDocumentContentPro
         break;
       case 'answered':
         this.log.appendLine(`${e.run ? `run ${e.run}: ` : ''}${e.answer}`);
+        // What the answer does: a question the host asks as it starts has no run to go on, so
+        // nothing else shows it took.
+        if (e.answer === 'approved') {
+          void vscode.window.showInformationMessage('axx host: approved. Runs start the services as they are now.');
+        } else if (e.answer === 'refused') {
+          void vscode.window.showInformationMessage(
+            'axx host: refused. Runs with this definition are refused until the host restarts; a newer change is asked about.',
+          );
+        }
         break;
     }
     this.update(host);

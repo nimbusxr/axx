@@ -49,8 +49,8 @@ public final class HostRunConsole {
     }
 
     /**
-     * Shows the tab in the Run tool window, without activating the tool window: the run is not the
-     * person's. On the UI thread.
+     * Shows the tab in the Run tool window, which opens without taking the focus: the person sees
+     * the run, and keeps typing where they were. On the UI thread.
      *
      * @param reuse the tab of an earlier run to show it in, when that run ended; null for a new tab
      * @throws ExecutionException when the test runner's console cannot be made
@@ -82,7 +82,8 @@ public final class HostRunConsole {
                         AxxTestConsoleProperties.FRAMEWORK, handler, properties);
         RunContentDescriptor shown =
                 new RunContentDescriptor(console, handler, console.getComponent(), title);
-        shown.setActivateToolWindowWhenAdded(false);
+        shown.setActivateToolWindowWhenAdded(true);
+        shown.setAutoFocusContent(false);
         descriptor = shown;
         handler.startNotify();
         return shown;

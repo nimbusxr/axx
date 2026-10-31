@@ -388,10 +388,31 @@ public final class AxxHost implements Disposable {
                     return;
                 }
                 case HostEvent.APPROVAL -> onUiThread(() -> ask(event.id()));
-                case HostEvent.ANSWERED -> onUiThread(() -> forget(event.id()));
+                case HostEvent.ANSWERED -> answered(event);
                 default -> {}
             }
             changed();
+        }
+
+        /**
+         * Closes an answered question, and says what the answer does: a question the host asks as
+         * it starts has no run to go on, so nothing else shows it took.
+         */
+        private void answered(HostEvent event) {
+            onUiThread(() -> forget(event.id()));
+            LOG.info("axx host: " + event.answer());
+            String what =
+                    switch (event.answer()) {
+                        case "approved" ->
+                                "axx host: approved. Runs start the services as they are now.";
+                        case "refused" ->
+                                "axx host: refused. Runs with this definition are refused until the"
+                                        + " host restarts; a newer change is asked about.";
+                        default -> null;
+                    };
+            if (what != null) {
+                AxxHost.this.notify(what, NotificationType.INFORMATION);
+            }
         }
 
         private void serving(HostEvent event) {

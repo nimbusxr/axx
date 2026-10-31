@@ -258,7 +258,7 @@ The plugin starts the host for you, and asks those questions in the IDE:
 - **The agent's runs** (every run the host serves that this IDE did not start: an agent's, a
   terminal's, VS Code's) show in the Run tool window as they happen, a tab named like *axx host:
   run 4 (axx run --compact features/x.feature)*, in the test runner, from the run's TeamCity report,
-  which the host passes on. The tool window does not come to the front for them. When the sandbox
+  which the host passes on. The tool window opens for them without taking the focus. When the sandbox
   sees the project in another directory, the plugin moves the report's locations to the project's,
   so the tree's nodes go to their lines. Stop on such a tab only stops showing the run. The runs
   the IDE starts go through the host by themselves and show as usual.
