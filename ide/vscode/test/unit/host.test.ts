@@ -148,7 +148,7 @@ test('follows the runs that have not ended, and the questions not answered', () 
 });
 
 test('a definition that changed waits for an approval until a run starts services', () => {
-  const state = stateOf([SERVING.replace('}', ',"changed":true}')]);
+  const state = stateOf([JSON.stringify({ ...JSON.parse(SERVING), changed: true })]);
   assert.equal(state.changed, true);
   assert.match(hostStatus('serving', state).tooltip, /changed since you last approved one/);
   state.apply(parseHostEvent('{"event":"run","run":1,"command":"axx run","state":"starting","services":["api"]}')!);
