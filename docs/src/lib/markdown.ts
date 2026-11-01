@@ -45,19 +45,6 @@ const AGENTS_START =
 	'`axx pack list` (what each pack reaches), `axx explain <code>` (an error). ' +
 	`In a project that has run \`axx init\`, its AGENTS.md section has the same. [llms.txt](${ROOT}/llms.txt) indexes this site's Markdown.`;
 
-/** The home page's twin lists where to go, for agents, in place of the page for people. */
-const HOME_INDEX = [
-	'## On this site',
-	'',
-	'- [Quickstart](/tutorials/quickstart/): a first suite, start to finish',
-	'- [Install axx](/guides/install/) and [set up agents](/guides/set-up-agents/)',
-	'- [Use packs](/guides/use-packs/): what each pack reaches, and adding one',
-	'- [Packs](/references/packs/) and [steps](/references/steps/): the reference, generated from axx',
-	'- [Error codes](/references/error-codes/) and [the CLI](/references/cli/)',
-	'- [How axx works](/explanations/how-axx-works/) and [why axx](/explanations/why-axx/)',
-	`- [llms.txt](${ROOT}/llms.txt): every page's Markdown, by section`,
-].join('\n');
-
 /** Whether a page is a pack's reference page (references/packs/<pack>). */
 export function isPackPage(id: string): boolean {
 	return /^references\/packs\/[^/]+$/.test(id);
@@ -125,12 +112,14 @@ export function toMarkdown(entry: CollectionEntry<'docs'>, full = false): string
 	if (hero?.tagline) parts.push(hero.tagline);
 	// The home page's links are relative to it: from the site's root here.
 	const rooted = (link: string) => (/^[a-z]+:|^\//i.test(link) ? link : `/${link}`);
-	if (hero?.actions?.length) parts.push(hero.actions.map((a) => `- [${a.text}](${rooted(a.link)})`).join('\n'));
+	// The home page's twin leaves its hero's links to people: agents followed them.
+	if (hero?.actions?.length && entry.id !== 'index') parts.push(hero.actions.map((a) => `- [${a.text}](${rooted(a.link)})`).join('\n'));
 	parts.push(`Source: ${ROOT}${entry.id === 'index' ? '/' : `/${entry.id}/`}`);
 	// An agent that lands here from a project's README: what axx tells it
-	// itself, and where to go on this site, instead of the page for people.
+	// itself, instead of the page for people. No list of this site's pages:
+	// agents followed it instead of asking axx (llms.txt has it).
 	if (entry.id === 'index') {
-		parts.push(AGENTS_START, HOME_INDEX);
+		parts.push(AGENTS_START);
 		return absolutize(parts.join('\n\n')) + '\n';
 	}
 	parts.push((isPackPage(entry.id) && !full ? compactPackPage(body, entry.id) : body).trim());
