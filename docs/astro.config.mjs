@@ -16,6 +16,10 @@ import { poseEditor } from './scripts/pose-editor.mjs';
 
 const site = 'https://axx.nimbusxr.us';
 
+/** Chrome's WebMCP origin trial (feature WebMCP, https://nimbusxr.us and subdomains, until 2027-03-30). */
+const webmcpTrialToken =
+	'Au6+vW+zV403Rr8nG3rt7t4kt0d4TKhCO//DVEhDvH2tcoxBvC/HCQ7Bk5aJRg6KMMKAdc82K1Eux4vwRQl1SQ0AAABeeyJvcmlnaW4iOiJodHRwczovL25pbWJ1c3hyLnVzOjQ0MyIsImZlYXR1cmUiOiJXZWJNQ1AiLCJleHBpcnkiOjE4MDYzNjQ4MDAsImlzU3ViZG9tYWluIjp0cnVlfQ==';
+
 // The latest release's docs, at the root, or main's, at /next/ (src/lib/site-base.mjs).
 const build = docsBuild();
 /** A site-absolute path below the base. */
@@ -198,7 +202,11 @@ export default defineConfig({
 					tag: 'link',
 					attrs: { rel: 'alternate', type: 'text/plain', title: 'llms.txt', href: at('/llms.txt') },
 				},
-				// The docs' tools for agents that browse them, through WebMCP (public/webmcp.js).
+				// The docs' tools for agents that browse them, through WebMCP (public/webmcp.js),
+				// which Chrome offers in an origin trial: its token, for https://nimbusxr.us and
+				// its subdomains, expires on 2027-03-30 (renew it at
+				// https://developer.chrome.com/origintrials before then).
+				{ tag: 'meta', attrs: { 'http-equiv': 'origin-trial', content: webmcpTrialToken } },
 				{ tag: 'script', attrs: { type: 'module', src: at('/webmcp.js') } },
 				// Main's docs are a preview: search engines keep to the release's.
 				...(build.channel === 'next' ? [{ tag: 'meta', attrs: { name: 'robots', content: 'noindex' } }] : []),
