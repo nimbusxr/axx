@@ -55,8 +55,19 @@ func TestEvents(t *testing.T) {
 	h.OK("the tracking event stream has an event where:", [][]string{{"event type", "scan"}, {"event id", `"1"`}, {"status", "OUT_FOR_DELIVERY"}})
 	h.OK("within 5s the tracking event stream has an event where:", [][]string{{"event type", "delivered"}, {"reference", "PX-LIV-5702"}, {"status", "DELIVERED"}})
 	h.OK("the tracking event stream has an event containing 'DELIVERED'")
-	// The server ended the stream: a check that finds nothing fails at once.
+	// An event's id is text (ADR 0014), and a value the rule cannot read fails
+	// the check at once.
 	start := time.Now()
+	_ = h.Fails("within 1m the tracking event stream has an event where:",
+		`event id: 1 reads as an integer, and only text fits here: write "1" for the text`, [][]string{{"event id", "1"}})
+	_ = h.Fails("within 1m the tracking event stream has an event where:",
+		`status: the cell is empty: write "" for the empty string, null for null, or undefined for no such property`,
+		[][]string{{"event type", "scan"}, {"status", ""}})
+	if d := time.Since(start); d > 5*time.Second {
+		t.Errorf("the checks waited %s", d)
+	}
+	// The server ended the stream: a check that finds nothing fails at once.
+	start = time.Now()
 	_ = h.Fails("within 1m the tracking event stream has an event where:", "No event on the tracking event stream met the conditions: the server ended the stream",
 		[][]string{{"event type", "returned"}})
 	if d := time.Since(start); d > 5*time.Second {

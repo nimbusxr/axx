@@ -58,6 +58,7 @@ Scenario: A shop sees its parcels
 
 - `the page shows 3 "css=.parcel-card" elements` counts what the page shows, by name or selector.
 - `the page shows a table row where:` finds a row by the table's column headers, and `the page shows 3 table rows where:` counts them. A table's headers are its `<thead>`, or a first row of header cells.
+- A row's values are the text the page shows, so one that reads as a number goes in double quotes: `| Items | "3" |`. The same goes for a downloaded file's rows (below).
 
 ## The page
 

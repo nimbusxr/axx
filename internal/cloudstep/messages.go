@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"slices"
 	"strings"
 
 	"github.com/nimbusxr/axx/core"
@@ -36,6 +37,11 @@ type Messages struct {
 	// SendRows are the rows the "with the following <fields>:" table
 	// knows, when it takes more than fields.
 	SendRows []core.TableRow
+	// Typed are the rows of that table that set how a message is sent,
+	// whose values are numbers or booleans (ADR 0014): MQTT's "qos" and
+	// "retain". Send gets each as JSON (`1`, `true`, or `"1"` for the
+	// string). Every other value is text, and Send gets the text.
+	Typed []string
 	// Example is what the step examples send and check.
 	Example Sample
 	// Send sends a message.
@@ -103,10 +109,16 @@ func (m Messages) Steps() []core.StepDef {
 	}
 	sendTable := &core.TableDoc{
 		Columns: []string{"name", "value"},
-		Note:    fmt.Sprintf("Each row is %s %s sent with the message, as text: its name and its value.", article(m.Field), m.Field),
+		Note:    fmt.Sprintf("Each row is %s %s sent with the message: its name and its value.", article(m.Field), m.Field),
+		Values:  core.TextValues,
 	}
 	if len(m.SendRows) > 0 {
-		sendTable = &core.TableDoc{Columns: []string{"name", "value"}, Rows: m.SendRows}
+		sendTable = &core.TableDoc{Columns: []string{"name", "value"}, Rows: m.SendRows, Values: core.TextValues}
+	}
+	if len(m.Typed) > 0 {
+		sendTable.Values = core.JSONValues
+		sendTable.Note = fmt.Sprintf("Every value but those of %s is text: one that reads as a number, a boolean or `null` "+
+			"goes in double quotes (`\"3\"`).", rowList(m.Typed))
 	}
 	return []core.StepDef{
 		send,
@@ -143,7 +155,11 @@ func (m Messages) Steps() []core.StepDef {
 					}
 					fields = map[string]string{}
 					for _, pr := range pairs {
-						fields[pr.Key] = sc.Suite().Interpolate(pr.Value)
+						v, err := m.sendValue(pr)
+						if err != nil {
+							return fmt.Errorf("%s: %w", pr.Key, err)
+						}
+						fields[pr.Key] = sc.Suite().Interpolate(v)
 					}
 				}
 				return m.send(sc, a.String(1), body, fields)
@@ -161,10 +177,10 @@ func (m Messages) ReceivedStep() core.StepDef {
 	et, dt := oneAlternative(t), strings.ReplaceAll(t, "/", " or ")
 	since := m.version()
 	whereNote := fmt.Sprintf("Each row is a path into the message's JSON body (a field name, a dotted path or a JSONPath) and "+
-		"the value it has, compared as text: `null` for null and `undefined` for absent. A row `%s <name>` is instead "+
-		"on the %s of that name sent with the message: `undefined` when there is none.", m.Field, m.Field)
+		"the value it has there. A row `%s <name>` is instead on the %s of that name sent with the message, which is "+
+		"text (`\"3\"` for one that reads as a number), and `undefined` when there is none.", m.Field, m.Field)
 	if len(m.Meta) > 0 {
-		whereNote += fmt.Sprintf(" %s on the message itself, not its body.", rowNames(m.Meta))
+		whereNote += fmt.Sprintf(" %s on the message itself, not its body, and text too.", rowNames(m.Meta))
 	}
 	return core.StepDef{
 		ID: m.ID("received"), Keyword: "Then", Arg: core.ArgTable, Since: since,
@@ -172,11 +188,14 @@ func (m Messages) ReceivedStep() core.StepDef {
 		Doc: fmt.Sprintf("Check that the %s has a message with those values, received since the scenario started.\n\n"+
 			"- The check waits for it: 10 seconds, or `within {duration}`.\n"+
 			"- %s", dt, m.Received),
-		Table:    &core.TableDoc{Columns: []string{"path", "value"}, Note: whereNote},
+		Table:    &core.TableDoc{Columns: []string{"path", "value"}, Note: whereNote, Values: core.JSONValues, Undefined: true},
 		Examples: []string{fmt.Sprintf("Then within 30s the %s %s has a message where:", ex.From, et) + exampleTable(ex.Where)},
 		Run: func(sc *core.Scenario, a core.Args) error {
 			rs, err := Conditions(a.Table)
 			if err != nil {
+				return err
+			}
+			if err := rs.Readable(m.Field, m.Meta); err != nil {
 				return err
 			}
 			target, noun := a.String(1), m.Noun(a.Text)
@@ -215,16 +234,55 @@ func (m Messages) ID(step string) string {
 	return m.Pack + "." + step
 }
 
+// Readable checks that the rule reads every condition's value (ADR 0014),
+// before any message comes: a value in the body as a value
+// (core.ParseValue), one sent with the message ("<field> <name>") or of the
+// message itself (meta) as text (core.ParseText). A check fails at once on
+// a value it cannot read, instead of waiting for a message.
+func (rs Rows) Readable(field string, meta []string) error {
+	for _, r := range rs {
+		var err error
+		if strings.HasPrefix(r.Key, field+" ") || slices.Contains(meta, r.Key) {
+			_, _, err = core.ParseText(r.Value, r.Null, true)
+		} else {
+			_, err = core.ParseValue(r.Value, r.Null, true)
+		}
+		if err != nil {
+			return fmt.Errorf("%s: %w", r.Key, err)
+		}
+	}
+	return nil
+}
+
+// sendValue is what a row of the send table gives Send: its text, or, for
+// a Typed row, its value as JSON (ADR 0014).
+func (m Messages) sendValue(p core.Pair) (string, error) {
+	if slices.Contains(m.Typed, p.Key) {
+		v, err := core.ParseValue(p.Value, p.Null, false)
+		return v.JSON(), err
+	}
+	s, _, err := core.ParseText(p.Value, p.Null, false)
+	return s, err
+}
+
 // rowNames lists row names for the docs: "Rows `routing key` and `topic` are".
-func rowNames(names []string) string {
-	quoted := make([]string, len(names))
-	for i, n := range names {
+func rowNames(rows []string) string {
+	if len(rows) == 1 {
+		return "A row " + rowList(rows) + " is"
+	}
+	return "Rows " + rowList(rows) + " are"
+}
+
+// rowList lists row names for the docs: "`qos` and `retain`".
+func rowList(rows []string) string {
+	quoted := make([]string, len(rows))
+	for i, n := range rows {
 		quoted[i] = "`" + n + "`"
 	}
 	if len(quoted) == 1 {
-		return "A row " + quoted[0] + " is"
+		return quoted[0]
 	}
-	return "Rows " + strings.Join(quoted[:len(quoted)-1], ", ") + " and " + quoted[len(quoted)-1] + " are"
+	return strings.Join(quoted[:len(quoted)-1], ", ") + " and " + quoted[len(quoted)-1]
 }
 
 func (m Messages) send(sc *core.Scenario, target string, body []byte, fields map[string]string) error {

@@ -79,7 +79,7 @@ Then within 10s the shops mailbox has an email where:
 | `attachment` | the file name of an attachment |
 | `header <name>` | a header's value |
 
-Addresses compare without regard to case, and `text` and `html` take runs of spaces and line breaks as one space. Subjects and names in other charsets are decoded first. The check waits for an email that meets every row: 10 seconds, or the time `within` gives. When none does, it lists the emails that arrived.
+Every value is text, so one that reads as a number goes in double quotes: `| header X-Priority | "1" |`. Addresses compare without regard to case, and `text` and `html` take runs of spaces and line breaks as one space. Subjects and names in other charsets are decoded first. The check waits for an email that meets every row: 10 seconds, or the time `within` gives. When none does, it lists the emails that arrived.
 
 ## Refuse mail
 

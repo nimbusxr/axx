@@ -146,11 +146,14 @@ func checkSteps() []core.StepDef {
 			Expr: "[[within {duration} ]]the page shows {int} table row(s) where:",
 			Doc: "Check how many rows of the page's tables have those values in those columns. " +
 				"The check waits for the number: 10 seconds, or `within {duration}`.",
-			Table:    &core.TableDoc{Columns: []string{"column", "value"}, Note: "Each row names a column, by its header, and the value the tables' rows have in it."},
+			Table: &core.TableDoc{
+				Columns: []string{"column", "value"}, Values: core.TextValues,
+				Note: "Each row names a column, by its header, and the value the tables' rows have in it.",
+			},
 			Examples: []string{"Then the page shows 2 table rows where:\n  | Status | REGISTERED |"},
 			Run: check(func(sc *core.Scenario, s *session, a core.Args) error {
 				want := a.Int(1)
-				pairs, err := a.Table.Pairs()
+				pairs, err := cloudstep.TextPairs(a.Table)
 				if err != nil {
 					return err
 				}

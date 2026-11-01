@@ -62,7 +62,7 @@ func TestObjects(t *testing.T) {
 		t.Fatal(err)
 	}
 	h.OK(`the manifests/M-KESTREL-0412.pdf object in the claim-evidence s3 bucket contains "PX-KES-0412-1 Anna Weber 1200 g"`)
-	h.OK("the refunds/2026-09.csv object in the claim-evidence s3 bucket has a row where:", [][]string{{"claim", "CLM-1"}, {"amount", "49.90"}})
+	h.OK("the refunds/2026-09.csv object in the claim-evidence s3 bucket has a row where:", [][]string{{"claim", "CLM-1"}, {"amount", `"49.90"`}})
 	_ = h.Fails("within 1s the refunds/2026-09.csv object in the claim-evidence s3 bucket has a row where:",
 		"no row has claim=CLM-2", [][]string{{"claim", "CLM-2"}})
 

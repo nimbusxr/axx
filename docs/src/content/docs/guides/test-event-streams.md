@@ -49,13 +49,14 @@ A check waits for an event that meets it: 10 seconds, or the time `within` gives
 ```gherkin
 Then within 20s the tracking event stream has an event where:
   | event type | scan             |
-  | event id   | 1                |
+  | event id   | "1"              |
   | reference  | PX-LIV-5703      |
   | status     | OUT_FOR_DELIVERY |
 And the tracking event stream has an event containing 'OUT_FOR_DELIVERY'
 ```
 
-- `has an event where:` reads each event's data as JSON: a path and the value as text, `null` for null and `undefined` for absent. Two rows read the event itself: `event type`, its `event:` field (`message` for an event without one), and `event id`, its `id:`.
+- `has an event where:` reads each event's data as JSON: a path and the value it has, typed. `2` is the number and `"2"` the string, and one does not match the other; `null` is null and `undefined` no such property.
+- Two rows read the event itself: `event type`, its `event:` field (`message` for an event without one), and `event id`, its `id:`. Both are text, so an id that reads as a number goes in double quotes: `"1"`.
 - `has an event containing {string}` looks for text in any event's data.
 
 Comments and keep-alives are not events. An event's data that spans several `data:` lines is read as one text, its lines joined with line breaks, as a browser reads it.

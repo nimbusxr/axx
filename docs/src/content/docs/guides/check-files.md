@@ -82,7 +82,7 @@ And the manifests/M-WREN-0503/handover.pdf file in the exports folder contains "
 ```
 
 - `is identical to` compares the file byte for byte with a file of the project, found through `resources`.
-- `has the following properties:` reads JSON, like the other JSON property steps: a path and the value as text, `null` for null and `undefined` for absent.
+- `has the following properties:` reads JSON, like the other JSON property steps: a path and the value it has, typed. `2` is the number and `"2"` the string, and one does not match the other; `null` is null and `undefined` no such property.
 - `contains` reads the file's text, whatever its type (below).
 
 ## Check what a service takes away
@@ -127,7 +127,7 @@ Then within 10s the manifests/M-OSPREY-0502/report.xlsx file in the exports fold
   | status    | IMPORTED      |
 ```
 
-Cells compare as text, as the workbook shows them: a price formatted with two decimals is `6.90`, not `6.9`. An empty value matches an empty cell.
+A cell is the text the workbook shows, so a value that reads as a number goes in double quotes: a price formatted with two decimals is `"6.90"`, not `6.9`, and a postcode `"01067"`. `""` matches an empty cell.
 
 ## Images, compared with their screenshots
 

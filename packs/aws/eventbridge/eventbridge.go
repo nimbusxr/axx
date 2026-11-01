@@ -69,8 +69,8 @@ func (pack) Manifest() core.Manifest {
 						{Name: "source", Takes: "the event's source, like `parcels.claims`"},
 						{Name: "detail.<field>", Takes: "a field of the event's detail, or a dotted path into it, like `detail.claim`"},
 					},
-					Note: "Values compare as text: `null` for null and `undefined` for absent. Other paths into the event, as " +
-						"EventBridge delivers it, work too, like `account` or `region`.",
+					Note:   "Other paths into the event, as EventBridge delivers it, work too, like `account` or `region`.",
+					Values: core.JSONValues, Undefined: true,
 				},
 				Examples: []string{
 					"Then within 30s the parcels eventbridge bus has an event where:\n" +
@@ -82,6 +82,9 @@ func (pack) Manifest() core.Manifest {
 				Run: func(sc *core.Scenario, a core.Args) error {
 					rs, err := cloudstep.Conditions(a.Table)
 					if err != nil {
+						return err
+					}
+					if err := rs.Readable("attribute", nil); err != nil {
 						return err
 					}
 					bus := a.String(1)

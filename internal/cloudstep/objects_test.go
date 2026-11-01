@@ -83,11 +83,23 @@ func TestObjectContent(t *testing.T) {
 		{"parcel", "PX-KES-1001"}, {"reason", "weight differs"},
 	})
 	h.OK("the disputes/kestrel-2026-09.csv object in the carrier-drops s3 bucket has a row where:", [][]string{
-		{"invoice line", "IL-2"}, {"reason", ""},
+		{"invoice line", "IL-2"}, {"reason", `""`},
 	})
 	h.OK("the disputes/kestrel-2026-09.xlsx object in the carrier-drops s3 bucket has a row where:", [][]string{
-		{"parcel", "PX-KES-1003"}, {"amount", "12.5"},
+		{"parcel", "PX-KES-1003"}, {"amount", `"12.5"`},
 	})
+	// A cell is text (ADR 0014): a value that reads as anything else, or an
+	// empty one, fails at once, saying what to write.
+	start := time.Now()
+	_ = h.Fails("within 5s the disputes/kestrel-2026-09.xlsx object in the carrier-drops s3 bucket has a row where:",
+		`amount: 12.5 reads as a decimal, and only text fits here: write "12.5" for the text`,
+		[][]string{{"parcel", "PX-KES-1003"}, {"amount", "12.5"}})
+	_ = h.Fails("within 5s the disputes/kestrel-2026-09.csv object in the carrier-drops s3 bucket has a row where:",
+		`reason: the cell is empty: write "" for the empty text`,
+		[][]string{{"invoice line", "IL-2"}, {"reason", ""}})
+	if time.Since(start) > 2*time.Second {
+		t.Errorf("a value the rule cannot read should fail at once, not after %s", time.Since(start))
+	}
 
 	err = h.Fails(`within 1s the manifests/M-KESTREL-0412.pdf object in the carrier-drops s3 bucket contains "PX-KES-0412-3 Anna Weber"`,
 		`The manifests/M-KESTREL-0412.pdf object in the carrier-drops s3 bucket did not meet the expectation within 1s: `+
@@ -105,7 +117,7 @@ func TestObjectContent(t *testing.T) {
 		"The carrier-drops s3 bucket has no object named disputes/kestrel-2026-10.csv after 1s. It has disputes/kestrel-2026-09.csv, disputes/kestrel-2026-09.xlsx")
 
 	// A step that cannot read the object's type errs at once.
-	start := time.Now()
+	start = time.Now()
 	err = h.Fails(`the photos/crushed-box.png object in the carrier-drops s3 bucket contains "IHDR"`,
 		"the photos/crushed-box.png object is a binary file (16 bytes), not a file whose text axx reads")
 	if core.IsAssertion(err) || time.Since(start) > 5*time.Second {
@@ -130,6 +142,24 @@ func TestObjectContent(t *testing.T) {
 	put("summaries/kestrel-2026-09.json", []byte(`{"carrier":"KESTREL","lines":14}`))
 	h.OK("the summaries/kestrel-2026-09.json object in the carrier-drops s3 bucket has the following properties:",
 		[][]string{{"carrier", "${env:AXX_TEST_CARRIER}"}, {"lines", "14"}})
+
+	// A property's value means what it says (ADR 0014): typed, strictly.
+	put("summaries/kestrel-2026-10.json", []byte(`{"carrier":"KESTREL","lines":14,"postcode":"10115","disputed":5.0}`))
+	h.OK("the summaries/kestrel-2026-10.json object in the carrier-drops s3 bucket has the following properties:",
+		[][]string{{"lines", "14"}, {"postcode", `"10115"`}, {"disputed", "5.0"}, {"credit", "undefined"}})
+	_ = h.Fails("within 1s the summaries/kestrel-2026-10.json object in the carrier-drops s3 bucket has the following properties:",
+		`postcode is the string "10115": write "10115"`, [][]string{{"lines", "14"}, {"postcode", "10115"}})
+	_ = h.Fails("within 1s the summaries/kestrel-2026-10.json object in the carrier-drops s3 bucket has the following properties:",
+		"lines is the integer 14: write 14", [][]string{{"lines", `"14"`}})
+	_ = h.Fails("within 1s the summaries/kestrel-2026-10.json object in the carrier-drops s3 bucket has the following properties:",
+		"disputed is the decimal 5.0: write 5.0", [][]string{{"disputed", "5"}})
+	start = time.Now()
+	_ = h.Fails("within 5s the summaries/kestrel-2026-11.json object in the carrier-drops s3 bucket has the following properties:",
+		`lines: the cell is empty: write "" for the empty string, null for null, or undefined for no such property`,
+		[][]string{{"lines", ""}})
+	if time.Since(start) > 2*time.Second {
+		t.Errorf("an empty cell should fail at once, not after %s", time.Since(start))
+	}
 }
 
 func TestObjectStepsSince(t *testing.T) {

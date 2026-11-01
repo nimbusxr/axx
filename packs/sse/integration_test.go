@@ -34,7 +34,7 @@ func TestAgainstWireMock(t *testing.T) {
 	h := cloudtest.New(t, Pack())
 	h.OK("the tracking event stream with the following properties:", [][]string{{"url", "http://" + addr + "/api/parcels/PX-LIV-5702/events"}})
 	h.OK("within 10s the tracking event stream has an event where:", [][]string{{"event type", "scan"}, {"status", "OUT_FOR_DELIVERY"}})
-	h.OK("within 10s the tracking event stream has an event where:", [][]string{{"event type", "delivered"}, {"event id", "2"}, {"status", "DELIVERED"}})
+	h.OK("within 10s the tracking event stream has an event where:", [][]string{{"event type", "delivered"}, {"event id", `"2"`}, {"status", "DELIVERED"}})
 	_ = h.Fails("within 10s the tracking event stream has an event containing 'RETURNED'", "the server ended the stream")
 	if err := h.End("passed"); err != nil {
 		t.Fatal(err)

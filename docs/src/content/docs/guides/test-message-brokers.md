@@ -82,6 +82,8 @@ A file's message takes a table of what goes with it:
 | `mqtt` | `qos` (`1` unless it says otherwise), `retain` (`false`), `property <name>` (user properties), `content type`, `response topic`, `correlation data` |
 | `nats` | a header on each row: its name and its value |
 
+What goes with a message is text, so a value that reads as a number goes in double quotes: `| header attempt | "3" |`. MQTT's `qos` is a number and its `retain` a boolean: `| qos | 2 |`, `| retain | true |`.
+
 A few more things happen when a message is sent:
 
 - **AMQP messages are persistent,** and a message whose body is JSON is sent as `application/json` unless a `content type` row says otherwise.
@@ -106,7 +108,7 @@ Then within 20s the TRACKING nats stream has a message where:
   | header courier | CR-LEJ-12            |
 ```
 
-Each row is a path into the message's JSON body and the value it has, as text: `null` for null and `undefined` for absent. A few rows are on the message itself instead:
+Each row is a path into the message's JSON body and the value it has, typed: `2` is the number and `"2"` the string, and one does not match the other; `null` is null and `undefined` no such property. A few rows are on the message itself instead, and their values are text (`"3"` for one that reads as a number), or `undefined` for none:
 
 | Pack | Rows on the message |
 | --- | --- |

@@ -166,12 +166,20 @@ func (o Objects) Checks() []core.StepDef {
 				"or `within {duration}`.", obj),
 			Table: &core.TableDoc{
 				Columns: []string{"path", "value"},
-				Note: "Each row is a path into the JSON (a property name, a dotted path or a JSONPath) and the value it has, compared " +
-					"as text: `null` for null and `undefined` for absent, as in the other JSON property steps.",
+				Note:    "Each row is a path into the JSON (a property name, a dotted path or a JSONPath) and the value it has there.",
+				Values:  core.JSONValues, Undefined: true,
 			},
 			Examples: []string{fmt.Sprintf("Then the summaries/kestrel-2026-09.json %s in the %s %s has the following properties:", obj, o.Example, c) +
 				exampleTable([][2]string{{"carrier", "KESTREL"}, {"lines", "14"}, {"totals.disputed", "5.25"}})},
 			Run: func(sc *core.Scenario, a core.Args) error {
+				// A value the rule cannot read fails at once, not once the
+				// object is there.
+				if err := values(a.Table, func(p core.Pair) error {
+					_, err := core.ParseValue(p.Value, p.Null, true)
+					return err
+				}); err != nil {
+					return err
+				}
 				want := expanded(sc, a.Table)
 				return o.await(sc, Wait(a, 0), a.String(2), a.String(1), func(got []byte) (bool, string, error) {
 					err := jsonassert.Properties(string(got), want, false)
@@ -220,19 +228,20 @@ func (o Objects) Checks() []core.StepDef {
 			Doc: fmt.Sprintf("Check that the table of the %s has a row with those values in those columns.\n\n"+
 				"- The check waits for it: 10 seconds, or `within {duration}`.\n"+
 				"- The %s is a CSV or TSV file, or an Excel workbook (.xlsx; its first sheet), whose first row names the columns.\n"+
-				"- Cells compare as text, as the workbook shows them, with runs of spaces as one space; an empty value matches an "+
-				"empty cell.", obj, obj),
+				"- A cell is the text the workbook shows, with runs of spaces as one space: a price formatted with two decimals "+
+				"is `\"6.90\"`, and `\"\"` an empty cell.", obj, obj),
 			Table: &core.TableDoc{
 				Columns: []string{"column", "value"},
 				Note:    fmt.Sprintf("Each row names a column, as the %s's first row names it, and the value in that column.", obj),
+				Values:  core.TextValues,
 			},
 			Examples: []string{fmt.Sprintf("Then within 30s the disputes/kestrel-2026-09.csv %s in the %s %s has a row where:", obj, o.Example, c) +
-				exampleTable([][2]string{{"parcel", "PX-5199"}, {"status", "UNKNOWN_SHIPMENT"}, {"billed", "4.10"}})},
+				exampleTable([][2]string{{"parcel", "PX-5199"}, {"status", "UNKNOWN_SHIPMENT"}, {"billed", `"4.10"`}})},
 			Run: func(sc *core.Scenario, a core.Args) error {
 				if a.Table == nil {
 					return fmt.Errorf("the step needs a table of the row's columns and values (| column | value |)")
 				}
-				want, err := a.Table.Pairs()
+				want, err := TextPairs(a.Table)
 				if err != nil {
 					return err
 				}
@@ -327,6 +336,40 @@ func expanded(sc *core.Scenario, t *core.Table) *core.Table {
 		}
 	}
 	return out
+}
+
+// TextPairs are the rows of a key and value table whose values are text
+// (ADR 0014), each value the text it gives (core.ParseText): `"42"` gives
+// 42, `""` the empty text, and a value that reads as anything else (`42`,
+// `true`, `null`) or an empty cell is an error naming its row.
+func TextPairs(t *core.Table) ([]core.Pair, error) {
+	pairs, err := t.Pairs()
+	if err != nil {
+		return nil, err
+	}
+	for i, p := range pairs {
+		s, _, err := core.ParseText(p.Value, p.Null, false)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", p.Key, err)
+		}
+		pairs[i] = core.Pair{Key: p.Key, Value: s}
+	}
+	return pairs, nil
+}
+
+// values checks each row of a key and value table, the first error naming
+// its row.
+func values(t *core.Table, check func(core.Pair) error) error {
+	pairs, err := t.Pairs()
+	if err != nil {
+		return err
+	}
+	for _, p := range pairs {
+		if err := check(p); err != nil {
+			return fmt.Errorf("%s: %w", p.Key, err)
+		}
+	}
+	return nil
 }
 
 // maxMatched is how many names a pattern is matched against.

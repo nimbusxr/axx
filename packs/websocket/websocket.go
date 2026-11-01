@@ -126,7 +126,8 @@ func steps() []core.StepDef {
 				"`within {duration}`.",
 			Table: &core.TableDoc{
 				Columns: []string{"path", "value"},
-				Note:    "Each row is a path into the message (a field name, a dotted path or a JSONPath) and the value it has, compared as text: `null` for null and `undefined` for absent.",
+				Note:    "Each row is a path into the message (a field name, a dotted path or a JSONPath) and the value it has there.",
+				Values:  core.JSONValues, Undefined: true,
 			},
 			Examples: []string{"Then within 20s the tracking websocket received a message where:\n  | reference | PX-LIV-5701      |\n  | status    | OUT_FOR_DELIVERY |"},
 			Run: func(sc *core.Scenario, a core.Args) error {
@@ -136,6 +137,9 @@ func steps() []core.StepDef {
 				}
 				rs, err := cloudstep.Conditions(a.Table)
 				if err != nil {
+					return err
+				}
+				if err := rs.Readable("", nil); err != nil {
 					return err
 				}
 				match := func(m cloudstep.Message) (bool, error) { return rs.MatchMessage(m, "") }

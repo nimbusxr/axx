@@ -380,10 +380,13 @@ func steps() []core.StepDef {
 			Expr: "[[within {duration} ]]the page shows a table row where:",
 			Doc: "Check that a table on the page has a row with those values in those columns. " +
 				"The check waits for it: 10 seconds, or `within {duration}`.",
-			Table:    &core.TableDoc{Columns: []string{"column", "value"}, Note: "Each row names a column, by its header, and the value the table's row has in it."},
+			Table: &core.TableDoc{
+				Columns: []string{"column", "value"}, Values: core.TextValues,
+				Note: "Each row names a column, by its header, and the value the table's row has in it.",
+			},
 			Examples: []string{"Then the page shows a table row where:\n  | Parcel | PX-WEB-5116 |\n  | Status | IN_TRANSIT  |"},
 			Run: check(func(sc *core.Scenario, s *session, a core.Args) error {
-				want, err := a.Table.Pairs()
+				want, err := cloudstep.TextPairs(a.Table)
 				if err != nil {
 					return err
 				}
@@ -454,11 +457,14 @@ func steps() []core.StepDef {
 			Expr: "the downloaded {string} file has a row where:",
 			Doc: "Check that the table of a file the browser downloaded has a row with those values in those columns: a CSV or TSV " +
 				"file, or an Excel workbook (.xlsx, its first sheet), whose first row names the columns.",
-			Table:    &core.TableDoc{Columns: []string{"column", "value"}, Note: "Each row names a column, as the file's first row names it, and the value the file's row has in it."},
+			Table: &core.TableDoc{
+				Columns: []string{"column", "value"}, Values: core.TextValues,
+				Note: "Each row names a column, as the file's first row names it, and the value the file's row has in it.",
+			},
 			Examples: []string{"Then the downloaded \"parcels-birch-and-bloom.csv\" file has a row where:\n  | Parcel | PX-WEB-5401 |\n  | Status | REGISTERED  |"},
 			Run: check(func(sc *core.Scenario, s *session, a core.Args) error {
 				name := text(sc, a, 0)
-				want, err := a.Table.Pairs()
+				want, err := cloudstep.TextPairs(a.Table)
 				if err != nil {
 					return err
 				}
