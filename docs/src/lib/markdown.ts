@@ -38,6 +38,12 @@ function absolutize(body: string): string {
 	return body.replace(/\]\(\/(?!\/)/g, `](${ROOT}/`);
 }
 
+/** The home page's twin starts with where an agent starts. */
+const AGENTS_START =
+	'> **Coding agents:** with axx installed, `axx --help` gives the workflow and the rules, and axx answers the rest itself, offline and for its version: ' +
+	'`axx pack list` (the packs and what each reaches), `axx steps search "<words>"` and `axx steps show <id>` (the steps), `axx explain <code>` (an error). ' +
+	`In a project that has run \`axx init\`, its AGENTS.md section has the same. [llms.txt](${ROOT}/llms.txt) indexes this site's Markdown.`;
+
 /** Whether a page is a pack's reference page (references/packs/<pack>). */
 export function isPackPage(id: string): boolean {
 	return /^references\/packs\/[^/]+$/.test(id);
@@ -107,6 +113,8 @@ export function toMarkdown(entry: CollectionEntry<'docs'>, full = false): string
 	const rooted = (link: string) => (/^[a-z]+:|^\//i.test(link) ? link : `/${link}`);
 	if (hero?.actions?.length) parts.push(hero.actions.map((a) => `- [${a.text}](${rooted(a.link)})`).join('\n'));
 	parts.push(`Source: ${ROOT}${entry.id === 'index' ? '/' : `/${entry.id}/`}`);
+	// An agent that lands here from a project's README: what axx tells it itself.
+	if (entry.id === 'index') parts.push(AGENTS_START);
 	parts.push((isPackPage(entry.id) && !full ? compactPackPage(body, entry.id) : body).trim());
 	return absolutize(parts.join('\n\n')) + '\n';
 }

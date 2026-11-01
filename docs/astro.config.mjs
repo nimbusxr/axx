@@ -331,7 +331,8 @@ export default defineConfig({
 					description:
 						'Axx (github.com/nimbusxr/axx, "axxeptance") is an open-source acceptance testing framework, the behavioral verification layer for agentic software factories: it verifies running systems black-box, against executable acceptance criteria written in Gherkin, across APIs, events, data, native apps and AI.',
 					details: [
-						'- Every page is also available as Markdown: append `.md` to its path (for example `https://axx.nimbusxr.us/tutorials/quickstart.md`).',
+						'- With axx installed, axx answers for itself, offline and for its version, in less than these pages take: `axx --help` (the workflow), `axx pack list` and `axx pack show <name>` (the packs and what each reaches), `axx steps search "<words>"` and `axx steps show <id>` (the steps), `axx explain <code>` (an error). Prefer them to this site.',
+						'- Every page is also available as Markdown: append `.md` to its path (for example `https://axx.nimbusxr.us/tutorials/quickstart.md`); a pack page\'s is its short form, `<page>.full.md` all of it.',
 						'- Never invent step text. Search the step index (`/references/step-index/`) or run `axx steps search "<intent>"`, then validate with `axx validate`.',
 						'- Agent skills: `/.well-known/agent-skills/index.json`. JSON Schema for axx.yaml: `/schemas/v0/axx.schema.json`.',
 						'- Axx is pre-release (v0.x): interfaces may change before v1.0.0.',
