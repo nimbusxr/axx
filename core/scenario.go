@@ -23,11 +23,17 @@ type ScenarioInfo struct {
 }
 
 // StepInfo is a step of a scenario: its keyword, its text and its line in
-// the feature file (the scenario's URI).
+// the feature file (the scenario's URI) and, once it matched, the step
+// definition it matched and the pack that registered it.
 type StepInfo struct {
 	Keyword string `json:"keyword"`
 	Text    string `json:"text"`
 	Line    int    `json:"line"`
+	// Pack is the key the matched definition's pack is registered under
+	// (rest, ./steps, a module path).
+	Pack string `json:"pack,omitempty"`
+	// Definition is the matched step definition's ID (StepDef.ID).
+	Definition string `json:"definition,omitempty"`
 }
 
 // Sink receives a scenario's logs and attachments. Hosts implement it.
