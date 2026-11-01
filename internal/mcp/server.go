@@ -41,13 +41,18 @@ import (
 
 // Instructions are sent to clients on connect, and stay in the agent's
 // context: only the conventions the tools' descriptions do not carry.
-const Instructions = `axx runs acceptance criteria, written as Gherkin features, against the project's services.
+const Instructions = `axx runs acceptance criteria, written as Gherkin scenarios, black-box against the project's services. It answers for itself: these tools need no website or source.
 
-Writing tests: steps_search without a query lists every step once; write one scenario per acceptance criterion with steps that exist, written out: each {name} replaced with a value, a(n) as "a" or "an" and row(s) as "row" or "rows", [[...]] kept without the brackets or left out; scenarios_run runs them and also reports what feature_validate and lint_run find; failure_context explains a failure. env {"action":"up"} keeps the services running between runs. With an axx host serving the project (.axx/host.json), steps_try gets services of its own from it when none are up, and scenarios_run ends them first: every run starts clean.
+1. Find steps: steps_search without a query lists every step of the project's packs, a line each; with words, the steps that fit, from the packs it lacks too (with the pack to add). step_explain with ids gives their documentation; steps_try tries steps in a live scenario.
+2. Write one scenario per acceptance criterion with those steps, written out: each {name} replaced with a value, a(n) as "a" or "an", row(s) as "row" or "rows", [[...]] kept without the brackets or left out.
+3. Check and fix: feature_validate (no services needed) and lint_run (the test-data rules), then scenarios_run; failure_context explains a failure. env {"action":"up"} keeps the services running between runs. With an axx host serving the project (.axx/host.json), steps_try gets services of its own from it, and scenarios_run ends them first.
+
+- A scenario is one behavior: Given the state it starts from (a request it needs done first is executed in a Given), one When, Then what is true afterwards. A request that checks the outcome is added with the others and executed in the When. A When after a Then is another scenario.
 - A scenario registers each service it uses before other steps use it ("the {word} service with the following properties:").
 - Requests, responses and selections are numbered in the order a scenario adds them; a step without an ordinal means the first.
 - Scenarios run in parallel and data persists: give every id, key and name a value of the scenario's own.
 - Check what a request did or why it was refused, not only its status code.`
+
 
 // Options configures the server.
 type Options struct {
@@ -100,12 +105,12 @@ func newServer(opts Options) (*sdk.Server, *server) {
 		s.stepExplain)
 	addTool(srv, &sdk.Tool{
 		Name: "feature_validate", Annotations: ro,
-		Description: "Check features without running them. scenarios_run reports the same problems, so a run needs no check first.",
+		Description: "Check features without running them or the services: undefined, ambiguous and misused steps, and the feature checks.",
 	},
 		s.featureValidate)
 	addTool(srv, &sdk.Tool{
 		Name: "lint_run", Annotations: ro,
-		Description: "axx lint: test-data values that collide across files, and the feature checks. scenarios_run reports them too.",
+		Description: "axx lint: the project's test-data rules (values that must stay unique across files) and the feature checks.",
 	},
 		s.lintRun)
 	addTool(srv, &sdk.Tool{
