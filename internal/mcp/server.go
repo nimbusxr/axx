@@ -242,10 +242,12 @@ type Step struct {
 	Arg      string   `json:"argument,omitempty"`
 	// Columns name the columns of the step's data table; the table may
 	// start with a row of these names (two columns or more) or not.
-	Columns  []string `json:"columns,omitempty"`
-	Doc      string   `json:"doc,omitempty"`
-	Examples []string `json:"examples,omitempty"`
-	Params   []string `json:"params,omitempty"`
+	Columns []string `json:"columns,omitempty"`
+	// TableNote says what the table's rows hold.
+	TableNote string   `json:"tableNote,omitempty"`
+	Doc       string   `json:"doc,omitempty"`
+	Examples  []string `json:"examples,omitempty"`
+	Params    []string `json:"params,omitempty"`
 	// Twin is the id of the step's form for a named service (`… on
 	// {service}`), folded into it.
 	Twin string `json:"twin,omitempty"`
@@ -416,12 +418,13 @@ func stepsOf(reg *match.Registry, pack string) []Step {
 			}
 		}
 		var columns []string
+		note := ""
 		if d.Step.Table != nil {
-			columns = d.Step.Table.Columns
+			columns, note = d.Step.Table.Columns, d.Step.Table.Note
 		}
 		out = append(out, Step{
 			ID: d.Step.ID, Pack: d.Pack, Expr: d.Step.Expr, Variants: variants[d], Arg: d.Step.Arg.String(),
-			Columns: columns, Doc: d.Step.Doc, Examples: d.Step.Examples, Params: params,
+			Columns: columns, TableNote: note, Doc: d.Step.Doc, Examples: d.Step.Examples, Params: params,
 		})
 	}
 	return out

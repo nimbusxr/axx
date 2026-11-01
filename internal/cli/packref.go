@@ -273,7 +273,7 @@ func stepInfosOf(reg *match.Registry, pack string) []StepInfo {
 			Arg: s.Arg.String(), Doc: s.Doc, Examples: s.Examples, Since: s.Since, Deprecated: s.DeprecatedBy,
 		}
 		if s.Table != nil {
-			info.Columns = s.Table.Columns
+			info.Columns, info.TableNote = s.Table.Columns, s.Table.Note
 		}
 		seen := map[string]bool{}
 		for _, n := range d.Names {

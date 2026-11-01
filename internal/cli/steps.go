@@ -26,8 +26,10 @@ type StepInfo struct {
 	Variants []string `json:"variants"`
 	Keyword  string   `json:"keyword,omitempty"`
 	Arg      string   `json:"arg"`
-	// Columns name the columns of the step's data table, when it has one.
+	// Columns name the columns of the step's data table, when it has one;
+	// TableNote says what its rows hold.
 	Columns    []string    `json:"columns,omitempty"`
+	TableNote  string      `json:"tableNote,omitempty"`
 	Doc        string      `json:"doc,omitempty"`
 	Examples   []string    `json:"examples,omitempty"`
 	Params     []ParamInfo `json:"params,omitempty"`
@@ -406,6 +408,9 @@ func renderStepCompact(w io.Writer, s StepInfo) error {
 	if len(s.Columns) > 0 {
 		fmt.Fprintf(&b, "table: | %s |\n", strings.Join(s.Columns, " | "))
 	}
+	if s.TableNote != "" {
+		fmt.Fprintf(&b, "%s\n", s.TableNote)
+	}
 	for _, p := range s.Params {
 		fmt.Fprintf(&b, "{%s}: %s\n", p.Name, p.Doc)
 	}
@@ -438,6 +443,9 @@ func renderStep(w io.Writer, s StepInfo) error {
 		fmt.Fprintf(w, "\nTable columns: | %s |\n  (the table may start with a row of these names, or go straight to its rows)\n", strings.Join(s.Columns, " | "))
 	case len(s.Columns) == 1:
 		fmt.Fprintf(w, "\nTable column: | %s |\n", s.Columns[0])
+	}
+	if s.TableNote != "" {
+		fmt.Fprintf(w, "  %s\n", s.TableNote)
 	}
 	if len(s.Params) > 0 {
 		fmt.Fprintln(w, "\nParameters:")
