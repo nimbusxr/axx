@@ -141,13 +141,16 @@ and Azure services: a project lists those it uses in axx-packs.yaml, beside pack
 of its own steps.
 
 Writing tests:
+  axx pack list            axx's packs and what each reaches; axx pack show <name> for one
   axx steps                every step of the project's packs, one line each
+  axx steps search <words> steps by what they do, in any of axx's packs
   axx steps show <id>      one step's documentation and examples
   axx up                   start the services once and keep them running
   axx run --compact        run the features; also reports what validate and lint find
   (axx validate checks the features without running them)
 
-Docs: https://axx.nimbusxr.us (every page as Markdown: add .md to its path; llms.txt lists them)
+These answer offline, for this axx's version: packs a project has not added
+included. Docs for people: https://axx.nimbusxr.us
 
 ` + Identity,
 		SilenceUsage:  true,

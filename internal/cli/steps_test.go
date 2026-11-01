@@ -211,3 +211,64 @@ func TestStepsShowSeveralIDs(t *testing.T) {
 		t.Errorf("a step line: exit %d\n%s%s", code, out, stderr)
 	}
 }
+
+// The packs a project does not use answer from axx's reference of its packs,
+// offline: their steps, what they reach, and how to add them.
+func TestPacksTheProjectDoesNotUse(t *testing.T) {
+	restProject(t)
+	for _, c := range []struct {
+		args      []string
+		want, not []string
+		wantCode  exitcode.Code
+	}{
+		{args: []string{"steps", "--pack", "kafka"}, want: []string{"the kafka pack is not in this project: `axx pack add kafka` adds it", "kafka.consumed.key"}},
+		{args: []string{"steps", "search", "kafka event key"}, want: []string{"in axx's packs this project does not use", "kafka.event.key"}, not: []string{"rest.request.webhook"}},
+		{args: []string{"steps", "search", "response status"}, want: []string{"rest.response.status"}, not: []string{"this project does not use"}},
+		{args: []string{"steps", "show", "kafka.consumed.key"}, want: []string{"Examples:", "`axx pack add kafka`"}},
+		{args: []string{"steps", "show", "Then the parcel-events kafka event named registered key is PX-1"}, want: []string{"kafka.consumed.key", "`axx pack add kafka`"}},
+		{args: []string{"pack", "show", "sql"}, want: []string{"SQL Server", "sql.select", "`axx pack add sql`"}},
+		{args: []string{"pack", "list"}, want: []string{"this project's packs", "rest ", "sql ", "PostgreSQL, MySQL"}},
+		{args: []string{"pack", "show", "oracle"}, want: []string{}, wantCode: exitcode.Usage},
+	} {
+		out, stderr, code := run(t, c.args...)
+		if code != int(c.wantCode) {
+			t.Errorf("axx %s: exit %d, want %d\n%s%s", strings.Join(c.args, " "), code, c.wantCode, out, stderr)
+			continue
+		}
+		for _, w := range c.want {
+			if !strings.Contains(out, w) {
+				t.Errorf("axx %s lacks %q:\n%s", strings.Join(c.args, " "), w, out)
+			}
+		}
+		for _, n := range c.not {
+			if strings.Contains(out, n) {
+				t.Errorf("axx %s has %q:\n%s", strings.Join(c.args, " "), n, out)
+			}
+		}
+	}
+}
+
+// A step of a pack the project does not use names that pack.
+func TestUndefinedStepNamesItsPack(t *testing.T) {
+	restProject(t)
+	writeFiles(t, ".", map[string]string{"features/events.feature": `Feature: Events
+  Scenario: A registration is announced
+    Then the parcel-events kafka event named registered key is PX-1
+`})
+	out, _, code := run(t, "validate")
+	if code != int(exitcode.Undefined) || !strings.Contains(out, "this is kafka.consumed.key of the kafka pack, which this project does not use: `axx pack add kafka`") {
+		t.Errorf("validate: exit %d\n%s", code, out)
+	}
+}
+
+// A project without packs gets axx's packs and what they reach, not an
+// empty list.
+func TestStepsWithoutPacksListsAxxsPacks(t *testing.T) {
+	dir := t.TempDir()
+	t.Chdir(dir)
+	writeFiles(t, dir, map[string]string{"axx.yaml": "version: 1\n"})
+	out, _, code := run(t, "steps")
+	if code != int(exitcode.OK) || !strings.Contains(out, "this project uses no packs yet") || !strings.Contains(out, "Kafka events") {
+		t.Errorf("steps: exit %d\n%s", code, out)
+	}
+}

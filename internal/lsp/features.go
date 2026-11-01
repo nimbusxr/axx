@@ -23,7 +23,9 @@ func (d *document) hoverAt(reg *match.Registry, pos position) *hover {
 	switch len(ms) {
 	case 0:
 		b.WriteString("**Undefined step.** No step matches this text.")
-		if sugg := reg.Suggest(d.matchText(st), 3); len(sugg) > 0 {
+		if sugg := reg.Suggest(d.matchText(st), 3); len(sugg) == 1 && sugg[0].Pack != "" {
+			b.WriteString("\n\n" + sugg[0].Missing())
+		} else if len(sugg) > 0 {
 			b.WriteString("\n\nDid you mean:\n")
 			for _, s := range sugg {
 				fmt.Fprintf(&b, "\n- `%s`", s.Expr)

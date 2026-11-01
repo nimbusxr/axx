@@ -191,6 +191,39 @@ func Search(steps []Step, q string) (results []Result, strong bool) {
 	return results, strong
 }
 
+// Elsewhere compares q's results among others, the steps of packs a project
+// does not use, with its results among mine, the project's steps. better
+// marks (by index) the others that read like q better than any of mine;
+// outclassed reports that the best limit of the others all do, which leaves
+// the project's results beside the point: "kafka event key" in a project
+// without kafka.
+func Elsewhere(mine, others []Step, q string, limit int) (better map[int]bool, outclassed bool) {
+	mineResults, mineStrong := Search(mine, q)
+	best := 0
+	for _, r := range mineResults {
+		if r.Strong {
+			best = max(best, r.Score)
+		}
+	}
+	otherResults, strong := Search(others, q)
+	if !strong {
+		return nil, false
+	}
+	better = map[int]bool{}
+	outclassed = true
+	for n, r := range otherResults {
+		if !r.Strong || n == limit {
+			break
+		}
+		if !mineStrong || r.Score > best {
+			better[r.Index] = true
+		} else {
+			outclassed = false
+		}
+	}
+	return better, outclassed && len(better) > 0
+}
+
 // markers are the words that mark a pack's steps: in nearly all of its
 // steps' expressions and few of the others' ("mocked", "kafka").
 func markers(steps []Step) map[string][]string {

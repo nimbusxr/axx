@@ -321,7 +321,9 @@ func problemMessage(pr check.Problem, outline bool) string {
 		if outline {
 			fmt.Fprintf(&b, " With example values it reads %q.", pr.Text)
 		}
-		if len(pr.Suggestions) > 0 {
+		if len(pr.Suggestions) == 1 && pr.Suggestions[0].Pack != "" {
+			b.WriteString("\n" + pr.Suggestions[0].Missing())
+		} else if len(pr.Suggestions) > 0 {
 			b.WriteString("\nDid you mean:")
 			for _, s := range pr.Suggestions {
 				b.WriteString("\n  " + s.Expr)

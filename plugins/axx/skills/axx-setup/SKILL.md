@@ -10,7 +10,7 @@ license: Apache-2.0
 
 ```sh
 axx init            # axx.yaml, axx-packs.yaml, features/smoke/smoke.feature, .github/workflows/acceptance.yml, AGENTS.md section, .gitignore, .gitattributes, agents
-axx pack add sql    # the packs whose steps the project uses (init lists rest); `axx pack list` shows them all
+axx pack add sql    # the packs whose steps the project uses (init lists rest); `axx pack list` shows them all and what each reaches, `axx pack show <name>` one's steps
 axx doctor          # verify: config, services' commands, docker, features
 ```
 

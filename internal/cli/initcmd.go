@@ -138,8 +138,10 @@ axx (github.com/nimbusxr/axx, "axxeptance") verifies running software against ex
   status codes.
 - ` + "`services:`" + ` in axx.yaml are what runs on its own, reached by an address; a program its user starts (a CLI, an
   MCP server over stdio) is run by its step's ` + "`command`" + `, as its user would, and is not a service.
-- Steps come from the packs in ` + "`axx-packs.yaml`" + ` (` + "`axx pack list`" + `, ` + "`axx pack add <name>`" + `). Configuration is in
-  ` + "`axx.yaml`" + ` (` + "`axx schema --outline`" + ` lists its keys); features in ` + "`features/`" + `.
+- Steps come from the packs in ` + "`axx-packs.yaml`" + `: ` + "`axx pack list`" + ` shows axx's packs and what each reaches,
+  ` + "`axx pack show <name>`" + ` one's settings and steps, added or not, and ` + "`axx pack add <name>`" + ` adds it. axx answers
+  offline, for its own version: no need for its website or source. Configuration is in ` + "`axx.yaml`" + `
+  (` + "`axx schema --outline`" + ` lists its keys); features in ` + "`features/`" + `.
 - Repeating payloads, seeds or mock bodies: fixture factories generate them (` + "`axx fixtures`" + `;
   optional, strongly recommended where data repeats); ` + "`axx fixtures adopt`" + ` turns hand-written ones into one.
 ` + agentsEnd + "\n"

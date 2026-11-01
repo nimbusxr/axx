@@ -89,7 +89,7 @@ func init() {
 		"Add the server yourself: the hint shows the lines to add. Or fix the file and run the command again.")
 	add("AXX-E0014", u, "No packs to document",
 		"`axx docs export` found no packs to document: it was run outside an axx project with an axx that has no packs built in, or in a project that lists no packs.",
-		"Run it in your project's directory (where axx.yaml is); axx's own packs are documented at https://axx.nimbusxr.us/references/packs/. A project adds its packs with `axx pack add`.")
+		"Run it in your project's directory (where axx.yaml is); `axx pack list` lists axx's own packs and `axx pack show <name>` gives one. A project adds its packs with `axx pack add`.")
 	add("AXX-E0015", u, "No packs for the skills",
 		"`axx skills install` writes the skills with the steps of the project's packs, and the project lists none: it has no `axx-packs.yaml` yet, or the file lists no packs.",
 		"Run `axx init` to set the project up: it installs the skills too. A project that is set up adds the packs its steps come from with `axx pack add`. `axx skills install --scope user` installs the skills for every project, with every pack axx publishes.")

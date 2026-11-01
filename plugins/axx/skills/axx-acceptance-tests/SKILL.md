@@ -12,7 +12,8 @@ axx runs Gherkin scenarios black-box against services built locally.
 
 ```
 - [ ] axx steps: read every step of the project's packs, a line each, once
-      (axx steps show <id>... gives steps' documentation and examples, several at once)
+      (axx steps show <id>... gives steps' documentation and examples, several at once;
+      axx steps search <words> also finds steps of axx's packs the project lacks, with the pack to add)
 - [ ] Write one scenario per acceptance criterion with steps that exist, written
       out: each {parameter} replaced with a value, a(n) as "a" or "an", row(s) as
       "row" or "rows", [[...]] kept without the brackets or left out

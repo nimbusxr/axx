@@ -64,6 +64,8 @@ type Registry struct {
 	byID     map[string]*Def
 
 	cache sync.Map // text -> []Match
+	// elsewhere finds undefined texts in packs the registry does not hold.
+	elsewhere Elsewhere
 }
 
 // NewRegistry returns a registry containing Cucumber's built-in parameter

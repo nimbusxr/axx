@@ -6,6 +6,7 @@ package core
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"strings"
 	"time"
 )
@@ -145,6 +146,18 @@ func (k ArgKind) String() string {
 
 // MarshalText implements encoding.TextMarshaler.
 func (k ArgKind) MarshalText() ([]byte, error) { return []byte(k.String()), nil }
+
+// UnmarshalText implements encoding.TextUnmarshaler: the names MarshalText
+// writes.
+func (k *ArgKind) UnmarshalText(b []byte) error {
+	for _, c := range []ArgKind{ArgNone, ArgTable, ArgDocString, ArgOptional} {
+		if c.String() == string(b) {
+			*k = c
+			return nil
+		}
+	}
+	return fmt.Errorf("unknown step argument kind %q", b)
+}
 
 // StepFunc executes a step. Returning an *AssertionError (see Fail) marks the
 // step failed with expected/actual values; any other error marks it errored.

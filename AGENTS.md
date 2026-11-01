@@ -154,6 +154,10 @@ the skills instead: `axx skills install`.
   commands run), asking in its terminal or the editor that started it (`--ide`), never over the port.
 - `internal/packbuild`, `internal/gotool`: axx builds itself with the packs a project lists in
   `axx-packs.yaml`, using a Go toolchain it downloads itself.
+- `internal/packref`: what axx knows of every pack it publishes, whether a project uses it or not
+  (what it reaches, its settings, parameter types and steps): data `go generate` writes from the
+  packs (`packs.json`), built into the core, so `axx pack list|show`, `axx steps` and the MCP
+  server answer for packs not added yet, offline, and an undefined step names its pack.
 - `packs/all` and `internal/tools/axxall`: axx with every pack, for generated docs, skills and
   tests.
 - `internal/compat`: the value semantics steps follow (Jayway JSONPath, Java regex, Java number
@@ -175,7 +179,8 @@ the skills instead: `axx skills install`.
 - Exit codes (`internal/exitcode`) and the `--json` envelope are frozen contracts (ADR 0003).
 - Every user-facing error is an `*axxerr.Error` with a stable `AXX-Exxxx` code and a hint.
 - Never hand-edit generated files: `go generate ./...` writes the `axx.yaml` schema
-  (`internal/config/axx.schema.json`) and the skills (`plugins/axx/skills`), and the docs site's
+  (`internal/config/axx.schema.json`), the skills (`plugins/axx/skills`) and the packs' reference
+  (`internal/packref/packs.json`), and the docs site's
   build writes the reference (`docs/scripts/gen.mjs`, from `axx docs export`).
 - The docs site's root is the latest release's docs, built from its tag (or from `docs-<tag>`,
   the release with changes to `docs/` only, when there is one); main's are at `/next/`.

@@ -13,6 +13,7 @@ import (
 	"github.com/nimbusxr/axx/internal/engine"
 	"github.com/nimbusxr/axx/internal/exitcode"
 	"github.com/nimbusxr/axx/internal/match"
+	"github.com/nimbusxr/axx/internal/packref"
 	"github.com/nimbusxr/axx/internal/packset"
 	"github.com/nimbusxr/axx/internal/stepsearch"
 )
@@ -40,39 +41,7 @@ type ParamInfo struct {
 	Doc  string `json:"doc,omitempty"`
 }
 
-func stepInfos(e *engine.Engine, pack string) []StepInfo {
-	variants := map[*match.Def][]string{}
-	for _, v := range e.Registry.Variants() {
-		variants[v.Def] = append(variants[v.Def], v.Expr)
-	}
-	params := map[string]string{}
-	for _, p := range e.Registry.Params() {
-		params[p.Type.Name] = p.Type.Doc
-	}
-	var out []StepInfo
-	for _, d := range e.Registry.Defs() {
-		if pack != "" && d.Pack != pack {
-			continue
-		}
-		s := d.Step
-		info := StepInfo{
-			ID: s.ID, Pack: d.Pack, Expr: s.Expr, Variants: variants[d], Keyword: s.Keyword,
-			Arg: s.Arg.String(), Doc: s.Doc, Examples: s.Examples, Since: s.Since, Deprecated: s.DeprecatedBy,
-		}
-		if s.Table != nil {
-			info.Columns = s.Table.Columns
-		}
-		seen := map[string]bool{}
-		for _, n := range d.Names {
-			if !seen[n] {
-				seen[n] = true
-				info.Params = append(info.Params, ParamInfo{Name: n, Doc: params[n]})
-			}
-		}
-		out = append(out, info)
-	}
-	return out
-}
+func stepInfos(e *engine.Engine, pack string) []StepInfo { return stepInfosOf(e.Registry, pack) }
 
 func newStepsCmd(app *App) *cobra.Command {
 	var cf configFlags
@@ -96,7 +65,25 @@ Agents: search before writing a feature, and never invent step text.`,
 			return err
 		}
 		infos := stepInfos(e, pack)
-		app.hintNoPacks(e)
+		// A pack the project does not use: its steps, from axx's reference.
+		if pack != "" && len(infos) == 0 {
+			if _, ok := packref.Lookup(pack); ok {
+				infos = otherInfos(e, pack)
+				return app.Emit(map[string]any{"steps": infos, "count": len(infos), "notInProject": pack}, func(w io.Writer) error {
+					fmt.Fprintf(w, "%s\n\n", notInProject(pack))
+					return renderStepList(w, infos)
+				})
+			}
+		}
+		// No packs yet: which packs there are, and how to see their steps.
+		if pack == "" && len(infos) == 0 {
+			return app.Emit(map[string]any{"steps": infos, "count": 0, "packs": packset.Catalog}, func(w io.Writer) error {
+				fmt.Fprintln(w, "this project uses no packs yet, so it has no steps. axx's packs (`axx pack show <name>`: what one reaches, its settings and steps; `axx pack add <name>` adds it):")
+				fmt.Fprintln(w)
+				renderPackMap(w, nil)
+				return nil
+			})
+		}
 		return app.Emit(map[string]any{"steps": infos, "count": len(infos)}, func(w io.Writer) error {
 			return renderStepList(w, infos)
 		})
@@ -122,19 +109,36 @@ Agents: search before writing a feature, and never invent step text.`,
 			}
 			q := strings.Join(args, " ")
 			results, strong := searchSteps(stepInfos(e, pack), q, 10)
-			if len(results) == 0 {
-				app.hintNoPacks(e)
+			// The steps of axx's other packs that read like q better than the
+			// project's do, with the pack to add.
+			others, outclassed := betterElsewhere(stepInfos(e, pack), otherInfos(e, pack), q, 6)
+			if outclassed {
+				results = nil
 			}
-			return app.Emit(map[string]any{"query": q, "steps": results}, func(w io.Writer) error {
+			out := map[string]any{"query": q, "steps": results}
+			if len(others) > 0 {
+				out["otherPacks"] = others
+			}
+			return app.Emit(out, func(w io.Writer) error {
 				switch {
+				case len(results) == 0 && len(others) > 0:
+					fmt.Fprintf(w, "no step of this project's packs reads like %q\n", q)
 				case len(results) == 0:
-					_, err := fmt.Fprintf(w, "no step reads like %q; try other words, or `axx steps` for every step\n", q)
+					_, err := fmt.Fprintf(w, "no step reads like %q; try other words, `axx steps` for every step, or `axx pack list` for axx's packs\n", q)
 					return err
 				case !strong:
 					fmt.Fprintf(w, "no step reads like %q; these only mention it in their documentation (`axx steps` lists every step):\n\n", q)
 				}
-				if err := renderStepList(w, results); err != nil {
-					return err
+				if len(results) > 0 {
+					if err := renderSteps(w, results, len(others) == 0); err != nil {
+						return err
+					}
+				}
+				if len(others) > 0 {
+					fmt.Fprintf(w, "\nin axx's packs this project does not use (`axx pack add <pack>` adds one):\n\n")
+					if err := renderStepList(w, others); err != nil {
+						return err
+					}
 				}
 				_, err := fmt.Fprintln(w, "\n`axx steps show <id>` gives a step's documentation and examples")
 				return err
@@ -174,6 +178,16 @@ ids show each of their steps.`,
 			q := strings.Join(args, " ")
 			s, err := findStep(e, infos, q)
 			if err != nil {
+				// A step of a pack the project does not use.
+				if o, ok := findOther(e, q); ok {
+					return app.Emit(map[string]any{"step": o, "notInProject": o.Pack}, func(w io.Writer) error {
+						if err := renderStep(w, o); err != nil {
+							return err
+						}
+						_, err := fmt.Fprintf(w, "\n%s\n", notInProject(o.Pack))
+						return err
+					})
+				}
 				return err
 			}
 			return app.Emit(s, func(w io.Writer) error { return renderStep(w, s) })
@@ -320,8 +334,13 @@ func searchSteps(infos []StepInfo, q string, limit int) (out []StepInfo, strong 
 }
 
 // renderStepList lists steps one line each, by pack: the id, the expression
-// and the table's columns, each named-service twin folded into its step.
-func renderStepList(w io.Writer, infos []StepInfo) error {
+// and the table's columns, each named-service twin folded into its step;
+// then how to read them.
+func renderStepList(w io.Writer, infos []StepInfo) error { return renderSteps(w, infos, true) }
+
+// renderSteps lists steps as renderStepList does, and how to read them when
+// notation is set.
+func renderSteps(w io.Writer, infos []StepInfo, notation bool) error {
 	entries := make([]stepsearch.Entry, len(infos))
 	for i, s := range infos {
 		entries[i] = stepsearch.Entry{ID: s.ID, Pack: s.Pack, Expr: s.Expr, Arg: s.Arg, Columns: s.Columns}
@@ -347,6 +366,9 @@ func renderStepList(w io.Writer, infos []StepInfo) error {
 			}
 			fmt.Fprintf(w, "  %-34s %s%s%s\n", s.ID, s.Expr, s.Tail(), mark)
 		}
+	}
+	if !notation {
+		return nil
 	}
 	if len(twinned) > 0 {
 		fmt.Fprintf(w, "\n%s\n", stepsearch.TwinLegend)

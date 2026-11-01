@@ -33,6 +33,7 @@ import (
 	"github.com/nimbusxr/axx/internal/lifecycle"
 	"github.com/nimbusxr/axx/internal/lint"
 	"github.com/nimbusxr/axx/internal/match"
+	"github.com/nimbusxr/axx/internal/packref"
 	"github.com/nimbusxr/axx/internal/packset"
 	"github.com/nimbusxr/axx/internal/stepsearch"
 	"github.com/nimbusxr/axx/internal/version"
@@ -255,6 +256,11 @@ type Step struct {
 
 type stepsSearchOut struct {
 	Steps []Step `json:"steps,omitempty"`
+	// OtherPacks are steps of axx's packs the project does not use that read
+	// like the query better than its own: `axx pack add <pack>` adds one.
+	OtherPacks []Step `json:"otherPacks,omitempty"`
+	// Packs lists axx's packs, one line each, when the project uses none.
+	Packs string `json:"packs,omitempty"`
 	// Catalog lists every step, one line each, when the query is empty.
 	Catalog string `json:"catalog,omitempty"`
 	Hint    string `json:"hint,omitempty"`
@@ -266,21 +272,51 @@ func (s *server) stepsSearch(ctx context.Context, _ *sdk.CallToolRequest, in ste
 		return nil, stepsSearchOut{}, err
 	}
 	all := allSteps(e, in.Pack)
+	hint := "every step, one line each; step_explain {id} gives one step's documentation and examples"
+	// A pack the project does not use: its steps, from axx's reference.
+	if in.Pack != "" && len(all) == 0 {
+		if _, ok := packref.Lookup(in.Pack); ok {
+			all = otherSteps(e, in.Pack)
+			hint = fmt.Sprintf("the %s pack is not in this project: `axx pack add %s` adds it. ", in.Pack, in.Pack) + hint
+		}
+	}
 	if strings.TrimSpace(in.Query) == "" {
+		if len(all) == 0 && in.Pack == "" {
+			return nil, stepsSearchOut{
+				Packs: packMap(),
+				Hint:  "this project uses no packs yet, so it has no steps: `axx pack add <name>` adds one; steps_search {pack} lists a pack's steps before it is added",
+			}, nil
+		}
 		entries := make([]stepsearch.Entry, len(all))
 		for i, st := range all {
 			entries[i] = stepsearch.Entry{ID: st.ID, Pack: st.Pack, Expr: st.Expr, Arg: st.Arg, Columns: st.Columns}
 		}
-		return nil, stepsSearchOut{
-			Catalog: stepsearch.Catalog(entries),
-			Hint:    "every step, one line each; step_explain {id} gives one step's documentation and examples",
-		}, nil
+		return nil, stepsSearchOut{Catalog: stepsearch.Catalog(entries), Hint: hint}, nil
 	}
 	limit := in.Limit
 	if limit <= 0 {
 		limit = 6
 	}
 	found, strong := searchSteps(all, in.Query)
+	// The steps of axx's other packs that read like the query better than
+	// the project's do, with the pack to add.
+	var others []Step
+	if in.Pack == "" {
+		rest := otherSteps(e, "")
+		better, outclassed := stepsearch.Elsewhere(searchDocs(all), searchDocs(rest), in.Query, limit)
+		var keep []Step
+		for i, st := range rest {
+			if better[i] {
+				keep = append(keep, st)
+			}
+		}
+		if others, _ = searchSteps(keep, in.Query); len(others) > limit {
+			others = others[:limit]
+		}
+		if outclassed {
+			found, strong = nil, false
+		}
+	}
 	out := stepsSearchOut{}
 	// Every result stays in the agent's context, so it carries what picking
 	// a step takes and no more: no documentation (step_explain has it), one
@@ -304,7 +340,16 @@ func (s *server) stepsSearch(ctx context.Context, _ *sdk.CallToolRequest, in ste
 		out.Steps = append(out.Steps, st)
 	}
 	s.shownMu.Unlock()
+	for _, st := range others {
+		st.Doc, st.Variants, st.Params = "", nil, nil
+		if len(st.Examples) > 1 {
+			st.Examples = st.Examples[:1]
+		}
+		out.OtherPacks = append(out.OtherPacks, st)
+	}
 	switch {
+	case len(found) == 0 && len(others) > 0:
+		out.Hint = "no step of this project's packs reads like that; otherPacks are steps of axx's packs it does not use: `axx pack add <pack>` adds one"
 	case len(found) == 0:
 		out.Hint = "no step reads like that; try other words, or call without a query for the catalog of every step"
 	case !strong:
@@ -318,13 +363,47 @@ func (s *server) stepsSearch(ctx context.Context, _ *sdk.CallToolRequest, in ste
 	return nil, out, nil
 }
 
-func allSteps(e *engine.Engine, pack string) []Step {
+func allSteps(e *engine.Engine, pack string) []Step { return stepsOf(e.Registry, pack) }
+
+// otherSteps lists the steps of axx's packs the project does not use, from
+// axx's reference of its packs (internal/packref): of the one named, or of
+// all of them when pack is "".
+func otherSteps(e *engine.Engine, pack string) []Step {
+	loaded := map[string]bool{}
+	for _, p := range e.Packs {
+		loaded[p.Name] = true
+	}
+	var names []string
+	for _, n := range packref.Names() {
+		if !loaded[n] && (pack == "" || n == pack) {
+			names = append(names, n)
+		}
+	}
+	if len(names) == 0 {
+		return nil
+	}
+	reg, err := packref.Registry(names...)
+	if err != nil {
+		return nil
+	}
+	var out []Step
+	for _, st := range stepsOf(reg, pack) {
+		if !loaded[st.Pack] {
+			out = append(out, st)
+		}
+	}
+	return out
+}
+
+// stepsOf describes the steps of a registry: of the pack named, or all of
+// them when pack is "".
+func stepsOf(reg *match.Registry, pack string) []Step {
 	variants := map[*match.Def][]string{}
-	for _, v := range e.Registry.Variants() {
+	for _, v := range reg.Variants() {
 		variants[v.Def] = append(variants[v.Def], v.Expr)
 	}
 	var out []Step
-	for _, d := range e.Registry.Defs() {
+	for _, d := range reg.Defs() {
 		if pack != "" && d.Pack != pack {
 			continue
 		}
@@ -380,6 +459,23 @@ func searchSteps(all []Step, q string) ([]Step, bool) {
 	return out, strong
 }
 
+func searchDocs(all []Step) []stepsearch.Step {
+	docs := make([]stepsearch.Step, len(all))
+	for i, st := range all {
+		docs[i] = stepsearch.Step{ID: st.ID, Pack: st.Pack, Expr: st.Expr, Doc: st.Doc}
+	}
+	return docs
+}
+
+// packMap lists axx's packs, one line each, with what they reach.
+func packMap() string {
+	var b strings.Builder
+	for _, p := range packset.Catalog {
+		fmt.Fprintf(&b, "%s: %s\n", p.Name, p.Summary)
+	}
+	return b.String()
+}
+
 // ---- step_explain ----
 
 type stepExplainIn struct {
@@ -416,6 +512,9 @@ func (s *server) stepExplain(ctx context.Context, _ *sdk.CallToolRequest, in ste
 	var out stepExplainOut
 	if len(in.IDs) > 0 {
 		byID := map[string]Step{}
+		for _, st := range otherSteps(e, "") {
+			byID[st.ID] = st
+		}
 		for _, st := range allSteps(e, "") {
 			byID[st.ID] = st
 		}
@@ -440,6 +539,15 @@ func (s *server) stepExplain(ctx context.Context, _ *sdk.CallToolRequest, in ste
 				return nil, out, nil
 			}
 		}
+		// A step of a pack the project does not use.
+		for _, st := range otherSteps(e, "") {
+			if st.ID == id {
+				st := st
+				out.Status, out.Step = "undefined", &st
+				out.Suggestions = []string{fmt.Sprintf("this is %s of the %s pack, which this project does not use: `axx pack add %s`", st.ID, st.Pack, st.Pack)}
+				return nil, out, nil
+			}
+		}
 		out.Status = "undefined"
 		found, _ := searchSteps(allSteps(e, ""), strings.ReplaceAll(id, ".", " "))
 		for _, st := range found[:min(3, len(found))] {
@@ -456,6 +564,10 @@ func (s *server) stepExplain(ctx context.Context, _ *sdk.CallToolRequest, in ste
 	case 0:
 		out.Status = "undefined"
 		for _, sg := range e.Registry.Suggest(text, 5) {
+			if m := sg.Missing(); m != "" {
+				out.Suggestions = append(out.Suggestions, m)
+				continue
+			}
 			out.Suggestions = append(out.Suggestions, sg.Expr)
 		}
 	case 1:

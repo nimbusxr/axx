@@ -221,7 +221,7 @@ func validate(doc []byte, sources []source) error {
 	sort.SliceStable(issues, func(a, b int) bool { return issues[a].Line < issues[b].Line })
 	inv := &InvalidError{Issues: issues}
 	return axxerr.Wrap(inv, CodeInvalid, exitcode.Usage, "invalid configuration (%d problem%s)", len(issues), plural(len(issues))).
-		WithHint("see %s or run `axx schema` for the full schema", "https://axx.nimbusxr.us/references/config/")
+		WithHint("`axx schema --outline` lists axx.yaml's keys, and `axx schema` gives the full schema")
 }
 
 var printer = message.NewPrinter(language.English)

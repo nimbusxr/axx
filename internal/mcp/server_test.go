@@ -338,3 +338,32 @@ func TestFailureContextOfTheLatestRun(t *testing.T) {
 		t.Errorf("a run of two failures lists them: %s", b)
 	}
 }
+
+// steps_search and step_explain answer for axx's packs the project does not
+// use, from axx's reference of its packs, with the pack to add.
+func TestStepsOfPacksTheProjectDoesNotUse(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "axx.yaml"), []byte("version: 1\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "axx-packs.yaml"), []byte("packs: [rest]\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cs := session(t, dir)
+	out := call(t, cs, "steps_search", map[string]any{"query": "kafka event key"})
+	others, _ := out["otherPacks"].([]any)
+	if len(others) == 0 || others[0].(map[string]any)["id"] != "kafka.event.key" || out["steps"] != nil {
+		t.Fatalf("steps_search kafka: %v", out)
+	}
+	if hint, _ := out["hint"].(string); !strings.Contains(hint, "axx pack add") {
+		t.Errorf("hint: %q", hint)
+	}
+	out = call(t, cs, "steps_search", map[string]any{"pack": "sql"})
+	if cat, _ := out["catalog"].(string); !strings.Contains(cat, "sql.select.poll") || !strings.Contains(out["hint"].(string), "`axx pack add sql`") {
+		t.Errorf("steps_search sql: %v", out)
+	}
+	out = call(t, cs, "step_explain", map[string]any{"line": "Then the parcel-events kafka event named registered key is PX-1"})
+	if s := fmt.Sprint(out["suggestions"]); !strings.Contains(s, "`axx pack add kafka`") {
+		t.Errorf("step_explain: %v", out)
+	}
+}

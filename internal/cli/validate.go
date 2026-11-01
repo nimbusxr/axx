@@ -110,6 +110,10 @@ func renderValidation(w io.Writer, rep ValidationReport) error {
 			fmt.Fprintf(w, "  %s\n", p.Message)
 		}
 		for _, s := range p.Suggestions {
+			if m := s.Missing(); m != "" {
+				fmt.Fprintf(w, "  %s\n", m)
+				continue
+			}
 			fmt.Fprintf(w, "  did you mean: %s\n", s.Expr)
 		}
 		for _, c := range p.Candidates {

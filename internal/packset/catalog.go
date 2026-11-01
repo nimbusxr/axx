@@ -23,7 +23,7 @@ var Catalog = []Pack{
 	{Name: "graphql", Import: packs + "graphql", Summary: "GraphQL queries, mutations and subscriptions, of a federated graph or a subgraph, checked against the schema"},
 	{Name: "mcp", Import: packs + "mcp", Summary: "MCP servers, over stdio or HTTP: their tools, checked against the tools' schemas, their resources and prompts"},
 	{Name: "a2a", Import: packs + "a2a", Summary: "A2A agents: the messages sent and streamed to them, and the tasks they run, with their states and artifacts"},
-	{Name: "sql", Import: packs + "sql", Summary: "SQL databases: seeds, selections, locks, triggers"},
+	{Name: "sql", Import: packs + "sql", Summary: "SQL databases (PostgreSQL, MySQL, MariaDB, SQL Server, SQLite): seeds, selections, locks, triggers"},
 	{Name: "mongo", Import: packs + "mongo", Summary: "MongoDB: seeds and selections"},
 	{Name: "redis", Import: packs + "redis", Summary: "Redis and its forks (Valkey, Dragonfly, KeyDB, Garnet): seeds and keys"},
 	{Name: "kafka", Import: packs + "kafka", Summary: "Kafka events, Avro and the Schema Registry"},

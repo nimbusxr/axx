@@ -119,7 +119,11 @@ func (a *App) reportError(err error) exitcode.Code {
 	if ee.Hint != "" {
 		fmt.Fprintf(a.Stderr, "  hint: %s\n", ee.Hint)
 	}
-	if ee.Docs != "" {
+	switch {
+	case ee.Docs != "" && a.Compact:
+		// The same page, offline and at this axx's version.
+		fmt.Fprintf(a.Stderr, "  more: `axx explain %s`\n", ee.Code)
+	case ee.Docs != "":
 		fmt.Fprintf(a.Stderr, "  docs: %s\n", ee.Docs)
 	}
 	return code
