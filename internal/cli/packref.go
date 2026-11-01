@@ -241,7 +241,7 @@ func renderPackDetail(w io.Writer, d PackDetail) error {
 		_, err := fmt.Fprintln(w, "Steps: none of its own; its commands and the packs that build on it do the work.")
 		return err
 	case len(d.Steps) == 0:
-		_, err := fmt.Fprintf(w, "Steps: `axx steps --pack %s` lists its %d steps; `axx pack show %s --full` gives everything.\n", d.Pack, d.StepCount, d.Pack)
+		_, err := fmt.Fprintf(w, "Steps: `axx steps --pack %s` lists its %d steps.\n", d.Pack, d.StepCount)
 		return err
 	}
 	if err := renderSteps(w, d.Steps, false); err != nil {

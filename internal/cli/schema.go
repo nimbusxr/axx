@@ -48,16 +48,10 @@ Reference them from the files with:
 				}
 				schema = b
 			}
-			// An agent reads the outline: the JSON Schema says the same in five times the tokens.
+			// An agent reads the outline: the JSON Schema says the same in five
+			// times the tokens. (Saying so in the output sent agents for it.)
 			if outline || (app.Compact && !full && out == "" && !app.JSON) {
-				if err := schemaOutline(app.Stdout, schema); err != nil {
-					return err
-				}
-				if !outline {
-					_, err := app.Stdout.Write([]byte("\n(the keys, a line each; `axx schema --full` prints the JSON Schema)\n"))
-					return err
-				}
-				return nil
+				return schemaOutline(app.Stdout, schema)
 			}
 			if out != "" {
 				return os.WriteFile(out, schema, 0o644)
