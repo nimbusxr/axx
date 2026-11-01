@@ -18,10 +18,13 @@ $ axx pack add rest sql
 created axx-packs.yaml
 added rest, sql
 $ axx pack list
-  rest                                     axx       46 steps
-  sql                                      axx       17 steps
-  mock                                     axx       not used
-  mongo                                    axx       not used
+this project's packs (axx-packs.yaml):
+  rest              55 steps   REST requests and responses, OpenAPI validation
+  sql               17 steps   SQL databases (PostgreSQL, MySQL, MariaDB, SQL Server, SQLite): seeds, selections, locks, triggers
+
+axx's packs it does not use (`axx pack show <name>`: what one reaches, its settings and steps):
+  mock              WireMock services and their OpenAPI contracts
+  mongo             MongoDB: seeds and selections
   ...
 ```
 
@@ -31,7 +34,7 @@ packs:
   - sql
 ```
 
-Only the listed packs are loaded, so their steps are the only ones `axx validate`, `axx steps` and the skills know about. Listing a pack that builds on another (a web pack such as `web-a11y`, `mobile-android`, `desktop-macos`, or an AWS or Google Cloud pack) loads that one too: `web-core`, `mobile-core` or `desktop-core` (and `app-core`, which they build on), `aws-core` or `gcp-core`. `axx pack remove` takes packs off the list. `axx init` starts the file with `rest`, which its first feature uses. Commit `axx-packs.yaml`.
+Axx knows every pack it publishes before a project adds it, offline and for the version installed: `axx pack show <name>` says what a pack reaches and gives its settings and steps, `axx steps --pack <name>` lists its steps, and `axx steps search <words>` finds steps in every pack, with the pack to add. Only the listed packs are loaded, so their steps are the only ones a run can use; a step of another of Axx's packs is undefined, and `axx validate` names the pack that has it. Listing a pack that builds on another (a web pack such as `web-a11y`, `mobile-android`, `desktop-macos`, or an AWS or Google Cloud pack) loads that one too: `web-core`, `mobile-core` or `desktop-core` (and `app-core`, which they build on), `aws-core` or `gcp-core`. `axx pack remove` takes packs off the list. `axx init` starts the file with `rest`, which its first feature uses. Commit `axx-packs.yaml`.
 
 The first `axx` command that needs the project's steps prepares Axx with its packs:
 

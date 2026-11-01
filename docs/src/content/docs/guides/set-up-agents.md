@@ -211,8 +211,10 @@ axx (github.com/nimbusxr/axx, "axxeptance") verifies running software against ex
   status codes.
 - `services:` in axx.yaml are what runs on its own, reached by an address; a program its user starts (a CLI, an
   MCP server over stdio) is run by its step's `command`, as its user would, and is not a service.
-- Steps come from the packs in `axx-packs.yaml` (`axx pack list`, `axx pack add <name>`). Configuration is in
-  `axx.yaml` (`axx schema --outline` lists its keys); features in `features/`.
+- Steps come from the packs in `axx-packs.yaml`: `axx pack list` shows axx's packs and what each reaches,
+  `axx pack show <name>` one's settings and steps, added or not, and `axx pack add <name>` adds it. axx answers
+  offline, for its own version: no need for its website or source. Configuration is in `axx.yaml`
+  (`axx schema --outline` lists its keys); features in `features/`.
 - Repeating payloads, seeds or mock bodies: fixture factories generate them (`axx fixtures`;
   optional, strongly recommended where data repeats); `axx fixtures adopt` turns hand-written ones into one.
 <!-- axx:end -->
@@ -222,6 +224,9 @@ Claude Code reads `AGENTS.md` only where no `CLAUDE.md`, `.claude/CLAUDE.md` or 
 
 ## Docs for agents
 
+Agents need neither this site nor axx's source: axx answers for itself, offline and for the version installed. `axx pack list` and `axx pack show <name>` cover every pack axx publishes, added to the project or not; `axx steps search <words>` finds steps in all of them, with the pack to add; a step from a pack the project lacks names that pack when `axx validate` or `axx run` reads it; and `axx explain <code>` explains an error code. The MCP server's `steps_search` and `step_explain` do the same. For agents that read the site anyway:
+
 - Every page on this site has a Markdown twin: append `.md` to the path (`/guides/set-up-agents.md`). Pages advertise it with `<link rel="alternate" type="text/markdown">`.
 - [`/llms.txt`](/llms.txt) indexes the site; [`/llms-full.txt`](/llms-full.txt) and [`/llms-small.txt`](/llms-small.txt) contain it in one file.
 - The `axx.yaml` schema is at [`/schemas/v0/axx.schema.json`](/schemas/v0/axx.schema.json); `axx schema` prints the same thing offline.
+- Agents that browse the site in a browser with WebMCP get its tools there: `axx_packs`, `axx_pack`, `axx_find_steps`, `axx_search_docs` and `axx_read_page`.

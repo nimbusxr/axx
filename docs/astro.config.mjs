@@ -198,6 +198,8 @@ export default defineConfig({
 					tag: 'link',
 					attrs: { rel: 'alternate', type: 'text/plain', title: 'llms.txt', href: at('/llms.txt') },
 				},
+				// The docs' tools for agents that browse them, through WebMCP (public/webmcp.js).
+				{ tag: 'script', attrs: { type: 'module', src: at('/webmcp.js') } },
 				// Main's docs are a preview: search engines keep to the release's.
 				...(build.channel === 'next' ? [{ tag: 'meta', attrs: { name: 'robots', content: 'noindex' } }] : []),
 			],
@@ -320,7 +322,7 @@ export default defineConfig({
 					// home page's hero links, which are relative to it to be right in the release's
 					// docs and in main's (/next/): front matter is not rebased.
 					exclude: [
-						'/schemas/**', '/skills/**', '/.well-known/**', '/llms.txt', '/llms-full.txt', '/llms-small.txt', '/**/*.md', '/index.md',
+						'/schemas/**', '/skills/**', '/.well-known/**', '/webmcp.js', '/llms.txt', '/llms-full.txt', '/llms-small.txt', '/**/*.md', '/index.md',
 						'tutorials/quickstart/', 'explanations/why-axx/', 'references/step-index/',
 					],
 				}),
