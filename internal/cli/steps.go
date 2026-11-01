@@ -401,23 +401,25 @@ func renderSteps(w io.Writer, infos []StepInfo, notation bool) error {
 // table's columns, its parameters, its documentation and its first example.
 // The variants follow from the expression, and the rest is `--full`.
 func renderStepCompact(w io.Writer, s StepInfo) error {
-	fmt.Fprintf(w, "%s (pack %s)\n  %s\n", s.ID, s.Pack, s.Expr)
+	var b strings.Builder
+	fmt.Fprintf(&b, "%s (pack %s)\n  %s\n", s.ID, s.Pack, s.Expr)
 	if len(s.Columns) > 0 {
-		fmt.Fprintf(w, "table: | %s |\n", strings.Join(s.Columns, " | "))
+		fmt.Fprintf(&b, "table: | %s |\n", strings.Join(s.Columns, " | "))
 	}
 	for _, p := range s.Params {
-		fmt.Fprintf(w, "{%s}: %s\n", p.Name, p.Doc)
+		fmt.Fprintf(&b, "{%s}: %s\n", p.Name, p.Doc)
 	}
 	if s.Doc != "" {
-		fmt.Fprintf(w, "%s\n", strings.TrimSpace(s.Doc))
+		fmt.Fprintf(&b, "%s\n", strings.TrimSpace(s.Doc))
 	}
 	if len(s.Examples) > 0 {
-		fmt.Fprintf(w, "Example:\n  %s\n", strings.ReplaceAll(s.Examples[0], "\n", "\n  "))
+		fmt.Fprintf(&b, "Example:\n  %s\n", strings.ReplaceAll(s.Examples[0], "\n", "\n  "))
 	}
 	if s.Deprecated != "" {
-		fmt.Fprintf(w, "Deprecated: %s\n", s.Deprecated)
+		fmt.Fprintf(&b, "Deprecated: %s\n", s.Deprecated)
 	}
-	return nil
+	_, err := io.WriteString(w, b.String())
+	return err
 }
 
 func renderStep(w io.Writer, s StepInfo) error {
