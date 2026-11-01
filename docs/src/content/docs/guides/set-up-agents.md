@@ -194,29 +194,36 @@ Some harnesses run the agent in a sandbox that may not use Docker, so its runs c
 ```markdown title="AGENTS.md"
 <!-- axx:begin (managed by `axx init`; edit outside this block) -->
 ## Acceptance tests (axx)
-axx (github.com/nimbusxr/axx, "axxeptance") verifies running software against executable acceptance criteria (Gherkin), black-box.
-- Writing tests: `axx steps` lists every step, a line each (read it once; `axx steps show <id>` gives one
-  step's documentation); write one scenario per acceptance criterion with those steps, never
-  invented ones, written out (a {name} replaced with a value, a(n) as "a" or "an", [[...]] kept
-  without the brackets or left out); `axx up` once, then `axx run --compact`, which also reports what validate and lint find;
-  `axx down` when done.
-- Use the axx MCP tools when you have them: `steps_search` without a query is the step list, then
-  `scenarios_run` (it reports what `feature_validate` and `lint_run` find) and `failure_context`.
-- If `.agents/skills` has the axx skills, they teach the details: axx-acceptance-tests, axx-test-data
-  (fixture factories), axx-debugging. `axx skills install` installs or updates them.
-- Feature files are acceptance criteria a person can read, in plain language, with the steps as
-  written. No programming constructs in Gherkin.
-- Every scenario uses unique data (ids, names, keys): scenarios run in parallel and data persists.
-- Check what the service did (a response property, a row, an event) and why it refused, not only
-  status codes.
-- `services:` in axx.yaml are what runs on its own, reached by an address; a program its user starts (a CLI, an
-  MCP server over stdio) is run by its step's `command`, as its user would, and is not a service.
-- Steps come from the packs in `axx-packs.yaml`: `axx pack list` shows axx's packs and what each reaches,
-  `axx pack show <name>` one's settings and steps, added or not, and `axx pack add <name>` adds it. axx answers
-  offline, for its own version: no need for its website or source. Configuration is in `axx.yaml`
-  (`axx schema --outline` lists its keys); features in `features/`.
-- Repeating payloads, seeds or mock bodies: fixture factories generate them (`axx fixtures`;
-  optional, strongly recommended where data repeats); `axx fixtures adopt` turns hand-written ones into one.
+axx (github.com/nimbusxr/axx, "axxeptance") runs acceptance criteria, written as Gherkin scenarios, black-box against the
+running services. It answers for itself, offline and for the version installed: no need for its website or source.
+
+1. Look at the project first: its README and docs, `axx.yaml` (the services), `axx-packs.yaml` (the packs), `features/`.
+2. Find the steps. With the axx MCP tools: `steps_search` without a query lists every step of the project's packs, a line
+   each; `step_explain` with ids gives their documentation; `steps_try` tries steps in a live scenario. Without them:
+   `axx steps`, then `axx steps show <id>...`. `axx steps search <words>` also finds the steps of axx's packs the project lacks, and
+   names the pack (`axx pack add <name>`); `axx pack list` says what each pack reaches.
+3. Write one scenario per acceptance criterion with those steps, written out: each {name} replaced with a value, a(n) as
+   "a" or "an", [[...]] kept without the brackets or left out. Never invent step text.
+4. Check, and fix what is reported: `axx validate` (needs no services) and `axx lint` (the test-data rules), then `axx up`
+   once and `axx run --compact` (it reports what validate and lint find too); `axx down` when done. With the MCP tools:
+   `feature_validate`, `lint_run`, `scenarios_run`, `failure_context`. An error's code: `axx explain AXX-E…`.
+
+Rules axx checks, and agents get wrong:
+- A scenario is one behavior: Given the state it starts from (a request it needs done first is executed in a Given),
+  one When for what someone does, Then what is true afterwards. A request that checks the outcome (a lookup that finds
+  nothing stored) is added with the others and executed in the When. A When after a Then is another scenario.
+- Ordinals count in the order a scenario adds requests, responses and selections: the 2nd is its second; none, the 1st.
+- Every scenario uses data of its own (ids, names, keys): scenarios run in parallel and data persists between runs.
+- Check what the service did (a response property, a row, an event) and why it refused, not only status codes.
+- Feature files read as acceptance criteria, in plain language: no programming constructs, no variables.
+- `services:` in axx.yaml are what runs on its own, reached by an address; a program its user starts (a CLI, an MCP
+  server over stdio) is run by its step's `command`. `axx schema --outline` lists axx.yaml's keys.
+- Payloads, seeds or mock bodies that repeat: fixture factories generate them (`axx fixtures`; optional, recommended where
+  data repeats); `axx fixtures adopt` turns hand-written ones into one.
+
+If `.agents/skills` has the axx skills, they add what this leaves out: axx-acceptance-tests (feature shape, payload
+tables), axx-test-data (fixture factories), axx-debugging (failures), axx-setup, axx-custom-steps. `axx skills install`
+installs or updates them.
 <!-- axx:end -->
 ```
 

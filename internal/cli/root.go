@@ -134,23 +134,25 @@ func newRootCmd(app *App) *cobra.Command {
 	root := &cobra.Command{
 		Use:   "axx",
 		Short: "Verify running software against executable acceptance criteria",
-		Long: `axx runs executable acceptance criteria, in Gherkin people can read, as black-box
-tests against running services and apps. Its packs cover REST and OpenAPI, WireMock,
-SQL, MongoDB, Kafka, logs, files, web apps in real browsers, and AWS, Google Cloud
-and Azure services: a project lists those it uses in axx-packs.yaml, beside packs
-of its own steps.
+		Long: `axx runs acceptance criteria, written as Gherkin scenarios people can read, black-box
+against running services and apps. Its packs give the steps (REST and OpenAPI, WireMock,
+SQL, MongoDB, Kafka, logs, files, web apps in real browsers, AWS, Google Cloud, Azure):
+a project lists those it uses in axx-packs.yaml, beside packs of its own steps. All of
+this answers offline, for this version.
 
 Writing tests:
-  axx pack list            axx's packs and what each reaches; axx pack show <name> for one
-  axx steps                every step of the project's packs, one line each
-  axx steps search <words> steps by what they do, in any of axx's packs
-  axx steps show <id>      one step's documentation and examples
-  axx up                   start the services once and keep them running
-  axx run --compact        run the features; also reports what validate and lint find
-  (axx validate checks the features without running them)
+  axx steps                  every step of the project's packs, one line each
+  axx steps show <id>...     steps' documentation and examples
+  axx steps search <words>   steps by what they do, in any of axx's packs, with the pack to add
+  axx pack list              axx's packs and what each reaches; axx pack show <name> for one
+  axx validate, axx lint     check the features (no services needed) and the test data
+  axx up, axx run --compact  start the services once, then run; axx down when done
+  axx explain AXX-E...       what an error code means, and what to do
 
-These answer offline, for this axx's version: packs a project has not added
-included. Docs for people: https://axx.nimbusxr.us
+A scenario is one behavior: Given the state it starts from, one When, Then what is true
+afterwards; a When after a Then is another scenario. Every scenario uses data of its own.
+
+Docs for people: https://axx.nimbusxr.us
 
 ` + Identity,
 		SilenceUsage:  true,

@@ -4,41 +4,40 @@ description: Diagnose failing axx acceptance-test runs - failed assertions, unde
 license: Apache-2.0
 ---
 
-# Debugging Axx failures
+# Debugging axx failures
 
 ## Start from the exit code
 
 | Code | Meaning | First move |
 |---|---|---|
-| 1 | a scenario failed | Read the step's expected/actual values below |
-| 2 | usage or config error | Read the `hint`. Run `axx doctor`. Config errors point at `axx.yaml:line:col` |
-| 3 | undefined or ambiguous step, or `axx lint` violations | `axx validate`, then `axx explain "<line>"`. For lint, each finding names the rule, the colliding value and every `file:line` |
-| 4 | a service did not start | The error includes the last lines of the service's output. Full logs are in `.axx/logs/services.log` |
-| 130 | interrupted | Nothing ran to completion. Rerun |
+| 1 | a scenario failed | Read the step's expected and actual values |
+| 2 | usage or configuration | Read the hint; `axx doctor`. Configuration errors point at `axx.yaml:line:col` |
+| 3 | undefined or ambiguous step, or `axx lint` violations | `axx validate`, then `axx explain "<line>"`; a lint finding names the rule, the value and every `file:line` |
+| 4 | a service did not start | The error has the service's last lines; all of it is in `.axx/logs/services.log` |
 
-Every error also carries a code such as `AXX-E0408`. Run `axx explain AXX-E0408` to see what it means and how to fix it, or look it up in `references/error-codes.md`.
+Every error has a code, like `AXX-E0408`: `axx explain AXX-E0408` says what it means and what to do.
 
-## Get the facts before changing anything
+## Get the facts first
 
-- `axx run --json` returns a structured report. Each failure has `error.kind`: assertion, error, timeout, panic, undefined, ambiguous or pending. It also carries `expected`, `actual`, `logs`, `context` (for example the last HTTP request and response) and a `rerun` command. With the MCP tools, `failure_context` gives the same for a failure of a `scenarios_run`: without a run ID it reads the latest run, without a location its only failure.
-- Rerun one scenario with the `rerun` command: `axx run features/x.feature:LINE`. The line of any step inside the scenario also works.
-- `axx explain "<step line>"` shows which definition a line matches and what it captures.
+- `axx run --json` gives each failure's `error.kind`, `expected`, `actual`, `logs`, `context` (the last HTTP exchange, say) and `rerun`. With the MCP tools, `failure_context` gives the same for the latest `scenarios_run`.
+- Rerun one scenario: `axx run features/x.feature:LINE`.
+- `axx explain "<step line>"` shows which step a line matches and what it captures.
 
 ## Common causes
 
-- **Undefined step.** The text differs from every definition. Use the `did you mean` suggestion or `axx steps search`, and never rewrite a step definition to match your text. A step from a pack the project doesn't list is undefined too, and axx names that pack: add it with `axx pack add <name>`. Check for extra spaces, singular/plural (`time(s)` is optional), `a` vs `an`, and quotes around `{string}` values.
-- **Ambiguous step.** Two definitions match. Make the text more specific, for example by adding `on <service>`.
-- **Assertion expected X, got Y.** Check whether the test data is unique: another scenario running in parallel may have changed or used the same ids. Then check whether the value's type is wrong (`'5'` is the number 5; use `'"5"'` for the string `"5"`).
-- **OpenAPI validation errors on "the request is executed".** The request or the response violates the spec. The message names the rule, e.g. `validation.response.body.schema.required`. Fix the payload, or (for deliberate negative tests) relax that rule for the scenario: `Given the OpenAPI validation levels are:` with `| <rule> | IGNORE |`.
-- **Timeouts.** A step exceeded `run.timeouts.step`. For asynchronous behavior, use the polling steps (`within 5s a selection of at least 1 row ...`) instead of adding sleeps.
-- **Passes alone, fails in a full run.** Shared data or shared state. Give the scenario unique data (`axx lint` finds seed and fixture values used by more than one file). If it genuinely must run alone, tag it `@isolated`, or whatever is listed in `run.exclusive`.
-- **Fixture errors (`AXX-E09xx`).** `axx fixtures check` reports drift when a generated file no longer matches its factory spec: edit the spec and run `axx fixtures generate`. Generate refuses (`AXX-E0903`) to overwrite a generated file someone edited by hand; move the change into the spec, or revert the file. Messages name the factory, the fixture and the field. When a generated value is wrong, `axx fixtures explain <file> <path>` names the source that sets it (the fixture, a prototype, `defaults:` or the schema) and the place in it to edit. The `axx-test-data` skill covers factories.
-- **A web step failed.** The failure's `context` says which page each web app was on, the failed step attaches a screenshot of the page, and the `logs` name the Playwright trace the scenario keeps in `.axx/web/traces` (open it with `npx playwright show-trace`). To look at the page yourself, run the steps up to there with `steps_try` in `axx mcp`, then `web_page`.
-- **Service never becomes ready.** Check `services.<name>.ready` (URL, port, timeout). `axx up` then `curl` the health URL yourself. Read `.axx/logs/services.log`.
-- **Services from an axx host (`AXX-E05xx`).** In a sandbox that keeps you from Docker, the person can run `axx host` on their own machine: `axx run` finds it (`.axx/host.json`) and says "the axx host started ...". A run that waits "for the person running the axx host to approve it" changed `axx.yaml`'s services or a compose file: tell the person what you changed and why. `AXX-E0507` means they have not answered yet: the question stays open, so run again once they have. `AXX-E0501` means they refused the change: the host refuses it again until it restarts, so change it back or ask them. Never edit or delete `.axx/host.json`, and don't start the services another way to get past the host.
+- **Undefined step.** Use the `did you mean` suggestion or `axx steps search`; never change your text by guessing. A step of a pack the project lacks is undefined too, and axx names that pack: `axx pack add <name>`.
+- **Ambiguous step.** Two steps match: make the text more specific, like `... on <service>`.
+- **Expected X, got Y.** First check the data is the scenario's own: a scenario running at the same time may use the same ids. Then the value's type: `'5'` is the number 5, `'"5"'` the string.
+- **OpenAPI validation errors on "the request is executed".** The request or response breaks the contract; the message names the rule (`validation.response.body.schema.required`). Fix the payload, or for a deliberately invalid request, set that rule to `IGNORE` with `the OpenAPI validation levels are:`.
+- **Kafka check finds no records.** Leave `consumer.auto.offset.reset` out (earliest): `latest` reads only what comes after the check starts. Avro values need the topic client's deserializer and registry URL.
+- **Timeouts.** For asynchronous behavior use the waiting steps (`within 5s ...`), not sleeps.
+- **Passes alone, fails in a full run.** Shared data: give the scenario values of its own (`axx lint` finds seed and fixture values in more than one file). If it really must run alone, tag it with a `run.exclusive` tag.
+- **Service never ready.** Check `services.<name>.ready` (URL, port, timeout); `axx up` and fetch the health URL yourself; read `.axx/logs/services.log`.
+- **Fixture errors (`AXX-E09xx`).** `axx fixtures check` reports drift: change the fixture or factory and `axx fixtures generate`. `axx fixtures explain <file> <path>` names what sets a generated value. The `axx-test-data` skill covers factories.
+- **A web step failed.** The failure's `context` names each web app's page; the failed step attaches a screenshot, and the logs name the Playwright trace in `.axx/web/traces`. `steps_try` in `axx mcp`, then `web_page`, shows the page live.
+- **Services from an axx host (`AXX-E05xx`).** When a sandbox keeps you from Docker, the person runs `axx host` and `axx run` asks it for the services. A run waiting "for the person running the axx host to approve it" changed `axx.yaml`'s services or a compose file: tell them what and why. `AXX-E0507`: not answered yet, run again later. `AXX-E0501`: refused, change it back or ask them. Never edit `.axx/host.json` or start the services another way.
 
 ## Don't
 
-- Don't loosen an assertion just to make a test pass. Find out whether the product is wrong first.
-- Don't add fixed sleeps. Use readiness checks and polling steps.
-- Don't edit generated files (`*.generated.yaml`, fixture outputs). Regenerate them instead.
+- Don't loosen an assertion to make a test pass: find out whether the product is wrong first.
+- Don't add fixed sleeps, or edit generated files (`*.generated.yaml`, fixture outputs): regenerate them.

@@ -6,7 +6,7 @@ license: Apache-2.0
 
 # Custom steps for Axx
 
-Check the existing steps first: `axx steps` lists every step of the packs in `axx-packs.yaml`, a line each, and `axx pack list` shows axx's other packs (`axx pack add <name>` adds one).
+Check the existing steps first: `axx steps search <words>` finds them in every pack of axx's, the project's or not (`axx pack add <name>` adds one).
 
 ## Packs (Go)
 
