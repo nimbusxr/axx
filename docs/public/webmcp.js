@@ -5,7 +5,7 @@
 // it. A browser without it is left alone. Agents that fetch pages instead
 // have the same in Markdown: each page's .md twin, the step index and
 // llms.txt; and coding agents have it all from axx itself, offline
-// (`axx pack list`, `axx pack show`, `axx steps search`).
+// (`axx pack list`, `axx steps`, `axx steps search`).
 //
 // The tools read the site's own Markdown and search index, below the base
 // this script is served from (/ for the release's docs, /next/ for main's).
@@ -32,15 +32,9 @@ async function markdown(path) {
 	return res.text();
 }
 
-/** An excerpt of the search index as text: no tags, entities decoded. */
-const plain = (html) =>
-	html
-		.replace(/<[^>]+>/g, '')
-		.replace(/&lt;/g, '<')
-		.replace(/&gt;/g, '>')
-		.replace(/&quot;/g, '"')
-		.replace(/&#39;/g, "'")
-		.replace(/&amp;/g, '&');
+/** An excerpt of the search index as text: the browser's parser reads the HTML (no script runs
+ * in a parsed document), and its text is the excerpt without tags, entities decoded. */
+const plain = (html) => new DOMParser().parseFromString(String(html), 'text/html').body.textContent || '';
 
 const readOnly = { readOnlyHint: true };
 
