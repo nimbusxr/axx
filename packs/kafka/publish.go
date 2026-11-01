@@ -2,6 +2,7 @@ package kafka
 
 import (
 	"bytes"
+	"context"
 	"encoding/binary"
 	"encoding/json"
 	"errors"
@@ -198,19 +199,25 @@ func writePayload(ev *Event, doc any) error {
 
 // serializeKey applies the producer's key serializer.
 func (tc *TopicClient) serializeKey(sc *core.Scenario, key *string) ([]byte, string, error) {
+	return serializeKey(sc.Context(), tc.producer, tc.preg, tc.Topic, key)
+}
+
+// serializeKey applies a producer's key serializer to a key of topic: its
+// text, or with KafkaAvroSerializer an Avro string under the key subject.
+func serializeKey(ctx context.Context, spec *clientSpec, reg *registry, topic string, key *string) ([]byte, string, error) {
 	if key == nil {
 		return nil, "", nil
 	}
-	if tc.producer.Key != serdeAvro {
+	if spec.Key != serdeAvro {
 		return []byte(*key), "", nil
 	}
 	// KafkaAvroSerializer writes a String key with the primitive "string" schema.
 	s := avro.MustParse(`"string"`)
-	subject, err := subjectFor(tc.producer.Registry.KeyStrategy, tc.Topic, "key", s)
+	subject, err := subjectFor(spec.Registry.KeyStrategy, topic, "key", s)
 	if err != nil {
 		return nil, "", err
 	}
-	id, writer, err := tc.preg.writerID(sc.Context(), tc.producer.Registry, subject, `"string"`, s)
+	id, writer, err := reg.writerID(ctx, spec.Registry, subject, `"string"`, s)
 	if err != nil {
 		return nil, "", fmt.Errorf("serializing the key: %w", err)
 	}
@@ -245,13 +252,65 @@ func subjectFor(strategy, topic, kind string, s avro.Schema) (string, error) {
 	return topic + "-" + kind, nil
 }
 
+// needsAvro refuses to publish with a schema through a producer that does
+// not serialize values with KafkaAvroSerializer.
+func needsAvro(spec *clientSpec, topic string) error {
+	if spec.Value != serdeAvro {
+		return fmt.Errorf("the %s kafka topic client serializes values with %sSerializer; publishing with a schema needs "+
+			"producer.value.serializer=%s and producer.schema.registry.url", topic, spec.Value, avroSerializer)
+	}
+	return nil
+}
+
+// decodeAvroJSON reads a payload in Avro's JSON encoding as a value of
+// schema, named in messages by name.
+func decodeAvroJSON(schema avro.Schema, payload []byte, lenient bool, topic, name string) (any, error) {
+	value, err := avrojson.Decode(schema, payload, avrojson.Options{LenientUnions: lenient})
+	if err != nil {
+		hint := ""
+		var de *avrojson.Error
+		if errors.As(err, &de) && strings.Contains(de.Msg, "union value") && !lenient {
+			hint = " (Avro's JSON encoding wraps union values as {\"<branch>\": value}; set packs.kafka.lenientUnions to accept bare values)"
+		}
+		return nil, fmt.Errorf("the %s kafka event payload does not match schema %s: %w%s", topic, name, err, hint)
+	}
+	return value, nil
+}
+
+// compactSchema is the schema text registered for an .avsc: its JSON
+// compacted, or the parsed schema's when it is not valid JSON.
+func compactSchema(raw []byte, schema avro.Schema) string {
+	var compact bytes.Buffer
+	if err := json.Compact(&compact, raw); err != nil {
+		return schema.String()
+	}
+	return compact.String()
+}
+
+// serializeAvro writes a value of schema (text, as registered) as a
+// producer's KafkaAvroSerializer does: under the subject its value strategy
+// names, with the schema ID the registry gives, in the wire format.
+func serializeAvro(ctx context.Context, spec *clientSpec, reg *registry, topic string, schema avro.Schema, text string, value any) (b []byte, id int, subject string, err error) {
+	if subject, err = subjectFor(spec.Registry.ValueStrategy, topic, "value", schema); err != nil {
+		return nil, 0, "", err
+	}
+	id, writer, err := reg.writerID(ctx, spec.Registry, subject, text, schema)
+	if err != nil {
+		return nil, 0, "", err
+	}
+	body, err := avrojson.Marshal(writer, value)
+	if err != nil {
+		return nil, 0, "", fmt.Errorf("serializing the %s kafka event with schema %d: %w", topic, id, err)
+	}
+	return wire(id, body), id, subject, nil
+}
+
 func (tc *TopicClient) publishAvro(sc *core.Scenario, ev *Event, schemaPath string) error {
 	if !strings.HasSuffix(schemaPath, ".avsc") {
 		return fmt.Errorf("Supported schema types are .avsc") //nolint:staticcheck // user-facing message
 	}
-	if tc.producer.Value != serdeAvro {
-		return fmt.Errorf("the %s kafka topic client serializes values with %sSerializer; publishing with a schema needs "+
-			"producer.value.serializer=%s and producer.schema.registry.url", tc.Topic, tc.producer.Value, avroSerializer)
+	if err := needsAvro(tc.producer, tc.Topic); err != nil {
+		return err
 	}
 	path, err := sc.ResolvePath(schemaPath)
 	if err != nil {
@@ -269,34 +328,16 @@ func (tc *TopicClient) publishAvro(sc *core.Scenario, ev *Event, schemaPath stri
 	if err != nil {
 		return err
 	}
-	value, err := avrojson.Decode(schema, []byte(ev.Payload), avrojson.Options{LenientUnions: cfg.LenientUnions})
-	if err != nil {
-		hint := ""
-		var de *avrojson.Error
-		if errors.As(err, &de) && strings.Contains(de.Msg, "union value") && !cfg.LenientUnions {
-			hint = " (Avro's JSON encoding wraps union values as {\"<branch>\": value}; set packs.kafka.lenientUnions to accept bare values)"
-		}
-		return fmt.Errorf("the %s kafka event payload does not match schema %s: %w%s", tc.Topic, schemaPath, err, hint)
-	}
-	var compact bytes.Buffer
-	if err := json.Compact(&compact, raw); err != nil {
-		compact.Reset()
-		compact.WriteString(schema.String())
-	}
-	subject, err := subjectFor(tc.producer.Registry.ValueStrategy, tc.Topic, "value", schema)
+	value, err := decodeAvroJSON(schema, []byte(ev.Payload), cfg.LenientUnions, tc.Topic, schemaPath)
 	if err != nil {
 		return err
 	}
-	id, writer, err := tc.preg.writerID(sc.Context(), tc.producer.Registry, subject, compact.String(), schema)
+	b, id, subject, err := serializeAvro(sc.Context(), tc.producer, tc.preg, tc.Topic, schema, compactSchema(raw, schema), value)
 	if err != nil {
 		return err
-	}
-	body, err := avrojson.Marshal(writer, value)
-	if err != nil {
-		return fmt.Errorf("serializing the %s kafka event with schema %d: %w", tc.Topic, id, err)
 	}
 	sc.Attach("application/json", []byte(ev.Payload), tc.Topic+" kafka event")
-	return tc.produce(sc, ev, wire(id, body), published{SchemaID: id, Subject: subject, Schema: schemaPath})
+	return tc.produce(sc, ev, b, published{SchemaID: id, Subject: subject, Schema: schemaPath})
 }
 
 func (tc *TopicClient) publishPlain(sc *core.Scenario, ev *Event) error {
@@ -312,14 +353,7 @@ func (tc *TopicClient) produce(sc *core.Scenario, ev *Event, value []byte, info 
 	if err != nil {
 		return err
 	}
-	rec := &kgo.Record{Topic: tc.Topic, Key: key, Value: value}
-	for _, h := range ev.Headers {
-		v := "null"
-		if h.Value != nil {
-			v = *h.Value
-		}
-		rec.Headers = append(rec.Headers, kgo.RecordHeader{Key: h.Key, Value: []byte(v)})
-	}
+	rec := &kgo.Record{Topic: tc.Topic, Key: key, Value: value, Headers: RecordHeaders(ev.Headers)}
 	if err := tc.check(sc, []byte(ev.Payload), ev.Headers, true); err != nil {
 		return err
 	}

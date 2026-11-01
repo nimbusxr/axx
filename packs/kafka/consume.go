@@ -37,7 +37,7 @@ const keepMisses = describeRecords
 // check checks an event of the topic against the contract of its service,
 // when it names one: its payload as JSON (Avro's JSON encoding for Avro
 // events) and its headers.
-func (tc *TopicClient) check(sc *core.Scenario, payload []byte, headers []header, sent bool) error {
+func (tc *TopicClient) check(sc *core.Scenario, payload []byte, headers []Header, sent bool) error {
 	c := tc.Service.contract
 	if c == nil {
 		return nil

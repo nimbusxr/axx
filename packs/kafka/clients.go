@@ -77,50 +77,9 @@ func producerKey(c *clientSpec) string {
 
 func producerFor(suite *core.Suite, c *clientSpec) (*kgo.Client, error) {
 	return core.Cached(suite, producerKey(c), func() (*kgo.Client, error) {
-		opts, err := connOpts(c, suite.ResolvePath)
+		opts, err := producerOpts(c, suite.ResolvePath)
 		if err != nil {
 			return nil, err
-		}
-		opts = append(opts, kgo.AllowAutoTopicCreation(), kgo.ProducerLinger(c.Linger))
-		switch c.Acks {
-		case "0":
-			opts = append(opts, kgo.RequiredAcks(kgo.NoAck()))
-		case "1":
-			opts = append(opts, kgo.RequiredAcks(kgo.LeaderAck()))
-		default:
-			opts = append(opts, kgo.RequiredAcks(kgo.AllISRAcks()))
-		}
-		if c.Idempotent != nil && !*c.Idempotent {
-			opts = append(opts, kgo.DisableIdempotentWrite())
-			if c.MaxInFlight > 0 {
-				opts = append(opts, kgo.MaxProduceRequestsInflightPerBroker(c.MaxInFlight))
-			}
-		}
-		codec := map[string]kgo.CompressionCodec{
-			"none": kgo.NoCompression(), "gzip": kgo.GzipCompression(), "snappy": kgo.SnappyCompression(),
-			"lz4": kgo.Lz4Compression(), "zstd": kgo.ZstdCompression(),
-		}[c.Compression]
-		opts = append(opts, kgo.ProducerBatchCompression(codec))
-		if c.MaxRequestSize > 0 {
-			opts = append(opts, kgo.ProducerBatchMaxBytes(c.MaxRequestSize))
-		}
-		if c.BufferMemory > 0 {
-			opts = append(opts, kgo.MaxBufferedBytes(c.BufferMemory))
-		}
-		if c.DeliveryTimeout > 0 {
-			opts = append(opts, kgo.RecordDeliveryTimeout(c.DeliveryTimeout))
-		}
-		if c.RequestTimeout > 0 {
-			opts = append(opts, kgo.ProduceRequestTimeout(c.RequestTimeout))
-		}
-		if c.Retries != nil {
-			opts = append(opts, kgo.RecordRetries(*c.Retries))
-		}
-		switch c.Partitioner {
-		case "roundrobin":
-			opts = append(opts, kgo.RecordPartitioner(kgo.RoundRobinPartitioner()))
-		case "sticky":
-			opts = append(opts, kgo.RecordPartitioner(kgo.StickyPartitioner()))
 		}
 		cl, err := kgo.NewClient(opts...)
 		if err != nil {
@@ -129,6 +88,57 @@ func producerFor(suite *core.Suite, c *clientSpec) (*kgo.Client, error) {
 		suite.OnClose(func(context.Context) error { cl.Close(); return nil })
 		return cl, nil
 	})
+}
+
+// producerOpts are the options of a spec's producer: its connection's and
+// its producing's.
+func producerOpts(c *clientSpec, resolve func(string) (string, error)) ([]kgo.Opt, error) {
+	opts, err := connOpts(c, resolve)
+	if err != nil {
+		return nil, err
+	}
+	opts = append(opts, kgo.AllowAutoTopicCreation(), kgo.ProducerLinger(c.Linger))
+	switch c.Acks {
+	case "0":
+		opts = append(opts, kgo.RequiredAcks(kgo.NoAck()))
+	case "1":
+		opts = append(opts, kgo.RequiredAcks(kgo.LeaderAck()))
+	default:
+		opts = append(opts, kgo.RequiredAcks(kgo.AllISRAcks()))
+	}
+	if c.Idempotent != nil && !*c.Idempotent {
+		opts = append(opts, kgo.DisableIdempotentWrite())
+		if c.MaxInFlight > 0 {
+			opts = append(opts, kgo.MaxProduceRequestsInflightPerBroker(c.MaxInFlight))
+		}
+	}
+	codec := map[string]kgo.CompressionCodec{
+		"none": kgo.NoCompression(), "gzip": kgo.GzipCompression(), "snappy": kgo.SnappyCompression(),
+		"lz4": kgo.Lz4Compression(), "zstd": kgo.ZstdCompression(),
+	}[c.Compression]
+	opts = append(opts, kgo.ProducerBatchCompression(codec))
+	if c.MaxRequestSize > 0 {
+		opts = append(opts, kgo.ProducerBatchMaxBytes(c.MaxRequestSize))
+	}
+	if c.BufferMemory > 0 {
+		opts = append(opts, kgo.MaxBufferedBytes(c.BufferMemory))
+	}
+	if c.DeliveryTimeout > 0 {
+		opts = append(opts, kgo.RecordDeliveryTimeout(c.DeliveryTimeout))
+	}
+	if c.RequestTimeout > 0 {
+		opts = append(opts, kgo.ProduceRequestTimeout(c.RequestTimeout))
+	}
+	if c.Retries != nil {
+		opts = append(opts, kgo.RecordRetries(*c.Retries))
+	}
+	switch c.Partitioner {
+	case "roundrobin":
+		opts = append(opts, kgo.RecordPartitioner(kgo.RoundRobinPartitioner()))
+	case "sticky":
+		opts = append(opts, kgo.RecordPartitioner(kgo.StickyPartitioner()))
+	}
+	return opts, nil
 }
 
 // tailerKey is the part of a consumer spec that shapes what the tailer

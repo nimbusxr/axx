@@ -33,14 +33,17 @@ type decoded struct {
 	Value    *string
 	ValueErr string
 	SchemaID int
-	Headers  []header
+	Headers  []Header
 
 	docOnce sync.Once
 	doc     any
 	docErr  error
 }
 
-type header struct {
+// Header is a Kafka record header: its key and its value as text, nil for a
+// null value. An Event's Headers are those it is published with, and the
+// records the assertions read keep theirs the same way.
+type Header struct {
 	Key   string
 	Value *string // nil for a null header value
 }
@@ -80,7 +83,7 @@ func (d *deserializers) decode(ctx context.Context, r *kgo.Record) (_ *decoded, 
 		out.ValueErr = err.Error()
 	}
 	for _, h := range r.Headers {
-		hv := header{Key: h.Key}
+		hv := Header{Key: h.Key}
 		if h.Value != nil {
 			s := javaString(h.Value)
 			hv.Value = &s
