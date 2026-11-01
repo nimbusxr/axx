@@ -68,7 +68,7 @@ func (m payloadMatcher) mismatch(doc any) string {
 		return readFailure(doc, m.Path, err)
 	case m.v.Undefined():
 		return fmt.Sprintf("%s is %s, expected no such property", m.Path, describeJSON(v))
-	case jvalue.JavaEquals(v, m.expected):
+	case jvalue.Equal(v, m.expected):
 		return ""
 	}
 	msg := fmt.Sprintf("%s is %s, expected %s", m.Path, describeJSON(v), m.Raw)

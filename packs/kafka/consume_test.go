@@ -117,8 +117,8 @@ func TestConsumerAssertions(t *testing.T) {
 	if !mismatched(stateKey.Of(h.sc).last.Recent, "$.count is 3, expected no such property") {
 		t.Errorf("undefined: %+v", stateKey.Of(h.sc).last.Recent)
 	}
-	// A value that cannot be coerced fails the step at once (beyond 32 bits axx reads a Long, see jvalue; beyond 64 it fails).
-	h.fails("the orders kafka event named big payload properties are:", `NumberFormatException: For input string: "99999999999999999999"`,
+	// An integer past the long range is an integer like any other: no record has it.
+	h.fails("the orders kafka event named big payload properties are:", "No records found",
 		[]string{"$.count", "99999999999999999999"})
 
 	// "headers are" needs exactly one value; "headers match" ignores repeats.

@@ -46,8 +46,9 @@ Feature: Register parcels
 
 ## Tables
 
-- **REST payloads.** A row sets one property: `recipient.name` sets it inside `recipient`, creating the object when the payload lacks it. `"53111"` in double quotes is a string, `53111` a number, `null` JSON null, `undefined` removes the property. Single quotes are part of a table value. A first row naming the columns is optional.
-- **Other packs' tables** say what their rows hold in `axx steps show <id>`: the SQL JSON checks compare values as text, for example, where REST compares JSON values.
+- **Values mean what they say, in every pack's tables, set or checked:** `53111` is a number and `"53111"` the string, `true` a boolean, `null` null, `undefined` no such property, `{...}` JSON, other text (`REGISTERED`) a string. Checks are strict: `53111` does not match the string. An empty cell, a number like `01067`, or a number where only text fits (a header) is an error that says what to write. Single quotes are part of a table value.
+- **REST payloads.** A row sets one property: `recipient.name` sets it inside `recipient`, creating the object when the payload lacks it. A first row naming the columns is optional.
+- **Other packs' tables** say what their rows hold in `axx steps show <id>`.
 
 ## Waiting
 

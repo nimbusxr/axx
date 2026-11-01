@@ -122,7 +122,8 @@
               "header",
               "value"
             ],
-            "note": "A row is a header's name and its value."
+            "note": "A row is a header's name and its value.",
+            "values": "text"
           }
         },
         {
@@ -139,7 +140,8 @@
               "header",
               "value"
             ],
-            "note": "A row is a header's name and its value."
+            "note": "A row is a header's name and its value.",
+            "values": "text"
           }
         },
         {
@@ -206,7 +208,7 @@
           "id": "rest.request.property",
           "expr": "the request payload property {word} is {string}[[ for {ordinal} ordered request]]",
           "keyword": "Given",
-          "doc": "Set a property of the request payload, by its JSONPath, like `weightGrams`, `recipient.postcode` or `$.recipient.name`.\n\n- A value in double quotes inside the quotes, like `'\"42\"'`, is always a string.\n- Any other value takes the type of the property's current value: a string, a boolean, an integer, a number, or an object or array parsed from JSON text.\n- A property that does not exist yet, or is null, takes the type its value reads as: `true`, `42`, `1.5`, `{...}`, `[...]`, or else a string.\n- A property inside an object the payload lacks creates the object: `recipient.name` in a payload without `recipient`. A path through an array (`items[2].sku`) needs the array.\n- A payload step must come first.\n- Without an ordinal it applies to the service's first (default) request; `for 2nd ordered request`, to its second.\n- It uses the default service, the first one registered; `rest.request.property.on` names a service.",
+          "doc": "Set a property of the request payload, by its JSONPath, like `weightGrams`, `recipient.postcode` or `$.recipient.name`.\n\n- The value means what it says, whatever the property held before: `'1200'` is an integer, `'1.5'` a decimal, `'true'` a boolean, `'null'` null, `'{...}'` and `'[...]'` JSON, `'\"10115\"'`, in double quotes inside the quotes, the string, and other text, like `'EXPRESS'`, a string. `'undefined'` removes the property.\n- A property the payload lacks is added; one inside an object the payload lacks creates the object: `recipient.name` in a payload without `recipient`. A path through an array (`items[2].sku`) needs the array.\n- `null` and `undefined` change a property the payload has.\n- `${env:…}` and `${sys:…}` expand inside the value, which stays text, whatever they expand to.\n- A payload step must come first.\n- Without an ordinal it applies to the service's first (default) request; `for 2nd ordered request`, to its second.\n- It uses the default service, the first one registered; `rest.request.property.on` names a service.",
           "examples": [
             "Given the request payload property sender is 'kestrel-books'"
           ],
@@ -226,7 +228,7 @@
           "id": "rest.request.properties",
           "expr": "the request payload properties[[ for {ordinal} ordered request]] are:",
           "keyword": "Given",
-          "doc": "Set properties of the request payload, a row each, in order, like the single-property step.\n\n- `null` sets JSON null, and `undefined` removes the property, in any case.\n- `\"null\"` and `\"undefined\"`, in double quotes, are the strings.\n- A property inside an object the payload lacks creates the object, so a table can list `recipient.name` and `recipient.postcode` on an empty payload.\n- Without an ordinal it applies to the service's first (default) request; `for 2nd ordered request`, to its second.\n- It uses the default service, the first one registered; `rest.request.properties.on` names a service.",
+          "doc": "Set properties of the request payload, a row each, in order, like the single-property step.\n\n- A value is set as written, whatever the property held before.\n- A property inside an object the payload lacks creates the object, so a table can list `recipient.name` and `recipient.postcode` on an empty payload.\n- `null` sets a property the payload has to JSON null, and `undefined` removes it.\n- Without an ordinal it applies to the service's first (default) request; `for 2nd ordered request`, to its second.\n- It uses the default service, the first one registered; `rest.request.properties.on` names a service.",
           "examples": [
             "Given the request payload properties are:\n  | reference          | PX-4101 |\n  | weightGrams        | 1200    |\n  | recipient.postcode | \"53111\" |"
           ],
@@ -236,7 +238,9 @@
               "JSONPath",
               "value"
             ],
-            "note": "A row is a property's JSONPath and its value."
+            "note": "A row is a property's JSONPath and its value.",
+            "values": "json",
+            "undefined": true
           }
         },
         {
@@ -253,7 +257,9 @@
               "JSONPath",
               "value"
             ],
-            "note": "A row is a property's JSONPath and its value."
+            "note": "A row is a property's JSONPath and its value.",
+            "values": "json",
+            "undefined": true
           }
         },
         {
@@ -392,7 +398,8 @@
               "header",
               "value"
             ],
-            "note": "A row is a header's name and the value it must have."
+            "note": "A row is a header's name and the value it must have.",
+            "values": "text"
           }
         },
         {
@@ -401,7 +408,7 @@
           "keyword": "Then",
           "doc": "`rest.response.headers.are` on a named service: `for response on \u003cservice\u003e` addresses the service's first (default) response, `for 2nd ordered response on \u003cservice\u003e` its second one. Everything else works like `rest.response.headers.are`.",
           "examples": [
-            "Then the response headers for 1st ordered response on parcels are:\n  | Content-Type | application/problem+json |\n  | Retry-After  | 5                        |"
+            "Then the response headers for 1st ordered response on parcels are:\n  | Content-Type | application/problem+json |\n  | Retry-After  | \"5\"                      |"
           ],
           "arg": "table",
           "table": {
@@ -409,7 +416,8 @@
               "header",
               "value"
             ],
-            "note": "A row is a header's name and the value it must have."
+            "note": "A row is a header's name and the value it must have.",
+            "values": "text"
           }
         },
         {
@@ -482,7 +490,7 @@
           "id": "rest.response.property.is",
           "expr": "the response payload property {word} is {string}[[ for {ordinal} ordered response]]",
           "keyword": "Then",
-          "doc": "Check a property of a JSON response, by its JSONPath, like `status`, `recipient.postcode` or `[?(@.sender=='kestrel-books')].reference`.\n\n- An indefinite path, like a filter, reads as a list.\n- The response must be JSON: `application/json`, `text/json` or any `+json` type, whatever its charset.\n- A value is compared with its JSON type. Text, like `REGISTERED`, is a string, and so is a value in double quotes, like `\"42\"`.\n- `42` is an integer, `42L` a long and `1.5` a number. An integer never equals a decimal: `5` is not `5.0`.\n- `true` and `false` are booleans. `{...}` and `[...]` are a JSON object and a JSON array; an object's members may come in any order.\n- Without an ordinal it checks the response to the first (default) request; `for 2nd ordered response`, the response to the second.\n- It uses the default service, the first one registered; `rest.response.property.is.on` names a service.",
+          "doc": "Check a property of a JSON response, by its JSONPath, like `status`, `recipient.postcode` or `[?(@.sender=='kestrel-books')].reference`.\n\n- An indefinite path, like a filter, reads as a list.\n- The response must be JSON: `application/json`, `text/json` or any `+json` type, whatever its charset.\n- The value means what it says: `'42'` is an integer, `'42L'` a long and `'1.5'` a decimal; `'true'` and `'false'` are booleans; `'null'` is null and `'undefined'` no such property; `'{...}'` and `'[...]'` are JSON, an object's members in any order; `'\"42\"'`, in double quotes inside the quotes, is the string, and other text, like `'REGISTERED'`, a string.\n- Types must match: `'42'` is not the string `\"42\"`, nor `'5'` the decimal `5.0`.\n- Without an ordinal it checks the response to the first (default) request; `for 2nd ordered response`, the response to the second.\n- It uses the default service, the first one registered; `rest.response.property.is.on` names a service.",
           "examples": [
             "Then the response payload property status is 'REGISTERED'"
           ],
@@ -562,7 +570,7 @@
           "id": "rest.response.properties.are",
           "expr": "the response payload properties[[ for {ordinal} ordered response]] are:",
           "keyword": "Then",
-          "doc": "Check properties of a JSON response, a row each, like the single-property step.\n\n- `null` and `undefined`, in any case, check for JSON null and for no such property; `\"null\"`, in double quotes, is the string.\n- Every row is checked, and every mismatch reported.\n- A value is compared with its JSON type. Text, like `REGISTERED`, is a string, and so is a value in double quotes, like `\"42\"`.\n- `42` is an integer, `42L` a long and `1.5` a number. An integer never equals a decimal: `5` is not `5.0`.\n- `true` and `false` are booleans. `{...}` and `[...]` are a JSON object and a JSON array; an object's members may come in any order.\n- Without an ordinal it checks the response to the first (default) request; `for 2nd ordered response`, the response to the second.\n- It uses the default service, the first one registered; `rest.response.properties.are.on` names a service.",
+          "doc": "Check properties of a JSON response, a row each, like the single-property step.\n\n- An object's members may come in any order.\n- Every row is checked, and every mismatch reported.\n- Without an ordinal it checks the response to the first (default) request; `for 2nd ordered response`, the response to the second.\n- It uses the default service, the first one registered; `rest.response.properties.are.on` names a service.",
           "examples": [
             "Then the response payload properties are:\n  | reference | PX-4101    |\n  | status    | REGISTERED |\n  | zone      | DE-1       |"
           ],
@@ -572,7 +580,9 @@
               "JSONPath",
               "value"
             ],
-            "note": "A row is a property's JSONPath and the value it must have."
+            "note": "A row is a property's JSONPath and the value it must have.",
+            "values": "json",
+            "undefined": true
           }
         },
         {
@@ -589,7 +599,9 @@
               "JSONPath",
               "value"
             ],
-            "note": "A row is a property's JSONPath and the value it must have."
+            "note": "A row is a property's JSONPath and the value it must have.",
+            "values": "json",
+            "undefined": true
           }
         },
         {
@@ -1045,7 +1057,8 @@
               "header",
               "value"
             ],
-            "note": "A row is a header's name and the value it must have."
+            "note": "A row is a header's name and the value it must have.",
+            "values": "text"
           }
         },
         {
@@ -1105,7 +1118,7 @@
           "id": "mock.properties.are",
           "expr": "the payload properties for mocked request named {word}[[ on {mockedService}]] are:",
           "keyword": "Then",
-          "doc": "Check that the named request was received with a JSON body that has every property of the table, each with its value.\n\n- A property is a JSONPath, like `deliverTo.postcode` or `$.lines[0].reference`; WireMock reads it.\n- Values compare as text: `800` matches the number 800, and `\"10115\"` the string 10115. `undefined` means the body has no such property, to check that a request leaves something out.\n- Later steps on the named request check these too, so its counts count only the requests that have them.",
+          "doc": "Check that the named request was received with a JSON body that has every property of the table, each with its value.\n\n- A property is a JSONPath, like `deliverTo.postcode` or `$.lines[0].reference`, read in the bodies of the requests WireMock received.\n- `undefined` checks that a request leaves a property out.\n- Later steps on the named request check these too, so its counts count only the requests that have them.",
           "examples": [
             "Then the payload properties for mocked request named collection on courier are:\n  | reference          | PX-REG-1401 |\n  | deliverTo.postcode | \"10115\"     |\n  | recipient          | undefined   |"
           ],
@@ -1115,7 +1128,9 @@
               "property",
               "value"
             ],
-            "note": "A row is a property's JSONPath and the value it must have, or `undefined`."
+            "note": "A row is a property's JSONPath and the value it must have, or `undefined`.",
+            "values": "json",
+            "undefined": true
           }
         },
         {
@@ -1132,7 +1147,9 @@
               "parameter",
               "value"
             ],
-            "note": "A row is a query parameter's name and the value it must have, or `undefined`."
+            "note": "A row is a query parameter's name and the value it must have, or `undefined`.",
+            "values": "text",
+            "undefined": true
           }
         },
         {
@@ -1149,7 +1166,9 @@
               "field",
               "value"
             ],
-            "note": "A row is a field's name and the value it must have, or `undefined`."
+            "note": "A row is a field's name and the value it must have, or `undefined`.",
+            "values": "text",
+            "undefined": true
           }
         },
         {
@@ -1166,7 +1185,9 @@
               "parameter",
               "value"
             ],
-            "note": "A row is a query parameter's name and the value it has, or `undefined`."
+            "note": "A row is a query parameter's name and the value it has, or `undefined`.",
+            "values": "text",
+            "undefined": true
           },
           "absence": true
         },
@@ -1184,7 +1205,9 @@
               "property",
               "value"
             ],
-            "note": "A row is a property's JSONPath, like `deliverTo.postcode`, and the value it has, or `undefined`."
+            "note": "A row is a property's JSONPath, like `deliverTo.postcode`, and the value it has, or `undefined`.",
+            "values": "json",
+            "undefined": true
           },
           "absence": true
         },
@@ -1202,7 +1225,9 @@
               "field",
               "value"
             ],
-            "note": "A row is a form field's name and the value it has, or `undefined`."
+            "note": "A row is a form field's name and the value it has, or `undefined`.",
+            "values": "text",
+            "undefined": true
           },
           "absence": true
         },
@@ -1335,7 +1360,7 @@
           "id": "mock.mcp.called",
           "expr": "the mocked {mockedService} mcp server's {word} tool was called[[ {int} time(s)]] with the following arguments:",
           "keyword": "Then",
-          "doc": "Check that the service called the tool of a mocked MCP server with the table's arguments: at least once, or as many times as the step says.\n\n- Every call since the run started counts, other scenarios' too: put the scenario's own data in the table, like its parcel's reference.\n- Paths are dotted (`address.postcode`) or JSONPath, and values compare as text; `null` and `undefined` work as in the other property steps.",
+          "doc": "Check that the service called the tool of a mocked MCP server with the table's arguments: at least once, or as many times as the step says.\n\n- Every call since the run started counts, other scenarios' too: put the scenario's own data in the table, like its parcel's reference.\n- Paths are dotted (`address.postcode`) or JSONPath.",
           "examples": [
             "Then the mocked partner-carrier mcp server's shipment_status tool was called with the following arguments:\n  | reference | PX-MCP-9301 |",
             "Then the mocked partner-carrier mcp server's shipment_status tool was called 1 time with the following arguments:\n  | reference | PX-MCP-9301 |"
@@ -1346,7 +1371,9 @@
               "argument",
               "value"
             ],
-            "note": "A row is a path into the call's arguments, and its value."
+            "note": "A row is a path into the call's arguments, and its value.",
+            "values": "json",
+            "undefined": true
           },
           "since": "0.1.5"
         },
@@ -1366,7 +1393,7 @@
     },
     {
       "name": "grpc",
-      "doc": "Call gRPC services: unary calls and server streams, with requests built from JSON files or tables, and check their status, their answers, their metadata and the messages they stream.\n\nRegister the service once, usually in the `Background`:\n\n```gherkin\nGiven the tracking grpc service with the following properties:\n  | address | localhost:8410 |\n```\n\n- **The contract is the service's proto.** A `proto` row names its `.proto` file (compiled by axx, with its imports) or a descriptor set (`protoc --descriptor_set_out --include_imports`); without one, axx reads the service's descriptors through its server reflection. Requests are built with them, so a field the request message does not have fails the step, and answers are read with them.\n- **Methods** are named `package.Service/Method`, as grpcurl names them; `Service/Method` or `Method` do when only one of the service's methods has that name.\n- **Requests and answers are proto JSON:** fields by their JSON names (`lastScan.location`) or their proto names, enums by name, 64-bit numbers and bytes as proto JSON has them. A request's table sets paths into it, as the REST pack's request properties do.\n- **The checks read the service's last call** in the scenario. A call that answers another status than OK does not fail the step that makes it: check its status.\n- **Server streams** belong to the scenario, which closes them when it ends. Their messages are checked as they come; their status once they end.\n- **Secrets stay secret:** `${env:..}` values in the properties, such as a token in `header.authorization`, are masked in logs and failures, and `${token:..}` names a token of the scenario.",
+      "doc": "Call gRPC services: unary calls and server streams, with requests built from JSON files or tables, and check their status, their answers, their metadata and the messages they stream.\n\nRegister the service once, usually in the `Background`:\n\n```gherkin\nGiven the tracking grpc service with the following properties:\n  | address | localhost:8410 |\n```\n\n- **The contract is the service's proto.** A `proto` row names its `.proto` file (compiled by axx, with its imports) or a descriptor set (`protoc --descriptor_set_out --include_imports`); without one, axx reads the service's descriptors through its server reflection. Requests are built with them, so a field the request message does not have fails the step, and answers are read with them.\n- **Methods** are named `package.Service/Method`, as grpcurl names them; `Service/Method` or `Method` do when only one of the service's methods has that name.\n- **Requests and answers are proto JSON:** fields by their JSON names (`lastScan.location`) or their proto names, enums by name, bytes as proto JSON has them; an answer's 64-bit integers are numbers. A request's table sets paths into it, each to what its cell says, which must be of its field's type: `\"10115\"` for a string field, not `10115`.\n- **The checks read the service's last call** in the scenario. A call that answers another status than OK does not fail the step that makes it: check its status.\n- **Server streams** belong to the scenario, which closes them when it ends. Their messages are checked as they come; their status once they end.\n- **Secrets stay secret:** `${env:..}` values in the properties, such as a token in `header.authorization`, are masked in logs and failures, and `${token:..}` names a token of the scenario.",
       "steps": [
         {
           "id": "grpc.service",
@@ -1444,7 +1471,9 @@
               "path",
               "value"
             ],
-            "note": "Each row is a path into the request (a field name, a dotted path like `lastScan.location`, or a JSONPath) and its value: a value takes the type of its field, double quotes make it text, `null` leaves the field unset and `undefined` removes it."
+            "note": "Each row is a path into the request (a field name, a dotted path like `lastScan.location`, or a JSONPath) and its value, which must be of its field's type: a string field's in double quotes (`\"10115\"`), an enum's its name. `null` leaves the field unset.",
+            "values": "json",
+            "undefined": true
           },
           "since": "0.1.5"
         },
@@ -1463,7 +1492,9 @@
               "path",
               "value"
             ],
-            "note": "Each row is a path into the request (a field name, a dotted path like `lastScan.location`, or a JSONPath) and its value: a value takes the type of its field, double quotes make it text, `null` leaves the field unset and `undefined` removes it."
+            "note": "Each row is a path into the request (a field name, a dotted path like `lastScan.location`, or a JSONPath) and its value, which must be of its field's type: a string field's in double quotes (`\"10115\"`), an enum's its name. `null` leaves the field unset.",
+            "values": "json",
+            "undefined": true
           },
           "since": "0.1.5"
         },
@@ -1494,7 +1525,9 @@
               "path",
               "value"
             ],
-            "note": "Each row is a path into the answer as proto JSON (a field's JSON name, a dotted path like `lastScan.location`, or a JSONPath) and its value, compared as text: `null` for null and `undefined` for absent. Fields with their default values (`0`, `\"\"`, `false`) are in the answer."
+            "note": "Each row is a path into the answer as proto JSON (a field's JSON name, a dotted path like `lastScan.location`, or a JSONPath) and its value. Fields with their default values (`0`, `\"\"`, `false`) are in the answer, and 64-bit integers are numbers.",
+            "values": "json",
+            "undefined": true
           },
           "since": "0.1.5"
         },
@@ -1512,7 +1545,9 @@
               "name",
               "value"
             ],
-            "note": "Each row is a name, in any case, and its value, compared as text: several values are joined with `, `; `undefined` for absent."
+            "note": "Each row is a name, in any case, and its value: several values are joined with `, `.",
+            "values": "text",
+            "undefined": true
           },
           "since": "0.1.5"
         },
@@ -1530,7 +1565,9 @@
               "path",
               "value"
             ],
-            "note": "Each row is a path into the message as proto JSON and its value, compared as text: `null` for null and `undefined` for absent."
+            "note": "Each row is a path into the message as proto JSON and its value.",
+            "values": "json",
+            "undefined": true
           },
           "since": "0.1.5"
         }
@@ -1538,7 +1575,7 @@
     },
     {
       "name": "jsonrpc",
-      "doc": "Call JSON-RPC 2.0 services over HTTP, and check their results and their errors, against their OpenRPC documents.\n\nRegister the service once, usually in the `Background`:\n\n```gherkin\nGiven the depots jsonrpc service with the following properties:\n  | url     | http://localhost:8400/rpc |\n  | openrpc | rpc.discover              |\n```\n\n- **Params** come from a table (by name, set as the REST pack's request properties are) or a doc string (an object by name, or an array by position).\n- **The checks read the service's last call** in the scenario. A call that answers an error does not fail the step that makes it: check its error.\n- **OpenRPC:** an `openrpc` row names the service's OpenRPC document: a file of the project, a URL, or `rpc.discover` to ask the service for it. Every call's params are then checked against its method before it is sent, and every result and error when it comes back. A call that breaks the document fails the step that makes it, and names the rule it broke.\n\nOpenRPC findings have keys and levels, like the REST pack's OpenAPI findings:\n\n| Key | Found when |\n|---|---|\n| `validation.method.unknown` | the document has no such method |\n| `validation.params.structure` | the params are by name for a method that takes them by position, or the other way round |\n| `validation.params.missing` | a required param is missing |\n| `validation.params.unknown` | a param the method does not have |\n| `validation.params.schema.\u003ckeyword\u003e` | a param breaks a keyword of its schema (`required`, `type`, `pattern`...) |\n| `validation.result.schema.\u003ckeyword\u003e` | the result breaks a keyword of its schema |\n| `validation.error.unknown` | the error is not one the method declares, nor one of JSON-RPC's own (-32700, -32600 to -32603, -32000 to -32099) |\n\n- **Levels:** `ERROR` (or `FAIL`) fails the step, `WARN` and `INFO` log the finding, `IGNORE` drops it. Every finding is an `ERROR` unless `packs.jsonrpc.openrpc.levels` in axx.yaml, or the scenario's `the OpenRPC validation levels are:`, says otherwise.\n- **Keys cover the keys below them:** `validation.params` sets every params finding; the most specific key set wins.\n- **Secrets stay secret:** `${env:..}` values in the properties are masked in logs and failures, and `${token:..}` names a token of the scenario.",
+      "doc": "Call JSON-RPC 2.0 services over HTTP, and check their results and their errors, against their OpenRPC documents.\n\nRegister the service once, usually in the `Background`:\n\n```gherkin\nGiven the depots jsonrpc service with the following properties:\n  | url     | http://localhost:8400/rpc |\n  | openrpc | rpc.discover              |\n```\n\n- **Params** come from a table (by name, each what its cell says: `\"10115\"` for a string, as `10115` is a number) or a doc string (an object by name, or an array by position).\n- **The checks read the service's last call** in the scenario. A call that answers an error does not fail the step that makes it: check its error.\n- **OpenRPC:** an `openrpc` row names the service's OpenRPC document: a file of the project, a URL, or `rpc.discover` to ask the service for it. Every call's params are then checked against its method before it is sent, and every result and error when it comes back. A call that breaks the document fails the step that makes it, and names the rule it broke.\n\nOpenRPC findings have keys and levels, like the REST pack's OpenAPI findings:\n\n| Key | Found when |\n|---|---|\n| `validation.method.unknown` | the document has no such method |\n| `validation.params.structure` | the params are by name for a method that takes them by position, or the other way round |\n| `validation.params.missing` | a required param is missing |\n| `validation.params.unknown` | a param the method does not have |\n| `validation.params.schema.\u003ckeyword\u003e` | a param breaks a keyword of its schema (`required`, `type`, `pattern`...) |\n| `validation.result.schema.\u003ckeyword\u003e` | the result breaks a keyword of its schema |\n| `validation.error.unknown` | the error is not one the method declares, nor one of JSON-RPC's own (-32700, -32600 to -32603, -32000 to -32099) |\n\n- **Levels:** `ERROR` (or `FAIL`) fails the step, `WARN` and `INFO` log the finding, `IGNORE` drops it. Every finding is an `ERROR` unless `packs.jsonrpc.openrpc.levels` in axx.yaml, or the scenario's `the OpenRPC validation levels are:`, says otherwise.\n- **Keys cover the keys below them:** `validation.params` sets every params finding; the most specific key set wins.\n- **Secrets stay secret:** `${env:..}` values in the properties are masked in logs and failures, and `${token:..}` names a token of the scenario.",
       "steps": [
         {
           "id": "jsonrpc.service",
@@ -1607,7 +1644,9 @@
               "path",
               "value"
             ],
-            "note": "Each row is a param, or a path into one (`address.postcode`), and its value: numbers and booleans are JSON's, double quotes make a value text, `null` is null and `undefined` leaves it out."
+            "note": "Each row is a param, or a path into one (`address.postcode`), and its value, sent as written whatever type the OpenRPC document gives it: a string param's value in double quotes (`\"10115\"`).",
+            "values": "json",
+            "undefined": true
           },
           "since": "0.1.5"
         },
@@ -1636,7 +1675,9 @@
               "path",
               "value"
             ],
-            "note": "Each row is a path into the result (a field name, a dotted path or a JSONPath) and its value, compared as text: `null` for null and `undefined` for absent."
+            "note": "Each row is a path into the result (a field name, a dotted path or a JSONPath) and its value.",
+            "values": "json",
+            "undefined": true
           },
           "since": "0.1.5"
         },
@@ -1644,7 +1685,7 @@
           "id": "jsonrpc.result.is",
           "expr": "the {word} jsonrpc service's result is {string}",
           "keyword": "Then",
-          "doc": "Check the whole result of the service's last call: a text's text, or the JSON of any other result.",
+          "doc": "Check the whole result of the service's last call, with its type: `'true'` is the boolean, `'42'` the integer, `'\"42\"'` the string 42, `'{\"open\": true}'` the object, and other text a string (`'ON_HOLD'`).",
           "examples": [
             "Then the depots jsonrpc service's result is 'true'"
           ],
@@ -1677,7 +1718,9 @@
               "path",
               "value"
             ],
-            "note": "Each row is a path into the error object (`code`, `message`, `data.reason`) and its value, compared as text: `null` for null and `undefined` for absent."
+            "note": "Each row is a path into the error object (`code`, `message`, `data.reason`) and its value.",
+            "values": "json",
+            "undefined": true
           },
           "since": "0.1.5"
         },
@@ -1729,7 +1772,7 @@
     },
     {
       "name": "graphql",
-      "doc": "Send queries, mutations and subscriptions to GraphQL services, and check their data and their errors, against the services' schemas. A federated graph's gateway and a subgraph alone are GraphQL services alike: register each at its URL.\n\n```gherkin\nGiven the parcels graphql service with the following properties:\n  | url    | http://localhost:8400/graphql |\n  | schema | introspection                 |\n```\n\n- **Operations** come from a file of the project (`.graphql`) or a doc string, with variables from a table: a variable takes the type the operation declares for it, so `10115` is text for a `String!`.\n- **The checks read the service's last answer** in the scenario. An answer with errors does not fail the step that sends the operation: check its errors.\n- **Subscriptions** go over graphql-ws (the `graphql-transport-ws` protocol, on the url with `ws://` or `wss://`) or over server-sent events, and belong to the scenario, which ends them when it ends.\n- **The schema is the contract:** with a `schema` row (an SDL file of the project, a URL, or `introspection`), every operation and its variables are checked against it before they are sent, and every answer's data against the operation's types. A subgraph's SDL may use the federation directives (`@key`, `@link`...).\n\nFindings have keys and levels, like the REST pack's OpenAPI findings:\n\n| Key | Found when |\n|---|---|\n| `validation.operation.\u003crule\u003e` | the operation breaks a validation rule of the GraphQL spec (`FieldsOnCorrectType`, `KnownArgumentNames`, `ProvidedRequiredArguments`...) |\n| `validation.variables.missing` | a required variable is missing |\n| `validation.variables.type` | a variable is not of its type |\n| `validation.response.nonNull` | a non-null field is null, without an error that explains it |\n| `validation.response.type` | a field's value is not of its type |\n| `validation.response.enum` | a value is not one of its enum's |\n| `validation.response.missingField` | a field the operation selects is missing |\n| `validation.response.unknownField` | the data has a field the operation does not select |\n\n- **Levels:** `ERROR` (or `FAIL`) fails the step, `WARN` and `INFO` log the finding, `IGNORE` drops it. Every finding is an `ERROR` unless `packs.graphql.levels` in axx.yaml, or the scenario's `the GraphQL validation levels are:`, says otherwise.\n- **Keys cover the keys below them:** `validation.operation` sets every operation finding; the most specific key set wins.\n- **Secrets stay secret:** `${env:..}` values in the properties are masked in logs and failures, and `${token:..}` names a token of the scenario.",
+      "doc": "Send queries, mutations and subscriptions to GraphQL services, and check their data and their errors, against the services' schemas. A federated graph's gateway and a subgraph alone are GraphQL services alike: register each at its URL.\n\n```gherkin\nGiven the parcels graphql service with the following properties:\n  | url    | http://localhost:8400/graphql |\n  | schema | introspection                 |\n```\n\n- **Operations** come from a file of the project (`.graphql`) or a doc string, with variables from a table, each what its cell says: `\"10115\"` for a `String!`, as `10115` is a number, which a schema's check finds.\n- **The checks read the service's last answer** in the scenario. An answer with errors does not fail the step that sends the operation: check its errors.\n- **Subscriptions** go over graphql-ws (the `graphql-transport-ws` protocol, on the url with `ws://` or `wss://`) or over server-sent events, and belong to the scenario, which ends them when it ends.\n- **The schema is the contract:** with a `schema` row (an SDL file of the project, a URL, or `introspection`), every operation and its variables are checked against it before they are sent, and every answer's data against the operation's types. A subgraph's SDL may use the federation directives (`@key`, `@link`...).\n\nFindings have keys and levels, like the REST pack's OpenAPI findings:\n\n| Key | Found when |\n|---|---|\n| `validation.operation.\u003crule\u003e` | the operation breaks a validation rule of the GraphQL spec (`FieldsOnCorrectType`, `KnownArgumentNames`, `ProvidedRequiredArguments`...) |\n| `validation.variables.missing` | a required variable is missing |\n| `validation.variables.type` | a variable is not of its type |\n| `validation.response.nonNull` | a non-null field is null, without an error that explains it |\n| `validation.response.type` | a field's value is not of its type |\n| `validation.response.enum` | a value is not one of its enum's |\n| `validation.response.missingField` | a field the operation selects is missing |\n| `validation.response.unknownField` | the data has a field the operation does not select |\n\n- **Levels:** `ERROR` (or `FAIL`) fails the step, `WARN` and `INFO` log the finding, `IGNORE` drops it. Every finding is an `ERROR` unless `packs.graphql.levels` in axx.yaml, or the scenario's `the GraphQL validation levels are:`, says otherwise.\n- **Keys cover the keys below them:** `validation.operation` sets every operation finding; the most specific key set wins.\n- **Secrets stay secret:** `${env:..}` values in the properties are masked in logs and failures, and `${token:..}` names a token of the scenario.",
       "steps": [
         {
           "id": "graphql.service",
@@ -1802,7 +1845,9 @@
               "path",
               "value"
             ],
-            "note": "Each row is a variable, or a path into one (`address.postcode`), and its value: a value takes the type the operation declares for its variable, double quotes make it text, `null` is null and `undefined` leaves it out."
+            "note": "Each row is a variable, or a path into one (`address.postcode`), and its value, sent as written whatever type the operation declares: a `String`'s value in double quotes (`\"10115\"`).",
+            "values": "json",
+            "undefined": true
           },
           "since": "0.1.5"
         },
@@ -1831,7 +1876,9 @@
               "path",
               "value"
             ],
-            "note": "Each row is a variable, or a path into one (`address.postcode`), and its value: a value takes the type the operation declares for its variable, double quotes make it text, `null` is null and `undefined` leaves it out."
+            "note": "Each row is a variable, or a path into one (`address.postcode`), and its value, sent as written whatever type the operation declares: a `String`'s value in double quotes (`\"10115\"`).",
+            "values": "json",
+            "undefined": true
           },
           "since": "0.1.5"
         },
@@ -1860,7 +1907,9 @@
               "path",
               "value"
             ],
-            "note": "Each row is a path into the data (a field, a dotted path like `parcel.shop.name`, or a JSONPath) and its value, compared as text: `null` for null and `undefined` for absent."
+            "note": "Each row is a path into the data (a field, a dotted path like `parcel.shop.name`, or a JSONPath) and its value.",
+            "values": "json",
+            "undefined": true
           },
           "since": "0.1.5"
         },
@@ -1878,7 +1927,9 @@
               "path",
               "value"
             ],
-            "note": "Each row is a path into the error (`message`, `path`, `extensions.code`) and its value, compared as text; the error's `path` is its fields and indexes joined with dots, like `parcel.shop` or `parcels.0.reference`."
+            "note": "Each row is a path into the error (`message`, `path`, `extensions.code`) and its value; the error's `path` is its fields and indexes joined with dots, like `parcel.shop` or `parcels.0.reference`.",
+            "values": "json",
+            "undefined": true
           },
           "since": "0.1.5"
         },
@@ -1896,7 +1947,9 @@
               "path",
               "value"
             ],
-            "note": "Each row is a path into the message's data and its value, compared as text: `null` for null and `undefined` for absent."
+            "note": "Each row is a path into the message's data and its value.",
+            "values": "json",
+            "undefined": true
           },
           "since": "0.1.5"
         },
@@ -1942,7 +1995,7 @@
     },
     {
       "name": "mcp",
-      "doc": "Call the tools of MCP servers (Model Context Protocol) as an AI assistant calls them, and check their results, with the tools' own schemas as the contract. Read their resources and request their prompts.\n\n```gherkin\nGiven the parcels mcp server with the following properties:\n  | url | http://localhost:8400/mcp |\nWhen the track_parcel tool is called on the parcels mcp server with the following arguments:\n  | reference | PX-MCP-9101 |\nThen the track_parcel tool's result is not an error\nAnd the track_parcel tool's result has the following properties:\n  | status | OUT_FOR_DELIVERY |\n```\n\n- **Over stdio or streamable HTTP:** a `command` runs the server for the scenario, which ends it when it ends; a `url` reaches it. The session agrees on the protocol version with the server: 2026-07-28, or an earlier one the server speaks.\n- **Run it as its clients do:** a server assistants start over stdio is the scenario's `command`, like a command-line tool, and not a service in axx.yaml; a server that runs on its own over HTTP is a service, and the `url` reaches it.\n- **A tool's schemas are the contract:** its arguments take the types its input schema gives them (`10115` is text for a string), and are checked against it before the call; its structured result is checked against its output schema.\n- **Two kinds of failure:** a tool's result that is an error (the tool ran, and says what went wrong), and a call the server refused (an unknown tool, invalid parameters), with its JSON-RPC error code.\n\nFindings have keys and levels, like the REST pack's OpenAPI findings:\n\n| Key | Found when |\n|---|---|\n| `validation.arguments.schema.\u003ckeyword\u003e` | the arguments break the tool's input schema (`required`, `type`, `enum`...) |\n| `validation.result.schema.\u003ckeyword\u003e` | the structured result breaks the tool's output schema |\n| `validation.result.missing` | a tool with an output schema answered no structured result |\n\n- **Levels:** `ERROR` (or `FAIL`) fails the step, `WARN` and `INFO` log the finding, `IGNORE` drops it. Every finding is an `ERROR` unless `packs.mcp.levels` in axx.yaml, or the scenario's `the MCP validation levels are:`, says otherwise.\n- **Secrets stay secret:** `${env:..}` values in the properties are masked in logs and failures, and `${token:..}` names a token of the scenario.",
+      "doc": "Call the tools of MCP servers (Model Context Protocol) as an AI assistant calls them, and check their results, with the tools' own schemas as the contract. Read their resources and request their prompts.\n\n```gherkin\nGiven the parcels mcp server with the following properties:\n  | url | http://localhost:8400/mcp |\nWhen the track_parcel tool is called on the parcels mcp server with the following arguments:\n  | reference | PX-MCP-9101 |\nThen the track_parcel tool's result is not an error\nAnd the track_parcel tool's result has the following properties:\n  | status | OUT_FOR_DELIVERY |\n```\n\n- **Over stdio or streamable HTTP:** a `command` runs the server for the scenario, which ends it when it ends; a `url` reaches it. The session agrees on the protocol version with the server: 2026-07-28, or an earlier one the server speaks.\n- **Run it as its clients do:** a server assistants start over stdio is the scenario's `command`, like a command-line tool, and not a service in axx.yaml; a server that runs on its own over HTTP is a service, and the `url` reaches it.\n- **A tool's schemas are the contract:** its arguments, each what its cell says (`\"10115\"` for a string, as `10115` is a number), are checked against its input schema before the call; its structured result is checked against its output schema.\n- **Two kinds of failure:** a tool's result that is an error (the tool ran, and says what went wrong), and a call the server refused (an unknown tool, invalid parameters), with its JSON-RPC error code.\n\nFindings have keys and levels, like the REST pack's OpenAPI findings:\n\n| Key | Found when |\n|---|---|\n| `validation.arguments.schema.\u003ckeyword\u003e` | the arguments break the tool's input schema (`required`, `type`, `enum`...) |\n| `validation.result.schema.\u003ckeyword\u003e` | the structured result breaks the tool's output schema |\n| `validation.result.missing` | a tool with an output schema answered no structured result |\n\n- **Levels:** `ERROR` (or `FAIL`) fails the step, `WARN` and `INFO` log the finding, `IGNORE` drops it. Every finding is an `ERROR` unless `packs.mcp.levels` in axx.yaml, or the scenario's `the MCP validation levels are:`, says otherwise.\n- **Secrets stay secret:** `${env:..}` values in the properties are masked in logs and failures, and `${token:..}` names a token of the scenario.",
       "steps": [
         {
           "id": "mcp.server",
@@ -2014,7 +2067,9 @@
               "property",
               "value"
             ],
-            "note": "A row is a path into the tool as the server lists it (`description`, `annotations.readOnlyHint`, `inputSchema.required[0]`) and its value."
+            "note": "A row is a path into the tool as the server lists it (`description`, `annotations.readOnlyHint`, `inputSchema.required[0]`) and its value.",
+            "values": "json",
+            "undefined": true
           },
           "since": "0.1.5"
         },
@@ -2044,7 +2099,9 @@
               "path",
               "value"
             ],
-            "note": "Each row is an argument, or a path into one (`address.postcode`), and its value: a value takes the type the tool's input schema gives its argument, double quotes make it text, `null` is null and `undefined` leaves it out."
+            "note": "Each row is an argument, or a path into one (`address.postcode`), and its value, sent as written whatever type the tool's input schema gives it: a string argument's value in double quotes (`\"10115\"`).",
+            "values": "json",
+            "undefined": true
           },
           "since": "0.1.5"
         },
@@ -2096,7 +2153,7 @@
           "id": "mcp.properties",
           "expr": "the {word} tool's result[[ on the {word} mcp server]] has the following properties:",
           "keyword": "Then",
-          "doc": "Check the tool's structured result: its structured content, or the JSON of its text for a tool that answers JSON as text.\n\n- Paths are dotted (`lastScan.location`) or JSONPath; `null` and `undefined` work as in the other property steps.\n- The result is the tool's latest in the scenario, on the server the step names, or on the only server the scenario called the tool on.",
+          "doc": "Check the tool's structured result: its structured content, or the JSON of its text for a tool that answers JSON as text.\n\n- Paths are dotted (`lastScan.location`) or JSONPath.\n- The result is the tool's latest in the scenario, on the server the step names, or on the only server the scenario called the tool on.",
           "examples": [
             "Then the track_parcel tool's result has the following properties:\n  | status       | OUT_FOR_DELIVERY |\n  | lastLocation | Leipzig          |"
           ],
@@ -2106,7 +2163,9 @@
               "property",
               "value"
             ],
-            "note": "A row is a path into the structured result, and its value."
+            "note": "A row is a path into the structured result, and its value.",
+            "values": "json",
+            "undefined": true
           },
           "since": "0.1.5"
         },
@@ -2157,7 +2216,9 @@
               "property",
               "value"
             ],
-            "note": "A row is a path into the resource's JSON, and its value."
+            "note": "A row is a path into the resource's JSON, and its value.",
+            "values": "json",
+            "undefined": true
           },
           "since": "0.1.5"
         },
@@ -2175,7 +2236,8 @@
               "argument",
               "value"
             ],
-            "note": "A row is an argument of the prompt, and its value, as text."
+            "note": "A row is an argument of the prompt, and its value: MCP gives a prompt's arguments as text.",
+            "values": "text"
           },
           "since": "0.1.5"
         },
@@ -2307,7 +2369,9 @@
               "property",
               "value"
             ],
-            "note": "A row is a path into the card (`name`, `capabilities.streaming`, `skills[0].id`) and its value."
+            "note": "A row is a path into the card (`name`, `capabilities.streaming`, `skills[0].id`) and its value.",
+            "values": "json",
+            "undefined": true
           },
           "since": "0.1.5"
         },
@@ -2414,7 +2478,9 @@
               "property",
               "value"
             ],
-            "note": "A row is a path into the artifact, and its value."
+            "note": "A row is a path into the artifact, and its value.",
+            "values": "json",
+            "undefined": true
           },
           "since": "0.1.5"
         },
@@ -2432,7 +2498,9 @@
               "property",
               "value"
             ],
-            "note": "A row is a path into the update, and its value."
+            "note": "A row is a path into the update, and its value.",
+            "values": "json",
+            "undefined": true
           },
           "since": "0.1.5"
         }
@@ -2529,7 +2597,8 @@
               "column",
               "value"
             ],
-            "note": "Each row names a column and the value the locked rows hold in it, or `null` for none (`IS NULL`); values are escaped."
+            "note": "Each row names a column and the value the locked rows hold in it, which the database compares as a SQL value of its type; `null` is `IS NULL`.",
+            "values": "json"
           }
         },
         {
@@ -2558,7 +2627,8 @@
               "column",
               "value"
             ],
-            "note": "Each row names a column and the value the selected rows hold in it, or `null` for none (`IS NULL`); values are escaped."
+            "note": "Each row names a column and the value the selected rows hold in it, which the database compares as a SQL value of its type; `null` is `IS NULL`.",
+            "values": "json"
           }
         },
         {
@@ -2575,7 +2645,8 @@
               "column",
               "value"
             ],
-            "note": "Each row names a column and the value the selected rows hold in it, or `null` for none (`IS NULL`); values are escaped."
+            "note": "Each row names a column and the value the selected rows hold in it, which the database compares as a SQL value of its type; `null` is `IS NULL`.",
+            "values": "json"
           }
         },
         {
@@ -2592,7 +2663,8 @@
               "property",
               "value"
             ],
-            "note": "Each row names a property, dotted (`recipient.city`) for one inside an object, and the value it holds, compared as a JSON string (`null` is JSON null), so it never matches a number or a boolean."
+            "note": "Each row names a property, dotted (`recipient.city`) for one inside an object, and the JSON value it holds.",
+            "values": "json"
           }
         },
         {
@@ -2609,7 +2681,9 @@
               "JSONPath",
               "value"
             ],
-            "note": "Each row names a JSONPath, like `source` or `$.recipient.city`, and the value there as text, like `true` or `850`: `null` for JSON null, `undefined` for a property the JSON lacks."
+            "note": "Each row names a JSONPath, like `source` or `$.recipient.city`, and the value there.",
+            "values": "json",
+            "undefined": true
           }
         },
         {
@@ -2676,7 +2750,8 @@
               "column",
               "value"
             ],
-            "note": "Each row names a column and the value the inserted row holds in it, or `null` for none (`IS NULL`); values are escaped."
+            "note": "Each row names a column and the value the inserted row holds in it, which the database compares as a SQL value of its type; `null` is `IS NULL`.",
+            "values": "json"
           }
         },
         {
@@ -2693,7 +2768,8 @@
               "column",
               "value"
             ],
-            "note": "Each row names a column and the value the inserted row holds in it, or `null` for none (`IS NULL`); values are escaped."
+            "note": "Each row names a column and the value the inserted row holds in it, which the database compares as a SQL value of its type; `null` is `IS NULL`.",
+            "values": "json"
           }
         },
         {
@@ -2710,7 +2786,8 @@
               "column",
               "value"
             ],
-            "note": "Each row names a column and the value the inserted row holds in it, or `null` for none (`IS NULL`); values are escaped."
+            "note": "Each row names a column and the value the inserted row holds in it, which the database compares as a SQL value of its type; `null` is `IS NULL`.",
+            "values": "json"
           }
         },
         {
@@ -2727,7 +2804,8 @@
               "column",
               "value"
             ],
-            "note": "Each row names a column and the value the inserted row holds in it, or `null` for none (`IS NULL`); values are escaped."
+            "note": "Each row names a column and the value the inserted row holds in it, which the database compares as a SQL value of its type; `null` is `IS NULL`.",
+            "values": "json"
           }
         },
         {
@@ -2838,7 +2916,8 @@
               "field",
               "value"
             ],
-            "note": "Each row names a field, dotted (`recipient.city`) for one inside a document, and the value it holds: JSON when it reads as JSON (`3`, `true`, `null`, `\"3\"`, `{\"$oid\": \"...\"}`), text otherwise."
+            "note": "Each row names a field, dotted (`recipient.city`) for one inside a document, and the value it holds; an object is Extended JSON, like `{\"$oid\": \"...\"}` for an ObjectId.",
+            "values": "json"
           },
           "since": "0.1.0"
         },
@@ -2856,7 +2935,8 @@
               "field",
               "value"
             ],
-            "note": "Each row names a field, dotted (`recipient.city`) for one inside a document, and the value it holds: JSON when it reads as JSON (`3`, `true`, `null`, `\"3\"`, `{\"$oid\": \"...\"}`), text otherwise."
+            "note": "Each row names a field, dotted (`recipient.city`) for one inside a document, and the value it holds; an object is Extended JSON, like `{\"$oid\": \"...\"}` for an ObjectId.",
+            "values": "json"
           },
           "since": "0.1.0"
         },
@@ -2900,7 +2980,7 @@
           "id": "mongo.doc.are",
           "expr": "the {ordinal} document for the[[ {ordinal}]] selection[[ on {mongoService}]] properties are:",
           "keyword": "Then",
-          "doc": "Check the fields of one document of a selection, read as JSON: an ObjectId is its hex string, and a date is in ISO-8601 UTC, like `2026-05-05T06:40:00.000Z`.",
+          "doc": "Check the fields of one document of a selection, read as JSON: an ObjectId is its hex string, a date is in ISO-8601 UTC, like `2026-05-05T06:40:00.000Z`, a double is a decimal, like `6.0`, and a Decimal128 a number.",
           "examples": [
             "Then the 1st document for the selection properties are:\n  | status       | DELIVERED |\n  | lastLocation | Leipzig   |\n  | delivered    | true      |"
           ],
@@ -2910,7 +2990,9 @@
               "JSONPath",
               "value"
             ],
-            "note": "Each row names a JSONPath, like `lastLocation` or `scans[0].status`, and the value there as text, like `true` or `2`: `null` for null, `undefined` for a field the document lacks."
+            "note": "Each row names a JSONPath, like `lastLocation` or `scans[0].status`, and the value there.",
+            "values": "json",
+            "undefined": true
           },
           "since": "0.1.0"
         },
@@ -2936,7 +3018,7 @@
     },
     {
       "name": "redis",
-      "doc": "Seed keys into Redis, and check the keys your services write there: their values, their JSON properties or hash fields, and that they are gone. Every server that speaks Redis's protocol works: Redis, Valkey, Dragonfly, KeyDB, Garnet.\n\nRegister the server once, usually in the `Background`; every Redis step of the scenario uses it:\n\n```gherkin\nGiven the cache redis server with the following properties:\n  | url | redis://localhost:6379/0 |\n```\n\n- **A key is shown as JSON,** whatever its type: a string holding JSON as that JSON (other text as a string), a hash as an object of its fields, a list as an array, a set as a sorted array, and a sorted set as an object of its members and their scores. `has the following properties:` reads paths into it.\n- **Checks wait** for the key to be as they say, 10 seconds unless `within {duration}` says otherwise.\n- **Scenarios share the server,** so each seeds and checks keys of its own, named after data unique to it, such as a parcel reference.\n- **Secrets stay secret:** a password in the URL, or from `${env:..}`, is masked in logs and failures.",
+      "doc": "Seed keys into Redis, and check the keys your services write there: their values, their JSON properties or hash fields, and that they are gone. Every server that speaks Redis's protocol works: Redis, Valkey, Dragonfly, KeyDB, Garnet.\n\nRegister the server once, usually in the `Background`; every Redis step of the scenario uses it:\n\n```gherkin\nGiven the cache redis server with the following properties:\n  | url | redis://localhost:6379/0 |\n```\n\n- **A key is shown as JSON,** whatever its type: a string holding JSON as that JSON (other text as a string), a hash as an object of its fields, a list as an array, a set as a sorted array, and a sorted set as an object of its members and their scores. `has the following properties:` reads paths into it. Redis keeps text, so fields and members are strings (`\"42\"`), and scores are decimals (`42.0`).\n- **Checks wait** for the key to be as they say, 10 seconds unless `within {duration}` says otherwise.\n- **Scenarios share the server,** so each seeds and checks keys of its own, named after data unique to it, such as a parcel reference.\n- **Secrets stay secret:** a password in the URL, or from `${env:..}`, is masked in logs and failures.",
       "steps": [
         {
           "id": "redis.server",
@@ -2992,7 +3074,7 @@
           "id": "redis.properties",
           "expr": "[[within {duration} ]]the {word} redis key has the following properties:",
           "keyword": "Then",
-          "doc": "Check that the key, shown as JSON, has the properties of the table. The check waits for it: 10 seconds, or `within {duration}`.\n\n- A string key holding JSON is that JSON; a hash is an object of its fields; a list an array; a set a sorted array; a sorted set an object of its members and their scores.",
+          "doc": "Check that the key, shown as JSON, has the properties of the table. The check waits for it: 10 seconds, or `within {duration}`.\n\n- A string key holding JSON is that JSON; a hash is an object of its fields; a list an array; a set a sorted array; a sorted set an object of its members and their scores.\n- Redis keeps text: a hash's fields and the members of a list or a set are strings, so a field holding 42 is `\"42\"`; a score is a decimal, like `42.0`.",
           "examples": [
             "Then within 10s the quote:DE-1:STANDARD:1200 redis key has the following properties:\n  | priceCents | 690 |\n  | currency   | EUR |",
             "Then the shop:hawthorn-home redis key has the following properties:\n  | tier | gold |"
@@ -3003,7 +3085,9 @@
               "path",
               "value"
             ],
-            "note": "Each row is a path into the key's JSON (a field name, a dotted path or a JSONPath) and the value it has, compared as text: `null` for null and `undefined` for absent."
+            "note": "Each row is a path into the key's JSON (a field name, a dotted path or a JSONPath) and the value it has.",
+            "values": "json",
+            "undefined": true
           },
           "since": "0.1.5"
         },
@@ -3477,7 +3561,7 @@
           "id": "kafka.event.key",
           "expr": "the[[ {ordinal} ordered]] {word} kafka event key is {word}[[ on the {word} kafka service]]",
           "keyword": "Given",
-          "doc": "Set the key of a drafted event. With `the {ordinal} ordered` the step works on that event of the topic (`1st` is the first event created); without it, on the first event.",
+          "doc": "Set the key of a drafted event. The key is text: one that reads as a number, a boolean or `null` goes in double quotes, like `\"4101\"`. With `the {ordinal} ordered` the step works on that event of the topic (`1st` is the first event created); without it, on the first event.",
           "examples": [
             "Given the depot-scans kafka event key is PX-4101",
             "Given the 2nd ordered depot-scans kafka event key is PX-4102 on the events kafka service"
@@ -3499,7 +3583,8 @@
               "header",
               "value"
             ],
-            "note": "A row sets a header of the event: setting a header again replaces its value, and an empty cell sends the text `null`."
+            "note": "A row sets a header of the event: setting a header again replaces its value.",
+            "values": "text"
           }
         },
         {
@@ -3528,7 +3613,9 @@
               "JSONPath",
               "value"
             ],
-            "note": "A row sets the property at the JSONPath to the value, always as a string; an empty cell sets JSON null."
+            "note": "A row sets the property at the JSONPath to the value, as written; `undefined` removes the property.",
+            "values": "json",
+            "undefined": true
           }
         },
         {
@@ -3546,7 +3633,9 @@
               "JSONPath",
               "value"
             ],
-            "note": "A row sets the property at the JSONPath to the value, always as a string; an empty cell sets JSON null."
+            "note": "A row sets the property at the JSONPath to the value, as written; `undefined` removes the property.",
+            "values": "json",
+            "undefined": true
           }
         },
         {
@@ -3563,7 +3652,9 @@
               "JSONPath",
               "value"
             ],
-            "note": "A row sets the property at the JSONPath to the value, always as a string; an empty cell sets JSON null."
+            "note": "A row sets the property at the JSONPath to the value, as written; `undefined` removes the property.",
+            "values": "json",
+            "undefined": true
           },
           "since": "0.1.0"
         },
@@ -3605,7 +3696,7 @@
           "id": "kafka.consumed.key",
           "expr": "the {word} kafka event named {word} key is {word}[[ on the {word} kafka service]]",
           "keyword": "Then",
-          "doc": "Expect the label's record to have this key.\n\n- The consumer's key deserializer decides how keys read.\n- The expectation joins those of the label (`named {word}`) in the scenario: **one record** of the topic must meet **every** one of them, key, payload properties and headers together.\n- Records are read from the start of the topic, or with `consumer.auto.offset.reset=latest`, only those produced after the step starts.\n- The step fails after 30 seconds (`packs.kafka.timeout`) without a match; the failure lists the label's expectations and the latest records, each with the reason it did not match.",
+          "doc": "Expect the label's record to have this key.\n\n- The key is text: one that reads as a number, a boolean or `null` goes in double quotes, like `\"4101\"`.\n- The consumer's key deserializer decides how keys read.\n- The expectation joins those of the label (`named {word}`) in the scenario: **one record** of the topic must meet **every** one of them, key, payload properties and headers together.\n- Records are read from the start of the topic, or with `consumer.auto.offset.reset=latest`, only those produced after the step starts.\n- The step fails after 30 seconds (`packs.kafka.timeout`) without a match; the failure lists the label's expectations and the latest records, each with the reason it did not match.",
           "examples": [
             "Then the parcel-events kafka event named registered key is PX-4101",
             "Then the parcel-events kafka event named registered key is PX-4101 on the events kafka service"
@@ -3616,7 +3707,7 @@
           "id": "kafka.consumed.properties",
           "expr": "the {word} kafka event named {word} payload properties[[ on the {word} kafka service]] are:",
           "keyword": "Then",
-          "doc": "Expect JSONPath properties of the label's record payload.\n\n- Values are typed: `\"text\"` is a string, `null` JSON null, `12` an integer, `1.5` a decimal, `true` and `false` booleans, `{...}` and `[...]` JSON; anything else is a string.\n- Numbers must match in type: `2` does not equal `2.0`.\n- An empty cell fails the step: write `null` for JSON null, `\"\"` for an empty string.\n- The expectation joins those of the label (`named {word}`) in the scenario: **one record** of the topic must meet **every** one of them, key, payload properties and headers together.\n- Records are read from the start of the topic, or with `consumer.auto.offset.reset=latest`, only those produced after the step starts.\n- The step fails after 30 seconds (`packs.kafka.timeout`) without a match; the failure lists the label's expectations and the latest records, each with the reason it did not match.",
+          "doc": "Expect JSONPath properties of the label's record payload.\n\n- The expectation joins those of the label (`named {word}`) in the scenario: **one record** of the topic must meet **every** one of them, key, payload properties and headers together.\n- Records are read from the start of the topic, or with `consumer.auto.offset.reset=latest`, only those produced after the step starts.\n- The step fails after 30 seconds (`packs.kafka.timeout`) without a match; the failure lists the label's expectations and the latest records, each with the reason it did not match.",
           "examples": [
             "Then the parcel-events kafka event named registered payload properties are:\n  | $.reference    | PX-4101  |\n  | $.weightGrams  | 1200     |\n  | $.serviceLevel | STANDARD |",
             "Then the parcel-events kafka event named registered payload properties on the events kafka service are:\n  | $.reference | PX-4101 |\n  | $.source    | api     |"
@@ -3627,7 +3718,9 @@
               "JSONPath",
               "value"
             ],
-            "note": "A row expects the property at the JSONPath to have the value."
+            "note": "A row expects the property at the JSONPath to have the value.",
+            "values": "json",
+            "undefined": true
           }
         },
         {
@@ -3645,7 +3738,8 @@
               "header",
               "value"
             ],
-            "note": "A row expects a header of the record to have the value; an empty cell fails the step."
+            "note": "A row expects a header of the record to have the value.",
+            "values": "text"
           }
         },
         {
@@ -3793,7 +3887,8 @@
                 "name": "reply to",
                 "takes": "where replies go: a queue's name"
               }
-            ]
+            ],
+            "values": "text"
           },
           "since": "0.1.5"
         },
@@ -3811,7 +3906,9 @@
               "path",
               "value"
             ],
-            "note": "Each row is a path into the message's JSON body (a field name, a dotted path or a JSONPath) and the value it has, compared as text: `null` for null and `undefined` for absent. A row `header \u003cname\u003e` is instead on the header of that name sent with the message: `undefined` when there is none. Rows `routing key`, `content type`, `correlation id`, `message id` and `reply to` are on the message itself, not its body."
+            "note": "Each row is a path into the message's JSON body (a field name, a dotted path or a JSONPath) and the value it has there. A row `header \u003cname\u003e` is instead on the header of that name sent with the message, which is text (`\"3\"` for one that reads as a number), and `undefined` when there is none. Rows `routing key`, `content type`, `correlation id`, `message id` and `reply to` are on the message itself, not its body, and text too.",
+            "values": "json",
+            "undefined": true
           },
           "since": "0.1.5"
         },
@@ -3868,7 +3965,8 @@
                 "name": "reply to",
                 "takes": "where replies go: a queue's name"
               }
-            ]
+            ],
+            "values": "text"
           },
           "since": "0.1.5"
         },
@@ -3886,7 +3984,9 @@
               "path",
               "value"
             ],
-            "note": "Each row is a path into the message's JSON body (a field name, a dotted path or a JSONPath) and the value it has, compared as text: `null` for null and `undefined` for absent. A row `header \u003cname\u003e` is instead on the header of that name sent with the message: `undefined` when there is none. Rows `routing key`, `content type`, `correlation id`, `message id` and `reply to` are on the message itself, not its body."
+            "note": "Each row is a path into the message's JSON body (a field name, a dotted path or a JSONPath) and the value it has there. A row `header \u003cname\u003e` is instead on the header of that name sent with the message, which is text (`\"3\"` for one that reads as a number), and `undefined` when there is none. Rows `routing key`, `content type`, `correlation id`, `message id` and `reply to` are on the message itself, not its body, and text too.",
+            "values": "json",
+            "undefined": true
           },
           "since": "0.1.5"
         }
@@ -3999,7 +4099,9 @@
                 "name": "correlation data",
                 "takes": "what ties a reply to its request, as text"
               }
-            ]
+            ],
+            "note": "Every value but those of `qos` and `retain` is text: one that reads as a number, a boolean or `null` goes in double quotes (`\"3\"`).",
+            "values": "json"
           },
           "since": "0.1.5"
         },
@@ -4017,7 +4119,9 @@
               "path",
               "value"
             ],
-            "note": "Each row is a path into the message's JSON body (a field name, a dotted path or a JSONPath) and the value it has, compared as text: `null` for null and `undefined` for absent. A row `property \u003cname\u003e` is instead on the property of that name sent with the message: `undefined` when there is none. Rows `topic`, `content type`, `response topic` and `correlation data` are on the message itself, not its body."
+            "note": "Each row is a path into the message's JSON body (a field name, a dotted path or a JSONPath) and the value it has there. A row `property \u003cname\u003e` is instead on the property of that name sent with the message, which is text (`\"3\"` for one that reads as a number), and `undefined` when there is none. Rows `topic`, `content type`, `response topic` and `correlation data` are on the message itself, not its body, and text too.",
+            "values": "json",
+            "undefined": true
           },
           "since": "0.1.5"
         }
@@ -4097,7 +4201,8 @@
               "name",
               "value"
             ],
-            "note": "Each row is a header sent with the message, as text: its name and its value."
+            "note": "Each row is a header sent with the message: its name and its value.",
+            "values": "text"
           },
           "since": "0.1.5"
         },
@@ -4115,7 +4220,9 @@
               "path",
               "value"
             ],
-            "note": "Each row is a path into the message's JSON body (a field name, a dotted path or a JSONPath) and the value it has, compared as text: `null` for null and `undefined` for absent. A row `header \u003cname\u003e` is instead on the header of that name sent with the message: `undefined` when there is none. A row `subject` is on the message itself, not its body."
+            "note": "Each row is a path into the message's JSON body (a field name, a dotted path or a JSONPath) and the value it has there. A row `header \u003cname\u003e` is instead on the header of that name sent with the message, which is text (`\"3\"` for one that reads as a number), and `undefined` when there is none. A row `subject` is on the message itself, not its body, and text too.",
+            "values": "json",
+            "undefined": true
           },
           "since": "0.1.5"
         },
@@ -4133,7 +4240,9 @@
               "path",
               "value"
             ],
-            "note": "Each row is a path into the message's JSON body (a field name, a dotted path or a JSONPath) and the value it has, compared as text: `null` for null and `undefined` for absent. A row `header \u003cname\u003e` is instead on the header of that name sent with the message: `undefined` when there is none. A row `subject` is on the message itself, not its body."
+            "note": "Each row is a path into the message's JSON body (a field name, a dotted path or a JSONPath) and the value it has there. A row `header \u003cname\u003e` is instead on the header of that name sent with the message, which is text (`\"3\"` for one that reads as a number), and `undefined` when there is none. A row `subject` is on the message itself, not its body, and text too.",
+            "values": "json",
+            "undefined": true
           },
           "since": "0.1.5"
         }
@@ -4330,7 +4439,9 @@
               "path",
               "value"
             ],
-            "note": "Each row is a path into the JSON (a property name, a dotted path or a JSONPath) and the value it has, compared as text: `null` for null and `undefined` for absent, as in the other JSON property steps."
+            "note": "Each row is a path into the JSON (a property name, a dotted path or a JSONPath) and the value it has there.",
+            "values": "json",
+            "undefined": true
           },
           "since": "0.1.1"
         },
@@ -4349,9 +4460,9 @@
           "id": "files.row",
           "expr": "[[within {duration} ]]the {path} file in the {word} folder has a row where:",
           "keyword": "Then",
-          "doc": "Check that the table of the file has a row with those values in those columns.\n\n- The check waits for it: 10 seconds, or `within {duration}`.\n- The file is a CSV or TSV file, or an Excel workbook (.xlsx; its first sheet), whose first row names the columns.\n- Cells compare as text, as the workbook shows them, with runs of spaces as one space; an empty value matches an empty cell.",
+          "doc": "Check that the table of the file has a row with those values in those columns.\n\n- The check waits for it: 10 seconds, or `within {duration}`.\n- The file is a CSV or TSV file, or an Excel workbook (.xlsx; its first sheet), whose first row names the columns.\n- A cell is the text the workbook shows, with runs of spaces as one space: a price formatted with two decimals is `\"6.90\"`, and `\"\"` an empty cell.",
           "examples": [
-            "Then within 30s the disputes/kestrel-2026-09.csv file in the exports folder has a row where:\n  | parcel | PX-5199          |\n  | status | UNKNOWN_SHIPMENT |\n  | billed | 4.10             |"
+            "Then within 30s the disputes/kestrel-2026-09.csv file in the exports folder has a row where:\n  | parcel | PX-5199          |\n  | status | UNKNOWN_SHIPMENT |\n  | billed | \"4.10\"           |"
           ],
           "arg": "table",
           "table": {
@@ -4359,7 +4470,8 @@
               "column",
               "value"
             ],
-            "note": "Each row names a column, as the file's first row names it, and the value in that column."
+            "note": "Each row names a column, as the file's first row names it, and the value in that column.",
+            "values": "text"
           },
           "since": "0.1.1"
         },
@@ -4527,7 +4639,8 @@
                 "name": "header \u003cname\u003e",
                 "takes": "a header's value: its name after `header `"
               }
-            ]
+            ],
+            "values": "text"
           },
           "since": "0.1.5"
         }
@@ -4667,7 +4780,8 @@
               "path",
               "value"
             ],
-            "note": "Values compare as text: `null` is null and `undefined` is absent."
+            "values": "json",
+            "undefined": true
           },
           "since": "0.1.5"
         },
@@ -4761,7 +4875,9 @@
               "path",
               "value"
             ],
-            "note": "Each row is a path into the message (a field name, a dotted path or a JSONPath) and the value it has, compared as text: `null` for null and `undefined` for absent."
+            "note": "Each row is a path into the message (a field name, a dotted path or a JSONPath) and the value it has there.",
+            "values": "json",
+            "undefined": true
           },
           "since": "0.1.5"
         },
@@ -4840,7 +4956,9 @@
               "path",
               "value"
             ],
-            "note": "Each row is a path into the event's data, as JSON (a field name, a dotted path or a JSONPath), and the value it has, compared as text: `null` for null and `undefined` for absent. The rows `event type` and `event id` are the event's type (its `event:` field, or `message`) and id."
+            "note": "Each row is a path into the event's data, as JSON (a field name, a dotted path or a JSONPath), and the value it has there. The rows `event type` and `event id` are the event's type (its `event:` field, or `message`) and id, which are text: `\"1\"` for an id that reads as a number.",
+            "values": "json",
+            "undefined": true
           },
           "since": "0.1.5"
         },
@@ -5366,7 +5484,8 @@
               "column",
               "value"
             ],
-            "note": "Each row names a column, by its header, and the value the table's row has in it."
+            "note": "Each row names a column, by its header, and the value the table's row has in it.",
+            "values": "text"
           },
           "since": "0.1.1"
         },
@@ -5406,7 +5525,8 @@
               "column",
               "value"
             ],
-            "note": "Each row names a column, as the file's first row names it, and the value the file's row has in it."
+            "note": "Each row names a column, as the file's first row names it, and the value the file's row has in it.",
+            "values": "text"
           },
           "since": "0.1.1"
         },
@@ -5571,7 +5691,8 @@
               "column",
               "value"
             ],
-            "note": "Each row names a column, by its header, and the value the tables' rows have in it."
+            "note": "Each row names a column, by its header, and the value the tables' rows have in it.",
+            "values": "text"
           },
           "since": "0.1.1"
         },
@@ -7436,7 +7557,9 @@
               "path",
               "value"
             ],
-            "note": "Each row is a path into the JSON (a property name, a dotted path or a JSONPath) and the value it has, compared as text: `null` for null and `undefined` for absent, as in the other JSON property steps."
+            "note": "Each row is a path into the JSON (a property name, a dotted path or a JSONPath) and the value it has there.",
+            "values": "json",
+            "undefined": true
           },
           "since": "0.1.0"
         },
@@ -7455,9 +7578,9 @@
           "id": "aws-s3.row",
           "expr": "[[within {duration} ]]the {path} object in the {word} s3 bucket has a row where:",
           "keyword": "Then",
-          "doc": "Check that the table of the object has a row with those values in those columns.\n\n- The check waits for it: 10 seconds, or `within {duration}`.\n- The object is a CSV or TSV file, or an Excel workbook (.xlsx; its first sheet), whose first row names the columns.\n- Cells compare as text, as the workbook shows them, with runs of spaces as one space; an empty value matches an empty cell.",
+          "doc": "Check that the table of the object has a row with those values in those columns.\n\n- The check waits for it: 10 seconds, or `within {duration}`.\n- The object is a CSV or TSV file, or an Excel workbook (.xlsx; its first sheet), whose first row names the columns.\n- A cell is the text the workbook shows, with runs of spaces as one space: a price formatted with two decimals is `\"6.90\"`, and `\"\"` an empty cell.",
           "examples": [
-            "Then within 30s the disputes/kestrel-2026-09.csv object in the carrier-drops s3 bucket has a row where:\n  | parcel | PX-5199          |\n  | status | UNKNOWN_SHIPMENT |\n  | billed | 4.10             |"
+            "Then within 30s the disputes/kestrel-2026-09.csv object in the carrier-drops s3 bucket has a row where:\n  | parcel | PX-5199          |\n  | status | UNKNOWN_SHIPMENT |\n  | billed | \"4.10\"           |"
           ],
           "arg": "table",
           "table": {
@@ -7465,7 +7588,8 @@
               "column",
               "value"
             ],
-            "note": "Each row names a column, as the object's first row names it, and the value in that column."
+            "note": "Each row names a column, as the object's first row names it, and the value in that column.",
+            "values": "text"
           },
           "since": "0.1.1"
         }
@@ -7504,7 +7628,8 @@
               "name",
               "value"
             ],
-            "note": "Each row is an attribute sent with the message, as text: its name and its value."
+            "note": "Each row is an attribute sent with the message: its name and its value.",
+            "values": "text"
           },
           "since": "0.1.0"
         },
@@ -7522,7 +7647,9 @@
               "path",
               "value"
             ],
-            "note": "Each row is a path into the message's JSON body (a field name, a dotted path or a JSONPath) and the value it has, compared as text: `null` for null and `undefined` for absent. A row `attribute \u003cname\u003e` is instead on the attribute of that name sent with the message: `undefined` when there is none."
+            "note": "Each row is a path into the message's JSON body (a field name, a dotted path or a JSONPath) and the value it has there. A row `attribute \u003cname\u003e` is instead on the attribute of that name sent with the message, which is text (`\"3\"` for one that reads as a number), and `undefined` when there is none.",
+            "values": "json",
+            "undefined": true
           },
           "since": "0.1.0"
         }
@@ -7561,7 +7688,8 @@
               "name",
               "value"
             ],
-            "note": "Each row is an attribute sent with the message, as text: its name and its value."
+            "note": "Each row is an attribute sent with the message: its name and its value.",
+            "values": "text"
           },
           "since": "0.1.0"
         },
@@ -7579,7 +7707,9 @@
               "path",
               "value"
             ],
-            "note": "Each row is a path into the message's JSON body (a field name, a dotted path or a JSONPath) and the value it has, compared as text: `null` for null and `undefined` for absent. A row `attribute \u003cname\u003e` is instead on the attribute of that name sent with the message: `undefined` when there is none."
+            "note": "Each row is a path into the message's JSON body (a field name, a dotted path or a JSONPath) and the value it has there. A row `attribute \u003cname\u003e` is instead on the attribute of that name sent with the message, which is text (`\"3\"` for one that reads as a number), and `undefined` when there is none.",
+            "values": "json",
+            "undefined": true
           },
           "since": "0.1.0"
         }
@@ -7631,7 +7761,9 @@
                 "takes": "a field of the event's detail, or a dotted path into it, like `detail.claim`"
               }
             ],
-            "note": "Values compare as text: `null` for null and `undefined` for absent. Other paths into the event, as EventBridge delivers it, work too, like `account` or `region`."
+            "note": "Other paths into the event, as EventBridge delivers it, work too, like `account` or `region`.",
+            "values": "json",
+            "undefined": true
           },
           "since": "0.1.0"
         }
@@ -7639,7 +7771,7 @@
     },
     {
       "name": "aws-dynamodb",
-      "doc": "Seed DynamoDB tables and check the items your services write.\n\nThe steps use the scenario's AWS account (`the {word} aws account with the following properties:`, from aws-core).\n\nA **seed** is a YAML or JSON file that maps table names to the items to put, written as plain JSON (numbers become `N`, objects `M`, arrays `L`):\n\n```yaml\ninsured-parcels:\n  - reference: PX-CLM-1001\n    declaredValue: 120\n    carrier: KESTREL\n```\n\n**Checks** wait (10 seconds unless `within {duration}` says otherwise) until the table has an item, or a number of items, meeting every condition: `attribute | value` rows with a dotted path into maps (`address.city`), compared as text, `null` for null and `undefined` for absent. Items are read with a scan, which suits the small tables of a test environment.",
+      "doc": "Seed DynamoDB tables and check the items your services write.\n\nThe steps use the scenario's AWS account (`the {word} aws account with the following properties:`, from aws-core).\n\nA **seed** is a YAML or JSON file that maps table names to the items to put, written as plain JSON (numbers become `N`, objects `M`, arrays `L`):\n\n```yaml\ninsured-parcels:\n  - reference: PX-CLM-1001\n    declaredValue: 120\n    carrier: KESTREL\n```\n\n**Checks** wait (10 seconds unless `within {duration}` says otherwise) until the table has an item, or a number of items, meeting every condition: `attribute | value` rows with a dotted path into maps (`address.city`), and values of their types: a number (`N`) is the number DynamoDB returns (`120`, `49.99`), and a string (`S`) that reads as a number goes in double quotes (`\"37073\"`). Items are read with a scan, which suits the small tables of a test environment.",
       "requires": [
         "aws-core"
       ],
@@ -7669,7 +7801,9 @@
               "attribute",
               "value"
             ],
-            "note": "Each row names an attribute of the item, or a dotted path into a map (`address.city`), and the value it has, compared as text: `null` for null and `undefined` for absent. Sets read as lists, and binary as base64."
+            "note": "Each row names an attribute of the item, or a dotted path into a map (`address.city`), and the value it has. A number (`N`) is the number DynamoDB returns, like `120` or `49.99`; sets read as lists, and binary as base64.",
+            "values": "json",
+            "undefined": true
           },
           "since": "0.1.0"
         },
@@ -7687,7 +7821,9 @@
               "attribute",
               "value"
             ],
-            "note": "Each row names an attribute of the item, or a dotted path into a map (`address.city`), and the value it has, compared as text: `null` for null and `undefined` for absent. Sets read as lists, and binary as base64."
+            "note": "Each row names an attribute of the item, or a dotted path into a map (`address.city`), and the value it has. A number (`N`) is the number DynamoDB returns, like `120` or `49.99`; sets read as lists, and binary as base64.",
+            "values": "json",
+            "undefined": true
           },
           "since": "0.1.0"
         }
@@ -7794,7 +7930,9 @@
               "path",
               "value"
             ],
-            "note": "Each row is a path into the JSON (a property name, a dotted path or a JSONPath) and the value it has, compared as text: `null` for null and `undefined` for absent, as in the other JSON property steps."
+            "note": "Each row is a path into the JSON (a property name, a dotted path or a JSONPath) and the value it has there.",
+            "values": "json",
+            "undefined": true
           },
           "since": "0.1.0"
         },
@@ -7813,9 +7951,9 @@
           "id": "gcp-storage.row",
           "expr": "[[within {duration} ]]the {path} object in the {word} gcs bucket has a row where:",
           "keyword": "Then",
-          "doc": "Check that the table of the object has a row with those values in those columns.\n\n- The check waits for it: 10 seconds, or `within {duration}`.\n- The object is a CSV or TSV file, or an Excel workbook (.xlsx; its first sheet), whose first row names the columns.\n- Cells compare as text, as the workbook shows them, with runs of spaces as one space; an empty value matches an empty cell.",
+          "doc": "Check that the table of the object has a row with those values in those columns.\n\n- The check waits for it: 10 seconds, or `within {duration}`.\n- The object is a CSV or TSV file, or an Excel workbook (.xlsx; its first sheet), whose first row names the columns.\n- A cell is the text the workbook shows, with runs of spaces as one space: a price formatted with two decimals is `\"6.90\"`, and `\"\"` an empty cell.",
           "examples": [
-            "Then within 30s the disputes/kestrel-2026-09.csv object in the carrier-invoices gcs bucket has a row where:\n  | parcel | PX-5199          |\n  | status | UNKNOWN_SHIPMENT |\n  | billed | 4.10             |"
+            "Then within 30s the disputes/kestrel-2026-09.csv object in the carrier-invoices gcs bucket has a row where:\n  | parcel | PX-5199          |\n  | status | UNKNOWN_SHIPMENT |\n  | billed | \"4.10\"           |"
           ],
           "arg": "table",
           "table": {
@@ -7823,7 +7961,8 @@
               "column",
               "value"
             ],
-            "note": "Each row names a column, as the object's first row names it, and the value in that column."
+            "note": "Each row names a column, as the object's first row names it, and the value in that column.",
+            "values": "text"
           },
           "since": "0.1.1"
         }
@@ -7862,7 +8001,8 @@
               "name",
               "value"
             ],
-            "note": "Each row is an attribute sent with the message, as text: its name and its value."
+            "note": "Each row is an attribute sent with the message: its name and its value.",
+            "values": "text"
           },
           "since": "0.1.0"
         },
@@ -7880,7 +8020,9 @@
               "path",
               "value"
             ],
-            "note": "Each row is a path into the message's JSON body (a field name, a dotted path or a JSONPath) and the value it has, compared as text: `null` for null and `undefined` for absent. A row `attribute \u003cname\u003e` is instead on the attribute of that name sent with the message: `undefined` when there is none."
+            "note": "Each row is a path into the message's JSON body (a field name, a dotted path or a JSONPath) and the value it has there. A row `attribute \u003cname\u003e` is instead on the attribute of that name sent with the message, which is text (`\"3\"` for one that reads as a number), and `undefined` when there is none.",
+            "values": "json",
+            "undefined": true
           },
           "since": "0.1.0"
         }
@@ -7888,7 +8030,7 @@
     },
     {
       "name": "gcp-bigquery",
-      "doc": "Seed BigQuery tables and check the rows your services write.\n\nThe steps use the scenario's project (`the {word} gcp project with the following properties:`, from gcp-core). Tables are named `dataset.table` (in the project) or `project.dataset.table`.\n\nA **seed** is a YAML or JSON file that maps tables to the rows to insert (a streaming insert, `tabledata.insertAll`):\n\n```yaml\nbilling.carrier_rates:\n  - carrier: KESTREL\n    service: express\n    price_per_kg: 1.35\n```\n\n**Checks** wait (10 seconds unless `within {duration}` says otherwise) until the table has a row, or a number of rows, meeting every condition: `column | value` rows, with a dotted path into `RECORD` columns (`address.city`), compared as text: numbers as written, `NUMERIC` as its decimal, `TIMESTAMP` in RFC 3339 (`2026-09-24T09:30:00Z`), `DATE` as `2026-09-24`; `null` for NULL. A check reads the columns its conditions name, of up to 5,000 rows of the table: check the tables your scenarios write, not warehouse-size ones.",
+      "doc": "Seed BigQuery tables and check the rows your services write.\n\nThe steps use the scenario's project (`the {word} gcp project with the following properties:`, from gcp-core). Tables are named `dataset.table` (in the project) or `project.dataset.table`.\n\nA **seed** is a YAML or JSON file that maps tables to the rows to insert (a streaming insert, `tabledata.insertAll`):\n\n```yaml\nbilling.carrier_rates:\n  - carrier: KESTREL\n    service: express\n    price_per_kg: 1.35\n```\n\n**Checks** wait (10 seconds unless `within {duration}` says otherwise) until the table has a row, or a number of rows, meeting every condition: `column | value` rows, with a dotted path into `RECORD` columns (`address.city`), and values of their types: an `INT64` is an integer (`2`), a `FLOAT64` a decimal (`2.0`, a whole one too), a `NUMERIC` the number it is (`1.35`), a `TIMESTAMP` in RFC 3339 (`2026-09-24T09:30:00Z`), a `DATE` like `2026-09-24`, and `null` NULL. A check reads the columns its conditions name, of up to 5,000 rows of the table: check the tables your scenarios write, not warehouse-size ones.",
       "requires": [
         "gcp-core"
       ],
@@ -7908,7 +8050,7 @@
           "id": "gcp-bigquery.row",
           "expr": "[[within {duration} ]]the {word} bigquery table has a row where:",
           "keyword": "Then",
-          "doc": "Check that the table has a row with those values in those columns.\n\n- The check waits for it: 10 seconds, or `within {duration}`.\n- Name the table `dataset.table`, or `project.dataset.table` for another project's.\n- Values compare as text: numbers as written, `NUMERIC` as its decimal, `TIMESTAMP` in RFC 3339 (`2026-09-24T09:30:00Z`), `DATE` as `2026-09-24`, `DATETIME` as `2026-09-24T09:30:00`, `BYTES` in base64; `null` for NULL.\n- The check reads only the columns the step names, of up to 5,000 rows.",
+          "doc": "Check that the table has a row with those values in those columns.\n\n- The check waits for it: 10 seconds, or `within {duration}`.\n- Name the table `dataset.table`, or `project.dataset.table` for another project's.\n- An `INT64` is an integer, a `FLOAT64` a decimal, a whole one too (`2.0`), and a `NUMERIC` or `BIGNUMERIC` the number it is (`1.35`); a `TIMESTAMP` is in RFC 3339 (`2026-09-24T09:30:00Z`), a `DATE` like `2026-09-24`, a `DATETIME` like `2026-09-24T09:30:00`, and `BYTES` in base64.\n- The check reads only the columns the step names, of up to 5,000 rows.",
           "examples": [
             "Then within 30s the billing.invoice_lines bigquery table has a row where:\n  | invoice  | INV-2026-09-KES2 |\n  | parcel   | PX-5103          |\n  | status   | OVERCHARGED      |\n  | billed   | 2.5              |\n  | expected | 1.35             |"
           ],
@@ -7918,7 +8060,9 @@
               "column",
               "value"
             ],
-            "note": "Each row names a column, or a dotted path into a `RECORD` column (`address.city`), and the value in it."
+            "note": "Each row names a column, or a dotted path into a `RECORD` column (`address.city`), and the value in it; `null` is NULL.",
+            "values": "json",
+            "undefined": true
           },
           "since": "0.1.0"
         },
@@ -7926,7 +8070,7 @@
           "id": "gcp-bigquery.rows",
           "expr": "[[within {duration} ]]the {word} bigquery table has {int} row(s) where:",
           "keyword": "Then",
-          "doc": "Check that exactly that many rows of the table have those values in those columns.\n\n- The check waits for it: 10 seconds, or `within {duration}`.\n- Name the table `dataset.table`, or `project.dataset.table` for another project's.\n- Values compare as text: numbers as written, `NUMERIC` as its decimal, `TIMESTAMP` in RFC 3339 (`2026-09-24T09:30:00Z`), `DATE` as `2026-09-24`, `DATETIME` as `2026-09-24T09:30:00`, `BYTES` in base64; `null` for NULL.\n- The check reads only the columns the step names, of up to 5,000 rows.",
+          "doc": "Check that exactly that many rows of the table have those values in those columns.\n\n- The check waits for it: 10 seconds, or `within {duration}`.\n- Name the table `dataset.table`, or `project.dataset.table` for another project's.\n- An `INT64` is an integer, a `FLOAT64` a decimal, a whole one too (`2.0`), and a `NUMERIC` or `BIGNUMERIC` the number it is (`1.35`); a `TIMESTAMP` is in RFC 3339 (`2026-09-24T09:30:00Z`), a `DATE` like `2026-09-24`, a `DATETIME` like `2026-09-24T09:30:00`, and `BYTES` in base64.\n- The check reads only the columns the step names, of up to 5,000 rows.",
           "examples": [
             "Then the billing.invoice_lines bigquery table has 2 rows where:\n  | invoice | INV-2026-09-KES1 |\n  | status  | MATCHED          |"
           ],
@@ -7936,7 +8080,9 @@
               "column",
               "value"
             ],
-            "note": "Each row names a column, or a dotted path into a `RECORD` column (`address.city`), and the value in it."
+            "note": "Each row names a column, or a dotted path into a `RECORD` column (`address.city`), and the value in it; `null` is NULL.",
+            "values": "json",
+            "undefined": true
           },
           "since": "0.1.0"
         }
@@ -7944,7 +8090,7 @@
     },
     {
       "name": "gcp-firestore",
-      "doc": "Seed Firestore and check the documents your services write.\n\nThe steps use the scenario's project (`the {word} gcp project with the following properties:`, from gcp-core) and its default database.\n\nA **seed** is a YAML or JSON file that maps collections to their documents, by ID (a collection can be nested: `shipments/SHP-1/scans`):\n\n```yaml\nshipments:\n  SHP-1001:\n    carrier: KESTREL\n    weightKg: 2.5\n    agreedPrice: 3.38\n    weighedAt: 2026-09-24T07:40:00Z\n    manifest: \"2026-09-24\"\n```\n\n**Dates:** an unquoted YAML date is a Firestore timestamp (`weighedAt` above). A date alone (`2026-09-24`) is midnight UTC. A date and time can have fractional seconds and an offset (`2026-09-24T09:40:00.25+02:00`), and without an offset it is in UTC. A value tagged `!!timestamp` is a timestamp too. Quote a date to keep it a string (`manifest`). JSON has no date type, so the dates of a JSON seed are strings.\n\n**Checks** wait (10 seconds unless `within {duration}` says otherwise): for a document at a path (`invoices/INV-2026-09-KESTREL`) to have properties, or for a collection to have a document meeting every condition. Conditions and properties are `field | value` rows, with a dotted path into maps (`totals.billed`), compared as text: timestamps in RFC 3339 and UTC (`2026-09-24T07:40:00Z`), `null` for null and `undefined` for absent. A collection check reads up to 5,000 of its documents.",
+      "doc": "Seed Firestore and check the documents your services write.\n\nThe steps use the scenario's project (`the {word} gcp project with the following properties:`, from gcp-core) and its default database.\n\nA **seed** is a YAML or JSON file that maps collections to their documents, by ID (a collection can be nested: `shipments/SHP-1/scans`):\n\n```yaml\nshipments:\n  SHP-1001:\n    carrier: KESTREL\n    weightKg: 2.5\n    agreedPrice: 3.38\n    weighedAt: 2026-09-24T07:40:00Z\n    manifest: \"2026-09-24\"\n```\n\n**Dates:** an unquoted YAML date is a Firestore timestamp (`weighedAt` above). A date alone (`2026-09-24`) is midnight UTC. A date and time can have fractional seconds and an offset (`2026-09-24T09:40:00.25+02:00`), and without an offset it is in UTC. A value tagged `!!timestamp` is a timestamp too. Quote a date to keep it a string (`manifest`). JSON has no date type, so the dates of a JSON seed are strings.\n\n**Checks** wait (10 seconds unless `within {duration}` says otherwise): for a document at a path (`invoices/INV-2026-09-KESTREL`) to have properties, or for a collection to have a document meeting every condition. Conditions and properties are `field | value` rows, with a dotted path into maps (`totals.billed`), and values of their types: an integer is `2`, a double `2.0` (a whole one too) and a string `\"2\"`; timestamps are in RFC 3339 and UTC (`2026-09-24T07:40:00Z`). A collection check reads up to 5,000 of its documents.",
       "requires": [
         "gcp-core"
       ],
@@ -7953,7 +8099,7 @@
           "id": "gcp-firestore.seed",
           "expr": "a {filepath} firestore seed",
           "keyword": "Given",
-          "doc": "Write the documents of a seed file: YAML or JSON that maps collections to their documents, by ID. Whole numbers are stored as integers, other numbers as doubles. Unquoted YAML dates (`2026-09-24`, `2026-09-24T07:40:00Z`) and values tagged `!!timestamp` are stored as timestamps; quote a date to store it as a string.",
+          "doc": "Write the documents of a seed file: YAML or JSON that maps collections to their documents, by ID. A number written as an integer (`12`) is stored as an integer, and any other (`12.0`, `2.5`) as a double. Unquoted YAML dates (`2026-09-24`, `2026-09-24T07:40:00Z`) and values tagged `!!timestamp` are stored as timestamps; quote a date to store it as a string.",
           "examples": [
             "Given a seeds/shipments.yaml firestore seed"
           ],
@@ -7964,7 +8110,7 @@
           "id": "gcp-firestore.document",
           "expr": "[[within {duration} ]]the {word} firestore document has the following properties:",
           "keyword": "Then",
-          "doc": "Check that the document at that path, like `invoices/INV-2026-09-KES1`, has those values in those fields.\n\n- The check waits for it: 10 seconds, or `within {duration}`.\n- Values compare as text: timestamps in RFC 3339 and UTC, references as their path, bytes in base64, a geo point as its `lat` and `lng`; `null` for null and `undefined` for absent.",
+          "doc": "Check that the document at that path, like `invoices/INV-2026-09-KES1`, has those values in those fields.\n\n- The check waits for it: 10 seconds, or `within {duration}`.\n- A document's integers are integers and its doubles decimals, a whole one too (`6.0`); timestamps are in RFC 3339 and UTC, references their path, bytes base64, and a geo point its `lat` and `lng`.",
           "examples": [
             "Then within 30s the invoices/INV-2026-09-KES1 firestore document has the following properties:\n  | status          | RECONCILED |\n  | lines           | 2          |\n  | totals.billed   | 6.58       |\n  | totals.disputed | 0          |"
           ],
@@ -7974,7 +8120,9 @@
               "field",
               "value"
             ],
-            "note": "Each row names a field of the document, or a dotted path into a map (`totals.billed`), and the value it has."
+            "note": "Each row names a field of the document, or a dotted path into a map (`totals.billed`), and the value it has.",
+            "values": "json",
+            "undefined": true
           },
           "since": "0.1.0"
         },
@@ -7982,7 +8130,7 @@
           "id": "gcp-firestore.collection",
           "expr": "[[within {duration} ]]the {word} firestore collection has a document where:",
           "keyword": "Then",
-          "doc": "Check that the collection has a document with those values in those fields.\n\n- The check waits for it: 10 seconds, or `within {duration}`.\n- Values compare as text: timestamps in RFC 3339 and UTC, references as their path, bytes in base64, a geo point as its `lat` and `lng`; `null` for null and `undefined` for absent.\n- The check reads up to 5,000 documents of the collection.",
+          "doc": "Check that the collection has a document with those values in those fields.\n\n- The check waits for it: 10 seconds, or `within {duration}`.\n- A document's integers are integers and its doubles decimals, a whole one too (`6.0`); timestamps are in RFC 3339 and UTC, references their path, bytes base64, and a geo point its `lat` and `lng`.\n- The check reads up to 5,000 documents of the collection.",
           "examples": [
             "Then the shipments firestore collection has a document where:\n  | parcel   | PX-5105 |\n  | carrier  | HERON   |\n  | weightKg | 3.2     |"
           ],
@@ -7992,7 +8140,9 @@
               "field",
               "value"
             ],
-            "note": "Each row names a field of the document, or a dotted path into a map (`totals.billed`), and the value it has."
+            "note": "Each row names a field of the document, or a dotted path into a map (`totals.billed`), and the value it has.",
+            "values": "json",
+            "undefined": true
           },
           "since": "0.1.0"
         }
@@ -8078,7 +8228,9 @@
               "path",
               "value"
             ],
-            "note": "Each row is a path into the JSON (a property name, a dotted path or a JSONPath) and the value it has, compared as text: `null` for null and `undefined` for absent, as in the other JSON property steps."
+            "note": "Each row is a path into the JSON (a property name, a dotted path or a JSONPath) and the value it has there.",
+            "values": "json",
+            "undefined": true
           },
           "since": "0.1.0"
         },
@@ -8097,9 +8249,9 @@
           "id": "azure-blob.row",
           "expr": "[[within {duration} ]]the {path} blob in the {word} blob container has a row where:",
           "keyword": "Then",
-          "doc": "Check that the table of the blob has a row with those values in those columns.\n\n- The check waits for it: 10 seconds, or `within {duration}`.\n- The blob is a CSV or TSV file, or an Excel workbook (.xlsx; its first sheet), whose first row names the columns.\n- Cells compare as text, as the workbook shows them, with runs of spaces as one space; an empty value matches an empty cell.",
+          "doc": "Check that the table of the blob has a row with those values in those columns.\n\n- The check waits for it: 10 seconds, or `within {duration}`.\n- The blob is a CSV or TSV file, or an Excel workbook (.xlsx; its first sheet), whose first row names the columns.\n- A cell is the text the workbook shows, with runs of spaces as one space: a price formatted with two decimals is `\"6.90\"`, and `\"\"` an empty cell.",
           "examples": [
-            "Then within 30s the disputes/kestrel-2026-09.csv blob in the declarations blob container has a row where:\n  | parcel | PX-5199          |\n  | status | UNKNOWN_SHIPMENT |\n  | billed | 4.10             |"
+            "Then within 30s the disputes/kestrel-2026-09.csv blob in the declarations blob container has a row where:\n  | parcel | PX-5199          |\n  | status | UNKNOWN_SHIPMENT |\n  | billed | \"4.10\"           |"
           ],
           "arg": "table",
           "table": {
@@ -8107,7 +8259,8 @@
               "column",
               "value"
             ],
-            "note": "Each row names a column, as the blob's first row names it, and the value in that column."
+            "note": "Each row names a column, as the blob's first row names it, and the value in that column.",
+            "values": "text"
           },
           "since": "0.1.1"
         }
@@ -8179,7 +8332,8 @@
               "name",
               "value"
             ],
-            "note": "Each row is a property sent with the message, as text: its name and its value."
+            "note": "Each row is a property sent with the message: its name and its value.",
+            "values": "text"
           },
           "since": "0.1.0"
         },
@@ -8197,7 +8351,9 @@
               "path",
               "value"
             ],
-            "note": "Each row is a path into the message's JSON body (a field name, a dotted path or a JSONPath) and the value it has, compared as text: `null` for null and `undefined` for absent. A row `property \u003cname\u003e` is instead on the property of that name sent with the message: `undefined` when there is none."
+            "note": "Each row is a path into the message's JSON body (a field name, a dotted path or a JSONPath) and the value it has there. A row `property \u003cname\u003e` is instead on the property of that name sent with the message, which is text (`\"3\"` for one that reads as a number), and `undefined` when there is none.",
+            "values": "json",
+            "undefined": true
           },
           "since": "0.1.0"
         }
