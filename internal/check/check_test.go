@@ -75,6 +75,10 @@ func TestPicklesValues(t *testing.T) {
 			Table: &core.TableDoc{Columns: []string{"header", "value"}, Values: core.TextValues},
 		},
 		{
+			ID: "t.event", Expr: "the event is:", Arg: core.ArgTable,
+			Table: &core.TableDoc{Columns: []string{"path", "value"}, Values: core.JSONValues, Undefined: true, TextRows: []string{"event"}},
+		},
+		{
 			ID: "t.settings", Expr: "the settings are:", Arg: core.ArgTable,
 			Table: &core.TableDoc{Columns: []string{"property", "value"}},
 		},
@@ -92,6 +96,9 @@ func TestPicklesValues(t *testing.T) {
     And the headers are:
       | X-Count | 3   |
       | X-Ref   | "3" |
+    And the event is:
+      | event id | 1 |
+      | count    | 1 |
     And the settings are:
       | timeout | 01067 |
 `
@@ -107,6 +114,7 @@ func TestPicklesValues(t *testing.T) {
 		{5, `postcode: 01067 could be the number 1067 or the text 01067: write 1067 for the number, or "01067" for the text`},
 		{7, `note: the cell is empty: write "" for the empty string, null for null, or undefined for no such property`},
 		{10, `X-Count: 3 reads as an integer, and only text fits here: write "3" for the text`},
+		{13, `event id: 1 reads as an integer, and only text fits here: write "1" for the text`},
 	}
 	if len(res.Problems) != len(want) {
 		t.Fatalf("problems %+v", res.Problems)

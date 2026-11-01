@@ -151,11 +151,11 @@ func valueProblems(td *core.TableDoc, ps *messages.PickleStep, lines []int) []va
 		for _, c := range td.ValueCells(row) {
 			cell := strings.TrimSpace(row[c])
 			var err error
-			switch td.Values {
-			case core.JSONValues:
-				_, err = core.ParseValue(cell, cell == "", td.Undefined)
-			case core.TextValues:
+			switch {
+			case td.Values == core.TextValues, len(td.Columns) >= 2 && td.RowIsText(row[0]):
 				_, _, err = core.ParseText(cell, cell == "", td.Undefined)
+			case td.Values == core.JSONValues:
+				_, err = core.ParseValue(cell, cell == "", td.Undefined)
 			}
 			if err == nil {
 				continue

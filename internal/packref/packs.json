@@ -3908,7 +3908,15 @@
             ],
             "note": "Each row is a path into the message's JSON body (a field name, a dotted path or a JSONPath) and the value it has there. A row `header \u003cname\u003e` is instead on the header of that name sent with the message, which is text (`\"3\"` for one that reads as a number), and `undefined` when there is none. Rows `routing key`, `content type`, `correlation id`, `message id` and `reply to` are on the message itself, not its body, and text too.",
             "values": "json",
-            "undefined": true
+            "undefined": true,
+            "textRows": [
+              "header",
+              "routing key",
+              "content type",
+              "correlation id",
+              "message id",
+              "reply to"
+            ]
           },
           "since": "0.1.5"
         },
@@ -3986,7 +3994,15 @@
             ],
             "note": "Each row is a path into the message's JSON body (a field name, a dotted path or a JSONPath) and the value it has there. A row `header \u003cname\u003e` is instead on the header of that name sent with the message, which is text (`\"3\"` for one that reads as a number), and `undefined` when there is none. Rows `routing key`, `content type`, `correlation id`, `message id` and `reply to` are on the message itself, not its body, and text too.",
             "values": "json",
-            "undefined": true
+            "undefined": true,
+            "textRows": [
+              "header",
+              "routing key",
+              "content type",
+              "correlation id",
+              "message id",
+              "reply to"
+            ]
           },
           "since": "0.1.5"
         }
@@ -4121,7 +4137,14 @@
             ],
             "note": "Each row is a path into the message's JSON body (a field name, a dotted path or a JSONPath) and the value it has there. A row `property \u003cname\u003e` is instead on the property of that name sent with the message, which is text (`\"3\"` for one that reads as a number), and `undefined` when there is none. Rows `topic`, `content type`, `response topic` and `correlation data` are on the message itself, not its body, and text too.",
             "values": "json",
-            "undefined": true
+            "undefined": true,
+            "textRows": [
+              "property",
+              "topic",
+              "content type",
+              "response topic",
+              "correlation data"
+            ]
           },
           "since": "0.1.5"
         }
@@ -4222,7 +4245,11 @@
             ],
             "note": "Each row is a path into the message's JSON body (a field name, a dotted path or a JSONPath) and the value it has there. A row `header \u003cname\u003e` is instead on the header of that name sent with the message, which is text (`\"3\"` for one that reads as a number), and `undefined` when there is none. A row `subject` is on the message itself, not its body, and text too.",
             "values": "json",
-            "undefined": true
+            "undefined": true,
+            "textRows": [
+              "header",
+              "subject"
+            ]
           },
           "since": "0.1.5"
         },
@@ -4242,7 +4269,11 @@
             ],
             "note": "Each row is a path into the message's JSON body (a field name, a dotted path or a JSONPath) and the value it has there. A row `header \u003cname\u003e` is instead on the header of that name sent with the message, which is text (`\"3\"` for one that reads as a number), and `undefined` when there is none. A row `subject` is on the message itself, not its body, and text too.",
             "values": "json",
-            "undefined": true
+            "undefined": true,
+            "textRows": [
+              "header",
+              "subject"
+            ]
           },
           "since": "0.1.5"
         }
@@ -4958,7 +4989,10 @@
             ],
             "note": "Each row is a path into the event's data, as JSON (a field name, a dotted path or a JSONPath), and the value it has there. The rows `event type` and `event id` are the event's type (its `event:` field, or `message`) and id, which are text: `\"1\"` for an id that reads as a number.",
             "values": "json",
-            "undefined": true
+            "undefined": true,
+            "textRows": [
+              "event"
+            ]
           },
           "since": "0.1.5"
         },
@@ -7649,7 +7683,10 @@
             ],
             "note": "Each row is a path into the message's JSON body (a field name, a dotted path or a JSONPath) and the value it has there. A row `attribute \u003cname\u003e` is instead on the attribute of that name sent with the message, which is text (`\"3\"` for one that reads as a number), and `undefined` when there is none.",
             "values": "json",
-            "undefined": true
+            "undefined": true,
+            "textRows": [
+              "attribute"
+            ]
           },
           "since": "0.1.0"
         }
@@ -7709,7 +7746,10 @@
             ],
             "note": "Each row is a path into the message's JSON body (a field name, a dotted path or a JSONPath) and the value it has there. A row `attribute \u003cname\u003e` is instead on the attribute of that name sent with the message, which is text (`\"3\"` for one that reads as a number), and `undefined` when there is none.",
             "values": "json",
-            "undefined": true
+            "undefined": true,
+            "textRows": [
+              "attribute"
+            ]
           },
           "since": "0.1.0"
         }
@@ -7763,7 +7803,10 @@
             ],
             "note": "Other paths into the event, as EventBridge delivers it, work too, like `account` or `region`.",
             "values": "json",
-            "undefined": true
+            "undefined": true,
+            "textRows": [
+              "attribute"
+            ]
           },
           "since": "0.1.0"
         }
@@ -8022,7 +8065,10 @@
             ],
             "note": "Each row is a path into the message's JSON body (a field name, a dotted path or a JSONPath) and the value it has there. A row `attribute \u003cname\u003e` is instead on the attribute of that name sent with the message, which is text (`\"3\"` for one that reads as a number), and `undefined` when there is none.",
             "values": "json",
-            "undefined": true
+            "undefined": true,
+            "textRows": [
+              "attribute"
+            ]
           },
           "since": "0.1.0"
         }
@@ -8353,7 +8399,10 @@
             ],
             "note": "Each row is a path into the message's JSON body (a field name, a dotted path or a JSONPath) and the value it has there. A row `property \u003cname\u003e` is instead on the property of that name sent with the message, which is text (`\"3\"` for one that reads as a number), and `undefined` when there is none.",
             "values": "json",
-            "undefined": true
+            "undefined": true,
+            "textRows": [
+              "property"
+            ]
           },
           "since": "0.1.0"
         }

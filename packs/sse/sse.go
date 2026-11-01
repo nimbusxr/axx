@@ -89,7 +89,7 @@ func steps() []core.StepDef {
 				Note: "Each row is a path into the event's data, as JSON (a field name, a dotted path or a JSONPath), and the value it has there. " +
 					"The rows `event type` and `event id` are the event's type (its `event:` field, or `message`) and id, which are text: " +
 					"`\"1\"` for an id that reads as a number.",
-				Values: core.JSONValues, Undefined: true,
+				Values: core.JSONValues, Undefined: true, TextRows: []string{field},
 			},
 			Examples: []string{"Then within 20s the tracking event stream has an event where:\n  | event type | delivered   |\n  | reference  | PX-LIV-5702 |\n  | status     | DELIVERED   |"},
 			Run: func(sc *core.Scenario, a core.Args) error {

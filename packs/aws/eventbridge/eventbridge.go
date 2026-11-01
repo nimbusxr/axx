@@ -71,6 +71,7 @@ func (pack) Manifest() core.Manifest {
 					},
 					Note:   "Other paths into the event, as EventBridge delivers it, work too, like `account` or `region`.",
 					Values: core.JSONValues, Undefined: true,
+					TextRows: []string{"attribute"},
 				},
 				Examples: []string{
 					"Then within 30s the parcels eventbridge bus has an event where:\n" +

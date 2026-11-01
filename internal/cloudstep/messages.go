@@ -188,7 +188,10 @@ func (m Messages) ReceivedStep() core.StepDef {
 		Doc: fmt.Sprintf("Check that the %s has a message with those values, received since the scenario started.\n\n"+
 			"- The check waits for it: 10 seconds, or `within {duration}`.\n"+
 			"- %s", dt, m.Received),
-		Table:    &core.TableDoc{Columns: []string{"path", "value"}, Note: whereNote, Values: core.JSONValues, Undefined: true},
+		Table: &core.TableDoc{
+			Columns: []string{"path", "value"}, Note: whereNote, Values: core.JSONValues, Undefined: true,
+			TextRows: append([]string{m.Field}, m.Meta...),
+		},
 		Examples: []string{fmt.Sprintf("Then within 30s the %s %s has a message where:", ex.From, et) + exampleTable(ex.Where)},
 		Run: func(sc *core.Scenario, a core.Args) error {
 			rs, err := Conditions(a.Table)

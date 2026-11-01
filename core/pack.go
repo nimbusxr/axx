@@ -225,6 +225,10 @@ type TableDoc struct {
 	// Undefined says the value cells take `undefined`: no such property,
 	// parameter or field.
 	Undefined bool `json:"undefined,omitempty"`
+	// TextRows are the rows of a table of JSON values that hold text, by
+	// their first cell: a key of the list, or one that starts with a key
+	// and a space (`attribute` for `attribute eventType`).
+	TextRows []string `json:"textRows,omitempty"`
 }
 
 // WithoutNamesRow returns the table without its first row when that row

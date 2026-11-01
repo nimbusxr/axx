@@ -87,6 +87,21 @@ func (d *TableDoc) Notes() string {
 	return strings.TrimSpace(strings.TrimSpace(d.Note) + " " + ValueDoc(d.Values, d.Undefined))
 }
 
+// RowIsText says whether the row of a table of JSON values whose first cell
+// is key holds text (TextRows).
+func (d *TableDoc) RowIsText(key string) bool {
+	if d == nil {
+		return false
+	}
+	key = strings.TrimSpace(key)
+	for _, k := range d.TextRows {
+		if key == k || strings.HasPrefix(key, k+" ") {
+			return true
+		}
+	}
+	return false
+}
+
 // ValueDoc says how a table's value cells are read, for its documentation.
 func ValueDoc(kind ValueKind, undefined bool) string {
 	switch kind {
