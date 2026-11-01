@@ -32,15 +32,9 @@ async function markdown(path) {
 	return res.text();
 }
 
-/** An excerpt of the search index as text: no tags, entities decoded. */
-const plain = (html) =>
-	html
-		.replace(/<[^>]+>/g, '')
-		.replace(/&lt;/g, '<')
-		.replace(/&gt;/g, '>')
-		.replace(/&quot;/g, '"')
-		.replace(/&#39;/g, "'")
-		.replace(/&amp;/g, '&');
+/** An excerpt of the search index as text: the browser's parser reads the HTML (no script runs
+ * in a parsed document), and its text is the excerpt without tags, entities decoded. */
+const plain = (html) => new DOMParser().parseFromString(String(html), 'text/html').body.textContent || '';
 
 const readOnly = { readOnlyHint: true };
 
