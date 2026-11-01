@@ -70,7 +70,9 @@ func Poll(sc *core.Scenario, d time.Duration, check func() (bool, string, error)
 // text (core.ParseText).
 type Rows []core.Pair
 
-// Conditions reads a "where:" table.
+// Conditions reads a "where:" table. A value the rule cannot read (an
+// empty cell, 01067) fails here, before the step waits for anything; a
+// condition on text (an attribute) is read again as text when it is met.
 func Conditions(t *core.Table) (Rows, error) {
 	if t == nil {
 		return nil, fmt.Errorf("the step needs a table of conditions (| field | value |)")
@@ -78,6 +80,11 @@ func Conditions(t *core.Table) (Rows, error) {
 	pairs, err := t.Pairs()
 	if err != nil {
 		return nil, err
+	}
+	for _, p := range pairs {
+		if _, err := core.ParseValue(p.Value, p.Null, true); err != nil {
+			return nil, fmt.Errorf("%s: %w", p.Key, err)
+		}
 	}
 	return pairs, nil
 }
