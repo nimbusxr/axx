@@ -327,3 +327,22 @@ func TestAHandEditedPairingsLockIsRefused(t *testing.T) {
 		t.Errorf("%v", err)
 	}
 }
+
+func TestTheMetadataTravelsWithTheFinishedData(t *testing.T) {
+	lib := library(t, map[string]string{"orders/keyed.fixture.yaml": `factory: orders
+data:
+  customer:
+    name: Grace
+metadata:
+  key:
+    $ref: "#/orderId"
+  trace: ${ stamp($metadata.key, "trace") }
+`})
+	x := instance(t, lib, fixture(t, lib, "orders#keyed"), fixtures.Input{Scope: scope("7|run-7|orders|3")})
+	// A pathless $ref in the metadata names the instance's data, its derived identity included,
+	// and the metadata's expressions see the value it brought in.
+	want := `{"topic":"orders","key":"ORD-7|run-7|orders|3|orderId","trace":"ORD-7|run-7|orders|3|orderId+trace@7|run-7|orders|3/run-7"}`
+	if got := string(x.Metadata.CompactJSON()); got != want {
+		t.Errorf("metadata:\n%s\nwant:\n%s", got, want)
+	}
+}

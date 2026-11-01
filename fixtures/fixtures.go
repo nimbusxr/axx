@@ -163,14 +163,16 @@ type Instance struct {
 // values: the factory's prototype for the fixture's directory deep-merged
 // under the fixture's data (not defaults: or the schema, which its family
 // applies when it generates files). Its metadata is the factory's for that
-// directory deep-merged under the fixture's own. Each gets its overrides,
-// then its $refs to other documents resolved through in.Documents, its
-// expressions evaluated for in.Scope (the metadata's after the data's,
-// reading $data and $metadata), and its same-document $refs. Then each
-// identity keeps the value the data gives it or derives one for the
-// instance; Instance claims none, so keeping the values of many instances
-// unique is the caller's to do. A failure is an *axxerr.Error naming the
-// fixture.
+// directory deep-merged under the fixture's own. The data is finished first:
+// its overrides, its $refs to other documents resolved through in.Documents,
+// its expressions evaluated for in.Scope, its same-document $refs, and its
+// identities, each keeping the value the data gives it or deriving one for
+// the instance. Then the metadata, which travels with that data: its
+// overrides, its $refs to other documents, its pathless $refs, which name
+// the finished data (key: {$ref: "#/orderId"}), and last its expressions,
+// reading $data and $metadata. Instance claims no identity, so keeping the
+// values of many instances unique is the caller's to do. A failure is an
+// *axxerr.Error naming the fixture.
 func (l *Library) Instance(f *Fixture, in Input) (*Instance, error) {
 	input := fixtures.InstanceInput{Scope: in.Scope, Overrides: in.Overrides, MetadataOverrides: in.MetadataOverrides}
 	if in.Documents != nil {

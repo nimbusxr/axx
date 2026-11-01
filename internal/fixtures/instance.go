@@ -89,12 +89,14 @@ type Instance struct {
 // Instance produces one instance of a fixture of spec. Its data is the
 // fixture's values (the prototype for its directory deep-merged under its
 // data: not defaults: or the schema, which its family applies), its metadata
-// the factory's for its directory deep-merged under its own; each gets its
-// overrides, its $refs to other documents resolved through in.Documents, its
-// expressions evaluated for in.Scope (the metadata's after the data's, and
-// seeing $data and $metadata), with recorded functions served from the
-// committed pairings only, as check serves them, then its same-document
-// $refs. Each identity keeps a value the data gives it and otherwise derives
+// the factory's for its directory deep-merged under its own. The data gets
+// its overrides, its $refs to other documents resolved through in.Documents,
+// its expressions evaluated for in.Scope (recorded functions served from the
+// committed pairings only, as check serves them), its same-document $refs,
+// and its identities. The metadata then gets its overrides, its $refs to
+// other documents, its pathless $refs resolved against the finished data
+// (the instance it travels with), and its expressions, which see $data and
+// $metadata. Each identity keeps a value the data gives it and otherwise derives
 // one for the instance: claimed by no one, since the uniqueness of
 // instances is the caller's to keep. Safe for concurrent use.
 func (g *Generator) Instance(spec *Spec, fixtureKey string, in InstanceInput) (*Instance, error) {
@@ -112,27 +114,23 @@ func (g *Generator) Instance(spec *Spec, fixtureKey string, in InstanceInput) (*
 		return nil, naming(err, w)
 	}
 	refs := g.documents(in.Documents)
-	for _, tree := range []*jsonx.Object{data, meta} {
-		if err := resolveExternalRefs(tree, fx.Dir, refs); err != nil {
-			return nil, naming(err, w)
-		}
-	}
 	scope := in.Scope
 	if scope.Attributes == nil {
 		scope.Attributes = map[string]string{}
 	}
 	eval := newEvaluator(g.functions, ModeVerify, g.committed)
 	eval.scope = &scope
+
+	// The data first, finished: its $refs to other documents, its expressions, its own $refs,
+	// and its identities.
+	if err := resolveExternalRefs(data, fx.Dir, refs); err != nil {
+		return nil, naming(err, w)
+	}
 	if err := eval.evaluateTree(data, w, nil); err != nil {
 		return nil, naming(err, w)
 	}
-	if err := eval.evaluateTree(meta, w+" -> metadata", map[string]*jsonx.Object{ScopeData: data, ScopeMetadata: meta}); err != nil {
+	if err := resolveSelfRefs(data); err != nil {
 		return nil, naming(err, w)
-	}
-	for _, tree := range []*jsonx.Object{data, meta} {
-		if err := resolveSelfRefs(tree); err != nil {
-			return nil, naming(err, w)
-		}
 	}
 	ids := make(map[string]string, len(spec.Identity))
 	for _, id := range spec.Identity {
@@ -153,6 +151,19 @@ func (g *Generator) Instance(spec *Spec, fixtureKey string, in InstanceInput) (*
 			return nil, naming(err, w)
 		}
 		ids[id.Path] = value
+	}
+
+	// Then the metadata, which travels with that data: its $refs to other documents, then its
+	// pathless $refs, which name this instance's finished data (key: {$ref: "#/orderId"}), and
+	// only then its expressions, so that $metadata.key is the value a $ref brought in.
+	if err := resolveExternalRefs(meta, fx.Dir, refs); err != nil {
+		return nil, naming(err, w)
+	}
+	if err := resolveSelfRefsAgainst(meta, data); err != nil {
+		return nil, naming(err, w)
+	}
+	if err := eval.evaluateTree(meta, w+" -> metadata", map[string]*jsonx.Object{ScopeData: data, ScopeMetadata: meta}); err != nil {
+		return nil, naming(err, w)
 	}
 	return &Instance{Data: data, Metadata: meta, Identities: ids}, nil
 }
