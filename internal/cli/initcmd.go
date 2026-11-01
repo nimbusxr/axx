@@ -145,6 +145,8 @@ Rules axx checks, and agents get wrong:
   Each acceptance criterion is a scenario of its own, even when one action shows several.
 - Ordinals count in the order a scenario adds requests, responses and selections: the 2nd is its second; none, the 1st.
 - Every scenario uses data of its own (ids, names, keys): scenarios run in parallel and data persists between runs.
+- A value means what it says in every table: ` + "`53111`" + ` a number, ` + "`\"53111\"`" + ` the string, ` + "`null`" + `, ` + "`undefined`" + ` (no such property).
+  Checks are strict; an empty cell, ` + "`01067`" + ` or a number where only text fits (a header) is an error saying what to write.
 - Check what the service did (a response property, a row, an event) and why it refused, not only status codes.
 - Feature files read as acceptance criteria, in plain language: no programming constructs, no variables.
 - ` + "`services:`" + ` in axx.yaml are what runs on its own, reached by an address; a program its user starts (a CLI, an MCP

@@ -51,6 +51,7 @@ const Instructions = `axx runs acceptance criteria, written as Gherkin scenarios
 - A scenario is one behavior: Given the state it starts from (a request it needs done first is executed in a Given), one When, Then what is true afterwards. A request that checks the outcome is added with the others and executed in the When. A When after a Then is another scenario. Each acceptance criterion is a scenario of its own, even when one action shows several.
 - A scenario registers each service it uses before other steps use it ("the {word} service with the following properties:").
 - Requests, responses and selections are numbered in the order a scenario adds them; a step without an ordinal means the first.
+- A value means what it says in every table: 53111 a number, "53111" the string, null, undefined (no such property); checks are strict, and an empty cell, 01067 or a number where only text fits is an error saying what to write.
 - Scenarios run in parallel and data persists: give every id, key and name a value of the scenario's own.
 - Check what a request did or why it was refused, not only its status code.`
 
