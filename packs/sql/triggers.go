@@ -115,6 +115,12 @@ func (svc *Service) createTrigger(ctx context.Context, table, sqlState string, m
 	if err != nil {
 		return err
 	}
+	// PostgreSQL checks the types of the trigger's condition only when it
+	// runs, on the service's inserts: check them now.
+	check, _ := whereClause(d, t, "")
+	if _, err := svc.DB.ExecContext(ctx, "SELECT 1 FROM "+tbl+" WHERE "+check+" LIMIT 0"); err != nil {
+		return fmt.Errorf("Could not create before insert trigger on table '%s': %w", table, typeMismatch(err)) //nolint:staticcheck // user-facing message
+	}
 	svc.mu.Lock()
 	index := len(svc.triggers)
 	svc.mu.Unlock()

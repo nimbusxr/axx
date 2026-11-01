@@ -39,10 +39,15 @@ func run(t *testing.T, image string, cmd []string, url string) {
 
 	h.OK("the label-printer:LEJ-3 redis key has the value 'online'")
 	h.OK("the quote:DE-1:EXPRESS:1200 redis key has the following properties:", [][]string{{"priceCents", "1490"}, {"zone", "DE-1"}, {"surcharge", "undefined"}})
-	h.OK("the shop:hawthorn-home redis key has the following properties:", [][]string{{"tier", "gold"}, {"parcels", "42"}})
+	// Redis keeps text: a hash's fields are strings, and a score is a decimal.
+	h.OK("the shop:hawthorn-home redis key has the following properties:", [][]string{{"tier", "gold"}, {"parcels", `"42"`}})
 	h.OK("the depot:LEJ:sorting redis key has the following properties:", [][]string{{"[0]", "PX-RDS-9601"}, {"[1]", "PX-RDS-9602"}})
 	h.OK("the parcels:express redis key has the following properties:", [][]string{{"[0]", "PX-RDS-9611"}})
-	h.OK("the couriers:deliveries redis key has the following properties:", [][]string{{"CR-LEJ-7", "17.5"}})
+	h.OK("the couriers:deliveries redis key has the following properties:", [][]string{{"CR-LEJ-7", "17.5"}, {"CR-LEJ-12", "42.0"}})
+	_ = h.Fails("within 1s the shop:hawthorn-home redis key has the following properties:", `does not have those properties: {"name":"Hawthorn Home","parcels":"42"`,
+		[][]string{{"parcels", "42"}})
+	_ = h.Fails("within 1s the couriers:deliveries redis key has the following properties:", "does not have those properties", [][]string{{"CR-LEJ-12", "42"}})
+	_ = h.Fails("the shop:hawthorn-home redis key has the following properties:", "parcels: the cell is empty", [][]string{{"parcels", ""}})
 	h.OK("within 5s the tracking:PX-RDS-9603 redis key does not exist")
 	h.OK("the quote:DE-2:EXPRESS:1200 redis key does not exist")
 

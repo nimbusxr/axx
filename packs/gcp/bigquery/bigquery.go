@@ -3,11 +3,13 @@
 package gcpbigquery
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"math/big"
 	"strings"
 	"time"
@@ -39,7 +41,7 @@ billing.carrier_rates:
     price_per_kg: 1.35
 ` + "```" + `
 
-**Checks** wait (10 seconds unless ` + "`within {duration}`" + ` says otherwise) until the table has a row, or a number of rows, meeting every condition: ` + "`column | value`" + ` rows, with a dotted path into ` + "`RECORD`" + ` columns (` + "`address.city`" + `), compared as text: numbers as written, ` + "`NUMERIC`" + ` as its decimal, ` + "`TIMESTAMP`" + ` in RFC 3339 (` + "`2026-09-24T09:30:00Z`" + `), ` + "`DATE`" + ` as ` + "`2026-09-24`" + `; ` + "`null`" + ` for NULL. A check reads the columns its conditions name, of up to 5,000 rows of the table: check the tables your scenarios write, not warehouse-size ones.`
+**Checks** wait (10 seconds unless ` + "`within {duration}`" + ` says otherwise) until the table has a row, or a number of rows, meeting every condition: ` + "`column | value`" + ` rows, with a dotted path into ` + "`RECORD`" + ` columns (` + "`address.city`" + `), and values of their types: an ` + "`INT64`" + ` is an integer (` + "`2`" + `), a ` + "`FLOAT64`" + ` a decimal (` + "`2.0`" + `, a whole one too), a ` + "`NUMERIC`" + ` the number it is (` + "`1.35`" + `), a ` + "`TIMESTAMP`" + ` in RFC 3339 (` + "`2026-09-24T09:30:00Z`" + `), a ` + "`DATE`" + ` like ` + "`2026-09-24`" + `, and ` + "`null`" + ` NULL. A check reads the columns its conditions name, of up to 5,000 rows of the table: check the tables your scenarios write, not warehouse-size ones.`
 
 // Pack returns the gcp-bigquery pack.
 func Pack() core.Pack { return pack{} }
@@ -100,15 +102,17 @@ func (pack) Manifest() core.Manifest {
 const checkDetails = "\n\n" +
 	"- The check waits for it: 10 seconds, or `within {duration}`.\n" +
 	"- Name the table `dataset.table`, or `project.dataset.table` for another project's.\n" +
-	"- Values compare as text: numbers as written, `NUMERIC` as its decimal, `TIMESTAMP` in RFC 3339 " +
-	"(`2026-09-24T09:30:00Z`), `DATE` as `2026-09-24`, `DATETIME` as `2026-09-24T09:30:00`, `BYTES` in base64; " +
-	"`null` for NULL.\n" +
+	"- An `INT64` is an integer, a `FLOAT64` a decimal, a whole one too (`2.0`), and a `NUMERIC` or `BIGNUMERIC` the number it is " +
+	"(`1.35`); a `TIMESTAMP` is in RFC 3339 (`2026-09-24T09:30:00Z`), a `DATE` like `2026-09-24`, a `DATETIME` like " +
+	"`2026-09-24T09:30:00`, and `BYTES` in base64.\n" +
 	"- The check reads only the columns the step names, of up to 5,000 rows."
 
 // conditions is what the checks' tables hold.
 var conditions = &core.TableDoc{
-	Columns: []string{"column", "value"},
-	Note:    "Each row names a column, or a dotted path into a `RECORD` column (`address.city`), and the value in it.",
+	Columns:   []string{"column", "value"},
+	Note:      "Each row names a column, or a dotted path into a `RECORD` column (`address.city`), and the value in it; `null` is NULL.",
+	Values:    core.JSONValues,
+	Undefined: true,
 }
 
 func client(sc *core.Scenario) (*bigquery.Client, *gcpcore.Project, error) {
@@ -216,8 +220,9 @@ func expect(sc *core.Scenario, a core.Args, ref string, count int) error {
 	return cloudstep.ExpectRecords(sc, cloudstep.Wait(a, 0), fetch, rs, count, "row", "the "+ref+" bigquery table")
 }
 
-// plain converts a BigQuery value to JSON values, rendering the types JSON
-// lacks as text.
+// plain converts a BigQuery value to JSON values of its type (ADR 0014): an
+// INT64 an integer, a FLOAT64 a decimal (6.0), a NUMERIC the number it is;
+// the types JSON lacks are text.
 func plain(v bigquery.Value) any {
 	switch x := v.(type) {
 	case map[string]bigquery.Value:
@@ -232,8 +237,10 @@ func plain(v bigquery.Value) any {
 			out[i] = plain(e)
 		}
 		return out
+	case float64:
+		return decimal(x)
 	case *big.Rat:
-		return json.Number(decimal(x))
+		return json.Number(numeric(x))
 	case time.Time:
 		return x.UTC().Format(time.RFC3339Nano)
 	case civil.Date:
@@ -248,9 +255,28 @@ func plain(v bigquery.Value) any {
 	return v
 }
 
-// decimal renders a NUMERIC without trailing zeros.
-func decimal(r *big.Rat) string {
-	s := r.FloatString(bigquery.NumericScaleDigits)
+// decimal is a FLOAT64 as JSON: a decimal, a whole one too (6.0, not 6), or
+// "NaN", "Infinity" and "-Infinity", which JSON lacks, as BigQuery names them.
+func decimal(f float64) any {
+	switch {
+	case math.IsNaN(f):
+		return "NaN"
+	case math.IsInf(f, 1):
+		return "Infinity"
+	case math.IsInf(f, -1):
+		return "-Infinity"
+	}
+	b, _ := json.Marshal(f)
+	if !bytes.ContainsAny(b, ".eE") {
+		b = append(b, ".0"...)
+	}
+	return json.Number(b)
+}
+
+// numeric renders a NUMERIC or a BIGNUMERIC, all of its digits, without
+// trailing zeros.
+func numeric(r *big.Rat) string {
+	s := r.FloatString(bigquery.BigNumericScaleDigits)
 	if strings.Contains(s, ".") {
 		s = strings.TrimRight(strings.TrimRight(s, "0"), ".")
 	}

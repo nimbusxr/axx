@@ -12,6 +12,8 @@ import (
 	_ "github.com/jackc/pgx/v5/stdlib"
 	_ "github.com/microsoft/go-mssqldb"
 	_ "modernc.org/sqlite"
+
+	"github.com/nimbusxr/axx/core"
 )
 
 // Dialect captures the database-specific parts of the SQL pack.
@@ -26,13 +28,16 @@ type Dialect struct {
 	Postgres bool
 	// BackslashEscapes means backslashes in string literals are escapes (MySQL).
 	BackslashEscapes bool
+	// BitBooleans means there is no TRUE or FALSE: booleans are bits, 1 and 0
+	// (SQL Server).
+	BitBooleans bool
 }
 
 var (
 	postgres  = Dialect{Name: "postgresql", Driver: "pgx", ForUpdate: " FOR UPDATE", Postgres: true}
 	mysql     = Dialect{Name: "mysql", Driver: "mysql", ForUpdate: " FOR UPDATE", BackslashEscapes: true}
 	sqlite    = Dialect{Name: "sqlite", Driver: "sqlite"}
-	sqlserver = Dialect{Name: "sqlserver", Driver: "sqlserver", ForUpdateHint: " WITH (UPDLOCK, ROWLOCK)"}
+	sqlserver = Dialect{Name: "sqlserver", Driver: "sqlserver", ForUpdateHint: " WITH (UPDLOCK, ROWLOCK)", BitBooleans: true}
 )
 
 // Target is a resolved connection target.
@@ -160,6 +165,28 @@ func (d Dialect) Literal(s string) string {
 		s = strings.ReplaceAll(s, `\`, `\\`)
 	}
 	return "'" + s + "'"
+}
+
+// Value renders a value of a step's table as a SQL value of its type
+// (core.ParseValue, ADR 0014): a string is a string literal, an integer or a
+// decimal a number, true and false booleans, and JSON (an object or an
+// array) the string of its text. Null is the caller's: `IS NULL`.
+func (d Dialect) Value(v core.Value) string {
+	if s, ok := v.Str(); ok {
+		return d.Literal(s)
+	}
+	switch j := v.JSON(); {
+	case j == "true" && d.BitBooleans:
+		return "1"
+	case j == "false" && d.BitBooleans:
+		return "0"
+	case j == "true", j == "false":
+		return strings.ToUpper(j)
+	case strings.HasPrefix(j, "{"), strings.HasPrefix(j, "["):
+		return d.Literal(j)
+	default:
+		return j
+	}
 }
 
 var identRe = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_$]*(\.[A-Za-z_][A-Za-z0-9_$]*){0,2}$`)

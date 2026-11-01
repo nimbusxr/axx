@@ -53,7 +53,7 @@ func (svc *Service) lockRows(ctx context.Context, table string, t *core.Table) e
 		if errors.Is(qctx.Err(), context.DeadlineExceeded) {
 			return fmt.Errorf("Could not acquire row lock on table '%s'; rows may be locked by another scenario. Timed out after 10 seconds.", table) //nolint:staticcheck // user-facing message
 		}
-		return fmt.Errorf("Could not lock rows in table '%s': %w", table, err) //nolint:staticcheck // user-facing message
+		return fmt.Errorf("Could not lock rows in table '%s': %w", table, typeMismatch(err)) //nolint:staticcheck // user-facing message
 	}
 	for rows.Next() { //nolint:revive // drain
 	}

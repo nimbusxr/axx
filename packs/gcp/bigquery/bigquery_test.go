@@ -1,11 +1,43 @@
 package gcpbigquery
 
 import (
+	"encoding/json"
+	"math"
+	"math/big"
 	"testing"
+
+	"cloud.google.com/go/bigquery"
 
 	"github.com/nimbusxr/axx/core"
 	"github.com/nimbusxr/axx/internal/cloudstep"
 )
+
+// A row's values keep their types (ADR 0014): an INT64 is an integer, a
+// FLOAT64 a decimal, a whole one too, and a NUMERIC or a BIGNUMERIC the
+// number it is, all of its digits.
+func TestValuesKeepTheirTypes(t *testing.T) {
+	price, _ := new(big.Rat).SetString("1.35")
+	whole, _ := new(big.Rat).SetString("2")
+	big38, _ := new(big.Rat).SetString("0.12345678901234567890123456789012345678")
+	b, err := json.Marshal(plain(map[string]bigquery.Value{
+		"lines": int64(2), "billed": 12.0, "rate": 0.5, "price": price, "minimum": whole, "share": big38,
+		"ratio": math.NaN(), "route": map[string]bigquery.Value{"km": 140.0},
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := `{"billed":12.0,"lines":2,"minimum":2,"price":1.35,"rate":0.5,"ratio":"NaN","route":{"km":140.0},"share":0.12345678901234567890123456789012345678}`
+	if string(b) != want {
+		t.Errorf("got  %s\nwant %s", b, want)
+	}
+	rs := cloudstep.Rows{{Key: "billed", Value: "12.0"}, {Key: "lines", Value: "2"}, {Key: "price", Value: "1.35"}, {Key: "route.km", Value: "140.0"}}
+	if ok, err := rs.Match(string(b)); !ok || err != nil {
+		t.Errorf("the row should match: %v", err)
+	}
+	if ok, _ := (cloudstep.Rows{{Key: "billed", Value: "12"}}).Match(string(b)); ok {
+		t.Error("a whole FLOAT64 should not match an integer")
+	}
+}
 
 func TestColumns(t *testing.T) {
 	rows := func(keys ...string) cloudstep.Rows {

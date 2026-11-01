@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"sort"
 	"strconv"
 
@@ -33,7 +34,7 @@ insured-parcels:
     carrier: KESTREL
 ` + "```" + `
 
-**Checks** wait (10 seconds unless ` + "`within {duration}`" + ` says otherwise) until the table has an item, or a number of items, meeting every condition: ` + "`attribute | value`" + ` rows with a dotted path into maps (` + "`address.city`" + `), compared as text, ` + "`null`" + ` for null and ` + "`undefined`" + ` for absent. Items are read with a scan, which suits the small tables of a test environment.`
+**Checks** wait (10 seconds unless ` + "`within {duration}`" + ` says otherwise) until the table has an item, or a number of items, meeting every condition: ` + "`attribute | value`" + ` rows with a dotted path into maps (` + "`address.city`" + `), and values of their types: a number (` + "`N`" + `) is the number DynamoDB returns (` + "`120`" + `, ` + "`49.99`" + `), and a string (` + "`S`" + `) that reads as a number goes in double quotes (` + "`\"37073\"`" + `). Items are read with a scan, which suits the small tables of a test environment.`
 
 // Pack returns the aws-dynamodb pack.
 func Pack() core.Pack { return pack{} }
@@ -92,8 +93,10 @@ func (pack) Manifest() core.Manifest {
 // conditions is what the checks' tables hold.
 var conditions = &core.TableDoc{
 	Columns: []string{"attribute", "value"},
-	Note: "Each row names an attribute of the item, or a dotted path into a map (`address.city`), and the value it has, " +
-		"compared as text: `null` for null and `undefined` for absent. Sets read as lists, and binary as base64.",
+	Note: "Each row names an attribute of the item, or a dotted path into a map (`address.city`), and the value it has. " +
+		"A number (`N`) is the number DynamoDB returns, like `120` or `49.99`; sets read as lists, and binary as base64.",
+	Values:    core.JSONValues,
+	Undefined: true,
 }
 
 func client(sc *core.Scenario) (*dynamodb.Client, error) {
@@ -191,7 +194,8 @@ func attribute(v any) types.AttributeValue {
 }
 
 // itemJSON renders an item as JSON, attributes sorted by name: numbers as
-// numbers, sets as arrays, binary as base64 text.
+// the numbers DynamoDB returns, of their text (120, 49.99), sets as arrays,
+// binary as base64 text.
 func itemJSON(item map[string]types.AttributeValue) string {
 	var b bytes.Buffer
 	writeMap(&b, item)
@@ -221,11 +225,7 @@ func writeValue(b *bytes.Buffer, v types.AttributeValue) {
 	case *types.AttributeValueMemberS:
 		writeJSON(b, x.Value)
 	case *types.AttributeValueMemberN:
-		if _, err := strconv.ParseFloat(x.Value, 64); err == nil {
-			b.WriteString(x.Value)
-		} else {
-			writeJSON(b, x.Value)
-		}
+		writeNumber(b, x.Value)
 	case *types.AttributeValueMemberBOOL:
 		b.WriteString(strconv.FormatBool(x.Value))
 	case *types.AttributeValueMemberNULL:
@@ -251,7 +251,7 @@ func writeValue(b *bytes.Buffer, v types.AttributeValue) {
 			if i > 0 {
 				b.WriteByte(',')
 			}
-			b.WriteString(e)
+			writeNumber(b, e)
 		}
 		b.WriteByte(']')
 	case *types.AttributeValueMemberBS:
@@ -259,6 +259,20 @@ func writeValue(b *bytes.Buffer, v types.AttributeValue) {
 	default:
 		b.WriteString("null")
 	}
+}
+
+// jsonNumber is a number as JSON writes it.
+var jsonNumber = regexp.MustCompile(`^-?(0|[1-9][0-9]*)(\.[0-9]+)?([eE][-+]?[0-9]+)?$`)
+
+// writeNumber writes a number as its text, which keeps its type (120 an
+// integer, 49.99 a decimal), or, if JSON does not write a number so, as a
+// string.
+func writeNumber(b *bytes.Buffer, n string) {
+	if jsonNumber.MatchString(n) {
+		b.WriteString(n)
+		return
+	}
+	writeJSON(b, n)
 }
 
 func writeJSON(b *bytes.Buffer, v any) {

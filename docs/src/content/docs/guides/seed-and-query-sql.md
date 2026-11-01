@@ -62,6 +62,8 @@ And the selection has more than 1 row
 And the selection has fewer than 5 rows
 ```
 
+A value means what it says, as in every pack's tables, and goes to the database as a SQL value of its type: `M-KESTREL-0412` and `"850"` are strings, `850` and `1.5` numbers, `true` and `false` booleans, and `null` is `IS NULL`. A text column's value that reads as a number goes in double quotes (`| postcode | "37073" |`); PostgreSQL refuses to compare text with a number, and the step says so. An empty cell is an error: write `""` for the empty string.
+
 A scenario can hold several selections. They are numbered in the order they are retrieved, and later steps address them by ordinal (`the 2nd selection`); in `a 2nd selection of rows is retrieved` the ordinal is only a label. Leaving the ordinal out means the first:
 
 ```gherkin
@@ -86,6 +88,18 @@ And the 1st row details property for the selection json properties match:
   | zone | ^DE-.*$ |
 ```
 
+Values are typed, so a check sees a property's type change: `850` is the number and `"37073"` the string, and neither matches the other. Against the manifest line seeded above:
+
+```gherkin
+Then a selection of rows is retrieved from the parcels.manifest_lines table where:
+  | id           | ML-KES-0412-2 |
+  | weight_grams | 2300          |
+And the 1st row recipient property for the selection json properties are:
+  | city     | Hamburg   |
+  | postcode | "20095"   |
+  | street   | undefined |
+```
+
 Or select by JSONB containment (PostgreSQL):
 
 ```gherkin
@@ -96,7 +110,7 @@ And the selection has 2 rows
 
 Selections are numbered in the order a scenario retrieves them, and a step without an ordinal checks the first. After a second retrieval, name the one a step checks: `the 2nd selection has 1 row`. `axx validate` warns about a step that checks the first while a later selection goes unchecked.
 
-In `json properties are:` and `json properties match:`, paths are JSONPaths such as `zone` or `items[0].sku`, and values are compared as text ([the rules](/references/packs/sql/#sqljsonare)). The containment step takes dotted names (`recipient.city`) and compares each value as a JSON string, so it never matches a number or a boolean.
+In `json properties are:` and `json properties match:`, paths are JSONPaths such as `zone` or `items[0].sku`. `json properties are:` compares values with their types: `true` is a boolean, `null` null, and `undefined` a property the JSON lacks ([the rules](/references/packs/sql/#sqljsonare)); `json properties match:` matches a regular expression against the value's text. The containment step takes dotted names (`recipient.city`) and the same typed values, so `| pieces | 3 |` finds the number 3 and `| recipient.postcode | "37073" |` the string.
 
 ## Wait for asynchronous writes
 

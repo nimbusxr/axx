@@ -5,6 +5,7 @@ package sql
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -22,7 +23,8 @@ type pack struct{}
 func whereTable(rows string) *core.TableDoc {
 	return &core.TableDoc{
 		Columns: []string{"column", "value"},
-		Note:    "Each row names a column and the value " + rows + " in it, or `null` for none (`IS NULL`); values are escaped.",
+		Note:    "Each row names a column and the value " + rows + " in it, which the database compares as a SQL value of its type; `null` is `IS NULL`.",
+		Values:  core.JSONValues,
 	}
 }
 
@@ -168,8 +170,8 @@ func steps() []core.StepDef {
 				"- " + numbered,
 			Table: &core.TableDoc{
 				Columns: []string{"property", "value"},
-				Note: "Each row names a property, dotted (`recipient.city`) for one inside an object, and the value it holds, " +
-					"compared as a JSON string (`null` is JSON null), so it never matches a number or a boolean.",
+				Note:    "Each row names a property, dotted (`recipient.city`) for one inside an object, and the JSON value it holds.",
+				Values:  core.JSONValues,
 			},
 			Examples: []string{"Then a selection of rows is retrieved from the parcels.parcels table where the details jsonb column contains:\n" +
 				"  | manifestId | M-KESTREL-0412 |\n" +
@@ -182,9 +184,10 @@ func steps() []core.StepDef {
 			Doc: "Check the JSON a column holds in one row of a selection. " +
 				"`the 1st row details property` is the `details` column of the selection's first row.",
 			Table: &core.TableDoc{
-				Columns: []string{"JSONPath", "value"},
-				Note: "Each row names a JSONPath, like `source` or `$.recipient.city`, and the value there as text, like `true` or `850`: " +
-					"`null` for JSON null, `undefined` for a property the JSON lacks.",
+				Columns:   []string{"JSONPath", "value"},
+				Note:      "Each row names a JSONPath, like `source` or `$.recipient.city`, and the value there.",
+				Values:    core.JSONValues,
+				Undefined: true,
 			},
 			Examples: []string{"Then the 1st row details property for the selection json properties are:\n" +
 				"  | source         | portal    |\n" +
@@ -305,7 +308,7 @@ func selectStep(sc *core.Scenario, a core.Args) error {
 	}
 	sel, err := svc.query(sc.Context(), table, "SELECT * FROM "+table+" WHERE "+where)
 	if err != nil {
-		return fmt.Errorf("Could not perform selection: %w", err) //nolint:staticcheck // user-facing message
+		return fmt.Errorf("Could not perform selection: %w", typeMismatch(err)) //nolint:staticcheck // user-facing message
 	}
 	svc.addSelection(sel)
 	return nil
@@ -346,7 +349,7 @@ func pollStep(sc *core.Scenario, a core.Args) error {
 		}
 	}
 	if last == nil {
-		return fmt.Errorf("Could not perform polling selection; no result was obtained within %s: %w", d, lastErr) //nolint:staticcheck // user-facing message
+		return fmt.Errorf("Could not perform polling selection; no result was obtained within %s: %w", d, typeMismatch(lastErr)) //nolint:staticcheck // user-facing message
 	}
 	svc.addSelection(last)
 	if len(last.Rows) < minRows {
@@ -388,8 +391,9 @@ func jsonbStep(sc *core.Scenario, a core.Args) error {
 	return nil
 }
 
-// containmentJSON builds {"a":{"b":"v"}} from dotted keys; leaves are strings
-// (or null).
+// containmentJSON builds {"a":{"b":"v","n":3}} from dotted keys; each leaf is
+// the value as the table writes it (core.ParseValue): `v` and `"3"` strings,
+// `3` a number, `true` a boolean, `null` null, `{...}` and `[...]` JSON.
 func containmentJSON(pairs []core.Pair) (string, error) {
 	root := orderedObject{}
 	for _, p := range pairs {
@@ -403,12 +407,11 @@ func containmentJSON(pairs []core.Pair) (string, error) {
 			}
 			cur = next
 		}
-		leaf := keys[len(keys)-1]
-		if strings.EqualFold(p.Value, "null") {
-			cur.set(leaf, nil)
-		} else {
-			cur.set(leaf, p.Value)
+		v, err := core.ParseValue(p.Value, p.Null, false)
+		if err != nil {
+			return "", fmt.Errorf("%s: %w", p.Key, err)
 		}
+		cur.set(keys[len(keys)-1], json.RawMessage(v.JSON()))
 	}
 	b, err := json.Marshal(&root)
 	return string(b), err
@@ -461,8 +464,10 @@ func tableAndWhere(svc *Service, table string, t *core.Table, prefix string) (st
 	return tbl, where, err
 }
 
-// whereClause turns key/value rows into `col = 'value'` joined with AND;
-// `null` (any case) becomes `col IS NULL`.
+// whereClause turns key/value rows into conditions joined with AND. A value
+// means what it says (core.ParseValue, ADR 0014) and is a SQL value of its
+// type (Dialect.Value): `col = 'PX-1'` for a string, `col = 42` for a
+// number; `null` (any case) is `col IS NULL`.
 func whereClause(d Dialect, t *core.Table, prefix string) (string, error) {
 	pairs, err := t.Pairs()
 	if err != nil {
@@ -477,11 +482,29 @@ func whereClause(d Dialect, t *core.Table, prefix string) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		if strings.EqualFold(p.Value, "null") {
+		v, err := core.ParseValue(p.Value, p.Null, false)
+		if err != nil {
+			return "", fmt.Errorf("%s: %w", p.Key, err)
+		}
+		if v.IsNull() {
 			parts = append(parts, prefix+col+" IS NULL")
 		} else {
-			parts = append(parts, prefix+col+" = "+d.Literal(p.Value))
+			parts = append(parts, prefix+col+" = "+d.Value(v))
 		}
 	}
 	return strings.Join(parts, " AND "), nil
+}
+
+// typeMismatch completes the error of a query whose conditions compare a
+// column with a value of another type, which PostgreSQL (no such operator)
+// and SQL Server (a failed conversion) refuse: a value is a SQL value of
+// the type the table writes, so a text column's number is in double quotes.
+func typeMismatch(err error) error {
+	var pg interface{ SQLState() string }
+	var ms interface{ SQLErrorNumber() int32 }
+	if errors.As(err, &pg) && pg.SQLState() == "42883" || errors.As(err, &ms) && ms.SQLErrorNumber() == 245 {
+		return fmt.Errorf("%w; the table's values are SQL values of their types: write a text column's value "+
+			"that reads as a number or a boolean in double quotes (\"10115\")", err)
+	}
+	return err
 }

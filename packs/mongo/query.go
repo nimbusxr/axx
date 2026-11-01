@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 	"time"
@@ -18,8 +19,9 @@ import (
 // filterTable is the table of a step that finds documents by their fields.
 var filterTable = &core.TableDoc{
 	Columns: []string{"field", "value"},
-	Note: "Each row names a field, dotted (`recipient.city`) for one inside a document, and the value it holds: " +
-		"JSON when it reads as JSON (`3`, `true`, `null`, `\"3\"`, `{\"$oid\": \"...\"}`), text otherwise.",
+	Note: "Each row names a field, dotted (`recipient.city`) for one inside a document, and the value it holds; " +
+		"an object is Extended JSON, like `{\"$oid\": \"...\"}` for an ObjectId.",
+	Values: core.JSONValues,
 }
 
 // numbered is how selections are numbered, for the steps that find one.
@@ -79,11 +81,12 @@ func querySteps() []core.StepDef {
 			ID: "mongo.doc.are", Keyword: "Then", Arg: core.ArgTable, Since: "0.1.0",
 			Expr: "the {ordinal} document for the[[ {ordinal}]] selection[[ on {mongoService}]] properties are:",
 			Doc: "Check the fields of one document of a selection, read as JSON: an ObjectId is its hex string, " +
-				"and a date is in ISO-8601 UTC, like `2026-05-05T06:40:00.000Z`.",
+				"a date is in ISO-8601 UTC, like `2026-05-05T06:40:00.000Z`, a double is a decimal, like `6.0`, and a Decimal128 a number.",
 			Table: &core.TableDoc{
-				Columns: []string{"JSONPath", "value"},
-				Note: "Each row names a JSONPath, like `lastLocation` or `scans[0].status`, and the value there as text, like `true` or `2`: " +
-					"`null` for null, `undefined` for a field the document lacks.",
+				Columns:   []string{"JSONPath", "value"},
+				Note:      "Each row names a JSONPath, like `lastLocation` or `scans[0].status`, and the value there.",
+				Values:    core.JSONValues,
+				Undefined: true,
 			},
 			Examples: []string{"Then the 1st document for the selection properties are:\n" +
 				"  | status       | DELIVERED |\n" +
@@ -198,8 +201,8 @@ func (svc *Service) addSelection(sel *Selection) {
 	svc.mu.Unlock()
 }
 
-// filterOf builds an equality filter; values that parse as (Extended) JSON
-// keep their type, anything else is a string.
+// filterOf builds an equality filter of the values as the table writes them
+// (core.ParseValue, ADR 0014).
 func filterOf(sc *core.Scenario, t *core.Table) (bson.D, error) {
 	pairs, err := t.Pairs()
 	if err != nil {
@@ -210,21 +213,39 @@ func filterOf(sc *core.Scenario, t *core.Table) (bson.D, error) {
 	}
 	filter := make(bson.D, 0, len(pairs))
 	for _, p := range pairs {
-		if p.Null {
-			filter = append(filter, bson.E{Key: p.Key, Value: nil})
-			continue
+		v, err := typedValue(sc.Suite().Interpolate(p.Value), p.Null)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", p.Key, err)
 		}
-		filter = append(filter, bson.E{Key: p.Key, Value: typedValue(sc.Suite().Interpolate(p.Value))})
+		filter = append(filter, bson.E{Key: p.Key, Value: v})
 	}
 	return filter, nil
 }
 
-func typedValue(s string) any {
-	var wrapped bson.D
-	if err := bson.UnmarshalExtJSON([]byte(`{"v":`+s+`}`), false, &wrapped); err == nil && len(wrapped) == 1 {
-		return wrapped[0].Value
+// typedValue is a value of the table as BSON: `"3"` and other text a string,
+// `3` an int32 (an int64 past its range), `3L` an int64, `1.5` a double,
+// `true` a boolean, `null` null, and `{...}` and `[...]` relaxed Extended
+// JSON, like `{"$oid": "..."}` for an ObjectId. empty says the cell was empty.
+func typedValue(text string, empty bool) (any, error) {
+	v, err := core.ParseValue(text, empty, false)
+	if err != nil {
+		return nil, err
 	}
-	return s
+	if s, ok := v.Str(); ok {
+		return s, nil
+	}
+	if v.IsLong() {
+		n, err := strconv.ParseInt(v.JSON(), 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("%s is past the range of a long", v.Text())
+		}
+		return n, nil
+	}
+	var wrapped bson.D
+	if err := bson.UnmarshalExtJSON([]byte(`{"v":`+v.JSON()+`}`), false, &wrapped); err != nil || len(wrapped) != 1 {
+		return nil, fmt.Errorf("%s is not MongoDB's Extended JSON: %w", v.Text(), err)
+	}
+	return wrapped[0].Value, nil
 }
 
 func docProperties(sc *core.Scenario, a core.Args, regex bool) error {
@@ -255,8 +276,10 @@ func selectedDoc(sc *core.Scenario, a core.Args, docArg, selArg, svcArg int) (st
 	return buf.String(), nil
 }
 
-// writeJSON renders BSON as plain JSON, keeping field order: ObjectIds are
-// hex strings, dates ISO-8601 UTC, decimals and other exotic types strings.
+// writeJSON renders BSON as plain JSON, keeping field order and the types
+// of numbers (ADR 0014): int32 and int64 are integers, a double a decimal
+// (6.0), a Decimal128 the number it is (1.50); ObjectIds are hex strings,
+// dates ISO-8601 UTC, and other exotic types strings.
 func writeJSON(buf *bytes.Buffer, v any) {
 	switch x := v.(type) {
 	case nil, bson.Null, bson.Undefined:
@@ -290,12 +313,15 @@ func writeJSON(buf *bytes.Buffer, v any) {
 	case int64:
 		buf.WriteString(strconv.FormatInt(x, 10))
 	case float64:
-		b, err := json.Marshal(x)
-		if err != nil { // NaN/Inf
-			writeString(buf, strconv.FormatFloat(x, 'g', -1, 64))
-			return
+		writeDouble(buf, x)
+	case bson.Decimal128:
+		// Its text keeps its digits (1.50, 1E+3); NaN and the infinities,
+		// which JSON lacks, are strings.
+		if s := x.String(); json.Valid([]byte(s)) {
+			buf.WriteString(s)
+		} else {
+			writeString(buf, s)
 		}
-		buf.Write(b)
 	case bson.ObjectID:
 		writeString(buf, x.Hex())
 	case bson.DateTime:
@@ -306,6 +332,27 @@ func writeJSON(buf *bytes.Buffer, v any) {
 		writeString(buf, x.String())
 	default:
 		writeString(buf, fmt.Sprint(x))
+	}
+}
+
+// writeDouble writes a double as a decimal, a whole one too (6.0, not 6),
+// and NaN and the infinities, which JSON lacks, as Extended JSON names them.
+func writeDouble(buf *bytes.Buffer, f float64) {
+	switch {
+	case math.IsNaN(f):
+		writeString(buf, "NaN")
+		return
+	case math.IsInf(f, 1):
+		writeString(buf, "Infinity")
+		return
+	case math.IsInf(f, -1):
+		writeString(buf, "-Infinity")
+		return
+	}
+	b, _ := json.Marshal(f)
+	buf.Write(b)
+	if !bytes.ContainsAny(b, ".eE") {
+		buf.WriteString(".0")
 	}
 }
 

@@ -23,7 +23,7 @@ func TestDocuments(t *testing.T) {
 	h.File("seeds/shipments.yaml", `
 shipments:
   SHP-1001: {carrier: KESTREL, weightKg: 2.5, agreedPrice: 3.38, route: {from: Leeds, to: York}}
-  SHP-1002: {carrier: KESTREL, weightKg: 12, agreedPrice: 16.2, signedBy: null}
+  SHP-1002: {carrier: KESTREL, weightKg: 12, agreedPrice: 16.2, insuredValue: 40.0, reference: "1002", signedBy: null}
 shipments/SHP-1001/scans:
   scan-1: {depot: LDS, at: "2026-09-24T09:30:00Z"}
 `)
@@ -31,7 +31,14 @@ shipments/SHP-1001/scans:
 	h.OK("the shipments/SHP-1001 firestore document has the following properties:", [][]string{
 		{"carrier", "KESTREL"}, {"weightKg", "2.5"}, {"route.to", "York"}, {"signedBy", "undefined"},
 	})
-	h.OK("the shipments/SHP-1002 firestore document has the following properties:", [][]string{{"weightKg", "12"}, {"signedBy", "null"}})
+	// Values mean what they say (ADR 0014): an integer, a whole double, a
+	// string that reads as a number.
+	h.OK("the shipments/SHP-1002 firestore document has the following properties:", [][]string{
+		{"weightKg", "12"}, {"insuredValue", "40.0"}, {"reference", `"1002"`}, {"signedBy", "null"},
+	})
+	_ = h.Fails("within 1s the shipments/SHP-1002 firestore document has the following properties:", `reference is the string "1002": write "1002"`,
+		[][]string{{"reference", "1002"}})
+	_ = h.Fails("within 1s the shipments firestore collection has a document where:", "did not have a document", [][]string{{"insuredValue", "40"}})
 	h.OK("the shipments/SHP-1001/scans firestore collection has a document where:", [][]string{{"depot", "LDS"}})
 	h.OK("the shipments firestore collection has a document where:", [][]string{{"agreedPrice", "16.2"}})
 
@@ -43,12 +50,12 @@ shipments/SHP-1001/scans:
 	go func() {
 		time.Sleep(time.Second)
 		_, _ = c.Doc("invoices/INV-1").Set(context.Background(), map[string]any{
-			"status": "RECONCILED", "totals": map[string]any{"billed": 19.58, "disputed": 0},
+			"status": "RECONCILED", "totals": map[string]any{"billed": 19.58, "disputed": 0, "surcharge": 2.0},
 			"reconciledAt": time.Date(2026, 9, 24, 9, 30, 0, 0, time.UTC),
 		})
 	}()
 	h.OK("within 5s the invoices/INV-1 firestore document has the following properties:", [][]string{
-		{"status", "RECONCILED"}, {"totals.billed", "19.58"}, {"reconciledAt", "2026-09-24T09:30:00Z"},
+		{"status", "RECONCILED"}, {"totals.billed", "19.58"}, {"totals.disputed", "0"}, {"totals.surcharge", "2.0"}, {"reconciledAt", "2026-09-24T09:30:00Z"},
 	})
 	h.Fails("within 1s the invoices/INV-2 firestore document has the following properties:", "There is no invoices/INV-2 firestore document", [][]string{{"status", "RECONCILED"}})
 	h.Fails("within 1s the invoices/INV-1 firestore document has the following properties:", "status", [][]string{{"status", "DISPUTED"}})

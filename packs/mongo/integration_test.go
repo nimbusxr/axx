@@ -39,7 +39,8 @@ func TestSeedAgainstRealMongo(t *testing.T) {
 
 	dir := t.TempDir()
 	seed := filepath.Join(dir, "telemetry.json")
-	if err := os.WriteFile(seed, []byte(`{"telemetry": [{"_id": {"$oid": "65a1b2c3d4e5f60718293a4b"}, "mission": "m1", "speed": 7.5}]}`), 0o644); err != nil {
+	if err := os.WriteFile(seed, []byte(`{"telemetry": [{"_id": {"$oid": "65a1b2c3d4e5f60718293a4b"}, "mission": "m1", "speed": 7.5, `+
+		`"mass": 6.0, "crew": 3, "orbits": {"$numberLong": "12"}, "budget": {"$numberDecimal": "1.50"}, "callSign": "0042"}]}`), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	reg := match.NewRegistry()
@@ -107,14 +108,29 @@ func TestSeedAgainstRealMongo(t *testing.T) {
 	if err := run("the 1st document for the 3rd selection on space-mongodb properties match:", []string{"mission", "m\\d"}); err != nil {
 		t.Fatal(err)
 	}
+	// Values mean what they say (ADR 0014): a whole double is a decimal, a
+	// Decimal128 a number, and a string that reads as a number is in quotes.
+	if err := run("the 1st document for the selection properties are:", []string{"mass", "6.0"}, []string{"crew", "3"}, []string{"orbits", "12"},
+		[]string{"budget", "1.50"}, []string{"callSign", `"0042"`}); err != nil {
+		t.Fatal(err)
+	}
+	if err := run("the 1st document for the selection properties are:", []string{"mass", "6"}); !core.IsAssertion(err) || !strings.Contains(err.Error(), "mass is the decimal 6.0: write 6.0") {
+		t.Fatalf("a whole double is a decimal: %v", err)
+	}
+	if err := run("a selection of documents is retrieved from the telemetry collection where:", []string{"orbits", "12L"}, []string{"callSign", `"0042"`}); err != nil {
+		t.Fatal(err)
+	}
+	if err := run("a selection of documents is retrieved from the telemetry collection where:", []string{"callSign", ""}); err == nil || !strings.Contains(err.Error(), "callSign: the cell is empty") {
+		t.Fatalf("an empty cell should ask for the value: %v", err)
+	}
 	if err := run("the 1st document for the selection properties are:", []string{"mission", "m2"}); !core.IsAssertion(err) {
 		t.Fatalf("property mismatch must be an assertion failure: %v", err)
 	}
-	if err := run("within 1s a 5th selection of at least 1 document is retrieved from the telemetry collection where:", []string{"mission", "never"}); !core.IsAssertion(err) {
+	if err := run("within 1s a 6th selection of at least 1 document is retrieved from the telemetry collection where:", []string{"mission", "never"}); !core.IsAssertion(err) {
 		t.Fatalf("polling that runs out of time with fewer documents should fail: %v", err)
 	}
 	svc, err := Context(sc).Service("space-mongodb")
-	if err != nil || len(svc.Selections()) != 5 || svc.DB() == nil {
+	if err != nil || len(svc.Selections()) != 6 || svc.DB() == nil {
 		t.Fatalf("context: %v", err)
 	}
 

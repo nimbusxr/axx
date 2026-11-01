@@ -3,11 +3,13 @@
 package gcpfirestore
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"strings"
 	"time"
 
@@ -46,7 +48,7 @@ shipments:
 
 **Dates:** an unquoted YAML date is a Firestore timestamp (` + "`weighedAt`" + ` above). A date alone (` + "`2026-09-24`" + `) is midnight UTC. A date and time can have fractional seconds and an offset (` + "`2026-09-24T09:40:00.25+02:00`" + `), and without an offset it is in UTC. A value tagged ` + "`!!timestamp`" + ` is a timestamp too. Quote a date to keep it a string (` + "`manifest`" + `). JSON has no date type, so the dates of a JSON seed are strings.
 
-**Checks** wait (10 seconds unless ` + "`within {duration}`" + ` says otherwise): for a document at a path (` + "`invoices/INV-2026-09-KESTREL`" + `) to have properties, or for a collection to have a document meeting every condition. Conditions and properties are ` + "`field | value`" + ` rows, with a dotted path into maps (` + "`totals.billed`" + `), compared as text: timestamps in RFC 3339 and UTC (` + "`2026-09-24T07:40:00Z`" + `), ` + "`null`" + ` for null and ` + "`undefined`" + ` for absent. A collection check reads up to 5,000 of its documents.`
+**Checks** wait (10 seconds unless ` + "`within {duration}`" + ` says otherwise): for a document at a path (` + "`invoices/INV-2026-09-KESTREL`" + `) to have properties, or for a collection to have a document meeting every condition. Conditions and properties are ` + "`field | value`" + ` rows, with a dotted path into maps (` + "`totals.billed`" + `), and values of their types: an integer is ` + "`2`" + `, a double ` + "`2.0`" + ` (a whole one too) and a string ` + "`\"2\"`" + `; timestamps are in RFC 3339 and UTC (` + "`2026-09-24T07:40:00Z`" + `). A collection check reads up to 5,000 of its documents.`
 
 // Pack returns the gcp-firestore pack.
 func Pack() core.Pack { return pack{} }
@@ -64,7 +66,7 @@ func (pack) Manifest() core.Manifest {
 				ID: name + ".seed", Keyword: "Given", Since: "0.1.0",
 				Expr: "a {filepath} firestore seed",
 				Doc: "Write the documents of a seed file: YAML or JSON that maps collections to their documents, by ID. " +
-					"Whole numbers are stored as integers, other numbers as doubles. " +
+					"A number written as an integer (`12`) is stored as an integer, and any other (`12.0`, `2.5`) as a double. " +
 					"Unquoted YAML dates (`2026-09-24`, `2026-09-24T07:40:00Z`) and values tagged `!!timestamp` are stored as timestamps; " +
 					"quote a date to store it as a string.",
 				Examples: []string{"Given a seeds/shipments.yaml firestore seed"},
@@ -106,13 +108,15 @@ func (pack) Manifest() core.Manifest {
 // checkDetails is what the checks' docs say after what they check.
 const checkDetails = "\n\n" +
 	"- The check waits for it: 10 seconds, or `within {duration}`.\n" +
-	"- Values compare as text: timestamps in RFC 3339 and UTC, references as their path, bytes in base64, a geo point as its " +
-	"`lat` and `lng`; `null` for null and `undefined` for absent."
+	"- A document's integers are integers and its doubles decimals, a whole one too (`6.0`); timestamps are in RFC 3339 and UTC, " +
+	"references their path, bytes base64, and a geo point its `lat` and `lng`."
 
 // fieldTable is what the checks' tables hold.
 var fieldTable = &core.TableDoc{
-	Columns: []string{"field", "value"},
-	Note:    "Each row names a field of the document, or a dotted path into a map (`totals.billed`), and the value it has.",
+	Columns:   []string{"field", "value"},
+	Note:      "Each row names a field of the document, or a dotted path into a map (`totals.billed`), and the value it has.",
+	Values:    core.JSONValues,
+	Undefined: true,
 }
 
 func client(sc *core.Scenario) (*firestore.Client, error) {
@@ -239,8 +243,10 @@ func collection(sc *core.Scenario, a core.Args) error {
 	return cloudstep.ExpectRecords(sc, cloudstep.Wait(a, 0), fetch, rs, -1, "document", "the "+coll+" firestore collection")
 }
 
-// docJSON renders a document's fields as JSON: timestamps in RFC 3339,
-// references as their path, bytes in base64, geo points as lat and lng.
+// docJSON renders a document's fields as JSON, its numbers of their types
+// (ADR 0014): integers as integers and doubles as decimals (6.0); timestamps
+// in RFC 3339, references as their path, bytes in base64, geo points as lat
+// and lng.
 func docJSON(fields map[string]any) string {
 	b, err := json.Marshal(plain(fields))
 	if err != nil {
@@ -273,7 +279,27 @@ func plain(v any) any {
 		}
 		return x.Path
 	case *latlng.LatLng:
-		return map[string]float64{"lat": x.GetLatitude(), "lng": x.GetLongitude()}
+		return map[string]any{"lat": decimal(x.GetLatitude()), "lng": decimal(x.GetLongitude())}
+	case float64:
+		return decimal(x)
 	}
 	return v
+}
+
+// decimal is a double as JSON: a decimal, a whole one too (6.0, not 6), or
+// "NaN", "Infinity" and "-Infinity", which JSON lacks.
+func decimal(f float64) any {
+	switch {
+	case math.IsNaN(f):
+		return "NaN"
+	case math.IsInf(f, 1):
+		return "Infinity"
+	case math.IsInf(f, -1):
+		return "-Infinity"
+	}
+	b, _ := json.Marshal(f)
+	if !bytes.ContainsAny(b, ".eE") {
+		b = append(b, ".0"...)
+	}
+	return json.Number(b)
 }

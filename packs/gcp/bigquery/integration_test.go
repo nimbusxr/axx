@@ -44,6 +44,9 @@ func TestRows(t *testing.T) {
 		{Name: "invoice", Type: bigquery.StringFieldType},
 		{Name: "parcel", Type: bigquery.StringFieldType},
 		{Name: "billed", Type: bigquery.FloatFieldType},
+		{Name: "surcharge", Type: bigquery.FloatFieldType},
+		{Name: "pieces", Type: bigquery.IntegerFieldType},
+		{Name: "postcode", Type: bigquery.StringFieldType},
 		{Name: "status", Type: bigquery.StringFieldType},
 		{Name: "reconciled_at", Type: bigquery.TimestampFieldType},
 		{Name: "route", Type: bigquery.RecordFieldType, Schema: bigquery.Schema{
@@ -73,7 +76,7 @@ billing.carrier_rates:
 	go func() {
 		time.Sleep(time.Second)
 		_ = ds.Table("invoice_lines").Inserter().Put(ctx, []bigquery.ValueSaver{row{
-			"invoice": "INV-1", "parcel": "PX-1", "billed": 12.5, "status": "OVERCHARGED",
+			"invoice": "INV-1", "parcel": "PX-1", "billed": 12.5, "surcharge": 2.0, "pieces": 3, "postcode": "01067", "status": "OVERCHARGED",
 			"reconciled_at": time.Date(2026, 9, 24, 9, 30, 0, 0, time.UTC),
 			"route":         map[string]bigquery.Value{"from": "Leeds", "to": "York"},
 		}})
@@ -81,9 +84,14 @@ billing.carrier_rates:
 	h.OK("within 10s the billing.invoice_lines bigquery table has a row where:", [][]string{
 		{"invoice", "INV-1"},
 		{"billed", "12.5"},
+		{"surcharge", "2.0"},
+		{"pieces", "3"},
+		{"postcode", `"01067"`},
 		{"status", "OVERCHARGED"},
 		{"route.to", "York"},
 	})
+	// Values mean what they say (ADR 0014): a whole FLOAT64 is a decimal.
+	_ = h.Fails("within 1s the billing.invoice_lines bigquery table has a row where:", "did not have a row", [][]string{{"surcharge", "2"}})
 	err = h.Fails("within 1s the billing.invoice_lines bigquery table has a row where:", "did not have a row", [][]string{{"status", "MATCHED"}})
 	if !strings.Contains(err.Error(), `It has 1 row:
   {"status":"OVERCHARGED"}`) {
