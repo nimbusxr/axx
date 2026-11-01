@@ -255,14 +255,21 @@ never writes your home directory: for Codex, whose servers usually live in
 					}
 				}
 			}
-			result := map[string]any{"dryRun": dryRun, "files": plan, "detected": data}
+			// The packs the repository points to, beyond those it lists: suggested,
+			// never added (an agent or a person decides).
+			have := []string{"rest"}
+			if f, ok, err := packset.Load(wd); err == nil && ok {
+				have = f.Packs
+			}
+			suggested := suggestPacks(wd, have)
+			result := map[string]any{"dryRun": dryRun, "files": plan, "detected": data, "suggestedPacks": suggested}
 			var setup *InitAgents
 			if !noAgents {
 				setup = app.initAgents(cmd.Context(), wd, used, dryRun)
 				result["agents"] = setup
 			}
 			return app.Emit(result, func(w io.Writer) error {
-				return renderInit(w, plan, setup, dryRun)
+				return renderInit(w, plan, setup, suggested, dryRun)
 			})
 		},
 	}
@@ -273,7 +280,7 @@ never writes your home directory: for Codex, whose servers usually live in
 	return cmd
 }
 
-func renderInit(w io.Writer, plan []InitFile, setup *InitAgents, dryRun bool) error {
+func renderInit(w io.Writer, plan []InitFile, setup *InitAgents, suggested []PackSuggestion, dryRun bool) error {
 	verb := map[bool]string{true: "would ", false: ""}[dryRun]
 	line := func(f InitFile, note string) {
 		if f.Action == "skip" {
@@ -308,6 +315,15 @@ func renderInit(w io.Writer, plan []InitFile, setup *InitAgents, dryRun bool) er
 				line(InitFile{Path: ch.Path, Action: ch.Action}, serverNote(a, ch))
 			}
 		}
+	}
+	if len(suggested) > 0 {
+		fmt.Fprintln(w, "\npacks this repository points to, not added (`axx pack show <name>` says what one does):")
+		names := make([]string, 0, len(suggested))
+		for _, s := range suggested {
+			fmt.Fprintf(w, "  %-10s %s\n", s.Pack, strings.Join(s.Reasons, "; "))
+			names = append(names, s.Pack)
+		}
+		fmt.Fprintf(w, "  add those it tests with `axx pack add %s`\n", strings.Join(names, " "))
 	}
 	if !dryRun {
 		fmt.Fprintln(w)
