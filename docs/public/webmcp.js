@@ -1,16 +1,19 @@
 // The docs' tools for agents that browse them, through WebMCP
-// (navigator.modelContext: https://webmachinelearning.github.io/webmcp/). A
-// browser without it is left alone. Agents that fetch pages instead have the
-// same in Markdown: each page's .md twin, the step index and llms.txt; and
-// coding agents have it all from axx itself, offline (`axx pack list`,
-// `axx pack show`, `axx steps search`).
+// (document.modelContext, https://developer.chrome.com/docs/ai/webmcp/imperative-api;
+// navigator.modelContext before Chrome 150). Chrome offers it in an origin
+// trial: a page needs the trial's token (a meta tag) for its visitors to have
+// it. A browser without it is left alone. Agents that fetch pages instead
+// have the same in Markdown: each page's .md twin, the step index and
+// llms.txt; and coding agents have it all from axx itself, offline
+// (`axx pack list`, `axx pack show`, `axx steps search`).
 //
 // The tools read the site's own Markdown and search index, below the base
 // this script is served from (/ for the release's docs, /next/ for main's).
 
 const base = new URL('./', import.meta.url);
 
-const text = (t) => ({ content: [{ type: 'text', text: t }] });
+// A tool's result is the text the agent reads.
+const text = (t) => t;
 
 /** A page of the site, in Markdown. */
 async function markdown(path) {
@@ -120,11 +123,9 @@ const tools = [
 	},
 ];
 
-const context = navigator.modelContext;
-if (context) {
-	if (typeof context.registerTool === 'function') {
-		for (const tool of tools) context.registerTool(tool);
-	} else if (typeof context.provideContext === 'function') {
-		context.provideContext({ tools });
+const context = document.modelContext ?? navigator.modelContext;
+if (context && typeof context.registerTool === 'function') {
+	for (const tool of tools) {
+		Promise.resolve(context.registerTool(tool)).catch((err) => console.warn(`WebMCP: ${tool.name}: ${err}`));
 	}
 }
