@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/nimbusxr/axx/core"
+	"github.com/nimbusxr/axx/internal/compat/jsonx"
 	"github.com/nimbusxr/axx/internal/oaslevel"
 )
 
@@ -63,7 +64,7 @@ func mustRaw(p *pattern) any {
 	if p == nil {
 		return nil
 	}
-	return json.RawMessage(mustJSON(p))
+	return json.RawMessage(p.shown())
 }
 
 // Pack returns the mock pack.
@@ -214,15 +215,16 @@ func steps() []core.StepDef {
 		},
 		{
 			ID: "mock.headers.are", Keyword: "Then", Arg: core.ArgTable,
-			Expr:  "the headers for mocked request named {word} on {mockedService} are:",
-			Doc:   "Check that the named request was received with every header of the table, each with its value. " + headersJoin,
-			Table: &core.TableDoc{Columns: []string{"header", "value"}, Note: "A row is a header's name and the value it must have."},
+			Expr: "the headers for mocked request named {word} on {mockedService} are:",
+			Doc:  "Check that the named request was received with every header of the table, each with its value. " + headersJoin,
+			Table: &core.TableDoc{
+				Columns: []string{"header", "value"}, Note: "A row is a header's name and the value it must have.",
+				Values: core.TextValues,
+			},
 			Examples: []string{"Then the headers for mocked request named postcode-check on addresses are:\n" +
 				"  | X-Api-Key | example-address-key |\n" +
 				"  | Accept    | application/json    |"},
-			Run: func(sc *core.Scenario, a core.Args) error {
-				return headersCheck(sc, a, func(v string) headerMatcher { return headerMatcher{EqualTo: v} })
-			},
+			Run: func(sc *core.Scenario, a core.Args) error { return headersCheck(sc, a, addHeader) },
 		},
 		{
 			ID: "mock.header.matches", Keyword: "Then",
@@ -248,9 +250,7 @@ func steps() []core.StepDef {
 			Examples: []string{"Then the headers for mocked request named postcode-check on addresses match:\n" +
 				"  | X-Api-Key | example-.+         |\n" +
 				"  | Accept    | application/json.* |"},
-			Run: func(sc *core.Scenario, a core.Args) error {
-				return headersCheck(sc, a, func(v string) headerMatcher { return headerMatcher{Matches: v} })
-			},
+			Run: func(sc *core.Scenario, a core.Args) error { return headersCheck(sc, a, addHeaderPattern) },
 		},
 		{
 			ID: "mock.header.missing", Keyword: "Then",
@@ -275,19 +275,20 @@ func steps() []core.StepDef {
 			ID: "mock.properties.are", Keyword: "Then", Arg: core.ArgTable,
 			Expr: "the payload properties for mocked request named {word}[[ on {mockedService}]] are:",
 			Doc: "Check that the named request was received with a JSON body that has every property of the table, each with its value.\n\n" +
-				"- A property is a JSONPath, like `deliverTo.postcode` or `$.lines[0].reference`; WireMock reads it.\n" +
-				"- Values compare as text: `800` matches the number 800, and `\"10115\"` the string 10115. `undefined` means the body has " +
-				"no such property, to check that a request leaves something out.\n" +
+				"- A property is a JSONPath, like `deliverTo.postcode` or `$.lines[0].reference`, read in the bodies of the requests " +
+				"WireMock received.\n" +
+				"- `undefined` checks that a request leaves a property out.\n" +
 				"- " + bodyJoins,
 			Table: &core.TableDoc{
 				Columns: []string{"property", "value"},
 				Note:    "A row is a property's JSONPath and the value it must have, or `undefined`.",
+				Values:  core.JSONValues, Undefined: true,
 			},
 			Examples: []string{"Then the payload properties for mocked request named collection on courier are:\n" +
 				"  | reference          | PX-REG-1401 |\n" +
 				"  | deliverTo.postcode | \"10115\"     |\n" +
 				"  | recipient          | undefined   |"},
-			Run: func(sc *core.Scenario, a core.Args) error { return bodyCheck(sc, a, (*pattern).withProperty) },
+			Run: func(sc *core.Scenario, a core.Args) error { return bodyCheck(sc, a, addProperty) },
 		},
 		{
 			ID: "mock.query.are", Keyword: "Then", Arg: core.ArgTable,
@@ -299,11 +300,12 @@ func steps() []core.StepDef {
 			Table: &core.TableDoc{
 				Columns: []string{"parameter", "value"},
 				Note:    "A row is a query parameter's name and the value it must have, or `undefined`.",
+				Values:  core.TextValues, Undefined: true,
 			},
 			Examples: []string{"Then the query parameters for mocked request named collection on courier are:\n" +
 				"  | slot      | same-day  |\n" +
 				"  | reference | undefined |"},
-			Run: func(sc *core.Scenario, a core.Args) error { return bodyCheck(sc, a, (*pattern).withQuery) },
+			Run: func(sc *core.Scenario, a core.Args) error { return bodyCheck(sc, a, addQuery) },
 		},
 		{
 			ID: "mock.form.are", Keyword: "Then", Arg: core.ArgTable,
@@ -314,22 +316,23 @@ func steps() []core.StepDef {
 			Table: &core.TableDoc{
 				Columns: []string{"field", "value"},
 				Note:    "A row is a field's name and the value it must have, or `undefined`.",
+				Values:  core.TextValues, Undefined: true,
 			},
 			Examples: []string{"Then the form fields for mocked request named pickup-notice on courier are:\n" +
 				"  | reference | PX-WEB-5401 |\n" +
 				"  | day       | Friday      |"},
-			Run: func(sc *core.Scenario, a core.Args) error { return bodyCheck(sc, a, (*pattern).withField) },
+			Run: func(sc *core.Scenario, a core.Args) error { return bodyCheck(sc, a, addField) },
 		},
 		noneStep("mock.query.none", "query parameters", "query parameter", "parameter", "a query parameter's name",
 			"Then none of the mocked POST requests to path /v1/collections on courier have the query parameters:\n"+
 				"  | slot      | same-day    |\n"+
-				"  | reference | PX-REG-1402 |", (*pattern).withQuery),
+				"  | reference | PX-REG-1402 |", core.TextValues, addQuery),
 		noneStep("mock.properties.none", "payload properties", "payload property", "property", "a property's JSONPath, like `deliverTo.postcode`,",
 			"Then none of the mocked POST requests to path /v1/collections on courier have the payload properties:\n"+
-				"  | reference | PX-REG-1301 |", (*pattern).withProperty),
+				"  | reference | PX-REG-1301 |", core.JSONValues, addProperty),
 		noneStep("mock.form.none", "form fields", "form field", "field", "a form field's name",
 			"Then none of the mocked POST requests to path /v1/pickups on courier have the form fields:\n"+
-				"  | reference | PX-WEB-5302 |", (*pattern).withField),
+				"  | reference | PX-WEB-5302 |", core.TextValues, addField),
 		signedStep(),
 		webhookStep(),
 	}, append(modelSteps(), agentSteps()...)...)
@@ -338,7 +341,7 @@ func steps() []core.StepDef {
 // noneStep checks that none of the requests to a path have every row of
 // the table: the thing a scenario must not have caused, with its own data,
 // since the requests of every scenario count.
-func noneStep(id, what, one, column, row, example string, add func(*pattern, string, headerMatcher)) core.StepDef {
+func noneStep(id, what, one, column, row, example string, values core.ValueKind, add rowAdder) core.StepDef {
 	return core.StepDef{
 		ID: id, Keyword: "Then", Arg: core.ArgTable, Absence: true,
 		Expr: "none of the mocked {word} requests to path {word}[[ on {mockedService}]] have the " + what + ":",
@@ -351,6 +354,7 @@ func noneStep(id, what, one, column, row, example string, add func(*pattern, str
 		Table: &core.TableDoc{
 			Columns: []string{column, "value"},
 			Note:    "A row is " + row + " and the value it has, or `undefined`.",
+			Values:  values, Undefined: true,
 		},
 		Examples: []string{example},
 		Run: func(sc *core.Scenario, a core.Args) error {
@@ -522,7 +526,7 @@ func pathPattern(method, path string) (*pattern, error) {
 
 // noneReceived checks that none of the requests to a path have every row
 // of the table. A failure lists the requests that do.
-func noneReceived(sc *core.Scenario, a core.Args, what string, add func(*pattern, string, headerMatcher)) error {
+func noneReceived(sc *core.Scenario, a core.Args, what string, add rowAdder) error {
 	svc, err := service(sc, a, 2)
 	if err != nil {
 		return err
@@ -532,12 +536,8 @@ func noneReceived(sc *core.Scenario, a core.Args, what string, add func(*pattern
 	if err != nil {
 		return err
 	}
-	pairs, err := a.Table.Pairs()
-	if err != nil {
+	if err := addRows(p, a.Table, add); err != nil {
 		return err
-	}
-	for _, kv := range pairs {
-		add(p, kv.Key, bodyValue(kv.Value))
 	}
 	got, err := svc.c.count(sc.Context(), p)
 	if err != nil {
@@ -574,19 +574,15 @@ func headerCheck(sc *core.Scenario, a core.Args, header, name string, m headerMa
 	return verify(sc, svc, name, p, "at least 1", func(got int) bool { return got >= 1 })
 }
 
-func headersCheck(sc *core.Scenario, a core.Args, mk func(string) headerMatcher) error {
+func headersCheck(sc *core.Scenario, a core.Args, add rowAdder) error {
 	name := a.String(0)
 	svc := a.Value(1).(*Service)
 	p, err := named(svc, name)
 	if err != nil {
 		return err
 	}
-	pairs, err := a.Table.Pairs()
-	if err != nil {
+	if err := addRows(p, a.Table, add); err != nil {
 		return err
-	}
-	for _, kv := range pairs {
-		p.withHeader(kv.Key, mk(kv.Value))
 	}
 	return verify(sc, svc, name, p, "at least 1", func(got int) bool { return got >= 1 })
 }
@@ -610,7 +606,7 @@ func headersMissing(sc *core.Scenario, a core.Args) error {
 // bodyCheck adds the table's rows to the named request (with add: its
 // body's properties, its form's fields, its query's parameters) and checks
 // that it was received.
-func bodyCheck(sc *core.Scenario, a core.Args, add func(*pattern, string, headerMatcher)) error {
+func bodyCheck(sc *core.Scenario, a core.Args, add rowAdder) error {
 	svc, err := service(sc, a, 1)
 	if err != nil {
 		return err
@@ -620,27 +616,87 @@ func bodyCheck(sc *core.Scenario, a core.Args, add func(*pattern, string, header
 	if err != nil {
 		return err
 	}
-	pairs, err := a.Table.Pairs()
-	if err != nil {
+	if err := addRows(p, a.Table, add); err != nil {
 		return err
-	}
-	for _, kv := range pairs {
-		add(p, kv.Key, bodyValue(kv.Value))
 	}
 	return verify(sc, svc, name, p, "at least 1", func(got int) bool { return got >= 1 })
 }
 
-// bodyValue is the matcher of a table value: `undefined` for an absent
-// property or field, otherwise its text, without the double quotes that
-// make a value a string in other steps' tables.
-func bodyValue(v string) headerMatcher {
-	if v == "undefined" {
-		return headerMatcher{Absent: true}
+// rowAdder adds a row of a step's table to a pattern: a name and its value,
+// read as the table's values are (ADR 0014). empty says the cell was empty.
+type rowAdder func(p *pattern, name, value string, empty bool) error
+
+// addRows adds every row of the table to p, or, when a row's value cannot
+// be read, none: the error names the row.
+func addRows(p *pattern, t *core.Table, add rowAdder) error {
+	pairs, err := t.Pairs()
+	if err != nil {
+		return err
 	}
-	if len(v) >= 2 && v[0] == '"' && v[len(v)-1] == '"' {
-		v = v[1 : len(v)-1]
+	rows := &pattern{}
+	for _, kv := range pairs {
+		if err := add(rows, kv.Key, kv.Value, kv.Null); err != nil {
+			return fmt.Errorf("%s: %w", kv.Key, err)
+		}
 	}
-	return headerMatcher{EqualTo: v}
+	p.headers = append(p.headers, rows.headers...)
+	p.body = append(p.body, rows.body...)
+	p.form = append(p.form, rows.form...)
+	p.query = append(p.query, rows.query...)
+	return nil
+}
+
+// addProperty adds a property of the JSON body: its value means what it
+// says, and is compared with its type (`800` the number, `"10115"` the
+// string); `undefined` is none.
+func addProperty(p *pattern, path, value string, empty bool) error {
+	if _, err := jsonx.Compile(path); err != nil {
+		return err
+	}
+	v, err := core.ParseValue(value, empty, true)
+	if err != nil {
+		return err
+	}
+	p.withProperty(path, v)
+	return nil
+}
+
+// textRow adds a row whose value is text, or `undefined` for none: a query
+// parameter or a form field.
+func textRow(with func(*pattern, string, headerMatcher)) rowAdder {
+	return func(p *pattern, name, value string, empty bool) error {
+		s, undefined, err := core.ParseText(value, empty, true)
+		if err != nil {
+			return err
+		}
+		m := headerMatcher{EqualTo: s}
+		if undefined {
+			m = headerMatcher{Absent: true}
+		}
+		with(p, name, m)
+		return nil
+	}
+}
+
+var (
+	addQuery = textRow((*pattern).withQuery)
+	addField = textRow((*pattern).withField)
+)
+
+// addHeader adds a header of a text value; addHeaderPattern one whose value
+// matches a regular expression.
+func addHeader(p *pattern, name, value string, empty bool) error {
+	s, _, err := core.ParseText(value, empty, false)
+	if err != nil {
+		return err
+	}
+	p.withHeader(name, headerMatcher{EqualTo: s})
+	return nil
+}
+
+func addHeaderPattern(p *pattern, name, value string, _ bool) error {
+	p.withHeader(name, headerMatcher{Matches: value})
+	return nil
 }
 
 // service returns the named service from argument i, or the default.
@@ -675,7 +731,9 @@ func verify(sc *core.Scenario, svc *Service, name string, p *pattern, want strin
 	}
 	msg := fmt.Sprintf("Expected %s request(s) matching %s on %s but received %d.\nPattern:\n%s",
 		want, name, svc.Name, got, p.describe())
-	if misses, err := svc.c.nearMisses(sc.Context(), p); err == nil && len(misses) > 0 {
+	if others := otherPayloads(sc.Context(), svc.c, p); len(others) > 0 {
+		msg += "\nRequests received that match but for their payload:\n  " + strings.Join(others, "\n  ")
+	} else if misses, err := svc.c.nearMisses(sc.Context(), p); err == nil && len(misses) > 0 {
 		var b strings.Builder
 		b.WriteString("\nClosest requests received:")
 		for i, m := range misses {
@@ -687,4 +745,30 @@ func verify(sc *core.Scenario, svc *Service, name string, p *pattern, want strin
 		msg += b.String()
 	}
 	return core.Fail(msg, want, got)
+}
+
+// otherPayloads are the requests, three at most, that match p's request
+// pattern but not its payload properties, each with the first property it
+// lacks.
+func otherPayloads(ctx context.Context, c *client, p *pattern) []string {
+	if len(p.body) == 0 {
+		return nil
+	}
+	found, err := c.findAll(ctx, p)
+	if err != nil {
+		return nil
+	}
+	var out []string
+	for _, l := range found {
+		why, err := p.mismatch(l.body())
+		if err != nil || why == "" {
+			continue
+		}
+		if len(out) == 3 {
+			out = append(out, "…")
+			break
+		}
+		out = append(out, fmt.Sprintf("%s %s: %s", l.Method, l.URL, why))
+	}
+	return out
 }

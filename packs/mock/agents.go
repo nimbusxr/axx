@@ -27,9 +27,11 @@ func agentSteps() []core.StepDef {
 				"times as the step says.\n\n" +
 				"- Every call since the run started counts, other scenarios' too: put the scenario's own data in the table, like its " +
 				"parcel's reference.\n" +
-				"- Paths are dotted (`address.postcode`) or JSONPath, and values compare as text; `null` and `undefined` work as in " +
-				"the other property steps.",
-			Table: &core.TableDoc{Columns: []string{"argument", "value"}, Note: "A row is a path into the call's arguments, and its value."},
+				"- Paths are dotted (`address.postcode`) or JSONPath.",
+			Table: &core.TableDoc{
+				Columns: []string{"argument", "value"}, Note: "A row is a path into the call's arguments, and its value.",
+				Values: core.JSONValues, Undefined: true,
+			},
 			Examples: []string{
 				"Then the mocked partner-carrier mcp server's shipment_status tool was called with the following arguments:\n" +
 					"  | reference | PX-MCP-9301 |",
@@ -38,6 +40,16 @@ func agentSteps() []core.StepDef {
 			},
 			Run: func(sc *core.Scenario, a core.Args) error {
 				svc, tool := a.Value(0).(*Service), a.String(1)
+				// A value the rule cannot read fails the step, not each call.
+				pairs, err := a.Table.Pairs()
+				if err != nil {
+					return err
+				}
+				for _, p := range pairs {
+					if _, err := core.ParseValue(p.Value, p.Null, true); err != nil {
+						return fmt.Errorf("%s: %w", p.Key, err)
+					}
+				}
 				calls, err := svc.c.journal(sc.Context(), runContracts(sc.Suite()).start)
 				if err != nil {
 					return err

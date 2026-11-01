@@ -32,6 +32,33 @@ Scenario Outline: A shop's order system registers the parcels it exports
 
 A [fixture factory](/guides/fixture-factories/) keeps such files in one place and checks them against a schema. The parcels example generates the two files above with `requests/registrations.factory.yaml`, from the `ParcelRequest` schema of the service's OpenAPI contract.
 
+## Values
+
+A value means what it says, in a step that sets it and in one that checks it ([ADR 0014](https://github.com/nimbusxr/axx/blob/main/docs/adr/0014-a-value-means-what-it-says.md)):
+
+| Written | Is |
+|---|---|
+| `1200`, `1.5` | an integer, a decimal |
+| `true`, `false` | a boolean |
+| `null` | JSON null |
+| `undefined` | no such property: a check that it is absent, or a property removed |
+| `{"country": "DE"}`, `["EXPRESS"]` | JSON |
+| `"10115"` | the string inside the double quotes |
+| `REGISTERED`, `PX-REG-1401` | a string |
+
+```gherkin
+And the request payload properties are:
+  | reference          | PX-REG-1401 |
+  | weightGrams        | 1200        |
+  | recipient.postcode | "10115"     |
+```
+
+- **Nothing is inferred.** `| weightGrams | 1200 |` sets the number, whatever the example held, and `"1200"` sends the string, to check that the service refuses it.
+- **Checks compare types.** `| recipient.postcode | 10115 |` fails on the string "10115", and the failure says what to write.
+- **In a step's text, the quotes hold the value:** `property priceCents is '690'` checks the integer, and `is '"690"'` the string.
+- **A value that could be read two ways fails,** with the forms to write: an empty cell (`""`, `null` or `undefined`), or a number JSON writes another way (`01067`, `+5`, `1.5f`).
+- **A header is text.** In a table, one that reads as a number goes in double quotes: `| Retry-After | "5" |`.
+
 ## Several requests in one scenario
 
 Requests are numbered in the order a scenario adds them. The first is the default, which steps without an ordinal use; every other request is added, executed and checked with its ordinal:

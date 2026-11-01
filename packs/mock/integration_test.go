@@ -104,6 +104,20 @@ func TestAgainstRealWireMock(t *testing.T) {
 	if err := run("the payload properties for mocked request named collection are:", []string{"weightGrams", "900"}); err == nil {
 		t.Error("a payload property with another value passed")
 	}
+	// A value means what it says, with its type (ADR 0014): the postcode is
+	// a string, and the weight a number.
+	for i, c := range []struct{ path, value, want string }{
+		{"deliverTo.postcode", "10115", `$.deliverTo.postcode is the string "10115": write "10115"`},
+		{"weightGrams", `"800"`, `$.weightGrams is the integer 800: write 800`},
+	} {
+		if err := run(fmt.Sprintf("the mocked POST request to /v1/collections named typed-%d was received by spacex", i)); err != nil {
+			t.Fatal(err)
+		}
+		if err := run(fmt.Sprintf("the payload properties for mocked request named typed-%d are:", i), []string{"reference", "PX-REG-1401"},
+			[]string{c.path, c.value}); err == nil || !strings.Contains(err.Error(), c.want) {
+			t.Errorf("%s %s: %v, want %q", c.path, c.value, err, c.want)
+		}
+	}
 	if err := run("the mocked POST request to /v1/pickups named pickup-notice was received by spacex"); err != nil {
 		t.Fatal(err)
 	}

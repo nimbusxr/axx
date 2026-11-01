@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/nimbusxr/axx/core"
 	"github.com/nimbusxr/axx/internal/compat/javare"
 	"github.com/nimbusxr/axx/internal/compat/jsonx"
 	"github.com/nimbusxr/axx/internal/compat/jvalue"
@@ -26,6 +27,7 @@ type label struct {
 type payloadMatcher struct {
 	Path     string
 	Raw      string
+	v        core.Value
 	expected any
 }
 
@@ -35,18 +37,45 @@ type headerMatcher struct {
 	re    *javare.Regexp
 }
 
-// newPayloadMatcher is hasJsonPath(path, equalToObject(coerced value)):
-// the value is coerced (and the path compiled) when the step runs, so a bad
-// value fails the step at once.
-func newPayloadMatcher(path, value string) (payloadMatcher, error) {
-	expected, err := jvalue.CoerceKafkaExpected(value)
+// newPayloadMatcher expects the property at path to have a value as a
+// feature writes it, which means what it says (ADR 0014): `42` the integer,
+// `"42"` the string, `null` JSON null, `undefined` no such property. The
+// value is read (and the path compiled) when the step runs, so a bad value
+// fails the step at once; empty says the cell was empty, which fails too.
+func newPayloadMatcher(path, value string, empty bool) (payloadMatcher, error) {
+	v, err := core.ParseValue(value, empty, true)
+	if err != nil {
+		return payloadMatcher{}, fmt.Errorf("%s: %w", path, err)
+	}
+	expected, err := jvalue.Expected(v)
 	if err != nil {
 		return payloadMatcher{}, fmt.Errorf("value %q for %s: %w", value, path, err)
 	}
 	if _, err := jsonx.Compile(path); err != nil {
 		return payloadMatcher{}, fmt.Errorf("invalid JSONPath %q: %w", path, err)
 	}
-	return payloadMatcher{Path: path, Raw: value, expected: expected}, nil
+	return payloadMatcher{Path: path, Raw: value, v: v, expected: expected}, nil
+}
+
+// mismatch says why the payload doc does not have the property, or "" when
+// it does.
+func (m payloadMatcher) mismatch(doc any) string {
+	v, _, err := jsonx.Read(doc, m.Path)
+	switch {
+	case m.v.Undefined() && err != nil && jsonx.IsJsonPathException(err):
+		return ""
+	case err != nil:
+		return readFailure(doc, m.Path, err)
+	case m.v.Undefined():
+		return fmt.Sprintf("%s is %s, expected no such property", m.Path, describeJSON(v))
+	case jvalue.JavaEquals(v, m.expected):
+		return ""
+	}
+	msg := fmt.Sprintf("%s is %s, expected %s", m.Path, describeJSON(v), m.Raw)
+	if h := jvalue.TypeHint(m.Path, m.v, v); h != "" {
+		msg += " (" + h + ")"
+	}
+	return msg
 }
 
 func newHeaderRegex(key, pattern string) (headerMatcher, error) {
@@ -103,12 +132,8 @@ func (l *label) eval(d *decoded, distinctHeaders bool) (bool, string) {
 			return false, "payload is not JSON: " + err.Error()
 		}
 		for _, p := range l.Payload {
-			v, _, err := jsonx.Read(doc, p.Path)
-			if err != nil {
-				return false, readFailure(doc, p.Path, err)
-			}
-			if !jvalue.JavaEquals(v, p.expected) {
-				return false, fmt.Sprintf("%s is %s, expected %s", p.Path, describeJSON(v), p.Raw)
+			if why := p.mismatch(doc); why != "" {
+				return false, why
 			}
 		}
 	}

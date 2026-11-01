@@ -14,11 +14,12 @@ import (
 	"github.com/nimbusxr/axx/internal/compat/jvalue"
 )
 
-// valueDoc says how the response property steps compare values.
+// valueDoc says how the response property step reads its value (ADR 0014).
 var valueDoc = []string{
-	"A value is compared with its JSON type. Text, like `REGISTERED`, is a string, and so is a value in double quotes, like `\"42\"`.",
-	"`42` is an integer, `42L` a long and `1.5` a number. An integer never equals a decimal: `5` is not `5.0`.",
-	"`true` and `false` are booleans. `{...}` and `[...]` are a JSON object and a JSON array; an object's members may come in any order.",
+	"The value means what it says: `'42'` is an integer, `'42L'` a long and `'1.5'` a decimal; `'true'` and `'false'` are " +
+		"booleans; `'null'` is null and `'undefined'` no such property; `'{...}'` and `'[...]'` are JSON, an object's members in " +
+		"any order; `'\"42\"'`, in double quotes inside the quotes, is the string, and other text, like `'REGISTERED'`, a string.",
+	"Types must match: `'42'` is not the string `\"42\"`, nor `'5'` the decimal `5.0`.",
 }
 
 // regexpDoc and regexpsDoc say how the steps that match regular
@@ -128,17 +129,30 @@ func responseSteps() []core.StepDef {
 				"A name may repeat.",
 				"Every row is checked, and every mismatch reported.",
 			},
-			table: &core.TableDoc{Columns: []string{"header", "value"}, Note: "A row is a header's name and the value it must have."},
+			table: &core.TableDoc{
+				Columns: []string{"header", "value"}, Note: "A row is a header's name and the value it must have.",
+				Values: core.TextValues,
+			},
 			example: "Then the response headers are:\n" +
 				"  | Content-Type | application/json     |\n" +
 				"  | Location     | /api/parcels/PX-4101 |",
 			namedExample: "Then the response headers for 1st ordered response on parcels are:\n" +
 				"  | Content-Type | application/problem+json |\n" +
-				"  | Retry-After  | 5                        |",
+				"  | Retry-After  | \"5\"                      |",
 			run: func(sc *core.Scenario, a core.Args, t target) error {
-				return headerTable(sc, a, t, func(h http.Header, row [2]string) (*failure, error) {
-					return headerIs(h, row[0], row[1]), nil
-				})
+				ex, err := t.exchange(sc, a)
+				if err != nil {
+					return err
+				}
+				rows, err := textRows(a.Table, "response headers")
+				if err != nil {
+					return err
+				}
+				fs := make([]*failure, len(rows))
+				for i, row := range rows {
+					fs[i] = headerIs(ex.Header, row[0], row[1])
+				}
+				return failures(fs...)
 			},
 		},
 		{
@@ -207,9 +221,9 @@ func responseSteps() []core.StepDef {
 				if err != nil {
 					return err
 				}
-				f, err := propertyIs(ex, a.String(0), a.String(1))
+				f, err := valueCheck(ex, a.String(0), a.String(1), false)
 				if err != nil {
-					return err
+					return fmt.Errorf("%s: %w", a.String(0), err)
 				}
 				return failures(f)
 			},
@@ -276,12 +290,14 @@ func responseSteps() []core.StepDef {
 			id: "rest.response.properties.are", keyword: "Then", arg: core.ArgTable, noun: "response",
 			head: "the response payload properties", tail: " are:",
 			doc: "Check properties of a JSON response, a row each, like the single-property step.",
-			details: append([]string{
-				"`null` and `undefined`, in any case, check for JSON null and for no such property; `\"null\"`, " +
-					"in double quotes, is the string.",
+			details: []string{
+				"An object's members may come in any order.",
 				"Every row is checked, and every mismatch reported.",
-			}, valueDoc...),
-			table: &core.TableDoc{Columns: []string{"JSONPath", "value"}, Note: "A row is a property's JSONPath and the value it must have."},
+			},
+			table: &core.TableDoc{
+				Columns: []string{"JSONPath", "value"}, Note: "A row is a property's JSONPath and the value it must have.",
+				Values: core.JSONValues, Undefined: true,
+			},
 			example: "Then the response payload properties are:\n" +
 				"  | reference | PX-4101    |\n" +
 				"  | status    | REGISTERED |\n" +
@@ -292,15 +308,7 @@ func responseSteps() []core.StepDef {
 				"  | recipient.street | undefined    |",
 			run: func(sc *core.Scenario, a core.Args, t target) error {
 				return propertyTable(sc, a, t, func(ex *Exchange, path, value string) (*failure, error) {
-					switch {
-					case len(value) >= 2 && value[0] == '"' && value[len(value)-1] == '"':
-						return propertyIs(ex, path, value)
-					case strings.EqualFold(value, "undefined"):
-						return propertyUndefined(ex, path)
-					case strings.EqualFold(value, "null"):
-						return propertyNull(ex, path)
-					}
-					return propertyIs(ex, path, value)
+					return valueCheck(ex, path, value, value == "")
 				})
 			},
 		},
@@ -492,19 +500,45 @@ func shownJSON(v any) any {
 	return jsonScalar(text)
 }
 
-func propertyIs(ex *Exchange, path, value string) (*failure, error) {
+// valueCheck checks the property at path against a value as a feature
+// writes it, which means what it says (ADR 0014): `null` checks for JSON
+// null, `undefined` for no such property, and any other value is compared
+// with its type. empty says the table's cell was empty, which is an error
+// that gives the explicit forms.
+func valueCheck(ex *Exchange, path, text string, empty bool) (*failure, error) {
+	v, err := core.ParseValue(text, empty, true)
+	switch {
+	case err != nil:
+		return nil, err
+	case v.Undefined():
+		return propertyUndefined(ex, path)
+	case v.IsNull():
+		return propertyNull(ex, path)
+	}
+	return propertyIs(ex, path, v)
+}
+
+func propertyIs(ex *Exchange, path string, v core.Value) (*failure, error) {
 	if err := checkJSONResponse(ex); err != nil {
 		return nil, err
 	}
-	ok, err := jvalue.ResponsePropertyIs(string(ex.Body), path, value)
+	ok, err := jvalue.ValueIs(string(ex.Body), path, v)
 	if err != nil {
 		return nil, err
 	}
 	if ok {
 		return nil, nil
 	}
-	expected, _ := jvalue.CoerceExpected(value)
-	return &failure{fmt.Sprintf("Response payload property %s is not %s", path, value), shownJSON(expected), actualAt(ex.Body, path)}, nil
+	expected, _ := jvalue.Expected(v)
+	msg := fmt.Sprintf("Response payload property %s is not %s", path, v.Text())
+	if doc, err := jsonx.Parse(string(ex.Body)); err == nil {
+		if actual, _, err := jsonx.Read(doc, path); err == nil {
+			if h := jvalue.TypeHint(path, v, actual); h != "" {
+				msg += " (" + h + ")"
+			}
+		}
+	}
+	return &failure{msg, shownJSON(expected), actualAt(ex.Body, path)}, nil
 }
 
 func propertyNull(ex *Exchange, path string) (*failure, error) {

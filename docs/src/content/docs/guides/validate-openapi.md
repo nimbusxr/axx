@@ -61,9 +61,9 @@ Scenario: A shop registers a parcel
 
 ### Setting values in a payload
 
-Keys are JSONPath expressions (`reference`, `recipient.postcode`, `items[0].sku`). A value keeps the type of the property it replaces, double quotes make it a string, `null` sets JSON null and `undefined` removes the property. The [rest pack reference](/references/packs/rest/#restrequestproperties) has the exact rules.
+Keys are JSONPath expressions (`reference`, `recipient.postcode`, `items[0].sku`). A value means what it says, whatever the example held there: `2500` is a number, `true` a boolean, `{...}` and `[...]` JSON, `null` JSON null and `undefined` removes the property; a value in double quotes is the string inside them, and other text a string. The [rest pack reference](/references/packs/rest/#restrequestproperties) has the exact rules.
 
-Double-quote values that look like numbers but are strings in the schema, such as postcodes (`"50667"`) or long numeric identifiers, so they stay exact strings.
+Double-quote values that look like numbers but are strings in the schema, such as postcodes (`"50667"`) or long numeric identifiers: `50667` sends the number, which the validation reports.
 
 ## Validation levels
 

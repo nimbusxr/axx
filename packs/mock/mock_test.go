@@ -53,6 +53,26 @@ func (f *fakeWireMock) handler() http.Handler {
 		}
 		_ = json.NewEncoder(w).Encode(map[string]int{"count": n})
 	})
+	mux.HandleFunc("/__admin/requests/find", func(w http.ResponseWriter, r *http.Request) {
+		var p struct {
+			Method  string                   `json:"method"`
+			URL     string                   `json:"url"`
+			URLPath string                   `json:"urlPath"`
+			Headers map[string]headerMatcher `json:"headers"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&p)
+		f.mu.Lock()
+		defer f.mu.Unlock()
+		reqs := []map[string]any{}
+		for _, j := range f.journal {
+			path, _, _ := strings.Cut(j.URL, "?")
+			if p.Method != j.Method || (p.URL != j.URL && p.URLPath != path) || !headersMatch(p.Headers, j.Headers) {
+				continue
+			}
+			reqs = append(reqs, map[string]any{"method": j.Method, "url": j.URL, "bodyAsBase64": base64.StdEncoding.EncodeToString([]byte(j.Body))})
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"requests": reqs})
+	})
 	mux.HandleFunc("GET /__admin/requests", func(w http.ResponseWriter, _ *http.Request) {
 		f.mu.Lock()
 		defer f.mu.Unlock()
@@ -244,32 +264,136 @@ func TestInterpolatedURLAndPathPrefix(t *testing.T) {
 	}
 }
 
+// rows adds a table's rows to p, as a step does.
+func rows(t *testing.T, p *pattern, add rowAdder, table ...[]string) {
+	t.Helper()
+	if err := addRows(p, &core.Table{Rows: table}, add); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestBodyAndFormPatterns(t *testing.T) {
 	p := &pattern{Method: "POST", URL: "/v1/collections"}
-	p.withProperty("reference", bodyValue("PX-REG-1401"))
-	p.withProperty("$.deliverTo.postcode", bodyValue(`"10115"`))
-	p.withProperty("recipient", bodyValue("undefined"))
-	p.withProperty("reference", bodyValue("PX-REG-1402")) // a later check of a property replaces the earlier one
-	p.withField("day", bodyValue("Friday"))
-	p.withField("shop", bodyValue("undefined"))
+	rows(t, p, addProperty, []string{"reference", "PX-REG-1401"}, []string{"$.deliverTo.postcode", `"10115"`},
+		[]string{"recipient", "undefined"}, []string{"weightGrams", "800"})
+	rows(t, p, addProperty, []string{"reference", "PX-REG-1402"}) // a later check of a property replaces the earlier one
+	rows(t, p, addField, []string{"day", "Friday"}, []string{"shop", "undefined"}, []string{"note", `""`})
+	// WireMock matches the request; axx checks the body's properties, with
+	// their types (ADR 0014), and failures show them.
 	got := string(mustJSON(p))
 	want := `{"method":"POST","url":"/v1/collections",` +
-		`"formParameters":{"day":{"equalTo":"Friday"},"shop":{"absent":true}},` +
-		`"bodyPatterns":[{"matchesJsonPath":{"expression":"$.reference","equalTo":"PX-REG-1402"}},` +
-		`{"matchesJsonPath":{"expression":"$.deliverTo.postcode","equalTo":"10115"}},` +
-		`{"matchesJsonPath":{"expression":"$.recipient","absent":true}}]}`
+		`"formParameters":{"day":{"equalTo":"Friday"},"shop":{"absent":true},"note":{"equalTo":""}}}`
 	if got != want {
 		t.Errorf("pattern\n got %s\nwant %s", got, want)
+	}
+	if got, want := string(p.shown()), strings.TrimSuffix(want, "}")+`,"payloadProperties":{"$.reference":"PX-REG-1402",`+
+		`"$.deliverTo.postcode":"10115","$.recipient":"<absent>","$.weightGrams":800}}`; got != want {
+		t.Errorf("shown\n got %s\nwant %s", got, want)
+	}
+	for body, want := range map[string]string{
+		`{"reference":"PX-REG-1402","deliverTo":{"postcode":"10115"},"weightGrams":800}`:                         "",
+		`{"reference":"PX-REG-1402","deliverTo":{"postcode":10115},"weightGrams":800}`:                           `$.deliverTo.postcode is the integer 10115: write 10115`,
+		`{"reference":"PX-REG-1402","deliverTo":{"postcode":"10115"},"weightGrams":"800"}`:                       `$.weightGrams is the string "800": write "800"`,
+		`{"reference":"PX-REG-1402","deliverTo":{"postcode":"10115"},"weightGrams":800.0}`:                       `$.weightGrams is the decimal 800.0: write 800.0`,
+		`{"reference":"PX-REG-1401","deliverTo":{"postcode":"10115"},"weightGrams":800}`:                         `$.reference is "PX-REG-1401", not "PX-REG-1402"`,
+		`{"reference":"PX-REG-1402","deliverTo":{"postcode":"10115"},"weightGrams":800,"recipient":{"n":"Ada"}}`: `it has $.recipient: {"n":"Ada"}`,
+		`{"reference":"PX-REG-1402"}`: "it has no $.deliverTo.postcode",
+		"reference=PX-REG-1402":       "its body is not JSON",
+		"":                            "its body is not JSON",
+	} {
+		if got, err := p.mismatch([]byte(body)); err != nil || got != want {
+			t.Errorf("%s: %q, %v; want %q", body, got, err, want)
+		}
 	}
 }
 
 func TestPathAndQueryPatterns(t *testing.T) {
 	p := &pattern{Method: "POST", URL: "/v1/collections", PathOnly: true}
-	p.withQuery("slot", bodyValue("same-day"))
-	p.withQuery("reference", bodyValue("undefined"))
+	rows(t, p, addQuery, []string{"slot", "same-day"}, []string{"reference", "undefined"}, []string{"page", `"2"`})
 	got := string(mustJSON(p))
-	want := `{"method":"POST","urlPath":"/v1/collections","queryParameters":{"slot":{"equalTo":"same-day"},"reference":{"absent":true}}}`
+	want := `{"method":"POST","urlPath":"/v1/collections","queryParameters":{"slot":{"equalTo":"same-day"},"reference":{"absent":true},"page":{"equalTo":"2"}}}`
 	if got != want {
 		t.Errorf("pattern\n got %s\nwant %s", got, want)
+	}
+}
+
+// A table's value the rule cannot read fails the step, and adds none of
+// its rows (ADR 0014): query parameters, form fields and headers are text,
+// and a payload property's value is typed.
+func TestValuesTheRuleCannotRead(t *testing.T) {
+	for _, c := range []struct {
+		add   rowAdder
+		table [][]string
+		want  string
+	}{
+		{addQuery, [][]string{{"slot", "same-day"}, {"page", "2"}}, `page: 2 reads as an integer, and only text fits here: write "2" for the text`},
+		{addField, [][]string{{"express", "true"}}, `express: true reads as a boolean, and only text fits here: write "true" for the text`},
+		{addField, [][]string{{"day", ""}}, `day: the cell is empty: write "" for the empty text, or undefined for none`},
+		{addHeader, [][]string{{"X-Count", "3"}}, `X-Count: 3 reads as an integer`},
+		{addHeader, [][]string{{"X-Count", "undefined"}}, `X-Count: undefined reads as undefined (no such property)`},
+		{addProperty, [][]string{{"reference", "PX-REG-1401"}, {"postcode", "01067"}}, `postcode: 01067 could be the number 1067 or the text 01067`},
+		{addProperty, [][]string{{"weightGrams", ""}}, `weightGrams: the cell is empty: write "" for the empty string, null for null, or undefined for no such property`},
+		{addProperty, [][]string{{"[", "x"}}, `[:`},
+	} {
+		p := &pattern{Method: "POST", URL: "/v1/collections"}
+		err := addRows(p, &core.Table{Rows: c.table}, c.add)
+		if err == nil || !strings.Contains(err.Error(), c.want) {
+			t.Errorf("%v: %v, want %q", c.table, err, c.want)
+		}
+		if len(p.body)+len(p.query)+len(p.form)+len(p.headers) > 0 {
+			t.Errorf("%v: rows were added: %+v", c.table, p)
+		}
+	}
+}
+
+// The payload properties of a named request are checked with their types,
+// and narrow what its counts count; a failure says how the requests to it
+// differ.
+func TestPayloadPropertiesFlow(t *testing.T) {
+	reg, sc, fw, url := setup(t)
+	fw.journal = append(fw.journal,
+		journaled{Method: "POST", URL: "/v1/collections", Body: `{"reference":"PX-REG-1401","weightGrams":800,"deliverTo":{"postcode":"10115"}}`},
+		journaled{Method: "POST", URL: "/v1/collections", Body: `{"reference":"PX-REG-1402","weightGrams":"650","recipient":{"name":"Ada"}}`},
+	)
+	run := func(text string, table ...[]string) error {
+		t.Helper()
+		return step(t, reg, sc, text, table)
+	}
+	ok := func(text string, table ...[]string) {
+		t.Helper()
+		if err := run(text, table...); err != nil {
+			t.Fatalf("%s: %v", text, err)
+		}
+	}
+	ok("the mocked courier service with the following properties:", []string{"url", url})
+	ok("the mocked POST request to /v1/collections named collection was received by courier")
+	ok("the mocked request named collection was received exactly 2 times")
+	ok("the payload properties for mocked request named collection are:", []string{"reference", "PX-REG-1401"},
+		[]string{"weightGrams", "800"}, []string{"deliverTo.postcode", `"10115"`}, []string{"recipient", "undefined"})
+	ok("the mocked request named collection was received exactly 1 time")
+
+	ok("the mocked POST request to /v1/collections named other was received by courier")
+	err := run("the payload properties for mocked request named other on courier are:", []string{"weightGrams", "650"})
+	if !core.IsAssertion(err) || !strings.Contains(err.Error(), "Requests received that match but for their payload:\n"+
+		"  POST /v1/collections: $.weightGrams is 800, not 650\n"+
+		`  POST /v1/collections: $.weightGrams is the string "650": write "650"`) {
+		t.Errorf("a value of another type: %v", err)
+	}
+	if err := run("the payload properties for mocked request named collection are:", []string{"weightGrams", ""}); err == nil ||
+		core.IsAssertion(err) || !strings.Contains(err.Error(), "weightGrams: the cell is empty") {
+		t.Errorf("an empty cell: %v", err)
+	}
+	ok("the mocked request named collection was received exactly 1 time") // the failed step added nothing
+
+	ok("none of the mocked POST requests to path /v1/collections have the payload properties:",
+		[]string{"reference", "PX-REG-1402"}, []string{"weightGrams", "650"})
+	if err := run("none of the mocked POST requests to path /v1/collections on courier have the payload properties:",
+		[]string{"reference", "PX-REG-1402"}, []string{"weightGrams", `"650"`}); !core.IsAssertion(err) ||
+		!strings.Contains(err.Error(), "1 POST request(s) to path /v1/collections on courier have the payload properties of the table:\n  POST /v1/collections") {
+		t.Errorf("none with the string: %v", err)
+	}
+	d := sc.Descriptions()["mock"].(map[string]any)
+	if b, _ := json.Marshal(d["pattern"]); !strings.Contains(string(b), `"payloadProperties":{"$.reference":"PX-REG-1402","$.weightGrams":"650"}`) {
+		t.Errorf("the failure's pattern shows the properties: %s", b)
 	}
 }

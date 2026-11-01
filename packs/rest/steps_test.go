@@ -130,9 +130,16 @@ func TestPayloadProperties(t *testing.T) {
 		{"the request payload property age is '30'", nil, `{"name":"John Doe","age":30}`},
 		{"the request payload property age is '31'", nil, `{"name":"John Doe","age":31}`},
 		{`the request payload property age is '"thirty"'`, nil, `{"name":"John Doe","age":"thirty"}`},
+		// A value means what it says, whatever the property held (ADR 0014).
+		{"the request payload property age is '32'", nil, `{"name":"John Doe","age":32}`},
+		{`the request payload property age is '"33"'`, nil, `{"name":"John Doe","age":"33"}`},
 		{"the request payload property active is 'TRUE'", nil, `"active":true`},
-		{"the request payload property active is 'yes'", nil, `"active":false`}, // Boolean.parseBoolean
+		{"the request payload property active is 'yes'", nil, `"active":"yes"`},
+		{"the request payload property active is 'false'", nil, `"active":false`},
 		{"the request payload property price is '19.99'", nil, `"price":19.99`},
+		{"the request payload property price is 'cheap'", nil, `"price":"cheap"`},
+		{"the request payload property price is '19.99'", nil, `"price":19.99`},
+		{"the request payload property note is ''", nil, `"note":""`},
 		{"the request payload property big is '3000000000'", nil, `"big":3000000000`},
 		{"the request payload property address is '{\"city\": \"LA\"}'", nil, `"address":{"city":"LA"}`},
 		{"the request payload property address.city is 'NY'", nil, `"address":{"city":"NY"}`},
@@ -140,7 +147,7 @@ func TestPayloadProperties(t *testing.T) {
 		{"the request payload property launchDate is 'soon'", nil, `"launchDate":"soon"`},
 		{"the request payload property launchDate is null", nil, `"launchDate":null`},
 		{"the request payload properties are:", [][]string{
-			{"launchDate", "2024-01-01"}, // was null: axx infers the type
+			{"launchDate", "2024-01-01"}, // text, over null
 			{"name", "undefined"},
 			{"extra", `"null"`},
 			{"gone", "NULL"},
@@ -160,11 +167,24 @@ func TestPayloadProperties(t *testing.T) {
 			t.Fatalf("%s: payload %s does not contain %s", s.text, p, s.want)
 		}
 	}
-	h.fails("the request payload property price is 'cheap'", `Invalid value "cheap" for property "price"`)
 	h.fails("the request payload property nothing is null", "Property not found in payload")
+	h.fails("the request payload property nothing is 'null'", "Property not found in payload")
+	// A value that could be read two ways fails, with the forms to write,
+	// and changes nothing.
+	h.fails("the request payload property zip is '01067'",
+		`zip: 01067 could be the number 1067 or the text 01067: write 1067 for the number, or "01067" for the text`)
+	h.fails("the request payload property zip is '+5'", "zip: +5 could be the number 5")
+	h.fails("the request payload properties are:",
+		`zip: the cell is empty: write "" for the empty string, null for null, or undefined for no such property`,
+		[]string{"name", "Jane"}, []string{"zip", ""})
+	h.fails("the request payload properties are:", "ratio: 1.5f could be the number 1.5", []string{"ratio", "1.5f"})
+	svc, _ := stateKey.Of(h.sc).services.Default()
+	if p := *svc.requests[0].Payload; strings.Contains(p, "zip") || strings.Contains(p, "Jane") {
+		t.Errorf("a step that fails changes nothing: %s", p)
+	}
 	h.ok("the request is executed")
 	body := a.last().Body
-	for _, want := range []string{`"launchDate":"2024-01-01"`, `"extra":"null"`, `"tags":["b","c"]`} {
+	for _, want := range []string{`"launchDate":"2024-01-01"`, `"extra":"null"`, `"tags":["b","c"]`, `"price":19.99`} {
 		if !strings.Contains(body, want) {
 			t.Errorf("sent %s, missing %s", body, want)
 		}
@@ -254,6 +274,14 @@ func TestResponseAssertions(t *testing.T) {
 		t.Errorf("message %s", ae.Message)
 	}
 	h.fails("the response header X matches [", "invalid regular expression")
+	// A header's value is text (ADR 0014): one that reads as a number goes in
+	// double quotes in a table; a step's own {string} is its text.
+	h.ok("the response headers are:", []string{"X-Count", `"3"`})
+	h.ok("the response header X-Count is '3'")
+	h.fails("the response headers are:", `X-Count: 3 reads as an integer, and only text fits here: write "3" for the text`,
+		[]string{"X-Count", "3"})
+	h.fails("the response headers are:", `X-Request-Id: the cell is empty: write "" for the empty text`,
+		[]string{"X-Request-Id", ""})
 
 	// Payload properties: charset in the Content-Type is ignored.
 	h.ok("the response payload property name is 'x'")
@@ -276,6 +304,18 @@ func TestResponseAssertions(t *testing.T) {
 		t.Errorf("expected/actual %v / %v", ae.Expected, ae.Actual)
 	}
 	h.assertionFails("the response payload property count is '\"3\"'", "is not")
+	// A value means what it says (ADR 0014): types must match, a failure
+	// that differs only in type says what to write, and a value that could be
+	// read two ways fails with the forms to write.
+	h.assertionFails("the response payload properties are:", "(count is the integer 3: write 3)", []string{"count", `"3"`})
+	h.assertionFails("the response payload property count is '3.0'", "(count is the integer 3: write 3)")
+	h.ok("the response payload property none is 'null'")
+	h.ok("the response payload property nope is 'undefined'")
+	h.ok("the response payload property ratio is '1.5'")
+	h.fails("the response payload property count is '03'", `count: 03 could be the number 3 or the text 03: write 3 for the number, or "03" for the text`)
+	h.fails("the response payload properties are:", `count: the cell is empty: write "" for the empty string, null for null, or undefined for no such property`,
+		[]string{"name", "x"}, []string{"count", ""})
+	h.fails("the response payload properties are:", "ratio: NaN is not a JSON number", []string{"ratio", "NaN"})
 	h.assertionFails("the response payload property name is null", "is not null")
 	h.assertionFails("the response payload property name is undefined", "is not undefined")
 	h.assertionFails("the response payload property count matches 3", "does not match") // not a string

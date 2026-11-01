@@ -17,6 +17,17 @@ import (
 	"github.com/nimbusxr/axx/internal/avrojson"
 )
 
+// mismatched reports whether one of the records a check reported did not
+// match for the reason.
+func mismatched(recent []recordInfo, reason string) bool {
+	for _, r := range recent {
+		if r.Mismatch == reason {
+			return true
+		}
+	}
+	return false
+}
+
 // fakeTopic swaps a topic client's tailer for an in-memory one.
 func fakeTopic(tc *TopicClient) *tailer {
 	t := &tailer{topic: tc.Topic, wake: make(chan struct{})}
@@ -42,7 +53,8 @@ func TestConsumerAssertions(t *testing.T) {
 	tc := h.client("space-kafka", "orders")
 	topic := fakeTopic(tc)
 	for i, r := range []*kgo.Record{
-		rec("k1", `{"id":"o-1","count":3,"ratio":0.5,"ok":true,"none":null,"tags":["a"]}`, "source", "svc", "trace", "t-1"),
+		rec("k1", `{"id":"o-1","count":3,"ratio":0.5,"ok":true,"none":null,"tags":["a"],"big":3000000000,"zip":"01067"}`,
+			"source", "svc", "trace", "t-1", "attempt", "3"),
 		rec("k2", `{"id":"o-2","count":4}`, "source", "svc", "source", "svc"),
 		rec("k3", `not json`, "source", "other"),
 	} {
@@ -52,10 +64,35 @@ func TestConsumerAssertions(t *testing.T) {
 
 	h.must("the orders kafka event named first key is k1")
 	h.must("the orders kafka event named first payload properties are:",
-		[]string{"$.id", "o-1"}, []string{"count", "3"}, []string{"$.ratio", ".5"}, []string{"$.ok", "TRUE"},
-		[]string{"$.none", "null"}, []string{"$.tags", `["a"]`})
-	h.must("the orders kafka event named first headers are:", []string{"source", "svc"}, []string{"trace", "t-1"})
+		[]string{"$.id", "o-1"}, []string{"count", "3"}, []string{"$.ratio", "0.5"}, []string{"$.ok", "TRUE"},
+		[]string{"$.none", "null"}, []string{"$.tags", `["a"]`}, []string{"$.big", "3000000000L"}, []string{"$.zip", `"01067"`},
+		[]string{"$.missing", "undefined"})
+	h.must("the orders kafka event named first headers are:", []string{"source", "svc"}, []string{"trace", "t-1"}, []string{"attempt", `"3"`})
 	h.must("the orders kafka event named first headers match:", []string{"trace", `t-\d`})
+	h.must(`the orders kafka event named first key is "k1"`)
+
+	// A value means what it says (ADR 0014): one that could be read two ways
+	// fails the step at once, with the forms to write; a header and a key
+	// are text.
+	for _, c := range []struct {
+		text, want string
+		table      []string
+	}{
+		{"the orders kafka event named e payload properties are:", `$.ratio: .5 could be the number 0.5 or the text .5: write 0.5 for the number, or ".5" for the text`, []string{"$.ratio", ".5"}},
+		{"the orders kafka event named e payload properties are:", `$.zip: 01067 could be the number 1067`, []string{"$.zip", "01067"}},
+		{"the orders kafka event named e payload properties are:", `$.id: the cell is empty: write "" for the empty string, null for null, or undefined for no such property`, []string{"$.id", ""}},
+		{"the orders kafka event named e headers are:", `attempt: 3 reads as an integer, and only text fits here: write "3" for the text`, []string{"attempt", "3"}},
+		{"the orders kafka event named e headers are:", `trace: the cell is empty: write "" for the empty text`, []string{"trace", ""}},
+		{"the orders kafka event named e key is 4101", `the key: 4101 reads as an integer, and only text fits here: write "4101" for the text`, nil},
+	} {
+		var table [][]string
+		if c.table != nil {
+			table = [][]string{c.table}
+		}
+		if err := h.run(c.text, table...); err == nil || core.IsAssertion(err) || !strings.Contains(err.Error(), c.want) {
+			t.Errorf("%s %v: %v, want %q", c.text, c.table, err, c.want)
+		}
+	}
 
 	// Matchers accumulate under a label: the key alone matches k2, the
 	// payload alone matches o-1, together nothing does.
@@ -69,8 +106,17 @@ func TestConsumerAssertions(t *testing.T) {
 		t.Errorf("expected: %s", got)
 	}
 
-	// Types must match: 3 is an Integer, 3.0 a Double.
+	// Types must match: 3 is an Integer, 3.0 a Double, "3" a string; a
+	// record whose value differs only in type says what to write.
 	h.fails("the orders kafka event named typed payload properties are:", "No records found", []string{"$.count", "3.0"})
+	h.fails("the orders kafka event named text payload properties are:", "No records found", []string{"$.id", "o-1"}, []string{"$.count", `"3"`})
+	if !mismatched(stateKey.Of(h.sc).last.Recent, `$.count is 3, expected "3" ($.count is the integer 3: write 3)`) {
+		t.Errorf("the failure says what to write: %+v", stateKey.Of(h.sc).last.Recent)
+	}
+	h.fails("the orders kafka event named absent payload properties are:", "No records found", []string{"$.id", "o-1"}, []string{"$.count", "undefined"})
+	if !mismatched(stateKey.Of(h.sc).last.Recent, "$.count is 3, expected no such property") {
+		t.Errorf("undefined: %+v", stateKey.Of(h.sc).last.Recent)
+	}
 	// A value that cannot be coerced fails the step at once (beyond 32 bits axx reads a Long, see jvalue; beyond 64 it fails).
 	h.fails("the orders kafka event named big payload properties are:", `NumberFormatException: For input string: "99999999999999999999"`,
 		[]string{"$.count", "99999999999999999999"})

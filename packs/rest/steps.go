@@ -298,7 +298,10 @@ func requestSteps() []core.StepDef {
 				"A name may repeat. Like the single-header step, `Content-Type` and `Accept` replace an earlier value, " +
 					"and other headers are all sent.",
 			},
-			table: &core.TableDoc{Columns: []string{"header", "value"}, Note: "A row is a header's name and its value."},
+			table: &core.TableDoc{
+				Columns: []string{"header", "value"}, Note: "A row is a header's name and its value.",
+				Values: core.TextValues,
+			},
 			example: "Given the request headers are:\n" +
 				"  | Accept          | application/json |\n" +
 				"  | Accept-Language | de-DE            |",
@@ -306,7 +309,7 @@ func requestSteps() []core.StepDef {
 				"  | Content-Type | application/json |\n" +
 				"  | Accept       | application/json |",
 			run: func(sc *core.Scenario, a core.Args, t target) error {
-				rows, err := rows2(a.Table, "request headers")
+				rows, err := textRows(a.Table, "request headers")
 				if err != nil {
 					return err
 				}
@@ -383,20 +386,25 @@ func requestSteps() []core.StepDef {
 			head: "the request payload property {word} is {string}", nHead: 2,
 			doc: "Set a property of the request payload, by its JSONPath, like `weightGrams`, `recipient.postcode` or `$.recipient.name`.",
 			details: []string{
-				"A value in double quotes inside the quotes, like `'\"42\"'`, is always a string.",
-				"Any other value takes the type of the property's current value: a string, a boolean, an integer, a number, " +
-					"or an object or array parsed from JSON text.",
-				"A property that does not exist yet, or is null, takes the type its value reads as: `true`, `42`, `1.5`, " +
-					"`{...}`, `[...]`, or else a string.",
-				"A property inside an object the payload lacks creates the object: `recipient.name` in a payload without " +
-					"`recipient`. A path through an array (`items[2].sku`) needs the array.",
+				"The value means what it says, whatever the property held before: `'1200'` is an integer, `'1.5'` a decimal, " +
+					"`'true'` a boolean, `'null'` null, `'{...}'` and `'[...]'` JSON, `'\"10115\"'`, in double quotes inside the " +
+					"quotes, the string, and other text, like `'EXPRESS'`, a string. `'undefined'` removes the property.",
+				"A property the payload lacks is added; one inside an object the payload lacks creates the object: " +
+					"`recipient.name` in a payload without `recipient`. A path through an array (`items[2].sku`) needs the array.",
+				"`null` and `undefined` change a property the payload has.",
+				"`${env:…}` and `${sys:…}` expand inside the value, which stays text, whatever they expand to.",
 				"A payload step must come first.",
 			},
 			example:      "Given the request payload property sender is 'kestrel-books'",
 			namedExample: "Given the request payload property serviceLevel is 'EXPRESS' for request on parcels",
 			run: func(sc *core.Scenario, a core.Args, t target) error {
+				path := a.String(0)
+				v, err := payloadValue(sc, a.String(1), false)
+				if err != nil {
+					return fmt.Errorf("%s: %w", path, err)
+				}
 				return modifyPayload(sc, a, t, func(doc any) error {
-					return missingParent(doc, a.String(0), jvalue.SetRequestProperty(doc, a.String(0), secrets.Expand(sc, a.String(1))))
+					return missingParent(doc, path, jvalue.SetValue(doc, path, v))
 				})
 			},
 		},
@@ -405,12 +413,15 @@ func requestSteps() []core.StepDef {
 			head: "the request payload properties", tail: " are:",
 			doc: "Set properties of the request payload, a row each, in order, like the single-property step.",
 			details: []string{
-				"`null` sets JSON null, and `undefined` removes the property, in any case.",
-				"`\"null\"` and `\"undefined\"`, in double quotes, are the strings.",
+				"A value is set as written, whatever the property held before.",
 				"A property inside an object the payload lacks creates the object, so a table can list " +
 					"`recipient.name` and `recipient.postcode` on an empty payload.",
+				"`null` sets a property the payload has to JSON null, and `undefined` removes it.",
 			},
-			table: &core.TableDoc{Columns: []string{"JSONPath", "value"}, Note: "A row is a property's JSONPath and its value."},
+			table: &core.TableDoc{
+				Columns: []string{"JSONPath", "value"}, Note: "A row is a property's JSONPath and its value.",
+				Values: core.JSONValues, Undefined: true,
+			},
 			example: "Given the request payload properties are:\n" +
 				"  | reference          | PX-4101 |\n" +
 				"  | weightGrams        | 1200    |\n" +
@@ -423,9 +434,15 @@ func requestSteps() []core.StepDef {
 				if err != nil {
 					return err
 				}
+				values := make([]core.Value, len(pairs))
+				for i, p := range pairs {
+					if values[i], err = payloadValue(sc, p.Value, p.Null); err != nil {
+						return fmt.Errorf("%s: %w", p.Key, err)
+					}
+				}
 				return modifyPayload(sc, a, t, func(doc any) error {
-					for _, p := range pairs {
-						if err := jvalue.ApplyRequestTableRow(doc, p.Key, secrets.Expand(sc, p.Value)); err != nil {
+					for i, p := range pairs {
+						if err := jvalue.SetValue(doc, p.Key, values[i]); err != nil {
 							return missingParent(doc, p.Key, err)
 						}
 					}
@@ -613,6 +630,39 @@ func missingParent(doc any, path string, err error) error {
 	}
 	return fmt.Errorf("the request payload has no %s, so %s cannot be set inside it: start the payload from one that has it "+
 		"(like `a request payload using an application/json content example`), or set %s first: %w", missing, path, missing, err)
+}
+
+// payloadValue reads a value a step sets in the request payload: it means
+// what it says (ADR 0014). ${env:..} and ${sys:..} references expand inside
+// a string or JSON as written, so a reference written as text stays a
+// string, whatever it expands to.
+func payloadValue(sc *core.Scenario, text string, empty bool) (core.Value, error) {
+	v, err := core.ParseValue(text, empty, true)
+	if err != nil || !strings.Contains(text, "${") {
+		return v, err
+	}
+	if s, ok := v.Str(); ok {
+		return core.ParseValue(`"`+secrets.Expand(sc, s)+`"`, false, false)
+	}
+	return core.ParseValue(secrets.Expand(sc, text), false, false)
+}
+
+// textRows returns the rows of a two-column table whose values are text
+// (ADR 0014): an empty cell, or a value that reads as anything else, fails
+// with the form to write.
+func textRows(t *core.Table, what string) ([][2]string, error) {
+	rows, err := rows2(t, what)
+	if err != nil {
+		return nil, err
+	}
+	for i, row := range rows {
+		v, _, err := core.ParseText(row[1], row[1] == "", false)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", row[0], err)
+		}
+		rows[i][1] = v
+	}
+	return rows, nil
 }
 
 // rows2 returns the rows of a two-column table (names may repeat).

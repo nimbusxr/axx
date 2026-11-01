@@ -220,7 +220,7 @@ Run `axx run`:
         | priceCents  | 690  |
 ```
 
-The double quotes make the value a string. The contract says `weightGrams` is an integer, and Axx fails the request step with the reason: `$.weightGrams: got string, want integer`. The steps after it are skipped.
+A value means what it says: `'4500'` is a number, and a value in double quotes, like `'"heavy"'`, is a string. The contract says `weightGrams` is an integer, and Axx fails the request step with the reason: `$.weightGrams: got string, want integer`. The steps after it are skipped.
 
 Change the value back to `'4500'` and run `axx run` again. Both scenarios pass.
 

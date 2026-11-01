@@ -23,7 +23,8 @@ const consumeDoc = "- The expectation joins those of the label (`named {word}`) 
 // of a drafted event.
 var setPropertiesTable = &core.TableDoc{
 	Columns: []string{"JSONPath", "value"},
-	Note:    "A row sets the property at the JSONPath to the value, always as a string; an empty cell sets JSON null.",
+	Note:    "A row sets the property at the JSONPath to the value, as written; `undefined` removes the property.",
+	Values:  core.JSONValues, Undefined: true,
 }
 
 // headersMatchTable and headersMatchDoc are those of the steps that match
@@ -34,6 +35,19 @@ var headersMatchTable = &core.TableDoc{
 }
 
 const headersMatchDoc = "- A header must have one distinct value: unlike the other steps, this one ignores repeated identical values of a header.\n"
+
+// keyDoc says how the key steps read a key: as text (ADR 0014).
+const keyDoc = "The key is text: one that reads as a number, a boolean or `null` goes in double quotes, like `\"4101\"`."
+
+// textKey reads a key a step writes: text, so a key that reads as anything
+// else is an error asking for it in double quotes (ADR 0014).
+func textKey(word string) (string, error) {
+	k, _, err := core.ParseText(word, false, false)
+	if err != nil {
+		return "", fmt.Errorf("the key: %w", err)
+	}
+	return k, nil
+}
 
 func (pack) Manifest() core.Manifest {
 	return core.Manifest{
@@ -133,17 +147,20 @@ func steps() []core.StepDef {
 		{
 			ID: "kafka.event.key", Keyword: "Given",
 			Expr: "the[[ {ordinal} ordered]] {word} kafka event key is {word}" + serviceSuffix,
-			Doc:  "Set the key of a drafted event. " + ordinalDoc,
+			Doc:  "Set the key of a drafted event. " + keyDoc + " " + ordinalDoc,
 			Examples: []string{
 				"Given the depot-scans kafka event key is PX-4101",
 				"Given the 2nd ordered depot-scans kafka event key is PX-4102 on the events kafka service",
 			},
 			Run: func(sc *core.Scenario, a core.Args) error {
+				k, err := textKey(a.String(2))
+				if err != nil {
+					return err
+				}
 				ev, err := event(sc, a, 0, 1, 3)
 				if err != nil {
 					return err
 				}
-				k := a.String(2)
 				ev.Key = &k
 				return nil
 			},
@@ -154,7 +171,8 @@ func steps() []core.StepDef {
 			Doc:  "Set headers of a drafted event. " + ordinalDoc,
 			Table: &core.TableDoc{
 				Columns: []string{"header", "value"},
-				Note:    "A row sets a header of the event: setting a header again replaces its value, and an empty cell sends the text `null`.",
+				Note:    "A row sets a header of the event: setting a header again replaces its value.",
+				Values:  core.TextValues,
 			},
 			Examples: []string{
 				"Given the depot-scans kafka event headers are:\n" +
@@ -164,20 +182,22 @@ func steps() []core.StepDef {
 					"  | X-Event-Type | ParcelScanned |",
 			},
 			Run: func(sc *core.Scenario, a core.Args) error {
-				ev, err := event(sc, a, 0, 1, 2)
-				if err != nil {
-					return err
-				}
 				pairs, err := a.Table.Pairs()
 				if err != nil {
 					return err
 				}
-				for _, p := range pairs {
-					v := p.Value
-					if p.Null {
-						v = "null" // String.valueOf(null)
+				values := make([]string, len(pairs))
+				for i, p := range pairs {
+					if values[i], _, err = core.ParseText(p.Value, p.Null, false); err != nil {
+						return fmt.Errorf("%s: %w", p.Key, err)
 					}
-					ev.setHeader(p.Key, &v)
+				}
+				ev, err := event(sc, a, 0, 1, 2)
+				if err != nil {
+					return err
+				}
+				for i, p := range pairs {
+					ev.setHeader(p.Key, &values[i])
 				}
 				return nil
 			},
@@ -330,14 +350,19 @@ func steps() []core.StepDef {
 			ID: "kafka.consumed.key", Keyword: "Then",
 			Expr: "the {word} kafka event named {word} key is {word}" + serviceSuffix,
 			Doc: "Expect the label's record to have this key.\n\n" +
+				"- " + keyDoc + "\n" +
 				"- The consumer's key deserializer decides how keys read.\n" + consumeDoc,
 			Examples: []string{
 				"Then the parcel-events kafka event named registered key is PX-4101",
 				"Then the parcel-events kafka event named registered key is PX-4101 on the events kafka service",
 			},
 			Run: func(sc *core.Scenario, a core.Args) error {
+				k, err := textKey(a.String(2))
+				if err != nil {
+					return err
+				}
 				return consume(sc, a, 3, false, func(l *label) error {
-					l.Keys = append(l.Keys, a.String(2))
+					l.Keys = append(l.Keys, k)
 					return nil
 				})
 			},
@@ -345,14 +370,11 @@ func steps() []core.StepDef {
 		{
 			ID: "kafka.consumed.properties", Keyword: "Then", Arg: core.ArgTable,
 			Expr: "the {word} kafka event named {word} payload properties" + serviceSuffix + " are:",
-			Doc: "Expect JSONPath properties of the label's record payload.\n\n" +
-				"- Values are typed: `\"text\"` is a string, `null` JSON null, `12` an integer, `1.5` a decimal, `true` and `false` booleans, " +
-				"`{...}` and `[...]` JSON; anything else is a string.\n" +
-				"- Numbers must match in type: `2` does not equal `2.0`.\n" +
-				"- An empty cell fails the step: write `null` for JSON null, `\"\"` for an empty string.\n" + consumeDoc,
+			Doc:  "Expect JSONPath properties of the label's record payload.\n\n" + consumeDoc,
 			Table: &core.TableDoc{
 				Columns: []string{"JSONPath", "value"},
 				Note:    "A row expects the property at the JSONPath to have the value.",
+				Values:  core.JSONValues, Undefined: true,
 			},
 			Examples: []string{
 				"Then the parcel-events kafka event named registered payload properties are:\n" +
@@ -370,10 +392,7 @@ func steps() []core.StepDef {
 				}
 				var ms []payloadMatcher
 				for _, p := range pairs {
-					if p.Null {
-						return fmt.Errorf("empty value for %s: write null to expect JSON null or \"\" for an empty string", p.Key)
-					}
-					m, err := newPayloadMatcher(p.Key, p.Value)
+					m, err := newPayloadMatcher(p.Key, p.Value, p.Null)
 					if err != nil {
 						return err
 					}
@@ -392,7 +411,8 @@ func steps() []core.StepDef {
 				"- Each header must occur exactly once, with exactly this value.\n" + consumeDoc,
 			Table: &core.TableDoc{
 				Columns: []string{"header", "value"},
-				Note:    "A row expects a header of the record to have the value; an empty cell fails the step.",
+				Note:    "A row expects a header of the record to have the value.",
+				Values:  core.TextValues,
 			},
 			Examples: []string{
 				"Then the parcel-events kafka event named registered headers are:\n" +
@@ -452,12 +472,16 @@ func headerExpectations(t *core.Table, regex bool) ([]headerMatcher, error) {
 	}
 	out := make([]headerMatcher, 0, len(pairs))
 	for _, p := range pairs {
+		if !regex {
+			v, _, err := core.ParseText(p.Value, p.Null, false)
+			if err != nil {
+				return nil, fmt.Errorf("%s: %w", p.Key, err)
+			}
+			out = append(out, headerMatcher{Key: p.Key, Value: v})
+			continue
+		}
 		if p.Null {
 			return nil, fmt.Errorf("empty value for header %s", p.Key)
-		}
-		if !regex {
-			out = append(out, headerMatcher{Key: p.Key, Value: p.Value})
-			continue
 		}
 		m, err := newHeaderRegex(p.Key, p.Value)
 		if err != nil {

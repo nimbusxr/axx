@@ -16,6 +16,7 @@ var agentJournal = []journaled{
 	{Method: "POST", URL: "/mcp", Body: `{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"shipment_status","arguments":{"reference":"PX-MCP-9302","country":"NO"}}}`},
 	{Method: "POST", URL: "/mcp", Body: `{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"shipment_status","arguments":{"reference":"PX-MCP-9302","country":"NO"}}}`},
 	{Method: "POST", URL: "/mcp", Body: `{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"book_pickup","arguments":{"reference":"PX-MCP-9301"}}}`},
+	{Method: "POST", URL: "/mcp", Body: `{"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"quote_rate","arguments":{"reference":"PX-MCP-9304","weightGrams":1200,"postcode":"10115"}}}`},
 	{Method: "POST", URL: "/a2a", Body: `{"jsonrpc":"2.0","id":"a","method":"SendMessage","params":{"message":{"messageId":"m1","role":"ROLE_USER","parts":[{"text":"Where is PX-A2A-9301?"}]}}}`},
 	{Method: "POST", URL: "/a2a", Body: `{"jsonrpc":"2.0","id":"b","method":"SendStreamingMessage","params":{"message":{"messageId":"m2","role":"ROLE_USER","parts":[{"text":"Hold it"},{"data":{"reference":"PX-A2A-9302"}}]}}}`},
 	{Method: "POST", URL: "/a2a/rest/message:send", Body: `{"message":{"messageId":"m3","role":"ROLE_USER","parts":[{"text":"Where is PX-A2A-9303?"}]}}`},
@@ -37,6 +38,13 @@ func TestAgentChecks(t *testing.T) {
 		{"the mocked partner mcp server's shipment_status tool was called with the following arguments:", [][]string{{"reference", "PX-MCP-9301"}, {"country", "CH"}}},
 		{"the mocked partner mcp server's shipment_status tool was called 2 times with the following arguments:", [][]string{{"reference", "PX-MCP-9302"}}},
 		{"the mocked partner mcp server's book_pickup tool was called 1 time with the following arguments:", [][]string{{"reference", "PX-MCP-9301"}, {"country", "undefined"}}},
+		// A value means what it says, with its type (ADR 0014).
+		{
+			"the mocked partner mcp server's quote_rate tool was called 1 time with the following arguments:",
+			[][]string{{"reference", "PX-MCP-9304"}, {"weightGrams", "1200"}, {"postcode", `"10115"`}},
+		},
+		{"the mocked partner mcp server's quote_rate tool was called 0 times with the following arguments:", [][]string{{"postcode", "10115"}}},
+		{"the mocked partner mcp server's quote_rate tool was called 0 times with the following arguments:", [][]string{{"weightGrams", `"1200"`}}},
 		{"the mocked partner a2a agent was sent a message containing 'PX-A2A-9301'", nil},
 		{"the mocked partner a2a agent was sent a message containing 'PX-A2A-9302' 1 time", nil},
 		{"the mocked partner a2a agent was sent a message containing 'PX-A2A-9303'", nil},
@@ -74,5 +82,11 @@ func TestAgentChecks(t *testing.T) {
 		if !core.IsAssertion(err) {
 			t.Errorf("%s: a failed check is an assertion: %v", c.text, err)
 		}
+	}
+	// A value the rule cannot read fails the step, with the forms to write.
+	err := step(t, reg, sc, "the mocked partner mcp server's quote_rate tool was called with the following arguments:",
+		[][]string{{"reference", "PX-MCP-9304"}, {"weightGrams", ""}})
+	if err == nil || core.IsAssertion(err) || !strings.Contains(err.Error(), `weightGrams: the cell is empty: write "" for the empty string`) {
+		t.Errorf("an empty cell: %v", err)
 	}
 }
