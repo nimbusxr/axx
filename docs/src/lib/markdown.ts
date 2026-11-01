@@ -38,8 +38,79 @@ function absolutize(body: string): string {
 	return body.replace(/\]\(\/(?!\/)/g, `](${ROOT}/`);
 }
 
-/** The Markdown twin: title, description and the page source. */
-export function toMarkdown(entry: CollectionEntry<'docs'>): string {
+/** The home page's twin starts with where an agent starts. */
+const AGENTS_START =
+	'> **Coding agents:** with axx installed, `axx --help` gives the workflow and the rules, and axx answers the rest itself, offline and for its version: ' +
+	'`axx steps` (every step of the project\'s packs, read once), `axx steps show <id>...` (their documentation) and `axx steps search <words>`, ' +
+	'`axx pack list` (what each pack reaches), `axx explain <code>` (an error). ' +
+	`In a project that has run \`axx init\`, its AGENTS.md section has the same. [llms.txt](${ROOT}/llms.txt) indexes this site's Markdown.`;
+
+/** The home page's twin lists where to go, for agents, in place of the page for people. */
+const HOME_INDEX = [
+	'## On this site',
+	'',
+	'- [Quickstart](/tutorials/quickstart/): a first suite, start to finish',
+	'- [Install axx](/guides/install/) and [set up agents](/guides/set-up-agents/)',
+	'- [Use packs](/guides/use-packs/): what each pack reaches, and adding one',
+	'- [Packs](/references/packs/) and [steps](/references/steps/): the reference, generated from axx',
+	'- [Error codes](/references/error-codes/) and [the CLI](/references/cli/)',
+	'- [How axx works](/explanations/how-axx-works/) and [why axx](/explanations/why-axx/)',
+	`- [llms.txt](${ROOT}/llms.txt): every page's Markdown, by section`,
+].join('\n');
+
+/** Whether a page is a pack's reference page (references/packs/<pack>). */
+export function isPackPage(id: string): boolean {
+	return /^references\/packs\/[^/]+$/.test(id);
+}
+
+/**
+ * The short form of a pack page, for the agents that fetch it: the page with
+ * each step cut to its expression and the first paragraph of its
+ * documentation. A pack page has every step's documentation, tables and
+ * examples, some 50,000 characters, which an agent then carries in its
+ * context to the end; axx gives each step's documentation offline, for the
+ * version installed (`axx steps show <id>`), and the whole page is the full
+ * twin (<page>.full.md).
+ */
+export function compactPackPage(body: string, id: string): string {
+	const [head, ...rest] = body.split(/^## Steps$/m);
+	if (rest.length === 0) return body;
+	const steps = rest.join('## Steps');
+	const after = steps.search(/^## (?!Steps)/m);
+	const stepPart = after < 0 ? steps : steps.slice(0, after);
+	const tail = after < 0 ? '' : steps.slice(after);
+	const out: string[] = [];
+	const sections = stepPart.split(/^### /m).slice(1);
+	const names = new Set(sections.map((sec) => sec.split('\n', 1)[0].trim()));
+	for (const section of sections) {
+		const name = section.split('\n', 1)[0].trim();
+		// A step's form for a named service (`rest.request.header.on`) folds into the step.
+		if (/\.on`$/.test(name) && names.has(name.replace(/\.on`$/, '`'))) continue;
+		const twin = names.has(name.replace(/`$/, '.on`')) ? ' (+ `.on`, for a named service)' : '';
+		const code = /```gherkin\n([\s\S]*?)```/.exec(section);
+		const text = section
+			.slice(code ? code.index + code[0].length : name.length)
+			.split(/\n\s*\n/)
+			.map((p) => p.trim())
+			.find((p) => p && !p.startsWith('The table may start') && !p.startsWith('|') && !p.startsWith('**'));
+		const lines = code ? code[1].trim().split('\n').map((l) => l.trim()).join(' ') : '';
+		out.push(`- ${name}: \`${lines}\`${twin}${text ? ` ${text.split('\n')[0]}` : ''}`);
+	}
+	const pack = id.split('/').pop();
+	return [
+		head.trim(),
+		`## Steps\n\nEach step's expression and what it does. Its documentation, parameters and examples: \`axx steps show <id>\` (offline, for the axx installed), or this page in full: ${ROOT}/${id}.full.md. A pack the project does not use yet: \`axx pack add ${pack}\`, then \`axx steps\`.\n\n${out.join('\n')}`,
+		tail.trim(),
+	]
+		.filter(Boolean)
+		.join('\n\n');
+}
+
+/**
+ * The Markdown twin: title, description and the page source; a pack page's
+ * in its short form (compactPackPage) unless full.
+ */
+export function toMarkdown(entry: CollectionEntry<'docs'>, full = false): string {
 	const { title, description, hero } = entry.data as {
 		title: string;
 		description?: string;
@@ -56,6 +127,12 @@ export function toMarkdown(entry: CollectionEntry<'docs'>): string {
 	const rooted = (link: string) => (/^[a-z]+:|^\//i.test(link) ? link : `/${link}`);
 	if (hero?.actions?.length) parts.push(hero.actions.map((a) => `- [${a.text}](${rooted(a.link)})`).join('\n'));
 	parts.push(`Source: ${ROOT}${entry.id === 'index' ? '/' : `/${entry.id}/`}`);
-	parts.push(body.trim());
+	// An agent that lands here from a project's README: what axx tells it
+	// itself, and where to go on this site, instead of the page for people.
+	if (entry.id === 'index') {
+		parts.push(AGENTS_START, HOME_INDEX);
+		return absolutize(parts.join('\n\n')) + '\n';
+	}
+	parts.push((isPackPage(entry.id) && !full ? compactPackPage(body, entry.id) : body).trim());
 	return absolutize(parts.join('\n\n')) + '\n';
 }

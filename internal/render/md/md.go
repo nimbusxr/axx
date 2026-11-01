@@ -14,6 +14,7 @@ import (
 
 	"github.com/nimbusxr/axx/core"
 	"github.com/nimbusxr/axx/internal/match"
+	"github.com/nimbusxr/axx/internal/stepsearch"
 )
 
 // GeneratedHeader marks generated files; CI fails when they drift.
@@ -236,27 +237,49 @@ func ParamsPage(reg *match.Registry, frontmatter bool) (string, error) {
 	return b.String(), nil
 }
 
-// StepIndex renders a compact, grep-friendly list: one line per variant.
-// Agents load this first to find step text without reading every page.
+// StepIndex renders a compact, grep-friendly list: one line per step, its
+// expression with its optional words in [[...]], and a step's form for a
+// named service folded into it. Agents read it whole: a line per variant was
+// twice the size for the same steps.
 func StepIndex(reg *match.Registry) (string, error) {
-	vs := reg.Variants()
-	if len(vs) == 0 {
+	defs := reg.Defs()
+	if len(defs) == 0 {
 		return "", ErrEmpty
+	}
+	ids := make([]string, len(defs))
+	for i, d := range defs {
+		ids[i] = d.Step.ID
+	}
+	twins := stepsearch.Twins(ids)
+	twinned := map[string]bool{}
+	for _, base := range twins {
+		twinned[base] = true
 	}
 	var b strings.Builder
 	b.WriteString(GeneratedHeader)
 	b.WriteString("\n# Step index\n\nEvery step axx understands, one per line: `pack | id | expression`. " +
-		"`{name}` is a parameter; see parameter-types.md. Search this file instead of inventing step text.\n\n```text\n")
-	lines := make([]string, 0, len(vs))
-	for _, v := range vs {
+		"`{name}` is a parameter (see parameter-types.md); `[[...]]` are optional words, said or left out; " +
+		"`(+ .on)` marks a step that also has an `<id>.on` form, for a named service. " +
+		"Search this file instead of inventing step text; with axx installed, `axx steps search <words>` finds steps and `axx steps show <id>` documents one.\n\n```text\n")
+	lines := make([]string, 0, len(defs))
+	for _, d := range defs {
+		if _, ok := twins[d.Step.ID]; ok {
+			continue
+		}
 		suffix := ""
-		switch v.Def.Step.Arg {
+		switch d.Step.Arg {
 		case core.ArgTable:
 			suffix = "  [+table]"
+			if d.Step.Table != nil && len(d.Step.Table.Columns) > 0 {
+				suffix = "  [+table | " + strings.Join(d.Step.Table.Columns, " | ") + " |]"
+			}
 		case core.ArgDocString:
 			suffix = "  [+docstring]"
 		}
-		lines = append(lines, fmt.Sprintf("%s | %s | %s%s", v.Def.Pack, v.Def.Step.ID, v.Expr, suffix))
+		if twinned[d.Step.ID] {
+			suffix += "  (+ .on)"
+		}
+		lines = append(lines, fmt.Sprintf("%s | %s | %s%s", d.Pack, d.Step.ID, d.Step.Expr, suffix))
 	}
 	b.WriteString(strings.Join(lines, "\n"))
 	b.WriteString("\n```\n")

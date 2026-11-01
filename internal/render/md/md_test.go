@@ -70,7 +70,7 @@ func TestIndexAndParams(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(idx, "demo | demo.status | the status is {int} on {thing}") || !strings.Contains(idx, "these values:  [+table]") {
+	if !strings.Contains(idx, "demo | demo.status | the status is {int}[[ on {thing}]]\n") || !strings.Contains(idx, "these values:  [+table | property | value |]") {
 		t.Errorf("index:\n%s", idx)
 	}
 	ps, err := ParamsPage(reg, false)
