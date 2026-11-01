@@ -141,13 +141,14 @@ a project lists those it uses in axx-packs.yaml, beside packs of its own steps. 
 this answers offline, for this version.
 
 Writing tests:
-  axx steps                  every step of the project's packs, one line each
-  axx steps show <id>...     steps' documentation and examples
-  axx steps search <words>   steps by what they do, in any of axx's packs, with the pack to add
-  axx pack list              axx's packs and what each reaches; axx pack show <name> for one
+  axx steps                  every step of the project's packs, one line each: read it once
+  axx steps show <id>...     those steps' documentation and examples, several at once
   axx validate, axx lint     check the features (no services needed) and the test data
   axx up, axx run --compact  start the services once, then run; axx down when done
   axx explain AXX-E...       what an error code means, and what to do
+
+A step the project's packs lack: axx steps search <words> finds it in axx's other packs,
+with the pack to add; axx pack list says what each pack reaches.
 
 A scenario is one behavior: Given the state it starts from, one When, Then what is true
 afterwards; a When after a Then is another scenario. Every scenario uses data of its own.
