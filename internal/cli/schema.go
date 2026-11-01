@@ -44,7 +44,7 @@ Reference them from the files with:
 				b, ok := fixtures.SchemaJSON(kind)
 				if !ok {
 					return axxerr.New("AXX-E0010", exitcode.Usage, "unknown schema kind %q", kind).
-						WithHint("use one of: config, %s", strings.Join(fixtures.SchemaKinds, ", "))
+						WithHint("use one of: config, %s; a section of axx.yaml, like lint or services, is in `axx schema --outline`", strings.Join(fixtures.SchemaKinds, ", "))
 				}
 				schema = b
 			}

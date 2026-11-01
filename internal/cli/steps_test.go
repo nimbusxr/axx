@@ -307,3 +307,15 @@ func TestCompactLookupsAreShort(t *testing.T) {
 		}
 	}
 }
+
+// The outline lists the keys of a list's items, as YAML lists them: what a
+// lint rule takes, which agents otherwise dug out of the JSON Schema.
+func TestSchemaOutlineListsListItems(t *testing.T) {
+	out, _, code := run(t, "schema", "--outline")
+	if code != int(exitcode.OK) {
+		t.Fatalf("exit %d", code)
+	}
+	if !strings.Contains(out, "  rules: (list)") || !strings.Contains(out, "\n    - name: ") || !strings.Contains(out, "\n      filePatterns: ") {
+		t.Errorf("lint rules' keys missing:\n%s", out)
+	}
+}

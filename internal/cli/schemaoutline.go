@@ -29,6 +29,9 @@ type outliner struct {
 	w    io.Writer
 	defs map[string]json.RawMessage
 	err  error
+	// dash starts the next line as a list item ("- name: ..."): the first key
+	// of a list's items.
+	dash bool
 }
 
 // maxOutlineDepth keeps the outline to the keys people write.
@@ -76,6 +79,12 @@ func (o *outliner) node(raw json.RawMessage, depth int) {
 		o.line(depth, "<name>:", "")
 		o.node(n.AdditionalProperties, depth+1)
 	}
+	// A list of objects: their keys, as YAML lists them (- name: ...).
+	if items := o.resolve(n.Items); len(items.Properties) > 0 && depth < maxOutlineDepth {
+		o.dash = true
+		o.node(n.Items, depth+1)
+		o.dash = false
+	}
 }
 
 func (o *outliner) key(k string, raw json.RawMessage, depth int) {
@@ -99,6 +108,10 @@ func (o *outliner) line(depth int, key, desc string) {
 		return
 	}
 	text := strings.Repeat("  ", depth) + key
+	if o.dash && depth > 0 {
+		text = strings.Repeat("  ", depth-1) + "- " + key
+		o.dash = false
+	}
 	if desc != "" {
 		text += " " + desc
 	}
