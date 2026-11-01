@@ -53,7 +53,6 @@ const Instructions = `axx runs acceptance criteria, written as Gherkin scenarios
 - Scenarios run in parallel and data persists: give every id, key and name a value of the scenario's own.
 - Check what a request did or why it was refused, not only its status code.`
 
-
 // Options configures the server.
 type Options struct {
 	// ConfigPath is --config (empty: discover from WorkDir).
