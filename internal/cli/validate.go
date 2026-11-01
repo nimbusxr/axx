@@ -97,7 +97,7 @@ func validatePickles(reg *match.Registry, pickles []*feature.Pickle) ValidationR
 	for _, pr := range res.Problems {
 		rep.Problems = append(rep.Problems, Problem{
 			Kind: pr.Kind, Location: fmt.Sprintf("%s:%d", pr.URI, pr.Line), Text: pr.Text,
-			Message: pr.Message, Suggestions: pr.Suggestions, Candidates: pr.Candidates,
+			Message: withCode(pr.Message, pr.Code), Suggestions: pr.Suggestions, Candidates: pr.Candidates,
 		})
 	}
 	return rep
@@ -135,4 +135,12 @@ func renderValidation(w io.Writer, rep ValidationReport) error {
 	}
 	_, err := fmt.Fprintf(w, "%s, %s, %s: %s\n", plural(rep.Files, "file"), plural(rep.Scenarios, "scenario"), plural(rep.Steps, "step"), status)
 	return err
+}
+
+// withCode adds a problem's error code to its message, for `axx explain`.
+func withCode(msg, code string) string {
+	if code == "" {
+		return msg
+	}
+	return msg + " [" + code + "]"
 }

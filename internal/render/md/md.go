@@ -191,8 +191,8 @@ func writeTable(b *strings.Builder, t *core.TableDoc) {
 			b.WriteString("\n")
 		}
 	}
-	if t.Note != "" {
-		fmt.Fprintf(b, "\n%s\n", strings.TrimSpace(t.Note))
+	if n := t.Notes(); n != "" {
+		fmt.Fprintf(b, "\n%s\n", n)
 	}
 }
 

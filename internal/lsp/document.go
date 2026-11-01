@@ -294,7 +294,11 @@ func (d *document) diagnostics(p *project) []diagnostic {
 		if ok {
 			r = d.textRange(st)
 		}
-		out = append(out, diagnostic{Range: r, Severity: severityError, Code: pr.Kind, Source: "axx", Message: problemMessage(pr, st.outline)})
+		code := pr.Kind
+		if pr.Code != "" {
+			code = pr.Code
+		}
+		out = append(out, diagnostic{Range: r, Severity: severityError, Code: code, Source: "axx", Message: problemMessage(pr, st.outline)})
 	}
 	out = append(out, d.fileDiagnostics(p)...)
 	for _, rr := range lint.FeatureChecks(p.reg, d.pickles, p.dir) {

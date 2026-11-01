@@ -428,7 +428,7 @@ func stepsOf(reg *match.Registry, pack string) []Step {
 		var rows []core.TableRow
 		note := ""
 		if d.Step.Table != nil {
-			columns, note = d.Step.Table.Columns, d.Step.Table.Note
+			columns, note = d.Step.Table.Columns, d.Step.Table.Notes()
 			rows, _ = stepsearch.BriefRows(d.Step.Table.Rows)
 		}
 		out = append(out, Step{
@@ -674,6 +674,9 @@ func (s *server) featureValidate(ctx context.Context, _ *sdk.CallToolRequest, in
 	out.Scenarios = len(pickles)
 	for _, pr := range check.Pickles(e.Registry, pickles).Problems {
 		mp := Problem{Kind: pr.Kind, Location: fmt.Sprintf("%s:%d", pr.URI, pr.Line), Text: pr.Text, Message: pr.Message}
+		if pr.Code != "" {
+			mp.Message += " [" + pr.Code + "]"
+		}
 		for _, sg := range pr.Suggestions {
 			mp.Suggestions = append(mp.Suggestions, sg.Expr)
 		}

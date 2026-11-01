@@ -180,7 +180,7 @@ func arguments(sc *core.Scenario, t *core.Table, file string, schema map[string]
 		}
 	}
 	// A string argument is its text as written: 01067 stays 01067.
-	args, err := tablevalue.Build(rows, func(path string) bool { return types(schemaAt(schema, path)) == "string" })
+	args, err := tablevalue.Build(rows)
 	if err != nil {
 		return nil, err
 	}
@@ -234,27 +234,6 @@ func conform(schema map[string]any, v any) any {
 		}
 	}
 	return v
-}
-
-// schemaAt is the schema of a path into the arguments (`address.postcode`,
-// `lines[0].reference`), or nil.
-func schemaAt(schema map[string]any, path string) map[string]any {
-	s := schema
-	for _, seg := range strings.Split(strings.TrimPrefix(path, "$."), ".") {
-		name, rest, _ := strings.Cut(seg, "[")
-		if name != "" {
-			props, _ := s["properties"].(map[string]any)
-			if s, _ = props[name].(map[string]any); s == nil {
-				return nil
-			}
-		}
-		for ; rest != ""; _, rest, _ = strings.Cut(rest, "[") {
-			if s, _ = s["items"].(map[string]any); s == nil {
-				return nil
-			}
-		}
-	}
-	return s
 }
 
 // types is the one type a schema declares, besides null, or "".

@@ -1,10 +1,16 @@
 // Package check matches the steps of parsed feature files against a step
-// registry and reports every step that cannot run: undefined, ambiguous, or
-// given the wrong argument. `axx validate`, `axx doctor`, the MCP server and
+// registry and reports every step that cannot run: undefined, ambiguous,
+// given the wrong argument, or given a value the rule cannot read (ADR 0014). `axx validate`, `axx doctor`, the MCP server and
 // the language server all report through it, so they always agree.
 package check
 
 import (
+	"fmt"
+	"strings"
+
+	messages "github.com/cucumber/messages/go/v34"
+
+	"github.com/nimbusxr/axx/core"
 	"github.com/nimbusxr/axx/internal/feature"
 	"github.com/nimbusxr/axx/internal/match"
 )
@@ -14,7 +20,13 @@ const (
 	Undefined = "undefined"
 	Ambiguous = "ambiguous"
 	Argument  = "argument"
+	// Value is a table cell that could be read two ways (ADR 0014): its
+	// Line is the cell's row.
+	Value = "value"
 )
+
+// ValueCode is the error code of a Value problem.
+const ValueCode = "AXX-E0207"
 
 // Problem is one step that cannot run.
 type Problem struct {
@@ -24,8 +36,10 @@ type Problem struct {
 	Line int
 	// Text is the step text after Scenario Outline substitution.
 	Text string
-	// Message explains an argument problem.
+	// Message explains an argument or value problem.
 	Message string
+	// Code is the problem's error code, when it has one (ValueCode).
+	Code string
 	// Suggestions are the closest steps to an undefined one.
 	Suggestions []match.Suggestion
 	// Candidates are the matching definitions of an ambiguous step, as
@@ -71,6 +85,9 @@ func Pickles(reg *match.Registry, pickles []*feature.Pickle) Result {
 				hasDoc := ps.Argument != nil && ps.Argument.DocString != nil
 				msg := ArgumentProblem(ms[0], hasTable, hasDoc)
 				if msg == "" {
+					for _, vp := range valueProblems(ms[0].Def().Step.Table, ps, p.StepTableLines(ps)) {
+						res.Problems = append(res.Problems, Problem{Kind: Value, Code: ValueCode, URI: p.Doc.URI, Line: orLine(vp.line, src.Line), Text: ps.Text, Message: vp.message})
+					}
 					continue
 				}
 				pr.Kind, pr.Message = Argument, msg
@@ -107,4 +124,60 @@ func ArgumentProblem(m match.Match, hasTable, hasDoc bool) string {
 		}
 	}
 	return ""
+}
+
+type valueProblem struct {
+	line    int
+	message string
+}
+
+// valueProblems are the value cells of a step's table that the rule cannot
+// read: an empty cell, a number in a form JSON does not have, a value that
+// is not text where only text fits. lines are the rows' lines.
+func valueProblems(td *core.TableDoc, ps *messages.PickleStep, lines []int) []valueProblem {
+	if td == nil || td.Values == core.NotValues || ps.Argument == nil || ps.Argument.DataTable == nil {
+		return nil
+	}
+	rows := make([][]string, len(ps.Argument.DataTable.Rows))
+	for i, r := range ps.Argument.DataTable.Rows {
+		for _, c := range r.Cells {
+			rows[i] = append(rows[i], c.Value)
+		}
+	}
+	t := td.WithoutNamesRow(&core.Table{Rows: rows})
+	skipped := len(rows) - len(t.Rows)
+	var out []valueProblem
+	for i, row := range t.Rows {
+		for _, c := range td.ValueCells(row) {
+			cell := strings.TrimSpace(row[c])
+			var err error
+			switch td.Values {
+			case core.JSONValues:
+				_, err = core.ParseValue(cell, cell == "", td.Undefined)
+			case core.TextValues:
+				_, _, err = core.ParseText(cell, cell == "", td.Undefined)
+			}
+			if err == nil {
+				continue
+			}
+			label := fmt.Sprintf("cell %d", c+1)
+			if len(td.Columns) >= 2 {
+				label = strings.TrimSpace(row[0])
+			}
+			line := 0
+			if k := skipped + i; k < len(lines) {
+				line = lines[k]
+			}
+			out = append(out, valueProblem{line: line, message: label + ": " + err.Error()})
+		}
+	}
+	return out
+}
+
+// orLine is a, or b when a is 0.
+func orLine(a, b int) int {
+	if a == 0 {
+		return b
+	}
+	return a
 }

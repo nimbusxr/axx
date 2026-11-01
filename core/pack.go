@@ -218,6 +218,13 @@ type TableDoc struct {
 	Rows []TableRow `json:"rows,omitempty"`
 	// Note says more of the table, in a sentence or two.
 	Note string `json:"note,omitempty"`
+	// Values is what the table's value cells are (ADR 0014): those of its
+	// last column, in a table of named columns, or every cell of a table
+	// without. axx validate reports the cells the rule cannot read.
+	Values ValueKind `json:"values,omitempty"`
+	// Undefined says the value cells take `undefined`: no such property,
+	// parameter or field.
+	Undefined bool `json:"undefined,omitempty"`
 }
 
 // WithoutNamesRow returns the table without its first row when that row

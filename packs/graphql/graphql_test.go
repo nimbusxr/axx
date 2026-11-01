@@ -294,7 +294,9 @@ func TestTheSchemaIsTheContract(t *testing.T) {
 // A text variable is its text as written: a postcode keeps its leading zero,
 // in a variable and in the fields and lists of an input, which rows make as
 // they go.
-func TestTextVariablesKeepTheirZeros(t *testing.T) {
+// A variable's value means what it says (ADR 0014): text in double quotes
+// keeps its zeros, and a number is a number.
+func TestVariablesMeanWhatTheySay(t *testing.T) {
 	schema := gqlparser.MustLoadSchema(&ast.Source{Input: `
 		input Address { postcode: String!, lines: [String!] }
 		type Query { parcels(postcode: String!, weight: Int, deliverTo: Address): Int }`})
@@ -305,7 +307,7 @@ func TestTextVariablesKeepTheirZeros(t *testing.T) {
 	}
 	o := &operation{def: d.Operations[0]}
 	sc := core.NewScenario(context.Background(), core.ScenarioInfo{}, nil, nil)
-	rows := [][]string{{"postcode", "01067"}, {"weight", "0800"}, {"to.postcode", "01067"}, {"to.lines[0]", "007"}}
+	rows := [][]string{{"postcode", `"01067"`}, {"weight", "800"}, {"to.postcode", `"01067"`}, {"to.lines[0]", `"007"`}}
 	if err := o.setVariables(sc, &core.Table{Rows: rows}, schema); err != nil {
 		t.Fatal(err)
 	}

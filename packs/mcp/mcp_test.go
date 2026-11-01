@@ -171,12 +171,13 @@ func TestToolsOverHTTP(t *testing.T) {
 	_ = h.Fails("the track_parcel tool's call failed with the error code -32602", "the track_parcel tool's call did not fail")
 }
 
-func TestArgumentsTakeTheirSchemasTypes(t *testing.T) {
+// An argument's value means what it says (ADR 0014).
+func TestArgumentsMeanWhatTheySay(t *testing.T) {
 	h, url := harness(t)
 	h.OK("the parcels mcp server with the following properties:", [][]string{{"url", url}})
 	h.OK("the count_scans tool is called on the parcels mcp server with the following arguments:",
-		[][]string{{"postcode", "01067"}, {"depot", "4"}, {"express", "true"}})
-	h.OK("the count_scans tool's result has the following properties:", [][]string{{"postcode", "01067"}, {"depot", "4"}, {"express", "true"}})
+		[][]string{{"postcode", `"01067"`}, {"depot", "4"}, {"express", "true"}})
+	h.OK("the count_scans tool's result has the following properties:", [][]string{{"postcode", `"01067"`}, {"depot", "4"}, {"express", "true"}})
 	h.OK("the count_scans tool's result contains '\"depot\":4'")
 	h.OK("the count_scans tool's result contains '\"postcode\":\"01067\"'")
 }

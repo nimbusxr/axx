@@ -52,7 +52,7 @@ func harness(t *testing.T) (*cloudtest.Harness, *tracking, string) {
 func TestEvents(t *testing.T) {
 	h, _, url := harness(t)
 	h.OK("the tracking event stream with the following properties:", [][]string{{"url", url + "/api/parcels/PX-LIV-5702/events"}})
-	h.OK("the tracking event stream has an event where:", [][]string{{"event type", "scan"}, {"event id", "1"}, {"status", "OUT_FOR_DELIVERY"}})
+	h.OK("the tracking event stream has an event where:", [][]string{{"event type", "scan"}, {"event id", `"1"`}, {"status", "OUT_FOR_DELIVERY"}})
 	h.OK("within 5s the tracking event stream has an event where:", [][]string{{"event type", "delivered"}, {"reference", "PX-LIV-5702"}, {"status", "DELIVERED"}})
 	h.OK("the tracking event stream has an event containing 'DELIVERED'")
 	// The server ended the stream: a check that finds nothing fails at once.

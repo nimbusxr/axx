@@ -139,7 +139,7 @@ func TestUnaryCalls(t *testing.T) {
 		{"lastScan.location", "Leipzig"},
 		{"weightGrams", "1200"},
 		{"signature", "false"},
-		{"postcode", "10115"},
+		{"postcode", `"10115"`},
 		{"lastScan.scannedAt", "undefined"},
 	})
 	h.OK("the tracking grpc service's answer has the following metadata:", [][]string{
@@ -169,17 +169,17 @@ func TestRequests(t *testing.T) {
 	h.File("grpc/get-parcel.json", `{"reference": "PX-GRP-6102", "postcode": "01067"}`)
 	h.OK("the tracking grpc service with the following properties:", [][]string{{"address", addr}, {"proto", "tracking.proto"}})
 	h.OK("the Tracking/GetParcel method is called on the tracking grpc service with the grpc/get-parcel.json message")
-	h.OK("the tracking grpc service's answer has the following fields:", [][]string{{"reference", "PX-GRP-6102"}, {"postcode", "01067"}})
+	h.OK("the tracking grpc service's answer has the following fields:", [][]string{{"reference", "PX-GRP-6102"}, {"postcode", `"01067"`}})
 	h.OK("the GetParcel method is called on the tracking grpc service with the grpc/get-parcel.json message and the following fields:",
 		[][]string{{"reference", "PX-GRP-6103"}})
-	h.OK("the tracking grpc service's answer has the following fields:", [][]string{{"reference", "PX-GRP-6103"}, {"postcode", "01067"}})
-	// A string field is its text as written: the postcode keeps its zero.
+	h.OK("the tracking grpc service's answer has the following fields:", [][]string{{"reference", "PX-GRP-6103"}, {"postcode", `"01067"`}})
+	// Text in double quotes is that text: the postcode keeps its zero.
 	h.OK("the GetParcel method is called on the tracking grpc service with the following fields:",
-		[][]string{{"reference", "PX-GRP-6106"}, {"postcode", "01067"}})
-	h.OK("the tracking grpc service's answer has the following fields:", [][]string{{"reference", "PX-GRP-6106"}, {"postcode", "01067"}})
+		[][]string{{"reference", "PX-GRP-6106"}, {"postcode", `"01067"`}})
+	h.OK("the tracking grpc service's answer has the following fields:", [][]string{{"reference", "PX-GRP-6106"}, {"postcode", `"01067"`}})
 	// Proto names do as well as JSON names.
 	h.OK("the GetParcel method is called on the tracking grpc service with the following fields:", [][]string{{"reference", `"6104"`}})
-	h.OK("the tracking grpc service's answer has the following fields:", [][]string{{"reference", "6104"}})
+	h.OK("the tracking grpc service's answer has the following fields:", [][]string{{"reference", `"6104"`}})
 
 	_ = h.Fails("the GetParcel method is called on the tracking grpc service with the following fields:",
 		`the request is not a parcels.tracking.v1.GetParcelRequest: `, [][]string{{"referenc", "PX-GRP-6105"}})

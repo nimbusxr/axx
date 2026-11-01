@@ -267,7 +267,7 @@ func get(sc *core.Scenario, name string) (*service, error) {
 
 // params builds a call's params from a table (by name) or a doc string. A
 // param text says is text is its text as written (01067 keeps its zero).
-func params(sc *core.Scenario, t *core.Table, doc *core.DocString, text func(path string) bool) (json.RawMessage, error) {
+func params(sc *core.Scenario, t *core.Table, doc *core.DocString) (json.RawMessage, error) {
 	switch {
 	case t != nil:
 		pairs, err := t.Pairs()
@@ -283,7 +283,7 @@ func params(sc *core.Scenario, t *core.Table, doc *core.DocString, text func(pat
 				}
 			}
 		}
-		obj, err := tablevalue.Build(rows, text)
+		obj, err := tablevalue.Build(rows)
 		if err != nil {
 			return nil, err
 		}

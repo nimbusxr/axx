@@ -168,7 +168,7 @@ func request(sc *core.Scenario, md protoreflect.MessageDescriptor, set *protoloa
 				}
 			}
 		}
-		if v, err = tablevalue.Apply(base, rows, func(path string) bool { return stringField(md, path) }); err != nil {
+		if v, err = tablevalue.Apply(base, rows); err != nil {
 			return nil, nil, err
 		}
 	}
@@ -196,27 +196,6 @@ func protoError(err error) string {
 		msg = strings.TrimPrefix(msg, prefix)
 	}
 	return msg
-}
-
-// stringField reports whether a path into a message (`recipient.postcode`,
-// `lines[0].reference`) is a string field.
-func stringField(md protoreflect.MessageDescriptor, path string) bool {
-	var fd protoreflect.FieldDescriptor
-	for _, seg := range strings.Split(strings.TrimPrefix(path, "$."), ".") {
-		if md == nil {
-			return false
-		}
-		name, _, _ := strings.Cut(seg, "[")
-		fields := md.Fields()
-		if fd = fields.ByJSONName(name); fd == nil {
-			fd = fields.ByName(protoreflect.Name(name))
-		}
-		if fd == nil {
-			return false
-		}
-		md = fd.Message()
-	}
-	return fd != nil && fd.Kind() == protoreflect.StringKind
 }
 
 // conform gives a JSON object's scalars the types of the message's
@@ -387,7 +366,8 @@ func (c *call) finish(st *status.Status, trailer metadata.MD) {
 	}
 }
 
-// marshal writes a message as proto JSON, with its fields' default values.
+// marshal writes a message as proto JSON, with its fields' default values
+// and its 64-bit integers as numbers (int64Numbers).
 func marshal(m *dynamicpb.Message, set *protoload.Set) ([]byte, error) {
 	b, err := protojson.MarshalOptions{EmitDefaultValues: true, Resolver: set.Types()}.Marshal(m)
 	if err != nil {
@@ -399,7 +379,7 @@ func marshal(m *dynamicpb.Message, set *protoload.Set) ([]byte, error) {
 	if err := json.Compact(&out, b); err != nil {
 		return nil, err
 	}
-	return out.Bytes(), nil
+	return int64Numbers(out.Bytes(), m.Descriptor()), nil
 }
 
 // statusText is a status as the steps name it, with its message.

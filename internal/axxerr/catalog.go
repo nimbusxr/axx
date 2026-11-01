@@ -134,6 +134,9 @@ func init() {
 	add("AXX-E0206", u, "Invalid shard",
 		"`--shard` is not a shard of a number of them, like `1/3`.",
 		"Give the shard and how many there are, from `1/n` to `n/n`: each runs every nth of the scenarios the run selects, so that together they run each one once.")
+	add("AXX-E0207", exitcode.Undefined, "Value that could be read two ways",
+		"A value means what it says, in every pack (ADR 0014): `42` is an integer, `1.5` a decimal, `true` and `false` booleans, `null` null, `undefined` no such property, `{...}` and `[...]` JSON, a value in double quotes the string inside them, and other text a string. A table cell the rule cannot read is an error before the step runs: an empty cell, a number in a form JSON does not have (`01067`, `+5`, `1.5f`, `NaN`), `undefined` where the step takes no such thing, or, where only text fits (a header, a query parameter, text on a screen), a value that reads as anything else. `axx validate` reports each at its row; the step fails with the same message when it runs.",
+		"Write the value the way the message says: `\"\"` for the empty string, `null` for null or `undefined` for no such property; `1067` for the number or `\"01067\"` for the text; and, where only text fits, the value in double quotes (`\"3\"`).")
 
 	add("AXX-E0300", u, "Pack cannot be loaded",
 		"A step pack failed to load or initialize: a step expression that does not compile, a duplicate parameter type, or pack configuration under `packs:` that is invalid.",

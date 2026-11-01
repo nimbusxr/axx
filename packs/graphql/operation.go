@@ -90,11 +90,7 @@ func (o *operation) setVariables(sc *core.Scenario, t *core.Table, schema *ast.S
 			}
 		}
 	}
-	// Text is its text as written: 01067 stays 01067.
-	vars, err := tablevalue.Build(rows, func(path string) bool {
-		t := o.typeAt(schema, path)
-		return t == "String" || t == "ID"
-	})
+	vars, err := tablevalue.Build(rows)
 	if err != nil {
 		return err
 	}
@@ -105,42 +101,6 @@ func (o *operation) setVariables(sc *core.Scenario, t *core.Table, schema *ast.S
 	}
 	o.variables, err = json.Marshal(vars)
 	return err
-}
-
-// typeAt is the named type of a path into the variables (`reference`,
-// `address.postcode`, `lines[0].reference`), or "".
-func (o *operation) typeAt(schema *ast.Schema, path string) string {
-	segs := strings.Split(strings.TrimPrefix(path, "$."), ".")
-	name, _, _ := strings.Cut(segs[0], "[")
-	vd := o.def.VariableDefinitions.ForName(name)
-	if vd == nil {
-		return ""
-	}
-	t := vd.Type
-	for _, seg := range segs[1:] {
-		field, _, _ := strings.Cut(seg, "[")
-		if schema == nil {
-			return ""
-		}
-		def := schema.Types[named(t)]
-		if def == nil || def.Kind != ast.InputObject {
-			return ""
-		}
-		f := def.Fields.ForName(field)
-		if f == nil {
-			return ""
-		}
-		t = f.Type
-	}
-	return named(t)
-}
-
-// named is a type's name, out of its lists.
-func named(t *ast.Type) string {
-	for t.Elem != nil {
-		t = t.Elem
-	}
-	return t.NamedType
 }
 
 // conform gives a value the type the operation declares: the text of a

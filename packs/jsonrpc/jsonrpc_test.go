@@ -186,9 +186,9 @@ func TestOpenRPC(t *testing.T) {
 			h.OK("the depots jsonrpc service with the following properties:", [][]string{{"url", url}, {"openrpc", source}})
 			h.OK("the parcel.hold method is called on the depots jsonrpc service with the following params:",
 				[][]string{{"reference", "PX-RPC-7111"}, {"until", "2026-10-02"}})
-			// A text param is its text as written.
+			// Text in double quotes is that text (ADR 0014).
 			h.OK("the parcel.hold method is called on the depots jsonrpc service with the following params:",
-				[][]string{{"reference", "PX-RPC-7115"}, {"until", "2026-10-02"}, {"reason", "007"}})
+				[][]string{{"reference", "PX-RPC-7115"}, {"until", "2026-10-02"}, {"reason", `"007"`}})
 			if got := d.params.Load(); !strings.Contains(got.(string), `"reason":"007"`) {
 				t.Errorf("params: %v", got)
 			}
