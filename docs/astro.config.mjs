@@ -16,6 +16,10 @@ import { poseEditor } from './scripts/pose-editor.mjs';
 
 const site = 'https://axx.nimbusxr.us';
 
+/** Chrome's WebMCP origin trial (feature WebMCP, https://nimbusxr.us and subdomains, until 2027-03-30). */
+const webmcpTrialToken =
+	'Au6+vW+zV403Rr8nG3rt7t4kt0d4TKhCO//DVEhDvH2tcoxBvC/HCQ7Bk5aJRg6KMMKAdc82K1Eux4vwRQl1SQ0AAABeeyJvcmlnaW4iOiJodHRwczovL25pbWJ1c3hyLnVzOjQ0MyIsImZlYXR1cmUiOiJXZWJNQ1AiLCJleHBpcnkiOjE4MDYzNjQ4MDAsImlzU3ViZG9tYWluIjp0cnVlfQ==';
+
 // The latest release's docs, at the root, or main's, at /next/ (src/lib/site-base.mjs).
 const build = docsBuild();
 /** A site-absolute path below the base. */
@@ -198,6 +202,12 @@ export default defineConfig({
 					tag: 'link',
 					attrs: { rel: 'alternate', type: 'text/plain', title: 'llms.txt', href: at('/llms.txt') },
 				},
+				// The docs' tools for agents that browse them, through WebMCP (public/webmcp.js),
+				// which Chrome offers in an origin trial: its token, for https://nimbusxr.us and
+				// its subdomains, expires on 2027-03-30 (renew it at
+				// https://developer.chrome.com/origintrials before then).
+				{ tag: 'meta', attrs: { 'http-equiv': 'origin-trial', content: webmcpTrialToken } },
+				{ tag: 'script', attrs: { type: 'module', src: at('/webmcp.js') } },
 				// Main's docs are a preview: search engines keep to the release's.
 				...(build.channel === 'next' ? [{ tag: 'meta', attrs: { name: 'robots', content: 'noindex' } }] : []),
 			],
@@ -320,7 +330,7 @@ export default defineConfig({
 					// home page's hero links, which are relative to it to be right in the release's
 					// docs and in main's (/next/): front matter is not rebased.
 					exclude: [
-						'/schemas/**', '/skills/**', '/.well-known/**', '/llms.txt', '/llms-full.txt', '/llms-small.txt', '/**/*.md', '/index.md',
+						'/schemas/**', '/skills/**', '/.well-known/**', '/webmcp.js', '/llms.txt', '/llms-full.txt', '/llms-small.txt', '/**/*.md', '/index.md',
 						'tutorials/quickstart/', 'explanations/why-axx/', 'references/step-index/',
 					],
 				}),
@@ -329,7 +339,8 @@ export default defineConfig({
 					description:
 						'Axx (github.com/nimbusxr/axx, "axxeptance") is an open-source acceptance testing framework, the behavioral verification layer for agentic software factories: it verifies running systems black-box, against executable acceptance criteria written in Gherkin, across APIs, events, data, native apps and AI.',
 					details: [
-						'- Every page is also available as Markdown: append `.md` to its path (for example `https://axx.nimbusxr.us/tutorials/quickstart.md`).',
+						'- With axx installed, axx answers for itself, offline and for its version, in less than these pages take: `axx --help` (the workflow), `axx pack list` (the packs), `axx steps` (every step of the project\'s packs), `axx steps show <id>` and `axx steps search "<words>"` (a step\'s documentation, and the steps that fit), `axx explain <code>` (an error). Prefer them to this site.',
+						'- Every page is also available as Markdown: append `.md` to its path (for example `https://axx.nimbusxr.us/tutorials/quickstart.md`); a pack page\'s is its short form, `<page>.full.md` all of it.',
 						'- Never invent step text. Search the step index (`/references/step-index/`) or run `axx steps search "<intent>"`, then validate with `axx validate`.',
 						'- Agent skills: `/.well-known/agent-skills/index.json`. JSON Schema for axx.yaml: `/schemas/v0/axx.schema.json`.',
 						'- Axx is pre-release (v0.x): interfaces may change before v1.0.0.',
