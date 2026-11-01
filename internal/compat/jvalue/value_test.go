@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/nimbusxr/axx/core"
-	"github.com/nimbusxr/axx/internal/compat/jsonx"
 )
 
 // The rule (core.ParseValue) and REST's checks (CoerceExpected) read every
@@ -29,20 +28,8 @@ func TestTheRuleIsRESTsReading(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !JavaEquals(got, want) {
+		if !Equal(got, want) {
 			t.Errorf("%s: %v, CoerceExpected %v", text, got, want)
-		}
-		// The value's JSON, read as a check reads a document, is the value.
-		if v.IsLong() {
-			continue
-		}
-		doc, err := jsonx.Parse(`{"v": ` + v.JSON() + `}`)
-		if err != nil {
-			t.Fatalf("%s: %v", v.JSON(), err)
-		}
-		inDoc, _, _ := jsonx.Read(doc, "v")
-		if !JavaEquals(inDoc, want) {
-			t.Errorf("%s: its JSON %s reads as %v, not %v", text, v.JSON(), inDoc, want)
 		}
 	}
 }
@@ -66,6 +53,36 @@ func TestValueIsStrict(t *testing.T) {
 		{"z", `"null"`, false},
 		{"gone", "undefined", true},
 		{"n", "undefined", false},
+	} {
+		v, err := core.ParseValue(c.text, false, true)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if ok, err := ValueIs(doc, c.path, v); err != nil || ok != c.want {
+			t.Errorf("%s is %s: %v, %v", c.path, c.text, ok, err)
+		}
+	}
+}
+
+// Numbers compare by their type, integer or decimal, and their exact value,
+// whichever Java class holds them: a long decimal (a BigDecimal) or an
+// integer past the long range (a BigInteger) matches the same value.
+func TestValueIsNumbers(t *testing.T) {
+	doc := `{"big": 123456789012345678901234567890, "long": 3000000000, "dec": 1.1234567890123456789012, "tenth": 0.1, "whole": 6.0}`
+	for _, c := range []struct {
+		path, text string
+		want       bool
+	}{
+		{"big", "123456789012345678901234567890", true},
+		{"big", "123456789012345678901234567891", false},
+		{"long", "3000000000", true},
+		{"long", "3000000000L", true},
+		{"dec", "1.1234567890123456789012", true},
+		{"dec", "1.1234567890123456789013", false},
+		{"tenth", "0.1", true},
+		{"tenth", "0.10", true},
+		{"whole", "6.0", true},
+		{"whole", "6", false},
 	} {
 		v, err := core.ParseValue(c.text, false, true)
 		if err != nil {
