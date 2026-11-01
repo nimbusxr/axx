@@ -44,7 +44,7 @@ func pathGet(tree *jsonx.Object, path string) (any, error) {
 	}
 	var cursor any = tree
 	for _, s := range segs {
-		cursor, err = s.step(cursor, path, false)
+		cursor, err = s.step(cursor, path, "")
 		if err != nil || cursor == nil {
 			return nil, err
 		}
@@ -58,7 +58,11 @@ func mustGet(tree *jsonx.Object, path string) any {
 	return v
 }
 
-func (s segment) step(cursor any, path string, create bool) (any, error) {
+// step moves the cursor down one segment. With what (the kind of path, for
+// messages), it creates missing maps and fails where it cannot go on;
+// without, it returns nil there.
+func (s segment) step(cursor any, path, what string) (any, error) {
+	create := what != ""
 	m, ok := cursor.(*jsonx.Object)
 	if !ok {
 		if create {
@@ -81,7 +85,7 @@ func (s segment) step(cursor any, path string, create bool) (any, error) {
 		}
 		if s.index >= len(list) {
 			if create {
-				return nil, requireIndex(list, s, path)
+				return nil, requireIndex(list, s, path, what)
 			}
 			return nil, nil
 		}
@@ -90,21 +94,26 @@ func (s segment) step(cursor any, path string, create bool) (any, error) {
 	return next, nil
 }
 
-func requireIndex(list []any, s segment, path string) error {
-	return genError("identity path '%s' indexes [%d] but '%s' has only %d element(s); declare the element in the fixture",
-		path, s.index, s.name, len(list))
+func requireIndex(list []any, s segment, path, what string) error {
+	return genError("%s '%s' indexes [%d] but '%s' has only %d element(s); declare the element in the fixture",
+		what, path, s.index, s.name, len(list))
 }
 
-// pathSet sets the value at a dotted path, creating intermediate maps; list
-// indices must already exist.
+// pathSet sets the value at an identity's dotted path, creating
+// intermediate maps; list indices must already exist.
 func pathSet(tree *jsonx.Object, path string, value any) error {
+	return setPath(tree, path, value, "identity path")
+}
+
+// setPath is pathSet for a path of any kind, which its messages name.
+func setPath(tree *jsonx.Object, path string, value any, what string) error {
 	segs, err := parsePath(path)
 	if err != nil {
 		return err
 	}
 	var cursor any = tree
 	for _, s := range segs[:len(segs)-1] {
-		if cursor, err = s.step(cursor, path, true); err != nil {
+		if cursor, err = s.step(cursor, path, what); err != nil {
 			return err
 		}
 	}
@@ -116,16 +125,16 @@ func pathSet(tree *jsonx.Object, path string, value any) error {
 			list, ok = get(m, last.name).([]any)
 		}
 		if !ok {
-			return genError("identity path '%s' indexes '%s' which is not a declared list", path, last.name)
+			return genError("%s '%s' indexes '%s' which is not a declared list", what, path, last.name)
 		}
 		if last.index >= len(list) {
-			return requireIndex(list, last, path)
+			return requireIndex(list, last, path, what)
 		}
 		list[last.index] = value
 		return nil
 	}
 	if !ok {
-		return genError("identity path '%s' traverses a non-map value", path)
+		return genError("%s '%s' traverses a non-map value", what, path)
 	}
 	m.Set(last.name, value)
 	return nil

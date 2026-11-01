@@ -41,6 +41,9 @@ const (
 	// CodeExplain: `axx fixtures explain` was given a file no factory
 	// generates, or a path that holds no single value.
 	CodeExplain = "AXX-E0910"
+	// CodeFixtureRef: a fixture reference (<factory>#<fixture>) names no
+	// factory, a factory name several factories share, or no fixture of it.
+	CodeFixtureRef = "AXX-E0911"
 )
 
 const hintGenerate = "fix the factory sources (defaults:, prototype, fixture data) and run `axx fixtures generate`"
@@ -57,6 +60,11 @@ func configError(format string, args ...any) *axxerr.Error {
 
 func genError(format string, args ...any) *axxerr.Error {
 	return axxerr.New(CodeGenerate, exitcode.Failed, format, args...).WithHint(hintGenerate)
+}
+
+func refError(format string, args ...any) *axxerr.Error {
+	return axxerr.New(CodeFixtureRef, exitcode.Usage, format, args...).
+		WithHint("name a fixture <factory>#<fixture>: the factory by its path from the resource root without .factory.yaml (orders/orders), or by its file's base name (orders) when no other factory has it")
 }
 
 func checkError(format string, args ...any) *axxerr.Error {
