@@ -20,7 +20,7 @@ func TestBuild(t *testing.T) {
 		{Path: "hold", Value: "true"},
 		{Path: "hold", Value: "undefined"},
 		{Path: "$.depot", Value: "4"},
-	})
+	}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -34,7 +34,7 @@ func TestBuild(t *testing.T) {
 
 func TestApply(t *testing.T) {
 	base := map[string]any{"reference": "PX-GRPC-5101", "recipient": map[string]any{"name": "Ida Hoffmann"}}
-	got, err := Apply(base, []Row{{Path: "recipient.postcode", Value: `"04109"`}, {Path: "reference", Value: "undefined"}})
+	got, err := Apply(base, []Row{{Path: "recipient.postcode", Value: `"04109"`}, {Path: "reference", Value: "undefined"}}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -58,8 +58,22 @@ func TestBuildErrors(t *testing.T) {
 		{[]Row{{Path: "depot", Value: "04"}}, `depot: 04 could be the number 4 or the text 04`},
 		{[]Row{{Path: "reason", Null: true}}, `reason: the cell is empty`},
 	} {
-		if _, err := Build(c.rows); err == nil || !strings.Contains(err.Error(), c.want) {
+		if _, err := Build(c.rows, nil); err == nil || !strings.Contains(err.Error(), c.want) {
 			t.Errorf("%v: got %v, want %q", c.rows, err, c.want)
 		}
+	}
+}
+
+// A reference is expanded in a string, after the value is read: it stays
+// text, whatever it expands to.
+func TestBuildExpands(t *testing.T) {
+	expand := func(v string) (string, error) { return strings.ReplaceAll(v, "${env:PIN}", "0042"), nil }
+	got, err := Build([]Row{{Path: "pin", Value: "${env:PIN}"}, {Path: "note", Value: `"pin ${env:PIN}"`}, {Path: "n", Value: "42"}}, expand)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, _ := json.Marshal(got)
+	if want := `{"n":42,"note":"pin 0042","pin":"0042"}`; string(b) != want {
+		t.Errorf("built\n got %s\nwant %s", b, want)
 	}
 }

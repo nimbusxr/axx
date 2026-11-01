@@ -160,14 +160,9 @@ func request(sc *core.Scenario, md protoreflect.MessageDescriptor, set *protoloa
 		}
 		rows := make([]tablevalue.Row, len(pairs))
 		for i, p := range pairs {
-			rows[i] = tablevalue.Row{Path: p.Key, Null: p.Null}
-			if !p.Null {
-				if rows[i].Value, err = secrets.Resolve(sc, p.Value); err != nil {
-					return nil, nil, err
-				}
-			}
+			rows[i] = tablevalue.Row{Path: p.Key, Value: p.Value, Null: p.Null}
 		}
-		if v, err = tablevalue.Apply(base, rows); err != nil {
+		if v, err = tablevalue.Apply(base, rows, func(v string) (string, error) { return secrets.Resolve(sc, v) }); err != nil {
 			return nil, nil, err
 		}
 		if err := checkRows(md, rows); err != nil {

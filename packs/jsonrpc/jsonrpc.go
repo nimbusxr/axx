@@ -278,14 +278,9 @@ func params(sc *core.Scenario, t *core.Table, doc *core.DocString) (json.RawMess
 		}
 		rows := make([]tablevalue.Row, len(pairs))
 		for i, p := range pairs {
-			rows[i] = tablevalue.Row{Path: p.Key, Null: p.Null}
-			if !p.Null {
-				if rows[i].Value, err = secrets.Resolve(sc, p.Value); err != nil {
-					return nil, err
-				}
-			}
+			rows[i] = tablevalue.Row{Path: p.Key, Value: p.Value, Null: p.Null}
 		}
-		obj, err := tablevalue.Build(rows)
+		obj, err := tablevalue.Build(rows, func(v string) (string, error) { return secrets.Resolve(sc, v) })
 		if err != nil {
 			return nil, err
 		}

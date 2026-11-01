@@ -88,14 +88,9 @@ func (o *operation) setVariables(sc *core.Scenario, t *core.Table) error {
 	}
 	rows := make([]tablevalue.Row, len(pairs))
 	for i, p := range pairs {
-		rows[i] = tablevalue.Row{Path: p.Key, Null: p.Null}
-		if !p.Null {
-			if rows[i].Value, err = secrets.Resolve(sc, p.Value); err != nil {
-				return err
-			}
-		}
+		rows[i] = tablevalue.Row{Path: p.Key, Value: p.Value, Null: p.Null}
 	}
-	vars, err := tablevalue.Build(rows)
+	vars, err := tablevalue.Build(rows, func(v string) (string, error) { return secrets.Resolve(sc, v) })
 	if err != nil {
 		return err
 	}

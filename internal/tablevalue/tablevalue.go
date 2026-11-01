@@ -20,17 +20,23 @@ type Row struct {
 	Null bool
 }
 
+// Expand expands the references in a string value (`${secret:…}`,
+// `${env:…}`): after the value is read, so a reference is text, whatever it
+// expands to.
+type Expand func(string) (string, error)
+
 // Build is the object the rows make, with the objects and arrays on their
 // paths. A value means what it says (core.ParseValue, ADR 0014): `42` is a
 // number, `"42"` the string, `null` null, and `undefined` leaves the path
-// out; nothing is inferred from a schema.
-func Build(rows []Row) (map[string]any, error) {
-	return Apply(map[string]any{}, rows)
+// out; nothing is inferred from a schema. expand, when not nil, expands the
+// strings' references.
+func Build(rows []Row, expand Expand) (map[string]any, error) {
+	return Apply(map[string]any{}, rows, expand)
 }
 
 // Apply sets the rows into an object, as Build does: the object a file
 // gave, which the rows change.
-func Apply(base map[string]any, rows []Row) (map[string]any, error) {
+func Apply(base map[string]any, rows []Row, expand Expand) (map[string]any, error) {
 	var root any = base
 	for _, r := range rows {
 		steps, err := parse(r.Path)
@@ -42,7 +48,12 @@ func Apply(base map[string]any, rows []Row) (map[string]any, error) {
 			return nil, fmt.Errorf("%s: %w", r.Path, err)
 		}
 		var val any
-		if !v.Undefined() && !v.IsNull() {
+		switch str, isString := v.Str(); {
+		case isString && expand != nil:
+			if val, err = expand(str); err != nil {
+				return nil, err
+			}
+		case !v.Undefined() && !v.IsNull():
 			if val, err = plain(v.JSON()); err != nil {
 				return nil, err
 			}
