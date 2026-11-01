@@ -19,3 +19,4 @@ CLI JSON output or exit codes, the `axx.yaml` schema, or release/versioning poli
 | [0011](0011-desktop-apps-through-the-accessibility-tree.md) | Desktop apps are tested through the operating system's accessibility tree | Accepted; amended by 0012 |
 | [0012](0012-one-vocabulary-for-apps-and-a-file-context-for-everything-under-test.md) | Every app is driven with the same steps, and everything under test has a file context | Accepted |
 | [0013](0013-phones-through-their-drivers-served-by-device-hosts.md) | Phones are driven through their own drivers by axx, and served by device hosts | Proposed |
+| [0014](0014-a-value-means-what-it-says.md) | A value means what it says, in every pack | Accepted |
