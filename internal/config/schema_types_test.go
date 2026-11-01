@@ -4,6 +4,7 @@ import (
 	"slices"
 	"testing"
 )
+
 // A scalar where axx.yaml takes an object names the object's keys, which an
 // agent would otherwise read the whole schema for.
 func TestTypeErrorNamesTheObjectsKeys(t *testing.T) {
