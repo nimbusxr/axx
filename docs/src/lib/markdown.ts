@@ -38,8 +38,59 @@ function absolutize(body: string): string {
 	return body.replace(/\]\(\/(?!\/)/g, `](${ROOT}/`);
 }
 
-/** The Markdown twin: title, description and the page source. */
-export function toMarkdown(entry: CollectionEntry<'docs'>): string {
+/** Whether a page is a pack's reference page (references/packs/<pack>). */
+export function isPackPage(id: string): boolean {
+	return /^references\/packs\/[^/]+$/.test(id);
+}
+
+/**
+ * The short form of a pack page, for the agents that fetch it: the page with
+ * each step cut to its expression and the first paragraph of its
+ * documentation. A pack page has every step's documentation, tables and
+ * examples, some 50,000 characters, which an agent then carries in its
+ * context to the end; axx gives each step's documentation offline, for the
+ * version installed (`axx steps show <id>`), and the whole page is the full
+ * twin (<page>.full.md).
+ */
+export function compactPackPage(body: string, id: string): string {
+	const [head, ...rest] = body.split(/^## Steps$/m);
+	if (rest.length === 0) return body;
+	const steps = rest.join('## Steps');
+	const after = steps.search(/^## (?!Steps)/m);
+	const stepPart = after < 0 ? steps : steps.slice(0, after);
+	const tail = after < 0 ? '' : steps.slice(after);
+	const out: string[] = [];
+	const sections = stepPart.split(/^### /m).slice(1);
+	const names = new Set(sections.map((sec) => sec.split('\n', 1)[0].trim()));
+	for (const section of sections) {
+		const name = section.split('\n', 1)[0].trim();
+		// A step's form for a named service (`rest.request.header.on`) folds into the step.
+		if (/\.on`$/.test(name) && names.has(name.replace(/\.on`$/, '`'))) continue;
+		const twin = names.has(name.replace(/`$/, '.on`')) ? ' (+ `.on`, for a named service)' : '';
+		const code = /```gherkin\n([\s\S]*?)```/.exec(section);
+		const text = section
+			.slice(code ? code.index + code[0].length : name.length)
+			.split(/\n\s*\n/)
+			.map((p) => p.trim())
+			.find((p) => p && !p.startsWith('The table may start') && !p.startsWith('|') && !p.startsWith('**'));
+		const lines = code ? code[1].trim().split('\n').map((l) => l.trim()).join(' ') : '';
+		out.push(`- ${name}: \`${lines}\`${twin}${text ? ` ${text.split('\n')[0]}` : ''}`);
+	}
+	const pack = id.split('/').pop();
+	return [
+		head.trim(),
+		`## Steps\n\nEach step's expression and what it does. Its documentation, parameters and examples: \`axx steps show <id>\` (offline, for the axx installed), or this page in full: ${ROOT}/${id}.full.md. The pack's steps, whether the project uses it or not: \`axx pack show ${pack}\`.\n\n${out.join('\n')}`,
+		tail.trim(),
+	]
+		.filter(Boolean)
+		.join('\n\n');
+}
+
+/**
+ * The Markdown twin: title, description and the page source; a pack page's
+ * in its short form (compactPackPage) unless full.
+ */
+export function toMarkdown(entry: CollectionEntry<'docs'>, full = false): string {
 	const { title, description, hero } = entry.data as {
 		title: string;
 		description?: string;
@@ -56,6 +107,6 @@ export function toMarkdown(entry: CollectionEntry<'docs'>): string {
 	const rooted = (link: string) => (/^[a-z]+:|^\//i.test(link) ? link : `/${link}`);
 	if (hero?.actions?.length) parts.push(hero.actions.map((a) => `- [${a.text}](${rooted(a.link)})`).join('\n'));
 	parts.push(`Source: ${ROOT}${entry.id === 'index' ? '/' : `/${entry.id}/`}`);
-	parts.push(body.trim());
+	parts.push((isPackPage(entry.id) && !full ? compactPackPage(body, entry.id) : body).trim());
 	return absolutize(parts.join('\n\n')) + '\n';
 }
