@@ -1,6 +1,7 @@
 package kafka
 
 import (
+	"context"
 	"encoding/binary"
 	"encoding/json"
 	"errors"
@@ -207,5 +208,30 @@ func TestAvroRecordsAreCheckedAsJavaPrintedThem(t *testing.T) {
 	recent := stateKey.Of(h.sc).last.Recent
 	if len(recent) != 2 || !strings.Contains(recent[0].Mismatch, "Confluent Avro wire format") {
 		t.Errorf("a record that is not Avro is reported, not fatal: %+v", recent)
+	}
+}
+
+// A topic client reading from the latest offset skips what came before the
+// check, the scenario's own event included: the failure says so, and how to
+// read the whole topic.
+func TestLatestOffsetSkipsTheScenariosEvent(t *testing.T) {
+	h := newHarness(t, `{"timeout": "100ms"}`)
+	h.offline("space-kafka")
+	h.must("an orders kafka topic client with the following properties:", []string{"consumer.auto.offset.reset", "latest"})
+	topic := fakeTopic(h.client("space-kafka", "orders"))
+	early := rec("k1", `{"id":"o-1"}`)
+	early.Offset = 0
+	topic.add([]*kgo.Record{early}, nil)
+	old := endOffsetsOf
+	endOffsetsOf = func(context.Context, *kgo.Client, string) (map[int32]int64, error) { return map[int32]int64{0: 1}, nil }
+	t.Cleanup(func() { endOffsetsOf = old })
+	err := h.run("the orders kafka event named x key is k1")
+	var ae *core.AssertionError
+	if !errors.As(err, &ae) {
+		t.Fatalf("want an assertion failure, got %v", err)
+	}
+	if !strings.Contains(ae.Message, "1 record(s) on the topic came before this step and were not read") ||
+		!strings.Contains(ae.Message, "Leave consumer.auto.offset.reset out (earliest, the default)") {
+		t.Errorf("message: %s", ae.Message)
 	}
 }
