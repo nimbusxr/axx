@@ -69,7 +69,7 @@ When the hold_parcel tool is called on the parcels mcp server with the following
 When the hold_parcel tool is called on the parcels mcp server with the mcp/hold-parcel.json arguments
 ```
 
-- **An argument takes the type the tool's input schema gives it:** `01067` is text for a string, and a number for an integer. Double quotes make a value text, `null` is null, and `undefined` leaves it out. A row can be a path into an argument (`address.postcode`, `lines[0].reference`).
+- **An argument is what its cell says,** whatever type the tool's input schema gives it: `"01067"` for a string, `4` for an integer. The schema's check finds one of another type before it is sent, and says what to write; relax `validation.arguments.schema.type` to send it as written. `null` is null, and `undefined` leaves it out. A row can be a path into an argument (`address.postcode`, `lines[0].reference`).
 - **A file's arguments** are a JSON or YAML object.
 - **A result that is an error does not fail the call,** nor does a call the server refuses: check them.
 
@@ -125,7 +125,7 @@ When the delivery_update prompt is requested from the parcels mcp server with th
 Then the delivery_update prompt contains 'parcel PX-MCP-9103'
 ```
 
-A resource is read by its URI; `has the following properties` reads its text as JSON. A prompt's check reads the text of its messages.
+A resource is read by its URI; `has the following properties` reads its text as JSON. A prompt's arguments are text, as MCP gives them: one that reads as a number goes in double quotes (`"4711"`). A prompt's check reads the text of its messages.
 
 ## Mock the MCP servers your service calls
 

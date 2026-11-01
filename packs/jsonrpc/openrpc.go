@@ -31,7 +31,6 @@ type param struct {
 	name     string
 	required bool
 	schema   *jsonschema.Schema
-	text     bool // its schema's type is string
 }
 
 // readDocument reads an OpenRPC document at u through l.
@@ -73,9 +72,6 @@ func readMethod(l *schemadoc.Loader, c *jsonschema.Compiler, n schemadoc.Node) (
 		p.required, _ = pn.Get("required").V.(bool)
 		if p.schema, err = compile(c, pn.Get("schema")); err != nil {
 			return nil, fmt.Errorf("the %s param of the method %s: %w", p.name, m.name, err)
-		}
-		if sn, err := l.Deref(pn.Get("schema")); err == nil {
-			p.text = sn.Str("type") == "string"
 		}
 		m.params = append(m.params, p)
 	}
@@ -122,24 +118,6 @@ func number(v any) (int, bool) {
 }
 
 type finding = schemadoc.Finding
-
-func (d *document) conform(name string, params map[string]any) {
-	m, ok := d.methods[name]
-	if !ok {
-		return
-	}
-	for _, p := range m.params {
-		if !p.text {
-			continue
-		}
-		switch v := params[p.name].(type) {
-		case json.Number:
-			params[p.name] = v.String()
-		case bool:
-			params[p.name] = strconv.FormatBool(v)
-		}
-	}
-}
 
 // checkParams checks a call's params (nil, an object or an array) against
 // its method.
@@ -203,7 +181,8 @@ func (p *param) check(present bool, v any) []finding {
 	if p.schema == nil {
 		return nil
 	}
-	return schemadoc.Validate(p.schema, v, "validation.params.schema", "param "+p.name)
+	what := "param " + p.name
+	return withWrites(schemadoc.Validate(p.schema, v, "validation.params.schema", what), "validation.params.schema", what, v)
 }
 
 func (m *method) paramNames() string {

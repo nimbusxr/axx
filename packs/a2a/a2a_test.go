@@ -151,6 +151,9 @@ func TestTasks(t *testing.T) {
 			h.OK("the parcels a2a agent with the following properties:", [][]string{{"url", url}, {"transport", transport}})
 			h.OK("the parcels a2a agent's card has the following properties:",
 				[][]string{{"name", "Parcels agent"}, {"capabilities.streaming", "true"}, {"skills[0].id", "track-parcel"}})
+			// Checks are strict: the boolean is not its text.
+			_ = h.Fails("the parcels a2a agent's card has the following properties:", "capabilities.streaming is the boolean true: write true",
+				[][]string{{"capabilities.streaming", `"true"`}})
 			h.OK("the parcels a2a agent has the track-parcel skill")
 			_ = h.Fails("the parcels a2a agent has the hold-parcel skill", "has no skill hold-parcel; its skills are: track-parcel")
 
@@ -159,6 +162,9 @@ func TestTasks(t *testing.T) {
 			h.OK("the parcels a2a agent's answer contains 'out for delivery, in Leipzig'")
 			h.OK("the parcels a2a agent's task has an artifact where:", [][]string{{"name", "parcel-status"}, {"data.status", "OUT_FOR_DELIVERY"}, {"text", "PX-A2A-9201 is out for delivery"}})
 			_ = h.Fails("the parcels a2a agent's task has an artifact where:", "no artifact of the parcels a2a agent's task has those properties", [][]string{{"data.status", "DELIVERED"}})
+			// A value the rule cannot read fails the check at once.
+			_ = h.Fails("the parcels a2a agent's task has an artifact where:",
+				`data.status: the cell is empty: write "" for the empty string, null for null, or undefined for no such property`, [][]string{{"data.status", ""}})
 			_ = h.Fails("the parcels a2a agent's task is failed", "the parcels a2a agent's task is completed, not failed")
 
 			// A task that asks for input gets it in a reply.
@@ -214,6 +220,9 @@ func testStream(t *testing.T, transport string) {
 		t.Error("a check of an ended stream waited")
 	}
 	_ = h.Fails("within 1s the parcels a2a agent's task is working", "the parcels a2a agent's task is completed, not working")
+	_ = h.Fails("within 30s the parcels a2a agent's stream received an update where:",
+		`artifact.data.reference: +9204 could be the number 9204 or the text +9204: write 9204 for the number, or "+9204" for the text`,
+		[][]string{{"artifact.data.reference", "+9204"}})
 	if err := h.End("passed"); err != nil {
 		t.Fatal(err)
 	}

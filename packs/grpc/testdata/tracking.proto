@@ -13,6 +13,7 @@ service Tracking {
 message GetParcelRequest {
   string reference = 1;
   string postcode = 2;
+  int64 weight_grams = 3;
 }
 
 message WatchParcelRequest {

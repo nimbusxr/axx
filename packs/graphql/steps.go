@@ -13,8 +13,8 @@ import (
 	"github.com/nimbusxr/axx/internal/secrets"
 )
 
-const variablesNote = "Each row is a variable, or a path into one (`address.postcode`), and its value: a value takes the type the operation declares " +
-	"for its variable, double quotes make it text, `null` is null and `undefined` leaves it out."
+const variablesNote = "Each row is a variable, or a path into one (`address.postcode`), and its value, sent as written whatever type the operation " +
+	"declares: a `String`'s value in double quotes (`\"10115\"`)."
 
 const levelsNote = "A row is a validation key and its level: `ERROR` (or `FAIL`), `WARN`, `INFO` or `IGNORE`. " +
 	"The key must be one the pack reports, or a prefix of such keys, like `validation.operation`: " +
@@ -54,7 +54,7 @@ func steps() []core.StepDef {
 			ID: Name + ".send.file", Keyword: "When", Arg: core.ArgOptional, Since: since,
 			Expr:  "the {filepath} query/mutation is sent to the {word} graphql service[[ with the following variables:]]",
 			Doc:   "Send the query or the mutation of a file of the project, with the table's variables when the step has one.",
-			Table: &core.TableDoc{Columns: []string{"path", "value"}, Note: variablesNote},
+			Table: &core.TableDoc{Columns: []string{"path", "value"}, Note: variablesNote, Values: core.JSONValues, Undefined: true},
 			Examples: []string{
 				"When the graphql/parcel.graphql query is sent to the parcels graphql service with the following variables:\n" +
 					"  | reference | PX-GQL-7201 |",
@@ -88,7 +88,7 @@ func steps() []core.StepDef {
 			Expr: "the {filepath} subscription is started on the {word} graphql service[[ with the following variables:]]",
 			Doc: "Start the subscription of a file of the project, with the table's variables when the step has one. " +
 				"It belongs to the scenario, which ends it when it ends.",
-			Table: &core.TableDoc{Columns: []string{"path", "value"}, Note: variablesNote},
+			Table: &core.TableDoc{Columns: []string{"path", "value"}, Note: variablesNote, Values: core.JSONValues, Undefined: true},
 			Examples: []string{"When the graphql/parcel-scanned.graphql subscription is started on the parcels graphql service with the following variables:\n" +
 				"  | reference | PX-GQL-7203 |"},
 			Run: func(sc *core.Scenario, a core.Args) error {
@@ -123,8 +123,10 @@ func steps() []core.StepDef {
 			Expr: "the {word} graphql service's data has the following properties:",
 			Doc:  "Check the data of the service's last answer.",
 			Table: &core.TableDoc{
-				Columns: []string{"path", "value"},
-				Note:    "Each row is a path into the data (a field, a dotted path like `parcel.shop.name`, or a JSONPath) and its value, compared as text: `null` for null and `undefined` for absent.",
+				Columns:   []string{"path", "value"},
+				Note:      "Each row is a path into the data (a field, a dotted path like `parcel.shop.name`, or a JSONPath) and its value.",
+				Values:    core.JSONValues,
+				Undefined: true,
 			},
 			Examples: []string{"Then the parcels graphql service's data has the following properties:\n" +
 				"  | parcel.status    | IN_TRANSIT |\n" +
@@ -143,8 +145,10 @@ func steps() []core.StepDef {
 			Doc:  "Check that the service's last answer has an error with those values.",
 			Table: &core.TableDoc{
 				Columns: []string{"path", "value"},
-				Note: "Each row is a path into the error (`message`, `path`, `extensions.code`) and its value, compared as text; " +
+				Note: "Each row is a path into the error (`message`, `path`, `extensions.code`) and its value; " +
 					"the error's `path` is its fields and indexes joined with dots, like `parcel.shop` or `parcels.0.reference`.",
+				Values:    core.JSONValues,
+				Undefined: true,
 			},
 			Examples: []string{"Then the parcels graphql service answered an error where:\n" +
 				"  | path            | holdParcel   |\n" +
@@ -158,8 +162,10 @@ func steps() []core.StepDef {
 				"- The check waits for it: 10 seconds, or `within {duration}`.\n" +
 				"- When the subscription has ended, it fails at once, saying why.",
 			Table: &core.TableDoc{
-				Columns: []string{"path", "value"},
-				Note:    "Each row is a path into the message's data and its value, compared as text: `null` for null and `undefined` for absent.",
+				Columns:   []string{"path", "value"},
+				Note:      "Each row is a path into the message's data and its value.",
+				Values:    core.JSONValues,
+				Undefined: true,
 			},
 			Examples: []string{"Then within 20s the parcels graphql service's subscription received a message where:\n" +
 				"  | parcelScanned.reference | PX-GQL-7203      |\n" +
@@ -206,7 +212,7 @@ func sendOn(sc *core.Scenario, name, text, file string, doc *core.DocString, t *
 		}
 		return fmt.Errorf("the operation is a %s, not a %s", op.kind(), want)
 	}
-	if err := op.setVariables(sc, t, s.schema); err != nil {
+	if err := op.setVariables(sc, t); err != nil {
 		return err
 	}
 	st, err := settingsFor(sc.Suite())
@@ -255,7 +261,7 @@ func subscribeOn(sc *core.Scenario, name, file string, t *core.Table) error {
 	if op.kind() != "subscription" {
 		return fmt.Errorf("the operation is a %s, not a subscription", op.kind())
 	}
-	if err := op.setVariables(sc, t, s.schema); err != nil {
+	if err := op.setVariables(sc, t); err != nil {
 		return err
 	}
 	if s.schema != nil {

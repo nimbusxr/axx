@@ -46,7 +46,7 @@ When the parcel.hold method is called on the depots jsonrpc service with the fol
 When the depot.list method is called on the depots jsonrpc service
 ```
 
-- **A table gives params by name,** set as the REST pack's request properties are: a row can be a path into a param (`address.postcode`), numbers and booleans are JSON's, double quotes make a value text, `null` is null and `undefined` leaves it out. With an OpenRPC document, a param whose schema says `string` takes the cell as text.
+- **A table gives params by name,** each what its cell says: `"10115"` is text and `10115` a number, `null` is null and `undefined` leaves it out. A row can be a path into a param (`address.postcode`). A param of another type than its schema's is sent as written; with an OpenRPC document, its check finds it first and says what to write.
 - **A doc string** gives an object (by name) or an array (by position).
 - **An error** does not fail the step that makes the call: check it. Only a service that does not answer JSON-RPC 2.0, such as an HTML error page, fails it.
 
@@ -62,7 +62,7 @@ And the depots jsonrpc service's error has the following properties:
   | data.status | OUT_FOR_DELIVERY |
 ```
 
-- `result is` compares a text result's text, or any other result's JSON.
+- `result is` compares the whole result, with its type: `'true'` is the boolean, `'42'` the number, `'"42"'` the text 42, and `'ON_HOLD'` text too. The property checks' values have types as well.
 - The error's properties are its `code`, its `message` and its `data`.
 - The checks read the service's last call in the scenario.
 

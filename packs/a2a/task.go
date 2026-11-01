@@ -367,9 +367,28 @@ func (a *agent) answer() string {
 	return strings.TrimSpace(strings.Join(parts, "\n"))
 }
 
+// values reads a check's values first (ADR 0014): one the rule cannot
+// read fails the check at once, rather than match nothing until it times
+// out.
+func values(t *core.Table) error {
+	pairs, err := t.Pairs()
+	if err != nil {
+		return err
+	}
+	for _, p := range pairs {
+		if _, err := core.ParseValue(p.Value, p.Null, true); err != nil {
+			return fmt.Errorf("%s: %w", p.Key, err)
+		}
+	}
+	return nil
+}
+
 func checkArtifact(sc *core.Scenario, name string, t *core.Table) error {
 	a, err := get(sc, name)
 	if err != nil {
+		return err
+	}
+	if err := values(t); err != nil {
 		return err
 	}
 	return wait(sc, a, defaultWait, func() (bool, error) {
@@ -393,6 +412,9 @@ func checkArtifact(sc *core.Scenario, name string, t *core.Table) error {
 func checkUpdate(sc *core.Scenario, name string, t *core.Table, within time.Duration) error {
 	a, err := get(sc, name)
 	if err != nil {
+		return err
+	}
+	if err := values(t); err != nil {
 		return err
 	}
 	a.mu.Lock()

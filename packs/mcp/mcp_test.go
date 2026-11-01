@@ -180,6 +180,20 @@ func TestArgumentsMeanWhatTheySay(t *testing.T) {
 	h.OK("the count_scans tool's result has the following properties:", [][]string{{"postcode", `"01067"`}, {"depot", "4"}, {"express", "true"}})
 	h.OK("the count_scans tool's result contains '\"depot\":4'")
 	h.OK("the count_scans tool's result contains '\"postcode\":\"01067\"'")
+	// Checks are strict: the integer is not its text.
+	_ = h.Fails("the count_scans tool's result has the following properties:", "depot is the integer 4: write 4", [][]string{{"depot", `"4"`}})
+
+	// Nothing takes the input schema's type: the schema's check says what to write.
+	_ = h.Fails("the count_scans tool is called on the parcels mcp server with the following arguments:",
+		`- validation.arguments.schema.type: arguments $.postcode: got number, want string: write "10115"`, [][]string{{"postcode", "10115"}, {"depot", "4"}})
+	_ = h.Fails("the count_scans tool is called on the parcels mcp server with the following arguments:",
+		`- validation.arguments.schema.type: arguments $.depot: got string, want integer: write 4`, [][]string{{"postcode", `"10115"`}, {"depot", `"4"`}})
+	_ = h.Fails("the count_scans tool is called on the parcels mcp server with the following arguments:",
+		`postcode: 01067 could be the number 1067 or the text 01067: write 1067 for the number, or "01067" for the text`, [][]string{{"postcode", "01067"}, {"depot", "4"}})
+	// A scenario sends one of another type on purpose, as written.
+	h.OK("the MCP validation levels are:", [][]string{{"validation.arguments.schema.type", "IGNORE"}})
+	h.OK("the count_scans tool is called on the parcels mcp server with the following arguments:", [][]string{{"postcode", "10115"}, {"depot", `"4"`}})
+	h.OK("the count_scans tool's result has the following properties:", [][]string{{"postcode", "10115"}, {"depot", `"4"`}})
 }
 
 func TestTheSchemasAreTheContract(t *testing.T) {
@@ -208,6 +222,11 @@ func TestResourcesAndPrompts(t *testing.T) {
 	h.OK("the delivery_update prompt is requested from the parcels mcp server with the following arguments:", [][]string{{"reference", "PX-MCP-9104"}})
 	h.OK("the delivery_update prompt contains 'where parcel PX-MCP-9104 is'")
 	_ = h.Fails("the delivery_update prompt contains 'PX-MCP-9199'", "does not contain the text")
+	// A prompt's arguments are text: one that reads as a number is in double quotes.
+	_ = h.Fails("the delivery_update prompt is requested from the parcels mcp server with the following arguments:",
+		`reference: 4711 reads as an integer, and only text fits here: write "4711" for the text`, [][]string{{"reference", "4711"}})
+	h.OK("the delivery_update prompt is requested from the parcels mcp server with the following arguments:", [][]string{{"reference", `"4711"`}})
+	h.OK("the delivery_update prompt contains 'where parcel 4711 is'")
 }
 
 func TestOverStdio(t *testing.T) {

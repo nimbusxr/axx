@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"strconv"
 	"strings"
 	"sync"
 
@@ -84,7 +83,7 @@ func callTool(sc *core.Scenario, toolName, serverName string, t *core.Table, fil
 	if tool != nil {
 		input = asMap(tool.InputSchema)
 	}
-	args, err := arguments(sc, t, file, input)
+	args, err := arguments(sc, t, file)
 	if err != nil {
 		return err
 	}
@@ -93,6 +92,7 @@ func callTool(sc *core.Scenario, toolName, serverName string, t *core.Table, fil
 		if err != nil {
 			return fmt.Errorf("the %s tool's input schema: %w", toolName, err)
 		}
+		found = withWrites(found, "validation.arguments.schema", "arguments", args)
 		if err := report(sc, st, s, "the arguments of the "+toolName+" tool", found); err != nil {
 			return err
 		}
@@ -138,9 +138,11 @@ func (st *state) record(c *call) {
 	st.calls = append(st.calls, c)
 }
 
-// arguments are a call's arguments: the table's, each taking the type the
-// tool's input schema gives it, or the file's.
-func arguments(sc *core.Scenario, t *core.Table, file string, schema map[string]any) (any, error) {
+// arguments are a call's arguments: the file's, or the table's, each what
+// its cell says (ADR 0014). Nothing takes the type the tool's input schema
+// gives it: a value of another type is sent as written, for the schema's
+// check to find, or the server to refuse.
+func arguments(sc *core.Scenario, t *core.Table, file string) (any, error) {
 	if file != "" {
 		p, err := sc.ResolvePath(file)
 		if err != nil {
@@ -179,81 +181,7 @@ func arguments(sc *core.Scenario, t *core.Table, file string, schema map[string]
 			}
 		}
 	}
-	// A string argument is its text as written: 01067 stays 01067.
-	args, err := tablevalue.Build(rows)
-	if err != nil {
-		return nil, err
-	}
-	return conform(schema, args), nil
-}
-
-// conform gives a value the type its schema declares: the text of a number
-// for a string, a number for an integer or a number, a boolean for a
-// boolean, and the properties of an object and the items of an array
-// theirs.
-func conform(schema map[string]any, v any) any {
-	if schema == nil {
-		return v
-	}
-	switch x := v.(type) {
-	case map[string]any:
-		props, _ := schema["properties"].(map[string]any)
-		for k, pv := range x {
-			if ps, ok := props[k].(map[string]any); ok {
-				x[k] = conform(ps, pv)
-			}
-		}
-		return x
-	case []any:
-		if items, ok := schema["items"].(map[string]any); ok {
-			for i, e := range x {
-				x[i] = conform(items, e)
-			}
-		}
-		return x
-	}
-	switch types(schema) {
-	case "string":
-		switch x := v.(type) {
-		case json.Number:
-			return x.String()
-		case bool:
-			return strconv.FormatBool(x)
-		}
-	case "integer", "number":
-		if s, ok := v.(string); ok {
-			if _, err := strconv.ParseFloat(s, 64); err == nil {
-				return json.Number(s)
-			}
-		}
-	case "boolean":
-		if s, ok := v.(string); ok {
-			if b, err := strconv.ParseBool(s); err == nil {
-				return b
-			}
-		}
-	}
-	return v
-}
-
-// types is the one type a schema declares, besides null, or "".
-func types(schema map[string]any) string {
-	switch t := schema["type"].(type) {
-	case string:
-		return t
-	case []any:
-		var out string
-		for _, e := range t {
-			if s, ok := e.(string); ok && s != "null" {
-				if out != "" {
-					return ""
-				}
-				out = s
-			}
-		}
-		return out
-	}
-	return ""
+	return tablevalue.Build(rows)
 }
 
 var compileMu sync.Mutex
@@ -483,6 +411,9 @@ func (r *reading) text() string {
 	return strings.Join(parts, "\n")
 }
 
+// requestPrompt requests a prompt, with the table's arguments, which MCP
+// gives as text: a value that reads as anything else is in double quotes
+// (`"4711"`).
 func requestPrompt(sc *core.Scenario, name, serverName string, t *core.Table) error {
 	s, err := get(sc, serverName)
 	if err != nil {
@@ -495,11 +426,13 @@ func requestPrompt(sc *core.Scenario, name, serverName string, t *core.Table) er
 			return err
 		}
 		for _, p := range pairs {
-			v, err := secrets.Resolve(sc, p.Value)
+			text, _, err := core.ParseText(p.Value, p.Null, false)
 			if err != nil {
+				return fmt.Errorf("%s: %w", p.Key, err)
+			}
+			if args[p.Key], err = secrets.Resolve(sc, text); err != nil {
 				return err
 			}
-			args[p.Key] = v
 		}
 	}
 	ctx, cancel := context.WithTimeout(sc.Context(), s.timeout)

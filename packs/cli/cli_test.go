@@ -51,7 +51,7 @@ func runHelper(args []string) int {
 		fmt.Fprintf(os.Stderr, "%s is DISPATCHED: it can no longer be cancelled\n", args[1])
 		return 3
 	case "json":
-		fmt.Println(`{"shop": "kestrel-books", "parcels": [{"reference": "PX-ADM-6105", "serviceLevel": "EXPRESS"}]}`)
+		fmt.Println(`{"shop": "kestrel-books", "parcels": [{"reference": "PX-ADM-6105", "serviceLevel": "EXPRESS", "weightGrams": 800, "postcode": "10115"}]}`)
 	case "token":
 		fmt.Println("token " + os.Getenv("PARCELS_ADMIN_TOKEN"))
 		fmt.Fprintln(os.Stderr, "using "+os.Getenv("PARCELS_ADMIN_TOKEN"))
@@ -98,6 +98,12 @@ func TestRunAndCheck(t *testing.T) {
 	h.OK("the admin command is run with 'json'")
 	h.OK("the admin command's output has the following properties:",
 		[][]string{{"shop", "kestrel-books"}, {"parcels[0].reference", "PX-ADM-6105"}, {"parcels[0].serviceLevel", "EXPRESS"}, {"parcels[1]", "undefined"}})
+	// A value means what it says, and the check is strict.
+	h.OK("the admin command's output has the following properties:", [][]string{{"parcels[0].weightGrams", "800"}, {"parcels[0].postcode", `"10115"`}})
+	_ = h.Fails("the admin command's output has the following properties:", `parcels[0].postcode is the string "10115": write "10115"`,
+		[][]string{{"parcels[0].postcode", "10115"}})
+	_ = h.Fails("the admin command's output has the following properties:", "parcels[0].weightGrams is the integer 800: write 800",
+		[][]string{{"parcels[0].weightGrams", `"800"`}})
 }
 
 func TestTheInput(t *testing.T) {

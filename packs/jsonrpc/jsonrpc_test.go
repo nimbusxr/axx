@@ -78,6 +78,12 @@ func (d *depots) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		answer(map[string]any{"result": map[string]any{"reference": ref, "status": "ON_HOLD", "heldUntil": until}})
 	case "depot.open":
 		answer(map[string]any{"result": true})
+	case "depot.count":
+		answer(map[string]any{"result": 42})
+	case "depot.code":
+		answer(map[string]any{"result": "4711"})
+	case "depot.get":
+		answer(map[string]any{"result": map[string]any{"code": "LEJ", "gate": 4}})
 	default:
 		fail(-32601, "Method not found", nil)
 	}
@@ -126,7 +132,24 @@ func TestCalls(t *testing.T) {
 	if got := d.params.Load(); got != `{"depot":{"code":"LEJ","gate":4}}` {
 		t.Errorf("params: %v", got)
 	}
-	_ = h.Fails("the depots jsonrpc service's result is 'false'", `The depots jsonrpc service's result of depot.open is true, not "false"`)
+	_ = h.Fails("the depots jsonrpc service's result is 'false'", `The depots jsonrpc service's result of depot.open is true, not false`)
+	// The result is compared with its type: the boolean true is not the text.
+	_ = h.Fails("the depots jsonrpc service's result is '\"true\"'",
+		`The depots jsonrpc service's result of depot.open is true, not "true" (the result is the boolean true: write true)`)
+	_ = h.Fails("the depots jsonrpc service's result is ''", `the cell is empty: write "" for the empty string, or null for null`)
+	_ = h.Fails("the depots jsonrpc service's result is 'undefined'", `undefined (no such property) is not a value here`)
+	h.OK("the depot.count method is called on the depots jsonrpc service")
+	h.OK("the depots jsonrpc service's result is '42'")
+	_ = h.Fails("the depots jsonrpc service's result is '\"42\"'", `(the result is the integer 42: write 42)`)
+	_ = h.Fails("the depots jsonrpc service's result is '42.0'", `(the result is the integer 42: write 42)`)
+	h.OK("the depot.code method is called on the depots jsonrpc service")
+	h.OK("the depots jsonrpc service's result is '\"4711\"'")
+	_ = h.Fails("the depots jsonrpc service's result is '4711'", `(the result is the string "4711": write "4711")`)
+	h.OK("the depot.get method is called on the depots jsonrpc service")
+	h.OK("the depots jsonrpc service's result is '{\"gate\": 4, \"code\": \"LEJ\"}'")
+	_ = h.Fails("the depots jsonrpc service's result is '{\"gate\": \"4\", \"code\": \"LEJ\"}'", `is {"code":"LEJ","gate":4}, not {"gate": "4", "code": "LEJ"}`)
+	h.OK("the parcel.get method is called on the depots jsonrpc service with the params:", `["PX-RPC-7102"]`)
+	_ = h.Fails("the depots jsonrpc service's result is 'REGISTERED'", `not "REGISTERED"`)
 
 	// An error is the call's, for the checks.
 	h.OK("the parcel.hold method is called on the depots jsonrpc service with the params:", `{"reference": "PX-RPC-7103", "until": "2026-10-02"}`)
@@ -200,7 +223,9 @@ func TestOpenRPC(t *testing.T) {
 				want string
 			}{
 				{[][]string{{"reference", "PX-RPC-7112"}}, `- validation.params.missing: the required param "until" is missing`},
-				{[][]string{{"reference", "7113"}, {"until", "2026-10-02"}}, "- validation.params.schema.pattern: param reference $: "},
+				{[][]string{{"reference", `"7113"`}, {"until", "2026-10-02"}}, "- validation.params.schema.pattern: param reference $: "},
+				// A number for a string param is sent as written, so the document's check finds it, and says what to write.
+				{[][]string{{"reference", "7113"}, {"until", "2026-10-02"}}, `- validation.params.schema.type: param reference $: got number, want string: write "7113"`},
 				{
 					[][]string{{"reference", "PX-RPC-7114"}, {"until", "2026-10-02"}, {"depot", "LEJ"}},
 					`- validation.params.unknown: parcel.hold has no param "depot"; it has reference, until, reason`,
