@@ -57,8 +57,10 @@ A value means what it says, the same in every pack, whether a step sets it or ch
 - Sources keep their types: a whole double is a decimal (`6.0`), a MongoDB Decimal128 and a
   BigQuery NUMERIC are numbers, and a protobuf message's int64 fields are numbers.
 - Pattern steps (`… match:`) are unchanged: a pattern matches the value's text.
-- The recorded oracles stay frozen; the cases that change are listed in `oracletest.Deviations`
-  with this ADR as their reason.
+- The recorded oracles stay frozen and keep testing the Java semantics they record (REST's
+  request coercion, Kafka's, the Postgres text comparison); the steps use the rule's functions
+  instead (`core.ParseValue`, `jvalue.ValueIs`, `jvalue.SetValue`). A number is an integer or a
+  decimal, whatever Java class holds it, and compares by its exact value.
 
 ## Consequences
 
