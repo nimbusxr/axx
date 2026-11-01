@@ -314,7 +314,9 @@ func Fold(entries []Entry) (kept []Entry, twinned map[string]bool) {
 
 // Notation says how to read an expression into a step line: agents that
 // copy one, notation and all, write steps no definition matches.
-const Notation = "To write a step from its expression: replace each {name} with a value; a(n) is \"a\" or \"an\" and row(s) \"row\" or \"rows\", as the sentence reads; [[...]] are optional words, kept (without the brackets) or left out where they stand."
+const Notation = "To write a step from its expression: replace each {name} with a value; a(n) is \"a\" or \"an\" and row(s) \"row\" or \"rows\", as the sentence reads; [[...]] are optional words, kept (without the brackets) or left out where they stand.\n" +
+	"A scenario is one behavior: Given steps for the state it starts from (a request it needs done first too: Given ... request ..., And the request is executed), one When for what someone does, Then steps for what is true afterwards. A When after a Then is another behavior: another scenario.\n" +
+	"Ordinals count in the order a scenario adds things: the 2nd request, response or selection is its second; a step without one means the 1st."
 
 // TwinMark follows a step whose named-service twin is folded into it, and
 // TwinLegend says what it means.
