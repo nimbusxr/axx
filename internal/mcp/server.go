@@ -48,7 +48,7 @@ const Instructions = `axx runs acceptance criteria, written as Gherkin scenarios
 2. Write one scenario per acceptance criterion with those steps, written out: each {name} replaced with a value, a(n) as "a" or "an", row(s) as "row" or "rows", [[...]] kept without the brackets or left out.
 3. Check and fix: feature_validate (no services needed) and lint_run (the test-data rules), then scenarios_run; failure_context explains a failure. env {"action":"up"} keeps the services running between runs. With an axx host serving the project (.axx/host.json), steps_try gets services of its own from it, and scenarios_run ends them first.
 
-- A scenario is one behavior: Given the state it starts from (a request it needs done first is executed in a Given), one When, Then what is true afterwards. A request that checks the outcome is added with the others and executed in the When. A When after a Then is another scenario.
+- A scenario is one behavior: Given the state it starts from (a request it needs done first is executed in a Given), one When, Then what is true afterwards. A request that checks the outcome is added with the others and executed in the When. A When after a Then is another scenario. Each acceptance criterion is a scenario of its own, even when one action shows several.
 - A scenario registers each service it uses before other steps use it ("the {word} service with the following properties:").
 - Requests, responses and selections are numbered in the order a scenario adds them; a step without an ordinal means the first.
 - Scenarios run in parallel and data persists: give every id, key and name a value of the scenario's own.

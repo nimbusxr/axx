@@ -152,7 +152,8 @@ A step the project's packs lack: axx steps search <words> finds it in axx's othe
 with the pack to add; axx pack list says what each pack reaches.
 
 A scenario is one behavior: Given the state it starts from, one When, Then what is true
-afterwards; a When after a Then is another scenario. Every scenario uses data of its own.
+afterwards; a When after a Then is another scenario, and so is each acceptance criterion,
+even when one action shows several. Every scenario uses data of its own.
 
 Docs for people: https://axx.nimbusxr.us`,
 		SilenceUsage:  true,

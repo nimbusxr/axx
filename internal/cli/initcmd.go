@@ -142,6 +142,7 @@ Rules axx checks, and agents get wrong:
 - A scenario is one behavior: Given the state it starts from (a request it needs done first is executed in a Given),
   one When for what someone does, Then what is true afterwards. A request that checks the outcome (a lookup that finds
   nothing stored) is added with the others and executed in the When. A When after a Then is another scenario.
+  Each acceptance criterion is a scenario of its own, even when one action shows several.
 - Ordinals count in the order a scenario adds requests, responses and selections: the 2nd is its second; none, the 1st.
 - Every scenario uses data of its own (ids, names, keys): scenarios run in parallel and data persists between runs.
 - Check what the service did (a response property, a row, an event) and why it refused, not only status codes.
