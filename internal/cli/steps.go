@@ -46,6 +46,7 @@ func stepInfos(e *engine.Engine, pack string) []StepInfo { return stepInfosOf(e.
 func newStepsCmd(app *App) *cobra.Command {
 	var cf configFlags
 	var pack string
+	var fullShow bool
 	cmd := &cobra.Command{
 		Use:   "steps",
 		Short: "List, search and inspect the available Gherkin steps",
@@ -71,7 +72,7 @@ Agents: search before writing a feature, and never invent step text.`,
 				infos = otherInfos(e, pack)
 				return app.Emit(map[string]any{"steps": infos, "count": len(infos), "notInProject": pack}, func(w io.Writer) error {
 					fmt.Fprintf(w, "%s\n\n", notInProject(pack))
-					return renderStepList(w, infos)
+					return app.stepList(w, infos)
 				})
 			}
 		}
@@ -85,7 +86,7 @@ Agents: search before writing a feature, and never invent step text.`,
 			})
 		}
 		return app.Emit(map[string]any{"steps": infos, "count": len(infos)}, func(w io.Writer) error {
-			return renderStepList(w, infos)
+			return app.stepList(w, infos)
 		})
 	}
 	cmd.RunE = listSteps
@@ -160,6 +161,10 @@ ids show each of their steps.`,
 			if err != nil {
 				return err
 			}
+			renderStep := renderStep
+			if app.Compact && !fullShow {
+				renderStep = renderStepCompact
+			}
 			infos := stepInfos(e, "")
 			// Several ids: each step, in one call.
 			if many := stepsByIDs(infos, args); len(args) > 1 && len(many) == len(args) {
@@ -196,6 +201,7 @@ ids show each of their steps.`,
 	for _, c := range []*cobra.Command{list, search, show} {
 		cf.register(c)
 	}
+	show.Flags().BoolVar(&fullShow, "full", false, "every variant and example, even in compact output (agents)")
 	// `axx steps explain` is `axx explain`, where agents look for it too.
 	explain := newExplainCmd(app)
 	explain.Short = "Same as `axx explain`: " + explain.Short
@@ -333,6 +339,20 @@ func searchSteps(infos []StepInfo, q string, limit int) (out []StepInfo, strong 
 	return out, strong
 }
 
+// stepList lists steps one line each: for an agent (compact output), as the
+// MCP server's catalog lists them, unpadded; for a person, in columns.
+func (a *App) stepList(w io.Writer, infos []StepInfo) error {
+	if !a.Compact {
+		return renderStepList(w, infos)
+	}
+	entries := make([]stepsearch.Entry, len(infos))
+	for i, s := range infos {
+		entries[i] = stepsearch.Entry{ID: s.ID, Pack: s.Pack, Expr: s.Expr, Arg: s.Arg, Columns: s.Columns}
+	}
+	_, err := io.WriteString(w, stepsearch.Catalog(entries))
+	return err
+}
+
 // renderStepList lists steps one line each, by pack: the id, the expression
 // and the table's columns, each named-service twin folded into its step;
 // then how to read them.
@@ -374,6 +394,29 @@ func renderSteps(w io.Writer, infos []StepInfo, notation bool) error {
 		fmt.Fprintf(w, "\n%s\n", stepsearch.TwinLegend)
 	}
 	fmt.Fprintf(w, "\n%s\n", stepsearch.Notation)
+	return nil
+}
+
+// renderStepCompact is a step as an agent writes it: its expression, the
+// table's columns, its parameters, its documentation and its first example.
+// The variants follow from the expression, and the rest is `--full`.
+func renderStepCompact(w io.Writer, s StepInfo) error {
+	fmt.Fprintf(w, "%s (pack %s)\n  %s\n", s.ID, s.Pack, s.Expr)
+	if len(s.Columns) > 0 {
+		fmt.Fprintf(w, "table: | %s |\n", strings.Join(s.Columns, " | "))
+	}
+	for _, p := range s.Params {
+		fmt.Fprintf(w, "{%s}: %s\n", p.Name, p.Doc)
+	}
+	if s.Doc != "" {
+		fmt.Fprintf(w, "%s\n", strings.TrimSpace(s.Doc))
+	}
+	if len(s.Examples) > 0 {
+		fmt.Fprintf(w, "Example:\n  %s\n", strings.ReplaceAll(s.Examples[0], "\n", "\n  "))
+	}
+	if s.Deprecated != "" {
+		fmt.Fprintf(w, "Deprecated: %s\n", s.Deprecated)
+	}
 	return nil
 }
 

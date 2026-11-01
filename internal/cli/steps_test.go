@@ -272,3 +272,38 @@ func TestStepsWithoutPacksListsAxxsPacks(t *testing.T) {
 		t.Errorf("steps: exit %d\n%s", code, out)
 	}
 }
+
+// Agents (compact output) get the short form of what they look up: a step
+// without its variants, the schema's outline, a pack they use without its
+// steps; --full gives the whole of each.
+func TestCompactLookupsAreShort(t *testing.T) {
+	restProject(t)
+	for _, c := range []struct {
+		args      []string
+		want, not []string
+	}{
+		{args: []string{"--compact", "steps", "show", "rest.response.status"}, want: []string{"rest.response.status (pack rest)", "Example:"}, not: []string{"Variants:", "Argument:"}},
+		{args: []string{"--compact", "steps", "show", "rest.response.status", "--full"}, want: []string{"Variants:"}},
+		{args: []string{"--compact", "schema"}, want: []string{"services:", "`axx schema --full`"}, not: []string{`"$schema"`}},
+		{args: []string{"--compact", "schema", "--full"}, want: []string{`"$schema"`}},
+		{args: []string{"--compact", "pack", "show", "rest"}, want: []string{"`axx steps --pack rest` lists its 31 steps"}, not: []string{"rest.request.headers"}},
+		{args: []string{"--compact", "pack", "show", "sql"}, want: []string{"sql.select.poll", "`axx pack add sql`"}},
+		{args: []string{"--compact", "steps"}, want: []string{"\n  rest.response.status  the[[ {ordinal} ordered]] response status code is {int}"}},
+	} {
+		out, stderr, code := run(t, c.args...)
+		if code != int(exitcode.OK) {
+			t.Errorf("axx %s: exit %d\n%s%s", strings.Join(c.args, " "), code, out, stderr)
+			continue
+		}
+		for _, w := range c.want {
+			if !strings.Contains(out, w) {
+				t.Errorf("axx %s lacks %q:\n%.600s", strings.Join(c.args, " "), w, out)
+			}
+		}
+		for _, n := range c.not {
+			if strings.Contains(out, n) {
+				t.Errorf("axx %s has %q:\n%.600s", strings.Join(c.args, " "), n, out)
+			}
+		}
+	}
+}

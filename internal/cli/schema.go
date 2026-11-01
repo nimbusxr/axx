@@ -15,7 +15,7 @@ import (
 
 func newSchemaCmd(app *App) *cobra.Command {
 	var out, kind string
-	var outline bool
+	var outline, full bool
 	cmd := &cobra.Command{
 		Use:   "schema [config|factory|fixture|prototype]",
 		Short: "Print the JSON Schema for axx.yaml or a fixture spec file",
@@ -48,8 +48,16 @@ Reference them from the files with:
 				}
 				schema = b
 			}
-			if outline {
-				return schemaOutline(app.Stdout, schema)
+			// An agent reads the outline: the JSON Schema says the same in five times the tokens.
+			if outline || (app.Compact && !full && out == "" && !app.JSON) {
+				if err := schemaOutline(app.Stdout, schema); err != nil {
+					return err
+				}
+				if !outline {
+					_, err := app.Stdout.Write([]byte("\n(the keys, a line each; `axx schema --full` prints the JSON Schema)\n"))
+					return err
+				}
+				return nil
 			}
 			if out != "" {
 				return os.WriteFile(out, schema, 0o644)
@@ -64,5 +72,6 @@ Reference them from the files with:
 	cmd.Flags().StringVarP(&out, "out", "o", "", "write to a file instead of stdout")
 	cmd.Flags().StringVar(&kind, "kind", "config", "which schema: config (axx.yaml), factory, fixture or prototype")
 	cmd.Flags().BoolVar(&outline, "outline", false, "print the keys the file may have, nested, each with one line of description (a fraction of the schema's size)")
+	cmd.Flags().BoolVar(&full, "full", false, "print the JSON Schema even in compact output, where the outline is the default")
 	return cmd
 }

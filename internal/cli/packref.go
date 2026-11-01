@@ -75,6 +75,17 @@ func betterElsewhere(mine, others []StepInfo, q string, limit int) ([]StepInfo, 
 	return found, outclassed
 }
 
+// foldedCount is the number of steps as `axx steps` lists them: each
+// named-service twin folded into its step.
+func foldedCount(infos []StepInfo) int {
+	entries := make([]stepsearch.Entry, len(infos))
+	for i, s := range infos {
+		entries[i] = stepsearch.Entry{ID: s.ID, Pack: s.Pack, Expr: s.Expr, Arg: s.Arg, Columns: s.Columns}
+	}
+	kept, _ := stepsearch.Fold(entries)
+	return len(kept)
+}
+
 func searchable(infos []StepInfo) []stepsearch.Step {
 	docs := make([]stepsearch.Step, len(infos))
 	for i, s := range infos {
@@ -143,14 +154,16 @@ func renderPackMap(w io.Writer, used map[string]bool) {
 // PackDetail is `axx pack show`: a pack, what it reaches, its settings and
 // its steps.
 type PackDetail struct {
-	Pack     string       `json:"pack"`
-	Summary  string       `json:"summary"`
-	Used     bool         `json:"used"`
-	Requires []string     `json:"requires,omitempty"`
-	Doc      string       `json:"doc,omitempty"`
-	Settings []Setting    `json:"settings,omitempty"`
-	Steps    []StepInfo   `json:"steps"`
-	Related  []PackSketch `json:"related,omitempty"`
+	Pack     string     `json:"pack"`
+	Summary  string     `json:"summary"`
+	Used     bool       `json:"used"`
+	Requires []string   `json:"requires,omitempty"`
+	Doc      string     `json:"doc,omitempty"`
+	Settings []Setting  `json:"settings,omitempty"`
+	Steps    []StepInfo `json:"steps"`
+	// StepCount is the pack's number of steps (Steps may leave them out).
+	StepCount int          `json:"stepCount"`
+	Related   []PackSketch `json:"related,omitempty"`
 }
 
 // Setting is a key of a pack's section in axx.yaml (packs.<name>).
@@ -223,8 +236,12 @@ func renderPackDetail(w io.Writer, d PackDetail) error {
 		}
 	}
 	fmt.Fprintln(w)
-	if len(d.Steps) == 0 {
+	switch {
+	case d.StepCount == 0:
 		_, err := fmt.Fprintln(w, "Steps: none of its own; its commands and the packs that build on it do the work.")
+		return err
+	case len(d.Steps) == 0:
+		_, err := fmt.Fprintf(w, "Steps: `axx steps --pack %s` lists its %d steps; `axx pack show %s --full` gives everything.\n", d.Pack, d.StepCount, d.Pack)
 		return err
 	}
 	if err := renderSteps(w, d.Steps, false); err != nil {

@@ -47,6 +47,7 @@ on first use and caches the result.`,
 
 func newPackShowCmd(app *App) *cobra.Command {
 	var cf configFlags
+	var full bool
 	cmd := &cobra.Command{
 		Use:     "show <name>",
 		Aliases: []string{"info"},
@@ -62,17 +63,34 @@ func newPackShowCmd(app *App) *cobra.Command {
 					WithHint("`axx pack list` lists axx's packs; a project's own packs are in its axx-packs.yaml")
 			}
 			d := PackDetail{Pack: name, Summary: cat.Summary, Requires: cat.Requires, Doc: ref.Doc, Settings: settingsOf(ref.Settings), Related: related(name)}
-			// The project's steps of the pack when it uses it, else the reference's.
-			if e, err := app.loadEngine(&cf); err == nil && loadedPacks(e)[name] {
-				d.Used = true
-				d.Steps = stepInfos(e, name)
-			} else if reg, err := packref.Registry(name); err == nil {
+			// Whether the project uses it: axx-packs.yaml lists it, or a pack that
+			// builds on it. Its steps are the reference's, as this axx's.
+			if _, f, _, err := app.packFile(); err == nil {
+				entries, _ := f.Entries()
+				for _, en := range packset.WithRequired(entries) {
+					if en.Kind == packset.Published && en.Name == name {
+						d.Used = true
+					}
+				}
+			}
+			if reg, err := packref.Registry(name); err == nil {
 				d.Steps = stepInfosOf(reg, name)
+			}
+			d.StepCount = foldedCount(d.Steps)
+			// An agent gets what it does not have yet: the first paragraph of the
+			// documentation, and the steps of a pack its project does not use
+			// (`axx steps` lists the others).
+			if app.Compact && !full && !app.JSON {
+				d.Doc, _, _ = strings.Cut(strings.TrimSpace(d.Doc), "\n\n")
+				if d.Used {
+					d.Steps = nil
+				}
 			}
 			return app.Emit(d, func(w io.Writer) error { return renderPackDetail(w, d) })
 		},
 	}
 	cf.register(cmd)
+	cmd.Flags().BoolVar(&full, "full", false, "all of the pack's documentation and steps, even in compact output (agents)")
 	return cmd
 }
 
