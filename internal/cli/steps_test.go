@@ -113,6 +113,56 @@ func TestStepsShowShowsTheTableColumns(t *testing.T) {
 	}
 }
 
+// A step's table shows the rows it knows, a service's properties, with what
+// each takes: an agent learned them from the docs site before. In compact
+// mode a table of many rows (a Kafka client's Java properties) names them.
+func TestStepsShowShowsTheTableRows(t *testing.T) {
+	restProject(t)
+	for _, c := range []struct {
+		args      []string
+		want, not []string
+	}{
+		{args: []string{"steps", "show", "rest.service"}, want: []string{"  Rows:\n    url (required): the base URL requests go to", "    openapi: "}},
+		// The example has url and openapi: compact output lists only the others.
+		{args: []string{"--compact", "steps", "show", "rest.service"}, want: []string{"table: | property | value |\nAny other property"}},
+		{args: []string{"--compact", "steps", "show", "kafka.service"}, want: []string{"table: | property | value |\n  asyncapi: "}, not: []string{"brokers (required)"}},
+		{args: []string{"--compact", "steps", "show", "kafka.client.props"}, want: []string{"rows: <client>.bootstrap.servers, ", "consumer.auto.offset.reset (default earliest), "}, not: []string{"  <client>.schema.registry.url: "}},
+		{args: []string{"steps", "show", "kafka.client.props"}, want: []string{"    <client>.schema.registry.url: the Schema Registry's URLs"}},
+	} {
+		out, stderr, code := run(t, c.args...)
+		if code != int(exitcode.OK) {
+			t.Errorf("axx %s: exit %d\n%s%s", strings.Join(c.args, " "), code, out, stderr)
+			continue
+		}
+		for _, w := range c.want {
+			if !strings.Contains(out, w) {
+				t.Errorf("axx %s lacks %q:\n%.1500s", strings.Join(c.args, " "), w, out)
+			}
+		}
+		for _, n := range c.not {
+			if strings.Contains(out, n) {
+				t.Errorf("axx %s has %q", strings.Join(c.args, " "), n)
+			}
+		}
+	}
+}
+
+// Several steps in one call: a parameter's documentation comes once, and a
+// step of a pack the project does not use comes with the pack to add.
+func TestStepsShowSeveralStepsOnce(t *testing.T) {
+	restProject(t)
+	out, stderr, code := run(t, "--compact", "steps", "show", "rest.request.header", "rest.response.header.is", "kafka.client")
+	if code != int(exitcode.OK) {
+		t.Fatalf("exit %d: %s%s", code, out, stderr)
+	}
+	if n := strings.Count(out, "{word}: one word"); n != 1 {
+		t.Errorf("{word} documented %d times:\n%s", n, out)
+	}
+	if !strings.Contains(out, "kafka.client (pack kafka)") || !strings.Contains(out, "`axx pack add kafka`") {
+		t.Errorf("kafka.client missing, or its pack:\n%s", out)
+	}
+}
+
 // The commands agents reach for on the command line, as the MCP tools and
 // `axx explain` have them: env, config show, steps explain.
 func TestEnvConfigShowAndStepsExplain(t *testing.T) {

@@ -134,11 +134,12 @@ func newRootCmd(app *App) *cobra.Command {
 	root := &cobra.Command{
 		Use:   "axx",
 		Short: "Verify running software against executable acceptance criteria",
-		Long: `axx runs acceptance criteria, written as Gherkin scenarios people can read, black-box
-against running services and apps. Its packs give the steps (REST and OpenAPI, WireMock,
-SQL, MongoDB, Kafka, logs, files, web apps in real browsers, AWS, Google Cloud, Azure):
-a project lists those it uses in axx-packs.yaml, beside packs of its own steps. All of
-this answers offline, for this version.
+		Long: Identity + `
+
+Its criteria are Gherkin scenarios people can read, and its packs give the steps (REST and
+OpenAPI, WireMock, SQL, MongoDB, Kafka, logs, files, web apps in real browsers, AWS, Google
+Cloud, Azure): a project lists those it uses in axx-packs.yaml, beside packs of its own
+steps. All of this answers offline, for this version.
 
 Writing tests:
   axx steps                  every step of the project's packs, one line each: read it once
@@ -153,9 +154,7 @@ with the pack to add; axx pack list says what each pack reaches.
 A scenario is one behavior: Given the state it starts from, one When, Then what is true
 afterwards; a When after a Then is another scenario. Every scenario uses data of its own.
 
-Docs for people: https://axx.nimbusxr.us
-
-` + Identity,
+Docs for people: https://axx.nimbusxr.us`,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {

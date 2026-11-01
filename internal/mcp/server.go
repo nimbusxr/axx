@@ -24,6 +24,7 @@ import (
 	messages "github.com/cucumber/messages/go/v34"
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 
+	"github.com/nimbusxr/axx/core"
 	"github.com/nimbusxr/axx/internal/axxerr"
 	"github.com/nimbusxr/axx/internal/check"
 	"github.com/nimbusxr/axx/internal/config"
@@ -247,6 +248,8 @@ type Step struct {
 	// Columns name the columns of the step's data table; the table may
 	// start with a row of these names (two columns or more) or not.
 	Columns []string `json:"columns,omitempty"`
+	// Rows are the rows the table knows, like a service's properties.
+	Rows []core.TableRow `json:"rows,omitempty"`
 	// TableNote says what the table's rows hold.
 	TableNote string   `json:"tableNote,omitempty"`
 	Doc       string   `json:"doc,omitempty"`
@@ -339,7 +342,7 @@ func (s *server) stepsSearch(ctx context.Context, _ *sdk.CallToolRequest, in ste
 			continue
 		}
 		s.shown[st.ID] = true
-		st.Doc, st.Variants, st.Params = "", nil, nil
+		st.Doc, st.Variants, st.Params, st.Rows = "", nil, nil, nil
 		if len(st.Examples) > 1 {
 			st.Examples = st.Examples[:1]
 		}
@@ -347,7 +350,7 @@ func (s *server) stepsSearch(ctx context.Context, _ *sdk.CallToolRequest, in ste
 	}
 	s.shownMu.Unlock()
 	for _, st := range others {
-		st.Doc, st.Variants, st.Params = "", nil, nil
+		st.Doc, st.Variants, st.Params, st.Rows = "", nil, nil, nil
 		if len(st.Examples) > 1 {
 			st.Examples = st.Examples[:1]
 		}
@@ -422,13 +425,15 @@ func stepsOf(reg *match.Registry, pack string) []Step {
 			}
 		}
 		var columns []string
+		var rows []core.TableRow
 		note := ""
 		if d.Step.Table != nil {
 			columns, note = d.Step.Table.Columns, d.Step.Table.Note
+			rows, _ = stepsearch.BriefRows(d.Step.Table.Rows)
 		}
 		out = append(out, Step{
 			ID: d.Step.ID, Pack: d.Pack, Expr: d.Step.Expr, Variants: variants[d], Arg: d.Step.Arg.String(),
-			Columns: columns, TableNote: note, Doc: d.Step.Doc, Examples: d.Step.Examples, Params: params,
+			Columns: columns, Rows: rows, TableNote: note, Doc: d.Step.Doc, Examples: d.Step.Examples, Params: params,
 		})
 	}
 	return out

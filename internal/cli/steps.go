@@ -3,12 +3,14 @@ package cli
 import (
 	"fmt"
 	"io"
+	"regexp"
 	"slices"
 	"sort"
 	"strings"
 
 	"github.com/spf13/cobra"
 
+	"github.com/nimbusxr/axx/core"
 	"github.com/nimbusxr/axx/internal/axxerr"
 	"github.com/nimbusxr/axx/internal/engine"
 	"github.com/nimbusxr/axx/internal/exitcode"
@@ -27,14 +29,16 @@ type StepInfo struct {
 	Keyword  string   `json:"keyword,omitempty"`
 	Arg      string   `json:"arg"`
 	// Columns name the columns of the step's data table, when it has one;
-	// TableNote says what its rows hold.
-	Columns    []string    `json:"columns,omitempty"`
-	TableNote  string      `json:"tableNote,omitempty"`
-	Doc        string      `json:"doc,omitempty"`
-	Examples   []string    `json:"examples,omitempty"`
-	Params     []ParamInfo `json:"params,omitempty"`
-	Since      string      `json:"since,omitempty"`
-	Deprecated string      `json:"deprecated,omitempty"`
+	// Rows are the rows it knows (a service's properties), and TableNote
+	// says what its rows hold.
+	Columns    []string        `json:"columns,omitempty"`
+	Rows       []core.TableRow `json:"rows,omitempty"`
+	TableNote  string          `json:"tableNote,omitempty"`
+	Doc        string          `json:"doc,omitempty"`
+	Examples   []string        `json:"examples,omitempty"`
+	Params     []ParamInfo     `json:"params,omitempty"`
+	Since      string          `json:"since,omitempty"`
+	Deprecated string          `json:"deprecated,omitempty"`
 }
 
 // ParamInfo describes a parameter used by a step.
@@ -165,18 +169,29 @@ ids show each of their steps.`,
 			}
 			renderStep := renderStep
 			if app.Compact && !fullShow {
-				renderStep = renderStepCompact
+				// A parameter's documentation comes once a call.
+				seen := map[string]bool{}
+				renderStep = func(w io.Writer, s StepInfo) error { return renderStepCompact(w, s, seen) }
 			}
 			infos := stepInfos(e, "")
-			// Several ids: each step, in one call.
-			if many := stepsByIDs(infos, args); len(args) > 1 && len(many) == len(args) {
+			// Several ids: each step, in one call, those of packs the
+			// project does not use too.
+			many := stepsByIDs(infos, args)
+			if len(args) > 1 && len(many) < len(args) {
+				many = stepsByIDs(append(infos, otherInfos(e, "")...), args)
+			}
+			if len(args) > 1 && len(many) == len(args) {
 				return app.Emit(map[string]any{"steps": many}, func(w io.Writer) error {
+					used := loadedPacks(e)
 					for i, s := range many {
 						if i > 0 {
 							fmt.Fprintln(w, "\n---")
 						}
 						if err := renderStep(w, s); err != nil {
 							return err
+						}
+						if !used[s.Pack] {
+							fmt.Fprintf(w, "%s\n", notInProject(s.Pack))
 						}
 					}
 					return nil
@@ -400,19 +415,41 @@ func renderSteps(w io.Writer, infos []StepInfo, notation bool) error {
 }
 
 // renderStepCompact is a step as an agent writes it: its expression, the
-// table's columns, its parameters, its documentation and its first example.
-// The variants follow from the expression, and the rest is `--full`.
-func renderStepCompact(w io.Writer, s StepInfo) error {
+// table's columns and rows, its parameters (those seenParams has not got), its
+// documentation and its first example. The variants follow from the
+// expression, and the rest is `--full`.
+func renderStepCompact(w io.Writer, s StepInfo, seenParams map[string]bool) error {
 	var b strings.Builder
 	fmt.Fprintf(&b, "%s (pack %s)\n  %s\n", s.ID, s.Pack, s.Expr)
 	if len(s.Columns) > 0 {
 		fmt.Fprintf(&b, "table: | %s |\n", strings.Join(s.Columns, " | "))
 	}
+	if rows, whole := stepsearch.BriefRows(s.Rows); whole {
+		// The example shows how to write its rows; the others are listed.
+		shown := ""
+		if len(s.Examples) > 0 {
+			shown = s.Examples[0]
+		}
+		for _, r := range rows {
+			if !exampleHasRow(shown, r.Name) {
+				fmt.Fprintf(&b, "  %s\n", rowLine(r))
+			}
+		}
+	} else {
+		names := make([]string, len(rows))
+		for i, r := range rows {
+			names[i] = rowName(r)
+		}
+		fmt.Fprintf(&b, "rows: %s\n", strings.Join(names, ", "))
+	}
 	if s.TableNote != "" {
 		fmt.Fprintf(&b, "%s\n", s.TableNote)
 	}
 	for _, p := range s.Params {
-		fmt.Fprintf(&b, "{%s}: %s\n", p.Name, p.Doc)
+		if !seenParams[p.Name] {
+			seenParams[p.Name] = true
+			fmt.Fprintf(&b, "{%s}: %s\n", p.Name, p.Doc)
+		}
 	}
 	if s.Doc != "" {
 		fmt.Fprintf(&b, "%s\n", strings.TrimSpace(s.Doc))
@@ -425,6 +462,42 @@ func renderStepCompact(w io.Writer, s StepInfo) error {
 	}
 	_, err := io.WriteString(w, b.String())
 	return err
+}
+
+// exampleHasRow says whether an example's table has a row of name, whose
+// <placeholder> parts stand for any text (<client>.client.id).
+func exampleHasRow(example, name string) bool {
+	parts := strings.Split(name, "<")
+	pattern := regexp.QuoteMeta(parts[0])
+	for _, p := range parts[1:] {
+		_, rest, _ := strings.Cut(p, ">")
+		pattern += `\S+` + regexp.QuoteMeta(rest)
+	}
+	re, err := regexp.Compile(`(?m)^\s*\|\s*` + pattern + `\s*\|`)
+	return err == nil && re.MatchString(example)
+}
+
+// rowName is a row a step's table knows by its first cell, with whether the
+// table must have it or its default.
+func rowName(r core.TableRow) string {
+	switch {
+	case r.Required:
+		return r.Name + " (required)"
+	case r.Default != "":
+		return fmt.Sprintf("%s (default %s)", r.Name, r.Default)
+	}
+	return r.Name
+}
+
+// rowLine is a row a step's table knows: its name, what it takes and the
+// values it takes.
+func rowLine(r core.TableRow) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "%s: %s", rowName(r), strings.TrimSuffix(r.Takes, "."))
+	if len(r.Values) > 0 {
+		fmt.Fprintf(&b, "; one of %s", strings.Join(r.Values, ", "))
+	}
+	return b.String()
 }
 
 func renderStep(w io.Writer, s StepInfo) error {
@@ -443,6 +516,12 @@ func renderStep(w io.Writer, s StepInfo) error {
 		fmt.Fprintf(w, "\nTable columns: | %s |\n  (the table may start with a row of these names, or go straight to its rows)\n", strings.Join(s.Columns, " | "))
 	case len(s.Columns) == 1:
 		fmt.Fprintf(w, "\nTable column: | %s |\n", s.Columns[0])
+	}
+	if len(s.Rows) > 0 {
+		fmt.Fprintln(w, "  Rows:")
+		for _, r := range s.Rows {
+			fmt.Fprintf(w, "    %s\n", rowLine(r))
+		}
 	}
 	if s.TableNote != "" {
 		fmt.Fprintf(w, "  %s\n", s.TableNote)

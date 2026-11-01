@@ -113,6 +113,20 @@ func TestTools(t *testing.T) {
 	if sts, _ := out["steps"].([]any); len(sts) != 2 || sts[1].(map[string]any)["id"] != "rest.request" || fmt.Sprint(out["unknown"]) != "[rest.nope]" {
 		t.Fatalf("step_explain by ids: %v", out)
 	}
+	// A step's table comes with the rows it knows, and what each takes; a
+	// table of many rows (a Kafka client's Java properties) with their names.
+	out = call(t, cs, "step_explain", map[string]any{"ids": []string{"rest.service", "kafka.client.props"}})
+	if sts, _ := out["steps"].([]any); len(sts) != 2 {
+		t.Fatalf("step_explain of tables: %v", out)
+	} else {
+		rest, kafka := sts[0].(map[string]any)["rows"].([]any), sts[1].(map[string]any)["rows"].([]any)
+		if len(rest) != 2 || rest[0].(map[string]any)["name"] != "url" || rest[0].(map[string]any)["required"] != true || rest[0].(map[string]any)["takes"] == "" {
+			t.Errorf("rest.service rows: %v", rest)
+		}
+		if len(kafka) < 20 || kafka[0].(map[string]any)["takes"] != "" {
+			t.Errorf("kafka.client.props rows, names only: %.300v", kafka)
+		}
+	}
 	// Notation copied from an expression gets the line written out.
 	out = call(t, cs, "step_explain", map[string]any{"line": "Given a request payload using a(n) application/json empty content template"})
 	if sg, _ := out["suggestions"].([]any); out["status"] != "undefined" || len(sg) == 0 || sg[0] != "a request payload using an application/json empty content template" {

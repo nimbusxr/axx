@@ -72,7 +72,7 @@ func steps() []core.StepDef {
 					{Name: "brokers", Required: true, Takes: "the cluster's brokers, a comma-separated list of `host:port`; `${env:..}` and `${sys:..}` are expanded"},
 					contract.TableRow("topics"),
 				},
-				Note: "Any other property is ignored, with a warning.",
+				Note: "Any other property is ignored, with a warning: serializers, the Schema Registry and the other Java client properties are a topic client's (`a(n) {word} kafka topic client with the following properties:`).",
 			},
 			Examples: []string{"Given the events kafka service with the following properties:\n  | brokers | localhost:9092 |"},
 			Run:      addService,
@@ -81,7 +81,8 @@ func steps() []core.StepDef {
 			ID: "kafka.client", Keyword: "Given",
 			Expr: "the {word} kafka topic client",
 			Doc: "Create a topic client on the default Kafka service with the default configuration: string keys and values, " +
-				"records read from the start of the topic. A topic can have one client per service in a scenario.",
+				"records read from the start of the topic. A topic can have one client per service in a scenario. " +
+				"Avro, a Schema Registry and other Java client properties: `a(n) {word} kafka topic client with the following properties:`.",
 			Examples: []string{"Given the parcel-events kafka topic client"},
 			Run: func(sc *core.Scenario, a core.Args) error {
 				svc, err := service(sc, a, -1)
@@ -534,7 +535,7 @@ func addService(sc *core.Scenario, a core.Args) error {
 		case p.Key == contract.Row && !p.Null:
 			asyncapi = strings.TrimSpace(sc.Suite().Interpolate(p.Value))
 		case p.Key != "brokers" && p.Key != contract.Row:
-			sc.Log("warning: kafka service property %q is ignored (only brokers and asyncapi are used)", p.Key)
+			sc.Log("warning: kafka service property %q is ignored: the service takes brokers and asyncapi, and a topic client's properties take serializers, the Schema Registry and the other Java client properties (a(n) {word} kafka topic client with the following properties:)", p.Key)
 		}
 	}
 	if strings.TrimSpace(brokers) == "" {

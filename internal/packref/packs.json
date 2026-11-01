@@ -3050,14 +3050,14 @@
                 "takes": "an AsyncAPI document, a file of the project or a URL, that the topics follow: every message a scenario sends there, and every message a check finds, is checked against it (with the asyncapi pack)"
               }
             ],
-            "note": "Any other property is ignored, with a warning."
+            "note": "Any other property is ignored, with a warning: serializers, the Schema Registry and the other Java client properties are a topic client's (`a(n) {word} kafka topic client with the following properties:`)."
           }
         },
         {
           "id": "kafka.client",
           "expr": "the {word} kafka topic client",
           "keyword": "Given",
-          "doc": "Create a topic client on the default Kafka service with the default configuration: string keys and values, records read from the start of the topic. A topic can have one client per service in a scenario.",
+          "doc": "Create a topic client on the default Kafka service with the default configuration: string keys and values, records read from the start of the topic. A topic can have one client per service in a scenario. Avro, a Schema Registry and other Java client properties: `a(n) {word} kafka topic client with the following properties:`.",
           "examples": [
             "Given the parcel-events kafka topic client"
           ],
