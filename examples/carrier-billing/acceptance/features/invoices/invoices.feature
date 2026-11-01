@@ -22,7 +22,7 @@ Feature: Carrier invoices
       | status          | RECONCILED |
       | lines           | 2          |
       | totals.billed   | 6.58       |
-      | totals.disputed | 0          |
+      | totals.disputed | 0.0        |
     And the billing.invoice_lines bigquery table has 2 rows where:
       | invoice | INV-2026-09-KES1 |
       | status  | MATCHED          |
