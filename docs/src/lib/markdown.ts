@@ -41,7 +41,7 @@ function absolutize(body: string): string {
 /** The home page's twin starts with where an agent starts. */
 const AGENTS_START =
 	'> **Coding agents:** with axx installed, `axx --help` gives the workflow and the rules, and axx answers the rest itself, offline and for its version: ' +
-	'`axx steps` (every step of the project\'s packs, read once) and `axx steps show <id>...`, `axx steps search <words>` (a step the project\'s packs lack, with the pack to add), ' +
+	'`axx steps` (every step of the project\'s packs, read once), `axx steps show <id>...` (their documentation) and `axx steps search <words>` (a step the project\'s packs lack, with the pack to add), ' +
 	'`axx pack list` (what each pack reaches), `axx explain <code>` (an error). ' +
 	`In a project that has run \`axx init\`, its AGENTS.md section has the same. [llms.txt](${ROOT}/llms.txt) indexes this site's Markdown.`;
 
