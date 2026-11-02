@@ -297,6 +297,12 @@ func resolveValue(d Dialect, v any, now time.Time) (string, error) {
 	case nil:
 		return "NULL", nil
 	case bool:
+		if d.Oracle { // no conversion of 'true' to a NUMBER, the usual flag
+			if t {
+				return "1", nil
+			}
+			return "0", nil
+		}
 		return d.Literal(strconv.FormatBool(t)), nil
 	case uint64:
 		return d.Literal(strconv.FormatUint(t, 10)), nil
@@ -369,7 +375,9 @@ func shift(now time.Time, unit, op, n string) time.Time {
 	}
 }
 
-// insert writes the dataset in one transaction, one INSERT per row, in order.
+// insert writes the dataset in one transaction, one INSERT per row, in order. A
+// row can set a column the database generates: a seed says which row it wants,
+// so an identity column takes what the row names (see identity.go).
 func (svc *Service) insert(ctx context.Context, ds *Dataset, now time.Time) error {
 	d := svc.Target.Dialect
 	tx, err := svc.DB.BeginTx(ctx, nil)
@@ -377,10 +385,16 @@ func (svc *Service) insert(ctx context.Context, ds *Dataset, now time.Time) erro
 		return err
 	}
 	defer func() { _ = tx.Rollback() }()
+	overrides := svc.newIdentityOverrides(tx)
+	defer func() { _ = overrides.close(ctx) }()
 	for _, t := range ds.Tables {
 		table, err := Ident(t.Name)
 		if err != nil {
 			return err
+		}
+		var oracleTypes map[string]string
+		if d.Oracle {
+			oracleTypes = svc.oracleColumnTypes(ctx, table)
 		}
 		for i, r := range t.Rows {
 			cols := make([]string, len(r.Columns))
@@ -392,12 +406,22 @@ func (svc *Service) insert(ctx context.Context, ds *Dataset, now time.Time) erro
 				if vals[j], err = resolveValue(d, r.Values[j], now); err != nil {
 					return fmt.Errorf("%s row %d column %s: %w", t.Name, i+1, c, err)
 				}
+				if d.Oracle {
+					vals[j] = oracleSeedValue(oracleTypes, c, vals[j])
+				}
 			}
-			q := "INSERT INTO " + table + " (" + strings.Join(cols, ", ") + ") VALUES (" + strings.Join(vals, ", ") + ")"
+			override, err := overrides.prepare(ctx, table, cols)
+			if err != nil {
+				return fmt.Errorf("insert into %s (row %d): %w", t.Name, i+1, err)
+			}
+			q := "INSERT INTO " + table + " (" + strings.Join(cols, ", ") + ")" + override + " VALUES (" + strings.Join(vals, ", ") + ")"
 			if _, err := tx.ExecContext(ctx, q); err != nil {
 				return fmt.Errorf("insert into %s (row %d): %w%s", t.Name, i+1, err, svc.schemaHint(ctx, t.Name, err))
 			}
 		}
+	}
+	if err := overrides.close(ctx); err != nil {
+		return err
 	}
 	return tx.Commit()
 }

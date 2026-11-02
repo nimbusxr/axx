@@ -102,6 +102,14 @@ for _, p := range pairs {
 }
 ```
 
+A check of your own compares by the same rule with `v.Is`, given what the source holds as JSON. Types must match, so `2` is no decimal `2.0`, and `"42"` no number:
+
+```go
+if !v.Is(actualJSON) {
+	return core.Fail("the carrier code differs", p.Value, actualJSON)
+}
+```
+
 A `{string}` the step sets something to or checks something against is a value too, read by the same rule. Say so, by the argument's place, and `axx validate` and the run report what the rule cannot read (`'5'` asks for `'"5"'`):
 
 ```go title="steps/pack.go"

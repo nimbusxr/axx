@@ -105,12 +105,45 @@ func scanParcel(row pgx.Row) (*Parcel, error) {
 }
 
 func (s *store) Get(ctx context.Context, ref string) (*Parcel, error) {
-	return scanParcel(s.pool.QueryRow(ctx, `SELECT `+parcelColumns+` FROM parcels.parcels WHERE reference = $1`, ref))
+	var out *Parcel
+	err := s.answered(ctx, ref, func(tried context.Context) error {
+		var err error
+		out, err = scanParcel(s.pool.QueryRow(tried, `SELECT `+parcelColumns+` FROM parcels.parcels WHERE reference = $1`, ref))
+		return err
+	})
+	return out, err
+}
+
+// How long a call to the database may take, and how often it is tried, when the
+// connection to the database is what fails.
+const (
+	callTimeout        = 2 * time.Second
+	connectionAttempts = 4
+)
+
+// answered makes a call to the database, trying again for a moment while the database
+// does not answer, as an outage can be short: errUnavailable when it never does. An
+// error with no SQLSTATE is no answer of the database's, so the connection failed.
+func (s *store) answered(ctx context.Context, ref string, call func(context.Context) error) error {
+	for attempt := 1; ; attempt++ {
+		tried, cancel := context.WithTimeout(ctx, callTimeout)
+		err := call(tried)
+		cancel()
+		if err == nil || sqlState(err) != "" || errors.Is(err, errNotFound) || ctx.Err() != nil {
+			return err
+		}
+		if attempt == connectionAttempts {
+			return fmt.Errorf("%w: %w", errUnavailable, err)
+		}
+		s.log.Warn("the database did not answer, retrying", "reference", ref, "attempt", attempt, "err", err)
+		time.Sleep(time.Duration(attempt) * 200 * time.Millisecond)
+	}
 }
 
 // Insert stores a new parcel: errDuplicate when the reference exists, and
 // errUnavailable when the database keeps reporting transient failures
-// (serialization failures and deadlocks are retried twice).
+// (serialization failures and deadlocks are retried twice) or cannot be
+// reached (retried for a moment, as an outage can be short).
 func (s *store) Insert(ctx context.Context, p *Parcel, details map[string]any) (*Parcel, error) {
 	rj, err := json.Marshal(p.Recipient)
 	if err != nil {
@@ -121,10 +154,15 @@ func (s *store) Insert(ctx context.Context, p *Parcel, details map[string]any) (
 		return nil, err
 	}
 	for attempt := 1; ; attempt++ {
-		out, err := scanParcel(s.pool.QueryRow(ctx, `
+		var out *Parcel
+		err := s.answered(ctx, p.Reference, func(tried context.Context) error {
+			var err error
+			out, err = scanParcel(s.pool.QueryRow(tried, `
 INSERT INTO parcels.parcels (reference, sender, status, weight_grams, service_level, recipient, details)
 VALUES ($1, $2, 'REGISTERED', $3, $4, $5, $6)
 RETURNING `+parcelColumns, p.Reference, p.Sender, p.WeightGrams, p.ServiceLevel, rj, dj))
+			return err
+		})
 		switch sqlState(err) {
 		case "23505":
 			return nil, errDuplicate

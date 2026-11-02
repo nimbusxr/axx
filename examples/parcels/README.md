@@ -25,6 +25,8 @@ The service has no dependency on Axx or on any test framework.
 | `manifest-import` | manifest lines become parcels or are rejected with the reason | YAML, flat XML and CSV seeds, polling selections, JSON and JSONB column checks, entries in the console log |
 | `manifest-documents` | an imported manifest's report, summary and handover note land in the export folder | a folder the service writes to, the rows of a CSV file and of a workbook, a file compared byte for byte, JSON properties, the text of a PDF |
 | `dispatch` | a parcel the depot is dispatching cannot be changed until the depot lets go of it | row locks |
+| `connection-faults` | a shop gets an answer when the service's connections fail: from the cache while the database is away, its parcel registered when the trouble is short, and a request to try again later when it lasts | connections cut off, slowed, hanging, reset and closing early, through Toxiproxy; a fault that ends by itself; scenarios that run alone by `run.exclusiveUses` |
+| `telemetry` | every registration is traced from the request to the database, logged in its trace and counted by its shop, and a recipient's name stays out of it all | spans, logs, counters, histograms and gauges read from a real OpenTelemetry Collector, each scenario with a trace of its own |
 | `database-failures` | brief database failures are retried; lasting ones ask the shop to try again later | fault-injecting triggers, `@isolated` scenarios, counting log entries (one per retry) |
 | `tracking` | the tracking summary shows the latest scan, however late or often scans arrive | MongoDB seeds and polling queries, publishing Avro events |
 | `registration-events` | every registered parcel is announced as a ParcelRegistered event, and a refused one is not | consuming Avro events through the Schema Registry, a log entry that proves an event was not published |
@@ -239,7 +241,7 @@ published ports on `localhost`, which is what you want when running it on the ho
 | Variable | Default | In compose |
 | --- | --- | --- |
 | `PARCELS_ADDR` | `:8400` | `:8400` |
-| `PARCELS_DB_URL` | `postgres://parcels:parcels@localhost:5432/parcels?sslmode=disable` | `...@postgres:5432/parcels?sslmode=disable` |
+| `PARCELS_DB_URL` | `postgres://parcels:parcels@localhost:5432/parcels?sslmode=disable` | `...@toxiproxy:15432/parcels?sslmode=disable` (Toxiproxy passes it on to `postgres`) |
 | `PARCELS_MONGO_URI` | `mongodb://parcels:parcels@localhost:27017/?authSource=admin` | `...@mongo:27017/?authSource=admin` |
 | `PARCELS_ADDRESS_URL` | `http://localhost:8081` | `http://address-service:8080` |
 | `PARCELS_COURIER_URL` | `http://localhost:8082` | `http://courier:8080` |

@@ -231,7 +231,7 @@ func (s *service) invoke(sc *core.Scenario, methodName, file string, t *core.Tab
 	}
 	ctx, cancel := context.WithTimeout(sc.Context(), s.timeout)
 	defer cancel()
-	ctx = metadata.NewOutgoingContext(ctx, s.headers)
+	ctx = metadata.NewOutgoingContext(ctx, s.outgoing(sc))
 	out := dynamicpb.NewMessage(m.Output())
 	var header, trailer metadata.MD
 	err = conn.Invoke(ctx, path, req, out, grpclib.Header(&header), grpclib.Trailer(&trailer))
@@ -257,7 +257,7 @@ func (s *service) invoke(sc *core.Scenario, methodName, file string, t *core.Tab
 // background until it ends or the scenario does.
 func (s *service) stream(sc *core.Scenario, c *call, conn *grpclib.ClientConn, path string, req *dynamicpb.Message, set *protoload.Set) error {
 	// The stream lives for the scenario, not for the step that starts it.
-	ctx, cancel := context.WithCancel(metadata.NewOutgoingContext(context.Background(), s.headers))
+	ctx, cancel := context.WithCancel(metadata.NewOutgoingContext(context.Background(), s.outgoing(sc)))
 	c.cancel, c.stream = cancel, &cloudstep.Inbox{}
 	cs, err := conn.NewStream(ctx, &grpclib.StreamDesc{ServerStreams: true}, path)
 	if err == nil {
@@ -331,4 +331,16 @@ func statusText(st *status.Status) string {
 		return fmt.Sprintf("%s (%q)", codeName(st.Code()), m)
 	}
 	return codeName(st.Code())
+}
+
+// outgoing is the metadata of a call: the service's headers, and the scenario's under
+// names they do not set.
+func (s *service) outgoing(sc *core.Scenario) metadata.MD {
+	md := s.headers.Copy()
+	for name, value := range sc.RequestHeaders() {
+		if key := strings.ToLower(name); len(md.Get(key)) == 0 {
+			md.Set(key, value)
+		}
+	}
+	return md
 }

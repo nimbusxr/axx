@@ -220,7 +220,7 @@ export default defineConfig({
 					label: 'Guides',
 					items: [
 						{ label: 'Set up', items: ['guides/install', 'guides/set-up-your-editor', 'guides/configure-services', 'guides/organize-by-feature', 'guides/manage-services', 'guides/run-in-ci', 'guides/set-up-agents', 'guides/run-from-a-sandbox'] },
-						{ label: 'Test', items: ['guides/send-rest-requests', 'guides/validate-openapi', 'guides/mock-dependencies', 'guides/webhooks-and-tokens', 'guides/test-grpc', 'guides/test-jsonrpc', 'guides/test-graphql', 'guides/test-ai-features', 'guides/stub-embedded-models', 'guides/test-mcp', 'guides/test-a2a', 'guides/seed-and-query-sql', 'guides/seed-mongodb', 'guides/test-redis', 'guides/test-kafka-avro', 'guides/test-message-brokers', 'guides/test-websockets', 'guides/test-event-streams', 'guides/validate-asyncapi', 'guides/check-logs', 'guides/check-files', 'guides/check-emails', 'guides/run-commands', 'guides/test-cloud-services', 'guides/use-packs', 'guides/write-custom-steps'] },
+						{ label: 'Test', items: ['guides/send-rest-requests', 'guides/validate-openapi', 'guides/mock-dependencies', 'guides/webhooks-and-tokens', 'guides/test-grpc', 'guides/test-jsonrpc', 'guides/test-graphql', 'guides/test-ai-features', 'guides/stub-embedded-models', 'guides/test-mcp', 'guides/test-a2a', 'guides/seed-and-query-sql', 'guides/seed-mongodb', 'guides/test-redis', 'guides/test-kafka-avro', 'guides/test-message-brokers', 'guides/test-websockets', 'guides/test-event-streams', 'guides/validate-asyncapi', 'guides/check-logs', 'guides/check-files', 'guides/check-emails', 'guides/break-connections', 'guides/check-telemetry', 'guides/run-commands', 'guides/test-cloud-services', 'guides/use-packs', 'guides/write-custom-steps'] },
 						{ label: 'Web apps', items: ['guides/test-web-apps', 'guides/web-pages', 'guides/web-checks', 'guides/web-sign-in', 'guides/web-screenshots', 'guides/web-accessibility', 'guides/web-network', 'guides/web-lighthouse', 'guides/web-coverage', 'guides/watch-web-browsers'] },
 						{ label: 'Mobile apps', items: ['guides/test-mobile-apps'] },
 						{ label: 'Desktop apps', items: ['guides/test-desktop-apps'] },
@@ -254,6 +254,8 @@ export default defineConfig({
 								'references/packs/logs',
 								'references/packs/files',
 								'references/packs/mail',
+								'references/packs/faults',
+								'references/packs/otel',
 								'references/packs/cli',
 								'references/packs/websocket',
 								'references/packs/sse',
@@ -347,7 +349,7 @@ export default defineConfig({
 					].join('\n'),
 					customSets: [
 						{ label: 'Tutorials', paths: ['tutorials/**'], description: 'quickstart, a first suite, and testing with a coding agent' },
-						{ label: 'Guides', paths: ['guides/**'], description: 'task guides: services, CI, REST requests (redirects, cookies), webhooks and tokens (signatures, JWT, OAuth 2.0), OpenAPI, mocks, AI features (mocked models), MCP servers, A2A agents, SQL, MongoDB, Redis, Kafka, AMQP, MQTT, NATS, WebSockets, server-sent events, logs, files, emails, commands, web apps in real browsers (pages, checks, sign-in, screenshots, accessibility, network, Lighthouse, coverage, watching and traces), Android apps on emulators (Appium, deep links, a device and a clean app per scenario), cloud services (AWS, Google Cloud, Azure), test data, packs, custom steps, debugging, agents' },
+						{ label: 'Guides', paths: ['guides/**'], description: 'task guides: services, CI, REST requests (redirects, cookies), webhooks and tokens (signatures, JWT, OAuth 2.0), OpenAPI, mocks, AI features (mocked models), MCP servers, A2A agents, SQL, MongoDB, Redis, Kafka, AMQP, MQTT, NATS, WebSockets, server-sent events, logs, files, emails, connections that fail, OpenTelemetry traces and metrics, commands, web apps in real browsers (pages, checks, sign-in, screenshots, accessibility, network, Lighthouse, coverage, watching and traces), Android apps on emulators (Appium, deep links, a device and a clean app per scenario), cloud services (AWS, Google Cloud, Azure), test data, packs, custom steps, debugging, agents' },
 						{ label: 'References', paths: ['references/**'], description: 'generated reference of the packs (settings, steps, agent tools), the steps\' grammar, the CLI and error codes, axx.yaml, JSON output and exit codes' },
 						{ label: 'Explanations', paths: ['explanations/**'], description: 'why Axx, how it works: black-box testing, isolation, step design, web browsers, OpenAPI, agents' },
 					],

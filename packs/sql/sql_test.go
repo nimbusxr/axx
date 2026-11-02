@@ -38,8 +38,30 @@ func TestResolve(t *testing.T) {
 	if tgt.Port != "15432" || tgt.Database != "space" {
 		t.Errorf("postgres target: %+v", tgt)
 	}
-	if _, err := Resolve("jdbc:oracle:thin:@x", "u", "p"); err == nil {
+	if _, err := Resolve("jdbc:db2://x:50000/parcels", "u", "p"); err == nil {
 		t.Error("unsupported URL must error")
+	}
+	for _, c := range []struct{ url, part string }{
+		{"jdbc:oracle:thin:@//db.test:1522/FREEPDB1", "db.test:1522/FREEPDB1"},
+		{"jdbc:oracle:thin:@db.test:1522/FREEPDB1", "db.test:1522/FREEPDB1"},
+		{"jdbc:oracle:thin:@db.test:1522:FREE", "SID=FREE"},
+		{"oracle://db.test:1522/FREEPDB1", "db.test:1522/FREEPDB1"},
+		{"oracle://db.test/FREEPDB1", "db.test:1521/FREEPDB1"},
+		{"jdbc:oracle:thin:@(DESCRIPTION=(ADDRESS=(HOST=db.test)(PORT=1522))(CONNECT_DATA=(SERVICE_NAME=FREEPDB1)))", "connStr="},
+	} {
+		tgt, err := Resolve(c.url, "u", "p/w")
+		if err != nil {
+			t.Errorf("%s: %v", c.url, err)
+			continue
+		}
+		if tgt.Dialect.Name != "oracle" || !strings.Contains(tgt.DSN, c.part) || !strings.Contains(tgt.DSN, "oracle://u:p") {
+			t.Errorf("%s: %s %s", c.url, tgt.Dialect.Name, tgt.DSN)
+		}
+	}
+	for _, bad := range []string{"jdbc:oracle:oci:@x", "jdbc:oracle:thin:@db.test", "oracle://db.test"} {
+		if _, err := Resolve(bad, "u", "p"); err == nil {
+			t.Errorf("%s must error", bad)
+		}
 	}
 }
 

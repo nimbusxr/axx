@@ -1,0 +1,4 @@
+[
+  {"name": "parcels-db", "listen": "0.0.0.0:15432", "upstream": "postgres:5432", "enabled": true},
+  {"name": "cache", "listen": "0.0.0.0:16379", "upstream": "valkey:6379", "enabled": true}
+]

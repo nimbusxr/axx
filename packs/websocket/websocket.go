@@ -231,6 +231,7 @@ func connect(sc *core.Scenario, a core.Args) error {
 			return err
 		}
 	}
+	sc.ApplyRequestHeaders(header)
 	conn, err := stream.DialWebSocket(url, header, protocols,
 		func(r stream.Received) {
 			m := cloudstep.Message{Body: r.Data}

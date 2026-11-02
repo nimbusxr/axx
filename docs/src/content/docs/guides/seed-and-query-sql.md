@@ -1,9 +1,9 @@
 ---
 title: Seed and query SQL
-description: Load datasets into PostgreSQL (and MySQL, SQLite or SQL Server), assert on rows and JSON columns, wait for asynchronous writes, and inject database faults with triggers.
+description: Load datasets into PostgreSQL (and Oracle, MySQL, SQLite or SQL Server), assert on rows and JSON columns, wait for asynchronous writes, and inject database faults with triggers.
 ---
 
-The SQL steps put a database in a known state before a scenario and check what your service wrote afterwards. PostgreSQL is first-class; MySQL, SQLite and SQL Server are supported.
+The SQL steps put a database in a known state before a scenario and check what your service wrote afterwards. PostgreSQL is first-class; Oracle, MySQL, SQLite and SQL Server are supported.
 
 ## Register the database
 
@@ -15,7 +15,7 @@ Background:
     | password | parcels                           |
 ```
 
-Native URLs (`postgres://`, `mysql://`, `sqlserver://`, `sqlite:`) and JDBC-style URLs (`jdbc:postgresql://`, `jdbc:mysql://`, `jdbc:mariadb://`, `jdbc:sqlserver://`, `jdbc:sqlite:`) are accepted. Name a table with its schema, like `parcels.parcels`, or set `currentSchema` in a PostgreSQL URL. The drivers are pure Go and come with the `sql` pack. JSONB containment and triggers need PostgreSQL, and row locks a database other than SQLite; seeds, selections and row counts work on every database.
+Native URLs (`postgres://`, `mysql://`, `sqlserver://`, `oracle://`, `sqlite:`) and JDBC-style URLs (`jdbc:postgresql://`, `jdbc:mysql://`, `jdbc:mariadb://`, `jdbc:sqlserver://`, `jdbc:oracle:thin:@//`, `jdbc:sqlite:`) are accepted. Name a table with its schema, like `parcels.parcels`, or set `currentSchema` in a PostgreSQL URL. The drivers are pure Go and come with the `sql` pack. JSONB containment and triggers need PostgreSQL, and row locks a database other than SQLite; seeds, selections and row counts work on every database.
 
 ## Seed
 
@@ -70,6 +70,7 @@ And the selection has fewer than 5 rows
 | integers (`INT`, `BIGINT`, unsigned ones) | an integer: `850` |
 | decimals (`NUMERIC`, `DECIMAL`, `FLOAT`, `DOUBLE`, `REAL`) | a decimal, a whole one too: `1.5`, `12.0` |
 | booleans (`BOOLEAN`, SQL Server's `BIT`) | `true` or `false`; MySQL's `TINYINT` and `BIT` take these and integers |
+| Oracle's `NUMBER` | by its scale: `NUMBER(10,2)` is a decimal, `NUMBER(10)` an integer, and a `NUMBER` with no scale is held to what the row stores |
 | anything else (dates, times, UUIDs, JSON, enums, binary, PostgreSQL's `MONEY`) | a string: `2026-09-24` |
 
 `null` is `IS NULL`, and `{...}` and `[...]` go to the database as they are. A value of another type fails at once, a poll's too, and says what to write:
@@ -124,6 +125,18 @@ Then a selection of rows is retrieved from the parcels.parcels table where the d
 And the selection has 2 rows
 ```
 
+Check one value of a selection by its row and column:
+
+```gherkin
+Then a selection of rows is retrieved from the parcels.parcels table where:
+  | reference | PX-REG-1009 |
+And the 1st row status column of the selection is 'REGISTERED'
+And the 1st row weight_grams column of the selection is '1200'
+And the 1st row label_printed_by column of the selection is 'null'
+```
+
+The value is of the column's type, as in a `where:` table, and strict: `'1200'` is an integer, `'1200.0'` a decimal and `'"1200"'` a string. A date or a time compares as a moment, written `'2026-09-24'`, `'2026-09-24 07:40:00'` or `'2026-09-24T07:40:00+02:00'`, and a `CHAR` column's padding is no part of its value.
+
 Selections are numbered in the order a scenario retrieves them, and a step without an ordinal checks the first. After a second retrieval, name the one a step checks: `the 2nd selection has 1 row`. `axx validate` warns about a step that checks the first while a later selection goes unchecked.
 
 In `json properties are:` and `json properties match:`, paths are JSONPaths such as `zone` or `items[0].sku`. `json properties are:` compares values with their types: `true` is a boolean, `null` null, and `undefined` a property the JSON lacks ([the rules](/references/packs/sql/#sqljsonare)); `json properties match:` matches a regular expression against the value's text. The containment step takes dotted names (`recipient.city`) and the same typed values, so `| pieces | 3 |` finds the integer 3 and `| recipient.postcode | "37073" |` the string; `3` does not find `3.0`, though PostgreSQL's containment alone would.
@@ -140,6 +153,15 @@ And the selection has 2 rows
 ```
 
 The step queries again every 500 ms until the selection has at least that many rows, and moves on as soon as the rows appear; it fails when the time runs out with fewer. `the selection has 2 rows` then checks that no more than those came back.
+
+## Oracle
+
+The steps are the same on Oracle, with a few of its own ways:
+
+- **Nothing to say about session formats.** A date or a time reads as `2026-09-24`, `2026-09-24 07:40:00` or `2026-09-24T07:40:00+02:00` in a seed or a table, whatever the database's date format is.
+- **An empty string is null.** Oracle stores `''` as null, so `""` could never select a row: the step fails at once and says to write `null`.
+- **A `GENERATED ALWAYS` column takes no value from a row,** as Oracle has no way to give it one: leave it out of the seed, or declare it `GENERATED BY DEFAULT`.
+- **A trigger's code is an ORA error.** `will raise an ORA-20001 exception` raises it, and `will raise an ORA-00060 exception` the deadlock's. Its digits alone, `20001`, say the same.
 
 ## Inject faults with triggers
 
@@ -160,7 +182,7 @@ Scenario: A brief database failure does not fail the registration
 
 The trigger raises a serialization failure (`40001`) once; the service retries and the second insert succeeds. Without `1 time` the trigger raises on every matching insert. Another variant inserts the row and then raises (`... will insert and raise a 23505 exception where:`).
 
-Triggers change a shared table, so tag those scenarios with a tag in `run.exclusive` (for example `@isolated`) to run them alone after the parallel phase. See [Run in parallel](/guides/parallel-runs/).
+Triggers change a shared table, so to run those scenarios alone after the parallel phase, tag them with a tag in `run.exclusive` (for example `@isolated`) or list `sql.trigger` in `run.exclusiveUses`. See [Run in parallel](/guides/parallel-runs/).
 
 ## Row locks
 

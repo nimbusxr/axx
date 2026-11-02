@@ -8,14 +8,17 @@
 | `{bigdecimal}` | a decimal number of any precision |  | `0.1000000000000000055` | cucumber |
 | `{biginteger}` | a whole number of any size |  | `123456789012345678901234567890` | cucumber |
 | `{byte}` | a whole number, from -128 to 127 |  | `12` | cucumber |
+| `{connection}` | a connection: the name of a proxy in Toxiproxy's config |  | `parcels-db`, `cache` | faults |
 | `{control}` | a kind of control an app shows, found by the name people see: a `button` by its text, a `field` by its label, a `list item` or a `row` by one of its texts, a `menu item` in its open menu, an `element` is anything, by its text or accessibility label; a phone's `notification` is tapped, by a text in its title or its text. A kind an app's platform does not have (a phone has no menu bar) fails the step | `button`, `field`, `checkbox`, `radio button`, `switch`, `tab`, `menu`, `menu item`, `list item`, `row`, `link`, `image`, `text`, `element`, `notification` | `button`, `list item` | app-core |
+| `{dataDirection}` | the direction of a connection's data a fault applies to: `coming back` to the service, or `going out` from it |  | `coming back`, `going out` | faults |
 | `{dbService}` | the name of a database registered in the scenario |  | `parcels-db` | sql |
 | `{direction}` | where a swipe goes, as the finger moves (`down` from the top pulls a list to refresh); or which way a phone moves or turns in the scene its camera sees, where it also moves `forward` and `back` | `up`, `down`, `left`, `right`, `forward`, `back` | `down`, `left`, `forward` | mobile-core |
 | `{double}` | a decimal number |  | `19.90` | cucumber |
-| `{duration}` | a duration in seconds (`s`) or minutes (`m`) |  | `5s`, `2m` | core |
+| `{duration}` | a duration in milliseconds (`ms`), seconds (`s`) or minutes (`m`) |  | `5s`, `2m`, `500ms` | core |
 | `{element}` | a kind of element on the page, plural after a number (`buttons`): a `field` by its label or placeholder, an `option` is a radio button, an `element` is anything, by its text, label, alternative text or title | `button`, `field`, `checkbox`, `option`, `link`, `tab`, `menu item`, `element` | `button`, `field` | web-core |
 | `{filepath}` | a file of the project: a path relative to the feature file's directory, the `resources` directories or axx.yaml's directory (looked for in that order), or an absolute path, quoted when it has a space |  | `seeds/parcels.yaml`, `kafka/scan-delivered.json`, `"seeds/day one.yaml"` | core |
 | `{float}` | a decimal number |  | `2.5`, `0.1` | cucumber |
+| `{gaugeValue}` | a gauge's value, of its type: `4` an integer, and `4.0` a decimal |  | `4`, `4.5` | otel |
 | `{int}` | a whole number |  | `200`, `3` | cucumber |
 | `{integer}` | an integer, in a step's text without quotes: `is 2500` says what `is '2500'` says |  | `2500` | rest |
 | `{long}` | a whole number, however large |  | `9007199254740993` | cucumber |
@@ -28,7 +31,8 @@
 | `{service}` | the name of a REST service the scenario registered |  | `parcels` | rest |
 | `{short}` | a whole number, from -32768 to 32767 |  | `1200` | cucumber |
 | `{speed}` | how fast a phone travels: `25 mph`, `40 km/h` or `11 m/s`; or, for a GPX file with times, how many times its own pace: `4x` |  | `25 mph`, `40 km/h`, `4x` | mobile-core |
-| `{sqlState}` | a five-character SQLSTATE error code, like `40001` (serialization failure) or `23505` (unique violation) |  | `40001`, `23505` | sql |
+| `{sqlState}` | a five-character SQLSTATE error code, like `40001` (serialization failure) or `23505` (unique violation); on Oracle, an ORA error, like `ORA-20001`, or its five digits |  | `40001`, `23505`, `ORA-20001` | sql |
 | `{string}` | text in double or single quotes, which the step leaves out |  | `"Get a quote"`, `'Express'` | cucumber |
+| `{telemetry}` | the name of telemetry registered in the scenario |  | `parcels-api` | otel |
 | `{travel}` | whether the step waits for the phone to arrive (`travels`), or lets the scenario go on while it moves (`starts traveling`) | `travels`, `starts traveling` | `travels`, `starts traveling` | mobile-core |
 | `{word}` | one word, with no spaces |  | `parcels`, `PX-4101` | cucumber |

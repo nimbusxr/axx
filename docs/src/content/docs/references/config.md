@@ -30,6 +30,7 @@ run:
   uses: [web-core]               # only the scenarios that use one of these packs (a profile per platform)
   workers: auto                  # parallel scenarios: a number or auto (CPUs)
   exclusive: ["@isolated"]       # these run alone, after the parallel phase
+  exclusiveUses: [sql.trigger]   # so do the scenarios that use these packs or steps
   order: defined                 # or random, random:<seed>
   timeouts: {step: 60s, scenario: 5m, hook: 2m}
   watch: false                   # show what scenarios do: browsers and devices on screen (axx run --watch)

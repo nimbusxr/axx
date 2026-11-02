@@ -103,6 +103,19 @@ Feature: Register parcels
     And none of the mocked DELETE requests to path /v1/collections on courier have the query parameters:
       | reference | PX-REG-1602 |
 
+  Scenario: A registered parcel is stored as the shop sent it
+    Given a POST request to /api/parcels
+    And a request payload using an application/json content example
+    And the request payload property reference is 'PX-REG-1009'
+    And the request payload property weightGrams is 1200
+    When the request is executed
+    Then the response status code is 201
+    And a selection of rows is retrieved from the parcels.parcels table where:
+      | reference | PX-REG-1009 |
+    And the 1st row status column of the selection is 'REGISTERED'
+    And the 1st row weight_grams column of the selection is '1200'
+    And the 1st row label_printed_by column of the selection is 'null'
+
   Scenario: A parcel needs only a reference, a sender, a weight and a recipient
     Given a POST request to /api/parcels
     And a request payload using an application/json empty content template

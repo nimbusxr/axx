@@ -1,0 +1,3 @@
+"tracking:PX-FLT-9701":
+  value: {"parcelRef": "PX-FLT-9701", "status": "OUT_FOR_DELIVERY", "lastLocation": "Leipzig", "lastScanAt": "2026-09-28T07:30:00Z", "scanCount": 3, "delivered": false}
+  ttl: 10m

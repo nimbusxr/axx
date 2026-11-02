@@ -11,6 +11,9 @@ run:
   # triggers), and those tagged @performance time how fast pages load, which other
   # scenarios' browsers would slow down: they run alone, after the parallel phase.
   exclusive: ["@isolated", "@performance"]
+  # A scenario with the service's connections failing would fail the others: these run alone
+  # too, with no tag to remember.
+  exclusiveUses: [faults]
 
 # Each feature keeps the files only it uses next to it (features/manifest-import/seeds/...), and
 # its steps name them from there: seeds/manifest-kestrel.yaml. A file not next to the feature is
@@ -68,10 +71,17 @@ services:
         - -c
         - >-
           PARCELS_SUBGRAPH_URL=http://host.docker.internal:8400/graphql
-          docker compose up --wait address-service courier shops rating shop-directory models partner-carrier postgres mongo kafka schema-registry rabbitmq mosquitto nats valkey mail gateway
+          docker compose up --wait address-service courier shops rating shop-directory models partner-carrier postgres mongo kafka schema-registry rabbitmq mosquitto nats valkey toxiproxy otel-collector mail gateway
           && docker compose up exports
           && cd ../app
           && PARCELS_LOG_UDP=127.0.0.1:5140
+          PARCELS_DB_URL='postgres://parcels:parcels@localhost:15432/parcels?sslmode=disable'
+          PARCELS_REDIS_URL=redis://localhost:16379/0
+          OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
+          OTEL_SERVICE_NAME=parcels-api
+          OTEL_METRIC_EXPORT_INTERVAL=500
+          OTEL_BSP_SCHEDULE_DELAY=200
+          OTEL_BLRP_SCHEDULE_DELAY=200
           exec dlv debug --headless --listen=127.0.0.1:2345 --api-version=2 --accept-multiclient --continue .
       debugger:
         type: go

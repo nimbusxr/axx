@@ -162,7 +162,7 @@ type fullType struct {
 
 // introspect asks the service for its schema, and writes it as SDL.
 func introspect(ctx context.Context, s *service, client *http.Client) (string, error) {
-	res, err := s.post(ctx, client, map[string]any{"query": introspectionQuery, "operationName": "IntrospectionQuery"})
+	res, err := s.post(ctx, client, map[string]any{"query": introspectionQuery, "operationName": "IntrospectionQuery"}, nil)
 	if err != nil {
 		return "", err
 	}

@@ -10,6 +10,8 @@ import (
 	"sync"
 	"time"
 
+	goora "github.com/sijms/go-ora/v2"
+
 	"github.com/nimbusxr/axx/core"
 )
 
@@ -132,9 +134,14 @@ func service(sc *core.Scenario, a core.Args, i int) (*Service, error) {
 // openDB returns a pooled handle shared across the run.
 func openDB(s *core.Suite, t Target) (*dbsql.DB, error) {
 	return core.Cached(s, "sql.db:"+t.Dialect.Driver+":"+t.DSN, func() (*dbsql.DB, error) {
-		db, err := dbsql.Open(t.Dialect.Driver, t.DSN)
-		if err != nil {
-			return nil, err
+		var db *dbsql.DB
+		if t.Dialect.Oracle {
+			db = dbsql.OpenDB(oracleSession{goora.NewConnector(t.DSN)})
+		} else {
+			var err error
+			if db, err = dbsql.Open(t.Dialect.Driver, t.DSN); err != nil {
+				return nil, err
+			}
 		}
 		db.SetMaxOpenConns(32)
 		db.SetConnMaxIdleTime(time.Minute)
@@ -175,6 +182,10 @@ func (svc *Service) query(ctx context.Context, table, q string) (*Selection, err
 		return nil, err
 	}
 	sel := &Selection{Table: table, Query: q, Columns: cols}
+	var readers map[int]func(any) any
+	if svc.Target.Dialect.Oracle {
+		readers = svc.oracleReaders(ctx, table, cols)
+	}
 	for rows.Next() {
 		vals := make([]any, len(cols))
 		ptrs := make([]any, len(cols))
@@ -187,6 +198,9 @@ func (svc *Service) query(ctx context.Context, table, q string) (*Selection, err
 		for i, v := range vals {
 			if b, ok := v.([]byte); ok {
 				vals[i] = string(b)
+			}
+			if read, ok := readers[i]; ok {
+				vals[i] = read(vals[i])
 			}
 		}
 		sel.Rows = append(sel.Rows, vals)

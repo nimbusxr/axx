@@ -43,3 +43,42 @@ func TestRunShards(t *testing.T) {
 		t.Errorf("--shard 3/2: exit %d, %s", code, stderr)
 	}
 }
+
+// An entry of run.exclusiveUses is a pack, a step's ID, or the start of its ID.
+func TestUsesStep(t *testing.T) {
+	for _, c := range []struct {
+		want, pack, id string
+		uses           bool
+	}{
+		{"faults", "faults", "faults.down", true},
+		{"sql.trigger", "sql", "sql.trigger.raise", true},
+		{"sql.trigger.raise", "sql", "sql.trigger.raise", true},
+		{"sql.trigger", "sql", "sql.select", false},
+		{"sql.tri", "sql", "sql.trigger.raise", false},
+		{"sql", "rest", "rest.request", false},
+	} {
+		if got := usesStep(c.want, c.pack, c.id); got != c.uses {
+			t.Errorf("usesStep(%s, %s, %s) = %t", c.want, c.pack, c.id, got)
+		}
+	}
+}
+
+// What names no pack and no step of this project fails the run, as a list that
+// does nothing is a mistake no scenario would show.
+func TestRunExclusiveUsesNamesWhatIsThere(t *testing.T) {
+	dir := t.TempDir()
+	t.Chdir(dir)
+	if err := os.MkdirAll(filepath.Join(dir, "features"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "features", "health.feature"), []byte("Feature: Health\n\n  Scenario: health\n    Given a GET request to /health\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "axx.yaml"), []byte("version: 1\nrun:\n  exclusiveUses: [sql.trigger]\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	_, stderr, code := run(t, "run", "--dry-run")
+	if code != int(exitcode.Usage) || !strings.Contains(stderr, "AXX-E0205") || !strings.Contains(stderr, "sql.trigger") {
+		t.Errorf("exit %d, %s", code, stderr)
+	}
+}

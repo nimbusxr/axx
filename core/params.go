@@ -85,9 +85,9 @@ func (paramsPack) Manifest() Manifest {
 			},
 			{
 				Name:     "duration",
-				Regexps:  []string{`(\d+)(s|m)`},
-				Doc:      "a duration in seconds (`s`) or minutes (`m`)",
-				Examples: []string{"5s", "2m"},
+				Regexps:  []string{`(\d+)(ms|s|m)`},
+				Doc:      "a duration in milliseconds (`ms`), seconds (`s`) or minutes (`m`)",
+				Examples: []string{"5s", "2m", "500ms"},
 				Transform: func(_ *Scenario, match string, groups []*string) (any, error) {
 					if len(groups) < 2 || groups[0] == nil || groups[1] == nil {
 						return nil, fmt.Errorf("invalid duration %q", match)
@@ -97,7 +97,10 @@ func (paramsPack) Manifest() Manifest {
 						return nil, fmt.Errorf("invalid duration %q", match)
 					}
 					unit := time.Second
-					if *groups[1] == "m" {
+					switch *groups[1] {
+					case "ms":
+						unit = time.Millisecond
+					case "m":
 						unit = time.Minute
 					}
 					return time.Duration(n) * unit, nil

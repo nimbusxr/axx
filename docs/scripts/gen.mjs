@@ -193,6 +193,8 @@ axx(['docs', 'export', '--out', genDir]);
 		logs: 'Logs',
 		files: 'Files',
 		mail: 'Email',
+		faults: 'Faults',
+		otel: 'OpenTelemetry',
 		cli: 'Commands',
 		websocket: 'WebSockets',
 		sse: 'Server-sent events',

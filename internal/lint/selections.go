@@ -37,6 +37,7 @@ var selectionSteps = map[string]selectionUse{
 	"sql.select.jsonb": {pack: "sql", create: true, ordinal: 0, service: 2},
 	"sql.json.are":     {pack: "sql", ordinal: 2, service: 3},
 	"sql.json.match":   {pack: "sql", ordinal: 2, service: 3},
+	"sql.column.is":    {pack: "sql", ordinal: 2, service: 3},
 	"sql.rows.eq":      {pack: "sql", ordinal: 0, service: 1},
 	"sql.rows.gt":      {pack: "sql", ordinal: 0, service: 1},
 	"sql.rows.lt":      {pack: "sql", ordinal: 0, service: 1},

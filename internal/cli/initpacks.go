@@ -27,7 +27,7 @@ type packSignal struct {
 
 // Images of services in compose files.
 var composeSignals = []packSignal{
-	{"sql", regexp.MustCompile(`(?im)^\s*image:\s*\S*(postgres|postgis|mysql|mariadb|mssql|sqlserver)\S*`), "a database image"},
+	{"sql", regexp.MustCompile(`(?im)^\s*image:\s*\S*(postgres|postgis|mysql|mariadb|mssql|sqlserver|oracle)\S*`), "a database image"},
 	{"mongo", regexp.MustCompile(`(?im)^\s*image:\s*\S*mongo\S*`), "a MongoDB image"},
 	{"redis", regexp.MustCompile(`(?im)^\s*image:\s*\S*(redis|valkey|dragonfly|keydb)\S*`), "a Redis image"},
 	{"kafka", regexp.MustCompile(`(?im)^\s*image:\s*\S*(kafka|redpanda)\S*`), "a Kafka image"},
@@ -36,12 +36,14 @@ var composeSignals = []packSignal{
 	{"nats", regexp.MustCompile(`(?im)^\s*image:\s*\S*nats\S*`), "a NATS image"},
 	{"mock", regexp.MustCompile(`(?im)^\s*image:\s*\S*wiremock\S*`), "a WireMock image"},
 	{"mail", regexp.MustCompile(`(?im)^\s*image:\s*\S*(mailpit|mailhog)\S*`), "a mail catcher image"},
+	{"faults", regexp.MustCompile(`(?im)^\s*image:\s*\S*toxiproxy\S*`), "a Toxiproxy image"},
+	{"otel", regexp.MustCompile(`(?im)^\s*image:\s*\S*opentelemetry-collector\S*`), "an OpenTelemetry Collector image"},
 }
 
 // Client libraries in dependency manifests. Names that other packages' names
 // start with (pika, motor) count only whole.
 var dependencySignals = []packSignal{
-	{"sql", regexp.MustCompile(`(?i)jackc/pgx|lib/pq|go-sql-driver/mysql|microsoft/go-mssqldb|"pg"\s*:|mysql2|psycopg|asyncpg|pymysql|postgresql</artifactId>|mysql-connector|mssql-jdbc|org\.postgresql`), "a SQL database client"},
+	{"sql", regexp.MustCompile(`(?i)jackc/pgx|lib/pq|go-sql-driver/mysql|microsoft/go-mssqldb|sijms/go-ora|godror|oracledb|ojdbc|"pg"\s*:|mysql2|psycopg|asyncpg|pymysql|postgresql</artifactId>|mysql-connector|mssql-jdbc|org\.postgresql`), "a SQL database client"},
 	{"mongo", regexp.MustCompile(`(?im)mongo-driver|"mongodb"\s*:|"mongoose"\s*:|pymongo|(^|[^\w./-])motor($|[^\w./-])|mongodb-driver`), "a MongoDB client"},
 	{"redis", regexp.MustCompile(`(?im)go-redis|"(io)?redis"\s*:|redis-py|^\s*["']?redis(\s|$|[=<>~!\[;"'])|jedis|lettuce`), "a Redis client"},
 	{"kafka", regexp.MustCompile(`(?i)franz-go|segmentio/kafka-go|confluent-kafka|kafka-clients|"kafkajs"\s*:|kafka-python|aiokafka|spring-kafka`), "a Kafka client"},

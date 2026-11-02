@@ -178,10 +178,23 @@ func main() {
 		fmt.Fprintln(os.Stderr, "parcels:", err)
 		os.Exit(2)
 	}
-	log := slog.New(slog.NewTextHandler(logOutput(cfg.LogUDP), &slog.HandlerOptions{Level: slog.LevelInfo}))
+	handler := slog.Handler(slog.NewTextHandler(logOutput(cfg.LogUDP), &slog.HandlerOptions{Level: slog.LevelInfo}))
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	err = serve(ctx, cfg, log)
+	stopTelemetry, reported, err := startTelemetry(ctx)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "parcels:", err)
+		os.Exit(1)
+	}
+	if reported != nil {
+		handler = slog.NewMultiHandler(handler, reported)
+	}
+	err = serve(ctx, cfg, slog.New(handler))
 	stop()
+	flush, cancelFlush := context.WithTimeout(context.Background(), 5*time.Second)
+	if serr := stopTelemetry(flush); serr != nil {
+		fmt.Fprintln(os.Stderr, "parcels:", serr)
+	}
+	cancelFlush()
 	if err != nil && !errors.Is(err, context.Canceled) {
 		fmt.Fprintln(os.Stderr, "parcels:", err)
 		os.Exit(1)
@@ -286,7 +299,7 @@ func serve(ctx context.Context, cfg config, log *slog.Logger) error {
 	}
 	defer stopTrackingAPI()
 
-	srv := &http.Server{Addr: cfg.Addr, Handler: svc.routes(), ReadHeaderTimeout: 10 * time.Second}
+	srv := &http.Server{Addr: cfg.Addr, Handler: traced(svc.routes()), ReadHeaderTimeout: 10 * time.Second}
 	errc := make(chan error, 1)
 	go func() { errc <- srv.ListenAndServe() }()
 	log.Info("parcels is ready", "addr", cfg.Addr, "grpc", cfg.GRPCAddr)

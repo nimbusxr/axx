@@ -68,6 +68,11 @@ type Run struct {
 	Workers Workers `json:"workers,omitzero"`
 	// Exclusive lists tags whose scenarios run alone, after the parallel phase.
 	Exclusive []string `json:"exclusive,omitempty"`
+	// ExclusiveUses runs alone, after the parallel phase, the scenarios that use
+	// a step of one of these packs, or one of these steps: its ID, or the start
+	// of its ID, like [faults, sql.trigger]. A way to have them run alone with no
+	// tags, which nothing turns on for you.
+	ExclusiveUses []string `json:"exclusiveUses,omitempty"`
 	// Order is "defined" (default) or "random[:seed]".
 	Order    string   `json:"order,omitempty"`
 	Timeouts Timeouts `json:"timeouts,omitzero"`

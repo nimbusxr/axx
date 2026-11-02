@@ -220,9 +220,11 @@ func (a *agent) connect(sc *core.Scenario) error {
 	if a.transport != "" {
 		config.PreferredTransports = []a2a.TransportProtocol{a.transport}
 	}
+	headers := a.headers.Clone()
+	sc.ApplyRequestHeaders(headers)
 	client, err := a2aclient.NewFromCard(ctx, card,
 		a2aclient.WithConfig(config),
-		a2aclient.WithCallInterceptors(headerInterceptor{headers: a.headers}),
+		a2aclient.WithCallInterceptors(headerInterceptor{headers: headers}),
 		a2aclient.WithJSONRPCTransport(&http.Client{Transport: exactData{streamsOnly{http.DefaultTransport}}}),
 		a2aclient.WithRESTTransport(&http.Client{Transport: exactData{http.DefaultTransport}}),
 		a2agrpc.WithGRPCTransport(grpc.WithTransportCredentials(insecure.NewCredentials())))

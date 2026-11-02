@@ -225,7 +225,7 @@ func get(sc *core.Scenario, name string) (*service, error) {
 
 // post sends a GraphQL request and reads its answer: a JSON object with
 // data or errors, whatever its HTTP status.
-func (s *service) post(ctx context.Context, client *http.Client, body map[string]any) (*answer, error) {
+func (s *service) post(ctx context.Context, client *http.Client, body map[string]any, headers func(http.Header)) (*answer, error) {
 	raw, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
@@ -238,6 +238,9 @@ func (s *service) post(ctx context.Context, client *http.Client, body map[string
 	}
 	for k, vs := range s.headers {
 		req.Header[k] = vs
+	}
+	if headers != nil {
+		headers(req.Header)
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/graphql-response+json, application/json")

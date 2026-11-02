@@ -16,6 +16,7 @@ import (
 	messages "github.com/cucumber/messages/go/v34"
 	"github.com/spf13/cobra"
 
+	"github.com/nimbusxr/axx/core"
 	"github.com/nimbusxr/axx/internal/axxerr"
 	"github.com/nimbusxr/axx/internal/config"
 	"github.com/nimbusxr/axx/internal/engine"
@@ -152,6 +153,9 @@ func (a *App) run(ctx context.Context, f *runFlags, args []string) error {
 		packs := packsOf(e, pickles)
 		pickles = feature.ByUses(pickles, cfg.Run.Uses, filter.Named, func(p *feature.Pickle) []string { return packs[p] })
 	}
+	if err := knownUses(e, "run.exclusiveUses", cfg.Run.ExclusiveUses); err != nil {
+		return err
+	}
 	// A shard of what the run selects, for one of the runners that share it.
 	if pickles, err = feature.Shard(pickles, f.shard); err != nil {
 		return err
@@ -235,22 +239,23 @@ func (a *App) run(ctx context.Context, f *runFlags, args []string) error {
 		stepTimeout, scenarioTimeout, hookTimeout = noTimeout, 0, noTimeout
 	}
 	r, err := runner.New(runner.Options{
-		Registry:        e.Registry,
-		Hooks:           e.Hooks,
-		Suite:           e.Suite,
-		Workers:         workers,
-		Exclusive:       cfg.Run.Exclusive,
-		FailFast:        f.failFast,
-		DryRun:          f.dryRun,
-		Order:           order,
-		StepTimeout:     stepTimeout,
-		ScenarioTimeout: scenarioTimeout,
-		HookTimeout:     hookTimeout,
-		AfterRun:        e.AfterRun,
-		Reporters:       reporters,
-		Messages:        needsMsgs,
-		Meta:            &messages.Meta{Implementation: &messages.Product{Name: "axx", Version: version.Get().Version}},
-		Docs:            set.Docs,
+		Registry:           e.Registry,
+		Hooks:              e.Hooks,
+		Suite:              e.Suite,
+		Workers:            workers,
+		Exclusive:          cfg.Run.Exclusive,
+		ExclusiveScenarios: exclusiveByUses(e, pickles, cfg.Run.ExclusiveUses),
+		FailFast:           f.failFast,
+		DryRun:             f.dryRun,
+		Order:              order,
+		StepTimeout:        stepTimeout,
+		ScenarioTimeout:    scenarioTimeout,
+		HookTimeout:        hookTimeout,
+		AfterRun:           e.AfterRun,
+		Reporters:          reporters,
+		Messages:           needsMsgs,
+		Meta:               &messages.Meta{Implementation: &messages.Product{Name: "axx", Version: version.Get().Version}},
+		Docs:               set.Docs,
 	})
 	if err != nil {
 		return axxerr.Wrap(err, "AXX-E0004", exitcode.Usage, "cannot start the run")
@@ -605,6 +610,44 @@ func packsOf(e *engine.Engine, pickles []*feature.Pickle) map[*feature.Pickle][]
 		}
 	}
 	return out
+}
+
+// usesStep says whether a step is what an entry of run.exclusiveUses names: the
+// pack it comes from, its ID, or the start of its ID.
+func usesStep(want, pack, id string) bool {
+	return want == pack || want == id || strings.HasPrefix(id, want+".")
+}
+
+// exclusiveByUses is the scenarios with a step run.exclusiveUses names, which
+// run alone.
+func exclusiveByUses(e *engine.Engine, pickles []*feature.Pickle, uses []string) map[*feature.Pickle]bool {
+	if len(uses) == 0 {
+		return nil
+	}
+	out := map[*feature.Pickle]bool{}
+	for i, sc := range e.Plan(pickles).Scenarios {
+		for _, st := range sc.Steps {
+			if slices.ContainsFunc(uses, func(want string) bool { return usesStep(want, st.Pack, st.Definition) }) {
+				out[pickles[i]] = true
+			}
+		}
+	}
+	return out
+}
+
+// knownUses reports an entry of a list of packs and steps that names neither.
+func knownUses(e *engine.Engine, key string, uses []string) error {
+	for _, want := range uses {
+		known := slices.ContainsFunc(e.Packs, func(p engine.NamedPack) bool {
+			m := p.Pack.Manifest()
+			return p.Name == want || slices.ContainsFunc(m.Steps, func(s core.StepDef) bool { return usesStep(want, p.Name, s.ID) })
+		})
+		if !known {
+			return axxerr.New(feature.CodeUses, exitcode.Usage, "%s lists %s, which is no pack of this project and no step of its packs", key, want).
+				WithHint("list a pack of axx-packs.yaml or a step's ID (`axx steps` shows them), like faults or sql.trigger")
+		}
+	}
+	return nil
 }
 
 // knownPacks reports a pack the project does not load in a list of packs.
