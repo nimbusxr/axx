@@ -27,7 +27,7 @@ func (svc *Service) lockRows(ctx context.Context, table string, t *core.Table) e
 	if d.ForUpdate == "" && d.ForUpdateHint == "" {
 		return fmt.Errorf("row locks are not supported by %s", d.Name)
 	}
-	tbl, where, err := tableAndWhere(svc, table, t, "")
+	tbl, where, _, err := tableAndWhere(ctx, svc, table, t)
 	if err != nil {
 		return err
 	}

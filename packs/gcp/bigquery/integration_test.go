@@ -90,12 +90,23 @@ billing.carrier_rates:
 		{"status", "OVERCHARGED"},
 		{"route.to", "York"},
 	})
-	// Values mean what they say (ADR 0014): a whole FLOAT64 is a decimal.
-	_ = h.Fails("within 1s the billing.invoice_lines bigquery table has a row where:", "did not have a row", [][]string{{"surcharge", "2"}})
+	// A value is held to its column's type (ADR 0014), from the schema of what
+	// the query returns, at once: a whole FLOAT64 is a decimal.
+	start := time.Now()
+	const row = "within 30s the billing.invoice_lines bigquery table has a row where:"
+	_ = h.Fails(row, "surcharge is a decimal in billing.invoice_lines (FLOAT64): write 2.0", [][]string{{"surcharge", "2"}})
+	_ = h.Fails(row, "pieces is an integer in billing.invoice_lines (INT64): write 3", [][]string{{"pieces", "3.0"}})
+	_ = h.Fails(row, `postcode is text in billing.invoice_lines (STRING): write "1067"`, [][]string{{"postcode", "1067"}})
+	_ = h.Fails(row, "route.to is text in billing.invoice_lines (STRING): write \"5\"", [][]string{{"route.to", "5"}})
+	if took := time.Since(start); took > 15*time.Second {
+		t.Errorf("a value of another type should fail at once: %s", took)
+	}
+	h.OK("the billing.carrier_rates bigquery table has 1 row where:", [][]string{{"carrier", "HERON"}, {"price_per_kg", "1.1"}})
+	_ = h.Fails("the billing.carrier_rates bigquery table has 1 row where:", "price_per_kg is a decimal in billing.carrier_rates (NUMERIC): write 1.0", [][]string{{"price_per_kg", "1"}})
 	err = h.Fails("within 1s the billing.invoice_lines bigquery table has a row where:", "did not have a row", [][]string{{"status", "MATCHED"}})
 	if !strings.Contains(err.Error(), `It has 1 row:
   {"status":"OVERCHARGED"}`) {
 		t.Errorf("the failure should show the rows: %v", err)
 	}
-	h.Fails("the invoice_lines bigquery table has a row where:", "dataset.table", [][]string{{"status", "MATCHED"}})
+	_ = h.Fails("the invoice_lines bigquery table has a row where:", "dataset.table", [][]string{{"status", "MATCHED"}})
 }

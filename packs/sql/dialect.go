@@ -91,6 +91,13 @@ func resolvePostgres(raw, user, password string) (Target, error) {
 	if q.Get("sslmode") == "" {
 		q.Set("sslmode", "disable")
 	}
+	// pgx would keep a prepared statement per query on each connection, which
+	// PostgreSQL refuses to run once its table changes ("cached plan must not
+	// change result type"): a `SELECT *` of a table a scenario's service
+	// migrates. Described each time, a query sees the table as it is.
+	if q.Get("default_query_exec_mode") == "" {
+		q.Set("default_query_exec_mode", "describe_exec")
+	}
 	pu.RawQuery = q.Encode()
 	host, port := pu.Hostname(), pu.Port()
 	if port == "" {

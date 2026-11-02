@@ -15,7 +15,8 @@ func TestResolve(t *testing.T) {
 	cases := []struct {
 		url, dialect, dsnPart string
 	}{
-		{"jdbc:postgresql://localhost:5432/space_explorer", "postgresql", "postgres://u:p@localhost:5432/space_explorer?sslmode=disable"},
+		{"jdbc:postgresql://localhost:5432/space_explorer", "postgresql", "postgres://u:p@localhost:5432/space_explorer?default_query_exec_mode=describe_exec&sslmode=disable"},
+		{"postgres://h:1/db?default_query_exec_mode=exec", "postgresql", "default_query_exec_mode=exec&"},
 		{"jdbc:postgresql://db/app?currentSchema=space", "postgresql", "search_path=space"},
 		{"postgres://h:1/db?sslmode=require", "postgresql", "sslmode=require"},
 		{"jdbc:mysql://localhost:3306/app", "mysql", "u:p@tcp(localhost:3306)/app?"},
@@ -121,15 +122,6 @@ type pgError struct{ code string }
 
 func (e pgError) Error() string    { return "operator does not exist: text = integer" }
 func (e pgError) SQLState() string { return e.code }
-
-func TestTypeMismatchHint(t *testing.T) {
-	if err := typeMismatch(fmt.Errorf("query: %w", pgError{"42883"})); !strings.Contains(err.Error(), `in double quotes ("10115")`) {
-		t.Errorf("an operator a value's type lacks should say what to write: %v", err)
-	}
-	if err := typeMismatch(pgError{"42P01"}); strings.Contains(err.Error(), "double quotes") {
-		t.Errorf("another error should be as it is: %v", err)
-	}
-}
 
 func TestContainmentJSON(t *testing.T) {
 	got, err := containmentJSON([]core.Pair{

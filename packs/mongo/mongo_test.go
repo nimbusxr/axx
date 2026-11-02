@@ -93,6 +93,104 @@ func TestTypedValue(t *testing.T) {
 	}
 }
 
+// A filter is as strict as a check: MongoDB's own equality takes an int32 of 6
+// for a double of 6.0 or a Decimal128 of 6, and null for no field at all.
+func TestAFilterIsAsStrictAsACheck(t *testing.T) {
+	whole, _ := bson.ParseDecimal128("6")
+	point, _ := bson.ParseDecimal128("6.0")
+	price, _ := bson.ParseDecimal128("1.50")
+	oid, _ := bson.ObjectIDFromHex("65a1b2c3d4e5f60718293a4b")
+	doc := func(v any) bson.D { return bson.D{{Key: "v", Value: v}} }
+	for _, c := range []struct {
+		cell   string
+		stored any
+		want   bool
+	}{
+		{"6", int32(6), true},
+		{"6", int64(6), true},
+		{"6L", int32(6), true},
+		{"6L", int64(6), true},
+		{"6", whole, true},
+		{"6", 6.0, false},
+		{"6L", 6.0, false},
+		{"6", point, false},
+		{"6.0", 6.0, true},
+		{"6.0", point, true},
+		{"6.0", int32(6), false},
+		{"6.0", whole, false},
+		{"1.5", price, true},
+		{"1.50", 1.5, true},
+		{"1.5", 1.5, true},
+		{`"6"`, "6", true},
+		{"true", true, true},
+		{"null", nil, true},
+		{"6", bson.A{int32(5), int32(6)}, true},
+		{"6", bson.A{int32(5), 6.0}, false},
+		{"7", bson.A{int32(5), 7.0}, false},
+		{"null", bson.A{int32(1), nil}, true},
+		{`[5, 6]`, bson.A{int32(5), int32(6)}, true},
+		{`[5, 6]`, bson.A{int32(5), 6.0}, false},
+		{`{"a": 1}`, bson.D{{Key: "a", Value: int32(1)}}, true},
+		{`{"a": 1}`, bson.D{{Key: "a", Value: 1.0}}, false},
+		{`{"$oid": "65a1b2c3d4e5f60718293a4b"}`, oid, true},
+		{`{"$date": "2026-09-24T07:40:00Z"}`, bson.NewDateTimeFromTime(time.Date(2026, 9, 24, 7, 40, 0, 0, time.UTC)), true},
+		{`{"$numberDecimal": "6"}`, whole, true},
+		{`{"$numberDecimal": "6"}`, 6.0, false},
+	} {
+		typed, err := typedValue(c.cell, false)
+		if err != nil {
+			t.Fatal(err)
+		}
+		v, err := core.ParseValue(c.cell, false, false)
+		if err != nil {
+			t.Fatal(err)
+		}
+		kept, _ := keepStrict([]bson.D{doc(c.stored)}, []condition{newCondition("v", v, typed)})
+		if got := len(kept) == 1; got != c.want {
+			t.Errorf("%s on %#v: selected %v, want %v", c.cell, c.stored, got, c.want)
+		}
+	}
+}
+
+// A dotted field is what MongoDB reads it as: through arrays, and by position.
+func TestValuesAt(t *testing.T) {
+	doc := bson.D{
+		{Key: "recipient", Value: bson.D{{Key: "city", Value: "Leeds"}}},
+		{Key: "scans", Value: bson.A{bson.D{{Key: "n", Value: int32(1)}}, bson.D{{Key: "n", Value: int32(2)}}}},
+		{Key: "tags", Value: bson.A{"a", "b"}},
+	}
+	for field, want := range map[string]int{
+		"recipient.city": 1, "scans.n": 2, "scans.1.n": 1, "tags": 3, "tags.0": 1, "nosuch": 0, "recipient.nosuch": 0, "tags.5": 0,
+	} {
+		if got := valuesAt(doc, strings.Split(field, ".")); len(got) != want {
+			t.Errorf("%s: %v, want %d values", field, got, want)
+		}
+	}
+}
+
+// A document that differs only in type says what to write, in the check it
+// fails; a document without the field says null is not that.
+func TestADroppedDocumentSaysWhatToWrite(t *testing.T) {
+	check := func(cell string, doc bson.D, want string) {
+		t.Helper()
+		typed, _ := typedValue(cell, false)
+		v, _ := core.ParseValue(cell, false, false)
+		kept, dropped := keepStrict([]bson.D{doc, doc}, []condition{newCondition("weightKg", v, typed)})
+		if len(kept) != 0 || len(dropped) != 1 || dropped[0] != want {
+			t.Errorf("%s: kept %v, dropped %q, want %q", cell, kept, dropped, want)
+		}
+	}
+	check("6", bson.D{{Key: "weightKg", Value: 6.0}}, "weightKg is the decimal 6.0: write 6.0")
+	check("6.0", bson.D{{Key: "weightKg", Value: int32(6)}}, "weightKg is the integer 6: write 6")
+	check(`"6"`, bson.D{{Key: "weightKg", Value: int32(6)}}, "weightKg is the integer 6: write 6")
+	check("null", bson.D{{Key: "other", Value: int32(6)}}, "a document has no weightKg, which is not null")
+
+	h := selected(t, bson.D{{Key: "pieces", Value: int32(6)}})
+	svc, _ := Context(h.SC).Service()
+	svc.addSelection(&Selection{Collection: "rates", dropped: []string{"weightKg is the decimal 6.0: write 6.0"}})
+	_ = h.Fails("the 2nd selection has 1 document", "weightKg is the decimal 6.0: write 6.0")
+}
+
 func TestWriteJSON(t *testing.T) {
 	oid, _ := bson.ObjectIDFromHex("65a1b2c3d4e5f60718293a4b")
 	price, _ := bson.ParseDecimal128("1.50")

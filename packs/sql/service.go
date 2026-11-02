@@ -4,6 +4,7 @@ import (
 	"context"
 	dbsql "database/sql"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -35,6 +36,25 @@ type Selection struct {
 	Query   string
 	Columns []string
 	Rows    [][]any
+
+	// dropped says why rows the database selected are not in it: a value of
+	// another type than the step's (keepStored, keepContaining).
+	dropped []string
+}
+
+// hint keeps what a dropped row says to write, once.
+func (s *Selection) hint(h string) {
+	if h != "" && !slices.Contains(s.dropped, h) {
+		s.dropped = append(s.dropped, h)
+	}
+}
+
+// hints completes the failure of a check of the selection's rows.
+func (s *Selection) hints() string {
+	if len(s.dropped) == 0 {
+		return ""
+	}
+	return " (" + strings.Join(s.dropped, "; ") + ")"
 }
 
 // Value returns the value of column in row (0-based); column names match

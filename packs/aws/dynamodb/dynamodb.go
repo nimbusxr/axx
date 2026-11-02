@@ -94,7 +94,8 @@ func (pack) Manifest() core.Manifest {
 var conditions = &core.TableDoc{
 	Columns: []string{"attribute", "value"},
 	Note: "Each row names an attribute of the item, or a dotted path into a map (`address.city`), and the value it has. " +
-		"A number (`N`) is the number DynamoDB returns, like `120` or `49.99`; sets read as lists, and binary as base64.",
+		"A number (`N`) is the number DynamoDB returns, like `120` or `49.99`: it keeps one type of number, so a whole one reads as an integer, " +
+		"however it was written, and `49.990` is `49.99`. Sets read as lists, and binary as base64.",
 	Values:    core.JSONValues,
 	Undefined: true,
 }

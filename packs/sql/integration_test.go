@@ -188,10 +188,11 @@ func TestTypedValues(t *testing.T) {
 	h.ok("a selection of rows is retrieved from the space.missions table where:", []string{"id", id + "-1"}, []string{"budget", "500000"}, []string{"name", `"1969"`})
 	h.ok("the selection has 1 row")
 	// A number where a text column is compared is refused, with what to write.
-	if err := h.step("a 2nd selection of rows is retrieved from the space.missions table where:", []string{"name", "1969"}); err == nil || !strings.Contains(err.Error(), `in double quotes ("10115")`) {
+	wrote := `name is text in space.missions (TEXT): write "1969" [AXX-E0207]`
+	if err := h.step("a 2nd selection of rows is retrieved from the space.missions table where:", []string{"name", "1969"}); err == nil || err.Error() != wrote {
 		t.Errorf("a number for a text column should say what to write: %v", err)
 	}
-	if err := h.step("a before insert trigger on the space.missions table will raise a 23505 exception where:", []string{"name", "1969"}); err == nil || !strings.Contains(err.Error(), `in double quotes ("10115")`) {
+	if err := h.step("a before insert trigger on the space.missions table will raise a 23505 exception where:", []string{"name", "1969"}); err == nil || err.Error() != wrote {
 		t.Errorf("a trigger's number for a text column should say what to write: %v", err)
 	}
 	if err := h.step("a 2nd selection of rows is retrieved from the space.missions table where:", []string{"name", ""}); err == nil || !strings.Contains(err.Error(), "name: the cell is empty") {

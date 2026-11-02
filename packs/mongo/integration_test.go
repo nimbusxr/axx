@@ -127,6 +127,64 @@ func TestSeedAgainstRealMongo(t *testing.T) {
 	if err := run("a selection of documents is retrieved from the telemetry collection where:", []string{"callSign", ""}); err == nil || !strings.Contains(err.Error(), "callSign: the cell is empty") {
 		t.Fatalf("an empty cell should ask for the value: %v", err)
 	}
+	// A filter is as strict as a check: MongoDB's own equality would take the
+	// first of these for all of the numbers, and null for no field at all.
+	if err := os.WriteFile(filepath.Join(dir, "filters.json"), []byte(`{"filters": [
+		{"_id": "int", "n": 6, "m": null, "tags": [1, 2]},
+		{"_id": "long", "n": {"$numberLong": "6"}, "tags": [1.0, 2.0]},
+		{"_id": "double", "n": 6.0, "scans": [{"count": 3.0}]},
+		{"_id": "decimal", "n": {"$numberDecimal": "6.0"}, "scans": [{"count": 3}]},
+		{"_id": "decimal-whole", "n": {"$numberDecimal": "6"}},
+		{"_id": "text", "n": "6"},
+		{"_id": "price", "p": {"$numberDecimal": "1.1"}},
+		{"_id": "price-double", "p": 1.1},
+		{"_id": "nested", "o": {"a": 1}},
+		{"_id": "nested-double", "o": {"a": 1.0}}
+	]}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := run("a filters.json mongo db seed"); err != nil {
+		t.Fatal(err)
+	}
+	svc0, err := Context(sc).Service("space-mongodb")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range []struct {
+		field, cell string
+		want        []string
+	}{
+		{"n", "6", []string{"int", "long", "decimal-whole"}},
+		{"n", "6L", []string{"int", "long", "decimal-whole"}},
+		{"n", "6.0", []string{"double", "decimal"}},
+		{"n", `"6"`, []string{"text"}},
+		{"m", "null", []string{"int"}},
+		{"o", "undefined", []string{"int", "long", "double", "decimal", "decimal-whole", "text", "price", "price-double"}},
+		{"o.a", "undefined", []string{"int", "long", "double", "decimal", "decimal-whole", "text", "price", "price-double"}},
+		{"tags", "1", []string{"int"}},
+		{"tags", "1.0", []string{"long"}},
+		{"scans.count", "3", []string{"decimal"}},
+		{"scans.count", "3.0", []string{"double"}},
+		{"p", "1.1", []string{"price", "price-double"}},
+		{"o", `{"a": 1}`, []string{"nested"}},
+	} {
+		if err := run("a selection of documents is retrieved from the filters collection where:", []string{c.field, c.cell}); err != nil {
+			t.Fatalf("%s %s: %v", c.field, c.cell, err)
+		}
+		all := svc0.Selections()
+		var got []string
+		for _, d := range all[len(all)-1].Docs {
+			got = append(got, fmt.Sprint(d[0].Value))
+		}
+		if strings.Join(got, ",") != strings.Join(c.want, ",") {
+			t.Errorf("%s %s selected %v, want %v", c.field, c.cell, got, c.want)
+		}
+	}
+	// A poll counts what a check would accept, and says what to write.
+	err = run("within 1s a selection of at least 1 document is retrieved from the filters collection where:", []string{"_id", "double"}, []string{"n", "6"})
+	if !core.IsAssertion(err) || !strings.Contains(err.Error(), "n is the decimal 6.0: write 6.0") {
+		t.Errorf("a poll for an integer on a double should say what to write: %v", err)
+	}
 	if err := run("the 1st document for the selection properties are:", []string{"mission", "m2"}); !core.IsAssertion(err) {
 		t.Fatalf("property mismatch must be an assertion failure: %v", err)
 	}
@@ -134,8 +192,8 @@ func TestSeedAgainstRealMongo(t *testing.T) {
 		t.Fatalf("polling that runs out of time with fewer documents should fail: %v", err)
 	}
 	svc, err := Context(sc).Service("space-mongodb")
-	if err != nil || len(svc.Selections()) != 6 || svc.DB() == nil {
-		t.Fatalf("context: %v", err)
+	if err != nil || len(svc.Selections()) != 20 || svc.DB() == nil {
+		t.Fatalf("context: %d selections: %v", len(svc.Selections()), err)
 	}
 
 	var doc bson.M

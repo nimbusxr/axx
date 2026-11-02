@@ -100,7 +100,9 @@ Then within 10s a selection of at least 1 document is retrieved from the trackin
   | scanCount | 2           |
 ```
 
-The step polls every 500 ms until enough documents match, and fails when the time runs out with fewer. The documents it found are the selection, for later steps to check (`the selection has 1 document`, or its properties). A selection's values are typed too: `2` is the number 2 (`2L` an int64), `"2"` the string, and an object is Extended JSON, like `{"$oid": "65a1b2c3d4e5f60718293a4b"}` for an ObjectId. MongoDB matches a number with a number of any of its types.
+The step polls every 500 ms until enough documents match, and fails when the time runs out with fewer. The documents it found are the selection, for later steps to check (`the selection has 1 document`, or its properties). A selection's values are typed too: `2` is the integer 2 (`2L` an int64), `2.0` the decimal, `"2"` the string, and an object is Extended JSON, like `{"$oid": "65a1b2c3d4e5f60718293a4b"}` for an ObjectId.
+
+A selection is as strict as a check, though MongoDB's own equality is not: `2` selects an int32, an int64 or a Decimal128 of 2, but not a double of 2.0, which `2.0` selects; `null` selects a field that holds null, and `undefined` a document without the field. A check that misses a document left out for its type says what to write: `expected at least 1 document(s) from tracking within 10s (scanCount is the decimal 2.0: write 2.0)`.
 
 Every query step has an `on <service>` form for scenarios with more than one MongoDB database.
 

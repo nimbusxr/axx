@@ -55,6 +55,30 @@ func TestNumbersKeepTheirTypes(t *testing.T) {
 	}
 }
 
+// A collection's conditions are held to a document's values in Go, as a
+// document's properties are: Firestore's own queries take an integer for a
+// double, but the pack asks it for no query of values.
+func TestAConditionKeepsItsType(t *testing.T) {
+	doc := docJSON(map[string]any{"pieces": int64(12), "weightKg": 12.0, "reference": "1002"})
+	for _, c := range []struct {
+		key, cell string
+		want      bool
+	}{
+		{"pieces", "12", true},
+		{"pieces", "12L", true},
+		{"pieces", "12.0", false},
+		{"pieces", `"12"`, false},
+		{"weightKg", "12.0", true},
+		{"weightKg", "12", false},
+		{"reference", `"1002"`, true},
+		{"reference", "1002", false},
+	} {
+		if got, err := (cloudstep.Rows{{Key: c.key, Value: c.cell}}).Match(doc); got != c.want || err != nil {
+			t.Errorf("%s %s: %v %v, want %v", c.key, c.cell, got, err, c.want)
+		}
+	}
+}
+
 // The checks read a seeded timestamp back in RFC 3339, in UTC: as the seed
 // wrote it when it is in UTC.
 func TestSeededTimestampsReadBack(t *testing.T) {

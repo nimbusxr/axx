@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -19,9 +20,11 @@ import (
 // filterTable is the table of a step that finds documents by their fields.
 var filterTable = &core.TableDoc{
 	Columns: []string{"field", "value"},
-	Note: "Each row names a field, dotted (`recipient.city`) for one inside a document, and the value it holds; " +
-		"an object is Extended JSON, like `{\"$oid\": \"...\"}` for an ObjectId.",
-	Values: core.JSONValues,
+	Note: "Each row names a field, dotted (`recipient.city`) for one inside a document, and the value it holds, of its type as a check compares it: " +
+		"`6` selects an int32 or an int64 of 6, but not a double 6.0, which is `6.0`; `null` selects a null, and `undefined` a document without the field. " +
+		"An object is Extended JSON, like `{\"$oid\": \"...\"}` for an ObjectId.",
+	Values:    core.JSONValues,
+	Undefined: true,
 }
 
 // numbered is how selections are numbered, for the steps that find one.
@@ -32,6 +35,18 @@ type Selection struct {
 	Collection string
 	Filter     bson.D
 	Docs       []bson.D
+
+	// dropped says why documents MongoDB selected are not in it: a value of
+	// another type than the step's (keepStrict).
+	dropped []string
+}
+
+// hints completes the failure of a check of the selection's documents.
+func (s *Selection) hints() string {
+	if len(s.dropped) == 0 {
+		return ""
+	}
+	return " (" + strings.Join(s.dropped, "; ") + ")"
 }
 
 func queryParams() []core.ParamType {
@@ -128,7 +143,7 @@ func docCount(id, tail, words string, ok func(got, want int) bool) core.StepDef 
 				return err
 			}
 			if want := a.Int(2); !ok(len(sel.Docs), want) {
-				return core.Fail(fmt.Sprintf("expected the selection from %s to have %s %d document(s)", sel.Collection, words, want), want, len(sel.Docs))
+				return core.Fail(fmt.Sprintf("expected the selection from %s to have %s %d document(s)%s", sel.Collection, words, want, sel.hints()), want, len(sel.Docs))
 			}
 			return nil
 		},
@@ -161,8 +176,9 @@ func find(sc *core.Scenario, a core.Args, svcArg int, collection string, t *core
 		return err
 	}
 	filter := bson.D{}
+	var conditions []condition
 	if t != nil {
-		if filter, err = filterOf(sc, t); err != nil {
+		if filter, conditions, err = filterOf(sc, t); err != nil {
 			return err
 		}
 	}
@@ -175,12 +191,17 @@ func find(sc *core.Scenario, a core.Args, svcArg int, collection string, t *core
 		if err == nil {
 			err = cur.All(sc.Context(), &docs)
 		}
-		if err == nil && (within == 0 || len(docs) >= atLeast || time.Now().Add(500*time.Millisecond).After(deadline)) {
-			svc.addSelection(&Selection{Collection: collection, Filter: filter, Docs: docs})
-			if within > 0 && len(docs) < atLeast {
-				return core.Fail(fmt.Sprintf("expected at least %d document(s) from %s within %s", atLeast, collection, within), atLeast, len(docs))
+		if err == nil {
+			var dropped []string
+			docs, dropped = keepStrict(docs, conditions)
+			if within == 0 || len(docs) >= atLeast || time.Now().Add(500*time.Millisecond).After(deadline) {
+				sel := &Selection{Collection: collection, Filter: filter, Docs: docs, dropped: dropped}
+				svc.addSelection(sel)
+				if within > 0 && len(docs) < atLeast {
+					return core.Fail(fmt.Sprintf("expected at least %d document(s) from %s within %s%s", atLeast, collection, within, sel.hints()), atLeast, len(docs))
+				}
+				return nil
 			}
-			return nil
 		}
 		if err != nil {
 			lastErr = err
@@ -203,24 +224,163 @@ func (svc *Service) addSelection(sel *Selection) {
 }
 
 // filterOf builds an equality filter of the values as the table writes them
-// (core.ParseValue, ADR 0014).
-func filterOf(sc *core.Scenario, t *core.Table) (bson.D, error) {
+// (core.ParseValue, ADR 0014), and the conditions keepStrict holds what it
+// selects to.
+func filterOf(sc *core.Scenario, t *core.Table) (bson.D, []condition, error) {
 	pairs, err := t.Pairs()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if len(pairs) == 0 {
-		return nil, fmt.Errorf("No conditions provided") //nolint:staticcheck // same message as the SQL selection steps
+		return nil, nil, fmt.Errorf("No conditions provided") //nolint:staticcheck // same message as the SQL selection steps
 	}
 	filter := make(bson.D, 0, len(pairs))
+	conditions := make([]condition, 0, len(pairs))
 	for _, p := range pairs {
-		v, err := typedValue(sc.Suite().Interpolate(p.Value), p.Null)
+		text := sc.Suite().Interpolate(p.Value)
+		v, err := core.ParseValue(text, p.Null, true)
 		if err != nil {
-			return nil, fmt.Errorf("%s: %w", p.Key, err)
+			return nil, nil, fmt.Errorf("%s: %w", p.Key, err)
 		}
-		filter = append(filter, bson.E{Key: p.Key, Value: v})
+		if v.Undefined() {
+			filter = append(filter, bson.E{Key: p.Key, Value: bson.D{{Key: "$exists", Value: false}}})
+			continue
+		}
+		typed, err := typedValue(text, p.Null)
+		if err != nil {
+			return nil, nil, fmt.Errorf("%s: %w", p.Key, err)
+		}
+		filter = append(filter, bson.E{Key: p.Key, Value: wideNumber(v, typed)})
+		conditions = append(conditions, newCondition(p.Key, v, typed))
 	}
-	return filter, nil
+	return filter, conditions, nil
+}
+
+// wideNumber is what a number asks MongoDB for: the BSON number it is, or the
+// Decimal128 of the same digits, which is the number a check says it is. MongoDB
+// compares a double with a Decimal128 by their exact values, and the double 1.1
+// is not quite 1.1.
+func wideNumber(v core.Value, typed any) any {
+	if !jsonassert.IsNumber(v) {
+		return typed
+	}
+	d, err := bson.ParseDecimal128(v.JSON())
+	if err != nil {
+		return typed
+	}
+	return bson.D{{Key: "$in", Value: bson.A{typed, d}}}
+}
+
+// condition is a row of a filter, as keepStrict holds a document to it.
+type condition struct {
+	field string
+	path  []string
+	// want is the value as a check of a document's JSON compares it: Extended
+	// JSON is read for what it means, so `{"$oid": "..."}` is its hex string
+	// (writeDoc). A value a check has no way to compare is left to MongoDB:
+	// strict is false.
+	want   core.Value
+	strict bool
+}
+
+func newCondition(field string, v core.Value, typed any) condition {
+	c := condition{field: field, path: strings.Split(field, "."), want: v, strict: true}
+	if j := v.JSON(); strings.HasPrefix(j, "{") || strings.HasPrefix(j, "[") {
+		var buf bytes.Buffer
+		writeDoc(&buf, typed, false)
+		want, err := core.ParseValue(buf.String(), false, false)
+		c.want, c.strict = want, err == nil
+	}
+	return c
+}
+
+// keepStrict drops the documents MongoDB selected whose value is not the
+// condition's, type and all, as a check compares them: MongoDB's own equality
+// takes an int32 of 6 for a double of 6.0 or a Decimal128 of 6, and null for a
+// field that is not there. What it selects is every document that could be meant,
+// and a query's $type could not tell a Decimal128's 6 from its 6.0, so this goes
+// through them after it: what it compares is what a check compares (writeDoc,
+// jsonassert.Strict). dropped says what a document that differs only in type
+// holds, and what to write for it.
+func keepStrict(docs []bson.D, conditions []condition) (kept []bson.D, dropped []string) {
+	if len(conditions) == 0 {
+		return docs, nil
+	}
+	hint := func(h string) {
+		if h != "" && !slices.Contains(dropped, h) {
+			dropped = append(dropped, h)
+		}
+	}
+	for _, doc := range docs {
+		keep := true
+		for _, c := range conditions {
+			same, h := c.holds(doc)
+			if !same {
+				keep = false
+				hint(h)
+			}
+		}
+		if keep {
+			kept = append(kept, doc)
+		}
+	}
+	return kept, dropped
+}
+
+// holds says whether a document has the condition's value on its path, and what
+// to write if it has it but for its type.
+func (c condition) holds(doc bson.D) (same bool, hint string) {
+	if !c.strict {
+		return true, ""
+	}
+	values := valuesAt(doc, c.path)
+	if len(values) == 0 && c.want.IsNull() {
+		return false, "a document has no " + c.field + ", which is not null"
+	}
+	for _, v := range values {
+		var buf bytes.Buffer
+		writeDoc(&buf, v, false)
+		ok, h := jsonassert.Strict(c.field, buf.String(), c.want)
+		if ok {
+			return true, ""
+		}
+		if hint == "" {
+			hint = h
+		}
+	}
+	return false, hint
+}
+
+// valuesAt are the values a dotted field names in a document, as MongoDB reads
+// them: a name goes into each document of an array, a number is also a position
+// in one, and an array is itself and each of its elements.
+func valuesAt(v any, path []string) []any {
+	if len(path) == 0 {
+		if a, ok := v.(bson.A); ok {
+			return append([]any{a}, a...)
+		}
+		return []any{v}
+	}
+	switch x := v.(type) {
+	case bson.D:
+		for _, e := range x {
+			if e.Key == path[0] {
+				return valuesAt(e.Value, path[1:])
+			}
+		}
+	case bson.A:
+		var out []any
+		if i, err := strconv.Atoi(path[0]); err == nil && i >= 0 && i < len(x) {
+			out = valuesAt(x[i], path[1:])
+		}
+		for _, e := range x {
+			if _, isDoc := e.(bson.D); isDoc {
+				out = append(out, valuesAt(e, path)...)
+			}
+		}
+		return out
+	}
+	return nil
 }
 
 // typedValue is a value of the table as BSON: `"3"` and other text a string,

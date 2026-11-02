@@ -39,7 +39,7 @@ func TestItemValuesKeepTheirTypes(t *testing.T) {
 	if ok, err := rs.Match(got); !ok || err != nil {
 		t.Errorf("the item should meet the conditions: %v", err)
 	}
-	for _, r := range []core.Pair{{Key: "declaredValue", Value: `"120"`}, {Key: "postcode", Value: "37073"}, {Key: "weightKg", Value: "2"}} {
+	for _, r := range []core.Pair{{Key: "declaredValue", Value: `"120"`}, {Key: "declaredValue", Value: "120.0"}, {Key: "postcode", Value: "37073"}, {Key: "weightKg", Value: "2"}} {
 		if ok, _ := (cloudstep.Rows{r}).Match(got); ok {
 			t.Errorf("%s %s should not match a value of another type", r.Key, r.Value)
 		}

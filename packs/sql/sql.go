@@ -4,6 +4,7 @@
 package sql
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -23,8 +24,9 @@ type pack struct{}
 func whereTable(rows string) *core.TableDoc {
 	return &core.TableDoc{
 		Columns: []string{"column", "value"},
-		Note:    "Each row names a column and the value " + rows + " in it, which the database compares as a SQL value of its type; `null` is `IS NULL`.",
-		Values:  core.JSONValues,
+		Note: "Each row names a column and the value " + rows + " in it, of the column's type: a value of another type fails at once and says what to write " +
+			"(`10115` on a text column asks for `\"10115\"`, and `12` on a decimal one for `12.0`); dates, times, UUIDs and the like are strings; `null` is `IS NULL`.",
+		Values: core.JSONValues,
 	}
 }
 
@@ -245,7 +247,7 @@ func rowCount(id, tail, words string, ok func(got, want int) bool) core.StepDef 
 			}
 			want := a.Int(2)
 			if !ok(len(sel.Rows), want) {
-				return core.Fail(fmt.Sprintf("expected the selection from %s to have %s %d row(s)", sel.Table, words, want), want, len(sel.Rows))
+				return core.Fail(fmt.Sprintf("expected the selection from %s to have %s %d row(s)%s", sel.Table, words, want, sel.hints()), want, len(sel.Rows))
 			}
 			return nil
 		},
@@ -313,7 +315,7 @@ func selectStep(sc *core.Scenario, a core.Args) error {
 	if err != nil {
 		return err
 	}
-	table, where, err := tableAndWhere(svc, a.String(1), a.Table, "")
+	table, where, untyped, err := tableAndWhere(sc.Context(), svc, a.String(1), a.Table)
 	if err != nil {
 		return err
 	}
@@ -321,6 +323,7 @@ func selectStep(sc *core.Scenario, a core.Args) error {
 	if err != nil {
 		return fmt.Errorf("Could not perform selection: %w", typeMismatch(err)) //nolint:staticcheck // user-facing message
 	}
+	keepStored(sel, untyped)
 	svc.addSelection(sel)
 	return nil
 }
@@ -332,17 +335,19 @@ func pollStep(sc *core.Scenario, a core.Args) error {
 	}
 	d := a.Value(0).(time.Duration)
 	minRows := a.Int(2)
-	table, where, err := tableAndWhere(svc, a.String(3), a.Table, "")
-	if err != nil {
-		return err
-	}
-	q := "SELECT * FROM " + table + " WHERE " + where
 	deadline := time.Now().Add(d)
 	var last *Selection
 	var lastErr error
 	for {
-		sel, err := svc.query(sc.Context(), table, q)
+		// Each time: the table may be one the service has yet to create. A
+		// value of the wrong type fails here, at once, as no wait can mend it.
+		table, where, untyped, err := tableAndWhere(sc.Context(), svc, a.String(3), a.Table)
+		if err != nil {
+			return err
+		}
+		sel, err := svc.query(sc.Context(), table, "SELECT * FROM "+table+" WHERE "+where)
 		if err == nil {
+			keepStored(sel, untyped)
 			last = sel
 			if len(sel.Rows) >= minRows {
 				break
@@ -364,7 +369,7 @@ func pollStep(sc *core.Scenario, a core.Args) error {
 	}
 	svc.addSelection(last)
 	if len(last.Rows) < minRows {
-		return core.Fail(fmt.Sprintf("expected at least %d row(s) from %s within %s", minRows, last.Table, d), minRows, len(last.Rows))
+		return core.Fail(fmt.Sprintf("expected at least %d row(s) from %s within %s%s", minRows, last.Table, d, last.hints()), minRows, len(last.Rows))
 	}
 	return nil
 }
@@ -398,6 +403,7 @@ func jsonbStep(sc *core.Scenario, a core.Args) error {
 	if err != nil {
 		return fmt.Errorf("Could not perform JSONB containment selection: %w", err) //nolint:staticcheck // user-facing message
 	}
+	keepContaining(sel, column, pairs)
 	svc.addSelection(sel)
 	return nil
 }
@@ -465,20 +471,30 @@ func (o *orderedObject) MarshalJSON() ([]byte, error) {
 	return []byte(b.String()), nil
 }
 
-// tableAndWhere validates the table name and builds the WHERE clause.
-func tableAndWhere(svc *Service, table string, t *core.Table, prefix string) (string, string, error) {
+// tableAndWhere validates the table name, builds the WHERE clause and holds each
+// of its values to its column's type (holdToColumns); it returns the conditions
+// on columns with no declared type, which keepStored applies to what comes back.
+func tableAndWhere(ctx context.Context, svc *Service, table string, t *core.Table) (string, string, []untypedCondition, error) {
 	tbl, err := Ident(table)
 	if err != nil {
-		return "", "", err
+		return "", "", nil, err
 	}
-	where, err := whereClause(svc.Target.Dialect, t, prefix)
-	return tbl, where, err
+	where, err := whereClause(svc.Target.Dialect, t, "")
+	if err != nil {
+		return "", "", nil, err
+	}
+	untyped, err := svc.holdToColumns(ctx, tbl, t)
+	if err != nil {
+		return "", "", nil, err
+	}
+	return tbl, where, untyped, nil
 }
 
 // whereClause turns key/value rows into conditions joined with AND. A value
 // means what it says (core.ParseValue, ADR 0014) and is a SQL value of its
 // type (Dialect.Value): `col = 'PX-1'` for a string, `col = 42` for a
-// number; `null` is `col IS NULL`.
+// number; `null` is `col IS NULL`. What keeps the database from converting
+// either of them is holdToColumns, which runs before the query.
 func whereClause(d Dialect, t *core.Table, prefix string) (string, error) {
 	pairs, err := t.Pairs()
 	if err != nil {
@@ -506,16 +522,17 @@ func whereClause(d Dialect, t *core.Table, prefix string) (string, error) {
 	return strings.Join(parts, " AND "), nil
 }
 
-// typeMismatch completes the error of a query whose conditions compare a
-// column with a value of another type, which PostgreSQL (no such operator)
-// and SQL Server (a failed conversion) refuse: a value is a SQL value of
-// the type the table writes, so a text column's number is in double quotes.
+// typeMismatch completes the error of a query that compares a column with a
+// value of another type which holdToColumns did not see, like the JSON a step
+// gives a database as it is: PostgreSQL (no such operator) and SQL Server (a
+// failed conversion) refuse it. holdToColumns has already said what to write
+// for any other value.
 func typeMismatch(err error) error {
 	var pg interface{ SQLState() string }
 	var ms interface{ SQLErrorNumber() int32 }
 	if errors.As(err, &pg) && pg.SQLState() == "42883" || errors.As(err, &ms) && ms.SQLErrorNumber() == 245 {
-		return fmt.Errorf("%w; the table's values are SQL values of their types: write a text column's value "+
-			"that reads as a number or a boolean in double quotes (\"10115\")", err)
+		return fmt.Errorf("%w; a value must be of its column's type: a text column's number is in double quotes (\"10115\"), "+
+			"a decimal column's is written 12.0, and an integer column's 12", err)
 	}
 	return err
 }
