@@ -50,6 +50,12 @@ func TestMain(m *testing.M) {
 			os.Exit(1)
 		}
 		os.Exit(0)
+	case "weighing":
+		if err := weighingServer().Run(context.Background(), &sdk.StdioTransport{}); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		os.Exit(0)
 	}
 	os.Exit(m.Run())
 }
@@ -125,6 +131,83 @@ func parcelsServer() *sdk.Server {
 			}}}}, nil
 		})
 	return s
+}
+
+// weighed is an answer whose numbers a float64 does not keep: a whole double,
+// and an id past its precision.
+const weighed = `{"weightKg":6.0,"id":9007199254740993,"pieces":[{"kg":2.50}]}`
+
+// weighingServer's tools answer with those numbers, as structured content and
+// as text.
+func weighingServer() *sdk.Server {
+	s := sdk.NewServer(&sdk.Implementation{Name: "weighing", Version: "1.0.0"}, nil)
+	noArgs := object(map[string]any{})
+	s.AddTool(&sdk.Tool{
+		Name: "weigh_parcel", InputSchema: noArgs,
+		OutputSchema: object(map[string]any{"weightKg": map[string]any{"type": "number"}, "id": map[string]any{"type": "integer"}}, "weightKg"),
+	}, func(context.Context, *sdk.CallToolRequest) (*sdk.CallToolResult, error) {
+		return &sdk.CallToolResult{StructuredContent: json.RawMessage(weighed), Content: []sdk.Content{&sdk.TextContent{Text: "weighed"}}}, nil
+	})
+	s.AddTool(&sdk.Tool{Name: "weigh_parcel_as_text", InputSchema: noArgs}, func(context.Context, *sdk.CallToolRequest) (*sdk.CallToolResult, error) {
+		return &sdk.CallToolResult{Content: []sdk.Content{&sdk.TextContent{Text: weighed}}}, nil
+	})
+	// Its id breaks its output schema, which only the id's exact value shows.
+	s.AddTool(&sdk.Tool{
+		Name: "weigh_exactly", InputSchema: noArgs,
+		OutputSchema: object(map[string]any{"id": map[string]any{"type": "integer", "multipleOf": 2}}, "id"),
+	}, func(context.Context, *sdk.CallToolRequest) (*sdk.CallToolResult, error) {
+		return &sdk.CallToolResult{StructuredContent: json.RawMessage(weighed)}, nil
+	})
+	return s
+}
+
+// A result's numbers keep their types and their digits, in structured content
+// and in text that is JSON, over each transport and answer the SDK reads.
+func TestResultsKeepTheirNumbers(t *testing.T) {
+	serve := func(opts *sdk.StreamableHTTPOptions) string {
+		srv := httptest.NewServer(sdk.NewStreamableHTTPHandler(func(*http.Request) *sdk.Server { return weighingServer() }, opts))
+		t.Cleanup(srv.Close)
+		return srv.URL + "/mcp"
+	}
+	for _, c := range []struct {
+		name string
+		rows [][]string
+	}{
+		{"an event stream", [][]string{{"url", serve(nil)}}},
+		{"JSON", [][]string{{"url", serve(&sdk.StreamableHTTPOptions{JSONResponse: true})}}},
+		{"an older protocol", [][]string{{"url", serve(nil)}, {"protocol version", "2025-06-18"}}},
+		{"stdio", [][]string{{"command", `"` + os.Args[0] + `"`}, {"env." + stdioEnv, "weighing"}}},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			h := cloudtest.New(t, Pack())
+			h.OK("the weighing mcp server with the following properties:", c.rows)
+			for _, tool := range []string{"weigh_parcel", "weigh_parcel_as_text"} {
+				h.OK("the " + tool + " tool is called on the weighing mcp server")
+				result := "the " + tool + " tool's result has the following properties:"
+				h.OK(result, [][]string{{"weightKg", "6.0"}, {"id", "9007199254740993"}, {"pieces[0].kg", "2.50"}})
+				_ = h.Fails(result, "weightKg is the decimal 6.0: write 6.0", [][]string{{"weightKg", "6"}})
+				_ = h.Fails(result, "id", [][]string{{"id", "9007199254740992"}})
+				h.OK("the " + tool + " tool's result contains '\"id\":9007199254740993'")
+				h.OK("the " + tool + " tool's result contains '\"weightKg\":6.0'")
+			}
+			// The output schema is checked on the exact value too.
+			_ = h.Fails("the weigh_exactly tool is called on the weighing mcp server", "validation.result.schema.multipleOf")
+			if err := h.End("passed"); err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+}
+
+// A failure shows the result as the server wrote it.
+func TestAFailureShowsTheExactResult(t *testing.T) {
+	srv := httptest.NewServer(sdk.NewStreamableHTTPHandler(func(*http.Request) *sdk.Server { return weighingServer() }, nil))
+	t.Cleanup(srv.Close)
+	h := cloudtest.New(t, Pack())
+	h.OK("the weighing mcp server with the following properties:", [][]string{{"url", srv.URL + "/mcp"}})
+	h.OK("the weigh_parcel tool is called on the weighing mcp server")
+	_ = h.Fails("the weigh_parcel tool's call failed with the error code -32602", `"weightKg":6.0`)
+	_ = h.Fails("the weigh_parcel tool's result is an error", `"id":9007199254740993`)
 }
 
 func harness(t *testing.T) (*cloudtest.Harness, string) {

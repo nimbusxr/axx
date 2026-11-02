@@ -107,12 +107,14 @@ const checkDetails = "\n\n" +
 	"`2026-09-24T09:30:00`, and `BYTES` in base64.\n" +
 	"- The check reads only the columns the step names, of up to 5,000 rows."
 
-// conditions is what the checks' tables hold.
+// conditions is what the checks' tables hold. They do not take `undefined`:
+// a table's schema gives every row every column, whose value may be NULL, and
+// the query of a column the schema lacks fails. No row lacks a column.
 var conditions = &core.TableDoc{
-	Columns:   []string{"column", "value"},
-	Note:      "Each row names a column, or a dotted path into a `RECORD` column (`address.city`), and the value in it; `null` is NULL.",
-	Values:    core.JSONValues,
-	Undefined: true,
+	Columns: []string{"column", "value"},
+	Note: "Each row names a column, or a dotted path into a `RECORD` column (`address.city`), and the value in it; `null` is NULL, " +
+		"which is how a row has no value: every row has every column.",
+	Values: core.JSONValues,
 }
 
 func client(sc *core.Scenario) (*bigquery.Client, *gcpcore.Project, error) {
@@ -186,6 +188,11 @@ func expect(sc *core.Scenario, a core.Args, ref string, count int) error {
 	rs, err := cloudstep.Conditions(a.Table)
 	if err != nil {
 		return err
+	}
+	for _, r := range rs {
+		if _, err := core.ParseValue(r.Value, r.Null, conditions.Undefined); err != nil {
+			return fmt.Errorf("%s: %w", r.Key, err)
+		}
 	}
 	c, p, err := client(sc)
 	if err != nil {

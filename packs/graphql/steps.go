@@ -1,6 +1,7 @@
 package graphql
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -312,8 +313,12 @@ func checkError(sc *core.Scenario, a core.Args) error {
 	}
 	shown := make([]string, 0, len(ans.errors))
 	for _, raw := range ans.errors {
+		// Numbers stay as the service wrote them, like the data's: 6.0, and
+		// an id past a double's precision.
 		var e map[string]any
-		if json.Unmarshal(raw, &e) != nil {
+		dec := json.NewDecoder(bytes.NewReader(raw))
+		dec.UseNumber()
+		if dec.Decode(&e) != nil {
 			continue
 		}
 		if p, ok := e["path"].([]any); ok {

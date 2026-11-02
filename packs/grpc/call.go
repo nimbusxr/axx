@@ -308,8 +308,9 @@ func (c *call) finish(st *status.Status, trailer metadata.MD) {
 	}
 }
 
-// marshal writes a message as proto JSON, with its fields' default values
-// and its 64-bit integers as numbers (int64Numbers).
+// marshal writes a message as proto JSON, with its fields' default values,
+// and its 64-bit integers, floats and doubles as the numbers they are
+// (typedNumbers).
 func marshal(m *dynamicpb.Message, set *protoload.Set) ([]byte, error) {
 	b, err := protojson.MarshalOptions{EmitDefaultValues: true, Resolver: set.Types()}.Marshal(m)
 	if err != nil {
@@ -321,7 +322,7 @@ func marshal(m *dynamicpb.Message, set *protoload.Set) ([]byte, error) {
 	if err := json.Compact(&out, b); err != nil {
 		return nil, err
 	}
-	return int64Numbers(out.Bytes(), m.Descriptor()), nil
+	return typedNumbers(out.Bytes(), m.Descriptor(), set.Types()), nil
 }
 
 // statusText is a status as the steps name it, with its message.

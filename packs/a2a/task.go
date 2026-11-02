@@ -444,12 +444,17 @@ func artifactView(ar *a2a.Artifact) map[string]any {
 	v := map[string]any{"name": ar.Name, "description": ar.Description, "text": partsText(ar.Parts)}
 	for _, p := range ar.Parts {
 		if d := p.Data(); d != nil {
-			v["data"] = d
+			v["data"] = exactly(d)
 			break
 		}
 	}
-	var parts any
+	var parts []map[string]any
 	if b, err := json.Marshal(ar.Parts); err == nil && json.Unmarshal(b, &parts) == nil {
+		for _, p := range parts {
+			if d, ok := p["data"]; ok {
+				p["data"] = exactly(d)
+			}
+		}
 		v["parts"] = parts
 	}
 	return v

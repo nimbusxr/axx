@@ -10,6 +10,7 @@ import (
 	"go.mongodb.org/mongo-driver/v2/bson"
 
 	"github.com/nimbusxr/axx/core"
+	"github.com/nimbusxr/axx/internal/cloudstep/cloudtest"
 	"github.com/nimbusxr/axx/internal/jsonassert"
 )
 
@@ -130,4 +131,50 @@ func TestDocumentNumbersKeepTheirTypes(t *testing.T) {
 	if !core.IsAssertion(err) || !strings.Contains(err.Error(), "weightKg is the decimal 6.0: write 6.0") {
 		t.Errorf("a whole double should not match an integer: %v", err)
 	}
+}
+
+// selected is a harness whose scenario has selected the document.
+func selected(t *testing.T, doc bson.D) *cloudtest.Harness {
+	t.Helper()
+	h := cloudtest.New(t, Pack())
+	svc := &Service{Name: "parcels-db"}
+	svc.addSelection(&Selection{Collection: "rates", Docs: []bson.D{doc}})
+	if err := Context(h.SC).AddService(svc); err != nil {
+		t.Fatal(err)
+	}
+	return h
+}
+
+const (
+	docAre   = "the 1st document for the selection properties are:"
+	docMatch = "the 1st document for the selection properties match:"
+)
+
+// A Decimal128 keeps its digits: a check compares its exact value, and a
+// pattern matches the text of its digits, trailing zeros and all 34.
+func TestDecimal128KeepsItsDigits(t *testing.T) {
+	price, _ := bson.ParseDecimal128("1.50")
+	long, err := bson.ParseDecimal128("1.234567890123456789012345678901234")
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := selected(t, bson.D{{Key: "price", Value: price}, {Key: "rates", Value: bson.A{bson.D{{Key: "long", Value: long}}}}})
+	h.OK(docAre, [][]string{{"price", "1.50"}, {"rates[0].long", "1.234567890123456789012345678901234"}})
+	h.OK(docAre, [][]string{{"price", "1.5"}})
+	_ = h.Fails(docAre, "rates[0].long", [][]string{{"rates[0].long", "1.2345678901234567"}})
+	_ = h.Fails(docAre, "price", [][]string{{"price", `"1.50"`}})
+
+	h.OK(docMatch, [][]string{{"price", `\d+\.\d{2}`}, {"rates[0].long", `1\.234567890123456789012345678901234`}})
+	h.OK(docMatch, [][]string{{"price", `1\.50`}})
+	_ = h.Fails(docMatch, "price", [][]string{{"price", `1\.5`}})
+	_ = h.Fails(docMatch, "rates[0].long", [][]string{{"rates[0].long", `1\.2345678901234567`}})
+}
+
+// A pattern matches a value's text, and a double's text is a decimal's, a
+// whole one too: `\d+` no longer matches a whole double (ADR 0014).
+func TestAPatternMatchesAWholeDoublesText(t *testing.T) {
+	h := selected(t, bson.D{{Key: "weightKg", Value: 6.0}, {Key: "pieces", Value: int32(6)}})
+	h.OK(docMatch, [][]string{{"weightKg", `6\.0`}, {"pieces", `\d+`}})
+	h.OK(docMatch, [][]string{{"weightKg", `\d+\.\d`}})
+	_ = h.Fails(docMatch, "weightKg", [][]string{{"weightKg", `\d+`}})
 }

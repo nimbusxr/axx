@@ -28,8 +28,9 @@ type call struct {
 	tool      string
 	arguments json.RawMessage
 	result    *sdk.CallToolResult
-	err       error // a call the server refused
-	code      int64 // its JSON-RPC error code
+	raw       json.RawMessage // the result as the server wrote it
+	err       error           // a call the server refused
+	code      int64           // its JSON-RPC error code
 }
 
 // reading is a resource read.
@@ -103,8 +104,9 @@ func callTool(sc *core.Scenario, toolName, serverName string, t *core.Table, fil
 	}
 	ctx, cancel := context.WithTimeout(sc.Context(), s.timeout)
 	defer cancel()
+	ctx, written := withRawResult(ctx)
 	res, callErr := s.session.CallTool(ctx, &sdk.CallToolParams{Name: toolName, Arguments: json.RawMessage(raw)})
-	c := &call{server: s, tool: toolName, arguments: raw, result: res}
+	c := &call{server: s, tool: toolName, arguments: raw, result: res, raw: written.get()}
 	var wire *jsonrpc.Error
 	switch {
 	case errors.As(callErr, &wire):
@@ -121,7 +123,11 @@ func callTool(sc *core.Scenario, toolName, serverName string, t *core.Table, fil
 	if res.StructuredContent == nil {
 		found = []finding{{Key: "validation.result.missing", Message: "the tool has an output schema, and its result has no structured content"}}
 	} else {
-		v, err := jsonValue(res.StructuredContent)
+		content, err := c.structuredJSON()
+		if err != nil {
+			return err
+		}
+		v, err := jsonschema.UnmarshalJSON(bytes.NewReader(content))
 		if err != nil {
 			return err
 		}
@@ -328,13 +334,33 @@ func message(err error) string {
 
 // text is the text of a result's content, and its structured content as
 // JSON.
-func text(r *sdk.CallToolResult) string {
-	parts := contentText(r.Content)
-	if r.StructuredContent != nil {
-		b, _ := json.Marshal(r.StructuredContent)
+func (c *call) text() string {
+	parts := contentText(c.result.Content)
+	if c.result.StructuredContent != nil {
+		b, _ := c.structuredJSON()
 		parts = append(parts, string(b))
 	}
 	return strings.Join(parts, "\n")
+}
+
+// structuredJSON is a result's structured content as the server wrote it.
+func (c *call) structuredJSON() ([]byte, error) {
+	var written struct {
+		StructuredContent json.RawMessage `json:"structuredContent"`
+	}
+	if json.Unmarshal(c.raw, &written) == nil && written.StructuredContent != nil {
+		return written.StructuredContent, nil
+	}
+	return json.Marshal(c.result.StructuredContent)
+}
+
+// resultJSON is the result as the server wrote it, for what a failure shows.
+func (c *call) resultJSON() string {
+	if c.raw != nil {
+		return string(c.raw)
+	}
+	b, _ := json.Marshal(c.result)
+	return string(b)
 }
 
 func contentText(content []sdk.Content) []string {
@@ -358,7 +384,7 @@ func contentText(content []sdk.Content) []string {
 // text, for a tool without an output schema that answers JSON in text.
 func structured(c *call, r *sdk.CallToolResult) (string, error) {
 	if r.StructuredContent != nil {
-		b, err := json.Marshal(r.StructuredContent)
+		b, err := c.structuredJSON()
 		return string(b), err
 	}
 	t := strings.TrimSpace(strings.Join(contentText(r.Content), "\n"))

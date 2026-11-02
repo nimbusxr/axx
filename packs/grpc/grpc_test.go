@@ -2,6 +2,7 @@ package grpc
 
 import (
 	"context"
+	"encoding/json"
 	"net"
 	"os"
 	"strings"
@@ -15,6 +16,8 @@ import (
 	grpcreflection "google.golang.org/grpc/reflection"
 	rpb "google.golang.org/grpc/reflection/grpc_reflection_v1"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/dynamicpb"
 
@@ -80,6 +83,19 @@ func (tr *tracking) getParcel(_ any, ctx context.Context, dec func(any) error, _
 	}
 	set(p, "weight_grams", protoreflect.ValueOfInt64(weight))
 	set(p, "postcode", protoreflect.ValueOfString(str(in, "postcode")))
+	set(p, "weight_kg", protoreflect.ValueOfFloat64(6))
+	customs := tr.msg("CustomsDeclaration")
+	set(customs, "grams", protoreflect.ValueOfInt64(1200))
+	set(customs, "value_eur", protoreflect.ValueOfFloat64(25))
+	declared, err := proto.Marshal(customs)
+	if err != nil {
+		return nil, err
+	}
+	anyField := p.Descriptor().Fields().ByName("customs")
+	held := dynamicpb.NewMessage(anyField.Message())
+	set(held, "type_url", protoreflect.ValueOfString("type.googleapis.com/parcels.tracking.v1.CustomsDeclaration"))
+	set(held, "value", protoreflect.ValueOfBytes(declared))
+	p.Set(anyField, protoreflect.ValueOfMessage(held))
 	return p, nil
 }
 
@@ -175,6 +191,83 @@ func TestUnaryCalls(t *testing.T) {
 	_ = h.Fails("the tracking grpc service answered NOT_FOUND with a message containing 'returned'", `whose message does not contain "returned"`)
 	_ = h.Fails("the tracking grpc service's answer has the following fields:", "with no answer to check", [][]string{{"status", "DELIVERED"}})
 	_ = h.Fails("the tracking grpc service answered LOST", `"LOST" is not a gRPC status; the statuses are ABORTED, ALREADY_EXISTS`)
+}
+
+// A double in an answer is a decimal, a whole one too, and an Any's fields are
+// numbers as a message's are.
+func TestAnswersKeepTheirNumbers(t *testing.T) {
+	_, addr := serve(t)
+	h := cloudtest.New(t, Pack())
+	h.OK("the tracking grpc service with the following properties:", [][]string{{"address", addr}})
+	h.OK("the GetParcel method is called on the tracking grpc service with the following fields:", [][]string{{"reference", "PX-GRP-6111"}})
+	h.OK("the tracking grpc service's answer has the following fields:", [][]string{
+		{"weightKg", "6.0"}, {"customs.grams", "1200"}, {"customs.valueEur", "25.0"},
+	})
+	_ = h.Fails("the tracking grpc service's answer has the following fields:", "weightKg is the decimal 6.0: write 6.0", [][]string{{"weightKg", "6"}})
+	_ = h.Fails("the tracking grpc service's answer has the following fields:", "customs.grams is the integer 1200: write 1200", [][]string{{"customs.grams", `"1200"`}})
+	_ = h.Fails("the tracking grpc service's answer has the following fields:", "customs.valueEur is the decimal 25.0: write 25.0", [][]string{{"customs.valueEur", "25"}})
+}
+
+// typedNumbers follows a message's descriptors everywhere proto JSON holds a
+// number: fields, nested messages, lists, maps, wrappers and Anys.
+func TestProtoJSONNumbers(t *testing.T) {
+	set, err := protoload.Compile("numbers.proto", []string{"testdata"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	d, err := set.FindDescriptorByName("parcels.numbers.v1.Weighing")
+	if err != nil {
+		t.Fatal(err)
+	}
+	const anyOf = `"@type":"type.googleapis.com/`
+	for _, c := range []struct{ in, want string }{
+		{`{"kilos":6}`, `"kilos":6.0`},
+		{`{"kilos":6.5}`, `"kilos":6.5`},
+		{`{"kilos":1e21}`, `"kilos":1e+21`},
+		{`{"kilos":-3}`, `"kilos":-3.0`},
+		{`{"kilos":"NaN"}`, `"kilos":"NaN"`},
+		{`{"kilos":"Infinity"}`, `"kilos":"Infinity"`},
+		{`{"kilos":"-Infinity"}`, `"kilos":"-Infinity"`},
+		{`{}`, `"kilos":0.0,"pounds":0.0,"grams":0,`},
+		{`{"pounds":2}`, `"pounds":2.0`},
+		{`{"pounds":1.1}`, `"pounds":1.1`},
+		{`{"grams":"1200"}`, `"grams":1200`},
+		{`{"pieces":3}`, `"pieces":3`},
+		{`{"readings":[1,2.5,"NaN"]}`, `"readings":[1.0,2.5,"NaN"]`},
+		{`{"parts":[{"kilos":1,"grams":"2"}]}`, `{"kilos":1.0,"pounds":0.0,"grams":2,`},
+		{`{"byDepot":{"LEJ":4}}`, `"byDepot":{"LEJ":4.0}`},
+		{`{"byParcel":{"PX-1":{"kilos":2}}}`, `"byParcel":{"PX-1":{"kilos":2.0,`},
+		{`{"byId":{"12":7}}`, `"byId":{"12":7.0}`},
+		{`{"grams_by_depot":{"LEJ":"12"}}`, `"gramsByDepot":{"LEJ":12}`},
+		{`{"tare":1}`, `"tare":1.0`},
+		{`{"margin":2}`, `"margin":2.0`},
+		{`{"total":"12"}`, `"total":12`},
+		{`{"extra":{"kilos":6,"fields":{"kilos":7},"grams":"12"}}`, `"extra":{"fields":{"kilos":7},"grams":"12","kilos":6}`},
+		{`{"detail":{` + anyOf + `parcels.numbers.v1.Weighing","kilos":3,"grams":"4"}}`, `"detail":{` + anyOf + `parcels.numbers.v1.Weighing","kilos":3.0,"pounds":0.0,"grams":4,`},
+		{`{"detail":{` + anyOf + `google.protobuf.Int64Value","value":"12"}}`, `"detail":{` + anyOf + `google.protobuf.Int64Value","value":12}`},
+		{`{"detail":{` + anyOf + `google.protobuf.DoubleValue","value":6}}`, `"detail":{` + anyOf + `google.protobuf.DoubleValue","value":6.0}`},
+		{`{"detail":{` + anyOf + `google.protobuf.Struct","value":{"kilos":6}}}`, `"detail":{` + anyOf + `google.protobuf.Struct","value":{"kilos":6}}`},
+		{
+			`{"detail":{` + anyOf + `google.protobuf.Any","value":{` + anyOf + `google.protobuf.Int64Value","value":"12"}}}`,
+			`"detail":{` + anyOf + `google.protobuf.Any","value":{` + anyOf + `google.protobuf.Int64Value","value":12}}`,
+		},
+		{`{"details":[{` + anyOf + `parcels.numbers.v1.Reading","value":6}]}`, `"details":[{` + anyOf + `parcels.numbers.v1.Reading","value":6.0}]`},
+	} {
+		m := dynamicpb.NewMessage(d.(protoreflect.MessageDescriptor))
+		if err := (protojson.UnmarshalOptions{Resolver: set.Types()}).Unmarshal([]byte(c.in), m); err != nil {
+			t.Fatalf("%s: %v", c.in, err)
+		}
+		got, err := marshal(m, set)
+		if err != nil {
+			t.Fatalf("%s: %v", c.in, err)
+		}
+		if !strings.Contains(string(got), c.want) {
+			t.Errorf("%s:\n got  %s\n want %s", c.in, got, c.want)
+		}
+		if !json.Valid(got) {
+			t.Errorf("%s: not JSON: %s", c.in, got)
+		}
+	}
 }
 
 func TestRequests(t *testing.T) {

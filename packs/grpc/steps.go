@@ -106,7 +106,7 @@ func steps() []core.StepDef {
 			Table: &core.TableDoc{
 				Columns: []string{"path", "value"},
 				Note: "Each row is a path into the answer as proto JSON (a field's JSON name, a dotted path like `lastScan.location`, or a JSONPath) and its value. " +
-					"Fields with their default values (`0`, `\"\"`, `false`) are in the answer, and 64-bit integers are numbers.",
+					"Fields with their default values (`0`, `\"\"`, `false`) are in the answer, 64-bit integers are numbers, and a float or a double is a decimal, a whole one too (`6.0`).",
 				Values:    core.JSONValues,
 				Undefined: true,
 			},

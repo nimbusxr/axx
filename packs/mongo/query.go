@@ -98,7 +98,8 @@ func querySteps() []core.StepDef {
 			ID: "mongo.doc.match", Keyword: "Then", Arg: core.ArgTable, Since: "0.1.0",
 			Expr: "the {ordinal} document for the[[ {ordinal}]] selection[[ on {mongoService}]] properties match:",
 			Doc: "Check the fields of one document of a selection, like the `properties are` step, " +
-				"with regular expressions (Java syntax) that must match the whole value, as text.",
+				"with regular expressions (Java syntax) that must match the whole value, as text: a double's text is a decimal's, like `6.0`, " +
+				"and a Decimal128's its digits, like `1.50`.",
 			Table: &core.TableDoc{
 				Columns: []string{"JSONPath", "pattern"},
 				Note:    "Each row names a JSONPath, like `_id` or `scans[0].status`, and a regular expression its value must match.",
@@ -249,7 +250,7 @@ func typedValue(text string, empty bool) (any, error) {
 }
 
 func docProperties(sc *core.Scenario, a core.Args, regex bool) error {
-	doc, err := selectedDoc(sc, a, 0, 1, 2)
+	doc, err := selectedDoc(sc, a, 0, 1, 2, regex)
 	if err != nil {
 		return err
 	}
@@ -257,8 +258,9 @@ func docProperties(sc *core.Scenario, a core.Args, regex bool) error {
 }
 
 // selectedDoc returns the JSON of document (arg docArg) in selection (arg
-// selArg) of the service (arg svcArg).
-func selectedDoc(sc *core.Scenario, a core.Args, docArg, selArg, svcArg int) (string, error) {
+// selArg) of the service (arg svcArg), for a pattern step's text when
+// forPatterns says so (writeDoc).
+func selectedDoc(sc *core.Scenario, a core.Args, docArg, selArg, svcArg int, forPatterns bool) (string, error) {
 	svc, err := service(sc, a, svcArg)
 	if err != nil {
 		return "", err
@@ -272,7 +274,7 @@ func selectedDoc(sc *core.Scenario, a core.Args, docArg, selArg, svcArg int) (st
 		return "", fmt.Errorf("document %d does not exist; the selection from %s has %d document(s)", i+1, sel.Collection, len(sel.Docs))
 	}
 	var buf bytes.Buffer
-	writeJSON(&buf, sel.Docs[i])
+	writeDoc(&buf, sel.Docs[i], forPatterns)
 	return buf.String(), nil
 }
 
@@ -280,7 +282,14 @@ func selectedDoc(sc *core.Scenario, a core.Args, docArg, selArg, svcArg int) (st
 // of numbers (ADR 0014): int32 and int64 are integers, a double a decimal
 // (6.0), a Decimal128 the number it is (1.50); ObjectIds are hex strings,
 // dates ISO-8601 UTC, and other exotic types strings.
-func writeJSON(buf *bytes.Buffer, v any) {
+func writeJSON(buf *bytes.Buffer, v any) { writeDoc(buf, v, false) }
+
+// writeDoc is writeJSON, or with forPatterns the document of a pattern step,
+// which matches a value's text. A Decimal128's text is its digits (1.50, and
+// all 34 of them), so there it is a string of them: the reader of a pattern's
+// document reads every JSON number as a double (1.5). A whole double's text
+// is 6.0.
+func writeDoc(buf *bytes.Buffer, v any, forPatterns bool) {
 	switch x := v.(type) {
 	case nil, bson.Null, bson.Undefined:
 		buf.WriteString("null")
@@ -292,7 +301,7 @@ func writeJSON(buf *bytes.Buffer, v any) {
 			}
 			writeString(buf, e.Key)
 			buf.WriteByte(':')
-			writeJSON(buf, e.Value)
+			writeDoc(buf, e.Value, forPatterns)
 		}
 		buf.WriteByte('}')
 	case bson.A:
@@ -301,7 +310,7 @@ func writeJSON(buf *bytes.Buffer, v any) {
 			if i > 0 {
 				buf.WriteByte(',')
 			}
-			writeJSON(buf, e)
+			writeDoc(buf, e, forPatterns)
 		}
 		buf.WriteByte(']')
 	case string:
@@ -317,7 +326,7 @@ func writeJSON(buf *bytes.Buffer, v any) {
 	case bson.Decimal128:
 		// Its text keeps its digits (1.50, 1E+3); NaN and the infinities,
 		// which JSON lacks, are strings.
-		if s := x.String(); json.Valid([]byte(s)) {
+		if s := x.String(); !forPatterns && json.Valid([]byte(s)) {
 			buf.WriteString(s)
 		} else {
 			writeString(buf, s)

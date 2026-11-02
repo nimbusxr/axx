@@ -114,6 +114,10 @@ func TestSeedAgainstRealMongo(t *testing.T) {
 		[]string{"budget", "1.50"}, []string{"callSign", `"0042"`}); err != nil {
 		t.Fatal(err)
 	}
+	// A pattern matches a value's text: a Decimal128's digits, and a double's as a decimal.
+	if err := run("the 1st document for the selection properties match:", []string{"budget", `\d+\.\d{2}`}, []string{"mass", `\d+\.\d`}); err != nil {
+		t.Fatal(err)
+	}
 	if err := run("the 1st document for the selection properties are:", []string{"mass", "6"}); !core.IsAssertion(err) || !strings.Contains(err.Error(), "mass is the decimal 6.0: write 6.0") {
 		t.Fatalf("a whole double is a decimal: %v", err)
 	}

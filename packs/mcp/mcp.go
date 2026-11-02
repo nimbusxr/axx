@@ -6,7 +6,6 @@ package mcp
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -197,7 +196,7 @@ func (s *server) start() (sdk.Transport, error) {
 	if g, err := proc.NewGroup(cmd); err == nil {
 		s.group = g
 	}
-	return &sdk.IOTransport{Reader: stdout, Writer: stdin}, nil
+	return exactTransport{&sdk.IOTransport{Reader: stdout, Writer: stdin}}, nil
 }
 
 func (st *state) ownFolder() (string, error) {
@@ -320,7 +319,7 @@ func (s *server) connect(sc *core.Scenario) error {
 	if s.url != "" {
 		transport = &sdk.StreamableClientTransport{
 			Endpoint:             s.url,
-			HTTPClient:           &http.Client{Transport: headerTransport{headers: s.headers, next: http.DefaultTransport}},
+			HTTPClient:           &http.Client{Transport: exactBodies{headerTransport{headers: s.headers, next: http.DefaultTransport}}},
 			MaxRetries:           -1,
 			DisableStandaloneSSE: true,
 		}
@@ -456,8 +455,7 @@ func describe(sc *core.Scenario, st *state) any {
 		if c.err != nil {
 			d["error"] = secrets.Mask(sc, c.err.Error())
 		} else {
-			b, _ := json.Marshal(c.result)
-			d["result"] = secrets.Mask(sc, string(b))
+			d["result"] = secrets.Mask(sc, c.resultJSON())
 		}
 		out["last tool call"] = d
 	}

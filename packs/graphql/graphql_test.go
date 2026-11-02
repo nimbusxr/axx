@@ -80,6 +80,9 @@ func (p *parcels) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		out = map[string]any{"data": nil, "errors": []any{map[string]any{
 			"message": ref + " is out for delivery", "path": []any{"holdParcel"}, "extensions": map[string]any{"code": "NOT_HOLDABLE"},
 		}}}
+	case "BusyParcel":
+		out = json.RawMessage(`{"data": null, "errors": [{"message": "the depot is busy", "path": ["parcels", 0, "scans"],
+			"extensions": {"retryAfter": 6.0, "traceId": 9007199254740993, "retries": 2}}]}`)
 	case "SignedBy":
 		out = map[string]any{"errors": []any{map[string]any{"message": `Cannot query field "signedBy" on type "Parcel".`}}}
 	case "ParcelsByPostcode":
@@ -244,6 +247,17 @@ func TestQueriesAndMutations(t *testing.T) {
 	_ = h.Fails("the parcels graphql service answered without errors", `answered HoldParcel with 1 error(s)`)
 	_ = h.Fails("the parcels graphql service answered an error where:", "None of the 1 error(s) the parcels graphql service answered HoldParcel met the conditions",
 		[][]string{{"extensions.code", "FORBIDDEN"}})
+
+	// An error's numbers keep their types and their digits, as the data's do.
+	h.OK("a query is sent to the parcels graphql service:", `query BusyParcel { parcel(reference: "PX-GQL-7205") { reference } }`)
+	h.OK("the parcels graphql service answered an error where:", [][]string{
+		{"extensions.retryAfter", "6.0"}, {"extensions.traceId", "9007199254740993"}, {"extensions.retries", "2"}, {"path", "parcels.0.scans"},
+	})
+	err := h.Fails("the parcels graphql service answered an error where:", "None of the 1 error(s)", [][]string{{"extensions.retryAfter", "6"}})
+	if !strings.Contains(err.Error(), `"retryAfter":6.0`) || !strings.Contains(err.Error(), `"traceId":9007199254740993`) {
+		t.Errorf("the failure should show the numbers as the service wrote them: %v", err)
+	}
+	_ = h.Fails("the parcels graphql service answered an error where:", "None of the 1 error(s)", [][]string{{"extensions.traceId", "9007199254740992"}})
 
 	// The step says what the operation is.
 	_ = h.Fails("the graphql/hold-parcel.graphql query is sent to the parcels graphql service with the following variables:",

@@ -144,7 +144,7 @@ func steps() []core.StepDef {
 					return err
 				}
 				if r.IsError {
-					return secrets.Hide(sc, core.Failf("the %s tool's result is an error: %s", c.tool, text(r)))
+					return secrets.Hide(sc, core.Failf("the %s tool's result is an error: %s", c.tool, c.text()))
 				}
 				return nil
 			},
@@ -161,7 +161,7 @@ func steps() []core.StepDef {
 					return err
 				}
 				if !r.IsError {
-					return secrets.Hide(sc, core.Failf("the %s tool's result is not an error: %s", c.tool, text(r)))
+					return secrets.Hide(sc, core.Failf("the %s tool's result is not an error: %s", c.tool, c.text()))
 				}
 				return nil
 			},
@@ -173,12 +173,12 @@ func steps() []core.StepDef {
 				"content's JSON.\n\n" + resultNote,
 			Examples: []string{"Then the hold_parcel tool's result contains 'already out for delivery'"},
 			Run: func(sc *core.Scenario, a core.Args) error {
-				c, r, err := result(sc, a)
+				c, _, err := result(sc, a)
 				if err != nil {
 					return err
 				}
 				want := a.String(2)
-				if got := text(r); !strings.Contains(got, want) {
+				if got := c.text(); !strings.Contains(got, want) {
 					return secrets.Hide(sc, core.Fail("the "+c.tool+" tool's result does not contain the text", want, got))
 				}
 				return nil
@@ -218,8 +218,7 @@ func steps() []core.StepDef {
 				}
 				want := a.Int(2)
 				if c.err == nil {
-					b, _ := json.Marshal(c.result)
-					return secrets.Hide(sc, core.Fail("the "+c.tool+" tool's call did not fail: it answered "+string(b), want, "a result"))
+					return secrets.Hide(sc, core.Fail("the "+c.tool+" tool's call did not fail: it answered "+c.resultJSON(), want, "a result"))
 				}
 				if int(c.code) != want {
 					return core.Fail("the "+c.tool+" tool's call failed with another error code: "+message(c.err), want, int(c.code))
