@@ -51,18 +51,41 @@ func StepsPage(reg *match.Registry, p PackInfo, frontmatter bool) (string, error
 	// The page's steps first, one line each: a reader (or an agent reading
 	// the top of the file) finds the one it needs, then its section by id.
 	b.WriteString("\nThe steps, each documented below under its id:\n\n")
-	for _, d := range defs {
+	listed, _ := foldLeading(defs)
+	for _, d := range listed {
 		fmt.Fprintf(&b, "- `%s`: `%s`\n", d.Step.ID, d.Step.Expr)
 	}
 	variants := variantsByDef(reg)
 	params := paramDocs(reg)
+	// Every step keeps its section here, a leading form too: the language
+	// server's go-to-definition, the only reader of this page, lands on it.
 	for _, d := range defs {
-		writeStep(&b, "##", d, variants[d], params)
+		writeStep(&b, "##", d, variants[d], nil, params)
 	}
 	return b.String(), nil
 }
 
-func writeStep(b *strings.Builder, heading string, d *match.Def, variants []string, params map[string]core.ParamType) {
+// foldLeading leaves out the leading forms of the steps among defs, which say
+// what their steps say (stepsearch.LeadingSuffix), and gives each step's form.
+func foldLeading(defs []*match.Def) (kept []*match.Def, leading map[*match.Def]*match.Def) {
+	byID := make(map[string]*match.Def, len(defs))
+	for _, d := range defs {
+		byID[d.Step.ID] = d
+	}
+	leading = map[*match.Def]*match.Def{}
+	for _, d := range defs {
+		if id, ok := stepsearch.LeadingBase(d.Step.ID); ok && byID[id] != nil {
+			leading[byID[id]] = d
+			continue
+		}
+		kept = append(kept, d)
+	}
+	return kept, leading
+}
+
+// writeStep writes a step's section; leading is its leading form, if it has
+// one that has no section of its own.
+func writeStep(b *strings.Builder, heading string, d *match.Def, variants []string, leading *match.Def, params map[string]core.ParamType) {
 	s := d.Step
 	fmt.Fprintf(b, "\n%s `%s`\n\n", heading, s.ID)
 	if s.DeprecatedBy != "" {
@@ -99,6 +122,9 @@ func writeStep(b *strings.Builder, heading string, d *match.Def, variants []stri
 		for _, v := range variants {
 			fmt.Fprintf(b, "- `%s`\n", v)
 		}
+	}
+	if leading != nil {
+		fmt.Fprintf(b, "\nWith its ordinal first, it says the same: `%s`.\n", leading.Step.Expr)
 	}
 	if len(s.Examples) > 0 {
 		b.WriteString("\n**Example:**\n\n```gherkin\n")
@@ -191,8 +217,8 @@ func writeTable(b *strings.Builder, t *core.TableDoc) {
 			b.WriteString("\n")
 		}
 	}
-	if t.Note != "" {
-		fmt.Fprintf(b, "\n%s\n", strings.TrimSpace(t.Note))
+	if n := t.Notes(); n != "" {
+		fmt.Fprintf(b, "\n%s\n", n)
 	}
 }
 
@@ -266,6 +292,9 @@ func StepIndex(reg *match.Registry) (string, error) {
 		if _, ok := twins[d.Step.ID]; ok {
 			continue
 		}
+		if _, ok := stepsearch.LeadingBase(d.Step.ID); ok {
+			continue
+		}
 		suffix := ""
 		switch d.Step.Arg {
 		case core.ArgTable:
@@ -296,10 +325,14 @@ func defsOf(reg *match.Registry, pack string) []*match.Def {
 	return out
 }
 
+// variantsByDef is each step's forms as a page lists them: another wording of
+// a step (StepDef.Also) runs it, and lists leave it out.
 func variantsByDef(reg *match.Registry) map[*match.Def][]string {
 	out := map[*match.Def][]string{}
 	for _, v := range reg.Variants() {
-		out[v.Def] = append(out[v.Def], v.Expr)
+		if !v.Also {
+			out[v.Def] = append(out[v.Def], v.Expr)
+		}
 	}
 	for _, vs := range out {
 		sort.SliceStable(vs, func(i, j int) bool { return len(vs[i]) < len(vs[j]) })

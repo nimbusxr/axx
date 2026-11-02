@@ -16,6 +16,7 @@ import (
 	"github.com/nimbusxr/axx/core"
 	"github.com/nimbusxr/axx/internal/avrojson"
 	"github.com/nimbusxr/axx/internal/compat/jsonx"
+	"github.com/nimbusxr/axx/internal/compat/jvalue"
 )
 
 // addClient creates a topic client from the Java properties in t (nil for
@@ -108,23 +109,35 @@ func loadPayload(sc *core.Scenario, ev *Event, file string) error {
 	return nil
 }
 
-// setProperties sets each row's JSONPath to its value as a string (an empty
-// cell sets null), like DocumentContext.set on the payload.
+// setProperties sets each row's JSONPath to its value, which means what it
+// says (ADR 0014): `42` the number, `"42"` the string, `null` JSON null, and
+// `undefined` removes the property. Each property must be in the payload, as
+// DocumentContext.set and delete need.
 func setProperties(ev *Event, t *core.Table) error {
 	pairs, err := t.Pairs()
 	if err != nil {
 		return err
 	}
+	values := make([]core.Value, len(pairs))
+	for i, p := range pairs {
+		if values[i], err = core.ParseValue(p.Value, p.Null, true); err != nil {
+			return fmt.Errorf("%s: %w", p.Key, err)
+		}
+	}
 	doc, err := parsePayload(ev)
 	if err != nil {
 		return err
 	}
-	for _, p := range pairs {
-		var v any = p.Value
-		if p.Null {
-			v = nil
+	for i, p := range pairs {
+		if values[i].Undefined() {
+			err = deletePath(doc, p.Key)
+		} else {
+			var v any
+			if v, err = jvalue.SmartValue(values[i]); err == nil {
+				err = setPath(doc, p.Key, v)
+			}
 		}
-		if err := setPath(doc, p.Key, v); err != nil {
+		if err != nil {
 			return err
 		}
 	}
@@ -151,7 +164,15 @@ func parsePayload(ev *Event) (any, error) {
 }
 
 func setPath(doc any, path string, v any) error {
-	err := jsonx.Set(doc, path, v)
+	return pathError(path, jsonx.Set(doc, path, v))
+}
+
+func deletePath(doc any, path string) error {
+	return pathError(path, jsonx.Delete(doc, path))
+}
+
+// pathError says why a property of the payload could not be set or removed.
+func pathError(path string, err error) error {
 	if err == nil {
 		return nil
 	}

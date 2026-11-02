@@ -75,14 +75,24 @@ func TestDraftsAndOrdinals(t *testing.T) {
 		t.Errorf("keys: %v %v %v", tc.events[0].Key, tc.events[1].Key, tc.events[2].Key)
 	}
 
-	h.must("the orders kafka event headers are:", []string{"trace", "t1"}, []string{"empty", ""})
+	h.must("the orders kafka event headers are:", []string{"trace", "t1"}, []string{"empty", `""`}, []string{"attempt", `"3"`})
 	h.must("the orders kafka event headers on the space-kafka kafka service are:", []string{"trace", "t2"}, []string{"source", "svc"})
+	// A header and a key are text (ADR 0014): a value that reads as anything
+	// else, or an empty cell, fails and sets nothing.
+	h.fails("the orders kafka event headers are:", `attempt: 4 reads as an integer, and only text fits here: write "4" for the text`,
+		[]string{"trace", "t3"}, []string{"attempt", "4"})
+	h.fails("the orders kafka event headers are:", `empty: the cell is empty: write "" for the empty text`, []string{"empty", ""})
 	var got []string
 	for _, hd := range tc.events[0].Headers {
 		got = append(got, hd.Key+"="+*hd.Value)
 	}
-	if strings.Join(got, ",") != "trace=t2,empty=null,source=svc" {
+	if strings.Join(got, ",") != "trace=t2,empty=,attempt=3,source=svc" {
 		t.Errorf("headers: %v", got)
+	}
+	h.fails("the orders kafka event key is 4101", `4101 reads as an integer, and only text fits here: write "4101" for the text`)
+	h.must(`the orders kafka event key is "4101"`)
+	if *tc.events[0].Key != "4101" {
+		t.Errorf("key: %q", *tc.events[0].Key)
 	}
 }
 
@@ -107,15 +117,34 @@ func TestPayloadSteps(t *testing.T) {
 	h.must("the first kafka event payload is a kafka/order.json resource")
 	h.must("the 2nd ordered second kafka event payload is a kafka/order.json resource on the space-kafka kafka service")
 
-	// Values are always set as strings; an empty cell sets null.
+	// A value means what it says (ADR 0014): `5` the number, `"6"` the
+	// string, `null` JSON null, and `undefined` removes the property.
 	h.must("the first kafka event payload properties are:",
-		[]string{"$.id", "o-2"}, []string{"$.count", "5"}, []string{"customer.name", ""})
+		[]string{"$.id", "o-2"}, []string{"$.count", "5"}, []string{"customer.name", "null"}, []string{"$.tags", "undefined"})
 	doc, _ := jsonx.Parse(first.events[0].Payload)
-	for path, want := range map[string]any{"$.id": "o-2", "$.count": "5", "$.customer.name": nil} {
+	for path, want := range map[string]any{"$.id": "o-2", "$.count": jsonx.IntegerNumber(5), "$.customer.name": nil} {
 		v, _, err := jsonx.Read(doc, path)
 		if err != nil || !jsonx.JavaEquals(v, want) {
 			t.Errorf("%s = %#v (%v), want %#v", path, v, err, want)
 		}
+	}
+	if strings.Contains(first.events[0].Payload, "tags") {
+		t.Errorf("undefined removes the property: %s", first.events[0].Payload)
+	}
+	h.must("the first kafka event payload properties are:", []string{"$.count", `"6"`})
+	if !strings.Contains(first.events[0].Payload, `"count":"6"`) {
+		t.Errorf("a string: %s", first.events[0].Payload)
+	}
+	// A value that could be read two ways fails, with the forms to write,
+	// and changes nothing; undefined removes a property the payload has.
+	h.fails("the first kafka event payload properties are:",
+		`customer.name: the cell is empty: write "" for the empty string, null for null, or undefined for no such property`,
+		[]string{"$.id", "o-3"}, []string{"customer.name", ""})
+	h.fails("the first kafka event payload properties are:", "$.count: 007 could be the number 7", []string{"$.count", "007"})
+	h.fails("the first kafka event payload properties are:", "Property not found in Kafka event payload: $.tags does not exist",
+		[]string{"$.tags", "undefined"})
+	if strings.Contains(first.events[0].Payload, "o-3") {
+		t.Errorf("a step that fails changes nothing: %s", first.events[0].Payload)
 	}
 	h.must("the first kafka event payload property $.customer.email is null")
 	if !strings.Contains(first.events[0].Payload, `"email":null`) {

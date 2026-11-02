@@ -85,8 +85,9 @@ func PackPage(reg *match.Registry, p PackInfo, linkBase string, frontmatter bool
 		b.WriteString("\n## Steps\n")
 		variants := variantsByDef(reg)
 		docs := paramDocs(reg)
-		for _, d := range defs {
-			writeStep(&b, "###", d, variants[d], docs)
+		kept, leading := foldLeading(defs)
+		for _, d := range kept {
+			writeStep(&b, "###", d, variants[d], leading[d], docs)
 		}
 	}
 	if len(params) > 0 {

@@ -106,6 +106,7 @@ func (pack) Manifest() core.Manifest {
 					{Name: "attachment", Takes: "the file name of an attachment"},
 					{Name: "header <name>", Takes: "a header's value: its name after `header `"},
 				},
+				Values: core.TextValues,
 			},
 			Examples: []string{"Then within 10s the shops mailbox has an email where:\n" +
 				"  | to         | orders@hawthorn-home.example |\n" +
@@ -272,7 +273,7 @@ func (pack) Init(ctx context.Context, s *core.Suite) error {
 // ---- checks ----
 
 func expect(sc *core.Scenario, a core.Args) error {
-	pairs, err := a.Table.Pairs()
+	pairs, err := cloudstep.TextPairs(a.Table)
 	if err != nil {
 		return err
 	}

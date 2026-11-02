@@ -6,6 +6,7 @@ description: See Axx's steps in feature files as you write them - problems flagg
 Axx's steps are defined inside the `axx` binary, not in your project, so an editor cannot find them on its own. `axx lsp`, a language server built into the binary, tells the editor about them. The IntelliJ plugin and the VS Code extension start it for you. In feature files you get:
 
 - undefined, ambiguous and misused steps, and Gherkin syntax errors, flagged as you type, with the closest real steps;
+- table values that could be read two ways ([`01067`, an empty cell](/references/steps/#values)), flagged with the forms to write;
 - completion of step text, with the step's parameters as placeholders;
 - the step's documentation, and the values of its parameters, on hover;
 - go to a step's definition: the Go code that defines it when that code is on your machine (your custom packs, or axx built from source), otherwise the step's entry in a reference page;

@@ -24,6 +24,7 @@ import (
 	messages "github.com/cucumber/messages/go/v34"
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 
+	"github.com/nimbusxr/axx/core"
 	"github.com/nimbusxr/axx/internal/axxerr"
 	"github.com/nimbusxr/axx/internal/check"
 	"github.com/nimbusxr/axx/internal/config"
@@ -33,6 +34,7 @@ import (
 	"github.com/nimbusxr/axx/internal/lifecycle"
 	"github.com/nimbusxr/axx/internal/lint"
 	"github.com/nimbusxr/axx/internal/match"
+	"github.com/nimbusxr/axx/internal/packref"
 	"github.com/nimbusxr/axx/internal/packset"
 	"github.com/nimbusxr/axx/internal/stepsearch"
 	"github.com/nimbusxr/axx/internal/version"
@@ -40,11 +42,16 @@ import (
 
 // Instructions are sent to clients on connect, and stay in the agent's
 // context: only the conventions the tools' descriptions do not carry.
-const Instructions = `axx runs acceptance criteria, written as Gherkin features, against the project's services.
+const Instructions = `axx runs acceptance criteria, written as Gherkin scenarios, black-box against the project's services. It answers for itself: these tools need no website or source.
 
-Writing tests: steps_search without a query lists every step once; write one scenario per acceptance criterion with steps that exist, written out: each {name} replaced with a value, a(n) as "a" or "an" and row(s) as "row" or "rows", [[...]] kept without the brackets or left out; scenarios_run runs them and also reports what feature_validate and lint_run find; failure_context explains a failure. env {"action":"up"} keeps the services running between runs. With an axx host serving the project (.axx/host.json), steps_try gets services of its own from it when none are up, and scenarios_run ends them first: every run starts clean.
+1. Find steps: steps_search without a query lists every step of the project's packs, a line each; with words, the steps that fit, from the packs it lacks too (with the pack to add). A step's line is usually enough to write it: step_explain gives the documentation of those that leave you unsure, several ids in one call. steps_try tries steps in a live scenario.
+2. Write one scenario per acceptance criterion with those steps, written out: each {name} replaced with a value, a(n) as "a" or "an", row(s) as "row" or "rows", [[...]] kept without the brackets or left out.
+3. Check and fix, in one turn: feature_validate (no services needed), lint_run (the test-data rules) and scenarios_run, which starts the services and stops them; failure_context explains a failure. env {"action":"up"} only keeps the services running to inspect them. With an axx host serving the project (.axx/host.json), steps_try gets services of its own from it, and scenarios_run ends them first.
+
+- A scenario is one behavior: Given the state it starts from (a request it needs done first is executed in a Given), one When, Then what is true afterwards. A request that checks the outcome is added with the others and executed in the When. A When after a Then is another scenario. Each acceptance criterion is a scenario of its own, even when one action shows several.
 - A scenario registers each service it uses before other steps use it ("the {word} service with the following properties:").
 - Requests, responses and selections are numbered in the order a scenario adds them; a step without an ordinal means the first.
+- A value means what it says in every table: 53111 a number, "53111" the string, null, undefined (no such property); checks are strict, and an empty cell, 01067 or a number where only text fits is an error saying what to write.
 - Scenarios run in parallel and data persists: give every id, key and name a value of the scenario's own.
 - Check what a request did or why it was refused, not only its status code.`
 
@@ -99,12 +106,12 @@ func newServer(opts Options) (*sdk.Server, *server) {
 		s.stepExplain)
 	addTool(srv, &sdk.Tool{
 		Name: "feature_validate", Annotations: ro,
-		Description: "Check features without running them. scenarios_run reports the same problems, so a run needs no check first.",
+		Description: "Check features without running them or the services: undefined, ambiguous and misused steps, and the feature checks.",
 	},
 		s.featureValidate)
 	addTool(srv, &sdk.Tool{
 		Name: "lint_run", Annotations: ro,
-		Description: "axx lint: test-data values that collide across files, and the feature checks. scenarios_run reports them too.",
+		Description: "axx lint: the project's test-data rules (values that must stay unique across files) and the feature checks.",
 	},
 		s.lintRun)
 	addTool(srv, &sdk.Tool{
@@ -120,7 +127,7 @@ func newServer(opts Options) (*sdk.Server, *server) {
 	addTool(srv, &sdk.Tool{
 		// down stops the services and runs their cleanup.
 		Name: "env", Annotations: &sdk.ToolAnnotations{OpenWorldHint: &closed},
-		Description: "The services: up keeps them running between runs, down stops them and cleans up, status lists them.",
+		Description: "The services: up keeps them running to inspect them (a run starts and stops them itself), down stops them and cleans up, status lists them.",
 	},
 		s.env)
 	addTool(srv, &sdk.Tool{
@@ -241,10 +248,14 @@ type Step struct {
 	Arg      string   `json:"argument,omitempty"`
 	// Columns name the columns of the step's data table; the table may
 	// start with a row of these names (two columns or more) or not.
-	Columns  []string `json:"columns,omitempty"`
-	Doc      string   `json:"doc,omitempty"`
-	Examples []string `json:"examples,omitempty"`
-	Params   []string `json:"params,omitempty"`
+	Columns []string `json:"columns,omitempty"`
+	// Rows are the rows the table knows, like a service's properties.
+	Rows []core.TableRow `json:"rows,omitempty"`
+	// TableNote says what the table's rows hold.
+	TableNote string   `json:"tableNote,omitempty"`
+	Doc       string   `json:"doc,omitempty"`
+	Examples  []string `json:"examples,omitempty"`
+	Params    []string `json:"params,omitempty"`
 	// Twin is the id of the step's form for a named service (`… on
 	// {service}`), folded into it.
 	Twin string `json:"twin,omitempty"`
@@ -255,6 +266,11 @@ type Step struct {
 
 type stepsSearchOut struct {
 	Steps []Step `json:"steps,omitempty"`
+	// OtherPacks are steps of axx's packs the project does not use that read
+	// like the query better than its own: `axx pack add <pack>` adds one.
+	OtherPacks []Step `json:"otherPacks,omitempty"`
+	// Packs lists axx's packs, one line each, when the project uses none.
+	Packs string `json:"packs,omitempty"`
 	// Catalog lists every step, one line each, when the query is empty.
 	Catalog string `json:"catalog,omitempty"`
 	Hint    string `json:"hint,omitempty"`
@@ -266,21 +282,56 @@ func (s *server) stepsSearch(ctx context.Context, _ *sdk.CallToolRequest, in ste
 		return nil, stepsSearchOut{}, err
 	}
 	all := allSteps(e, in.Pack)
+	// A pack the project does not use: its steps, from axx's reference.
+	notUsed := ""
+	if in.Pack != "" && len(all) == 0 {
+		if _, ok := packref.Lookup(in.Pack); ok {
+			notUsed = fmt.Sprintf("the %s pack is not in this project: `axx pack add %s` adds it", in.Pack, in.Pack)
+		}
+	}
 	if strings.TrimSpace(in.Query) == "" {
+		if len(all) == 0 && in.Pack == "" {
+			return nil, stepsSearchOut{
+				Packs: packMap(),
+				Hint:  "this project uses no packs yet, so it has no steps: `axx pack add <name>` adds one; steps_search {pack} lists a pack's steps before it is added",
+			}, nil
+		}
+		hint := "every step, one line each; step_explain {id} gives one step's documentation and examples"
+		if notUsed != "" {
+			all = otherSteps(e, in.Pack)
+			hint = notUsed + ". " + hint
+		}
 		entries := make([]stepsearch.Entry, len(all))
 		for i, st := range all {
 			entries[i] = stepsearch.Entry{ID: st.ID, Pack: st.Pack, Expr: st.Expr, Arg: st.Arg, Columns: st.Columns}
 		}
-		return nil, stepsSearchOut{
-			Catalog: stepsearch.Catalog(entries),
-			Hint:    "every step, one line each; step_explain {id} gives one step's documentation and examples",
-		}, nil
+		return nil, stepsSearchOut{Catalog: stepsearch.Catalog(entries), Hint: hint}, nil
 	}
 	limit := in.Limit
 	if limit <= 0 {
 		limit = 6
 	}
 	found, strong := searchSteps(all, in.Query)
+	// The steps of axx's other packs that read like the query better than
+	// the project's do, with the pack to add: of the pack asked for, when the
+	// project does not use it.
+	var others []Step
+	if in.Pack == "" || notUsed != "" {
+		rest := otherSteps(e, in.Pack)
+		better, outclassed := stepsearch.Elsewhere(searchDocs(all), searchDocs(rest), in.Query, limit)
+		var keep []Step
+		for i, st := range rest {
+			if better[i] {
+				keep = append(keep, st)
+			}
+		}
+		if others, _ = searchSteps(keep, in.Query); len(others) > limit {
+			others = others[:limit]
+		}
+		if outclassed {
+			found, strong = nil, false
+		}
+	}
 	out := stepsSearchOut{}
 	// Every result stays in the agent's context, so it carries what picking
 	// a step takes and no more: no documentation (step_explain has it), one
@@ -297,14 +348,27 @@ func (s *server) stepsSearch(ctx context.Context, _ *sdk.CallToolRequest, in ste
 			continue
 		}
 		s.shown[st.ID] = true
-		st.Doc, st.Variants, st.Params = "", nil, nil
+		st.Doc, st.Variants, st.Params, st.Rows = "", nil, nil, nil
 		if len(st.Examples) > 1 {
 			st.Examples = st.Examples[:1]
 		}
 		out.Steps = append(out.Steps, st)
 	}
 	s.shownMu.Unlock()
+	for _, st := range others {
+		st.Doc, st.Variants, st.Params, st.Rows = "", nil, nil, nil
+		if len(st.Examples) > 1 {
+			st.Examples = st.Examples[:1]
+		}
+		out.OtherPacks = append(out.OtherPacks, st)
+	}
 	switch {
+	case notUsed != "" && len(others) > 0:
+		out.Hint = notUsed + "; otherPacks are its steps that read like that"
+	case notUsed != "":
+		out.Hint = notUsed + "; none of its steps reads like that: call without a query for its catalog"
+	case len(found) == 0 && len(others) > 0:
+		out.Hint = "no step of this project's packs reads like that; otherPacks are steps of axx's packs it does not use: `axx pack add <pack>` adds one"
 	case len(found) == 0:
 		out.Hint = "no step reads like that; try other words, or call without a query for the catalog of every step"
 	case !strong:
@@ -318,13 +382,49 @@ func (s *server) stepsSearch(ctx context.Context, _ *sdk.CallToolRequest, in ste
 	return nil, out, nil
 }
 
-func allSteps(e *engine.Engine, pack string) []Step {
-	variants := map[*match.Def][]string{}
-	for _, v := range e.Registry.Variants() {
-		variants[v.Def] = append(variants[v.Def], v.Expr)
+func allSteps(e *engine.Engine, pack string) []Step { return stepsOf(e.Registry, pack) }
+
+// otherSteps lists the steps of axx's packs the project does not use, from
+// axx's reference of its packs (internal/packref): of the one named, or of
+// all of them when pack is "".
+func otherSteps(e *engine.Engine, pack string) []Step {
+	loaded := map[string]bool{}
+	for _, p := range e.Packs {
+		loaded[p.Name] = true
+	}
+	var names []string
+	for _, n := range packref.Names() {
+		if !loaded[n] && (pack == "" || n == pack) {
+			names = append(names, n)
+		}
+	}
+	if len(names) == 0 {
+		return nil
+	}
+	reg, err := packref.Registry(names...)
+	if err != nil {
+		return nil
 	}
 	var out []Step
-	for _, d := range e.Registry.Defs() {
+	for _, st := range stepsOf(reg, pack) {
+		if !loaded[st.Pack] {
+			out = append(out, st)
+		}
+	}
+	return out
+}
+
+// stepsOf describes the steps of a registry: of the pack named, or all of
+// them when pack is "".
+func stepsOf(reg *match.Registry, pack string) []Step {
+	variants := map[*match.Def][]string{}
+	for _, v := range reg.Variants() {
+		if !v.Also {
+			variants[v.Def] = append(variants[v.Def], v.Expr)
+		}
+	}
+	var out []Step
+	for _, d := range reg.Defs() {
 		if pack != "" && d.Pack != pack {
 			continue
 		}
@@ -337,12 +437,15 @@ func allSteps(e *engine.Engine, pack string) []Step {
 			}
 		}
 		var columns []string
+		var rows []core.TableRow
+		note := ""
 		if d.Step.Table != nil {
-			columns = d.Step.Table.Columns
+			columns, note = d.Step.Table.Columns, d.Step.Table.Notes()
+			rows, _ = stepsearch.BriefRows(d.Step.Table.Rows)
 		}
 		out = append(out, Step{
 			ID: d.Step.ID, Pack: d.Pack, Expr: d.Step.Expr, Variants: variants[d], Arg: d.Step.Arg.String(),
-			Columns: columns, Doc: d.Step.Doc, Examples: d.Step.Examples, Params: params,
+			Columns: columns, Rows: rows, TableNote: note, Doc: d.Step.Doc, Examples: d.Step.Examples, Params: params,
 		})
 	}
 	return out
@@ -369,6 +472,8 @@ func searchSteps(all []Step, q string) ([]Step, bool) {
 		st := all[r.Index]
 		if base, ok := twins[st.ID]; ok {
 			st = all[slices.Index(ids, base)]
+		} else if base, ok := stepsearch.LeadingBase(st.ID); ok && slices.Contains(ids, base) {
+			st = all[slices.Index(ids, base)]
 		}
 		if listed[st.ID] {
 			continue
@@ -378,6 +483,23 @@ func searchSteps(all []Step, q string) ([]Step, bool) {
 		out = append(out, st)
 	}
 	return out, strong
+}
+
+func searchDocs(all []Step) []stepsearch.Step {
+	docs := make([]stepsearch.Step, len(all))
+	for i, st := range all {
+		docs[i] = stepsearch.Step{ID: st.ID, Pack: st.Pack, Expr: st.Expr, Doc: st.Doc}
+	}
+	return docs
+}
+
+// packMap lists axx's packs, one line each, with what they reach.
+func packMap() string {
+	var b strings.Builder
+	for _, p := range packset.Catalog {
+		fmt.Fprintf(&b, "%s: %s\n", p.Name, p.Summary)
+	}
+	return b.String()
 }
 
 // ---- step_explain ----
@@ -416,19 +538,32 @@ func (s *server) stepExplain(ctx context.Context, _ *sdk.CallToolRequest, in ste
 	var out stepExplainOut
 	if len(in.IDs) > 0 {
 		byID := map[string]Step{}
-		for _, st := range allSteps(e, "") {
+		for _, st := range otherSteps(e, "") {
 			byID[st.ID] = st
 		}
-		for _, id := range in.IDs {
-			if st, ok := byID[strings.TrimSpace(id)]; ok {
-				out.Steps = append(out.Steps, st)
-			} else {
-				out.Unknown = append(out.Unknown, id)
-			}
+		used := map[string]bool{}
+		for _, st := range allSteps(e, "") {
+			byID[st.ID] = st
+			used[st.Pack] = true
 		}
-		out.Status = "matched"
-		if len(out.Steps) == 0 {
-			out.Status = "undefined"
+		// A step the project cannot run is undefined, as with {id}: a mix of
+		// them matched for the ones it can, and says which pack to add.
+		out.Status = "undefined"
+		noted, seen := map[string]bool{}, map[string]bool{}
+		for _, id := range in.IDs {
+			st, ok := byID[strings.TrimSpace(id)]
+			switch {
+			case !ok:
+				out.Unknown = append(out.Unknown, id)
+				continue
+			case used[st.Pack]:
+				out.Status = "matched"
+			case !noted[st.Pack]:
+				noted[st.Pack] = true
+				out.Suggestions = append(out.Suggestions, fmt.Sprintf("the %s pack is not in this project: `axx pack add %s` adds it", st.Pack, st.Pack))
+			}
+			st.TableNote = stepsearch.BriefNote(st.TableNote, seen)
+			out.Steps = append(out.Steps, st)
 		}
 		return nil, out, nil
 	}
@@ -437,6 +572,15 @@ func (s *server) stepExplain(ctx context.Context, _ *sdk.CallToolRequest, in ste
 			if st.ID == id {
 				st := st
 				out.Status, out.Step = "matched", &st
+				return nil, out, nil
+			}
+		}
+		// A step of a pack the project does not use.
+		for _, st := range otherSteps(e, "") {
+			if st.ID == id {
+				st := st
+				out.Status, out.Step = "undefined", &st
+				out.Suggestions = []string{fmt.Sprintf("this is %s of the %s pack, which this project does not use: `axx pack add %s`", st.ID, st.Pack, st.Pack)}
 				return nil, out, nil
 			}
 		}
@@ -456,6 +600,10 @@ func (s *server) stepExplain(ctx context.Context, _ *sdk.CallToolRequest, in ste
 	case 0:
 		out.Status = "undefined"
 		for _, sg := range e.Registry.Suggest(text, 5) {
+			if m := sg.Missing(); m != "" {
+				out.Suggestions = append(out.Suggestions, m)
+				continue
+			}
 			out.Suggestions = append(out.Suggestions, sg.Expr)
 		}
 	case 1:
@@ -500,6 +648,21 @@ type Problem struct {
 	Text        string   `json:"text,omitempty"`
 	Message     string   `json:"message,omitempty"`
 	Suggestions []string `json:"suggestions,omitempty"`
+	// Pack is the pack that has the step, which the project does not use, and
+	// Hint says how to add it.
+	Pack string `json:"pack,omitempty"`
+	Hint string `json:"hint,omitempty"`
+}
+
+// missingPack is the pack suggestions say an undefined step is of, which the
+// project does not use, and how to add it.
+func missingPack(suggestions []match.Suggestion) (pack, hint string) {
+	for _, sg := range suggestions {
+		if sg.Pack != "" {
+			return sg.Pack, sg.Missing()
+		}
+	}
+	return "", ""
 }
 
 type featureValidateOut struct {
@@ -550,10 +713,14 @@ func (s *server) featureValidate(ctx context.Context, _ *sdk.CallToolRequest, in
 	out.Scenarios = len(pickles)
 	for _, pr := range check.Pickles(e.Registry, pickles).Problems {
 		mp := Problem{Kind: pr.Kind, Location: fmt.Sprintf("%s:%d", pr.URI, pr.Line), Text: pr.Text, Message: pr.Message}
+		if pr.Code != "" {
+			mp.Message += " [" + pr.Code + "]"
+		}
 		for _, sg := range pr.Suggestions {
 			mp.Suggestions = append(mp.Suggestions, sg.Expr)
 		}
 		mp.Suggestions = append(mp.Suggestions, pr.Candidates...)
+		mp.Pack, mp.Hint = missingPack(pr.Suggestions)
 		out.Problems = append(out.Problems, mp)
 	}
 	out.Valid = len(out.Problems) == 0
@@ -1007,7 +1174,7 @@ Rules:
 - Read the step catalog once (steps_search without a query); only use step text that exists.
 - One scenario per criterion; name scenarios after the behavior, not the implementation.
 - Use unique test data in every scenario (ids, names, keys) because scenarios run in parallel.
-- Run with scenarios_run: it reports failures, and what feature_validate and lint_run find.
+- Check and fix, in one turn: feature_validate, lint_run and scenarios_run, which starts the services and stops them.
 - Scenarios must fail if the behavior is broken: check what the service did (payload, rows, events) and why it refused, not only status codes.`
 }
 

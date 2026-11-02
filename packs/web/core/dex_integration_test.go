@@ -274,7 +274,7 @@ func TestSigningInThroughDex(t *testing.T) {
 			h.OK(`the page shows "Not signed in"`)
 			h.OK(`the "Sign in" link is clicked`)
 			h.OK(`the "Log in with Email" button is clicked`)
-			h.OK(`the "Password" field has the value ""`)
+			h.OK(`the "Password" field has the value '""'`)
 			h.OK(`the "Email Address" field is filled with "orders@maple-crafts.example"`)
 			h.OK(`the "Password" field is filled with "${env:MAPLE_CRAFTS_PASSWORD}"`)
 			h.OK(`the "Login" button is clicked`)

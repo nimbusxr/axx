@@ -3,7 +3,7 @@ title: Roadmap
 description: Where Axx is on the way from beta to 1.0, what is in it today, and the criteria for v1.0.0.
 ---
 
-Axx is in **beta**. Versions start at `v0.1.0`, and every `0.x` release is a GitHub pre-release. Until `v1.0.0`, a minor version bump (`0.1` to `0.2`) may contain breaking changes to flags or configuration; features and fixes bump the patch version. Step text is the exception: it is frozen from day one, so feature files keep working across every release.
+Axx is in **beta**. Versions start at `v0.1.0`, and every `0.x` release is a GitHub pre-release. Until `v1.0.0`, a minor version bump (`0.1` to `0.2`) may contain breaking changes to flags, configuration or what a feature's values mean; features and fixes bump the patch version. Step text is the exception: it is frozen from day one.
 
 ## Now
 

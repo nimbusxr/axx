@@ -1,9 +1,11 @@
 package a2a
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"iter"
 	"net/http"
 	"net/http/httptest"
@@ -151,6 +153,9 @@ func TestTasks(t *testing.T) {
 			h.OK("the parcels a2a agent with the following properties:", [][]string{{"url", url}, {"transport", transport}})
 			h.OK("the parcels a2a agent's card has the following properties:",
 				[][]string{{"name", "Parcels agent"}, {"capabilities.streaming", "true"}, {"skills[0].id", "track-parcel"}})
+			// Checks are strict: the boolean is not its text.
+			_ = h.Fails("the parcels a2a agent's card has the following properties:", "capabilities.streaming is the boolean true: write true",
+				[][]string{{"capabilities.streaming", `"true"`}})
 			h.OK("the parcels a2a agent has the track-parcel skill")
 			_ = h.Fails("the parcels a2a agent has the hold-parcel skill", "has no skill hold-parcel; its skills are: track-parcel")
 
@@ -159,6 +164,9 @@ func TestTasks(t *testing.T) {
 			h.OK("the parcels a2a agent's answer contains 'out for delivery, in Leipzig'")
 			h.OK("the parcels a2a agent's task has an artifact where:", [][]string{{"name", "parcel-status"}, {"data.status", "OUT_FOR_DELIVERY"}, {"text", "PX-A2A-9201 is out for delivery"}})
 			_ = h.Fails("the parcels a2a agent's task has an artifact where:", "no artifact of the parcels a2a agent's task has those properties", [][]string{{"data.status", "DELIVERED"}})
+			// A value the rule cannot read fails the check at once.
+			_ = h.Fails("the parcels a2a agent's task has an artifact where:",
+				`data.status: the cell is empty: write "" for the empty string, null for null, or undefined for no such property`, [][]string{{"data.status", ""}})
 			_ = h.Fails("the parcels a2a agent's task is failed", "the parcels a2a agent's task is completed, not failed")
 
 			// A task that asks for input gets it in a reply.
@@ -214,8 +222,138 @@ func testStream(t *testing.T, transport string) {
 		t.Error("a check of an ended stream waited")
 	}
 	_ = h.Fails("within 1s the parcels a2a agent's task is working", "the parcels a2a agent's task is completed, not working")
+	_ = h.Fails("within 30s the parcels a2a agent's stream received an update where:",
+		`artifact.data.reference: +9204 could be the number 9204 or the text +9204: write 9204 for the number, or "+9204" for the text`,
+		[][]string{{"artifact.data.reference", "+9204"}})
 	if err := h.End("passed"); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// weighed is a data part whose numbers a float64 does not keep: a whole
+// double, and an id past its precision.
+const weighed = `{"weightKg":6.0,"id":9007199254740993,"pieces":[{"kg":2.50}],"title":"<6.0> & more"}`
+
+// serveWeighed answers every message with a task whose artifact holds those
+// numbers, as an agent writes them on the wire: over JSON-RPC and HTTP+JSON,
+// as an answer and as a stream.
+func serveWeighed(t *testing.T) string {
+	t.Helper()
+	const status = `"status":{"state":"TASK_STATE_COMPLETED"}`
+	artifact := `{"artifactId":"a-1","name":"weighing","parts":[{"data":` + weighed + `},{"text":"weighed"}]}`
+	task := `{"task":{"id":"t-1","contextId":"c-1",` + status + `,"artifacts":[` + artifact + `]}}`
+	events := []string{
+		`{"task":{"id":"t-1","contextId":"c-1","status":{"state":"TASK_STATE_WORKING"}}}`,
+		`{"artifactUpdate":{"taskId":"t-1","contextId":"c-1","artifact":` + artifact + `}}`,
+		`{"statusUpdate":{"taskId":"t-1","contextId":"c-1",` + status + `}}`,
+	}
+	rpc := func(result string) string { return `{"jsonrpc":"2.0","id":"1","result":` + result + `}` }
+	stream := func(w http.ResponseWriter, wrap func(string) string) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		for _, ev := range events {
+			_, _ = w.Write([]byte("id: 1\ndata: " + wrap(ev) + "\n\n"))
+			w.(http.Flusher).Flush()
+		}
+	}
+	mux := http.NewServeMux()
+	var srv *httptest.Server
+	mux.HandleFunc("/.well-known/agent-card.json", func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(&a2a.AgentCard{
+			Name: "Weighing agent", Description: "Weighs parcels.", Version: "1.0.0",
+			SupportedInterfaces: []*a2a.AgentInterface{
+				a2a.NewAgentInterface(srv.URL+"/a2a", a2a.TransportProtocolJSONRPC),
+				a2a.NewAgentInterface(srv.URL+"/rest", a2a.TransportProtocolHTTPJSON),
+			},
+			Capabilities:      a2a.AgentCapabilities{Streaming: true},
+			DefaultInputModes: []string{"text/plain"}, DefaultOutputModes: []string{"application/json"},
+		})
+	})
+	mux.HandleFunc("/a2a", func(w http.ResponseWriter, r *http.Request) {
+		var req struct {
+			Method string `json:"method"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&req)
+		if strings.Contains(req.Method, "Stream") {
+			stream(w, rpc)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(rpc(task)))
+	})
+	mux.HandleFunc("/rest/", func(w http.ResponseWriter, r *http.Request) {
+		if strings.Contains(r.URL.Path, "stream") {
+			stream(w, func(ev string) string { return ev })
+			return
+		}
+		w.Header().Set("Content-Type", "application/a2a+json")
+		_, _ = w.Write([]byte(task))
+	})
+	srv = httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+	return srv.URL
+}
+
+// An artifact's data keeps its numbers' types and digits, whether the agent
+// answers or streams it.
+func TestArtifactDataKeepsItsNumbers(t *testing.T) {
+	for _, transport := range []string{"JSONRPC", "HTTP+JSON"} {
+		t.Run(transport, func(t *testing.T) {
+			h := cloudtest.New(t, Pack())
+			h.OK("the weighing a2a agent with the following properties:", [][]string{{"url", serveWeighed(t)}, {"transport", transport}})
+			check := func(step, prefix string) {
+				t.Helper()
+				h.OK(step, [][]string{
+					{prefix + "data.weightKg", "6.0"},
+					{prefix + "data.id", "9007199254740993"},
+					{prefix + "data.pieces[0].kg", "2.50"},
+					{prefix + "data.title", `"<6.0> & more"`},
+					{prefix + "parts[0].data.weightKg", "6.0"},
+					{prefix + "parts[0].data.id", "9007199254740993"},
+					{prefix + "parts[1].text", "weighed"},
+				})
+				_ = h.Fails(step, "", [][]string{{prefix + "data.weightKg", "6"}})
+				_ = h.Fails(step, "", [][]string{{prefix + "data.id", "9007199254740992"}})
+				_ = h.Fails(step, "", [][]string{{prefix + "parts[0].data.weightKg", "6"}})
+			}
+			artifact := "the weighing a2a agent's task has an artifact where:"
+			h.OK("a message is sent to the weighing a2a agent:", "Weigh PX-A2A-9301")
+			h.OK("the weighing a2a agent's task is completed")
+			check(artifact, "")
+			err := h.Fails(artifact, "no artifact of the weighing a2a agent's task has those properties", [][]string{{"data.weightKg", "7.0"}})
+			if !strings.Contains(err.Error(), `"weightKg":6.0`) {
+				t.Errorf("the failure should show the data as the agent wrote it: %v", err)
+			}
+
+			h.OK("a message is streamed to the weighing a2a agent:", "Weigh PX-A2A-9302")
+			h.OK("within 5s the weighing a2a agent's task is completed")
+			check("within 1s the weighing a2a agent's stream received an update where:", "artifact.")
+			check(artifact, "")
+			if err := h.End("passed"); err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+}
+
+// A stream's events are held whatever their form: data over several lines,
+// without a last blank line, and what is not JSON stays as it is.
+func TestHeldEvents(t *testing.T) {
+	for _, c := range []struct{ in, want string }{
+		{"data: {\"parts\":[{\"data\":6.0}]}\n\n", "data: {\"parts\":[{\"data\":\"" + `\u0000` + "axx-json:6.0\"}]}\n\n"},
+		{"data: {\"parts\":\ndata: [{\"data\":6.0}]}\n\n", "data: {\"parts\":[{\"data\":\"" + `\u0000` + "axx-json:6.0\"}]}\n\n"},
+		{"data: {\"parts\":[{\"data\":6.0}]}", "data: {\"parts\":[{\"data\":\"" + `\u0000` + "axx-json:6.0\"}]}\n"},
+		{"id: 4\r\n: keep-alive\r\ndata:{\"id\":6.0}\r\n\r\n", "id: 4\r\n: keep-alive\r\ndata: {\"id\":6.0}\n\r\n"},
+		{"data: not\ndata: json\n\n", "data: not\ndata: json\n\n"},
+		{
+			"data: {\"parts\":[{\"text\":\"x\"},{\"data\":null}],\"metadata\":{\"parts\":[{\"data\":1.0}]}}\n\n",
+			"data: {\"metadata\":{\"parts\":[{\"data\":1.0}]},\"parts\":[{\"text\":\"x\"},{\"data\":null}]}\n\n",
+		},
+	} {
+		e := &heldEvents{Closer: io.NopCloser(nil), from: bufio.NewReader(strings.NewReader(c.in))}
+		got, err := io.ReadAll(e)
+		if err != nil || string(got) != c.want {
+			t.Errorf("%q: %v\n got  %q\n want %q", c.in, err, got, c.want)
+		}
 	}
 }
 

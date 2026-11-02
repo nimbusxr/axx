@@ -10,9 +10,9 @@ Scenario: A parcel registered in the portal is stored and announced
   When the "/parcels/new" page is opened
   And the "Shop account" field is filled with "fjord-outdoor"
   And the "Parcel reference" field is filled with "PX-WEB-5001"
-  And the "Weight (grams)" field is filled with "1200"
+  And the "Weight (grams)" field is filled with '"1200"'
   And the "Recipient name" field is filled with "Anna Weber"
-  And the "Postcode" field is filled with "10115"
+  And the "Postcode" field is filled with '"10115"'
   And "Germany" is chosen in the "Destination country" field
   And the "Leave with a neighbour" checkbox is unchecked
   And the "Register the parcel" button is clicked
@@ -141,9 +141,9 @@ Pages change after the fact: a price arrives from a pricing service, a message g
 ```gherkin
 Scenario: A quote takes a moment
   When the "/quote" page is opened
-  And the "Weight (grams)" field is filled with "1200"
+  And the "Weight (grams)" field is filled with '"1200"'
   And "Germany" is chosen in the "Destination country" field
-  And the "Postcode" field is filled with "10115"
+  And the "Postcode" field is filled with '"10115"'
   And the "Get a quote" button is clicked
   Then within 5s the page shows "Price: 6.90 EUR"
   And the page does not show "Calculating"

@@ -3,8 +3,10 @@ package config
 import (
 	"bytes"
 	_ "embed"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -221,7 +223,7 @@ func validate(doc []byte, sources []source) error {
 	sort.SliceStable(issues, func(a, b int) bool { return issues[a].Line < issues[b].Line })
 	inv := &InvalidError{Issues: issues}
 	return axxerr.Wrap(inv, CodeInvalid, exitcode.Usage, "invalid configuration (%d problem%s)", len(issues), plural(len(issues))).
-		WithHint("see %s or run `axx schema` for the full schema", "https://axx.nimbusxr.us/references/config/")
+		WithHint("`axx schema --outline` lists axx.yaml's keys, and `axx schema` gives the full schema")
 }
 
 var printer = message.NewPrinter(language.English)
@@ -241,6 +243,17 @@ func collect(ve *jsonschema.ValidationError, out *[]Issue) {
 		if p, ok := ve.ErrorKind.(*kind.Pattern); ok {
 			if friendly, ok := friendlyPatterns[p.Want]; ok {
 				msg = fmt.Sprintf("%q is not %s", p.Got, friendly)
+			}
+		}
+		// An object where the file has a scalar: say which keys it takes, which an
+		// agent otherwise reads the whole schema for.
+		if t, ok := ve.ErrorKind.(*kind.Type); ok && slices.Contains(t.Want, "object") {
+			switch keys := keysAt(ve.InstanceLocation); len(keys) {
+			case 0:
+			case 1:
+				msg += " with the key " + keys[0]
+			default:
+				msg += " with the keys " + strings.Join(keys, ", ")
 			}
 		}
 		*out = append(*out, Issue{Path: strings.Join(ve.InstanceLocation, "."), Message: msg})
@@ -274,6 +287,54 @@ func collect(ve *jsonschema.ValidationError, out *[]Issue) {
 	for _, c := range causes {
 		collect(c, out)
 	}
+}
+
+var (
+	schemaTreeOnce sync.Once
+	schemaTree     map[string]any
+)
+
+// keysAt returns the keys the schema gives the object at an axx.yaml path
+// (services.parcels.ready.http), sorted, or none.
+func keysAt(path []string) []string {
+	schemaTreeOnce.Do(func() { _ = json.Unmarshal(SchemaJSON, &schemaTree) })
+	resolve := func(n map[string]any) map[string]any {
+		for range 8 {
+			ref, ok := n["$ref"].(string)
+			if !ok {
+				break
+			}
+			def, _ := schemaTree["$defs"].(map[string]any)[strings.TrimPrefix(ref, "#/$defs/")].(map[string]any)
+			if def == nil {
+				return nil
+			}
+			n = def
+		}
+		return n
+	}
+	node := resolve(schemaTree)
+	for _, seg := range path {
+		if node == nil {
+			return nil
+		}
+		props, _ := node["properties"].(map[string]any)
+		if next, ok := props[seg].(map[string]any); ok {
+			node = resolve(next)
+			continue
+		}
+		next, _ := node["additionalProperties"].(map[string]any)
+		node = resolve(next)
+	}
+	if node == nil {
+		return nil
+	}
+	props, _ := node["properties"].(map[string]any)
+	keys := make([]string, 0, len(props))
+	for k := range props {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
 }
 
 // typeMismatch reports whether ve is only a value of another type, and the

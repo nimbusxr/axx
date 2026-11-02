@@ -45,7 +45,7 @@ Given the depots jsonrpc service with the following properties:
   | openrpc | rpc.discover              |
 ` + "```" + `
 
-- **Params** come from a table (by name, set as the REST pack's request properties are) or a doc string (an object by name, or an array by position).
+- **Params** come from a table (by name, each what its cell says: ` + "`\"10115\"`" + ` for a string, as ` + "`10115`" + ` is a number) or a doc string (an object by name, or an array by position).
 - **The checks read the service's last call** in the scenario. A call that answers an error does not fail the step that makes it: check its error.
 - **OpenRPC:** an ` + "`openrpc`" + ` row names the service's OpenRPC document: a file of the project, a URL, or ` + "`rpc.discover`" + ` to ask the service for it. Every call's params are then checked against its method before it is sent, and every result and error when it comes back. A call that breaks the document fails the step that makes it, and names the rule it broke.
 
@@ -265,9 +265,11 @@ func get(sc *core.Scenario, name string) (*service, error) {
 	return s, nil
 }
 
-// params builds a call's params from a table (by name) or a doc string. A
-// param text says is text is its text as written (01067 keeps its zero).
-func params(sc *core.Scenario, t *core.Table, doc *core.DocString, text func(path string) bool) (json.RawMessage, error) {
+// params builds a call's params from a table (by name), each what its cell
+// says (ADR 0014), or a doc string. Nothing takes the type of the param's
+// schema: a value of another type is sent as written, for the OpenRPC
+// check to find, or the service to refuse.
+func params(sc *core.Scenario, t *core.Table, doc *core.DocString) (json.RawMessage, error) {
 	switch {
 	case t != nil:
 		pairs, err := t.Pairs()
@@ -276,14 +278,9 @@ func params(sc *core.Scenario, t *core.Table, doc *core.DocString, text func(pat
 		}
 		rows := make([]tablevalue.Row, len(pairs))
 		for i, p := range pairs {
-			rows[i] = tablevalue.Row{Path: p.Key, Null: p.Null}
-			if !p.Null {
-				if rows[i].Value, err = secrets.Resolve(sc, p.Value); err != nil {
-					return nil, err
-				}
-			}
+			rows[i] = tablevalue.Row{Path: p.Key, Value: p.Value, Null: p.Null}
 		}
-		obj, err := tablevalue.Build(rows, text)
+		obj, err := tablevalue.Build(rows, func(v string) (string, error) { return secrets.Resolve(sc, v) })
 		if err != nil {
 			return nil, err
 		}
@@ -311,7 +308,7 @@ func params(sc *core.Scenario, t *core.Table, doc *core.DocString, text func(pat
 // invoke calls a method, checks the call against the service's OpenRPC
 // document, and keeps it as the service's last. An error the service
 // answers is the call's, which the checks read.
-func (s *service) invoke(sc *core.Scenario, method string, ps json.RawMessage, fromTable bool) error {
+func (s *service) invoke(sc *core.Scenario, method string, ps json.RawMessage) error {
 	st, err := settingsFor(sc.Suite())
 	if err != nil {
 		return err
@@ -320,12 +317,6 @@ func (s *service) invoke(sc *core.Scenario, method string, ps json.RawMessage, f
 		var v any
 		if ps != nil {
 			v, _ = schemadoc.Decode(ps)
-		}
-		if obj, ok := v.(map[string]any); ok && fromTable {
-			s.doc.conform(method, obj)
-			if ps, err = json.Marshal(obj); err != nil {
-				return err
-			}
 		}
 		if err := s.report(sc, st, method, "the params", s.doc.checkParams(method, v)); err != nil {
 			return err

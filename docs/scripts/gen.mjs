@@ -160,7 +160,7 @@ axx(['docs', 'export', '--out', genDir]);
 		path.join(genDir, 'steps', 'index.md'),
 		frontmatter({
 			title: 'How steps read',
-			description: 'The grammar every step of axx\'s packs follows (optional parts, services, ordinals, arguments) and the parameter types.',
+			description: 'The grammar every step of axx\'s packs follows (optional parts, services, ordinals, arguments, values) and the parameter types.',
 		}) +
 			'\n' +
 			GENERATED('src/partials/how-steps-read.md and `axx docs export`') +

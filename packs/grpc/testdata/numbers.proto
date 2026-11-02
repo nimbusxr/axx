@@ -1,0 +1,31 @@
+syntax = "proto3";
+
+package parcels.numbers.v1;
+
+import "google/protobuf/any.proto";
+import "google/protobuf/struct.proto";
+import "google/protobuf/wrappers.proto";
+
+// Weighing has a number everywhere proto JSON can hold one.
+message Weighing {
+  double kilos = 1;
+  float pounds = 2;
+  int64 grams = 3;
+  int32 pieces = 4;
+  repeated double readings = 5;
+  repeated Weighing parts = 6;
+  map<string, double> by_depot = 7;
+  map<string, Weighing> by_parcel = 8;
+  map<int64, float> by_id = 9;
+  map<string, int64> grams_by_depot = 10;
+  google.protobuf.DoubleValue tare = 11;
+  google.protobuf.FloatValue margin = 12;
+  google.protobuf.Int64Value total = 13;
+  google.protobuf.Struct extra = 14;
+  google.protobuf.Any detail = 15;
+  repeated google.protobuf.Any details = 16;
+}
+
+message Reading {
+  double value = 1;
+}

@@ -147,6 +147,11 @@ func (pack) Manifest() core.Manifest {
 			Transform: func(sc *core.Scenario, name string, _ []*string) (any, error) {
 				return stateKey.Of(sc).services.Get(name)
 			},
+		}, {
+			Name:     "integer",
+			Regexps:  []string{`-?(?:0|[1-9][0-9]*)`},
+			Doc:      "an integer, in a step's text without quotes: `is 2500` says what `is '2500'` says",
+			Examples: []string{"2500"},
 		}},
 		Steps: steps(),
 	}

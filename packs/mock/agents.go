@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/nimbusxr/axx/core"
-	"github.com/nimbusxr/axx/internal/jsonassert"
 	"github.com/nimbusxr/axx/internal/secrets"
 )
 
@@ -27,9 +26,12 @@ func agentSteps() []core.StepDef {
 				"times as the step says.\n\n" +
 				"- Every call since the run started counts, other scenarios' too: put the scenario's own data in the table, like its " +
 				"parcel's reference.\n" +
-				"- Paths are dotted (`address.postcode`) or JSONPath, and values compare as text; `null` and `undefined` work as in " +
-				"the other property steps.",
-			Table: &core.TableDoc{Columns: []string{"argument", "value"}, Note: "A row is a path into the call's arguments, and its value."},
+				"- Paths are dotted (`address.postcode`) or JSONPath.\n" +
+				"- " + manyValues,
+			Table: &core.TableDoc{
+				Columns: []string{"argument", "value"}, Note: "A row is a path into the call's arguments, and its value.",
+				Values: core.JSONValues, Undefined: true,
+			},
 			Examples: []string{
 				"Then the mocked partner-carrier mcp server's shipment_status tool was called with the following arguments:\n" +
 					"  | reference | PX-MCP-9301 |",
@@ -38,6 +40,11 @@ func agentSteps() []core.StepDef {
 			},
 			Run: func(sc *core.Scenario, a core.Args) error {
 				svc, tool := a.Value(0).(*Service), a.String(1)
+				// A value the rule cannot read fails the step, not each call.
+				want := &pattern{}
+				if err := addRows(want, a.Table, addProperty); err != nil {
+					return err
+				}
 				calls, err := svc.c.journal(sc.Context(), runContracts(sc.Suite()).start)
 				if err != nil {
 					return err
@@ -49,7 +56,11 @@ func agentSteps() []core.StepDef {
 					if !ok {
 						continue
 					}
-					if jsonassert.Properties(string(args), a.Table, false) == nil {
+					why, err := want.mismatch(args)
+					if err != nil {
+						return err
+					}
+					if why == "" {
 						matched++
 					} else if len(seen) < 3 {
 						seen = append(seen, string(args))
@@ -61,7 +72,8 @@ func agentSteps() []core.StepDef {
 		},
 		{
 			ID: "mock.a2a.sent", Keyword: "Then", Since: agentsSince,
-			Expr: "the mocked {mockedService} a2a agent was sent a message containing {string}[[ {int} time(s)]]",
+			Expr:     "the mocked {mockedService} a2a agent was sent a message containing {string}[[ {int} time(s)]]",
+			TextArgs: []int{1},
 			Doc: "Check that the service sent the mocked A2A agent a message whose text has the text (its text parts, and its data parts " +
 				"as JSON): at least once, or as many times as the step says.\n\n" +
 				"- Every message since the run started counts, other scenarios' too: look for the scenario's own data, like its " +

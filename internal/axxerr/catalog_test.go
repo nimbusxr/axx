@@ -9,6 +9,26 @@ import (
 	"testing"
 )
 
+// What the catalog says of a value is what the commands do: validate refuses
+// it before anything runs, and a run reaches it, and gives its code.
+func TestValueEntrySaysWhatTheCommandsDo(t *testing.T) {
+	e, ok := Lookup("AXX-E0207")
+	if !ok {
+		t.Fatal("no AXX-E0207")
+	}
+	if strings.Contains(e.Meaning, "before the step runs") {
+		t.Errorf("a run reaches the step: %s", e.Meaning)
+	}
+	for _, want := range []string{"`axx validate` reports each at its row, without running anything, and exits 3", "`axx run` does not check first", "this code", "the run exits 1"} {
+		if !strings.Contains(e.Meaning, want) {
+			t.Errorf("no %q: %s", want, e.Meaning)
+		}
+	}
+	if !strings.Contains(e.Fix, `'"01067"'`) {
+		t.Errorf("no form for a step's own text: %s", e.Fix)
+	}
+}
+
 // TestCatalogCoversSource keeps the catalog and the codes used in the
 // source in sync, in both directions.
 func TestCatalogCoversSource(t *testing.T) {

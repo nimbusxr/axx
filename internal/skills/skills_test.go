@@ -42,8 +42,8 @@ func TestTheTestDataSkillCarriesTheSpecFileSchemasAndErrorCodes(t *testing.T) {
 			t.Errorf("references/spec-files.md lacks the %s schema", kind)
 		}
 	}
-	if !strings.Contains(files["references/error-codes.md"], "AXX-E0903") {
-		t.Error("references/error-codes.md lacks the fixture codes")
+	if _, ok := files["references/error-codes.md"]; ok {
+		t.Error("the skills carry no copy of the error codes: `axx explain <code>` gives each")
 	}
 }
 

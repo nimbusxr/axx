@@ -126,7 +126,8 @@ func steps() []core.StepDef {
 				"`within {duration}`.",
 			Table: &core.TableDoc{
 				Columns: []string{"path", "value"},
-				Note:    "Each row is a path into the message (a field name, a dotted path or a JSONPath) and the value it has, compared as text: `null` for null and `undefined` for absent.",
+				Note:    "Each row is a path into the message (a field name, a dotted path or a JSONPath) and the value it has there.",
+				Values:  core.JSONValues, Undefined: true,
 			},
 			Examples: []string{"Then within 20s the tracking websocket received a message where:\n  | reference | PX-LIV-5701      |\n  | status    | OUT_FOR_DELIVERY |"},
 			Run: func(sc *core.Scenario, a core.Args) error {
@@ -138,6 +139,9 @@ func steps() []core.StepDef {
 				if err != nil {
 					return err
 				}
+				if err := rs.Readable("", nil); err != nil {
+					return err
+				}
 				match := func(m cloudstep.Message) (bool, error) { return rs.MatchMessage(m, "") }
 				return secrets.Hide(sc, cloudstep.ExpectMatch(sc, cloudstep.Wait(a, 0), w.in, w.found(sc, match), "", "message", where(w)))
 			},
@@ -145,6 +149,7 @@ func steps() []core.StepDef {
 		{
 			ID: Name + ".received.text", Keyword: "Then", Since: since,
 			Expr:     "[[within {duration} ]]the {word} websocket received a message containing {string}",
+			TextArgs: []int{2},
 			Doc:      "Check that the connection received a message containing the text. The check waits for it: 10 seconds, or `within {duration}`.",
 			Examples: []string{"Then the tracking websocket received a message containing 'PX-LIV-5701'"},
 			Run: func(sc *core.Scenario, a core.Args) error {

@@ -3,7 +3,10 @@ package graphql
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
 	"os"
+	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -71,9 +74,11 @@ func readOperation(sc *core.Scenario, file string, doc *core.DocString) (*operat
 }
 
 // setVariables sets the operation's variables from a table: each row a
-// variable, or a path into one, whose value takes the type the operation
-// declares for it.
-func (o *operation) setVariables(sc *core.Scenario, t *core.Table, schema *ast.Schema) error {
+// variable, or a path into one, and its value, which means what it says
+// (ADR 0014). Nothing takes the type the operation declares: a value of
+// another type is sent as written, for the schema's check to find, or the
+// service to refuse.
+func (o *operation) setVariables(sc *core.Scenario, t *core.Table) error {
 	if t == nil {
 		return nil
 	}
@@ -83,114 +88,14 @@ func (o *operation) setVariables(sc *core.Scenario, t *core.Table, schema *ast.S
 	}
 	rows := make([]tablevalue.Row, len(pairs))
 	for i, p := range pairs {
-		rows[i] = tablevalue.Row{Path: p.Key, Null: p.Null}
-		if !p.Null {
-			if rows[i].Value, err = secrets.Resolve(sc, p.Value); err != nil {
-				return err
-			}
-		}
+		rows[i] = tablevalue.Row{Path: p.Key, Value: p.Value, Null: p.Null}
 	}
-	// Text is its text as written: 01067 stays 01067.
-	vars, err := tablevalue.Build(rows, func(path string) bool {
-		t := o.typeAt(schema, path)
-		return t == "String" || t == "ID"
-	})
+	vars, err := tablevalue.Build(rows, func(v string) (string, error) { return secrets.Resolve(sc, v) })
 	if err != nil {
 		return err
 	}
-	for _, vd := range o.def.VariableDefinitions {
-		if v, ok := vars[vd.Variable]; ok {
-			vars[vd.Variable] = conform(schema, vd.Type, v)
-		}
-	}
 	o.variables, err = json.Marshal(vars)
 	return err
-}
-
-// typeAt is the named type of a path into the variables (`reference`,
-// `address.postcode`, `lines[0].reference`), or "".
-func (o *operation) typeAt(schema *ast.Schema, path string) string {
-	segs := strings.Split(strings.TrimPrefix(path, "$."), ".")
-	name, _, _ := strings.Cut(segs[0], "[")
-	vd := o.def.VariableDefinitions.ForName(name)
-	if vd == nil {
-		return ""
-	}
-	t := vd.Type
-	for _, seg := range segs[1:] {
-		field, _, _ := strings.Cut(seg, "[")
-		if schema == nil {
-			return ""
-		}
-		def := schema.Types[named(t)]
-		if def == nil || def.Kind != ast.InputObject {
-			return ""
-		}
-		f := def.Fields.ForName(field)
-		if f == nil {
-			return ""
-		}
-		t = f.Type
-	}
-	return named(t)
-}
-
-// named is a type's name, out of its lists.
-func named(t *ast.Type) string {
-	for t.Elem != nil {
-		t = t.Elem
-	}
-	return t.NamedType
-}
-
-// conform gives a value the type the operation declares: the text of a
-// number for a String or an ID, a number for an Int or a Float, a boolean
-// for a Boolean, and the fields of an input type theirs.
-func conform(schema *ast.Schema, t *ast.Type, v any) any {
-	if t.Elem != nil {
-		if arr, ok := v.([]any); ok {
-			for i, e := range arr {
-				arr[i] = conform(schema, t.Elem, e)
-			}
-		}
-		return v
-	}
-	switch t.NamedType {
-	case "String", "ID":
-		switch x := v.(type) {
-		case json.Number:
-			return x.String()
-		case bool:
-			return strconv.FormatBool(x)
-		}
-	case "Int", "Float":
-		if s, ok := v.(string); ok {
-			if _, err := strconv.ParseFloat(s, 64); err == nil {
-				return json.Number(s)
-			}
-		}
-	case "Boolean":
-		if s, ok := v.(string); ok {
-			if b, err := strconv.ParseBool(s); err == nil {
-				return b
-			}
-		}
-	default:
-		if schema == nil {
-			return v
-		}
-		def := schema.Types[t.NamedType]
-		obj, ok := v.(map[string]any)
-		if def == nil || def.Kind != ast.InputObject || !ok {
-			return v
-		}
-		for k, fv := range obj {
-			if f := def.Fields.ForName(k); f != nil {
-				obj[k] = conform(schema, f.Type, fv)
-			}
-		}
-	}
-	return v
 }
 
 type finding = schemadoc.Finding
@@ -208,21 +113,178 @@ func (o *operation) check(schema *ast.Schema) []finding {
 	if len(out) > 0 {
 		return out
 	}
-	var vars map[string]any
+	var vars, typed map[string]any
 	if o.variables != nil {
 		_ = json.Unmarshal(o.variables, &vars)
+		dec := json.NewDecoder(strings.NewReader(string(o.variables)))
+		dec.UseNumber()
+		_ = dec.Decode(&typed)
 	}
 	if vars == nil {
 		vars = map[string]any{}
 	}
+	types := o.variableTypes(schema, typed)
 	if _, err := validator.VariableValues(schema, o.def, vars); err != nil {
 		key := "validation.variables.type"
 		if strings.Contains(err.Error(), "must be defined") {
 			key = "validation.variables.missing"
 		}
-		out = append(out, finding{Key: key, Message: strings.TrimPrefix(err.Error(), "input: ")})
+		// A scalar of another type is one of types, which says it better.
+		if len(types) == 0 || !strings.Contains(err.Error(), "cannot use") {
+			out = append(out, finding{Key: key, Message: strings.TrimPrefix(err.Error(), "input: ")})
+		}
+	}
+	return append(out, types...)
+}
+
+// variableTypes are the variables' values that are not of their types: a
+// String's number, an Int's text. Nothing converts them, so each finding
+// says what to write: `$postcode is a String!, not the number 10115: write
+// "10115"`.
+func (o *operation) variableTypes(schema *ast.Schema, vars map[string]any) []finding {
+	var out []finding
+	for _, vd := range o.def.VariableDefinitions {
+		if v, ok := vars[vd.Variable]; ok {
+			out = append(out, typeFindings(schema, vd.Type, v, "$"+vd.Variable)...)
+		}
 	}
 	return out
+}
+
+func typeFindings(schema *ast.Schema, t *ast.Type, v any, path string) []finding {
+	if v == nil {
+		return nil // whether it may be null is VariableValues's to say
+	}
+	if t.Elem != nil {
+		items, ok := v.([]any)
+		if !ok {
+			return typeFindings(schema, t.Elem, v, path) // a value for a list is a list of one
+		}
+		var out []finding
+		for i, e := range items {
+			out = append(out, typeFindings(schema, t.Elem, e, fmt.Sprintf("%s[%d]", path, i))...)
+		}
+		return out
+	}
+	def := schema.Types[t.NamedType]
+	if def == nil {
+		return nil
+	}
+	switch def.Kind {
+	case ast.InputObject:
+		obj, ok := v.(map[string]any)
+		if !ok {
+			return nil // VariableValues says it is not an object
+		}
+		var out []finding
+		for _, k := range slices.Sorted(maps.Keys(obj)) {
+			if f := def.Fields.ForName(k); f != nil {
+				out = append(out, typeFindings(schema, f.Type, obj[k], path+"."+k)...)
+			}
+		}
+		return out
+	case ast.Enum:
+		if _, ok := v.(string); ok {
+			return nil // VariableValues knows its values
+		}
+	case ast.Scalar:
+		write, ok := scalarFits(def.Name, v)
+		if ok {
+			return nil
+		}
+		msg := fmt.Sprintf("%s is %s, not %s", path, withArticle(t.String()), describeVariable(v))
+		if write != "" {
+			msg += ": write " + write
+		}
+		return []finding{{Key: "validation.variables.type", Message: msg}}
+	default:
+		return nil
+	}
+	return []finding{{Key: "validation.variables.type", Message: fmt.Sprintf("%s is %s, not %s: write one of its values", path, withArticle(t.String()), describeVariable(v))}}
+}
+
+// integerText and numberText are text that could have been written as a
+// number: what to write instead.
+var (
+	integerText = regexp.MustCompile(`^-?(0|[1-9][0-9]*)$`)
+	numberText  = regexp.MustCompile(`^-?(0|[1-9][0-9]*)(\.[0-9]+)?$`)
+)
+
+// scalarFits says whether a value fits a scalar as GraphQL coerces its
+// input, and, when it does not, what to write: a String takes text, an ID
+// text or an integer, an Int an integer, a Float a number, a Boolean true or
+// false; a custom scalar takes anything.
+func scalarFits(name string, v any) (write string, ok bool) {
+	switch name {
+	case "String", "ID":
+		switch x := v.(type) {
+		case string:
+			return "", true
+		case json.Number:
+			if name == "ID" && !strings.ContainsAny(x.String(), ".eE") {
+				return "", true
+			}
+			return `"` + x.String() + `"`, false
+		case bool:
+			return `"` + strconv.FormatBool(x) + `"`, false
+		}
+		return "", false
+	case "Int":
+		switch x := v.(type) {
+		case json.Number:
+			if !strings.ContainsAny(x.String(), ".eE") {
+				return "", true // VariableValues says whether it fits 32 bits
+			}
+		case string:
+			if integerText.MatchString(x) {
+				return x, false
+			}
+		}
+		return "", false
+	case "Float":
+		switch x := v.(type) {
+		case json.Number:
+			return "", true
+		case string:
+			if numberText.MatchString(x) {
+				return x, false
+			}
+		}
+		return "", false
+	case "Boolean":
+		switch x := v.(type) {
+		case bool:
+			return "", true
+		case string:
+			if x == "true" || x == "false" {
+				return x, false
+			}
+		}
+		return "true or false", false
+	}
+	return "", true
+}
+
+// describeVariable names a variable's value in a finding: the number 10115,
+// the text "800", the boolean true, a list, an object.
+func describeVariable(v any) string {
+	switch x := v.(type) {
+	case string:
+		return "the text " + strconv.Quote(x)
+	case json.Number:
+		return "the number " + x.String()
+	case bool:
+		return "the boolean " + strconv.FormatBool(x)
+	}
+	return describeValue(v)
+}
+
+// withArticle is a type's name after "a" or "an": "a String!", "an Int".
+func withArticle(name string) string {
+	if strings.ContainsRune("AEIOU", rune(name[0])) {
+		return "an " + name
+	}
+	return "a " + name
 }
 
 // body is the operation as the service is sent it.

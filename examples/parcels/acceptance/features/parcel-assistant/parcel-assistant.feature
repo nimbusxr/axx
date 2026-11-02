@@ -73,5 +73,5 @@ Feature: Parcel assistant
     And the request payload property question is 'Has PX-AI-8104 left the depot yet?'
     When the request is executed
     Then the response status code is 503
-    And the response header Retry-After is '30'
+    And the response header Retry-After is '"30"'
     And the mocked models model was asked about 'PX-AI-8104' 2 times

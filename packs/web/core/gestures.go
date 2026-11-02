@@ -59,16 +59,18 @@ func gestureSteps() []core.StepDef {
 			ID: "web-core.select.many", Keyword: "When", Arg: core.ArgTable, Since: since,
 			Expr:     "the following options are chosen in the {string} field:",
 			Doc:      "Choose several options in a drop-down field that takes more than one.",
-			Table:    &core.TableDoc{Columns: []string{"option"}, Note: "An option a row, by its text."},
+			Table:    &core.TableDoc{Columns: []string{"option"}, Note: "An option a row, by its text.", Values: core.TextValues},
 			Examples: []string{"When the following options are chosen in the \"Pickup days\" field:\n  | Monday   |\n  | Thursday |"},
 			Run: action(func(sc *core.Scenario, s *session, a core.Args) error {
 				name := text(sc, a, 0)
 				var choices []string
 				for _, row := range a.Table.Rows {
 					for _, c := range row {
-						if c = strings.TrimSpace(expand(sc, c)); c != "" {
-							choices = append(choices, c)
+						choice, _, err := core.ParseText(c, c == "", false)
+						if err != nil {
+							return err
 						}
+						choices = append(choices, expand(sc, choice))
 					}
 				}
 				loc, err := s.find(sc, field, name, actionTimeout)
@@ -83,7 +85,8 @@ func gestureSteps() []core.StepDef {
 		},
 		{
 			ID: "web-core.clock.set", Keyword: "Given", Since: since,
-			Expr: "the browser's clock is set to {string}",
+			Expr:     "the browser's clock is set to {string}",
+			TextArgs: []int{0},
 			Doc: "Set the time the web apps' pages see, from then on.\n\n" +
 				"- The time is like `2026-09-25T14:00:00+02:00`, or `2026-09-25 14:00` in UTC.\n" +
 				"- Time goes on from there, so the pages' timers still run.\n" +

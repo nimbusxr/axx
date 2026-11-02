@@ -57,6 +57,10 @@ func TestStepExamples(t *testing.T) {
 				t.Errorf("%s: example %q matches %d steps", s.ID, ex, len(ms))
 			case ms[0].Def().Step.ID != s.ID:
 				t.Errorf("%s: example %q matches %s", s.ID, ex, ms[0].Def().Step.ID)
+			default:
+				for _, err := range ms[0].ValueErrors() {
+					t.Errorf("%s: example %q: %v", s.ID, ex, err)
+				}
 			}
 		}
 		if s.Arg == core.ArgTable && tableRows == 0 {

@@ -70,6 +70,11 @@ func TestSendAndReceive(t *testing.T) {
 	h.OK("within 5s the tracking websocket received a message containing 'PX-LIV-5703'")
 	_ = h.Fails("within 1s the tracking websocket received a message where:", "No message on the tracking websocket met the conditions within 1s",
 		[][]string{{"status", "DELIVERED"}})
+	// A value means what it says (ADR 0014): one the rule cannot read fails at
+	// once, saying what to write.
+	_ = h.Fails("within 1s the tracking websocket received a message where:",
+		`postcode: 01067 could be the number 1067 or the text 01067: write 1067 for the number, or "01067" for the text`,
+		[][]string{{"reference", "PX-LIV-5701"}, {"postcode", "01067"}})
 	if tr.auth.Load() != "Bearer shop-token" {
 		t.Errorf("header: %v", tr.auth.Load())
 	}

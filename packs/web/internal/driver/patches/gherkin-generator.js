@@ -35,6 +35,10 @@ class {
   }
   _steps(action) {
     const q = (text) => JSON.stringify(String(text));
+    // A value, in a step that takes only text (ADR 0014): text that reads as anything else goes in
+    // double quotes inside the step's own.
+    const reads = (text) => /^$|^(true|false|null|undefined)$|^[-+]?(([0-9]+\.?[0-9]*|\.[0-9]+)([eE][-+]?[0-9]+)?[fFdDlL]?|0[xX][0-9a-fA-F]+[lL]?)$|^\{[^]*\}$|^\[[^]*\]$|^"[^]*"$/.test(text) || /^[-+]*(nan|inf|infinity)$/i.test(text);
+    const value = (text) => reads(String(text)) ? "'\"" + String(text).replace(/'/g, "\\'") + "\"'" : q(text);
     const page = (url) => {
       let path = String(url);
       if (this._base && (path === this._base || path.startsWith(this._base + "/") || path.startsWith(this._base + "?")))
@@ -75,7 +79,7 @@ class {
       case "uncheck":
         return [["when", "the " + name + " checkbox is unchecked"]];
       case "fill":
-        return [["when", "the " + name + " field is filled with " + q(action.text)]];
+        return [["when", "the " + name + " field is filled with " + value(action.text)]];
       case "press": {
         const modifiers = [[1, "Alt"], [2, "Control"], [4, "Meta"], [8, "Shift"]].filter(([bit]) => (action.modifiers || 0) & bit).map(([, key]) => key);
         const key = [...modifiers, action.key].join("+");
@@ -84,8 +88,8 @@ class {
       case "select": {
         const options = action.options || [];
         if (options.length === 1)
-          return [["when", q(options[0]) + " is chosen in the " + name + " field"]];
-        return [["when", "the following options are chosen in the " + name + " field:\n" + options.map((o) => "      | " + String(o).replace(/\|/g, "\\|") + " |").join("\n")]];
+          return [["when", value(options[0]) + " is chosen in the " + name + " field"]];
+        return [["when", "the following options are chosen in the " + name + " field:\n" + options.map((o) => "      | " + (reads(String(o)) ? "\"" + String(o) + "\"" : String(o)).replace(/\|/g, "\\|") + " |").join("\n")]];
       }
       case "setInputFiles":
         // The step takes a path of the project, without quotes; the page knows only the file's name.
@@ -94,11 +98,11 @@ class {
           ["comment", file + ": the browser gives only the file's name; give its path in the project (relative to axx.yaml's directory or a resources directory, with no spaces)"],
         ]);
       case "assertText":
-        return [["then", target + " shows " + q(action.text)]];
+        return [["then", target + " shows " + value(action.text)]];
       case "assertVisible":
         return [["then", target + " is shown"]];
       case "assertValue":
-        return [["then", "the " + name + " field has the value " + q(action.value)]];
+        return [["then", "the " + name + " field has the value " + value(action.value)]];
       case "assertChecked":
         if (kind === "option")
           return [["then", target + (action.checked ? " is selected" : " is not selected")]];

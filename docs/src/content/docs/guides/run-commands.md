@@ -88,7 +88,7 @@ And the admin command's output is:
 | `output has a line matching {string}` | A line that matches the regular expression (Java syntax). |
 | `output is:` | The whole of what it printed, with `\r\n` read as `\n` and one final line break left out. |
 | `output is empty` | Nothing printed at all. |
-| `output has the following properties:` | JSON it printed: a path and its value, like the other JSON property steps. |
+| `output has the following properties:` | JSON it printed: a path and its value, [typed](/references/steps/#values), like the other JSON property steps. |
 | `output is identical to the {filepath} file` | Byte for byte, a file of the project. |
 
 Each check but the last two also reads the error output (stderr): `the admin command's error output contains '...'`.

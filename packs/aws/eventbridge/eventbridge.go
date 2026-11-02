@@ -46,8 +46,9 @@ func (pack) Manifest() core.Manifest {
 		Steps: []core.StepDef{
 			{
 				ID: name + ".put", Keyword: "When", Arg: core.ArgDocString, Since: "0.1.0",
-				Expr: "a(n) {string} event from {word} is put on the {word} eventbridge bus:",
-				Doc:  "Put an event with that detail type and source on the bus; the doc string is its detail, in JSON.",
+				Expr:     "a(n) {string} event from {word} is put on the {word} eventbridge bus:",
+				TextArgs: []int{0},
+				Doc:      "Put an event with that detail type and source on the bus; the doc string is its detail, in JSON.",
 				Examples: []string{
 					"When a \"Damage Reported\" event from carrier.kestrel is put on the carrier-events eventbridge bus:\n" +
 						"  \"\"\"\n" +
@@ -69,8 +70,9 @@ func (pack) Manifest() core.Manifest {
 						{Name: "source", Takes: "the event's source, like `parcels.claims`"},
 						{Name: "detail.<field>", Takes: "a field of the event's detail, or a dotted path into it, like `detail.claim`"},
 					},
-					Note: "Values compare as text: `null` for null and `undefined` for absent. Other paths into the event, as " +
-						"EventBridge delivers it, work too, like `account` or `region`.",
+					Note:   "Other paths into the event, as EventBridge delivers it, work too, like `account` or `region`.",
+					Values: core.JSONValues, Undefined: true,
+					TextRows: []string{"attribute <name>"},
 				},
 				Examples: []string{
 					"Then within 30s the parcels eventbridge bus has an event where:\n" +
@@ -80,7 +82,7 @@ func (pack) Manifest() core.Manifest {
 						"  | detail.decision | APPROVED       |",
 				},
 				Run: func(sc *core.Scenario, a core.Args) error {
-					rs, err := cloudstep.Conditions(a.Table)
+					rs, err := cloudstep.MessageConditions(a.Table, "attribute", nil)
 					if err != nil {
 						return err
 					}

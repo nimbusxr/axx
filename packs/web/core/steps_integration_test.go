@@ -89,10 +89,10 @@ func TestTheStateOfThings(t *testing.T) {
 	_ = h.Fails(`within 1s the "Get a quote" button has the focus`, `The "Get a quote" button does not have the focus`)
 
 	h.OK(`the "/parcel.html" page is opened`)
-	h.OK(`the "Actions" button has the aria-expanded attribute "false"`)
+	h.OK(`the "Actions" button has the aria-expanded attribute '"false"'`)
 	h.OK(`the "Actions" button is clicked`)
-	h.OK(`the "Actions" button has the aria-expanded attribute "true"`)
-	_ = h.Fails(`within 1s the "Actions" button has the aria-busy attribute "true"`, `actual:   "no aria-busy attribute"`)
+	h.OK(`the "Actions" button has the aria-expanded attribute '"true"'`)
+	_ = h.Fails(`within 1s the "Actions" button has the aria-busy attribute '"true"'`, `actual:   "no aria-busy attribute"`)
 	h.OK(`the "Opening hours" menu item is clicked`)
 	_ = h.Fails(`the page has no script errors`, "The page shows a dialog")
 	h.OK(`the dialog is accepted`)
@@ -288,4 +288,34 @@ func TestBrandedBrowsers(t *testing.T) {
 			}
 		})
 	}
+}
+
+// A value in a step's own text follows the rule (ADR 0014): in double quotes
+// inside the step's own, it is the text the page sees; a name is as written.
+func TestAStepsOwnValue(t *testing.T) {
+	t.Setenv("QUOTE_WEIGHT", "900")
+	h, app := newHarness(t, "chromium")
+	h.OK("the portal web app with the following properties:", app)
+	h.OK(`the "/quote.html" page is opened`)
+	const number = `1200 reads as an integer, and only text fits here: write '"1200"' for the text`
+	h.ValueFails(`the "Weight (grams)" field is filled with "1200"`, number)
+	h.OK(`the "Weight (grams)" field is filled with '"1200"'`)
+	h.ValueFails(`the "Weight (grams)" field has the value '1200'`, number)
+	h.ValueFails(`within 1s the "Weight (grams)" field has the value "1200"`, number)
+	h.OK(`the "Weight (grams)" field has the value '"1200"'`)
+	h.OK(`the "Weight (grams)" field is filled with '${env:QUOTE_WEIGHT}'`)
+	h.OK(`the "Weight (grams)" field has the value '"900"'`)
+	h.OK(`the "Weight (grams)" field has the value '${env:QUOTE_WEIGHT}'`)
+	h.ValueFails(`the page shows '1200'`, number)
+	h.ValueFails(`the page does not show '1200'`, number)
+	h.ValueFails(`the dialog shows '1200'`, number)
+	h.ValueFails(`the dialog is answered with '1200'`, number)
+	h.ValueFails(`'1200' is chosen in the "Destination country" field`, number)
+	h.ValueFails(`the "css=body" element shows '1200'`, number)
+	h.ValueFails(`the "css=body" element has the data-weight attribute '1200'`, number)
+	h.ValueFails(`the page title is '1200'`, number)
+	h.ValueFails(`the browser's clock is set to '1200'`, number)
+	h.ValueFails(`the downloaded "quote.csv" file contains '1200'`, number)
+	h.OK(`"Germany" is chosen in the "Destination country" field`)
+	h.OK(`the "Destination country" field has the value "Germany"`)
 }

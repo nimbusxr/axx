@@ -15,7 +15,8 @@ func TestResolve(t *testing.T) {
 	cases := []struct {
 		url, dialect, dsnPart string
 	}{
-		{"jdbc:postgresql://localhost:5432/space_explorer", "postgresql", "postgres://u:p@localhost:5432/space_explorer?sslmode=disable"},
+		{"jdbc:postgresql://localhost:5432/space_explorer", "postgresql", "postgres://u:p@localhost:5432/space_explorer?default_query_exec_mode=describe_exec&sslmode=disable"},
+		{"postgres://h:1/db?default_query_exec_mode=exec", "postgresql", "default_query_exec_mode=exec&"},
 		{"jdbc:postgresql://db/app?currentSchema=space", "postgresql", "search_path=space"},
 		{"postgres://h:1/db?sslmode=require", "postgresql", "sslmode=require"},
 		{"jdbc:mysql://localhost:3306/app", "mysql", "u:p@tcp(localhost:3306)/app?"},
@@ -62,7 +63,7 @@ func TestLiteralAndIdent(t *testing.T) {
 }
 
 func TestWhereClause(t *testing.T) {
-	got, err := whereClause(postgres, &core.Table{Rows: [][]string{{"status", "planned"}, {"note", "NULL"}, {"name", "O'Hara"}}}, "NEW.")
+	got, err := whereClause(postgres, &core.Table{Rows: [][]string{{"status", "planned"}, {"note", "null"}, {"name", "O'Hara"}}}, "NEW.")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -75,13 +76,72 @@ func TestWhereClause(t *testing.T) {
 	}
 }
 
+// A where value means what it says (ADR 0014): a string is a SQL string, a
+// number a number and a boolean a boolean, so a text column's number is in
+// double quotes.
+func TestWhereClauseTypedValues(t *testing.T) {
+	rows := [][]string{
+		{"reference", "PX-1"},
+		{"postcode", `"10115"`},
+		{"weight_grams", "850"},
+		{"price", "1.50"},
+		{"parcel_id", "3000000000L"},
+		{"signed", "true"},
+		{"express", "false"},
+		{"quote", `"it's"`},
+		{"details", `{"zone": "DE-1"}`},
+		{"note", `"null"`},
+	}
+	for d, want := range map[Dialect]string{
+		postgres: "reference = 'PX-1' AND postcode = '10115' AND weight_grams = 850 AND price = 1.50 AND parcel_id = 3000000000 AND " +
+			`signed = TRUE AND express = FALSE AND quote = 'it''s' AND details = '{"zone": "DE-1"}' AND note = 'null'`,
+		sqlserver: "reference = 'PX-1' AND postcode = '10115' AND weight_grams = 850 AND price = 1.50 AND parcel_id = 3000000000 AND " +
+			`signed = 1 AND express = 0 AND quote = 'it''s' AND details = '{"zone": "DE-1"}' AND note = 'null'`,
+	} {
+		got, err := whereClause(d, &core.Table{Rows: rows}, "")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got != want {
+			t.Errorf("%s:\ngot  %s\nwant %s", d.Name, got, want)
+		}
+	}
+	for _, c := range []struct{ value, want string }{
+		{"", `reference: the cell is empty: write "" for the empty string, or null for null`},
+		{"undefined", "reference: undefined (no such property) is not a value here"},
+		{"01067", `reference: 01067 could be the number 1067 or the text 01067: write 1067 for the number, or "01067" for the text`},
+	} {
+		_, err := whereClause(postgres, &core.Table{Rows: [][]string{{"reference", c.value}}}, "")
+		if err == nil || !strings.Contains(err.Error(), c.want) {
+			t.Errorf("%q: %v, want %s", c.value, err, c.want)
+		}
+	}
+}
+
+type pgError struct{ code string }
+
+func (e pgError) Error() string    { return "operator does not exist: text = integer" }
+func (e pgError) SQLState() string { return e.code }
+
 func TestContainmentJSON(t *testing.T) {
-	got, err := containmentJSON([]core.Pair{{Key: "priority", Value: "high"}, {Key: "crew.lead", Value: "Ada"}, {Key: "crew.size", Value: "3"}, {Key: "note", Value: "null"}})
+	got, err := containmentJSON([]core.Pair{
+		{Key: "priority", Value: "high"},
+		{Key: "crew.lead", Value: "Ada"},
+		{Key: "crew.size", Value: "3"},
+		{Key: "crew.code", Value: `"3"`},
+		{Key: "fuel", Value: "0.75"},
+		{Key: "manned", Value: "true"},
+		{Key: "tags", Value: `["a", "b"]`},
+		{Key: "note", Value: "null"},
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got != `{"priority":"high","crew":{"lead":"Ada","size":"3"},"note":null}` {
-		t.Fatalf("got %s", got)
+	if want := `{"priority":"high","crew":{"lead":"Ada","size":3,"code":"3"},"fuel":0.75,"manned":true,"tags":["a","b"],"note":null}`; got != want {
+		t.Fatalf("got  %s\nwant %s", got, want)
+	}
+	if _, err := containmentJSON([]core.Pair{{Key: "crew.size", Value: "", Null: true}}); err == nil || !strings.HasPrefix(err.Error(), "crew.size: the cell is empty") {
+		t.Errorf("an empty cell should ask for the value: %v", err)
 	}
 }
 

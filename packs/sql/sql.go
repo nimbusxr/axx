@@ -4,7 +4,9 @@
 package sql
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -22,7 +24,9 @@ type pack struct{}
 func whereTable(rows string) *core.TableDoc {
 	return &core.TableDoc{
 		Columns: []string{"column", "value"},
-		Note:    "Each row names a column and the value " + rows + " in it, or `null` for none (`IS NULL`); values are escaped.",
+		Note: "Each row names a column and the value " + rows + " in it, of the column's type: a value of another type fails at once and says what to write " +
+			"(`10115` on a text column asks for `\"10115\"`, and `12` on a decimal one for `12.0`); dates, times, UUIDs and the like are strings; `null` is `IS NULL`.",
+		Values: core.JSONValues,
 	}
 }
 
@@ -61,6 +65,7 @@ func steps() []core.StepDef {
 		core.StepDef{
 			ID: "sql.service", Keyword: "Given", Arg: core.ArgTable,
 			Expr: "a(n) {word} database with the following properties:",
+			Also: []string{"the {word} database with the following properties:"},
 			Doc: "Register a database.\n\n" +
 				"- The first database registered in a scenario is the default.\n" +
 				"- The scheme of the `url` says which database it is: PostgreSQL (`postgres://`, `postgresql://`, `jdbc:postgresql:`), " +
@@ -87,6 +92,7 @@ func steps() []core.StepDef {
 		core.StepDef{
 			ID: "sql.seed", Keyword: "Given",
 			Expr: "a {filepath} db seed[[ on {dbService}]]",
+			Also: []string{"a {filepath} database seed[[ on {dbService}]]"},
 			Doc: "Insert the rows of a dataset file, in the file's order and in one transaction.\n\n" +
 				"- A YAML file (`.yaml`, `.yml`) maps each `schema.table` to a list of rows, each a mapping of column to value.\n" +
 				"- A flat XML file (`.xml`) has a `<schema.table column=\"value\"/>` element per row inside `<dataset>`.\n" +
@@ -135,7 +141,11 @@ func steps() []core.StepDef {
 		},
 		core.StepDef{
 			ID: "sql.select", Keyword: "Then", Arg: core.ArgTable,
-			Expr:  "a[[ {ordinal}]] selection of rows is retrieved from the {word} table[[ on {dbService}]] where:",
+			Expr: "a[[ {ordinal}]] selection of rows is retrieved from the {word} table[[ on {dbService}]] where:",
+			Also: []string{
+				"a[[ {ordinal}]] selection of rows is retrieved from {word}[[ on {dbService}]] where:",
+				"a[[ {ordinal}]] selection of rows is retrieved from {word} table[[ on {dbService}]] where:",
+			},
 			Doc:   "Select the rows that match (`SELECT * ... WHERE`) and keep them as the next selection, for the steps that check it. " + numbered,
 			Table: whereTable("the selected rows hold"),
 			Examples: []string{
@@ -151,6 +161,10 @@ func steps() []core.StepDef {
 		core.StepDef{
 			ID: "sql.select.poll", Keyword: "Then", Arg: core.ArgTable,
 			Expr: "within {duration} a[[ {ordinal}]] selection of at least {int} row(s) is retrieved from the {word} table[[ on {dbService}]] where:",
+			Also: []string{
+				"within {duration} a[[ {ordinal}]] selection of at least {int} row(s) is retrieved from {word}[[ on {dbService}]] where:",
+				"within {duration} a[[ {ordinal}]] selection of at least {int} row(s) is retrieved from {word} table[[ on {dbService}]] where:",
+			},
 			Doc: "Select the rows that match, again every 500ms, until at least that many come back, and keep them as the next selection.\n\n" +
 				"- The step fails when the time is up with fewer rows.\n" +
 				"- " + numbered,
@@ -168,8 +182,8 @@ func steps() []core.StepDef {
 				"- " + numbered,
 			Table: &core.TableDoc{
 				Columns: []string{"property", "value"},
-				Note: "Each row names a property, dotted (`recipient.city`) for one inside an object, and the value it holds, " +
-					"compared as a JSON string (`null` is JSON null), so it never matches a number or a boolean.",
+				Note:    "Each row names a property, dotted (`recipient.city`) for one inside an object, and the JSON value it holds.",
+				Values:  core.JSONValues,
 			},
 			Examples: []string{"Then a selection of rows is retrieved from the parcels.parcels table where the details jsonb column contains:\n" +
 				"  | manifestId | M-KESTREL-0412 |\n" +
@@ -182,9 +196,10 @@ func steps() []core.StepDef {
 			Doc: "Check the JSON a column holds in one row of a selection. " +
 				"`the 1st row details property` is the `details` column of the selection's first row.",
 			Table: &core.TableDoc{
-				Columns: []string{"JSONPath", "value"},
-				Note: "Each row names a JSONPath, like `source` or `$.recipient.city`, and the value there as text, like `true` or `850`: " +
-					"`null` for JSON null, `undefined` for a property the JSON lacks.",
+				Columns:   []string{"JSONPath", "value"},
+				Note:      "Each row names a JSONPath, like `source` or `$.recipient.city`, and the value there.",
+				Values:    core.JSONValues,
+				Undefined: true,
 			},
 			Examples: []string{"Then the 1st row details property for the selection json properties are:\n" +
 				"  | source         | portal    |\n" +
@@ -218,6 +233,7 @@ func rowCount(id, tail, words string, ok func(got, want int) bool) core.StepDef 
 	return core.StepDef{
 		ID: id, Keyword: "Then",
 		Expr:     "the[[ {ordinal}]] selection[[ on {dbService}]] " + tail,
+		Also:     []string{"the[[ {ordinal}]] selection " + tail + " on {dbService}"},
 		Doc:      fmt.Sprintf("Check that a selection has %s the given number of rows. `the selection` means the first selection of the scenario.", words),
 		Examples: []string{"Then the selection " + strings.ReplaceAll(tail, "{int} row(s)", "2 rows"), "Then the 2nd selection on parcels-db " + strings.ReplaceAll(tail, "{int} row(s)", "1 row")},
 		Run: func(sc *core.Scenario, a core.Args) error {
@@ -231,7 +247,7 @@ func rowCount(id, tail, words string, ok func(got, want int) bool) core.StepDef 
 			}
 			want := a.Int(2)
 			if !ok(len(sel.Rows), want) {
-				return core.Fail(fmt.Sprintf("expected the selection from %s to have %s %d row(s)", sel.Table, words, want), want, len(sel.Rows))
+				return core.Fail(fmt.Sprintf("expected the selection from %s to have %s %d row(s)%s", sel.Table, words, want, sel.hints()), want, len(sel.Rows))
 			}
 			return nil
 		},
@@ -299,14 +315,15 @@ func selectStep(sc *core.Scenario, a core.Args) error {
 	if err != nil {
 		return err
 	}
-	table, where, err := tableAndWhere(svc, a.String(1), a.Table, "")
+	table, where, untyped, err := tableAndWhere(sc.Context(), svc, a.String(1), a.Table)
 	if err != nil {
 		return err
 	}
 	sel, err := svc.query(sc.Context(), table, "SELECT * FROM "+table+" WHERE "+where)
 	if err != nil {
-		return fmt.Errorf("Could not perform selection: %w", err) //nolint:staticcheck // user-facing message
+		return fmt.Errorf("Could not perform selection: %w", typeMismatch(err)) //nolint:staticcheck // user-facing message
 	}
+	keepStored(sel, untyped)
 	svc.addSelection(sel)
 	return nil
 }
@@ -318,17 +335,19 @@ func pollStep(sc *core.Scenario, a core.Args) error {
 	}
 	d := a.Value(0).(time.Duration)
 	minRows := a.Int(2)
-	table, where, err := tableAndWhere(svc, a.String(3), a.Table, "")
-	if err != nil {
-		return err
-	}
-	q := "SELECT * FROM " + table + " WHERE " + where
 	deadline := time.Now().Add(d)
 	var last *Selection
 	var lastErr error
 	for {
-		sel, err := svc.query(sc.Context(), table, q)
+		// Each time: the table may be one the service has yet to create. A
+		// value of the wrong type fails here, at once, as no wait can mend it.
+		table, where, untyped, err := tableAndWhere(sc.Context(), svc, a.String(3), a.Table)
+		if err != nil {
+			return err
+		}
+		sel, err := svc.query(sc.Context(), table, "SELECT * FROM "+table+" WHERE "+where)
 		if err == nil {
+			keepStored(sel, untyped)
 			last = sel
 			if len(sel.Rows) >= minRows {
 				break
@@ -346,11 +365,11 @@ func pollStep(sc *core.Scenario, a core.Args) error {
 		}
 	}
 	if last == nil {
-		return fmt.Errorf("Could not perform polling selection; no result was obtained within %s: %w", d, lastErr) //nolint:staticcheck // user-facing message
+		return fmt.Errorf("Could not perform polling selection; no result was obtained within %s: %w", d, typeMismatch(lastErr)) //nolint:staticcheck // user-facing message
 	}
 	svc.addSelection(last)
 	if len(last.Rows) < minRows {
-		return core.Fail(fmt.Sprintf("expected at least %d row(s) from %s within %s", minRows, last.Table, d), minRows, len(last.Rows))
+		return core.Fail(fmt.Sprintf("expected at least %d row(s) from %s within %s%s", minRows, last.Table, d, last.hints()), minRows, len(last.Rows))
 	}
 	return nil
 }
@@ -384,12 +403,14 @@ func jsonbStep(sc *core.Scenario, a core.Args) error {
 	if err != nil {
 		return fmt.Errorf("Could not perform JSONB containment selection: %w", err) //nolint:staticcheck // user-facing message
 	}
+	keepContaining(sel, column, pairs)
 	svc.addSelection(sel)
 	return nil
 }
 
-// containmentJSON builds {"a":{"b":"v"}} from dotted keys; leaves are strings
-// (or null).
+// containmentJSON builds {"a":{"b":"v","n":3}} from dotted keys; each leaf is
+// the value as the table writes it (core.ParseValue): `v` and `"3"` strings,
+// `3` a number, `true` a boolean, `null` null, `{...}` and `[...]` JSON.
 func containmentJSON(pairs []core.Pair) (string, error) {
 	root := orderedObject{}
 	for _, p := range pairs {
@@ -403,12 +424,11 @@ func containmentJSON(pairs []core.Pair) (string, error) {
 			}
 			cur = next
 		}
-		leaf := keys[len(keys)-1]
-		if strings.EqualFold(p.Value, "null") {
-			cur.set(leaf, nil)
-		} else {
-			cur.set(leaf, p.Value)
+		v, err := core.ParseValue(p.Value, p.Null, false)
+		if err != nil {
+			return "", fmt.Errorf("%s: %w", p.Key, err)
 		}
+		cur.set(keys[len(keys)-1], json.RawMessage(v.JSON()))
 	}
 	b, err := json.Marshal(&root)
 	return string(b), err
@@ -451,18 +471,30 @@ func (o *orderedObject) MarshalJSON() ([]byte, error) {
 	return []byte(b.String()), nil
 }
 
-// tableAndWhere validates the table name and builds the WHERE clause.
-func tableAndWhere(svc *Service, table string, t *core.Table, prefix string) (string, string, error) {
+// tableAndWhere validates the table name, builds the WHERE clause and holds each
+// of its values to its column's type (holdToColumns); it returns the conditions
+// on columns with no declared type, which keepStored applies to what comes back.
+func tableAndWhere(ctx context.Context, svc *Service, table string, t *core.Table) (string, string, []untypedCondition, error) {
 	tbl, err := Ident(table)
 	if err != nil {
-		return "", "", err
+		return "", "", nil, err
 	}
-	where, err := whereClause(svc.Target.Dialect, t, prefix)
-	return tbl, where, err
+	where, err := whereClause(svc.Target.Dialect, t, "")
+	if err != nil {
+		return "", "", nil, err
+	}
+	untyped, err := svc.holdToColumns(ctx, tbl, t)
+	if err != nil {
+		return "", "", nil, err
+	}
+	return tbl, where, untyped, nil
 }
 
-// whereClause turns key/value rows into `col = 'value'` joined with AND;
-// `null` (any case) becomes `col IS NULL`.
+// whereClause turns key/value rows into conditions joined with AND. A value
+// means what it says (core.ParseValue, ADR 0014) and is a SQL value of its
+// type (Dialect.Value): `col = 'PX-1'` for a string, `col = 42` for a
+// number; `null` is `col IS NULL`. What keeps the database from converting
+// either of them is holdToColumns, which runs before the query.
 func whereClause(d Dialect, t *core.Table, prefix string) (string, error) {
 	pairs, err := t.Pairs()
 	if err != nil {
@@ -477,11 +509,30 @@ func whereClause(d Dialect, t *core.Table, prefix string) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		if strings.EqualFold(p.Value, "null") {
+		v, err := core.ParseValue(p.Value, p.Null, false)
+		if err != nil {
+			return "", fmt.Errorf("%s: %w", p.Key, err)
+		}
+		if v.IsNull() {
 			parts = append(parts, prefix+col+" IS NULL")
 		} else {
-			parts = append(parts, prefix+col+" = "+d.Literal(p.Value))
+			parts = append(parts, prefix+col+" = "+d.Value(v))
 		}
 	}
 	return strings.Join(parts, " AND "), nil
+}
+
+// typeMismatch completes the error of a query that compares a column with a
+// value of another type which holdToColumns did not see, like the JSON a step
+// gives a database as it is: PostgreSQL (no such operator) and SQL Server (a
+// failed conversion) refuse it. holdToColumns has already said what to write
+// for any other value.
+func typeMismatch(err error) error {
+	var pg interface{ SQLState() string }
+	var ms interface{ SQLErrorNumber() int32 }
+	if errors.As(err, &pg) && pg.SQLState() == "42883" || errors.As(err, &ms) && ms.SQLErrorNumber() == 245 {
+		return fmt.Errorf("%w; a value must be of its column's type: a text column's number is in double quotes (\"10115\"), "+
+			"a decimal column's is written 12.0, and an integer column's 12", err)
+	}
+	return err
 }

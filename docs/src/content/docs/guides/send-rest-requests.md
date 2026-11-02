@@ -32,6 +32,22 @@ Scenario Outline: A shop's order system registers the parcels it exports
 
 A [fixture factory](/guides/fixture-factories/) keeps such files in one place and checks them against a schema. The parcels example generates the two files above with `requests/registrations.factory.yaml`, from the `ParcelRequest` schema of the service's OpenAPI contract.
 
+## Values
+
+[A value means what it says](/references/steps/#values), in a step that sets it and in one that checks it: `1200` is an integer, `"10115"` the string inside the double quotes, `PX-REG-1401` a string, and `undefined` a property removed, or a check that it is absent.
+
+```gherkin
+And the request payload properties are:
+  | reference          | PX-REG-1401 |
+  | weightGrams        | 1200        |
+  | recipient.postcode | "10115"     |
+```
+
+- **Nothing is inferred.** `| weightGrams | 1200 |` sets the number, whatever the example held, and `"1200"` sends the string, to check that the service refuses it.
+- **Checks compare types.** `| recipient.postcode | 10115 |` fails on the string "10115", and the failure says what to write.
+- **In a step's text, the quotes hold the value:** `property priceCents is '690'` checks the integer, as `is 690` does, and `is '"690"'` the string.
+- **A header is text.** One that reads as a number goes in double quotes: `| Retry-After | "5" |` in a table, and `the response header Retry-After is '"5"'` in a step's own text.
+
 ## Several requests in one scenario
 
 Requests are numbered in the order a scenario adds them. The first is the default, which steps without an ordinal use; every other request is added, executed and checked with its ordinal:
@@ -52,6 +68,7 @@ Scenario: A registered parcel can be looked up by its reference
 - **Add a request before using it:** a step that uses the 2nd request fails unless a 2nd was added before it. `axx validate` says so, with the step that adds it.
 - **A second `a GET request to …` adds the 1st again**, and fails: write it as `a 2nd ordered GET request to …`. `axx validate` shows the line to write.
 - **A check names its response:** `the 2nd ordered response status code is 200`, or `… for 2nd ordered response` at the end of the other response steps. A check without one reads the 1st response.
+- **The payload property steps take the ordinal either way:** `the 2nd ordered response payload property reference is 'PX-REG-1401'` says what the last line above says, and `the 2nd ordered request payload property reference is 'PX-REG-1401'` sets it on the 2nd request.
 
 ## Find an item in a list
 

@@ -64,11 +64,12 @@ func steps() []core.StepDef {
 		},
 		{
 			ID: "web-core.fill", Keyword: "When", Since: since,
-			Expr: "the {string} field is filled with {string}",
+			Expr:     "the {string} field is filled with {string}",
+			TextArgs: []int{1},
 			Doc: "Type a value into the field with that label (or, without a label, that placeholder), replacing what it holds.\n\n" +
 				"- Date fields take dates as `2026-10-01`.\n" +
 				"- A value from `${env:…}`, such as a password, is a secret: failures and traces show it as `********`.",
-			Examples: []string{`When the "Weight (grams)" field is filled with "1200"`, `When the "Password" field is filled with "${env:SHOP_PASSWORD}"`},
+			Examples: []string{`When the "Weight (grams)" field is filled with '"1200"'`, `When the "Password" field is filled with "${env:SHOP_PASSWORD}"`},
 			Run: action(func(sc *core.Scenario, s *session, a core.Args) error {
 				name, value := text(sc, a, 0), text(sc, a, 1)
 				return act(sc, s, field, name, "fill in", func(l playwright.Locator) error { return l.Fill(value) })
@@ -77,6 +78,7 @@ func steps() []core.StepDef {
 		{
 			ID: "web-core.select", Keyword: "When", Since: since,
 			Expr:     "{string} is chosen in the {string} field",
+			TextArgs: []int{0},
 			Doc:      "Choose the option with that text in a drop-down field.",
 			Examples: []string{`When "Germany" is chosen in the "Destination country" field`},
 			Run: action(func(sc *core.Scenario, s *session, a core.Args) error {
@@ -237,6 +239,7 @@ func steps() []core.StepDef {
 		{
 			ID: "web-core.answer", Keyword: "When", Since: since,
 			Expr:     "the dialog is answered with {string}",
+			TextArgs: []int{0},
 			Doc:      "Type an answer to the question the dialog asks, and accept it. The step waits for the dialog: 10 seconds.",
 			Examples: []string{`When the dialog is answered with "The parcel arrived damaged"`},
 			Run: onDialog(func(sc *core.Scenario, s *session, a core.Args) error {
@@ -253,7 +256,8 @@ func steps() []core.StepDef {
 		},
 		{
 			ID: "web-core.dialog", Keyword: "Then", Since: since,
-			Expr: "[[within {duration} ]]the dialog shows {string}",
+			Expr:     "[[within {duration} ]]the dialog shows {string}",
+			TextArgs: []int{1},
 			Doc: "Check that the page shows a dialog with the text, as part of its message (case matters). The check waits for a " +
 				"dialog: 10 seconds, or `within {duration}`.",
 			Examples: []string{`Then the dialog shows "Cancel parcel PX-4101?"`},
@@ -271,7 +275,8 @@ func steps() []core.StepDef {
 		},
 		{
 			ID: "web-core.shows", Keyword: "Then", Since: since,
-			Expr: "[[within {duration} ]]the page shows {string}",
+			Expr:     "[[within {duration} ]]the page shows {string}",
+			TextArgs: []int{1},
 			Doc: "Check that the page shows the text, anywhere, as part of what it shows (case matters). The check waits for it: " +
 				"10 seconds, or `within {duration}`.",
 			Examples: []string{`Then the page shows "6.90 EUR"`, `Then within 30s the page shows "Parcel PX-4101 registered"`},
@@ -293,7 +298,8 @@ func steps() []core.StepDef {
 		},
 		{
 			ID: "web-core.hides", Keyword: "Then", Since: since, Absence: true,
-			Expr: "[[within {duration} ]]the page does not show {string}",
+			Expr:     "[[within {duration} ]]the page does not show {string}",
+			TextArgs: []int{1},
 			Doc: "Check that the page does not show the text anywhere (case matters). The check waits for the text to go: " +
 				"10 seconds, or `within {duration}`.",
 			Examples: []string{`Then the page does not show "Delivery not possible"`},
@@ -347,10 +353,11 @@ func steps() []core.StepDef {
 		},
 		{
 			ID: "web-core.value", Keyword: "Then", Since: since,
-			Expr: "[[within {duration} ]]the {string} field has the value {string}",
+			Expr:     "[[within {duration} ]]the {string} field has the value {string}",
+			TextArgs: []int{2},
 			Doc: "Check the value a field shows: what it holds, or for a drop-down, the text of the option chosen. " +
 				"The check waits for it: 10 seconds, or `within {duration}`.",
-			Examples: []string{`Then the "Weight (grams)" field has the value "1200"`},
+			Examples: []string{`Then the "Weight (grams)" field has the value '"1200"'`},
 			Run: check(func(sc *core.Scenario, s *session, a core.Args) error {
 				name, want := text(sc, a, 1), text(sc, a, 2)
 				d := cloudstep.Wait(a, 0)
@@ -380,10 +387,13 @@ func steps() []core.StepDef {
 			Expr: "[[within {duration} ]]the page shows a table row where:",
 			Doc: "Check that a table on the page has a row with those values in those columns. " +
 				"The check waits for it: 10 seconds, or `within {duration}`.",
-			Table:    &core.TableDoc{Columns: []string{"column", "value"}, Note: "Each row names a column, by its header, and the value the table's row has in it."},
+			Table: &core.TableDoc{
+				Columns: []string{"column", "value"}, Values: core.TextValues,
+				Note: "Each row names a column, by its header, and the value the table's row has in it.",
+			},
 			Examples: []string{"Then the page shows a table row where:\n  | Parcel | PX-WEB-5116 |\n  | Status | IN_TRANSIT  |"},
 			Run: check(func(sc *core.Scenario, s *session, a core.Args) error {
-				want, err := a.Table.Pairs()
+				want, err := cloudstep.TextPairs(a.Table)
 				if err != nil {
 					return err
 				}
@@ -423,7 +433,8 @@ func steps() []core.StepDef {
 		},
 		{
 			ID: "web-core.download.contains", Keyword: "Then", Since: since,
-			Expr: "the downloaded {string} file contains {string}",
+			Expr:     "the downloaded {string} file contains {string}",
+			TextArgs: []int{1},
 			Doc: "Check that a file the browser downloaded holds the text.\n\n" +
 				"- Case matters; runs of spaces and line breaks count as one space.\n" +
 				"- The text is read by the file's type: the text of a PDF's pages, the paragraphs and tables of a Word document " +
@@ -454,11 +465,14 @@ func steps() []core.StepDef {
 			Expr: "the downloaded {string} file has a row where:",
 			Doc: "Check that the table of a file the browser downloaded has a row with those values in those columns: a CSV or TSV " +
 				"file, or an Excel workbook (.xlsx, its first sheet), whose first row names the columns.",
-			Table:    &core.TableDoc{Columns: []string{"column", "value"}, Note: "Each row names a column, as the file's first row names it, and the value the file's row has in it."},
+			Table: &core.TableDoc{
+				Columns: []string{"column", "value"}, Values: core.TextValues,
+				Note: "Each row names a column, as the file's first row names it, and the value the file's row has in it.",
+			},
 			Examples: []string{"Then the downloaded \"parcels-birch-and-bloom.csv\" file has a row where:\n  | Parcel | PX-WEB-5401 |\n  | Status | REGISTERED  |"},
 			Run: check(func(sc *core.Scenario, s *session, a core.Args) error {
 				name := text(sc, a, 0)
-				want, err := a.Table.Pairs()
+				want, err := cloudstep.TextPairs(a.Table)
 				if err != nil {
 					return err
 				}

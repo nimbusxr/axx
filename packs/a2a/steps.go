@@ -48,7 +48,7 @@ func steps() []core.StepDef {
 			ID: Name + ".card", Keyword: "Then", Arg: core.ArgTable, Since: since,
 			Expr:  "the {word} a2a agent's card has the following properties:",
 			Doc:   "Check the agent's card: what another agent reads to find out what it does and how to reach it.",
-			Table: &core.TableDoc{Columns: []string{"property", "value"}, Note: "A row is a path into the card (`name`, `capabilities.streaming`, `skills[0].id`) and its value."},
+			Table: &core.TableDoc{Columns: []string{"property", "value"}, Note: "A row is a path into the card (`name`, `capabilities.streaming`, `skills[0].id`) and its value.", Values: core.JSONValues, Undefined: true},
 			Examples: []string{"Then the parcels a2a agent's card has the following properties:\n" +
 				"  | name                   | Parcels agent |\n" +
 				"  | capabilities.streaming | true          |"},
@@ -167,7 +167,8 @@ func steps() []core.StepDef {
 		},
 		{
 			ID: Name + ".answer", Keyword: "Then", Since: since,
-			Expr: "the {word} a2a agent's answer contains {string}",
+			Expr:     "the {word} a2a agent's answer contains {string}",
+			TextArgs: []int{1},
 			Doc: "Check that the agent's answer has a text: its reply, or its task's status message and artifacts. It waits for a task " +
 				"still at work.",
 			Examples: []string{"Then the parcels a2a agent's answer contains 'out for delivery'"},
@@ -180,7 +181,7 @@ func steps() []core.StepDef {
 			Expr: "the {word} a2a agent's task has an artifact where:",
 			Doc: "Check that an artifact of the agent's last task has the table's properties: `name`, `description`, `text` (its text " +
 				"parts), `data` (its first data part: `data.status`) and `parts`. It waits for a task still at work.",
-			Table: &core.TableDoc{Columns: []string{"property", "value"}, Note: "A row is a path into the artifact, and its value."},
+			Table: &core.TableDoc{Columns: []string{"property", "value"}, Note: "A row is a path into the artifact, and its value.", Values: core.JSONValues, Undefined: true},
 			Examples: []string{"Then the parcels a2a agent's task has an artifact where:\n" +
 				"  | name        | parcel-status    |\n" +
 				"  | data.status | OUT_FOR_DELIVERY |"},
@@ -195,7 +196,7 @@ func steps() []core.StepDef {
 				"- A status update has `kind` `status`, its `state` and its `message`; an artifact update has `kind` `artifact` and its " +
 				"`artifact` (`artifact.name`, `artifact.text`, `artifact.data.status`...).\n" +
 				"- The check waits (10 seconds, or `within {duration}`), and fails at once when the stream has ended.",
-			Table: &core.TableDoc{Columns: []string{"property", "value"}, Note: "A row is a path into the update, and its value."},
+			Table: &core.TableDoc{Columns: []string{"property", "value"}, Note: "A row is a path into the update, and its value.", Values: core.JSONValues, Undefined: true},
 			Examples: []string{"Then the parcels a2a agent's stream received an update where:\n" +
 				"  | state   | working                  |\n" +
 				"  | message | Looking up PX-A2A-9203   |"},

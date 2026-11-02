@@ -1,10 +1,19 @@
 // Package check matches the steps of parsed feature files against a step
-// registry and reports every step that cannot run: undefined, ambiguous, or
-// given the wrong argument. `axx validate`, `axx doctor`, the MCP server and
-// the language server all report through it, so they always agree.
+// registry and reports every step that cannot run: undefined, ambiguous,
+// given the wrong argument, or given a value the rule cannot read (ADR 0014),
+// in a table or in the step's own text. `axx validate`, `axx doctor`, the MCP
+// server and the language server all report through it, so they always agree.
 package check
 
 import (
+	"errors"
+	"fmt"
+	"strconv"
+	"strings"
+
+	messages "github.com/cucumber/messages/go/v34"
+
+	"github.com/nimbusxr/axx/core"
 	"github.com/nimbusxr/axx/internal/feature"
 	"github.com/nimbusxr/axx/internal/match"
 )
@@ -14,7 +23,13 @@ const (
 	Undefined = "undefined"
 	Ambiguous = "ambiguous"
 	Argument  = "argument"
+	// Value is a table cell, or a step's own value, that could be read two
+	// ways (ADR 0014): its Line is the cell's row, or the step's.
+	Value = "value"
 )
+
+// ValueCode is the error code of a Value problem.
+const ValueCode = core.ValueErrorCode
 
 // Problem is one step that cannot run.
 type Problem struct {
@@ -24,8 +39,10 @@ type Problem struct {
 	Line int
 	// Text is the step text after Scenario Outline substitution.
 	Text string
-	// Message explains an argument problem.
+	// Message explains an argument or value problem.
 	Message string
+	// Code is the problem's error code, when it has one (ValueCode).
+	Code string
 	// Suggestions are the closest steps to an undefined one.
 	Suggestions []match.Suggestion
 	// Candidates are the matching definitions of an ambiguous step, as
@@ -42,20 +59,35 @@ type Result struct {
 }
 
 // Pickles checks every step of pickles. A step shared by several pickles (a
-// Background step, or an outline step with the same text) is reported once.
+// Background step, or an outline step with the same text and table) is
+// checked once, and a problem at the same place is reported once: an outline's
+// examples give a step's table their values, so each row of them is checked.
 func Pickles(reg *match.Registry, pickles []*feature.Pickle) Result {
 	res := Result{Problems: []Problem{}}
 	type key struct {
-		uri  string
-		line int
-		text string
+		uri         string
+		line        int
+		text, table string
 	}
 	seen := map[key]bool{}
+	type problemKey struct {
+		uri                 string
+		line                int
+		kind, text, message string
+	}
+	reported := map[problemKey]bool{}
+	report := func(pr Problem) {
+		k := problemKey{pr.URI, pr.Line, pr.Kind, pr.Text, pr.Message}
+		if !reported[k] {
+			reported[k] = true
+			res.Problems = append(res.Problems, pr)
+		}
+	}
 	for _, p := range pickles {
 		for _, ps := range p.Steps {
 			res.Steps++
 			src := p.StepSource(ps)
-			k := key{p.Doc.URI, src.Line, ps.Text}
+			k := key{p.Doc.URI, src.Line, ps.Text, tableKey(ps)}
 			if seen[k] {
 				continue
 			}
@@ -69,8 +101,14 @@ func Pickles(reg *match.Registry, pickles []*feature.Pickle) Result {
 			case 1:
 				hasTable := ps.Argument != nil && ps.Argument.DataTable != nil
 				hasDoc := ps.Argument != nil && ps.Argument.DocString != nil
+				for _, err := range ms[0].ValueErrors() {
+					report(Problem{Kind: Value, Code: ValueCode, URI: p.Doc.URI, Line: src.Line, Text: ps.Text, Message: valueMessage(err)})
+				}
 				msg := ArgumentProblem(ms[0], hasTable, hasDoc)
 				if msg == "" {
+					for _, vp := range valueProblems(ms[0].Def().Step.Table, ps, p.StepTableLines(ps)) {
+						report(Problem{Kind: Value, Code: ValueCode, URI: p.Doc.URI, Line: orLine(vp.line, src.Line), Text: ps.Text, Message: vp.message})
+					}
 					continue
 				}
 				pr.Kind, pr.Message = Argument, msg
@@ -80,10 +118,25 @@ func Pickles(reg *match.Registry, pickles []*feature.Pickle) Result {
 					pr.Candidates = append(pr.Candidates, m.Def().Step.ID+": "+m.Variant.Expr)
 				}
 			}
-			res.Problems = append(res.Problems, pr)
+			report(pr)
 		}
 	}
 	return res
+}
+
+// tableKey is the cells of a step's table, as one string.
+func tableKey(ps *messages.PickleStep) string {
+	if ps.Argument == nil || ps.Argument.DataTable == nil {
+		return ""
+	}
+	var b strings.Builder
+	for _, r := range ps.Argument.DataTable.Rows {
+		for _, c := range r.Cells {
+			b.WriteString(strconv.Quote(c.Value))
+		}
+		b.WriteByte('\n')
+	}
+	return b.String()
 }
 
 // ArgumentProblem says what is wrong with the data table or doc string given
@@ -107,4 +160,68 @@ func ArgumentProblem(m match.Match, hasTable, hasDoc bool) string {
 		}
 	}
 	return ""
+}
+
+type valueProblem struct {
+	line    int
+	message string
+}
+
+// valueProblems are the value cells of a step's table that the rule cannot
+// read: an empty cell, a number in a form JSON does not have, a value that
+// is not text where only text fits. lines are the rows' lines.
+func valueProblems(td *core.TableDoc, ps *messages.PickleStep, lines []int) []valueProblem {
+	if td == nil || td.Values == core.NotValues || ps.Argument == nil || ps.Argument.DataTable == nil {
+		return nil
+	}
+	rows := make([][]string, len(ps.Argument.DataTable.Rows))
+	for i, r := range ps.Argument.DataTable.Rows {
+		for _, c := range r.Cells {
+			rows[i] = append(rows[i], c.Value)
+		}
+	}
+	t := td.WithoutNamesRow(&core.Table{Rows: rows})
+	skipped := len(rows) - len(t.Rows)
+	var out []valueProblem
+	for i, row := range t.Rows {
+		for _, c := range td.ValueCells(row) {
+			cell := row[c] // as the steps read it: only an empty cell is empty
+			var err error
+			switch {
+			case td.Values == core.TextValues, len(td.Columns) >= 2 && td.RowIsText(row[0]):
+				_, _, err = core.ParseText(cell, cell == "", td.Undefined)
+			case td.Values == core.JSONValues:
+				_, err = core.ParseValue(cell, cell == "", td.Undefined)
+			}
+			if err == nil {
+				continue
+			}
+			label := fmt.Sprintf("cell %d", c+1)
+			if len(td.Columns) >= 2 {
+				label = strings.TrimSpace(row[0])
+			}
+			line := 0
+			if k := skipped + i; k < len(lines) {
+				line = lines[k]
+			}
+			out = append(out, valueProblem{line: line, message: label + ": " + valueMessage(err)})
+		}
+	}
+	return out
+}
+
+// valueMessage is a value's error without its code, which the Problem has.
+func valueMessage(err error) string {
+	if ve := (*core.ValueError)(nil); errors.As(err, &ve) {
+		return ve.Message()
+	}
+	return err.Error()
+}
+
+// orLine is a, or b when a is 0.
+func orLine(a, b int) int {
+	if a == 0 {
+		return b
+	}
+	return a
 }

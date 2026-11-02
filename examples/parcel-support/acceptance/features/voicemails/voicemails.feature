@@ -32,7 +32,7 @@ Feature: Voicemails
     When the INBOX/msg0001.wav file in the voicemail folder is a copy of the recordings/msg-anna.wav file
     Then within 60s a selection of at least 1 row is retrieved from the tickets table where:
       | channel  | voicemail                                                                                                                                                                 |
-      | customer | +493415550101                                                                                                                                                             |
+      | customer | "+493415550101"                                                                                                                                                           |
       | parcel   | PX-5101                                                                                                                                                                   |
       | article  | delivered-not-received                                                                                                                                                    |
       | status   | DRAFTED                                                                                                                                                                   |
@@ -48,7 +48,7 @@ Feature: Voicemails
     When the INBOX/msg0002.wav file in the voicemail folder is a copy of the recordings/msg-tom.wav file
     Then within 60s a selection of at least 1 row is retrieved from the tickets table where:
       | channel  | voicemail                                                                                                                                                       |
-      | customer | +493415550177                                                                                                                                                   |
+      | customer | "+493415550177"                                                                                                                                                 |
       | status   | NEW                                                                                                                                                             |
       | message  | Hi, it's Tom from the bakery on Karl-Liebknecht-Straße. We would like to send about twenty parcels a week. Could someone call me back about a business account? |
     And within 10s the voicemail folder has a file named Old/msg0002.wav
@@ -61,6 +61,6 @@ Feature: Voicemails
     When the INBOX/msg0003.wav file in the voicemail folder is a copy of the recordings/msg-empty.wav file
     Then within 30s the voicemail folder has a file named Old/msg0003.wav
     And a selection of rows is retrieved from the tickets table where:
-      | customer | +493415550199 |
+      | customer | "+493415550199" |
     And the selection has 0 rows
     And the spool folder has no file named outgoing/msg0003.call

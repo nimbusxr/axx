@@ -56,6 +56,9 @@ func (a *App) loadEngine(f *configFlags) (*engine.Engine, error) {
 	if err != nil {
 		return nil, err
 	}
+	if a.notPrepared != nil {
+		return a.referenceEngine(cfg)
+	}
 	return engine.New(engine.Options{Config: cfg, Logger: a.logger(), IDE: a.ide()})
 }
 

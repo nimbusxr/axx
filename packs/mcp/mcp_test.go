@@ -50,6 +50,12 @@ func TestMain(m *testing.M) {
 			os.Exit(1)
 		}
 		os.Exit(0)
+	case "weighing":
+		if err := weighingServer().Run(context.Background(), &sdk.StdioTransport{}); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		os.Exit(0)
 	}
 	os.Exit(m.Run())
 }
@@ -127,6 +133,83 @@ func parcelsServer() *sdk.Server {
 	return s
 }
 
+// weighed is an answer whose numbers a float64 does not keep: a whole double,
+// and an id past its precision.
+const weighed = `{"weightKg":6.0,"id":9007199254740993,"pieces":[{"kg":2.50}]}`
+
+// weighingServer's tools answer with those numbers, as structured content and
+// as text.
+func weighingServer() *sdk.Server {
+	s := sdk.NewServer(&sdk.Implementation{Name: "weighing", Version: "1.0.0"}, nil)
+	noArgs := object(map[string]any{})
+	s.AddTool(&sdk.Tool{
+		Name: "weigh_parcel", InputSchema: noArgs,
+		OutputSchema: object(map[string]any{"weightKg": map[string]any{"type": "number"}, "id": map[string]any{"type": "integer"}}, "weightKg"),
+	}, func(context.Context, *sdk.CallToolRequest) (*sdk.CallToolResult, error) {
+		return &sdk.CallToolResult{StructuredContent: json.RawMessage(weighed), Content: []sdk.Content{&sdk.TextContent{Text: "weighed"}}}, nil
+	})
+	s.AddTool(&sdk.Tool{Name: "weigh_parcel_as_text", InputSchema: noArgs}, func(context.Context, *sdk.CallToolRequest) (*sdk.CallToolResult, error) {
+		return &sdk.CallToolResult{Content: []sdk.Content{&sdk.TextContent{Text: weighed}}}, nil
+	})
+	// Its id breaks its output schema, which only the id's exact value shows.
+	s.AddTool(&sdk.Tool{
+		Name: "weigh_exactly", InputSchema: noArgs,
+		OutputSchema: object(map[string]any{"id": map[string]any{"type": "integer", "multipleOf": 2}}, "id"),
+	}, func(context.Context, *sdk.CallToolRequest) (*sdk.CallToolResult, error) {
+		return &sdk.CallToolResult{StructuredContent: json.RawMessage(weighed)}, nil
+	})
+	return s
+}
+
+// A result's numbers keep their types and their digits, in structured content
+// and in text that is JSON, over each transport and answer the SDK reads.
+func TestResultsKeepTheirNumbers(t *testing.T) {
+	serve := func(opts *sdk.StreamableHTTPOptions) string {
+		srv := httptest.NewServer(sdk.NewStreamableHTTPHandler(func(*http.Request) *sdk.Server { return weighingServer() }, opts))
+		t.Cleanup(srv.Close)
+		return srv.URL + "/mcp"
+	}
+	for _, c := range []struct {
+		name string
+		rows [][]string
+	}{
+		{"an event stream", [][]string{{"url", serve(nil)}}},
+		{"JSON", [][]string{{"url", serve(&sdk.StreamableHTTPOptions{JSONResponse: true})}}},
+		{"an older protocol", [][]string{{"url", serve(nil)}, {"protocol version", "2025-06-18"}}},
+		{"stdio", [][]string{{"command", `"` + os.Args[0] + `"`}, {"env." + stdioEnv, "weighing"}}},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			h := cloudtest.New(t, Pack())
+			h.OK("the weighing mcp server with the following properties:", c.rows)
+			for _, tool := range []string{"weigh_parcel", "weigh_parcel_as_text"} {
+				h.OK("the " + tool + " tool is called on the weighing mcp server")
+				result := "the " + tool + " tool's result has the following properties:"
+				h.OK(result, [][]string{{"weightKg", "6.0"}, {"id", "9007199254740993"}, {"pieces[0].kg", "2.50"}})
+				_ = h.Fails(result, "weightKg is the decimal 6.0: write 6.0", [][]string{{"weightKg", "6"}})
+				_ = h.Fails(result, "id", [][]string{{"id", "9007199254740992"}})
+				h.OK("the " + tool + " tool's result contains '\"id\":9007199254740993'")
+				h.OK("the " + tool + " tool's result contains '\"weightKg\":6.0'")
+			}
+			// The output schema is checked on the exact value too.
+			_ = h.Fails("the weigh_exactly tool is called on the weighing mcp server", "validation.result.schema.multipleOf")
+			if err := h.End("passed"); err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+}
+
+// A failure shows the result as the server wrote it.
+func TestAFailureShowsTheExactResult(t *testing.T) {
+	srv := httptest.NewServer(sdk.NewStreamableHTTPHandler(func(*http.Request) *sdk.Server { return weighingServer() }, nil))
+	t.Cleanup(srv.Close)
+	h := cloudtest.New(t, Pack())
+	h.OK("the weighing mcp server with the following properties:", [][]string{{"url", srv.URL + "/mcp"}})
+	h.OK("the weigh_parcel tool is called on the weighing mcp server")
+	_ = h.Fails("the weigh_parcel tool's call failed with the error code -32602", `"weightKg":6.0`)
+	_ = h.Fails("the weigh_parcel tool's result is an error", `"id":9007199254740993`)
+}
+
 func harness(t *testing.T) (*cloudtest.Harness, string) {
 	t.Helper()
 	srv := httptest.NewServer(sdk.NewStreamableHTTPHandler(func(*http.Request) *sdk.Server { return parcelsServer() }, nil))
@@ -171,14 +254,29 @@ func TestToolsOverHTTP(t *testing.T) {
 	_ = h.Fails("the track_parcel tool's call failed with the error code -32602", "the track_parcel tool's call did not fail")
 }
 
-func TestArgumentsTakeTheirSchemasTypes(t *testing.T) {
+// An argument's value means what it says (ADR 0014).
+func TestArgumentsMeanWhatTheySay(t *testing.T) {
 	h, url := harness(t)
 	h.OK("the parcels mcp server with the following properties:", [][]string{{"url", url}})
 	h.OK("the count_scans tool is called on the parcels mcp server with the following arguments:",
-		[][]string{{"postcode", "01067"}, {"depot", "4"}, {"express", "true"}})
-	h.OK("the count_scans tool's result has the following properties:", [][]string{{"postcode", "01067"}, {"depot", "4"}, {"express", "true"}})
+		[][]string{{"postcode", `"01067"`}, {"depot", "4"}, {"express", "true"}})
+	h.OK("the count_scans tool's result has the following properties:", [][]string{{"postcode", `"01067"`}, {"depot", "4"}, {"express", "true"}})
 	h.OK("the count_scans tool's result contains '\"depot\":4'")
 	h.OK("the count_scans tool's result contains '\"postcode\":\"01067\"'")
+	// Checks are strict: the integer is not its text.
+	_ = h.Fails("the count_scans tool's result has the following properties:", "depot is the integer 4: write 4", [][]string{{"depot", `"4"`}})
+
+	// Nothing takes the input schema's type: the schema's check says what to write.
+	_ = h.Fails("the count_scans tool is called on the parcels mcp server with the following arguments:",
+		`- validation.arguments.schema.type: arguments $.postcode: got number, want string: write "10115"`, [][]string{{"postcode", "10115"}, {"depot", "4"}})
+	_ = h.Fails("the count_scans tool is called on the parcels mcp server with the following arguments:",
+		`- validation.arguments.schema.type: arguments $.depot: got string, want integer: write 4`, [][]string{{"postcode", `"10115"`}, {"depot", `"4"`}})
+	_ = h.Fails("the count_scans tool is called on the parcels mcp server with the following arguments:",
+		`postcode: 01067 could be the number 1067 or the text 01067: write 1067 for the number, or "01067" for the text`, [][]string{{"postcode", "01067"}, {"depot", "4"}})
+	// A scenario sends one of another type on purpose, as written.
+	h.OK("the MCP validation levels are:", [][]string{{"validation.arguments.schema.type", "IGNORE"}})
+	h.OK("the count_scans tool is called on the parcels mcp server with the following arguments:", [][]string{{"postcode", "10115"}, {"depot", `"4"`}})
+	h.OK("the count_scans tool's result has the following properties:", [][]string{{"postcode", "10115"}, {"depot", `"4"`}})
 }
 
 func TestTheSchemasAreTheContract(t *testing.T) {
@@ -207,6 +305,11 @@ func TestResourcesAndPrompts(t *testing.T) {
 	h.OK("the delivery_update prompt is requested from the parcels mcp server with the following arguments:", [][]string{{"reference", "PX-MCP-9104"}})
 	h.OK("the delivery_update prompt contains 'where parcel PX-MCP-9104 is'")
 	_ = h.Fails("the delivery_update prompt contains 'PX-MCP-9199'", "does not contain the text")
+	// A prompt's arguments are text: one that reads as a number is in double quotes.
+	_ = h.Fails("the delivery_update prompt is requested from the parcels mcp server with the following arguments:",
+		`reference: 4711 reads as an integer, and only text fits here: write "4711" for the text`, [][]string{{"reference", "4711"}})
+	h.OK("the delivery_update prompt is requested from the parcels mcp server with the following arguments:", [][]string{{"reference", `"4711"`}})
+	h.OK("the delivery_update prompt contains 'where parcel 4711 is'")
 }
 
 func TestOverStdio(t *testing.T) {

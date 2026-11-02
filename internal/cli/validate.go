@@ -15,7 +15,7 @@ import (
 
 // Problem is one validation finding.
 type Problem struct {
-	Kind        string             `json:"kind"` // undefined | ambiguous | argument
+	Kind        string             `json:"kind"` // undefined | ambiguous | argument | value
 	Location    string             `json:"location"`
 	Text        string             `json:"text"`
 	Message     string             `json:"message,omitempty"`
@@ -41,7 +41,7 @@ func newValidateCmd(app *App) *cobra.Command {
 	var cf configFlags
 	cmd := &cobra.Command{
 		Use:   "validate [paths...]",
-		Short: "Check feature files without running them: syntax, undefined and ambiguous steps",
+		Short: "Check feature files without running them: syntax, undefined and ambiguous steps, and values that could be read two ways",
 		Long: `Parse feature files and match every step against the available step
 definitions, without starting applications or executing anything.
 
@@ -50,7 +50,8 @@ that cannot work), and hints at scenarios whose checks prove little (only a
 success status code, or only that something did not happen); neither changes
 the exit code.
 
-Exit codes: 0 valid, 2 syntax/config error, 3 undefined or ambiguous steps.`,
+Exit codes: 0 valid, 2 syntax/config error, 3 undefined or ambiguous steps,
+or values that could be read two ways (AXX-E0207).`,
 		RunE: func(_ *cobra.Command, args []string) error {
 			e, err := app.loadEngine(&cf)
 			if err != nil {
@@ -97,7 +98,7 @@ func validatePickles(reg *match.Registry, pickles []*feature.Pickle) ValidationR
 	for _, pr := range res.Problems {
 		rep.Problems = append(rep.Problems, Problem{
 			Kind: pr.Kind, Location: fmt.Sprintf("%s:%d", pr.URI, pr.Line), Text: pr.Text,
-			Message: pr.Message, Suggestions: pr.Suggestions, Candidates: pr.Candidates,
+			Message: withCode(pr.Message, pr.Code), Suggestions: pr.Suggestions, Candidates: pr.Candidates,
 		})
 	}
 	return rep
@@ -110,6 +111,10 @@ func renderValidation(w io.Writer, rep ValidationReport) error {
 			fmt.Fprintf(w, "  %s\n", p.Message)
 		}
 		for _, s := range p.Suggestions {
+			if m := s.Missing(); m != "" {
+				fmt.Fprintf(w, "  %s\n", m)
+				continue
+			}
 			fmt.Fprintf(w, "  did you mean: %s\n", s.Expr)
 		}
 		for _, c := range p.Candidates {
@@ -131,4 +136,12 @@ func renderValidation(w io.Writer, rep ValidationReport) error {
 	}
 	_, err := fmt.Fprintf(w, "%s, %s, %s: %s\n", plural(rep.Files, "file"), plural(rep.Scenarios, "scenario"), plural(rep.Steps, "step"), status)
 	return err
+}
+
+// withCode adds a problem's error code to its message, for `axx explain`.
+func withCode(msg, code string) string {
+	if code == "" {
+		return msg
+	}
+	return msg + " [" + code + "]"
 }

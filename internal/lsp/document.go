@@ -294,7 +294,11 @@ func (d *document) diagnostics(p *project) []diagnostic {
 		if ok {
 			r = d.textRange(st)
 		}
-		out = append(out, diagnostic{Range: r, Severity: severityError, Code: pr.Kind, Source: "axx", Message: problemMessage(pr, st.outline)})
+		code := pr.Kind
+		if pr.Code != "" {
+			code = pr.Code
+		}
+		out = append(out, diagnostic{Range: r, Severity: severityError, Code: code, Source: "axx", Message: problemMessage(pr, st.outline)})
 	}
 	out = append(out, d.fileDiagnostics(p)...)
 	for _, rr := range lint.FeatureChecks(p.reg, d.pickles, p.dir) {
@@ -321,7 +325,9 @@ func problemMessage(pr check.Problem, outline bool) string {
 		if outline {
 			fmt.Fprintf(&b, " With example values it reads %q.", pr.Text)
 		}
-		if len(pr.Suggestions) > 0 {
+		if len(pr.Suggestions) == 1 && pr.Suggestions[0].Pack != "" {
+			b.WriteString("\n" + pr.Suggestions[0].Missing())
+		} else if len(pr.Suggestions) > 0 {
 			b.WriteString("\nDid you mean:")
 			for _, s := range pr.Suggestions {
 				b.WriteString("\n  " + s.Expr)
@@ -332,6 +338,9 @@ func problemMessage(pr check.Problem, outline bool) string {
 		for _, c := range pr.Candidates {
 			b.WriteString("\n  " + c)
 		}
+	case check.Value:
+		// A table's starts with the row's key, as the table writes it.
+		b.WriteString(pr.Message + ".")
 	default:
 		if pr.Message != "" {
 			b.WriteString(strings.ToUpper(pr.Message[:1]) + pr.Message[1:] + ".")

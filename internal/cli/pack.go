@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -14,11 +15,13 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/nimbusxr/axx/core"
 	"github.com/nimbusxr/axx/internal/axxerr"
 	"github.com/nimbusxr/axx/internal/config"
 	"github.com/nimbusxr/axx/internal/engine"
 	"github.com/nimbusxr/axx/internal/exitcode"
 	"github.com/nimbusxr/axx/internal/packbuild"
+	"github.com/nimbusxr/axx/internal/packref"
 	"github.com/nimbusxr/axx/internal/packset"
 	"github.com/nimbusxr/axx/internal/version"
 )
@@ -37,7 +40,102 @@ core and the packs' contexts, by path (./steps) or Go module path
 (github.com/team/axx-grpc@v1.2.0). axx prepares itself with the listed packs
 on first use and caches the result.`,
 	}
-	cmd.AddCommand(newPackAddCmd(app), newPackRemoveCmd(app), newPackListCmd(app), newPackUpdateCmd(app), newPackNewCmd(app))
+	cmd.AddCommand(newPackAddCmd(app), newPackRemoveCmd(app), newPackListCmd(app), newPackShowCmd(app), newPackUpdateCmd(app), newPackNewCmd(app),
+		newPackReferenceCmd(app))
+	return cmd
+}
+
+func newPackShowCmd(app *App) *cobra.Command {
+	var cf configFlags
+	var full bool
+	cmd := &cobra.Command{
+		Use:     "show <name>",
+		Aliases: []string{"info"},
+		Short:   "Show one of axx's packs, added or not: what it reaches, its settings and its steps",
+		Example: `  axx pack show sql`,
+		Args:    wrapArgs(cobra.ExactArgs(1)),
+		RunE: func(_ *cobra.Command, args []string) error {
+			name := args[0]
+			cat, ok := packset.Lookup(name)
+			ref, inRef := packref.Lookup(name)
+			if !ok || !inRef {
+				return axxerr.New(CodePackArg, exitcode.Usage, "%q is not a pack axx publishes", name).
+					WithHint("`axx pack list` lists axx's packs; a project's own packs are in its axx-packs.yaml")
+			}
+			d := PackDetail{Pack: name, Summary: cat.Summary, Requires: cat.Requires, Doc: ref.Doc, Settings: settingsOf(ref.Settings), Related: related(name)}
+			// Whether the project uses it: axx-packs.yaml lists it, or a pack that
+			// builds on it. Its steps are the reference's, as this axx's.
+			if _, f, _, err := app.packFile(); err == nil {
+				entries, _ := f.Entries()
+				for _, en := range packset.WithRequired(entries) {
+					if en.Kind == packset.Published && en.Name == name {
+						d.Used = true
+					}
+				}
+			}
+			if reg, err := packref.Registry(name); err == nil {
+				d.Steps = foldedSteps(stepInfosOf(reg, name))
+			}
+			d.StepCount = len(d.Steps)
+			// An agent gets what it does not have yet: the first paragraph of the
+			// documentation, and the steps of a pack its project does not use
+			// (`axx steps` lists the others).
+			if app.Compact && !full && !app.JSON {
+				d.Doc, _, _ = strings.Cut(strings.TrimSpace(d.Doc), "\n\n")
+				if d.Used {
+					d.Steps = nil
+				}
+			}
+			return app.Emit(d, func(w io.Writer) error { return renderPackDetail(w, d) })
+		},
+	}
+	cf.register(cmd)
+	cmd.Flags().BoolVar(&full, "full", false, "all of the pack's documentation and steps, even in compact output (agents)")
+	return cmd
+}
+
+// newPackReferenceCmd writes the reference of the packs compiled into this
+// axx (internal/packref: go generate runs it with every pack built in).
+func newPackReferenceCmd(app *App) *cobra.Command {
+	var out string
+	cmd := &cobra.Command{
+		Use:    "reference",
+		Short:  "Write the reference of the packs compiled into this axx (for internal/packref)",
+		Hidden: true,
+		Args:   wrapArgs(cobra.NoArgs),
+		RunE: func(*cobra.Command, []string) error {
+			ref := packref.Reference{
+				Description: "What axx knows of every pack it publishes, before a project adds it: written by go generate (internal/packref) from the packs; do not edit.",
+			}
+			for _, np := range engine.CompiledPacks() {
+				if np.Name == "core" {
+					continue
+				}
+				m := np.Pack.Manifest()
+				steps := make([]core.StepDef, len(m.Steps))
+				for i, s := range m.Steps {
+					s.Source = core.SourceRef{} // where the step is defined: not the reference's
+					steps[i] = s
+				}
+				ref.Packs = append(ref.Packs, packref.Pack{
+					Name: m.Name, Doc: m.Doc, Requires: m.Requires, Params: m.Params, Steps: steps, Settings: m.ConfigSchema,
+				})
+			}
+			b, err := json.MarshalIndent(ref, "", "  ")
+			if err != nil {
+				return err
+			}
+			if err := os.WriteFile(out, append(b, '\n'), 0o644); err != nil {
+				return err
+			}
+			return app.Emit(map[string]any{"file": out, "packs": len(ref.Packs)}, func(w io.Writer) error {
+				_, err := fmt.Fprintf(w, "wrote %s of %s\n", out, plural(len(ref.Packs), "pack"))
+				return err
+			})
+		},
+	}
+	cmd.Flags().StringVarP(&out, "out", "o", "", "the file to write")
+	_ = cmd.MarkFlagRequired("out")
 	return cmd
 }
 
@@ -157,6 +255,8 @@ type PackInfo struct {
 	Kind  string `json:"kind"`
 	Steps int    `json:"steps"`
 	Used  bool   `json:"used"`
+	// Summary says what the pack reaches.
+	Summary string `json:"summary,omitempty"`
 }
 
 func newPackListCmd(app *App) *cobra.Command {
@@ -176,37 +276,47 @@ func newPackListCmd(app *App) *cobra.Command {
 				return err
 			}
 			steps := map[string]int{}
-			for _, d := range e.Registry.Defs() {
-				steps[d.Pack]++
+			for _, s := range foldedSteps(stepInfos(e, "")) {
+				steps[s.Pack]++
 			}
 			var rows []PackInfo
 			used := map[string]bool{}
 			entries, _ := f.Entries()
 			for _, en := range packset.WithRequired(entries) {
 				name := en.Key()
-				if en.Kind != packset.Published {
-					if pk, ok := engine.Compiled()[en.Key()]; ok {
-						name = pk.Manifest().Name
-					}
+				summary := ""
+				if p, ok := packset.Lookup(en.Name); ok && en.Kind == packset.Published {
+					summary = p.Summary
+				} else if pk, ok := engine.Compiled()[en.Key()]; ok {
+					name = pk.Manifest().Name
+					summary, _, _ = strings.Cut(pk.Manifest().Doc, "\n")
+				} else if app.notPrepared != nil {
+					summary = "not prepared, so its steps are missing here"
 				}
 				used[en.Key()] = true
-				rows = append(rows, PackInfo{Pack: en.Raw, Kind: en.Kind.String(), Steps: steps[name], Used: true})
+				rows = append(rows, PackInfo{Pack: en.Raw, Kind: en.Kind.String(), Steps: steps[name], Used: true, Summary: summary})
 			}
-			for _, p := range packset.Catalog {
-				if !used[p.Name] {
-					rows = append(rows, PackInfo{Pack: p.Name, Kind: packset.Published.String()})
-				}
-			}
+			rows = append(rows, packsNotUsed(used)...)
 			return app.Emit(map[string]any{"file": existed, "packs": rows}, func(w io.Writer) error {
-				if !existed {
-					fmt.Fprintf(w, "no %s: this project uses no packs yet; add them with `axx pack add rest sql ...`\n", packset.FileName)
-				}
+				width := 0
 				for _, r := range rows {
-					state := "not used"
-					if r.Used {
-						state = fmt.Sprintf("%d steps", r.Steps)
+					width = max(width, len(r.Pack))
+				}
+				if !existed || len(used) == 0 {
+					fmt.Fprintf(w, "this project uses no packs yet (%s); add them with `axx pack add <name>...`\n", packset.FileName)
+				} else {
+					fmt.Fprintf(w, "this project's packs (%s):\n", packset.FileName)
+					for _, r := range rows {
+						if r.Used {
+							fmt.Fprintf(w, "  %-*s  %-9s  %s\n", width, r.Pack, plural(r.Steps, "step"), r.Summary)
+						}
 					}
-					fmt.Fprintf(w, "  %-40s %-9s %s\n", r.Pack, r.Kind, state)
+				}
+				fmt.Fprintln(w, "\naxx's packs it does not use (`axx pack show <name>`: what one reaches, its settings and steps):")
+				for _, r := range rows {
+					if !r.Used {
+						fmt.Fprintf(w, "  %-*s  %s\n", width, r.Pack, r.Summary)
+					}
 				}
 				return nil
 			})
@@ -214,6 +324,17 @@ func newPackListCmd(app *App) *cobra.Command {
 	}
 	cf.register(cmd)
 	return cmd
+}
+
+// packsNotUsed are the rows of axx's packs the project does not use.
+func packsNotUsed(used map[string]bool) []PackInfo {
+	var rows []PackInfo
+	for _, p := range packset.Catalog {
+		if !used[p.Name] {
+			rows = append(rows, PackInfo{Pack: p.Name, Kind: packset.Published.String(), Summary: p.Summary})
+		}
+	}
+	return rows
 }
 
 func newPackUpdateCmd(app *App) *cobra.Command {

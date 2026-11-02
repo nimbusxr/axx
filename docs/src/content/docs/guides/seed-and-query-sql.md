@@ -62,6 +62,24 @@ And the selection has more than 1 row
 And the selection has fewer than 5 rows
 ```
 
+[A value means what it says](/references/steps/#values), and is held to its column's real type before the query, on every database, since each would otherwise convert one of them its own way:
+
+| A column of | Takes |
+| --- | --- |
+| text (`VARCHAR`, `TEXT`, `CITEXT`) | a string: `M-KESTREL-0412`, or in double quotes when it reads as a number: `"37073"` |
+| integers (`INT`, `BIGINT`, unsigned ones) | an integer: `850` |
+| decimals (`NUMERIC`, `DECIMAL`, `FLOAT`, `DOUBLE`, `REAL`) | a decimal, a whole one too: `1.5`, `12.0` |
+| booleans (`BOOLEAN`, SQL Server's `BIT`) | `true` or `false`; MySQL's `TINYINT` and `BIT` take these and integers |
+| anything else (dates, times, UUIDs, JSON, enums, binary, PostgreSQL's `MONEY`) | a string: `2026-09-24` |
+
+`null` is `IS NULL`, and `{...}` and `[...]` go to the database as they are. A value of another type fails at once, a poll's too, and says what to write:
+
+```text
+postcode is text in parcels.pickups (VARCHAR): write "10115" [AXX-E0207]
+```
+
+An SQLite column declared with no type has none to hold a value to, so what the database selects is held to what each row stores: `850` selects the integer, and not the real `850.0`. An empty cell is an error: write `""` for the empty string.
+
 A scenario can hold several selections. They are numbered in the order they are retrieved, and later steps address them by ordinal (`the 2nd selection`); in `a 2nd selection of rows is retrieved` the ordinal is only a label. Leaving the ordinal out means the first:
 
 ```gherkin
@@ -86,6 +104,18 @@ And the 1st row details property for the selection json properties match:
   | zone | ^DE-.*$ |
 ```
 
+Values are typed, so a check sees a property's type change: `850` is the number and `"37073"` the string, and neither matches the other. Against the manifest line seeded above:
+
+```gherkin
+Then a selection of rows is retrieved from the parcels.manifest_lines table where:
+  | id           | ML-KES-0412-2 |
+  | weight_grams | 2300          |
+And the 1st row recipient property for the selection json properties are:
+  | city     | Hamburg   |
+  | postcode | "20095"   |
+  | street   | undefined |
+```
+
 Or select by JSONB containment (PostgreSQL):
 
 ```gherkin
@@ -96,7 +126,7 @@ And the selection has 2 rows
 
 Selections are numbered in the order a scenario retrieves them, and a step without an ordinal checks the first. After a second retrieval, name the one a step checks: `the 2nd selection has 1 row`. `axx validate` warns about a step that checks the first while a later selection goes unchecked.
 
-In `json properties are:` and `json properties match:`, paths are JSONPaths such as `zone` or `items[0].sku`, and values are compared as text ([the rules](/references/packs/sql/#sqljsonare)). The containment step takes dotted names (`recipient.city`) and compares each value as a JSON string, so it never matches a number or a boolean.
+In `json properties are:` and `json properties match:`, paths are JSONPaths such as `zone` or `items[0].sku`. `json properties are:` compares values with their types: `true` is a boolean, `null` null, and `undefined` a property the JSON lacks ([the rules](/references/packs/sql/#sqljsonare)); `json properties match:` matches a regular expression against the value's text. The containment step takes dotted names (`recipient.city`) and the same typed values, so `| pieces | 3 |` finds the integer 3 and `| recipient.postcode | "37073" |` the string; `3` does not find `3.0`, though PostgreSQL's containment alone would.
 
 ## Wait for asynchronous writes
 

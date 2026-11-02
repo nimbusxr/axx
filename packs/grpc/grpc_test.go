@@ -2,6 +2,7 @@ package grpc
 
 import (
 	"context"
+	"encoding/json"
 	"net"
 	"os"
 	"strings"
@@ -15,11 +16,14 @@ import (
 	grpcreflection "google.golang.org/grpc/reflection"
 	rpb "google.golang.org/grpc/reflection/grpc_reflection_v1"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/dynamicpb"
 
 	"github.com/nimbusxr/axx/internal/cloudstep/cloudtest"
 	"github.com/nimbusxr/axx/internal/protoload"
+	"github.com/nimbusxr/axx/internal/tablevalue"
 )
 
 // tracking acts as the parcels service's tracking API does, with the
@@ -73,8 +77,25 @@ func (tr *tracking) getParcel(_ any, ctx context.Context, dec func(any) error, _
 	set(p, "reference", protoreflect.ValueOfString(ref))
 	set(p, "status", protoreflect.ValueOfEnum(2))
 	set(p, "last_scan", protoreflect.ValueOfMessage(tr.scan(ref, 2, "Leipzig")))
-	set(p, "weight_grams", protoreflect.ValueOfInt64(1200))
+	weight := in.Get(in.Descriptor().Fields().ByName("weight_grams")).Int()
+	if weight == 0 {
+		weight = 1200
+	}
+	set(p, "weight_grams", protoreflect.ValueOfInt64(weight))
 	set(p, "postcode", protoreflect.ValueOfString(str(in, "postcode")))
+	set(p, "weight_kg", protoreflect.ValueOfFloat64(6))
+	customs := tr.msg("CustomsDeclaration")
+	set(customs, "grams", protoreflect.ValueOfInt64(1200))
+	set(customs, "value_eur", protoreflect.ValueOfFloat64(25))
+	declared, err := proto.Marshal(customs)
+	if err != nil {
+		return nil, err
+	}
+	anyField := p.Descriptor().Fields().ByName("customs")
+	held := dynamicpb.NewMessage(anyField.Message())
+	set(held, "type_url", protoreflect.ValueOfString("type.googleapis.com/parcels.tracking.v1.CustomsDeclaration"))
+	set(held, "value", protoreflect.ValueOfBytes(declared))
+	p.Set(anyField, protoreflect.ValueOfMessage(held))
 	return p, nil
 }
 
@@ -131,7 +152,7 @@ func TestUnaryCalls(t *testing.T) {
 	h := cloudtest.New(t, Pack())
 	h.OK("the tracking grpc service with the following properties:", [][]string{{"address", addr}})
 	h.OK("the parcels.tracking.v1.Tracking/GetParcel method is called on the tracking grpc service with the following fields:",
-		[][]string{{"reference", "PX-GRP-6101"}, {"postcode", "10115"}})
+		[][]string{{"reference", "PX-GRP-6101"}, {"postcode", `"10115"`}})
 	h.OK("the tracking grpc service answered OK")
 	h.OK("the tracking grpc service's answer has the following fields:", [][]string{
 		{"reference", "PX-GRP-6101"},
@@ -139,15 +160,27 @@ func TestUnaryCalls(t *testing.T) {
 		{"lastScan.location", "Leipzig"},
 		{"weightGrams", "1200"},
 		{"signature", "false"},
-		{"postcode", "10115"},
+		{"postcode", `"10115"`},
 		{"lastScan.scannedAt", "undefined"},
 	})
 	h.OK("the tracking grpc service's answer has the following metadata:", [][]string{
-		{"X-Served-By", "tracking-v1"}, {"x-scans", "2"}, {"x-missing", "undefined"},
+		{"X-Served-By", "tracking-v1"}, {"x-scans", `"2"`}, {"x-missing", "undefined"},
 	})
 	_ = h.Fails("the tracking grpc service's answer has the following fields:", "status", [][]string{{"status", "DELIVERED"}})
+	// Checks are strict: a 64-bit integer is a number, not its text.
+	_ = h.Fails("the tracking grpc service's answer has the following fields:", "weightGrams is the integer 1200: write 1200",
+		[][]string{{"weightGrams", `"1200"`}})
 	_ = h.Fails("the tracking grpc service's answer has the following metadata:", `x-served-by: expected "tracking-v2", got "tracking-v1"`,
 		[][]string{{"x-served-by", "tracking-v2"}})
+	_ = h.Fails("the tracking grpc service's answer has the following metadata:", `x-served-by: expected none, got "tracking-v1"`,
+		[][]string{{"x-served-by", "undefined"}})
+	_ = h.Fails("the tracking grpc service's answer has the following metadata:", `x-missing: expected "tracking-v1", got none`,
+		[][]string{{"x-missing", "tracking-v1"}})
+	// Metadata is text: a value that reads as a number is in double quotes.
+	_ = h.Fails("the tracking grpc service's answer has the following metadata:", `x-scans: 2 reads as an integer, and only text fits here: write "2" for the text`,
+		[][]string{{"x-scans", "2"}})
+	_ = h.Fails("the tracking grpc service's answer has the following metadata:", `x-scans: the cell is empty: write "" for the empty text, or undefined for none`,
+		[][]string{{"x-scans", ""}})
 
 	// A status other than OK is the call's, for the checks.
 	h.OK("the GetParcel method is called on the tracking grpc service with the following fields:", [][]string{{"reference", "PX-GRP-6199"}})
@@ -160,6 +193,83 @@ func TestUnaryCalls(t *testing.T) {
 	_ = h.Fails("the tracking grpc service answered LOST", `"LOST" is not a gRPC status; the statuses are ABORTED, ALREADY_EXISTS`)
 }
 
+// A double in an answer is a decimal, a whole one too, and an Any's fields are
+// numbers as a message's are.
+func TestAnswersKeepTheirNumbers(t *testing.T) {
+	_, addr := serve(t)
+	h := cloudtest.New(t, Pack())
+	h.OK("the tracking grpc service with the following properties:", [][]string{{"address", addr}})
+	h.OK("the GetParcel method is called on the tracking grpc service with the following fields:", [][]string{{"reference", "PX-GRP-6111"}})
+	h.OK("the tracking grpc service's answer has the following fields:", [][]string{
+		{"weightKg", "6.0"}, {"customs.grams", "1200"}, {"customs.valueEur", "25.0"},
+	})
+	_ = h.Fails("the tracking grpc service's answer has the following fields:", "weightKg is the decimal 6.0: write 6.0", [][]string{{"weightKg", "6"}})
+	_ = h.Fails("the tracking grpc service's answer has the following fields:", "customs.grams is the integer 1200: write 1200", [][]string{{"customs.grams", `"1200"`}})
+	_ = h.Fails("the tracking grpc service's answer has the following fields:", "customs.valueEur is the decimal 25.0: write 25.0", [][]string{{"customs.valueEur", "25"}})
+}
+
+// typedNumbers follows a message's descriptors everywhere proto JSON holds a
+// number: fields, nested messages, lists, maps, wrappers and Anys.
+func TestProtoJSONNumbers(t *testing.T) {
+	set, err := protoload.Compile("numbers.proto", []string{"testdata"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	d, err := set.FindDescriptorByName("parcels.numbers.v1.Weighing")
+	if err != nil {
+		t.Fatal(err)
+	}
+	const anyOf = `"@type":"type.googleapis.com/`
+	for _, c := range []struct{ in, want string }{
+		{`{"kilos":6}`, `"kilos":6.0`},
+		{`{"kilos":6.5}`, `"kilos":6.5`},
+		{`{"kilos":1e21}`, `"kilos":1e+21`},
+		{`{"kilos":-3}`, `"kilos":-3.0`},
+		{`{"kilos":"NaN"}`, `"kilos":"NaN"`},
+		{`{"kilos":"Infinity"}`, `"kilos":"Infinity"`},
+		{`{"kilos":"-Infinity"}`, `"kilos":"-Infinity"`},
+		{`{}`, `"kilos":0.0,"pounds":0.0,"grams":0,`},
+		{`{"pounds":2}`, `"pounds":2.0`},
+		{`{"pounds":1.1}`, `"pounds":1.1`},
+		{`{"grams":"1200"}`, `"grams":1200`},
+		{`{"pieces":3}`, `"pieces":3`},
+		{`{"readings":[1,2.5,"NaN"]}`, `"readings":[1.0,2.5,"NaN"]`},
+		{`{"parts":[{"kilos":1,"grams":"2"}]}`, `{"kilos":1.0,"pounds":0.0,"grams":2,`},
+		{`{"byDepot":{"LEJ":4}}`, `"byDepot":{"LEJ":4.0}`},
+		{`{"byParcel":{"PX-1":{"kilos":2}}}`, `"byParcel":{"PX-1":{"kilos":2.0,`},
+		{`{"byId":{"12":7}}`, `"byId":{"12":7.0}`},
+		{`{"grams_by_depot":{"LEJ":"12"}}`, `"gramsByDepot":{"LEJ":12}`},
+		{`{"tare":1}`, `"tare":1.0`},
+		{`{"margin":2}`, `"margin":2.0`},
+		{`{"total":"12"}`, `"total":12`},
+		{`{"extra":{"kilos":6,"fields":{"kilos":7},"grams":"12"}}`, `"extra":{"fields":{"kilos":7},"grams":"12","kilos":6}`},
+		{`{"detail":{` + anyOf + `parcels.numbers.v1.Weighing","kilos":3,"grams":"4"}}`, `"detail":{` + anyOf + `parcels.numbers.v1.Weighing","kilos":3.0,"pounds":0.0,"grams":4,`},
+		{`{"detail":{` + anyOf + `google.protobuf.Int64Value","value":"12"}}`, `"detail":{` + anyOf + `google.protobuf.Int64Value","value":12}`},
+		{`{"detail":{` + anyOf + `google.protobuf.DoubleValue","value":6}}`, `"detail":{` + anyOf + `google.protobuf.DoubleValue","value":6.0}`},
+		{`{"detail":{` + anyOf + `google.protobuf.Struct","value":{"kilos":6}}}`, `"detail":{` + anyOf + `google.protobuf.Struct","value":{"kilos":6}}`},
+		{
+			`{"detail":{` + anyOf + `google.protobuf.Any","value":{` + anyOf + `google.protobuf.Int64Value","value":"12"}}}`,
+			`"detail":{` + anyOf + `google.protobuf.Any","value":{` + anyOf + `google.protobuf.Int64Value","value":12}}`,
+		},
+		{`{"details":[{` + anyOf + `parcels.numbers.v1.Reading","value":6}]}`, `"details":[{` + anyOf + `parcels.numbers.v1.Reading","value":6.0}]`},
+	} {
+		m := dynamicpb.NewMessage(d.(protoreflect.MessageDescriptor))
+		if err := (protojson.UnmarshalOptions{Resolver: set.Types()}).Unmarshal([]byte(c.in), m); err != nil {
+			t.Fatalf("%s: %v", c.in, err)
+		}
+		got, err := marshal(m, set)
+		if err != nil {
+			t.Fatalf("%s: %v", c.in, err)
+		}
+		if !strings.Contains(string(got), c.want) {
+			t.Errorf("%s:\n got  %s\n want %s", c.in, got, c.want)
+		}
+		if !json.Valid(got) {
+			t.Errorf("%s: not JSON: %s", c.in, got)
+		}
+	}
+}
+
 func TestRequests(t *testing.T) {
 	_, addr := serve(t)
 	h := cloudtest.New(t, Pack())
@@ -169,17 +279,29 @@ func TestRequests(t *testing.T) {
 	h.File("grpc/get-parcel.json", `{"reference": "PX-GRP-6102", "postcode": "01067"}`)
 	h.OK("the tracking grpc service with the following properties:", [][]string{{"address", addr}, {"proto", "tracking.proto"}})
 	h.OK("the Tracking/GetParcel method is called on the tracking grpc service with the grpc/get-parcel.json message")
-	h.OK("the tracking grpc service's answer has the following fields:", [][]string{{"reference", "PX-GRP-6102"}, {"postcode", "01067"}})
+	h.OK("the tracking grpc service's answer has the following fields:", [][]string{{"reference", "PX-GRP-6102"}, {"postcode", `"01067"`}})
 	h.OK("the GetParcel method is called on the tracking grpc service with the grpc/get-parcel.json message and the following fields:",
 		[][]string{{"reference", "PX-GRP-6103"}})
-	h.OK("the tracking grpc service's answer has the following fields:", [][]string{{"reference", "PX-GRP-6103"}, {"postcode", "01067"}})
-	// A string field is its text as written: the postcode keeps its zero.
+	h.OK("the tracking grpc service's answer has the following fields:", [][]string{{"reference", "PX-GRP-6103"}, {"postcode", `"01067"`}})
+	// Text in double quotes is that text: the postcode keeps its zero.
 	h.OK("the GetParcel method is called on the tracking grpc service with the following fields:",
-		[][]string{{"reference", "PX-GRP-6106"}, {"postcode", "01067"}})
-	h.OK("the tracking grpc service's answer has the following fields:", [][]string{{"reference", "PX-GRP-6106"}, {"postcode", "01067"}})
+		[][]string{{"reference", "PX-GRP-6106"}, {"postcode", `"01067"`}})
+	h.OK("the tracking grpc service's answer has the following fields:", [][]string{{"reference", "PX-GRP-6106"}, {"postcode", `"01067"`}})
 	// Proto names do as well as JSON names.
 	h.OK("the GetParcel method is called on the tracking grpc service with the following fields:", [][]string{{"reference", `"6104"`}})
-	h.OK("the tracking grpc service's answer has the following fields:", [][]string{{"reference", "6104"}})
+	h.OK("the tracking grpc service's answer has the following fields:", [][]string{{"reference", `"6104"`}})
+	// A 64-bit integer is a number, in the request as in the answer.
+	h.OK("the GetParcel method is called on the tracking grpc service with the following fields:",
+		[][]string{{"reference", "PX-GRP-6107"}, {"weight_grams", "2400"}})
+	h.OK("the tracking grpc service's answer has the following fields:", [][]string{{"weightGrams", "2400"}})
+	// A field takes only its type: nothing converts a value to it.
+	_ = h.Fails("the GetParcel method is called on the tracking grpc service with the following fields:",
+		`postcode is a string field: write "10115"`, [][]string{{"reference", "PX-GRP-6105"}, {"postcode", "10115"}})
+	_ = h.Fails("the GetParcel method is called on the tracking grpc service with the grpc/get-parcel.json message and the following fields:",
+		`weightGrams is an int64 field: write 2400`, [][]string{{"weightGrams", `"2400"`}})
+	_ = h.Fails("the GetParcel method is called on the tracking grpc service with the following fields:",
+		`postcode: 01067 could be the number 1067 or the text 01067: write 1067 for the number, or "01067" for the text`,
+		[][]string{{"reference", "PX-GRP-6105"}, {"postcode", "01067"}})
 
 	_ = h.Fails("the GetParcel method is called on the tracking grpc service with the following fields:",
 		`the request is not a parcels.tracking.v1.GetParcelRequest: `, [][]string{{"referenc", "PX-GRP-6105"}})
@@ -187,6 +309,55 @@ func TestRequests(t *testing.T) {
 		"the service has no method GetParcels; it has parcels.tracking.v1.Tracking/GetParcel, parcels.tracking.v1.Tracking/WatchParcel")
 	_ = h.Fails("the GetParcel method is called on the tracking grpc service with the grpc/get-parcel.json message and the following fields:",
 		"the fields are missing")
+}
+
+// A row's value must be of its field's type, at any path: a field of a
+// message, an item of a list, a value of a map.
+func TestFieldsTakeTheirTypes(t *testing.T) {
+	set, err := protoload.Compile("tracking.proto", []string{"testdata"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	d, err := set.FindDescriptorByName("parcels.tracking.v1.Parcel")
+	if err != nil {
+		t.Fatal(err)
+	}
+	md := d.(protoreflect.MessageDescriptor)
+	for _, c := range []struct {
+		path, value, want string
+	}{
+		{"reference", `"PX-GRP-6110"`, ""},
+		{"reference", "PX-GRP-6110", ""},
+		{"reference", "null", ""},
+		{"reference", "undefined", ""},
+		{"postcode", "10115", `postcode is a string field: write "10115"`},
+		{"postcode", "true", `postcode is a string field: write "true"`},
+		{"status", "OUT_FOR_DELIVERY", ""},
+		{"status", "2", ""},
+		{"status", "true", "status is a parcels.tracking.v1.Status field: write the name of one of its values"},
+		{"weightGrams", "1200", ""},
+		{"weight_grams", "1200L", ""},
+		{"weightGrams", `"1200"`, "weightGrams is an int64 field: write 1200"},
+		{"weightGrams", "12.5", "weightGrams is an int64 field: write a whole number"},
+		{"signature", "false", ""},
+		{"signature", `"true"`, "signature is a bool field: write true"},
+		{"signature", "1", "signature is a bool field: write true or false"},
+		{"lastScan.location", "Leipzig", ""},
+		{"lastScan.location", "4", `lastScan.location is a string field: write "4"`},
+		{"lastScan", `{"location": 4}`, `lastScan.location is a string field: write "4"`},
+		{"lastScan", "Leipzig", "lastScan is a parcels.tracking.v1.Scan field: write a JSON object, or set its fields (lastScan.<field>)"},
+		{"lastScan.scannedAt", "2026-10-01T10:00:00Z", ""},
+		{"$.lastScan.location", "4", `lastScan.location is a string field: write "4"`},
+		{"unknown", "4", ""},
+	} {
+		err := checkRows(md, []tablevalue.Row{{Path: c.path, Value: c.value}})
+		switch {
+		case c.want == "" && err != nil:
+			t.Errorf("%s = %s: %v", c.path, c.value, err)
+		case c.want != "" && (err == nil || err.Error() != c.want):
+			t.Errorf("%s = %s: got %v, want %s", c.path, c.value, err, c.want)
+		}
+	}
 }
 
 func TestReflectionAndProtoAgree(t *testing.T) {

@@ -67,46 +67,101 @@ func (t target) exchange(sc *core.Scenario, a core.Args) (*Exchange, error) {
 //	<head> for[[ {ordinal} ordered]] <noun> on {service}<tail>
 //
 // nHead is the number of parameters in head, so the ordinal is argument
-// nHead and the service argument nHead+1.
+// nHead and the service argument nHead+1. A leading family also has the
+// form with its ordinal first, as the status and execute steps put it:
+//
+//	the {ordinal} ordered <head without its "the">[[ on {service}]]<tail>
 type family struct {
-	id, keyword  string
-	since        string // the axx version that introduced the step, if after 0.1.0
-	arg          core.ArgKind
-	head, tail   string
-	noun         string // "request" or "response"
-	nHead        int
-	doc          string   // what the step does, in a sentence
-	details      []string // more of it, a short sentence or two each
-	table        *core.TableDoc
-	example      string // default-service example
-	namedExample string // named-service example
-	run          func(sc *core.Scenario, a core.Args, t target) error
+	id, keyword string
+	since       string // the axx version that introduced the step, if after 0.1.0
+	arg         core.ArgKind
+	head, tail  string
+	noun        string // "request" or "response"
+	nHead       int
+	leading     bool
+	// bare says the value in head, a {string}, may also be an integer without
+	// quotes: is 2500, for is '2500'.
+	bare bool
+	// textArgs and typedArgs are head's arguments that hold values
+	// (core.StepDef.TextArgs, TypedArgs), which take undefined.
+	textArgs, typedArgs []int
+	doc                 string   // what the step does, in a sentence
+	details             []string // more of it, a short sentence or two each
+	table               *core.TableDoc
+	example             string // default-service example
+	namedExample        string // named-service example
+	run                 func(sc *core.Scenario, a core.Args, t target) error
 }
 
 func (f family) defs() []core.StepDef {
 	run := func(t target) core.StepFunc {
 		return func(sc *core.Scenario, a core.Args) error { return f.run(sc, a, t) }
 	}
-	return []core.StepDef{
+	also := func(expr string) []string {
+		if !f.bare {
+			return nil
+		}
+		return []string{strings.Replace(expr, "{string}", "{integer}", 1)}
+	}
+	undefined := len(f.typedArgs) > 0
+	defs := []core.StepDef{
 		{
 			ID: f.id, Keyword: f.keyword, Arg: f.arg, Since: f.since,
-			Expr:     f.head + "[[ for {ordinal} ordered " + f.noun + "]]" + f.tail,
-			Doc:      docList(f.doc, append(append([]string{}, f.details...), f.targetDoc()...)...),
-			Table:    f.table,
-			Examples: []string{f.example},
-			Run:      run(target{ord: f.nHead, svc: -1}),
+			Expr:      f.head + "[[ for {ordinal} ordered " + f.noun + "]]" + f.tail,
+			Also:      also(f.head + "[[ for {ordinal} ordered " + f.noun + "]]" + f.tail),
+			Doc:       docList(f.doc, append(append([]string{}, f.details...), f.targetDoc()...)...),
+			Table:     f.table,
+			Examples:  []string{f.example},
+			TextArgs:  f.textArgs,
+			TypedArgs: f.typedArgs, TypedArgsUndefined: undefined,
+			Run: run(target{ord: f.nHead, svc: -1}),
 		},
 		{
 			ID: f.id + ".on", Keyword: f.keyword, Arg: f.arg, Since: f.since,
 			Expr: f.head + " for[[ {ordinal} ordered]] " + f.noun + " on {service}" + f.tail,
+			Also: also(f.head + " for[[ {ordinal} ordered]] " + f.noun + " on {service}" + f.tail),
 			Doc: "`" + f.id + "` on a named service: `for " + f.noun + " on <service>` addresses the service's first " +
 				"(default) " + f.noun + ", `for 2nd ordered " + f.noun + " on <service>` its second one. " +
 				"Everything else works like `" + f.id + "`.",
-			Table:    f.table,
-			Examples: []string{f.namedExample},
-			Run:      run(target{ord: f.nHead, svc: f.nHead + 1}),
+			Table:     f.table,
+			Examples:  []string{f.namedExample},
+			TextArgs:  f.textArgs,
+			TypedArgs: f.typedArgs, TypedArgsUndefined: undefined,
+			Run: run(target{ord: f.nHead, svc: f.nHead + 1}),
 		},
 	}
+	if f.leading {
+		named := run(target{ord: f.nHead, svc: f.nHead + 1})
+		rest := strings.TrimPrefix(f.head, "the ")
+		defs = append(defs, core.StepDef{
+			ID: f.id + ".leading", Keyword: f.keyword, Arg: f.arg, Since: "0.3.0",
+			Expr: "the {ordinal} ordered " + rest + "[[ on {service}]]" + f.tail,
+			Also: also("the {ordinal} ordered " + rest + "[[ on {service}]]" + f.tail),
+			Doc: "`" + f.id + "` with its ordinal first, as `the 2nd ordered " + f.noun + " ...` steps say it: " +
+				"the same step as `" + f.head + " for 2nd ordered " + f.noun + f.tail + "`.",
+			Table:    f.table,
+			Examples: []string{strings.Replace(f.example, " the ", " the 2nd ordered ", 1)},
+			// The ordinal comes first here, ahead of the head's arguments.
+			TextArgs:  shifted(f.textArgs),
+			TypedArgs: shifted(f.typedArgs), TypedArgsUndefined: undefined,
+			Run: func(sc *core.Scenario, a core.Args) error {
+				// The family's steps read the ordinal after the head's parameters.
+				list := append(append([]core.Arg{}, a.List[1:f.nHead+1]...), a.List[0])
+				a.List = append(list, a.List[f.nHead+1:]...)
+				return named(sc, a)
+			},
+		})
+	}
+	return defs
+}
+
+// shifted is the places of arguments one further on.
+func shifted(places []int) []int {
+	var out []int
+	for _, p := range places {
+		out = append(out, p+1)
+	}
+	return out
 }
 
 // docList is a step's Doc: what it does, in a sentence, then more of it as
@@ -153,6 +208,7 @@ func serviceSteps() []core.StepDef {
 		{
 			ID: "rest.service", Keyword: "Given", Arg: core.ArgTable,
 			Expr: "the {word} service with the following properties:",
+			Also: []string{"a(n) {word} service with the following properties:"},
 			Doc: docList("Register a REST service: where its requests go, and the OpenAPI specification they are checked against.",
 				"The first service registered in a scenario is the default one.",
 				"With an `openapi` specification, every request executed and its response are validated against it, "+
@@ -254,7 +310,9 @@ func requestSteps() []core.StepDef {
 		core.StepDef{
 			ID: "rest.request", Keyword: "Given",
 			Expr: "a(n) {word} request to {word}[[ on {service}]]",
-			Doc: docList("Add a request to the default or the named service: its method, and its path below the service's `url`.",
+			Doc: docList("Add a request to the default or the named service: its method, and its path below the service's `url`. "+
+				"A request with a body goes on with a payload step, then its properties: "+
+				"`a request payload using an application/json empty content template` (or a `content example`), then `the request payload properties are:`.",
 				"The path can have a query string, like `/api/parcels?sender=kestrel-books`. A whole URL replaces the service's `url`.",
 				"This is the service's first (default) request; the ordered form adds more."),
 			Examples: []string{"Given a GET request to /api/parcels/PX-1001", "Given a DELETE request to /api/parcels/PX-1001 on parcels"},
@@ -266,7 +324,8 @@ func requestSteps() []core.StepDef {
 			ID: "rest.request.ordered", Keyword: "Given",
 			Expr: "a {ordinal} ordered {word} request to {word}[[ on {service}]]",
 			Doc: "Add the Nth request of a service. Requests are numbered in the order they are added: " +
-				"the 1st ordered request is the default request, and the Nth can only be added once N-1 exist.",
+				"the 1st ordered request is the default request, and the Nth can only be added once N-1 exist. " +
+				"A request with a body goes on with a payload step for it, then its properties.",
 			Examples: []string{"Given a 2nd ordered GET request to /api/parcels/PX-1001", "Given a 1st ordered POST request to /api/parcels on parcels"},
 			Run: func(sc *core.Scenario, a core.Args) error {
 				return addRequest(sc, a, target{ord: 0, svc: 3}, a.String(1), a.String(2))
@@ -276,7 +335,7 @@ func requestSteps() []core.StepDef {
 	for _, f := range []family{
 		{
 			id: "rest.request.header", keyword: "Given", noun: "request",
-			head: "the request header {word} is {string}", nHead: 2,
+			head: "the request header {word} is {string}", nHead: 2, textArgs: []int{1},
 			doc: "Set a request header.",
 			details: []string{
 				"`Content-Type` and `Accept` replace an earlier value; other headers may be added more than once, and are all sent.",
@@ -298,7 +357,10 @@ func requestSteps() []core.StepDef {
 				"A name may repeat. Like the single-header step, `Content-Type` and `Accept` replace an earlier value, " +
 					"and other headers are all sent.",
 			},
-			table: &core.TableDoc{Columns: []string{"header", "value"}, Note: "A row is a header's name and its value."},
+			table: &core.TableDoc{
+				Columns: []string{"header", "value"}, Note: "A row is a header's name and its value.",
+				Values: core.TextValues,
+			},
 			example: "Given the request headers are:\n" +
 				"  | Accept          | application/json |\n" +
 				"  | Accept-Language | de-DE            |",
@@ -306,7 +368,7 @@ func requestSteps() []core.StepDef {
 				"  | Content-Type | application/json |\n" +
 				"  | Accept       | application/json |",
 			run: func(sc *core.Scenario, a core.Args, t target) error {
-				rows, err := rows2(a.Table, "request headers")
+				rows, err := textRows(a.Table, "request headers")
 				if err != nil {
 					return err
 				}
@@ -380,37 +442,49 @@ func requestSteps() []core.StepDef {
 		},
 		{
 			id: "rest.request.property", keyword: "Given", noun: "request",
-			head: "the request payload property {word} is {string}", nHead: 2,
-			doc: "Set a property of the request payload, by its JSONPath, like `weightGrams`, `recipient.postcode` or `$.recipient.name`.",
+			leading: true,
+			bare:    true,
+			head:    "the request payload property {word} is {string}", nHead: 2, typedArgs: []int{1},
+			doc: "Set a property of the request payload a payload step started, by its JSONPath, like `weightGrams`, `recipient.postcode` or `$.recipient.name`.",
 			details: []string{
-				"A value in double quotes inside the quotes, like `'\"42\"'`, is always a string.",
-				"Any other value takes the type of the property's current value: a string, a boolean, an integer, a number, " +
-					"or an object or array parsed from JSON text.",
-				"A property that does not exist yet, or is null, takes the type its value reads as: `true`, `42`, `1.5`, " +
-					"`{...}`, `[...]`, or else a string.",
-				"A property inside an object the payload lacks creates the object: `recipient.name` in a payload without " +
-					"`recipient`. A path through an array (`items[2].sku`) needs the array.",
+				"The value means what it says, whatever the property held before: `'1200'` is an integer, `'1.5'` a decimal, " +
+					"`'true'` a boolean, `'null'` null, `'{...}'` and `'[...]'` JSON, `'\"10115\"'`, in double quotes inside the " +
+					"quotes, the string, and other text, like `'EXPRESS'`, a string. `'undefined'` removes the property.",
+				"The single quotes are the step's own, not the value's: `is 1200` says what `is '1200'` says.",
+				"A property the payload lacks is added; one inside an object the payload lacks creates the object: " +
+					"`recipient.name` in a payload without `recipient`. A path through an array (`items[2].sku`) needs the array.",
+				"`null` and `undefined` change a property the payload has.",
+				"`${env:…}` and `${sys:…}` expand inside the value, which stays text, whatever they expand to.",
 				"A payload step must come first.",
 			},
 			example:      "Given the request payload property sender is 'kestrel-books'",
 			namedExample: "Given the request payload property serviceLevel is 'EXPRESS' for request on parcels",
 			run: func(sc *core.Scenario, a core.Args, t target) error {
+				path := a.String(0)
+				v, err := payloadValue(sc, a.String(1), false)
+				if err != nil {
+					return fmt.Errorf("%s: %w", path, core.InStepText(err))
+				}
 				return modifyPayload(sc, a, t, func(doc any) error {
-					return missingParent(doc, a.String(0), jvalue.SetRequestProperty(doc, a.String(0), secrets.Expand(sc, a.String(1))))
+					return missingParent(doc, path, jvalue.SetValue(doc, path, v))
 				})
 			},
 		},
 		{
 			id: "rest.request.properties", keyword: "Given", arg: core.ArgTable, noun: "request",
-			head: "the request payload properties", tail: " are:",
-			doc: "Set properties of the request payload, a row each, in order, like the single-property step.",
+			leading: true,
+			head:    "the request payload properties", tail: " are:",
+			doc: "Set properties of the request payload a payload step started, a row each, in order, like the single-property step.",
 			details: []string{
-				"`null` sets JSON null, and `undefined` removes the property, in any case.",
-				"`\"null\"` and `\"undefined\"`, in double quotes, are the strings.",
+				"A value is set as written, whatever the property held before.",
 				"A property inside an object the payload lacks creates the object, so a table can list " +
 					"`recipient.name` and `recipient.postcode` on an empty payload.",
+				"`null` sets a property the payload has to JSON null, and `undefined` removes it.",
 			},
-			table: &core.TableDoc{Columns: []string{"JSONPath", "value"}, Note: "A row is a property's JSONPath and its value."},
+			table: &core.TableDoc{
+				Columns: []string{"JSONPath", "value"}, Note: "A row is a property's JSONPath and its value.",
+				Values: core.JSONValues, Undefined: true,
+			},
 			example: "Given the request payload properties are:\n" +
 				"  | reference          | PX-4101 |\n" +
 				"  | weightGrams        | 1200    |\n" +
@@ -423,9 +497,15 @@ func requestSteps() []core.StepDef {
 				if err != nil {
 					return err
 				}
+				values := make([]core.Value, len(pairs))
+				for i, p := range pairs {
+					if values[i], err = payloadValue(sc, p.Value, p.Null); err != nil {
+						return fmt.Errorf("%s: %w", p.Key, err)
+					}
+				}
 				return modifyPayload(sc, a, t, func(doc any) error {
-					for _, p := range pairs {
-						if err := jvalue.ApplyRequestTableRow(doc, p.Key, secrets.Expand(sc, p.Value)); err != nil {
+					for i, p := range pairs {
+						if err := jvalue.SetValue(doc, p.Key, values[i]); err != nil {
 							return missingParent(doc, p.Key, err)
 						}
 					}
@@ -435,13 +515,18 @@ func requestSteps() []core.StepDef {
 		},
 		{
 			id: "rest.request.property.null", keyword: "Given", noun: "request",
-			head: "the request payload property {word} is null", nHead: 1,
-			doc:          "Set an existing property of the request payload to JSON null.",
+			leading: true,
+			head:    "the request payload property {word} is null", nHead: 1,
+			doc:          "Set a property of the request payload to JSON null, adding it if the payload lacks it, as a table's `null` does.",
 			example:      "Given the request payload property recipient.street is null",
 			namedExample: "Given the request payload property recipient.street is null for request on parcels",
 			run: func(sc *core.Scenario, a core.Args, t target) error {
 				return modifyPayload(sc, a, t, func(doc any) error {
-					return missingParent(doc, a.String(0), jvalue.SetRequestPropertyNull(doc, a.String(0)))
+					null, err := core.ParseValue("null", false, false)
+					if err != nil {
+						return err
+					}
+					return missingParent(doc, a.String(0), jvalue.SetValue(doc, a.String(0), null))
 				})
 			},
 		},
@@ -613,6 +698,39 @@ func missingParent(doc any, path string, err error) error {
 	}
 	return fmt.Errorf("the request payload has no %s, so %s cannot be set inside it: start the payload from one that has it "+
 		"(like `a request payload using an application/json content example`), or set %s first: %w", missing, path, missing, err)
+}
+
+// payloadValue reads a value a step sets in the request payload: it means
+// what it says (ADR 0014). ${env:..} and ${sys:..} references expand inside
+// a string or JSON as written, so a reference written as text stays a
+// string, whatever it expands to.
+func payloadValue(sc *core.Scenario, text string, empty bool) (core.Value, error) {
+	v, err := core.ParseValue(text, empty, true)
+	if err != nil || !strings.Contains(text, "${") {
+		return v, err
+	}
+	if s, ok := v.Str(); ok {
+		return core.ParseValue(`"`+secrets.Expand(sc, s)+`"`, false, false)
+	}
+	return core.ParseValue(secrets.Expand(sc, text), false, false)
+}
+
+// textRows returns the rows of a two-column table whose values are text
+// (ADR 0014): an empty cell, or a value that reads as anything else, fails
+// with the form to write.
+func textRows(t *core.Table, what string) ([][2]string, error) {
+	rows, err := rows2(t, what)
+	if err != nil {
+		return nil, err
+	}
+	for i, row := range rows {
+		v, _, err := core.ParseText(row[1], row[1] == "", false)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", row[0], err)
+		}
+		rows[i][1] = v
+	}
+	return rows, nil
 }
 
 // rows2 returns the rows of a two-column table (names may repeat).

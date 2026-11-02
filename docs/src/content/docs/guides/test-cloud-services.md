@@ -96,7 +96,7 @@ shipments:
 - **A quoted date is a string.** Quote a value to keep it a string, such as a manifest named by its date.
 - **JSON seeds hold strings.** JSON has no date type, so the dates of a JSON seed are strings.
 
-Checks read timestamps back in RFC 3339 and UTC, so `| weighedAt | 2026-09-01T08:12:00Z |` checks the document above.
+Checks read timestamps back in RFC 3339 and UTC, so `| weighedAt | 2026-09-01T08:12:00Z |` checks the document above. A check quotes a string that reads as a number as the seed does: a seed's `postcode: "10115"` is checked as `| postcode | "10115" |`.
 
 ## Send a service messages
 
@@ -105,6 +105,8 @@ A service that consumes messages gets them the way it does in the cloud: publish
 ```gherkin
 When the disputes/kestrel-overcharge.json message is published to the carrier-disputes pubsub topic
 ```
+
+`with the following attributes:` (`properties:` on Service Bus) adds a table of what goes with the message. Those values are text, so one that reads as a number goes in double quotes: `| attempt | "3" |`.
 
 A service that Pub/Sub pushes to gets what a push subscription sends: an envelope whose `message.data` is the message, base64-encoded, with its attributes and ID. Create the push subscription, with the service's address as its endpoint, where your other emulator resources are created, and publish to its topic: an emulator with push subscriptions, such as the gcloud CLI's, pushes the message to the service as Pub/Sub does. The scenario neither builds the envelope nor encodes the data.
 
@@ -118,7 +120,12 @@ A service that Pub/Sub pushes to gets what a push subscription sends: an envelop
   - a rule and a queue for an EventBridge bus;
   - a subscription for a Service Bus topic.
 - **Checking a queue takes its messages.** On an SQS or Service Bus queue, Axx consumes each message like any other consumer would. So check the queues your service writes to. Check a queue it consumes by what the service does with the messages.
-- **Conditions compare text.** A `| field | value |` row compares the value as text, with a dotted path into nested data. `null` means null and `undefined` means absent. On messages, `attribute <name>` or `property <name>` rows check the values sent with the message.
+- **Conditions mean what they say.** A `| field | value |` row is a field, or a dotted path into nested data, and the value it has, typed [as in every pack](/references/steps/#values): `42` is the number and `"42"` the string, and one does not match the other, nor `6` the decimal `6.0`. `null` is null and `undefined` no such field. Each service's values keep their types:
+  - a Firestore double and a BigQuery FLOAT64 are decimals, a whole one too (`6.0`), and an INT64 an integer;
+  - a BigQuery NUMERIC is a decimal too (`1.35`, `2.0`), and a condition on a column of another type fails at once, from the table's schema, and says what to write: `billed is a decimal in billing.invoice_lines (FLOAT64): write 2.0`;
+  - a DynamoDB `N` is the number DynamoDB returns (`120`, `49.99`): it keeps one type of number, so a whole one is an integer however it was written, and a string attribute that reads as a number goes in double quotes (`"37073"`).
+
+  On messages, `attribute <name>` or `property <name>` rows check the values sent with the message, which are text: `"3"` for one that reads as a number.
 - **Objects are read by their type.** Besides its exact content and its JSON properties, a check can look for text in an object, in a PDF, a Word document or a workbook too, or for a row of a CSV file or a workbook ([Check files](/guides/check-files/)):
 
   ```gherkin

@@ -60,7 +60,7 @@ func TestCourierUsesPlatformFixtureWithoutDebugProvider(t *testing.T) {
 	h.OK("the note.axxmodel file in the courier-models folder is a copy of the note.axxmodel file")
 	h.OK("the courier app is launched")
 	h.OK(`the "Courier ID" field in the courier app is filled with "CR-LEJ-12"`)
-	h.OK(`the "PIN" field in the courier app is filled with "4711"`)
+	h.OK(`the "PIN" field in the courier app is filled with '"4711"'`)
 	h.OK(`the "Sign in" button is tapped in the courier app`)
 	h.OK(`the courier app's dialog is accepted`)
 	h.OK(`the "PX-MODEL-1" list item is tapped in the courier app`)

@@ -1,8 +1,8 @@
 // Package cloudstep holds what the cloud service packs share: waiting for
 // something the services under test do asynchronously, matching rows,
-// items, documents and messages against a step's table with the text
-// comparison of the other packs' JSON property steps, and reading seed
-// files.
+// items, documents and messages against a step's table with the values of
+// the other packs' JSON property steps, which mean what they say (ADR 0014),
+// and reading seed files.
 package cloudstep
 
 import (
@@ -63,12 +63,23 @@ func Poll(sc *core.Scenario, d time.Duration, check func() (bool, string, error)
 
 // Rows are the conditions of a "where:" table: each is a path into the JSON
 // of a row, item, document or message (a column or field name, a dotted
-// path, or a JSONPath) and the text its value must have. `null` means null
-// and `undefined` means absent, as in the JSON property steps.
+// path, or a JSONPath) and the value it must have, typed as in the JSON
+// property steps (core.ParseValue): `42` an integer, `"42"` the string,
+// `null` null and `undefined` absent. A condition on a value sent with a
+// message (an attribute) or of the message itself (its routing key) is on
+// text (core.ParseText).
 type Rows []core.Pair
 
-// Conditions reads a "where:" table.
+// Conditions reads a "where:" table of values alone. A value the rule cannot
+// read (an empty cell, 01067) fails here, before the step waits for anything.
 func Conditions(t *core.Table) (Rows, error) {
+	return MessageConditions(t, "", nil)
+}
+
+// MessageConditions reads a "where:" table of a check on messages: a condition
+// on "<field> <name>" or on one of meta is on text, and any other on a value
+// (Readable), each failing here with what validate reports for it.
+func MessageConditions(t *core.Table, field string, meta []string) (Rows, error) {
 	if t == nil {
 		return nil, fmt.Errorf("the step needs a table of conditions (| field | value |)")
 	}
@@ -76,7 +87,11 @@ func Conditions(t *core.Table) (Rows, error) {
 	if err != nil {
 		return nil, err
 	}
-	return pairs, nil
+	rs := Rows(pairs)
+	if err := rs.Readable(field, meta); err != nil {
+		return nil, err
+	}
+	return rs, nil
 }
 
 // Match reports whether the JSON document meets every condition.
@@ -91,11 +106,11 @@ func (rs Rows) Match(doc string) (bool, error) {
 }
 
 func matchValue(doc string, r core.Pair) (bool, error) {
-	want := r.Value
-	if r.Null {
-		want = "null"
+	v, err := core.ParseValue(r.Value, r.Null, true)
+	if err != nil {
+		return false, fmt.Errorf("%s: %w", r.Key, err)
 	}
-	ok, err := jvalue.PostgresPropertyIs(doc, r.Key, want)
+	ok, err := jvalue.ValueIs(doc, r.Key, v)
 	if err != nil {
 		return false, fmt.Errorf("%s: %w", r.Key, err)
 	}
@@ -129,15 +144,15 @@ func (rs Rows) MatchMessageIn(m Message, field string, meta []string) (bool, err
 	for _, r := range rs {
 		if slices.Contains(meta, r.Key) {
 			v, present := m.Meta[r.Key]
-			if !valueIs(v, present, r.Value) {
-				return false, nil
+			if ok, err := valueIs(v, present, r); err != nil || !ok {
+				return false, err
 			}
 			continue
 		}
 		if name, ok := strings.CutPrefix(r.Key, field+" "); ok {
 			v, present := m.Fields[strings.TrimSpace(name)]
-			if !valueIs(v, present, r.Value) {
-				return false, nil
+			if ok, err := valueIs(v, present, r); err != nil || !ok {
+				return false, err
 			}
 			continue
 		}
@@ -152,13 +167,17 @@ func (rs Rows) MatchMessageIn(m Message, field string, meta []string) (bool, err
 	return true, nil
 }
 
-// valueIs reports whether a named value (present or not) is what a
-// condition wants: `undefined` wants it absent.
-func valueIs(v string, present bool, want string) bool {
-	if strings.EqualFold(want, "undefined") {
-		return !present
+// valueIs reports whether a named value (present or not), which is text,
+// is what a condition wants: `undefined` wants it absent.
+func valueIs(v string, present bool, r core.Pair) (bool, error) {
+	want, undefined, err := core.ParseText(r.Value, r.Null, true)
+	if err != nil {
+		return false, fmt.Errorf("%s: %w", r.Key, err)
 	}
-	return present && v == want
+	if undefined {
+		return !present, nil
+	}
+	return present && v == want, nil
 }
 
 // Describe renders a message for a failure report: its own values, its

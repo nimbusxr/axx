@@ -1,8 +1,8 @@
 {
   "description": "The frozen catalog of built-in step text. Step text is public API: every entry must stay defined, verbatim, by its pack.",
   "counts": {
-    "parameterType": 17,
-    "step": 719
+    "parameterType": 18,
+    "step": 781
   },
   "entries": [
     {
@@ -4437,6 +4437,385 @@
       "pack": "models-core",
       "keyword": "Then",
       "expression": "within {duration} the {word} app's speaker plays the {string} file"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Given",
+      "expression": "the {ordinal} ordered request payload property {word} is {string}"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Given",
+      "expression": "the {ordinal} ordered request payload property {word} is {string} on {service}"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Given",
+      "expression": "the {ordinal} ordered request payload properties are:"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Given",
+      "expression": "the {ordinal} ordered request payload properties on {service} are:"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Given",
+      "expression": "the {ordinal} ordered request payload property {word} is null"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Given",
+      "expression": "the {ordinal} ordered request payload property {word} is null on {service}"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Then",
+      "expression": "the {ordinal} ordered response payload property {word} is {string}"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Then",
+      "expression": "the {ordinal} ordered response payload property {word} is {string} on {service}"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Then",
+      "expression": "the {ordinal} ordered response payload property {word} is null"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Then",
+      "expression": "the {ordinal} ordered response payload property {word} is null on {service}"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Then",
+      "expression": "the {ordinal} ordered response payload property {word} is undefined"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Then",
+      "expression": "the {ordinal} ordered response payload property {word} is undefined on {service}"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Then",
+      "expression": "the {ordinal} ordered response payload property {word} matches {pattern}"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Then",
+      "expression": "the {ordinal} ordered response payload property {word} matches {pattern} on {service}"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Then",
+      "expression": "the {ordinal} ordered response payload properties are:"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Then",
+      "expression": "the {ordinal} ordered response payload properties on {service} are:"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Then",
+      "expression": "the {ordinal} ordered response payload properties match:"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Then",
+      "expression": "the {ordinal} ordered response payload properties on {service} match:"
+    },
+    {
+      "kind": "parameterType",
+      "pack": "rest",
+      "keyword": "ParameterType",
+      "name": "integer",
+      "expression": "-?(?:0|[1-9][0-9]*)"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Given",
+      "expression": "a(n) {word} service with the following properties:"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Given",
+      "expression": "the request payload property {word} is {integer}"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Given",
+      "expression": "the request payload property {word} is {integer} for {ordinal} ordered request"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Given",
+      "expression": "the request payload property {word} is {integer} for request on {service}"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Given",
+      "expression": "the request payload property {word} is {integer} for {ordinal} ordered request on {service}"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Given",
+      "expression": "the {ordinal} ordered request payload property {word} is {integer}"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Given",
+      "expression": "the {ordinal} ordered request payload property {word} is {integer} on {service}"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Then",
+      "expression": "the response payload property {word} is {integer}"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Then",
+      "expression": "the response payload property {word} is {integer} for {ordinal} ordered response"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Then",
+      "expression": "the response payload property {word} is {integer} for response on {service}"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Then",
+      "expression": "the response payload property {word} is {integer} for {ordinal} ordered response on {service}"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Then",
+      "expression": "the {ordinal} ordered response payload property {word} is {integer}"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Then",
+      "expression": "the {ordinal} ordered response payload property {word} is {integer} on {service}"
+    },
+    {
+      "kind": "step",
+      "pack": "mock",
+      "keyword": "Given",
+      "expression": "a mocked {word} service with the following properties:"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Given",
+      "expression": "the {word} database with the following properties:"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Then",
+      "expression": "a selection of rows is retrieved from {word} where:"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Then",
+      "expression": "a {ordinal} selection of rows is retrieved from {word} where:"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Then",
+      "expression": "a selection of rows is retrieved from {word} on {dbService} where:"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Then",
+      "expression": "a {ordinal} selection of rows is retrieved from {word} on {dbService} where:"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Then",
+      "expression": "a selection of rows is retrieved from {word} table where:"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Then",
+      "expression": "a {ordinal} selection of rows is retrieved from {word} table where:"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Then",
+      "expression": "a selection of rows is retrieved from {word} table on {dbService} where:"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Then",
+      "expression": "a {ordinal} selection of rows is retrieved from {word} table on {dbService} where:"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Then",
+      "expression": "within {duration} a selection of at least {int} row(s) is retrieved from {word} where:"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Then",
+      "expression": "within {duration} a {ordinal} selection of at least {int} row(s) is retrieved from {word} where:"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Then",
+      "expression": "within {duration} a selection of at least {int} row(s) is retrieved from {word} on {dbService} where:"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Then",
+      "expression": "within {duration} a {ordinal} selection of at least {int} row(s) is retrieved from {word} on {dbService} where:"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Then",
+      "expression": "within {duration} a selection of at least {int} row(s) is retrieved from {word} table where:"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Then",
+      "expression": "within {duration} a {ordinal} selection of at least {int} row(s) is retrieved from {word} table where:"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Then",
+      "expression": "within {duration} a selection of at least {int} row(s) is retrieved from {word} table on {dbService} where:"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Then",
+      "expression": "within {duration} a {ordinal} selection of at least {int} row(s) is retrieved from {word} table on {dbService} where:"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Then",
+      "expression": "the selection has {int} row(s) on {dbService}"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Then",
+      "expression": "the {ordinal} selection has {int} row(s) on {dbService}"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Then",
+      "expression": "the selection has more than {int} row(s) on {dbService}"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Then",
+      "expression": "the {ordinal} selection has more than {int} row(s) on {dbService}"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Then",
+      "expression": "the selection has fewer than {int} row(s) on {dbService}"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Then",
+      "expression": "the {ordinal} selection has fewer than {int} row(s) on {dbService}"
+    },
+    {
+      "kind": "step",
+      "pack": "mongo",
+      "keyword": "Given",
+      "expression": "the {word} mongo database with the following properties:"
+    },
+    {
+      "kind": "step",
+      "pack": "kafka",
+      "keyword": "Given",
+      "expression": "a(n) {word} kafka service with the following properties:"
+    },
+    {
+      "kind": "step",
+      "pack": "kafka",
+      "keyword": "Given",
+      "expression": "a(n) {word} kafka topic client"
+    },
+    {
+      "kind": "step",
+      "pack": "kafka",
+      "keyword": "Given",
+      "expression": "the {word} kafka topic client with the following properties:"
+    },
+    {
+      "kind": "step",
+      "pack": "kafka",
+      "keyword": "Given",
+      "expression": "the {word} kafka topic client on the {word} kafka service with the following properties:"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Given",
+      "expression": "a {filepath} database seed"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Given",
+      "expression": "a {filepath} database seed on {dbService}"
     }
   ]
 }

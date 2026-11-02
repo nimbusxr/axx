@@ -88,6 +88,21 @@ func (p *Pickle) StepSource(ps *messages.PickleStep) Step {
 	return Step{}
 }
 
+// StepTableLines returns the lines of the rows of a pickle step's data
+// table, in order, or nil when the step has none.
+func (p *Pickle) StepTableLines(ps *messages.PickleStep) []int {
+	for _, id := range ps.AstNodeIds {
+		if st, ok := p.Doc.steps[id]; ok && st.DataTable != nil {
+			lines := make([]int, len(st.DataTable.Rows))
+			for i, r := range st.DataTable.Rows {
+				lines[i] = int(r.Location.Line)
+			}
+			return lines
+		}
+	}
+	return nil
+}
+
 func (p *Pickle) isBackground(stepID string) bool {
 	sc := p.Doc.scenarios[p.AstNodeIds[0]]
 	if sc == nil {

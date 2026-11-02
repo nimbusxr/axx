@@ -8,10 +8,12 @@
 package match
 
 import (
+	"cmp"
 	"fmt"
 	"math"
 	"math/big"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -31,9 +33,13 @@ type Def struct {
 
 // Variant is one concrete expression of a Def.
 type Variant struct {
-	Def    *Def
-	Expr   string
+	Def  *Def
+	Expr string
+	// Also says the variant is of another wording of the step (StepDef.Also).
+	Also   bool
 	argPos []int
+	// params are the parameter types of an Also variant's arguments.
+	params []string
 	cexpr  cukexpr.Expression
 }
 
@@ -46,6 +52,20 @@ type Match struct {
 
 // Def returns the matched definition.
 func (m Match) Def() *Def { return m.Variant.Def }
+
+// InText is the arguments the text gave, in the text's order, for what shows
+// them against it (reports). Args has them in the step's order, for its Run,
+// and another wording of the step may say them in another order.
+func (m Match) InText() []core.Arg {
+	out := make([]core.Arg, 0, len(m.Args))
+	for _, a := range m.Args {
+		if a.Present {
+			out = append(out, a)
+		}
+	}
+	slices.SortStableFunc(out, func(a, b core.Arg) int { return cmp.Compare(a.Start, b.Start) })
+	return out
+}
 
 // Param is a registered parameter type.
 type Param struct {
@@ -64,6 +84,8 @@ type Registry struct {
 	byID     map[string]*Def
 
 	cache sync.Map // text -> []Match
+	// elsewhere finds undefined texts in packs the registry does not hold.
+	elsewhere Elsewhere
 }
 
 // NewRegistry returns a registry containing Cucumber's built-in parameter
@@ -123,19 +145,127 @@ func (r *Registry) AddSteps(pack string, steps []core.StepDef) error {
 		if err != nil {
 			return fmt.Errorf("%s: step %s: %w", pack, s.ID, err)
 		}
+		for _, i := range slices.Concat(s.TextArgs, s.TypedArgs) {
+			if i < 0 || i >= len(names) {
+				return fmt.Errorf("%s: step %s: it says argument %d holds a value, and has %d", pack, s.ID, i, len(names))
+			}
+			if !r.givesText(names[i]) {
+				return fmt.Errorf("%s: step %s: it says argument %d holds a value, and its {%s} gives no text", pack, s.ID, i, names[i])
+			}
+		}
 		def := &Def{Pack: pack, Step: s, Names: names}
+		said := map[string]bool{}
 		for _, v := range vars {
 			ce, err := cukexpr.NewCucumberExpression(v.expr, r.ctypes)
 			if err != nil {
 				return fmt.Errorf("%s: step %s: expression %q: %w", pack, s.ID, v.expr, err)
 			}
 			r.variants = append(r.variants, &Variant{Def: def, Expr: v.expr, argPos: v.argPos, cexpr: ce})
+			said[v.expr] = true
+		}
+		for _, alt := range s.Also {
+			alts, altNames, err := expandVariants(alt)
+			if err != nil {
+				return fmt.Errorf("%s: step %s: %w", pack, s.ID, err)
+			}
+			exprs := make([]cukexpr.Expression, len(alts))
+			for i, v := range alts {
+				if exprs[i], err = cukexpr.NewCucumberExpression(v.expr, r.ctypes); err != nil {
+					return fmt.Errorf("%s: step %s: expression %q: %w", pack, s.ID, v.expr, err)
+				}
+			}
+			slots, err := r.alsoSlots(altNames, names)
+			if err != nil {
+				return fmt.Errorf("%s: step %s: wording %q: %w", pack, s.ID, alt, err)
+			}
+			for i, v := range alts {
+				pos, params := make([]int, len(v.argPos)), make([]string, len(v.argPos))
+				for j, p := range v.argPos {
+					pos[j], params[j] = slots[p], altNames[p]
+				}
+				if said[v.expr] {
+					return fmt.Errorf("%s: step %s: wording %q: the step already says %q", pack, s.ID, alt, v.expr)
+				}
+				said[v.expr] = true
+				if missing := leftOut(pos, vars, names); missing != "" {
+					return fmt.Errorf("%s: step %s: wording %q: %q leaves out %s: a wording takes the parameters a form of its step takes",
+						pack, s.ID, alt, v.expr, missing)
+				}
+				r.variants = append(r.variants, &Variant{Def: def, Expr: v.expr, Also: true, argPos: pos, params: params, cexpr: exprs[i]})
+			}
 		}
 		r.defs = append(r.defs, def)
 		r.byID[s.ID] = def
 	}
 	r.cache = sync.Map{}
 	return nil
+}
+
+// alsoSlots says which of a step's arguments each parameter of another wording
+// takes: the first left of its type, or else the first left, when both give the
+// step text (a Run reads each argument as its parameter's type gives it).
+func (r *Registry) alsoSlots(alt, names []string) ([]int, error) {
+	slots := make([]int, len(alt))
+	used := make([]bool, len(names))
+	for i, name := range alt {
+		slots[i] = -1
+		for j, n := range names {
+			if !used[j] && n == name {
+				slots[i], used[j] = j, true
+				break
+			}
+		}
+	}
+	for i := range alt {
+		if slots[i] >= 0 {
+			continue
+		}
+		for j := range names {
+			if !used[j] {
+				slots[i], used[j] = j, true
+				break
+			}
+		}
+		if slots[i] < 0 {
+			return nil, fmt.Errorf("it has more parameters than the step")
+		}
+		if !r.givesText(alt[i]) || !r.givesText(names[slots[i]]) {
+			return nil, fmt.Errorf("its {%s} cannot take the place of the step's {%s}", alt[i], names[slots[i]])
+		}
+	}
+	return slots, nil
+}
+
+// givesText says a parameter type gives a step the text it matched, or, for
+// {string}, the text inside its quotes.
+func (r *Registry) givesText(name string) bool {
+	p, ok := r.params[name]
+	return ok && (p.Type.Transform == nil || name == "string")
+}
+
+// leftOut names the parameters that a form of a wording, which takes the step's
+// arguments pos, leaves out of the closest form of the step. It is "" when a
+// form of the step takes just those.
+func leftOut(pos []int, forms []variant, names []string) string {
+	var closest []string
+	for _, f := range forms {
+		var missing []string
+		for _, p := range f.argPos {
+			if !slices.Contains(pos, p) {
+				missing = append(missing, "{"+names[p]+"}")
+			}
+		}
+		if len(f.argPos)-len(missing) != len(pos) {
+			continue // it lacks some of pos
+		}
+		if len(missing) == 0 {
+			return ""
+		}
+		if closest == nil || len(missing) < len(closest) {
+			closest = missing
+		}
+	}
+	return strings.Join(closest, ", ")
 }
 
 // AddPack registers a pack's parameter types and steps.
@@ -188,6 +318,9 @@ func (r *Registry) Match(text string) []Match {
 			g := a.Group()
 			arg := &full[v.argPos[i]]
 			arg.Present = true
+			if v.params != nil {
+				arg.Param = v.params[i]
+			}
 			if g.Value() != nil {
 				arg.Raw = *g.Value()
 			}
@@ -220,9 +353,36 @@ func (r *Registry) Resolve(sc *core.Scenario, m Match, text string, table *core.
 		if err != nil {
 			return args, err
 		}
+		// A value is read by the rule here, before Run expands any reference
+		// in it: a reference is a string, whatever it expands to.
+		if text, ok := v.(string); ok {
+			if v, err = m.Def().Step.ReadArg(i, a.Param, text); err != nil {
+				return args, err
+			}
+		}
 		a.Value = v
 	}
 	return args, nil
+}
+
+// ValueErrors are the errors Resolve gives for the arguments that hold values
+// the rule cannot read (ADR 0014), one each: what the step shows on its own,
+// without running it.
+func (m Match) ValueErrors() []error {
+	var out []error
+	for i, a := range m.Args {
+		if !a.Present {
+			continue
+		}
+		text := a.Raw
+		if a.Param == "string" {
+			text = unquoteString(a.Raw)
+		}
+		if _, err := m.Def().Step.ReadArg(i, a.Param, text); err != nil {
+			out = append(out, err)
+		}
+	}
+	return out
 }
 
 func transform(sc *core.Scenario, p *Param, a *core.Arg) (any, error) {
@@ -303,13 +463,17 @@ func transformError(param, value, javaType string) error {
 // stringTransform removes the surrounding quotes and unescapes \" and \'
 // exactly as Cucumber-JVM does.
 func stringTransform(_ *core.Scenario, raw string, _ []*string) (any, error) {
+	return unquoteString(raw), nil
+}
+
+func unquoteString(raw string) string {
 	if len(raw) < 2 {
-		return raw, nil
+		return raw
 	}
 	quote := raw[0]
 	inner := raw[1 : len(raw)-1]
 	if quote == '"' {
-		return strings.ReplaceAll(inner, `\"`, `"`), nil
+		return strings.ReplaceAll(inner, `\"`, `"`)
 	}
-	return strings.ReplaceAll(inner, `\'`, `'`), nil
+	return strings.ReplaceAll(inner, `\'`, `'`)
 }

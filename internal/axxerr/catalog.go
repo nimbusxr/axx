@@ -89,7 +89,7 @@ func init() {
 		"Add the server yourself: the hint shows the lines to add. Or fix the file and run the command again.")
 	add("AXX-E0014", u, "No packs to document",
 		"`axx docs export` found no packs to document: it was run outside an axx project with an axx that has no packs built in, or in a project that lists no packs.",
-		"Run it in your project's directory (where axx.yaml is); axx's own packs are documented at https://axx.nimbusxr.us/references/packs/. A project adds its packs with `axx pack add`.")
+		"Run it in your project's directory (where axx.yaml is); `axx pack list` lists axx's own packs and `axx pack show <name>` gives one. A project adds its packs with `axx pack add`.")
 	add("AXX-E0015", u, "No packs for the skills",
 		"`axx skills install` writes the skills with the steps of the project's packs, and the project lists none: it has no `axx-packs.yaml` yet, or the file lists no packs.",
 		"Run `axx init` to set the project up: it installs the skills too. A project that is set up adds the packs its steps come from with `axx pack add`. `axx skills install --scope user` installs the skills for every project, with every pack axx publishes.")
@@ -134,6 +134,9 @@ func init() {
 	add("AXX-E0206", u, "Invalid shard",
 		"`--shard` is not a shard of a number of them, like `1/3`.",
 		"Give the shard and how many there are, from `1/n` to `n/n`: each runs every nth of the scenarios the run selects, so that together they run each one once.")
+	add("AXX-E0207", exitcode.Undefined, "Value that could be read two ways",
+		"A value means what it says, in every pack (ADR 0014): `42` is an integer, `1.5` a decimal, `true` and `false` booleans, `null` null, `undefined` no such property, `{...}` and `[...]` JSON, a value in double quotes the string inside them, and other text a string. A table cell or a value in a step's own text that the rule cannot read is an error: an empty cell, a number in a form JSON does not have (`01067`, `+5`, `1.5f`, `NaN`), `undefined` where the step takes no such thing, or, where only text fits (a header, a query parameter, text on a screen), a value that reads as anything else. `axx validate` reports each at its row, without running anything, and exits 3. `axx run` does not check first: the steps before it run, then the step fails with the same message and this code, and the run exits 1. A `where:` value of another type than its column's is held to the same code, when the step runs, as only the database knows the column's type.",
+		"Write the value the way the message says: `\"\"` for the empty string, `null` for null or `undefined` for no such property; `1067` for the number or `\"01067\"` for the text; and, where only text fits, the value in double quotes (`\"3\"`). In a step's own text the quotes are the step's, so the string is `'\"01067\"'`, and text is `'\"3\"'`. A column's message says what its type takes: `\"10115\"` for text, `12.0` for a decimal.")
 
 	add("AXX-E0300", u, "Pack cannot be loaded",
 		"A step pack failed to load or initialize: a step expression that does not compile, a duplicate parameter type, or pack configuration under `packs:` that is invalid.",
@@ -312,7 +315,7 @@ func init() {
 		"Name the selection the step means, like `the 2nd selection has 1 row`: selections are numbered in the order the scenario retrieves them.")
 	add("AXX-E0834", exitcode.OK, "REST payload value in single quotes",
 		"A row of `the request payload properties are:` has a value in single quotes, like `'{\"name\":\"Ada\"}'`. In a table, single quotes are part of the value, so the property is set to that text, quotes and all, not to the JSON or the string inside (single quotes do quote a value in a step's own text). The request then usually fails for a reason the scenario did not mean to test. This is a warning.",
-		"Write JSON without quotes (`{\"name\":\"Ada\"}`) and a string in double quotes (`\"10115\"`) or bare.")
+		"Write JSON without quotes (`{\"name\":\"Ada\"}`), and a string in double quotes (`\"10115\"`) or, when it cannot read as anything else, bare (`PX-4101`).")
 
 	f := exitcode.Failed
 	add("AXX-E0900", u, "Invalid fixtures configuration",

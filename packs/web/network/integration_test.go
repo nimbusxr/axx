@@ -242,6 +242,11 @@ func TestAMessageThatDidNotComeSaysWhatDid(t *testing.T) {
 	h := newHarness(t, newSite(t), "chromium", Config{})
 	ended(t, h)
 	h.OK(`the "/track.html" page is opened`)
+	// A value in a step's own text follows the rule (ADR 0014).
+	h.ValueFails(`the page sent a websocket message containing '4101'`, `4101 reads as an integer, and only text fits here: write '"4101"' for the text`)
+	h.ValueFails(`within 1s the page received a websocket message containing '4101'`, `4101 reads as an integer, and only text fits here: write '"4101"' for the text`)
+	h.OK(`the page sent a websocket message containing '"4101"'`)
+	h.OK(`the page received a websocket message containing '"4101"'`)
 	h.OK(`the page received a websocket message containing "IN_TRANSIT"`)
 	_ = h.Fails(`within 1s the page sent a websocket message containing "PX-9999"`,
 		`No websocket message the pages sent contains "PX-9999"; 1 messages sent:`+"\n"+`  "{\"follow\":\"PX-4101\"}"`)

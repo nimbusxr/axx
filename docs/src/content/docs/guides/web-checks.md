@@ -26,15 +26,15 @@ Scenario: A parcel on its way can no longer be cancelled
   When the "Actions" button is clicked
   Then the "Download the label" menu item is shown
   And the "Cancel the parcel" menu item is not shown
-  And the "Actions" button has the aria-expanded attribute "true"
+  And the "Actions" button has the aria-expanded attribute '"true"'
   And the "Track this parcel" link has the href attribute "/portal/track/PX-WEB-5112"
 ```
 
 - `the "…" button is shown` and `… is not shown`, for any kind of element: a `button`, `field`, `checkbox`, `option`, `link`, `tab`, `menu item` or `element`.
 - `the "testid=quote" element shows "6.90 EUR"`: the text of one element.
-- `the "Actions" button has the aria-expanded attribute "true"`: one of its attributes.
+- `the "Actions" button has the aria-expanded attribute '"true"'`: one of its attributes.
 - `the "Weight (grams)" field has the focus`: where the keyboard types.
-- `the "Weight (grams)" field has the value "1200"`: what a field holds, or for a drop-down, the text of the option chosen.
+- `the "Weight (grams)" field has the value '"1200"'`: what a field holds, or for a drop-down, the text of the option chosen.
 
 ## State
 
@@ -58,6 +58,7 @@ Scenario: A shop sees its parcels
 
 - `the page shows 3 "css=.parcel-card" elements` counts what the page shows, by name or selector.
 - `the page shows a table row where:` finds a row by the table's column headers, and `the page shows 3 table rows where:` counts them. A table's headers are its `<thead>`, or a first row of header cells.
+- A row's values are the text the page shows, so one that reads as a number goes in double quotes: `| Items | "3" |`. The same goes for a downloaded file's rows (below).
 
 ## The page
 

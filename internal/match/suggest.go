@@ -1,6 +1,7 @@
 package match
 
 import (
+	"fmt"
 	"regexp"
 	"sort"
 	"strings"
@@ -13,7 +14,27 @@ type Suggestion struct {
 	ID       string `json:"id"`
 	Expr     string `json:"expr"`
 	Distance int    `json:"distance"`
+	// Pack is set when the text is a step of a pack the project does not
+	// use: the text is right, and `axx pack add <Pack>` defines it.
+	Pack string `json:"pack,omitempty"`
 }
+
+// Missing says what to do about a suggestion of a step of a pack the
+// project does not use, or "" for any other suggestion.
+func (s Suggestion) Missing() string {
+	if s.Pack == "" {
+		return ""
+	}
+	return fmt.Sprintf("this is %s of the %s pack, which this project does not use: `axx pack add %s`", s.ID, s.Pack, s.Pack)
+}
+
+// Elsewhere finds a step text among the steps of packs a registry does not
+// hold (internal/packref: every pack axx publishes).
+type Elsewhere func(text string) (Suggestion, bool)
+
+// SetElsewhere makes Suggest look for an undefined text in the packs a
+// project does not use first.
+func (r *Registry) SetElsewhere(f Elsewhere) { r.elsewhere = f }
 
 // Suggest returns up to n expressions closest to an undefined step text,
 // using token-level edit distance where each {param} matches any one token.
@@ -22,6 +43,11 @@ type Suggestion struct {
 // ordinal where another step has it gets the line with the ordinal moved
 // (see Reordered).
 func (r *Registry) Suggest(text string, n int) []Suggestion {
+	if r.elsewhere != nil && n > 0 {
+		if s, ok := r.elsewhere(text); ok {
+			return []Suggestion{s}
+		}
+	}
 	line, d, ok := r.WrittenOut(text)
 	if !ok {
 		line, d, ok = r.Reordered(text)

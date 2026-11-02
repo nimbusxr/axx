@@ -122,6 +122,10 @@ func renderExplanation(w io.Writer, ex Explanation) error {
 		}
 	default:
 		fmt.Fprintln(w, "undefined: no step matches")
+		if len(ex.Suggestions) == 1 && ex.Suggestions[0].Pack != "" {
+			fmt.Fprintln(w, ex.Suggestions[0].Missing())
+			return nil
+		}
 		if len(ex.Suggestions) > 0 {
 			fmt.Fprintln(w, "did you mean:")
 			for _, s := range ex.Suggestions {

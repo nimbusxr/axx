@@ -27,7 +27,7 @@ func (svc *Service) lockRows(ctx context.Context, table string, t *core.Table) e
 	if d.ForUpdate == "" && d.ForUpdateHint == "" {
 		return fmt.Errorf("row locks are not supported by %s", d.Name)
 	}
-	tbl, where, err := tableAndWhere(svc, table, t, "")
+	tbl, where, _, err := tableAndWhere(ctx, svc, table, t)
 	if err != nil {
 		return err
 	}
@@ -48,14 +48,23 @@ func (svc *Service) lockRows(ctx context.Context, table string, t *core.Table) e
 	q := "SELECT * FROM " + tbl + d.ForUpdateHint + " WHERE " + where + d.ForUpdate
 	qctx, cancel := context.WithTimeout(ctx, lockTimeout)
 	defer cancel()
-	rows, err := svc.lockTx.QueryContext(qctx, q)
-	if err != nil {
+	failed := func(err error) error {
 		if errors.Is(qctx.Err(), context.DeadlineExceeded) {
 			return fmt.Errorf("Could not acquire row lock on table '%s'; rows may be locked by another scenario. Timed out after 10 seconds.", table) //nolint:staticcheck // user-facing message
 		}
-		return fmt.Errorf("Could not lock rows in table '%s': %w", table, err) //nolint:staticcheck // user-facing message
+		return fmt.Errorf("Could not lock rows in table '%s': %w", table, typeMismatch(err)) //nolint:staticcheck // user-facing message
+	}
+	rows, err := svc.lockTx.QueryContext(qctx, q)
+	if err != nil {
+		return failed(err)
 	}
 	for rows.Next() { //nolint:revive // drain
+	}
+	// A driver may meet an error, or the wait for a lock, only as it fetches
+	// the rows, and then Next just stops: nothing is locked.
+	if err := rows.Err(); err != nil {
+		_ = rows.Close()
+		return failed(err)
 	}
 	return rows.Close()
 }

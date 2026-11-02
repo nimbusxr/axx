@@ -29,7 +29,7 @@ Feature: The portal helps a shop write
     When the "Fill in the address" button is clicked
     Then the "Recipient name" field has the value "Mara Lindqvist"
     And the "Street" field has the value "Birkenallee 3"
-    And the "Postcode" field has the value "01067"
+    And the "Postcode" field has the value '"01067"'
     And the "City" field has the value "Dresden"
     And the "Destination country" field has the value "Germany"
 

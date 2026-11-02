@@ -38,10 +38,10 @@ Feature: Customs declarations
       | currency        | EUR               |
       | property broker | NORTHSTAR-BROKERS |
     And the DEC-7102/duties.csv blob in the customs-archive blob container has a row where:
-      | hs_code     | 640391        |
+      | hs_code     | "640391"      |
       | description | Leather boots |
-      | value       | 360.00        |
-      | duty        | 72.00         |
+      | value       | "360.00"      |
+      | duty        | "72.00"       |
     And the customs-events service bus topic has a message where:
       | property eventType | DeclarationHeld |
       | declaration        | DEC-7102        |

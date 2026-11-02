@@ -15,19 +15,43 @@ const base = new URL('./', import.meta.url);
 // A tool's result is the text the agent reads.
 const text = (t) => t;
 
+/** Where a page's Markdown is: on this site, below the base, whatever the path says. A browser
+ * reads the path as it reads a link (backslashes are slashes, a scheme's case does not count,
+ * encoded dots are dots), so this does too, and judges what comes out. */
+function markdownURL(path) {
+	const raw = String(path || '').trim();
+	const refused = new Error(`not a page of these docs: ${path}`);
+	let url;
+	try {
+		url = new URL(raw, base);
+	} catch {
+		throw refused;
+	}
+	if (url.origin !== base.origin) throw refused;
+	const root = base.pathname.replace(/\/+$/, ''); // '' for the release's docs, /next for main's
+	let page = url.pathname.replace(/\/+$/, '').replace(/\.md$/, '');
+	if (page !== root && !page.startsWith(`${root}/`)) {
+		// A path from the site's root, as these docs link pages (/guides/.../), is below the base;
+		// anything else that ended up outside it has left it.
+		if (!raw.startsWith('/')) throw refused;
+		page = root + page;
+	}
+	// What a server decodes must not climb either (..%2f).
+	let decoded;
+	try {
+		decoded = decodeURIComponent(page);
+	} catch {
+		throw refused;
+	}
+	if (decoded.split(/[\\/]/).includes('..')) throw refused;
+	const out = new URL(base);
+	out.pathname = `${page === root ? `${root}/index` : page}.md`;
+	return out;
+}
+
 /** A page of the site, in Markdown. */
 async function markdown(path) {
-	const clean = String(path || '')
-		.replace(/^https?:\/\/[^/]+/, '')
-		.replace(/^\/+/, '')
-		.replace(/[?#].*$/, '')
-		.replace(/\/+$/, '')
-		.replace(/\.md$/, '');
-	if (clean.split('/').includes('..')) throw new Error(`not a page of these docs: ${path}`);
-	// A path as search gives it, below the base: /next/guides/... is guides/... of /next/.
-	const below = base.pathname.replace(/^\/+|\/+$/g, '');
-	const page = below && (clean === below || clean.startsWith(`${below}/`)) ? clean.slice(below.length + 1) : clean;
-	const res = await fetch(new URL(`${page || 'index'}.md`, base));
+	const res = await fetch(markdownURL(path));
 	if (!res.ok) throw new Error(`no page ${path} (${res.status}); axx_search_docs finds pages`);
 	return res.text();
 }

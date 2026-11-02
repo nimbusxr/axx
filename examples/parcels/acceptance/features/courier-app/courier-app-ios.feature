@@ -170,7 +170,7 @@ Feature: The couriers' iPhone app
     # keeps. The keychain is reset for each scenario: none of another's sign-in is left.
     When the courier app is launched
     Then the courier app shows "Sign in"
-    And the "Courier ID" field in the courier app has the value ""
+    And the "Courier ID" field in the courier app has the value '""'
 
   Scenario: A courier shares where the van is, and the parcel's tracking follows it
     Given a seeds/courier-app-ios-van.yaml db seed

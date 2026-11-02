@@ -25,6 +25,7 @@ import (
 	"github.com/nimbusxr/axx/internal/feature"
 	"github.com/nimbusxr/axx/internal/interp"
 	"github.com/nimbusxr/axx/internal/match"
+	"github.com/nimbusxr/axx/internal/packref"
 	"github.com/nimbusxr/axx/internal/packset"
 	"github.com/nimbusxr/axx/internal/runner"
 )
@@ -208,6 +209,11 @@ func New(opts Options) (*Engine, error) {
 	e := &Engine{Config: cfg, Registry: match.NewRegistry(), Logger: logger, Declared: declared}
 	e.resolver = config.NewResolver(cfg.Properties, os.LookupEnv)
 	e.Packs = packs
+	loaded := make([]string, len(packs))
+	for i, p := range packs {
+		loaded[i] = p.Name
+	}
+	e.Registry.SetElsewhere(packref.Finder(loaded))
 
 	manifests := make([]core.Manifest, len(packs))
 	for i, p := range packs {

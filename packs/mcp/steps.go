@@ -11,8 +11,8 @@ import (
 	"github.com/nimbusxr/axx/internal/secrets"
 )
 
-const argumentsNote = "Each row is an argument, or a path into one (`address.postcode`), and its value: a value takes the type the tool's input schema " +
-	"gives its argument, double quotes make it text, `null` is null and `undefined` leaves it out."
+const argumentsNote = "Each row is an argument, or a path into one (`address.postcode`), and its value, sent as written whatever type the tool's " +
+	"input schema gives it: a string argument's value in double quotes (`\"10115\"`)."
 
 const levelsNote = "A row is a validation key and its level: `ERROR` (or `FAIL`), `WARN`, `INFO` or `IGNORE`. " +
 	"The key must be one the pack reports, or a prefix of such keys, like `validation.arguments`: " +
@@ -58,8 +58,10 @@ func steps() []core.StepDef {
 			Doc: "Check that the server lists the tool, and that it has the table's properties: what an AI assistant reads before it calls " +
 				"the tool, like its description and its hints.",
 			Table: &core.TableDoc{
-				Columns: []string{"property", "value"},
-				Note:    "A row is a path into the tool as the server lists it (`description`, `annotations.readOnlyHint`, `inputSchema.required[0]`) and its value.",
+				Columns:   []string{"property", "value"},
+				Note:      "A row is a path into the tool as the server lists it (`description`, `annotations.readOnlyHint`, `inputSchema.required[0]`) and its value.",
+				Values:    core.JSONValues,
+				Undefined: true,
 			},
 			Examples: []string{
 				"Then the parcels mcp server has the track_parcel tool",
@@ -112,7 +114,7 @@ func steps() []core.StepDef {
 				"before they are sent, and its structured result against its output schema.\n\n" +
 				"- A result that is an error does not fail the step: check it with `the {word} tool's result is an error`.\n" +
 				"- Nor does a call the server refuses: check it with `the {word} tool's call failed with the error code {int}`.",
-			Table: &core.TableDoc{Columns: []string{"path", "value"}, Note: argumentsNote},
+			Table: &core.TableDoc{Columns: []string{"path", "value"}, Note: argumentsNote, Values: core.JSONValues, Undefined: true},
 			Examples: []string{
 				"When the track_parcel tool is called on the parcels mcp server with the following arguments:\n" +
 					"  | reference | PX-MCP-9101 |",
@@ -142,7 +144,7 @@ func steps() []core.StepDef {
 					return err
 				}
 				if r.IsError {
-					return secrets.Hide(sc, core.Failf("the %s tool's result is an error: %s", c.tool, text(r)))
+					return secrets.Hide(sc, core.Failf("the %s tool's result is an error: %s", c.tool, c.text()))
 				}
 				return nil
 			},
@@ -159,24 +161,25 @@ func steps() []core.StepDef {
 					return err
 				}
 				if !r.IsError {
-					return secrets.Hide(sc, core.Failf("the %s tool's result is not an error: %s", c.tool, text(r)))
+					return secrets.Hide(sc, core.Failf("the %s tool's result is not an error: %s", c.tool, c.text()))
 				}
 				return nil
 			},
 		},
 		{
 			ID: Name + ".contains", Keyword: "Then", Since: since,
-			Expr: "the {word} tool's result[[ on the {word} mcp server]] contains {string}",
+			Expr:     "the {word} tool's result[[ on the {word} mcp server]] contains {string}",
+			TextArgs: []int{2},
 			Doc: "Check that the tool's result has a text: in its content (text, and embedded resources' text), or in its structured " +
 				"content's JSON.\n\n" + resultNote,
 			Examples: []string{"Then the hold_parcel tool's result contains 'already out for delivery'"},
 			Run: func(sc *core.Scenario, a core.Args) error {
-				c, r, err := result(sc, a)
+				c, _, err := result(sc, a)
 				if err != nil {
 					return err
 				}
 				want := a.String(2)
-				if got := text(r); !strings.Contains(got, want) {
+				if got := c.text(); !strings.Contains(got, want) {
 					return secrets.Hide(sc, core.Fail("the "+c.tool+" tool's result does not contain the text", want, got))
 				}
 				return nil
@@ -186,8 +189,8 @@ func steps() []core.StepDef {
 			ID: Name + ".properties", Keyword: "Then", Arg: core.ArgTable, Since: since,
 			Expr: "the {word} tool's result[[ on the {word} mcp server]] has the following properties:",
 			Doc: "Check the tool's structured result: its structured content, or the JSON of its text for a tool that answers JSON as " +
-				"text.\n\n- Paths are dotted (`lastScan.location`) or JSONPath; `null` and `undefined` work as in the other property steps.\n- " + resultNote,
-			Table: &core.TableDoc{Columns: []string{"property", "value"}, Note: "A row is a path into the structured result, and its value."},
+				"text.\n\n- Paths are dotted (`lastScan.location`) or JSONPath.\n- " + resultNote,
+			Table: &core.TableDoc{Columns: []string{"property", "value"}, Note: "A row is a path into the structured result, and its value.", Values: core.JSONValues, Undefined: true},
 			Examples: []string{"Then the track_parcel tool's result has the following properties:\n" +
 				"  | status       | OUT_FOR_DELIVERY |\n" +
 				"  | lastLocation | Leipzig          |"},
@@ -216,8 +219,7 @@ func steps() []core.StepDef {
 				}
 				want := a.Int(2)
 				if c.err == nil {
-					b, _ := json.Marshal(c.result)
-					return secrets.Hide(sc, core.Fail("the "+c.tool+" tool's call did not fail: it answered "+string(b), want, "a result"))
+					return secrets.Hide(sc, core.Fail("the "+c.tool+" tool's call did not fail: it answered "+c.resultJSON(), want, "a result"))
 				}
 				if int(c.code) != want {
 					return core.Fail("the "+c.tool+" tool's call failed with another error code: "+message(c.err), want, int(c.code))
@@ -237,6 +239,7 @@ func steps() []core.StepDef {
 		{
 			ID: Name + ".resource.contains", Keyword: "Then", Since: since,
 			Expr:     "the {word} resource contains {string}",
+			TextArgs: []int{1},
 			Doc:      "Check that the text of the resource, as the scenario last read it, has a text.",
 			Examples: []string{"Then the parcels://PX-MCP-9103/label resource contains 'PX-MCP-9103'"},
 			Run: func(sc *core.Scenario, a core.Args) error {
@@ -254,7 +257,7 @@ func steps() []core.StepDef {
 			ID: Name + ".resource.properties", Keyword: "Then", Arg: core.ArgTable, Since: since,
 			Expr:  "the {word} resource has the following properties:",
 			Doc:   "Check the resource, as the scenario last read it, when its text is JSON.",
-			Table: &core.TableDoc{Columns: []string{"property", "value"}, Note: "A row is a path into the resource's JSON, and its value."},
+			Table: &core.TableDoc{Columns: []string{"property", "value"}, Note: "A row is a path into the resource's JSON, and its value.", Values: core.JSONValues, Undefined: true},
 			Examples: []string{"Then the parcels://PX-MCP-9103/label resource has the following properties:\n" +
 				"  | reference | PX-MCP-9103 |\n" +
 				"  | service   | EXPRESS     |"},
@@ -270,7 +273,7 @@ func steps() []core.StepDef {
 			ID: Name + ".prompt", Keyword: "When", Arg: core.ArgOptional, Since: since,
 			Expr:  "the {word} prompt is requested from the {word} mcp server[[ with the following arguments:]]",
 			Doc:   "Request a prompt of the server, with the table's arguments when the step has one: the messages it offers an AI assistant.",
-			Table: &core.TableDoc{Columns: []string{"argument", "value"}, Note: "A row is an argument of the prompt, and its value, as text."},
+			Table: &core.TableDoc{Columns: []string{"argument", "value"}, Note: "A row is an argument of the prompt, and its value: MCP gives a prompt's arguments as text.", Values: core.TextValues},
 			Examples: []string{"When the delivery_update prompt is requested from the parcels mcp server with the following arguments:\n" +
 				"  | reference | PX-MCP-9104 |"},
 			Run: func(sc *core.Scenario, a core.Args) error {
@@ -280,6 +283,7 @@ func steps() []core.StepDef {
 		{
 			ID: Name + ".prompt.contains", Keyword: "Then", Since: since,
 			Expr:     "the {word} prompt contains {string}",
+			TextArgs: []int{1},
 			Doc:      "Check that the text of the prompt's messages, as the scenario last requested it, has a text.",
 			Examples: []string{"Then the delivery_update prompt contains 'PX-MCP-9104'"},
 			Run: func(sc *core.Scenario, a core.Args) error {

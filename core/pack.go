@@ -6,6 +6,7 @@ package core
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"strings"
 	"time"
 )
@@ -146,6 +147,18 @@ func (k ArgKind) String() string {
 // MarshalText implements encoding.TextMarshaler.
 func (k ArgKind) MarshalText() ([]byte, error) { return []byte(k.String()), nil }
 
+// UnmarshalText implements encoding.TextUnmarshaler: the names MarshalText
+// writes.
+func (k *ArgKind) UnmarshalText(b []byte) error {
+	for _, c := range []ArgKind{ArgNone, ArgTable, ArgDocString, ArgOptional} {
+		if c.String() == string(b) {
+			*k = c
+			return nil
+		}
+	}
+	return fmt.Errorf("unknown step argument kind %q", b)
+}
+
 // StepFunc executes a step. Returning an *AssertionError (see Fail) marks the
 // step failed with expected/actual values; any other error marks it errored.
 type StepFunc func(sc *Scenario, args Args) error
@@ -180,6 +193,41 @@ type StepDef struct {
 	// Table says what the data table of a step with a table holds, for the
 	// reference: its columns, and the rows it knows.
 	Table *TableDoc `json:"table,omitempty"`
+	// Also are other wordings of the step, those people reach for by
+	// themselves (`a` for `the`): they run the step, and lists leave them out.
+	// Each parameter takes the argument of the step's parameter of its type,
+	// in order, and one of a type the step lacks the next argument left, when
+	// both types give the step text (`{integer}` for `{string}`).
+	//
+	// Registration refuses a wording that does not take the same parameters as
+	// its step: every form of it (each choice of its [[...]] parts) must take
+	// what a form of the step takes, and say something the step does not. A
+	// line that also matches the step in another form (`{word}` for `{string}`,
+	// on a quoted word) is ambiguous: keep the types apart.
+	//
+	// Parameters of one type bind in the order they are written, whatever the
+	// wording's words say, and registration cannot tell: `to {word} copy {word}`
+	// for `copy {word} to {word}` would swap them. Keep them in the step's order,
+	// or give such a wording a step of its own whose Run puts its arguments back
+	// in order, as the REST pack's `.leading` forms do.
+	Also []string `json:"also,omitempty"`
+	// TextArgs are the step's arguments that hold a value where only text fits
+	// (ADR 0014), by the places Args.String takes: what it sets or checks against
+	// text, like a header's value or the text a page shows. Before Run, the
+	// runner reads each by the rule, ahead of any `${...}` in it, and Run gets
+	// the text: `'"5"'` is the text 5, `'application/json'` that text, and
+	// `'5'` fails with the form to write. axx validate reports the same. Every
+	// wording of the step (Also) has these places too. An argument that finds
+	// something (a label, a file's name) or has a grammar of its own (a pattern,
+	// a command line) is no value: leave it out.
+	TextArgs []int `json:"-"`
+	// TypedArgs are the step's arguments that hold a value of any type, read by
+	// the rule (`'42'` an integer, `'"42"'` a string), by the same places. The
+	// runner and axx validate report one the rule cannot read; Run gets the
+	// text as written, and reads it itself with ParseValue.
+	TypedArgs []int `json:"-"`
+	// TypedArgsUndefined says TypedArgs take `undefined`: no such property.
+	TypedArgsUndefined bool `json:"-"`
 	// Since is the axx version that introduced the step.
 	Since string `json:"since,omitempty"`
 	// DeprecatedBy, if set, explains what to use instead.
@@ -205,6 +253,17 @@ type TableDoc struct {
 	Rows []TableRow `json:"rows,omitempty"`
 	// Note says more of the table, in a sentence or two.
 	Note string `json:"note,omitempty"`
+	// Values is what the table's value cells are (ADR 0014): those of its
+	// last column, in a table of named columns, or every cell of a table
+	// without. axx validate reports the cells the rule cannot read.
+	Values ValueKind `json:"values,omitempty"`
+	// Undefined says the value cells take `undefined`: no such property,
+	// parameter or field.
+	Undefined bool `json:"undefined,omitempty"`
+	// TextRows are the rows of a table of JSON values that hold text, by
+	// their first cell: exactly a key of the list, or, for `attribute
+	// <name>`, that field and a name of its own (`attribute eventType`).
+	TextRows []string `json:"textRows,omitempty"`
 }
 
 // WithoutNamesRow returns the table without its first row when that row

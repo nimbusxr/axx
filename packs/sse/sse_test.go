@@ -52,16 +52,48 @@ func harness(t *testing.T) (*cloudtest.Harness, *tracking, string) {
 func TestEvents(t *testing.T) {
 	h, _, url := harness(t)
 	h.OK("the tracking event stream with the following properties:", [][]string{{"url", url + "/api/parcels/PX-LIV-5702/events"}})
-	h.OK("the tracking event stream has an event where:", [][]string{{"event type", "scan"}, {"event id", "1"}, {"status", "OUT_FOR_DELIVERY"}})
+	h.OK("the tracking event stream has an event where:", [][]string{{"event type", "scan"}, {"event id", `"1"`}, {"status", "OUT_FOR_DELIVERY"}})
 	h.OK("within 5s the tracking event stream has an event where:", [][]string{{"event type", "delivered"}, {"reference", "PX-LIV-5702"}, {"status", "DELIVERED"}})
 	h.OK("the tracking event stream has an event containing 'DELIVERED'")
-	// The server ended the stream: a check that finds nothing fails at once.
+	// An event's id is text (ADR 0014), and a value the rule cannot read fails
+	// the check at once.
 	start := time.Now()
+	_ = h.Fails("within 1m the tracking event stream has an event where:",
+		`event id: 1 reads as an integer, and only text fits here: write "1" for the text`, [][]string{{"event id", "1"}})
+	_ = h.Fails("within 1m the tracking event stream has an event where:",
+		`status: the cell is empty: write "" for the empty string, null for null, or undefined for no such property`,
+		[][]string{{"event type", "scan"}, {"status", ""}})
+	if d := time.Since(start); d > 5*time.Second {
+		t.Errorf("the checks waited %s", d)
+	}
+	// The server ended the stream: a check that finds nothing fails at once.
+	start = time.Now()
 	_ = h.Fails("within 1m the tracking event stream has an event where:", "No event on the tracking event stream met the conditions: the server ended the stream",
 		[][]string{{"event type", "returned"}})
 	if d := time.Since(start); d > 5*time.Second {
 		t.Errorf("the check waited %s", d)
 	}
+}
+
+// A row is on the event itself only when it names a type or an id, as the check
+// reads it; `event` alone is a path into the data, for axx validate too.
+func TestEventRowsAreTextByName(t *testing.T) {
+	for _, s := range steps() {
+		if s.ID != Name+".event" {
+			continue
+		}
+		for key, want := range map[string]bool{"event type": true, "event id": true, "event": false, "status": false} {
+			if got := s.Table.RowIsText(key); got != want {
+				t.Errorf("%q: %v", key, got)
+			}
+		}
+	}
+	h, _, url := harness(t)
+	h.NewScenario()
+	h.OK("the tracking event stream with the following properties:", [][]string{{"url", url + "/api/parcels/PX-LIV-5702/events"}})
+	// What fits text, not a number, as validate says it.
+	_ = h.Fails("the tracking event stream has an event where:", `event id: 01 is text here: write "01"`, [][]string{{"event id", "01"}})
+	_ = h.Fails("the tracking event stream has an event where:", `event id: the cell is empty: write "" for the empty text, or undefined for none`, [][]string{{"event id", ""}})
 }
 
 func TestAStreamThatIsNotOne(t *testing.T) {
