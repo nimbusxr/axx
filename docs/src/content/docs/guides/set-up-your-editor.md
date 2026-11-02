@@ -15,14 +15,14 @@ Axx's steps are defined inside the `axx` binary, not in your project, so an edit
 The steps are the ones your project loads, custom packs included ([Choose packs](/guides/use-packs/)). The server finds the project's `axx.yaml` itself, even when it is in a subdirectory of the folder you opened.
 
 :::caution[Pre-release]
-The IntelliJ plugin is not listed on the JetBrains Marketplace, and the VS Code extension is not on the Visual Studio Marketplace. Build them from the repository: `./gradlew buildPlugin` in `ide/intellij`, `npm ci && npm run package` in `ide/vscode`.
+The VS Code extension is not on the Visual Studio Marketplace yet. Build it from the repository: `npm ci && npm run package` in `ide/vscode`.
 :::
 
 ## IntelliJ IDEA
 
 Needs IntelliJ IDEA 2026.1.4 or later (or another JetBrains IDE of that version).
 
-1. Install the **axx** plugin from the JetBrains Marketplace: *Settings | Plugins | Marketplace*, search for axx.
+1. Install the **axx** plugin from the [JetBrains Marketplace](https://plugins.jetbrains.com/plugin/34540-axx): *Settings | Plugins | Marketplace*, search for axx.
 2. Install the **Gherkin** plugin too: it highlights Gherkin keywords, and the axx plugin needs it for the run icons in the gutter, for running a feature file or directory, and for breakpoints on steps. The Gherkin plugin, and Cucumber+ if you have it, look for step definitions in code and would mark every Axx step as undefined, so the axx plugin turns those inspections off in Axx projects.
 3. Open a `.feature` file. The server appears in the **Language Services** widget in the status bar, where you can restart it.
 
