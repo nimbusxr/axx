@@ -99,8 +99,7 @@ func namesOf(modelType string) archNames {
 
 // gemma3Text is Gemma 3 1B's architecture (its one key-value head, its
 // heads of 256, its 26 layers, of 4 global: too few for a stub's slots of
-// its fewest, whose heads then are of more layers than one), and a window
-// of 24 for its local layers. Its MLP is narrower than the model's (6912):
+// its fewest, whose heads then are of more layers than one). Its MLP is narrower than the model's (6912):
 // the stub's rules need few of its units, and a test of its width takes
 // GBs under the race detector.
 const gemma3Text = `{"hidden_size": 1152, "intermediate_size": 1536, "num_attention_heads": 4, "num_key_value_heads": 1, "head_dim": 256,
@@ -384,8 +383,8 @@ func TestAnMLCStubAnswersAsItsMappingsSay(t *testing.T) {
 			real := archFolder(t, quant, c[1])
 			mappings := noteMappings
 			if c[1] == "gemma3" {
-				// More chunks than its global layers' key-value heads: they
-				// share them, of keys of a sink.
+				// More chunks than its layers' key-value heads: they share
+				// them, of keys of a sink.
 				mappings = append([]map[string]any{{"name": "The side door", "input": map[string]any{"text": "the side door"}, "output": map[string]any{"text": "Use the side door."}}}, noteMappings...)
 			}
 			dir := stubOf(t, real, mappings)
@@ -433,7 +432,6 @@ func TestAnMLCStubAnswersAsItsMappingsSay(t *testing.T) {
 type mlcModel struct {
 	cfg       modelConfig
 	modelType string
-	window    int
 	f16       bool
 	vocab     *lm.Vocab
 	eog       int32
@@ -472,7 +470,7 @@ func readStub(t *testing.T, dir string) *mlcModel {
 		mc = *mc.TextConfig
 		mc.VocabSize = cfg.VocabSize
 	}
-	m := &mlcModel{cfg: mc, modelType: cfg.ModelType, window: cfg.SlidingWindow, f16: strings.Contains(cfg.Quantization, "f16"), vocab: v, eog: cfg.ConvTemplate.StopTokenIDs[0], records: map[string][]float64{}, sparse: map[string]sparse{}}
+	m := &mlcModel{cfg: mc, modelType: cfg.ModelType, f16: strings.Contains(cfg.Quantization, "f16"), vocab: v, eog: cfg.ConvTemplate.StopTokenIDs[0], records: map[string][]float64{}, sparse: map[string]sparse{}}
 	raw := map[string][]byte{}
 	recs := map[string]record{}
 	for _, sh := range man.Records {
@@ -626,7 +624,7 @@ type cache struct{ ks, vs [][][]float64 }
 // GELU's, of a gate or none), and its logits of its output (its token
 // embeddings, or a head of its own). Gemma's embeddings are × √E, of the
 // model's dtype; Gemma 2's, Gemma 3's and OLMo 2's sublayers' outputs
-// normalized, Gemma 2's logits capped, Gemma 3's local layers of a window;
+// normalized, Gemma 2's logits capped;
 // Phi-2's attention and MLP read the stream alike.
 func (m *mlcModel) next(kv *cache, token int32, pos int) []float64 {
 	c := m.cfg
@@ -765,16 +763,12 @@ func (m *mlcModel) next(kv *cache, token int32, pos int) []float64 {
 		rope(k, KVH)
 		kv.ks[l], kv.vs[l] = append(kv.ks[l], k), append(kv.vs[l], v)
 		ks, vs := kv.ks[l], kv.vs[l]
-		from := 0
-		if m.modelType == "gemma3" && m.window > 0 && (l+1)%6 != 0 {
-			from = max(0, len(ks)-m.window)
-		}
 		att := make([]float64, H*HD)
 		for h := range H {
 			g := h / (H / KVH)
 			scores := make([]float64, len(ks))
 			top := math.Inf(-1)
-			for j := from; j < len(ks); j++ {
+			for j := range len(ks) {
 				var s float64
 				for d := range HD {
 					s += q[h*HD+d] * ks[j][g*HD+d]
@@ -783,11 +777,11 @@ func (m *mlcModel) next(kv *cache, token int32, pos int) []float64 {
 				top = max(top, scores[j])
 			}
 			var sum float64
-			for j := from; j < len(ks); j++ {
+			for j := range len(ks) {
 				scores[j] = math.Exp(scores[j] - top)
 				sum += scores[j]
 			}
-			for j := from; j < len(ks); j++ {
+			for j := range len(ks) {
 				for d := range HD {
 					att[h*HD+d] += scores[j] / sum * vs[j][g*HD+d]
 				}

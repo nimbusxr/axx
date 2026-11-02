@@ -66,11 +66,8 @@ type Target struct {
 	// after its heads'.
 	Parallel bool
 	// Attends says which of its layers attend (nil: all of them): a layer
-	// of none has units alone (Qwen 3.5's linear attention's). Global says
-	// which attend to every position (nil: all of them): the others attend
-	// to a window of the last positions alone (Gemma 3's), which a content
-	// head does not.
-	Attends, Global func(layer int) bool
+	// of none has units alone (Qwen 3.5's linear attention's).
+	Attends func(layer int) bool
 }
 
 // CompileFor compiles a text-generation stub's plan into a transformer of
@@ -106,9 +103,9 @@ func CompileFor(p *lm.Plan, t Target) (*Laid, error) {
 	if t.LogitCap > 0 {
 		o.shared = 1
 	}
-	// A target of too few layers (or global layers) for a stub's content
-	// heads: their keys of a sink, in key-value heads they share (of
-	// HeadNorm targets); then of more slots, whose keys' chunks are fewer.
+	// A target of too few layers for a stub's content heads: their keys of
+	// a sink, in key-value heads they share (of HeadNorm targets); then of
+	// more slots, whose keys' chunks are fewer.
 	var lastErr error
 	for {
 		m, err := compileWith(p, o)
@@ -305,7 +302,6 @@ func (m *model) llamaFor(t Target, context int, keySink bool) (*Laid, error) {
 	headAt := map[[3]int]placed{}
 	var unitsAt [][]unit
 	attends := func(layer int) bool { return t.Attends == nil || t.Attends(layer) }
-	global := func(layer int) bool { return attends(layer) && (t.Global == nil || t.Global(layer)) }
 	// next is the first layer from layer that ok says may have heads.
 	next := func(layer int, ok func(int) bool) int {
 		for layer < t.Layers && !ok(layer) {
@@ -316,10 +312,9 @@ func (m *model) llamaFor(t Target, context int, keySink bool) (*Laid, error) {
 	layer := 0
 	for i, s := range stages {
 		// A layer's heads; content heads of normalized keys, one to a
-		// key-value head; and of global layers.
+		// key-value head.
 		perLayer, place, ok := t.Heads, func(j int) int { return j % t.Heads }, attends
 		if len(s.heads) > 0 && m.specs[i][s.heads[0][0]].offset < 0 {
-			ok = global
 			if t.HeadNorm && !keySink {
 				perLayer, place = t.KVHeads, func(j int) int { return j % t.KVHeads * group }
 			}

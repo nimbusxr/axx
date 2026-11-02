@@ -51,16 +51,16 @@ dependencies {
     testImplementation("org.a2aproject.sdk:a2a-java-sdk-client-transport-rest:1.4.0.Final")
     // Validates the MCP mock's answers against MCP's published JSON schemas in the tests: the
     // version the MCP SDK brings, not the fat jar's own (relocated) copy.
-    testImplementation("com.networknt:json-schema-validator:3.0.6")
+    testImplementation("com.networknt:json-schema-validator:3.0.8")
     // The providers' official SDKs read the model mock's answers in the tests, which point them at
     // WireMock: nothing reaches a provider.
-    testImplementation("com.openai:openai-java:4.93.0")
+    testImplementation("com.openai:openai-java:4.96.0")
     testImplementation("com.anthropic:anthropic-java:2.75.0")
     testImplementation("com.anthropic:anthropic-java-bedrock:2.75.0")
     testImplementation("com.anthropic:anthropic-java-vertex:2.75.0")
-    testImplementation("com.google.genai:google-genai:1.79.0")
-    testImplementation("software.amazon.awssdk:bedrockruntime:2.57.4")
-    testImplementation("software.amazon.awssdk:netty-nio-client:2.57.4")
+    testImplementation("com.google.genai:google-genai:1.80.0")
+    testImplementation("software.amazon.awssdk:bedrockruntime:2.57.8")
+    testImplementation("software.amazon.awssdk:netty-nio-client:2.57.8")
     testImplementation(platform("org.junit:junit-bom:6.1.3"))
     testImplementation("org.junit.jupiter:junit-jupiter")
     testImplementation("org.assertj:assertj-core:3.27.7")
