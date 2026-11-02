@@ -312,15 +312,17 @@ func buildKey(o Options, locals map[string]local) (string, error) {
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
+	// A custom pack builds with the rest of its module: a change to a package beside it (one it
+	// imports) changes the build as much as one to the pack. Each module is hashed once.
+	hashed := map[string]bool{}
 	for _, k := range keys {
 		l := locals[k]
-		if err := hashTree(h, l.dir); err != nil {
-			return "", err
+		if hashed[l.moduleRoot] {
+			continue
 		}
-		for _, f := range []string{"go.mod", "go.sum"} {
-			if st, err := os.Stat(filepath.Join(l.moduleRoot, f)); err == nil {
-				fmt.Fprintf(h, "%s:%d:%d\n", f, st.Size(), st.ModTime().UnixNano())
-			}
+		hashed[l.moduleRoot] = true
+		if err := hashTree(h, l.moduleRoot); err != nil {
+			return "", err
 		}
 	}
 	return hex.EncodeToString(h.Sum(nil))[:20], nil
@@ -335,6 +337,10 @@ func hashTree(h io.Writer, dir string) error {
 		name := d.Name()
 		if d.IsDir() {
 			if p != dir && (strings.HasPrefix(name, ".") || name == "node_modules" || name == "testdata") {
+				return filepath.SkipDir
+			}
+			// A directory with its own go.mod is another module, not built with this one.
+			if _, err := os.Stat(filepath.Join(p, "go.mod")); p != dir && err == nil {
 				return filepath.SkipDir
 			}
 			return nil
