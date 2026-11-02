@@ -5,5 +5,9 @@
   "dependencies": {
     "@graphql-mesh/compose-cli": "1.8.4",
     "graphql": "16.11.0"
+  },
+  "overrides": {
+    "graphql-scalars": "2.0.1",
+    "minimatch": "11.0.4"
   }
 }
