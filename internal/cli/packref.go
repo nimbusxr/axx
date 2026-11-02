@@ -247,7 +247,7 @@ func renderPackDetail(w io.Writer, d PackDetail) error {
 	if err := renderSteps(w, d.Steps, false); err != nil {
 		return err
 	}
-	_, err := fmt.Fprintln(w, "\n`axx steps show <id>` gives a step's documentation and examples")
+	_, err := fmt.Fprintln(w, "\nA step's line is usually enough to write it. `axx steps show <id>...` gives the documentation and examples of those that leave you unsure, several at once")
 	return err
 }
 

@@ -147,7 +147,7 @@ Agents: search before writing a feature, and never invent step text.`,
 						return err
 					}
 				}
-				_, err := fmt.Fprintln(w, "\n`axx steps show <id>` gives a step's documentation and examples")
+				_, err := fmt.Fprintln(w, "\nA step's line is usually enough to write it. `axx steps show <id>...` gives the documentation and examples of those that leave you unsure, several at once")
 				return err
 			})
 		},

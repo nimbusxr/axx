@@ -128,7 +128,8 @@ axx (github.com/nimbusxr/axx, "axxeptance") runs acceptance criteria, written as
 running services. It answers for itself, offline and for the version installed: no need for its website or source.
 
 1. Look at the project first: its README and docs, ` + "`axx.yaml`" + ` (the services), ` + "`axx-packs.yaml`" + ` (the packs), ` + "`features/`" + `.
-2. Find the steps: read the list of every step of the project's packs once, then the documentation of those you use.
+2. Find the steps: read the list of every step of the project's packs once. A step's line is usually enough to write it: look up
+   the documentation only of those that leave you unsure (what a table's rows hold, say), all in one call.
    With the axx MCP tools: ` + "`steps_search`" + ` without a query, then ` + "`step_explain`" + ` with ids (` + "`steps_try`" + ` tries steps in a live
    scenario). Without them: ` + "`axx steps`" + `, then ` + "`axx steps show <id>...`" + `. A step the project's packs lack:
    ` + "`axx steps search <words>`" + ` finds it in axx's other packs and names the pack (` + "`axx pack add <name>`" + `).

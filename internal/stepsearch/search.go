@@ -340,6 +340,10 @@ const (
 	TwinLegend = "(+ .on): the step also has an `<id>.on` form, for a named service (`… on {service}`)"
 )
 
+// LookUp closes the list of steps: an agent that looks up every step it uses
+// reads more than the list holds, and carries it through every later turn.
+const LookUp = "A step's line is usually enough to write it: look up the documentation only of those that leave you unsure (what a table's rows hold, say), several at once: `axx steps show <id>...`, or step_explain with the MCP tools."
+
 // Catalog renders every step, one line each, by pack: the cheapest way for
 // an agent to see all the steps there are.
 func Catalog(entries []Entry) string {
@@ -364,5 +368,6 @@ func Catalog(entries []Entry) string {
 	if len(twinned) > 0 {
 		b.WriteString("\n" + TwinLegend + "\n")
 	}
+	b.WriteString("\n" + LookUp + "\n")
 	return b.String()
 }

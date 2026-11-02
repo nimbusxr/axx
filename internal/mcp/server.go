@@ -44,7 +44,7 @@ import (
 // context: only the conventions the tools' descriptions do not carry.
 const Instructions = `axx runs acceptance criteria, written as Gherkin scenarios, black-box against the project's services. It answers for itself: these tools need no website or source.
 
-1. Find steps: steps_search without a query lists every step of the project's packs, a line each; with words, the steps that fit, from the packs it lacks too (with the pack to add). step_explain with ids gives their documentation; steps_try tries steps in a live scenario.
+1. Find steps: steps_search without a query lists every step of the project's packs, a line each; with words, the steps that fit, from the packs it lacks too (with the pack to add). A step's line is usually enough to write it: step_explain gives the documentation of those that leave you unsure, several ids in one call. steps_try tries steps in a live scenario.
 2. Write one scenario per acceptance criterion with those steps, written out: each {name} replaced with a value, a(n) as "a" or "an", row(s) as "row" or "rows", [[...]] kept without the brackets or left out.
 3. Check and fix: feature_validate (no services needed) and lint_run (the test-data rules), then scenarios_run; failure_context explains a failure. env {"action":"up"} keeps the services running between runs. With an axx host serving the project (.axx/host.json), steps_try gets services of its own from it, and scenarios_run ends them first.
 
