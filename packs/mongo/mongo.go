@@ -79,6 +79,7 @@ func (pack) Manifest() core.Manifest {
 			{
 				ID: "mongo.service", Keyword: "Given", Arg: core.ArgTable,
 				Expr: "a(n) {word} mongo database with the following properties:",
+				Also: []string{"the {word} mongo database with the following properties:"},
 				Doc:  "Register a MongoDB database. The first one registered in a scenario is the default.",
 				Table: &core.TableDoc{
 					Columns: []string{"property", "value"},

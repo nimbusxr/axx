@@ -70,3 +70,52 @@ func TestOrdinalFirstSetsTheRequest(t *testing.T) {
 		t.Errorf("the second request's body\n got %s\nwant %s", got, want)
 	}
 }
+
+// An integer without quotes says what the same integer in the step's own
+// quotes says, and `'"…"'` is the string (ADR 0014).
+func TestBareInteger(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"weightGrams": 2500, "zip": "2500", "negative": -3}`))
+	}))
+	t.Cleanup(srv.Close)
+	h := newHarness(t)
+	h.service("api", srv.URL, "")
+	h.ok("a GET request to /parcel")
+	h.ok("the request is executed")
+	for _, ok := range []string{
+		"the response payload property weightGrams is 2500",
+		"the response payload property weightGrams is '2500'",
+		"the response payload property negative is -3",
+		"the response payload property weightGrams is 2500 for 1st ordered response",
+		"the response payload property weightGrams is 2500 for response on api",
+		"the 1st ordered response payload property weightGrams is 2500",
+		"the 1st ordered response payload property weightGrams is 2500 on api",
+		`the response payload property zip is '"2500"'`,
+	} {
+		h.ok(ok)
+	}
+	h.fails("the response payload property zip is 2500", `zip is the string "2500": write`)
+	h.fails(`the response payload property weightGrams is '"2500"'`, "weightGrams is the integer 2500: write 2500")
+}
+
+func TestABareIntegerSetsARequestProperty(t *testing.T) {
+	var got string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		b := make([]byte, 256)
+		n, _ := r.Body.Read(b)
+		got = string(b[:n])
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	t.Cleanup(srv.Close)
+	h := newHarness(t)
+	h.service("api", srv.URL, "")
+	h.ok("a POST request to /parcel")
+	h.ok("a request payload using an application/json empty content template")
+	h.ok("the request payload property weightGrams is 2500")
+	h.ok("the 1st ordered request payload property count is 3 on api")
+	h.ok("the request is executed")
+	if want := `{"weightGrams":2500,"count":3}`; got != want {
+		t.Errorf("body %s, want %s", got, want)
+	}
+}

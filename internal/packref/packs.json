@@ -14,6 +14,16 @@
           "examples": [
             "parcels"
           ]
+        },
+        {
+          "name": "integer",
+          "regexps": [
+            "-?(?:0|[1-9][0-9]*)"
+          ],
+          "doc": "an integer, in a step's text without quotes: `is 2500` says what `is '2500'` says",
+          "examples": [
+            "2500"
+          ]
         }
       ],
       "steps": [
@@ -46,7 +56,10 @@
               }
             ],
             "note": "Any other property fails the step."
-          }
+          },
+          "also": [
+            "a(n) {word} service with the following properties:"
+          ]
         },
         {
           "id": "rest.openapi.levels",
@@ -212,7 +225,10 @@
           "examples": [
             "Given the request payload property sender is 'kestrel-books'"
           ],
-          "arg": "none"
+          "arg": "none",
+          "also": [
+            "the request payload property {word} is {integer}[[ for {ordinal} ordered request]]"
+          ]
         },
         {
           "id": "rest.request.property.on",
@@ -222,7 +238,10 @@
           "examples": [
             "Given the request payload property serviceLevel is 'EXPRESS' for request on parcels"
           ],
-          "arg": "none"
+          "arg": "none",
+          "also": [
+            "the request payload property {word} is {integer} for[[ {ordinal} ordered]] request on {service}"
+          ]
         },
         {
           "id": "rest.request.property.leading",
@@ -233,6 +252,9 @@
             "Given the 2nd ordered request payload property sender is 'kestrel-books'"
           ],
           "arg": "none",
+          "also": [
+            "the {ordinal} ordered request payload property {word} is {integer}[[ on {service}]]"
+          ],
           "since": "0.3.0"
         },
         {
@@ -532,11 +554,14 @@
           "id": "rest.response.property.is",
           "expr": "the response payload property {word} is {string}[[ for {ordinal} ordered response]]",
           "keyword": "Then",
-          "doc": "Check a property of a JSON response, by its JSONPath, like `status`, `recipient.postcode` or `[?(@.sender=='kestrel-books')].reference`.\n\n- An indefinite path, like a filter, reads as a list.\n- The response must be JSON: `application/json`, `text/json` or any `+json` type, whatever its charset.\n- The value means what it says: `'42'` is an integer, `'42L'` a long and `'1.5'` a decimal; `'true'` and `'false'` are booleans; `'null'` is null and `'undefined'` no such property; `'{...}'` and `'[...]'` are JSON, an object's members in any order; `'\"42\"'`, in double quotes inside the quotes, is the string, and other text, like `'REGISTERED'`, a string.\n- Types must match: `'42'` is not the string `\"42\"`, nor `'5'` the decimal `5.0`.\n- Without an ordinal it checks the response to the first (default) request; `for 2nd ordered response`, the response to the second.\n- It uses the default service, the first one registered; `rest.response.property.is.on` names a service.",
+          "doc": "Check a property of a JSON response, by its JSONPath, like `status`, `recipient.postcode` or `[?(@.sender=='kestrel-books')].reference`.\n\n- An indefinite path, like a filter, reads as a list.\n- The response must be JSON: `application/json`, `text/json` or any `+json` type, whatever its charset.\n- The value means what it says: `'42'` is an integer, `'42L'` a long and `'1.5'` a decimal; `'true'` and `'false'` are booleans; `'null'` is null and `'undefined'` no such property; `'{...}'` and `'[...]'` are JSON, an object's members in any order; `'\"42\"'`, in double quotes inside the quotes, is the string, and other text, like `'REGISTERED'`, a string.\n- Types must match: `'42'` is not the string `\"42\"`, nor `'5'` the decimal `5.0`.\n- The single quotes are the step's own, not the value's: `is 42` says what `is '42'` says.\n- Without an ordinal it checks the response to the first (default) request; `for 2nd ordered response`, the response to the second.\n- It uses the default service, the first one registered; `rest.response.property.is.on` names a service.",
           "examples": [
             "Then the response payload property status is 'REGISTERED'"
           ],
-          "arg": "none"
+          "arg": "none",
+          "also": [
+            "the response payload property {word} is {integer}[[ for {ordinal} ordered response]]"
+          ]
         },
         {
           "id": "rest.response.property.is.on",
@@ -546,7 +571,10 @@
           "examples": [
             "Then the response payload property status is 'REGISTERED' for 1st ordered response on parcels"
           ],
-          "arg": "none"
+          "arg": "none",
+          "also": [
+            "the response payload property {word} is {integer} for[[ {ordinal} ordered]] response on {service}"
+          ]
         },
         {
           "id": "rest.response.property.is.leading",
@@ -557,6 +585,9 @@
             "Then the 2nd ordered response payload property status is 'REGISTERED'"
           ],
           "arg": "none",
+          "also": [
+            "the {ordinal} ordered response payload property {word} is {integer}[[ on {service}]]"
+          ],
           "since": "0.3.0"
         },
         {
@@ -1066,7 +1097,10 @@
               }
             ],
             "note": "Any other property fails the step."
-          }
+          },
+          "also": [
+            "a mocked {word} service with the following properties:"
+          ]
         },
         {
           "id": "mock.received",
@@ -2693,7 +2727,10 @@
               }
             ],
             "note": "`url`, `user` and `password` can take `${env:…}` and `${sys:…}` references."
-          }
+          },
+          "also": [
+            "the {word} database with the following properties:"
+          ]
         },
         {
           "id": "sql.seed",
@@ -2753,7 +2790,11 @@
             ],
             "note": "Each row names a column and the value the selected rows hold in it, which the database compares as a SQL value of its type; `null` is `IS NULL`.",
             "values": "json"
-          }
+          },
+          "also": [
+            "a[[ {ordinal}]] selection of rows is retrieved from {word}[[ on {dbService}]] where:",
+            "a[[ {ordinal}]] selection of rows is retrieved from {word} table[[ on {dbService}]] where:"
+          ]
         },
         {
           "id": "sql.select.poll",
@@ -2771,7 +2812,11 @@
             ],
             "note": "Each row names a column and the value the selected rows hold in it, which the database compares as a SQL value of its type; `null` is `IS NULL`.",
             "values": "json"
-          }
+          },
+          "also": [
+            "within {duration} a[[ {ordinal}]] selection of at least {int} row(s) is retrieved from {word}[[ on {dbService}]] where:",
+            "within {duration} a[[ {ordinal}]] selection of at least {int} row(s) is retrieved from {word} table[[ on {dbService}]] where:"
+          ]
         },
         {
           "id": "sql.select.jsonb",
@@ -2836,7 +2881,10 @@
             "Then the selection has 2 rows",
             "Then the 2nd selection on parcels-db has 1 row"
           ],
-          "arg": "none"
+          "arg": "none",
+          "also": [
+            "the[[ {ordinal}]] selection has {int} row(s) on {dbService}"
+          ]
         },
         {
           "id": "sql.rows.gt",
@@ -2847,7 +2895,10 @@
             "Then the selection has more than 2 rows",
             "Then the 2nd selection on parcels-db has more than 1 row"
           ],
-          "arg": "none"
+          "arg": "none",
+          "also": [
+            "the[[ {ordinal}]] selection has more than {int} row(s) on {dbService}"
+          ]
         },
         {
           "id": "sql.rows.lt",
@@ -2858,7 +2909,10 @@
             "Then the selection has fewer than 2 rows",
             "Then the 2nd selection on parcels-db has fewer than 1 row"
           ],
-          "arg": "none"
+          "arg": "none",
+          "also": [
+            "the[[ {ordinal}]] selection has fewer than {int} row(s) on {dbService}"
+          ]
         },
         {
           "id": "sql.trigger.raise",
@@ -2993,7 +3047,10 @@
               }
             ],
             "note": "Every value can take `${env:…}` and `${sys:…}` references."
-          }
+          },
+          "also": [
+            "the {word} mongo database with the following properties:"
+          ]
         },
         {
           "id": "mongo.seed",
@@ -3259,7 +3316,10 @@
               }
             ],
             "note": "Any other property is ignored, with a warning: serializers, the Schema Registry and the other Java client properties are a topic client's (`a(n) {word} kafka topic client with the following properties:`)."
-          }
+          },
+          "also": [
+            "a(n) {word} kafka service with the following properties:"
+          ]
         },
         {
           "id": "kafka.client",
@@ -3269,7 +3329,10 @@
           "examples": [
             "Given the parcel-events kafka topic client"
           ],
-          "arg": "none"
+          "arg": "none",
+          "also": [
+            "a(n) {word} kafka topic client"
+          ]
         },
         {
           "id": "kafka.client.props",
@@ -3667,7 +3730,10 @@
               }
             ],
             "note": "`\u003cclient\u003e` is `producer`, for publishing, or `consumer`, for assertions: axx applies the Java Kafka client property after the prefix to that client. Values are expanded (`${env:..}`, `${sys:..}`); an empty value fails the step, and a row with neither prefix is ignored, with a warning."
-          }
+          },
+          "also": [
+            "the {word} kafka topic client[[ on the {word} kafka service]] with the following properties:"
+          ]
         },
         {
           "id": "kafka.event",

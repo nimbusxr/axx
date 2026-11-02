@@ -63,6 +63,7 @@ func steps() []core.StepDef {
 		core.StepDef{
 			ID: "sql.service", Keyword: "Given", Arg: core.ArgTable,
 			Expr: "a(n) {word} database with the following properties:",
+			Also: []string{"the {word} database with the following properties:"},
 			Doc: "Register a database.\n\n" +
 				"- The first database registered in a scenario is the default.\n" +
 				"- The scheme of the `url` says which database it is: PostgreSQL (`postgres://`, `postgresql://`, `jdbc:postgresql:`), " +
@@ -137,7 +138,11 @@ func steps() []core.StepDef {
 		},
 		core.StepDef{
 			ID: "sql.select", Keyword: "Then", Arg: core.ArgTable,
-			Expr:  "a[[ {ordinal}]] selection of rows is retrieved from the {word} table[[ on {dbService}]] where:",
+			Expr: "a[[ {ordinal}]] selection of rows is retrieved from the {word} table[[ on {dbService}]] where:",
+			Also: []string{
+				"a[[ {ordinal}]] selection of rows is retrieved from {word}[[ on {dbService}]] where:",
+				"a[[ {ordinal}]] selection of rows is retrieved from {word} table[[ on {dbService}]] where:",
+			},
 			Doc:   "Select the rows that match (`SELECT * ... WHERE`) and keep them as the next selection, for the steps that check it. " + numbered,
 			Table: whereTable("the selected rows hold"),
 			Examples: []string{
@@ -153,6 +158,10 @@ func steps() []core.StepDef {
 		core.StepDef{
 			ID: "sql.select.poll", Keyword: "Then", Arg: core.ArgTable,
 			Expr: "within {duration} a[[ {ordinal}]] selection of at least {int} row(s) is retrieved from the {word} table[[ on {dbService}]] where:",
+			Also: []string{
+				"within {duration} a[[ {ordinal}]] selection of at least {int} row(s) is retrieved from {word}[[ on {dbService}]] where:",
+				"within {duration} a[[ {ordinal}]] selection of at least {int} row(s) is retrieved from {word} table[[ on {dbService}]] where:",
+			},
 			Doc: "Select the rows that match, again every 500ms, until at least that many come back, and keep them as the next selection.\n\n" +
 				"- The step fails when the time is up with fewer rows.\n" +
 				"- " + numbered,
@@ -221,6 +230,7 @@ func rowCount(id, tail, words string, ok func(got, want int) bool) core.StepDef 
 	return core.StepDef{
 		ID: id, Keyword: "Then",
 		Expr:     "the[[ {ordinal}]] selection[[ on {dbService}]] " + tail,
+		Also:     []string{"the[[ {ordinal}]] selection " + tail + " on {dbService}"},
 		Doc:      fmt.Sprintf("Check that a selection has %s the given number of rows. `the selection` means the first selection of the scenario.", words),
 		Examples: []string{"Then the selection " + strings.ReplaceAll(tail, "{int} row(s)", "2 rows"), "Then the 2nd selection on parcels-db " + strings.ReplaceAll(tail, "{int} row(s)", "1 row")},
 		Run: func(sc *core.Scenario, a core.Args) error {

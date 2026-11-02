@@ -123,6 +123,7 @@ func steps() []core.StepDef {
 		{
 			ID: "mock.service", Keyword: "Given", Arg: core.ArgTable,
 			Expr: "the mocked {word} service with the following properties:",
+			Also: []string{"a mocked {word} service with the following properties:"},
 			Doc: "Register a WireMock server, to check the requests it received. The first mocked service registered in a " +
 				"scenario is the default one.",
 			Table: &core.TableDoc{

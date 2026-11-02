@@ -193,6 +193,11 @@ type StepDef struct {
 	// Table says what the data table of a step with a table holds, for the
 	// reference: its columns, and the rows it knows.
 	Table *TableDoc `json:"table,omitempty"`
+	// Also are other wordings of the step, those people reach for by
+	// themselves (`a` for `the`): they run the step, and lists leave them out.
+	// Each parameter takes the argument of the step's parameter of its type,
+	// in order, and one of a type the step lacks the next argument left.
+	Also []string `json:"also,omitempty"`
 	// Since is the axx version that introduced the step.
 	Since string `json:"since,omitempty"`
 	// DeprecatedBy, if set, explains what to use instead.

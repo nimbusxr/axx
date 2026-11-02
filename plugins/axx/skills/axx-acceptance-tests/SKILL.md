@@ -46,7 +46,7 @@ Feature: Register parcels
 
 ## Tables
 
-- **Values mean what they say, in every pack's tables, set or checked:** `53111` is a number and `"53111"` the string, `true` a boolean, `null` null, `undefined` no such property, `{...}` JSON, other text (`REGISTERED`) a string. Checks are strict: `53111` does not match the string. An empty cell, a number like `01067`, or a number where only text fits (a header) is an error that says what to write. Single quotes are part of a table value.
+- **Values mean what they say, in every pack's tables, set or checked:** `53111` is a number and `"53111"` the string, `true` a boolean, `null` null, `undefined` no such property, `{...}` JSON, other text (`REGISTERED`) a string. Checks are strict: `53111` does not match the string. An empty cell, a number like `01067`, or a number where only text fits (a header) is an error that says what to write. Single quotes are part of a table value; in a step's own text they are the step's: `is 42` and `is '42'` are the integer, `is '"42"'` the string.
 - **REST payloads.** A row sets one property: `recipient.name` sets it inside `recipient`, creating the object when the payload lacks it. A first row naming the columns is optional.
 - **Other packs' tables** say what their rows hold in `axx steps show <id>`.
 

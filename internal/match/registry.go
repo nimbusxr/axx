@@ -31,9 +31,13 @@ type Def struct {
 
 // Variant is one concrete expression of a Def.
 type Variant struct {
-	Def    *Def
-	Expr   string
+	Def  *Def
+	Expr string
+	// Also says the variant is of another wording of the step (StepDef.Also).
+	Also   bool
 	argPos []int
+	// params are the parameter types of an Also variant's arguments.
+	params []string
 	cexpr  cukexpr.Expression
 }
 
@@ -133,11 +137,63 @@ func (r *Registry) AddSteps(pack string, steps []core.StepDef) error {
 			}
 			r.variants = append(r.variants, &Variant{Def: def, Expr: v.expr, argPos: v.argPos, cexpr: ce})
 		}
+		for _, alt := range s.Also {
+			alts, altNames, err := expandVariants(alt)
+			if err != nil {
+				return fmt.Errorf("%s: step %s: %w", pack, s.ID, err)
+			}
+			slots, err := alsoSlots(altNames, names)
+			if err != nil {
+				return fmt.Errorf("%s: step %s: wording %q: %w", pack, s.ID, alt, err)
+			}
+			for _, v := range alts {
+				ce, err := cukexpr.NewCucumberExpression(v.expr, r.ctypes)
+				if err != nil {
+					return fmt.Errorf("%s: step %s: expression %q: %w", pack, s.ID, v.expr, err)
+				}
+				pos, params := make([]int, len(v.argPos)), make([]string, len(v.argPos))
+				for i, p := range v.argPos {
+					pos[i], params[i] = slots[p], altNames[p]
+				}
+				r.variants = append(r.variants, &Variant{Def: def, Expr: v.expr, Also: true, argPos: pos, params: params, cexpr: ce})
+			}
+		}
 		r.defs = append(r.defs, def)
 		r.byID[s.ID] = def
 	}
 	r.cache = sync.Map{}
 	return nil
+}
+
+// alsoSlots says which of a step's arguments each parameter of another wording
+// takes: the first left of its type, or else the first left.
+func alsoSlots(alt, names []string) ([]int, error) {
+	slots := make([]int, len(alt))
+	used := make([]bool, len(names))
+	for i, name := range alt {
+		slots[i] = -1
+		for j, n := range names {
+			if !used[j] && n == name {
+				slots[i], used[j] = j, true
+				break
+			}
+		}
+	}
+	for i := range alt {
+		if slots[i] >= 0 {
+			continue
+		}
+		for j := range names {
+			if !used[j] {
+				slots[i], used[j] = j, true
+				break
+			}
+		}
+		if slots[i] < 0 {
+			return nil, fmt.Errorf("it has more parameters than the step")
+		}
+	}
+	return slots, nil
 }
 
 // AddPack registers a pack's parameter types and steps.
@@ -190,6 +246,9 @@ func (r *Registry) Match(text string) []Match {
 			g := a.Group()
 			arg := &full[v.argPos[i]]
 			arg.Present = true
+			if v.params != nil {
+				arg.Param = v.params[i]
+			}
 			if g.Value() != nil {
 				arg.Raw = *g.Value()
 			}

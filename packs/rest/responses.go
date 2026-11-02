@@ -20,6 +20,7 @@ var valueDoc = []string{
 		"booleans; `'null'` is null and `'undefined'` no such property; `'{...}'` and `'[...]'` are JSON, an object's members in " +
 		"any order; `'\"42\"'`, in double quotes inside the quotes, is the string, and other text, like `'REGISTERED'`, a string.",
 	"Types must match: `'42'` is not the string `\"42\"`, nor `'5'` the decimal `5.0`.",
+	"The single quotes are the step's own, not the value's: `is 42` says what `is '42'` says.",
 }
 
 // regexpDoc and regexpsDoc say how the steps that match regular
@@ -208,6 +209,7 @@ func responseSteps() []core.StepDef {
 		{
 			id: "rest.response.property.is", keyword: "Then", noun: "response",
 			leading: true,
+			bare:    true,
 			head:    "the response payload property {word} is {string}", nHead: 2,
 			doc: "Check a property of a JSON response, by its JSONPath, like `status`, `recipient.postcode` or " +
 				"`[?(@.sender=='kestrel-books')].reference`.",

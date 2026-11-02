@@ -79,6 +79,7 @@ func steps() []core.StepDef {
 		{
 			ID: "kafka.service", Keyword: "Given", Arg: core.ArgTable,
 			Expr: "the {word} kafka service with the following properties:",
+			Also: []string{"a(n) {word} kafka service with the following properties:"},
 			Doc:  "Register a Kafka cluster. The first one registered in a scenario is the default for steps without `on the {word} kafka service`.",
 			Table: &core.TableDoc{
 				Columns: []string{"property", "value"},
@@ -94,6 +95,7 @@ func steps() []core.StepDef {
 		{
 			ID: "kafka.client", Keyword: "Given",
 			Expr: "the {word} kafka topic client",
+			Also: []string{"a(n) {word} kafka topic client"},
 			Doc: "Create a topic client on the default Kafka service with the default configuration: string keys and values, " +
 				"records read from the start of the topic. A topic can have one client per service in a scenario. " +
 				"Avro, a Schema Registry and other Java client properties: `a(n) {word} kafka topic client with the following properties:`.",
@@ -109,6 +111,7 @@ func steps() []core.StepDef {
 		{
 			ID: "kafka.client.props", Keyword: "Given", Arg: core.ArgTable,
 			Expr: "a(n) {word} kafka topic client" + serviceSuffix + " with the following properties:",
+			Also: []string{"the {word} kafka topic client" + serviceSuffix + " with the following properties:"},
 			Doc: "Create a topic client configured with Java Kafka client properties: `producer.` rows for publishing, `consumer.` rows for assertions.\n\n" +
 				"- For Avro, set the Confluent Avro serializer or deserializer and the `schema.registry.url`, as in the examples.\n" +
 				"- A topic can have one client per service in a scenario.",
@@ -242,7 +245,7 @@ func steps() []core.StepDef {
 				}
 				clients := svc.topicClients()
 				if len(clients) == 0 {
-					return fmt.Errorf("Kafka topic client not found") //nolint:staticcheck // user-facing message
+					return fmt.Errorf("Kafka topic client not found: add one first, like \"the parcel-events kafka topic client\"") //nolint:staticcheck // user-facing message
 				}
 				ev, err := clients[0].event(a, 0)
 				if err != nil {
@@ -510,7 +513,7 @@ func topicClient(sc *core.Scenario, a core.Args, topicArg, svcArg int) (*TopicCl
 	topic := a.String(topicArg)
 	tc, ok := svc.client(topic)
 	if !ok {
-		return nil, fmt.Errorf("Kafka topic client not found: %s", topic) //nolint:staticcheck // user-facing message
+		return nil, fmt.Errorf("Kafka topic client not found: %s: add it first, with \"the %s kafka topic client\"", topic, topic) //nolint:staticcheck // user-facing message
 	}
 	return tc, nil
 }

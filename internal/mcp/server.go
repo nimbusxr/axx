@@ -410,7 +410,9 @@ func otherSteps(e *engine.Engine, pack string) []Step {
 func stepsOf(reg *match.Registry, pack string) []Step {
 	variants := map[*match.Def][]string{}
 	for _, v := range reg.Variants() {
-		variants[v.Def] = append(variants[v.Def], v.Expr)
+		if !v.Also {
+			variants[v.Def] = append(variants[v.Def], v.Expr)
+		}
 	}
 	var out []Step
 	for _, d := range reg.Defs() {

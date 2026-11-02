@@ -72,13 +72,16 @@ func (t target) exchange(sc *core.Scenario, a core.Args) (*Exchange, error) {
 //
 //	the {ordinal} ordered <head without its "the">[[ on {service}]]<tail>
 type family struct {
-	id, keyword  string
-	since        string // the axx version that introduced the step, if after 0.1.0
-	arg          core.ArgKind
-	head, tail   string
-	noun         string // "request" or "response"
-	nHead        int
-	leading      bool
+	id, keyword string
+	since       string // the axx version that introduced the step, if after 0.1.0
+	arg         core.ArgKind
+	head, tail  string
+	noun        string // "request" or "response"
+	nHead       int
+	leading     bool
+	// bare says the value in head, a {string}, may also be an integer without
+	// quotes: is 2500, for is '2500'.
+	bare         bool
 	doc          string   // what the step does, in a sentence
 	details      []string // more of it, a short sentence or two each
 	table        *core.TableDoc
@@ -91,10 +94,17 @@ func (f family) defs() []core.StepDef {
 	run := func(t target) core.StepFunc {
 		return func(sc *core.Scenario, a core.Args) error { return f.run(sc, a, t) }
 	}
+	also := func(expr string) []string {
+		if !f.bare {
+			return nil
+		}
+		return []string{strings.Replace(expr, "{string}", "{integer}", 1)}
+	}
 	defs := []core.StepDef{
 		{
 			ID: f.id, Keyword: f.keyword, Arg: f.arg, Since: f.since,
 			Expr:     f.head + "[[ for {ordinal} ordered " + f.noun + "]]" + f.tail,
+			Also:     also(f.head + "[[ for {ordinal} ordered " + f.noun + "]]" + f.tail),
 			Doc:      docList(f.doc, append(append([]string{}, f.details...), f.targetDoc()...)...),
 			Table:    f.table,
 			Examples: []string{f.example},
@@ -103,6 +113,7 @@ func (f family) defs() []core.StepDef {
 		{
 			ID: f.id + ".on", Keyword: f.keyword, Arg: f.arg, Since: f.since,
 			Expr: f.head + " for[[ {ordinal} ordered]] " + f.noun + " on {service}" + f.tail,
+			Also: also(f.head + " for[[ {ordinal} ordered]] " + f.noun + " on {service}" + f.tail),
 			Doc: "`" + f.id + "` on a named service: `for " + f.noun + " on <service>` addresses the service's first " +
 				"(default) " + f.noun + ", `for 2nd ordered " + f.noun + " on <service>` its second one. " +
 				"Everything else works like `" + f.id + "`.",
@@ -117,6 +128,7 @@ func (f family) defs() []core.StepDef {
 		defs = append(defs, core.StepDef{
 			ID: f.id + ".leading", Keyword: f.keyword, Arg: f.arg, Since: "0.3.0",
 			Expr: "the {ordinal} ordered " + rest + "[[ on {service}]]" + f.tail,
+			Also: also("the {ordinal} ordered " + rest + "[[ on {service}]]" + f.tail),
 			Doc: "`" + f.id + "` with its ordinal first, as `the 2nd ordered " + f.noun + " ...` steps say it: " +
 				"the same step as `" + f.head + " for 2nd ordered " + f.noun + f.tail + "`.",
 			Table:    f.table,
@@ -176,6 +188,7 @@ func serviceSteps() []core.StepDef {
 		{
 			ID: "rest.service", Keyword: "Given", Arg: core.ArgTable,
 			Expr: "the {word} service with the following properties:",
+			Also: []string{"a(n) {word} service with the following properties:"},
 			Doc: docList("Register a REST service: where its requests go, and the OpenAPI specification they are checked against.",
 				"The first service registered in a scenario is the default one.",
 				"With an `openapi` specification, every request executed and its response are validated against it, "+
@@ -407,6 +420,7 @@ func requestSteps() []core.StepDef {
 		{
 			id: "rest.request.property", keyword: "Given", noun: "request",
 			leading: true,
+			bare:    true,
 			head:    "the request payload property {word} is {string}", nHead: 2,
 			doc: "Set a property of the request payload, by its JSONPath, like `weightGrams`, `recipient.postcode` or `$.recipient.name`.",
 			details: []string{

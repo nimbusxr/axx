@@ -36,7 +36,7 @@ A value means what it says, the same in every pack, whether a step sets it or ch
   a string (`REGISTERED`, `PX-4101`). This is the rule of REST's checks today (`CoerceExpected`).
 - A `{string}` parameter's quotes delimit it in the step's text, and its value then follows the
   rule: `the response payload property count is "42"` checks the integer 42, and `is '"42"'` the
-  string.
+  string. REST's property steps also take an integer without those quotes: `is 42`.
 - Nothing is inferred, from an example, a schema or a column's type: `| postcode | 10115 |` sets
   and checks the number 10115, and the string is `"10115"`. A value of the wrong type is sent as
   written, so a test can still send one on purpose (`| weightGrams | "1200" |`).

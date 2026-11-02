@@ -132,7 +132,7 @@ Feature: Register parcels
     And the 4th ordered request is executed
     Then the 1st ordered response status code is 201
     And the 2nd ordered response status code is 200
-    And the response payload property weightGrams is '2500' for 2nd ordered response
+    And the 2nd ordered response payload property weightGrams is 2500
     And the 3rd ordered response status code is 204
     And the 4th ordered response status code is 404
 
