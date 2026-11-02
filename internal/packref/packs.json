@@ -2935,7 +2935,7 @@
           "id": "sql.trigger.raise",
           "expr": "a(n)[[ {ordinal} ordered]] before insert trigger on the {word} table[[ on {dbService}]] will raise a(n) {sqlState} exception where:",
           "keyword": "Given",
-          "doc": "Make inserts of matching rows into the table fail with that SQLSTATE, to test how the service handles database errors.\n\n- A BEFORE INSERT trigger raises the error, so the database must be PostgreSQL or Oracle. On Oracle, the code is an ORA error: `ORA-20001`, or `20001` for short.\n- Triggers are numbered in the order they are created, whatever ordinal the step says.\n- The trigger is dropped when the scenario ends.",
+          "doc": "Make inserts of matching rows into the table fail with that SQLSTATE, to test how the service handles database errors.\n\n- A BEFORE INSERT trigger raises the error, so the database must be PostgreSQL or Oracle. On Oracle, the code is an ORA error: `ORA-20001`, or `20001` for short.\n- Before insert triggers are numbered in the order they are created, whatever ordinal the step says.\n- The trigger is dropped when the scenario ends.",
           "examples": [
             "Given a before insert trigger on the parcels.parcels table will raise a 40001 exception where:\n  | reference | PX-DBF-3001 |"
           ],
@@ -2953,7 +2953,7 @@
           "id": "sql.trigger.raise.times",
           "expr": "a(n)[[ {ordinal} ordered]] before insert trigger on the {word} table[[ on {dbService}]] will raise a(n) {sqlState} exception {int} time(s) where:",
           "keyword": "Given",
-          "doc": "Make inserts of matching rows into the table fail with that SQLSTATE, to test how the service handles database errors.\n\n- A BEFORE INSERT trigger raises the error, so the database must be PostgreSQL or Oracle. On Oracle, the code is an ORA error: `ORA-20001`, or `20001` for short.\n- Only that many matching inserts fail; the ones after them succeed.\n- Triggers are numbered in the order they are created, whatever ordinal the step says.\n- The trigger is dropped when the scenario ends.",
+          "doc": "Make inserts of matching rows into the table fail with that SQLSTATE, to test how the service handles database errors.\n\n- A BEFORE INSERT trigger raises the error, so the database must be PostgreSQL or Oracle. On Oracle, the code is an ORA error: `ORA-20001`, or `20001` for short.\n- Only that many matching inserts fail; the ones after them succeed.\n- Before insert triggers are numbered in the order they are created, whatever ordinal the step says.\n- The trigger is dropped when the scenario ends.",
           "examples": [
             "Given a before insert trigger on the parcels.parcels table will raise a 40001 exception 1 time where:\n  | reference | PX-DBF-3001 |"
           ],
@@ -2971,7 +2971,7 @@
           "id": "sql.trigger.insertRaise",
           "expr": "a(n)[[ {ordinal} ordered]] before insert trigger on the {word} table[[ on {dbService}]] will insert and raise a(n) {sqlState} exception where:",
           "keyword": "Given",
-          "doc": "Make inserts of matching rows into the table store the row and still fail with that SQLSTATE, like a write that succeeded but reported a failure.\n\n- A BEFORE INSERT trigger raises the error, so the database must be PostgreSQL or Oracle. On Oracle, the code is an ORA error: `ORA-20001`, or `20001` for short.\n- The row is committed through a second connection before the error, with the `dblink` extension, which the step creates when the database lacks it; on Oracle, in an autonomous transaction.\n- Triggers are numbered in the order they are created, whatever ordinal the step says.\n- The trigger is dropped when the scenario ends.",
+          "doc": "Make inserts of matching rows into the table store the row and still fail with that SQLSTATE, like a write that succeeded but reported a failure.\n\n- A BEFORE INSERT trigger raises the error, so the database must be PostgreSQL or Oracle. On Oracle, the code is an ORA error: `ORA-20001`, or `20001` for short.\n- The row is committed through a second connection before the error, with the `dblink` extension, which the step creates when the database lacks it; on Oracle, in an autonomous transaction.\n- Before insert triggers are numbered in the order they are created, whatever ordinal the step says.\n- The trigger is dropped when the scenario ends.",
           "examples": [
             "Given a before insert trigger on the parcels.parcels table will insert and raise a 40001 exception where:\n  | reference | PX-DBF-3001 |"
           ],
@@ -2989,7 +2989,7 @@
           "id": "sql.trigger.insertRaise.times",
           "expr": "a(n)[[ {ordinal} ordered]] before insert trigger on the {word} table[[ on {dbService}]] will insert and raise a(n) {sqlState} exception {int} time(s) where:",
           "keyword": "Given",
-          "doc": "Make inserts of matching rows into the table store the row and still fail with that SQLSTATE, like a write that succeeded but reported a failure.\n\n- A BEFORE INSERT trigger raises the error, so the database must be PostgreSQL or Oracle. On Oracle, the code is an ORA error: `ORA-20001`, or `20001` for short.\n- The row is committed through a second connection before the error, with the `dblink` extension, which the step creates when the database lacks it; on Oracle, in an autonomous transaction.\n- Only that many matching inserts fail; the ones after them succeed.\n- Triggers are numbered in the order they are created, whatever ordinal the step says.\n- The trigger is dropped when the scenario ends.",
+          "doc": "Make inserts of matching rows into the table store the row and still fail with that SQLSTATE, like a write that succeeded but reported a failure.\n\n- A BEFORE INSERT trigger raises the error, so the database must be PostgreSQL or Oracle. On Oracle, the code is an ORA error: `ORA-20001`, or `20001` for short.\n- The row is committed through a second connection before the error, with the `dblink` extension, which the step creates when the database lacks it; on Oracle, in an autonomous transaction.\n- Only that many matching inserts fail; the ones after them succeed.\n- Before insert triggers are numbered in the order they are created, whatever ordinal the step says.\n- The trigger is dropped when the scenario ends.",
           "examples": [
             "Given a before insert trigger on the parcels.parcels table will insert and raise a 40001 exception 1 time where:\n  | reference | PX-DBF-3001 |"
           ],
@@ -3007,12 +3007,112 @@
           "id": "sql.trigger.raised",
           "expr": "the[[ {ordinal} ordered]] before insert trigger on the {word} table[[ on {dbService}]] was raised {int} time(s)",
           "keyword": "Then",
-          "doc": "Check how many times a before insert trigger raised its error. Triggers are numbered in the order they are created; a table other than the trigger's only logs a warning.",
+          "doc": "Check how many times a before insert trigger raised its error. Before insert triggers are numbered in the order they are created; a table other than the trigger's only logs a warning.",
           "examples": [
             "Then the before insert trigger on the parcels.parcels table was raised 1 time",
             "Then the 2nd ordered before insert trigger on the parcels.parcels table on parcels-db was raised 3 times"
           ],
           "arg": "none"
+        },
+        {
+          "id": "sql.trigger.update.raise",
+          "expr": "a(n)[[ {ordinal} ordered]] before update trigger on the {word} table[[ on {dbService}]] will raise a(n) {sqlState} exception where:",
+          "keyword": "Given",
+          "doc": "Make updates of matching rows in the table fail with that SQLSTATE, to test how the service handles database errors. The row stays as it was.\n\n- A BEFORE UPDATE trigger raises the error, so the database must be PostgreSQL or Oracle. On Oracle, the code is an ORA error: `ORA-20001`, or `20001` for short.\n- Its conditions are on the row as the update would leave it, so `weight_grams` is the new weight, and a column the update does not change has the value it had.\n- Before update triggers are numbered in the order they are created, whatever ordinal the step says.\n- The trigger is dropped when the scenario ends.",
+          "examples": [
+            "Given a before update trigger on the parcels.parcels table will raise a 40001 exception where:\n  | reference | PX-DBF-3101 |"
+          ],
+          "arg": "table",
+          "table": {
+            "columns": [
+              "column",
+              "value"
+            ],
+            "note": "Each row names a column and the value the row holds after the update in it, of the column's type: a value of another type fails at once and says what to write (`10115` on a text column asks for `\"10115\"`, and `12` on a decimal one for `12.0`); dates, times, UUIDs and the like are strings; `null` is `IS NULL`.",
+            "values": "json"
+          },
+          "since": "0.4.0"
+        },
+        {
+          "id": "sql.trigger.update.raise.times",
+          "expr": "a(n)[[ {ordinal} ordered]] before update trigger on the {word} table[[ on {dbService}]] will raise a(n) {sqlState} exception {int} time(s) where:",
+          "keyword": "Given",
+          "doc": "Make updates of matching rows in the table fail with that SQLSTATE, to test how the service handles database errors. The row stays as it was.\n\n- A BEFORE UPDATE trigger raises the error, so the database must be PostgreSQL or Oracle. On Oracle, the code is an ORA error: `ORA-20001`, or `20001` for short.\n- Its conditions are on the row as the update would leave it, so `weight_grams` is the new weight, and a column the update does not change has the value it had.\n- Only that many matching updates fail; the ones after them succeed.\n- Before update triggers are numbered in the order they are created, whatever ordinal the step says.\n- The trigger is dropped when the scenario ends.",
+          "examples": [
+            "Given a before update trigger on the parcels.parcels table will raise a 40001 exception 1 time where:\n  | reference | PX-DBF-3101 |"
+          ],
+          "arg": "table",
+          "table": {
+            "columns": [
+              "column",
+              "value"
+            ],
+            "note": "Each row names a column and the value the row holds after the update in it, of the column's type: a value of another type fails at once and says what to write (`10115` on a text column asks for `\"10115\"`, and `12` on a decimal one for `12.0`); dates, times, UUIDs and the like are strings; `null` is `IS NULL`.",
+            "values": "json"
+          },
+          "since": "0.4.0"
+        },
+        {
+          "id": "sql.trigger.update.raised",
+          "expr": "the[[ {ordinal} ordered]] before update trigger on the {word} table[[ on {dbService}]] was raised {int} time(s)",
+          "keyword": "Then",
+          "doc": "Check how many times a before update trigger raised its error. Before update triggers are numbered in the order they are created; a table other than the trigger's only logs a warning.",
+          "examples": [
+            "Then the before update trigger on the parcels.parcels table was raised 1 time",
+            "Then the 2nd ordered before update trigger on the parcels.parcels table on parcels-db was raised 3 times"
+          ],
+          "arg": "none",
+          "since": "0.4.0"
+        },
+        {
+          "id": "sql.trigger.delete.raise",
+          "expr": "a(n)[[ {ordinal} ordered]] before delete trigger on the {word} table[[ on {dbService}]] will raise a(n) {sqlState} exception where:",
+          "keyword": "Given",
+          "doc": "Make deletes of matching rows in the table fail with that SQLSTATE, to test how the service handles database errors. The row stays as it was.\n\n- A BEFORE DELETE trigger raises the error, so the database must be PostgreSQL or Oracle. On Oracle, the code is an ORA error: `ORA-20001`, or `20001` for short.\n- Its conditions are on the row the delete would take away.\n- Before delete triggers are numbered in the order they are created, whatever ordinal the step says.\n- The trigger is dropped when the scenario ends.",
+          "examples": [
+            "Given a before delete trigger on the parcels.parcels table will raise a 40001 exception where:\n  | reference | PX-DBF-3101 |"
+          ],
+          "arg": "table",
+          "table": {
+            "columns": [
+              "column",
+              "value"
+            ],
+            "note": "Each row names a column and the value the deleted row holds in it, of the column's type: a value of another type fails at once and says what to write (`10115` on a text column asks for `\"10115\"`, and `12` on a decimal one for `12.0`); dates, times, UUIDs and the like are strings; `null` is `IS NULL`.",
+            "values": "json"
+          },
+          "since": "0.4.0"
+        },
+        {
+          "id": "sql.trigger.delete.raise.times",
+          "expr": "a(n)[[ {ordinal} ordered]] before delete trigger on the {word} table[[ on {dbService}]] will raise a(n) {sqlState} exception {int} time(s) where:",
+          "keyword": "Given",
+          "doc": "Make deletes of matching rows in the table fail with that SQLSTATE, to test how the service handles database errors. The row stays as it was.\n\n- A BEFORE DELETE trigger raises the error, so the database must be PostgreSQL or Oracle. On Oracle, the code is an ORA error: `ORA-20001`, or `20001` for short.\n- Its conditions are on the row the delete would take away.\n- Only that many matching deletes fail; the ones after them succeed.\n- Before delete triggers are numbered in the order they are created, whatever ordinal the step says.\n- The trigger is dropped when the scenario ends.",
+          "examples": [
+            "Given a before delete trigger on the parcels.parcels table will raise a 40001 exception 1 time where:\n  | reference | PX-DBF-3101 |"
+          ],
+          "arg": "table",
+          "table": {
+            "columns": [
+              "column",
+              "value"
+            ],
+            "note": "Each row names a column and the value the deleted row holds in it, of the column's type: a value of another type fails at once and says what to write (`10115` on a text column asks for `\"10115\"`, and `12` on a decimal one for `12.0`); dates, times, UUIDs and the like are strings; `null` is `IS NULL`.",
+            "values": "json"
+          },
+          "since": "0.4.0"
+        },
+        {
+          "id": "sql.trigger.delete.raised",
+          "expr": "the[[ {ordinal} ordered]] before delete trigger on the {word} table[[ on {dbService}]] was raised {int} time(s)",
+          "keyword": "Then",
+          "doc": "Check how many times a before delete trigger raised its error. Before delete triggers are numbered in the order they are created; a table other than the trigger's only logs a warning.",
+          "examples": [
+            "Then the before delete trigger on the parcels.parcels table was raised 1 time",
+            "Then the 2nd ordered before delete trigger on the parcels.parcels table on parcels-db was raised 3 times"
+          ],
+          "arg": "none",
+          "since": "0.4.0"
         }
       ]
     },

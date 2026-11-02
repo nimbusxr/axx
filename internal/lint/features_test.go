@@ -143,3 +143,21 @@ func TestOrdinalWords(t *testing.T) {
 		}
 	}
 }
+
+// Each kind of trigger is numbered on its own: the first before update trigger is the
+// first, whatever else the scenario created.
+func TestSQLOrdinalsEachKindOfTrigger(t *testing.T) {
+	for id, want := range map[string]string{
+		"sql.trigger.update.raise":       "before update trigger",
+		"sql.trigger.update.raise.times": "before update trigger",
+		"sql.trigger.update.raised":      "before update trigger",
+		"sql.trigger.delete.raise":       "before delete trigger",
+		"sql.trigger.delete.raise.times": "before delete trigger",
+		"sql.trigger.delete.raised":      "before delete trigger",
+	} {
+		use, ok := ordinalSteps[id]
+		if !ok || use.list != want {
+			t.Errorf("%s counts in %q, want %q", id, use.list, want)
+		}
+	}
+}

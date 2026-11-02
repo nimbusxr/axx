@@ -47,3 +47,58 @@ Feature: Database failures
     And the before insert trigger on the parcels.parcels table was raised 3 times
     And the parcels log has 2 entries matching 'msg="storing parcel failed, retrying" reference=PX-DBF-3002'
     And the parcels log has an entry matching 'msg="registration refused; not announced" reference=PX-DBF-3002 reason="the database keeps failing"'
+
+  Scenario: A brief database failure does not fail a change to a parcel
+    Given a seeds/change-retried.yaml db seed
+    And a before update trigger on the parcels.parcels table will raise a 40001 exception 1 time where:
+      | reference    | PX-DBF-3102 |
+      | weight_grams | 2500        |
+    And a PATCH request to /api/parcels/PX-DBF-3102
+    And a request payload using an application/json content example
+    When the request is executed
+    Then the response status code is 200
+    And the response payload property weightGrams is 2500
+    And the before update trigger on the parcels.parcels table was raised 1 time
+    And the parcels log has 1 entry matching 'msg="changing parcel failed, retrying" reference=PX-DBF-3102'
+
+  Scenario: A lasting database failure keeps a parcel as it was when it is changed
+    Given a seeds/change-refused.yaml db seed
+    And a before update trigger on the parcels.parcels table will raise a 40001 exception where:
+      | reference | PX-DBF-3101 |
+    And a PATCH request to /api/parcels/PX-DBF-3101
+    And a request payload using an application/json content example
+    When the request is executed
+    Then the response status code is 503
+    And the response header Retry-After is '"5"'
+    And the response payload property detail is 'parcel PX-DBF-3101 could not be changed; try again later'
+    And the before update trigger on the parcels.parcels table was raised 3 times
+    And a selection of rows is retrieved from the parcels.parcels table where:
+      | reference    | PX-DBF-3101 |
+      | weight_grams | 900         |
+    And the selection has 1 row
+
+  Scenario: A brief database failure does not fail a cancellation
+    Given a seeds/cancel-retried.yaml db seed
+    And a before delete trigger on the parcels.parcels table will raise a 40001 exception 1 time where:
+      | reference | PX-DBF-3104 |
+    And a DELETE request to /api/parcels/PX-DBF-3104
+    When the request is executed
+    Then the response status code is 204
+    And the before delete trigger on the parcels.parcels table was raised 1 time
+    And the parcels log has 1 entry matching 'msg="cancelling parcel failed, retrying" reference=PX-DBF-3104'
+    And a selection of rows is retrieved from the parcels.parcels table where:
+      | reference | PX-DBF-3104 |
+    And the selection has 0 rows
+
+  Scenario: A lasting database failure keeps a parcel when it is cancelled
+    Given a seeds/cancel-refused.yaml db seed
+    And a before delete trigger on the parcels.parcels table will raise a 40001 exception where:
+      | reference | PX-DBF-3103 |
+    And a DELETE request to /api/parcels/PX-DBF-3103
+    When the request is executed
+    Then the response status code is 503
+    And the response header Retry-After is '"5"'
+    And the before delete trigger on the parcels.parcels table was raised 3 times
+    And a selection of rows is retrieved from the parcels.parcels table where:
+      | reference | PX-DBF-3103 |
+    And the selection has 1 row
