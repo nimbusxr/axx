@@ -20,7 +20,7 @@ func TestPropertiesPass(t *testing.T) {
 		[]string{"$.crew.lead", "Ada"},
 		[]string{"ratio", "2.5"},
 		[]string{"tags[1]", "b"},
-		[]string{"note", "NULL"},
+		[]string{"note", "null"},
 		[]string{"missing", "undefined"},
 		[]string{"ok", "true"},
 	), false)
@@ -102,5 +102,74 @@ func TestPropertiesTyped(t *testing.T) {
 		if err := Properties(str, table([]string{"postcode", c.value}), false); err == nil || core.IsAssertion(err) || !strings.Contains(err.Error(), c.want) {
 			t.Errorf("%s: %v", c.value, err)
 		}
+	}
+}
+
+// A document of null is a value: `null` is what it is, anything else is a
+// mismatch like any other, and any path under it is absent.
+func TestPropertiesOfANullDocument(t *testing.T) {
+	for _, row := range [][]string{{"a", "undefined"}, {"a.b", "undefined"}, {"$", "null"}} {
+		if err := Properties("null", table(row), false); err != nil {
+			t.Errorf("%v: %v", row, err)
+		}
+	}
+	for _, c := range []struct {
+		row    []string
+		actual string
+	}{
+		{[]string{"a", "1"}, "<absent>"},
+		{[]string{"a", "null"}, "<absent>"},
+		{[]string{"$", "true"}, "null"},
+		{[]string{"$", "undefined"}, "null"},
+	} {
+		err := Properties("null", table(c.row), false)
+		var ae *core.AssertionError
+		if !errors.As(err, &ae) {
+			t.Errorf("%v: want a mismatch, got %v", c.row, err)
+			continue
+		}
+		if got := fmt.Sprint(ae.Actual.(map[string]any)[c.row[0]]); got != c.actual {
+			t.Errorf("%v: actual %s, want %s", c.row, got, c.actual)
+		}
+	}
+	err := Properties("null", table([]string{"a", "x"}), true)
+	var ae *core.AssertionError
+	if !errors.As(err, &ae) || ae.Actual.(map[string]any)["a"] != "<absent>" {
+		t.Errorf("a pattern on a path of null: %v", err)
+	}
+}
+
+// A reference is a string, whatever it expands to, and a failure shows it as
+// the table wrote it.
+func TestExpandedProperties(t *testing.T) {
+	refs := map[string]string{"${R}": "4101", "${Z}": "01067", "${E}": ""}
+	expand := func(s string) string { return refs[s] }
+	for _, c := range []struct {
+		doc, ref string
+		pass     bool
+	}{
+		{`{"ref":"4101"}`, "${R}", true},
+		{`{"ref":4101}`, "${R}", false},
+		{`{"ref":"01067"}`, "${Z}", true},
+		{`{"ref":""}`, "${E}", true},
+		{`{"ref":"x"}`, "${E}", false},
+	} {
+		err := ExpandedProperties(c.doc, table([]string{"ref", c.ref}), expand)
+		if c.pass && err != nil {
+			t.Errorf("%s is %s: %v", c.doc, c.ref, err)
+		}
+		if !c.pass {
+			var ae *core.AssertionError
+			if !errors.As(err, &ae) || strings.Contains(fmt.Sprint(ae.Expected), "4101") || !strings.Contains(fmt.Sprint(ae.Expected), c.ref) {
+				t.Errorf("%s is %s: %v", c.doc, c.ref, err)
+			}
+		}
+	}
+	expandInJSON := func(s string) string { return strings.ReplaceAll(s, "${R}", "4101") }
+	if err := ExpandedProperties(`{"a":{"ref":"4101","n":1.5}}`, table([]string{"a", `{"ref":"${R}","n":1.5}`}), expandInJSON); err != nil {
+		t.Errorf("a reference in a JSON value: %v", err)
+	}
+	if err := ExpandedProperties(`{"a":1}`, table([]string{"a", "01"}), expandInJSON); err == nil || core.IsAssertion(err) {
+		t.Errorf("a value is read before it expands: %v", err)
 	}
 }

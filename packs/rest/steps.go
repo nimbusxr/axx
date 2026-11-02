@@ -440,7 +440,7 @@ func requestSteps() []core.StepDef {
 				path := a.String(0)
 				v, err := payloadValue(sc, a.String(1), false)
 				if err != nil {
-					return fmt.Errorf("%s: %w", path, err)
+					return fmt.Errorf("%s: %w", path, core.InStepText(err))
 				}
 				return modifyPayload(sc, a, t, func(doc any) error {
 					return missingParent(doc, path, jvalue.SetValue(doc, path, v))
@@ -494,12 +494,16 @@ func requestSteps() []core.StepDef {
 			id: "rest.request.property.null", keyword: "Given", noun: "request",
 			leading: true,
 			head:    "the request payload property {word} is null", nHead: 1,
-			doc:          "Set an existing property of the request payload to JSON null.",
+			doc:          "Set a property of the request payload to JSON null, adding it if the payload lacks it, as a table's `null` does.",
 			example:      "Given the request payload property recipient.street is null",
 			namedExample: "Given the request payload property recipient.street is null for request on parcels",
 			run: func(sc *core.Scenario, a core.Args, t target) error {
 				return modifyPayload(sc, a, t, func(doc any) error {
-					return missingParent(doc, a.String(0), jvalue.SetRequestPropertyNull(doc, a.String(0)))
+					null, err := core.ParseValue("null", false, false)
+					if err != nil {
+						return err
+					}
+					return missingParent(doc, a.String(0), jvalue.SetValue(doc, a.String(0), null))
 				})
 			},
 		},

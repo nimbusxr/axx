@@ -58,6 +58,8 @@ func (d *depots) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		ref = byPos[0]
 	}
 	switch req.Method {
+	case "depot.none":
+		answer(map[string]any{"result": nil})
 	case "rpc.discover":
 		doc, _ := os.ReadFile("testdata/depots.openrpc.json")
 		answer(map[string]any{"result": json.RawMessage(doc)})
@@ -106,6 +108,35 @@ func harness(t *testing.T, config map[string]any) *cloudtest.Harness {
 	return h
 }
 
+// A result of null is a value, compared like any other, and any path under it
+// is absent.
+func TestANullResult(t *testing.T) {
+	_, url := serve(t)
+	h := harness(t, nil)
+	h.OK("the depots jsonrpc service with the following properties:", [][]string{{"url", url}})
+	h.OK("the depot.none method is called on the depots jsonrpc service")
+	h.OK("the depots jsonrpc service's result is 'null'")
+	_ = h.Fails("the depots jsonrpc service's result is 'true'", `The depots jsonrpc service's result of depot.none is null, not true`)
+	_ = h.Fails("the depots jsonrpc service's result is '42'", `The depots jsonrpc service's result of depot.none is null, not 42`)
+	_ = h.Fails("the depots jsonrpc service's result is '\"null\"'", `The depots jsonrpc service's result of depot.none is null, not "null"`)
+	_ = h.Fails(`the depots jsonrpc service's result is '""'`, `The depots jsonrpc service's result of depot.none is null, not ""`)
+	h.OK("the depots jsonrpc service's result has the following properties:", [][]string{{"reference", "undefined"}})
+	_ = h.Fails("the depots jsonrpc service's result has the following properties:", "JSON properties do not have the expected values: reference", [][]string{{"reference", `"x"`}})
+}
+
+// A reference in a JSON value's strings expands, and stays a string.
+func TestReferencesInAJSONParam(t *testing.T) {
+	d, url := serve(t)
+	t.Setenv("DEPOTS_TOKEN", "4711")
+	h := harness(t, nil)
+	h.OK("the depots jsonrpc service with the following properties:", [][]string{{"url", url}})
+	h.OK("the depot.none method is called on the depots jsonrpc service with the following params:",
+		[][]string{{"auth", `{"token":"${env:DEPOTS_TOKEN}","retries":3}`}})
+	if got := d.params.Load(); got != `{"auth":{"retries":3,"token":"4711"}}` {
+		t.Errorf("params: %v", got)
+	}
+}
+
 func TestCalls(t *testing.T) {
 	d, url := serve(t)
 	t.Setenv("DEPOTS_TOKEN", "dp-4711-secret")
@@ -135,16 +166,17 @@ func TestCalls(t *testing.T) {
 	_ = h.Fails("the depots jsonrpc service's result is 'false'", `The depots jsonrpc service's result of depot.open is true, not false`)
 	// The result is compared with its type: the boolean true is not the text.
 	_ = h.Fails("the depots jsonrpc service's result is '\"true\"'",
-		`The depots jsonrpc service's result of depot.open is true, not "true" (the result is the boolean true: write true)`)
-	_ = h.Fails("the depots jsonrpc service's result is ''", `the cell is empty: write "" for the empty string, or null for null`)
+		`The depots jsonrpc service's result of depot.open is true, not "true" (the result is the boolean true: write 'true')`)
+	_ = h.Fails("the depots jsonrpc service's result is ''", `the value is empty: write '""' for the empty string, or 'null' for null`)
+	_ = h.Fails("the depots jsonrpc service's result is '01067'", `write '1067' for the number, or '"01067"' for the text`)
 	_ = h.Fails("the depots jsonrpc service's result is 'undefined'", `undefined (no such property) is not a value here`)
 	h.OK("the depot.count method is called on the depots jsonrpc service")
 	h.OK("the depots jsonrpc service's result is '42'")
-	_ = h.Fails("the depots jsonrpc service's result is '\"42\"'", `(the result is the integer 42: write 42)`)
-	_ = h.Fails("the depots jsonrpc service's result is '42.0'", `(the result is the integer 42: write 42)`)
+	_ = h.Fails("the depots jsonrpc service's result is '\"42\"'", `(the result is the integer 42: write '42')`)
+	_ = h.Fails("the depots jsonrpc service's result is '42.0'", `(the result is the integer 42: write '42')`)
 	h.OK("the depot.code method is called on the depots jsonrpc service")
 	h.OK("the depots jsonrpc service's result is '\"4711\"'")
-	_ = h.Fails("the depots jsonrpc service's result is '4711'", `(the result is the string "4711": write "4711")`)
+	_ = h.Fails("the depots jsonrpc service's result is '4711'", `(the result is the string "4711": write '"4711"')`)
 	h.OK("the depot.get method is called on the depots jsonrpc service")
 	h.OK("the depots jsonrpc service's result is '{\"gate\": 4, \"code\": \"LEJ\"}'")
 	_ = h.Fails("the depots jsonrpc service's result is '{\"gate\": \"4\", \"code\": \"LEJ\"}'", `is {"code":"LEJ","gate":4}, not {"gate": "4", "code": "LEJ"}`)

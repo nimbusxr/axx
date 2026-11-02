@@ -71,7 +71,7 @@ func (pack) Manifest() core.Manifest {
 					},
 					Note:   "Other paths into the event, as EventBridge delivers it, work too, like `account` or `region`.",
 					Values: core.JSONValues, Undefined: true,
-					TextRows: []string{"attribute"},
+					TextRows: []string{"attribute <name>"},
 				},
 				Examples: []string{
 					"Then within 30s the parcels eventbridge bus has an event where:\n" +
@@ -81,11 +81,8 @@ func (pack) Manifest() core.Manifest {
 						"  | detail.decision | APPROVED       |",
 				},
 				Run: func(sc *core.Scenario, a core.Args) error {
-					rs, err := cloudstep.Conditions(a.Table)
+					rs, err := cloudstep.MessageConditions(a.Table, "attribute", nil)
 					if err != nil {
-						return err
-					}
-					if err := rs.Readable("attribute", nil); err != nil {
 						return err
 					}
 					bus := a.String(1)

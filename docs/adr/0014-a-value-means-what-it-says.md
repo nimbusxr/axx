@@ -30,10 +30,11 @@ evaluations, agents wrote REST's `"53111"` in a SQL JSON check, which failed it.
 
 A value means what it says, the same in every pack, whether a step sets it or checks it.
 
-- `42` is an integer, `42L` a long and `1.5` a decimal; `true` and `false` are booleans; `null` is
-  null; `undefined` is no such property; `{...}` and `[...]` are JSON; a value in double quotes is
-  the string inside them (`"42"`, `"true"`, `"null"`, `"undefined"`, `"01067"`); any other text is
-  a string (`REGISTERED`, `PX-4101`). This is the rule of REST's checks today (`CoerceExpected`).
+- `42` is an integer, `42L` a long, and `1.5` and `1e3` decimals; `true` and `false` are booleans;
+  `null` is null; `undefined` is no such property; `{...}` and `[...]` are JSON; a value in double
+  quotes is the string inside them (`"42"`, `"true"`, `"null"`, `"undefined"`, `"01067"`); any other
+  text is a string (`REGISTERED`, `PX-4101`, and `NULL` and `True`: those words are lowercase). This
+  is the rule of REST's checks today (`CoerceExpected`), but for the case of those words.
 - A `{string}` parameter's quotes delimit it in the step's text, and its value then follows the
   rule: `the response payload property count is "42"` checks the integer 42, and `is '"42"'` the
   string. REST's property steps also take an integer without those quotes: `is 42`.
@@ -52,10 +53,15 @@ A value means what it says, the same in every pack, whether a step sets it or ch
     `| X-Count | 3 |` asks for `"3"`.
 - `axx validate`, the MCP server's `feature_validate` and the editors (`axx lsp`) report what a
   feature shows on its own: empty cells, numbers in other forms, and values
-  that are not text in a table that holds only text. The steps fail with the same messages when
-  they run.
+  that are not text in a table that holds only text, each as `AXX-E0207`, and refuse the feature
+  (exit 3) before anything runs. `axx run` does not check first: the steps before it run, then the
+  step fails with the same message and code, and the run exits 1.
 - Sources keep their types: a whole double is a decimal (`6.0`), a MongoDB Decimal128 and a
   BigQuery NUMERIC are numbers, and a protobuf message's int64 fields are numbers.
+- The mock's request checks read a JSONPath that can give several values (a wildcard, a filter, a
+  recursive descent) as WireMock does: the request has the value when any of them is that value,
+  each compared strictly by this rule. `undefined` means the path gives none, and a list as the
+  value also compares with all of them at once.
 - Pattern steps (`… match:`) are unchanged: a pattern matches the value's text.
 - The recorded oracles stay frozen and keep testing the Java semantics they record (REST's
   request coercion, Kafka's, the Postgres text comparison); the steps use the rule's functions

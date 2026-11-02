@@ -204,13 +204,13 @@ func steps() []core.StepDef {
 func resultIs(sc *core.Scenario, s *service, c *call, want string) error {
 	v, err := core.ParseValue(want, want == "", false)
 	if err != nil {
-		return err
+		return core.InStepText(err)
 	}
 	got := string(c.result)
 	var ok bool
 	if str, isString := v.Str(); isString {
-		var text string
-		ok = json.Unmarshal(c.result, &text) == nil && text == secrets.Expand(sc, str)
+		var text *string // nil for a null result
+		ok = json.Unmarshal(c.result, &text) == nil && text != nil && *text == secrets.Expand(sc, str)
 	} else if ok, err = jvalue.ValueIs(got, "$", v); err != nil {
 		return err
 	}
@@ -219,7 +219,7 @@ func resultIs(sc *core.Scenario, s *service, c *call, want string) error {
 	}
 	msg := fmt.Sprintf("The %s jsonrpc service's result of %s is %s, not %s", s.name, c.method, got, v.JSON())
 	if actual, err := jsonx.Parse(got); err == nil {
-		if h := jvalue.TypeHint("the result", v, actual); h != "" {
+		if h := jvalue.StepTypeHint("the result", v, actual); h != "" {
 			msg += " (" + h + ")"
 		}
 	}

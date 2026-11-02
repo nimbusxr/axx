@@ -5,7 +5,9 @@
 package check
 
 import (
+	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 
 	messages "github.com/cucumber/messages/go/v34"
@@ -26,7 +28,7 @@ const (
 )
 
 // ValueCode is the error code of a Value problem.
-const ValueCode = "AXX-E0207"
+const ValueCode = core.ValueErrorCode
 
 // Problem is one step that cannot run.
 type Problem struct {
@@ -56,20 +58,35 @@ type Result struct {
 }
 
 // Pickles checks every step of pickles. A step shared by several pickles (a
-// Background step, or an outline step with the same text) is reported once.
+// Background step, or an outline step with the same text and table) is
+// checked once, and a problem at the same place is reported once: an outline's
+// examples give a step's table their values, so each row of them is checked.
 func Pickles(reg *match.Registry, pickles []*feature.Pickle) Result {
 	res := Result{Problems: []Problem{}}
 	type key struct {
-		uri  string
-		line int
-		text string
+		uri         string
+		line        int
+		text, table string
 	}
 	seen := map[key]bool{}
+	type problemKey struct {
+		uri                 string
+		line                int
+		kind, text, message string
+	}
+	reported := map[problemKey]bool{}
+	report := func(pr Problem) {
+		k := problemKey{pr.URI, pr.Line, pr.Kind, pr.Text, pr.Message}
+		if !reported[k] {
+			reported[k] = true
+			res.Problems = append(res.Problems, pr)
+		}
+	}
 	for _, p := range pickles {
 		for _, ps := range p.Steps {
 			res.Steps++
 			src := p.StepSource(ps)
-			k := key{p.Doc.URI, src.Line, ps.Text}
+			k := key{p.Doc.URI, src.Line, ps.Text, tableKey(ps)}
 			if seen[k] {
 				continue
 			}
@@ -86,7 +103,7 @@ func Pickles(reg *match.Registry, pickles []*feature.Pickle) Result {
 				msg := ArgumentProblem(ms[0], hasTable, hasDoc)
 				if msg == "" {
 					for _, vp := range valueProblems(ms[0].Def().Step.Table, ps, p.StepTableLines(ps)) {
-						res.Problems = append(res.Problems, Problem{Kind: Value, Code: ValueCode, URI: p.Doc.URI, Line: orLine(vp.line, src.Line), Text: ps.Text, Message: vp.message})
+						report(Problem{Kind: Value, Code: ValueCode, URI: p.Doc.URI, Line: orLine(vp.line, src.Line), Text: ps.Text, Message: vp.message})
 					}
 					continue
 				}
@@ -97,10 +114,25 @@ func Pickles(reg *match.Registry, pickles []*feature.Pickle) Result {
 					pr.Candidates = append(pr.Candidates, m.Def().Step.ID+": "+m.Variant.Expr)
 				}
 			}
-			res.Problems = append(res.Problems, pr)
+			report(pr)
 		}
 	}
 	return res
+}
+
+// tableKey is the cells of a step's table, as one string.
+func tableKey(ps *messages.PickleStep) string {
+	if ps.Argument == nil || ps.Argument.DataTable == nil {
+		return ""
+	}
+	var b strings.Builder
+	for _, r := range ps.Argument.DataTable.Rows {
+		for _, c := range r.Cells {
+			b.WriteString(strconv.Quote(c.Value))
+		}
+		b.WriteByte('\n')
+	}
+	return b.String()
 }
 
 // ArgumentProblem says what is wrong with the data table or doc string given
@@ -149,7 +181,7 @@ func valueProblems(td *core.TableDoc, ps *messages.PickleStep, lines []int) []va
 	var out []valueProblem
 	for i, row := range t.Rows {
 		for _, c := range td.ValueCells(row) {
-			cell := strings.TrimSpace(row[c])
+			cell := row[c] // as the steps read it: only an empty cell is empty
 			var err error
 			switch {
 			case td.Values == core.TextValues, len(td.Columns) >= 2 && td.RowIsText(row[0]):
@@ -168,7 +200,11 @@ func valueProblems(td *core.TableDoc, ps *messages.PickleStep, lines []int) []va
 			if k := skipped + i; k < len(lines) {
 				line = lines[k]
 			}
-			out = append(out, valueProblem{line: line, message: label + ": " + err.Error()})
+			message := err.Error()
+			if ve := (*core.ValueError)(nil); errors.As(err, &ve) {
+				message = ve.Message() // the Problem has the code
+			}
+			out = append(out, valueProblem{line: line, message: label + ": " + message})
 		}
 	}
 	return out

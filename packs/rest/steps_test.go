@@ -133,7 +133,8 @@ func TestPayloadProperties(t *testing.T) {
 		// A value means what it says, whatever the property held (ADR 0014).
 		{"the request payload property age is '32'", nil, `{"name":"John Doe","age":32}`},
 		{`the request payload property age is '"33"'`, nil, `{"name":"John Doe","age":"33"}`},
-		{"the request payload property active is 'TRUE'", nil, `"active":true`},
+		{"the request payload property active is 'TRUE'", nil, `"active":"TRUE"`}, // text: only true is the boolean
+		{"the request payload property active is 'true'", nil, `"active":true`},
 		{"the request payload property active is 'yes'", nil, `"active":"yes"`},
 		{"the request payload property active is 'false'", nil, `"active":false`},
 		{"the request payload property price is '19.99'", nil, `"price":19.99`},
@@ -150,14 +151,12 @@ func TestPayloadProperties(t *testing.T) {
 			{"launchDate", "2024-01-01"}, // text, over null
 			{"name", "undefined"},
 			{"extra", `"null"`},
-			{"gone", "NULL"},
-		}, ""},
+			{"gone", "null"},       // added, as any other value is
+			{"never", "undefined"}, // already left out
+			{"later.on", "undefined"},
+		}, `"gone":null`},
 	}
 	for _, s := range steps {
-		if s.text == "the request payload properties are:" {
-			h.fails(s.text, "Property not found in payload", s.rows...) // gone does not exist
-			s.rows = s.rows[:3]
-		}
 		h.ok(s.text, s.rows...)
 		if s.want == "" {
 			continue
@@ -167,8 +166,13 @@ func TestPayloadProperties(t *testing.T) {
 			t.Fatalf("%s: payload %s does not contain %s", s.text, p, s.want)
 		}
 	}
-	h.fails("the request payload property nothing is null", "Property not found in payload")
-	h.fails("the request payload property nothing is 'null'", "Property not found in payload")
+	h.ok("the request payload property nothing is null")
+	h.ok("the request payload property nothing is 'null'")
+	h.ok("the request payload property nothing.at.all is 'undefined'")
+	if svc, _ := stateKey.Of(h.sc).services.Default(); strings.Contains(*svc.requests[0].Payload, "never") || strings.Contains(*svc.requests[0].Payload, "later") ||
+		!strings.Contains(*svc.requests[0].Payload, `"nothing":null`) {
+		t.Errorf("payload %s", *svc.requests[0].Payload)
+	}
 	// A value that could be read two ways fails, with the forms to write,
 	// and changes nothing.
 	h.fails("the request payload property zip is '01067'",
@@ -290,7 +294,7 @@ func TestResponseAssertions(t *testing.T) {
 		[]string{"ratio", "1.5"},
 		[]string{"ok", "true"},
 		[]string{"none", "null"},
-		[]string{"missing", "UNDEFINED"},
+		[]string{"missing", "undefined"},
 		[]string{"list", "[1,2]"},
 		[]string{"obj", `{"a":"b"}`},
 		[]string{"name", `"x"`},
@@ -308,11 +312,13 @@ func TestResponseAssertions(t *testing.T) {
 	// that differs only in type says what to write, and a value that could be
 	// read two ways fails with the forms to write.
 	h.assertionFails("the response payload properties are:", "(count is the integer 3: write 3)", []string{"count", `"3"`})
-	h.assertionFails("the response payload property count is '3.0'", "(count is the integer 3: write 3)")
+	h.assertionFails("the response payload property count is '3.0'", "(count is the integer 3: write '3')")
 	h.ok("the response payload property none is 'null'")
 	h.ok("the response payload property nope is 'undefined'")
 	h.ok("the response payload property ratio is '1.5'")
-	h.fails("the response payload property count is '03'", `count: 03 could be the number 3 or the text 03: write 3 for the number, or "03" for the text`)
+	h.fails("the response payload property count is '03'", `count: 03 could be the number 3 or the text 03: write '3' for the number, or '"03"' for the text`)
+	h.fails(`the response payload property count is "03"`, `write '3' for the number, or '"03"' for the text`)
+	h.fails("the response payload properties are:", `count: 03 could be the number 3 or the text 03: write 3 for the number, or "03" for the text`, []string{"count", "03"})
 	h.fails("the response payload properties are:", `count: the cell is empty: write "" for the empty string, null for null, or undefined for no such property`,
 		[]string{"name", "x"}, []string{"count", ""})
 	h.fails("the response payload properties are:", "ratio: NaN is not a JSON number", []string{"ratio", "NaN"})

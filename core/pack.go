@@ -196,7 +196,20 @@ type StepDef struct {
 	// Also are other wordings of the step, those people reach for by
 	// themselves (`a` for `the`): they run the step, and lists leave them out.
 	// Each parameter takes the argument of the step's parameter of its type,
-	// in order, and one of a type the step lacks the next argument left.
+	// in order, and one of a type the step lacks the next argument left, when
+	// both types give the step text (`{integer}` for `{string}`).
+	//
+	// Registration refuses a wording that does not take the same parameters as
+	// its step: every form of it (each choice of its [[...]] parts) must take
+	// what a form of the step takes, and say something the step does not. A
+	// line that also matches the step in another form (`{word}` for `{string}`,
+	// on a quoted word) is ambiguous: keep the types apart.
+	//
+	// Parameters of one type bind in the order they are written, whatever the
+	// wording's words say, and registration cannot tell: `to {word} copy {word}`
+	// for `copy {word} to {word}` would swap them. Keep them in the step's order,
+	// or give such a wording a step of its own whose Run puts its arguments back
+	// in order, as the REST pack's `.leading` forms do.
 	Also []string `json:"also,omitempty"`
 	// Since is the axx version that introduced the step.
 	Since string `json:"since,omitempty"`
@@ -231,8 +244,8 @@ type TableDoc struct {
 	// parameter or field.
 	Undefined bool `json:"undefined,omitempty"`
 	// TextRows are the rows of a table of JSON values that hold text, by
-	// their first cell: a key of the list, or one that starts with a key
-	// and a space (`attribute` for `attribute eventType`).
+	// their first cell: exactly a key of the list, or, for `attribute
+	// <name>`, that field and a name of its own (`attribute eventType`).
 	TextRows []string `json:"textRows,omitempty"`
 }
 

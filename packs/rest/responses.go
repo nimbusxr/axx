@@ -224,7 +224,7 @@ func responseSteps() []core.StepDef {
 				if err != nil {
 					return err
 				}
-				f, err := valueCheck(ex, a.String(0), a.String(1), false)
+				f, err := stepValueCheck(ex, a.String(0), a.String(1))
 				if err != nil {
 					return fmt.Errorf("%s: %w", a.String(0), err)
 				}
@@ -515,18 +515,33 @@ func shownJSON(v any) any {
 // that gives the explicit forms.
 func valueCheck(ex *Exchange, path, text string, empty bool) (*failure, error) {
 	v, err := core.ParseValue(text, empty, true)
-	switch {
-	case err != nil:
+	if err != nil {
 		return nil, err
+	}
+	return checkValue(ex, path, v, jvalue.TypeHint)
+}
+
+// stepValueCheck is valueCheck for a value in a step's own text, whose quotes
+// are the step's: what it says to write is what to write there.
+func stepValueCheck(ex *Exchange, path, text string) (*failure, error) {
+	v, err := core.ParseValue(text, false, true)
+	if err != nil {
+		return nil, core.InStepText(err)
+	}
+	return checkValue(ex, path, v, jvalue.StepTypeHint)
+}
+
+func checkValue(ex *Exchange, path string, v core.Value, hint func(string, core.Value, any) string) (*failure, error) {
+	switch {
 	case v.Undefined():
 		return propertyUndefined(ex, path)
 	case v.IsNull():
 		return propertyNull(ex, path)
 	}
-	return propertyIs(ex, path, v)
+	return propertyIs(ex, path, v, hint)
 }
 
-func propertyIs(ex *Exchange, path string, v core.Value) (*failure, error) {
+func propertyIs(ex *Exchange, path string, v core.Value, hint func(string, core.Value, any) string) (*failure, error) {
 	if err := checkJSONResponse(ex); err != nil {
 		return nil, err
 	}
@@ -541,7 +556,7 @@ func propertyIs(ex *Exchange, path string, v core.Value) (*failure, error) {
 	msg := fmt.Sprintf("Response payload property %s is not %s", path, v.Text())
 	if doc, err := jsonx.Parse(string(ex.Body)); err == nil {
 		if actual, _, err := jsonx.Read(doc, path); err == nil {
-			if h := jvalue.TypeHint(path, v, actual); h != "" {
+			if h := hint(path, v, actual); h != "" {
 				msg += " (" + h + ")"
 			}
 		}

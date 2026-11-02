@@ -62,7 +62,7 @@ func TestLiteralAndIdent(t *testing.T) {
 }
 
 func TestWhereClause(t *testing.T) {
-	got, err := whereClause(postgres, &core.Table{Rows: [][]string{{"status", "planned"}, {"note", "NULL"}, {"name", "O'Hara"}}}, "NEW.")
+	got, err := whereClause(postgres, &core.Table{Rows: [][]string{{"status", "planned"}, {"note", "null"}, {"name", "O'Hara"}}}, "NEW.")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -86,7 +86,7 @@ func TestWhereClauseTypedValues(t *testing.T) {
 		{"price", "1.50"},
 		{"parcel_id", "3000000000L"},
 		{"signed", "true"},
-		{"express", "FALSE"},
+		{"express", "false"},
 		{"quote", `"it's"`},
 		{"details", `{"zone": "DE-1"}`},
 		{"note", `"null"`},

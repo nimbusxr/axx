@@ -95,8 +95,11 @@ func TestBareInteger(t *testing.T) {
 	} {
 		h.ok(ok)
 	}
-	h.fails("the response payload property zip is 2500", `zip is the string "2500": write`)
-	h.fails(`the response payload property weightGrams is '"2500"'`, "weightGrams is the integer 2500: write 2500")
+	// A hint says what to write in the step's own text, whose quotes are the
+	// step's: `is "2500"` is the integer again.
+	h.fails("the response payload property zip is 2500", `zip is the string "2500": write '"2500"'`)
+	h.fails(`the response payload property zip is "2500"`, `zip is the string "2500": write '"2500"'`)
+	h.fails(`the response payload property weightGrams is '"2500"'`, "weightGrams is the integer 2500: write '2500'")
 }
 
 func TestABareIntegerSetsARequestProperty(t *testing.T) {

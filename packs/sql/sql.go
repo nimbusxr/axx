@@ -478,7 +478,7 @@ func tableAndWhere(svc *Service, table string, t *core.Table, prefix string) (st
 // whereClause turns key/value rows into conditions joined with AND. A value
 // means what it says (core.ParseValue, ADR 0014) and is a SQL value of its
 // type (Dialect.Value): `col = 'PX-1'` for a string, `col = 42` for a
-// number; `null` (any case) is `col IS NULL`.
+// number; `null` is `col IS NULL`.
 func whereClause(d Dialect, t *core.Table, prefix string) (string, error) {
 	pairs, err := t.Pairs()
 	if err != nil {

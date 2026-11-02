@@ -70,10 +70,16 @@ func Poll(sc *core.Scenario, d time.Duration, check func() (bool, string, error)
 // text (core.ParseText).
 type Rows []core.Pair
 
-// Conditions reads a "where:" table. A value the rule cannot read (an
-// empty cell, 01067) fails here, before the step waits for anything; a
-// condition on text (an attribute) is read again as text when it is met.
+// Conditions reads a "where:" table of values alone. A value the rule cannot
+// read (an empty cell, 01067) fails here, before the step waits for anything.
 func Conditions(t *core.Table) (Rows, error) {
+	return MessageConditions(t, "", nil)
+}
+
+// MessageConditions reads a "where:" table of a check on messages: a condition
+// on "<field> <name>" or on one of meta is on text, and any other on a value
+// (Readable), each failing here with what validate reports for it.
+func MessageConditions(t *core.Table, field string, meta []string) (Rows, error) {
 	if t == nil {
 		return nil, fmt.Errorf("the step needs a table of conditions (| field | value |)")
 	}
@@ -81,12 +87,11 @@ func Conditions(t *core.Table) (Rows, error) {
 	if err != nil {
 		return nil, err
 	}
-	for _, p := range pairs {
-		if _, err := core.ParseValue(p.Value, p.Null, true); err != nil {
-			return nil, fmt.Errorf("%s: %w", p.Key, err)
-		}
+	rs := Rows(pairs)
+	if err := rs.Readable(field, meta); err != nil {
+		return nil, err
 	}
-	return pairs, nil
+	return rs, nil
 }
 
 // Match reports whether the JSON document meets every condition.

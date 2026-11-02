@@ -254,7 +254,7 @@ func report(sc *core.Scenario, ex *Exchange) error {
 	for _, is := range failed {
 		fmt.Fprintf(&b, "\n  - %s: %s", is.Key, is.Message)
 		if w := writeHint(is.Key, is.Message, ex.RequestBody); w != "" {
-			fmt.Fprintf(&b, "; in the table, write %s", w)
+			fmt.Fprintf(&b, "; write %s in a table, or %s in a step's own text", w, core.StepText(w))
 		}
 	}
 	b.WriteString("\nTo relax a check, set its key (or a parent key) to WARN, INFO or IGNORE with \"Given the OpenAPI validation levels are:\" or openapi.levels in axx.yaml.")

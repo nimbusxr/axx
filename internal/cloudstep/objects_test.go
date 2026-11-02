@@ -143,6 +143,26 @@ func TestObjectContent(t *testing.T) {
 	h.OK("the summaries/kestrel-2026-09.json object in the carrier-drops s3 bucket has the following properties:",
 		[][]string{{"carrier", "${env:AXX_TEST_CARRIER}"}, {"lines", "14"}})
 
+	// A reference is a string, whatever it expands to: the value is read
+	// first (ADR 0014), and a failure shows the reference, not its value.
+	put("summaries/kestrel-2026-12.json", []byte(`{"ref":"4101","zip":"01067","none":"","n":4101,"auth":{"token":"s3cret-4101"}}`))
+	const props = "within 1s the summaries/kestrel-2026-12.json object in the carrier-drops s3 bucket has the following properties:"
+	t.Setenv("AXX_TEST_REF", "4101")
+	t.Setenv("AXX_TEST_ZIP", "01067")
+	t.Setenv("AXX_TEST_NONE", "")
+	t.Setenv("AXX_TEST_TOKEN", "s3cret-4101")
+	h.OK(props, [][]string{
+		{"ref", "${env:AXX_TEST_REF}"},
+		{"zip", "${env:AXX_TEST_ZIP}"},
+		{"none", "${env:AXX_TEST_NONE}"},
+		{"auth", `{"token":"${env:AXX_TEST_TOKEN}"}`},
+	})
+	_ = h.Fails(props, `JSON properties do not have the expected values: n`, [][]string{{"n", "${env:AXX_TEST_REF}"}})
+	err = h.Fails(props, `JSON properties do not have the expected values: ref`, [][]string{{"ref", "${env:AXX_TEST_TOKEN}"}})
+	if m := err.Error(); strings.Contains(m, "s3cret-4101") || !strings.Contains(m, "${env:AXX_TEST_TOKEN}") {
+		t.Errorf("the failure should show the reference, not its value: %s", m)
+	}
+
 	// A property's value means what it says (ADR 0014): typed, strictly.
 	put("summaries/kestrel-2026-10.json", []byte(`{"carrier":"KESTREL","lines":14,"postcode":"10115","disputed":5.0}`))
 	h.OK("the summaries/kestrel-2026-10.json object in the carrier-drops s3 bucket has the following properties:",

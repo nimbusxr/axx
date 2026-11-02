@@ -117,6 +117,7 @@ func (m Messages) Steps() []core.StepDef {
 	}
 	if len(m.Typed) > 0 {
 		sendTable.Values = core.JSONValues
+		sendTable.TextRows = m.sendTextRows()
 		sendTable.Note = fmt.Sprintf("Every value but those of %s is text: one that reads as a number, a boolean or `null` "+
 			"goes in double quotes (`\"3\"`).", rowList(m.Typed))
 	}
@@ -190,15 +191,12 @@ func (m Messages) ReceivedStep() core.StepDef {
 			"- %s", dt, m.Received),
 		Table: &core.TableDoc{
 			Columns: []string{"path", "value"}, Note: whereNote, Values: core.JSONValues, Undefined: true,
-			TextRows: append([]string{m.Field}, m.Meta...),
+			TextRows: append([]string{m.Field + " <name>"}, m.Meta...),
 		},
 		Examples: []string{fmt.Sprintf("Then within 30s the %s %s has a message where:", ex.From, et) + exampleTable(ex.Where)},
 		Run: func(sc *core.Scenario, a core.Args) error {
-			rs, err := Conditions(a.Table)
+			rs, err := MessageConditions(a.Table, m.Field, m.Meta)
 			if err != nil {
-				return err
-			}
-			if err := rs.Readable(m.Field, m.Meta); err != nil {
 				return err
 			}
 			target, noun := a.String(1), m.Noun(a.Text)
@@ -266,6 +264,18 @@ func (m Messages) sendValue(p core.Pair) (string, error) {
 	}
 	s, _, err := core.ParseText(p.Value, p.Null, false)
 	return s, err
+}
+
+// sendTextRows are the rows of a send table with Typed rows that hold text
+// (sendValue): the values sent with the message, and the other rows it knows.
+func (m Messages) sendTextRows() []string {
+	rows := []string{m.Field + " <name>"}
+	for _, r := range m.SendRows {
+		if !slices.Contains(m.Typed, r.Name) && !slices.Contains(rows, r.Name) {
+			rows = append(rows, r.Name)
+		}
+	}
+	return rows
 }
 
 // rowNames lists row names for the docs: "Rows `routing key` and `topic` are".

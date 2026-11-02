@@ -2,21 +2,22 @@ package core
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
-	"math"
+	"math/big"
 	"regexp"
-	"strconv"
 	"strings"
 )
 
 // A value means what it says, in every pack, whether a step sets it or
-// checks it (ADR 0014): `42` is an integer, `42L` a long and `1.5` a
-// decimal; `true` and `false` are booleans; `null` is null; `undefined` is
+// checks it (ADR 0014): `42` is an integer, `42L` a long, and `1.5` and `1e3`
+// decimals; `true` and `false` are booleans; `null` is null; `undefined` is
 // no such property; `{...}` and `[...]` are JSON; a value in double quotes
-// is the string inside them (`"42"`); any other text is a string. A value
-// that could be read two ways is an error that gives the explicit forms: an
-// empty cell, a number in a form JSON does not have (`01067`, `+5`, `1.5f`),
-// and, where only text fits, a value that reads as anything else.
+// is the string inside them (`"42"`); any other text is a string, `NULL` and
+// `True` too. A value that could be read two ways is an error that gives the
+// explicit forms: an empty cell, a number in a form JSON does not have
+// (`01067`, `+5`, `1.5f`), and, where only text fits, a value that reads as
+// anything else.
 
 // ValueKind is what the value cells of a step's table are.
 type ValueKind int
@@ -88,14 +89,20 @@ func (d *TableDoc) Notes() string {
 }
 
 // RowIsText says whether the row of a table of JSON values whose first cell
-// is key holds text (TextRows).
+// is key holds text (TextRows): an entry `routing key` is that row and no
+// other, and `attribute <name>` the rows of a name after `attribute `. Any
+// other row, `attribute` alone or `routing key extra`, is a path into the
+// JSON, as the steps read it.
 func (d *TableDoc) RowIsText(key string) bool {
 	if d == nil {
 		return false
 	}
-	key = strings.TrimSpace(key)
 	for _, k := range d.TextRows {
-		if key == k || strings.HasPrefix(key, k+" ") {
+		if head, named := strings.CutSuffix(k, "<name>"); named {
+			if strings.HasPrefix(key, head) {
+				return true
+			}
+		} else if key == k {
 			return true
 		}
 	}
@@ -120,6 +127,55 @@ func ValueDoc(kind ValueKind, undefined bool) string {
 		return s
 	}
 	return ""
+}
+
+// ValueErrorCode is the error code of a value the rule cannot read.
+const ValueErrorCode = "AXX-E0207"
+
+// ValueError is a value the rule cannot read (ADR 0014). Error says what to
+// write in a table's cell and ends with the code, as axx validate reports
+// it, so that a step that fails on it, and what reports the failure, show
+// it too. InStepText says what to write in a step's own text.
+type ValueError struct {
+	cell, step string
+}
+
+// NewValueError is a ValueError of a value a step finds it cannot use, once it
+// has read it.
+func NewValueError(message string) *ValueError {
+	return &ValueError{cell: message, step: message}
+}
+
+func (e *ValueError) Error() string { return e.cell + " [" + ValueErrorCode + "]" }
+
+// Message is the error without its code.
+func (e *ValueError) Message() string { return e.cell }
+
+// valueError is the error whose message message makes, given how a form of
+// the value is written.
+func valueError(message func(write func(string) string) string) *ValueError {
+	return &ValueError{cell: message(asWritten), step: message(StepText)}
+}
+
+func asWritten(form string) string { return form }
+
+// InStepText is err for a value in a step's own text, not a table's cell:
+// the quotes of a {string} parameter delimit it, so writing `"01067"` there
+// gives the value 01067 again, and the form that works is `'"01067"'`. Any
+// other error comes back as it is.
+func InStepText(err error) error {
+	var ve *ValueError
+	if errors.As(err, &ve) {
+		return &ValueError{cell: ve.step, step: ve.step}
+	}
+	return err
+}
+
+// StepText is a form of a value as a step's own text writes it: in the single
+// quotes of a {string} parameter, whose value then follows the rule. `"42"`
+// is `'"42"'`, and `42` is `'42'`.
+func StepText(form string) string {
+	return "'" + strings.ReplaceAll(form, "'", `\'`) + "'"
 }
 
 // Value is a value as a feature writes it, read by the rule.
@@ -175,12 +231,15 @@ func (v Value) IsDecimal() bool { return v.kind == decimalValue }
 var (
 	integerText = regexp.MustCompile(`^-?(0|[1-9][0-9]*)$`)
 	longText    = regexp.MustCompile(`^-?(0|[1-9][0-9]*)[lL]$`)
-	decimalText = regexp.MustCompile(`^-?(0|[1-9][0-9]*)\.[0-9]+$`)
+	// decimalText is JSON's numbers with a fraction, an exponent or both.
+	decimalText = regexp.MustCompile(`^-?(0|[1-9][0-9]*)(\.[0-9]+([eE][-+]?[0-9]+)?|[eE][-+]?[0-9]+)$`)
 	// numberLike is text a reader could take for a number JSON does not
-	// write that way: a leading zero, a sign, a dot first or last, an
-	// exponent, a float or double suffix, hexadecimal.
-	numberLike = regexp.MustCompile(`^[-+]?(([0-9]+\.?[0-9]*|\.[0-9]+)([eE][-+]?[0-9]+)?[fFdD]?|0[xX][0-9a-fA-F]+)$`)
-	hexText    = regexp.MustCompile(`^(-?)0[xX]([0-9a-fA-F]+)$`)
+	// write that way: a leading zero, a sign, a dot first or last, a float,
+	// double or long suffix, hexadecimal.
+	numberLike = regexp.MustCompile(`^[-+]?(([0-9]+\.?[0-9]*|\.[0-9]+)([eE][-+]?[0-9]+)?[fFdDlL]?|0[xX][0-9a-fA-F]+[lL]?)$`)
+	hexText    = regexp.MustCompile(`^0[xX]([0-9a-fA-F]+)([lL]?)$`)
+	// numberParts is numberLike's decimal forms, without a sign, in parts.
+	numberParts = regexp.MustCompile(`^([0-9]*)(\.?)([0-9]*)([eE][-+]?[0-9]+)?([fFdDlL]?)$`)
 )
 
 // ParseValue reads a value by the rule. empty says the cell was empty, an
@@ -194,15 +253,17 @@ func ParseValue(text string, empty, undefined bool) (Value, error) {
 	switch {
 	case len(text) >= 2 && text[0] == '"' && text[len(text)-1] == '"':
 		v.kind, v.json = stringValue, quote(text[1:len(text)-1])
-	case strings.EqualFold(text, "undefined"):
+	case text == "undefined":
 		if !undefined {
-			return Value{}, fmt.Errorf("undefined (no such property) is not a value here: write \"undefined\" for the text")
+			return Value{}, valueError(func(write func(string) string) string {
+				return "undefined (no such property) is not a value here: write " + write(`"undefined"`) + " for the text"
+			})
 		}
 		v.kind, v.undefined = nullValue, true
-	case strings.EqualFold(text, "null"):
+	case text == "null":
 		v.kind, v.json = nullValue, "null"
-	case strings.EqualFold(text, "true"), strings.EqualFold(text, "false"):
-		v.kind, v.json = booleanValue, strings.ToLower(text)
+	case text == "true", text == "false":
+		v.kind, v.json = booleanValue, text
 	case integerText.MatchString(text):
 		v.kind, v.json = integerValue, text
 	case longText.MatchString(text):
@@ -212,7 +273,10 @@ func ParseValue(text string, empty, undefined bool) (Value, error) {
 	case strings.HasPrefix(text, "{") && strings.HasSuffix(text, "}"),
 		strings.HasPrefix(text, "[") && strings.HasSuffix(text, "]"):
 		if !json.Valid([]byte(text)) {
-			return Value{}, fmt.Errorf("%s is not valid JSON: write it as JSON, or in double quotes for the text", clipText(text))
+			return Value{}, &ValueError{
+				cell: fmt.Sprintf("%s is not valid JSON: write it as JSON, or in double quotes for the text", clipText(text)),
+				step: fmt.Sprintf("%s is not valid JSON: write it as JSON, or as %s for the text", clipText(text), StepText(`"`+text+`"`)),
+			}
 		}
 		v.kind, v.json = objectValue, text
 		if text[0] == '[' {
@@ -237,17 +301,62 @@ func ParseText(text string, empty, undefined bool) (s string, isUndefined bool, 
 	if len(text) >= 2 && text[0] == '"' && text[len(text)-1] == '"' {
 		return text[1 : len(text)-1], false, nil
 	}
-	if undefined && strings.EqualFold(text, "undefined") {
+	if undefined && text == "undefined" {
 		return "", true, nil
 	}
 	v, err := ParseValue(text, false, true)
 	switch {
 	case err != nil:
-		return "", false, fmt.Errorf("%s is text here: write \"%s\"", clipText(text), text)
+		return "", false, valueError(func(write func(string) string) string {
+			return fmt.Sprintf("%s is text here: write %s", clipText(text), write(`"`+text+`"`))
+		})
 	case v.kind == stringValue:
 		return text, false, nil
 	}
-	return "", false, fmt.Errorf("%s reads as %s, and only text fits here: write \"%s\" for the text", clipText(text), v.kindName(), text)
+	return "", false, valueError(func(write func(string) string) string {
+		return fmt.Sprintf("%s reads as %s, and only text fits here: write %s for the text", clipText(text), v.kindName(), write(`"`+text+`"`))
+	})
+}
+
+// Expand is v with the references in its strings expanded: a string's, or
+// those in the strings of an object or array, their keys too. It comes after
+// the value is read, so a reference is a string, whatever it expands to.
+// Text stays as written, which keeps what a reference expands to out of
+// messages; JSON has it, and every number as written.
+func (v Value) Expand(expand func(string) (string, error)) (Value, error) {
+	var b strings.Builder
+	rest := v.json
+	for {
+		start := strings.IndexByte(rest, '"')
+		if start < 0 {
+			b.WriteString(rest)
+			break
+		}
+		end := start + 1
+		for rest[end] != '"' { // v.json is valid JSON
+			if rest[end] == '\\' {
+				end++
+			}
+			end++
+		}
+		b.WriteString(rest[:start])
+		str := rest[start : end+1]
+		if strings.Contains(str, "${") {
+			var s string
+			if err := json.Unmarshal([]byte(str), &s); err != nil {
+				return Value{}, err
+			}
+			s, err := expand(s)
+			if err != nil {
+				return Value{}, err
+			}
+			str = quote(s)
+		}
+		b.WriteString(str)
+		rest = rest[end+1:]
+	}
+	v.json = b.String()
+	return v, nil
 }
 
 func (v Value) kindName() string {
@@ -273,15 +382,18 @@ func (v Value) kindName() string {
 }
 
 func emptyError(undefined, text bool) error {
-	switch {
-	case text && undefined:
-		return fmt.Errorf("the cell is empty: write \"\" for the empty text, or undefined for none")
-	case text:
-		return fmt.Errorf("the cell is empty: write \"\" for the empty text")
-	case undefined:
-		return fmt.Errorf("the cell is empty: write \"\" for the empty string, null for null, or undefined for no such property")
+	message := func(subject string, write func(string) string) string {
+		switch {
+		case text && undefined:
+			return fmt.Sprintf("%s is empty: write %s for the empty text, or %s for none", subject, write(`""`), write("undefined"))
+		case text:
+			return fmt.Sprintf("%s is empty: write %s for the empty text", subject, write(`""`))
+		case undefined:
+			return fmt.Sprintf("%s is empty: write %s for the empty string, %s for null, or %s for no such property", subject, write(`""`), write("null"), write("undefined"))
+		}
+		return fmt.Sprintf("%s is empty: write %s for the empty string, or %s for null", subject, write(`""`), write("null"))
 	}
-	return fmt.Errorf("the cell is empty: write \"\" for the empty string, or null for null")
+	return &ValueError{cell: message("the cell", asWritten), step: message("the value", StepText)}
 }
 
 func isSpecialNumber(s string) bool {
@@ -295,39 +407,57 @@ func isSpecialNumber(s string) bool {
 // numberError names the number a text could be and its explicit forms.
 func numberError(text string) error {
 	if n, ok := plainNumber(text); ok {
-		return fmt.Errorf("%s could be the number %s or the text %s: write %s for the number, or \"%s\" for the text", text, n, text, n, text)
+		return valueError(func(write func(string) string) string {
+			return fmt.Sprintf("%s could be the number %s or the text %s: write %s for the number, or %s for the text", text, n, text, write(n), write(`"`+text+`"`))
+		})
 	}
-	return fmt.Errorf("%s is not a JSON number: write \"%s\" for the text", text, text)
+	return valueError(func(write func(string) string) string {
+		return fmt.Sprintf("%s is not a JSON number: write %s for the text", text, write(`"`+text+`"`))
+	})
 }
 
-// plainNumber is the JSON form of a number written another way.
+// plainNumber is the rule's form of a number written another way, made from
+// its text, so that it is the same number however long or large: its sign and
+// its leading zeros go, a dot first or last gets its digit, a float's suffix
+// makes it a decimal, and a long's suffix stays on an integer.
 func plainNumber(text string) (string, bool) {
 	t := strings.TrimPrefix(text, "+")
+	sign := ""
+	if rest, neg := strings.CutPrefix(t, "-"); neg {
+		sign, t = "-", rest
+	}
 	if m := hexText.FindStringSubmatch(t); m != nil {
-		n, err := strconv.ParseInt(m[2], 16, 64)
-		if err != nil {
+		n, ok := new(big.Int).SetString(m[1], 16)
+		if !ok {
 			return "", false
 		}
-		if m[1] == "-" {
-			n = -n
-		}
-		return strconv.FormatInt(n, 10), true
+		return sign + n.String() + m[2], true
 	}
-	t = strings.TrimRight(t, "fFdD")
-	if !strings.ContainsAny(text, ".eEfFdD") {
-		if n, err := strconv.ParseInt(t, 10, 64); err == nil {
-			return strconv.FormatInt(n, 10), true
-		}
-	}
-	f, err := strconv.ParseFloat(t, 64)
-	if err != nil || math.IsInf(f, 0) || math.IsNaN(f) {
+	m := numberParts.FindStringSubmatch(t)
+	if m == nil {
 		return "", false
 	}
-	s := strconv.FormatFloat(f, 'f', -1, 64)
-	if !strings.Contains(s, ".") {
-		s += ".0"
+	whole, dot, fraction, exponent, suffix := strings.TrimLeft(m[1], "0"), m[2], m[3], m[4], m[5]
+	if whole == "" {
+		whole = "0"
 	}
-	return s, true
+	if dot != "" && fraction == "" {
+		fraction = "0"
+	}
+	isInteger := dot == "" && exponent == ""
+	switch suffix {
+	case "l", "L":
+		if !isInteger {
+			suffix = ""
+		}
+	case "":
+	default:
+		suffix = ""
+		if isInteger {
+			dot, fraction = ".", "0"
+		}
+	}
+	return sign + whole + dot + fraction + exponent + suffix, true
 }
 
 func quote(s string) string {

@@ -28,6 +28,21 @@ func Properties(doc string, t *core.Table, regex bool) error {
 	if regex {
 		return patterns(doc, pairs)
 	}
+	return values(doc, pairs, nil)
+}
+
+// ExpandedProperties is Properties of values with the references in their
+// strings expanded, after each value is read (core.Value.Expand): a reference
+// is a string, whatever it expands to, and a failure shows it as written.
+func ExpandedProperties(doc string, t *core.Table, expand func(string) string) error {
+	pairs, err := t.Pairs()
+	if err != nil {
+		return err
+	}
+	return values(doc, pairs, expand)
+}
+
+func values(doc string, pairs []core.Pair, expand func(string) string) error {
 	if _, err := jvalue.ParseJackson(doc); err != nil {
 		return couldNot(err)
 	}
@@ -39,7 +54,13 @@ func Properties(doc string, t *core.Table, regex bool) error {
 		if err != nil {
 			return fmt.Errorf("%s: %w", p.Key, err)
 		}
-		ok, err := jvalue.ValueIs(doc, p.Key, v)
+		want := v
+		if expand != nil {
+			if want, err = v.Expand(func(s string) (string, error) { return expand(s), nil }); err != nil {
+				return fmt.Errorf("%s: %w", p.Key, err)
+			}
+		}
+		ok, err := jvalue.ValueIs(doc, p.Key, want)
 		if err != nil {
 			return unwrap(err)
 		}
@@ -51,7 +72,7 @@ func Properties(doc string, t *core.Table, regex bool) error {
 		got, value, found := valueAt(doc, p.Key)
 		actual[p.Key] = got
 		if found {
-			if h := jvalue.TypeHint(p.Key, v, value); h != "" {
+			if h := jvalue.TypeHint(p.Key, want, value); h != "" {
 				hints = append(hints, h)
 			}
 		}
@@ -79,9 +100,11 @@ func patterns(doc string, pairs []core.Pair) error {
 		if p.Null {
 			return couldNot(fmt.Errorf("the pattern for %s is empty", p.Key))
 		}
-		ok, err := jvalue.PostgresPropertyMatches(doc, p.Key, p.Value)
-		if err != nil {
-			return unwrap(err)
+		ok := false
+		if !jvalue.NullDocument(doc) { // any path under null is absent
+			if ok, err = jvalue.PostgresPropertyMatches(doc, p.Key, p.Value); err != nil {
+				return unwrap(err)
+			}
 		}
 		if !ok {
 			failed = append(failed, p.Key)
@@ -117,6 +140,12 @@ func shownValue(v core.Value) any {
 
 // valueAt is the value at path, as a failure shows it, and as it is.
 func valueAt(doc, path string) (shown, value any, found bool) {
+	if jvalue.NullDocument(doc) {
+		if path == "$" {
+			return rawJSON("null"), nil, true
+		}
+		return "<absent>", nil, false
+	}
 	d, err := jsonx.Parse(doc)
 	if err != nil {
 		return "<unreadable>", nil, false
@@ -129,6 +158,9 @@ func valueAt(doc, path string) (shown, value any, found bool) {
 }
 
 func describeActual(text, path string) any {
+	if jvalue.NullDocument(text) {
+		return "<absent>"
+	}
 	doc, err := jsonx.Parse(text)
 	if err != nil {
 		return "<unreadable>"

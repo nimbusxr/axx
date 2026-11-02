@@ -338,6 +338,9 @@ func problemMessage(pr check.Problem, outline bool) string {
 		for _, c := range pr.Candidates {
 			b.WriteString("\n  " + c)
 		}
+	case check.Value:
+		// It starts with the row's key, as the table writes it.
+		b.WriteString(pr.Message + ".")
 	default:
 		if pr.Message != "" {
 			b.WriteString(strings.ToUpper(pr.Message[:1]) + pr.Message[1:] + ".")

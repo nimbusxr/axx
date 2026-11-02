@@ -64,7 +64,7 @@ func TestConsumerAssertions(t *testing.T) {
 
 	h.must("the orders kafka event named first key is k1")
 	h.must("the orders kafka event named first payload properties are:",
-		[]string{"$.id", "o-1"}, []string{"count", "3"}, []string{"$.ratio", "0.5"}, []string{"$.ok", "TRUE"},
+		[]string{"$.id", "o-1"}, []string{"count", "3"}, []string{"$.ratio", "0.5"}, []string{"$.ok", "true"},
 		[]string{"$.none", "null"}, []string{"$.tags", `["a"]`}, []string{"$.big", "3000000000L"}, []string{"$.zip", `"01067"`},
 		[]string{"$.missing", "undefined"})
 	h.must("the orders kafka event named first headers are:", []string{"source", "svc"}, []string{"trace", "t-1"}, []string{"attempt", `"3"`})

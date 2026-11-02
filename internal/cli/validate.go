@@ -15,7 +15,7 @@ import (
 
 // Problem is one validation finding.
 type Problem struct {
-	Kind        string             `json:"kind"` // undefined | ambiguous | argument
+	Kind        string             `json:"kind"` // undefined | ambiguous | argument | value
 	Location    string             `json:"location"`
 	Text        string             `json:"text"`
 	Message     string             `json:"message,omitempty"`
@@ -41,7 +41,7 @@ func newValidateCmd(app *App) *cobra.Command {
 	var cf configFlags
 	cmd := &cobra.Command{
 		Use:   "validate [paths...]",
-		Short: "Check feature files without running them: syntax, undefined and ambiguous steps",
+		Short: "Check feature files without running them: syntax, undefined and ambiguous steps, and values that could be read two ways",
 		Long: `Parse feature files and match every step against the available step
 definitions, without starting applications or executing anything.
 
@@ -50,7 +50,8 @@ that cannot work), and hints at scenarios whose checks prove little (only a
 success status code, or only that something did not happen); neither changes
 the exit code.
 
-Exit codes: 0 valid, 2 syntax/config error, 3 undefined or ambiguous steps.`,
+Exit codes: 0 valid, 2 syntax/config error, 3 undefined or ambiguous steps,
+or values that could be read two ways (AXX-E0207).`,
 		RunE: func(_ *cobra.Command, args []string) error {
 			e, err := app.loadEngine(&cf)
 			if err != nil {

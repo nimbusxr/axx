@@ -8,7 +8,6 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -180,9 +179,8 @@ func (o Objects) Checks() []core.StepDef {
 				}); err != nil {
 					return err
 				}
-				want := expanded(sc, a.Table)
-				return o.await(sc, Wait(a, 0), a.String(2), a.String(1), func(got []byte) (bool, string, error) {
-					err := jsonassert.Properties(string(got), want, false)
+				return secrets.Hide(sc, o.await(sc, Wait(a, 0), a.String(2), a.String(1), func(got []byte) (bool, string, error) {
+					err := jsonassert.ExpandedProperties(string(got), a.Table, func(s string) string { return secrets.Expand(sc, s) })
 					switch {
 					case err == nil:
 						return true, "", nil
@@ -190,7 +188,7 @@ func (o Objects) Checks() []core.StepDef {
 						return false, err.Error(), nil
 					}
 					return false, "", err
-				})
+				}))
 			},
 		},
 		{
@@ -320,22 +318,6 @@ func (o Objects) await(sc *core.Scenario, d time.Duration, container, name strin
 		}
 		return false, fmt.Sprintf("The %s %s in the %s %s did not meet the expectation within %s: %s", name, o.Object, container, o.Container, d, why), nil
 	})
-}
-
-// expanded is a key and value table with ${env:..} and ${sys:..} expanded
-// in its values, as in a step's other arguments.
-func expanded(sc *core.Scenario, t *core.Table) *core.Table {
-	if t == nil {
-		return nil
-	}
-	out := &core.Table{Rows: make([][]string, len(t.Rows))}
-	for i, row := range t.Rows {
-		out.Rows[i] = slices.Clone(row)
-		if len(row) == 2 {
-			out.Rows[i][1] = secrets.Expand(sc, row[1])
-		}
-	}
-	return out
 }
 
 // TextPairs are the rows of a key and value table whose values are text

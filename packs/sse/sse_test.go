@@ -75,6 +75,27 @@ func TestEvents(t *testing.T) {
 	}
 }
 
+// A row is on the event itself only when it names a type or an id, as the check
+// reads it; `event` alone is a path into the data, for axx validate too.
+func TestEventRowsAreTextByName(t *testing.T) {
+	for _, s := range steps() {
+		if s.ID != Name+".event" {
+			continue
+		}
+		for key, want := range map[string]bool{"event type": true, "event id": true, "event": false, "status": false} {
+			if got := s.Table.RowIsText(key); got != want {
+				t.Errorf("%q: %v", key, got)
+			}
+		}
+	}
+	h, _, url := harness(t)
+	h.NewScenario()
+	h.OK("the tracking event stream with the following properties:", [][]string{{"url", url + "/api/parcels/PX-LIV-5702/events"}})
+	// What fits text, not a number, as validate says it.
+	_ = h.Fails("the tracking event stream has an event where:", `event id: 01 is text here: write "01"`, [][]string{{"event id", "01"}})
+	_ = h.Fails("the tracking event stream has an event where:", `event id: the cell is empty: write "" for the empty text, or undefined for none`, [][]string{{"event id", ""}})
+}
+
 func TestAStreamThatIsNotOne(t *testing.T) {
 	h, _, url := harness(t)
 	_ = h.Fails("the tracking event stream with the following properties:", `answered 404 with "application/problem+json", not an event stream: {"title":"no such parcel"}`,
