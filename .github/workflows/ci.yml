@@ -404,7 +404,7 @@ jobs:
           distribution: temurin
           java-version: "21"
       # Gradle's caches: written on main only (the action's default), read by pull requests.
-      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6
+      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6
       # The couriers' app (the models-android pack's tests build an app of their own) and the
       # emulator's device, from their caches, or made while the rest sets up.
       - uses: ./.github/actions/courier-android
@@ -541,7 +541,7 @@ jobs:
           distribution: temurin
           java-version: "21"
       # Gradle's caches: written on main only (the action's default), read by pull requests.
-      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6
+      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6
       # The couriers' app and the emulator's device, from their caches, or made while the rest
       # sets up.
       - uses: ./.github/actions/courier-android
@@ -1254,7 +1254,7 @@ jobs:
           # Tools are cached from main only: pull requests read them.
           cache_save: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
       - run: mise exec aqua:rhysd/actionlint -- actionlint
-      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           enable-cache: false
       # Security audit of every workflow (template injection, permissions, pinning...).

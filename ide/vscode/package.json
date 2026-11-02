@@ -244,13 +244,13 @@
   "devDependencies": {
     "@types/node": "20.19.43",
     "@types/vscode": "1.91.0",
-    "@vscode/vsce": "4.0.0",
+    "@vscode/vsce": "4.1.0",
     "esbuild": "0.28.2",
     "typescript": "7.0.2",
     "vscode-oniguruma": "2.0.1",
     "vscode-textmate": "9.3.2"
   },
   "overrides": {
-    "@azure/msal-node": "7.1.1"
+    "@azure/msal-node": "7.1.2"
   }
 }
