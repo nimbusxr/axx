@@ -3,5 +3,8 @@
   "private": true,
   "dependencies": {
     "lighthouse": "13.6.0"
+  },
+  "overrides": {
+    "glob": "14.0.3"
   }
 }
