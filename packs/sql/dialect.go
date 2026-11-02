@@ -33,14 +33,18 @@ type Dialect struct {
 	BitBooleans bool
 	// Oracle enables its session, catalogs, numbers and triggers.
 	Oracle bool
+	// TimeOffset means a time's literal has its offset: every column of that database
+	// takes one, and one that holds a moment needs it. A column with no time zone keeps
+	// the wall clock.
+	TimeOffset bool
 }
 
 var (
-	postgres  = Dialect{Name: "postgresql", Driver: "pgx", ForUpdate: " FOR UPDATE", Postgres: true}
+	postgres  = Dialect{Name: "postgresql", Driver: "pgx", ForUpdate: " FOR UPDATE", Postgres: true, TimeOffset: true}
 	mysql     = Dialect{Name: "mysql", Driver: "mysql", ForUpdate: " FOR UPDATE", BackslashEscapes: true}
 	sqlite    = Dialect{Name: "sqlite", Driver: "sqlite"}
 	sqlserver = Dialect{Name: "sqlserver", Driver: "sqlserver", ForUpdateHint: " WITH (UPDLOCK, ROWLOCK)", BitBooleans: true}
-	oracle    = Dialect{Name: "oracle", Driver: "oracle", ForUpdate: " FOR UPDATE WAIT 10", BitBooleans: true, Oracle: true}
+	oracle    = Dialect{Name: "oracle", Driver: "oracle", ForUpdate: " FOR UPDATE WAIT 10", BitBooleans: true, Oracle: true, TimeOffset: true}
 )
 
 // Target is a resolved connection target.
@@ -159,12 +163,10 @@ func resolveSQLServer(raw, user, password string) (Target, error) {
 	return Target{Dialect: sqlserver, DSN: pu.String()}, nil
 }
 
-// Time renders a moment as a literal of the machine's wall-clock time, as JDBC sends a
-// timestamp. PostgreSQL gets the machine's offset too, so a timestamptz column holds that very
-// moment wherever the machine runs; a timestamp column drops the offset and keeps the wall clock.
-// So does Oracle's (oracleTemporal).
+// Time renders a moment as a literal of its wall-clock time, with its offset where the
+// dialect takes one. A seed's relative times are the database's clock (databaseNow).
 func (d Dialect) Time(t time.Time, layout string) string {
-	if d.Postgres || d.Oracle {
+	if d.TimeOffset {
 		layout += "-07:00"
 	}
 	return d.Literal(t.Format(layout))

@@ -104,7 +104,8 @@ func steps() []core.StepDef {
 				"- An Excel file (`.xlsx`) has a sheet per table, named after it, with a first row that names the columns; an empty cell is NULL.\n" +
 				"- A value can be `[null]` for NULL, `[UNIX_TIMESTAMP]` for the seconds since 1970, or a time counted from now, like " +
 				"`[DAY,NOW]`, `[DAY,PLUS,1]` or `[HOUR,MINUS,2]` (the unit is `DAY`, `HOUR`, `MIN` or `SEC`). " +
-				"It is the machine's local time; PostgreSQL also gets its offset, so a `timestamptz` column holds that very moment.\n" +
+				"It is counted from the database's own clock, in its time zone (SQLite has none, so it is the machine's), so it agrees with what the database compares it to, " +
+				"like `SYSDATE` or `now()`, wherever axx runs. A column that holds a moment, like `timestamptz`, holds that very moment.\n" +
 				"- In YAML and JSON, a value that is a list or an object is stored as JSON text.\n" +
 				"- A row can set an identity column, whether the database calls it `GENERATED ALWAYS` or `IDENTITY`: the column takes what the row names. " +
 				"PostgreSQL's sequence stays where it was, so give seeded rows ids the service will not reach.\n" +
@@ -290,7 +291,7 @@ func columnIs(sc *core.Scenario, a core.Args) error {
 	if err != nil {
 		return err
 	}
-	same, hint, actual := svc.cellIs(sc.Context(), sel.Table, column, got, want)
+	same, hint, actual := svc.cellIs(sc.Context(), sel, column, got, want)
 	if same {
 		return nil
 	}
@@ -350,7 +351,11 @@ func seedStep(sc *core.Scenario, a core.Args) error {
 	if err != nil {
 		return fmt.Errorf("Could not perform seed: %w", err) //nolint:staticcheck // user-facing message
 	}
-	if err := svc.insert(sc.Context(), ds, time.Now()); err != nil {
+	now, err := svc.databaseNow(sc.Context())
+	if err != nil {
+		return fmt.Errorf("Could not perform seed: could not read the database's clock: %w", err) //nolint:staticcheck // user-facing message
+	}
+	if err := svc.insert(sc.Context(), ds, now); err != nil {
 		return fmt.Errorf("Could not perform seed: %w", err) //nolint:staticcheck // user-facing message
 	}
 	return nil
@@ -361,15 +366,15 @@ func selectStep(sc *core.Scenario, a core.Args) error {
 	if err != nil {
 		return err
 	}
-	table, where, untyped, err := tableAndWhere(sc.Context(), svc, a.String(1), a.Table)
+	f, err := tableAndWhere(sc.Context(), svc, a.String(1), a.Table)
 	if err != nil {
 		return err
 	}
-	sel, err := svc.query(sc.Context(), table, "SELECT * FROM "+table+" WHERE "+where)
+	sel, err := svc.queryTyped(sc.Context(), f.table, "SELECT * FROM "+f.table+" WHERE "+f.where, f.types)
 	if err != nil {
 		return fmt.Errorf("Could not perform selection: %w", typeMismatch(err)) //nolint:staticcheck // user-facing message
 	}
-	keepStored(sel, untyped)
+	keepStored(sel, f.untyped)
 	svc.addSelection(sel)
 	return nil
 }
@@ -387,19 +392,24 @@ func pollStep(sc *core.Scenario, a core.Args) error {
 	for {
 		// Each time: the table may be one the service has yet to create. A
 		// value of the wrong type fails here, at once, as no wait can mend it.
-		table, where, untyped, err := tableAndWhere(sc.Context(), svc, a.String(3), a.Table)
-		if err != nil {
+		var lookup *columnTypesError
+		f, err := tableAndWhere(sc.Context(), svc, a.String(3), a.Table)
+		switch {
+		case errors.As(err, &lookup):
+			lastErr = err // a connection may come back, and a wait can mend that
+		case err != nil:
 			return err
-		}
-		sel, err := svc.query(sc.Context(), table, "SELECT * FROM "+table+" WHERE "+where)
-		if err == nil {
-			keepStored(sel, untyped)
-			last = sel
-			if len(sel.Rows) >= minRows {
+		default:
+			sel, err := svc.queryTyped(sc.Context(), f.table, "SELECT * FROM "+f.table+" WHERE "+f.where, f.types)
+			if err != nil {
+				lastErr = err
 				break
 			}
-		} else {
-			lastErr = err
+			keepStored(sel, f.untyped)
+			last = sel
+		}
+		if last != nil && len(last.Rows) >= minRows {
+			break
 		}
 		if time.Now().Add(500 * time.Millisecond).After(deadline) {
 			break
@@ -520,38 +530,41 @@ func (o *orderedObject) MarshalJSON() ([]byte, error) {
 // tableAndWhere validates the table name, builds the WHERE clause and holds each
 // of its values to its column's type (holdToColumns); it returns the conditions
 // on columns with no declared type, which keepStored applies to what comes back.
-func tableAndWhere(ctx context.Context, svc *Service, table string, t *core.Table) (string, string, []untypedCondition, error) {
+func tableAndWhere(ctx context.Context, svc *Service, table string, t *core.Table) (filter, error) {
 	tbl, err := Ident(table)
 	if err != nil {
-		return "", "", nil, err
+		return filter{}, err
 	}
-	var where string
-	if svc.Target.Dialect.Oracle {
-		where, err = whereClauseOf(t, "", svc.oracleLiterals(ctx, tbl))
-	} else {
-		where, err = whereClause(svc.Target.Dialect, t, "")
-	}
+	types, err := svc.columnTypes(ctx, tbl)
 	if err != nil {
-		return "", "", nil, err
+		return filter{}, err
 	}
-	untyped, err := svc.holdToColumns(ctx, tbl, t)
+	where, err := whereClauseOf(t, "", svc.comparisons(types))
 	if err != nil {
-		return "", "", nil, err
+		return filter{}, err
 	}
-	return tbl, where, untyped, nil
+	untyped, err := svc.holdToColumns(types, tbl, t)
+	if err != nil {
+		return filter{}, err
+	}
+	return filter{table: tbl, where: where, untyped: untyped, types: types}, nil
 }
 
-// whereClause turns key/value rows into conditions joined with AND. A value
-// means what it says (core.ParseValue, ADR 0014) and is a SQL value of its
-// type (Dialect.Value): `col = 'PX-1'` for a string, `col = 42` for a
-// number; `null` is `col IS NULL`. What keeps the database from converting
-// either of them is holdToColumns, which runs before the query.
-func whereClause(d Dialect, t *core.Table, prefix string) (string, error) {
-	return whereClauseOf(t, prefix, func(_ string, v core.Value) string { return d.Value(v) })
+// filter is what a step's table of conditions asks of a table.
+type filter struct {
+	table, where string
+	// untyped are its conditions on columns with no declared type (keepStored).
+	untyped []untypedCondition
+	// types are the table's column types, for the query that follows.
+	types map[string]string
 }
 
-// whereClauseOf is whereClause with its values written by literal, given the column.
-func whereClauseOf(t *core.Table, prefix string, literal func(string, core.Value) string) (string, error) {
+// whereClauseOf turns key/value rows into conditions joined with AND. A value means what
+// it says (core.ParseValue, ADR 0014) and is a SQL value of its type (Dialect.Value):
+// `col = 'PX-1'` for a string, `col = 42` for a number; `null` is `col IS NULL`. compare
+// writes each condition, as its column's type asks (Service.comparisons). What keeps the
+// database from converting either side is holdToColumns, which runs before the query.
+func whereClauseOf(t *core.Table, prefix string, compare func(left, column string, v core.Value) string) (string, error) {
 	pairs, err := t.Pairs()
 	if err != nil {
 		return "", err
@@ -572,7 +585,7 @@ func whereClauseOf(t *core.Table, prefix string, literal func(string, core.Value
 		if v.IsNull() {
 			parts = append(parts, prefix+col+" IS NULL")
 		} else {
-			parts = append(parts, prefix+col+" = "+literal(col, v))
+			parts = append(parts, compare(prefix+col, col, v))
 		}
 	}
 	return strings.Join(parts, " AND "), nil

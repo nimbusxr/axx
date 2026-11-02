@@ -15,7 +15,7 @@ Background:
     | password | parcels                           |
 ```
 
-Native URLs (`postgres://`, `mysql://`, `sqlserver://`, `oracle://`, `sqlite:`) and JDBC-style URLs (`jdbc:postgresql://`, `jdbc:mysql://`, `jdbc:mariadb://`, `jdbc:sqlserver://`, `jdbc:oracle:thin:@//`, `jdbc:sqlite:`) are accepted. Name a table with its schema, like `parcels.parcels`, or set `currentSchema` in a PostgreSQL URL. The drivers are pure Go and come with the `sql` pack. JSONB containment and triggers need PostgreSQL, and row locks a database other than SQLite; seeds, selections and row counts work on every database.
+Native URLs (`postgres://`, `mysql://`, `sqlserver://`, `oracle://`, `sqlite:`) and JDBC-style URLs (`jdbc:postgresql://`, `jdbc:mysql://`, `jdbc:mariadb://`, `jdbc:sqlserver://`, `jdbc:oracle:thin:@//`, `jdbc:sqlite:`) are accepted. Name a table with its schema, like `parcels.parcels`, or set `currentSchema` in a PostgreSQL URL. The drivers are pure Go and come with the `sql` pack. JSONB containment needs PostgreSQL, triggers PostgreSQL or Oracle, and row locks a database other than SQLite; seeds, selections and row counts work on every database.
 
 ## Seed
 
@@ -44,7 +44,7 @@ parcels.manifest_lines:
     recipient: '{"name": "Lise Meitner", "city": "Hamburg", "postcode": "20095", "country": "DE"}'
 ```
 
-Flat XML (`.xml`), JSON (`.json`), Excel (`.xlsx`, one sheet per table) and CSV dataset directories (one `<table>.csv` per table, in the order `table-ordering.txt` lists when there is one) work the same way. The `[null]` and `[UNIX_TIMESTAMP]` placeholders are supported, and so are times counted from now, such as `[DAY,NOW]`, `[DAY,PLUS,1]` or `[HOUR,MINUS,2]` (in `DAY`, `HOUR`, `MIN` or `SEC`). A time counted from now is the machine's local time. PostgreSQL also gets its offset, so a `timestamptz` column holds that very moment whatever time zone the machine is in, and a `timestamp` column holds the local wall-clock time. Values are escaped, so text containing `'` is safe.
+Flat XML (`.xml`), JSON (`.json`), Excel (`.xlsx`, one sheet per table) and CSV dataset directories (one `<table>.csv` per table, in the order `table-ordering.txt` lists when there is one) work the same way. The `[null]` and `[UNIX_TIMESTAMP]` placeholders are supported, and so are times counted from now, such as `[DAY,NOW]`, `[DAY,PLUS,1]` or `[HOUR,MINUS,2]` (in `DAY`, `HOUR`, `MIN` or `SEC`). A time counted from now is counted from the database's own clock, in its time zone, so it agrees with what the database compares it to, like `SYSDATE` or `now()`, wherever axx runs. A column with no time zone holds the database's wall-clock time, and one that holds a moment, like `timestamptz`, holds that very moment. SQLite has no clock of its own, so it gets the machine's. Values are escaped, so text containing `'` is safe.
 
 Scenarios share the database and run in parallel, so give every seeded row an id that belongs to one scenario. [Isolate test data](/guides/isolate-test-data/) shows how to enforce that with `axx lint`.
 
@@ -80,6 +80,13 @@ postcode is text in parcels.pickups (VARCHAR): write "10115" [AXX-E0207]
 ```
 
 An SQLite column declared with no type has none to hold a value to, so what the database selects is held to what each row stores: `850` selects the integer, and not the real `850.0`. An empty cell is an error: write `""` for the empty string.
+
+A date or time says as much as its column holds, in a table and in a column check, or it fails at once and says what to write. A column with no time zone (`DATE`, `TIMESTAMP`, `DATETIME`, and MySQL's `TIMESTAMP`, which a client reads as a wall clock) takes no offset, which each database would drop its own way. A column that holds a moment (`timestamptz`, Oracle's `TIMESTAMP WITH TIME ZONE`, SQL Server's `DATETIMEOFFSET`) needs one, as a time without it would mean something else on another machine:
+
+```text
+planned_at has no time zone in pickups (TIMESTAMP), so an offset would be dropped: write "2026-09-24 07:40:00" [AXX-E0207]
+confirmed_at holds a moment in pickups (TIMESTAMPTZ), which a time with no offset does not say: write its offset, like "2026-09-24T07:40:00Z" [AXX-E0207]
+```
 
 A scenario can hold several selections. They are numbered in the order they are retrieved, and later steps address them by ordinal (`the 2nd selection`); in `a 2nd selection of rows is retrieved` the ordinal is only a label. Leaving the ordinal out means the first:
 
@@ -160,6 +167,9 @@ The steps are the same on Oracle, with a few of its own ways:
 
 - **Nothing to say about session formats.** A date or a time reads as `2026-09-24`, `2026-09-24 07:40:00` or `2026-09-24T07:40:00+02:00` in a seed or a table, whatever the database's date format is.
 - **An empty string is null.** Oracle stores `''` as null, so `""` could never select a row: the step fails at once and says to write `null`.
+- **Bytes are written in hex.** A `RAW` or `BLOB` column takes and reads as `DEADBEEF`.
+- **A `JSON` column compares as JSON.** `{"count":3,"zone":"DE-1"}` selects a row whose keys are in another order, and `{"count":"3"}` does not select a row holding the number.
+- **Oracle refuses a condition on some types:** `LONG`, `LONG RAW`, `XMLTYPE` and `VECTOR`. Select the row by another column and check the value with `the 1st row doc column of the selection is '<parcel/>'`.
 - **A `GENERATED ALWAYS` column takes no value from a row,** as Oracle has no way to give it one: leave it out of the seed, or declare it `GENERATED BY DEFAULT`.
 - **A trigger's code is an ORA error.** `will raise an ORA-20001 exception` raises it, and `will raise an ORA-00060 exception` the deadlock's. Its digits alone, `20001`, say the same.
 

@@ -122,6 +122,16 @@ func patterns(doc string, pairs []core.Pair) error {
 // as a check compares them: for a database whose own equality is looser than
 // the rule's. hint says what to write when they differ only in type.
 func Strict(field, actual string, v core.Value) (same bool, hint string) {
+	return strict(field, actual, v, jvalue.TypeHint)
+}
+
+// StrictStep is Strict of a value in a step's own text, whose hint writes it in the
+// step's quotes: `postcode is the string "53111": write '"53111"'`.
+func StrictStep(field, actual string, v core.Value) (same bool, hint string) {
+	return strict(field, actual, v, jvalue.StepTypeHint)
+}
+
+func strict(field, actual string, v core.Value, typeHint func(string, core.Value, any) string) (same bool, hint string) {
 	if jvalue.NullDocument(actual) || v.IsNull() {
 		return jvalue.NullDocument(actual) && v.IsNull(), ""
 	}
@@ -136,7 +146,7 @@ func Strict(field, actual string, v core.Value) (same bool, hint string) {
 	if jvalue.Equal(a, want) {
 		return true, ""
 	}
-	return false, jvalue.TypeHint(field, v, a)
+	return false, typeHint(field, v, a)
 }
 
 // StrictAt is Strict of the value at path in a JSON document.

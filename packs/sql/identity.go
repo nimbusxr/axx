@@ -65,7 +65,7 @@ func (o *identityOverrides) namesIdentity(ctx context.Context, table string, col
 	identity, ok := o.columns[table]
 	if !ok {
 		identity = map[string]bool{}
-		for _, name := range o.svc.names(ctx, o.svc.identityQuery(table)) {
+		for _, name := range namesOn(ctx, o.tx, o.svc.identityQuery(table)) {
 			identity[strings.ToLower(name)] = true
 		}
 		o.columns[table] = identity

@@ -6,6 +6,7 @@ import (
 	"context"
 	dbsql "database/sql"
 	"fmt"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -17,7 +18,7 @@ const oracleImage = "gvenzl/oracle-free:23-slim-faststart"
 func oracleDB(t *testing.T, statements ...string) (h *harness, tgt Target, host, port string) {
 	t.Helper()
 	host, port = container(t, oracleImage, "1521",
-		map[string]string{"ORACLE_PASSWORD": "Parcels-Secret-1", "APP_USER": "parcels", "APP_USER_PASSWORD": "Parcels-Secret-1"},
+		map[string]string{"ORACLE_PASSWORD": "Parcels-Secret-1", "APP_USER": "parcels", "APP_USER_PASSWORD": "Parcels-Secret-1", "TZ": databaseZone},
 		"DATABASE IS READY TO USE!", 1)
 	url := fmt.Sprintf("oracle://%s:%s/FREEPDB1", host, port)
 	tgt, err := Resolve(url, "parcels", "Parcels-Secret-1")
@@ -31,7 +32,7 @@ func oracleDB(t *testing.T, statements ...string) (h *harness, tgt Target, host,
 }
 
 func TestOracle(t *testing.T) {
-	h, tgt, host, port := oracleDB(t,
+	h, tgt, host, port := oracleDB(t, slices.Concat([]string{
 		`CREATE TABLE pickups (
 			reference VARCHAR2(40) PRIMARY KEY, postcode VARCHAR2(10), code CHAR(5), shop NVARCHAR2(20), note CLOB,
 			grams NUMBER(10), label NUMBER(19,0), tries INTEGER, kilos NUMBER(10,2), rate BINARY_DOUBLE, ratio BINARY_FLOAT, fee FLOAT,
@@ -43,7 +44,9 @@ func TestOracle(t *testing.T) {
 		`INSERT INTO pickups (reference, postcode, code, shop, grams, label, tries, kilos, rate, ratio, fee, anything, signed_for, day, planned_at, details) VALUES
 			('PX-TYPES-1', '10115', 'H91E2', 'willow', 850, 3000000000, 2, 2.00, 1.5, 0.5, 1.5, 7, 1, DATE '2026-09-24', TIMESTAMP '2026-09-24 07:40:00', '{"zone":"DE-1","count":3}')`,
 		`INSERT INTO pickups (reference, grams) VALUES ('ABC-OTHER', 1)`,
-	)
+	}, oracleTypesSchema)...)
+
+	oracleEveryType(t, h, tgt, host, port)
 
 	t.Run("a JDBC URL and a SID reach the same database", func(t *testing.T) {
 		for _, url := range []string{
@@ -195,14 +198,13 @@ func TestOracle(t *testing.T) {
 		if len(last.Rows) != 1 {
 			t.Fatalf("seeded row: %v", last.Rows)
 		}
-		created, err := last.Value(0, "created_at")
-		if err != nil {
+		// The database's wall clock, tomorrow: a TIMESTAMP has no zone to read it by.
+		var days int
+		if err := openForTest(t, tgt).QueryRow("SELECT ROUND(CAST(created_at AS DATE) - SYSDATE) FROM seeded WHERE id = 7001").Scan(&days); err != nil {
 			t.Fatal(err)
 		}
-		// The machine's wall clock, tomorrow: a TIMESTAMP has no zone to read it by.
-		tomorrow := time.Now().AddDate(0, 0, 1).Format("2006-01-02 15")
-		if at, ok := created.(time.Time); !ok || at.Format("2006-01-02 15") != tomorrow {
-			t.Errorf("created_at: %v (%T), want %s", created, created, tomorrow)
+		if days != 1 {
+			t.Errorf("created_at is %d days from the database's clock, want 1", days)
 		}
 		h.ok("a selection of rows is retrieved from the seeded table where:",
 			[]string{"reference", "PX-ORA-2"}, []string{"kilos", "null"}, []string{"flagged", "0"})

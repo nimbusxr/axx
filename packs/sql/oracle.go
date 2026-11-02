@@ -4,6 +4,7 @@ import (
 	"context"
 	dbsql "database/sql"
 	"database/sql/driver"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"net"
@@ -12,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	goora "github.com/sijms/go-ora/v2"
 
@@ -93,6 +95,7 @@ const oracleSessionSettings = "ALTER SESSION SET NLS_DATE_FORMAT = 'YYYY-MM-DD H
 	" NLS_TIMESTAMP_FORMAT = 'YYYY-MM-DD HH24:MI:SS.FF'" +
 	" NLS_TIMESTAMP_TZ_FORMAT = 'YYYY-MM-DD HH24:MI:SS.FF TZR'" +
 	" NLS_NUMERIC_CHARACTERS = '.,'" +
+	" TIME_ZONE = DBTIMEZONE" + // the driver's would be the zone of the machine running axx
 	" DDL_LOCK_TIMEOUT = 30"
 
 func (s oracleSession) Connect(ctx context.Context) (driver.Conn, error) {
@@ -132,22 +135,48 @@ func oracleNumberKind(typeName string) (kind columntype.Kind, known, isNumber bo
 
 // oracleColumnTypes is the type of each of the table's columns, by its name in lower
 // case, from Oracle's catalog: the driver names a VARCHAR2 an NCHAR, and gives no
-// scale a NUMBER with none can be told by.
-func (svc *Service) oracleColumnTypes(ctx context.Context, tbl string) map[string]string {
+// scale a NUMBER with none can be told by. The catalog lists a table or a view by its
+// own name, so a synonym, the usual way to another schema's table, is followed to it.
+func (svc *Service) oracleColumnTypes(ctx context.Context, tbl string) (map[string]string, error) {
 	d := svc.Target.Dialect
 	schema, name := splitTable(tbl)
+	owner, table := svc.schemaExpr(schema), "UPPER("+d.Literal(name)+")"
+	for range 8 { // a synonym of a synonym, and never round and round
+		types, err := svc.oracleCatalogColumns(ctx, owner, table)
+		if err != nil {
+			return nil, &columnTypesError{err}
+		}
+		if len(types) > 0 {
+			return types, nil
+		}
+		var targetOwner, target string
+		err = svc.DB.QueryRowContext(ctx, "SELECT table_owner, table_name FROM all_synonyms WHERE synonym_name = "+table+
+			" AND db_link IS NULL AND owner IN ("+owner+", 'PUBLIC') ORDER BY CASE owner WHEN 'PUBLIC' THEN 1 ELSE 0 END FETCH FIRST 1 ROW ONLY").
+			Scan(&targetOwner, &target)
+		if errors.Is(err, dbsql.ErrNoRows) {
+			return nil, nil // no such table: the query that follows says so
+		}
+		if err != nil {
+			return nil, &columnTypesError{err}
+		}
+		owner, table = d.Literal(targetOwner), d.Literal(target)
+	}
+	return nil, nil
+}
+
+func (svc *Service) oracleCatalogColumns(ctx context.Context, owner, table string) (map[string]string, error) {
 	rows, err := svc.DB.QueryContext(ctx, "SELECT column_name, data_type, data_precision, data_scale FROM all_tab_columns WHERE owner = "+
-		svc.schemaExpr(schema)+" AND table_name = UPPER("+d.Literal(name)+")")
+		owner+" AND table_name = "+table)
 	if err != nil {
-		return nil
+		return nil, err
 	}
 	defer rows.Close()
 	types := map[string]string{}
 	for rows.Next() {
 		var column, dataType string
 		var precision, scale dbsql.NullInt64
-		if rows.Scan(&column, &dataType, &precision, &scale) != nil {
-			return nil
+		if err := rows.Scan(&column, &dataType, &precision, &scale); err != nil {
+			return nil, err
 		}
 		if dataType == "NUMBER" && scale.Valid {
 			size := "*"
@@ -158,15 +187,32 @@ func (svc *Service) oracleColumnTypes(ctx context.Context, tbl string) map[strin
 		}
 		types[strings.ToLower(column)] = dataType
 	}
-	return types
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	for column, dataType := range types {
+		if dataType != "VECTOR" {
+			continue
+		}
+		// Only the catalog says how a vector's numbers are stored, and only Oracle's
+		// latest has the column that says it.
+		var info dbsql.NullString
+		if svc.DB.QueryRowContext(ctx, "SELECT vector_info FROM all_tab_columns WHERE owner = "+owner+" AND table_name = "+table+
+			" AND column_name = UPPER("+svc.Target.Dialect.Literal(column)+")").Scan(&info) == nil && info.Valid {
+			types[column] = info.String
+		}
+	}
+	return types, nil
 }
 
 // oracleReaders are what turns the values of a result's columns, by their places in
 // it, into what they hold, as a source keeps its types (ADR 0014): the driver gives
 // every NUMBER as text, a BOOLEAN's too, so 2.00 in a NUMBER(10,2) would read as the
 // text 2.
-func (svc *Service) oracleReaders(ctx context.Context, table string, cols []string) map[int]func(any) any {
-	types := svc.oracleColumnTypes(ctx, table)
+func (svc *Service) oracleReaders(types map[string]string, cols []string) map[int]func(any) any {
 	out := map[int]func(any) any{}
 	for i, c := range cols {
 		typeName, ok := types[strings.ToLower(c)]
@@ -177,6 +223,12 @@ func (svc *Service) oracleReaders(ctx context.Context, table string, cols []stri
 		switch {
 		case typeName == "BOOLEAN":
 			out[i] = oracleBoolean
+		case oracleBinary(typeName):
+			out[i] = oracleHex
+		case strings.HasPrefix(typeName, "VECTOR"):
+			out[i] = oracleVector(typeName)
+		case typeName == "XMLTYPE":
+			out[i] = oracleXML
 		case !known:
 			out[i] = oracleWhole
 		case kind == columntype.Integer:
@@ -202,6 +254,71 @@ func oracleBoolean(v any) any {
 	return v
 }
 
+// oracleBinary says a column holds bytes, which Oracle takes and gives as hex.
+func oracleBinary(typeName string) bool {
+	return typeName == "RAW" || typeName == "BLOB" || typeName == "LONG RAW"
+}
+
+// oracleHex is what a column of bytes holds as Oracle writes it, which is what a
+// condition on it says: DEADBEEF.
+func oracleHex(v any) any {
+	s, ok := v.(string)
+	if !ok {
+		return v
+	}
+	return strings.ToUpper(hex.EncodeToString([]byte(s)))
+}
+
+// oracleVector is a VECTOR as the JSON array Oracle writes one as, of its numbers'
+// types. The driver gives a slice of floats, which reads as `[1 2 3]`, an INT8's as its
+// bytes, and a BINARY's as that array's text.
+func oracleVector(typeName string) func(any) any {
+	return func(v any) any {
+		var numbers []string
+		switch x := v.(type) {
+		case []float32:
+			for _, n := range x {
+				numbers = append(numbers, storedJSON(n))
+			}
+		case []float64:
+			for _, n := range x {
+				numbers = append(numbers, storedJSON(n))
+			}
+		case string:
+			if !strings.Contains(typeName, "INT8") {
+				return x
+			}
+			for _, b := range []byte(x) {
+				numbers = append(numbers, strconv.Itoa(int(int8(b))))
+			}
+		default:
+			return v
+		}
+		return "[" + strings.Join(numbers, ",") + "]"
+	}
+}
+
+// float32Decimal is the number as it was written, and not float32's nearest in a
+// float64: 0.1, not 0.10000000149011612.
+func float32Decimal(n float32) float64 {
+	f, _ := strconv.ParseFloat(strconv.FormatFloat(float64(n), 'f', -1, 32), 64)
+	return f
+}
+
+// oracleXML is an XMLTYPE without the line break Oracle ends its text with.
+func oracleXML(v any) any {
+	if s, ok := v.(string); ok {
+		return strings.TrimRight(s, "\n")
+	}
+	return v
+}
+
+// exactNumber is a NUMBER as a row stores it: all of Oracle's 38 digits, which an
+// int64 or a float64 would round, or read as text.
+type exactNumber string
+
+var oracleNumberText = regexp.MustCompile(`^-?[0-9]*\.?[0-9]+$`)
+
 // oracleWhole is a NUMBER that is an integer as one, and any other as a decimal: for
 // a column with no scale, what each row stores says which.
 func oracleWhole(v any) any {
@@ -212,8 +329,8 @@ func oracleWhole(v any) any {
 	if n, err := strconv.ParseInt(s, 10, 64); err == nil {
 		return n
 	}
-	if f, err := strconv.ParseFloat(s, 64); err == nil && strings.ContainsAny(s, ".eE") {
-		return f
+	if oracleNumberText.MatchString(s) {
+		return exactNumber(s)
 	}
 	return v
 }
@@ -273,7 +390,7 @@ func oracleTemporal(typeName, s string) (string, bool) {
 }
 
 // oracleSeedValue is a seed's value for a column, as oracleTemporal gives it when the
-// column holds dates or times.
+// column holds dates or times, and in pieces when it is too long for one literal.
 func oracleSeedValue(types map[string]string, column, literal string) string {
 	if len(literal) < 2 || literal[0] != '\'' || literal[len(literal)-1] != '\'' {
 		return literal
@@ -281,21 +398,62 @@ func oracleSeedValue(types map[string]string, column, literal string) string {
 	if out, ok := oracleTemporal(types[strings.ToLower(column)], literal[1:len(literal)-1]); ok {
 		return out
 	}
-	return literal
+	return oracleLongLiteral(literal)
 }
 
-// oracleLiterals is how whereClause writes a value of the table's columns on Oracle.
-func (svc *Service) oracleLiterals(ctx context.Context, tbl string) func(string, core.Value) string {
+// oracleMaxLiteral is what Oracle takes in one string literal, in bytes (ORA-01704).
+const oracleMaxLiteral = 4000
+
+// oracleLongLiteral is a string literal Oracle would refuse as too long, as the pieces
+// of a CLOB; any other as it is. A cut falls between two characters, and not inside
+// the two quotes that write one.
+func oracleLongLiteral(literal string) string {
+	if len(literal) <= oracleMaxLiteral {
+		return literal
+	}
+	inner := literal[1 : len(literal)-1]
+	var pieces []string
+	for len(inner) > 0 {
+		n := min(len(inner), oracleMaxLiteral-100)
+		for n < len(inner) && !utf8.RuneStart(inner[n]) {
+			n--
+		}
+		if quotes := n - len(strings.TrimRight(inner[:n], "'")); quotes%2 == 1 && n < len(inner) {
+			n--
+		}
+		pieces = append(pieces, "TO_CLOB('"+inner[:n]+"')")
+		inner = inner[n:]
+	}
+	return strings.Join(pieces, " || ")
+}
+
+// oracleComparisons is how whereClause writes a condition on the table's columns on
+// Oracle, each by what its type can be compared with: `=` refuses a LOB, and finds
+// nothing in a JSON column. A BOOLEAN says TRUE, as a trigger's PL/SQL has no
+// conversion of 1 to one.
+func (svc *Service) oracleComparisons(types map[string]string) func(left, column string, v core.Value) string {
 	d := svc.Target.Dialect
-	types := svc.oracleColumnTypes(ctx, tbl)
-	return func(column string, v core.Value) string {
-		name := column[strings.LastIndexByte(column, '.')+1:]
-		if s, ok := v.Str(); ok {
-			if out, ok := oracleTemporal(types[strings.ToLower(name)], s); ok {
-				return out
+	return func(left, column string, v core.Value) string {
+		typeName := types[strings.ToLower(column[strings.LastIndexByte(column, '.')+1:])]
+		literal := oracleLongLiteral(d.Value(v))
+		switch typeName {
+		case "CLOB", "NCLOB":
+			return "DBMS_LOB.COMPARE(" + left + ", " + literal + ") = 0"
+		case "BLOB":
+			return "DBMS_LOB.COMPARE(" + left + ", TO_BLOB(HEXTORAW(" + literal + "))) = 0"
+		case "JSON":
+			return "JSON_EQUAL(" + left + ", JSON(" + literal + "))"
+		case "BOOLEAN":
+			if b, isBool := boolValue(v); isBool {
+				return left + " = " + strings.ToUpper(strconv.FormatBool(b))
 			}
 		}
-		return d.Value(v)
+		if s, ok := v.Str(); ok {
+			if out, ok := oracleTemporal(typeName, s); ok {
+				return left + " = " + out
+			}
+		}
+		return left + " = " + literal
 	}
 }
 
@@ -326,15 +484,19 @@ func (svc *Service) createOracleTrigger(ctx context.Context, table, code string,
 	if err != nil {
 		return err
 	}
-	literals := svc.oracleLiterals(ctx, tbl)
-	where, err := whereClauseOf(t, ":NEW.", literals)
+	types, err := svc.columnTypes(ctx, tbl)
 	if err != nil {
 		return err
 	}
-	if _, err := svc.holdToColumns(ctx, tbl, t); err != nil {
+	comparisons := svc.oracleComparisons(types)
+	where, err := whereClauseOf(t, ":NEW.", comparisons)
+	if err != nil {
 		return err
 	}
-	check, _ := whereClauseOf(t, "", literals)
+	if _, err := svc.holdToColumns(types, tbl, t); err != nil {
+		return err
+	}
+	check, _ := whereClauseOf(t, "", comparisons)
 	if _, err := svc.DB.ExecContext(ctx, "SELECT 1 FROM "+tbl+" WHERE 1=0 AND "+check); err != nil {
 		return fmt.Errorf("Could not create before insert trigger on table '%s': %w", table, typeMismatch(err)) //nolint:staticcheck // user-facing message
 	}
@@ -389,12 +551,15 @@ func (svc *Service) createOracleTrigger(ctx context.Context, table, code string,
 	if err != nil {
 		return fail(err)
 	}
-	defer conn.Close()
 	for _, s := range stmts {
 		if _, err := conn.ExecContext(ctx, s); err != nil {
+			_ = conn.Close() // before asking the pool for another
 			_ = svc.dropOracleTriggers(context.WithoutCancel(ctx), []*Trigger{tr})
 			return fail(err)
 		}
+	}
+	if err := conn.Close(); err != nil {
+		return fail(err)
 	}
 	// Oracle creates a trigger that does not compile, and it fails every insert.
 	if errs := svc.names(ctx, "SELECT text FROM user_errors WHERE name = '"+tr.Name+"' ORDER BY sequence"); len(errs) > 0 {

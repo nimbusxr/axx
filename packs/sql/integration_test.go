@@ -366,8 +366,8 @@ func TestSeedErrorsNameWhatThereIs(t *testing.T) {
 	}
 }
 
-// A time counted from now is the same moment in a timestamptz column wherever the machine runs,
-// and the machine's wall clock in a timestamp column, as JDBC writes them.
+// A time counted from a moment is that moment in a timestamptz column, and its wall clock in a
+// timestamp column, whatever zone the moment is in: the step gives it the database's clock.
 func TestSeededTimesFromNow(t *testing.T) {
 	h := newHarness(t)
 	h.db(postgresURL(t))
