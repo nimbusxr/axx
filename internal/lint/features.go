@@ -32,7 +32,7 @@ import (
 
 // ordinalUse describes how a step uses an ordinal.
 type ordinalUse struct {
-	list    string // "selection" or "trigger"
+	list    string // "selection", "trigger", or a trigger of another write: "before update trigger"
 	create  bool   // the step appends to the list
 	ordinal int    // index of the list ordinal argument
 	service int    // index of the {dbService} argument
@@ -56,6 +56,13 @@ var ordinalSteps = map[string]ordinalUse{
 	"sql.trigger.insertRaise":       {list: "trigger", create: true, ordinal: 0, service: 2},
 	"sql.trigger.insertRaise.times": {list: "trigger", create: true, ordinal: 0, service: 2},
 	"sql.trigger.raised":            {list: "trigger", ordinal: 0, service: 2},
+
+	"sql.trigger.update.raise":       {list: "before update trigger", create: true, ordinal: 0, service: 2},
+	"sql.trigger.update.raise.times": {list: "before update trigger", create: true, ordinal: 0, service: 2},
+	"sql.trigger.update.raised":      {list: "before update trigger", ordinal: 0, service: 2},
+	"sql.trigger.delete.raise":       {list: "before delete trigger", create: true, ordinal: 0, service: 2},
+	"sql.trigger.delete.raise.times": {list: "before delete trigger", create: true, ordinal: 0, service: 2},
+	"sql.trigger.delete.raised":      {list: "before delete trigger", ordinal: 0, service: 2},
 }
 
 // OrdinalRuleID is the id of the builtin SQL ordinals check.
@@ -115,7 +122,10 @@ func CheckFeatures(reg *match.Registry, pickles []*feature.Pickle, workDir strin
 			var f *Finding
 			src := p.StepSource(ps)
 			l := Location{File: relSlash(workDir, p.Doc.Path), Line: src.Line, Text: clip(strings.TrimSpace(src.Keyword) + " " + ps.Text), abs: p.Doc.Path}
-			verb := map[string]string{"selection": "retrieved", "trigger": "created"}[use.list]
+			verb := "created"
+			if use.list == "selection" {
+				verb = "retrieved"
+			}
 			// count renders "only 2 selections were retrieved", "no triggers were created"...
 			count := func(n int, only, qualifier string) string {
 				if n == 0 {

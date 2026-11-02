@@ -2,7 +2,7 @@
   "description": "The frozen catalog of built-in step text. Step text is public API: every entry must stay defined, verbatim, by its pack.",
   "counts": {
     "parameterType": 22,
-    "step": 891
+    "step": 915
   },
   "entries": [
     {
@@ -5504,6 +5504,150 @@
       "pack": "sql",
       "keyword": "Then",
       "expression": "the {ordinal} row {word} column of the {ordinal} selection on {dbService} is {string}"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Given",
+      "expression": "a(n) before update trigger on the {word} table will raise a(n) {sqlState} exception where:"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Given",
+      "expression": "a(n) {ordinal} ordered before update trigger on the {word} table will raise a(n) {sqlState} exception where:"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Given",
+      "expression": "a(n) before update trigger on the {word} table on {dbService} will raise a(n) {sqlState} exception where:"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Given",
+      "expression": "a(n) {ordinal} ordered before update trigger on the {word} table on {dbService} will raise a(n) {sqlState} exception where:"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Given",
+      "expression": "a(n) before update trigger on the {word} table will raise a(n) {sqlState} exception {int} time(s) where:"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Given",
+      "expression": "a(n) {ordinal} ordered before update trigger on the {word} table will raise a(n) {sqlState} exception {int} time(s) where:"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Given",
+      "expression": "a(n) before update trigger on the {word} table on {dbService} will raise a(n) {sqlState} exception {int} time(s) where:"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Given",
+      "expression": "a(n) {ordinal} ordered before update trigger on the {word} table on {dbService} will raise a(n) {sqlState} exception {int} time(s) where:"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Then",
+      "expression": "the before update trigger on the {word} table was raised {int} time(s)"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Then",
+      "expression": "the {ordinal} ordered before update trigger on the {word} table was raised {int} time(s)"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Then",
+      "expression": "the before update trigger on the {word} table on {dbService} was raised {int} time(s)"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Then",
+      "expression": "the {ordinal} ordered before update trigger on the {word} table on {dbService} was raised {int} time(s)"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Given",
+      "expression": "a(n) before delete trigger on the {word} table will raise a(n) {sqlState} exception where:"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Given",
+      "expression": "a(n) {ordinal} ordered before delete trigger on the {word} table will raise a(n) {sqlState} exception where:"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Given",
+      "expression": "a(n) before delete trigger on the {word} table on {dbService} will raise a(n) {sqlState} exception where:"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Given",
+      "expression": "a(n) {ordinal} ordered before delete trigger on the {word} table on {dbService} will raise a(n) {sqlState} exception where:"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Given",
+      "expression": "a(n) before delete trigger on the {word} table will raise a(n) {sqlState} exception {int} time(s) where:"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Given",
+      "expression": "a(n) {ordinal} ordered before delete trigger on the {word} table will raise a(n) {sqlState} exception {int} time(s) where:"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Given",
+      "expression": "a(n) before delete trigger on the {word} table on {dbService} will raise a(n) {sqlState} exception {int} time(s) where:"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Given",
+      "expression": "a(n) {ordinal} ordered before delete trigger on the {word} table on {dbService} will raise a(n) {sqlState} exception {int} time(s) where:"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Then",
+      "expression": "the before delete trigger on the {word} table was raised {int} time(s)"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Then",
+      "expression": "the {ordinal} ordered before delete trigger on the {word} table was raised {int} time(s)"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Then",
+      "expression": "the before delete trigger on the {word} table on {dbService} was raised {int} time(s)"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Then",
+      "expression": "the {ordinal} ordered before delete trigger on the {word} table on {dbService} was raised {int} time(s)"
     }
   ]
 }

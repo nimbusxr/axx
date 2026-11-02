@@ -511,6 +511,9 @@ func (s *service) notFound(w http.ResponseWriter, r *http.Request, err error) bo
 		problem(w, r, http.StatusConflict, fmt.Sprintf("parcel %s is being dispatched and cannot be changed now", ref))
 	case errors.Is(err, errNotChangeable):
 		problem(w, r, http.StatusConflict, fmt.Sprintf("parcel %s can no longer be changed", ref))
+	case errors.Is(err, errUnavailable):
+		w.Header().Set("Retry-After", "5")
+		problem(w, r, http.StatusServiceUnavailable, fmt.Sprintf("parcel %s could not be changed; try again later", ref))
 	default:
 		s.fail(w, r, err)
 	}

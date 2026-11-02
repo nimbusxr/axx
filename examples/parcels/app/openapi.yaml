@@ -188,6 +188,14 @@ paths:
         "400": {$ref: "#/components/responses/Problem"}
         "404": {$ref: "#/components/responses/Problem"}
         "409": {$ref: "#/components/responses/Problem"}
+        "503":
+          description: The change could not be stored; try again later.
+          headers:
+            Retry-After:
+              schema: {type: string}
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
     delete:
       operationId: cancelParcel
       summary: Cancel a parcel before pickup
@@ -196,6 +204,14 @@ paths:
           description: Cancelled.
         "404": {$ref: "#/components/responses/Problem"}
         "409": {$ref: "#/components/responses/Problem"}
+        "503":
+          description: The parcel could not be cancelled; try again later.
+          headers:
+            Retry-After:
+              schema: {type: string}
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
   /api/parcels/{reference}/tracking:
     parameters:
       - $ref: "#/components/parameters/Reference"

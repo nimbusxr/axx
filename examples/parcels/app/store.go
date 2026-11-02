@@ -182,6 +182,16 @@ RETURNING `+parcelColumns, p.Reference, p.Sender, p.WeightGrams, p.ServiceLevel,
 // process holds (the depot while dispatching it) is not waited for:
 // errLocked.
 func (s *store) Change(ctx context.Context, ref string, change func(*Parcel) error) (*Parcel, error) {
+	var out *Parcel
+	err := s.retried("changing parcel failed, retrying", ref, func() error {
+		var err error
+		out, err = s.changeOnce(ctx, ref, change)
+		return err
+	})
+	return out, err
+}
+
+func (s *store) changeOnce(ctx context.Context, ref string, change func(*Parcel) error) (*Parcel, error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return nil, err
@@ -208,8 +218,33 @@ RETURNING `+parcelColumns, p.Reference, p.WeightGrams, p.ServiceLevel, rj))
 	return out, tx.Commit(ctx)
 }
 
+// retried runs a write again when the database turns it down for now, as it does a
+// registration: serialization failures and deadlocks are retried twice, and then are
+// errUnavailable.
+func (s *store) retried(message, ref string, write func() error) error {
+	for attempt := 1; ; attempt++ {
+		err := write()
+		switch sqlState(err) {
+		case "40001", "40P01":
+			if attempt == 3 {
+				return fmt.Errorf("%w: %w", errUnavailable, err)
+			}
+			s.log.Warn(message, "reference", ref, "attempt", attempt, "sqlstate", sqlState(err))
+			time.Sleep(time.Duration(attempt) * 100 * time.Millisecond)
+		default:
+			return err
+		}
+	}
+}
+
 // Cancel deletes a parcel, under the same rules as Change.
 func (s *store) Cancel(ctx context.Context, ref string, check func(*Parcel) error) error {
+	return s.retried("cancelling parcel failed, retrying", ref, func() error {
+		return s.cancelOnce(ctx, ref, check)
+	})
+}
+
+func (s *store) cancelOnce(ctx context.Context, ref string, check func(*Parcel) error) error {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return err

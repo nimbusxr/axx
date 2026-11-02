@@ -1,6 +1,6 @@
 // Package sql provides database steps: services, seeds, selections (with
 // polling and JSONB containment), JSON column assertions, row locks and
-// before-insert trigger fault injection (PostgreSQL).
+// trigger fault injection, before a row's insert, update or delete (PostgreSQL and Oracle).
 package sql
 
 import (

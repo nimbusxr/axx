@@ -45,6 +45,7 @@ var oracleTypesSchema = []string{
 	`CREATE VIEW every_type_view AS SELECT * FROM every_type`,
 	`CREATE SYNONYM every_type_synonym FOR every_type`,
 	`CREATE SYNONYM every_type_again FOR every_type_synonym`,
+	`CREATE TABLE trigger_parcels (reference VARCHAR2(40) PRIMARY KEY, status VARCHAR2(20), kilos NUMBER(10,2))`,
 	`CREATE TABLE clock_times (reference VARCHAR2(40) PRIMARY KEY, day_at DATE, plain_at TIMESTAMP, zoned_at TIMESTAMP WITH TIME ZONE, local_at TIMESTAMP WITH LOCAL TIME ZONE, epoch NUMBER)`,
 	`CREATE TABLE load_parcels (reference VARCHAR2(40) PRIMARY KEY, kilos NUMBER(10,2), at_time DATE)`,
 	`CREATE SYNONYM loop_a FOR loop_b`,
@@ -561,6 +562,64 @@ func oracleEveryType(t *testing.T, h *harness, tgt Target, host, port string) {
 		}
 		if got := len(mustService(t, h).Triggers()); got != 0 {
 			t.Errorf("%d triggers were created", got)
+		}
+	})
+
+	t.Run("before update and before delete triggers", func(t *testing.T) {
+		db := openForTest(t, tgt)
+		for _, row := range triggerRows("trigger_parcels") {
+			if _, err := db.Exec(row); err != nil {
+				t.Fatal(err)
+			}
+		}
+		updateAndDeleteTriggers(t, h, db, "trigger_parcels", "ORA-20001")
+		// A number outside RAISE_APPLICATION_ERROR's range, as a deadlock's.
+		if _, err := db.Exec("INSERT INTO trigger_parcels (reference, status, kilos) VALUES ('PX-TRG-D', 'REGISTERED', 1.5)"); err != nil {
+			t.Fatal(err)
+		}
+		ok(t, "a before update trigger on the trigger_parcels table will raise a 00060 exception where:", []string{"reference", "PX-TRG-D"})
+		if _, err := db.Exec("UPDATE trigger_parcels SET status = 'PICKED_UP' WHERE reference = 'PX-TRG-D'"); err == nil || !strings.Contains(err.Error(), "ORA-00060") {
+			t.Errorf("a deadlock's number: %v", err)
+		}
+		if err := mustService(t, h).dropTriggers(t.Context()); err != nil {
+			t.Fatal(err)
+		}
+		// What the catalog's types ask of a condition holds of the row a delete takes
+		// away, and of the row an update leaves.
+		for _, c := range []struct{ column, cell, literal string }{
+			{"note", "left at the door", "'left at the door'"},
+			{"signed_for", "true", "TRUE"},
+			{"details", `{"zone":"DE-1"}`, `JSON('{"zone":"DE-1"}')`},
+			{"day", "2026-09-24", "DATE '2026-09-24'"},
+		} {
+			store := func(reference string) {
+				t.Helper()
+				if _, err := db.Exec("INSERT INTO every_type (reference, " + c.column + ") VALUES ('" + reference + "', " + c.literal + ")"); err != nil {
+					t.Fatal(err)
+				}
+			}
+			ok(t, "a before delete trigger on the every_type table will raise an ORA-20001 exception where:", []string{c.column, c.cell})
+			store("PX-TRG-DEL")
+			if _, err := db.Exec("DELETE FROM every_type WHERE reference = 'PX-TRG-DEL'"); err == nil || !strings.Contains(err.Error(), "ORA-20001") {
+				t.Errorf("a delete of a row whose %s is %s: %v", c.column, c.cell, err)
+			}
+			if err := mustService(t, h).dropTriggers(t.Context()); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := db.Exec("DELETE FROM every_type WHERE reference = 'PX-TRG-DEL'"); err != nil {
+				t.Fatal(err)
+			}
+			store("PX-TRG-UPD")
+			ok(t, "a before update trigger on the every_type table will raise an ORA-20001 exception where:", []string{c.column, c.cell})
+			if _, err := db.Exec("UPDATE every_type SET grams = 1 WHERE reference = 'PX-TRG-UPD'"); err == nil || !strings.Contains(err.Error(), "ORA-20001") {
+				t.Errorf("an update of a row whose %s is %s: %v", c.column, c.cell, err)
+			}
+			if err := mustService(t, h).dropTriggers(t.Context()); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := db.Exec("DELETE FROM every_type WHERE reference = 'PX-TRG-UPD'"); err != nil {
+				t.Fatal(err)
+			}
 		}
 	})
 

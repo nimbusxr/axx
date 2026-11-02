@@ -20,10 +20,28 @@ const (
 	phantomLockTimeoutMS = 10000
 )
 
-// Trigger is a simulated before-insert trigger.
+// Trigger is a simulated trigger, before a row's insert, update or delete.
 type Trigger struct {
 	Name, Function, Sequence, RaisedSequence, Table string
 	MaxInvocations                                  int
+	// Event is the write it goes before: insert (Trigger's zero value), update or delete.
+	Event string
+}
+
+// The writes a trigger goes before, as the steps say them.
+const (
+	onInsert = "insert"
+	onUpdate = "update"
+	onDelete = "delete"
+)
+
+// triggerRow is what a trigger's conditions read for a write: the row as it would be
+// stored, or the row a delete would take away.
+func triggerRow(event string) string {
+	if event == onDelete {
+		return "OLD"
+	}
+	return "NEW"
 }
 
 func triggerSteps() []core.StepDef {
@@ -53,7 +71,7 @@ func triggerSteps() []core.StepDef {
 		if v.limited {
 			doc += "- Only that many matching inserts fail; the ones after them succeed.\n"
 		}
-		doc += "- Triggers are numbered in the order they are created, whatever ordinal the step says.\n" +
+		doc += "- Before insert triggers are numbered in the order they are created, whatever ordinal the step says.\n" +
 			"- The trigger is dropped when the scenario ends."
 		example := "Given a before insert trigger on the parcels.parcels table " + v.verb + " a 40001 exception" +
 			strings.ReplaceAll(v.limit, "{int} time(s)", "1 time") + " where:\n  | reference | PX-DBF-3001 |"
@@ -72,7 +90,7 @@ func triggerSteps() []core.StepDef {
 				if v.limited {
 					max = a.Int(4)
 				}
-				return svc.createTrigger(sc.Context(), a.String(1), a.String(3), max, v.insert, a.Table)
+				return svc.createTrigger(sc.Context(), onInsert, a.String(1), a.String(3), max, v.insert, a.Table)
 			},
 		})
 	}
@@ -80,7 +98,7 @@ func triggerSteps() []core.StepDef {
 		ID: "sql.trigger.raised", Keyword: "Then",
 		Expr: "the[[ {ordinal} ordered]] before insert trigger on the {word} table[[ on {dbService}]] was raised {int} time(s)",
 		Doc: "Check how many times a before insert trigger raised its error. " +
-			"Triggers are numbered in the order they are created; a table other than the trigger's only logs a warning.",
+			"Before insert triggers are numbered in the order they are created; a table other than the trigger's only logs a warning.",
 		Examples: []string{
 			"Then the before insert trigger on the parcels.parcels table was raised 1 time",
 			"Then the 2nd ordered before insert trigger on the parcels.parcels table on parcels-db was raised 3 times",
@@ -90,10 +108,70 @@ func triggerSteps() []core.StepDef {
 			if err != nil {
 				return err
 			}
-			return svc.verifyTrigger(sc, a.IntOr(0, 1)-1, a.String(1), a.Int(3))
+			return svc.verifyTrigger(sc, onInsert, a.IntOr(0, 1)-1, a.String(1), a.Int(3))
 		},
 	})
-	return out
+	return append(append(out, writeTriggerSteps(onUpdate, "updates", "the row holds after the update")...), writeTriggerSteps(onDelete, "deletes", "the deleted row holds")...)
+}
+
+// writeTriggerSteps are the steps of a trigger before another write than an insert.
+func writeTriggerSteps(event, writes, holds string) []core.StepDef {
+	const since = "0.4.0"
+	upper := strings.ToUpper(event)
+	var out []core.StepDef
+	for _, limited := range []bool{false, true} {
+		id, limit := "sql.trigger."+event+".raise", ""
+		doc := "Make " + writes + " of matching rows in the table fail with that SQLSTATE, to test how the service handles database errors. The row stays as it was.\n\n" +
+			"- A BEFORE " + upper + " trigger raises the error, so the database must be PostgreSQL or Oracle. On Oracle, the code is an ORA error: `ORA-20001`, or `20001` for short.\n"
+		if event == onUpdate {
+			doc += "- Its conditions are on the row as the update would leave it, so `weight_grams` is the new weight, and a column the update does not change has the value it had.\n"
+		} else {
+			doc += "- Its conditions are on the row the delete would take away.\n"
+		}
+		if limited {
+			id, limit = id+".times", " {int} time(s)"
+			doc += "- Only that many matching " + writes + " fail; the ones after them succeed.\n"
+		}
+		doc += "- Before " + event + " triggers are numbered in the order they are created, whatever ordinal the step says.\n" +
+			"- The trigger is dropped when the scenario ends."
+		example := "Given a before " + event + " trigger on the parcels.parcels table will raise a 40001 exception" +
+			strings.ReplaceAll(limit, "{int} time(s)", "1 time") + " where:\n  | reference | PX-DBF-3101 |"
+		out = append(out, core.StepDef{
+			ID: id, Keyword: "Given", Arg: core.ArgTable, Since: since,
+			Expr:     "a(n)[[ {ordinal} ordered]] before " + event + " trigger on the {word} table[[ on {dbService}]] will raise a(n) {sqlState} exception" + limit + " where:",
+			Doc:      doc,
+			Table:    whereTable(holds),
+			Examples: []string{example},
+			Run: func(sc *core.Scenario, a core.Args) error {
+				svc, err := service(sc, a, 2)
+				if err != nil {
+					return err
+				}
+				max := -1
+				if limited {
+					max = a.Int(4)
+				}
+				return svc.createTrigger(sc.Context(), event, a.String(1), a.String(3), max, false, a.Table)
+			},
+		})
+	}
+	return append(out, core.StepDef{
+		ID: "sql.trigger." + event + ".raised", Keyword: "Then", Since: since,
+		Expr: "the[[ {ordinal} ordered]] before " + event + " trigger on the {word} table[[ on {dbService}]] was raised {int} time(s)",
+		Doc: "Check how many times a before " + event + " trigger raised its error. " +
+			"Before " + event + " triggers are numbered in the order they are created; a table other than the trigger's only logs a warning.",
+		Examples: []string{
+			"Then the before " + event + " trigger on the parcels.parcels table was raised 1 time",
+			"Then the 2nd ordered before " + event + " trigger on the parcels.parcels table on parcels-db was raised 3 times",
+		},
+		Run: func(sc *core.Scenario, a core.Args) error {
+			svc, err := service(sc, a, 2)
+			if err != nil {
+				return err
+			}
+			return svc.verifyTrigger(sc, event, a.IntOr(0, 1)-1, a.String(1), a.Int(3))
+		},
+	})
 }
 
 func randomSuffix() string {
@@ -102,10 +180,10 @@ func randomSuffix() string {
 	return hex.EncodeToString(b)
 }
 
-func (svc *Service) createTrigger(ctx context.Context, table, sqlState string, maxInvocations int, insertRow bool, t *core.Table) error {
+func (svc *Service) createTrigger(ctx context.Context, event, table, sqlState string, maxInvocations int, insertRow bool, t *core.Table) error {
 	d := svc.Target.Dialect
 	if d.Oracle {
-		return svc.createOracleTrigger(ctx, table, sqlState, maxInvocations, insertRow, t)
+		return svc.createOracleTrigger(ctx, event, table, sqlState, maxInvocations, insertRow, t)
 	}
 	if !d.Postgres {
 		return fmt.Errorf("Unsupported database type for triggers. Only PostgreSQL and Oracle are currently supported. URL: %s", svc.URL) //nolint:staticcheck // user-facing message
@@ -121,18 +199,19 @@ func (svc *Service) createTrigger(ctx context.Context, table, sqlState string, m
 	if err != nil {
 		return err
 	}
-	where, err := whereClauseOf(t, "NEW.", svc.comparisons(types))
+	row := triggerRow(event)
+	where, err := whereClauseOf(t, row+".", svc.comparisons(types))
 	if err != nil {
 		return err
 	}
 	// PostgreSQL checks the types of the trigger's condition only when it
-	// runs, on the service's inserts: check them now, the column's type first.
+	// runs, on the service's writes: check them now, the column's type first.
 	if _, err := svc.holdToColumns(types, tbl, t); err != nil {
 		return err
 	}
 	check, _ := whereClauseOf(t, "", svc.comparisons(types))
 	if _, err := svc.DB.ExecContext(ctx, "SELECT 1 FROM "+tbl+" WHERE "+check+" LIMIT 0"); err != nil {
-		return fmt.Errorf("Could not create before insert trigger on table '%s': %w", table, typeMismatch(err)) //nolint:staticcheck // user-facing message
+		return fmt.Errorf("Could not create before %s trigger on table '%s': %w", event, table, typeMismatch(err)) //nolint:staticcheck // user-facing message
 	}
 	svc.mu.Lock()
 	index := len(svc.triggers)
@@ -141,7 +220,7 @@ func (svc *Service) createTrigger(ctx context.Context, table, sqlState string, m
 	tr := &Trigger{
 		Name: "axx_trigger_" + base, Function: "axx_trigger_fn_" + base,
 		Sequence: "axx_trigger_seq_" + base, RaisedSequence: "axx_trigger_raised_" + base,
-		Table: tbl, MaxInvocations: maxInvocations,
+		Table: tbl, MaxInvocations: maxInvocations, Event: event,
 	}
 	insertBlock, recursionGuard := "", ""
 	if insertRow {
@@ -174,8 +253,8 @@ func (svc *Service) createTrigger(ctx context.Context, table, sqlState string, m
 		"CREATE SEQUENCE public."+tr.RaisedSequence+" START 1 MINVALUE 0",
 		"CREATE OR REPLACE FUNCTION "+tr.Function+"() RETURNS TRIGGER AS $$ DECLARE current_count INTEGER; BEGIN "+
 			recursionGuard+"IF "+where+" THEN current_count := nextval('public."+tr.Sequence+"'); "+raise+
-			" END IF; RETURN NEW; END; $$ LANGUAGE plpgsql",
-		"CREATE TRIGGER "+tr.Name+" BEFORE INSERT ON "+tbl+" FOR EACH ROW EXECUTE FUNCTION "+tr.Function+"()",
+			" END IF; RETURN "+row+"; END; $$ LANGUAGE plpgsql",
+		"CREATE TRIGGER "+tr.Name+" BEFORE "+strings.ToUpper(event)+" ON "+tbl+" FOR EACH ROW EXECUTE FUNCTION "+tr.Function+"()",
 	)
 	conn, err := svc.DB.Conn(ctx)
 	if err != nil {
@@ -188,7 +267,7 @@ func (svc *Service) createTrigger(ctx context.Context, table, sqlState string, m
 				continue // may race with a concurrent scenario creating it
 			}
 			_ = i
-			return fmt.Errorf("Could not create before insert trigger on table '%s': %w", table, err) //nolint:staticcheck // user-facing message
+			return fmt.Errorf("Could not create before %s trigger on table '%s': %w", event, table, err) //nolint:staticcheck // user-facing message
 		}
 	}
 	_, _ = conn.ExecContext(context.Background(), "RESET lock_timeout")
@@ -201,17 +280,21 @@ func (svc *Service) createTrigger(ctx context.Context, table, sqlState string, m
 // verifyTrigger compares the number of times the trigger raised, counted
 // exactly (not from the match counter's last_value, which is one short for a
 // single raise).
-func (svc *Service) verifyTrigger(sc *core.Scenario, index int, table string, want int) error {
+func (svc *Service) verifyTrigger(sc *core.Scenario, event string, index int, table string, want int) error {
 	svc.mu.Lock()
-	if index < 0 || index >= len(svc.triggers) {
-		n := len(svc.triggers)
-		svc.mu.Unlock()
-		return fmt.Errorf("No trigger found at index %d for db service %s (%d trigger(s) created)", index, svc.Name, n) //nolint:staticcheck // user-facing message
+	var ofEvent []*Trigger
+	for _, tr := range svc.triggers {
+		if tr.Event == event {
+			ofEvent = append(ofEvent, tr)
+		}
 	}
-	tr := svc.triggers[index]
 	svc.mu.Unlock()
+	if index < 0 || index >= len(ofEvent) {
+		return fmt.Errorf("No before %s trigger found at index %d for db service %s (%d of them created)", event, index, svc.Name, len(ofEvent)) //nolint:staticcheck // user-facing message
+	}
+	tr := ofEvent[index]
 	if !strings.EqualFold(tr.Table, table) {
-		sc.Log("warning: trigger %d was created on %s, not %s", index+1, tr.Table, table)
+		sc.Log("warning: before %s trigger %d was created on %s, not %s", event, index+1, tr.Table, table)
 	}
 	var got int
 	q := "SELECT CASE WHEN is_called THEN last_value ELSE 0 END FROM public." + tr.RaisedSequence
@@ -222,7 +305,7 @@ func (svc *Service) verifyTrigger(sc *core.Scenario, index int, table string, wa
 		return fmt.Errorf("Could not verify trigger invocation count: %w", err) //nolint:staticcheck // user-facing message
 	}
 	if got != want {
-		return core.Fail(fmt.Sprintf("Expected before insert trigger '%s' to have been raised %d time(s), but was raised %d time(s)", tr.Name, want, got), want, got)
+		return core.Fail(fmt.Sprintf("Expected before %s trigger '%s' to have been raised %d time(s), but was raised %d time(s)", event, tr.Name, want, got), want, got)
 	}
 	return nil
 }

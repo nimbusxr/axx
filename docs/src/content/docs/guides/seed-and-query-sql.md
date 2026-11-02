@@ -194,6 +194,18 @@ The trigger raises a serialization failure (`40001`) once; the service retries a
 
 Triggers change a shared table, so to run those scenarios alone after the parallel phase, tag them with a tag in `run.exclusive` (for example `@isolated`) or list `sql.trigger` in `run.exclusiveUses`. See [Run in parallel](/guides/parallel-runs/).
 
+An update or a delete fails the same way, with a before update or before delete trigger. An update's conditions are on the row as the update would leave it, and a delete's on the row it would take away, which stays:
+
+```gherkin
+Given a before update trigger on the parcels.parcels table will raise a 40001 exception where:
+  | reference    | PX-DBF-3102 |
+  | weight_grams | 2500        |
+And a before delete trigger on the parcels.parcels table will raise a 40001 exception 1 time where:
+  | reference | PX-DBF-3104 |
+```
+
+Triggers need PostgreSQL or Oracle. Each kind is numbered on its own, so `the before update trigger on the parcels.parcels table was raised 1 time` means the first before update trigger, whatever else the scenario created.
+
 ## Row locks
 
 ```gherkin

@@ -475,7 +475,7 @@ func oracleRaisedQuery(tr *Trigger) string {
 // createOracleTrigger makes inserts of matching rows fail with an ORA error. NOCACHE
 // sequences count what it matched and raised: LAST_NUMBER is exact, and a sequence
 // keeps its count when the insert's statement rolls back.
-func (svc *Service) createOracleTrigger(ctx context.Context, table, code string, maxInvocations int, insertRow bool, t *core.Table) error {
+func (svc *Service) createOracleTrigger(ctx context.Context, event, table, code string, maxInvocations int, insertRow bool, t *core.Table) error {
 	tbl, err := Ident(table)
 	if err != nil {
 		return err
@@ -489,7 +489,7 @@ func (svc *Service) createOracleTrigger(ctx context.Context, table, code string,
 		return err
 	}
 	comparisons := svc.oracleComparisons(types)
-	where, err := whereClauseOf(t, ":NEW.", comparisons)
+	where, err := whereClauseOf(t, ":"+triggerRow(event)+".", comparisons)
 	if err != nil {
 		return err
 	}
@@ -498,12 +498,12 @@ func (svc *Service) createOracleTrigger(ctx context.Context, table, code string,
 	}
 	check, _ := whereClauseOf(t, "", comparisons)
 	if _, err := svc.DB.ExecContext(ctx, "SELECT 1 FROM "+tbl+" WHERE 1=0 AND "+check); err != nil {
-		return fmt.Errorf("Could not create before insert trigger on table '%s': %w", table, typeMismatch(err)) //nolint:staticcheck // user-facing message
+		return fmt.Errorf("Could not create before %s trigger on table '%s': %w", event, table, typeMismatch(err)) //nolint:staticcheck // user-facing message
 	}
 	id := strings.ToUpper(randomSuffix())
 	tr := &Trigger{
 		Name: "AXX_T_" + id, Function: "AXX_P_" + id, Sequence: "AXX_S_" + id, RaisedSequence: "AXX_R_" + id,
-		Table: tbl, MaxInvocations: maxInvocations,
+		Table: tbl, MaxInvocations: maxInvocations, Event: event,
 	}
 	raise := oracleRaise(tr, number)
 	if maxInvocations > 0 {
@@ -542,10 +542,10 @@ func (svc *Service) createOracleTrigger(ctx context.Context, table, code string,
 		guard = "IF " + tr.Function + ".skip THEN RETURN; END IF; "
 		raise = "keep(" + strings.Join(news, ", ") + "); " + raise
 	}
-	stmts = append(stmts, "CREATE TRIGGER "+tr.Name+" BEFORE INSERT ON "+tbl+" FOR EACH ROW DECLARE "+declare+"BEGIN "+guard+
+	stmts = append(stmts, "CREATE TRIGGER "+tr.Name+" BEFORE "+strings.ToUpper(event)+" ON "+tbl+" FOR EACH ROW DECLARE "+declare+"BEGIN "+guard+
 		"IF "+where+" THEN "+raise+" END IF; END;")
 	fail := func(err error) error {
-		return fmt.Errorf("Could not create before insert trigger on table '%s': %w", table, err) //nolint:staticcheck // user-facing message
+		return fmt.Errorf("Could not create before %s trigger on table '%s': %w", event, table, err) //nolint:staticcheck // user-facing message
 	}
 	conn, err := svc.DB.Conn(ctx)
 	if err != nil {
