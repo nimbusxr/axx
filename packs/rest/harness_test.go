@@ -253,6 +253,7 @@ func (a *api) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.Header().Add("Access-Control-Allow-Origin", "*")
 		w.Header().Add("Access-Control-Allow-Origin", "test.example.com")
 		w.Header().Set("X-Request-Id", "req-123")
+		w.Header().Set("X-Count", "3")
 		respond(w, 200, "application/json; charset=UTF-8", `{"name":"x","count":3,"ratio":1.5,"ok":true,"none":null,"list":[1,2],"obj":{"a":"b"}}`)
 	case r.URL.Path == "/vnd":
 		respond(w, 200, "application/vnd.api+json", `{"data":{"id":"7"}}`)

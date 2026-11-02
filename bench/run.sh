@@ -3,7 +3,7 @@
 #
 #   bench/run.sh startup        CLI start-up: version, steps, validate (no infrastructure)
 #   bench/run.sh suite          the example suite with its stack already running
-#                               (framework overhead + real work, the dev loop)
+#                               (framework overhead + real work)
 #   bench/run.sh e2e            one cold run: start the stack, run everything, tear down
 #
 # `suite` expects the stack to be up:

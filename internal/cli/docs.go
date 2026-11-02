@@ -96,7 +96,7 @@ const packsLink = "/references/packs/"
 func noPacksToDocument(cfg *config.Config) error {
 	if cfg.File == "" {
 		return axxerr.New("AXX-E0014", exitcode.Usage, "there are no packs to document: this is not an axx project, and this axx has no packs built in").
-			WithHint("run it in your project's directory, where axx.yaml is; axx's own packs are documented at https://axx.nimbusxr.us/references/packs/")
+			WithHint("run it in your project's directory, where axx.yaml is; `axx pack list` lists axx's own packs, and `axx pack show <name>` gives one")
 	}
 	return axxerr.New("AXX-E0014", exitcode.Usage, "there are no packs to document: the project lists none").
 		WithHint("add the packs your steps come from with `axx pack add rest sql ...` (`axx pack list` lists them)")

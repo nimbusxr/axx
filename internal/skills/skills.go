@@ -60,11 +60,8 @@ func Build(e *engine.Engine) ([]Skill, error) {
 	if err != nil {
 		return nil, err
 	}
-	codes, err := md.ErrorCodesPage(false)
-	if err != nil {
-		return nil, err
-	}
-	errorCodes := File{Path: "references/error-codes.md", Content: []byte(codes)}
+	// No skill carries the error codes: `axx explain <code>` gives each one
+	// offline, where a copy of all of them was some 8,000 tokens a read.
 	var out []Skill
 	for _, name := range Names() {
 		sk := Skill{Name: name}
@@ -93,10 +90,8 @@ func Build(e *engine.Engine) ([]Skill, error) {
 					sk.Files = append(sk.Files, f)
 				}
 			}
-		case "axx-debugging", "axx-setup":
-			sk.Files = append(sk.Files, errorCodes)
 		case "axx-test-data":
-			sk.Files = append(sk.Files, errorCodes, File{Path: "references/spec-files.md", Content: []byte(specFilesRef())})
+			sk.Files = append(sk.Files, File{Path: "references/spec-files.md", Content: []byte(specFilesRef())})
 		}
 		sort.Slice(sk.Files, func(i, j int) bool { return sk.Files[i].Path < sk.Files[j].Path })
 		out = append(out, sk)

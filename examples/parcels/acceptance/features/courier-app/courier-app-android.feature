@@ -40,7 +40,7 @@ Feature: The couriers' app
   Scenario: A wrong PIN is refused
     When the courier app is launched
     And the "Courier ID" field in the courier app is filled with "CR-LEJ-50"
-    And the "PIN" field in the courier app is filled with "0000"
+    And the "PIN" field in the courier app is filled with '"0000"'
     And the "Sign in" button is tapped in the courier app
     Then the courier app shows "The courier ID or the PIN is wrong."
     And the "Sign in" button is shown in the courier app
@@ -49,7 +49,7 @@ Feature: The couriers' app
     # Other scenarios signed in on this device: none of it is left.
     When the courier app is launched
     Then the courier app shows "Sign in"
-    And the "Courier ID" field in the courier app has the value ""
+    And the "Courier ID" field in the courier app has the value '""'
     And the "Sign in" button is disabled in the courier app
 
   Scenario: A delivery link opens its parcel once the courier signs in

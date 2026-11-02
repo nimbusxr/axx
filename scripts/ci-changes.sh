@@ -34,6 +34,7 @@ while ! $all && ! $none && IFS= read -r f; do
   case "$f" in
     examples/*/app/*) ;;
     cmd/* | core/* | internal/* | packs/* | plugins/* | testdata/* | build/* | scripts/* | \
+      docs/src/content/docs/guides/set-up-agents.md | \
       examples/parcels/acceptance/* | go.mod | go.sum | mise.toml | .golangci.yml | .goreleaser.yaml | *.go)
       go=true
       case "$f" in

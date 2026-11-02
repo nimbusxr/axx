@@ -94,4 +94,12 @@ func TestMailboxProperties(t *testing.T) {
 		_ = h.Fails("the shops mailbox with the following properties:", tc.want, tc.rows)
 	}
 	_ = h.Fails("the shops mailbox has an email where:", "No mailbox is registered in this scenario", [][]string{{"to", "a@b.example"}})
+	// An email's values are text (ADR 0014): one that reads as anything else,
+	// or an empty cell, fails at once, saying what to write.
+	_ = h.Fails("the shops mailbox has an email where:", `subject: 2026 reads as an integer, and only text fits here: write "2026" for the text`,
+		[][]string{{"to", "a@b.example"}, {"subject", "2026"}})
+	_ = h.Fails("the shops mailbox has an email where:", `header X-Priority: the cell is empty: write "" for the empty text`,
+		[][]string{{"header X-Priority", ""}})
+	_ = h.Fails("the shops mailbox has an email where:", "No mailbox is registered in this scenario",
+		[][]string{{"subject", `"2026"`}, {"header X-Priority", `"1"`}})
 }

@@ -2,6 +2,7 @@ syntax = "proto3";
 
 package parcels.tracking.v1;
 
+import "google/protobuf/any.proto";
 import "google/protobuf/timestamp.proto";
 
 // Tracking tells where parcels are.
@@ -13,6 +14,7 @@ service Tracking {
 message GetParcelRequest {
   string reference = 1;
   string postcode = 2;
+  int64 weight_grams = 3;
 }
 
 message WatchParcelRequest {
@@ -33,6 +35,13 @@ message Parcel {
   int64 weight_grams = 4;
   bool signature = 5;
   string postcode = 6;
+  double weight_kg = 7;
+  google.protobuf.Any customs = 8;
+}
+
+message CustomsDeclaration {
+  int64 grams = 1;
+  double value_eur = 2;
 }
 
 message Scan {

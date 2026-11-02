@@ -217,6 +217,10 @@ type TriedStep struct {
 	Error       string   `json:"error,omitempty"`
 	Logs        []string `json:"logs,omitempty"`
 	Suggestions []string `json:"suggestions,omitempty"`
+	// Pack is the pack that has an undefined step, which the project does not
+	// use, and Hint says how to add it.
+	Pack string `json:"pack,omitempty"`
+	Hint string `json:"hint,omitempty"`
 }
 
 type stepsTryOut struct {
@@ -248,6 +252,7 @@ func (s *server) stepsTry(_ context.Context, _ *sdk.CallToolRequest, in stepsTry
 			for _, sg := range sr.Suggestions {
 				t.Suggestions = append(t.Suggestions, sg.Expr)
 			}
+			t.Pack, t.Hint = missingPack(sr.Suggestions)
 			for _, a := range sr.Attachments {
 				if strings.HasPrefix(a.MediaType, "image/") && sr.Status == runner.Failed {
 					images = append(images, &sdk.ImageContent{MIMEType: a.MediaType, Data: a.Body})

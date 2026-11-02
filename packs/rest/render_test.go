@@ -75,7 +75,7 @@ func TestPropertyFailureValues(t *testing.T) {
 		{"count", "3", `3`, `2`, true},
 		{"meta", `{"a":2}`, `{"a":2}`, `{"a":1}`, false},
 	} {
-		f, err := propertyIs(ex, c.path, c.value)
+		f, err := valueCheck(ex, c.path, c.value, false)
 		if err != nil || f == nil {
 			t.Fatalf("%s: failure %v, err %v", c.path, f, err)
 		}

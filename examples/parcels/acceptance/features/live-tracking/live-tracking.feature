@@ -81,6 +81,6 @@ Feature: Live tracking
     When the depot-scans kafka event is published using schema schemas/depot-scan.avsc
     Then within 20s the tracking event stream has an event where:
       | event type | delivered   |
-      | event id   | 1           |
+      | event id   | "1"         |
       | reference  | PX-LIV-5704 |
       | status     | DELIVERED   |

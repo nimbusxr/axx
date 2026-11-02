@@ -108,6 +108,10 @@ type AgentError struct {
 	Candidates []string `json:"candidates,omitempty"`
 	// Suggestions are close step expressions for an undefined step.
 	Suggestions []string `json:"suggestions,omitempty"`
+	// Pack is the pack that has an undefined step, which the project does not
+	// use, and Hint says how to add it.
+	Pack string `json:"pack,omitempty"`
+	Hint string `json:"hint,omitempty"`
 }
 
 // AgentUndefined is an undefined step with suggested expressions.
@@ -116,6 +120,10 @@ type AgentUndefined struct {
 	Text        string   `json:"text"`
 	Location    string   `json:"location"`
 	Suggestions []string `json:"suggestions,omitempty"`
+	// Pack is the pack that has the step, which the project does not use, and
+	// Hint says how to add it.
+	Pack string `json:"pack,omitempty"`
+	Hint string `json:"hint,omitempty"`
 }
 
 // agent writes an AgentReport on Finish.
@@ -172,8 +180,9 @@ func (a *agent) build(res *runner.RunResult) *AgentReport {
 			}
 			if key := where + "\x00" + s.Text; !seen[key] {
 				seen[key] = true
+				pack, hint := missingPack(s)
 				rep.Undefined = append(rep.Undefined, AgentUndefined{
-					Keyword: s.Keyword, Text: s.Text, Location: where, Suggestions: suggestionExprs(s),
+					Keyword: s.Keyword, Text: s.Text, Location: where, Suggestions: suggestionExprs(s), Pack: pack, Hint: hint,
 				})
 			}
 		}
@@ -207,6 +216,7 @@ func (a *agent) failure(r *runner.ScenarioResult) AgentFailure {
 			if d.kind == KindUndefined {
 				f.Error.Message = "undefined step: " + s.Text
 				f.Error.Suggestions = suggestionExprs(s)
+				f.Error.Pack, f.Error.Hint = missingPack(s)
 			}
 			if d.values {
 				f.Error.Expected = rawJSON(d.expected)
@@ -248,6 +258,17 @@ func suggestionExprs(s *runner.StepResult) []string {
 		out = append(out, sg.Expr)
 	}
 	return out
+}
+
+// missingPack is the pack an undefined step's suggestions say it is of, which
+// the project does not use, and how to add it.
+func missingPack(s *runner.StepResult) (pack, hint string) {
+	for _, sg := range s.Suggestions {
+		if sg.Pack != "" {
+			return sg.Pack, sg.Missing()
+		}
+	}
+	return "", ""
 }
 
 // rawJSON encodes v verbatim when it is JSON-encodable, else as its %v

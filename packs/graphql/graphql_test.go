@@ -80,6 +80,9 @@ func (p *parcels) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		out = map[string]any{"data": nil, "errors": []any{map[string]any{
 			"message": ref + " is out for delivery", "path": []any{"holdParcel"}, "extensions": map[string]any{"code": "NOT_HOLDABLE"},
 		}}}
+	case "BusyParcel":
+		out = json.RawMessage(`{"data": null, "errors": [{"message": "the depot is busy", "path": ["parcels", 0, "scans"],
+			"extensions": {"retryAfter": 6.0, "traceId": 9007199254740993, "retries": 2}}]}`)
 	case "SignedBy":
 		out = map[string]any{"errors": []any{map[string]any{"message": `Cannot query field "signedBy" on type "Parcel".`}}}
 	case "ParcelsByPostcode":
@@ -224,8 +227,18 @@ func TestQueriesAndMutations(t *testing.T) {
 	_ = h.Fails("the parcels graphql service's data has the following properties:", "parcel.status", [][]string{{"parcel.status", "DELIVERED"}})
 	_ = h.Fails("the parcels graphql service answered an error where:", "The parcels graphql service answered Parcel without errors", [][]string{{"message", "x"}})
 
+	// Checks are strict: a number is not its text.
+	h.OK("the parcels graphql service's data has the following properties:", [][]string{{"parcel.weightGrams", "1200"}})
+	_ = h.Fails("the parcels graphql service's data has the following properties:", "parcel.weightGrams is the integer 1200: write 1200",
+		[][]string{{"parcel.weightGrams", `"1200"`}})
+
 	h.OK("a query is sent to the parcels graphql service:", `query Parcel { parcel(reference: "PX-GQL-7299") { reference } }`)
 	h.OK("the parcels graphql service's data has the following properties:", [][]string{{"parcel", "null"}})
+
+	// Without a schema, a variable is sent as written, and the service answers.
+	h.OK("the graphql/parcels-by-postcode.graphql query is sent to the parcels graphql service with the following variables:",
+		[][]string{{"shop", "maple-crafts"}, {"postcode", "10115"}})
+	h.OK("the parcels graphql service answered an error where:", [][]string{{"message", "postcode is not text"}})
 
 	// Errors are the answer's, for the checks.
 	h.OK("the graphql/hold-parcel.graphql mutation is sent to the parcels graphql service with the following variables:",
@@ -234,6 +247,17 @@ func TestQueriesAndMutations(t *testing.T) {
 	_ = h.Fails("the parcels graphql service answered without errors", `answered HoldParcel with 1 error(s)`)
 	_ = h.Fails("the parcels graphql service answered an error where:", "None of the 1 error(s) the parcels graphql service answered HoldParcel met the conditions",
 		[][]string{{"extensions.code", "FORBIDDEN"}})
+
+	// An error's numbers keep their types and their digits, as the data's do.
+	h.OK("a query is sent to the parcels graphql service:", `query BusyParcel { parcel(reference: "PX-GQL-7205") { reference } }`)
+	h.OK("the parcels graphql service answered an error where:", [][]string{
+		{"extensions.retryAfter", "6.0"}, {"extensions.traceId", "9007199254740993"}, {"extensions.retries", "2"}, {"path", "parcels.0.scans"},
+	})
+	err := h.Fails("the parcels graphql service answered an error where:", "None of the 1 error(s)", [][]string{{"extensions.retryAfter", "6"}})
+	if !strings.Contains(err.Error(), `"retryAfter":6.0`) || !strings.Contains(err.Error(), `"traceId":9007199254740993`) {
+		t.Errorf("the failure should show the numbers as the service wrote them: %v", err)
+	}
+	_ = h.Fails("the parcels graphql service answered an error where:", "None of the 1 error(s)", [][]string{{"extensions.traceId", "9007199254740992"}})
 
 	// The step says what the operation is.
 	_ = h.Fails("the graphql/hold-parcel.graphql query is sent to the parcels graphql service with the following variables:",
@@ -259,10 +283,18 @@ func TestTheSchemaIsTheContract(t *testing.T) {
 			if p.calls.Load() != calls {
 				t.Error("an operation that breaks the schema was sent")
 			}
-			// A variable takes its declared type: a postcode is text.
+			// A variable is what its cell says: a postcode is text in double quotes,
+			// and a number for a String fails, saying what to write.
 			h.OK("the graphql/parcels-by-postcode.graphql query is sent to the parcels graphql service with the following variables:",
-				[][]string{{"shop", "maple-crafts"}, {"postcode", "10115"}})
+				[][]string{{"shop", "maple-crafts"}, {"postcode", `"10115"`}})
 			h.OK("the parcels graphql service answered without errors")
+			calls = p.calls.Load()
+			_ = h.Fails("the graphql/parcels-by-postcode.graphql query is sent to the parcels graphql service with the following variables:",
+				`- validation.variables.type: $postcode is a String, not the number 10115: write "10115"`,
+				[][]string{{"shop", "maple-crafts"}, {"postcode", "10115"}})
+			if p.calls.Load() != calls {
+				t.Error("a variable of another type was sent")
+			}
 
 			// What the service answers is checked too.
 			err := h.Fails("the graphql/bad-parcel.graphql query is sent to the parcels graphql service with the following variables:",
@@ -291,10 +323,11 @@ func TestTheSchemaIsTheContract(t *testing.T) {
 	}
 }
 
-// A text variable is its text as written: a postcode keeps its leading zero,
-// in a variable and in the fields and lists of an input, which rows make as
-// they go.
-func TestTextVariablesKeepTheirZeros(t *testing.T) {
+// A variable's value means what it says (ADR 0014), in a variable and in
+// the fields and lists of an input, which rows make as they go: text in
+// double quotes keeps its zeros, a number is a number, and nothing takes
+// the type the operation declares.
+func TestVariablesMeanWhatTheySay(t *testing.T) {
 	schema := gqlparser.MustLoadSchema(&ast.Source{Input: `
 		input Address { postcode: String!, lines: [String!] }
 		type Query { parcels(postcode: String!, weight: Int, deliverTo: Address): Int }`})
@@ -303,15 +336,43 @@ func TestTextVariablesKeepTheirZeros(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	o := &operation{def: d.Operations[0]}
 	sc := core.NewScenario(context.Background(), core.ScenarioInfo{}, nil, nil)
-	rows := [][]string{{"postcode", "01067"}, {"weight", "0800"}, {"to.postcode", "01067"}, {"to.lines[0]", "007"}}
-	if err := o.setVariables(sc, &core.Table{Rows: rows}, schema); err != nil {
-		t.Fatal(err)
-	}
-	want := `{"postcode":"01067","to":{"lines":["007"],"postcode":"01067"},"weight":800}`
-	if string(o.variables) != want {
-		t.Errorf("variables\n got %s\nwant %s", o.variables, want)
+	for _, c := range []struct {
+		rows      [][]string
+		variables string
+		found     string
+	}{
+		{
+			[][]string{{"postcode", `"01067"`}, {"weight", "800"}, {"to.postcode", `"01067"`}, {"to.lines[0]", `"007"`}},
+			`{"postcode":"01067","to":{"lines":["007"],"postcode":"01067"},"weight":800}`, "",
+		},
+		{[][]string{{"postcode", "10115"}}, `{"postcode":10115}`, `$postcode is a String!, not the number 10115: write "10115"`},
+		{[][]string{{"postcode", "true"}}, `{"postcode":true}`, `$postcode is a String!, not the boolean true: write "true"`},
+		{[][]string{{"postcode", `"10115"`}, {"weight", `"800"`}}, `{"postcode":"10115","weight":"800"}`, `$weight is an Int, not the text "800": write 800`},
+		{[][]string{{"postcode", `"10115"`}, {"weight", "1.5"}}, `{"postcode":"10115","weight":1.5}`, `$weight is an Int, not the number 1.5`},
+		{
+			[][]string{{"postcode", `"10115"`}, {"to.postcode", "10115"}, {"to.lines[0]", "7"}},
+			`{"postcode":"10115","to":{"lines":[7],"postcode":10115}}`,
+			`$to.lines[0] is a String!, not the number 7: write "7"` + "\n" + `$to.postcode is a String!, not the number 10115: write "10115"`,
+		},
+	} {
+		o := &operation{doc: d, def: d.Operations[0]}
+		if err := o.setVariables(sc, &core.Table{Rows: c.rows}); err != nil {
+			t.Fatal(err)
+		}
+		if string(o.variables) != c.variables {
+			t.Errorf("variables\n got %s\nwant %s", o.variables, c.variables)
+		}
+		var found []string
+		for _, f := range o.check(schema) {
+			if f.Key != "validation.variables.type" {
+				t.Errorf("%v: %s: %s", c.rows, f.Key, f.Message)
+			}
+			found = append(found, f.Message)
+		}
+		if got := strings.Join(found, "\n"); got != c.found {
+			t.Errorf("%v: findings\n got %s\nwant %s", c.rows, got, c.found)
+		}
 	}
 }
 

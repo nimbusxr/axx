@@ -238,7 +238,7 @@ func TestCouriersOnASimulator(t *testing.T) {
 	h.OK("the courier ios app with the following properties:", [][]string{{"app", courierBuild(t)}, {"device", device}})
 	h.OK(`the courier app is launched`)
 	h.OK(`the courier app shows "Sign in"`)
-	h.OK(`the "Courier ID" field in the courier app has the value ""`)
+	h.OK(`the "Courier ID" field in the courier app has the value '""'`)
 	signIn(h)
 	h.OK(`the courier app's dialog shows "Send You Notifications"`)
 	h.OK(`the courier app's dialog is dismissed`)

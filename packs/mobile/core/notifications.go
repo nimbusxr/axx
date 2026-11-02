@@ -228,7 +228,8 @@ func openNotification(sc *core.Scenario, app, text string) error {
 func notificationSteps() []core.StepDef {
 	return []core.StepDef{{
 		ID: "mobile-core.notification", Keyword: "Then", Since: since,
-		Expr: "[[within {duration} ]]the {word} app shows a notification {string}",
+		Expr:     "[[within {duration} ]]the {word} app shows a notification {string}",
+		TextArgs: []int{2},
 		Doc: "Check that the device shows a notification with a text, in its title or its text: it opens the notifications " +
 			"(Android's notification shade, iOS's Notification Center), looks, and closes them. It waits for the notification (10 seconds, or `within`).",
 		Examples: []string{`Then the courier app shows a notification "PX-MOB-9401 delivered"`},

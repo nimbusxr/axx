@@ -37,7 +37,7 @@ Feature: Claims for lost parcels
       | shop    | NORTHWIND |
       | carrier | HERON     |
       | reason  | LOST      |
-      | amount  | 45.00     |
+      | amount  | "45.00"   |
 
   Scenario: A parcel reported delivered is not paid out
     Given a seeds/PX-4104.yaml dynamodb seed

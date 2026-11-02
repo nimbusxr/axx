@@ -90,9 +90,28 @@ To see Axx's steps in feature files as you write them, set up IntelliJ IDEA, VS 
 
 ## Upgrade
 
-Upgrade with the channel you installed from (`brew upgrade`, rerun the script, or `go install ...@latest`). Step text never changes between versions, so feature files keep working. Before `v1.0.0`, a minor version bump (`0.1` to `0.2`) may change a flag or a configuration key; read the [changelog](https://github.com/nimbusxr/axx/blob/main/CHANGELOG.md) first.
+Upgrade with the channel you installed from (`brew upgrade`, rerun the script, or `go install ...@latest`). Step text never changes between versions. Before `v1.0.0`, a minor version bump (`0.1` to `0.2`) may change a flag, a configuration key or what a feature's values mean; read the [changelog](https://github.com/nimbusxr/axx/blob/main/CHANGELOG.md) first.
 
-After upgrading, refresh the agent skills so their step index matches the new binary:
+### To 0.3.0
+
+A value now [means what it says](/references/steps/#values) in every pack, set or checked, and checks are strict. What to change in your features:
+
+| You wrote | Write | Why |
+|---|---|---|
+| `\| postcode \| 10115 \|`, for a string | `\| postcode \| "10115" \|` | `10115` is the number; nothing is inferred from a schema, a column or an example |
+| `the response payload property postcode is '10115'`, for a string | `is '"10115"'` | a step's quotes are the step's, and the value inside them follows the rule |
+| `\| weightKg \| 6 \|`, for a double of 6.0 | `\| weightKg \| 6.0 \|` | `6` is an integer and `6.0` a decimal, and types must match |
+| an empty cell | `""`, `null`, or `undefined` where the step takes it | an empty cell could be any of them |
+| `01067`, `+5`, `1.5f`, `NaN` | `1067` for the number, or `"01067"` for the text | JSON has no such number |
+| `\| X-Count \| 3 \|`, where only text fits | `\| X-Count \| "3" \|` | a header, a query parameter or a line of a file holds text |
+| `the response header Retry-After is '5'`, `the "Weight" field is filled with "1200"`, `the response body contains '{"a":1}'` | `is '"5"'`, `filled with '"1200"'`, `contains '"{"a":1}"'` | a step's own value follows the rule too; plain text like `'application/json'` stays as it is, and so do names and patterns |
+| `\| postcode \| 10115 \|` or `\| price \| 12 \|` in a `where:`, on a text or a decimal column | `\| postcode \| "10115" \|`, `\| price \| 12.0 \|` | a `where:` is held to the column's real type before the query, in SQL and BigQuery, and a MongoDB selection is as strict as a check: `6` selects no double, nor `null` a document without the field |
+
+A regular expression that expects a whole double to read `6` needs to allow `6.0`: a pattern matches the value's text, and a whole double keeps its decimal point.
+
+`axx validate` reports empty cells, numbers in other forms, and values that are not text where only text fits, in a table or in a step's own text. It cannot know that `| postcode | 10115 |` means a string: that fails when the scenario runs, and the message says what to write.
+
+After upgrading, refresh the agent skills so they match the new binary:
 
 ```sh
 axx skills install

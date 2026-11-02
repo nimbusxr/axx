@@ -23,6 +23,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"sort"
 	"strings"
@@ -42,6 +43,10 @@ const (
 	// CodeBuild: a pack does not build.
 	CodeBuild = "AXX-E0304"
 )
+
+// offline matches the Go command's errors when it cannot reach the module
+// proxy: a module this machine has not downloaded yet.
+var offline = regexp.MustCompile(`(?m)(dial tcp|lookup \S+ on|network is unreachable|no such host|i/o timeout|connection refused|TLS handshake timeout).*$`)
 
 // AxxModule is axx's module path.
 const AxxModule = "github.com/nimbusxr/axx"
@@ -176,6 +181,10 @@ func Ensure(ctx context.Context, o Options) (*Result, error) {
 		var out bytes.Buffer
 		cmd.Stdout, cmd.Stderr = &out, &out
 		if err := cmd.Run(); err != nil {
+			if offline.Match(out.Bytes()) {
+				return axxerr.New(CodeBuild, exitcode.Environment, "preparing the packs failed: their Go modules could not be downloaded (go %s)\n%s", strings.Join(args, " "), strings.TrimSpace(out.String())).
+					WithHint("axx downloads a pack's modules once, from the Go module proxy, and this machine has not got them yet; run again once it can reach the proxy (GOPROXY), after which these packs, for any project, prepare offline")
+			}
 			return axxerr.New(CodeBuild, exitcode.Usage, "preparing the packs failed (go %s)\n%s", strings.Join(args, " "), strings.TrimSpace(out.String())).
 				WithHint("a pack is a Go package that exports `func Pack() core.Pack` (github.com/nimbusxr/axx/core); fix the errors above and run again")
 		}

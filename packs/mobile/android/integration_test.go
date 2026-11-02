@@ -191,7 +191,7 @@ func TestCouriersOnAnEmulator(t *testing.T) {
 	// Not where the scenario before left it: where an emulator starts.
 	near(t, h, defaultLocation[0], defaultLocation[1])
 	h.OK(`the courier app shows "Sign in"`)
-	h.OK(`the "Courier ID" field in the courier app has the value ""`)
+	h.OK(`the "Courier ID" field in the courier app has the value '""'`)
 	signIn(h)
 	h.OK(`the courier app's dialog shows "send you notifications"`)
 	h.OK(`the courier app's dialog is dismissed`)

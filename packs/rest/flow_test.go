@@ -30,7 +30,7 @@ func TestLaunchFlow(t *testing.T) {
 		t.Fatalf("sent %+v", got)
 	}
 	h.ok("the response status code is 201")
-	h.ok("the response header Content-Length is '174'") // chunked responses have none
+	h.ok("the response header Content-Length is '\"174\"'") // chunked responses have none
 	h.ok("the response header Content-Type is 'application/json'")
 	h.ok("the response payload properties are:",
 		[]string{"name", "super duper"},

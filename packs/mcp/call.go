@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"strconv"
 	"strings"
 	"sync"
 
@@ -29,8 +28,9 @@ type call struct {
 	tool      string
 	arguments json.RawMessage
 	result    *sdk.CallToolResult
-	err       error // a call the server refused
-	code      int64 // its JSON-RPC error code
+	raw       json.RawMessage // the result as the server wrote it
+	err       error           // a call the server refused
+	code      int64           // its JSON-RPC error code
 }
 
 // reading is a resource read.
@@ -84,7 +84,7 @@ func callTool(sc *core.Scenario, toolName, serverName string, t *core.Table, fil
 	if tool != nil {
 		input = asMap(tool.InputSchema)
 	}
-	args, err := arguments(sc, t, file, input)
+	args, err := arguments(sc, t, file)
 	if err != nil {
 		return err
 	}
@@ -93,6 +93,7 @@ func callTool(sc *core.Scenario, toolName, serverName string, t *core.Table, fil
 		if err != nil {
 			return fmt.Errorf("the %s tool's input schema: %w", toolName, err)
 		}
+		found = withWrites(found, "validation.arguments.schema", "arguments", args)
 		if err := report(sc, st, s, "the arguments of the "+toolName+" tool", found); err != nil {
 			return err
 		}
@@ -103,8 +104,9 @@ func callTool(sc *core.Scenario, toolName, serverName string, t *core.Table, fil
 	}
 	ctx, cancel := context.WithTimeout(sc.Context(), s.timeout)
 	defer cancel()
+	ctx, written := withRawResult(ctx)
 	res, callErr := s.session.CallTool(ctx, &sdk.CallToolParams{Name: toolName, Arguments: json.RawMessage(raw)})
-	c := &call{server: s, tool: toolName, arguments: raw, result: res}
+	c := &call{server: s, tool: toolName, arguments: raw, result: res, raw: written.get()}
 	var wire *jsonrpc.Error
 	switch {
 	case errors.As(callErr, &wire):
@@ -121,7 +123,11 @@ func callTool(sc *core.Scenario, toolName, serverName string, t *core.Table, fil
 	if res.StructuredContent == nil {
 		found = []finding{{Key: "validation.result.missing", Message: "the tool has an output schema, and its result has no structured content"}}
 	} else {
-		v, err := jsonValue(res.StructuredContent)
+		content, err := c.structuredJSON()
+		if err != nil {
+			return err
+		}
+		v, err := jsonschema.UnmarshalJSON(bytes.NewReader(content))
 		if err != nil {
 			return err
 		}
@@ -138,9 +144,11 @@ func (st *state) record(c *call) {
 	st.calls = append(st.calls, c)
 }
 
-// arguments are a call's arguments: the table's, each taking the type the
-// tool's input schema gives it, or the file's.
-func arguments(sc *core.Scenario, t *core.Table, file string, schema map[string]any) (any, error) {
+// arguments are a call's arguments: the file's, or the table's, each what
+// its cell says (ADR 0014). Nothing takes the type the tool's input schema
+// gives it: a value of another type is sent as written, for the schema's
+// check to find, or the server to refuse.
+func arguments(sc *core.Scenario, t *core.Table, file string) (any, error) {
 	if file != "" {
 		p, err := sc.ResolvePath(file)
 		if err != nil {
@@ -172,109 +180,9 @@ func arguments(sc *core.Scenario, t *core.Table, file string, schema map[string]
 	}
 	rows := make([]tablevalue.Row, len(pairs))
 	for i, p := range pairs {
-		rows[i] = tablevalue.Row{Path: p.Key, Null: p.Null}
-		if !p.Null {
-			if rows[i].Value, err = secrets.Resolve(sc, p.Value); err != nil {
-				return nil, err
-			}
-		}
+		rows[i] = tablevalue.Row{Path: p.Key, Value: p.Value, Null: p.Null}
 	}
-	// A string argument is its text as written: 01067 stays 01067.
-	args, err := tablevalue.Build(rows, func(path string) bool { return types(schemaAt(schema, path)) == "string" })
-	if err != nil {
-		return nil, err
-	}
-	return conform(schema, args), nil
-}
-
-// conform gives a value the type its schema declares: the text of a number
-// for a string, a number for an integer or a number, a boolean for a
-// boolean, and the properties of an object and the items of an array
-// theirs.
-func conform(schema map[string]any, v any) any {
-	if schema == nil {
-		return v
-	}
-	switch x := v.(type) {
-	case map[string]any:
-		props, _ := schema["properties"].(map[string]any)
-		for k, pv := range x {
-			if ps, ok := props[k].(map[string]any); ok {
-				x[k] = conform(ps, pv)
-			}
-		}
-		return x
-	case []any:
-		if items, ok := schema["items"].(map[string]any); ok {
-			for i, e := range x {
-				x[i] = conform(items, e)
-			}
-		}
-		return x
-	}
-	switch types(schema) {
-	case "string":
-		switch x := v.(type) {
-		case json.Number:
-			return x.String()
-		case bool:
-			return strconv.FormatBool(x)
-		}
-	case "integer", "number":
-		if s, ok := v.(string); ok {
-			if _, err := strconv.ParseFloat(s, 64); err == nil {
-				return json.Number(s)
-			}
-		}
-	case "boolean":
-		if s, ok := v.(string); ok {
-			if b, err := strconv.ParseBool(s); err == nil {
-				return b
-			}
-		}
-	}
-	return v
-}
-
-// schemaAt is the schema of a path into the arguments (`address.postcode`,
-// `lines[0].reference`), or nil.
-func schemaAt(schema map[string]any, path string) map[string]any {
-	s := schema
-	for _, seg := range strings.Split(strings.TrimPrefix(path, "$."), ".") {
-		name, rest, _ := strings.Cut(seg, "[")
-		if name != "" {
-			props, _ := s["properties"].(map[string]any)
-			if s, _ = props[name].(map[string]any); s == nil {
-				return nil
-			}
-		}
-		for ; rest != ""; _, rest, _ = strings.Cut(rest, "[") {
-			if s, _ = s["items"].(map[string]any); s == nil {
-				return nil
-			}
-		}
-	}
-	return s
-}
-
-// types is the one type a schema declares, besides null, or "".
-func types(schema map[string]any) string {
-	switch t := schema["type"].(type) {
-	case string:
-		return t
-	case []any:
-		var out string
-		for _, e := range t {
-			if s, ok := e.(string); ok && s != "null" {
-				if out != "" {
-					return ""
-				}
-				out = s
-			}
-		}
-		return out
-	}
-	return ""
+	return tablevalue.Build(rows, func(v string) (string, error) { return secrets.Resolve(sc, v) })
 }
 
 var compileMu sync.Mutex
@@ -426,13 +334,33 @@ func message(err error) string {
 
 // text is the text of a result's content, and its structured content as
 // JSON.
-func text(r *sdk.CallToolResult) string {
-	parts := contentText(r.Content)
-	if r.StructuredContent != nil {
-		b, _ := json.Marshal(r.StructuredContent)
+func (c *call) text() string {
+	parts := contentText(c.result.Content)
+	if c.result.StructuredContent != nil {
+		b, _ := c.structuredJSON()
 		parts = append(parts, string(b))
 	}
 	return strings.Join(parts, "\n")
+}
+
+// structuredJSON is a result's structured content as the server wrote it.
+func (c *call) structuredJSON() ([]byte, error) {
+	var written struct {
+		StructuredContent json.RawMessage `json:"structuredContent"`
+	}
+	if json.Unmarshal(c.raw, &written) == nil && written.StructuredContent != nil {
+		return written.StructuredContent, nil
+	}
+	return json.Marshal(c.result.StructuredContent)
+}
+
+// resultJSON is the result as the server wrote it, for what a failure shows.
+func (c *call) resultJSON() string {
+	if c.raw != nil {
+		return string(c.raw)
+	}
+	b, _ := json.Marshal(c.result)
+	return string(b)
 }
 
 func contentText(content []sdk.Content) []string {
@@ -456,7 +384,7 @@ func contentText(content []sdk.Content) []string {
 // text, for a tool without an output schema that answers JSON in text.
 func structured(c *call, r *sdk.CallToolResult) (string, error) {
 	if r.StructuredContent != nil {
-		b, err := json.Marshal(r.StructuredContent)
+		b, err := c.structuredJSON()
 		return string(b), err
 	}
 	t := strings.TrimSpace(strings.Join(contentText(r.Content), "\n"))
@@ -504,6 +432,9 @@ func (r *reading) text() string {
 	return strings.Join(parts, "\n")
 }
 
+// requestPrompt requests a prompt, with the table's arguments, which MCP
+// gives as text: a value that reads as anything else is in double quotes
+// (`"4711"`).
 func requestPrompt(sc *core.Scenario, name, serverName string, t *core.Table) error {
 	s, err := get(sc, serverName)
 	if err != nil {
@@ -516,11 +447,13 @@ func requestPrompt(sc *core.Scenario, name, serverName string, t *core.Table) er
 			return err
 		}
 		for _, p := range pairs {
-			v, err := secrets.Resolve(sc, p.Value)
+			text, _, err := core.ParseText(p.Value, p.Null, false)
 			if err != nil {
+				return fmt.Errorf("%s: %w", p.Key, err)
+			}
+			if args[p.Key], err = secrets.Resolve(sc, text); err != nil {
 				return err
 			}
-			args[p.Key] = v
 		}
 	}
 	ctx, cancel := context.WithTimeout(sc.Context(), s.timeout)

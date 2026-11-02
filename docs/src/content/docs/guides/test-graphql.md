@@ -59,7 +59,7 @@ When a query is sent to the parcels graphql service:
   """
 ```
 
-- **A variable takes the type the operation declares:** `10115` is text for a `String!` variable and a number for an `Int!`. Double quotes make a value text, `null` is null, and `undefined` leaves the variable out. A row can be a path into an input object (`address.postcode`).
+- **A variable is [what its cell says](/references/steps/#values),** whatever type the operation declares: `"10115"` for a `String!`, `10115` for an `Int!`. A value of another type is sent as written; with a `schema`, its check finds it first (`validation.variables.type`) and says what to write. `null` is null, and `undefined` leaves the variable out. A row can be a path into an input object (`address.postcode`).
 - **The step says what the operation is:** sending a mutation file with "query" fails, which keeps the feature file honest about what it does.
 - **Errors are the answer's:** an answer with errors does not fail the step that sends the operation. Check them.
 
@@ -75,7 +75,7 @@ Then the parcels graphql service answered an error where:
   | extensions.code | NOT_HOLDABLE |
 ```
 
-- Data paths are dotted (`parcel.shop.name`) or JSONPath; `null` and `undefined` work as in the other property steps.
+- Data paths are dotted (`parcel.shop.name`) or JSONPath. Values have types, as in the other property steps: `1200` is a number and `"1200"` the text, and each must match the data's.
 - An error's `path` is its fields and indexes joined with dots: `parcel.shop.name`, `parcels.0.reference`. The check passes when one of the answer's errors has every row.
 - The checks read the service's last answer in the scenario.
 

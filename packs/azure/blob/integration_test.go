@@ -36,7 +36,7 @@ func TestBlobs(t *testing.T) {
 	h.OK("the declarations blob container has a blob named incoming/DEC-1.json")
 	h.OK("the incoming/DEC-1.json blob in the declarations blob container is identical to the declarations/DEC-1.json file")
 	h.OK("the incoming/DEC-1.json blob in the declarations blob container has the following properties:", [][]string{
-		{"declaration", "DEC-1"}, {"goods[0].hs", "610910"},
+		{"declaration", "DEC-1"}, {"goods[0].hs", `"610910"`}, {"goods[0].value", "49.5"},
 	})
 
 	// The text of a PDF and the rows of a CSV file.
@@ -51,7 +51,7 @@ func TestBlobs(t *testing.T) {
 		t.Fatal(err)
 	}
 	h.OK(`the cn23/PX-CUS-6003.pdf blob in the declarations blob container contains "Customs declaration CN23 for parcel PX-CUS-6003"`)
-	h.OK("the goods/DEC-1.tsv blob in the declarations blob container has a row where:", [][]string{{"hs", "610910"}, {"value", "49.50"}})
+	h.OK("the goods/DEC-1.tsv blob in the declarations blob container has a row where:", [][]string{{"hs", `"610910"`}, {"value", `"49.50"`}})
 	go func() {
 		time.Sleep(time.Second)
 		_ = st.Put(ctx, "declarations", "clearances/DEC-1.json", []byte(`{"cleared":true}`), "application/json")

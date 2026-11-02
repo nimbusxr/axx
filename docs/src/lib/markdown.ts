@@ -41,22 +41,9 @@ function absolutize(body: string): string {
 /** The home page's twin starts with where an agent starts. */
 const AGENTS_START =
 	'> **Coding agents:** with axx installed, `axx --help` gives the workflow and the rules, and axx answers the rest itself, offline and for its version: ' +
-	'`axx steps` (every step of the project\'s packs, read once), `axx steps show <id>...` (their documentation) and `axx steps search <words>`, ' +
+	'`axx steps` (every step of the project\'s packs, read once), `axx steps show <id>...` (their documentation) and `axx steps search <words>` (a step the project\'s packs lack, with the pack to add), ' +
 	'`axx pack list` (what each pack reaches), `axx explain <code>` (an error). ' +
 	`In a project that has run \`axx init\`, its AGENTS.md section has the same. [llms.txt](${ROOT}/llms.txt) indexes this site's Markdown.`;
-
-/** The home page's twin lists where to go, for agents, in place of the page for people. */
-const HOME_INDEX = [
-	'## On this site',
-	'',
-	'- [Quickstart](/tutorials/quickstart/): a first suite, start to finish',
-	'- [Install axx](/guides/install/) and [set up agents](/guides/set-up-agents/)',
-	'- [Use packs](/guides/use-packs/): what each pack reaches, and adding one',
-	'- [Packs](/references/packs/) and [steps](/references/steps/): the reference, generated from axx',
-	'- [Error codes](/references/error-codes/) and [the CLI](/references/cli/)',
-	'- [How axx works](/explanations/how-axx-works/) and [why axx](/explanations/why-axx/)',
-	`- [llms.txt](${ROOT}/llms.txt): every page's Markdown, by section`,
-].join('\n');
 
 /** Whether a page is a pack's reference page (references/packs/<pack>). */
 export function isPackPage(id: string): boolean {
@@ -99,7 +86,7 @@ export function compactPackPage(body: string, id: string): string {
 	const pack = id.split('/').pop();
 	return [
 		head.trim(),
-		`## Steps\n\nEach step's expression and what it does. Its documentation, parameters and examples: \`axx steps show <id>\` (offline, for the axx installed), or this page in full: ${ROOT}/${id}.full.md. A pack the project does not use yet: \`axx pack add ${pack}\`, then \`axx steps\`.\n\n${out.join('\n')}`,
+		`## Steps\n\nEach step's expression and what it does. Its documentation, parameters and examples: \`axx steps show <id>\` (offline, for the axx installed), or this page in full: ${ROOT}/${id}.full.md. The pack's steps, whether the project uses it or not: \`axx pack show ${pack}\`.\n\n${out.join('\n')}`,
 		tail.trim(),
 	]
 		.filter(Boolean)
@@ -125,12 +112,14 @@ export function toMarkdown(entry: CollectionEntry<'docs'>, full = false): string
 	if (hero?.tagline) parts.push(hero.tagline);
 	// The home page's links are relative to it: from the site's root here.
 	const rooted = (link: string) => (/^[a-z]+:|^\//i.test(link) ? link : `/${link}`);
-	if (hero?.actions?.length) parts.push(hero.actions.map((a) => `- [${a.text}](${rooted(a.link)})`).join('\n'));
+	// The home page's twin leaves its hero's links to people: agents followed them.
+	if (hero?.actions?.length && entry.id !== 'index') parts.push(hero.actions.map((a) => `- [${a.text}](${rooted(a.link)})`).join('\n'));
 	parts.push(`Source: ${ROOT}${entry.id === 'index' ? '/' : `/${entry.id}/`}`);
 	// An agent that lands here from a project's README: what axx tells it
-	// itself, and where to go on this site, instead of the page for people.
+	// itself, instead of the page for people. No list of this site's pages:
+	// agents followed it instead of asking axx (llms.txt has it).
 	if (entry.id === 'index') {
-		parts.push(AGENTS_START, HOME_INDEX);
+		parts.push(AGENTS_START);
 		return absolutize(parts.join('\n\n')) + '\n';
 	}
 	parts.push((isPackPage(entry.id) && !full ? compactPackPage(body, entry.id) : body).trim());
