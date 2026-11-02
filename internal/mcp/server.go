@@ -101,7 +101,7 @@ func newServer(opts Options) (*sdk.Server, *server) {
 		s.stepsSearch)
 	addTool(srv, &sdk.Tool{
 		Name: "step_explain", Annotations: ro,
-		Description: "With a step line: how axx reads it, or the closest steps. With step ids: what each does, its table and an example; full for every detail.",
+		Description: "With a step line: how axx reads it, or the closest steps. With step ids: their documentation and examples.",
 	},
 		s.stepExplain)
 	addTool(srv, &sdk.Tool{
@@ -509,20 +509,6 @@ type stepExplainIn struct {
 	ID   string `json:"id,omitempty" jsonschema:"a step id"`
 	// IDs ask for several steps in one call.
 	IDs []string `json:"ids,omitempty" jsonschema:"several step ids"`
-	// Full asks for every detail and example of a step given by its id.
-	Full bool `json:"full,omitempty" jsonschema:"every detail and example of each step"`
-}
-
-// lookup is what a step lookup gives an agent: what the step does, its table
-// and an example; full, everything the step documents (stepsearch.BriefDoc).
-func (in stepExplainIn) lookup(st Step, seen map[string]bool) Step {
-	if in.Full {
-		return st
-	}
-	st.Doc = stepsearch.BriefDoc(st.Doc)
-	st.TableNote = stepsearch.BriefNote(st.TableNote, seen)
-	st.Examples = st.Examples[:min(1, len(st.Examples))]
-	return st
 }
 
 type explainedArg struct {
@@ -576,14 +562,15 @@ func (s *server) stepExplain(ctx context.Context, _ *sdk.CallToolRequest, in ste
 				noted[st.Pack] = true
 				out.Suggestions = append(out.Suggestions, fmt.Sprintf("the %s pack is not in this project: `axx pack add %s` adds it", st.Pack, st.Pack))
 			}
-			out.Steps = append(out.Steps, in.lookup(st, seen))
+			st.TableNote = stepsearch.BriefNote(st.TableNote, seen)
+			out.Steps = append(out.Steps, st)
 		}
 		return nil, out, nil
 	}
 	if id := strings.TrimSpace(in.ID); id != "" {
 		for _, st := range allSteps(e, "") {
 			if st.ID == id {
-				st := in.lookup(st, map[string]bool{})
+				st := st
 				out.Status, out.Step = "matched", &st
 				return nil, out, nil
 			}
@@ -591,7 +578,7 @@ func (s *server) stepExplain(ctx context.Context, _ *sdk.CallToolRequest, in ste
 		// A step of a pack the project does not use.
 		for _, st := range otherSteps(e, "") {
 			if st.ID == id {
-				st := in.lookup(st, map[string]bool{})
+				st := st
 				out.Status, out.Step = "undefined", &st
 				out.Suggestions = []string{fmt.Sprintf("this is %s of the %s pack, which this project does not use: `axx pack add %s`", st.ID, st.Pack, st.Pack)}
 				return nil, out, nil

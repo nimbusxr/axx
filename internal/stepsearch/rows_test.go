@@ -7,15 +7,6 @@ import (
 	"github.com/nimbusxr/axx/core"
 )
 
-func TestBriefDocLeavesOutTheDetails(t *testing.T) {
-	if got := BriefDoc("Send a request.\n\n- With a specification, it is validated.\n- It is executed once."); got != "Send a request." {
-		t.Errorf("got %q", got)
-	}
-	if got := BriefDoc("Send a request.\n\nIt keeps the response."); got != "Send a request.\n\nIt keeps the response." {
-		t.Errorf("a doc without details stays whole: %q", got)
-	}
-}
-
 func TestBriefNoteSaysHowValuesReadOnce(t *testing.T) {
 	doc := core.ValueDoc(core.JSONValues, true)
 	seen := map[string]bool{}

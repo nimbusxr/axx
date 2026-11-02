@@ -113,15 +113,6 @@ func TestTools(t *testing.T) {
 	if sts, _ := out["steps"].([]any); len(sts) != 2 || sts[1].(map[string]any)["id"] != "rest.request" || fmt.Sprint(out["unknown"]) != "[rest.nope]" {
 		t.Fatalf("step_explain by ids: %v", out)
 	}
-	// A lookup says what a step does; full has its details.
-	out = call(t, cs, "step_explain", map[string]any{"ids": []string{"rest.execute"}})
-	if sts, _ := out["steps"].([]any); len(sts) != 1 || strings.Contains(fmt.Sprint(sts[0].(map[string]any)["doc"]), "No cookies are kept") {
-		t.Fatalf("step_explain leaves the details out: %v", out)
-	}
-	out = call(t, cs, "step_explain", map[string]any{"ids": []string{"rest.execute"}, "full": true})
-	if sts, _ := out["steps"].([]any); len(sts) != 1 || !strings.Contains(fmt.Sprint(sts[0].(map[string]any)["doc"]), "No cookies are kept") {
-		t.Fatalf("step_explain with full has the details: %v", out)
-	}
 	// A step's table comes with the rows it knows, and what each takes; a
 	// table of many rows (a Kafka client's Java properties) with their names.
 	out = call(t, cs, "step_explain", map[string]any{"ids": []string{"rest.service", "kafka.client.props"}})

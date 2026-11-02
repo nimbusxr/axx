@@ -31,18 +31,6 @@ func BriefRows(rows []core.TableRow) (brief []core.TableRow, whole bool) {
 	return brief, false
 }
 
-// BriefDoc is a step's documentation as an agent first reads it: what the step
-// does, without its list of details. An agent looks up a dozen steps and carries
-// what it reads through every later turn, and the details were half of it; the
-// full form of a lookup has them.
-func BriefDoc(doc string) string {
-	doc = strings.TrimSpace(doc)
-	if i := strings.Index(doc, "\n- "); i >= 0 {
-		return strings.TrimSpace(doc[:i])
-	}
-	return doc
-}
-
 // BriefNote is a table's note, with the sentence on how its values read left
 // out once seen has it: it is the same on every step of a kind, and comes once
 // a lookup, as a parameter's documentation does.

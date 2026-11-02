@@ -243,7 +243,7 @@ ids show each of their steps.`,
 	for _, c := range []*cobra.Command{list, search, show} {
 		cf.register(c)
 	}
-	show.Flags().BoolVar(&fullShow, "full", false, "every detail, variant and example, even in compact output (agents)")
+	show.Flags().BoolVar(&fullShow, "full", false, "every variant and example, even in compact output (agents)")
 	// `axx steps explain` is `axx explain`, where agents look for it too.
 	explain := newExplainCmd(app)
 	explain.Short = "Same as `axx explain`: " + explain.Short
@@ -506,8 +506,8 @@ func renderStepCompact(w io.Writer, s StepInfo, seenParams map[string]bool) erro
 			fmt.Fprintf(&b, "{%s}: %s\n", p.Name, p.Doc)
 		}
 	}
-	if doc := stepsearch.BriefDoc(s.Doc); doc != "" {
-		fmt.Fprintf(&b, "%s\n", doc)
+	if s.Doc != "" {
+		fmt.Fprintf(&b, "%s\n", strings.TrimSpace(s.Doc))
 	}
 	if len(s.Examples) > 0 {
 		fmt.Fprintf(&b, "Example:\n  %s\n", strings.ReplaceAll(s.Examples[0], "\n", "\n  "))
