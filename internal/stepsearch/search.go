@@ -30,6 +30,12 @@ type Result struct {
 	Index  int
 	Score  int
 	Strong bool
+	// Fit is Score without what the step loses for a pack the query does not
+	// name. Those words are worked out among the steps searched, so only Fit
+	// compares across searches.
+	Fit int
+	// Words counts the query's words the step matches strongly.
+	Words int
 }
 
 // stopwords carry no intent.
@@ -140,7 +146,7 @@ func Search(steps []Step, q string) (results []Result, strong bool) {
 	asWritten := rawWords(q)
 	for i, s := range steps {
 		expr, id, doc := exprWords(s.Expr), set(Words(s.ID)), set(Words(s.Doc))
-		score, matched := 0, false
+		score, words, matched := 0, 0, false
 		// The words as the query writes them, plurals and all, settle a tie
 		// ("properties" between the property and the properties steps).
 		if raw := set(rawWords(s.Expr)); len(asWritten) > 0 {
@@ -150,21 +156,19 @@ func Search(steps []Step, q string) (results []Result, strong bool) {
 				}
 			}
 		}
-		// A step of a pack the query does not name (a mocked request, a
-		// kafka event) ranks after the steps the words fit as well.
-		if m := marks[s.Pack]; len(m) > 0 && !slices.ContainsFunc(m, func(w string) bool { return asked[w] }) {
-			score -= 5
-		}
 		for _, w := range unique {
 			switch {
 			case expr[w]:
 				score += 5
+				words++
 				matched = true
 			case id[w]:
 				score += 4
+				words++
 				matched = true
 			case slices.ContainsFunc(synonyms[w], func(x string) bool { return expr[x] || id[x] }):
 				score += 4
+				words++
 				matched = true
 			case doc[w]:
 				score++
@@ -173,8 +177,14 @@ func Search(steps []Step, q string) (results []Result, strong bool) {
 				score++ // the step is about it
 			}
 		}
+		fit := score
+		// A step of a pack the query does not name (a mocked request, a
+		// kafka event) ranks after the steps the words fit as well.
+		if m := marks[s.Pack]; len(m) > 0 && !slices.ContainsFunc(m, func(w string) bool { return asked[w] }) {
+			score -= 5
+		}
 		if score > 0 || matched {
-			results = append(results, Result{Index: i, Score: score, Strong: matched})
+			results = append(results, Result{Index: i, Score: score, Strong: matched, Fit: fit, Words: words})
 			strong = strong || matched
 		}
 	}
@@ -189,6 +199,46 @@ func Search(steps []Step, q string) (results []Result, strong bool) {
 		return len(steps[ra.Index].ID) < len(steps[rb.Index].ID)
 	})
 	return results, strong
+}
+
+// Elsewhere compares q's results among others, the steps of packs a project
+// does not use, with its results among mine, the project's steps. better
+// marks (by index) the others that read like q better than any of mine;
+// outclassed reports that the best limit of the others all do, and that one of
+// them has words of q none of mine has, which leaves the project's results
+// beside the point: "kafka event key" in a project without kafka. A step of
+// the project's that has every word of q is never outclassed.
+//
+// Mine are judged by their fit: a project needs no naming of the packs it
+// uses, and what Search takes off for that depends on the steps it searched.
+func Elsewhere(mine, others []Step, q string, limit int) (better map[int]bool, outclassed bool) {
+	mineResults, mineStrong := Search(mine, q)
+	best, mineWords := 0, 0
+	for _, r := range mineResults {
+		if r.Strong {
+			best = max(best, r.Fit)
+			mineWords = max(mineWords, r.Words)
+		}
+	}
+	otherResults, strong := Search(others, q)
+	if !strong {
+		return nil, false
+	}
+	better = map[int]bool{}
+	outclassed = true
+	otherWords := 0
+	for n, r := range otherResults {
+		if !r.Strong || n == limit {
+			break
+		}
+		otherWords = max(otherWords, r.Words)
+		if !mineStrong || r.Score > best {
+			better[r.Index] = true
+		} else {
+			outclassed = false
+		}
+	}
+	return better, outclassed && len(better) > 0 && otherWords > mineWords
 }
 
 // markers are the words that mark a pack's steps: in nearly all of its
@@ -236,6 +286,16 @@ func Twins(ids []string) map[string]string {
 	return out
 }
 
+// LeadingSuffix ends the id of a step's form with its ordinal first (the 2nd
+// ordered response payload properties are:). It says what its step says, in
+// the words agents reach for by themselves, so a list and a search leave it to
+// its step.
+const LeadingSuffix = ".leading"
+
+// LeadingBase is the id of the step a leading form belongs to, and whether id
+// is one.
+func LeadingBase(id string) (string, bool) { return strings.CutSuffix(id, LeadingSuffix) }
+
 // Entry is a step as a catalog lists it.
 type Entry struct {
 	ID, Pack, Expr string
@@ -261,7 +321,7 @@ func (e Entry) Tail() string {
 }
 
 // Fold leaves out the named-service twins of the entries whose step is
-// there too, and reports the ids of those steps.
+// there too, and reports the ids of those steps, and the leading forms.
 func Fold(entries []Entry) (kept []Entry, twinned map[string]bool) {
 	ids := make([]string, len(entries))
 	for i, e := range entries {
@@ -274,6 +334,9 @@ func Fold(entries []Entry) (kept []Entry, twinned map[string]bool) {
 			twinned[base] = true
 			continue
 		}
+		if _, ok := LeadingBase(e.ID); ok {
+			continue
+		}
 		kept = append(kept, e)
 	}
 	return kept, twinned
@@ -281,7 +344,11 @@ func Fold(entries []Entry) (kept []Entry, twinned map[string]bool) {
 
 // Notation says how to read an expression into a step line: agents that
 // copy one, notation and all, write steps no definition matches.
-const Notation = "To write a step from its expression: replace each {name} with a value; a(n) is \"a\" or \"an\" and row(s) \"row\" or \"rows\", as the sentence reads; [[...]] are optional words, kept (without the brackets) or left out where they stand."
+const Notation = "To write a step from its expression: replace each {name} with a value; a(n) is \"a\" or \"an\" and row(s) \"row\" or \"rows\", as the sentence reads; [[...]] are optional words, kept (without the brackets) or left out where they stand.\n" +
+	"A scenario is one behavior: Given steps for the state it starts from (a request it needs done first too: Given ... request ..., And the request is executed), one When for what someone does, Then steps for what is true afterwards. A When after a Then is another behavior: another scenario. Each acceptance criterion is a behavior of its own, even when one action shows several. " +
+	"A request that checks the outcome (a lookup that finds nothing stored) is added with the others in the Givens and executed in the When: When the 1st ordered request is executed, And the 2nd ordered request is executed; the Thens check each response.\n" +
+	"Ordinals count in the order a scenario adds things: the 2nd request, response or selection is its second; a step without one means the 1st.\n" +
+	"A table value means what it says: 53111 a number, \"53111\" the string, null, undefined (no such property); checks are strict."
 
 // TwinMark follows a step whose named-service twin is folded into it, and
 // TwinLegend says what it means.
@@ -289,6 +356,10 @@ const (
 	TwinMark   = "  (+ .on)"
 	TwinLegend = "(+ .on): the step also has an `<id>.on` form, for a named service (`… on {service}`)"
 )
+
+// LookUp closes the list of steps: an agent that looks up every step it uses
+// reads more than the list holds, and carries it through every later turn.
+const LookUp = "A step's line is usually enough to write it: look up the documentation only of those that leave you unsure (what a table's rows hold, say), several at once: `axx steps show <id>...`, or step_explain with the MCP tools."
 
 // Catalog renders every step, one line each, by pack: the cheapest way for
 // an agent to see all the steps there are.
@@ -314,5 +385,6 @@ func Catalog(entries []Entry) string {
 	if len(twinned) > 0 {
 		b.WriteString("\n" + TwinLegend + "\n")
 	}
+	b.WriteString("\n" + LookUp + "\n")
 	return b.String()
 }

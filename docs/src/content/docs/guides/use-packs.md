@@ -1,6 +1,6 @@
 ---
 title: Choose packs
-description: Pick the packs a project uses with axx-packs.yaml and axx pack add, remove, list and update.
+description: Pick the packs a project uses with axx-packs.yaml and axx pack add, remove, list, show and update.
 ---
 
 A **pack** is a set of steps. Axx publishes `rest`, `mock` (mocked dependencies, and mocked AI models: [Test AI features](/guides/test-ai-features/)), `grpc` ([Call gRPC services](/guides/test-grpc/)), `jsonrpc` ([Call JSON-RPC services](/guides/test-jsonrpc/)), `graphql` ([Call GraphQL services](/guides/test-graphql/)), `mcp` ([Test MCP servers](/guides/test-mcp/)), `a2a` ([Test A2A agents](/guides/test-a2a/)), `sql`, `mongo`, `redis` ([Seed and check Redis](/guides/test-redis/)), `kafka`, `amqp`, `mqtt`, `nats` ([Test message brokers](/guides/test-message-brokers/)), `websocket` ([Test WebSockets](/guides/test-websockets/)), `sse` ([Test event streams](/guides/test-event-streams/)), `asyncapi` (their messages checked against your AsyncAPI document: [Validate against AsyncAPI](/guides/validate-asyncapi/)), `logs`, `files` (the files your services write: [Check files](/guides/check-files/)), `mail` ([Check emails](/guides/check-emails/)), `cli` (commands: [Run commands](/guides/run-commands/)) and `web-core` (web apps in real browsers: [Test web apps](/guides/test-web-apps/)), with the packs that build on it: `web-screenshots`, `web-a11y`, `web-network`, `web-lighthouse` and `web-coverage`, `mobile-android` and `mobile-ios` (Android apps on emulators, iOS apps on simulators: [Test mobile apps](/guides/test-mobile-apps/)), which build on `mobile-core`, and `desktop-macos`, `desktop-windows` and `desktop-linux` (desktop apps, through the operating system's accessibility tree), which build on `desktop-core`. It also publishes packs for cloud services, one per service, named after its cloud ([Test cloud services](/guides/test-cloud-services/)):
@@ -18,10 +18,13 @@ $ axx pack add rest sql
 created axx-packs.yaml
 added rest, sql
 $ axx pack list
-  rest                                     axx       46 steps
-  sql                                      axx       17 steps
-  mock                                     axx       not used
-  mongo                                    axx       not used
+this project's packs (axx-packs.yaml):
+  rest              31 steps   REST requests and responses, OpenAPI validation
+  sql               17 steps   SQL databases (PostgreSQL, MySQL, MariaDB, SQL Server, SQLite): seeds, selections, locks, triggers
+
+axx's packs it does not use (`axx pack show <name>`: what one reaches, its settings and steps):
+  mock              WireMock services and their OpenAPI contracts
+  mongo             MongoDB: seeds and selections
   ...
 ```
 
@@ -31,7 +34,7 @@ packs:
   - sql
 ```
 
-Only the listed packs are loaded, so their steps are the only ones `axx validate`, `axx steps` and the skills know about. Listing a pack that builds on another (a web pack such as `web-a11y`, `mobile-android`, `desktop-macos`, or an AWS or Google Cloud pack) loads that one too: `web-core`, `mobile-core` or `desktop-core` (and `app-core`, which they build on), `aws-core` or `gcp-core`. `axx pack remove` takes packs off the list. `axx init` starts the file with `rest`, which its first feature uses. Commit `axx-packs.yaml`.
+Axx knows every pack it publishes before a project adds it, offline and for the version installed: `axx pack show <name>` says what a pack reaches and gives its settings and steps, `axx steps --pack <name>` lists its steps, and `axx steps search <words>` finds steps in every pack, with the pack to add. Only the listed packs are loaded, so their steps are the only ones a run can use; a step of another of Axx's packs is undefined, and `axx validate` names the pack that has it. Listing a pack that builds on another (a web pack such as `web-a11y`, `mobile-android`, `desktop-macos`, or an AWS or Google Cloud pack) loads that one too: `web-core`, `mobile-core` or `desktop-core` (and `app-core`, which they build on), `aws-core` or `gcp-core`. `axx pack remove` takes packs off the list. `axx init` starts the file with `rest`, which its first feature uses, and lists the packs the repository points to, from its compose files, dependency manifests, schema files and docs, for you to add. Commit `axx-packs.yaml`.
 
 The first `axx` command that needs the project's steps prepares Axx with its packs:
 

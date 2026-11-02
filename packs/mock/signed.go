@@ -47,7 +47,8 @@ func signedStep() core.StepDef {
 func webhookStep() core.StepDef {
 	return core.StepDef{
 		ID: "mock.webhook", Keyword: "Then", Since: signedSince,
-		Expr: "the mocked request named {word}[[ on {mockedService}]] is signed as a standard webhook with the key {string}",
+		Expr:     "the mocked request named {word}[[ on {mockedService}]] is signed as a standard webhook with the key {string}",
+		TextArgs: []int{2},
 		Doc: "Check that the named request was received, and that every request it names is a Standard Webhook (standardwebhooks.com) " +
 			"signed with the key: its `webhook-signature` has the signature of its `webhook-id`, `webhook-timestamp` and body.\n\n" +
 			"- The key is `whsec_` and the key in base64, as Standard Webhooks give it; it expands `${env:..}`, and is masked.",

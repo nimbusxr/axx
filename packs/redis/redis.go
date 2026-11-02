@@ -4,10 +4,12 @@
 package redis
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"net/url"
 	"regexp"
 	"sort"
@@ -36,7 +38,7 @@ Given the cache redis server with the following properties:
   | url | redis://localhost:6379/0 |
 ` + "```" + `
 
-- **A key is shown as JSON,** whatever its type: a string holding JSON as that JSON (other text as a string), a hash as an object of its fields, a list as an array, a set as a sorted array, and a sorted set as an object of its members and their scores. ` + "`has the following properties:`" + ` reads paths into it.
+- **A key is shown as JSON,** whatever its type: a string holding JSON as that JSON (other text as a string), a hash as an object of its fields, a list as an array, a set as a sorted array, and a sorted set as an object of its members and their scores. ` + "`has the following properties:`" + ` reads paths into it. Redis keeps text, so fields and members are strings (` + "`\"42\"`" + `), and scores are decimals (` + "`42.0`" + `).
 - **Checks wait** for the key to be as they say, 10 seconds unless ` + "`within {duration}`" + ` says otherwise.
 - **Scenarios share the server,** so each seeds and checks keys of its own, named after data unique to it, such as a parcel reference.
 - **Secrets stay secret:** a password in the URL, or from ` + "`${env:..}`" + `, is masked in logs and failures.`
@@ -80,10 +82,11 @@ func steps() []core.StepDef {
 		},
 		{
 			ID: Name + ".value", Keyword: "Then", Since: since,
-			Expr: "[[within {duration} ]]the {word} redis key has the value {string}",
+			Expr:     "[[within {duration} ]]the {word} redis key has the value {string}",
+			TextArgs: []int{2},
 			Doc: "Check that the key holds that text. The check waits for it: 10 seconds, or `within {duration}`.\n\n" +
 				"- The key must be a string key; for the others, check their properties.",
-			Examples: []string{"Then within 10s the quote:DE-1:STANDARD:1200 redis key has the value '690'"},
+			Examples: []string{"Then within 10s the quote:DE-1:STANDARD:1200 redis key has the value '\"690\"'"},
 			Run: func(sc *core.Scenario, a core.Args) error {
 				key, want := a.String(1), a.String(2)
 				return check(sc, a, key, func(k *stored) (bool, string) {
@@ -104,11 +107,14 @@ func steps() []core.StepDef {
 			Expr: "[[within {duration} ]]the {word} redis key has the following properties:",
 			Doc: "Check that the key, shown as JSON, has the properties of the table. The check waits for it: 10 seconds, or `within {duration}`.\n\n" +
 				"- A string key holding JSON is that JSON; a hash is an object of its fields; a list an array; a set a sorted array; " +
-				"a sorted set an object of its members and their scores.",
+				"a sorted set an object of its members and their scores.\n" +
+				"- Redis keeps text: a hash's fields and the members of a list or a set are strings, so a field holding 42 is `\"42\"`; " +
+				"a score is a decimal, like `42.0`.",
 			Table: &core.TableDoc{
-				Columns: []string{"path", "value"},
-				Note: "Each row is a path into the key's JSON (a field name, a dotted path or a JSONPath) and the value it has, " +
-					"compared as text: `null` for null and `undefined` for absent.",
+				Columns:   []string{"path", "value"},
+				Note:      "Each row is a path into the key's JSON (a field name, a dotted path or a JSONPath) and the value it has.",
+				Values:    core.JSONValues,
+				Undefined: true,
 			},
 			Examples: []string{
 				"Then within 10s the quote:DE-1:STANDARD:1200 redis key has the following properties:\n" +
@@ -415,9 +421,9 @@ func read(ctx context.Context, c *goredis.Client, name string) (*stored, error) 
 		k.kind = "sorted set"
 		var zs []goredis.Z
 		zs, err = c.ZRangeWithScores(ctx, name, 0, -1).Result()
-		scores := map[string]float64{}
+		scores := map[string]any{}
 		for _, z := range zs {
-			scores[fmt.Sprint(z.Member)] = z.Score
+			scores[fmt.Sprint(z.Member)] = score(z.Score)
 		}
 		v = scores
 	default:
@@ -428,6 +434,22 @@ func read(ctx context.Context, c *goredis.Client, name string) (*stored, error) 
 	}
 	k.json = cloudstep.JSON(v)
 	return k, nil
+}
+
+// score is a sorted set's score as JSON: a decimal, a whole one too (42.0,
+// not 42), or "Infinity" and "-Infinity", which JSON lacks.
+func score(f float64) any {
+	switch {
+	case math.IsInf(f, 1):
+		return "Infinity"
+	case math.IsInf(f, -1):
+		return "-Infinity"
+	}
+	b, _ := json.Marshal(f)
+	if !bytes.ContainsAny(b, ".eE") {
+		b = append(b, ".0"...)
+	}
+	return json.Number(b)
 }
 
 // check waits until the key is as ok says.

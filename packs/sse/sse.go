@@ -86,8 +86,10 @@ func steps() []core.StepDef {
 			Doc:  "Check that the stream sent an event with those values. The check waits for it: 10 seconds, or `within {duration}`.",
 			Table: &core.TableDoc{
 				Columns: []string{"path", "value"},
-				Note: "Each row is a path into the event's data, as JSON (a field name, a dotted path or a JSONPath), and the value it has, compared as text: `null` for null and `undefined` for absent. " +
-					"The rows `event type` and `event id` are the event's type (its `event:` field, or `message`) and id.",
+				Note: "Each row is a path into the event's data, as JSON (a field name, a dotted path or a JSONPath), and the value it has there. " +
+					"The rows `event type` and `event id` are the event's type (its `event:` field, or `message`) and id, which are text: " +
+					"`\"1\"` for an id that reads as a number.",
+				Values: core.JSONValues, Undefined: true, TextRows: []string{field + " <name>"},
 			},
 			Examples: []string{"Then within 20s the tracking event stream has an event where:\n  | event type | delivered   |\n  | reference  | PX-LIV-5702 |\n  | status     | DELIVERED   |"},
 			Run: func(sc *core.Scenario, a core.Args) error {
@@ -95,7 +97,7 @@ func steps() []core.StepDef {
 				if err != nil {
 					return err
 				}
-				rs, err := cloudstep.Conditions(a.Table)
+				rs, err := cloudstep.MessageConditions(a.Table, field, nil)
 				if err != nil {
 					return err
 				}
@@ -106,6 +108,7 @@ func steps() []core.StepDef {
 		{
 			ID: Name + ".event.text", Keyword: "Then", Since: since,
 			Expr:     "[[within {duration} ]]the {word} event stream has an event containing {string}",
+			TextArgs: []int{2},
 			Doc:      "Check that the stream sent an event whose data contains the text. The check waits for it: 10 seconds, or `within {duration}`.",
 			Examples: []string{"Then the tracking event stream has an event containing 'OUT_FOR_DELIVERY'"},
 			Run: func(sc *core.Scenario, a core.Args) error {

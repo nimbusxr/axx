@@ -78,6 +78,7 @@ func dialogSteps() []core.StepDef {
 		{
 			ID: "mobile-core.dialog.shows", Keyword: "Then", Since: since,
 			Expr:     "[[within {duration} ]]the {word} app's dialog shows {string}",
+			TextArgs: []int{2},
 			Doc:      "Check the text of the dialog the system shows over the app: it waits for the dialog (10 seconds, or `within`).",
 			Examples: []string{`Then the courier app's dialog shows "send you notifications"`},
 			Run: func(sc *core.Scenario, a core.Args) error {

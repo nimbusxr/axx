@@ -30,7 +30,8 @@ func modelSteps() []core.StepDef {
 	return []core.StepDef{
 		{
 			ID: "mock.model.asked", Keyword: "Then", Since: modelSince,
-			Expr: "the mocked {mockedService} model was asked about {string}[[ {int} time(s)]]",
+			Expr:     "the mocked {mockedService} model was asked about {string}[[ {int} time(s)]]",
+			TextArgs: []int{1},
 			Doc: "Check that the mocked model was asked about a text: that a request to it had the text in its conversation, " +
 				"at least once, or as many times as the step says.\n\n" + modelDoc,
 			Examples: []string{
@@ -57,7 +58,8 @@ func modelSteps() []core.StepDef {
 		},
 		{
 			ID: "mock.model.contains", Keyword: "Then", Since: modelSince,
-			Expr: "the mocked {mockedService} model's request about {string} contains {string}",
+			Expr:     "the mocked {mockedService} model's request about {string} contains {string}",
+			TextArgs: []int{1, 2},
 			Doc: "Check that a request the mocked model was asked about a text sent another: in its messages, its tools' results, " +
 				"its tools or its settings.\n\n" + modelDoc,
 			Examples: []string{"Then the mocked models model's request about 'PX-AI-8102' contains 'OUT_FOR_DELIVERY'"},
@@ -78,7 +80,8 @@ func modelSteps() []core.StepDef {
 		},
 		{
 			ID: "mock.model.notContains", Keyword: "Then", Since: modelSince, Absence: true,
-			Expr: "the mocked {mockedService} model's request about {string} does not contain {string}",
+			Expr:     "the mocked {mockedService} model's request about {string} does not contain {string}",
+			TextArgs: []int{1, 2},
 			Doc: "Check that no request the mocked model was asked about a text sent another, anywhere: in its messages, its " +
 				"tools' results, its tools or its settings. The model must have been asked about the text, or the check " +
 				"proves nothing and fails.\n\n" + modelDoc,
@@ -101,6 +104,7 @@ func modelSteps() []core.StepDef {
 		{
 			ID: "mock.model.tool", Keyword: "Then", Since: modelSince,
 			Expr:     "the mocked {mockedService} model was offered the {word} tool in the request about {string}",
+			TextArgs: []int{2},
 			Doc:      "Check that a request the mocked model was asked about a text offered it the tool, by its name.\n\n" + modelDoc,
 			Examples: []string{"Then the mocked models model was offered the track_parcel tool in the request about 'PX-AI-8102'"},
 			Run: func(sc *core.Scenario, a core.Args) error {
@@ -127,7 +131,8 @@ func modelSteps() []core.StepDef {
 		},
 		{
 			ID: "mock.model.schema", Keyword: "Then", Since: modelSince,
-			Expr: "the mocked {mockedService} model was asked for the {filepath} schema in the request about {string}",
+			Expr:     "the mocked {mockedService} model was asked for the {filepath} schema in the request about {string}",
+			TextArgs: []int{2},
 			Doc: "Check that a request the mocked model was asked about a text asked for its answer in the JSON Schema of a file " +
 				"of the project (JSON or YAML): the structured output the request asks for is that schema, whatever the order of " +
 				"its keys.\n\n" + modelDoc,

@@ -260,7 +260,7 @@ func TestThePortalInEveryEngine(t *testing.T) {
 			h.OK(`the "/quote.html" page is opened`)
 			h.OK(`the "Get a quote" button is clicked`)
 			h.OK(`the page shows "Enter a weight"`)
-			h.OK(`the "Weight (grams)" field is filled with "1200"`)
+			h.OK(`the "Weight (grams)" field is filled with '"1200"'`)
 			h.OK(`"Germany" is chosen in the "Destination country" field`)
 			h.OK(`the "Express" option is chosen`)
 			h.OK(`the "Insure this parcel" checkbox is checked`)
@@ -269,7 +269,7 @@ func TestThePortalInEveryEngine(t *testing.T) {
 			h.OK(`within 5s the page shows "Price: 13.40 EUR (signature required)"`)
 			h.OK(`the page does not show "Enter a weight"`)
 			h.OK(`the page does not show "Calculating"`)
-			h.OK(`the "Weight (grams)" field has the value "1200"`)
+			h.OK(`the "Weight (grams)" field has the value '"1200"'`)
 			h.OK(`the "Destination country" field has the value "Germany"`)
 
 			// A registration: a placeholder-only field, a date, a text area, an upload,
@@ -311,11 +311,11 @@ func TestFailuresShowWhatIsThere(t *testing.T) {
 	h, app := newHarness(t, "chromium")
 	h.OK("the portal web app with the following properties:", app)
 
-	_ = h.Fails(`the "Weight (grams)" field is filled with "1200"`, "no page is open")
+	_ = h.Fails(`the "Weight (grams)" field is filled with '"1200"'`, "no page is open")
 	_ = h.Fails(`the "/quote.html" page of the backoffice web app is opened`, "backoffice")
 	h.OK(`the "/quote.html" page is opened`)
 
-	err := h.Fails(`the "Weight" field is filled with "1200"`, `No field named "Weight" on the page; 2 fields:`)
+	err := h.Fails(`the "Weight" field is filled with '"1200"'`, `No field named "Weight" on the page; 2 fields:`)
 	for _, name := range []string{`"Weight (grams)"`, `"Destination country"`} {
 		if !strings.Contains(err.Error(), name) {
 			t.Errorf("the fields listed lack %s: %v", name, err)
@@ -327,8 +327,8 @@ func TestFailuresShowWhatIsThere(t *testing.T) {
 	_ = h.Fails(`within 1s the page shows "Price: 99.00 EUR"`, `The page does not show "Price: 99.00 EUR"`)
 	_ = h.Fails(`within 1s the page does not show "Get a quote"`, `The page shows "Get a quote"`)
 	_ = h.Fails(`within 1s the "/quotes" page is shown`, `actual:   "/quote.html"`)
-	h.OK(`the "Weight (grams)" field is filled with "1200"`)
-	_ = h.Fails(`within 1s the "Weight (grams)" field has the value "900"`, `expected: "900"`+"\n  "+`actual:   "1200"`)
+	h.OK(`the "Weight (grams)" field is filled with '"1200"'`)
+	_ = h.Fails(`within 1s the "Weight (grams)" field has the value '"900"'`, `expected: "900"`+"\n  "+`actual:   "1200"`)
 	_ = h.Fails(`within 1s the "Get a quote" button is disabled`, `The "Get a quote" button is enabled`)
 
 	h.OK(`the "/parcels" page is opened`)
@@ -338,7 +338,7 @@ func TestFailuresShowWhatIsThere(t *testing.T) {
 	_ = h.Fails(`the "/nowhere.html" page is opened`, "404")
 	_ = h.Fails(`the "/broken" page is opened`, "500")
 	h.OK(`the "/duplicates.html" page is opened`)
-	_ = h.Fails(`the "Weight" field is filled with "1"`, `2 fields on the page are named "Weight"`)
+	_ = h.Fails(`the "Weight" field is filled with '"1"'`, `2 fields on the page are named "Weight"`)
 	_ = h.Fails(`the "Save" button is clicked`, `2 buttons on the page are named "Save"`)
 
 	shots := 0

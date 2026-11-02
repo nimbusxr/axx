@@ -77,6 +77,7 @@ And the parcels a2a agent's task has an artifact where:
 - **States are written as people say them:** `submitted`, `working`, `completed`, `input-required`, `auth-required`, `failed`, `canceled` and `rejected`. A check waits for a task still at work (10 seconds, or `within {duration}`), and fails at once for a task in another state that will not change without a message.
 - **The answer** is the agent's reply, or its task's status message and the text of its artifacts.
 - **An artifact's properties** are its `name`, `description`, `text` (its text parts), `data` (its first data part: `data.status`) and `parts`.
+- **Values have types,** [as in every pack](/references/steps/#values), in the card's properties too: `true` is the boolean, and `"true"` the string.
 
 ## Streams
 

@@ -41,7 +41,7 @@ function absolutize(body: string): string {
 /** The home page's twin starts with where an agent starts. */
 const AGENTS_START =
 	'> **Coding agents:** with axx installed, `axx --help` gives the workflow and the rules, and axx answers the rest itself, offline and for its version: ' +
-	'`axx steps` (every step of the project\'s packs, read once), `axx steps show <id>...` (their documentation) and `axx steps search <words>`, ' +
+	'`axx steps` (every step of the project\'s packs, read once), `axx steps show <id>...` (their documentation) and `axx steps search <words>` (a step the project\'s packs lack, with the pack to add), ' +
 	'`axx pack list` (what each pack reaches), `axx explain <code>` (an error). ' +
 	`In a project that has run \`axx init\`, its AGENTS.md section has the same. [llms.txt](${ROOT}/llms.txt) indexes this site's Markdown.`;
 
@@ -86,7 +86,7 @@ export function compactPackPage(body: string, id: string): string {
 	const pack = id.split('/').pop();
 	return [
 		head.trim(),
-		`## Steps\n\nEach step's expression and what it does. Its documentation, parameters and examples: \`axx steps show <id>\` (offline, for the axx installed), or this page in full: ${ROOT}/${id}.full.md. A pack the project does not use yet: \`axx pack add ${pack}\`, then \`axx steps\`.\n\n${out.join('\n')}`,
+		`## Steps\n\nEach step's expression and what it does. Its documentation, parameters and examples: \`axx steps show <id>\` (offline, for the axx installed), or this page in full: ${ROOT}/${id}.full.md. The pack's steps, whether the project uses it or not: \`axx pack show ${pack}\`.\n\n${out.join('\n')}`,
 		tail.trim(),
 	]
 		.filter(Boolean)

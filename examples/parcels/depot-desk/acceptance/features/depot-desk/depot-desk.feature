@@ -45,7 +45,7 @@ Feature: The depot desk
     Given the depot app is launched
     When the "${sys:desk.reference}" field in the depot app is filled with "PX-DSK-4201"
     And the Escape key is pressed in the depot app
-    Then the "${sys:desk.reference}" field in the depot app has the value ""
+    Then the "${sys:desk.reference}" field in the depot app has the value '""'
 
   Scenario: A clerk registers a fragile express parcel with a label
     Given the depot app is launched

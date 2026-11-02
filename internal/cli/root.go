@@ -134,22 +134,30 @@ func newRootCmd(app *App) *cobra.Command {
 	root := &cobra.Command{
 		Use:   "axx",
 		Short: "Verify running software against executable acceptance criteria",
-		Long: `axx runs executable acceptance criteria, in Gherkin people can read, as black-box
-tests against running services and apps. Its packs cover REST and OpenAPI, WireMock,
-SQL, MongoDB, Kafka, logs, files, web apps in real browsers, and AWS, Google Cloud
-and Azure services: a project lists those it uses in axx-packs.yaml, beside packs
-of its own steps.
+		Long: Identity + `
+
+Its criteria are Gherkin scenarios people can read, and its packs give the steps (REST and
+OpenAPI, WireMock, SQL, MongoDB, Kafka, logs, files, web apps in real browsers, AWS, Google
+Cloud, Azure): a project lists those it uses in axx-packs.yaml, beside packs of its own
+steps. All of this answers offline, for this version.
 
 Writing tests:
-  axx steps                every step of the project's packs, one line each
-  axx steps show <id>      one step's documentation and examples
-  axx up                   start the services once and keep them running
-  axx run --compact        run the features; also reports what validate and lint find
-  (axx validate checks the features without running them)
+  axx steps                  every step of the project's packs, one line each: read it once
+  axx steps show <id>...     the documentation of steps whose line leaves you unsure, several at once
+  axx validate && axx lint && axx run --compact
+                             check the features and the test data, then run, in one command:
+                             a run starts the services and stops them
+  axx up, axx down           only to keep the services running and inspect them
+  axx explain AXX-E...       what an error code means, and what to do
 
-Docs: https://axx.nimbusxr.us (every page as Markdown: add .md to its path; llms.txt lists them)
+A step the project's packs lack: axx steps search <words> finds it in axx's other packs,
+with the pack to add; axx pack list says what each pack reaches.
 
-` + Identity,
+A scenario is one behavior: Given the state it starts from, one When, Then what is true
+afterwards; a When after a Then is another scenario, and so is each acceptance criterion,
+even when one action shows several. Every scenario uses data of its own.
+
+Docs for people: https://axx.nimbusxr.us`,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {

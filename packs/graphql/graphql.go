@@ -292,7 +292,7 @@ Given the parcels graphql service with the following properties:
   | schema | introspection                 |
 ` + "```" + `
 
-- **Operations** come from a file of the project (` + "`.graphql`" + `) or a doc string, with variables from a table: a variable takes the type the operation declares for it, so ` + "`10115`" + ` is text for a ` + "`String!`" + `.
+- **Operations** come from a file of the project (` + "`.graphql`" + `) or a doc string, with variables from a table, each what its cell says: ` + "`\"10115\"`" + ` for a ` + "`String!`" + `, as ` + "`10115`" + ` is a number, which a schema's check finds.
 - **The checks read the service's last answer** in the scenario. An answer with errors does not fail the step that sends the operation: check its errors.
 - **Subscriptions** go over graphql-ws (the ` + "`graphql-transport-ws`" + ` protocol, on the url with ` + "`ws://`" + ` or ` + "`wss://`" + `) or over server-sent events, and belong to the scenario, which ends them when it ends.
 - **The schema is the contract:** with a ` + "`schema`" + ` row (an SDL file of the project, a URL, or ` + "`introspection`" + `), every operation and its variables are checked against it before they are sent, and every answer's data against the operation's types. A subgraph's SDL may use the federation directives (` + "`@key`" + `, ` + "`@link`" + `...).

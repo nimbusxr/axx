@@ -200,7 +200,7 @@ func CheckRESTPayloadValues(reg *match.Registry, pickles []*feature.Pickle, work
 				continue
 			}
 			ms := reg.Match(ps.Text)
-			if len(ms) != 1 || ms[0].Def().Step.ID != "rest.request.properties" {
+			if len(ms) != 1 || !restPayloadTables[ms[0].Def().Step.ID] {
 				continue
 			}
 			src := p.StepSource(ps)
@@ -239,6 +239,14 @@ func CheckRESTPayloadValues(reg *match.Registry, pickles []*feature.Pickle, work
 	rr.Files = len(rr.files)
 	sortFindings(rr.Findings)
 	return rr
+}
+
+// restPayloadTables are the steps that set a request payload from a table:
+// the step, on a named service, and with its ordinal first.
+var restPayloadTables = map[string]bool{
+	"rest.request.properties":         true,
+	"rest.request.properties.on":      true,
+	"rest.request.properties.leading": true,
 }
 
 // clipValue shortens a table value for a message.

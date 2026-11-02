@@ -85,7 +85,8 @@ func steps() []core.StepDef {
 		},
 		{
 			ID: Name + ".output.contains", Keyword: "Then", Since: since,
-			Expr: "the {word} command's[[ error]] output contains {string}",
+			Expr:     "the {word} command's[[ error]] output contains {string}",
+			TextArgs: []int{1},
 			Doc: "Check that the command's output (or its error output) contains the text. Runs of spaces and line breaks " +
 				"count as one space, in both.",
 			Examples: []string{"Then the admin command's error output contains 'PX-ADM-6102 is DISPATCHED'"},
@@ -157,12 +158,9 @@ func steps() []core.StepDef {
 		},
 		{
 			ID: Name + ".output.properties", Keyword: "Then", Arg: core.ArgTable, Since: since,
-			Expr: "the {word} command's output has the following properties:",
-			Doc:  "Check the JSON the command printed: each row is a path into it (a field name, a dotted path or a JSONPath) and the value it has.",
-			Table: &core.TableDoc{
-				Columns: []string{"path", "value"},
-				Note:    "Values compare as text: `null` is null and `undefined` is absent.",
-			},
+			Expr:  "the {word} command's output has the following properties:",
+			Doc:   "Check the JSON the command printed: each row is a path into it (a field name, a dotted path or a JSONPath) and the value it has.",
+			Table: &core.TableDoc{Columns: []string{"path", "value"}, Values: core.JSONValues, Undefined: true},
 			Examples: []string{"Then the admin command's output has the following properties:\n" +
 				"  | shop                   | kestrel-books |\n" +
 				"  | parcels[0].reference   | PX-ADM-6105   |\n" +

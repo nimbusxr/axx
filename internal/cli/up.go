@@ -91,10 +91,10 @@ func newUpCmd(app *App) *cobra.Command {
 	var debug string
 	cmd := &cobra.Command{
 		Use:   "up [services...]",
-		Short: "Start the services from axx.yaml and keep them running between `axx run`s",
+		Short: "Start the services from axx.yaml and keep them running, to inspect them",
 		Long: `Start the services (all enabled ones, or the ones named) in the background and
-wait until they are ready. Later ` + "`axx run`" + ` invocations reuse them instead of
-starting and stopping them each time, which is the fastest local loop.
+wait until they are ready, to inspect them: ` + "`axx run`" + ` starts and stops what it needs
+by itself, and reuses services kept running this way, with the data earlier runs left.
 Stop them with ` + "`axx down`" + `. Service output goes to .axx/logs/services.log.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := app.loadConfig(&cf)

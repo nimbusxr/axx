@@ -211,3 +211,87 @@ func TestCatalogCompiles(t *testing.T) {
 		t.Fatalf("compiled %d catalog steps, want %d", got, len(steps))
 	}
 }
+
+// A value in a step's own text is read before Run, whatever wording of the
+// step says it, and before a reference expands: Run gets the text.
+func TestResolveReadsValues(t *testing.T) {
+	r := NewRegistry()
+	must(t, r.AddParams("t", []core.ParamType{{Name: "integer", Regexps: []string{`-?[0-9]+`}}}))
+	must(t, r.AddSteps("t", []core.StepDef{
+		{
+			ID: "t.header", Expr: "the {word} header is {string}[[ on {word}]]", TextArgs: []int{1},
+			Also: []string{"a {word} header is {string}[[ on {word}]]"},
+		},
+		{
+			ID: "t.typed", Expr: "the {word} property holds {string}", TypedArgs: []int{1}, TypedArgsUndefined: true,
+			Also: []string{"the {word} property holds {integer}"},
+		},
+		{ID: "t.named", Expr: "the {string} button is clicked"},
+	}))
+	sc := core.NewScenario(context.Background(), core.ScenarioInfo{}, nil, nil)
+	read := func(text string, arg int) (string, error) {
+		t.Helper()
+		ms := r.Match(text)
+		if len(ms) != 1 {
+			t.Fatalf("%s: %d matches", text, len(ms))
+		}
+		args, err := r.Resolve(sc, ms[0], text, nil, nil)
+		if err != nil {
+			if es := ms[0].ValueErrors(); len(es) != 1 || es[0].Error() != err.Error() {
+				t.Errorf("%s: the run says %v, and what it shows on its own %v", text, err, es)
+			}
+			return "", err
+		}
+		if es := ms[0].ValueErrors(); len(es) != 0 {
+			t.Errorf("%s: %v", text, es)
+		}
+		return args.String(arg), nil
+	}
+	for text, want := range map[string]string{
+		`the X-Count header is 'text/plain'`:     "text/plain",
+		`the X-Count header is '"5"'`:            "5",
+		`the X-Count header is "\"5\""`:          "5",
+		`the X-Count header is '"5"' on api`:     "5",
+		`a X-Count header is '"5"'`:              "5",
+		`the X-Count header is '${env:COUNT}'`:   "${env:COUNT}",
+		`the X-Count header is '"${env:COUNT}"'`: "${env:COUNT}",
+		`the zip property holds '"5"'`:           `"5"`,
+		`the zip property holds '5'`:             "5",
+		`the zip property holds 5`:               "5",
+		`the zip property holds 'undefined'`:     "undefined",
+	} {
+		if got, err := read(text, 1); got != want || err != nil {
+			t.Errorf("%s: %q %v, want %q", text, got, err, want)
+		}
+	}
+	// A name is not a value.
+	if got, err := read(`the "5" button is clicked`, 0); got != "5" || err != nil {
+		t.Errorf("a name: %q %v", got, err)
+	}
+	for text, want := range map[string]string{
+		`the X-Count header is '5'`:        `5 reads as an integer, and only text fits here: write '"5"' for the text`,
+		`the X-Count header is "5"`:        `5 reads as an integer, and only text fits here: write '"5"' for the text`,
+		`the X-Count header is '5' on api`: `5 reads as an integer, and only text fits here: write '"5"' for the text`,
+		`a X-Count header is '5'`:          `5 reads as an integer, and only text fits here: write '"5"' for the text`,
+		`the X-Count header is ''`:         `the value is empty: write '""' for the empty text`,
+		`the zip property holds '01067'`:   `01067 could be the number 1067 or the text 01067: write '1067' for the number, or '"01067"' for the text`,
+	} {
+		if _, err := read(text, 1); err == nil || err.Error() != want+" ["+core.ValueErrorCode+"]" {
+			t.Errorf("%s: %v, want %s", text, err, want)
+		}
+	}
+}
+
+// A step can only say an argument holds a value when it has that argument, and
+// the argument gives text.
+func TestValueArgsAreChecked(t *testing.T) {
+	for _, s := range []core.StepDef{
+		{ID: "t.range", Expr: "it is {string}", TextArgs: []int{1}},
+		{ID: "t.number", Expr: "it is {int}", TextArgs: []int{0}},
+		{ID: "t.typed", Expr: "it is {int}", TypedArgs: []int{0}},
+	} {
+		if err := NewRegistry().AddSteps("t", []core.StepDef{s}); err == nil || !strings.Contains(err.Error(), "holds a value") {
+			t.Errorf("%s: %v", s.ID, err)
+		}
+	}
+}

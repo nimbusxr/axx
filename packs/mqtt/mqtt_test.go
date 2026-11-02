@@ -48,9 +48,10 @@ func TestMessageProperties(t *testing.T) {
 		t.Errorf("defaults: %+v", p)
 	}
 	for fields, want := range map[string]map[string]string{
-		`the qos is 0, 1 or 2, not "3"`:                {"qos": "3"},
-		`retain is true or false, not "yes"`:           {"retain": "yes"},
-		`unknown mqtt message property "header depot"`: {"header depot": "LEJ"},
+		`the qos is the number 0, 1 or 2, not 3`:          {"qos": "3"},
+		`the qos is the number 0, 1 or 2, not "1"`:        {"qos": `"1"`},
+		`retain is the boolean true or false, not "true"`: {"retain": `"true"`},
+		`unknown mqtt message property "header depot"`:    {"header depot": "LEJ"},
 	} {
 		if _, err := message("depots/LEJ/scans", nil, want); err == nil || !strings.Contains(err.Error(), fields) {
 			t.Errorf("%v: %v", want, err)
@@ -59,6 +60,50 @@ func TestMessageProperties(t *testing.T) {
 	if _, err := message("depots/+/scans", nil, nil); err == nil || !strings.Contains(err.Error(), "not a filter") {
 		t.Errorf("a filter: %v", err)
 	}
+}
+
+// A value means what it says (ADR 0014): the qos is a number and retain a
+// boolean, and a user property is text, so one that reads as a number goes
+// in double quotes.
+func TestMessageValues(t *testing.T) {
+	h := cloudtest.New(t, Pack())
+	h.File("mqtt/scan.json", `{"scanId": "SC-8201-1"}`)
+	send := "the mqtt/scan.json message is published to the depots/LEJ/scans mqtt topic with the following properties:"
+	for _, tc := range []struct {
+		rows [][]string
+		want string
+	}{
+		{[][]string{{"property attempt", "3"}}, `property attempt: 3 reads as an integer, and only text fits here: write "3" for the text`},
+		{[][]string{{"property scanner", ""}}, `property scanner: the cell is empty: write "" for the empty text`},
+		{[][]string{{"qos", `"1"`}}, `the qos is the number 0, 1 or 2, not "1"`},
+		{[][]string{{"retain", "yes"}}, `retain is the boolean true or false, not "yes"`},
+		{[][]string{{"qos", "01"}}, `qos: 01 could be the number 1 or the text 01`},
+	} {
+		_ = h.Fails(send, tc.want, tc.rows)
+	}
+	// Values the rule reads get to the broker: there is none here.
+	_ = h.Fails(send, "No MQTT broker is registered", [][]string{{"property attempt", `"3"`}, {"qos", "2"}, {"retain", "true"}})
+
+	// A check's values in the body are typed, and those sent with the
+	// message, or of the message itself, text: one the rule cannot read
+	// fails at once, before any message comes.
+	check := "within 10s the depots/+/alerts mqtt topic has a message where:"
+	for _, tc := range []struct {
+		rows [][]string
+		want string
+	}{
+		{[][]string{{"parcelRef", "PX-8299"}, {"property attempt", "3"}}, `property attempt: 3 reads as an integer, and only text fits here: write "3" for the text`},
+		{[][]string{{"topic", "true"}}, `topic: true reads as a boolean, and only text fits here: write "true" for the text`},
+		{[][]string{{"parcelRef", ""}}, `parcelRef: the cell is empty: write "" for the empty string, null for null, or undefined for no such property`},
+		{[][]string{{"postcode", "01067"}}, `postcode: 01067 could be the number 1067 or the text 01067: write 1067 for the number, or "01067" for the text`},
+	} {
+		start := time.Now()
+		_ = h.Fails(check, tc.want, tc.rows)
+		if time.Since(start) > 2*time.Second {
+			t.Errorf("%v: should fail at once, not after %s", tc.rows, time.Since(start))
+		}
+	}
+	_ = h.Fails(check, "No MQTT broker is registered", [][]string{{"weightGrams", "1200"}, {"property attempt", `"3"`}, {"property scanner", "undefined"}})
 }
 
 // A packet written in parts goes out whole, one packet at a time.

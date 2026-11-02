@@ -41,7 +41,7 @@ Feature: The depot desk's models, on a Mac
     When the "Depot" element is clicked in the depot app
     And the "Read label" element is clicked in the depot app
     Then the depot app shows "No reference on the label: type it in"
-    And the "${sys:desk.reference}" field in the depot app has the value ""
+    And the "${sys:desk.reference}" field in the depot app has the value '""'
 
   Scenario: A parcel's scan is kept with its arrival
     Given the parcel-on-counter.jpg file in the scans folder is a copy of the scans/parcel-on-counter.jpg file

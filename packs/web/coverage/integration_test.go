@@ -245,7 +245,7 @@ func TestTabsAndSitesShareTheCounts(t *testing.T) {
 func TestABundleCountsAsItsSources(t *testing.T) {
 	h := newHarness(t, site(t), "chromium", Config{})
 	h.OK(`the "/quote.html" page is opened`)
-	h.OK(`the "Weight (grams)" field is filled with "1200"`)
+	h.OK(`the "Weight (grams)" field is filled with '"1200"'`)
 	h.OK(`"France" is chosen in the "Destination country" field`)
 	h.OK(`the "Get a quote" button is clicked`)
 	h.OK(`the page shows "Price: 14.80 EUR"`)
@@ -287,7 +287,7 @@ func TestOnlyTheSourcesCount(t *testing.T) {
 	h.OK(`the "/track.html" page is opened`)
 	h.OK(`the "Track" button is clicked`)
 	h.OK(`the "/quote-lean.html" page is opened`)
-	h.OK(`the "Weight (grams)" field is filled with "1200"`)
+	h.OK(`the "Weight (grams)" field is filled with '"1200"'`)
 	h.OK(`the "Get a quote" button is clicked`)
 	h.OK(`the page shows "Price: 6.90 EUR"`)
 	got := finish(t, h)

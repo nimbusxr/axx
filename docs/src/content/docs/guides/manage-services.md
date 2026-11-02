@@ -1,6 +1,6 @@
 ---
 title: Manage the services under test
-description: Declare how Axx starts, waits for, stops and cleans up the services under test, keep them running with axx up, attach services you run yourself, and start only the services a run needs.
+description: Declare how Axx starts, waits for, stops and cleans up the services under test, keep them running to inspect them with axx up, attach services you run yourself, and start only the services a run needs.
 ---
 
 `services:` in `axx.yaml` describes the system under test: your service and anything it needs, such as databases, brokers and mocks. `axx run` starts them, waits until they are ready, runs the scenarios, stops them and runs their cleanup.
@@ -39,7 +39,9 @@ If you also run a compose file yourself while you develop, give the stack Axx st
 
 Service output goes to `.axx/logs/services.log`. When a service fails to start, the error shows the last lines of its output and a stable code from [`AXX-E0400` to `AXX-E0415`](/references/error-codes/#service-lifecycle).
 
-## Keep services running between runs
+## Keep services running to inspect them
+
+`axx run` starts what it needs and stops it: that is the loop to use, for people and agents alike. To look at the services yourself (their data, their logs, a request with `curl`), keep them running:
 
 ```sh
 axx up            # start every enabled service (or: axx up api) and wait until ready
@@ -49,7 +51,7 @@ axx env           # which services are running, left over from a killed run, or 
 axx down          # stop the services and run their cleanup
 ```
 
-This is the fastest local loop, and the one agents should use. The services keep their data from run to run, and `axx run` warns so when it reuses them: a scenario that creates something (registers a parcel by its reference, say) finds what an earlier run created and fails where a fresh start would pass. `axx down`, then `axx up`, starts them afresh; check a change on fresh services before you trust its result.
+The services keep their data from run to run, and `axx run` warns so when it reuses them: a scenario that creates something (registers a parcel by its reference, say) finds what an earlier run created and fails where a fresh start would pass. `axx down`, then `axx up`, starts them afresh; check a change on fresh services before you trust its result.
 
 ## When a run cannot start them
 

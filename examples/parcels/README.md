@@ -132,7 +132,7 @@ Other useful commands, all from `acceptance/`:
 axx validate                            # check every step, without running anything
 axx run features/quotes                 # run one feature
 axx lint                                # test-data isolation rules
-axx up                                  # keep the service running between runs (axx down stops it)
+axx up                                  # keep the service running to inspect it (axx down stops it)
 ```
 
 The portal's features use web browsers on your machine; the `web-core` pack downloads them the
@@ -181,9 +181,9 @@ Each run also measures how much of the portal's own scripts the scenarios run
 audits it as a phone loads it.
 
 The scenarios register parcels with fixed references and seed fixed rows, and the data
-stays in the database. Against a service kept running with `axx up`, the stateless quote
-scenarios can run again and again; for the others, start fresh with `axx down` and
-`axx up`, or leave the service down: `axx run` alone then starts it with empty databases.
+stays in the database. `axx run` starts the service with empty databases and stops it, so
+every run starts fresh. Against a service kept running with `axx up`, only the stateless quote
+scenarios can run again and again.
 
 ## Infrastructure
 

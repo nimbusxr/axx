@@ -149,7 +149,9 @@ func (f *failure) lines(st style) []string {
 	case KindTimeout:
 		out = append(out, paintLines(st.red, "timeout: "+f.message)...)
 	case KindUndefined:
-		if len(f.suggestions) > 0 {
+		if len(f.suggestions) == 1 && f.suggestions[0].Pack != "" {
+			out = append(out, st.yellow(f.suggestions[0].Missing()))
+		} else if len(f.suggestions) > 0 {
 			out = append(out, st.yellow("did you mean:"))
 			for _, s := range f.suggestions {
 				out = append(out, "  "+s.Expr+"  "+st.dim("("+s.ID+")"))
@@ -210,6 +212,10 @@ func (f *failure) compactLines(baseDir string) []string {
 	case KindUndefined:
 		out := make([]string, 0, len(f.suggestions))
 		for _, s := range f.suggestions {
+			if m := s.Missing(); m != "" {
+				out = append(out, m)
+				continue
+			}
 			out = append(out, "did you mean: "+s.Expr)
 		}
 		return out

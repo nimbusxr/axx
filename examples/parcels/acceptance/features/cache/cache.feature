@@ -56,12 +56,12 @@ Feature: The cache
     And the request header Idempotency-Key is 'order-8812'
     And a 2nd ordered POST request to /api/parcels
     And a request payload using an application/json content example for 2nd ordered request
-    And the request payload property reference is 'PX-RDS-9604' for 2nd ordered request
-    And the request payload property sender is 'rowanberry-crafts' for 2nd ordered request
+    And the 2nd ordered request payload property reference is 'PX-RDS-9604'
+    And the 2nd ordered request payload property sender is 'rowanberry-crafts'
     And the request header Idempotency-Key is 'order-8812' for 2nd ordered request
     When the request is executed
     And the 2nd ordered request is executed
     Then the response status code is 201
     And the 2nd ordered response status code is 200
-    And the response payload property reference is 'PX-RDS-9604' for 2nd ordered response
+    And the 2nd ordered response payload property reference is 'PX-RDS-9604'
     And the idempotency:rowanberry-crafts:order-8812 redis key has the value 'PX-RDS-9604'

@@ -33,7 +33,7 @@ The browser shows, and Playwright's Inspector opens next to it, with the feature
 - **Record**: use the page, and the Inspector writes the steps you take, ready to copy into the scenario:
 
   ```gherkin
-  When the "Weight (grams)" field is filled with "1200"
+  When the "Weight (grams)" field is filled with '"1200"'
   And "Germany" is chosen in the "Destination country" field
   And the "Get a quote" button is clicked
   Then the "testid=quote" element shows "6.90 EUR"

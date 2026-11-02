@@ -6,42 +6,9 @@ license: Apache-2.0
 
 # Writing acceptance tests with axx
 
-axx runs Gherkin scenarios black-box against services built locally.
+The AGENTS.md section has the workflow and the rules. This adds the shape of a feature and what the steps' tables take.
 
-## Checklist
-
-```
-- [ ] axx steps: read every step of the project's packs, a line each, once
-      (axx steps show <id>... gives steps' documentation and examples, several at once)
-- [ ] Write one scenario per acceptance criterion with steps that exist, written
-      out: each {parameter} replaced with a value, a(n) as "a" or "an", row(s) as
-      "row" or "rows", [[...]] kept without the brackets or left out
-- [ ] axx up: start the services once; they keep running
-- [ ] axx run --compact: fix what it reports (failures, warnings, hints), run again
-- [ ] axx down when done
-```
-
-With the axx MCP server the loop is the same: `steps_search` without a query (the catalog), `scenarios_run`, `failure_context`, `env`; `steps_try` tries steps in a live scenario before you write them. If a command cannot start, `axx doctor` says why. `axx explain "<line>"` shows how a line is read, and `axx validate` checks features without running them.
-
-## Write criteria for people
-
-- **One behavior per scenario:** Given sets up the state, When is the one thing someone does, Then is what is true afterwards. Never When, Then, When, Then: that is several scenarios.
-- Name scenarios after the behavior ("A shop cannot register the same reference twice").
-- Use the steps as written; no variables, captured values or step chains. Choose the data up front.
-- If the steps cannot say it, ask for a step or write a custom one named after the business action (the `axx-custom-steps` skill).
-
-## Rules that make a scenario prove something
-
-- **Unique data in every scenario.** Scenarios run in parallel and data persists between runs: give every id, key and name a value of the scenario's own (`PX-DUP-0001`, never `test`). The rules under `lint:` in `axx.yaml` enforce it.
-- **Check what the service did, not only its status.** A `201` says the request was accepted, not that the parcel was stored; a `400` says it was refused, not why (a missing field refuses it too): check the response property or the problem detail naming the field, the row, the event. A check that something did not happen passes when nothing happened at all: pair it with one that something did.
-- **Register services first**, in a `Background`, with the "with the following properties" steps. The first one registered is the default; name others with `... on <service>`.
-- **Services or commands:** what runs on its own and is reached by an address (an API, a database, an MCP server over HTTP) is a service in `axx.yaml`. A program its user starts (a command-line tool, an MCP server its clients run over stdio) is run by its step's `command`, as its user would; it is not a service.
-- **Ordinals** (`1st`, `2nd`) count a scenario's requests, responses and selections in the order it adds them, and a step without one means the first, even after later ones: write `the 2nd selection has 1 row` to check the second. The next request after `a GET request to ...` is `a 2nd ordered ... request`.
-- **Request payload tables:** a row sets one property; `recipient.name` sets it inside `recipient`, creating the object when the payload lacks it. `"53111"` in double quotes is a string, `null` is JSON null, `undefined` removes the property; single quotes are part of a table value. A first row naming the columns (`| JSONPath | value |`) is optional.
-- **A waiting step** (`within 10s a selection of at least 1 row ...`) fails when the rows do not come in time.
-- Tag scenarios that must not run in parallel (ones that change database triggers, say) with a tag listed in `run.exclusive`, usually `@isolated`.
-
-## Shape of a feature
+## A feature
 
 ```gherkin
 Feature: Register parcels
@@ -63,33 +30,36 @@ Feature: Register parcels
     And the response payload property status is 'REGISTERED'
 ```
 
-With an `openapi` URL, requests and responses that break the contract fail the `executed` step.
+- Register the services in the `Background`. The first one registered is the default; name another with `... on <service>`.
+- With an `openapi` URL, a request or response that breaks the contract fails the `executed` step. A scenario that sends an invalid request on purpose relaxes that rule first: `Given the OpenAPI validation levels are:` with `| validation.request.body | IGNORE |`.
+- A scenario that checks the outcome with another request adds both in the Givens and executes both in the When:
+
+```gherkin
+    Given a POST request to /api/parcels
+    And a request payload using an application/json content example
+    And a 2nd ordered GET request to /api/parcels/PX-REG-0002
+    When the request is executed
+    And the 2nd ordered request is executed
+    Then the response status code is 400
+    And the 2nd ordered response status code is 404
+```
+
+## Tables
+
+- **Values mean what they say, in every pack's tables, set or checked:** `53111` is a number and `"53111"` the string, `true` a boolean, `null` null, `undefined` no such property, `{...}` JSON, other text (`REGISTERED`) a string. Checks are strict: `53111` does not match the string, and a selection's `where:` is held to its column's real type: `53111` on a text column, or `12` on a decimal one, fails at once and says what to write. An empty cell, a number like `01067`, or a number where only text fits (a header) is an error that says what to write. Single quotes are part of a table value; in a step's own text they are the step's: `is 42` and `is '42'` are the integer, `is '"42"'` the string. Where only text fits, the same holds: `the response header Retry-After is '5'` is an error asking for `'"5"'`, and `'application/json'` is plain text. Names (a button, a field's label, a file) and patterns are taken as written.
+- **REST payloads.** A row sets one property: `recipient.name` sets it inside `recipient`, creating the object when the payload lacks it. A first row naming the columns is optional.
+- **Other packs' tables** say what their rows hold in `axx steps show <id>`.
+
+## Waiting
+
+A waiting step (`within 10s a selection of at least 1 row ...`) checks again until it holds, and fails when it does not in time. Never add sleeps.
 
 ## Lay out the suite by feature
 
-Give each feature a folder named after it, and keep in it every file only that feature uses: its seeds, payloads, messages, uploaded or expected files, screenshots, and the fixture factories that generate them.
-
-```text
-features/
-  register-parcels/
-    register-parcels.feature        the same on every platform: one file
-    seeds/shop-lark.yaml
-    requests/                       a fixture factory with what it generates
-  courier-app/
-    courier-app-android.feature     platforms that differ: one file each,
-    courier-app-ios.feature         named after the feature and the platform
-    seeds/                          what both read
-kafka/                              what several features share, outside features/
-```
-
-- A step finds a file next to its feature file first, then in `resources`, then beside `axx.yaml`: write `a seeds/shop-lark.yaml db seed`, not the path from the project root.
-- Put a file in a shared folder only when a second feature needs it.
-- WireMock mappings, compose files and migrations are the services' setup: they stay with the services, not in a feature's folder.
-- Add a scenario to the feature it belongs to; a new feature gets a new folder.
+Each feature gets a folder named after it, holding every file only it uses (seeds, payloads, messages, expected files, fixture factories). A step finds a file next to its feature file first, then in `resources`, then beside `axx.yaml`: write `a seeds/shop-lark.yaml db seed`, not the path from the project root. A shared folder is for what a second feature needs; mocks' mappings and compose files stay with the services.
 
 ## More
 
-- Seeds, event payloads and mock bodies are files the steps read. When files of one shape repeat, fixture factories generate them (the `axx-test-data` skill).
-- `axx.yaml`: `axx schema --outline` lists its keys; `references/config.md` has a commented example.
-- Failures: the `axx-debugging` skill.
-- The steps are axx's to tell: `axx steps` lists every step of the project's packs, its own included, a line each, and `axx steps show <id>...` gives their documentation and examples. `references/parameter-types.md` says what `{ordinal}`, `{word}` and the others match.
+- `references/parameter-types.md`: what `{ordinal}`, `{word}`, `{duration}` and the others match.
+- `references/config.md`: a commented `axx.yaml`.
+- Scenarios that must run alone (database triggers, say): tag them with a tag `run.exclusive` lists, usually `@isolated`.

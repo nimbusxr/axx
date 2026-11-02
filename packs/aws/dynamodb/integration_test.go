@@ -47,7 +47,7 @@ insured-parcels:
   - id: PX-CLM-1001
     declaredValue: 120
     carrier: KESTREL
-    recipient: {name: Ada Lovelace, address: {city: Leeds}}
+    recipient: {name: Ada Lovelace, address: {city: Leeds, postcode: "37073"}}
     tags: [fragile, express]
     signature: null
   - id: PX-CLM-1002
@@ -60,6 +60,12 @@ insured-parcels:
 	})
 	h.OK("the insured-parcels dynamodb table has 2 items where:", [][]string{{"carrier", "KESTREL"}})
 	h.OK("the insured-parcels dynamodb table has 0 items where:", [][]string{{"carrier", "HERON"}})
+	// Values mean what they say (ADR 0014): a number is a number, and a string
+	// that reads as one is in double quotes.
+	h.OK("the insured-parcels dynamodb table has 1 item where:", [][]string{{"declaredValue", "49.99"}, {"carrier", "KESTREL"}})
+	h.OK("the insured-parcels dynamodb table has 1 item where:", [][]string{{"recipient.address.postcode", `"37073"`}})
+	h.OK("the insured-parcels dynamodb table has 0 items where:", [][]string{{"recipient.address.postcode", "37073"}})
+	h.OK("the insured-parcels dynamodb table has 0 items where:", [][]string{{"declaredValue", `"120"`}})
 
 	// An item the service writes later is waited for.
 	go func() {

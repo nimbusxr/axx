@@ -82,6 +82,81 @@ func TestIndexAndParams(t *testing.T) {
 	}
 }
 
+// foldingRegistry has a step with another wording, and a step with a leading form.
+func foldingRegistry(t *testing.T) (*match.Registry, PackInfo) {
+	t.Helper()
+	m := core.Manifest{Name: "demo", Steps: []core.StepDef{
+		{
+			ID: "demo.count", Keyword: "Then", Expr: "the count is {string}[[ on {word}]]", Doc: "Check the count.",
+			Also: []string{"the count is {integer}[[ on {word}]]", "a count is {string}[[ on {word}]]"},
+		},
+		{ID: "demo.one", Keyword: "Then", Expr: "the one is {word}", Also: []string{"a one is {word}"}},
+		{ID: "demo.count.on", Keyword: "Then", Expr: "the count is {string} for {word}", Doc: "On a named service."},
+		{
+			ID: "demo.count.leading", Keyword: "Then", Expr: "the {ordinal} ordered count is {string}", Doc: "With its ordinal first.",
+			Examples: []string{"Then the 2nd ordered count is '1'"},
+		},
+		{ID: "other.leading", Keyword: "Then", Expr: "the other is {word}", Doc: "No step of its own to fold into."},
+	}}
+	reg := match.NewRegistry()
+	if err := reg.AddParams("demo", []core.ParamType{{Name: "integer", Regexps: []string{`\d+`}}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := reg.AddPack("core", core.ParamsPack().Manifest()); err != nil {
+		t.Fatal(err)
+	}
+	if err := reg.AddSteps("demo", m.Steps); err != nil {
+		t.Fatal(err)
+	}
+	return reg, PackInfo{Name: "demo", Manifest: m}
+}
+
+// A pack's page leaves out a step's other wordings, which run it and which
+// lists leave out, and folds a leading form into its step's section.
+func TestPackPageFoldsWhatRunsAStep(t *testing.T) {
+	reg, p := foldingRegistry(t)
+	out, err := PackPage(reg, p, "/references/packs/", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, not := range []string{"the count is {integer}", "a count is", "a one is", "### `demo.count.leading`", "With its ordinal first.\n", "Then the 2nd ordered count"} {
+		if strings.Contains(out, not) {
+			t.Errorf("%q in:\n%s", not, out)
+		}
+	}
+	for _, want := range []string{
+		"### `demo.count`", "- `the count is {string}`\n- `the count is {string} on {word}`\n",
+		"With its ordinal first, it says the same: `the {ordinal} ordered count is {string}`.",
+		"### `demo.count.on`",
+		"### `other.leading`", // a form of no step of its own stays
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("missing %q in:\n%s", want, out)
+		}
+	}
+	// A step whose only other forms are other wordings has no variants to list.
+	one := out[strings.Index(out, "### `demo.one`"):strings.Index(out, "### `demo.count.on`")]
+	if strings.Contains(one, "**Variants**") {
+		t.Errorf("variants of demo.one:\n%s", one)
+	}
+}
+
+// The steps page is what go-to-definition lands on: a leading form keeps its
+// section, though its list and every variant follow the rule of lists.
+func TestStepsPageFoldsItsList(t *testing.T) {
+	reg, p := foldingRegistry(t)
+	out, err := StepsPage(reg, p, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(out, "- `demo.count.leading`:") || strings.Contains(out, "the count is {integer}") || strings.Contains(out, "a count is") {
+		t.Errorf("steps page:\n%s", out)
+	}
+	if !strings.Contains(out, "\n## `demo.count.leading`\n") || !strings.Contains(out, "- `demo.count`:") {
+		t.Errorf("steps page:\n%s", out)
+	}
+}
+
 func TestPackPage(t *testing.T) {
 	reg, p := registry(t)
 	p.Manifest.Requires = []string{"base"}

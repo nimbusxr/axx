@@ -19,3 +19,7 @@ regexes = ['''^whsec_ZXhhbXBsZS1zaG9wLXdlYmhvb2sta2V5$''']
 [[allowlists]]
 description = "Chrome's WebMCP origin-trial token for nimbusxr.us (docs/astro.config.mjs): public by design, served in every page's HTML"
 regexes = ['''Au6\+vW\+zV403Rr8nG3rt7t4kt0d4TKhCO//DVEhDvH2tcoxBvC/HCQ7Bk5aJRg6KMMKAdc82K1Eux4vwRQl1SQ0AAABeeyJvcmlnaW4iOiJodHRwczovL25pbWJ1c3hyLnVzOjQ0MyIsImZlYXR1cmUiOiJXZWJNQ1AiLCJleHBpcnkiOjE4MDYzNjQ4MDAsImlzU3ViZG9tYWluIjp0cnVlfQ==''']
+
+[[allowlists]]
+description = "A made-up UUID in the SQL pack's column type tests (packs/sql/columns_integration_test.go): the value of a test column named token"
+regexes = ['''6f1c3a52-0d0e-4a57-9a1f-2d8c1b0f7e11''']

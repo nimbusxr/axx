@@ -22,7 +22,7 @@ Feature: Carrier invoices
       | status          | RECONCILED |
       | lines           | 2          |
       | totals.billed   | 6.58       |
-      | totals.disputed | 0          |
+      | totals.disputed | 0.0        |
     And the billing.invoice_lines bigquery table has 2 rows where:
       | invoice | INV-2026-09-KES1 |
       | status  | MATCHED          |
@@ -38,7 +38,7 @@ Feature: Carrier invoices
     And the INV-2026-09-KES2.csv object in the billing-disputes gcs bucket has a row where:
       | parcel | PX-5199          |
       | status | UNKNOWN_SHIPMENT |
-      | billed | 4.10             |
+      | billed | "4.10"           |
     And the INV-2026-09-KES2.csv object in the billing-disputes gcs bucket is identical to the expected/INV-2026-09-KES2-disputes.csv file
     And the INV-2026-09-KES2.json object in the billing-disputes gcs bucket has the following properties:
       | carrier        | KESTREL |
@@ -70,7 +70,7 @@ Feature: Carrier invoices
     And the INV-2026-09-KES3.csv object in the billing-disputes gcs bucket has a row where:
       | parcel | PX-5106     |
       | status | NO_EVIDENCE |
-      | billed | 0.75        |
+      | billed | "0.75"      |
     And the INV-2026-09-KES3-letter.txt object in the billing-disputes gcs bucket contains "PX-5106  billed 0.75 for a repack, without a photo of the repacked parcel"
     And the billing.invoice_lines bigquery table has a row where:
       | invoice | INV-2026-09-KES3 |

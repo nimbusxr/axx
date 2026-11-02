@@ -12,8 +12,15 @@ the skills instead: `axx skills install`.
 - `cmd/axx`: CLI entry point; it calls `app.Main`, as the builds with a project's packs do.
   `internal/cli`: cobra commands.
 - `internal/{config,interp,feature,match,engine,runner,report,lifecycle}`: the core runner.
+  `internal/check`: which steps of a feature cannot run (undefined, ambiguous, the wrong argument, a
+  value the rule cannot read), reported through it by `axx validate`, `axx doctor`, the MCP server
+  and the language server. `internal/lint`: `axx lint`, whose feature checks `axx validate` and
+  `axx run` report as warnings.
 - `core`: the public core every pack builds on (scenario, steps, service registry, state,
-  errors, interpolation, shared parameter types).
+  errors, interpolation, shared parameter types, and the rule every pack reads a feature's values
+  by: `core/value.go`, ADR 0014, with `TableDoc.Values` saying what a step's table holds). A step's
+  other wordings (`StepDef.Also`) run it and stay out of the lists, as do REST's payload property
+  steps' forms with the ordinal first (`<id>.leading`).
 - `packs/*`: the step packs (rest, mock, sql, mongo, kafka, logs, files; `web/*`, `aws/*` and
   `gcp/*`: a core pack and the packs that build on it; `azure/*`), each with its public context. `internal/packset/catalog.go` lists them.
   Packs that build on another (`aws-s3` on `aws-core`, `web-screenshots` on `web-core`) declare it in
@@ -154,10 +161,24 @@ the skills instead: `axx skills install`.
   commands run), asking in its terminal or the editor that started it (`--ide`), never over the port.
 - `internal/packbuild`, `internal/gotool`: axx builds itself with the packs a project lists in
   `axx-packs.yaml`, using a Go toolchain it downloads itself.
+- `internal/packref`: what axx knows of every pack it publishes, whether a project uses it or not
+  (what it reaches, its settings, parameter types and steps): data `go generate` writes from the
+  packs (`packs.json`), built into the core, so `axx pack list|show`, `axx steps` and the MCP
+  server answer for packs not added yet, offline, and an undefined step names its pack.
+  `internal/stepsearch`: one ranking and one list of steps for `axx steps` and the MCP server: a line
+  each, a step's `.on` and `.leading` forms folded into it. `internal/cli/initpacks.go`: what in a
+  repository points `axx init` to a pack; a new pack that files can point to gets its signals there.
+- What agents read: `agentsBlock` (`internal/cli/initcmd.go`), the `AGENTS.md` section `axx init`
+  writes, with the workflow and the rules, which `guides/set-up-agents.md` copies word for word;
+  `Instructions` (`internal/mcp/server.go`) and the root command's help say the same workflow; the
+  skills (`internal/skills/assets`) add only the specialized parts. Change them together.
 - `packs/all` and `internal/tools/axxall`: axx with every pack, for generated docs, skills and
   tests.
 - `internal/compat`: the value semantics steps follow (Jayway JSONPath, Java regex, Java number
-  formatting; ADR 0007). The oracle tests depend on these; don't "simplify" them.
+  formatting; ADR 0007). The oracle tests depend on these; don't "simplify" them. `jvalue` gives and
+  compares the values `core.ParseValue` reads; `internal/jsonassert` checks them at a document's
+  JSONPaths, and `internal/tablevalue` builds the object a table's paths and values make, for the
+  steps that send one they make from scratch.
 - `extensions/wiremock-openapi`, `ide/intellij`: JVM parts (the WireMock extension and the IntelliJ plugin).
 - `ide/vscode`: the VS Code extension (TypeScript). Both editor clients run `axx lsp` (`internal/lsp`).
 - `testdata/steps.json`: the frozen catalog of the step text of axx's packs. `testdata/oracles`:
@@ -172,10 +193,13 @@ the skills instead: `axx skills install`.
 - Step expression text is public API. Never change existing step text by accident; add new steps instead. axx
   is in beta: when the owner decides to remove or change a step, take its old text out of the catalog with
   `go test ./internal/engine -run TestStepCatalog -prune`.
+- A step's `{string}` that it sets something to or checks something against is a value: declare it
+  (`StepDef.TextArgs`, `TypedArgs`; ADR 0014). A name or a pattern is not: list it in `packs/all/values_test.go`.
 - Exit codes (`internal/exitcode`) and the `--json` envelope are frozen contracts (ADR 0003).
 - Every user-facing error is an `*axxerr.Error` with a stable `AXX-Exxxx` code and a hint.
 - Never hand-edit generated files: `go generate ./...` writes the `axx.yaml` schema
-  (`internal/config/axx.schema.json`) and the skills (`plugins/axx/skills`), and the docs site's
+  (`internal/config/axx.schema.json`), the skills (`plugins/axx/skills`) and the packs' reference
+  (`internal/packref/packs.json`), and the docs site's
   build writes the reference (`docs/scripts/gen.mjs`, from `axx docs export`).
 - The docs site's root is the latest release's docs, built from its tag (or from `docs-<tag>`,
   the release with changes to `docs/` only, when there is one); main's are at `/next/`.
