@@ -17,6 +17,7 @@
 | `{filepath}` | a file of the project: a path relative to the feature file's directory, the `resources` directories or axx.yaml's directory (looked for in that order), or an absolute path, quoted when it has a space |  | `seeds/parcels.yaml`, `kafka/scan-delivered.json`, `"seeds/day one.yaml"` | core |
 | `{float}` | a decimal number |  | `2.5`, `0.1` | cucumber |
 | `{int}` | a whole number |  | `200`, `3` | cucumber |
+| `{integer}` | an integer, in a step's text without quotes: `is 2500` says what `is '2500'` says |  | `2500` | rest |
 | `{long}` | a whole number, however large |  | `9007199254740993` | cucumber |
 | `{mimeType}` | a content type | `application/json`, `text/json`, `application/problem+json`, `application/x-www-form-urlencoded` | `application/json` | core |
 | `{mockedService}` | the name of a mocked service the scenario registered |  | `addresses` | mock |

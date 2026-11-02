@@ -240,6 +240,7 @@ func steps() []core.StepDef {
 		{
 			ID: Name + ".ws.sent", Keyword: "Then", Since: since,
 			Expr:     "[[within {duration} ]]the page sent a websocket message containing {string}",
+			TextArgs: []int{1},
 			Doc:      "Check that a page of the scenario sent a websocket message with that text in it. The check waits: 10 seconds, or `within {duration}`.",
 			Examples: []string{`Then the page sent a websocket message containing "subscribe:PX-4101"`},
 			Run: func(sc *core.Scenario, a core.Args) error {
@@ -249,6 +250,7 @@ func steps() []core.StepDef {
 		{
 			ID: Name + ".ws.received", Keyword: "Then", Since: since,
 			Expr:     "[[within {duration} ]]the page received a websocket message containing {string}",
+			TextArgs: []int{1},
 			Doc:      "Check that a page of the scenario received a websocket message with that text in it. The check waits: 10 seconds, or `within {duration}`.",
 			Examples: []string{`Then the page received a websocket message containing "IN_TRANSIT"`},
 			Run: func(sc *core.Scenario, a core.Args) error {

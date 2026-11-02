@@ -6,6 +6,8 @@ import (
 	"strings"
 
 	"github.com/nimbusxr/axx/core"
+	"github.com/nimbusxr/axx/internal/compat/jsonx"
+	"github.com/nimbusxr/axx/internal/compat/jvalue"
 	"github.com/nimbusxr/axx/internal/jsonassert"
 	"github.com/nimbusxr/axx/internal/oaslevel"
 	"github.com/nimbusxr/axx/internal/secrets"
@@ -58,8 +60,10 @@ func steps() []core.StepDef {
 			Doc:  "Call a method with params by name, from the table.",
 			Table: &core.TableDoc{
 				Columns: []string{"path", "value"},
-				Note: "Each row is a param, or a path into one (`address.postcode`), and its value: numbers and booleans are JSON's, " +
-					"double quotes make a value text, `null` is null and `undefined` leaves it out.",
+				Note: "Each row is a param, or a path into one (`address.postcode`), and its value, sent as written whatever type the OpenRPC " +
+					"document gives it: a string param's value in double quotes (`\"10115\"`).",
+				Values:    core.JSONValues,
+				Undefined: true,
 			},
 			Examples: []string{"When the parcel.hold method is called on the depots jsonrpc service with the following params:\n" +
 				"  | reference | PX-RPC-7101 |\n" +
@@ -82,8 +86,10 @@ func steps() []core.StepDef {
 			Expr: "the {word} jsonrpc service's result has the following properties:",
 			Doc:  "Check the result of the service's last call.",
 			Table: &core.TableDoc{
-				Columns: []string{"path", "value"},
-				Note:    "Each row is a path into the result (a field name, a dotted path or a JSONPath) and its value, compared as text: `null` for null and `undefined` for absent.",
+				Columns:   []string{"path", "value"},
+				Note:      "Each row is a path into the result (a field name, a dotted path or a JSONPath) and its value.",
+				Values:    core.JSONValues,
+				Undefined: true,
 			},
 			Examples: []string{"Then the depots jsonrpc service's result has the following properties:\n" +
 				"  | reference | PX-RPC-7101 |\n" +
@@ -98,29 +104,24 @@ func steps() []core.StepDef {
 		},
 		{
 			ID: Name + ".result.is", Keyword: "Then", Since: since,
-			Expr:     "the {word} jsonrpc service's result is {string}",
-			Doc:      "Check the whole result of the service's last call: a text's text, or the JSON of any other result.",
+			Expr:      "the {word} jsonrpc service's result is {string}",
+			TypedArgs: []int{1},
+			Doc: "Check the whole result of the service's last call, with its type: `'true'` is the boolean, `'42'` the integer, " +
+				"`'\"42\"'` the string 42, `'{\"open\": true}'` the object, and other text a string (`'ON_HOLD'`).",
 			Examples: []string{"Then the depots jsonrpc service's result is 'true'"},
 			Run: func(sc *core.Scenario, a core.Args) error {
 				s, c, err := result(sc, a.String(0))
 				if err != nil {
 					return err
 				}
-				got := string(c.result)
-				var text string
-				if json.Unmarshal(c.result, &text) == nil {
-					got = text
-				}
-				if want := secrets.Expand(sc, a.String(1)); got != want {
-					return secrets.Hide(sc, core.Fail(fmt.Sprintf("The %s jsonrpc service's result of %s is %s, not %q", s.name, c.method, c.result, want), want, got))
-				}
-				return nil
+				return secrets.Hide(sc, resultIs(sc, s, c, a.String(1)))
 			},
 		},
 		{
 			ID: Name + ".error", Keyword: "Then", Since: since,
-			Expr: "the {word} jsonrpc service answered the error {int}[[ with a message containing {string}]]",
-			Doc:  "Check the error code the service's last call answered, and the text its message contains.",
+			Expr:     "the {word} jsonrpc service answered the error {int}[[ with a message containing {string}]]",
+			TextArgs: []int{2},
+			Doc:      "Check the error code the service's last call answered, and the text its message contains.",
 			Examples: []string{
 				"Then the depots jsonrpc service answered the error -32602",
 				"Then the depots jsonrpc service answered the error -32010 with a message containing 'out for delivery'",
@@ -146,8 +147,10 @@ func steps() []core.StepDef {
 			Expr: "the {word} jsonrpc service's error has the following properties:",
 			Doc:  "Check the error the service's last call answered: its `code`, its `message` and its `data`.",
 			Table: &core.TableDoc{
-				Columns: []string{"path", "value"},
-				Note:    "Each row is a path into the error object (`code`, `message`, `data.reason`) and its value, compared as text: `null` for null and `undefined` for absent.",
+				Columns:   []string{"path", "value"},
+				Note:      "Each row is a path into the error object (`code`, `message`, `data.reason`) and its value.",
+				Values:    core.JSONValues,
+				Undefined: true,
 			},
 			Examples: []string{"Then the depots jsonrpc service's error has the following properties:\n" +
 				"  | code        | -32010           |\n" +
@@ -197,16 +200,44 @@ func steps() []core.StepDef {
 	}
 }
 
+// resultIs checks the call's whole result against a value, which means
+// what it says (ADR 0014), and is compared with its type, strictly: `42` is
+// not "42". A string's `${env:..}` references are expanded.
+func resultIs(sc *core.Scenario, s *service, c *call, want string) error {
+	v, err := core.ParseValue(want, want == "", false)
+	if err != nil {
+		return core.InStepText(err)
+	}
+	got := string(c.result)
+	var ok bool
+	if str, isString := v.Str(); isString {
+		var text *string // nil for a null result
+		ok = json.Unmarshal(c.result, &text) == nil && text != nil && *text == secrets.Expand(sc, str)
+	} else if ok, err = jvalue.ValueIs(got, "$", v); err != nil {
+		return err
+	}
+	if ok {
+		return nil
+	}
+	msg := fmt.Sprintf("The %s jsonrpc service's result of %s is %s, not %s", s.name, c.method, got, v.JSON())
+	if actual, err := jsonx.Parse(got); err == nil {
+		if h := jvalue.StepTypeHint("the result", v, actual); h != "" {
+			msg += " (" + h + ")"
+		}
+	}
+	return core.Fail(msg, v.JSON(), got)
+}
+
 func callOn(sc *core.Scenario, serviceName, method string, t *core.Table, doc *core.DocString) error {
 	s, err := get(sc, serviceName)
 	if err != nil {
 		return err
 	}
-	ps, err := params(sc, t, doc, func(path string) bool { return s.doc != nil && s.doc.textParam(method, path) })
+	ps, err := params(sc, t, doc)
 	if err != nil {
 		return err
 	}
-	return s.invoke(sc, method, ps, t != nil)
+	return s.invoke(sc, method, ps)
 }
 
 func lastCall(sc *core.Scenario, name string) (*service, *call, error) {

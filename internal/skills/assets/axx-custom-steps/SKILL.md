@@ -6,7 +6,7 @@ license: Apache-2.0
 
 # Custom steps for Axx
 
-Check the existing steps first: `axx steps` lists every step of the packs in `axx-packs.yaml`, a line each, and `axx pack list` shows axx's other packs (`axx pack add <name>` adds one).
+Check the existing steps first: `axx steps search <words>` finds them in every pack of axx's, the project's or not (`axx pack add <name>` adds one).
 
 ## Packs (Go)
 
@@ -15,5 +15,7 @@ Check the existing steps first: `axx steps` lists every step of the packs in `ax
 - Steps get the scenario and every pack's context: `rest.Context(sc)`, `sql.Context(sc)`, `mongo.Context(sc)`, `mock.Context(sc)` (packages under `github.com/nimbusxr/axx/packs/`). `Service(name...)` returns a registered service (no name: the default), with its state: REST requests and responses, SQL connection and selections, MongoDB database and selections.
 - A custom step can change a REST request the pack's steps built, until it is executed: `Header()` returns the headers it is sent with (`Set`, `Add` and `Del` change them), and `SetHeader(name, value)` works like the request header steps. `Exchange()` has the executed request and its response (`Header`, `Body`, `Status`).
 - Parameter types of loaded packs (`{service}`, `{dbService}`, `{ordinal}`, `{duration}`...) work in custom expressions; `a.Value(i)` returns the resolved value.
+- A table of values follows the rule of every pack (`42` an integer, `"42"` the string, an empty cell an error). Say so in the step's `Table` (`&core.TableDoc{Columns: []string{"JSONPath", "value"}, Values: core.JSONValues}`, or `core.TextValues` where only text fits, and `Undefined: true` for a table that takes `undefined`), and read each cell with `core.ParseValue(p.Value, p.Null, true)` or `core.ParseText`, whose errors say what to write.
+- A `{string}` a step sets something to or checks something against is a value too: `TextArgs: []int{1}` where only text fits, and `a.String(1)` is the text; `TypedArgs: []int{1}` for any type, read with `core.ParseValue`. `axx validate` and the run report what the rule cannot read (`'5'` asks for `'"5"'`). A name or a pattern is not a value: leave it out.
 - Report failed expectations with `core.Fail(message, expected, actual)`. Keep your own per-scenario state in `core.NewStateKey`.
 - The first command that needs the project's steps prepares Axx with the pack, once; later runs reuse it until the pack changes.

@@ -15,8 +15,8 @@ import (
 	"github.com/nimbusxr/axx/internal/secrets"
 )
 
-const fieldsNote = "Each row is a path into the request (a field name, a dotted path like `lastScan.location`, or a JSONPath) and its value: " +
-	"a value takes the type of its field, double quotes make it text, `null` leaves the field unset and `undefined` removes it."
+const fieldsNote = "Each row is a path into the request (a field name, a dotted path like `lastScan.location`, or a JSONPath) and its value, " +
+	"which must be of its field's type: a string field's in double quotes (`\"10115\"`), an enum's its name. `null` leaves the field unset."
 
 func steps() []core.StepDef {
 	return []core.StepDef{
@@ -59,7 +59,7 @@ func steps() []core.StepDef {
 			ID: Name + ".call.fields", Keyword: "When", Arg: core.ArgTable, Since: since,
 			Expr:  "the {word} method is called on the {word} grpc service with the following fields:",
 			Doc:   "Call a method with a request message built from the table.",
-			Table: &core.TableDoc{Columns: []string{"path", "value"}, Note: fieldsNote},
+			Table: &core.TableDoc{Columns: []string{"path", "value"}, Note: fieldsNote, Values: core.JSONValues, Undefined: true},
 			Examples: []string{"When the parcels.tracking.v1.Tracking/GetParcel method is called on the tracking grpc service with the following fields:\n" +
 				"  | reference | PX-GRP-6101 |"},
 			Run: func(sc *core.Scenario, a core.Args) error {
@@ -70,7 +70,7 @@ func steps() []core.StepDef {
 			ID: Name + ".call.file", Keyword: "When", Arg: core.ArgOptional, Since: since,
 			Expr:  "the {word} method is called on the {word} grpc service with the {filepath} message[[ and the following fields:]]",
 			Doc:   "Call a method with the request message of a JSON file of the project (proto JSON), with the table's fields set into it when the step has one.",
-			Table: &core.TableDoc{Columns: []string{"path", "value"}, Note: fieldsNote},
+			Table: &core.TableDoc{Columns: []string{"path", "value"}, Note: fieldsNote, Values: core.JSONValues, Undefined: true},
 			Examples: []string{
 				"When the parcels.tracking.v1.Tracking/GetParcel method is called on the tracking grpc service with the grpc/get-parcel.json message",
 				"When the parcels.tracking.v1.Tracking/GetParcel method is called on the tracking grpc service with the grpc/get-parcel.json message and the following fields:\n" +
@@ -89,7 +89,8 @@ func steps() []core.StepDef {
 		},
 		{
 			ID: Name + ".status", Keyword: "Then", Since: since,
-			Expr: "[[within {duration} ]]the {word} grpc service answered {word}[[ with a message containing {string}]]",
+			Expr:     "[[within {duration} ]]the {word} grpc service answered {word}[[ with a message containing {string}]]",
+			TextArgs: []int{3},
 			Doc: "Check the status the service's last call answered: `OK`, `NOT_FOUND`, `INVALID_ARGUMENT`..., and the text its message contains.\n\n" +
 				"- A server stream answers when it ends: the check waits for that, 10 seconds or `within {duration}`.",
 			Examples: []string{
@@ -105,8 +106,10 @@ func steps() []core.StepDef {
 			Doc:  "Check the answer of the service's last call, a unary call that answered OK.",
 			Table: &core.TableDoc{
 				Columns: []string{"path", "value"},
-				Note: "Each row is a path into the answer as proto JSON (a field's JSON name, a dotted path like `lastScan.location`, or a JSONPath) and its value, " +
-					"compared as text: `null` for null and `undefined` for absent. Fields with their default values (`0`, `\"\"`, `false`) are in the answer.",
+				Note: "Each row is a path into the answer as proto JSON (a field's JSON name, a dotted path like `lastScan.location`, or a JSONPath) and its value. " +
+					"Fields with their default values (`0`, `\"\"`, `false`) are in the answer, 64-bit integers are numbers, and a float or a double is a decimal, a whole one too (`6.0`).",
+				Values:    core.JSONValues,
+				Undefined: true,
 			},
 			Examples: []string{"Then the tracking grpc service's answer has the following fields:\n" +
 				"  | status            | OUT_FOR_DELIVERY |\n" +
@@ -118,8 +121,10 @@ func steps() []core.StepDef {
 			Expr: "the {word} grpc service's answer has the following metadata:",
 			Doc:  "Check the metadata the service's last call answered with: its headers and trailers.",
 			Table: &core.TableDoc{
-				Columns: []string{"name", "value"},
-				Note:    "Each row is a name, in any case, and its value, compared as text: several values are joined with `, `; `undefined` for absent.",
+				Columns:   []string{"name", "value"},
+				Note:      "Each row is a name, in any case, and its value: several values are joined with `, `.",
+				Values:    core.TextValues,
+				Undefined: true,
 			},
 			Examples: []string{"Then the tracking grpc service's answer has the following metadata:\n" +
 				"  | x-served-by | tracking-v1 |"},
@@ -132,8 +137,10 @@ func steps() []core.StepDef {
 				"- The check waits for it: 10 seconds, or `within {duration}`.\n" +
 				"- When the stream has ended, it fails at once, with the status it ended with.",
 			Table: &core.TableDoc{
-				Columns: []string{"path", "value"},
-				Note:    "Each row is a path into the message as proto JSON and its value, compared as text: `null` for null and `undefined` for absent.",
+				Columns:   []string{"path", "value"},
+				Note:      "Each row is a path into the message as proto JSON and its value.",
+				Values:    core.JSONValues,
+				Undefined: true,
 			},
 			Examples: []string{"Then within 20s the tracking grpc service streamed a message where:\n" +
 				"  | reference | PX-GRP-6103      |\n" +
@@ -229,15 +236,22 @@ func checkMetadata(sc *core.Scenario, a core.Args) error {
 	c.mu.Unlock()
 	var failed []string
 	for _, p := range pairs {
+		// Metadata is text, and `undefined` none.
+		want, none, err := core.ParseText(p.Value, p.Null, true)
+		if err != nil {
+			return fmt.Errorf("%s: %w", p.Key, err)
+		}
 		key := strings.ToLower(p.Key)
 		vals := append(append([]string{}, header.Get(key)...), trailer.Get(key)...)
-		got := "undefined"
-		if len(vals) > 0 {
-			got = strings.Join(vals, ", ")
-		}
-		want := secrets.Expand(sc, p.Value)
-		if got != want {
-			failed = append(failed, fmt.Sprintf("  %s: expected %q, got %q", p.Key, want, got))
+		got := strings.Join(vals, ", ")
+		switch {
+		case none && len(vals) > 0:
+			failed = append(failed, fmt.Sprintf("  %s: expected none, got %q", p.Key, got))
+		case none:
+		case len(vals) == 0:
+			failed = append(failed, fmt.Sprintf("  %s: expected %q, got none", p.Key, secrets.Expand(sc, want)))
+		case got != secrets.Expand(sc, want):
+			failed = append(failed, fmt.Sprintf("  %s: expected %q, got %q", p.Key, secrets.Expand(sc, want), got))
 		}
 	}
 	if len(failed) == 0 {

@@ -177,6 +177,38 @@ func TestSeedSelectCount(t *testing.T) {
 	}
 }
 
+// A value means what it says (ADR 0014): a number is a SQL number and a
+// JSON number, and a string in double quotes the string.
+func TestTypedValues(t *testing.T) {
+	h := newHarness(t)
+	h.db(postgresURL(t))
+	id := uniq(t)
+	h.file("seeds/m.yaml", fmt.Sprintf("space.missions:\n  - id: %[1]s-1\n    name: \"1969\"\n    budget: 500000\n    metadata: '{\"code\": \"0042\", \"crew\": {\"size\": 3}, \"fuel\": 0.5, \"manned\": true}'\n", id))
+	h.ok("a seeds/m.yaml db seed")
+	h.ok("a selection of rows is retrieved from the space.missions table where:", []string{"id", id + "-1"}, []string{"budget", "500000"}, []string{"name", `"1969"`})
+	h.ok("the selection has 1 row")
+	// A number where a text column is compared is refused, with what to write.
+	wrote := `name is text in space.missions (TEXT): write "1969" [AXX-E0207]`
+	if err := h.step("a 2nd selection of rows is retrieved from the space.missions table where:", []string{"name", "1969"}); err == nil || err.Error() != wrote {
+		t.Errorf("a number for a text column should say what to write: %v", err)
+	}
+	if err := h.step("a before insert trigger on the space.missions table will raise a 23505 exception where:", []string{"name", "1969"}); err == nil || err.Error() != wrote {
+		t.Errorf("a trigger's number for a text column should say what to write: %v", err)
+	}
+	if err := h.step("a 2nd selection of rows is retrieved from the space.missions table where:", []string{"name", ""}); err == nil || !strings.Contains(err.Error(), "name: the cell is empty") {
+		t.Errorf("an empty cell should ask for the value: %v", err)
+	}
+	h.ok("a 2nd selection of rows is retrieved from the space.missions table where the metadata jsonb column contains:", []string{"crew.size", "3"}, []string{"manned", "true"}, []string{"code", `"0042"`})
+	h.ok("the 2nd selection has 1 row")
+	h.ok("a 3rd selection of rows is retrieved from the space.missions table where the metadata jsonb column contains:", []string{"crew.size", `"3"`})
+	h.ok("the 3rd selection has 0 rows")
+	h.ok("the 1st row metadata property for the selection json properties are:", []string{"code", `"0042"`}, []string{"crew.size", "3"}, []string{"fuel", "0.5"}, []string{"manned", "true"})
+	err := h.step("the 1st row metadata property for the selection json properties are:", []string{"crew.size", `"3"`})
+	if !core.IsAssertion(err) || !strings.Contains(err.Error(), "crew.size is the integer 3: write 3") {
+		t.Errorf("a string for a number should fail, saying what to write: %v", err)
+	}
+}
+
 func TestSeedFormats(t *testing.T) {
 	h := newHarness(t)
 	h.db(postgresURL(t))
@@ -228,7 +260,7 @@ func TestLocks(t *testing.T) {
 	h.db(url)
 	id := uniq(t)
 	h.file("l.yaml", fmt.Sprintf("space.crew:\n  - id: %[1]s\n    name: %[1]s\n", id))
-	h.ok("a l.yaml db seed")
+	h.ok("a l.yaml database seed")
 	h.ok("the rows in the space.crew table are locked where:", []string{"id", id})
 	tgt, _ := Resolve(url, "space", "secret")
 	db, _ := dbsql.Open("pgx", tgt.DSN)

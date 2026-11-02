@@ -242,10 +242,8 @@ func (c *cucumberJSON) step(r *runner.ScenarioResult, s *runner.StepResult, idx 
 	}
 	if s.Match != nil {
 		st.Match.Location = s.Match.Def().Step.ID
-		for _, a := range s.Match.Args {
-			if a.Present {
-				st.Match.Arguments = append(st.Match.Arguments, cjArg{Val: a.Raw, Offset: a.Start})
-			}
+		for _, a := range s.Match.InText() {
+			st.Match.Arguments = append(st.Match.Arguments, cjArg{Val: a.Raw, Offset: a.Start})
 		}
 	}
 	st.Embeddings, st.Output = embeddings(s)

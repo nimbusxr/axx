@@ -152,7 +152,7 @@ A place is on the control, or the step fails: a click off it would reach somethi
 Then the depot app shows "No parcels registered yet"
 Then the depot app does not show "PX-DSK-4211"
 Then the "Register" button is disabled in the depot app
-Then the "Reference" field in the depot app has the value ""
+Then the "Reference" field in the depot app has the value '""'
 Then the "Leipzig depot" image is shown in the depot app
 Then within 20s the depot app looks like the "opened" screenshot
 ```

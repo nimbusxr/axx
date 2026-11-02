@@ -70,7 +70,7 @@ func (tc *TopicClient) await(sc *core.Scenario, l *label, distinctHeaders bool, 
 
 	var floor map[int32]int64
 	if tc.consumer.OffsetReset == "latest" {
-		ends, err := endOffsets(ctx, tc.tailer.cl, tc.Topic)
+		ends, err := endOffsetsOf(ctx, tc.tailer.cl, tc.Topic)
 		if err != nil {
 			return fmt.Errorf("reading the end offsets of %s (consumer.auto.offset.reset=latest): %w", tc.Topic, err)
 		}
@@ -80,13 +80,15 @@ func (tc *TopicClient) await(sc *core.Scenario, l *label, distinctHeaders bool, 
 	timer := time.NewTimer(timeout)
 	defer timer.Stop()
 	var (
-		from   int64
-		misses []recordInfo
+		from    int64
+		misses  []recordInfo
+		skipped int // records before the floor (consumer.auto.offset.reset=latest)
 	)
 	for {
 		recs, next, wake := tc.tailer.since(from)
 		for _, r := range recs {
 			if f, ok := floor[r.Partition]; ok && r.Offset < f {
+				skipped++
 				continue
 			}
 			d := r.view(ctx, tc.deser)
@@ -139,6 +141,14 @@ func (tc *TopicClient) await(sc *core.Scenario, l *label, distinctHeaders bool, 
 		msg += "; the consumer reported: " + lastErr
 	}
 	var actual any = "no records on the topic"
+	// latest reads only what comes after this step starts: an event the
+	// scenario's own request published came before it.
+	if skipped > 0 {
+		msg += fmt.Sprintf("; %d record(s) on the topic came before this step and were not read, since the topic client's consumer.auto.offset.reset is latest: "+
+			"it reads only records produced after the step starts, and an event a request of the scenario published came before. "+
+			"Leave consumer.auto.offset.reset out (earliest, the default) to check the whole topic", skipped)
+		actual = fmt.Sprintf("%d record(s) before the step, not read (consumer.auto.offset.reset=latest)", skipped)
+	}
 	if len(misses) > 0 {
 		last := misses[len(misses)-1]
 		actual = fmt.Sprintf("latest record (partition %d offset %d): %s", last.Partition, last.Offset, last.Mismatch)

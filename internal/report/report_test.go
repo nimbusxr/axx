@@ -24,6 +24,8 @@ import (
 	"github.com/nimbusxr/axx/core"
 	"github.com/nimbusxr/axx/internal/axxerr"
 	"github.com/nimbusxr/axx/internal/exitcode"
+	"github.com/nimbusxr/axx/internal/feature"
+	"github.com/nimbusxr/axx/internal/match"
 	"github.com/nimbusxr/axx/internal/runner"
 )
 
@@ -510,6 +512,107 @@ func TestRealRun(t *testing.T) {
 		t.Errorf("compact output:\n%s", bufs["compact"].String())
 	}
 	checkTeamcity(t, bufs["teamcity"].String())
+}
+
+// A step's other wording may say its arguments in another order: its Run
+// reads them in the step's order, and reports show them in the text's, where
+// rich formatters expect them.
+func TestArgumentsOfAnotherWordingInTextOrder(t *testing.T) {
+	ids := &syncIDs{}
+	reg := match.NewRegistry()
+	var ran []string
+	if err := reg.AddSteps("db", []core.StepDef{{
+		ID: "db.rows", Keyword: "Then",
+		Expr: "the selection[[ on {word}]] has {int} row(s)",
+		Also: []string{"the selection has {int} row(s) on {word}"},
+		Run: func(_ *core.Scenario, a core.Args) error {
+			ran = []string{a.Raw(0), a.Raw(1)}
+			return nil
+		},
+	}}); err != nil {
+		t.Fatal(err)
+	}
+	const text = "the selection has 2 rows on db"
+	docs, pickles, err := feature.ParseSource("rows.feature", []byte("Feature: rows\n\n  Scenario: count\n    Then "+text+"\n"), ids.NewID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	bufs := map[string]*lockedBuffer{}
+	var reps []runner.Reporter
+	for _, n := range []string{"cucumber-json", "messages", "html"} {
+		bufs[n] = &lockedBuffer{}
+		rep, err := New(n, bufs[n], Options{Version: "0.1.0"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		reps = append(reps, rep)
+	}
+	r, err := runner.New(runner.Options{Registry: reg, Workers: 1, Messages: true, Docs: []*feature.Document{docs}, NewID: ids.NewID, Reporters: reps})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res := r.Run(context.Background(), pickles); res.Worst() != runner.Passed {
+		t.Fatalf("worst = %v", res.Worst())
+	}
+	if strings.Join(ran, " ") != "db 2" {
+		t.Errorf("the step's Run read %v", ran)
+	}
+
+	var features []struct {
+		Elements []struct {
+			Steps []struct {
+				Match struct {
+					Arguments []struct {
+						Val    string `json:"val"`
+						Offset int    `json:"offset"`
+					} `json:"arguments"`
+				} `json:"match"`
+			} `json:"steps"`
+		} `json:"elements"`
+	}
+	if err := json.Unmarshal(bufs["cucumber-json"].Bytes(), &features); err != nil {
+		t.Fatal(err)
+	}
+	args := features[0].Elements[0].Steps[0].Match.Arguments
+	if len(args) != 2 || args[0].Val != "2" || args[0].Offset != 18 || args[1].Val != "db" || args[1].Offset != 28 {
+		t.Errorf("cucumber-json arguments: %+v", args)
+	}
+
+	found := false
+	check := func(what, line string) {
+		var e messages.Envelope
+		if err := json.Unmarshal([]byte(line), &e); err != nil {
+			t.Fatalf("%s: %v", what, err)
+		}
+		if e.TestCase == nil {
+			return
+		}
+		found = true
+		list := e.TestCase.TestSteps[0].StepMatchArgumentsLists[0].StepMatchArguments
+		if len(list) != 2 || list[0].ParameterTypeName != "int" || list[0].Group.Value != "2" || list[0].Group.Start != 18 ||
+			list[1].ParameterTypeName != "word" || list[1].Group.Value != "db" || list[1].Group.Start != 28 {
+			t.Errorf("%s arguments: %+v", what, list)
+		}
+		// A formatter walks the text from argument to argument.
+		at := int64(0)
+		for _, a := range list {
+			if a.Group.Start < at || text[a.Group.Start:a.Group.Start+int64(len(a.Group.Value))] != a.Group.Value {
+				t.Errorf("%s: %q at %d, after %d", what, a.Group.Value, a.Group.Start, at)
+			}
+			at = a.Group.Start + int64(len(a.Group.Value))
+		}
+	}
+	for _, line := range strings.Split(strings.TrimSpace(bufs["messages"].String()), "\n") {
+		check("messages", line)
+	}
+	if !found {
+		t.Error("messages: no test case")
+	}
+	// The HTML report embeds the same envelopes.
+	if html := bufs["html"].String(); !strings.Contains(html, `"parameterTypeName":"int"`) ||
+		strings.Index(html, `"parameterTypeName":"int"`) > strings.Index(html, `"parameterTypeName":"word"`) {
+		t.Error("html: arguments out of the text's order")
+	}
 }
 
 // checkTeamcity checks a teamcity report of the fixtures: every message

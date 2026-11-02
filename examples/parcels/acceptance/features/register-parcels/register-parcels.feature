@@ -132,7 +132,7 @@ Feature: Register parcels
     And the 4th ordered request is executed
     Then the 1st ordered response status code is 201
     And the 2nd ordered response status code is 200
-    And the response payload property weightGrams is '2500' for 2nd ordered response
+    And the 2nd ordered response payload property weightGrams is 2500
     And the 3rd ordered response status code is 204
     And the 4th ordered response status code is 404
 
@@ -169,7 +169,7 @@ Feature: Register parcels
     Given a POST request to /api/parcels
     And a request payload using an application/json content example
     And the request payload property reference is 'PX-REG-1006'
-    And the request payload property recipient.street is null
+    And the 1st ordered request payload property recipient.street is null
     When the request is executed
     Then the response status code is 201
     And the response payload property recipient.city is 'Berlin'
@@ -178,27 +178,28 @@ Feature: Register parcels
   Scenario: A shop lists its own parcels
     Given a 1st ordered POST request to /api/parcels
     And a request payload using an application/json content example for 1st ordered request
-    And the request payload properties for 1st ordered request are:
+    And the 1st ordered request payload properties are:
       | reference | PX-REG-1007   |
       | sender    | lark-ceramics |
     And a 2nd ordered GET request to /api/parcels?sender=lark-ceramics
     When the 1st ordered request is executed
     And the 2nd ordered request is executed
     Then the 2nd ordered response status code is 200
-    And the response payload properties for 2nd ordered response are:
+    And the 2nd ordered response payload properties are:
       | [0].reference | PX-REG-1007   |
       | [0].sender    | lark-ceramics |
-    And the response payload property [1] is undefined for 2nd ordered response
+    And the 2nd ordered response payload property [0].reference matches ^PX-REG-[0-9]{4}$
+    And the 2nd ordered response payload property [1] is undefined
 
   Scenario: Every parcel gets a signed shipping label
     Given a 1st ordered POST request to /api/parcels
     And a request payload using an application/json content example for 1st ordered request
-    And the request payload property reference is 'PX-REG-1008' for 1st ordered request
+    And the 1st ordered request payload property reference is 'PX-REG-1008'
     And a 2nd ordered GET request to /api/parcels/PX-REG-1008/label
     When the 1st ordered request is executed
     And the 2nd ordered request is executed
     Then the 2nd ordered response status code is 200
-    And the response payload property reference is 'PX-REG-1008' for 2nd ordered response
-    And the response payload properties for 2nd ordered response match:
+    And the 2nd ordered response payload property reference is 'PX-REG-1008'
+    And the 2nd ordered response payload properties match:
       | barcode   | ^PX[0-9]{11}$  |
       | signature | ^[0-9a-f]{64}$ |

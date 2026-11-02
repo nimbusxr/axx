@@ -120,6 +120,52 @@ func TestRESTRequestsOfAnUnseenDefaultServiceAreNotChecked(t *testing.T) {
 	}
 }
 
+// The warning covers every form of the step that sets a payload from a table.
+func TestCheckRESTPayloadValuesOfEveryForm(t *testing.T) {
+	e, err := engine.New(engine.Options{Packs: engine.Ordered(all.Packs())})
+	if err != nil {
+		t.Fatal(err)
+	}
+	src := `Feature: f
+
+  Scenario: s
+    Given the parcels service with the following properties:
+      | url | http://localhost:8400 |
+    And a POST request to /api/parcels
+    And a request payload using an application/json empty content template
+    And the request payload properties are:
+      | first | 'A' |
+    And the request payload properties for 1st ordered request are:
+      | ordered | 'B' |
+    And the request payload properties for request on parcels are:
+      | on | 'C' |
+    And the request payload properties for 1st ordered request on parcels are:
+      | orderedOn | 'D' |
+    And the 1st ordered request payload properties are:
+      | leading | 'E' |
+    And the 1st ordered request payload properties on parcels are:
+      | leadingOn | 'F' |
+`
+	_, pickles, err := feature.ParseSource("f.feature", []byte(src), messages.UUID{}.NewId)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got []string
+	for _, f := range CheckRESTPayloadValues(e.Registry, pickles, "").Findings {
+		got = append(got, fmt.Sprintf("%d %s", f.Locations[0].Line, strings.Fields(f.Message)[0]))
+	}
+	want := []string{"8 first", "10 ordered", "12 on", "14 orderedOn", "16 leading", "18 leadingOn"}
+	if strings.Join(got, ", ") != strings.Join(want, ", ") {
+		t.Errorf("findings: %v, want %v", got, want)
+	}
+	// The list holds the steps there are.
+	for id := range restPayloadTables {
+		if _, ok := e.Registry.Def(id); !ok {
+			t.Errorf("no step %s", id)
+		}
+	}
+}
+
 func TestCheckRESTPayloadValues(t *testing.T) {
 	e, err := engine.New(engine.Options{Packs: engine.Ordered(all.Packs())})
 	if err != nil {

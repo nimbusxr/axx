@@ -1,6 +1,6 @@
 # 0007: Value semantics of the established Java libraries, verified by recorded oracles
 
-- Status: Accepted
+- Status: Accepted; what steps do with values amended by [0014](0014-a-value-means-what-it-says.md)
 - Date: 2026-09-24
 
 ## Context

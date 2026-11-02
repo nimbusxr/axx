@@ -10,6 +10,7 @@ import (
 	"github.com/mxschmitt/playwright-go"
 
 	"github.com/nimbusxr/axx/core"
+	"github.com/nimbusxr/axx/internal/cloudstep/cloudtest"
 )
 
 func suite() *core.Suite {
@@ -156,4 +157,15 @@ func TestPinnedPlaywrightVersion(t *testing.T) {
 	if d.Version != PlaywrightVersion {
 		t.Errorf("playwright-go drives Playwright %s, the pack pins %s: update packs/web/internal/driver", d.Version, PlaywrightVersion)
 	}
+}
+
+// A value in a step's own text is read before the step uses a browser
+// (ADR 0014), so it fails without one, as axx validate reports it.
+func TestAStepsOwnValueWithoutABrowser(t *testing.T) {
+	h := cloudtest.New(t, Pack())
+	h.ValueFails(`the "Weight (grams)" field is filled with "1200"`, `1200 reads as an integer, and only text fits here: write '"1200"' for the text`)
+	h.ValueFails(`the "Details" tab shows "3"`, `3 reads as an integer, and only text fits here: write '"3"' for the text`)
+	h.ValueFails(`the "Actions" button has the aria-expanded attribute "true"`, `true reads as a boolean, and only text fits here: write '"true"' for the text`)
+	h.ValueFails(`the page shows ""`, `the value is empty: write '""' for the empty text`)
+	h.ValueFails(`the page shows '{"a":1}'`, `{"a":1} reads as a JSON object, and only text fits here: write '"{"a":1}"' for the text`)
 }

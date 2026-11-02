@@ -6,7 +6,6 @@ package mcp
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -197,7 +196,7 @@ func (s *server) start() (sdk.Transport, error) {
 	if g, err := proc.NewGroup(cmd); err == nil {
 		s.group = g
 	}
-	return &sdk.IOTransport{Reader: stdout, Writer: stdin}, nil
+	return exactTransport{&sdk.IOTransport{Reader: stdout, Writer: stdin}}, nil
 }
 
 func (st *state) ownFolder() (string, error) {
@@ -320,7 +319,7 @@ func (s *server) connect(sc *core.Scenario) error {
 	if s.url != "" {
 		transport = &sdk.StreamableClientTransport{
 			Endpoint:             s.url,
-			HTTPClient:           &http.Client{Transport: headerTransport{headers: s.headers, next: http.DefaultTransport}},
+			HTTPClient:           &http.Client{Transport: exactBodies{headerTransport{headers: s.headers, next: http.DefaultTransport}}},
 			MaxRetries:           -1,
 			DisableStandaloneSSE: true,
 		}
@@ -456,8 +455,7 @@ func describe(sc *core.Scenario, st *state) any {
 		if c.err != nil {
 			d["error"] = secrets.Mask(sc, c.err.Error())
 		} else {
-			b, _ := json.Marshal(c.result)
-			d["result"] = secrets.Mask(sc, string(b))
+			d["result"] = secrets.Mask(sc, c.resultJSON())
 		}
 		out["last tool call"] = d
 	}
@@ -483,7 +481,7 @@ And the track_parcel tool's result has the following properties:
 
 - **Over stdio or streamable HTTP:** a ` + "`command`" + ` runs the server for the scenario, which ends it when it ends; a ` + "`url`" + ` reaches it. The session agrees on the protocol version with the server: 2026-07-28, or an earlier one the server speaks.
 - **Run it as its clients do:** a server assistants start over stdio is the scenario's ` + "`command`" + `, like a command-line tool, and not a service in axx.yaml; a server that runs on its own over HTTP is a service, and the ` + "`url`" + ` reaches it.
-- **A tool's schemas are the contract:** its arguments take the types its input schema gives them (` + "`10115`" + ` is text for a string), and are checked against it before the call; its structured result is checked against its output schema.
+- **A tool's schemas are the contract:** its arguments, each what its cell says (` + "`\"10115\"`" + ` for a string, as ` + "`10115`" + ` is a number), are checked against its input schema before the call; its structured result is checked against its output schema.
 - **Two kinds of failure:** a tool's result that is an error (the tool ran, and says what went wrong), and a call the server refused (an unknown tool, invalid parameters), with its JSON-RPC error code.
 
 Findings have keys and levels, like the REST pack's OpenAPI findings:

@@ -9,22 +9,23 @@ Coding agents are now a primary user of test tools: they write most new tests, r
 
 Agents invent plausible step text, and Gherkin punishes near-misses. Axx makes the real steps cheap to find and cheap to check:
 
-- `axx steps` and the `steps_search` MCP tool without a query list every step of the project in one line each, which an agent reads once; `axx steps show <id>` and `step_explain` give one step's documentation and examples. Searches return the steps that fit, briefly, and the MCP tool sends a step it returned before as its id only, so what an agent learns does not fill its context twice.
+- `axx steps` and the `steps_search` MCP tool without a query list every step of the project in one line each, which an agent reads once. A step's line is usually enough to write it: `axx steps show <id>...` and `step_explain` give the documentation and examples of those that leave it unsure, several at once. Searches return the steps that fit, briefly, and the MCP tool sends a step it returned before as its id only, so what an agent learns does not fill its context twice.
 - The skills send agents to `axx steps`, which lists the project's steps, custom ones included, rather than shipping pages of them: agents read pages a chunk at a time, about ten times the tokens of `axx steps show <id>`.
+- Axx knows every pack it publishes before a project adds it, offline and for the version installed. `axx pack list` says what each one reaches, `axx pack show <name>` gives its settings and steps, `axx steps search <words>` finds steps in all of them, with the pack to add, and a step of a pack the project lacks is undefined with that pack named. `axx init` lists the packs a repository points to.
 - `axx validate` and `axx explain` check every line without starting anything, and suggest the closest real steps for a near-miss.
 - The `steps_try` MCP tool runs steps in a live scenario that stays open between calls, so an agent sees what a step does before it writes it down; the packs' tools look at that scenario, such as the web-core pack's `web_page`, which shows the page as the steps name its elements.
-- Step text is public API: it never changes, so what an agent learned stays true.
+- Step text is public API: it never changes, so what an agent learned stays true. Some steps also take the other wordings agents write by themselves: those run the step and stay out of the lists, so the list an agent reads stays short.
 
 ## Never guess what happened
 
 - **Exit codes** classify the outcome: a failed scenario (`1`), a broken setup (`2`), an invented step (`3`), a service that did not start (`4`).
-- **Error codes** (`AXX-Exxxx`) are stable and come with a hint and a link.
+- **Error codes** (`AXX-Exxxx`) are stable and come with a hint and a link; `axx explain <code>` gives the same page offline, and compact output points to it.
 - **Failures are data.** Assertion failures carry expected and actual values, the matched step definition, pack context such as the last HTTP exchange, and the exact command that reruns the scenario.
 - **`--json` everywhere**, in one envelope, with a frozen schema.
 
 ## Spend tokens on the problem
 
-When Axx detects an agent and its output is not a terminal, it switches to compact output: failures and one summary line. A green run of a thousand scenarios costs one line of context. Details are one call away (`axx run --json`, or the `failure_context` MCP tool).
+When Axx detects an agent and its output is not a terminal, it switches to compact output: failures and one summary line. A green run of a thousand scenarios costs one line of context. Details are one call away (`axx run --json`, or the `failure_context` MCP tool). Lookups are short in compact output too: `axx steps show` gives a step's documentation and first example, `axx pack show` a pack's first paragraph, with its steps when the project lacks it, and `axx schema` the outline of its keys. `--full` gives the rest.
 
 ## Stay in sync with the installed version
 
@@ -32,13 +33,13 @@ Documentation drifts; binaries do not. The MCP server, `axx steps`, the skills a
 
 ## A fast, safe loop
 
-`axx up` keeps the system under test running between runs, so an agent's edit-run loop costs seconds instead of minutes. `axx run features/x.feature:LINE` reruns exactly one scenario. Validation, explanation and step search have no side effects and need no running services.
+An agent checks its work with one command: `axx validate && axx lint && axx run --compact`. Validate and lint need no services, and their errors stop it, their warnings do not; the run starts the services and stops them. With the MCP tools, the same is `feature_validate`, `lint_run` and `scenarios_run` in one turn. `axx up` and `axx down` only keep the services running to inspect them. `axx run features/x.feature:LINE` reruns exactly one scenario. Validation, explanation and step search have no side effects and need no running services.
 
 ## Guardrails in the instructions
 
-The skills and the AGENTS.md section encode the rules that keep agent-written tests honest:
+The AGENTS.md section and the MCP server's instructions carry the rules that keep agent-written tests honest, and the skills add the details:
 
-- one scenario per acceptance criterion, named after the behavior;
+- a scenario is one behavior, named after it, and each acceptance criterion is a scenario of its own, even when one action shows several;
 - unique data in every scenario, and fixture factories where data repeats (optional, and `axx lint` hints at them);
 - assert on observable outcomes, never loosen an assertion to go green;
 - no fixed sleeps, use readiness checks and polling steps.

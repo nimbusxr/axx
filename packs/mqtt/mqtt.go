@@ -68,7 +68,9 @@ var topics = cloudstep.Messages{
 		{Name: "response topic", Takes: "the topic a reply goes to"},
 		{Name: "correlation data", Takes: "what ties a reply to its request, as text"},
 	},
-	Send: publish, Inbox: inbox, Found: found,
+	// qos is a number and retain a boolean; the other values are text.
+	Typed: []string{"qos", "retain"},
+	Send:  publish, Inbox: inbox, Found: found,
 	Example: cloudstep.Sample{
 		To:   "depots/LEJ/scans",
 		Body: `{"scanId": "SC-8201-1", "parcelRef": "PX-8201", "status": "OUT_FOR_DELIVERY", "location": "Leipzig"}`,
@@ -334,7 +336,8 @@ func publish(sc *core.Scenario, topic string, body []byte, fields map[string]str
 	return nil
 }
 
-// message is a message to publish, from a step's fields.
+// message is a message to publish, from a step's fields: the qos and
+// retain as JSON (`1`, `true`), the others text.
 func message(topic string, body []byte, fields map[string]string) (*paho.Publish, error) {
 	p := &paho.Publish{Topic: topic, QoS: 1, Payload: body, Properties: &paho.PublishProperties{}}
 	for k, v := range fields {
@@ -346,15 +349,14 @@ func message(topic string, body []byte, fields map[string]string) (*paho.Publish
 		case "qos":
 			q, err := strconv.Atoi(v)
 			if err != nil || q < 0 || q > 2 {
-				return nil, fmt.Errorf("the qos is 0, 1 or 2, not %q", v)
+				return nil, fmt.Errorf("the qos is the number 0, 1 or 2, not %s", v)
 			}
 			p.QoS = byte(q)
 		case "retain":
-			r, err := strconv.ParseBool(v)
-			if err != nil {
-				return nil, fmt.Errorf("retain is true or false, not %q", v)
+			if v != "true" && v != "false" {
+				return nil, fmt.Errorf("retain is the boolean true or false, not %s", v)
 			}
-			p.Retain = r
+			p.Retain = v == "true"
 		case "content type":
 			p.Properties.ContentType = v
 		case "response topic":

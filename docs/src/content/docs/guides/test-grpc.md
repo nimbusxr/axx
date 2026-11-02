@@ -56,8 +56,8 @@ When the Tracking/GetParcel method is called on the tracking grpc service with t
 When the Tracking/ListDepots method is called on the tracking grpc service
 ```
 
-- **The request is proto JSON:** fields by their JSON names (`lastScan.location`) or their proto names (`last_scan.location`), enums by name, 64-bit integers as numbers or text.
-- **A table sets paths into the request,** as the REST pack's request properties do. A value takes the type of its field, so `10115` is text for a string field. Double quotes make a value text, `null` leaves the field unset, and `undefined` removes it.
+- **The request is proto JSON:** fields by their JSON names (`lastScan.location`) or their proto names (`last_scan.location`), enums by name; a file's 64-bit integers are numbers or text, as proto JSON has them.
+- **A table sets paths into the request,** each to [what its cell says](/references/steps/#values), which must be of its field's type: `"10115"` for a string field, `1200` for an `int64`, `OUT_FOR_DELIVERY` for an enum. Nothing converts a value: `10115` for a string field fails the step, which says to write `"10115"`. `null` leaves the field unset, and `undefined` removes it.
 - **A status other than OK** does not fail the step that makes the call: check it. Only a call that cannot be made (an unknown method, a request that is not the method's message) fails the step.
 
 ## Check the answer
@@ -73,8 +73,9 @@ And the tracking grpc service's answer has the following metadata:
 ```
 
 - **Statuses** are gRPC's names: `OK`, `CANCELLED`, `INVALID_ARGUMENT`, `NOT_FOUND`, `FAILED_PRECONDITION`, `UNAVAILABLE`, and so on, or their numbers.
-- **The answer is proto JSON,** with the fields that have their default values (`0`, `""`, `false`): an unset message field, such as a parcel's `lastScan` before its first scan, is `undefined`.
-- **Metadata** is the call's headers and trailers, by name in any case; several values are joined with `, `.
+- **The answer is proto JSON,** with the fields that have their default values (`0`, `""`, `false`): an unset message field, such as a parcel's `lastScan` before its first scan, is `undefined`. Its 64-bit integers are numbers, not proto JSON's text.
+- **Values have types,** as in every pack: `1200` is a number and `"10115"` the text, and each must match the answer's, so `10115` fails for a string field.
+- **Metadata** is the call's headers and trailers, by name in any case; several values are joined with `, `. Its values are text: one that reads as a number goes in double quotes (`"2"`), and `undefined` is none.
 - **The checks read the service's last call** in the scenario.
 
 ## Watch a server stream

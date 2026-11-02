@@ -9,7 +9,6 @@ import (
 	"io"
 	"os"
 	"sort"
-	"strconv"
 	"strings"
 	"sync"
 
@@ -129,10 +128,10 @@ func methodName(m protoreflect.MethodDescriptor) string {
 	return string(m.Parent().FullName()) + "/" + string(m.Name())
 }
 
-// request builds a method's request: the file's JSON, or an empty one,
-// with the table's rows set into it, as the REST pack's request properties
-// are. Scalars take the types of their fields, and a string field's value
-// is its text as written (01067 keeps its zero).
+// request builds a method's request: the file's proto JSON, or an empty
+// one, with the table's rows set into it. A row's value means what it says
+// (ADR 0014), and must be of its field's type: nothing converts it
+// (checkRows).
 func request(sc *core.Scenario, md protoreflect.MessageDescriptor, set *protoload.Set, file string, t *core.Table) (*dynamicpb.Message, []byte, error) {
 	var v any = map[string]any{}
 	if file != "" {
@@ -161,14 +160,12 @@ func request(sc *core.Scenario, md protoreflect.MessageDescriptor, set *protoloa
 		}
 		rows := make([]tablevalue.Row, len(pairs))
 		for i, p := range pairs {
-			rows[i] = tablevalue.Row{Path: p.Key, Null: p.Null}
-			if !p.Null {
-				if rows[i].Value, err = secrets.Resolve(sc, p.Value); err != nil {
-					return nil, nil, err
-				}
-			}
+			rows[i] = tablevalue.Row{Path: p.Key, Value: p.Value, Null: p.Null}
 		}
-		if v, err = tablevalue.Apply(base, rows, func(path string) bool { return stringField(md, path) }); err != nil {
+		if v, err = tablevalue.Apply(base, rows, func(v string) (string, error) { return secrets.Resolve(sc, v) }); err != nil {
+			return nil, nil, err
+		}
+		if err := checkRows(md, rows); err != nil {
 			return nil, nil, err
 		}
 	}
@@ -177,7 +174,6 @@ func request(sc *core.Scenario, md protoreflect.MessageDescriptor, set *protoloa
 		b, _ := json.Marshal(v)
 		return nil, nil, fmt.Errorf("a %s is a JSON object, not %s", md.FullName(), b)
 	}
-	conform(md, obj)
 	body, err := json.Marshal(obj)
 	if err != nil {
 		return nil, nil, err
@@ -196,81 +192,6 @@ func protoError(err error) string {
 		msg = strings.TrimPrefix(msg, prefix)
 	}
 	return msg
-}
-
-// stringField reports whether a path into a message (`recipient.postcode`,
-// `lines[0].reference`) is a string field.
-func stringField(md protoreflect.MessageDescriptor, path string) bool {
-	var fd protoreflect.FieldDescriptor
-	for _, seg := range strings.Split(strings.TrimPrefix(path, "$."), ".") {
-		if md == nil {
-			return false
-		}
-		name, _, _ := strings.Cut(seg, "[")
-		fields := md.Fields()
-		if fd = fields.ByJSONName(name); fd == nil {
-			fd = fields.ByName(protoreflect.Name(name))
-		}
-		if fd == nil {
-			return false
-		}
-		md = fd.Message()
-	}
-	return fd != nil && fd.Kind() == protoreflect.StringKind
-}
-
-// conform gives a JSON object's scalars the types of the message's
-// fields: the text of a number for a string field, a boolean for "true".
-func conform(md protoreflect.MessageDescriptor, obj map[string]any) {
-	fields := md.Fields()
-	for k, v := range obj {
-		fd := fields.ByJSONName(k)
-		if fd == nil {
-			fd = fields.ByName(protoreflect.Name(k))
-		}
-		if fd == nil {
-			continue // protojson says it is not a field
-		}
-		switch {
-		case fd.IsList():
-			if arr, ok := v.([]any); ok {
-				for i, e := range arr {
-					arr[i] = conformValue(fd, e)
-				}
-			}
-		case fd.IsMap():
-			if m, ok := v.(map[string]any); ok {
-				for mk, mv := range m {
-					m[mk] = conformValue(fd.MapValue(), mv)
-				}
-			}
-		default:
-			obj[k] = conformValue(fd, v)
-		}
-	}
-}
-
-func conformValue(fd protoreflect.FieldDescriptor, v any) any {
-	switch fd.Kind() {
-	case protoreflect.StringKind:
-		switch x := v.(type) {
-		case json.Number:
-			return x.String()
-		case bool:
-			return strconv.FormatBool(x)
-		}
-	case protoreflect.BoolKind:
-		if s, ok := v.(string); ok {
-			if b, err := strconv.ParseBool(s); err == nil {
-				return b
-			}
-		}
-	case protoreflect.MessageKind, protoreflect.GroupKind:
-		if m, ok := v.(map[string]any); ok && !strings.HasPrefix(string(fd.Message().FullName()), "google.protobuf.") {
-			conform(fd.Message(), m)
-		}
-	}
-	return v
 }
 
 // invoke makes a call and keeps it as the service's last. A status other
@@ -387,7 +308,9 @@ func (c *call) finish(st *status.Status, trailer metadata.MD) {
 	}
 }
 
-// marshal writes a message as proto JSON, with its fields' default values.
+// marshal writes a message as proto JSON, with its fields' default values,
+// and its 64-bit integers, floats and doubles as the numbers they are
+// (typedNumbers).
 func marshal(m *dynamicpb.Message, set *protoload.Set) ([]byte, error) {
 	b, err := protojson.MarshalOptions{EmitDefaultValues: true, Resolver: set.Types()}.Marshal(m)
 	if err != nil {
@@ -399,7 +322,7 @@ func marshal(m *dynamicpb.Message, set *protoload.Set) ([]byte, error) {
 	if err := json.Compact(&out, b); err != nil {
 		return nil, err
 	}
-	return out.Bytes(), nil
+	return typedNumbers(out.Bytes(), m.Descriptor(), set.Types()), nil
 }
 
 // statusText is a status as the steps name it, with its message.

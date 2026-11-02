@@ -1,11 +1,142 @@
 package gcpbigquery
 
 import (
+	"encoding/json"
+	"math"
+	"math/big"
 	"testing"
+
+	"cloud.google.com/go/bigquery"
 
 	"github.com/nimbusxr/axx/core"
 	"github.com/nimbusxr/axx/internal/cloudstep"
+	"github.com/nimbusxr/axx/internal/cloudstep/cloudtest"
+	gcpcore "github.com/nimbusxr/axx/packs/gcp/core"
 )
+
+// A row's values keep their types (ADR 0014): an INT64 is an integer, and a
+// FLOAT64, a NUMERIC or a BIGNUMERIC a decimal, a whole one too, all of its
+// digits.
+func TestValuesKeepTheirTypes(t *testing.T) {
+	price, _ := new(big.Rat).SetString("1.35")
+	whole, _ := new(big.Rat).SetString("2")
+	big38, _ := new(big.Rat).SetString("0.12345678901234567890123456789012345678")
+	b, err := json.Marshal(plain(map[string]bigquery.Value{
+		"lines": int64(2), "billed": 12.0, "rate": 0.5, "price": price, "minimum": whole, "share": big38,
+		"ratio": math.NaN(), "route": map[string]bigquery.Value{"km": 140.0},
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := `{"billed":12.0,"lines":2,"minimum":2.0,"price":1.35,"rate":0.5,"ratio":"NaN","route":{"km":140.0},"share":0.12345678901234567890123456789012345678}`
+	if string(b) != want {
+		t.Errorf("got  %s\nwant %s", b, want)
+	}
+	rs := cloudstep.Rows{{Key: "billed", Value: "12.0"}, {Key: "lines", Value: "2"}, {Key: "price", Value: "1.35"}, {Key: "route.km", Value: "140.0"}}
+	if ok, err := rs.Match(string(b)); !ok || err != nil {
+		t.Errorf("the row should match: %v", err)
+	}
+	if ok, _ := (cloudstep.Rows{{Key: "billed", Value: "12"}}).Match(string(b)); ok {
+		t.Error("a whole FLOAT64 should not match an integer")
+	}
+	if ok, err := (cloudstep.Rows{{Key: "minimum", Value: "2.0"}}).Match(string(b)); !ok || err != nil {
+		t.Errorf("a whole NUMERIC should match a decimal: %v", err)
+	}
+	if ok, _ := (cloudstep.Rows{{Key: "minimum", Value: "2"}}).Match(string(b)); ok {
+		t.Error("a whole NUMERIC should not match an integer")
+	}
+}
+
+// A condition is held to its column's type as a SQL selection's is, from the
+// schema of what the query returns, and fails at once.
+func TestHoldToSchema(t *testing.T) {
+	schema := bigquery.Schema{
+		{Name: "invoice", Type: bigquery.StringFieldType},
+		{Name: "pieces", Type: bigquery.IntegerFieldType},
+		{Name: "billed", Type: bigquery.FloatFieldType},
+		{Name: "price", Type: bigquery.NumericFieldType},
+		{Name: "share", Type: bigquery.BigNumericFieldType},
+		{Name: "signed", Type: bigquery.BooleanFieldType},
+		{Name: "since", Type: bigquery.DateFieldType},
+		{Name: "at", Type: bigquery.TimestampFieldType},
+		{Name: "tags", Type: bigquery.StringFieldType, Repeated: true},
+		{Name: "lines", Type: bigquery.RecordFieldType, Repeated: true, Schema: bigquery.Schema{{Name: "pieces", Type: bigquery.IntegerFieldType}}},
+		{Name: "route", Type: bigquery.RecordFieldType, Schema: bigquery.Schema{
+			{Name: "km", Type: bigquery.IntegerFieldType},
+			{Name: "to", Type: bigquery.StringFieldType},
+		}},
+	}
+	for _, c := range []struct{ key, cell, want string }{
+		{"invoice", "INV-1", ""},
+		{"invoice", `"10115"`, ""},
+		{"invoice", "null", ""},
+		{"pieces", "5", ""},
+		{"billed", "2.0", ""},
+		{"price", "1.35", ""},
+		{"signed", "true", ""},
+		{"since", "2026-09-24", ""},
+		{"route.km", "140", ""},
+		{"$.route.km", "140", ""},
+		{"Route.To", "York", ""},
+		{"route", `{"km": 140.0}`, ""},
+		{"nosuch", "5", ""},
+		{"route.nosuch", "5", ""},
+		{"tags", "5", ""},
+		{"tags[0]", "5", ""},
+		{"lines.pieces", "5.0", ""},
+		{"$['route']['km']", "5.0", ""},
+		{"invoice", "10115", `invoice is text in billing.lines (STRING): write "10115"`},
+		{"pieces", "5.0", "pieces is an integer in billing.lines (INT64): write 5"},
+		{"pieces", `"5"`, "pieces is an integer in billing.lines (INT64): write 5"},
+		{"billed", "2", "billed is a decimal in billing.lines (FLOAT64): write 2.0"},
+		{"price", "2", "price is a decimal in billing.lines (NUMERIC): write 2.0"},
+		{"share", "2", "share is a decimal in billing.lines (BIGNUMERIC): write 2.0"},
+		{"signed", "1", "signed is a boolean in billing.lines (BOOL): write true"},
+		{"since", "2026", `since is written as a string in billing.lines (DATE): write "2026"`},
+		{"at", "1790244000", `at is written as a string in billing.lines (TIMESTAMP): write "1790244000"`},
+		{"route.km", "140.0", "route.km is an integer in billing.lines (INT64): write 140"},
+		{"$.route.to", "5", `$.route.to is text in billing.lines (STRING): write "5"`},
+	} {
+		err := holdToSchema(schema, "billing.lines", cloudstep.Rows{{Key: c.key, Value: c.cell}})
+		switch {
+		case c.want == "" && err != nil:
+			t.Errorf("%s %s: %v", c.key, c.cell, err)
+		case c.want != "" && (err == nil || err.Error() != c.want+" [AXX-E0207]"):
+			t.Errorf("%s %s: %v, want %s", c.key, c.cell, err, c.want)
+		}
+	}
+	err := holdToSchema(schema, "billing.lines", cloudstep.Rows{{Key: "pieces", Value: "5.0"}, {Key: "billed", Value: "2"}})
+	if want := "pieces is an integer in billing.lines (INT64): write 5; billed is a decimal in billing.lines (FLOAT64): write 2.0 [AXX-E0207]"; err == nil || err.Error() != want {
+		t.Errorf("every condition that is wrong, at once: %v", err)
+	}
+}
+
+// A row has every column of its table's schema, NULL or not: `undefined` is
+// no value of a row's, and fails at once with the rule's message, as axx
+// validate reports it, rather than as a query of a column the table lacks.
+func TestARowHasEveryColumn(t *testing.T) {
+	h := cloudtest.New(t, gcpcore.Pack(), Pack())
+	for _, step := range []string{
+		"the billing.invoice_lines bigquery table has a row where:",
+		"the billing.invoice_lines bigquery table has 1 row where:",
+	} {
+		_ = h.Fails(step, "no_such_column: undefined (no such property) is not a value here", [][]string{{"no_such_column", "undefined"}})
+		_ = h.Fails(step, "route.to: undefined (no such property) is not a value here", [][]string{{"route.to", "undefined"}})
+	}
+	checks := 0
+	for _, s := range Pack().Manifest().Steps {
+		if s.Table == nil {
+			continue
+		}
+		checks++
+		if _, err := core.ParseValue("undefined", false, s.Table.Undefined); err == nil {
+			t.Errorf("%s takes undefined, so axx validate would not report it", s.ID)
+		}
+	}
+	if checks != 2 {
+		t.Errorf("%d steps have a table, not 2", checks)
+	}
+}
 
 func TestColumns(t *testing.T) {
 	rows := func(keys ...string) cloudstep.Rows {

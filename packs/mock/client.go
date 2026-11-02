@@ -12,7 +12,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/nimbusxr/axx/core"
 	"github.com/nimbusxr/axx/internal/compat/jsonx"
+	"github.com/nimbusxr/axx/internal/compat/jvalue"
 )
 
 // headerMatcher is a WireMock string-value pattern.
@@ -22,7 +24,26 @@ type headerMatcher struct {
 	Absent  bool   `json:"absent,omitempty"`
 }
 
-// pattern is a WireMock request pattern (admin API JSON form).
+// MarshalJSON writes the one matcher m is: absent, a regular expression, or
+// equal to a text, the empty text too.
+func (m headerMatcher) MarshalJSON() ([]byte, error) {
+	switch {
+	case m.Absent:
+		return []byte(`{"absent":true}`), nil
+	case m.Matches != "":
+		return json.Marshal(struct {
+			Matches string `json:"matches"`
+		}{m.Matches})
+	}
+	return json.Marshal(struct {
+		EqualTo string `json:"equalTo"`
+	}{m.EqualTo})
+}
+
+// pattern is a WireMock request pattern (admin API JSON form), and the
+// properties a request's JSON body must have, which axx checks itself:
+// WireMock compares the text of a body's values, and a value means what it
+// says, with its type (ADR 0014).
 type pattern struct {
 	Method string
 	URL    string
@@ -30,7 +51,7 @@ type pattern struct {
 	PathOnly bool
 	// headers, body and form keep insertion order for stable messages.
 	headers []headerEntry
-	body    []headerEntry // JSONPath expressions into the JSON body
+	body    []propEntry   // JSONPath expressions into the JSON body
 	form    []headerEntry // fields of a form-encoded body
 	query   []headerEntry // query parameters
 }
@@ -40,14 +61,154 @@ type headerEntry struct {
 	m    headerMatcher
 }
 
+// propEntry is a property the JSON body must have: a JSONPath and its
+// value, or `undefined` for none.
+type propEntry struct {
+	path string
+	v    core.Value
+}
+
 func (p *pattern) withHeader(name string, m headerMatcher) {
 	p.headers = append(p.headers, headerEntry{name, m})
 }
 
 // withProperty requires the JSON body to have a property (a JSONPath, "$."
-// optional) that matches m.
-func (p *pattern) withProperty(path string, m headerMatcher) {
-	p.body = append(p.body, headerEntry{jsonx.Normalize(path), m})
+// optional) of the value v, or none with `undefined`.
+func (p *pattern) withProperty(path string, v core.Value) {
+	p.body = append(p.body, propEntry{jsonx.Normalize(path), v})
+}
+
+// properties are the body's properties the pattern requires, the latest
+// of each path.
+func (p *pattern) properties() []propEntry {
+	seen := map[string]int{}
+	var out []propEntry
+	for _, e := range p.body {
+		if i, ok := seen[e.path]; ok {
+			out[i] = e
+			continue
+		}
+		seen[e.path] = len(out)
+		out = append(out, e)
+	}
+	return out
+}
+
+// mismatch says why a request's body does not have the pattern's
+// properties: the first one it lacks. It is "" when the body has them all.
+func (p *pattern) mismatch(body []byte) (string, error) {
+	text := string(body)
+	doc, ok := jsonDoc(text)
+	if !ok {
+		return "its body is not JSON", nil
+	}
+	for _, e := range p.properties() {
+		why, err := e.mismatch(doc, text)
+		if err != nil {
+			return "", fmt.Errorf("%s: %w", e.path, err)
+		}
+		if why != "" {
+			return why, nil
+		}
+	}
+	return "", nil
+}
+
+// mismatch says why a body, as a document and as text, does not have the
+// property. It is "" when it has it.
+func (e propEntry) mismatch(doc any, text string) (string, error) {
+	path, err := jsonx.Compile(e.path)
+	if err != nil {
+		return "", err
+	}
+	if !path.Definite() {
+		return e.mismatchAny(doc)
+	}
+	ok, err := jvalue.ValueIs(text, e.path, e.v)
+	if err != nil || ok {
+		return "", err
+	}
+	actual, found := valueAt(doc, e.path)
+	switch {
+	case !found:
+		return "it has no " + e.path, nil
+	case e.v.Undefined():
+		return fmt.Sprintf("it has %s: %s", e.path, jsonx.MarshalValue(actual)), nil
+	}
+	if h := jvalue.TypeHint(e.path, e.v, actual); h != "" {
+		return h, nil
+	}
+	return fmt.Sprintf("%s is %s, not %s", e.path, jsonx.MarshalValue(actual), e.v.JSON()), nil
+}
+
+// mismatchAny is mismatch for a path that can give several values (a
+// wildcard, a filter, a recursive descent): the body has the property when
+// any of them is the value, compared with its type as any value is (ADR
+// 0014), as WireMock's own JSONPath matching reads such a path. `undefined`
+// says the path gives none. A list as the value also compares with all of
+// them at once: otherwise a check that none has them would pass on a request
+// whose values are that very list.
+func (e propEntry) mismatchAny(doc any) (string, error) {
+	values, shown := valuesAt(doc, e.path)
+	if e.v.Undefined() {
+		if len(values) == 0 {
+			return "", nil
+		}
+		return fmt.Sprintf("it has %s: %s", e.path, shown), nil
+	}
+	if len(values) == 0 {
+		return "it has no " + e.path, nil
+	}
+	expected, err := jvalue.Expected(e.v)
+	if err != nil {
+		return "", err
+	}
+	for _, x := range values {
+		if jvalue.Equal(x, expected) {
+			return "", nil
+		}
+	}
+	if _, list := expected.(*jsonx.Array); list && jvalue.Equal(jsonx.NewArray(values...), expected) {
+		return "", nil
+	}
+	for _, x := range values {
+		if h := jvalue.TypeHint("a value of "+e.path, e.v, x); h != "" {
+			return h, nil
+		}
+	}
+	return fmt.Sprintf("no value of %s is %s: it has %s", e.path, e.v.JSON(), shown), nil
+}
+
+// jsonDoc is a body's JSON object or array, when it is one.
+func jsonDoc(text string) (any, bool) {
+	doc, err := jsonx.Parse(text)
+	if err != nil {
+		return nil, false
+	}
+	switch doc.(type) {
+	case *jsonx.Object, *jsonx.Array:
+		return doc, true
+	}
+	return nil, false
+}
+
+// valueAt is the value at path in doc, when it has one.
+func valueAt(doc any, path string) (any, bool) {
+	v, _, err := jsonx.Read(doc, path)
+	return v, err == nil
+}
+
+// valuesAt is every value an indefinite path gives in doc, and how a failure
+// shows them: none when the path leads nowhere.
+func valuesAt(doc any, path string) ([]any, string) {
+	v, _, err := jsonx.Read(doc, path)
+	if err != nil {
+		return nil, "[]"
+	}
+	if list, ok := v.(*jsonx.Array); ok {
+		return list.Items(), jsonx.MarshalValue(list)
+	}
+	return []any{v}, jsonx.MarshalValue(v)
 }
 
 // withQuery requires the URL to have a query parameter that matches m.
@@ -98,26 +259,35 @@ func (p *pattern) MarshalJSON() ([]byte, error) {
 	writeMatchers(&b, "queryParameters", latest(p.query, false))
 	writeMatchers(&b, "headers", latest(p.headers, true))
 	writeMatchers(&b, "formParameters", latest(p.form, false))
-	if body := latest(p.body, false); len(body) > 0 {
-		b.WriteString(`,"bodyPatterns":[`)
-		for i, e := range body {
-			if i > 0 {
-				b.WriteByte(',')
-			}
-			v, _ := json.Marshal(map[string]any{"matchesJsonPath": jsonPathMatcher{Expression: e.name, headerMatcher: e.m}})
-			b.Write(v)
-		}
-		b.WriteByte(']')
-	}
 	b.WriteByte('}')
 	return b.Bytes(), nil
 }
 
-// jsonPathMatcher is WireMock's matchesJsonPath with a matcher of the value
-// the expression selects.
-type jsonPathMatcher struct {
-	Expression string `json:"expression"`
-	headerMatcher
+// shown is the pattern as failures show it: WireMock's request pattern,
+// and the payload properties axx checks, `<absent>` for `undefined`.
+func (p *pattern) shown() []byte {
+	b := bytes.NewBuffer(mustJSON(p))
+	props := p.properties()
+	if len(props) == 0 {
+		return b.Bytes()
+	}
+	b.Truncate(b.Len() - 1)
+	b.WriteString(`,"payloadProperties":{`)
+	for i, e := range props {
+		if i > 0 {
+			b.WriteByte(',')
+		}
+		k, _ := json.Marshal(e.path)
+		b.Write(k)
+		b.WriteByte(':')
+		if e.v.Undefined() {
+			b.WriteString(`"<absent>"`)
+			continue
+		}
+		b.WriteString(e.v.JSON())
+	}
+	b.WriteString("}}")
+	return b.Bytes()
 }
 
 func writeMatchers(b *bytes.Buffer, key string, entries []headerEntry) {
@@ -140,7 +310,7 @@ func writeMatchers(b *bytes.Buffer, key string, entries []headerEntry) {
 
 // describe renders the pattern for failure messages.
 func (p *pattern) describe() string {
-	j, _ := json.MarshalIndent(json.RawMessage(mustJSON(p)), "", "  ")
+	j, _ := json.MarshalIndent(json.RawMessage(p.shown()), "", "  ")
 	return string(j)
 }
 
@@ -170,6 +340,10 @@ type countResponse struct {
 
 // count returns how many journaled requests match p.
 func (c *client) count(ctx context.Context, p *pattern) (int, error) {
+	if len(p.body) > 0 {
+		found, err := c.find(ctx, p)
+		return len(found), err
+	}
 	var out countResponse
 	if err := c.post(ctx, "/__admin/requests/count", p, &out); err != nil {
 		return 0, err
@@ -210,8 +384,29 @@ func (l logged) body() []byte {
 	return b
 }
 
-// find returns the journaled requests that match p.
+// find returns the journaled requests that match p: those WireMock finds
+// for its request pattern whose bodies have p's properties.
 func (c *client) find(ctx context.Context, p *pattern) ([]logged, error) {
+	found, err := c.findAll(ctx, p)
+	if err != nil || len(p.body) == 0 {
+		return found, err
+	}
+	var out []logged
+	for _, l := range found {
+		why, err := p.mismatch(l.body())
+		if err != nil {
+			return nil, err
+		}
+		if why == "" {
+			out = append(out, l)
+		}
+	}
+	return out, nil
+}
+
+// findAll returns the journaled requests WireMock finds for p's request
+// pattern, whatever their bodies.
+func (c *client) findAll(ctx context.Context, p *pattern) ([]logged, error) {
 	var out struct {
 		Requests []logged `json:"requests"`
 	}

@@ -333,6 +333,9 @@ func parseSchema(text string) (avro.Schema, error) {
 	return avro.ParseWithCache(text, "", &avro.SchemaCache{})
 }
 
+// endOffsetsOf reads a topic's end offsets (endOffsets; tests replace it).
+var endOffsetsOf = endOffsets
+
 // endOffsets returns each partition's end offset, for auto.offset.reset=latest.
 func endOffsets(ctx context.Context, cl *kgo.Client, topic string) (map[int32]int64, error) {
 	adm := kadm.NewClient(cl)

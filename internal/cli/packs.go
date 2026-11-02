@@ -33,6 +33,12 @@ var packBuilt = os.Getenv(envPackBuild) != ""
 // supervisor is this same executable, and its packs prepare the apps.
 var commandsNeedingPacks = []string{"run", "up", "env", "config", "validate", "lint", "steps", "explain", "mcp", "lsp", "doctor", "skills", "docs"}
 
+// commandsFromReference only say what steps and packs there are: when the
+// project's packs cannot be prepared (no network yet, say), they answer from
+// axx's reference of its packs (internal/packref), with a note, as `axx pack
+// show` always does.
+var commandsFromReference = []string{"axx steps", "axx steps list", "axx steps search", "axx steps show", "axx steps explain", "axx explain", "axx pack list"}
+
 // ensurePacks makes sure the running axx has the project's packs compiled
 // in. If it has not, it builds (or reuses) such an axx and replaces this
 // process with it.
@@ -57,7 +63,12 @@ func (a *App) ensurePacks(ctx context.Context, cmd *cobra.Command) error {
 	if fl := cmd.Flags().Lookup("project"); top.Name() == "lsp" && a.Config == "" && (fl == nil || fl.Value.String() != "true") {
 		return nil // the router: the server it starts for each project prepares that project's packs
 	}
-	return a.prepareProjectPacks(ctx)
+	err := a.prepareProjectPacks(ctx)
+	if err != nil && ctx.Err() == nil && slices.Contains(commandsFromReference, cmd.CommandPath()) {
+		a.notPrepared = err
+		return nil
+	}
+	return err
 }
 
 // ensurePackCommand prepares the project's packs for a command line whose
@@ -84,7 +95,11 @@ func (a *App) ensurePackCommand(ctx context.Context, root *cobra.Command, args [
 	if version, _ := root.Flags().GetBool("version"); version {
 		return nil
 	}
-	return a.prepareProjectPacks(ctx)
+	err = a.prepareProjectPacks(ctx)
+	if err != nil && ctx.Err() == nil && root.Flags().NArg() == 0 {
+		return nil // help for axx itself: without the commands packs add
+	}
+	return err
 }
 
 // prepareProjectPacks builds (or reuses) an axx with the packs of the project
