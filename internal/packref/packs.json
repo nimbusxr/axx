@@ -83,7 +83,7 @@
           "id": "rest.request",
           "expr": "a(n) {word} request to {word}[[ on {service}]]",
           "keyword": "Given",
-          "doc": "Add a request to the default or the named service: its method, and its path below the service's `url`.\n\n- The path can have a query string, like `/api/parcels?sender=kestrel-books`. A whole URL replaces the service's `url`.\n- This is the service's first (default) request; the ordered form adds more.",
+          "doc": "Add a request to the default or the named service: its method, and its path below the service's `url`. A request with a body goes on with a payload step, then its properties: `a request payload using an application/json empty content template` (or a `content example`), then `the request payload properties are:`.\n\n- The path can have a query string, like `/api/parcels?sender=kestrel-books`. A whole URL replaces the service's `url`.\n- This is the service's first (default) request; the ordered form adds more.",
           "examples": [
             "Given a GET request to /api/parcels/PX-1001",
             "Given a DELETE request to /api/parcels/PX-1001 on parcels"
@@ -94,7 +94,7 @@
           "id": "rest.request.ordered",
           "expr": "a {ordinal} ordered {word} request to {word}[[ on {service}]]",
           "keyword": "Given",
-          "doc": "Add the Nth request of a service. Requests are numbered in the order they are added: the 1st ordered request is the default request, and the Nth can only be added once N-1 exist.",
+          "doc": "Add the Nth request of a service. Requests are numbered in the order they are added: the 1st ordered request is the default request, and the Nth can only be added once N-1 exist. A request with a body goes on with a payload step for it, then its properties.",
           "examples": [
             "Given a 2nd ordered GET request to /api/parcels/PX-1001",
             "Given a 1st ordered POST request to /api/parcels on parcels"
@@ -221,7 +221,7 @@
           "id": "rest.request.property",
           "expr": "the request payload property {word} is {string}[[ for {ordinal} ordered request]]",
           "keyword": "Given",
-          "doc": "Set a property of the request payload, by its JSONPath, like `weightGrams`, `recipient.postcode` or `$.recipient.name`.\n\n- The value means what it says, whatever the property held before: `'1200'` is an integer, `'1.5'` a decimal, `'true'` a boolean, `'null'` null, `'{...}'` and `'[...]'` JSON, `'\"10115\"'`, in double quotes inside the quotes, the string, and other text, like `'EXPRESS'`, a string. `'undefined'` removes the property.\n- The single quotes are the step's own, not the value's: `is 1200` says what `is '1200'` says.\n- A property the payload lacks is added; one inside an object the payload lacks creates the object: `recipient.name` in a payload without `recipient`. A path through an array (`items[2].sku`) needs the array.\n- `null` and `undefined` change a property the payload has.\n- `${env:…}` and `${sys:…}` expand inside the value, which stays text, whatever they expand to.\n- A payload step must come first.\n- Without an ordinal it applies to the service's first (default) request; `for 2nd ordered request`, to its second.\n- It uses the default service, the first one registered; `rest.request.property.on` names a service.",
+          "doc": "Set a property of the request payload a payload step started, by its JSONPath, like `weightGrams`, `recipient.postcode` or `$.recipient.name`.\n\n- The value means what it says, whatever the property held before: `'1200'` is an integer, `'1.5'` a decimal, `'true'` a boolean, `'null'` null, `'{...}'` and `'[...]'` JSON, `'\"10115\"'`, in double quotes inside the quotes, the string, and other text, like `'EXPRESS'`, a string. `'undefined'` removes the property.\n- The single quotes are the step's own, not the value's: `is 1200` says what `is '1200'` says.\n- A property the payload lacks is added; one inside an object the payload lacks creates the object: `recipient.name` in a payload without `recipient`. A path through an array (`items[2].sku`) needs the array.\n- `null` and `undefined` change a property the payload has.\n- `${env:…}` and `${sys:…}` expand inside the value, which stays text, whatever they expand to.\n- A payload step must come first.\n- Without an ordinal it applies to the service's first (default) request; `for 2nd ordered request`, to its second.\n- It uses the default service, the first one registered; `rest.request.property.on` names a service.",
           "examples": [
             "Given the request payload property sender is 'kestrel-books'"
           ],
@@ -261,7 +261,7 @@
           "id": "rest.request.properties",
           "expr": "the request payload properties[[ for {ordinal} ordered request]] are:",
           "keyword": "Given",
-          "doc": "Set properties of the request payload, a row each, in order, like the single-property step.\n\n- A value is set as written, whatever the property held before.\n- A property inside an object the payload lacks creates the object, so a table can list `recipient.name` and `recipient.postcode` on an empty payload.\n- `null` sets a property the payload has to JSON null, and `undefined` removes it.\n- Without an ordinal it applies to the service's first (default) request; `for 2nd ordered request`, to its second.\n- It uses the default service, the first one registered; `rest.request.properties.on` names a service.",
+          "doc": "Set properties of the request payload a payload step started, a row each, in order, like the single-property step.\n\n- A value is set as written, whatever the property held before.\n- A property inside an object the payload lacks creates the object, so a table can list `recipient.name` and `recipient.postcode` on an empty payload.\n- `null` sets a property the payload has to JSON null, and `undefined` removes it.\n- Without an ordinal it applies to the service's first (default) request; `for 2nd ordered request`, to its second.\n- It uses the default service, the first one registered; `rest.request.properties.on` names a service.",
           "examples": [
             "Given the request payload properties are:\n  | reference          | PX-4101 |\n  | weightGrams        | 1200    |\n  | recipient.postcode | \"53111\" |"
           ],

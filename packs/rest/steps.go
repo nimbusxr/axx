@@ -310,7 +310,9 @@ func requestSteps() []core.StepDef {
 		core.StepDef{
 			ID: "rest.request", Keyword: "Given",
 			Expr: "a(n) {word} request to {word}[[ on {service}]]",
-			Doc: docList("Add a request to the default or the named service: its method, and its path below the service's `url`.",
+			Doc: docList("Add a request to the default or the named service: its method, and its path below the service's `url`. "+
+				"A request with a body goes on with a payload step, then its properties: "+
+				"`a request payload using an application/json empty content template` (or a `content example`), then `the request payload properties are:`.",
 				"The path can have a query string, like `/api/parcels?sender=kestrel-books`. A whole URL replaces the service's `url`.",
 				"This is the service's first (default) request; the ordered form adds more."),
 			Examples: []string{"Given a GET request to /api/parcels/PX-1001", "Given a DELETE request to /api/parcels/PX-1001 on parcels"},
@@ -322,7 +324,8 @@ func requestSteps() []core.StepDef {
 			ID: "rest.request.ordered", Keyword: "Given",
 			Expr: "a {ordinal} ordered {word} request to {word}[[ on {service}]]",
 			Doc: "Add the Nth request of a service. Requests are numbered in the order they are added: " +
-				"the 1st ordered request is the default request, and the Nth can only be added once N-1 exist.",
+				"the 1st ordered request is the default request, and the Nth can only be added once N-1 exist. " +
+				"A request with a body goes on with a payload step for it, then its properties.",
 			Examples: []string{"Given a 2nd ordered GET request to /api/parcels/PX-1001", "Given a 1st ordered POST request to /api/parcels on parcels"},
 			Run: func(sc *core.Scenario, a core.Args) error {
 				return addRequest(sc, a, target{ord: 0, svc: 3}, a.String(1), a.String(2))
@@ -442,7 +445,7 @@ func requestSteps() []core.StepDef {
 			leading: true,
 			bare:    true,
 			head:    "the request payload property {word} is {string}", nHead: 2, typedArgs: []int{1},
-			doc: "Set a property of the request payload, by its JSONPath, like `weightGrams`, `recipient.postcode` or `$.recipient.name`.",
+			doc: "Set a property of the request payload a payload step started, by its JSONPath, like `weightGrams`, `recipient.postcode` or `$.recipient.name`.",
 			details: []string{
 				"The value means what it says, whatever the property held before: `'1200'` is an integer, `'1.5'` a decimal, " +
 					"`'true'` a boolean, `'null'` null, `'{...}'` and `'[...]'` JSON, `'\"10115\"'`, in double quotes inside the " +
@@ -471,7 +474,7 @@ func requestSteps() []core.StepDef {
 			id: "rest.request.properties", keyword: "Given", arg: core.ArgTable, noun: "request",
 			leading: true,
 			head:    "the request payload properties", tail: " are:",
-			doc: "Set properties of the request payload, a row each, in order, like the single-property step.",
+			doc: "Set properties of the request payload a payload step started, a row each, in order, like the single-property step.",
 			details: []string{
 				"A value is set as written, whatever the property held before.",
 				"A property inside an object the payload lacks creates the object, so a table can list " +

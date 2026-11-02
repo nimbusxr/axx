@@ -339,6 +339,7 @@ func TestCompactLookupsAreShort(t *testing.T) {
 	}{
 		{args: []string{"--compact", "steps", "show", "rest.response.status"}, want: []string{"rest.response.status (pack rest)", "Example:"}, not: []string{"Variants:", "Argument:"}},
 		{args: []string{"--compact", "steps", "show", "rest.response.status", "--full"}, want: []string{"Variants:"}},
+		{args: []string{"--compact", "steps", "show", "rest.request"}, want: []string{"a request payload using an application/json empty content template"}},
 		{args: []string{"--compact", "steps", "show", "rest.execute"}, want: []string{"Send a request"}, not: []string{"No cookies are kept"}},
 		{args: []string{"--compact", "steps", "show", "rest.execute", "--full"}, want: []string{"No cookies are kept"}},
 		{args: []string{"--compact", "schema"}, want: []string{"services:"}, not: []string{`"$schema"`, "--full"}},
