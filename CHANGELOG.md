@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.3.0](https://github.com/nimbusxr/axx/compare/v0.2.26...v0.3.0) (2026-11-02)
+
+
+### ⚠ BREAKING CHANGES
+
+* a value means what it says in every pack, and agents learn axx for fewer tokens ([#287](https://github.com/nimbusxr/axx/issues/287))
+
+### Features
+
+* a value means what it says in every pack, and agents learn axx for fewer tokens ([#287](https://github.com/nimbusxr/axx/issues/287)) ([f58d6ce](https://github.com/nimbusxr/axx/commit/f58d6cebfb0771250592c504c2b1dc0758737198))
+
+
+### Bug Fixes
+
+* **deps:** update dependency lighthouse to v13.6.0 ([#285](https://github.com/nimbusxr/axx/issues/285)) ([fb35183](https://github.com/nimbusxr/axx/commit/fb35183911c19c00643337df392f629c83e68588))
+
 ## [0.2.26](https://github.com/nimbusxr/axx/compare/v0.2.25...v0.2.26) (2026-10-31)
 
 
