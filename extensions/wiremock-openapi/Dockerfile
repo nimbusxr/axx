@@ -10,7 +10,7 @@
 # (keep WIREMOCK_VERSION in sync with build.gradle.kts).
 
 # The jar is platform-independent: build it once on the build host, even for multi-arch images.
-FROM --platform=$BUILDPLATFORM eclipse-temurin:21-jdk@sha256:89b79b86b989519a440f71bff294ac4c0498c5fed46810d535a4f3472913d90b AS build
+FROM --platform=$BUILDPLATFORM eclipse-temurin:21-jdk@sha256:ebfbb18d11ff163ee83b21258acf12248af48d22a0fdfdc68fa1a1516c05976a AS build
 ARG VERSION=0.1.0-SNAPSHOT
 WORKDIR /src
 COPY gradlew settings.gradle.kts build.gradle.kts gradle.properties ./
@@ -22,7 +22,7 @@ RUN --mount=type=cache,target=/root/.gradle \
 
 # WireMock and its gRPC extension, from Maven Central. A download is tried again until its sha256
 # is the one pinned here, so a transfer that goes wrong is fetched again, and never used.
-FROM --platform=$BUILDPLATFORM eclipse-temurin:21-jdk@sha256:89b79b86b989519a440f71bff294ac4c0498c5fed46810d535a4f3472913d90b AS jars
+FROM --platform=$BUILDPLATFORM eclipse-temurin:21-jdk@sha256:ebfbb18d11ff163ee83b21258acf12248af48d22a0fdfdc68fa1a1516c05976a AS jars
 ARG WIREMOCK_VERSION=3.13.2
 # sha256 of wiremock-standalone-${WIREMOCK_VERSION}.jar; update together with WIREMOCK_VERSION.
 ARG WIREMOCK_SHA256=d097b19bd483c5038479b13a5c71e9faf8f2f5106584f0c120a7770ab0bdb367
@@ -49,7 +49,7 @@ fetch "https://repo1.maven.org/maven2/org/wiremock/wiremock-grpc-extension-stand
   "${GRPC_EXTENSION_SHA256}" /jars/wiremock-grpc-extension.jar
 SH
 
-FROM eclipse-temurin:21-jre-alpine@sha256:b48e02e0ea88d7bfb305335df94923bdef394905f4147dccd52e873cf17b1088
+FROM eclipse-temurin:21-jre-alpine@sha256:82cf3d9ccbe1ed46252008d51b2f2329e6b9e8a2f4394c4bebefc3ea7f4b1372
 
 ARG VERSION=0.1.0-SNAPSHOT
 

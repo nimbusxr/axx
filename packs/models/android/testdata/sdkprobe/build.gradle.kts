@@ -1,4 +1,4 @@
-plugins { id("com.android.application") version "9.4.1" }
+plugins { id("com.android.application") version "9.5.0" }
 
 android {
     namespace = "us.nimbusxr.axx.sdkprobe"
