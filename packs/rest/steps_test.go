@@ -176,7 +176,7 @@ func TestPayloadProperties(t *testing.T) {
 	// A value that could be read two ways fails, with the forms to write,
 	// and changes nothing.
 	h.fails("the request payload property zip is '01067'",
-		`zip: 01067 could be the number 1067 or the text 01067: write 1067 for the number, or "01067" for the text`)
+		`zip: 01067 could be the number 1067 or the text 01067: write '1067' for the number, or '"01067"' for the text`)
 	h.fails("the request payload property zip is '+5'", "zip: +5 could be the number 5")
 	h.fails("the request payload properties are:",
 		`zip: the cell is empty: write "" for the empty string, null for null, or undefined for no such property`,
