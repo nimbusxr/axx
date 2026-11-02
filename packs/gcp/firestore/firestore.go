@@ -83,7 +83,7 @@ func (pack) Manifest() core.Manifest {
 						"  | status          | RECONCILED |\n" +
 						"  | lines           | 2          |\n" +
 						"  | totals.billed   | 6.58       |\n" +
-						"  | totals.disputed | 0          |",
+						"  | totals.disputed | 0.0        |",
 				},
 				Run: document,
 			},

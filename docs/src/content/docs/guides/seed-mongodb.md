@@ -86,7 +86,7 @@ And the 1st document for the selection properties are:
   | scannedAt | 2026-05-04T16:10:00.000Z |
 ```
 
-Properties are JSONPaths (`location`, `history[0].status`). A value means what it says, as in every pack's tables, and is compared with its type: `2` is an integer, `2.0` a decimal, `"2"` a string, `true` a boolean, `null` null and `undefined` a field the document lacks ([the rules](/references/packs/mongo/#mongodocare)). A document's numbers keep their BSON types: an int32 or int64 is an integer, a double a decimal, a whole one too (`6.0`), and a Decimal128 the number it holds (`1.50`). `the 1st document for the selection properties match:` takes Java regular expressions instead, matched against the value's text.
+Properties are JSONPaths (`location`, `history[0].status`). [A value means what it says](/references/steps/#values), and is compared with its type: `2` is an integer, `2.0` a decimal, `"2"` a string, `true` a boolean, `null` null and `undefined` a field the document lacks ([the rules](/references/packs/mongo/#mongodocare)). A document's numbers keep their BSON types: an int32 or int64 is an integer, a double a decimal, a whole one too (`6.0`), and a Decimal128 the number it holds (`1.50`). `the 1st document for the selection properties match:` takes Java regular expressions instead, matched against the value's text.
 
 Selections are numbered in the order a scenario retrieves them, and a step without an ordinal checks the first. After a second retrieval (the tracking view before and after a scan, say), name the one a step checks: `the 1st document for the 2nd selection properties are:`. `axx validate` warns about a step that checks the first while a later selection goes unchecked.
 

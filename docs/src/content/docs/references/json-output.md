@@ -116,14 +116,18 @@ Each command documents its own `data`. The most useful for scripts and agents:
 
 | Command | `data` |
 | --- | --- |
-| `axx steps search <q>` | `{query, steps[]}`; each step has `id`, `pack`, `expr`, `variants`, `keyword`, `arg`, `doc`, `examples`, `params` |
-| `axx validate` | `{files, scenarios, steps, problems[], warnings[]}`; each problem has `kind` (`undefined`, `ambiguous`, `argument`), `location`, `text`, and a `message`, `suggestions` or `candidates` where they apply; `warnings[]`, present when there are some, are findings of `axx lint`'s feature checks (kind `lint`), and `hints[]` name scenarios whose checks prove little (only a success status, or only that something did not happen); neither changes the exit code |
+| `axx steps` | `{steps[], count}`, each step as in `axx steps search`; `notInProject` names a `--pack` the project does not use, and `packs[]`, in a project without packs, lists Axx's |
+| `axx steps search <q>` | `{query, steps[], otherPacks[]}`; each step has `id`, `pack`, `expr`, `variants`, `keyword`, `arg`, `columns`, `rows`, `tableNote`, `doc`, `examples`, `params`; `otherPacks[]`, present when there are some, are steps of Axx's packs the project does not use that fit the query better |
+| `axx steps show <id>...` | one id: the step, or `{step, notInProject}` for a step of a pack the project does not use; several: `{steps[]}` |
+| `axx pack list` | `{file, packs[]}`; each pack has `pack`, `kind`, `steps`, `used`, `summary` |
+| `axx pack show <name>` | `{pack, summary, used, requires[], doc, settings[], steps[], stepCount, related[]}`; `axx pack show` answers for every pack Axx publishes, used or not |
+| `axx validate` | `{files, scenarios, steps, problems[], warnings[]}`; each problem has `kind` (`undefined`, `ambiguous`, `argument`, `value`), `location`, `text`, and a `message`, `suggestions` or `candidates` where they apply; a suggestion with a `pack` is a step of a pack the project does not use; `warnings[]`, present when there are some, are findings of `axx lint`'s feature checks (kind `lint`), and `hints[]` name scenarios whose checks prove little (only a success status, or only that something did not happen); neither changes the exit code |
 | `axx doctor` | `{version, config, checks[]}`; each check has `name`, `status` (`ok`, `warn`, `fail`), `detail`, `hint` |
 | `axx env` | `{services[], up[]}`: the services axx started, each with `name`, `state` (`running`, `left over`, `not cleaned up`), `pid` and its `cleanup`; `up` lists those `axx up` holds |
 | `axx config show` | `{file, config, packs[]}`: the effective `axx.yaml` (profiles and `-D` applied, values of secret-looking keys masked) and the project's packs |
 | `axx down` | `{stopped, cleanedUp}`: the services `axx up` kept running that it stopped, and the services an earlier run left behind that it stopped or cleaned up |
 | `axx lint` | `{baseDir, rules[], summary, notes[], hints[]}`; `hints[]`, present when there are some, suggest fixture factories and name scenarios whose checks prove little, and never change the exit code |
-| `axx init` | `{dryRun, files[], detected, agents}`; each file has `path`, `action` (`create`, `update`, `skip`), `reason`; `agents`, absent with `--no-agents`, has `detected[]` (agent ids), `skills[]` (like `files`) and `mcp[]` |
+| `axx init` | `{dryRun, files[], detected, suggestedPacks[], agents}`; each file has `path`, `action` (`create`, `update`, `skip`), `reason`; `suggestedPacks[]` are the packs the repository points to, each with `pack` and `reasons[]`; `agents`, absent with `--no-agents`, has `detected[]` (agent ids), `skills[]` (like `files`) and `mcp[]` |
 | `axx mcp install` | `{dryRun, change}`; `change` and each entry of `axx init`'s `agents.mcp[]` has `agent`, `scope` (`project`, `user`), `path`, `action` (`create`, `update`, `skip`, or `manual` when `command` adds the server), `reason`, `command` |
 | `axx docs export` | `{files[]}` |
 | `axx fixtures generate` | `{baseDir, dryRun, written[], unchanged[]}`: every file the factories generate, relative to `baseDir`; with `--dry-run`, `written[]` is what it would write |

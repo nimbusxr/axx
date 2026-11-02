@@ -62,7 +62,7 @@ And the selection has more than 1 row
 And the selection has fewer than 5 rows
 ```
 
-A value means what it says, as in every pack's tables, and goes to the database as a SQL value of its type: `M-KESTREL-0412` and `"850"` are strings, `850` and `1.5` numbers, `true` and `false` booleans, and `null` is `IS NULL`. A text column's value that reads as a number goes in double quotes (`| postcode | "37073" |`); PostgreSQL refuses to compare text with a number, and the step says so. An empty cell is an error: write `""` for the empty string.
+[A value means what it says](/references/steps/#values), and goes to the database as a SQL value of its type: `M-KESTREL-0412` and `"850"` are strings, `850` and `1.5` numbers, `true` and `false` booleans, and `null` is `IS NULL`. A text column's value that reads as a number goes in double quotes (`| postcode | "37073" |`); PostgreSQL refuses to compare text with a number, and the step says so. An empty cell is an error: write `""` for the empty string.
 
 A scenario can hold several selections. They are numbered in the order they are retrieved, and later steps address them by ordinal (`the 2nd selection`); in `a 2nd selection of rows is retrieved` the ordinal is only a label. Leaving the ordinal out means the first:
 

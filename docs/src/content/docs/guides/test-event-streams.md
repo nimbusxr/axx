@@ -55,7 +55,7 @@ Then within 20s the tracking event stream has an event where:
 And the tracking event stream has an event containing 'OUT_FOR_DELIVERY'
 ```
 
-- `has an event where:` reads each event's data as JSON: a path and the value it has, typed. `2` is the number and `"2"` the string, and one does not match the other; `null` is null and `undefined` no such property.
+- `has an event where:` reads each event's data as JSON: a path and the value it has, [typed](/references/steps/#values). `2` is the number and `"2"` the string, and one does not match the other; `null` is null and `undefined` no such property.
 - Two rows read the event itself: `event type`, its `event:` field (`message` for an event without one), and `event id`, its `id:`. Both are text, so an id that reads as a number goes in double quotes: `"1"`.
 - `has an event containing {string}` looks for text in any event's data.
 

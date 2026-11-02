@@ -36,7 +36,7 @@ Feature: Register parcels
 
 ```gherkin
     Given a POST request to /api/parcels
-    ...
+    And a request payload using an application/json content example
     And a 2nd ordered GET request to /api/parcels/PX-REG-0002
     When the request is executed
     And the 2nd ordered request is executed

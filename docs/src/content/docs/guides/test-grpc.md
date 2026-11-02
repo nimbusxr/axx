@@ -57,7 +57,7 @@ When the Tracking/ListDepots method is called on the tracking grpc service
 ```
 
 - **The request is proto JSON:** fields by their JSON names (`lastScan.location`) or their proto names (`last_scan.location`), enums by name; a file's 64-bit integers are numbers or text, as proto JSON has them.
-- **A table sets paths into the request,** each to what its cell says, which must be of its field's type: `"10115"` for a string field, `1200` for an `int64`, `OUT_FOR_DELIVERY` for an enum. Nothing converts a value: `10115` for a string field fails the step, which says to write `"10115"`. `null` leaves the field unset, and `undefined` removes it.
+- **A table sets paths into the request,** each to [what its cell says](/references/steps/#values), which must be of its field's type: `"10115"` for a string field, `1200` for an `int64`, `OUT_FOR_DELIVERY` for an enum. Nothing converts a value: `10115` for a string field fails the step, which says to write `"10115"`. `null` leaves the field unset, and `undefined` removes it.
 - **A status other than OK** does not fail the step that makes the call: check it. Only a call that cannot be made (an unknown method, a request that is not the method's message) fails the step.
 
 ## Check the answer

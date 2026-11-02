@@ -23,19 +23,21 @@ Scenario: A reference can only be registered once
   And the 2nd ordered response status code is 409
 ```
 
+REST's payload property steps also take their ordinal first, as its status step does. That form runs the step, and so do the other wordings people reach for by themselves. The lists of steps leave them out, so a list stays one line per step.
+
 ## Parameter types
 
 Besides Cucumber's built-in types (`{int}`, `{word}`, `{string}`, ...), Axx adds types that let steps read naturally: `a 2nd selection`, `within 5s`, `on parcels`, `on parcels-db`. `{filepath}` marks a value that names a file, such as a seed or a schema, so editors can link it to the file. They are listed in [How steps read](/references/steps/#parameter-types).
 
 ## Tables for many values, arguments for one
 
-Steps that set or check one value take it inline (`the request header Accept is 'application/json'`); their plural twins take a two-column table (`the request headers are:`). Tables use JSONPath keys for payloads, so nested and array values need no extra steps.
+Steps that set or check one value take it inline (`the request header Accept is 'application/json'`); their plural twins take a two-column table (`the request headers are:`). Tables use JSONPath keys for payloads, so nested and array values need no extra steps. [A value means what it says](/references/steps/#values), the same in every pack: `42` is an integer and `"42"` the string, whether a step sets it or checks it, so what you learn in one pack holds in the others.
 
 A table's rows are its data: every row is a property and its value, or whatever its step's columns say. It may start with a row naming those columns, as the reference shows them (`| JSONPath | value |`), or go straight to its rows; axx sets such a row aside, for every table of two columns or more.
 
 ## Step text is public API
 
-Once a step is released, its text never changes. New behavior gets new steps; old steps can be deprecated with a pointer to the replacement, never renamed. That is what keeps feature files working across releases, and what lets an agent trust `axx steps search` today and next year. Every build checks that each step in a frozen catalog of step text is still defined, word for word.
+Once a step is released, its text never changes. New behavior gets new steps; old steps can be deprecated with a pointer to the replacement, never renamed. That is what keeps the lines of feature files matching across releases, and what lets an agent trust `axx steps search` today and next year. Every build checks that each step in a frozen catalog of step text is still defined, word for word.
 
 ## Designing your own steps
 
@@ -43,4 +45,6 @@ The same rules make [custom steps](/guides/write-custom-steps/) easy to use:
 
 - Give every step a stable `ID`, its documentation (`Doc`) and a complete example line (`Examples`).
 - Add an optional `on` part that names the service, with its pack's parameter type (`[[ on {dbService}]]`), when a step talks to a service that can appear twice.
+- Read a table's values by [the rule every pack follows](/references/steps/#values), and say so in its `Table` ([Write custom steps](/guides/write-custom-steps/#read-a-tables-values)).
+- Put the other wordings people reach for by themselves in `Also`: they run the step, and the lists leave them out.
 - Report failed expectations with expected and actual values, not just a message.

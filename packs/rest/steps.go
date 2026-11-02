@@ -427,6 +427,7 @@ func requestSteps() []core.StepDef {
 				"The value means what it says, whatever the property held before: `'1200'` is an integer, `'1.5'` a decimal, " +
 					"`'true'` a boolean, `'null'` null, `'{...}'` and `'[...]'` JSON, `'\"10115\"'`, in double quotes inside the " +
 					"quotes, the string, and other text, like `'EXPRESS'`, a string. `'undefined'` removes the property.",
+				"The single quotes are the step's own, not the value's: `is 1200` says what `is '1200'` says.",
 				"A property the payload lacks is added; one inside an object the payload lacks creates the object: " +
 					"`recipient.name` in a payload without `recipient`. A path through an array (`items[2].sku`) needs the array.",
 				"`null` and `undefined` change a property the payload has.",

@@ -120,7 +120,7 @@ A service that Pub/Sub pushes to gets what a push subscription sends: an envelop
   - a rule and a queue for an EventBridge bus;
   - a subscription for a Service Bus topic.
 - **Checking a queue takes its messages.** On an SQS or Service Bus queue, Axx consumes each message like any other consumer would. So check the queues your service writes to. Check a queue it consumes by what the service does with the messages.
-- **Conditions mean what they say.** A `| field | value |` row is a field, or a dotted path into nested data, and the value it has, typed as in every pack: `42` is the number and `"42"` the string, and one does not match the other, nor `6` the decimal `6.0`. `null` is null and `undefined` no such field. Each service's values keep their types:
+- **Conditions mean what they say.** A `| field | value |` row is a field, or a dotted path into nested data, and the value it has, typed [as in every pack](/references/steps/#values): `42` is the number and `"42"` the string, and one does not match the other, nor `6` the decimal `6.0`. `null` is null and `undefined` no such field. Each service's values keep their types:
   - a Firestore double and a BigQuery FLOAT64 are decimals, a whole one too (`6.0`), and an INT64 an integer;
   - a BigQuery NUMERIC is the number it holds (`1.35`);
   - a DynamoDB `N` is the number DynamoDB returns (`120`, `49.99`), so a string attribute that reads as a number goes in double quotes (`"37073"`).

@@ -46,7 +46,7 @@ When the parcel.hold method is called on the depots jsonrpc service with the fol
 When the depot.list method is called on the depots jsonrpc service
 ```
 
-- **A table gives params by name,** each what its cell says: `"10115"` is text and `10115` a number, `null` is null and `undefined` leaves it out. A row can be a path into a param (`address.postcode`). A param of another type than its schema's is sent as written; with an OpenRPC document, its check finds it first and says what to write.
+- **A table gives params by name,** each [what its cell says](/references/steps/#values): `"10115"` is text and `10115` a number, `null` is null and `undefined` leaves it out. A row can be a path into a param (`address.postcode`). A param of another type than its schema's is sent as written; with an OpenRPC document, its check finds it first and says what to write.
 - **A doc string** gives an object (by name) or an array (by position).
 - **An error** does not fail the step that makes the call: check it. Only a service that does not answer JSON-RPC 2.0, such as an HTML error page, fails it.
 

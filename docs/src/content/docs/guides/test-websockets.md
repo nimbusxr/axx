@@ -69,7 +69,7 @@ Then within 20s the tracking websocket received a message where:
 And the tracking websocket received a message containing 'PX-LIV-5701'
 ```
 
-- `received a message where:` reads each message as JSON: a path and the value it has, typed, like the message checks of queues and topics. `2` is the number and `"2"` the string, and one does not match the other; `null` is null and `undefined` no such property.
+- `received a message where:` reads each message as JSON: a path and the value it has, [typed](/references/steps/#values), like the message checks of queues and topics. `2` is the number and `"2"` the string, and one does not match the other; `null` is null and `undefined` no such property.
 - `received a message containing {string}` looks for text in any message.
 
 A failed check lists the messages the connection received. A binary message shows as its size.

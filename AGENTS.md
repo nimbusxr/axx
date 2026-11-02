@@ -12,8 +12,15 @@ the skills instead: `axx skills install`.
 - `cmd/axx`: CLI entry point; it calls `app.Main`, as the builds with a project's packs do.
   `internal/cli`: cobra commands.
 - `internal/{config,interp,feature,match,engine,runner,report,lifecycle}`: the core runner.
+  `internal/check`: which steps of a feature cannot run (undefined, ambiguous, the wrong argument, a
+  value the rule cannot read), reported through it by `axx validate`, `axx doctor`, the MCP server
+  and the language server. `internal/lint`: `axx lint`, whose feature checks `axx validate` and
+  `axx run` report as warnings.
 - `core`: the public core every pack builds on (scenario, steps, service registry, state,
-  errors, interpolation, shared parameter types).
+  errors, interpolation, shared parameter types, and the rule every pack reads a feature's values
+  by: `core/value.go`, ADR 0014, with `TableDoc.Values` saying what a step's table holds). A step's
+  other wordings (`StepDef.Also`) run it and stay out of the lists, as do REST's payload property
+  steps' forms with the ordinal first (`<id>.leading`).
 - `packs/*`: the step packs (rest, mock, sql, mongo, kafka, logs, files; `web/*`, `aws/*` and
   `gcp/*`: a core pack and the packs that build on it; `azure/*`), each with its public context. `internal/packset/catalog.go` lists them.
   Packs that build on another (`aws-s3` on `aws-core`, `web-screenshots` on `web-core`) declare it in
@@ -158,10 +165,20 @@ the skills instead: `axx skills install`.
   (what it reaches, its settings, parameter types and steps): data `go generate` writes from the
   packs (`packs.json`), built into the core, so `axx pack list|show`, `axx steps` and the MCP
   server answer for packs not added yet, offline, and an undefined step names its pack.
+  `internal/stepsearch`: one ranking and one list of steps for `axx steps` and the MCP server: a line
+  each, a step's `.on` and `.leading` forms folded into it. `internal/cli/initpacks.go`: what in a
+  repository points `axx init` to a pack; a new pack that files can point to gets its signals there.
+- What agents read: `agentsBlock` (`internal/cli/initcmd.go`), the `AGENTS.md` section `axx init`
+  writes, with the workflow and the rules, which `guides/set-up-agents.md` copies word for word;
+  `Instructions` (`internal/mcp/server.go`) and the root command's help say the same workflow; the
+  skills (`internal/skills/assets`) add only the specialized parts. Change them together.
 - `packs/all` and `internal/tools/axxall`: axx with every pack, for generated docs, skills and
   tests.
 - `internal/compat`: the value semantics steps follow (Jayway JSONPath, Java regex, Java number
-  formatting; ADR 0007). The oracle tests depend on these; don't "simplify" them.
+  formatting; ADR 0007). The oracle tests depend on these; don't "simplify" them. `jvalue` gives and
+  compares the values `core.ParseValue` reads; `internal/jsonassert` checks them at a document's
+  JSONPaths, and `internal/tablevalue` builds the object a table's paths and values make, for the
+  steps that send one they make from scratch.
 - `extensions/wiremock-openapi`, `ide/intellij`: JVM parts (the WireMock extension and the IntelliJ plugin).
 - `ide/vscode`: the VS Code extension (TypeScript). Both editor clients run `axx lsp` (`internal/lsp`).
 - `testdata/steps.json`: the frozen catalog of the step text of axx's packs. `testdata/oracles`:

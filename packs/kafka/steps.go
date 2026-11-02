@@ -65,8 +65,8 @@ func packDoc() string {
 		"Java client properties (`producer.*`, `consumer.*`); **kafka events** are drafts (key, headers, payload) you build and then " +
 		"publish; a **named kafka event** (`the parcel-events kafka event named registered ...`) is an expectation that one record of the topic must meet.\n\n" +
 		"Consumer assertions scan every record of the topic from its first offset, re-checking for up to 30 seconds as records arrive. " +
-		"Avro values are compared through Apache Avro's text form of them (GenericData.toString), so JSONPath expectations such as " +
-		"`$.reference` work on Avro records as on JSON; union values appear without their wrapper.\n\n" +
+		"Avro values are read through Apache Avro's text form of them (GenericData.toString), which reads as JSON, so JSONPath expectations such as " +
+		"`$.reference` work on Avro records as on JSON, with their types; union values appear without their wrapper.\n\n" +
 		"**Configuration** (`packs.kafka` in axx.yaml): `timeout` (default `30s`), `maxRecords` kept per topic (default 100000), " +
 		"`lenientUnions` (accept Avro union values without their `{\"<branch>\": value}` wrapper when exactly one branch fits).\n\n" +
 		"**Client properties.** A topic client's table takes Java Kafka client properties, prefixed `producer.` or `consumer.`: " +

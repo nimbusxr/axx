@@ -74,7 +74,7 @@ And within 20s the tracking:PX-RDS-9603 redis key does not exist
   - a set is a sorted array;
   - a sorted set is an object of its members and their scores.
 
-  Each row is a path into it and the value it has, typed as in every pack's tables: `690` is a number, `"690"` a string, `null` null and `undefined` absent. Redis keeps text, so a hash's fields and the members of lists and sets are strings: a field holding 42 is `"42"`. A score is a decimal, a whole one too: `| CR-LEJ-12 | 42.0 |`.
+  Each row is a path into it and the value it has, typed [as in every pack](/references/steps/#values): `690` is a number, `"690"` a string, `null` null and `undefined` absent. Redis keeps text, so a hash's fields and the members of lists and sets are strings: a field holding 42 is `"42"`. A score is a decimal, a whole one too: `| CR-LEJ-12 | 42.0 |`.
 - `does not exist` checks that a key is gone, for a service that deletes it or lets it expire.
 
 Every check waits for the key to be as it says: 10 seconds, or the time `within` gives.

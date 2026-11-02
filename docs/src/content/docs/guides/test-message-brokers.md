@@ -108,7 +108,7 @@ Then within 20s the TRACKING nats stream has a message where:
   | header courier | CR-LEJ-12            |
 ```
 
-Each row is a path into the message's JSON body and the value it has, typed: `2` is the number and `"2"` the string, and one does not match the other; `null` is null and `undefined` no such property. A few rows are on the message itself instead, and their values are text (`"3"` for one that reads as a number), or `undefined` for none:
+Each row is a path into the message's JSON body and the value it has, [typed](/references/steps/#values): `2` is the number and `"2"` the string, and one does not match the other; `null` is null and `undefined` no such property. A few rows are on the message itself instead, and their values are text (`"3"` for one that reads as a number), or `undefined` for none:
 
 | Pack | Rows on the message |
 | --- | --- |

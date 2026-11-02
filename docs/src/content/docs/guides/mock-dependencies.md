@@ -100,7 +100,7 @@ Scenario: The courier collects an express parcel without being told who it goes 
   And the mocked request named collection on courier was received exactly 1 time
 ```
 
-- **A property is a JSONPath** (`deliverTo.postcode`, `$.lines[0].reference`), and a value means what it says, compared with its type: `800` is the number 800, and `"75001"` the string, which `75001` does not match. A failure that differs only in type says what to write.
+- **A property is a JSONPath** (`deliverTo.postcode`, `$.lines[0].reference`), and [a value means what it says](/references/steps/#values), compared with its type: `800` is the number 800, and `"75001"` the string, which `75001` does not match. A failure that differs only in type says what to write.
 - **`undefined` checks that something was left out**, such as a recipient's name the courier must never get.
 - **Form fields** of a form-encoded body are checked the same way: `the form fields for mocked request named pickup-notice are:`, with a field and its value a row. A form field, a query parameter and a header are text: a value that reads as a number goes in double quotes, like `"2"`.
 

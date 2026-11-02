@@ -59,7 +59,7 @@ When a query is sent to the parcels graphql service:
   """
 ```
 
-- **A variable is what its cell says,** whatever type the operation declares: `"10115"` for a `String!`, `10115` for an `Int!`. A value of another type is sent as written; with a `schema`, its check finds it first (`validation.variables.type`) and says what to write. `null` is null, and `undefined` leaves the variable out. A row can be a path into an input object (`address.postcode`).
+- **A variable is [what its cell says](/references/steps/#values),** whatever type the operation declares: `"10115"` for a `String!`, `10115` for an `Int!`. A value of another type is sent as written; with a `schema`, its check finds it first (`validation.variables.type`) and says what to write. `null` is null, and `undefined` leaves the variable out. A row can be a path into an input object (`address.postcode`).
 - **The step says what the operation is:** sending a mutation file with "query" fails, which keeps the feature file honest about what it does.
 - **Errors are the answer's:** an answer with errors does not fail the step that sends the operation. Check them.
 

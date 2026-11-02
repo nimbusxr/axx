@@ -19,7 +19,7 @@ Axx finds `axx.yaml` by walking up from the working directory, applies the selec
 
 Every step line is matched against the **registry**: the steps of the packs the project loads. Steps are [Cucumber Expressions](https://github.com/cucumber/cucumber-expressions) with custom parameter types such as `{ordinal}` and `{service}`. Optional segments like `[[ on {service}]]` register every variant of a step.
 
-A line that matches nothing is *undefined*; a line that matches two definitions is *ambiguous*. `axx validate`, `axx explain` and `axx run --dry-run` are this phase alone: they find both without starting a service or running a step. In a run, a scenario stops at an undefined or ambiguous step, and the report suggests the closest real steps or lists the candidates.
+A line that matches nothing is *undefined*; a line that matches two definitions is *ambiguous*. `axx validate`, `axx explain` and `axx run --dry-run` are this phase alone: they find both without starting a service or running a step, and a table value that [could be read two ways](/references/steps/#values) as well. In a run, a scenario stops at an undefined or ambiguous step, and the report suggests the closest real steps, names the pack that has the step when the project lacks it, or lists the candidates.
 
 ## 3. Start the services
 

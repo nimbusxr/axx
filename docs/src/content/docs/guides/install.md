@@ -90,9 +90,9 @@ To see Axx's steps in feature files as you write them, set up IntelliJ IDEA, VS 
 
 ## Upgrade
 
-Upgrade with the channel you installed from (`brew upgrade`, rerun the script, or `go install ...@latest`). Step text never changes between versions, so feature files keep working. Before `v1.0.0`, a minor version bump (`0.1` to `0.2`) may change a flag or a configuration key; read the [changelog](https://github.com/nimbusxr/axx/blob/main/CHANGELOG.md) first.
+Upgrade with the channel you installed from (`brew upgrade`, rerun the script, or `go install ...@latest`). Step text never changes between versions. Before `v1.0.0`, a minor version bump (`0.1` to `0.2`) may change a flag, a configuration key or what a feature's values mean; read the [changelog](https://github.com/nimbusxr/axx/blob/main/CHANGELOG.md) first.
 
-After upgrading, refresh the agent skills so their step index matches the new binary:
+After upgrading, refresh the agent skills so they match the new binary:
 
 ```sh
 axx skills install

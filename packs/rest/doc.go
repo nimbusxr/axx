@@ -11,7 +11,7 @@ func buildDoc() string {
 
 **Services.** Register services with ` + "`the <name> service with the following properties:`" + ` (` + "`url`" + `, optional ` + "`openapi`" + `). The first service registered in a scenario is the default one; the other steps name a service with ` + "`on <name>`" + `.
 
-**Requests.** Each service keeps its requests in the order they are added: ` + "`a GET request to /path`" + ` adds the first (default) request and ` + "`a 2nd ordered POST request to /path`" + ` the second. Header, payload, execution and response steps address a request with ` + "`for 2nd ordered request`" + ` / ` + "`for 2nd ordered response`" + ` (default: the first). A request is executed once; its response stays available to every later step.
+**Requests.** Each service keeps its requests in the order they are added: ` + "`a GET request to /path`" + ` adds the first (default) request and ` + "`a 2nd ordered POST request to /path`" + ` the second. Header, payload, execution and response steps address a request with ` + "`for 2nd ordered request`" + ` / ` + "`for 2nd ordered response`" + ` (default: the first); the payload property steps also take the ordinal first, as in ` + "`the 2nd ordered response payload property status is 'REGISTERED'`" + `. A request is executed once; its response stays available to every later step.
 
 **Payloads.** A payload starts from an OpenAPI content example (the named one, or the first in document order; ` + "`externalValue`" + ` examples are read relative to the specification) or from an empty template ` + "`{}`" + `, and is edited with the payload property steps (JSONPath, typed values, ` + "`null`" + `/` + "`undefined`" + `). ` + "`application/x-www-form-urlencoded`" + ` payloads are sent form-encoded.
 

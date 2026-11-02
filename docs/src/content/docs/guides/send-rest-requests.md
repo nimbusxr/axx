@@ -34,17 +34,7 @@ A [fixture factory](/guides/fixture-factories/) keeps such files in one place an
 
 ## Values
 
-A value means what it says, in a step that sets it and in one that checks it ([ADR 0014](https://github.com/nimbusxr/axx/blob/main/docs/adr/0014-a-value-means-what-it-says.md)):
-
-| Written | Is |
-|---|---|
-| `1200`, `1.5` | an integer, a decimal |
-| `true`, `false` | a boolean |
-| `null` | JSON null |
-| `undefined` | no such property: a check that it is absent, or a property removed |
-| `{"country": "DE"}`, `["EXPRESS"]` | JSON |
-| `"10115"` | the string inside the double quotes |
-| `REGISTERED`, `PX-REG-1401` | a string |
+[A value means what it says](/references/steps/#values), in a step that sets it and in one that checks it: `1200` is an integer, `"10115"` the string inside the double quotes, `PX-REG-1401` a string, and `undefined` a property removed, or a check that it is absent.
 
 ```gherkin
 And the request payload properties are:
@@ -55,8 +45,7 @@ And the request payload properties are:
 
 - **Nothing is inferred.** `| weightGrams | 1200 |` sets the number, whatever the example held, and `"1200"` sends the string, to check that the service refuses it.
 - **Checks compare types.** `| recipient.postcode | 10115 |` fails on the string "10115", and the failure says what to write.
-- **In a step's text, the quotes hold the value:** `property priceCents is '690'` checks the integer, and `is '"690"'` the string.
-- **A value that could be read two ways fails,** with the forms to write: an empty cell (`""`, `null` or `undefined`), or a number JSON writes another way (`01067`, `+5`, `1.5f`).
+- **In a step's text, the quotes hold the value:** `property priceCents is '690'` checks the integer, as `is 690` does, and `is '"690"'` the string.
 - **A header is text.** In a table, one that reads as a number goes in double quotes: `| Retry-After | "5" |`.
 
 ## Several requests in one scenario
@@ -79,6 +68,7 @@ Scenario: A registered parcel can be looked up by its reference
 - **Add a request before using it:** a step that uses the 2nd request fails unless a 2nd was added before it. `axx validate` says so, with the step that adds it.
 - **A second `a GET request to …` adds the 1st again**, and fails: write it as `a 2nd ordered GET request to …`. `axx validate` shows the line to write.
 - **A check names its response:** `the 2nd ordered response status code is 200`, or `… for 2nd ordered response` at the end of the other response steps. A check without one reads the 1st response.
+- **The payload property steps take the ordinal either way:** `the 2nd ordered response payload property reference is 'PX-REG-1401'` says what the last line above says, and `the 2nd ordered request payload property reference is 'PX-REG-1401'` sets it on the 2nd request.
 
 ## Find an item in a list
 

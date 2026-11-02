@@ -63,19 +63,6 @@ created axx-packs.yaml
 added rest, mock, sql
 ```
 
-## Start Parcels
-
-```sh
-axx up
-```
-
-```console
-axx: starting services in the background (logs: .axx/logs)
-up: parcels (stop with `axx down`)
-```
-
-The first time, Docker builds the images, so this takes a few minutes. Parcels now keeps running in the background, and every run in this tutorial takes a fraction of a second.
-
 ## Ask for a price
 
 Create a `features` directory:
@@ -113,8 +100,7 @@ axx run
 ```console
 axx: preparing rest, mock, sql (once; cached for later runs)
 axx: ready in 31s
-axx: reusing services started by `axx up`: parcels
-warning: services started by `axx up` keep the data of earlier runs; `axx down`, then `axx up`, starts them afresh
+axx: starting parcels (logs: .axx/logs/services.log)
 Feature: Quotes
 
   Scenario: A shop asks for a price  # features/quotes/quotes.feature:7
@@ -139,7 +125,7 @@ Feature: Quotes
 Finished in 213ms
 ```
 
-Notice the first lines. Axx prepared itself with the suite's packs, which it does only once. And it didn't start anything this time: it used the Parcels service that `axx up` started. The price is 6.90 EUR, in cents.
+Notice the first lines. Axx prepared itself with the suite's packs, which it does only once. Then it started Parcels and waited for its health check. After the scenario, it stopped Parcels and ran its cleanup. Every `axx run` does this. The first time, Docker builds the images, so it takes a few minutes; after that, seconds. The price is 6.90 EUR, in cents.
 
 ## Check the API contract
 
@@ -220,7 +206,7 @@ Run `axx run`:
         | priceCents  | 690  |
 ```
 
-A value means what it says: `'4500'` is a number, and a value in double quotes, like `'"heavy"'`, is a string. The contract says `weightGrams` is an integer, and Axx fails the request step with the reason: `$.weightGrams: got string, want integer`. The steps after it are skipped.
+[A value means what it says](/references/steps/#values): `'4500'` is a number, and a value in double quotes, like `'"heavy"'`, is a string. The contract says `weightGrams` is an integer, and Axx fails the request step with the reason: `$.weightGrams: got string, want integer`. The steps after it are skipped.
 
 Change the value back to `'4500'` and run `axx run` again. Both scenarios pass.
 
@@ -318,7 +304,20 @@ Finished in 22ms
 
 The new scenario registered a parcel through the API. Then it selected the rows of the `parcels.parcels` table with that reference and sender, and found exactly one: Parcels stored what it was sent.
 
-Run `axx run` once more. This time the new scenario fails:
+## Keep Parcels running to look at it
+
+Every run so far started Parcels with empty databases and removed its containers and data afterwards. To look at what a scenario left behind, keep Parcels running:
+
+```sh
+axx up
+```
+
+```console
+axx: starting services in the background (logs: .axx/logs)
+up: parcels (stop with `axx down`)
+```
+
+A run now uses this Parcels instead of starting its own, and warns you that it keeps its data. Run `axx run`, and all three scenarios pass. Run `axx run` once more. This time the new scenario fails:
 
 ```console
     ✓ When the request is executed
@@ -333,9 +332,7 @@ Run `axx run` once more. This time the new scenario fails:
           actual:   409
 ```
 
-The parcel from the first run is still in the database, and references are unique. Acceptance tests run against the service's real data, so data a scenario creates stays behind. [Isolate test data](/guides/isolate-test-data/) shows how suites deal with that. For now, stopping Parcels clears everything.
-
-## Stop Parcels
+The parcel from the first run is still in the database, and references are unique. Acceptance tests run against the service's real data, so data a scenario creates stays behind for as long as the service keeps it. [Isolate test data](/guides/isolate-test-data/) shows how suites deal with that. For now, stopping Parcels clears everything:
 
 ```sh
 axx down
@@ -345,7 +342,7 @@ axx down
 stopped: parcels
 ```
 
-Axx stopped Parcels and ran its cleanup, which removed the containers and their data. The next `axx up` starts from empty databases.
+Axx stopped Parcels and ran its cleanup, which removed the containers and their data. The next `axx run` starts from empty databases, and stops Parcels again when it's done.
 
 ## What you've done
 

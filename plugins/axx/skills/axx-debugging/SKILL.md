@@ -12,7 +12,7 @@ license: Apache-2.0
 |---|---|---|
 | 1 | a scenario failed | Read the step's expected and actual values |
 | 2 | usage or configuration | Read the hint; `axx doctor`. Configuration errors point at `axx.yaml:line:col` |
-| 3 | undefined or ambiguous step, or `axx lint` violations | `axx validate`, then `axx explain "<line>"`; a lint finding names the rule, the value and every `file:line` |
+| 3 | undefined or ambiguous step, a table value that could be read two ways, or `axx lint` violations | `axx validate`, then `axx explain "<line>"`; a lint finding names the rule, the value and every `file:line` |
 | 4 | a service did not start | The error has the service's last lines; all of it is in `.axx/logs/services.log` |
 
 Every error has a code, like `AXX-E0408`: `axx explain AXX-E0408` says what it means and what to do.
@@ -27,7 +27,8 @@ Every error has a code, like `AXX-E0408`: `axx explain AXX-E0408` says what it m
 
 - **Undefined step.** Use the `did you mean` suggestion or `axx steps search`; never change your text by guessing. A step of a pack the project lacks is undefined too, and axx names that pack: `axx pack add <name>`.
 - **Ambiguous step.** Two steps match: make the text more specific, like `... on <service>`.
-- **Expected X, got Y.** First check the data is the scenario's own: a scenario running at the same time may use the same ids. Then the value's type: `'5'` is the number 5, `'"5"'` the string.
+- **Expected X, got Y.** First check the data is the scenario's own: a scenario running at the same time may use the same ids. Then the value's type: `'5'` is the number 5, `'"5"'` the string, and neither matches the other.
+- **A value that could be read two ways (`AXX-E0207`).** An empty cell, a number like `01067`, or a number where only text fits (a header) fails `axx validate` and the step. The message says what to write: `""`, `null` or `undefined` for the cell, `"01067"` for the string, `"3"` for the header.
 - **OpenAPI validation errors on "the request is executed".** The request or response breaks the contract; the message names the rule (`validation.response.body.schema.required`). Fix the payload, or for a deliberately invalid request, set that rule to `IGNORE` with `the OpenAPI validation levels are:`.
 - **Kafka check finds no records.** Leave `consumer.auto.offset.reset` out (earliest): `latest` reads only what comes after the check starts. Avro values need the topic client's deserializer and registry URL.
 - **Timeouts.** For asynchronous behavior use the waiting steps (`within 5s ...`), not sleeps.

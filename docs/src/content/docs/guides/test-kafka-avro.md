@@ -62,7 +62,7 @@ And the depot-scans kafka event headers are:
 ```
 
 - The payload starts from a file in Avro's JSON encoding. Union values are written as `{"string": "..."}` or `null`; set `packs.kafka.lenientUnions: true` in `axx.yaml` to accept bare values when only one branch fits.
-- `the depot-scans kafka event payload properties are:` sets JSONPath properties of that topic's first event; `the kafka event payload properties are:` uses the first topic client's. A value means what it says: `1200` is a number, `"10115"` the string, `null` JSON null, and `undefined` removes the property. Each property must already exist in the payload.
+- `the depot-scans kafka event payload properties are:` sets JSONPath properties of that topic's first event; `the kafka event payload properties are:` uses the first topic client's. [A value means what it says](/references/steps/#values): `1200` is a number, `"10115"` the string, `null` JSON null, and `undefined` removes the property. Each property must already exist in the payload.
 - A key and a header are text: one that reads as a number goes in double quotes, like `the depot-scans kafka event key is "3002"`.
 - `the depot-scans kafka event payload property <path> is null` sets a property to JSON null (for an Avro union with `null`).
 - Keep payload files schema-valid with [fixture factories](/guides/fixture-factories/) (the `avro` family); `kafka/scan-delivered.json` is generated that way.

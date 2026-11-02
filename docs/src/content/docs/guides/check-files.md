@@ -82,7 +82,7 @@ And the manifests/M-WREN-0503/handover.pdf file in the exports folder contains "
 ```
 
 - `is identical to` compares the file byte for byte with a file of the project, found through `resources`.
-- `has the following properties:` reads JSON, like the other JSON property steps: a path and the value it has, typed. `2` is the number and `"2"` the string, and one does not match the other; `null` is null and `undefined` no such property.
+- `has the following properties:` reads JSON, like the other JSON property steps: a path and the value it has, [typed](/references/steps/#values). `2` is the number and `"2"` the string, and one does not match the other; `null` is null and `undefined` no such property.
 - `contains` reads the file's text, whatever its type (below).
 
 ## Check what a service takes away

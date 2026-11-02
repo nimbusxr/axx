@@ -85,7 +85,7 @@ Axx needs no JVM, no build plugin and no test-runner glue. `axx run` does the wh
 
 `axx up` keeps the system running when you want to inspect it.
 
-It is fast. The [example suite](https://github.com/nimbusxr/axx/tree/main/examples/parcels) has 101 scenarios and 888 steps, covering REST, WireMock, PostgreSQL, MongoDB, Kafka, logs, files and a web app in real browsers. Against a running stack, its 38 scenarios that need no browser finish in about a second.
+It is fast. The [example suite](https://github.com/nimbusxr/axx/tree/main/examples/parcels) has 267 scenarios and 2,814 steps, covering REST, WireMock, PostgreSQL, MongoDB, Kafka, logs, files and a web app in real browsers. They run in parallel, and what takes the time is the services, not Axx.
 
 ## Axx's steps handle the hard parts
 
@@ -110,7 +110,7 @@ When Axx doesn't cover something, write a pack of your own in Go. Your steps wor
 - its database selections
 - its events
 
-Use custom packs to reach a system Axx doesn't cover, or to write scenarios in your team's own words. `axx pack new ./steps` creates a pack. The first run builds it into Axx and caches the result. After that, your steps appear in `axx steps search`, `axx validate` and the agent skills like any other step. See [Write custom steps](/guides/write-custom-steps/).
+Use custom packs to reach a system Axx doesn't cover, or to write scenarios in your team's own words. `axx pack new ./steps` creates a pack. The first run builds it into Axx and caches the result. After that, your steps appear in `axx steps`, `axx validate` and the MCP server's tools like any other step. See [Write custom steps](/guides/write-custom-steps/).
 
 ## Built for coding agents
 

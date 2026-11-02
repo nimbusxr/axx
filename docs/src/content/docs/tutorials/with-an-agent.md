@@ -24,7 +24,7 @@ installed 5 skills to .agents/skills (0 files updated)
 linked for Claude Code in .claude/skills
 ```
 
-The skills teach an agent how to find Axx's steps, write a scenario, run it and read a failure. The MCP server gives it tools to do so, and the `AGENTS.md` that `axx init` wrote points agents at the same rules. In a repository that already uses Claude Code, `axx init` does all of this itself.
+The `AGENTS.md` that `axx init` wrote tells an agent how to find Axx's steps, write a scenario, check it and run it. The MCP server gives it tools to do so, and the skills add the details: the shape of a feature, test data, reading a failure. In a repository that already uses Claude Code, `axx init` does all of this itself.
 
 ## Ask for a test
 
@@ -47,9 +47,9 @@ Add an acceptance test for this: asking for a file that doesn't exist returns 40
 The agent's wording will differ from run to run, but you'll see it work through the same loop. Claude Code asks before each command and each tool call, so you can follow along. Notice that it:
 
 1. reads the project's steps with the `steps_search` tool (or `axx steps`) instead of guessing their text;
-2. checks a line it's unsure of with `step_explain` (`axx explain`);
-3. writes a feature file;
-4. starts the server with `env` (`axx up`), runs the scenarios with `scenarios_run` (`axx run --compact`), which also reports what `axx validate` and `axx lint` find, and stops the server again.
+2. looks up only the steps whose line leaves it unsure, several at once, with `step_explain` (`axx steps show`);
+3. writes a feature file, with a scenario for each acceptance criterion;
+4. checks the features and runs them in one go, with `feature_validate`, `lint_run` and `scenarios_run` (`axx validate && axx lint && axx run --compact`). The run starts the server and stops it.
 
 ## Review what it wrote
 

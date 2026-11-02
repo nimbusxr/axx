@@ -34,11 +34,18 @@ In a repository with a `CLAUDE.md` and a `.cursor/` directory:
   create  .mcp.json (the axx MCP server for Claude Code)
   create  .cursor/mcp.json (the axx MCP server for Cursor)
 
+packs this repository points to, not added (`axx pack show <name>` says what one does):
+  kafka      README.md mentions Kafka; infra/compose.yaml runs a Kafka image
+  sql        README.md mentions PostgreSQL; infra/compose.yaml runs a database image
+  add those it tests with `axx pack add kafka sql`
+
 Codex keeps its MCP servers in ~/.codex/config.toml; `axx mcp install --agent codex --scope user` adds axx there.
 next: put your service's command, port and health check in axx.yaml and the smoke feature, then `axx doctor` and `axx run`
 ```
 
 Axx adds its server to the files that exist: other servers and settings stay where they are, and a file that has the axx server already is left alone, so running `axx init` again changes nothing. A file Axx cannot read back exactly, such as JSON with comments, is left alone too: its line says so, and `axx mcp install --agent <agent>` shows what to add by hand. Codex usually reads its servers from your home directory, which `axx init` never writes, so it prints the command that does. `axx init --no-agents` skips the skills and the MCP servers.
+
+`axx init` also lists the packs the repository points to: the images in its compose files, the clients in its dependency manifests, its schema files (Avro, protobuf, AsyncAPI, GraphQL), and what its README and docs name. It says why for each and adds none of them: you or your agent add the ones the tests need.
 
 Commit what `axx init` wrote, so every contributor and every CI agent gets it.
 
@@ -54,30 +61,32 @@ axx skills list
 
 | Skill | Teaches |
 | --- | --- |
-| `axx-acceptance-tests` | the write, validate, run loop; rules that keep tests reliable; the step index |
+| `axx-acceptance-tests` | the shape of a feature, what the steps' tables take, waiting, and a suite laid out by feature |
 | `axx-test-data` | seeds, payloads and mock bodies in [fixture factories](/guides/fixture-factories/): `axx fixtures`, identities, adoption, `axx lint`, CI |
 | `axx-setup` | `axx init`, services and readiness, CI, agent integration |
 | `axx-custom-steps` | custom steps as Go packs |
 | `axx-debugging` | reading failures, exit codes and logs |
 
-The skills carry no pages of steps: they send agents to `axx steps`, which lists your project's steps, your custom packs' included, a line each, and to `axx steps show <id>` for one step's documentation. Agents read pages a chunk at a time, about ten times the tokens. Rerun `axx skills install` after upgrading Axx; files you edited are kept unless you pass `--force`, and files the skills no longer have are removed. The same skills are published at [`/.well-known/agent-skills/index.json`](/.well-known/agent-skills/index.json).
+The [`AGENTS.md` section](#agentsmd) holds the workflow and the rules, and the skills add what it leaves out. They carry no pages of steps: `axx steps` lists your project's steps, your custom packs' included, a line each, and `axx steps show <id>...` gives the documentation of those whose line leaves an agent unsure, several at once. Agents read pages a chunk at a time, about ten times the tokens. They carry no pages of error codes either: `axx explain <code>` gives each one. Rerun `axx skills install` after upgrading Axx; files you edited are kept unless you pass `--force`, and files the skills no longer have are removed. The same skills are published at [`/.well-known/agent-skills/index.json`](/.well-known/agent-skills/index.json).
 
 ## MCP server
 
-`axx mcp` serves Axx over the [Model Context Protocol](https://modelcontextprotocol.io) on stdio. Because it is the installed binary, its answers match your Axx version and your project's steps.
+`axx mcp` serves Axx over the [Model Context Protocol](https://modelcontextprotocol.io) on stdio. Because it is the installed binary, its answers match your Axx version and your project's steps. When an agent connects, the server gives it the workflow and the rules of the [`AGENTS.md` section](#agentsmd).
 
 | Tool | Does |
 | --- | --- |
-| `steps_search` | without a query, the catalog: every step of the project, one line each; with one, the steps that fit it (id, expression, table columns and an example; 6 by default), a step it returned before as its id only |
-| `step_explain` | with a line, how it matches (or the closest steps: first the line written out when it keeps an expression's notation, or with its ordinal moved where the step has it); with an id or several, the steps' documentation and examples |
-| `feature_validate` | check feature files or feature text without running; warnings come from `axx lint`'s feature checks (a scenario that checks several behaviors in turn among them), and hints name scenarios whose checks prove little |
+| `steps_search` | without a query, the catalog: every step of the project, one line each; with one, the steps that fit it (id, expression, table columns and an example; 6 by default), a step it returned before as its id only, and the steps of Axx's other packs that fit it better, with the pack to add; with `pack`, one pack's steps, added or not |
+| `step_explain` | with a line, how it matches (or the closest steps: first the line written out when it keeps an expression's notation, or with its ordinal moved where the step has it; for a step of a pack the project lacks, that pack); with an id or several, the steps' documentation and examples, for packs the project lacks too |
+| `feature_validate` | check feature files or feature text without running them or the services; warnings come from `axx lint`'s feature checks (a scenario that checks several behaviors in turn among them), and hints name scenarios whose checks prove little |
 | `lint_run` | run `axx lint`: values such as seed ids that collide across files, with `file:line`, and the rules that found something |
-| `scenarios_run` | run scenarios (paths, tags, names); returns failures with expected and actual, the warnings `feature_validate` and `lint_run` would give, and for a passing run their hints |
+| `scenarios_run` | run scenarios (paths, tags, names), starting the services and stopping them unless they are up; returns failures with expected and actual, the warnings `feature_validate` and `lint_run` would give, and for a passing run their hints |
 | `failure_context` | logs, attachments and the last request and response of one failure; without a run ID, of the latest run |
-| `env` | `up`, `down` or `status` of the services: which are running, left over from a killed run, or not cleaned up (`axx env` on the command line) |
+| `env` | the services: `up` keeps them running to inspect them, `down` stops them and cleans up, and `status` says which are running, left over from a killed run, or not cleaned up (`axx env` on the command line) |
 | `config_show` | the effective `axx.yaml`, with secrets redacted, and its packs (`axx config show`) |
 | `scaffold` | starter contents for a feature or an `axx.yaml` |
 | `steps_try` | try steps in a live scenario that stays open between calls, until `restart` |
+
+To check what it wrote, an agent calls `feature_validate`, `lint_run` and `scenarios_run`, in one turn. The first two need no services, and `scenarios_run` starts the services and stops them.
 
 Packs add tools of their own, which look at the scenario `steps_try` keeps open. The `web-core` pack's:
 
@@ -91,9 +100,9 @@ An agent tries the steps it is unsure of, looks at the page they led to, then wr
 {"steps": "Given the portal web app with the following properties:\n  | url | http://localhost:8400/portal |\nWhen the \"/quote\" page is opened"}
 ```
 
-The services must be running (`env` `up`). The session's browsers close when the agent restarts it or the server stops.
+The scenario's services must be running: `env` `up` keeps them running while an agent tries steps. With an [axx host](/guides/run-from-a-sandbox/) serving the project, `steps_try` gets services of its own. The session's browsers close when the agent restarts it or the server stops.
 
-It also serves the `axx.yaml` JSON Schema as a resource and a `write-acceptance-tests` prompt. Pass `--profile ci` (or any profile) to apply it to every tool call.
+It also serves the `axx.yaml` JSON Schema as a resource and a `write-acceptance-tests` prompt. Pass `--profile ci` (or any profile) to apply it to every tool call. A server has the packs the project listed when it started: after `axx pack add`, restart it, as its error says.
 
 ### Connect an agent
 
@@ -236,9 +245,9 @@ Claude Code reads `AGENTS.md` only where no `CLAUDE.md`, `.claude/CLAUDE.md` or 
 
 ## Docs for agents
 
-Agents need neither this site nor axx's source: axx answers for itself, offline and for the version installed. `axx pack list` and `axx pack show <name>` cover every pack axx publishes, added to the project or not; `axx steps search <words>` finds steps in all of them, with the pack to add; a step from a pack the project lacks names that pack when `axx validate` or `axx run` reads it; and `axx explain <code>` explains an error code. The MCP server's `steps_search` and `step_explain` do the same. For agents that read the site anyway:
+Agents need neither this site nor axx's source: axx answers for itself, offline and for the version installed. `axx pack list` and `axx pack show <name>` cover every pack axx publishes, added to the project or not; `axx steps search <words>` finds steps in all of them, with the pack to add; `axx steps show <id>...` documents steps of any of them, several at once; a step from a pack the project lacks names that pack when `axx validate` or `axx run` reads it; and `axx explain <code>` explains an error code. The MCP server's `steps_search` and `step_explain` do the same. For agents that read the site anyway:
 
 - Every page on this site has a Markdown twin: append `.md` to the path (`/guides/set-up-agents.md`). Pages advertise it with `<link rel="alternate" type="text/markdown">`.
 - [`/llms.txt`](/llms.txt) indexes the site; [`/llms-full.txt`](/llms-full.txt) and [`/llms-small.txt`](/llms-small.txt) contain it in one file.
-- The `axx.yaml` schema is at [`/schemas/v0/axx.schema.json`](/schemas/v0/axx.schema.json); `axx schema` prints the same thing offline.
+- The `axx.yaml` schema is at [`/schemas/v0/axx.schema.json`](/schemas/v0/axx.schema.json); `axx schema` prints the same thing offline, and `axx schema --outline` lists its keys, a line each, at a fraction of its size.
 - Agents that browse the site in a browser with WebMCP get its tools there: `axx_packs`, `axx_pack`, `axx_find_steps`, `axx_search_docs` and `axx_read_page`.

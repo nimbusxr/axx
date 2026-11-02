@@ -9,7 +9,7 @@ description: Go from a red axx run to the cause - read the exit code, rerun one 
 | --- | --- | --- |
 | `1` | a scenario failed | read the failing step's expected and actual values |
 | `2` | usage or configuration error | read the `hint`; config errors point at `axx.yaml:line:col`; run `axx doctor` |
-| `3` | undefined or ambiguous step | `axx validate`, then `axx explain "<line>"` |
+| `3` | undefined or ambiguous step, or a table value that could be read two ways | `axx validate`, then `axx explain "<line>"` |
 | `4` | a service did not start or stop | the error shows the service's last output lines; the full log is `.axx/logs/services.log` |
 | `130` | interrupted | the run was cancelled (Ctrl-C); run again |
 
@@ -44,11 +44,10 @@ Each failure names the step, the expected and actual values, and the command tha
 ## Rerun one scenario
 
 ```sh
-axx up                                          # keep the services running while you iterate
 axx run features/register-parcels.feature:17    # the scenario on (or containing) line 17
 ```
 
-The line of any step inside the scenario works too.
+The line of any step inside the scenario works too. The run starts the services and stops them. To look at them yourself after a failure, [keep them running](/guides/manage-services/#keep-services-running-to-inspect-them).
 
 ## See what a web scenario did
 
@@ -75,12 +74,14 @@ did you mean:
 search all steps with `axx steps search <words>`
 ```
 
-- **Undefined**: the text differs from every step. Use the suggestion or `axx steps search`. Look for extra spaces, `a` versus `an`, singular versus plural, and missing quotes around `{string}` values. An ordinal goes where each step has it: `the 2nd ordered response status code is 200`, but `the response payload property status is 'REGISTERED' for 2nd ordered response`; a line with it in the other place gets the right one as its first suggestion. Never change a step definition to match your text.
+- **Undefined**: the text differs from every step. Use the suggestion or `axx steps search`. Look for extra spaces, `a` versus `an`, singular versus plural, and missing quotes around `{string}` values. An ordinal goes where each step has it: `the 2nd ordered response status code is 200`, but `the response body contains 'PX-REG-1401' for 2nd ordered response`; a line with it in the other place gets the right one as its first suggestion. Never change a step definition to match your text.
+- **Undefined, from a pack the project lacks**: the text is right, and Axx names the pack: ``this is kafka.event.publish of the kafka pack, which this project does not use: `axx pack add kafka` ``.
 - **Ambiguous**: two steps match. Make the line more specific, usually by naming the service with `on <service>`.
 
 ## Common causes
 
-- **Expected X, got Y, and the product looks right.** Another scenario running at the same time may have used the same ids. Check that the data is unique (`axx lint`), then check the value's type: the step's entry on its [pack's page](/references/packs/) says how it reads values (`'5'` and `'"5"'` differ).
+- **Expected X, got Y, and the product looks right.** Another scenario running at the same time may have used the same ids. Check that the data is unique (`axx lint`), then check the value's type: [a value means what it says](/references/steps/#values), and `5` does not match the string `"5"`, nor the decimal `5.0`.
+- **A value that could be read two ways (`AXX-E0207`).** An empty cell, a number like `01067`, or a number where only text fits (a header) fails `axx validate` and the step, and the message says what to write: `""`, `null` or `undefined` for the cell, `"01067"` for the string, `"3"` for the header.
 - **OpenAPI validation error on `the request is executed`.** The request or the response violates the document; the message names the rule, such as `validation.response.body.schema.required`. Fix the payload or the service. For a deliberate negative test, relax that rule in the scenario ([Validate against OpenAPI](/guides/validate-openapi/#validation-levels)).
 - **Timeout.** A step exceeded `run.timeouts.step`. For asynchronous behavior use a polling step (`within 10s a selection of at least 1 row ...`) instead of a sleep or a longer timeout.
 - **Passes alone, fails in the full run.** Shared data or shared state. Make the data unique; if the scenario really must run alone, tag it for `run.exclusive` ([Run in parallel](/guides/parallel-runs/)).

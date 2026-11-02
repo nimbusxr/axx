@@ -72,7 +72,35 @@ The first `axx` command that needs the project's steps prepares Axx with the pac
 
 ## Use the step
 
-Once the pack is listed in `axx-packs.yaml`, its steps are used like any other step: `axx steps search` finds them, `axx validate` checks feature lines against them, and `axx skills install` adds them to the agent step index. `axx docs export --out <dir>` writes the reference of the project's packs, yours included: a page per pack, with its steps, their documentation and examples.
+Once the pack is listed in `axx-packs.yaml`, its steps are used like any other step: `axx steps` lists them, `axx steps search` finds them, and `axx validate` checks feature lines against them. `axx docs export --out <dir>` writes the reference of the project's packs, yours included: a page per pack, with its steps, their documentation and examples.
+
+## Read a table's values
+
+A table of values follows [the rule every pack follows](/references/steps/#values): `42` is an integer, `"42"` the string, and an empty cell an error that says what to write. Say what its cells are in the step's `Table`, and `axx validate` and the editors report the cells the rule cannot read:
+
+```go title="steps/pack.go"
+Table: &core.TableDoc{
+	Columns:   []string{"JSONPath", "value"},
+	Values:    core.JSONValues, // core.TextValues where only text fits
+	Undefined: true,            // the cells take `undefined`
+},
+```
+
+In the step, read each cell with `core.ParseValue`, or `core.ParseText` where only text fits. Fail the step with the error either returns:
+
+```go
+pairs, err := a.Table.Pairs()
+if err != nil {
+	return err
+}
+for _, p := range pairs {
+	v, err := core.ParseValue(p.Value, p.Null, true)
+	if err != nil {
+		return fmt.Errorf("%s: %w", p.Key, err)
+	}
+	// v.Str() gives a string, v.JSON() any value as JSON; v.Undefined() and v.IsNull() say which it is.
+}
+```
 
 ## Change a REST request
 
