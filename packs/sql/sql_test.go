@@ -84,6 +84,11 @@ func TestLiteralAndIdent(t *testing.T) {
 	}
 }
 
+// whereClause is whereClauseOf with what every column's condition has in common.
+func whereClause(d Dialect, t *core.Table, prefix string) (string, error) {
+	return whereClauseOf(t, prefix, func(left, _ string, v core.Value) string { return left + " = " + d.Value(v) })
+}
+
 func TestWhereClause(t *testing.T) {
 	got, err := whereClause(postgres, &core.Table{Rows: [][]string{{"status", "planned"}, {"note", "null"}, {"name", "O'Hara"}}}, "NEW.")
 	if err != nil {

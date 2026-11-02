@@ -192,3 +192,16 @@ func TestPublicComparisonAgrees(t *testing.T) {
 		}
 	}
 }
+
+func TestStrictHints(t *testing.T) {
+	v, err := core.ParseValue("53111", false, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if same, hint := Strict("postcode", `"53111"`, v); same || hint != `postcode is the string "53111": write "53111"` {
+		t.Errorf("in a cell: %v, %s", same, hint)
+	}
+	if same, hint := StrictStep("postcode", `"53111"`, v); same || hint != `postcode is the string "53111": write '"53111"'` {
+		t.Errorf("in a step: %v, %s", same, hint)
+	}
+}

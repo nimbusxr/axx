@@ -174,7 +174,8 @@ func typeHint(path string, v core.Value, actual any, write func(string) string) 
 	}
 	if s, ok := actual.(string); ok {
 		if _, isString := v.Str(); !isString && s == v.Text() {
-			return fmt.Sprintf("%s is the string %s: write %s", path, jsonx.MarshalValue(s), write(jsonx.MarshalValue(s)))
+			// What a cell's double quotes hold is the string as it is, with no escapes.
+			return fmt.Sprintf("%s is the string %s: write %s", path, jsonx.MarshalValue(s), write(`"`+s+`"`))
 		}
 		return ""
 	}

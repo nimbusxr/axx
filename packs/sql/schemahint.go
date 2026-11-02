@@ -2,6 +2,7 @@ package sql
 
 import (
 	"context"
+	dbsql "database/sql"
 	"regexp"
 	"strings"
 	"time"
@@ -111,7 +112,18 @@ func (svc *Service) schemaExpr(schema string) string {
 // names runs a query of one text column and returns its values, or none if
 // the database cannot answer it.
 func (svc *Service) names(ctx context.Context, q string) []string {
-	rows, err := svc.DB.QueryContext(ctx, q)
+	return namesOn(ctx, svc.DB, q)
+}
+
+// querier is a pool, or a connection a step already holds: a transaction.
+type querier interface {
+	QueryContext(ctx context.Context, query string, args ...any) (*dbsql.Rows, error)
+}
+
+// namesOn is names on a connection the step already holds, a transaction's: a step
+// that waits for a second connection while it holds one can wait forever.
+func namesOn(ctx context.Context, db querier, q string) []string {
+	rows, err := db.QueryContext(ctx, q)
 	if err != nil {
 		return nil
 	}

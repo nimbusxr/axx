@@ -39,6 +39,9 @@ type Selection struct {
 	Columns []string
 	Rows    [][]any
 
+	// types are the columns' types its rows were read with, by name in lower case.
+	types map[string]string
+
 	// dropped says why rows the database selected are not in it: a value of
 	// another type than the step's (keepStored, keepContaining).
 	dropped []string
@@ -131,6 +134,11 @@ func service(sc *core.Scenario, a core.Args, i int) (*Service, error) {
 	return stateKey.Of(sc).services.Default()
 }
 
+// maxConnections is how many connections a run opens to a database. With this many
+// scenarios at once, a step that held one and waited for another would wait forever, so
+// none does: what it asks before a query or a transaction, it asks first.
+const maxConnections = 32
+
 // openDB returns a pooled handle shared across the run.
 func openDB(s *core.Suite, t Target) (*dbsql.DB, error) {
 	return core.Cached(s, "sql.db:"+t.Dialect.Driver+":"+t.DSN, func() (*dbsql.DB, error) {
@@ -143,7 +151,11 @@ func openDB(s *core.Suite, t Target) (*dbsql.DB, error) {
 				return nil, err
 			}
 		}
-		db.SetMaxOpenConns(32)
+		// As many kept as opened: a connection past the idle limit is closed as it comes
+		// back, and under load that opens one for each statement. Oracle starts a process
+		// for each, and its listener refuses them (ORA-12516) long before it has too many.
+		db.SetMaxOpenConns(maxConnections)
+		db.SetMaxIdleConns(maxConnections)
 		db.SetConnMaxIdleTime(time.Minute)
 		s.OnClose(func(context.Context) error { return db.Close() })
 		return db, nil
@@ -172,6 +184,15 @@ func (svc *Service) selection(i int) (*Selection, error) {
 
 // query runs a SELECT and materializes all rows.
 func (svc *Service) query(ctx context.Context, table, q string) (*Selection, error) {
+	types, err := svc.columnTypes(ctx, table)
+	if err != nil {
+		return nil, err
+	}
+	return svc.queryTyped(ctx, table, q, types)
+}
+
+// queryTyped is query of a table whose column types the step has already read.
+func (svc *Service) queryTyped(ctx context.Context, table, q string, types map[string]string) (*Selection, error) {
 	rows, err := svc.DB.QueryContext(ctx, q)
 	if err != nil {
 		return nil, err
@@ -181,10 +202,12 @@ func (svc *Service) query(ctx context.Context, table, q string) (*Selection, err
 	if err != nil {
 		return nil, err
 	}
-	sel := &Selection{Table: table, Query: q, Columns: cols}
+	sel := &Selection{Table: table, Query: q, Columns: cols, types: types}
 	var readers map[int]func(any) any
 	if svc.Target.Dialect.Oracle {
-		readers = svc.oracleReaders(ctx, table, cols)
+		readers = svc.oracleReaders(types, cols)
+	} else if columns, err := rows.ColumnTypes(); err == nil {
+		readers = svc.Target.Dialect.readers(columns)
 	}
 	for rows.Next() {
 		vals := make([]any, len(cols))

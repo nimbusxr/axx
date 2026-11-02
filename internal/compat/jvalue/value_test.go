@@ -1,6 +1,7 @@
 package jvalue
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/nimbusxr/axx/core"
@@ -224,5 +225,28 @@ func TestValueIsOnANullDocument(t *testing.T) {
 	v, _ := core.ParseValue("1", false, true)
 	if _, err := ValueIs("null", "$[", v); err == nil {
 		t.Error("an invalid path stays an error")
+	}
+}
+
+// What the hint says to write is the value it talks of, read as a cell is read: a
+// string with a quote or a backslash in it too.
+func TestTypeHintWritesWhatACellReads(t *testing.T) {
+	for _, actual := range []string{"53111", `{"zone":"DE-1"}`, `[1,2]`} {
+		v, err := core.ParseValue(actual, false, false)
+		if err != nil {
+			t.Fatal(err)
+		}
+		hint := TypeHint("details", v, actual)
+		_, form, found := strings.Cut(hint, ": write ")
+		if !found {
+			t.Fatalf("%s: no form to write in %q", actual, hint)
+		}
+		written, err := core.ParseValue(form, false, false)
+		if err != nil {
+			t.Fatalf("%s: %s reads as an error: %v", actual, form, err)
+		}
+		if s, ok := written.Str(); !ok || s != actual {
+			t.Errorf("%s: writing %s gives %q", actual, form, s)
+		}
 	}
 }

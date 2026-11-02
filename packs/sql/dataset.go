@@ -380,6 +380,19 @@ func shift(now time.Time, unit, op, n string) time.Time {
 // so an identity column takes what the row names (see identity.go).
 func (svc *Service) insert(ctx context.Context, ds *Dataset, now time.Time) error {
 	d := svc.Target.Dialect
+	// Before the transaction, which holds its connection (maxConnections).
+	types := map[string]map[string]string{}
+	if d.Oracle || d.Name == sqlserver.Name {
+		for _, t := range ds.Tables {
+			table, err := Ident(t.Name)
+			if err != nil {
+				return err
+			}
+			if types[table], err = svc.columnTypes(ctx, table); err != nil {
+				return err
+			}
+		}
+	}
 	tx, err := svc.DB.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -392,10 +405,6 @@ func (svc *Service) insert(ctx context.Context, ds *Dataset, now time.Time) erro
 		if err != nil {
 			return err
 		}
-		var oracleTypes map[string]string
-		if d.Oracle {
-			oracleTypes = svc.oracleColumnTypes(ctx, table)
-		}
 		for i, r := range t.Rows {
 			cols := make([]string, len(r.Columns))
 			vals := make([]string, len(r.Values))
@@ -403,11 +412,15 @@ func (svc *Service) insert(ctx context.Context, ds *Dataset, now time.Time) erro
 				if cols[j], err = Ident(c); err != nil {
 					return err
 				}
-				if vals[j], err = resolveValue(d, r.Values[j], now); err != nil {
+				valueDialect := d
+				if d.Name == sqlserver.Name && normalizeType(types[table][strings.ToLower(c)]) == "DATETIMEOFFSET" {
+					valueDialect.TimeOffset = true // the only one of its types that takes one
+				}
+				if vals[j], err = resolveValue(valueDialect, r.Values[j], now); err != nil {
 					return fmt.Errorf("%s row %d column %s: %w", t.Name, i+1, c, err)
 				}
 				if d.Oracle {
-					vals[j] = oracleSeedValue(oracleTypes, c, vals[j])
+					vals[j] = oracleSeedValue(types[table], c, vals[j])
 				}
 			}
 			override, err := overrides.prepare(ctx, table, cols)
@@ -416,6 +429,9 @@ func (svc *Service) insert(ctx context.Context, ds *Dataset, now time.Time) erro
 			}
 			q := "INSERT INTO " + table + " (" + strings.Join(cols, ", ") + ")" + override + " VALUES (" + strings.Join(vals, ", ") + ")"
 			if _, err := tx.ExecContext(ctx, q); err != nil {
+				// The hint asks the database: first give back the connection.
+				_ = overrides.close(ctx)
+				_ = tx.Rollback()
 				return fmt.Errorf("insert into %s (row %d): %w%s", t.Name, i+1, err, svc.schemaHint(ctx, t.Name, err))
 			}
 		}
