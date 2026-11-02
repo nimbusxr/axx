@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.1](https://github.com/nimbusxr/axx/compare/v0.3.0...v0.3.1) (2026-11-02)
+
+
+### Features
+
+* connections that fail, what services report, and Oracle ([#291](https://github.com/nimbusxr/axx/issues/291)) ([e898bd1](https://github.com/nimbusxr/axx/commit/e898bd1b9b8d4df5178a7d7587a9aea4c69b792a))
+* packs can make data from fixtures, produce to a Kafka service and tell steps apart ([#289](https://github.com/nimbusxr/axx/issues/289)) ([4659873](https://github.com/nimbusxr/axx/commit/46598739ad49d8daf379c3871fefabc1e2c9bfe3))
+
 ## [0.3.0](https://github.com/nimbusxr/axx/compare/v0.2.26...v0.3.0) (2026-11-02)
 
 
