@@ -21,6 +21,8 @@ the skills instead: `axx skills install`.
   by: `core/value.go`, ADR 0014, with `TableDoc.Values` saying what a step's table holds). A step's
   other wordings (`StepDef.Also`) run it and stay out of the lists, as do REST's payload property
   steps' forms with the ordinal first (`<id>.leading`).
+- `fixtures`: the public package a pack makes data with: one fixture's values for an instance the pack
+  names, deterministically, as `axx fixtures check` resolves them (`internal/fixtures/instance.go`).
 - `packs/*`: the step packs (rest, mock, sql, mongo, kafka, logs, files; `web/*`, `aws/*` and
   `gcp/*`: a core pack and the packs that build on it; `azure/*`), each with its public context. `internal/packset/catalog.go` lists them.
   Packs that build on another (`aws-s3` on `aws-core`, `web-screenshots` on `web-core`) declare it in
