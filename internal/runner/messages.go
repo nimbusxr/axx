@@ -151,10 +151,7 @@ func (e *emitter) testCase(p *feature.Pickle, before, after []*PackHook, reg *ma
 		for _, m := range reg.Match(ps.Text) {
 			ts.StepDefinitionIds = append(ts.StepDefinitionIds, e.variantIDs[m.Variant])
 			list := &messages.StepMatchArgumentsList{StepMatchArguments: []*messages.StepMatchArgument{}}
-			for _, a := range m.Args {
-				if !a.Present {
-					continue
-				}
+			for _, a := range m.InText() {
 				list.StepMatchArguments = append(list.StepMatchArguments, &messages.StepMatchArgument{
 					ParameterTypeName: a.Param,
 					Group:             &messages.Group{Start: int64(a.Start), Value: a.Raw, Children: childGroups(a.Groups)},

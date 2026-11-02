@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime/debug"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -284,6 +285,46 @@ func TestCompletion(t *testing.T) {
 	}
 	if found.TextEdit.NewText != "the response status code is ${1:int}" || found.TextEdit.Range.Start != (position{2, 9}) || found.TextEdit.Range.End != (position{2, 24}) {
 		t.Errorf("edit %+v", found.TextEdit)
+	}
+}
+
+// Completions are a list: a step's other wordings and its leading form run the
+// step, and lists leave them out.
+func TestCompletionLeavesOutWhatRunsAStep(t *testing.T) {
+	c := startServer(t)
+	uri := newProject(t)
+	complete := func(typed string) []string {
+		t.Helper()
+		line := "    Then " + typed
+		c.open(uri, "Feature: x\n  Scenario: y\n"+line+"\n")
+		raw := c.request("textDocument/completion", map[string]any{"textDocument": map[string]any{"uri": uri}, "position": map[string]any{"line": 2, "character": len(line)}})
+		var list completionList
+		if err := json.Unmarshal(raw, &list); err != nil {
+			t.Fatal(err)
+		}
+		labels := make([]string, len(list.Items))
+		for i, it := range list.Items {
+			labels[i] = it.Label
+		}
+		return labels
+	}
+	got := complete("the response payload property status is")
+	if !slices.Contains(got, "the response payload property {word} is {string}") {
+		t.Errorf("the step itself is not offered: %v", got)
+	}
+	for _, label := range got {
+		if strings.Contains(label, "{integer}") {
+			t.Errorf("another wording is offered: %q", label)
+		}
+	}
+	for _, typed := range []string{"the 2nd ordered response payload property", "the 2nd", "a parcels service with"} {
+		for _, label := range complete(typed) {
+			if strings.Contains(label, "{ordinal} ordered response payload") || strings.Contains(label, "{ordinal} ordered request payload") ||
+				label == "a {word} service with the following properties:" || label == "an {word} service with the following properties:" ||
+				strings.HasPrefix(label, "a(n) {word} service") {
+				t.Errorf("%q offers %q", typed, label)
+			}
+		}
 	}
 }
 

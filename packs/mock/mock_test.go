@@ -307,6 +307,114 @@ func TestBodyAndFormPatterns(t *testing.T) {
 	}
 }
 
+// A path that can give several values has the value when any of them is it,
+// as WireMock reads it, each with its type (ADR 0014); integration_test.go
+// holds this to the real WireMock.
+func TestPathsOfSeveralValues(t *testing.T) {
+	const body = `{"lines":[{"reference":"PX-1","sku":"A","qty":5,"tags":["x"],"gift":null},{"reference":"PX-2","sku":"B","qty":"7","kg":2.0}],"none":[]}`
+	for _, c := range []struct{ path, value, want string }{
+		{"lines[*].reference", "PX-1", ""},
+		{"lines[*].reference", "PX-2", ""},
+		{"$.lines[*].reference", `"PX-1"`, ""},
+		{"$..reference", "PX-2", ""},
+		{"lines[0:1].reference", "PX-1", ""},
+		{"lines[0,1].reference", "PX-2", ""},
+		{"lines[?(@.sku=='A')].qty", "5", ""},
+		{"lines[?(@.sku=='B')].qty", `"7"`, ""},
+		{"lines[*].kg", "2.0", ""},
+		{"lines[*].tags", `["x"]`, ""},
+		{"lines[*].gift", "null", ""},
+		{"lines[*].reference", `["PX-1","PX-2"]`, ""},
+		{"lines[*].qty", `[5,"7"]`, ""},
+		// `undefined`: the path gives none.
+		{"lines[*].missing", "undefined", ""},
+		{"none[*]", "undefined", ""},
+		{"nowhere[*]", "undefined", ""},
+		{"lines[*].reference", "undefined", `it has $.lines[*].reference: ["PX-1","PX-2"]`},
+		{"lines[?(@.sku=='A')].qty", "undefined", `it has $.lines[?(@.sku=='A')].qty: [5]`},
+		// None of them is the value.
+		{"lines[*].reference", "PX-9", `no value of $.lines[*].reference is "PX-9": it has ["PX-1","PX-2"]`},
+		{"lines[?(@.sku=='A')].qty", "7", `no value of $.lines[?(@.sku=='A')].qty is 7: it has [5]`},
+		{"lines[?(@.sku=='A')].reference", "PX-2", `no value of $.lines[?(@.sku=='A')].reference is "PX-2": it has ["PX-1"]`},
+		{"lines[*].reference", "null", `no value of $.lines[*].reference is null: it has ["PX-1","PX-2"]`},
+		{"lines[*].reference", `["PX-1"]`, `no value of $.lines[*].reference is ["PX-1"]: it has ["PX-1","PX-2"]`},
+		{"lines[*].tags", "x", `no value of $.lines[*].tags is "x": it has [["x"]]`},
+		// One is, but for its type.
+		{"lines[*].qty", "7", `a value of $.lines[*].qty is the string "7": write "7"`},
+		{"lines[*].qty", `"5"`, `a value of $.lines[*].qty is the integer 5: write 5`},
+		{"lines[*].qty", "5.0", `a value of $.lines[*].qty is the integer 5: write 5`},
+		{"lines[*].kg", "2", `a value of $.lines[*].kg is the decimal 2.0: write 2.0`},
+		{"lines[*].qty", `[5,7]`, `no value of $.lines[*].qty is [5,7]: it has [5,"7"]`},
+		// It gives none.
+		{"lines[*].missing", "x", "it has no $.lines[*].missing"},
+		{"none[*]", "null", "it has no $.none[*]"},
+		{"nowhere[*]", "x", "it has no $.nowhere[*]"},
+		// A path to one place keeps comparing what is there.
+		{"lines[0].reference", "PX-1", ""},
+		{"lines[0].tags", `["x"]`, ""},
+		{"lines[0].tags", "x", `$.lines[0].tags is ["x"], not "x"`},
+	} {
+		p := &pattern{Method: "POST", URL: "/v1/orders"}
+		rows(t, p, addProperty, []string{c.path, c.value})
+		if got, err := p.mismatch([]byte(body)); err != nil || got != c.want {
+			t.Errorf("%s | %s: %q, %v; want %q", c.path, c.value, got, err, c.want)
+		}
+	}
+}
+
+// The check that none of the requests has a value, and the check that one does,
+// agree on what such a path gives: neither passes for the wrong reason.
+func TestChecksOfPathsOfSeveralValues(t *testing.T) {
+	reg, sc, fw, url := setup(t)
+	fw.journal = append(fw.journal,
+		journaled{Method: "POST", URL: "/v1/orders", Body: `{"lines":[{"reference":"PX-1","sku":"A","qty":5},{"reference":"PX-2","sku":"B","qty":7}]}`})
+	if err := step(t, reg, sc, "the mocked courier service with the following properties:", [][]string{{"url", url}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := step(t, reg, sc, "the mocked POST request to /v1/orders named order was received by courier", nil); err != nil {
+		t.Fatal(err)
+	}
+	const none = "none of the mocked POST requests to path /v1/orders have the payload properties:"
+	for _, row := range [][]string{
+		{"lines[*].reference", "PX-1"},
+		{"lines[*].reference", "PX-2"},
+		{"lines[?(@.sku=='B')].qty", "7"},
+		{"$..qty", "5"},
+		{"lines[*].missing", "undefined"},
+	} {
+		table := [][]string{row}
+		if err := step(t, reg, sc, none, table); !core.IsAssertion(err) || !strings.Contains(err.Error(), "1 POST request(s) to path /v1/orders") {
+			t.Errorf("none has %v: %v", row, err)
+		}
+		// The named request collects its checks: name it anew.
+		if err := step(t, reg, sc, "the mocked POST request to /v1/orders named order was received by courier", nil); err != nil {
+			t.Fatal(err)
+		}
+		if err := step(t, reg, sc, "the payload properties for mocked request named order are:", table); err != nil {
+			t.Errorf("one has %v: %v", row, err)
+		}
+	}
+	for _, row := range [][]string{
+		{"lines[*].reference", "PX-9"},
+		{"lines[*].qty", `"5"`},
+		{"lines[?(@.sku=='A')].qty", "7"},
+		{"lines[?(@.sku=='A')].qty", "5.0"},
+		{"lines[*].reference", "undefined"},
+	} {
+		table := [][]string{row}
+		if err := step(t, reg, sc, none, table); err != nil {
+			t.Errorf("none has %v: %v", row, err)
+		}
+		if err := step(t, reg, sc, "the mocked POST request to /v1/orders named order was received by courier", nil); err != nil {
+			t.Fatal(err)
+		}
+		err := step(t, reg, sc, "the payload properties for mocked request named order are:", table)
+		if !core.IsAssertion(err) || !strings.Contains(err.Error(), "Requests received that match but for their payload:") {
+			t.Errorf("one has %v: %v", row, err)
+		}
+	}
+}
+
 func TestPathAndQueryPatterns(t *testing.T) {
 	p := &pattern{Method: "POST", URL: "/v1/collections", PathOnly: true}
 	rows(t, p, addQuery, []string{"slot", "same-day"}, []string{"reference", "undefined"}, []string{"page", `"2"`})

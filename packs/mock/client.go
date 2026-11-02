@@ -103,26 +103,80 @@ func (p *pattern) mismatch(body []byte) (string, error) {
 		return "its body is not JSON", nil
 	}
 	for _, e := range p.properties() {
-		ok, err := jvalue.ValueIs(text, e.path, e.v)
+		why, err := e.mismatch(doc, text)
 		if err != nil {
 			return "", fmt.Errorf("%s: %w", e.path, err)
 		}
-		if ok {
-			continue
+		if why != "" {
+			return why, nil
 		}
-		actual, found := valueAt(doc, e.path)
-		switch {
-		case !found:
-			return "it has no " + e.path, nil
-		case e.v.Undefined():
-			return fmt.Sprintf("it has %s: %s", e.path, jsonx.MarshalValue(actual)), nil
-		}
-		if h := jvalue.TypeHint(e.path, e.v, actual); h != "" {
-			return h, nil
-		}
-		return fmt.Sprintf("%s is %s, not %s", e.path, jsonx.MarshalValue(actual), e.v.JSON()), nil
 	}
 	return "", nil
+}
+
+// mismatch says why a body, as a document and as text, does not have the
+// property. It is "" when it has it.
+func (e propEntry) mismatch(doc any, text string) (string, error) {
+	path, err := jsonx.Compile(e.path)
+	if err != nil {
+		return "", err
+	}
+	if !path.Definite() {
+		return e.mismatchAny(doc)
+	}
+	ok, err := jvalue.ValueIs(text, e.path, e.v)
+	if err != nil || ok {
+		return "", err
+	}
+	actual, found := valueAt(doc, e.path)
+	switch {
+	case !found:
+		return "it has no " + e.path, nil
+	case e.v.Undefined():
+		return fmt.Sprintf("it has %s: %s", e.path, jsonx.MarshalValue(actual)), nil
+	}
+	if h := jvalue.TypeHint(e.path, e.v, actual); h != "" {
+		return h, nil
+	}
+	return fmt.Sprintf("%s is %s, not %s", e.path, jsonx.MarshalValue(actual), e.v.JSON()), nil
+}
+
+// mismatchAny is mismatch for a path that can give several values (a
+// wildcard, a filter, a recursive descent): the body has the property when
+// any of them is the value, compared with its type as any value is (ADR
+// 0014), as WireMock's own JSONPath matching reads such a path. `undefined`
+// says the path gives none. A list as the value also compares with all of
+// them at once: otherwise a check that none has them would pass on a request
+// whose values are that very list.
+func (e propEntry) mismatchAny(doc any) (string, error) {
+	values, shown := valuesAt(doc, e.path)
+	if e.v.Undefined() {
+		if len(values) == 0 {
+			return "", nil
+		}
+		return fmt.Sprintf("it has %s: %s", e.path, shown), nil
+	}
+	if len(values) == 0 {
+		return "it has no " + e.path, nil
+	}
+	expected, err := jvalue.Expected(e.v)
+	if err != nil {
+		return "", err
+	}
+	for _, x := range values {
+		if jvalue.Equal(x, expected) {
+			return "", nil
+		}
+	}
+	if _, list := expected.(*jsonx.Array); list && jvalue.Equal(jsonx.NewArray(values...), expected) {
+		return "", nil
+	}
+	for _, x := range values {
+		if h := jvalue.TypeHint("a value of "+e.path, e.v, x); h != "" {
+			return h, nil
+		}
+	}
+	return fmt.Sprintf("no value of %s is %s: it has %s", e.path, e.v.JSON(), shown), nil
 }
 
 // jsonDoc is a body's JSON object or array, when it is one.
@@ -142,6 +196,19 @@ func jsonDoc(text string) (any, bool) {
 func valueAt(doc any, path string) (any, bool) {
 	v, _, err := jsonx.Read(doc, path)
 	return v, err == nil
+}
+
+// valuesAt is every value an indefinite path gives in doc, and how a failure
+// shows them: none when the path leads nowhere.
+func valuesAt(doc any, path string) ([]any, string) {
+	v, _, err := jsonx.Read(doc, path)
+	if err != nil {
+		return nil, "[]"
+	}
+	if list, ok := v.(*jsonx.Array); ok {
+		return list.Items(), jsonx.MarshalValue(list)
+	}
+	return []any{v}, jsonx.MarshalValue(v)
 }
 
 // withQuery requires the URL to have a query parameter that matches m.

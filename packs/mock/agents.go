@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/nimbusxr/axx/core"
-	"github.com/nimbusxr/axx/internal/jsonassert"
 	"github.com/nimbusxr/axx/internal/secrets"
 )
 
@@ -27,7 +26,8 @@ func agentSteps() []core.StepDef {
 				"times as the step says.\n\n" +
 				"- Every call since the run started counts, other scenarios' too: put the scenario's own data in the table, like its " +
 				"parcel's reference.\n" +
-				"- Paths are dotted (`address.postcode`) or JSONPath.",
+				"- Paths are dotted (`address.postcode`) or JSONPath.\n" +
+				"- " + manyValues,
 			Table: &core.TableDoc{
 				Columns: []string{"argument", "value"}, Note: "A row is a path into the call's arguments, and its value.",
 				Values: core.JSONValues, Undefined: true,
@@ -41,14 +41,9 @@ func agentSteps() []core.StepDef {
 			Run: func(sc *core.Scenario, a core.Args) error {
 				svc, tool := a.Value(0).(*Service), a.String(1)
 				// A value the rule cannot read fails the step, not each call.
-				pairs, err := a.Table.Pairs()
-				if err != nil {
+				want := &pattern{}
+				if err := addRows(want, a.Table, addProperty); err != nil {
 					return err
-				}
-				for _, p := range pairs {
-					if _, err := core.ParseValue(p.Value, p.Null, true); err != nil {
-						return fmt.Errorf("%s: %w", p.Key, err)
-					}
 				}
 				calls, err := svc.c.journal(sc.Context(), runContracts(sc.Suite()).start)
 				if err != nil {
@@ -61,7 +56,11 @@ func agentSteps() []core.StepDef {
 					if !ok {
 						continue
 					}
-					if jsonassert.Properties(string(args), a.Table, false) == nil {
+					why, err := want.mismatch(args)
+					if err != nil {
+						return err
+					}
+					if why == "" {
 						matched++
 					} else if len(seen) < 3 {
 						seen = append(seen, string(args))

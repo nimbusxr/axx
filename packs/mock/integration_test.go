@@ -57,6 +57,7 @@ func TestAgainstRealWireMock(t *testing.T) {
 		{"/v1/collections", "application/json", `{"reference": "PX-REG-1401", "weightGrams": 800, "deliverTo": {"postcode": "10115", "country": "DE"}}`},
 		{"/v1/collections", "application/json", `{"reference": "PX-REG-1402", "weightGrams": 650, "recipient": {"name": "Ada Lovelace"}}`},
 		{"/v1/pickups", "application/x-www-form-urlencoded", "reference=PX-WEB-5401&day=Friday"},
+		{"/v1/orders", "application/json", `{"lines": [{"reference": "PX-ORD-1", "sku": "A", "qty": 5}, {"reference": "PX-ORD-2", "sku": "B", "qty": 7}]}`},
 		{"/v1/bookings?requestId=a1f3&slot=same-day", "application/json", `{"reference": "PX-REG-1501"}`},
 		{"/v1/bookings?requestId=b7c9&slot=next-day", "application/json", `{"reference": "PX-REG-1502"}`},
 	} {
@@ -201,6 +202,47 @@ func TestAgainstRealWireMock(t *testing.T) {
 			t.Errorf("%s %v: %v", c.text, c.rows, err)
 		case c.want != "" && (err == nil || !strings.Contains(err.Error(), c.want)):
 			t.Errorf("%s %v: want a failure with %q, got %v", c.text, c.rows, c.want, err)
+		}
+	}
+	// A path that can give several values means what WireMock's own JSONPath
+	// matching means by it: axx's count of the requests that have a value is
+	// WireMock's.
+	admin, err := newClient(base, http.DefaultClient)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range []struct{ path, cell, text string }{
+		{"$.lines[*].reference", "PX-ORD-1", "PX-ORD-1"},
+		{"$.lines[*].reference", "PX-ORD-2", "PX-ORD-2"},
+		{"$.lines[*].reference", "PX-ORD-9", "PX-ORD-9"},
+		{"$..reference", "PX-ORD-2", "PX-ORD-2"},
+		{"$.lines[?(@.sku=='A')].qty", "5", "5"},
+		{"$.lines[?(@.sku=='A')].qty", "7", "7"},
+		{"$.lines[0:1].reference", "PX-ORD-1", "PX-ORD-1"},
+		{"$.lines[0,1].reference", "PX-ORD-2", "PX-ORD-2"},
+	} {
+		var theirs countResponse
+		err := admin.post(ctx, "/__admin/requests/count", map[string]any{
+			"method": "POST", "urlPath": "/v1/orders",
+			"bodyPatterns": []any{map[string]any{"matchesJsonPath": map[string]any{"expression": c.path, "equalTo": c.text}}},
+		}, &theirs)
+		if err != nil {
+			t.Fatal(err)
+		}
+		p := &pattern{Method: "POST", URL: "/v1/orders", PathOnly: true}
+		rows(t, p, addProperty, []string{c.path, c.cell})
+		ours, err := admin.count(ctx, p)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if ours != theirs.Count {
+			t.Errorf("%s | %s: axx counts %d, WireMock %d", c.path, c.cell, ours, theirs.Count)
+		}
+	}
+	for _, row := range [][]string{{"lines[*].reference", "PX-ORD-1"}, {"lines[?(@.sku=='A')].qty", "5"}} {
+		err := run("none of the mocked POST requests to path /v1/orders on spacex have the payload properties:", row)
+		if err == nil || !strings.Contains(err.Error(), "1 POST request(s) to path /v1/orders") {
+			t.Errorf("none has %v: %v", row, err)
 		}
 	}
 	// A path no request went to, named for the steps that follow.

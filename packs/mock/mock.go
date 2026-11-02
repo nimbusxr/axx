@@ -279,6 +279,7 @@ func steps() []core.StepDef {
 				"- A property is a JSONPath, like `deliverTo.postcode` or `$.lines[0].reference`, read in the bodies of the requests " +
 				"WireMock received.\n" +
 				"- `undefined` checks that a request leaves a property out.\n" +
+				"- " + manyValues + "\n" +
 				"- " + bodyJoins,
 			Table: &core.TableDoc{
 				Columns: []string{"property", "value"},
@@ -324,14 +325,14 @@ func steps() []core.StepDef {
 				"  | day       | Friday      |"},
 			Run: func(sc *core.Scenario, a core.Args) error { return bodyCheck(sc, a, addField) },
 		},
-		noneStep("mock.query.none", "query parameters", "query parameter", "parameter", "a query parameter's name",
+		noneStep("mock.query.none", "query parameters", "query parameter", "parameter", "a query parameter's name", "",
 			"Then none of the mocked POST requests to path /v1/collections on courier have the query parameters:\n"+
 				"  | slot      | same-day    |\n"+
 				"  | reference | PX-REG-1402 |", core.TextValues, addQuery),
-		noneStep("mock.properties.none", "payload properties", "payload property", "property", "a property's JSONPath, like `deliverTo.postcode`,",
+		noneStep("mock.properties.none", "payload properties", "payload property", "property", "a property's JSONPath, like `deliverTo.postcode`,", manyValues,
 			"Then none of the mocked POST requests to path /v1/collections on courier have the payload properties:\n"+
 				"  | reference | PX-REG-1301 |", core.JSONValues, addProperty),
-		noneStep("mock.form.none", "form fields", "form field", "field", "a form field's name",
+		noneStep("mock.form.none", "form fields", "form field", "field", "a form field's name", "",
 			"Then none of the mocked POST requests to path /v1/pickups on courier have the form fields:\n"+
 				"  | reference | PX-WEB-5302 |", core.TextValues, addField),
 		signedStep(),
@@ -341,8 +342,12 @@ func steps() []core.StepDef {
 
 // noneStep checks that none of the requests to a path have every row of
 // the table: the thing a scenario must not have caused, with its own data,
-// since the requests of every scenario count.
-func noneStep(id, what, one, column, row, example string, values core.ValueKind, add rowAdder) core.StepDef {
+// since the requests of every scenario count. note is another item for its
+// doc, if it has one.
+func noneStep(id, what, one, column, row, note, example string, values core.ValueKind, add rowAdder) core.StepDef {
+	if note != "" {
+		note = "\n- " + note
+	}
 	return core.StepDef{
 		ID: id, Keyword: "Then", Arg: core.ArgTable, Absence: true,
 		Expr: "none of the mocked {word} requests to path {word}[[ on {mockedService}]] have the " + what + ":",
@@ -351,7 +356,7 @@ func noneStep(id, what, one, column, row, example string, values core.ValueKind,
 			"- Every request the mocked service received counts, other scenarios' too: put the scenario's own data in the table, " +
 			"like its parcel's reference, next to what must not be there.\n" +
 			"- A check that something did not happen proves little on its own: check what the scenario did send, too.\n" +
-			"- `undefined` means the request has no such " + column + ".",
+			"- `undefined` means the request has no such " + column + "." + note,
 		Table: &core.TableDoc{
 			Columns: []string{column, "value"},
 			Note:    "A row is " + row + " and the value it has, or `undefined`.",
@@ -363,6 +368,12 @@ func noneStep(id, what, one, column, row, example string, values core.ValueKind,
 		},
 	}
 }
+
+// manyValues says how the request checks read a JSONPath that can give
+// several values.
+const manyValues = "A path that can give several values (a wildcard like `lines[*].reference`, a filter, a recursive descent like " +
+	"`$..reference`) has the value when any of them is that value, with its type; `undefined` means it gives none, " +
+	"and a list as the value also compares with all of them at once."
 
 // headerJoins, headersJoin and bodyJoins say that what a step checks stays
 // with the named request: its later checks check it too.

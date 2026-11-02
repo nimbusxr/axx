@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/nimbusxr/axx/internal/match"
+	"github.com/nimbusxr/axx/internal/stepsearch"
 )
 
 // maxCompletions caps a completion list; the list is marked incomplete, so
@@ -123,6 +124,9 @@ func (d *document) stepCompletions(reg *match.Registry, pos position) completion
 	// Completions insert at the cursor and keep everything already written.
 	edit := span(d.lines, st.line, st.textStart, cursor)
 	for i, v := range reg.Variants() {
+		if v.Also || isLeadingForm(reg, v.Def) {
+			continue // it runs its step, and lists leave it to its step
+		}
 		ok, literal := continues(v.Expr, typed)
 		if !ok {
 			continue
@@ -161,6 +165,16 @@ func (d *document) stepCompletions(reg *match.Registry, pos position) completion
 		}
 	}
 	return list
+}
+
+// isLeadingForm says a step is the leading form of a step the registry has.
+func isLeadingForm(reg *match.Registry, d *match.Def) bool {
+	base, ok := stepsearch.LeadingBase(d.Step.ID)
+	if !ok {
+		return false
+	}
+	_, ok = reg.Def(base)
+	return ok
 }
 
 // effectiveKeyword is Given, When or Then for a step, following And, But
