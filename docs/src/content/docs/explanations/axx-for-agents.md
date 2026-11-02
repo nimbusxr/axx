@@ -33,7 +33,7 @@ Documentation drifts; binaries do not. The MCP server, `axx steps`, the skills a
 
 ## A fast, safe loop
 
-An agent checks its work with one command: `axx validate && axx lint && axx run --compact`. Validate and lint need no services and stop it at what they find; the run starts the services and stops them. With the MCP tools, the same is `feature_validate`, `lint_run` and `scenarios_run` in one turn. `axx up` and `axx down` only keep the services running to inspect them. `axx run features/x.feature:LINE` reruns exactly one scenario. Validation, explanation and step search have no side effects and need no running services.
+An agent checks its work with one command: `axx validate && axx lint && axx run --compact`. Validate and lint need no services, and their errors stop it, their warnings do not; the run starts the services and stops them. With the MCP tools, the same is `feature_validate`, `lint_run` and `scenarios_run` in one turn. `axx up` and `axx down` only keep the services running to inspect them. `axx run features/x.feature:LINE` reruns exactly one scenario. Validation, explanation and step search have no side effects and need no running services.
 
 ## Guardrails in the instructions
 

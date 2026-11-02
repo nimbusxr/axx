@@ -381,3 +381,110 @@ func TestStepsOfPacksTheProjectDoesNotUse(t *testing.T) {
 		t.Errorf("step_explain: %v", out)
 	}
 }
+
+func projectWith(t *testing.T, packs string) string {
+	t.Helper()
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "axx.yaml"), []byte("version: 1\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "axx-packs.yaml"), []byte("packs: ["+packs+"]\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	return dir
+}
+
+// A query finds a project's own step, whatever the other packs have that
+// reads as well.
+func TestStepsSearchKeepsTheProjectsOwnSteps(t *testing.T) {
+	for _, c := range []struct{ packs, query, want string }{
+		{"rest, redis", "seed", "redis.seed"},
+		{"rest, redis", "request", "rest.request"},
+		{"rest, mock", "request", "rest.request"},
+		{"rest, amqp", "message", "amqp."},
+	} {
+		out := call(t, session(t, projectWith(t, c.packs)), "steps_search", map[string]any{"query": c.query})
+		if s := fmt.Sprint(out["steps"]); !strings.Contains(s, c.want) {
+			t.Errorf("[%s] %s: %v", c.packs, c.query, out)
+		}
+	}
+}
+
+// step_explain says what {id} says of a step of a pack the project does not
+// use with {ids} too.
+func TestStepExplainIDsNameThePackToAdd(t *testing.T) {
+	cs := session(t, projectWith(t, "rest"))
+	out := call(t, cs, "step_explain", map[string]any{"ids": []string{"kafka.event.key"}})
+	if s := fmt.Sprint(out["suggestions"]); out["status"] != "undefined" || !strings.Contains(s, "`axx pack add kafka`") || out["steps"] == nil {
+		t.Errorf("a step of another pack: %v", out)
+	}
+	// A project's step among them is matched, and the others still noted, once.
+	out = call(t, cs, "step_explain", map[string]any{"ids": []string{"rest.response.status", "kafka.event.key", "kafka.consumed.key", "rest.nonexistent"}})
+	sg, _ := out["suggestions"].([]any)
+	unknown, _ := out["unknown"].([]any)
+	steps, _ := out["steps"].([]any)
+	if out["status"] != "matched" || len(sg) != 1 || !strings.Contains(fmt.Sprint(sg[0]), "`axx pack add kafka`") || len(steps) != 3 || len(unknown) != 1 || unknown[0] != "rest.nonexistent" {
+		t.Errorf("a mix: %v", out)
+	}
+	out = call(t, cs, "step_explain", map[string]any{"ids": []string{"rest.response.status"}})
+	if out["status"] != "matched" || out["suggestions"] != nil {
+		t.Errorf("the project's own: %v", out)
+	}
+}
+
+// A search of a pack the project does not use says so, and gives its steps
+// where a search of every pack gives them.
+func TestStepsSearchOfAPackTheProjectDoesNotUse(t *testing.T) {
+	cs := session(t, projectWith(t, "rest"))
+	out := call(t, cs, "steps_search", map[string]any{"pack": "kafka", "query": "event key"})
+	others, _ := out["otherPacks"].([]any)
+	if len(others) == 0 || others[0].(map[string]any)["id"] != "kafka.event.key" || out["steps"] != nil {
+		t.Fatalf("otherPacks: %v", out)
+	}
+	if hint, _ := out["hint"].(string); !strings.Contains(hint, "not in this project") || !strings.Contains(hint, "`axx pack add kafka`") {
+		t.Errorf("hint: %q", hint)
+	}
+	out = call(t, cs, "steps_search", map[string]any{"pack": "kafka", "query": "frobnicate"})
+	if hint, _ := out["hint"].(string); !strings.Contains(hint, "`axx pack add kafka`") || out["otherPacks"] != nil {
+		t.Errorf("nothing found: %v", out)
+	}
+	// A pack the project uses is searched as ever.
+	out = call(t, cs, "steps_search", map[string]any{"pack": "rest", "query": "response status"})
+	if s := fmt.Sprint(out["steps"]); !strings.Contains(s, "rest.response.status") || out["otherPacks"] != nil {
+		t.Errorf("rest: %v", out)
+	}
+}
+
+// Validating and trying a step of a pack the project does not use name the
+// pack, beside the suggestions they have always given.
+func TestUndefinedStepsNameThePackToAdd(t *testing.T) {
+	cs := session(t, projectWith(t, "rest"))
+	const line = "Then the parcel-events kafka event named registered key is PX-1"
+	out := call(t, cs, "feature_validate", map[string]any{"content": "Feature: f\n  Scenario: s\n    " + line + "\n"})
+	problems, _ := out["problems"].([]any)
+	if len(problems) != 1 {
+		t.Fatalf("feature_validate: %v", out)
+	}
+	p := problems[0].(map[string]any)
+	if p["pack"] != "kafka" || !strings.Contains(fmt.Sprint(p["hint"]), "`axx pack add kafka`") || p["suggestions"] == nil {
+		t.Errorf("feature_validate: %v", p)
+	}
+	out = call(t, cs, "steps_try", map[string]any{"steps": line})
+	steps, _ := out["steps"].([]any)
+	if len(steps) != 1 {
+		t.Fatalf("steps_try: %v", out)
+	}
+	s := steps[0].(map[string]any)
+	if s["pack"] != "kafka" || !strings.Contains(fmt.Sprint(s["hint"]), "`axx pack add kafka`") || s["suggestions"] == nil {
+		t.Errorf("steps_try: %v", s)
+	}
+}
+
+func TestWriteTestsPromptAsksForEveryCheck(t *testing.T) {
+	prompt := writeTestsPrompt("c")
+	for _, want := range []string{"in one turn", "feature_validate", "lint_run", "scenarios_run"} {
+		if !strings.Contains(prompt, want) {
+			t.Errorf("the prompt lacks %q:\n%s", want, prompt)
+		}
+	}
+}

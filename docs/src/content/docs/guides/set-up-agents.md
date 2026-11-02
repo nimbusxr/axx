@@ -215,7 +215,7 @@ running services. It answers for itself, offline and for the version installed: 
 3. Write one scenario per acceptance criterion with those steps, written out: each {name} replaced with a value, a(n) as
    "a" or "an", [[...]] kept without the brackets or left out. Never invent step text.
 4. Check, and fix what is reported, in one command: `axx validate && axx lint && axx run --compact`. Validate (the features) and
-   lint (the test-data rules) need no services and stop it at what they find; the run starts the services and stops them.
+   lint (the test-data rules) need no services; their errors stop it, their warnings do not. The run starts the services and stops them.
    With the MCP tools, in one turn: `feature_validate`, `lint_run`, `scenarios_run`; `failure_context` explains a failure.
    An error's code: `axx explain AXX-E…`. `axx up` and `axx down` only keep the services running to inspect them.
 

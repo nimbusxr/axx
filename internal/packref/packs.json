@@ -319,7 +319,7 @@
           "id": "rest.request.property.null",
           "expr": "the request payload property {word} is null[[ for {ordinal} ordered request]]",
           "keyword": "Given",
-          "doc": "Set an existing property of the request payload to JSON null.\n\n- Without an ordinal it applies to the service's first (default) request; `for 2nd ordered request`, to its second.\n- It uses the default service, the first one registered; `rest.request.property.null.on` names a service.",
+          "doc": "Set a property of the request payload to JSON null, adding it if the payload lacks it, as a table's `null` does.\n\n- Without an ordinal it applies to the service's first (default) request; `for 2nd ordered request`, to its second.\n- It uses the default service, the first one registered; `rest.request.property.null.on` names a service.",
           "examples": [
             "Given the request payload property recipient.street is null"
           ],
@@ -1276,7 +1276,7 @@
           "id": "mock.properties.are",
           "expr": "the payload properties for mocked request named {word}[[ on {mockedService}]] are:",
           "keyword": "Then",
-          "doc": "Check that the named request was received with a JSON body that has every property of the table, each with its value.\n\n- A property is a JSONPath, like `deliverTo.postcode` or `$.lines[0].reference`, read in the bodies of the requests WireMock received.\n- `undefined` checks that a request leaves a property out.\n- Later steps on the named request check these too, so its counts count only the requests that have them.",
+          "doc": "Check that the named request was received with a JSON body that has every property of the table, each with its value.\n\n- A property is a JSONPath, like `deliverTo.postcode` or `$.lines[0].reference`, read in the bodies of the requests WireMock received.\n- `undefined` checks that a request leaves a property out.\n- A path that can give several values (a wildcard like `lines[*].reference`, a filter, a recursive descent like `$..reference`) has the value when any of them is that value, with its type; `undefined` means it gives none, and a list as the value also compares with all of them at once.\n- Later steps on the named request check these too, so its counts count only the requests that have them.",
           "examples": [
             "Then the payload properties for mocked request named collection on courier are:\n  | reference          | PX-REG-1401 |\n  | deliverTo.postcode | \"10115\"     |\n  | recipient          | undefined   |"
           ],
@@ -1353,7 +1353,7 @@
           "id": "mock.properties.none",
           "expr": "none of the mocked {word} requests to path {word}[[ on {mockedService}]] have the payload properties:",
           "keyword": "Then",
-          "doc": "Check that the mocked service received no request with that method to a path, whatever its query string, that has every payload property of the table, each with its value.\n\n- Every request the mocked service received counts, other scenarios' too: put the scenario's own data in the table, like its parcel's reference, next to what must not be there.\n- A check that something did not happen proves little on its own: check what the scenario did send, too.\n- `undefined` means the request has no such property.",
+          "doc": "Check that the mocked service received no request with that method to a path, whatever its query string, that has every payload property of the table, each with its value.\n\n- Every request the mocked service received counts, other scenarios' too: put the scenario's own data in the table, like its parcel's reference, next to what must not be there.\n- A check that something did not happen proves little on its own: check what the scenario did send, too.\n- `undefined` means the request has no such property.\n- A path that can give several values (a wildcard like `lines[*].reference`, a filter, a recursive descent like `$..reference`) has the value when any of them is that value, with its type; `undefined` means it gives none, and a list as the value also compares with all of them at once.",
           "examples": [
             "Then none of the mocked POST requests to path /v1/collections on courier have the payload properties:\n  | reference | PX-REG-1301 |"
           ],
@@ -1518,7 +1518,7 @@
           "id": "mock.mcp.called",
           "expr": "the mocked {mockedService} mcp server's {word} tool was called[[ {int} time(s)]] with the following arguments:",
           "keyword": "Then",
-          "doc": "Check that the service called the tool of a mocked MCP server with the table's arguments: at least once, or as many times as the step says.\n\n- Every call since the run started counts, other scenarios' too: put the scenario's own data in the table, like its parcel's reference.\n- Paths are dotted (`address.postcode`) or JSONPath.",
+          "doc": "Check that the service called the tool of a mocked MCP server with the table's arguments: at least once, or as many times as the step says.\n\n- Every call since the run started counts, other scenarios' too: put the scenario's own data in the table, like its parcel's reference.\n- Paths are dotted (`address.postcode`) or JSONPath.\n- A path that can give several values (a wildcard like `lines[*].reference`, a filter, a recursive descent like `$..reference`) has the value when any of them is that value, with its type; `undefined` means it gives none, and a list as the value also compares with all of them at once.",
           "examples": [
             "Then the mocked partner-carrier mcp server's shipment_status tool was called with the following arguments:\n  | reference | PX-MCP-9301 |",
             "Then the mocked partner-carrier mcp server's shipment_status tool was called 1 time with the following arguments:\n  | reference | PX-MCP-9301 |"
@@ -1551,7 +1551,7 @@
     },
     {
       "name": "grpc",
-      "doc": "Call gRPC services: unary calls and server streams, with requests built from JSON files or tables, and check their status, their answers, their metadata and the messages they stream.\n\nRegister the service once, usually in the `Background`:\n\n```gherkin\nGiven the tracking grpc service with the following properties:\n  | address | localhost:8410 |\n```\n\n- **The contract is the service's proto.** A `proto` row names its `.proto` file (compiled by axx, with its imports) or a descriptor set (`protoc --descriptor_set_out --include_imports`); without one, axx reads the service's descriptors through its server reflection. Requests are built with them, so a field the request message does not have fails the step, and answers are read with them.\n- **Methods** are named `package.Service/Method`, as grpcurl names them; `Service/Method` or `Method` do when only one of the service's methods has that name.\n- **Requests and answers are proto JSON:** fields by their JSON names (`lastScan.location`) or their proto names, enums by name, bytes as proto JSON has them; an answer's 64-bit integers are numbers. A request's table sets paths into it, each to what its cell says, which must be of its field's type: `\"10115\"` for a string field, not `10115`.\n- **The checks read the service's last call** in the scenario. A call that answers another status than OK does not fail the step that makes it: check its status.\n- **Server streams** belong to the scenario, which closes them when it ends. Their messages are checked as they come; their status once they end.\n- **Secrets stay secret:** `${env:..}` values in the properties, such as a token in `header.authorization`, are masked in logs and failures, and `${token:..}` names a token of the scenario.",
+      "doc": "Call gRPC services: unary calls and server streams, with requests built from JSON files or tables, and check their status, their answers, their metadata and the messages they stream.\n\nRegister the service once, usually in the `Background`:\n\n```gherkin\nGiven the tracking grpc service with the following properties:\n  | address | localhost:8410 |\n```\n\n- **The contract is the service's proto.** A `proto` row names its `.proto` file (compiled by axx, with its imports) or a descriptor set (`protoc --descriptor_set_out --include_imports`); without one, axx reads the service's descriptors through its server reflection. Requests are built with them, so a field the request message does not have fails the step, and answers are read with them.\n- **Methods** are named `package.Service/Method`, as grpcurl names them; `Service/Method` or `Method` do when only one of the service's methods has that name.\n- **Requests and answers are proto JSON:** fields by their JSON names (`lastScan.location`) or their proto names, enums by name, bytes as proto JSON has them; an answer's 64-bit integers are numbers, and its floats and doubles decimals, a whole one too (`6.0`). A request's table sets paths into it, each to what its cell says, which must be of its field's type: `\"10115\"` for a string field, not `10115`.\n- **The checks read the service's last call** in the scenario. A call that answers another status than OK does not fail the step that makes it: check its status.\n- **Server streams** belong to the scenario, which closes them when it ends. Their messages are checked as they come; their status once they end.\n- **Secrets stay secret:** `${env:..}` values in the properties, such as a token in `header.authorization`, are masked in logs and failures, and `${token:..}` names a token of the scenario.",
       "steps": [
         {
           "id": "grpc.service",
@@ -1683,7 +1683,7 @@
               "path",
               "value"
             ],
-            "note": "Each row is a path into the answer as proto JSON (a field's JSON name, a dotted path like `lastScan.location`, or a JSONPath) and its value. Fields with their default values (`0`, `\"\"`, `false`) are in the answer, and 64-bit integers are numbers.",
+            "note": "Each row is a path into the answer as proto JSON (a field's JSON name, a dotted path like `lastScan.location`, or a JSONPath) and its value. Fields with their default values (`0`, `\"\"`, `false`) are in the answer, 64-bit integers are numbers, and a float or a double is a decimal, a whole one too (`6.0`).",
             "values": "json",
             "undefined": true
           },
@@ -3184,7 +3184,7 @@
           "id": "mongo.doc.match",
           "expr": "the {ordinal} document for the[[ {ordinal}]] selection[[ on {mongoService}]] properties match:",
           "keyword": "Then",
-          "doc": "Check the fields of one document of a selection, like the `properties are` step, with regular expressions (Java syntax) that must match the whole value, as text.",
+          "doc": "Check the fields of one document of a selection, like the `properties are` step, with regular expressions (Java syntax) that must match the whole value, as text: a double's text is a decimal's, like `6.0`, and a Decimal128's its digits, like `1.50`.",
           "examples": [
             "Then the 1st document for the 2nd selection on tracking-db properties match:\n  | _id          | PX-TRK-\\d{4} |\n  | lastLocation | Hamburg.*    |"
           ],
@@ -4103,7 +4103,7 @@
             "values": "json",
             "undefined": true,
             "textRows": [
-              "header",
+              "header \u003cname\u003e",
               "routing key",
               "content type",
               "correlation id",
@@ -4189,7 +4189,7 @@
             "values": "json",
             "undefined": true,
             "textRows": [
-              "header",
+              "header \u003cname\u003e",
               "routing key",
               "content type",
               "correlation id",
@@ -4310,7 +4310,13 @@
               }
             ],
             "note": "Every value but those of `qos` and `retain` is text: one that reads as a number, a boolean or `null` goes in double quotes (`\"3\"`).",
-            "values": "json"
+            "values": "json",
+            "textRows": [
+              "property \u003cname\u003e",
+              "content type",
+              "response topic",
+              "correlation data"
+            ]
           },
           "since": "0.1.5"
         },
@@ -4332,7 +4338,7 @@
             "values": "json",
             "undefined": true,
             "textRows": [
-              "property",
+              "property \u003cname\u003e",
               "topic",
               "content type",
               "response topic",
@@ -4440,7 +4446,7 @@
             "values": "json",
             "undefined": true,
             "textRows": [
-              "header",
+              "header \u003cname\u003e",
               "subject"
             ]
           },
@@ -4464,7 +4470,7 @@
             "values": "json",
             "undefined": true,
             "textRows": [
-              "header",
+              "header \u003cname\u003e",
               "subject"
             ]
           },
@@ -5184,7 +5190,7 @@
             "values": "json",
             "undefined": true,
             "textRows": [
-              "event"
+              "event \u003cname\u003e"
             ]
           },
           "since": "0.1.5"
@@ -7878,7 +7884,7 @@
             "values": "json",
             "undefined": true,
             "textRows": [
-              "attribute"
+              "attribute \u003cname\u003e"
             ]
           },
           "since": "0.1.0"
@@ -7941,7 +7947,7 @@
             "values": "json",
             "undefined": true,
             "textRows": [
-              "attribute"
+              "attribute \u003cname\u003e"
             ]
           },
           "since": "0.1.0"
@@ -7998,7 +8004,7 @@
             "values": "json",
             "undefined": true,
             "textRows": [
-              "attribute"
+              "attribute \u003cname\u003e"
             ]
           },
           "since": "0.1.0"
@@ -8260,7 +8266,7 @@
             "values": "json",
             "undefined": true,
             "textRows": [
-              "attribute"
+              "attribute \u003cname\u003e"
             ]
           },
           "since": "0.1.0"
@@ -8299,9 +8305,8 @@
               "column",
               "value"
             ],
-            "note": "Each row names a column, or a dotted path into a `RECORD` column (`address.city`), and the value in it; `null` is NULL.",
-            "values": "json",
-            "undefined": true
+            "note": "Each row names a column, or a dotted path into a `RECORD` column (`address.city`), and the value in it; `null` is NULL, which is how a row has no value: every row has every column.",
+            "values": "json"
           },
           "since": "0.1.0"
         },
@@ -8319,9 +8324,8 @@
               "column",
               "value"
             ],
-            "note": "Each row names a column, or a dotted path into a `RECORD` column (`address.city`), and the value in it; `null` is NULL.",
-            "values": "json",
-            "undefined": true
+            "note": "Each row names a column, or a dotted path into a `RECORD` column (`address.city`), and the value in it; `null` is NULL, which is how a row has no value: every row has every column.",
+            "values": "json"
           },
           "since": "0.1.0"
         }
@@ -8594,7 +8598,7 @@
             "values": "json",
             "undefined": true,
             "textRows": [
-              "property"
+              "property \u003cname\u003e"
             ]
           },
           "since": "0.1.0"

@@ -8,6 +8,8 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/nimbusxr/axx/core"
+	"github.com/nimbusxr/axx/internal/config"
 	"github.com/nimbusxr/axx/internal/engine"
 	"github.com/nimbusxr/axx/internal/match"
 	"github.com/nimbusxr/axx/internal/packref"
@@ -75,15 +77,81 @@ func betterElsewhere(mine, others []StepInfo, q string, limit int) ([]StepInfo, 
 	return found, outclassed
 }
 
-// foldedCount is the number of steps as `axx steps` lists them: each
-// named-service twin folded into its step.
-func foldedCount(infos []StepInfo) int {
-	entries := make([]stepsearch.Entry, len(infos))
+// foldedSteps are the steps as `axx steps` lists them, and counts them: each
+// named-service twin folded into its step (Twin), without the leading forms.
+func foldedSteps(infos []StepInfo) []StepInfo {
+	ids := make([]string, len(infos))
 	for i, s := range infos {
-		entries[i] = stepsearch.Entry{ID: s.ID, Pack: s.Pack, Expr: s.Expr, Arg: s.Arg, Columns: s.Columns}
+		ids[i] = s.ID
 	}
-	kept, _ := stepsearch.Fold(entries)
-	return len(kept)
+	twins := stepsearch.Twins(ids)
+	twinOf := make(map[string]string, len(twins))
+	for twin, base := range twins {
+		twinOf[base] = twin
+	}
+	out := make([]StepInfo, 0, len(infos))
+	for _, s := range withoutLeading(infos) {
+		if _, ok := twins[s.ID]; !ok {
+			s.Twin = twinOf[s.ID]
+			out = append(out, s)
+		}
+	}
+	return out
+}
+
+// withoutLeading leaves out the leading forms of steps, as lists do.
+func withoutLeading(infos []StepInfo) []StepInfo {
+	return slices.DeleteFunc(slices.Clone(infos), func(s StepInfo) bool {
+		_, leading := stepsearch.LeadingBase(s.ID)
+		return leading
+	})
+}
+
+// referencePack is a pack as axx's reference has it: its steps, without their
+// code, which is all the commands that answer from it read.
+type referencePack struct{ packref.Pack }
+
+func (p referencePack) Manifest() core.Manifest {
+	return core.Manifest{Name: p.Name, Doc: p.Doc, Requires: p.Requires, Params: p.Params, Steps: p.Steps}
+}
+
+// referenceEngine is the project's steps as axx's reference has them, for the
+// commands that answer without the project's packs prepared
+// (commandsFromReference). The project's own packs, which it has not got, are
+// missing, and the note says so.
+func (a *App) referenceEngine(cfg *config.Config) (*engine.Engine, error) {
+	f, found, err := packset.Load(cfg.Dir)
+	if err != nil || !found {
+		return nil, a.notPrepared
+	}
+	entries, err := f.Entries()
+	if err != nil {
+		return nil, a.notPrepared
+	}
+	selection, custom := []packset.Entry{}, []string{}
+	for _, en := range entries {
+		if en.Kind == packset.Published {
+			selection = append(selection, en)
+		} else {
+			custom = append(custom, en.Raw)
+		}
+	}
+	compiled := map[string]core.Pack{}
+	for _, p := range packref.Packs() {
+		compiled[p.Name] = referencePack{p}
+	}
+	e, err := engine.New(engine.Options{Config: cfg, Logger: a.logger(), Selection: selection, Compiled: compiled})
+	if err != nil {
+		return nil, err
+	}
+	if a.note == "" {
+		a.note = "axx could not prepare this project's packs (`axx validate` says why), so this answers from its own knowledge of the packs it publishes"
+		if len(custom) > 0 {
+			a.note += fmt.Sprintf("; the project's own packs (%s) are missing from it", strings.Join(custom, ", "))
+		}
+		fmt.Fprintf(a.Stderr, "note: %s\n", a.note)
+	}
+	return e, nil
 }
 
 func searchable(infos []StepInfo) []stepsearch.Step {
@@ -152,7 +220,7 @@ func renderPackMap(w io.Writer, used map[string]bool) {
 }
 
 // PackDetail is `axx pack show`: a pack, what it reaches, its settings and
-// its steps.
+// its steps, as `axx steps` lists them (foldedSteps).
 type PackDetail struct {
 	Pack     string     `json:"pack"`
 	Summary  string     `json:"summary"`
@@ -244,7 +312,7 @@ func renderPackDetail(w io.Writer, d PackDetail) error {
 		_, err := fmt.Fprintf(w, "Steps: `axx steps --pack %s` lists its %d steps.\n", d.Pack, d.StepCount)
 		return err
 	}
-	if err := renderSteps(w, d.Steps, false); err != nil {
+	if err := renderSteps(w, d.Steps, true); err != nil {
 		return err
 	}
 	_, err := fmt.Fprintln(w, "\nA step's line is usually enough to write it. `axx steps show <id>...` gives the documentation and examples of those that leave you unsure, several at once")
@@ -256,7 +324,9 @@ func renderPackDetail(w io.Writer, d PackDetail) error {
 func stepInfosOf(reg *match.Registry, pack string) []StepInfo {
 	variants := map[*match.Def][]string{}
 	for _, v := range reg.Variants() {
-		variants[v.Def] = append(variants[v.Def], v.Expr)
+		if !v.Also {
+			variants[v.Def] = append(variants[v.Def], v.Expr)
+		}
 	}
 	params := map[string]string{}
 	for _, p := range reg.Params() {

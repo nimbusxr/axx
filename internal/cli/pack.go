@@ -74,9 +74,9 @@ func newPackShowCmd(app *App) *cobra.Command {
 				}
 			}
 			if reg, err := packref.Registry(name); err == nil {
-				d.Steps = stepInfosOf(reg, name)
+				d.Steps = foldedSteps(stepInfosOf(reg, name))
 			}
-			d.StepCount = foldedCount(d.Steps)
+			d.StepCount = len(d.Steps)
 			// An agent gets what it does not have yet: the first paragraph of the
 			// documentation, and the steps of a pack its project does not use
 			// (`axx steps` lists the others).
@@ -276,8 +276,8 @@ func newPackListCmd(app *App) *cobra.Command {
 				return err
 			}
 			steps := map[string]int{}
-			for _, d := range e.Registry.Defs() {
-				steps[d.Pack]++
+			for _, s := range foldedSteps(stepInfos(e, "")) {
+				steps[s.Pack]++
 			}
 			var rows []PackInfo
 			used := map[string]bool{}
@@ -290,15 +290,13 @@ func newPackListCmd(app *App) *cobra.Command {
 				} else if pk, ok := engine.Compiled()[en.Key()]; ok {
 					name = pk.Manifest().Name
 					summary, _, _ = strings.Cut(pk.Manifest().Doc, "\n")
+				} else if app.notPrepared != nil {
+					summary = "not prepared, so its steps are missing here"
 				}
 				used[en.Key()] = true
 				rows = append(rows, PackInfo{Pack: en.Raw, Kind: en.Kind.String(), Steps: steps[name], Used: true, Summary: summary})
 			}
-			for _, p := range packset.Catalog {
-				if !used[p.Name] {
-					rows = append(rows, PackInfo{Pack: p.Name, Kind: packset.Published.String(), Summary: p.Summary})
-				}
-			}
+			rows = append(rows, packsNotUsed(used)...)
 			return app.Emit(map[string]any{"file": existed, "packs": rows}, func(w io.Writer) error {
 				width := 0
 				for _, r := range rows {
@@ -326,6 +324,17 @@ func newPackListCmd(app *App) *cobra.Command {
 	}
 	cf.register(cmd)
 	return cmd
+}
+
+// packsNotUsed are the rows of axx's packs the project does not use.
+func packsNotUsed(used map[string]bool) []PackInfo {
+	var rows []PackInfo
+	for _, p := range packset.Catalog {
+		if !used[p.Name] {
+			rows = append(rows, PackInfo{Pack: p.Name, Kind: packset.Published.String(), Summary: p.Summary})
+		}
+	}
+	return rows
 }
 
 func newPackUpdateCmd(app *App) *cobra.Command {

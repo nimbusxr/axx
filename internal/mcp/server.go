@@ -282,12 +282,11 @@ func (s *server) stepsSearch(ctx context.Context, _ *sdk.CallToolRequest, in ste
 		return nil, stepsSearchOut{}, err
 	}
 	all := allSteps(e, in.Pack)
-	hint := "every step, one line each; step_explain {id} gives one step's documentation and examples"
 	// A pack the project does not use: its steps, from axx's reference.
+	notUsed := ""
 	if in.Pack != "" && len(all) == 0 {
 		if _, ok := packref.Lookup(in.Pack); ok {
-			all = otherSteps(e, in.Pack)
-			hint = fmt.Sprintf("the %s pack is not in this project: `axx pack add %s` adds it. ", in.Pack, in.Pack) + hint
+			notUsed = fmt.Sprintf("the %s pack is not in this project: `axx pack add %s` adds it", in.Pack, in.Pack)
 		}
 	}
 	if strings.TrimSpace(in.Query) == "" {
@@ -296,6 +295,11 @@ func (s *server) stepsSearch(ctx context.Context, _ *sdk.CallToolRequest, in ste
 				Packs: packMap(),
 				Hint:  "this project uses no packs yet, so it has no steps: `axx pack add <name>` adds one; steps_search {pack} lists a pack's steps before it is added",
 			}, nil
+		}
+		hint := "every step, one line each; step_explain {id} gives one step's documentation and examples"
+		if notUsed != "" {
+			all = otherSteps(e, in.Pack)
+			hint = notUsed + ". " + hint
 		}
 		entries := make([]stepsearch.Entry, len(all))
 		for i, st := range all {
@@ -309,10 +313,11 @@ func (s *server) stepsSearch(ctx context.Context, _ *sdk.CallToolRequest, in ste
 	}
 	found, strong := searchSteps(all, in.Query)
 	// The steps of axx's other packs that read like the query better than
-	// the project's do, with the pack to add.
+	// the project's do, with the pack to add: of the pack asked for, when the
+	// project does not use it.
 	var others []Step
-	if in.Pack == "" {
-		rest := otherSteps(e, "")
+	if in.Pack == "" || notUsed != "" {
+		rest := otherSteps(e, in.Pack)
 		better, outclassed := stepsearch.Elsewhere(searchDocs(all), searchDocs(rest), in.Query, limit)
 		var keep []Step
 		for i, st := range rest {
@@ -358,6 +363,10 @@ func (s *server) stepsSearch(ctx context.Context, _ *sdk.CallToolRequest, in ste
 		out.OtherPacks = append(out.OtherPacks, st)
 	}
 	switch {
+	case notUsed != "" && len(others) > 0:
+		out.Hint = notUsed + "; otherPacks are its steps that read like that"
+	case notUsed != "":
+		out.Hint = notUsed + "; none of its steps reads like that: call without a query for its catalog"
 	case len(found) == 0 && len(others) > 0:
 		out.Hint = "no step of this project's packs reads like that; otherPacks are steps of axx's packs it does not use: `axx pack add <pack>` adds one"
 	case len(found) == 0:
@@ -532,19 +541,28 @@ func (s *server) stepExplain(ctx context.Context, _ *sdk.CallToolRequest, in ste
 		for _, st := range otherSteps(e, "") {
 			byID[st.ID] = st
 		}
+		used := map[string]bool{}
 		for _, st := range allSteps(e, "") {
 			byID[st.ID] = st
+			used[st.Pack] = true
 		}
+		// A step the project cannot run is undefined, as with {id}: a mix of
+		// them matched for the ones it can, and says which pack to add.
+		out.Status = "undefined"
+		noted := map[string]bool{}
 		for _, id := range in.IDs {
-			if st, ok := byID[strings.TrimSpace(id)]; ok {
-				out.Steps = append(out.Steps, st)
-			} else {
+			st, ok := byID[strings.TrimSpace(id)]
+			switch {
+			case !ok:
 				out.Unknown = append(out.Unknown, id)
+				continue
+			case used[st.Pack]:
+				out.Status = "matched"
+			case !noted[st.Pack]:
+				noted[st.Pack] = true
+				out.Suggestions = append(out.Suggestions, fmt.Sprintf("the %s pack is not in this project: `axx pack add %s` adds it", st.Pack, st.Pack))
 			}
-		}
-		out.Status = "matched"
-		if len(out.Steps) == 0 {
-			out.Status = "undefined"
+			out.Steps = append(out.Steps, st)
 		}
 		return nil, out, nil
 	}
@@ -629,6 +647,21 @@ type Problem struct {
 	Text        string   `json:"text,omitempty"`
 	Message     string   `json:"message,omitempty"`
 	Suggestions []string `json:"suggestions,omitempty"`
+	// Pack is the pack that has the step, which the project does not use, and
+	// Hint says how to add it.
+	Pack string `json:"pack,omitempty"`
+	Hint string `json:"hint,omitempty"`
+}
+
+// missingPack is the pack suggestions say an undefined step is of, which the
+// project does not use, and how to add it.
+func missingPack(suggestions []match.Suggestion) (pack, hint string) {
+	for _, sg := range suggestions {
+		if sg.Pack != "" {
+			return sg.Pack, sg.Missing()
+		}
+	}
+	return "", ""
 }
 
 type featureValidateOut struct {
@@ -686,6 +719,7 @@ func (s *server) featureValidate(ctx context.Context, _ *sdk.CallToolRequest, in
 			mp.Suggestions = append(mp.Suggestions, sg.Expr)
 		}
 		mp.Suggestions = append(mp.Suggestions, pr.Candidates...)
+		mp.Pack, mp.Hint = missingPack(pr.Suggestions)
 		out.Problems = append(out.Problems, mp)
 	}
 	out.Valid = len(out.Problems) == 0
@@ -1139,7 +1173,7 @@ Rules:
 - Read the step catalog once (steps_search without a query); only use step text that exists.
 - One scenario per criterion; name scenarios after the behavior, not the implementation.
 - Use unique test data in every scenario (ids, names, keys) because scenarios run in parallel.
-- Run with scenarios_run: it reports failures, and what feature_validate and lint_run find.
+- Check and fix, in one turn: feature_validate, lint_run and scenarios_run, which starts the services and stops them.
 - Scenarios must fail if the behavior is broken: check what the service did (payload, rows, events) and why it refused, not only status codes.`
 }
 

@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -39,6 +40,9 @@ type StepInfo struct {
 	Params     []ParamInfo     `json:"params,omitempty"`
 	Since      string          `json:"since,omitempty"`
 	Deprecated string          `json:"deprecated,omitempty"`
+	// Twin is the id of the step's form for a named service (`… on
+	// {service}`), where a list folds that form into its step.
+	Twin string `json:"twin,omitempty"`
 }
 
 // ParamInfo describes a parameter used by a step.
@@ -57,7 +61,7 @@ func newStepsCmd(app *App) *cobra.Command {
 		Use:   "steps",
 		Short: "List, search and inspect the available Gherkin steps",
 		Long: `List every step axx understands (the packs this project loads).
-Agents: search before writing a feature, and never invent step text.`,
+Agents: read this list once, search for what it lacks, and never invent step text.`,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) > 0 && slices.ContainsFunc(packset.Catalog, func(p packset.Pack) bool { return p.Name == args[0] }) {
 				return axxerr.New("AXX-E0001", exitcode.Usage, "invalid usage: unknown command %q for \"axx steps\"", args[0]).
@@ -71,11 +75,11 @@ Agents: search before writing a feature, and never invent step text.`,
 		if err != nil {
 			return err
 		}
-		infos := stepInfos(e, pack)
+		infos := withoutLeading(stepInfos(e, pack))
 		// A pack the project does not use: its steps, from axx's reference.
 		if pack != "" && len(infos) == 0 {
 			if _, ok := packref.Lookup(pack); ok {
-				infos = otherInfos(e, pack)
+				infos = withoutLeading(otherInfos(e, pack))
 				return app.Emit(map[string]any{"steps": infos, "count": len(infos), "notInProject": pack}, func(w io.Writer) error {
 					fmt.Fprintf(w, "%s\n\n", notInProject(pack))
 					return app.stepList(w, infos)
@@ -84,8 +88,12 @@ Agents: search before writing a feature, and never invent step text.`,
 		}
 		// No packs yet: which packs there are, and how to see their steps.
 		if pack == "" && len(infos) == 0 {
-			return app.Emit(map[string]any{"steps": infos, "count": 0, "packs": packset.Catalog}, func(w io.Writer) error {
-				fmt.Fprintln(w, "this project uses no packs yet, so it has no steps. axx's packs (`axx pack show <name>`: what one reaches, its settings and steps; `axx pack add <name>` adds it):")
+			return app.Emit(map[string]any{"steps": infos, "count": 0, "packs": packsNotUsed(nil)}, func(w io.Writer) error {
+				lead := "this project uses no packs yet, so it has no steps."
+				if app.notPrepared != nil {
+					lead = "this project uses only packs of its own, which are not prepared, so its steps are missing here."
+				}
+				fmt.Fprintln(w, lead+" axx's packs (`axx pack show <name>`: what one reaches, its settings and steps; `axx pack add <name>` adds it):")
 				fmt.Fprintln(w)
 				renderPackMap(w, nil)
 				return nil
@@ -175,27 +183,44 @@ ids show each of their steps.`,
 			}
 			infos := stepInfos(e, "")
 			// Several ids: each step, in one call, those of packs the
-			// project does not use too.
-			many := stepsByIDs(infos, args)
-			if len(args) > 1 && len(many) < len(args) {
-				many = stepsByIDs(append(infos, otherInfos(e, "")...), args)
-			}
-			if len(args) > 1 && len(many) == len(args) {
-				return app.Emit(map[string]any{"steps": many}, func(w io.Writer) error {
+			// project does not use too. Words with a dot may be a step line's
+			// (a request to api.example.com): ids are what all look like one,
+			// or what names a step.
+			if len(args) > 1 && slices.ContainsFunc(args, looksLikeID) {
+				all := slices.Concat(infos, otherInfos(e, ""))
+				many, unknown := stepsByIDs(all, args)
+				if len(many) > 0 || !slices.ContainsFunc(args, func(a string) bool { return !looksLikeID(a) }) {
 					used := loadedPacks(e)
-					for i, s := range many {
-						if i > 0 {
-							fmt.Fprintln(w, "\n---")
-						}
-						if err := renderStep(w, s); err != nil {
-							return err
-						}
-						if !used[s.Pack] {
-							fmt.Fprintf(w, "%s\n", notInProject(s.Pack))
+					out := map[string]any{"steps": many}
+					var others []string
+					for _, s := range many {
+						if !used[s.Pack] && !slices.Contains(others, s.Pack) {
+							others = append(others, s.Pack)
 						}
 					}
-					return nil
-				})
+					if len(others) > 0 {
+						out["notInProject"] = others
+					}
+					render := func(w io.Writer) error {
+						for i, s := range many {
+							if i > 0 {
+								fmt.Fprintln(w, "\n---")
+							}
+							if err := renderStep(w, s); err != nil {
+								return err
+							}
+							if !used[s.Pack] {
+								fmt.Fprintf(w, "%s\n", notInProject(s.Pack))
+							}
+						}
+						return nil
+					}
+					if len(unknown) == 0 {
+						return app.Emit(out, render)
+					}
+					out["unknown"] = unknown
+					return app.emitWithError(out, render, unknownIDs(all, unknown))
+				}
 			}
 			q := strings.Join(args, " ")
 			s, err := findStep(e, infos, q)
@@ -275,22 +300,44 @@ func findStep(e *engine.Engine, infos []StepInfo, q string) (StepInfo, error) {
 	return StepInfo{}, axxerr.New("AXX-E0310", exitcode.Usage, "no step has the id or expression %q, or matches it as a step line", q).WithHint("%s", hint)
 }
 
-// stepsByIDs returns the steps args name when each is a step's id, in
-// their order.
-func stepsByIDs(infos []StepInfo, args []string) []StepInfo {
+// stepsByIDs returns the steps of the ids args name, in their order, and the
+// args no step has as its id.
+func stepsByIDs(infos []StepInfo, args []string) (found []StepInfo, unknown []string) {
 	byID := map[string]StepInfo{}
 	for _, s := range infos {
 		byID[s.ID] = s
 	}
-	var out []StepInfo
+	found = []StepInfo{}
 	for _, a := range args {
-		s, ok := byID[a]
-		if !ok {
-			return nil
+		if s, ok := byID[a]; ok {
+			found = append(found, s)
+		} else {
+			unknown = append(unknown, a)
 		}
-		out = append(out, s)
 	}
-	return out
+	return found, unknown
+}
+
+// unknownIDs is the error of ids no step has: it names just those, with the
+// ids that start like them.
+func unknownIDs(infos []StepInfo, unknown []string) error {
+	quoted := make([]string, len(unknown))
+	var like []string
+	for i, id := range unknown {
+		quoted[i] = strconv.Quote(id)
+		for _, s := range idsLike(infos, id, 3) {
+			like = append(like, s.ID)
+		}
+	}
+	noun := "the id"
+	if len(unknown) > 1 {
+		noun = "the ids"
+	}
+	hint := "`axx steps` lists ids, and `axx steps search <words>` finds steps"
+	if len(like) > 0 {
+		hint = "the closest: " + strings.Join(like, ", ") + "; " + hint
+	}
+	return axxerr.New("AXX-E0310", exitcode.Usage, "no step has %s %s", noun, strings.Join(quoted, ", ")).WithHint("%s", hint)
 }
 
 // looksLikeID reports whether q is shaped like a step id: dotted lower-case
@@ -385,6 +432,11 @@ func renderSteps(w io.Writer, infos []StepInfo, notation bool) error {
 		entries[i] = stepsearch.Entry{ID: s.ID, Pack: s.Pack, Expr: s.Expr, Arg: s.Arg, Columns: s.Columns}
 	}
 	kept, twinned := stepsearch.Fold(entries)
+	for _, s := range infos {
+		if s.Twin != "" {
+			twinned[s.ID] = true // foldedSteps folded it already
+		}
+	}
 	byPack := map[string][]stepsearch.Entry{}
 	var order []string
 	for _, s := range kept {
@@ -427,13 +479,14 @@ func renderStepCompact(w io.Writer, s StepInfo, seenParams map[string]bool) erro
 		fmt.Fprintf(&b, "table: | %s |\n", strings.Join(s.Columns, " | "))
 	}
 	if rows, whole := stepsearch.BriefRows(s.Rows); whole {
-		// The example shows how to write its rows; the others are listed.
+		// The example shows how to write its rows; the others are listed, and
+		// so is what only a row's line says: the values it takes.
 		shown := ""
 		if len(s.Examples) > 0 {
 			shown = s.Examples[0]
 		}
 		for _, r := range rows {
-			if !exampleHasRow(shown, r.Name) {
+			if len(r.Values) > 0 || !exampleHasRow(shown, r.Name) {
 				fmt.Fprintf(&b, "  %s\n", rowLine(r))
 			}
 		}

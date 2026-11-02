@@ -50,6 +50,11 @@ type App struct {
 	command string
 	// started is set once a command's PersistentPreRun ran (flags parsed).
 	started bool
+	// notPrepared is why the project's packs could not be prepared, for a
+	// command that answers without them (commandsFromReference); note says
+	// so, in what the command answers.
+	notPrepared error
+	note        string
 }
 
 // NewApp returns an App bound to the process's standard streams.
@@ -72,13 +77,50 @@ func (a *App) EmitResult(data any, ok bool, human func(w io.Writer) error) error
 			SchemaVersion: EnvelopeSchemaVersion,
 			Command:       a.command,
 			OK:            ok,
-			Data:          data,
+			Data:          a.withNote(data),
 		})
 	}
 	if human != nil {
 		return human(a.Stdout)
 	}
 	return nil
+}
+
+// emitWithError ends a command with err after giving what it did find: both
+// in one envelope in --json mode, otherwise the human rendering and the error
+// as ever.
+func (a *App) emitWithError(data any, human func(w io.Writer) error, err error) error {
+	if !a.JSON {
+		if herr := human(a.Stdout); herr != nil {
+			return herr
+		}
+		return err
+	}
+	if werr := a.writeEnvelope(Envelope{
+		SchemaVersion: EnvelopeSchemaVersion,
+		Command:       a.command,
+		OK:            false,
+		Data:          a.withNote(data),
+		Errors:        []EnvelopeError{envelopeError(err)},
+	}); werr != nil {
+		return werr
+	}
+	return silentExit{code: axxerr.ExitCode(err)}
+}
+
+// withNote adds what a command's answer needs saying to its data, whatever
+// its shape.
+func (a *App) withNote(data any) any {
+	if a.note == "" {
+		return data
+	}
+	var m map[string]any
+	b, err := json.Marshal(data)
+	if err != nil || json.Unmarshal(b, &m) != nil || m == nil {
+		return data
+	}
+	m["note"] = a.note
+	return m
 }
 
 func (a *App) writeEnvelope(env Envelope) error {
@@ -92,16 +134,19 @@ func encodeEnvelope(w io.Writer, env Envelope) error {
 	return enc.Encode(env)
 }
 
+// envelopeError is the JSON form of err.
+func envelopeError(err error) EnvelopeError {
+	var ae *axxerr.Error
+	if errors.As(err, &ae) {
+		return EnvelopeError{Code: ae.Code, Message: ae.Error(), Location: ae.Location, Hint: ae.Hint, Docs: ae.DocsURL()}
+	}
+	return EnvelopeError{Message: err.Error()}
+}
+
 // reportError prints err in the active output mode and returns the exit code.
 func (a *App) reportError(err error) exitcode.Code {
 	code := axxerr.ExitCode(err)
-	var ee EnvelopeError
-	var ae *axxerr.Error
-	if errors.As(err, &ae) {
-		ee = EnvelopeError{Code: ae.Code, Message: ae.Error(), Location: ae.Location, Hint: ae.Hint, Docs: ae.DocsURL()}
-	} else {
-		ee = EnvelopeError{Message: err.Error()}
-	}
+	ee := envelopeError(err)
 	if a.JSON {
 		_ = a.writeEnvelope(Envelope{
 			SchemaVersion: EnvelopeSchemaVersion,

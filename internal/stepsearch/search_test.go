@@ -90,6 +90,41 @@ func TestPackMarkers(t *testing.T) {
 	}
 }
 
+// What Search takes off a step for a pack the query does not name depends on
+// the steps it searched, so it does not hide a project's own step: "seed" in a
+// project with redis finds redis's, though it loses to sql's and mongo's in a
+// search of everything.
+func TestElsewhereNeverHidesAProjectsOwnStep(t *testing.T) {
+	mine := []Step{
+		{ID: "redis.seed", Pack: "redis", Expr: "a {filepath} redis seed"},
+		{ID: "redis.value", Pack: "redis", Expr: "the redis key {word} has the value {string}"},
+		{ID: "redis.absent", Pack: "redis", Expr: "the redis key {word} is absent"},
+		{ID: "rest.status", Pack: "rest", Expr: "the response status code is {int}"},
+	}
+	others := []Step{
+		{ID: "sql.seed", Pack: "sql", Expr: "a {filepath} db seed"},
+		{ID: "mongo.seed", Pack: "mongo", Expr: "a {filepath} mongo db seed"},
+	}
+	if rs, _ := Search(mine, "seed"); len(rs) != 1 || rs[0].Score >= rs[0].Fit {
+		t.Fatalf("the test needs redis's marker to count against it: %+v", rs)
+	}
+	better, outclassed := Elsewhere(mine, others, "seed", 6)
+	if outclassed || len(better) != 0 {
+		t.Errorf("seed: better %v, outclassed %v", better, outclassed)
+	}
+	// One that also has the words as the query writes them scores higher, and
+	// is listed, but the project's step has the whole query: it stays.
+	others = append(others, Step{ID: "x.seeds", Pack: "x", Expr: "the seeds are loaded"})
+	if _, outclassed := Elsewhere(mine, others[2:], "seeds", 6); outclassed {
+		t.Error("seeds: a step with every word of the query was outclassed")
+	}
+	// A query the project's steps have only part of still goes elsewhere.
+	others = []Step{{ID: "kafka.event.key", Pack: "kafka", Expr: "the {word} kafka event key is {word}"}}
+	if better, outclassed := Elsewhere(mine, others, "kafka event key", 6); !outclassed || !better[0] {
+		t.Errorf("kafka event key: better %v, outclassed %v", better, outclassed)
+	}
+}
+
 // A list leaves a step's leading form to its step, with no mark: it says what
 // the step says, in the words agents reach for by themselves.
 func TestFoldLeavesOutLeadingForms(t *testing.T) {
