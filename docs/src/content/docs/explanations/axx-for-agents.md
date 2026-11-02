@@ -32,7 +32,7 @@ Documentation drifts; binaries do not. The MCP server, `axx steps`, the skills a
 
 ## A fast, safe loop
 
-`axx up` keeps the system under test running between runs, so an agent's edit-run loop costs seconds instead of minutes. `axx run features/x.feature:LINE` reruns exactly one scenario. Validation, explanation and step search have no side effects and need no running services.
+`axx run` starts what it needs and stops it, so an agent's loop is one command, and `axx up` only keeps the system under test running to inspect it. `axx run features/x.feature:LINE` reruns exactly one scenario. Validation, explanation and step search have no side effects and need no running services.
 
 ## Guardrails in the instructions
 

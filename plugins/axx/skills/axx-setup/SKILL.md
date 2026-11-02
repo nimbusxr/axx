@@ -32,7 +32,7 @@ services:
 - A service is what runs on its own, reached by an address. A program its user starts (a CLI, an MCP server over stdio) is run by its step's `command`, not a service.
 - Commands run without a shell: `shell: true` for pipes or `&&`. `dependsOn: [db]` orders services; the others start in parallel. A command that returns before the service is ready (`docker compose up -d`) is fine: readiness is checked until it holds.
 - A compose stack gets a name of its own (`-p api-axx`), so that it never takes over the stack a developer runs from the same file, or deletes its volumes.
-- Iterate with `axx up` once, `axx run` as often as needed, `axx down`.
+- Iterate with `axx run`: it starts the services and stops them. `axx up` and `axx down` only keep them running to inspect them.
 - Debug the service from an IDE with `axx run --attach api`, or `axx run --debug` with `services.api.debug`.
 
 ## 3. CI

@@ -83,7 +83,7 @@ Axx needs no JVM, no build plugin and no test-runner glue. `axx run` does the wh
 2. It runs the scenarios in parallel.
 3. It stops everything and cleans up, even after a crash or Ctrl-C.
 
-`axx up` keeps the system running between runs, so each edit-and-run cycle takes seconds.
+`axx up` keeps the system running when you want to inspect it.
 
 It is fast. The [example suite](https://github.com/nimbusxr/axx/tree/main/examples/parcels) has 101 scenarios and 888 steps, covering REST, WireMock, PostgreSQL, MongoDB, Kafka, logs, files and a web app in real browsers. Against a running stack, its 38 scenarios that need no browser finish in about a second.
 

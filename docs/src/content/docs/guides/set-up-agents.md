@@ -205,9 +205,10 @@ running services. It answers for itself, offline and for the version installed: 
    `axx steps search <words>` finds it in axx's other packs and names the pack (`axx pack add <name>`).
 3. Write one scenario per acceptance criterion with those steps, written out: each {name} replaced with a value, a(n) as
    "a" or "an", [[...]] kept without the brackets or left out. Never invent step text.
-4. Check, and fix what is reported: `axx validate` (needs no services) and `axx lint` (the test-data rules), then `axx up`
-   once and `axx run --compact` (it reports what validate and lint find too); `axx down` when done. With the MCP tools:
-   `feature_validate`, `lint_run`, `scenarios_run`, `failure_context`. An error's code: `axx explain AXX-E…`.
+4. Check, and fix what is reported, in one command: `axx validate && axx lint && axx run --compact`. Validate (the features) and
+   lint (the test-data rules) need no services and stop it at what they find; the run starts the services and stops them.
+   With the MCP tools, in one turn: `feature_validate`, `lint_run`, `scenarios_run`; `failure_context` explains a failure.
+   An error's code: `axx explain AXX-E…`. `axx up` and `axx down` only keep the services running to inspect them.
 
 Rules axx checks, and agents get wrong:
 - A scenario is one behavior: Given the state it starts from (a request it needs done first is executed in a Given),
