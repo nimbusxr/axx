@@ -200,7 +200,7 @@ func CheckRESTPayloadValues(reg *match.Registry, pickles []*feature.Pickle, work
 				continue
 			}
 			ms := reg.Match(ps.Text)
-			if len(ms) != 1 || ms[0].Def().Step.ID != "rest.request.properties" {
+			if len(ms) != 1 || (ms[0].Def().Step.ID != "rest.request.properties" && ms[0].Def().Step.ID != "rest.request.properties.leading") {
 				continue
 			}
 			src := p.StepSource(ps)

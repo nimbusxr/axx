@@ -89,3 +89,16 @@ func TestPackMarkers(t *testing.T) {
 		t.Errorf("a query naming the pack: %s", got)
 	}
 }
+
+// A list leaves a step's leading form to its step, with no mark: it says what
+// the step says, in the words agents reach for by themselves.
+func TestFoldLeavesOutLeadingForms(t *testing.T) {
+	kept, twinned := Fold([]Entry{
+		{ID: "rest.response.properties.are"},
+		{ID: "rest.response.properties.are.on"},
+		{ID: "rest.response.properties.are.leading"},
+	})
+	if len(kept) != 1 || kept[0].ID != "rest.response.properties.are" || !twinned["rest.response.properties.are"] || len(twinned) != 1 {
+		t.Errorf("kept %+v, twinned %v", kept, twinned)
+	}
+}

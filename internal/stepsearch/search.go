@@ -269,6 +269,16 @@ func Twins(ids []string) map[string]string {
 	return out
 }
 
+// LeadingSuffix ends the id of a step's form with its ordinal first (the 2nd
+// ordered response payload properties are:). It says what its step says, in
+// the words agents reach for by themselves, so a list and a search leave it to
+// its step.
+const LeadingSuffix = ".leading"
+
+// LeadingBase is the id of the step a leading form belongs to, and whether id
+// is one.
+func LeadingBase(id string) (string, bool) { return strings.CutSuffix(id, LeadingSuffix) }
+
 // Entry is a step as a catalog lists it.
 type Entry struct {
 	ID, Pack, Expr string
@@ -294,7 +304,7 @@ func (e Entry) Tail() string {
 }
 
 // Fold leaves out the named-service twins of the entries whose step is
-// there too, and reports the ids of those steps.
+// there too, and reports the ids of those steps, and the leading forms.
 func Fold(entries []Entry) (kept []Entry, twinned map[string]bool) {
 	ids := make([]string, len(entries))
 	for i, e := range entries {
@@ -305,6 +315,9 @@ func Fold(entries []Entry) (kept []Entry, twinned map[string]bool) {
 	for _, e := range entries {
 		if base, ok := twins[e.ID]; ok {
 			twinned[base] = true
+			continue
+		}
+		if _, ok := LeadingBase(e.ID); ok {
 			continue
 		}
 		kept = append(kept, e)

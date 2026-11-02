@@ -2,7 +2,7 @@
   "description": "The frozen catalog of built-in step text. Step text is public API: every entry must stay defined, verbatim, by its pack.",
   "counts": {
     "parameterType": 17,
-    "step": 719
+    "step": 737
   },
   "entries": [
     {
@@ -4437,6 +4437,114 @@
       "pack": "models-core",
       "keyword": "Then",
       "expression": "within {duration} the {word} app's speaker plays the {string} file"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Given",
+      "expression": "the {ordinal} ordered request payload property {word} is {string}"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Given",
+      "expression": "the {ordinal} ordered request payload property {word} is {string} on {service}"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Given",
+      "expression": "the {ordinal} ordered request payload properties are:"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Given",
+      "expression": "the {ordinal} ordered request payload properties on {service} are:"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Given",
+      "expression": "the {ordinal} ordered request payload property {word} is null"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Given",
+      "expression": "the {ordinal} ordered request payload property {word} is null on {service}"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Then",
+      "expression": "the {ordinal} ordered response payload property {word} is {string}"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Then",
+      "expression": "the {ordinal} ordered response payload property {word} is {string} on {service}"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Then",
+      "expression": "the {ordinal} ordered response payload property {word} is null"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Then",
+      "expression": "the {ordinal} ordered response payload property {word} is null on {service}"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Then",
+      "expression": "the {ordinal} ordered response payload property {word} is undefined"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Then",
+      "expression": "the {ordinal} ordered response payload property {word} is undefined on {service}"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Then",
+      "expression": "the {ordinal} ordered response payload property {word} matches {pattern}"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Then",
+      "expression": "the {ordinal} ordered response payload property {word} matches {pattern} on {service}"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Then",
+      "expression": "the {ordinal} ordered response payload properties are:"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Then",
+      "expression": "the {ordinal} ordered response payload properties on {service} are:"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Then",
+      "expression": "the {ordinal} ordered response payload properties match:"
+    },
+    {
+      "kind": "step",
+      "pack": "rest",
+      "keyword": "Then",
+      "expression": "the {ordinal} ordered response payload properties on {service} match:"
     }
   ]
 }

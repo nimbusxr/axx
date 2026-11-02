@@ -225,6 +225,17 @@
           "arg": "none"
         },
         {
+          "id": "rest.request.property.leading",
+          "expr": "the {ordinal} ordered request payload property {word} is {string}[[ on {service}]]",
+          "keyword": "Given",
+          "doc": "`rest.request.property` with its ordinal first, as `the 2nd ordered request ...` steps say it: the same step as `the request payload property {word} is {string} for 2nd ordered request`.",
+          "examples": [
+            "Given the 2nd ordered request payload property sender is 'kestrel-books'"
+          ],
+          "arg": "none",
+          "since": "0.3.0"
+        },
+        {
           "id": "rest.request.properties",
           "expr": "the request payload properties[[ for {ordinal} ordered request]] are:",
           "keyword": "Given",
@@ -263,6 +274,26 @@
           }
         },
         {
+          "id": "rest.request.properties.leading",
+          "expr": "the {ordinal} ordered request payload properties[[ on {service}]] are:",
+          "keyword": "Given",
+          "doc": "`rest.request.properties` with its ordinal first, as `the 2nd ordered request ...` steps say it: the same step as `the request payload properties for 2nd ordered request are:`.",
+          "examples": [
+            "Given the 2nd ordered request payload properties are:\n  | reference          | PX-4101 |\n  | weightGrams        | 1200    |\n  | recipient.postcode | \"53111\" |"
+          ],
+          "arg": "table",
+          "table": {
+            "columns": [
+              "JSONPath",
+              "value"
+            ],
+            "note": "A row is a property's JSONPath and its value.",
+            "values": "json",
+            "undefined": true
+          },
+          "since": "0.3.0"
+        },
+        {
           "id": "rest.request.property.null",
           "expr": "the request payload property {word} is null[[ for {ordinal} ordered request]]",
           "keyword": "Given",
@@ -281,6 +312,17 @@
             "Given the request payload property recipient.street is null for request on parcels"
           ],
           "arg": "none"
+        },
+        {
+          "id": "rest.request.property.null.leading",
+          "expr": "the {ordinal} ordered request payload property {word} is null[[ on {service}]]",
+          "keyword": "Given",
+          "doc": "`rest.request.property.null` with its ordinal first, as `the 2nd ordered request ...` steps say it: the same step as `the request payload property {word} is null for 2nd ordered request`.",
+          "examples": [
+            "Given the 2nd ordered request payload property recipient.street is null"
+          ],
+          "arg": "none",
+          "since": "0.3.0"
         },
         {
           "id": "rest.execute",
@@ -507,6 +549,17 @@
           "arg": "none"
         },
         {
+          "id": "rest.response.property.is.leading",
+          "expr": "the {ordinal} ordered response payload property {word} is {string}[[ on {service}]]",
+          "keyword": "Then",
+          "doc": "`rest.response.property.is` with its ordinal first, as `the 2nd ordered response ...` steps say it: the same step as `the response payload property {word} is {string} for 2nd ordered response`.",
+          "examples": [
+            "Then the 2nd ordered response payload property status is 'REGISTERED'"
+          ],
+          "arg": "none",
+          "since": "0.3.0"
+        },
+        {
           "id": "rest.response.property.null",
           "expr": "the response payload property {word} is null[[ for {ordinal} ordered response]]",
           "keyword": "Then",
@@ -525,6 +578,17 @@
             "Then the response payload property lastLocation is null for response on parcels"
           ],
           "arg": "none"
+        },
+        {
+          "id": "rest.response.property.null.leading",
+          "expr": "the {ordinal} ordered response payload property {word} is null[[ on {service}]]",
+          "keyword": "Then",
+          "doc": "`rest.response.property.null` with its ordinal first, as `the 2nd ordered response ...` steps say it: the same step as `the response payload property {word} is null for 2nd ordered response`.",
+          "examples": [
+            "Then the 2nd ordered response payload property lastLocation is null"
+          ],
+          "arg": "none",
+          "since": "0.3.0"
         },
         {
           "id": "rest.response.property.undefined",
@@ -547,6 +611,17 @@
           "arg": "none"
         },
         {
+          "id": "rest.response.property.undefined.leading",
+          "expr": "the {ordinal} ordered response payload property {word} is undefined[[ on {service}]]",
+          "keyword": "Then",
+          "doc": "`rest.response.property.undefined` with its ordinal first, as `the 2nd ordered response ...` steps say it: the same step as `the response payload property {word} is undefined for 2nd ordered response`.",
+          "examples": [
+            "Then the 2nd ordered response payload property recipient.street is undefined"
+          ],
+          "arg": "none",
+          "since": "0.3.0"
+        },
+        {
           "id": "rest.response.property.matches",
           "expr": "the response payload property {word} matches {pattern}[[ for {ordinal} ordered response]]",
           "keyword": "Then",
@@ -565,6 +640,17 @@
             "Then the response payload property barcode matches ^PX[0-9]{11}$ for response on parcels"
           ],
           "arg": "none"
+        },
+        {
+          "id": "rest.response.property.matches.leading",
+          "expr": "the {ordinal} ordered response payload property {word} matches {pattern}[[ on {service}]]",
+          "keyword": "Then",
+          "doc": "`rest.response.property.matches` with its ordinal first, as `the 2nd ordered response ...` steps say it: the same step as `the response payload property {word} matches {pattern} for 2nd ordered response`.",
+          "examples": [
+            "Then the 2nd ordered response payload property barcode matches ^PX[0-9]{11}$"
+          ],
+          "arg": "none",
+          "since": "0.3.0"
         },
         {
           "id": "rest.response.properties.are",
@@ -605,6 +691,26 @@
           }
         },
         {
+          "id": "rest.response.properties.are.leading",
+          "expr": "the {ordinal} ordered response payload properties[[ on {service}]] are:",
+          "keyword": "Then",
+          "doc": "`rest.response.properties.are` with its ordinal first, as `the 2nd ordered response ...` steps say it: the same step as `the response payload properties for 2nd ordered response are:`.",
+          "examples": [
+            "Then the 2nd ordered response payload properties are:\n  | reference | PX-4101    |\n  | status    | REGISTERED |\n  | zone      | DE-1       |"
+          ],
+          "arg": "table",
+          "table": {
+            "columns": [
+              "JSONPath",
+              "value"
+            ],
+            "note": "A row is a property's JSONPath and the value it must have.",
+            "values": "json",
+            "undefined": true
+          },
+          "since": "0.3.0"
+        },
+        {
           "id": "rest.response.properties.match",
           "expr": "the response payload properties[[ for {ordinal} ordered response]] match:",
           "keyword": "Then",
@@ -637,6 +743,24 @@
             ],
             "note": "A row is a property's JSONPath and a regular expression its value must match."
           }
+        },
+        {
+          "id": "rest.response.properties.match.leading",
+          "expr": "the {ordinal} ordered response payload properties[[ on {service}]] match:",
+          "keyword": "Then",
+          "doc": "`rest.response.properties.match` with its ordinal first, as `the 2nd ordered response ...` steps say it: the same step as `the response payload properties for 2nd ordered response match:`.",
+          "examples": [
+            "Then the 2nd ordered response payload properties match:\n  | barcode   | ^PX[0-9]{11}$  |\n  | signature | ^[0-9a-f]{64}$ |"
+          ],
+          "arg": "table",
+          "table": {
+            "columns": [
+              "JSONPath",
+              "regular expression"
+            ],
+            "note": "A row is a property's JSONPath and a regular expression its value must match."
+          },
+          "since": "0.3.0"
         },
         {
           "id": "rest.token",

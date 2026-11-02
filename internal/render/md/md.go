@@ -266,6 +266,9 @@ func StepIndex(reg *match.Registry) (string, error) {
 		if _, ok := twins[d.Step.ID]; ok {
 			continue
 		}
+		if _, ok := stepsearch.LeadingBase(d.Step.ID); ok {
+			continue
+		}
 		suffix := ""
 		switch d.Step.Arg {
 		case core.ArgTable:

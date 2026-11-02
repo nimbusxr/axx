@@ -461,6 +461,8 @@ func searchSteps(all []Step, q string) ([]Step, bool) {
 		st := all[r.Index]
 		if base, ok := twins[st.ID]; ok {
 			st = all[slices.Index(ids, base)]
+		} else if base, ok := stepsearch.LeadingBase(st.ID); ok && slices.Contains(ids, base) {
+			st = all[slices.Index(ids, base)]
 		}
 		if listed[st.ID] {
 			continue

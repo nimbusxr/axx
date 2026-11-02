@@ -344,6 +344,8 @@ func searchSteps(infos []StepInfo, q string, limit int) (out []StepInfo, strong 
 		s := infos[r.Index]
 		if base, ok := twins[s.ID]; ok {
 			s = infos[slices.Index(ids, base)]
+		} else if base, ok := stepsearch.LeadingBase(s.ID); ok && slices.Contains(ids, base) {
+			s = infos[slices.Index(ids, base)]
 		}
 		if listed[s.ID] {
 			continue

@@ -207,7 +207,8 @@ func responseSteps() []core.StepDef {
 		},
 		{
 			id: "rest.response.property.is", keyword: "Then", noun: "response",
-			head: "the response payload property {word} is {string}", nHead: 2,
+			leading: true,
+			head:    "the response payload property {word} is {string}", nHead: 2,
 			doc: "Check a property of a JSON response, by its JSONPath, like `status`, `recipient.postcode` or " +
 				"`[?(@.sender=='kestrel-books')].reference`.",
 			details: append([]string{
@@ -230,7 +231,8 @@ func responseSteps() []core.StepDef {
 		},
 		{
 			id: "rest.response.property.null", keyword: "Then", noun: "response",
-			head: "the response payload property {word} is null", nHead: 1,
+			leading: true,
+			head:    "the response payload property {word} is null", nHead: 1,
 			doc:          "Check that a property of the response payload exists, and is JSON null.",
 			example:      "Then the response payload property lastLocation is null",
 			namedExample: "Then the response payload property lastLocation is null for response on parcels",
@@ -248,7 +250,8 @@ func responseSteps() []core.StepDef {
 		},
 		{
 			id: "rest.response.property.undefined", keyword: "Then", noun: "response",
-			head: "the response payload property {word} is undefined", nHead: 1,
+			leading: true,
+			head:    "the response payload property {word} is undefined", nHead: 1,
 			doc: "Check that a property of the response payload does not exist.",
 			details: []string{
 				"An indefinite path always exists: it reads as a list, which may be empty.",
@@ -269,7 +272,8 @@ func responseSteps() []core.StepDef {
 		},
 		{
 			id: "rest.response.property.matches", keyword: "Then", noun: "response",
-			head: "the response payload property {word} matches {pattern}", nHead: 2,
+			leading: true,
+			head:    "the response payload property {word} matches {pattern}", nHead: 2,
 			doc:          "Check that a property of the response payload is a string that matches a regular expression.",
 			details:      []string{regexpDoc},
 			example:      "Then the response payload property barcode matches ^PX[0-9]{11}$",
@@ -288,7 +292,8 @@ func responseSteps() []core.StepDef {
 		},
 		{
 			id: "rest.response.properties.are", keyword: "Then", arg: core.ArgTable, noun: "response",
-			head: "the response payload properties", tail: " are:",
+			leading: true,
+			head:    "the response payload properties", tail: " are:",
 			doc: "Check properties of a JSON response, a row each, like the single-property step.",
 			details: []string{
 				"An object's members may come in any order.",
@@ -314,7 +319,8 @@ func responseSteps() []core.StepDef {
 		},
 		{
 			id: "rest.response.properties.match", keyword: "Then", arg: core.ArgTable, noun: "response",
-			head: "the response payload properties", tail: " match:",
+			leading: true,
+			head:    "the response payload properties", tail: " match:",
 			doc: "Check that properties of the response payload are strings that match regular expressions, a row each.",
 			details: []string{
 				regexpsDoc,

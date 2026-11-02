@@ -67,7 +67,10 @@ func (t target) exchange(sc *core.Scenario, a core.Args) (*Exchange, error) {
 //	<head> for[[ {ordinal} ordered]] <noun> on {service}<tail>
 //
 // nHead is the number of parameters in head, so the ordinal is argument
-// nHead and the service argument nHead+1.
+// nHead and the service argument nHead+1. A leading family also has the
+// form with its ordinal first, as the status and execute steps put it:
+//
+//	the {ordinal} ordered <head without its "the">[[ on {service}]]<tail>
 type family struct {
 	id, keyword  string
 	since        string // the axx version that introduced the step, if after 0.1.0
@@ -75,6 +78,7 @@ type family struct {
 	head, tail   string
 	noun         string // "request" or "response"
 	nHead        int
+	leading      bool
 	doc          string   // what the step does, in a sentence
 	details      []string // more of it, a short sentence or two each
 	table        *core.TableDoc
@@ -87,7 +91,7 @@ func (f family) defs() []core.StepDef {
 	run := func(t target) core.StepFunc {
 		return func(sc *core.Scenario, a core.Args) error { return f.run(sc, a, t) }
 	}
-	return []core.StepDef{
+	defs := []core.StepDef{
 		{
 			ID: f.id, Keyword: f.keyword, Arg: f.arg, Since: f.since,
 			Expr:     f.head + "[[ for {ordinal} ordered " + f.noun + "]]" + f.tail,
@@ -107,6 +111,25 @@ func (f family) defs() []core.StepDef {
 			Run:      run(target{ord: f.nHead, svc: f.nHead + 1}),
 		},
 	}
+	if f.leading {
+		named := run(target{ord: f.nHead, svc: f.nHead + 1})
+		rest := strings.TrimPrefix(f.head, "the ")
+		defs = append(defs, core.StepDef{
+			ID: f.id + ".leading", Keyword: f.keyword, Arg: f.arg, Since: "0.3.0",
+			Expr: "the {ordinal} ordered " + rest + "[[ on {service}]]" + f.tail,
+			Doc: "`" + f.id + "` with its ordinal first, as `the 2nd ordered " + f.noun + " ...` steps say it: " +
+				"the same step as `" + f.head + " for 2nd ordered " + f.noun + f.tail + "`.",
+			Table:    f.table,
+			Examples: []string{strings.Replace(f.example, " the ", " the 2nd ordered ", 1)},
+			Run: func(sc *core.Scenario, a core.Args) error {
+				// The family's steps read the ordinal after the head's parameters.
+				list := append(append([]core.Arg{}, a.List[1:f.nHead+1]...), a.List[0])
+				a.List = append(list, a.List[f.nHead+1:]...)
+				return named(sc, a)
+			},
+		})
+	}
+	return defs
 }
 
 // docList is a step's Doc: what it does, in a sentence, then more of it as
@@ -383,7 +406,8 @@ func requestSteps() []core.StepDef {
 		},
 		{
 			id: "rest.request.property", keyword: "Given", noun: "request",
-			head: "the request payload property {word} is {string}", nHead: 2,
+			leading: true,
+			head:    "the request payload property {word} is {string}", nHead: 2,
 			doc: "Set a property of the request payload, by its JSONPath, like `weightGrams`, `recipient.postcode` or `$.recipient.name`.",
 			details: []string{
 				"The value means what it says, whatever the property held before: `'1200'` is an integer, `'1.5'` a decimal, " +
@@ -410,7 +434,8 @@ func requestSteps() []core.StepDef {
 		},
 		{
 			id: "rest.request.properties", keyword: "Given", arg: core.ArgTable, noun: "request",
-			head: "the request payload properties", tail: " are:",
+			leading: true,
+			head:    "the request payload properties", tail: " are:",
 			doc: "Set properties of the request payload, a row each, in order, like the single-property step.",
 			details: []string{
 				"A value is set as written, whatever the property held before.",
@@ -452,7 +477,8 @@ func requestSteps() []core.StepDef {
 		},
 		{
 			id: "rest.request.property.null", keyword: "Given", noun: "request",
-			head: "the request payload property {word} is null", nHead: 1,
+			leading: true,
+			head:    "the request payload property {word} is null", nHead: 1,
 			doc:          "Set an existing property of the request payload to JSON null.",
 			example:      "Given the request payload property recipient.street is null",
 			namedExample: "Given the request payload property recipient.street is null for request on parcels",
