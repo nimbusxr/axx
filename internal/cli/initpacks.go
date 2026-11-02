@@ -48,7 +48,7 @@ var dependencySignals = []packSignal{
 	{"amqp", regexp.MustCompile(`(?im)amqp091|streadway/amqp|"amqplib"\s*:|(^|[^\w./-])pika($|[^\w./-])|spring-boot-starter-amqp|azure-amqp`), "an AMQP client"},
 	{"mqtt", regexp.MustCompile(`(?i)paho\.mqtt|"mqtt"\s*:|paho-mqtt|hivemq-mqtt-client`), "an MQTT client"},
 	{"nats", regexp.MustCompile(`(?i)nats-io/nats\.go|"nats"\s*:|nats-py|jnats`), "a NATS client"},
-	{"grpc", regexp.MustCompile(`(?i)google\.golang\.org/grpc|"@grpc/grpc-js"\s*:|grpcio|grpc-java|io\.grpc`), "a gRPC library"},
+	{"grpc", regexp.MustCompile(`(?im)(^|[\s"'])google\.golang\.org/grpc|"@grpc/grpc-js"\s*:|grpcio|grpc-java|io\.grpc`), "a gRPC library"},
 	{"graphql", regexp.MustCompile(`(?i)gqlgen|graphql-go|"graphql"\s*:|"@apollo/server"\s*:|graphene|strawberry-graphql|graphql-java`), "a GraphQL library"},
 }
 

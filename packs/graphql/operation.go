@@ -224,9 +224,9 @@ func scalarFits(name string, v any) (write string, ok bool) {
 			if name == "ID" && !strings.ContainsAny(x.String(), ".eE") {
 				return "", true
 			}
-			return `"` + x.String() + `"`, false
+			return strconv.Quote(x.String()), false
 		case bool:
-			return `"` + strconv.FormatBool(x) + `"`, false
+			return strconv.Quote(strconv.FormatBool(x)), false
 		}
 		return "", false
 	case "Int":
