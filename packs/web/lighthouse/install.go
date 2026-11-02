@@ -13,7 +13,7 @@ import _ "embed"
 // (driver.CoreVersion): 13.5.0 audits Chromium 151, Playwright 1.62.1's.
 // To upgrade it, change npm/package.json and run
 // `npm install --package-lock-only --ignore-scripts` in npm/.
-const lighthouseVersion = "13.5.0"
+const lighthouseVersion = "13.6.0"
 
 //go:embed npm/package-lock.json
 var lockfile []byte
