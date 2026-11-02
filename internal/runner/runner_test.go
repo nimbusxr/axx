@@ -328,6 +328,25 @@ func TestHeldTimeWaitsOutsideTheStepsTimeout(t *testing.T) {
 	}
 }
 
+// A scenario run.exclusiveUses picks runs alone, with no tag.
+func TestExclusiveScenariosRunAlone(t *testing.T) {
+	f := &fixture{}
+	set, pickles := load(t, "Feature: p\n  Scenario: solo\n    Given a busy step\n  Scenario: a\n    Given a busy step\n  Scenario: b\n    Given a busy step\n")
+	r, _ := newRunner(t, f, set, func(o *Options) {
+		o.ExclusiveScenarios = map[*feature.Pickle]bool{pickles[0]: true}
+	})
+	res := r.Run(context.Background(), pickles)
+	if res.Worst() != Passed {
+		t.Fatalf("worst = %v", res.Worst())
+	}
+	for _, sc := range res.Scenarios {
+		// Worker 0 is the serial phase's.
+		if serial := sc.Worker == 0; serial != (sc.Pickle.Name == "solo") {
+			t.Errorf("scenario %s ran on worker %d", sc.Pickle.Name, sc.Worker)
+		}
+	}
+}
+
 func TestParallelismAndExclusive(t *testing.T) {
 	var b strings.Builder
 	b.WriteString("Feature: p\n")

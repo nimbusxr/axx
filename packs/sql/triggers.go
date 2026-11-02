@@ -45,10 +45,10 @@ func triggerSteps() []core.StepDef {
 			doc = "Make inserts of matching rows into the table store the row and still fail with that SQLSTATE, " +
 				"like a write that succeeded but reported a failure.\n\n"
 		}
-		doc += "- A BEFORE INSERT trigger raises the error, so the database must be PostgreSQL.\n"
+		doc += "- A BEFORE INSERT trigger raises the error, so the database must be PostgreSQL or Oracle. On Oracle, the code is an ORA error: `ORA-20001`, or `20001` for short.\n"
 		if v.insert {
 			doc += "- The row is committed through a second connection before the error, with the `dblink` extension, " +
-				"which the step creates when the database lacks it.\n"
+				"which the step creates when the database lacks it; on Oracle, in an autonomous transaction.\n"
 		}
 		if v.limited {
 			doc += "- Only that many matching inserts fail; the ones after them succeed.\n"
@@ -104,8 +104,14 @@ func randomSuffix() string {
 
 func (svc *Service) createTrigger(ctx context.Context, table, sqlState string, maxInvocations int, insertRow bool, t *core.Table) error {
 	d := svc.Target.Dialect
+	if d.Oracle {
+		return svc.createOracleTrigger(ctx, table, sqlState, maxInvocations, insertRow, t)
+	}
 	if !d.Postgres {
-		return fmt.Errorf("Unsupported database type for triggers. Only PostgreSQL is currently supported. URL: %s", svc.URL) //nolint:staticcheck // user-facing message
+		return fmt.Errorf("Unsupported database type for triggers. Only PostgreSQL and Oracle are currently supported. URL: %s", svc.URL) //nolint:staticcheck // user-facing message
+	}
+	if strings.HasPrefix(sqlState, "ORA-") {
+		return fmt.Errorf("%s is an Oracle error: PostgreSQL's are five-character SQLSTATEs, like 40001", sqlState)
 	}
 	tbl, err := Ident(table)
 	if err != nil {
@@ -205,6 +211,9 @@ func (svc *Service) verifyTrigger(sc *core.Scenario, index int, table string, wa
 	}
 	var got int
 	q := "SELECT CASE WHEN is_called THEN last_value ELSE 0 END FROM public." + tr.RaisedSequence
+	if svc.Target.Dialect.Oracle {
+		q = oracleRaisedQuery(tr)
+	}
 	if err := svc.DB.QueryRowContext(sc.Context(), q).Scan(&got); err != nil {
 		return fmt.Errorf("Could not verify trigger invocation count: %w", err) //nolint:staticcheck // user-facing message
 	}
@@ -221,6 +230,9 @@ func (svc *Service) dropTriggers(ctx context.Context) error {
 	svc.mu.Unlock()
 	if len(trs) == 0 {
 		return nil
+	}
+	if svc.Target.Dialect.Oracle {
+		return svc.dropOracleTriggers(ctx, trs)
 	}
 	conn, err := svc.DB.Conn(ctx)
 	if err != nil {

@@ -401,3 +401,13 @@ func TestSeededTimesFromNow(t *testing.T) {
 		t.Errorf("the timestamp column holds %s, want the wall clock, 2026-10-11 14:00", got)
 	}
 }
+
+// An ORA error is Oracle's: PostgreSQL says what it takes.
+func TestOracleErrorOnPostgres(t *testing.T) {
+	h := newHarness(t)
+	h.db(postgresURL(t))
+	err := h.step("a before insert trigger on the space.crew table will raise an ORA-20001 exception where:", []string{"id", "x"})
+	if err == nil || !strings.Contains(err.Error(), "SQLSTATE") {
+		t.Errorf("an ORA error on PostgreSQL: %v", err)
+	}
+}

@@ -68,7 +68,7 @@ Axx's packs cover:
 |---|---|
 | REST | Requests and responses validated against your OpenAPI document |
 | Mocked dependencies | Calls to them verified through WireMock |
-| SQL | PostgreSQL, MySQL, SQLite and SQL Server: seeds, selections, JSON columns, locks and triggers |
+| SQL | PostgreSQL, Oracle, MySQL, SQLite and SQL Server: seeds, selections, JSON columns, locks and triggers |
 | MongoDB | Seeding and querying |
 | Kafka | Publishing and consuming events, with Avro and Schema Registry |
 | Logs | The entries your services log, in files or sent over UDP, TCP or HTTP |

@@ -1,8 +1,8 @@
 {
   "description": "The frozen catalog of built-in step text. Step text is public API: every entry must stay defined, verbatim, by its pack.",
   "counts": {
-    "parameterType": 18,
-    "step": 781
+    "parameterType": 22,
+    "step": 891
   },
   "entries": [
     {
@@ -10,7 +10,7 @@
       "pack": "core",
       "keyword": "ParameterType",
       "name": "duration",
-      "expression": "(\\d+)(s|m)"
+      "expression": "(\\d+)(ms|s|m)"
     },
     {
       "kind": "parameterType",
@@ -762,7 +762,7 @@
       "pack": "sql",
       "keyword": "ParameterType",
       "name": "sqlState",
-      "expression": "[0-9A-Za-z]{5}"
+      "expression": "ORA-[0-9]{5}"
     },
     {
       "kind": "step",
@@ -4816,6 +4816,694 @@
       "pack": "sql",
       "keyword": "Given",
       "expression": "a {filepath} database seed on {dbService}"
+    },
+    {
+      "kind": "parameterType",
+      "pack": "faults",
+      "keyword": "ParameterType",
+      "name": "connection",
+      "expression": "([^\\s]+)"
+    },
+    {
+      "kind": "parameterType",
+      "pack": "faults",
+      "keyword": "ParameterType",
+      "name": "dataDirection",
+      "expression": "coming back|going out"
+    },
+    {
+      "kind": "step",
+      "pack": "faults",
+      "keyword": "Given",
+      "expression": "the {word} fault proxy with the following properties:"
+    },
+    {
+      "kind": "step",
+      "pack": "faults",
+      "keyword": "Given",
+      "expression": "the {connection} connection is cut off"
+    },
+    {
+      "kind": "step",
+      "pack": "faults",
+      "keyword": "Given",
+      "expression": "the {connection} connection is cut off for {duration}"
+    },
+    {
+      "kind": "step",
+      "pack": "faults",
+      "keyword": "Given",
+      "expression": "the {connection} connection is slowed by {duration}"
+    },
+    {
+      "kind": "step",
+      "pack": "faults",
+      "keyword": "Given",
+      "expression": "the {connection} connection is slowed by {duration} {dataDirection}"
+    },
+    {
+      "kind": "step",
+      "pack": "faults",
+      "keyword": "Given",
+      "expression": "the {connection} connection is slowed by {duration} on {int}% of connections"
+    },
+    {
+      "kind": "step",
+      "pack": "faults",
+      "keyword": "Given",
+      "expression": "the {connection} connection is slowed by {duration} {dataDirection} on {int}% of connections"
+    },
+    {
+      "kind": "step",
+      "pack": "faults",
+      "keyword": "Given",
+      "expression": "the {connection} connection is slowed by {duration} for {duration}"
+    },
+    {
+      "kind": "step",
+      "pack": "faults",
+      "keyword": "Given",
+      "expression": "the {connection} connection is slowed by {duration} {dataDirection} for {duration}"
+    },
+    {
+      "kind": "step",
+      "pack": "faults",
+      "keyword": "Given",
+      "expression": "the {connection} connection is slowed by {duration} on {int}% of connections for {duration}"
+    },
+    {
+      "kind": "step",
+      "pack": "faults",
+      "keyword": "Given",
+      "expression": "the {connection} connection is slowed by {duration} {dataDirection} on {int}% of connections for {duration}"
+    },
+    {
+      "kind": "step",
+      "pack": "faults",
+      "keyword": "Given",
+      "expression": "the {connection} connection is limited to {int} KB\\/s"
+    },
+    {
+      "kind": "step",
+      "pack": "faults",
+      "keyword": "Given",
+      "expression": "the {connection} connection is limited to {int} KB\\/s {dataDirection}"
+    },
+    {
+      "kind": "step",
+      "pack": "faults",
+      "keyword": "Given",
+      "expression": "the {connection} connection is limited to {int} KB\\/s on {int}% of connections"
+    },
+    {
+      "kind": "step",
+      "pack": "faults",
+      "keyword": "Given",
+      "expression": "the {connection} connection is limited to {int} KB\\/s {dataDirection} on {int}% of connections"
+    },
+    {
+      "kind": "step",
+      "pack": "faults",
+      "keyword": "Given",
+      "expression": "the {connection} connection is limited to {int} KB\\/s for {duration}"
+    },
+    {
+      "kind": "step",
+      "pack": "faults",
+      "keyword": "Given",
+      "expression": "the {connection} connection is limited to {int} KB\\/s {dataDirection} for {duration}"
+    },
+    {
+      "kind": "step",
+      "pack": "faults",
+      "keyword": "Given",
+      "expression": "the {connection} connection is limited to {int} KB\\/s on {int}% of connections for {duration}"
+    },
+    {
+      "kind": "step",
+      "pack": "faults",
+      "keyword": "Given",
+      "expression": "the {connection} connection is limited to {int} KB\\/s {dataDirection} on {int}% of connections for {duration}"
+    },
+    {
+      "kind": "step",
+      "pack": "faults",
+      "keyword": "Given",
+      "expression": "the {connection} connection hangs"
+    },
+    {
+      "kind": "step",
+      "pack": "faults",
+      "keyword": "Given",
+      "expression": "the {connection} connection hangs {dataDirection}"
+    },
+    {
+      "kind": "step",
+      "pack": "faults",
+      "keyword": "Given",
+      "expression": "the {connection} connection hangs on {int}% of connections"
+    },
+    {
+      "kind": "step",
+      "pack": "faults",
+      "keyword": "Given",
+      "expression": "the {connection} connection hangs {dataDirection} on {int}% of connections"
+    },
+    {
+      "kind": "step",
+      "pack": "faults",
+      "keyword": "Given",
+      "expression": "the {connection} connection hangs for {duration}"
+    },
+    {
+      "kind": "step",
+      "pack": "faults",
+      "keyword": "Given",
+      "expression": "the {connection} connection hangs {dataDirection} for {duration}"
+    },
+    {
+      "kind": "step",
+      "pack": "faults",
+      "keyword": "Given",
+      "expression": "the {connection} connection hangs on {int}% of connections for {duration}"
+    },
+    {
+      "kind": "step",
+      "pack": "faults",
+      "keyword": "Given",
+      "expression": "the {connection} connection hangs {dataDirection} on {int}% of connections for {duration}"
+    },
+    {
+      "kind": "step",
+      "pack": "faults",
+      "keyword": "Given",
+      "expression": "the {connection} connection hangs for {duration}, then closes"
+    },
+    {
+      "kind": "step",
+      "pack": "faults",
+      "keyword": "Given",
+      "expression": "the {connection} connection hangs for {duration}, then closes {dataDirection}"
+    },
+    {
+      "kind": "step",
+      "pack": "faults",
+      "keyword": "Given",
+      "expression": "the {connection} connection hangs for {duration}, then closes on {int}% of connections"
+    },
+    {
+      "kind": "step",
+      "pack": "faults",
+      "keyword": "Given",
+      "expression": "the {connection} connection hangs for {duration}, then closes {dataDirection} on {int}% of connections"
+    },
+    {
+      "kind": "step",
+      "pack": "faults",
+      "keyword": "Given",
+      "expression": "the {connection} connection hangs for {duration}, then closes for {duration}"
+    },
+    {
+      "kind": "step",
+      "pack": "faults",
+      "keyword": "Given",
+      "expression": "the {connection} connection hangs for {duration}, then closes {dataDirection} for {duration}"
+    },
+    {
+      "kind": "step",
+      "pack": "faults",
+      "keyword": "Given",
+      "expression": "the {connection} connection hangs for {duration}, then closes on {int}% of connections for {duration}"
+    },
+    {
+      "kind": "step",
+      "pack": "faults",
+      "keyword": "Given",
+      "expression": "the {connection} connection hangs for {duration}, then closes {dataDirection} on {int}% of connections for {duration}"
+    },
+    {
+      "kind": "step",
+      "pack": "faults",
+      "keyword": "Given",
+      "expression": "the {connection} connection is reset"
+    },
+    {
+      "kind": "step",
+      "pack": "faults",
+      "keyword": "Given",
+      "expression": "the {connection} connection is reset {dataDirection}"
+    },
+    {
+      "kind": "step",
+      "pack": "faults",
+      "keyword": "Given",
+      "expression": "the {connection} connection is reset on {int}% of connections"
+    },
+    {
+      "kind": "step",
+      "pack": "faults",
+      "keyword": "Given",
+      "expression": "the {connection} connection is reset {dataDirection} on {int}% of connections"
+    },
+    {
+      "kind": "step",
+      "pack": "faults",
+      "keyword": "Given",
+      "expression": "the {connection} connection is reset for {duration}"
+    },
+    {
+      "kind": "step",
+      "pack": "faults",
+      "keyword": "Given",
+      "expression": "the {connection} connection is reset {dataDirection} for {duration}"
+    },
+    {
+      "kind": "step",
+      "pack": "faults",
+      "keyword": "Given",
+      "expression": "the {connection} connection is reset on {int}% of connections for {duration}"
+    },
+    {
+      "kind": "step",
+      "pack": "faults",
+      "keyword": "Given",
+      "expression": "the {connection} connection is reset {dataDirection} on {int}% of connections for {duration}"
+    },
+    {
+      "kind": "step",
+      "pack": "faults",
+      "keyword": "Given",
+      "expression": "the {connection} connection is reset after {duration}"
+    },
+    {
+      "kind": "step",
+      "pack": "faults",
+      "keyword": "Given",
+      "expression": "the {connection} connection is reset after {duration} {dataDirection}"
+    },
+    {
+      "kind": "step",
+      "pack": "faults",
+      "keyword": "Given",
+      "expression": "the {connection} connection is reset after {duration} on {int}% of connections"
+    },
+    {
+      "kind": "step",
+      "pack": "faults",
+      "keyword": "Given",
+      "expression": "the {connection} connection is reset after {duration} {dataDirection} on {int}% of connections"
+    },
+    {
+      "kind": "step",
+      "pack": "faults",
+      "keyword": "Given",
+      "expression": "the {connection} connection is reset after {duration} for {duration}"
+    },
+    {
+      "kind": "step",
+      "pack": "faults",
+      "keyword": "Given",
+      "expression": "the {connection} connection is reset after {duration} {dataDirection} for {duration}"
+    },
+    {
+      "kind": "step",
+      "pack": "faults",
+      "keyword": "Given",
+      "expression": "the {connection} connection is reset after {duration} on {int}% of connections for {duration}"
+    },
+    {
+      "kind": "step",
+      "pack": "faults",
+      "keyword": "Given",
+      "expression": "the {connection} connection is reset after {duration} {dataDirection} on {int}% of connections for {duration}"
+    },
+    {
+      "kind": "step",
+      "pack": "faults",
+      "keyword": "Given",
+      "expression": "the {connection} connection takes {duration} to close"
+    },
+    {
+      "kind": "step",
+      "pack": "faults",
+      "keyword": "Given",
+      "expression": "the {connection} connection takes {duration} to close {dataDirection}"
+    },
+    {
+      "kind": "step",
+      "pack": "faults",
+      "keyword": "Given",
+      "expression": "the {connection} connection takes {duration} to close on {int}% of connections"
+    },
+    {
+      "kind": "step",
+      "pack": "faults",
+      "keyword": "Given",
+      "expression": "the {connection} connection takes {duration} to close {dataDirection} on {int}% of connections"
+    },
+    {
+      "kind": "step",
+      "pack": "faults",
+      "keyword": "Given",
+      "expression": "the {connection} connection takes {duration} to close for {duration}"
+    },
+    {
+      "kind": "step",
+      "pack": "faults",
+      "keyword": "Given",
+      "expression": "the {connection} connection takes {duration} to close {dataDirection} for {duration}"
+    },
+    {
+      "kind": "step",
+      "pack": "faults",
+      "keyword": "Given",
+      "expression": "the {connection} connection takes {duration} to close on {int}% of connections for {duration}"
+    },
+    {
+      "kind": "step",
+      "pack": "faults",
+      "keyword": "Given",
+      "expression": "the {connection} connection takes {duration} to close {dataDirection} on {int}% of connections for {duration}"
+    },
+    {
+      "kind": "step",
+      "pack": "faults",
+      "keyword": "Given",
+      "expression": "the {connection} connection breaks into {int}-byte pieces, {duration} apart"
+    },
+    {
+      "kind": "step",
+      "pack": "faults",
+      "keyword": "Given",
+      "expression": "the {connection} connection breaks into {int}-byte pieces, {duration} apart {dataDirection}"
+    },
+    {
+      "kind": "step",
+      "pack": "faults",
+      "keyword": "Given",
+      "expression": "the {connection} connection breaks into {int}-byte pieces, {duration} apart on {int}% of connections"
+    },
+    {
+      "kind": "step",
+      "pack": "faults",
+      "keyword": "Given",
+      "expression": "the {connection} connection breaks into {int}-byte pieces, {duration} apart {dataDirection} on {int}% of connections"
+    },
+    {
+      "kind": "step",
+      "pack": "faults",
+      "keyword": "Given",
+      "expression": "the {connection} connection breaks into {int}-byte pieces, {duration} apart for {duration}"
+    },
+    {
+      "kind": "step",
+      "pack": "faults",
+      "keyword": "Given",
+      "expression": "the {connection} connection breaks into {int}-byte pieces, {duration} apart {dataDirection} for {duration}"
+    },
+    {
+      "kind": "step",
+      "pack": "faults",
+      "keyword": "Given",
+      "expression": "the {connection} connection breaks into {int}-byte pieces, {duration} apart on {int}% of connections for {duration}"
+    },
+    {
+      "kind": "step",
+      "pack": "faults",
+      "keyword": "Given",
+      "expression": "the {connection} connection breaks into {int}-byte pieces, {duration} apart {dataDirection} on {int}% of connections for {duration}"
+    },
+    {
+      "kind": "step",
+      "pack": "faults",
+      "keyword": "Given",
+      "expression": "the {connection} connection closes after {int} KB"
+    },
+    {
+      "kind": "step",
+      "pack": "faults",
+      "keyword": "Given",
+      "expression": "the {connection} connection closes after {int} KB {dataDirection}"
+    },
+    {
+      "kind": "step",
+      "pack": "faults",
+      "keyword": "Given",
+      "expression": "the {connection} connection closes after {int} KB on {int}% of connections"
+    },
+    {
+      "kind": "step",
+      "pack": "faults",
+      "keyword": "Given",
+      "expression": "the {connection} connection closes after {int} KB {dataDirection} on {int}% of connections"
+    },
+    {
+      "kind": "step",
+      "pack": "faults",
+      "keyword": "Given",
+      "expression": "the {connection} connection closes after {int} KB for {duration}"
+    },
+    {
+      "kind": "step",
+      "pack": "faults",
+      "keyword": "Given",
+      "expression": "the {connection} connection closes after {int} KB {dataDirection} for {duration}"
+    },
+    {
+      "kind": "step",
+      "pack": "faults",
+      "keyword": "Given",
+      "expression": "the {connection} connection closes after {int} KB on {int}% of connections for {duration}"
+    },
+    {
+      "kind": "step",
+      "pack": "faults",
+      "keyword": "Given",
+      "expression": "the {connection} connection closes after {int} KB {dataDirection} on {int}% of connections for {duration}"
+    },
+    {
+      "kind": "step",
+      "pack": "faults",
+      "keyword": "Given",
+      "expression": "the {connection} connection loses {int}% of its data"
+    },
+    {
+      "kind": "step",
+      "pack": "faults",
+      "keyword": "Given",
+      "expression": "the {connection} connection loses {int}% of its data {dataDirection}"
+    },
+    {
+      "kind": "step",
+      "pack": "faults",
+      "keyword": "Given",
+      "expression": "the {connection} connection loses {int}% of its data on {int}% of connections"
+    },
+    {
+      "kind": "step",
+      "pack": "faults",
+      "keyword": "Given",
+      "expression": "the {connection} connection loses {int}% of its data {dataDirection} on {int}% of connections"
+    },
+    {
+      "kind": "step",
+      "pack": "faults",
+      "keyword": "Given",
+      "expression": "the {connection} connection loses {int}% of its data for {duration}"
+    },
+    {
+      "kind": "step",
+      "pack": "faults",
+      "keyword": "Given",
+      "expression": "the {connection} connection loses {int}% of its data {dataDirection} for {duration}"
+    },
+    {
+      "kind": "step",
+      "pack": "faults",
+      "keyword": "Given",
+      "expression": "the {connection} connection loses {int}% of its data on {int}% of connections for {duration}"
+    },
+    {
+      "kind": "step",
+      "pack": "faults",
+      "keyword": "Given",
+      "expression": "the {connection} connection loses {int}% of its data {dataDirection} on {int}% of connections for {duration}"
+    },
+    {
+      "kind": "step",
+      "pack": "faults",
+      "keyword": "Given",
+      "expression": "the {connection} connection has a(n) {word} toxic with the following attributes:"
+    },
+    {
+      "kind": "step",
+      "pack": "faults",
+      "keyword": "When",
+      "expression": "the {connection} connection is restored"
+    },
+    {
+      "kind": "parameterType",
+      "pack": "otel",
+      "keyword": "ParameterType",
+      "name": "gaugeValue",
+      "expression": "-?\\d+(?:\\.\\d+)?"
+    },
+    {
+      "kind": "parameterType",
+      "pack": "otel",
+      "keyword": "ParameterType",
+      "name": "telemetry",
+      "expression": "([^\\s]+)"
+    },
+    {
+      "kind": "step",
+      "pack": "otel",
+      "keyword": "Given",
+      "expression": "the {word} telemetry with the following properties:"
+    },
+    {
+      "kind": "step",
+      "pack": "otel",
+      "keyword": "Then",
+      "expression": "the trace has a span where:"
+    },
+    {
+      "kind": "step",
+      "pack": "otel",
+      "keyword": "Then",
+      "expression": "within {duration} the trace has a span where:"
+    },
+    {
+      "kind": "step",
+      "pack": "otel",
+      "keyword": "Then",
+      "expression": "the trace has no span where:"
+    },
+    {
+      "kind": "step",
+      "pack": "otel",
+      "keyword": "Then",
+      "expression": "the {string} span is a child of the {string} span"
+    },
+    {
+      "kind": "step",
+      "pack": "otel",
+      "keyword": "Then",
+      "expression": "the {string} span took less than {duration}"
+    },
+    {
+      "kind": "step",
+      "pack": "otel",
+      "keyword": "Then",
+      "expression": "the trace has a log where:"
+    },
+    {
+      "kind": "step",
+      "pack": "otel",
+      "keyword": "Then",
+      "expression": "within {duration} the trace has a log where:"
+    },
+    {
+      "kind": "step",
+      "pack": "otel",
+      "keyword": "Then",
+      "expression": "the {telemetry} telemetry counted {int} {word}"
+    },
+    {
+      "kind": "step",
+      "pack": "otel",
+      "keyword": "Then",
+      "expression": "within {duration} the {telemetry} telemetry counted {int} {word}"
+    },
+    {
+      "kind": "step",
+      "pack": "otel",
+      "keyword": "Then",
+      "expression": "the {telemetry} telemetry counted {int} {word} where:"
+    },
+    {
+      "kind": "step",
+      "pack": "otel",
+      "keyword": "Then",
+      "expression": "within {duration} the {telemetry} telemetry counted {int} {word} where:"
+    },
+    {
+      "kind": "step",
+      "pack": "otel",
+      "keyword": "Then",
+      "expression": "the {telemetry} telemetry recorded {int} {word} values"
+    },
+    {
+      "kind": "step",
+      "pack": "otel",
+      "keyword": "Then",
+      "expression": "within {duration} the {telemetry} telemetry recorded {int} {word} values"
+    },
+    {
+      "kind": "step",
+      "pack": "otel",
+      "keyword": "Then",
+      "expression": "the {telemetry} telemetry recorded {int} {word} values where:"
+    },
+    {
+      "kind": "step",
+      "pack": "otel",
+      "keyword": "Then",
+      "expression": "within {duration} the {telemetry} telemetry recorded {int} {word} values where:"
+    },
+    {
+      "kind": "step",
+      "pack": "otel",
+      "keyword": "Then",
+      "expression": "the {telemetry} telemetry's {word} gauge is {gaugeValue}"
+    },
+    {
+      "kind": "step",
+      "pack": "otel",
+      "keyword": "Then",
+      "expression": "within {duration} the {telemetry} telemetry's {word} gauge is {gaugeValue}"
+    },
+    {
+      "kind": "step",
+      "pack": "otel",
+      "keyword": "Then",
+      "expression": "the {telemetry} telemetry's {word} gauge is {gaugeValue} where:"
+    },
+    {
+      "kind": "step",
+      "pack": "otel",
+      "keyword": "Then",
+      "expression": "within {duration} the {telemetry} telemetry's {word} gauge is {gaugeValue} where:"
+    },
+    {
+      "kind": "step",
+      "pack": "otel",
+      "keyword": "Then",
+      "expression": "the telemetry does not contain {string}"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Then",
+      "expression": "the {ordinal} row {word} column of the selection is {string}"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Then",
+      "expression": "the {ordinal} row {word} column of the {ordinal} selection is {string}"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Then",
+      "expression": "the {ordinal} row {word} column of the selection on {dbService} is {string}"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Then",
+      "expression": "the {ordinal} row {word} column of the {ordinal} selection on {dbService} is {string}"
     }
   ]
 }

@@ -173,3 +173,22 @@ func TestExpandedProperties(t *testing.T) {
 		t.Errorf("a value is read before it expands: %v", err)
 	}
 }
+
+// A pack outside axx compares with core's Value.Is what axx's packs compare with
+// Strict: the same rule, one answer.
+func TestPublicComparisonAgrees(t *testing.T) {
+	cells := []string{`42`, `42L`, `"42"`, `2`, `2.0`, `1e3`, `1000.0`, `true`, `"true"`, `null`, `REGISTERED`, `{"a":1,"b":[1,2]}`, `{"a":1.0}`, `[1,2]`, `[2,1]`}
+	actuals := []string{`42`, `"42"`, `2`, `2.0`, `2.00`, `1000.0`, `1000`, `true`, `"true"`, `null`, `""`, `"REGISTERED"`, `{"b":[1,2],"a":1}`, `{"a":1.0}`, `{"a":1}`, `[1,2]`, `[2,1]`}
+	for _, cell := range cells {
+		v, err := core.ParseValue(cell, false, false)
+		if err != nil {
+			t.Fatalf("%s: %v", cell, err)
+		}
+		for _, actual := range actuals {
+			same, _ := Strict("field", actual, v)
+			if got := v.Is(actual); got != same {
+				t.Errorf("%s against %s: Value.Is says %t, Strict %t", cell, actual, got, same)
+			}
+		}
+	}
+}

@@ -495,3 +495,68 @@ func clipText(s string) string {
 	}
 	return s
 }
+
+// Is says what a source holds is this value, by the rule's comparison (ADR 0014),
+// for a pack's own checks: actual is the JSON text of what the source holds. Types
+// must match: `42` is no string "42", and `2` no decimal `2.0`, so give a source's
+// decimal as a decimal. Numbers compare by their exact value, an object's members
+// in any order and a list's in order. A null value is a null source; `undefined`
+// says there is no such thing, which only the source can say, so it is never what
+// a source holds.
+func (v Value) Is(actual string) bool {
+	if v.undefined {
+		return false
+	}
+	want, ok := decodeNumbers(v.json)
+	if !ok {
+		return false
+	}
+	have, ok := decodeNumbers(actual)
+	return ok && sameJSON(have, want)
+}
+
+func decodeNumbers(text string) (any, bool) {
+	d := json.NewDecoder(strings.NewReader(text))
+	d.UseNumber()
+	var v any
+	if err := d.Decode(&v); err != nil || d.More() {
+		return nil, false
+	}
+	return v, true
+}
+
+func sameJSON(a, b any) bool {
+	switch x := a.(type) {
+	case json.Number:
+		y, ok := b.(json.Number)
+		return ok && sameNumber(x, y)
+	case map[string]any:
+		y, ok := b.(map[string]any)
+		if !ok || len(x) != len(y) {
+			return false
+		}
+		for k, xv := range x {
+			yv, ok := y[k]
+			if !ok || !sameJSON(xv, yv) {
+				return false
+			}
+		}
+		return true
+	case []any:
+		y, ok := b.([]any)
+		return ok && slices.EqualFunc(x, y, sameJSON)
+	}
+	return a == b
+}
+
+// sameNumber compares two numbers: an integer is never a decimal, whatever their
+// values.
+func sameNumber(a, b json.Number) bool {
+	decimal := func(n json.Number) bool { return strings.ContainsAny(string(n), ".eE") }
+	if decimal(a) != decimal(b) {
+		return false
+	}
+	x, okx := new(big.Rat).SetString(string(a))
+	y, oky := new(big.Rat).SetString(string(b))
+	return okx && oky && x.Cmp(y) == 0
+}

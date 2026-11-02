@@ -54,6 +54,7 @@ version: 1
 run:
   paths: [features]
   # exclusive: ["@isolated"]   # scenarios with these tags run alone, after the parallel ones
+  # exclusiveUses: [sql.trigger]   # so do the scenarios that use these packs or steps
 
 # Properties back ${sys:name} in steps and here; override with -D name=value.
 properties:

@@ -38,7 +38,7 @@ func (pack) Manifest() core.Manifest {
 		Name:      "sql",
 		Namespace: "sql",
 		Doc: "Seed, query and assert on relational databases. PostgreSQL is fully supported (including JSONB and " +
-			"trigger fault injection); MySQL/MariaDB and SQL Server support seeds, selections, row counts and locks, " +
+			"trigger fault injection); Oracle has all of it but JSONB; MySQL/MariaDB and SQL Server support seeds, selections, row counts and locks, " +
 			"and SQLite all of them but locks. JDBC URLs (jdbc:postgresql://...) are accepted as-is.",
 		Params: []core.ParamType{
 			{
@@ -50,9 +50,9 @@ func (pack) Manifest() core.Manifest {
 				},
 			},
 			{
-				Name: "sqlState", Regexps: []string{`[0-9A-Za-z]{5}`},
-				Doc:      "a five-character SQLSTATE error code, like `40001` (serialization failure) or `23505` (unique violation)",
-				Examples: []string{"40001", "23505"},
+				Name: "sqlState", Regexps: []string{`ORA-[0-9]{5}`, `[0-9A-Za-z]{5}`},
+				Doc:      "a five-character SQLSTATE error code, like `40001` (serialization failure) or `23505` (unique violation); on Oracle, an ORA error, like `ORA-20001`, or its five digits",
+				Examples: []string{"40001", "23505", "ORA-20001"},
 			},
 		},
 		Steps: steps(),
@@ -69,7 +69,8 @@ func steps() []core.StepDef {
 			Doc: "Register a database.\n\n" +
 				"- The first database registered in a scenario is the default.\n" +
 				"- The scheme of the `url` says which database it is: PostgreSQL (`postgres://`, `postgresql://`, `jdbc:postgresql:`), " +
-				"MySQL or MariaDB (`mysql://`, `jdbc:mysql:`, `jdbc:mariadb:`), SQL Server (`sqlserver://`, `jdbc:sqlserver:`) " +
+				"MySQL or MariaDB (`mysql://`, `jdbc:mysql:`, `jdbc:mariadb:`), SQL Server (`sqlserver://`, `jdbc:sqlserver:`), " +
+				"Oracle (`oracle://host:1521/service`, `jdbc:oracle:thin:@//host:1521/service`) " +
 				"or SQLite (`sqlite:`, `file:`, `jdbc:sqlite:`).\n" +
 				"- A PostgreSQL URL connects without TLS unless it sets `sslmode`; its `currentSchema` sets the default schema.",
 			Table: &core.TableDoc{
@@ -105,6 +106,8 @@ func steps() []core.StepDef {
 				"`[DAY,NOW]`, `[DAY,PLUS,1]` or `[HOUR,MINUS,2]` (the unit is `DAY`, `HOUR`, `MIN` or `SEC`). " +
 				"It is the machine's local time; PostgreSQL also gets its offset, so a `timestamptz` column holds that very moment.\n" +
 				"- In YAML and JSON, a value that is a list or an object is stored as JSON text.\n" +
+				"- A row can set an identity column, whether the database calls it `GENERATED ALWAYS` or `IDENTITY`: the column takes what the row names. " +
+				"PostgreSQL's sequence stays where it was, so give seeded rows ids the service will not reach.\n" +
 				"- A row the database refuses, like one whose key exists already, fails the step, and nothing of the file is written.\n" +
 				"- Seeded rows are never deleted.",
 			Examples: []string{
@@ -221,6 +224,21 @@ func steps() []core.StepDef {
 				"  | country  | [A-Z]{2} |"},
 			Run: func(sc *core.Scenario, a core.Args) error { return jsonProperties(sc, a, true) },
 		},
+		core.StepDef{
+			ID: "sql.column.is", Keyword: "Then", TypedArgs: []int{4}, Since: "0.3.1",
+			Expr: "the {ordinal} row {word} column of the[[ {ordinal}]] selection[[ on {dbService}]] is {string}",
+			Doc: "Check the value of one column in one row of a selection, of the column's type: `'850'` is an integer, `'12.5'` a decimal, `'true'` a boolean, `'null'` null, " +
+				"and `'REGISTERED'` or `'\"10115\"'` a string.\n\n" +
+				"- A value of another type fails, and says what to write.\n" +
+				"- A date or a time compares as a moment: `'2026-09-24'`, `'2026-09-24 07:40:00'` or `'2026-09-24T07:40:00+02:00'`.\n" +
+				"- The blanks a `CHAR` column pads its value with are no part of it.\n" +
+				"- " + numbered,
+			Examples: []string{
+				"Then the 1st row status column of the selection is 'REGISTERED'",
+				"Then the 2nd row weight_grams column of the 2nd selection on parcels-db is '850'",
+			},
+			Run: columnIs,
+		},
 		rowCount("sql.rows.eq", "has {int} row(s)", "exactly", func(got, want int) bool { return got == want }),
 		rowCount("sql.rows.gt", "has more than {int} row(s)", "more than", func(got, want int) bool { return got > want }),
 		rowCount("sql.rows.lt", "has fewer than {int} row(s)", "fewer than", func(got, want int) bool { return got < want }),
@@ -252,6 +270,34 @@ func rowCount(id, tail, words string, ok func(got, want int) bool) core.StepDef 
 			return nil
 		},
 	}
+}
+
+func columnIs(sc *core.Scenario, a core.Args) error {
+	svc, err := service(sc, a, 3)
+	if err != nil {
+		return err
+	}
+	sel, err := svc.selection(a.IntOr(2, 1) - 1)
+	if err != nil {
+		return err
+	}
+	want, err := core.ParseValue(a.String(4), false, false)
+	if err != nil {
+		return err
+	}
+	column := a.String(1)
+	got, err := sel.Value(a.Int(0)-1, column)
+	if err != nil {
+		return err
+	}
+	same, hint, actual := svc.cellIs(sc.Context(), sel.Table, column, got, want)
+	if same {
+		return nil
+	}
+	if hint != "" {
+		hint = " (" + hint + ")"
+	}
+	return core.Fail(fmt.Sprintf("the %s column of row %d of the selection from %s differs%s", column, a.Int(0), sel.Table, hint), want.Text(), actual)
 }
 
 func addService(sc *core.Scenario, a core.Args) error {
@@ -479,7 +525,12 @@ func tableAndWhere(ctx context.Context, svc *Service, table string, t *core.Tabl
 	if err != nil {
 		return "", "", nil, err
 	}
-	where, err := whereClause(svc.Target.Dialect, t, "")
+	var where string
+	if svc.Target.Dialect.Oracle {
+		where, err = whereClauseOf(t, "", svc.oracleLiterals(ctx, tbl))
+	} else {
+		where, err = whereClause(svc.Target.Dialect, t, "")
+	}
 	if err != nil {
 		return "", "", nil, err
 	}
@@ -496,6 +547,11 @@ func tableAndWhere(ctx context.Context, svc *Service, table string, t *core.Tabl
 // number; `null` is `col IS NULL`. What keeps the database from converting
 // either of them is holdToColumns, which runs before the query.
 func whereClause(d Dialect, t *core.Table, prefix string) (string, error) {
+	return whereClauseOf(t, prefix, func(_ string, v core.Value) string { return d.Value(v) })
+}
+
+// whereClauseOf is whereClause with its values written by literal, given the column.
+func whereClauseOf(t *core.Table, prefix string, literal func(string, core.Value) string) (string, error) {
 	pairs, err := t.Pairs()
 	if err != nil {
 		return "", err
@@ -516,7 +572,7 @@ func whereClause(d Dialect, t *core.Table, prefix string) (string, error) {
 		if v.IsNull() {
 			parts = append(parts, prefix+col+" IS NULL")
 		} else {
-			parts = append(parts, prefix+col+" = "+d.Value(v))
+			parts = append(parts, prefix+col+" = "+literal(col, v))
 		}
 	}
 	return strings.Join(parts, " AND "), nil

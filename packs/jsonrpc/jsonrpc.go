@@ -393,6 +393,7 @@ func (s *service) post(sc *core.Scenario, client *http.Client, method string, ps
 	for k, vs := range s.headers {
 		hr.Header[k] = vs
 	}
+	sc.ApplyRequestHeaders(hr.Header)
 	hr.Header.Set("Content-Type", "application/json")
 	hr.Header.Set("Accept", "application/json")
 	res, err := client.Do(hr)

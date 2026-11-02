@@ -1,7 +1,9 @@
 package core
 
 import (
+	"context"
 	"errors"
+	"net/http"
 	"strings"
 	"testing"
 )
@@ -348,5 +350,62 @@ func TestReadArg(t *testing.T) {
 	undefined := StepDef{TypedArgs: []int{0}, TypedArgsUndefined: true}
 	if _, err := undefined.ReadArg(0, "string", "undefined"); err != nil {
 		t.Error(err)
+	}
+}
+
+func TestValueIs(t *testing.T) {
+	for _, c := range []struct {
+		cell, actual string
+		is           bool
+	}{
+		{`42`, `42`, true},
+		{`42L`, `42`, true},
+		{`42`, `"42"`, false},
+		{`"42"`, `"42"`, true},
+		{`"42"`, `42`, false},
+		{`2`, `2.0`, false},
+		{`2.0`, `2`, false},
+		{`2.0`, `2.00`, true},
+		{`1e3`, `1000.0`, true},
+		{`9007199254740993`, `9007199254740993`, true},
+		{`9007199254740993`, `9007199254740992`, false},
+		{`true`, `true`, true},
+		{`true`, `"true"`, false},
+		{`null`, `null`, true},
+		{`null`, `""`, false},
+		{`undefined`, `null`, false},
+		{`REGISTERED`, `"REGISTERED"`, true},
+		{`{"a":1,"b":[1,2]}`, `{"b":[1,2],"a":1}`, true},
+		{`{"a":1}`, `{"a":1.0}`, false},
+		{`[1,2]`, `[2,1]`, false},
+		{`"x"`, `not json`, false},
+	} {
+		v, err := ParseValue(c.cell, false, true)
+		if err != nil {
+			t.Fatalf("%s: %v", c.cell, err)
+		}
+		if got := v.Is(c.actual); got != c.is {
+			t.Errorf("%s is %s: %t, want %t", c.cell, c.actual, got, c.is)
+		}
+	}
+}
+
+// What a pack gives every request of a scenario, and a request's own header wins.
+func TestRequestHeaders(t *testing.T) {
+	sc := NewScenario(context.Background(), ScenarioInfo{ID: "s"}, nil, nil)
+	h := http.Header{}
+	sc.ApplyRequestHeaders(h)
+	if len(h) != 0 {
+		t.Errorf("no headers set, and the request has %v", h)
+	}
+	sc.SetRequestHeader("traceparent", "00-a-b-01")
+	sc.ApplyRequestHeaders(h)
+	if h.Get("Traceparent") != "00-a-b-01" {
+		t.Errorf("the request has %v", h)
+	}
+	own := http.Header{"Traceparent": {"00-own-own-01"}}
+	sc.ApplyRequestHeaders(own)
+	if own.Get("Traceparent") != "00-own-own-01" {
+		t.Errorf("the request's own header was replaced: %v", own)
 	}
 }

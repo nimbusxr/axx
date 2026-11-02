@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
+	"net/http"
 	"path/filepath"
 	"sync"
 	"time"
@@ -56,11 +58,13 @@ type Scenario struct {
 	state      map[any]any
 	closers    []namedCloser
 	describers map[string]func() any
-	status     string
-	started    time.Time
-	step       *StepInfo
-	progress   []StepProgress
-	hold       func() func()
+	// requestHeaders are what SetRequestHeader gave the scenario's requests.
+	requestHeaders map[string]string
+	status         string
+	started        time.Time
+	step           *StepInfo
+	progress       []StepProgress
+	hold           func() func()
 }
 
 type namedCloser struct {
@@ -361,4 +365,34 @@ func (k *StateKey[T]) Peek(sc *Scenario) (*T, bool) {
 		return nil, false
 	}
 	return v.(*T), true
+}
+
+// SetRequestHeader gives every request the scenario's steps send from now on that
+// header: a pack's way to say something about the scenario to what the scenario calls,
+// like the otel pack's traceparent. A request that sets the header itself keeps its own.
+func (sc *Scenario) SetRequestHeader(name, value string) {
+	sc.mu.Lock()
+	defer sc.mu.Unlock()
+	if sc.requestHeaders == nil {
+		sc.requestHeaders = map[string]string{}
+	}
+	sc.requestHeaders[name] = value
+}
+
+// RequestHeaders are the headers SetRequestHeader gave the scenario's requests. A pack
+// that sends requests applies them to each, under a name it has not set.
+func (sc *Scenario) RequestHeaders() map[string]string {
+	sc.mu.Lock()
+	defer sc.mu.Unlock()
+	return maps.Clone(sc.requestHeaders)
+}
+
+// ApplyRequestHeaders adds the scenario's RequestHeaders to a request's HTTP headers,
+// under the names the request has not set.
+func (sc *Scenario) ApplyRequestHeaders(h http.Header) {
+	for name, value := range sc.RequestHeaders() {
+		if h.Get(name) == "" {
+			h.Set(name, value)
+		}
+	}
 }

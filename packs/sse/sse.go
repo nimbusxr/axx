@@ -160,6 +160,7 @@ func open(sc *core.Scenario, a core.Args) error {
 			return err
 		}
 	}
+	sc.ApplyRequestHeaders(header)
 	s, err := stream.OpenEvents(url, header,
 		func(ev stream.Event) {
 			e.in.Add(cloudstep.Message{Body: []byte(ev.Data), Fields: map[string]string{"type": ev.Type, "id": ev.ID}})

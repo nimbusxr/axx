@@ -47,6 +47,7 @@ var ordinalSteps = map[string]ordinalUse{
 	"sql.select.jsonb":              {list: "selection", create: true, ordinal: 0, service: 2},
 	"sql.json.are":                  {list: "selection", ordinal: 2, service: 3},
 	"sql.json.match":                {list: "selection", ordinal: 2, service: 3},
+	"sql.column.is":                 {list: "selection", ordinal: 2, service: 3},
 	"sql.rows.eq":                   {list: "selection", ordinal: 0, service: 1},
 	"sql.rows.gt":                   {list: "selection", ordinal: 0, service: 1},
 	"sql.rows.lt":                   {list: "selection", ordinal: 0, service: 1},

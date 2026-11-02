@@ -371,6 +371,13 @@
           "type": "array",
           "description": "Exclusive lists tags whose scenarios run alone, after the parallel phase."
         },
+        "exclusiveUses": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "ExclusiveUses runs alone, after the parallel phase, the scenarios that use\na step of one of these packs, or one of these steps: its ID, or the start\nof its ID, like [faults, sql.trigger]. A way to have them run alone with no\ntags, which nothing turns on for you."
+        },
         "order": {
           "type": "string",
           "description": "Order is \"defined\" (default) or \"random[:seed]\"."

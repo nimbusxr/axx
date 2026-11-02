@@ -96,3 +96,28 @@ func TestInitSuggestsPacksFromTheTopFirst(t *testing.T) {
 		t.Errorf("suggested %v, want sql (the top level) and redis (one folder down)", got)
 	}
 }
+
+// What a compose file's images and a manifest's clients point axx init to, for the
+// connections that fail, what services report, and Oracle.
+func TestInitSuggestsFaultsOtelAndOracle(t *testing.T) {
+	for _, c := range []struct{ pack, line string }{
+		{"faults", "    image: ghcr.io/shopify/toxiproxy:2.13.0"},
+		{"otel", "    image: otel/opentelemetry-collector:0.164.0"},
+		{"sql", "    image: gvenzl/oracle-free:23-slim-faststart"},
+	} {
+		found := false
+		for _, s := range composeSignals {
+			found = found || s.pack == c.pack && s.re.MatchString(c.line)
+		}
+		if !found {
+			t.Errorf("%q does not point to %s", c.line, c.pack)
+		}
+	}
+	found := false
+	for _, s := range dependencySignals {
+		found = found || s.pack == "sql" && s.re.MatchString("github.com/sijms/go-ora/v2 v2.9.0")
+	}
+	if !found {
+		t.Error("go-ora does not point to sql")
+	}
+}

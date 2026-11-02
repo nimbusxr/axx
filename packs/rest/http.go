@@ -171,6 +171,7 @@ func execute(sc *core.Scenario, svc *Service, idx int) error {
 	if err != nil {
 		return fmt.Errorf("invalid request %s %s: %w", method, target, err)
 	}
+	sc.ApplyRequestHeaders(hdr)
 	hreq.Header = hdr
 	if host := hdr.Get("Host"); host != "" {
 		hreq.Host = host

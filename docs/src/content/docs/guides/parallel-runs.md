@@ -45,6 +45,15 @@ Feature: Database failures
 
 Axx runs every other scenario in parallel first, then the exclusive ones one at a time. Tags are inherited, so tagging the feature covers every scenario in it.
 
+To skip the tags, `run.exclusiveUses` lists packs or steps, and any scenario that uses one runs alone. An entry is a pack, a step's ID (`axx steps` shows them), or the start of an ID, so `sql.trigger` covers every trigger step:
+
+```yaml title="axx.yaml"
+run:
+  exclusiveUses: [faults, sql.trigger]
+```
+
+It is off until you list something.
+
 ## Order
 
 ```sh

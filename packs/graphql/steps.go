@@ -229,7 +229,7 @@ func sendOn(sc *core.Scenario, name, text, file string, doc *core.DocString, t *
 	if op.variables != nil {
 		sc.Attach("application/json", []byte(secrets.Mask(sc, string(op.variables))), op.label()+" variables")
 	}
-	ans, err := s.post(sc.Context(), st.client, op.body())
+	ans, err := s.post(sc.Context(), st.client, op.body(), sc.ApplyRequestHeaders)
 	if err != nil {
 		return secrets.Hide(sc, err)
 	}

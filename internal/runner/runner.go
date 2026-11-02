@@ -48,8 +48,11 @@ type Options struct {
 	Workers int
 	// Exclusive tags run alone after the parallel phase.
 	Exclusive []string
-	FailFast  bool
-	DryRun    bool
+	// ExclusiveScenarios run alone after the parallel phase too, whatever their
+	// tags (run.exclusiveUses).
+	ExclusiveScenarios map[*feature.Pickle]bool
+	FailFast           bool
+	DryRun             bool
 	// Order is "defined" (default) or "random" / "random:<seed>".
 	Order           string
 	StepTimeout     time.Duration
@@ -257,7 +260,7 @@ func (r *Runner) order(pickles []*feature.Pickle) []*feature.Pickle {
 }
 
 func (r *Runner) partition(pickles []*feature.Pickle) (parallel, serial []*feature.Pickle) {
-	if len(r.opts.Exclusive) == 0 {
+	if len(r.opts.Exclusive) == 0 && len(r.opts.ExclusiveScenarios) == 0 {
 		return pickles, nil
 	}
 	ex := map[string]bool{}
@@ -268,7 +271,7 @@ func (r *Runner) partition(pickles []*feature.Pickle) (parallel, serial []*featu
 		ex[t] = true
 	}
 	for _, p := range pickles {
-		isEx := false
+		isEx := r.opts.ExclusiveScenarios[p]
 		for _, t := range p.TagNames {
 			if ex[t] {
 				isEx = true

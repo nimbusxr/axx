@@ -28,9 +28,11 @@ type Dialect struct {
 	Postgres bool
 	// BackslashEscapes means backslashes in string literals are escapes (MySQL).
 	BackslashEscapes bool
-	// BitBooleans means there is no TRUE or FALSE: booleans are bits, 1 and 0
-	// (SQL Server).
+	// BitBooleans means there is no TRUE or FALSE to count on: booleans are 1 and
+	// 0 (SQL Server's bits; Oracle's numbers, and its BOOLEAN takes them too).
 	BitBooleans bool
+	// Oracle enables its session, catalogs, numbers and triggers.
+	Oracle bool
 }
 
 var (
@@ -38,6 +40,7 @@ var (
 	mysql     = Dialect{Name: "mysql", Driver: "mysql", ForUpdate: " FOR UPDATE", BackslashEscapes: true}
 	sqlite    = Dialect{Name: "sqlite", Driver: "sqlite"}
 	sqlserver = Dialect{Name: "sqlserver", Driver: "sqlserver", ForUpdateHint: " WITH (UPDLOCK, ROWLOCK)", BitBooleans: true}
+	oracle    = Dialect{Name: "oracle", Driver: "oracle", ForUpdate: " FOR UPDATE WAIT 10", BitBooleans: true, Oracle: true}
 )
 
 // Target is a resolved connection target.
@@ -60,11 +63,13 @@ func Resolve(rawURL, user, password string) (Target, error) {
 		return resolveMySQL(u, user, password)
 	case strings.HasPrefix(lower, "jdbc:sqlserver:"), strings.HasPrefix(lower, "sqlserver://"):
 		return resolveSQLServer(u, user, password)
+	case strings.HasPrefix(lower, "jdbc:oracle:"), strings.HasPrefix(lower, "oracle://"):
+		return resolveOracle(u, user, password)
 	case strings.HasPrefix(lower, "jdbc:sqlite:"), strings.HasPrefix(lower, "sqlite:"), strings.HasPrefix(lower, "file:"):
 		path := strings.TrimPrefix(strings.TrimPrefix(strings.TrimPrefix(u, "jdbc:"), "sqlite:"), "//")
 		return Target{Dialect: sqlite, DSN: path}, nil
 	}
-	return Target{}, fmt.Errorf("unsupported database URL %q (supported: jdbc:postgresql, jdbc:mysql, jdbc:mariadb, jdbc:sqlserver, jdbc:sqlite, or native postgres://, mysql://, sqlserver:// URLs)", rawURL)
+	return Target{}, fmt.Errorf("unsupported database URL %q (supported: jdbc:postgresql, jdbc:mysql, jdbc:mariadb, jdbc:sqlserver, jdbc:oracle, jdbc:sqlite, or native postgres://, mysql://, sqlserver://, oracle:// URLs)", rawURL)
 }
 
 func resolvePostgres(raw, user, password string) (Target, error) {
@@ -157,8 +162,9 @@ func resolveSQLServer(raw, user, password string) (Target, error) {
 // Time renders a moment as a literal of the machine's wall-clock time, as JDBC sends a
 // timestamp. PostgreSQL gets the machine's offset too, so a timestamptz column holds that very
 // moment wherever the machine runs; a timestamp column drops the offset and keeps the wall clock.
+// So does Oracle's (oracleTemporal).
 func (d Dialect) Time(t time.Time, layout string) string {
-	if d.Postgres {
+	if d.Postgres || d.Oracle {
 		layout += "-07:00"
 	}
 	return d.Literal(t.Format(layout))

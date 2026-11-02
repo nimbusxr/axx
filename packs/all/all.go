@@ -22,6 +22,7 @@ import (
 	desktoplinux "github.com/nimbusxr/axx/packs/desktop/linux"
 	desktopmacos "github.com/nimbusxr/axx/packs/desktop/macos"
 	desktopwindows "github.com/nimbusxr/axx/packs/desktop/windows"
+	"github.com/nimbusxr/axx/packs/faults"
 	"github.com/nimbusxr/axx/packs/files"
 	gcpbigquery "github.com/nimbusxr/axx/packs/gcp/bigquery"
 	gcpcore "github.com/nimbusxr/axx/packs/gcp/core"
@@ -49,6 +50,7 @@ import (
 	"github.com/nimbusxr/axx/packs/mongo"
 	"github.com/nimbusxr/axx/packs/mqtt"
 	"github.com/nimbusxr/axx/packs/nats"
+	"github.com/nimbusxr/axx/packs/otel"
 	"github.com/nimbusxr/axx/packs/redis"
 	"github.com/nimbusxr/axx/packs/rest"
 	sqlpack "github.com/nimbusxr/axx/packs/sql"
@@ -82,6 +84,8 @@ func Packs() map[string]core.Pack {
 		"logs":             logs.Pack(),
 		"files":            files.Pack(),
 		"mail":             mail.Pack(),
+		"faults":           faults.Pack(),
+		"otel":             otel.Pack(),
 		"cli":              cli.Pack(),
 		"websocket":        websocket.Pack(),
 		"sse":              sse.Pack(),

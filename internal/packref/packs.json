@@ -2666,7 +2666,7 @@
     },
     {
       "name": "sql",
-      "doc": "Seed, query and assert on relational databases. PostgreSQL is fully supported (including JSONB and trigger fault injection); MySQL/MariaDB and SQL Server support seeds, selections, row counts and locks, and SQLite all of them but locks. JDBC URLs (jdbc:postgresql://...) are accepted as-is.",
+      "doc": "Seed, query and assert on relational databases. PostgreSQL is fully supported (including JSONB and trigger fault injection); Oracle has all of it but JSONB; MySQL/MariaDB and SQL Server support seeds, selections, row counts and locks, and SQLite all of them but locks. JDBC URLs (jdbc:postgresql://...) are accepted as-is.",
       "params": [
         {
           "name": "dbService",
@@ -2681,12 +2681,14 @@
         {
           "name": "sqlState",
           "regexps": [
+            "ORA-[0-9]{5}",
             "[0-9A-Za-z]{5}"
           ],
-          "doc": "a five-character SQLSTATE error code, like `40001` (serialization failure) or `23505` (unique violation)",
+          "doc": "a five-character SQLSTATE error code, like `40001` (serialization failure) or `23505` (unique violation); on Oracle, an ORA error, like `ORA-20001`, or its five digits",
           "examples": [
             "40001",
-            "23505"
+            "23505",
+            "ORA-20001"
           ]
         }
       ],
@@ -2695,7 +2697,7 @@
           "id": "sql.service",
           "expr": "a(n) {word} database with the following properties:",
           "keyword": "Given",
-          "doc": "Register a database.\n\n- The first database registered in a scenario is the default.\n- The scheme of the `url` says which database it is: PostgreSQL (`postgres://`, `postgresql://`, `jdbc:postgresql:`), MySQL or MariaDB (`mysql://`, `jdbc:mysql:`, `jdbc:mariadb:`), SQL Server (`sqlserver://`, `jdbc:sqlserver:`) or SQLite (`sqlite:`, `file:`, `jdbc:sqlite:`).\n- A PostgreSQL URL connects without TLS unless it sets `sslmode`; its `currentSchema` sets the default schema.",
+          "doc": "Register a database.\n\n- The first database registered in a scenario is the default.\n- The scheme of the `url` says which database it is: PostgreSQL (`postgres://`, `postgresql://`, `jdbc:postgresql:`), MySQL or MariaDB (`mysql://`, `jdbc:mysql:`, `jdbc:mariadb:`), SQL Server (`sqlserver://`, `jdbc:sqlserver:`), Oracle (`oracle://host:1521/service`, `jdbc:oracle:thin:@//host:1521/service`) or SQLite (`sqlite:`, `file:`, `jdbc:sqlite:`).\n- A PostgreSQL URL connects without TLS unless it sets `sslmode`; its `currentSchema` sets the default schema.",
           "examples": [
             "Given a parcels-db database with the following properties:\n  | url      | postgres://localhost:5432/parcels |\n  | user     | parcels                           |\n  | password | parcels                           |"
           ],
@@ -2736,7 +2738,7 @@
           "id": "sql.seed",
           "expr": "a {filepath} db seed[[ on {dbService}]]",
           "keyword": "Given",
-          "doc": "Insert the rows of a dataset file, in the file's order and in one transaction.\n\n- A YAML file (`.yaml`, `.yml`) maps each `schema.table` to a list of rows, each a mapping of column to value.\n- A flat XML file (`.xml`) has a `\u003cschema.table column=\"value\"/\u003e` element per row inside `\u003cdataset\u003e`.\n- A JSON file (`.json`) maps each `schema.table` to an array of rows.\n- A CSV file (`.csv`) stands for its directory, which has a `\u003cschema.table\u003e.csv` file per table, in the order its `table-ordering.txt` lists or else by name; a first line names the columns, and `null` is NULL. The step takes the directory itself too.\n- An Excel file (`.xlsx`) has a sheet per table, named after it, with a first row that names the columns; an empty cell is NULL.\n- A value can be `[null]` for NULL, `[UNIX_TIMESTAMP]` for the seconds since 1970, or a time counted from now, like `[DAY,NOW]`, `[DAY,PLUS,1]` or `[HOUR,MINUS,2]` (the unit is `DAY`, `HOUR`, `MIN` or `SEC`). It is the machine's local time; PostgreSQL also gets its offset, so a `timestamptz` column holds that very moment.\n- In YAML and JSON, a value that is a list or an object is stored as JSON text.\n- A row the database refuses, like one whose key exists already, fails the step, and nothing of the file is written.\n- Seeded rows are never deleted.",
+          "doc": "Insert the rows of a dataset file, in the file's order and in one transaction.\n\n- A YAML file (`.yaml`, `.yml`) maps each `schema.table` to a list of rows, each a mapping of column to value.\n- A flat XML file (`.xml`) has a `\u003cschema.table column=\"value\"/\u003e` element per row inside `\u003cdataset\u003e`.\n- A JSON file (`.json`) maps each `schema.table` to an array of rows.\n- A CSV file (`.csv`) stands for its directory, which has a `\u003cschema.table\u003e.csv` file per table, in the order its `table-ordering.txt` lists or else by name; a first line names the columns, and `null` is NULL. The step takes the directory itself too.\n- An Excel file (`.xlsx`) has a sheet per table, named after it, with a first row that names the columns; an empty cell is NULL.\n- A value can be `[null]` for NULL, `[UNIX_TIMESTAMP]` for the seconds since 1970, or a time counted from now, like `[DAY,NOW]`, `[DAY,PLUS,1]` or `[HOUR,MINUS,2]` (the unit is `DAY`, `HOUR`, `MIN` or `SEC`). It is the machine's local time; PostgreSQL also gets its offset, so a `timestamptz` column holds that very moment.\n- In YAML and JSON, a value that is a list or an object is stored as JSON text.\n- A row can set an identity column, whether the database calls it `GENERATED ALWAYS` or `IDENTITY`: the column takes what the row names. PostgreSQL's sequence stays where it was, so give seeded rows ids the service will not reach.\n- A row the database refuses, like one whose key exists already, fails the step, and nothing of the file is written.\n- Seeded rows are never deleted.",
           "examples": [
             "Given a seeds/manifest-kestrel.yaml db seed",
             "Given a seeds/dispatching.yaml db seed on parcels-db",
@@ -2876,6 +2878,18 @@
           }
         },
         {
+          "id": "sql.column.is",
+          "expr": "the {ordinal} row {word} column of the[[ {ordinal}]] selection[[ on {dbService}]] is {string}",
+          "keyword": "Then",
+          "doc": "Check the value of one column in one row of a selection, of the column's type: `'850'` is an integer, `'12.5'` a decimal, `'true'` a boolean, `'null'` null, and `'REGISTERED'` or `'\"10115\"'` a string.\n\n- A value of another type fails, and says what to write.\n- A date or a time compares as a moment: `'2026-09-24'`, `'2026-09-24 07:40:00'` or `'2026-09-24T07:40:00+02:00'`.\n- The blanks a `CHAR` column pads its value with are no part of it.\n- Selections are numbered in the order they are retrieved, whatever ordinal the step says; `the selection` means the first.",
+          "examples": [
+            "Then the 1st row status column of the selection is 'REGISTERED'",
+            "Then the 2nd row weight_grams column of the 2nd selection on parcels-db is '850'"
+          ],
+          "arg": "none",
+          "since": "0.3.1"
+        },
+        {
           "id": "sql.rows.eq",
           "expr": "the[[ {ordinal}]] selection[[ on {dbService}]] has {int} row(s)",
           "keyword": "Then",
@@ -2921,7 +2935,7 @@
           "id": "sql.trigger.raise",
           "expr": "a(n)[[ {ordinal} ordered]] before insert trigger on the {word} table[[ on {dbService}]] will raise a(n) {sqlState} exception where:",
           "keyword": "Given",
-          "doc": "Make inserts of matching rows into the table fail with that SQLSTATE, to test how the service handles database errors.\n\n- A BEFORE INSERT trigger raises the error, so the database must be PostgreSQL.\n- Triggers are numbered in the order they are created, whatever ordinal the step says.\n- The trigger is dropped when the scenario ends.",
+          "doc": "Make inserts of matching rows into the table fail with that SQLSTATE, to test how the service handles database errors.\n\n- A BEFORE INSERT trigger raises the error, so the database must be PostgreSQL or Oracle. On Oracle, the code is an ORA error: `ORA-20001`, or `20001` for short.\n- Triggers are numbered in the order they are created, whatever ordinal the step says.\n- The trigger is dropped when the scenario ends.",
           "examples": [
             "Given a before insert trigger on the parcels.parcels table will raise a 40001 exception where:\n  | reference | PX-DBF-3001 |"
           ],
@@ -2939,7 +2953,7 @@
           "id": "sql.trigger.raise.times",
           "expr": "a(n)[[ {ordinal} ordered]] before insert trigger on the {word} table[[ on {dbService}]] will raise a(n) {sqlState} exception {int} time(s) where:",
           "keyword": "Given",
-          "doc": "Make inserts of matching rows into the table fail with that SQLSTATE, to test how the service handles database errors.\n\n- A BEFORE INSERT trigger raises the error, so the database must be PostgreSQL.\n- Only that many matching inserts fail; the ones after them succeed.\n- Triggers are numbered in the order they are created, whatever ordinal the step says.\n- The trigger is dropped when the scenario ends.",
+          "doc": "Make inserts of matching rows into the table fail with that SQLSTATE, to test how the service handles database errors.\n\n- A BEFORE INSERT trigger raises the error, so the database must be PostgreSQL or Oracle. On Oracle, the code is an ORA error: `ORA-20001`, or `20001` for short.\n- Only that many matching inserts fail; the ones after them succeed.\n- Triggers are numbered in the order they are created, whatever ordinal the step says.\n- The trigger is dropped when the scenario ends.",
           "examples": [
             "Given a before insert trigger on the parcels.parcels table will raise a 40001 exception 1 time where:\n  | reference | PX-DBF-3001 |"
           ],
@@ -2957,7 +2971,7 @@
           "id": "sql.trigger.insertRaise",
           "expr": "a(n)[[ {ordinal} ordered]] before insert trigger on the {word} table[[ on {dbService}]] will insert and raise a(n) {sqlState} exception where:",
           "keyword": "Given",
-          "doc": "Make inserts of matching rows into the table store the row and still fail with that SQLSTATE, like a write that succeeded but reported a failure.\n\n- A BEFORE INSERT trigger raises the error, so the database must be PostgreSQL.\n- The row is committed through a second connection before the error, with the `dblink` extension, which the step creates when the database lacks it.\n- Triggers are numbered in the order they are created, whatever ordinal the step says.\n- The trigger is dropped when the scenario ends.",
+          "doc": "Make inserts of matching rows into the table store the row and still fail with that SQLSTATE, like a write that succeeded but reported a failure.\n\n- A BEFORE INSERT trigger raises the error, so the database must be PostgreSQL or Oracle. On Oracle, the code is an ORA error: `ORA-20001`, or `20001` for short.\n- The row is committed through a second connection before the error, with the `dblink` extension, which the step creates when the database lacks it; on Oracle, in an autonomous transaction.\n- Triggers are numbered in the order they are created, whatever ordinal the step says.\n- The trigger is dropped when the scenario ends.",
           "examples": [
             "Given a before insert trigger on the parcels.parcels table will insert and raise a 40001 exception where:\n  | reference | PX-DBF-3001 |"
           ],
@@ -2975,7 +2989,7 @@
           "id": "sql.trigger.insertRaise.times",
           "expr": "a(n)[[ {ordinal} ordered]] before insert trigger on the {word} table[[ on {dbService}]] will insert and raise a(n) {sqlState} exception {int} time(s) where:",
           "keyword": "Given",
-          "doc": "Make inserts of matching rows into the table store the row and still fail with that SQLSTATE, like a write that succeeded but reported a failure.\n\n- A BEFORE INSERT trigger raises the error, so the database must be PostgreSQL.\n- The row is committed through a second connection before the error, with the `dblink` extension, which the step creates when the database lacks it.\n- Only that many matching inserts fail; the ones after them succeed.\n- Triggers are numbered in the order they are created, whatever ordinal the step says.\n- The trigger is dropped when the scenario ends.",
+          "doc": "Make inserts of matching rows into the table store the row and still fail with that SQLSTATE, like a write that succeeded but reported a failure.\n\n- A BEFORE INSERT trigger raises the error, so the database must be PostgreSQL or Oracle. On Oracle, the code is an ORA error: `ORA-20001`, or `20001` for short.\n- The row is committed through a second connection before the error, with the `dblink` extension, which the step creates when the database lacks it; on Oracle, in an autonomous transaction.\n- Only that many matching inserts fail; the ones after them succeed.\n- Triggers are numbered in the order they are created, whatever ordinal the step says.\n- The trigger is dropped when the scenario ends.",
           "examples": [
             "Given a before insert trigger on the parcels.parcels table will insert and raise a 40001 exception 1 time where:\n  | reference | PX-DBF-3001 |"
           ],
@@ -4875,6 +4889,516 @@
             "values": "text"
           },
           "since": "0.1.5"
+        }
+      ]
+    },
+    {
+      "name": "faults",
+      "doc": "Check what your services do when a connection goes wrong: cut off, slow, hanging, reset, or closing halfway through an answer.\n\nYour service reaches the dependency through [Toxiproxy](https://github.com/Shopify/toxiproxy), which runs in your test environment like any other service, and axx tells it what to do to a connection. Declare the connections in Toxiproxy's own config, since your service needs their ports before it starts, and register Toxiproxy once, usually in the `Background`:\n\n```gherkin\nGiven the parcels fault proxy with the following properties:\n  | url | http://localhost:8474 |\n\nScenario: A cached tracking view answers while the database is away\n  Given the parcels-db connection is cut off\n  ...\n```\n\n- **It works on any TCP connection:** PostgreSQL, Oracle, Kafka, Redis, an HTTP API. A connection is the name of a proxy in Toxiproxy's config.\n- **It sees bytes, not requests,** so it cannot pick a URL, a query or a row. To fail one request, stub it with the mock pack's WireMock mappings; to fail one row's insert, use the sql pack's triggers.\n- **Connections already open are hit too,** which is what a service's connection pool holds.\n- **Each fault can say more,** at its end, in this order:\n  - `coming back` (the default) or `going out`: the direction it applies to. With `coming back`, what the service sends still arrives and only the answer is lost, so a write can be made though the service never hears so; a driver that checks a connection before it uses one waits on that check instead. With `going out`, nothing the service sends arrives.\n  - `on 30% of connections`: each new connection has the fault or does not, by chance.\n  - `for 5s`: it ends by itself. A request step waits for its answer, so no restore step can run during it: this is how a scenario tests a service retrying through an outage.\n- **A connection cut off proves what did not use it:** an answer that still comes, with the database cut off, came from somewhere else, like a cache.\n- **A scenario undoes only what it did,** when it ends or at `is restored`. Scenarios running at the same time share the connection and its faults: `run.exclusiveUses` in axx.yaml can run the scenarios that use this pack alone.",
+      "params": [
+        {
+          "name": "connection",
+          "regexps": [
+            "([^\\s]+)"
+          ],
+          "doc": "a connection: the name of a proxy in Toxiproxy's config",
+          "examples": [
+            "parcels-db",
+            "cache"
+          ]
+        },
+        {
+          "name": "dataDirection",
+          "regexps": [
+            "coming back|going out"
+          ],
+          "doc": "the direction of a connection's data a fault applies to: `coming back` to the service, or `going out` from it",
+          "examples": [
+            "coming back",
+            "going out"
+          ]
+        }
+      ],
+      "steps": [
+        {
+          "id": "faults.proxy",
+          "expr": "the {word} fault proxy with the following properties:",
+          "keyword": "Given",
+          "doc": "Register the Toxiproxy that holds the connections the steps name.\n\n- A connection is found on whichever registered Toxiproxy has it.\n- Values expand `${env:..}` and `${sys:..}`; the token is masked.",
+          "examples": [
+            "Given the parcels fault proxy with the following properties:\n  | url | http://localhost:8474 |"
+          ],
+          "arg": "table",
+          "table": {
+            "columns": [
+              "property",
+              "value"
+            ],
+            "rows": [
+              {
+                "name": "url",
+                "takes": "where Toxiproxy's API is, like `http://localhost:8474`",
+                "required": true
+              },
+              {
+                "name": "token",
+                "takes": "the token of a Toxiproxy started with `TOXIPROXY_AUTH_TOKEN`, like `${env:TOXIPROXY_TOKEN}`"
+              }
+            ]
+          },
+          "since": "0.3.1"
+        },
+        {
+          "id": "faults.cutoff",
+          "expr": "the {connection} connection is cut off[[ for {duration}]]",
+          "keyword": "Given",
+          "doc": "Take the connection away: connections open now close, and new ones are refused.\n\n- With `for {duration}` it comes back by itself, which is how a scenario tests a service retrying through an outage.",
+          "examples": [
+            "Given the parcels-db connection is cut off",
+            "Given the parcels-db connection is cut off for 5s"
+          ],
+          "arg": "none",
+          "since": "0.3.1"
+        },
+        {
+          "id": "faults.slowed",
+          "expr": "the {connection} connection is slowed by {duration}[[ {dataDirection}]][[ on {int}% of connections]][[ for {duration}]]",
+          "keyword": "Given",
+          "doc": "Delay the connection's data by that long, each way it is applied. A new connection waits several times over, for each exchange it starts with.\n\n- `coming back` (the default) or `going out` is the direction it applies to.\n- `on 30% of connections` applies it to that share of connections, by chance.\n- `for 5s` ends it by itself after that long.\n- It also hits the connections open now, and ends when the scenario does.",
+          "examples": [
+            "Given the parcels-db connection is slowed by 2s",
+            "Given the cache connection is slowed by 200ms going out on 30% of connections"
+          ],
+          "arg": "none",
+          "since": "0.3.1"
+        },
+        {
+          "id": "faults.limited",
+          "expr": "the {connection} connection is limited to {int} KB\\/s[[ {dataDirection}]][[ on {int}% of connections]][[ for {duration}]]",
+          "keyword": "Given",
+          "doc": "Let the connection's data through at that rate, in thousands of bytes a second.\n\n- `coming back` (the default) or `going out` is the direction it applies to.\n- `on 30% of connections` applies it to that share of connections, by chance.\n- `for 5s` ends it by itself after that long.\n- It also hits the connections open now, and ends when the scenario does.",
+          "examples": [
+            "Given the parcels-db connection is limited to 100 KB/s"
+          ],
+          "arg": "none",
+          "since": "0.3.1"
+        },
+        {
+          "id": "faults.hangs",
+          "expr": "the {connection} connection hangs[[ {dataDirection}]][[ on {int}% of connections]][[ for {duration}]]",
+          "keyword": "Given",
+          "doc": "Hold the connection's data, and answer nothing, until the fault ends: the service waits as long as its own timeout lets it.\n\n- `coming back` (the default) or `going out` is the direction it applies to.\n- `on 30% of connections` applies it to that share of connections, by chance.\n- `for 5s` ends it by itself after that long.\n- It also hits the connections open now, and ends when the scenario does.",
+          "examples": [
+            "Given the parcels-db connection hangs",
+            "Given the parcels-db connection hangs coming back",
+            "Given the shops connection hangs for 10s"
+          ],
+          "arg": "none",
+          "since": "0.3.1"
+        },
+        {
+          "id": "faults.hangs.closes",
+          "expr": "the {connection} connection hangs for {duration}, then closes[[ {dataDirection}]][[ on {int}% of connections]][[ for {duration}]]",
+          "keyword": "Given",
+          "doc": "Hold the connection's data for that long, then close the connection.\n\n- `coming back` (the default) or `going out` is the direction it applies to.\n- `on 30% of connections` applies it to that share of connections, by chance.\n- `for 5s` ends it by itself after that long.\n- It also hits the connections open now, and ends when the scenario does.",
+          "examples": [
+            "Given the parcels-db connection hangs for 5s, then closes"
+          ],
+          "arg": "none",
+          "since": "0.3.1"
+        },
+        {
+          "id": "faults.reset",
+          "expr": "the {connection} connection is reset[[ {dataDirection}]][[ on {int}% of connections]][[ for {duration}]]",
+          "keyword": "Given",
+          "doc": "Reset the connection as data arrives, which the service sees as a connection reset by its peer.\n\n- `coming back` (the default) or `going out` is the direction it applies to.\n- `on 30% of connections` applies it to that share of connections, by chance.\n- `for 5s` ends it by itself after that long.\n- It also hits the connections open now, and ends when the scenario does.",
+          "examples": [
+            "Given the parcels-db connection is reset"
+          ],
+          "arg": "none",
+          "since": "0.3.1"
+        },
+        {
+          "id": "faults.reset.after",
+          "expr": "the {connection} connection is reset after {duration}[[ {dataDirection}]][[ on {int}% of connections]][[ for {duration}]]",
+          "keyword": "Given",
+          "doc": "Reset the connection that long after data arrives.\n\n- `coming back` (the default) or `going out` is the direction it applies to.\n- `on 30% of connections` applies it to that share of connections, by chance.\n- `for 5s` ends it by itself after that long.\n- It also hits the connections open now, and ends when the scenario does.",
+          "examples": [
+            "Given the parcels-db connection is reset after 1s"
+          ],
+          "arg": "none",
+          "since": "0.3.1"
+        },
+        {
+          "id": "faults.slowclose",
+          "expr": "the {connection} connection takes {duration} to close[[ {dataDirection}]][[ on {int}% of connections]][[ for {duration}]]",
+          "keyword": "Given",
+          "doc": "Delay the close of the connection by that long. What the connection carries before it closes is not delayed.\n\n- `coming back` (the default) or `going out` is the direction it applies to.\n- `on 30% of connections` applies it to that share of connections, by chance.\n- `for 5s` ends it by itself after that long.\n- It also hits the connections open now, and ends when the scenario does.",
+          "examples": [
+            "Given the parcels-db connection takes 2s to close"
+          ],
+          "arg": "none",
+          "since": "0.3.1"
+        },
+        {
+          "id": "faults.pieces",
+          "expr": "the {connection} connection breaks into {int}-byte pieces, {duration} apart[[ {dataDirection}]][[ on {int}% of connections]][[ for {duration}]]",
+          "keyword": "Given",
+          "doc": "Send the connection's data in pieces of that many bytes, that long apart, which tests a service that reads a whole answer in one read.\n\n- `coming back` (the default) or `going out` is the direction it applies to.\n- `on 30% of connections` applies it to that share of connections, by chance.\n- `for 5s` ends it by itself after that long.\n- It also hits the connections open now, and ends when the scenario does.",
+          "examples": [
+            "Given the parcels-db connection breaks into 100-byte pieces, 1ms apart"
+          ],
+          "arg": "none",
+          "since": "0.3.1"
+        },
+        {
+          "id": "faults.closes.after",
+          "expr": "the {connection} connection closes after {int} KB[[ {dataDirection}]][[ on {int}% of connections]][[ for {duration}]]",
+          "keyword": "Given",
+          "doc": "Close the connection once it has carried that many thousands of bytes, which leaves an answer cut off partway.\n\n- `coming back` (the default) or `going out` is the direction it applies to.\n- `on 30% of connections` applies it to that share of connections, by chance.\n- `for 5s` ends it by itself after that long.\n- It also hits the connections open now, and ends when the scenario does.",
+          "examples": [
+            "Given the parcels-db connection closes after 50 KB"
+          ],
+          "arg": "none",
+          "since": "0.3.1"
+        },
+        {
+          "id": "faults.loses",
+          "expr": "the {connection} connection loses {int}% of its data[[ {dataDirection}]][[ on {int}% of connections]][[ for {duration}]]",
+          "keyword": "Given",
+          "doc": "Drop that share of the connection's data, by chance. The service gets no error: what it was waiting for just does not come.\n\n- `coming back` (the default) or `going out` is the direction it applies to.\n- `on 30% of connections` applies it to that share of connections, by chance.\n- `for 5s` ends it by itself after that long.\n- It also hits the connections open now, and ends when the scenario does.",
+          "examples": [
+            "Given the parcels-db connection loses 10% of its data"
+          ],
+          "arg": "none",
+          "since": "0.3.1"
+        },
+        {
+          "id": "faults.toxic",
+          "expr": "the {connection} connection has a(n) {word} toxic with the following attributes:",
+          "keyword": "Given",
+          "doc": "Give the connection any toxic Toxiproxy has by that type, one compiled into your own Toxiproxy included, with the attributes Toxiproxy's documentation gives it.\n\n- `stream` and `toxicity` are the toxic's own: `upstream` or `downstream`, and the share of connections it applies to, from `0.0` to `1.0`.\n- Any other row is one of its attributes, of the type Toxiproxy reads it as.",
+          "examples": [
+            "Given the parcels-db connection has a latency toxic with the following attributes:\n  | latency  | 2000       |\n  | jitter   | 500        |\n  | stream   | \"upstream\" |\n  | toxicity | 0.5        |"
+          ],
+          "arg": "table",
+          "table": {
+            "columns": [
+              "attribute",
+              "value"
+            ],
+            "note": "Each row names an attribute of the toxic and its value.",
+            "values": "json"
+          },
+          "since": "0.3.1"
+        },
+        {
+          "id": "faults.restored",
+          "expr": "the {connection} connection is restored",
+          "keyword": "When",
+          "doc": "End the faults this scenario gave the connection. A scenario's faults end by themselves when it does; another scenario's are left alone.",
+          "examples": [
+            "When the parcels-db connection is restored"
+          ],
+          "arg": "none",
+          "since": "0.3.1"
+        }
+      ]
+    },
+    {
+      "name": "otel",
+      "doc": "Check what your services report through OpenTelemetry: the spans of what a scenario did, the logs that came with them, and their metrics.\n\nYour service exports OTLP, over gRPC or HTTP, to a real [Collector](https://opentelemetry.io/docs/collector/) in your test environment, and the Collector's `file` exporter writes it where axx reads it. You can run that Collector with no tests at all, and send it on to Jaeger or Grafana as well. Register what it writes, usually in the `Background`:\n\n```gherkin\nGiven the parcels-api telemetry with the following properties:\n  | url     | file://.axx/otel/telemetry.jsonl |\n  | service | parcels-api                      |\n```\n\n- **`the trace` is this scenario's own,** whatever runs beside it: once telemetry is registered, the requests the scenario sends carry one `traceparent` header, with a trace ID of the scenario's own, and a service that follows W3C Trace Context puts its spans and logs in that trace. A request that sets its own `traceparent` keeps it.\n- **Metrics are shared.** A scenario sees what was counted since it registered the telemetry, whether the metric is cumulative or delta, but scenarios running at the same time count together: give a check attributes that are its scenario's own.\n- **Checks wait.** A check that something arrived waits 10 seconds, or `within {duration}`. A check that nothing did looks once, so put it after one that waits. A count higher than the check's fails at once.\n- **Metrics take their time:** SDKs export them every 60 seconds by default, so set `OTEL_METRIC_EXPORT_INTERVAL`, in milliseconds, in the service's test environment.",
+      "params": [
+        {
+          "name": "telemetry",
+          "regexps": [
+            "([^\\s]+)"
+          ],
+          "doc": "the name of telemetry registered in the scenario",
+          "examples": [
+            "parcels-api"
+          ]
+        },
+        {
+          "name": "gaugeValue",
+          "regexps": [
+            "-?\\d+(?:\\.\\d+)?"
+          ],
+          "doc": "a gauge's value, of its type: `4` an integer, and `4.0` a decimal",
+          "examples": [
+            "4",
+            "4.5"
+          ]
+        }
+      ],
+      "steps": [
+        {
+          "id": "otel.telemetry",
+          "expr": "the {word} telemetry with the following properties:",
+          "keyword": "Given",
+          "doc": "Register what a Collector's `file` exporter writes.\n\n- From here on, the requests the scenario sends carry this scenario's `traceparent` header.\n- Metrics are counted from here on.",
+          "examples": [
+            "Given the parcels-api telemetry with the following properties:\n  | url     | file://.axx/otel/telemetry.jsonl |\n  | service | parcels-api                      |"
+          ],
+          "arg": "table",
+          "table": {
+            "columns": [
+              "property",
+              "value"
+            ],
+            "rows": [
+              {
+                "name": "url",
+                "takes": "the exporter's file: `file://`, relative to the directory of axx.yaml or absolute",
+                "required": true
+              },
+              {
+                "name": "service",
+                "takes": "the `service.name` whose metrics the steps that name this telemetry look at; the others look at every service's"
+              }
+            ]
+          },
+          "since": "0.3.1"
+        },
+        {
+          "id": "otel.trace.span",
+          "expr": "[[within {duration} ]]the trace has a span where:",
+          "keyword": "Then",
+          "doc": "Check that this scenario's trace has a span with those values.\n\n- The check waits for it: 10 seconds, or `within {duration}`.\n- `undefined` as an attribute's value is a span without that attribute.",
+          "examples": [
+            "Then within 10s the trace has a span where:\n  | name                 | POST /api/parcels |\n  | attribute http.route | /api/parcels      |"
+          ],
+          "arg": "table",
+          "table": {
+            "columns": [
+              "field",
+              "value"
+            ],
+            "rows": [
+              {
+                "name": "name",
+                "takes": "the span's name, all of it"
+              },
+              {
+                "name": "status",
+                "takes": "`OK`, `ERROR` or `UNSET`"
+              },
+              {
+                "name": "kind",
+                "takes": "`SERVER`, `CLIENT`, `INTERNAL`, `PRODUCER` or `CONSUMER`"
+              },
+              {
+                "name": "service",
+                "takes": "the service that reported it"
+              },
+              {
+                "name": "attribute \u003ckey\u003e",
+                "takes": "an attribute's value, of its type: its key after `attribute `"
+              }
+            ],
+            "values": "json",
+            "undefined": true
+          },
+          "since": "0.3.1"
+        },
+        {
+          "id": "otel.trace.nospan",
+          "expr": "the trace has no span where:",
+          "keyword": "Then",
+          "doc": "Check that this scenario's trace has no span with those values.\n\n- It looks once, at what has arrived: put it after a check that waits.",
+          "examples": [
+            "Then the trace has no span where:\n  | status | ERROR |"
+          ],
+          "arg": "table",
+          "table": {
+            "columns": [
+              "field",
+              "value"
+            ],
+            "rows": [
+              {
+                "name": "name",
+                "takes": "the span's name, all of it"
+              },
+              {
+                "name": "status",
+                "takes": "`OK`, `ERROR` or `UNSET`"
+              },
+              {
+                "name": "kind",
+                "takes": "`SERVER`, `CLIENT`, `INTERNAL`, `PRODUCER` or `CONSUMER`"
+              },
+              {
+                "name": "service",
+                "takes": "the service that reported it"
+              },
+              {
+                "name": "attribute \u003ckey\u003e",
+                "takes": "an attribute's value, of its type: its key after `attribute `"
+              }
+            ],
+            "values": "json",
+            "undefined": true
+          },
+          "since": "0.3.1"
+        },
+        {
+          "id": "otel.trace.child",
+          "expr": "the {string} span is a child of the {string} span",
+          "keyword": "Then",
+          "doc": "Check that a span of this scenario's trace has the other for its parent, waiting for them for 10 seconds.",
+          "examples": [
+            "Then the \"store parcel\" span is a child of the \"POST /api/parcels\" span"
+          ],
+          "arg": "none",
+          "since": "0.3.1"
+        },
+        {
+          "id": "otel.trace.took",
+          "expr": "the {string} span took less than {duration}",
+          "keyword": "Then",
+          "doc": "Check how long a span of this scenario's trace took, waiting for it for 10 seconds.\n\n- Every span of that name in the trace must have.",
+          "examples": [
+            "Then the \"POST /api/parcels\" span took less than 500ms"
+          ],
+          "arg": "none",
+          "since": "0.3.1"
+        },
+        {
+          "id": "otel.trace.log",
+          "expr": "[[within {duration} ]]the trace has a log where:",
+          "keyword": "Then",
+          "doc": "Check that this scenario's trace has a log record with those values.\n\n- The check waits for it: 10 seconds, or `within {duration}`.\n- A record is in the trace when the service logged it with the span's context.",
+          "examples": [
+            "Then within 10s the trace has a log where:\n  | severity | ERROR |"
+          ],
+          "arg": "table",
+          "table": {
+            "columns": [
+              "field",
+              "value"
+            ],
+            "rows": [
+              {
+                "name": "severity",
+                "takes": "its severity: `INFO`, `WARN`, `ERROR`..."
+              },
+              {
+                "name": "body",
+                "takes": "text its body contains"
+              },
+              {
+                "name": "service",
+                "takes": "the service that reported it"
+              },
+              {
+                "name": "attribute \u003ckey\u003e",
+                "takes": "an attribute's value, of its type: its key after `attribute `"
+              }
+            ],
+            "values": "json",
+            "undefined": true
+          },
+          "since": "0.3.1"
+        },
+        {
+          "id": "otel.counted",
+          "expr": "[[within {duration} ]]the {telemetry} telemetry counted {int} {word}[[ where:]]",
+          "keyword": "Then",
+          "doc": "Check what a counter has counted since the telemetry was registered, cumulative or delta.\n\n- The check waits for that many: 10 seconds, or `within {duration}`; more fails at once.\n- With `0` it looks once, or at the end of `within {duration}`.",
+          "examples": [
+            "Then within 30s the parcels-api telemetry counted 1 parcels_registered where:\n  | attribute sender | juniper-and-jay |",
+            "Then the parcels-api telemetry counted 0 parcels_rejected"
+          ],
+          "arg": "optional",
+          "table": {
+            "columns": [
+              "field",
+              "value"
+            ],
+            "rows": [
+              {
+                "name": "attribute \u003ckey\u003e",
+                "takes": "the value of an attribute of the data points to count: its key after `attribute `"
+              },
+              {
+                "name": "service",
+                "takes": "the service that reported them"
+              }
+            ],
+            "values": "json",
+            "undefined": true
+          },
+          "since": "0.3.1"
+        },
+        {
+          "id": "otel.recorded",
+          "expr": "[[within {duration} ]]the {telemetry} telemetry recorded {int} {word} values[[ where:]]",
+          "keyword": "Then",
+          "doc": "Check how many values a histogram has recorded since the telemetry was registered.\n\n- The check waits for that many: 10 seconds, or `within {duration}`; more fails at once.",
+          "examples": [
+            "Then within 30s the parcels-api telemetry recorded 1 parcel_weight values where:\n  | attribute sender | juniper-and-jay |"
+          ],
+          "arg": "optional",
+          "table": {
+            "columns": [
+              "field",
+              "value"
+            ],
+            "rows": [
+              {
+                "name": "attribute \u003ckey\u003e",
+                "takes": "the value of an attribute of the data points to count: its key after `attribute `"
+              },
+              {
+                "name": "service",
+                "takes": "the service that reported them"
+              }
+            ],
+            "values": "json",
+            "undefined": true
+          },
+          "since": "0.3.1"
+        },
+        {
+          "id": "otel.gauge",
+          "expr": "[[within {duration} ]]the {telemetry} telemetry's {word} gauge is {gaugeValue}[[ where:]]",
+          "keyword": "Then",
+          "doc": "Check the latest value a gauge reported since the telemetry was registered.\n\n- The check waits for that value: 10 seconds, or `within {duration}`.\n- The value keeps its type: `4` is an integer, and `4.0` a decimal.",
+          "examples": [
+            "Then within 30s the parcels-api telemetry's last_parcel_weight gauge is 1200 where:\n  | attribute sender | juniper-and-jay |"
+          ],
+          "arg": "optional",
+          "table": {
+            "columns": [
+              "field",
+              "value"
+            ],
+            "rows": [
+              {
+                "name": "attribute \u003ckey\u003e",
+                "takes": "the value of an attribute of the data points to count: its key after `attribute `"
+              },
+              {
+                "name": "service",
+                "takes": "the service that reported them"
+              }
+            ],
+            "values": "json",
+            "undefined": true
+          },
+          "since": "0.3.1"
+        },
+        {
+          "id": "otel.contains.not",
+          "expr": "the telemetry does not contain {string}",
+          "keyword": "Then",
+          "doc": "Check that nothing the services reported since the telemetry was registered contains that text: what must stay out of your telemetry, like a person's name.\n\n- It looks once, at what has arrived, and fails when nothing has: put it after a check that waits.",
+          "examples": [
+            "Then the telemetry does not contain 'Marta Keller'"
+          ],
+          "arg": "none",
+          "since": "0.3.1"
         }
       ]
     },

@@ -317,9 +317,11 @@ func (s *server) connect(sc *core.Scenario) error {
 	opts := &sdk.ClientSessionOptions{ProtocolVersion: s.version}
 	var transport sdk.Transport
 	if s.url != "" {
+		headers := s.headers.Clone()
+		sc.ApplyRequestHeaders(headers)
 		transport = &sdk.StreamableClientTransport{
 			Endpoint:             s.url,
-			HTTPClient:           &http.Client{Transport: exactBodies{headerTransport{headers: s.headers, next: http.DefaultTransport}}},
+			HTTPClient:           &http.Client{Transport: exactBodies{headerTransport{headers: headers, next: http.DefaultTransport}}},
 			MaxRetries:           -1,
 			DisableStandaloneSSE: true,
 		}

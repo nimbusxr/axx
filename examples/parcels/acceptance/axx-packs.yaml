@@ -18,6 +18,8 @@ packs:
   - logs
   - files
   - mail
+  - faults
+  - otel
   - cli
   - websocket
   - sse

@@ -97,7 +97,12 @@ func (s *service) register(ctx context.Context, r registration) (*Parcel, error)
 	} else if !errors.Is(err, errNotFound) {
 		return nil, err
 	}
-	zone, err := s.zone(ctx, r.Recipient.Country, r.Recipient.Postcode)
+	var zone string
+	err := inSpan(ctx, "check address", func(ctx context.Context) error {
+		var err error
+		zone, err = s.zone(ctx, r.Recipient.Country, r.Recipient.Postcode)
+		return err
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -109,12 +114,19 @@ func (s *service) register(ctx context.Context, r registration) (*Parcel, error)
 		details["manifestId"] = r.ManifestID
 		details["lineId"] = r.LineID
 	}
-	p, err := s.store.Insert(ctx, &Parcel{
-		Reference: r.Reference, Sender: r.Sender, WeightGrams: r.WeightGrams, ServiceLevel: r.ServiceLevel, Recipient: r.Recipient,
-	}, details)
+	var p *Parcel
+	err = inSpan(ctx, "store parcel", func(ctx context.Context) error {
+		var err error
+		p, err = s.store.Insert(ctx, &Parcel{
+			Reference: r.Reference, Sender: r.Sender, WeightGrams: r.WeightGrams, ServiceLevel: r.ServiceLevel, Recipient: r.Recipient,
+		}, details)
+		return err
+	})
 	if err != nil {
 		return nil, err
 	}
+	countRegistered(ctx, p)
+	s.log.InfoContext(ctx, "parcel registered", "reference", p.Reference, "sender", p.Sender)
 	ev := parcelRegistered{
 		Reference: p.Reference, Sender: p.Sender, WeightGrams: p.WeightGrams, ServiceLevel: p.ServiceLevel,
 		Zone: zone, Source: r.Source, RegisteredAt: p.CreatedAt,

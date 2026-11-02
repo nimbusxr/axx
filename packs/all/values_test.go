@@ -23,6 +23,7 @@ var (
 	// names find something, as written: a label, a page, a file, a screenshot.
 	names = []string{
 		"rest.request.payload.example 1", "rest.request.payload.example.on 1", "files.screenshot 3",
+		"otel.trace.child 0", "otel.trace.child 1", "otel.trace.took 0",
 		"web-core.open 0", "web-core.fill 0", "web-core.select 1", "web-core.option 0", "web-core.check 0",
 		"web-core.uncheck 0", "web-core.upload 1", "web-core.button 0", "web-core.link 0", "web-core.tab 0",
 		"web-core.menuitem 0", "web-core.element.click 0", "web-core.key 1", "web-core.hover 0", "web-core.url 1",

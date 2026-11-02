@@ -12,6 +12,7 @@ run:
   tags: "not @wip"             # default tag filter
   workers: auto                # parallel scenarios
   exclusive: ["@isolated"]     # tags that run alone after the parallel phase
+  exclusiveUses: [sql.trigger] # packs or steps whose scenarios run alone too
   timeouts: {step: 60s}
   reporters: [pretty, {junit: build/axx/junit.xml}]
 resources: ["."]               # where seed/payload/schema paths in steps are looked up

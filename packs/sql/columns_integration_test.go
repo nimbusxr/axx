@@ -441,3 +441,260 @@ func TestColumnTypesSQLServer(t *testing.T) {
 		misses: [][2]string{{"grams", "851"}, {"signed_for", "false"}},
 	}.run(t, h, true)
 }
+
+// identitySeed is a seed whose rows name the identity column, and one that does not.
+const identitySeed = `parcels:
+  - id: 7001
+    reference: PX-ID-7001
+  - id: 7002
+    reference: PX-ID-7002
+  - reference: PX-ID-GENERATED
+`
+
+// A seed's row sets an identity column, whatever the database calls it, and a row
+// of the same seed that leaves it out has it generated.
+func seedsIdentity(t *testing.T, h *harness) {
+	t.Helper()
+	h.file("seed.yaml", identitySeed)
+	h.ok("a seed.yaml db seed")
+	h.ok("a selection of rows is retrieved from the parcels table where:", []string{"id", "7002"}, []string{"reference", "PX-ID-7002"})
+	h.ok("the selection has 1 row")
+	h.ok("a 2nd selection of rows is retrieved from the parcels table where:", []string{"reference", "PX-ID-GENERATED"})
+	h.ok("the 2nd selection has 1 row")
+}
+
+func TestSeedSetsIdentityPostgres(t *testing.T) {
+	url := postgresURL(t)
+	tgt, err := Resolve(url, "space", "secret")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, generated := range []string{"ALWAYS", "BY DEFAULT"} {
+		t.Run(generated, func(t *testing.T) {
+			exec(t, "pgx", tgt.DSN,
+				"DROP TABLE IF EXISTS parcels",
+				"CREATE TABLE parcels (id bigint GENERATED "+generated+" AS IDENTITY PRIMARY KEY, reference text)")
+			h := newHarness(t)
+			h.db(url)
+			seedsIdentity(t, h)
+		})
+	}
+	exec(t, "pgx", tgt.DSN, "DROP TABLE parcels")
+}
+
+func TestSeedSetsIdentitySQLServer(t *testing.T) {
+	host, port := container(t, "mcr.microsoft.com/azure-sql-edge:latest", "1433",
+		map[string]string{"ACCEPT_EULA": "Y", "MSSQL_SA_PASSWORD": "Parcels-Secret-1"},
+		"SQL Server is now ready for client connections", 1)
+	exec(t, "sqlserver", fmt.Sprintf("sqlserver://sa:Parcels-Secret-1@%s:%s?encrypt=disable", host, port), "CREATE DATABASE parcels")
+	url := fmt.Sprintf("sqlserver://%s:%s?database=parcels&encrypt=disable", host, port)
+	tgt, err := Resolve(url, "sa", "Parcels-Secret-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	exec(t, "sqlserver", tgt.DSN,
+		"CREATE TABLE parcels (id BIGINT IDENTITY(1,1) PRIMARY KEY, reference NVARCHAR(40))",
+		"CREATE TABLE depots (id INT IDENTITY(1,1) PRIMARY KEY, code NVARCHAR(10))")
+	h := newHarness(t)
+	h.ok("a space-db database with the following properties:", []string{"url", url}, []string{"user", "sa"}, []string{"password", "Parcels-Secret-1"})
+	seedsIdentity(t, h)
+
+	// A second table's identity in the same seed, as a session has it on for one
+	// table at a time; a row refused leaves it off on the connection.
+	h.file("two.yaml", "depots:\n  - id: 41\n    code: BER-1\nparcels:\n  - id: 7100\n    reference: PX-ID-7100\n")
+	h.ok("a two.yaml db seed")
+	h.file("dup.yaml", "parcels:\n  - id: 7100\n    reference: PX-ID-7100\n")
+	if err := h.step("a dup.yaml db seed"); err == nil || !strings.Contains(err.Error(), "key") {
+		t.Fatalf("a duplicate id: %v", err)
+	}
+	h.file("generated.yaml", "parcels:\n  - reference: PX-ID-AFTER\n")
+	for range 40 { // through every connection of the pool
+		h.ok("a generated.yaml db seed")
+	}
+}
+
+func TestSeedSetsAutoIncrementMySQL(t *testing.T) {
+	host, port := container(t, "mysql:8.4", "3306",
+		map[string]string{"MYSQL_ROOT_PASSWORD": "secret", "MYSQL_DATABASE": "parcels", "MYSQL_USER": "space", "MYSQL_PASSWORD": "secret"},
+		"port: 3306  MySQL Community Server", 1)
+	url := fmt.Sprintf("jdbc:mysql://%s:%s/parcels", host, port)
+	tgt, _ := Resolve(url, "space", "secret")
+	exec(t, "mysql", tgt.DSN, "CREATE TABLE parcels (id BIGINT AUTO_INCREMENT PRIMARY KEY, reference VARCHAR(40))")
+	h := newHarness(t)
+	h.db(url)
+	seedsIdentity(t, h)
+}
+
+func TestSeedSetsAutoIncrementSQLite(t *testing.T) {
+	path := t.TempDir() + "/parcels.db"
+	exec(t, "sqlite", path, "CREATE TABLE parcels (id INTEGER PRIMARY KEY AUTOINCREMENT, reference TEXT)")
+	h := newHarness(t)
+	h.db("sqlite:" + path)
+	seedsIdentity(t, h)
+}
+
+// cellCases are a row's values, of a table with a PX-TYPES-1: what a check of a column
+// passes with, and what it fails with and says.
+type cellCases struct {
+	table  string
+	passes [][2]string // column, value
+	fails  [][3]string // column, value, what the failure says
+}
+
+func (c cellCases) run(t *testing.T, h *harness) {
+	t.Helper()
+	h.ok(fmt.Sprintf("a selection of rows is retrieved from the %s table where:", c.table), []string{"reference", "PX-TYPES-1"})
+	selection := nth(len(mustService(t, h).Selections()))
+	check := func(column, value string) error {
+		quote := "'"
+		if strings.Contains(value, "'") {
+			quote = `"`
+		}
+		return h.step(fmt.Sprintf("the 1st row %s column of the %s selection is %s%s%s", column, selection, quote, value, quote))
+	}
+	for _, p := range c.passes {
+		if err := check(p[0], p[1]); err != nil {
+			t.Errorf("%s is %s: %v", p[0], p[1], err)
+		}
+	}
+	for _, f := range c.fails {
+		err := check(f[0], f[1])
+		if err == nil || !strings.Contains(err.Error(), f[2]) {
+			t.Errorf("%s is %s: %v, want a failure with %s", f[0], f[1], err, f[2])
+		}
+	}
+	if err := check("no_such_column", "1"); err == nil || !strings.Contains(err.Error(), "columns:") {
+		t.Errorf("a column the selection does not have: %v", err)
+	}
+}
+
+func TestColumnChecksPostgres(t *testing.T) {
+	url := postgresURL(t)
+	tgt, _ := Resolve(url, "space", "secret")
+	exec(t, "pgx", tgt.DSN,
+		"CREATE EXTENSION IF NOT EXISTS citext",
+		`CREATE TABLE cells (
+			reference varchar(40) primary key, postcode text, code char(8), shop citext, grams integer, label bigint,
+			kilos numeric(10,2), rate float8, signed boolean, day date, planned_at timestamptz, plain_at timestamp, token uuid, details jsonb, missing text)`,
+		`INSERT INTO cells VALUES ('PX-TYPES-1', '10115', 'H91E2', 'Willow', 850, 3000000000, 12.50, 2, true, '2026-09-24',
+			'2026-09-24T07:40:00Z', '2026-09-24 07:40:00', '6f1c3a52-0d0e-4a57-9a1f-2d8c1b0f7e11', '{"zone":"DE-1","pieces":3}', null)`)
+	h := newHarness(t)
+	h.db(url)
+	cellCases{
+		table: "cells",
+		passes: [][2]string{
+			{"reference", "PX-TYPES-1"},
+			{"postcode", `"10115"`},
+			{"code", "H91E2"},
+			{"shop", "Willow"},
+			{"grams", "850"},
+			{"label", "3000000000"},
+			{"kilos", "12.5"},
+			{"kilos", "12.50"},
+			{"rate", "2.0"},
+			{"signed", "true"},
+			{"day", "2026-09-24"},
+			{"planned_at", "2026-09-24T07:40:00Z"},
+			{"planned_at", "2026-09-24T09:40:00+02:00"},
+			{"plain_at", "2026-09-24 07:40:00"},
+			{"token", "6f1c3a52-0d0e-4a57-9a1f-2d8c1b0f7e11"},
+			{"details", `{"pieces":3,"zone":"DE-1"}`},
+			{"missing", "null"},
+			{"REFERENCE", "PX-TYPES-1"},
+		},
+		fails: [][3]string{
+			{"postcode", "10115", `"10115"`},
+			{"grams", `"850"`, "850"},
+			{"grams", "851", "differs"},
+			{"kilos", "12", "differs"},
+			{"rate", "2", "differs"},
+			{"signed", "false", "differs"},
+			{"signed", `"true"`, "differs"},
+			{"day", "2026-09-25", "differs"},
+			{"missing", "x", "differs"},
+			{"reference", "null", "differs"},
+		},
+	}.run(t, h)
+	exec(t, "pgx", tgt.DSN, "DROP TABLE cells")
+}
+
+func TestColumnChecksMySQL(t *testing.T) {
+	host, port := container(t, "mysql:8.4", "3306",
+		map[string]string{"MYSQL_ROOT_PASSWORD": "secret", "MYSQL_DATABASE": "parcels", "MYSQL_USER": "space", "MYSQL_PASSWORD": "secret"},
+		"port: 3306  MySQL Community Server", 1)
+	url := fmt.Sprintf("jdbc:mysql://%s:%s/parcels", host, port)
+	tgt, _ := Resolve(url, "space", "secret")
+	exec(t, "mysql", tgt.DSN, mysqlSchema...)
+	h := newHarness(t)
+	h.db(url)
+	cellCases{
+		table: "pickups",
+		passes: [][2]string{
+			{"reference", "PX-TYPES-1"},
+			{"postcode", `"10115"`},
+			{"code", "H91E2"},
+			{"grams", "850"},
+			{"label", "3000000000"},
+			{"kilos", "12.5"},
+			{"rate", "1.5"},
+			{"signed_for", "1"},
+			{"signed_for", "true"},
+			{"flags", "3"},
+			{"seal", "1"},
+			{"seal", "true"},
+			{"day", "2026-09-24"},
+			{"planned_at", "2026-09-24 07:40:00"},
+			{"status", "PLANNED"},
+		},
+		fails: [][3]string{{"grams", `"850"`, "850"}, {"kilos", "12", "differs"}, {"signed_for", "false", "differs"}, {"day", "2026-09-25", "differs"}},
+	}.run(t, h)
+}
+
+func TestColumnChecksSQLServer(t *testing.T) {
+	host, port := container(t, "mcr.microsoft.com/azure-sql-edge:latest", "1433",
+		map[string]string{"ACCEPT_EULA": "Y", "MSSQL_SA_PASSWORD": "Parcels-Secret-1"},
+		"SQL Server is now ready for client connections", 1)
+	exec(t, "sqlserver", fmt.Sprintf("sqlserver://sa:Parcels-Secret-1@%s:%s?encrypt=disable", host, port), "CREATE DATABASE parcels")
+	url := fmt.Sprintf("sqlserver://%s:%s?database=parcels&encrypt=disable", host, port)
+	tgt, err := Resolve(url, "sa", "Parcels-Secret-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	exec(t, "sqlserver", tgt.DSN,
+		`CREATE TABLE cells (reference VARCHAR(40) PRIMARY KEY, postcode NVARCHAR(10), code CHAR(8), grams INT, kilos DECIMAL(10,2), rate FLOAT, signed_for BIT, day DATE, planned_at DATETIME2, missing NVARCHAR(10))`,
+		`INSERT INTO cells VALUES ('PX-TYPES-1', N'10115', 'H91E2', 850, 12.50, 2, 1, '2026-09-24', '2026-09-24T07:40:00', NULL)`)
+	h := newHarness(t)
+	h.ok("a space-db database with the following properties:", []string{"url", url}, []string{"user", "sa"}, []string{"password", "Parcels-Secret-1"})
+	cellCases{
+		table: "cells",
+		passes: [][2]string{
+			{"reference", "PX-TYPES-1"},
+			{"postcode", `"10115"`},
+			{"code", "H91E2"},
+			{"grams", "850"},
+			{"kilos", "12.5"},
+			{"rate", "2.0"},
+			{"signed_for", "true"},
+			{"day", "2026-09-24"},
+			{"planned_at", "2026-09-24 07:40:00"},
+			{"missing", "null"},
+		},
+		fails: [][3]string{{"grams", `"850"`, "850"}, {"kilos", "12", "differs"}, {"signed_for", "1", "differs"}, {"missing", "x", "differs"}},
+	}.run(t, h)
+}
+
+func TestColumnChecksSQLite(t *testing.T) {
+	path := t.TempDir() + "/cells.db"
+	exec(t, "sqlite", path,
+		"CREATE TABLE cells (reference TEXT PRIMARY KEY, grams INTEGER, kilos REAL, signed BOOLEAN, anything, missing TEXT)",
+		"INSERT INTO cells VALUES ('PX-TYPES-1', 850, 12.5, 1, 7, NULL)")
+	h := newHarness(t)
+	h.db("sqlite:" + path)
+	cellCases{
+		table: "cells",
+		passes: [][2]string{
+			{"reference", "PX-TYPES-1"}, {"grams", "850"}, {"kilos", "12.5"}, {"signed", "true"}, {"anything", "7"}, {"missing", "null"},
+		},
+		fails: [][3]string{{"grams", `"850"`, "850"}, {"kilos", "12", "differs"}, {"anything", "7.0", "differs"}},
+	}.run(t, h)
+}

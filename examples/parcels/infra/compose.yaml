@@ -358,6 +358,48 @@ services:
       retries: 60
     stop_signal: SIGKILL
 
+  # Where the service reports what it does, through OpenTelemetry. It runs with or without
+  # the tests; the features read what its file exporter writes (telemetry.feature), and
+  # another exporter could send the same to Jaeger or Grafana.
+  otel-collector:
+    image: 'otel/opentelemetry-collector:0.164.0'
+    command: ["--config=/etc/otel-collector.yaml"]
+    # The file exporter writes into a folder root owns on Linux.
+    user: '0:0'
+    ports:
+      - '4317:4317'
+      - '4318:4318'
+    volumes:
+      - './otel-collector/otel-collector.yaml:/etc/otel-collector.yaml:ro'
+      - '../acceptance/.axx/otel:/out'
+    stop_signal: SIGKILL
+
+  # What stands between the service and its database and cache, so that a scenario can make
+  # those connections fail (connection-faults.feature). The connections are in its config, as
+  # the service needs their ports before any scenario runs; axx talks to its API on 8474.
+  toxiproxy:
+    image: 'ghcr.io/shopify/toxiproxy:2.13.0'
+    command: ["-host=0.0.0.0", "-config=/etc/toxiproxy/toxiproxy.json"]
+    ports:
+      - '8474:8474'
+      - '15432:15432'
+      - '16379:16379'
+    volumes:
+      - './toxiproxy/toxiproxy.json:/etc/toxiproxy/toxiproxy.json:ro'
+    healthcheck:
+      test: ["CMD", "/toxiproxy-cli", "list"]
+      interval: 30s
+      start_interval: 1s
+      start_period: 5m
+      timeout: 2s
+      retries: 60
+    depends_on:
+      postgres:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+    stop_signal: SIGKILL
+
   # The service's mail server in the tests: smtp4dev catches every email it sends, for the
   # features to read over IMAP (1143), and stubs the mail servers of the shops as WireMock's
   # mappings stub the HTTP dependencies: its recipient expression refuses the mail of the
@@ -400,7 +442,7 @@ services:
       # The tracking API, over gRPC.
       - '8410:8410'
     environment:
-      PARCELS_DB_URL: postgres://parcels:parcels@postgres:5432/parcels?sslmode=disable
+      PARCELS_DB_URL: postgres://parcels:parcels@toxiproxy:15432/parcels?sslmode=disable
       PARCELS_MONGO_URI: mongodb://parcels:parcels@mongo:27017/?authSource=admin
       PARCELS_ADDRESS_URL: http://address-service:8080
       PARCELS_COURIER_URL: http://courier:8080
@@ -411,7 +453,7 @@ services:
       PARCELS_MQTT_URL: mqtt://mosquitto:1883
       PARCELS_NATS_URL: nats://nats:4222
       PARCELS_SHOP_WEBHOOK_URL: http://shops:8080/webhooks
-      PARCELS_REDIS_URL: redis://valkey:6379/0
+      PARCELS_REDIS_URL: redis://toxiproxy:16379/0
       PARCELS_SMTP_ADDR: mail:25
       PARCELS_EXPORT_DIR: /var/lib/parcels/exports
       PARCELS_MODEL_URL: http://models:8080/v1
@@ -423,6 +465,13 @@ services:
       # Every log line also goes to the log service axx runs on the host (the
       # parcels log in the features); host-gateway makes the name work on Linux.
       PARCELS_LOG_UDP: host.docker.internal:5140
+      # What it reports through OpenTelemetry goes to the Collector, soon: an SDK's own
+      # defaults are every 60 seconds for metrics and every 5 for spans and logs.
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+      OTEL_SERVICE_NAME: parcels-api
+      OTEL_METRIC_EXPORT_INTERVAL: '500'
+      OTEL_BSP_SCHEDULE_DELAY: '200'
+      OTEL_BLRP_SCHEDULE_DELAY: '200'
     volumes:
       - './exports:/var/lib/parcels/exports'
       - './portal-models:/var/lib/parcels/portal-models:ro'
@@ -459,6 +508,10 @@ services:
         condition: service_healthy
       valkey:
         condition: service_healthy
+      toxiproxy:
+        condition: service_healthy
+      otel-collector:
+        condition: service_started
       mail:
         condition: service_healthy
 
