@@ -59,7 +59,13 @@ func newIdentities() *identities { return &identities{claims: map[string]string{
 // derive computes the value for a fixture: prefix + key [+ "-" + qualifier],
 // or its name-based UUID.
 func (r *identities) derive(id Identity, fixtureKey string) string {
-	name := id.Prefix + fixtureKey
+	return deriveIdentity(id, fixtureKey)
+}
+
+// deriveIdentity is the value an identity derives from key: a fixture's key,
+// or an instance's keying material.
+func deriveIdentity(id Identity, key string) string {
+	name := id.Prefix + key
 	if strings.TrimSpace(id.Qualifier) != "" {
 		name += "-" + id.Qualifier
 	}

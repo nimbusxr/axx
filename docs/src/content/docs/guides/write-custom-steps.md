@@ -159,6 +159,74 @@ Scenario: A carrier's signed scan is accepted
 
 The step signs the payload as the steps before it left it, so it comes after the payload steps.
 
+## Make data from fixtures
+
+A pack that makes data of its own, a stream of records, say, can make it from the project's [fixture factories](/guides/fixture-factories/). The `fixtures` package gives it one fixture's values for an instance it names, as `axx fixtures check` resolves them, without writing a file:
+
+```go
+lib, err := fixtures.Load(fixtures.DefaultConfig("data"))
+if err != nil {
+	return err
+}
+parcel, err := lib.Fixture("parcels/parcels#standard")
+if err != nil {
+	return err
+}
+for i := range count {
+	scope := fixtures.InstanceScope{Discriminator: fmt.Sprintf("%s|%d", runID, i)}
+	instance, err := lib.Instance(parcel, fixtures.Input{Scope: scope})
+	if err != nil {
+		return err
+	}
+	send(instance.Data.CompactJSON(), instance.Identities["reference"])
+}
+```
+
+The same fixture and scope give the same bytes. An identity the data has no value for derives one from the scope, so give each instance a discriminator of its own: `Instance` claims no identity, and keeping them unique is the pack's to do. `Input.Overrides` sets values, `Input.Documents` resolves `$ref`s to other documents, and a reference that names no fixture fails with `AXX-E0911`.
+
+## Produce to a Kafka service
+
+Steps that publish in a way of their own can still reach a Kafka service the scenario declared as the publish steps do, with its connection, its security and its serializers:
+
+```go
+svc, err := kafka.Context(sc).Service()
+if err != nil {
+	return err
+}
+client, err := svc.Producer(sc, "depot-scans")
+if err != nil {
+	return err
+}
+serializer, err := svc.Serializer(sc, "depot-scans")
+if err != nil {
+	return err
+}
+value, err := serializer.AvroJSON(ctx, schema, payload)
+if err != nil {
+	return err
+}
+client.Produce(ctx, &kgo.Record{Topic: "depot-scans", Value: value}, nil)
+```
+
+`Producer` is the client the publish steps use: the run closes it, so don't. To produce at a rate it isn't tuned for, make a client of your own from `ProducerOpts`, and close that one. `Serializer` writes values as the topic's producer does, with its Schema Registry and the Confluent wire format.
+
+## Tell steps apart in a hook
+
+A hook around a step can ask which step it is: `sc.Step()` gives its text and line, and once it matched, `Definition`, the `ID` of the step it matched, and `Pack`, the pack that registered it. Those stay the same however the feature words the step, so a hook can act on what a step is:
+
+```go
+Hooks: []core.Hook{{
+	ID:    "steps.wait-before-publishing",
+	Phase: core.BeforeStep,
+	Run: func(sc *core.Scenario) error {
+		if step := sc.Step(); step != nil && step.Pack == "kafka" {
+			return waitForTheConsumers(sc)
+		}
+		return nil
+	},
+}},
+```
+
 ## Give agents a tool
 
 A pack can also give coding agents tools of their own, in `axx mcp`: `Tools` in its manifest. A tool looks at the scenario an agent keeps open with `steps_try`, the one its steps ran in, and returns data (and images) for the agent. The web-core pack's `web_page` shows the page the steps led to ([Set up agents](/guides/set-up-agents/#mcp-server)).

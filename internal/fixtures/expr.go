@@ -21,8 +21,9 @@ import (
 // recorded function's behavior requires a new Version, which invalidates its
 // recorded pairings until the next generate.
 //
-// The interface is internal; a future plugin capability (factory.function)
-// can back it.
+// Packs supply functions for the instances they produce through the public
+// package github.com/nimbusxr/axx/fixtures; for generate and check, a future
+// plugin capability (factory.function) can back the interface.
 type Function interface {
 	// Name is what expressions call, e.g. "tokenize".
 	Name() string

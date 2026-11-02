@@ -115,7 +115,7 @@ type TopicClient struct {
 // Event is a drafted Kafka event.
 type Event struct {
 	Key       *string
-	Headers   []header // unique keys, in the order they were first set
+	Headers   []Header // unique keys, in the order they were first set
 	Payload   string
 	Published []published
 }
@@ -136,7 +136,7 @@ func (e *Event) setHeader(key string, value *string) {
 			return
 		}
 	}
-	e.Headers = append(e.Headers, header{Key: key, Value: value})
+	e.Headers = append(e.Headers, Header{Key: key, Value: value})
 }
 
 // label returns the label, creating it on first use.

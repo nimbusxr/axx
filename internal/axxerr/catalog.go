@@ -351,4 +351,7 @@ func init() {
 	add("AXX-E0910", u, "Nothing to explain",
 		"`axx fixtures explain` was given a file the fixture factory does not generate (and no fixture's `*.fixture.yaml`), or a path that holds no single value in it: a path it has no value at, an object rather than one of its fields, or a dataset path that is not `<table>[<row>].<column>`.",
 		"Give a file listed in axx-fixtures.manifest.yaml (or its `*.fixture.yaml`) and the dotted path of one value in it, like `recipient.postcode` or `items[0].sku`.")
+	add("AXX-E0911", u, "Unknown fixture",
+		"A fixture reference (`<factory>#<fixture>`), by which a pack names a fixture it produces instances of, names no factory, a base name several factories share, or no fixture of the factory.",
+		"Name the factory by its path from the fixtures resource root without `.factory.yaml` (`orders/orders`), or by its file's base name (`orders`) when no other factory has it, and a fixture key it binds; the message lists the ones there are.")
 }

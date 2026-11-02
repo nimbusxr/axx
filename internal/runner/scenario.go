@@ -215,9 +215,10 @@ func (r *Runner) execStep(ctx context.Context, sc *core.Scenario, sk *sink, sr *
 		sk.step = -1
 		sk.mu.Unlock()
 	}()
-	sc.SetStep(&core.StepInfo{Keyword: sr.Keyword, Text: sr.Text, Line: sr.Line})
+	pack, def := m.Def().Pack, m.Def().Step.ID
+	sc.SetStep(&core.StepInfo{Keyword: sr.Keyword, Text: sr.Text, Line: sr.Line, Pack: pack, Definition: def})
 	defer sc.SetStep(nil)
-	sc.UpdateProgress(i, func(sp *core.StepProgress) { sp.Status = "running" })
+	sc.UpdateProgress(i, func(sp *core.StepProgress) { sp.Status, sp.Pack, sp.Definition = "running", pack, def })
 
 	err := r.checkArgKind(m.Def().Step.Arg, sr)
 	var args core.Args

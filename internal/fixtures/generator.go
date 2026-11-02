@@ -251,6 +251,12 @@ func (g *Generator) resolveReferenced(document string, ctx *ExpansionContext) (a
 			return byFixture, nil
 		}
 	}
+	return nil, g.noDocument(document)
+}
+
+// noDocument is a $ref's document that no factory or fixture is, with the
+// documents there are.
+func (g *Generator) noDocument(document string) *noDocument {
 	nd := &noDocument{document: document}
 	for _, spec := range g.specs {
 		nd.known = append(nd.known, spec.SourceName)
@@ -258,7 +264,7 @@ func (g *Generator) resolveReferenced(document string, ctx *ExpansionContext) (a
 			nd.known = append(nd.known, spec.Fixtures.Get(k).Source)
 		}
 	}
-	return nil, nd
+	return nd
 }
 
 // referenced is one fixture as it is generated, for a $ref.

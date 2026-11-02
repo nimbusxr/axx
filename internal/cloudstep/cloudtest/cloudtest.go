@@ -303,7 +303,7 @@ func (h *Harness) Step(text string, arg ...any) (err error) {
 	// packs' step hooks, and its steps as they stand (here, those run so
 	// far).
 	h.line++
-	info := core.StepInfo{Keyword: "*", Text: text, Line: h.line}
+	info := core.StepInfo{Keyword: "*", Text: text, Line: h.line, Pack: ms[0].Def().Pack, Definition: ms[0].Def().Step.ID}
 	h.SC.SetStep(&info)
 	defer h.SC.SetStep(nil)
 	sp := core.StepProgress{StepInfo: info, Status: "running"}

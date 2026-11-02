@@ -638,6 +638,71 @@ func TestScenariosKnowTheirStep(t *testing.T) {
 	}
 }
 
+// A step hook of one pack knows which pack's definition the step matched,
+// and which one, so it can tell the steps that send traffic: in a run and
+// in a session's steps alike.
+func TestStepHooksKnowTheDefinitionTheStepMatched(t *testing.T) {
+	var seen []string
+	see := func(who string, sc *core.Scenario) {
+		st := sc.Step()
+		seen = append(seen, fmt.Sprintf("%s %s:%d %s %s", who, st.Text, st.Line, st.Pack, st.Definition))
+	}
+	packs := []struct {
+		key string
+		m   core.Manifest
+	}{
+		{"rest", core.Manifest{Name: "rest", Steps: []core.StepDef{
+			{ID: "rest.send", Expr: "the request is sent", Run: func(sc *core.Scenario, _ core.Args) error { see("step", sc); return nil }},
+		}}},
+		{"example.com/traffic", core.Manifest{
+			Name:  "traffic",
+			Steps: []core.StepDef{{ID: "traffic.rate", Expr: "the rate is {int} per second", Run: func(*core.Scenario, core.Args) error { return nil }}},
+			Hooks: []core.Hook{{ID: "traffic.beforeStep", Phase: core.BeforeStep, Run: func(sc *core.Scenario) error { see("beforeStep", sc); return nil }}},
+		}},
+	}
+	reg := match.NewRegistry()
+	var hooks []PackHook
+	for _, p := range packs {
+		if err := reg.AddPack(p.key, p.m); err != nil {
+			t.Fatal(err)
+		}
+		for _, h := range p.m.Hooks {
+			hooks = append(hooks, PackHook{Pack: p.key, Hook: h})
+		}
+	}
+	set, pickles := load(t, `Feature: traffic
+
+  Scenario: a burst
+    Given the rate is 100 per second
+    When the request is sent
+`)
+	r, err := New(Options{Registry: reg, Hooks: hooks, Workers: 1, Docs: set.Docs})
+	if err != nil {
+		t.Fatal(err)
+	}
+	r.Run(context.Background(), pickles)
+	want := []string{
+		"beforeStep the rate is 100 per second:4 example.com/traffic traffic.rate",
+		"beforeStep the request is sent:5 rest rest.send", "step the request is sent:5 rest rest.send",
+	}
+	if !slices.Equal(seen, want) {
+		t.Errorf("seen:\n%s\nwant:\n%s", strings.Join(seen, "\n"), strings.Join(want, "\n"))
+	}
+
+	seen = nil
+	s, _ := r.NewSession(context.Background(), core.ScenarioInfo{ID: "session", Name: "session"})
+	_, tried := load(t, "Feature: f\n  Scenario: s\n    When the request is sent\n")
+	if got := s.Run(tried[0]); len(got) != 1 || got[0].Status != Passed {
+		t.Fatalf("session: %+v", got)
+	}
+	if err := s.Close(Passed); err != nil {
+		t.Fatal(err)
+	}
+	if want := []string{"beforeStep the request is sent:3 rest rest.send", "step the request is sent:3 rest rest.send"}; !slices.Equal(seen, want) {
+		t.Errorf("session saw %q, want %q", seen, want)
+	}
+}
+
 // A scenario knows all its steps from the start, and each one's outcome
 // and log lines as it runs.
 func TestScenariosKnowTheirProgress(t *testing.T) {
