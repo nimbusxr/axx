@@ -402,8 +402,9 @@ func archOf(cfg *chatConfig) (*arch, error) {
 	if strings.HasPrefix(cfg.ModelType, "gemma") {
 		// Gemma's embeddings × √E, of the model's dtype; its sublayers'
 		// outputs normalized (Gemma 2's and 3's); its logits capped (Gemma
-		// 2's); every sixth of its layers global, the others of a window
-		// (Gemma 3's, as MLC's KV cache has them).
+		// 2's). Every layer of Gemma 3 sees the whole context, in the
+		// libraries of WebLLM 0.2.87 on: those before kept a window in all
+		// but every sixth, which a stub of this does not run in.
 		scale := float32(math.Sqrt(float64(mc.HiddenSize)))
 		if strings.Contains(cfg.Quantization, "f16") {
 			scale = contract.FromFloat16(contract.Float16(scale))
@@ -411,9 +412,6 @@ func archOf(cfg *chatConfig) (*arch, error) {
 		t.EmbedScale = float64(scale)
 		t.SublayerNorm = cfg.ModelType != "gemma"
 		t.LogitCap = mc.LogitCap
-		if cfg.ModelType == "gemma3" && cmpOr(mc.SlidingWindow, cfg.SlidingWindow) > 0 {
-			t.Global = func(layer int) bool { return (layer+1)%6 == 0 }
-		}
 	}
 	base := mc.RopeBase
 	if base == 0 {
