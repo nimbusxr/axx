@@ -90,6 +90,7 @@ func steps() []core.StepDef {
 		core.StepDef{
 			ID: "sql.seed", Keyword: "Given",
 			Expr: "a {filepath} db seed[[ on {dbService}]]",
+			Also: []string{"a {filepath} database seed[[ on {dbService}]]"},
 			Doc: "Insert the rows of a dataset file, in the file's order and in one transaction.\n\n" +
 				"- A YAML file (`.yaml`, `.yml`) maps each `schema.table` to a list of rows, each a mapping of column to value.\n" +
 				"- A flat XML file (`.xml`) has a `<schema.table column=\"value\"/>` element per row inside `<dataset>`.\n" +

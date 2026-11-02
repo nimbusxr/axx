@@ -2,7 +2,7 @@
   "description": "The frozen catalog of built-in step text. Step text is public API: every entry must stay defined, verbatim, by its pack.",
   "counts": {
     "parameterType": 18,
-    "step": 779
+    "step": 781
   },
   "entries": [
     {
@@ -4804,6 +4804,18 @@
       "pack": "kafka",
       "keyword": "Given",
       "expression": "the {word} kafka topic client on the {word} kafka service with the following properties:"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Given",
+      "expression": "a {filepath} database seed"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Given",
+      "expression": "a {filepath} database seed on {dbService}"
     }
   ]
 }

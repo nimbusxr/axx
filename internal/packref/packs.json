@@ -2742,7 +2742,10 @@
             "Given a seeds/dispatching.yaml db seed on parcels-db",
             "Given a seeds/manifests/csv/bulk-manifest/parcels.manifest_lines.csv db seed"
           ],
-          "arg": "none"
+          "arg": "none",
+          "also": [
+            "a {filepath} database seed[[ on {dbService}]]"
+          ]
         },
         {
           "id": "sql.lock",

@@ -259,7 +259,7 @@ func TestLocks(t *testing.T) {
 	h.db(url)
 	id := uniq(t)
 	h.file("l.yaml", fmt.Sprintf("space.crew:\n  - id: %[1]s\n    name: %[1]s\n", id))
-	h.ok("a l.yaml db seed")
+	h.ok("a l.yaml database seed")
 	h.ok("the rows in the space.crew table are locked where:", []string{"id", id})
 	tgt, _ := Resolve(url, "space", "secret")
 	db, _ := dbsql.Open("pgx", tgt.DSN)
