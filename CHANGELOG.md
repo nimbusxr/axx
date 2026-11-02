@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.4.0](https://github.com/nimbusxr/axx/compare/v0.3.1...v0.4.0) (2026-11-02)
+
+
+### ⚠ BREAKING CHANGES
+
+* **sql:** the database's clock in seeds, connections under load, and every column type ([#292](https://github.com/nimbusxr/axx/issues/292))
+
+### Features
+
+* **sql:** triggers before updates and deletes ([#293](https://github.com/nimbusxr/axx/issues/293)) ([042359d](https://github.com/nimbusxr/axx/commit/042359d69678b140904e84a5cc4bd47ed632deed))
+
+
+### Bug Fixes
+
+* **sql:** the database's clock in seeds, connections under load, and every column type ([#292](https://github.com/nimbusxr/axx/issues/292)) ([2aef901](https://github.com/nimbusxr/axx/commit/2aef901b70678eda8527872d29bc0cde44a9f314))
+
 ## [0.3.1](https://github.com/nimbusxr/axx/compare/v0.3.0...v0.3.1) (2026-11-02)
 
 
