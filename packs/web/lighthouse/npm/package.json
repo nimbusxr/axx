@@ -2,6 +2,6 @@
   "name": "axx-web-lighthouse",
   "private": true,
   "dependencies": {
-    "lighthouse": "13.5.0"
+    "lighthouse": "13.6.0"
   }
 }
