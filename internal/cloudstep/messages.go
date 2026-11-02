@@ -96,6 +96,7 @@ func (m Messages) Steps() []core.StepDef {
 	}
 	if m.Key != "" {
 		send.Expr = "a message is " + m.Verb + " to the {word} " + t + "[[ with the " + m.Key + " {string}]]:"
+		send.TextArgs = []int{1}
 		send.Doc = fmt.Sprintf("Send a message to the %s, with the %s the step gives; the doc string is its body.", dt, m.Key)
 		send.Examples = append(send.Examples,
 			fmt.Sprintf("When a message is %s to the %s %s with the %s '%s':", m.Verb, ex.To, et, m.Key, ex.Key)+docString(ex.Body))

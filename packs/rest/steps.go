@@ -81,13 +81,16 @@ type family struct {
 	leading     bool
 	// bare says the value in head, a {string}, may also be an integer without
 	// quotes: is 2500, for is '2500'.
-	bare         bool
-	doc          string   // what the step does, in a sentence
-	details      []string // more of it, a short sentence or two each
-	table        *core.TableDoc
-	example      string // default-service example
-	namedExample string // named-service example
-	run          func(sc *core.Scenario, a core.Args, t target) error
+	bare bool
+	// textArgs and typedArgs are head's arguments that hold values
+	// (core.StepDef.TextArgs, TypedArgs), which take undefined.
+	textArgs, typedArgs []int
+	doc                 string   // what the step does, in a sentence
+	details             []string // more of it, a short sentence or two each
+	table               *core.TableDoc
+	example             string // default-service example
+	namedExample        string // named-service example
+	run                 func(sc *core.Scenario, a core.Args, t target) error
 }
 
 func (f family) defs() []core.StepDef {
@@ -100,15 +103,18 @@ func (f family) defs() []core.StepDef {
 		}
 		return []string{strings.Replace(expr, "{string}", "{integer}", 1)}
 	}
+	undefined := len(f.typedArgs) > 0
 	defs := []core.StepDef{
 		{
 			ID: f.id, Keyword: f.keyword, Arg: f.arg, Since: f.since,
-			Expr:     f.head + "[[ for {ordinal} ordered " + f.noun + "]]" + f.tail,
-			Also:     also(f.head + "[[ for {ordinal} ordered " + f.noun + "]]" + f.tail),
-			Doc:      docList(f.doc, append(append([]string{}, f.details...), f.targetDoc()...)...),
-			Table:    f.table,
-			Examples: []string{f.example},
-			Run:      run(target{ord: f.nHead, svc: -1}),
+			Expr:      f.head + "[[ for {ordinal} ordered " + f.noun + "]]" + f.tail,
+			Also:      also(f.head + "[[ for {ordinal} ordered " + f.noun + "]]" + f.tail),
+			Doc:       docList(f.doc, append(append([]string{}, f.details...), f.targetDoc()...)...),
+			Table:     f.table,
+			Examples:  []string{f.example},
+			TextArgs:  f.textArgs,
+			TypedArgs: f.typedArgs, TypedArgsUndefined: undefined,
+			Run: run(target{ord: f.nHead, svc: -1}),
 		},
 		{
 			ID: f.id + ".on", Keyword: f.keyword, Arg: f.arg, Since: f.since,
@@ -117,9 +123,11 @@ func (f family) defs() []core.StepDef {
 			Doc: "`" + f.id + "` on a named service: `for " + f.noun + " on <service>` addresses the service's first " +
 				"(default) " + f.noun + ", `for 2nd ordered " + f.noun + " on <service>` its second one. " +
 				"Everything else works like `" + f.id + "`.",
-			Table:    f.table,
-			Examples: []string{f.namedExample},
-			Run:      run(target{ord: f.nHead, svc: f.nHead + 1}),
+			Table:     f.table,
+			Examples:  []string{f.namedExample},
+			TextArgs:  f.textArgs,
+			TypedArgs: f.typedArgs, TypedArgsUndefined: undefined,
+			Run: run(target{ord: f.nHead, svc: f.nHead + 1}),
 		},
 	}
 	if f.leading {
@@ -133,6 +141,9 @@ func (f family) defs() []core.StepDef {
 				"the same step as `" + f.head + " for 2nd ordered " + f.noun + f.tail + "`.",
 			Table:    f.table,
 			Examples: []string{strings.Replace(f.example, " the ", " the 2nd ordered ", 1)},
+			// The ordinal comes first here, ahead of the head's arguments.
+			TextArgs:  shifted(f.textArgs),
+			TypedArgs: shifted(f.typedArgs), TypedArgsUndefined: undefined,
 			Run: func(sc *core.Scenario, a core.Args) error {
 				// The family's steps read the ordinal after the head's parameters.
 				list := append(append([]core.Arg{}, a.List[1:f.nHead+1]...), a.List[0])
@@ -142,6 +153,15 @@ func (f family) defs() []core.StepDef {
 		})
 	}
 	return defs
+}
+
+// shifted is the places of arguments one further on.
+func shifted(places []int) []int {
+	var out []int
+	for _, p := range places {
+		out = append(out, p+1)
+	}
+	return out
 }
 
 // docList is a step's Doc: what it does, in a sentence, then more of it as
@@ -312,7 +332,7 @@ func requestSteps() []core.StepDef {
 	for _, f := range []family{
 		{
 			id: "rest.request.header", keyword: "Given", noun: "request",
-			head: "the request header {word} is {string}", nHead: 2,
+			head: "the request header {word} is {string}", nHead: 2, textArgs: []int{1},
 			doc: "Set a request header.",
 			details: []string{
 				"`Content-Type` and `Accept` replace an earlier value; other headers may be added more than once, and are all sent.",
@@ -421,7 +441,7 @@ func requestSteps() []core.StepDef {
 			id: "rest.request.property", keyword: "Given", noun: "request",
 			leading: true,
 			bare:    true,
-			head:    "the request payload property {word} is {string}", nHead: 2,
+			head:    "the request payload property {word} is {string}", nHead: 2, typedArgs: []int{1},
 			doc: "Set a property of the request payload, by its JSONPath, like `weightGrams`, `recipient.postcode` or `$.recipient.name`.",
 			details: []string{
 				"The value means what it says, whatever the property held before: `'1200'` is an integer, `'1.5'` a decimal, " +

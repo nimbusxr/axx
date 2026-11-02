@@ -69,7 +69,7 @@ Feature: Parcels in the shop portal
     Given a seeds/portal-actions.yaml db seed
     And the "/parcels/PX-WEB-5123" page is opened
     When the "Actions" button is clicked
-    Then the "Actions" button has the aria-expanded attribute "true"
+    Then the "Actions" button has the aria-expanded attribute '"true"'
     And the "Cancel the parcel" menu item is shown
 
   Scenario: The portal asks before it cancels a parcel

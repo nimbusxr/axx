@@ -1,7 +1,8 @@
 // Package check matches the steps of parsed feature files against a step
 // registry and reports every step that cannot run: undefined, ambiguous,
-// given the wrong argument, or given a value the rule cannot read (ADR 0014). `axx validate`, `axx doctor`, the MCP server and
-// the language server all report through it, so they always agree.
+// given the wrong argument, or given a value the rule cannot read (ADR 0014),
+// in a table or in the step's own text. `axx validate`, `axx doctor`, the MCP
+// server and the language server all report through it, so they always agree.
 package check
 
 import (
@@ -22,8 +23,8 @@ const (
 	Undefined = "undefined"
 	Ambiguous = "ambiguous"
 	Argument  = "argument"
-	// Value is a table cell that could be read two ways (ADR 0014): its
-	// Line is the cell's row.
+	// Value is a table cell, or a step's own value, that could be read two
+	// ways (ADR 0014): its Line is the cell's row, or the step's.
 	Value = "value"
 )
 
@@ -100,6 +101,9 @@ func Pickles(reg *match.Registry, pickles []*feature.Pickle) Result {
 			case 1:
 				hasTable := ps.Argument != nil && ps.Argument.DataTable != nil
 				hasDoc := ps.Argument != nil && ps.Argument.DocString != nil
+				for _, err := range ms[0].ValueErrors() {
+					report(Problem{Kind: Value, Code: ValueCode, URI: p.Doc.URI, Line: src.Line, Text: ps.Text, Message: valueMessage(err)})
+				}
 				msg := ArgumentProblem(ms[0], hasTable, hasDoc)
 				if msg == "" {
 					for _, vp := range valueProblems(ms[0].Def().Step.Table, ps, p.StepTableLines(ps)) {
@@ -200,14 +204,18 @@ func valueProblems(td *core.TableDoc, ps *messages.PickleStep, lines []int) []va
 			if k := skipped + i; k < len(lines) {
 				line = lines[k]
 			}
-			message := err.Error()
-			if ve := (*core.ValueError)(nil); errors.As(err, &ve) {
-				message = ve.Message() // the Problem has the code
-			}
-			out = append(out, valueProblem{line: line, message: label + ": " + message})
+			out = append(out, valueProblem{line: line, message: label + ": " + valueMessage(err)})
 		}
 	}
 	return out
+}
+
+// valueMessage is a value's error without its code, which the Problem has.
+func valueMessage(err error) string {
+	if ve := (*core.ValueError)(nil); errors.As(err, &ve) {
+		return ve.Message()
+	}
+	return err.Error()
 }
 
 // orLine is a, or b when a is 0.

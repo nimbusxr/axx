@@ -128,6 +128,7 @@ func steps() []core.StepDef {
 		{
 			ID: Name + ".fill", Keyword: "When", Since: since,
 			Expr:     "the {string} field in the {word} app is filled with {string}",
+			TextArgs: []int{2},
 			Doc:      "Replace what a field holds with a text, as typing it would. `${env:..}` values are secrets: masked in logs and failures.",
 			Examples: []string{`When the "Courier ID" field in the courier app is filled with "CR-LEJ-12"`},
 			Run: func(sc *core.Scenario, a core.Args) error {
@@ -167,6 +168,7 @@ func checkSteps() []core.StepDef {
 		{
 			ID: Name + ".shows", Keyword: "Then", Since: since,
 			Expr:     "[[within {duration} ]]the {word} app shows {string}",
+			TextArgs: []int{2},
 			Doc:      "Check that the app shows a text: in a control's text or label, whitespace collapsed. It waits for the text (10 seconds, or `within`).",
 			Examples: []string{`Then the courier app shows "Today's deliveries"`, `Then within 20s the courier app shows "Delivered"`},
 			Run: func(sc *core.Scenario, a core.Args) error {
@@ -177,6 +179,7 @@ func checkSteps() []core.StepDef {
 		{
 			ID: Name + ".hides", Keyword: "Then", Since: since, Absence: true,
 			Expr:     "[[within {duration} ]]the {word} app does not show {string}",
+			TextArgs: []int{2},
 			Doc:      "Check that the app does not show a text, or no longer does: it waits for the text to go (10 seconds, or `within`).",
 			Examples: []string{`Then the courier app does not show "PX-MOB-9401"`},
 			Run: func(sc *core.Scenario, a core.Args) error {
@@ -199,6 +202,7 @@ func checkSteps() []core.StepDef {
 		{
 			ID: Name + ".field.value", Keyword: "Then", Since: since,
 			Expr:     "[[within {duration} ]]the {string} field in the {word} app has the value {string}",
+			TextArgs: []int{3},
 			Doc:      "Check what a field holds: it waits for the value (10 seconds, or `within`). A password field holds its dots.",
 			Examples: []string{`Then the "Courier ID" field in the courier app has the value "CR-LEJ-12"`},
 			Run: func(sc *core.Scenario, a core.Args) error {

@@ -33,5 +33,5 @@ func TestScoresAreDecimals(t *testing.T) {
 
 func TestAStepNeedsAServer(t *testing.T) {
 	h := cloudtest.New(t, Pack())
-	_ = h.Fails("the quote:DE-1 redis key has the value '690'", "No Redis server is registered in this scenario")
+	_ = h.Fails("the quote:DE-1 redis key has the value '\"690\"'", "No Redis server is registered in this scenario")
 }

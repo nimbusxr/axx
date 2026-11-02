@@ -15,6 +15,8 @@ const cacheSeed = `
   ttl: 10m
 "label-printer:LEJ-3":
   value: online
+"scans:LEJ":
+  value: "42"
 "shop:hawthorn-home":
   hash: {name: Hawthorn Home, tier: gold, parcels: 42}
 "depot:LEJ:sorting":
@@ -38,6 +40,8 @@ func run(t *testing.T, image string, cmd []string, url string) {
 	h.OK("a seeds/cache.yaml redis seed")
 
 	h.OK("the label-printer:LEJ-3 redis key has the value 'online'")
+	h.OK(`the scans:LEJ redis key has the value '"42"'`)
+	h.ValueFails("the scans:LEJ redis key has the value '42'", `42 reads as an integer, and only text fits here: write '"42"' for the text`)
 	h.OK("the quote:DE-1:EXPRESS:1200 redis key has the following properties:", [][]string{{"priceCents", "1490"}, {"zone", "DE-1"}, {"surcharge", "undefined"}})
 	// Redis keeps text: a hash's fields are strings, and a score is a decimal.
 	h.OK("the shop:hawthorn-home redis key has the following properties:", [][]string{{"tier", "gold"}, {"parcels", `"42"`}})
@@ -56,7 +60,7 @@ func run(t *testing.T, image string, cmd []string, url string) {
 	_ = h.Fails("within 1s the shop:hawthorn-home redis key has the following properties:", `does not have those properties: {"name":"Hawthorn Home"`,
 		[][]string{{"tier", "silver"}})
 	_ = h.Fails("within 1s the label-printer:LEJ-3 redis key does not exist", "The label-printer:LEJ-3 redis key still exists")
-	_ = h.Fails("within 1s the quote:FR-1:EXPRESS:1200 redis key has the value '990'", "The quote:FR-1:EXPRESS:1200 redis key does not exist")
+	_ = h.Fails("within 1s the quote:FR-1:EXPRESS:1200 redis key has the value '\"990\"'", "The quote:FR-1:EXPRESS:1200 redis key does not exist")
 
 	// Seeding again replaces the keys.
 	h.File("seeds/printer.yaml", "\"label-printer:LEJ-3\":\n  hash: {state: jammed}\n")

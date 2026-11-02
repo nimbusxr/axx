@@ -292,3 +292,61 @@ func TestValueCells(t *testing.T) {
 		t.Errorf("settings: %v", got)
 	}
 }
+
+// A step's argument that holds a value reads by the rule, as a table's cell
+// does, and says what to write in the step's quotes (ADR 0014).
+func TestReadArg(t *testing.T) {
+	s := StepDef{TextArgs: []int{0}, TypedArgs: []int{1}}
+	for _, c := range []struct {
+		arg         int
+		param, text string
+		want        string // what Run gets
+		fails       string
+	}{
+		{arg: 0, param: "string", text: "application/json", want: "application/json"},
+		{arg: 0, param: "string", text: `"5"`, want: "5"},
+		{arg: 0, param: "string", text: `"{"a":1}"`, want: `{"a":1}`},
+		{arg: 0, param: "string", text: `"status":"ok"`, want: `status":"ok`},
+		{arg: 0, param: "string", text: `""status":"ok""`, want: `"status":"ok"`},
+		{arg: 0, param: "string", text: `""`, want: ""},
+		{arg: 0, param: "string", text: "${env:X}", want: "${env:X}"},
+		{arg: 0, param: "string", text: "5", fails: `5 reads as an integer, and only text fits here: write '"5"' for the text`},
+		{arg: 0, param: "string", text: "true", fails: `true reads as a boolean, and only text fits here: write '"true"' for the text`},
+		{arg: 0, param: "string", text: "null", fails: `null reads as null, and only text fits here: write '"null"' for the text`},
+		{arg: 0, param: "string", text: "undefined", fails: `undefined reads as undefined (no such property), and only text fits here: write '"undefined"' for the text`},
+		{arg: 0, param: "string", text: "01067", fails: `01067 is text here: write '"01067"'`},
+		{arg: 0, param: "string", text: `{"a":1}`, fails: `{"a":1} reads as a JSON object, and only text fits here: write '"{"a":1}"' for the text`},
+		{arg: 0, param: "string", text: `{a}`, fails: `{a} is text here: write '"{a}"'`},
+		{arg: 0, param: "string", text: "it's 5", want: "it's 5"},
+		{arg: 0, param: "string", text: "", fails: `the value is empty: write '""' for the empty text`},
+		// A {word} has no quotes of its own: what it writes is what a cell writes.
+		{arg: 0, param: "word", text: "5", fails: `5 reads as an integer, and only text fits here: write "5" for the text`},
+		{arg: 0, param: "word", text: `"5"`, want: "5"},
+		// A typed value stays as written, for Run to read.
+		{arg: 1, param: "string", text: `"5"`, want: `"5"`},
+		{arg: 1, param: "string", text: "5", want: "5"},
+		{arg: 1, param: "string", text: "01067", fails: `01067 could be the number 1067 or the text 01067: write '1067' for the number, or '"01067"' for the text`},
+		{arg: 1, param: "string", text: "undefined", fails: `undefined (no such property) is not a value here: write '"undefined"' for the text`},
+		{arg: 1, param: "string", text: "", fails: `the value is empty: write '""' for the empty string, or 'null' for null`},
+		{arg: 1, param: "integer", text: "2500", want: "2500"},
+		// Any other argument is not a value: a name, a pattern.
+		{arg: 2, param: "string", text: "5", want: "5"},
+		{arg: 2, param: "string", text: "", want: ""},
+		{arg: 2, param: "string", text: `"5"`, want: `"5"`},
+	} {
+		got, err := s.ReadArg(c.arg, c.param, c.text)
+		switch {
+		case c.fails != "":
+			var ve *ValueError
+			if !errors.As(err, &ve) || ve.Message() != c.fails || err.Error() != c.fails+" ["+ValueErrorCode+"]" {
+				t.Errorf("%d %q: %v, want %s", c.arg, c.text, err, c.fails)
+			}
+		case err != nil || got != c.want:
+			t.Errorf("%d %q: %q %v, want %q", c.arg, c.text, got, err, c.want)
+		}
+	}
+	undefined := StepDef{TypedArgs: []int{0}, TypedArgsUndefined: true}
+	if _, err := undefined.ReadArg(0, "string", "undefined"); err != nil {
+		t.Error(err)
+	}
+}

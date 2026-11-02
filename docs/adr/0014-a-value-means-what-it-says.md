@@ -38,6 +38,12 @@ A value means what it says, the same in every pack, whether a step sets it or ch
 - A `{string}` parameter's quotes delimit it in the step's text, and its value then follows the
   rule: `the response payload property count is "42"` checks the integer 42, and `is '"42"'` the
   string. REST's property steps also take an integer without those quotes: `is 42`.
+- A step declares which of its arguments hold values (`core.StepDef.TextArgs`, `TypedArgs`), and
+  the runner reads them by the rule before the step runs and before any `${...}` expands, so a
+  reference is a string whatever it expands to.
+- A name or a pattern is not a value: a label, a page, a file, an example's name finds something,
+  as written, and a pattern or a command line has a grammar of its own (`the "5" button is clicked`,
+  `the page's requests to '**/api/*' fail`). What a step sets something to or checks it against is one.
 - Nothing is inferred, from an example, a schema or a column's type: `| postcode | 10115 |` sets
   and checks the number 10115, and the string is `"10115"`. A value of the wrong type is sent as
   written, so a test can still send one on purpose (`| weightGrams | "1200" |`).
@@ -50,14 +56,23 @@ A value means what it says, the same in every pack, whether a step sets it or ch
     (`1.5f`), `NaN` or `Infinity`;
   - where a value can only be text (a header, a query parameter or form field, a Redis string, a
     line of a file or of output, text on a screen), a value that reads as anything else:
-    `| X-Count | 3 |` asks for `"3"`.
+    `| X-Count | 3 |` asks for `"3"`, and `the response header X-Count is '3'` for `'"3"'`. So
+    `'{"a":1}'` reads as JSON and asks for `'"{"a":1}"'`, and `'"status":"ok"'` is the text
+    `status":"ok`: a pair of double quotes around the whole value is the rule's.
 - `axx validate`, the MCP server's `feature_validate` and the editors (`axx lsp`) report what a
-  feature shows on its own: empty cells, numbers in other forms, and values
-  that are not text in a table that holds only text, each as `AXX-E0207`, and refuse the feature
+  feature shows on its own: empty cells, numbers in other forms, and values that are not text where
+  only text fits, in a table or in a step's own text, each as `AXX-E0207`, and refuse the feature
   (exit 3) before anything runs. `axx run` does not check first: the steps before it run, then the
   step fails with the same message and code, and the run exits 1.
-- Sources keep their types: a whole double is a decimal (`6.0`), a MongoDB Decimal128 and a
-  BigQuery NUMERIC are numbers, and a protobuf message's int64 fields are numbers.
+- A filter is as strict as a check, whichever side compares. A SQL `where:` and a BigQuery
+  condition are held to their column's real type before the query, and fail at once with the
+  explicit form (`postcode is text in parcels.pickups (VARCHAR): write "10115"`), as each database
+  would otherwise convert one of them its own way; an SQLite column with no declared type is held
+  to what its rows store. What MongoDB selects, and PostgreSQL's JSONB containment, go through the
+  rule's comparison after the query: `6` selects no double, and `null` a null, with `undefined` for a
+  document without the field.
+- Sources keep their types: a whole double is a decimal (`6.0`), a BigQuery NUMERIC a decimal (`2.0`),
+  a MongoDB Decimal128 the number of its digits, and a protobuf message's int64 fields are numbers.
 - The mock's request checks read a JSONPath that can give several values (a wildcard, a filter, a
   recursive descent) as WireMock does: the request has the value when any of them is that value,
   each compared strictly by this rule. `undefined` means the path gives none, and a list as the
@@ -71,8 +86,8 @@ A value means what it says, the same in every pack, whether a step sets it or ch
 ## Consequences
 
 - One rule, in every pack and in both directions, and a check fails when a value's type changes.
-- Breaking, for axx 0.3.0: tables that leave a string that looks like a number unquoted
-  (postcodes, numeric references), that rely on a field's type being inferred, or that leave
-  cells empty, fail, each with a message that names the fix. The examples, the docs, the skills
-  and the agent evaluations change with it.
+- Breaking, for axx 0.3.0: tables and steps that leave a string that looks like a number unquoted
+  (postcodes, numeric references, `the response header Retry-After is '5'`), that rely on a field's
+  type being inferred, or that leave cells empty, fail, each with a message that names the fix. The
+  examples, the docs, the skills and the agent evaluations change with it.
 - A string that looks like a number takes two more characters: `"10115"`.

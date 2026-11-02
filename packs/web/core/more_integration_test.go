@@ -55,7 +55,7 @@ func TestAParcelPageInEveryEngine(t *testing.T) {
 			h.OK(`the Enter key is pressed in the "Find a parcel" field`)
 			h.OK(`the page shows "Found PX-4101"`)
 			h.OK(`the Escape key is pressed`)
-			h.OK(`the "Find a parcel" field has the value ""`)
+			h.OK(`the "Find a parcel" field has the value '""'`)
 
 			// A menu, and its dialogs.
 			h.OK(`the "Actions" button is clicked`)
@@ -77,10 +77,10 @@ func TestAParcelPageInEveryEngine(t *testing.T) {
 			h.OK(`the dialog is accepted`)
 			h.OK(`the page shows "Parcel PX-4101 cancelled"`)
 			h.OK(`the "Actions" button is clicked`)
-			h.OK(`the "Notify me of changes" menu item has the aria-checked attribute "false"`)
+			h.OK(`the "Notify me of changes" menu item has the aria-checked attribute '"false"'`)
 			h.OK(`the "Notify me of changes" menu item is clicked`)
 			h.OK(`the page shows "Changes will be sent to you"`)
-			h.OK(`the "Notify me of changes" menu item has the aria-checked attribute "true"`)
+			h.OK(`the "Notify me of changes" menu item has the aria-checked attribute '"true"'`)
 
 			// A frame: fields, buttons, text and tables inside it.
 			h.OK(`"Späti Torstr. 102" is chosen in the "Pickup point" field`)
@@ -293,7 +293,7 @@ func TestTracesShowTheSteps(t *testing.T) {
 	h, app := newConfigured(t, "chromium", &Config{Traces: "always"})
 	h.OK("the portal web app with the following properties:", app)
 	h.OK(`the "/quote.html" page is opened`)
-	h.OK(`the "Weight (grams)" field is filled with "1200"`)
+	h.OK(`the "Weight (grams)" field is filled with '"1200"'`)
 	h.OK(`the "Get a quote" button is clicked`)
 	if err := h.End("passed"); err != nil {
 		t.Fatal(err)
@@ -344,7 +344,7 @@ func TestTracesShowTheSteps(t *testing.T) {
 	want := map[string]struct {
 		step string
 		line int
-	}{"fill": {`* the "Weight (grams)" field is filled with "1200"`, 4}, "click": {`* the "Get a quote" button is clicked`, 5}}
+	}{"fill": {`* the "Weight (grams)" field is filled with '"1200"'`, 4}, "click": {`* the "Get a quote" button is clicked`, 5}}
 	if len(actions) != 2 {
 		t.Fatalf("actions: %+v", actions)
 	}
@@ -405,7 +405,7 @@ func TestPausingBeforeSteps(t *testing.T) {
 	if pd := <-paused; pd == nil {
 		t.Fatal("the run did not pause before the step that opens the page")
 	}
-	h.OK(`the "Weight (grams)" field is filled with "1200"`) // line 4
+	h.OK(`the "Weight (grams)" field is filled with '"1200"'`) // line 4
 	paused = resumeWhenPaused(t, h)
 	h.OK(`the "Get a quote" button is clicked`) // line 5: paused before
 	pd := <-paused
@@ -511,7 +511,7 @@ func TestTheTraceViewerSpeaksGherkin(t *testing.T) {
 	h, app := newConfigured(t, "chromium", &Config{Traces: "always"})
 	// The harness's scenario is at line 1 of features/test.feature, its steps below.
 	feature := "Scenario: A shop gets a quote\n  * the portal web app with the following properties:\n  * the \"/quote.html\" page is opened\n" +
-		"  * the \"Weight (grams)\" field is filled with \"1200\"\n  * the \"Get a quote\" button is clicked\n"
+		"  * the \"Weight (grams)\" field is filled with '\"1200\"'\n  * the \"Get a quote\" button is clicked\n"
 	if err := os.MkdirAll(filepath.Join(h.Dir, "features"), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -520,7 +520,7 @@ func TestTheTraceViewerSpeaksGherkin(t *testing.T) {
 	}
 	h.OK("the portal web app with the following properties:", app)
 	h.OK(`the "/quote.html" page is opened`)
-	h.OK(`the "Weight (grams)" field is filled with "1200"`)
+	h.OK(`the "Weight (grams)" field is filled with '"1200"'`)
 	h.OK(`the "Get a quote" button is clicked`)
 	if err := h.End("passed"); err != nil {
 		t.Fatal(err)
@@ -581,7 +581,7 @@ func TestTheTraceViewerSpeaksGherkin(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{`* the "/quote.html" page is opened`, `* the "Weight (grams)" field is filled with "1200"`} {
+	for _, want := range []string{`* the "/quote.html" page is opened`, `* the "Weight (grams)" field is filled with '"1200"'`} {
 		if !strings.Contains(actions, want) {
 			t.Errorf("the trace viewer lacks the step %q:\n%s", want, actions)
 		}
@@ -658,8 +658,8 @@ func TestAPausedScenarioTakesAnIDEsRequests(t *testing.T) {
 		}
 		ask("POST", "highlight", `And the "Get a quote" button is clicked`)
 		ask("POST", "highlight", `And the "Send" button is clicked`)
-		ask("POST", "run", `the "Weight (grams)" field is filled with "900"`)
-		ask("POST", "run", `the "Weight (grams)" field has the value "900"`)
+		ask("POST", "run", `the "Weight (grams)" field is filled with '"900"'`)
+		ask("POST", "run", `the "Weight (grams)" field has the value '"900"'`)
 		ask("POST", "run", `within 1s the page shows "Price: 99.00 EUR"`)
 		ask("GET", "recorded", "")
 		// Someone clicks the Inspector's resume.
@@ -669,7 +669,7 @@ func TestAPausedScenarioTakesAnIDEsRequests(t *testing.T) {
 			}
 		}
 	}()
-	h.OK(`the "Weight (grams)" field is filled with "1200"`) // line 4: paused before
+	h.OK(`the "Weight (grams)" field is filled with '"1200"'`) // line 4: paused before
 	got := <-answers
 	want := []struct {
 		status int

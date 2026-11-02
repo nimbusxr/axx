@@ -39,16 +39,6 @@ const headersMatchDoc = "- A header must have one distinct value: unlike the oth
 // keyDoc says how the key steps read a key: as text (ADR 0014).
 const keyDoc = "The key is text: one that reads as a number, a boolean or `null` goes in double quotes, like `\"4101\"`."
 
-// textKey reads a key a step writes: text, so a key that reads as anything
-// else is an error asking for it in double quotes (ADR 0014).
-func textKey(word string) (string, error) {
-	k, _, err := core.ParseText(word, false, false)
-	if err != nil {
-		return "", fmt.Errorf("the key: %w", err)
-	}
-	return k, nil
-}
-
 func (pack) Manifest() core.Manifest {
 	return core.Manifest{
 		Name:         "kafka",
@@ -149,21 +139,19 @@ func steps() []core.StepDef {
 		},
 		{
 			ID: "kafka.event.key", Keyword: "Given",
-			Expr: "the[[ {ordinal} ordered]] {word} kafka event key is {word}" + serviceSuffix,
-			Doc:  "Set the key of a drafted event. " + keyDoc + " " + ordinalDoc,
+			Expr:     "the[[ {ordinal} ordered]] {word} kafka event key is {word}" + serviceSuffix,
+			TextArgs: []int{2},
+			Doc:      "Set the key of a drafted event. " + keyDoc + " " + ordinalDoc,
 			Examples: []string{
 				"Given the depot-scans kafka event key is PX-4101",
 				"Given the 2nd ordered depot-scans kafka event key is PX-4102 on the events kafka service",
 			},
 			Run: func(sc *core.Scenario, a core.Args) error {
-				k, err := textKey(a.String(2))
-				if err != nil {
-					return err
-				}
 				ev, err := event(sc, a, 0, 1, 3)
 				if err != nil {
 					return err
 				}
+				k := a.String(2)
 				ev.Key = &k
 				return nil
 			},
@@ -351,7 +339,8 @@ func steps() []core.StepDef {
 		},
 		{
 			ID: "kafka.consumed.key", Keyword: "Then",
-			Expr: "the {word} kafka event named {word} key is {word}" + serviceSuffix,
+			Expr:     "the {word} kafka event named {word} key is {word}" + serviceSuffix,
+			TextArgs: []int{2},
 			Doc: "Expect the label's record to have this key.\n\n" +
 				"- " + keyDoc + "\n" +
 				"- The consumer's key deserializer decides how keys read.\n" + consumeDoc,
@@ -360,12 +349,8 @@ func steps() []core.StepDef {
 				"Then the parcel-events kafka event named registered key is PX-4101 on the events kafka service",
 			},
 			Run: func(sc *core.Scenario, a core.Args) error {
-				k, err := textKey(a.String(2))
-				if err != nil {
-					return err
-				}
 				return consume(sc, a, 3, false, func(l *label) error {
-					l.Keys = append(l.Keys, k)
+					l.Keys = append(l.Keys, a.String(2))
 					return nil
 				})
 			},

@@ -119,7 +119,7 @@ func authSteps() []core.StepDef {
 		},
 		{
 			id: "rest.request.webhook", keyword: "Given", noun: "request", since: authSince,
-			head: "the request is signed as a standard webhook with the key {string}", nHead: 1,
+			head: "the request is signed as a standard webhook with the key {string}", nHead: 1, textArgs: []int{0},
 			doc: "Sign the request as a Standard Webhook (standardwebhooks.com): its `webhook-id`, `webhook-timestamp` and `webhook-signature` headers.",
 			details: []string{
 				"The key is `whsec_` and the key in base64, as Standard Webhooks give it; it expands `${env:..}`, and is masked.",

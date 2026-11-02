@@ -168,7 +168,8 @@ func steps() []core.StepDef {
 		},
 		{
 			ID: Name + ".contains", Keyword: "Then", Since: since,
-			Expr: "the {word} tool's result[[ on the {word} mcp server]] contains {string}",
+			Expr:     "the {word} tool's result[[ on the {word} mcp server]] contains {string}",
+			TextArgs: []int{2},
 			Doc: "Check that the tool's result has a text: in its content (text, and embedded resources' text), or in its structured " +
 				"content's JSON.\n\n" + resultNote,
 			Examples: []string{"Then the hold_parcel tool's result contains 'already out for delivery'"},
@@ -238,6 +239,7 @@ func steps() []core.StepDef {
 		{
 			ID: Name + ".resource.contains", Keyword: "Then", Since: since,
 			Expr:     "the {word} resource contains {string}",
+			TextArgs: []int{1},
 			Doc:      "Check that the text of the resource, as the scenario last read it, has a text.",
 			Examples: []string{"Then the parcels://PX-MCP-9103/label resource contains 'PX-MCP-9103'"},
 			Run: func(sc *core.Scenario, a core.Args) error {
@@ -281,6 +283,7 @@ func steps() []core.StepDef {
 		{
 			ID: Name + ".prompt.contains", Keyword: "Then", Since: since,
 			Expr:     "the {word} prompt contains {string}",
+			TextArgs: []int{1},
 			Doc:      "Check that the text of the prompt's messages, as the scenario last requested it, has a text.",
 			Examples: []string{"Then the delivery_update prompt contains 'PX-MCP-9104'"},
 			Run: func(sc *core.Scenario, a core.Args) error {

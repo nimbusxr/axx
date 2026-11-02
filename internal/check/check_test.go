@@ -251,3 +251,73 @@ func TestTextRowsAreTheRowsTheRunReadsAsText(t *testing.T) {
 		`routing key: 3 reads as an integer, and only text fits here: write "3" for the text`,
 	})
 }
+
+// A step's own value the rule cannot read is a problem at its line, in the
+// form its quotes take, for each outline row that gives one (ADR 0014).
+func TestPicklesStepValues(t *testing.T) {
+	reg := match.NewRegistry()
+	if err := reg.AddPack("t", core.Manifest{Name: "t", Steps: []core.StepDef{
+		{ID: "t.header", Expr: "the header {word} is {string}", TextArgs: []int{1}},
+		{ID: "t.property", Expr: "the property {word} is {string}", TypedArgs: []int{1}},
+		{ID: "t.about", Expr: "the request about {string} contains {string}", TextArgs: []int{0, 1}},
+		{ID: "t.button", Expr: "the {string} button is clicked"},
+	}}); err != nil {
+		t.Fatal(err)
+	}
+	src := `Feature: f
+  Scenario: text
+    Then the header X is '5'
+    And the header X is '"5"'
+    And the header X is 'application/json'
+    And the header X is '${env:X}'
+    And the header X is ''
+    And the header X is '{"a":1}'
+    And the property zip is '01067'
+    And the property zip is '"01067"'
+    And the "5" button is clicked
+    And the request about '1' contains 'true'
+
+  Scenario Outline: rows
+    Then the header X is '<value>'
+    And the property count is '<value>'
+    Examples:
+      | value |
+      | 5     |
+      | "5"   |
+      | true  |
+      | word  |
+      | 05    |
+`
+	_, pickles, err := feature.ParseSource("f.feature", []byte(src), messages.UUID{}.NewId)
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := func(v string, kind string) string {
+		return v + " reads as " + kind + `, and only text fits here: write '"` + v + `"' for the text`
+	}
+	want := []struct {
+		line          int
+		text, message string
+	}{
+		{3, `the header X is '5'`, text("5", "an integer")},
+		{7, `the header X is ''`, `the value is empty: write '""' for the empty text`},
+		{8, `the header X is '{"a":1}'`, `{"a":1} reads as a JSON object, and only text fits here: write '"{"a":1}"' for the text`},
+		{9, `the property zip is '01067'`, `01067 could be the number 1067 or the text 01067: write '1067' for the number, or '"01067"' for the text`},
+		{12, `the request about '1' contains 'true'`, text("1", "an integer")},
+		{12, `the request about '1' contains 'true'`, text("true", "a boolean")},
+		{15, `the header X is '5'`, text("5", "an integer")},
+		{15, `the header X is 'true'`, text("true", "a boolean")},
+		{15, `the header X is '05'`, `05 is text here: write '"05"'`},
+		{16, `the property count is '05'`, `05 could be the number 5 or the text 05: write '5' for the number, or '"05"' for the text`},
+	}
+	res := Pickles(reg, pickles)
+	if len(res.Problems) != len(want) {
+		t.Fatalf("problems %+v", res.Problems)
+	}
+	for i, w := range want {
+		p := res.Problems[i]
+		if p.Kind != Value || p.Code != ValueCode || p.Line != w.line || p.Text != w.text || p.Message != w.message {
+			t.Errorf("problem %d: %+v, want %+v", i, p, w)
+		}
+	}
+}

@@ -211,6 +211,23 @@ type StepDef struct {
 	// or give such a wording a step of its own whose Run puts its arguments back
 	// in order, as the REST pack's `.leading` forms do.
 	Also []string `json:"also,omitempty"`
+	// TextArgs are the step's arguments that hold a value where only text fits
+	// (ADR 0014), by the places Args.String takes: what it sets or checks against
+	// text, like a header's value or the text a page shows. Before Run, the
+	// runner reads each by the rule, ahead of any `${...}` in it, and Run gets
+	// the text: `'"5"'` is the text 5, `'application/json'` that text, and
+	// `'5'` fails with the form to write. axx validate reports the same. Every
+	// wording of the step (Also) has these places too. An argument that finds
+	// something (a label, a file's name) or has a grammar of its own (a pattern,
+	// a command line) is no value: leave it out.
+	TextArgs []int `json:"-"`
+	// TypedArgs are the step's arguments that hold a value of any type, read by
+	// the rule (`'42'` an integer, `'"42"'` a string), by the same places. The
+	// runner and axx validate report one the rule cannot read; Run gets the
+	// text as written, and reads it itself with ParseValue.
+	TypedArgs []int `json:"-"`
+	// TypedArgsUndefined says TypedArgs take `undefined`: no such property.
+	TypedArgsUndefined bool `json:"-"`
 	// Since is the axx version that introduced the step.
 	Since string `json:"since,omitempty"`
 	// DeprecatedBy, if set, explains what to use instead.

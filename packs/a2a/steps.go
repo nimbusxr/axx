@@ -167,7 +167,8 @@ func steps() []core.StepDef {
 		},
 		{
 			ID: Name + ".answer", Keyword: "Then", Since: since,
-			Expr: "the {word} a2a agent's answer contains {string}",
+			Expr:     "the {word} a2a agent's answer contains {string}",
+			TextArgs: []int{1},
 			Doc: "Check that the agent's answer has a text: its reply, or its task's status message and artifacts. It waits for a task " +
 				"still at work.",
 			Examples: []string{"Then the parcels a2a agent's answer contains 'out for delivery'"},

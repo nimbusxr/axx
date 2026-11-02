@@ -2761,7 +2761,7 @@
               "column",
               "value"
             ],
-            "note": "Each row names a column and the value the locked rows hold in it, which the database compares as a SQL value of its type; `null` is `IS NULL`.",
+            "note": "Each row names a column and the value the locked rows hold in it, of the column's type: a value of another type fails at once and says what to write (`10115` on a text column asks for `\"10115\"`, and `12` on a decimal one for `12.0`); dates, times, UUIDs and the like are strings; `null` is `IS NULL`.",
             "values": "json"
           }
         },
@@ -2791,7 +2791,7 @@
               "column",
               "value"
             ],
-            "note": "Each row names a column and the value the selected rows hold in it, which the database compares as a SQL value of its type; `null` is `IS NULL`.",
+            "note": "Each row names a column and the value the selected rows hold in it, of the column's type: a value of another type fails at once and says what to write (`10115` on a text column asks for `\"10115\"`, and `12` on a decimal one for `12.0`); dates, times, UUIDs and the like are strings; `null` is `IS NULL`.",
             "values": "json"
           },
           "also": [
@@ -2813,7 +2813,7 @@
               "column",
               "value"
             ],
-            "note": "Each row names a column and the value the selected rows hold in it, which the database compares as a SQL value of its type; `null` is `IS NULL`.",
+            "note": "Each row names a column and the value the selected rows hold in it, of the column's type: a value of another type fails at once and says what to write (`10115` on a text column asks for `\"10115\"`, and `12` on a decimal one for `12.0`); dates, times, UUIDs and the like are strings; `null` is `IS NULL`.",
             "values": "json"
           },
           "also": [
@@ -2931,7 +2931,7 @@
               "column",
               "value"
             ],
-            "note": "Each row names a column and the value the inserted row holds in it, which the database compares as a SQL value of its type; `null` is `IS NULL`.",
+            "note": "Each row names a column and the value the inserted row holds in it, of the column's type: a value of another type fails at once and says what to write (`10115` on a text column asks for `\"10115\"`, and `12` on a decimal one for `12.0`); dates, times, UUIDs and the like are strings; `null` is `IS NULL`.",
             "values": "json"
           }
         },
@@ -2949,7 +2949,7 @@
               "column",
               "value"
             ],
-            "note": "Each row names a column and the value the inserted row holds in it, which the database compares as a SQL value of its type; `null` is `IS NULL`.",
+            "note": "Each row names a column and the value the inserted row holds in it, of the column's type: a value of another type fails at once and says what to write (`10115` on a text column asks for `\"10115\"`, and `12` on a decimal one for `12.0`); dates, times, UUIDs and the like are strings; `null` is `IS NULL`.",
             "values": "json"
           }
         },
@@ -2967,7 +2967,7 @@
               "column",
               "value"
             ],
-            "note": "Each row names a column and the value the inserted row holds in it, which the database compares as a SQL value of its type; `null` is `IS NULL`.",
+            "note": "Each row names a column and the value the inserted row holds in it, of the column's type: a value of another type fails at once and says what to write (`10115` on a text column asks for `\"10115\"`, and `12` on a decimal one for `12.0`); dates, times, UUIDs and the like are strings; `null` is `IS NULL`.",
             "values": "json"
           }
         },
@@ -2985,7 +2985,7 @@
               "column",
               "value"
             ],
-            "note": "Each row names a column and the value the inserted row holds in it, which the database compares as a SQL value of its type; `null` is `IS NULL`.",
+            "note": "Each row names a column and the value the inserted row holds in it, of the column's type: a value of another type fails at once and says what to write (`10115` on a text column asks for `\"10115\"`, and `12` on a decimal one for `12.0`); dates, times, UUIDs and the like are strings; `null` is `IS NULL`.",
             "values": "json"
           }
         },
@@ -3100,8 +3100,9 @@
               "field",
               "value"
             ],
-            "note": "Each row names a field, dotted (`recipient.city`) for one inside a document, and the value it holds; an object is Extended JSON, like `{\"$oid\": \"...\"}` for an ObjectId.",
-            "values": "json"
+            "note": "Each row names a field, dotted (`recipient.city`) for one inside a document, and the value it holds, of its type as a check compares it: `6` selects an int32 or an int64 of 6, but not a double 6.0, which is `6.0`; `null` selects a null, and `undefined` a document without the field. An object is Extended JSON, like `{\"$oid\": \"...\"}` for an ObjectId.",
+            "values": "json",
+            "undefined": true
           },
           "since": "0.1.0"
         },
@@ -3119,8 +3120,9 @@
               "field",
               "value"
             ],
-            "note": "Each row names a field, dotted (`recipient.city`) for one inside a document, and the value it holds; an object is Extended JSON, like `{\"$oid\": \"...\"}` for an ObjectId.",
-            "values": "json"
+            "note": "Each row names a field, dotted (`recipient.city`) for one inside a document, and the value it holds, of its type as a check compares it: `6` selects an int32 or an int64 of 6, but not a double 6.0, which is `6.0`; `null` selects a null, and `undefined` a document without the field. An object is Extended JSON, like `{\"$oid\": \"...\"}` for an ObjectId.",
+            "values": "json",
+            "undefined": true
           },
           "since": "0.1.0"
         },
@@ -3249,7 +3251,7 @@
           "keyword": "Then",
           "doc": "Check that the key holds that text. The check waits for it: 10 seconds, or `within {duration}`.\n\n- The key must be a string key; for the others, check their properties.",
           "examples": [
-            "Then within 10s the quote:DE-1:STANDARD:1200 redis key has the value '690'"
+            "Then within 10s the quote:DE-1:STANDARD:1200 redis key has the value '\"690\"'"
           ],
           "arg": "none",
           "since": "0.1.5"
@@ -5419,7 +5421,7 @@
           "keyword": "When",
           "doc": "Type a value into the field with that label (or, without a label, that placeholder), replacing what it holds.\n\n- Date fields take dates as `2026-10-01`.\n- A value from `${env:…}`, such as a password, is a secret: failures and traces show it as `********`.",
           "examples": [
-            "When the \"Weight (grams)\" field is filled with \"1200\"",
+            "When the \"Weight (grams)\" field is filled with '\"1200\"'",
             "When the \"Password\" field is filled with \"${env:SHOP_PASSWORD}\""
           ],
           "arg": "none",
@@ -5676,7 +5678,7 @@
           "keyword": "Then",
           "doc": "Check the value a field shows: what it holds, or for a drop-down, the text of the option chosen. The check waits for it: 10 seconds, or `within {duration}`.",
           "examples": [
-            "Then the \"Weight (grams)\" field has the value \"1200\""
+            "Then the \"Weight (grams)\" field has the value '\"1200\"'"
           ],
           "arg": "none",
           "since": "0.1.1"
@@ -5805,7 +5807,7 @@
           "doc": "Check that the element shows the text, as part of what it shows (case matters). The check waits for it: 10 seconds, or `within {duration}`.",
           "examples": [
             "Then the \"css=#price\" element shows \"6.90 EUR\"",
-            "Then the \"Details\" tab shows \"3\""
+            "Then the \"Details\" tab shows '\"3\"'"
           ],
           "arg": "none",
           "since": "0.1.1"
@@ -5816,7 +5818,7 @@
           "keyword": "Then",
           "doc": "Check the value of one of the element's attributes, such as `href` or `aria-expanded`. The check waits for it: 10 seconds, or `within {duration}`.",
           "examples": [
-            "Then the \"Actions\" button has the aria-expanded attribute \"true\""
+            "Then the \"Actions\" button has the aria-expanded attribute '\"true\"'"
           ],
           "arg": "none",
           "since": "0.1.1"
@@ -6052,7 +6054,8 @@
             "columns": [
               "option"
             ],
-            "note": "An option a row, by its text."
+            "note": "An option a row, by its text.",
+            "values": "text"
           },
           "since": "0.1.1"
         },
@@ -8043,7 +8046,7 @@
               "attribute",
               "value"
             ],
-            "note": "Each row names an attribute of the item, or a dotted path into a map (`address.city`), and the value it has. A number (`N`) is the number DynamoDB returns, like `120` or `49.99`; sets read as lists, and binary as base64.",
+            "note": "Each row names an attribute of the item, or a dotted path into a map (`address.city`), and the value it has. A number (`N`) is the number DynamoDB returns, like `120` or `49.99`: it keeps one type of number, so a whole one reads as an integer, however it was written, and `49.990` is `49.99`. Sets read as lists, and binary as base64.",
             "values": "json",
             "undefined": true
           },
@@ -8063,7 +8066,7 @@
               "attribute",
               "value"
             ],
-            "note": "Each row names an attribute of the item, or a dotted path into a map (`address.city`), and the value it has. A number (`N`) is the number DynamoDB returns, like `120` or `49.99`; sets read as lists, and binary as base64.",
+            "note": "Each row names an attribute of the item, or a dotted path into a map (`address.city`), and the value it has. A number (`N`) is the number DynamoDB returns, like `120` or `49.99`: it keeps one type of number, so a whole one reads as an integer, however it was written, and `49.990` is `49.99`. Sets read as lists, and binary as base64.",
             "values": "json",
             "undefined": true
           },
@@ -8275,7 +8278,7 @@
     },
     {
       "name": "gcp-bigquery",
-      "doc": "Seed BigQuery tables and check the rows your services write.\n\nThe steps use the scenario's project (`the {word} gcp project with the following properties:`, from gcp-core). Tables are named `dataset.table` (in the project) or `project.dataset.table`.\n\nA **seed** is a YAML or JSON file that maps tables to the rows to insert (a streaming insert, `tabledata.insertAll`):\n\n```yaml\nbilling.carrier_rates:\n  - carrier: KESTREL\n    service: express\n    price_per_kg: 1.35\n```\n\n**Checks** wait (10 seconds unless `within {duration}` says otherwise) until the table has a row, or a number of rows, meeting every condition: `column | value` rows, with a dotted path into `RECORD` columns (`address.city`), and values of their types: an `INT64` is an integer (`2`), a `FLOAT64` a decimal (`2.0`, a whole one too), a `NUMERIC` the number it is (`1.35`), a `TIMESTAMP` in RFC 3339 (`2026-09-24T09:30:00Z`), a `DATE` like `2026-09-24`, and `null` NULL. A check reads the columns its conditions name, of up to 5,000 rows of the table: check the tables your scenarios write, not warehouse-size ones.",
+      "doc": "Seed BigQuery tables and check the rows your services write.\n\nThe steps use the scenario's project (`the {word} gcp project with the following properties:`, from gcp-core). Tables are named `dataset.table` (in the project) or `project.dataset.table`.\n\nA **seed** is a YAML or JSON file that maps tables to the rows to insert (a streaming insert, `tabledata.insertAll`):\n\n```yaml\nbilling.carrier_rates:\n  - carrier: KESTREL\n    service: express\n    price_per_kg: 1.35\n```\n\n**Checks** wait (10 seconds unless `within {duration}` says otherwise) until the table has a row, or a number of rows, meeting every condition: `column | value` rows, with a dotted path into `RECORD` columns (`address.city`), and values of their column's type, which fail at once and say what to write otherwise: an `INT64` is an integer (`2`), a `FLOAT64` or a `NUMERIC` a decimal (`1.35`, and `2.0`, a whole one too), a `STRING` that reads as a number is in double quotes (`\"01067\"`), a `TIMESTAMP` in RFC 3339 (`2026-09-24T09:30:00Z`), a `DATE` like `2026-09-24`, and `null` NULL. A check reads the columns its conditions name, of up to 5,000 rows of the table: check the tables your scenarios write, not warehouse-size ones.",
       "requires": [
         "gcp-core"
       ],
@@ -8295,7 +8298,7 @@
           "id": "gcp-bigquery.row",
           "expr": "[[within {duration} ]]the {word} bigquery table has a row where:",
           "keyword": "Then",
-          "doc": "Check that the table has a row with those values in those columns.\n\n- The check waits for it: 10 seconds, or `within {duration}`.\n- Name the table `dataset.table`, or `project.dataset.table` for another project's.\n- An `INT64` is an integer, a `FLOAT64` a decimal, a whole one too (`2.0`), and a `NUMERIC` or `BIGNUMERIC` the number it is (`1.35`); a `TIMESTAMP` is in RFC 3339 (`2026-09-24T09:30:00Z`), a `DATE` like `2026-09-24`, a `DATETIME` like `2026-09-24T09:30:00`, and `BYTES` in base64.\n- The check reads only the columns the step names, of up to 5,000 rows.",
+          "doc": "Check that the table has a row with those values in those columns.\n\n- The check waits for it: 10 seconds, or `within {duration}`.\n- Name the table `dataset.table`, or `project.dataset.table` for another project's.\n- An `INT64` is an integer, and a `FLOAT64`, `NUMERIC` or `BIGNUMERIC` a decimal, a whole one too (`2.0`); a `TIMESTAMP` is in RFC 3339 (`2026-09-24T09:30:00Z`), a `DATE` like `2026-09-24`, a `DATETIME` like `2026-09-24T09:30:00`, and `BYTES` in base64.\n- A value of another type than its column's fails at once and says what to write (`12` on a `FLOAT64` asks for `12.0`, and `01067` or `10115` on a `STRING` for `\"10115\"`).\n- The check reads only the columns the step names, of up to 5,000 rows.",
           "examples": [
             "Then within 30s the billing.invoice_lines bigquery table has a row where:\n  | invoice  | INV-2026-09-KES2 |\n  | parcel   | PX-5103          |\n  | status   | OVERCHARGED      |\n  | billed   | 2.5              |\n  | expected | 1.35             |"
           ],
@@ -8314,7 +8317,7 @@
           "id": "gcp-bigquery.rows",
           "expr": "[[within {duration} ]]the {word} bigquery table has {int} row(s) where:",
           "keyword": "Then",
-          "doc": "Check that exactly that many rows of the table have those values in those columns.\n\n- The check waits for it: 10 seconds, or `within {duration}`.\n- Name the table `dataset.table`, or `project.dataset.table` for another project's.\n- An `INT64` is an integer, a `FLOAT64` a decimal, a whole one too (`2.0`), and a `NUMERIC` or `BIGNUMERIC` the number it is (`1.35`); a `TIMESTAMP` is in RFC 3339 (`2026-09-24T09:30:00Z`), a `DATE` like `2026-09-24`, a `DATETIME` like `2026-09-24T09:30:00`, and `BYTES` in base64.\n- The check reads only the columns the step names, of up to 5,000 rows.",
+          "doc": "Check that exactly that many rows of the table have those values in those columns.\n\n- The check waits for it: 10 seconds, or `within {duration}`.\n- Name the table `dataset.table`, or `project.dataset.table` for another project's.\n- An `INT64` is an integer, and a `FLOAT64`, `NUMERIC` or `BIGNUMERIC` a decimal, a whole one too (`2.0`); a `TIMESTAMP` is in RFC 3339 (`2026-09-24T09:30:00Z`), a `DATE` like `2026-09-24`, a `DATETIME` like `2026-09-24T09:30:00`, and `BYTES` in base64.\n- A value of another type than its column's fails at once and says what to write (`12` on a `FLOAT64` asks for `12.0`, and `01067` or `10115` on a `STRING` for `\"10115\"`).\n- The check reads only the columns the step names, of up to 5,000 rows.",
           "examples": [
             "Then the billing.invoice_lines bigquery table has 2 rows where:\n  | invoice | INV-2026-09-KES1 |\n  | status  | MATCHED          |"
           ],

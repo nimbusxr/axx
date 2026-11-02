@@ -108,6 +108,7 @@ func steps() []core.StepDef {
 		{
 			ID: Name + ".event.text", Keyword: "Then", Since: since,
 			Expr:     "[[within {duration} ]]the {word} event stream has an event containing {string}",
+			TextArgs: []int{2},
 			Doc:      "Check that the stream sent an event whose data contains the text. The check waits for it: 10 seconds, or `within {duration}`.",
 			Examples: []string{"Then the tracking event stream has an event containing 'OUT_FOR_DELIVERY'"},
 			Run: func(sc *core.Scenario, a core.Args) error {

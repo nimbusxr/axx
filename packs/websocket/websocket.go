@@ -149,6 +149,7 @@ func steps() []core.StepDef {
 		{
 			ID: Name + ".received.text", Keyword: "Then", Since: since,
 			Expr:     "[[within {duration} ]]the {word} websocket received a message containing {string}",
+			TextArgs: []int{2},
 			Doc:      "Check that the connection received a message containing the text. The check waits for it: 10 seconds, or `within {duration}`.",
 			Examples: []string{"Then the tracking websocket received a message containing 'PX-LIV-5701'"},
 			Run: func(sc *core.Scenario, a core.Args) error {

@@ -135,7 +135,7 @@ func TestSteps(t *testing.T) {
 	h.OK(`the depot app does not show "PX-DSK-4201 is already registered"`)
 	h.OK(`the "Close day" menu item is shown in the depot app`)
 	h.OK(`the "Register" button is disabled in the depot app`)
-	h.OK(`the "Reference" field in the depot app has the value ""`)
+	h.OK(`the "Reference" field in the depot app has the value '""'`)
 	h.OK(`the depot app looks like the "arrivals" screenshot`)
 	h.OK("the depot app is restarted")
 	want := []string{
@@ -170,5 +170,34 @@ func TestFileOwner(t *testing.T) {
 	}
 	if _, err := owner(sc, "courier", "./x"); err == nil {
 		t.Error("an app the scenario does not register has no files")
+	}
+}
+
+// A value in a step's own text follows the rule (ADR 0014), and the family gets
+// the text.
+func TestAStepsOwnValue(t *testing.T) {
+	t.Setenv("DEPOT_PIN", "4711")
+	h := cloudtest.New(t, Pack())
+	f := &fake{}
+	if err := Register(h.SC, &App{Name: "depot", Platform: Host(), Family: f}, true); err != nil {
+		t.Fatal(err)
+	}
+	const number = `1200 reads as an integer, and only text fits here: write '"1200"' for the text`
+	h.ValueFails(`the "Weight" field in the depot app is filled with "1200"`, number)
+	h.ValueFails(`the "Weight" field in the depot app has the value '1200'`, number)
+	h.ValueFails(`within 1s the "Weight" field in the depot app has the value '1200'`, number)
+	h.ValueFails(`the depot app shows '1200'`, number)
+	h.ValueFails(`within 1s the depot app does not show "1200"`, number)
+	h.OK(`the "Weight" field in the depot app is filled with '"1200"'`)
+	h.OK(`the "PIN" field in the depot app is filled with '${env:DEPOT_PIN}'`)
+	h.OK(`the "Weight" field in the depot app has the value '"1200"'`)
+	h.OK(`the depot app shows '"1200"'`)
+	h.OK(`the "1200" button is clicked in the depot app`) // a name, as written
+	want := []string{
+		"fill Weight with 1200 in depot", "fill PIN with 4711 in depot", "value Weight is 1200 in depot",
+		"shows 1200 in depot within 10s", "press 1200 button in depot",
+	}
+	if got := strings.Join(f.calls, "\n"); got != strings.Join(want, "\n") {
+		t.Errorf("calls:\n%s\nwant:\n%s", got, strings.Join(want, "\n"))
 	}
 }

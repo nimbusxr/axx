@@ -145,6 +145,14 @@ func (r *Registry) AddSteps(pack string, steps []core.StepDef) error {
 		if err != nil {
 			return fmt.Errorf("%s: step %s: %w", pack, s.ID, err)
 		}
+		for _, i := range slices.Concat(s.TextArgs, s.TypedArgs) {
+			if i < 0 || i >= len(names) {
+				return fmt.Errorf("%s: step %s: it says argument %d holds a value, and has %d", pack, s.ID, i, len(names))
+			}
+			if !r.givesText(names[i]) {
+				return fmt.Errorf("%s: step %s: it says argument %d holds a value, and its {%s} gives no text", pack, s.ID, i, names[i])
+			}
+		}
 		def := &Def{Pack: pack, Step: s, Names: names}
 		said := map[string]bool{}
 		for _, v := range vars {
@@ -345,9 +353,36 @@ func (r *Registry) Resolve(sc *core.Scenario, m Match, text string, table *core.
 		if err != nil {
 			return args, err
 		}
+		// A value is read by the rule here, before Run expands any reference
+		// in it: a reference is a string, whatever it expands to.
+		if text, ok := v.(string); ok {
+			if v, err = m.Def().Step.ReadArg(i, a.Param, text); err != nil {
+				return args, err
+			}
+		}
 		a.Value = v
 	}
 	return args, nil
+}
+
+// ValueErrors are the errors Resolve gives for the arguments that hold values
+// the rule cannot read (ADR 0014), one each: what the step shows on its own,
+// without running it.
+func (m Match) ValueErrors() []error {
+	var out []error
+	for i, a := range m.Args {
+		if !a.Present {
+			continue
+		}
+		text := a.Raw
+		if a.Param == "string" {
+			text = unquoteString(a.Raw)
+		}
+		if _, err := m.Def().Step.ReadArg(i, a.Param, text); err != nil {
+			out = append(out, err)
+		}
+	}
+	return out
 }
 
 func transform(sc *core.Scenario, p *Param, a *core.Arg) (any, error) {
@@ -428,13 +463,17 @@ func transformError(param, value, javaType string) error {
 // stringTransform removes the surrounding quotes and unescapes \" and \'
 // exactly as Cucumber-JVM does.
 func stringTransform(_ *core.Scenario, raw string, _ []*string) (any, error) {
+	return unquoteString(raw), nil
+}
+
+func unquoteString(raw string) string {
 	if len(raw) < 2 {
-		return raw, nil
+		return raw
 	}
 	quote := raw[0]
 	inner := raw[1 : len(raw)-1]
 	if quote == '"' {
-		return strings.ReplaceAll(inner, `\"`, `"`), nil
+		return strings.ReplaceAll(inner, `\"`, `"`)
 	}
-	return strings.ReplaceAll(inner, `\'`, `'`), nil
+	return strings.ReplaceAll(inner, `\'`, `'`)
 }

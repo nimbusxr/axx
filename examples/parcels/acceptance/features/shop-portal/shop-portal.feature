@@ -20,14 +20,14 @@ Feature: Shop portal
 
   Scenario: A shop gets a price for a parcel within Germany
     Given the "/quote" page is opened
-    When the "Weight (grams)" field is filled with "1200"
+    When the "Weight (grams)" field is filled with '"1200"'
     And "Germany" is chosen in the "Destination country" field
-    And the "Postcode" field is filled with "10115"
+    And the "Postcode" field is filled with '"10115"'
     And the "Get a quote" button is clicked
     Then the page shows "Price: 6.90 EUR · delivered in 2 days"
     And the browser sent a POST request to "/quote"
     And the "testid=quote" element shows "6.90 EUR"
-    And the "Weight (grams)" field has the value "1200"
+    And the "Weight (grams)" field has the value '"1200"'
     And the "Destination country" field has the value "Germany"
     And the page has no script errors
 
@@ -38,9 +38,9 @@ Feature: Shop portal
 
   Scenario: Express abroad costs more and arrives within two days
     Given the "/quote" page is opened
-    When the "Weight (grams)" field is filled with "1200"
+    When the "Weight (grams)" field is filled with '"1200"'
     And "France" is chosen in the "Destination country" field
-    And the "Postcode" field is filled with "75011"
+    And the "Postcode" field is filled with '"75011"'
     And the "Express" option is chosen
     And the "Get a quote" button is clicked
     Then the page shows "Price: 19.90 EUR · delivered in 2 days"
@@ -100,9 +100,9 @@ Feature: Shop portal
 
   Scenario: An Express quote looks as designed
     Given the "/quote" page is opened
-    When the "Weight (grams)" field is filled with "1200"
+    When the "Weight (grams)" field is filled with '"1200"'
     And "France" is chosen in the "Destination country" field
-    And the "Postcode" field is filled with "75011"
+    And the "Postcode" field is filled with '"75011"'
     And the "Express" option is chosen
     And the "Get a quote" button is clicked
     Then the "testid=quote" element looks like the "express quote" screenshot
@@ -133,11 +133,11 @@ Feature: Shop portal
     And the "/parcels/new" page is opened
     When the "Shop account" field is filled with "fjord-outdoor"
     And the "Parcel reference" field is filled with "PX-WEB-5001"
-    And the "Weight (grams)" field is filled with "1200"
+    And the "Weight (grams)" field is filled with '"1200"'
     And the "Express" option is chosen
     And the "Recipient name" field is filled with "Anna Weber"
     And the "Street" field is filled with "Invalidenstr. 116"
-    And the "Postcode" field is filled with "10115"
+    And the "Postcode" field is filled with '"10115"'
     And the "City" field is filled with "Berlin"
     And "Germany" is chosen in the "Destination country" field
     And the "Signature on delivery" checkbox is checked
@@ -164,10 +164,10 @@ Feature: Shop portal
     Given the "/parcels/new" page is opened
     When the "Shop account" field is filled with "maple-crafts"
     And the "Parcel reference" field is filled with "PX-WEB-5002"
-    And the "Weight (grams)" field is filled with "800"
+    And the "Weight (grams)" field is filled with '"800"'
     And the "Recipient name" field is filled with "Marc Petit"
     And the "Street" field is filled with "Rue Oberkampf 40"
-    And the "Postcode" field is filled with "75011"
+    And the "Postcode" field is filled with '"75011"'
     And the "City" field is filled with "Paris"
     And "France" is chosen in the "Destination country" field
     And the invoices/INV-2041.pdf file is uploaded in the "Customs invoice" field
@@ -195,10 +195,10 @@ Feature: Shop portal
     Given the "/parcels/new" page is opened
     And the "Shop account" field is filled with "maple-crafts"
     And the "Parcel reference" field is filled with "PX-WEB-5005"
-    And the "Weight (grams)" field is filled with "600"
+    And the "Weight (grams)" field is filled with '"600"'
     And the "Recipient name" field is filled with "Marc Petit"
     And the "Street" field is filled with "Rue Oberkampf 40"
-    And the "Postcode" field is filled with "75011"
+    And the "Postcode" field is filled with '"75011"'
     And the "City" field is filled with "Paris"
     And "France" is chosen in the "Destination country" field
     And the "Contents" field is filled with "1 hand-painted porcelain mug"
@@ -216,10 +216,10 @@ Feature: Shop portal
     Given the "/parcels/new" page is opened
     And the "Shop account" field is filled with "maple-crafts"
     And the "Parcel reference" field is filled with "PX-WEB-5004"
-    And the "Weight (grams)" field is filled with "900"
+    And the "Weight (grams)" field is filled with '"900"'
     And the "Recipient name" field is filled with "Marc Petit"
     And the "Street" field is filled with "Rue Oberkampf 40"
-    And the "Postcode" field is filled with "75011"
+    And the "Postcode" field is filled with '"75011"'
     And the "City" field is filled with "Paris"
     And "France" is chosen in the "Destination country" field
     And the "Contents" field is filled with "2 hand-thrown stoneware mugs, 1 linen tea towel"
@@ -237,9 +237,9 @@ Feature: Shop portal
     Given the "/parcels/new" page is opened
     When the "Shop account" field is filled with "fjord-outdoor"
     And the "Parcel reference" field is filled with "PX-WEB-5003"
-    And the "Weight (grams)" field is filled with "1200"
+    And the "Weight (grams)" field is filled with '"1200"'
     And the "Recipient name" field is filled with "Jonas Brandt"
-    And the "Postcode" field is filled with "99901"
+    And the "Postcode" field is filled with '"99901"'
     And "Germany" is chosen in the "Destination country" field
     And the "Register the parcel" button is clicked
     Then the page shows "We cannot deliver to that address: no delivery to this postcode"

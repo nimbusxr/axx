@@ -46,7 +46,7 @@ And the request payload properties are:
 - **Nothing is inferred.** `| weightGrams | 1200 |` sets the number, whatever the example held, and `"1200"` sends the string, to check that the service refuses it.
 - **Checks compare types.** `| recipient.postcode | 10115 |` fails on the string "10115", and the failure says what to write.
 - **In a step's text, the quotes hold the value:** `property priceCents is '690'` checks the integer, as `is 690` does, and `is '"690"'` the string.
-- **A header is text.** In a table, one that reads as a number goes in double quotes: `| Retry-After | "5" |`.
+- **A header is text.** One that reads as a number goes in double quotes: `| Retry-After | "5" |` in a table, and `the response header Retry-After is '"5"'` in a step's own text.
 
 ## Several requests in one scenario
 

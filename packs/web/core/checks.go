@@ -56,10 +56,11 @@ func checkSteps() []core.StepDef {
 		},
 		{
 			ID: "web-core.element.text", Keyword: "Then", Since: since,
-			Expr: "[[within {duration} ]]the {string} {element} shows {string}",
+			Expr:     "[[within {duration} ]]the {string} {element} shows {string}",
+			TextArgs: []int{3},
 			Doc: "Check that the element shows the text, as part of what it shows (case matters). The check waits for it: " +
 				"10 seconds, or `within {duration}`.",
-			Examples: []string{`Then the "css=#price" element shows "6.90 EUR"`, `Then the "Details" tab shows "3"`},
+			Examples: []string{`Then the "css=#price" element shows "6.90 EUR"`, `Then the "Details" tab shows '"3"'`},
 			Run: check(func(sc *core.Scenario, s *session, a core.Args) error {
 				name, k, want := text(sc, a, 1), a.Value(2).(kind), text(sc, a, 3)
 				return s.expectOf(sc, k, name, cloudstep.Wait(a, 0), func(loc playwright.Locator) (bool, string, error) {
@@ -73,10 +74,11 @@ func checkSteps() []core.StepDef {
 		},
 		{
 			ID: "web-core.element.attribute", Keyword: "Then", Since: since,
-			Expr: "[[within {duration} ]]the {string} {element} has the {word} attribute {string}",
+			Expr:     "[[within {duration} ]]the {string} {element} has the {word} attribute {string}",
+			TextArgs: []int{4},
 			Doc: "Check the value of one of the element's attributes, such as `href` or `aria-expanded`. The check waits for it: " +
 				"10 seconds, or `within {duration}`.",
-			Examples: []string{`Then the "Actions" button has the aria-expanded attribute "true"`},
+			Examples: []string{`Then the "Actions" button has the aria-expanded attribute '"true"'`},
 			Run: check(func(sc *core.Scenario, s *session, a core.Args) error {
 				name, k, attr, want := text(sc, a, 1), a.Value(2).(kind), a.String(3), text(sc, a, 4)
 				return s.expectOf(sc, k, name, cloudstep.Wait(a, 0), func(loc playwright.Locator) (bool, string, error) {
@@ -178,6 +180,7 @@ func checkSteps() []core.StepDef {
 		{
 			ID: "web-core.title", Keyword: "Then", Since: since,
 			Expr:     "[[within {duration} ]]the page title is {string}",
+			TextArgs: []int{1},
 			Doc:      "Check the page's title, as the browser tab shows it. The check waits for it: 10 seconds, or `within {duration}`.",
 			Examples: []string{`Then the page title is "Get a quote · Parcels"`},
 			Run: check(func(sc *core.Scenario, s *session, a core.Args) error {

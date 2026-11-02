@@ -104,7 +104,8 @@ func steps() []core.StepDef {
 		},
 		{
 			ID: Name + ".result.is", Keyword: "Then", Since: since,
-			Expr: "the {word} jsonrpc service's result is {string}",
+			Expr:      "the {word} jsonrpc service's result is {string}",
+			TypedArgs: []int{1},
 			Doc: "Check the whole result of the service's last call, with its type: `'true'` is the boolean, `'42'` the integer, " +
 				"`'\"42\"'` the string 42, `'{\"open\": true}'` the object, and other text a string (`'ON_HOLD'`).",
 			Examples: []string{"Then the depots jsonrpc service's result is 'true'"},
@@ -118,8 +119,9 @@ func steps() []core.StepDef {
 		},
 		{
 			ID: Name + ".error", Keyword: "Then", Since: since,
-			Expr: "the {word} jsonrpc service answered the error {int}[[ with a message containing {string}]]",
-			Doc:  "Check the error code the service's last call answered, and the text its message contains.",
+			Expr:     "the {word} jsonrpc service answered the error {int}[[ with a message containing {string}]]",
+			TextArgs: []int{2},
+			Doc:      "Check the error code the service's last call answered, and the text its message contains.",
 			Examples: []string{
 				"Then the depots jsonrpc service answered the error -32602",
 				"Then the depots jsonrpc service answered the error -32010 with a message containing 'out for delivery'",

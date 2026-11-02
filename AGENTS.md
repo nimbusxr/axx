@@ -193,6 +193,8 @@ the skills instead: `axx skills install`.
 - Step expression text is public API. Never change existing step text by accident; add new steps instead. axx
   is in beta: when the owner decides to remove or change a step, take its old text out of the catalog with
   `go test ./internal/engine -run TestStepCatalog -prune`.
+- A step's `{string}` that it sets something to or checks something against is a value: declare it
+  (`StepDef.TextArgs`, `TypedArgs`; ADR 0014). A name or a pattern is not: list it in `packs/all/values_test.go`.
 - Exit codes (`internal/exitcode`) and the `--json` envelope are frozen contracts (ADR 0003).
 - Every user-facing error is an `*axxerr.Error` with a stable `AXX-Exxxx` code and a hint.
 - Never hand-edit generated files: `go generate ./...` writes the `axx.yaml` schema

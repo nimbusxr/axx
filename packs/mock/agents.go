@@ -72,7 +72,8 @@ func agentSteps() []core.StepDef {
 		},
 		{
 			ID: "mock.a2a.sent", Keyword: "Then", Since: agentsSince,
-			Expr: "the mocked {mockedService} a2a agent was sent a message containing {string}[[ {int} time(s)]]",
+			Expr:     "the mocked {mockedService} a2a agent was sent a message containing {string}[[ {int} time(s)]]",
+			TextArgs: []int{1},
 			Doc: "Check that the service sent the mocked A2A agent a message whose text has the text (its text parts, and its data parts " +
 				"as JSON): at least once, or as many times as the step says.\n\n" +
 				"- Every message since the run started counts, other scenarios' too: look for the scenario's own data, like its " +

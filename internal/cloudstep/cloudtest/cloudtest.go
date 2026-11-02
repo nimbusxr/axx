@@ -23,7 +23,11 @@ import (
 	"github.com/testcontainers/testcontainers-go/network"
 	"github.com/testcontainers/testcontainers-go/wait"
 
+	messages "github.com/cucumber/messages/go/v34"
+
 	"github.com/nimbusxr/axx/core"
+	"github.com/nimbusxr/axx/internal/check"
+	"github.com/nimbusxr/axx/internal/feature"
 	"github.com/nimbusxr/axx/internal/interp"
 	"github.com/nimbusxr/axx/internal/match"
 )
@@ -240,6 +244,35 @@ func (h *Harness) NewScenarioWithin(limit time.Duration) *core.Scenario {
 // be called while h runs one.
 func (h *Harness) In(sc *core.Scenario) *Harness {
 	return &Harness{t: h.t, reg: h.reg, packs: h.packs, Suite: h.Suite, Dir: h.Dir, SC: sc, Sink: h.Sink, hooks: h.hooks, line: 1}
+}
+
+// ValueFails checks that a value in a step's own text that the rule cannot read
+// (ADR 0014) fails the step with the message want and its code, as it runs, and
+// that axx validate reports just that.
+func (h *Harness) ValueFails(text, want string) {
+	h.t.Helper()
+	if err := h.Step(text); err == nil || err.Error() != want+" ["+core.ValueErrorCode+"]" {
+		h.t.Errorf("%s: %v, want the error %s", text, err, want)
+	}
+	if got := ValueProblems(h.t, h.reg, text); !slices.Equal(got, []string{want}) {
+		h.t.Errorf("%s: axx validate reports %q, want %q", text, got, want)
+	}
+}
+
+// ValueProblems are the messages of the values axx validate reports in a step.
+func ValueProblems(t *testing.T, reg *match.Registry, text string) []string {
+	t.Helper()
+	_, pickles, err := feature.ParseSource("step.feature", []byte("Feature: f\n  Scenario: s\n    * "+text+"\n"), messages.UUID{}.NewId)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var out []string
+	for _, p := range check.Pickles(reg, pickles).Problems {
+		if p.Kind == check.Value {
+			out = append(out, p.Message)
+		}
+	}
+	return out
 }
 
 // End ends the scenario as the runner does: it records the outcome

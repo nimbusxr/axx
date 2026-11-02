@@ -151,6 +151,11 @@ func TestTools(t *testing.T) {
 	if ws, _ := out["warnings"].([]any); out["valid"] != true || len(ws) != 1 || ws[0].(map[string]any)["kind"] != "lint" {
 		t.Fatalf("feature_validate lint warnings: %v", out)
 	}
+	// A step's own value, by the rule (ADR 0014): what the step says when it runs.
+	out = call(t, cs, "feature_validate", map[string]any{"content": "Feature: f\n  Scenario: s\n    Then the response header Retry-After is '5'\n"})
+	if !strings.Contains(fmt.Sprint(out), `5 reads as an integer, and only text fits here: write '"5"' for the text`) {
+		t.Fatalf("feature_validate a step's own value: %v", out)
+	}
 	out = call(t, cs, "feature_validate", map[string]any{"content": "Feature: f\n  Scenario: s\n    Given a GET request to /health\n    When the request is executed\n    Then the response status code is 200\n"})
 	if hs, _ := out["hints"].([]any); out["valid"] != true || len(hs) != 1 || !strings.Contains(hs[0].(string), "only a success status") {
 		t.Fatalf("feature_validate hints: %v", out)

@@ -89,7 +89,8 @@ func steps() []core.StepDef {
 		},
 		{
 			ID: Name + ".status", Keyword: "Then", Since: since,
-			Expr: "[[within {duration} ]]the {word} grpc service answered {word}[[ with a message containing {string}]]",
+			Expr:     "[[within {duration} ]]the {word} grpc service answered {word}[[ with a message containing {string}]]",
+			TextArgs: []int{3},
 			Doc: "Check the status the service's last call answered: `OK`, `NOT_FOUND`, `INVALID_ARGUMENT`..., and the text its message contains.\n\n" +
 				"- A server stream answers when it ends: the check waits for that, 10 seconds or `within {duration}`.",
 			Examples: []string{

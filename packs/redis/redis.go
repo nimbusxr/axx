@@ -82,10 +82,11 @@ func steps() []core.StepDef {
 		},
 		{
 			ID: Name + ".value", Keyword: "Then", Since: since,
-			Expr: "[[within {duration} ]]the {word} redis key has the value {string}",
+			Expr:     "[[within {duration} ]]the {word} redis key has the value {string}",
+			TextArgs: []int{2},
 			Doc: "Check that the key holds that text. The check waits for it: 10 seconds, or `within {duration}`.\n\n" +
 				"- The key must be a string key; for the others, check their properties.",
-			Examples: []string{"Then within 10s the quote:DE-1:STANDARD:1200 redis key has the value '690'"},
+			Examples: []string{"Then within 10s the quote:DE-1:STANDARD:1200 redis key has the value '\"690\"'"},
 			Run: func(sc *core.Scenario, a core.Args) error {
 				key, want := a.String(1), a.String(2)
 				return check(sc, a, key, func(k *stored) (bool, string) {

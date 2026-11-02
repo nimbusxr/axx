@@ -339,7 +339,7 @@ func problemMessage(pr check.Problem, outline bool) string {
 			b.WriteString("\n  " + c)
 		}
 	case check.Value:
-		// It starts with the row's key, as the table writes it.
+		// A table's starts with the row's key, as the table writes it.
 		b.WriteString(pr.Message + ".")
 	default:
 		if pr.Message != "" {

@@ -193,7 +193,8 @@ func (o Objects) Checks() []core.StepDef {
 		},
 		{
 			ID: o.Pack + ".contains", Keyword: "Then", Since: o.since("0.1.1"),
-			Expr: "[[within {duration} ]]the {path} " + obj + " in the {word} " + c + " contains {string}",
+			Expr:     "[[within {duration} ]]the {path} " + obj + " in the {word} " + c + " contains {string}",
+			TextArgs: []int{3},
 			Doc: fmt.Sprintf("Check that the text of the %s contains the text.\n\n"+
 				"- The check waits for it: 10 seconds, or `within {duration}`.\n"+
 				"- Case matters; runs of spaces and line breaks count as one space.\n"+

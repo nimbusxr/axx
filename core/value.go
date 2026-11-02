@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/big"
 	"regexp"
+	"slices"
 	"strings"
 )
 
@@ -169,6 +170,26 @@ func InStepText(err error) error {
 		return &ValueError{cell: ve.step, step: ve.step}
 	}
 	return err
+}
+
+// ReadArg reads argument i of the step, of the parameter type param, as that
+// type gives it (a {string} without its quotes): what Run gets for it, or the
+// error of an argument that holds a value the rule cannot read (TextArgs,
+// TypedArgs). A {string}'s error says what to write in its quotes; a {word}
+// has none, and writes `"5"` as a cell does. Any other argument comes back as
+// it is.
+func (s StepDef) ReadArg(i int, param, text string) (string, error) {
+	var err error
+	switch {
+	case slices.Contains(s.TextArgs, i):
+		text, _, err = ParseText(text, text == "", false)
+	case slices.Contains(s.TypedArgs, i):
+		_, err = ParseValue(text, text == "", s.TypedArgsUndefined)
+	}
+	if param == "string" {
+		err = InStepText(err)
+	}
+	return text, err
 }
 
 // StepText is a form of a value as a step's own text writes it: in the single

@@ -89,7 +89,7 @@ func TestDraftsAndOrdinals(t *testing.T) {
 	if strings.Join(got, ",") != "trace=t2,empty=,attempt=3,source=svc" {
 		t.Errorf("headers: %v", got)
 	}
-	h.fails("the orders kafka event key is 4101", `the key: 4101 reads as an integer, and only text fits here: write "4101" for the text`)
+	h.fails("the orders kafka event key is 4101", `4101 reads as an integer, and only text fits here: write "4101" for the text`)
 	h.must(`the orders kafka event key is "4101"`)
 	if *tc.events[0].Key != "4101" {
 		t.Errorf("key: %q", *tc.events[0].Key)

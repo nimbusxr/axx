@@ -53,7 +53,7 @@ func responseSteps() []core.StepDef {
 	for _, f := range []family{
 		{
 			id: "rest.response.body.contains", keyword: "Then", noun: "response",
-			head: "the response body contains {string}", nHead: 1,
+			head: "the response body contains {string}", nHead: 1, textArgs: []int{0},
 			doc:          "Check that the response body contains the text.",
 			example:      "Then the response body contains 'already registered'",
 			namedExample: "Then the response body contains 'already registered' for 2nd ordered response on parcels",
@@ -70,7 +70,7 @@ func responseSteps() []core.StepDef {
 		},
 		{
 			id: "rest.response.header.is", keyword: "Then", noun: "response",
-			head: "the response header {word} is {string}", nHead: 2,
+			head: "the response header {word} is {string}", nHead: 2, textArgs: []int{1},
 			doc: "Check that a response header has the value.",
 			details: []string{
 				"The header's name is matched in any case.",
@@ -210,7 +210,7 @@ func responseSteps() []core.StepDef {
 			id: "rest.response.property.is", keyword: "Then", noun: "response",
 			leading: true,
 			bare:    true,
-			head:    "the response payload property {word} is {string}", nHead: 2,
+			head:    "the response payload property {word} is {string}", nHead: 2, typedArgs: []int{1},
 			doc: "Check a property of a JSON response, by its JSONPath, like `status`, `recipient.postcode` or " +
 				"`[?(@.sender=='kestrel-books')].reference`.",
 			details: append([]string{

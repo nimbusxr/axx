@@ -208,6 +208,7 @@ func steps() []core.StepDef {
 		{
 			ID: "mock.header.is", Keyword: "Then",
 			Expr:     "the header {word} for mocked request named {word}[[ on {mockedService}]] is {string}",
+			TextArgs: []int{3},
 			Doc:      "Check that the named request was received with a header of that value. " + headerJoins,
 			Examples: []string{"Then the header X-Api-Key for mocked request named postcode-check is 'example-address-key'"},
 			Run: func(sc *core.Scenario, a core.Args) error {

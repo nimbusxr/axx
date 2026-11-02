@@ -102,6 +102,15 @@ for _, p := range pairs {
 }
 ```
 
+A `{string}` the step sets something to or checks something against is a value too, read by the same rule. Say so, by the argument's place, and `axx validate` and the run report what the rule cannot read (`'5'` asks for `'"5"'`):
+
+```go title="steps/pack.go"
+Expr:     "the {word} carrier code is {string}",
+TextArgs: []int{1}, // a.String(1) is the text; TypedArgs for any type, which the step reads with core.ParseValue
+```
+
+A name that finds something, or a pattern, is not a value: leave it out.
+
 ## Change a REST request
 
 A custom step can change a request the rest pack's steps built, until it is executed: sign it, or give it a token the service expects. A request's headers are the ones it is sent with:

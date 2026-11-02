@@ -42,7 +42,7 @@ Feature: Database failures
     And the request payload property reference is 'PX-DBF-3002'
     When the request is executed
     Then the response status code is 503
-    And the response header Retry-After is '5'
+    And the response header Retry-After is '"5"'
     And the response payload property detail is 'the parcel could not be stored; try again later'
     And the before insert trigger on the parcels.parcels table was raised 3 times
     And the parcels log has 2 entries matching 'msg="storing parcel failed, retrying" reference=PX-DBF-3002'

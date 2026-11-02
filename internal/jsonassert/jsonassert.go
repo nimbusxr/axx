@@ -118,6 +118,50 @@ func patterns(doc string, pairs []core.Pair) error {
 	return core.Fail(fmt.Sprintf("JSON properties do not match the expected values: %s", strings.Join(failed, ", ")), expected, actual)
 }
 
+// Strict says whether a value a database selected, as JSON, is v, type and all,
+// as a check compares them: for a database whose own equality is looser than
+// the rule's. hint says what to write when they differ only in type.
+func Strict(field, actual string, v core.Value) (same bool, hint string) {
+	if jvalue.NullDocument(actual) || v.IsNull() {
+		return jvalue.NullDocument(actual) && v.IsNull(), ""
+	}
+	a, err := jsonx.Parse(actual)
+	if err != nil {
+		return false, ""
+	}
+	want, err := jvalue.Expected(v)
+	if err != nil {
+		return false, ""
+	}
+	if jvalue.Equal(a, want) {
+		return true, ""
+	}
+	return false, jvalue.TypeHint(field, v, a)
+}
+
+// StrictAt is Strict of the value at path in a JSON document.
+func StrictAt(doc, path string, v core.Value) (same bool, hint string, err error) {
+	if same, err = jvalue.ValueIs(doc, path, v); same || err != nil {
+		return same, "", err
+	}
+	if _, value, found := valueAt(doc, path); found {
+		hint = jvalue.TypeHint(path, v, value)
+	}
+	return false, hint, nil
+}
+
+// IsNumber says the value is a number: `42`, `42L`, `1.5`.
+func IsNumber(v core.Value) bool {
+	if _, isString := v.Str(); isString || v.IsNull() || v.Undefined() {
+		return false
+	}
+	switch j := v.JSON(); {
+	case j == "true", j == "false", strings.HasPrefix(j, "{"), strings.HasPrefix(j, "["):
+		return false
+	}
+	return true
+}
+
 // rawJSON is a value's JSON text in a failure: reporters print it as it is,
 // and --json output has the JSON value itself.
 type rawJSON string

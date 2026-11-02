@@ -35,20 +35,20 @@ func TestTheGherkinLanguage(t *testing.T) {
 		t.Fatal(err)
 	}
 	selectors := map[string]string{
-		`internal:role=button[name="Get a quote"s]`:                                               `the "Get a quote" button`,
-		`internal:role=link[name="Track"i]`:                                                       `the "Track" link`,
-		`internal:role=tab[name="History"s]`:                                                      `the "History" tab`,
-		`internal:role=menuitem[name="Cancel the parcel"s]`:                                       `the "Cancel the parcel" menu item`,
-		`internal:role=checkbox[name="Insure this parcel"s]`:                                      `the "Insure this parcel" checkbox`,
-		`internal:role=radio[name="Express"s]`:                                                    `the "Express" option`,
-		`internal:role=textbox[name="Postcode"s]`:                                                 `the "Postcode" field`,
-		`internal:role=heading[name="Parcels"s]`:                                                  `the "Parcels" element`,
-		`internal:label="Weight (grams)"s`:                                                        `the "Weight (grams)" field`,
-		`internal:attr=[placeholder="Search parcels"i]`:                                           `the "Search parcels" field`,
-		`internal:text="Price: 6.90 EUR"s`:                                                        `the "Price: 6.90 EUR" element`,
-		`internal:testid=[data-testid="quote"s]`:                                                  `the "testid=quote" element`,
-		`.quote-result`:                                                                           `the "css=.quote-result" element`,
-		`xpath=//tbody/tr[2]`:                                                                     `the "xpath=//tbody/tr[2]" element`,
+		`internal:role=button[name="Get a quote"s]`:          `the "Get a quote" button`,
+		`internal:role=link[name="Track"i]`:                  `the "Track" link`,
+		`internal:role=tab[name="History"s]`:                 `the "History" tab`,
+		`internal:role=menuitem[name="Cancel the parcel"s]`:  `the "Cancel the parcel" menu item`,
+		`internal:role=checkbox[name="Insure this parcel"s]`: `the "Insure this parcel" checkbox`,
+		`internal:role=radio[name="Express"s]`:               `the "Express" option`,
+		`internal:role=textbox[name="Postcode"s]`:            `the "Postcode" field`,
+		`internal:role=heading[name="Parcels"s]`:             `the "Parcels" element`,
+		`internal:label="Weight (grams)"s`:                   `the "Weight (grams)" field`,
+		`internal:attr=[placeholder="Search parcels"i]`:      `the "Search parcels" field`,
+		`internal:text="Price: 6.90 EUR"s`:                   `the "Price: 6.90 EUR" element`,
+		`internal:testid=[data-testid="quote"s]`:             `the "testid=quote" element`,
+		`.quote-result`:                                      `the "css=.quote-result" element`,
+		`xpath=//tbody/tr[2]`:                                `the "xpath=//tbody/tr[2]" element`,
 		`iframe[name="pay"] >> internal:control=enter-frame >> internal:role=button[name="Pay"s]`: `the "Pay" button`,
 		`internal:role=button[name="Say \"hi\""s]`:                                                `the "Say \"hi\"" button`,
 		// The pack's own locators: its ways of finding one name, and visible ones only.
@@ -83,6 +83,10 @@ func TestTheGherkinLanguage(t *testing.T) {
 		{"name": "click", "selector": `internal:role=button[name="Get a quote"s]`, "button": "left", "clickCount": 1, "modifiers": 0, "signals": []any{}},
 		{"name": "assertText", "selector": `internal:testid=[data-testid="quote"s]`, "text": "Price: 13.40 EUR", "substring": true, "signals": []any{}},
 		{"name": "assertValue", "selector": `internal:label="Weight (grams)"s`, "value": "1200", "signals": []any{}},
+		// A value that reads as anything but text goes in double quotes inside the step's own (ADR 0014).
+		{"name": "fill", "selector": `internal:label="Postcode"s`, "text": "01067", "signals": []any{}},
+		{"name": "fill", "selector": `internal:label="Postcode"s`, "text": `{"a":"it's"}`, "signals": []any{}},
+		{"name": "fill", "selector": `internal:label="Postcode"s`, "text": "Anna's", "signals": []any{}},
 		{"name": "click", "selector": `internal:role=button[name="Cancel"s]`, "button": "left", "clickCount": 1, "modifiers": 0, "signals": []any{map[string]any{"name": "dialog", "dialogAlias": "dialog"}}},
 		{"name": "click", "selector": `internal:role=button[name="Delete"s] >> nth=1`, "button": "left", "clickCount": 1, "modifiers": 0, "signals": []any{}},
 		{"name": "assertSnapshot", "selector": `internal:role=form[name="Get a quote"s]`, "ariaSnapshot": "- spinbutton \"Weight (grams)\"\n- button \"Get a quote\"", "signals": []any{}},
@@ -119,7 +123,7 @@ func TestTheGherkinLanguage(t *testing.T) {
 	}
 	want := `    # The steps, as you use the page: copy them into a scenario.
     When the "/quote" page is opened
-    And the "Weight (grams)" field is filled with "1200"
+    And the "Weight (grams)" field is filled with '"1200"'
     And "Germany" is chosen in the "Destination country" field
     And the INV-2041.pdf file is uploaded in the "Customs invoice" field
     # INV-2041.pdf: the browser gives only the file's name; give its path in the project (relative to axx.yaml's directory or a resources directory, with no spaces)
@@ -128,8 +132,11 @@ func TestTheGherkinLanguage(t *testing.T) {
     And the Enter key is pressed in the "Postcode" field
     And the "Get a quote" button is clicked
     Then the "testid=quote" element shows "Price: 13.40 EUR"
-    And the "Weight (grams)" field has the value "1200"
-    When the "Cancel" button is clicked
+    And the "Weight (grams)" field has the value '"1200"'
+    When the "Postcode" field is filled with '"01067"'
+    And the "Postcode" field is filled with '"{"a":"it\'s"}"'
+    And the "Postcode" field is filled with "Anna's"
+    And the "Cancel" button is clicked
     And the dialog is dismissed
     # click: no step finds this element by what people see; give it a label, a name or a test id (Playwright: getByRole('button', { name: 'Delete', exact: true }).nth(1))
     Then the "Get a quote" element's accessible structure is:

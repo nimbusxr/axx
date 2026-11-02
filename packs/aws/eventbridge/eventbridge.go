@@ -46,8 +46,9 @@ func (pack) Manifest() core.Manifest {
 		Steps: []core.StepDef{
 			{
 				ID: name + ".put", Keyword: "When", Arg: core.ArgDocString, Since: "0.1.0",
-				Expr: "a(n) {string} event from {word} is put on the {word} eventbridge bus:",
-				Doc:  "Put an event with that detail type and source on the bus; the doc string is its detail, in JSON.",
+				Expr:     "a(n) {string} event from {word} is put on the {word} eventbridge bus:",
+				TextArgs: []int{0},
+				Doc:      "Put an event with that detail type and source on the bus; the doc string is its detail, in JSON.",
 				Examples: []string{
 					"When a \"Damage Reported\" event from carrier.kestrel is put on the carrier-events eventbridge bus:\n" +
 						"  \"\"\"\n" +

@@ -85,7 +85,8 @@ func steps() []core.StepDef {
 		},
 		{
 			ID: Name + ".output.contains", Keyword: "Then", Since: since,
-			Expr: "the {word} command's[[ error]] output contains {string}",
+			Expr:     "the {word} command's[[ error]] output contains {string}",
+			TextArgs: []int{1},
 			Doc: "Check that the command's output (or its error output) contains the text. Runs of spaces and line breaks " +
 				"count as one space, in both.",
 			Examples: []string{"Then the admin command's error output contains 'PX-ADM-6102 is DISPATCHED'"},

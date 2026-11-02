@@ -52,7 +52,7 @@ Feature: The depot desk's models, on Windows
     When the "Depot" element is clicked in the depot app
     And the "Read label" element is clicked in the depot app
     Then the depot app shows "No reference on the label: type it in"
-    And the "${sys:desk.reference}" field in the depot app has the value ""
+    And the "${sys:desk.reference}" field in the depot app has the value '""'
 
   @windows-ai
   Scenario: A PC without the label reader leaves the reference to the clerk

@@ -83,7 +83,7 @@ func TestConsumerAssertions(t *testing.T) {
 		{"the orders kafka event named e payload properties are:", `$.id: the cell is empty: write "" for the empty string, null for null, or undefined for no such property`, []string{"$.id", ""}},
 		{"the orders kafka event named e headers are:", `attempt: 3 reads as an integer, and only text fits here: write "3" for the text`, []string{"attempt", "3"}},
 		{"the orders kafka event named e headers are:", `trace: the cell is empty: write "" for the empty text`, []string{"trace", ""}},
-		{"the orders kafka event named e key is 4101", `the key: 4101 reads as an integer, and only text fits here: write "4101" for the text`, nil},
+		{"the orders kafka event named e key is 4101", `4101 reads as an integer, and only text fits here: write "4101" for the text`, nil},
 	} {
 		var table [][]string
 		if c.table != nil {

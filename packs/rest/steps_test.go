@@ -140,7 +140,7 @@ func TestPayloadProperties(t *testing.T) {
 		{"the request payload property price is '19.99'", nil, `"price":19.99`},
 		{"the request payload property price is 'cheap'", nil, `"price":"cheap"`},
 		{"the request payload property price is '19.99'", nil, `"price":19.99`},
-		{"the request payload property note is ''", nil, `"note":""`},
+		{`the request payload property note is '""'`, nil, `"note":""`},
 		{"the request payload property big is '3000000000'", nil, `"big":3000000000`},
 		{"the request payload property address is '{\"city\": \"LA\"}'", nil, `"address":{"city":"LA"}`},
 		{"the request payload property address.city is 'NY'", nil, `"address":{"city":"NY"}`},
@@ -176,8 +176,9 @@ func TestPayloadProperties(t *testing.T) {
 	// A value that could be read two ways fails, with the forms to write,
 	// and changes nothing.
 	h.fails("the request payload property zip is '01067'",
-		`zip: 01067 could be the number 1067 or the text 01067: write '1067' for the number, or '"01067"' for the text`)
-	h.fails("the request payload property zip is '+5'", "zip: +5 could be the number 5")
+		`01067 could be the number 1067 or the text 01067: write '1067' for the number, or '"01067"' for the text`)
+	h.fails("the request payload property zip is '+5'", "+5 could be the number 5")
+	h.fails("the request payload property note is ''", `the value is empty: write '""' for the empty string, 'null' for null, or 'undefined' for no such property`)
 	h.fails("the request payload properties are:",
 		`zip: the cell is empty: write "" for the empty string, null for null, or undefined for no such property`,
 		[]string{"name", "Jane"}, []string{"zip", ""})
@@ -279,9 +280,10 @@ func TestResponseAssertions(t *testing.T) {
 	}
 	h.fails("the response header X matches [", "invalid regular expression")
 	// A header's value is text (ADR 0014): one that reads as a number goes in
-	// double quotes in a table; a step's own {string} is its text.
+	// double quotes, in a table and inside a step's own quotes.
 	h.ok("the response headers are:", []string{"X-Count", `"3"`})
-	h.ok("the response header X-Count is '3'")
+	h.ok(`the response header X-Count is '"3"'`)
+	h.fails("the response header X-Count is '3'", `3 reads as an integer, and only text fits here: write '"3"' for the text`)
 	h.fails("the response headers are:", `X-Count: 3 reads as an integer, and only text fits here: write "3" for the text`,
 		[]string{"X-Count", "3"})
 	h.fails("the response headers are:", `X-Request-Id: the cell is empty: write "" for the empty text`,
@@ -316,7 +318,7 @@ func TestResponseAssertions(t *testing.T) {
 	h.ok("the response payload property none is 'null'")
 	h.ok("the response payload property nope is 'undefined'")
 	h.ok("the response payload property ratio is '1.5'")
-	h.fails("the response payload property count is '03'", `count: 03 could be the number 3 or the text 03: write '3' for the number, or '"03"' for the text`)
+	h.fails("the response payload property count is '03'", `03 could be the number 3 or the text 03: write '3' for the number, or '"03"' for the text`)
 	h.fails(`the response payload property count is "03"`, `write '3' for the number, or '"03"' for the text`)
 	h.fails("the response payload properties are:", `count: 03 could be the number 3 or the text 03: write 3 for the number, or "03" for the text`, []string{"count", "03"})
 	h.fails("the response payload properties are:", `count: the cell is empty: write "" for the empty string, null for null, or undefined for no such property`,
