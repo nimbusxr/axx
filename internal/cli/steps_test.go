@@ -339,6 +339,8 @@ func TestCompactLookupsAreShort(t *testing.T) {
 	}{
 		{args: []string{"--compact", "steps", "show", "rest.response.status"}, want: []string{"rest.response.status (pack rest)", "Example:"}, not: []string{"Variants:", "Argument:"}},
 		{args: []string{"--compact", "steps", "show", "rest.response.status", "--full"}, want: []string{"Variants:"}},
+		{args: []string{"--compact", "steps", "show", "rest.execute"}, want: []string{"Send a request"}, not: []string{"No cookies are kept"}},
+		{args: []string{"--compact", "steps", "show", "rest.execute", "--full"}, want: []string{"No cookies are kept"}},
 		{args: []string{"--compact", "schema"}, want: []string{"services:"}, not: []string{`"$schema"`, "--full"}},
 		{args: []string{"--compact", "schema", "--full"}, want: []string{`"$schema"`}},
 		{args: []string{"--compact", "pack", "show", "rest"}, want: []string{"`axx steps --pack rest` lists its 31 steps"}, not: []string{"rest.request.headers"}},
