@@ -14,8 +14,11 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 )
 
 func release(tag string, assets ...string) Release {
@@ -155,7 +158,7 @@ func TestFetchChecksAndUnpacks(t *testing.T) {
 	if string(b) != "the binary" {
 		t.Errorf("binary: %q", b)
 	}
-	if fi, _ := os.Stat(got.Binary); fi.Mode().Perm()&0o100 == 0 {
+	if fi, _ := os.Stat(got.Binary); runtime.GOOS != "windows" && fi.Mode().Perm()&0o100 == 0 {
 		t.Errorf("not executable: %v", fi.Mode())
 	}
 	for path, auth := range seen {
@@ -282,5 +285,60 @@ func TestDetectSaysHowAnAxxUpgrades(t *testing.T) {
 		if got := Detect(c.exe, c.stamped, c.current); got != c.want {
 			t.Errorf("Detect(%q, %q, %q) = %q, want %q", c.exe, c.stamped, c.current, got, c.want)
 		}
+	}
+}
+
+// holdOpen keeps a file from being moved on Windows, where Go opens files so that
+// they can't be, as scanners do, until release is called.
+func holdOpen(t *testing.T, path string) (release func()) {
+	t.Helper()
+	if runtime.GOOS != "windows" {
+		t.Skip("any other OS moves a file that is open")
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var once sync.Once
+	release = func() { once.Do(func() { _ = f.Close() }) }
+	t.Cleanup(release)
+	return release
+}
+
+func TestReplaceWaitsOutSomethingHoldingTheFile(t *testing.T) {
+	dir := t.TempDir()
+	exe, fresh := filepath.Join(dir, "axx.exe"), filepath.Join(dir, "new.exe")
+	for path, content := range map[string]string{exe: "old", fresh: "new"} {
+		if err := os.WriteFile(path, []byte(content), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	release := holdOpen(t, exe)
+	time.AfterFunc(300*time.Millisecond, release)
+	if err := Replace(exe, fresh); err != nil {
+		t.Fatal(err)
+	}
+	if b, _ := os.ReadFile(exe); string(b) != "new" {
+		t.Errorf("axx.exe holds %q", b)
+	}
+}
+
+func TestReplaceGivesUpOnSomethingThatKeepsHoldingTheFile(t *testing.T) {
+	dir := t.TempDir()
+	exe, fresh := filepath.Join(dir, "axx.exe"), filepath.Join(dir, "new.exe")
+	for path, content := range map[string]string{exe: "old", fresh: "new"} {
+		if err := os.WriteFile(path, []byte(content), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	holdOpen(t, exe)
+	old := moveWait
+	moveWait = 200 * time.Millisecond
+	t.Cleanup(func() { moveWait = old })
+	if err := Replace(exe, fresh); err == nil {
+		t.Fatal("it replaced a file that stayed held")
+	}
+	if b, _ := os.ReadFile(exe); string(b) != "old" {
+		t.Errorf("axx.exe holds %q", b)
 	}
 }

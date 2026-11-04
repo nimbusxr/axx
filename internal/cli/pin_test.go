@@ -49,6 +49,7 @@ func pinnedProject(t *testing.T, yaml string) (dir, cache string) {
 	t.Helper()
 	dir, home := agentProject(t, map[string]string{"axx.yaml": yaml, ".git": "", "features/a.feature": "Feature: a\n\n  Scenario: b\n"})
 	t.Setenv("XDG_CACHE_HOME", filepath.Join(home, ".cache"))
+	t.Setenv("LocalAppData", filepath.Join(home, "AppData", "Local"))
 	cache, err := os.UserCacheDir()
 	if err != nil {
 		t.Fatal(err)

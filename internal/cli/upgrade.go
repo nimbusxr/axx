@@ -408,7 +408,7 @@ func (a *App) replaceSelf(ctx context.Context, env *upgradeEnv, tag string, res 
 	}
 	// Into the same directory, so that the rename is one step.
 	fresh := filepath.Join(dir, ".axx-upgrade-new-"+filepath.Base(tmp))
-	if err := os.Rename(fetched.Binary, fresh); err != nil {
+	if err := selfupdate.Move(fetched.Binary, fresh); err != nil {
 		return upgradeFailed(upgradeReportHint, "%v", err)
 	}
 	defer os.Remove(fresh)

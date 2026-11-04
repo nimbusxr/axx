@@ -244,7 +244,7 @@ func (a *App) downloadRelease(ctx context.Context, env *upgradeEnv, v, announce 
 	if err := os.MkdirAll(versionDir, 0o755); err != nil {
 		return "", err
 	}
-	if err := os.Rename(fetched.Binary, bin); err != nil {
+	if err := selfupdate.Move(fetched.Binary, bin); err != nil {
 		return "", err
 	}
 	return bin, nil

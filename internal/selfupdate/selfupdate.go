@@ -20,6 +20,7 @@ import (
 	"regexp"
 	"runtime"
 	"strings"
+	"syscall"
 	"time"
 
 	"golang.org/x/mod/semver"
@@ -392,6 +393,28 @@ func writeBinary(r io.Reader, dst string) error {
 	return f.Close()
 }
 
+// moveWait is how long Move waits for a file something else has open.
+var moveWait = 30 * time.Second
+
+// errorSharingViolation is Windows's answer for a file that something has open and
+// won't let be moved.
+const errorSharingViolation = syscall.Errno(32)
+
+// Move is os.Rename for an axx. Windows scanners and system services open a program
+// they have just seen, for a moment, and until they let go Windows will not move it:
+// that is no failure, so Move waits it out.
+func Move(from, to string) error {
+	err := os.Rename(from, to)
+	if runtime.GOOS != "windows" {
+		return err
+	}
+	for wait, deadline := 50*time.Millisecond, time.Now().Add(moveWait); errors.Is(err, errorSharingViolation) && time.Now().Before(deadline); wait = min(2*wait, time.Second) {
+		time.Sleep(wait)
+		err = os.Rename(from, to)
+	}
+	return err
+}
+
 // Replace puts fresh, a file in exe's directory, in exe's place, in one step: a
 // failure leaves exe as it was. Windows cannot replace the running file, but can
 // rename it: the old one goes when it can, here or at the next upgrade.
@@ -401,11 +424,11 @@ func Replace(exe, fresh string) error {
 	}
 	old := exe + ".old"
 	_ = os.Remove(old)
-	if err := os.Rename(exe, old); err != nil {
+	if err := Move(exe, old); err != nil {
 		return err
 	}
-	if err := os.Rename(fresh, exe); err != nil {
-		return errors.Join(err, os.Rename(old, exe))
+	if err := Move(fresh, exe); err != nil {
+		return errors.Join(err, Move(old, exe))
 	}
 	_ = os.Remove(old)
 	return nil
