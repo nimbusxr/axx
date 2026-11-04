@@ -33,7 +33,7 @@ while ! $all && ! $none && IFS= read -r f; do
   # modules of their own.
   case "$f" in
     examples/*/app/*) ;;
-    cmd/* | core/* | internal/* | packs/* | plugins/* | testdata/* | build/* | scripts/* | \
+    cmd/* | core/* | internal/* | packs/* | plugins/* | schemas/* | testdata/* | build/* | scripts/* | \
       docs/src/content/docs/guides/set-up-agents.md | \
       examples/parcels/acceptance/* | go.mod | go.sum | mise.toml | .golangci.yml | .goreleaser.yaml | *.go)
       go=true
@@ -50,7 +50,7 @@ while ! $all && ! $none && IFS= read -r f; do
         packs/internal/video/*) desktop=true mobile=true integration=true ;;
         core/* | internal/* | go.mod | go.sum | mise.toml) web=true mobile=true desktop=true integration=true ;;
         # Read by the unit tests, or only built: nothing the integration tests use.
-        plugins/* | examples/* | scripts/* | build/* | .golangci.yml | .goreleaser.yaml) ;;
+        plugins/* | schemas/* | examples/* | scripts/* | build/* | .golangci.yml | .goreleaser.yaml) ;;
         *) integration=true ;;
       esac
       ;;

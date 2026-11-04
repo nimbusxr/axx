@@ -1,7 +1,7 @@
 #!/bin/sh
 # Install axx: https://axx.nimbusxr.us
 #
-#   curl -fsSL https://axx.nimbusxr.us/install.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/nimbusxr/axx/main/scripts/install.sh | sh
 #
 # Environment:
 #   AXX_VERSION      version to install (e.g. 0.1.0, v0.1.0, nightly); default: newest release
@@ -34,7 +34,7 @@ fi
 os=$(uname -s | tr '[:upper:]' '[:lower:]')
 case "$os" in
   linux|darwin) ;;
-  msys*|mingw*|cygwin*) die "use install.ps1 on Windows: irm https://axx.nimbusxr.us/install.ps1 | iex" ;;
+  msys*|mingw*|cygwin*) die "use install.ps1 on Windows: irm https://raw.githubusercontent.com/nimbusxr/axx/main/scripts/install.ps1 | iex" ;;
   *) die "unsupported OS: $os" ;;
 esac
 arch=$(uname -m)

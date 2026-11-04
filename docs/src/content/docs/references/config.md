@@ -9,20 +9,21 @@ An acceptance project has up to two configuration files, side by side: `axx.yaml
 
 Without an `axx.yaml`, Axx runs `features/` with defaults. The complete, versioned definition is the JSON Schema:
 
-- online: [`https://axx.nimbusxr.us/schemas/v0/axx.schema.json`](/schemas/v0/axx.schema.json)
+- online: [`https://raw.githubusercontent.com/nimbusxr/axx/main/schemas/v0/axx.schema.json`](https://raw.githubusercontent.com/nimbusxr/axx/main/schemas/v0/axx.schema.json)
 - offline: `axx schema` (or `axx schema --out axx.schema.json`); `axx schema --outline` lists the keys, a line each (compact output prints that for `axx schema`, and `--full` the schema)
 
-Add this first line to get completion and validation in editors that use the YAML language server (VS Code, IntelliJ, Neovim):
+The IntelliJ plugin and the VS Code extension have the schemas themselves, with no network and nothing to add ([Set up your editor](/guides/set-up-your-editor/)). Other editors that use the YAML language server, like Neovim, take this first line, which `axx init` writes:
 
 ```yaml
-# yaml-language-server: $schema=https://axx.nimbusxr.us/schemas/v0/axx.schema.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nimbusxr/axx/main/schemas/v0/axx.schema.json
 ```
 
 ### A complete example
 
 ```yaml title="axx.yaml"
-# yaml-language-server: $schema=https://axx.nimbusxr.us/schemas/v0/axx.schema.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nimbusxr/axx/main/schemas/v0/axx.schema.json
 version: 1
+axx: 0.5.0                       # the release this project runs on, whichever Axx is installed
 
 run:
   paths: [features]              # feature files or directories
@@ -73,6 +74,7 @@ profiles:                        # overlays: --profile ci, several in order (--p
 | Section | What it configures | Guide |
 | --- | --- | --- |
 | `version` | the schema version of this file; currently `1` | |
+| `axx` | the release of Axx this project runs on, exactly; only in `axx.yaml` itself, not an overlay | [Keep a project on one version](/guides/install/#keep-a-project-on-one-version) |
 | `run` | paths, default tags, workers, exclusive tags, order, timeouts, default reporters | [Run in parallel](/guides/parallel-runs/), [Reports](/guides/reports/) |
 | `resources` | directories that relative file paths in steps resolve against, in order; the directory of `axx.yaml` is searched last | [Configure services](/guides/configure-services/#resource-paths) |
 | `properties` | values for `${sys:name}` | [Configure services](/guides/configure-services/#keep-values-out-of-feature-files) |
@@ -104,7 +106,7 @@ Each key under `services:` names one service: something that runs on its own, wh
 
 ### lint
 
-Rules live under `lint.rules`; `lint.config` sets `baseDir` (patterns are relative to it) and the default `mode` (`error` fails, `warn` only reports); `lint.include` merges rule files such as `axx-lint.generated.yaml`. Each rule has:
+Rules live under `lint.rules`; `lint.config` sets `baseDir` (patterns are relative to it) and the default `mode` (`error` fails, `warn` only reports, and stops the built-in [one-behavior check](/guides/isolate-test-data/) failing too); `lint.include` merges rule files such as `axx-lint.generated.yaml`. Each rule has:
 
 | Key | Meaning |
 | --- | --- |

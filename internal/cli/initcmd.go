@@ -20,6 +20,7 @@ import (
 	"github.com/nimbusxr/axx/internal/config"
 	"github.com/nimbusxr/axx/internal/packset"
 	"github.com/nimbusxr/axx/internal/skills"
+	"github.com/nimbusxr/axx/internal/version"
 )
 
 // InitFile is one file `axx init` writes (or would write).
@@ -31,6 +32,7 @@ type InitFile struct {
 
 type initData struct {
 	SchemaID    string
+	Axx         string // the version the project runs on; none from a development build
 	ComposeFile string
 	OpenAPI     string
 	Port        string
@@ -50,6 +52,10 @@ var initTemplates = map[string]string{
 	"axx.yaml": `# yaml-language-server: $schema={{.SchemaID}}
 # axx configuration: https://axx.nimbusxr.us/references/config/
 version: 1
+{{- if .Axx}}
+# The axx version this project runs on, whichever is installed. ` + "`axx upgrade`" + ` moves it.
+axx: {{.Axx}}
+{{- end}}
 
 run:
   paths: [features]
@@ -248,14 +254,9 @@ never writes your home directory: for Codex, whose servers usually live in
 					contents[name] = md
 				}
 			}
-			gi, giAction := mergeGitignore(filepath.Join(wd, ".gitignore"))
+			gi, giAction := mergeGitignore(filepath.Join(wd, ".gitignore"), !noAgents && len(skills.Tracked(wd)) == 0)
 			plan = append(plan, InitFile{Path: ".gitignore", Action: giAction, Reason: upToDate(giAction)})
 			contents[".gitignore"] = gi
-			if !noAgents {
-				ga, gaAction := mergeGitattributes(filepath.Join(wd, ".gitattributes"))
-				plan = append(plan, InitFile{Path: ".gitattributes", Action: gaAction, Reason: upToDate(gaAction)})
-				contents[".gitattributes"] = ga
-			}
 
 			if !dryRun {
 				for _, f := range plan {
@@ -425,6 +426,9 @@ func (a *App) initSkills(ctx context.Context, dir string, claude, dryRun bool) [
 	if len(res.Kept) > 0 {
 		f.Reason += fmt.Sprintf("; kept %s you edited (`axx skills install --force` replaces them)", plural(len(res.Kept), "file"))
 	}
+	if len(res.Tracked) > 0 {
+		f.Reason += "; the repository holds them, so .gitignore was left alone (`" + skills.UntrackCommand + "`, then `axx skills install`, stops that)"
+	}
 	out := []InitFile{f}
 	if claude {
 		c := InitFile{Path: ".claude/skills", Action: claudeAction, Reason: "linked for Claude Code"}
@@ -449,7 +453,7 @@ func (a *App) installProjectSkills(ctx context.Context, dir string, claude bool)
 		if err != nil {
 			return nil, err
 		}
-		return skills.Install(sks, skills.InstallOptions{Root: dir, Claude: claude})
+		return skills.Install(sks, skills.InstallOptions{Root: dir, Claude: claude, Ignore: true})
 	}
 	exe, err := os.Executable()
 	if err != nil {
@@ -488,7 +492,7 @@ func firstLine(err error) string {
 }
 
 func detect(dir string) initData {
-	d := initData{SchemaID: config.SchemaID, Port: "8080", AppName: "app"}
+	d := initData{SchemaID: config.SchemaID, Axx: pinnableVersion(version.Get()), Port: "8080", AppName: "app"}
 	for _, n := range []string{"compose.yaml", "compose.yml", "docker-compose.yaml", "docker-compose.yml"} {
 		if _, err := os.Stat(filepath.Join(dir, n)); err == nil {
 			d.ComposeFile = n
@@ -682,47 +686,37 @@ func sameFile(p, agentsMD string) bool {
 	return err == nil && os.SameFile(a, b)
 }
 
-func mergeGitignore(path string) (string, string) {
+// mergeGitignore adds axx's runtime state to a .gitignore, and the skills when
+// the project gets them and its repository does not hold them already.
+func mergeGitignore(path string, withSkills bool) (string, string) {
 	old, err := os.ReadFile(path)
+	action := "update"
 	if err != nil {
-		return "# axx runtime state and logs\n.axx/\n", "create"
+		action = "create"
 	}
 	s := string(old)
-	for _, line := range strings.Split(s, "\n") {
-		if strings.TrimSpace(line) == ".axx/" || strings.TrimSpace(line) == ".axx" {
-			return s, "skip"
+	changed := false
+	if !slices.ContainsFunc(strings.Split(s, "\n"), func(line string) bool {
+		line = strings.TrimSpace(line)
+		return line == ".axx/" || line == ".axx"
+	}) {
+		if s != "" && !strings.HasSuffix(s, "\n") {
+			s += "\n"
 		}
-	}
-	if !strings.HasSuffix(s, "\n") {
-		s += "\n"
-	}
-	return s + "\n# axx runtime state and logs\n.axx/\n", "update"
-}
-
-// skillsAttributes marks the skills as generated: GitHub collapses their diffs
-// in pull requests, which every axx upgrade or new step changes.
-const skillsAttributes = "# axx's agent skills, which `axx skills install` writes\n.agents/skills/** linguist-generated\n"
-
-func mergeGitattributes(path string) (string, string) {
-	old, err := os.ReadFile(path)
-	if err != nil {
-		return skillsAttributes, "create"
-	}
-	s := string(old)
-	for _, line := range strings.Split(s, "\n") {
-		f := strings.Fields(line)
-		if len(f) > 1 && strings.HasPrefix(f[0], ".agents/") {
-			for _, attr := range f[1:] {
-				if attr == "linguist-generated" || attr == "linguist-generated=true" {
-					return s, "skip"
-				}
-			}
+		if s != "" {
+			s += "\n"
 		}
+		s += "# axx runtime state and logs\n.axx/\n"
+		changed = true
 	}
-	if !strings.HasSuffix(s, "\n") {
-		s += "\n"
+	if withSkills {
+		merged, added := skills.MergeGitignore(s)
+		s, changed = merged, changed || added
 	}
-	return s + "\n" + skillsAttributes, "update"
+	if !changed {
+		return s, "skip"
+	}
+	return s, action
 }
 
 func upToDate(action string) string {

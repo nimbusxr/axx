@@ -43,11 +43,14 @@ services:
 - run: axx run --format junit:build/axx/junit.xml --format html:build/axx/report.html
 ```
 
+An `axx: 0.5.0` line in `axx.yaml` is the release the project runs on, in CI too, whichever axx is installed: axx downloads it once and hands over. Don't change that line to get past an error; `axx upgrade` moves it, and says what changed.
+
 Elsewhere: the install script (`curl -fsSL https://raw.githubusercontent.com/nimbusxr/axx/main/scripts/install.sh | sh`) or the image `ghcr.io/nimbusxr/axx`. `axx run --shard i/n` shares a suite between runners; profiles hold CI's differences (`--profile ci`). With a `fixtures` section: `axx fixtures check`, then `axx fixtures generate`, before `axx run`.
 
 ## 4. Agents
 
 - `axx init` writes the skills to `.agents/skills` (linked into `.claude/skills` for Claude Code) and connects the axx MCP server for the agents the repository uses, in their own files. `axx mcp install --agent claude|codex|cursor|vscode|gemini` connects one; Codex's servers live in `~/.codex/config.toml`: `axx mcp install --agent codex --scope user`.
-- `axx skills install` refreshes the skills after an upgrade.
+- `axx upgrade` upgrades axx and updates the skills; after any other upgrade, `axx skills update`.
+  They stay out of the repository (`.gitignore`): a fresh clone runs `axx skills install`.
 - An agent whose sandbox keeps it from Docker gets its services from `axx host`, which the person runs on their own machine; runs find it in `.axx/host.json`.
 - `axx doctor` warns when an agent lacks the skills or the MCP server.

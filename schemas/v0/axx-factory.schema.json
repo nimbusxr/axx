@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://axx.nimbusxr.us/schemas/v0/axx-factory.schema.json",
+  "$id": "https://raw.githubusercontent.com/nimbusxr/axx/main/schemas/v0/axx-factory.schema.json",
   "title": "axx fixture factory",
-  "description": "A *.factory.yaml: one fixture family with its governing schema, layered values (defaults, prototype, per-fixture data) and identity declarations whose uniqueness is guaranteed across every fixture. Reference it with: # yaml-language-server: $schema=https://axx.nimbusxr.us/schemas/v0/axx-factory.schema.json",
+  "description": "A *.factory.yaml: one fixture family with its governing schema, layered values (defaults, prototype, per-fixture data) and identity declarations whose uniqueness is guaranteed across every fixture. Reference it with: # yaml-language-server: $schema=https://raw.githubusercontent.com/nimbusxr/axx/main/schemas/v0/axx-factory.schema.json",
   "type": "object",
   "additionalProperties": false,
   "required": ["factory"],

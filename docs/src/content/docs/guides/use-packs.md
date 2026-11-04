@@ -45,7 +45,7 @@ axx: ready in 31s
 2 files, 6 scenarios, 41 steps: ok
 ```
 
-This happens once for each list of packs. Later runs start immediately. The first time, Axx downloads what it needs, so it takes longer. In CI, keep Axx's cache between runs ([Run in CI](/guides/run-in-ci/#keep-axxs-cache)).
+This happens once for each list of packs and version of Axx. Later runs start immediately. The first time, Axx downloads what it needs, so it takes longer. In CI, keep Axx's cache between runs ([Run in CI](/guides/run-in-ci/#keep-axxs-cache)).
 
 ## Add your own packs
 

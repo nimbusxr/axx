@@ -385,8 +385,8 @@ const sortedCodes = fs.existsSync(errorCodesFile)
 	: [];
 log(`error codes (${sortedCodes.length})`);
 
-// The install scripts are served from the site root:
-//   curl -fsSL https://axx.nimbusxr.us/install.sh | sh
+// The docs send people to GitHub's copy of the install scripts. The site keeps serving them for
+// the links already out there.
 for (const name of ['install.sh', 'install.ps1']) {
 	const src = path.join(repoDir, 'scripts', name);
 	if (!fs.existsSync(src)) fail(`scripts/${name} is missing`);

@@ -53,6 +53,9 @@ When the graphql/hold-parcel.graphql mutation is sent to the parcels graphql ser
   | reference | PX-GQL-7202          |
   | until     | 2026-10-05           |
   | reason    | recipient on holiday |
+```
+
+```gherkin
 When a query is sent to the parcels graphql service:
   """
   { parcel(reference: "PX-GQL-7201") { status } }
@@ -70,6 +73,9 @@ Then the parcels graphql service answered without errors
 And the parcels graphql service's data has the following properties:
   | holdParcel.status    | ON_HOLD    |
   | holdParcel.heldUntil | 2026-10-05 |
+```
+
+```gherkin
 Then the parcels graphql service answered an error where:
   | path            | holdParcel   |
   | extensions.code | NOT_HOLDABLE |

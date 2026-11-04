@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"runtime"
 	"slices"
+	"strings"
 	"syscall"
 
 	"github.com/spf13/cobra"
@@ -17,6 +18,7 @@ import (
 	"github.com/nimbusxr/axx/internal/exitcode"
 	"github.com/nimbusxr/axx/internal/packbuild"
 	"github.com/nimbusxr/axx/internal/packset"
+	"github.com/nimbusxr/axx/internal/skills"
 	"github.com/nimbusxr/axx/internal/version"
 )
 
@@ -59,6 +61,15 @@ func (a *App) ensurePacks(ctx context.Context, cmd *cobra.Command) error {
 	}
 	if fl := cmd.Flags().Lookup("scope"); fl != nil && fl.Value.String() == "user" {
 		return nil // a home directory's skills serve every project, whatever its packs
+	}
+	if cmd.CommandPath() == "axx skills update" {
+		dir, err := config.ProjectDir(a.Config)
+		if err != nil {
+			return nil //nolint:nilerr // no project: the home directory's skills are all there are
+		}
+		if _, ok := skills.InstalledVersion(dir); !ok {
+			return nil // the project has none to update, and needs no packs for that
+		}
 	}
 	if fl := cmd.Flags().Lookup("project"); top.Name() == "lsp" && a.Config == "" && (fl == nil || fl.Value.String() != "true") {
 		return nil // the router: the server it starts for each project prepares that project's packs
@@ -158,10 +169,30 @@ func missingPacks(dir string) ([]packset.Entry, bool) {
 	return entries, false
 }
 
-// reexec replaces this process with bin, keeping the arguments. On Windows
-// it runs bin as a child and exits with its code.
+// reexec replaces this process with the project's build bin.
 func reexec(bin string) error {
-	env := append(os.Environ(), envPackBuild+"=1", version.EnvLauncher+"="+version.Get().Version)
+	info := version.Get()
+	launcher := info.Launcher // the installed axx, when a project's version was handed over to
+	if launcher == "" {
+		launcher = info.Version
+	}
+	return execBinary(bin, withEnv(withEnv(os.Environ(), envPackBuild, "1"), version.EnvLauncher, launcher))
+}
+
+// withEnv is env with key set to value, in place of any it has.
+func withEnv(env []string, key, value string) []string {
+	out := make([]string, 0, len(env)+1)
+	for _, kv := range env {
+		if !strings.HasPrefix(kv, key+"=") {
+			out = append(out, kv)
+		}
+	}
+	return append(out, key+"="+value)
+}
+
+// execBinary replaces this process with bin, keeping the arguments. On Windows
+// it runs bin as a child and exits with its code.
+func execBinary(bin string, env []string) error {
 	if runtime.GOOS != "windows" {
 		return syscall.Exec(bin, append([]string{bin}, os.Args[1:]...), env)
 	}

@@ -7,11 +7,13 @@ on:
   pull_request:
     paths:
       - ide/vscode/**
+      - schemas/**
       - .github/workflows/vscode-extension.yml
   push:
     branches: [main]
     paths:
       - ide/vscode/**
+      - schemas/**
       - .github/workflows/vscode-extension.yml
   workflow_dispatch:
 

@@ -6,19 +6,19 @@ description: "Use your Android and iOS apps the way people do, on emulators and 
 Many acceptance criteria describe what a person does in an app: a courier signs in, taps a parcel and marks it delivered. The `mobile-android` and `mobile-ios` packs do exactly that, on Android emulators and iOS simulators, driven by [Appium](https://appium.io), and a scenario can use every other pack too: it checks what your service did with the delivery, and what the parcel's tracking page shows.
 
 ```gherkin
-Scenario: A courier delivers a parcel, and its recipient sees it delivered
-  Given a seeds/courier-app-deliver.yaml db seed
-  When the courier app is opened with the "parcels-courier://deliveries/PX-MOB-9411" link
-  And the "Courier ID" field in the courier app is filled with "CR-LEJ-14"
+Scenario: A parcel a courier delivers shows as delivered to its recipient
+  Given a seeds/courier-app-recipient.yaml db seed
+  And the parcels web app with the following properties:
+    | url | ${sys:portal.url} |
+  And the courier app is opened with the "parcels-courier://deliveries/PX-MOB-9413" link
+  And the "Courier ID" field in the courier app is filled with "CR-LEJ-55"
   And the "PIN" field in the courier app is filled with "${env:COURIER_PIN}"
   And the "Sign in" button is tapped in the courier app
-  Then the courier app shows "Eisenbahnstr. 41, 04315 Leipzig"
-  When the "Signed by" field in the courier app is filled with "C. Busch"
+  And the "Signed by" field in the courier app is filled with "M. Seidel"
   And the "Mark delivered" button is tapped in the courier app
   And the "Confirm" button is tapped in the courier app
-  Then the courier app shows "Delivered"
-  And the courier app shows a notification "PX-MOB-9411 delivered"
-  When the "/track/PX-MOB-9411" page is opened
+  And the courier app shows "Delivered"
+  When the "/track/PX-MOB-9413" page is opened
   Then within 20s the page shows "Delivered on"
 ```
 
@@ -131,9 +131,21 @@ profiles:
 
 ```gherkin
 When the courier app is launched
+```
+
+```gherkin
 When the courier app is opened with the "parcels-courier://deliveries/PX-MOB-9411" link
+```
+
+```gherkin
 When the courier app is sent to the background
+```
+
+```gherkin
 When the courier app is brought back
+```
+
+```gherkin
 When the courier app is restarted
 ```
 
@@ -155,10 +167,25 @@ When the courier app is launched
 
 ```gherkin
 When the "Sign in" button is tapped in the courier app
+```
+
+```gherkin
 When the "PX-MOB-9401" list item is tapped in the courier app
+```
+
+```gherkin
 When the "PIN" field in the courier app is filled with "${env:COURIER_PIN}"
+```
+
+```gherkin
 When the courier app is swiped down
+```
+
+```gherkin
 When the "PX-MOB-9412" list item is scrolled into view in the courier app
+```
+
+```gherkin
 When the courier app's back button is pressed
 ```
 
@@ -172,11 +199,11 @@ Controls are found by the names people see: a button by its text, a field by its
 
 ```gherkin
 Then the courier app shows "Hello, Hanna Wolf"
-Then the courier app does not show "PX-MOB-9401"
-Then the "Mark delivered" button is disabled in the courier app
-Then the "Courier ID" field in the courier app has the value "CR-LEJ-12"
-Then the courier app shows a notification "PX-MOB-9411 delivered"
-Then the courier app looks like the "deliveries" screenshot
+And the courier app does not show "PX-MOB-9401"
+And the "Mark delivered" button is disabled in the courier app
+And the "Courier ID" field in the courier app has the value "CR-LEJ-12"
+And the courier app shows a notification "PX-MOB-9411 delivered"
+And the courier app looks like the "deliveries" screenshot
 ```
 
 Checks wait for the app, 10 seconds or `within {duration}`, as apps take their time. A failed step attaches what the app showed, and the scenario's failure says which device and which resets it had. A notification is looked for where people look: Android's notification shade, iOS's Notification Center.
@@ -187,6 +214,9 @@ Checks wait for the app, 10 seconds or `within {duration}`, as apps take their t
 
 ```gherkin
 When the "PX-MOB-9402 delivered" notification is tapped in the courier app
+```
+
+```gherkin
 When the "Next delivery" action of the "PX-MOB-9401 delivered" notification is tapped in the courier app
 ```
 
@@ -262,7 +292,13 @@ The table's rows are the points the route goes through, each a latitude and a lo
 
 ```gherkin
 When the courier app's phone travels the routes/grimmaische-strasse.gpx route
+```
+
+```gherkin
 When the courier app's phone travels the routes/grimmaische-strasse.gpx route at 4x
+```
+
+```gherkin
 When the courier app's phone travels the routes/grimmaische-strasse.gpx route at 30 km/h
 ```
 

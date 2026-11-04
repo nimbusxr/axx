@@ -1,6 +1,6 @@
 # Install axx on Windows: https://axx.nimbusxr.us
 #
-#   irm https://axx.nimbusxr.us/install.ps1 | iex
+#   irm https://raw.githubusercontent.com/nimbusxr/axx/main/scripts/install.ps1 | iex
 #
 # Environment: AXX_VERSION (e.g. 0.1.0, v0.1.0, nightly; default newest release),
 # AXX_INSTALL_DIR (default %LOCALAPPDATA%\axx\bin), GITHUB_TOKEN (optional).

@@ -13,7 +13,10 @@
 //
 // Failures (exit 1): Gherkin syntax errors, undefined steps (a typo, or
 // invented step text), ambiguous steps and step argument problems (a missing
-// data table, say).
+// data table, say); and a scenario, or a block of a few steps, with a second
+// When or a second Then, in any block, generated pages' and nocheck ones too. A
+// scenario is one behavior, And adds to its When or its Then, and a page that
+// lists a step's forms gives each a block of its own.
 //
 // Uses ../bin/axx-all, axx with every pack (built by `npm run gen`), unless
 // AXX_BIN is set.
@@ -46,13 +49,38 @@ function validate(dir, name) {
 	}
 }
 
+// The line of each second When and second Then, by scenario, outside doc strings.
+function secondClauses(body) {
+	const found = [];
+	let seen = new Set();
+	let quote = null;
+	body.forEach((line, i) => {
+		const text = line.trim();
+		const mark = text.match(/^("""|```)/)?.[1];
+		if (mark && (quote === null || quote === mark)) {
+			quote = quote === null ? mark : null;
+			return;
+		}
+		if (quote !== null) return;
+		if (/^(Scenario Outline|Scenario Template|Scenario|Example|Background|Rule|Feature):/.test(text)) {
+			seen = new Set();
+			return;
+		}
+		const keyword = text.match(/^(When|Then)\s/)?.[1];
+		if (!keyword) return;
+		if (seen.has(keyword)) found.push({ offset: i, keyword });
+		seen.add(keyword);
+	});
+	return found;
+}
+
 // ------------------------------------------------------------- run
 
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'axx-docs-gherkin-'));
 // The snippets may use any pack: the project lists them all.
 const packs = JSON.parse(execFileSync(axxBin, ['pack', 'list', '--json'], { cwd: tmp, encoding: 'utf8' })).data.packs.map((p) => p.pack);
 fs.writeFileSync(path.join(tmp, 'axx-packs.yaml'), `packs:\n${packs.map((p) => `  - ${p}\n`).join('')}`);
-const counts = { blocks: 0, skipped: 0, syntax: 0, undefined: 0, argument: 0, ambiguous: 0 };
+const counts = { blocks: 0, skipped: 0, syntax: 0, undefined: 0, argument: 0, ambiguous: 0, clauses: 0 };
 const failures = [];
 let n = 0;
 
@@ -106,6 +134,16 @@ for (const file of sources.sort()) {
 }
 fs.rmSync(tmp, { recursive: true, force: true });
 
+for (const file of [...new Set([...sources, ...markdownFiles(contentDir, { withGenerated: true })])].sort()) {
+	const rel = path.relative(docsDir, file);
+	for (const block of blocks(file)) {
+		for (const { offset, keyword } of secondClauses(block.body)) {
+			counts.clauses++;
+			failures.push(`${rel}:${block.line + offset}: a second ${keyword}: a scenario is one behavior, so use And, split the scenario, or give each form of a step a block of its own`);
+		}
+	}
+}
+
 if (failures.length) {
 	console.log('Failures:');
 	for (const f of failures) console.log(`  ${f}`);
@@ -113,6 +151,7 @@ if (failures.length) {
 }
 console.log(
 	`check-gherkin: ${counts.blocks} blocks checked, ${counts.skipped} skipped (nocheck); ` +
-		`${counts.syntax} syntax errors, ${counts.undefined} undefined, ${counts.ambiguous} ambiguous, ${counts.argument} argument problems`,
+		`${counts.syntax} syntax errors, ${counts.undefined} undefined, ${counts.ambiguous} ambiguous, ${counts.argument} argument problems, ` +
+		`${counts.clauses} second clauses`,
 );
 process.exit(failures.length ? 1 : 0);

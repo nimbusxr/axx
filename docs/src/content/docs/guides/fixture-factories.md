@@ -20,7 +20,7 @@ kafka/
 ```
 
 ```yaml title="kafka/depot-scans.factory.yaml"
-# yaml-language-server: $schema=https://axx.nimbusxr.us/schemas/v0/axx-factory.schema.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nimbusxr/axx/main/schemas/v0/axx-factory.schema.json
 factory:
   family: avro
   schema: ../schemas/depot-scan.avsc   # relative to this file

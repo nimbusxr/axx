@@ -107,3 +107,16 @@ test('dependencies are pinned', () => {
   }
   assert.ok(existsSync(new URL('../package-lock.json', import.meta.url)));
 });
+
+test('the YAML schemas package.json gives are the ones axx publishes, in the package', () => {
+  const published = readdirSync(new URL('../../../schemas/v0/', import.meta.url)).filter((f) => f.endsWith('.schema.json'));
+  assert.deepEqual(
+    contributes.yamlValidation.map((v) => v.url.replace('./dist/schemas/', '')).sort(),
+    [...published].sort(),
+  );
+  for (const { url, fileMatch } of contributes.yamlValidation) {
+    assert.ok(fileMatch.length > 0);
+    assert.equal(JSON.parse(read(url.slice(2))).$schema !== undefined, true);
+  }
+  assert.match(read('.vscodeignore'), /^!dist\/schemas\/\*\*$/m);
+});

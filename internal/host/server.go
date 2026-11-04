@@ -460,8 +460,9 @@ func (s *Server) handle(ctx context.Context, conn net.Conn) {
 		ended(err, began)
 		return
 	}
-	_ = l.write(Message{Type: MsgStarted, Services: mgr.Started()})
+	// Recorded first: whoever hears the services started finds it in the events.
 	ev(StateStarted, Event{Services: mgr.Started(), Seconds: time.Since(starting).Seconds()})
+	_ = l.write(Message{Type: MsgStarted, Services: mgr.Started()})
 
 	<-runCtx.Done()
 	if ctx.Err() == nil {

@@ -6,6 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/nimbusxr/axx/internal/config"
 	"github.com/nimbusxr/axx/internal/version"
 )
 
@@ -21,9 +22,18 @@ func newVersionCmd(app *App) *cobra.Command {
 // printVersion prints what `axx version` and `axx --version` print.
 func printVersion(app *App) error {
 	info := version.Get()
+	if pin, err := config.ReadPin(app.Config); err == nil && pin.File != "" {
+		info.Project = pin.Version
+	}
 	return app.Emit(info, func(w io.Writer) error {
-		_, err := fmt.Fprintf(w, "axx %s %s %s\n", info, info.Platform, shortCommit(info.Commit))
-		return err
+		if _, err := fmt.Fprintf(w, "axx %s %s %s\n", info, info.Platform, shortCommit(info.Commit)); err != nil {
+			return err
+		}
+		if info.Project != "" && info.Project != info.Version {
+			_, err := fmt.Fprintf(w, "this project runs on axx %s\n", info.Project)
+			return err
+		}
+		return nil
 	})
 }
 

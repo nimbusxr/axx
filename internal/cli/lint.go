@@ -27,7 +27,9 @@ func newLintCmd(app *App) *cobra.Command {
 rule extracts values (ids, keys, names) from the files it selects, with a
 regular expression or a JSON path, and reports values that repeat where they
 must be unique, so scenarios sharing a database can run in parallel. Builtin
-checks also warn about SQL selection and trigger ordinals that cannot work.
+checks also fail on a scenario with a second When or Then, and warn about SQL
+selection and trigger ordinals that cannot work. lint.config.mode: warn in
+axx.yaml, or --mode warn, makes the first only report too.
 
 With paths, only findings touching those files or directories are reported
 (every file is still scanned: a value collides with occurrences anywhere).

@@ -31,8 +31,8 @@ const RESTRuleID = "rest-ordinals"
 const RESTValuesRuleID = "rest-payload-values"
 
 // FeatureChecks runs every builtin feature-file check: one behavior per
-// scenario, services registered before use, SQL ordinals, stale selections,
-// REST requests and REST payload values.
+// scenario, an error by default, and as warnings services registered before use,
+// SQL ordinals, stale selections, REST requests and REST payload values.
 func FeatureChecks(reg *match.Registry, pickles []*feature.Pickle, workDir string) []RuleResult {
 	return []RuleResult{
 		CheckRounds(pickles, workDir), CheckServices(reg, pickles, workDir),

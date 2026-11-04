@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://axx.nimbusxr.us/schemas/v0/axx.schema.json",
+  "$id": "https://raw.githubusercontent.com/nimbusxr/axx/main/schemas/v0/axx.schema.json",
   "$defs": {
     "Active": {
       "properties": {
@@ -179,7 +179,7 @@
             "error",
             "warn"
           ],
-          "description": "Mode is \"error\" (violations make `axx lint` exit 3, default) or \"warn\"\n(violations are reported but do not fail)."
+          "description": "Mode is \"error\" (violations make `axx lint` exit 3, default) or \"warn\"\n(violations are reported but do not fail, a scenario's second When or Then\nincluded)."
         },
         "maxFileSize": {
           "type": "integer",
@@ -782,6 +782,11 @@
         1
       ],
       "description": "Schema version of this file. Currently 1."
+    },
+    "axx": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$",
+      "description": "Axx is the version of axx this project runs on, exactly. Whichever axx is\ninstalled downloads that release once and hands over to it, so that everyone\nand CI run the same one. `axx upgrade` moves it. Without it, a project runs\non the installed axx."
     },
     "run": {
       "$ref": "#/$defs/Run",

@@ -42,7 +42,8 @@ type LintConfig struct {
 	// to axx.yaml. Default: the directory of axx.yaml.
 	BaseDir string `json:"baseDir,omitempty"`
 	// Mode is "error" (violations make `axx lint` exit 3, default) or "warn"
-	// (violations are reported but do not fail).
+	// (violations are reported but do not fail, a scenario's second When or Then
+	// included).
 	Mode string `json:"mode,omitempty" jsonschema:"enum=error,enum=warn"`
 	// MaxFileSize skips files larger than this many bytes, with a warning.
 	// Default: 5242880 (5 MB).

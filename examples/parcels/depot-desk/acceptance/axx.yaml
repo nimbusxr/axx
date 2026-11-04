@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=https://axx.nimbusxr.us/schemas/v0/axx.schema.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nimbusxr/axx/main/schemas/v0/axx.schema.json
 version: 1
 
 # The depot desk's acceptance tests: one feature, run against each build of the desk on the OS

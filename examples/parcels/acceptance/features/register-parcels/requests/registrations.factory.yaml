@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=https://axx.nimbusxr.us/schemas/v0/axx-factory.schema.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nimbusxr/axx/main/schemas/v0/axx-factory.schema.json
 # Registration requests as a shop's order system exports them, checked against the
 # parcels service's OpenAPI contract. Scenarios send them as they are:
 # `a request payload using an application/json requests/<fixture>.json resource`.

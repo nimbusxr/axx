@@ -83,6 +83,9 @@ Then within 5s the "arrivals.json" file in the desk folder contains "PX-DSK-4205
 
 ```gherkin
 When the depot app is launched
+```
+
+```gherkin
 When the depot app is restarted
 ```
 
@@ -118,10 +121,25 @@ Then within 10s the files app shows "Courier logs"
 
 ```gherkin
 When the "Register" button is clicked in the depot app
+```
+
+```gherkin
 When the "Reference" field in the depot app is filled with "PX-DSK-4202"
+```
+
+```gherkin
 When the Enter key is pressed in the depot app
+```
+
+```gherkin
 When the ControlOrMeta+A key is pressed in the depot app
+```
+
+```gherkin
 When the "PX-DSK-4138" row is scrolled into view in the depot app
+```
+
+```gherkin
 When the "Depot" menu is clicked in the depot app
 And the "Close day" menu item is clicked in the depot app
 ```
@@ -134,6 +152,9 @@ What an app draws rather than names, like a signature pad or a map, is clicked o
 
 ```gherkin
 When the "Courier signature" element in the depot app is clicked at 40, 40
+```
+
+```gherkin
 When the pointer is dragged from 40, 30 to 140, 30 on the "Courier signature" element in the depot app
 ```
 
@@ -141,6 +162,9 @@ What keeps its place in the middle of a control, or by one of its corners, as th
 
 ```gherkin
 When the pointer is dragged from -60, 10 to 60, -10 from the middle of the "Courier signature" element in the depot app
+```
+
+```gherkin
 When the "Courier signature" element in the depot app is clicked at -40, -30 from its bottom right
 ```
 
@@ -150,11 +174,11 @@ A place is on the control, or the step fails: a click off it would reach somethi
 
 ```gherkin
 Then the depot app shows "No parcels registered yet"
-Then the depot app does not show "PX-DSK-4211"
-Then the "Register" button is disabled in the depot app
-Then the "Reference" field in the depot app has the value '""'
-Then the "Leipzig depot" image is shown in the depot app
-Then within 20s the depot app looks like the "opened" screenshot
+And the depot app does not show "PX-DSK-4211"
+And the "Register" button is disabled in the depot app
+And the "Reference" field in the depot app has the value '""'
+And the "Leipzig depot" image is shown in the depot app
+And within 20s the depot app looks like the "opened" screenshot
 ```
 
 Checks wait for the app, 10 seconds or `within {duration}`. A failed step attaches the app's window and its controls, as accessibility has them.

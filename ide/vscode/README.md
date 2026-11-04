@@ -13,6 +13,10 @@ In `.feature` files you get:
 - **Completion:** step text, with placeholders to fill in.
 - **Hover:** the documentation of the step under the cursor.
 - **Go to Definition:** the Go code that defines a step, or a page about it.
+- **`axx.yaml`:** completion, documentation and validation in `axx.yaml` and the fixture spec files
+  (`*.factory.yaml`, `*.fixture.yaml`, `*.prototype.yaml`), from axx's schemas in this extension,
+  with no network. It takes Red Hat's
+  [YAML extension](https://marketplace.visualstudio.com/items?itemName=redhat.vscode-yaml).
 - **Files:** the files steps name (seeds, payloads, schemas, OpenAPI documents, a log's `file://`
   url), in steps and table cells, are links: Ctrl/Cmd+click one to open it. Their paths complete
   as you type, and a file a step reads that does not exist is flagged (not a log's, which may

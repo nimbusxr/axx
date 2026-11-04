@@ -93,6 +93,21 @@ func init() {
 	add("AXX-E0015", u, "No packs for the skills",
 		"`axx skills install` writes the skills with the steps of the project's packs, and the project lists none: it has no `axx-packs.yaml` yet, or the file lists no packs.",
 		"Run `axx init` to set the project up: it installs the skills too. A project that is set up adds the packs its steps come from with `axx pack add`. `axx skills install --scope user` installs the skills for every project, with every pack axx publishes.")
+	add("AXX-E0017", u, "No skills to update",
+		"`axx skills update` updates the skills where they are installed, and neither this project nor your home directory has any.",
+		"`axx skills install` adds them to this project; `axx skills install --scope user` adds them for every repository.")
+	add("AXX-E0018", env, "The upgrade failed",
+		"`axx upgrade` could not read axx's releases on GitHub, download one, check it against the release's checksums, or put it in place. axx is left as it was.",
+		"The message says which. axx talks to api.github.com and github.com: a version you know goes without the list of releases (`axx upgrade --version 0.4.0`), and GITHUB_TOKEN avoids GitHub's rate limit. When it cannot write where axx is, run it as the user who can, or install axx in a directory of yours with the install script's AXX_INSTALL_DIR.")
+	add("AXX-E0019", u, "This axx cannot go there",
+		"`axx upgrade` cannot do what was asked with this axx: one built from source upgrades with its checkout, a nightly has no newer release without saying which, Homebrew has only its newest version, and a version that does not exist has nothing to install.",
+		"Follow the hint, which says what fits this axx.")
+	add("AXX-E0020", u, "This project's axx version cannot be used",
+		"The `axx:` line of axx.yaml, or AXX_USE_VERSION, names the version of axx to run on, and that one cannot be: it is not one release's version (like 0.5.0), axx has no such release for this platform, or it is from before projects could name a version, so it would refuse the line that asks for it.",
+		"Follow the hint. To run on a version from before that, take the line out of axx.yaml and install that version.")
+	add("AXX-E0021", env, "Cannot get the axx version this project uses",
+		"This project names a version of axx that this machine has not got, and axx could not download it, check it against its release's checksums, or run it, or AXX_AUTO_DOWNLOAD=0 keeps it from downloading.",
+		"axx gets a release from github.com, once. Check that this machine reaches it, name a mirror with AXX_DOWNLOAD_URL, or run `axx install` where it can. A version already downloaded needs no network.")
 	add("AXX-E0016", u, "A pack's command failed",
 		"A command a pack adds to axx (one `axx --help` lists in a project that uses the pack) failed, with an error of the pack's own: the message is the pack's.",
 		"The hint names the pack. Run the command with `--help` for what it takes, and see the pack's reference.")
@@ -105,7 +120,7 @@ func init() {
 		"Fix the indentation or quoting at the reported line. Values containing `: ` or starting with `{`, `[`, `*` or `&` need quotes.")
 	add("AXX-E0102", u, "Invalid configuration",
 		"`axx.yaml` does not match the schema: an unknown key, a wrong type or an invalid value. Each problem is reported with its line.",
-		"Add `# yaml-language-server: $schema=https://axx.nimbusxr.us/schemas/v0/axx.schema.json` to get completion in your editor, or run `axx schema` to read the schema.")
+		"Add `# yaml-language-server: $schema=https://raw.githubusercontent.com/nimbusxr/axx/main/schemas/v0/axx.schema.json` to get completion in your editor, or run `axx schema` to read the schema.")
 	add("AXX-E0104", u, "Unknown profile",
 		"`--profile` (or `AXX_PROFILE`) names a profile that is not defined under `profiles:` in `axx.yaml`.",
 		"Define the profile or pick one of the listed names.")
@@ -261,7 +276,7 @@ func init() {
 
 	add("AXX-E0800", u, "No lint rules",
 		"`axx.yaml` has a `lint` section, but it (with its includes) defines no rules, so `axx lint` would check nothing.",
-		"Add rules under `lint.rules`, or include a rules file with `lint.include`. Remove the `lint` section if the project has no isolation rules.")
+		"Add rules under `lint.rules`, or include a rules file with `lint.include`. Remove the `lint` section if the project has no isolation rules, or leave only `config: {mode: warn}` to have the built-in checks only report.")
 	add("AXX-E0801", u, "Lint include not found",
 		"A file named in `lint.include` (or in an included file's `include`) does not exist. Includes resolve relative to the file that lists them.",
 		"Fix the path. If the file is generated (`axx-lint.generated.yaml`), run `axx fixtures generate` first.")
@@ -307,9 +322,12 @@ func init() {
 	add("AXX-E0836", exitcode.OK, "Service used before it is registered",
 		"A REST, SQL, MongoDB or Kafka step comes before the scenario registers any service of its pack: the step finds no service and fails at runtime (\"No database services set\"). This is a warning; it is not checked in a project that loads packs of its own, which may register services out of sight.",
 		"Register the service first, in the Background for every scenario: `the <name> service with the following properties:` (REST), `a(n) <name> database with the following properties:` (SQL), `a(n) <name> mongo database with the following properties:` (MongoDB) or `the <name> kafka service with the following properties:` (Kafka).")
-	add("AXX-E0837", exitcode.OK, "Scenario checks several behaviors in turn",
-		"A scenario does something and checks it, then does something else and checks that: a When step after a Then (When … Then …, then When … Then … again). Each round is a behavior of its own, so the scenario is several in one: a failure in one round hides whether the others hold, and its name can say what only one of them proves. This is a warning.",
+	add("AXX-E0837", lint, "Scenario checks several behaviors in turn",
+		"A scenario does something and checks it, then does something else and checks that: a When step after a Then (When … Then …, then When … Then … again). Each round is a behavior of its own, so the scenario is several in one: a failure in one round hides whether the others hold, and its name can say what only one of them proves. `axx lint` fails on this, unless `lint.config.mode` or `--mode` says warn; `axx validate` and `axx run` report it as a warning.",
 		"Write a scenario per behavior: Given steps for the state it starts from (what an earlier round did, like a request executed in a Given), When for the one thing someone does, Then for what is true afterwards.")
+	add("AXX-E0838", lint, "Scenario says When or Then twice",
+		"A scenario has a second When, or a second Then, with no round between them. A scenario is one behavior, and And adds to the When or the Then it follows. `axx lint` fails on this, unless `lint.config.mode` or `--mode` says warn; `axx validate` and `axx run` report it as a warning.",
+		"Write And if the step is part of the same action, or also true afterwards. If it is another behavior, give it a scenario of its own, with what this one did as Given steps. To only report it while you clean up a suite, set `lint.config.mode: warn` in axx.yaml.")
 	add("AXX-E0835", exitcode.OK, "Stale selection",
 		"A step without an ordinal (`the selection has 1 row`, `the 1st document for the selection …`) checks a scenario's first selection, but a later selection was retrieved before it and no step checks that one. The step reads as if it checked the latest, while it asserts on what came back before; the later retrieval checks nothing (or only that its rows came, for a polling one). This is a warning.",
 		"Name the selection the step means, like `the 2nd selection has 1 row`: selections are numbered in the order the scenario retrieves them.")

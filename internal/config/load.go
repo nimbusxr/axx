@@ -82,6 +82,7 @@ func Load(opts LoadOptions) (*Config, error) {
 		tree = t
 		sources = append(sources, src)
 	}
+	basePin := pinOf(tree)
 
 	// Overlays: profiles.<p>, axx.<p>.yaml for each profile in order (watch,ios
 	// applies watch, then ios over it), then axx.local.yaml.
@@ -126,6 +127,9 @@ func Load(opts LoadOptions) (*Config, error) {
 			return nil, err
 		}
 		tree = merge(tree, overlay)
+	}
+	if err := checkPinNotOverlaid(basePin, pinOf(tree)); err != nil {
+		return nil, err
 	}
 
 	// Properties: file values, overridden by -D, expanded against env and
@@ -234,6 +238,15 @@ func discover(opts LoadOptions) (string, error) {
 		}
 		dir = parent
 	}
+}
+
+// pinOf is the tree's `axx:` value.
+func pinOf(tree yaml.MapSlice) string {
+	v, ok := lookup(tree, "axx")
+	if !ok {
+		return ""
+	}
+	return scalarString(v)
 }
 
 type source struct {

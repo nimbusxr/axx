@@ -2,7 +2,6 @@ package config
 
 import (
 	"bytes"
-	_ "embed"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -19,17 +18,25 @@ import (
 
 	"github.com/nimbusxr/axx/internal/axxerr"
 	"github.com/nimbusxr/axx/internal/exitcode"
+	"github.com/nimbusxr/axx/schemas"
 )
 
-//go:generate go run ./internal/genschema -out axx.schema.json
+//go:generate go run ./internal/genschema -out ../../schemas/v0/axx.schema.json
+
+// SchemaFile is the published file name of the axx.yaml schema.
+const SchemaFile = "axx.schema.json"
 
 // SchemaID is the published location of the axx.yaml schema.
-const SchemaID = "https://axx.nimbusxr.us/schemas/v0/axx.schema.json"
+const SchemaID = schemas.Base + SchemaFile
 
 // SchemaJSON is the generated JSON Schema for axx.yaml.
-//
-//go:embed axx.schema.json
-var SchemaJSON []byte
+var SchemaJSON = func() []byte {
+	b, err := schemas.Read(SchemaFile)
+	if err != nil {
+		panic(err) // embedded in the binary
+	}
+	return b
+}()
 
 // JSONSchema describes Duration.
 func (Duration) JSONSchema() *ijs.Schema {

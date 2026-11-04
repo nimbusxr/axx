@@ -114,13 +114,13 @@ axx lint: 10 rules, 70 files: 1 error, 0 warnings
 
 A new seed file reused a reference that `seeds/manifest-kestrel.yaml` already inserts. The rules from `axx-lint.generated.yaml` run too, and so do the built-in checks of the features. They catch:
 
-- a When after a Then: a scenario that does something and checks it, then does something else and checks that, which is several scenarios in one (write one per behavior, with what an earlier round did as Given steps);
+- a second When or a second Then in a scenario: one that does something and checks it, then does something else and checks that, is several scenarios in one (write one per behavior, with what an earlier round did as Given steps), and And adds to a When or a Then;
 - a REST, SQL, MongoDB or Kafka step that comes before the scenario registers a service of its pack;
 - SQL selections and triggers, and REST requests, addressed by ordinals they cannot have (a `3rd ordered` request after only one, or a second request added without its ordinal);
 - a step without an ordinal that checks the first selection while a later one goes unchecked (`the selection has 1 row` after a second retrieval);
 - request payload values in single quotes, which in a table are part of the value.
 
-They are warnings, and `axx validate` reports them as well.
+The first fails `axx lint` by default, as a scenario is one behavior; set `mode: warn` under `lint.config` in `axx.yaml` to only report it while you clean up a suite. The others are warnings. `axx validate` and `axx run` report them all as warnings, as the scenarios can still run.
 
 The `hint:` lines are suggestions, never errors or warnings. When the scenarios read three or more hand-written `.json` or `.yaml` files from one directory, whose top-level keys are the same and that no [fixture factory](/guides/fixture-factories/) generates, `axx lint` suggests one: it would keep what the files share in one place and each file's differences in its own. Factories are optional; `axx fixtures adopt` turns the files into one without changing a value.
 

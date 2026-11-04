@@ -161,12 +161,18 @@ func (a *App) doctor(ctx context.Context, cf *configFlags) (rep DoctorReport) {
 		rep.Checks = append(rep.Checks, DoctorCheck{Name: name, Status: status, Detail: detail, Hint: hint})
 	}
 	detail := rep.Version.String() + " " + rep.Version.Platform
-	if l := rep.Version.Launcher; l != "" {
+	if l := rep.Version.Launcher; l != "" && packBuilt {
 		// A project's build of axx, with its packs: the axx it holds, and the
-		// installed axx that built and started it.
+		// installed axx that started it.
 		detail += fmt.Sprintf(", in this project's build with its packs (started by the installed axx v%s)", l)
+	} else if l != "" {
+		detail += fmt.Sprintf(", this project's version (started by the installed axx v%s)", l)
 	}
+	detail += a.pinNote(rep.Version)
 	add("axx", "ok", detail, "")
+	if note := a.newerRelease(rep.Version.Version); note != "" {
+		add("upgrade", "ok", note, "")
+	}
 
 	cfg, err := a.loadConfig(cf)
 	if err != nil {
@@ -348,6 +354,8 @@ func agentChecks(env agents.Env) []DoctorCheck {
 	names := skills.Names()
 	if missing := missingSkills(names, skillsDir, filepath.Join(env.Home, ".agents", "skills")); len(missing) > 0 {
 		check("agent skills", "not installed: "+strings.Join(missing, ", "), "`axx skills install` adds them to .agents/skills", false)
+	} else if v, stale := staleSkills(env); stale {
+		check("agent skills", plural(len(names), "skill")+" from axx "+v+", this is "+version.Get().Version, "`axx skills update` updates them", false)
 	} else {
 		check("agent skills", plural(len(names), "skill"), "", true)
 	}
@@ -373,6 +381,16 @@ func agentChecks(env agents.Env) []DoctorCheck {
 		check(ag.Name+" MCP", "no axx server in "+env.Display(ag.Path(scope, env)), "`"+fix+"` adds it", false)
 	}
 	return out
+}
+
+// staleSkills reports the version of the axx whose skills the project uses,
+// the project's or else the home directory's, when it is not this one.
+func staleSkills(env agents.Env) (string, bool) {
+	v, ok := skills.InstalledVersion(env.Project)
+	if !ok {
+		v, ok = skills.InstalledVersion(env.Home)
+	}
+	return v, ok && v != "" && v != version.Get().Version
 }
 
 // missingSkills are the skills found in none of dirs.
