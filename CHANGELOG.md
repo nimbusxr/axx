@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.5.0](https://github.com/nimbusxr/axx/compare/v0.4.0...v0.5.0) (2026-11-04)
+
+
+### ⚠ BREAKING CHANGES
+
+* `axx lint` now fails on a second When or Then in a scenario, and on a When after a Then. Use And, or split the scenario; `lint: {config: {mode: warn}}` in axx.yaml makes them warnings.
+
+### Features
+
+* a project names the axx version it runs on, axx upgrades itself, and a scenario has one When and one Then ([#295](https://github.com/nimbusxr/axx/issues/295)) ([b84ab6d](https://github.com/nimbusxr/axx/commit/b84ab6d78afc481f98bb87a371076f6b86d5ae66))
+
 ## [0.4.0](https://github.com/nimbusxr/axx/compare/v0.3.1...v0.4.0) (2026-11-02)
 
 
