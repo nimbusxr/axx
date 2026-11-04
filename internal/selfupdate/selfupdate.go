@@ -400,8 +400,8 @@ var moveWait = 30 * time.Second
 // won't let be moved.
 const errorSharingViolation = syscall.Errno(32)
 
-// Move is os.Rename for an axx. Windows scanners and system services open a program
-// they have just seen, for a moment, and until they let go Windows will not move it:
+// Move is os.Rename for an axx. On Windows, something else having a file open, as a
+// scanner does for a moment with a program it has just seen, keeps it from moving:
 // that is no failure, so Move waits it out.
 func Move(from, to string) error {
 	err := os.Rename(from, to)
