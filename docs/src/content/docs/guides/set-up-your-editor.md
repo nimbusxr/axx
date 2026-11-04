@@ -29,6 +29,8 @@ Needs IntelliJ IDEA 2026.1.4 or later (or another JetBrains IDE of that version)
 
 If `axx` is not on your `PATH`, set **axx executable** in *Settings | Tools | axx*.
 
+`axx.yaml`, its `axx.<name>.yaml` overlays and the fixture spec files (`*.factory.yaml`, `*.fixture.yaml`, `*.prototype.yaml`) get completion, documentation and validation from the schemas in the plugin. There is nothing to set up, and they need no network, whatever address a comment at the top of the file names.
+
 ## VS Code
 
 1. Install the **axx** extension: *Extensions: Install from VSIX...* with the `.vsix` file `npm run package` writes.
@@ -36,6 +38,8 @@ If `axx` is not on your `PATH`, set **axx executable** in *Settings | Tools | ax
 3. Open a `.feature` file. The extension highlights Gherkin itself and starts the server once the workspace is trusted.
 
 If `axx` is not on your `PATH`, set `axx.path` to its location. The **axx** output channel shows the server's log.
+
+With Red Hat's [YAML extension](https://marketplace.visualstudio.com/items?itemName=redhat.vscode-yaml), `axx.yaml`, its `axx.<name>.yaml` overlays and the fixture spec files get completion, documentation and validation from the schemas in the axx extension, with no network. A comment at the top of a file goes first there: Red Hat's extension downloads the schema it names, so on a network that blocks that address, remove the comment.
 
 ## Other editors
 
@@ -49,6 +53,14 @@ vim.lsp.config('axx', {
 })
 vim.lsp.enable('axx')
 ```
+
+For completion in `axx.yaml`, editors that use the YAML language server take the comment `axx init` writes at the top of the file, whose address is on GitHub:
+
+```yaml
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nimbusxr/axx/main/schemas/v0/axx.schema.json
+```
+
+`axx schema` prints the schema, for an editor that cannot reach it.
 
 ## Run and debug scenarios
 

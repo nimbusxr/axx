@@ -10,6 +10,8 @@
   <depends optional="true" config-file="axx-lsp.xml">com.intellij.modules.lsp</depends>
   <!-- Gutter icons and run configurations from feature files use the Gherkin plugin's PSI. -->
   <depends optional="true" config-file="axx-gherkin.xml">gherkin</depends>
+  <!-- axx's JSON Schemas in the IDE's completion, for axx.yaml and the fixture spec files. -->
+  <depends optional="true" config-file="axx-json.xml">com.intellij.modules.json</depends>
 
   <extensions defaultExtensionNs="com.intellij">
     <applicationConfigurable

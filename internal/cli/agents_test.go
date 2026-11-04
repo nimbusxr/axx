@@ -113,7 +113,7 @@ func TestInitWithNoAgentsSetsUpNoAgent(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("exit %d: %s", code, stderr)
 	}
-	for _, p := range []string{".agents", ".claude", ".mcp.json", ".gitattributes"} {
+	for _, p := range []string{".agents", ".claude", ".mcp.json"} {
 		if exists(filepath.Join(dir, p)) {
 			t.Errorf("--no-agents wrote %s", p)
 		}
@@ -208,25 +208,41 @@ func TestInitLeavesAloneTheUsersOwnCLAUDEmd(t *testing.T) {
 	}
 }
 
-func TestInitMarksTheSkillsGenerated(t *testing.T) {
-	dir, _ := agentProject(t, map[string]string{".gitattributes": "*.png binary"})
+func TestInitKeepsTheSkillsOutOfTheRepository(t *testing.T) {
+	dir, _ := agentProject(t, map[string]string{".gitignore": "node_modules/"})
 	out, stderr, code := run(t, "init", "--no-ci")
 	if code != 0 {
 		t.Fatalf("exit %d: %s", code, stderr)
 	}
-	b, _ := os.ReadFile(filepath.Join(dir, ".gitattributes"))
-	if want := "*.png binary\n\n" + skillsAttributes; string(b) != want {
-		t.Errorf(".gitattributes is\n%s\nwant\n%s", b, want)
+	b, _ := os.ReadFile(filepath.Join(dir, ".gitignore"))
+	for _, want := range []string{"node_modules/\n", ".axx/\n", ".agents/skills/axx-*\n", ".agents/skills/.axx-lock.json\n", ".claude/skills/axx-*\n"} {
+		if !strings.Contains(string(b), want) {
+			t.Errorf(".gitignore lacks %q:\n%s", want, b)
+		}
 	}
-	if !strings.Contains(out, "update  .gitattributes") {
-		t.Errorf("output lacks the .gitattributes update:\n%s", out)
+	if !strings.Contains(out, "update  .gitignore") {
+		t.Errorf("output lacks the .gitignore update:\n%s", out)
+	}
+	if exists(filepath.Join(dir, ".gitattributes")) {
+		t.Error("init wrote .gitattributes, for files the repository does not hold")
 	}
 	out, stderr, code = run(t, "init", "--no-ci")
 	if code != 0 {
 		t.Fatalf("exit %d: %s", code, stderr)
 	}
-	if !strings.Contains(out, "skip    .gitattributes: up to date") {
-		t.Errorf("the second init did not leave .gitattributes alone:\n%s", out)
+	if !strings.Contains(out, "skip    .gitignore: up to date") {
+		t.Errorf("the second init did not leave .gitignore alone:\n%s", out)
+	}
+}
+
+func TestInitWithNoAgentsIgnoresNoSkills(t *testing.T) {
+	dir, _ := agentProject(t, nil)
+	if _, stderr, code := run(t, "init", "--no-ci", "--no-agents"); code != 0 {
+		t.Fatalf("exit %d: %s", code, stderr)
+	}
+	b, _ := os.ReadFile(filepath.Join(dir, ".gitignore"))
+	if string(b) != "# axx runtime state and logs\n.axx/\n" {
+		t.Errorf(".gitignore:\n%s", b)
 	}
 }
 
@@ -236,7 +252,7 @@ func TestInitRunTwiceChangesNothing(t *testing.T) {
 		t.Fatalf("exit %d: %s", code, stderr)
 	}
 	before := map[string]string{}
-	for _, p := range []string{".mcp.json", ".gemini/settings.json", "AGENTS.md", "CLAUDE.md", ".gitattributes"} {
+	for _, p := range []string{".mcp.json", ".gemini/settings.json", "AGENTS.md", "CLAUDE.md", ".gitignore"} {
 		b, _ := os.ReadFile(filepath.Join(dir, p))
 		before[p] = string(b)
 	}
@@ -280,7 +296,7 @@ func TestInitDryRunWritesNoAgentFile(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("exit %d: %s", code, stderr)
 	}
-	for _, p := range []string{".agents", ".claude", ".mcp.json", ".gitattributes"} {
+	for _, p := range []string{".agents", ".claude", ".mcp.json"} {
 		if exists(filepath.Join(dir, p)) {
 			t.Errorf("a dry run wrote %s", p)
 		}
@@ -324,7 +340,7 @@ func TestInitReportsAgentsInJSON(t *testing.T) {
 	if ch := a.MCP[0]; ch.Agent != "codex" || ch.Scope != agents.ScopeProject || ch.Path != ".codex/config.toml" || ch.Action != agents.ActionUpdate {
 		t.Errorf("codex: %+v", ch)
 	}
-	if len(env.Data.Files) != 6 {
+	if len(env.Data.Files) != 5 {
 		t.Errorf("files: %+v", env.Data.Files)
 	}
 }

@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://axx.nimbusxr.us/schemas/v0/axx-fixture.schema.json",
+  "$id": "https://raw.githubusercontent.com/nimbusxr/axx/main/schemas/v0/axx-fixture.schema.json",
   "title": "axx fixture",
-  "description": "A *.fixture.yaml: one fixture. The file name is the fixture key and its outputs are generated next to it. An empty or comment-only file is a fixture that is exactly the prototype. Reference it with: # yaml-language-server: $schema=https://axx.nimbusxr.us/schemas/v0/axx-fixture.schema.json",
+  "description": "A *.fixture.yaml: one fixture. The file name is the fixture key and its outputs are generated next to it. An empty or comment-only file is a fixture that is exactly the prototype. Reference it with: # yaml-language-server: $schema=https://raw.githubusercontent.com/nimbusxr/axx/main/schemas/v0/axx-fixture.schema.json",
   "type": ["object", "null"],
   "additionalProperties": false,
   "properties": {

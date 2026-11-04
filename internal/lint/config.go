@@ -36,6 +36,7 @@ const (
 	CodeStaleSelection      = "AXX-E0835"
 	CodeServiceUnregistered = "AXX-E0836"
 	CodeSeveralRounds       = "AXX-E0837"
+	CodeSecondClause        = "AXX-E0838"
 )
 
 // Defaults of the lint config block.
@@ -162,7 +163,7 @@ func (l *loader) issue(code string, loc *axxerr.Location, format string, args ..
 // Load resolves includes and validates cfg's lint section. A configuration
 // without a lint section loads as an empty, unconfigured Set; a lint section
 // that yields no rules is an error, as a check that validates nothing would
-// pass silently.
+// pass silently, unless it says mode: warn, which the builtin checks follow.
 func Load(cfg *config.Config) (*Set, error) {
 	set := &Set{BaseDir: cfg.Dir, Config: defaults(nil)}
 	if cfg.Lint == nil {
@@ -194,7 +195,7 @@ func Load(cfg *config.Config) (*Set, error) {
 	if err := l.fail(); err != nil {
 		return nil, err
 	}
-	if len(set.Rules) == 0 {
+	if len(set.Rules) == 0 && set.Config.Mode != ModeWarn {
 		loc := o.at()
 		return nil, axxerr.New(CodeNoRules, exitcode.Usage, "the lint section of %s defines no rules", displayPath(root)).
 			WithHint("%s", hints[CodeNoRules]).At(loc.File, loc.Line, loc.Column)

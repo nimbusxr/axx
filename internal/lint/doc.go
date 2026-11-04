@@ -45,7 +45,8 @@
 //
 // # Builtin checks
 //
-// FeatureChecks run over the features in run.paths: CheckFeatures warns
+// FeatureChecks run over the features in run.paths: CheckRounds fails on a
+// scenario of a second When or Then (rounds.go), CheckFeatures warns
 // about SQL selection and trigger ordinals that cannot work (features.go),
 // CheckRESTRequests about REST requests added or addressed out of order
 // (rest.go).

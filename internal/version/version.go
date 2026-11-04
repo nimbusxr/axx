@@ -19,8 +19,8 @@ var (
 // Module is axx's Go module.
 const Module = "github.com/nimbusxr/axx"
 
-// EnvLauncher tells a project's build of axx the version of the installed
-// axx that started it.
+// EnvLauncher tells a project's version or build of axx the version of the
+// installed axx that started it.
 const EnvLauncher = "AXX_LAUNCHER"
 
 // Info describes the running binary.
@@ -32,9 +32,12 @@ type Info struct {
 	Platform  string `json:"platform"`
 	Channel   string `json:"channel"`
 	// Launcher is the version of the installed axx that started this one,
-	// when this is a project's build of axx, with its packs: then Version is
-	// that of the axx module the build holds.
+	// when this is a project's version of axx or its build, with its packs: then
+	// Version is that of the axx module the build holds.
 	Launcher string `json:"launcher,omitempty"`
+	// Project is the version the project's axx.yaml names, in `axx version`,
+	// which is the installed axx's whatever the project names.
+	Project string `json:"project,omitempty"`
 }
 
 // Get returns version information, falling back to Go build info so binaries

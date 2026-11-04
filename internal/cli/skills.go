@@ -14,6 +14,7 @@ import (
 	"github.com/nimbusxr/axx/internal/engine"
 	"github.com/nimbusxr/axx/internal/exitcode"
 	"github.com/nimbusxr/axx/internal/skills"
+	"github.com/nimbusxr/axx/internal/version"
 )
 
 func newSkillsCmd(app *App) *cobra.Command {
@@ -33,8 +34,10 @@ references are generated from this project's steps.`,
 		Long: `Write the skills to .agents/skills/ (read by Codex, Cursor, Gemini CLI and
 Copilot) and, when the project uses Claude Code (a .claude directory, CLAUDE.md
 or .mcp.json), link them into .claude/skills/ for it: --claude links them
-anyway, --no-claude never. Re-running updates them; files you edited are kept
-unless --force.`,
+anyway, --no-claude never. In a project they also go in its .gitignore: axx
+generates them, and each person or agent installs them, unless the repository
+holds them already. Re-running updates them; files you edited are kept unless
+--force.`,
 		Args: wrapArgs(cobra.NoArgs),
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			var root string
@@ -72,18 +75,13 @@ unless --force.`,
 				return axxerr.New("AXX-E0001", exitcode.Usage, "invalid usage: --claude and --no-claude cannot both be given")
 			}
 			link := claude || !noClaude && agents.Uses(root, "claude")
-			res, err := skills.Install(sks, skills.InstallOptions{Root: root, Claude: link, Force: force})
+			res, err := skills.Install(sks, skills.InstallOptions{Root: root, Claude: link, Force: force, Ignore: scope == "project"})
 			if err != nil {
 				return err
 			}
 			return app.Emit(res, func(w io.Writer) error {
 				fmt.Fprintf(w, "installed %s to %s (%d files updated)\n", plural(len(res.Skills), "skill"), relPath(res.Dir), len(res.Written))
-				if res.Location != "" {
-					fmt.Fprintf(w, "linked for Claude Code in %s\n", relPath(res.Location))
-				}
-				for _, k := range res.Kept {
-					fmt.Fprintf(w, "kept your edits: %s (use --force to overwrite)\n", k)
-				}
+				renderInstalled(w, res)
 				return nil
 			})
 		},
@@ -136,6 +134,93 @@ unless --force.`,
 			})
 		},
 	}
-	cmd.AddCommand(install, export, list)
+	var updateForce bool
+	var updateCf configFlags
+	update := &cobra.Command{
+		Use:   "update",
+		Short: "Update the skills this project and your home directory have to this axx's",
+		Long: `Update the skills where they are installed: this project's and your home
+directory's. Files you edited are kept unless --force. ` + "`axx upgrade`" + ` does this
+after it replaces axx. Skills that are not installed stay so: ` + "`axx skills install`" + `
+adds them.`,
+		Args: wrapArgs(cobra.NoArgs),
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return app.updateSkills(&updateCf, updateForce)
+		},
+	}
+	updateCf.register(update)
+	update.Flags().BoolVar(&updateForce, "force", false, "overwrite skill files you edited")
+	cmd.AddCommand(install, update, export, list)
 	return cmd
+}
+
+// updateSkills updates the project's skills and the home directory's, where
+// they are installed.
+func (a *App) updateSkills(cf *configFlags, force bool) error {
+	type updated struct {
+		Scope string `json:"scope"`
+		*skills.Result
+	}
+	var out []updated
+	if dir, err := config.ProjectDir(a.Config); err == nil {
+		if _, ok := skills.InstalledVersion(dir); ok {
+			e, err := a.loadEngine(cf)
+			if err != nil {
+				return err
+			}
+			sks, err := skills.Build(e)
+			if err != nil {
+				return err
+			}
+			res, err := skills.Install(sks, skills.InstallOptions{Root: e.Config.Dir, Claude: agents.Uses(e.Config.Dir, "claude"), Force: force, Ignore: true})
+			if err != nil {
+				return err
+			}
+			out = append(out, updated{"project", res})
+		}
+	}
+	if home, err := os.UserHomeDir(); err == nil {
+		if _, ok := skills.InstalledVersion(home); ok {
+			sks, err := skills.Published()
+			if err != nil {
+				return err
+			}
+			res, err := skills.Install(sks, skills.InstallOptions{Root: home, Claude: agents.Uses(home, "claude"), Force: force})
+			if err != nil {
+				return err
+			}
+			out = append(out, updated{"user", res})
+		}
+	}
+	if len(out) == 0 {
+		return axxerr.New("AXX-E0017", exitcode.Usage, "no axx skills are installed here or in your home directory").
+			WithHint("`axx skills install` adds them to this project; `axx skills install --scope user` to every repository")
+	}
+	return a.Emit(map[string]any{"updated": out}, func(w io.Writer) error {
+		for _, u := range out {
+			from := ""
+			if u.PreviousVersion != "" && u.PreviousVersion != version.Get().Version {
+				from = " from axx " + u.PreviousVersion
+			}
+			fmt.Fprintf(w, "updated %s%s in %s to axx %s (%d files updated)\n", plural(len(u.Skills), "skill"), from, relPath(u.Dir), version.Get().Version, len(u.Written))
+			renderInstalled(w, u.Result)
+		}
+		return nil
+	})
+}
+
+// renderInstalled says what an install did besides writing the skills.
+func renderInstalled(w io.Writer, res *skills.Result) {
+	if res.Location != "" {
+		fmt.Fprintf(w, "linked for Claude Code in %s\n", relPath(res.Location))
+	}
+	if res.Ignored {
+		fmt.Fprintln(w, "added them to .gitignore")
+	}
+	if len(res.Tracked) > 0 {
+		fmt.Fprintf(w, "the repository holds them, so .gitignore was left alone: `%s`, then `axx skills install`, stops that\n", skills.UntrackCommand)
+	}
+	for _, k := range res.Kept {
+		fmt.Fprintf(w, "kept your edits: %s (use --force to overwrite)\n", k)
+	}
 }

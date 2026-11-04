@@ -167,7 +167,7 @@ func (s *Set) Run(opts Options) *Report {
 		BaseDir: relSlash(opts.WorkDir, s.BaseDir), Rules: []RuleResult{},
 		maxValues: s.Config.MaxReportedValues, maxLocations: s.Config.MaxReportedLocations,
 	}
-	if !s.Configured {
+	if len(s.Rules) == 0 {
 		rep.Notes = append(rep.Notes, "no test-data isolation rules configured (add lint.rules to axx.yaml)")
 	}
 	cache := map[string]*fileText{}

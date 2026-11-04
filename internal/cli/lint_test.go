@@ -363,3 +363,43 @@ func TestGeneratedRulesCatchAHandWrittenDuplicate(t *testing.T) {
 		})
 	}
 }
+
+// A scenario is one behavior: `axx lint` fails on a second When or Then, unless the
+// project says warn, for the suite it is still cleaning up.
+func TestLintFailsOnASecondWhenUnlessTheConfigSaysWarn(t *testing.T) {
+	const feature = "Feature: f\n  Scenario: s\n    When the request is executed\n    When the request is executed\n    Then the response status code is 200\n"
+	for _, tc := range []struct {
+		name, yaml string
+		args       []string
+		want       exitcode.Code
+		says       string
+	}{
+		{"by default", "version: 1\n", nil, exitcode.Undefined, "1 error"},
+		{"the config says warn", "version: 1\nlint:\n  config:\n    mode: warn\n", nil, exitcode.OK, "1 warning"},
+		{"the flag says warn", "version: 1\n", []string{"--mode", "warn"}, exitcode.OK, "1 warning"},
+		{"the flag beats the config", "version: 1\nlint:\n  config:\n    mode: warn\n", []string{"--mode", "error"}, exitcode.Undefined, "1 error"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			agentProject(t, map[string]string{"axx.yaml": tc.yaml, "features/a.feature": feature})
+			out, stderr, code := run(t, append([]string{"lint"}, tc.args...)...)
+			if code != int(tc.want) {
+				t.Fatalf("exit %d, want %d: %s %s", code, tc.want, out, stderr)
+			}
+			if !strings.Contains(out+stderr, tc.says) || !strings.Contains(out+stderr, "a second When") {
+				t.Errorf("no %q in:\n%s\n%s", tc.says, out, stderr)
+			}
+		})
+	}
+}
+
+// The scenario can still run, so the others report it as a warning.
+func TestValidateOnlyWarnsAboutASecondWhen(t *testing.T) {
+	agentProject(t, map[string]string{
+		"axx.yaml":           "version: 1\n",
+		"features/a.feature": "Feature: f\n  Scenario: s\n    When the request is executed\n    When the request is executed\n",
+	})
+	out, stderr, _ := run(t, "validate")
+	if !strings.Contains(out+stderr, "a second When") {
+		t.Errorf("no warning in:\n%s\n%s", out, stderr)
+	}
+}

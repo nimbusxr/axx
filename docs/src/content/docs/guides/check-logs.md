@@ -75,7 +75,7 @@ Patterns are regular expressions (Java syntax), searched in the log's text rathe
 
 ```gherkin
 Then the parcels log has an entry matching 'msg="registration refused; not announced" reference=PX-EVT-4003'
-Then within 30s the parcels log has an entry matching 'depot notified reference=PX-DSP-2001'
+And within 30s the parcels log has an entry matching 'depot notified reference=PX-DSP-2001'
 ```
 
 Several entries in one log; each row needs a match of its own, so the same pattern twice needs two matches:

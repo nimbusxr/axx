@@ -156,6 +156,14 @@ the skills instead: `axx skills install`.
   `ar/Bridge.java`), built as models-android's is (`BuildAgent`), which it attaches after its own.
 - `internal/filecontent`: reads files by their type (text, CSV, TSV, JSON, XML, HTML, PDF, Word,
   Excel) for the steps that check a file's text or table: files, storage objects, downloads.
+- `schemas/v0`: the JSON Schemas of axx.yaml and the fixture spec files, at public paths: GitHub serves them from
+  main, and axx.yaml files name those addresses (`schemas.Base`). The editor plugins bundle them, so completion needs no network.
+- `internal/selfupdate` (`axx upgrade`): axx's releases on GitHub, what changed between two, and replacing the running axx
+  with a release's, checked against its checksums, as `scripts/install.sh` and `install.ps1` do.
+- `internal/cli/pin.go`: the version a project names (`axx: 0.5.0`, read as a line by `config.ReadPin`; ADR 0015). Before anything parses the
+  command line, the installed axx gets that release into its cache and hands over to it, and that release does the rest, its pack build included.
+  `internal/cli/reminder.go`: the one line, at most weekly, that says a newer release is out. An old axx must always be able to hand over to a
+  later one: keep the line's reading, the archives' names and the versions directory compatible.
 - `internal/host` (`axx host`): starts a project's services, on the person's machine, for the runs of an agent
   whose sandbox keeps it from Docker. Runs find it in `.axx/host.json` and ask it for their services over a
   loopback port (`axx run`, `axx up`'s supervisor, the MCP session's `steps_try`); it starts only a definition
@@ -200,7 +208,7 @@ the skills instead: `axx skills install`.
 - Exit codes (`internal/exitcode`) and the `--json` envelope are frozen contracts (ADR 0003).
 - Every user-facing error is an `*axxerr.Error` with a stable `AXX-Exxxx` code and a hint.
 - Never hand-edit generated files: `go generate ./...` writes the `axx.yaml` schema
-  (`internal/config/axx.schema.json`), the skills (`plugins/axx/skills`) and the packs' reference
+  (`schemas/v0/axx.schema.json`), the skills (`plugins/axx/skills`) and the packs' reference
   (`internal/packref/packs.json`), and the docs site's
   build writes the reference (`docs/scripts/gen.mjs`, from `axx docs export`).
 - The docs site's root is the latest release's docs, built from its tag (or from `docs-<tag>`,

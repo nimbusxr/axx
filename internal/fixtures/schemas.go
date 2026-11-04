@@ -1,15 +1,10 @@
 package fixtures
 
 import (
-	"embed"
 	"sort"
+
+	"github.com/nimbusxr/axx/schemas"
 )
-
-//go:embed schemas/*.schema.json
-var schemaFS embed.FS
-
-// SchemaBase is where the spec file schemas are published.
-const SchemaBase = "https://axx.nimbusxr.us/schemas/v0/"
 
 // SchemaKinds are the spec file kinds with a JSON Schema.
 var SchemaKinds = []string{"factory", "fixture", "prototype"}
@@ -18,12 +13,12 @@ var SchemaKinds = []string{"factory", "fixture", "prototype"}
 func SchemaFile(kind string) string { return "axx-" + kind + ".schema.json" }
 
 // SchemaID is the published URL of a kind's schema.
-func SchemaID(kind string) string { return SchemaBase + SchemaFile(kind) }
+func SchemaID(kind string) string { return schemas.Base + SchemaFile(kind) }
 
 // SchemaJSON returns the JSON Schema of a spec file kind (factory, fixture
 // or prototype).
 func SchemaJSON(kind string) ([]byte, bool) {
-	b, err := schemaFS.ReadFile("schemas/" + SchemaFile(kind))
+	b, err := schemas.Read(SchemaFile(kind))
 	return b, err == nil
 }
 

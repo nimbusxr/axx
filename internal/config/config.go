@@ -14,6 +14,11 @@ import (
 type Config struct {
 	// Schema version of this file. Currently 1.
 	Version int `json:"version,omitempty" jsonschema:"enum=1"`
+	// Axx is the version of axx this project runs on, exactly. Whichever axx is
+	// installed downloads that release once and hands over to it, so that everyone
+	// and CI run the same one. `axx upgrade` moves it. Without it, a project runs
+	// on the installed axx.
+	Axx string `json:"axx,omitempty" jsonschema:"pattern=^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$"`
 	// Run controls which features run and how.
 	Run Run `json:"run,omitzero"`
 	// Resources are directories that relative resource paths in steps (seed

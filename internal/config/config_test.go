@@ -238,7 +238,7 @@ func TestSchemaUpToDate(t *testing.T) {
 		t.Fatal(err)
 	}
 	if string(want) != string(SchemaJSON) {
-		t.Fatal("internal/config/axx.schema.json is stale; run `go generate ./internal/config`")
+		t.Fatal("schemas/v0/axx.schema.json is stale; run `go generate ./internal/config`")
 	}
 }
 

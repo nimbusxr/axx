@@ -37,7 +37,7 @@ They share data. Scenarios run in parallel against shared infrastructure, so eac
 
 ### Does Axx collect telemetry?
 
-No. Axx sends no telemetry and does not check for updates. The only downloads it makes are those it needs, once, into its cache: the Go toolchain and the packs' Go modules when it builds itself with a project's packs, and the Node.js, Playwright, browsers, axe-core and Lighthouse the web packs use. Otherwise it talks only to the services, databases, brokers and clouds your scenarios name.
+No. Axx sends no telemetry. The only downloads it makes are those it needs, once, into its cache: the Axx release a project names, the Go toolchain and the packs' Go modules when it builds itself with a project's packs, and the Node.js, Playwright, browsers, axe-core and Lighthouse the web packs use. At your terminal, it also reads GitHub's list of releases at most once a day, with no credentials, to [say when a newer release is out](/guides/install/#the-reminder); that never happens in CI or for an agent, and `AXX_NO_UPGRADE_REMINDER=1` turns it off. Otherwise it talks only to the services, databases, brokers and clouds your scenarios name, and to GitHub when you run `axx upgrade`.
 
 ### What license is Axx under?
 

@@ -2,10 +2,10 @@
 
 # axx.yaml essentials
 
-The full JSON Schema is printed by `axx schema` (also at https://axx.nimbusxr.us/schemas/v0/axx.schema.json).
+The full JSON Schema is printed by `axx schema` (also at https://raw.githubusercontent.com/nimbusxr/axx/main/schemas/v0/axx.schema.json).
 
 ```yaml
-# yaml-language-server: $schema=https://axx.nimbusxr.us/schemas/v0/axx.schema.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nimbusxr/axx/main/schemas/v0/axx.schema.json
 version: 1
 run:
   paths: [features]            # feature files/directories

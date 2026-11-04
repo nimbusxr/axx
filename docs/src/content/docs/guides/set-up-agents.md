@@ -28,7 +28,6 @@ In a repository with a `CLAUDE.md` and a `.cursor/` directory:
   create  AGENTS.md
   update  CLAUDE.md (imports AGENTS.md for Claude Code)
   create  .gitignore
-  create  .gitattributes
   create  .agents/skills (5 skills)
   create  .claude/skills (linked for Claude Code)
   create  .mcp.json (the axx MCP server for Claude Code)
@@ -47,17 +46,20 @@ Axx adds its server to the files that exist: other servers and settings stay whe
 
 `axx init` also lists the packs the repository points to: the images in its compose files, the clients in its dependency manifests, its schema files (Avro, protobuf, AsyncAPI, GraphQL), and what its README and docs name. It says why for each and adds none of them: you or your agent add the ones the tests need.
 
-Commit what `axx init` wrote, so every contributor and every CI agent gets it.
+Commit what `axx init` wrote, so every contributor and every CI agent gets it. The skills are the exception: axx generates them, so `.gitignore` keeps them out, and each person or agent installs their own with `axx skills install`.
 
 ## Skills
 
 ```sh
 axx skills install                 # this repository
 axx skills install --scope user    # your home directory, for every repository
+axx skills update                  # where they are installed, to this axx's
 axx skills list
 ```
 
-`install` writes the skills to `.agents/skills/` (read by Codex, Cursor, Gemini CLI and Copilot) and, when the repository uses Claude Code (a `.claude/` directory, `CLAUDE.md` or `.mcp.json`), links them into `.claude/skills/` for it. `--claude` links them anyway, and `--no-claude` never; with `--scope user`, they are linked when your home directory has `.claude/`. A `.claude/` that holds nothing but these links does not count as using Claude Code, so `axx doctor` does not ask a Codex repository for a Claude Code MCP server. `axx init` installs them the same way, and marks them as generated in `.gitattributes`, so GitHub collapses their diffs in pull requests. Commit them so every contributor and every CI agent gets them.
+`install` writes the skills to `.agents/skills/` (read by Codex, Cursor, Gemini CLI and Copilot) and, when the repository uses Claude Code (a `.claude/` directory, `CLAUDE.md` or `.mcp.json`), links them into `.claude/skills/` for it. `--claude` links them anyway, and `--no-claude` never; with `--scope user`, they are linked when your home directory has `.claude/`. A `.claude/` that holds nothing but these links does not count as using Claude Code, so `axx doctor` does not ask a Codex repository for a Claude Code MCP server. `axx init` installs them the same way.
+
+In a project, `install` also adds the skills to `.gitignore`: `.agents/skills/axx-*`, its lock file and `.claude/skills/axx-*`, so that skills of your own in those directories stay in the repository. A fresh clone has none until someone runs `axx skills install`; the `AGENTS.md` section tells agents so, and `axx doctor` warns. A repository that already holds them keeps them, as `.gitignore` does not govern tracked files: `install` says so and gives the `git rm --cached` command that takes them out, leaving the files in place, after which the next `install` ignores them.
 
 | Skill | Teaches |
 | --- | --- |
@@ -67,7 +69,7 @@ axx skills list
 | `axx-custom-steps` | custom steps as Go packs |
 | `axx-debugging` | reading failures, exit codes and logs |
 
-The [`AGENTS.md` section](#agentsmd) holds the workflow and the rules, and the skills add what it leaves out. They carry no pages of steps: `axx steps` lists your project's steps, your custom packs' included, a line each, and `axx steps show <id>...` gives the documentation of those whose line leaves an agent unsure, several at once. Agents read pages a chunk at a time, about ten times the tokens. They carry no pages of error codes either: `axx explain <code>` gives each one. Rerun `axx skills install` after upgrading Axx; files you edited are kept unless you pass `--force`, and files the skills no longer have are removed. The same skills are published at [`/.well-known/agent-skills/index.json`](/.well-known/agent-skills/index.json).
+The [`AGENTS.md` section](#agentsmd) holds the workflow and the rules, and the skills add what it leaves out. They carry no pages of steps: `axx steps` lists your project's steps, your custom packs' included, a line each, and `axx steps show <id>...` gives the documentation of those whose line leaves an agent unsure, several at once. Agents read pages a chunk at a time, about ten times the tokens. They carry no pages of error codes either: `axx explain <code>` gives each one. [`axx upgrade`](/guides/install/#upgrade) updates them where they are installed, and `axx skills update` does after any other upgrade; `axx doctor` warns when they come from another version. Files you edited are kept unless you pass `--force`, and files the skills no longer have are removed. The same skills are published at [`/.well-known/agent-skills/index.json`](/.well-known/agent-skills/index.json).
 
 ## MCP server
 

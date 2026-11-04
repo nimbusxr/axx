@@ -126,12 +126,16 @@ func writeStep(b *strings.Builder, heading string, d *match.Def, variants []stri
 	if leading != nil {
 		fmt.Fprintf(b, "\nWith its ordinal first, it says the same: `%s`.\n", leading.Step.Expr)
 	}
-	if len(s.Examples) > 0 {
-		b.WriteString("\n**Example:**\n\n```gherkin\n")
-		for _, ex := range s.Examples {
-			b.WriteString(ex + "\n")
-		}
-		b.WriteString("```\n")
+	// A block each: lines of one block would read as one scenario, of several Whens.
+	switch len(s.Examples) {
+	case 0:
+	case 1:
+		b.WriteString("\n**Example:**\n")
+	default:
+		b.WriteString("\n**Examples:**\n")
+	}
+	for _, ex := range s.Examples {
+		b.WriteString("\n```gherkin\n" + ex + "\n```\n")
 	}
 	if s.Since != "" {
 		fmt.Fprintf(b, "\n_Since %s._\n", s.Since)

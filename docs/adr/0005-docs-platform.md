@@ -13,6 +13,11 @@
   generated from the step registry (also embedded in the binary), and an MCP server in the
   binary (`axx mcp`) so agents always see docs matching the installed version.
 - Hosted at `axx.nimbusxr.us`, from an S3 bucket behind CloudFront; schemas under `/schemas/v0/`.
+  What people's machines fetch while they work comes from GitHub, which more networks allow than
+  a site of our own: the install scripts and the schemas (`schemas/v0`), which axx.yaml files name
+  by their addresses on raw.githubusercontent.com (GitHub's address for a release's latest files
+  skips pre-releases, and every 0.x release is one). The site keeps serving its copies for the links
+  already out there.
   The docs workflow publishes the site (`docs/scripts/deploy.sh`), through a role its OIDC
   token assumes on `main` only.
 - A page's address answers in the format the request prefers: a browser gets the page, and a

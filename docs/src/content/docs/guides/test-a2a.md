@@ -6,7 +6,7 @@ description: "Send messages to your A2A agent as another agent does, over JSON-R
 An A2A agent (Agent2Agent protocol) is an agent other agents ask for work. It publishes a card that says what it does and how to reach it, and it answers a message with a reply or a task: work that goes through states (working, input required, completed...) and ends with artifacts. The `a2a` pack tests your agent by doing what another agent does.
 
 ```gherkin
-Scenario: A hold asks until which day, and holds the parcel on the reply
+Scenario: A hold asks until which day
   Given a seeds/a2a-hold.yaml db seed
   And the parcels a2a agent with the following properties:
     | url | http://localhost:8400 |
@@ -16,11 +16,21 @@ Scenario: A hold asks until which day, and holds the parcel on the reply
     """
   Then the parcels a2a agent's task is input-required
   And the parcels a2a agent's answer contains 'Until which day should PX-A2A-9202 be held?'
+
+Scenario: A hold is placed until the day given in the reply
+  Given a seeds/a2a-hold-reply.yaml db seed
+  And the parcels a2a agent with the following properties:
+    | url | http://localhost:8400 |
+  And a message is sent to the parcels a2a agent:
+    """
+    Please hold PX-A2A-9207 at its depot.
+    """
   When a reply is sent to the parcels a2a agent:
     """
     2026-10-05
     """
   Then the parcels a2a agent's task is completed
+  And the parcels a2a agent's answer contains 'PX-A2A-9207 is held at its depot until 2026-10-05.'
 ```
 
 Add the pack to the project with `axx pack add a2a` ([Choose packs](/guides/use-packs/)).
@@ -52,11 +62,20 @@ When a message is sent to the parcels a2a agent:
   """
   Where is PX-A2A-9201?
   """
+```
+
+```gherkin
 When the a2a/hold-request.json message is sent to the parcels a2a agent
+```
+
+```gherkin
 When a reply is sent to the parcels a2a agent:
   """
   2026-10-05
   """
+```
+
+```gherkin
 When the parcels a2a agent is asked to cancel its task
 ```
 

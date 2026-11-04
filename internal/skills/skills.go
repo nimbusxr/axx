@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"os/exec"
 	"path"
 	"path/filepath"
 	"runtime"
@@ -144,10 +145,10 @@ func references(e *engine.Engine) ([]File, error) {
 const configRef = md.GeneratedHeader + `
 # axx.yaml essentials
 
-The full JSON Schema is printed by ` + "`axx schema`" + ` (also at https://axx.nimbusxr.us/schemas/v0/axx.schema.json).
+The full JSON Schema is printed by ` + "`axx schema`" + ` (also at https://raw.githubusercontent.com/nimbusxr/axx/main/schemas/v0/axx.schema.json).
 
 ` + "```yaml" + `
-# yaml-language-server: $schema=https://axx.nimbusxr.us/schemas/v0/axx.schema.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nimbusxr/axx/main/schemas/v0/axx.schema.json
 version: 1
 run:
   paths: [features]            # feature files/directories
@@ -203,6 +204,9 @@ type InstallOptions struct {
 	Claude bool
 	// Force overwrites locally modified files.
 	Force bool
+	// Ignore keeps the skills out of the repository (see EnsureIgnored): a
+	// project's, not a home directory's.
+	Ignore bool
 }
 
 // Result reports what Install did.
@@ -216,6 +220,13 @@ type Result struct {
 	Linked   []string `json:"linked,omitempty"`
 	Skills   []string `json:"skills"`
 	Location string   `json:"claudeDir,omitempty"`
+	// PreviousVersion is the axx whose skills these replaced, when there were any.
+	PreviousVersion string `json:"previousVersion,omitempty"`
+	// Ignored is whether this install added the skills to .gitignore.
+	Ignored bool `json:"ignored,omitempty"`
+	// Tracked are the skills' files the repository holds: .gitignore does not
+	// govern those, so it was left alone, and UntrackCommand stops tracking them.
+	Tracked []string `json:"tracked,omitempty"`
 }
 
 // Install writes skills to <root>/.agents/skills and optionally links them
@@ -223,7 +234,7 @@ type Result struct {
 func Install(skills []Skill, opts InstallOptions) (*Result, error) {
 	dir := filepath.Join(opts.Root, ".agents", "skills")
 	res := &Result{Dir: dir}
-	lockPath := filepath.Join(dir, ".axx-lock.json")
+	lockPath := filepath.Join(dir, LockFile)
 	old := Lock{Files: map[string]string{}}
 	if b, err := os.ReadFile(lockPath); err == nil {
 		_ = json.Unmarshal(b, &old)
@@ -231,6 +242,7 @@ func Install(skills []Skill, opts InstallOptions) (*Result, error) {
 			old.Files = map[string]string{}
 		}
 	}
+	res.PreviousVersion = old.AxxVersion
 	lock := Lock{AxxVersion: version.Get().Version, Files: map[string]string{}}
 	for _, sk := range skills {
 		res.Skills = append(res.Skills, sk.Name)
@@ -300,7 +312,101 @@ func Install(skills []Skill, opts InstallOptions) (*Result, error) {
 			}
 		}
 	}
+	if opts.Ignore {
+		var err error
+		if res.Ignored, res.Tracked, err = EnsureIgnored(opts.Root); err != nil {
+			return nil, err
+		}
+	}
 	return res, nil
+}
+
+// LockFile is where an install records what it wrote, in the skills directory.
+const LockFile = ".axx-lock.json"
+
+// InstalledVersion is the version of axx whose skills are installed under
+// root (a project or a home directory), and whether any are.
+func InstalledVersion(root string) (string, bool) {
+	b, err := os.ReadFile(filepath.Join(root, ".agents", "skills", LockFile))
+	if err != nil {
+		return "", false
+	}
+	var l Lock
+	if json.Unmarshal(b, &l) != nil {
+		return "", true
+	}
+	return l.AxxVersion, true
+}
+
+// ignoreComment and ignorePatterns are what .gitignore gets: the skills are
+// generated from axx and its packs, and every axx upgrade changes them. The
+// names axx gives them, not the whole directories: a project's own skills
+// stay in the repository.
+const ignoreComment = "# axx's agent skills: `axx skills install` writes them"
+
+var ignorePatterns = []string{".agents/skills/axx-*", ".agents/skills/" + LockFile, ".claude/skills/axx-*"}
+
+// MergeGitignore adds the skills' lines a .gitignore lacks, and reports whether
+// it did.
+func MergeGitignore(s string) (string, bool) {
+	have := map[string]bool{}
+	for _, line := range strings.Split(s, "\n") {
+		have[strings.TrimSpace(line)] = true
+	}
+	var add []string
+	for _, p := range ignorePatterns {
+		if !have[p] {
+			add = append(add, p)
+		}
+	}
+	if len(add) == 0 {
+		return s, false
+	}
+	if s != "" && !strings.HasSuffix(s, "\n") {
+		s += "\n"
+	}
+	if s != "" {
+		s += "\n"
+	}
+	if !have[ignoreComment] {
+		s += ignoreComment + "\n"
+	}
+	return s + strings.Join(add, "\n") + "\n", true
+}
+
+// Tracked are the skills' files the repository around dir holds: none outside
+// a repository, or without git.
+func Tracked(dir string) []string {
+	cmd := exec.Command("git", append([]string{"ls-files", "--"}, ignorePatterns...)...) //nolint:noctx // reads the index, at once
+	cmd.Dir = dir
+	out, err := cmd.Output()
+	if err != nil {
+		return nil
+	}
+	return strings.Fields(string(out))
+}
+
+// UntrackCommand takes the skills out of a repository that holds them, leaving
+// their files in place.
+const UntrackCommand = "git rm -r --cached --ignore-unmatch -- '.agents/skills/axx-*' .agents/skills/" + LockFile + " '.claude/skills/axx-*'"
+
+// EnsureIgnored adds the skills to the .gitignore of root, unless the repository
+// holds them: .gitignore does not govern tracked files, so ignoring them would
+// only keep the new ones out. It says whether it added them, and what is tracked.
+func EnsureIgnored(root string) (bool, []string, error) {
+	if tracked := Tracked(root); len(tracked) > 0 {
+		return false, tracked, nil
+	}
+	path := filepath.Join(root, ".gitignore")
+	old, err := os.ReadFile(path)
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return false, nil, err
+	}
+	merged, changed := MergeGitignore(string(old))
+	if !changed {
+		return false, nil, nil
+	}
+	return true, nil, os.WriteFile(path, []byte(merged), 0o644)
 }
 
 // linkSkill makes dst point at src: a relative symlink, or a copy where

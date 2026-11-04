@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://axx.nimbusxr.us/schemas/v0/axx-prototype.schema.json",
+  "$id": "https://raw.githubusercontent.com/nimbusxr/axx/main/schemas/v0/axx-prototype.schema.json",
   "title": "axx fixture prototype",
-  "description": "A <factory>.prototype.yaml. Next to its factory it is the base prototype; in any other directory it layers over the base for the fixtures beneath it (nearest wins). For datasets, data maps each table to a row template. Reference it with: # yaml-language-server: $schema=https://axx.nimbusxr.us/schemas/v0/axx-prototype.schema.json",
+  "description": "A <factory>.prototype.yaml. Next to its factory it is the base prototype; in any other directory it layers over the base for the fixtures beneath it (nearest wins). For datasets, data maps each table to a row template. Reference it with: # yaml-language-server: $schema=https://raw.githubusercontent.com/nimbusxr/axx/main/schemas/v0/axx-prototype.schema.json",
   "type": ["object", "null"],
   "additionalProperties": false,
   "properties": {

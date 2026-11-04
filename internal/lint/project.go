@@ -41,8 +41,13 @@ func Project(ctx context.Context, cfg *config.Config, opts Options) (*Report, er
 		rep.Notes = append(rep.Notes, "some feature files were not checked (run `axx validate`): "+firstLine(err))
 	}
 	if set2 != nil && len(set2.Pickles) > 0 {
+		mode := opts.Mode
+		// A project that says warn in its config gets no check failing by default.
+		if mode == "" && set.Config.Mode == ModeWarn {
+			mode = ModeWarn
+		}
 		for _, rr := range FeatureChecks(e.Registry, set2.Pickles, opts.WorkDir) {
-			rep.Add(withMode(rr, opts.Mode))
+			rep.Add(withMode(rr, mode))
 		}
 		rep.Filter(opts)
 		rep.Hints = FixtureHints(e.Registry, set2.Pickles, FixtureSources{Resolve: e.ResolvePathFrom, Generated: generated(cfg)}, opts)
@@ -70,9 +75,9 @@ func firstLine(err error) string {
 	return strings.TrimSuffix(s, ":")
 }
 
-// withMode applies --mode to a builtin check, a warning by default: `axx lint
-// --mode error` fails on the ordinals every run would fail on, before any
-// app starts.
+// withMode applies a mode to a builtin check: `axx lint --mode error` fails on the
+// ordinals every run would fail on, before any app starts, and warn lowers the
+// check that fails by default.
 func withMode(rr RuleResult, mode string) RuleResult {
 	if mode == "" {
 		return rr

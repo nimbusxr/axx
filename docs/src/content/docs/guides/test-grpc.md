@@ -50,9 +50,18 @@ A method is `package.Service/Method`, as [grpcurl](https://github.com/fullstoryd
 ```gherkin
 When the Tracking/GetParcel method is called on the tracking grpc service with the following fields:
   | reference | PX-GRP-6101 |
+```
+
+```gherkin
 When the Tracking/GetParcel method is called on the tracking grpc service with the grpc/get-parcel.json message
+```
+
+```gherkin
 When the Tracking/GetParcel method is called on the tracking grpc service with the grpc/get-parcel.json message and the following fields:
   | reference | PX-GRP-6102 |
+```
+
+```gherkin
 When the Tracking/ListDepots method is called on the tracking grpc service
 ```
 
@@ -64,6 +73,9 @@ When the Tracking/ListDepots method is called on the tracking grpc service
 
 ```gherkin
 Then the tracking grpc service answered OK
+```
+
+```gherkin
 Then the tracking grpc service answered NOT_FOUND with a message containing 'PX-GRP-6199'
 And the tracking grpc service's answer has the following fields:
   | reference         | PX-GRP-6101 |

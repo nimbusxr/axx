@@ -27,7 +27,10 @@ func Main(args []string) int {
 	_ = os.Unsetenv(envPackBuild)
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	code := Run(ctx, NewApp(), args)
+	app := NewApp()
+	remind := app.startUpgradeReminder(ctx, args)
+	code := Run(ctx, app, args)
+	remind(code)
 	if file := os.Getenv(envExitFile); file != "" {
 		// Running under Delve for --debug-steps, which does not pass the code on.
 		_ = os.WriteFile(file, []byte(strconv.Itoa(code)), 0o600)
@@ -41,6 +44,9 @@ func Run(ctx context.Context, app *App, args []string) int {
 	// Honor --json even when cobra fails before parsing flags (unknown command).
 	// Must follow newRootCmd: flag definition resets the bound variable.
 	app.JSON = slices.Contains(args, "--json")
+	if err := app.useProjectVersion(ctx, args); err != nil {
+		return int(app.reportError(err))
+	}
 	if err := app.ensurePackCommand(ctx, root, args); err != nil {
 		return int(app.reportError(err))
 	}
@@ -208,6 +214,8 @@ Docs for people: https://axx.nimbusxr.us`,
 		newEnvCmd(app),
 		newConfigCmd(app),
 		newSuperviseCmd(app),
+		newUpgradeCmd(app),
+		newInstallCmd(app),
 		newVersionCmd(app),
 	)
 	addPackCommands(app, root)

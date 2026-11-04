@@ -253,3 +253,30 @@ func TestTheCorePage(t *testing.T) {
 		t.Errorf("the core's page:\n%s", out)
 	}
 }
+
+// Lines of one block would read as one scenario, of several Whens.
+func TestAStepsExamplesAreABlockEach(t *testing.T) {
+	m := core.Manifest{
+		Name: "forms", Doc: "Forms.",
+		Steps: []core.StepDef{
+			{ID: "forms.one", Keyword: "When", Expr: "the first thing happens", Doc: "One.", Examples: []string{"When the first thing happens"}},
+			{ID: "forms.two", Keyword: "When", Expr: "the {word} thing happens", Doc: "Two.", Examples: []string{"When the second thing happens", "When the third thing happens"}},
+		},
+	}
+	reg := match.NewRegistry()
+	if err := reg.AddPack("forms", m); err != nil {
+		t.Fatal(err)
+	}
+	out, err := StepsPage(reg, PackInfo{Name: "forms", Manifest: m}, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		"**Example:**\n\n```gherkin\nWhen the first thing happens\n```\n",
+		"**Examples:**\n\n```gherkin\nWhen the second thing happens\n```\n\n```gherkin\nWhen the third thing happens\n```\n",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("no %q in:\n%s", want, out)
+		}
+	}
+}

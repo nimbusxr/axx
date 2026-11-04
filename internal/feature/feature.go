@@ -73,7 +73,10 @@ func (p *Pickle) Dir() string {
 // Step describes a pickle step's source.
 type Step struct {
 	Keyword string
-	Line    int
+	// KeywordType is what the keyword is, in any language: Action for When, Outcome
+	// for Then, Conjunction for And and But.
+	KeywordType messages.StepKeywordType
+	Line        int
 	// Background is true for steps inherited from a Background.
 	Background bool
 }
@@ -82,7 +85,7 @@ type Step struct {
 func (p *Pickle) StepSource(ps *messages.PickleStep) Step {
 	for _, id := range ps.AstNodeIds {
 		if st, ok := p.Doc.steps[id]; ok {
-			return Step{Keyword: st.Keyword, Line: int(st.Location.Line), Background: p.isBackground(id)}
+			return Step{Keyword: st.Keyword, KeywordType: st.KeywordType, Line: int(st.Location.Line), Background: p.isBackground(id)}
 		}
 	}
 	return Step{}

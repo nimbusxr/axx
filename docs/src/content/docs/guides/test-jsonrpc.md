@@ -40,9 +40,15 @@ When the parcel.get method is called on the depots jsonrpc service with the para
   """
   ["PX-RPC-7101"]
   """
+```
+
+```gherkin
 When the parcel.hold method is called on the depots jsonrpc service with the following params:
   | reference | PX-RPC-7102 |
   | until     | 2026-10-05  |
+```
+
+```gherkin
 When the depot.list method is called on the depots jsonrpc service
 ```
 
@@ -56,7 +62,13 @@ When the depot.list method is called on the depots jsonrpc service
 Then the depots jsonrpc service's result has the following properties:
   | reference | PX-RPC-7101 |
   | heldUntil | undefined   |
+```
+
+```gherkin
 Then the depots jsonrpc service's result is 'true'
+```
+
+```gherkin
 Then the depots jsonrpc service answered the error 4009 with a message containing 'can no longer be held'
 And the depots jsonrpc service's error has the following properties:
   | data.status | OUT_FOR_DELIVERY |

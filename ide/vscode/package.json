@@ -228,7 +228,39 @@
       "[feature]": {
         "editor.semanticHighlighting.enabled": true
       }
-    }
+    },
+    "yamlValidation": [
+      {
+        "fileMatch": [
+          "axx.yaml",
+          "axx.yml",
+          "axx.*.yaml",
+          "axx.*.yml"
+        ],
+        "url": "./dist/schemas/axx.schema.json"
+      },
+      {
+        "fileMatch": [
+          "*.factory.yaml",
+          "*.factory.yml"
+        ],
+        "url": "./dist/schemas/axx-factory.schema.json"
+      },
+      {
+        "fileMatch": [
+          "*.fixture.yaml",
+          "*.fixture.yml"
+        ],
+        "url": "./dist/schemas/axx-fixture.schema.json"
+      },
+      {
+        "fileMatch": [
+          "*.prototype.yaml",
+          "*.prototype.yml"
+        ],
+        "url": "./dist/schemas/axx-prototype.schema.json"
+      }
+    ]
   },
   "scripts": {
     "build": "node esbuild.mjs",

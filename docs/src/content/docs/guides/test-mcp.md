@@ -66,6 +66,9 @@ And the parcels mcp server does not have the cancel_parcel tool
 When the hold_parcel tool is called on the parcels mcp server with the following arguments:
   | reference | PX-MCP-9102 |
   | until     | 2026-10-05  |
+```
+
+```gherkin
 When the hold_parcel tool is called on the parcels mcp server with the mcp/hold-parcel.json arguments
 ```
 
@@ -79,8 +82,14 @@ When the hold_parcel tool is called on the parcels mcp server with the mcp/hold-
 Then the hold_parcel tool's result has the following properties:
   | status    | ON_HOLD    |
   | heldUntil | 2026-10-05 |
+```
+
+```gherkin
 Then the hold_parcel tool's result is an error
 And the hold_parcel tool's result contains 'it can no longer be held'
+```
+
+```gherkin
 Then the cancel_parcel tool's call failed with the error code -32602
 ```
 
@@ -118,10 +127,19 @@ Scenario: A hold without its day is refused by the server too
 
 ```gherkin
 When the parcels://PX-MCP-9103/label resource is read from the parcels mcp server
+```
+
+```gherkin
 Then the parcels://PX-MCP-9103/label resource has the following properties:
   | reference | PX-MCP-9103 |
+```
+
+```gherkin
 When the delivery_update prompt is requested from the parcels mcp server with the following arguments:
   | reference | PX-MCP-9103 |
+```
+
+```gherkin
 Then the delivery_update prompt contains 'parcel PX-MCP-9103'
 ```
 

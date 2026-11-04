@@ -5,7 +5,7 @@
 The JSON Schemas of the files `axx fixtures` reads, as `axx schema --kind <kind>` prints them. Reference one from the top of a file for completion in editors:
 
 ```yaml
-# yaml-language-server: $schema=https://axx.nimbusxr.us/schemas/v0/axx-factory.schema.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nimbusxr/axx/main/schemas/v0/axx-factory.schema.json
 ```
 
 ## `*.factory.yaml`
@@ -13,9 +13,9 @@ The JSON Schemas of the files `axx fixtures` reads, as `axx schema --kind <kind>
 ```json
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://axx.nimbusxr.us/schemas/v0/axx-factory.schema.json",
+  "$id": "https://raw.githubusercontent.com/nimbusxr/axx/main/schemas/v0/axx-factory.schema.json",
   "title": "axx fixture factory",
-  "description": "A *.factory.yaml: one fixture family with its governing schema, layered values (defaults, prototype, per-fixture data) and identity declarations whose uniqueness is guaranteed across every fixture. Reference it with: # yaml-language-server: $schema=https://axx.nimbusxr.us/schemas/v0/axx-factory.schema.json",
+  "description": "A *.factory.yaml: one fixture family with its governing schema, layered values (defaults, prototype, per-fixture data) and identity declarations whose uniqueness is guaranteed across every fixture. Reference it with: # yaml-language-server: $schema=https://raw.githubusercontent.com/nimbusxr/axx/main/schemas/v0/axx-factory.schema.json",
   "type": "object",
   "additionalProperties": false,
   "required": ["factory"],
@@ -130,9 +130,9 @@ The JSON Schemas of the files `axx fixtures` reads, as `axx schema --kind <kind>
 ```json
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://axx.nimbusxr.us/schemas/v0/axx-fixture.schema.json",
+  "$id": "https://raw.githubusercontent.com/nimbusxr/axx/main/schemas/v0/axx-fixture.schema.json",
   "title": "axx fixture",
-  "description": "A *.fixture.yaml: one fixture. The file name is the fixture key and its outputs are generated next to it. An empty or comment-only file is a fixture that is exactly the prototype. Reference it with: # yaml-language-server: $schema=https://axx.nimbusxr.us/schemas/v0/axx-fixture.schema.json",
+  "description": "A *.fixture.yaml: one fixture. The file name is the fixture key and its outputs are generated next to it. An empty or comment-only file is a fixture that is exactly the prototype. Reference it with: # yaml-language-server: $schema=https://raw.githubusercontent.com/nimbusxr/axx/main/schemas/v0/axx-fixture.schema.json",
   "type": ["object", "null"],
   "additionalProperties": false,
   "properties": {
@@ -159,9 +159,9 @@ The JSON Schemas of the files `axx fixtures` reads, as `axx schema --kind <kind>
 ```json
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://axx.nimbusxr.us/schemas/v0/axx-prototype.schema.json",
+  "$id": "https://raw.githubusercontent.com/nimbusxr/axx/main/schemas/v0/axx-prototype.schema.json",
   "title": "axx fixture prototype",
-  "description": "A <factory>.prototype.yaml. Next to its factory it is the base prototype; in any other directory it layers over the base for the fixtures beneath it (nearest wins). For datasets, data maps each table to a row template. Reference it with: # yaml-language-server: $schema=https://axx.nimbusxr.us/schemas/v0/axx-prototype.schema.json",
+  "description": "A <factory>.prototype.yaml. Next to its factory it is the base prototype; in any other directory it layers over the base for the fixtures beneath it (nearest wins). For datasets, data maps each table to a row template. Reference it with: # yaml-language-server: $schema=https://raw.githubusercontent.com/nimbusxr/axx/main/schemas/v0/axx-prototype.schema.json",
   "type": ["object", "null"],
   "additionalProperties": false,
   "properties": {

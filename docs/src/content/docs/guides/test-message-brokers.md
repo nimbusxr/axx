@@ -62,14 +62,23 @@ When a message is published to the printers amqp exchange with the routing key '
   """
   {"reference": "PX-AMQ-8102", "printer": "LEJ-3", "printedAt": "2026-09-28T08:15:00Z"}
   """
+```
+
+```gherkin
 When a message is sent to the parcels.label-printed amqp queue:
   """
   {"printer": "LEJ-3", "job": "JOB-AMQ-8105"}
   """
+```
+
+```gherkin
 When a message is published to the depots/LEJ/scans mqtt topic:
   """
   {"scanId": "SC-8201-1", "parcelRef": "PX-MQT-8201", "status": "OUT_FOR_DELIVERY"}
   """
+```
+
+```gherkin
 When the nats/PX-NAT-8303-delivered.json message is published to the deliveries.confirmed nats subject with the following headers:
   | courier | CR-LEJ-12 |
 ```
@@ -99,10 +108,16 @@ Then within 10s the labels amqp exchange has a message where:
   | routing key   | print.express |
   | reference     | PX-AMQ-8101   |
   | header sender | alder-and-ash |
+```
+
+```gherkin
 Then within 10s the depots/+/alerts mqtt topic has a message where:
   | topic            | depots/LEJ/alerts |
   | parcelRef        | PX-MQT-8299       |
   | property scanner | LEJ-HANDHELD-7    |
+```
+
+```gherkin
 Then within 20s the TRACKING nats stream has a message where:
   | subject        | tracking.PX-NAT-8303 |
   | header courier | CR-LEJ-12            |

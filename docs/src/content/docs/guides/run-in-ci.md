@@ -34,6 +34,8 @@ jobs:
           path: build/axx/
 ```
 
+A project whose `axx.yaml` [names its version](/guides/install/#keep-a-project-on-one-version) runs on that version here too, with nothing to change in the workflow: `setup-axx` installs the newest Axx, which hands over. Without that line, every run gets the newest release, and `with: version: 0.4.0` on `setup-axx` holds it to one. To try a newer version on a branch before moving the project, set `AXX_USE_VERSION` on the step.
+
 GitHub-hosted Ubuntu runners include Docker and Compose, so services that start with `docker compose up` work as they do locally. `nimbusxr/setup-axx` installs the latest release (pre-releases included) and adds it to `PATH`. Its `version` input installs another: a version such as `0.1.0`, or `nightly`. `@v0` is the action's own version: its tag `v0` follows the action's 0.x releases while Axx is in beta.
 
 ## GitLab CI
@@ -49,7 +51,7 @@ acceptance:
     DOCKER_TLS_CERTDIR: "/certs"
   before_script:
     - apk add --no-cache curl
-    - curl -fsSL https://axx.nimbusxr.us/install.sh | sh
+    - curl -fsSL https://raw.githubusercontent.com/nimbusxr/axx/main/scripts/install.sh | sh
   script:
     - axx run --profile ci --format junit:build/axx/junit.xml --format html:build/axx/report.html
   artifacts:
@@ -100,7 +102,7 @@ acceptance:
     paths: [.cache/axx/builds]
 ```
 
-A stale cache is harmless: when the packs or Axx's version change, Axx prepares again.
+A stale cache is harmless: when the packs or Axx's version change, Axx prepares again. A project's version is a download of about 12 MB on each fresh runner; add `~/.cache/axx/versions` to `path` to keep that too.
 
 ## Catch problems early
 

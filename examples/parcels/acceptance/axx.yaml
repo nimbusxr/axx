@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=https://axx.nimbusxr.us/schemas/v0/axx.schema.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nimbusxr/axx/main/schemas/v0/axx.schema.json
 #
 # The acceptance suite of the parcels example. From this directory:
 #   axx run            # start the service and its infrastructure, run every feature, clean up

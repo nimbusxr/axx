@@ -35,11 +35,15 @@ dependencies {
         // Not bundled with the IDE, and an optional dependency: the plugin compiles against its
         // step PSI (go to declaration), and runIde and the tests get it installed.
         plugin("gherkin", providers.gradleProperty("gherkinVersion").get())
+        // An optional dependency too: axx's schemas in the IDE's completion (axx-json.xml), for
+        // JSON and YAML files.
+        bundledPlugin("com.intellij.modules.json")
         // The Cucumber plugins people have next to Gherkin, for the tests that check what they make
         // of axx's steps, with the bundled plugins they need. Not Cucumber+: it brings its own
         // Kotlin, which the tests' single class loader would put before the platform's.
         testPlugin("cucumber-java", providers.gradleProperty("cucumberJavaVersion").get())
         testPlugin("cucumber-javascript", providers.gradleProperty("cucumberJsVersion").get())
+        testBundledPlugin("org.jetbrains.plugins.yaml")
         testBundledPlugin("com.intellij.java")
         testBundledPlugin("JUnit")
         testBundledPlugin("JavaScript")
@@ -103,6 +107,9 @@ intellijPlatform {
               <code>axx</code> executable (found on <code>PATH</code> or where axx's installers
               put it, or set in <i>Settings | Tools | axx</i>) and an IDE that includes the LSP
               API, as IntelliJ IDEA does.</li>
+              <li><b>Configuration files.</b> Completion, documentation and validation in
+              <code>axx.yaml</code> and the fixture spec files, from axx's schemas in the plugin,
+              with no network.</li>
               <li><b>Running scenarios.</b> Run and debug icons in the gutter of Feature, Rule,
               Scenario and Scenario Outline lines and Examples rows, and in the context menu of
               feature files and directories; the results show in the IDE's test runner, with
@@ -166,6 +173,24 @@ intellijPlatform {
             } else {
                 select { channels = listOf(ProductRelease.Channel.RELEASE) }
             }
+        }
+    }
+}
+
+// axx's JSON Schemas, so that axx.yaml has completion with no network (AxxSchemaProviderFactory).
+tasks.processResources {
+    from("../../schemas/v0") {
+        into("schemas")
+    }
+    // The same, with the address the docs site publishes them at as their $id: the address the
+    // axx.yaml files of earlier versions name, which the IDE answers from these, and not the site.
+    from("../../schemas/v0") {
+        into("schemas/site")
+        filter {
+            it.replace(
+                "https://raw.githubusercontent.com/nimbusxr/axx/main/schemas/v0/",
+                "https://axx.nimbusxr.us/schemas/v0/",
+            )
         }
     }
 }

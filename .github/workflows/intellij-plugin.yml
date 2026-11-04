@@ -9,11 +9,13 @@ on:
   pull_request:
     paths:
       - ide/intellij/**
+      - schemas/**
       - .github/workflows/intellij-plugin.yml
   push:
     branches: [main]
     paths:
       - ide/intellij/**
+      - schemas/**
       - .github/workflows/intellij-plugin.yml
   workflow_dispatch:
   workflow_call:
