@@ -58,9 +58,17 @@ func debuggerOf(a config.Service) (config.Debugger, bool) {
 
 const markerPrefix = "<!-- axx-generated: "
 
-// IntelliJ writes .run/*.run.xml files under projectDir.
+// IntelliJ writes .run/*.run.xml files where IntelliJ has the project open
+// (intellijDir), running axx in projectDir, the directory of axx.yaml.
 func IntelliJ(cfg *config.Config, projectDir string) ([]File, error) {
-	dir := filepath.Join(projectDir, ".run")
+	projectDir = filepath.Clean(projectDir)
+	open := intellijDir(projectDir)
+	dir := filepath.Join(open, ".run")
+	workDir := "$PROJECT_DIR$"
+	if rel := relSlash(open, projectDir); rel != "." {
+		workDir += "/" + rel
+	}
+	shell := func(name, command string) string { return intellijShell(name, command, workDir) }
 	type gen struct{ name, xml string }
 	var gens []gen
 	var debuggers []string
@@ -82,11 +90,11 @@ func IntelliJ(cfg *config.Config, projectDir string) ([]File, error) {
 	// Go plugin).
 	steps, _ := intellijDebugger(StepsDebugger, config.Debugger{Type: "go", Host: "127.0.0.1", Port: StepsPort})
 	gens = append(gens,
-		gen{"axx: run", intellijShell("axx: run", "axx run")},
-		gen{"axx: debug", intellijShell("axx: debug", "axx run --debug")},
-		gen{"axx: debug steps", intellijShell("axx: debug steps", "axx run --debug-steps")},
+		gen{"axx: run", shell("axx: run", "axx run")},
+		gen{"axx: debug", shell("axx: debug", "axx run --debug")},
+		gen{"axx: debug steps", shell("axx: debug steps", "axx run --debug-steps")},
 		gen{StepsDebugger, steps},
-		gen{"axx: validate", intellijShell("axx: validate", "axx validate")},
+		gen{"axx: validate", shell("axx: validate", "axx validate")},
 	)
 	if len(debuggers) > 0 {
 		gens = append(gens, gen{"axx: debug all", intellijCompound("axx: debug all", append(debuggers, "axx: debug"))})
@@ -99,7 +107,89 @@ func IntelliJ(cfg *config.Config, projectDir string) ([]File, error) {
 		}
 		out = append(out, f)
 	}
+	if open == projectDir {
+		return out, nil
+	}
+	// What an earlier axx wrote beside axx.yaml: IntelliJ finds run
+	// configurations in any folder of the project, so these would show twice,
+	// running axx where there is no axx.yaml.
+	moved := relSlash(projectDir, dir)
+	for _, g := range gens {
+		f, err := removeMarked(filepath.Join(projectDir, ".run", fileName(g.name)+".run.xml"), projectDir, moved)
+		if err != nil {
+			return nil, err
+		}
+		if f.Action != "" {
+			out = append(out, f)
+		}
+	}
+	_ = os.Remove(filepath.Join(projectDir, ".run")) // only if it is empty
 	return out, nil
+}
+
+// intellijDir is the directory IntelliJ has a project open in, for the
+// project whose axx.yaml is in dir: the nearest from dir up to the
+// repository's root that holds IntelliJ's .idea, or else the repository's
+// root, where a repository is opened; outside one, dir.
+func intellijDir(dir string) string {
+	return editorDir(dir, func(d string) bool { return isDir(filepath.Join(d, ".idea")) })
+}
+
+// editorDir is the nearest directory from dir up to the repository's root
+// (the directory that holds .git, where axx's own search for axx.yaml stops)
+// that opened says an editor has open, or else the repository's root; outside
+// a repository, dir, as nothing above it says what is open.
+func editorDir(dir string, opened func(string) bool) string {
+	root := dir
+	for {
+		if _, err := os.Stat(filepath.Join(root, ".git")); err == nil {
+			break
+		}
+		parent := filepath.Dir(root)
+		if parent == root {
+			return dir
+		}
+		root = parent
+	}
+	d := dir
+	for d != root && !opened(d) {
+		d = filepath.Dir(d)
+	}
+	return d
+}
+
+func isDir(path string) bool {
+	fi, err := os.Stat(path)
+	return err == nil && fi.IsDir()
+}
+
+// relSlash is target relative to base, with forward slashes, as editors'
+// files write paths.
+func relSlash(base, target string) string {
+	rel, err := filepath.Rel(base, target)
+	if err != nil {
+		return filepath.ToSlash(target)
+	}
+	return filepath.ToSlash(rel)
+}
+
+// removeMarked removes a file writeMarked wrote that is no longer where the
+// editor reads it, unless the user edited it. No file says nothing.
+func removeMarked(path, base, movedTo string) (File, error) {
+	f := File{Path: relSlash(base, path)}
+	b, err := os.ReadFile(path)
+	if errors.Is(err, os.ErrNotExist) {
+		return File{}, nil
+	}
+	if err != nil {
+		return f, err
+	}
+	if !isPristine(b) {
+		f.Action, f.Reason = "kept", "edited by you; IntelliJ shows it beside the one in "+movedTo+" (delete it)"
+		return f, nil
+	}
+	f.Action, f.Reason = "remove", "moved to "+movedTo
+	return f, os.Remove(path)
 }
 
 func intellijDebugger(name string, d config.Debugger) (string, error) {
@@ -158,7 +248,7 @@ func simpleXML(name, typ, hostOpt, portOpt string, d config.Debugger) string {
 `, esc(name), typ, hostOpt, esc(d.Host), portOpt, d.Port)
 }
 
-func intellijShell(name, command string) string {
+func intellijShell(name, command, workDir string) string {
 	esc := html.EscapeString
 	return fmt.Sprintf(`<component name="ProjectRunConfigurationManager">
   <configuration default="false" name="%s" type="ShConfigurationType">
@@ -167,7 +257,7 @@ func intellijShell(name, command string) string {
     <option name="SCRIPT_PATH" value="" />
     <option name="SCRIPT_OPTIONS" value="" />
     <option name="INDEPENDENT_SCRIPT_WORKING_DIRECTORY" value="true" />
-    <option name="SCRIPT_WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+    <option name="SCRIPT_WORKING_DIRECTORY" value="%s" />
     <option name="INDEPENDENT_INTERPRETER_PATH" value="true" />
     <option name="INTERPRETER_PATH" value="" />
     <option name="INTERPRETER_OPTIONS" value="" />
@@ -177,7 +267,7 @@ func intellijShell(name, command string) string {
     <method v="2" />
   </configuration>
 </component>
-`, esc(name), esc(command))
+`, esc(name), esc(command), esc(workDir))
 }
 
 func intellijCompound(name string, members []string) string {
@@ -251,9 +341,17 @@ func isPristine(b []byte) bool {
 const vsPrefix = "axx: "
 
 // VSCode merges attach configurations into .vscode/launch.json and an
-// `axx: up --debug` task into .vscode/tasks.json. Entries named "axx: ..."
-// are regenerated; everything else is preserved.
+// `axx: up --debug` task into .vscode/tasks.json, where VS Code has the
+// project open (vscodeDir), its tasks running axx in projectDir, the
+// directory of axx.yaml. Entries named "axx: ..." are regenerated; everything
+// else is preserved.
 func VSCode(cfg *config.Config, projectDir string) ([]File, error) {
+	projectDir = filepath.Clean(projectDir)
+	open := vscodeDir(projectDir)
+	var options map[string]any
+	if rel := relSlash(open, projectDir); rel != "." {
+		options = map[string]any{"cwd": "${workspaceFolder}/" + rel}
+	}
 	var launches []map[string]any
 	var names []string
 	for _, a := range cfg.Services {
@@ -287,7 +385,7 @@ func VSCode(cfg *config.Config, projectDir string) ([]File, error) {
 	debugSteps["preLaunchTask"] = vsPrefix + "run --debug-steps"
 	launches = append(launches, debugSteps, stepsAttach(vsPrefix+"attach to steps"))
 	var files []File
-	lf, err := mergeVSCode(filepath.Join(projectDir, ".vscode", "launch.json"), "configurations", launches, projectDir, func(doc map[string]any) {
+	lf, err := mergeVSCode(filepath.Join(open, ".vscode", "launch.json"), "configurations", launches, projectDir, func(doc map[string]any) {
 		var comps []any
 		if existing, ok := doc["compounds"].([]any); ok {
 			for _, c := range existing {
@@ -328,11 +426,95 @@ func VSCode(cfg *config.Config, projectDir string) ([]File, error) {
 		},
 		{"label": vsPrefix + "down", "type": "shell", "command": "axx down", "problemMatcher": []any{}},
 	}
-	tf, err := mergeVSCode(filepath.Join(projectDir, ".vscode", "tasks.json"), "tasks", tasks, projectDir, nil)
+	if options != nil {
+		for _, t := range tasks {
+			t["options"] = options
+		}
+	}
+	tf, err := mergeVSCode(filepath.Join(open, ".vscode", "tasks.json"), "tasks", tasks, projectDir, nil)
 	if err != nil {
 		return nil, err
 	}
-	return append(files, tf), nil
+	files = append(files, tf)
+	if open == projectDir {
+		return files, nil
+	}
+	// What an earlier axx wrote beside axx.yaml, which VS Code does not read
+	// there: it holds only axx's entries, or vscodeDir would be this folder.
+	for _, name := range []string{"launch.json", "tasks.json"} {
+		path := filepath.Join(projectDir, ".vscode", name)
+		if _, err := os.Stat(path); err != nil {
+			continue
+		}
+		if err := os.Remove(path); err != nil {
+			return nil, err
+		}
+		files = append(files, File{Path: relSlash(projectDir, path), Action: "remove", Reason: "moved to " + relSlash(projectDir, filepath.Join(open, ".vscode"))})
+	}
+	_ = os.Remove(filepath.Join(projectDir, ".vscode")) // only if it is empty
+	return files, nil
+}
+
+// vscodeDir is the directory VS Code has a project open in, for the project
+// whose axx.yaml is in dir: the nearest from dir up to the repository's root
+// whose .vscode holds settings of the person's (anything but the entries axx
+// writes), or else the repository's root, where a repository is opened;
+// outside one, dir.
+func vscodeDir(dir string) string {
+	return editorDir(dir, func(d string) bool {
+		entries, err := os.ReadDir(filepath.Join(d, ".vscode"))
+		if err != nil {
+			return false
+		}
+		for _, e := range entries {
+			switch e.Name() {
+			case "launch.json":
+				if !onlyAxxs(filepath.Join(d, ".vscode", e.Name()), "configurations", "name") {
+					return true
+				}
+			case "tasks.json":
+				if !onlyAxxs(filepath.Join(d, ".vscode", e.Name()), "tasks", "label") {
+					return true
+				}
+			default:
+				return true
+			}
+		}
+		return false
+	})
+}
+
+// onlyAxxs reports whether a launch.json or tasks.json holds only what VSCode
+// writes: its version and the entries (and compounds) named "axx: ...".
+func onlyAxxs(path, key, nameKey string) bool {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return false
+	}
+	var doc map[string]any
+	if err := json.Unmarshal(stripJSONC(b), &doc); err != nil {
+		return false
+	}
+	for k, v := range doc {
+		switch k {
+		case "version":
+		case key, "compounds":
+			list, _ := v.([]any)
+			for _, e := range list {
+				m, ok := e.(map[string]any)
+				name := "name"
+				if k == key {
+					name = nameKey
+				}
+				if !ok || !strings.HasPrefix(fmt.Sprint(m[name]), vsPrefix) {
+					return false
+				}
+			}
+		default:
+			return false
+		}
+	}
+	return true
 }
 
 func mergeVSCode(path, key string, entries []map[string]any, base string, extra func(map[string]any)) (File, error) {

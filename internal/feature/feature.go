@@ -289,12 +289,9 @@ type Filter struct {
 	// Tags is a Cucumber tag expression, e.g. "@smoke and not @wip".
 	Tags string
 	// DefaultTags is the configured tag expression (run.tags), used when
-	// Tags is empty: it selects among the scenarios of directories and
-	// configured paths, but not of the feature files in Named, which a person
-	// pointed at and so run whatever their tags.
+	// Tags is empty. It narrows every run, the paths named included, except
+	// the scenarios picked by a line (Picked), which run whatever their tags.
 	DefaultTags string
-	// Named holds the URIs of the feature files given by name.
-	Named map[string]bool
 	// Names are regular expressions matched against scenario names (any).
 	Names []string
 	// Lines selects the pickles of a file by file:line; keys are URIs. The
@@ -330,7 +327,7 @@ func (s *Set) Apply(f Filter) ([]*Pickle, error) {
 	}
 	var out []*Pickle
 	for _, p := range s.Pickles {
-		if tagEval != nil && (!byDefault || !f.Named[p.Doc.URI]) && !tagEval.Evaluate(p.TagNames) {
+		if tagEval != nil && (!byDefault || !f.Picked(p)) && !tagEval.Evaluate(p.TagNames) {
 			continue
 		}
 		if len(names) > 0 && !anyMatch(names, p.Name) {
@@ -371,20 +368,27 @@ func (s *Set) checkLines(lines map[string][]int) error {
 	return nil
 }
 
-// NamedFiles returns the URIs of the paths that are feature files (not
-// directories), relative to base.
-func NamedFiles(paths []string, base string) map[string]bool {
-	named := map[string]bool{}
-	for _, p := range paths {
-		abs := p
-		if !filepath.IsAbs(abs) {
-			abs = filepath.Join(base, p)
-		}
-		if fi, err := os.Stat(abs); err == nil && fi.Mode().IsRegular() {
-			named[uriFor(abs, base)] = true
+// Picked reports whether a line given with the pickle's file picks it: a
+// scenario someone points at, from the command line or an editor, runs
+// whatever run.tags and run.uses leave out.
+func (f Filter) Picked(p *Pickle) bool {
+	lines := f.Lines[p.Doc.URI]
+	return len(lines) > 0 && p.coversAny(lines)
+}
+
+// LeftOut returns the pickles of all that kept does not hold, in all's order.
+func LeftOut(all, kept []*Pickle) []*Pickle {
+	in := make(map[*Pickle]bool, len(kept))
+	for _, p := range kept {
+		in[p] = true
+	}
+	var out []*Pickle
+	for _, p := range all {
+		if !in[p] {
+			out = append(out, p)
 		}
 	}
-	return named
+	return out
 }
 
 // coversAny reports whether any line identifies this pickle: its scenario
@@ -498,15 +502,15 @@ func plural(n int) string {
 
 // ByUses keeps the pickles that use a step of one of the packs in uses
 // (run.uses, like [mobile-ios]); packsOf says which packs a pickle's steps
-// use. Pickles of the feature files in named run whatever it leaves out. No
-// packs keeps them all.
-func ByUses(pickles []*Pickle, uses []string, named map[string]bool, packsOf func(*Pickle) []string) []*Pickle {
+// use. The pickles picked by a line run whatever it leaves out. No packs
+// keeps them all.
+func ByUses(pickles []*Pickle, uses []string, picked func(*Pickle) bool, packsOf func(*Pickle) []string) []*Pickle {
 	if len(uses) == 0 {
 		return pickles
 	}
 	var out []*Pickle
 	for _, p := range pickles {
-		if named[p.Doc.URI] || slices.ContainsFunc(packsOf(p), func(pack string) bool { return slices.Contains(uses, pack) }) {
+		if picked(p) || slices.ContainsFunc(packsOf(p), func(pack string) bool { return slices.Contains(uses, pack) }) {
 			out = append(out, p)
 		}
 	}

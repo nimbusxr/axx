@@ -59,14 +59,14 @@ type Config struct {
 type Run struct {
 	// Paths are feature files or directories. Default: ["features"].
 	Paths []string `json:"paths,omitempty"`
-	// Tags is a default tag expression, e.g. "not @wip". It narrows whole runs
-	// and the directories named on the command line; a feature file named
-	// there runs the scenarios it selects whatever their tags.
+	// Tags is a default tag expression, e.g. "not @wip". It narrows every run,
+	// the files and directories named on the command line included; a scenario
+	// picked by its line (features/x.feature:14) runs whatever its tags.
 	Tags string `json:"tags,omitempty"`
 	// Uses keeps the scenarios that use a step of one of these packs, like
 	// [mobile-ios] for the scenarios that drive an iOS app: a profile per
-	// platform, with no tags. Like tags, it narrows whole runs, not the
-	// feature files named on the command line.
+	// platform, with no tags. Like tags, it narrows every run but a scenario
+	// picked by its line.
 	Uses []string `json:"uses,omitempty"`
 	// Workers is the number of scenarios run in parallel: a number or "auto"
 	// (number of CPUs). Default: auto.

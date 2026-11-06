@@ -74,7 +74,15 @@ run:
 
 `--tags` on the command line replaces `run.tags`.
 
-`run.tags` narrows whole runs: `axx run`, and the directories you name. A feature file you name, with or without a line (`axx run features/checkout.feature:14`), runs the scenarios it selects whatever their tags, so a scenario that `run.tags` leaves out of a whole run still runs when you point at it, from the command line or your editor. `--tags` applies to named files too.
+`run.tags` narrows every run: `axx run`, and the files and directories you name. A scenario you pick by its line (`axx run features/checkout.feature:14`) runs whatever its tags, so a scenario that `run.tags` leaves out still runs when you point at it, from the command line or your editor. `--tags` applies to lines too.
+
+When `run.tags` leaves out scenarios of a file or directory you named, the run says which, after its results:
+
+```text
+note: run.tags "not @wip and not @ignore" left out 1 scenario of the paths you named:
+      features/checkout.feature:14  Pay with a saved card
+      to run them: change run.tags, replace it for a run with --tags, or run one by its line
+```
 
 A line that is in no scenario of its file, like the feature's description or its Background, is an error (`AXX-E0204`) rather than a run of nothing.
 
@@ -96,7 +104,7 @@ axx run --profile ios              # the scenarios that drive the iOS app
 axx run --profile android,watch    # the Android app's, watched
 ```
 
-Like `run.tags`, it narrows whole runs: a feature file you name, or click in your editor, runs whatever it leaves out. Profiles merge in order, so `android,watch` takes `uses` from `android` and watching from `watch`.
+Like `run.tags`, it narrows every run but a scenario you pick by its line, and says what it left out of the paths you named. Profiles merge in order, so `android,watch` takes `uses` from `android` and watching from `watch`.
 
 ## Tags that change behavior
 

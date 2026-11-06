@@ -161,9 +161,10 @@ func selected(t *testing.T, dir string, args ...string) []string {
 	return names(ps)
 }
 
-// TestNamedFilesRunWhateverTheDefaultTags: run.tags narrows a whole run, but a
-// feature file someone names (or clicks in an editor) runs all it selects.
-func TestNamedFilesRunWhateverTheDefaultTags(t *testing.T) {
+// TestRunTagsNarrowAllButPickedScenarios: run.tags narrows every run, the
+// files and directories named included; a scenario someone picks by its line
+// (or clicks in an editor) runs whatever its tags.
+func TestRunTagsNarrowAllButPickedScenarios(t *testing.T) {
 	dir, _ := setup(t)
 	run := func(tags, defaultTags string, args ...string) []string {
 		t.Helper()
@@ -172,7 +173,7 @@ func TestNamedFilesRunWhateverTheDefaultTags(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		ps, err := set.Apply(Filter{Tags: tags, DefaultTags: defaultTags, Named: NamedFiles(paths, dir), Lines: lines})
+		ps, err := set.Apply(Filter{Tags: tags, DefaultTags: defaultTags, Lines: lines})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -183,15 +184,17 @@ func TestNamedFilesRunWhateverTheDefaultTags(t *testing.T) {
 		args                    []string
 		want                    []string
 	}{
-		{"a directory keeps the default", "", "not @launches", []string{"features"}, []string{"x"}},
+		{"a directory keeps it", "", "not @launches", []string{"features"}, []string{"x"}},
 		{
-			"a named file ignores it", "", "not @launches",
+			"a named file keeps it", "", "not @wip",
 			[]string{"features/launches.feature"},
-			[]string{"list launches", "get launch 1", "get launch 2", "get launch 99", "create launch"},
+			[]string{"list launches", "get launch 1", "get launch 2", "get launch 99"},
 		},
-		{"a named line ignores it", "", "not @launches and not @wip", []string{"features/launches.feature:31"}, []string{"create launch"}},
+		{"a scenario's line runs it whatever its tags", "", "not @launches and not @wip", []string{"features/launches.feature:31"}, []string{"create launch"}},
+		{"a step's line does too", "", "not @launches", []string{"features/launches.feature:10"}, []string{"list launches"}},
 		{"the other paths keep it", "", "not @launches", []string{"features/launches.feature:9", "features/nested"}, []string{"list launches", "x"}},
-		{"--tags applies to named files too", "@smoke", "not @launches", []string{"features/launches.feature"}, []string{"list launches"}},
+		{"--tags applies to named files", "@smoke", "not @launches", []string{"features/launches.feature"}, []string{"list launches"}},
+		{"--tags applies to lines", "@smoke", "", []string{"features/launches.feature:31"}, nil},
 	}
 	for _, c := range cases {
 		if got := run(c.tags, c.defaultTags, c.args...); !equal(got, c.want) {
@@ -286,8 +289,8 @@ func indexOf(s, sub string) int {
 	return -1
 }
 
-// run.uses keeps the scenarios that use one of its packs; a named file runs
-// whatever it leaves out, as with run.tags.
+// run.uses keeps the scenarios that use one of its packs; a scenario picked by
+// its line runs whatever it leaves out, as with run.tags.
 func TestByUses(t *testing.T) {
 	_, set := setup(t)
 	packsOf := func(p *Pickle) []string {
@@ -296,17 +299,18 @@ func TestByUses(t *testing.T) {
 		}
 		return []string{"rest"}
 	}
-	if got := ByUses(set.Pickles, []string{"mobile-ios"}, nil, packsOf); !equal(names(got), []string{"list launches"}) {
+	none := func(*Pickle) bool { return false }
+	if got := ByUses(set.Pickles, []string{"mobile-ios"}, none, packsOf); !equal(names(got), []string{"list launches"}) {
 		t.Errorf("[mobile-ios]: %v", names(got))
 	}
-	if got := ByUses(set.Pickles, []string{"web-core", "mobile-ios"}, nil, packsOf); !equal(names(got), []string{"list launches"}) {
+	if got := ByUses(set.Pickles, []string{"web-core", "mobile-ios"}, none, packsOf); !equal(names(got), []string{"list launches"}) {
 		t.Errorf("[web-core, mobile-ios]: %v", names(got))
 	}
-	if got := ByUses(set.Pickles, nil, nil, packsOf); len(got) != len(set.Pickles) {
+	if got := ByUses(set.Pickles, nil, none, packsOf); len(got) != len(set.Pickles) {
 		t.Errorf("no packs: %v", names(got))
 	}
-	named := map[string]bool{"features/nested/other.feature": true}
-	if got := ByUses(set.Pickles, []string{"mobile-ios"}, named, packsOf); !equal(names(got), []string{"list launches", "x"}) {
-		t.Errorf("with a named file: %v", names(got))
+	picked := func(p *Pickle) bool { return p.Name == "x" }
+	if got := ByUses(set.Pickles, []string{"mobile-ios"}, picked, packsOf); !equal(names(got), []string{"list launches", "x"}) {
+		t.Errorf("with a picked scenario: %v", names(got))
 	}
 }

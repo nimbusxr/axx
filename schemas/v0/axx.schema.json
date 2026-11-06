@@ -351,14 +351,14 @@
         },
         "tags": {
           "type": "string",
-          "description": "Tags is a default tag expression, e.g. \"not @wip\". It narrows whole runs\nand the directories named on the command line; a feature file named\nthere runs the scenarios it selects whatever their tags."
+          "description": "Tags is a default tag expression, e.g. \"not @wip\". It narrows every run,\nthe files and directories named on the command line included; a scenario\npicked by its line (features/x.feature:14) runs whatever its tags."
         },
         "uses": {
           "items": {
             "type": "string"
           },
           "type": "array",
-          "description": "Uses keeps the scenarios that use a step of one of these packs, like\n[mobile-ios] for the scenarios that drive an iOS app: a profile per\nplatform, with no tags. Like tags, it narrows whole runs, not the\nfeature files named on the command line."
+          "description": "Uses keeps the scenarios that use a step of one of these packs, like\n[mobile-ios] for the scenarios that drive an iOS app: a profile per\nplatform, with no tags. Like tags, it narrows every run but a scenario\npicked by its line."
         },
         "workers": {
           "$ref": "#/$defs/Workers",
