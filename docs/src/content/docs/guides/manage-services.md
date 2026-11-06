@@ -105,6 +105,8 @@ axx up --debug=api
 
 With `mode: ide-listens`, start a listening debugger in your IDE first (in IntelliJ IDEA: a *Remote JVM Debug* configuration in *Listen to remote JVM* mode on port 5005), then run Axx. With `mode: app-listens` (delve, `--inspect`, debugpy), the service opens the port and you attach; the [parcels example](https://github.com/nimbusxr/axx/tree/main/examples/parcels) runs its Go service under Delve this way. If no debugger is listening, `onUnavailable` decides whether to wait, fail with [`AXX-E0409`](/references/error-codes/#axx-e0409), or run without debugging.
 
+`axx ide intellij` and `axx ide vscode` write these debuggers' configurations, and ones that run axx, for each service with a `debugger`. They go where your editor reads them: the repository's root, or the folder of `axx.yaml` if your editor has that folder open (its `.idea`, or a `.vscode` with settings of yours, is there). Wherever `axx.yaml` is, they run axx in its folder.
+
 ## Start only what a run needs
 
 In a repository with several services, start only the ones the selected scenarios need:

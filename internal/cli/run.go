@@ -134,15 +134,26 @@ func (a *App) run(ctx context.Context, f *runFlags, args []string) error {
 	if err != nil {
 		return err
 	}
+	// run.tags narrows every run, the paths named included; a scenario picked
+	// by its line (from the command line, or clicked in an editor) runs
+	// whatever it leaves out.
 	filter := feature.Filter{Tags: f.tags, DefaultTags: cfg.Run.Tags, Names: f.names, Lines: lines}
-	if len(args) > 0 {
-		// A feature file named on the command line (or clicked in an editor) runs
-		// whatever run.tags leaves out of a whole run.
-		filter.Named = feature.NamedFiles(paths, cfg.Dir)
-	}
 	pickles, err := set.Apply(filter)
 	if err != nil {
 		return err
+	}
+	// What the project's settings leave out of the paths someone named, which
+	// the run says: they meant to run those paths.
+	var leftOut []string
+	if len(args) > 0 && strings.TrimSpace(f.tags) == "" && strings.TrimSpace(cfg.Run.Tags) != "" {
+		untagged := filter
+		untagged.DefaultTags = ""
+		all, err := set.Apply(untagged)
+		if err != nil {
+			return err
+		}
+		leftOut = append(leftOut, leftOutNote(fmt.Sprintf("run.tags %q", cfg.Run.Tags), feature.LeftOut(all, pickles),
+			"change run.tags, replace it for a run with --tags, or run one by its line"))
 	}
 	if len(cfg.Run.Uses) > 0 {
 		// The scenarios that use the packs run.uses lists: a profile per
@@ -151,7 +162,12 @@ func (a *App) run(ctx context.Context, f *runFlags, args []string) error {
 			return err
 		}
 		packs := packsOf(e, pickles)
-		pickles = feature.ByUses(pickles, cfg.Run.Uses, filter.Named, func(p *feature.Pickle) []string { return packs[p] })
+		all := pickles
+		pickles = feature.ByUses(pickles, cfg.Run.Uses, filter.Picked, func(p *feature.Pickle) []string { return packs[p] })
+		if len(args) > 0 {
+			leftOut = append(leftOut, leftOutNote("run.uses ["+strings.Join(cfg.Run.Uses, ", ")+"]", feature.LeftOut(all, pickles),
+				"change run.uses, or run one by its line"))
+		}
 	}
 	if err := knownUses(e, "run.exclusiveUses", cfg.Run.ExclusiveUses); err != nil {
 		return err
@@ -162,6 +178,7 @@ func (a *App) run(ctx context.Context, f *runFlags, args []string) error {
 	}
 	e.Suite.PauseAt(a.pausesOnSteps(pauses, pickles))
 	if len(pickles) == 0 {
+		a.printNotes(leftOut)
 		fmt.Fprintln(a.Stderr, "axx: no scenarios matched the given paths and filters")
 		return a.EmitResult(map[string]any{"scenarios": 0}, true, nil)
 	}
@@ -280,6 +297,7 @@ func (a *App) run(ctx context.Context, f *runFlags, args []string) error {
 	for _, w := range runWarnings(e, pickles) {
 		fmt.Fprintln(a.Stderr, "warning: "+w)
 	}
+	a.printNotes(leftOut)
 	if code == exitcode.OK {
 		// A passing suite is where an agent stops: what it could read
 		// better is said here too, not only by validate and lint.
@@ -692,4 +710,38 @@ func runWarnings(e *engine.Engine, pickles []*feature.Pickle) []string {
 		}
 	}
 	return out
+}
+
+// leftOutNote says which scenarios of the paths named on the command line a
+// setting (run.tags, run.uses) left out, and how to run them: the person named
+// those paths to run them. Nothing left out says nothing ("").
+func leftOutNote(setting string, left []*feature.Pickle, runThem string) string {
+	if len(left) == 0 {
+		return ""
+	}
+	const shown = 5
+	n := "scenarios"
+	if len(left) == 1 {
+		n = "scenario"
+	}
+	var b strings.Builder
+	fmt.Fprintf(&b, "%s left out %d %s of the paths you named:", setting, len(left), n)
+	for i, p := range left {
+		if i == shown {
+			fmt.Fprintf(&b, "\n      and %d more", len(left)-shown)
+			break
+		}
+		fmt.Fprintf(&b, "\n      %s:%d  %s", p.Doc.URI, p.Line, p.Name)
+	}
+	fmt.Fprintf(&b, "\n      to run them: %s", runThem)
+	return b.String()
+}
+
+// printNotes writes the run's notes to stderr.
+func (a *App) printNotes(notes []string) {
+	for _, n := range notes {
+		if n != "" {
+			fmt.Fprintln(a.Stderr, "note: "+n)
+		}
+	}
 }

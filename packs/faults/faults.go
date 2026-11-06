@@ -33,7 +33,7 @@ Scenario: A cached tracking view answers while the database is away
 
 - **It works on any TCP connection:** PostgreSQL, Oracle, Kafka, Redis, an HTTP API. A connection is the name of a proxy in Toxiproxy's config.
 - **It sees bytes, not requests,** so it cannot pick a URL, a query or a row. To fail one request, stub it with the mock pack's WireMock mappings; to fail one row's insert, use the sql pack's triggers.
-- **Connections already open are hit too,** which is what a service's connection pool holds.
+- **Connections already open are hit too,** which is what a service's connection pool holds. A fault that counts bytes counts theirs from when its step runs.
 - **Each fault can say more,** at its end, in this order:
   - ` + "`coming back`" + ` (the default) or ` + "`going out`" + `: the direction it applies to. With ` + "`coming back`" + `, what the service sends still arrives and only the answer is lost, so a write can be made though the service never hears so; a driver that checks a connection before it uses one waits on that check instead. With ` + "`going out`" + `, nothing the service sends arrives.
   - ` + "`on 30% of connections`" + `: each new connection has the fault or does not, by chance.
@@ -161,10 +161,18 @@ func faultSteps() []fault {
 		},
 		{
 			id: "faults.closes.after", tail: "closes after {int} KB", toxic: "limit_data",
-			doc:      "Close the connection once it has carried that many thousands of bytes, which leaves an answer cut off partway.",
+			doc:      "Close the connection once that many thousands of bytes have passed through it, which leaves an answer cut off partway. A connection already open counts them from when the step runs.",
 			examples: []string{"Given the parcels-db connection closes after 50 KB"},
 			attributes: func(a core.Args) (map[string]any, error) {
 				return map[string]any{"bytes": a.Int(1) * 1000}, nil
+			},
+		},
+		{
+			id: "faults.closes.after.bytes", tail: "closes after {int} bytes", toxic: "limit_data",
+			doc:      "Close the connection once that many bytes have passed through it. A connection already open counts them from when the step runs, so a few hundred cut off even a short answer on a connection a service's pool holds.",
+			examples: []string{"Given the parcels-db connection closes after 100 bytes"},
+			attributes: func(a core.Args) (map[string]any, error) {
+				return map[string]any{"bytes": a.Int(1)}, nil
 			},
 		},
 		{

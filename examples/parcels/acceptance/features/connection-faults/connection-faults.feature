@@ -80,7 +80,7 @@ Feature: Connections that fail
       | hangs coming back      | PX-FLT-9712 |
       | is reset               | PX-FLT-9713 |
       | is reset after 1s      | PX-FLT-9714 |
-      | closes after 1 KB      | PX-FLT-9715 |
+      | closes after 100 bytes | PX-FLT-9715 |
       | loses 100% of its data | PX-FLT-9716 |
 
   Scenario: A shop's retry registers the parcel once the database is back
@@ -114,6 +114,7 @@ Feature: Connections that fail
       | is limited to 100 KB/s                             | PX-FLT-9732 |
       | breaks into 100-byte pieces, 1ms apart             | PX-FLT-9733 |
       | takes 1s to close                                  | PX-FLT-9734 |
+      | closes after 50 KB                                 | PX-FLT-9735 |
 
   Scenario: Latency that varies still registers the parcel
     Given the parcels-db connection has a latency toxic with the following attributes:

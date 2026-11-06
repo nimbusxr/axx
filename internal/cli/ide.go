@@ -15,7 +15,11 @@ func newIDECmd(app *App) *cobra.Command {
 		Short: "Generate IDE run/debug configurations from axx.yaml",
 		Long: `Generate run and debug configurations for the services in axx.yaml that have a
 debug.debugger block. Re-running updates them; files or entries you edited are
-kept. Entries are named "Debugger: <service>" (IntelliJ) and "axx: ..." (VS Code).`,
+kept. Entries are named "Debugger: <service>" (IntelliJ) and "axx: ..." (VS Code).
+
+They go where the editor reads them: the repository's root, or the folder of
+axx.yaml when the editor has that folder open (its .idea, or a .vscode with
+settings of yours, is there). They run axx in the folder of axx.yaml.`,
 	}
 	var cf configFlags
 	gen := func(name, short string) *cobra.Command {

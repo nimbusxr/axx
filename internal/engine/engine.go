@@ -467,7 +467,14 @@ func (e *Engine) FeaturePaths(args []string) ([]string, map[string][]int, error)
 
 // LoadFeatures parses features under paths (URIs relative to the config dir).
 func (e *Engine) LoadFeatures(paths []string) (*feature.Set, error) {
-	return feature.Load(paths, e.Config.Dir, messages.UUID{}.NewId)
+	set, err := feature.Load(paths, e.Config.Dir, messages.UUID{}.NewId)
+	var ae *axxerr.Error
+	if err != nil && e.Config.File == "" && errors.As(err, &ae) && ae.Code == feature.CodeNotFound {
+		// No axx.yaml: the paths are the working directory's, likely not the
+		// project's.
+		ae.Hint = "no axx.yaml was found here or above, up to the repository's root: run axx in the folder of your axx.yaml, or name it with --config"
+	}
+	return set, err
 }
 
 // Manifests returns each pack's manifest.

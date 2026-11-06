@@ -181,9 +181,15 @@ func looksLike(sc *core.Scenario, app string, p Process, name string, wait time.
 		}
 		moved := imagediff.Compare(a, b, imagediff.Options{})
 		if r, ok := blinked(a, b); moved.Differ != 0 && ok {
-			caret = r
-			a, b = HideCaret(a, caret), HideCaret(b, caret)
-			moved = imagediff.Compare(a, b, imagediff.Options{})
+			back, err := blinksBack(sc, look, a, r)
+			if err != nil {
+				return err
+			}
+			if back {
+				caret = r
+				a, b = HideCaret(a, caret), HideCaret(b, caret)
+				moved = imagediff.Compare(a, b, imagediff.Options{})
+			}
 		}
 		// Taken, a look is looked at once more a blink later: a cursor that
 		// blinks slower than the looks are taken shows only then.
@@ -193,10 +199,35 @@ func looksLike(sc *core.Scenario, app string, p Process, name string, wait time.
 			if err != nil {
 				return err
 			}
+			blink := false
 			if r, ok := blinked(b, c); ok {
-				caret = r
-				b = HideCaret(b, caret)
-			} else if again := imagediff.Compare(b, c, imagediff.Options{}); again.Differ != 0 {
+				if blink, err = blinksBack(sc, look, b, r); err != nil {
+					return err
+				}
+				if blink {
+					caret = r
+					b = HideCaret(b, caret)
+				}
+			}
+			if again := imagediff.Compare(b, c, imagediff.Options{}); !blink && again.Differ != 0 {
+				a, b, moved = b, c, again
+			}
+		}
+		// And it is the window at rest: what an app shows for a moment after
+		// the pointer moves (WinUI's scroll bar, for about two seconds) has
+		// gone a while later, and a comparison waits it out, so it is no part
+		// of the screenshot.
+		if moved.Differ == 0 && cfg.update {
+			select {
+			case <-sc.Context().Done():
+				return sc.Context().Err()
+			case <-time.After(restWait):
+			}
+			c, _, err := look()
+			if err != nil {
+				return err
+			}
+			if again := imagediff.Compare(b, c, imagediff.Options{}); again.Differ != 0 {
 				a, b, moved = b, c, again
 			}
 		}
@@ -309,6 +340,52 @@ func blinked(a, b image.Image) (image.Rectangle, bool) {
 		return image.Rectangle{}, false
 	}
 	return image.Rect(box.Min.X-1, box.Min.Y-2, box.Max.X+1, box.Max.Y+2), true
+}
+
+// restWait is how long a look taken as a screenshot stays the same before it
+// is taken: longer than what an app shows for a moment.
+const restWait = 3 * time.Second
+
+// blinkCycle is the longest a text cursor takes to blink off and on again:
+// GTK's, 1.2s; Windows' and Flutter's take about a second.
+const blinkCycle = 1500 * time.Millisecond
+
+// blinksBack is whether r, where a look changed as a cursor's blink does,
+// shows again what it showed in before, within a blink: a cursor turns off
+// and on again, while a letter an app finished drawing after the look before
+// (the last one typed, half drawn in it) stays as it is.
+func blinksBack(sc *core.Scenario, look func() (image.Image, float64, error), before image.Image, r image.Rectangle) (bool, error) {
+	for deadline := time.Now().Add(blinkCycle); time.Now().Before(deadline); {
+		select {
+		case <-sc.Context().Done():
+			return false, sc.Context().Err()
+		case <-time.After(150 * time.Millisecond):
+		}
+		c, _, err := look()
+		if err != nil {
+			return false, err
+		}
+		if sameIn(before, c, r) {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+// sameIn is whether a and b have the same pixels in r.
+func sameIn(a, b image.Image, r image.Rectangle) bool {
+	if a.Bounds() != b.Bounds() {
+		return false
+	}
+	r = r.Intersect(a.Bounds())
+	for y := r.Min.Y; y < r.Max.Y; y++ {
+		for x := r.Min.X; x < r.Max.X; x++ {
+			if a.At(x, y) != b.At(x, y) {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 // HideCaret hides a text cursor in a screenshot, at r in its pixels: each
