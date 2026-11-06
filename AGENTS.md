@@ -157,7 +157,8 @@ the skills instead: `axx skills install`.
 - `internal/filecontent`: reads files by their type (text, CSV, TSV, JSON, XML, HTML, PDF, Word,
   Excel) for the steps that check a file's text or table: files, storage objects, downloads.
 - `schemas/v0`: the JSON Schemas of axx.yaml and the fixture spec files, at public paths: GitHub serves them from
-  main, and axx.yaml files name those addresses (`schemas.Base`). The editor plugins bundle them, so completion needs no network.
+  main, and axx.yaml files name those addresses (`schemas.Base`). The editor plugins bundle them, so completion needs no network:
+  IntelliJ's from the copy `go generate` keeps in its folder, VS Code's (never published) copied at its build.
 - `internal/selfupdate` (`axx upgrade`): axx's releases on GitHub, what changed between two, and replacing the running axx
   with a release's, checked against its checksums, as `scripts/install.sh` and `install.ps1` do.
 - `internal/cli/pin.go`: the version a project names (`axx: 0.5.0`, read as a line by `config.ReadPin`; ADR 0015). Before anything parses the
@@ -208,7 +209,9 @@ the skills instead: `axx skills install`.
 - Exit codes (`internal/exitcode`) and the `--json` envelope are frozen contracts (ADR 0003).
 - Every user-facing error is an `*axxerr.Error` with a stable `AXX-Exxxx` code and a hint.
 - Never hand-edit generated files: `go generate ./...` writes the `axx.yaml` schema
-  (`schemas/v0/axx.schema.json`), the skills (`plugins/axx/skills`) and the packs' reference
+  (`schemas/v0/axx.schema.json`) and the IntelliJ plugin's copy of every schema
+  (`ide/intellij/src/main/resources/schemas`: in its own folder, a schema's change is a change of the
+  plugin, which release-please releases), the skills (`plugins/axx/skills`) and the packs' reference
   (`internal/packref/packs.json`), and the docs site's
   build writes the reference (`docs/scripts/gen.mjs`, from `axx docs export`).
 - The docs site's root is the latest release's docs, built from its tag (or from `docs-<tag>`,
