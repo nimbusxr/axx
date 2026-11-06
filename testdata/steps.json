@@ -2,7 +2,7 @@
   "description": "The frozen catalog of built-in step text. Step text is public API: every entry must stay defined, verbatim, by its pack.",
   "counts": {
     "parameterType": 22,
-    "step": 915
+    "step": 923
   },
   "entries": [
     {
@@ -5648,6 +5648,54 @@
       "pack": "sql",
       "keyword": "Then",
       "expression": "the {ordinal} ordered before delete trigger on the {word} table on {dbService} was raised {int} time(s)"
+    },
+    {
+      "kind": "step",
+      "pack": "faults",
+      "keyword": "Given",
+      "expression": "the {connection} connection closes after {int} bytes"
+    },
+    {
+      "kind": "step",
+      "pack": "faults",
+      "keyword": "Given",
+      "expression": "the {connection} connection closes after {int} bytes {dataDirection}"
+    },
+    {
+      "kind": "step",
+      "pack": "faults",
+      "keyword": "Given",
+      "expression": "the {connection} connection closes after {int} bytes on {int}% of connections"
+    },
+    {
+      "kind": "step",
+      "pack": "faults",
+      "keyword": "Given",
+      "expression": "the {connection} connection closes after {int} bytes {dataDirection} on {int}% of connections"
+    },
+    {
+      "kind": "step",
+      "pack": "faults",
+      "keyword": "Given",
+      "expression": "the {connection} connection closes after {int} bytes for {duration}"
+    },
+    {
+      "kind": "step",
+      "pack": "faults",
+      "keyword": "Given",
+      "expression": "the {connection} connection closes after {int} bytes {dataDirection} for {duration}"
+    },
+    {
+      "kind": "step",
+      "pack": "faults",
+      "keyword": "Given",
+      "expression": "the {connection} connection closes after {int} bytes on {int}% of connections for {duration}"
+    },
+    {
+      "kind": "step",
+      "pack": "faults",
+      "keyword": "Given",
+      "expression": "the {connection} connection closes after {int} bytes {dataDirection} on {int}% of connections for {duration}"
     }
   ]
 }

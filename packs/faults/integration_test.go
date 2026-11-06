@@ -258,6 +258,10 @@ func TestFaultsOnARealConnection(t *testing.T) {
 		{step: "takes 1s to close", size: small, limit: 5 * time.Second},
 		{step: "breaks into 100-byte pieces, 1ms apart", size: 100_000, limit: 20 * time.Second, atLeast: 500 * time.Millisecond},
 		{step: "closes after 50 KB", size: big, limit: 5 * time.Second, fails: true},
+		// An open connection counts from the step: a short answer gets through 1 KB,
+		// and not through 100 bytes.
+		{step: "closes after 1 KB", size: small, limit: 5 * time.Second},
+		{step: "closes after 100 bytes", size: small, limit: 5 * time.Second, fails: true},
 		{step: "loses 100% of its data", size: small, limit: 2 * time.Second, fails: true, atLeast: 2 * time.Second},
 	} {
 		t.Run(c.step, func(t *testing.T) {

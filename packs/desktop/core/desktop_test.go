@@ -708,6 +708,89 @@ func TestScreenshotsShowTheLookCompared(t *testing.T) {
 	}
 }
 
+// typedField is a field with a letter typed, its last column (its stem) drawn
+// or not yet, and its cursor after it on or off.
+func typedField(stem, cursor bool) *image.RGBA {
+	img := image.NewRGBA(image.Rect(0, 0, 60, 40))
+	draw.Draw(img, img.Bounds(), image.White, image.Point{}, draw.Src)
+	for y := 10; y < 28; y++ {
+		for x := 10; x < 14; x++ {
+			img.Set(x, y, color.Black)
+		}
+		if stem {
+			img.Set(14, y, color.Black)
+		}
+		if cursor {
+			img.Set(20, y, color.Black)
+		}
+	}
+	return img
+}
+
+// TestALetterDrawnLateIsNoCursor: the first look caught the letter just typed
+// half drawn. What changed after it is a column a line high, as a cursor's
+// blink is, but it stays: the letter is compared, not hidden as a cursor.
+func TestALetterDrawnLateIsNoCursor(t *testing.T) {
+	p, _, _ := desk()
+	h := harness(t, &fakeDriver{proc: p})
+	h.OK("the depot app is launched")
+	p.shows = func(int32) image.Image { return typedField(true, false) }
+	_ = h.Fails(`the depot app looks like the "typed" screenshot`, `There was no "typed.`+platform+`@2x" screenshot`)
+	p.looks.Store(0)
+	p.shows = func(n int32) image.Image { return typedField(n > 1, false) }
+	h.OK(`within 5s the depot app looks like the "typed" screenshot`)
+}
+
+// TestACursorThatBlinksIsHidden: a cursor the app does not say it has, on in
+// one look and off in the next, and on again, is hidden in the looks compared.
+func TestACursorThatBlinksIsHidden(t *testing.T) {
+	p, _, _ := desk()
+	h := harness(t, &fakeDriver{proc: p})
+	h.OK("the depot app is launched")
+	p.shows = func(int32) image.Image { return typedField(true, false) }
+	_ = h.Fails(`the depot app looks like the "typed" screenshot`, `There was no "typed.`+platform+`@2x" screenshot`)
+	start := time.Now()
+	p.shows = func(int32) image.Image { return typedField(true, time.Since(start)/(400*time.Millisecond)%2 == 0) }
+	h.OK(`within 5s the depot app looks like the "typed" screenshot`)
+}
+
+// TestAScreenshotIsTakenAtRest: what the window shows for a moment, as WinUI's
+// scroll bar after the pointer moves, is gone from a screenshot taken.
+func TestAScreenshotIsTakenAtRest(t *testing.T) {
+	p, _, _ := desk()
+	h := cloudtest.NewWith(t, map[string]any{Name: map[string]any{"screenshots": map[string]any{"update": true}}}, appcore.Pack(), Pack(), files.Pack())
+	h.Start(&core.Plan{})
+	if err := Register(h.SC, &App{Name: "depot", App: "depot", Driver: &fakeDriver{proc: p}, Dir: h.Dir}); err != nil {
+		t.Fatal(err)
+	}
+	h.OK("the depot app is launched")
+	start := time.Now()
+	p.shows = func(int32) image.Image {
+		img := typedField(true, false)
+		if time.Since(start) < 1500*time.Millisecond {
+			draw.Draw(img, image.Rect(40, 0, 50, 40), image.Black, image.Point{}, draw.Src)
+		}
+		return img
+	}
+	h.OK(`within 20s the depot app looks like the "typed" screenshot`)
+	taken, _ := filepath.Glob(filepath.Join(h.Dir, "screenshots", "typed.*.png"))
+	if len(taken) != 1 {
+		t.Fatalf("screenshots taken: %v", taken)
+	}
+	f, err := os.Open(taken[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	img, err := png.Decode(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !samePixels(img, typedField(true, false)) {
+		t.Error("the screenshot taken shows what the window showed for a moment")
+	}
+}
+
 // TestHideCaret hides a field's cursor: the field looks the same with its
 // cursor on and off, its text left as it is.
 func TestBlinked(t *testing.T) {
