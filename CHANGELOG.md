@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.6.0](https://github.com/nimbusxr/axx/compare/v0.5.0...v0.6.0) (2026-11-06)
+
+
+### ⚠ BREAKING CHANGES
+
+* a feature file named on the command line or run from an editor no longer runs the scenarios that run.tags or run.uses leave out. Run one by its line (file.feature:12), or use --tags.
+
+### Features
+
+* **faults:** the {connection} connection closes after {int} bytes ([3c5a91d](https://github.com/nimbusxr/axx/commit/3c5a91dd4800ac1a003e6f58d8380214348a1c63))
+
+
+### Bug Fixes
+
+* a missing feature path with no axx.yaml found says no axx.yaml was found ([3c5a91d](https://github.com/nimbusxr/axx/commit/3c5a91dd4800ac1a003e6f58d8380214348a1c63))
+* axx ide's IntelliJ and VS Code configs go where the editor reads them and run axx in axx.yaml's folder ([3c5a91d](https://github.com/nimbusxr/axx/commit/3c5a91dd4800ac1a003e6f58d8380214348a1c63))
+* **desktop-core:** a letter still being drawn is not hidden as a text cursor, and screenshots are taken with the window at rest ([3c5a91d](https://github.com/nimbusxr/axx/commit/3c5a91dd4800ac1a003e6f58d8380214348a1c63))
+* **intellij:** the plugin bundles axx's schemas from its own folder, so a schema change releases it ([#300](https://github.com/nimbusxr/axx/issues/300)) ([5967009](https://github.com/nimbusxr/axx/commit/5967009e8ea5935c013b6cf084c09c3b5935fdd4))
+* **lifecycle:** a service's ready line reaches the run before the service counts as ready ([3c5a91d](https://github.com/nimbusxr/axx/commit/3c5a91dd4800ac1a003e6f58d8380214348a1c63))
+* run.tags and run.uses narrow the feature files you name, as they narrow folders; a scenario picked by its line still runs them, and the run says what they left out ([3c5a91d](https://github.com/nimbusxr/axx/commit/3c5a91dd4800ac1a003e6f58d8380214348a1c63))
+
 ## [0.5.0](https://github.com/nimbusxr/axx/compare/v0.4.0...v0.5.0) (2026-11-04)
 
 

@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1](https://github.com/nimbusxr/axx/compare/intellij-v0.3.0...intellij-v0.3.1) (2026-11-06)
+
+
+### Bug Fixes
+
+* **intellij:** the plugin bundles axx's schemas from its own folder, so a schema change releases it ([#300](https://github.com/nimbusxr/axx/issues/300)) ([5967009](https://github.com/nimbusxr/axx/commit/5967009e8ea5935c013b6cf084c09c3b5935fdd4))
+
 ## [0.3.0](https://github.com/nimbusxr/axx/compare/intellij-v0.2.2...intellij-v0.3.0) (2026-11-04)
 
 
