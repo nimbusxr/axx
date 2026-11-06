@@ -139,10 +139,12 @@ func (m *Manager) launch(a *service, argv []string) (*process, error) {
 	handler := func(write func(string)) func(string) {
 		return func(line string) {
 			a.tail.add(line)
+			// Written before it is matched: whoever hears the service is ready
+			// has its ready line already.
+			write(line)
 			if watchLog != nil {
 				watchLog(line)
 			}
-			write(line)
 		}
 	}
 	pp.started(
