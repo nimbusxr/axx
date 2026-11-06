@@ -1,9 +1,11 @@
 package config
 
 import (
+	"bytes"
 	"errors"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -239,6 +241,40 @@ func TestSchemaUpToDate(t *testing.T) {
 	}
 	if string(want) != string(SchemaJSON) {
 		t.Fatal("schemas/v0/axx.schema.json is stale; run `go generate ./internal/config`")
+	}
+}
+
+// The IntelliJ plugin bundles every schema from a copy in its own folder, so
+// that a schema's change is a change of the plugin, which releases it.
+func TestPluginSchemasUpToDate(t *testing.T) {
+	const from, to = "../../schemas/v0", "../../ide/intellij/src/main/resources/schemas"
+	names := func(dir string) []string {
+		t.Helper()
+		m, err := filepath.Glob(filepath.Join(dir, "*.schema.json"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		for i := range m {
+			m[i] = filepath.Base(m[i])
+		}
+		return m
+	}
+	want, have := names(from), names(to)
+	if !slices.Equal(want, have) {
+		t.Fatalf("the plugin's schemas are %v, not %v; run `go generate ./internal/config`", have, want)
+	}
+	for _, n := range want {
+		a, err := os.ReadFile(filepath.Join(from, n))
+		if err != nil {
+			t.Fatal(err)
+		}
+		b, err := os.ReadFile(filepath.Join(to, n))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !bytes.Equal(a, b) {
+			t.Errorf("the plugin's %s is stale; run `go generate ./internal/config`", n)
+		}
 	}
 }
 

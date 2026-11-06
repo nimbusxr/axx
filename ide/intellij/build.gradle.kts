@@ -177,14 +177,13 @@ intellijPlatform {
     }
 }
 
-// axx's JSON Schemas, so that axx.yaml has completion with no network (AxxSchemaProviderFactory).
+// axx's JSON Schemas, so that axx.yaml has completion with no network (AxxSchemaProviderFactory):
+// src/main/resources/schemas, which `go generate` copies from schemas/v0, so that a schema's
+// change is a change of the plugin, and release-please releases it.
 tasks.processResources {
-    from("../../schemas/v0") {
-        into("schemas")
-    }
     // The same, with the address the docs site publishes them at as their $id: the address the
     // axx.yaml files of earlier versions name, which the IDE answers from these, and not the site.
-    from("../../schemas/v0") {
+    from("src/main/resources/schemas") {
         into("schemas/site")
         filter {
             it.replace(

@@ -21,7 +21,7 @@ import (
 	"github.com/nimbusxr/axx/schemas"
 )
 
-//go:generate go run ./internal/genschema -out ../../schemas/v0/axx.schema.json
+//go:generate go run ./internal/genschema -out ../../schemas/v0/axx.schema.json -copy ../../ide/intellij/src/main/resources/schemas
 
 // SchemaFile is the published file name of the axx.yaml schema.
 const SchemaFile = "axx.schema.json"
