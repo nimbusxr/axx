@@ -22,7 +22,7 @@ hooks:
 - **A hook that fails before its command stops it.** The command doesn't run, and the error says which hook failed and how.
 - **A hook after its command runs whether the command succeeded or failed.** When it fails, a command that succeeded fails too; after a command that failed, it is a warning.
 - **A hook knows what it runs around:** `AXX_COMMAND` holds the command's words (`fixtures generate`), and an after hook's `AXX_COMMAND_FAILED` is `true` or `false`. It runs with the rest of the environment axx has.
-- **A hook before `axx run` can tell the scenarios properties,** as a service does: lines `name=value` in the file `$AXX_PROPERTIES` names, which they read as `${sys:name}` ([Run beside your own stack](/guides/run-beside-your-stack/#what-axx-does-with-what-its-told)).
+- **A hook before `axx run` can tell the scenarios properties,** as a service does: lines `name=value` in the file `$AXX_PROPERTIES` names, which they read as `${sys:name}` ([Run beside your own stack](/guides/run-beside-your-stack/#details)).
 - **Its output goes to axx's stderr,** so the command's own output, its `--json` answer included, stays as it is.
 - **Several hooks of one command** run in the order `axx.yaml` lists them.
 
