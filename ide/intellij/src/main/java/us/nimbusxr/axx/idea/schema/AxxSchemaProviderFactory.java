@@ -15,8 +15,9 @@ import java.util.List;
 
 /**
  * Gives axx's YAML files the IDE's completion, documentation and validation from axx's JSON
- * Schemas, which the plugin bundles: nothing to set up, a comment at the top of the file not
- * needed, and no network involved.
+ * Schemas: those of the axx the project runs on ({@link AxxProjectSchemas}), or, until it has
+ * given them and when it can't, those the plugin bundles. Nothing to set up, a comment at the top
+ * of the file not needed, and no network involved.
  *
  * <p>A comment at the top of a file goes first in the IDE, which downloads the schema it names
  * unless the {@code $id} of a schema it has is that address. The bundled schemas' {@code $id} is
@@ -28,14 +29,27 @@ public final class AxxSchemaProviderFactory implements JsonSchemaProviderFactory
     public @NotNull List<JsonSchemaFileProvider> getProviders(@NotNull Project project) {
         List<JsonSchemaFileProvider> providers = new ArrayList<>();
         for (AxxSchemas.Schema schema : AxxSchemas.ALL) {
-            providers.add(new Provider(schema));
-            providers.add(new SiteAddress(schema));
+            providers.add(new Provider(project, schema));
+            providers.add(new SiteAddress(project, schema));
         }
         return providers;
     }
 
-    /** A bundled schema for a file that names the docs site: it maps no file by its name. */
-    private record SiteAddress(AxxSchemas.Schema schema) implements JsonSchemaFileProvider {
+    /** The project's axx's schema, or the plugin's. */
+    private static @Nullable VirtualFile schemaFile(
+            @NotNull Project project, @NotNull AxxSchemas.Schema schema, boolean site) {
+        VirtualFile given =
+                project.isDisposed() ? null : AxxProjectSchemas.getInstance(project).file(schema, site);
+        if (given != null) {
+            return given;
+        }
+        return JsonSchemaProviderFactory.getResourceFile(
+                AxxSchemaProviderFactory.class, site ? schema.siteResource() : schema.resource());
+    }
+
+    /** A schema for a file that names the docs site: it maps no file by its name. */
+    private record SiteAddress(Project project, AxxSchemas.Schema schema)
+            implements JsonSchemaFileProvider {
         @Override
         public boolean isAvailable(@NotNull VirtualFile file) {
             return false;
@@ -48,8 +62,7 @@ public final class AxxSchemaProviderFactory implements JsonSchemaProviderFactory
 
         @Override
         public @Nullable VirtualFile getSchemaFile() {
-            return JsonSchemaProviderFactory.getResourceFile(
-                    AxxSchemaProviderFactory.class, schema.siteResource());
+            return schemaFile(project, schema, true);
         }
 
         @Override
@@ -63,7 +76,8 @@ public final class AxxSchemaProviderFactory implements JsonSchemaProviderFactory
         }
     }
 
-    private record Provider(AxxSchemas.Schema schema) implements JsonSchemaFileProvider {
+    private record Provider(Project project, AxxSchemas.Schema schema)
+            implements JsonSchemaFileProvider {
         @Override
         public boolean isAvailable(@NotNull VirtualFile file) {
             return AxxSchemas.of(file.getName()) == schema;
@@ -76,8 +90,7 @@ public final class AxxSchemaProviderFactory implements JsonSchemaProviderFactory
 
         @Override
         public @Nullable VirtualFile getSchemaFile() {
-            return JsonSchemaProviderFactory.getResourceFile(
-                    AxxSchemaProviderFactory.class, schema.resource());
+            return schemaFile(project, schema, false);
         }
 
         @Override

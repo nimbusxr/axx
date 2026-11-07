@@ -108,8 +108,9 @@ intellijPlatform {
               put it, or set in <i>Settings | Tools | axx</i>) and an IDE that includes the LSP
               API, as IntelliJ IDEA does.</li>
               <li><b>Configuration files.</b> Completion, documentation and validation in
-              <code>axx.yaml</code> and the fixture spec files, from axx's schemas in the plugin,
-              with no network.</li>
+              <code>axx.yaml</code> and the fixture spec files, from the schemas of the axx your
+              project runs on, so they match it whichever release of the plugin you have (the
+              plugin's own until axx answers), with no network.</li>
               <li><b>Running scenarios.</b> Run and debug icons in the gutter of Feature, Rule,
               Scenario and Scenario Outline lines and Examples rows, and in the context menu of
               feature files and directories; the results show in the IDE's test runner, with

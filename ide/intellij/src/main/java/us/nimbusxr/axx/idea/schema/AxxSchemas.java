@@ -15,8 +15,15 @@ import java.util.regex.Pattern;
  * <p>It holds no IDE types, so its rules are unit-testable.
  */
 final class AxxSchemas {
-    /** A schema the plugin bundles, in {@code /schemas}, built from the repository's schemas/v0. */
-    record Schema(@NotNull String title, @NotNull String file, @NotNull Pattern names) {
+    /**
+     * One of axx's schemas: its kind, as {@code axx schema} names it, and the file the plugin
+     * bundles it in, in {@code /schemas}, built from the repository's schemas/v0.
+     */
+    record Schema(
+            @NotNull String title,
+            @NotNull String kind,
+            @NotNull String file,
+            @NotNull Pattern names) {
         @NotNull String resource() {
             return "/schemas/" + file;
         }
@@ -31,18 +38,22 @@ final class AxxSchemas {
             List.of(
                     new Schema(
                             "axx.yaml",
+                            "config",
                             "axx.schema.json",
                             Pattern.compile("axx(\\.[^.]+)?\\.ya?ml")),
                     new Schema(
                             "axx fixture factory",
+                            "factory",
                             "axx-factory.schema.json",
                             Pattern.compile(".+\\.factory\\.ya?ml")),
                     new Schema(
                             "axx fixture",
+                            "fixture",
                             "axx-fixture.schema.json",
                             Pattern.compile(".+\\.fixture\\.ya?ml")),
                     new Schema(
                             "axx fixture prototype",
+                            "prototype",
                             "axx-prototype.schema.json",
                             Pattern.compile(".+\\.prototype\\.ya?ml")));
 

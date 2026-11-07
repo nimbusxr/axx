@@ -161,8 +161,11 @@ the skills instead: `axx skills install`.
 - `internal/filecontent`: reads files by their type (text, CSV, TSV, JSON, XML, HTML, PDF, Word,
   Excel) for the steps that check a file's text or table: files, storage objects, downloads.
 - `schemas/v0`: the JSON Schemas of axx.yaml and the fixture spec files, at public paths: GitHub serves them from
-  main, and axx.yaml files name those addresses (`schemas.Base`). The editor plugins bundle them, so completion needs no network:
-  IntelliJ's from the copy `go generate` keeps in its folder, VS Code's (never published) copied at its build.
+  main, and axx.yaml files name those addresses (`schemas.Base`). The editor plugins take them from the axx the project runs on
+  (`axx schema --out`, again when `axx --version` answers otherwise: IntelliJ's `AxxProjectSchemas`, VS Code's `schemas.ts`), so they
+  match it whatever the plugin's release; until then, and when axx can't give them, they use copies they bundle: IntelliJ's from
+  the copy `go generate` keeps in its folder, VS Code's (never published) copied at its build. Keep `axx schema --kind <k> --out`
+  working in every release: an editor asks every axx a project may run on.
 - `internal/selfupdate` (`axx upgrade`): axx's releases on GitHub, what changed between two, and replacing the running axx
   with a release's, checked against its checksums, as `scripts/install.sh` and `install.ps1` do.
 - `internal/cli/pin.go`: the version a project names (`axx: 0.5.0`, read as a line by `config.ReadPin`; ADR 0015). Before anything parses the

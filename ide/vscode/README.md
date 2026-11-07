@@ -14,8 +14,9 @@ In `.feature` files you get:
 - **Hover:** the documentation of the step under the cursor.
 - **Go to Definition:** the Go code that defines a step, or a page about it.
 - **`axx.yaml`:** completion, documentation and validation in `axx.yaml` and the fixture spec files
-  (`*.factory.yaml`, `*.fixture.yaml`, `*.prototype.yaml`), from axx's schemas in this extension,
-  with no network. It takes Red Hat's
+  (`*.factory.yaml`, `*.fixture.yaml`, `*.prototype.yaml`), from the schemas of the axx your
+  project runs on (`axx schema`), so they match it whichever build of this extension you have;
+  until axx answers, from the schemas in this extension. It takes Red Hat's
   [YAML extension](https://marketplace.visualstudio.com/items?itemName=redhat.vscode-yaml).
 - **Files:** the files steps name (seeds, payloads, schemas, OpenAPI documents, a log's `file://`
   url), in steps and table cells, are links: Ctrl/Cmd+click one to open it. Their paths complete
