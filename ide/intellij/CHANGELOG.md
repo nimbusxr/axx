@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.3.2](https://github.com/nimbusxr/axx/compare/intellij-v0.3.1...intellij-v0.3.2) (2026-11-07)
+
+
+### Features
+
+* axx.yaml's hooks.commands run a project's own commands before or after axx's commands ([28f3657](https://github.com/nimbusxr/axx/commit/28f3657c0071562fde5618dfaf40939cc54afa34))
+* **intellij:** the axx host asks in a dialog in front of the IDE, says which run keeps the services, restarts from the status bar, and can keep the Run window in the back ([28f3657](https://github.com/nimbusxr/axx/commit/28f3657c0071562fde5618dfaf40939cc54afa34))
+* packs can run hooks before or after axx's commands (core.CommandHook) ([28f3657](https://github.com/nimbusxr/axx/commit/28f3657c0071562fde5618dfaf40939cc54afa34))
+
+
+### Bug Fixes
+
+* **fixtures:** a dataset's SQL schema is read as the database reads it, from every database's own output and later column changes in six dialects ([28f3657](https://github.com/nimbusxr/axx/commit/28f3657c0071562fde5618dfaf40939cc54afa34))
+* **host:** a run that waits for another says which run has the services ([28f3657](https://github.com/nimbusxr/axx/commit/28f3657c0071562fde5618dfaf40939cc54afa34))
+
 ## [0.3.1](https://github.com/nimbusxr/axx/compare/intellij-v0.3.0...intellij-v0.3.1) (2026-11-06)
 
 
