@@ -65,3 +65,73 @@ type CommandCall struct {
 	// envelope; otherwise what human writes.
 	Emit func(data any, human func(w io.Writer) error) error
 }
+
+// CommandPhase says when a command hook runs: before its command or after it.
+// Those are the only two: a hook never runs inside a command.
+type CommandPhase int
+
+const (
+	// BeforeCommand runs the hook once the command line is read, before the
+	// command does anything. A hook that fails stops the command.
+	BeforeCommand CommandPhase = iota + 1
+	// AfterCommand runs the hook once the command has finished, whether it
+	// succeeded or failed.
+	AfterCommand
+)
+
+func (p CommandPhase) String() string {
+	switch p {
+	case BeforeCommand:
+		return "before"
+	case AfterCommand:
+		return "after"
+	}
+	return "unknown"
+}
+
+// MarshalText implements encoding.TextMarshaler.
+func (p CommandPhase) MarshalText() ([]byte, error) { return []byte(p.String()), nil }
+
+// CommandHook runs before or after one of axx's commands, in a project that
+// uses the pack: a command axx has, or one a pack adds, like `axx fixtures
+// generate`. Several packs' hooks of one command run in the order of the
+// packs: before hooks first to last, after hooks last to first.
+type CommandHook struct {
+	// Command is the command's words after axx: "fixtures generate".
+	Command string       `json:"command"`
+	Phase   CommandPhase `json:"phase"`
+	// Doc says what the hook does, for the pack's reference.
+	Doc string `json:"doc"`
+	// Run runs it. Before the command, an error stops the command, and its
+	// after hooks don't run; after it, an error fails a command that
+	// succeeded. An *axxerr error keeps its code; any other is reported as
+	// the hook's, with the pack named.
+	Run func(call *CommandHookCall) error `json:"-"`
+}
+
+// CommandHookCall is a run of a command hook.
+type CommandHookCall struct {
+	Context context.Context
+	// Command is the command's words after axx: "fixtures generate".
+	Command string
+	// Args are the command's arguments.
+	Args []string
+	// Flags are the values of the command's flags, given or default, by
+	// name: of a repeated flag, its last. Lists are a repeated flag's
+	// values, in the order given.
+	Flags map[string]string
+	Lists map[string][]string
+	// ProjectDir is the directory of axx.yaml ("" when there is none).
+	ProjectDir string
+	// Settings decodes the pack's section of axx.yaml (packs.<name>), read
+	// with the command's --config, --profile, -D and --set, into v. It
+	// leaves v as it is when there is no section.
+	Settings func(v any) error
+	// Err is, after the command, the error it ended with: nil when it
+	// succeeded. Before it, Err is nil.
+	Err error
+	// Stderr is where the hook writes what it has to say: stdout is the
+	// command's own, its --json envelope included.
+	Stderr io.Writer
+	Logger *slog.Logger
+}

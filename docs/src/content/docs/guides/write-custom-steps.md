@@ -261,6 +261,33 @@ Tools: []core.Tool{{
 
 Name a tool after its pack, and describe what it gives and when to use it: agents choose tools by their descriptions. The input is checked against its JSON Schema before `Run`.
 
+## Run something before or after a command
+
+A pack can run code before or after one of axx's commands, or a command a pack adds: `CommandHooks` in its manifest. This one writes the carriers' rate card the fixtures read, from the rates service's export, before `axx fixtures generate`:
+
+```go
+CommandHooks: []core.CommandHook{{
+	Command: "fixtures generate",
+	Phase:   core.BeforeCommand,
+	Doc:     "Writes the carriers' rate card the fixtures read, from the rates service's export.",
+	Run: func(call *core.CommandHookCall) error {
+		var s struct {
+			RateCard string `json:"rateCard"`
+		}
+		if err := call.Settings(&s); err != nil || s.RateCard == "" {
+			return err
+		}
+		fmt.Fprintf(call.Stderr, "writing %s\n", s.RateCard)
+		return exportRateCard(call.Context, filepath.Join(call.ProjectDir, s.RateCard))
+	},
+}},
+```
+
+- **Before or after, never inside.** A before hook that fails stops the command, and its after hooks don't run. An after hook runs whether the command succeeded or failed (`call.Err` says which); when it fails, a command that succeeded fails too.
+- **The hook is told what the command was given:** `call.Args`, `call.Flags` (`dry-run`, say), and `call.Settings`, the pack's section of axx.yaml, read with the command's `--profile` and `--set`. It writes to `call.Stderr`: stdout is the command's, its `--json` answer included.
+- **Several packs' hooks of one command** run before it in the order the packs load, and after it in the reverse order.
+- **Hooks run in a project that uses the pack,** on every command but those that manage axx and its packs: `pack`, `init`, `upgrade`, `install` and `version`. They run around the project's own hooks, those of `axx.yaml` ([Run your commands around axx's](/guides/run-hooks/)). `axx doctor` lists a project's hooks, and any that never run.
+
 ## Check what the pack needs
 
 `axx doctor` runs a pack's `Checks` in the projects that use it: that what its steps need is there, before a scenario finds out. The mobile packs check the Android SDK and Xcode this way.

@@ -87,6 +87,24 @@ func TestExitCodeAndStreams(t *testing.T) {
 	}
 }
 
+// Output gets both streams as the command writes them, and the result keeps
+// them as well.
+func TestOutputGetsBothStreams(t *testing.T) {
+	var out bytes.Buffer
+	s := helper("exit", "0", "the parcel is dispatched;", "the label is printed")
+	s.Output = &out
+	res, err := Run(context.Background(), s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := out.String(); !strings.Contains(got, "the parcel is dispatched;") || !strings.Contains(got, "the label is printed") || len(got) != len("the parcel is dispatched;the label is printed") {
+		t.Errorf("output: %q", got)
+	}
+	if string(res.Stdout) != "the parcel is dispatched;" || string(res.Stderr) != "the label is printed" {
+		t.Errorf("result: %+v", res)
+	}
+}
+
 func TestInputEnvironmentAndFolder(t *testing.T) {
 	s := helper("cat")
 	s.Stdin = []byte("PX-ADM-6103\nPX-ADM-6104\n")

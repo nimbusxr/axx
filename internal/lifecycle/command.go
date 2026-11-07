@@ -38,6 +38,10 @@ func Tokenize(line string) []string {
 // errEmptyCommand reports a command with no words.
 var errEmptyCommand = errors.New("empty command")
 
+// CommandArgv is the argv a configured command runs as, as a service's
+// does: commandArgv.
+func CommandArgv(c config.Command, shell bool) ([]string, error) { return commandArgv(c, shell) }
+
 // commandArgv turns a configured command into argv. An argv list is used
 // verbatim; a string is tokenized. With shell set, the command line (an argv
 // list is joined with spaces) runs through /bin/sh -c (cmd /C on Windows).

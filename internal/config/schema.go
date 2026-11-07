@@ -54,6 +54,11 @@ func (Command) JSONSchema() *ijs.Schema {
 	}}
 }
 
+// JSONSchemaExtend says a command hook runs before a command or after one.
+func (CommandHook) JSONSchemaExtend(s *ijs.Schema) {
+	s.OneOf = []*ijs.Schema{{Required: []string{"before"}}, {Required: []string{"after"}}}
+}
+
 // JSONSchema describes StringList.
 func (StringList) JSONSchema() *ijs.Schema {
 	return &ijs.Schema{OneOf: []*ijs.Schema{

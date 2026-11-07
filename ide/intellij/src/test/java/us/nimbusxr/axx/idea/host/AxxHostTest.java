@@ -6,7 +6,11 @@ import com.intellij.execution.testframework.sm.runner.ui.SMTRunnerConsoleView;
 import com.intellij.execution.ui.RunContentDescriptor;
 import com.intellij.notification.Notification;
 import com.intellij.notification.NotificationsManager;
+import com.intellij.openapi.actionSystem.ActionGroup;
+import com.intellij.openapi.actionSystem.ActionManager;
 import com.intellij.openapi.actionSystem.AnAction;
+import com.intellij.openapi.ui.TestDialog;
+import com.intellij.openapi.ui.TestDialogManager;
 import com.intellij.openapi.util.SystemInfo;
 import com.intellij.testFramework.HeavyPlatformTestCase;
 import com.intellij.testFramework.PlatformTestUtil;
@@ -15,6 +19,7 @@ import us.nimbusxr.axx.idea.AxxSettings;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.function.BooleanSupplier;
@@ -22,8 +27,8 @@ import java.util.function.BooleanSupplier;
 /**
  * The project's axx host, started in a headless IDE: a script plays {@code axx host --ide} (a run
  * of an agent's in a sandbox that sees the project at {@code /sandbox/parcels}, which asks the
- * person to approve, and a run of the IDE's own), and the test answers as the person would, with a
- * click on the question's notification.
+ * person to approve, and a run of the IDE's own), and the test answers as the person would: in the
+ * question's dialog, or, once they closed it, with a click on its notification.
  */
 public class AxxHostTest extends HeavyPlatformTestCase {
     /** {@code axx host --ide}: its events before the person's answer, the answer, the rest. */
@@ -86,6 +91,9 @@ public class AxxHostTest extends HeavyPlatformTestCase {
                             + "\"ide\":\"intellij\",\"state\":\"ended\",\"seconds\":0.5}");
 
     private Path base;
+    // The dialogs' texts, and the button the person clicks in the next one: -1 closes it.
+    private final List<String> dialogs = new ArrayList<>();
+    private int click = -1;
 
     @Override
     protected boolean shouldRunTest() {
@@ -97,6 +105,11 @@ public class AxxHostTest extends HeavyPlatformTestCase {
         super.setUp();
         base = Files.createDirectories(Path.of(getProject().getBasePath()));
         Files.writeString(base.resolve("axx.yaml"), "version: 1\nservices:\n  api: {}\n");
+        TestDialogManager.setTestDialog(
+                message -> {
+                    dialogs.add(message);
+                    return click;
+                });
     }
 
     @Override
@@ -108,6 +121,9 @@ public class AxxHostTest extends HeavyPlatformTestCase {
                 waitFor("the host stops", () -> !host.isRunning());
             }
             AxxSettings.getInstance().setExecutable(null);
+            AxxSettings.getInstance().setShowHostRuns(true);
+            AxxHost.waitSeconds = 10;
+            TestDialogManager.setTestDialog(TestDialog.DEFAULT);
         } catch (Throwable e) {
             addSuppressedException(e);
         } finally {
@@ -131,8 +147,19 @@ public class AxxHostTest extends HeavyPlatformTestCase {
         assertTrue(host.isRunning());
         assertEquals("axx host: waiting for your approval", host.text());
 
+        // The question opens in front of the IDE; the person closes it, and it stays in a
+        // notification.
+        waitFor("the question's notification", () -> question() != null);
+        assertEquals(1, dialogs.size());
+        assertTrue(
+                dialogs.get(0),
+                dialogs.get(0)
+                        .startsWith(
+                                "Run 1 (axx run --compact) needs services whose definition"
+                                        + " changed since you approved it.\n\nWhat in it reaches"
+                                        + " past a container:\n• services.api: compose service api"
+                                        + " mounts /tmp of this machine"));
         Notification question = question();
-        assertNotNull("no question asked", question);
         assertEquals("axx host: approve run 1?", question.getTitle());
         assertTrue(
                 question.getContent(),
@@ -156,6 +183,7 @@ public class AxxHostTest extends HeavyPlatformTestCase {
         waitFor("the run's tab", () -> host.lastShown() != null);
         RunContentDescriptor descriptor = host.lastShown().descriptor();
         assertEquals("axx host: run 1 (axx run --compact)", descriptor.getDisplayName());
+        assertTrue("the Run window came forward", descriptor.isActivateToolWindowWhenAdded());
         waitFor("the run's test tree", () -> descriptor.getProcessHandler().isProcessTerminated());
         SMTestProxy.SMRootTestProxy root =
                 ((SMTRunnerConsoleView) descriptor.getExecutionConsole())
@@ -246,6 +274,118 @@ public class AxxHostTest extends HeavyPlatformTestCase {
         host.start(true);
         waitFor("the host's end", () -> host.state() != null && !host.isRunning());
         assertFalse(host.isShown());
+    }
+
+    /** The person answers in the question's dialog: their click there is the answer. */
+    public void testTheQuestionsDialogAnswers() throws Exception {
+        for (int button : new int[] {0, 1}) {
+            host(HOST);
+            Files.write(
+                    base.resolve("before.jsonl"),
+                    events(List.of(BEFORE.get(0), HostEventTest.START_APPROVAL)));
+            Files.write(base.resolve("after.jsonl"), List.of());
+            Files.deleteIfExists(base.resolve("answers.txt"));
+            click = button;
+            AxxHost host = AxxHost.getInstance(getProject());
+            host.start(false);
+            waitFor("the answer", () -> Files.exists(base.resolve("answers.txt")));
+            assertEquals(
+                    button == 0 ? "{\"approve\":1}\n" : "{\"refuse\":1}\n",
+                    Files.readString(base.resolve("answers.txt")));
+            assertNull("a notification asked too", question());
+            host.stop();
+            waitFor("the host stops", () -> !host.isRunning());
+        }
+    }
+
+    /**
+     * A run that waits for another that keeps the services, like an agent's axx up, is said, with a
+     * way out: Restart axx Host, which stops the host and starts it again.
+     */
+    public void testSaysWhenARunWaitsAndRestarts() throws Exception {
+        host(
+                String.join(
+                        "\n",
+                        "#!/bin/sh",
+                        "echo started >> starts.txt",
+                        "cat before.jsonl",
+                        "cat > /dev/null",
+                        ""));
+        Files.write(
+                base.resolve("before.jsonl"),
+                events(
+                        List.of(
+                                "{\"event\":\"serving\",\"addr\":\"127.0.0.1:4000\",\"dir\":\"%s\","
+                                        + "\"services\":[\"api\"]}",
+                                // The IDE's own runs, which get no tab: the waits are said all the same.
+                                "{\"event\":\"run\",\"run\":1,\"command\":\"axx up\",\"ide\":"
+                                        + "\"intellij\",\"state\":\"started\"}",
+                                "{\"event\":\"run\",\"run\":2,\"command\":\"axx run\",\"ide\":"
+                                        + "\"intellij\",\"state\":\"queued\"}",
+                                "{\"event\":\"run\",\"run\":2,\"command\":\"axx run\",\"ide\":"
+                                        + "\"intellij\",\"state\":\"waiting\",\"holder\":1,"
+                                        + "\"holderCommand\":\"axx up\"}")));
+        AxxHost.waitSeconds = 0;
+        AxxHost host = AxxHost.getInstance(getProject());
+        host.start(false);
+        waitFor("the run's wait", () -> question() != null);
+        Notification wait = question();
+        assertEquals("axx host: run 2 waits", wait.getTitle());
+        assertTrue(
+                wait.getContent(),
+                wait.getContent()
+                        .startsWith(
+                                "Run 2 (axx run) waits for run 1 (axx up), which has the"
+                                        + " services."));
+        List<String> buttons = wait.getActions().stream().map(AnAction::getTemplateText).toList();
+        assertEquals(List.of("Restart axx Host"), buttons);
+
+        Notification.fire(wait, wait.getActions().get(0), null);
+        waitFor(
+                "the host to start again",
+                () -> lines("starts.txt") == 2 && host.isRunning() && wait.isExpired());
+        // Restarting a host that stopped starts it.
+        host.stop();
+        waitFor("the host stops", () -> !host.isRunning());
+        host.restart();
+        waitFor("the host to start", () -> lines("starts.txt") == 3 && host.isRunning());
+    }
+
+    /** With the setting off, an agent's run gets its tab, and the Run window stays in the back. */
+    public void testTheRunWindowStaysBackWhenSet() throws Exception {
+        host(String.join("\n", "#!/bin/sh", "cat before.jsonl", "cat > /dev/null", ""));
+        Files.write(
+                base.resolve("before.jsonl"),
+                events(
+                        List.of(
+                                "{\"event\":\"serving\",\"addr\":\"127.0.0.1:4000\",\"dir\":\"%s\","
+                                        + "\"services\":[\"api\"]}",
+                                "{\"event\":\"run\",\"run\":1,\"command\":\"axx run\",\"state\":"
+                                        + "\"queued\"}")));
+        AxxSettings.getInstance().setShowHostRuns(false);
+        AxxHost host = AxxHost.getInstance(getProject());
+        host.start(false);
+        waitFor("the run's tab", () -> host.lastShown() != null);
+        assertFalse(host.lastShown().descriptor().isActivateToolWindowWhenAdded());
+    }
+
+    /** A right click on the host's item in the status bar: Restart axx Host and Stop axx Host. */
+    public void testTheStatusBarItemsMenu() {
+        AnAction menu = ActionManager.getInstance().getAction(AxxHostWidgetFactory.MENU);
+        assertTrue(menu instanceof ActionGroup);
+        List<String> ids =
+                Arrays.stream(((ActionGroup) menu).getChildren(null))
+                        .map(a -> ActionManager.getInstance().getId(a))
+                        .toList();
+        assertEquals(List.of("us.nimbusxr.axx.idea.RestartHost", "us.nimbusxr.axx.idea.StopHost"), ids);
+    }
+
+    private long lines(String file) {
+        try {
+            return Files.readAllLines(base.resolve(file)).size();
+        } catch (java.io.IOException e) {
+            return 0;
+        }
     }
 
     /** The events, with the project directory for the host's and the IDE's own run's. */

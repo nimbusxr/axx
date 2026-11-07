@@ -228,6 +228,15 @@ class HostStateTest {
         assertEquals(
                 "run 4: waits for the run before it",
                 HostState.describe(HostEvent.parse(run(4, "waiting"))));
+        HostEvent waiting =
+                HostEvent.parse(
+                        "{\"event\":\"run\",\"run\":4,\"command\":\"axx run\",\"state\":"
+                                + "\"waiting\",\"holder\":3,\"holderCommand\":\"axx up\"}");
+        assertEquals(3, waiting.holder());
+        assertEquals("axx up", waiting.holderCommand());
+        assertEquals(
+                "run 4: waits for run 3 (axx up), which has the services",
+                HostState.describe(waiting));
         assertEquals(
                 "run 4: waits for your approval of the services' changed definition",
                 HostState.describe(HostEvent.parse(run(4, "approval"))));

@@ -138,6 +138,37 @@ func selectPacks(entries []packset.Entry, compiled map[string]core.Pack) ([]Name
 	return out, nil
 }
 
+// projectSelection is the packs the project's axx-packs.yaml lists, beside
+// cfg's axx.yaml: nil without one.
+func projectSelection(cfg *config.Config) ([]packset.Entry, error) {
+	if cfg.Dir == "" {
+		return nil, nil
+	}
+	f, found, err := packset.Load(cfg.Dir)
+	if err != nil {
+		return nil, axxerr.Wrap(err, CodeUnknownPack, exitcode.Usage, "cannot read %s", packset.FileName)
+	}
+	if !found {
+		return nil, nil
+	}
+	sel, err := f.Entries()
+	if err != nil {
+		return nil, axxerr.Wrap(err, CodeUnknownPack, exitcode.Usage, "invalid %s", packset.FileName)
+	}
+	return sel, nil
+}
+
+// ProjectPacks returns core and the packs of the project cfg is the
+// configuration of, compiled into this axx, in the order they load: what a
+// run of it loads, without loading them.
+func ProjectPacks(cfg *config.Config) ([]NamedPack, error) {
+	sel, err := projectSelection(cfg)
+	if err != nil {
+		return nil, err
+	}
+	return selectPacks(sel, Compiled())
+}
+
 // Engine is an assembled axx environment.
 type Engine struct {
 	// Declared is false for a project without axx-packs.yaml: it loads no
@@ -185,15 +216,10 @@ func New(opts Options) (*Engine, error) {
 	declared := packs != nil
 	if packs == nil {
 		sel := opts.Selection
-		if sel == nil && cfg.Dir != "" {
-			f, found, err := packset.Load(cfg.Dir)
-			if err != nil {
-				return nil, axxerr.Wrap(err, CodeUnknownPack, exitcode.Usage, "cannot read %s", packset.FileName)
-			}
-			if found {
-				if sel, err = f.Entries(); err != nil {
-					return nil, axxerr.Wrap(err, CodeUnknownPack, exitcode.Usage, "invalid %s", packset.FileName)
-				}
+		if sel == nil {
+			var err error
+			if sel, err = projectSelection(cfg); err != nil {
+				return nil, err
 			}
 		}
 		declared = sel != nil

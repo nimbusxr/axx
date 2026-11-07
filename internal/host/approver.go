@@ -177,7 +177,7 @@ func (t *Terminal) Event(e Event) {
 		case StateQueued:
 			t.println(fmt.Sprintf("run %d: %s", e.Run, e.Command))
 		case StateWaiting:
-			t.println(fmt.Sprintf("run %d: waits for the run before it", e.Run))
+			t.println(fmt.Sprintf("run %d: waits for run %d (%s), which has the services", e.Run, e.Holder, e.HolderCommand))
 		case StateApproval:
 			t.println(fmt.Sprintf("run %d: waits for your answer", e.Run))
 		case StateStarting:

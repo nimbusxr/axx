@@ -295,9 +295,10 @@ ALTER TABLE nowhere ADD COLUMN x INT;
 	if tbl == nil {
 		t.Fatalf("tables: %s", s.tableNames())
 	}
-	expect(t, tbl.names(), "[id, total, made_at, region, sku]")
+	// A renamed column keeps its place, as the database keeps it.
+	expect(t, tbl.names(), "[id, sku, total, made_at, region]")
 	for name, required := range map[string]bool{"id": false, "total": false, "made_at": false, "region": true, "sku": true} {
-		if tbl.columns[name].required != required {
+		if tbl.columns[name].required() != required {
 			t.Errorf("%s required = %v", name, !required)
 		}
 	}

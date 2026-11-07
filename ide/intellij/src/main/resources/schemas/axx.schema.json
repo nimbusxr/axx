@@ -20,6 +20,62 @@
       "type": "object",
       "description": "Active configures tag-based application startup."
     },
+    "Command": {
+      "oneOf": [
+        {
+          "type": "string",
+          "description": "command line, split into words without a shell unless shell: true"
+        },
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "minItems": 1,
+          "description": "argv"
+        }
+      ]
+    },
+    "CommandHook": {
+      "oneOf": [
+        {
+          "required": [
+            "before"
+          ]
+        },
+        {
+          "required": [
+            "after"
+          ]
+        }
+      ],
+      "properties": {
+        "before": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Before names the axx command it runs before, by its words after axx:\nfixtures generate. When it fails, that command does not run."
+        },
+        "after": {
+          "type": "string",
+          "minLength": 1,
+          "description": "After names the axx command it runs after, whether that command\nsucceeded or failed: AXX_COMMAND_FAILED is true or false. When it fails,\na command that succeeded fails."
+        },
+        "command": {
+          "$ref": "#/$defs/Command",
+          "description": "Command is what it runs: a string (split like a shell word list,\nwithout a shell) or an argv list. Set shell: true to run it through the\nshell."
+        },
+        "shell": {
+          "type": "boolean",
+          "description": "Shell runs command through /bin/sh -c (cmd /C on Windows)."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "command"
+      ],
+      "description": "CommandHook runs a command before or after one of axx's commands, from the directory of axx.yaml."
+    },
     "Duration": {
       "oneOf": [
         {
@@ -144,6 +200,20 @@
       "additionalProperties": false,
       "type": "object",
       "description": "Fixtures configures `axx fixtures`, the fixture factory: *.factory.yaml, *.fixture.yaml and *.prototype.yaml sources expanded into schema-governed fixture files, with the ownership manifest, drift and conformance checks."
+    },
+    "Hooks": {
+      "properties": {
+        "commands": {
+          "items": {
+            "$ref": "#/$defs/CommandHook"
+          },
+          "type": "array",
+          "description": "Commands run before or after axx's commands, like `axx fixtures\ngenerate`: a schema to write before fixtures are made from it, a report\nto send after a run."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "Hooks run the project's own commands around axx's, by what they run around."
     },
     "Lint": {
       "properties": {
@@ -822,6 +892,10 @@
       "additionalProperties": true,
       "type": "object",
       "description": "Packs holds pack settings keyed by pack name."
+    },
+    "hooks": {
+      "$ref": "#/$defs/Hooks",
+      "description": "Hooks run the project's own commands around axx's, by what they run\naround."
     },
     "lint": {
       "$ref": "#/$defs/Lint",

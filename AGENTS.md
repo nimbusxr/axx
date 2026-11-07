@@ -29,7 +29,11 @@ the skills instead: `axx skills install`.
   `Requires` and use its public context (`packs/web/core/public.go`); the core stays free of any
   pack's specifics: packs get what they need through extension points in `core`. A pack's
   manifest gives its steps, parameter types, hooks, settings and `axx mcp` tools (`Tools`, which
-  look at the scenario an agent keeps open with `steps_try`; `internal/runner/session.go`).
+  look at the scenario an agent keeps open with `steps_try`; `internal/runner/session.go`), and its
+  command hooks (`CommandHooks`). A project's axx.yaml has its own (`hooks.commands`: a command of
+  the project's). Both run before or after one of axx's commands, never inside it, on every command
+  but those of `commandsWithoutPacks` (`internal/cli/commandhooks.go`). Keep it so: before and
+  after, nothing more; another kind of hook gets its own group beside `hooks.commands`.
 - `packs/web/core` (`web-core`): drives Playwright through playwright-go, with the browsers on the machine that runs
   axx. It pins the Playwright version and its hash in `packs/web/internal/driver`, and runs it
   with the Node.js `internal/npm` pins; upgrading playwright-go means updating them

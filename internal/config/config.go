@@ -37,6 +37,9 @@ type Config struct {
 	Services Services `json:"services,omitempty"`
 	// Packs holds pack settings keyed by pack name.
 	Packs map[string]json.RawMessage `json:"packs,omitempty"`
+	// Hooks run the project's own commands around axx's, by what they run
+	// around.
+	Hooks Hooks `json:"hooks,omitzero"`
 	// Lint configures `axx lint`: test-data isolation rules that keep values
 	// such as seed ids unique so scenarios can run in parallel.
 	Lint *Lint `json:"lint,omitempty"`
@@ -53,6 +56,43 @@ type Config struct {
 
 	// sources are the files the configuration was merged from, for Position.
 	sources []source
+}
+
+// Hooks run the project's own commands around axx's, by what they run
+// around. Only commands, for now.
+type Hooks struct {
+	// Commands run before or after axx's commands, like `axx fixtures
+	// generate`: a schema to write before fixtures are made from it, a report
+	// to send after a run.
+	Commands []CommandHook `json:"commands,omitempty"`
+}
+
+// CommandHook runs a command before or after one of axx's commands, from the
+// directory of axx.yaml. It runs with the environment axx has, and
+// AXX_COMMAND, the command's words after axx. Its output goes to axx's
+// stderr. Hooks of one command run in the order axx.yaml has them.
+type CommandHook struct {
+	// Before names the axx command it runs before, by its words after axx:
+	// fixtures generate. When it fails, that command does not run.
+	Before string `json:"before,omitempty" jsonschema:"minLength=1"`
+	// After names the axx command it runs after, whether that command
+	// succeeded or failed: AXX_COMMAND_FAILED is true or false. When it fails,
+	// a command that succeeded fails.
+	After string `json:"after,omitempty" jsonschema:"minLength=1"`
+	// Command is what it runs: a string (split like a shell word list,
+	// without a shell) or an argv list. Set shell: true to run it through the
+	// shell.
+	Command Command `json:"command"`
+	// Shell runs command through /bin/sh -c (cmd /C on Windows).
+	Shell bool `json:"shell,omitempty"`
+}
+
+// Names is the command the hook runs around, and when: before or after.
+func (h CommandHook) Names() (command, when string) {
+	if h.Before != "" {
+		return strings.Join(strings.Fields(h.Before), " "), "before"
+	}
+	return strings.Join(strings.Fields(h.After), " "), "after"
 }
 
 // Run controls execution.

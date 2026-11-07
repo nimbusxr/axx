@@ -312,6 +312,11 @@ func TestRunsTakeTurns(t *testing.T) {
 	if got := f.events.states(2); len(got) < 2 || got[1] != StateWaiting {
 		t.Errorf("the second run's states: %q", got)
 	}
+	// The editor hears which run has the services, to say so.
+	e, ok := f.events.find(func(e Event) bool { return e.Run == 2 && e.State == StateWaiting })
+	if !ok || e.Holder != 1 || e.HolderCommand != "first" {
+		t.Errorf("the waiting event: %+v", e)
+	}
 }
 
 func TestLostRunIsCleanedUp(t *testing.T) {

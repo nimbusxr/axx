@@ -123,7 +123,7 @@ A payload the cloud wraps and encodes on its way to your service, such as a Pub/
 | `yaml` | record-shaped YAML | the same as `json` |
 | `xml` | XML documents | an XSD |
 | `protobuf` | canonical proto-JSON | a `.proto` file or a descriptor set, with the message (`<file>.proto#pkg.Message`, `<set>.desc#pkg.Message`) |
-| `dataset` | SQL seeds: YAML datasets, flat XML or CSV directories | optional SQL DDL (a file or a directory of migrations) |
+| `dataset` | SQL seeds: YAML datasets, flat XML or CSV directories | optional SQL: a file, or a folder of migrations |
 
 A JSON Schema can reference definitions in other local files, by a path relative to the schema holding the `$ref`, with or without a fragment: `"$ref": "address.schema.json"` or `"$ref": "common/money.schema.json#/$defs/Money"`. A failure a referenced file's rule causes names that file. Remote schemas are not fetched: save them next to yours.
 
@@ -134,6 +134,27 @@ factory:
   family: dataset
   options: { format: xml }
   schema: ../../../../infra/postgres/init/01-schema.sql
+```
+
+A dataset's schema is SQL that axx reads, never a database. From it, axx learns each table's columns, which ones every row must fill, and the foreign keys that decide the order a seed's rows are inserted in:
+
+- **A row must fill a column** that is NOT NULL, or part of the primary key, unless it has a default or the database fills it: an identity, a serial, an auto-increment, or a computed column.
+- **A later statement changes a table** as the database would: an added, dropped or renamed column, a column made NOT NULL or given a default, a renamed or dropped table. axx reads the SQL of PostgreSQL, MySQL, MariaDB, SQL Server, Oracle and SQLite.
+- **A folder is read in the order of its files' names.** When a migration tool decides the order (Flyway runs `V2` before `V10`), point the schema at one file of the tables the migrations leave, which the database writes with its own tool: `pg_dump --schema-only`, `mysqldump --no-data` or `mariadb-dump --no-data`, SqlPackage's extract to one file for SQL Server, `DBMS_METADATA.GET_DDL` for Oracle, or the `sql` of SQLite's `sqlite_master`.
+
+A [hook](/guides/run-hooks/) in `axx.yaml` can write that file before `axx fixtures generate`, with a script that runs your migrations as your service does, on a database of your own, then has the database write its schema:
+
+```yaml title="axx.yaml"
+hooks:
+  commands:
+    - before: fixtures generate
+      command: ./scripts/write-schema.sh   # pg_dump --schema-only ... > fixtures/schemas/parcels.sql
+```
+
+```yaml title="seeds/parcels/parcels.factory.yaml"
+factory:
+  family: dataset
+  schema: ../../fixtures/schemas/parcels.sql
 ```
 
 ## Project settings

@@ -23,8 +23,9 @@ import java.util.List;
  *   <li>{@code run}: {@code run}, {@code command}, {@code ide} (the {@code AXX_IDE} of the process
  *       that started the run; empty for an agent's or a terminal's), {@code dir} (on {@code
  *       queued}: the run's project directory as the run sees it), {@code state} (see {@link
- *       #QUEUED} and the other states), {@code services} and {@code seconds}, and on {@code ended}
- *       its {@code error} and {@code result};
+ *       #QUEUED} and the other states), {@code services} and {@code seconds}, on {@code waiting}
+ *       the run that has the services ({@code holder}, {@code holderCommand}), and on {@code
+ *       ended} its {@code error} and {@code result};
  *   <li>{@code report}: {@code run} and {@code line}, a line of the run's TeamCity report;
  *   <li>{@code approval}: {@code id}, {@code run} and {@code command} (of the run that asked; none
  *       when the host asked as it started), {@code approved} (the definition the person last
@@ -59,7 +60,9 @@ public record HostEvent(
         @NotNull String approved,
         @NotNull String proposed,
         @NotNull String diff,
-        @NotNull String answer) {
+        @NotNull String answer,
+        int holder,
+        @NotNull String holderCommand) {
 
     // The kinds of events.
     public static final String SERVING = "serving";
@@ -104,6 +107,7 @@ public record HostEvent(
         proposed = text(proposed);
         diff = text(diff);
         answer = text(answer);
+        holderCommand = text(holderCommand);
     }
 
     /**

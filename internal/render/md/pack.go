@@ -30,7 +30,7 @@ func PackPage(reg *match.Registry, p PackInfo, linkBase string, frontmatter bool
 	}
 	// A pack of hooks alone (one that answers an app's calls, say) has its page too, of what its
 	// doc says it does.
-	if strings.TrimSpace(m.Doc) == "" && len(defs) == 0 && len(settings) == 0 && len(m.Tools) == 0 && len(params) == 0 && len(m.Commands) == 0 {
+	if strings.TrimSpace(m.Doc) == "" && len(defs) == 0 && len(settings) == 0 && len(m.Tools) == 0 && len(params) == 0 && len(m.Commands) == 0 && len(m.CommandHooks) == 0 {
 		return "", fmt.Errorf("pack %s: %w", p.Name, ErrEmpty)
 	}
 	var b strings.Builder
@@ -109,6 +109,16 @@ func PackPage(reg *match.Registry, p PackInfo, linkBase string, frontmatter bool
 			}
 		}
 		each("axx", m.Commands)
+	}
+	if len(m.CommandHooks) > 0 {
+		b.WriteString("\n## Hooks\n\nWhat the pack runs before or after axx's commands, in a project that uses it.\n\n| When | Command | |\n|---|---|---|\n")
+		for _, h := range m.CommandHooks {
+			words := strings.Fields(h.Command)
+			if len(words) == 0 {
+				continue
+			}
+			fmt.Fprintf(&b, "| %s | [`axx %s`](/references/cli/axx-%s/) | %s |\n", h.Phase, strings.Join(words, " "), words[0], escapePipes(oneLine(h.Doc)))
+		}
 	}
 	if len(m.Tools) > 0 {
 		b.WriteString("\n## Tools for agents\n\nWhat the pack lets coding agents do through `axx mcp`, in the scenario they keep open with `steps_try`.\n\n| Tool | |\n|---|---|\n")

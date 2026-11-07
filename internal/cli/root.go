@@ -219,6 +219,7 @@ Docs for people: https://axx.nimbusxr.us`,
 		newVersionCmd(app),
 	)
 	addPackCommands(app, root)
+	addCommandHooks(app, root)
 	return root
 }
 
