@@ -112,3 +112,14 @@ func TestTerminalApprover(t *testing.T) {
 		t.Errorf("says why:\n%s", quiet.String())
 	}
 }
+
+// The terminal says which run a waiting run waits for: the one with the
+// services, which a person may have to stop.
+func TestTerminalSaysWhichRunHasTheServices(t *testing.T) {
+	var out syncBuffer
+	term := NewTerminal(strings.NewReader(""), &out, false, false)
+	term.Event(Event{Event: "run", Run: 4, State: StateWaiting, Holder: 3, HolderCommand: "axx up"})
+	if got := out.String(); got != "run 4: waits for run 3 (axx up), which has the services\n" {
+		t.Errorf("the terminal says %q", got)
+	}
+}

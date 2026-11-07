@@ -110,6 +110,11 @@ public final class HostState {
         return approvals.isEmpty() ? null : approvals.values().iterator().next();
     }
 
+    /** A run's last event, until it ended; null after, or for a run the host never served. */
+    public @Nullable HostEvent run(int number) {
+        return runs.get(number);
+    }
+
     /** A question that waits for an answer, or null when that one does not. */
     public @Nullable HostEvent approval(int id) {
         return approvals.get(id);
@@ -199,7 +204,14 @@ public final class HostState {
         String what =
                 switch (run.state()) {
                     case HostEvent.QUEUED -> run.command();
-                    case HostEvent.WAITING -> "waits for the run before it";
+                    case HostEvent.WAITING ->
+                            run.holder() == 0
+                                    ? "waits for the run before it"
+                                    : "waits for run "
+                                            + run.holder()
+                                            + " ("
+                                            + run.holderCommand()
+                                            + "), which has the services";
                     case HostEvent.APPROVAL_STATE ->
                             "waits for your approval of the services' changed definition";
                     case HostEvent.STARTING -> "starting " + String.join(", ", run.services());

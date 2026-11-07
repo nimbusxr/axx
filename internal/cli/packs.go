@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 	"runtime"
@@ -35,6 +36,14 @@ var packBuilt = os.Getenv(envPackBuild) != ""
 // supervisor is this same executable, and its packs prepare the apps.
 var commandsNeedingPacks = []string{"run", "up", "env", "config", "validate", "lint", "steps", "explain", "mcp", "lsp", "doctor", "skills", "docs"}
 
+// commandsWithoutPacks manage axx and its packs, or serve the commands that
+// run with them: they run with the axx that was started, so no pack's hook
+// runs with them. Every other command runs with the project's packs, for
+// their hooks; one that needs none of its own (commandsNeedingPacks) runs
+// without them when they cannot be prepared, and says that their hooks did
+// not run.
+var commandsWithoutPacks = []string{"pack", "init", "upgrade", "install", "version", "supervise", "help", "completion", "__complete", "__completeNoDesc"}
+
 // commandsFromReference only say what steps and packs there are: when the
 // project's packs cannot be prepared (no network yet, say), they answer from
 // axx's reference of its packs (internal/packref), with a note, as `axx pack
@@ -49,7 +58,8 @@ func (a *App) ensurePacks(ctx context.Context, cmd *cobra.Command) error {
 	for top.HasParent() && top.Parent().HasParent() {
 		top = top.Parent()
 	}
-	needs := slices.Contains(commandsNeedingPacks, top.Name()) || cmd.CommandPath() == "axx pack list"
+	strict := slices.Contains(commandsNeedingPacks, top.Name()) || cmd.CommandPath() == "axx pack list"
+	needs := strict || (top != cmd.Root() && !slices.Contains(commandsWithoutPacks, top.Name()))
 	if cmd.CommandPath() == "axx mcp install" {
 		needs = false // writes agents' configuration, no steps
 	}
@@ -77,6 +87,11 @@ func (a *App) ensurePacks(ctx context.Context, cmd *cobra.Command) error {
 	err := a.prepareProjectPacks(ctx)
 	if err != nil && ctx.Err() == nil && slices.Contains(commandsFromReference, cmd.CommandPath()) {
 		a.notPrepared = err
+		return nil
+	}
+	if err != nil && ctx.Err() == nil && !strict {
+		fmt.Fprintf(a.Stderr, "warning: the project's packs could not be prepared, so `%s` runs without their hooks: %s\n", cmd.CommandPath(), hookMessage(err))
+		a.withoutPackHooks = true
 		return nil
 	}
 	return err

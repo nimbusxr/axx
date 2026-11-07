@@ -96,6 +96,15 @@
       <separator/>
       <add-to-group group-id="ToolsMenu" anchor="last"/>
     </group>
+    <!-- The menu of the host's item in the status bar, on a right click: in no other menu. -->
+    <group id="us.nimbusxr.axx.idea.HostWidget">
+      <action
+          id="us.nimbusxr.axx.idea.RestartHost"
+          class="us.nimbusxr.axx.idea.host.AxxHostActions$Restart"
+          text="Restart axx Host"
+          description="Stop the axx host the IDE started and start it again, which stops the services a run keeps, like an agent's axx up"/>
+      <reference ref="us.nimbusxr.axx.idea.StopHost"/>
+    </group>
   </actions>
 
   <projectListeners>

@@ -47,6 +47,9 @@ func TestMain(m *testing.M) {
 	}
 	if os.Getenv(helperEnv) == "1" {
 		args := os.Args[1:]
+		if len(args) == 4 && args[0] == "hook" {
+			os.Exit(hookHelper(args[1], args[2], args[3]))
+		}
 		if len(args) == 3 && args[0] == "append" {
 			f, err := os.OpenFile(args[1], os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
 			if err != nil {

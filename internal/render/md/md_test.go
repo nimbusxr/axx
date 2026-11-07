@@ -204,6 +204,19 @@ func TestPackPage(t *testing.T) {
 		strings.Contains(out, "`axx stubs`]") {
 		t.Errorf("a pack of commands only: %v\n%s", err, out)
 	}
+	// A pack of command hooks only has its page too, which lists them.
+	noop := func(*core.CommandHookCall) error { return nil }
+	commandHooksOnly := PackInfo{Name: "schemas", Manifest: core.Manifest{Name: "schemas", CommandHooks: []core.CommandHook{
+		{Command: "fixtures generate", Phase: core.BeforeCommand, Doc: "Writes the schema | first.", Run: noop},
+		{Command: "run", Phase: core.AfterCommand, Doc: "Tidies up.", Run: noop},
+		{Command: " ", Phase: core.AfterCommand, Run: noop},
+	}}}
+	out, err = PackPage(reg, commandHooksOnly, "/references/packs/", false)
+	if err != nil || !strings.Contains(out, "## Hooks") ||
+		!strings.Contains(out, "| before | [`axx fixtures generate`](/references/cli/axx-fixtures/) | Writes the schema \\| first. |") ||
+		!strings.Contains(out, "| after | [`axx run`](/references/cli/axx-run/) | Tidies up. |") || strings.Count(out, "| after |") != 1 {
+		t.Errorf("a pack of command hooks only: %v\n%s", err, out)
+	}
 	// A pack of hooks alone has its page, of its doc.
 	hooksOnly := PackInfo{Name: "answers", Manifest: core.Manifest{
 		Name: "answers", Doc: "Answers the app's calls.", Requires: []string{"stubs"},

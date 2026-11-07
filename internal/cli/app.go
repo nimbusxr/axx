@@ -8,6 +8,8 @@ import (
 	"io"
 	"os"
 
+	"github.com/spf13/cobra"
+
 	"github.com/nimbusxr/axx/internal/axxerr"
 	"github.com/nimbusxr/axx/internal/exitcode"
 )
@@ -55,6 +57,20 @@ type App struct {
 	// so, in what the command answers.
 	notPrepared error
 	note        string
+	// hookProblems are the packs' command hooks that never run, for `axx
+	// doctor`.
+	hookProblems []HookProblem
+	// withoutPackHooks is set when the project's packs could not be
+	// prepared for a command that runs without them: it runs without their
+	// hooks.
+	withoutPackHooks bool
+	// root is the command line's root command, which hooks are checked
+	// against.
+	root *cobra.Command
+	// holding keeps the --json envelopes a command writes in held, until
+	// its after hooks have run: one that fails is in the command's answer.
+	holding bool
+	held    []Envelope
 }
 
 // NewApp returns an App bound to the process's standard streams.
@@ -124,6 +140,10 @@ func (a *App) withNote(data any) any {
 }
 
 func (a *App) writeEnvelope(env Envelope) error {
+	if a.holding {
+		a.held = append(a.held, env)
+		return nil
+	}
 	return encodeEnvelope(a.Stdout, env)
 }
 

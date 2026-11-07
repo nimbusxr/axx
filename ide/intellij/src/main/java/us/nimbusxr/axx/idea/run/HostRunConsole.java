@@ -49,15 +49,18 @@ public final class HostRunConsole {
     }
 
     /**
-     * Shows the tab in the Run tool window, which opens without taking the focus: the person sees
-     * the run, and keeps typing where they were. On the UI thread.
+     * Shows the tab in the Run tool window, without taking the focus: the person keeps typing where
+     * they were. On the UI thread.
      *
      * @param reuse the tab of an earlier run to show it in, when that run ended; null for a new tab
+     * @param forward whether the Run tool window comes forward to show it; else the tab is there,
+     *     in the back, and the window the person looks at stays in front
      * @throws ExecutionException when the test runner's console cannot be made
      */
-    public void show(@Nullable HostRunConsole reuse) throws ExecutionException {
+    public void show(@Nullable HostRunConsole reuse, boolean forward) throws ExecutionException {
         RunContentDescriptor old = reuse != null && reuse.isEnded() ? reuse.descriptor : null;
         RunContentDescriptor shown = attach();
+        shown.setActivateToolWindowWhenAdded(forward);
         RunContentManager.getInstance(project)
                 .showRunContent(DefaultRunExecutor.getRunExecutorInstance(), shown, old);
     }

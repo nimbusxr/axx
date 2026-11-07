@@ -28,6 +28,7 @@ public final class AxxConfigurable implements Configurable {
     private @Nullable TextFieldWithBrowseButton executable;
     private @Nullable JBIntSpinner watchSlowdown;
     private @Nullable JBCheckBox startHost;
+    private @Nullable JBCheckBox showHostRuns;
 
     @Override
     public String getDisplayName() {
@@ -46,6 +47,8 @@ public final class AxxConfigurable implements Configurable {
         slowdown.add(watchSlowdown);
         slowdown.add(new JLabel(" ms"));
         startHost = new JBCheckBox("Start the axx host when an axx project opens");
+        showHostRuns =
+                new JBCheckBox("Bring the Run window forward when the axx host starts a run");
         return FormBuilder.createFormBuilder()
                 .addLabeledComponent("axx executable:", executable)
                 .addTooltip(
@@ -62,6 +65,11 @@ public final class AxxConfigurable implements Configurable {
                                 + " agent's in a sandbox without Docker, and asks you here before"
                                 + " it starts services whose definition changed. Tools | Start axx"
                                 + " Host starts it too.")
+                .addComponent(showHostRuns)
+                .addTooltip(
+                        "The runs the axx host serves, like an agent's, get a tab in the Run"
+                                + " window either way. Off, the window you are in stays in front."
+                                + " Runs you start from the IDE always come forward.")
                 .addComponentFillVertically(new JPanel(), 0)
                 .getPanel();
     }
@@ -74,7 +82,9 @@ public final class AxxConfigurable implements Configurable {
                                 .equals(settings.getExecutable()))
                 || (watchSlowdown != null
                         && watchSlowdown.getNumber() != settings.getWatchSlowdownMillis())
-                || (startHost != null && startHost.isSelected() != settings.isStartHost());
+                || (startHost != null && startHost.isSelected() != settings.isStartHost())
+                || (showHostRuns != null
+                        && showHostRuns.isSelected() != settings.isShowHostRuns());
     }
 
     @Override
@@ -85,6 +95,9 @@ public final class AxxConfigurable implements Configurable {
         }
         if (startHost != null) {
             settings.setStartHost(startHost.isSelected());
+        }
+        if (showHostRuns != null) {
+            settings.setShowHostRuns(showHostRuns.isSelected());
         }
         if (executable == null
                 || AxxExecutable.normalize(executable.getText()).equals(settings.getExecutable())) {
@@ -108,6 +121,9 @@ public final class AxxConfigurable implements Configurable {
         if (startHost != null) {
             startHost.setSelected(AxxSettings.getInstance().isStartHost());
         }
+        if (showHostRuns != null) {
+            showHostRuns.setSelected(AxxSettings.getInstance().isShowHostRuns());
+        }
     }
 
     @Override
@@ -115,5 +131,6 @@ public final class AxxConfigurable implements Configurable {
         executable = null;
         watchSlowdown = null;
         startHost = null;
+        showHostRuns = null;
     }
 }

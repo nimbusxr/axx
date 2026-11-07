@@ -111,6 +111,12 @@ func init() {
 	add("AXX-E0016", u, "A pack's command failed",
 		"A command a pack adds to axx (one `axx --help` lists in a project that uses the pack) failed, with an error of the pack's own: the message is the pack's.",
 		"The hint names the pack. Run the command with `--help` for what it takes, and see the pack's reference.")
+	add("AXX-E0022", env, "A pack's hook failed",
+		"A pack runs a hook before or after one of axx's commands (`axx doctor` lists the project's hooks), and it failed with an error of the pack's own: the message is the pack's. A hook that fails before its command stops it; one that fails after a command that succeeded fails it.",
+		"The message names the pack and the command. Fix what it says, or see the pack's reference for what its hook needs.")
+	add("AXX-E0023", env, "A hook in axx.yaml failed",
+		"A command of axx.yaml's `hooks.commands`, which runs before or after one of axx's commands, exited with a code other than 0, or could not start. A hook that fails before its command stops it; one that fails after a command that succeeded fails it.",
+		"Its output is above the error. Fix what it says, or the hook's `command` in axx.yaml: it runs from the directory of axx.yaml, without a shell unless `shell: true`.")
 
 	add("AXX-E0100", u, "Config file not found",
 		"The file given with `--config` does not exist or cannot be read.",
@@ -128,6 +134,9 @@ func init() {
 		"A `--set` is not a dotted path to a key of `axx.yaml` and a value.",
 		"Write `--set path.to.key=value`, like `--set run.workers=1` or `--set packs.<pack>.<key>=value`. The value is read as YAML, so `true` and `1` are a boolean and a number.")
 
+	add("AXX-E0106", u, "A hook in axx.yaml names no command",
+		"A hook of axx.yaml's `hooks.commands` names, in `before` or `after`, a command axx does not have, one that only groups others (`fixtures`), or one that has no hooks because it manages axx and its packs (`pack`, `init`, `upgrade`, `install`, `version`); or its `command` runs nothing. Every command but `axx doctor`, which lists it, stops.",
+		"Name the command by its words after axx, as `axx --help` lists them: `before: fixtures generate`.")
 	add("AXX-E0200", u, "Feature file does not parse",
 		"A `.feature` file has a Gherkin syntax error.",
 		"Fix the reported line. `axx validate` checks every feature without running anything.")

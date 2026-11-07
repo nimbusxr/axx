@@ -105,7 +105,7 @@ The project folder the agent edits must be the one on your disk, not a copy: the
 
 The [VS Code extension and the IntelliJ plugin](/guides/set-up-your-editor/#the-axx-host) can start the host when you open the project, and stop it when you close it:
 
-- An approval is a notification with **Show Diff**, **Approve** and **Refuse**, and the diff opens in the editor's diff view. It works as the terminal's question does: it stays open until you answer. Only a click on that notification approves. Nothing else in the editor can, including an agent's editor tools.
+- An approval has **Show Diff**, **Approve** and **Refuse**, and the diff opens in the editor's diff view: a notification in VS Code, and a dialog in front of IntelliJ IDEA. It works as the terminal's question does: it stays open until you answer. Only a click there approves. Nothing else in the editor can, including an agent's editor tools.
 - The agent's runs show in the test results as they run, scenario by scenario.
 - The status bar shows what the host is doing: idle, a run's services starting or running, or waiting for your approval.
 

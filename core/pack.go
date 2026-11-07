@@ -110,6 +110,8 @@ type Manifest struct {
 	Tools []Tool `json:"tools,omitempty"`
 	// Commands are what the pack adds to axx's command line.
 	Commands []Command `json:"commands,omitempty"`
+	// CommandHooks run before or after axx's commands, and those packs add.
+	CommandHooks []CommandHook `json:"commandHooks,omitempty"`
 	// ConfigSchema is a JSON Schema for the pack's section in axx.yaml.
 	ConfigSchema json.RawMessage `json:"configSchema,omitempty"`
 	// Checks are what `axx doctor` checks for the pack, in a project that

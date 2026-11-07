@@ -213,6 +213,10 @@ func (a *App) doctor(ctx context.Context, cf *configFlags) (rep DoctorReport) {
 		add("step packs", "warn", "no axx-packs.yaml: the project uses no packs, so it has no steps", "add the packs your steps come from with `axx pack add rest sql ...` (`axx pack list` lists them)")
 	}
 
+	if name, status, detail, hint := hookChecks(a.root, cfg, e.Packs, a.hookProblems); detail != "" {
+		add(name, status, detail, hint)
+	}
+
 	// What the project's packs need of the machine.
 	for _, p := range e.Packs {
 		for _, c := range p.Pack.Manifest().Checks {

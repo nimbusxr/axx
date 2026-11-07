@@ -96,6 +96,9 @@ type Event struct {
 	Result  *Result  `json:"result,omitempty"`
 	Seconds float64  `json:"seconds,omitempty"`
 	Line    string   `json:"line,omitempty"`
+	// waiting: the run that has the services, and its command.
+	Holder        int    `json:"holder,omitempty"`
+	HolderCommand string `json:"holderCommand,omitempty"`
 
 	// approval: a question for the person (an editor answers it on the
 	// host's standard input); answered: its answer (approved, refused, or
@@ -415,7 +418,8 @@ func (s *Server) handle(ctx context.Context, conn net.Conn) {
 		ev(StateEnded, e)
 	}
 
-	if !s.take(runCtx, run, req.Command, l, func() { ev(StateWaiting, Event{}) }) {
+	waiting := func(holder int, command string) { ev(StateWaiting, Event{Holder: holder, HolderCommand: command}) }
+	if !s.take(runCtx, run, req.Command, l, waiting) {
 		ended(hostErr(CodeInterrupted, "the run stopped waiting for its turn"), began)
 		return
 	}
@@ -578,7 +582,7 @@ func (s *Server) ask(def *Definition, run int, command string) *question {
 
 // take waits for the run's turn with the services, telling it who has
 // them meanwhile. It reports false when the run stopped waiting.
-func (s *Server) take(ctx context.Context, run int, command string, l *lines, waiting func()) bool {
+func (s *Server) take(ctx context.Context, run int, command string, l *lines, waiting func(holder int, command string)) bool {
 	held := func() {
 		s.mu.Lock()
 		s.holder.run, s.holder.command = run, command
@@ -594,7 +598,7 @@ func (s *Server) take(ctx context.Context, run int, command string, l *lines, wa
 	other, cmd := s.holder.run, s.holder.command
 	s.mu.Unlock()
 	_ = l.write(Message{Type: MsgWaiting, Reason: fmt.Sprintf("waiting for run %d (%s) to finish with the services", other, cmd)})
-	waiting()
+	waiting(other, cmd)
 	select {
 	case s.turn <- struct{}{}:
 		held()

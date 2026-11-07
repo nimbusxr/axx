@@ -32,6 +32,9 @@ public final class AxxSettings implements PersistentStateComponent<AxxSettings.S
 
         /** Whether the axx host starts when an axx project opens. */
         public boolean startHost;
+
+        /** Whether the Run tool window comes forward when the axx host starts a run. */
+        public boolean showHostRuns = true;
     }
 
     /** The default wait after every browser action when watching. */
@@ -90,5 +93,18 @@ public final class AxxSettings implements PersistentStateComponent<AxxSettings.S
 
     public void setStartHost(boolean startHost) {
         state.startHost = startHost;
+    }
+
+    /**
+     * Whether the Run tool window comes forward when the axx host starts a run the IDE did not,
+     * like an agent's; on unless set. Off, the run's tab is there all the same, in the back: the
+     * window that has the person's attention keeps it.
+     */
+    public boolean isShowHostRuns() {
+        return state.showHostRuns;
+    }
+
+    public void setShowHostRuns(boolean showHostRuns) {
+        state.showHostRuns = showHostRuns;
     }
 }

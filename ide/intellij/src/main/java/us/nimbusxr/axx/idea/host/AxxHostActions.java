@@ -11,8 +11,9 @@ import org.jetbrains.annotations.NotNull;
 import us.nimbusxr.axx.idea.AxxProject;
 
 /**
- * Start axx Host, Stop axx Host and Show axx Host Approval, in the Tools menu. None of them answers
- * a question of the host: only the person's click on its notification does.
+ * Start axx Host, Stop axx Host and Show axx Host Approval, in the Tools menu, and Restart axx Host,
+ * with Stop in the menu of the host's item in the status bar. None of them answers a question of
+ * the host: only the person's click on it does.
  */
 public abstract class AxxHostActions extends DumbAwareAction {
     @Override
@@ -61,6 +62,25 @@ public abstract class AxxHostActions extends DumbAwareAction {
             AxxHost host = AxxHost.getIfCreated(event.getProject());
             if (host != null) {
                 host.stop();
+            }
+        }
+    }
+
+    /**
+     * Stops the axx host the IDE started and starts it again, which stops the services a run keeps,
+     * like an agent's {@code axx up}; starts one when none runs.
+     */
+    public static final class Restart extends AxxHostActions {
+        @Override
+        boolean isEnabled(AxxHost host) {
+            return host != null;
+        }
+
+        @Override
+        public void actionPerformed(@NotNull AnActionEvent event) {
+            AxxHost host = AxxHost.getIfCreated(event.getProject());
+            if (host != null) {
+                host.restart();
             }
         }
     }

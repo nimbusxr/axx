@@ -2,6 +2,7 @@
 package us.nimbusxr.axx.idea.host;
 
 import com.intellij.diff.DiffContentFactory;
+import com.intellij.diff.DiffDialogHints;
 import com.intellij.diff.DiffManager;
 import com.intellij.diff.contents.DocumentContent;
 import com.intellij.diff.requests.SimpleDiffRequest;
@@ -19,8 +20,11 @@ import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.fileTypes.FileType;
 import com.intellij.openapi.fileTypes.FileTypeManager;
 import com.intellij.openapi.project.Project;
+import com.intellij.openapi.ui.MessageDialogBuilder;
 import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.openapi.wm.impl.status.widget.StatusBarWidgetsManager;
+import com.intellij.ui.AppIcon;
+import com.intellij.ui.SystemNotifications;
 import com.intellij.util.concurrency.AppExecutorUtil;
 import com.intellij.util.messages.Topic;
 
@@ -28,6 +32,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import us.nimbusxr.axx.idea.AxxBinary;
+import us.nimbusxr.axx.idea.AxxSettings;
 import us.nimbusxr.axx.idea.ConfigFinder;
 import us.nimbusxr.axx.idea.run.HostRunConsole;
 
@@ -45,13 +50,16 @@ import java.util.concurrent.TimeUnit;
  * project's axx.yaml. Runs that cannot start the project's services themselves, such as an agent's
  * in a sandbox without Docker, ask it for them.
  *
- * <p>It asks the person the host's questions in notifications: whether the services may start by a
- * definition that changed since they approved one (asked for a run, or as the host starts). A
- * question stays until answered or replaced by a newer one. The answer is their click on the
- * notification (Approve or Refuse), which it writes to the host's standard input, which only the
- * IDE holds: there is no action that answers. It shows the runs the IDE did not start in the Run
- * tool window as they happen (the IDE's own show already), and the host's state in the status bar
- * (see {@link AxxHostWidgetFactory}). The host's log goes to idea.log.
+ * <p>It asks the person the host's questions in a dialog in front of the IDE, which asks for their
+ * attention when the IDE is in the back (its Dock icon, a system notification): whether the
+ * services may start by a definition that changed since they approved one (asked for a run, or as
+ * the host starts). Closed without an answer, a question stays in a notification, until answered
+ * or replaced by a newer one. The answer is their click (Approve or Refuse), which it writes to the
+ * host's standard input, which only the IDE holds: there is no action that answers. It shows the
+ * runs the IDE did not start in the Run tool window as they happen (the IDE's own show already),
+ * says when a run has waited a while for another that has the services (an agent's {@code axx up},
+ * say), and shows the host's state in the status bar (see {@link AxxHostWidgetFactory}). The host's
+ * log goes to idea.log.
  *
  * <p>It stops the host when the project closes: it closes the host's input, and the host stops the
  * services of a run in progress, cleans up after them and exits. It kills the host if it has not
@@ -68,6 +76,17 @@ public final class AxxHost implements Disposable {
     static final String QUESTIONS = "axx host";
 
     private static final long STOP_SECONDS = 60;
+
+    /**
+     * How long a run waits for another before the IDE says which one has the services; tests make
+     * it shorter.
+     */
+    static long waitSeconds = 10;
+
+    // The buttons of a question.
+    static final String APPROVE = "Approve";
+    static final String REFUSE = "Refuse";
+    static final String SHOW_DIFF = "Show Diff";
 
     /** Hears about the host's state, on the project's message bus. */
     public interface Listener {
@@ -175,8 +194,33 @@ public final class AxxHost implements Disposable {
                         TimeUnit.SECONDS);
     }
 
+    /**
+     * Stops the host, then starts it again once it stopped: the services of a run in progress stop,
+     * like those an {@code axx up} keeps, and the next runs start them afresh. Starts one when
+     * none runs.
+     */
+    public void restart() {
+        Session session;
+        synchronized (lock) {
+            session = current;
+            if (session != null && session.exit == null) {
+                session.restart = true;
+            }
+        }
+        if (session == null || session.exit != null) {
+            start(false);
+            return;
+        }
+        stop();
+    }
+
     @Override
     public void dispose() {
+        synchronized (lock) {
+            if (current != null) {
+                current.restart = false;
+            }
+        }
         stop();
     }
 
@@ -292,6 +336,41 @@ public final class AxxHost implements Disposable {
         return html.toString();
     }
 
+    /** A question's text in the dialog, which shows text: as {@link #questionText}, in lines. */
+    static @NotNull String questionDialogText(@NotNull HostEvent question) {
+        StringBuilder text = new StringBuilder();
+        if (question.run() == 0) {
+            text.append("The services' definition changed since you last approved it.");
+        } else {
+            text.append("Run ").append(question.run());
+            if (!question.command().isEmpty()) {
+                text.append(" (").append(question.command()).append(")");
+            }
+            text.append(" needs services whose definition changed since you approved it.");
+        }
+        if (!question.warnings().isEmpty()) {
+            text.append("\n\nWhat in it reaches past a container:");
+            for (String warning : question.warnings()) {
+                text.append("\n• ").append(warning);
+            }
+        }
+        return text.append("\n\nShow Diff shows what changed.").toString();
+    }
+
+    /** What a waiting run is told: the run it waits for, which has the services. */
+    static @NotNull String waitingText(@NotNull HostEvent waiting) {
+        return "Run "
+                + waiting.run()
+                + " ("
+                + waiting.command()
+                + ") waits for run "
+                + waiting.holder()
+                + " ("
+                + waiting.holderCommand()
+                + "), which has the services. An axx up keeps them until axx down; restarting the"
+                + " host stops its services.";
+    }
+
     private static void appendWarnings(StringBuilder html, List<String> warnings) {
         if (warnings.isEmpty()) {
             return;
@@ -303,8 +382,11 @@ public final class AxxHost implements Disposable {
         html.append("</ul>");
     }
 
-    /** Shows what a question asks to approve: the approved definition and the proposed one. */
-    private void showDiff(HostEvent question) {
+    /**
+     * Shows what a question asks to approve: the approved definition and the proposed one. From the
+     * question's dialog, in a dialog of its own, which goes back to the question once closed.
+     */
+    private void showDiff(HostEvent question, boolean modal) {
         DiffContentFactory contents = DiffContentFactory.getInstance();
         FileType yaml = FileTypeManager.getInstance().getFileTypeByExtension("yaml");
         DocumentContent approved = contents.create(project, question.approved(), yaml);
@@ -321,7 +403,21 @@ public final class AxxHost implements Disposable {
                                 approved,
                                 proposed,
                                 question.approved().isEmpty() ? "Approved (none)" : "Approved",
-                                "Proposed"));
+                                "Proposed"),
+                        modal ? DiffDialogHints.MODAL : DiffDialogHints.DEFAULT);
+    }
+
+    /**
+     * Asks for the person's attention, when the IDE is in the back: its Dock icon (or taskbar
+     * button) until they come to it, and a notification of the system's.
+     */
+    private void attention(String title, String text) {
+        if (ApplicationManager.getApplication().isHeadlessEnvironment()
+                || ApplicationManager.getApplication().isActive()) {
+            return;
+        }
+        AppIcon.getInstance().requestAttention(project, true);
+        SystemNotifications.getInstance().notify("axx host", title, text);
     }
 
     private void changed() {
@@ -363,11 +459,15 @@ public final class AxxHost implements Disposable {
         // they see them, by number.
         private final Map<Integer, HostRunConsole> shown = new ConcurrentHashMap<>();
         private final Map<Integer, String> runDirs = new ConcurrentHashMap<>();
-        // On the UI thread: the notifications that ask its questions, by id.
+        // On the UI thread: the notifications that ask its questions, by id; those that say a run
+        // waits for another, by the waiting run.
         private final Map<Integer, Notification> questions = new HashMap<>();
+        private final Map<Integer, Notification> waits = new HashMap<>();
         private HostProcess process;
-        // Under lock: the IDE asked it to stop; how it ended, once it did.
+        // Under lock: the IDE asked it to stop, and to start again once it did; how it ended, once
+        // it did.
         private boolean stopping;
+        private boolean restart;
         private @Nullable HostState.Exit exit;
 
         Session(Path dir, boolean quiet) {
@@ -382,12 +482,21 @@ public final class AxxHost implements Disposable {
             }
             switch (event.event()) {
                 case HostEvent.SERVING -> serving(event);
-                case HostEvent.RUN -> run(event);
+                case HostEvent.RUN -> {
+                    waiting(event);
+                    run(event);
+                }
                 case HostEvent.REPORT -> {
                     report(event);
                     return;
                 }
-                case HostEvent.APPROVAL -> onUiThread(() -> ask(event.id()));
+                // Not while a dialog is open: one question at a time.
+                case HostEvent.APPROVAL ->
+                        ApplicationManager.getApplication()
+                                .invokeLater(
+                                        () -> ask(event.id()),
+                                        ModalityState.nonModal(),
+                                        project.getDisposed());
                 case HostEvent.ANSWERED -> answered(event);
                 default -> {}
             }
@@ -450,7 +559,9 @@ public final class AxxHost implements Disposable {
                         .invokeLater(
                                 () -> {
                                     try {
-                                        created.show(lastShown);
+                                        created.show(
+                                                lastShown,
+                                                AxxSettings.getInstance().isShowHostRuns());
                                         lastShown = created;
                                     } catch (ExecutionException e) {
                                         LOG.warn("axx host: cannot show run " + event.run(), e);
@@ -468,6 +579,55 @@ public final class AxxHost implements Disposable {
                 console.end(HostState.exitCode(event));
                 shown.remove(event.run());
                 runDirs.remove(event.run());
+            }
+        }
+
+        /**
+         * Says so when a run has waited {@link #waitSeconds} for another that has the services,
+         * with a way out: restarting the host. It goes once the run stops waiting.
+         */
+        private void waiting(HostEvent event) {
+            int run = event.run();
+            if (!HostEvent.WAITING.equals(event.state()) || event.holder() == 0) {
+                onUiThread(() -> unwait(run));
+                return;
+            }
+            AppExecutorUtil.getAppScheduledExecutorService()
+                    .schedule(
+                            () -> onUiThread(() -> showWait(event)),
+                            waitSeconds,
+                            TimeUnit.SECONDS);
+        }
+
+        /** Shows that a run waits, if it still does. On the UI thread. */
+        private void showWait(HostEvent event) {
+            synchronized (lock) {
+                HostEvent now = state.run(event.run());
+                if (exit != null || now == null || !HostEvent.WAITING.equals(now.state())) {
+                    return;
+                }
+            }
+            if (waits.containsKey(event.run())) {
+                return;
+            }
+            Notification notification =
+                    NotificationGroupManager.getInstance()
+                            .getNotificationGroup(QUESTIONS)
+                            .createNotification(
+                                    "axx host: run " + event.run() + " waits",
+                                    StringUtil.escapeXmlEntities(waitingText(event)),
+                                    NotificationType.WARNING);
+            notification.addAction(
+                    NotificationAction.createSimpleExpiring("Restart axx Host", AxxHost.this::restart));
+            waits.put(event.run(), notification);
+            notification.notify(project);
+        }
+
+        /** Closes what says a run waits. On the UI thread. */
+        private void unwait(int run) {
+            Notification notification = waits.remove(run);
+            if (notification != null) {
+                notification.expire();
             }
         }
 
@@ -491,7 +651,11 @@ public final class AxxHost implements Disposable {
             return serving == null || serving.dir().isEmpty() ? dir : Path.of(serving.dir());
         }
 
-        /** Asks the person a question, in a notification. On the UI thread. */
+        /**
+         * Asks the person a question, in a dialog in front of the IDE: Show Diff (its default, so a
+         * key pressed as it opens answers nothing) shows what changed and asks again. Closed, the
+         * question stays in a notification. On the UI thread.
+         */
         void ask(int id) {
             HostEvent question;
             synchronized (lock) {
@@ -501,6 +665,35 @@ public final class AxxHost implements Disposable {
             if (question == null) {
                 return;
             }
+            attention(questionTitle(question), questionDialogText(question));
+            while (true) {
+                String choice =
+                        new MessageDialogBuilder.Message(
+                                        questionTitle(question), questionDialogText(question))
+                                .buttons(APPROVE, REFUSE, SHOW_DIFF)
+                                .defaultButton(SHOW_DIFF)
+                                .focusedButton(SHOW_DIFF)
+                                .asWarning()
+                                .show(project, null);
+                synchronized (lock) {
+                    if (state.approval(id) == null) {
+                        return; // answered, replaced or dropped while it showed
+                    }
+                }
+                if (SHOW_DIFF.equals(choice)) {
+                    showDiff(question, true);
+                } else if (APPROVE.equals(choice) || REFUSE.equals(choice)) {
+                    answer(id, APPROVE.equals(choice));
+                    return;
+                } else {
+                    notifyQuestion(id, question);
+                    return;
+                }
+            }
+        }
+
+        /** Keeps a question the person closed in a notification. On the UI thread. */
+        private void notifyQuestion(int id, HostEvent question) {
             Notification notification =
                     NotificationGroupManager.getInstance()
                             .getNotificationGroup(QUESTIONS)
@@ -508,18 +701,13 @@ public final class AxxHost implements Disposable {
                                     questionTitle(question),
                                     questionText(question),
                                     NotificationType.WARNING);
-            // Show Diff keeps the question open: it asks it again, next to the diff.
+            // Show Diff keeps the question open, next to the diff.
             notification.addAction(
-                    NotificationAction.createSimple(
-                            "Show Diff",
-                            () -> {
-                                showDiff(question);
-                                ask(id);
-                            }));
+                    NotificationAction.createSimple(SHOW_DIFF, () -> showDiff(question, false)));
             notification.addAction(
-                    NotificationAction.createSimpleExpiring("Approve", () -> answer(id, true)));
+                    NotificationAction.createSimpleExpiring(APPROVE, () -> answer(id, true)));
             notification.addAction(
-                    NotificationAction.createSimpleExpiring("Refuse", () -> answer(id, false)));
+                    NotificationAction.createSimpleExpiring(REFUSE, () -> answer(id, false)));
             questions.put(id, notification);
             notification.notify(project);
         }
@@ -570,6 +758,9 @@ public final class AxxHost implements Disposable {
                         for (Integer id : new ArrayList<>(questions.keySet())) {
                             forget(id);
                         }
+                        for (Integer run : new ArrayList<>(waits.keySet())) {
+                            unwait(run);
+                        }
                     });
             switch (how) {
                 case NO_SERVICES -> {
@@ -596,6 +787,13 @@ public final class AxxHost implements Disposable {
             }
             changed();
             updateWidget();
+            boolean again;
+            synchronized (lock) {
+                again = restart && current == this;
+            }
+            if (again) {
+                start(false);
+            }
         }
     }
 }

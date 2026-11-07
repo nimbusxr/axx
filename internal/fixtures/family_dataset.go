@@ -239,7 +239,7 @@ func resolveRow(spec *Spec, columns *ddlTable, table string, merged *jsonx.Objec
 				return nil, err
 			}
 			row.Set(name, value)
-		} else if col.required {
+		} else if col.required() {
 			*unresolved = append(*unresolved, "column '"+table+"."+name+"' (NOT NULL, no database default) in fixtures."+key+" ("+spec.SourceName+")")
 		}
 	}

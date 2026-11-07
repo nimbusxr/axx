@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os/exec"
 	"sync"
 	"time"
@@ -24,6 +25,9 @@ type Spec struct {
 	Timeout time.Duration
 	// Limit is how many bytes of each stream are kept (0: 8 MiB).
 	Limit int
+	// Output, when set, gets both streams as the command writes them, besides
+	// what the Result keeps.
+	Output io.Writer
 }
 
 // Result is how a command ended and what it wrote.
@@ -68,6 +72,10 @@ func Run(ctx context.Context, s Spec) (*Result, error) {
 	cmd.Env = s.Env
 	cmd.Stdin = bytes.NewReader(s.Stdin)
 	cmd.Stdout, cmd.Stderr = stdout, stderr
+	if s.Output != nil {
+		out := &lockedWriter{w: s.Output}
+		cmd.Stdout, cmd.Stderr = io.MultiWriter(stdout, out), io.MultiWriter(stderr, out)
+	}
 	cmd.WaitDelay = pipesGrace
 	Setup(cmd)
 	start := time.Now()
@@ -161,4 +169,16 @@ func (c *capped) bytes() []byte {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return bytes.Clone(c.b.Bytes())
+}
+
+// lockedWriter takes the writes of a command's two streams one at a time.
+type lockedWriter struct {
+	mu sync.Mutex
+	w  io.Writer
+}
+
+func (l *lockedWriter) Write(p []byte) (int, error) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.w.Write(p)
 }
