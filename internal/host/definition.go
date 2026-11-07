@@ -49,13 +49,23 @@ type Definition struct {
 const maxFileText = 256 << 10
 
 // Define reads the definition of cfg's services, which start with env.
+//
+// What the services run is filled in as the run fills it in before they
+// start: with the run's -D's, axx.yaml's properties and this machine's
+// environment, so that a run changes what they run only with an approval.
+// Once they start, what the services before them told fills it in too: that
+// comes from the commands approved here, in a folder only the host writes.
 func Define(ctx context.Context, cfg *config.Config, key string, env []string) (*Definition, error) {
 	project := realPath(cfg.Dir)
 	d := &Definition{Key: key}
+	filled := make([]config.Service, len(cfg.Services))
+	for i, s := range cfg.Services {
+		filled[i] = cfg.Filled(s, nil)
+	}
 	var text strings.Builder
 	fmt.Fprintf(&text, "# axx.yaml's services (%s)\n", key)
 	services := yaml.MapSlice{}
-	for _, s := range cfg.Services {
+	for _, s := range filled {
 		b, err := json.Marshal(s)
 		if err != nil {
 			return nil, err
@@ -76,7 +86,7 @@ func Define(ctx context.Context, cfg *config.Config, key string, env []string) (
 	composed := map[string]bool{}     // compose invocations already resolved
 	composeFiles := map[string]bool{} // files they read, which their models cover
 	named := map[string]bool{}
-	for _, s := range cfg.Services {
+	for _, s := range filled {
 		dir := s.Dir
 		if !filepath.IsAbs(dir) {
 			dir = filepath.Join(cfg.Dir, dir)

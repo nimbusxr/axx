@@ -64,13 +64,15 @@ axx run
 `axx run` works through these steps:
 
 1. It builds the models' stubs (`axx models build`), into `../infra/models`.
-2. It runs `docker compose up --build` in `../infra`, which starts PostgreSQL and the
-   service (the first run builds its image: PyTorch is among its dependencies, and
-   llama-cpp-python builds llama.cpp).
-3. It waits for `http://localhost:8800/health`: the service answers once it has loaded its
-   models (its log says which engines run them).
+2. It runs `docker compose -p parcel-support-tests up --build` in `../infra`, which starts
+   PostgreSQL and the service (the first run builds its image: PyTorch is among its
+   dependencies, and llama-cpp-python builds llama.cpp), on ports Docker picks. The command
+   tells axx which, and the features read them as `${sys:support.port}` and
+   `${sys:support-db.port}`: a stack of the compose file you run yourself keeps 8800 and 5433.
+3. It waits for the service's `/health`: the service answers once it has loaded its models
+   (its log says which engines run them).
 4. It runs the features in parallel.
-5. It removes everything with `docker compose down -v`.
+5. It removes everything with `docker compose -p parcel-support-tests down -v`.
 
 Each profile runs the suite with another engine of the transcriber or the photo check, and
 a stub of its model in that engine's format:

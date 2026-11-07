@@ -48,6 +48,15 @@ type Options struct {
 	// Env is the base environment for services (default os.Environ()); each
 	// service's env is appended to it.
 	Env []string
+	// Config fills in the ${env:} and ${sys:} references of a readiness
+	// check (ready.http, ready.tcp, ready.exec) each time it is tried: its
+	// properties and -D's, with those the services told axx (see
+	// PropertiesEnv). Nil has none but those.
+	Config *config.Config
+	// PropertiesDir is where each service tells axx its properties: the
+	// project's own (PropertiesDir of ConfigDir) unless set. The axx host
+	// keeps its own, which no run it serves can write.
+	PropertiesDir string
 }
 
 // Manager starts and stops the services of one run. Start and Stop must not be
@@ -86,6 +95,11 @@ type service struct {
 	tail    *ring
 
 	// Set while starting, before the service is published in Manager.up.
+	// run is cfg with what it runs filled in (config.Config.Filled), with
+	// what the services it started after told; unTold, the properties it
+	// names that none of them had told.
+	run      config.Service
+	unTold   []string
 	dir      string
 	env      []string
 	attached bool
@@ -103,6 +117,12 @@ type service struct {
 func New(apps config.Services, opts Options) (*Manager, error) {
 	if opts.Env == nil {
 		opts.Env = os.Environ()
+	}
+	if opts.PropertiesDir == "" {
+		opts.PropertiesDir = PropertiesDir(opts.ConfigDir)
+	}
+	if opts.Config == nil {
+		opts.Config = &config.Config{}
 	}
 	logger := opts.Logger
 	if logger == nil {
@@ -256,7 +276,9 @@ func (m *Manager) Start(ctx context.Context, names []string) error {
 	}
 	wg.Wait()
 	if first == nil && ctx.Err() == nil {
-		return nil
+		if first = m.toldLate(todo); first == nil {
+			return nil
+		}
 	}
 
 	stopErr := m.Stop(context.WithoutCancel(ctx))
@@ -290,7 +312,10 @@ func (m *Manager) pending(names []string) []*service {
 // startService starts one service (or, for an attached service, only waits for it).
 func (m *Manager) startService(ctx context.Context, a *service) error {
 	name := a.cfg.Name
-	a.env = serviceEnv(m.opts.Env, a.cfg.Env)
+	if err := m.fill(a); err != nil {
+		return err
+	}
+	a.env = serviceEnv(m.opts.Env, a.run.Env)
 	a.proc, a.attached, a.cleaned = nil, m.opts.Attach[name], false
 	if a.attached {
 		m.log.Info("waiting for attached service (start it yourself)", "service", name)
@@ -307,6 +332,16 @@ func (m *Manager) startService(ctx context.Context, a *service) error {
 		return err
 	}
 	a.dir = dir
+	// It tells axx its properties afresh: the file of an earlier start is
+	// emptied.
+	told := PropertiesFile(m.opts.PropertiesDir, name)
+	if err := os.MkdirAll(m.opts.PropertiesDir, 0o755); err != nil {
+		return envErr(CodeStateFile, "service %s: cannot make %s: %v", name, m.opts.PropertiesDir, err)
+	}
+	if err := os.WriteFile(told, nil, 0o600); err != nil {
+		return envErr(CodeStateFile, "service %s: cannot make %s: %v", name, told, err)
+	}
+	a.env = append(a.env, PropertiesEnv+"="+told)
 	plan, err := m.plan(ctx, a)
 	if err != nil {
 		return err
@@ -449,6 +484,108 @@ func (m *Manager) Tail(app string) []string {
 		return nil
 	}
 	return a.tail.snapshot()
+}
+
+// Told are the properties the services up told axx, attached ones included
+// (see PropertiesEnv): an error when one told a line that is not name=value.
+func (m *Manager) Told() ([]ToldValues, error) {
+	return ReadTold(m.told())
+}
+
+// told is the files the services up tell their properties in.
+func (m *Manager) told() []Told {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	files := make([]Told, 0, len(m.up))
+	for _, a := range m.up {
+		files = append(files, Told{Who: "service " + a.cfg.Name, Service: a.cfg.Name, Path: PropertiesFile(m.opts.PropertiesDir, a.cfg.Name)})
+	}
+	return files
+}
+
+// fill fills in what a runs (a.run) with what the services it starts after
+// told axx: its dependencies and theirs, or, when no service names its
+// dependencies, the services before it. Each of those is ready, so what it
+// told is all it tells.
+func (m *Manager) fill(a *service) error {
+	files := m.told()
+	if m.graph {
+		deps := withDependencies(m.cfg, a.cfg.DependsOn)
+		files = slices.DeleteFunc(files, func(t Told) bool { return !slices.Contains(deps, t.Service) })
+	}
+	told, err := ReadTold(files)
+	if err != nil {
+		return err
+	}
+	values, err := MergeTold(told)
+	if err != nil {
+		return err
+	}
+	// Its readiness checks are filled in each time they are tried (expand).
+	run := a.cfg
+	run.Ready = nil
+	a.unTold = nil
+	a.run = m.opts.Config.Filled(run, func(name string) (string, bool) {
+		v, ok := values[name]
+		if !ok && !slices.Contains(a.unTold, name) {
+			a.unTold = append(a.unTold, name)
+		}
+		return v, ok
+	})
+	a.run.Ready = a.cfg.Ready
+	if !a.cfg.Cleanup.IsZero() {
+		if a.cleanup, err = commandArgv(a.run.Cleanup, a.cfg.Shell); err != nil {
+			return configErr(CodeInvalidConfig, "services.%s.cleanup, filled in: %v", a.cfg.Name, err)
+		}
+	}
+	return nil
+}
+
+// toldLate is an error when a service started without a property that a
+// service up told: it started before that one told it, with axx.yaml's value
+// or none, which can be the port of a stack a developer runs.
+func (m *Manager) toldLate(started []*service) error {
+	told, err := ReadTold(m.told())
+	if err != nil {
+		return err
+	}
+	for _, a := range started {
+		if a.attached {
+			continue
+		}
+		for _, name := range a.unTold {
+			for _, t := range told {
+				if _, ok := t.Values[name]; !ok {
+					continue
+				}
+				if t.Service == a.cfg.Name {
+					return configErr(CodeToldLate, "service %s's command, env or cleanup names ${sys:%s}, which it tells axx itself: it started without it", a.cfg.Name, name).
+						WithHint("a service's command cannot read what it tells; its readiness check, the services that depend on it and the scenarios can")
+				}
+				return configErr(CodeToldLate, "service %s started before %s told axx ${sys:%s}, which its command, env or cleanup names: it started without it", a.cfg.Name, t.Who, name).
+					WithHint("add %s to services.%s.dependsOn, so that it starts once %s is ready", t.Service, a.cfg.Name, t.Service)
+			}
+		}
+	}
+	return nil
+}
+
+// expand fills in a readiness check's references, with what the services
+// have told axx so far.
+func (m *Manager) expand(s string) string {
+	if !strings.Contains(s, "${") {
+		return s
+	}
+	values := map[string]string{}
+	for _, f := range m.told() {
+		if own, err := readProperties(f.Path); err == nil {
+			maps.Copy(values, own)
+		}
+	}
+	return m.opts.Config.Resolver(func(name string) (string, bool) {
+		v, ok := values[name]
+		return v, ok
+	}, nil).MustExpand(s)
 }
 
 // Started returns the names of the services this Manager launched and has not

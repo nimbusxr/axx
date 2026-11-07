@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bytes"
 	"encoding/json"
 	"io/fs"
 	"os"
@@ -8,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/nimbusxr/axx/internal/config"
 	"github.com/nimbusxr/axx/internal/exitcode"
 	"github.com/nimbusxr/axx/internal/fixtures"
 )
@@ -201,6 +203,29 @@ func TestFixturesCleanAndUntrackDryRun(t *testing.T) {
 	out, _, code = run(t, "fixtures", "clean", "--config", cfg)
 	if code != 0 || !strings.Contains(out, "deleted 6 ignored outputs") {
 		t.Errorf("clean: %s", out)
+	}
+}
+
+// The editors ask the axx a project runs on for its schemas with --kind and
+// --out, whichever release it is: the file is the whole schema, even in the
+// compact output an agent's or an editor's environment may set.
+func TestSchemaOutIsWhatEditorsRead(t *testing.T) {
+	for _, kind := range append([]string{"config"}, fixtures.SchemaKinds...) {
+		file := filepath.Join(t.TempDir(), kind+".schema.json")
+		if _, stderr, code := run(t, "--compact", "schema", "--kind", kind, "--out", file); code != 0 {
+			t.Fatalf("%s: exit %d: %s", kind, code, stderr)
+		}
+		got, err := os.ReadFile(file)
+		if err != nil {
+			t.Fatal(err)
+		}
+		want := config.SchemaJSON
+		if kind != "config" {
+			want, _ = fixtures.SchemaJSON(kind)
+		}
+		if !bytes.Equal(got, want) {
+			t.Errorf("%s: --out wrote %d bytes, not the %d of the schema", kind, len(got), len(want))
+		}
 	}
 }
 

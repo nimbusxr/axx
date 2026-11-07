@@ -517,7 +517,7 @@
                 "description": "argv"
               }
             ],
-            "description": "Command starts the service: a string (split like a shell word list, without\na shell) or an argv list. Set shell: true to run it through the shell."
+            "description": "Command starts the service: a string (split like a shell word list, without\na shell) or an argv list. Set shell: true to run it through the shell.\nIt can tell axx properties, like the ports Docker gave its containers:\nlines name=value in the file AXX_PROPERTIES names, which scenarios,\nreadiness checks and the services that depend on it read as\n${sys:name}. Its ${…} references, and those of env and cleanup, are\nfilled in as the service starts, with what the services it depends on\ntold."
           },
           "shell": {
             "type": "boolean",
@@ -527,14 +527,15 @@
             "additionalProperties": {
               "type": "string"
             },
-            "type": "object"
+            "type": "object",
+            "description": "Env are variables the command gets, beside axx's own environment."
           },
           "dependsOn": {
             "items": {
               "type": "string"
             },
             "type": "array",
-            "description": "DependsOn names services that must be ready first."
+            "description": "DependsOn names services that must be ready first: what they tell axx\nfills in this one's command, env and cleanup."
           },
           "ready": {
             "properties": {
@@ -874,7 +875,7 @@
         "type": "string"
       },
       "type": "object",
-      "description": "Properties back ${sys:name} references. `-D name=value` overrides them."
+      "description": "Properties back ${sys:name} references. `-D name=value` overrides them,\nand they override what services write to the file AXX_PROPERTIES\nnames: a value you set always wins."
     },
     "openapi": {
       "$ref": "#/$defs/OpenAPI",

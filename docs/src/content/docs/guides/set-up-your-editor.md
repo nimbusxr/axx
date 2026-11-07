@@ -29,7 +29,9 @@ Needs IntelliJ IDEA 2026.1.4 or later (or another JetBrains IDE of that version)
 
 If `axx` is not on your `PATH`, set **axx executable** in *Settings | Tools | axx*.
 
-`axx.yaml`, its `axx.<name>.yaml` overlays and the fixture spec files (`*.factory.yaml`, `*.fixture.yaml`, `*.prototype.yaml`) get completion, documentation and validation from the schemas in the plugin. There is nothing to set up, and they need no network, whatever address a comment at the top of the file names.
+`axx.yaml`, its `axx.<name>.yaml` overlays and the fixture spec files (`*.factory.yaml`, `*.fixture.yaml`, `*.prototype.yaml`) get completion, documentation and validation from the schemas of the axx your project runs on. The plugin asks that axx for them (`axx schema`), so they match it even when the plugin is older or newer than your axx. When your `axx.yaml` names a version (`axx: 0.6.1`), they are that version's.
+
+The plugin asks again when axx may have changed: when you come back to the IDE after upgrading axx in a terminal, when you save `axx.yaml`, and when you change **axx executable**. Until axx has answered, and if the plugin can't find it, the plugin uses the schemas it comes with. There is nothing to set up, and the address a comment at the top of the file names is never downloaded.
 
 ## VS Code
 
@@ -39,7 +41,7 @@ If `axx` is not on your `PATH`, set **axx executable** in *Settings | Tools | ax
 
 If `axx` is not on your `PATH`, set `axx.path` to its location. The **axx** output channel shows the server's log.
 
-With Red Hat's [YAML extension](https://marketplace.visualstudio.com/items?itemName=redhat.vscode-yaml), `axx.yaml`, its `axx.<name>.yaml` overlays and the fixture spec files get completion, documentation and validation from the schemas in the axx extension, with no network. A comment at the top of a file goes first there: Red Hat's extension downloads the schema it names, so on a network that blocks that address, remove the comment.
+With Red Hat's [YAML extension](https://marketplace.visualstudio.com/items?itemName=redhat.vscode-yaml), `axx.yaml`, its `axx.<name>.yaml` overlays and the fixture spec files get completion, documentation and validation from the schemas of the axx your project runs on, as in IntelliJ: the extension asks that axx for them, and asks again when you come back to VS Code, save `axx.yaml` or change `axx.path`. Until axx has answered, it uses the schemas it comes with. A comment at the top of a file goes first there: Red Hat's extension downloads the schema it names, so on a network that blocks that address, remove the comment.
 
 ## Other editors
 

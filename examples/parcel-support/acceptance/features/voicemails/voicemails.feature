@@ -23,7 +23,7 @@ Feature: Voicemails
     And the sounds folder with the following properties:
       | path | ../infra/sounds |
     And a support-db database with the following properties:
-      | url      | postgres://${sys:local.host}:5433/support |
+      | url      | postgres://${sys:local.host}:${sys:support-db.port}/support |
       | user     | support                                   |
       | password | support                                   |
 

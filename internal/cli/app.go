@@ -12,6 +12,7 @@ import (
 
 	"github.com/nimbusxr/axx/internal/axxerr"
 	"github.com/nimbusxr/axx/internal/exitcode"
+	"github.com/nimbusxr/axx/internal/lifecycle"
 )
 
 // EnvelopeSchemaVersion is the version of the --json output envelope.
@@ -71,6 +72,9 @@ type App struct {
 	// its after hooks have run: one that fails is in the command's answer.
 	holding bool
 	held    []Envelope
+	// hookTold is where the hooks before the command told axx properties,
+	// for the scenarios of `axx run`.
+	hookTold []lifecycle.Told
 }
 
 // NewApp returns an App bound to the process's standard streams.

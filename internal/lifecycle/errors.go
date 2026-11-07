@@ -50,6 +50,9 @@ const (
 	// CodeNotCleanedUp: the state file records services an earlier run left
 	// running, or whose cleanup failed or never ran.
 	CodeNotCleanedUp = "AXX-E0415"
+	// CodeToldLate: a service started with axx.yaml's value of a property
+	// that another service told axx after it had started.
+	CodeToldLate = "AXX-E0418"
 )
 
 // exitConfig is the exit status for configuration mistakes detected before

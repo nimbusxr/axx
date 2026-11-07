@@ -8,8 +8,8 @@ Feature: Customers' messages
 
   Background:
     Given the support service with the following properties:
-      | url     | http://${sys:local.host}:8800              |
-      | openapi | http://${sys:local.host}:8800/openapi.json |
+      | url     | http://${sys:local.host}:${sys:support.port}              |
+      | openapi | http://${sys:local.host}:${sys:support.port}/openapi.json |
 
   Scenario: A question the help centre answers gets its article and a draft reply
     Given a POST request to /api/messages

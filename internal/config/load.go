@@ -177,8 +177,94 @@ func Load(opts LoadOptions) (*Config, error) {
 	cfg.Dir = dir
 	cfg.File = file
 	cfg.Properties = props
+	cfg.Defines = map[string]string{}
+	for k := range opts.Properties {
+		cfg.Defines[k] = props[k]
+	}
+	cfg.lookupEnv = opts.LookupEnv
 	cfg.sources = sources
 	return cfg, nil
+}
+
+// Resolver fills in ${env:} and ${sys:} references as a run does, once
+// services and hooks may have told axx values (values; see ReadProperties).
+// What the person set wins: -D's first, then axx.yaml's properties (its
+// profiles' included); what services and hooks told fills in only the names
+// no one set. A nil lookupEnv is the environment axx.yaml was loaded with.
+func (c *Config) Resolver(values func(name string) (string, bool), lookupEnv func(string) (string, bool)) *interp.Resolver {
+	if lookupEnv == nil {
+		lookupEnv = c.lookupEnv
+	}
+	if lookupEnv == nil {
+		lookupEnv = os.LookupEnv
+	}
+	return &interp.Resolver{Lookups: map[string]interp.Lookup{
+		"env": lookupEnv,
+		"sys": func(name string) (string, bool) {
+			if v, where := c.SetBy(name); where != "" {
+				return v, true
+			}
+			if values != nil {
+				if v, ok := values(name); ok {
+					return v, true
+				}
+			}
+			return builtinSys(name)
+		},
+	}}
+}
+
+// SetBy is the value of a property the person set, and where they set it:
+// "-D", or "axx.yaml" (its properties, a profile's included). where is ""
+// for a property no one set.
+func (c *Config) SetBy(name string) (value, where string) {
+	if v, ok := c.Defines[name]; ok {
+		return v, "-D"
+	}
+	if v, ok := c.Properties[name]; ok {
+		return v, "axx.yaml"
+	}
+	return "", ""
+}
+
+// Filled is s with what it runs filled in: its command, env, cleanup and
+// debug command, and its readiness checks, with Resolver(values, nil). axx.yaml
+// leaves them as written when it loads, since they can name what services
+// tell axx: a service's own are filled in as it starts, with what the
+// services it starts after told (its readiness checks, each time they are
+// tried), and what reads them before it starts (the axx host's approval, axx
+// doctor) fills them in with nil values: -D's, axx.yaml's properties and the
+// environment.
+func (c *Config) Filled(s Service, values func(name string) (string, bool)) Service {
+	fill := c.Resolver(values, nil).MustExpand
+	s.Command = s.Command.filled(fill)
+	s.Cleanup = s.Cleanup.filled(fill)
+	if s.Env != nil {
+		env := make(map[string]string, len(s.Env))
+		for k, v := range s.Env {
+			env[k] = fill(v)
+		}
+		s.Env = env
+	}
+	if s.Debug != nil {
+		d := *s.Debug
+		d.Command = d.Command.filled(fill)
+		s.Debug = &d
+	}
+	if s.Ready != nil {
+		r := *s.Ready
+		if r.HTTP != nil {
+			h := ReadyHTTP{URL: make(StringList, len(r.HTTP.URL))}
+			for i, u := range r.HTTP.URL {
+				h.URL[i] = fill(u)
+			}
+			r.HTTP = &h
+		}
+		r.TCP = fill(r.TCP)
+		r.Exec = r.Exec.filled(fill)
+		s.Ready = &r
+	}
+	return s
 }
 
 // NewResolver builds the interpolation resolver for env and sys lookups.
@@ -375,22 +461,30 @@ func merge(base, overlay yaml.MapSlice) yaml.MapSlice {
 	return out
 }
 
-func interpolateTree(v any, r *interp.Resolver) any {
+func interpolateTree(v any, r *interp.Resolver) any { return interpolateAt(v, r, nil) }
+
+// interpolateAt fills in the references of v, at path in the tree, but those
+// of what a service runs (filledLater): they can name what services tell axx.
+func interpolateAt(v any, r *interp.Resolver, path []string) any {
+	if filledLater(path) {
+		return v
+	}
 	switch t := v.(type) {
 	case yaml.MapSlice:
 		out := make(yaml.MapSlice, len(t))
 		for i, it := range t {
-			if fmt.Sprint(it.Key) == "profiles" {
+			key := fmt.Sprint(it.Key)
+			if key == "profiles" {
 				out[i] = it // overlays are interpolated after merging, never here
 				continue
 			}
-			out[i] = yaml.MapItem{Key: it.Key, Value: interpolateTree(it.Value, r)}
+			out[i] = yaml.MapItem{Key: it.Key, Value: interpolateAt(it.Value, r, append(slices.Clip(path), key))}
 		}
 		return out
 	case []any:
 		out := make([]any, len(t))
 		for i, e := range t {
-			out[i] = interpolateTree(e, r)
+			out[i] = interpolateAt(e, r, append(slices.Clip(path), strconv.Itoa(i)))
 		}
 		return out
 	case string:
@@ -398,6 +492,24 @@ func interpolateTree(v any, r *interp.Resolver) any {
 	default:
 		return v
 	}
+}
+
+// filledLater reports whether path is a service's setting that axx fills
+// in later than it loads axx.yaml (Config.Filled): its command, env, cleanup
+// and debug command as it starts, after the services it starts after told
+// axx their values, and its readiness checks each time they are tried.
+func filledLater(path []string) bool {
+	if len(path) < 3 || path[0] != "services" {
+		return false
+	}
+	switch len(path) {
+	case 3:
+		return slices.Contains([]string{"command", "env", "cleanup"}, path[2])
+	case 4:
+		return path[2] == "ready" && slices.Contains([]string{"http", "tcp", "exec"}, path[3]) ||
+			path[2] == "debug" && path[3] == "command"
+	}
+	return false
 }
 
 func scalarString(v any) string {

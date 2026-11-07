@@ -135,6 +135,14 @@ func wrapWithHooks(app *App, cmd *cobra.Command) {
 			return run(c, args)
 		}
 		settings := func(pack string, v any) error { return packSettings(cfg, pack, v) }
+		// What the hooks before it tell axx is the command's, until it ends.
+		app.hookTold = nil
+		defer func() {
+			for _, t := range app.hookTold {
+				_ = os.Remove(t.Path)
+			}
+			app.hookTold = nil
+		}()
 		for _, h := range packs {
 			if h.hook.Phase == core.BeforeCommand {
 				if err := runHook(h, call, settings); err != nil {
@@ -296,6 +304,15 @@ func (a *App) runConfigHook(call *core.CommandHookCall, cfg *config.Config, h co
 	env := append(os.Environ(), "AXX_COMMAND="+name)
 	if when == "after" {
 		env = append(env, "AXX_COMMAND_FAILED="+strconv.FormatBool(call.Err != nil))
+	} else {
+		// A hook before the command tells axx properties for its scenarios, as
+		// a service does.
+		told := lifecycle.PropertiesFile(lifecycle.PropertiesDir(cfg.Dir), fmt.Sprintf("hooks.commands.%d", h.index))
+		if err := lifecycle.WriteTold(told, nil); err != nil {
+			return axxerr.Wrap(err, CodeHookFailed, exitcode.Environment, "%s could not start", where)
+		}
+		a.hookTold = append(a.hookTold, lifecycle.Told{Who: where, Path: told})
+		env = append(env, lifecycle.PropertiesEnv+"="+told)
 	}
 	ctx := call.Context
 	if ctx == nil {

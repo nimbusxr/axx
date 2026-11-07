@@ -55,15 +55,17 @@ func parseReady(app config.Service) (*readySpec, error) {
 			return nil, bad("http.url", "no URL given")
 		}
 		for _, raw := range r.HTTP.URL {
-			u, err := url.Parse(raw)
-			if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
-				return nil, bad("http.url", "%q is not an http(s) URL", raw)
+			if strings.Contains(raw, "${") {
+				continue // filled in, and checked, when it is tried
+			}
+			if err := httpURL(raw); err != nil {
+				return nil, bad("http.url", "%v", err)
 			}
 		}
 		spec.urls = append([]string(nil), r.HTTP.URL...)
 	}
 	if r.TCP != "" {
-		if _, _, err := net.SplitHostPort(r.TCP); err != nil {
+		if _, _, err := net.SplitHostPort(r.TCP); err != nil && !strings.Contains(r.TCP, "${") {
 			return nil, bad("tcp", "%q is not host:port", r.TCP)
 		}
 		spec.tcp = r.TCP
@@ -204,9 +206,16 @@ func newHTTPClient() *http.Client {
 }
 
 // httpProbe passes when every URL answers GET with a 2xx status.
-func httpProbe(client *http.Client, urls []string) func(context.Context) error {
+func httpProbe(client *http.Client, urls []string, expand func(string) string) func(context.Context) error {
 	return func(ctx context.Context) error {
-		for _, u := range urls {
+		for _, raw := range urls {
+			u, err := filledIn(raw, expand)
+			if err != nil {
+				return err
+			}
+			if err := httpURL(u); err != nil {
+				return err
+			}
 			req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, http.NoBody)
 			if err != nil {
 				return err
@@ -226,8 +235,12 @@ func httpProbe(client *http.Client, urls []string) func(context.Context) error {
 }
 
 // tcpProbe passes when addr accepts a TCP connection.
-func tcpProbe(addr string) func(context.Context) error {
+func tcpProbe(raw string, expand func(string) string) func(context.Context) error {
 	return func(ctx context.Context) error {
+		addr, err := filledIn(raw, expand)
+		if err != nil {
+			return err
+		}
 		d := net.Dialer{Timeout: probeTimeout}
 		conn, err := d.DialContext(ctx, "tcp", addr)
 		if err != nil {
@@ -238,8 +251,15 @@ func tcpProbe(addr string) func(context.Context) error {
 }
 
 // execProbe passes when the command exits 0.
-func execProbe(argv []string, dir string, env []string) func(context.Context) error {
+func execProbe(raw []string, dir string, env []string, expand func(string) string) func(context.Context) error {
 	return func(ctx context.Context) error {
+		argv := make([]string, len(raw))
+		for i, word := range raw {
+			var err error
+			if argv[i], err = filledIn(word, expand); err != nil {
+				return err
+			}
+		}
 		cmd := exec.CommandContext(ctx, argv[0], argv[1:]...)
 		cmd.Dir, cmd.Env = dir, env
 		cmd.WaitDelay = time.Second
@@ -253,6 +273,30 @@ func execProbe(argv []string, dir string, env []string) func(context.Context) er
 		}
 		return errors.New(msg)
 	}
+}
+
+// httpURL checks that u is an http(s) URL.
+func httpURL(u string) error {
+	parsed, err := url.Parse(u)
+	if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" {
+		return fmt.Errorf("%q is not an http(s) URL", u)
+	}
+	return nil
+}
+
+// filledIn is a check's text with its references filled in: an error, which
+// keeps it from passing, while one names a property nothing has set yet,
+// like a port the service has not told axx.
+func filledIn(raw string, expand func(string) string) (string, error) {
+	s := expand(raw)
+	if i := strings.Index(s, "${"); i >= 0 {
+		ref := s[i:]
+		if j := strings.Index(ref, "}"); j >= 0 {
+			ref = ref[:j+1]
+		}
+		return "", fmt.Errorf("%s is not set yet: a service tells it in the file %s names", ref, PropertiesEnv)
+	}
+	return s, nil
 }
 
 // logProbe passes once matched is closed.

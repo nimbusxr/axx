@@ -1,8 +1,25 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 <!-- Loaded with the IDE's JSON Schema support: completion, documentation and validation in axx.yaml
-     and the fixture spec files, from the schemas the plugin bundles. -->
+     and the fixture spec files, from the schemas of the axx the project runs on (or, until it gave
+     them and when it can't, those the plugin bundles). -->
 <idea-plugin>
   <extensions defaultExtensionNs="JavaScript.JsonSchema">
     <ProviderFactory implementation="us.nimbusxr.axx.idea.schema.AxxSchemaProviderFactory"/>
   </extensions>
+
+  <extensions defaultExtensionNs="com.intellij">
+    <postStartupActivity implementation="us.nimbusxr.axx.idea.schema.AxxSchemaStartup"/>
+  </extensions>
+
+  <applicationListeners>
+    <listener
+        class="us.nimbusxr.axx.idea.schema.AxxSchemaRefresher"
+        topic="com.intellij.openapi.application.ApplicationActivationListener"/>
+    <listener
+        class="us.nimbusxr.axx.idea.schema.AxxSchemaRefresher"
+        topic="com.intellij.openapi.vfs.newvfs.BulkFileListener"/>
+    <listener
+        class="us.nimbusxr.axx.idea.schema.AxxSchemaRefresher"
+        topic="us.nimbusxr.axx.idea.AxxSettings$Listener"/>
+  </applicationListeners>
 </idea-plugin>

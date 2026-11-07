@@ -14,12 +14,12 @@ Feature: Photos of damaged parcels
 
   Background:
     Given the support service with the following properties:
-      | url     | http://${sys:local.host}:8800              |
-      | openapi | http://${sys:local.host}:8800/openapi.json |
+      | url     | http://${sys:local.host}:${sys:support.port}              |
+      | openapi | http://${sys:local.host}:${sys:support.port}/openapi.json |
     And the uploads folder with the following properties:
       | path | ../infra/uploads |
     And a support-db database with the following properties:
-      | url      | postgres://${sys:local.host}:5433/support |
+      | url      | postgres://${sys:local.host}:${sys:support-db.port}/support |
       | user     | support                                   |
       | password | support                                   |
 

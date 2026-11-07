@@ -53,7 +53,6 @@ func (d debugger) addr() string { return fmt.Sprintf("%s:%d", d.host, d.port) }
 
 // debugSpec is a validated services.<name>.debug.
 type debugSpec struct {
-	command       config.Command // zero: the normal command
 	debugger      *debugger
 	onUnavailable string
 	attempts      int
@@ -70,7 +69,6 @@ func parseDebug(app config.Service) (*debugSpec, error) {
 		return configErr(CodeInvalidConfig, "services.%s.debug.%s: %s", app.Name, field, fmt.Sprintf(format, args...))
 	}
 	spec := &debugSpec{
-		command:       d.Command,
 		onUnavailable: d.OnUnavailable,
 		attempts:      d.Retry.Attempts,
 		delay:         d.Retry.Delay.Or(defaultDebugDelay),
@@ -125,13 +123,13 @@ type launchPlan struct {
 // plan decides the command for a, handling debug mode: it asks the IDE for
 // a listener, checks that one is listening and applies onUnavailable.
 func (m *Manager) plan(ctx context.Context, a *service) (launchPlan, error) {
-	normal := launchPlan{command: a.cfg.Command}
+	normal := launchPlan{command: a.run.Command}
 	if a.debug == nil || (!m.opts.DebugAll && !m.opts.Debug[a.cfg.Name]) {
 		return normal, nil
 	}
-	p := launchPlan{command: a.cfg.Command, debug: a.debug.debugger}
-	if !a.debug.command.IsZero() {
-		p.command = a.debug.command
+	p := launchPlan{command: a.run.Command, debug: a.debug.debugger}
+	if d := a.run.Debug; d != nil && !d.Command.IsZero() {
+		p.command = d.Command
 	}
 	dbg := a.debug.debugger
 	if dbg == nil || dbg.mode == modeAppListens {
