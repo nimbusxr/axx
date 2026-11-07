@@ -16,13 +16,13 @@ func (m *Manager) awaitReady(ctx context.Context, a *service, plan launchPlan) e
 	spec := a.ready
 	var checks []check
 	if len(spec.urls) > 0 {
-		checks = append(checks, check{field: "http.url", probe: httpProbe(m.http, spec.urls)})
+		checks = append(checks, check{field: "http.url", probe: httpProbe(m.http, spec.urls, m.expand)})
 	}
 	if spec.tcp != "" {
-		checks = append(checks, check{field: "tcp", probe: tcpProbe(spec.tcp)})
+		checks = append(checks, check{field: "tcp", probe: tcpProbe(spec.tcp, m.expand)})
 	}
 	if spec.exec != nil {
-		checks = append(checks, check{field: "exec", probe: execProbe(spec.exec, a.dir, a.env)})
+		checks = append(checks, check{field: "exec", probe: execProbe(spec.exec, a.dir, a.env, m.expand)})
 	}
 	var exited, wake <-chan struct{}
 	if p := a.proc; p != nil {

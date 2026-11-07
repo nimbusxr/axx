@@ -281,6 +281,46 @@ func TestDefineRunsOnlyThisMachinesDocker(t *testing.T) {
 	}
 }
 
+// What a run fills in before its services start (its -D's, axx.yaml's
+// properties) is part of what the person approves: a run changes what a
+// service runs only with an approval. Only what the services told is not,
+// which comes from commands approved, in a folder of the host's own.
+func TestDefineFillsInWhatTheRunGives(t *testing.T) {
+	env := fakeDocker(t, "services: {}\n")
+	cfg := project(t, `properties:
+  api.port: "8400"
+services:
+  api:
+    command: node server.js --port ${sys:api.port}
+    env:
+      DB_URL: postgres://localhost:${sys:db.port}/parcels
+    ready:
+      exec: curl -sf localhost:${sys:api.port}/health
+`, map[string]string{"server.js": ""})
+	define := func(defines map[string]string) string {
+		t.Helper()
+		cfg.Defines = defines
+		d, err := Define(context.Background(), cfg, "axx.yaml", env)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return d.Text
+	}
+	text := define(nil)
+	for _, want := range []string{"node server.js --port 8400", "DB_URL: postgres://localhost:${sys:db.port}/parcels", "exec: curl -sf localhost:8400/health"} {
+		if !strings.Contains(text, want) {
+			t.Errorf("no %q in:\n%s", want, text)
+		}
+	}
+	changed := define(map[string]string{"api.port": "9400"})
+	if changed == text || !strings.Contains(changed, "node server.js --port 9400") || !strings.Contains(changed, "exec: curl -sf localhost:9400/health") {
+		t.Errorf("a run's -D changed what runs without changing what is approved:\n%s", changed)
+	}
+	if cfg.Services[0].Command.Line != "node server.js --port ${sys:api.port}" {
+		t.Errorf("defining it changed axx.yaml's: %q", cfg.Services[0].Command.Line)
+	}
+}
+
 func TestDefineComposeFails(t *testing.T) {
 	env := fakeDocker(t, "")
 	cfg := project(t, "services:\n  api:\n    command: docker compose up\n", map[string]string{})

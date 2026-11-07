@@ -12,6 +12,7 @@ import (
 
 	"github.com/nimbusxr/axx/internal/axxerr"
 	"github.com/nimbusxr/axx/internal/exitcode"
+	"github.com/nimbusxr/axx/internal/lifecycle"
 )
 
 // Lease is the services a host started for a run, until the run stops them.
@@ -21,6 +22,7 @@ type Lease struct {
 	run     int
 	report  bool
 	started []string
+	told    []lifecycle.ToldValues
 	out     io.Writer
 
 	stopped chan *Failure // the host's stopped message; closed when the connection ends
@@ -71,7 +73,7 @@ func Open(ctx context.Context, a *Announcement, req Request, out, status io.Writ
 			}
 			return nil, m.Error.err()
 		case MsgStarted:
-			ls.started = m.Services
+			ls.started, ls.told = m.Services, m.Told
 			go ls.follow()
 			return ls, nil
 		}
@@ -103,6 +105,9 @@ func (ls *Lease) follow() {
 
 // Run is the host's number for the run.
 func (ls *Lease) Run() int { return ls.run }
+
+// Told are the properties the services told the host, once they are ready.
+func (ls *Lease) Told() ([]lifecycle.ToldValues, error) { return ls.told, nil }
 
 // Started are the services the host started for the run, in start order.
 func (ls *Lease) Started() []string { return ls.started }

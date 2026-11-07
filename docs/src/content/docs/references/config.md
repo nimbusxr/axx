@@ -127,6 +127,7 @@ Rules live under `lint.rules`; `lint.config` sets `baseDir` (patterns are relati
 3. `axx.local.yaml` next to `axx.yaml`, if present, is merged last. Keep it out of version control for personal settings.
 4. `--set path.to.key=value` sets any key for one run, over all of the above: `--set run.workers=1 --set packs.web-core.watch=true`. The value is read as YAML.
 5. `-D name=value` overrides `properties`.
+6. A service's command can write values to the file `$AXX_PROPERTIES` names. They fill in only the properties no one set: `-D` and `properties` (a profile's included) win over them ([Run beside your own stack](/guides/run-beside-your-stack/#which-value-axx-uses)).
 
 Paths inside the file (`services.*.dir`, `resources`) are relative to the directory of `axx.yaml`.
 

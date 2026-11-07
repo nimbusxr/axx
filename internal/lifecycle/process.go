@@ -196,12 +196,14 @@ func (m *Manager) stopService(ctx context.Context, a *service) error {
 			errs = append(errs, cleanupErr)
 		}
 	}
+	// What it told axx goes with it.
+	_ = os.Remove(PropertiesFile(m.opts.PropertiesDir, name))
 	m.mu.Lock()
 	a.cleaned = true
 	// A failed cleanup stays in the state file, for `axx down` to run again.
 	m.unclean = slices.DeleteFunc(m.unclean, func(sa stateService) bool { return sa.Name == name })
 	if cleanupErr != nil {
-		m.unclean = append(m.unclean, uncleaned(stateService{Name: name, Dir: a.dir, Cleanup: a.cleanup, Env: a.cfg.Env}))
+		m.unclean = append(m.unclean, uncleaned(stateService{Name: name, Dir: a.dir, Cleanup: a.cleanup, Env: a.run.Env}))
 	}
 	m.saveStateLocked()
 	m.mu.Unlock()

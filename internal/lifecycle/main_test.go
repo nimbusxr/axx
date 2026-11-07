@@ -52,6 +52,9 @@ func TestMain(m *testing.M) {
 //	stubborn <file>             print "ready"; record and ignore SIGTERM/SIGINT
 //	grandchild <pidfile> <file> spawn a stubborn child, write its pid, print "spawned"
 //	pwd                         print the working directory, sleep
+//	tell <d> <line>...          after d, append the lines to $AXX_PROPERTIES, sleep
+//	tell-serve <d> <port>       after d, serve 200 on 127.0.0.1:port and tell
+//	                            api.port=<port> in $AXX_PROPERTIES, sleep
 func runHelper(args []string) int {
 	if len(args) == 0 {
 		return 2
@@ -107,6 +110,31 @@ func runHelper(args []string) int {
 		fmt.Println("serving", arg(1))
 		_ = srv.ListenAndServe()
 		return 1
+	case "tell":
+		time.Sleep(dur(1))
+		f, err := os.OpenFile(os.Getenv(PropertiesEnv), os.O_APPEND|os.O_WRONLY, 0o600)
+		if err != nil {
+			return 1
+		}
+		for _, line := range os.Args[3:] {
+			fmt.Fprintln(f, line)
+		}
+		_ = f.Close()
+		fmt.Println("told")
+		time.Sleep(time.Hour)
+		return 0
+	case "tell-serve":
+		time.Sleep(dur(1))
+		ln, err := net.Listen("tcp", "127.0.0.1:"+arg(2))
+		if err != nil {
+			return 1
+		}
+		if err := os.WriteFile(os.Getenv(PropertiesEnv), []byte("api.port="+arg(2)+"\n"), 0o600); err != nil {
+			return 1
+		}
+		srv := &http.Server{ReadHeaderTimeout: time.Second, Handler: http.HandlerFunc(func(http.ResponseWriter, *http.Request) {})}
+		_ = srv.Serve(ln)
+		return 1
 	case "tcp":
 		time.Sleep(dur(2))
 		ln, err := net.Listen("tcp", arg(1))
@@ -134,6 +162,10 @@ func runHelper(args []string) int {
 	case "append":
 		appendLine(arg(1), strings.Join(args[2:], " "))
 		return 0
+	case "getenv":
+		appendLine(arg(1), strings.Join(append([]string{os.Getenv(arg(2))}, args[3:]...), " "))
+		fmt.Println("started")
+		return forever()
 	case "record":
 		sigs := make(chan os.Signal, 1)
 		signal.Notify(sigs, syscall.SIGTERM, syscall.SIGINT)

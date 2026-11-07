@@ -216,8 +216,8 @@ func (a *App) run(ctx context.Context, f *runFlags, args []string) error {
 
 	// Applications.
 	var lease *host.Lease
+	var svcs services
 	if !f.dryRun && len(cfg.Services) > 0 {
-		var svcs services
 		svcs, lease, err = a.startApps(ctx, e, f, pickles, hostAnn)
 		if svcs != nil {
 			defer func() {
@@ -234,6 +234,9 @@ func (a *App) run(ctx context.Context, f *runFlags, args []string) error {
 	}
 
 	if !f.dryRun {
+		if err := a.useTold(e, svcs); err != nil {
+			return err
+		}
 		if err := e.Init(ctx); err != nil {
 			return err
 		}
@@ -334,6 +337,35 @@ func runExitCode(res *runner.RunResult) exitcode.Code {
 // those an axx host started for it.
 type services interface {
 	Stop(ctx context.Context) error
+	// Told are the properties the services told axx (lifecycle.PropertiesEnv).
+	Told() ([]lifecycle.ToldValues, error)
+}
+
+// useTold gives the steps the properties the services told axx, and the
+// hooks before the run, as ${sys:name}: an error when two told one.
+func (a *App) useTold(e *engine.Engine, svcs services) error {
+	var told []lifecycle.ToldValues
+	if svcs != nil {
+		own, err := svcs.Told()
+		if err != nil {
+			return err
+		}
+		told = append(told, own...)
+	}
+	hooks, err := lifecycle.ReadTold(a.hookTold)
+	if err != nil {
+		return err
+	}
+	told = append(told, hooks...)
+	values, err := lifecycle.MergeTold(told)
+	if err != nil {
+		return err
+	}
+	for _, line := range lifecycle.Unused(e.Config, told) {
+		fmt.Fprintf(a.Stderr, "axx: %s\n", line)
+	}
+	e.SetProperties(values)
+	return nil
 }
 
 // hostResult counts a run's scenarios for the axx host.
@@ -431,6 +463,7 @@ func (a *App) startApps(ctx context.Context, e *engine.Engine, f *runFlags, pick
 		NoStart:   f.noStart,
 		Attach:    attach,
 		StateFile: lifecycle.StateFile(cfg.Dir),
+		Config:    cfg,
 	}
 	switch f.debug {
 	case "":

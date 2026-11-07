@@ -183,6 +183,9 @@ type Engine struct {
 
 	resolver *interp.Resolver
 	inited   []NamedPack
+	// told is what the services and hooks told axx (SetProperties).
+	toldMu sync.Mutex
+	told   map[string]string
 }
 
 // Options configures New.
@@ -233,7 +236,7 @@ func New(opts Options) (*Engine, error) {
 		}
 	}
 	e := &Engine{Config: cfg, Registry: match.NewRegistry(), Logger: logger, Declared: declared}
-	e.resolver = config.NewResolver(cfg.Properties, os.LookupEnv)
+	e.resolver = cfg.Resolver(e.toldProperty, os.LookupEnv)
 	e.Packs = packs
 	loaded := make([]string, len(packs))
 	for i, p := range packs {
@@ -451,6 +454,21 @@ func (e *Engine) Invoke(sc *core.Scenario, text string, table *core.Table, doc *
 		return fmt.Errorf("step %s has no implementation", ms[0].Def().Step.ID)
 	}
 	return ms[0].Def().Step.Run(sc, args)
+}
+
+// SetProperties gives the steps the properties the services and hooks told
+// axx (lifecycle.PropertiesEnv), as ${sys:name}: over axx.yaml's, under -D's.
+func (e *Engine) SetProperties(told map[string]string) {
+	e.toldMu.Lock()
+	defer e.toldMu.Unlock()
+	e.told = told
+}
+
+func (e *Engine) toldProperty(name string) (string, bool) {
+	e.toldMu.Lock()
+	defer e.toldMu.Unlock()
+	v, ok := e.told[name]
+	return v, ok
 }
 
 // Interpolate expands ${env:}/${sys:} references like configuration values.

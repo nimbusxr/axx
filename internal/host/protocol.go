@@ -10,6 +10,8 @@ import (
 	"path/filepath"
 	"sync"
 	"time"
+
+	"github.com/nimbusxr/axx/internal/lifecycle"
 )
 
 // Protocol is the version of what a run and the host send each other: one
@@ -110,8 +112,11 @@ type Message struct {
 	Reason   string   `json:"reason,omitempty"`
 	Text     string   `json:"text,omitempty"`
 	Services []string `json:"services,omitempty"`
-	Error    *Failure `json:"error,omitempty"`
-	Result   *Result  `json:"result,omitempty"`
+	// Told is, once the services are ready, the properties they told the
+	// host (lifecycle.PropertiesEnv), for the run's ${sys:} references.
+	Told   []lifecycle.ToldValues `json:"told,omitempty"`
+	Error  *Failure               `json:"error,omitempty"`
+	Result *Result                `json:"result,omitempty"`
 }
 
 // Failure is an error the host reports, with its code, hint and exit code.

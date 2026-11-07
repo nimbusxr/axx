@@ -66,7 +66,8 @@ func TestLoadSample(t *testing.T) {
 	if len(cfg.Services) != 2 || cfg.Services[0].Name != "zeta" || cfg.Services[1].Name != "alpha" {
 		t.Fatalf("services must keep declaration order: %+v", cfg.Services)
 	}
-	if got := cfg.Services[0].Ready.HTTP.URL[0]; got != "http://localhost:8080/actuator/health" {
+	// A readiness check is filled in when it is tried, as a run does.
+	if got := cfg.Resolver(nil, nil).MustExpand(cfg.Services[0].Ready.HTTP.URL[0]); got != "http://localhost:8080/actuator/health" {
 		t.Errorf("interpolated url = %q", got)
 	}
 	if cfg.Services[0].Ready.Timeout.D().Seconds() != 90 {
@@ -93,7 +94,7 @@ func TestProfileAndOverrides(t *testing.T) {
 	if cfg.Run.Workers != 8 {
 		t.Errorf("profile workers = %d", cfg.Run.Workers)
 	}
-	if got := cfg.Services[0].Ready.HTTP.URL[0]; !strings.Contains(got, "//docker:") {
+	if got := cfg.Resolver(nil, nil).MustExpand(cfg.Services[0].Ready.HTTP.URL[0]); !strings.Contains(got, "//docker:") {
 		t.Errorf("profile property not applied: %q", got)
 	}
 	// -D wins over profile
@@ -101,7 +102,7 @@ func TestProfileAndOverrides(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := cfg.Services[0].Ready.HTTP.URL[0]; !strings.Contains(got, "//cli:") {
+	if got := cfg.Resolver(nil, nil).MustExpand(cfg.Services[0].Ready.HTTP.URL[0]); !strings.Contains(got, "//cli:") {
 		t.Errorf("-D not applied: %q", got)
 	}
 	// AXX_PROFILE selects the profile; axx.local.yaml overlays last
@@ -336,5 +337,101 @@ func TestLoadLintFile(t *testing.T) {
 	}
 	if l, err := LoadLintFile(write(t, dir, "empty.yaml", "# nothing\n")); err != nil || len(l.Rules) != 0 {
 		t.Errorf("an empty file has no rules: %+v %v", l, err)
+	}
+}
+
+// What a service runs, and its readiness checks, are filled in later than
+// axx.yaml loads, since they can name what services tell axx once they
+// started; the rest of axx.yaml is filled in as it loads.
+func TestWhatAServiceRunsIsFilledInLater(t *testing.T) {
+	dir := t.TempDir()
+	write(t, dir, "axx.yaml", `version: 1
+properties:
+  db.port: "5432"
+services:
+  parcels:
+    dir: ${env:INFRA}
+    command: docker compose -p ${sys:stack}-tests up
+    env:
+      API_PORT: ${sys:api.port}
+    cleanup: [docker, compose, -p, "${sys:stack}-tests", down]
+    ready:
+      http:
+        url: http://localhost:${sys:api.port}/health
+      tcp: localhost:${sys:db.port}
+      exec: pg_isready -p ${sys:db.port}
+      log: ready on ${sys:db.port}
+    debug:
+      command: dlv exec ./parcels -- --port ${sys:api.port}
+`)
+	cfg, err := Load(LoadOptions{WorkDir: dir, Properties: map[string]string{"stack": "parcels"}, LookupEnv: env(map[string]string{"INFRA": "infra"})})
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := cfg.Services[0]
+	if s.Dir != "infra" || s.Ready.Log != "ready on 5432" {
+		t.Errorf("filled in as it loads: %q, %q", s.Dir, s.Ready.Log)
+	}
+	if s.Command.Line != "docker compose -p ${sys:stack}-tests up" || s.Env["API_PORT"] != "${sys:api.port}" ||
+		s.Cleanup.Argv[3] != "${sys:stack}-tests" || s.Debug.Command.Line != "dlv exec ./parcels -- --port ${sys:api.port}" {
+		t.Errorf("filled in as it starts: %q, %v, %q, %q", s.Command.Line, s.Env, s.Cleanup.Argv, s.Debug.Command.Line)
+	}
+	if s.Ready.HTTP.URL[0] != "http://localhost:${sys:api.port}/health" || s.Ready.TCP != "localhost:${sys:db.port}" || s.Ready.Exec.Line != "pg_isready -p ${sys:db.port}" {
+		t.Errorf("filled in when tried: %q, %q, %q", s.Ready.HTTP.URL[0], s.Ready.TCP, s.Ready.Exec.Line)
+	}
+
+	// db.port is set in axx.yaml: it wins over what a service told.
+	told := map[string]string{"api.port": "55400", "db.port": "55432"}
+	f := cfg.Filled(s, func(name string) (string, bool) { v, ok := told[name]; return v, ok })
+	if f.Command.Line != "docker compose -p parcels-tests up" || f.Env["API_PORT"] != "55400" || f.Cleanup.Argv[3] != "parcels-tests" ||
+		f.Debug.Command.Line != "dlv exec ./parcels -- --port 55400" || f.Ready.HTTP.URL[0] != "http://localhost:55400/health" ||
+		f.Ready.TCP != "localhost:5432" || f.Ready.Exec.Line != "pg_isready -p 5432" {
+		t.Errorf("filled in with what was told: %+v", f)
+	}
+	if s.Env["API_PORT"] != "${sys:api.port}" || s.Cleanup.Argv[3] != "${sys:stack}-tests" || s.Ready.HTTP.URL[0] != "http://localhost:${sys:api.port}/health" {
+		t.Errorf("filling one in changed axx.yaml's: %+v", s)
+	}
+	if f := cfg.Filled(s, nil); f.Env["API_PORT"] != "${sys:api.port}" || f.Ready.TCP != "localhost:5432" {
+		t.Errorf("filled in with nothing told: %v, %q", f.Env, f.Ready.TCP)
+	}
+}
+
+// What is filled in later reads the environment axx.yaml was loaded with.
+func TestFilledInLaterWithTheLoadsEnvironment(t *testing.T) {
+	dir := t.TempDir()
+	write(t, dir, "axx.yaml", "version: 1\nservices:\n  parcels:\n    command: ./start ${env:DEPOT}\n")
+	cfg, err := Load(LoadOptions{WorkDir: dir, LookupEnv: env(map[string]string{"DEPOT": "kestrel"})})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := cfg.Filled(cfg.Services[0], nil).Command.Line; got != "./start kestrel" {
+		t.Errorf("filled in: %q", got)
+	}
+}
+
+// What the person set wins: -D's values, then axx.yaml's, a profile's
+// included. What services told fills in only the names no one set.
+func TestTheRunsResolverOrder(t *testing.T) {
+	dir := t.TempDir()
+	write(t, dir, "axx.yaml", "version: 1\nproperties:\n  api.port: \"8400\"\n  db.port: \"5432\"\nprofiles:\n  own-stack:\n    properties:\n      mq.port: \"5672\"\n")
+	cfg, err := Load(LoadOptions{WorkDir: dir, Profile: "own-stack", Properties: map[string]string{"db.port": "6543"}, LookupEnv: env(nil)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	told := map[string]string{"api.port": "55400", "db.port": "55432", "mq.port": "55672", "cache.port": "56379"}
+	r := cfg.Resolver(func(name string) (string, bool) { v, ok := told[name]; return v, ok }, nil)
+	got := r.MustExpand("${sys:api.port} ${sys:db.port} ${sys:mq.port} ${sys:cache.port} ${sys:nowhere:-none}")
+	if got != "8400 6543 5672 56379 none" {
+		t.Errorf("resolved %q", got)
+	}
+	if v, ok := cfg.Defines["db.port"]; !ok || v != "6543" || len(cfg.Defines) != 1 {
+		t.Errorf("defines: %v", cfg.Defines)
+	}
+	for name, want := range map[string][2]string{
+		"db.port": {"6543", "-D"}, "api.port": {"8400", "axx.yaml"}, "mq.port": {"5672", "axx.yaml"}, "cache.port": {"", ""},
+	} {
+		if v, where := cfg.SetBy(name); v != want[0] || where != want[1] {
+			t.Errorf("SetBy(%s) = %q, %q", name, v, where)
+		}
 	}
 }

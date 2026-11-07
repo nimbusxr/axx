@@ -169,6 +169,16 @@ the skills instead: `axx skills install`.
   command line, the installed axx gets that release into its cache and hands over to it, and that release does the rest, its pack build included.
   `internal/cli/reminder.go`: the one line, at most weekly, that says a newer release is out. An old axx must always be able to hand over to a
   later one: keep the line's reading, the archives' names and the versions directory compatible.
+- `internal/lifecycle/properties.go`: what services tell axx. Each service's command (and a hook before a
+  command) gets `AXX_PROPERTIES`, a file of its own in `.axx/properties`, whose `name=value` lines become
+  `${sys:name}` for the names the person did not set (`-D` and axx.yaml's `properties`, a profile's included, win:
+  `config.Config.Resolver`; `axx run` says which told values it does not use, `lifecycle.Unused`); two that tell one name stop
+  the run. What a service runs (`command`, `env`, `cleanup`, `debug.command`) and its readiness checks
+  (`ready.http`, `ready.tcp`, `ready.exec`) are left unfilled as axx.yaml loads (`config.Config.Filled`): the first
+  as it starts, with what the services it starts after told (a service told later stops the run, AXX-E0418), the
+  checks each time they are tried. The axx host's services tell it in a folder of its own, never the project's,
+  which the agent can write: it sends what they told with `started`. Its approval fills them in with the run's
+  -D's and axx.yaml's properties (`host.Define`), so that a run changes what runs only with an approval.
 - `internal/host` (`axx host`): starts a project's services, on the person's machine, for the runs of an agent
   whose sandbox keeps it from Docker. Runs find it in `.axx/host.json` and ask it for their services over a
   loopback port (`axx run`, `axx up`'s supervisor, the MCP session's `steps_try`); it starts only a definition

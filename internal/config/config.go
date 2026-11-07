@@ -26,7 +26,9 @@ type Config struct {
 	// file's own directory has not got the file. The directory of axx.yaml is
 	// always searched last.
 	Resources []string `json:"resources,omitempty"`
-	// Properties back ${sys:name} references. `-D name=value` overrides them.
+	// Properties back ${sys:name} references. `-D name=value` overrides them,
+	// and they override what services write to the file AXX_PROPERTIES
+	// names: a value you set always wins.
 	Properties map[string]string `json:"properties,omitempty"`
 	// OpenAPI holds default OpenAPI validation settings for REST services.
 	OpenAPI OpenAPI `json:"openapi,omitzero"`
@@ -48,6 +50,12 @@ type Config struct {
 	// Profiles are named overlays selected with --profile or AXX_PROFILE.
 	Profiles map[string]json.RawMessage `json:"profiles,omitempty"`
 
+	// Defines are the properties -D gave, which win over every other value
+	// of theirs. Not part of the file.
+	Defines map[string]string `json:"-"`
+	// lookupEnv is the environment axx.yaml was loaded with, which fills in
+	// what is filled in later (Filled).
+	lookupEnv func(string) (string, bool)
 	// Dir is the directory containing the loaded axx.yaml (or the working
 	// directory when no file was found). Not part of the file.
 	Dir string `json:"-"`
@@ -164,11 +172,19 @@ type Service struct {
 	Dir string `json:"dir,omitempty"`
 	// Command starts the service: a string (split like a shell word list, without
 	// a shell) or an argv list. Set shell: true to run it through the shell.
+	// It can tell axx properties, like the ports Docker gave its containers:
+	// lines name=value in the file AXX_PROPERTIES names, which scenarios,
+	// readiness checks and the services that depend on it read as
+	// ${sys:name}. Its ${…} references, and those of env and cleanup, are
+	// filled in as the service starts, with what the services it depends on
+	// told.
 	Command Command `json:"command"`
 	// Shell runs command and cleanup through /bin/sh -c (cmd /C on Windows).
-	Shell bool              `json:"shell,omitempty"`
-	Env   map[string]string `json:"env,omitempty"`
-	// DependsOn names services that must be ready first.
+	Shell bool `json:"shell,omitempty"`
+	// Env are variables the command gets, beside axx's own environment.
+	Env map[string]string `json:"env,omitempty"`
+	// DependsOn names services that must be ready first: what they tell axx
+	// fills in this one's command, env and cleanup.
 	DependsOn []string `json:"dependsOn,omitempty"`
 	Ready     *Ready   `json:"ready,omitempty"`
 	Stop      Stop     `json:"stop,omitzero"`
@@ -181,7 +197,10 @@ type Service struct {
 // IsEnabled reports whether the service should be managed.
 func (a Service) IsEnabled() bool { return a.Enabled == nil || *a.Enabled }
 
-// Ready describes how to tell that a service is ready.
+// Ready describes how to tell that a service is ready. The references of
+// http, tcp and exec are filled in each time they are tried, with what the
+// services have told axx so far: a check that names a port the service tells
+// waits until it has.
 type Ready struct {
 	HTTP *ReadyHTTP `json:"http,omitempty"`
 	// TCP is a host:port that must accept connections.
@@ -345,6 +364,18 @@ type Command struct {
 
 // IsZero reports whether no command was given.
 func (c Command) IsZero() bool { return len(c.Argv) == 0 && c.Line == "" }
+
+// filled is c with fill applied to its line, or to each of its words.
+func (c Command) filled(fill func(string) string) Command {
+	out := Command{Line: fill(c.Line)}
+	if c.Argv != nil {
+		out.Argv = make([]string, len(c.Argv))
+		for i, a := range c.Argv {
+			out.Argv[i] = fill(a)
+		}
+	}
+	return out
+}
 
 // String renders the command for display.
 func (c Command) String() string {

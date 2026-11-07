@@ -83,7 +83,7 @@ func (m *Manager) saveStateLocked() {
 		st.Services = append(st.Services, stateService{
 			Name: a.cfg.Name, PID: pid, PGID: pgid, StartedAt: a.proc.startedAt,
 			Dir: a.dir, StopSignal: a.cfg.Stop.Signal, Grace: a.cfg.Stop.Grace,
-			Cleanup: a.cleanup, Env: a.cfg.Env, Owner: os.Getpid(),
+			Cleanup: a.cleanup, Env: a.run.Env, Owner: os.Getpid(),
 		})
 	}
 	if len(st.Services) == 0 {

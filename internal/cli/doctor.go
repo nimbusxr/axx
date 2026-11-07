@@ -262,6 +262,7 @@ func (a *App) doctor(ctx context.Context, cf *configFlags) (rep DoctorReport) {
 			if !ap.IsEnabled() {
 				continue
 			}
+			ap = cfg.Filled(ap, nil)
 			name := "service " + ap.Name
 			argv := ap.Command.Argv
 			if len(argv) == 0 {

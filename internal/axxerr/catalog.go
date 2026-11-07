@@ -236,6 +236,15 @@ func init() {
 		"The state file records services an earlier run left behind, and they could not be cleaned up before this run: a cleanup failed again, or what is left sits beside services a run still going (or `axx up`) owns. Their data (containers, volumes, recorded requests) would be what this run starts from, so no service is started. A killed run's leftovers alone are cleaned up by the next run.",
 		"Run `axx down`: it stops what is left and runs the cleanup again. `axx doctor` and the MCP `env` status list what is left.")
 
+	add("AXX-E0416", env, "Properties axx cannot read",
+		"A service's command, or a hook before a command, wrote a line to the file `AXX_PROPERTIES` names that is not `name=value`: a name of no spaces, braces or dollar signs, then `=`, then the value. Its properties are what features read as `${sys:name}`, like the ports a stack's containers got.",
+		"The message names the file and the line. Write a line `name=value` for each, like `db.port=55432`; blank lines are fine.")
+	add("AXX-E0417", u, "Two told axx one property",
+		"Two services, or a service and a hook, wrote the same property to their `AXX_PROPERTIES` files. axx does not pick one: a scenario would read the other's value without a word.",
+		"Name each one after what it is, like `api.port` and `db.port`, so that no two tell one. A value you set yourself, with `-D` or in axx.yaml's `properties` (a profile's included), wins over what services tell.")
+	add("AXX-E0418", u, "A service started before it was told",
+		"A service's `command`, `env` or `cleanup` names a property `${sys:name}` that another service told axx, but it started before that one had, so it started without the value. A service's `command`, `env` and `cleanup` are filled in as it starts, with what the services it depends on told.",
+		"Add the service that tells it to the service's `dependsOn`, as the message says. A service's own command cannot read what it tells: its readiness check, the services that depend on it and the scenarios can.")
 	add("AXX-E0500", env, "The axx host refused the run",
 		"The axx host serving the project (`.axx/host.json`) did not take the run: it did not give the host's token, it speaks another version of the host's protocol, or it loaded a configuration outside the project the host serves. Or `.axx/host.json` cannot be read.",
 		"Run the same version of axx as the host, in the project it serves, as the user it runs as. To start the services without the host, stop it.")

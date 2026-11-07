@@ -11,6 +11,9 @@ run:
 resources: ["."]
 
 # ${sys:local.host} in the feature files; override with -D local.host=<name>.
+# The service's and PostgreSQL's ports are the ones the stack writes for axx (services.support).
+# Don't set them here: a value set here wins over the one the stack writes, so the features
+# would reach whatever answers on that port, like a stack you run yourself.
 properties:
   local.host: localhost
 
@@ -24,7 +27,12 @@ services:
     # is small, and kept with the example, as the photo check's, the voice's and the label
     # reader's are (infra/models).
     # The shell's variables are $${...}: axx's own ${...} would take their defaults.
+    # The stack is parcel-support-tests, on ports Docker picks (env), which it tells axx for
+    # the features: a stack of the same compose file you keep running yourself is left as it is.
     dir: ../infra
+    env:
+      SUPPORT_PORT: "0"
+      SUPPORT_DB_PORT: "0"
     shell: true
     command: |
       engine=$${SUPPORT_TRANSCRIBER:-faster-whisper}
@@ -44,17 +52,28 @@ services:
       { [ -z "$transcriber" ] || build "transcriber/$engine" "$transcriber"; } &&
         build "help-centre/$help" "$embeddings" &&
         { [ "$drafter" != transformers ] || build drafter/transformers model.safetensors; } &&
-        build reranker reranker.gguf &&
-        exec docker compose up --build
+        build reranker reranker.gguf || exit 1
+      docker compose -p parcel-support-tests up --build &
+      up=$!
+      # write_port <compose service> <container port> <name for axx>: the port Docker picked
+      write_port() {
+        until address=$(docker compose -p parcel-support-tests port "$1" "$2" 2> /dev/null) && [ -n "$address" ]; do
+          kill -0 "$up" 2> /dev/null || exit 1
+          sleep 1
+        done
+        echo "$3=$${address##*:}" >> "$AXX_PROPERTIES"
+      }
+      write_port support 8800 support.port && write_port postgres 5432 support-db.port
+      wait "$up"
     ready:
       http:
-        url: http://localhost:8800/health
+        url: http://localhost:${sys:support.port}/health
       # The first run builds the service's image (PyTorch's among its dependencies).
       timeout: 15m
       interval: 1s
     stop:
       grace: 10s
-    cleanup: docker compose down -v --remove-orphans
+    cleanup: docker compose -p parcel-support-tests down -v --remove-orphans
 
 # The transcriber or the photo check on another of its engines, with a stub of the model of
 # its format:

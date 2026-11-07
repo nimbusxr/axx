@@ -227,7 +227,7 @@ func newSuperviseCmd(app *App) *cobra.Command {
 			defer logw.Close()
 			opts := lifecycle.Options{
 				ConfigDir: cfg.Dir, Stdout: logw, Stderr: logw, Logger: app.logger(),
-				StateFile: lifecycle.StateFile(cfg.Dir),
+				StateFile: lifecycle.StateFile(cfg.Dir), Config: cfg,
 			}
 			switch debug {
 			case "":
@@ -286,6 +286,18 @@ func newSuperviseCmd(app *App) *cobra.Command {
 				lease, err := app.openHost(ctx, ann, req, logw, os.Stdout)
 				if err == nil {
 					svcs, started = lease, lease.Started()
+					// What they told the host is here for later runs, as if
+					// they had told it here; it goes with `axx down`.
+					files, err := keepTold(cfg, lease)
+					defer func() {
+						for _, f := range files {
+							_ = os.Remove(f)
+						}
+					}()
+					if err != nil {
+						_ = svcs.Stop(context.Background())
+						return supervisorError(err)
+					}
 				} else if msg, ok := notListening(err); ok {
 					fmt.Printf("axx: warning: %s; starting the services here\n", msg)
 				} else {
@@ -434,4 +446,26 @@ func liveUp(cfg *config.Config) (upState, bool) {
 		return st, false
 	}
 	return st, true
+}
+
+// keepTold writes what the services a host started told it in the project's
+// own files, as if they had told it here: runs read them there while `axx up`
+// keeps the services. It returns the files written.
+func keepTold(cfg *config.Config, lease *host.Lease) ([]string, error) {
+	told, err := lease.Told()
+	if err != nil {
+		return nil, err
+	}
+	var files []string
+	for _, t := range told {
+		if t.Service == "" {
+			continue
+		}
+		file := lifecycle.PropertiesFile(lifecycle.PropertiesDir(cfg.Dir), t.Service)
+		if err := lifecycle.WriteTold(file, t.Values); err != nil {
+			return files, err
+		}
+		files = append(files, file)
+	}
+	return files, nil
 }

@@ -73,6 +73,12 @@ func (s *server) live(restart bool) (*runner.Session, error) {
 			_ = log.Close()
 		}
 	}
+	if err := useTold(cfg, e, lease); err != nil {
+		cancel()
+		stop()
+		_ = e.Close(context.Background())
+		return nil, err
+	}
 	if err := e.Init(ctx); err != nil {
 		cancel()
 		stop()
@@ -141,6 +147,27 @@ func (s *server) hostServices(ctx context.Context, cfg *config.Config, e *engine
 		return nil, nil, err
 	}
 	return lease, log, nil
+}
+
+// useTold gives the session's steps what its services told axx, as
+// ${sys:name}: those the host started for it, or those `axx up` keeps.
+func useTold(cfg *config.Config, e *engine.Engine, lease *host.Lease) error {
+	var told []lifecycle.ToldValues
+	var err error
+	if lease != nil {
+		told, err = lease.Told()
+	} else {
+		told, err = lifecycle.UpTold(cfg.Dir)
+	}
+	if err != nil {
+		return err
+	}
+	values, err := lifecycle.MergeTold(told)
+	if err != nil {
+		return err
+	}
+	e.SetProperties(values)
+	return nil
 }
 
 // allScenarios are every scenario of the configured features.

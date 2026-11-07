@@ -35,9 +35,11 @@ services:
 
 Each key is described in the [configuration reference](/references/config/#services). A command that exits `0` before the service is ready is fine, which is what `docker compose up -d` or `--wait` does: Axx keeps polling the `ready` checks.
 
-If you also run a compose file yourself while you develop, give the stack Axx starts from it a name of its own, in `command` and `cleanup` alike: `docker compose -p parcels-axx up`. Compose otherwise names both stacks after the folder, so Axx's takes over yours, and `down -v` deletes your stack's volumes, your local data with them. `axx init` names the stack it writes so.
+If you also run a compose file yourself while you develop, give the stack Axx starts from it a name of its own, in `command` and `cleanup` alike: `docker compose -p parcels-axx up`. Compose otherwise names both stacks after the folder, so Axx's takes over yours, and `down -v` deletes your stack's volumes, your local data with them. `axx init` names the stack it writes so. For both stacks to run at once, Axx's on ports Docker picks, see [Run beside your own stack](/guides/run-beside-your-stack/).
 
-Service output goes to `.axx/logs/services.log`. When a service fails to start, the error shows the last lines of its output and a stable code from [`AXX-E0400` to `AXX-E0415`](/references/error-codes/#service-lifecycle).
+A service's command can tell Axx properties, like the ports its containers got: lines `name=value` in the file `$AXX_PROPERTIES` names, which scenarios, readiness checks and the services that depend on it read as `${sys:name}`. A service's `command`, `env` and `cleanup` are filled in as it starts, after the services in its `dependsOn` are ready. A value you set yourself, with `-D` or in `properties`, always wins over one a service writes.
+
+Service output goes to `.axx/logs/services.log`. When a service fails to start, the error shows the last lines of its output and a stable code from [`AXX-E0400` to `AXX-E0418`](/references/error-codes/#service-lifecycle).
 
 ## Keep services running to inspect them
 

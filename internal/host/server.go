@@ -127,10 +127,13 @@ type Server struct {
 	dir       string
 	env       []string
 	approvals *approvals
-	start     *Definition
-	changed   bool
-	log       *slog.Logger
-	token     string
+	// told is where the services tell their properties: the host's own
+	// folder, which no run it serves can write, while it serves.
+	told    string
+	start   *Definition
+	changed bool
+	log     *slog.Logger
+	token   string
 
 	turn chan struct{} // held by the run that has the services
 	// wait is how long a run waits for the person's answer; the question
@@ -244,6 +247,12 @@ func (s *Server) Serve(ctx context.Context) error {
 		return hostErr(CodeRunning, "an axx host already serves %s (pid %d, %s)", s.dir, a.PID, a.Addr).
 			WithHint("its runs are yours too: stop it first to start another")
 	}
+	told, err := os.MkdirTemp("", "axx-host-properties-")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(told)
+	s.told = told
 	var lc net.ListenConfig
 	ln, err := lc.Listen(ctx, "tcp", s.opts.Addr)
 	if err != nil {
@@ -442,6 +451,7 @@ func (s *Server) handle(ctx context.Context, conn net.Conn) {
 		ConfigDir: cfg.Dir, Stdout: out, Stderr: out, Logger: s.log,
 		Attach: set(req.Attach), Debug: set(req.Debug), DebugAll: req.DebugAll,
 		StateFile: lifecycle.StateFile(cfg.Dir), Env: s.env,
+		Config: cfg, PropertiesDir: s.told,
 	})
 	if err != nil {
 		refuse(err)
@@ -464,9 +474,17 @@ func (s *Server) handle(ctx context.Context, conn net.Conn) {
 		ended(err, began)
 		return
 	}
+	told, err := mgr.Told()
+	if err != nil {
+		_ = mgr.Stop(context.WithoutCancel(ctx))
+		out.flush()
+		refuse(err)
+		ended(err, began)
+		return
+	}
 	// Recorded first: whoever hears the services started finds it in the events.
 	ev(StateStarted, Event{Services: mgr.Started(), Seconds: time.Since(starting).Seconds()})
-	_ = l.write(Message{Type: MsgStarted, Services: mgr.Started()})
+	_ = l.write(Message{Type: MsgStarted, Services: mgr.Started(), Told: told})
 
 	<-runCtx.Done()
 	if ctx.Err() == nil {
