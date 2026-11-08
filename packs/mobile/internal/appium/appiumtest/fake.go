@@ -99,6 +99,9 @@ type Server struct {
 	// driftUntil is when the app's controls stop moving, as a drawer sliding in or a list
 	// settling after a scroll moves them; a tap meanwhile is lost.
 	driftUntil time.Time
+	// losing are the next taps the app takes no notice of, as a drawer that has slid in takes a
+	// touch for a drag until it has told itself it is open.
+	losing int
 }
 
 // Start runs the fake for a test.
@@ -230,6 +233,14 @@ func (s *Server) Drifting(d time.Duration) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.driftUntil = time.Now().Add(d)
+}
+
+// LoseTaps has the app take no notice of the next taps, as a drawer that has just slid in, on a
+// busy device, takes a touch for the start of a drag: the screen stays as it was.
+func (s *Server) LoseTaps(taps int) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.losing = taps
 }
 
 // Show moves the app to a screen, as the app would by itself.
@@ -510,6 +521,12 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 			if s.expiring > 0 {
 				s.expiring--
 				fail("no such element", "The element identified by '"+em[1]+"' is not present in the cache or has expired. Try to find it again")
+				return
+			}
+			if s.losing > 0 {
+				s.losing--
+				s.commands = append(s.commands, "lost tap "+xpath)
+				reply(nil)
 				return
 			}
 			if time.Now().Before(s.driftUntil) {

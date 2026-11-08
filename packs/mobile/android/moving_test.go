@@ -87,3 +87,44 @@ func TestALocatorSaysWhatTheNodeShows(t *testing.T) {
 		t.Errorf("locators:\n%s\nwant:\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
 	}
 }
+
+// A control that came while the step looked for it, whose tap the app took no notice of (the
+// system file picker's drawer, just slid in on a busy emulator, left open on Recent), is tapped
+// again, once: the screen showed nothing of the tap. One whose tap showed is tapped once, and so
+// is a control that was there from the start.
+func TestATapThatShowedNothingIsTappedAgain(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		came       bool
+		lost, taps int
+		wantScreen string
+	}{
+		{"came in, its tap lost", true, 1, 2, "delivery"},
+		{"came in, its tap taken", true, 0, 1, "delivery"},
+		{"there from the start, its tap lost", false, 1, 1, "deliveries"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			app := courier(t)
+			h := cloudtest.New(t, appcore.Pack(), mobilecore.Pack(), Pack())
+			register(h, app.URL)
+			h.OK("the courier app is launched")
+			if tc.came {
+				app.Show("sign-in")
+				app.Lands("deliveries") // the list comes in after the step's first look
+			} else {
+				app.Show("deliveries")
+			}
+			app.LoseTaps(tc.lost)
+			h.OK(`the "PX-MOB-9401" list item is tapped in the courier app`)
+			taps := 0
+			for _, c := range app.Commands() {
+				if strings.HasPrefix(c, "tap ") || strings.HasPrefix(c, "lost tap ") {
+					taps++
+				}
+			}
+			if got := app.Screen(); got != tc.wantScreen || taps != tc.taps {
+				t.Errorf("on %s after %d taps: %v", got, taps, app.Commands())
+			}
+		})
+	}
+}

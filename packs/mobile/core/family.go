@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"image"
 	"strings"
 	"time"
 
@@ -89,6 +90,17 @@ func (family) Press(sc *core.Scenario, app *appcore.App, ak appcore.Kind, name s
 		if el, err = landed(ctx, sc, d, app.Name, k, name, el); err != nil {
 			return err
 		}
+		// A control that came while the step looked for it can take no notice of a tap even once it
+		// is still: a drawer that has slid in takes a touch for the start of a drag until it has
+		// told itself it is open, which a busy app does a while after it looks open (the system
+		// file picker's drawer of places, on a busy emulator: the tap on Downloads left it open on
+		// Recent). The screen as it was before the tap says whether the tap showed anything.
+		var before image.Image
+		if came {
+			if shot, err := maskedShot(ctx, d); err == nil {
+				before = shot
+			}
+		}
 		err = el.Click(ctx)
 		// A control the app drew again between finding it and tapping it (a dialog's button as the
 		// dialog comes in, on a slow machine) is gone from the driver's cache: find it again, and tap
@@ -108,8 +120,43 @@ func (family) Press(sc *core.Scenario, app *appcore.App, ak appcore.Kind, name s
 		if err != nil {
 			return fmt.Errorf("cannot tap the %s %s: %w", quoted(name), k.noun, err)
 		}
+		if before != nil {
+			return tapAgain(ctx, sc, d, app.Name, k, name, before)
+		}
 		return nil
 	})
+}
+
+// tapAgain taps a control once more when its tap showed nothing at all: for two seconds the
+// screen stays the screen before it, pixel for pixel, the control where it was. A person whose tap
+// did nothing taps again. A tap that was taken shows, as a drawer closes, a dialog goes, a row
+// lights up or a spinner turns, and is not repeated, nor is one on a control no longer there: a
+// tap taken twice would do twice what it does (a delivery confirmed twice). Two seconds leave a
+// tap whose app waits for an answer, on a busy emulator, the time to show it.
+func tapAgain(ctx context.Context, sc *core.Scenario, d Device, app string, k kind, name string, before image.Image) error {
+	for end := time.Now().Add(2 * time.Second); ; {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(500 * time.Millisecond):
+		}
+		after, err := maskedShot(ctx, d)
+		if err != nil || !same(before, after) {
+			return nil //nolint:nilerr // the tap showed, or the screen cannot say: it stands
+		}
+		if !time.Now().Before(end) {
+			break
+		}
+	}
+	el, _, _, err := target(sc, d, app, k, name, 0)
+	if err != nil || el == nil {
+		return nil //nolint:nilerr // no longer there: the tap stands
+	}
+	sc.Log("the tap on the %s %s showed nothing on the screen: it is tapped again, once", quoted(name), k.noun)
+	if err := el.Click(ctx); err != nil {
+		return fmt.Errorf("cannot tap the %s %s: %w", quoted(name), k.noun, err)
+	}
+	return nil
 }
 
 func (family) Fill(sc *core.Scenario, app *appcore.App, field, text string) error {
