@@ -45,7 +45,7 @@ func startCluster(t *testing.T) (brokers, registry string) {
 
 	kafka, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
 		ContainerRequest: testcontainers.ContainerRequest{
-			Image:          "apache/kafka-native:3.9.1",
+			Image:          "apache/kafka-native:4.4.0",
 			Networks:       []string{nw.Name},
 			NetworkAliases: map[string][]string{nw.Name: {"kafka"}},
 			ExposedPorts:   []string{"9092/tcp"},
