@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.6.3](https://github.com/nimbusxr/axx/compare/v0.6.2...v0.6.3) (2026-11-08)
+
+
+### Bug Fixes
+
+* **mobile-android:** a background task whose job Android's job scheduler no longer has says so, with the job scheduler's dump of the app ([2e04238](https://github.com/nimbusxr/axx/commit/2e0423886c0ae1a0fa01c214ca1d2dd90f5a919e))
+* **mobile-android:** an emulator is ready once its shared storage is mounted, and a failed scenario that picks documents says what Downloads and the media store had ([2e04238](https://github.com/nimbusxr/axx/commit/2e0423886c0ae1a0fa01c214ca1d2dd90f5a919e))
+* **mobile-android:** an emulator that went down is stopped and another started, rather than leased to every scenario waiting for one ([2e04238](https://github.com/nimbusxr/axx/commit/2e0423886c0ae1a0fa01c214ca1d2dd90f5a919e))
+* **mobile-android:** the app starts once Android has delivered its reset's broadcasts, so a late force-stop no longer cancels the jobs it schedules ([2e04238](https://github.com/nimbusxr/axx/commit/2e0423886c0ae1a0fa01c214ca1d2dd90f5a919e))
+* **mobile-ios:** the simulator's camera logs the first frame the app gets, and an app that holds a frame ([2e04238](https://github.com/nimbusxr/axx/commit/2e0423886c0ae1a0fa01c214ca1d2dd90f5a919e))
+* **mobile:** a notification that shows only after the wait is said to have come late, and iOS's notification log keeps where its pipeline stalled ([2e04238](https://github.com/nimbusxr/axx/commit/2e0423886c0ae1a0fa01c214ca1d2dd90f5a919e))
+* **mobile:** a tap finds the control where it landed, not another row in its place: a control is found by what it shows as well as where, and a tap waits for it to stop moving ([2e04238](https://github.com/nimbusxr/axx/commit/2e0423886c0ae1a0fa01c214ca1d2dd90f5a919e))
+* **mobile:** a tap on a control that came in while the step looked for it, which showed nothing for two seconds, is tapped again once ([2e04238](https://github.com/nimbusxr/axx/commit/2e0423886c0ae1a0fa01c214ca1d2dd90f5a919e))
+* **models:** Apple's model stubs decode every image with one Core Image context, and say a request they were slow to answer ([2e04238](https://github.com/nimbusxr/axx/commit/2e0423886c0ae1a0fa01c214ca1d2dd90f5a919e))
+
 ## [0.6.2](https://github.com/nimbusxr/axx/compare/v0.6.1...v0.6.2) (2026-11-08)
 
 
