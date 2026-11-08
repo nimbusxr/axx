@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	mobilecore "github.com/nimbusxr/axx/packs/mobile/core"
+	"github.com/nimbusxr/axx/packs/mobile/internal/appium"
 )
 
 // parseSource reads the XCUITest driver's page source into a screen: each
@@ -68,6 +69,7 @@ func parseSource(src string) (*mobilecore.Screen, error) {
 		}
 		n.Role = roleOf(n)
 		n.Clickable = n.Role != mobilecore.RoleOther && n.Role != mobilecore.RoleText && n.Role != mobilecore.RoleImage
+		n.Value = strings.TrimSuffix(n.Value, "]") + shows(n) + "]"
 	}
 	for _, n := range s.Nodes {
 		if c := innerSwitch(n); c != nil {
@@ -78,6 +80,47 @@ func parseSource(src string) (*mobilecore.Screen, error) {
 		}
 	}
 	return s, nil
+}
+
+// shows is what a node's locator says it shows, beside its type and frame: its own label or
+// value, or else the first of its descendants'. A list still scrolling as the screen is read moves
+// another row to where the node was by the time XCUITest finds it, and a tap then lands on that
+// row: found by what it shows too, the node is found where it is, or not at all, and the screen is
+// read again.
+func shows(n *mobilecore.Node) string {
+	if s := own(n); s != "" {
+		return " and " + s
+	}
+	var first string
+	var walk func(*mobilecore.Node)
+	walk = func(m *mobilecore.Node) {
+		for _, c := range m.Children {
+			if first != "" {
+				return
+			}
+			if c.Displayed {
+				first = own(c)
+			}
+			walk(c)
+		}
+	}
+	walk(n)
+	if first == "" {
+		return ""
+	}
+	return " and .//*[" + first + "]"
+}
+
+// own is the predicate of what a node itself shows: its label, else its value. A text's value
+// that its label says is left out of the node's text, and found by the label.
+func own(n *mobilecore.Node) string {
+	switch {
+	case n.Label != "":
+		return "@label=" + appium.XPathString(n.Label)
+	case n.Text != "":
+		return "@value=" + appium.XPathString(n.Text)
+	}
+	return ""
 }
 
 // innerSwitch is the switch control in a switch that holds one, like a SwiftUI Toggle's.
