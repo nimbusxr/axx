@@ -503,7 +503,7 @@ static BOOL isCameraInput(id input) { return [input isKindOfClass:InputClass]; }
 
 #pragma mark - sessions, their outputs, and preview layers
 
-static char kInputs, kSession, kRunning, kConnection, kBusy;
+static char kInputs, kSession, kRunning, kConnection, kBusy, kBusySince, kFramed, kHeld;
 
 // A weak reference, for the store.
 @interface AXXWeak : NSObject
@@ -790,9 +790,24 @@ static void deliverVideo(AVCaptureVideoDataOutput *out, CVPixelBufferRef frame) 
     dispatch_queue_t queue = out.sampleBufferCallbackQueue;
     AVCaptureConnection *conn = connectionOf(out, NO);
     if (!delegate || !queue || !conn.isEnabled) return;
+    // What the app's output got, in the log: its first frame, and an app that still holds one
+    // after 3 seconds, as the feed skips frames meanwhile. A camera an app does not read from
+    // then says which side stopped: the feed, or the app.
     @synchronized(out) {
-        if ([objc_getAssociatedObject(out, &kBusy) boolValue] && out.alwaysDiscardsLateVideoFrames) return;
+        if ([objc_getAssociatedObject(out, &kBusy) boolValue] && out.alwaysDiscardsLateVideoFrames) {
+            NSDate *since = objc_getAssociatedObject(out, &kBusySince);
+            if (since && -since.timeIntervalSinceNow > 3 && !objc_getAssociatedObject(out, &kHeld)) {
+                objc_setAssociatedObject(out, &kHeld, @YES, OBJC_ASSOCIATION_RETAIN);
+                LOG(@"the app has held a frame of its video output for %.0fs: the camera skips frames until it hands it back", -since.timeIntervalSinceNow);
+            }
+            return;
+        }
         objc_setAssociatedObject(out, &kBusy, @YES, OBJC_ASSOCIATION_RETAIN);
+        objc_setAssociatedObject(out, &kBusySince, [NSDate date], OBJC_ASSOCIATION_RETAIN);
+        if (!objc_getAssociatedObject(out, &kFramed)) {
+            objc_setAssociatedObject(out, &kFramed, @YES, OBJC_ASSOCIATION_RETAIN);
+            LOG(@"the app's video output gets its first frame (%zux%zu)", CVPixelBufferGetWidth(frame), CVPixelBufferGetHeight(frame));
+        }
     }
     NSNumber *asked = out.videoSettings[(id)kCVPixelBufferPixelFormatTypeKey];
     OSType format = asked ? asked.unsignedIntValue : kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange;
@@ -805,7 +820,10 @@ static void deliverVideo(AVCaptureVideoDataOutput *out, CVPixelBufferRef frame) 
         if ([delegate respondsToSelector:@selector(captureOutput:didOutputSampleBuffer:fromConnection:)])
             [delegate captureOutput:out didOutputSampleBuffer:sample fromConnection:conn];
         CFRelease(sample);
-        @synchronized(out) { objc_setAssociatedObject(out, &kBusy, @NO, OBJC_ASSOCIATION_RETAIN); }
+        @synchronized(out) {
+            objc_setAssociatedObject(out, &kBusy, @NO, OBJC_ASSOCIATION_RETAIN);
+            objc_setAssociatedObject(out, &kHeld, nil, OBJC_ASSOCIATION_RETAIN);
+        }
     });
 }
 
