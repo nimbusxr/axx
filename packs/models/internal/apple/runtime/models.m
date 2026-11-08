@@ -9,6 +9,7 @@
 #import <Vision/Vision.h>
 #include <math.h>
 #import <objc/runtime.h>
+#include <stdatomic.h>
 #include <unistd.h>
 
 // The platform whose APIs the stubs are of (ios.vision.text, macos.vision.text): the build
@@ -82,6 +83,29 @@ static NSUInteger nearest(NSDictionary *a, double *v, NSUInteger n) {
   return at;
 }
 
+// The Core Image context every image is decoded with: one, for the run of the
+// app. A context sets up its renderer and its kernels as it is made, and a
+// camera's frames come many a second: made for each, it took the courier app
+// over three seconds a frame on CI's Macs, which read a 3-second label video in
+// too few frames to see its label held still.
+static CIContext *decoder(void) {
+  static CIContext *context;
+  static dispatch_once_t once;
+  dispatch_once(&once, ^{
+    context = [CIContext contextWithOptions:nil];
+  });
+  return context;
+}
+
+// slow says, in the app's log, a request a stub took a second or more to
+// answer: the frames an app reads then are fewer than it means to. Twenty at
+// most, for a run.
+static void slow(NSString *api, CFAbsoluteTime took) {
+  static atomic_int said;
+  if (took >= 1 && atomic_fetch_add(&said, 1) < 20)
+    NSLog(@"axx models: the %@ stub took %.1fs to answer a request", api, took);
+}
+
 // The same bilinear crop, pooling and standardization as match.Picture and
 // match.Reducer. Decode at the original size; CoreGraphics does no resizing.
 static NSUInteger picture(NSDictionary *a, CIImage *ci, NSError **error) {
@@ -98,7 +122,7 @@ static NSUInteger picture(NSDictionary *a, CIImage *ci, NSError **error) {
              c = [shape[off + (first ? 0 : 2)] unsignedIntegerValue];
   NSUInteger h = [shape[off + (first ? 1 : 0)] unsignedIntegerValue],
              w = [shape[off + (first ? 2 : 1)] unsignedIntegerValue];
-  CGImageRef cg = [[CIContext contextWithOptions:nil] createCGImage:ci
+  CGImageRef cg = [decoder() createCGImage:ci
                                                            fromRect:ci.extent];
   if (!cg) {
     if (error)
@@ -539,6 +563,7 @@ static void installVision(void) {
             continue;
           }
           NSError *err = nil;
+          CFAbsoluteTime started = CFAbsoluteTimeGetCurrent();
           NSUInteger at =
               picture(a, objc_getAssociatedObject(self, &imageKey), &err);
           if (err || at == NSNotFound) {
@@ -551,6 +576,7 @@ static void installVision(void) {
             return NO;
           }
           NSArray *values = observations(a, at, request, &err);
+          slow(api, CFAbsoluteTimeGetCurrent() - started);
           if (err) {
             if (error)
               *error = err;

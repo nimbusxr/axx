@@ -238,5 +238,8 @@ Feature: The couriers' iPhone app
     And the courier app shows "PX-IOS-9601"
     And the courier app is sent to the background
     When the "example.parcels.courier.round-reminder" background task is run in the courier app
-    Then within 30s the courier app shows a notification "2 deliveries left today"
+    # The app posts the reminder as the task runs. iOS's notification system can take its time to
+    # show it on a busy Mac: 35 seconds once, with three simulators running, in the step that looks
+    # for a one-time code in it.
+    Then within 60s the courier app shows a notification "2 deliveries left today"
     And the courier app shows a notification "Next: PX-IOS-9601, Karl-Liebknecht-Str. 45, 04275 Leipzig"

@@ -245,7 +245,7 @@ services:
   # Single-node KRaft broker. Clients on the host use localhost:9092 (PLAINTEXT);
   # containers use kafka:9094 (INTERNAL). Set LOCAL_HOST to advertise another host name.
   kafka:
-    image: 'apache/kafka-native:3.9.1'
+    image: 'apache/kafka-native:4.4.0'
     ports:
       - '9092:9092'
     environment:

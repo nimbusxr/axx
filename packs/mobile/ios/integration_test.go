@@ -102,7 +102,7 @@ func report(t *testing.T, h *cloudtest.Harness) {
 				`subsystem BEGINSWITH "com.apple.DocumentManager" OR subsystem BEGINSWITH "com.apple.FileProvider" OR subsystem BEGINSWITH "example.parcels"`+
 					` OR (process == "testmanagerd" AND eventMessage BEGINSWITH "Synthesizing event")`+
 					` OR ((process == "Courier" OR process CONTAINS[c] "document" OR process CONTAINS[c] "fileprovider") AND messageType IN {16, 17})`+
-					` OR process == "ResolverService" OR process == "revisiond"`+
+					` OR process == "ResolverService" OR process == "revisiond" OR eventMessage BEGINSWITH "axx models:"`+
 					` OR ((process == "SpringBoard" OR process == "usernotificationsd" OR process == "runningboardd") AND eventMessage CONTAINS[c] "courier")`).CombinedOutput()
 			lines := strings.Split(string(out), "\n")
 			t.Logf("the simulator's log (%v):\n%s", err, strings.Join(lines[max(0, len(lines)-1500):], "\n"))

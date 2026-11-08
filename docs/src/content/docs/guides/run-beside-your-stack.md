@@ -181,7 +181,7 @@ In the compose file, replace Kafka's command with one that waits for the port:
 ```yaml title="compose.yaml"
 services:
   kafka:
-    image: apache/kafka-native:3.9.1
+    image: apache/kafka-native:4.4.0
     ports:
       - '${KAFKA_PORT:-9092}:9092'
     command:

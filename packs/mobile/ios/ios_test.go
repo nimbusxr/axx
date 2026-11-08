@@ -576,41 +576,50 @@ func TestAKeyboardStillComingInIsClosedOnceItCanBe(t *testing.T) {
 		return `<AppiumAUT><XCUIElementTypeApplication type="XCUIElementTypeApplication" name="Couriers" label="Couriers" x="0" y="0" width="393" height="852" visible="true">` +
 			fmt.Sprintf(button, visible) + keys + `</XCUIElementTypeApplication></AppiumAUT>`
 	}
+	screens := map[string]string{"typing": screen(true), "typed": screen(false), "confirm": confirmScreen}
 	app := appiumtest.Start(t, appiumtest.App{
-		Screens: map[string]string{"typing": screen(true), "typed": screen(false)},
+		Screens: screens,
 		Start:   "typing",
-		Taps:    map[string]string{"hide keyboard typing": "typed"},
+		// The button, once the keyboard is closed, opens the confirmation, as the app's does.
+		Taps: map[string]string{"hide keyboard typing": "typed", at(t, screens, "typed", mobilecore.RoleButton, "Mark delivered"): "confirm"},
 	})
 	app.KeyboardComingIn(1)
 	h := cloudtest.New(t, appcore.Pack(), mobilecore.Pack(), Pack())
 	register(h, app.URL)
 	h.OK("the courier app is launched")
 	h.OK(`the "Mark delivered" button is tapped in the courier app`)
-	if app.Screen() != "typed" {
-		t.Errorf("the keyboard was not closed: %s", app.Screen())
+	if app.Screen() != "confirm" {
+		t.Errorf("the keyboard was not closed, or the button not tapped: %s", app.Screen())
 	}
 }
+
+// confirmScreen is what the courier app shows once "Mark delivered" is tapped.
+const confirmScreen = `<AppiumAUT><XCUIElementTypeApplication type="XCUIElementTypeApplication" name="Couriers" label="Couriers" x="0" y="0" width="393" height="852" visible="true">` +
+	`<XCUIElementTypeStaticText type="XCUIElementTypeStaticText" name="Mark PX-MOB-9401 delivered?" label="Mark PX-MOB-9401 delivered?" x="16" y="300" width="361" height="44" visible="true"/>` +
+	`</XCUIElementTypeApplication></AppiumAUT>`
 
 // A keyboard slow to go, which WebDriverAgent says it did not know how to close, is given time to
 // go: its key is tapped once.
 func TestAKeyboardSlowToGoIsClosedOnce(t *testing.T) {
 	button := `<XCUIElementTypeButton type="XCUIElementTypeButton" name="Mark delivered" label="Mark delivered" x="16" y="700" width="361" height="44" visible="%s"/>`
 	keyboard := `<XCUIElementTypeKeyboard type="XCUIElementTypeKeyboard" x="0" y="516" width="393" height="336" visible="true"/>`
+	screens := map[string]string{
+		"typing":  `<AppiumAUT><XCUIElementTypeApplication type="XCUIElementTypeApplication" name="Couriers" label="Couriers" x="0" y="0" width="393" height="852" visible="true">` + fmt.Sprintf(button, "false") + keyboard + `</XCUIElementTypeApplication></AppiumAUT>`,
+		"typed":   `<AppiumAUT><XCUIElementTypeApplication type="XCUIElementTypeApplication" name="Couriers" label="Couriers" x="0" y="0" width="393" height="852" visible="true">` + fmt.Sprintf(button, "true") + `</XCUIElementTypeApplication></AppiumAUT>`,
+		"confirm": confirmScreen,
+	}
 	app := appiumtest.Start(t, appiumtest.App{
-		Screens: map[string]string{
-			"typing": `<AppiumAUT><XCUIElementTypeApplication type="XCUIElementTypeApplication" name="Couriers" label="Couriers" x="0" y="0" width="393" height="852" visible="true">` + fmt.Sprintf(button, "false") + keyboard + `</XCUIElementTypeApplication></AppiumAUT>`,
-			"typed":  `<AppiumAUT><XCUIElementTypeApplication type="XCUIElementTypeApplication" name="Couriers" label="Couriers" x="0" y="0" width="393" height="852" visible="true">` + fmt.Sprintf(button, "true") + `</XCUIElementTypeApplication></AppiumAUT>`,
-		},
-		Start: "typing",
-		Taps:  map[string]string{"hide keyboard typing": "typed"},
+		Screens: screens,
+		Start:   "typing",
+		Taps:    map[string]string{"hide keyboard typing": "typed", at(t, screens, "typed", mobilecore.RoleButton, "Mark delivered"): "confirm"},
 	})
 	app.KeyboardSlowToGo(time.Second)
 	h := cloudtest.New(t, appcore.Pack(), mobilecore.Pack(), Pack())
 	register(h, app.URL)
 	h.OK("the courier app is launched")
 	h.OK(`the "Mark delivered" button is tapped in the courier app`)
-	if app.Screen() != "typed" {
-		t.Errorf("the keyboard was not closed: %s", app.Screen())
+	if app.Screen() != "confirm" {
+		t.Errorf("the keyboard was not closed, or the button not tapped: %s", app.Screen())
 	}
 	if n := app.KeyboardClosings(); n != 1 {
 		t.Errorf("the keyboard's key was tapped %d times, want once", n)

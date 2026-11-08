@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	mobilecore "github.com/nimbusxr/axx/packs/mobile/core"
+	"github.com/nimbusxr/axx/packs/mobile/internal/appium"
 )
 
 var boundsRE = regexp.MustCompile(`^\[(-?\d+),(-?\d+)\]\[(-?\d+),(-?\d+)\]$`)
@@ -56,8 +57,49 @@ func parseSource(src string) (*mobilecore.Screen, error) {
 	}
 	for _, n := range s.Nodes {
 		n.Role = roleOf(n)
+		n.Value = strings.TrimSuffix(n.Value, "]") + shows(n) + "]"
 	}
 	return s, nil
+}
+
+// shows is what a node's locator says it shows, beside its class and bounds: its own description
+// or text, or else the first of its descendants'. A list still scrolling as the screen is read
+// moves another row to where the node was by the time UiAutomator2 finds it, and a tap then lands
+// on that row (the file picker's, on a busy emulator): found by what it shows too, the node is
+// found where it is, or not at all, and the screen is read again.
+func shows(n *mobilecore.Node) string {
+	if s := own(n); s != "" {
+		return " and " + s
+	}
+	var first string
+	var walk func(*mobilecore.Node)
+	walk = func(m *mobilecore.Node) {
+		for _, c := range m.Children {
+			if first != "" {
+				return
+			}
+			if c.Displayed {
+				first = own(c)
+			}
+			walk(c)
+		}
+	}
+	walk(n)
+	if first == "" {
+		return ""
+	}
+	return " and .//*[" + first + "]"
+}
+
+// own is the predicate of what a node itself shows: its description, else its text.
+func own(n *mobilecore.Node) string {
+	switch {
+	case n.Label != "":
+		return "@content-desc=" + appium.XPathString(n.Label)
+	case n.Text != "":
+		return "@text=" + appium.XPathString(n.Text)
+	}
+	return ""
 }
 
 // nodeOf is an element of the source as a node, its role still unknown.

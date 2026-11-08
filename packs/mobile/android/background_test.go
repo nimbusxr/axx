@@ -3,11 +3,15 @@ package mobileandroid
 import (
 	"context"
 	"database/sql"
+	"os"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/nimbusxr/axx/internal/cloudstep/cloudtest"
 )
 
 // workDB makes a WorkManager database with the tables and columns axx reads, as WorkManager 2.9
@@ -174,5 +178,38 @@ func TestPeriodicWorkThatLostItsJobIsNamedSo(t *testing.T) {
 	err = (&running{app: &app{name: "courier"}}).runWork(context.Background(), "round-reminder", works[i])
 	if err == nil || !strings.Contains(err.Error(), "has run already, and has had no job") {
 		t.Errorf("got %v", err)
+	}
+}
+
+// Work whose job WorkManager's database names, which Android's job scheduler does not have (in
+// WorkManager's namespace or out of it), fails saying so, with the job scheduler's dump of the
+// app: what took the job away is in it.
+func TestWorkWhoseJobIsGoneSaysWhatTheJobSchedulerHas(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("the stand-in adb is a shell script")
+	}
+	dir := t.TempDir()
+	adb := filepath.Join(dir, "adb")
+	script := `#!/bin/sh
+case "$*" in
+*"cmd jobscheduler run"*) echo "Could not find job 7 in package example.parcels.courier"; exit 23 ;;
+*"dumpsys jobscheduler example.parcels.courier"*) printf '%s\n' 'Registered 0 jobs:' 'Job history:' '  -6s STOP: #u0a233/7 #RoundReminderWorker# app force stopped' ;;
+esac
+`
+	if err := os.WriteFile(adb, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	works, err := readWorks(context.Background(), workDB(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := cloudtest.New(t)
+	d := &running{app: &app{name: "courier"}, pkg: "example.parcels.courier", sdk: &sdk{adb: adb}, dev: &device{serial: "emulator-5554"}, scenario: h.SC}
+	err = d.runWork(t.Context(), "round-reminder", works[0])
+	if err == nil || !strings.Contains(err.Error(), "is job 7 in WorkManager's database, and Android's job scheduler has no such job") {
+		t.Fatalf("got %v", err)
+	}
+	if len(h.Sink.Attachments) != 1 || !strings.Contains(string(h.Sink.Attachments[0].Body), "app force stopped") {
+		t.Errorf("attached %+v", h.Sink.Attachments)
 	}
 }

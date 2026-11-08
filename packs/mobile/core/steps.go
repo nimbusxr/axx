@@ -169,6 +169,46 @@ func settle(ctx context.Context, d Device, r Rect) error {
 	return nil
 }
 
+// landed is the control to tap once it has stopped moving, two seconds at most. A list still
+// scrolling, or a drawer still sliding in, moves its controls, and a tap on one then lands where it
+// was, or only stops the list or the drawer (Android's file picker's Downloads, on a busy
+// emulator). A control that moved is looked for again where it landed: the row the platform found
+// may show another row's text by then, as a list draws its rows again as it scrolls. One still
+// moving after two seconds is tapped where it is, as a person taps a control that never keeps
+// still.
+func landed(ctx context.Context, sc *core.Scenario, d Device, app string, k kind, name string, el *appium.Element) (*appium.Element, error) {
+	for end := time.Now().Add(2 * time.Second); time.Now().Before(end); {
+		if moved, err := moving(ctx, el); err != nil || !moved {
+			// Where it is is only asked to wait for it: a control that cannot say is tapped as it is,
+			// and one gone from the driver's cache found again as the tap fails.
+			return el, ctx.Err()
+		}
+		found, _, _, err := target(sc, d, app, k, name, actionTimeout)
+		if err != nil {
+			return nil, err
+		}
+		if found != nil {
+			el = found
+		}
+	}
+	return el, nil
+}
+
+// moving reports whether a control is moving: where it is, read twice a moment apart, differs.
+func moving(ctx context.Context, el *appium.Element) (bool, error) {
+	before, err := el.Rect(ctx)
+	if err != nil {
+		return false, err
+	}
+	select {
+	case <-ctx.Done():
+		return false, ctx.Err()
+	case <-time.After(100 * time.Millisecond):
+	}
+	after, err := el.Rect(ctx)
+	return err == nil && after != before, err
+}
+
 // still waits, two seconds at most, until the screen has stopped moving, its system bars left out
 // (the clock): a person swipes a screen at rest. A swipe while a sheet still slides away is lost,
 // as iOS drops touches then (the Save Password sheet after a sign-in, as the app's screen comes

@@ -207,7 +207,7 @@ browser at it. The host ports are the ones the features use:
 | `partner-carrier` | built from `extensions/wiremock-openapi` | 8087 | the partner carrier's MCP server and A2A agent, which the service asks about parcels beyond the EU, mocked from their description and card |
 | `postgres` | `postgres:16` | 5432 | parcels, manifest lines, pickups and shops' settings |
 | `mongo` | `mongo:7` | 27017 | depot scans and the tracking read model |
-| `kafka` | `apache/kafka-native:3.9.1` | 9092 | single-node KRaft broker |
+| `kafka` | `apache/kafka-native:4.4.0` | 9092 | single-node KRaft broker |
 | `schema-registry` | `confluentinc/cp-schema-registry:7.9.2-1-ubi8` | 9081 | Avro schemas for the events |
 | `rabbitmq` | `rabbitmq:4.2.9-alpine` | 5672 | label print jobs and the printers' reports (AMQP 0-9-1) |
 | `mosquitto` | `eclipse-mosquitto:2.0.22` | 1883 | the depots' handheld scanners (MQTT 5) |

@@ -172,6 +172,8 @@ func (d *running) runWork(ctx context.Context, name string, w work) error {
 	switch {
 	case strings.Contains(out, "Running job"):
 		return d.waitWorkEnded(ctx, name, w)
+	case strings.Contains(out, "Could not find job"):
+		return d.lostJob(ctx, name, w.job.Int64)
 	case strings.Contains(out, "constraints"):
 		return fmt.Errorf("the %s app's %q background task does not run now: the conditions the app set for it are not met (%s)",
 			d.app.name, name, d.unmet(ctx, w.job.Int64))
@@ -180,6 +182,25 @@ func (d *running) runWork(ctx context.Context, name string, w work) error {
 	default:
 		return fmt.Errorf("cannot run the %s app's %q background task: Android's job scheduler answered %q", d.app.name, name, out)
 	}
+}
+
+// lostJob is the failure of work whose job WorkManager's database names, and which Android's job
+// scheduler does not have: something took the job away after WorkManager handed it over (on CI,
+// once, six seconds after), and Android would not run the work either. What took it away is in
+// the job scheduler's dump of the app, which goes with the failure: the jobs the app has, and
+// the ones that ran and why each stopped. The system's log of the app is attached as the
+// scenario fails.
+func (d *running) lostJob(ctx context.Context, name string, job int64) error {
+	dump, err := d.sdk.shell(ctx, d.dev.serial, "dumpsys", "jobscheduler", d.pkg)
+	if err != nil {
+		dump = err.Error()
+	}
+	if d.scenario != nil {
+		d.scenario.Attach("text/plain", []byte(dump), "Android's job scheduler, of the "+d.app.name+" app (dumpsys jobscheduler "+d.pkg+")")
+	}
+	return fmt.Errorf("the %s app's %q background task is job %d in WorkManager's database, and Android's job scheduler has no such job, "+
+		"in WorkManager's namespace or out of it: something took it away after WorkManager handed it over, and Android would not run the task "+
+		"either (the job scheduler's dump of the app is attached)", d.app.name, name, job)
 }
 
 // waitWorkEnded waits for the work to end, once it ran, as WorkManager's database has it.

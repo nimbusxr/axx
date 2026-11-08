@@ -25,6 +25,18 @@ runtime_name=${runtime_name//_/ }
 # What axx names the first simulator it keeps (pool.go: "axx <type>, <runtime> (1)").
 name="axx $type_name, $runtime_name (1)"
 
+# The simulators' device pairs (a watch paired to a phone) as the simulator is made, and again if
+# the script fails: once, on GitHub's xcode-27 runner, every simctl call aborted in CoreSimulator
+# over a pair it was told of while the simulator booted ("Invalid parameter not satisfying:
+# devicePair"), and where that pair came from is not known. On stderr: the coreml job reads what
+# the script prints.
+pairs() {
+  echo "the simulators' device pairs, $1:" >&2
+  xcrun simctl list pairs >&2 || true
+}
+pairs "before the simulator is made"
+trap 'pairs "as the script failed"' ERR
+
 started=$(date +%s)
 udid=$(xcrun simctl create "$name" "$device_type" "$runtime")
 xcrun simctl boot "$udid"

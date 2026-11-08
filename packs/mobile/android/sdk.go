@@ -197,14 +197,32 @@ func (s *sdk) online(ctx context.Context, serial string) bool {
 	return rest != "" && rest[0] >= '0' && rest[0] <= '9'
 }
 
-// waitBooted waits until a device has finished booting, and has its network.
+// storageMounted reports whether the device's shared storage, where Downloads is, is mounted:
+// Android says it has booted a second or so before it mounts it (the volume is still being
+// checked), and a document pushed then can fail, or go missing from the media store. An Android
+// that does not say (no sm, or no emulated volume it lists) is taken as mounted.
+func (s *sdk) storageMounted(ctx context.Context, serial string) bool {
+	out, err := s.shell(ctx, serial, "sm", "list-volumes", "all")
+	if err != nil {
+		return true
+	}
+	for _, l := range strings.Split(out, "\n") {
+		if f := strings.Fields(l); len(f) >= 2 && strings.HasPrefix(f[0], "emulated") {
+			return f[1] == "mounted"
+		}
+	}
+	return true
+}
+
+// waitBooted waits until a device has finished booting, and has its network and its shared
+// storage.
 func (s *sdk) waitBooted(ctx context.Context, serial string, within time.Duration) error {
 	ctx, cancel := context.WithTimeout(ctx, within)
 	defer cancel()
 	for {
 		out, err := s.shell(ctx, serial, "getprop", "sys.boot_completed")
 		if err == nil && out == "1" {
-			if _, err := s.shell(ctx, serial, "pm", "path", "android"); err == nil && s.online(ctx, serial) {
+			if _, err := s.shell(ctx, serial, "pm", "path", "android"); err == nil && s.online(ctx, serial) && s.storageMounted(ctx, serial) {
 				return nil
 			}
 		}

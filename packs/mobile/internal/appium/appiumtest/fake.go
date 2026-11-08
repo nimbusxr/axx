@@ -93,6 +93,15 @@ type Server struct {
 	// which waits less, says it did not know how to close it. keyboardClosings counts closings.
 	keyboardSlow     time.Duration
 	keyboardClosings int
+	// landing is the screen the app lands on right after the next read of the screen, as a list
+	// still scrolling as it is read does.
+	landing string
+	// driftUntil is when the app's controls stop moving, as a drawer sliding in or a list
+	// settling after a scroll moves them; a tap meanwhile is lost.
+	driftUntil time.Time
+	// losing are the next taps the app takes no notice of, as a drawer that has slid in takes a
+	// touch for a drag until it has told itself it is open.
+	losing int
 }
 
 // Start runs the fake for a test.
@@ -208,6 +217,32 @@ func (s *Server) KeyboardClosings() int {
 	return s.keyboardClosings
 }
 
+// Lands has the app move on to a screen right after the next read of the screen, as a list still
+// scrolling as the screen is read lands a row further on: the read shows a row where another one
+// is by the time it is found.
+func (s *Server) Lands(screen string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.landing = screen
+}
+
+// Drifting has the app's controls move for a while, as a drawer sliding in or a list settling
+// after a scroll moves them: where a control is changes as it is read, and a tap meanwhile is lost,
+// as a drawer or a list takes it to stop instead.
+func (s *Server) Drifting(d time.Duration) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.driftUntil = time.Now().Add(d)
+}
+
+// LoseTaps has the app take no notice of the next taps, as a drawer that has just slid in, on a
+// busy device, takes a touch for the start of a drag: the screen stays as it was.
+func (s *Server) LoseTaps(taps int) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.losing = taps
+}
+
 // Show moves the app to a screen, as the app would by itself.
 func (s *Server) Show(screen string) {
 	s.mu.Lock()
@@ -239,11 +274,9 @@ func (s *Server) Capabilities() map[string]any {
 var (
 	sessionRE = regexp.MustCompile(`^/session/([^/]+)(/.*)?$`)
 	elementRE = regexp.MustCompile(`^/element/([^/]+)/([a-z]+)$`)
-	boundsRE  = regexp.MustCompile(`@bounds=["']([^"']+)["']`)
 	// The iOS pack finds an element by its type and where it is.
 	containsRE = regexp.MustCompile(`^label CONTAINS\[c\] '((?:[^'\\]|\\.)*)'`)
 	nameRE     = regexp.MustCompile(`^name == '([^']*)'$`)
-	iosRE      = regexp.MustCompile(`^//(XCUIElementType\w+)\[@x="([^"]*)" and @y="([^"]*)" and @width="([^"]*)" and @height="([^"]*)"\]$`)
 )
 
 func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
@@ -284,6 +317,9 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		reply(s.app.Screens[s.screen])
+		if s.landing != "" {
+			s.screen, s.landing = s.landing, ""
+		}
 	case path == "/screenshot":
 		reply(base64.StdEncoding.EncodeToString(s.shot()))
 	case path == "/window/rect":
@@ -487,11 +523,33 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 				fail("no such element", "The element identified by '"+em[1]+"' is not present in the cache or has expired. Try to find it again")
 				return
 			}
+			if s.losing > 0 {
+				s.losing--
+				s.commands = append(s.commands, "lost tap "+xpath)
+				reply(nil)
+				return
+			}
+			if time.Now().Before(s.driftUntil) {
+				s.commands = append(s.commands, "lost tap "+xpath)
+				reply(nil)
+				return
+			}
 			s.commands = append(s.commands, "tap "+xpath)
 			if next, ok := s.app.Taps[xpath]; ok {
 				s.screen = next
 			}
 			reply(nil)
+		case "rect":
+			e := first(s.app.Screens[s.screen], xpath)
+			if e == nil {
+				fail("stale element reference", "The element '"+em[1]+"' does not exist in DOM anymore")
+				return
+			}
+			r := e.rect()
+			if left := time.Until(s.driftUntil); left > 0 {
+				r["y"] += float64(left / (10 * time.Millisecond)) // still moving: further along each read
+			}
+			reply(r)
 		case "clear":
 			s.typed[xpath] = ""
 			reply(nil)
@@ -589,14 +647,7 @@ func (s *Server) has(using, value string) bool {
 	src := s.app.Screens[s.screen]
 	switch using {
 	case "xpath":
-		if b := boundsRE.FindStringSubmatch(value); b != nil {
-			return strings.Contains(src, `bounds="`+b[1]+`"`)
-		}
-		if b := iosRE.FindStringSubmatch(value); b != nil {
-			at := fmt.Sprintf(`x="%s" y="%s" width="%s" height="%s"`, b[2], b[3], b[4], b[5])
-			return regexp.MustCompile(`<` + b[1] + `\s[^>]*` + regexp.QuoteMeta(at)).MatchString(src)
-		}
-		return false
+		return first(src, value) != nil
 	case "id":
 		return strings.Contains(src, `resource-id="`+value+`"`) || strings.Contains(src, ` name="`+value+`"`)
 	case "-ios predicate string":
