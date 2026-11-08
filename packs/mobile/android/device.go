@@ -1178,15 +1178,48 @@ func (d *running) AppLog(ctx context.Context) string {
 			}
 		}
 	}
+	tags, of := locationTags, "and of where the phone is"
+	if len(d.app.documents) > 0 {
+		tags, of = append(slices.Clone(locationTags), mediaTags...), "of where the phone is, and of the media store"
+	}
 	sys, err := d.sdk.run(ctx, d.dev.serial, "logcat", "-d", "-v", "threadtime", "-b", "main,system,crash", "-T", since)
 	if err == nil {
 		var kept []string
 		for _, l := range strings.Split(sys, "\n") {
-			if strings.Contains(l, d.pkg) || slices.ContainsFunc(locationTags, func(t string) bool { return strings.Contains(l, " "+t) }) {
+			if strings.Contains(l, d.pkg) || slices.ContainsFunc(tags, func(t string) bool { return strings.Contains(l, " "+t) }) {
 				kept = append(kept, l)
 			}
 		}
-		fmt.Fprintf(&b, "--- the system's log of it, and of where the phone is:\n%s\n", tail(strings.Join(kept, "\n"), 1500))
+		fmt.Fprintf(&b, "--- the system's log of it, %s:\n%s\n", of, tail(strings.Join(kept, "\n"), 1500))
+	}
+	if len(d.app.documents) > 0 {
+		b.WriteString(d.downloadsNow(ctx))
+	}
+	return b.String()
+}
+
+// mediaTags are the system's log tags of the media store, which the system's file picker lists
+// Downloads from: its provider, and its scanner.
+var mediaTags = []string{"MediaProvider", "ModernMediaScanner", "MediaServiceV2", "MediaScanner"}
+
+// downloadsNow is what the device has in Downloads, on its storage and in the media store: of a
+// scenario that picks documents there, which failed. The file picker lists what the media store
+// has, and a document it lacks (the first ones pushed to a fresh emulator, now and then) shows
+// which of the two lost it.
+func (d *running) downloadsNow(ctx context.Context) string {
+	var b strings.Builder
+	say := func(title, out string, err error) {
+		if err != nil {
+			out = err.Error()
+		}
+		fmt.Fprintf(&b, "--- %s:\n%s\n", title, out)
+	}
+	out, err := d.sdk.shell(ctx, d.dev.serial, "ls -la "+q(downloadsDir))
+	say("the files in the device's Downloads ("+downloadsDir+")", out, err)
+	where := q("_data LIKE '%/Download/%'")
+	for _, uri := range []string{"content://media/external/file", "content://media/external/downloads"} {
+		out, err := d.sdk.shell(ctx, d.dev.serial, "content query --uri "+uri+" --projection _id:_display_name:_data:_size:date_modified --where "+where)
+		say("the media store's rows of Downloads ("+uri+")", out, err)
 	}
 	return b.String()
 }
