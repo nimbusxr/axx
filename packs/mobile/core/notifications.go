@@ -192,6 +192,9 @@ func onNotification(sc *core.Scenario, app, text string, wait time.Duration, fn 
 			return err
 		}
 		if !ok {
+			// What showed as the wait ended: the logs below take seconds to gather, and a
+			// notification that comes meanwhile would show in a failure that says it did not.
+			shown := n.Texts(ctx)
 			if l, ok := n.(notificationLog); ok {
 				if log := l.NotificationLog(ctx); log != "" {
 					// The whole log is attached; the step's log has its end, where the notification
@@ -205,14 +208,27 @@ func onNotification(sc *core.Scenario, app, text string, wait time.Duration, fn 
 					sc.Attach("text/plain", []byte(state), "what the notification system of the "+app+" app's device was doing")
 				}
 			}
-			return core.Fail(fmt.Sprintf("The device of the %s app shows no notification %q", app, text), text,
-				cloudstep.Shown("notifications", n.Texts(ctx), 30))
+			late, _ := n.Shows(ctx, text)
+			return missed(app, text, wait, shown, late)
 		}
 		if fn == nil {
 			return nil
 		}
 		return fn(ctx, n)
 	})
+}
+
+// missed is the failure of a notification that did not show within the wait: one that showed
+// once the wait was over (iOS's notification system, on a busy Mac, took 35 seconds to show one
+// an app posted at once) is said to have come late, not to be missing. What showed is what showed
+// as the wait ended.
+func missed(app, text string, wait time.Duration, shown []string, late bool) error {
+	if late {
+		return core.Fail(fmt.Sprintf("The device of the %s app showed the notification %q only after the %s wait", app, text, wait), text,
+			cloudstep.Shown("notifications", shown, 30))
+	}
+	return core.Fail(fmt.Sprintf("The device of the %s app shows no notification %q", app, text), text,
+		cloudstep.Shown("notifications", shown, 30))
 }
 
 // openNotification taps the notification that shows a text, as a person opens it.

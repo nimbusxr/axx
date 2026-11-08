@@ -754,9 +754,12 @@ func (n notificationCenter) NotificationLog(ctx context.Context) string {
 
 // NotificationSystem is what the simulator's notification system was doing in the last minute and
 // a half, and where SpringBoard's threads are now: it runs a notification through its pipeline to
-// Notification Center (iOS 27), so a notification posted but never shown stopped there. Its whole
-// log, not only the lines that name the app, and a sample of its threads (the Mac's sample(1),
-// which reads a simulator's processes as its own).
+// Notification Center (iOS 27), so a notification posted but never shown, or shown late, stopped
+// there. Its notifications' log, not only the lines that name the app, with every error and fault
+// SpringBoard logged; and a sample of its threads (the Mac's sample(1), which reads a simulator's
+// processes as its own). SpringBoard's other lines are left out: its updates of every process's
+// state, the lock screen's posters and XCTest's own requests filled the last 4000 lines with 30
+// seconds, on a busy Mac, which left out where a notification's pipeline had stalled.
 func (n notificationCenter) NotificationSystem(ctx context.Context) string {
 	d := n.d
 	if d.dev == nil {
@@ -764,9 +767,9 @@ func (n notificationCenter) NotificationSystem(ctx context.Context) string {
 	}
 	var b strings.Builder
 	out, err := d.dev.set.simctl(ctx, "spawn", d.dev.udid, "log", "show", "--last", "90s", "--style", "compact",
-		"--predicate", `process == "SpringBoard" OR process == "usernotificationsd"`)
+		"--predicate", notificationSystemLog)
 	if err == nil {
-		fmt.Fprintf(&b, "--- SpringBoard's and usernotificationsd's log, the last 90 seconds:\n%s\n", lastLines(out, 4000, 400))
+		fmt.Fprintf(&b, "--- SpringBoard's and usernotificationsd's log of notifications, and their errors, the last 90 seconds:\n%s\n", lastLines(out, 4000, 400))
 	}
 	services, err := d.dev.set.simctl(ctx, "spawn", d.dev.udid, "launchctl", "list")
 	if err != nil {
@@ -791,6 +794,12 @@ func (n notificationCenter) NotificationSystem(ctx context.Context) string {
 	}
 	return b.String()
 }
+
+// notificationSystemLog is the simulator's log of its notification system: the notification
+// subsystems' lines in SpringBoard and usernotificationsd, and their errors and faults.
+const notificationSystemLog = `(process == "SpringBoard" OR process == "usernotificationsd") AND ` +
+	`(subsystem BEGINSWITH "com.apple.UserNotifications" OR subsystem BEGINSWITH "com.apple.usernotificationsd" OR ` +
+	`subsystem BEGINSWITH "com.apple.BulletinBoard" OR subsystem BEGINSWITH "com.apple.donotdisturb" OR messageType IN {16, 17})`
 
 // AppLog is what the simulator logged of the app since the scenario reset it: its own process's
 // lines, and the system's UserNotifications and BackgroundTasks lines that name it.
