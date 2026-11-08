@@ -31,7 +31,11 @@ import java.util.function.BooleanSupplier;
  * question's dialog, or, once they closed it, with a click on its notification.
  */
 public class AxxHostTest extends HeavyPlatformTestCase {
-    /** {@code axx host --ide}: its events before the person's answer, the answer, the rest. */
+    /**
+     * {@code axx host --ide}: its events before the person's answer, the answer, the rest. The
+     * answer is written to another file and renamed: the tests read answers.txt as soon as it
+     * exists, and a file the shell writes to directly exists, empty, before the answer is in it.
+     */
     private static final String HOST =
             String.join(
                     "\n",
@@ -39,7 +43,7 @@ public class AxxHostTest extends HeavyPlatformTestCase {
                     "[ \"$1 $2\" = 'host --ide' ] || exit 2",
                     "cat before.jsonl",
                     "read -r answer",
-                    "printf '%s\\n' \"$answer\" > answers.txt",
+                    "printf '%s\\n' \"$answer\" > answers.tmp && mv answers.tmp answers.txt",
                     "cat after.jsonl",
                     "echo 'run 1 cleaned up' >&2",
                     // Until the IDE closes the input.
