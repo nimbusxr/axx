@@ -100,7 +100,32 @@ func (d *running) begin(ctx context.Context) error {
 		_ = d.Stop(true)
 		return err
 	}
+	d.awaitBroadcasts(ctx)
 	return nil
+}
+
+// awaitBroadcasts waits, a minute at most, until Android has delivered the broadcasts the
+// scenario's reset sent, before the app starts: its force-stop's, which has Android's job
+// scheduler cancel every job of the app as it gets it, and its cleared data's. On a busy emulator
+// they wait in Android's queues: on CI, the force-stop's reached the job scheduler 13 seconds
+// late, after the app had started again and WorkManager had handed it a job, which it cancelled.
+// Android 14 and later wait for them (am wait-for-broadcast-barrier); an older Android, which
+// cannot, goes on at once, as before.
+func (d *running) awaitBroadcasts(ctx context.Context) {
+	ctx, cancel := context.WithTimeout(ctx, time.Minute)
+	defer cancel()
+	start := time.Now()
+	out, err := d.sdk.shell(ctx, d.dev.serial, "am", "wait-for-broadcast-barrier")
+	took := time.Since(start).Round(100 * time.Millisecond)
+	if d.scenario == nil {
+		return
+	}
+	switch {
+	case ctx.Err() != nil:
+		d.scenario.Log("Android had not delivered the broadcasts of the %s app's reset after %s: the scenario goes on", d.app.name, took)
+	case err == nil && strings.Contains(out, "barrier passed") && took >= 2*time.Second:
+		d.scenario.Log("Android delivered the broadcasts of the %s app's reset in %s", d.app.name, took)
+	}
 }
 
 // seeCamera has the device's camera see what the app's camera sees, now that a step gave it
