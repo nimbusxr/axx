@@ -59,6 +59,8 @@ type pool struct {
 
 	// afresh warns once that the AVD's snapshot has another camera (bootAfresh).
 	afresh sync.Once
+	// newDevice makes a device ready for the pool: start, but for the tests.
+	newDevice func(ctx context.Context, logDir string) (*device, error)
 
 	mu      sync.Mutex
 	free    []*device
@@ -82,6 +84,7 @@ func poolFor(sc *core.Scenario, name string) (*pool, error) {
 		}
 		watching, _ := s.Watching()
 		p := &pool{suite: s, sdk: tools, name: name, max: cfg.devices, boot: cfg.bootTimeout, args: cfg.emulatorArgs, window: watching, changed: make(chan struct{})}
+		p.newDevice = p.start
 		ctx := sc.Context()
 		serials, err := tools.devices(ctx)
 		if err != nil {
@@ -119,6 +122,7 @@ func avdHome() string {
 
 // lease gives the scenario a device of its own, starting an emulator when
 // none is free and the pool may have one more; otherwise it waits for one.
+// A free emulator that went down is stopped, and another started in its place.
 func (p *pool) lease(ctx context.Context, logDir string) (*device, error) {
 	for {
 		p.mu.Lock()
@@ -130,12 +134,20 @@ func (p *pool) lease(ctx context.Context, logDir string) (*device, error) {
 			d := p.free[n-1]
 			p.free = p.free[:n-1]
 			p.mu.Unlock()
+			if err := p.alive(ctx, d); err != nil {
+				if ctx.Err() != nil {
+					p.release(d)
+					return nil, fmt.Errorf("no %s device was free: %w", p.name, ctx.Err())
+				}
+				p.drop(d, logDir, err)
+				continue
+			}
 			return d, nil
 		}
 		if len(p.all)+p.starts < p.max {
 			p.starts++
 			p.mu.Unlock()
-			d, err := p.start(ctx, logDir)
+			d, err := p.newDevice(ctx, logDir)
 			p.mu.Lock()
 			p.starts--
 			if err == nil {
@@ -153,6 +165,39 @@ func (p *pool) lease(ctx context.Context, logDir string) (*device, error) {
 		case <-wait:
 		}
 	}
+}
+
+// offlineGrace is how long an emulator adb no longer has gets to come back before the pool
+// takes it for gone: adb drops a device for a moment now and then.
+var offlineGrace = 5 * time.Second
+
+// alive is nil for a device that can take a scenario: an emulator axx started that still runs,
+// and that adb has. One that went down would fail every scenario that got it: CI's emulator shut
+// itself down now and then ("bad color buffer handle"), adb said it was offline for the twenty
+// seconds it took to stop, and each waiting scenario got it and failed at once. A device adb
+// lists that axx did not start is not axx's to replace: it is leased as it is.
+func (p *pool) alive(ctx context.Context, d *device) error {
+	if d.emulator == nil {
+		return nil
+	}
+	select {
+	case <-d.exited:
+		return fmt.Errorf("its emulator stopped (%s)", d.emulator.ProcessState)
+	default:
+	}
+	return p.sdk.waitOnline(ctx, d.serial, offlineGrace)
+}
+
+// drop stops an emulator that went down and takes it out of the pool: the next scenario that
+// needs one starts another, and only the scenario it went down under fails.
+func (p *pool) drop(d *device, logDir string, why error) {
+	p.suite.Logger().Warn("an Android emulator went down: the next scenario gets another", "avd", p.name, "serial", d.serial,
+		"err", why, "log", filepath.Join(logDir, d.serial+".log"))
+	d.stop(p.sdk)
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.all = slices.DeleteFunc(p.all, func(o *device) bool { return o == d })
+	p.signal()
 }
 
 // release gives a device back to the pool.
