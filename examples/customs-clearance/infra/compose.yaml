@@ -15,7 +15,7 @@ name: customs-clearance
 
 services:
   azure:
-    image: floci/floci-az:latest
+    image: floci/floci-az:0.16.0
     ports:
       - '4577:4577'
 

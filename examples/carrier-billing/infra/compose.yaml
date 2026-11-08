@@ -12,7 +12,7 @@ name: carrier-billing
 
 services:
   gcp:
-    image: floci/floci-gcp:latest
+    image: floci/floci-gcp:0.12.0
     ports:
       - '4588:4588'
     environment:
@@ -25,7 +25,7 @@ services:
     stop_signal: SIGKILL
 
   bigquery-sql:
-    image: floci/floci-duck:latest
+    image: floci/floci-duck:0.4.1
     stop_signal: SIGKILL
 
   # Creates the buckets, topics, subscriptions, the bucket notification and the
