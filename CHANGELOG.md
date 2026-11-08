@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.6.2](https://github.com/nimbusxr/axx/compare/v0.6.1...v0.6.2) (2026-11-08)
+
+
+### Features
+
+* a service's command, env and cleanup are filled in as it starts, with what the services it depends on told; one that started too early stops the run ([79f3d3b](https://github.com/nimbusxr/axx/commit/79f3d3b0a2704112109c9c5314fb853218410d42))
+* services and hooks tell axx properties, like the ports Docker picked, in the file AXX_PROPERTIES names; scenarios and readiness checks read them as ${sys:name}, and a value you set (-D, axx.yaml, a profile) wins ([79f3d3b](https://github.com/nimbusxr/axx/commit/79f3d3b0a2704112109c9c5314fb853218410d42))
+
+
+### Bug Fixes
+
+* **intellij:** the IntelliJ plugin and the VS Code extension complete axx.yaml from the schemas of the axx the project runs on, so a newer axx needs no plugin release ([79f3d3b](https://github.com/nimbusxr/axx/commit/79f3d3b0a2704112109c9c5314fb853218410d42))
+
 ## [0.6.1](https://github.com/nimbusxr/axx/compare/v0.6.0...v0.6.1) (2026-11-07)
 
 
