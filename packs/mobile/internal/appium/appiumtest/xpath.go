@@ -8,11 +8,9 @@ import (
 	"slices"
 	"strconv"
 	"strings"
-
-	"github.com/antchfx/xpath"
 )
 
-// element is an element of a page source, which an XPath finds as the drivers do: the
+// element is an element of a page source, which a locator finds as the drivers do: the
 // UiAutomator2 server and WebDriverAgent evaluate a locator against the screen's XML.
 type element struct {
 	name     string
@@ -45,155 +43,189 @@ func tree(src string) *element {
 	}
 }
 
-func (e *element) attr(name string) string {
+func (e *element) attr(name string) (string, bool) {
 	for _, a := range e.attrs {
 		if a.Name.Local == name {
-			return a.Value
+			return a.Value, true
 		}
 	}
-	return ""
+	return "", false
 }
 
 var androidBoundsRE = regexp.MustCompile(`^\[(-?\d+),(-?\d+)\]\[(-?\d+),(-?\d+)\]$`)
 
 // rect is where the element is: UiAutomator2's bounds, or XCUITest's frame.
 func (e *element) rect() map[string]float64 {
-	if m := androidBoundsRE.FindStringSubmatch(e.attr("bounds")); m != nil {
+	bounds, _ := e.attr("bounds")
+	if m := androidBoundsRE.FindStringSubmatch(bounds); m != nil {
 		n := func(i int) float64 { f, _ := strconv.ParseFloat(m[i], 64); return f }
 		return map[string]float64{"x": n(1), "y": n(2), "width": n(3) - n(1), "height": n(4) - n(2)}
 	}
-	n := func(k string) float64 { f, _ := strconv.ParseFloat(e.attr(k), 64); return f }
+	n := func(k string) float64 { v, _ := e.attr(k); f, _ := strconv.ParseFloat(v, 64); return f }
 	return map[string]float64{"x": n("x"), "y": n("y"), "width": n("width"), "height": n("height")}
 }
 
-// first is the first element of the source an XPath finds; nil when it finds none, or is no XPath.
+// condition is one of a locator's conditions: an attribute of the element, or of one of its
+// descendants, has a value.
+type condition struct {
+	attr, value string
+	descendant  bool
+}
+
+// first is the first element, in the source's order, that a locator finds; nil when it finds none,
+// or is not a locator the packs build. The packs find an element by its name and conditions on
+// its attributes, as an XPath does: //name[@a="v" and @b='w' and .//*[@c=concat("x", '"', "y")]].
+// The fake reads those itself rather than handing what a client sent to an XPath engine; the
+// tests hold it to what an XPath engine finds (xpath_test.go).
 func first(src, locator string) *element {
 	root := tree(src)
-	expr, err := xpath.Compile(locator)
-	if root == nil || err != nil {
+	if root == nil {
 		return nil
 	}
-	it := expr.Select(&navigator{path: []*element{root}, attr: -1})
-	if !it.MoveNext() {
+	return find(root, locator)
+}
+
+// find is the first element under root, in the source's order, that a locator finds.
+func find(root *element, locator string) *element {
+	name, conds, ok := parseLocator(locator)
+	if !ok {
 		return nil
 	}
-	n, _ := it.Current().(*navigator)
-	if n == nil || len(n.path) < 2 {
-		return nil
+	var found *element
+	var walk func(*element)
+	walk = func(e *element) {
+		for _, c := range e.children {
+			if found != nil {
+				return
+			}
+			if c.name == name && c.meets(conds) {
+				found = c
+				return
+			}
+			walk(c)
+		}
 	}
-	return n.path[len(n.path)-1]
+	walk(root)
+	return found
 }
 
-// navigator walks a source's elements for the xpath package: path is the elements from the
-// document root to the current one, attr the current attribute (-1 on the element).
-type navigator struct {
-	path []*element
-	attr int
-}
-
-func (n *navigator) node() *element { return n.path[len(n.path)-1] }
-
-func (n *navigator) NodeType() xpath.NodeType {
-	switch {
-	case len(n.path) == 1:
-		return xpath.RootNode
-	case n.attr >= 0:
-		return xpath.AttributeNode
-	}
-	return xpath.ElementNode
-}
-
-func (n *navigator) LocalName() string {
-	if n.attr >= 0 {
-		return n.node().attrs[n.attr].Name.Local
-	}
-	return n.node().name
-}
-
-func (n *navigator) Prefix() string { return "" }
-
-func (n *navigator) Value() string {
-	if n.attr >= 0 {
-		return n.node().attrs[n.attr].Value
-	}
-	return ""
-}
-
-func (n *navigator) Copy() xpath.NodeNavigator {
-	return &navigator{path: slices.Clone(n.path), attr: n.attr}
-}
-
-func (n *navigator) MoveToRoot() { n.path, n.attr = n.path[:1], -1 }
-
-func (n *navigator) MoveToParent() bool {
-	switch {
-	case n.attr >= 0:
-		n.attr = -1
-	case len(n.path) == 1:
-		return false
-	default:
-		n.path = n.path[:len(n.path)-1]
+// meets reports whether the element meets every condition.
+func (e *element) meets(conds []condition) bool {
+	for _, c := range conds {
+		if !c.descendant {
+			if v, ok := e.attr(c.attr); !ok || v != c.value {
+				return false
+			}
+			continue
+		}
+		if !e.hasDescendant(c) {
+			return false
+		}
 	}
 	return true
 }
 
-func (n *navigator) MoveToNextAttribute() bool {
-	if len(n.path) == 1 || n.attr+1 >= len(n.node().attrs) {
-		return false
+func (e *element) hasDescendant(c condition) bool {
+	for _, d := range e.children {
+		if v, ok := d.attr(c.attr); ok && v == c.value {
+			return true
+		}
+		if d.hasDescendant(c) {
+			return true
+		}
 	}
-	n.attr++
-	return true
+	return false
 }
 
-func (n *navigator) MoveToChild() bool {
-	if n.attr >= 0 || len(n.node().children) == 0 {
-		return false
+var locatorRE = regexp.MustCompile(`^//([A-Za-z_][\w.\-]*)\[(.*)\]$`)
+
+// parseLocator reads a locator of the packs' shape: its element name and its conditions.
+func parseLocator(locator string) (string, []condition, bool) {
+	m := locatorRE.FindStringSubmatch(locator)
+	if m == nil {
+		return "", nil, false
 	}
-	n.path = append(n.path, n.node().children[0])
-	return true
+	p := &parser{s: m[2]}
+	var conds []condition
+	for {
+		c, ok := p.condition()
+		if !ok {
+			return "", nil, false
+		}
+		conds = append(conds, c)
+		if p.done() {
+			return m[1], conds, true
+		}
+		if !p.take(" and ") {
+			return "", nil, false
+		}
+	}
 }
 
-// siblings are the current element's parent's children, and its place among them.
-func (n *navigator) siblings() ([]*element, int) {
-	if n.attr >= 0 || len(n.path) < 2 {
-		return nil, -1
-	}
-	kids := n.path[len(n.path)-2].children
-	return kids, slices.Index(kids, n.node())
+// parser reads a locator's conditions.
+type parser struct {
+	s string
+	i int
 }
 
-func (n *navigator) MoveToFirst() bool {
-	kids, i := n.siblings()
-	if i <= 0 {
-		return false
+func (p *parser) done() bool { return p.i == len(p.s) }
+
+func (p *parser) take(s string) bool {
+	if strings.HasPrefix(p.s[p.i:], s) {
+		p.i += len(s)
+		return true
 	}
-	n.path[len(n.path)-1] = kids[0]
-	return true
+	return false
 }
 
-func (n *navigator) MoveToNext() bool {
-	kids, i := n.siblings()
-	if i < 0 || i+1 >= len(kids) {
-		return false
+var attrRE = regexp.MustCompile(`^@([\w\-]+)=`)
+
+// condition reads @attr=literal, or .//*[@attr=literal].
+func (p *parser) condition() (condition, bool) {
+	descendant := p.take(".//*[")
+	m := attrRE.FindStringSubmatch(p.s[p.i:])
+	if m == nil {
+		return condition{}, false
 	}
-	n.path[len(n.path)-1] = kids[i+1]
-	return true
+	p.i += len(m[0])
+	value, ok := p.literal()
+	if !ok || (descendant && !p.take("]")) {
+		return condition{}, false
+	}
+	return condition{attr: m[1], value: value, descendant: descendant}, true
 }
 
-func (n *navigator) MoveToPrevious() bool {
-	kids, i := n.siblings()
-	if i <= 0 {
-		return false
+// literal reads an XPath 1.0 string literal: in double or single quotes, or concat() of them.
+func (p *parser) literal() (string, bool) {
+	if p.take("concat(") {
+		var b strings.Builder
+		for {
+			part, ok := p.quoted()
+			if !ok {
+				return "", false
+			}
+			b.WriteString(part)
+			if p.take(")") {
+				return b.String(), true
+			}
+			if !p.take(", ") {
+				return "", false
+			}
+		}
 	}
-	n.path[len(n.path)-1] = kids[i-1]
-	return true
+	return p.quoted()
 }
 
-func (n *navigator) MoveTo(other xpath.NodeNavigator) bool {
-	o, ok := other.(*navigator)
-	if !ok || o.path[0] != n.path[0] {
-		return false
+func (p *parser) quoted() (string, bool) {
+	if p.done() || (p.s[p.i] != '"' && p.s[p.i] != '\'') {
+		return "", false
 	}
-	n.path, n.attr = slices.Clone(o.path), o.attr
-	return true
+	quote := p.s[p.i]
+	end := strings.IndexByte(p.s[p.i+1:], quote)
+	if end < 0 {
+		return "", false
+	}
+	v := p.s[p.i+1 : p.i+1+end]
+	p.i += end + 2
+	return v, true
 }
