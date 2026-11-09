@@ -2,7 +2,7 @@
   "name": "axx-models-llamacpp",
   "private": true,
   "dependencies": {
-    "node-llama-cpp": "3.22.2"
+    "node-llama-cpp": "3.22.3"
   },
   "overrides": {
     "simple-git": "4.0.2"
