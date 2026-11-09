@@ -8,8 +8,10 @@ class {
     switch (kind) {
       case "frame-locator":
       case "frame":
+      case "any-frame":
         return "\u0001";
       case "visible":
+      case "filter-visible":
         return "";
       case "or":
         return "\u0003" + body;

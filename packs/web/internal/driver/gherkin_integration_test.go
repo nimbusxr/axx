@@ -19,11 +19,14 @@ const g = globalThis.__axxGherkin();
 const selectors = JSON.parse(process.argv[2]);
 const phrases = JSON.parse(process.argv[3]);
 const actions = JSON.parse(process.argv[4]);
+const calls = JSON.parse(process.argv[5]);
 console.log(JSON.stringify({
   locators: selectors.map(g.asLocator),
   selectors: phrases.map((p) => g.parse(p, "data-testid")),
-  steps: g.generate(actions.map((action) => ({ pageGuid: "page@1", action, startTime: 0 })),
+  // The recorder keeps what an action led to (a dialog, a page) beside it, in its context.
+  steps: g.generate(actions.map(({ signals, ...action }) => ({ pageGuid: "page@1", action, signals })),
     { contextOptions: { baseURL: "http://localhost:8400/portal/" }, saveStorage: undefined }),
+  calls: calls.map((metadata) => { const c = g.callLog(metadata); return c.title + " " + c.subtitle; }),
 }));
 `
 
@@ -50,6 +53,7 @@ func TestTheGherkinLanguage(t *testing.T) {
 		`.quote-result`:                                      `the "css=.quote-result" element`,
 		`xpath=//tbody/tr[2]`:                                `the "xpath=//tbody/tr[2]" element`,
 		`iframe[name="pay"] >> internal:control=enter-frame >> internal:role=button[name="Pay"s]`: `the "Pay" button`,
+		`internal:control=any-frame >> internal:role=button[name="Pay"s]`:                         `the "Pay" button`,
 		`internal:role=button[name="Say \"hi\""s]`:                                                `the "Say \"hi\"" button`,
 		// The pack's own locators: its ways of finding one name, and visible ones only.
 		`internal:role=button[name="Get a quote"s] >> visible=true`:                                                                                                                                                   `the "Get a quote" button`,
@@ -99,17 +103,36 @@ func TestTheGherkinLanguage(t *testing.T) {
 	for p := range phrases {
 		phr = append(phr, p)
 	}
-	args := []string{"-e", gherkinCheck, dir, mustJSON(t, sel), mustJSON(t, phr), mustJSON(t, actions)}
+	// The Inspector's call log, as the driver sends it to the Inspector: each call and the
+	// element it acts on, named in the recorder's language, the axx language's.
+	calls := map[string]map[string]any{
+		`Click the "Track a parcel" link`: {"id": "call@1", "type": "Frame", "method": "click", "log": []any{},
+			"params": map[string]any{"selector": `internal:role=link[name="Track a parcel"s]`}},
+		`Fill "1200" the "Weight (grams)" field`: {"id": "call@2", "type": "Frame", "method": "fill", "log": []any{},
+			"params": map[string]any{"selector": `internal:label="Weight (grams)"s >> internal:or="internal:attr=[placeholder=\"Weight (grams)\"s]" >> visible=true`, "value": "1200"}},
+	}
+	var call []string
+	var metadata []map[string]any
+	for c, m := range calls {
+		call = append(call, c)
+		metadata = append(metadata, m)
+	}
+	args := []string{"-e", gherkinCheck, dir, mustJSON(t, sel), mustJSON(t, phr), mustJSON(t, actions), mustJSON(t, metadata)}
 	out, err := exec.Command(filepath.Join(dir, "node"), args...).CombinedOutput()
 	if err != nil {
 		t.Fatalf("%v: %s", err, out)
 	}
 	var got struct {
-		Locators, Selectors []string
-		Steps               string
+		Locators, Selectors, Calls []string
+		Steps                      string
 	}
 	if err := json.Unmarshal(out, &got); err != nil {
 		t.Fatalf("%v: %s", err, out)
+	}
+	for i, c := range call {
+		if got.Calls[i] != c {
+			t.Errorf("the call log shows %q, want %q", got.Calls[i], c)
+		}
 	}
 	for i, s := range sel {
 		if got.Locators[i] != selectors[s] {

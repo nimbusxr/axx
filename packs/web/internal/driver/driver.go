@@ -25,10 +25,10 @@ import (
 
 // CoreVersion is the Playwright version the pack drives, whose browsers the
 // pack runs. The Node.js it runs with is npm.NodeVersion.
-const CoreVersion = "1.62.1"
+const CoreVersion = "1.64.1"
 
 // coreIntegrity is npm's integrity of playwright-core-<CoreVersion>.tgz.
-const coreIntegrity = "sha512-wPYSwEBJY9GHraISXqyqtx0na0LpO3XEX7jNDhntbex7tzUS7kLnZsOlFruFJB4Hi/rhDMjXGqHewDZ68nYZVw=="
+const coreIntegrity = "sha512-BC4s8y6SEVA6Q1rSxZTto8hI1KUI3xXlHGZgvGqP4IqPdI/a6FX9H29IDNz7vKo9l21b6LfYosScPL6M3xxyDQ=="
 
 // Options configure Ensure; the zero value downloads from nodejs.org and
 // registry.npmjs.org into axx's cache. NODE_MIRROR and npm_config_registry

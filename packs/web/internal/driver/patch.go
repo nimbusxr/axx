@@ -10,7 +10,7 @@ import (
 
 // patchRevision names the patched driver: prepared drivers of an earlier
 // revision are prepared again.
-const patchRevision = 4
+const patchRevision = 5
 
 // Playwright's Inspector and recorder speak Playwright's languages; these
 // patches teach them the steps of the web-core pack. They apply to exactly the
@@ -71,11 +71,11 @@ func patches() []patch {
 		},
 		// The gherkin way of naming elements: for code, for the page, for the Inspector.
 		{file: core, anchor: "      jsonl: JsonlLocatorFactory\n    };", with: "      jsonl: JsonlLocatorFactory,\n      gherkin: " + indent(locator, "      ") + "\n    };"},
-		{file: core, anchor: `  jsonl: JsonlLocatorFactory\n};\nfunction isRegExp(obj)`, with: `  jsonl: JsonlLocatorFactory,\n  gherkin: ` + injected + `\n};\nfunction isRegExp(obj)`},
-		{file: ui, anchor: "return JSON.stringify(t[0])}}};function j(e){return e instanceof RegExp}", with: "return JSON.stringify(t[0])}},gherkin:" + locator + "};function j(e){return e instanceof RegExp}"},
+		{file: core, anchor: `  jsonl: JsonlLocatorFactory\n};\nvar regexFlagNames = {`, with: `  jsonl: JsonlLocatorFactory,\n  gherkin: ` + injected + `\n};\nvar regexFlagNames = {`},
+		{file: ui, anchor: "return JSON.stringify(t[0])}}},tn={python:", with: "return JSON.stringify(t[0])}},gherkin:" + locator + "},tn={python:"},
 		{
-			file: core, anchor: "function unsafeLocatorOrSelectorAsSelector(language, locator2, testIdAttributeName2 = \"data-testid\") {\n",
-			with: "function unsafeLocatorOrSelectorAsSelector(language, locator2, testIdAttributeName2 = \"data-testid\") {\n" + patchSource("gherkin-parser.js") + "\n",
+			file: core, anchor: "function unsafeLocatorOrSelectorAsSelector(language, locator3, testIdAttributeName2 = \"data-testid\") {\n",
+			with: "function unsafeLocatorOrSelectorAsSelector(language, locator3, testIdAttributeName2 = \"data-testid\") {\n" + patchSource("gherkin-parser.js") + "\n",
 		},
 		// The axx recorder language, the first, with the context's options (its base URL).
 		{file: core, anchor: "    new JsonlLanguageGenerator()\n  ]);", with: "    new JsonlLanguageGenerator(),\n    new (" + indent(patchSource("gherkin-generator.js"), "    ") + ")()\n  ]);"},
@@ -83,35 +83,35 @@ func patches() []patch {
 			file: core, anchor: "this._primaryGeneratorId = process.env.TEST_INSPECTOR_LANGUAGE || params2.language || determinePrimaryGeneratorId(params2.sdkLanguage);",
 			with: "this._primaryGeneratorId = process.env.TEST_INSPECTOR_LANGUAGE || params2.language || \"axx\";",
 		},
-		{file: core, anchor: "_RecorderApp._show(recorder, context2, {})", with: "_RecorderApp._show(recorder, context2, { contextOptions: context2._options })"},
+		{file: core, anchor: "RecorderApp.show(this, {}).catch(() => {", with: "RecorderApp.show(this, { contextOptions: this._options }).catch(() => {"},
 		// What the recorder records, as axx steps, is also in $AXX_WEB_RECORDING, for an IDE.
 		{
 			file: core, anchor: "this._throttledOutputFile = params2.outputFile ? new ThrottledFile(params2.outputFile) : null;",
 			with: "const outputFile2 = params2.outputFile || process.env.AXX_WEB_RECORDING;\n        this._throttledOutputFile = outputFile2 ? new ThrottledFile(outputFile2) : null;",
 		},
-		// Gherkin in the Inspector: its highlighting, and call log entries without "page.".
+		// Gherkin in the Inspector: its highlighting. Its call log names elements in the recorder's
+		// language, the axx language's: gherkin.
 		{file: ui, anchor: "java:`text/x-java`,markdown:`markdown`", with: "java:`text/x-java`,gherkin:`gherkin`,markdown:`markdown`"},
 		{file: ui, anchor: "e.defineSimpleMode(`text/linkified`,{start:[{regex:y,token:`linkified`}]})", with: "e.defineSimpleMode(`text/linkified`,{start:[{regex:y,token:`linkified`}]})," + patchSource("gherkin-mode.js")},
-		{file: ui, anchor: "title:`page.${o}`,children:`page.${o}`", with: "title:o.startsWith(`the \"`)?o:`page.${o}`,children:o.startsWith(`the \"`)?o:`page.${o}`"},
 		// Traces keep the feature files of their steps, without the rest of the sources.
 		{
 			file: core, anchor: "  if (params2.includeSources) {\n    const sourceFiles = new Set(params2.additionalSources);",
 			with: "  if (!params2.includeSources) {\n    for (const sourceFile of params2.additionalSources || []) {\n      if (sourceFile.endsWith(\".feature\"))\n        addFile(sourceFile, \"resources/src@\" + calculateSha1(sourceFile) + \".txt\");\n    }\n  }\n  if (params2.includeSources) {\n    const sourceFiles = new Set(params2.additionalSources);",
 		},
-		// The trace viewer: traces name elements the gherkin way, and show feature files as Gherkin.
-		{file: viewer, anchor: "return JSON.stringify(t[0])}}};function kn(e){return e instanceof RegExp}", with: "return JSON.stringify(t[0])}},gherkin:" + locator + "};function kn(e){return e instanceof RegExp}"},
+		// The trace viewer: traces name elements the gherkin way (its actions' titles, in the trace's
+		// language), and show feature files as Gherkin.
+		{file: viewer, anchor: "return JSON.stringify(t[0])}}},Zt={python:", with: "return JSON.stringify(t[0])}},gherkin:" + locator + "},Zt={python:"},
 		{file: viewer, anchor: "this.sdkLanguage=n?.sdkLanguage", with: "this.sdkLanguage=`gherkin`"},
-		{file: viewer, anchor: "xn(n||`javascript`,e.params.selector)", with: "xn(n||`gherkin`,e.params.selector)"},
-		{file: viewer, anchor: "xn(t||`javascript`,e.params.selector)", with: "xn(t||`gherkin`,e.params.selector)"},
-		{file: viewer, anchor: "Cn(r||`javascript`,e.params.selector)", with: "Cn(r||`gherkin`,e.params.selector)"},
+		{file: viewer, anchor: "Gt(r||`javascript`,e.params.selector)", with: "Gt(r||`gherkin`,e.params.selector)"},
 		{file: viewer, anchor: "java:`text/x-java`,markdown:`markdown`", with: "java:`text/x-java`,gherkin:`gherkin`,markdown:`markdown`"},
-		{file: viewer, anchor: "e.defineSimpleMode(`text/linkified`,{start:[{regex:j,token:`linkified`}]})", with: "e.defineSimpleMode(`text/linkified`,{start:[{regex:j,token:`linkified`}]})," + patchSource("gherkin-mode.js")},
+		{file: viewer, anchor: "e.defineSimpleMode(`text/linkified`,{start:[{regex:A,token:`linkified`}]})", with: "e.defineSimpleMode(`text/linkified`,{start:[{regex:A,token:`linkified`}]})," + patchSource("gherkin-mode.js")},
 		{file: viewer, anchor: "v=_.endsWith(`.md`)?`markdown`:`javascript`", with: "v=_.endsWith(`.md`)?`markdown`:_.endsWith(`.feature`)?`gherkin`:`javascript`"},
 	}
 }
 
 // axxHelpers are the patches' functions: a call's step location, and, for
-// the pack's tests, the gherkin language (globalThis.__axxGherkin).
+// the pack's tests, the gherkin language (globalThis.__axxGherkin), with the
+// Inspector's call log in the recorder's language, the axx language's.
 const axxHelpers = `function axxStepLocation(sdkObject) {
   return sdkObject?.attribution?.context?.__axxStep;
 }
@@ -119,11 +119,13 @@ globalThis.__axxGherkin = function() {
   init_locatorGenerators();
   init_locatorParser();
   init_languages();
+  init_protocolFormatter();
   const generator = [...languageSet()].find((g) => g.id === "axx");
   return {
     asLocator: (selector) => asLocator("gherkin", selector),
     parse: (text, testIdAttributeName) => locatorOrSelectorAsSelector("gherkin", text, testIdAttributeName),
-    generate: (actions, options) => generateCode(actions, generator, options).text
+    generate: (actions, options) => generateCode(actions, generator, options).text,
+    callLog: (metadata) => metadataToCallLog(metadata, "paused", generator.highlighter)
   };
 };
 `

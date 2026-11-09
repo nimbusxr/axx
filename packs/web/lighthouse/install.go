@@ -10,7 +10,7 @@ import _ "embed"
 //
 // Lighthouse drives the browser through its DevTools protocol, so its
 // version must follow the Chromium of the Playwright the web-core pack drives
-// (driver.CoreVersion): 13.5.0 audits Chromium 151, Playwright 1.62.1's.
+// (driver.CoreVersion): 13.6.0 audits Chromium 156, Playwright 1.64.1's.
 // To upgrade it, change npm/package.json and run
 // `npm install --package-lock-only --ignore-scripts` in npm/.
 const lighthouseVersion = "13.6.0"

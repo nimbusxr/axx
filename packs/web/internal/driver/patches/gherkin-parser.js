@@ -1,5 +1,5 @@
   if (language === "gherkin") {
-    const m = /^\s*the\s+"((?:[^"\\]|\\.)*)"\s+(button|link|tab|menu item|checkbox|option|field|element)\s*$/.exec(locator2);
+    const m = /^\s*the\s+"((?:[^"\\]|\\.)*)"\s+(button|link|tab|menu item|checkbox|option|field|element)\s*$/.exec(locator3);
     if (m) {
       const name = JSON.parse('"' + m[1] + '"');
       if (name.startsWith("css=") || name.startsWith("xpath="))
