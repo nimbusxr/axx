@@ -1,7 +1,10 @@
 # 0016: On macOS, axx runs desktop scenarios under a launcher of its own, the one identity a person allows
 
-- Status: Proposed (a draft: it waits on NimbusXR's Developer ID)
+- Status: Proposed (a draft). NimbusXR is in the Apple Developer Program as of 2026-11-09; the
+  launcher now waits on NimbusXR's Developer ID certificate and its notarization key.
 - Date: 2026-10-09
+- Revised: 2026-11-09. Numbered 0016, since main took 0013 meanwhile. It now covers the MCP server
+  and the hand-overs ADR 0015 added, and it says how desktop-macos starts apps today.
 - Amends: [0011](0011-desktop-apps-through-the-accessibility-tree.md) (its checks before a run, and CI)
 
 ## Context
@@ -50,12 +53,30 @@ every app axx runs, whatever started axx.
    (`internal/launcher.Start`.)
 2. **The launcher runs axx as its child.** `axx-launcher program [arguments...]` passes standard
    input and output through, passes stop signals on, and returns the program's exit status
-   (`internal/launcher.Run`, `internal/tools/axx-launcher`). axx runs itself again under it for a
-   desktop run on macOS, and the second run knows it is under the launcher.
+   (`internal/launcher.Run`, `internal/tools/axx-launcher`). On macOS, axx runs itself again
+   under it for every command that can drive Mac apps, and the second run knows it is under the
+   launcher. Those commands are:
+   - `axx run`;
+   - `axx mcp`, because an agent's `steps_try` runs its steps inside the MCP server's own process
+     (`internal/mcp/session.go`). Without the launcher, the desktop steps an agent tries would ask
+     for the grants of whatever started the agent.
+
+   axx runs itself again once, in its outermost process. `axx run --debug-steps` starts Delve,
+   and Delve starts axx again (`internal/cli/debugsteps.go`). So the launcher goes above Delve,
+   and the run Delve starts does not start a second launcher.
 3. **Apps under test start as axx's children**, from their bundle's executable, so the
    launcher's grants are theirs (the owner's decision, 2026-10-08: "we need to run the apps as
    children"). `open` stays only for Apple's own apps, which macOS stops when they are started
    from their executable.
+
+   Today desktop-macos opens a `.app` with `open -n -g -a` (`packs/desktop/macos/launch_darwin.go`),
+   and LaunchServices makes it responsible for itself. Started from its executable instead, the
+   app must still get everything `open` gives it now:
+   - the environment that packs add when an app launches (`desktopcore.OnLaunch`, such as
+     models-macos's library for a test build);
+   - its arguments, its language and region, and window restoration turned off;
+   - the documents it is asked to open. A Cocoa app opens the documents it is asked to open, not
+     the ones among its arguments.
 4. **It is signed with NimbusXR's Developer ID and notarized, and nothing else signs it** (the
    owner's decision, 2026-10-08: never a personal certificate, not even for now). The release
    workflow builds it into an app (`axx.app`, its identifier to settle; proposed
@@ -95,6 +116,9 @@ This draft's tests (`internal/launcher`) repeat the handoff's proof on every run
 - a program started the usual way is not responsible for its children;
 - `Run` passes an exit status, a signal's (128 plus its number) and Ctrl-C through.
 
+On 2026-11-09 they passed again on macOS 27.0.1 with `CGO_ENABLED=0`, so the function the
+handoff uses is still there.
+
 ## Options considered
 
 - **Grants per host (today).** One for each terminal, IDE and CI agent, plus one for each app under
@@ -111,15 +135,17 @@ This draft's tests (`internal/launcher`) repeat the handoff's proof on every run
 
 - [x] Prove the handoff and the launcher: the prototype above, and this draft (`internal/launcher`,
   `internal/tools/axx-launcher`, their tests).
-- [ ] **The owner:** NimbusXR in the Apple Developer Program, as an organization (in progress); a
-  Developer ID Application certificate; an App Store Connect API key for notarization. Their
-  secrets go in a protected `release` environment.
+- [x] **The owner:** NimbusXR in the Apple Developer Program (2026-11-09).
+- [ ] **The owner:** a Developer ID Application certificate, and an App Store Connect API key for
+  notarization. Their secrets go in the `release` environment, which the release workflow's
+  publishing job already uses.
 - [ ] Release: build `axx-launcher` into `axx.app`, sign it, notarize and staple it, and publish it
   with each release.
 - [ ] axx downloads it on first use, checks its signature and team, and keeps it in its cache.
-- [ ] axx runs a macOS desktop run under it.
-- [ ] desktop-macos starts apps from their bundle's executable, and opens only Apple's apps with
-  `open`.
+- [ ] On macOS, `axx run` and `axx mcp` run under it: once, in the outermost process, above
+  Delve for `--debug-steps`.
+- [ ] desktop-macos starts apps from their bundle's executable, with what `open` gives them today
+  (the launch's environment, arguments and documents), and opens only Apple's apps with `open`.
 - [ ] `axx doctor` and the first desktop step check the launcher's grants.
 - [ ] CI: the hosted macOS recipe (the launcher's TCC rows and approval), with the owner's
   approval. Snap's CI then grants the launcher instead of Snap and bash.
@@ -129,9 +155,15 @@ This draft's tests (`internal/launcher`) repeat the handoff's proof on every run
 
 1. **Its name**, which a person sees in System Settings, and its identifier, which keeps its grants
    and so is chosen once. Proposed: "axx", `us.nimbusxr.axx.launcher`.
-2. **Where axx runs itself again under it.**
-   - In the core (`cmd/axx`), before a run: the core binary would carry purego, which is pure Go.
-   - Or in the project's build, which has the desktop packs.
+2. **Where axx runs itself again under it.** Since ADR 0015, axx hands over twice before a
+   command runs. The installed axx hands over to the version the project names, and that version
+   hands over to the project's own build. Both hand-overs replace the process with `exec`
+   (`internal/cli/packs.go`), so neither changes who macOS holds responsible. The re-run could
+   go in either of two places:
+   - In the core (`cmd/axx`). The core binary would carry purego, which is pure Go. It would have
+     to read the project's packs to know whether a command drives Mac apps.
+   - In the project's build, which has desktop-macos and so knows. An older installed axx hands
+     over to it without knowing about the launcher. This is the one proposed.
 3. **A way out**, for someone who prefers their terminal's grants: `AXX_LAUNCHER=off`.
 4. **The private API.** If a macOS release removes it, `Start` fails as the library loads, and axx
    runs as it does today, with the host's grants; `axx doctor` says so.
@@ -139,7 +171,8 @@ This draft's tests (`internal/launcher`) repeat the handoff's proof on every run
 ## Consequences
 
 - One grant per Mac, kept across axx's updates, that works from any terminal, IDE or CI agent.
-- The apps under test share it, as axx's children.
+- The apps under test share it, as axx's children, and so do the desktop steps an agent tries
+  through `axx mcp`.
 - CI allows one identity. There are no rows per app under test, and no bash alert.
 - axx's release signs and notarizes a macOS app under NimbusXR's Apple account.
 - axx relies on a private macOS API that Chromium and VS Code also rely on, and falls back to
