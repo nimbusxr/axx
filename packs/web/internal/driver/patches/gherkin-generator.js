@@ -20,7 +20,7 @@ class {
   generateAction(actionInContext) {
     const action = actionInContext.action;
     const lines = [];
-    const signals = action.signals || [];
+    const signals = actionInContext.signals || [];
     for (const [kind, text] of this._steps(action))
       lines.push([kind, text]);
     if (lines.length && signals.some((s) => s.name === "dialog"))

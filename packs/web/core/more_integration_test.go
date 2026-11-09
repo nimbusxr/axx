@@ -422,8 +422,9 @@ func TestPausingBeforeSteps(t *testing.T) {
 }
 
 // The Inspector shows a paused scenario's feature file as Gherkin, and names
-// the element picked, and those of its call log, the way steps do (the
-// patched Inspector page, sent what the driver sends it).
+// the element picked the way steps do, and shows its call log, whose elements
+// the driver names that way (the driver's TestTheGherkinLanguage), as steps do
+// (the patched Inspector page, sent what the driver sends it).
 func TestTheInspectorSpeaksGherkin(t *testing.T) {
 	h, _ := newHarness(t, "chromium")
 	dir, err := driverDir(h.Suite)
@@ -464,8 +465,7 @@ func TestTheInspectorSpeaksGherkin(t *testing.T) {
 	}}})
 	dispatch("sourceRevealRequested", map[string]any{"sourceId": "/work/features/shop-portal.feature"})
 	dispatch("callLogsUpdated", map[string]any{"callLogs": []any{map[string]any{
-		"id": "call@1", "title": "Click", "messages": []any{}, "status": "paused",
-		"params": map[string]any{"selector": `internal:role=link[name="Track a parcel"s]`},
+		"id": "call@1", "title": "Click", "subtitle": `the "Track a parcel" link`, "messages": []any{}, "status": "paused",
 	}}})
 	dispatch("elementPicked", map[string]any{"userGesture": true, "elementInfo": map[string]any{
 		"selector": `internal:label="Weight (grams)"s`, "ariaSnapshot": "",

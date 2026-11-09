@@ -3,6 +3,6 @@
   "private": true,
   "dependencies": {
     "@mlc-ai/web-llm": "0.2.87",
-    "playwright-core": "1.64.1"
+    "playwright-core": "1.65.0"
   }
 }

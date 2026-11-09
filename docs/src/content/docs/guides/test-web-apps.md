@@ -39,7 +39,7 @@ Add the pack to the project with `axx pack add web-core` ([Choose packs](/guides
 
 ## The browsers
 
-The browsers run on the machine that runs Axx, as in any Playwright project: Chromium, Firefox and WebKit, the builds of Playwright 1.62.1, the version the pack drives. The pack downloads each one the first time a scenario uses it, and keeps it where Playwright keeps its browsers, for the next runs and for other Playwright projects of that version: `~/Library/Caches/ms-playwright` on macOS, `~/.cache/ms-playwright` on Linux, `%LOCALAPPDATA%\ms-playwright` on Windows (`PLAYWRIGHT_BROWSERS_PATH` moves it). The engines `chrome` and `msedge` are the Google Chrome and Microsoft Edge installed on the machine. Chromium is the whole browser, with a window or without one, so that a run behaves the same whether you watch it or not.
+The browsers run on the machine that runs Axx, as in any Playwright project: Chromium, Firefox and WebKit, the builds of Playwright 1.64.1, the version the pack drives. The pack downloads each one the first time a scenario uses it, and keeps it where Playwright keeps its browsers, for the next runs and for other Playwright projects of that version: `~/Library/Caches/ms-playwright` on macOS, `~/.cache/ms-playwright` on Linux, `%LOCALAPPDATA%\ms-playwright` on Windows (`PLAYWRIGHT_BROWSERS_PATH` moves it). The engines `chrome` and `msedge` are the Google Chrome and Microsoft Edge installed on the machine. Chromium is the whole browser, with a window or without one, so that a run behaves the same whether you watch it or not.
 
 The browsers use your web apps at the addresses you would: `localhost` and the port their service listens on, whether it runs in Compose, publishing its port, or on your machine, from your IDE or with `axx run --debug` ([Manage the services under test](/guides/manage-services/)).
 
@@ -48,10 +48,10 @@ The browsers use your web apps at the addresses you would: `localhost` and the p
 On Linux, the browsers need system libraries that a bare machine or a slim image lacks. Install them before the run, with Playwright's command for the engines you use:
 
 ```yaml title=".github/workflows/acceptance.yml"
-- run: sudo npx -y playwright@1.62.1 install-deps chromium
+- run: sudo npx -y playwright@1.64.1 install-deps chromium
 ```
 
-Or run the job in Playwright's image, `mcr.microsoft.com/playwright:v1.62.1-noble`, which has them. Keep Playwright's folder of browsers in the CI cache to save the download. When a library is missing, the step that opens the first page says which command installs them.
+Or run the job in Playwright's image, `mcr.microsoft.com/playwright:v1.64.1-noble`, which has them. Keep Playwright's folder of browsers in the CI cache to save the download. When a library is missing, the step that opens the first page says which command installs them.
 
 ## Register the web app
 

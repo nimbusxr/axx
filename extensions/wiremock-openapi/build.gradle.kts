@@ -47,20 +47,20 @@ dependencies {
     testImplementation("org.wiremock:wiremock-standalone:$wiremockVersion")
     // The official MCP and A2A Java SDKs read the MCP and A2A mocks' answers in the tests.
     testImplementation("io.modelcontextprotocol.sdk:mcp:2.1.0")
-    testImplementation("org.a2aproject.sdk:a2a-java-sdk-client:1.4.0.Final")
-    testImplementation("org.a2aproject.sdk:a2a-java-sdk-client-transport-rest:1.4.0.Final")
+    testImplementation("org.a2aproject.sdk:a2a-java-sdk-client:1.5.1.Final")
+    testImplementation("org.a2aproject.sdk:a2a-java-sdk-client-transport-rest:1.5.0.Final")
     // Validates the MCP mock's answers against MCP's published JSON schemas in the tests: the
     // version the MCP SDK brings, not the fat jar's own (relocated) copy.
-    testImplementation("com.networknt:json-schema-validator:3.0.8")
+    testImplementation("com.networknt:json-schema-validator:3.0.9")
     // The providers' official SDKs read the model mock's answers in the tests, which point them at
     // WireMock: nothing reaches a provider.
-    testImplementation("com.openai:openai-java:4.96.0")
+    testImplementation("com.openai:openai-java:4.101.0")
     testImplementation("com.anthropic:anthropic-java:2.75.0")
     testImplementation("com.anthropic:anthropic-java-bedrock:2.75.0")
     testImplementation("com.anthropic:anthropic-java-vertex:2.75.0")
     testImplementation("com.google.genai:google-genai:1.80.0")
-    testImplementation("software.amazon.awssdk:bedrockruntime:2.57.8")
-    testImplementation("software.amazon.awssdk:netty-nio-client:2.57.8")
+    testImplementation("software.amazon.awssdk:bedrockruntime:2.57.11")
+    testImplementation("software.amazon.awssdk:netty-nio-client:2.57.11")
     testImplementation(platform("org.junit:junit-bom:6.1.3"))
     testImplementation("org.junit.jupiter:junit-jupiter")
     testImplementation("org.assertj:assertj-core:3.27.7")
