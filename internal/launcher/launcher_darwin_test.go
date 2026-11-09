@@ -3,10 +3,13 @@
 package launcher
 
 import (
+	"bufio"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"syscall"
@@ -37,7 +40,7 @@ func TestMain(m *testing.M) {
 		os.Exit(0)
 	case "launcher":
 		// The launcher, running what follows "--".
-		args := os.Args[len(os.Args)-2:]
+		args := os.Args[slices.Index(os.Args, "--")+1:]
 		code, err := Run(args[0], args)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
@@ -135,19 +138,32 @@ func TestRunPassesTheExitStatusBack(t *testing.T) {
 // An interrupt (Ctrl-C) to the launcher passes on to its program, which
 // stops, and the launcher with it.
 func TestRunPassesAnInterruptOn(t *testing.T) {
-	cmd := exec.Command(os.Args[0], "-test.run=^$", "--", "/bin/sleep", "30")
+	cmd := exec.Command(os.Args[0], "-test.run=^$", "--", "/bin/sh", "-c", "echo started; exec /bin/sleep 30")
 	cmd.Env = append(os.Environ(), partEnv+"=launcher")
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err := cmd.Start(); err != nil {
 		t.Fatal(err)
 	}
-	time.Sleep(500 * time.Millisecond)
+	// The program has started, so the launcher passes signals on: Run
+	// listens for them before it starts its program.
+	if line, err := bufio.NewReader(stdout).ReadString('\n'); line != "started\n" {
+		_ = cmd.Process.Kill()
+		t.Fatalf("the program's first line: %q %v", line, err)
+	}
 	if err := cmd.Process.Signal(syscall.SIGINT); err != nil {
 		t.Fatal(err)
 	}
 	done := make(chan error, 1)
 	go func() { done <- cmd.Wait() }()
 	select {
-	case <-done:
+	case err := <-done:
+		var exit *exec.ExitError
+		if !errors.As(err, &exit) {
+			t.Fatalf("the launcher ended with %v, want an exit status", err)
+		}
 	case <-time.After(10 * time.Second):
 		_ = cmd.Process.Kill()
 		t.Fatal("the launcher did not stop on an interrupt")
