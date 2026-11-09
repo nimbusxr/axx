@@ -3,8 +3,10 @@ package ide
 import (
 	"encoding/json"
 	"encoding/xml"
+	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -166,6 +168,81 @@ func TestRemoteDebuggerAttributes(t *testing.T) {
 		}
 		if !strings.Contains(x, want) || strings.Contains(x, "<option") {
 			t.Errorf("%s:\n%s", typ, x)
+		}
+	}
+}
+
+// A service's name, and a debugger's host and module, are any text axx.yaml
+// holds: IntelliJ reads them back from the run configurations as they are,
+// and the compound "axx: debug all" names each debugger as the debugger names
+// itself.
+func TestIntelliJKeepsNamesAsTheyAre(t *testing.T) {
+	names := []string{`say "hi" & <wait>`, `it's`, `C:\apps\api`, "tab\there", "two\nlines"}
+	c := &config.Config{}
+	for i, n := range names {
+		c.Services = append(c.Services, config.Service{Name: n, Debug: &config.Debug{Debugger: &config.Debugger{
+			Port: 5005 + i, Host: `host "` + n + `"`, Module: `module "` + n + `"`,
+		}}})
+	}
+	dir := t.TempDir()
+	files, err := IntelliJ(c, dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	type option struct {
+		Name  string `xml:"name,attr"`
+		Value string `xml:"value,attr"`
+	}
+	type run struct {
+		Configuration struct {
+			Name    string   `xml:"name,attr"`
+			Options []option `xml:"option"`
+			Module  struct {
+				Name string `xml:"name,attr"`
+			} `xml:"module"`
+			ToRun []struct {
+				Name string `xml:"name,attr"`
+			} `xml:"toRun"`
+		} `xml:"configuration"`
+	}
+	read := map[string]run{} // by the configuration's name
+	for _, f := range files {
+		b, err := os.ReadFile(filepath.Join(dir, f.Path))
+		if err != nil {
+			t.Fatal(err)
+		}
+		var r run
+		if err := xml.Unmarshal(b[strings.Index(string(b), "<component"):], &r); err != nil {
+			t.Fatalf("%s: %v\n%s", f.Path, err, b)
+		}
+		read[r.Configuration.Name] = r
+	}
+	for _, n := range names {
+		r, ok := read["Debugger: "+n]
+		if !ok {
+			t.Errorf("no configuration is named %q: %v", "Debugger: "+n, slices.Collect(maps.Keys(read)))
+			continue
+		}
+		host := ""
+		for _, o := range r.Configuration.Options {
+			if o.Name == "HOST" {
+				host = o.Value
+			}
+		}
+		if want := `host "` + n + `"`; host != want {
+			t.Errorf("%q: host %q, want %q", n, host, want)
+		}
+		if want := `module "` + n + `"`; r.Configuration.Module.Name != want {
+			t.Errorf("%q: module %q, want %q", n, r.Configuration.Module.Name, want)
+		}
+	}
+	var members []string
+	for _, m := range read["axx: debug all"].Configuration.ToRun {
+		members = append(members, m.Name)
+	}
+	for _, n := range names {
+		if !slices.Contains(members, "Debugger: "+n) {
+			t.Errorf("axx: debug all does not run %q: %q", "Debugger: "+n, members)
 		}
 	}
 }

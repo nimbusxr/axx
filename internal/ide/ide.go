@@ -9,7 +9,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"html"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -193,13 +192,12 @@ func removeMarked(path, base, movedTo string) (File, error) {
 }
 
 func intellijDebugger(name string, d config.Debugger) (string, error) {
-	esc := html.EscapeString
 	switch d.Type {
 	case "java":
 		serverMode := d.Mode != "app-listens"
 		module := ""
 		if d.Module != "" {
-			module = fmt.Sprintf("    <module name=%q />\n", esc(d.Module))
+			module = fmt.Sprintf("    <module name=\"%s\" />\n", xmlAttr(d.Module))
 		}
 		return fmt.Sprintf(`<component name="ProjectRunConfigurationManager">
   <configuration default="false" name="%s" type="Remote">
@@ -212,7 +210,7 @@ func intellijDebugger(name string, d config.Debugger) (string, error) {
 %s    <method v="2" />
   </configuration>
 </component>
-`, esc(name), serverMode, esc(d.Host), d.Port, serverMode, module), nil
+`, xmlAttr(name), serverMode, xmlAttr(d.Host), d.Port, serverMode, module), nil
 	case "go":
 		return attributeXML(name, "GoRemoteDebugConfigurationType", d), nil
 	case "nodejs":
@@ -227,17 +225,15 @@ func intellijDebugger(name string, d config.Debugger) (string, error) {
 // host and port as attributes of the <configuration> element (the Go and
 // JavaScript remote debuggers); as <option> elements they would be ignored.
 func attributeXML(name, typ string, d config.Debugger) string {
-	esc := html.EscapeString
 	return fmt.Sprintf(`<component name="ProjectRunConfigurationManager">
   <configuration default="false" name="%s" type="%s" host="%s" port="%d">
     <method v="2" />
   </configuration>
 </component>
-`, esc(name), typ, esc(d.Host), d.Port)
+`, xmlAttr(name), typ, xmlAttr(d.Host), d.Port)
 }
 
 func simpleXML(name, typ, hostOpt, portOpt string, d config.Debugger) string {
-	esc := html.EscapeString
 	return fmt.Sprintf(`<component name="ProjectRunConfigurationManager">
   <configuration default="false" name="%s" type="%s">
     <option name="%s" value="%s" />
@@ -245,11 +241,10 @@ func simpleXML(name, typ, hostOpt, portOpt string, d config.Debugger) string {
     <method v="2" />
   </configuration>
 </component>
-`, esc(name), typ, hostOpt, esc(d.Host), portOpt, d.Port)
+`, xmlAttr(name), typ, hostOpt, xmlAttr(d.Host), portOpt, d.Port)
 }
 
 func intellijShell(name, command, workDir string) string {
-	esc := html.EscapeString
 	return fmt.Sprintf(`<component name="ProjectRunConfigurationManager">
   <configuration default="false" name="%s" type="ShConfigurationType">
     <option name="SCRIPT_TEXT" value="%s" />
@@ -267,22 +262,34 @@ func intellijShell(name, command, workDir string) string {
     <method v="2" />
   </configuration>
 </component>
-`, esc(name), esc(command), esc(workDir))
+`, xmlAttr(name), xmlAttr(command), xmlAttr(workDir))
 }
 
 func intellijCompound(name string, members []string) string {
 	var b strings.Builder
-	fmt.Fprintf(&b, "<component name=\"ProjectRunConfigurationManager\">\n  <configuration default=\"false\" name=%q type=\"CompoundRunConfigurationType\">\n", html.EscapeString(name))
+	fmt.Fprintf(&b, "<component name=\"ProjectRunConfigurationManager\">\n  <configuration default=\"false\" name=\"%s\" type=\"CompoundRunConfigurationType\">\n", xmlAttr(name))
 	for _, m := range members {
 		typ := "ShConfigurationType"
 		if strings.HasPrefix(m, "Debugger: ") {
 			typ = "Remote"
 		}
-		fmt.Fprintf(&b, "    <toRun name=%q type=%q />\n", html.EscapeString(m), typ)
+		fmt.Fprintf(&b, "    <toRun name=\"%s\" type=\"%s\" />\n", xmlAttr(m), typ)
 	}
 	b.WriteString("    <method v=\"2\" />\n  </configuration>\n</component>\n")
 	return b.String()
 }
+
+// xmlAttrEscaper escapes a value for an XML attribute in double quotes, as
+// IntelliJ writes its own: the markup characters and both quotes, and the line
+// breaks and tabs an XML reader would turn into spaces.
+var xmlAttrEscaper = strings.NewReplacer(
+	"&", "&amp;", "<", "&lt;", ">", "&gt;", `"`, "&quot;", "'", "&apos;",
+	"\n", "&#10;", "\r", "&#13;", "\t", "&#9;",
+)
+
+// xmlAttr is a value of axx.yaml (a service's name, a debugger's host) as an
+// attribute's value in a run configuration.
+func xmlAttr(s string) string { return xmlAttrEscaper.Replace(s) }
 
 var unsafeName = regexp.MustCompile(`[^A-Za-z0-9._-]+`)
 
