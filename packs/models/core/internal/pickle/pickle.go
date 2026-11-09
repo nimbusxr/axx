@@ -28,21 +28,26 @@ func (p *Writer) Str(s string) {
 	p.WriteString(s)
 }
 
-// Int writes an integer.
+// Int writes an integer, in the fewest bytes pickle has for it. Each size's
+// bounds are checked in an if of its own, as CodeQL recognizes a bound
+// (go/incorrect-integer-conversion): in a switch's case, it took them for none.
 func (p *Writer) Int(n int64) {
-	switch {
-	case n >= 0 && n < 256:
+	if n >= 0 && n < 256 {
 		p.Op('K', byte(n))
-	case n >= 0 && n < 65536:
+		return
+	}
+	if n >= 0 && n < 65536 {
 		p.Op('M')
 		_ = binary.Write(p, binary.LittleEndian, uint16(n))
-	case n >= math.MinInt32 && n <= math.MaxInt32:
+		return
+	}
+	if n >= math.MinInt32 && n <= math.MaxInt32 {
 		p.Op('J')
 		_ = binary.Write(p, binary.LittleEndian, int32(n))
-	default:
-		p.Op(0x8a, 8) // LONG1 of 8 bytes
-		_ = binary.Write(p, binary.LittleEndian, n)
+		return
 	}
+	p.Op(0x8a, 8) // LONG1 of 8 bytes
+	_ = binary.Write(p, binary.LittleEndian, n)
 }
 
 // Ints writes a tuple of integers.

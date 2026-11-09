@@ -1,6 +1,9 @@
 package pickle
 
-import "testing"
+import (
+	"math"
+	"testing"
+)
 
 // A pickle is read as it is written: a dict of a dict of numbers and of an
 // OrderedDict of tensors (torch.save's of a checkpoint), its tensors'
@@ -53,5 +56,40 @@ func TestAPickleIsReadAsItIsWritten(t *testing.T) {
 	tensor, ok := items.Values[0].(*Object)
 	if !ok || tensor.Callable != (Global{"torch._utils", "_rebuild_tensor_v2"}) {
 		t.Errorf("a tensor is %+v", items.Values[0])
+	}
+}
+
+// An integer is written in the fewest bytes pickle has for it (BININT1,
+// BININT2, BININT, LONG1 of 8 bytes), on each side of each size's bounds, and
+// read back as it was.
+func TestIntsAreWrittenInTheirSize(t *testing.T) {
+	for _, c := range []struct {
+		n  int64
+		op byte
+	}{
+		{0, 'K'},
+		{255, 'K'},
+		{256, 'M'},
+		{65535, 'M'},
+		{65536, 'J'},
+		{-1, 'J'},
+		{math.MaxInt32, 'J'},
+		{math.MinInt32, 'J'},
+		{math.MaxInt32 + 1, 0x8a},
+		{math.MinInt32 - 1, 0x8a},
+		{math.MaxInt64, 0x8a},
+		{math.MinInt64, 0x8a},
+	} {
+		var p Writer
+		p.Op(0x80, 2)
+		p.Int(c.n)
+		if op := p.Bytes()[2]; op != c.op {
+			t.Errorf("%d is written with opcode %#x, want %#x", c.n, op, c.op)
+		}
+		p.Op('.')
+		v, err := Read(p.Bytes())
+		if err != nil || v != any(c.n) {
+			t.Errorf("%d is read as %v (%T), %v", c.n, v, v, err)
+		}
 	}
 }
