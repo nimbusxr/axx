@@ -214,7 +214,10 @@ What it showed that the plan has to take in:
   macOS list "axx" for the person to turn on: Accessibility's prompt, and for Screen Recording one
   real capture.
 - [x] The Mac mini: the launcher in `runner`'s axx cache, allowed in both settings (2026-11-09).
-- [ ] The Mac mini's desktop jobs pass under it.
+- [x] The Mac mini's desktop jobs pass under it (2026-11-10, run 42734973419): `axx doctor`
+  reports the launcher and its two permissions, and the AppKit and SwiftUI desks, started as
+  axx's children, pass every scenario. AppKit's "An arrival shows how it was registered" failed
+  once before a rerun passed; a project story follows it.
 - [ ] CI: the hosted macOS recipe (the launcher's TCC rows and approval), with the owner's
   approval. Snap's CI then grants the launcher instead of Snap and bash.
 - [ ] Docs: the desktop guide's permissions, and ADR 0011's checks and CI.
