@@ -133,6 +133,41 @@ This draft's tests (`internal/launcher`) repeat the handoff's proof on every run
 On 2026-11-09 they passed again on macOS 27.0.1 with `CGO_ENABLED=0`, so the function the
 handoff uses is still there.
 
+## Evidence: the signed launcher, 2026-11-09, on the owner's MacBook (macOS 27.0.1)
+
+`scripts/macos-launcher-app.sh` built `axx.app`: a universal `axx-launcher`, identifier
+`us.nimbusxr.axx.launcher`, signed with "Developer ID Application: Nimbus XR LLC" under the
+hardened runtime. A program the launcher ran reported the process macOS held responsible for it,
+and whether it could use the accessibility tree and capture the screen. macOS's privacy log
+showed each request judged for `us.nimbusxr.axx.launcher`.
+
+| Under | Charged to | Device Control and Data Access | Screen Recording |
+|---|---|---|---|
+| the launcher, before the owner allowed it | the launcher | no | no |
+| the launcher, after one approval of each (a program and its child) | the launcher | yes | yes |
+| the same launcher, a rebuilt program | the launcher | yes | yes |
+| a newly signed launcher in another folder (another hash, as an update) | the launcher | yes | yes |
+| an ad hoc signed copy with the same identifier | the copy | no | no |
+
+The real axx agreed: `axx doctor` in the depot desk's acceptance project passed both macOS
+checks under the launcher, and failed them under the ad hoc copy. So a grant is kept by NimbusXR's
+signature, across rebuilds of what runs under it and across the launcher's own updates, and an
+identifier alone gets nothing.
+
+What it showed that the plan has to take in:
+
+- **Screen Recording is not asked for the way Accessibility is.** On macOS 27,
+  `CGRequestScreenCaptureAccess` under the launcher showed no prompt and listed nothing, and
+  System Settings' + did not add the app. A real capture did: `screencapture` under the launcher
+  was refused, and macOS's own alert listed "axx" in Screen & System Audio Recording, where the
+  owner turned it on. Accessibility's prompt (`AXIsProcessTrustedWithOptions`) listed it in
+  Device Control and Data Access, which is macOS 27's name for Accessibility.
+- **`axx doctor` names the app at the top of the process tree**, IntelliJ IDEA in this test,
+  where the launcher is the one macOS asks: decision 5's check, still to do.
+- **The hardened runtime takes `DYLD_*` variables out of the environment** the launcher passes on.
+  A variable set before axx starts does not reach axx under the launcher; the ones axx sets for
+  an app it starts (models-macos's library) are set after it, and reach the app.
+
 ## Options considered
 
 - **Grants per host (today).** One for each terminal, IDE and CI agent, plus one for each app under
@@ -164,7 +199,10 @@ handoff uses is still there.
   Delve for `--debug-steps`.
 - [ ] desktop-macos starts apps from their bundle's executable, with what `open` gives them today
   (the launch's environment, arguments and documents), and opens only Apple's apps with `open`.
-- [ ] `axx doctor` and the first desktop step check the launcher's grants.
+- [x] Build, sign and test `axx.app` on a Mac (`scripts/macos-launcher-app.sh`; the evidence above).
+- [ ] `axx doctor` and the first desktop step check the launcher's grants, and name it. For
+  Screen Recording they make one real capture, which is what gets "axx" listed for the person to
+  turn on.
 - [ ] CI: the hosted macOS recipe (the launcher's TCC rows and approval), with the owner's
   approval. Snap's CI then grants the launcher instead of Snap and bash.
 - [ ] Docs: the desktop guide's permissions, and ADR 0011's checks and CI.
@@ -189,3 +227,5 @@ owner decided them on 2026-11-09 (decisions 4, 7 and 8).
 - Apps start from their executable rather than through LaunchServices. Snap ran that way in the
   prototype; an app that needs LaunchServices (one that expects to be opened by its bundle) will
   show which.
+- `DYLD_*` variables set before axx starts do not reach it under the launcher (the hardened
+  runtime's), nor the apps it starts unless axx sets them itself.
