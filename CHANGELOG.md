@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.6.4](https://github.com/nimbusxr/axx/compare/v0.6.3...v0.6.4) (2026-11-10)
+
+
+### Features
+
+* **desktop-macos:** a launcher of axx's own, the one identity macOS asks to allow (proposed) ([#134](https://github.com/nimbusxr/axx/issues/134)) ([74a6482](https://github.com/nimbusxr/axx/commit/74a6482b9977a7e6f0e801e1c0f365cb983ee3f2))
+
+
+### Bug Fixes
+
+* **ide:** IntelliJ's run configurations keep a service's name as axx.yaml writes it ([#309](https://github.com/nimbusxr/axx/issues/309)) ([e4b0bbc](https://github.com/nimbusxr/axx/commit/e4b0bbcd71127f9da86d21909d00e3a6718065cd))
+* **release:** the notarized jobs import no certificate, and check that Apple has all three submissions ([1eb68d8](https://github.com/nimbusxr/axx/commit/1eb68d8b7e411c9c4ece99093e07029378e1ab5a))
+
 ## [0.6.3](https://github.com/nimbusxr/axx/compare/v0.6.2...v0.6.3) (2026-11-08)
 
 
