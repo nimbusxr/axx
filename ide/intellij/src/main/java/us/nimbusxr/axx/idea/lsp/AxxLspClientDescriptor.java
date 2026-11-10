@@ -9,6 +9,8 @@ import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.platform.lsp.api.ProjectWideLspClientDescriptor;
 import com.intellij.platform.lsp.api.customization.LspCompletionCustomizer;
 import com.intellij.platform.lsp.api.customization.LspCustomization;
+import com.intellij.platform.lsp.api.customization.LspFormattingCustomizer;
+import com.intellij.platform.lsp.api.customization.LspFormattingSupport;
 import com.intellij.platform.lsp.api.customization.LspSemanticTokensCustomizer;
 import com.intellij.platform.lsp.api.customization.LspSemanticTokensSupport;
 import com.intellij.psi.PsiFile;
@@ -79,7 +81,8 @@ final class AxxLspClientDescriptor extends ProjectWideLspClientDescriptor {
 
     /**
      * The default features, with semantic tokens asked for in every feature file and colored as
-     * Gherkin colors step parameters, and completion matched against the whole step text.
+     * Gherkin colors step parameters, completion matched against the whole step text, and
+     * feature files formatted by the server rather than the Gherkin plugin.
      */
     private static final class AxxLspCustomization extends LspCustomization {
         private final LspSemanticTokensCustomizer semanticTokens =
@@ -103,9 +106,29 @@ final class AxxLspClientDescriptor extends ProjectWideLspClientDescriptor {
 
         private final LspCompletionCustomizer completion = new AxxCompletionSupport();
 
+        private final LspFormattingCustomizer formatting =
+                new LspFormattingSupport() {
+                    // By default the IDE formats a file through a server only when it has no
+                    // formatter of its own for the file, and the Gherkin plugin has one: feature
+                    // files are laid out as `axx fmt` lays them out, by the server, which
+                    // formats feature files only (isSupportedFile).
+                    @Override
+                    public boolean shouldFormatThisFileExclusivelyByServer(
+                            @NotNull VirtualFile file,
+                            boolean ideCanFormatThisFileItself,
+                            boolean serverExplicitlyWantsToFormatThisFile) {
+                        return true;
+                    }
+                };
+
         @Override
         public @NotNull LspSemanticTokensCustomizer getSemanticTokensCustomizer() {
             return semanticTokens;
+        }
+
+        @Override
+        public @NotNull LspFormattingCustomizer getFormattingCustomizer() {
+            return formatting;
         }
 
         @Override
