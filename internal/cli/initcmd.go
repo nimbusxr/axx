@@ -18,6 +18,7 @@ import (
 
 	"github.com/nimbusxr/axx/internal/agents"
 	"github.com/nimbusxr/axx/internal/config"
+	"github.com/nimbusxr/axx/internal/featurefmt"
 	"github.com/nimbusxr/axx/internal/packset"
 	"github.com/nimbusxr/axx/internal/skills"
 	"github.com/nimbusxr/axx/internal/version"
@@ -117,6 +118,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - uses: nimbusxr/setup-axx@v0
+      - run: axx fmt --check
       - run: axx run --format junit:build/axx/junit.xml --format html:build/axx/report.html
       - uses: actions/upload-artifact@v7
         if: always()
@@ -229,6 +231,16 @@ never writes your home directory: for Codex, whose servers usually live in
 				out, err := render(initTemplates[name], data)
 				if err != nil {
 					return err
+				}
+				// A table's columns depend on what fills it (the OpenAPI
+				// file's row, say): the feature is written laid out as
+				// axx fmt lays it out, so its CI check passes from the start.
+				if strings.HasSuffix(name, ".feature") {
+					laid, err := featurefmt.Format(name, []byte(out))
+					if err != nil {
+						return err
+					}
+					out = string(laid)
 				}
 				f := InitFile{Path: name, Action: "create"}
 				if _, err := os.Stat(filepath.Join(wd, name)); err == nil {

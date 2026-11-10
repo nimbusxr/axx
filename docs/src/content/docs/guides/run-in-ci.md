@@ -26,6 +26,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - uses: nimbusxr/setup-axx@v0
+      - run: axx fmt --check
       - run: axx run --format junit:build/axx/junit.xml --format html:build/axx/report.html
       - uses: actions/upload-artifact@v7
         if: always()
@@ -33,6 +34,8 @@ jobs:
           name: axx-report
           path: build/axx/
 ```
+
+The first `run` step checks that the feature files are laid out as `axx fmt` lays them out, and fails the job on any that are not, before a service starts. To fix that, run `axx fmt` and commit what it changed ([Format the feature files](/guides/organize-by-feature/#format-the-feature-files)).
 
 A project whose `axx.yaml` [names its version](/guides/install/#keep-a-project-on-one-version) runs on that version here too, with nothing to change in the workflow: `setup-axx` installs the newest Axx, which hands over. Without that line, every run gets the newest release, and `with: version: 0.4.0` on `setup-axx` holds it to one. To try a newer version on a branch before moving the project, set `AXX_USE_VERSION` on the step.
 
