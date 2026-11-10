@@ -78,7 +78,8 @@ else
 	urls=$(grep -oE 'url "[^"]+"' "$cask" | cut -d'"' -f2)
 	bad=$(grep -vc "^$repo" <<<"$urls" || true)
 	if [[ -n $urls && $bad -eq 0 ]]; then ok "cask downloads from $repo"; else fail "cask URLs outside $repo: $urls"; fi
-	if grep -q 'com.apple.quarantine' "$cask"; then ok "cask clears the quarantine flag"; else fail "cask does not clear the quarantine flag"; fi
+	# The macOS binaries are signed and notarized (ADR 0016): macOS runs them quarantined.
+	if ! grep -q 'com.apple.quarantine' "$cask"; then ok "cask keeps macOS's quarantine flag"; else fail "cask clears the quarantine flag"; fi
 	if grep -q "version \"$version\"" "$cask"; then ok "cask version $version"; else fail "cask version is not $version"; fi
 fi
 

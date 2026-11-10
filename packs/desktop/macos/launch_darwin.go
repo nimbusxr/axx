@@ -87,8 +87,9 @@ func exists(p string) bool {
 }
 
 // start starts the app with home as its home: a .app through LaunchServices
-// (macOS kills a system app started from its executable), anything else as
-// it is, in the project's folder. It returns the app's process.
+// (macOS kills a system app started from its executable), or from its
+// executable under axx's launcher (asChild); anything else as it is, in the
+// project's folder. It returns the app's process.
 func start(sc *core.Scenario, app *desktopcore.App, home string) (*proc, error) {
 	ctx := sc.Context()
 	b, err := bundle(ctx, app.App)
@@ -114,51 +115,21 @@ func start(sc *core.Scenario, app *desktopcore.App, home string) (*proc, error) 
 		}
 		args = append(args, "-ApplePersistenceIgnoreState", "YES",
 			"-AppleLanguages", "("+lang+")", "-AppleLocale", strings.ReplaceAll(lang, "-", "_"))
-		open := []string{"-n", "-g"}
-		for _, kv := range env {
-			open = append(open, "--env", kv)
-		}
-		open = append(open, "-a", b)
-		open = append(open, docs...)
-		open = append(open, "--args")
-		open = append(open, args...)
-		before := pids(b)
-		if out, err := exec.CommandContext(ctx, "open", open...).CombinedOutput(); err != nil {
-			return nil, fmt.Errorf("open %s: %w %s", b, err, strings.TrimSpace(string(out)))
-		}
-		for wait := time.Now(); p.pid == 0 && time.Since(wait) < 10*time.Second; time.Sleep(100 * time.Millisecond) {
-			for _, pid := range pids(b) {
-				if !slices.Contains(before, pid) {
-					p.pid = pid
-				}
+		if asChild(ctx, b, docs) {
+			// Under axx's launcher, the app is axx's child, so that macOS asks
+			// the launcher for what it does, as for axx (ADR 0016).
+			exe, err := bundleExecutable(ctx, b)
+			if err != nil {
+				return nil, err
 			}
-		}
-		if p.pid == 0 {
-			return nil, fmt.Errorf("%s did not start", b)
-		}
-		pid := p.pid
-		p.exited = func() bool { return syscall.Kill(pid, 0) != nil }
-	} else {
-		// The app outlives the step that starts it: the scenario's end stops it.
-		cmd := exec.CommandContext(context.WithoutCancel(ctx), app.App, app.Arguments()...)
-		cmd.Dir, cmd.Env = app.Dir, append(os.Environ(), env...)
-		if err := cmd.Start(); err != nil {
+			if err := p.child(ctx, exe, args, "/", appEnvironment(env)); err != nil {
+				return nil, err
+			}
+		} else if err := p.open(ctx, b, env, docs, args); err != nil {
 			return nil, err
 		}
-		done := make(chan struct{})
-		go func() {
-			_ = cmd.Wait()
-			close(done)
-		}()
-		p.pid = cmd.Process.Pid
-		p.exited = func() bool {
-			select {
-			case <-done:
-				return true
-			default:
-				return false
-			}
-		}
+	} else if err := p.child(ctx, app.App, app.Arguments(), app.Dir, append(os.Environ(), env...)); err != nil {
+		return nil, err
 	}
 	p.stop = func() error { return stopTree(p.pid, p.exited) }
 	if err := p.await(); err != nil {
@@ -166,6 +137,93 @@ func start(sc *core.Scenario, app *desktopcore.App, home string) (*proc, error) 
 		return nil, err
 	}
 	return p, nil
+}
+
+// open starts the app b through LaunchServices, as Finder does, with the
+// documents it opens: a new instance, in the background.
+func (p *proc) open(ctx context.Context, b string, env, docs, args []string) error {
+	open := []string{"-n", "-g"}
+	for _, kv := range env {
+		open = append(open, "--env", kv)
+	}
+	open = append(open, "-a", b)
+	open = append(open, docs...)
+	open = append(open, "--args")
+	open = append(open, args...)
+	before := pids(b)
+	if out, err := exec.CommandContext(ctx, "open", open...).CombinedOutput(); err != nil {
+		return fmt.Errorf("open %s: %w %s", b, err, strings.TrimSpace(string(out)))
+	}
+	for wait := time.Now(); p.pid == 0 && time.Since(wait) < 10*time.Second; time.Sleep(100 * time.Millisecond) {
+		for _, pid := range pids(b) {
+			if !slices.Contains(before, pid) {
+				p.pid = pid
+			}
+		}
+	}
+	if p.pid == 0 {
+		return fmt.Errorf("%s did not start", b)
+	}
+	pid := p.pid
+	p.exited = func() bool { return syscall.Kill(pid, 0) != nil }
+	return nil
+}
+
+// child starts exe as axx's child. The app outlives the step that starts
+// it: the scenario's end stops it.
+func (p *proc) child(ctx context.Context, exe string, args []string, dir string, env []string) error {
+	cmd := exec.CommandContext(context.WithoutCancel(ctx), exe, args...)
+	cmd.Dir, cmd.Env = dir, env
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+	done := make(chan struct{})
+	go func() {
+		_ = cmd.Wait()
+		close(done)
+	}()
+	p.pid = cmd.Process.Pid
+	p.exited = func() bool {
+		select {
+		case <-done:
+			return true
+		default:
+			return false
+		}
+	}
+	return nil
+}
+
+// asChild reports whether the app b starts as axx's child, from its
+// executable: under axx's launcher, but for Apple's own apps, which macOS
+// stops when they start from their executable, and for an app asked to open
+// documents, which only LaunchServices hands it.
+func asChild(ctx context.Context, b string, docs []string) bool {
+	return underLauncher() != "" && len(docs) == 0 && !strings.HasPrefix(bundleID(ctx, b), "com.apple.")
+}
+
+// bundleExecutable is the executable of the .app b, as its Info.plist names it.
+func bundleExecutable(ctx context.Context, b string) (string, error) {
+	out, err := exec.CommandContext(ctx, "defaults", "read", filepath.Join(b, "Contents", "Info"), "CFBundleExecutable").Output()
+	name := strings.TrimSpace(string(out))
+	if err != nil || name == "" {
+		return "", fmt.Errorf("%s names no executable (CFBundleExecutable)", b)
+	}
+	return filepath.Join(b, "Contents", "MacOS", name), nil
+}
+
+// appEnvironment is what LaunchServices starts an app with, the user's
+// session's, and env on top: not axx's own environment, which is a
+// terminal's or an IDE's.
+func appEnvironment(env []string) []string {
+	out := []string{"PATH=/usr/bin:/bin:/usr/sbin:/sbin"}
+	for _, k := range []string{"HOME", "USER", "LOGNAME", "SHELL", "TMPDIR", "SSH_AUTH_SOCK", "__CF_USER_TEXT_ENCODING"} {
+		if v, ok := os.LookupEnv(k); ok {
+			out = append(out, k+"="+v)
+		}
+	}
+	// The later of two values of a variable is the one the app gets.
+	return append(out, env...)
 }
 
 // await waits for the app's window, switches on what screen readers switch
@@ -357,10 +415,15 @@ func stopTree(pid int, exited func() bool) error {
 	return nil
 }
 
-// topApp is the app at the top of axx's process tree, which macOS asks to be
-// allowed to use the accessibility tree and to capture the screen: the
-// terminal, the IDE or the CI agent that runs axx.
+// topApp is the app macOS asks to be allowed to use the accessibility tree
+// and to capture the screen: axx's launcher when axx runs under it (ADR
+// 0016), or else the app at the top of axx's process tree, the terminal, the
+// IDE or the CI agent that runs axx.
 func topApp() string {
+	if underLauncher() != "" {
+		// axx's launcher, which System Settings lists by its name.
+		return "axx"
+	}
 	top := ""
 	for pid, n := os.Getpid(), 0; pid > 1 && n < 30; n++ {
 		out, err := exec.CommandContext(context.Background(), "ps", "-o", "ppid=,comm=", "-p", strconv.Itoa(pid)).Output()

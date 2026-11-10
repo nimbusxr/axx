@@ -1,0 +1,99 @@
+# SPDX-License-Identifier: Apache-2.0
+# Signs and notarizes what a release of axx publishes for macOS, and publishes nothing (ADR 0016):
+# the launcher's axx.app, and GoReleaser's macOS binaries. Run it by hand from main to check
+# NimbusXR's Developer ID and the notary key before a release depends on them: the release
+# environment, which holds them, is main's only.
+name: macOS signing
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: macos-signing
+  cancel-in-progress: false
+
+jobs:
+  launcher:
+    runs-on: macos-latest
+    environment: release
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      # No cache in a job that holds the release's secrets.
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+        with:
+          install_args: "go"
+          cache: false
+      - id: apple
+        uses: ./.github/actions/apple-signing
+        with:
+          certificate: ${{ secrets.APPLE_DEVELOPER_ID_P12 }}
+          password: ${{ secrets.APPLE_DEVELOPER_ID_P12_PASSWORD }}
+          api-key: ${{ secrets.APPLE_API_KEY_P8 }}
+      - name: axx.app, signed and notarized
+        run: scripts/macos-launcher-app.sh "$RUNNER_TEMP/launcher" 0.0.0-check
+        env:
+          AXX_SIGN_IDENTITY: ${{ steps.apple.outputs.identity }}
+          APPLE_API_KEY_PATH: ${{ steps.apple.outputs.key-path }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
+          AXX_NOTARIZE_TIMEOUT: 6m
+      - if: always()
+        run: security delete-keychain "$RUNNER_TEMP/signing.keychain-db" || true
+
+  # GoReleaser's build of every target, as a release builds them, with its macOS binaries signed
+  # and sent to Apple: a snapshot, which publishes nothing.
+  binaries:
+    runs-on: ubuntu-24.04
+    environment: release
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+        with:
+          install_args: "go goreleaser"
+          cache: false
+      - id: apple
+        uses: ./.github/actions/apple-signing
+        with:
+          api-key: ${{ secrets.APPLE_API_KEY_P8 }}
+      - run: GORELEASER_CURRENT_TAG=$(scripts/cli-tag.sh) goreleaser release --snapshot --clean --skip=docker,sbom,homebrew,sign
+        env:
+          APPLE_DEVELOPER_ID_P12: ${{ secrets.APPLE_DEVELOPER_ID_P12 }}
+          APPLE_DEVELOPER_ID_P12_PASSWORD: ${{ secrets.APPLE_DEVELOPER_ID_P12_PASSWORD }}
+          APPLE_API_KEY_PATH: ${{ steps.apple.outputs.key-path }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
+
+  # Apple's answer for everything this run sent it.
+  notarized:
+    needs: [launcher, binaries]
+    runs-on: macos-latest
+    environment: release
+    timeout-minutes: 10
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - id: apple
+        uses: ./.github/actions/apple-signing
+        with:
+          api-key: ${{ secrets.APPLE_API_KEY_P8 }}
+      - name: Apple notarized them
+        run: scripts/notarized.sh "$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" --jq .run_started_at)" 8
+        env:
+          GH_TOKEN: ${{ github.token }}
+          APPLE_API_KEY_PATH: ${{ steps.apple.outputs.key-path }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}

@@ -51,6 +51,7 @@ func Run(ctx context.Context, app *App, args []string) int {
 		return int(app.reportError(err))
 	}
 	root.SetArgs(args)
+	app.args = args
 	root.SetOut(app.Stdout)
 	root.SetErr(app.Stderr)
 
@@ -220,6 +221,7 @@ Docs for people: https://axx.nimbusxr.us`,
 	)
 	addPackCommands(app, root)
 	addCommandHooks(app, root)
+	addRelaunch(app, root)
 	return root
 }
 

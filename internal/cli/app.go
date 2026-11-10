@@ -75,6 +75,9 @@ type App struct {
 	// hookTold is where the hooks before the command told axx properties,
 	// for the scenarios of `axx run`.
 	hookTold []lifecycle.Told
+	// args are axx's arguments, as the command line gave them: a pack that
+	// relaunches a command (core.Relauncher) runs it again with them.
+	args []string
 }
 
 // NewApp returns an App bound to the process's standard streams.

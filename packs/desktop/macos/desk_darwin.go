@@ -27,8 +27,11 @@ func (driver) Claim(sc *core.Scenario) (desktopcore.Desktop, error) {
 		return nil, err
 	}
 	if !trusted {
-		return nil, fmt.Errorf("macOS does not let axx use the accessibility tree: allow %s in System Settings > Privacy & Security > Accessibility "+
-			"(Device Control & Data Access, on macOS 27), and run again", topApp())
+		if underLauncher() != "" {
+			// macOS lists the launcher, turned off, for the person to turn on.
+			_, _ = ax.AskTrust()
+		}
+		return nil, fmt.Errorf("macOS does not let axx use the accessibility tree: turn on %s in %s, and run again", topApp(), accessibilitySettings)
 	}
 	k, err := keptFor(sc.Suite())
 	if err != nil {
