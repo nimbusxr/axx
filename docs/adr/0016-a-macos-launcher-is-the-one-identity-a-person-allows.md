@@ -196,14 +196,30 @@ What it showed that the plan has to take in:
   `APPLE_TEAM_ID`, and the secrets `APPLE_DEVELOPER_ID_P12` (base64), its password
   `APPLE_DEVELOPER_ID_P12_PASSWORD`, `APPLE_API_KEY_P8`, `APPLE_API_KEY_ID` and
   `APPLE_API_ISSUER_ID`.
-- [ ] Release: build `axx-launcher` into `axx.app`, sign it, notarize and staple it, and publish it
-  with each release. Sign and notarize the macOS `axx` binaries too, and drop the cask's
-  quarantine removal.
 - [x] Build, sign and test `axx.app` on a Mac (`scripts/macos-launcher-app.sh`; the evidence above).
-- [ ] axx downloads it on first use, checks its signature and team, and keeps it in its cache.
-  axx uses the one in its cache (`<user cache>/axx/launcher/axx.app`), or the one `AXX_MACOS_LAUNCHER`
-  names, once `codesign` says it is signed with NimbusXR's Developer ID; downloading it waits on
-  the release.
+- [x] Release (`release.yml`): the `macos-launcher` job builds `axx.app`, signs it and sends it to
+  Apple's notary service, and puts it on the release as `axx-launcher_<version>_darwin.zip`, with
+  its build's provenance attested. GoReleaser signs the macOS `axx` binaries and sends them too
+  (`.goreleaser.yaml`'s `notarize`, before they are archived and summed), and the Homebrew cask no
+  longer removes the quarantine flag. The `notarized` job then waits for Apple's answer.
+  - **Stapling, only when Apple is quick.** A CI job ends within 10 minutes, and Apple took 35
+    minutes over NimbusXR's first submission (a second took under 30 seconds). The launcher's job
+    waits 6 minutes at most, and staples the ticket when Apple has notarized it by then. A
+    launcher left unstapled works the same: axx downloads it itself, so macOS never quarantines
+    it and never asks Gatekeeper about it, and macOS keeps a person's grants by its signature.
+    The macOS binaries cannot be stapled at all; Gatekeeper asks Apple about them online.
+  - **Apple's answer in a job of its own** (`scripts/notarized.sh`): it fails when Apple refused
+    anything the release sent, with Apple's log of it, and warns when Apple is still at it after
+    8 minutes.
+  - **A check before any release**: the `macOS signing` workflow, run by hand from main (the
+    release environment's secrets are main's only), signs and notarizes the launcher and the
+    macOS binaries as a release does, and publishes nothing.
+- [x] axx downloads it on first use, checks its signature and team, and keeps it in its cache
+  (`<user cache>/axx/launcher/axx.app`): the launcher of the running axx's release, through
+  `AXX_DOWNLOAD_URL`'s mirror when one is set, installed once `codesign` says NimbusXR signed it.
+  An axx built from source downloads none; a release from before the launcher is asked once; a
+  download that fails is tried again an hour later. `AXX_MACOS_LAUNCHER` may name another
+  `axx.app`, checked the same way.
 - [x] On macOS, `axx run`, `axx mcp` and `axx doctor` run under it (`core.Relauncher`, which
   desktop-macos implements): once, in the outermost process. The run Delve starts for
   `--debug-steps` knows it is under the launcher (`AXX_UNDER_MACOS_LAUNCHER`), and does not run again.
@@ -222,7 +238,9 @@ What it showed that the plan has to take in:
   once before a rerun passed; a project story follows it.
 - [ ] CI: the hosted macOS recipe (the launcher's TCC rows and approval), with the owner's
   approval. Snap's CI then grants the launcher instead of Snap and bash.
-- [ ] Docs: the desktop guide's permissions, and ADR 0011's checks and CI.
+- [x] Docs: the desktop guide's permissions (`guides/test-desktop-apps.md`) and desktop-macos's
+  reference.
+- [ ] ADR 0011's checks and CI, once the launcher is in a release.
 
 ## Open questions
 

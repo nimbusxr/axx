@@ -37,7 +37,7 @@ func checks() []core.Check {
 			}
 			return core.CheckResult{
 				Status: core.CheckOK, Detail: "axx's launcher is not installed: axx runs with " + topApp() + "'s permissions",
-				Hint: "set " + launcherEnv + " to the path of axx's launcher, axx.app, to run under it",
+				Hint: "axx downloads it from its release the first time, and an axx built from source does not: set " + launcherEnv + " to the path of axx's launcher, axx.app, to run under it",
 			}
 		}},
 		{Name: "macOS Accessibility", Run: func(context.Context) core.CheckResult {

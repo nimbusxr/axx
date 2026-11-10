@@ -49,8 +49,10 @@ the skills instead: `axx skills install`.
   permissions to drive Mac apps (`internal/tools/axx-launcher`, built into `axx.app` and signed
   with NimbusXR's Developer ID by `scripts/macos-launcher-app.sh`). desktop-macos runs `axx run`,
   `axx mcp` and `axx doctor` again under it (`core.Relauncher`), from `AXX_MACOS_LAUNCHER` or axx's
-  cache, and under it starts apps as its children. Only packs import it, so the core binary
-  stays without purego.
+  cache, where it downloads the launcher of its release, and under it starts apps as its
+  children. Only packs import it, so the core binary stays without purego. A release signs and
+  notarizes the launcher and the macOS binaries (`release.yml`: `macos-launcher`, GoReleaser's
+  `notarize`, `notarized`); the `macOS signing` workflow, run by hand from main, checks that.
 - `packs/models/core` (`models-core`): stubs of embedded models, `axx models contract|build`
   (a pack's commands: `core.Command`). A stub is a model of the real one's format and contract
   whose graph matches an input to its mappings' nearest key (`match`, the reference every

@@ -144,6 +144,61 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: gh workflow run docs.yml --repo "$GITHUB_REPOSITORY" --ref main
 
+  # axx's macOS launcher (ADR 0016): axx.app, signed with NimbusXR's Developer ID and sent to
+  # Apple's notary service, on the release beside the CLI's archives, where axx downloads it.
+  macos-launcher:
+    needs: release-please
+    if: needs.release-please.outputs.dry-run == 'false' && needs.release-please.outputs.axx == 'true'
+    runs-on: macos-latest
+    environment: release
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    env:
+      TAG: ${{ needs.release-please.outputs.axx_tag }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: ${{ needs.release-please.outputs.axx_tag }}
+          persist-credentials: false
+      # No cache in a job that publishes.
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+        with:
+          install_args: "go"
+          cache: false
+      - id: apple
+        uses: ./.github/actions/apple-signing
+        with:
+          certificate: ${{ secrets.APPLE_DEVELOPER_ID_P12 }}
+          password: ${{ secrets.APPLE_DEVELOPER_ID_P12_PASSWORD }}
+          api-key: ${{ secrets.APPLE_API_KEY_P8 }}
+      # Apple notarizes it within minutes, as a rule: a job that waits no more than 6 leaves one
+      # it has not, signed, for the notarized job to wait for.
+      - name: axx.app, signed and notarized
+        run: scripts/macos-launcher-app.sh "$RUNNER_TEMP/launcher" "${TAG#v}"
+        env:
+          AXX_SIGN_IDENTITY: ${{ steps.apple.outputs.identity }}
+          APPLE_API_KEY_PATH: ${{ steps.apple.outputs.key-path }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
+          AXX_NOTARIZE_TIMEOUT: 6m
+      - id: zip
+        run: |
+          zip="$RUNNER_TEMP/axx-launcher_${TAG#v}_darwin.zip"
+          ditto -c -k --keepParent "$RUNNER_TEMP/launcher/axx.app" "$zip"
+          echo "path=$zip" >>"$GITHUB_OUTPUT"
+      - uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3
+        with:
+          subject-path: ${{ steps.zip.outputs.path }}
+      - run: gh release upload "$TAG" "$ZIP" --clobber --repo "$GITHUB_REPOSITORY"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ZIP: ${{ steps.zip.outputs.path }}
+      - if: always()
+        run: security delete-keychain "$RUNNER_TEMP/signing.keychain-db" || true
+
   # The CLI: binaries, archives, checksums, SBOMs, signatures, images, Homebrew cask.
   goreleaser:
     needs: release-please
@@ -187,14 +242,52 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      # The macOS binaries are signed and sent to Apple's notary service (.goreleaser.yaml).
+      - id: apple
+        uses: ./.github/actions/apple-signing
+        with:
+          api-key: ${{ secrets.APPLE_API_KEY_P8 }}
       - run: goreleaser release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GORELEASER_CURRENT_TAG: ${{ needs.release-please.outputs.axx_tag }}
           HOMEBREW_TAP_TOKEN: ${{ steps.tap.outputs.token }}
+          APPLE_DEVELOPER_ID_P12: ${{ secrets.APPLE_DEVELOPER_ID_P12 }}
+          APPLE_DEVELOPER_ID_P12_PASSWORD: ${{ secrets.APPLE_DEVELOPER_ID_P12_PASSWORD }}
+          APPLE_API_KEY_PATH: ${{ steps.apple.outputs.key-path }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
       - uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3
         with:
           subject-checksums: dist/checksums.txt
+
+  # Apple's answer for everything the release sent it (ADR 0016): the launcher and the macOS
+  # binaries. It fails on a refusal; Apple still at it after 8 minutes is a warning.
+  notarized:
+    needs: [release-please, macos-launcher, goreleaser]
+    if: needs.release-please.outputs.dry-run == 'false' && needs.release-please.outputs.axx == 'true'
+    runs-on: macos-latest
+    environment: release
+    timeout-minutes: 10
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: ${{ needs.release-please.outputs.axx_tag }}
+          persist-credentials: false
+      - id: apple
+        uses: ./.github/actions/apple-signing
+        with:
+          api-key: ${{ secrets.APPLE_API_KEY_P8 }}
+      - name: Apple notarized them
+        run: scripts/notarized.sh "$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" --jq .run_started_at)" 8
+        env:
+          GH_TOKEN: ${{ github.token }}
+          APPLE_API_KEY_PATH: ${{ steps.apple.outputs.key-path }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
 
   # The same build in snapshot mode: nothing is pushed, uploaded or signed (keyless signing
   # would write to the public transparency log). scripts/release-check.sh checks the result.

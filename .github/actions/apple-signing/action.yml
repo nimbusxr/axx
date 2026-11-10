@@ -1,0 +1,60 @@
+# SPDX-License-Identifier: Apache-2.0
+name: Apple signing
+description: >-
+  NimbusXR's Developer ID in a keychain of the job's, and the App Store Connect API key the notary
+  service takes in a file (ADR 0016). On a macOS runner it gives the signing identity; on any
+  runner, the key's file.
+inputs:
+  certificate:
+    description: The Developer ID Application certificate, a .p12 in base64 (macOS runners).
+    required: false
+  password:
+    description: The certificate's password.
+    required: false
+  api-key:
+    description: The App Store Connect API key, its .p8's text.
+    required: true
+outputs:
+  identity:
+    description: The signing identity's SHA-1, on a macOS runner.
+    value: ${{ steps.sign.outputs.identity }}
+  key-path:
+    description: The API key's .p8 file.
+    value: ${{ steps.key.outputs.path }}
+runs:
+  using: composite
+  steps:
+    - id: key
+      shell: bash
+      env:
+        API_KEY: ${{ inputs.api-key }}
+      run: |
+        path="$RUNNER_TEMP/notary.p8"
+        (umask 077 && printf '%s\n' "$API_KEY" >"$path")
+        echo "path=$path" >>"$GITHUB_OUTPUT"
+    - id: sign
+      if: runner.os == 'macOS'
+      shell: bash
+      env:
+        CERTIFICATE: ${{ inputs.certificate }}
+        PASSWORD: ${{ inputs.password }}
+      run: |
+        keychain="$RUNNER_TEMP/signing.keychain-db"
+        password=$(uuidgen)
+        security create-keychain -p "$password" "$keychain"
+        security set-keychain-settings -lut 3600 "$keychain"
+        security unlock-keychain -p "$password" "$keychain"
+        p12="$RUNNER_TEMP/developer-id.p12"
+        (umask 077 && base64 -d <<<"$CERTIFICATE" >"$p12")
+        security import "$p12" -k "$keychain" -f pkcs12 -P "$PASSWORD" -T /usr/bin/codesign
+        rm -f "$p12"
+        security set-key-partition-list -S apple-tool:,apple: -k "$password" "$keychain" >/dev/null
+        # The job's keychain first, then the runner's own.
+        # shellcheck disable=SC2046
+        security list-keychains -d user -s "$keychain" $(security list-keychains -d user | tr -d '"')
+        identity=$(security find-identity -v -p codesigning "$keychain" | awk '/Developer ID Application/ {print $2; exit}')
+        if [[ -z $identity ]]; then
+          echo "the certificate holds no Developer ID Application identity" >&2
+          exit 1
+        fi
+        echo "identity=$identity" >>"$GITHUB_OUTPUT"

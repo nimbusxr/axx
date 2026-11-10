@@ -26,6 +26,23 @@ builds:
       - -X github.com/nimbusxr/axx/internal/version.Commit={{ .FullCommit }}
       - -X github.com/nimbusxr/axx/internal/version.Date={{ .CommitDate }}
 
+# The macOS binaries, signed with NimbusXR's Developer ID and sent to Apple's notary service (ADR
+# 0016), when the release environment's key is here: a dry run has none. GoReleaser does not wait
+# for Apple, as a job must end within 10 minutes: the release's notarized job does
+# (scripts/notarized.sh). Signed before they are archived, they are what checksums.txt covers.
+notarize:
+  macos:
+    - enabled: '{{ isEnvSet "APPLE_DEVELOPER_ID_P12" }}'
+      ids: [axx]
+      sign:
+        certificate: "{{ .Env.APPLE_DEVELOPER_ID_P12 }}"
+        password: "{{ .Env.APPLE_DEVELOPER_ID_P12_PASSWORD }}"
+      notarize:
+        issuer_id: "{{ .Env.APPLE_API_ISSUER_ID }}"
+        key_id: "{{ .Env.APPLE_API_KEY_ID }}"
+        key: "{{ .Env.APPLE_API_KEY_PATH }}"
+        wait: false
+
 archives:
   - id: axx
     name_template: "axx_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
@@ -65,14 +82,8 @@ homebrew_casks:
     description: Behavioral verification for agentic software factories
     license: Apache-2.0
     skip_upload: auto
-    # The binaries are not notarized yet, so macOS would refuse to run them: drop the
-    # quarantine flag Homebrew sets on download.
-    hooks:
-      post:
-        install_steps: |
-          on_macos do
-            run "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "{{ .StagedPath }}/axx"]
-          end
+    # The macOS binaries are signed and notarized (notarize, above), so macOS runs them as
+    # Homebrew downloads them, quarantined.
     repository:
       owner: nimbusxr
       name: homebrew-tap
