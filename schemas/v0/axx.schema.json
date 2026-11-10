@@ -201,6 +201,21 @@
       "type": "object",
       "description": "Fixtures configures `axx fixtures`, the fixture factory: *.factory.yaml, *.fixture.yaml and *.prototype.yaml sources expanded into schema-governed fixture files, with the ownership manifest, drift and conformance checks."
     },
+    "Fmt": {
+      "properties": {
+        "indent": {
+          "type": "integer",
+          "enum": [
+            2,
+            4
+          ],
+          "description": "Indent is the spaces of one level of indentation: 2 (the default) or 4."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "Fmt is how `axx fmt`, and editors through axx lsp, lay out the project's feature files."
+    },
     "Hooks": {
       "properties": {
         "commands": {
@@ -905,6 +920,10 @@
     "fixtures": {
       "$ref": "#/$defs/Fixtures",
       "description": "Fixtures configures `axx fixtures` (fixture factories)."
+    },
+    "fmt": {
+      "$ref": "#/$defs/Fmt",
+      "description": "Fmt configures how `axx fmt`, and editors through axx lsp, lay out\nfeature files."
     },
     "profiles": {
       "additionalProperties": true,

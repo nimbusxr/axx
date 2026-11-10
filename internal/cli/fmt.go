@@ -47,7 +47,8 @@ columns line up. Tags sit on their own lines, a comment at the indent of the lin
 is above, and one blank line comes before each scenario. Only where things sit
 changes: keywords (in any language), steps, names, cells, comments and doc strings
 stay as written. axx fmt reads what it would write and leaves a file alone if it
-would read differently.
+would read differently. With fmt.indent: 4 in axx.yaml, each level is four spaces
+in instead of two.
 
 --check changes nothing: it lists the files that are not formatted, and fails.
 VS Code and IntelliJ lay out a feature the same way, through axx lsp (Format
@@ -59,7 +60,7 @@ parse, 3 (--check) features that are not formatted.`,
   axx fmt features/claims
   axx fmt --check`,
 		RunE: func(_ *cobra.Command, args []string) error {
-			files, err := fmtFiles(app, &cf, args)
+			files, opts, err := fmtFiles(app, &cf, args)
 			if err != nil {
 				return err
 			}
@@ -72,7 +73,7 @@ parse, 3 (--check) features that are not formatted.`,
 					errs = append(errs, axxerr.Wrap(err, feature.CodeNotFound, exitcode.Usage, "cannot read %s", name))
 					continue
 				}
-				out, err := featurefmt.Format(name, src)
+				out, err := featurefmt.Format(name, src, opts)
 				if err != nil {
 					errs = append(errs, err)
 					continue
@@ -108,35 +109,31 @@ parse, 3 (--check) features that are not formatted.`,
 	return cmd
 }
 
-// fmtFiles are the feature files axx fmt lays out: those under the paths
-// given, from the working directory, or else those axx run reads.
-func fmtFiles(app *App, cf *configFlags, args []string) ([]string, error) {
-	var paths []string
-	base := ""
+// fmtFiles are the feature files axx fmt lays out, those under the paths
+// given, from the working directory, or else those axx run reads, and the
+// project's choices in their layout (axx.yaml's fmt section).
+func fmtFiles(app *App, cf *configFlags, args []string) ([]string, featurefmt.Options, error) {
+	cfg, err := app.loadConfig(cf)
+	if err != nil {
+		return nil, featurefmt.Options{}, err
+	}
+	opts := featurefmt.Options{Indent: cfg.Fmt.Indent}
+	base, paths := cfg.Dir, cfg.Run.Paths
 	if len(args) > 0 {
 		wd, err := os.Getwd()
 		if err != nil {
-			return nil, err
+			return nil, opts, err
 		}
-		base = wd
-		paths = args
-	} else {
-		cfg, err := app.loadConfig(cf)
-		if err != nil {
-			return nil, err
-		}
-		base = cfg.Dir
-		paths = cfg.Run.Paths
-		if len(paths) == 0 {
-			paths = []string{"features"}
-		}
+		base, paths = wd, args
+	} else if len(paths) == 0 {
+		paths = []string{"features"}
 	}
 	files, err := feature.Files(paths, base)
 	var ae *axxerr.Error
 	if errors.As(err, &ae) && ae.Code == feature.CodeNotFound {
 		ae.Hint = "check the paths given to `axx fmt`, or run.paths in axx.yaml"
 	}
-	return files, err
+	return files, opts, err
 }
 
 // writeFeature writes a laid out feature over the file, keeping its mode.

@@ -224,6 +224,14 @@ never writes your home directory: for Codex, whose servers usually live in
 			}
 			var plan []InitFile
 			contents := map[string]string{}
+			// The features init writes are laid out as the project's
+			// axx.yaml says, when it has one that init keeps.
+			var layout featurefmt.Options
+			if _, err := os.Stat(filepath.Join(wd, "axx.yaml")); err == nil && !force {
+				if cfg, err := config.Load(config.LoadOptions{WorkDir: wd}); err == nil {
+					layout.Indent = cfg.Fmt.Indent
+				}
+			}
 			for _, name := range []string{"axx.yaml", packset.FileName, "features/smoke/smoke.feature", ".github/workflows/acceptance.yml"} {
 				if noCI && strings.HasPrefix(name, ".github/") {
 					continue
@@ -236,7 +244,7 @@ never writes your home directory: for Codex, whose servers usually live in
 				// file's row, say): the feature is written laid out as
 				// axx fmt lays it out, so its CI check passes from the start.
 				if strings.HasSuffix(name, ".feature") {
-					laid, err := featurefmt.Format(name, []byte(out))
+					laid, err := featurefmt.Format(name, []byte(out), layout)
 					if err != nil {
 						return err
 					}

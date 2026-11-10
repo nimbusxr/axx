@@ -146,3 +146,33 @@ func TestFmtRunsWithoutTheProjectsPacks(t *testing.T) {
 		t.Errorf("hooks ran: %q", lines)
 	}
 }
+
+const formattedFeatureIndentFour = "Feature: Claims\n\n    Scenario: A claim\n        Given a thing\n            | a   | bb |\n            | ccc | d  |\n"
+
+// axx.yaml's fmt.indent is how far in each level sits, with paths or
+// without; an indent axx does not offer stops before any file changes.
+func TestFmtLaysOutAsAxxYamlSays(t *testing.T) {
+	dir := fmtProject(t)
+	writeFiles(t, dir, map[string]string{"axx.yaml": "version: 1\nrun:\n  paths: [specs]\nfmt:\n  indent: 4\n"})
+	if out, stderr, code := run(t, "fmt"); code != int(exitcode.OK) {
+		t.Fatalf("exit %d\n%s%s", code, out, stderr)
+	}
+	if got := read(t, filepath.Join(dir, "specs/claims.feature")); got != formattedFeatureIndentFour {
+		t.Errorf("without paths:\n%s", got)
+	}
+	if out, stderr, code := run(t, "fmt", "other"); code != int(exitcode.OK) {
+		t.Fatalf("exit %d\n%s%s", code, out, stderr)
+	}
+	if got := read(t, filepath.Join(dir, "other/claims.feature")); got != formattedFeatureIndentFour {
+		t.Errorf("with a path:\n%s", got)
+	}
+
+	writeFiles(t, dir, map[string]string{"axx.yaml": "version: 1\nfmt:\n  indent: 3\n", "features/x.feature": unformattedFeature})
+	out, stderr, code := run(t, "fmt")
+	if code == int(exitcode.OK) || !strings.Contains(out+stderr, "indent") {
+		t.Errorf("indent 3: exit %d\n%s%s", code, out, stderr)
+	}
+	if got := read(t, filepath.Join(dir, "features/x.feature")); got != unformattedFeature {
+		t.Errorf("indent 3 changed the file:\n%s", got)
+	}
+}

@@ -1,0 +1,39 @@
+# The claims a customer files for a damaged parcel.
+@claims @api
+Feature: Damage claims
+    A customer files a claim for a parcel that arrived damaged.
+      The claims service decides it, or refers it to a person.
+
+    Its decisions are events.
+
+    Background:
+        Given the claims service with the following properties:
+            | url     | http://localhost:8080 |
+            | timeout | 5s                    |
+
+    @smoke
+    # Why it is smoke: the main path.
+    @fast
+    Scenario: A claim with a photo is settled
+        Given a parcel PX-4101 delivered to Leipzig
+        # The photo shows the damage.
+        When the customer files a claim with the photo evidence/crushed.jpg
+
+        Then the claim is SETTLED
+        And the claims table has a row where:
+            | id    | CLM-4101             |
+            # escapes stay as they are written
+            | note  | a \| b, c \\ d, e\nf |
+            | empty |                      |
+        But no email is sent
+        # And the customer is told
+
+    # The next scenario's note.
+    Scenario: A claim without evidence waits
+        Given a parcel PX-4102 delivered to Leipzig
+        When the customer files a claim
+        Then the claim is AWAITING_EVIDENCE
+        * the claims table has a row where:
+            | id       | status            |
+            | CLM-4102 | AWAITING_EVIDENCE |
+            # trailing note at the end of the file

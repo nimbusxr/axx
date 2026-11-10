@@ -85,7 +85,7 @@ Feature: Shop emails
       | subject | Parcel PX-MAIL-9701 registered |
 ```
 
-The layout, in full:
+The layout, in full, with the default indent of two spaces:
 
 - `Feature` starts at the left edge. A `Background`, `Scenario` or `Rule` is indented by two spaces, and what a `Rule` holds by two more.
 - Steps and `Examples` are indented two spaces more than their scenario. A step's table or doc string, and the table of an `Examples`, are indented two more.
@@ -94,6 +94,17 @@ The layout, in full:
 - A comment is indented like the line below it. A comment with a blank line after it is indented like the line above it instead, as it belongs to that line.
 - One blank line comes before each `Background`, `Scenario`, `Rule` and `Examples`, and before the tags and comments right above it. Other single blank lines stay where you put them, and several in a row become one.
 - No line ends with spaces, except inside a doc string, and the file ends with one line break.
+
+### Indent by four spaces
+
+To indent each level by four spaces instead of two, add this to `axx.yaml`:
+
+```yaml title="axx.yaml"
+fmt:
+  indent: 4
+```
+
+`axx fmt`, `axx fmt --check` and your editor all read this setting, so they give the same layout. `indent` takes `2` (the default) or `4`. Run `axx fmt` once after you change it, to lay out the existing files the new way.
 
 ## Why
 

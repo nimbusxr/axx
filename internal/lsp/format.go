@@ -6,12 +6,14 @@ import (
 	"strings"
 
 	"github.com/nimbusxr/axx/internal/axxerr"
+	"github.com/nimbusxr/axx/internal/config"
 	"github.com/nimbusxr/axx/internal/featurefmt"
 )
 
 // formattingParams are textDocument/formatting's and, with a range,
 // textDocument/rangeFormatting's. Their options (tab size, spaces) do not
-// apply: features have the one layout.
+// apply: a feature is laid out as its project's axx.yaml says (fmt), so
+// that every editor, axx fmt and CI agree.
 type formattingParams struct {
 	TextDocument textDocumentIdentifier `json:"textDocument"`
 	Range        *textRange             `json:"range"`
@@ -56,7 +58,11 @@ func formatEdits(uri, text string) ([]textEdit, *rpcError) {
 	if p := uriToPath(uri); p != "" {
 		name = filepath.Base(p)
 	}
-	out, err := featurefmt.Format(name, []byte(text))
+	opts, rerr := formatOptions(uri)
+	if rerr != nil {
+		return nil, rerr
+	}
+	out, err := featurefmt.Format(name, []byte(text), opts)
 	if err != nil {
 		var ae *axxerr.Error
 		if errors.As(err, &ae) && ae.Code == featurefmt.CodeParse {
@@ -65,6 +71,21 @@ func formatEdits(uri, text string) ([]textEdit, *rpcError) {
 		return nil, &rpcError{Code: codeRequestFailed, Message: err.Error()}
 	}
 	return lineEdits(text, string(out)), nil
+}
+
+// formatOptions are the layout choices of a document's project, read from
+// the axx.yaml found upward from it, as axx fmt finds it: axx's own for a
+// document of no project, or of no file.
+func formatOptions(uri string) (featurefmt.Options, *rpcError) {
+	p := uriToPath(uri)
+	if p == "" {
+		return featurefmt.Options{}, nil
+	}
+	cfg, err := config.Load(config.LoadOptions{WorkDir: filepath.Dir(p)})
+	if err != nil {
+		return featurefmt.Options{}, &rpcError{Code: codeRequestFailed, Message: "the project's axx.yaml, which says how to lay out its features, cannot be read: " + err.Error()}
+	}
+	return featurefmt.Options{Indent: cfg.Fmt.Indent}, nil
 }
 
 // lineEdits turns text into out, replacing whole lines: only those that

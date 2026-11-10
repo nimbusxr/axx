@@ -92,7 +92,7 @@ func TestFormattingLaysOutAsAxxFmtDoes(t *testing.T) {
 	c := startServer(t)
 	uri := newProject(t)
 	c.open(uri, messyFeature)
-	want, err := featurefmt.Format("x.feature", []byte(messyFeature))
+	want, err := featurefmt.Format("x.feature", []byte(messyFeature), featurefmt.Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -141,11 +141,38 @@ func TestRouterFormatsWithoutAProjectServer(t *testing.T) {
 	c := startRouter(t, s)
 	_, uri := packsProject(t, "./steps")
 	c.open(uri, messyFeature)
-	want, err := featurefmt.Format("x.feature", []byte(messyFeature))
+	want, err := featurefmt.Format("x.feature", []byte(messyFeature), featurefmt.Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if got := apply(t, messyFeature, formatting(t, c, uri)); got != string(want) {
 		t.Errorf("formatted:\n%s\nwant:\n%s", got, want)
+	}
+}
+
+// An editor lays out a feature as its project's axx.yaml says (fmt.indent),
+// whether the project's server or the router answers, as axx fmt does.
+func TestFormattingFollowsTheProjectsAxxYaml(t *testing.T) {
+	want, err := featurefmt.Format("x.feature", []byte(messyFeature), featurefmt.Options{Indent: 4})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if two, _ := featurefmt.Format("x.feature", []byte(messyFeature), featurefmt.Options{}); string(two) == string(want) {
+		t.Fatal("the feature reads the same with either indent")
+	}
+	axxYaml := "version: 1\nfmt:\n  indent: 4\n"
+
+	c := startServer(t)
+	_, uri := writeProject(t, map[string]string{"axx.yaml": axxYaml, "axx-packs.yaml": packsFile})
+	c.open(uri, messyFeature)
+	if got := apply(t, messyFeature, formatting(t, c, uri)); got != string(want) {
+		t.Errorf("the project's server:\n%s\nwant:\n%s", got, want)
+	}
+
+	r := startRouter(t, &servers{fail: errors.New("error[AXX-E0910]: preparing the packs failed")})
+	_, uri = writeProject(t, map[string]string{"axx.yaml": axxYaml, "axx-packs.yaml": "packs: [./steps]\n"})
+	r.open(uri, messyFeature)
+	if got := apply(t, messyFeature, formatting(t, r, uri)); got != string(want) {
+		t.Errorf("the router:\n%s\nwant:\n%s", got, want)
 	}
 }

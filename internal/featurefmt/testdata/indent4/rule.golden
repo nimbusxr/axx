@@ -1,0 +1,26 @@
+Feature: Deliveries
+
+    @rule
+    Rule: A parcel is delivered to its address
+        Only to the address on its label.
+
+        Background:
+            Given a courier C-7 on route R-12
+
+        Example: At the door
+            Given a parcel PX-1 for Grimmaische Strasse 1
+            When C-7 delivers PX-1
+            Then PX-1 is DELIVERED
+
+        @neighbour
+        Example: To a neighbour
+            Given a parcel PX-2 for Grimmaische Strasse 2
+            When C-7 delivers PX-2 to the neighbour
+            Then PX-2 is DELIVERED_TO_NEIGHBOUR
+
+    Rule: A parcel nobody takes goes back to the depot
+
+        Scenario: Nobody home
+            Given a parcel PX-3 for Grimmaische Strasse 3
+            When C-7 finds nobody home
+            Then PX-3 is RETURNING

@@ -46,12 +46,12 @@ func TestRepositoryFeaturesKeepTheirMeaning(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		out, err := Format(f, src)
+		out, err := Format(f, src, Options{})
 		if err != nil {
 			t.Errorf("%s: %v", f, err)
 			continue
 		}
-		again, err := Format(f, out)
+		again, err := Format(f, out, Options{})
 		if err != nil || !bytes.Equal(again, out) {
 			t.Errorf("%s: laid out again, it changes (%v)", f, err)
 		}
@@ -66,7 +66,7 @@ func TestRepositoryFeaturesAreLaidOut(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		out, err := Format(f, src)
+		out, err := Format(f, src, Options{})
 		if err == nil && !bytes.Equal(out, src) {
 			rel, _ := filepath.Rel(filepath.Join("..", ".."), f)
 			unformatted = append(unformatted, filepath.ToSlash(rel))
@@ -75,5 +75,30 @@ func TestRepositoryFeaturesAreLaidOut(t *testing.T) {
 	if len(unformatted) > 0 {
 		t.Errorf("these features are not laid out; run `go run ./cmd/axx fmt %s` from the repository's root:\n  %s",
 			strings.Join(unformatted, " "), strings.Join(unformatted, "\n  "))
+	}
+}
+
+// The indent changes only how far in things sit: every feature of the
+// repository laid out four spaces to a level, then two, is what two gives.
+func TestRepositoryFeaturesChangeOnlyTheirIndent(t *testing.T) {
+	for _, f := range repoFeatures(t) {
+		src, err := os.ReadFile(f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		four, err := Format(f, src, Options{Indent: 4})
+		if err != nil {
+			t.Errorf("%s: indent 4: %v", f, err)
+			continue
+		}
+		back, err := Format(f, four, Options{Indent: 2})
+		if err != nil {
+			t.Errorf("%s: back to 2: %v", f, err)
+			continue
+		}
+		two, err := Format(f, src, Options{Indent: 2})
+		if err != nil || !bytes.Equal(back, two) {
+			t.Errorf("%s: laid out with 4 then 2 differs from 2 (%v)", f, err)
+		}
 	}
 }

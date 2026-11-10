@@ -79,3 +79,24 @@ func initFormatted(t *testing.T, files map[string]string) {
 		}
 	}
 }
+
+// In a project whose axx.yaml init keeps, the smoke feature is laid out as
+// that axx.yaml says.
+func TestInitLaysOutItsFeatureAsTheKeptAxxYamlSays(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "parcels")
+	writeFiles(t, dir, map[string]string{"axx.yaml": "version: 1\nfmt:\n  indent: 4\n"})
+	t.Chdir(dir)
+	if out, stderr, code := run(t, "init", "--no-agents", "--no-ci"); code != 0 {
+		t.Fatalf("exit %d: %s%s", code, out, stderr)
+	}
+	smoke, err := os.ReadFile(filepath.Join(dir, "features/smoke/smoke.feature"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(smoke), "\n    Background:\n        Given ") {
+		t.Errorf("not laid out four spaces to a level:\n%s", smoke)
+	}
+	if out, stderr, code := run(t, "fmt", "--check"); code != 0 {
+		t.Errorf("exit %d: %s%s", code, out, stderr)
+	}
+}

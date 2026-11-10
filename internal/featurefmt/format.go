@@ -51,19 +51,31 @@ const (
 	CodeChanged = "AXX-E0208"
 )
 
-// unit is one level of indentation.
-const unit = 2
+// Options are a project's choices in the layout: axx.yaml's fmt section.
+// The zero value is axx's layout.
+type Options struct {
+	// Indent is the spaces of one level of indentation: 2 when it is 0.
+	Indent int
+}
 
-// Format returns src laid out as axx lays out features. name is the file's
-// name in errors. A feature that does not parse is an *axxerr.Error naming
-// its line (CodeParse), and so is a layout that would not read the same as
-// src (CodeChanged).
-func Format(name string, src []byte) ([]byte, error) {
+// unit is one level of indentation.
+func (o Options) unit() int {
+	if o.Indent > 0 {
+		return o.Indent
+	}
+	return 2
+}
+
+// Format returns src laid out as axx lays out features, with o's choices.
+// name is the file's name in errors. A feature that does not parse is an
+// *axxerr.Error naming its line (CodeParse), and so is a layout that would
+// not read the same as src (CodeChanged).
+func Format(name string, src []byte, o Options) ([]byte, error) {
 	doc, err := parse(src)
 	if err != nil {
 		return nil, parseError(name, err)
 	}
-	out, err := layout(src, doc)
+	out, err := layout(src, doc, o.unit())
 	if err != nil {
 		return nil, changed(name, err.Error())
 	}
@@ -74,7 +86,7 @@ func Format(name string, src []byte) ([]byte, error) {
 	if diff := compare(doc, outDoc); diff != "" {
 		return nil, changed(name, diff)
 	}
-	again, err := layout(out, outDoc)
+	again, err := layout(out, outDoc, o.unit())
 	if err != nil || !bytes.Equal(again, out) {
 		return nil, changed(name, "laying it out again would change it again")
 	}
@@ -161,19 +173,21 @@ type line struct {
 }
 
 type builder struct {
+	// unit is one level of indentation.
+	unit   int
 	src    []string
 	lines  []line
 	tables int
 	err    error
 }
 
-// layout lays out src, whose document is doc.
-func layout(src []byte, doc *messages.GherkinDocument) ([]byte, error) {
+// layout lays out src, whose document is doc, unit spaces to a level.
+func layout(src []byte, doc *messages.GherkinDocument, unit int) ([]byte, error) {
 	eol := "\n"
 	if i := bytes.IndexByte(src, '\n'); i > 0 && src[i-1] == '\r' {
 		eol = "\r\n"
 	}
-	b := &builder{src: splitLines(src)}
+	b := &builder{unit: unit, src: splitLines(src)}
 	b.lines = make([]line, len(b.src))
 	for _, c := range doc.Comments {
 		l := int(c.Location.Line)
@@ -252,7 +266,7 @@ func (b *builder) feature(f *messages.Feature) {
 	b.header(f.Location, 0, f.Keyword, f.Name, false, f.Tags)
 	b.description(f.Location, f.Description, 0)
 	for _, c := range f.Children {
-		b.child(c.Background, c.Scenario, c.Rule, unit)
+		b.child(c.Background, c.Scenario, c.Rule, b.unit)
 	}
 }
 
@@ -261,14 +275,14 @@ func (b *builder) child(bg *messages.Background, sc *messages.Scenario, r *messa
 	case bg != nil:
 		b.header(bg.Location, indent, bg.Keyword, bg.Name, true, nil)
 		b.description(bg.Location, bg.Description, indent)
-		b.steps(bg.Steps, indent+unit)
+		b.steps(bg.Steps, indent+b.unit)
 	case sc != nil:
 		b.tags(sc.Tags, indent)
 		b.header(sc.Location, indent, sc.Keyword, sc.Name, true, sc.Tags)
 		b.description(sc.Location, sc.Description, indent)
-		b.steps(sc.Steps, indent+unit)
+		b.steps(sc.Steps, indent+b.unit)
 		for _, ex := range sc.Examples {
-			in := indent + unit
+			in := indent + b.unit
 			b.tags(ex.Tags, in)
 			b.header(ex.Location, in, ex.Keyword, ex.Name, true, ex.Tags)
 			b.description(ex.Location, ex.Description, in)
@@ -276,14 +290,14 @@ func (b *builder) child(bg *messages.Background, sc *messages.Scenario, r *messa
 			if ex.TableHeader != nil {
 				rows = append(rows, ex.TableHeader)
 			}
-			b.table(append(rows, ex.TableBody...), in+unit)
+			b.table(append(rows, ex.TableBody...), in+b.unit)
 		}
 	case r != nil:
 		b.tags(r.Tags, indent)
 		b.header(r.Location, indent, r.Keyword, r.Name, true, r.Tags)
 		b.description(r.Location, r.Description, indent)
 		for _, c := range r.Children {
-			b.child(c.Background, c.Scenario, nil, indent+unit)
+			b.child(c.Background, c.Scenario, nil, indent+b.unit)
 		}
 	}
 }
@@ -342,7 +356,7 @@ func (b *builder) description(loc *messages.Location, d string, indent int) {
 		}
 	}
 	for j, t := range dedent(want) {
-		b.mark(i+j+1, line{kind: desc, indent: indent + unit, text: t})
+		b.mark(i+j+1, line{kind: desc, indent: indent + b.unit, text: t})
 	}
 }
 
@@ -383,10 +397,10 @@ func (b *builder) steps(steps []*messages.Step, indent int) {
 		// have one), so a step with no text keeps it.
 		b.mark(int(st.Location.Line), line{kind: step, indent: indent, text: st.Keyword + st.Text})
 		if st.DataTable != nil {
-			b.table(st.DataTable.Rows, indent+unit)
+			b.table(st.DataTable.Rows, indent+b.unit)
 		}
 		if st.DocString != nil {
-			b.docString(st.DocString, indent+unit)
+			b.docString(st.DocString, indent+b.unit)
 		}
 	}
 }
