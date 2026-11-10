@@ -100,8 +100,10 @@ every app axx runs, whatever started axx.
    macOS holds responsible. The project's build has desktop-macos, so it knows whether a command
    drives Mac apps, and an older installed axx hands over to it without knowing about the
    launcher. The core stays without purego.
-8. **`AXX_LAUNCHER=off` opts out** (the owner's decision, 2026-11-09), for someone who prefers
-   their terminal's grants: axx then runs as it does without the launcher.
+8. **`AXX_MACOS_LAUNCHER=off` opts out** (the owner's decision, 2026-11-09, as `AXX_LAUNCHER=off`,
+   renamed because `AXX_LAUNCHER` already tells a project's build the version of the installed axx
+   that started it, ADR 0015), for someone who prefers their terminal's grants: axx then runs as
+   it does without the launcher. `AXX_MACOS_LAUNCHER` may also name the launcher's `axx.app`.
 9. **The release signs and notarizes the macOS `axx` binaries too** (the owner's decision,
    2026-11-09), with the same certificate and key. The Homebrew cask then stops removing macOS's
    quarantine flag (`.goreleaser.yaml`).
@@ -199,13 +201,13 @@ What it showed that the plan has to take in:
   quarantine removal.
 - [x] Build, sign and test `axx.app` on a Mac (`scripts/macos-launcher-app.sh`; the evidence above).
 - [ ] axx downloads it on first use, checks its signature and team, and keeps it in its cache.
-  axx uses the one in its cache (`<user cache>/axx/launcher/axx.app`), or the one `AXX_LAUNCHER`
+  axx uses the one in its cache (`<user cache>/axx/launcher/axx.app`), or the one `AXX_MACOS_LAUNCHER`
   names, once `codesign` says it is signed with NimbusXR's Developer ID; downloading it waits on
   the release.
 - [x] On macOS, `axx run`, `axx mcp` and `axx doctor` run under it (`core.Relauncher`, which
   desktop-macos implements): once, in the outermost process. The run Delve starts for
-  `--debug-steps` knows it is under the launcher (`AXX_UNDER_LAUNCHER`), and does not run again.
-  `AXX_LAUNCHER=off` runs without it.
+  `--debug-steps` knows it is under the launcher (`AXX_UNDER_MACOS_LAUNCHER`), and does not run again.
+  `AXX_MACOS_LAUNCHER=off` runs without it.
 - [x] Under it, desktop-macos starts apps from their bundle's executable, with the arguments
   `open` gives them and the environment it does (the user's session's, and what the
   registration and packs add). Apple's apps, and an app asked to open documents, which only

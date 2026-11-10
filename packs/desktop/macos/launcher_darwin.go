@@ -23,10 +23,10 @@ import (
 const (
 	// launcherEnv is "off", to run without the launcher, or the path of its
 	// axx.app.
-	launcherEnv = "AXX_LAUNCHER"
+	launcherEnv = "AXX_MACOS_LAUNCHER"
 	// underLauncherEnv is set, to the launcher's app, for the command axx
 	// runs under it, which does not run itself again.
-	underLauncherEnv = "AXX_UNDER_LAUNCHER"
+	underLauncherEnv = "AXX_UNDER_MACOS_LAUNCHER"
 	// launcherRequirement is the launcher's: its identifier, signed with
 	// NimbusXR's Developer ID. macOS keeps a person's grants by it.
 	launcherRequirement = `identifier "us.nimbusxr.axx.launcher" and anchor apple generic and ` +
@@ -85,8 +85,8 @@ func (pack) Relaunch(_ context.Context, command string, args []string) (int, boo
 	return code, true, err
 }
 
-// launcherApp is the launcher's axx.app: the one AXX_LAUNCHER names, or the
-// one in axx's cache, or "" for none (AXX_LAUNCHER=off, or none there).
+// launcherApp is the launcher's axx.app: the one AXX_MACOS_LAUNCHER names, or the
+// one in axx's cache, or "" for none (AXX_MACOS_LAUNCHER=off, or none there).
 func launcherApp() (string, error) {
 	switch v := os.Getenv(launcherEnv); {
 	case v == "off":

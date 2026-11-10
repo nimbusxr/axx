@@ -116,7 +116,7 @@ func init() {
 		"The message names the pack and the command. Fix what it says, or see the pack's reference for what its hook needs.")
 	add("AXX-E0024", env, "A pack could not run a command again",
 		"A pack runs some of axx's commands again in another process, and could not: desktop-macos runs `axx run`, `axx mcp` and `axx doctor` under axx's launcher, the app macOS asks for the permissions to drive Mac apps (ADR 0016). The message is the pack's.",
-		"The message names the pack. For desktop-macos, AXX_LAUNCHER names an app that is not axx's launcher signed by NimbusXR: point it at axx.app, or set AXX_LAUNCHER=off to run without the launcher, with the permissions of the terminal or the IDE that runs axx.")
+		"The message names the pack. For desktop-macos, AXX_MACOS_LAUNCHER names an app that is not axx's launcher signed by NimbusXR: point it at axx.app, or set AXX_MACOS_LAUNCHER=off to run without the launcher, with the permissions of the terminal or the IDE that runs axx.")
 	add("AXX-E0023", env, "A hook in axx.yaml failed",
 		"A command of axx.yaml's `hooks.commands`, which runs before or after one of axx's commands, exited with a code other than 0, or could not start. A hook that fails before its command stops it; one that fails after a command that succeeded fails it.",
 		"Its output is above the error. Fix what it says, or the hook's `command` in axx.yaml: it runs from the directory of axx.yaml, without a shell unless `shell: true`.")

@@ -48,7 +48,7 @@ the skills instead: `axx skills install`.
 - `internal/launcher` (ADR 0016): axx's launcher on macOS, the one app macOS asks for the
   permissions to drive Mac apps (`internal/tools/axx-launcher`, built into `axx.app` and signed
   with NimbusXR's Developer ID by `scripts/macos-launcher-app.sh`). desktop-macos runs `axx run`,
-  `axx mcp` and `axx doctor` again under it (`core.Relauncher`), from `AXX_LAUNCHER` or axx's
+  `axx mcp` and `axx doctor` again under it (`core.Relauncher`), from `AXX_MACOS_LAUNCHER` or axx's
   cache, and under it starts apps as its children. Only packs import it, so the core binary
   stays without purego.
 - `packs/models/core` (`models-core`): stubs of embedded models, `axx models contract|build`
