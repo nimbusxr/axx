@@ -36,13 +36,13 @@ var packBuilt = os.Getenv(envPackBuild) != ""
 // supervisor is this same executable, and its packs prepare the apps.
 var commandsNeedingPacks = []string{"run", "up", "env", "config", "validate", "lint", "steps", "explain", "mcp", "lsp", "doctor", "skills", "docs"}
 
-// commandsWithoutPacks manage axx and its packs, or serve the commands that
-// run with them: they run with the axx that was started, so no pack's hook
-// runs with them. Every other command runs with the project's packs, for
+// commandsWithoutPacks manage axx and its packs, serve the commands that run
+// with them, or only lay out feature files (fmt, which reads no step): they
+// run with the axx that was started, so no pack's hook runs with them. Every other command runs with the project's packs, for
 // their hooks; one that needs none of its own (commandsNeedingPacks) runs
 // without them when they cannot be prepared, and says that their hooks did
 // not run.
-var commandsWithoutPacks = []string{"pack", "init", "upgrade", "install", "version", "supervise", "help", "completion", "__complete", "__completeNoDesc"}
+var commandsWithoutPacks = []string{"pack", "init", "upgrade", "install", "version", "fmt", "supervise", "help", "completion", "__complete", "__completeNoDesc"}
 
 // commandsFromReference only say what steps and packs there are: when the
 // project's packs cannot be prepared (no network yet, say), they answer from

@@ -104,7 +104,11 @@ func hookProblem(root *cobra.Command, command string) string {
 		return fmt.Sprintf("`%s` only groups other commands: name one of them", path)
 	}
 	if slices.Contains(commandsWithoutPacks, words[0]) {
-		return fmt.Sprintf("`%s` has no hooks: it manages axx and its packs", path)
+		why := "it manages axx and its packs"
+		if words[0] == "fmt" {
+			why = "it only lays out feature files"
+		}
+		return fmt.Sprintf("`%s` has no hooks: %s", path, why)
 	}
 	return ""
 }

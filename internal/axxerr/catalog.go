@@ -138,7 +138,7 @@ func init() {
 		"Write `--set path.to.key=value`, like `--set run.workers=1` or `--set packs.<pack>.<key>=value`. The value is read as YAML, so `true` and `1` are a boolean and a number.")
 
 	add("AXX-E0106", u, "A hook in axx.yaml names no command",
-		"A hook of axx.yaml's `hooks.commands` names, in `before` or `after`, a command axx does not have, one that only groups others (`fixtures`), or one that has no hooks because it manages axx and its packs (`pack`, `init`, `upgrade`, `install`, `version`); or its `command` runs nothing. Every command but `axx doctor`, which lists it, stops.",
+		"A hook of axx.yaml's `hooks.commands` names, in `before` or `after`, a command axx does not have, one that only groups others (`fixtures`), or one that has no hooks because it manages axx and its packs (`pack`, `init`, `upgrade`, `install`, `version`) or only lays out feature files (`fmt`); or its `command` runs nothing. Every command but `axx doctor`, which lists it, stops.",
 		"Name the command by its words after axx, as `axx --help` lists them: `before: fixtures generate`.")
 	add("AXX-E0200", u, "Feature file does not parse",
 		"A `.feature` file has a Gherkin syntax error.",

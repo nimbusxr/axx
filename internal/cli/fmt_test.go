@@ -123,3 +123,26 @@ func TestFmtPathNotFound(t *testing.T) {
 		t.Errorf("exit %d:\n%s", code, stderr)
 	}
 }
+
+// axx fmt only lays out feature files: it never prepares the project's packs,
+// so it neither waits for their build nor warns that they could not be
+// prepared, and no pack's hook runs with it.
+func TestFmtRunsWithoutTheProjectsPacks(t *testing.T) {
+	t.Setenv("AXX_SOURCE_DIR", "")
+	agentProject(t, map[string]string{
+		"axx.yaml":                "version: 1\n",
+		"axx-packs.yaml":          "packs:\n  - ./hook-probe\n  - ./not-compiled-in\n",
+		"features/claims.feature": unformattedFeature,
+	})
+	takeHookEvents()
+	out, errOut, code := run(t, "fmt")
+	if code != int(exitcode.OK) || strings.Contains(errOut, "packs") {
+		t.Fatalf("exit %d, out %q, stderr:\n%s", code, out, errOut)
+	}
+	if got := read(t, "features/claims.feature"); got != formattedFeature {
+		t.Errorf("not formatted:\n%s", got)
+	}
+	if lines, _ := takeHookEvents(); len(lines) != 0 {
+		t.Errorf("hooks ran: %q", lines)
+	}
+}

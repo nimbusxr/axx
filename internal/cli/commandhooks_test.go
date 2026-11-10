@@ -478,6 +478,7 @@ func TestAnAxxYamlHookMustNameACommandWithHooks(t *testing.T) {
 		{"fixtures generat", "hooks.commands[0].before: axx has no command `axx fixtures generat`"},
 		{"fixtures", "hooks.commands[0].before: `axx fixtures` only groups other commands: name one of them"},
 		{"pack add", "hooks.commands[0].before: `axx pack add` has no hooks: it manages axx and its packs"},
+		{"fmt", "hooks.commands[0].before: `axx fmt` has no hooks: it only lays out feature files"},
 	} {
 		_, log = yamlHookProject(t, func(log string) []string { return []string{yamlHook("before", c.command, log, "a hook", "0")} })
 		_, errOut, code := run(t, "parcels", "label", "PX-1042")
