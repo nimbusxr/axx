@@ -195,6 +195,7 @@ Docs for people: https://axx.nimbusxr.us`,
 
 	root.AddCommand(
 		newRunCmd(app),
+		newFmtCmd(app),
 		newValidateCmd(app),
 		newLintCmd(app),
 		newFixturesCmd(app),

@@ -121,8 +121,8 @@ Feature: Claims for damaged parcels
       | id     | CLM-4112 |
       | status | REFERRED |
     And the claims dynamodb table has an item where:
-      | id     | CLM-4112                                                                        |
-      | status | REFERRED                                                                        |
+      | id     | CLM-4112                                                                       |
+      | status | REFERRED                                                                       |
       | note   | the description reports no damage in transit: The customer changed their mind. |
     And the parcels eventbridge bus has an event where:
       | detail-type     | Claim Decided |
@@ -141,8 +141,8 @@ Feature: Claims for damaged parcels
     And the response status code is 201
     When the evidence/voice-note-crushed.wav file is uploaded to the claim-evidence s3 bucket as claims/CLM-4113/voice-note.wav
     Then within 30s the claims dynamodb table has an item where:
-      | id          | CLM-4113                                                                                  |
-      | status      | AWAITING_EVIDENCE                                                                         |
+      | id          | CLM-4113                                                                                    |
+      | status      | AWAITING_EVIDENCE                                                                           |
       | description | The parcel arrived crushed on one side, and the lamp inside is broken. Please call me back. |
 
   Scenario: A voice note that reports no damage in transit goes to a person
@@ -157,10 +157,10 @@ Feature: Claims for damaged parcels
     And the response status code is 201
     When the evidence/voice-note-return.wav file is uploaded to the claim-evidence s3 bucket as claims/CLM-4114/voice-note.wav
     Then within 30s the claims dynamodb table has an item where:
-      | id          | CLM-4114                                                                             |
-      | status      | REFERRED                                                                             |
+      | id          | CLM-4114                                                                              |
+      | status      | REFERRED                                                                              |
       | description | My customer changed their mind and wants to send the lamp back. They never opened it. |
-      | note        | the description reports no damage in transit: The customer changed their mind.       |
+      | note        | the description reports no damage in transit: The customer changed their mind.        |
     And the parcels eventbridge bus has an event where:
       | detail-type     | Claim Decided |
       | detail.claim    | CLM-4114      |

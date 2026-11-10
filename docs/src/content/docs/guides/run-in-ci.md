@@ -106,11 +106,12 @@ A stale cache is harmless: when the packs or Axx's version change, Axx prepares 
 
 ## Catch problems early
 
-The exit code says what kind of failure it was, without parsing output: `1` is a failed scenario, `3` an undefined step, `4` a service that did not start ([exit codes](/references/error-codes/#exit-codes)). Two cheap guards catch the last two before any service starts:
+The exit code says what kind of failure it was, without parsing output: `1` is a failed scenario, `3` an undefined step, `4` a service that did not start ([exit codes](/references/error-codes/#exit-codes)). Two cheap guards catch the last two before any service starts, and a third keeps the feature files [formatted](/guides/organize-by-feature/#format-the-feature-files):
 
 ```sh
 axx validate          # exit 3 on undefined steps, in seconds
 axx doctor            # exit 4 if a service's command is missing
+axx fmt --check       # exit 3 on feature files that are not formatted
 ```
 
 Use `--fail-fast` to stop scheduling new scenarios after the first failure when you prefer a quick red over a full report.

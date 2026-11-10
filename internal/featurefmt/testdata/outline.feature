@@ -1,0 +1,20 @@
+Feature: Parcel sizes
+Scenario Outline: A parcel of <weight> kg is <size>
+Given a parcel of <weight> kg
+When it is registered
+Then its size is <size>
+@light
+Examples: Light parcels
+  The ones a courier carries by hand.
+| weight | size |
+|1|S|
+|  5  |  M  |
+Examples:
+|weight|size|
+|30|XL|
+  Scenario Template: Another keyword for the same
+    Given a parcel of <weight> kg
+    Then its size is <size>
+    Scenarios:
+      | weight | size |
+      | 2      | S    |

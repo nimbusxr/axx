@@ -15,8 +15,8 @@ Feature: Courier callbacks
       | password | parcels                                   |
     And a tracking-db mongo database with the following properties:
       | url      | mongodb://${sys:local.host}:27017/parcels?authSource=admin |
-      | user     | parcels                                                   |
-      | password | parcels                                                   |
+      | user     | parcels                                                    |
+      | password | parcels                                                    |
     And the mocked shops service with the following properties:
       | url | http://${sys:local.host}:8083 |
 

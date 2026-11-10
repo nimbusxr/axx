@@ -166,6 +166,14 @@ func ParseSource(uri string, src []byte, newID func() string) (*Document, []*Pic
 	return doc, pickles, nil
 }
 
+// Files returns the feature files under paths (files, or directories whose
+// .feature files it finds, past folders whose names start with a dot and
+// node_modules), sorted, as Load reads them. A path's `:line` suffix is
+// ignored.
+func Files(paths []string, base string) ([]string, error) {
+	return collect(paths, base)
+}
+
 func collect(paths []string, base string) ([]string, error) {
 	seen := map[string]bool{}
 	var files []string

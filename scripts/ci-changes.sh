@@ -30,11 +30,12 @@ while ! $all && ! $none && IFS= read -r f; do
     .github/*) workflows=true lang_actions=true ;;
   esac
   # The main Go module: its code, what its tests read, and its build. The example apps are
-  # modules of their own.
+  # modules of their own. Every feature file is read by a test that keeps them formatted
+  # (internal/featurefmt).
   case "$f" in
     examples/*/app/*) ;;
     cmd/* | core/* | internal/* | packs/* | plugins/* | schemas/* | testdata/* | build/* | scripts/* | \
-      docs/src/content/docs/guides/set-up-agents.md | \
+      docs/src/content/docs/guides/set-up-agents.md | *.feature | \
       examples/parcels/acceptance/* | go.mod | go.sum | mise.toml | .golangci.yml | .goreleaser.yaml | *.go)
       go=true
       case "$f" in
@@ -50,7 +51,7 @@ while ! $all && ! $none && IFS= read -r f; do
         packs/internal/video/*) desktop=true mobile=true integration=true ;;
         core/* | internal/* | go.mod | go.sum | mise.toml) web=true mobile=true desktop=true integration=true ;;
         # Read by the unit tests, or only built: nothing the integration tests use.
-        plugins/* | schemas/* | examples/* | scripts/* | build/* | .golangci.yml | .goreleaser.yaml) ;;
+        plugins/* | schemas/* | examples/* | scripts/* | build/* | .golangci.yml | .goreleaser.yaml | *.feature) ;;
         *) integration=true ;;
       esac
       ;;

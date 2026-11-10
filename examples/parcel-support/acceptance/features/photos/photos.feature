@@ -20,8 +20,8 @@ Feature: Photos of damaged parcels
       | path | ../infra/uploads |
     And a support-db database with the following properties:
       | url      | postgres://${sys:local.host}:${sys:support-db.port}/support |
-      | user     | support                                   |
-      | password | support                                   |
+      | user     | support                                                     |
+      | password | support                                                     |
 
   Scenario: A photo of the damaged parcel makes its ticket ready for the claim
     Given a POST request to /api/messages
@@ -62,7 +62,7 @@ Feature: Photos of damaged parcels
     Given a POST request to /api/messages
     And a request payload using an application/json content example
     And the request payload properties are:
-      | customer | maria.lange@example.com                                      |
+      | customer | maria.lange@example.com                                     |
       | text     | My parcel PX-5105 arrived damaged: one corner is torn open. |
     And the request is executed
     And the response status code is 201
