@@ -151,9 +151,9 @@ steps. All of this answers offline, for this version.
 Writing tests:
   axx steps                  every step of the project's packs, one line each: read it once
   axx steps show <id>...     the documentation of steps whose line leaves you unsure, several at once
-  axx validate && axx lint && axx run --compact
-                             check the features and the test data, then run, in one command:
-                             a run starts the services and stops them
+  axx fmt && axx validate && axx lint && axx run --compact
+                             lay out the features, check them and the test data, then run, in
+                             one command: a run starts the services and stops them
   axx up, axx down           only to keep the services running and inspect them
   axx explain AXX-E...       what an error code means, and what to do
 

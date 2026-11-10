@@ -49,7 +49,8 @@ The agent's wording will differ from run to run, but you'll see it work through 
 1. reads the project's steps with the `steps_search` tool (or `axx steps`) instead of guessing their text;
 2. looks up only the steps whose line leaves it unsure, several at once, with `step_explain` (`axx steps show`);
 3. writes a feature file, with a scenario for each acceptance criterion;
-4. checks the features and runs them in one go, with `feature_validate`, `lint_run` and `scenarios_run` (`axx validate && axx lint && axx run --compact`). The run starts the server and stops it.
+4. lays the feature file out with `axx fmt`, the way every axx feature is laid out;
+5. checks the features and runs them in one go, with `feature_validate`, `lint_run` and `scenarios_run` (`axx validate && axx lint && axx run --compact`). The run starts the server and stops it.
 
 ## Review what it wrote
 
