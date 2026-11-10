@@ -1,7 +1,7 @@
 # 0016: On macOS, axx runs desktop scenarios under a launcher of its own, the one identity a person allows
 
-- Status: Proposed (a draft). NimbusXR is in the Apple Developer Program as of 2026-11-09; the
-  launcher now waits on NimbusXR's Developer ID certificate and its notarization key.
+- Status: Proposed (a draft). As of 2026-11-09, NimbusXR is in the Apple Developer Program, and
+  its Developer ID certificate and notarization key are in the release environment.
 - Date: 2026-10-09
 - Revised: 2026-11-09. Numbered 0016, since main took 0013 meanwhile. It now covers the MCP server
   and the hand-overs ADR 0015 added, and it says how desktop-macos starts apps today.
@@ -79,8 +79,10 @@ every app axx runs, whatever started axx.
      the ones among its arguments.
 4. **It is signed with NimbusXR's Developer ID and notarized, and nothing else signs it** (the
    owner's decision, 2026-10-08: never a personal certificate, not even for now). The release
-   workflow builds it into an app (`axx.app`, its identifier to settle; proposed
-   `us.nimbusxr.axx.launcher`), signs, notarizes and publishes it. axx downloads it on first use,
+   workflow builds it into an app (`axx.app`, shown as "axx", its identifier
+   `us.nimbusxr.axx.launcher`: the owner's decision, 2026-11-09), signs, notarizes and publishes
+   it. Signing runs on a GitHub-hosted macOS runner, never on the Mac mini, which runs pull
+   requests' code and so must never hold the release's secrets. axx downloads it on first use,
    as it downloads OpenH264, and checks its signature and team. A grant is kept by the
    signature, so it lasts across axx's updates.
 5. **`axx doctor`, and the first desktop step of a run, check the launcher's grants**: one
@@ -88,6 +90,18 @@ every app axx runs, whatever started axx.
 6. **In CI, the launcher is the one identity a hosted macOS runner allows**: its TCC rows and its
    screen-capture approval, in place of rows for each app under test and for bash. Writing them
    needs the owner's approval, as Snap's did.
+7. **The project's build restarts itself under the launcher** (the owner's decision, 2026-11-09).
+   Since ADR 0015, axx hands over twice before a command runs. The installed axx hands over to
+   the version the project names, and that version hands over to the project's own build. Both
+   hand-overs replace the process with `exec` (`internal/cli/packs.go`), so neither changes who
+   macOS holds responsible. The project's build has desktop-macos, so it knows whether a command
+   drives Mac apps, and an older installed axx hands over to it without knowing about the
+   launcher. The core stays without purego.
+8. **`AXX_LAUNCHER=off` opts out** (the owner's decision, 2026-11-09), for someone who prefers
+   their terminal's grants: axx then runs as it does without the launcher.
+9. **The release signs and notarizes the macOS `axx` binaries too** (the owner's decision,
+   2026-11-09), with the same certificate and key. The Homebrew cask then stops removing macOS's
+   quarantine flag (`.goreleaser.yaml`).
 
 ## Evidence: the prototype, 2026-10-08, on the owner's MacBook
 
@@ -136,11 +150,15 @@ handoff uses is still there.
 - [x] Prove the handoff and the launcher: the prototype above, and this draft (`internal/launcher`,
   `internal/tools/axx-launcher`, their tests).
 - [x] **The owner:** NimbusXR in the Apple Developer Program (2026-11-09).
-- [ ] **The owner:** a Developer ID Application certificate, and an App Store Connect API key for
-  notarization. Their secrets go in the `release` environment, which the release workflow's
-  publishing job already uses.
+- [x] **The owner:** a Developer ID Application certificate ("Developer ID Application: Nimbus XR
+  LLC", team 2SAF8A2PAY), and an App Store Connect API key for notarization, which Apple's notary
+  service accepted (2026-11-09). They are in the `release` environment: the variable
+  `APPLE_TEAM_ID`, and the secrets `APPLE_DEVELOPER_ID_P12` (base64), its password
+  `APPLE_DEVELOPER_ID_P12_PASSWORD`, `APPLE_API_KEY_P8`, `APPLE_API_KEY_ID` and
+  `APPLE_API_ISSUER_ID`.
 - [ ] Release: build `axx-launcher` into `axx.app`, sign it, notarize and staple it, and publish it
-  with each release.
+  with each release. Sign and notarize the macOS `axx` binaries too, and drop the cask's
+  quarantine removal.
 - [ ] axx downloads it on first use, checks its signature and team, and keeps it in its cache.
 - [ ] On macOS, `axx run` and `axx mcp` run under it: once, in the outermost process, above
   Delve for `--debug-steps`.
@@ -153,20 +171,11 @@ handoff uses is still there.
 
 ## Open questions
 
-1. **Its name**, which a person sees in System Settings, and its identifier, which keeps its grants
-   and so is chosen once. Proposed: "axx", `us.nimbusxr.axx.launcher`.
-2. **Where axx runs itself again under it.** Since ADR 0015, axx hands over twice before a
-   command runs. The installed axx hands over to the version the project names, and that version
-   hands over to the project's own build. Both hand-overs replace the process with `exec`
-   (`internal/cli/packs.go`), so neither changes who macOS holds responsible. The re-run could
-   go in either of two places:
-   - In the core (`cmd/axx`). The core binary would carry purego, which is pure Go. It would have
-     to read the project's packs to know whether a command drives Mac apps.
-   - In the project's build, which has desktop-macos and so knows. An older installed axx hands
-     over to it without knowing about the launcher. This is the one proposed.
-3. **A way out**, for someone who prefers their terminal's grants: `AXX_LAUNCHER=off`.
-4. **The private API.** If a macOS release removes it, `Start` fails as the library loads, and axx
+1. **The private API.** If a macOS release removes it, `Start` fails as the library loads, and axx
    runs as it does today, with the host's grants; `axx doctor` says so.
+
+The name and identifier, where axx restarts itself, and the opt-out were open here until the
+owner decided them on 2026-11-09 (decisions 4, 7 and 8).
 
 ## Consequences
 
