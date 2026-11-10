@@ -2,8 +2,8 @@
 name: Apple signing
 description: >-
   NimbusXR's Developer ID in a keychain of the job's, and the App Store Connect API key the notary
-  service takes in a file (ADR 0016). On a macOS runner it gives the signing identity; on any
-  runner, the key's file.
+  service takes in a file (ADR 0016). Given the certificate on a macOS runner, it gives the signing
+  identity; on any runner, the key's file.
 inputs:
   certificate:
     description: The Developer ID Application certificate, a .p12 in base64 (macOS runners).
@@ -32,8 +32,10 @@ runs:
         path="$RUNNER_TEMP/notary.p8"
         (umask 077 && printf '%s\n' "$API_KEY" >"$path")
         echo "path=$path" >>"$GITHUB_OUTPUT"
+    # Only a job that signs passes the certificate: one that only asks Apple for its answer (the
+    # notarized jobs) passes the key alone.
     - id: sign
-      if: runner.os == 'macOS'
+      if: runner.os == 'macOS' && inputs.certificate != ''
       shell: bash
       env:
         CERTIFICATE: ${{ inputs.certificate }}

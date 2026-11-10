@@ -281,8 +281,9 @@ jobs:
         uses: ./.github/actions/apple-signing
         with:
           api-key: ${{ secrets.APPLE_API_KEY_P8 }}
+      # Three: the launcher's axx.app, and GoReleaser's two macOS binaries (amd64 and arm64).
       - name: Apple notarized them
-        run: scripts/notarized.sh "$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" --jq .run_started_at)" 8
+        run: scripts/notarized.sh "$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" --jq .run_started_at)" 3 8
         env:
           GH_TOKEN: ${{ github.token }}
           APPLE_API_KEY_PATH: ${{ steps.apple.outputs.key-path }}

@@ -208,12 +208,16 @@ What it showed that the plan has to take in:
     launcher left unstapled works the same: axx downloads it itself, so macOS never quarantines
     it and never asks Gatekeeper about it, and macOS keeps a person's grants by its signature.
     The macOS binaries cannot be stapled at all; Gatekeeper asks Apple about them online.
-  - **Apple's answer in a job of its own** (`scripts/notarized.sh`): it fails when Apple refused
-    anything the release sent, with Apple's log of it, and warns when Apple is still at it after
-    8 minutes.
+  - **Apple's answer in a job of its own** (`scripts/notarized.sh`): it fails when Apple has fewer
+    submissions than the release sends (three: the launcher and the two macOS binaries), or
+    refused any, with Apple's log of it, and warns when Apple is still at it after 8 minutes.
   - **A check before any release**: the `macOS signing` workflow, run by hand from main (the
     release environment's secrets are main's only), signs and notarizes the launcher and the
-    macOS binaries as a release does, and publishes nothing.
+    macOS binaries as a release does, and publishes nothing. Its first run (2026-11-10, run
+    42751460142) signed all three, and Apple accepted them: the launcher in under 30 seconds,
+    stapled and passed by Gatekeeper ("Notarized Developer ID"), and GoReleaser's two binaries.
+    Its `notarized` job failed: the signing action imported a certificate in every job on a Mac,
+    and that job passes none. It now imports one only when a job passes it.
 - [x] axx downloads it on first use, checks its signature and team, and keeps it in its cache
   (`<user cache>/axx/launcher/axx.app`): the launcher of the running axx's release, through
   `AXX_DOWNLOAD_URL`'s mirror when one is set, installed once `codesign` says NimbusXR signed it.
