@@ -43,6 +43,15 @@ If `axx` is not on your `PATH`, set `axx.path` to its location. The **axx** outp
 
 With Red Hat's [YAML extension](https://marketplace.visualstudio.com/items?itemName=redhat.vscode-yaml), `axx.yaml`, its `axx.<name>.yaml` overlays and the fixture spec files get completion, documentation and validation from the schemas of the axx your project runs on, as in IntelliJ: the extension asks that axx for them, and asks again when you come back to VS Code, save `axx.yaml` or change `axx.path`. Until axx has answered, it uses the schemas it comes with. A comment at the top of a file goes first there: Red Hat's extension downloads the schema it names, so on a network that blocks that address, remove the comment.
 
+## Format feature files
+
+Both editors format a feature file through Axx's language server, so a file gets the same layout as [`axx fmt`](/guides/organize-by-feature/#format-the-feature-files) gives it.
+
+- **IntelliJ IDEA:** choose *Code | Reformat Code*. With text selected, it formats the lines you selected. The axx plugin formats feature files in place of the Gherkin plugin's formatter, so that the layout is the one `axx fmt` gives.
+- **VS Code:** run *Format Document* from the Command Palette, or *Format Selection* with text selected. To format each feature file when you save it, turn on the `editor.formatOnSave` setting. If VS Code asks which formatter to use for feature files, choose axx.
+
+A feature file that does not parse is left as it is: its errors show in the editor.
+
 ## Other editors
 
 Any editor with LSP support can run `axx lsp` for `*.feature` files. It talks over stdio and finds the project from its working directory. In Neovim 0.11 or later, which gives `.feature` files the `cucumber` file type:

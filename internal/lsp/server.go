@@ -235,6 +235,20 @@ func (s *server) handle(req *request) (bool, error) {
 			}
 			s.reply(req.ID, links, nil)
 		}
+	case "textDocument/formatting", "textDocument/rangeFormatting":
+		var p formattingParams
+		if s.decode(req, &p) {
+			edits := []textEdit{}
+			var rerr *rpcError
+			if d, ok := s.docs[p.TextDocument.URI]; ok {
+				edits, rerr = formatRequest(p, d.text)
+			}
+			if rerr != nil {
+				s.reply(req.ID, nil, rerr)
+			} else {
+				s.reply(req.ID, edits, nil)
+			}
+		}
 	case "textDocument/semanticTokens/full":
 		var p semanticTokensParams
 		if s.decode(req, &p) {
@@ -262,6 +276,9 @@ func capabilities(version string) map[string]any {
 			"hoverProvider":        true,
 			"definitionProvider":   true,
 			"documentLinkProvider": map[string]any{"resolveProvider": false},
+			// Features have the one layout `axx fmt` gives them.
+			"documentFormattingProvider":      true,
+			"documentRangeFormattingProvider": true,
 			"semanticTokensProvider": map[string]any{
 				"legend": map[string]any{"tokenTypes": tokenTypes, "tokenModifiers": []string{}},
 				"full":   true,

@@ -59,6 +59,7 @@ type cell struct {
 type document struct {
 	uri     string
 	version int
+	text    string
 	lines   []string
 	steps   []stepLine
 	tables  []table
@@ -70,7 +71,7 @@ type document struct {
 }
 
 func newDocument(uri string, version int, text string) *document {
-	d := &document{uri: uri, version: version, lines: splitLines(text), expansions: map[int][]string{}}
+	d := &document{uri: uri, version: version, text: text, lines: splitLines(text), expansions: map[int][]string{}}
 	d.steps, d.tables = scan(d.lines)
 	_, pickles, err := feature.ParseSource(uri, []byte(text), messages.UUID{}.NewId)
 	if err != nil {
