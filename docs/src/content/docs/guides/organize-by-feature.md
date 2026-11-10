@@ -60,7 +60,7 @@ Every feature file can have the same layout, so that features read alike, whoeve
 
 A file written like this:
 
-```gherkin
+```gherkin unformatted
 Feature: Shop emails
 Scenario: A shop gets its parcel's label by email
   Given a POST request to /api/parcels

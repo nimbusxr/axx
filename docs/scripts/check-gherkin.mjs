@@ -16,7 +16,13 @@
 // data table, say); and a scenario, or a block of a few steps, with a second
 // When or a second Then, in any block, generated pages' and nocheck ones too. A
 // scenario is one behavior, And adds to its When or its Then, and a page that
-// lists a step's forms gives each a block of its own.
+// lists a step's forms gives each a block of its own. And a block that is not
+// laid out as `axx fmt` lays out a feature (a snippet as it would sit in one,
+// at the indent it starts at: an excerpt may keep its file's), but those
+// fenced as ```gherkin unformatted, which show a layout on purpose: `--fix`
+// lays them out in place.
+//
+//   node scripts/check-gherkin.mjs --fix
 //
 // Uses ../bin/axx-all, axx with every pack (built by `npm run gen`), unless
 // AXX_BIN is set.
@@ -26,7 +32,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { blocks, markdownFiles, toFeature } from './gherkin-blocks.mjs';
+import { baseIndent, blocks, fromLaidOut, markdownFiles, toFeature, toLaidOut } from './gherkin-blocks.mjs';
 
 const docsDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const repoDir = path.resolve(docsDir, '..');
@@ -80,7 +86,12 @@ const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'axx-docs-gherkin-'));
 // The snippets may use any pack: the project lists them all.
 const packs = JSON.parse(execFileSync(axxBin, ['pack', 'list', '--json'], { cwd: tmp, encoding: 'utf8' })).data.packs.map((p) => p.pack);
 fs.writeFileSync(path.join(tmp, 'axx-packs.yaml'), `packs:\n${packs.map((p) => `  - ${p}\n`).join('')}`);
-const counts = { blocks: 0, skipped: 0, syntax: 0, undefined: 0, argument: 0, ambiguous: 0, clauses: 0 };
+const fix = process.argv.includes('--fix');
+const counts = { blocks: 0, skipped: 0, syntax: 0, undefined: 0, argument: 0, ambiguous: 0, clauses: 0, layout: 0 };
+// Each checked block, laid out in a folder of its own: axx fmt lays them all out at once.
+const layoutDir = path.join(tmp, 'layout');
+fs.mkdirSync(layoutDir);
+const laidOut = [];
 const failures = [];
 let n = 0;
 
@@ -105,6 +116,11 @@ for (const file of sources.sort()) {
 		const { text, offset } = toFeature(block.body);
 		const name = `block-${++n}.feature`;
 		fs.writeFileSync(path.join(tmp, name), text + '\n');
+		if (!block.unformatted) {
+			const wrap = toLaidOut(block.body);
+			fs.writeFileSync(path.join(layoutDir, name), wrap.text + '\n');
+			laidOut.push({ file, rel, block, name, wrap });
+		}
 		const out = validate(tmp, name);
 		const at = (loc) => {
 			const line = Number(String(loc ?? '').split(':').pop());
@@ -132,6 +148,49 @@ for (const file of sources.sort()) {
 		}
 	}
 }
+
+// The layout: axx fmt lays out every block's file; a block whose file it
+// changed is not laid out. A block that does not parse is left as it is,
+// and reported above.
+try {
+	execFileSync(axxBin, ['fmt', layoutDir], { cwd: layoutDir, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+} catch (err) {
+	for (const l of String(err.stderr ?? '').split('\n')) {
+		if (l.includes('AXX-E0208')) failures.push(`axx fmt: ${l.trim()}`);
+	}
+}
+const trimEnd = (lines) => {
+	const out = [...lines];
+	while (out.length && out[out.length - 1].trim() === '') out.pop();
+	return out;
+};
+const fixes = new Map();
+for (const { file, rel, block, name, wrap } of laidOut) {
+	const want = trimEnd(fromLaidOut(fs.readFileSync(path.join(layoutDir, name), 'utf8'), wrap, baseIndent(block.body)));
+	const have = trimEnd(block.body);
+	const at = want.findIndex((l, i) => l !== have[i]);
+	const k = at >= 0 ? at : want.length < have.length ? want.length : -1;
+	if (k < 0) continue;
+	counts.layout++;
+	if (fix) {
+		if (!fixes.has(file)) fixes.set(file, []);
+		fixes.get(file).push({ block, want });
+		continue;
+	}
+	const show = (l) => (l === undefined ? '(no line)' : JSON.stringify(l));
+	failures.push(`${rel}:${block.line + k}: not laid out as axx fmt lays it out: ${show(have[k])} should be ${show(want[k])} (npm run check:gherkin -- --fix lays it out)`);
+}
+// --fix: each block's lines replaced by its layout, last block first, in the fence's indent.
+for (const [file, list] of fixes) {
+	const lines = fs.readFileSync(file, 'utf8').split('\n');
+	for (const { block, want } of list.sort((a, b) => b.block.line - a.block.line)) {
+		const start = block.line - 1;
+		const count = trimEnd(block.body).length;
+		lines.splice(start, count, ...want.map((l) => (l === '' ? l : block.indent + l)));
+	}
+	fs.writeFileSync(file, lines.join('\n'));
+	console.log(`laid out ${list.length} block(s) in ${path.relative(docsDir, file)}`);
+}
 fs.rmSync(tmp, { recursive: true, force: true });
 
 for (const file of [...new Set([...sources, ...markdownFiles(contentDir, { withGenerated: true })])].sort()) {
@@ -152,6 +211,6 @@ if (failures.length) {
 console.log(
 	`check-gherkin: ${counts.blocks} blocks checked, ${counts.skipped} skipped (nocheck); ` +
 		`${counts.syntax} syntax errors, ${counts.undefined} undefined, ${counts.ambiguous} ambiguous, ${counts.argument} argument problems, ` +
-		`${counts.clauses} second clauses`,
+		`${counts.clauses} second clauses, ${counts.layout} not laid out${fix ? ' (laid out now)' : ''}`,
 );
 process.exit(failures.length ? 1 : 0);

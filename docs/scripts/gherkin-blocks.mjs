@@ -13,7 +13,11 @@ export function markdownFiles(dir, { withGenerated = false } = {}) {
 	});
 }
 
-/** The gherkin blocks of a Markdown file: the line their code starts on, their lines, and nocheck. */
+/**
+ * The gherkin blocks of a Markdown file: the line their code starts on, their
+ * lines, nocheck, unformatted (a block that shows a layout `axx fmt` changes,
+ * on purpose), and the fence's indent.
+ */
 export function blocks(file) {
 	const lines = fs.readFileSync(file, 'utf8').split('\n');
 	const found = [];
@@ -28,7 +32,7 @@ export function blocks(file) {
 			if (close && close[2][0] === fence[0] && close[2].length >= fence.length) break;
 			body.push(lines[j].startsWith(indent) ? lines[j].slice(indent.length) : lines[j].trimStart());
 		}
-		found.push({ line: i + 2, nocheck: /\bnocheck\b/.test(info), body });
+		found.push({ line: i + 2, nocheck: /\bnocheck\b/.test(info), unformatted: /\bunformatted\b/.test(info), body, indent });
 		i = j;
 	}
 	return found;
@@ -45,6 +49,46 @@ export function toFeature(body) {
 		return { text: `Feature: docs snippet\n${text}`, offset: 1, indent: 0 };
 	}
 	return { text: `Feature: docs snippet\n  Scenario: docs snippet\n${body.map((l) => `    ${l}`).join('\n')}`, offset: 2, indent: 4 };
+}
+
+/**
+ * Wraps a snippet so that it sits where it would in a feature, as layout
+ * checks it: the text, and how to take the snippet back out of the text
+ * `axx fmt` gives (the lines before it, and the columns it is in by).
+ */
+export function toLaidOut(body) {
+	const text = body.join('\n');
+	const shift = (n) => body.map((l) => (l === '' ? l : ' '.repeat(n) + l)).join('\n');
+	if (/^\s*Feature:/m.test(text)) return { text, header: 0, indent: 0 };
+	if (/^\s*(Background|Scenario|Scenario Outline|Scenario Template|Example|Rule):/m.test(text)) {
+		return { text: `Feature: docs snippet\n${shift(2)}`, header: 1, indent: 2 };
+	}
+	return { text: `Feature: docs snippet\n  Scenario: docs snippet\n${shift(4)}`, header: 2, indent: 4 };
+}
+
+/**
+ * The snippet in out, a toLaidOut text as `axx fmt` laid it out: its lines,
+ * base columns in (a snippet keeps the indent it starts at: an excerpt shows
+ * its lines where they sit in their file).
+ */
+export function fromLaidOut(out, { header, indent }, base = 0) {
+	let lines = out.replace(/\n$/, '').split('\n');
+	// The wrapper's lines, and the blank lines axx fmt puts after them.
+	let dropped = 0;
+	while (dropped < header && lines.length) {
+		if (lines[0].trim() !== '') dropped++;
+		lines.shift();
+	}
+	while (lines.length && lines[0].trim() === '') lines.shift();
+	const pad = ' '.repeat(indent);
+	const lead = ' '.repeat(base);
+	return lines.map((l) => (l.startsWith(pad) ? l.slice(indent) : l.trimStart())).map((l) => (l === '' ? l : lead + l));
+}
+
+/** The columns a snippet starts at: the least indent of its lines that have text. */
+export function baseIndent(body) {
+	const ins = body.filter((l) => l.trim() !== '').map((l) => l.length - l.trimStart().length);
+	return ins.length ? Math.min(...ins) : 0;
 }
 
 /** How a block's code is known again when the site renders it: its lines, without trailing space. */

@@ -29,11 +29,11 @@ For a TLS-secured cluster:
 
 ```gherkin
 Given a secure-events kafka topic client with the following properties:
-  | producer.security.protocol      | SASL_SSL                                                                                      |
-  | producer.sasl.mechanism         | SCRAM-SHA-512                                                                                 |
-  | producer.sasl.jaas.config       | org.apache.kafka.common.security.scram.ScramLoginModule required username="app" password="${env:KAFKA_PASSWORD}"; |
-  | producer.ssl.truststore.location | certs/truststore.p12                                                                         |
-  | producer.ssl.truststore.password | ${env:TRUSTSTORE_PASSWORD}                                                                   |
+  | producer.security.protocol       | SASL_SSL                                                                                                          |
+  | producer.sasl.mechanism          | SCRAM-SHA-512                                                                                                     |
+  | producer.sasl.jaas.config        | org.apache.kafka.common.security.scram.ScramLoginModule required username="app" password="${env:KAFKA_PASSWORD}"; |
+  | producer.ssl.truststore.location | certs/truststore.p12                                                                                              |
+  | producer.ssl.truststore.password | ${env:TRUSTSTORE_PASSWORD}                                                                                        |
 ```
 
 The consumer takes the same settings with the `consumer.` prefix.

@@ -13,8 +13,8 @@ A message that breaks the document fails the step and names the rule it broke. Y
 ```gherkin
 Scenario: A scanner is alerted when it scans a parcel the service does not know
   Given the depots mqtt broker with the following properties:
-    | url      | mqtt://localhost:1883                 |
-    | asyncapi | http://localhost:8400/asyncapi.yaml   |
+    | url      | mqtt://localhost:1883               |
+    | asyncapi | http://localhost:8400/asyncapi.yaml |
   When the mqtt/scan-unknown.json message is published to the depots/LEJ/scans mqtt topic
   Then within 10s the depots/+/alerts mqtt topic has a message where:
     | parcelRef | PX-MQT-8299    |
