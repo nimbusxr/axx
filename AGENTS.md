@@ -53,7 +53,10 @@ the skills instead: `axx skills install`.
   with NimbusXR's Developer ID by `scripts/macos-launcher-app.sh`). desktop-macos runs `axx run`,
   `axx mcp` and `axx doctor` again under it (`core.Relauncher`), from `AXX_MACOS_LAUNCHER` or axx's
   cache, where it downloads the launcher of its release, and under it starts apps as its
-  children. Only packs import it, so the core binary stays without purego. A release signs and
+  children, so macOS asks it for the permissions those apps ask for: its entitlements
+  (`entitlements.plist`) and Info.plist's messages must cover each, or macOS refuses without
+  asking (its test builds the app and checks). Only packs import it, so the core binary stays
+  without purego. A release signs and
   notarizes the launcher and the macOS binaries (`release.yml`: `macos-launcher`, GoReleaser's
   `notarize`, `notarized`); the `macOS signing` workflow, run by hand from main, checks that.
 - `packs/models/core` (`models-core`): stubs of embedded models, `axx models contract|build`

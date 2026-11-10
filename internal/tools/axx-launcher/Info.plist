@@ -2,7 +2,12 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <!-- axx's launcher (ADR 0016). macOS keeps the grants a person gives it by its identifier and
      NimbusXR's team, so the identifier never changes. scripts/macos-launcher-app.sh fills in
-     the version. -->
+     the version.
+
+     The apps axx tests run under the launcher, so macOS asks for their permissions on its
+     behalf, with its name and the message here for each (the ...UsageDescription keys), and
+     refuses one it has no message for. entitlements.plist has the entitlements the hardened
+     runtime needs for some of them. -->
 <plist version="1.0">
 <dict>
 	<key>CFBundleIdentifier</key>
@@ -27,5 +32,47 @@
 	<true/>
 	<key>NSHumanReadableCopyright</key>
 	<string>Copyright NimbusXR</string>
+	<key>NSAppleEventsUsageDescription</key>
+	<string>An app axx is testing asks to control another app.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>An app axx is testing asks to use the camera.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>An app axx is testing asks to use the microphone.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>An app axx is testing asks to use speech recognition.</string>
+	<key>NSContactsUsageDescription</key>
+	<string>An app axx is testing asks to use your contacts.</string>
+	<key>NSCalendarsUsageDescription</key>
+	<string>An app axx is testing asks to use your calendars.</string>
+	<key>NSCalendarsFullAccessUsageDescription</key>
+	<string>An app axx is testing asks to use your calendars.</string>
+	<key>NSCalendarsWriteOnlyAccessUsageDescription</key>
+	<string>An app axx is testing asks to add events to your calendars.</string>
+	<key>NSRemindersUsageDescription</key>
+	<string>An app axx is testing asks to use your reminders.</string>
+	<key>NSRemindersFullAccessUsageDescription</key>
+	<string>An app axx is testing asks to use your reminders.</string>
+	<key>NSLocationUsageDescription</key>
+	<string>An app axx is testing asks to use your location.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>An app axx is testing asks to use your location.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>An app axx is testing asks to use your photos.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>An app axx is testing asks to add to your photos.</string>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>An app axx is testing asks to use Bluetooth.</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>An app axx is testing asks to connect to devices on your local network.</string>
+	<key>NSDesktopFolderUsageDescription</key>
+	<string>An app axx is testing asks to use files in your Desktop folder.</string>
+	<key>NSDocumentsFolderUsageDescription</key>
+	<string>An app axx is testing asks to use files in your Documents folder.</string>
+	<key>NSDownloadsFolderUsageDescription</key>
+	<string>An app axx is testing asks to use files in your Downloads folder.</string>
+	<key>NSNetworkVolumesUsageDescription</key>
+	<string>An app axx is testing asks to use files on a network volume.</string>
+	<key>NSRemovableVolumesUsageDescription</key>
+	<string>An app axx is testing asks to use files on a removable volume.</string>
 </dict>
 </plist>
