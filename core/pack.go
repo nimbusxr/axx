@@ -90,6 +90,19 @@ type Closer interface {
 	Close(ctx context.Context) error
 }
 
+// Relauncher is implemented by packs that run some of axx's commands again in
+// another process: desktop-macos runs those that drive Mac apps under axx's
+// launcher, the process macOS asks for the permissions they need (ADR 0016).
+// Before one of axx's commands runs, and before its command hooks, axx asks
+// the project's packs in the order they load. The first that relaunches it
+// has run it to its end, and axx ends with code, its exit code. command is
+// the command's words after axx ("run", "steps list"), and args are axx's
+// arguments, as the command line gave them. The command run again must not
+// be relaunched: the pack tells it so.
+type Relauncher interface {
+	Relaunch(ctx context.Context, command string, args []string) (code int, relaunched bool, err error)
+}
+
 // Manifest describes everything a pack contributes.
 type Manifest struct {
 	// Name identifies the pack, e.g. "rest".

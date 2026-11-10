@@ -540,7 +540,10 @@ func (p *proc) capture() ([]byte, *ax.Element, error) {
 		return nil, nil, err
 	}
 	if ok, err := ax.ScreenCaptureAllowed(); err == nil && !ok {
-		return nil, nil, fmt.Errorf("macOS does not let axx capture other apps' windows: allow %s in System Settings > Privacy & Security > Screen Recording", topApp())
+		if underLauncher() != "" {
+			askScreenCapture()
+		}
+		return nil, nil, fmt.Errorf("macOS does not let axx capture other apps' windows: turn on %s in %s", topApp(), screenSettings)
 	}
 	f, err := os.CreateTemp("", "axx-window-*.png")
 	if err != nil {
