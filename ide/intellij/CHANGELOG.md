@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.3.4](https://github.com/nimbusxr/axx/compare/intellij-v0.3.3...intellij-v0.3.4) (2026-11-11)
+
+
+### Features
+
+* **cli:** axx fmt lays out feature files the one way (indentation, aligned tables, blank lines) without changing what they say, and axx fmt --check lists those it would change ([affa79c](https://github.com/nimbusxr/axx/commit/affa79c967a6d5e60741e07614d477620ff4be2a))
+* **config:** axx.yaml's fmt.indent, 2 (the default) or 4, sets how far axx fmt and editors indent features ([affa79c](https://github.com/nimbusxr/axx/commit/affa79c967a6d5e60741e07614d477620ff4be2a))
+* **init:** the CI workflow axx init writes checks the features' layout with axx fmt --check, and agents run axx fmt on the features they write ([affa79c](https://github.com/nimbusxr/axx/commit/affa79c967a6d5e60741e07614d477620ff4be2a))
+* **intellij:** Reformat Code formats feature files through axx, in place of the Gherkin plugin's formatter ([affa79c](https://github.com/nimbusxr/axx/commit/affa79c967a6d5e60741e07614d477620ff4be2a))
+* **lsp:** VS Code and other editors format feature files through axx lsp, as axx fmt does ([affa79c](https://github.com/nimbusxr/axx/commit/affa79c967a6d5e60741e07614d477620ff4be2a))
+
 ## [0.3.3](https://github.com/nimbusxr/axx/compare/intellij-v0.3.2...intellij-v0.3.3) (2026-11-08)
 
 

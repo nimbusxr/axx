@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.6.5](https://github.com/nimbusxr/axx/compare/v0.6.4...v0.6.5) (2026-11-11)
+
+
+### Features
+
+* **cli:** axx fmt lays out feature files the one way (indentation, aligned tables, blank lines) without changing what they say, and axx fmt --check lists those it would change ([affa79c](https://github.com/nimbusxr/axx/commit/affa79c967a6d5e60741e07614d477620ff4be2a))
+* **config:** axx.yaml's fmt.indent, 2 (the default) or 4, sets how far axx fmt and editors indent features ([affa79c](https://github.com/nimbusxr/axx/commit/affa79c967a6d5e60741e07614d477620ff4be2a))
+* **init:** the CI workflow axx init writes checks the features' layout with axx fmt --check, and agents run axx fmt on the features they write ([affa79c](https://github.com/nimbusxr/axx/commit/affa79c967a6d5e60741e07614d477620ff4be2a))
+* **intellij:** Reformat Code formats feature files through axx, in place of the Gherkin plugin's formatter ([affa79c](https://github.com/nimbusxr/axx/commit/affa79c967a6d5e60741e07614d477620ff4be2a))
+* **lsp:** VS Code and other editors format feature files through axx lsp, as axx fmt does ([affa79c](https://github.com/nimbusxr/axx/commit/affa79c967a6d5e60741e07614d477620ff4be2a))
+
+
+### Bug Fixes
+
+* **desktop-macos:** apps under axx's launcher may ask for the camera, the microphone, Apple Events and the rest again ([#313](https://github.com/nimbusxr/axx/issues/313)) ([28d8f6c](https://github.com/nimbusxr/axx/commit/28d8f6cff0acc87bb3abaf51df2abebaa8629020))
+
 ## [0.6.4](https://github.com/nimbusxr/axx/compare/v0.6.3...v0.6.4) (2026-11-10)
 
 
