@@ -8,9 +8,10 @@ import com.intellij.execution.configurations.RunConfiguration;
 import com.intellij.openapi.components.BaseState;
 import com.intellij.openapi.project.DumbAware;
 import com.intellij.openapi.project.Project;
-import com.intellij.openapi.util.IconLoader;
 
 import org.jetbrains.annotations.NotNull;
+
+import us.nimbusxr.axx.idea.AxxIcons;
 
 /** The "axx" run configuration type: runs scenarios with {@code axx run}. */
 public final class AxxRunConfigurationType extends ConfigurationTypeBase implements DumbAware {
@@ -24,7 +25,7 @@ public final class AxxRunConfigurationType extends ConfigurationTypeBase impleme
                 ID,
                 "axx",
                 "Runs axx scenarios and shows them as tests",
-                IconLoader.getIcon("/icons/axx.svg", AxxRunConfigurationType.class));
+                AxxIcons.AXX);
         factory = new Factory(this);
         addFactory(factory);
     }

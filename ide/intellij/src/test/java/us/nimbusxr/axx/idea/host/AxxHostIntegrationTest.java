@@ -111,7 +111,7 @@ class AxxHostIntegrationTest {
             HostProcess other = start(axx, project, second, threads);
             String exit = second.exits.poll(60, TimeUnit.SECONDS);
             assertNotNull(exit, "the second host did not exit");
-            other.stop();
+            other.stop(1, TimeUnit.MINUTES);
             int code = Integer.parseInt(exit.substring(0, exit.indexOf(':')));
             assertEquals(HostState.Exit.ELSEWHERE, HostState.exitOf(code, exit, false), exit);
 
@@ -179,13 +179,12 @@ class AxxHostIntegrationTest {
                             .contains("locationHint='" + url + "/"),
                     location);
 
-            // The IDE goes away: the host stops and cleans up.
-            host.stop();
+            // The IDE goes away (the project closes, the plugin unloads): it lets the host go, and
+            // the host stops and cleans up on its own, its output read by no one.
+            host.detach();
             assertTrue(host.waitFor(60, TimeUnit.SECONDS), "the host did not stop");
-            String stopped = heard.exits.poll(10, TimeUnit.SECONDS);
-            assertNotNull(stopped);
-            assertTrue(stopped.startsWith("0: "), stopped);
             assertFalse(Files.exists(project.resolve(".axx/host.json")));
+            assertNull(heard.exits.poll(1, TimeUnit.SECONDS), "the IDE heard from a host it let go");
         } finally {
             threads.shutdownNow();
         }

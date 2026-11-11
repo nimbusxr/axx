@@ -240,9 +240,10 @@ The plugin starts the host for you, and asks those questions in the IDE:
   are, unless they changed since you last approved them (then it asks, below); what in them
   reaches past a container (a privileged container, a mount of this machine's files, the Docker
   socket, the host's network) shows in a warning notification.
-- **Tools | Stop axx Host** stops it, and so does closing the project: the host stops the services
-  of a run in progress, cleans up, removes `.axx/host.json` and exits. The plugin kills it if it
-  has not exited a minute later.
+- **Tools | Stop axx Host** stops it: the host stops the services of a run in progress, cleans up,
+  removes `.axx/host.json` and exits, and the plugin kills it if it has not exited a minute later.
+  Closing the project, or updating the plugin, stops it too, and the host finishes on its own, as
+  when the IDE quits: nothing of the plugin's waits for it, so the plugin updates without a restart.
 - **When the services' definition changed** since you approved it (an agent changed `axx.yaml` or
   a compose file), a notification asks *axx host: approve run 4?*, with the run's command, or
   *axx host: approve the services?* when the host found the change as it started, and what in the
@@ -409,7 +410,8 @@ AXX_BIN=$PWD/../../bin/axx ./gradlew test
 `AxxHostIntegrationTest` starts `axx host --ide` in `AXX_HOST_PROJECT`, a project whose `axx.yaml`
 declares services and whose scenarios pass (no other host may serve it), runs `axx run --compact`
 there as an agent would, approves the services if they changed, and checks the events the plugin
-reads, a second host's refusal, and the host's stop when the plugin closes its input.
+reads, a second host's refusal, and the host's stop, which it finishes on its own, when the plugin
+lets it go.
 
 ```sh
 AXX_BIN=$PWD/../../bin/axx AXX_HOST_PROJECT=/path/to/project ./gradlew test --tests '*AxxHostIntegrationTest'
