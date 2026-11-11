@@ -32,6 +32,7 @@ var testSite = map[string]string{
 	"references/config/index.html":        "<h1>config</h1>",
 	"references/configuration/index.html": `<!doctype html><title>Redirecting to: /references/config/</title><meta http-equiv="refresh" content="0;url=/references/config/">`,
 	"references/elsewhere/index.html":     `<meta http-equiv="refresh" content="0;url=https://example.com/">`,
+	"references/sideways/index.html":      `<meta http-equiv="refresh" content="0;url=/\example.com/">`,
 	"_astro/x.css":                        "body{}",
 	"pagefind/pagefind.js":                "export {}",
 	"llms.txt":                            "# axx",
@@ -71,6 +72,11 @@ func TestHandlerAnswersAsTheSite(t *testing.T) {
 		{"/references/configuration", "", "301 /references/config/"},
 		{"/references/elsewhere/", "", "200 " + testSite["references/elsewhere/index.html"]},
 		{"/guides/../guides/install/", "", "301 /guides/install/"},
+		// Never to another host: a browser reads /\host as //host.
+		{"/references/sideways/", "", "200 " + testSite["references/sideways/index.html"]},
+		{`/\example`, "", "404 <h1>not here</h1>"},
+		{"/%5Cexample", "", "404 <h1>not here</h1>"},
+		{"//example.com/", "", "301 /example.com/"},
 		{"/no/such/page/", browser, "404 <h1>not here</h1>"},
 		{"/no/such/page/", claude, "404 <h1>not here</h1>"},
 		{"/no-such-file.js", "", "404 <h1>not here</h1>"},
@@ -209,6 +215,7 @@ func TestUnpackRefuses(t *testing.T) {
 		"an entry out of the site": archive(t, entry{"index.html", "x", tar.TypeReg}, entry{"../evil", "x", tar.TypeReg}),
 		"an absolute entry":        archive(t, entry{"index.html", "x", tar.TypeReg}, entry{"/etc/evil", "x", tar.TypeReg}),
 		"a link":                   archive(t, entry{"index.html", "x", tar.TypeReg}, entry{"link", "/etc/passwd", tar.TypeSymlink}),
+		"a Windows path out":       archive(t, entry{"index.html", "x", tar.TypeReg}, entry{`a\..\..\evil`, "x", tar.TypeReg}),
 		"no index.html":            archive(t, entry{"guides/index.html", "x", tar.TypeReg}),
 	} {
 		t.Run(name, func(t *testing.T) {

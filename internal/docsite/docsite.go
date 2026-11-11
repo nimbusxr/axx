@@ -77,10 +77,10 @@ func Unpack(archive, dir string) error {
 		if name == "." {
 			continue
 		}
-		if !fs.ValidPath(name) {
+		dst, ok := within(dir, name)
+		if !ok {
 			return fmt.Errorf("its entry %q leads out of the site", hdr.Name)
 		}
-		dst := filepath.Join(dir, filepath.FromSlash(name))
 		switch hdr.Typeflag {
 		case tar.TypeDir:
 			if err := os.MkdirAll(dst, 0o755); err != nil {
@@ -102,6 +102,21 @@ func Unpack(archive, dir string) error {
 		return ErrNotASite
 	}
 	return nil
+}
+
+// within is the path of an archive's entry below dir, if it is one: a name
+// of slash-separated elements that stays below dir on this system (no "..",
+// no absolute path, no backslash, which separates a Windows path's elements).
+func within(dir, name string) (string, bool) {
+	if !fs.ValidPath(name) || strings.Contains(name, `\`) || !filepath.IsLocal(filepath.FromSlash(name)) {
+		return "", false
+	}
+	dst := filepath.Join(dir, filepath.FromSlash(name))
+	rel, err := filepath.Rel(dir, dst)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return "", false
+	}
+	return dst, true
 }
 
 func writeFile(r io.Reader, dst string, size int64) error {
@@ -141,6 +156,12 @@ func (s *site) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	uri := r.URL.Path
 	if !strings.HasPrefix(uri, "/") {
 		uri = "/" + uri
+	}
+	// No page's address has a backslash, and a browser reads one as a slash:
+	// a redirect to /\host/ would lead to another host.
+	if strings.Contains(uri, `\`) {
+		s.notFound(w, r)
+		return
 	}
 	clean := path.Clean(uri)
 	if clean != "/" && strings.HasSuffix(uri, "/") {
@@ -187,6 +208,10 @@ func (s *site) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *site) redirect(w http.ResponseWriter, r *http.Request, to string) {
+	if !localPath(to) {
+		s.notFound(w, r)
+		return
+	}
 	if r.URL.RawQuery != "" && !strings.Contains(to, "?") {
 		to += "?" + r.URL.RawQuery
 	}
@@ -216,12 +241,19 @@ func (s *site) movedTo(index string) string {
 	n, _ := io.ReadFull(f, head)
 	if m := moved.FindSubmatch(head[:n]); m != nil {
 		to := string(m[1])
-		// Only to a page of the site: a moved page never leads elsewhere.
-		if strings.HasPrefix(to, "/") && !strings.HasPrefix(to, "//") {
+		// Only to a page of the site: a moved page never leads elsewhere, and a
+		// browser reads /\host and //host as another host.
+		if localPath(to) {
 			return to
 		}
 	}
 	return ""
+}
+
+// localPath reports whether a redirect's target is a path of this site: it
+// starts with one slash, and has no second slash or backslash after it.
+func localPath(to string) bool {
+	return strings.HasPrefix(to, "/") && (len(to) == 1 || (to[1] != '/' && to[1] != '\\')) && !strings.Contains(to, `\`)
 }
 
 func (s *site) notFound(w http.ResponseWriter, r *http.Request) {
