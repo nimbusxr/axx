@@ -104,7 +104,15 @@ every app axx runs, whatever started axx.
    renamed because `AXX_LAUNCHER` already tells a project's build the version of the installed axx
    that started it, ADR 0015), for someone who prefers their terminal's grants: axx then runs as
    it does without the launcher. `AXX_MACOS_LAUNCHER` may also name the launcher's `axx.app`.
-9. **The release signs and notarizes the macOS `axx` binaries too** (the owner's decision,
+9. **The launcher may ask for what the apps under it ask for.** An app under the launcher is
+   its child, so macOS asks for the app's permissions on the launcher's behalf and judges each
+   by the launcher's signature and Info.plist, not the app's. The launcher is signed with the
+   entitlements the hardened runtime needs for some of them, those an IDE that runs programs has
+   (IntelliJ IDEA's seven: Apple Events, the camera, the microphone, contacts, calendars,
+   location and photos; `internal/tools/axx-launcher/entitlements.plist`), and its Info.plist has
+   the message macOS shows for each permission an app may ask for. Without them, macOS refuses
+   without asking anyone (the evidence of 2026-11-10, below).
+10. **The release signs and notarizes the macOS `axx` binaries too** (the owner's decision,
    2026-11-09), with the same certificate and key. The Homebrew cask then stops removing macOS's
    quarantine flag (`.goreleaser.yaml`).
 
@@ -173,6 +181,36 @@ What it showed that the plan has to take in:
   A variable set before axx starts does not reach axx under the launcher; the ones axx sets for
   an app it starts (models-macos's library) are set after it, and reach the app.
 
+## Evidence: what the apps under the launcher ask for, 2026-11-10
+
+axx 0.6.4's launcher had no entitlements and no messages. On the Mac mini, macOS's privacy log
+showed it refusing Apple Events for the depot desks under it: "Prompting policy for hardened
+runtime; service: kTCCServiceAppleEvents requires entitlement
+com.apple.security.automation.apple-events but it is missing for
+responsible=us.nimbusxr.axx.launcher". The depot desks use none of these permissions, so their
+scenarios passed. Before 0.6.4, `open` made each app responsible for itself, and it asked with its
+own signature.
+
+On the owner's MacBook (macOS 27), a small program asked for the camera
+(`AVCaptureDevice.requestAccess`) and to control Finder (`AEDeterminePermissionToAutomateTarget`,
+asking the person if needed), under two launchers:
+
+| Under | The camera | Controlling Finder |
+|---|---|---|
+| 0.6.4's launcher | refused at once; nothing shown | refused at once (-1743); nothing shown |
+| a copy signed with the seven entitlements, with the messages, under an identifier of its own | macOS asked the owner | macOS asked the owner |
+
+macOS's privacy log said why. For 0.6.4's launcher it said "Policy disallows prompt" for the camera, and
+the missing entitlement for Apple Events, as on the Mac mini. For the copy it said "Prompting policy for
+hardened runtime; allow prompt: Allow".
+
+macOS's check that asks no one (`AEDeterminePermissionToAutomateTarget` without asking) answered
+"not asked yet" under ad hoc signed copies with and without the entitlements alike: only a prompt
+shows the difference, and no one answers one in CI. So the launcher's test
+(`internal/tools/axx-launcher`) builds the app as a release does, with
+`scripts/macos-launcher-app.sh`, and checks that it is signed with the entitlements and has a
+message for each permission.
+
 ## Options considered
 
 - **Grants per host (today).** One for each terminal, IDE and CI agent, plus one for each app under
@@ -240,6 +278,10 @@ What it showed that the plan has to take in:
   reports the launcher and its two permissions, and the AppKit and SwiftUI desks, started as
   axx's children, pass every scenario. AppKit's "An arrival shows how it was registered" failed
   once before a rerun passed; a project story follows it.
+- [x] The launcher may ask for the permissions the apps under it ask for (decision 9): its
+  entitlements and messages, and a test that builds the app and checks them (2026-11-10). 0.6.4's
+  launcher has neither, so under it macOS refuses those permissions without asking;
+  `AXX_MACOS_LAUNCHER=off` avoids that until a release has the fix.
 - [ ] CI: the hosted macOS recipe (the launcher's TCC rows and approval), with the owner's
   approval. Snap's CI then grants the launcher instead of Snap and bash.
 - [x] Docs: the desktop guide's permissions (`guides/test-desktop-apps.md`) and desktop-macos's

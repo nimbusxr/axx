@@ -5,9 +5,14 @@
 #
 #   scripts/macos-launcher-app.sh <output directory> <version>
 #
-# AXX_SIGN_IDENTITY names the signing identity (its name or its SHA-1). Notarizing takes an App
-# Store Connect API key: APPLE_API_KEY_PATH (its .p8 file), APPLE_API_KEY_ID and
-# APPLE_API_ISSUER_ID. Without them the app is signed but not notarized.
+# The apps axx tests run under the launcher, and macOS asks for their permissions on its behalf:
+# it is signed with the entitlements those need (internal/tools/axx-launcher/entitlements.plist),
+# and its Info.plist has the message for each.
+#
+# AXX_SIGN_IDENTITY names the signing identity: its name or its SHA-1, or "-" to sign ad hoc, as
+# the launcher's test does. Notarizing takes an App Store Connect API key: APPLE_API_KEY_PATH (its
+# .p8 file), APPLE_API_KEY_ID and APPLE_API_ISSUER_ID. Without them the app is signed but not
+# notarized.
 #
 # AXX_NOTARIZE_TIMEOUT (7m, say) is how long to wait for Apple, for a CI job that must end:
 # an app Apple has not notarized by then is left signed, not stapled, and Apple notarizes it all
@@ -37,7 +42,8 @@ lipo -create -output "$app/Contents/MacOS/axx-launcher" "$work"/axx-launcher-arm
 sed "s/@VERSION@/$version/g" internal/tools/axx-launcher/Info.plist >"$app/Contents/Info.plist"
 plutil -lint -s "$app/Contents/Info.plist"
 
-codesign --force --options runtime --timestamp --sign "$identity" "$app"
+codesign --force --options runtime --timestamp \
+  --entitlements internal/tools/axx-launcher/entitlements.plist --sign "$identity" "$app"
 codesign --verify --strict --verbose=2 "$app"
 
 if [[ -z ${APPLE_API_KEY_PATH:-} ]]; then
