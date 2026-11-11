@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.6](https://github.com/nimbusxr/axx/compare/intellij-v0.3.5...intellij-v0.3.6) (2026-11-11)
+
+
+### Bug Fixes
+
+* **ide:** the IntelliJ plugin updates without a restart: its icon and the axx host no longer keep the old version loaded ([#318](https://github.com/nimbusxr/axx/issues/318)) ([b9005db](https://github.com/nimbusxr/axx/commit/b9005db270ca5355efe4d676277dbf8209577015))
+
 ## [0.3.5](https://github.com/nimbusxr/axx/compare/intellij-v0.3.4...intellij-v0.3.5) (2026-11-11)
 
 
