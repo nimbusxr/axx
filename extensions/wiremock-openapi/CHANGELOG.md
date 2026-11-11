@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.5](https://github.com/nimbusxr/axx/compare/wiremock-openapi-v0.1.4...wiremock-openapi-v0.1.5) (2026-11-11)
+
+
+### Bug Fixes
+
+* **deps:** every pending update, the majors among them, in one ([#316](https://github.com/nimbusxr/axx/issues/316)) ([ef5f2a5](https://github.com/nimbusxr/axx/commit/ef5f2a5d190f4f0f43325c901ed9a3bc920273d1))
+
 ## [0.1.4](https://github.com/nimbusxr/axx/compare/wiremock-openapi-v0.1.3...wiremock-openapi-v0.1.4) (2026-10-27)
 
 

@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.6](https://github.com/nimbusxr/axx/compare/v0.6.5...v0.6.6) (2026-11-11)
+
+
+### Bug Fixes
+
+* **deps:** every pending update, the majors among them, in one ([#316](https://github.com/nimbusxr/axx/issues/316)) ([ef5f2a5](https://github.com/nimbusxr/axx/commit/ef5f2a5d190f4f0f43325c901ed9a3bc920273d1))
+
 ## [0.6.5](https://github.com/nimbusxr/axx/compare/v0.6.4...v0.6.5) (2026-11-11)
 
 
