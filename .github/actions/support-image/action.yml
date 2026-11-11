@@ -3,9 +3,9 @@ name: support-image
 description: >-
   The parcel-support example's service image, which its compose file builds (Python's
   dependencies, PyTorch's among them, and llama.cpp compiled: 5 minutes on a runner), from a
-  cache of the image (.github/actions/docker-image), or built from the layers main's runs cache,
-  and COMPOSE_FILE set to an override that has compose use it, so that `docker compose up
-  --build` builds nothing.
+  cache of the image (.github/actions/docker-image) that main keeps (ci.yml's support-image
+  job), or built from the layers main's runs cache, and COMPOSE_FILE set to an override that
+  has compose use it, so that `docker compose up --build` builds nothing.
 runs:
   using: composite
   steps:
