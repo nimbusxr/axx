@@ -17,6 +17,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/nimbusxr/axx/internal/agents"
+	"github.com/nimbusxr/axx/internal/axxerr"
 	"github.com/nimbusxr/axx/internal/config"
 	"github.com/nimbusxr/axx/internal/featurefmt"
 	"github.com/nimbusxr/axx/internal/packset"
@@ -33,6 +34,7 @@ type InitFile struct {
 
 type initData struct {
 	SchemaID    string
+	ConfigDocs  string // the configuration reference, on the docs site axx's links lead to
 	Axx         string // the version the project runs on; none from a development build
 	ComposeFile string
 	OpenAPI     string
@@ -51,7 +53,7 @@ const (
 
 var initTemplates = map[string]string{
 	"axx.yaml": `# yaml-language-server: $schema={{.SchemaID}}
-# axx configuration: https://axx.nimbusxr.us/references/config/
+# axx configuration: {{.ConfigDocs}}
 version: 1
 {{- if .Axx}}
 # The axx version this project runs on, whichever is installed. ` + "`axx upgrade`" + ` moves it.
@@ -513,7 +515,7 @@ func firstLine(err error) string {
 }
 
 func detect(dir string) initData {
-	d := initData{SchemaID: config.SchemaID, Axx: pinnableVersion(version.Get()), Port: "8080", AppName: "app"}
+	d := initData{SchemaID: config.SchemaID, ConfigDocs: axxerr.Docs("/references/config/"), Axx: pinnableVersion(version.Get()), Port: "8080", AppName: "app"}
 	for _, n := range []string{"compose.yaml", "compose.yml", "docker-compose.yaml", "docker-compose.yml"} {
 		if _, err := os.Stat(filepath.Join(dir, n)); err == nil {
 			d.ComposeFile = n

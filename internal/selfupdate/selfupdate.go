@@ -51,6 +51,9 @@ var (
 	ErrNotFound = errors.New("not found")
 	// ErrChecksum means a download is not what its release published.
 	ErrChecksum = errors.New("checksum mismatch")
+	// ErrNotListed means a release's checksums list no such file: the
+	// release does not have it.
+	ErrNotListed = errors.New("not in the release")
 )
 
 // EnvDownloadURL names a mirror of the releases' files, for a network that cannot
@@ -211,6 +214,19 @@ func Notes(body string) []Section {
 	return out
 }
 
+// DocsArchiveName is the file of a release that holds its documentation site,
+// the site's files at its top (index.html, 404.html, _astro/...).
+func DocsArchiveName(v string) string {
+	return "axx_" + strings.TrimPrefix(v, "v") + "_docs.tar.gz"
+}
+
+// FetchDocs downloads the archive of a release's documentation site into dir
+// and checks it against the release's checksums. A release from before axx
+// published its docs has none: ErrNotListed.
+func (c *Client) FetchDocs(ctx context.Context, tag, dir string) (string, error) {
+	return c.fetchListed(ctx, tag, dir, func(string) (string, error) { return DocsArchiveName(tag), nil })
+}
+
 // Fetched is a release's axx, checked and unpacked.
 type Fetched struct {
 	Binary  string // the axx it holds, executable
@@ -220,35 +236,52 @@ type Fetched struct {
 // Fetch downloads a platform's archive of a release into dir, checks it against
 // the release's checksums and unpacks axx there.
 func (c *Client) Fetch(ctx context.Context, tag, goos, goarch, dir string) (*Fetched, error) {
-	base := c.Downloads + "/" + tag + "/"
-	sums, err := c.get(ctx, base+ChecksumsFile, "", maxChecksumBytes)
-	if err != nil {
-		return nil, fmt.Errorf("%s of %s: %w", ChecksumsFile, tag, err)
-	}
-	name := ArchiveName(strings.TrimPrefix(tag, "v"), goos, goarch)
-	if tag == Nightly {
-		// The nightly's archives are named after its build: take the one its checksums list.
-		if name = nightlyArchive(string(sums), goos, goarch); name == "" {
-			return nil, fmt.Errorf("the nightly build for %s/%s: %w", goos, goarch, ErrNotFound)
+	archive, err := c.fetchListed(ctx, tag, dir, func(sums string) (string, error) {
+		if tag != Nightly {
+			return ArchiveName(strings.TrimPrefix(tag, "v"), goos, goarch), nil
 		}
-	}
-	want := checksumOf(string(sums), name)
-	if want == "" {
-		return nil, fmt.Errorf("%s is not listed in %s", name, ChecksumsFile)
-	}
-	archive := filepath.Join(dir, name)
-	got, err := c.download(ctx, base+name, archive)
+		// The nightly's archives are named after its build: take the one its checksums list.
+		if name := nightlyArchive(sums, goos, goarch); name != "" {
+			return name, nil
+		}
+		return "", fmt.Errorf("the nightly build for %s/%s: %w", goos, goarch, ErrNotFound)
+	})
 	if err != nil {
-		return nil, fmt.Errorf("%s: %w", name, err)
+		return nil, err
 	}
-	if got != want {
-		return nil, fmt.Errorf("%w for %s: %s says %s, the download is %s", ErrChecksum, name, ChecksumsFile, want, got)
-	}
+	name := filepath.Base(archive)
 	binary := filepath.Join(dir, BinaryName(goos))
 	if err := unpack(archive, BinaryName(goos), binary); err != nil {
 		return nil, fmt.Errorf("unpacking %s: %w", name, err)
 	}
 	return &Fetched{Binary: binary, Archive: archive}, nil
+}
+
+// fetchListed downloads the file of a release that name picks from its
+// checksums into dir, and checks it against them.
+func (c *Client) fetchListed(ctx context.Context, tag, dir string, name func(sums string) (string, error)) (string, error) {
+	base := c.Downloads + "/" + tag + "/"
+	sums, err := c.get(ctx, base+ChecksumsFile, "", maxChecksumBytes)
+	if err != nil {
+		return "", fmt.Errorf("%s of %s: %w", ChecksumsFile, tag, err)
+	}
+	file, err := name(string(sums))
+	if err != nil {
+		return "", err
+	}
+	want := checksumOf(string(sums), file)
+	if want == "" {
+		return "", fmt.Errorf("%s is not listed in %s: %w", file, ChecksumsFile, ErrNotListed)
+	}
+	path := filepath.Join(dir, file)
+	got, err := c.download(ctx, base+file, path)
+	if err != nil {
+		return "", fmt.Errorf("%s: %w", file, err)
+	}
+	if got != want {
+		return "", fmt.Errorf("%w for %s: %s says %s, the download is %s", ErrChecksum, file, ChecksumsFile, want, got)
+	}
+	return path, nil
 }
 
 // BinaryName is axx's file name on a platform.

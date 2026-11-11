@@ -60,8 +60,11 @@ func (a *App) ensurePacks(ctx context.Context, cmd *cobra.Command) error {
 	}
 	strict := slices.Contains(commandsNeedingPacks, top.Name()) || cmd.CommandPath() == "axx pack list"
 	needs := strict || (top != cmd.Root() && !slices.Contains(commandsWithoutPacks, top.Name()))
-	if cmd.CommandPath() == "axx mcp install" {
+	switch cmd.CommandPath() {
+	case "axx mcp install":
 		needs = false // writes agents' configuration, no steps
+	case "axx docs serve":
+		needs = false // serves the docs of axx's release, whatever the project's packs
 	}
 	if !needs || packBuilt {
 		return nil

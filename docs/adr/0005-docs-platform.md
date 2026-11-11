@@ -1,6 +1,6 @@
 # 0005: Docs platform: Starlight, generated reference, agent-first outputs
 
-- Status: Accepted; amended 2026-11-01 (hosting)
+- Status: Accepted; amended 2026-11-01 (hosting) and 2026-11-11 (a copy for networks that block the site)
 - Date: 2026-09-23
 
 ## Decision
@@ -32,3 +32,19 @@ page read its HTML, the sidebar included (199 KB for a pack's reference against 
 twin), and a moved page was a page that refreshes, with a 200, not a redirect. Content
 negotiation, real redirects and headers (`Vary: Accept`) need a server that chooses, and an
 S3 bucket keeps earlier releases' docs too, if the site ever serves them.
+
+## Amendment, 2026-11-11: a copy for networks that block the site
+
+Some organizations filter `axx.nimbusxr.us`, and some machines reach no network. Every release
+publishes its docs beside its binaries, `axx_<version>_docs.tar.gz` in its `checksums.txt`, built
+from the tag for the root of a host (`AXX_DOCS_CHANNEL=archive`). `axx docs serve` serves the docs
+of the axx that runs on 127.0.0.1 (port 7357 unless `--port` or `docs.port` names another; never
+another port by itself), downloaded once from the release, or its mirror, into axx's cache; an
+organization hosts the same archive on its own server. Nothing on a page loads from another host
+(`npm run check:offline`, on every build), so a copy works offline, search included. The links
+axx prints lead to the copy that `AXX_DOCS_URL`, or axx.yaml's `docs.url`, names.
+
+The local server answers as the router does (`internal/docsite`): Markdown twins, real 301s for
+moved pages, which it reads from the pages Astro writes for them, and the 404 page. Changing one
+means changing the other. The archive is not embedded in the binary: the core stays small, and most
+people never read the docs offline.

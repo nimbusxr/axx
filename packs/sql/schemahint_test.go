@@ -52,7 +52,7 @@ func TestSeedErrorsNameTheColumnsAndTables(t *testing.T) {
 		t.Fatal(err)
 	}
 	err = seed("parcels:\n  - reference: PX-2\n")
-	if err == nil || !strings.HasSuffix(err.Error(), DuplicateKeyHint) {
+	if err == nil || !strings.HasSuffix(err.Error(), DuplicateKeyHint()) {
 		t.Errorf("duplicate key: %v", err)
 	}
 	for _, msg := range []string{

@@ -144,6 +144,58 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: gh workflow run docs.yml --repo "$GITHUB_REPOSITORY" --ref main
 
+  # The release's docs as an archive beside its CLI, axx_<version>_docs.tar.gz in its checksums.txt:
+  # what `axx docs serve` serves, and what an organization that cannot reach the site hosts. Built
+  # from the release's tag for the root of a host, and checked to load nothing from another host.
+  # A dry run builds it from the pull request: GoReleaser's dry run takes it too.
+  docs-archive:
+    needs: release-please
+    if: needs.release-please.outputs.axx == 'true'
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    outputs:
+      name: ${{ steps.version.outputs.name }}
+    defaults:
+      run:
+        working-directory: docs
+    env:
+      ASTRO_TELEMETRY_DISABLED: "1"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ needs.release-please.outputs.axx_tag }}
+          fetch-depth: 0
+          persist-credentials: false
+      # No cache: what this job builds goes into the release.
+      - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
+        with:
+          install_args: "go node"
+          cache: false
+      - id: version
+        working-directory: .
+        env:
+          TAG: ${{ needs.release-please.outputs.axx_tag }}
+        run: |
+          tag=${TAG:-$(scripts/cli-tag.sh)}
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "name=axx_${tag#v}_docs.tar.gz" >> "$GITHUB_OUTPUT"
+      - run: npm ci
+      # prebuild runs scripts/gen.mjs: go build, axx docs export, skills, schemas.
+      - run: npm run build
+        env:
+          AXX_DOCS_CHANNEL: archive
+          AXX_DOCS_RELEASE: ${{ steps.version.outputs.tag }}
+      - run: npm run check:offline
+      - run: tar -C dist -czf "$RUNNER_TEMP/$NAME" .
+        env:
+          NAME: ${{ steps.version.outputs.name }}
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: docs-archive
+          path: ${{ runner.temp }}/${{ steps.version.outputs.name }}
+          if-no-files-found: error
+          retention-days: 7
+
   # axx's macOS launcher (ADR 0016): axx.app, signed with NimbusXR's Developer ID and sent to
   # Apple's notary service, on the release beside the CLI's archives, where axx downloads it.
   macos-launcher:
@@ -199,9 +251,10 @@ jobs:
       - if: always()
         run: security delete-keychain "$RUNNER_TEMP/signing.keychain-db" || true
 
-  # The CLI: binaries, archives, checksums, SBOMs, signatures, images, Homebrew cask.
+  # The CLI: binaries, archives, checksums, SBOMs, signatures, images, Homebrew cask, and the docs
+  # archive beside them.
   goreleaser:
-    needs: release-please
+    needs: [release-please, docs-archive]
     if: needs.release-please.outputs.dry-run == 'false' && needs.release-please.outputs.axx == 'true'
     runs-on: ubuntu-26.04
     # The release environment: main only. Merging the release PR is the approval.
@@ -247,8 +300,14 @@ jobs:
         uses: ./.github/actions/apple-signing
         with:
           api-key: ${{ secrets.APPLE_API_KEY_P8 }}
+      # Outside the checkout, which GoReleaser wants clean.
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: docs-archive
+          path: ${{ runner.temp }}/docs-archive
       - run: goreleaser release --clean
         env:
+          AXX_DOCS_ARCHIVE: ${{ runner.temp }}/docs-archive/${{ needs.docs-archive.outputs.name }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GORELEASER_CURRENT_TAG: ${{ needs.release-please.outputs.axx_tag }}
           HOMEBREW_TAP_TOKEN: ${{ steps.tap.outputs.token }}
@@ -293,7 +352,7 @@ jobs:
   # The same build in snapshot mode: nothing is pushed, uploaded or signed (keyless signing
   # would write to the public transparency log). scripts/release-check.sh checks the result.
   goreleaser-dry-run:
-    needs: release-please
+    needs: [release-please, docs-archive]
     if: needs.release-please.outputs.dry-run == 'true'
     runs-on: ubuntu-26.04
     steps:
@@ -315,9 +374,16 @@ jobs:
       - uses: ./.github/actions/docker-hub-mirror
       - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: docs-archive
+          path: ${{ runner.temp }}/docs-archive
       - run: GORELEASER_CURRENT_TAG=$(scripts/cli-tag.sh) goreleaser release --snapshot --clean --skip=sign
+        env:
+          AXX_DOCS_ARCHIVE: ${{ runner.temp }}/docs-archive/${{ needs.docs-archive.outputs.name }}
       - run: scripts/release-check.sh dist
         env:
+          AXX_DOCS_ARCHIVE: ${{ runner.temp }}/docs-archive/${{ needs.docs-archive.outputs.name }}
           RELEASE_CHECK_STRICT: "1"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:

@@ -342,3 +342,42 @@ func TestReplaceGivesUpOnSomethingThatKeepsHoldingTheFile(t *testing.T) {
 		t.Errorf("axx.exe holds %q", b)
 	}
 }
+
+func TestFetchDocsChecksTheDocsArchive(t *testing.T) {
+	archive := tgz(t, "index.html", "<h1>axx</h1>")
+	name := "axx_0.7.0_docs.tar.gz"
+	srv := files(t, map[string]string{}, map[string][]byte{
+		"/v0.7.0/checksums.txt": []byte(sum([]byte("a binary")) + "  axx_0.7.0_linux_amd64.tar.gz\n" + sum(archive) + "  " + name + "\n"),
+		"/v0.7.0/" + name:       archive,
+	})
+	c := &Client{Downloads: srv.URL, HTTP: srv.Client()}
+	got, err := c.FetchDocs(context.Background(), "v0.7.0", t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if b, _ := os.ReadFile(got); !bytes.Equal(b, archive) || filepath.Base(got) != name {
+		t.Fatalf("fetched %s", got)
+	}
+
+	srv = files(t, map[string]string{}, map[string][]byte{
+		"/v0.7.0/checksums.txt": []byte(sum([]byte("another")) + "  " + name + "\n"),
+		"/v0.7.0/" + name:       archive,
+	})
+	c = &Client{Downloads: srv.URL, HTTP: srv.Client()}
+	if _, err := c.FetchDocs(context.Background(), "v0.7.0", t.TempDir()); !errors.Is(err, ErrChecksum) {
+		t.Fatalf("an archive that is not the checksummed one: %v", err)
+	}
+}
+
+func TestFetchDocsOfAReleaseWithoutThem(t *testing.T) {
+	srv := files(t, map[string]string{}, map[string][]byte{
+		"/v0.6.6/checksums.txt": []byte(sum([]byte("a binary")) + "  axx_0.6.6_linux_amd64.tar.gz\n"),
+	})
+	c := &Client{Downloads: srv.URL, HTTP: srv.Client()}
+	if _, err := c.FetchDocs(context.Background(), "v0.6.6", t.TempDir()); !errors.Is(err, ErrNotListed) {
+		t.Fatalf("err: %v", err)
+	}
+	if got := DocsArchiveName("v0.6.6"); got != "axx_0.6.6_docs.tar.gz" {
+		t.Fatalf("DocsArchiveName: %s", got)
+	}
+}

@@ -161,7 +161,7 @@ func NewPlan(s *stub.Stub, v *Vocab, eog int32, context int) (*Plan, error) {
 
 func mappingError(s *stub.Stub, i int, f string, args ...any) error {
 	return axxerr.New(format.CodeWrite, exitcode.Usage, "the stub cannot be written: mapping %q: %s", s.Names[i], fmt.Sprintf(f, args...)).
-		WithHint("fix the mapping; the stubs guide shows what a mapping takes: https://axx.nimbusxr.us/guides/stub-embedded-models/")
+		WithHint("fix the mapping; the stubs guide shows what a mapping takes: %s", axxerr.Docs("/guides/stub-embedded-models/"))
 }
 
 // HasWords reports whether text has key, as words: not inside a longer

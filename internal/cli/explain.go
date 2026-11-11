@@ -155,7 +155,7 @@ func explainErrorCode(app *App, code string) error {
 	entry, ok := axxerr.Lookup(code)
 	if !ok {
 		return axxerr.New("AXX-E0009", exitcode.Usage, "unknown error code %s", code).
-			WithHint("all codes are listed at %s/references/error-codes/", axxerr.DocsBase)
+			WithHint("all codes are listed at %s", axxerr.Docs("/references/error-codes/"))
 	}
 	docs := (&axxerr.Error{Code: code}).DocsURL()
 	return app.Emit(ExplainedCode{Entry: entry, Docs: docs}, func(w io.Writer) error {

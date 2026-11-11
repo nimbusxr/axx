@@ -74,7 +74,7 @@ func TestSeedAgainstRealMongo(t *testing.T) {
 	if err := run("a telemetry.json mongo db seed"); err != nil {
 		t.Fatal(err)
 	}
-	if err := run("a telemetry.json MongoDB seed for space-mongodb"); err == nil || !strings.Contains(err.Error(), "duplicate key") || !strings.HasSuffix(err.Error(), duplicateKeyHint) {
+	if err := run("a telemetry.json MongoDB seed for space-mongodb"); err == nil || !strings.Contains(err.Error(), "duplicate key") || !strings.HasSuffix(err.Error(), duplicateKeyHint()) {
 		t.Fatalf("second insert of the same _id should fail with duplicate key: %v", err)
 	}
 	if err := run("a selection of documents is retrieved from the telemetry collection where:", []string{"mission", "m1"}, []string{"speed", "7.5"}); err != nil {

@@ -315,7 +315,7 @@ type sarifRegion struct {
 // location of a finding, with the other occurrences as related locations.
 func WriteSARIF(w io.Writer, rep *Report, o SARIFOptions) error {
 	run := sarifRun{
-		Tool:       sarifTool{Driver: sarifDriver{Name: "axx lint", InformationURI: axxerr.DocsBase, Version: o.Version, Rules: []sarifRule{}}},
+		Tool:       sarifTool{Driver: sarifDriver{Name: "axx lint", InformationURI: axxerr.DocsBase(), Version: o.Version, Rules: []sarifRule{}}},
 		ColumnKind: "unicodeCodePoints",
 		Results:    []sarifResult{},
 	}
@@ -329,7 +329,7 @@ func WriteSARIF(w io.Writer, rep *Report, o SARIFOptions) error {
 		}
 		sr := sarifRule{
 			ID: rr.ID, Name: rr.Name, ShortDescription: sarifText{Text: rr.Name},
-			HelpURI:              axxerr.DocsBase + "/references/error-codes/#" + strings.ToLower(ruleCode(rr)),
+			HelpURI:              axxerr.Docs("/references/error-codes/#" + strings.ToLower(ruleCode(rr))),
 			DefaultConfiguration: sarifRuleConfig{Level: level},
 		}
 		if rr.Description != "" {
