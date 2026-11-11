@@ -42,14 +42,14 @@ jobs:
       github.event.pull_request.user.type != 'Bot') ||
       (github.event_name == 'push' && endsWith(github.event.head_commit.author.name, '[bot]')) ||
       github.event_name == 'workflow_dispatch')
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     permissions:
       contents: read
       pull-requests: read
     outputs:
       desktop: ${{ steps.changes.outputs.desktop }}
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 2 # a push's merge and the commit before it
           persist-credentials: false
@@ -91,7 +91,7 @@ jobs:
       run:
         shell: bash
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           # The pull request's code: only ever one of this repository's branches (see the gate).
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
@@ -107,7 +107,7 @@ jobs:
             -c filter.lfs.clean="git-lfs clean -- %f" -c filter.lfs.smudge="git-lfs smudge -- %f" \
             -c filter.lfs.process="git-lfs filter-process" -c filter.lfs.required=true \
             lfs pull --include "examples/parcels/depot-desk/**"
-      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+      - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
         with:
           install_args: "go"
           cache: false

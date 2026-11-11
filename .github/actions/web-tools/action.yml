@@ -21,7 +21,7 @@ runs:
             packs/web/internal/driver/*.go internal/npm/node.go packs/web/lighthouse/install.go packs/web/a11y/a11y.go
           sha256sum packs/web/lighthouse/npm/package-lock.json
         } | sha256sum | cut -c1-16)
-        # The system libraries' packages are those of the runner's Ubuntu (ImageOS: ubuntu24).
+        # The system libraries' packages are those of the runner's Ubuntu (ImageOS: ubuntu26).
         echo "key=web-tools-${RUNNER_OS}-${ImageOS:-unknown}-${versions}" >> "$GITHUB_OUTPUT"
     - if: inputs.mode == 'restore'
       uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0

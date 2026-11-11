@@ -10,15 +10,17 @@ import org.jetbrains.intellij.platform.gradle.models.ProductRelease
 
 plugins {
     java
-    id("org.jetbrains.intellij.platform") version "2.20.0"
+    id("org.jetbrains.intellij.platform") version "2.20.1"
 }
 
 group = "us.nimbusxr.axx"
 version = providers.gradleProperty("pluginVersion").get()
 
+// JDK 25 compiles the plugin for Java 21 (options.release below): IntelliJ Platform 2026.1, the
+// lowest the plugin supports (sinceBuild), requires Java 21.
 java {
     toolchain {
-        languageVersion = JavaLanguageVersion.of(21)
+        languageVersion = JavaLanguageVersion.of(25)
     }
 }
 
@@ -197,6 +199,8 @@ tasks.processResources {
 
 tasks.withType<JavaCompile>().configureEach {
     options.encoding = "UTF-8"
+    // Java 21's bytecode and API, for the IDEs of 2026.1 (see java above).
+    options.release = 21
 }
 
 tasks.test {

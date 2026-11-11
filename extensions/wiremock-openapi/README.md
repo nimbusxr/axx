@@ -187,7 +187,7 @@ If you start WireMock with `--disable-extensions-scanning`, name the extension e
 
 ### Using the jar without the image
 
-The extension needs **Java 21** and WireMock **3.13.x standalone**. The official
+The extension needs **Java 21** or later and WireMock **3.13.x standalone**. The official
 `wiremock/wiremock` image runs Java 17, so it cannot load the extension. Every release attaches the
 fat jar (`axx-wiremock-openapi-<version>-all.jar`) to its GitHub release. Put it on the classpath
 next to `wiremock-standalone.jar`:
@@ -453,7 +453,7 @@ up. `GET /__admin/openapi-validation` shows the version and format of a running 
 
 ## Building
 
-Requires JDK 21 (`mise install` at the repository root provides it). This is a standalone Gradle
+Requires JDK 25 (`mise install` at the repository root provides it). This is a standalone Gradle
 build: run it from this directory.
 
 ```sh

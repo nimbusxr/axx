@@ -16,7 +16,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/dlclark/regexp2"
+	"github.com/dlclark/regexp2/v2"
 	"github.com/pb33f/jsonschema/v6"
 	"github.com/pb33f/libopenapi"
 	validator "github.com/pb33f/libopenapi-validator"
@@ -190,7 +190,10 @@ func pathDir(p string) string {
 // ecmaRegexp compiles schema patterns as ECMA-262 regular expressions, the
 // dialect OpenAPI specifies (Go's RE2 lacks lookarounds and backreferences).
 func ecmaRegexp(s string) (jsonschema.Regexp, error) {
-	re, err := regexp2.Compile(s, regexp2.ECMAScript)
+	// The timeout bounds a match, not regexp2's backtracking limit (100,000
+	// slots unless told otherwise), which would refuse a value a long pattern
+	// repetition matches.
+	re, err := regexp2.Compile(s, regexp2.ECMAScript, regexp2.OptionMaxBacktrackingStackSize(-1))
 	if err != nil {
 		return nil, err
 	}

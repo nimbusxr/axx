@@ -20,9 +20,11 @@ description =
 val wiremockVersion = "3.13.2"
 
 java {
-    // openapi-request-validator 3.x requires Java 21.
+    // Built and tested with JDK 25, the runtime the image ships. The jar stays Java 21's (see
+    // options.release below): people who run it beside wiremock-standalone keep Java 21 or later
+    // (openapi-request-validator 3.x needs 21).
     toolchain {
-        languageVersion = JavaLanguageVersion.of(21)
+        languageVersion = JavaLanguageVersion.of(25)
     }
 }
 
@@ -41,26 +43,28 @@ dependencies {
     implementation("com.apollographql.federation:federation-graphql-java-support:7.0.0")
     // The MCP mock validates tool arguments and stubbed results against the tools' JSON Schemas
     // (2020-12). The OpenAPI validator already brings this validator: it is named here because
-    // the MCP mock uses it directly.
+    // the MCP mock uses it directly. It stays on 2.x, the line the OpenAPI validator (3.0.0, its
+    // latest) is compiled against: 3.x takes Jackson 3's JsonNode, so the validator's calls with
+    // Jackson 2's (SchemaRegistry.getSchema, Schema.validate) fail on it with NoSuchMethodError.
     implementation("com.networknt:json-schema-validator:2.0.8")
 
     testImplementation("org.wiremock:wiremock-standalone:$wiremockVersion")
     // The official MCP and A2A Java SDKs read the MCP and A2A mocks' answers in the tests.
     testImplementation("io.modelcontextprotocol.sdk:mcp:2.1.0")
     testImplementation("org.a2aproject.sdk:a2a-java-sdk-client:1.5.1.Final")
-    testImplementation("org.a2aproject.sdk:a2a-java-sdk-client-transport-rest:1.5.0.Final")
+    testImplementation("org.a2aproject.sdk:a2a-java-sdk-client-transport-rest:1.5.1.Final")
     // Validates the MCP mock's answers against MCP's published JSON schemas in the tests: the
     // version the MCP SDK brings, not the fat jar's own (relocated) copy.
     testImplementation("com.networknt:json-schema-validator:3.0.9")
     // The providers' official SDKs read the model mock's answers in the tests, which point them at
     // WireMock: nothing reaches a provider.
     testImplementation("com.openai:openai-java:4.101.0")
-    testImplementation("com.anthropic:anthropic-java:2.75.0")
-    testImplementation("com.anthropic:anthropic-java-bedrock:2.75.0")
-    testImplementation("com.anthropic:anthropic-java-vertex:2.75.0")
-    testImplementation("com.google.genai:google-genai:1.80.0")
-    testImplementation("software.amazon.awssdk:bedrockruntime:2.57.11")
-    testImplementation("software.amazon.awssdk:netty-nio-client:2.57.11")
+    testImplementation("com.anthropic:anthropic-java:3.8.0")
+    testImplementation("com.anthropic:anthropic-java-bedrock:3.8.0")
+    testImplementation("com.anthropic:anthropic-java-vertex:3.8.0")
+    testImplementation("com.google.genai:google-genai:2.1.0")
+    testImplementation("software.amazon.awssdk:bedrockruntime:2.57.13")
+    testImplementation("software.amazon.awssdk:netty-nio-client:2.57.13")
     testImplementation(platform("org.junit:junit-bom:6.1.3"))
     testImplementation("org.junit.jupiter:junit-jupiter")
     testImplementation("org.assertj:assertj-core:3.27.7")
@@ -70,6 +74,8 @@ dependencies {
 
 tasks.withType<JavaCompile>().configureEach {
     options.encoding = "UTF-8"
+    // Java 21's bytecode and API, for the jar's users on Java 21 (see java above).
+    options.release = 21
     options.compilerArgs.addAll(listOf("-Xlint:deprecation", "-Xlint:unchecked"))
 }
 

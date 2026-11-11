@@ -61,12 +61,18 @@ class GeminiTest extends ModelMockTest {
     void generateContentAnswersWithText() {
         answer("PX-AI-8301", "{\"text\": \"Your parcel PX-AI-8301 is out for delivery.\", \"reasoning\": \"The last scan says so.\"}");
         GenerateContentResponse r = client().models.generateContent(MODEL, "Where is my parcel PX-AI-8301?", config().build());
-        assertThat(last().getRequest().getUrl()).isEqualTo("/v1beta/models/gemini-2.5-flash:generateContent");
+        assertThat(last().getRequest().getUrl()).isEqualTo("/v1/models/gemini-2.5-flash:generateContent");
         assertThat(r.text()).isEqualTo("Your parcel PX-AI-8301 is out for delivery.");
         assertThat(r.candidates().get().get(0).content().get().parts().get().get(0).thought()).contains(true);
         assertThat(r.finishReason().knownEnum()).isEqualTo(FinishReason.Known.STOP);
         assertThat(r.usageMetadata().get().thoughtsTokenCount().get()).isPositive();
         assertThat(r.modelVersion()).contains(MODEL);
+
+        // v1beta: the SDK's default before 2.0, and the version an app names for Gemini's preview features.
+        Client beta = Client.builder().apiKey("parcels-key").httpOptions(http().toBuilder().apiVersion("v1beta").build()).build();
+        assertThat(beta.models.generateContent(MODEL, "Where is my parcel PX-AI-8301?", config().build()).text())
+                .isEqualTo("Your parcel PX-AI-8301 is out for delivery.");
+        assertThat(last().getRequest().getUrl()).isEqualTo("/v1beta/models/gemini-2.5-flash:generateContent");
     }
 
     @Test
@@ -115,7 +121,7 @@ class GeminiTest extends ModelMockTest {
                 }
             }
         }
-        assertThat(last().getRequest().getUrl()).isEqualTo("/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse");
+        assertThat(last().getRequest().getUrl()).isEqualTo("/v1/models/gemini-2.5-flash:streamGenerateContent?alt=sse");
         assertThat(text).hasToString("Your parcel is at the Leipzig depot.");
         GenerateContentResponse end = chunks.get(chunks.size() - 1);
         assertThat(end.functionCalls().get(0).name()).contains("notify_recipient");

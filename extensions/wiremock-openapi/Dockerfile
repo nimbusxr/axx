@@ -4,13 +4,13 @@
 # WireMock standalone with the axx OpenAPI validation extension, GraphQL mocks, model mocks, MCP
 # server mocks and A2A agent mocks, and WireMock's gRPC extension (ghcr.io/nimbusxr/axx-wiremock).
 #
-# The extension needs Java 21 (openapi-request-validator 3.x), which the official
-# wiremock/wiremock image's JRE 17 cannot load, so this image ships its own runtime. It also
+# The extension needs Java 21 or later (openapi-request-validator 3.x), which the official
+# wiremock/wiremock image's JRE 17 cannot load, so this image ships its own runtime, Java 25. It also
 # pins one WireMock version in one place: the one the extension compiles and tests against
 # (keep WIREMOCK_VERSION in sync with build.gradle.kts).
 
 # The jar is platform-independent: build it once on the build host, even for multi-arch images.
-FROM --platform=$BUILDPLATFORM eclipse-temurin:21-jdk@sha256:ebfbb18d11ff163ee83b21258acf12248af48d22a0fdfdc68fa1a1516c05976a AS build
+FROM --platform=$BUILDPLATFORM eclipse-temurin:25-jdk@sha256:83f4a7fc27df94dcc7b8de04d14cbbba8da14406f921e966969c3b09000aa507 AS build
 ARG VERSION=0.1.0-SNAPSHOT
 WORKDIR /src
 COPY gradlew settings.gradle.kts build.gradle.kts gradle.properties ./
@@ -21,8 +21,9 @@ RUN --mount=type=cache,target=/root/.gradle \
     && cp build/libs/axx-wiremock-openapi-*-all.jar /axx-wiremock-openapi.jar
 
 # WireMock and its gRPC extension, from Maven Central. A download is tried again until its sha256
-# is the one pinned here, so a transfer that goes wrong is fetched again, and never used.
-FROM --platform=$BUILDPLATFORM eclipse-temurin:21-jdk@sha256:ebfbb18d11ff163ee83b21258acf12248af48d22a0fdfdc68fa1a1516c05976a AS jars
+# is the one pinned here, so a transfer that goes wrong is fetched again, and never used. The
+# runtime's image downloads them with its wget: Temurin's JDK images have no curl or wget since 25.
+FROM --platform=$BUILDPLATFORM eclipse-temurin:25-jre-alpine@sha256:e1898fd6a11fc965a994d8ace186fd3585aeb636cf8f05f47a723fcfee0b0918 AS jars
 ARG WIREMOCK_VERSION=3.13.2
 # sha256 of wiremock-standalone-${WIREMOCK_VERSION}.jar; update together with WIREMOCK_VERSION.
 ARG WIREMOCK_SHA256=d097b19bd483c5038479b13a5c71e9faf8f2f5106584f0c120a7770ab0bdb367
@@ -35,7 +36,7 @@ mkdir -p /jars
 # fetch <url> <sha256> <file>
 fetch() {
   for try in 1 2 3 4 5; do
-    if curl -fsSL -o "$3" "$1" && echo "$2  $3" | sha256sum -c --status; then
+    if wget -q -O "$3" "$1" && echo "$2  $3" | sha256sum -c --status; then
       return 0
     fi
     echo "$1: try $try failed, or its sha256 is not $2" >&2
@@ -49,7 +50,7 @@ fetch "https://repo1.maven.org/maven2/org/wiremock/wiremock-grpc-extension-stand
   "${GRPC_EXTENSION_SHA256}" /jars/wiremock-grpc-extension.jar
 SH
 
-FROM eclipse-temurin:21-jre-alpine@sha256:ac05c3c42b7c2f1a52c9bd52f01041fa1958231b15ebeae7420429cbc5baf474
+FROM eclipse-temurin:25-jre-alpine@sha256:e1898fd6a11fc965a994d8ace186fd3585aeb636cf8f05f47a723fcfee0b0918
 
 ARG VERSION=0.1.0-SNAPSHOT
 

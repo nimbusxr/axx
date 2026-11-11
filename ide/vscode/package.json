@@ -239,7 +239,7 @@
     "vscode:prepublish": "npm run typecheck && node esbuild.mjs --production"
   },
   "dependencies": {
-    "vscode-languageclient": "10.1.2"
+    "vscode-languageclient": "11.0.0"
   },
   "devDependencies": {
     "@types/node": "20.19.43",
@@ -252,6 +252,6 @@
   },
   "overrides": {
     "@azure/msal-node": "7.2.1",
-    "minimatch": "11.0.5"
+    "minimatch": "11.0.7"
   }
 }

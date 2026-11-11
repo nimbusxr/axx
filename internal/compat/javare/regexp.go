@@ -37,7 +37,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/dlclark/regexp2"
+	"github.com/dlclark/regexp2/v2"
 )
 
 // Flag is a java.util.regex.Pattern flag.
@@ -58,6 +58,13 @@ const (
 
 // MatchTimeout bounds every match operation.
 var MatchTimeout = 5 * time.Second
+
+// unbounded leaves a match's backtracking unlimited: MatchTimeout is what
+// bounds a match. regexp2 stops one past 100,000 backtracking slots unless told
+// otherwise, which refuses `(a|x)*foo` over 50,000 characters. (Java's own
+// engine overflows its stack on that; a match here either answers or times
+// out.)
+var unbounded = regexp2.OptionMaxBacktrackingStackSize(-1)
 
 // SyntaxError is java.util.regex.PatternSyntaxException.
 type SyntaxError struct {
@@ -121,11 +128,11 @@ func CompileFlags(pattern string, flags Flag) (*Regexp, error) {
 		return nil, err
 	}
 	body := emit(tree, groups)
-	find, err := regexp2.Compile(body, regexp2.None)
+	find, err := regexp2.Compile(body, regexp2.None, unbounded)
 	if err != nil {
 		return nil, &SyntaxError{Description: "unsupported construct: " + err.Error(), Index: -1, Pattern: pattern}
 	}
-	full, err := regexp2.Compile(`\A(?:`+body+`)\z`, regexp2.None)
+	full, err := regexp2.Compile(`\A(?:`+body+`)\z`, regexp2.None, unbounded)
 	if err != nil {
 		return nil, &SyntaxError{Description: "unsupported construct: " + err.Error(), Index: -1, Pattern: pattern}
 	}
@@ -133,7 +140,7 @@ func CompileFlags(pattern string, flags Flag) (*Regexp, error) {
 	full.MatchTimeout = MatchTimeout
 	re := &Regexp{pattern: pattern, find: find, full: full, groups: groups, names: names}
 	if noG, hasG := emitWithoutLastMatch(tree, groups); hasG {
-		if re.afterEmpty, err = regexp2.Compile(noG, regexp2.None); err != nil {
+		if re.afterEmpty, err = regexp2.Compile(noG, regexp2.None, unbounded); err != nil {
 			return nil, &SyntaxError{Description: "unsupported construct: " + err.Error(), Index: -1, Pattern: pattern}
 		}
 		re.afterEmpty.MatchTimeout = MatchTimeout
@@ -197,7 +204,7 @@ func (re *Regexp) toMatch(m *regexp2.Match) *Match {
 		if g != nil && len(g.Captures) > 0 {
 			out.Groups[i] = g.String()
 			out.Matched[i] = true
-			out.Start[i], out.End[i] = g.Index, g.Index+g.Length
+			out.Start[i], out.End[i] = g.RuneIndex, g.RuneIndex+g.RuneLength
 		}
 	}
 	return out
@@ -236,8 +243,8 @@ func (re *Regexp) FindAllString(s string) ([]string, error) {
 			break
 		}
 		out = append(out, m.String())
-		end := m.Index + m.Length
-		prevEmpty = m.Length == 0
+		end := m.RuneIndex + m.RuneLength
+		prevEmpty = m.RuneLength == 0
 		if prevEmpty {
 			end++
 		}
@@ -267,8 +274,8 @@ func (re *Regexp) FindAll(s string) ([]*Match, error) {
 			break
 		}
 		out = append(out, re.toMatch(m))
-		end := m.Index + m.Length
-		prevEmpty = m.Length == 0
+		end := m.RuneIndex + m.RuneLength
+		prevEmpty = m.RuneLength == 0
 		if prevEmpty {
 			end++
 		}

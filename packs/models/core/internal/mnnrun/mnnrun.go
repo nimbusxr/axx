@@ -9,7 +9,9 @@ import (
 	_ "embed"
 	"encoding/json"
 	"fmt"
+	"os"
 	"os/exec"
+	"strings"
 
 	"github.com/nimbusxr/axx/packs/models/core/internal/uvenv"
 	"github.com/nimbusxr/axx/packs/models/core/modelstest"
@@ -53,6 +55,7 @@ func (r *Runtime) run(ctx context.Context, runs []modelstest.Run, args ...string
 		return nil, err
 	}
 	cmd := exec.CommandContext(ctx, r.python, append([]string{r.script}, args...)...) //nolint:gosec // the environment's Python and script
+	cmd.Env = environ()
 	cmd.Stdin = bytes.NewReader(in)
 	var out, stderr bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &out, &stderr
@@ -91,6 +94,7 @@ func (r *Runtime) Generate(ctx context.Context, jobs []LLMJob) ([]LLMResult, err
 		return nil, err
 	}
 	cmd := exec.CommandContext(ctx, r.python, r.script, "--llm") //nolint:gosec // the environment's Python and script
+	cmd.Env = environ()
 	cmd.Stdin = bytes.NewReader(in)
 	var out, stderr bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &out, &stderr
@@ -102,4 +106,22 @@ func (r *Runtime) Generate(ctx context.Context, jobs []LLMJob) ([]LLMResult, err
 		return nil, fmt.Errorf("MNN's LLM engine's results: %w: %s", err, out.String())
 	}
 	return results, nil
+}
+
+// environ is the environment MNN's Python runs in: this process's, and
+// glibc's leave to give a library the executable stack it asks for. MNN's
+// library (_mnncengine, 3.6.1 and 3.6.2 alike) marks its stack executable, and
+// glibc 2.41 on refuses to load such a library ("cannot enable executable
+// stack as shared object requires"); since 2.42 (Ubuntu 26.04 has 2.43), this
+// tunable lets it. An older glibc ignores it, as do macOS and Windows.
+func environ() []string {
+	const allow = "glibc.rtld.execstack=2"
+	env := os.Environ()
+	for i, kv := range env {
+		if v, ok := strings.CutPrefix(kv, "GLIBC_TUNABLES="); ok {
+			env[i] = "GLIBC_TUNABLES=" + v + ":" + allow
+			return env
+		}
+	}
+	return append(env, "GLIBC_TUNABLES="+allow)
 }
