@@ -21,8 +21,8 @@ Feature: Claims for lost parcels
     And a POST request to /api/claims
     And a request payload using an application/json content example
     And the request payload properties are:
-      | parcel      | PX-4103                          |
-      | reason      | LOST                             |
+      | parcel      | PX-4103                         |
+      | reason      | LOST                            |
       | description | Not delivered three weeks later |
     When the request is executed
     Then the response status code is 201
@@ -54,7 +54,7 @@ Feature: Claims for lost parcels
     When the request is executed
     Then the response status code is 201
     And the response payload properties are:
-      | status | REJECTED                        |
+      | status | REJECTED                          |
       | note   | delivered on 2026-09-20T14:05:00Z |
     And the claim-decisions sns topic has a message where:
       | claim    | CLM-4104 |

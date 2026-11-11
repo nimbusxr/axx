@@ -18,6 +18,7 @@ import (
 
 	"github.com/nimbusxr/axx/internal/agents"
 	"github.com/nimbusxr/axx/internal/config"
+	"github.com/nimbusxr/axx/internal/featurefmt"
 	"github.com/nimbusxr/axx/internal/packset"
 	"github.com/nimbusxr/axx/internal/skills"
 	"github.com/nimbusxr/axx/internal/version"
@@ -117,6 +118,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - uses: nimbusxr/setup-axx@v0
+      - run: axx fmt --check
       - run: axx run --format junit:build/axx/junit.xml --format html:build/axx/report.html
       - uses: actions/upload-artifact@v7
         if: always()
@@ -142,9 +144,10 @@ running services. It answers for itself, offline and for the version installed: 
    ` + "`axx steps search <words>`" + ` finds it in axx's other packs and names the pack (` + "`axx pack add <name>`" + `).
 3. Write one scenario per acceptance criterion with those steps, written out: each {name} replaced with a value, a(n) as
    "a" or "an", [[...]] kept without the brackets or left out. Never invent step text.
-4. Check, and fix what is reported, in one command: ` + "`axx validate && axx lint && axx run --compact`" + `. Validate (the features) and
-   lint (the test-data rules) need no services; their errors stop it, their warnings do not. The run starts the services and stops them.
-   With the MCP tools, in one turn: ` + "`feature_validate`" + `, ` + "`lint_run`" + `, ` + "`scenarios_run`" + `; ` + "`failure_context`" + ` explains a failure.
+4. Check, and fix what is reported, in one command: ` + "`axx fmt && axx validate && axx lint && axx run --compact`" + `. Fmt lays out the
+   features as the project's are; validate (the features) and lint (the test-data rules) need no services; their errors stop it,
+   their warnings do not. The run starts the services and stops them.
+   With the MCP tools: ` + "`axx fmt`" + `, then in one turn ` + "`feature_validate`" + `, ` + "`lint_run`" + `, ` + "`scenarios_run`" + `; ` + "`failure_context`" + ` explains a failure.
    An error's code: ` + "`axx explain AXX-E…`" + `. ` + "`axx up`" + ` and ` + "`axx down`" + ` only keep the services running to inspect them.
 
 Rules axx checks, and agents get wrong:
@@ -221,6 +224,14 @@ never writes your home directory: for Codex, whose servers usually live in
 			}
 			var plan []InitFile
 			contents := map[string]string{}
+			// The features init writes are laid out as the project's
+			// axx.yaml says, when it has one that init keeps.
+			var layout featurefmt.Options
+			if _, err := os.Stat(filepath.Join(wd, "axx.yaml")); err == nil && !force {
+				if cfg, err := config.Load(config.LoadOptions{WorkDir: wd}); err == nil {
+					layout.Indent = cfg.Fmt.Indent
+				}
+			}
 			for _, name := range []string{"axx.yaml", packset.FileName, "features/smoke/smoke.feature", ".github/workflows/acceptance.yml"} {
 				if noCI && strings.HasPrefix(name, ".github/") {
 					continue
@@ -228,6 +239,16 @@ never writes your home directory: for Codex, whose servers usually live in
 				out, err := render(initTemplates[name], data)
 				if err != nil {
 					return err
+				}
+				// A table's columns depend on what fills it (the OpenAPI
+				// file's row, say): the feature is written laid out as
+				// axx fmt lays it out, so its CI check passes from the start.
+				if strings.HasSuffix(name, ".feature") {
+					laid, err := featurefmt.Format(name, []byte(out), layout)
+					if err != nil {
+						return err
+					}
+					out = string(laid)
 				}
 				f := InitFile{Path: name, Action: "create"}
 				if _, err := os.Stat(filepath.Join(wd, name)); err == nil {

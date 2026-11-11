@@ -19,8 +19,8 @@ Feature: The couriers' app asks to notify
       | password | parcels                                   |
     And a tracking-db mongo database with the following properties:
       | url      | mongodb://${sys:local.host}:27017/parcels?authSource=admin |
-      | user     | parcels                                                   |
-      | password | parcels                                                   |
+      | user     | parcels                                                    |
+      | password | parcels                                                    |
 
   Scenario: A courier is asked to allow notifications when they sign in
     Given the courier app is launched

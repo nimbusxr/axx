@@ -286,7 +286,7 @@ CommandHooks: []core.CommandHook{{
 - **Before or after, never inside.** A before hook that fails stops the command, and its after hooks don't run. An after hook runs whether the command succeeded or failed (`call.Err` says which); when it fails, a command that succeeded fails too.
 - **The hook is told what the command was given:** `call.Args`, `call.Flags` (`dry-run`, say), and `call.Settings`, the pack's section of axx.yaml, read with the command's `--profile` and `--set`. It writes to `call.Stderr`: stdout is the command's, its `--json` answer included.
 - **Several packs' hooks of one command** run before it in the order the packs load, and after it in the reverse order.
-- **Hooks run in a project that uses the pack,** on every command but those that manage axx and its packs: `pack`, `init`, `upgrade`, `install` and `version`. They run around the project's own hooks, those of `axx.yaml` ([Run your commands around axx's](/guides/run-hooks/)). `axx doctor` lists a project's hooks, and any that never run.
+- **Hooks run in a project that uses the pack,** on every command but those that manage axx and its packs (`pack`, `init`, `upgrade`, `install` and `version`) and `fmt`, which only lays out feature files. They run around the project's own hooks, those of `axx.yaml` ([Run your commands around axx's](/guides/run-hooks/)). `axx doctor` lists a project's hooks, and any that never run.
 
 ## Check what the pack needs
 

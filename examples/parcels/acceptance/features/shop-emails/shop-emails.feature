@@ -30,11 +30,11 @@ Feature: Shop emails
     When the request is executed
     Then the response status code is 201
     And within 10s the shops mailbox has an email where:
-      | to         | orders@juniper-and-jay.example   |
-      | from       | no-reply@parcels.example         |
-      | subject    | Parcel PX-MAIL-9701 registered   |
-      | text       | Its label is attached            |
-      | attachment | PX-MAIL-9701-label.zpl           |
+      | to         | orders@juniper-and-jay.example |
+      | from       | no-reply@parcels.example       |
+      | subject    | Parcel PX-MAIL-9701 registered |
+      | text       | Its label is attached          |
+      | attachment | PX-MAIL-9701-label.zpl         |
 
   Scenario: A shop that asked to be told of deliveries gets an email
     Given a seeds/mail-delivered.yaml db seed
@@ -47,9 +47,9 @@ Feature: Shop emails
     When the request is executed
     Then the response status code is 204
     And within 10s the shops mailbox has an email where:
-      | to      | orders@larkspur-lane.example                         |
-      | subject | Parcel PX-MAIL-9702 delivered                        |
-      | html    | <b>PX-MAIL-9702</b> was delivered in Leipzig         |
+      | to      | orders@larkspur-lane.example                 |
+      | subject | Parcel PX-MAIL-9702 delivered                |
+      | html    | <b>PX-MAIL-9702</b> was delivered in Leipzig |
 
   Scenario: A registration email the shop's mail server refuses does not stop the registration
     # quince-and-quill's mail server is busy (451): the mail server's stub, in ../infra/compose.yaml.

@@ -41,8 +41,8 @@ Background:
     | app      | ../winforms/bin/Release/net8.0-windows/DepotDesk.exe |
     | registry | Software\Parcels\Depot desk                          |
   And the depot linux app with the following properties:
-    | app  | python3          |
-    | args | ../gtk4/desk.py  |
+    | app  | python3         |
+    | args | ../gtk4/desk.py |
 ```
 
 | Property | What it is |
@@ -74,8 +74,8 @@ An app's files are a folder of the files pack whose `owner` is the app: `./` is 
 
 ```gherkin
 Given the desk folder with the following properties:
-  | owner | app:depot     |
-  | path  | ./Depot desk  |
+  | owner | app:depot    |
+  | path  | ./Depot desk |
 Then within 5s the "arrivals.json" file in the desk folder contains "PX-DSK-4205"
 ```
 

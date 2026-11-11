@@ -15,8 +15,8 @@ Feature: Tracking updates
       | password | parcels                                   |
     And a tracking-db mongo database with the following properties:
       | url      | mongodb://${sys:local.host}:27017/parcels?authSource=admin |
-      | user     | parcels                                                   |
-      | password | parcels                                                   |
+      | user     | parcels                                                    |
+      | password | parcels                                                    |
     And the events kafka service with the following properties:
       | brokers  | ${sys:local.host}:9092                      |
       | asyncapi | http://${sys:local.host}:8400/asyncapi.yaml |

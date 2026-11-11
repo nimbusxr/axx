@@ -51,6 +51,7 @@ const (
 	codeMethodNotFound       = -32601
 	codeServerNotInitialized = -32002
 	codeInvalidRequest       = -32600
+	codeRequestFailed        = -32803
 )
 
 // readMessage reads one framed message body.

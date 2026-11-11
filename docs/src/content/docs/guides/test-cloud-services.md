@@ -33,9 +33,9 @@ Register the account, project or resource once, usually in the `Background`. A s
 ```gherkin
 Background:
   Given the parcels aws account with the following properties:
-    | region            | eu-west-1                       |
-    | endpoint          | http://${sys:local.host}:4566   |
-    | access key id     | ${env:AWS_ACCESS_KEY_ID:-local} |
+    | region            | eu-west-1                           |
+    | endpoint          | http://${sys:local.host}:4566       |
+    | access key id     | ${env:AWS_ACCESS_KEY_ID:-local}     |
     | secret access key | ${env:AWS_SECRET_ACCESS_KEY:-local} |
 ```
 

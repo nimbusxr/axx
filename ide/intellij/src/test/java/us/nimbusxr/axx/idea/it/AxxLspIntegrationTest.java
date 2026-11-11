@@ -39,6 +39,7 @@ import com.intellij.psi.PsiFile;
 import com.intellij.psi.PsiManager;
 import com.intellij.psi.PsiNamedElement;
 import com.intellij.psi.PsiReference;
+import com.intellij.psi.codeStyle.CodeStyleManager;
 import com.intellij.testFramework.EditorTestUtil;
 import com.intellij.testFramework.HeavyPlatformTestCase;
 import com.intellij.testFramework.PlatformTestUtil;
@@ -60,7 +61,7 @@ import java.util.concurrent.Callable;
 /**
  * Runs the plugin in a headless IDE, with the Gherkin plugin, against a real {@code axx lsp}: the
  * plugin's wiring, the server starting for a feature file, Go to Declaration on a step and on a
- * file a step names, and step completion.
+ * file a step names, step completion, and Reformat Code.
  *
  * <p>Opt-in: set {@code AXX_BIN} to an axx binary that has {@code axx lsp}, for example {@code
  * AXX_BIN=$PWD/../../bin/axx ./gradlew test --tests '*AxxLspIntegrationTest*'}. Skipped otherwise.
@@ -344,6 +345,51 @@ public class AxxLspIntegrationTest extends HeavyPlatformTestCase {
         TemplateState template = TemplateManagerImpl.getTemplateState(editor);
         assertNotNull("the parameter is not a placeholder", template);
         template.gotoEnd(false);
+    }
+
+    /**
+     * Reformat Code lays a feature out as {@code axx fmt} does, through the server, in place of
+     * the Gherkin plugin's formatter.
+     */
+    public void testReformatCode() throws Exception {
+        waitForServer();
+        Document document = editor.getDocument();
+        String messy =
+                String.join(
+                        "\n",
+                        "Feature: Orders",
+                        " Scenario: List orders",
+                        "  Given  the orders service with the following properties:",
+                        "   |base-url|http://localhost:8080|",
+                        "   |timeout|5s|",
+                        "");
+        String formatted =
+                String.join(
+                        "\n",
+                        "Feature: Orders",
+                        "",
+                        "  Scenario: List orders",
+                        "    Given the orders service with the following properties:",
+                        "      | base-url | http://localhost:8080 |",
+                        "      | timeout  | 5s                    |",
+                        "");
+        WriteCommandAction.runWriteCommandAction(getProject(), () -> document.setText(messy));
+        PsiDocumentManager.getInstance(getProject()).commitAllDocuments();
+        // Let the server receive the change.
+        Thread.sleep(300);
+        PlatformTestUtil.dispatchAllEventsInIdeEventQueue();
+        PsiFile psi = PsiManager.getInstance(getProject()).findFile(feature);
+        WriteCommandAction.runWriteCommandAction(
+                getProject(),
+                () -> {
+                    CodeStyleManager.getInstance(getProject()).reformat(psi);
+                });
+        long deadline = System.currentTimeMillis() + TIMEOUT_MS;
+        while (!document.getText().equals(formatted) && System.currentTimeMillis() < deadline) {
+            PlatformTestUtil.dispatchAllEventsInIdeEventQueue();
+            Thread.sleep(100);
+        }
+        assertEquals(formatted, document.getText());
     }
 
     private void waitForServer() throws Exception {

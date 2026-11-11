@@ -14,8 +14,8 @@ Feature: Depot scanners
       | password | parcels                                   |
     And a tracking-db mongo database with the following properties:
       | url      | mongodb://${sys:local.host}:27017/parcels?authSource=admin |
-      | user     | parcels                                                   |
-      | password | parcels                                                   |
+      | user     | parcels                                                    |
+      | password | parcels                                                    |
 
   Scenario: A scanner's scan updates the parcel's tracking
     Given a seeds/scanner-scan.yaml db seed

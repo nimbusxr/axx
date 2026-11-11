@@ -17,7 +17,7 @@ hooks:
       command: ./scripts/send-report.sh reports/report.html
 ```
 
-- **`before` or `after`** names the axx command, by its words after `axx`: `fixtures generate`, `run`, `validate`. Every command has hooks but `pack`, `init`, `upgrade`, `install` and `version`, which manage axx and its packs.
+- **`before` or `after`** names the axx command, by its words after `axx`: `fixtures generate`, `run`, `validate`. Every command has hooks but `pack`, `init`, `upgrade`, `install` and `version`, which manage axx and its packs, and `fmt`, which only lays out feature files.
 - **`command`** is what the hook runs, from the directory of `axx.yaml`: a string, split into words without a shell, or a list. With `shell: true`, it runs through `/bin/sh -c` (`cmd /C` on Windows).
 - **A hook that fails before its command stops it.** The command doesn't run, and the error says which hook failed and how.
 - **A hook after its command runs whether the command succeeded or failed.** When it fails, a command that succeeded fails too; after a command that failed, it is a warning.

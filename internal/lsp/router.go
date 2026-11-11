@@ -176,6 +176,24 @@ func (r *router) handle(req *request, body []byte) (bool, error) {
 		r.broadcast(body)
 	case "$/cancelRequest":
 		r.broadcast(body)
+	case "textDocument/formatting", "textDocument/rangeFormatting":
+		// The text is all formatting needs: the router answers, with no
+		// wait for a project's server, which may be preparing its packs.
+		var p formattingParams
+		if err := json.Unmarshal(req.Params, &p); err != nil {
+			r.reply(req.ID, nil, &rpcError{Code: codeInvalidParams, Message: err.Error()})
+			return false, nil
+		}
+		edits := []textEdit{}
+		var rerr *rpcError
+		if d := r.docs[p.TextDocument.URI]; d != nil {
+			edits, rerr = formatRequest(p, d.text)
+		}
+		if rerr != nil {
+			r.reply(req.ID, nil, rerr)
+		} else {
+			r.reply(req.ID, edits, nil)
+		}
 	default:
 		r.document(req, body)
 	}

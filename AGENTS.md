@@ -15,7 +15,10 @@ the skills instead: `axx skills install`.
   `internal/check`: which steps of a feature cannot run (undefined, ambiguous, the wrong argument, a
   value the rule cannot read), reported through it by `axx validate`, `axx doctor`, the MCP server
   and the language server. `internal/lint`: `axx lint`, whose feature checks `axx validate` and
-  `axx run` report as warnings.
+  `axx run` report as warnings. `internal/featurefmt`: the one layout of feature files, for
+  `axx fmt` and the language server's formatting; it changes only where things sit, and refuses a
+  layout that Cucumber's parser reads differently from the file. A test keeps the repository's
+  features formatted: after editing one, run `go run ./cmd/axx fmt <file>`.
 - `core`: the public core every pack builds on (scenario, steps, service registry, state,
   errors, interpolation, shared parameter types, and the rule every pack reads a feature's values
   by: `core/value.go`, ADR 0014, with `TableDoc.Values` saying what a step's table holds). A step's

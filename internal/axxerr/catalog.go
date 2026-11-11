@@ -138,7 +138,7 @@ func init() {
 		"Write `--set path.to.key=value`, like `--set run.workers=1` or `--set packs.<pack>.<key>=value`. The value is read as YAML, so `true` and `1` are a boolean and a number.")
 
 	add("AXX-E0106", u, "A hook in axx.yaml names no command",
-		"A hook of axx.yaml's `hooks.commands` names, in `before` or `after`, a command axx does not have, one that only groups others (`fixtures`), or one that has no hooks because it manages axx and its packs (`pack`, `init`, `upgrade`, `install`, `version`); or its `command` runs nothing. Every command but `axx doctor`, which lists it, stops.",
+		"A hook of axx.yaml's `hooks.commands` names, in `before` or `after`, a command axx does not have, one that only groups others (`fixtures`), or one that has no hooks because it manages axx and its packs (`pack`, `init`, `upgrade`, `install`, `version`) or only lays out feature files (`fmt`); or its `command` runs nothing. Every command but `axx doctor`, which lists it, stops.",
 		"Name the command by its words after axx, as `axx --help` lists them: `before: fixtures generate`.")
 	add("AXX-E0200", u, "Feature file does not parse",
 		"A `.feature` file has a Gherkin syntax error.",
@@ -161,6 +161,12 @@ func init() {
 	add("AXX-E0206", u, "Invalid shard",
 		"`--shard` is not a shard of a number of them, like `1/3`.",
 		"Give the shard and how many there are, from `1/n` to `n/n`: each runs every nth of the scenarios the run selects, so that together they run each one once.")
+	add("AXX-E0208", u, "Formatting would change a feature",
+		"`axx fmt`, or an editor formatting a feature through `axx lsp`, reads what it would write before writing it, and found that it would not say the same as the feature: other steps, names, tags, table cells, doc strings or comments. Formatting changes only where things sit, so this is a bug in axx. The file is left as it was.",
+		"Report it at https://github.com/nimbusxr/axx/issues with the feature file (or the part the message names). Until it is fixed, format that file by hand; `axx fmt` formats the others.")
+	add("AXX-E0209", u, "Cannot write a formatted feature",
+		"`axx fmt` formatted a feature file, but could not write it: the file or its folder is not yours to write, say.",
+		"Check that you can write the file. It is left as it was; the message says why it could not be written.")
 	add("AXX-E0207", exitcode.Undefined, "Value that could be read two ways",
 		"A value means what it says, in every pack (ADR 0014): `42` is an integer, `1.5` a decimal, `true` and `false` booleans, `null` null, `undefined` no such property, `{...}` and `[...]` JSON, a value in double quotes the string inside them, and other text a string. A table cell or a value in a step's own text that the rule cannot read is an error: an empty cell, a number in a form JSON does not have (`01067`, `+5`, `1.5f`, `NaN`), `undefined` where the step takes no such thing, or, where only text fits (a header, a query parameter, text on a screen), a value that reads as anything else. `axx validate` reports each at its row, without running anything, and exits 3. `axx run` does not check first: the steps before it run, then the step fails with the same message and this code, and the run exits 1. A `where:` value of another type than its column's is held to the same code, when the step runs, as only the database knows the column's type.",
 		"Write the value the way the message says: `\"\"` for the empty string, `null` for null or `undefined` for no such property; `1067` for the number or `\"01067\"` for the text; and, where only text fits, the value in double quotes (`\"3\"`). In a step's own text the quotes are the step's, so the string is `'\"01067\"'`, and text is `'\"3\"'`. A column's message says what its type takes: `\"10115\"` for text, `12.0` for a decimal.")

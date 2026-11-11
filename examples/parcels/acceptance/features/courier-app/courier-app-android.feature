@@ -223,7 +223,7 @@ Feature: The couriers' app
     And the selection has 1 row
     And the 1st row details property for the selection json properties are:
       | courierNote  | Behind the green gate, please. |
-      | deliveryNote | Ring twice, please.           |
+      | deliveryNote | Ring twice, please.            |
 
   Scenario: No one is home: the courier knocks, and the app records the attempt with the knock it heard
     Given a seeds/courier-app-android-attempt.yaml db seed

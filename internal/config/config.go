@@ -47,6 +47,9 @@ type Config struct {
 	Lint *Lint `json:"lint,omitempty"`
 	// Fixtures configures `axx fixtures` (fixture factories).
 	Fixtures *Fixtures `json:"fixtures,omitempty"`
+	// Fmt configures how `axx fmt`, and editors through axx lsp, lay out
+	// feature files.
+	Fmt Fmt `json:"fmt,omitzero"`
 	// Profiles are named overlays selected with --profile or AXX_PROFILE.
 	Profiles map[string]json.RawMessage `json:"profiles,omitempty"`
 

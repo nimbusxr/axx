@@ -107,7 +107,7 @@ Feature: The couriers' iPhone app
     And the selection has 1 row
     And the 1st row details property for the selection json properties are:
       | courierNote  | Behind the green gate, please. |
-      | deliveryNote | Ring twice, please.           |
+      | deliveryNote | Ring twice, please.            |
 
   Scenario: No one is home: the courier rings, and the app records the attempt with the doorbell it heard
     Given a seeds/courier-app-ios-attempt.yaml db seed
@@ -148,8 +148,8 @@ Feature: The couriers' iPhone app
     Given a seeds/courier-app-ios-no-notifications.yaml db seed
     And a tracking-db mongo database with the following properties:
       | url      | mongodb://${sys:local.host}:27017/parcels?authSource=admin |
-      | user     | parcels                                                   |
-      | password | parcels                                                   |
+      | user     | parcels                                                    |
+      | password | parcels                                                    |
     And the courier app is launched
     And the "Courier ID" field in the courier app is filled with "CR-DRS-11"
     And the "PIN" field in the courier app is filled with "${sys:couriers.pin}"

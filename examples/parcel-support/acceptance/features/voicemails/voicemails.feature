@@ -24,8 +24,8 @@ Feature: Voicemails
       | path | ../infra/sounds |
     And a support-db database with the following properties:
       | url      | postgres://${sys:local.host}:${sys:support-db.port}/support |
-      | user     | support                                   |
-      | password | support                                   |
+      | user     | support                                                     |
+      | password | support                                                     |
 
   Scenario: A voicemail about a parcel gets the article that answers it and a draft reply
     Given the INBOX/msg0001.txt file in the voicemail folder is a copy of the recordings/msg-anna.txt file

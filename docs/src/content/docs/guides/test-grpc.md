@@ -26,9 +26,9 @@ Add the pack to the project with `axx pack add grpc` ([Choose packs](/guides/use
 ```gherkin
 Background:
   Given the tracking grpc service with the following properties:
-    | address              | ${sys:local.host}:8410     |
-    | proto                | protos/tracking.proto      |
-    | header.authorization | Bearer ${env:SHOP_TOKEN}   |
+    | address              | ${sys:local.host}:8410   |
+    | proto                | protos/tracking.proto    |
+    | header.authorization | Bearer ${env:SHOP_TOKEN} |
 ```
 
 | Property | What it is |
