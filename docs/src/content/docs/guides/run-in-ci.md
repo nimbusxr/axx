@@ -24,7 +24,7 @@ jobs:
   acceptance:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: nimbusxr/setup-axx@v0
       - run: axx fmt --check
       - run: axx run --format junit:build/axx/junit.xml --format html:build/axx/report.html
@@ -136,7 +136,7 @@ jobs:
       matrix:
         shard: [1, 2, 3]
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: nimbusxr/setup-axx@v0
       - run: axx run --shard ${{ matrix.shard }}/3 --format junit:build/axx/junit.xml
 ```

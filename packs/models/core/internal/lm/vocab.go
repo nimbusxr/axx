@@ -7,7 +7,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/dlclark/regexp2"
+	"github.com/dlclark/regexp2/v2"
 	"golang.org/x/text/unicode/norm"
 )
 
@@ -198,7 +198,10 @@ func NewVocab(spec Spec) (*Vocab, error) {
 		}
 		v.ignoreMerges, v.byteEncode = p.ignoreMerges, p.byteEncode
 		for i, expr := range p.regexes {
-			re, err := regexp2.Compile(expr, regexp2.None)
+			// No backtracking limit (regexp2's is 100,000 slots unless told
+			// otherwise): llama.cpp's pre-tokenizers have none, whatever the
+			// prompt's length.
+			re, err := regexp2.Compile(expr, regexp2.None, regexp2.OptionMaxBacktrackingStackSize(-1))
 			if err != nil {
 				return nil, fmt.Errorf("its pre-tokenizer's expression %q: %w", expr, err)
 			}
@@ -459,11 +462,11 @@ func (v *Vocab) words(text string) []string {
 			pending := "" // a match merged with the word after it
 			m, _ := sp.re.FindStringMatch(p)
 			for m != nil {
-				if m.Length == 0 {
+				if m.RuneLength == 0 {
 					m, _ = sp.re.FindNextMatch(m)
 					continue
 				}
-				gap, match := string(runes[start:m.Index]), string(runes[m.Index:m.Index+m.Length])
+				gap, match := string(runes[start:m.RuneIndex]), string(runes[m.RuneIndex:m.RuneIndex+m.RuneLength])
 				switch sp.behavior {
 				case Isolated:
 					emit(gap)
@@ -476,7 +479,7 @@ func (v *Vocab) words(text string) []string {
 					emit(pending + gap)
 					pending = match
 				}
-				start = m.Index + m.Length
+				start = m.RuneIndex + m.RuneLength
 				m, _ = sp.re.FindNextMatch(m)
 			}
 			if sp.behavior != MatchesOnly {

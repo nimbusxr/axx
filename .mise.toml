@@ -1,10 +1,10 @@
 [tools]
-go = "1.27.3"
+go = "1.27.4"
 golangci-lint = "2"
 goreleaser = "2"
 lefthook = "2.2.2"
-node = "22"          # docs site only
-java = "temurin-21"  # WireMock extension and IntelliJ plugin only
+node = "26"          # docs site only
+java = "temurin-25"  # WireMock extension and IntelliJ plugin only
 "aqua:gitleaks/gitleaks" = "latest"
 "aqua:git-lfs/git-lfs" = "3"  # the examples' model files (examples/.gitattributes)
 "aqua:sharkdp/hyperfine" = "latest"  # bench/

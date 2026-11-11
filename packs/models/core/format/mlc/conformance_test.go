@@ -15,7 +15,7 @@ import (
 	"github.com/nimbusxr/axx/packs/models/core/modelstest"
 )
 
-// libs is the commit of MLC's prebuilt model libraries WebLLM 0.2.87 runs
+// libs is the commit of MLC's prebuilt model libraries WebLLM 0.2.88 runs
 // (its modelVersion's, v0_2_87).
 const libs = "https://raw.githubusercontent.com/mlc-ai/binary-mlc-llm-libs/146ed9cd4b4062e967b017fd2291f7106b50599f/web-llm-models/v0_2_87/base/"
 

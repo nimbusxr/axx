@@ -95,7 +95,7 @@ class AnthropicTest extends ModelMockTest {
         assertThat(use._input()).isEqualTo(JsonValue.from(Map.of("reference", "PX-AI-8202")));
 
         Message second = client().messages().create(params.addMessage(first)
-                .addUserMessageOfBlockParams(List.of(ContentBlockParam.ofToolResult(ToolResultBlockParam.builder()
+                .addUserMessageOfContentBlockParams(List.of(ContentBlockParam.ofToolResult(ToolResultBlockParam.builder()
                         .toolUseId(use.id()).content("{\"status\":\"OUT_FOR_DELIVERY\"}").build())))
                 .build());
         second.validate();

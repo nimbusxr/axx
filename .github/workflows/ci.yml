@@ -42,7 +42,7 @@ jobs:
   # runs no tests (tests is false): it refreshes the caches pull requests read, and the caches
   # job keeps the newest of each.
   changes:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     permissions:
       contents: read
       actions: read # the pull request's passing runs, for the merge queue
@@ -61,7 +61,7 @@ jobs:
     steps:
       # A pull request is checked out as its merge into the base branch, and the merge queue's
       # group as its commit on top of it: the first parent differs by what they change.
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 2
           persist-credentials: false
@@ -91,13 +91,13 @@ jobs:
           retention-days: 30
 
   hygiene:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
           persist-credentials: false
-      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+      - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
         with:
           install_args: "aqua:gitleaks/gitleaks"
           # Tools are cached from main only: pull requests read them.
@@ -109,14 +109,14 @@ jobs:
   lint:
     needs: changes
     if: needs.changes.outputs.go == 'true'
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
       # The examples' model files (Git LFS).
       - uses: ./.github/actions/lfs
-      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+      - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
         with:
           install_args: "go golangci-lint"
           # Tools are cached from main only: pull requests read them.
@@ -159,7 +159,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-24.04, macos-latest, windows-latest]
+        os: [ubuntu-26.04, macos-latest, windows-latest]
         part: ${{ fromJSON(needs.changes.outputs.tests == 'true' && '["packs", "rest"]' || '["all"]') }}
     runs-on: ${{ matrix.os }}
     steps:
@@ -177,10 +177,10 @@ jobs:
         run: |
           "GOCACHE=$env:RUNNER_TEMP\go-build" >> $env:GITHUB_ENV
           "GOMODCACHE=$env:RUNNER_TEMP\go-mod" >> $env:GITHUB_ENV
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+      - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
         with:
           install_args: "go aqua:gotestyourself/gotestsum"
           # Tools are cached from main only: pull requests read them.
@@ -225,7 +225,7 @@ jobs:
     # cache of its own: its tests' builds, and the builds of axx with packs that
     # internal/packbuild's tests make.
     name: integration (${{ matrix.part }})
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     strategy:
       fail-fast: false
       matrix:
@@ -250,12 +250,12 @@ jobs:
           (if [ "$(df --output=avail -BG / | tail -1 | tr -dc 0-9)" -lt 40 ]; then
             sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL /usr/share/swift
           fi; touch "$RUNNER_TEMP/disk-freed") > /dev/null 2>&1 &
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
       # Docker Hub's images through Google's mirror: Docker Hub refuses the runners at times.
       - uses: ./.github/actions/docker-hub-mirror
-      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+      - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
         with:
           install_args: "go aqua:gotestyourself/gotestsum uv"
           # Tools are cached from main only: pull requests read them.
@@ -327,17 +327,17 @@ jobs:
     # by their names, the other web packs a third, and the Lighthouse audits a fourth: a score
     # measures the machine's load too, and other packages' browsers would take its CPU.
     name: web (${{ matrix.part }})
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     strategy:
       fail-fast: false
       matrix:
         # On main, only the part that keeps the browsers' cache.
         part: ${{ fromJSON(needs.changes.outputs.tests == 'true' && '["core-a-g", "core-h-z", "packs", "lighthouse"]' || '["packs"]') }}
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+      - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
         with:
           install_args: "go aqua:gotestyourself/gotestsum"
           # Tools are cached from main only: pull requests read them.
@@ -381,7 +381,7 @@ jobs:
     # The mobile packs' tests, on an Android emulator that axx starts (KVM). The iOS pack's
     # skip here: they run in the ios job.
     name: mobile (${{ matrix.part }})
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 30
     strategy:
       fail-fast: false
@@ -401,7 +401,7 @@ jobs:
           sudo udevadm trigger --name-match=kvm
           # avdmanager would go by the runner's XDG_CONFIG_HOME, and the emulator not.
           echo "ANDROID_AVD_HOME=$HOME/.android/avd" >> "$GITHUB_ENV"
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
       # The examples' model files (Git LFS).
@@ -409,7 +409,7 @@ jobs:
       - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6
         with:
           distribution: temurin
-          java-version: "21"
+          java-version: "25"
       # Gradle's caches: written on main only (the action's default), read by pull requests.
       - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6
       # The couriers' app (the models-android pack's tests build an app of their own) and the
@@ -420,7 +420,7 @@ jobs:
           app: ${{ !startsWith(matrix.part, 'models-') }}
           emulator: ${{ needs.changes.outputs.tests == 'true' }}
           save-emulator: ${{ matrix.part == 'emulator-1' }}
-      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+      - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
         with:
           install_args: "go aqua:gotestyourself/gotestsum"
           # Tools are cached from main only: pull requests read them.
@@ -496,7 +496,7 @@ jobs:
     # some 3 of setting up, so that a slow one (the same scenarios took up to 1.5 times as long)
     # takes no job past 10.
     name: android (${{ matrix.feature }} ${{ matrix.part }}/${{ matrix.of }})
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 30
     strategy:
       fail-fast: false
@@ -536,7 +536,7 @@ jobs:
           sudo udevadm trigger --name-match=kvm
           # avdmanager would go by the runner's XDG_CONFIG_HOME, and the emulator not.
           echo "ANDROID_AVD_HOME=$HOME/.android/avd" >> "$GITHUB_ENV"
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
       # The examples' model files (Git LFS).
@@ -546,7 +546,7 @@ jobs:
       - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6
         with:
           distribution: temurin
-          java-version: "21"
+          java-version: "25"
       # Gradle's caches: written on main only (the action's default), read by pull requests.
       - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6
       # The couriers' app and the emulator's device, from their caches, or made while the rest
@@ -554,7 +554,7 @@ jobs:
       - uses: ./.github/actions/courier-android
         with:
           mode: start
-      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+      - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
         with:
           install_args: "go"
           # Tools are cached from main only: pull requests read them.
@@ -641,13 +641,13 @@ jobs:
     # cgo), with a build cache of its own, for the Mac jobs to download (.github/actions/mac-tests):
     # each took 85 to 100 seconds of its ten minutes restoring Go's module cache and building them,
     # with no build cache, on a runner of three cores.
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+      - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
         with:
           install_args: "go"
           # Tools are cached from main only: pull requests read them.
@@ -707,14 +707,14 @@ jobs:
           - tests: others
             select: -test.skip=^(TestCouriersOnASimulator|TestRecordingsOnASimulator|TestThePhoneMovesThroughTheScene|TestACourierReadsATornLabelOnASimulator|TestACourierScansALabelOnASimulator|TestTheCameraSeesASceneAnImageOrAVideo|TestACourierMeasuresAParcelOnASimulator|TestACourierWalksUpToAParcelAndMeasuresItOnASimulator|TestACourierPhotographsAParcelAtTheDoorOnASimulator|TestACourierFollowsNotificationsOnASimulator|TestACourierIsRemindedOfTheRoundOnASimulator|TestACourierSharesTheVanOnASimulator)$
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
       # The examples' model files (Git LFS).
       - uses: ./.github/actions/lfs
       - uses: ./.github/actions/simulator-mac
       # gotestsum, which runs the tests that the mac-tests job built.
-      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+      - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
         with:
           install_args: "aqua:gotestyourself/gotestsum"
           # Tools are cached from main only: pull requests read them.
@@ -773,7 +773,7 @@ jobs:
       SIMULATOR_1: ^TestCourierUsesPlatformFixtureWithoutDebugProvider$
       SIMULATOR_2: ^(TestFoundationModelsOrdinarySessions|TestSimulatorPlatformCalls|TestSimulatorCaptureHearsTheRecording)$
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
       # The examples' model files (Git LFS).
@@ -781,7 +781,7 @@ jobs:
       - if: matrix.part != 'mac'
         uses: ./.github/actions/simulator-mac
       # gotestsum, which runs the tests that the mac-tests job built.
-      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+      - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
         with:
           install_args: "aqua:gotestyourself/gotestsum"
           # Tools are cached from main only: pull requests read them.
@@ -869,10 +869,10 @@ jobs:
             if (-not (Test-Path $k)) { New-Item $k -Force | Out-Null }
             Set-ItemProperty -Path $k -Name Value -Value Allow
           }
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+      - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
         with:
           install_args: "go aqua:gotestyourself/gotestsum"
           # Tools are cached from main only: pull requests read them.
@@ -929,10 +929,10 @@ jobs:
       matrix:
         shard: [0, 1, 2, 3, 4, 5, 6, 7]
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+      - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
         with:
           install_args: "go"
           # Tools are cached from main only: pull requests read them.
@@ -948,14 +948,14 @@ jobs:
     # The image the depot desk's Linux builds run in (examples/parcels/depot-desk/linux), built
     # once for each version of its Dockerfile and kept in the registry: every run, and every
     # developer, uses the same libraries, which draw the same pixels as the screenshots kept.
-    runs-on: ubuntu-24.04-arm
+    runs-on: ubuntu-26.04-arm
     permissions:
       contents: read
       packages: write
     outputs:
       image: ${{ steps.image.outputs.image }}
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
       # Docker Hub's images through Google's mirror: Docker Hub refuses the runners at times.
@@ -989,7 +989,7 @@ jobs:
     # macOS and Windows builds run on developers' machines. A failure leaves its report, the
     # traces and the screenshots the run took.
     name: desktop (${{ matrix.build }}, ${{ matrix.display }})
-    runs-on: ubuntu-24.04-arm
+    runs-on: ubuntu-26.04-arm
     timeout-minutes: 45
     permissions:
       contents: read
@@ -1001,12 +1001,12 @@ jobs:
         build: ${{ fromJSON(needs.changes.outputs.tests == 'true' && '["gtk3", "gtk4", "qt6", "qt5", "swing", "electron", "tauri", "flutter"]' || '["gtk3"]') }}
         display: ${{ fromJSON(needs.changes.outputs.tests == 'true' && '["x11", "wayland"]' || '["x11"]') }}
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
       # The examples' model files (Git LFS): the GTK builds' model stubs.
       - uses: ./.github/actions/lfs
-      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+      - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
         with:
           install_args: "go"
           # Tools are cached from main only: pull requests read them.
@@ -1057,12 +1057,12 @@ jobs:
     if: needs.changes.outputs.go == 'true'
     # CGO_ENABLED=0 must keep working for every release target. Built with -trimpath like
     # GoReleaser, so release-check and the release dry run reuse this job's build cache.
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+      - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
         with:
           install_args: "go"
           # Tools are cached from main only: pull requests read them.
@@ -1085,7 +1085,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.examples == 'true' && needs.changes.outputs.tests == 'true'
     # The services the examples test are Go modules of their own.
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     strategy:
       fail-fast: false
       matrix:
@@ -1094,10 +1094,10 @@ jobs:
       run:
         working-directory: examples/${{ matrix.example }}/app
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+      - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
         with:
           install_args: "go golangci-lint"
           # Tools are cached from main only: pull requests read them.
@@ -1110,15 +1110,15 @@ jobs:
     needs: changes
     if: needs.changes.outputs.examples == 'true' && needs.changes.outputs.tests == 'true'
     # The parcel-support example's service is a Python project of its own (uv's).
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     defaults:
       run:
         working-directory: examples/parcel-support/app
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+      - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
         with:
           install_args: "uv"
           # Tools are cached from main only: pull requests read them.
@@ -1135,7 +1135,7 @@ jobs:
     # built with every pack, so it prepares none. parcel-support's features and its other
     # engines' runs (some 5 minutes each) are two jobs.
     name: acceptance (${{ matrix.example }}${{ matrix.engines && ', its engines' || '' }})
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 30
     strategy:
       fail-fast: false
@@ -1143,7 +1143,7 @@ jobs:
         # On main, only parcels, whose job keeps the caches.
         include: ${{ fromJSON(needs.changes.outputs.tests == 'true' && '[{"example":"parcels"}, {"example":"parcel-claims"}, {"example":"carrier-billing"}, {"example":"customs-clearance"}, {"example":"parcel-support"}, {"example":"parcel-support", "engines":true}]' || '[{"example":"parcels"}]') }}
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
       # The examples' model files (Git LFS).
@@ -1154,7 +1154,7 @@ jobs:
       - if: matrix.example == 'parcels' && needs.changes.outputs.tests == 'true'
         name: the example's images (in the background)
         run: (status=0; docker compose -f examples/parcels/infra/compose.yaml pull --ignore-buildable --quiet > "$RUNNER_TEMP/pull.log" 2>&1 || status=$?; echo "$status" > "$RUNNER_TEMP/pull.done") &
-      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+      - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
         with:
           install_args: "go"
           # Tools are cached from main only: pull requests read them.
@@ -1233,9 +1233,9 @@ jobs:
   support-image:
     needs: changes
     if: github.event_name == 'push' && needs.changes.outputs.examples == 'true'
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
       # Docker Hub's images through Google's mirror: Docker Hub refuses the runners at times.
@@ -1245,13 +1245,13 @@ jobs:
   release-check:
     needs: changes
     if: needs.changes.outputs.go == 'true' && needs.changes.outputs.tests == 'true'
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
           persist-credentials: false
-      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+      - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
         with:
           install_args: "go goreleaser"
           # Tools are cached from main only: pull requests read them.
@@ -1265,12 +1265,12 @@ jobs:
   workflows:
     needs: changes
     if: needs.changes.outputs.workflows == 'true' && needs.changes.outputs.tests == 'true'
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+      - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
         with:
           install_args: "aqua:rhysd/actionlint"
           # Tools are cached from main only: pull requests read them.
@@ -1290,7 +1290,7 @@ jobs:
   caches:
     if: always() && github.event_name == 'push'
     needs: [hygiene, lint, test, integration, web, mobile, desktop, cross-build, mac-tests, acceptance, support-image]
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     permissions:
       actions: write # to delete caches
     steps:
@@ -1312,7 +1312,7 @@ jobs:
   ci-ok:
     if: always()
     needs: [changes, hygiene, lint, workflows, test, integration, web, mobile, android, mac-tests, ios, coreml, windows-models, webllm, desktop-image, desktop, cross-build, example-app, example-app-python, acceptance, release-check]
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     steps:
       - name: all jobs passed
         run: |

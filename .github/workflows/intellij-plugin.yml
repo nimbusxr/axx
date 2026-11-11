@@ -57,7 +57,7 @@ defaults:
 
 jobs:
   build:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -68,7 +68,7 @@ jobs:
       - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6
         with:
           distribution: temurin
-          java-version: "21"
+          java-version: "25"
       # Gradle's caches: written on main only (the action's default), read by pull requests.
       - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6
       - run: ./gradlew --no-daemon --console=plain build buildPlugin verifyPluginStructure
@@ -87,7 +87,7 @@ jobs:
   publish:
     if: inputs.version != '' && (inputs.dry-run || vars.AXX_PUBLISH == 'true')
     needs: build
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     # Publishing reads the signing key and Marketplace token from the release environment
     # (main only); the secrets passed in are then unused. A dry run
     # uses no environment, so it verifies the plugin without signing it.
@@ -128,7 +128,7 @@ jobs:
       - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6
         with:
           distribution: temurin
-          java-version: "21"
+          java-version: "25"
           # No Gradle cache: a published plugin is built from scratch, and a dry run's cache
           # would hold the IDEs the plugin verifier downloads (many GB).
 
