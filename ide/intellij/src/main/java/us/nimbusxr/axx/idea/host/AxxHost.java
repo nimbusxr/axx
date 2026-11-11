@@ -42,7 +42,10 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Future;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -61,9 +64,11 @@ import java.util.concurrent.TimeUnit;
  * say), and shows the host's state in the status bar (see {@link AxxHostWidgetFactory}). The host's
  * log goes to idea.log.
  *
- * <p>It stops the host when the project closes: it closes the host's input, and the host stops the
- * services of a run in progress, cleans up after them and exits. It kills the host if it has not
- * exited a minute later.
+ * <p>When the project closes, or the plugin unloads, it lets the host go: it closes the host's
+ * input, and the host stops the services of a run in progress, cleans up after them and exits, as
+ * when the IDE quits. Nothing of the plugin's waits on it then, so that the plugin unloads without
+ * a restart (see {@link HostProcess#detach}). Stopped from the IDE, the host is killed if it has
+ * not exited a minute later.
  */
 @Service(Service.Level.PROJECT)
 public final class AxxHost implements Disposable {
@@ -178,20 +183,7 @@ public final class AxxHost implements Disposable {
             }
             session.stopping = true;
         }
-        HostProcess process = session.process;
-        process.stop();
-        AppExecutorUtil.getAppScheduledExecutorService()
-                .schedule(
-                        () -> {
-                            if (process.isAlive()) {
-                                LOG.warn(
-                                        "axx host: still running a minute after it was asked to"
-                                                + " stop; killing it");
-                                process.kill();
-                            }
-                        },
-                        STOP_SECONDS,
-                        TimeUnit.SECONDS);
+        session.process.stop(STOP_SECONDS, TimeUnit.SECONDS);
     }
 
     /**
@@ -214,14 +206,22 @@ public final class AxxHost implements Disposable {
         stop();
     }
 
+    /**
+     * Lets the host go as the project closes or the plugin unloads: it stops and cleans up on its
+     * own, and its questions and notices close.
+     */
     @Override
     public void dispose() {
+        Session session;
         synchronized (lock) {
-            if (current != null) {
-                current.restart = false;
+            session = current;
+            if (session == null) {
+                return;
             }
+            session.restart = false;
+            session.stopping = true;
         }
-        stop();
+        session.detach();
     }
 
     /** Whether a host the IDE started runs: it started, and has not ended. */
@@ -463,6 +463,8 @@ public final class AxxHost implements Disposable {
         // waits for another, by the waiting run.
         private final Map<Integer, Notification> questions = new HashMap<>();
         private final Map<Integer, Notification> waits = new HashMap<>();
+        // What waits to say a run waits for another: cancelled when the IDE lets the host go.
+        private final Set<ScheduledFuture<?>> timers = ConcurrentHashMap.newKeySet();
         private HostProcess process;
         // Under lock: the IDE asked it to stop, and to start again once it did; how it ended, once
         // it did.
@@ -592,11 +594,40 @@ public final class AxxHost implements Disposable {
                 onUiThread(() -> unwait(run));
                 return;
             }
-            AppExecutorUtil.getAppScheduledExecutorService()
-                    .schedule(
-                            () -> onUiThread(() -> showWait(event)),
-                            waitSeconds,
-                            TimeUnit.SECONDS);
+            timers.removeIf(Future::isDone);
+            timers.add(
+                    AppExecutorUtil.getAppScheduledExecutorService()
+                            .schedule(
+                                    () -> onUiThread(() -> showWait(event)),
+                                    waitSeconds,
+                                    TimeUnit.SECONDS));
+        }
+
+        /**
+         * Lets the host go ({@link HostProcess#detach}), and closes its questions and notices: none
+         * of the plugin's code waits on it after this.
+         */
+        void detach() {
+            process.detach();
+            for (ScheduledFuture<?> timer : timers) {
+                timer.cancel(false);
+            }
+            timers.clear();
+            if (ApplicationManager.getApplication().isDispatchThread()) {
+                closeNotices();
+            } else {
+                onUiThread(this::closeNotices);
+            }
+        }
+
+        /** Closes the questions and the notices that runs wait. On the UI thread. */
+        private void closeNotices() {
+            for (Integer id : new ArrayList<>(questions.keySet())) {
+                forget(id);
+            }
+            for (Integer run : new ArrayList<>(waits.keySet())) {
+                unwait(run);
+            }
         }
 
         /** Shows that a run waits, if it still does. On the UI thread. */
@@ -739,6 +770,11 @@ public final class AxxHost implements Disposable {
         }
 
         @Override
+        public void killing() {
+            LOG.warn("axx host: still running a minute after it was asked to stop; killing it");
+        }
+
+        @Override
         public void exited(int exitCode, @NotNull String errors) {
             HostState.Exit how;
             boolean asked;
@@ -753,15 +789,7 @@ public final class AxxHost implements Disposable {
                 console.end(-1);
             }
             shown.clear();
-            onUiThread(
-                    () -> {
-                        for (Integer id : new ArrayList<>(questions.keySet())) {
-                            forget(id);
-                        }
-                        for (Integer run : new ArrayList<>(waits.keySet())) {
-                            unwait(run);
-                        }
-                    });
+            onUiThread(this::closeNotices);
             switch (how) {
                 case NO_SERVICES -> {
                     if (!quiet) {

@@ -2,7 +2,6 @@
 package us.nimbusxr.axx.idea.lsp;
 
 import com.intellij.openapi.project.Project;
-import com.intellij.openapi.util.IconLoader;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.platform.lsp.api.LspClient;
 import com.intellij.platform.lsp.api.LspIntegrationProvider;
@@ -12,9 +11,8 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import us.nimbusxr.axx.idea.AxxConfigurable;
+import us.nimbusxr.axx.idea.AxxIcons;
 import us.nimbusxr.axx.idea.AxxProject;
-
-import javax.swing.Icon;
 
 /**
  * Starts the axx language server ({@code axx lsp}) when a {@code .feature} file opens in an axx
@@ -26,9 +24,6 @@ import javax.swing.Icon;
  * for undefined or ambiguous steps and Gherkin syntax errors. One server serves the whole project.
  */
 public final class AxxLspIntegrationProvider implements LspIntegrationProvider {
-    private static final Icon ICON =
-            IconLoader.getIcon("/icons/axx.svg", AxxLspIntegrationProvider.class);
-
     @Override
     public void fileOpened(
             @NotNull Project project,
@@ -43,6 +38,6 @@ public final class AxxLspIntegrationProvider implements LspIntegrationProvider {
     @Override
     public @NotNull LspClientWidgetItem createWidgetItem(
             @NotNull LspClient client, @Nullable VirtualFile currentFile) {
-        return new LspClientWidgetItem(client, currentFile, ICON, AxxConfigurable.class);
+        return new LspClientWidgetItem(client, currentFile, AxxIcons.AXX, AxxConfigurable.class);
     }
 }

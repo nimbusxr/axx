@@ -31,6 +31,7 @@ class HostProcessTest {
         final BlockingQueue<HostEvent> events = new LinkedBlockingQueue<>();
         final List<String> log = new CopyOnWriteArrayList<>();
         final BlockingQueue<String> exits = new LinkedBlockingQueue<>();
+        volatile boolean killing;
 
         @Override
         public void event(@NotNull HostEvent event) {
@@ -45,6 +46,11 @@ class HostProcessTest {
         @Override
         public void exited(int exitCode, @NotNull String errors) {
             exits.add(exitCode + ": " + errors);
+        }
+
+        @Override
+        public void killing() {
+            killing = true;
         }
 
         HostEvent next() throws InterruptedException {
@@ -110,7 +116,7 @@ class HostProcessTest {
         HostProcess host = new HostProcess(fake, heard);
         host.start(threads);
 
-        host.stop();
+        host.stop(1, TimeUnit.MINUTES);
         assertNull(fake.readInput(), "the host's input is closed");
         assertFalse(host.answer(1, true));
         assertTrue(host.isAlive());
@@ -119,6 +125,44 @@ class HostProcessTest {
         assertTrue(host.waitFor(10, TimeUnit.SECONDS));
         assertEquals("0: ", heard.exit());
         assertFalse(fake.wasKilled());
+        assertFalse(heard.killing);
+    }
+
+    @Test
+    @DisplayName("kills the host that has not ended in the time its stop gave it")
+    void killsWhenOverdue() throws Exception {
+        FakeHostProcess fake = new FakeHostProcess();
+        HostProcess host = new HostProcess(fake, heard);
+        host.start(threads);
+
+        host.stop(50, TimeUnit.MILLISECONDS);
+        assertNull(fake.readInput(), "the host's input is closed");
+        assertEquals("137: ", heard.exit());
+        assertTrue(fake.wasKilled());
+        assertTrue(heard.killing);
+    }
+
+    @Test
+    @DisplayName("lets the host go: its threads end, and nothing waits on it or hears from it")
+    void detaches() throws Exception {
+        FakeHostProcess fake = new FakeHostProcess();
+        HostProcess host = new HostProcess(fake, heard);
+        host.start(threads);
+        fake.out("{\"event\":\"run\",\"run\":1,\"command\":\"axx run\",\"state\":\"queued\"}");
+        assertEquals(HostEvent.QUEUED, heard.next().state());
+
+        host.detach();
+        assertNull(fake.readInput(), "the host's input is closed: it stops on its own");
+        assertFalse(host.answer(1, true));
+        threads.shutdown();
+        assertTrue(
+                threads.awaitTermination(10, TimeUnit.SECONDS),
+                "the threads end while the host still runs");
+        assertTrue(host.isAlive());
+        assertFalse(fake.wasKilled());
+        fake.exit(0);
+        assertNull(heard.exits.poll(10 * HostProcess.POLL_MILLIS, TimeUnit.MILLISECONDS));
+        assertTrue(heard.events.isEmpty());
     }
 
     @Test
