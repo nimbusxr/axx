@@ -151,15 +151,16 @@ jobs:
   test:
     needs: changes
     if: needs.changes.outputs.go == 'true'
-    # The unit tests on each OS, in two parts: the models packs' and the rest (some 5 minutes
-    # each on Windows, whose caches and builds are the slowest). On main, where the tests are only
-    # built, one part builds them all.
+    # The unit tests on each OS, in two parts: the packs' and the rest. (The rest took 10 to 12
+    # minutes on Windows and macOS, whose caches and builds are the slowest, when it had every
+    # pack but the models packs.) On main, where the tests are only built, one part builds them
+    # all.
     name: test (${{ matrix.os }}, ${{ matrix.part }})
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-24.04, macos-latest, windows-latest]
-        part: ${{ fromJSON(needs.changes.outputs.tests == 'true' && '["models", "rest"]' || '["all"]') }}
+        part: ${{ fromJSON(needs.changes.outputs.tests == 'true' && '["packs", "rest"]' || '["all"]') }}
     runs-on: ${{ matrix.os }}
     steps:
       # Windows scans every file the checkout, the cache restore and the build write, which
@@ -187,19 +188,23 @@ jobs:
       - uses: ./.github/actions/go-cache
         with:
           build: test
-      # The tests are built in a step of their own, as the integration job's are. On main, they
-      # are only built: their build cache is what pull requests read.
-      - name: the tests, built
+      - name: the part's packages
         env:
           PART: ${{ matrix.part }}
         run: |
           # (xargs: macOS's bash, 3.2, has no mapfile.)
           case "$PART" in
-            models) go list ./packs/models/... > "$RUNNER_TEMP/packages" ;;
-            rest) go list ./... | grep -v '/packs/models/' > "$RUNNER_TEMP/packages" ;;
+            packs) go list ./packs/... > "$RUNNER_TEMP/packages" ;;
+            rest) go list ./... | grep -v '/packs/' > "$RUNNER_TEMP/packages" ;;
             *) go list ./... > "$RUNNER_TEMP/packages" ;;
           esac
-          xargs go test -race -run '^$' < "$RUNNER_TEMP/packages"
+        shell: bash
+      # On main, the tests are only built: their build cache is what pull requests read. A pull
+      # request's are built as they run: go test links a test binary again each time it runs it,
+      # so a step that built them first had each linked twice.
+      - if: needs.changes.outputs.tests != 'true'
+        name: the tests, built
+        run: xargs go test -race -run '^$' < "$RUNNER_TEMP/packages"
         shell: bash
       - if: needs.changes.outputs.tests == 'true'
         run: xargs scripts/gotest.sh -race < "$RUNNER_TEMP/packages"
