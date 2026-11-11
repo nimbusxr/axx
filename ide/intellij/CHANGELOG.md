@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.5](https://github.com/nimbusxr/axx/compare/intellij-v0.3.4...intellij-v0.3.5) (2026-11-11)
+
+
+### Bug Fixes
+
+* **deps:** every pending update, the majors among them, in one ([#316](https://github.com/nimbusxr/axx/issues/316)) ([ef5f2a5](https://github.com/nimbusxr/axx/commit/ef5f2a5d190f4f0f43325c901ed9a3bc920273d1))
+
 ## [0.3.4](https://github.com/nimbusxr/axx/compare/intellij-v0.3.3...intellij-v0.3.4) (2026-11-11)
 
 
