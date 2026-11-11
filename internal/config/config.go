@@ -50,6 +50,9 @@ type Config struct {
 	// Fmt configures how `axx fmt`, and editors through axx lsp, lay out
 	// feature files.
 	Fmt Fmt `json:"fmt,omitzero"`
+	// Docs configures where the project's people read axx's documentation:
+	// `axx docs serve`'s port, and where the links axx prints lead.
+	Docs Docs `json:"docs,omitzero"`
 	// Profiles are named overlays selected with --profile or AXX_PROFILE.
 	Profiles map[string]json.RawMessage `json:"profiles,omitempty"`
 

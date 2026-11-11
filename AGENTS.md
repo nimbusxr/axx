@@ -182,6 +182,12 @@ the skills instead: `axx skills install`.
   working in every release: an editor asks every axx a project may run on.
 - `internal/selfupdate` (`axx upgrade`): axx's releases on GitHub, what changed between two, and replacing the running axx
   with a release's, checked against its checksums, as `scripts/install.sh` and `install.ps1` do.
+- `internal/docsite` (`axx docs serve`): the docs site on this machine, for a network that cannot reach it: the archive each
+  release publishes beside its binaries (`axx_<version>_docs.tar.gz`, in its checksums.txt; release.yml's `docs-archive`
+  job builds it with `AXX_DOCS_CHANNEL=archive`), unpacked into axx's cache, served as the site's router answers
+  (`docs/cloudfront/router.js`: keep the two alike). Nothing on a page may load from another host (`npm run check:offline`).
+  The links axx prints go through `axxerr.Docs`, which `AXX_DOCS_URL` or axx.yaml's `docs.url` points at a copy: never
+  write the site's address into a message.
 - `internal/cli/pin.go`: the version a project names (`axx: 0.5.0`, read as a line by `config.ReadPin`; ADR 0015). Before anything parses the
   command line, the installed axx gets that release into its cache and hands over to it, and that release does the rest, its pack build included.
   `internal/cli/reminder.go`: the one line, at most weekly, that says a newer release is out. An old axx must always be able to hand over to a

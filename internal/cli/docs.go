@@ -24,7 +24,7 @@ import (
 func newDocsCmd(app *App) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "docs",
-		Short: "Generate reference documentation from the installed version",
+		Short: "axx's documentation: serve it on this machine, or export its reference pages",
 	}
 	var out string
 	var frontmatter bool
@@ -83,7 +83,7 @@ this way).`,
 	cf.register(export)
 	export.Flags().StringVarP(&out, "out", "o", "", "output directory")
 	export.Flags().BoolVar(&frontmatter, "frontmatter", true, "emit YAML front matter (for the docs site)")
-	cmd.AddCommand(export)
+	cmd.AddCommand(export, newDocsServeCmd(app))
 	return cmd
 }
 

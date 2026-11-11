@@ -1,12 +1,15 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: Apache-2.0
 # Checks what `goreleaser release --snapshot` put in dist/ before anything is published:
-# the archives, their checksums and SBOMs, the Homebrew cask, the binaries and the images.
+# the archives, their checksums and SBOMs, the Homebrew cask, the binaries and the images,
+# and the docs archive AXX_DOCS_ARCHIVE names (release.yml's docs-archive job), which the
+# build lists in checksums.txt.
 #
 #   scripts/release-check.sh [dist]
 #
-# SBOMs and images are checked when the build made them (it skips them without syft or
-# docker); set RELEASE_CHECK_STRICT=1 to require them, as the release dry run does.
+# SBOMs, images and the docs archive are checked when the build made them (it skips SBOMs
+# and images without syft or docker); set RELEASE_CHECK_STRICT=1 to require them, as the
+# release dry run does.
 set -euo pipefail
 
 dist=${1:-dist}
@@ -23,6 +26,11 @@ fail() {
 
 version=$(jq -r .version "$dist/metadata.json")
 echo "axx $version in $dist"
+docs=${AXX_DOCS_ARCHIVE:-}
+docsname=
+if [[ -n $docs ]]; then
+	docsname=$(basename "$docs")
+fi
 
 # Archives: one per target, each with the binary and the license files.
 for t in "${targets[@]}"; do
@@ -46,18 +54,41 @@ for t in "${targets[@]}"; do
 	if [[ $files == "$want" ]]; then ok "$(basename "$archive"): $files"; else fail "$(basename "$archive") holds '$files', want '$want'"; fi
 done
 
-# Checksums: every archive and SBOM, and they match.
+# Checksums: every archive and SBOM, and the docs archive, and they match.
 listed=$(awk '{print $2}' "$dist/checksums.txt" | sort)
-want=$(find "$dist" -maxdepth 1 \( -name '*.tar.gz' -o -name '*.zip' -o -name '*.sbom.json' \) -exec basename {} \; | sort)
+want=$({
+	find "$dist" -maxdepth 1 \( -name '*.tar.gz' -o -name '*.zip' -o -name '*.sbom.json' \) -exec basename {} \;
+	if [[ -n $docsname ]]; then echo "$docsname"; fi
+} | sort)
 if [[ -n $listed && $listed == "$want" ]]; then
 	ok "checksums.txt lists the $(wc -l <<<"$listed" | tr -d ' ') archives and SBOMs"
 else
 	fail "checksums.txt lists '$(tr '\n' ' ' <<<"$listed")', want '$(tr '\n' ' ' <<<"$want")'"
 fi
-if (cd "$dist" && sha256sum --check --quiet checksums.txt 2>/dev/null || shasum -a 256 --check --quiet checksums.txt); then
+# The docs archive is not in dist/: its sum is checked below.
+if (cd "$dist" && awk -v docs="$docsname" '$2 != docs' checksums.txt >"${TMPDIR:-/tmp}/release-check-sums.txt" &&
+	{ sha256sum --check --quiet "${TMPDIR:-/tmp}/release-check-sums.txt" 2>/dev/null || shasum -a 256 --check --quiet "${TMPDIR:-/tmp}/release-check-sums.txt"; }); then
 	ok "checksums match"
 else
 	fail "checksums do not match"
+fi
+
+# The docs archive: named for the release, its sum in checksums.txt, and a site at its top,
+# built for the root of a host (no main's docs at /next/), with its search, its 404 page and
+# the pages' Markdown twins for agents.
+if [[ -z $docs ]]; then
+	if [[ $strict == 1 ]]; then fail "no docs archive: AXX_DOCS_ARCHIVE names none"; else echo "  skip  docs archive (AXX_DOCS_ARCHIVE names none)"; fi
+elif [[ ! -f $docs ]]; then
+	fail "no docs archive at $docs"
+else
+	if [[ $docsname == "axx_${version%%-SNAPSHOT*}_docs.tar.gz" ]]; then ok "$docsname is the release's"; else fail "$docsname is not axx_${version%%-SNAPSHOT*}_docs.tar.gz"; fi
+	sum=$({ sha256sum "$docs" 2>/dev/null || shasum -a 256 "$docs"; } | awk '{print $1}')
+	if [[ $(awk -v n="$docsname" '$2 == n {print $1}' "$dist/checksums.txt") == "$sum" ]]; then ok "$docsname's sum is in checksums.txt"; else fail "checksums.txt has not $docsname's sum ($sum)"; fi
+	entries=$(tar tzf "$docs" | sed 's#^\./##')
+	for f in index.html index.md 404.html llms.txt pagefind/pagefind-entry.json guides/install/index.html guides/install.md; do
+		if grep -qx "$f" <<<"$entries"; then ok "$docsname has $f"; else fail "$docsname has no $f"; fi
+	done
+	if grep -q '^next/' <<<"$entries"; then fail "$docsname has main's docs (next/)"; else ok "$docsname has no main's docs"; fi
 fi
 
 # SBOMs: one per archive.

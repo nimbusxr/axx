@@ -76,7 +76,7 @@ func (m *Mapping) Errorf(format string, args ...any) error {
 	}
 	return axxerr.New(CodeMapping, exitcode.Usage, "%s cannot be used: %s", what, fmt.Sprintf(format, args...)).
 		At(m.File, 0, 0).
-		WithHint("fix the mapping; the stubs guide shows what a mapping takes: https://axx.nimbusxr.us/guides/stub-embedded-models/")
+		WithHint("fix the mapping; the stubs guide shows what a mapping takes: %s", axxerr.Docs("/guides/stub-embedded-models/"))
 }
 
 // Load reads the mappings of the folder dir, in its files' order (by path).

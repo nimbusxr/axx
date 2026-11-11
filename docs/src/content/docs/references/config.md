@@ -84,6 +84,7 @@ profiles:                        # overlays: --profile ci, several in order (--p
 | `packs` | settings for packs, keyed by pack name | each pack's page under [Packs](/references/packs/) |
 | `lint` | test-data isolation rules ([keys](#lint)) | [Isolate test data](/guides/isolate-test-data/) |
 | `fixtures` | fixture factory settings | [Fixture factories](/guides/fixture-factories/) |
+| `docs` | `axx docs serve`'s port (`port`), and the docs site Axx's links lead to (`url`) | [Read the docs offline](/guides/read-docs-offline/) |
 | `profiles` | named overlays | [below](#finding-and-merging-files) |
 
 ### services

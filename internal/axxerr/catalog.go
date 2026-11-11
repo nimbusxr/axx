@@ -120,6 +120,18 @@ func init() {
 	add("AXX-E0023", env, "A hook in axx.yaml failed",
 		"A command of axx.yaml's `hooks.commands`, which runs before or after one of axx's commands, exited with a code other than 0, or could not start. A hook that fails before its command stops it; one that fails after a command that succeeded fails it.",
 		"Its output is above the error. Fix what it says, or the hook's `command` in axx.yaml: it runs from the directory of axx.yaml, without a shell unless `shell: true`.")
+	add("AXX-E0025", u, "Invalid AXX_DOCS_URL",
+		"`AXX_DOCS_URL` names the docs site the links axx prints lead to (the docs line of an error), and it is not the address of one: an `http` or `https` address of a host, with a path or none, and no query or fragment.",
+		"Set it to the site's address, like `https://axx-docs.example.com` for an organization's copy or `http://127.0.0.1:7357` for `axx docs serve`, or unset it for https://axx.nimbusxr.us.")
+	add("AXX-E0026", env, "Cannot serve the docs on the port",
+		"`axx docs serve` serves on 127.0.0.1, on port 7357 unless `--port` or axx.yaml's `docs.port` names another, and it could not listen there: another program has the port, most likely. axx never picks another port by itself.",
+		"Pick another port with `--port`, or `docs.port` in axx.yaml for everyone on the project; `--port 0` takes any free one and prints it.")
+	add("AXX-E0027", env, "No docs to serve",
+		"`axx docs serve` serves the docs of the axx that runs, which its release publishes (`axx_<version>_docs.tar.gz`), and could not have them: the axx is a development build, its release is from before releases had their docs, or the download failed or was not what the release published.",
+		"Serve a copy with `--from`: a release's docs archive, or a built site's folder. axx downloads from github.com, or the mirror `AXX_DOWNLOAD_URL` names; a release from before the docs were published is upgraded with `axx upgrade`.")
+	add("AXX-E0028", u, "Not a docs site",
+		"`axx docs serve --from` was given something that is not a docs site: it serves a release's docs archive (`axx_<version>_docs.tar.gz`) or the folder of a built site, with `index.html` at its top.",
+		"Give the archive from the release's assets, or the folder the docs' build writes (`npm run build` in axx's `docs/` writes `docs/dist`).")
 
 	add("AXX-E0100", u, "Config file not found",
 		"The file given with `--config` does not exist or cannot be read.",

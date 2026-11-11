@@ -54,6 +54,10 @@ archives:
 
 checksum:
   name_template: checksums.txt
+  # The release's docs, axx_<version>_docs.tar.gz (release.yml's docs-archive job), which `axx docs
+  # serve` checks against this file. A release names it; a build without it (nightly) has none.
+  extra_files:
+    - glob: '{{ if index .Env "AXX_DOCS_ARCHIVE" }}{{ .Env.AXX_DOCS_ARCHIVE }}{{ end }}'
 
 sboms:
   - artifacts: archive
@@ -97,6 +101,9 @@ release:
   mode: keep-existing
   # every 0.x release is a GitHub pre-release until v1.0.0
   prerelease: "true"
+  # The docs archive (checksum.extra_files, above).
+  extra_files:
+    - glob: '{{ if index .Env "AXX_DOCS_ARCHIVE" }}{{ .Env.AXX_DOCS_ARCHIVE }}{{ end }}'
 
 changelog:
   disable: true

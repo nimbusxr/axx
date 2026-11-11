@@ -2,7 +2,8 @@
 import { docs, withoutBase } from '../lib/docs-build';
 
 // Which docs these are, and a link to the same page in the others: the
-// latest release's at the root, main's at /next/.
+// latest release's at the root, main's at /next/. A release's archive has
+// no others: it says which release it is.
 const page = withoutBase(Astro.url.pathname);
 const release = docs.release || 'latest';
 const current = docs.channel === 'next' ? 'next' : release;
@@ -13,7 +14,9 @@ const other =
 const { home = false } = Astro.props;
 ---
 
-{docs.channel && (home ? (
+{docs.channel === 'archive' ? (
+	!home && <span class="version-switch"><span class="version-current" title="These docs">{release}</span></span>
+) : docs.channel && (home ? (
 	<a href={other.href} title={other.title}>{other.label}</a>
 ) : (
 	<span class="version-switch">

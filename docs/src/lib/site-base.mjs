@@ -1,10 +1,12 @@
 /**
  * Which docs a build is (.github/workflows/docs.yml): the latest release's,
- * at the site's root, or main's, at /next/. A build without AXX_DOCS_CHANNEL
- * (a local one) is neither, at the root.
+ * at the site's root, or main's, at /next/; or a release's archive
+ * (release.yml), which `axx docs serve` and organizations' copies serve at
+ * the root of their host, without main's beside it. A build without
+ * AXX_DOCS_CHANNEL (a local one) is none of them, at the root.
  */
 export function docsBuild(env = process.env) {
-	const channel = env.AXX_DOCS_CHANNEL === 'latest' || env.AXX_DOCS_CHANNEL === 'next' ? env.AXX_DOCS_CHANNEL : '';
+	const channel = ['latest', 'next', 'archive'].includes(env.AXX_DOCS_CHANNEL) ? env.AXX_DOCS_CHANNEL : '';
 	return {
 		channel,
 		// The latest release, like v0.1.1: the one the root's docs are.

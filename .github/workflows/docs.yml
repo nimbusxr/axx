@@ -101,6 +101,9 @@ jobs:
       - run: npm run check:gherkin
       # Every page, and each pack's reference page, must be in the sidebar.
       - run: npm run check:sidebar
+      # Nothing loads from another host: a copy of the site (a release's docs archive, served by
+      # `axx docs serve` or an organization's server) works where the site and CDNs are out of reach.
+      - run: npm run check:offline
       # The CloudFront router: Markdown twins for agents, 301s, index.html (ADR 0005).
       - run: node cloudfront/router_test.mjs
       - if: ${{ !cancelled() }}

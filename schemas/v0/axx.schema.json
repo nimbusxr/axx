@@ -76,6 +76,25 @@
       ],
       "description": "CommandHook runs a command before or after one of axx's commands, from the directory of axx.yaml."
     },
+    "Docs": {
+      "properties": {
+        "port": {
+          "type": "integer",
+          "maximum": 65535,
+          "minimum": 1,
+          "description": "Port is the port `axx docs serve` serves the docs on, on 127.0.0.1: 7357\nunless set. Its --port flag wins."
+        },
+        "url": {
+          "type": "string",
+          "pattern": "^https?://[^/?#]+(/[^?#]*)?$",
+          "format": "uri",
+          "description": "URL is the address of the docs site the links axx prints lead to (the\ndocs line of an error, the help's last line): an organization's copy,\nlike https://axx-docs.example.com, or http://127.0.0.1:7357 for `axx docs\nserve`. The AXX_DOCS_URL environment variable wins; without either, they\nlead to https://axx.nimbusxr.us."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "Docs is where the project's people read axx's documentation: the port `axx docs serve` serves it on, and the copy the links axx prints lead to (an organization's own, or `axx docs serve`'s), for a network that cannot reach the public site."
+    },
     "Duration": {
       "oneOf": [
         {
@@ -924,6 +943,10 @@
     "fmt": {
       "$ref": "#/$defs/Fmt",
       "description": "Fmt configures how `axx fmt`, and editors through axx lsp, lay out\nfeature files."
+    },
+    "docs": {
+      "$ref": "#/$defs/Docs",
+      "description": "Docs configures where the project's people read axx's documentation:\n`axx docs serve`'s port, and where the links axx prints lead."
     },
     "profiles": {
       "additionalProperties": true,

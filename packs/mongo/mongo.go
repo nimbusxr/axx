@@ -17,6 +17,7 @@ import (
 	"go.mongodb.org/mongo-driver/v2/x/mongo/driver/connstring"
 
 	"github.com/nimbusxr/axx/core"
+	"github.com/nimbusxr/axx/internal/axxerr"
 )
 
 // Service is a MongoDB database registered in a scenario.
@@ -124,9 +125,11 @@ func (pack) Manifest() core.Manifest {
 // duplicateKeyHint completes the error of a seed whose document has a key
 // the collection already holds: data stays after a scenario, so it is most
 // often a document of an earlier run, or of another scenario's seed.
-const duplicateKeyHint = "; a document with that key is already there, from an earlier run or another scenario's seed, and a seed never overwrites: " +
-	"give each scenario's documents keys of their own, and to insert the same keys again start from a fresh environment " +
-	"(https://axx.nimbusxr.us/explanations/scenario-isolation/)"
+func duplicateKeyHint() string {
+	return "; a document with that key is already there, from an earlier run or another scenario's seed, and a seed never overwrites: " +
+		"give each scenario's documents keys of their own, and to insert the same keys again start from a fresh environment " +
+		"(" + axxerr.Docs("/explanations/scenario-isolation/") + ")"
+}
 
 func namedSeed(id, expr, example, since string) core.StepDef {
 	return core.StepDef{
@@ -224,7 +227,7 @@ func seed(sc *core.Scenario, svc *Service, file string) error {
 		}
 		if _, err := svc.db.Collection(coll.Key).InsertMany(sc.Context(), []any(items)); err != nil {
 			if driver.IsDuplicateKeyError(err) {
-				return fmt.Errorf("insert into %s: %w%s", coll.Key, err, duplicateKeyHint)
+				return fmt.Errorf("insert into %s: %w%s", coll.Key, err, duplicateKeyHint())
 			}
 			return fmt.Errorf("insert into %s: %w", coll.Key, err)
 		}

@@ -9,12 +9,43 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync/atomic"
 
 	"github.com/nimbusxr/axx/internal/exitcode"
 )
 
-// DocsBase is the root of the documentation site used for error links.
-const DocsBase = "https://axx.nimbusxr.us"
+// DefaultDocsBase is the documentation site axx's links lead to, unless
+// AXX_DOCS_URL or axx.yaml's docs.url names another: a copy an organization
+// hosts, or `axx docs serve`.
+const DefaultDocsBase = "https://axx.nimbusxr.us"
+
+var docsBase atomic.Pointer[string]
+
+// DocsBase is the root of the documentation site axx's links lead to, without
+// a trailing slash.
+func DocsBase() string {
+	if b := docsBase.Load(); b != nil {
+		return *b
+	}
+	return DefaultDocsBase
+}
+
+// SetDocsBase makes base the root of the documentation site axx's links lead
+// to; "" brings back DefaultDocsBase.
+func SetDocsBase(base string) {
+	base = strings.TrimRight(base, "/")
+	if base == "" {
+		docsBase.Store(nil)
+		return
+	}
+	docsBase.Store(&base)
+}
+
+// Docs is the address of a page of the documentation site: path is
+// site-absolute, like /guides/install/.
+func Docs(path string) string {
+	return DocsBase() + path
+}
 
 // Location points at a position in a source file.
 type Location struct {
@@ -69,7 +100,7 @@ func (e *Error) DocsURL() string {
 	if e.Code == "" {
 		return ""
 	}
-	return DocsBase + "/references/error-codes/#" + strings.ToLower(e.Code)
+	return Docs("/references/error-codes/#" + strings.ToLower(e.Code))
 }
 
 // New creates an error with the given code, exit status and message.

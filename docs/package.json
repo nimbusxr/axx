@@ -16,6 +16,7 @@
     "preview": "astro preview",
     "check:gherkin": "node scripts/check-gherkin.mjs",
     "check:sidebar": "node scripts/check-sidebar.mjs",
+    "check:offline": "node scripts/check-offline.mjs dist",
     "astro": "astro"
   },
   "dependencies": {

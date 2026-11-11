@@ -1,5 +1,5 @@
 /** Which docs this build is: see src/lib/site-base.mjs. */
-declare const __AXX_DOCS__: { channel: '' | 'latest' | 'next'; release: string; base: string };
+declare const __AXX_DOCS__: { channel: '' | 'latest' | 'next' | 'archive'; release: string; base: string };
 
 export const docs = __AXX_DOCS__;
 

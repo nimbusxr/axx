@@ -44,6 +44,9 @@ func Run(ctx context.Context, app *App, args []string) int {
 	// Honor --json even when cobra fails before parsing flags (unknown command).
 	// Must follow newRootCmd: flag definition resets the bound variable.
 	app.JSON = slices.Contains(args, "--json")
+	if err := app.useDocsURL(); err != nil {
+		return int(app.reportError(err))
+	}
 	if err := app.useProjectVersion(ctx, args); err != nil {
 		return int(app.reportError(err))
 	}
@@ -164,7 +167,7 @@ A scenario is one behavior: Given the state it starts from, one When, Then what 
 afterwards; a When after a Then is another scenario, and so is each acceptance criterion,
 even when one action shows several. Every scenario uses data of its own.
 
-Docs for people: https://axx.nimbusxr.us`,
+Docs for people: ` + axxerr.DocsBase(),
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {

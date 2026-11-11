@@ -47,7 +47,11 @@ func (a *App) loadConfig(f *configFlags) (*config.Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	return config.Load(config.LoadOptions{Path: a.Config, Profile: f.profile, Properties: props, Settings: f.settings})
+	cfg, err := config.Load(config.LoadOptions{Path: a.Config, Profile: f.profile, Properties: props, Settings: f.settings})
+	if err == nil {
+		a.useProjectDocsURL(cfg)
+	}
+	return cfg, err
 }
 
 // loadEngine loads configuration and assembles packs.
