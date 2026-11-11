@@ -21,6 +21,8 @@ on:
       - examples/**/gradle/**
       - examples/**/gradle.properties
       - extensions/wiremock-openapi/**
+      # the parcel-support example's image (the support-image job)
+      - examples/parcel-support/app/**
       # the cache keys
       - .github/actions/**
   merge_group:
@@ -1220,6 +1222,21 @@ jobs:
           mode: save
           modules: "false"
 
+  # The parcel-support example's image (.github/actions/support-image), kept by main for pull
+  # requests to load in a minute. Main's acceptance job runs only parcels, so without this job
+  # every pull request built the image, for 6 to 9 minutes, in both of parcel-support's jobs.
+  support-image:
+    needs: changes
+    if: github.event_name == 'push' && needs.changes.outputs.examples == 'true'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      # Docker Hub's images through Google's mirror: Docker Hub refuses the runners at times.
+      - uses: ./.github/actions/docker-hub-mirror
+      - uses: ./.github/actions/support-image
+
   release-check:
     needs: changes
     if: needs.changes.outputs.go == 'true' && needs.changes.outputs.tests == 'true'
@@ -1263,11 +1280,11 @@ jobs:
   # A push to main keeps a build cache of its own for each job and OS (go-cache), and GitHub keeps
   # 10 GB of a repository's caches, dropping the least used over that: the browsers' among them,
   # which every web job then downloads again. Main keeps only the newest of each: Go's build
-  # caches by job and OS, its module caches and the browsers by OS. (Docker's layers, Gradle's and
-  # mise's caches look after their own.)
+  # caches by job and OS, its module caches, the browsers by OS, and each image docker-image
+  # saves. (Docker's layers, Gradle's and mise's caches look after their own.)
   caches:
     if: always() && github.event_name == 'push'
-    needs: [hygiene, lint, test, integration, web, mobile, desktop, cross-build, mac-tests, acceptance]
+    needs: [hygiene, lint, test, integration, web, mobile, desktop, cross-build, mac-tests, acceptance, support-image]
     runs-on: ubuntu-24.04
     permissions:
       actions: write # to delete caches
@@ -1278,7 +1295,7 @@ jobs:
           REPO: ${{ github.repository }}
         run: |
           gh cache list -R "$REPO" --ref refs/heads/main --limit 1000 --json id,key,createdAt --jq '
-            map(select(.key | test("^(go-build|go-mod|web-tools|lfs)-")) | .family = (.key | sub("(-[0-9a-f]{8,})+$"; "")))
+            map(select(.key | test("^(go-build|go-mod|web-tools|lfs|docker-image)-")) | .family = (.key | sub("(-[0-9a-f]{8,})+$"; "")))
             | group_by(.family) | map(sort_by(.createdAt) | reverse | .[1:][]) | .[] | "\(.id) \(.key)"' |
             while read -r id key; do
               echo "deleting $key"
