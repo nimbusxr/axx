@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.6.7](https://github.com/nimbusxr/axx/compare/v0.6.6...v0.6.7) (2026-11-12)
+
+
+### Features
+
+* every release publishes its docs as axx_&lt;version&gt;_docs.tar.gz, and axx docs serve serves them on this machine (port 7357, --port or axx.yaml's docs.port), for a network that cannot reach axx.nimbusxr.us ([1391186](https://github.com/nimbusxr/axx/commit/13911861516ebd1d84e3886d9467c36eda70c7a1))
+* the links axx prints (errors' docs lines, explain, lint's SARIF, the help) lead to the docs site AXX_DOCS_URL, or axx.yaml's docs.url, names ([1391186](https://github.com/nimbusxr/axx/commit/13911861516ebd1d84e3886d9467c36eda70c7a1))
+
 ## [0.6.6](https://github.com/nimbusxr/axx/compare/v0.6.5...v0.6.6) (2026-11-11)
 
 
