@@ -416,6 +416,21 @@ func init() {
 	add("AXX-E1000", u, "Coverage without its packs",
 		"A run with coverage (`axx run --coverage`, `run.coverage`) measures the services with a coverage section, with coverage-core and the pack of each service's runtime, and the project lists none of them. Also: a measured service could not be readied for its runtime as it started.",
 		"Add the pack of each service's runtime, which brings coverage-core: `axx pack add coverage-jvm` (or coverage-go, coverage-python, coverage-node).")
+	add("AXX-E1002", env, "No coverage from a measured part",
+		"The minimums apply to the run (a run of every scenario, with minimums in packs.coverage-core), and a part they apply to has no coverage: a service killed after its stop grace before it wrote it, one that exited on its own, one whose command runs no coverage (a Go build without -cover), or a part with minimums the run did not measure. The message says why for each. A run never takes a missing coverage for 0%.",
+		"Give the service the grace to write its coverage as it exits (`stop.grace`), make it exit on its stop signal, and check its coverage section's command; `.axx/logs/services.log` has its output.")
+	add("AXX-E1003", env, "Cannot read a service's coverage",
+		"What a measured service wrote into its coverage folder cannot be read by its runtime's pack: a report that is not lcov or Cobertura, or a runtime's data its tools cannot convert. The message has the tool's words.",
+		"Look at the files in the folder the message names; for a service of the `report` runtime, write lcov (`*.info`) or Cobertura (`*.xml`).")
+	add("AXX-E1004", u, "Invalid coverage minimums",
+		"packs.coverage-core sets a minimum of a metric a part's runtime does not measure (Go measures no branches or functions, coverage.py no functions), or of a metric no part measures.",
+		"Set minimums of what the parts' runtimes measure: lines, for every runtime.")
+	add("AXX-E1005", u, "Coverage of runs that are not the shards of one run",
+		"`axx coverage check` merges the shards of one run with coverage: each shard of the same scenarios (`--shard i/n`, for every i of one n) once, written by the same axx, or one whole run. These are not: a shard is missing or twice, the runs are of other scenarios or another axx, or one ran part of its share (`--tags`, a path).",
+		"Check the shards of one run together, each once: name the folders each shard's run wrote its reports to.")
+	add("AXX-E1006", exitcode.Coverage, "Coverage under a minimum",
+		"`axx coverage check` merged the shards' coverage, and it is under a minimum packs.coverage-core sets. (`axx run --coverage` says so with exit code 6 as well, in its report, not with this error.)",
+		"Write scenarios for the code the report shows no run reached, or lower the minimums.")
 	add("AXX-E1001", u, "Unknown coverage runtime",
 		"A service's `coverage.runtime` names a runtime that none of the project's coverage packs measures. The message lists those they do.",
 		"Add the pack of its runtime (`axx pack add coverage-<runtime>`), or name one of the runtimes listed; `report` is a service that writes lcov or Cobertura itself.")

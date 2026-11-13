@@ -110,7 +110,8 @@ func (a *App) newRunCoverage(e *engine.Engine, f *runFlags, args []string, selec
 
 // partialRun says why a run is not a run of every scenario its
 // configuration selects (run.tags and run.uses), "" when it is: the
-// minimums apply to whole runs only.
+// minimums apply to whole runs only. A shard is one, said apart
+// (runCoverage.shard): axx coverage check checks the shards together.
 func partialRun(f *runFlags, args []string) string {
 	switch {
 	case len(args) > 0:
@@ -119,8 +120,6 @@ func partialRun(f *runFlags, args []string) string {
 		return "it runs the scenarios --tags selects"
 	case len(f.names) > 0:
 		return "it runs the scenarios --name selects"
-	case f.shard != "":
-		return "it is the shard " + f.shard + " of a run: axx coverage check checks the shards together"
 	case f.failFast:
 		return "--fail-fast can stop it before every scenario ran"
 	case f.noStart:

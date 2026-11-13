@@ -64,6 +64,12 @@ type CommandCall struct {
 	// Emit reports the command's result: with --json, data in axx's JSON
 	// envelope; otherwise what human writes.
 	Emit func(data any, human func(w io.Writer) error) error
+	// ProjectDir is the directory of axx.yaml ("" when there is none).
+	ProjectDir string
+	// Settings decodes the pack's section of axx.yaml (packs.<name>) into
+	// v, as a command hook's does. It leaves v as it is when there is no
+	// section, and fails when axx.yaml cannot be read.
+	Settings func(v any) error
 }
 
 // CommandPhase says when a command hook runs: before its command or after it.

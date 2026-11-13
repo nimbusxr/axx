@@ -5890,6 +5890,82 @@
       }
     },
     {
+      "name": "coverage-core",
+      "doc": "Measure the coverage of the system under test as the scenarios exercise it: `axx run --coverage` (or `run.coverage`) measures each service whose `coverage` section in axx.yaml names a runtime, with the pack of that runtime (`coverage-jvm`, `coverage-go`, `coverage-python`, `coverage-node`, which bring this one), and the web apps' JavaScript with `web-coverage`. Once the services stop, it writes the run's reports, `lcov.info` for editors and coverage services and Istanbul's `coverage-final.json` and `coverage-summary.json`, in `.axx/coverage` (`folder`), prints the totals of each part, and compares them with the minimums.\n\n- **Minimums.** `minimum` sets the whole run's, and `parts.\u003cname\u003e.minimum` a part's, in percent of `lines`, `branches` and `functions`. Only a run of every scenario its configuration selects checks them; under one, a run whose scenarios all passed exits 6. `axx coverage check` checks the shards of a run together.\n- **Any language.** A service whose coverage section names the runtime `report` writes lcov (`*.info`) or Cobertura (`*.xml`) into the folder `$AXX_COVERAGE_DIR` names, by its own tools, and the run reads it once it stops.\n- **Paths.** A service in a container names its files as they are in it: `parts.\u003cname\u003e.paths` maps where they were to where they are in the project.\n\n```yaml\nservices:\n  orders:\n    command: java -jar build/libs/orders.jar\n    coverage:\n      runtime: jvm\npacks:\n  coverage-core:\n    minimum: {lines: 80, branches: 70}\n    parts:\n      orders: {minimum: {lines: 85}}\n```",
+      "steps": [],
+      "settings": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "folder": {
+            "type": "string",
+            "description": "The folder the run's coverage reports go to, in the project: lcov.info, coverage-final.json, coverage-summary.json and run.json (default .axx/coverage)."
+          },
+          "minimum": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "lines": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 100
+              },
+              "branches": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 100
+              },
+              "functions": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 100
+              }
+            },
+            "description": "The whole run's minimums, in percent: a run of every scenario under one exits 6."
+          },
+          "parts": {
+            "type": "object",
+            "description": "Settings of each measured part: a service, by its name in axx.yaml, or web, the web apps' JavaScript (web-coverage).",
+            "additionalProperties": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "minimum": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "lines": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 100
+                    },
+                    "branches": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 100
+                    },
+                    "functions": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 100
+                    }
+                  },
+                  "description": "The part's minimums, in percent."
+                },
+                "paths": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "description": "Where the part's files are in the project, by where they were as it ran: {\"/app/\": \"../orders/\"}, the start of a path in its container mapped to a folder relative to the project. The longest start that matches wins; a relative path is relative to the service's dir."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
       "name": "web-core",
       "doc": "Use web apps in real browsers, the way the people who use them do: open pages, fill in forms, click buttons and links, answer dialogs, download files, and check what the page shows.\n\nEach web app is registered with its address:\n\n```gherkin\nGiven the parcels web app with the following properties:\n  | url | http://localhost:8400 |\n```\n\nThe browsers run on the machine that runs axx. The pack drives Playwright 1.64.1, and downloads its browsers the first time a scenario uses each one. The web app can use another `engine` (`firefox`, `webkit`, or the Google Chrome or Microsoft Edge installed on the machine), and present the browser as a `device` (like `iPhone 15`), with a `viewport`, a `locale` and a `timezone`.\n\n- **Pages.** `the {string} page is opened` opens a page of the app; the other steps act on it. A link that opens a new browser tab makes it the current tab, until it is closed.\n- **Finding things.** Fields are found by their label (or, without one, their placeholder), buttons, links, tabs and menu items by their name, and text anywhere on the page, in every frame: the names people see. Names must match exactly. Where a name is not enough, a step takes a selector in its place: `css=…`, `xpath=…` or `testid=…`.\n- **Waiting.** Every step waits for what it needs: an action for its element to be ready, a check for the page to show what it expects, 10 seconds unless `within {duration}` says otherwise. There is no step to sleep.\n- **Dialogs.** A dialog the page opens (an alert, a confirmation, a question) waits for `the dialog is accepted`, dismissed or answered; other steps fail while it is open.\n- **Isolation.** Each scenario has its own browser context: its own cookies and storage, so scenarios run in parallel.\n- **Failures.** A failed step attaches a screenshot of the page. A failed scenario keeps a Playwright trace in `.axx/web/traces`, step by step, with the feature file: open it with `npx playwright show-trace` or at trace.playwright.dev.\n- **Watching.** With `packs.web-core.watch: true` in axx.yaml, the browsers open in windows on your screen: watch the scenarios, and open DevTools. `slowdown` slows them down.\n- **Pausing.** `axx run --pause-at \u003cfile\u003e:\u003cline\u003e` pauses before a step, and `packs.web-core.pauseOnFailure: true` where a scenario fails, in Playwright's Inspector: resume, step through the browser's actions, pick an element, which the Inspector names as steps do (`the \"Register\" button`), or record what you do on the page as steps.\n- **Sessions.** A web app can start signed in: `cookie.\u003cname\u003e`, `header.\u003cname\u003e`, `local storage.\u003ckey\u003e`, `session storage.\u003ckey\u003e`, and `username` and `password` for HTTP authentication, for the app's address only.\n- **Secrets.** Take passwords and tokens from the environment, as `${env:…}`: whatever a step takes from the environment is shown as `********` in failures and traces.\n\nValues in the steps and the table expand `${env:..}` and `${sys:..}`.",
       "params": [

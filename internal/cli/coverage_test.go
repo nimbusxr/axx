@@ -18,14 +18,14 @@ func TestPartialRun(t *testing.T) {
 		args []string
 		want string
 	}{
-		"every scenario": {},
-		"paths":          {args: []string{"features/a.feature:3"}, want: "paths"},
-		"tags":           {f: runFlags{tags: "@smoke"}, want: "--tags"},
-		"names":          {f: runFlags{names: []string{"register"}}, want: "--name"},
-		"a shard":        {f: runFlags{shard: "2/3"}, want: "axx coverage check"},
-		"fail-fast":      {f: runFlags{failFast: true}, want: "--fail-fast"},
-		"no-start":       {f: runFlags{noStart: true}, want: "--no-start"},
-		"blank tags":     {f: runFlags{tags: "  "}},
+		"every scenario":      {},
+		"paths":               {args: []string{"features/a.feature:3"}, want: "paths"},
+		"tags":                {f: runFlags{tags: "@smoke"}, want: "--tags"},
+		"names":               {f: runFlags{names: []string{"register"}}, want: "--name"},
+		"a shard, said apart": {f: runFlags{shard: "2/3"}},
+		"fail-fast":           {f: runFlags{failFast: true}, want: "--fail-fast"},
+		"no-start":            {f: runFlags{noStart: true}, want: "--no-start"},
+		"blank tags":          {f: runFlags{tags: "  "}},
 	} {
 		got := partialRun(&c.f, c.args)
 		if (c.want == "") != (got == "") || !strings.Contains(got, c.want) {

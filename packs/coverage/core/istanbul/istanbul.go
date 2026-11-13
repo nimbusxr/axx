@@ -47,14 +47,14 @@ type BranchMeta struct {
 // FileCoverage is Istanbul's coverage of a file. Istanbul keys its items
 // "0", "1"...: here they are the indexes of the slices.
 type FileCoverage struct {
-	Path         string
-	All          bool
-	StatementMap []Loc
-	S            []int
-	BranchMap    []BranchMeta
-	B            [][]int
-	FnMap        []FnMeta
-	F            []int
+	Path         string       `json:"path"`
+	All          bool         `json:"all,omitempty"`
+	StatementMap []Loc        `json:"statementMap"`
+	S            []int        `json:"s"`
+	BranchMap    []BranchMeta `json:"branchMap"`
+	B            [][]int      `json:"b"`
+	FnMap        []FnMeta     `json:"fnMap"`
+	F            []int        `json:"f"`
 }
 
 // Merge adds another coverage of the same file, as istanbul-lib-coverage's

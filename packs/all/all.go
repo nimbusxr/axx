@@ -58,6 +58,7 @@ import (
 	weba11y "github.com/nimbusxr/axx/packs/web/a11y"
 	webcore "github.com/nimbusxr/axx/packs/web/core"
 	webcoverage "github.com/nimbusxr/axx/packs/web/coverage"
+	coveragecore "github.com/nimbusxr/axx/packs/coverage/core"
 	weblighthouse "github.com/nimbusxr/axx/packs/web/lighthouse"
 	webnetwork "github.com/nimbusxr/axx/packs/web/network"
 	webscreenshots "github.com/nimbusxr/axx/packs/web/screenshots"
@@ -96,6 +97,7 @@ func Packs() map[string]core.Pack {
 		"web-network":      webnetwork.Pack(),
 		"web-lighthouse":   weblighthouse.Pack(),
 		"web-coverage":     webcoverage.Pack(),
+		"coverage-core":    coveragecore.Pack(),
 		"app-core":         appcore.Pack(),
 		"mobile-core":      mobilecore.Pack(),
 		"mobile-android":   mobileandroid.Pack(),

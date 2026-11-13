@@ -82,10 +82,27 @@ func packCommand(app *App, pack string, c core.Command) *cobra.Command {
 		for name, v := range lists {
 			repeated[name] = v()
 		}
-		err := c.Run(&core.CommandCall{
+		call := &core.CommandCall{
 			Context: cmd.Context(), Args: args, Flags: flags, Lists: repeated,
 			Stderr: app.Stderr, Logger: app.logger(), Emit: app.Emit,
-		})
+		}
+		// The project's settings, for a command that reads them: one that
+		// does not runs outside a project as well.
+		cf := &configFlags{}
+		if fl := cmd.Flags().Lookup("profile"); fl != nil {
+			cf.profile = fl.Value.String()
+		}
+		cfg, cerr := app.loadConfig(cf)
+		if cerr == nil && cfg.File != "" {
+			call.ProjectDir = cfg.Dir
+		}
+		call.Settings = func(v any) error {
+			if cerr != nil {
+				return cerr
+			}
+			return packSettings(cfg, pack, v)
+		}
+		err := c.Run(call)
 		var ae *axxerr.Error
 		if err == nil || errors.As(err, &ae) {
 			return err
