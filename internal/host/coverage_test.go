@@ -60,7 +60,7 @@ func TestTheHostMeasuresTheServicesOfARunWithCoverage(t *testing.T) {
 	if len(qs) != 1 {
 		t.Fatalf("asked %d times: a run with coverage is one definition, whatever its folder", len(qs))
 	}
-	if !strings.Contains(qs[0].Proposed.Text, "  GOCOVERDIR=${AXX_COVERAGE_DIR}\n  AGENT=${AXX_COVERAGE_DIR}/agent.jar") {
+	if !strings.Contains(qs[0].Proposed.Text, "  GOCOVERDIR=${AXX_COVERAGE_DIR}\n  AGENT="+filepath.Join("${AXX_COVERAGE_DIR}", "agent.jar")) {
 		t.Errorf("what the person approves:\n%s", qs[0].Proposed.Text)
 	}
 

@@ -162,11 +162,13 @@ type CoverageEnd struct {
 	CoverageService
 	// Status describes how its main process ended ("exited with code 0");
 	// Killed is set when axx killed it after its grace, before it could
-	// write what it writes as it exits; OnItsOwn, when it exited before axx
-	// stopped it.
-	Status   string
-	Killed   bool
-	OnItsOwn bool
+	// write what it writes as it exits; NoStopSignal, when axx could give it
+	// no stop signal first and killed it at once (Windows has none for a
+	// process); OnItsOwn, when it exited before axx stopped it.
+	Status       string
+	Killed       bool
+	NoStopSignal bool
+	OnItsOwn     bool
 	// Unmeasured says why a service the run was to measure was not: it ran
 	// in debug mode, say.
 	Unmeasured string

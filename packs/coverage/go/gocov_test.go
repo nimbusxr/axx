@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	goruntime "runtime"
 	"strings"
 	"testing"
 
@@ -50,6 +51,9 @@ func TestAGoServicesCoverage(t *testing.T) {
 	write(t, filepath.Join(mod, "go.mod"), "module example.com/shipments\n\ngo 1.21\n")
 	write(t, filepath.Join(mod, "main.go"), shipments)
 	bin := filepath.Join(t.TempDir(), "shipments")
+	if goruntime.GOOS == "windows" {
+		bin += ".exe" // go build -o adds none, and Windows runs only an .exe
+	}
 	build := exec.Command(goBin, "build", "-cover", "-o", bin, ".")
 	build.Dir, build.Env = mod, append(os.Environ(), "GOFLAGS=", "GOWORK=off", "CGO_ENABLED=0")
 	if out, err := build.CombinedOutput(); err != nil {

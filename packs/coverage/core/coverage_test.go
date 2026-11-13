@@ -156,6 +156,7 @@ func TestKeepOnly(t *testing.T) {
 func TestSilence(t *testing.T) {
 	for want, end := range map[string]core.CoverageEnd{
 		"killed it after its stop grace": {Killed: true, Status: "was killed (signal: killed)"},
+		"Run it in a container":          {Killed: true, NoStopSignal: true, Status: "exited with code 1"},
 		"exited on its own":              {OnItsOwn: true, Status: "exited with code 1"},
 		"check how its coverage section": {Status: "exited with code 0"},
 	} {

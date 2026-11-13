@@ -171,7 +171,7 @@ func (m *Manager) stopService(ctx context.Context, a *service) error {
 	p := a.proc
 	if p == nil {
 		m.mu.Lock()
-		m.recordExit(a, false)
+		m.recordExit(a, false, false)
 		m.mu.Unlock()
 		return nil // attached: not ours to stop
 	}
@@ -181,7 +181,7 @@ func (m *Manager) stopService(ctx context.Context, a *service) error {
 	if p.group.Alive() {
 		m.log.Info("stopping service", "service", name)
 	}
-	killed, err := terminate(ctx, p.group, a.cfg.Stop.Signal, a.cfg.Stop.Grace.Or(defaultGrace))
+	killed, signalled, err := terminate(ctx, p.group, a.cfg.Stop.Signal, a.cfg.Stop.Grace.Or(defaultGrace))
 	if err != nil {
 		_, pgid := p.group.IDs()
 		errs = append(errs, envErr(CodeStopFailed, "service %s could not be stopped: %v", name, err).
@@ -207,7 +207,7 @@ func (m *Manager) stopService(ctx context.Context, a *service) error {
 	_ = os.Remove(PropertiesFile(m.opts.PropertiesDir, name))
 	m.mu.Lock()
 	a.cleaned = true
-	m.recordExit(a, killed)
+	m.recordExit(a, killed, !signalled)
 	// A failed cleanup stays in the state file, for `axx down` to run again.
 	m.unclean = slices.DeleteFunc(m.unclean, func(sa stateService) bool { return sa.Name == name })
 	if cleanupErr != nil {

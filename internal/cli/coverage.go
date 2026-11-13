@@ -197,7 +197,7 @@ func (c *runCoverage) conclude(ctx context.Context, e *engine.Engine, exits []li
 		}
 		end := core.CoverageEnd{
 			CoverageService: coverageService(e.Config, s, c.dir),
-			Status:          x.Status, Killed: x.Killed, OnItsOwn: x.OnItsOwn, Unmeasured: x.Unmeasured,
+			Status:          x.Status, Killed: x.Killed, NoStopSignal: x.NoStopSignal, OnItsOwn: x.OnItsOwn, Unmeasured: x.Unmeasured,
 		}
 		end.Dir = x.CoverageDir
 		if x.Unmeasured != "" && run.Partial == "" {

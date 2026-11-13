@@ -164,6 +164,8 @@ func (pack) Conclude(ctx context.Context, s *core.Suite, run core.CoverageRun) (
 // silence says why a measured service wrote no coverage, from how it ended.
 func silence(end core.CoverageEnd) string {
 	switch {
+	case end.NoStopSignal:
+		return "axx could give it no stop signal, and ended it at once, before it wrote its coverage (" + end.Status + "): Windows has none for a process. Run it in a container, which Docker stops with one, to measure it"
 	case end.Killed:
 		return "axx killed it after its stop grace, before it wrote its coverage (" + end.Status + "): give it more (stop.grace), or make it exit on " + "its stop signal"
 	case end.OnItsOwn:

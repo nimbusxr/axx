@@ -52,6 +52,10 @@ A service without a `coverage` section runs as usual and isn't measured.
 
 Axx gives a measured service what its runtime needs, as environment variables, when the run starts it. Most runtimes write what ran when the process exits. So when the run stops the service, the service must exit on its stop signal, and not be killed once its grace runs out (`stop.grace`). If a service wrote nothing, the run says why, from how the service ended: for example, that it was killed, or that it exited before the run stopped it.
 
+:::caution[On Windows]
+Windows has no stop signal for a process. Axx ends a service that runs on a Windows machine at once, so the service can't write its coverage. To measure it on Windows, run it in a container: Docker stops a container's processes with a stop signal, inside Linux. A service that writes its own report (`report`) is measured on Windows if it writes the report before axx stops it.
+:::
+
 The `coverage` section can change how the service starts when the run measures it:
 
 | Field | What it does |

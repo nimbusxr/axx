@@ -3,6 +3,7 @@ package lifecycle
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -65,7 +66,7 @@ func TestCoverage(t *testing.T) {
 				t.Fatal(err)
 			}
 			got := strings.NewReplacer(c.opts.CoverageDir, "<run>", filepath.Join(h.dir, ".axx", "coverage", "raw", "unmeasured"), "<unmeasured>").Replace(strings.TrimSpace(string(b)))
-			if got != c.want {
+			if got != filepath.FromSlash(c.want) {
 				t.Errorf("the service got\n  %s\nwant\n  %s", got, c.want)
 			}
 			exits := h.Exits()
@@ -79,7 +80,10 @@ func TestCoverage(t *testing.T) {
 			if c.measured && e.CoverageDir != filepath.Join(c.opts.CoverageDir, "api") {
 				t.Errorf("its coverage folder: %s", e.CoverageDir)
 			}
-			if e.Killed || e.OnItsOwn || e.Status == "" {
+			// Windows has no stop signal for a process: axx ends it at once,
+			// and says so.
+			windows := runtime.GOOS == "windows"
+			if e.Killed != windows || e.NoStopSignal != windows || e.OnItsOwn || e.Status == "" {
 				t.Errorf("it stopped when asked: %+v", e)
 			}
 		})

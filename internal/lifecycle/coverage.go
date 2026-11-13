@@ -44,8 +44,11 @@ type Exit struct {
 	// "was killed (signal: killed)".
 	Status string `json:"status,omitempty"`
 	// Killed is set when axx killed it after its grace: it had no chance to
-	// write what it writes as it exits.
-	Killed bool `json:"killed,omitempty"`
+	// write what it writes as it exits. NoStopSignal, when axx could give it
+	// no stop signal first, and killed it at once: Windows has none for a
+	// process.
+	Killed       bool `json:"killed,omitempty"`
+	NoStopSignal bool `json:"noStopSignal,omitempty"`
 	// OnItsOwn is set when it exited before axx stopped it.
 	OnItsOwn bool `json:"onItsOwn,omitempty"`
 	// Measured is set when the run measured its coverage; CoverageDir is
@@ -107,14 +110,14 @@ func (m *Manager) coverageEnv(a *service) ([]string, error) {
 }
 
 // recordExit keeps how a ended (under m.mu).
-func (m *Manager) recordExit(a *service, killed bool) {
+func (m *Manager) recordExit(a *service, killed, noStopSignal bool) {
 	e := Exit{Service: a.cfg.Name}
 	if a.cfg.Coverage != nil {
 		e.CoverageDir = m.coverageFolder(a)
 	}
 	e.Measured, e.Unmeasured = m.measured(a)
 	if p := a.proc; p != nil {
-		e.Status, e.Killed = describeExit(p.state), killed
+		e.Status, e.Killed, e.NoStopSignal = describeExit(p.state), killed, killed && noStopSignal
 		e.OnItsOwn = p.exitedOnItsOwn.Load()
 	}
 	m.exits = append(m.exits, e)
