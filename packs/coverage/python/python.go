@@ -46,8 +46,20 @@ type pack struct{}
 func (pack) Manifest() core.Manifest {
 	return core.Manifest{
 		Name: Name, Namespace: Name, Doc: packDoc, Requires: []string{coveragecore.Name},
-		Steps: []core.StepDef{},
+		Steps:  []core.StepDef{},
+		Checks: []core.Check{{Name: "Python 3.11+ (coverage-python)", Run: checkPython}},
 	}
+}
+
+// checkPython finds the Python axx's coverage.py runs on, for axx doctor: a
+// run with coverage needs it to read the Python services' coverage, other
+// runs do not.
+func checkPython(ctx context.Context) core.CheckResult {
+	py, err := python(ctx)
+	if err != nil {
+		return core.CheckResult{Status: core.CheckWarn, Detail: "no Python 3.11 or later on this machine: a run with coverage cannot read the Python services' coverage", Hint: "install Python 3.11 or later, as python3 on PATH"}
+	}
+	return core.CheckResult{Status: core.CheckOK, Detail: py}
 }
 
 const packDoc = `Measure the coverage of Python services in a run with coverage (` + "`axx run --coverage`" + `): a service whose coverage section names the runtime ` + "`python`" + `. Its ` + "`coverage.command`" + ` runs it under coverage.py, installed where it runs (` + "`python -m coverage run -m parcels`" + `), and axx gives it its settings through ` + "`COVERAGE_RCFILE`" + `: its data goes to the service's folder, a file per process, branches included, written as it exits, on SIGTERM too. They replace the project's own coverage.py settings in a run with coverage. Axx reads the data with a coverage.py of its own (` + coverageVersion + `, downloaded once from PyPI, or the index ` + "`PIP_INDEX_URL`" + ` names, and run with no setting or plugin of the project's), which needs Python 3.11 or later on the machine that runs axx. It counts lines, branches and functions. It builds on ` + "`coverage-core`" + `.

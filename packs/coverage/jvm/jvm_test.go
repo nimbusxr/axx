@@ -76,3 +76,24 @@ func TestNoExecIsNoCoverage(t *testing.T) {
 		t.Errorf("%v %v", files, err)
 	}
 }
+
+// axx doctor says whether the machine has the Java JaCoCo's CLI runs on.
+func TestCheckJava(t *testing.T) {
+	t.Setenv("JAVA_HOME", "")
+	t.Setenv("PATH", t.TempDir())
+	if r := checkJava(context.Background()); r.Status != core.CheckWarn || !strings.Contains(r.Detail, "no Java") {
+		t.Errorf("without Java: %+v", r)
+	}
+	home := t.TempDir()
+	java := filepath.Join(home, "bin", "java")
+	if err := os.MkdirAll(filepath.Dir(java), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(java, nil, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("JAVA_HOME", home)
+	if r := checkJava(context.Background()); r.Status != core.CheckOK || r.Detail != java {
+		t.Errorf("with JAVA_HOME: %+v", r)
+	}
+}

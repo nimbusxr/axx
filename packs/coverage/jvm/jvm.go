@@ -40,7 +40,18 @@ func (pack) Manifest() core.Manifest {
 	return core.Manifest{
 		Name: Name, Namespace: Name, Doc: packDoc, Requires: []string{coveragecore.Name},
 		ConfigSchema: []byte(configSchema), Steps: []core.StepDef{},
+		Checks: []core.Check{{Name: "Java (coverage-jvm)", Run: checkJava}},
 	}
+}
+
+// checkJava finds the Java JaCoCo's CLI runs on, for axx doctor: a run with
+// coverage needs it to read the JVM services' coverage, other runs do not.
+func checkJava(context.Context) core.CheckResult {
+	java, err := javaProgram()
+	if err != nil {
+		return core.CheckResult{Status: core.CheckWarn, Detail: "no Java on this machine: a run with coverage cannot read the JVM services' coverage", Hint: "install a JDK or JRE, with JAVA_HOME set or java on PATH"}
+	}
+	return core.CheckResult{Status: core.CheckOK, Detail: java}
 }
 
 const packDoc = `Measure the coverage of JVM services, Kotlin, Java, Scala or Groovy, in a run with coverage (` + "`axx run --coverage`" + `): a service whose coverage section names the runtime ` + "`jvm`" + `. Axx gives it JaCoCo's agent through ` + "`JAVA_TOOL_OPTIONS`" + `, which every JVM it starts reads, and the agent writes what ran as the JVM exits (on its stop signal: a JVM runs its shutdown, unless killed). Axx reads it with JaCoCo's CLI against the service's classes: those of its build, ` + "`build/classes/*/main`" + ` (Gradle) or ` + "`target/classes`" + ` (Maven) in its ` + "`dir`" + `, or the folders and jars ` + "`parts.<name>.classes`" + ` names, which must be the classes it ran. It counts lines, branches and methods, as JaCoCo does: Kotlin's generated code left out, an inline function counted where it is called. It needs Java on the machine that runs axx; JaCoCo ` + jacocoVersion + `, from Maven Central (or ` + "`AXX_MAVEN_URL`" + `), is downloaded once. It builds on ` + "`coverage-core`" + `.
