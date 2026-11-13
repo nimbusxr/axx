@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.3.8](https://github.com/nimbusxr/axx/compare/intellij-v0.3.7...intellij-v0.3.8) (2026-11-13)
+
+
+### Features
+
+* axx doctor says whether the machine has the Java and Python the coverage packs read with ([b13cf26](https://github.com/nimbusxr/axx/commit/b13cf26980fb77097a1f93d4a64dd4dee6703b60))
+* axx run --coverage measures how much of the services under test the scenarios run, and writes one lcov and Istanbul report of the whole run ([b13cf26](https://github.com/nimbusxr/axx/commit/b13cf26980fb77097a1f93d4a64dd4dee6703b60))
+* axx up --coverage keeps services measured, JVM and Node.js run by run, Go and Python until axx down ([b13cf26](https://github.com/nimbusxr/axx/commit/b13cf26980fb77097a1f93d4a64dd4dee6703b60))
+* coverage minimums in axx.yaml, for the whole run and per service; a run of every scenario under one exits 6, and axx coverage check checks CI's shards together ([b13cf26](https://github.com/nimbusxr/axx/commit/b13cf26980fb77097a1f93d4a64dd4dee6703b60))
+* **host:** the axx host measures a run's coverage, approved as a definition of its own ([b13cf26](https://github.com/nimbusxr/axx/commit/b13cf26980fb77097a1f93d4a64dd4dee6703b60))
+* **ide:** Run with Coverage in IntelliJ and VS Code shows a run's coverage in the editor, for every language ([b13cf26](https://github.com/nimbusxr/axx/commit/b13cf26980fb77097a1f93d4a64dd4dee6703b60))
+* the coverage-jvm, coverage-go, coverage-python and coverage-node packs measure JVM, Go, Python and Node.js services, on the machine or in containers, and coverage-core reads the lcov or Cobertura any other service writes ([b13cf26](https://github.com/nimbusxr/axx/commit/b13cf26980fb77097a1f93d4a64dd4dee6703b60))
+* **web-coverage:** in a run with coverage, the web apps' JavaScript is part of the run's report ([b13cf26](https://github.com/nimbusxr/axx/commit/b13cf26980fb77097a1f93d4a64dd4dee6703b60))
+
 ## [0.3.7](https://github.com/nimbusxr/axx/compare/intellij-v0.3.6...intellij-v0.3.7) (2026-11-12)
 
 
