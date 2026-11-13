@@ -99,6 +99,7 @@ events as lines of JSON and reads the editor's answers on its standard input.`,
 				Report:   ide,
 				Version:  version.Get().Version,
 				Logger:   app.logger(),
+				Launch:   hostLaunch(),
 			})
 			if err != nil {
 				return err

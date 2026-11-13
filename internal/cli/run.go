@@ -463,14 +463,19 @@ func (a *App) startApps(ctx context.Context, e *engine.Engine, f *runFlags, pick
 		out = io.MultiWriter(logFile, a.Stderr)
 	}
 	if ann != nil {
-		if cov != nil {
-			fmt.Fprintln(a.Stderr, "warning: the axx host starts the services, and does not measure their coverage")
-		}
 		req, err := a.hostRequest(cfg, f.cf, names)
 		if err != nil {
 			return nil, nil, err
 		}
 		req.Attach = f.attach
+		if cov != nil {
+			// The host measures them into the run's folder, in the project.
+			rel, err := filepath.Rel(cfg.Dir, cov.dir)
+			if err != nil {
+				return nil, nil, err
+			}
+			req.Coverage, req.CoverageDir = true, filepath.ToSlash(rel)
+		}
 		switch f.debug {
 		case "":
 		case "*":

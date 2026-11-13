@@ -16,7 +16,7 @@ import (
 
 // Protocol is the version of what a run and the host send each other: one
 // JSON object per line, over one TCP connection per run.
-const Protocol = 1
+const Protocol = 2
 
 // Announcement is what a host writes to .axx/host.json for the runs of its
 // project to find it.
@@ -75,6 +75,11 @@ type Request struct {
 	Attach   []string `json:"attach,omitempty"`
 	Debug    []string `json:"debug,omitempty"`
 	DebugAll bool     `json:"debugAll,omitempty"`
+	// Coverage asks the host to measure the coverage of the services with a
+	// coverage section (axx run --coverage), into CoverageDir: the run's
+	// coverage folder, under the project's .axx/coverage/raw.
+	Coverage    bool   `json:"coverage,omitempty"`
+	CoverageDir string `json:"coverageDir,omitempty"`
 }
 
 // Message types the host sends a run.
@@ -117,6 +122,10 @@ type Message struct {
 	Told   []lifecycle.ToldValues `json:"told,omitempty"`
 	Error  *Failure               `json:"error,omitempty"`
 	Result *Result                `json:"result,omitempty"`
+	// Exits are, once the services stopped, how they ended, their coverage
+	// folders relative to the project: what the run reads their coverage
+	// with.
+	Exits []lifecycle.Exit `json:"exits,omitempty"`
 }
 
 // Failure is an error the host reports, with its code, hint and exit code.

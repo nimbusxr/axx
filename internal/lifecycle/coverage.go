@@ -39,22 +39,22 @@ func (m *Manager) coverageFolder(a *service) string {
 // Exit is how a service the run started ended, for what a service writes as
 // it exits (its coverage) and for saying why it wrote nothing.
 type Exit struct {
-	Service string
+	Service string `json:"service"`
 	// Status describes how its main process ended: "exited with code 0",
 	// "was killed (signal: killed)".
-	Status string
+	Status string `json:"status,omitempty"`
 	// Killed is set when axx killed it after its grace: it had no chance to
 	// write what it writes as it exits.
-	Killed bool
+	Killed bool `json:"killed,omitempty"`
 	// OnItsOwn is set when it exited before axx stopped it.
-	OnItsOwn bool
+	OnItsOwn bool `json:"onItsOwn,omitempty"`
 	// Measured is set when the run measured its coverage; CoverageDir is
 	// its coverage folder, for a service with a coverage section.
-	Measured    bool
-	CoverageDir string
+	Measured    bool   `json:"measured,omitempty"`
+	CoverageDir string `json:"coverageDir,omitempty"`
 	// Unmeasured says why a service the run was to measure was not: it ran
 	// in debug mode, or someone else started it.
-	Unmeasured string
+	Unmeasured string `json:"unmeasured,omitempty"`
 }
 
 // Exits are how the services this run started ended, once Stop has stopped

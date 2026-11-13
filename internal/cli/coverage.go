@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -16,6 +17,7 @@ import (
 	"github.com/nimbusxr/axx/internal/engine"
 	"github.com/nimbusxr/axx/internal/exitcode"
 	"github.com/nimbusxr/axx/internal/feature"
+	"github.com/nimbusxr/axx/internal/host"
 	"github.com/nimbusxr/axx/internal/lifecycle"
 )
 
@@ -202,4 +204,33 @@ func (c *runCoverage) conclude(ctx context.Context, e *engine.Engine, exits []li
 		run.Services = append(run.Services, end)
 	}
 	return c.concluder.Conclude(ctx, e.Suite, run)
+}
+
+// hostLaunch readies, for the axx host, the services the runs it serves
+// measure: through the coverage pack this axx was built with, with each
+// run's own pack settings. Nil without one.
+func hostLaunch() host.Launch {
+	var l core.CoverageLauncher
+	for _, p := range engine.CompiledPacks() {
+		if cl, ok := p.Pack.(core.CoverageLauncher); ok {
+			l = cl
+			break
+		}
+	}
+	if l == nil {
+		return nil
+	}
+	return func(ctx context.Context, cfg *config.Config, s core.CoverageService) ([]string, error) {
+		settings := func(pack string, v any) error {
+			raw := cfg.Packs[pack]
+			if len(raw) == 0 {
+				return nil
+			}
+			if err := json.Unmarshal(raw, v); err != nil {
+				return fmt.Errorf("packs.%s: %w", pack, err)
+			}
+			return nil
+		}
+		return l.LaunchCoverage(ctx, settings, s)
+	}
 }
