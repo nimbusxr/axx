@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 # axx: IntelliJ plugin
 
-The IDE companion for Axx. It does five things:
+The IDE companion for Axx. It does six things:
 
 - **Feature files.** Axx's steps are defined in Go, inside the `axx` binary, so the IDE cannot
   find them on its own: every step shows as undefined, with no completion or docs. The plugin runs
@@ -9,6 +9,8 @@ The IDE companion for Axx. It does five things:
   [Feature files](#feature-files).
 - **Running scenarios.** Run or debug a feature, a scenario or one example from the gutter, and
   see the results in the IDE's test runner. See [Running scenarios](#running-scenarios).
+- **Coverage.** Run with Coverage, and see which lines of your services the scenarios ran, in the
+  editor's gutters and the Coverage view. See [Run with Coverage](#run-with-coverage).
 - **Watching the browsers.** Run web scenarios with *Watch* and see their browsers in windows on
   your desktop as they go, *Debug* them in Playwright's Inspector, and open the Playwright traces
   and videos scenarios keep from the test runner. See
@@ -145,6 +147,22 @@ difference* with the expected and actual values; skipped and pending steps show 
 Double-click a node, or use *Jump to Source*, to go to its line. *Rerun Failed Tests* runs
 `axx run` again with the lines of the scenarios that failed.
 
+### Run with Coverage
+
+*Run with Coverage* (next to Run and Debug) runs an axx run configuration with
+`axx run --coverage`. Axx measures the services whose `coverage` section in `axx.yaml` names
+their runtime, with the coverage packs (`coverage-jvm`, `coverage-go`, `coverage-python`,
+`coverage-node`), and the web apps' JavaScript, with `web-coverage`. When the run ends, the IDE
+shows which lines of those services' files the scenarios ran: in the editor's gutters, in the
+project view and in the Coverage tool window, for every language at once.
+
+- The plugin reads the run's lcov report, which the run names as it ends
+  (`[AXX-IDE] coverage path=<file>`, usually `.axx/coverage/lcov.info`). A run that stops before
+  it measures anything names none, and the IDE shows no coverage for it, never an earlier run's.
+- The report names the files relative to the axx project, the folder of `axx.yaml`.
+- It needs an IDE with the platform's coverage, as IntelliJ IDEA has. Without it, the plugin
+  works as before, without Run with Coverage.
+
 ### Debugging step code
 
 *Debug* on an axx run configuration runs `axx run --debug-steps`: Axx runs under Delve and waits
@@ -212,6 +230,7 @@ For scenarios that use Axx's `web-core` pack. Every axx run configuration the pl
 | `[AXX-IDE] trace-viewer dir=<folder>` | Keeps the folder of the trace viewer's files, for the traces that follow. |
 | `[AXX-IDE] trace path=<file> location=<feature>:<line>` | Adds the trace to the scenario at that line. |
 | `[AXX-IDE] video path=<file> location=<feature>:<line>` | Adds the video to the scenario at that line. |
+| `[AXX-IDE] coverage path=<file>` | The run's coverage report, in lcov: Run with Coverage shows it (see [Run with Coverage](#run-with-coverage)). |
 | `[AXX-IDE] paused url=<url> location=<feature>:<line> recording=<file>` | A scenario paused. While it is, the plugin highlights the step under the caret (`POST <url>highlight`) and runs steps (`POST <url>run`). It gets the recorded steps from `GET <url>recorded` until the run ends, then from the `recording` file. |
 | `[AXX-IDE] resumed url=<url>` | The scenario at `url` resumed. |
 

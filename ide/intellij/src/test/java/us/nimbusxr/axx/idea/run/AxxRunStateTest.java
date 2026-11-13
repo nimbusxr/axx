@@ -30,6 +30,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.debugger.RemoteDebugConfiguration;
 
 import us.nimbusxr.axx.idea.AxxSettings;
+import us.nimbusxr.axx.idea.coverage.AxxCoverageProgramRunner;
 import us.nimbusxr.axx.idea.gherkin.AxxStepBreakpointType;
 
 import java.nio.file.Files;
@@ -181,6 +182,21 @@ public class AxxRunStateTest extends HeavyPlatformTestCase {
                         "--slowdown",
                         "300ms",
                         "features/orders.feature:7"),
+                commandLine(environment).getParametersList().getList());
+    }
+
+    public void testRunWithCoverageMeasuresTheServices() throws Exception {
+        configuration.setTargets(List.of("features/orders.feature:7"));
+        configuration.setWorkingDirectory(suite.toString());
+        Executor coverage = ExecutorRegistry.getInstance().getExecutorById("Coverage");
+        assertNotNull("Run with Coverage is not registered", coverage);
+        assertInstanceOf(
+                ProgramRunner.getRunner("Coverage", configuration), AxxCoverageProgramRunner.class);
+
+        ExecutionEnvironment environment =
+                ExecutionEnvironmentBuilder.create(getProject(), coverage, configuration).build();
+        assertEquals(
+                List.of("run", "--format", "teamcity", "features/orders.feature:7", "--coverage"),
                 commandLine(environment).getParametersList().getList());
     }
 

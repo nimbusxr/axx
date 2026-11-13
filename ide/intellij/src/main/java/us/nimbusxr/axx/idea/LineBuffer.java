@@ -10,7 +10,7 @@ import java.util.List;
  * Reassembles complete lines from console output that arrives in arbitrary chunks, so a marker line
  * split across two chunks is still recognized. Not thread-safe; use one per output stream.
  */
-final class LineBuffer {
+public final class LineBuffer {
     /** An unterminated line longer than this is dropped rather than buffered without bound. */
     static final int MAX_LINE_LENGTH = 64 * 1024;
 
@@ -23,7 +23,7 @@ final class LineBuffer {
      * @return the lines this chunk completed, without their line terminators
      */
     @NotNull
-    List<String> append(@NotNull String chunk) {
+    public List<String> append(@NotNull String chunk) {
         List<String> lines = new ArrayList<>();
         int start = 0;
         for (int i = 0; i < chunk.length(); i++) {

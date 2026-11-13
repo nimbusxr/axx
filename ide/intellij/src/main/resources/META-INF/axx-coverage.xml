@@ -1,0 +1,10 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<!-- Run with Coverage: the coverage a run with coverage measures (axx run with its coverage
+     option), in IDEs with the platform's coverage. -->
+<idea-plugin>
+  <extensions defaultExtensionNs="com.intellij">
+    <coverageEngine implementation="us.nimbusxr.axx.idea.coverage.AxxCoverageEngine"/>
+    <coverageRunner implementation="us.nimbusxr.axx.idea.coverage.AxxCoverageRunner"/>
+    <programRunner implementation="us.nimbusxr.axx.idea.coverage.AxxCoverageProgramRunner"/>
+  </extensions>
+</idea-plugin>

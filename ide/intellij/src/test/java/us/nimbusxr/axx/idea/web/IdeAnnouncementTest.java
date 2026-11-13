@@ -33,6 +33,19 @@ class IdeAnnouncementTest {
     }
 
     @Test
+    @DisplayName("parses the report of a run's coverage")
+    void parsesCoverage() {
+        IdeAnnouncement coverage =
+                IdeAnnouncement.parse("[AXX-IDE] coverage path=/work/parcels/.axx/coverage/lcov.info");
+        assertNotNull(coverage);
+        assertEquals(Kind.COVERAGE, coverage.kind());
+        assertEquals(Path.of("/work/parcels/.axx/coverage/lcov.info"), coverage.path());
+        assertNull(coverage.file());
+        assertNull(IdeAnnouncement.parse("[AXX-IDE] coverage path=.axx/coverage/lcov.info"));
+        assertNull(IdeAnnouncement.parse("[AXX-IDE] coverage"));
+    }
+
+    @Test
     @DisplayName("parses a trace and a video with their scenario's location")
     void parsesFiles() {
         IdeAnnouncement trace =

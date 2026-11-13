@@ -19,16 +19,19 @@ import java.util.regex.Pattern;
  * [AXX-IDE] trace-viewer dir=/cache/axx/web/.../traceViewer
  * [AXX-IDE] trace path=/work/parcels/.axx/web/traces/x.zip location=features/shop.feature:42
  * [AXX-IDE] video path=/work/parcels/.axx/web/videos/x.webm location=features/shop.feature:42
+ * [AXX-IDE] coverage path=/work/parcels/.axx/coverage/lcov.info
  * </pre>
  *
  * <p>The lines follow the rules of {@link IdeLine}; spaces in values are written {@code %20}.
  * {@code trace-viewer} needs {@code dir}, the absolute path of the folder of the trace viewer's
  * files, which the IDE serves itself. {@code trace} and {@code video} need an absolute {@code path}
  * and the {@code location} of the scenario that kept the file: its feature file, relative to the
- * project directory, and line.
+ * project directory, and line. {@code coverage} needs the absolute {@code path} of the lcov report
+ * of the run's coverage.
  *
  * @param kind what the line announces
- * @param path the file, for a trace or video; the folder of its files, for the trace viewer
+ * @param path the file, for a trace, video or coverage report; the folder of its files, for the
+ *     trace viewer
  * @param file the scenario's feature file, for a trace or video; null otherwise
  * @param line the scenario's line, for a trace or video; 0 otherwise
  */
@@ -44,7 +47,9 @@ public record IdeAnnouncement(
         /** A Playwright trace a scenario kept. */
         TRACE("trace"),
         /** A video of a browser tab a scenario kept. */
-        VIDEO("video");
+        VIDEO("video"),
+        /** The lcov report of a run's coverage (a run with coverage, or web-coverage's). */
+        COVERAGE("coverage");
 
         private final String token;
 
@@ -78,6 +83,9 @@ public record IdeAnnouncement(
             return dir != null ? new IdeAnnouncement(kind, dir, null, 0) : null;
         }
         Path path = absolutePath(value(line, "path"));
+        if (kind == Kind.COVERAGE) {
+            return path != null ? new IdeAnnouncement(kind, path, null, 0) : null;
+        }
         String location = value(line, "location");
         Matcher matcher = location == null ? null : LOCATION.matcher(location);
         if (path == null || matcher == null || !matcher.matches()) {

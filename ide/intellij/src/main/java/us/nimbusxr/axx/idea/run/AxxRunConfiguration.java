@@ -142,7 +142,7 @@ public final class AxxRunConfiguration
      * The directory axx runs in: the configured one, else the directory of the axx config above the
      * first target, else the project's axx project.
      */
-    @NotNull Path workingDirectory() throws ExecutionException {
+    public @NotNull Path workingDirectory() throws ExecutionException {
         Path base = projectDirectory();
         try {
             String configured = getWorkingDirectory();
