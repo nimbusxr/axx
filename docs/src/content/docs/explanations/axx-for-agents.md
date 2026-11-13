@@ -18,7 +18,7 @@ Agents invent plausible step text, and Gherkin punishes near-misses. Axx makes t
 
 ## Never guess what happened
 
-- **Exit codes** classify the outcome: a failed scenario (`1`), a broken setup (`2`), an invented step (`3`), a service that did not start (`4`).
+- **Exit codes** classify the outcome: a failed scenario (`1`), a broken setup (`2`), an invented step (`3`), a service that did not start (`4`), and passing scenarios whose coverage is under a minimum (`6`).
 - **Error codes** (`AXX-Exxxx`) are stable and come with a hint and a link; `axx explain <code>` gives the same page offline, and compact output points to it.
 - **Failures are data.** Assertion failures carry expected and actual values, the matched step definition, pack context such as the last HTTP exchange, and the exact command that reruns the scenario.
 - **`--json` everywhere**, in one envelope, with a frozen schema.

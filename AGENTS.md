@@ -172,6 +172,19 @@ the skills instead: `axx skills install`.
   (`packs/mobile/android/camera.go`, a video re-encoded with `packs/internal/video`), and, for
   ARCore, by an ART TI agent mobile-android attaches to a debuggable app (`ar/agent.cc`,
   `ar/Bridge.java`), built as models-android's is (`BuildAgent`), which it attaches after its own.
+- `packs/coverage/*` (ADR 0017): the coverage of the services a run starts, per run, never per
+  scenario. The core knows two interfaces (`core/coverage.go`): `CoverageLauncher`, which gives a
+  measured service its variables before it starts (the axx host calls it too, so an approval covers
+  them), and `Concluder`, which reads the run's coverage once the services stop. `coverage-core`
+  implements both, and the runtimes register with it (`coverage.Register`, `packs/coverage/core/runtime.go`):
+  `jvm` (JaCoCo), `go` (`go build -cover`), `python` (coverage.py), `node` (V8's own coverage, through
+  a preload, never the inspector) and `report` (a service's own lcov or Cobertura); a runtime that can
+  be read while it runs (`Keeper`) is measured per run under `axx up --coverage`. The report is
+  Istanbul's model (`packs/coverage/core/istanbul`), which web-coverage shares, with V8's conversion
+  in `packs/internal/v8cov`. A service that wrote nothing is never 0%: the run says why. Minimums
+  are checked only on whole runs (exit 6, ADR 0003); `axx coverage check` merges CI's shards. Each
+  runtime's container test (`packs/coverage/internal/coveragetest`) runs a service as a user of its
+  own and as the container's main process, as Compose would.
 - `internal/filecontent`: reads files by their type (text, CSV, TSV, JSON, XML, HTML, PDF, Word,
   Excel) for the steps that check a file's text or table: files, storage objects, downloads.
 - `schemas/v0`: the JSON Schemas of axx.yaml and the fixture spec files, at public paths: GitHub serves them from

@@ -26,7 +26,7 @@ func ErrorCodesPage(frontmatter bool) (string, error) {
 	b.WriteString("\nEvery user-facing error has a stable code. `axx explain AXX-E0102` prints an entry from this page; " +
 		"with `--json`, errors appear in `errors[]` with `code`, `message`, `location`, `hint` and `docs`.\n")
 	b.WriteString("\n## Exit codes\n\n| Code | Meaning |\n|---|---|\n")
-	for _, c := range []exitcode.Code{exitcode.OK, exitcode.Failed, exitcode.Usage, exitcode.Undefined, exitcode.Environment, exitcode.Plugin, exitcode.Interrupted} {
+	for _, c := range exitCodes() {
 		fmt.Fprintf(&b, "| %d | %s |\n", int(c), exitMeaning[c])
 	}
 	for _, r := range axxerr.Ranges {
@@ -47,6 +47,18 @@ func ErrorCodesPage(frontmatter bool) (string, error) {
 	return b.String(), nil
 }
 
+// exitCodes is every exit code axx names, in order: a code added to exitcode
+// has a name, so it is on the page (and its test asks for its meaning).
+func exitCodes() []exitcode.Code {
+	var codes []exitcode.Code
+	for c := exitcode.Code(0); c < 256; c++ {
+		if c.String() != "unknown" {
+			codes = append(codes, c)
+		}
+	}
+	return codes
+}
+
 var exitMeaning = map[exitcode.Code]string{
 	exitcode.OK:          "Success: every selected scenario passed (or the command succeeded).",
 	exitcode.Failed:      "At least one scenario failed.",
@@ -54,5 +66,6 @@ var exitMeaning = map[exitcode.Code]string{
 	exitcode.Undefined:   "Undefined or ambiguous steps, or lint violations.",
 	exitcode.Environment: "Environment or lifecycle failure: a service did not start, become ready or stop.",
 	exitcode.Plugin:      "Reserved (not used).",
+	exitcode.Coverage:    "Every scenario passed, but the coverage of the system under test is under a minimum `axx.yaml` sets (`axx run --coverage`).",
 	exitcode.Interrupted: "Interrupted (Ctrl-C); services were stopped and cleaned up.",
 }

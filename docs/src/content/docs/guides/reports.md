@@ -65,6 +65,8 @@ run:
 
 An unknown name fails with [`AXX-E0600`](/references/error-codes/#axx-e0600).
 
+A [run with coverage](/guides/measure-coverage/) also writes the coverage of the services under test to `.axx/coverage`, as lcov and Istanbul's JSON, whatever the formats.
+
 ## Machine-readable results
 
 `axx run --json` prints one [JSON envelope](/references/json-output/) whose `data` is the run report. `--format agent:FILE` writes the same report to a file while the console shows another format. Only failures are listed, so the report stays small however large the suite is. [JSON output](/references/json-output/#the-run-report) describes every field.
