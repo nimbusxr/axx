@@ -1172,9 +1172,12 @@ jobs:
       # The image parcel-support's compose file builds: in a minute, not five.
       - if: matrix.example == 'parcel-support' && needs.changes.outputs.tests == 'true'
         uses: ./.github/actions/support-image
-      # The images parcels' compose file builds: in seconds, not minutes.
+      # The images parcels' compose file builds: in seconds, not minutes. The service is built
+      # for coverage: the run measures it.
       - if: matrix.example == 'parcels'
         uses: ./.github/actions/parcels-images
+        with:
+          cover: "true"
       - if: needs.changes.outputs.tests == 'true'
         name: the fixtures, as a fresh clone has them
         working-directory: examples/${{ matrix.example }}/acceptance
@@ -1192,7 +1195,10 @@ jobs:
         working-directory: examples/${{ matrix.example }}/acceptance
         # The Android scenarios run in the android job, on an emulator; the iOS ones on Macs, as
         # do those whose pages run a model on the GPU (@gpu): a runner has none.
-        run: axx run --tags "not @mobile and not @gpu" --format progress --format junit:build/axx/junit.xml --format html:build/axx/report.html
+        # Parcels' with coverage: its service's, and its portal's scripts', in .axx/coverage.
+        env:
+          COVERAGE: ${{ matrix.example == 'parcels' && '--coverage' || '' }}
+        run: axx run ${COVERAGE:+"$COVERAGE"} --tags "not @mobile and not @gpu" --format progress --format junit:build/axx/junit.xml --format html:build/axx/report.html
       # The parcel-support service's transcriber and photo check on their other engines, each
       # with a stub of its engine's format (the example's profiles).
       - if: matrix.engines && needs.changes.outputs.tests == 'true'
@@ -1210,6 +1216,16 @@ jobs:
             examples/${{ matrix.example }}/acceptance/build/axx/
             examples/${{ matrix.example }}/acceptance/.axx/web/
             examples/${{ matrix.example }}/acceptance/.axx/logs/
+          if-no-files-found: ignore
+          retention-days: 7
+      # The run's coverage report.
+      - if: ${{ !cancelled() && matrix.example == 'parcels' && needs.changes.outputs.tests == 'true' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: coverage-parcels
+          path: |
+            examples/parcels/acceptance/.axx/coverage/lcov.info
+            examples/parcels/acceptance/.axx/coverage/coverage-summary.json
           if-no-files-found: ignore
           retention-days: 7
       # How long the example took to build, pull and start, from its log.

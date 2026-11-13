@@ -11,6 +11,11 @@ description: >-
     - The parcels service (a Go build inside Docker without Go's caches, over a minute):
       compiled with the job's Go and its caches, and handed to the Dockerfile's final stage in
       place of its build stage (a named build context), so the image is the Dockerfile's own.
+      With cover, a build for coverage (-cover), as a run with coverage has compose build it.
+inputs:
+  cover:
+    description: Build the parcels service for coverage, for a run with coverage.
+    default: "false"
 runs:
   using: composite
   steps:
@@ -23,7 +28,12 @@ runs:
       shell: bash
       working-directory: examples/parcels/app
       # The Dockerfile's build stage, on the job's Go: its final stage copies /out/parcels.
-      run: CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o "$RUNNER_TEMP/parcels-app/out/parcels" .
+      env:
+        COVER: ${{ inputs.cover }}
+      run: |
+        flags=()
+        if [ "$COVER" = true ]; then flags=(-cover -coverpkg=./...); fi
+        CGO_ENABLED=0 go build "${flags[@]}" -trimpath -ldflags="-s -w" -o "$RUNNER_TEMP/parcels-app/out/parcels" .
     - name: compose uses them
       shell: bash
       run: |

@@ -30,6 +30,7 @@ packs:
   - web-network
   - web-lighthouse
   - web-coverage
+  - coverage-go
   - mobile-core
   - mobile-android
   - mobile-ios
