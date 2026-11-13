@@ -18,6 +18,7 @@ import (
 	"github.com/nimbusxr/axx/core"
 	coveragecore "github.com/nimbusxr/axx/packs/coverage/core"
 	"github.com/nimbusxr/axx/packs/coverage/core/istanbul"
+	"github.com/nimbusxr/axx/packs/coverage/internal/coveragetest"
 )
 
 const server = `function ship(n) {
@@ -42,7 +43,7 @@ setInterval(() => {}, 1000);
 func TestANodeServicesCoverage(t *testing.T) {
 	node, err := exec.LookPath("node")
 	if err != nil {
-		t.Skip("no node on PATH")
+		coveragetest.Missing(t, "no node on PATH")
 	}
 	tmp, err := filepath.EvalSymlinks(t.TempDir())
 	if err != nil {
@@ -135,7 +136,7 @@ func TestANodeServicesCoverage(t *testing.T) {
 func TestANodeServiceKeptUp(t *testing.T) {
 	node, err := exec.LookPath("node")
 	if err != nil {
-		t.Skip("no node on PATH")
+		coveragetest.Missing(t, "no node on PATH")
 	}
 	tmp, err := filepath.EvalSymlinks(t.TempDir())
 	if err != nil {

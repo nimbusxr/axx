@@ -80,6 +80,11 @@ func (nodeRuntime) Launch(_ context.Context, call coveragecore.LaunchCall) ([]st
 	if err := os.WriteFile(filepath.Join(s.Dir, preloadFile), preload, 0o644); err != nil {
 		return nil, err
 	}
+	// The folder Node writes into, made here: one a container's user made
+	// would be its, whose files this user could not remove.
+	if err := os.MkdirAll(filepath.Join(s.Dir, v8Folder), 0o755); err != nil {
+		return nil, err
+	}
 	dir, join := s.Dir, filepath.Join
 	if s.Mount != "" {
 		dir, join = s.Mount, path.Join

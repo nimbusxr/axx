@@ -13,6 +13,7 @@ import (
 	"github.com/nimbusxr/axx/core"
 	coveragecore "github.com/nimbusxr/axx/packs/coverage/core"
 	"github.com/nimbusxr/axx/packs/coverage/core/istanbul"
+	"github.com/nimbusxr/axx/packs/coverage/internal/coveragetest"
 )
 
 const desk = `def ship(n):
@@ -39,7 +40,7 @@ print(Desk().open())
 func TestAPythonServicesCoverage(t *testing.T) {
 	py, err := python(context.Background())
 	if err != nil {
-		t.Skip(err)
+		coveragetest.Missing(t, err)
 	}
 	lib, err := library(context.Background())
 	if err != nil {

@@ -17,6 +17,7 @@ import (
 	"github.com/nimbusxr/axx/core"
 	coveragecore "github.com/nimbusxr/axx/packs/coverage/core"
 	"github.com/nimbusxr/axx/packs/coverage/core/istanbul"
+	"github.com/nimbusxr/axx/packs/coverage/internal/coveragetest"
 )
 
 // A JVM service with JaCoCo's agent writes what ran as it exits, and the
@@ -24,11 +25,11 @@ import (
 func TestAJVMServicesCoverage(t *testing.T) {
 	java, err := javaProgram()
 	if err != nil {
-		t.Skip(err)
+		coveragetest.Missing(t, err)
 	}
 	javac := filepath.Join(filepath.Dir(java), "javac")
 	if _, err := os.Stat(javac); err != nil {
-		t.Skip("no javac beside", java)
+		coveragetest.Missing(t, "no javac beside", java)
 	}
 	project := t.TempDir()
 	work := filepath.Join(project, "desk")
@@ -97,11 +98,11 @@ public class Server {
 func TestAJVMServiceKeptUp(t *testing.T) {
 	java, err := javaProgram()
 	if err != nil {
-		t.Skip(err)
+		coveragetest.Missing(t, err)
 	}
 	javac := filepath.Join(filepath.Dir(java), "javac")
 	if _, err := os.Stat(javac); err != nil {
-		t.Skip("no javac beside", java)
+		coveragetest.Missing(t, "no javac beside", java)
 	}
 	work := t.TempDir()
 	src := filepath.Join(work, "src", "main", "java", "parcels")

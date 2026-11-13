@@ -11,7 +11,9 @@ package coveragecore
 import (
 	"context"
 	"fmt"
+	"io/fs"
 	"os"
+	"path/filepath"
 	"slices"
 
 	"github.com/nimbusxr/axx/core"
@@ -64,7 +66,34 @@ func (pack) LaunchCoverage(ctx context.Context, settings func(pack string, v any
 	if !ok {
 		return nil, nil
 	}
-	return r.Launch(ctx, LaunchCall{Service: s, Settings: settings})
+	if err := os.MkdirAll(s.Dir, 0o755); err != nil {
+		return nil, err
+	}
+	vars, err := r.Launch(ctx, LaunchCall{Service: s, Settings: settings})
+	if err != nil {
+		return nil, err
+	}
+	if s.Mount != "" {
+		if err := writableByAll(s.Dir); err != nil {
+			return nil, err
+		}
+	}
+	return vars, nil
+}
+
+// writableByAll makes a container's coverage folder, and the folders its
+// runtime made in it, writable by every user: the folder is this machine's,
+// mounted into the container, whose processes often run as a user of its own
+// (distroless's nonroot, say), which may write only into a folder that lets
+// every user. The files they write stay theirs, in folders that are this
+// user's, which it can remove.
+func writableByAll(dir string) error {
+	return filepath.WalkDir(dir, func(p string, d fs.DirEntry, err error) error {
+		if err != nil || !d.IsDir() {
+			return err
+		}
+		return os.Chmod(p, 0o777) //nolint:gosec // the container's user writes its coverage here
+	})
 }
 
 // runtimeFor is a runtime by its name, report included.
