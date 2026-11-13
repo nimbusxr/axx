@@ -39,7 +39,14 @@ export interface KeptFileAnnouncement {
   line: number;
 }
 
-export type IdeAnnouncement = TraceViewerAnnouncement | KeptFileAnnouncement;
+// The lcov report of a run with coverage (axx run --coverage), its absolute path: announced
+// once the run's services have stopped.
+export interface CoverageAnnouncement {
+  kind: 'coverage';
+  path: string;
+}
+
+export type IdeAnnouncement = TraceViewerAnnouncement | KeptFileAnnouncement | CoverageAnnouncement;
 
 // A scenario that paused or resumed. `url` is where the paused scenario answers (see pausedStep.ts):
 // an http URL on the loopback interface, ending with /. A pause may say where it paused (`location`,
@@ -88,6 +95,10 @@ export function parseIdeAnnouncement(line: string): IdeAnnouncement | undefined 
     case 'trace-viewer': {
       const dir = value('dir');
       return dir && path.isAbsolute(dir) ? { kind: m.kind, dir } : undefined;
+    }
+    case 'coverage': {
+      const file = value('path');
+      return file && path.isAbsolute(file) ? { kind: m.kind, path: file } : undefined;
     }
     case 'trace':
     case 'video': {

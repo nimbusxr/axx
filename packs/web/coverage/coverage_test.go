@@ -14,7 +14,8 @@ import (
 	"testing"
 
 	"github.com/nimbusxr/axx/core"
-	"github.com/nimbusxr/axx/packs/web/coverage/internal/v8cov"
+	"github.com/nimbusxr/axx/packs/coverage/core/istanbul"
+	"github.com/nimbusxr/axx/packs/internal/v8cov"
 )
 
 func TestTheManifestIsSettingsAndStepHooks(t *testing.T) {
@@ -260,4 +261,44 @@ func mustParse(t *testing.T, s string) *url.URL {
 		t.Fatal(err)
 	}
 	return u
+}
+
+// In a run with coverage, coverage-core gets the run's coverage as the web
+// part: copies, which it may merge. The pack still writes its reports, but
+// the run prints the totals, and the editor is told of coverage-core's
+// report instead.
+func TestThePartOfARunWithCoverage(t *testing.T) {
+	dir := t.TempDir()
+	var logs bytes.Buffer
+	var announced []string
+	s := core.NewSuite(core.SuiteOptions{
+		ProjectDir: dir, Logger: slog.New(slog.NewTextHandler(&logs, nil)),
+		Announce: func(line string) { announced = append(announced, line) },
+	})
+	r, err := runFor(s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fc := &istanbul.FileCoverage{Path: "portal/js/track.js", StatementMap: []istanbul.Loc{istanbul.Span(1, 0, 1, 10)}, S: []int{2}}
+	r.settle.Do(func() { r.result.files, r.result.collected = []*istanbul.FileCoverage{fc}, true })
+	p, err := r.part(context.Background())
+	if err != nil || p.Name != "web" || p.Runtime != "web" || !p.Measured.Branches || !p.Measured.Functions || len(p.Files) != 1 {
+		t.Fatalf("%+v %v", p, err)
+	}
+	p.Files[0].S[0] = 99
+	if fc.S[0] != 2 || p.Files[0].Path != fc.Path {
+		t.Errorf("the part shares the run's coverage: %v", fc.S)
+	}
+	if !r.concluded.Load() {
+		t.Error("the run does not know a run with coverage took its coverage")
+	}
+	if err := r.report(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".axx", "web", "coverage", "lcov.info")); err != nil {
+		t.Error(err)
+	}
+	if strings.Contains(logs.String(), "JavaScript coverage: lines") || len(announced) > 0 {
+		t.Errorf("the pack told its totals (%s) or announced %q", logs.String(), announced)
+	}
 }

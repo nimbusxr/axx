@@ -57,6 +57,17 @@ type Options struct {
 	// project's own (PropertiesDir of ConfigDir) unless set. The axx host
 	// keeps its own, which no run it serves can write.
 	PropertiesDir string
+	// Coverage names the services whose coverage the run measures (axx run
+	// --coverage): their coverage section's command and env apply, unless
+	// they run in debug mode or are attached.
+	Coverage map[string]bool
+	// CoverageDir is the run's coverage folder: each service with a coverage
+	// section gets one of its own in it, which AXX_COVERAGE_DIR names. A new
+	// folder under the project's .axx/coverage/raw unless set.
+	CoverageDir string
+	// CoverageEnv are the variables the run gives a measured service for its
+	// runtime (core.CoverageLauncher): an agent, a preload, their folder.
+	CoverageEnv map[string][]string
 }
 
 // Manager starts and stops the services of one run. Start and Stop must not be
@@ -83,6 +94,10 @@ type Manager struct {
 	// of an earlier run; inherited holds them so they are not forgotten.
 	stateLoaded bool
 	inherited   []stateService
+	// coverageDir is the run's coverage folder (Options.CoverageDir); exits,
+	// how the services it stopped ended.
+	coverageDir string
+	exits       []Exit
 }
 
 // service is one services.<name> entry with its validated settings and, once
@@ -121,6 +136,9 @@ func New(apps config.Services, opts Options) (*Manager, error) {
 	if opts.PropertiesDir == "" {
 		opts.PropertiesDir = PropertiesDir(opts.ConfigDir)
 	}
+	if opts.CoverageDir == "" {
+		opts.CoverageDir = CoverageRunDir(opts.ConfigDir)
+	}
 	if opts.Config == nil {
 		opts.Config = &config.Config{}
 	}
@@ -129,13 +147,14 @@ func New(apps config.Services, opts Options) (*Manager, error) {
 		logger = slog.New(slog.DiscardHandler)
 	}
 	m := &Manager{
-		opts:    opts,
-		log:     logger,
-		console: newConsole(opts.Stdout, opts.Stderr),
-		http:    newHTTPClient(),
-		cfg:     apps,
-		apps:    make(map[string]*service, len(apps)),
-		graph:   usesDependsOn(apps),
+		opts:        opts,
+		coverageDir: opts.CoverageDir,
+		log:         logger,
+		console:     newConsole(opts.Stdout, opts.Stderr),
+		http:        newHTTPClient(),
+		cfg:         apps,
+		apps:        make(map[string]*service, len(apps)),
+		graph:       usesDependsOn(apps),
 	}
 	for _, c := range apps {
 		if _, dup := m.apps[c.Name]; dup {
@@ -342,6 +361,11 @@ func (m *Manager) startService(ctx context.Context, a *service) error {
 		return envErr(CodeStateFile, "service %s: cannot make %s: %v", name, told, err)
 	}
 	a.env = append(a.env, PropertiesEnv+"="+told)
+	covEnv, err := m.coverageEnv(a)
+	if err != nil {
+		return err
+	}
+	a.env = append(a.env, covEnv...)
 	plan, err := m.plan(ctx, a)
 	if err != nil {
 		return err

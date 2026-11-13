@@ -4,7 +4,9 @@ WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/parcels .
+# A run with coverage (axx run --coverage) builds it for coverage: -cover.
+ARG GO_BUILD_FLAGS=""
+RUN CGO_ENABLED=0 go build $GO_BUILD_FLAGS -trimpath -ldflags="-s -w" -o /out/parcels .
 
 # What the portal's pages run their models with: transformers.js, and ONNX
 # Runtime's WebAssembly; TensorFlow.js (its ES module, and the source map it

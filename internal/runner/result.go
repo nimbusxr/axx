@@ -116,6 +116,9 @@ type RunResult struct {
 	NotRun      int
 	Interrupted bool
 	DryRun      bool
+	// Coverage is what a run with coverage measured, concluded after its
+	// services stopped (core.Coverage); nil without coverage.
+	Coverage *core.Coverage
 }
 
 // Counts tallies scenario and step statuses.

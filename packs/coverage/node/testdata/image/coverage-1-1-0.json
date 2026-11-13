@@ -1,0 +1,204 @@
+{
+ "result": [
+  {
+   "scriptId": "113",
+   "url": "file:///app/dist/server.js",
+   "functions": [
+    {
+     "functionName": "",
+     "ranges": [
+      {
+       "startOffset": 0,
+       "endOffset": 896,
+       "count": 1
+      }
+     ],
+     "isBlockCoverage": true
+    },
+    {
+     "functionName": "__importDefault",
+     "ranges": [
+      {
+       "startOffset": 70,
+       "endOffset": 151,
+       "count": 1
+      },
+      {
+       "startOffset": 122,
+       "endOffset": 127,
+       "count": 0
+      }
+     ],
+     "isBlockCoverage": true
+    },
+    {
+     "functionName": "",
+     "ranges": [
+      {
+       "startOffset": 401,
+       "endOffset": 451,
+       "count": 1
+      }
+     ],
+     "isBlockCoverage": true
+    },
+    {
+     "functionName": "",
+     "ranges": [
+      {
+       "startOffset": 494,
+       "endOffset": 689,
+       "count": 1
+      },
+      {
+       "startOffset": 618,
+       "endOffset": 687,
+       "count": 0
+      }
+     ],
+     "isBlockCoverage": true
+    },
+    {
+     "functionName": "",
+     "ranges": [
+      {
+       "startOffset": 731,
+       "endOffset": 804,
+       "count": 0
+      }
+     ],
+     "isBlockCoverage": false
+    },
+    {
+     "functionName": "",
+     "ranges": [
+      {
+       "startOffset": 824,
+       "endOffset": 859,
+       "count": 1
+      }
+     ],
+     "isBlockCoverage": true
+    }
+   ]
+  },
+  {
+   "scriptId": "267",
+   "url": "file:///app/dist/events.js",
+   "functions": [
+    {
+     "functionName": "",
+     "ranges": [
+      {
+       "startOffset": 0,
+       "endOffset": 559,
+       "count": 1
+      }
+     ],
+     "isBlockCoverage": true
+    },
+    {
+     "functionName": "record",
+     "ranges": [
+      {
+       "startOffset": 155,
+       "endOffset": 458,
+       "count": 1
+      },
+      {
+       "startOffset": 257,
+       "endOffset": 318,
+       "count": 0
+      }
+     ],
+     "isBlockCoverage": true
+    },
+    {
+     "functionName": "history",
+     "ranges": [
+      {
+       "startOffset": 459,
+       "endOffset": 524,
+       "count": 0
+      }
+     ],
+     "isBlockCoverage": false
+    }
+   ]
+  }
+ ],
+ "source-map-cache": {
+  "file:///app/dist/server.js": {
+   "lineLengths": [
+    13,
+    72,
+    62,
+    2,
+    62,
+    54,
+    37,
+    37,
+    34,
+    35,
+    31,
+    3,
+    55,
+    9,
+    87,
+    5,
+    15,
+    51,
+    5,
+    3,
+    54,
+    55,
+    3,
+    54,
+    34
+   ],
+   "data": {
+    "version": 3,
+    "file": "server.js",
+    "sourceRoot": "",
+    "sources": [
+     "file:///app/src/server.ts"
+    ],
+    "names": [],
+    "mappings": ";;;;;AAAA,sDAA8B;AAC9B,qCAA2C;AAE3C,MAAM,GAAG,GAAG,IAAA,iBAAO,GAAE,CAAC;AACtB,GAAG,CAAC,GAAG,CAAC,iBAAO,CAAC,IAAI,EAAE,CAAC,CAAC;AAExB,GAAG,CAAC,GAAG,CAAC,SAAS,EAAE,CAAC,IAAI,EAAE,GAAG,EAAE,EAAE;IAC/B,GAAG,CAAC,IAAI,CAAC,EAAE,MAAM,EAAE,IAAI,EAAE,CAAC,CAAC;AAC7B,CAAC,CAAC,CAAC;AAEH,GAAG,CAAC,IAAI,CAAC,6BAA6B,EAAE,CAAC,GAAG,EAAE,GAAG,EAAE,EAAE;IACnD,IAAI,CAAC;QACH,GAAG,CAAC,MAAM,CAAC,GAAG,CAAC,CAAC,IAAI,CAAC,IAAA,eAAM,EAAC,GAAG,CAAC,MAAM,CAAC,MAAM,EAAE,GAAG,CAAC,IAAI,CAAC,MAAM,CAAC,CAAC,CAAC;IACnE,CAAC;IAAC,OAAO,CAAC,EAAE,CAAC;QACX,GAAG,CAAC,MAAM,CAAC,GAAG,CAAC,CAAC,IAAI,CAAC,EAAE,KAAK,EAAG,CAAW,CAAC,OAAO,EAAE,CAAC,CAAC;IACxD,CAAC;AACH,CAAC,CAAC,CAAC;AAEH,GAAG,CAAC,GAAG,CAAC,6BAA6B,EAAE,CAAC,GAAG,EAAE,GAAG,EAAE,EAAE;IAClD,GAAG,CAAC,IAAI,CAAC,IAAA,gBAAO,EAAC,GAAG,CAAC,MAAM,CAAC,MAAM,CAAC,CAAC,CAAC;AACvC,CAAC,CAAC,CAAC;AAEH,GAAG,CAAC,MAAM,CAAC,IAAI,EAAE,GAAG,EAAE,CAAC,OAAO,CAAC,GAAG,CAAC,gBAAgB,CAAC,CAAC,CAAC"
+   },
+   "url": null
+  },
+  "file:///app/dist/events.js": {
+   "lineLengths": [
+    13,
+    62,
+    24,
+    26,
+    25,
+    33,
+    69,
+    53,
+    5,
+    63,
+    59,
+    13,
+    1,
+    26,
+    36,
+    1,
+    34
+   ],
+   "data": {
+    "version": 3,
+    "file": "events.js",
+    "sourceRoot": "",
+    "sources": [
+     "file:///app/src/events.ts"
+    ],
+    "names": [],
+    "mappings": ";;AAIA,wBAOC;AAED,0BAEC;AAbD,MAAM,MAAM,GAAG,IAAI,GAAG,EAAmB,CAAC;AAE1C,SAAgB,MAAM,CAAC,MAAc,EAAE,MAAc;IACnD,IAAI,CAAC,CAAC,WAAW,EAAE,YAAY,EAAE,WAAW,CAAC,CAAC,QAAQ,CAAC,MAAM,CAAC,EAAE,CAAC;QAC/D,MAAM,IAAI,KAAK,CAAC,mBAAmB,MAAM,EAAE,CAAC,CAAC;IAC/C,CAAC;IACD,MAAM,CAAC,GAAG,EAAE,MAAM,EAAE,MAAM,EAAE,EAAE,EAAE,IAAI,IAAI,EAAE,CAAC,WAAW,EAAE,EAAE,CAAC;IAC3D,MAAM,CAAC,GAAG,CAAC,MAAM,EAAE,CAAC,GAAG,CAAC,MAAM,CAAC,GAAG,CAAC,MAAM,CAAC,IAAI,EAAE,CAAC,EAAE,CAAC,CAAC,CAAC,CAAC;IACvD,OAAO,CAAC,CAAC;AACX,CAAC;AAED,SAAgB,OAAO,CAAC,MAAc;IACpC,OAAO,MAAM,CAAC,GAAG,CAAC,MAAM,CAAC,IAAI,EAAE,CAAC;AAClC,CAAC"
+   },
+   "url": null
+  }
+ }
+}

@@ -23,10 +23,28 @@ const EnvGitHub = "AXX_GITHUB_URL"
 // (https://api.nuget.org/v3/index.json is nuget.org's), for the NuGet packages axx downloads.
 const EnvNuGet = "AXX_NUGET_URL"
 
+// EnvMaven names a Maven repository (a mirror of Maven Central), for the
+// Java tools axx downloads from Maven Central: JaCoCo's agent and CLI.
+const EnvMaven = "AXX_MAVEN_URL"
+
 const (
 	gitHub = "https://github.com"
 	nuGet  = "https://api.nuget.org/v3/index.json"
+	maven  = "https://repo1.maven.org/maven2"
 )
+
+// Maven is the address of path in Maven Central, or in the repository
+// AXX_MAVEN_URL names: path is a file's, like
+// /org/jacoco/org.jacoco.agent/0.8.16/org.jacoco.agent-0.8.16-runtime.jar.
+func Maven(path string) string {
+	return setting(EnvMaven, maven) + path
+}
+
+// MavenHelp says how a machine that cannot reach Maven Central gets its
+// files, for a failed download's message.
+func MavenHelp() string {
+	return help(EnvMaven, "Maven Central (repo1.maven.org)")
+}
 
 // GitHub is the address of path on github.com, or on the mirror AXX_GITHUB_URL names. path is
 // what follows github.com, like /appium/WebDriverAgent/releases/download/v9.1.0/a.zip.

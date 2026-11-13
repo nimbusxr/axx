@@ -15,8 +15,10 @@ import (
 	"github.com/mxschmitt/playwright-go"
 
 	"github.com/nimbusxr/axx/core"
+	coveragecore "github.com/nimbusxr/axx/packs/coverage/core"
+	"github.com/nimbusxr/axx/packs/coverage/core/istanbul"
+	"github.com/nimbusxr/axx/packs/internal/v8cov"
 	webcore "github.com/nimbusxr/axx/packs/web/core"
-	"github.com/nimbusxr/axx/packs/web/coverage/internal/v8cov"
 )
 
 // Collecting V8's coverage over the Chrome DevTools Protocol, one session a
@@ -57,6 +59,16 @@ type run struct {
 	scripts  map[scriptKey]*script
 	sources  map[string]*source // by V8's hash of the source
 	fetching sync.WaitGroup
+
+	// settle makes result once (settled); concluded is set once a run with
+	// coverage took it, whose report the editor shows instead.
+	settle sync.Once
+	result struct {
+		files          []*istanbul.FileCoverage
+		problems, lost []string
+		collected      bool
+	}
+	concluded atomic.Bool
 }
 
 // scriptKey is a script: its URL and V8's hash of its source.
@@ -87,6 +99,7 @@ func runFor(s *core.Suite) (*run, error) {
 		}
 		r := &run{suite: s, cfg: cfg, scripts: map[scriptKey]*script{}, sources: map[string]*source{}}
 		s.OnClose(r.report)
+		coveragecore.OnConclude(s, r.part)
 		return r, nil
 	})
 }

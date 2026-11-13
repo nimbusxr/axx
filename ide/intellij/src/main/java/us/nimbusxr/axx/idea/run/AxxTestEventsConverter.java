@@ -94,6 +94,9 @@ final class AxxTestEventsConverter extends OutputToGeneralTestEventsConverter {
                 AxxWebViewer.rememberViewerFolder(announcement.path());
             }
             case TRACE, VIDEO -> keep(announcement);
+            case COVERAGE -> {
+                // Run with Coverage shows it (axx-coverage.xml); the run prints its totals.
+            }
         }
         return true;
     }

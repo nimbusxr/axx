@@ -363,6 +363,12 @@ services:
       log: ready on ${sys:db.port}
     debug:
       command: dlv exec ./parcels -- --port ${sys:api.port}
+    coverage:
+      runtime: go
+      command: ./parcels-cover --port ${sys:api.port}
+      env:
+        GOFLAGS: -port=${sys:api.port}
+      mount: /axx-coverage
 `)
 	cfg, err := Load(LoadOptions{WorkDir: dir, Properties: map[string]string{"stack": "parcels"}, LookupEnv: env(map[string]string{"INFRA": "infra"})})
 	if err != nil {
@@ -373,7 +379,8 @@ services:
 		t.Errorf("filled in as it loads: %q, %q", s.Dir, s.Ready.Log)
 	}
 	if s.Command.Line != "docker compose -p ${sys:stack}-tests up" || s.Env["API_PORT"] != "${sys:api.port}" ||
-		s.Cleanup.Argv[3] != "${sys:stack}-tests" || s.Debug.Command.Line != "dlv exec ./parcels -- --port ${sys:api.port}" {
+		s.Cleanup.Argv[3] != "${sys:stack}-tests" || s.Debug.Command.Line != "dlv exec ./parcels -- --port ${sys:api.port}" ||
+		s.Coverage.Command.Line != "./parcels-cover --port ${sys:api.port}" || s.Coverage.Env["GOFLAGS"] != "-port=${sys:api.port}" {
 		t.Errorf("filled in as it starts: %q, %v, %q, %q", s.Command.Line, s.Env, s.Cleanup.Argv, s.Debug.Command.Line)
 	}
 	if s.Ready.HTTP.URL[0] != "http://localhost:${sys:api.port}/health" || s.Ready.TCP != "localhost:${sys:db.port}" || s.Ready.Exec.Line != "pg_isready -p ${sys:db.port}" {
@@ -385,8 +392,13 @@ services:
 	f := cfg.Filled(s, func(name string) (string, bool) { v, ok := told[name]; return v, ok })
 	if f.Command.Line != "docker compose -p parcels-tests up" || f.Env["API_PORT"] != "55400" || f.Cleanup.Argv[3] != "parcels-tests" ||
 		f.Debug.Command.Line != "dlv exec ./parcels -- --port 55400" || f.Ready.HTTP.URL[0] != "http://localhost:55400/health" ||
-		f.Ready.TCP != "localhost:5432" || f.Ready.Exec.Line != "pg_isready -p 5432" {
+		f.Ready.TCP != "localhost:5432" || f.Ready.Exec.Line != "pg_isready -p 5432" ||
+		f.Coverage.Command.Line != "./parcels-cover --port 55400" || f.Coverage.Env["GOFLAGS"] != "-port=55400" ||
+		f.Coverage.Runtime != "go" || f.Coverage.Mount != "/axx-coverage" {
 		t.Errorf("filled in with what was told: %+v", f)
+	}
+	if s.Coverage.Env["GOFLAGS"] != "-port=${sys:api.port}" {
+		t.Errorf("filling one in changed axx.yaml's coverage env: %v", s.Coverage.Env)
 	}
 	if s.Env["API_PORT"] != "${sys:api.port}" || s.Cleanup.Argv[3] != "${sys:stack}-tests" || s.Ready.HTTP.URL[0] != "http://localhost:${sys:api.port}/health" {
 		t.Errorf("filling one in changed axx.yaml's: %+v", s)

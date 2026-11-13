@@ -21,6 +21,7 @@ func TestMain(m *testing.M) {
 // runHelper implements the fakes. Modes:
 //
 //	serve <line>              print line, run until stopped
+//	env-serve <file> <var>... append the variables' values to file, print "ready", run until stopped
 //	append <file> <text>      append a line to file
 //	compose ...               as `docker compose ... config`: print the model
 //	                          AXX_HOST_MODEL names, and some of its environment
@@ -31,6 +32,18 @@ func runHelper(args []string) int {
 	switch args[0] {
 	case "serve":
 		fmt.Println(strings.Join(args[1:], " "))
+		time.Sleep(time.Hour)
+		return 0
+	case "env-serve":
+		f, err := os.OpenFile(args[1], os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
+		if err != nil {
+			return 1
+		}
+		for _, v := range args[2:] {
+			_, _ = fmt.Fprintln(f, v+"="+os.Getenv(v))
+		}
+		_ = f.Close()
+		fmt.Println("ready")
 		time.Sleep(time.Hour)
 		return 0
 	case "append":

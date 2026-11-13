@@ -177,7 +177,7 @@ func Reap(stateFile string, stdout, stderr io.Writer) ([]string, error) {
 			alive := g.Alive()
 			if alive {
 				con.Println(fmt.Sprintf("stopping service %s left over from an earlier run (pid %d)", sa.Name, sa.PID))
-				if err := terminate(ctx, g, sa.StopSignal, sa.Grace.Or(defaultGrace)); err != nil {
+				if _, _, err := terminate(ctx, g, sa.StopSignal, sa.Grace.Or(defaultGrace)); err != nil {
 					errs = append(errs, envErr(CodeStopFailed, "service %s could not be stopped: %v", sa.Name, err).
 						WithHint("stop its processes by hand (process group %d)", sa.PGID))
 					g.Release()

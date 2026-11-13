@@ -75,7 +75,7 @@ profiles:                        # overlays: --profile ci, several in order (--p
 | --- | --- | --- |
 | `version` | the schema version of this file; currently `1` | |
 | `axx` | the release of Axx this project runs on, exactly; only in `axx.yaml` itself, not an overlay | [Keep a project on one version](/guides/install/#keep-a-project-on-one-version) |
-| `run` | paths, default tags, workers, exclusive tags, order, timeouts, default reporters | [Run in parallel](/guides/parallel-runs/), [Reports](/guides/reports/) |
+| `run` | paths, default tags, workers, exclusive tags, order, timeouts, default reporters, and `coverage` (as `axx run --coverage`) | [Run in parallel](/guides/parallel-runs/), [Reports](/guides/reports/) |
 | `resources` | directories that relative file paths in steps resolve against, in order; the directory of `axx.yaml` is searched last | [Configure services](/guides/configure-services/#resource-paths) |
 | `properties` | values for `${sys:name}` | [Configure services](/guides/configure-services/#keep-values-out-of-feature-files) |
 | `openapi.levels` | default OpenAPI validation levels, by rule key | [Validate against OpenAPI](/guides/validate-openapi/) |
@@ -104,6 +104,7 @@ Each key under `services:` names one service: something that runs on its own, wh
 | `active.tags` | With `active.enabled`, the service starts only when a selected scenario has one of these tags. |
 | `active.uses` | With `active.enabled`, the service starts only when a selected scenario uses a step of one of these packs, like `[mobile-android]`. |
 | `debug` | `command`, `debugger` (`type`, `port`, `host`, `module`, `mode`), `onUnavailable` and `retry` for `axx run --debug` and `axx up --debug`. |
+| `coverage` | How the service runs when a run measures its coverage (`axx run --coverage`): `runtime`, what measures it (`jvm`, `go`, `python` or `node`, from the coverage packs, or `report` for a service that writes lcov or Cobertura itself); `command`, which replaces `command` then, as `debug.command` does; `env`; and `mount`, where a container mounts its coverage folder. On every run, `AXX_COVERAGE_DIR` names that folder. Debug mode wins: a service in debug mode is not measured. |
 
 ### lint
 

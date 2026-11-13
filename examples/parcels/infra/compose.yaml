@@ -436,7 +436,12 @@ services:
   # The system under test, built from ../app. Its defaults reach the ports above on
   # localhost (for running it on the host); here it uses the compose service names.
   app:
-    build: ../app
+    build:
+      context: ../app
+      # A run with coverage builds it for coverage (the parcels service's coverage section in
+      # ../acceptance/axx.yaml).
+      args:
+        GO_BUILD_FLAGS: ${PARCELS_GO_BUILD_FLAGS:-}
     ports:
       - '8400:8400'
       # The tracking API, over gRPC.
@@ -472,9 +477,13 @@ services:
       OTEL_METRIC_EXPORT_INTERVAL: '500'
       OTEL_BSP_SCHEDULE_DELAY: '200'
       OTEL_BLRP_SCHEDULE_DELAY: '200'
+      # Where a build for coverage writes its coverage as it exits: the folder axx gives the
+      # service (AXX_COVERAGE_DIR), mounted at /axx-coverage.
+      GOCOVERDIR: ${GOCOVERDIR:-}
     volumes:
       - './exports:/var/lib/parcels/exports'
       - './portal-models:/var/lib/parcels/portal-models:ro'
+      - '${AXX_COVERAGE_DIR:-./coverage}:/axx-coverage'
     extra_hosts:
       - host.docker.internal:host-gateway
     depends_on:

@@ -22,3 +22,4 @@ CLI JSON output or exit codes, the `axx.yaml` schema, or release/versioning poli
 | [0014](0014-a-value-means-what-it-says.md) | A value means what it says, in every pack | Accepted |
 | [0015](0015-a-project-names-the-axx-version-it-runs-on.md) | A project names the axx version it runs on; the installed axx hands over to it | Accepted |
 | [0016](0016-a-macos-launcher-is-the-one-identity-a-person-allows.md) | On macOS, axx runs desktop scenarios under a launcher of its own, the one identity a person allows | Proposed |
+| [0017](0017-a-run-measures-the-coverage-of-the-system-under-test.md) | A run measures the coverage of the system under test, through one pack per runtime | Accepted |

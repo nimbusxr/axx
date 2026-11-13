@@ -86,6 +86,9 @@ final class AxxRunState implements RunProfileState {
             extra.addAll(List.of("--profile", AxxProfiles.join(profiles)));
         }
         extra.addAll(ParametersListUtil.parse(configuration.getArguments()));
+        if (COVERAGE_EXECUTOR.equals(environment.getExecutor().getId())) {
+            extra.add("--coverage"); // Run with Coverage (axx-coverage.xml)
+        }
         List<String> args =
                 RunTargets.runArguments(
                         run,
@@ -101,6 +104,9 @@ final class AxxRunState implements RunProfileState {
                 .withWorkingDirectory(workingDirectory)
                 .withCharset(StandardCharsets.UTF_8);
     }
+
+    /** The platform's Run with Coverage executor's id (CoverageExecutor, an optional module). */
+    private static final String COVERAGE_EXECUTOR = "Coverage";
 
     /** Whether the run watches the browsers: it runs with Watch, or its configuration says so. */
     private boolean watchesBrowsers() {

@@ -143,6 +143,42 @@ jobs:
 
 Each runner starts the services for its own shard. A shard that selects nothing passes.
 
+## Measure coverage
+
+A run with coverage measures how much of your services' code the scenarios run ([Measure coverage](/guides/measure-coverage/)). In CI, turn it on with `--coverage`, or with `run.coverage: true` in `axx.yaml`. The run writes its report to `.axx/coverage`. When every scenario passed but the coverage is under a minimum, the run exits `6`.
+
+A shard checks no minimums, because its coverage is only part of the run's. Keep each shard's report, then check them together in a job after the shards:
+
+```yaml title=".github/workflows/acceptance.yml"
+jobs:
+  acceptance:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: nimbusxr/setup-axx@v0
+      - run: axx run --coverage --shard ${{ matrix.shard }}/3
+      - uses: actions/upload-artifact@v7
+        with:
+          name: coverage-${{ matrix.shard }}
+          path: .axx/coverage/
+  coverage:
+    needs: acceptance
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: nimbusxr/setup-axx@v0
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: coverage-*
+      - run: axx coverage check coverage-1/ coverage-2/ coverage-3/
+```
+
+`download-artifact` puts each shard's report in a folder named after its artifact. `axx coverage check` merges them, writes the whole run's report to `.axx/coverage`, prints the totals, and exits `6` under a minimum. It refuses shards that are missing, repeated or from different runs, so it never checks only part of the run.
+
 ## Run scenarios in parallel safely
 
 CI runners have fewer CPUs than laptops, and `run.workers` defaults to the number of CPUs. If scenarios that pass locally fail in CI, check that they use unique data ([Isolate test data](/guides/isolate-test-data/)) before lowering `--workers`.

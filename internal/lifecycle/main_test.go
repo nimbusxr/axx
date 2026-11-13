@@ -52,6 +52,7 @@ func TestMain(m *testing.M) {
 //	stubborn <file>             print "ready"; record and ignore SIGTERM/SIGINT
 //	grandchild <pidfile> <file> spawn a stubborn child, write its pid, print "spawned"
 //	pwd                         print the working directory, sleep
+//	getenvs <file> <tag> <N>... append "<tag> N=value..." to file, print "started", sleep
 //	tell <d> <line>...          after d, append the lines to $AXX_PROPERTIES, sleep
 //	tell-serve <d> <port>       after d, serve 200 on 127.0.0.1:port and tell
 //	                            api.port=<port> in $AXX_PROPERTIES, sleep
@@ -164,6 +165,14 @@ func runHelper(args []string) int {
 		return 0
 	case "getenv":
 		appendLine(arg(1), strings.Join(append([]string{os.Getenv(arg(2))}, args[3:]...), " "))
+		fmt.Println("started")
+		return forever()
+	case "getenvs":
+		line := []string{arg(2)}
+		for _, n := range args[3:] {
+			line = append(line, n+"="+os.Getenv(n))
+		}
+		appendLine(arg(1), strings.Join(line, " "))
 		fmt.Println("started")
 		return forever()
 	case "record":

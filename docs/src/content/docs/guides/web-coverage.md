@@ -57,6 +57,10 @@ The pack uses Chromium's own coverage: the lines, functions and branches that ra
 
 It works in Chromium, Chrome and Edge. A web app in Firefox or WebKit runs without coverage, and the run says so, once for each web app. Not counted: web workers, frames from other origins, and what runs while a tab a page opened is still loading. Pages run a little slower while the pack collects.
 
+## In a run with coverage
+
+In a [run with coverage](/guides/measure-coverage/) (`axx run --coverage`), the web apps' JavaScript is part of the run's report, with the services': its part is named `web`, and `packs.coverage-core.parts.web.minimum` sets its minimums. The pack still writes its own reports to its folder.
+
 ## Settings
 
 | Setting | |

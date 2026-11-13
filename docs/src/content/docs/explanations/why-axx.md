@@ -75,6 +75,7 @@ Axx's packs cover:
 | Files | The files your services write: their content, their text (PDF, Word, Excel...) and their rows |
 | Web apps | Real browsers through Playwright, with screenshots, accessibility audits, network control, Lighthouse scores and JavaScript coverage |
 | Clouds | S3, SQS, SNS, EventBridge and DynamoDB; Cloud Storage, Pub/Sub, BigQuery and Firestore; Blob Storage and Service Bus |
+| Coverage | How much of your services' code the scenarios run: JVM, Go, Python and Node.js services, and any service that writes lcov or Cobertura, in one report with minimums |
 
 ## One binary with nothing to wire up
 

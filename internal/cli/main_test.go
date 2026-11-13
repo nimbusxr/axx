@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -16,7 +17,9 @@ import (
 // api ready"), then, until stopped, the first but last ("parcels api serving")
 // every 100ms; with "append <file> <text>" it appends text to file and exits.
 // "tell <name=value>" before them tells axx a property first, in the file
-// $AXX_PROPERTIES names; alone, it tells it and exits, as a hook.
+// $AXX_PROPERTIES names; alone, it tells it and exits, as a hook. "cover
+// <file> <text>" before them writes text (\n a new line) to the file in its
+// coverage folder ($AXX_COVERAGE_DIR), as a service's own coverage tool.
 const helperEnv = "AXX_CLI_HELPER"
 
 // installedEnv makes the test binary the axx installed on a machine, a release of the
@@ -62,6 +65,13 @@ func TestMain(m *testing.M) {
 			if args = args[2:]; len(args) == 0 {
 				os.Exit(0)
 			}
+		}
+		if len(args) >= 3 && args[0] == "cover" {
+			text := strings.ReplaceAll(args[2], `\n`, "\n")
+			if err := os.WriteFile(filepath.Join(os.Getenv("AXX_COVERAGE_DIR"), args[1]), []byte(text), 0o644); err != nil {
+				os.Exit(1)
+			}
+			args = args[3:]
 		}
 		if len(args) == 3 && args[0] == "append" {
 			f, err := os.OpenFile(args[1], os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)

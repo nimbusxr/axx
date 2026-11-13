@@ -94,8 +94,10 @@ type process struct {
 	state *os.ProcessState
 	// logMatched is closed when an output line matches ready.log.
 	logMatched chan struct{}
-	// stopping is set when axx stops the service, so its exit is expected.
-	stopping atomic.Bool
+	// stopping is set when axx stops the service, so its exit is expected;
+	// exitedOnItsOwn, when it exited before.
+	stopping       atomic.Bool
+	exitedOnItsOwn atomic.Bool
 }
 
 // launch starts argv for a, streaming its output with the service's prefix into
@@ -156,6 +158,7 @@ func (m *Manager) launch(a *service, argv []string) (*process, error) {
 		p.state = cmd.ProcessState
 		close(p.done)
 		if !p.stopping.Load() {
+			p.exitedOnItsOwn.Store(true)
 			m.log.Warn("service exited on its own", "service", name, "status", describeExit(p.state))
 		}
 	}()
@@ -167,6 +170,9 @@ func (m *Manager) launch(a *service, argv []string) (*process, error) {
 func (m *Manager) stopService(ctx context.Context, a *service) error {
 	p := a.proc
 	if p == nil {
+		m.mu.Lock()
+		m.recordExit(a, false, false)
+		m.mu.Unlock()
 		return nil // attached: not ours to stop
 	}
 	name := a.cfg.Name
@@ -175,7 +181,8 @@ func (m *Manager) stopService(ctx context.Context, a *service) error {
 	if p.group.Alive() {
 		m.log.Info("stopping service", "service", name)
 	}
-	if err := terminate(ctx, p.group, a.cfg.Stop.Signal, a.cfg.Stop.Grace.Or(defaultGrace)); err != nil {
+	killed, signalled, err := terminate(ctx, p.group, a.cfg.Stop.Signal, a.cfg.Stop.Grace.Or(defaultGrace))
+	if err != nil {
 		_, pgid := p.group.IDs()
 		errs = append(errs, envErr(CodeStopFailed, "service %s could not be stopped: %v", name, err).
 			WithHint("stop its processes by hand (process group %d)", pgid))
@@ -200,6 +207,7 @@ func (m *Manager) stopService(ctx context.Context, a *service) error {
 	_ = os.Remove(PropertiesFile(m.opts.PropertiesDir, name))
 	m.mu.Lock()
 	a.cleaned = true
+	m.recordExit(a, killed, !signalled)
 	// A failed cleanup stays in the state file, for `axx down` to run again.
 	m.unclean = slices.DeleteFunc(m.unclean, func(sa stateService) bool { return sa.Name == name })
 	if cleanupErr != nil {

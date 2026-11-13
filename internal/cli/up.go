@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -33,6 +34,9 @@ type upState struct {
 	Services []string  `json:"services"`
 	Started  time.Time `json:"started"`
 	Profile  string    `json:"profile,omitempty"`
+	// Coverage are the kept services axx up --coverage measures, each
+	// one's runtime.
+	Coverage map[string]string `json:"coverage,omitempty"`
 }
 
 const (
@@ -86,9 +90,17 @@ func runDir(cfg *config.Config) string   { return filepath.Join(cfg.Dir, ".axx",
 func upFile(cfg *config.Config) string   { return lifecycle.UpFile(cfg.Dir) }
 func stopFile(cfg *config.Config) string { return filepath.Join(runDir(cfg), "up.stop") }
 
+// downCoverageFile is what the supervisor has to say of the coverage it
+// wrote as it stopped the services (axx up --coverage), for axx down to
+// print: the supervisor's own output goes to its log.
+func downCoverageFile(cfg *config.Config) string {
+	return filepath.Join(runDir(cfg), "down-coverage.txt")
+}
+
 func newUpCmd(app *App) *cobra.Command {
 	var cf configFlags
 	var debug string
+	var coverage bool
 	cmd := &cobra.Command{
 		Use:   "up [services...]",
 		Short: "Start the services from axx.yaml and keep them running, to inspect them",
@@ -117,7 +129,7 @@ Stop them with ` + "`axx down`" + `. Service output goes to .axx/logs/services.l
 			if err != nil {
 				return err
 			}
-			sargs := supervisorArgs(app.Config, cf, debug, args)
+			sargs := supervisorArgs(app.Config, cf, debug, coverage, args)
 			if err := os.MkdirAll(filepath.Join(cfg.Dir, ".axx", "logs"), 0o755); err != nil {
 				return err
 			}
@@ -183,12 +195,13 @@ Stop them with ` + "`axx down`" + `. Service output goes to .axx/logs/services.l
 	cf.register(cmd)
 	cmd.Flags().StringVar(&debug, "debug", "", "start services with their debug command (all, or a comma-separated list)")
 	cmd.Flags().Lookup("debug").NoOptDefVal = "*"
+	cmd.Flags().BoolVar(&coverage, "coverage", false, "measure the coverage of the services with a coverage section, for each axx run --coverage while they run (JVM, Node) or until axx down (Go, Python)")
 	return cmd
 }
 
 // supervisorArgs are the arguments of the supervisor `axx up` starts: the
 // same configuration, profile, properties, settings and debugging.
-func supervisorArgs(config string, cf configFlags, debug string, apps []string) []string {
+func supervisorArgs(config string, cf configFlags, debug string, coverage bool, apps []string) []string {
 	out := []string{"__supervise"}
 	if config != "" {
 		out = append(out, "--config", config)
@@ -205,12 +218,16 @@ func supervisorArgs(config string, cf configFlags, debug string, apps []string) 
 	if debug != "" {
 		out = append(out, "--debug", debug)
 	}
+	if coverage {
+		out = append(out, "--coverage")
+	}
 	return append(out, apps...)
 }
 
 func newSuperviseCmd(app *App) *cobra.Command {
 	var cf configFlags
 	var debug string
+	var coverage bool
 	cmd := &cobra.Command{
 		Use:    "__supervise [services...]",
 		Hidden: true,
@@ -244,10 +261,6 @@ func newSuperviseCmd(app *App) *cobra.Command {
 					}
 				}
 			}
-			mgr, err := lifecycle.New(cfg.Services, opts)
-			if err != nil {
-				return supervisorError(err)
-			}
 			ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 			defer stop()
 			// Packs set up what the services need before they start (core.Preparer),
@@ -261,6 +274,22 @@ func newSuperviseCmd(app *App) *cobra.Command {
 			if pickles, err := allScenarios(e); err != nil {
 				fmt.Fprintf(os.Stderr, "axx: the features cannot be read, so no pack prepared them: %v\n", err)
 			} else if err := e.Prepare(ctx, pickles); err != nil {
+				return supervisorError(err)
+			}
+			// Their coverage, for the runs while they run (axx up --coverage).
+			var measured map[string]string
+			if coverage {
+				var env map[string][]string
+				if measured, env, err = upCoverage(ctx, e, names); err != nil {
+					return supervisorError(err)
+				}
+				opts.Coverage, opts.CoverageDir, opts.CoverageEnv = map[string]bool{}, upCoverageDir(cfg), env
+				for n := range measured {
+					opts.Coverage[n] = true
+				}
+			}
+			mgr, err := lifecycle.New(cfg.Services, opts)
+			if err != nil {
 				return supervisorError(err)
 			}
 			// An axx host serving the project starts them, and keeps them
@@ -282,6 +311,10 @@ func newSuperviseCmd(app *App) *cobra.Command {
 					req.DebugAll = true
 				default:
 					req.Debug = strings.Split(debug, ",")
+				}
+				if coverage {
+					rel, _ := filepath.Rel(cfg.Dir, upCoverageDir(cfg))
+					req.Coverage, req.CoverageDir, req.CoverageKept = true, filepath.ToSlash(rel), true
 				}
 				lease, err := app.openHost(ctx, ann, req, logw, os.Stdout)
 				if err == nil {
@@ -310,7 +343,7 @@ func newSuperviseCmd(app *App) *cobra.Command {
 				}
 				svcs, started = mgr, mgr.Started()
 			}
-			st := upState{PID: os.Getpid(), Services: started, Started: time.Now(), Profile: cf.profile}
+			st := upState{PID: os.Getpid(), Services: started, Started: time.Now(), Profile: cf.profile, Coverage: measured}
 			b, _ := json.MarshalIndent(st, "", "  ")
 			err = os.MkdirAll(runDir(cfg), 0o755)
 			if err == nil {
@@ -338,6 +371,15 @@ func newSuperviseCmd(app *App) *cobra.Command {
 				}
 			}
 			err = svcs.Stop(context.Background())
+			if len(measured) > 0 {
+				// What Go and Python wrote as they stopped: every run's,
+				// which axx down prints.
+				var said bytes.Buffer
+				if cerr := concludeAtDown(context.WithoutCancel(ctx), &said, e, svcs.Exits()); cerr != nil {
+					fmt.Fprintln(&said, "axx: the coverage of the services axx up kept:", cerr)
+				}
+				_ = os.WriteFile(downCoverageFile(cfg), said.Bytes(), 0o644)
+			}
 			_ = os.Remove(upFile(cfg))
 			_ = os.Remove(stopFile(cfg))
 			return err
@@ -345,6 +387,7 @@ func newSuperviseCmd(app *App) *cobra.Command {
 	}
 	cf.register(cmd)
 	cmd.Flags().StringVar(&debug, "debug", "", "")
+	cmd.Flags().BoolVar(&coverage, "coverage", false, "")
 	return cmd
 }
 
@@ -373,6 +416,10 @@ func newDownCmd(app *App) *cobra.Command {
 				}
 				stopped = st.Services
 			}
+			if said, err := os.ReadFile(downCoverageFile(cfg)); err == nil {
+				_, _ = app.Stderr.Write(said)
+			}
+			_ = os.Remove(downCoverageFile(cfg))
 			_ = os.Remove(upFile(cfg))
 			_ = os.Remove(stopFile(cfg))
 			// Reap anything a killed run or supervisor left behind, and run

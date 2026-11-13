@@ -22,6 +22,8 @@ Axx downloads each of these the first time something needs it, and keeps it.
 | WebDriverAgent and the UiAutomator2 server | mobile-ios and mobile-android | Appium's releases on github.com | `AXX_GITHUB_URL` |
 | Piper | models-windows | Piper's releases on github.com | `AXX_GITHUB_URL` |
 | C++/WinRT | models-windows | nuget.org | `AXX_NUGET_URL` |
+| JaCoCo's agent and CLI | coverage-jvm | Maven Central | `AXX_MAVEN_URL` |
+| coverage.py | coverage-python | PyPI | `PIP_INDEX_URL` |
 | OpenH264 | videos of scenarios, and videos an Android emulator's camera plays | Cisco | none: see [OpenH264](#openh264) |
 
 Axx downloads Go the way the go command downloads a Go release it needs: as the module `golang.org/toolchain`, through `GOPROXY`, checked against Go's checksum database. So the one Go proxy serves both Go and the modules.
@@ -49,6 +51,8 @@ Container images aren't in the table because Axx pulls none itself: Docker pulls
    | `https://registry.npmjs.org` | npm | the web packs |
    | `https://cdn.playwright.dev` | generic | web-core's browsers |
    | `https://api.nuget.org/v3/index.json` | NuGet | models-windows |
+   | `https://repo1.maven.org/maven2` | Maven | coverage-jvm |
+   | `https://pypi.org/simple` | PyPI | coverage-python |
 
 2. Set the variables on developers' machines and in CI, with the address your repository manager gives each repository. For example, in a shell profile:
 
@@ -61,9 +65,11 @@ Container images aren't in the table because Axx pulls none itself: Docker pulls
    export npm_config_registry=https://repo.example.com/npm
    export PLAYWRIGHT_DOWNLOAD_HOST=https://repo.example.com/playwright
    export AXX_NUGET_URL=https://repo.example.com/nuget/index.json
+   export AXX_MAVEN_URL=https://repo.example.com/maven-central
+   export PIP_INDEX_URL=https://repo.example.com/pypi/simple
    ```
 
-   `AXX_DOWNLOAD_URL` names where the releases' files are: Axx looks for `<url>/v0.7.0/checksums.txt`, with the archives beside it. `AXX_NUGET_URL` names a NuGet feed's service index, as `nuget.config` names a feed.
+   `AXX_DOWNLOAD_URL` names where the releases' files are: Axx looks for `<url>/v0.7.0/checksums.txt`, with the archives beside it. `AXX_NUGET_URL` names a NuGet feed's service index, as `nuget.config` names a feed. `AXX_MAVEN_URL` names a Maven repository's root, as a Maven mirror's URL does. `PIP_INDEX_URL` is pip's own setting: the address of a package index's simple API, which Axx reads as pip does.
 
    The Go settings can also be in Go's own configuration, where `go env -w` writes them: Axx reads them there too. `GOSUMDB` keeps the database's name, `sum.golang.org`, and adds the mirror's address after it, so Axx and the go command still check the database's signature. If your Go repository serves the checksum database itself, leave `GOSUMDB` unset: the go command, and Axx, find it through `GOPROXY`. To build packs with a Go installed on the machine instead of the one Axx downloads, set `AXX_GO` to its `go`.
 

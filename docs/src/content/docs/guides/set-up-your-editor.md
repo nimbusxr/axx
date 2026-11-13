@@ -113,6 +113,15 @@ A trace opens in an editor tab, in Playwright's trace viewer. The viewer comes w
 
 In IntelliJ IDEA without its built-in browser (JCEF), traces open in your default browser, and videos in your video player. In VS Code, **Open in Browser** at the top of each tab opens its page in your default browser.
 
+## Run with coverage
+
+**Run with Coverage** runs scenarios with `axx run --coverage`, and shows which lines of the services under test they ran, for every language the [coverage packs](/guides/measure-coverage/) measure:
+
+- **IntelliJ IDEA:** choose *Run with Coverage* next to *Run* and *Debug*, in the gutter menu or a feature file's context menu, or on an **axx** run configuration. The coverage shows in the Coverage tool window, the project view and the editor's gutter. It needs an IDE with the platform's coverage, as IntelliJ IDEA has.
+- **VS Code:** run with the **Run with Coverage** profile, from the menu next to the run button in the Testing view. The coverage shows in the Test Coverage view and the editor's gutter, with lines, branches and functions.
+
+A run that stops before it measures anything shows no coverage, never an earlier run's.
+
 ## The axx host
 
 For an agent whose sandbox keeps it from Docker, [`axx host`](/guides/run-from-a-sandbox/) starts the project's services on your machine. Both plugins can run it for you:

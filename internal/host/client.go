@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -24,6 +26,10 @@ type Lease struct {
 	started []string
 	told    []lifecycle.ToldValues
 	out     io.Writer
+	// dir is the project, as the run sees it; exits, how the services
+	// ended, which the host's stopped message says.
+	dir   string
+	exits []lifecycle.Exit
 
 	stopped chan *Failure // the host's stopped message; closed when the connection ends
 }
@@ -40,7 +46,7 @@ func Open(ctx context.Context, a *Announcement, req Request, out, status io.Writ
 			WithHint("start `axx host` again, or delete .axx/host.json to start the services here")
 	}
 	req.Protocol, req.Token = Protocol, a.Token
-	ls := &Lease{conn: conn, l: newLines(conn), out: out, stopped: make(chan *Failure, 1)}
+	ls := &Lease{conn: conn, l: newLines(conn), out: out, dir: req.Dir, stopped: make(chan *Failure, 1)}
 	if err := ls.l.write(req); err != nil {
 		_ = conn.Close()
 		return nil, lost(err)
@@ -97,6 +103,7 @@ func (ls *Lease) follow() {
 		case MsgOutput:
 			_, _ = io.WriteString(ls.out, m.Text+"\n")
 		case MsgStopped:
+			ls.exits = m.Exits
 			ls.stopped <- m.Error
 			return
 		}
@@ -108,6 +115,19 @@ func (ls *Lease) Run() int { return ls.run }
 
 // Told are the properties the services told the host, once they are ready.
 func (ls *Lease) Told() ([]lifecycle.ToldValues, error) { return ls.told, nil }
+
+// Exits are how the services the host started for the run ended, once
+// Stop has stopped them, with their coverage folders in the project as the
+// run sees it.
+func (ls *Lease) Exits() []lifecycle.Exit {
+	out := slices.Clone(ls.exits)
+	for i := range out {
+		if d := out[i].CoverageDir; d != "" {
+			out[i].CoverageDir = filepath.Join(ls.dir, filepath.FromSlash(d))
+		}
+	}
+	return out
+}
 
 // Started are the services the host started for the run, in start order.
 func (ls *Lease) Started() []string { return ls.started }

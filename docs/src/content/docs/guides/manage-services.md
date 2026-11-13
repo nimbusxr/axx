@@ -109,6 +109,26 @@ With `mode: ide-listens`, start a listening debugger in your IDE first (in Intel
 
 `axx ide intellij` and `axx ide vscode` write these debuggers' configurations, and ones that run axx, for each service with a `debugger`. They go where your editor reads them: the repository's root, or the folder of `axx.yaml` if your editor has that folder open (its `.idea`, or a `.vscode` with settings of yours, is there). Wherever `axx.yaml` is, they run axx in its folder.
 
+## Measure a service's coverage
+
+A service's `coverage` section says how it runs when a run measures how much of its code the scenarios run. Its `runtime` names the coverage pack that measures it:
+
+```yaml title="axx.yaml"
+services:
+  orders:
+    dir: ../orders
+    command: java -jar build/libs/orders.jar
+    coverage:
+      runtime: jvm            # jvm, go, python, node, or report for a service that writes lcov or Cobertura
+```
+
+```sh
+axx run --coverage
+axx up --coverage
+```
+
+A run without `--coverage` starts the service with its usual command. Each runtime's needs, such as a build for coverage, and services in containers are in [Measure coverage](/guides/measure-coverage/).
+
 ## Start only what a run needs
 
 In a repository with several services, start only the ones the selected scenarios need:

@@ -14,7 +14,10 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/nimbusxr/axx/packs/web/coverage/internal/v8cov"
+	"github.com/nimbusxr/axx/packs/internal/v8cov"
+
+	coveragecore "github.com/nimbusxr/axx/packs/coverage/core"
+	"github.com/nimbusxr/axx/packs/coverage/core/istanbul"
 )
 
 // The reports, at the end of the run.
@@ -24,25 +27,50 @@ const (
 	summaryFile = "coverage-summary.json"
 )
 
+// settled is the run's coverage, once the scripts' sources it fetches are
+// in: made once, for its reports and for coverage-core's part of a run with
+// coverage, which concludes first. collected is false for a run with no
+// page in Chromium, Chrome or Edge.
+func (r *run) settled() (files []*istanbul.FileCoverage, problems, lost []string, collected bool) {
+	r.settle.Do(func() {
+		waited := make(chan struct{})
+		go func() {
+			r.fetching.Wait()
+			close(waited)
+		}()
+		select {
+		case <-waited:
+		case <-time.After(settleWait):
+		}
+		r.mu.Lock()
+		r.result.collected = len(r.scripts) > 0
+		r.mu.Unlock()
+		if r.result.collected {
+			r.result.files, r.result.problems, r.result.lost = r.files()
+		}
+	})
+	return r.result.files, r.result.problems, r.result.lost, r.result.collected
+}
+
+// part is the run's coverage, for coverage-core: the web apps'
+// JavaScript, copies, as coverage-core merges what it gets.
+func (r *run) part(context.Context) (coveragecore.Part, error) {
+	files, _, _, _ := r.settled()
+	r.concluded.Store(true)
+	p := coveragecore.Part{Name: "web", Runtime: "web", Measured: istanbul.Measured{Branches: true, Functions: true}}
+	for _, fc := range files {
+		p.Files = append(p.Files, fc.Clone())
+	}
+	return p, nil
+}
+
 // report writes the run's coverage, when it has some: a run with no page in
 // Chromium, Chrome or Edge writes nothing.
 func (r *run) report(context.Context) error {
-	waited := make(chan struct{})
-	go func() {
-		r.fetching.Wait()
-		close(waited)
-	}()
-	select {
-	case <-waited:
-	case <-time.After(settleWait):
-	}
-	r.mu.Lock()
-	collected := len(r.scripts) > 0
-	r.mu.Unlock()
+	files, problems, lost, collected := r.settled()
 	if !collected {
 		return nil
 	}
-	files, problems, lost := r.files()
 	log := r.suite.Logger()
 	for i, p := range problems {
 		if i == 5 {
@@ -65,15 +93,21 @@ func (r *run) report(context.Context) error {
 	}
 	lcov := filepath.Join(r.cfg.folder, lcovFile)
 	for name, b := range map[string][]byte{
-		lcovFile:    v8cov.Lcov(files),
-		finalFile:   v8cov.FinalJSON(files),
-		summaryFile: v8cov.SummaryJSON(files),
+		lcovFile:    istanbul.Lcov(files),
+		finalFile:   istanbul.FinalJSON(files),
+		summaryFile: istanbul.SummaryJSON(files),
 	} {
 		if err := os.WriteFile(filepath.Join(r.cfg.folder, name), b, 0o644); err != nil {
 			return fmt.Errorf("cannot write the JavaScript coverage: %w", err)
 		}
 	}
-	t := v8cov.Total(files)
+	// In a run with coverage, the run prints the totals, this part's among
+	// them, and the editor shows coverage-core's report, which has this one
+	// in it.
+	if r.concluded.Load() {
+		return nil
+	}
+	t := istanbul.Total(files)
 	log.Warn(fmt.Sprintf("the web apps' JavaScript coverage: lines %s, statements %s, functions %s, branches %s, in %s",
 		pct(t.Lines), pct(t.Statements), pct(t.Functions), pct(t.Branches), r.relative(lcov)))
 	if abs, err := filepath.Abs(lcov); err == nil {
@@ -83,7 +117,7 @@ func (r *run) report(context.Context) error {
 	return nil
 }
 
-func pct(t v8cov.Totals) string {
+func pct(t istanbul.Totals) string {
 	if t.Pct == nil {
 		return "-"
 	}
@@ -111,7 +145,7 @@ func (st *settings) prefixes() string {
 // count, in the order of the reports; problems are the scripts whose source
 // map or original files could not be read, lost those whose source could
 // not be.
-func (r *run) files() (list []*v8cov.FileCoverage, problems, lost []string) {
+func (r *run) files() (list []*istanbul.FileCoverage, problems, lost []string) {
 	r.mu.Lock()
 	keys := slices.SortedFunc(maps.Keys(r.scripts), func(a, b scriptKey) int {
 		return cmp.Or(strings.Compare(a.url, b.url), strings.Compare(a.hash, b.hash))
@@ -133,7 +167,7 @@ func (r *run) files() (list []*v8cov.FileCoverage, problems, lost []string) {
 		jobs = append(jobs, j)
 	}
 	r.mu.Unlock()
-	files := map[string]*v8cov.FileCoverage{}
+	files := map[string]*istanbul.FileCoverage{}
 	for _, j := range jobs {
 		if !j.hasSource {
 			lost = append(lost, j.key.url)
@@ -168,7 +202,7 @@ func (r *run) files() (list []*v8cov.FileCoverage, problems, lost []string) {
 
 // convert converts a script's merged takes to the coverage of its files, by
 // their URL path: the script's own, or its source map's original files.
-func (r *run) convert(scriptURL string, src source, functions []v8cov.Function) (files []*v8cov.FileCoverage, problem string) {
+func (r *run) convert(scriptURL string, src source, functions []v8cov.Function) (files []*istanbul.FileCoverage, problem string) {
 	defer func() {
 		if e := recover(); e != nil {
 			files, problem = nil, fmt.Sprintf("the coverage of %s could not be worked out (%v): it is left out", scriptURL, e)

@@ -15,7 +15,7 @@ import { featureSteps } from './pausedStep';
 // web pack ignore these settings. Profiles apply in their order (`--profile`).
 export function runArguments(
   targets: string[],
-  options: { debug?: boolean; debugSteps?: boolean; watchSlowdownMs?: number; pauseAt?: string[]; profiles?: string[] } = {},
+  options: { debug?: boolean; debugSteps?: boolean; watchSlowdownMs?: number; pauseAt?: string[]; profiles?: string[]; coverage?: boolean } = {},
 ): string[] {
   const slowdownMs = options.watchSlowdownMs;
   const debug = options.debug === true;
@@ -25,6 +25,7 @@ export function runArguments(
     '--format',
     'teamcity',
     ...(debug && options.debugSteps === true ? ['--debug-steps'] : []),
+    ...(options.coverage === true ? ['--coverage'] : []),
     ...(slowdownMs !== undefined || debug ? ['--workers', '1'] : []),
     ...(slowdownMs !== undefined ? watchSettings(slowdownMs) : []),
     ...(debug ? ['--set', 'packs.web-core.pauseOnFailure=true', ...pauseAt] : []),

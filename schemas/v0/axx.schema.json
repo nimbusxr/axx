@@ -497,6 +497,10 @@
           "$ref": "#/$defs/Duration",
           "description": "Slowdown pauses after each action of a watched run (a click, a tap, a\ntyped field), so a person can follow it, e.g. \"500ms\". Same as\naxx run --slowdown."
         },
+        "coverage": {
+          "type": "boolean",
+          "description": "Coverage measures the coverage of the services that have a coverage\nsection, as the run exercises them, with the packs of their\nruntimes. Same as axx run --coverage."
+        },
         "reporters": {
           "items": {
             "$ref": "#/$defs/Reporter"
@@ -825,6 +829,48 @@
             },
             "additionalProperties": false,
             "type": "object"
+          },
+          "coverage": {
+            "properties": {
+              "runtime": {
+                "type": "string",
+                "description": "Runtime is what measures it: a runtime a coverage pack adds, like jvm\n(coverage-jvm), go, python or node, or report, for a service that\nwrites lcov or Cobertura into its folder itself."
+              },
+              "command": {
+                "oneOf": [
+                  {
+                    "type": "string",
+                    "description": "command line, split into words without a shell unless shell: true"
+                  },
+                  {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array",
+                    "minItems": 1,
+                    "description": "argv"
+                  }
+                ],
+                "description": "Command replaces command when the run measures the service, as\ndebug.command does: a build for coverage (go build -cover), or the\ncommand under coverage.py."
+              },
+              "env": {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object",
+                "description": "Env are variables the service gets beside env when the run measures\nit."
+              },
+              "mount": {
+                "type": "string",
+                "description": "Mount is where the service's folder is inside its container, for a\nservice in a container: its compose file mounts ${AXX_COVERAGE_DIR}\nthere, and the runtime names files by that path."
+              }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "runtime"
+            ],
+            "description": "Coverage is how the service runs when a run measures its coverage\n(axx run --coverage): the pack of its runtime measures it."
           }
         },
         "additionalProperties": false,

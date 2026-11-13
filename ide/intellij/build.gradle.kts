@@ -40,6 +40,10 @@ dependencies {
         // An optional dependency too: axx's schemas in the IDE's completion (axx-json.xml), for
         // JSON and YAML files.
         bundledPlugin("com.intellij.modules.json")
+        // An optional dependency too: Run with Coverage (axx-coverage.xml), with the platform's
+        // coverage and its lcov reader.
+        bundledModule("intellij.platform.coverage")
+        bundledModule("intellij.platform.coverage.agent")
         // The Cucumber plugins people have next to Gherkin, for the tests that check what they make
         // of axx's steps, with the bundled plugins they need. Not Cucumber+: it brings its own
         // Kotlin, which the tests' single class loader would put before the platform's.
@@ -119,6 +123,11 @@ intellijPlatform {
               navigation to each line, expected and actual values of failed assertions, and
               <i>Rerun Failed Tests</i>. Debugging stops at breakpoints in step code with GoLand or
               the Go plugin.</li>
+              <li><b>Coverage.</b> <i>Run with Coverage</i> runs scenarios with
+              <code>axx run --coverage</code> and shows which lines of the services under test
+              they ran, in the editor's gutters and the Coverage tool window, for every language
+              the coverage packs measure (JVM, Go, Python, Node.js, and the web apps'
+              JavaScript).</li>
               <li><b>Watching the browsers.</b> <i>Watch</i>, next to Run and Debug, runs web
               scenarios with their browsers in windows on your desktop as they go, slowed down,
               one scenario at a time, with their DevTools at hand. <i>Debug</i> pauses a scenario

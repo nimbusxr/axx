@@ -98,6 +98,8 @@ type fixture struct {
 	events    *events
 	srv       *Server
 	stop      func()
+	// launch readies the services of a run with coverage (Options.Launch).
+	launch Launch
 }
 
 func service(t *testing.T, dir, name, extra string) string {
@@ -141,6 +143,7 @@ func (f *fixture) start(t *testing.T) {
 		Report:    true,
 		Approvals: f.approvals,
 		Env:       append(os.Environ(), helperEnv+"=1"),
+		Launch:    f.launch,
 	})
 	if err != nil {
 		t.Fatal(err)

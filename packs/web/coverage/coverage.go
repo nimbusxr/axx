@@ -20,6 +20,7 @@ import (
 	"github.com/mxschmitt/playwright-go"
 
 	"github.com/nimbusxr/axx/core"
+	coveragecore "github.com/nimbusxr/axx/packs/coverage/core"
 	webcore "github.com/nimbusxr/axx/packs/web/core"
 )
 
@@ -33,7 +34,7 @@ type pack struct{}
 
 func (pack) Manifest() core.Manifest {
 	return core.Manifest{
-		Name: Name, Namespace: Name, Doc: packDoc, Requires: []string{webcore.Name},
+		Name: Name, Namespace: Name, Doc: packDoc, Requires: []string{webcore.Name, coveragecore.Name},
 		ConfigSchema: []byte(configSchema), Steps: []core.StepDef{},
 		// Step hooks, not scenario ones: those show in every scenario's report.
 		Hooks: []core.Hook{
@@ -56,7 +57,9 @@ packs:
       /portal/src/: ../app/web/src   # the original files of their source maps
 ` + "```" + `
 
-A source map without its original files' content finds them through ` + "`sources`" + ` too.`
+A source map without its original files' content finds them through ` + "`sources`" + ` too.
+
+In a run with coverage (` + "`axx run --coverage`" + `), the web apps' JavaScript is the run's ` + "`web`" + ` part too, in the report ` + "`coverage-core`" + ` writes of every measured part, which ` + "`packs.coverage-core.parts.web.minimum`" + ` sets minimums of.`
 
 // configSchema is the pack's section of axx.yaml, packs.web-coverage.
 const configSchema = `{

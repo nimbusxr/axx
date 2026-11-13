@@ -48,6 +48,9 @@ type Options struct {
 	Version string
 	// Logger receives the services' progress. Nil discards.
 	Logger *slog.Logger
+	// Launch readies the services a run with coverage measures (the
+	// project's coverage packs); nil when this axx has none.
+	Launch Launch
 }
 
 // Approver asks the person whether runs may start services by a changed
@@ -434,7 +437,7 @@ func (s *Server) handle(ctx context.Context, conn net.Conn) {
 	}
 	defer func() { <-s.turn }()
 
-	cfg, def, err := s.define(runCtx, req)
+	cfg, def, cov, err := s.define(runCtx, req)
 	if err != nil {
 		refuse(private(err))
 		ended(err, began)
@@ -447,12 +450,16 @@ func (s *Server) handle(ctx context.Context, conn net.Conn) {
 	}
 
 	out := &outputLines{send: func(line string) { _ = l.write(Message{Type: MsgOutput, Text: line}) }}
-	mgr, err := lifecycle.New(cfg.Services, lifecycle.Options{
+	lopts := lifecycle.Options{
 		ConfigDir: cfg.Dir, Stdout: out, Stderr: out, Logger: s.log,
 		Attach: set(req.Attach), Debug: set(req.Debug), DebugAll: req.DebugAll,
 		StateFile: lifecycle.StateFile(cfg.Dir), Env: s.env,
 		Config: cfg, PropertiesDir: s.told,
-	})
+	}
+	if cov != nil {
+		lopts.Coverage, lopts.CoverageDir, lopts.CoverageEnv = cov.measured, cov.dir, cov.env
+	}
+	mgr, err := lifecycle.New(cfg.Services, lopts)
 	if err != nil {
 		refuse(err)
 		ended(err, began)
@@ -494,7 +501,7 @@ func (s *Server) handle(ctx context.Context, conn net.Conn) {
 	stopping := time.Now()
 	err = mgr.Stop(context.WithoutCancel(ctx))
 	out.flush()
-	m := Message{Type: MsgStopped}
+	m := Message{Type: MsgStopped, Exits: relativeExits(cfg.Dir, mgr.Exits())}
 	if err != nil {
 		m.Error = failure(err)
 	}
@@ -628,7 +635,7 @@ func (s *Server) take(ctx context.Context, run int, command string, l *lines, wa
 
 // define loads the configuration the run loaded, as the host's machine
 // gives it, and reads its definition.
-func (s *Server) define(ctx context.Context, req Request) (*config.Config, *Definition, error) {
+func (s *Server) define(ctx context.Context, req Request) (*config.Config, *Definition, *hostCoverage, error) {
 	opts := config.LoadOptions{
 		WorkDir: s.dir, Profile: req.Profile, Properties: req.Properties, Settings: req.Settings,
 		// The run's profile, not the host's environment's.
@@ -641,23 +648,32 @@ func (s *Server) define(ctx context.Context, req Request) (*config.Config, *Defi
 	}
 	if req.Config != "" {
 		if !filepath.IsLocal(filepath.FromSlash(req.Config)) {
-			return nil, nil, hostErr(CodeRefused, "the run's configuration %s is not in the project the axx host serves (%s)", req.Config, s.dir)
+			return nil, nil, nil, hostErr(CodeRefused, "the run's configuration %s is not in the project the axx host serves (%s)", req.Config, s.dir)
 		}
 		opts.Path = filepath.Join(s.dir, filepath.FromSlash(req.Config))
 	}
 	cfg, err := config.Load(opts)
 	if err != nil {
-		return nil, nil, axxerr.Wrap(err, CodeDefinition, exitcode.Environment,
+		return nil, nil, nil, axxerr.Wrap(err, CodeDefinition, exitcode.Environment,
 			"axx.yaml cannot be loaded on the axx host's machine with this run's configuration, profile and settings")
 	}
 	if realPath(cfg.Dir) != realPath(s.dir) {
-		return nil, nil, hostErr(CodeRefused, "the run's configuration is in %s, not in the project the axx host serves (%s)", cfg.Dir, s.dir)
+		return nil, nil, nil, hostErr(CodeRefused, "the run's configuration is in %s, not in the project the axx host serves (%s)", cfg.Dir, s.dir)
+	}
+	cov, err := s.coverage(ctx, cfg, req)
+	if err != nil {
+		return nil, nil, nil, err
 	}
 	def, err := Define(ctx, cfg, key(cfg, req.Profile), s.env)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
-	return cfg, def, nil
+	if cov != nil {
+		// A run with coverage changes what the services run: it is a
+		// definition of its own, approved as one.
+		def.Text += cov.text()
+	}
+	return cfg, def, cov, nil
 }
 
 // private is what a run is told of an error reading its definition: what

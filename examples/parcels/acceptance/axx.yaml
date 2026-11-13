@@ -62,6 +62,13 @@ services:
     stop:
       grace: 20s
     cleanup: docker compose down -v --remove-orphans
+    # `axx run --coverage`: compose builds the service for coverage, and it writes its coverage
+    # into the folder axx gives it, mounted at /axx-coverage, as it stops.
+    coverage:
+      runtime: go
+      mount: /axx-coverage
+      env:
+        PARCELS_GO_BUILD_FLAGS: -cover -coverpkg=./...
     # `axx run --debug`: compose starts only the infrastructure (and empties the export
     # folder), and the service runs on the host under Delve, which listens on port 2345
     # for your IDE to attach; it sends its log lines to Axx's UDP listener, as in compose.
@@ -98,11 +105,17 @@ packs:
   files:
     screenshots:
       platforms: [linux, darwin]
-  # How much of the portal's scripts the scenarios run, in .axx/web/coverage/lcov.info:
+  # How much of the portal's scripts the scenarios run, in .axx/web/coverage/lcov.info (and,
+  # in a run with coverage, in .axx/coverage/lcov.info with the service's):
   # the scripts the portal serves under /portal/js/ are those of ../app/web/js.
   web-coverage:
     sources:
       /portal/js/: ../app/web/js
+  # The parcels service's Go module, whose files its coverage names.
+  coverage-go:
+    parts:
+      parcels:
+        modules: [../app]
 
 # `axx run --profile watch`: the shop portal's browsers open in windows on your screen,
 # one scenario at a time and slowed down.
