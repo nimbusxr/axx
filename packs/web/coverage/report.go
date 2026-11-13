@@ -101,17 +101,19 @@ func (r *run) report(context.Context) error {
 			return fmt.Errorf("cannot write the JavaScript coverage: %w", err)
 		}
 	}
+	// In a run with coverage, the run prints the totals, this part's among
+	// them, and the editor shows coverage-core's report, which has this one
+	// in it.
+	if r.concluded.Load() {
+		return nil
+	}
 	t := istanbul.Total(files)
 	log.Warn(fmt.Sprintf("the web apps' JavaScript coverage: lines %s, statements %s, functions %s, branches %s, in %s",
 		pct(t.Lines), pct(t.Statements), pct(t.Functions), pct(t.Branches), r.relative(lcov)))
 	if abs, err := filepath.Abs(lcov); err == nil {
 		lcov = abs
 	}
-	// In a run with coverage, the editor shows coverage-core's report, which
-	// has this one in it.
-	if !r.concluded.Load() {
-		r.suite.Announce("coverage", "path", lcov)
-	}
+	r.suite.Announce("coverage", "path", lcov)
 	return nil
 }
 

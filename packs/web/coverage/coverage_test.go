@@ -264,10 +264,21 @@ func mustParse(t *testing.T, s string) *url.URL {
 }
 
 // In a run with coverage, coverage-core gets the run's coverage as the web
-// part: copies, which it may merge, and the editor is told of its report
-// instead.
+// part: copies, which it may merge. The pack still writes its reports, but
+// the run prints the totals, and the editor is told of coverage-core's
+// report instead.
 func TestThePartOfARunWithCoverage(t *testing.T) {
-	r := &run{}
+	dir := t.TempDir()
+	var logs bytes.Buffer
+	var announced []string
+	s := core.NewSuite(core.SuiteOptions{
+		ProjectDir: dir, Logger: slog.New(slog.NewTextHandler(&logs, nil)),
+		Announce: func(line string) { announced = append(announced, line) },
+	})
+	r, err := runFor(s)
+	if err != nil {
+		t.Fatal(err)
+	}
 	fc := &istanbul.FileCoverage{Path: "portal/js/track.js", StatementMap: []istanbul.Loc{istanbul.Span(1, 0, 1, 10)}, S: []int{2}}
 	r.settle.Do(func() { r.result.files, r.result.collected = []*istanbul.FileCoverage{fc}, true })
 	p, err := r.part(context.Background())
@@ -280,5 +291,14 @@ func TestThePartOfARunWithCoverage(t *testing.T) {
 	}
 	if !r.concluded.Load() {
 		t.Error("the run does not know a run with coverage took its coverage")
+	}
+	if err := r.report(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".axx", "web", "coverage", "lcov.info")); err != nil {
+		t.Error(err)
+	}
+	if strings.Contains(logs.String(), "JavaScript coverage: lines") || len(announced) > 0 {
+		t.Errorf("the pack told its totals (%s) or announced %q", logs.String(), announced)
 	}
 }
