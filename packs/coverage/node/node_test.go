@@ -2,6 +2,7 @@ package coveragenode
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/nimbusxr/axx/core"
 	coveragecore "github.com/nimbusxr/axx/packs/coverage/core"
+	"github.com/nimbusxr/axx/packs/coverage/core/istanbul"
 )
 
 func TestScriptPath(t *testing.T) {
@@ -93,5 +95,52 @@ func TestAnUnreadableFileAfterTheExitTake(t *testing.T) {
 	}
 	if len(files) != 1 || files[0].Path != app {
 		t.Fatalf("files %+v", files)
+	}
+}
+
+// A script an image built isn't in the project, but the TypeScript its
+// source map names is: its lines, as Node recorded them, place its
+// coverage there. The data is a real run's: an Express service compiled by
+// tsc in its image, its scripts in /app/dist, its sources in /app/src.
+func TestAScriptBuiltInItsImage(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, v8Folder), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	b, err := os.ReadFile(filepath.Join("testdata", "image", "coverage-1-1-0.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, v8Folder, "coverage-1-1-0.json"), b, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	app, err := filepath.Abs(filepath.Join("testdata", "image", "app"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	call := coveragecore.ConvertCall{
+		End: core.CoverageEnd{CoverageService: core.CoverageService{Name: "tracking", Dir: dir}},
+		Path: func(p string) string {
+			return strings.Replace(filepath.FromSlash(p), filepath.FromSlash("/app"), app, 1)
+		},
+	}
+	files, _, err := nodeRuntime{}.Convert(context.Background(), call)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := map[string]istanbul.Summary{}
+	for _, f := range files {
+		got[filepath.Base(f.Path)] = istanbul.Total([]*istanbul.FileCoverage{f})
+	}
+	// As the run with the scripts here counted them.
+	if e, s := got["events.ts"], got["server.ts"]; len(got) != 2 || e.Lines.Covered != 11 || e.Lines.Total != 16 || e.Functions.Covered != 1 || e.Functions.Total != 2 || s.Lines.Covered != 20 || s.Lines.Total != 23 {
+		t.Errorf("files %v", got)
+	}
+
+	// Sources that aren't where the paths say: the run says so.
+	call.Path = func(p string) string { return filepath.Join(t.TempDir(), filepath.Base(p)) }
+	var um *coveragecore.Unmatched
+	if _, _, err := (nodeRuntime{}).Convert(context.Background(), call); !errors.As(err, &um) || !strings.Contains(um.Why, "packs.coverage-core.parts.tracking.paths") {
+		t.Errorf("sources elsewhere: %v", err)
 	}
 }

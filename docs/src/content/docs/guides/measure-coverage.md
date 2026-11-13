@@ -170,6 +170,8 @@ services:
 ```
 
 - The service's scripts count through their source maps, so TypeScript counts as TypeScript. `node_modules` and Node's own scripts don't count.
+- When the service's image compiles its TypeScript, the compiled scripts are only in the image. Their coverage still counts, in the project's `.ts` files: Node records each script's source map and the length of its lines, and the `.ts` files are in the project. Map the image's paths to the project's in `paths`, as for any service in a container.
+- Only the project's files count.
 - Axx opens no port and no inspector.
 
 ### Any other language

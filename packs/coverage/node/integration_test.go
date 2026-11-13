@@ -103,8 +103,9 @@ func TestANodeServicesCoverage(t *testing.T) {
 		t.Errorf("it exits as SIGTERM would have it: %v", err)
 	}
 	written, _ := filepath.Glob(filepath.Join(dir, "v8", "coverage-*.json"))
-	if len(written) != 2 {
-		t.Errorf("%d coverage files, want the take's and the exit's", len(written))
+	// The take's and the exit's, named apart, and V8's own as it ended.
+	if len(written) != 3 {
+		t.Errorf("%d coverage files, want the take's, the exit's and V8's own", len(written))
 	}
 
 	files, m, err := nodeRuntime{}.Convert(context.Background(), coveragecore.ConvertCall{

@@ -20,7 +20,10 @@ const dir = __dirname;
 const trigger = path.join(dir, 'take');
 const written = process.env.NODE_V8_COVERAGE;
 
-// readable makes the files V8 wrote for this process readable by everyone.
+// readable makes the files V8 wrote for this process readable by everyone,
+// and names them apart ("-taken"): V8 names a file by its process, the
+// millisecond and its thread, so its next write in the same millisecond,
+// as the one it makes as the process ends, would replace it.
 function readable() {
   let names;
   try {
@@ -30,9 +33,11 @@ function readable() {
   }
   const own = 'coverage-' + process.pid + '-';
   for (const name of names) {
-    if (!name.startsWith(own)) continue;
+    if (!name.startsWith(own) || name.endsWith('-taken.json')) continue;
+    const from = path.join(written, name);
     try {
-      fs.chmodSync(path.join(written, name), 0o644);
+      fs.chmodSync(from, 0o644);
+      fs.renameSync(from, path.join(written, name.slice(0, -'.json'.length) + '-taken.json'));
     } catch {
       // not its own: another process's of the same pid, before it
     }

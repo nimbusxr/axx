@@ -13,6 +13,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"maps"
 	"net/url"
 	"os"
 	"path"
@@ -126,7 +127,8 @@ type v8File struct {
 		Functions []v8cov.Function `json:"functions"`
 	} `json:"result"`
 	SourceMapCache map[string]struct {
-		Data json.RawMessage `json:"data"`
+		Data        json.RawMessage `json:"data"`
+		LineLengths []int           `json:"lineLengths"`
 	} `json:"source-map-cache"`
 }
 
@@ -139,7 +141,8 @@ func (nodeRuntime) Convert(_ context.Context, call coveragecore.ConvertCall) ([]
 		return nil, measured, nil
 	}
 	takes := map[string][][]v8cov.Function{}
-	maps := map[string]json.RawMessage{}
+	sourceMaps := map[string]json.RawMessage{}
+	lineLengths := map[string][]int{}
 	for _, n := range names {
 		b, err := os.ReadFile(n)
 		if tail(call.End.Dir, n, err) {
@@ -162,12 +165,22 @@ func (nodeRuntime) Convert(_ context.Context, call coveragecore.ConvertCall) ([]
 		}
 		for u, m := range f.SourceMapCache {
 			if p, ok := scriptPath(u); ok && m.Data != nil {
-				maps[p] = m.Data
+				sourceMaps[p], lineLengths[p] = m.Data, m.LineLengths
 			}
 		}
 	}
+	// A source map's originals, which Node names as the service saw them
+	// (file:///app/src/server.ts in a container), are where the project has
+	// them, as its scripts are; those resolved against a script found here
+	// are here already.
+	onThisMachine := func(p string) string {
+		if _, err := os.Stat(p); err == nil {
+			return p
+		}
+		return call.Path(p)
+	}
 	read := func(p string) (string, error) {
-		b, err := os.ReadFile(p)
+		b, err := os.ReadFile(onThisMachine(p))
 		return string(b), err
 	}
 	var files []*istanbul.FileCoverage
@@ -179,32 +192,63 @@ func (nodeRuntime) Convert(_ context.Context, call coveragecore.ConvertCall) ([]
 		}
 	}) {
 		local := call.Path(p)
-		src, err := os.ReadFile(local)
-		if err != nil {
-			continue // not in the project
-		}
 		var sm *v8cov.SourceMap
-		if m, ok := maps[p]; ok {
+		if m, ok := sourceMaps[p]; ok {
+			var err error
 			if sm, err = v8cov.ParseSourceMap(m); err != nil {
 				sm = nil
 			}
 		}
-		c, err := v8cov.NewConverter(local, string(src), sm, read)
-		if err != nil && sm != nil {
+		src, err := os.ReadFile(local)
+		text, here := string(src), err == nil
+		if !here {
+			// The script isn't here (an image built it), but the originals
+			// its source map names may be: its lines, as Node recorded them,
+			// place its coverage in them.
+			if sm == nil || lineLengths[p] == nil {
+				continue
+			}
+			text = lines(lineLengths[p])
+		}
+		c, err := v8cov.NewConverter(local, text, sm, read)
+		if err != nil && sm != nil && here {
 			// Its source map's originals are not here: the script counts.
-			c, err = v8cov.NewConverter(local, string(src), nil, read)
+			c, err = v8cov.NewConverter(local, text, nil, read)
 		}
 		if err != nil {
 			continue
 		}
 		c.Apply(v8cov.Merge(takes[p]))
 		for _, fc := range c.Istanbul() {
-			if !strings.Contains(filepath.ToSlash(fc.Path), "/node_modules/") {
-				files = append(files, fc)
+			if strings.Contains(filepath.ToSlash(fc.Path), "/node_modules/") {
+				continue
 			}
+			fc.Path = onThisMachine(fc.Path)
+			if _, err := os.Stat(fc.Path); err != nil {
+				continue // only the project's files count
+			}
+			files = append(files, fc)
 		}
 	}
+	if len(files) == 0 && len(takes) > 0 {
+		first := slices.Sorted(maps.Keys(takes))[0]
+		return nil, measured, &coveragecore.Unmatched{Why: fmt.Sprintf("Node measured %d of its scripts, like %s, and none of them, nor the sources their source maps name, is in the project where it looked (%s): say where they are in packs.coverage-core.parts.%s.paths", len(takes), first, call.Path(first), call.End.Name)}
+	}
 	return files, measured, nil
+}
+
+// lines is a script of the lengths of its lines, as Node records them for
+// a script with a source map: where each line starts and ends is all the
+// coverage of a script mapped to its originals needs of it.
+func lines(lengths []int) string {
+	var b strings.Builder
+	for i, n := range lengths {
+		if i > 0 {
+			b.WriteByte('\n')
+		}
+		b.WriteString(strings.Repeat("x", n))
+	}
+	return b.String()
 }
 
 // scriptPath is the file of a script's URL, as the service names it: a
