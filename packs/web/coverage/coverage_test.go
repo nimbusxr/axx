@@ -14,6 +14,7 @@ import (
 	"testing"
 
 	"github.com/nimbusxr/axx/core"
+	"github.com/nimbusxr/axx/packs/coverage/core/istanbul"
 	"github.com/nimbusxr/axx/packs/internal/v8cov"
 )
 
@@ -260,4 +261,24 @@ func mustParse(t *testing.T, s string) *url.URL {
 		t.Fatal(err)
 	}
 	return u
+}
+
+// In a run with coverage, coverage-core gets the run's coverage as the web
+// part: copies, which it may merge, and the editor is told of its report
+// instead.
+func TestThePartOfARunWithCoverage(t *testing.T) {
+	r := &run{}
+	fc := &istanbul.FileCoverage{Path: "portal/js/track.js", StatementMap: []istanbul.Loc{istanbul.Span(1, 0, 1, 10)}, S: []int{2}}
+	r.settle.Do(func() { r.result.files, r.result.collected = []*istanbul.FileCoverage{fc}, true })
+	p, err := r.part(context.Background())
+	if err != nil || p.Name != "web" || p.Runtime != "web" || !p.Measured.Branches || !p.Measured.Functions || len(p.Files) != 1 {
+		t.Fatalf("%+v %v", p, err)
+	}
+	p.Files[0].S[0] = 99
+	if fc.S[0] != 2 || p.Files[0].Path != fc.Path {
+		t.Errorf("the part shares the run's coverage: %v", fc.S)
+	}
+	if !r.concluded.Load() {
+		t.Error("the run does not know a run with coverage took its coverage")
+	}
 }

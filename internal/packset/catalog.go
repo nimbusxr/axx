@@ -45,7 +45,7 @@ var Catalog = []Pack{
 	{Name: "web-a11y", Import: packs + "web/a11y", Requires: []string{"web-core"}, Summary: "pages people can use whatever their abilities: axe-core audits and accessible structure"},
 	{Name: "web-network", Import: packs + "web/network", Requires: []string{"web-core"}, Summary: "what pages fetch: failing, answered or slow requests, recordings, websocket messages"},
 	{Name: "web-lighthouse", Import: packs + "web/lighthouse", Requires: []string{"web-core"}, Summary: "Lighthouse audits of pages: performance, accessibility, best practices and SEO scores, Core Web Vitals"},
-	{Name: "web-coverage", Import: packs + "web/coverage", Requires: []string{"web-core"}, Summary: "how much of the web apps' JavaScript the scenarios run: lcov and Istanbul reports, from Chromium"},
+	{Name: "web-coverage", Import: packs + "web/coverage", Requires: []string{"web-core", "coverage-core"}, Summary: "how much of the web apps' JavaScript the scenarios run: lcov and Istanbul reports, from Chromium"},
 	{Name: "app-core", Import: packs + "app/core", Summary: "apps, used as people use them, whatever they run on: launched, their controls tapped or clicked and filled, what they show checked"},
 	{Name: "mobile-core", Import: packs + "mobile/core", Requires: []string{"app-core"}, Summary: "native mobile apps, used as people use them: launched or opened with a deep link, their controls tapped and filled, what they show checked"},
 	{Name: "mobile-android", Import: packs + "mobile/android", Requires: []string{"mobile-core"}, Summary: "Android apps on emulators and devices, through the UiAutomator2 server: a device of its own and a clean app for each scenario"},

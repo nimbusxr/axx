@@ -57,6 +57,26 @@ type FileCoverage struct {
 	F            []int        `json:"f"`
 }
 
+// Clone is a copy of fc that shares nothing with it, for a merge that
+// changes it.
+func (fc *FileCoverage) Clone() *FileCoverage {
+	c := *fc
+	c.StatementMap = slices.Clone(fc.StatementMap)
+	c.S = slices.Clone(fc.S)
+	c.BranchMap = make([]BranchMeta, len(fc.BranchMap))
+	for i, b := range fc.BranchMap {
+		b.Locations = slices.Clone(b.Locations)
+		c.BranchMap[i] = b
+	}
+	c.B = make([][]int, len(fc.B))
+	for i, b := range fc.B {
+		c.B[i] = slices.Clone(b)
+	}
+	c.FnMap = slices.Clone(fc.FnMap)
+	c.F = slices.Clone(fc.F)
+	return &c
+}
+
 // Merge adds another coverage of the same file, as istanbul-lib-coverage's
 // FileCoverage.merge does: items at the same place add up; an item only one
 // side has takes the hits of the other side's nearest item around it.

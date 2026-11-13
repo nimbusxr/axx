@@ -131,7 +131,14 @@ func (pack) Conclude(ctx context.Context, s *core.Suite, run core.CoverageRun) (
 			if err != nil {
 				return nil, err
 			}
-			data.Parts = append(data.Parts, part{Name: p.Name, Runtime: p.Runtime, Measured: p.Measured, Files: p.Files})
+			if len(p.Files) == 0 {
+				continue // the pack measured nothing: no page in Chromium, say
+			}
+			files := make([]*istanbul.FileCoverage, len(p.Files))
+			for i, fc := range p.Files {
+				files[i] = fc.Clone()
+			}
+			data.Parts = append(data.Parts, part{Name: p.Name, Runtime: p.Runtime, Measured: p.Measured, Files: merged(files)})
 		}
 	}
 
@@ -211,8 +218,7 @@ func write(folder string, data runData) error {
 	var all []*istanbul.FileCoverage
 	for _, p := range data.Parts {
 		for _, fc := range p.Files {
-			c := *fc
-			all = append(all, &c)
+			all = append(all, fc.Clone())
 		}
 	}
 	all = merged(all)
@@ -375,8 +381,7 @@ func missingParts(cfg config, data runData, cov *core.Coverage) string {
 func copies(files []*istanbul.FileCoverage) []*istanbul.FileCoverage {
 	out := make([]*istanbul.FileCoverage, len(files))
 	for i, fc := range files {
-		c := *fc
-		out[i] = &c
+		out[i] = fc.Clone()
 	}
 	return merged(out)
 }

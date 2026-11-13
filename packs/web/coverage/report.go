@@ -16,6 +16,7 @@ import (
 
 	"github.com/nimbusxr/axx/packs/internal/v8cov"
 
+	coveragecore "github.com/nimbusxr/axx/packs/coverage/core"
 	"github.com/nimbusxr/axx/packs/coverage/core/istanbul"
 )
 
@@ -26,25 +27,50 @@ const (
 	summaryFile = "coverage-summary.json"
 )
 
+// settled is the run's coverage, once the scripts' sources it fetches are
+// in: made once, for its reports and for coverage-core's part of a run with
+// coverage, which concludes first. collected is false for a run with no
+// page in Chromium, Chrome or Edge.
+func (r *run) settled() (files []*istanbul.FileCoverage, problems, lost []string, collected bool) {
+	r.settle.Do(func() {
+		waited := make(chan struct{})
+		go func() {
+			r.fetching.Wait()
+			close(waited)
+		}()
+		select {
+		case <-waited:
+		case <-time.After(settleWait):
+		}
+		r.mu.Lock()
+		r.result.collected = len(r.scripts) > 0
+		r.mu.Unlock()
+		if r.result.collected {
+			r.result.files, r.result.problems, r.result.lost = r.files()
+		}
+	})
+	return r.result.files, r.result.problems, r.result.lost, r.result.collected
+}
+
+// part is the run's coverage, for coverage-core: the web apps'
+// JavaScript, copies, as coverage-core merges what it gets.
+func (r *run) part(context.Context) (coveragecore.Part, error) {
+	files, _, _, _ := r.settled()
+	r.concluded.Store(true)
+	p := coveragecore.Part{Name: "web", Runtime: "web", Measured: istanbul.Measured{Branches: true, Functions: true}}
+	for _, fc := range files {
+		p.Files = append(p.Files, fc.Clone())
+	}
+	return p, nil
+}
+
 // report writes the run's coverage, when it has some: a run with no page in
 // Chromium, Chrome or Edge writes nothing.
 func (r *run) report(context.Context) error {
-	waited := make(chan struct{})
-	go func() {
-		r.fetching.Wait()
-		close(waited)
-	}()
-	select {
-	case <-waited:
-	case <-time.After(settleWait):
-	}
-	r.mu.Lock()
-	collected := len(r.scripts) > 0
-	r.mu.Unlock()
+	files, problems, lost, collected := r.settled()
 	if !collected {
 		return nil
 	}
-	files, problems, lost := r.files()
 	log := r.suite.Logger()
 	for i, p := range problems {
 		if i == 5 {
@@ -81,7 +107,11 @@ func (r *run) report(context.Context) error {
 	if abs, err := filepath.Abs(lcov); err == nil {
 		lcov = abs
 	}
-	r.suite.Announce("coverage", "path", lcov)
+	// In a run with coverage, the editor shows coverage-core's report, which
+	// has this one in it.
+	if !r.concluded.Load() {
+		r.suite.Announce("coverage", "path", lcov)
+	}
 	return nil
 }
 
