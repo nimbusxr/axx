@@ -21,6 +21,7 @@ import (
 	coveragecore "github.com/nimbusxr/axx/packs/coverage/core"
 	coveragego "github.com/nimbusxr/axx/packs/coverage/go"
 	coveragejvm "github.com/nimbusxr/axx/packs/coverage/jvm"
+	coveragepython "github.com/nimbusxr/axx/packs/coverage/python"
 	desktopcore "github.com/nimbusxr/axx/packs/desktop/core"
 	desktoplinux "github.com/nimbusxr/axx/packs/desktop/linux"
 	desktopmacos "github.com/nimbusxr/axx/packs/desktop/macos"
@@ -102,6 +103,7 @@ func Packs() map[string]core.Pack {
 		"coverage-core":    coveragecore.Pack(),
 		"coverage-go":      coveragego.Pack(),
 		"coverage-jvm":     coveragejvm.Pack(),
+		"coverage-python":  coveragepython.Pack(),
 		"app-core":         appcore.Pack(),
 		"mobile-core":      mobilecore.Pack(),
 		"mobile-android":   mobileandroid.Pack(),
