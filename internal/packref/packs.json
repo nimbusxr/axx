@@ -6027,6 +6027,12 @@
                     "type": "string"
                   },
                   "description": "The folders of its sources, relative to the project, which name its files (default: src/main/kotlin and src/main/java in its dir)."
+                },
+                "port": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 65535,
+                  "description": "The port JaCoCo's agent listens on when axx up keeps the service (axx up --coverage), for each run to read and reset its coverage while it runs: on 127.0.0.1, or published from its container on it. axx never picks one."
                 }
               }
             }

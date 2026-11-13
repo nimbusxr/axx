@@ -10,6 +10,8 @@ package coveragecore
 
 import (
 	"context"
+	"fmt"
+	"os"
 	"slices"
 
 	"github.com/nimbusxr/axx/core"
@@ -71,4 +73,49 @@ func runtimeFor(name string) (Runtime, bool) {
 		return reportRuntime{}, true
 	}
 	return runtimeOf(name)
+}
+
+// KeepsCoverage reports whether a runtime's services can be read while they
+// run (Keeper).
+func (pack) KeepsCoverage(runtime string) bool {
+	r, ok := runtimeFor(runtime)
+	if !ok {
+		return false
+	}
+	_, keeps := r.(Keeper)
+	return keeps
+}
+
+// ResetCoverage starts a kept service's counts afresh.
+func (p pack) ResetCoverage(ctx context.Context, settings func(pack string, v any) error, s core.CoverageService) error {
+	k, err := keeper(s)
+	if err != nil {
+		return err
+	}
+	return k.Reset(ctx, LaunchCall{Service: s, Settings: settings})
+}
+
+// TakeCoverage writes what ran of a kept service since it was reset into
+// into.
+func (p pack) TakeCoverage(ctx context.Context, settings func(pack string, v any) error, s core.CoverageService, into string) error {
+	k, err := keeper(s)
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(into, 0o755); err != nil {
+		return err
+	}
+	return k.Take(ctx, LaunchCall{Service: s, Settings: settings}, into)
+}
+
+func keeper(s core.CoverageService) (Keeper, error) {
+	r, ok := runtimeFor(s.Runtime)
+	if !ok {
+		return nil, fmt.Errorf("service %s: no coverage pack measures its runtime, %s", s.Name, s.Runtime)
+	}
+	k, ok := r.(Keeper)
+	if !ok {
+		return nil, fmt.Errorf("service %s: %s is read only when it exits", s.Name, s.Runtime)
+	}
+	return k, nil
 }

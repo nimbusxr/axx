@@ -431,6 +431,9 @@ func init() {
 	add("AXX-E1006", exitcode.Coverage, "Coverage under a minimum",
 		"`axx coverage check` merged the shards' coverage, and it is under a minimum packs.coverage-core sets. (`axx run --coverage` says so with exit code 6 as well, in its report, not with this error.)",
 		"Write scenarios for the code the report shows no run reached, or lower the minimums.")
+	add("AXX-E1007", u, "Kept services without coverage",
+		"A run with coverage reuses services `axx up` keeps, which it started without coverage, so the run cannot measure them. Also: another run is measuring the services `axx up --coverage` keeps, whose coverage two runs would reset for each other.",
+		"`axx down`, then `axx up --coverage`, or let the run start the services itself; or wait for the other run to end.")
 	add("AXX-E1001", u, "Unknown coverage runtime",
 		"A service's `coverage.runtime` names a runtime that none of the project's coverage packs measures. The message lists those they do.",
 		"Add the pack of its runtime (`axx pack add coverage-<runtime>`), or name one of the runtimes listed; `report` is a service that writes lcov or Cobertura itself.")

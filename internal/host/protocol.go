@@ -80,6 +80,9 @@ type Request struct {
 	// coverage folder, under the project's .axx/coverage/raw.
 	Coverage    bool   `json:"coverage,omitempty"`
 	CoverageDir string `json:"coverageDir,omitempty"`
+	// CoverageKept is axx up's, whose services each run reads while they
+	// run (core.CoverageService.Kept).
+	CoverageKept bool `json:"coverageKept,omitempty"`
 }
 
 // Message types the host sends a run.

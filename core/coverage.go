@@ -90,6 +90,10 @@ type CoverageService struct {
 	// WorkDir is the service's working directory (its dir), where its
 	// sources are unless the runtime's settings say otherwise.
 	WorkDir string
+	// Kept is a service axx up keeps running across runs: each run resets
+	// its coverage as it starts and takes it as it ends, for the runtimes
+	// that can (CoverageKeeper).
+	Kept bool
 }
 
 // CoverageEnd is how a service the run measured, or was to measure, ended:
@@ -146,4 +150,19 @@ type CoverageLauncher interface {
 // compares them with the minimums axx.yaml sets.
 type Concluder interface {
 	Conclude(ctx context.Context, s *Suite, run CoverageRun) (*Coverage, error)
+}
+
+// CoverageKeeper is implemented by the pack that measures the services axx
+// up keeps (coverage-core): a run resets their coverage as it starts and
+// takes it as it ends, while they keep running, for the runtimes that can
+// be read so (JVM, Node); the others write theirs when axx down stops them.
+type CoverageKeeper interface {
+	// KeepsCoverage reports whether a runtime's services can be read while
+	// they run.
+	KeepsCoverage(runtime string) bool
+	// ResetCoverage starts s's counts afresh.
+	ResetCoverage(ctx context.Context, settings func(pack string, v any) error, s CoverageService) error
+	// TakeCoverage writes what ran of s since it was reset into the folder
+	// into, which the run concludes from as from a stopped service's.
+	TakeCoverage(ctx context.Context, settings func(pack string, v any) error, s CoverageService, into string) error
 }

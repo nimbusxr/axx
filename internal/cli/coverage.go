@@ -43,6 +43,8 @@ type runCoverage struct {
 	// configuration selects; shard and selected, which share of which run
 	// it is.
 	partial, shard, selected string
+	// kept are the services axx up keeps that it measures.
+	kept *kept
 }
 
 // coverageLauncher is the pack that readies measured services, if the

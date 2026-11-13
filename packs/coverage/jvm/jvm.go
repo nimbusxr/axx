@@ -75,7 +75,8 @@ const configSchema = `{
         "additionalProperties": false,
         "properties": {
           "classes": {"type": "array", "items": {"type": "string"}, "description": "The folders and jars of the classes the service runs, relative to the project (default: build/classes/*/main and target/classes in its dir). They must be the classes it ran: JaCoCo reads none of a class rebuilt since."},
-          "sources": {"type": "array", "items": {"type": "string"}, "description": "The folders of its sources, relative to the project, which name its files (default: src/main/kotlin and src/main/java in its dir)."}
+          "sources": {"type": "array", "items": {"type": "string"}, "description": "The folders of its sources, relative to the project, which name its files (default: src/main/kotlin and src/main/java in its dir)."},
+          "port": {"type": "integer", "minimum": 1, "maximum": 65535, "description": "The port JaCoCo's agent listens on when axx up keeps the service (axx up --coverage), for each run to read and reset its coverage while it runs: on 127.0.0.1, or published from its container on it. axx never picks one."}
         }
       }
     }
@@ -86,6 +87,7 @@ type config struct {
 	Parts map[string]struct {
 		Classes []string `json:"classes"`
 		Sources []string `json:"sources"`
+		Port    int      `json:"port"`
 	} `json:"parts"`
 }
 
@@ -161,6 +163,19 @@ func (runtime) Launch(ctx context.Context, call coveragecore.LaunchCall) ([]stri
 		return nil, fmt.Errorf("service %s's coverage folder %s has a space, comma or equals sign, which JAVA_TOOL_OPTIONS and JaCoCo's options cannot carry: move the project, or mount the folder elsewhere", s.Name, dir)
 	}
 	opts := "-javaagent:" + join(dir, "jacocoagent.jar") + "=destfile=" + join(dir, execFile) + ",output=file,append=true,dumponexit=true"
+	if s.Kept {
+		// axx up keeps it: each run reads and resets it through the
+		// agent's port, while it runs.
+		port, err := keptPort(call)
+		if err != nil {
+			return nil, err
+		}
+		address := "127.0.0.1"
+		if s.Mount != "" {
+			address = "*" // the container's port, which its compose file publishes
+		}
+		opts = fmt.Sprintf("-javaagent:%s=output=tcpserver,address=%s,port=%d", join(dir, "jacocoagent.jar"), address, port)
+	}
 	if own := strings.TrimSpace(os.Getenv("JAVA_TOOL_OPTIONS")); own != "" {
 		opts = own + " " + opts
 	}
@@ -362,4 +377,55 @@ func parseReport(b []byte, file func(pkg, name string) string) ([]*istanbul.File
 		}
 	}
 	return out, nil
+}
+
+// keptPort is the port the agent of a service axx up keeps listens on.
+func keptPort(call coveragecore.LaunchCall) (int, error) {
+	var cfg config
+	if err := call.Settings(Name, &cfg); err != nil {
+		return 0, err
+	}
+	if p := cfg.Parts[call.Service.Name].Port; p != 0 {
+		return p, nil
+	}
+	return 0, fmt.Errorf("axx up --coverage reads service %s's coverage while it runs, through JaCoCo's agent's port: set packs.%s.parts.%s.port (and publish it from its container)", call.Service.Name, Name, call.Service.Name)
+}
+
+// Reset starts a kept service's counts afresh, dropping what ran so far.
+func (runtime) Reset(ctx context.Context, call coveragecore.LaunchCall) error {
+	tmp, err := os.MkdirTemp("", "axx-jacoco-")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(tmp)
+	return dump(ctx, call, filepath.Join(tmp, execFile))
+}
+
+// Take writes what ran since the reset into into, as a stopped service's
+// folder has it, and starts the counts afresh.
+func (runtime) Take(ctx context.Context, call coveragecore.LaunchCall, into string) error {
+	return dump(ctx, call, filepath.Join(into, execFile))
+}
+
+// dump has JaCoCo's CLI read a kept service's coverage from its agent's
+// port into dest, and reset it.
+func dump(ctx context.Context, call coveragecore.LaunchCall, dest string) error {
+	port, err := keptPort(call)
+	if err != nil {
+		return err
+	}
+	java, err := javaProgram()
+	if err != nil {
+		return err
+	}
+	cli, err := jar(ctx, "cli")
+	if err != nil {
+		return err
+	}
+	cmd := exec.CommandContext(ctx, java, "-jar", cli, "dump", "--address", "127.0.0.1", "--port", fmt.Sprint(port), "--destfile", dest, "--reset", "--retry", "3")
+	cmd.Env = append(os.Environ(), "JAVA_TOOL_OPTIONS=")
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("JaCoCo's dump of service %s on port %d: %w: %s", call.Service.Name, port, err, bytes.TrimSpace(out))
+	}
+	return nil
 }

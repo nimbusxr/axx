@@ -310,6 +310,13 @@ func (a *App) run(ctx context.Context, f *runFlags, args []string) error {
 		if svcs != nil {
 			exits = svcs.Exits()
 		}
+		if cov.kept != nil {
+			taken, err := cov.kept.take(ctx, cov.dir)
+			if err != nil {
+				return err
+			}
+			exits = append(exits, taken...)
+		}
 		c, cerr := cov.conclude(ctx, e, exits, res.Interrupted)
 		res.Coverage = c
 		if rerr := report.Conclude(reporters, res); rerr != nil {
@@ -501,6 +508,12 @@ func (a *App) startApps(ctx context.Context, e *engine.Engine, f *runFlags, pick
 		for _, n := range st.Services {
 			attach[n] = true
 		}
+		if cov != nil {
+			if cov.kept, err = cov.keepCoverage(ctx, e, st); err != nil {
+				_ = logFile.Close()
+				return nil, nil, err
+			}
+		}
 		fmt.Fprintf(a.Stderr, "axx: reusing services started by `axx up`: %s\n", strings.Join(st.Services, ", "))
 		// Their data is an earlier run's: a scenario that creates what it
 		// created then finds it there.
@@ -524,7 +537,13 @@ func (a *App) startApps(ctx context.Context, e *engine.Engine, f *runFlags, pick
 		opts.Debug = set(strings.Split(f.debug, ","))
 	}
 	if cov != nil {
-		if opts.Coverage, opts.CoverageEnv, err = cov.launch(ctx, e, names); err != nil {
+		var started []string // those the run starts: kept ones are axx up's
+		for _, n := range names {
+			if !attach[n] {
+				started = append(started, n)
+			}
+		}
+		if opts.Coverage, opts.CoverageEnv, err = cov.launch(ctx, e, started); err != nil {
 			_ = logFile.Close()
 			return nil, nil, err
 		}

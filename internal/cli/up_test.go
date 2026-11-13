@@ -42,7 +42,7 @@ func TestSupervisorErrorRoundTrip(t *testing.T) {
 
 func TestTheSupervisorGetsTheSameConfiguration(t *testing.T) {
 	cf := configFlags{profile: "ci", defines: []string{"local.host=docker"}, settings: []string{"run.workers=1", "packs.web-core.headless=false"}}
-	args := supervisorArgs("", cf, "api", []string{"api"})
+	args := supervisorArgs("", cf, "api", false, []string{"api"})
 	cmd := newSuperviseCmd(&App{})
 	if err := cmd.ParseFlags(args[1:]); err != nil {
 		t.Fatal(err)

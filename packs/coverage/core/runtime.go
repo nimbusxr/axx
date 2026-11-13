@@ -29,6 +29,17 @@ type Runtime interface {
 	Convert(ctx context.Context, call ConvertCall) ([]*istanbul.FileCoverage, istanbul.Measured, error)
 }
 
+// Keeper is a runtime whose services can be read while they run: those axx
+// up keeps are measured per run, reset as a run starts and taken as it
+// ends.
+type Keeper interface {
+	// Reset starts the service's counts afresh.
+	Reset(ctx context.Context, call LaunchCall) error
+	// Take writes what ran since the service was reset into the folder
+	// into, as its folder would have it once stopped: what Convert reads.
+	Take(ctx context.Context, call LaunchCall, into string) error
+}
+
 // LaunchCall is a service a run with coverage starts.
 type LaunchCall struct {
 	Service core.CoverageService

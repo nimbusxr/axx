@@ -59,6 +59,7 @@ func (s *Server) coverage(ctx context.Context, cfg *config.Config, req Request) 
 		cs := core.CoverageService{
 			Name: svc.Name, Runtime: svc.Coverage.Runtime,
 			Dir: lifecycle.CoverageFolder(c.dir, svc.Name), Mount: svc.Coverage.Mount, WorkDir: work,
+			Kept: req.CoverageKept,
 		}
 		if err := os.MkdirAll(cs.Dir, 0o755); err != nil {
 			return nil, err
