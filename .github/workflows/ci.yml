@@ -236,8 +236,11 @@ jobs:
         # and TorchScript's (PyTorch) have parts of their own; ONNX's, the longest (7.5 minutes),
         # are in two: transformers.js's, and the rest; and safetensors' Whisper transcriptions in
         # transformers (6 minutes) are in two: the English ones, and the rest with the other
-        # formats of p to s.
-        part: [packs, models-a-d, models-e-f, models-gguf, models-h-k, models-l-m, models-n-o, models-onnx-js, models-p-s, models-safetensors-en, models-t, models-torchscript, models-u-z]
+        # formats of p to s. The packs' tests are in four: the SQL pack's (4.7 minutes, Oracle's
+        # 1.9), internal/packbuild's two builds of axx with packs, one after the other (4.4
+        # minutes, and 2.5 with its other test), and the rest (3 minutes on the runner's four
+        # processors).
+        part: [packs, packs-sql, packbuild, packbuild-up, models-a-d, models-e-f, models-gguf, models-h-k, models-l-m, models-n-o, models-onnx-js, models-p-s, models-safetensors-en, models-t, models-torchscript, models-u-z]
     env:
       PART: ${{ matrix.part }}
     steps:
@@ -264,7 +267,7 @@ jobs:
         with:
           build: integration-${{ matrix.part }}
       # Tesseract's CLI, and the libraries MediaPipe's library loads (whatever its task).
-      - if: matrix.part != 'packs'
+      - if: startsWith(matrix.part, 'models-')
         name: install Tesseract and EGL
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends tesseract-ocr libegl1 libgles2
       # The web and mobile packs have jobs of their own (web, mobile), and the models-web pack's
@@ -274,7 +277,9 @@ jobs:
         run: |
           models=$(go list ./packs/models/... | grep -v /packs/models/web)
           case "$PART" in
-            packs) mapfile -t packages < <(go list ./packs/... ./internal/engine/... ./internal/packbuild/... | grep -v -e /packs/web -e /packs/mobile -e /packs/models/) ;;
+            packs) mapfile -t packages < <(go list ./packs/... ./internal/engine/... | grep -v -e /packs/web -e /packs/mobile -e /packs/models/ -e '/packs/sql$') ;;
+            packs-sql) packages=(./packs/sql) ;;
+            packbuild | packbuild-up) packages=(./internal/packbuild) ;;
             models-a-d) mapfile -t packages < <(grep -v -E '/format/[e-z]' <<< "$models") ;;
             models-e-f) mapfile -t packages < <(grep -E '/format/[e-f]' <<< "$models") ;;
             models-gguf) mapfile -t packages < <(grep -E '/format/gguf$' <<< "$models") ;;
@@ -301,7 +306,7 @@ jobs:
         run: |
           read -ra packages < "$RUNNER_TEMP/packages"
           parallel=()
-          [ "$PART" = packs ] || parallel=(-p 1)
+          case "$PART" in models-*) parallel=(-p 1) ;; esac
           # ONNX's transformers.js tests run in a part of their own, and so do safetensors' English
           # Whisper transcriptions.
           case "$PART" in
@@ -309,6 +314,8 @@ jobs:
             models-n-o) select=(-skip '^(TestWebLLM|TestTransformersJS)') ;;
             models-safetensors-en) select=(-run '^TestTransformersTranscribesAsTheStubSays$/English') ;;
             models-p-s) select=(-skip '^TestTransformersTranscribesAsTheStubSays$/English') ;;
+            packbuild-up) select=(-run '^TestUpRunDownWithPacks$') ;;
+            packbuild) select=(-skip '^TestUpRunDownWithPacks$') ;;
             *) select=(-skip '^TestWebLLM') ;;
           esac
           GOTEST_SLOWEST=1s scripts/gotest.sh -race -tags integration -timeout 10m "${parallel[@]}" "${select[@]}" "${packages[@]}"
@@ -919,15 +926,16 @@ jobs:
     needs: changes
     if: needs.changes.outputs.models == 'true' && needs.changes.outputs.tests == 'true'
     # The models-core pack's MLC stubs in WebLLM, on a Mac's GPU (Metal, through Chromium's
-    # WebGPU): a stub is of its real model's size (GBs), and a runner takes an eighth of them by
-    # their times, some 6 minutes' worth (no test step runs past 10); -v logs each model's time.
-    name: webllm (${{ matrix.shard }}/8)
+    # WebGPU): a stub is of its real model's size (GBs), and a runner takes a tenth of them by
+    # their times, 5 to 6 minutes' worth (Mistral 7B's alone), after some 2 of setting up, so
+    # that no job runs past 10; -v logs each model's time, which the models' seconds record.
+    name: webllm (${{ matrix.shard }}/10)
     runs-on: xcode-27
     timeout-minutes: 40
     strategy:
       fail-fast: false
       matrix:
-        shard: [0, 1, 2, 3, 4, 5, 6, 7]
+        shard: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -940,7 +948,7 @@ jobs:
       - uses: ./.github/actions/go-cache
       - run: go test -tags integration -timeout 10m -v -run TestWebLLM ./packs/models/core/format/mlc/
         env:
-          AXX_WEBLLM_SHARD: ${{ matrix.shard }}/8
+          AXX_WEBLLM_SHARD: ${{ matrix.shard }}/10
 
   desktop-image:
     needs: changes
