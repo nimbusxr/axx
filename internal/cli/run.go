@@ -330,6 +330,11 @@ func runExitCode(res *runner.RunResult) exitcode.Code {
 	case runner.Undefined, runner.Ambiguous:
 		return exitcode.Undefined
 	}
+	// Every scenario passed: the system under test's coverage is all that
+	// can fail the run.
+	if res.Coverage != nil && res.Coverage.Check == core.CoverageUnder {
+		return exitcode.Coverage
+	}
 	return exitcode.OK
 }
 

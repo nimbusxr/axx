@@ -109,6 +109,9 @@ The process [exit code](/references/error-codes/#exit-codes) is the same with or
 | `failures[].logs`, `.context` | the scenario's logs (the last 50), and pack context such as the last HTTP request and response |
 | `undefined[]` | undefined steps with suggestions, for writing them correctly |
 | `runErrors[]` | problems found after the scenarios, outside any of them (`source`: the pack, `message`); present only when there are some, and they make `result` `failed` |
+| `coverage` | what a run with coverage (`axx run --coverage`) measured of the system under test; absent otherwise. `report` is the merged lcov file; `totals` and each of `parts[]` (`name`, `runtime`, `totals`, and `missing`, the reason a part has no coverage) have `lines`, `branches` and `functions`, each `{covered, total, pct}`, absent for a metric the runtime does not measure; `check` is `met`, `unmet`, or `skipped` for a run of part of the scenarios, absent without minimums; `unmet[]` lists the minimums under (`part`, absent for the whole run, `metric`, `minimum`, `actual`) |
+
+A run under a coverage minimum whose scenarios all passed has `result` `passed`, `ok` `false` in the envelope, and exits `6`.
 
 ## Other commands
 

@@ -7,6 +7,7 @@ import (
 
 	messages "github.com/cucumber/messages/go/v34"
 
+	"github.com/nimbusxr/axx/core"
 	"github.com/nimbusxr/axx/internal/runner"
 )
 
@@ -44,6 +45,58 @@ type AgentReport struct {
 	// (e.g. contract violations on a mocked dependency no scenario checked).
 	// Any of them makes the result "failed".
 	RunErrors []AgentRunError `json:"runErrors,omitempty"`
+	// Coverage is what a run with coverage measured of the system under
+	// test. A run under a minimum it sets exits 6, its result "passed".
+	Coverage *AgentCoverage `json:"coverage,omitempty"`
+}
+
+// AgentCoverage is what a run with coverage measured, and how it compares
+// with the minimums axx.yaml sets.
+type AgentCoverage struct {
+	// Report is the merged lcov report, relative to the project.
+	Report string `json:"report"`
+	// Check is "met", "unmet", or "skipped" (a run of part of the
+	// scenarios, which the minimums do not apply to); absent without
+	// minimums.
+	Check  string         `json:"check,omitempty"`
+	Totals AgentCovTotals `json:"totals"`
+	// Parts are the measured services and web apps.
+	Parts []AgentCovPart `json:"parts"`
+	// Unmet are the minimums the run is under.
+	Unmet []AgentCovUnmet `json:"unmet,omitempty"`
+}
+
+// AgentCovTotals are totals by metric; a metric the runtime does not
+// measure is absent.
+type AgentCovTotals struct {
+	Lines     *AgentCovTotal `json:"lines,omitempty"`
+	Branches  *AgentCovTotal `json:"branches,omitempty"`
+	Functions *AgentCovTotal `json:"functions,omitempty"`
+}
+
+// AgentCovTotal is how many items of a metric ran, of how many.
+type AgentCovTotal struct {
+	Covered int     `json:"covered"`
+	Total   int     `json:"total"`
+	Pct     float64 `json:"pct"`
+}
+
+// AgentCovPart is a measured service or web app.
+type AgentCovPart struct {
+	Name    string         `json:"name"`
+	Runtime string         `json:"runtime"`
+	Totals  AgentCovTotals `json:"totals"`
+	// Missing says why the part has no coverage.
+	Missing string `json:"missing,omitempty"`
+}
+
+// AgentCovUnmet is a minimum the run is under; Part is absent for the whole
+// run's.
+type AgentCovUnmet struct {
+	Part    string  `json:"part,omitempty"`
+	Metric  string  `json:"metric"`
+	Minimum float64 `json:"minimum"`
+	Actual  float64 `json:"actual"`
 }
 
 // AgentRunError is a problem a pack found after the scenarios ran.
@@ -137,6 +190,18 @@ func (a *agent) Envelope(*messages.Envelope) {}
 func (a *agent) ScenarioFinished(*runner.ScenarioResult) {}
 
 func (a *agent) Finish(res *runner.RunResult) error {
+	if a.opts.Concluding {
+		return nil // Conclude writes it, with the coverage
+	}
+	return a.write(res)
+}
+
+// Conclude writes a concluding run's report.
+func (a *agent) Conclude(res *runner.RunResult) error {
+	return a.write(res)
+}
+
+func (a *agent) write(res *runner.RunResult) error {
 	b, err := marshalNoEscape(a.build(res))
 	if err != nil {
 		return err
@@ -165,6 +230,7 @@ func (a *agent) build(res *runner.RunResult) *AgentReport {
 	for _, re := range res.RunErrors {
 		rep.RunErrors = append(rep.RunErrors, AgentRunError{Source: re.Source, Message: re.Message})
 	}
+	rep.Coverage = agentCoverage(res.Coverage)
 	seen := map[string]bool{}
 	for _, r := range res.Scenarios {
 		if failing(r.Status) {
@@ -283,4 +349,28 @@ func rawJSON(v any) json.RawMessage {
 	}
 	b, _ := marshalNoEscape(fmt.Sprintf("%v", v))
 	return b
+}
+
+func agentCoverage(c *core.Coverage) *AgentCoverage {
+	if c == nil {
+		return nil
+	}
+	out := &AgentCoverage{Report: c.Report, Check: string(c.Check), Totals: agentCovTotals(c.Totals), Parts: []AgentCovPart{}}
+	for _, p := range c.Parts {
+		out.Parts = append(out.Parts, AgentCovPart{Name: p.Name, Runtime: p.Runtime, Totals: agentCovTotals(p.Totals), Missing: p.Missing})
+	}
+	for _, u := range c.Unmet {
+		out.Unmet = append(out.Unmet, AgentCovUnmet(u))
+	}
+	return out
+}
+
+func agentCovTotals(t core.CoverageTotals) AgentCovTotals {
+	total := func(t *core.CoverageTotal) *AgentCovTotal {
+		if t == nil {
+			return nil
+		}
+		return &AgentCovTotal{Covered: t.Covered, Total: t.Total, Pct: t.Pct}
+	}
+	return AgentCovTotals{Lines: total(t.Lines), Branches: total(t.Branches), Functions: total(t.Functions)}
 }

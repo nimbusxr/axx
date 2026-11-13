@@ -837,3 +837,41 @@ func TestTheUnknownReporterHintNamesEveryReporter(t *testing.T) {
 		}
 	}
 }
+
+// A concluding run (a run with coverage) writes its agent report when it
+// concludes, with the coverage its services' stop let the packs conclude.
+func TestAgentReportOfAConcludingRun(t *testing.T) {
+	res, _ := handRun(t)
+	opts := testOptions(false)
+	opts.Concluding = true
+	var buf bytes.Buffer
+	rep, err := New("agent", &buf, opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := rep.Finish(res); err != nil || buf.Len() != 0 {
+		t.Fatalf("Finish wrote %q (%v): the report waits for the run to conclude", buf.String(), err)
+	}
+	lines := &core.CoverageTotal{Covered: 41, Total: 50, Pct: 82}
+	res.Coverage = &core.Coverage{
+		Report: ".axx/coverage/lcov.info",
+		Check:  core.CoverageUnder,
+		Totals: core.CoverageTotals{Lines: lines},
+		Parts: []core.CoveragePart{
+			{Name: "orders", Runtime: "jvm", Totals: core.CoverageTotals{Lines: lines, Branches: &core.CoverageTotal{Covered: 3, Total: 4, Pct: 75}}},
+			{Name: "shipments", Runtime: "go", Missing: "it was killed after its grace: Go writes its coverage when it exits"},
+		},
+		Unmet: []core.CoverageUnmet{{Metric: "lines", Minimum: 85, Actual: 82}},
+	}
+	if err := Conclude([]runner.Reporter{rep}, res); err != nil {
+		t.Fatal(err)
+	}
+	var got map[string]any
+	if err := json.Unmarshal(buf.Bytes(), &got); err != nil {
+		t.Fatalf("%v: %s", err, buf.String())
+	}
+	want := `{"check":"unmet","parts":[{"name":"orders","runtime":"jvm","totals":{"branches":{"covered":3,"pct":75,"total":4},"lines":{"covered":41,"pct":82,"total":50}}},{"missing":"it was killed after its grace: Go writes its coverage when it exits","name":"shipments","runtime":"go","totals":{}}],"report":".axx/coverage/lcov.info","totals":{"lines":{"covered":41,"pct":82,"total":50}},"unmet":[{"actual":82,"metric":"lines","minimum":85}]}`
+	if b, _ := json.Marshal(got["coverage"]); string(b) != want {
+		t.Errorf("coverage:\n got %s\nwant %s", b, want)
+	}
+}

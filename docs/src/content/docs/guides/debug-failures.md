@@ -11,6 +11,7 @@ description: Go from a red axx run to the cause - read the exit code, rerun one 
 | `2` | usage or configuration error | read the `hint`; config errors point at `axx.yaml:line:col`; run `axx doctor` |
 | `3` | undefined or ambiguous step, or a table value that could be read two ways | `axx validate`, then `axx explain "<line>"` |
 | `4` | a service did not start or stop | the error shows the service's last output lines; the full log is `.axx/logs/services.log` |
+| `6` | every scenario passed, but the coverage is under a minimum `axx.yaml` sets | the run says which part and metric; scenarios for the code it shows not run, or a lower minimum |
 | `130` | interrupted | the run was cancelled (Ctrl-C); run again |
 
 Every error also has a stable code (`AXX-E0408`, say) that links to its entry in the [error code reference](/references/error-codes/).

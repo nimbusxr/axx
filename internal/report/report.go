@@ -5,6 +5,7 @@
 package report
 
 import (
+	"errors"
 	"io"
 	"path/filepath"
 	"strconv"
@@ -35,6 +36,27 @@ type Options struct {
 	RerunCommand func(r *runner.ScenarioResult) string
 	// Now is an optional clock for deterministic tests.
 	Now func() time.Time
+	// Concluding is a run that concludes after its scenarios, once its
+	// services have stopped (a run with coverage): the agent report waits
+	// for Conclude, to carry what was concluded.
+	Concluding bool
+}
+
+// A concluder is a reporter that writes what a concluding run concluded.
+type concluder interface {
+	Conclude(res *runner.RunResult) error
+}
+
+// Conclude has the reporters of a concluding run (Options.Concluding)
+// write what they waited for: res, with its Coverage.
+func Conclude(reporters []runner.Reporter, res *runner.RunResult) error {
+	var errs []error
+	for _, r := range reporters {
+		if c, ok := r.(concluder); ok {
+			errs = append(errs, c.Conclude(res))
+		}
+	}
+	return errors.Join(errs...)
 }
 
 // reporter names in documentation order.

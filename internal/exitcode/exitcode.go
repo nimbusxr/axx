@@ -22,6 +22,9 @@ const (
 	// Plugin is reserved: it was used by out-of-process step plugins, which
 	// axx no longer has. Kept so the numbering stays stable.
 	Plugin Code = 5
+	// Coverage means every scenario passed, but the system under test's
+	// coverage is under a minimum axx.yaml sets (axx run --coverage).
+	Coverage Code = 6
 	// Interrupted means the run was cancelled (SIGINT/SIGTERM).
 	Interrupted Code = 130
 )
@@ -41,6 +44,8 @@ func (c Code) String() string {
 		return "environment"
 	case Plugin:
 		return "plugin"
+	case Coverage:
+		return "coverage"
 	case Interrupted:
 		return "interrupted"
 	default:
