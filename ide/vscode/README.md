@@ -31,6 +31,11 @@ In `.feature` files you get:
   in step code.
 - **Watch:** run web scenarios with their browsers in windows on your desktop as they go, slowed
   down, one scenario at a time, and open the Playwright traces and videos scenarios keep.
+- **Run with Coverage:** run with `axx run --coverage`, and see in the editor which lines,
+  branches and functions of your services the scenarios ran, in the Test Coverage view and in
+  the gutters: the services whose `coverage` section in `axx.yaml` names their runtime, measured
+  by the coverage packs (`coverage-jvm`, `coverage-go`, `coverage-python`, `coverage-node`), and
+  the web apps' JavaScript (`web-coverage`).
 
 And for an agent that runs your tests in a sandbox without Docker, the **axx host** starts your
 project's services on your machine, asks you to approve their changes, and shows the agent's runs

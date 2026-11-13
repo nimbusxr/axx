@@ -22,6 +22,7 @@ import * as readline from 'node:readline';
 import * as vscode from 'vscode';
 import { resolveAxx } from './axx';
 import { BrowserPanels } from './browserPanel';
+import { covered, parseLcov, type LcovFile } from './coverage';
 import { notAStep, pauseSteps, runArguments, traceViewerUrl, viewerFolder, type StepBreakpoint } from './browsers';
 import { FileServer } from './fileServer';
 import { parseFeature, type GherkinNode } from './gherkin';
@@ -39,7 +40,7 @@ const NO_GO =
   'Stopping at breakpoints in step code needs the Go extension (golang.go), which provides the Go debugger. Debug runs the scenarios without it.';
 const TRACE_SITE = 'https://trace.playwright.dev';
 
-type Mode = 'run' | 'debug' | 'watch';
+type Mode = 'run' | 'debug' | 'watch' | 'coverage';
 
 interface ItemData {
   kind: GherkinNode['kind'] | 'step';
@@ -117,7 +118,17 @@ export class AxxTests implements vscode.Disposable {
       this.controller.createRunProfile('Debug', vscode.TestRunProfileKind.Debug, (r, t) => this.run(r, t, 'debug'), true),
       this.controller.createRunProfile('Watch', vscode.TestRunProfileKind.Run, (r, t) => this.run(r, t, 'watch'), false),
     ];
-    // Their gear picks the axx profiles all three apply (axx.profiles).
+    // Coverage of the system under test (axx run --coverage): each file's lines, branches and
+    // functions, from the run's lcov report.
+    const coverage = this.controller.createRunProfile(
+      'Run with Coverage',
+      vscode.TestRunProfileKind.Coverage,
+      (r, t) => this.run(r, t, 'coverage'),
+      true,
+    );
+    coverage.loadDetailedCoverage = async (_run, file) => (file instanceof AxxFileCoverage ? file.details() : []);
+    runProfiles.push(coverage);
+    // Their gear picks the axx profiles they all apply (axx.profiles).
     for (const profile of runProfiles) profile.configureHandler = () => void this.chooseProfiles();
 
     const features = vscode.workspace.createFileSystemWatcher('**/*.feature');
@@ -394,7 +405,7 @@ export class AxxTests implements vscode.Disposable {
       vscode.workspace.getConfiguration('axx', vscode.Uri.file(project)).get<string[]>('profiles', []),
       findProfiles(project),
     );
-    const args = runArguments(targetArgs(batch), { debug, debugSteps, watchSlowdownMs, pauseAt, profiles });
+    const args = runArguments(targetArgs(batch), { debug, debugSteps, watchSlowdownMs, pauseAt, profiles, coverage: mode === 'coverage' });
     this.output.info(`Running "${axx} ${args.join(' ')}" in ${project}`);
     run.appendOutput(`$ axx ${args.join(' ')}\r\n(in ${project})\r\n`);
     if (missing.length > 0) {
@@ -422,6 +433,7 @@ export class AxxTests implements vscode.Disposable {
     const announced = {
       viewerDir: undefined as string | undefined,
       pending: [] as Promise<void>[],
+      coverage: undefined as string | undefined,
     };
     const report = this.report(run, (line) => {
       const pause = parseScenarioPause(line);
@@ -439,6 +451,9 @@ export class AxxTests implements vscode.Disposable {
         case 'trace':
         case 'video':
           announced.pending.push(this.keep(announcement, run, project, announced.viewerDir));
+          return;
+        case 'coverage':
+          announced.coverage = announcement.path;
           return;
       }
       run.appendOutput(`${line}\r\n`);
@@ -469,6 +484,7 @@ export class AxxTests implements vscode.Disposable {
     lines.close();
     this.paused.ended(child);
     await Promise.all(announced.pending);
+    if (announced.coverage) this.addCoverage(run, project, announced.coverage);
     cancel.dispose();
     this.running.delete(child);
     this.output.info(`axx run exited with code ${code ?? '(none)'}`);
@@ -476,10 +492,26 @@ export class AxxTests implements vscode.Disposable {
     // Items without a result did not run: the run was cancelled, or axx stopped early.
     const error = spawnError
       ? `Couldn't start axx: ${spawnError.message}`
-      : token.isCancellationRequested || [0, 1, 3, 130].includes(code ?? -1)
+      : token.isCancellationRequested || [0, 1, 3, 6, 130].includes(code ?? -1)
         ? undefined
         : exitMessage(code);
     report.finish(queued, error);
+  }
+
+  // Shows the coverage of a run with coverage: each file of its lcov report, by its path in the
+  // project (relative to it, or absolute).
+  private addCoverage(run: vscode.TestRun, project: string, lcov: string): void {
+    let text: string;
+    try {
+      text = fs.readFileSync(lcov, 'utf8');
+    } catch (err) {
+      run.appendOutput(`Can't read the run's coverage, ${lcov}: ${String(err)}\r\n`);
+      return;
+    }
+    for (const file of parseLcov(text)) {
+      const p = path.isAbsolute(file.path) ? file.path : path.join(project, file.path);
+      run.addCoverage(new AxxFileCoverage(vscode.Uri.file(p), file));
+    }
   }
 
   // Shows a run the editor did not start, one an axx host serves (an agent's), as a test run named
@@ -844,5 +876,32 @@ function realPath(file: string): string {
     return fs.realpathSync.native(file);
   } catch {
     return file;
+  }
+}
+
+// A file's coverage of a run with coverage, its lines', branches' and functions' counts, and the
+// details the editor asks for when it shows the file.
+class AxxFileCoverage extends vscode.FileCoverage {
+  constructor(
+    uri: vscode.Uri,
+    private readonly file: LcovFile,
+  ) {
+    const c = covered(file);
+    const count = ([n, of]: [number, number]): vscode.TestCoverageCount | undefined =>
+      of > 0 ? new vscode.TestCoverageCount(n, of) : undefined;
+    super(uri, new vscode.TestCoverageCount(...c.lines), count(c.branches), count(c.functions));
+  }
+
+  details(): vscode.FileCoverageDetail[] {
+    const out: vscode.FileCoverageDetail[] = [];
+    for (const [line, hits] of [...this.file.lines].sort((a, b) => a[0] - b[0])) {
+      const at = new vscode.Position(Math.max(line - 1, 0), 0);
+      const branches = (this.file.branches.get(line) ?? []).map((h) => new vscode.BranchCoverage(h, at));
+      out.push(new vscode.StatementCoverage(hits, at, branches));
+    }
+    for (const fn of this.file.functions) {
+      out.push(new vscode.DeclarationCoverage(fn.name, fn.hits, new vscode.Position(Math.max(fn.line - 1, 0), 0)));
+    }
+    return out;
   }
 }
