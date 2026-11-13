@@ -44,8 +44,11 @@ type ConvertCall struct {
 	// Path is where a file the service named, as it ran (in its container,
 	// say), is on this machine: through coverage-core's paths for it, and
 	// relative to its working directory.
-	Path   func(string) string
-	Logger *slog.Logger
+	Path func(string) string
+	// Project is the project's folder, which settings' folders are
+	// relative to.
+	Project string
+	Logger  *slog.Logger
 }
 
 var (

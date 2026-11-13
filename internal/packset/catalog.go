@@ -40,6 +40,7 @@ var Catalog = []Pack{
 	{Name: "sse", Import: packs + "sse", Summary: "server-sent event streams and the events they send"},
 	{Name: "asyncapi", Import: packs + "asyncapi", Summary: "AsyncAPI contracts: the messages scenarios send and checks find, checked against them"},
 	{Name: "coverage-core", Import: packs + "coverage/core", Summary: "the coverage of the system under test as the scenarios exercise it (axx run --coverage): one report of every measured service and web app, checked against minimums"},
+	{Name: "coverage-go", Import: packs + "coverage/go", Requires: []string{"coverage-core"}, Summary: "the coverage of Go services, from their go build -cover builds, in a run with coverage"},
 	{Name: "web-core", Import: packs + "web/core", Summary: "web apps in real browsers, driven by Playwright"},
 	{Name: "web-screenshots", Import: packs + "web/screenshots", Requires: []string{"web-core"}, Summary: "pages that look as designed, compared with screenshots per platform"},
 	{Name: "web-a11y", Import: packs + "web/a11y", Requires: []string{"web-core"}, Summary: "pages people can use whatever their abilities: axe-core audits and accessible structure"},

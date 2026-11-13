@@ -109,7 +109,7 @@ func (pack) Conclude(ctx context.Context, s *core.Suite, run core.CoverageRun) (
 		default:
 			runDirs[filepath.Dir(end.Dir)] = true
 			files, m, err := r.Convert(ctx, ConvertCall{
-				End: end, Settings: s.PackConfig, Logger: s.Logger(),
+				End: end, Settings: s.PackConfig, Logger: s.Logger(), Project: project,
 				Path: func(p string) string { return cfg.pathOf(project, end.CoverageService, p) },
 			})
 			if err != nil {

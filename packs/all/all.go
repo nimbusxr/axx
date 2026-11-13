@@ -18,6 +18,8 @@ import (
 	azureblob "github.com/nimbusxr/axx/packs/azure/blob"
 	azureservicebus "github.com/nimbusxr/axx/packs/azure/servicebus"
 	"github.com/nimbusxr/axx/packs/cli"
+	coveragecore "github.com/nimbusxr/axx/packs/coverage/core"
+	coveragego "github.com/nimbusxr/axx/packs/coverage/go"
 	desktopcore "github.com/nimbusxr/axx/packs/desktop/core"
 	desktoplinux "github.com/nimbusxr/axx/packs/desktop/linux"
 	desktopmacos "github.com/nimbusxr/axx/packs/desktop/macos"
@@ -58,7 +60,6 @@ import (
 	weba11y "github.com/nimbusxr/axx/packs/web/a11y"
 	webcore "github.com/nimbusxr/axx/packs/web/core"
 	webcoverage "github.com/nimbusxr/axx/packs/web/coverage"
-	coveragecore "github.com/nimbusxr/axx/packs/coverage/core"
 	weblighthouse "github.com/nimbusxr/axx/packs/web/lighthouse"
 	webnetwork "github.com/nimbusxr/axx/packs/web/network"
 	webscreenshots "github.com/nimbusxr/axx/packs/web/screenshots"
@@ -98,6 +99,7 @@ func Packs() map[string]core.Pack {
 		"web-lighthouse":   weblighthouse.Pack(),
 		"web-coverage":     webcoverage.Pack(),
 		"coverage-core":    coveragecore.Pack(),
+		"coverage-go":      coveragego.Pack(),
 		"app-core":         appcore.Pack(),
 		"mobile-core":      mobilecore.Pack(),
 		"mobile-android":   mobileandroid.Pack(),
