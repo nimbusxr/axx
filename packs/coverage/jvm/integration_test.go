@@ -3,9 +3,12 @@
 package coveragejvm
 
 import (
+	"archive/zip"
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"net"
 	"os"
 	"os/exec"
@@ -177,5 +180,135 @@ func TestAJVMServiceKeptUp(t *testing.T) {
 				t.Errorf("Desk ran since the reset: %+v", s.Lines)
 			}
 		}
+	}
+}
+
+// A Spring Boot jar keeps the application's classes beside its libraries'
+// jars: JaCoCo reads only the application's (a multi-release library's
+// would stop it), and only files of the project's sources count.
+func TestASpringBootJarsCoverage(t *testing.T) {
+	java, err := javaProgram()
+	if err != nil {
+		coveragetest.Missing(t, err)
+	}
+	javac := filepath.Join(filepath.Dir(java), "javac")
+	if _, err := os.Stat(javac); err != nil {
+		coveragetest.Missing(t, "no javac beside", java)
+	}
+	project := t.TempDir()
+	work := filepath.Join(project, "desk")
+	src := filepath.Join(work, "src", "main", "java")
+	classes := filepath.Join(t.TempDir(), "classes")
+	compile := func(out string, files map[string]string) {
+		t.Helper()
+		var names []string
+		dir := t.TempDir()
+		for name, text := range files {
+			p := filepath.Join(dir, name)
+			if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(p, []byte(text), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			names = append(names, p)
+		}
+		if o, err := exec.Command(javac, append([]string{"-d", out}, names...)...).CombinedOutput(); err != nil {
+			t.Fatalf("%v: %s", err, o)
+		}
+	}
+	desk, err := os.ReadFile(filepath.Join("testdata", "Desk.java"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(src, "parcels"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(src, "parcels", "Desk.java"), desk, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	compile(classes, map[string]string{"parcels/Desk.java": string(desk)})
+	// A library whose jar is multi-release: two classes of one name.
+	lib, lib21 := t.TempDir(), t.TempDir()
+	compile(lib, map[string]string{"lib/Helper.java": "package lib;\npublic class Helper { public static int one() { return 1; } }\n"})
+	compile(lib21, map[string]string{"lib/Helper.java": "package lib;\npublic class Helper { public static int one() { return 21; } }\n"})
+	zipOf := func(entries map[string]string) []byte {
+		var b bytes.Buffer
+		z := zip.NewWriter(&b)
+		for name, from := range entries {
+			data, err := os.ReadFile(from)
+			if err != nil {
+				t.Fatal(err)
+			}
+			w, err := z.Create(name)
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, _ = w.Write(data)
+		}
+		if err := z.Close(); err != nil {
+			t.Fatal(err)
+		}
+		return b.Bytes()
+	}
+	libJar := filepath.Join(t.TempDir(), "helper.jar")
+	if err := os.WriteFile(libJar, zipOf(map[string]string{
+		"lib/Helper.class":                      filepath.Join(lib, "lib", "Helper.class"),
+		"META-INF/versions/21/lib/Helper.class": filepath.Join(lib21, "lib", "Helper.class"),
+	}), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	boot := filepath.Join(project, "build", "libs", "desk.jar")
+	if err := os.MkdirAll(filepath.Dir(boot), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(boot, zipOf(map[string]string{
+		"BOOT-INF/classes/parcels/Desk.class": filepath.Join(classes, "parcels", "Desk.class"),
+		"BOOT-INF/lib/helper.jar":             libJar,
+	}), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	dir := filepath.Join(project, ".axx", "coverage", "raw", "r1", "desk")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("JAVA_TOOL_OPTIONS", "")
+	s := core.CoverageService{Name: "desk", Runtime: "jvm", Dir: dir, WorkDir: filepath.Join(project, "infra")}
+	env, err := runtime{}.Launch(context.Background(), coveragecore.LaunchCall{Service: s})
+	if err != nil {
+		t.Fatal(err)
+	}
+	cmd := exec.Command(java, "-cp", classes, "parcels.Desk")
+	cmd.Env = append(os.Environ(), env...)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("%v: %s", err, out)
+	}
+
+	convert := func(settings string) ([]*istanbul.FileCoverage, error) {
+		files, _, err := runtime{}.Convert(context.Background(), coveragecore.ConvertCall{
+			End:      core.CoverageEnd{CoverageService: s, Status: "exited with code 0"},
+			Settings: func(_ string, v any) error { return json.Unmarshal([]byte(settings), v) },
+			Project:  project,
+			Path:     func(p string) string { return p },
+		})
+		return files, err
+	}
+	files, err := convert(`{"parts": {"desk": {"classes": ["build/libs/desk.jar"], "sources": ["desk/src/main/java"]}}}`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(files) != 1 || files[0].Path != filepath.Join(src, "parcels", "Desk.java") {
+		t.Fatalf("files %+v", files)
+	}
+
+	// Sources that aren't the project's: the run says so, of the service.
+	var um *coveragecore.Unmatched
+	if _, err := convert(`{"parts": {"desk": {"classes": ["build/libs/desk.jar"], "sources": ["elsewhere"]}}}`); !errors.As(err, &um) || !strings.Contains(um.Why, "packs.coverage-jvm.parts.desk.sources") {
+		t.Errorf("sources elsewhere: %v", err)
+	}
+	// No classes where its build puts them: so too.
+	if _, err := convert(`{}`); !errors.As(err, &um) || !strings.Contains(um.Why, "packs.coverage-jvm.parts.desk.classes") {
+		t.Errorf("no classes: %v", err)
 	}
 }

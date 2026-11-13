@@ -86,7 +86,19 @@ packs:
         sources: [../orders/src/main/kotlin]
 ```
 
-By default, the classes are those of a Gradle or Maven build in the service's `dir` (`build/classes/*/main` or `target/classes`), and the sources are `src/main/kotlin` and `src/main/java` there.
+By default, the classes are those of a Gradle or Maven build in the service's `dir` (`build/classes/*/main` or `target/classes`), and the sources are `src/main/kotlin` and `src/main/java` there. Only the files in the sources count, so a library's classes never do.
+
+`classes` can also name the service's jar. For a Spring Boot jar or a web archive (`.war`), Axx reads only the application's own classes (`BOOT-INF/classes` or `WEB-INF/classes`), not the libraries packed beside them.
+
+If the service's image builds the jar itself, with a multi-stage Dockerfile, the classes it ran are only in the image. Copy the jar out of the image, and name it in `classes`:
+
+```sh
+docker create --name orders-classes shop-orders
+docker cp orders-classes:/app/orders.jar build/orders.jar
+docker rm orders-classes
+```
+
+If the run can't find the classes or the sources, it says so for that service, and what to set.
 
 - Start the service's own JVM in its command, with `java -jar`, not through Gradle or Maven: their own JVMs would get the agent too.
 - `JAVA_TOOL_OPTIONS` replaces the service's own. Put the service's JVM options in its command.
@@ -344,7 +356,7 @@ A run from an agent's sandbox can measure coverage through the [axx host](/guide
 | `packs.coverage-core.minimum` | the whole run's minimums, in percent: `lines`, `branches`, `functions` |
 | `packs.coverage-core.parts.<part>.minimum` | a service's minimums, or the web apps' (`web`) |
 | `packs.coverage-core.parts.<part>.paths` | where a service's files are in the project, by where they were as it ran |
-| `packs.coverage-jvm.parts.<service>.classes` | the folders and jars of the classes the service runs |
+| `packs.coverage-jvm.parts.<service>.classes` | the folders and jars of the classes the service runs; of a Spring Boot jar or a web archive, its application's classes |
 | `packs.coverage-jvm.parts.<service>.sources` | the folders of its sources |
 | `packs.coverage-jvm.parts.<service>.port` | the port its agent listens on, with `axx up --coverage` |
 | `packs.coverage-go.parts.<service>.modules` | the folders of the Go modules whose files count |
