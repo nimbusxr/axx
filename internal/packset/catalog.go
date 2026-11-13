@@ -43,6 +43,7 @@ var Catalog = []Pack{
 	{Name: "coverage-go", Import: packs + "coverage/go", Requires: []string{"coverage-core"}, Summary: "the coverage of Go services, from their go build -cover builds, in a run with coverage"},
 	{Name: "coverage-jvm", Import: packs + "coverage/jvm", Requires: []string{"coverage-core"}, Summary: "the coverage of JVM services (Kotlin, Java, Scala, Groovy), with JaCoCo, in a run with coverage"},
 	{Name: "coverage-python", Import: packs + "coverage/python", Requires: []string{"coverage-core"}, Summary: "the coverage of Python services, with coverage.py, in a run with coverage"},
+	{Name: "coverage-node", Import: packs + "coverage/node", Requires: []string{"coverage-core"}, Summary: "the coverage of Node.js services, from V8's own coverage through their source maps, in a run with coverage"},
 	{Name: "web-core", Import: packs + "web/core", Summary: "web apps in real browsers, driven by Playwright"},
 	{Name: "web-screenshots", Import: packs + "web/screenshots", Requires: []string{"web-core"}, Summary: "pages that look as designed, compared with screenshots per platform"},
 	{Name: "web-a11y", Import: packs + "web/a11y", Requires: []string{"web-core"}, Summary: "pages people can use whatever their abilities: axe-core audits and accessible structure"},
