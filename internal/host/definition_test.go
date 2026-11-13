@@ -354,3 +354,20 @@ func TestExecutedFiles(t *testing.T) {
 }
 
 func quote(s string) string { return `"` + strings.ReplaceAll(s, `\`, `\\`) + `"` }
+
+// What a service runs when a run measures its coverage is part of what the
+// person approves, as its debug command is.
+func TestCommandsOfIncludeTheCoverageCommand(t *testing.T) {
+	s := config.Service{
+		Command:  config.Command{Line: "./parcels"},
+		Debug:    &config.Debug{Command: config.Command{Line: "dlv exec ./parcels"}},
+		Coverage: &config.Coverage{Runtime: "go", Command: config.Command{Line: "./parcels-cover"}},
+	}
+	var got []string
+	for _, c := range commandsOf(s) {
+		got = append(got, c.key+"="+c.cmd)
+	}
+	if want := []string{"command=./parcels", "debug.command=dlv exec ./parcels", "coverage.command=./parcels-cover"}; !slices.Equal(got, want) {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}

@@ -202,6 +202,9 @@ func commandsOf(s config.Service) []command {
 	if s.Debug != nil {
 		add("debug.command", s.Debug.Command, true)
 	}
+	if s.Coverage != nil {
+		add("coverage.command", s.Coverage.Command, true)
+	}
 	return out
 }
 

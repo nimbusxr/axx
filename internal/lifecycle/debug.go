@@ -124,6 +124,13 @@ type launchPlan struct {
 // a listener, checks that one is listening and applies onUnavailable.
 func (m *Manager) plan(ctx context.Context, a *service) (launchPlan, error) {
 	normal := launchPlan{command: a.run.Command}
+	if ok, why := m.measured(a); ok {
+		if c := a.run.Coverage; !c.Command.IsZero() {
+			normal.command = c.Command
+		}
+	} else if why != "" {
+		m.log.Warn("the run does not measure the service's coverage: "+why, "service", a.cfg.Name)
+	}
 	if a.debug == nil || (!m.opts.DebugAll && !m.opts.Debug[a.cfg.Name]) {
 		return normal, nil
 	}

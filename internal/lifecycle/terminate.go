@@ -17,20 +17,20 @@ const (
 )
 
 // terminate stops a process group: it sends the stop signal, gives the group
-// grace to exit, then kills whatever is left. A cancelled ctx skips the
-// grace period.
-func terminate(ctx context.Context, g *proc.Group, signal string, grace time.Duration) error {
+// grace to exit, then kills whatever is left, which it reports. A cancelled
+// ctx skips the grace period.
+func terminate(ctx context.Context, g *proc.Group, signal string, grace time.Duration) (killed bool, err error) {
 	if !g.Alive() {
-		return nil
+		return false, nil
 	}
 	if ctx.Err() == nil && g.Interrupt(signal) && waitGone(ctx, g, grace) {
-		return nil
+		return false, nil
 	}
 	if err := g.Kill(); err != nil {
-		return err
+		return true, err
 	}
 	waitGone(context.WithoutCancel(ctx), g, killWait)
-	return nil
+	return true, nil
 }
 
 // waitGone waits up to d for every process of g to exit.

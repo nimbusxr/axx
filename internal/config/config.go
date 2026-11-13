@@ -143,6 +143,10 @@ type Run struct {
 	// typed field), so a person can follow it, e.g. "500ms". Same as
 	// axx run --slowdown.
 	Slowdown Duration `json:"slowdown,omitzero"`
+	// Coverage measures the coverage of the services that have a coverage
+	// section, as the run exercises them, with the packs of their
+	// runtimes. Same as axx run --coverage.
+	Coverage bool `json:"coverage,omitempty"`
 	// Reporters, e.g. ["pretty", {"junit": "build/axx/junit.xml"}].
 	Reporters []Reporter `json:"reporters,omitempty"`
 }
@@ -198,6 +202,30 @@ type Service struct {
 	Cleanup Command       `json:"cleanup,omitzero"`
 	Active  ServiceActive `json:"active,omitzero"`
 	Debug   *Debug        `json:"debug,omitempty"`
+	// Coverage is how the service runs when a run measures its coverage
+	// (axx run --coverage): the pack of its runtime measures it.
+	Coverage *Coverage `json:"coverage,omitempty"`
+}
+
+// Coverage is how a service runs when a run measures its coverage. Its
+// folder, which AXX_COVERAGE_DIR names on every run (empty when the run does
+// not measure it), is where the service's coverage goes.
+type Coverage struct {
+	// Runtime is what measures it: a runtime a coverage pack adds, like jvm
+	// (coverage-jvm), go, python or node, or report, for a service that
+	// writes lcov or Cobertura into its folder itself.
+	Runtime string `json:"runtime"`
+	// Command replaces command when the run measures the service, as
+	// debug.command does: a build for coverage (go build -cover), or the
+	// command under coverage.py.
+	Command Command `json:"command,omitzero"`
+	// Env are variables the service gets beside env when the run measures
+	// it.
+	Env map[string]string `json:"env,omitempty"`
+	// Mount is where the service's folder is inside its container, for a
+	// service in a container: its compose file mounts ${AXX_COVERAGE_DIR}
+	// there, and the runtime names files by that path.
+	Mount string `json:"mount,omitempty"`
 }
 
 // IsEnabled reports whether the service should be managed.

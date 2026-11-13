@@ -227,8 +227,8 @@ func (c *Config) SetBy(name string) (value, where string) {
 	return "", ""
 }
 
-// Filled is s with what it runs filled in: its command, env, cleanup and
-// debug command, and its readiness checks, with Resolver(values, nil). axx.yaml
+// Filled is s with what it runs filled in: its command, env, cleanup, debug
+// command, coverage command and env, and its readiness checks, with Resolver(values, nil). axx.yaml
 // leaves them as written when it loads, since they can name what services
 // tell axx: a service's own are filled in as it starts, with what the
 // services it starts after told (its readiness checks, each time they are
@@ -250,6 +250,18 @@ func (c *Config) Filled(s Service, values func(name string) (string, bool)) Serv
 		d := *s.Debug
 		d.Command = d.Command.filled(fill)
 		s.Debug = &d
+	}
+	if s.Coverage != nil {
+		c := *s.Coverage
+		c.Command = c.Command.filled(fill)
+		if c.Env != nil {
+			env := make(map[string]string, len(c.Env))
+			for k, v := range c.Env {
+				env[k] = fill(v)
+			}
+			c.Env = env
+		}
+		s.Coverage = &c
 	}
 	if s.Ready != nil {
 		r := *s.Ready
@@ -495,8 +507,8 @@ func interpolateAt(v any, r *interp.Resolver, path []string) any {
 }
 
 // filledLater reports whether path is a service's setting that axx fills
-// in later than it loads axx.yaml (Config.Filled): its command, env, cleanup
-// and debug command as it starts, after the services it starts after told
+// in later than it loads axx.yaml (Config.Filled): its command, env, cleanup,
+// debug command, and coverage command and env as it starts, after the services it starts after told
 // axx their values, and its readiness checks each time they are tried.
 func filledLater(path []string) bool {
 	if len(path) < 3 || path[0] != "services" {
@@ -507,7 +519,8 @@ func filledLater(path []string) bool {
 		return slices.Contains([]string{"command", "env", "cleanup"}, path[2])
 	case 4:
 		return path[2] == "ready" && slices.Contains([]string{"http", "tcp", "exec"}, path[3]) ||
-			path[2] == "debug" && path[3] == "command"
+			path[2] == "debug" && path[3] == "command" ||
+			path[2] == "coverage" && (path[3] == "command" || path[3] == "env")
 	}
 	return false
 }
