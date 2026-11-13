@@ -14,6 +14,7 @@ license: Apache-2.0
 | 2 | usage or configuration | Read the hint; `axx doctor`. Configuration errors point at `axx.yaml:line:col` |
 | 3 | undefined or ambiguous step, a table value that could be read two ways, or `axx lint` violations | `axx validate`, then `axx explain "<line>"`; a lint finding names the rule, the value and every `file:line` |
 | 4 | a service did not start | The error has the service's last lines; all of it is in `.axx/logs/services.log` |
+| 6 | every scenario passed, but the coverage is under a minimum (`axx run --coverage`) | The run names the minimum; add scenarios for the code no run reached, never lower `packs.coverage-core`'s minimums without being asked |
 
 Every error has a code, like `AXX-E0408`: `axx explain AXX-E0408` says what it means and what to do.
 

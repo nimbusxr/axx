@@ -43,6 +43,8 @@ The host never runs a command that a run sends. A run names services, and the ho
 - each compose project they run, as `docker compose config` resolves it, with its includes, its `.env` and its variables;
 - the project files their commands run, such as `./scripts/start.sh` or the `server.js` of `node server.js`.
 
+A [run with coverage](/guides/measure-coverage/) starts the services differently: with their `coverage` sections, and the variables the coverage packs give them. So its definition is one of its own, which the host asks you about the first time a run with coverage needs it.
+
 Starting the host approves the definition as it is. If the agent changes it, the next run waits for you:
 
 ```console
