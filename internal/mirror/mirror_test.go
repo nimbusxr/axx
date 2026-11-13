@@ -21,6 +21,18 @@ func TestGitHub(t *testing.T) {
 	}
 }
 
+func TestMaven(t *testing.T) {
+	const path = "/org/jacoco/org.jacoco.agent/0.8.16/org.jacoco.agent-0.8.16-runtime.jar"
+	t.Setenv(EnvMaven, "")
+	if got := Maven(path); got != "https://repo1.maven.org/maven2"+path {
+		t.Errorf("without a mirror: %s", got)
+	}
+	t.Setenv(EnvMaven, "https://repo.example.com/maven/")
+	if got := Maven(path); got != "https://repo.example.com/maven"+path || !strings.Contains(MavenHelp(), "AXX_MAVEN_URL names") {
+		t.Errorf("with a mirror: %s, %s", got, MavenHelp())
+	}
+}
+
 func TestNuGetPackage(t *testing.T) {
 	const index = `{"version":"3.0.0","resources":[
 		{"@id":"https://repo.example.com/nuget/query","@type":"SearchQueryService"},

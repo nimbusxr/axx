@@ -5997,6 +5997,44 @@
       }
     },
     {
+      "name": "coverage-jvm",
+      "doc": "Measure the coverage of JVM services, Kotlin, Java, Scala or Groovy, in a run with coverage (`axx run --coverage`): a service whose coverage section names the runtime `jvm`. Axx gives it JaCoCo's agent through `JAVA_TOOL_OPTIONS`, which every JVM it starts reads, and the agent writes what ran as the JVM exits (on its stop signal: a JVM runs its shutdown, unless killed). Axx reads it with JaCoCo's CLI against the service's classes: those of its build, `build/classes/*/main` (Gradle) or `target/classes` (Maven) in its `dir`, or the folders and jars `parts.\u003cname\u003e.classes` names, which must be the classes it ran. It counts lines, branches and methods, as JaCoCo does: Kotlin's generated code left out, an inline function counted where it is called. It needs Java on the machine that runs axx; JaCoCo 0.8.16, from Maven Central (or `AXX_MAVEN_URL`), is downloaded once. It builds on `coverage-core`.\n\n```yaml\nservices:\n  orders:\n    dir: ../orders\n    command: java -jar build/libs/orders.jar\n    coverage:\n      runtime: jvm\npacks:\n  coverage-jvm:\n    parts:\n      orders:\n        classes: [../orders/build/classes/kotlin/main]\n        sources: [../orders/src/main/kotlin]\n```\n\nRun the service's own JVM in its command (`java -jar`), not through a build tool, whose JVMs would get the agent too. `JAVA_TOOL_OPTIONS` replaces a service's own: put its options in its command. In a container, its compose file mounts `${AXX_COVERAGE_DIR}` at the coverage section's `mount` and passes `JAVA_TOOL_OPTIONS` on.",
+      "requires": [
+        "coverage-core"
+      ],
+      "steps": [],
+      "settings": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "parts": {
+            "type": "object",
+            "description": "Settings of each JVM service, by its name in axx.yaml.",
+            "additionalProperties": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "classes": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "The folders and jars of the classes the service runs, relative to the project (default: build/classes/*/main and target/classes in its dir). They must be the classes it ran: JaCoCo reads none of a class rebuilt since."
+                },
+                "sources": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "The folders of its sources, relative to the project, which name its files (default: src/main/kotlin and src/main/java in its dir)."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
       "name": "web-core",
       "doc": "Use web apps in real browsers, the way the people who use them do: open pages, fill in forms, click buttons and links, answer dialogs, download files, and check what the page shows.\n\nEach web app is registered with its address:\n\n```gherkin\nGiven the parcels web app with the following properties:\n  | url | http://localhost:8400 |\n```\n\nThe browsers run on the machine that runs axx. The pack drives Playwright 1.64.1, and downloads its browsers the first time a scenario uses each one. The web app can use another `engine` (`firefox`, `webkit`, or the Google Chrome or Microsoft Edge installed on the machine), and present the browser as a `device` (like `iPhone 15`), with a `viewport`, a `locale` and a `timezone`.\n\n- **Pages.** `the {string} page is opened` opens a page of the app; the other steps act on it. A link that opens a new browser tab makes it the current tab, until it is closed.\n- **Finding things.** Fields are found by their label (or, without one, their placeholder), buttons, links, tabs and menu items by their name, and text anywhere on the page, in every frame: the names people see. Names must match exactly. Where a name is not enough, a step takes a selector in its place: `css=…`, `xpath=…` or `testid=…`.\n- **Waiting.** Every step waits for what it needs: an action for its element to be ready, a check for the page to show what it expects, 10 seconds unless `within {duration}` says otherwise. There is no step to sleep.\n- **Dialogs.** A dialog the page opens (an alert, a confirmation, a question) waits for `the dialog is accepted`, dismissed or answered; other steps fail while it is open.\n- **Isolation.** Each scenario has its own browser context: its own cookies and storage, so scenarios run in parallel.\n- **Failures.** A failed step attaches a screenshot of the page. A failed scenario keeps a Playwright trace in `.axx/web/traces`, step by step, with the feature file: open it with `npx playwright show-trace` or at trace.playwright.dev.\n- **Watching.** With `packs.web-core.watch: true` in axx.yaml, the browsers open in windows on your screen: watch the scenarios, and open DevTools. `slowdown` slows them down.\n- **Pausing.** `axx run --pause-at \u003cfile\u003e:\u003cline\u003e` pauses before a step, and `packs.web-core.pauseOnFailure: true` where a scenario fails, in Playwright's Inspector: resume, step through the browser's actions, pick an element, which the Inspector names as steps do (`the \"Register\" button`), or record what you do on the page as steps.\n- **Sessions.** A web app can start signed in: `cookie.\u003cname\u003e`, `header.\u003cname\u003e`, `local storage.\u003ckey\u003e`, `session storage.\u003ckey\u003e`, and `username` and `password` for HTTP authentication, for the app's address only.\n- **Secrets.** Take passwords and tokens from the environment, as `${env:…}`: whatever a step takes from the environment is shown as `********` in failures and traces.\n\nValues in the steps and the table expand `${env:..}` and `${sys:..}`.",
       "params": [
