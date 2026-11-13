@@ -1,29 +1,23 @@
 // Package gotool provides the Go toolchain axx builds itself with when a
 // project lists packs. Nobody has to install Go: axx downloads the release
-// of Go it was built with, once, checks its SHA-256 against go.dev, and
-// keeps it in its cache. Builds run with the toolchain's caches in axx's
-// cache too, so they leave nothing in the user's home.
+// of Go it was built with, once, as the go command downloads a Go release
+// (toolchain.go): from the Go module proxy, checked against Go's checksum
+// database, so that an organization's GOPROXY and GOSUMDB apply to it as to
+// every module. It keeps it in its cache. Builds run with the toolchain's
+// caches in axx's cache too, so they leave nothing in the user's home.
 package gotool
 
 import (
-	"archive/tar"
-	"archive/zip"
-	"compress/gzip"
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
-	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
 	"slices"
 	"strings"
-	"time"
 )
 
 // Toolchain is a go command and the environment to run it in.
@@ -39,9 +33,6 @@ type Options struct {
 	CacheDir string
 	// Version is the Go release to use; default the one axx was built with.
 	Version string
-	// DownloadURL is where Go releases are listed and downloaded; default
-	// https://go.dev/dl/.
-	DownloadURL string
 	// Log receives a line while a download runs.
 	Log io.Writer
 }
@@ -75,9 +66,6 @@ func Ensure(ctx context.Context, o Options) (*Toolchain, error) {
 	if o.Version == "" {
 		o.Version = runtime.Version()
 	}
-	if o.DownloadURL == "" {
-		o.DownloadURL = "https://go.dev/dl/"
-	}
 	if !strings.HasPrefix(o.Version, "go") || strings.Contains(o.Version, "devel") {
 		// A development toolchain has no release to download.
 		return onPath(errors.New("axx was built with a development version of Go"))
@@ -87,8 +75,10 @@ func Ensure(ctx context.Context, o Options) (*Toolchain, error) {
 		return onPath(err)
 	}
 	// The downloaded go finds its own tree: a GOROOT or GOTOOLDIR the
-	// caller has, for another Go, would mix two versions in one build.
-	return &Toolchain{Go: goBin, Env: append(without(baseEnv(), "GOROOT", "GOTOOLDIR"),
+	// caller has, for another Go, would mix two versions in one build. It
+	// reads no Go configuration file (GOENV=off), so the network settings
+	// `go env -w` wrote there come as variables.
+	return &Toolchain{Go: goBin, Env: append(append(without(baseEnv(), "GOROOT", "GOTOOLDIR"), envFileSettings()...),
 		"GOTOOLCHAIN=local",
 		"GOPATH="+filepath.Join(o.CacheDir, "path"),
 		"GOMODCACHE="+filepath.Join(o.CacheDir, "path", "pkg", "mod"),
@@ -122,210 +112,6 @@ func onPath(cause error) (*Toolchain, error) {
 		return nil, fmt.Errorf("cannot get the toolchain axx prepares packs with: %w", cause)
 	}
 	return &Toolchain{Go: p, Env: baseEnv()}, nil
-}
-
-// managed returns the downloaded toolchain's go, downloading it first if
-// the cache has none.
-func managed(ctx context.Context, o Options) (string, error) {
-	name := fmt.Sprintf("%s.%s-%s", o.Version, runtime.GOOS, runtime.GOARCH)
-	dir := filepath.Join(o.CacheDir, name)
-	goBin := filepath.Join(dir, "go", "bin", goExe())
-	if st, err := os.Stat(goBin); err == nil && st.Mode().IsRegular() {
-		return goBin, nil
-	}
-	file, sum, err := release(ctx, o)
-	if err != nil {
-		return "", err
-	}
-	fmt.Fprintln(o.Log, "axx: setting up (once)")
-	if err := os.MkdirAll(o.CacheDir, 0o755); err != nil {
-		return "", err
-	}
-	archive, err := download(ctx, o.DownloadURL+file, sum, o.CacheDir)
-	if err != nil {
-		return "", err
-	}
-	defer os.Remove(archive)
-	tmp, err := os.MkdirTemp(o.CacheDir, name+".tmp-")
-	if err != nil {
-		return "", err
-	}
-	defer os.RemoveAll(tmp)
-	if strings.HasSuffix(file, ".zip") {
-		err = unzip(archive, tmp)
-	} else {
-		err = untar(archive, tmp)
-	}
-	if err != nil {
-		return "", fmt.Errorf("unpack %s: %w", file, err)
-	}
-	_ = os.RemoveAll(dir)
-	if err := os.Rename(tmp, dir); err != nil {
-		return "", err
-	}
-	return goBin, nil
-}
-
-// release finds the archive of the version for this platform and its
-// SHA-256 in go.dev's list of releases.
-func release(ctx context.Context, o Options) (file, sum string, err error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, o.DownloadURL+"?mode=json&include=all", nil)
-	if err != nil {
-		return "", "", err
-	}
-	resp, err := client.Do(req)
-	if err != nil {
-		return "", "", err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return "", "", fmt.Errorf("list Go releases: %s", resp.Status)
-	}
-	var releases []struct {
-		Version string `json:"version"`
-		Files   []struct {
-			Filename string `json:"filename"`
-			OS       string `json:"os"`
-			Arch     string `json:"arch"`
-			SHA256   string `json:"sha256"`
-			Kind     string `json:"kind"`
-		} `json:"files"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&releases); err != nil {
-		return "", "", fmt.Errorf("list Go releases: %w", err)
-	}
-	for _, r := range releases {
-		if r.Version != o.Version {
-			continue
-		}
-		for _, f := range r.Files {
-			if f.Kind == "archive" && f.OS == runtime.GOOS && f.Arch == runtime.GOARCH {
-				return f.Filename, f.SHA256, nil
-			}
-		}
-	}
-	return "", "", fmt.Errorf("no %s release of Go for %s/%s", o.Version, runtime.GOOS, runtime.GOARCH)
-}
-
-var client = &http.Client{Timeout: 10 * time.Minute}
-
-// download fetches url into dir, checking its SHA-256.
-func download(ctx context.Context, url, sum, dir string) (string, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-	if err != nil {
-		return "", err
-	}
-	resp, err := client.Do(req)
-	if err != nil {
-		return "", err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("download %s: %s", url, resp.Status)
-	}
-	f, err := os.CreateTemp(dir, "download-*")
-	if err != nil {
-		return "", err
-	}
-	h := sha256.New()
-	_, err = io.Copy(io.MultiWriter(f, h), resp.Body)
-	if cerr := f.Close(); err == nil {
-		err = cerr
-	}
-	if err == nil && hex.EncodeToString(h.Sum(nil)) != sum {
-		err = fmt.Errorf("download %s: the SHA-256 does not match go.dev's", url)
-	}
-	if err != nil {
-		_ = os.Remove(f.Name())
-		return "", err
-	}
-	return f.Name(), nil
-}
-
-func untar(archive, dir string) error {
-	f, err := os.Open(archive)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	gz, err := gzip.NewReader(f)
-	if err != nil {
-		return err
-	}
-	tr := tar.NewReader(gz)
-	for {
-		h, err := tr.Next()
-		if errors.Is(err, io.EOF) {
-			return nil
-		}
-		if err != nil {
-			return err
-		}
-		target, err := within(dir, h.Name)
-		if err != nil {
-			return err
-		}
-		switch h.Typeflag {
-		case tar.TypeDir:
-			if err := os.MkdirAll(target, 0o755); err != nil {
-				return err
-			}
-		case tar.TypeReg:
-			if err := write(target, tr, h.FileInfo().Mode()); err != nil {
-				return err
-			}
-		case tar.TypeSymlink, tar.TypeLink:
-			return linked(h.Name)
-		}
-	}
-}
-
-func unzip(archive, dir string) error {
-	r, err := zip.OpenReader(archive)
-	if err != nil {
-		return err
-	}
-	defer r.Close()
-	for _, zf := range r.File {
-		target, err := within(dir, zf.Name)
-		if err != nil {
-			return err
-		}
-		if zf.FileInfo().IsDir() {
-			if err := os.MkdirAll(target, 0o755); err != nil {
-				return err
-			}
-			continue
-		}
-		if zf.Mode()&os.ModeSymlink != 0 {
-			return linked(zf.Name)
-		}
-		rc, err := zf.Open()
-		if err != nil {
-			return err
-		}
-		err = write(target, rc, zf.Mode())
-		_ = rc.Close()
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// within joins an archive entry to dir, refusing entries that escape it.
-func within(dir, name string) (string, error) {
-	local := filepath.FromSlash(name)
-	if !filepath.IsLocal(local) {
-		return "", fmt.Errorf("archive entry %q leaves the directory", name)
-	}
-	return filepath.Join(dir, local), nil
-}
-
-// linked refuses an archive's link: Go's archives (cmd/distpack's) hold only folders and files,
-// and a link, which a later entry could be written through, could lead out of the directory.
-func linked(name string) error {
-	return fmt.Errorf("archive entry %q is a link, which Go's archives never hold", name)
 }
 
 func write(target string, r io.Reader, mode os.FileMode) error {

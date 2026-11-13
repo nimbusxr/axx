@@ -144,7 +144,7 @@ func Ensure(ctx context.Context, o Options) (*Result, error) {
 	if tc == nil {
 		if tc, err = gotool.Ensure(ctx, gotool.Options{Log: o.Log}); err != nil {
 			return nil, axxerr.Wrap(err, CodeNoGo, exitcode.Environment, "cannot prepare this project's packs").
-				WithHint("axx downloads what it needs from go.dev once; check the network, or set AXX_GO to a Go toolchain")
+				WithHint("axx downloads Go once, as the go command does: from the Go module proxy (GOPROXY), checked against Go's checksum database (GOSUMDB). Check the network and those settings, or set AXX_GO to an installed go")
 		}
 	}
 	src := filepath.Join(dir, "src")

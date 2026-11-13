@@ -194,7 +194,7 @@ func init() {
 		"Use the name of one of axx's packs (see `axx pack list`), a path to a pack in the project (`./steps`) or a Go module path; `axx pack add` checks entries for you. Run axx from the project so it can prepare the packs.")
 	add("AXX-E0303", env, "Packs cannot be prepared",
 		"The first time axx runs with a list of packs, it prepares itself with them, downloading what it needs once. The download failed.",
-		"Check the network: axx downloads from go.dev and the Go module proxy (`GOPROXY` applies). Then run again; later runs start immediately.")
+		"Check the network: axx downloads Go and the packs' modules from the Go module proxy (`GOPROXY`), checked against Go's checksum database (`GOSUMDB`), as the go command does. Behind an organization's mirrors, set those two to them, or `AXX_GO` to an installed go. Then run again; later runs start immediately.")
 	add("AXX-E0304", u, "Packs do not build",
 		"Preparing axx with the project's packs failed. The compiler output is in the message.",
 		"A pack is a Go package that exports `func Pack() core.Pack`. Fix the reported errors; `axx pack new <dir>` scaffolds a working pack.")

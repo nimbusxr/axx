@@ -111,7 +111,7 @@ Projects can name the releases after `0.4.0`. `0.4.0` and older refuse the line,
 | `AXX_AUTO_DOWNLOAD=0` | stops instead of downloading; `axx install` then downloads the project's version, or the one you name |
 | `AXX_DOWNLOAD_URL=https://mirror.example.com/axx` | gets releases from a mirror of GitHub's files: `<url>/v0.5.0/checksums.txt`, with the archives beside it |
 
-Preparing packs still needs go.dev and the Go module proxy, as it does for any project ([Choose packs](/guides/use-packs/)). The versions are in Axx's cache (`~/.cache/axx/versions` on Linux, `~/Library/Caches/axx/versions` on macOS), which is safe to delete. Editor plugins complete `axx.yaml` from their own schemas, which can be a version off the project's.
+Preparing packs still needs the Go module proxy, as it does for any project ([Choose packs](/guides/use-packs/)). To download everything through your organization's mirrors instead, see [Use your organization's mirrors](/guides/use-mirrors/). The versions are in Axx's cache (`~/.cache/axx/versions` on Linux, `~/Library/Caches/axx/versions` on macOS), which is safe to delete. Editor plugins complete `axx.yaml` from their own schemas, which can be a version off the project's.
 
 ## Upgrade
 

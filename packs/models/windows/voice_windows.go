@@ -18,6 +18,7 @@ import (
 	"github.com/nimbusxr/axx/core"
 	"github.com/nimbusxr/axx/internal/axxerr"
 	"github.com/nimbusxr/axx/internal/exitcode"
+	"github.com/nimbusxr/axx/internal/mirror"
 	"github.com/nimbusxr/axx/internal/npm"
 	desktopcore "github.com/nimbusxr/axx/packs/desktop/core"
 	modelscore "github.com/nimbusxr/axx/packs/models/core"
@@ -35,9 +36,9 @@ const (
 	tokensKey   = voicesKey + `\Tokens`
 	tokenKey    = tokensKey + `\axx-voice`
 	tokenID     = `HKEY_LOCAL_MACHINE\` + tokenKey
-	// Piper's Windows release, pinned by its SHA-256.
-	piperURL = "https://github.com/rhasspy/piper/releases/download/2023.11.14-2/piper_windows_amd64.zip"
-	piperSum = "f3c58906402b24f3a96d92145f58acba6d86c9b5db896d207f78dc80811efcea"
+	// Piper's Windows release on github.com, pinned by its SHA-256.
+	piperPath = "/rhasspy/piper/releases/download/2023.11.14-2/piper_windows_amd64.zip"
+	piperSum  = "f3c58906402b24f3a96d92145f58acba6d86c9b5db896d207f78dc80811efcea"
 )
 
 // voiceChanges are what a scenario changed of SAPI's voices.
@@ -247,7 +248,7 @@ func piperProgram(ctx context.Context, s *core.Suite) (string, error) {
 		if _, err := os.Stat(exe); err == nil {
 			return exe, nil
 		}
-		if err := fetchZip(ctx, "Piper", piperURL, piperSum, dir, nil); err != nil {
+		if err := fetchZip(ctx, "Piper", mirror.GitHub(piperPath), mirror.GitHubHelp(), piperSum, dir, nil); err != nil {
 			return "", err
 		}
 		return exe, nil

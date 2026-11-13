@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/nimbusxr/axx/internal/launcher"
+	"github.com/nimbusxr/axx/internal/mirror"
 	"github.com/nimbusxr/axx/internal/selfupdate"
 	"github.com/nimbusxr/axx/internal/version"
 )
@@ -162,16 +163,19 @@ func downloadLauncher(app string, info version.Info) error {
 	}
 	note := func(path string) { _ = os.WriteFile(path, nil, 0o644) }
 	url := launcherURL(selfupdate.New().Downloads, info.Version)
+	// A mirror's address (AXX_DOWNLOAD_URL) can carry credentials: messages
+	// leave them out.
+	shown := mirror.Redact(url)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
-		return err
+		return mirror.RedactErr(err)
 	}
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		note(tried)
-		return fmt.Errorf("cannot download it from %s: %w", url, err)
+		return fmt.Errorf("cannot download it from %s: %w", shown, mirror.RedactErr(err))
 	}
 	defer resp.Body.Close()
 	switch resp.StatusCode {
@@ -181,7 +185,7 @@ func downloadLauncher(app string, info version.Info) error {
 		return nil
 	default:
 		note(tried)
-		return fmt.Errorf("cannot download it from %s: %s", url, resp.Status)
+		return fmt.Errorf("cannot download it from %s: %s", shown, resp.Status)
 	}
 	work, err := os.MkdirTemp(dir, ".download-*")
 	if err != nil {
@@ -199,14 +203,14 @@ func downloadLauncher(app string, info version.Info) error {
 	}
 	if err != nil {
 		note(tried)
-		return fmt.Errorf("cannot download it from %s: %w", url, err)
+		return fmt.Errorf("cannot download it from %s: %w", shown, mirror.RedactErr(err))
 	}
 	if out, err := exec.CommandContext(ctx, "ditto", "-x", "-k", zip, work).CombinedOutput(); err != nil {
-		return fmt.Errorf("cannot unpack %s: %w %s", url, err, strings.TrimSpace(string(out)))
+		return fmt.Errorf("cannot unpack %s: %w %s", shown, err, strings.TrimSpace(string(out)))
 	}
 	got := filepath.Join(work, "axx.app")
 	if err := verifyLauncher(got); err != nil {
-		return fmt.Errorf("%s: %w", url, err)
+		return fmt.Errorf("%s: %w", shown, err)
 	}
 	// Another axx that downloaded it as well has put it there first.
 	if err := os.Rename(got, app); err != nil && !exists(app) {

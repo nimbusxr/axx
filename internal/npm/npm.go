@@ -24,6 +24,8 @@ import (
 	"runtime"
 	"strings"
 	"time"
+
+	"github.com/nimbusxr/axx/internal/mirror"
 )
 
 // Options configure EnsureNode and WriteNode; the zero value downloads the
@@ -95,22 +97,25 @@ func Fetch(ctx context.Context, url string) ([]byte, error) {
 // fetchOnce downloads url once, and tells whether a failure is worth trying
 // again.
 func fetchOnce(ctx context.Context, url string) (body []byte, again bool, err error) {
+	// A mirror's address can carry credentials (https://user:token@host/):
+	// messages leave them out.
+	shown := mirror.Redact(url)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
-		return nil, false, err
+		return nil, false, mirror.RedactErr(err)
 	}
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, ctx.Err() == nil, fmt.Errorf("download %s: %w", url, err)
+		return nil, ctx.Err() == nil, fmt.Errorf("download %s: %w", shown, mirror.RedactErr(err))
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		again := resp.StatusCode >= 500 || resp.StatusCode == http.StatusTooManyRequests
-		return nil, again, fmt.Errorf("download %s: %s", url, resp.Status)
+		return nil, again, fmt.Errorf("download %s: %s", shown, resp.Status)
 	}
 	body, err = io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, ctx.Err() == nil, fmt.Errorf("download %s: %w", url, err)
+		return nil, ctx.Err() == nil, fmt.Errorf("download %s: %w", shown, mirror.RedactErr(err))
 	}
 	return body, false, nil
 }

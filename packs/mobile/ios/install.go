@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/nimbusxr/axx/core"
+	"github.com/nimbusxr/axx/internal/mirror"
 	"github.com/nimbusxr/axx/internal/npm"
 )
 
@@ -43,10 +44,9 @@ func wdaFor(ctx context.Context, s *core.Suite) (string, error) {
 		}
 		s.Logger().Warn("downloading WebDriverAgent for simulators, once")
 		name := "WebDriverAgentRunner-Build-Sim-" + arch + ".zip"
-		url := "https://github.com/appium/WebDriverAgent/releases/download/v" + wdaVersion + "/" + name
-		body, err := npm.Fetch(ctx, url)
+		body, err := npm.Fetch(ctx, mirror.GitHub("/appium/WebDriverAgent/releases/download/v"+wdaVersion+"/"+name))
 		if err != nil {
-			return "", fmt.Errorf("cannot download WebDriverAgent: %w", err)
+			return "", fmt.Errorf("cannot download WebDriverAgent: %w (%s)", err, mirror.GitHubHelp())
 		}
 		if sum := sha256.Sum256(body); hex.EncodeToString(sum[:]) != wdaSums[arch] {
 			return "", fmt.Errorf("%s: SHA-256 %x does not match the pinned %s", name, sum, wdaSums[arch])

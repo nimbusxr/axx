@@ -1,14 +1,10 @@
 package gotool
 
 import (
-	"archive/tar"
 	"archive/zip"
 	"bytes"
-	"compress/gzip"
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
-	"encoding/json"
+	"crypto/rand"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -18,82 +14,131 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+
+	"golang.org/x/mod/sumdb"
+	"golang.org/x/mod/sumdb/dirhash"
+	"golang.org/x/mod/sumdb/note"
 )
 
-// goDev serves a fake go.dev/dl: the release list and one archive.
-func goDev(t *testing.T, archive []byte, sum string) (*httptest.Server, *atomic.Int32) {
-	t.Helper()
-	var downloads atomic.Int32
-	file := fmt.Sprintf("go9.9.9.%s-%s.tar.gz", runtime.GOOS, runtime.GOARCH)
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch {
-		case r.URL.Query().Get("mode") == "json":
-			_ = json.NewEncoder(w).Encode([]map[string]any{{
-				"version": "go9.9.9",
-				"files": []map[string]any{
-					{"filename": "go9.9.9.src.tar.gz", "kind": "source", "sha256": "x"},
-					{"filename": file, "os": runtime.GOOS, "arch": runtime.GOARCH, "kind": "archive", "sha256": sum},
-				},
-			}})
-		case r.URL.Path == "/"+file:
-			downloads.Add(1)
-			_, _ = w.Write(archive)
-		default:
-			http.NotFound(w, r)
-		}
-	}))
-	t.Cleanup(srv.Close)
-	return srv, &downloads
-}
+const testGo = "go9.9.9"
 
-func tarball(t *testing.T, files map[string]string) []byte {
+// goRelease is golang.org/toolchain's zip of a Go release: files under its
+// module@version/ prefix, as Go's own distpack writes them.
+func goRelease(t *testing.T, files map[string]string) []byte {
 	t.Helper()
 	var buf bytes.Buffer
-	gz := gzip.NewWriter(&buf)
-	tw := tar.NewWriter(gz)
+	zw := zip.NewWriter(&buf)
 	for name, body := range files {
-		if err := tw.WriteHeader(&tar.Header{Name: name, Mode: 0o755, Size: int64(len(body)), Typeflag: tar.TypeReg}); err != nil {
+		w, err := zw.Create(toolchainModule + "@" + toolchainVersion(testGo) + "/" + name)
+		if err != nil {
 			t.Fatal(err)
 		}
-		if _, err := tw.Write([]byte(body)); err != nil {
+		if _, err := w.Write([]byte(body)); err != nil {
 			t.Fatal(err)
 		}
 	}
-	if err := tw.Close(); err != nil {
-		t.Fatal(err)
-	}
-	if err := gz.Close(); err != nil {
+	if err := zw.Close(); err != nil {
 		t.Fatal(err)
 	}
 	return buf.Bytes()
 }
 
-func sha(b []byte) string {
-	h := sha256.Sum256(b)
-	return hex.EncodeToString(h[:])
+func hashOf(t *testing.T, archive []byte) string {
+	t.Helper()
+	p := filepath.Join(t.TempDir(), "go.zip")
+	if err := os.WriteFile(p, archive, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	h, err := dirhash.HashZip(p, dirhash.Hash1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return h
 }
 
-func TestDownloadsTheReleaseOnce(t *testing.T) {
-	archive := tarball(t, map[string]string{"go/bin/" + goExe(): "#!/bin/sh\necho go9.9.9\n", "go/VERSION": "go9.9.9"})
-	srv, downloads := goDev(t, archive, sha(archive))
-	t.Setenv("AXX_GO", "")
+// goProxy is a Go module proxy that has one Go release and serves a checksum
+// database, sum.test, that lists listed as its hash. GOPROXY and GOSUMDB
+// point at it, and nothing of the machine's Go configuration applies.
+type goProxy struct {
+	*httptest.Server
+	downloads, sumdbReads atomic.Int32
+	auth                  atomic.Value // the last Authorization header
+}
+
+func newGoProxy(t *testing.T, archive []byte, listed string) *goProxy {
+	t.Helper()
+	skey, vkey, err := note.GenerateKey(rand.Reader, "sum.test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	db := sumdb.NewServer(sumdb.NewTestServer(skey, func(path, vers string) ([]byte, error) {
+		return fmt.Appendf(nil, "%s %s %s\n%s %s/go.mod h1:x=\n", path, vers, listed, path, vers), nil
+	}))
+	p := &goProxy{}
+	p.auth.Store("")
+	zipPath := "/" + toolchainModule + "/@v/" + toolchainVersion(testGo) + ".zip"
+	p.Server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		p.auth.Store(r.Header.Get("Authorization"))
+		switch {
+		case r.URL.Path == zipPath:
+			p.downloads.Add(1)
+			_, _ = w.Write(archive)
+		case r.URL.Path == "/sumdb/sum.test/supported":
+		case strings.HasPrefix(r.URL.Path, "/sumdb/sum.test/"):
+			p.sumdbReads.Add(1)
+			http.StripPrefix("/sumdb/sum.test", db).ServeHTTP(w, r)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	t.Cleanup(p.Close)
+	isolate(t)
+	t.Setenv("GOPROXY", p.URL)
+	t.Setenv("GOSUMDB", vkey)
+	return p
+}
+
+// isolate keeps the machine's Go settings and credentials out of a test.
+func isolate(t *testing.T) {
+	t.Helper()
+	for _, name := range append(netSettings, "AXX_GO") {
+		t.Setenv(name, "")
+	}
+	t.Setenv("GOENV", "off")
+	t.Setenv("NETRC", filepath.Join(t.TempDir(), "none"))
+}
+
+func goFiles() map[string]string {
+	return map[string]string{
+		"bin/" + goExe():            "#!/bin/sh\necho " + testGo + "\n",
+		"pkg/tool/linux_amd64/link": "link",
+		"lib/wasm/go_js_wasm_exec":  "#!/bin/sh\n",
+		"lib/time/zoneinfo.zip":     "zones",
+		"src/_go.mod":               "module std\n",
+		"src/cmd/_go.mod":           "module cmd\n",
+		"README.md":                 "Go",
+	}
+}
+
+func TestDownloadsGoOnceFromTheModuleProxy(t *testing.T) {
+	archive := goRelease(t, goFiles())
+	proxy := newGoProxy(t, archive, hashOf(t, archive))
 	// Another Go's tree in the caller's environment is not the toolchain's.
 	t.Setenv("GOROOT", "/opt/go1.0.0")
 	t.Setenv("GOTOOLDIR", "/opt/go1.0.0/pkg/tool")
 	cache := t.TempDir()
-	o := Options{CacheDir: cache, Version: "go9.9.9", DownloadURL: srv.URL + "/"}
 	var log strings.Builder
-	o.Log = &log
+	o := Options{CacheDir: cache, Version: testGo, Log: &log}
 	tc, err := Ensure(context.Background(), o)
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := filepath.Join(cache, fmt.Sprintf("go9.9.9.%s-%s", runtime.GOOS, runtime.GOARCH), "go", "bin", goExe())
-	if tc.Go != want {
+	root := filepath.Join(cache, fmt.Sprintf("%s.%s-%s", testGo, runtime.GOOS, runtime.GOARCH), "go")
+	if want := filepath.Join(root, "bin", goExe()); tc.Go != want {
 		t.Errorf("go is %s, want %s", tc.Go, want)
 	}
 	env := strings.Join(tc.Env, "\n")
-	for _, v := range []string{"GOTOOLCHAIN=local", "CGO_ENABLED=0", "GOTELEMETRY=off", "GOCACHE=" + filepath.Join(cache, "build"), "GOMODCACHE="} {
+	for _, v := range []string{"GOTOOLCHAIN=local", "CGO_ENABLED=0", "GOTELEMETRY=off", "GOENV=off", "GOCACHE=" + filepath.Join(cache, "build"), "GOMODCACHE="} {
 		if !strings.Contains(env, v) {
 			t.Errorf("the environment lacks %s", v)
 		}
@@ -104,81 +149,209 @@ func TestDownloadsTheReleaseOnce(t *testing.T) {
 	if !strings.Contains(log.String(), "setting up") || strings.Contains(strings.ToLower(log.String()), "go ") {
 		t.Errorf("what the user sees: %q", log.String())
 	}
+
+	// Laid out as the go command lays out a Go it downloads.
+	for name, want := range map[string]string{"src/go.mod": "module std\n", "src/_go.mod": "module std\n", "src/cmd/go.mod": "module cmd\n", "README.md": "Go"} {
+		if b, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(name))); err != nil || string(b) != want {
+			t.Errorf("%s: %q %v", name, b, err)
+		}
+	}
+	if runtime.GOOS != "windows" {
+		for name, exec := range map[string]bool{"bin/" + goExe(): true, "pkg/tool/linux_amd64/link": true, "lib/wasm/go_js_wasm_exec": true, "lib/time/zoneinfo.zip": false, "README.md": false} {
+			st, err := os.Stat(filepath.Join(root, filepath.FromSlash(name)))
+			if err != nil || (st.Mode()&0o111 != 0) != exec {
+				t.Errorf("%s: %v %v, want executable %v", name, st.Mode(), err, exec)
+			}
+		}
+	}
+	if proxy.sumdbReads.Load() == 0 {
+		t.Error("the download was not checked against the checksum database")
+	}
+
 	// The second time, it is there.
 	if _, err := Ensure(context.Background(), o); err != nil {
 		t.Fatal(err)
 	}
-	if n := downloads.Load(); n != 1 {
+	if n := proxy.downloads.Load(); n != 1 {
 		t.Errorf("%d downloads", n)
 	}
 }
 
-func TestATamperedDownloadIsRefused(t *testing.T) {
-	archive := tarball(t, map[string]string{"go/bin/" + goExe(): "x"})
-	srv, _ := goDev(t, archive, sha([]byte("something else")))
-	_, err := managed(context.Background(), Options{CacheDir: t.TempDir(), Version: "go9.9.9", DownloadURL: srv.URL + "/", Log: &strings.Builder{}})
-	if err == nil || !strings.Contains(err.Error(), "SHA-256") {
+func TestAGoTheChecksumDatabaseDoesNotListIsRefused(t *testing.T) {
+	archive := goRelease(t, goFiles())
+	newGoProxy(t, archive, hashOf(t, goRelease(t, map[string]string{"bin/go": "another"})))
+	cache := t.TempDir()
+	_, err := managed(context.Background(), Options{CacheDir: cache, Version: testGo, Log: &strings.Builder{}})
+	if err == nil || !strings.Contains(err.Error(), "checksum database sum.test lists") {
 		t.Fatalf("got %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(cache, fmt.Sprintf("%s.%s-%s", testGo, runtime.GOOS, runtime.GOARCH))); err == nil {
+		t.Error("the refused Go is in the cache")
 	}
 }
 
-func TestArchiveEntriesStayInTheCache(t *testing.T) {
-	archive := tarball(t, map[string]string{"../escape": "x"})
-	srv, _ := goDev(t, archive, sha(archive))
-	_, err := managed(context.Background(), Options{CacheDir: t.TempDir(), Version: "go9.9.9", DownloadURL: srv.URL + "/", Log: &strings.Builder{}})
-	if err == nil || !strings.Contains(err.Error(), "leaves the directory") {
-		t.Fatalf("got %v", err)
+// As the go command, axx checks every Go it downloads against the checksum
+// database: GOSUMDB=off, GONOSUMDB and GOPRIVATE do not turn that off.
+func TestTheChecksumDatabaseAlwaysChecksGo(t *testing.T) {
+	archive := goRelease(t, goFiles())
+	newGoProxy(t, archive, hashOf(t, goRelease(t, map[string]string{"bin/go": "another"})))
+	t.Setenv("GONOSUMDB", "golang.org")
+	t.Setenv("GOPRIVATE", "golang.org/x")
+	if _, err := managed(context.Background(), Options{CacheDir: t.TempDir(), Version: testGo, Log: &strings.Builder{}}); err == nil || !strings.Contains(err.Error(), "checksum database") {
+		t.Errorf("GONOSUMDB: %v", err)
+	}
+	t.Setenv("GOSUMDB", "off")
+	if _, err := managed(context.Background(), Options{CacheDir: t.TempDir(), Version: testGo, Log: &strings.Builder{}}); err == nil || !strings.Contains(err.Error(), "GOSUMDB=off") {
+		t.Errorf("GOSUMDB=off: %v", err)
 	}
 }
 
-func TestArchiveLinksAreRefused(t *testing.T) {
-	for _, h := range []tar.Header{
-		{Name: "go/lib/escape", Linkname: "../../../escape", Typeflag: tar.TypeSymlink},
-		{Name: "go/lib/etc", Linkname: "/etc", Typeflag: tar.TypeSymlink},
-		{Name: "go/lib/go", Linkname: "../bin/go", Typeflag: tar.TypeSymlink},
-		{Name: "go/lib/hard", Linkname: "go/bin/go", Typeflag: tar.TypeLink},
+func TestGOPROXYAsTheGoCommandReadsIt(t *testing.T) {
+	archive := goRelease(t, goFiles())
+	proxy := newGoProxy(t, archive, hashOf(t, archive))
+	empty := httptest.NewServer(http.NotFoundHandler())
+	t.Cleanup(empty.Close)
+	broken := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { http.Error(w, "down", http.StatusBadGateway) }))
+	t.Cleanup(broken.Close)
+	for goproxy, want := range map[string]string{
+		empty.URL + "," + proxy.URL:  "",              // one without it: the next
+		broken.URL + "|" + proxy.URL: "",              // | moves on whatever failed
+		broken.URL + "," + proxy.URL: "502",           // , does not
+		empty.URL + ",off":           "GOPROXY=off",   // off ends the list
+		"off":                        "GOPROXY=off",   //
+		empty.URL:                    "no proxy",      // nothing has it
+		"ftp://example.com":          "not a proxy's", //
+		",":                          "lists no proxy",
 	} {
-		var buf bytes.Buffer
-		gz := gzip.NewWriter(&buf)
-		tw := tar.NewWriter(gz)
-		if err := tw.WriteHeader(&h); err != nil {
-			t.Fatal(err)
+		t.Run(goproxy, func(t *testing.T) {
+			t.Setenv("GOPROXY", goproxy)
+			_, err := managed(context.Background(), Options{CacheDir: t.TempDir(), Version: testGo, Log: &strings.Builder{}})
+			if want == "" && err != nil || want != "" && (err == nil || !strings.Contains(err.Error(), want)) {
+				t.Errorf("got %v, want %q", err, want)
+			}
+		})
+	}
+}
+
+// The network settings `go env -w` wrote apply: to the download, and to the
+// builds, which read no Go configuration file.
+func TestTheUsersGoConfigurationApplies(t *testing.T) {
+	archive := goRelease(t, goFiles())
+	proxy := newGoProxy(t, archive, hashOf(t, archive))
+	goproxy, gosumdb := os.Getenv("GOPROXY"), os.Getenv("GOSUMDB")
+	t.Setenv("GOPROXY", "")
+	t.Setenv("GOSUMDB", "")
+	file := filepath.Join(t.TempDir(), "env")
+	content := "GOPROXY=" + goproxy + "\nGOSUMDB=" + gosumdb + "\nGOPRIVATE=example.com/private\nGOFLAGS=-tags=nothing\n# a comment\n"
+	if err := os.WriteFile(file, []byte(content), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("GOENV", file)
+	t.Setenv("GOINSECURE", "example.com/insecure")
+	tc, err := Ensure(context.Background(), Options{CacheDir: t.TempDir(), Version: testGo})
+	if err != nil || proxy.downloads.Load() != 1 {
+		t.Fatalf("%v, %d downloads", err, proxy.downloads.Load())
+	}
+	env := strings.Join(tc.Env, "\n") + "\n"
+	for _, v := range []string{"GOPROXY=" + goproxy + "\n", "GOSUMDB=" + gosumdb + "\n", "GOPRIVATE=example.com/private\n", "GOINSECURE=example.com/insecure\n"} {
+		if !strings.Contains(env, v) {
+			t.Errorf("the builds lack %s", v)
 		}
-		if err := tw.Close(); err != nil {
-			t.Fatal(err)
-		}
-		if err := gz.Close(); err != nil {
-			t.Fatal(err)
-		}
-		archive := filepath.Join(t.TempDir(), "go.tar.gz")
-		if err := os.WriteFile(archive, buf.Bytes(), 0o600); err != nil {
-			t.Fatal(err)
-		}
-		if err := untar(archive, t.TempDir()); err == nil || !strings.Contains(err.Error(), "is a link") {
-			t.Errorf("a link to %s: got %v", h.Linkname, err)
-		}
+	}
+	if strings.Contains(env, "-tags=nothing") {
+		t.Error("the builds take the file's GOFLAGS, which is not a network setting")
+	}
+}
+
+// A proxy that needs credentials gets them, from its address or from
+// .netrc as the go command sends them, and no message shows them.
+func TestCredentials(t *testing.T) {
+	archive := goRelease(t, goFiles())
+	proxy := newGoProxy(t, archive, hashOf(t, archive))
+
+	t.Setenv("GOPROXY", strings.Replace(proxy.URL, "http://", "http://ci:secret@", 1))
+	if _, err := managed(context.Background(), Options{CacheDir: t.TempDir(), Version: testGo, Log: &strings.Builder{}}); err != nil {
+		t.Fatal(err)
+	}
+	if got := proxy.auth.Load().(string); !strings.HasPrefix(got, "Basic ") {
+		t.Errorf("the proxy got %q", got)
+	}
+	t.Setenv("GOPROXY", strings.Replace(proxy.URL, "http://", "http://ci:secret@", 1)+"/missing")
+	if _, err := managed(context.Background(), Options{CacheDir: t.TempDir(), Version: testGo, Log: &strings.Builder{}}); err == nil || strings.Contains(err.Error(), "secret") {
+		t.Errorf("a failure shows the credentials: %v", err)
 	}
 
-	var buf bytes.Buffer
-	zw := zip.NewWriter(&buf)
-	fh := &zip.FileHeader{Name: "go/lib/go"}
-	fh.SetMode(os.ModeSymlink | 0o777)
-	w, err := zw.CreateHeader(fh)
-	if err != nil {
+	// .netrc's credentials go only over HTTPS.
+	tls := httptest.NewTLSServer(proxy.Config.Handler)
+	t.Cleanup(tls.Close)
+	defer func(c *http.Client) { client = c }(client)
+	client = tls.Client()
+	netrc := filepath.Join(t.TempDir(), "netrc")
+	host := strings.TrimPrefix(tls.URL, "https://")
+	if err := os.WriteFile(netrc, []byte("machine other.example.com login x password y\nmachine "+host+"\n  login ci\n  password secret\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := w.Write([]byte("../bin/go")); err != nil {
+	t.Setenv("NETRC", netrc)
+	t.Setenv("GOPROXY", tls.URL)
+	proxy.auth.Store("")
+	if _, err := managed(context.Background(), Options{CacheDir: t.TempDir(), Version: testGo, Log: &strings.Builder{}}); err != nil {
 		t.Fatal(err)
 	}
-	if err := zw.Close(); err != nil {
-		t.Fatal(err)
+	if got := proxy.auth.Load().(string); got != "Basic Y2k6c2VjcmV0" {
+		t.Errorf(".netrc: the proxy got %q", got)
 	}
-	archive := filepath.Join(t.TempDir(), "go.zip")
-	if err := os.WriteFile(archive, buf.Bytes(), 0o600); err != nil {
-		t.Fatal(err)
+	t.Setenv("GOAUTH", "off")
+	proxy.auth.Store("")
+	if _, err := managed(context.Background(), Options{CacheDir: t.TempDir(), Version: testGo, Log: &strings.Builder{}}); err != nil || proxy.auth.Load().(string) != "" {
+		t.Errorf("GOAUTH=off: %v, the proxy got %q", err, proxy.auth.Load())
 	}
-	if err := unzip(archive, t.TempDir()); err == nil || !strings.Contains(err.Error(), "is a link") {
-		t.Errorf("a zip's link: got %v", err)
+}
+
+func TestArchiveEntriesStayInTheirFolder(t *testing.T) {
+	for name, entries := range map[string][]zip.FileHeader{
+		"outside the module":   {{Name: "golang.org/other@v1.0.0/bin/go"}},
+		"leaves the directory": {{Name: toolchainModule + "@" + toolchainVersion(testGo) + "/../../escape"}},
+		"a backslash":          {{Name: toolchainModule + "@" + toolchainVersion(testGo) + `/..\..\escape`}},
+		"a link":               {link(toolchainModule + "@" + toolchainVersion(testGo) + "/lib/go")},
+	} {
+		t.Run(name, func(t *testing.T) {
+			var buf bytes.Buffer
+			zw := zip.NewWriter(&buf)
+			for _, h := range entries {
+				w, err := zw.CreateHeader(&h)
+				if err != nil {
+					t.Fatal(err)
+				}
+				_, _ = w.Write([]byte("x"))
+			}
+			if err := zw.Close(); err != nil {
+				t.Fatal(err)
+			}
+			archive := filepath.Join(t.TempDir(), "go.zip")
+			if err := os.WriteFile(archive, buf.Bytes(), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			if err := unpack(archive, toolchainVersion(testGo), t.TempDir()); err == nil {
+				t.Error("unpacked")
+			}
+		})
+	}
+}
+
+func link(name string) zip.FileHeader {
+	h := zip.FileHeader{Name: name}
+	h.SetMode(os.ModeSymlink | 0o777)
+	return h
+}
+
+func TestParseNetrc(t *testing.T) {
+	got := parseNetrc("machine a.example.com login u1 password p1\n" +
+		"macdef init\nmachine b.example.com login no password no\n\n" +
+		"machine c.example.com\n login u3\n password p3\n" +
+		"default\nmachine e.example.com login no password no\n")
+	want := []netrcMachine{{"a.example.com", "u1", "p1"}, {"c.example.com", "u3", "p3"}}
+	if fmt.Sprint(got) != fmt.Sprint(want) {
+		t.Errorf("got %v, want %v", got, want)
 	}
 }
 

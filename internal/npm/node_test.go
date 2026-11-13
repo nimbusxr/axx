@@ -59,16 +59,16 @@ func zipOf(t *testing.T, files map[string]string) []byte {
 	return buf.Bytes()
 }
 
-// mirror serves files by their path, as nodejs.org does, and counts the
+// nodeMirror serves files by their path, as nodejs.org does, and counts the
 // downloads.
-type mirror struct {
+type nodeMirror struct {
 	*httptest.Server
 	downloads atomic.Int32
 }
 
-func newMirror(t *testing.T, files map[string][]byte) *mirror {
+func newMirror(t *testing.T, files map[string][]byte) *nodeMirror {
 	t.Helper()
-	m := &mirror{}
+	m := &nodeMirror{}
 	m.Server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body, ok := files[r.URL.Path]
 		if !ok {
@@ -84,7 +84,7 @@ func newMirror(t *testing.T, files map[string][]byte) *mirror {
 
 // nodeOptions points EnsureNode at m, for Node.js 1.2.3, whose archive for
 // the platform is archive.
-func nodeOptions(t *testing.T, m *mirror, archive []byte, goos, goarch string) Options {
+func nodeOptions(t *testing.T, m *nodeMirror, archive []byte, goos, goarch string) Options {
 	t.Helper()
 	platform, err := NodePlatform(goos, goarch)
 	if err != nil {
