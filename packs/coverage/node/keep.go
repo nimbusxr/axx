@@ -41,6 +41,10 @@ func (nodeRuntime) Reset(ctx context.Context, call coveragecore.LaunchCall) erro
 	files, _ := filepath.Glob(filepath.Join(dir, v8Folder, "coverage-*.json"))
 	for i, f := range files {
 		b, err := os.ReadFile(f)
+		if tail(dir, f, err) {
+			_ = os.Remove(f) // what ran as a process of it ended, before the reset
+			continue
+		}
 		if err != nil {
 			return err
 		}
@@ -68,6 +72,12 @@ func (nodeRuntime) Take(ctx context.Context, call coveragecore.LaunchCall, into 
 	}
 	files, _ := filepath.Glob(filepath.Join(dir, v8Folder, "coverage-*.json"))
 	for _, f := range files {
+		if r, err := os.Open(f); tail(dir, f, err) {
+			_ = os.Remove(f) // what ran as a process of it ended, after its take, which is here
+			continue
+		} else if err == nil {
+			_ = r.Close()
+		}
 		if err := os.Rename(f, filepath.Join(into, v8Folder, filepath.Base(f))); err != nil {
 			return err
 		}

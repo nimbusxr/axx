@@ -10,7 +10,9 @@ import (
 	"context"
 	_ "embed"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io/fs"
 	"net/url"
 	"os"
 	"path"
@@ -99,6 +101,23 @@ func (nodeRuntime) Launch(_ context.Context, call coveragecore.LaunchCall) ([]st
 	return []string{"NODE_V8_COVERAGE=" + join(dir, v8Folder), "NODE_OPTIONS=" + opts}, nil
 }
 
+// tail reports whether name, which reading failed with err, is the file V8
+// writes as a process ends after the preload took its coverage and marked
+// it: of what ran after, and readable by the process's user only, which in
+// a container of a user of its own this machine's user is not. Its name is
+// "coverage-", the pid, the time and a count.
+func tail(dir, name string, err error) bool {
+	if !errors.Is(err, fs.ErrPermission) {
+		return false
+	}
+	pid, _, ok := strings.Cut(strings.TrimPrefix(filepath.Base(name), "coverage-"), "-")
+	if !ok || pid == "" {
+		return false
+	}
+	_, err = os.Stat(filepath.Join(dir, "exited-"+pid))
+	return err == nil
+}
+
 // v8File is a file Node writes into NODE_V8_COVERAGE: its scripts' coverage,
 // and the source maps of those that have one.
 type v8File struct {
@@ -123,6 +142,12 @@ func (nodeRuntime) Convert(_ context.Context, call coveragecore.ConvertCall) ([]
 	maps := map[string]json.RawMessage{}
 	for _, n := range names {
 		b, err := os.ReadFile(n)
+		if tail(call.End.Dir, n, err) {
+			continue
+		}
+		if errors.Is(err, fs.ErrPermission) {
+			return nil, measured, fmt.Errorf("%w: Node writes its coverage readable by its own user only, and the process that wrote it, of a user of its own, ran without coverage-node's preload, which makes it readable: does its command keep NODE_OPTIONS?", err)
+		}
 		if err != nil {
 			return nil, measured, err
 		}

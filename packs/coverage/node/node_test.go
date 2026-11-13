@@ -4,6 +4,8 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/nimbusxr/axx/core"
@@ -48,5 +50,48 @@ func TestNoCoverageWritten(t *testing.T) {
 	files, _, err := nodeRuntime{}.Convert(context.Background(), coveragecore.ConvertCall{End: core.CoverageEnd{CoverageService: core.CoverageService{Dir: t.TempDir()}}})
 	if err != nil || files != nil {
 		t.Errorf("%v %v", files, err)
+	}
+}
+
+// Node writes its coverage readable by its own user only: in a container
+// of a user of its own, the file V8 writes as the process ends, after the
+// preload took its coverage and marked it, is unreadable here, and only
+// that one is left out. One that no mark explains is an error.
+func TestAnUnreadableFileAfterTheExitTake(t *testing.T) {
+	if runtime.GOOS == "windows" || os.Getuid() == 0 {
+		t.Skip("needs a file this user cannot read")
+	}
+	dir := t.TempDir()
+	app := filepath.Join(t.TempDir(), "server.js")
+	if err := os.WriteFile(app, []byte("console.log(1)\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	v8dir := filepath.Join(dir, v8Folder)
+	if err := os.MkdirAll(v8dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	took := `{"result":[{"scriptId":"1","url":"file://` + filepath.ToSlash(app) + `","functions":[{"functionName":"","ranges":[{"startOffset":0,"endOffset":15,"count":1}],"isBlockCoverage":true}]}]}`
+	if err := os.WriteFile(filepath.Join(v8dir, "coverage-7-100-0.json"), []byte(took), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(v8dir, "coverage-7-200-1.json"), []byte(took), 0o000); err != nil {
+		t.Fatal(err)
+	}
+	call := coveragecore.ConvertCall{
+		End:  core.CoverageEnd{CoverageService: core.CoverageService{Dir: dir}},
+		Path: func(p string) string { return p },
+	}
+	if _, _, err := (nodeRuntime{}).Convert(context.Background(), call); err == nil || !strings.Contains(err.Error(), "NODE_OPTIONS") {
+		t.Fatalf("an unreadable file no mark explains: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "exited-7"), nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	files, _, err := nodeRuntime{}.Convert(context.Background(), call)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(files) != 1 || files[0].Path != app {
+		t.Fatalf("files %+v", files)
 	}
 }

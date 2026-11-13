@@ -33,12 +33,18 @@ time.sleep(60)
 // machine it mounts as compose stops it; the run reads it, its files named
 // as they are in the project.
 func TestAPythonServiceInAContainer(t *testing.T) {
-	lib, err := library(context.Background())
+	cached, err := library(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
 	tmp, err := filepath.EvalSymlinks(t.TempDir())
 	if err != nil {
+		t.Fatal(err)
+	}
+	// The service's own coverage.py is in its image. Here it is a copy of
+	// axx's, readable by the container's user: axx's own is its user's only.
+	lib := filepath.Join(tmp, "coverage-py")
+	if err := os.CopyFS(lib, os.DirFS(cached)); err != nil {
 		t.Fatal(err)
 	}
 	app := filepath.Join(tmp, "app")
@@ -56,7 +62,6 @@ func TestAPythonServiceInAContainer(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// The service's own coverage.py: here, the one axx downloaded.
 	code, out := coveragetest.Run(t, coveragetest.Service{
 		Image: "python:3.13-alpine", Cmd: []string{"python", "-m", "coverage", "run", "-m", "parcels.server"},
 		Env:   append(env, "PYTHONPATH=/app:/opt/coverage-py", "PYTHONDONTWRITEBYTECODE=1"),
