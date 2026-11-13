@@ -66,7 +66,7 @@ var realModels = []realModel{
 			"ndarray-cache.json":   "bb1307859901ebe833a1ad9f25b5a2babed8bbcfe8ea1d7e5b64db52e1c17149",
 			"tokenizer.json":       "9ca9acddb6525a194ec8ac7a87f24fbba7232a9a15ffa1af0c1224fcd888e47c",
 		},
-		"SmolLM2-135M-Instruct-q0f16_cs1k-webgpu.wasm", "853eecabfe29da72742904c345581de8afbdb2e0ebc671daa79199d8f550a3fd", nil, 45,
+		"SmolLM2-135M-Instruct-q0f16_cs1k-webgpu.wasm", "853eecabfe29da72742904c345581de8afbdb2e0ebc671daa79199d8f550a3fd", nil, 40,
 	},
 	{
 		"SmolLM2 135M Instruct, float32s (stored as bfloat16s)", "mlc-ai/SmolLM2-135M-Instruct-q0f32-MLC", "ba1ecf858a4dfc6ac3e668c388a7088bdfb3c091",
@@ -77,7 +77,7 @@ var realModels = []realModel{
 			"ndarray-cache-b16.json": "1b04a0cf75f25746cd60ddd441bc320e8f49a965c67819b8c941b5a6d5cc63a5",
 			"tokenizer.json":         "9ca9acddb6525a194ec8ac7a87f24fbba7232a9a15ffa1af0c1224fcd888e47c",
 		},
-		"SmolLM2-135M-Instruct-q0f32_cs1k-webgpu.wasm", "cd367573bec87cbef4e109f0c14e8eed27b54cdbf9b341cb1b479b507a7e61b1", nil, 25,
+		"SmolLM2-135M-Instruct-q0f32_cs1k-webgpu.wasm", "cd367573bec87cbef4e109f0c14e8eed27b54cdbf9b341cb1b479b507a7e61b1", nil, 45,
 	},
 	{
 		"Qwen2.5 0.5B Instruct (Qwen 2's architecture: biases), 4-bit groups of halves' scales", "mlc-ai/Qwen2.5-0.5B-Instruct-q4f16_1-MLC", "32ff081fe7e4dfe4ffb167b94c66fdf11e02b8ad",
@@ -98,7 +98,7 @@ var realModels = []realModel{
 			"ndarray-cache-b16.json": "9aac5251afa9fbb27596675965076436f724cd7c2d19d5f984855f033070d91c",
 			"tokenizer.json":         "c0382117ea329cdf097041132f6d735924b697924d6f6fc3945713e96ce87539",
 		},
-		"Qwen2-0.5B-Instruct-q4f32_1_cs1k-webgpu.wasm", "6ba8b8f85be2e86f7ca16454d199bfc83e672ec010f4f6e265240c22505f5829", nil, 30,
+		"Qwen2-0.5B-Instruct-q4f32_1_cs1k-webgpu.wasm", "6ba8b8f85be2e86f7ca16454d199bfc83e672ec010f4f6e265240c22505f5829", nil, 45,
 	},
 	{
 		"Llama 3.2 1B Instruct (Llama 3's rotary scaling), 4-bit groups of halves' scales", "mlc-ai/Llama-3.2-1B-Instruct-q4f16_1-MLC", "2a37b0a5ecb622d51ddc2fac74de0b95872affd7",
@@ -108,7 +108,7 @@ var realModels = []realModel{
 			"ndarray-cache.json":   "cf7c1825a9e0d7111bca7f65d8d9de7789f9121579e9500150469543a2975c17",
 			"tokenizer.json":       "79e3e522635f3171300913bb421464a87de6222182a0570b9b2ccba2a964b2b4",
 		},
-		"Llama-3.2-1B-Instruct-q4f16_1_cs1k-webgpu.wasm", "8dbd7e81d39291f2666176b846f36d924a603e9480bac739ee5fc0d22f74b1fd", nil, 75,
+		"Llama-3.2-1B-Instruct-q4f16_1_cs1k-webgpu.wasm", "8dbd7e81d39291f2666176b846f36d924a603e9480bac739ee5fc0d22f74b1fd", nil, 60,
 	},
 	{
 		"Llama 3.2 1B Instruct, 4-bit groups of float32s' scales", "mlc-ai/Llama-3.2-1B-Instruct-q4f32_1-MLC", "a949835e0f9a65335bd834db02a44cf8fae34020",
@@ -119,7 +119,7 @@ var realModels = []realModel{
 			"ndarray-cache-b16.json": "0a986f3e5198f6067cacba0ed91f5622cc1fb1fafea4f1b531c679ad4aa091c6",
 			"tokenizer.json":         "79e3e522635f3171300913bb421464a87de6222182a0570b9b2ccba2a964b2b4",
 		},
-		"Llama-3.2-1B-Instruct-q4f32_1_cs1k-webgpu.wasm", "d42643deeb496d4a3486ddf066fe34efec32a4a51b14443301f8212a5f015642", nil, 60,
+		"Llama-3.2-1B-Instruct-q4f32_1_cs1k-webgpu.wasm", "d42643deeb496d4a3486ddf066fe34efec32a4a51b14443301f8212a5f015642", nil, 90,
 	},
 	{
 		"TinyLlama 1.1B Chat (an output of its own: lm_head), 4-bit groups of halves' scales", "mlc-ai/TinyLlama-1.1B-Chat-v1.0-q4f16_1-MLC", "aa4e41dd1861bb2469f9ddfb8fa3054b857a00ed",
@@ -144,7 +144,7 @@ var realModels = []realModel{
 		},
 		"TinyLlama-1.1B-Chat-v1.0-q4f32_1_cs1k-webgpu.wasm", "a65e23989c4e9df622ad98341f59ec3441d8606c69b8d7a22425032c6aacae61",
 		map[string]any{"context_window_size": 2048},
-		40,
+		55,
 	},
 	{
 		"Qwen3 0.6B (Qwen 3's heads' norms), 4-bit groups of halves' scales", "mlc-ai/Qwen3-0.6B-q4f16_1-MLC", "8c14ce481d4c692769976ad52afea453a102df19",
@@ -154,7 +154,7 @@ var realModels = []realModel{
 			"ndarray-cache.json":   "f4647d617dc869d91fbd7851c65af0a2cf7dd615884ebe3b110013801b65d8c7",
 			"tokenizer.json":       "aeb13307a71acd8fe81861d94ad54ab689df773318809eed3cbe794b4492dae4",
 		},
-		"Qwen3-0.6B-q4f16_1_cs1k-webgpu.wasm", "b277797fff1240baaba6782b7ba671834f861022b9283c93fcb4bb7c06d0373d", nil, 60,
+		"Qwen3-0.6B-q4f16_1_cs1k-webgpu.wasm", "b277797fff1240baaba6782b7ba671834f861022b9283c93fcb4bb7c06d0373d", nil, 45,
 	},
 	{
 		"Qwen3 0.6B, 4-bit groups of float32s' scales", "mlc-ai/Qwen3-0.6B-q4f32_1-MLC", "9b4f0b05b08c692ea86fe151ea878406ad22f428",
@@ -165,7 +165,7 @@ var realModels = []realModel{
 			"ndarray-cache-b16.json": "bfb35ec04c6caee3fa6bb9d3b4efa3223b456105b9135035d65bb6c3dc41f509",
 			"tokenizer.json":         "aeb13307a71acd8fe81861d94ad54ab689df773318809eed3cbe794b4492dae4",
 		},
-		"Qwen3-0.6B-q4f32_1_cs1k-webgpu.wasm", "613c4e8d7948cf355c033e8618b7925c31ef341fdc6ec38aefbb1054024b93f7", nil, 40,
+		"Qwen3-0.6B-q4f32_1_cs1k-webgpu.wasm", "613c4e8d7948cf355c033e8618b7925c31ef341fdc6ec38aefbb1054024b93f7", nil, 50,
 	},
 	{
 		"Phi-3.5 mini Instruct (Phi-3's architecture, longrope's angles), 4-bit groups of halves' scales", "mlc-ai/Phi-3.5-mini-instruct-q4f16_1-MLC", "206a7da25b5efbef7b50502993367fcb05183a1d",
@@ -175,7 +175,7 @@ var realModels = []realModel{
 			"ndarray-cache.json":   "054232d3a793dbd124ec4fafd7d0e89a0cacd2cacf8c9ebacb7a4de7bab151ba",
 			"tokenizer.json":       "9e2ae3d66819f163cdcfedba5078f3a3af8118c2712491ed60912f77886bda6f",
 		},
-		"Phi-3.5-mini-instruct-q4f16_1_cs1k-webgpu.wasm", "5f0833c6d162428b671a59ce46386a5d84c724af8ee49651e9af31a3a8d464fd", nil, 135,
+		"Phi-3.5-mini-instruct-q4f16_1_cs1k-webgpu.wasm", "5f0833c6d162428b671a59ce46386a5d84c724af8ee49651e9af31a3a8d464fd", nil, 170,
 	},
 	{
 		"Phi-4 mini Instruct (heads' dimensions that do not turn; a vocabulary of 200,064 tokens), 4-bit groups of halves' scales", "mlc-ai/Phi-4-mini-instruct-q4f16_1-MLC", "c2ecf2bf3a81d201ccdbfb9019d67fb8f0dede52",
@@ -185,7 +185,7 @@ var realModels = []realModel{
 			"ndarray-cache.json":   "78da9cdf911e5ec34cc6733834bdcb9532bbaf2e89bb3ce79e3a4e944b8bae30",
 			"tokenizer.json":       "382cc235b56c725945e149cc25f191da667c836655efd0857b004320e90e91ea",
 		},
-		"Phi-4-mini-instruct-q4f16_1_cs1k-webgpu.wasm", "65982f861fe4323b6ab1448db2e35476643752403ce50e751f3a60aec32747b6", nil, 130,
+		"Phi-4-mini-instruct-q4f16_1_cs1k-webgpu.wasm", "65982f861fe4323b6ab1448db2e35476643752403ce50e751f3a60aec32747b6", nil, 185,
 	},
 	{
 		"Mistral 7B Instruct v0.3 (Mistral's architecture; its tokenizer's Metaspace), 4-bit groups of halves' scales", "mlc-ai/Mistral-7B-Instruct-v0.3-q4f16_1-MLC", "e06f3992dc08bd7196602031577a550cbfdefc54",
@@ -197,7 +197,7 @@ var realModels = []realModel{
 		},
 		"Mistral-7B-Instruct-v0.3-q4f16_1_cs1k-webgpu.wasm", "18c5601069448dc0b81ad19ae8deb07de294a5c40d708f86b896f003e5e6c1a9",
 		map[string]any{"context_window_size": 4096, "sliding_window_size": -1},
-		325,
+		350,
 	},
 	{
 		"Gemma 2B (Gemma's embeddings × √E, GELU, a key-value head of 8 queries), 4-bit groups of halves' scales", "mlc-ai/gemma-2b-it-q4f16_1-MLC", "a2d2c454207b5a4d3b7d88311f06f89d8a6018d5",
@@ -207,7 +207,7 @@ var realModels = []realModel{
 			"ndarray-cache.json":   "d251cfc8d282176297d9d25fa20dbf457e0b2e5cc1693225cbee808b2ade2789",
 			"tokenizer.json":       "05e97791a5e007260de1db7e1692e53150e08cea481e2bf25435553380c147ee",
 		},
-		"gemma-2b-it-q4f16_1_cs1k-webgpu.wasm", "900fcdce6a4bb58247fa6acb0f3598a511933387253db3011be181c151319a8b", nil, 85,
+		"gemma-2b-it-q4f16_1_cs1k-webgpu.wasm", "900fcdce6a4bb58247fa6acb0f3598a511933387253db3011be181c151319a8b", nil, 125,
 	},
 	{
 		"Gemma 2B, 4-bit groups of float32s' scales", "mlc-ai/gemma-2b-it-q4f32_1-MLC", "2ec7861816a552592c2ca0849924cb26368ebb9a",
@@ -218,7 +218,7 @@ var realModels = []realModel{
 			"ndarray-cache-b16.json": "3b4c6c39867fdde7d030314e45a9e80a968aa63d450fd58647ab1b200abcbe9f",
 			"tokenizer.json":         "05e97791a5e007260de1db7e1692e53150e08cea481e2bf25435553380c147ee",
 		},
-		"gemma-2b-it-q4f32_1_cs1k-webgpu.wasm", "e307bb7206532fc38cadeb457e12899cfabebe89a87202de2acf612dc53327cd", nil, 155,
+		"gemma-2b-it-q4f32_1_cs1k-webgpu.wasm", "e307bb7206532fc38cadeb457e12899cfabebe89a87202de2acf612dc53327cd", nil, 120,
 	},
 	{
 		"Gemma 2 2B (its sublayers' outputs normalized, its logits capped), 4-bit groups of halves' scales", "mlc-ai/gemma-2-2b-it-q4f16_1-MLC", "de9cc76f0d4b3a49a0f718df424944054bf1eec1",
@@ -228,7 +228,7 @@ var realModels = []realModel{
 			"ndarray-cache.json":   "9674d4b0968b9ad288cd777a683190c4594706bd16dad99f70ba5d8bd911a3a3",
 			"tokenizer.json":       "3f289bc05132635a8bc7aca7aa21255efd5e18f3710f43e3cdb96bcd41be4922",
 		},
-		"gemma-2-2b-it-q4f16_1_cs1k-webgpu.wasm", "7e97bd3ae603ccf45791bd75e9d1fd40a3696ebdf87f75556eee62507279b8f1", nil, 115,
+		"gemma-2-2b-it-q4f16_1_cs1k-webgpu.wasm", "7e97bd3ae603ccf45791bd75e9d1fd40a3696ebdf87f75556eee62507279b8f1", nil, 120,
 	},
 	{
 		"Gemma 2 2B, 4-bit groups of float32s' scales", "mlc-ai/gemma-2-2b-it-q4f32_1-MLC", "5389274865dee69fc1c0f44af37990d933fb4c47",
@@ -239,7 +239,7 @@ var realModels = []realModel{
 			"ndarray-cache-b16.json": "00a9291839761c560dcc413c71b2ce0d8df692bdcc62c8998c60b04b3546b86f",
 			"tokenizer.json":         "3f289bc05132635a8bc7aca7aa21255efd5e18f3710f43e3cdb96bcd41be4922",
 		},
-		"gemma-2-2b-it-q4f32_1_cs1k-webgpu.wasm", "bede1fa2f1f4f434f5c7844dd579bd989a8d362253c2d8d12fd25ddf3bc06d14", nil, 110,
+		"gemma-2-2b-it-q4f32_1_cs1k-webgpu.wasm", "bede1fa2f1f4f434f5c7844dd579bd989a8d362253c2d8d12fd25ddf3bc06d14", nil, 140,
 	},
 	{
 		// WebLLM takes a context window or a sliding window, not both:
@@ -254,7 +254,7 @@ var realModels = []realModel{
 		},
 		"gemma3-1b-it-q4f16_1_cs512-webgpu.wasm", "2b51f4ed1839fb766c9642c11bedd86ab87b30160300f03242be6e5b0042c49d",
 		map[string]any{"context_window_size": 4096, "sliding_window_size": -1},
-		75,
+		70,
 	},
 	{
 		"OLMo 2 1B (no input norms; its queries' and keys' norms of the whole projection), 4-bit groups of halves' scales", "mlc-ai/OLMo-2-0425-1B-Instruct-q4f16_1-MLC", "a3fef630301a7e9a4dcbbdd3a76b0d36b20dc85e",
@@ -263,7 +263,7 @@ var realModels = []realModel{
 			"tensor-cache.json":    "0112e7d03d1e1f9766e047056a1ba9a85ad7f5f56add6ab517982f8a868030e7",
 			"tokenizer.json":       "73fd5254624f39a88e3faac6a8e11300fc3c735ed37880d4f4f08db898eaecca",
 		},
-		"OLMo-2-0425-1B-Instruct-q4f16_1_cs1k-webgpu.wasm", "6c34e24f2cc74e9d1fbd94f2a32cb06c8799801cba616272b2f840bd1f882f02", nil, 85,
+		"OLMo-2-0425-1B-Instruct-q4f16_1_cs1k-webgpu.wasm", "6c34e24f2cc74e9d1fbd94f2a32cb06c8799801cba616272b2f840bd1f882f02", nil, 75,
 	},
 	{
 		"OLMo 2 1B, 4-bit groups of float32s' scales", "mlc-ai/OLMo-2-0425-1B-Instruct-q4f32_1-MLC", "cbcbcfa8e266f1b19adc2c4d50a19323eb58886c",
@@ -272,7 +272,7 @@ var realModels = []realModel{
 			"tensor-cache.json":    "6c25dba6b2c4e717c9cf426aa9046f9bcbc7c8b2e25443b3ebcd10f586ee6d9c",
 			"tokenizer.json":       "73fd5254624f39a88e3faac6a8e11300fc3c735ed37880d4f4f08db898eaecca",
 		},
-		"OLMo-2-0425-1B-Instruct-q4f32_1_cs1k-webgpu.wasm", "c0ffcaf7a2833c870a1ea893b147995b6f8af1b93f93c30d3ff2c7f01737ecd4", nil, 70,
+		"OLMo-2-0425-1B-Instruct-q4f32_1_cs1k-webgpu.wasm", "c0ffcaf7a2833c870a1ea893b147995b6f8af1b93f93c30d3ff2c7f01737ecd4", nil, 90,
 	},
 	{
 		"StableLM 2 Zephyr 1.6B (LayerNorm's, of biases; a quarter of its heads' dimensions turning), 4-bit groups of halves' scales", "mlc-ai/stablelm-2-zephyr-1_6b-q4f16_1-MLC", "9457f520b3ec10c325f1b37bdf8e4a722329edb9",
@@ -282,7 +282,7 @@ var realModels = []realModel{
 			"ndarray-cache.json":   "ee22e4d1dea12c217cf2bef63449f1e6af8f4b3b519cea8f63311f08e9a3904a",
 			"tokenizer.json":       "4ce5f0768574d7224669ee2192ce9b45394b64df3d6e7ea7e36f8ee2d3a9d6d8",
 		},
-		"stablelm-2-zephyr-1_6b-q4f16_1_cs1k-webgpu.wasm", "f87932aa91c028fbfc6ec60914179db3b3dbbe778061f6776b5f2f3e0c55414b", nil, 55,
+		"stablelm-2-zephyr-1_6b-q4f16_1_cs1k-webgpu.wasm", "f87932aa91c028fbfc6ec60914179db3b3dbbe778061f6776b5f2f3e0c55414b", nil, 75,
 	},
 	{
 		"StableLM 2 Zephyr 1.6B, 4-bit groups of float32s' scales", "mlc-ai/stablelm-2-zephyr-1_6b-q4f32_1-MLC", "037e1b5c3687743859a874af1796121e709ee7d8",
@@ -293,7 +293,7 @@ var realModels = []realModel{
 			"ndarray-cache-b16.json": "7da7bf90f6f959972d742c3f69e6db43ad2237286aa71b05f553f31309475add",
 			"tokenizer.json":         "4ce5f0768574d7224669ee2192ce9b45394b64df3d6e7ea7e36f8ee2d3a9d6d8",
 		},
-		"stablelm-2-zephyr-1_6b-q4f32_1_cs1k-webgpu.wasm", "8866e481139a0c8fbcb40bcf8687bc0a6161d5481b5a35b385353fbeab7f9aa5", nil, 60,
+		"stablelm-2-zephyr-1_6b-q4f32_1_cs1k-webgpu.wasm", "8866e481139a0c8fbcb40bcf8687bc0a6161d5481b5a35b385353fbeab7f9aa5", nil, 80,
 	},
 	{
 		"RedPajama INCITE Chat 3B (GPT-NeoX's architecture: an MLP of no gate, biases), 4-bit groups of halves' scales", "mlc-ai/RedPajama-INCITE-Chat-3B-v1-q4f16_1-MLC", "3400b5d0cd1a7721031c6507ae6d9d6ba3b6e1bd",
@@ -305,7 +305,7 @@ var realModels = []realModel{
 		},
 		"RedPajama-INCITE-Chat-3B-v1-q4f16_1_cs1k-webgpu.wasm", "3e156d47f767450d5f287739c6c6c400de1285850138e7df2d3370939b804fd0",
 		map[string]any{"context_window_size": 2048},
-		95,
+		110,
 	},
 	{
 		"RedPajama INCITE Chat 3B, 4-bit groups of float32s' scales", "mlc-ai/RedPajama-INCITE-Chat-3B-v1-q4f32_1-MLC", "d36f6e7492de32249394ce12111a5f28f31681b1",
@@ -317,7 +317,7 @@ var realModels = []realModel{
 		},
 		"RedPajama-INCITE-Chat-3B-v1-q4f32_1_cs1k-webgpu.wasm", "4850a8816f4661522333ac9f89994504149cc006463c8d1485e864059cbcde96",
 		map[string]any{"context_window_size": 2048},
-		140,
+		155,
 	},
 	{
 		"Phi-2 (its attention and MLP in parallel, of one LayerNorm; a head of its own, of a LayerNorm and a bias), 4-bit groups of halves' scales", "mlc-ai/phi-2-q4f16_1-MLC", "c0e829d9a02ab956a96380c668e48c2adc7ab28a",
@@ -329,7 +329,7 @@ var realModels = []realModel{
 		},
 		"phi-2-q4f16_1_cs1k-webgpu.wasm", "82ec84acc1b4e68e1dd523502bb35869a427f1613f0c639a2a87e832bf550d9e",
 		map[string]any{"context_window_size": 2048},
-		120,
+		105,
 	},
 	{
 		"Phi-2, 4-bit groups of float32s' scales", "mlc-ai/phi-2-q4f32_1-MLC", "1f90007d454e3bfea05f45f4bd21024b63cf9a2b",
@@ -342,7 +342,7 @@ var realModels = []realModel{
 		},
 		"phi-2-q4f32_1_cs1k-webgpu.wasm", "80a69689b382dba6d8505b3dd81684160aef1aa30b7421b8ed4e8fb4b67cd1de",
 		map[string]any{"context_window_size": 2048},
-		90,
+		140,
 	},
 	{
 		"Phi-1.5, 4-bit groups of halves' scales", "mlc-ai/phi-1_5-q4f16_1-MLC", "48ccb37900769345f634cf56f1d7afafbc27d2ec",
@@ -363,7 +363,7 @@ var realModels = []realModel{
 			"tensor-cache.json":    "bab74fa529512ca7641f6a4aea0baeab26742d28886e79aac11b09fa8738c0df",
 			"tokenizer.json":       "5f9e4d4901a92b997e463c1f46055088b6cca5ca61a6522d1b9f64c4bb81cb42",
 		},
-		"Qwen3.5-0.8B-q4f16_1_cs1k-webgpu.wasm", "39623bb05581e04616debfd762b8ea0d0f2d641b3afa8ac1df902aac0dfdb04e", nil, 45,
+		"Qwen3.5-0.8B-q4f16_1_cs1k-webgpu.wasm", "39623bb05581e04616debfd762b8ea0d0f2d641b3afa8ac1df902aac0dfdb04e", nil, 65,
 	},
 	{
 		"Qwen3.5 0.8B, 4-bit groups of float32s' scales", "mlc-ai/Qwen3.5-0.8B-q4f32_1-MLC", "4ed017713f04c91ffe55a9dca8c7ac853c41314d",
@@ -385,7 +385,7 @@ var realModels = []realModel{
 			"ndarray-cache.json":   "779096b2ccaeae107afd7970cfb40c3abcc60a89fc62f471274f4d6859904137",
 			"tokenizer.json":       "493f8ad437be806d5ccdc57e91479bdbb0c656448c1b89ff70f7653530d78518",
 		},
-		"Phi-3.5-vision-instruct-q4f16_1_cs2k-webgpu.wasm", "e0fc920ec04c67b80ecd56de3e879d7f4a8cd4b88ea718e0327c7820d22100bf", nil, 185,
+		"Phi-3.5-vision-instruct-q4f16_1_cs2k-webgpu.wasm", "e0fc920ec04c67b80ecd56de3e879d7f4a8cd4b88ea718e0327c7820d22100bf", nil, 195,
 	},
 }
 
