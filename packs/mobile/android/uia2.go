@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/nimbusxr/axx/core"
+	"github.com/nimbusxr/axx/internal/mirror"
 	"github.com/nimbusxr/axx/internal/npm"
 	"github.com/nimbusxr/axx/internal/proc"
 	"github.com/nimbusxr/axx/packs/mobile/internal/appium"
@@ -56,9 +57,9 @@ func uia2For(ctx context.Context, s *core.Suite) ([]string, error) {
 				continue
 			}
 			s.Logger().Warn("downloading the UiAutomator2 server, once", "apk", a.name)
-			body, err := npm.Fetch(ctx, "https://github.com/appium/appium-uiautomator2-server/releases/download/v"+uia2Version+"/"+a.name)
+			body, err := npm.Fetch(ctx, mirror.GitHub("/appium/appium-uiautomator2-server/releases/download/v"+uia2Version+"/"+a.name))
 			if err != nil {
-				return nil, fmt.Errorf("cannot download the UiAutomator2 server: %w", err)
+				return nil, fmt.Errorf("cannot download the UiAutomator2 server: %w (%s)", err, mirror.GitHubHelp())
 			}
 			if got := sumOf(body); got != a.sum {
 				return nil, fmt.Errorf("%s: SHA-256 %s does not match the pinned %s", a.name, got, a.sum)

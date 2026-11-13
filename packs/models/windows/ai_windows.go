@@ -17,6 +17,7 @@ import (
 	"strings"
 
 	"github.com/nimbusxr/axx/core"
+	"github.com/nimbusxr/axx/internal/mirror"
 	"github.com/nimbusxr/axx/internal/npm"
 	desktopcore "github.com/nimbusxr/axx/packs/desktop/core"
 	"github.com/nimbusxr/axx/packs/models/core/format/platform"
@@ -397,8 +398,11 @@ func cppwinrtProgram(ctx context.Context, cache string) (string, error) {
 	if _, err := os.Stat(exe); err == nil {
 		return exe, nil
 	}
-	url := fmt.Sprintf("https://api.nuget.org/v3-flatcontainer/microsoft.windows.cppwinrt/%[1]s/microsoft.windows.cppwinrt.%[1]s.nupkg", cppwinrtVersion)
-	if err := fetchZip(ctx, "C++/WinRT", url, cppwinrtSum, dir, func(name string) bool { return name == "bin/cppwinrt.exe" }); err != nil {
+	url, err := mirror.NuGetPackage(ctx, npm.Fetch, "Microsoft.Windows.CppWinRT", cppwinrtVersion)
+	if err != nil {
+		return "", fmt.Errorf("cannot find C++/WinRT's NuGet package: %w (%s)", err, mirror.NuGetHelp())
+	}
+	if err := fetchZip(ctx, "C++/WinRT", url, mirror.NuGetHelp(), cppwinrtSum, dir, func(name string) bool { return name == "bin/cppwinrt.exe" }); err != nil {
 		return "", err
 	}
 	return exe, nil

@@ -12,29 +12,31 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/nimbusxr/axx/internal/mirror"
 )
 
 // fetchZip downloads a zip of a release axx pins by its SHA-256 and unpacks its files into dir:
-// those keep takes, or all of them.
-func fetchZip(ctx context.Context, what, url, sum, dir string, keep func(name string) bool) error {
+// those keep takes, or all of them. help says where else it can come from.
+func fetchZip(ctx context.Context, what, url, help, sum, dir string, keep func(name string) bool) error {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
-		return err
+		return mirror.RedactErr(err)
 	}
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return fmt.Errorf("cannot download %s (%s): %w", what, url, err)
+		return fmt.Errorf("cannot download %s (%s): %w; %s", what, mirror.Redact(url), mirror.RedactErr(err), help)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("cannot download %s (%s): %s", what, url, resp.Status)
+		return fmt.Errorf("cannot download %s (%s): %s; %s", what, mirror.Redact(url), resp.Status, help)
 	}
 	b, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return err
 	}
 	if got := sha256.Sum256(b); hex.EncodeToString(got[:]) != sum {
-		return fmt.Errorf("%s's download (%s) is not the release axx pins: its SHA-256 is %x", what, url, got)
+		return fmt.Errorf("%s's download (%s) is not the release axx pins: its SHA-256 is %x", what, mirror.Redact(url), got)
 	}
 	zr, err := zip.NewReader(bytes.NewReader(b), int64(len(b)))
 	if err != nil {

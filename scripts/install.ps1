@@ -3,12 +3,30 @@
 #   irm https://raw.githubusercontent.com/nimbusxr/axx/main/scripts/install.ps1 | iex
 #
 # Environment: AXX_VERSION (e.g. 0.1.0, v0.1.0, nightly; default newest release),
-# AXX_INSTALL_DIR (default %LOCALAPPDATA%\axx\bin), GITHUB_TOKEN (optional).
+# AXX_INSTALL_DIR (default %LOCALAPPDATA%\axx\bin), GITHUB_TOKEN (optional), AXX_DOWNLOAD_URL (a
+# mirror of the releases' files, <url>/v0.1.0/checksums.txt with the archives beside it, for a
+# network that cannot reach github.com; needs AXX_VERSION).
 $ErrorActionPreference = 'Stop'
 $repo = 'nimbusxr/axx'
 $api = "https://api.github.com/repos/$repo"
 $headers = @{ 'User-Agent' = 'axx-install' }
 if ($env:GITHUB_TOKEN) { $headers['Authorization'] = "Bearer $env:GITHUB_TOKEN" }
+
+# A mirror's address can carry credentials (https://user:token@host/): they go as Basic
+# authentication, which Invoke-WebRequest does not take from the address, and never in a message.
+# GitHub's token goes only to GitHub.
+$mirror = ''
+$mirrorHeaders = @{ 'User-Agent' = 'axx-install' }
+if ($env:AXX_DOWNLOAD_URL) {
+  $builder = [UriBuilder]$env:AXX_DOWNLOAD_URL.TrimEnd('/')
+  if ($builder.UserName) {
+    $pair = [Uri]::UnescapeDataString($builder.UserName) + ':' + [Uri]::UnescapeDataString($builder.Password)
+    $mirrorHeaders['Authorization'] = 'Basic ' + [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($pair))
+    $builder.UserName = ''
+    $builder.Password = ''
+  }
+  $mirror = $builder.Uri.AbsoluteUri.TrimEnd('/')
+}
 
 $arch = switch ($env:PROCESSOR_ARCHITECTURE) {
   'AMD64' { 'amd64' }
@@ -17,6 +35,9 @@ $arch = switch ($env:PROCESSOR_ARCHITECTURE) {
 }
 
 $version = $env:AXX_VERSION
+if (-not $version -and $mirror) {
+  throw "AXX_DOWNLOAD_URL names a mirror: set AXX_VERSION as well, as finding the newest release asks GitHub's API"
+}
 if (-not $version) {
   # Pre-releases included: /releases/latest skips them during the 0.x beta. The newest release
   # whose files are up: its checksums and this platform's archive. A release is published
@@ -33,7 +54,12 @@ if (-not $version) {
   $version = $release.tag_name
 }
 $tag = if ($version -eq 'nightly') { 'nightly' } elseif ($version.StartsWith('v')) { $version } else { "v$version" }
-$base = "https://github.com/$repo/releases/download/$tag"
+if ($mirror) {
+  $base = "$mirror/$tag"
+  $headers = $mirrorHeaders
+} else {
+  $base = "https://github.com/$repo/releases/download/$tag"
+}
 
 $tmp = Join-Path ([IO.Path]::GetTempPath()) ("axx-" + [Guid]::NewGuid())
 New-Item -ItemType Directory -Path $tmp | Out-Null
@@ -72,7 +98,8 @@ try {
     Write-Host "axx-install: added $dir to your user PATH (open a new terminal)"
   }
   Write-Host "axx-install: installed $(& (Join-Path $dir 'axx.exe') version) to $dir"
-  Write-Host 'axx-install: next: axx init   (docs: https://axx.nimbusxr.us)'
+  $docs = if ($env:AXX_DOCS_URL) { $env:AXX_DOCS_URL } else { 'https://axx.nimbusxr.us' }
+  Write-Host "axx-install: next: axx init   (docs: $docs)"
 } finally {
   Remove-Item -Recurse -Force $tmp
 }

@@ -25,6 +25,7 @@ import (
 
 	"golang.org/x/mod/semver"
 
+	"github.com/nimbusxr/axx/internal/mirror"
 	"github.com/nimbusxr/axx/internal/version"
 )
 
@@ -325,7 +326,8 @@ func (c *Client) request(ctx context.Context, url, token string) (*http.Response
 	}
 	resp, err := c.HTTP.Do(req)
 	if err != nil {
-		return nil, err
+		// A mirror's address can carry credentials, which messages leave out.
+		return nil, mirror.RedactErr(err)
 	}
 	if resp.StatusCode == http.StatusNotFound {
 		_ = resp.Body.Close()

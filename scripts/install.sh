@@ -6,6 +6,8 @@
 # Environment:
 #   AXX_VERSION      version to install (e.g. 0.1.0, v0.1.0, nightly); default: newest release
 #   AXX_INSTALL_DIR  where to put the binary; default: /usr/local/bin if writable, else ~/.local/bin
+#   AXX_DOWNLOAD_URL a mirror of the releases' files (<url>/v0.1.0/checksums.txt, with the archives
+#                    beside it), for a network that cannot reach github.com; needs AXX_VERSION
 #   GITHUB_TOKEN     optional, avoids GitHub API rate limits
 #
 # Releases are GitHub pre-releases during the 0.x beta, so the newest release
@@ -15,7 +17,12 @@ set -eu
 REPO="nimbusxr/axx"
 API="https://api.github.com/repos/$REPO"
 
+mirror=${AXX_DOWNLOAD_URL:-}
+mirror=${mirror%/}
+
 say() { printf 'axx-install: %s\n' "$*" >&2; }
+# shown is an address without the credentials a mirror's can carry (https://user:token@host/).
+shown() { printf '%s' "$1" | sed 's#://[^/]*@#://xxxxx@#'; }
 die() { say "error: $*"; exit 1; }
 need() { command -v "$1" >/dev/null 2>&1 || die "$1 is required"; }
 
@@ -45,6 +52,9 @@ case "$arch" in
 esac
 
 version=${AXX_VERSION:-}
+if [ -z "$version" ] && [ -n "$mirror" ]; then
+  die "AXX_DOWNLOAD_URL names a mirror: set AXX_VERSION as well, as finding the newest release asks GitHub's API"
+fi
 if [ -z "$version" ]; then
   # The newest CLI release (pre-releases included) whose files are up: its checksums and this
   # platform's archive. A release is published before its build uploads them, so the newest
@@ -67,8 +77,12 @@ esac
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT INT TERM
 
-base="https://github.com/$REPO/releases/download/$tag"
-download "$base/checksums.txt" "$tmp/checksums.txt" || die "download failed: $base/checksums.txt"
+if [ -n "$mirror" ]; then
+  base="$mirror/$tag"
+else
+  base="https://github.com/$REPO/releases/download/$tag"
+fi
+download "$base/checksums.txt" "$tmp/checksums.txt" || die "download failed: $(shown "$base")/checksums.txt"
 if [ "$tag" = nightly ]; then
   # The nightly's archives are named after its build (axx_0.1.0-SNAPSHOT-<commit>_...), and
   # the release can keep older builds' archives: take the one its checksums list.
@@ -79,7 +93,7 @@ else
 fi
 
 say "downloading $archive ($tag)"
-download "$base/$archive" "$tmp/$archive" || die "download failed: $base/$archive"
+download "$base/$archive" "$tmp/$archive" || die "download failed: $(shown "$base")/$archive"
 
 expected=$(grep " $archive\$" "$tmp/checksums.txt" | awk '{print $1}')
 [ -n "$expected" ] || die "$archive is not listed in checksums.txt"
@@ -114,4 +128,4 @@ case ":$PATH:" in
   *":$dir:"*) ;;
   *) say "add $dir to your PATH, e.g.: export PATH=\"$dir:\$PATH\"" ;;
 esac
-say "next: axx init   (docs: https://axx.nimbusxr.us)"
+say "next: axx init   (docs: ${AXX_DOCS_URL:-https://axx.nimbusxr.us})"

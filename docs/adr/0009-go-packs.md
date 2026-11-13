@@ -1,6 +1,6 @@
 # 0009: Custom steps are Go packs; the axx executable loads the packs a project uses
 
-- Status: Accepted
+- Status: Accepted; amended 2026-11-12 (where Go comes from)
 - Date: 2026-09-24
 - Supersedes: [0002](0002-step-protocol.md)
 
@@ -40,3 +40,14 @@ in every language, which is painful to build and to extend.
   compiles them, which takes about half a minute; later runs start immediately. CI keeps the
   cache between runs.
 - A project without `axx-packs.yaml` has no steps; `axx init` creates the file.
+
+## Amendment, 2026-11-12: Go from the Go module proxy
+
+axx no longer downloads Go from go.dev. It downloads the release it was built with as the go
+command downloads a Go release a module needs: the module `golang.org/toolchain` at
+`v0.0.1-<release>.<os>-<arch>`, through `GOPROXY`, checked against Go's checksum database
+(`GOSUMDB`), which no setting turns off for it, as for the go command. An organization that lets
+machines download only through its own mirrors serves Go and the packs' modules from one Go
+proxy. axx reads Go's network settings from the environment, else from the user's Go
+configuration file, and gives the builds those it found there, as they read no configuration
+file (`GOENV=off`). `AXX_GO` still names an installed go to use instead.

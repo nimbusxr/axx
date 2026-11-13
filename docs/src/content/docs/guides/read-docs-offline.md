@@ -46,7 +46,7 @@ The docs are served on `127.0.0.1` only, so other machines on your network can't
 
 `axx docs serve` downloads from GitHub, like `axx upgrade` and the install script. If your machine can't reach GitHub either, use one of these:
 
-- **A mirror.** If your organization mirrors Axx's releases, set `AXX_DOWNLOAD_URL` to the mirror, as for the binaries. Axx looks for `<mirror>/v<version>/checksums.txt` and the docs archive beside it.
+- **A mirror.** If your organization mirrors Axx's releases, set `AXX_DOWNLOAD_URL` to the mirror, as for the binaries. Axx looks for `<mirror>/v<version>/checksums.txt` and the docs archive beside it. [Use your organization's mirrors](/guides/use-mirrors/) sets up mirrors for everything Axx downloads.
 - **A copy of the archive.** Download `axx_<version>_docs.tar.gz` from the release's page on a machine that can, copy it over, and serve it with `--from`:
 
   ```sh

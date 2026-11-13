@@ -182,6 +182,9 @@ the skills instead: `axx skills install`.
   working in every release: an editor asks every axx a project may run on.
 - `internal/selfupdate` (`axx upgrade`): axx's releases on GitHub, what changed between two, and replacing the running axx
   with a release's, checked against its checksums, as `scripts/install.sh` and `install.ps1` do.
+- `internal/mirror`: where axx and its packs download other projects' files, from their sites or an organization's mirrors
+  (`AXX_GITHUB_URL`, `AXX_NUGET_URL`), and credentials kept out of messages. Every download has a mirror setting
+  (`guides/use-mirrors.md` lists them): a new download gets one, and is checked against a pinned hash.
 - `internal/docsite` (`axx docs serve`): the docs site on this machine, for a network that cannot reach it: the archive each
   release publishes beside its binaries (`axx_<version>_docs.tar.gz`, in its checksums.txt; release.yml's `docs-archive`
   job builds it with `AXX_DOCS_CHANNEL=archive`), unpacked into axx's cache, served as the site's router answers
@@ -208,7 +211,8 @@ the skills instead: `axx skills install`.
   the person approved (`Define`: axx.yaml's services, what their compose projects resolve to, the files their
   commands run), asking in its terminal or the editor that started it (`--ide`), never over the port.
 - `internal/packbuild`, `internal/gotool`: axx builds itself with the packs a project lists in
-  `axx-packs.yaml`, using a Go toolchain it downloads itself.
+  `axx-packs.yaml`, using a Go toolchain it downloads itself, as the go command downloads one (`golang.org/toolchain`
+  through GOPROXY, checked against Go's checksum database, which GOSUMDB=off does not skip), so an organization's Go proxy serves it.
 - `internal/packref`: what axx knows of every pack it publishes, whether a project uses it or not
   (what it reaches, its settings, parameter types and steps): data `go generate` writes from the
   packs (`packs.json`), built into the core, so `axx pack list|show`, `axx steps` and the MCP
