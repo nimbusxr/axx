@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -9,6 +10,8 @@ import (
 
 	"github.com/nimbusxr/axx/internal/exitcode"
 	"github.com/nimbusxr/axx/internal/report"
+	coveragecore "github.com/nimbusxr/axx/packs/coverage/core"
+	"github.com/nimbusxr/axx/packs/coverage/core/istanbul"
 )
 
 // coveredProject is a project whose service writes its own coverage (the
@@ -147,5 +150,37 @@ func TestCoverageCheckMergesTheShards(t *testing.T) {
 		if _, stderr, code := run(t, append([]string{"coverage", "check"}, folders...)...); code != int(exitcode.Usage) || !strings.Contains(stderr, "AXX-E1005") {
 			t.Errorf("%s: exit %d:\n%s", name, code, stderr)
 		}
+	}
+}
+
+// unmatchedRuntime is a runtime whose services write coverage of none of
+// the project's files, as a Python service's coverage.py does whose files
+// paths map nowhere.
+type unmatchedRuntime struct{}
+
+func init() { coveragecore.Register(unmatchedRuntime{}) }
+
+func (unmatchedRuntime) Name() string                { return "unmatched-test" }
+func (unmatchedRuntime) Measured() istanbul.Measured { return istanbul.Measured{Functions: true} }
+func (unmatchedRuntime) Launch(context.Context, coveragecore.LaunchCall) ([]string, error) {
+	return nil, nil
+}
+
+func (unmatchedRuntime) Convert(context.Context, coveragecore.ConvertCall) ([]*istanbul.FileCoverage, istanbul.Measured, error) {
+	return nil, istanbul.Measured{Functions: true}, &coveragecore.Unmatched{Why: "it measured 3 files, like /app/api.py, and none of them is in the project"}
+}
+
+// A service whose coverage names none of the project's files is no error
+// and no 0%: the run says why, of that service.
+func TestAServiceWhoseCoverageIsOfNoFileOfTheProject(t *testing.T) {
+	coveredProject(t, false, "")
+	b, err := os.ReadFile("axx.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeFiles(t, ".", map[string]string{"axx.yaml": strings.Replace(string(b), "runtime: report", "runtime: unmatched-test", 1)})
+	_, stderr, code := run(t, "run", "--coverage")
+	if code != int(exitcode.OK) || !strings.Contains(stderr, "api (unmatched-test)") || !strings.Contains(stderr, "none of them is in the project") {
+		t.Fatalf("exit %d:\n%s", code, stderr)
 	}
 }

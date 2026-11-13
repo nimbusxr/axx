@@ -15,17 +15,35 @@ import (
 	"github.com/nimbusxr/axx/packs/coverage/internal/coveragetest"
 )
 
-// What the service in the container runs: the desk, then waits until it
-// is stopped, and stops on SIGTERM as a service's server does.
-const deskServer = `import signal
+// What the service in the container runs: the desk, and a server's
+// workers, one it spawns, as uvicorn does, and one it forks that ends with
+// os._exit, as gunicorn's do; then it waits until it is stopped, and stops
+// on SIGTERM as a service's server does.
+const deskServer = `import multiprocessing
+import os
+import signal
 import sys
 import time
 
 from parcels import desk
 
-signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))
-print("ready", flush=True)
-time.sleep(60)
+
+def worker():
+    desk.close()
+
+
+if __name__ == "__main__":
+    signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))
+    spawned = multiprocessing.get_context("spawn").Process(target=worker)
+    spawned.start()
+    spawned.join()
+    pid = os.fork()
+    if pid == 0:
+        desk.ship(0)
+        os._exit(0)
+    os.waitpid(pid, 0)
+    print("ready", flush=True)
+    time.sleep(60)
 `
 
 // A Python service in a container, under its own coverage.py, as a user of
@@ -41,10 +59,16 @@ func TestAPythonServiceInAContainer(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// The service's own coverage.py is in its image. Here it is a copy of
-	// axx's, readable by the container's user: axx's own is its user's only.
-	lib := filepath.Join(tmp, "coverage-py")
-	if err := os.CopyFS(lib, os.DirFS(cached)); err != nil {
+	// The service's own coverage.py is installed in its image, with the
+	// file that starts it in the processes the service starts. Here it is a
+	// copy of axx's in the user's site-packages (PYTHONUSERBASE), readable
+	// by the container's user: axx's own is its user's only.
+	userBase := filepath.Join(tmp, "pyuser")
+	site := filepath.Join(userBase, "lib", "python3.13", "site-packages")
+	if err := os.MkdirAll(filepath.Dir(site), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.CopyFS(site, os.DirFS(cached)); err != nil {
 		t.Fatal(err)
 	}
 	app := filepath.Join(tmp, "app")
@@ -64,8 +88,8 @@ func TestAPythonServiceInAContainer(t *testing.T) {
 	}
 	code, out := coveragetest.Run(t, coveragetest.Service{
 		Image: "python:3.13-alpine", Cmd: []string{"python", "-m", "coverage", "run", "-m", "parcels.server"},
-		Env:   append(env, "PYTHONPATH=/app:/opt/coverage-py", "PYTHONDONTWRITEBYTECODE=1"),
-		Binds: []string{app + ":/app:ro", lib + ":/opt/coverage-py:ro", dir + ":/axx-coverage"},
+		Env:   append(env, "PYTHONPATH=/app", "PYTHONUSERBASE=/opt/pyuser", "PYTHONDONTWRITEBYTECODE=1"),
+		Binds: []string{app + ":/app:ro", userBase + ":/opt/pyuser:ro", dir + ":/axx-coverage"},
 		Ready: "ready",
 	})
 	if code != 0 {
@@ -88,7 +112,8 @@ func TestAPythonServiceInAContainer(t *testing.T) {
 	if deskFile == nil || !m.Branches || !m.Functions {
 		t.Fatalf("files %+v, measured %+v (exit code %d):\n%s", files, m, code, out)
 	}
-	if s := istanbul.Total([]*istanbul.FileCoverage{deskFile}); s.Lines.Covered != 8 || s.Lines.Total != 10 {
-		t.Errorf("lines %+v", s.Lines)
+	// The workers ran close and ship's other branch: every line counts.
+	if s := istanbul.Total([]*istanbul.FileCoverage{deskFile}); s.Lines.Covered != 10 || s.Lines.Total != 10 || s.Branches.Covered != 2 || s.Functions.Covered != 3 {
+		t.Errorf("lines %+v, branches %+v, functions %+v: the workers' coverage is missing", s.Lines, s.Branches, s.Functions)
 	}
 }

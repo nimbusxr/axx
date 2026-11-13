@@ -46,8 +46,9 @@ type pack struct{}
 func (pack) Manifest() core.Manifest {
 	return core.Manifest{
 		Name: Name, Namespace: Name, Doc: packDoc, Requires: []string{coveragecore.Name},
-		Steps:  []core.StepDef{},
-		Checks: []core.Check{{Name: "Python 3.11+ (coverage-python)", Run: checkPython}},
+		ConfigSchema: []byte(configSchema),
+		Steps:        []core.StepDef{},
+		Checks:       []core.Check{{Name: "Python 3.11+ (coverage-python)", Run: checkPython}},
 	}
 }
 
@@ -62,7 +63,7 @@ func checkPython(ctx context.Context) core.CheckResult {
 	return core.CheckResult{Status: core.CheckOK, Detail: py}
 }
 
-const packDoc = `Measure the coverage of Python services in a run with coverage (` + "`axx run --coverage`" + `): a service whose coverage section names the runtime ` + "`python`" + `. Its ` + "`coverage.command`" + ` runs it under coverage.py, installed where it runs (` + "`python -m coverage run -m parcels`" + `), and axx gives it its settings through ` + "`COVERAGE_RCFILE`" + `: its data goes to the service's folder, a file per process, branches included, written as it exits, on SIGTERM too. They replace the project's own coverage.py settings in a run with coverage. Axx reads the data with a coverage.py of its own (` + coverageVersion + `, downloaded once from PyPI, or the index ` + "`PIP_INDEX_URL`" + ` names, and run with no setting or plugin of the project's), which needs Python 3.11 or later on the machine that runs axx. It counts lines, branches and functions. It builds on ` + "`coverage-core`" + `.
+const packDoc = `Measure the coverage of Python services in a run with coverage (` + "`axx run --coverage`" + `): a service whose coverage section names the runtime ` + "`python`" + `. Its ` + "`coverage.command`" + ` runs it under coverage.py, installed where it runs (` + "`python -m coverage run -m parcels`" + `), and axx gives it its settings through ` + "`COVERAGE_RCFILE`" + `: its data goes to the service's folder, a file per process, branches included, written as it exits, on SIGTERM too. Every Python process of the service is measured: those it starts, such as uvicorn's workers, and those it forks, such as gunicorn's, wherever coverage.py is installed with them. Code installed as a package, in site-packages, is measured only when ` + "`parts.<name>.packages`" + ` names its packages. They replace the project's own coverage.py settings in a run with coverage. Axx reads the data with a coverage.py of its own (` + coverageVersion + `, downloaded once from PyPI, or the index ` + "`PIP_INDEX_URL`" + ` names, and run with no setting or plugin of the project's), which needs Python 3.11 or later on the machine that runs axx. It counts lines, branches and functions. It builds on ` + "`coverage-core`" + `.
 
 ` + "```yaml" + `
 services:
@@ -75,6 +76,31 @@ services:
 ` + "```" + `
 
 In a container, its compose file mounts ` + "`${AXX_COVERAGE_DIR}`" + ` at the coverage section's ` + "`mount`" + ` and passes ` + "`COVERAGE_RCFILE`" + ` on, and ` + "`packs.coverage-core.parts.<name>.paths`" + ` maps the container's paths to the project's (` + "`{/app/: ../claims/}`" + `).`
+
+// configSchema is the pack's section of axx.yaml, packs.coverage-python.
+const configSchema = `{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "parts": {
+      "type": "object",
+      "description": "Settings of each Python service, by its name in axx.yaml.",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "packages": {"type": "array", "items": {"type": "string"}, "description": "The service's packages, by their import names, measured wherever they are installed: code installed as a package, in site-packages, isn't measured otherwise. When set, only they are measured."}
+        }
+      }
+    }
+  }
+}`
+
+type config struct {
+	Parts map[string]struct {
+		Packages []string `json:"packages"`
+	} `json:"parts"`
+}
 
 // coverageVersion is the coverage.py axx reads the data with: its pure
 // Python wheel, pinned by SHA-256.
@@ -104,11 +130,33 @@ func (pyRuntime) Launch(_ context.Context, call coveragecore.LaunchCall) ([]stri
 	if s.Mount != "" {
 		dir, join = s.Mount, path.Join
 	}
-	rc := "[run]\ndata_file = " + join(dir, ".coverage") + "\nparallel = true\nbranch = true\nsigterm = true\n"
+	var cfg config
+	if call.Settings != nil {
+		if err := call.Settings(Name, &cfg); err != nil {
+			return nil, err
+		}
+	}
+	rc := "[run]\ndata_file = " + join(dir, ".coverage") + "\nparallel = true\nbranch = true\nsigterm = true\npatch = " + patches(s) + "\n"
+	if pkgs := cfg.Parts[s.Name].Packages; len(pkgs) > 0 {
+		rc += "source_pkgs = " + strings.Join(pkgs, ", ") + "\n"
+	}
 	if err := os.WriteFile(filepath.Join(s.Dir, rcFile), []byte(rc), 0o644); err != nil {
 		return nil, err
 	}
 	return []string{"COVERAGE_RCFILE=" + join(dir, rcFile)}, nil
+}
+
+// patches are coverage.py's patches a service runs with, so that every
+// Python process of it is measured: those it starts, such as a server's
+// workers (uvicorn's), those it forks (gunicorn's), those that replace it
+// (execv), and those that end with os._exit, as a forked process does.
+// coverage.py refuses fork and execv on Windows: a service in a container
+// runs on Linux.
+func patches(s core.CoverageService) string {
+	if s.Mount == "" && runtime.GOOS == "windows" {
+		return "_exit, subprocess"
+	}
+	return "_exit, execv, fork, subprocess"
 }
 
 // Convert reads the service's data files with axx's coverage.py: its paths
@@ -152,14 +200,34 @@ func (pyRuntime) Convert(ctx context.Context, call coveragecore.ConvertCall) ([]
 	// It names the files measured, as the service named them; axx says
 	// where they are here.
 	line, err := bufio.NewReader(stdout).ReadString('\n')
-	var files []string
-	if err == nil {
-		err = json.Unmarshal([]byte(line), &files)
+	var read struct {
+		Files   []string `json:"files"`
+		Skipped []string `json:"skipped"`
 	}
 	if err == nil {
+		err = json.Unmarshal([]byte(line), &read)
+	}
+	files := read.Files
+	if len(read.Skipped) > 0 && call.Logger != nil {
+		// A process killed as it wrote its data: one of the container's,
+		// which the kernel kills as its main process exits, say.
+		call.Logger.Warn(fmt.Sprintf("coverage of %s: %d of its data files are not whole, like %s, and are left out: a process of it was killed while it wrote its coverage", call.End.Name, len(read.Skipped), read.Skipped[0]))
+	}
+	var unmatched *coveragecore.Unmatched
+	if err == nil {
 		where := map[string]string{}
+		found := false
 		for _, f := range files {
 			where[f] = call.Path(f)
+			if _, serr := os.Stat(where[f]); serr == nil {
+				found = true
+			}
+		}
+		switch {
+		case len(files) == 0:
+			unmatched = &coveragecore.Unmatched{Why: "coverage.py measured none of its code: code installed as a package, in site-packages, is measured only when packs.coverage-python.parts." + call.End.Name + ".packages names its packages"}
+		case !found:
+			unmatched = &coveragecore.Unmatched{Why: fmt.Sprintf("coverage.py measured %d of its files, like %s, and none of them is in the project where it looked, %s: say where they are in packs.coverage-core.parts.%s.paths", len(files), files[0], where[files[0]], call.End.Name)}
 		}
 		b, _ := json.Marshal(where)
 		_, err = stdin.Write(append(b, '\n'))
@@ -171,6 +239,9 @@ func (pyRuntime) Convert(ctx context.Context, call coveragecore.ConvertCall) ([]
 	}
 	if err != nil {
 		return nil, measured, fmt.Errorf("coverage.py: %w: %s", err, bytes.TrimSpace(stderr.Bytes()))
+	}
+	if unmatched != nil {
+		return nil, measured, unmatched
 	}
 	f, err := os.Open(filepath.Join(out, "lcov.info"))
 	if err != nil {
@@ -184,25 +255,33 @@ func (pyRuntime) Convert(ctx context.Context, call coveragecore.ConvertCall) ([]
 // script combines the service's data files, asks axx where its files are
 // here, and writes an lcov report of them: args the library, the service's
 // folder and where to write.
-const script = `import json, os, sys
+const script = `import json, os, sqlite3, sys
 sys.path.insert(0, sys.argv[1])
 import coverage
 from coverage.data import CoverageData
+from coverage.exceptions import CoverageException, NoDataError
 raw, out = sys.argv[2], sys.argv[3]
 combined = CoverageData(basename=os.path.join(out, "combined"))
+skipped = []
 for name in sorted(os.listdir(raw)):
     if name.startswith(".coverage."):
         d = CoverageData(basename=os.path.join(raw, name))
-        d.read()
-        combined.update(d)
-print(json.dumps(sorted(combined.measured_files())), flush=True)
+        try:
+            d.read()
+            combined.update(d)
+        except (CoverageException, sqlite3.Error):
+            skipped.append(name)
+print(json.dumps({"files": sorted(combined.measured_files()), "skipped": skipped}), flush=True)
 where = json.loads(sys.stdin.readline())
 mapped = CoverageData(basename=os.path.join(out, ".coverage"))
 mapped.update(combined, map_path=lambda p: where.get(p, p))
 mapped.write()
 cov = coverage.Coverage(data_file=os.path.join(out, ".coverage"), config_file=False)
 cov.load()
-cov.lcov_report(outfile=os.path.join(out, "lcov.info"), ignore_errors=True)
+try:
+    cov.lcov_report(outfile=os.path.join(out, "lcov.info"), ignore_errors=True)
+except NoDataError:
+    open(os.path.join(out, "lcov.info"), "w").close()
 `
 
 // python is a Python 3.11 or later on this machine.

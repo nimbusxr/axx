@@ -2,8 +2,10 @@ package coveragepython
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -29,7 +31,12 @@ func TestLaunch(t *testing.T) {
 			t.Errorf("env: %v", env)
 		}
 		rc, _ := os.ReadFile(filepath.Join(dir, "coveragerc"))
-		for _, want := range []string{"data_file = " + c.want + sep + ".coverage\n", "parallel = true", "branch = true", "sigterm = true"} {
+		// Every Python process of the service: a container's is on Linux.
+		patch := "patch = _exit, execv, fork, subprocess\n"
+		if c.mount == "" && runtime.GOOS == "windows" {
+			patch = "patch = _exit, subprocess\n"
+		}
+		for _, want := range []string{"data_file = " + c.want + sep + ".coverage\n", "parallel = true", "branch = true", "sigterm = true", patch} {
 			if !strings.Contains(string(rc), want) {
 				t.Errorf("the settings lack %q:\n%s", want, rc)
 			}
@@ -56,5 +63,29 @@ func TestNoDataIsNoCoverage(t *testing.T) {
 	files, _, err := pyRuntime{}.Convert(context.Background(), coveragecore.ConvertCall{End: core.CoverageEnd{CoverageService: core.CoverageService{Dir: t.TempDir()}}})
 	if err != nil || files != nil {
 		t.Errorf("%v %v", files, err)
+	}
+}
+
+// The service's packages, named in its settings, are measured wherever they
+// are installed, site-packages included.
+func TestLaunchWithPackages(t *testing.T) {
+	dir := t.TempDir()
+	settings := func(pack string, v any) error {
+		if pack != Name {
+			t.Errorf("settings of %s", pack)
+		}
+		return json.Unmarshal([]byte(`{"parts": {"claims": {"packages": ["claims", "claims_rules"]}}}`), v)
+	}
+	if _, err := (pyRuntime{}).Launch(context.Background(), coveragecore.LaunchCall{Service: core.CoverageService{Name: "claims", Dir: dir}, Settings: settings}); err != nil {
+		t.Fatal(err)
+	}
+	if rc, _ := os.ReadFile(filepath.Join(dir, "coveragerc")); !strings.Contains(string(rc), "source_pkgs = claims, claims_rules\n") {
+		t.Errorf("the settings lack the packages:\n%s", rc)
+	}
+	if _, err := (pyRuntime{}).Launch(context.Background(), coveragecore.LaunchCall{Service: core.CoverageService{Name: "other", Dir: dir}, Settings: settings}); err != nil {
+		t.Fatal(err)
+	}
+	if rc, _ := os.ReadFile(filepath.Join(dir, "coveragerc")); strings.Contains(string(rc), "source_pkgs") {
+		t.Errorf("another service's packages:\n%s", rc)
 	}
 }

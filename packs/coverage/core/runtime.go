@@ -29,6 +29,13 @@ type Runtime interface {
 	Convert(ctx context.Context, call ConvertCall) ([]*istanbul.FileCoverage, istanbul.Measured, error)
 }
 
+// Unmatched is what Convert returns when the service wrote coverage, but of
+// none of the project's files: Why says so, and the run says it of the
+// service instead of reading nothing.
+type Unmatched struct{ Why string }
+
+func (u *Unmatched) Error() string { return u.Why }
+
 // Keeper is a runtime whose services can be read while they run: those axx
 // up keeps are measured per run, reset as a run starts and taken as it
 // ends.

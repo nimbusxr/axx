@@ -126,6 +126,21 @@ services:
       command: python -m coverage run -m claims
 ```
 
+- Every Python process of the service is measured: the processes it starts, such as uvicorn's workers, and the ones it forks, such as gunicorn's. coverage.py must be installed where they run, as it is when the service's image installs it with pip.
+- coverage.py doesn't measure code installed as a package, in site-packages, as `pip install .` installs it. To measure it, name the service's packages, and map where they're installed to the project's files:
+
+  ```yaml title="axx.yaml"
+  packs:
+    coverage-python:
+      parts:
+        claims:
+          packages: [claims]
+    coverage-core:
+      parts:
+        claims:
+          paths: {/usr/local/lib/python3.13/site-packages/: ../claims/}
+  ```
+
 - In a run with coverage, Axx's settings replace the project's own coverage.py settings.
 - Axx reads the data with a coverage.py of its own, which needs Python 3.11 or later on the machine that runs Axx. It doesn't run the project's coverage.py plugins.
 
@@ -197,7 +212,32 @@ services:
       - '${AXX_COVERAGE_DIR:-./coverage}:/axx-coverage'
 ```
 
-The Dockerfile builds with `go build $GO_BUILD_FLAGS`. The variables the runtime gives the service reach `docker compose`, and the compose file passes them on to the container: `GOCOVERDIR` for Go, `JAVA_TOOL_OPTIONS` for the JVM, `COVERAGE_RCFILE` for Python, and `NODE_V8_COVERAGE` and `NODE_OPTIONS` for Node.js. Their values already name the folder by its `mount`.
+The Dockerfile builds with `go build $GO_BUILD_FLAGS`. A Python service runs under coverage.py the same way, through a variable its compose file puts in the container's command:
+
+```yaml title="axx.yaml"
+services:
+  claims:
+    dir: ../infra
+    command: docker compose up --build
+    coverage:
+      runtime: python
+      mount: /axx-coverage
+      env:
+        CLAIMS_PYTHON_RUN: coverage run -m uvicorn
+```
+
+```yaml title="compose.yaml"
+services:
+  claims:
+    build: ../claims
+    command: python -m ${CLAIMS_PYTHON_RUN:-uvicorn} claims.api:app --host 0.0.0.0 --port 8000 --workers 2
+    environment:
+      COVERAGE_RCFILE: ${COVERAGE_RCFILE:-}
+    volumes:
+      - '${AXX_COVERAGE_DIR:-./coverage}:/axx-coverage'
+```
+
+The variables the runtime gives the service reach `docker compose`, and the compose file passes them on to the container: `GOCOVERDIR` for Go, `JAVA_TOOL_OPTIONS` for the JVM, `COVERAGE_RCFILE` for Python, and `NODE_V8_COVERAGE` and `NODE_OPTIONS` for Node.js. Their values already name the folder by its `mount`.
 
 - **Users.** The folder is writable by every user, because a container's process often runs as a user of its own, such as distroless's `nonroot`.
 - **Paths.** A runtime names files as they were in the container, like `/app/claims/api.py`. Map them to the project in `packs.coverage-core.parts.<service>.paths`:
@@ -308,3 +348,4 @@ A run from an agent's sandbox can measure coverage through the [axx host](/guide
 | `packs.coverage-jvm.parts.<service>.sources` | the folders of its sources |
 | `packs.coverage-jvm.parts.<service>.port` | the port its agent listens on, with `axx up --coverage` |
 | `packs.coverage-go.parts.<service>.modules` | the folders of the Go modules whose files count |
+| `packs.coverage-python.parts.<service>.packages` | the service's packages, measured wherever they're installed, site-packages included |

@@ -3,7 +3,10 @@
 package coveragepython
 
 import (
+	"bytes"
 	"context"
+	"errors"
+	"log/slog"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -74,6 +77,14 @@ func TestAPythonServicesCoverage(t *testing.T) {
 		t.Fatalf("%v: %s", err, out)
 	}
 
+	// A process killed as it wrote its data left a file that isn't whole:
+	// it is left out, with a warning, and the rest is read.
+	broken := append([]byte("SQLite format 3\x00"), make([]byte, 8176)...)
+	if err := os.WriteFile(filepath.Join(dir, ".coverage.host.pid7.Xbroken"), broken, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	var warned bytes.Buffer
+
 	// As if the service ran in a container whose /app is the project's app.
 	moved := filepath.Join(tmp, "project", "app")
 	if err := os.MkdirAll(filepath.Dir(moved), 0o755); err != nil {
@@ -85,15 +96,31 @@ func TestAPythonServicesCoverage(t *testing.T) {
 	files, m, err := pyRuntime{}.Convert(context.Background(), coveragecore.ConvertCall{
 		End:      core.CoverageEnd{CoverageService: s, Status: "exited with code 0"},
 		Settings: func(string, any) error { return nil },
+		Logger:   slog.New(slog.NewTextHandler(&warned, nil)),
 		Path:     func(p string) string { return strings.Replace(p, app, moved, 1) },
 	})
 	if err != nil {
 		t.Fatal(err)
+	}
+	if !strings.Contains(warned.String(), ".coverage.host.pid7.Xbroken") {
+		t.Errorf("no warning of the file that isn't whole: %s", warned.String())
 	}
 	if len(files) != 1 || files[0].Path != filepath.Join(moved, "parcels", "desk.py") || !m.Branches || !m.Functions {
 		t.Fatalf("files %+v (%s), measured %+v", files, files[0].Path, m)
 	}
 	if s := istanbul.Total(files); s.Lines.Covered != 8 || s.Lines.Total != 10 || s.Branches.Covered != 1 || s.Branches.Total != 2 || s.Functions.Covered != 2 || s.Functions.Total != 3 {
 		t.Errorf("lines %+v, branches %+v, functions %+v", s.Lines, s.Branches, s.Functions)
+	}
+
+	// Paths that map to no file of the project: the run says so, of the
+	// service, and how to map them.
+	_, _, err = pyRuntime{}.Convert(context.Background(), coveragecore.ConvertCall{
+		End:      core.CoverageEnd{CoverageService: s, Status: "exited with code 0"},
+		Settings: func(string, any) error { return nil },
+		Path:     func(p string) string { return filepath.Join(tmp, "elsewhere", filepath.Base(p)) },
+	})
+	var um *coveragecore.Unmatched
+	if !errors.As(err, &um) || !strings.Contains(um.Why, "packs.coverage-core.parts.claims.paths") {
+		t.Errorf("paths that map nowhere: %v", err)
 	}
 }

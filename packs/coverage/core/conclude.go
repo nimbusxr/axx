@@ -3,6 +3,7 @@ package coveragecore
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"maps"
 	"os"
@@ -110,12 +111,17 @@ func (pack) Conclude(ctx context.Context, s *core.Suite, run core.CoverageRun) (
 				End: end, Settings: s.PackConfig, Logger: s.Logger(), Project: project,
 				Path: func(p string) string { return cfg.pathOf(project, end.CoverageService, p) },
 			})
-			if err != nil {
+			var um *Unmatched
+			switch {
+			case errors.As(err, &um):
+				pt.Measured, pt.Missing = m, um.Why
+			case err != nil:
 				return nil, axxerr.Wrap(err, CodeConvert, exitcode.Environment, "cannot read the coverage service %s wrote, in %s", end.Name, end.Dir)
-			}
-			pt.Measured, pt.Files = m, relative(project, files)
-			if len(pt.Files) == 0 {
-				pt.Missing = silence(end)
+			default:
+				pt.Measured, pt.Files = m, relative(project, files)
+				if len(pt.Files) == 0 {
+					pt.Missing = silence(end)
+				}
 			}
 		}
 		data.Parts = append(data.Parts, pt)
@@ -275,8 +281,10 @@ func evaluate(cfg config, data runData) (*core.Coverage, error) {
 			functions = append(functions, p.Files...)
 		}
 	}
-	whole := istanbul.Total(copies(lines))
-	cov.Totals.Lines = total(whole.Lines)
+	// A run that measured no file has no total: never 100% of nothing.
+	if len(lines) > 0 {
+		cov.Totals.Lines = total(istanbul.Total(copies(lines)).Lines)
+	}
 	if len(branches) > 0 {
 		cov.Totals.Branches = total(istanbul.Total(copies(branches)).Branches)
 	}

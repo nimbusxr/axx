@@ -52,6 +52,14 @@ func TestEvaluate(t *testing.T) {
 		t.Errorf("Go measures no branches or functions: %+v", p.Totals)
 	}
 
+	// A run whose parts measured no file has no total, never 100%.
+	none := runData{Parts: []part{{Name: "claims", Runtime: "python", Measured: istanbul.Measured{Branches: true, Functions: true}, Missing: "coverage.py measured none of its code"}}}
+	if cov, err := evaluate(config{}, none); err != nil || cov.Totals.Lines != nil || cov.Totals.Branches != nil || cov.Totals.Functions != nil {
+		t.Errorf("nothing measured: %+v %v", cov, err)
+	} else if s := cov.Summary(); !strings.HasPrefix(s[0], "coverage: nothing measured") {
+		t.Errorf("summary: %q", s)
+	}
+
 	// No minimum: nothing checked; a partial run or a shard: skipped.
 	if cov, _ := evaluate(config{}, data); cov.Check != core.CoverageUnchecked {
 		t.Errorf("no minimum: %q", cov.Check)
