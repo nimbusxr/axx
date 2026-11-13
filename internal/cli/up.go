@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -88,6 +89,13 @@ func parseSupervisorError(line string) (*axxerr.Error, bool) {
 func runDir(cfg *config.Config) string   { return filepath.Join(cfg.Dir, ".axx", "run") }
 func upFile(cfg *config.Config) string   { return lifecycle.UpFile(cfg.Dir) }
 func stopFile(cfg *config.Config) string { return filepath.Join(runDir(cfg), "up.stop") }
+
+// downCoverageFile is what the supervisor has to say of the coverage it
+// wrote as it stopped the services (axx up --coverage), for axx down to
+// print: the supervisor's own output goes to its log.
+func downCoverageFile(cfg *config.Config) string {
+	return filepath.Join(runDir(cfg), "down-coverage.txt")
+}
 
 func newUpCmd(app *App) *cobra.Command {
 	var cf configFlags
@@ -364,10 +372,13 @@ func newSuperviseCmd(app *App) *cobra.Command {
 			}
 			err = svcs.Stop(context.Background())
 			if len(measured) > 0 {
-				// What Go and Python wrote as they stopped: every run's.
-				if cerr := concludeAtDown(context.WithoutCancel(ctx), e, svcs.Exits()); cerr != nil {
-					fmt.Fprintln(os.Stderr, "axx: the coverage of the services axx up kept:", cerr)
+				// What Go and Python wrote as they stopped: every run's,
+				// which axx down prints.
+				var said bytes.Buffer
+				if cerr := concludeAtDown(context.WithoutCancel(ctx), &said, e, svcs.Exits()); cerr != nil {
+					fmt.Fprintln(&said, "axx: the coverage of the services axx up kept:", cerr)
 				}
+				_ = os.WriteFile(downCoverageFile(cfg), said.Bytes(), 0o644)
 			}
 			_ = os.Remove(upFile(cfg))
 			_ = os.Remove(stopFile(cfg))
@@ -405,6 +416,10 @@ func newDownCmd(app *App) *cobra.Command {
 				}
 				stopped = st.Services
 			}
+			if said, err := os.ReadFile(downCoverageFile(cfg)); err == nil {
+				_, _ = app.Stderr.Write(said)
+			}
+			_ = os.Remove(downCoverageFile(cfg))
 			_ = os.Remove(upFile(cfg))
 			_ = os.Remove(stopFile(cfg))
 			// Reap anything a killed run or supervisor left behind, and run

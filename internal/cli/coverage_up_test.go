@@ -123,3 +123,21 @@ func TestARunWithCoverageOfServicesKeptWithout(t *testing.T) {
 		t.Fatalf("exit %d:\n%s", code, stderr)
 	}
 }
+
+// What the supervisor wrote of the coverage as it stopped the services axx
+// up kept goes to its log: axx down prints it.
+func TestDownPrintsTheCoverageItWrote(t *testing.T) {
+	dir := t.TempDir()
+	t.Chdir(dir)
+	writeFiles(t, dir, map[string]string{
+		"axx.yaml":                   "services:\n  batch:\n    command: ./never-started\n",
+		".axx/run/down-coverage.txt": "coverage: lines 50%, in .axx/coverage/lcov.info\n  batch (go): lines 50%\n",
+	})
+	_, stderr, code := run(t, "down")
+	if code != int(exitcode.OK) || !strings.Contains(stderr, "batch (go): lines 50%") {
+		t.Fatalf("exit %d:\n%s", code, stderr)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".axx", "run", "down-coverage.txt")); !os.IsNotExist(err) {
+		t.Errorf("the file outlived axx down: %v", err)
+	}
+}

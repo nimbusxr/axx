@@ -1,11 +1,9 @@
 package coveragecore
 
 import (
-	"cmp"
 	"context"
 	"encoding/json"
 	"fmt"
-	"log/slog"
 	"maps"
 	"os"
 	"path/filepath"
@@ -155,7 +153,6 @@ func (pack) Conclude(ctx context.Context, s *core.Suite, run core.CoverageRun) (
 		return nil, err
 	}
 	cov.Report = filepath.ToSlash(rel(project, filepath.Join(folder, "lcov.info")))
-	tell(s.Logger(), cov, data)
 	s.Announce("coverage", "path", filepath.Join(folder, "lcov.info"))
 	if missing := missingParts(cfg, data, cov); missing != "" {
 		return cov, axxerr.New(CodeMissing, exitcode.Environment, "the minimums apply to this run, and %s", missing).
@@ -295,7 +292,10 @@ func evaluate(cfg config, data runData) (*core.Coverage, error) {
 		cov.Check = core.CoverageUnchecked
 		return cov, nil
 	case data.Partial != "" || data.Shard != "":
-		cov.Check = core.CoverageSkipped
+		cov.Check, cov.Skipped = core.CoverageSkipped, data.Partial
+		if cov.Skipped == "" {
+			cov.Skipped = "it is the shard " + data.Shard + " of a run: `axx coverage check` checks the shards together"
+		}
 		return cov, nil
 	}
 	under := func(partName, metric string, minimum *float64, t *core.CoverageTotal) {
@@ -404,48 +404,4 @@ func total(t istanbul.Totals) *core.CoverageTotal {
 		out.Pct = *t.Pct
 	}
 	return out
-}
-
-// tell prints the run's coverage: its totals, each part's, and how it
-// compares with the minimums.
-func tell(log *slog.Logger, c *core.Coverage, data runData) {
-	log.Warn(fmt.Sprintf("the system under test's coverage: %s, in %s", describe(c.Totals), c.Report))
-	for _, p := range c.Parts {
-		if p.Missing != "" {
-			log.Warn(fmt.Sprintf("  %s (%s): no coverage: %s", p.Name, p.Runtime, p.Missing))
-			continue
-		}
-		log.Warn(fmt.Sprintf("  %s (%s): %s", p.Name, p.Runtime, describe(p.Totals)))
-	}
-	switch c.Check {
-	case core.CoverageUnder:
-		var under []string
-		for _, u := range c.Unmet {
-			under = append(under, fmt.Sprintf("%s %s %s%% (minimum %s%%)", cmp.Or(u.Part, "the run's"), u.Metric, pct(u.Actual), pct(u.Minimum)))
-		}
-		log.Warn("coverage under the minimum: " + strings.Join(under, "; "))
-	case core.CoverageSkipped:
-		why := data.Partial
-		if why == "" {
-			why = "it is the shard " + data.Shard + " of a run: `axx coverage check` checks the shards together"
-		}
-		log.Warn("the coverage minimums apply to a run of every scenario, and this run is not one: " + why)
-	}
-}
-
-func describe(t core.CoverageTotals) string {
-	var parts []string
-	for _, m := range []struct {
-		name string
-		t    *core.CoverageTotal
-	}{{"lines", t.Lines}, {"branches", t.Branches}, {"functions", t.Functions}} {
-		if m.t != nil {
-			parts = append(parts, fmt.Sprintf("%s %s%%", m.name, pct(m.t.Pct)))
-		}
-	}
-	return strings.Join(parts, ", ")
-}
-
-func pct(f float64) string {
-	return strings.TrimSuffix(strings.TrimRight(fmt.Sprintf("%.2f", f), "0"), ".")
 }

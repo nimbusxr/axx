@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"slices"
@@ -179,8 +180,9 @@ func lockCoverage(cfg *config.Config) (func(), error) {
 
 // concludeAtDown writes, once axx down stopped the services axx up kept,
 // the coverage of those that write theirs only as they exit (Go, Python):
-// every run's since axx up. exits are how they ended.
-func concludeAtDown(ctx context.Context, e *engine.Engine, exits []lifecycle.Exit) error {
+// every run's since axx up, whose summary it prints to w. exits are how they
+// ended.
+func concludeAtDown(ctx context.Context, w io.Writer, e *engine.Engine, exits []lifecycle.Exit) error {
 	l := coverageLauncher(e)
 	var c core.Concluder
 	for _, p := range e.Packs {
@@ -207,6 +209,7 @@ func concludeAtDown(ctx context.Context, e *engine.Engine, exits []lifecycle.Exi
 		launcher: l, concluder: c, dir: upCoverageDir(e.Config),
 		partial: "it is the coverage the services axx up kept wrote as axx down stopped them, of every run since axx up",
 	}
-	_, err := rc.conclude(ctx, e, atExit, false)
+	cov, err := rc.conclude(ctx, e, atExit, false)
+	printCoverage(w, cov)
 	return err
 }

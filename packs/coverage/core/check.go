@@ -140,28 +140,15 @@ func runCheck(call *core.CommandCall) error {
 		res.Unmet = append(res.Unmet, jsonMiss(u))
 	}
 	if err := call.Emit(res, func(w io.Writer) error {
-		fmt.Fprintf(w, "coverage: %s, in %s\n", describe(cov.Totals), cov.Report)
-		for _, p := range cov.Parts {
-			if p.Missing != "" {
-				fmt.Fprintf(w, "  %s (%s): no coverage: %s\n", p.Name, p.Runtime, p.Missing)
-				continue
-			}
-			fmt.Fprintf(w, "  %s (%s): %s\n", p.Name, p.Runtime, describe(p.Totals))
+		for _, l := range cov.Summary() {
+			fmt.Fprintln(w, l)
 		}
 		return nil
 	}); err != nil {
 		return err
 	}
 	if cov.Check == core.CoverageUnder {
-		var under []string
-		for _, u := range cov.Unmet {
-			name := u.Part
-			if name == "" {
-				name = "the run's"
-			}
-			under = append(under, fmt.Sprintf("%s %s %s%% (minimum %s%%)", name, u.Metric, pct(u.Actual), pct(u.Minimum)))
-		}
-		return axxerr.New(CodeUnder, exitcode.Coverage, "the coverage is under the minimum: %s", strings.Join(under, "; ")).
+		return axxerr.New(CodeUnder, exitcode.Coverage, "the coverage is under the minimum: %s", cov.Under()).
 			WithHint("scenarios for the code it shows no run reached, or lower minimums (packs.coverage-core)")
 	}
 	return nil

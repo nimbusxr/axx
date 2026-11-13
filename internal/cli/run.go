@@ -319,6 +319,7 @@ func (a *App) run(ctx context.Context, f *runFlags, args []string) error {
 		}
 		c, cerr := cov.conclude(ctx, e, exits, res.Interrupted)
 		res.Coverage = c
+		printCoverage(a.Stderr, c)
 		if rerr := report.Conclude(reporters, res); rerr != nil {
 			fmt.Fprintln(a.Stderr, "axx: cannot write the run's report:", rerr)
 		}

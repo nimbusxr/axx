@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"slices"
@@ -233,5 +234,19 @@ func hostLaunch() host.Launch {
 			return nil
 		}
 		return l.LaunchCoverage(ctx, settings, s)
+	}
+}
+
+// printCoverage prints what a person reads of a run's coverage (nil prints
+// nothing): its totals and each part's, and the minimums it is under.
+func printCoverage(w io.Writer, c *core.Coverage) {
+	if c == nil {
+		return
+	}
+	for _, l := range c.Summary() {
+		fmt.Fprintln(w, l)
+	}
+	if c.Check == core.CoverageUnder {
+		fmt.Fprintln(w, "coverage under the minimum: "+c.Under())
 	}
 }

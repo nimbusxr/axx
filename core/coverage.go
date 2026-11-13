@@ -1,6 +1,10 @@
 package core
 
-import "context"
+import (
+	"context"
+	"fmt"
+	"strings"
+)
 
 // Coverage is what a run with coverage (axx run --coverage) measured of the
 // system under test, and how it compares with the minimums axx.yaml sets: the
@@ -18,6 +22,61 @@ type Coverage struct {
 	Parts []CoveragePart
 	// Unmet are the minimums the run is under, when Check is CoverageUnder.
 	Unmet []CoverageUnmet
+	// Skipped says why the minimums do not apply, when Check is
+	// CoverageSkipped: the run ran part of the scenarios, or one shard.
+	Skipped string
+}
+
+// Summary is what a person reads of the coverage: the run's totals and its
+// report, each part's, and why the minimums do not apply, when they do not.
+func (c *Coverage) Summary() []string {
+	lines := []string{fmt.Sprintf("coverage: %s, in %s", c.Totals.describe(), c.Report)}
+	for _, p := range c.Parts {
+		if p.Missing != "" {
+			lines = append(lines, fmt.Sprintf("  %s (%s): no coverage: %s", p.Name, p.Runtime, p.Missing))
+			continue
+		}
+		lines = append(lines, fmt.Sprintf("  %s (%s): %s", p.Name, p.Runtime, p.Totals.describe()))
+	}
+	if c.Check == CoverageSkipped {
+		lines = append(lines, "the coverage minimums apply to a run of every scenario, and this run is not one: "+c.Skipped)
+	}
+	return lines
+}
+
+// Under says which minimums the coverage is under, when it is: "the run's
+// lines 71.5% (minimum 80%); orders branches 60% (minimum 70%)".
+func (c *Coverage) Under() string {
+	var under []string
+	for _, u := range c.Unmet {
+		name := u.Part
+		if name == "" {
+			name = "the run's"
+		}
+		under = append(under, fmt.Sprintf("%s %s %s%% (minimum %s%%)", name, u.Metric, Percent(u.Actual), Percent(u.Minimum)))
+	}
+	return strings.Join(under, "; ")
+}
+
+// Percent writes a percentage with at most two decimals: 71.5, 80.
+func Percent(f float64) string {
+	return strings.TrimSuffix(strings.TrimRight(fmt.Sprintf("%.2f", f), "0"), ".")
+}
+
+func (t CoverageTotals) describe() string {
+	var parts []string
+	for _, m := range []struct {
+		name string
+		t    *CoverageTotal
+	}{{"lines", t.Lines}, {"branches", t.Branches}, {"functions", t.Functions}} {
+		if m.t != nil {
+			parts = append(parts, fmt.Sprintf("%s %s%%", m.name, Percent(m.t.Pct)))
+		}
+	}
+	if len(parts) == 0 {
+		return "nothing measured"
+	}
+	return strings.Join(parts, ", ")
 }
 
 // CoverageCheck is how a run compares with the minimums axx.yaml sets.
