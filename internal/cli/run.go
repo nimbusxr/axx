@@ -12,6 +12,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 
 	messages "github.com/cucumber/messages/go/v34"
 	"github.com/spf13/cobra"
@@ -51,6 +52,9 @@ type runFlags struct {
 	// watch shows what the scenarios do on screen, slowdown slows it down.
 	watch    bool
 	slowdown string
+	// coverage measures the coverage of the services with a coverage
+	// section.
+	coverage bool
 }
 
 func newRunCmd(app *App) *cobra.Command {
@@ -71,7 +75,8 @@ every third scenario, in their files' and lines' order, from the first; 2/3
 and 3/3 run the rest.
 
 Exit codes: 0 passed, 1 failures, 2 usage/config, 3 undefined/ambiguous steps,
-4 a service failed to start, 130 interrupted.`,
+4 a service failed to start, 6 every scenario passed but the coverage is under
+a minimum (--coverage), 130 interrupted.`,
 		Example: `  axx run
   axx run features/register-parcels.feature:17
   axx run --tags "@smoke and not @wip" --format junit:build/axx/junit.xml
@@ -103,6 +108,7 @@ Exit codes: 0 passed, 1 failures, 2 usage/config, 3 undefined/ambiguous steps,
 	fl.BoolVar(&f.watch, "watch", false, "show what the scenarios do as they do it: browsers and devices in their windows, one scenario at a time unless --workers says otherwise (run.watch)")
 	fl.StringVar(&f.slowdown, "slowdown", "", `pause after each action of a watched run, e.g. "500ms" (run.slowdown)`)
 	fl.StringVar(&f.rerunFile, "rerun-file", "", "write failed scenario locations (file:line) to this file")
+	fl.BoolVar(&f.coverage, "coverage", false, "measure the coverage of the services with a coverage section, with their runtimes' packs (run.coverage); a run of every scenario under a minimum exits 6")
 	fl.StringArrayVar(&f.pauseAt, "pause-at", nil, "pause before the step at this file:line, with no timeouts, for the packs that can show a person what the scenario does (repeatable)")
 	return cmd
 }
@@ -116,6 +122,9 @@ func (a *App) run(ctx context.Context, f *runFlags, args []string) error {
 	}
 	if f.slowdown != "" {
 		f.cf.settings = append(f.cf.settings, "run.slowdown="+f.slowdown)
+	}
+	if f.coverage {
+		f.cf.settings = append(f.cf.settings, "run.coverage=true")
 	}
 	e, err := a.loadEngine(&f.cf)
 	if err != nil {
@@ -172,6 +181,12 @@ func (a *App) run(ctx context.Context, f *runFlags, args []string) error {
 	if err := knownUses(e, "run.exclusiveUses", cfg.Run.ExclusiveUses); err != nil {
 		return err
 	}
+	// What the run measures of the system under test: the minimums need to
+	// know what it selects, before a shard of it.
+	cov, err := a.newRunCoverage(e, f, args, pickles)
+	if err != nil {
+		return err
+	}
 	// A shard of what the run selects, for one of the runners that share it.
 	if pickles, err = feature.Shard(pickles, f.shard); err != nil {
 		return err
@@ -190,7 +205,7 @@ func (a *App) run(ctx context.Context, f *runFlags, args []string) error {
 			return err
 		}
 	}
-	reporters, agentBuf, needsMsgs, closeReporters, err := a.reporters(cfg, f)
+	reporters, agentBuf, needsMsgs, closeReporters, err := a.reporters(cfg, f, cov != nil)
 	if err != nil {
 		return err
 	}
@@ -217,15 +232,20 @@ func (a *App) run(ctx context.Context, f *runFlags, args []string) error {
 	// Applications.
 	var lease *host.Lease
 	var svcs services
+	// The services stop once: when the run ends, or before a run with
+	// coverage concludes, since what they measured is complete only then.
+	stopServices := sync.OnceFunc(func() {
+		if svcs == nil {
+			return
+		}
+		if serr := svcs.Stop(context.WithoutCancel(ctx)); serr != nil {
+			fmt.Fprintln(a.Stderr, "axx: while stopping services:", serr)
+		}
+	})
 	if !f.dryRun && len(cfg.Services) > 0 {
-		svcs, lease, err = a.startApps(ctx, e, f, pickles, hostAnn)
+		svcs, lease, err = a.startApps(ctx, e, f, pickles, hostAnn, cov)
 		if svcs != nil {
-			defer func() {
-				stopCtx := context.WithoutCancel(ctx)
-				if serr := svcs.Stop(stopCtx); serr != nil {
-					fmt.Fprintln(a.Stderr, "axx: while stopping services:", serr)
-				}
-			}()
+			defer stopServices()
 		}
 		if err != nil {
 			return err
@@ -283,6 +303,21 @@ func (a *App) run(ctx context.Context, f *runFlags, args []string) error {
 	res := r.Run(ctx, pickles)
 	if lease != nil {
 		lease.Result(hostResult(res))
+	}
+	if cov != nil {
+		stopServices()
+		var exits []lifecycle.Exit
+		if svcs != nil {
+			exits = svcs.Exits()
+		}
+		c, cerr := cov.conclude(ctx, e, exits, res.Interrupted)
+		res.Coverage = c
+		if rerr := report.Conclude(reporters, res); rerr != nil {
+			fmt.Fprintln(a.Stderr, "axx: cannot write the run's report:", rerr)
+		}
+		if cerr != nil {
+			return cerr
+		}
 	}
 
 	if f.rerunFile != "" {
@@ -344,6 +379,9 @@ type services interface {
 	Stop(ctx context.Context) error
 	// Told are the properties the services told axx (lifecycle.PropertiesEnv).
 	Told() ([]lifecycle.ToldValues, error)
+	// Exits are how the services ended, once stopped: for the coverage of
+	// those the run measured.
+	Exits() []lifecycle.Exit
 }
 
 // useTold gives the steps the properties the services told axx, and the
@@ -392,7 +430,7 @@ func hostResult(res *runner.RunResult) host.Result {
 // startApps starts the services the scenarios need: through the axx host
 // serving the project, when there is one (ann; then the lease too), or
 // here.
-func (a *App) startApps(ctx context.Context, e *engine.Engine, f *runFlags, pickles []*feature.Pickle, ann *host.Announcement) (services, *host.Lease, error) {
+func (a *App) startApps(ctx context.Context, e *engine.Engine, f *runFlags, pickles []*feature.Pickle, ann *host.Announcement, cov *runCoverage) (services, *host.Lease, error) {
 	cfg := e.Config
 	var names []string
 	if !f.noStart {
@@ -425,6 +463,9 @@ func (a *App) startApps(ctx context.Context, e *engine.Engine, f *runFlags, pick
 		out = io.MultiWriter(logFile, a.Stderr)
 	}
 	if ann != nil {
+		if cov != nil {
+			fmt.Fprintln(a.Stderr, "warning: the axx host starts the services, and does not measure their coverage")
+		}
 		req, err := a.hostRequest(cfg, f.cf, names)
 		if err != nil {
 			return nil, nil, err
@@ -477,6 +518,13 @@ func (a *App) startApps(ctx context.Context, e *engine.Engine, f *runFlags, pick
 	default:
 		opts.Debug = set(strings.Split(f.debug, ","))
 	}
+	if cov != nil {
+		if opts.Coverage, opts.CoverageEnv, err = cov.launch(ctx, e, names); err != nil {
+			_ = logFile.Close()
+			return nil, nil, err
+		}
+		opts.CoverageDir = cov.dir
+	}
 	mgr, err := lifecycle.New(cfg.Services, opts)
 	if err != nil {
 		_ = logFile.Close()
@@ -504,7 +552,7 @@ func (l logged) Stop(ctx context.Context) error {
 	return err
 }
 
-func (a *App) reporters(cfg *config.Config, f *runFlags) ([]runner.Reporter, *bytes.Buffer, bool, func(), error) {
+func (a *App) reporters(cfg *config.Config, f *runFlags, concluding bool) ([]runner.Reporter, *bytes.Buffer, bool, func(), error) {
 	specs := cfg.Run.Reporters
 	if len(f.formats) > 0 {
 		specs = nil
@@ -531,6 +579,7 @@ func (a *App) reporters(cfg *config.Config, f *runFlags) ([]runner.Reporter, *by
 		Version:      version.Get().Version,
 		BaseDir:      cfg.Dir,
 		RerunCommand: func(r *runner.ScenarioResult) string { return "axx run " + scenarioLocation(cfg, r) },
+		Concluding:   concluding,
 	}
 	var reps []runner.Reporter
 	var files []*os.File

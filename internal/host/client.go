@@ -109,6 +109,10 @@ func (ls *Lease) Run() int { return ls.run }
 // Told are the properties the services told the host, once they are ready.
 func (ls *Lease) Told() ([]lifecycle.ToldValues, error) { return ls.told, nil }
 
+// Exits are how the services the host started for the run ended: the host
+// does not say yet, so a run through it measures no service's coverage.
+func (ls *Lease) Exits() []lifecycle.Exit { return nil }
+
 // Started are the services the host started for the run, in start order.
 func (ls *Lease) Started() []string { return ls.started }
 

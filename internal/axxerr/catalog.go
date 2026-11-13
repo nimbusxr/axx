@@ -29,6 +29,7 @@ var Ranges = []struct{ From, To, Area string }{
 	{"AXX-E0700", "AXX-E0799", "Model stubs"},
 	{"AXX-E0800", "AXX-E0899", "Lint"},
 	{"AXX-E0900", "AXX-E0999", "Fixtures"},
+	{"AXX-E1000", "AXX-E1099", "Coverage"},
 }
 
 var catalog = map[string]Entry{}
@@ -411,4 +412,11 @@ func init() {
 	add("AXX-E0911", u, "Unknown fixture",
 		"A fixture reference (`<factory>#<fixture>`), by which a pack names a fixture it produces instances of, names no factory, a base name several factories share, or no fixture of the factory.",
 		"Name the factory by its path from the fixtures resource root without `.factory.yaml` (`orders/orders`), or by its file's base name (`orders`) when no other factory has it, and a fixture key it binds; the message lists the ones there are.")
+
+	add("AXX-E1000", u, "Coverage without its packs",
+		"A run with coverage (`axx run --coverage`, `run.coverage`) measures the services with a coverage section, with coverage-core and the pack of each service's runtime, and the project lists none of them. Also: a measured service could not be readied for its runtime as it started.",
+		"Add the pack of each service's runtime, which brings coverage-core: `axx pack add coverage-jvm` (or coverage-go, coverage-python, coverage-node).")
+	add("AXX-E1001", u, "Unknown coverage runtime",
+		"A service's `coverage.runtime` names a runtime that none of the project's coverage packs measures. The message lists those they do.",
+		"Add the pack of its runtime (`axx pack add coverage-<runtime>`), or name one of the runtimes listed; `report` is a service that writes lcov or Cobertura itself.")
 }

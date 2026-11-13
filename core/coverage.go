@@ -1,5 +1,7 @@
 package core
 
+import "context"
+
 // Coverage is what a run with coverage (axx run --coverage) measured of the
 // system under test, and how it compares with the minimums axx.yaml sets: the
 // outcome a coverage pack concludes once the services have stopped, which the
@@ -71,4 +73,77 @@ type CoverageUnmet struct {
 	Metric  string
 	Minimum float64
 	Actual  float64
+}
+
+// CoverageService is a service a run measures, as the runtime that measures
+// it sees it.
+type CoverageService struct {
+	// Name is the service's name in axx.yaml; Runtime, its coverage
+	// section's runtime.
+	Name    string
+	Runtime string
+	// Dir is the service's coverage folder on this machine, which
+	// AXX_COVERAGE_DIR names; Mount, the same folder inside its container
+	// (its coverage section's mount), "" for a service on this machine.
+	Dir   string
+	Mount string
+	// WorkDir is the service's working directory (its dir), where its
+	// sources are unless the runtime's settings say otherwise.
+	WorkDir string
+}
+
+// CoverageEnd is how a service the run measured, or was to measure, ended:
+// what its runtime needs to read what it wrote, and to say why it wrote
+// nothing.
+type CoverageEnd struct {
+	CoverageService
+	// Status describes how its main process ended ("exited with code 0");
+	// Killed is set when axx killed it after its grace, before it could
+	// write what it writes as it exits; OnItsOwn, when it exited before axx
+	// stopped it.
+	Status   string
+	Killed   bool
+	OnItsOwn bool
+	// Unmeasured says why a service the run was to measure was not: it ran
+	// in debug mode, say.
+	Unmeasured string
+}
+
+// CoverageRun is what a run with coverage hands the pack that concludes it,
+// once its services have stopped.
+type CoverageRun struct {
+	// Services are the services the run measured, or was to measure.
+	Services []CoverageEnd
+	// Partial says why the run is not a run of every scenario its
+	// configuration selects ("" when it is): the minimums apply to whole
+	// runs only.
+	Partial string
+	// Shard is the share of a run the run is ("2/3"), "" for a whole one;
+	// Selected identifies the scenarios the run's configuration selects,
+	// before sharding, so the shards of one run can be told from another's.
+	Shard    string
+	Selected string
+}
+
+// CoverageLauncher is implemented by the pack that measures the services'
+// coverage (coverage-core): it knows the runtimes the project's coverage
+// packs measure, and readies a measured service as it starts. The axx host
+// calls it too, for the services it starts, so it has no Suite: settings
+// decodes a pack's settings from axx.yaml (Suite.PackConfig).
+type CoverageLauncher interface {
+	// CoverageRuntimes are the runtimes a service's coverage section can
+	// name.
+	CoverageRuntimes() []string
+	// LaunchCoverage readies s's coverage folder (an agent, a preload) and
+	// returns the variables s gets, NAME=value.
+	LaunchCoverage(ctx context.Context, settings func(pack string, v any) error, s CoverageService) ([]string, error)
+}
+
+// Concluder is implemented by the pack that concludes a run's coverage
+// (coverage-core): once the services have stopped, and before the run's
+// result is written, it reads what the services wrote, adds what packs
+// measured during the run (web-coverage), writes the run's reports, and
+// compares them with the minimums axx.yaml sets.
+type Concluder interface {
+	Conclude(ctx context.Context, s *Suite, run CoverageRun) (*Coverage, error)
 }
