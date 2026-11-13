@@ -14,7 +14,9 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/nimbusxr/axx/packs/web/coverage/internal/v8cov"
+	"github.com/nimbusxr/axx/packs/internal/v8cov"
+
+	"github.com/nimbusxr/axx/packs/coverage/core/istanbul"
 )
 
 // The reports, at the end of the run.
@@ -65,15 +67,15 @@ func (r *run) report(context.Context) error {
 	}
 	lcov := filepath.Join(r.cfg.folder, lcovFile)
 	for name, b := range map[string][]byte{
-		lcovFile:    v8cov.Lcov(files),
-		finalFile:   v8cov.FinalJSON(files),
-		summaryFile: v8cov.SummaryJSON(files),
+		lcovFile:    istanbul.Lcov(files),
+		finalFile:   istanbul.FinalJSON(files),
+		summaryFile: istanbul.SummaryJSON(files),
 	} {
 		if err := os.WriteFile(filepath.Join(r.cfg.folder, name), b, 0o644); err != nil {
 			return fmt.Errorf("cannot write the JavaScript coverage: %w", err)
 		}
 	}
-	t := v8cov.Total(files)
+	t := istanbul.Total(files)
 	log.Warn(fmt.Sprintf("the web apps' JavaScript coverage: lines %s, statements %s, functions %s, branches %s, in %s",
 		pct(t.Lines), pct(t.Statements), pct(t.Functions), pct(t.Branches), r.relative(lcov)))
 	if abs, err := filepath.Abs(lcov); err == nil {
@@ -83,7 +85,7 @@ func (r *run) report(context.Context) error {
 	return nil
 }
 
-func pct(t v8cov.Totals) string {
+func pct(t istanbul.Totals) string {
 	if t.Pct == nil {
 		return "-"
 	}
@@ -111,7 +113,7 @@ func (st *settings) prefixes() string {
 // count, in the order of the reports; problems are the scripts whose source
 // map or original files could not be read, lost those whose source could
 // not be.
-func (r *run) files() (list []*v8cov.FileCoverage, problems, lost []string) {
+func (r *run) files() (list []*istanbul.FileCoverage, problems, lost []string) {
 	r.mu.Lock()
 	keys := slices.SortedFunc(maps.Keys(r.scripts), func(a, b scriptKey) int {
 		return cmp.Or(strings.Compare(a.url, b.url), strings.Compare(a.hash, b.hash))
@@ -133,7 +135,7 @@ func (r *run) files() (list []*v8cov.FileCoverage, problems, lost []string) {
 		jobs = append(jobs, j)
 	}
 	r.mu.Unlock()
-	files := map[string]*v8cov.FileCoverage{}
+	files := map[string]*istanbul.FileCoverage{}
 	for _, j := range jobs {
 		if !j.hasSource {
 			lost = append(lost, j.key.url)
@@ -168,7 +170,7 @@ func (r *run) files() (list []*v8cov.FileCoverage, problems, lost []string) {
 
 // convert converts a script's merged takes to the coverage of its files, by
 // their URL path: the script's own, or its source map's original files.
-func (r *run) convert(scriptURL string, src source, functions []v8cov.Function) (files []*v8cov.FileCoverage, problem string) {
+func (r *run) convert(scriptURL string, src source, functions []v8cov.Function) (files []*istanbul.FileCoverage, problem string) {
 	defer func() {
 		if e := recover(); e != nil {
 			files, problem = nil, fmt.Sprintf("the coverage of %s could not be worked out (%v): it is left out", scriptURL, e)

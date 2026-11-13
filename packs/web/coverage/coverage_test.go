@@ -14,7 +14,7 @@ import (
 	"testing"
 
 	"github.com/nimbusxr/axx/core"
-	"github.com/nimbusxr/axx/packs/web/coverage/internal/v8cov"
+	"github.com/nimbusxr/axx/packs/internal/v8cov"
 )
 
 func TestTheManifestIsSettingsAndStepHooks(t *testing.T) {

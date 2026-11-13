@@ -1,4 +1,4 @@
-package v8cov
+package istanbul
 
 import (
 	"fmt"

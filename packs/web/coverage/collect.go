@@ -15,8 +15,8 @@ import (
 	"github.com/mxschmitt/playwright-go"
 
 	"github.com/nimbusxr/axx/core"
+	"github.com/nimbusxr/axx/packs/internal/v8cov"
 	webcore "github.com/nimbusxr/axx/packs/web/core"
-	"github.com/nimbusxr/axx/packs/web/coverage/internal/v8cov"
 )
 
 // Collecting V8's coverage over the Chrome DevTools Protocol, one session a

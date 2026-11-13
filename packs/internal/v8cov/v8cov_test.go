@@ -14,6 +14,8 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/nimbusxr/axx/packs/coverage/core/istanbul"
 )
 
 // The cases of testdata: V8's takes of scripts (takes.json, recorded from
@@ -67,7 +69,7 @@ func TestNodeToolsAgree(t *testing.T) {
 			if len(merged.Result) != len(byPath) {
 				t.Fatalf("%d scripts merged, want %d", len(byPath), len(merged.Result))
 			}
-			files := map[string]*FileCoverage{}
+			files := map[string]*istanbul.FileCoverage{}
 			// In the order of the merged scripts: by URL.
 			for _, want := range merged.Result {
 				takes, ok := byPath[want.URL]
@@ -104,13 +106,13 @@ func TestNodeToolsAgree(t *testing.T) {
 					}
 				}
 			}
-			var list []*FileCoverage
+			var list []*istanbul.FileCoverage
 			for _, p := range slices.Sorted(maps.Keys(files)) {
 				list = append(list, files[p])
 			}
-			same(t, filepath.Join(dir, "lcov.info"), Lcov(list))
-			same(t, filepath.Join(dir, "coverage-final.json"), FinalJSON(list))
-			same(t, filepath.Join(dir, "coverage-summary.json"), SummaryJSON(list))
+			same(t, filepath.Join(dir, "lcov.info"), istanbul.Lcov(list))
+			same(t, filepath.Join(dir, "coverage-final.json"), istanbul.FinalJSON(list))
+			same(t, filepath.Join(dir, "coverage-summary.json"), istanbul.SummaryJSON(list))
 		})
 	}
 }
