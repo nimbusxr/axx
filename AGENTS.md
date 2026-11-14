@@ -236,6 +236,11 @@ the skills instead: `axx skills install`.
   loopback port (`axx run`, `axx up`'s supervisor, the MCP session's `steps_try`); it starts only a definition
   the person approved (`Define`: axx.yaml's services, what their compose projects resolve to, the files their
   commands run), asking in its terminal or the editor that started it (`--ide`), never over the port.
+  A command tells that `axx up`'s supervisor runs by the lock it holds (`lifecycle.UpLock`, `filelock.Held`),
+  never by signalling its process: a sandbox refuses the signal (macOS) or hides the process (Linux). Keep
+  it so for anything one command must tell of another across a sandbox.
+  Runs take turns with a project's services always: the host gives a run its turn, and where a run does
+  not ask it (services `axx up` keeps, or no host) the run holds `.axx/run/turn.lock` (`takeTurn`).
   A pack can have a side in the host (`core.HostServer`, ADR 0018): its side in a run opens a connection
   with `Suite.HostDial`, which the host hands to the pack once the run gave the host's token, and the two
   speak the pack's own protocol (web-core: a browser). What a pack's host side does for a run must give the

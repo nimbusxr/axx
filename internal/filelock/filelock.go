@@ -2,12 +2,15 @@
 
 // Package filelock holds an exclusive lock on a file across processes. The
 // lock goes with the process that holds it, so a killed process never leaves
-// it held.
+// it held. Whether a process holds one is a question of the file alone
+// (Held): it has an answer where a process may not signal the holder, or
+// cannot see it, as in a sandbox.
 package filelock
 
 import (
 	"context"
 	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"time"
@@ -76,4 +79,26 @@ func Lock(ctx context.Context, path string, waiting func()) (func(), error) {
 		case <-tick.C:
 		}
 	}
+}
+
+// Held reports whether a process holds the lock on path now: a file that is
+// not there is not locked. It creates nothing, needs only to read the file,
+// and takes nothing another Held waits for.
+func Held(path string) (bool, error) {
+	f, err := os.Open(path)
+	if errors.Is(err, fs.ErrNotExist) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	defer f.Close()
+	if err := tryShared(f); err != nil {
+		if errors.Is(err, errBusy) {
+			return true, nil
+		}
+		return false, err
+	}
+	_ = unlockFile(f)
+	return false, nil
 }

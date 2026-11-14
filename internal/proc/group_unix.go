@@ -81,9 +81,17 @@ func (g *Group) KillAndWait(timeout time.Duration) error {
 // release frees OS resources held for the group.
 func (g *Group) Release() {}
 
-// ProcessAlive reports whether a process with this pid runs.
+// ProcessAlive reports whether a process with this pid runs. One this
+// process may not signal (another user's, or one outside the sandbox this
+// runs in) runs all the same: only a process that is not there is gone.
 func ProcessAlive(pid int) bool {
-	return pid > 0 && syscall.Kill(pid, 0) == nil && !isZombie(pid)
+	if pid <= 0 {
+		return false
+	}
+	if err := syscall.Kill(pid, 0); err != nil && !errors.Is(err, syscall.EPERM) {
+		return false
+	}
+	return !isZombie(pid)
 }
 
 func ignoreGone(err error) error {

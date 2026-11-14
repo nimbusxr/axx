@@ -21,7 +21,11 @@ func TestLockWaitsForAnotherProcess(t *testing.T) {
 			os.Exit(2)
 		}
 		_ = os.WriteFile(path+".held", nil, 0o644)
-		time.Sleep(700 * time.Millisecond)
+		hold := 700 * time.Millisecond
+		if d, err := time.ParseDuration(os.Getenv("FILELOCK_HOLD_FOR")); err == nil {
+			hold = d
+		}
+		time.Sleep(hold)
 		unlock()
 		os.Exit(0)
 	}
@@ -103,4 +107,59 @@ func TestTryLockSaysWhenItIsHeld(t *testing.T) {
 		t.Fatalf("TryLock after unlock: %v %v", ok, err)
 	}
 	again()
+}
+
+// Held tells a lock by its file: held by this process or another, whichever
+// it is, and by none once its holder has gone, however it went.
+func TestHeldSaysWhetherAProcessHoldsTheLock(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "run", "up.lock")
+	if held, err := Held(path); err != nil || held {
+		t.Fatalf("a file that is not there: %v %v", held, err)
+	}
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Fatalf("Held made the file: %v", err)
+	}
+	unlock, ok, err := TryLock(path)
+	if err != nil || !ok {
+		t.Fatalf("TryLock: %v %v", ok, err)
+	}
+	for range 2 { // one look leaves nothing the next one meets
+		if held, err := Held(path); err != nil || !held {
+			t.Fatalf("while held: %v %v", held, err)
+		}
+	}
+	unlock()
+	if held, err := Held(path); err != nil || held {
+		t.Fatalf("after unlock: %v %v", held, err)
+	}
+	// Looking at it took nothing: the next one locks it.
+	again, ok, err := TryLock(path)
+	if err != nil || !ok {
+		t.Fatalf("TryLock after Held: %v %v", ok, err)
+	}
+	again()
+
+	// Another process's, which is killed while it holds it.
+	holder := exec.Command(os.Args[0], "-test.run=^TestLockWaitsForAnotherProcess$")
+	holder.Env = append(os.Environ(), "FILELOCK_HOLD="+path, "FILELOCK_HOLD_FOR=1m")
+	if err := holder.Start(); err != nil {
+		t.Fatal(err)
+	}
+	for deadline := time.Now().Add(10 * time.Second); ; time.Sleep(20 * time.Millisecond) {
+		if _, err := os.Stat(path + ".held"); err == nil {
+			break
+		}
+		if time.Now().After(deadline) {
+			_ = holder.Process.Kill()
+			t.Fatal("the holder never took the lock")
+		}
+	}
+	if held, err := Held(path); err != nil || !held {
+		t.Errorf("while another process holds it: %v %v", held, err)
+	}
+	_ = holder.Process.Kill()
+	_ = holder.Wait()
+	if held, err := Held(path); err != nil || held {
+		t.Errorf("after its holder was killed: %v %v", held, err)
+	}
 }

@@ -23,6 +23,7 @@ import (
 	"github.com/nimbusxr/axx/internal/engine"
 	"github.com/nimbusxr/axx/internal/exitcode"
 	"github.com/nimbusxr/axx/internal/feature"
+	"github.com/nimbusxr/axx/internal/filelock"
 	"github.com/nimbusxr/axx/internal/host"
 	"github.com/nimbusxr/axx/internal/lifecycle"
 	"github.com/nimbusxr/axx/internal/lint"
@@ -500,7 +501,7 @@ func (a *App) startApps(ctx context.Context, e *engine.Engine, f *runFlags, pick
 		lease, err := a.openHost(ctx, ann, req, out, a.Stderr)
 		if err == nil {
 			fmt.Fprintf(a.Stderr, "axx: the axx host started %s (logs: %s)\n", strings.Join(lease.Started(), ", "), relPath(logFile.Name()))
-			return logged{lease, logFile}, lease, nil
+			return logged{lease, logFile, nil}, lease, nil
 		}
 		msg, ok := notListening(err)
 		if !ok {
@@ -508,6 +509,19 @@ func (a *App) startApps(ctx context.Context, e *engine.Engine, f *runFlags, pick
 			return nil, nil, err
 		}
 		fmt.Fprintf(a.Stderr, "warning: %s; starting the services here\n", msg)
+	}
+	// Here the run has the services to itself by the project's lock, as it has
+	// them from the host by its turn there: the ones `axx up` keeps too, which
+	// stay with their supervisor between the runs.
+	endTurn, err := takeTurn(ctx, cfg, a.Stderr)
+	if err != nil {
+		_ = logFile.Close()
+		return nil, nil, err
+	}
+	fail := func(err error) (services, *host.Lease, error) {
+		endTurn()
+		_ = logFile.Close()
+		return nil, nil, err
 	}
 	attach := set(f.attach)
 	if st, ok := liveUp(cfg); ok {
@@ -517,8 +531,7 @@ func (a *App) startApps(ctx context.Context, e *engine.Engine, f *runFlags, pick
 		}
 		if cov != nil {
 			if cov.kept, err = cov.keepCoverage(ctx, e, st); err != nil {
-				_ = logFile.Close()
-				return nil, nil, err
+				return fail(err)
 			}
 		}
 		fmt.Fprintf(a.Stderr, "axx: reusing services started by `axx up`: %s\n", strings.Join(st.Services, ", "))
@@ -551,35 +564,60 @@ func (a *App) startApps(ctx context.Context, e *engine.Engine, f *runFlags, pick
 			}
 		}
 		if opts.Coverage, opts.CoverageEnv, err = cov.launch(ctx, e, started); err != nil {
-			_ = logFile.Close()
-			return nil, nil, err
+			return fail(err)
 		}
 		opts.CoverageDir = cov.dir
 	}
 	mgr, err := lifecycle.New(cfg.Services, opts)
 	if err != nil {
-		_ = logFile.Close()
-		return nil, nil, err
+		return fail(err)
 	}
 	if len(names) > len(attach) {
 		fmt.Fprintf(a.Stderr, "axx: starting %s (logs: %s)\n", strings.Join(names, ", "), relPath(logFile.Name()))
 	}
 	if err := mgr.Start(ctx, names); err != nil {
-		return logged{mgr, logFile}, nil, err
+		return logged{mgr, logFile, endTurn}, nil, err
 	}
-	return logged{mgr, logFile}, nil, nil
+	return logged{mgr, logFile, endTurn}, nil, nil
+}
+
+// turnLock is the lock a run holds while it has the project's services, when
+// no axx host gives it its turn.
+func turnLock(cfg *config.Config) string { return filepath.Join(runDir(cfg), "turn.lock") }
+
+// takeTurn waits until no other run of the project has its services, and
+// returns what ends this run's turn with them. Runs take turns always: two
+// at once would share the services' data, and start or stop them under each
+// other. The lock goes with the run's process, so a run that was killed
+// keeps no turn.
+func takeTurn(ctx context.Context, cfg *config.Config, status io.Writer) (func(), error) {
+	end, err := filelock.Lock(ctx, turnLock(cfg), func() {
+		fmt.Fprintln(status, "axx: waiting for another run of this project to finish with the services")
+	})
+	if err != nil {
+		if ctx.Err() != nil {
+			return nil, axxerr.Wrap(err, lifecycle.CodeInterrupted, exitcode.Interrupted, "the run stopped waiting for its turn with the services")
+		}
+		return nil, axxerr.Wrap(err, lifecycle.CodeStateFile, exitcode.Environment, "the run cannot take its turn with the services: %s cannot be locked", relPath(turnLock(cfg)))
+	}
+	return end, nil
 }
 
 // logged is services whose output goes to log, which is closed once they
-// are stopped.
+// are stopped; then the run's turn with them ends (endTurn, when it took
+// one here).
 type logged struct {
 	services
-	log *os.File
+	log     *os.File
+	endTurn func()
 }
 
 func (l logged) Stop(ctx context.Context) error {
 	err := l.services.Stop(ctx)
 	_ = l.log.Close()
+	if l.endTurn != nil {
+		l.endTurn()
+	}
 	return err
 }
 
