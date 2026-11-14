@@ -226,9 +226,12 @@ func (s source) with(node any) source {
 
 // document is one fixture being walked.
 type document struct {
-	spec  *Spec
-	key   string
-	refs  bool // whether $refs resolve in it (dataset rows keep them)
+	spec *Spec
+	key  string
+	refs bool // whether $refs resolve in it
+	// row says the walk starts at a dataset's row, which can itself be a
+	// $ref (a document's root cannot).
+	row   bool
 	names func(string) []string
 	hops  int
 }
@@ -364,7 +367,7 @@ func prototypes(spec *Spec, dir string) []source {
 func (e *explainer) walk(d *document, sources []source, steps []step, i int, ref *pendingRef) (found, error) {
 	top := sources[0]
 	_, topObject := object(top.node)
-	if topObject && d.refs && i > 0 {
+	if topObject && d.refs && (i > 0 || d.row) {
 		for _, s := range sources {
 			o, _ := object(s.node)
 			if has(o, refKeyword) {
@@ -454,7 +457,11 @@ func (e *explainer) follow(d *document, ref *pendingRef, steps []step) (found, e
 		if same.hops > maxHops {
 			return found{}, genError("more than %d $refs lead to %s of fixtures.%s (%s)", maxHops, renderSteps(steps), d.key, d.spec.SourceName)
 		}
-		r, err = e.walk(&same, e.sources(d.spec, d.key), target, 0, nil)
+		if d.spec.Family == "dataset" {
+			r, err = e.row(d.spec, d.key, target, same.hops)
+		} else {
+			r, err = e.walk(&same, e.sources(d.spec, d.key), target, 0, nil)
+		}
 	} else {
 		fx := d.spec.Fixtures.Get(d.key)
 		var spec *Spec
@@ -584,8 +591,25 @@ func (e *explainer) row(spec *Spec, key string, steps []step, hops int) (found, 
 			sources = append(sources, p)
 		}
 	}
-	d := &document{spec: spec, key: key, names: exactName, hops: hops}
-	r, err := e.walk(d, sources, steps[2:], 0, nil)
+	if hops > maxHops {
+		return found{}, genError("more than %d $refs lead to %s of fixtures.%s (%s)", maxHops, renderSteps(steps), key, spec.SourceName)
+	}
+	d := &document{spec: spec, key: key, refs: true, row: true, names: exactName, hops: hops}
+	var r found
+	var err error
+	if o, _ := object(rows[n]); has(o, refKeyword) {
+		// A row a $ref brings: its own columns, then the row it names. One
+		// of another document lies over the row templates; one of this
+		// fixture has its templates already.
+		r, err = e.walk(d, sources[:1], steps[2:], 0, nil)
+		if path, _ := splitRef(valueOf(get(o, refKeyword))); err == nil && !r.ok && path != "" && len(sources) > 1 {
+			plain := *d
+			plain.row = false
+			r, err = e.walk(&plain, sources[1:], steps[2:], 0, nil)
+		}
+	} else {
+		r, err = e.walk(d, sources, steps[2:], 0, nil)
+	}
 	if err != nil {
 		return found{}, err
 	}
