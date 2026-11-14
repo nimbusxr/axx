@@ -44,7 +44,7 @@ func (f jsonFamily) Expand(spec *Spec, baseDir string, ctx *ExpansionContext) (m
 		if err != nil {
 			return nil, err
 		}
-		node, err := g.resolve(tree, spec.Defaults, key, spec.SourceName, &unresolved)
+		node, err := g.resolve(tree, spec.Defaults, ctx.removed, key, spec.SourceName, &unresolved)
 		if err != nil {
 			return nil, err
 		}
@@ -87,7 +87,7 @@ func referencedGoverned(spec *Spec, baseDir, key string, ctx *ExpansionContext) 
 		return nil, err
 	}
 	var unresolved []string
-	return g.resolve(tree, spec.Defaults, key, spec.SourceName, &unresolved)
+	return g.resolve(tree, spec.Defaults, ctx.removed, key, spec.SourceName, &unresolved)
 }
 
 func (jsonFamily) Validate(data []byte, baseDir, schemaRef, fixtureName string) error {
@@ -147,7 +147,7 @@ func (f yamlFamily) Expand(spec *Spec, baseDir string, ctx *ExpansionContext) (m
 		if err != nil {
 			return nil, err
 		}
-		node, err := g.resolve(tree, spec.Defaults, key, spec.SourceName, &unresolved)
+		node, err := g.resolve(tree, spec.Defaults, ctx.removed, key, spec.SourceName, &unresolved)
 		if err != nil {
 			return nil, err
 		}

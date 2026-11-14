@@ -23,6 +23,10 @@ type Options struct {
 	QuoteNumericStrings bool
 	// DocumentStart is WRITE_DOC_START_MARKER (Jackson's default is on).
 	DocumentStart bool
+	// Quoted names the strings that stay quoted with MinimizeQuotes too:
+	// those a reader of the file gives another meaning when they are
+	// written plain (UnmarshalPlain).
+	Quoted func(text string) bool
 }
 
 // Marshal writes v as Jackson's ObjectMapper(new YAMLFactory()) configured
@@ -117,7 +121,7 @@ func (g *generator) writeString(text string) {
 		switch {
 		case strings.ContainsRune(text, '\n'):
 			style = styleLiteral
-		case !needToQuoteValue(text) && (!g.opts.QuoteNumericStrings || !plainNumber.MatchString(text)):
+		case !needToQuoteValue(text) && (!g.opts.QuoteNumericStrings || !plainNumber.MatchString(text)) && (g.opts.Quoted == nil || !g.opts.Quoted(text)):
 			style = stylePlain
 		}
 	}

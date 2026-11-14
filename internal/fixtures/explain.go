@@ -115,6 +115,9 @@ func (g *Generator) Explain(file, path string) (ex *Explanation, err error) {
 	shown := renderSteps(steps)
 	value, ok := lookup(generated, steps, namesOf(spec))
 	if !ok {
+		if r, rerr := e.explain(spec, key, steps, generated, false, 0); rerr == nil && r.left != nil {
+			return nil, explainError("%s has no value at %s: the %s leaves it out (%s at %s in %s)", rel, shown, r.left.Kind, undefinedWord, r.left.At, r.left.File)
+		}
 		fields := ""
 		if o, isObject := object(generated); isObject {
 			fields = " (its fields: " + strings.Join(o.Keys(), ", ") + ")"
@@ -210,6 +213,9 @@ type found struct {
 	ok      bool
 	origins []Origin
 	miss    int
+	// left is where a source leaves the value out (undefined): no layer
+	// under it, $ref or defaults: entry sets it then.
+	left *Origin
 }
 
 // source is one layer's value at the walked prefix: kind and file say which
@@ -272,7 +278,7 @@ func (e *explainer) generated(spec *Spec, key string, data []byte, out string) (
 		return nil, err
 	}
 	if spec.Family == "xml" {
-		applyDottedDefaults(spec.Defaults, tree)
+		applyDottedDefaults(spec.Defaults, tree, e.ctx.removed)
 	}
 	return tree, nil
 }
@@ -304,8 +310,10 @@ func (e *explainer) explain(spec *Spec, key string, steps []step, generated any,
 	if r.ok || r.miss < 0 || !fill {
 		return r, nil
 	}
-	if o, ok := e.defaults(d, steps, r.miss); ok {
-		return found{ok: true, origins: []Origin{o}}, nil
+	if r.left == nil { // defaults: fills nothing a fixture leaves out
+		if o, ok := e.defaults(d, steps, r.miss); ok {
+			return found{ok: true, origins: []Origin{o}}, nil
+		}
 	}
 	if _, ok := lookup(generated, steps, d.names); ok && generated != nil {
 		return found{ok: true, origins: []Origin{{Kind: OriginSchema, File: spec.SchemaRef(), Detail: "the schema's default"}}}, nil
@@ -402,6 +410,10 @@ func (e *explainer) walk(d *document, sources []source, steps []step, i int, ref
 				continue
 			}
 			v := get(o, name)
+			if isUndefined(v) && next == nil {
+				left := Origin{Kind: src.kind, File: src.file, At: joinAt(src.base, append(steps[:i:i], keyStep(name))), Detail: undefinedWord}
+				return found{miss: i, left: &left}, nil
+			}
 			_, isObject := object(v)
 			if next != nil && !isObject {
 				break

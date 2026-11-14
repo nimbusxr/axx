@@ -42,8 +42,29 @@ func Unmarshal(data []byte) (any, error) {
 	return nil, nil
 }
 
+// UnmarshalPlain reads data as Unmarshal does, but for the plain scalars
+// (those written without quotes, a tag or a block) plain gives a value of
+// its own: the words a file's reader gives a meaning that YAML does not
+// have. The same word in quotes is the string.
+func UnmarshalPlain(data []byte, plain func(text string) (value any, ok bool)) (any, error) {
+	f, err := parser.ParseBytes(data, 0, parser.AllowDuplicateMapKey())
+	if err != nil {
+		return nil, err
+	}
+	for _, doc := range f.Docs {
+		if doc == nil || doc.Body == nil {
+			continue
+		}
+		d := &decoder{anchors: map[string]any{}, plain: plain}
+		return d.node(doc.Body)
+	}
+	return nil, nil
+}
+
 type decoder struct {
 	anchors map[string]any
+	// plain gives the plain scalars it has a value of its own for.
+	plain func(text string) (any, bool)
 }
 
 // Error is a YAML value that Jackson rejects while building its tree.
@@ -130,6 +151,11 @@ func (d *decoder) node(n ast.Node) (any, error) {
 	}
 	if tk.Type == token.SingleQuoteType || tk.Type == token.DoubleQuoteType {
 		return scalarValue(n), nil
+	}
+	if d.plain != nil {
+		if v, ok := d.plain(scalarValue(n)); ok {
+			return v, nil
+		}
 	}
 	return resolvePlain(scalarValue(n), tk)
 }

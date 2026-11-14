@@ -346,3 +346,26 @@ metadata:
 		t.Errorf("metadata:\n%s\nwant:\n%s", got, want)
 	}
 }
+
+// An instance has nothing of what its fixture leaves out (undefined): not
+// the prototype's value, nor the factory's metadata.
+func TestAnInstanceLeavesOutWhatItsFixtureDoes(t *testing.T) {
+	lib := library(t, map[string]string{"orders/bare.fixture.yaml": `factory: orders
+data:
+  currency: undefined
+  label: "undefined"
+  customer:
+    tier: undefined
+    name: Grace
+metadata:
+  topic: undefined
+`})
+	x := instance(t, lib, fixture(t, lib, "orders#bare"), fixtures.Input{Scope: scope("1")})
+	want := `{"status":"CREATED","customer":{"name":"Grace"},"label":"undefined","orderId":"ORD-1|orderId","trackingId":"` + x.Identities["trackingId"] + `"}`
+	if got := string(x.Data.CompactJSON()); got != want {
+		t.Errorf("data:\n%s\nwant:\n%s", got, want)
+	}
+	if got := string(x.Metadata.CompactJSON()); got != `{}` {
+		t.Errorf("metadata: %s", got)
+	}
+}

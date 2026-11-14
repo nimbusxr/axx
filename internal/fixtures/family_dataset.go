@@ -257,7 +257,7 @@ func (datasetFamily) applyIdentities(spec *Spec, ctx *ExpansionContext, key, tab
 			continue
 		}
 		column := id.Path[dot+1:]
-		present := get(row, column)
+		present := defined(get(row, column))
 		if o, ok := present.(*jsonx.Object); ok && early && has(o, refKeyword) {
 			continue
 		}
@@ -290,7 +290,13 @@ func resolveRow(spec *Spec, columns *ddlTable, table string, merged *jsonx.Objec
 		present := remaining.Has(name)
 		value := get(remaining, name)
 		remaining.Delete(name)
-		if !present {
+		// A column the row leaves out (undefined) is not in it: no default
+		// of the factory fills it, and the database's does.
+		leftOut := isUndefined(value)
+		if leftOut {
+			present = false
+		}
+		if !present && !leftOut {
 			dotted := table + "." + name
 			switch {
 			case spec.Defaults.Has(dotted):
@@ -316,8 +322,13 @@ func resolveRow(spec *Spec, columns *ddlTable, table string, merged *jsonx.Objec
 
 func resolveRowSchemaFree(spec *Spec, table string, merged *jsonx.Object, key string) (*jsonx.Object, error) {
 	row := jsonx.NewObject()
+	leftOut := map[string]bool{}
 	for _, col := range merged.Keys() {
 		v := get(merged, col)
+		if isUndefined(v) {
+			leftOut[col] = true
+			continue
+		}
 		if err := scalarOnly(spec, col, v, key); err != nil {
 			return nil, err
 		}
@@ -327,7 +338,7 @@ func resolveRowSchemaFree(spec *Spec, table string, merged *jsonx.Object, key st
 	for _, k := range spec.Defaults.Keys() {
 		switch {
 		case strings.HasPrefix(k, prefix):
-			if c := k[len(prefix):]; !row.Has(c) || get(row, c) == nil {
+			if c := k[len(prefix):]; !leftOut[c] && (!row.Has(c) || get(row, c) == nil) {
 				row.Set(c, get(spec.Defaults, k))
 			}
 		case !strings.Contains(k, "."):

@@ -19,7 +19,9 @@ import (
 // jsonGoverning is what the json and yaml families need from a governing
 // schema; the schema reference form picks the backend.
 type jsonGoverning interface {
-	resolve(tree, defaults *jsonx.Object, key, source string, unresolved *[]string) (*jsonx.Object, error)
+	// resolve is the fixture's values as the schema has them: removed are
+	// the fields fixtures leave out, which nothing fills.
+	resolve(tree, defaults *jsonx.Object, removed removals, key, source string, unresolved *[]string) (*jsonx.Object, error)
 	validate(data []byte, fixtureName string) error
 	shape() (*FieldShape, error)
 	authoringTree(node any, where string) (*jsonx.Object, error)
@@ -187,7 +189,7 @@ func (d *jsonSchemaDoc) schemaFile(schemaURL string) string {
 	return d.files.fileOf(schemaURL, d.defs)
 }
 
-func (d *jsonSchemaDoc) resolve(tree, defaults *jsonx.Object, key, source string, unresolved *[]string) (*jsonx.Object, error) {
+func (d *jsonSchemaDoc) resolve(tree, defaults *jsonx.Object, removed removals, key, source string, unresolved *[]string) (*jsonx.Object, error) {
 	root, err := d.effective(d.document)
 	if err != nil {
 		return nil, err
@@ -195,12 +197,14 @@ func (d *jsonSchemaDoc) resolve(tree, defaults *jsonx.Object, key, source string
 	if !root.Has("properties") {
 		return nil, schemaError("%s must describe an object with properties to govern fixtures", d.name)
 	}
-	w := &jsonWalk{defaults: defaults, key: key, source: source, unresolved: unresolved}
+	w := &jsonWalk{defaults: defaults, removed: removed, key: key, source: source, unresolved: unresolved}
 	return d.object(root, tree, "", w)
 }
 
 type jsonWalk struct {
-	defaults   *jsonx.Object
+	defaults *jsonx.Object
+	// removed are the fields the fixture leaves out: no default fills them.
+	removed    removals
 	key        string
 	source     string
 	unresolved *[]string
@@ -342,12 +346,13 @@ func (d *jsonSchemaDoc) object(schema, values *jsonx.Object, path string, w *jso
 		present := remaining.Has(name)
 		value := get(remaining, name)
 		remaining.Delete(name)
-		if !present {
+		leftOut := w.removed.has(values, name)
+		if !present && !leftOut {
 			if fb := defaultsLookup(w.defaults, fieldPath, name); fb != nil {
 				value, present = fb, true
 			}
 		}
-		if !present && property.Has("default") {
+		if !present && !leftOut && property.Has("default") {
 			node.Set(name, copyValue(get(property, "default")))
 			continue
 		}

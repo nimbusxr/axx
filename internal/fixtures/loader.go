@@ -159,17 +159,74 @@ func readYAMLFile(path, rel string) (any, error) {
 	if err != nil {
 		return nil, ioError(err, "cannot read %s", rel)
 	}
-	v, err := jyaml.Unmarshal(data)
+	v, err := jyaml.UnmarshalPlain(data, plainWord)
 	if err != nil {
 		return nil, specError("cannot parse %s: %v", rel, err)
 	}
 	return v, nil
 }
 
+// placedUndefined checks where a spec file says undefined: as a mapping's
+// value under one of the keys that hold fixtures' values (leaves), which is
+// where it leaves a value out.
+func placedUndefined(rel string, root any, leaves []string) error {
+	doc, ok := root.(*jsonx.Object)
+	if !ok {
+		return nil // not a spec: its reader says so
+	}
+	for _, k := range doc.Keys() {
+		v := get(doc, k)
+		held := containsString(leaves, k)
+		if _, isMap := v.(*jsonx.Object); !isMap {
+			held = false
+		}
+		if at, ok := misplacedUndefined(v, k, held); ok {
+			return specError("cannot parse %s: %s is %s, which leaves out a value a prototype sets: it stands for a field's value in a fixture's or a prototype's data or metadata, never for a list's element or a setting (the string is \"%s\", in quotes)",
+				rel, at, undefinedWord, undefinedWord)
+		}
+	}
+	return nil
+}
+
+// misplacedUndefined finds an undefined where none can stand: anywhere when
+// not held, and as a list's element.
+func misplacedUndefined(v any, at string, held bool) (string, bool) {
+	switch x := v.(type) {
+	case undefinedValue:
+		return at, !held
+	case *jsonx.Object:
+		for _, k := range x.Keys() {
+			e := get(x, k)
+			if isUndefined(e) {
+				if !held {
+					return at + "." + k, true
+				}
+				continue
+			}
+			if where, bad := misplacedUndefined(e, at+"."+k, held); bad {
+				return where, true
+			}
+		}
+	case []any:
+		for i, e := range x {
+			if isUndefined(e) {
+				return at + "[" + itoa(i) + "]", true
+			}
+			if where, bad := misplacedUndefined(e, at+"["+itoa(i)+"]", held); bad {
+				return where, true
+			}
+		}
+	}
+	return "", false
+}
+
 func loadFactory(base, file string, defaultIgnored bool) (*Spec, error) {
 	rel := relPath(base, file)
 	root, err := readYAMLFile(file, rel)
 	if err != nil {
+		return nil, err
+	}
+	if err := placedUndefined(rel, root, []string{"prototype", "metadata", "fixtures"}); err != nil {
 		return nil, err
 	}
 	spec, err := parseFactory(root, rel)
@@ -373,6 +430,9 @@ func readEnvelope(path, rel string, fixture bool) (*envelope, error) {
 	env := &envelope{}
 	if root == nil {
 		return env, nil
+	}
+	if err := placedUndefined(rel, root, []string{"data", "metadata"}); err != nil {
+		return nil, err
 	}
 	known := []string{"data", "metadata"}
 	hint := " (a prototype file's top-level keys are data: and metadata:)"
