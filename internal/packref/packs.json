@@ -1130,7 +1130,8 @@
           "examples": [
             "Then within 10s the mocked POST request to /webhooks/linden-and-lace named delivered was received by shops"
           ],
-          "arg": "none"
+          "arg": "none",
+          "since": "0.6.9"
         },
         {
           "id": "mock.received.path.within",
@@ -1140,7 +1141,8 @@
           "examples": [
             "Then within 10s the mocked POST request to path /webhooks/linden-and-lace named delivered was received by shops"
           ],
-          "arg": "none"
+          "arg": "none",
+          "since": "0.6.9"
         },
         {
           "id": "mock.openapi.levels",
@@ -1197,7 +1199,8 @@
           "examples": [
             "Then within 10s the mocked request named delivered on shops was received exactly 1 time"
           ],
-          "arg": "none"
+          "arg": "none",
+          "since": "0.6.9"
         },
         {
           "id": "mock.count.atLeast.within",
@@ -1207,7 +1210,8 @@
           "examples": [
             "Then within 10s the mocked request named delivered on shops was received at least 1 time"
           ],
-          "arg": "none"
+          "arg": "none",
+          "since": "0.6.9"
         },
         {
           "id": "mock.notReceived",
@@ -2897,7 +2901,8 @@
             ],
             "note": "Each row names a property, dotted (`recipient.city`) for one inside an object, and the JSON value it holds.",
             "values": "json"
-          }
+          },
+          "since": "0.6.9"
         },
         {
           "id": "sql.rows.none",
@@ -2916,6 +2921,7 @@
             "note": "Each row names a column and the value the rows that must be gone hold in it, of the column's type: a value of another type fails at once and says what to write (`10115` on a text column asks for `\"10115\"`, and `12` on a decimal one for `12.0`); dates, times, UUIDs and the like are strings; `null` is `IS NULL`.",
             "values": "json"
           },
+          "since": "0.6.9",
           "absence": true
         },
         {
@@ -3099,7 +3105,8 @@
           "examples": [
             "Then within 10s the before insert trigger on the parcels.parcels table was raised 1 time"
           ],
-          "arg": "none"
+          "arg": "none",
+          "since": "0.6.9"
         },
         {
           "id": "sql.trigger.update.raise",
@@ -3159,7 +3166,8 @@
           "examples": [
             "Then within 10s the before update trigger on the parcels.parcels table was raised 1 time"
           ],
-          "arg": "none"
+          "arg": "none",
+          "since": "0.6.9"
         },
         {
           "id": "sql.trigger.delete.raise",
@@ -3219,7 +3227,8 @@
           "examples": [
             "Then within 10s the before delete trigger on the parcels.parcels table was raised 1 time"
           ],
-          "arg": "none"
+          "arg": "none",
+          "since": "0.6.9"
         }
       ]
     },
@@ -3365,6 +3374,7 @@
             "values": "json",
             "undefined": true
           },
+          "since": "0.6.9",
           "absence": true
         },
         {
@@ -8791,6 +8801,7 @@
             "Then within 30s the carrier-drops s3 bucket has no object named incoming/kestrel-2026-09.csv"
           ],
           "arg": "none",
+          "since": "0.6.9",
           "absence": true
         }
       ]
@@ -9184,6 +9195,7 @@
             "Then within 30s the carrier-invoices gcs bucket has no object named incoming/kestrel-2026-09.csv"
           ],
           "arg": "none",
+          "since": "0.6.9",
           "absence": true
         }
       ]
@@ -9385,6 +9397,7 @@
             "values": "json",
             "undefined": true
           },
+          "since": "0.6.9",
           "absence": true
         }
       ]
@@ -9514,6 +9527,7 @@
             "Then within 30s the declarations blob container has no blob named incoming/kestrel-2026-09.csv"
           ],
           "arg": "none",
+          "since": "0.6.9",
           "absence": true
         }
       ]

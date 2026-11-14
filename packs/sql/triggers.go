@@ -124,7 +124,7 @@ func raisedWithin(event string) core.StepDef {
 		id = "sql.trigger." + event + ".raised.within"
 	}
 	return core.StepDef{
-		ID: id, Keyword: "Then",
+		ID: id, Keyword: "Then", Since: "0.6.9",
 		Expr: "within {duration} the[[ {ordinal} ordered]] before " + event + " trigger on the {word} table[[ on {dbService}]] was raised {int} time(s)",
 		Doc: "Check how many times a before " + event + " trigger raised its error, again every 500ms until it has that many times: " +
 			"for writes a service makes in the background.\n\n" +

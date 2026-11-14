@@ -90,7 +90,7 @@ func querySteps() []core.StepDef {
 			},
 		},
 		{
-			ID: "mongo.docs.none", Keyword: "Then", Arg: core.ArgTable, Absence: true,
+			ID: "mongo.docs.none", Keyword: "Then", Arg: core.ArgTable, Since: "0.6.9", Absence: true,
 			Expr: "within {duration} the {word} collection[[ on {mongoService}]] has no documents where:",
 			Doc: "Check that no document of the collection matches, again every 500ms until none does: for documents a service deletes, " +
 				"or changes so that they no longer match, in the background.\n\n" +

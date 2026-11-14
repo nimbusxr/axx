@@ -191,7 +191,7 @@ func steps() []core.StepDef {
 			Run: jsonbStep,
 		},
 		core.StepDef{
-			ID: "sql.select.jsonb.poll", Keyword: "Then", Arg: core.ArgTable,
+			ID: "sql.select.jsonb.poll", Keyword: "Then", Arg: core.ArgTable, Since: "0.6.9",
 			Expr: "within {duration} a[[ {ordinal}]] selection of at least {int} row(s) is retrieved from the {word} table[[ on {dbService}]] where the {word} jsonb column contains:",
 			Doc: "Select the rows whose JSONB column contains the properties (`@>`), again every 500ms, until at least that many come back, " +
 				"and keep them as the next selection: for rows a service writes in the background.\n\n" +
@@ -205,7 +205,7 @@ func steps() []core.StepDef {
 			Run: jsonbPollStep,
 		},
 		core.StepDef{
-			ID: "sql.rows.none", Keyword: "Then", Arg: core.ArgTable, Absence: true,
+			ID: "sql.rows.none", Keyword: "Then", Arg: core.ArgTable, Since: "0.6.9", Absence: true,
 			Expr: "within {duration} the {word} table[[ on {dbService}]] has no rows where:",
 			Doc: "Check that no row of the table matches, again every 500ms until none does: for rows a service deletes, " +
 				"or changes so that they no longer match, in the background.\n\n" +

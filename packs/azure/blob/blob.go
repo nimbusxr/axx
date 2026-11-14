@@ -71,7 +71,7 @@ func (pack) Manifest() core.Manifest {
 	}}
 	steps = append(steps, cloudstep.Objects{
 		Pack: name, Container: "blob container", Object: "blob", Example: "declarations",
-		Store: store,
+		Store: store, AbsentSince: "0.6.9",
 	}.Steps()...)
 	return core.Manifest{Name: name, Namespace: name, Doc: packDoc, Steps: steps}
 }

@@ -34,7 +34,7 @@ func (pack) Manifest() core.Manifest {
 		Requires:  []string{awscore.Name},
 		Steps: cloudstep.Objects{
 			Pack: "aws-s3", Container: "s3 bucket", Object: "object", Example: "carrier-drops",
-			Store: store,
+			Store: store, AbsentSince: "0.6.9",
 		}.Steps(),
 	}
 }

@@ -102,7 +102,7 @@ func (pack) Manifest() core.Manifest {
 				Run: collection,
 			},
 			{
-				ID: name + ".collection.none", Keyword: "Then", Arg: core.ArgTable, Absence: true,
+				ID: name + ".collection.none", Keyword: "Then", Arg: core.ArgTable, Since: "0.6.9", Absence: true,
 				Expr: "[[within {duration} ]]the {word} firestore collection has no document where:",
 				Doc: "Check that no document of the collection has those values in those fields, or wait for the last to go: 10 seconds, " +
 					"or `within {duration}`, for a service that deletes them, or changes them so that they no longer match.\n\n" +

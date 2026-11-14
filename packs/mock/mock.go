@@ -161,7 +161,7 @@ func steps() []core.StepDef {
 			Run:      receivedPath,
 		},
 		{
-			ID: "mock.received.within", Keyword: "Then",
+			ID: "mock.received.within", Keyword: "Then", Since: "0.6.9",
 			Expr: "within {duration} the mocked {word} request to {word} named {word} was received by {mockedService}",
 			Doc: "Check that the mocked service received a request at least once, counting its requests again every 500ms until it has, " +
 				"and name it for the steps that follow: for a request the service sends in the background, like from a job or for a message " +
@@ -175,7 +175,7 @@ func steps() []core.StepDef {
 			},
 		},
 		{
-			ID: "mock.received.path.within", Keyword: "Then",
+			ID: "mock.received.path.within", Keyword: "Then", Since: "0.6.9",
 			Expr: "within {duration} the mocked {word} request to path {word} named {word} was received by {mockedService}",
 			Doc: "Check that the mocked service received a request to a path at least once, whatever its query string, counting its requests " +
 				"again every 500ms until it has, and name it for the steps that follow: for a request the service sends in the background.\n\n" +
@@ -441,7 +441,7 @@ func countStep(id, words string, ok func(got, n int) bool) core.StepDef {
 // the count is what it wants, or past it (over), since a count only grows.
 func countWithin(id, words, more string, ok, over func(got, n int) bool) core.StepDef {
 	return core.StepDef{
-		ID: id, Keyword: "Then",
+		ID: id, Keyword: "Then", Since: "0.6.9",
 		Expr: "within {duration} the mocked request named {word}[[ on {mockedService}]] was received " + words + " {int} time(s)",
 		Doc: fmt.Sprintf("Check that the mocked service received the named request %s that many times, counting its requests again every 500ms "+
 			"until it has: for requests the service sends in the background.\n\n"+
