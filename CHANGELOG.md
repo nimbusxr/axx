@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.13](https://github.com/nimbusxr/axx/compare/v0.6.12...v0.6.13) (2026-11-14)
+
+
+### Features
+
+* **web-core:** a web scenario's video is the tab it acts on with its steps beside it, an MP4 file, and the run keeps run.mp4, as for desktop and mobile apps ([#340](https://github.com/nimbusxr/axx/issues/340)) ([624d229](https://github.com/nimbusxr/axx/commit/624d229ea87bae0c1c53a582ca220f998da55a95))
+
 ## [0.6.12](https://github.com/nimbusxr/axx/compare/v0.6.11...v0.6.12) (2026-11-14)
 
 
