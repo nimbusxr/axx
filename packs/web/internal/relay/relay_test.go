@@ -15,6 +15,8 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"golang.org/x/net/http/httpproxy"
 )
 
 // browser is an HTTP client that has the host's side as its proxy, as the
@@ -124,6 +126,113 @@ func TestWhatTheRunCannotReachTheBrowserCannot(t *testing.T) {
 		_ = resp.Body.Close()
 		t.Error("an https site the run cannot reach was reached")
 	}
+}
+
+// sandboxWithoutLocalNames is how a run reaches things in a sandbox like the
+// one that showed this: every process has a proxy for what is not on the
+// bypass list, which says localhost and not its subdomains, and DNS there has
+// no name under localhost. Loopback addresses themselves connect.
+func sandboxWithoutLocalNames(t *testing.T) Options {
+	t.Helper()
+	env := &httpproxy.Config{
+		HTTPProxy:  "http://run:s3cret@127.0.0.1:1",
+		HTTPSProxy: "http://run:s3cret@127.0.0.1:1",
+		NoProxy:    "localhost,127.0.0.1,::1,169.254.0.0/16,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16",
+	}
+	return Options{
+		Proxy: env.ProxyFunc(),
+		Dial: func(ctx context.Context, network, addr string) (net.Conn, error) {
+			host, _, _ := net.SplitHostPort(addr)
+			if net.ParseIP(host) == nil {
+				return nil, &net.DNSError{Err: "no such host", Name: host, IsNotFound: true}
+			}
+			var d net.Dialer
+			return d.DialContext(ctx, network, addr)
+		},
+	}
+}
+
+// TestANameUnderLocalhostIsThisMachine: a page at app.localhost loads from
+// the machine's own port, as it does in a browser with no proxy, where the
+// run's DNS has no such name and its proxy could not reach one.
+func TestANameUnderLocalhostIsThisMachine(t *testing.T) {
+	page := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintf(w, "the depot's board, asked for as %s", r.Host)
+	})
+	listen := func(t *testing.T, address string, tls bool) (*httptest.Server, string) {
+		t.Helper()
+		l, err := net.Listen("tcp", address)
+		if err != nil {
+			t.Skipf("this machine has no %s: %v", address, err)
+		}
+		srv := httptest.NewUnstartedServer(page)
+		_ = srv.Listener.Close()
+		srv.Listener = l
+		if tls {
+			srv.StartTLS()
+		} else {
+			srv.Start()
+		}
+		t.Cleanup(srv.Close)
+		_, port, _ := net.SplitHostPort(l.Addr().String())
+		return srv, port
+	}
+	get := func(t *testing.T, address string) string {
+		t.Helper()
+		h, _ := relayTo(t, sandboxWithoutLocalNames(t))
+		resp, err := browser(h).Get(address)
+		if err != nil {
+			t.Fatal(err)
+		}
+		body, _ := io.ReadAll(resp.Body)
+		_ = resp.Body.Close()
+		return fmt.Sprintf("%d %s", resp.StatusCode, body)
+	}
+
+	t.Run("on IPv4", func(t *testing.T) {
+		_, port := listen(t, "127.0.0.1:0", false)
+		for _, name := range []string{"board.localhost", "Board.Depot.LOCALHOST", "localhost"} {
+			host := net.JoinHostPort(name, port)
+			if got, want := get(t, "http://"+host+"/"), "200 the depot's board, asked for as "+host; got != want {
+				t.Errorf("%s: %q, want %q", name, got, want)
+			}
+		}
+	})
+	t.Run("on IPv6", func(t *testing.T) {
+		_, port := listen(t, "[::1]:0", false)
+		host := net.JoinHostPort("board.localhost", port)
+		if got, want := get(t, "http://"+host+"/"), "200 the depot's board, asked for as "+host; got != want {
+			t.Errorf("%q, want %q", got, want)
+		}
+	})
+	t.Run("over https", func(t *testing.T) {
+		_, port := listen(t, "127.0.0.1:0", true)
+		host := net.JoinHostPort("board.localhost", port)
+		if got, want := get(t, "https://"+host+"/"), "200 the depot's board, asked for as "+host; got != want {
+			t.Errorf("%q, want %q", got, want)
+		}
+	})
+	t.Run("nothing on the port", func(t *testing.T) {
+		l, err := net.Listen("tcp", "127.0.0.1:0")
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, port, _ := net.SplitHostPort(l.Addr().String())
+		_ = l.Close()
+		got := get(t, "http://"+net.JoinHostPort("board.localhost", port)+"/")
+		if !strings.HasPrefix(got, "502 ") || !strings.Contains(got, "nothing answers on this machine's port "+port) {
+			t.Errorf("%q, want a 502 that says nothing answers on the port", got)
+		}
+	})
+	t.Run("another name still asks DNS", func(t *testing.T) {
+		_, port := listen(t, "127.0.0.1:0", false)
+		for _, name := range []string{"board.depot.test", "notlocalhost", "localhost.example"} {
+			got := get(t, "http://"+net.JoinHostPort(name, port)+"/")
+			if !strings.HasPrefix(got, "502 ") {
+				t.Errorf("%s: %q, want a 502: only localhost and the names under it are this machine", name, got)
+			}
+		}
+	})
 }
 
 // TestTheRunsProxyIsUsed: a sandbox that lets its processes out only through

@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -12,6 +13,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -68,6 +70,7 @@ func Serve(tunnel, key string, opts Options) (*Run, error) {
 	if opts.Logger == nil {
 		opts.Logger = slog.New(slog.DiscardHandler)
 	}
+	opts.Dial, opts.Proxy = thisMachine(opts.Dial), noProxyForThisMachine(opts.Proxy)
 	r := &Run{tunnel: tunnel, key: key, opts: opts, conns: make(chan net.Conn), done: make(chan struct{})}
 	// The first connection says whether the host's side is there.
 	first, err := r.open()
@@ -302,6 +305,47 @@ func (r *Run) dial(ctx context.Context, addr string) (net.Conn, error) {
 		return nil, fmt.Errorf("the proxy %s refused it: %s", via.Host, resp.Status)
 	}
 	return &readAhead{Conn: c, r: br}, nil
+}
+
+// isThisMachine reports whether host is localhost or a name under it
+// (app.localhost): the machine itself, by definition (RFC 6761), which a
+// browser connects to without asking DNS or a proxy.
+func isThisMachine(host string) bool {
+	host = strings.ToLower(strings.TrimSuffix(host, "."))
+	return host == "localhost" || strings.HasSuffix(host, ".localhost")
+}
+
+// thisMachine is dial, with localhost and the names under it connected to the
+// machine's loopback addresses, IPv6's and then IPv4's, as a browser does.
+// The browser the host started leaves its names to the run, and where the run
+// is, DNS need not have them: a sandbox's has no app.localhost.
+func thisMachine(dial func(ctx context.Context, network, addr string) (net.Conn, error)) func(ctx context.Context, network, addr string) (net.Conn, error) {
+	return func(ctx context.Context, network, addr string) (net.Conn, error) {
+		host, port, err := net.SplitHostPort(addr)
+		if err != nil || !isThisMachine(host) {
+			return dial(ctx, network, addr)
+		}
+		c, err6 := dial(ctx, network, net.JoinHostPort("::1", port))
+		if err6 == nil {
+			return c, nil
+		}
+		c, err4 := dial(ctx, network, net.JoinHostPort("127.0.0.1", port))
+		if err4 == nil {
+			return c, nil
+		}
+		return nil, fmt.Errorf("nothing answers on this machine's port %s: %w", port, errors.Join(err4, err6))
+	}
+}
+
+// noProxyForThisMachine is proxy, with no proxy for localhost and the names
+// under it: a proxy would look for them on its own machine.
+func noProxyForThisMachine(proxy func(*url.URL) (*url.URL, error)) func(*url.URL) (*url.URL, error) {
+	return func(u *url.URL) (*url.URL, error) {
+		if isThisMachine(u.Hostname()) {
+			return nil, nil
+		}
+		return proxy(u)
+	}
 }
 
 // unreachable says, for someone who looks at the run's log, what the
