@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.10](https://github.com/nimbusxr/axx/compare/intellij-v0.3.9...intellij-v0.3.10) (2026-11-14)
+
+
+### Bug Fixes
+
+* **ide:** Run with Coverage no longer uses IntelliJ's internal API, which the JetBrains Marketplace refuses a plugin for ([#335](https://github.com/nimbusxr/axx/issues/335)) ([81bcb52](https://github.com/nimbusxr/axx/commit/81bcb52c919839251a3df78da4e22b03c5b361cc))
+
 ## [0.3.9](https://github.com/nimbusxr/axx/compare/intellij-v0.3.8...intellij-v0.3.9) (2026-11-14)
 
 
