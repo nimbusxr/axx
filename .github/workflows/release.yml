@@ -413,8 +413,8 @@ jobs:
       version: ${{ needs.release-please.outputs.wiremock_version }}
       dry-run: ${{ needs.release-please.outputs.dry-run == 'true' }}
 
-  # The axx IntelliJ plugin on the JetBrains Marketplace. A dry run verifies it without
-  # uploading.
+  # The axx IntelliJ plugin on the JetBrains Marketplace, published only once the plugin
+  # verifier passed. A dry run verifies it without uploading.
   intellij:
     needs: release-please
     if: needs.release-please.outputs.intellij == 'true'

@@ -1,8 +1,9 @@
 # SPDX-License-Identifier: Apache-2.0
-# Builds and tests the axx IntelliJ plugin; release.yml calls it for intellij-v<version>
-# releases to publish the plugin to the JetBrains Marketplace, and for release dry runs to
-# verify and sign it without uploading. Nothing is uploaded unless the AXX_PUBLISH repository
-# variable is "true".
+# Builds, tests and verifies the axx IntelliJ plugin; release.yml calls it for
+# intellij-v<version> releases to publish the plugin to the JetBrains Marketplace, and for
+# release dry runs to sign it without uploading. Every run verifies the plugin as the Marketplace
+# does (JetBrains' plugin verifier), and a release publishes only a plugin that passed. Nothing
+# is uploaded unless the AXX_PUBLISH repository variable is "true".
 name: intellij-plugin
 
 on:
@@ -29,7 +30,7 @@ on:
         type: string
         required: true
       dry-run:
-        description: verify and sign the plugin a release would publish, and upload nothing
+        description: sign the plugin a release would publish, and upload nothing
         type: boolean
         default: false
     secrets:
@@ -58,6 +59,8 @@ defaults:
 jobs:
   build:
     runs-on: ubuntu-26.04
+    outputs:
+      ides: ${{ steps.ides.outputs.ides }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -72,6 +75,15 @@ jobs:
       # Gradle's caches: written on main only (the action's default), read by pull requests.
       - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6
       - run: ./gradlew --no-daemon --console=plain build buildPlugin verifyPluginStructure
+      # The IDEs the verify job checks the plugin against, a job each: the newest released IDE of
+      # each version the plugin supports.
+      - id: ides
+        name: list the IDEs to verify against
+        run: |
+          ides=$(./gradlew --no-daemon --console=plain -q printProductsReleases | grep -E '^[A-Z]+-[0-9]' | jq -R . | jq -sc .)
+          echo "$ides"
+          [[ "$ides" != "[]" ]] || { echo "::error::printProductsReleases listed no IDE to verify the plugin against"; exit 1; }
+          echo "ides=$ides" >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: axx-intellij-plugin
@@ -84,13 +96,61 @@ jobs:
           path: ide/intellij/build/reports/tests/
           retention-days: 7
 
+  # What the Marketplace checks, before it does: JetBrains' plugin verifier, against each IDE the
+  # build job listed. It fails for what build.gradle.kts names (failureLevel): the platform's
+  # internal API above all, which the Marketplace refuses a plugin for. One IDE a job: each
+  # downloads its IDE, and together they outlast a job's ten minutes and a runner's disk.
+  #
+  # The newest EAP is reported, and gates nothing: the Marketplace lists an EAP's builds of the
+  # optional plugins (Gherkin) on and off, and the verifier counts their classes as missing
+  # when it finds none.
+  verify:
+    needs: build
+    runs-on: ubuntu-26.04
+    strategy:
+      fail-fast: false
+      matrix:
+        ide: ${{ fromJSON(needs.build.outputs.ides) }}
+        include:
+          - ide: EAP
+    env:
+      IDE: ${{ matrix.ide }}
+      VERSION: ${{ inputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ inputs.tag }}
+          persist-credentials: false
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6
+        with:
+          distribution: temurin
+          java-version: "25"
+          # No Gradle cache: it would hold the IDEs the verifier downloads (many GB).
+      - name: verify
+        run: |
+          args=()
+          if [[ -n "$VERSION" ]]; then args+=(-PpluginVersion="$VERSION"); fi
+          if [[ "$IDE" == EAP ]]; then
+            ./gradlew --no-daemon --console=plain verifyPlugin -PverifyEap "${args[@]}" ||
+              echo "::warning::The plugin verifier found problems against the newest EAP: see the report in the axx-intellij-plugin-verifier-EAP artifact."
+          else
+            ./gradlew --no-daemon --console=plain verifyPlugin -PverifyIde="$IDE" "${args[@]}"
+          fi
+          df -h /
+      - if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: axx-intellij-plugin-verifier-${{ matrix.ide }}
+          path: ide/intellij/build/reports/pluginVerifier/
+          retention-days: 14
+
   publish:
     if: inputs.version != '' && (inputs.dry-run || vars.AXX_PUBLISH == 'true')
-    needs: build
+    needs: [build, verify]
     runs-on: ubuntu-26.04
     # Publishing reads the signing key and Marketplace token from the release environment
     # (main only); the secrets passed in are then unused. A dry run
-    # uses no environment, so it verifies the plugin without signing it.
+    # uses no environment, so it builds the plugin without signing it.
     environment: ${{ !inputs.dry-run && 'release' || '' }}
     env:
       PUBLISH_TOKEN: ${{ secrets.JETBRAINS_MARKETPLACE_TOKEN }}
@@ -99,12 +159,6 @@ jobs:
       PRIVATE_KEY_PASSWORD: ${{ secrets.JETBRAINS_PRIVATE_KEY_PASSWORD }}
       VERSION: ${{ inputs.version }}
     steps:
-      # A dry run's plugin verifier downloads IDEs that need more disk than a runner has free:
-      # remove toolchains the build never uses, in the background while the job sets up.
-      - if: inputs.dry-run
-        name: free disk space (in the background)
-        working-directory: .
-        run: (sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL /usr/share/swift; touch "$RUNNER_TEMP/disk-freed") > /dev/null 2>&1 &
       - id: secrets
         name: check publishing secrets
         working-directory: .
@@ -129,42 +183,23 @@ jobs:
         with:
           distribution: temurin
           java-version: "25"
-          # No Gradle cache: a published plugin is built from scratch, and a dry run's cache
-          # would hold the IDEs the plugin verifier downloads (many GB).
+          # No Gradle cache: a published plugin is built from scratch.
 
-      # Dry run: what the Marketplace checks (the plugin verifier against the newest released IDE
-      # of each version the plugin supports, and then the newest EAP) and the signed plugin, kept
-      # on the run. The verifier needs the disk space freed above.
+      # Dry run: the plugin a release would publish, signed when the signing key is at hand,
+      # kept on the run.
       - if: inputs.dry-run
-        name: wait for the disk space
-        working-directory: .
-        run: |
-          for _ in $(seq 300); do [ -f "$RUNNER_TEMP/disk-freed" ] && break; sleep 2; done
-          [ -f "$RUNNER_TEMP/disk-freed" ] || { echo "::error::the disk space was not freed within 10 minutes"; exit 1; }
-          df -h /
-      - if: inputs.dry-run
-        name: verify and sign (dry run)
+        name: build and sign (dry run)
         env:
           SIGN: ${{ steps.secrets.outputs.sign }}
         run: |
-          tasks=(verifyPlugin)
+          tasks=(buildPlugin)
           if [[ "$SIGN" == true ]]; then tasks+=(signPlugin); fi
           ./gradlew --no-daemon --console=plain "${tasks[@]}" -PpluginVersion="$VERSION"
-      # The newest EAP is reported, and gates nothing: the Marketplace lists an EAP's builds of the
-      # optional plugins (Gherkin) on and off, and the verifier counts their classes as missing
-      # when it finds none.
-      - if: inputs.dry-run
-        name: verify against the newest EAP (reported only)
-        run: |
-          ./gradlew --no-daemon --console=plain verifyPlugin -PverifyEap -PpluginVersion="$VERSION" ||
-            echo "::warning::The plugin verifier found problems against the newest EAP: see the pluginVerifier report in the axx-intellij-plugin-release-dry-run artifact."
       - if: inputs.dry-run
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: axx-intellij-plugin-release-dry-run
-          path: |
-            ide/intellij/build/distributions/*.zip
-            ide/intellij/build/reports/pluginVerifier/
+          path: ide/intellij/build/distributions/*.zip
           retention-days: 14
 
       - if: ${{ !inputs.dry-run && steps.secrets.outputs.publish == 'true' }}
