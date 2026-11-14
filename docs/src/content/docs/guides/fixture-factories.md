@@ -101,7 +101,7 @@ data:
         $ref: "#/manifests/0/id"
 ```
 
-In a dataset, a column's value or a whole row can be a reference. A row taken from another seed lies over the table's row template and under the columns written next to the `$ref`. It comes with that row's identities, so give it its own: two rows with one id fail generation.
+In a dataset, a column's value or a whole row can be a reference. A row taken from another seed lies over the table's row template and under the columns written next to the `$ref`. It comes with that row's identities, so give it its own: two rows with one id fail generation. The parcels example's shop email seeds name their shop once this way (`features/shop-emails/seeds`).
 
 ## Leave a value out
 
@@ -120,6 +120,8 @@ data:
 - **It works wherever a fixture's values are:** in a fixture's or a prototype's `data` and `metadata`, at any depth, and next to a `$ref`, where it leaves out a key the reference brings. A prototype in another directory can leave out what the factory's prototype sets. It cannot stand for an element of a list: leave the element out.
 - **An Avro record has every field,** so a field left out takes the schema's default, never the factory's. Without a schema default, generation fails.
 - **In a dataset, the row has no such column,** and the database's default fills it. `null` is SQL's NULL. Only the YAML format tells the two apart: flat XML leaves both out, and CSV writes `null` for both.
+
+The parcels example registers an order that names no service level this way, and the service chooses one (`features/register-parcels/requests`).
 
 This is the rule every value in axx follows ([how values are read](/references/steps/#values)): `null` is null, `undefined` is no such property, and either word in quotes is the string.
 

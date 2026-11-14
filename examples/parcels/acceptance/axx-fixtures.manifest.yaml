@@ -11,7 +11,7 @@ files:
   factory: ../infra/wiremock/__files/postcodes.factory.yaml
   fixture: postcode-remote
 - path: axx-lint.generated.yaml
-  sha256: 26792251bb65f66cf16297326c1da0e5b1d813a8ad37c28308399e1d3bfc7c76
+  sha256: d8a2607329c81c2514aaa2032692c7a5c1423c08d3f00bd3223b7385dcd1d99d
   factory: <axx-fixtures>
   fixture: <generated lint rules>
 - path: features/depot-scanners/mqtt/.gitignore
@@ -43,7 +43,7 @@ files:
   factory: features/manifest-import/seeds/manifests/xml/manifests-xml.factory.yaml
   fixture: rejected-lines
 - path: features/register-parcels/requests/.gitignore
-  sha256: d89fe6548e5a6ee64844def78d6e9897af05fdd6c7d82e8e94b966650c1d7420
+  sha256: 16bff3eececb1d014be66e21d294ed102c3898128dfd7190ad16ffaab997aa31
   factory: <axx-fixtures>
   fixture: <ignored outputs>
 - path: features/register-parcels/requests/order-7731.json
@@ -54,6 +54,26 @@ files:
   sha256: 1c60f722b1b9c20ee3f56934946805863f57ce96a06fde9a1432620b544ce683
   factory: features/register-parcels/requests/registrations.factory.yaml
   fixture: order-7732
+- path: features/register-parcels/requests/order-7733.json
+  sha256: 0cf6eac3dfb678885f80ab67d5eedffa554b08ab2b3e0be77cef275a05f84809
+  factory: features/register-parcels/requests/registrations.factory.yaml
+  fixture: order-7733
+- path: features/shop-emails/seeds/.gitignore
+  sha256: fb8ec29954be277d3a7790a476f9cb996fc83779551f67b2ec890be3425b7607
+  factory: <axx-fixtures>
+  fixture: <ignored outputs>
+- path: features/shop-emails/seeds/mail-delivered.yaml
+  sha256: b06737bc3fb1d9d726643214f8b814362b527e90ef9e15bbc773a57a028ba343
+  factory: features/shop-emails/seeds/shop-mail.factory.yaml
+  fixture: mail-delivered
+- path: features/shop-emails/seeds/mail-refused.yaml
+  sha256: b63250aaed763ce44a1625cdb61f54f4f936bdee56175d7822aa822a4a30811f
+  factory: features/shop-emails/seeds/shop-mail.factory.yaml
+  fixture: mail-refused
+- path: features/shop-emails/seeds/mail-registered.yaml
+  sha256: 52262013df0fdd3641005326583e4e078df8dc552377555cc6dc93418bd8de86
+  factory: features/shop-emails/seeds/shop-mail.factory.yaml
+  fixture: mail-registered
 - path: kafka/.gitignore
   sha256: c2055e253b4f9fb264c35010d2e58c74291a98b6416a36cf3fb160f19e08622b
   factory: <axx-fixtures>
