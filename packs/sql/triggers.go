@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/nimbusxr/axx/core"
 )
@@ -108,10 +109,36 @@ func triggerSteps() []core.StepDef {
 			if err != nil {
 				return err
 			}
-			return svc.verifyTrigger(sc, onInsert, a.IntOr(0, 1)-1, a.String(1), a.Int(3))
+			return svc.verifyTrigger(sc, onInsert, a.IntOr(0, 1)-1, a.String(1), a.Int(3), 0)
 		},
-	})
+	}, raisedWithin(onInsert))
 	return append(append(out, writeTriggerSteps(onUpdate, "updates", "the row holds after the update")...), writeTriggerSteps(onDelete, "deletes", "the deleted row holds")...)
+}
+
+// raisedWithin is the step that waits for a trigger to have raised its error
+// that many times: for writes a service makes in the background, like a job
+// that retries a refused write.
+func raisedWithin(event string) core.StepDef {
+	id := "sql.trigger.raised.within"
+	if event != onInsert {
+		id = "sql.trigger." + event + ".raised.within"
+	}
+	return core.StepDef{
+		ID: id, Keyword: "Then", Since: "0.6.9",
+		Expr: "within {duration} the[[ {ordinal} ordered]] before " + event + " trigger on the {word} table[[ on {dbService}]] was raised {int} time(s)",
+		Doc: "Check how many times a before " + event + " trigger raised its error, again every 500ms until it has that many times: " +
+			"for writes a service makes in the background.\n\n" +
+			"- The step fails when the time is up with fewer, and at once with more, since the count only grows.\n" +
+			"- Before " + event + " triggers are numbered in the order they are created; a table other than the trigger's only logs a warning.",
+		Examples: []string{"Then within 10s the before " + event + " trigger on the parcels.parcels table was raised 1 time"},
+		Run: func(sc *core.Scenario, a core.Args) error {
+			svc, err := service(sc, a, 3)
+			if err != nil {
+				return err
+			}
+			return svc.verifyTrigger(sc, event, a.IntOr(1, 1)-1, a.String(2), a.Int(4), a.Value(0).(time.Duration))
+		},
+	}
 }
 
 // writeTriggerSteps are the steps of a trigger before another write than an insert.
@@ -169,9 +196,9 @@ func writeTriggerSteps(event, writes, holds string) []core.StepDef {
 			if err != nil {
 				return err
 			}
-			return svc.verifyTrigger(sc, event, a.IntOr(0, 1)-1, a.String(1), a.Int(3))
+			return svc.verifyTrigger(sc, event, a.IntOr(0, 1)-1, a.String(1), a.Int(3), 0)
 		},
-	})
+	}, raisedWithin(event))
 }
 
 func randomSuffix() string {
@@ -279,8 +306,9 @@ func (svc *Service) createTrigger(ctx context.Context, event, table, sqlState st
 
 // verifyTrigger compares the number of times the trigger raised, counted
 // exactly (not from the match counter's last_value, which is one short for a
-// single raise).
-func (svc *Service) verifyTrigger(sc *core.Scenario, event string, index int, table string, want int) error {
+// single raise): once, or again every 500ms until it has that many times or
+// within has passed.
+func (svc *Service) verifyTrigger(sc *core.Scenario, event string, index int, table string, want int, within time.Duration) error {
 	svc.mu.Lock()
 	var ofEvent []*Trigger
 	for _, tr := range svc.triggers {
@@ -296,16 +324,29 @@ func (svc *Service) verifyTrigger(sc *core.Scenario, event string, index int, ta
 	if !strings.EqualFold(tr.Table, table) {
 		sc.Log("warning: before %s trigger %d was created on %s, not %s", event, index+1, tr.Table, table)
 	}
-	var got int
 	q := "SELECT CASE WHEN is_called THEN last_value ELSE 0 END FROM public." + tr.RaisedSequence
 	if svc.Target.Dialect.Oracle {
 		q = oracleRaisedQuery(tr)
 	}
-	if err := svc.DB.QueryRowContext(sc.Context(), q).Scan(&got); err != nil {
+	got := -1
+	err := poll(sc, within, func() (bool, error) {
+		var n int
+		if err := svc.DB.QueryRowContext(sc.Context(), q).Scan(&n); err != nil {
+			return false, err
+		}
+		got = n
+		// The count only grows: past the number wanted, no wait helps.
+		return got >= want, nil
+	})
+	if got < 0 {
 		return fmt.Errorf("Could not verify trigger invocation count: %w", err) //nolint:staticcheck // user-facing message
 	}
 	if got != want {
-		return core.Fail(fmt.Sprintf("Expected before %s trigger '%s' to have been raised %d time(s), but was raised %d time(s)", event, tr.Name, want, got), want, got)
+		msg := fmt.Sprintf("Expected before %s trigger '%s' to have been raised %d time(s), but was raised %d time(s)", event, tr.Name, want, got)
+		if within > 0 && got < want {
+			msg += " within " + within.String()
+		}
+		return core.Fail(msg, want, got)
 	}
 	return nil
 }

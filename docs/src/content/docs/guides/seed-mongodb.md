@@ -104,6 +104,16 @@ The step polls every 500 ms until enough documents match, and fails when the tim
 
 A selection is as strict as a check, though MongoDB's own equality is not: `2` selects an int32, an int64 or a Decimal128 of 2, but not a double of 2.0, which `2.0` selects; `null` selects a field that holds null, and `undefined` a document without the field. A check that misses a document left out for its type says what to write: `expected at least 1 document(s) from tracking within 10s (scanCount is the decimal 2.0: write 2.0)`.
 
+To wait until documents are gone, or no longer match, check that the collection has none that do. A depot's scan is taken into the parcel's tracking by a job in the background, which marks each scan it has taken in:
+
+```gherkin
+Then within 10s the scans collection has no documents where:
+  | parcelRef | PX-TRK-3005 |
+  | projected | undefined   |
+```
+
+The step queries again every 500 ms, and fails when documents still match when the time is up. It also passes when no document ever matched, for example when the service never wrote them, so check what the service did too, like the tracking the job wrote.
+
 Every query step has an `on <service>` form for scenarios with more than one MongoDB database.
 
 ## Keep documents apart

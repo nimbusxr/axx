@@ -45,6 +45,9 @@ type Objects struct {
 	// Since is the axx version that introduced the pack, when it came
 	// after the object steps (0.1.0): its steps are as old as it is.
 	Since string
+	// AbsentSince is the axx version that introduced the pack's check that
+	// an object is gone: empty while no release has it.
+	AbsentSince string
 }
 
 // since is the version that introduced a step of the pack: the step's, or
@@ -120,7 +123,8 @@ func (o Objects) Steps() []core.StepDef {
 }
 
 // Checks are the pack's object checks: they wait for an object, its exact
-// content, its JSON properties, its text or a row of its table.
+// content, its JSON properties, its text or a row of its table, or for it to
+// be gone.
 func (o Objects) Checks() []core.StepDef {
 	c, obj := o.Container, o.Object
 	return []core.StepDef{
@@ -257,6 +261,43 @@ func (o Objects) Checks() []core.StepDef {
 					ok, why := t.FindRow(want)
 					return ok, why, nil
 				}))
+			},
+		},
+		{
+			ID: o.Pack + ".absent", Keyword: "Then", Since: o.AbsentSince, Absence: true,
+			Expr: "[[within {duration} ]]the {word} " + c + " has no " + obj + " named {path}",
+			Doc: fmt.Sprintf("Check that the %s has no %s with that name, or wait for it to go: 10 seconds, or `within {duration}`, "+
+				"for a service that deletes or moves it. A name with a * stands for any characters but a slash, and no %s may match it.\n\n"+
+				"- It also passes when the %s was never there: check what the service did too, like the %s it wrote instead.",
+				c, obj, obj, obj, obj),
+			Examples: []string{fmt.Sprintf("Then within 30s the %s %s has no %s named incoming/kestrel-2026-09.csv", o.Example, c, obj)},
+			Run: func(sc *core.Scenario, a core.Args) error {
+				st, err := o.Store(sc)
+				if err != nil {
+					return err
+				}
+				container, name, d := a.String(1), a.String(2), Wait(a, 0)
+				return Poll(sc, d, func() (bool, string, error) {
+					if strings.Contains(name, "*") {
+						names, err := st.List(sc.Context(), container, maxMatched)
+						if err != nil {
+							return false, "", fmt.Errorf("cannot list the %s %s: %w", container, c, err)
+						}
+						var left []string
+						for _, n := range names {
+							if matches(name, n) {
+								left = append(left, n)
+							}
+						}
+						return len(left) == 0, fmt.Sprintf("The %s %s still has %d %s named %s after %s: %s",
+							container, c, len(left), plural(len(left), obj), name, d, listing(left[:min(len(left), 20)], obj)), nil
+					}
+					_, ok, err := st.Get(sc.Context(), container, name)
+					if err != nil {
+						return false, "", fmt.Errorf("cannot read %s from the %s %s: %w", name, container, c, err)
+					}
+					return !ok, fmt.Sprintf("The %s %s still has %s %s named %s after %s", container, c, article(obj), obj, name, d), nil
+				})
 			},
 		},
 	}

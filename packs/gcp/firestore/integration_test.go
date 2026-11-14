@@ -63,6 +63,19 @@ shipments/SHP-1001/scans:
 	if !strings.Contains(err.Error(), `"carrier":"KESTREL"`) {
 		t.Errorf("the failure should show the documents: %v", err)
 	}
+
+	// No document left that matches: one the service deletes, and one it
+	// changes so that it no longer matches.
+	h.OK("the shipments firestore collection has no document where:", [][]string{{"carrier", "HERON"}})
+	go func() {
+		time.Sleep(time.Second)
+		_, _ = c.Doc("shipments/SHP-1001").Delete(context.Background())
+		_, _ = c.Doc("shipments/SHP-1002").Set(context.Background(), map[string]any{"carrier": "KESTREL", "weightKg": 12, "status": "BILLED"})
+	}()
+	h.OK("within 10s the shipments firestore collection has no document where:", [][]string{{"weightKg", "2.5"}})
+	h.OK("the shipments firestore collection has no document where:", [][]string{{"weightKg", "12"}, {"status", "undefined"}})
+	_ = h.Fails("within 1s the shipments firestore collection has no document where:", "did not have 0 documents that met the conditions within 1s: 1 did",
+		[][]string{{"carrier", "KESTREL"}})
 }
 
 // A seed's unquoted YAML dates are Firestore timestamps and its quoted ones

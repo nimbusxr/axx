@@ -1123,6 +1123,28 @@
           "arg": "none"
         },
         {
+          "id": "mock.received.within",
+          "expr": "within {duration} the mocked {word} request to {word} named {word} was received by {mockedService}",
+          "keyword": "Then",
+          "doc": "Check that the mocked service received a request at least once, counting its requests again every 500ms until it has, and name it for the steps that follow: for a request the service sends in the background, like from a job or for a message it consumes, after the step that made it act has ended.\n\n- The step fails when the time is up without the request.\n- The request is its method and its exact URL, query string included.\n- The method is `GET`, `POST`, `PUT`, `DELETE`, `PATCH`, `OPTIONS` or `HEAD`, in capitals.\n- With the axx WireMock image, a call that broke the service's OpenAPI contract fails the step.",
+          "examples": [
+            "Then within 10s the mocked POST request to /webhooks/linden-and-lace named delivered was received by shops"
+          ],
+          "arg": "none",
+          "since": "0.6.9"
+        },
+        {
+          "id": "mock.received.path.within",
+          "expr": "within {duration} the mocked {word} request to path {word} named {word} was received by {mockedService}",
+          "keyword": "Then",
+          "doc": "Check that the mocked service received a request to a path at least once, whatever its query string, counting its requests again every 500ms until it has, and name it for the steps that follow: for a request the service sends in the background.\n\n- The step fails when the time is up without the request.\n- The method is `GET`, `POST`, `PUT`, `DELETE`, `PATCH`, `OPTIONS` or `HEAD`, in capitals.\n- With the axx WireMock image, a call that broke the service's OpenAPI contract fails the step.",
+          "examples": [
+            "Then within 10s the mocked POST request to path /webhooks/linden-and-lace named delivered was received by shops"
+          ],
+          "arg": "none",
+          "since": "0.6.9"
+        },
+        {
           "id": "mock.openapi.levels",
           "expr": "the OpenAPI validation levels for the mocked {mockedService} service are:",
           "keyword": "Given",
@@ -1168,6 +1190,28 @@
             "Then the mocked request named postcode-check was received at most 1 time"
           ],
           "arg": "none"
+        },
+        {
+          "id": "mock.count.exactly.within",
+          "expr": "within {duration} the mocked request named {word}[[ on {mockedService}]] was received exactly {int} time(s)",
+          "keyword": "Then",
+          "doc": "Check that the mocked service received the named request exactly that many times, counting its requests again every 500ms until it has: for requests the service sends in the background.\n\n- The step fails when the time is up with fewer.\n- It fails at once with more, since a count only grows.",
+          "examples": [
+            "Then within 10s the mocked request named delivered on shops was received exactly 1 time"
+          ],
+          "arg": "none",
+          "since": "0.6.9"
+        },
+        {
+          "id": "mock.count.atLeast.within",
+          "expr": "within {duration} the mocked request named {word}[[ on {mockedService}]] was received at least {int} time(s)",
+          "keyword": "Then",
+          "doc": "Check that the mocked service received the named request at least that many times, counting its requests again every 500ms until it has: for requests the service sends in the background.\n\n- The step fails when the time is up with fewer.",
+          "examples": [
+            "Then within 10s the mocked request named delivered on shops was received at least 1 time"
+          ],
+          "arg": "none",
+          "since": "0.6.9"
         },
         {
           "id": "mock.notReceived",
@@ -2842,6 +2886,45 @@
           }
         },
         {
+          "id": "sql.select.jsonb.poll",
+          "expr": "within {duration} a[[ {ordinal}]] selection of at least {int} row(s) is retrieved from the {word} table[[ on {dbService}]] where the {word} jsonb column contains:",
+          "keyword": "Then",
+          "doc": "Select the rows whose JSONB column contains the properties (`@\u003e`), again every 500ms, until at least that many come back, and keep them as the next selection: for rows a service writes in the background.\n\n- The step fails when the time is up with fewer rows.\n- The database must be PostgreSQL.\n- Selections are numbered in the order they are retrieved, whatever ordinal the step says; `the selection` means the first.",
+          "examples": [
+            "Then within 20s a selection of at least 2 rows is retrieved from the parcels.parcels table where the details jsonb column contains:\n  | manifestId | M-HERON-0601 |\n  | source     | manifest     |"
+          ],
+          "arg": "table",
+          "table": {
+            "columns": [
+              "property",
+              "value"
+            ],
+            "note": "Each row names a property, dotted (`recipient.city`) for one inside an object, and the JSON value it holds.",
+            "values": "json"
+          },
+          "since": "0.6.9"
+        },
+        {
+          "id": "sql.rows.none",
+          "expr": "within {duration} the {word} table[[ on {dbService}]] has no rows where:",
+          "keyword": "Then",
+          "doc": "Check that no row of the table matches, again every 500ms until none does: for rows a service deletes, or changes so that they no longer match, in the background.\n\n- The step fails when rows still match when the time is up.\n- It also passes when no row ever matched, as when the service never wrote them: check what the service did too, like the rows it wrote instead.",
+          "examples": [
+            "Then within 20s the parcels.manifest_lines table has no rows where:\n  | manifest_id | M-MAPLE-0019 |\n  | status      | PENDING      |"
+          ],
+          "arg": "table",
+          "table": {
+            "columns": [
+              "column",
+              "value"
+            ],
+            "note": "Each row names a column and the value the rows that must be gone hold in it, of the column's type: a value of another type fails at once and says what to write (`10115` on a text column asks for `\"10115\"`, and `12` on a decimal one for `12.0`); dates, times, UUIDs and the like are strings; `null` is `IS NULL`.",
+            "values": "json"
+          },
+          "since": "0.6.9",
+          "absence": true
+        },
+        {
           "id": "sql.json.are",
           "expr": "the {ordinal} row {word} property for the[[ {ordinal}]] selection[[ on {dbService}]] json properties are:",
           "keyword": "Then",
@@ -3015,6 +3098,17 @@
           "arg": "none"
         },
         {
+          "id": "sql.trigger.raised.within",
+          "expr": "within {duration} the[[ {ordinal} ordered]] before insert trigger on the {word} table[[ on {dbService}]] was raised {int} time(s)",
+          "keyword": "Then",
+          "doc": "Check how many times a before insert trigger raised its error, again every 500ms until it has that many times: for writes a service makes in the background.\n\n- The step fails when the time is up with fewer, and at once with more, since the count only grows.\n- Before insert triggers are numbered in the order they are created; a table other than the trigger's only logs a warning.",
+          "examples": [
+            "Then within 10s the before insert trigger on the parcels.parcels table was raised 1 time"
+          ],
+          "arg": "none",
+          "since": "0.6.9"
+        },
+        {
           "id": "sql.trigger.update.raise",
           "expr": "a(n)[[ {ordinal} ordered]] before update trigger on the {word} table[[ on {dbService}]] will raise a(n) {sqlState} exception where:",
           "keyword": "Given",
@@ -3065,6 +3159,17 @@
           "since": "0.4.0"
         },
         {
+          "id": "sql.trigger.update.raised.within",
+          "expr": "within {duration} the[[ {ordinal} ordered]] before update trigger on the {word} table[[ on {dbService}]] was raised {int} time(s)",
+          "keyword": "Then",
+          "doc": "Check how many times a before update trigger raised its error, again every 500ms until it has that many times: for writes a service makes in the background.\n\n- The step fails when the time is up with fewer, and at once with more, since the count only grows.\n- Before update triggers are numbered in the order they are created; a table other than the trigger's only logs a warning.",
+          "examples": [
+            "Then within 10s the before update trigger on the parcels.parcels table was raised 1 time"
+          ],
+          "arg": "none",
+          "since": "0.6.9"
+        },
+        {
           "id": "sql.trigger.delete.raise",
           "expr": "a(n)[[ {ordinal} ordered]] before delete trigger on the {word} table[[ on {dbService}]] will raise a(n) {sqlState} exception where:",
           "keyword": "Given",
@@ -3113,6 +3218,17 @@
           ],
           "arg": "none",
           "since": "0.4.0"
+        },
+        {
+          "id": "sql.trigger.delete.raised.within",
+          "expr": "within {duration} the[[ {ordinal} ordered]] before delete trigger on the {word} table[[ on {dbService}]] was raised {int} time(s)",
+          "keyword": "Then",
+          "doc": "Check how many times a before delete trigger raised its error, again every 500ms until it has that many times: for writes a service makes in the background.\n\n- The step fails when the time is up with fewer, and at once with more, since the count only grows.\n- Before delete triggers are numbered in the order they are created; a table other than the trigger's only logs a warning.",
+          "examples": [
+            "Then within 10s the before delete trigger on the parcels.parcels table was raised 1 time"
+          ],
+          "arg": "none",
+          "since": "0.6.9"
         }
       ]
     },
@@ -3239,6 +3355,27 @@
             "undefined": true
           },
           "since": "0.1.0"
+        },
+        {
+          "id": "mongo.docs.none",
+          "expr": "within {duration} the {word} collection[[ on {mongoService}]] has no documents where:",
+          "keyword": "Then",
+          "doc": "Check that no document of the collection matches, again every 500ms until none does: for documents a service deletes, or changes so that they no longer match, in the background.\n\n- The step fails when documents still match when the time is up.\n- An error from MongoDB fails the step only when the time is up.\n- It also passes when no document ever matched, as when the service never wrote them: check what the service did too, like the documents it wrote instead.",
+          "examples": [
+            "Then within 10s the scans collection has no documents where:\n  | parcelRef | PX-TRK-3003 |\n  | projected | undefined   |"
+          ],
+          "arg": "table",
+          "table": {
+            "columns": [
+              "field",
+              "value"
+            ],
+            "note": "Each row names a field, dotted (`recipient.city`) for one inside a document, and the value it holds, of its type as a check compares it: `6` selects an int32 or an int64 of 6, but not a double 6.0, which is `6.0`; `null` selects a null, and `undefined` a document without the field. An object is Extended JSON, like `{\"$oid\": \"...\"}` for an ObjectId.",
+            "values": "json",
+            "undefined": true
+          },
+          "since": "0.6.9",
+          "absence": true
         },
         {
           "id": "mongo.docs.eq",
@@ -4825,9 +4962,9 @@
           "id": "files.absent",
           "expr": "[[within {duration} ]]the {word} folder has no file named {path}",
           "keyword": "Then",
-          "doc": "Check that the folder has no file with that name, or wait for it to go: 10 seconds, or `within {duration}`, for a service or an app that deletes or moves it.",
+          "doc": "Check that the folder has no file with that name, or wait for it to go: 10 seconds, or `within {duration}`, for a service that deletes or moves it. A name with a * stands for any characters but a slash, and no file may match it.\n\n- It also passes when the file was never there: check what the service did too, like the file it wrote instead.",
           "examples": [
-            "Then the exports folder has no file named manifests/M-KESTREL-0505/report.csv"
+            "Then within 30s the exports folder has no file named incoming/kestrel-2026-09.csv"
           ],
           "arg": "none",
           "since": "0.2.3",
@@ -8654,6 +8791,18 @@
             "values": "text"
           },
           "since": "0.1.1"
+        },
+        {
+          "id": "aws-s3.absent",
+          "expr": "[[within {duration} ]]the {word} s3 bucket has no object named {path}",
+          "keyword": "Then",
+          "doc": "Check that the s3 bucket has no object with that name, or wait for it to go: 10 seconds, or `within {duration}`, for a service that deletes or moves it. A name with a * stands for any characters but a slash, and no object may match it.\n\n- It also passes when the object was never there: check what the service did too, like the object it wrote instead.",
+          "examples": [
+            "Then within 30s the carrier-drops s3 bucket has no object named incoming/kestrel-2026-09.csv"
+          ],
+          "arg": "none",
+          "since": "0.6.9",
+          "absence": true
         }
       ]
     },
@@ -9036,6 +9185,18 @@
             "values": "text"
           },
           "since": "0.1.1"
+        },
+        {
+          "id": "gcp-storage.absent",
+          "expr": "[[within {duration} ]]the {word} gcs bucket has no object named {path}",
+          "keyword": "Then",
+          "doc": "Check that the gcs bucket has no object with that name, or wait for it to go: 10 seconds, or `within {duration}`, for a service that deletes or moves it. A name with a * stands for any characters but a slash, and no object may match it.\n\n- It also passes when the object was never there: check what the service did too, like the object it wrote instead.",
+          "examples": [
+            "Then within 30s the carrier-invoices gcs bucket has no object named incoming/kestrel-2026-09.csv"
+          ],
+          "arg": "none",
+          "since": "0.6.9",
+          "absence": true
         }
       ]
     },
@@ -9217,6 +9378,27 @@
             "undefined": true
           },
           "since": "0.1.0"
+        },
+        {
+          "id": "gcp-firestore.collection.none",
+          "expr": "[[within {duration} ]]the {word} firestore collection has no document where:",
+          "keyword": "Then",
+          "doc": "Check that no document of the collection has those values in those fields, or wait for the last to go: 10 seconds, or `within {duration}`, for a service that deletes them, or changes them so that they no longer match.\n\n- It also passes when no document ever matched, as when the service never wrote them: check what the service did too.\n- The check reads up to 5,000 documents of the collection.",
+          "examples": [
+            "Then within 30s the disputes firestore collection has no document where:\n  | invoice | INV-2026-09-KES2 |\n  | status  | OPEN             |"
+          ],
+          "arg": "table",
+          "table": {
+            "columns": [
+              "field",
+              "value"
+            ],
+            "note": "Each row names a field of the document, or a dotted path into a map (`totals.billed`), and the value it has.",
+            "values": "json",
+            "undefined": true
+          },
+          "since": "0.6.9",
+          "absence": true
         }
       ]
     },
@@ -9335,6 +9517,18 @@
             "values": "text"
           },
           "since": "0.1.1"
+        },
+        {
+          "id": "azure-blob.absent",
+          "expr": "[[within {duration} ]]the {word} blob container has no blob named {path}",
+          "keyword": "Then",
+          "doc": "Check that the blob container has no blob with that name, or wait for it to go: 10 seconds, or `within {duration}`, for a service that deletes or moves it. A name with a * stands for any characters but a slash, and no blob may match it.\n\n- It also passes when the blob was never there: check what the service did too, like the blob it wrote instead.",
+          "examples": [
+            "Then within 30s the declarations blob container has no blob named incoming/kestrel-2026-09.csv"
+          ],
+          "arg": "none",
+          "since": "0.6.9",
+          "absence": true
         }
       ]
     },

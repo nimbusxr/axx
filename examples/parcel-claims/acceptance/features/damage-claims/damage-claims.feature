@@ -6,8 +6,8 @@ Feature: Claims for damaged parcels
   the decision is announced. A larger claim, or a photo that shows no parcel, goes to a
   person, with the photo copied for the reviewer. A claim whose description reports no
   damage in transit goes to a person as soon as it is filed. A customer can describe the
-  damage in a voice note instead: the shop uploads the recording, and its transcript is
-  the claim's description.
+  damage in a voice note instead: the shop uploads the recording, its transcript is the
+  claim's description, and the recording is deleted.
 
   Background:
     Given the parcels aws account with the following properties:
@@ -144,6 +144,7 @@ Feature: Claims for damaged parcels
       | id          | CLM-4113                                                                                    |
       | status      | AWAITING_EVIDENCE                                                                           |
       | description | The parcel arrived crushed on one side, and the lamp inside is broken. Please call me back. |
+    And within 10s the claim-evidence s3 bucket has no object named claims/CLM-4113/voice-note.wav
 
   Scenario: A voice note that reports no damage in transit goes to a person
     Given a seeds/PX-4114.yaml dynamodb seed

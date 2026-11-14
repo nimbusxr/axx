@@ -87,7 +87,7 @@ And the manifests/M-WREN-0503/handover.pdf file in the exports folder contains "
 
 ## Check what a service takes away
 
-A service that imports a file often moves or deletes it, and an app clears what it has dealt with. `has no file named` checks that a file is gone, and `is empty` that a folder has no files, in its subfolders too. Hidden files, like `.DS_Store`, are not counted, and a folder that is not there is empty. Both wait for the files to go: 10 seconds, or the time `within` gives.
+A service that imports a file often moves or deletes it, and an app clears what it has dealt with. `has no file named` checks that a file is gone, and `is empty` that a folder has no files, in its subfolders too. A name with a `*` stands for any characters but a slash (`incoming/M-HERON-*.csv`), and no file may match it. Hidden files, like `.DS_Store`, are not counted, and a folder that is not there is empty. Both wait for the files to go: 10 seconds, or the time `within` gives.
 
 ```gherkin
 Then within 10s the imports folder has no file named incoming/M-HERON-0501.csv

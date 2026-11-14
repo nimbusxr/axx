@@ -2,7 +2,7 @@
   "description": "The frozen catalog of built-in step text. Step text is public API: every entry must stay defined, verbatim, by its pack.",
   "counts": {
     "parameterType": 22,
-    "step": 923
+    "step": 957
   },
   "entries": [
     {
@@ -5696,6 +5696,210 @@
       "pack": "faults",
       "keyword": "Given",
       "expression": "the {connection} connection closes after {int} bytes {dataDirection} on {int}% of connections for {duration}"
+    },
+    {
+      "kind": "step",
+      "pack": "mock",
+      "keyword": "Then",
+      "expression": "within {duration} the mocked {word} request to {word} named {word} was received by {mockedService}"
+    },
+    {
+      "kind": "step",
+      "pack": "mock",
+      "keyword": "Then",
+      "expression": "within {duration} the mocked {word} request to path {word} named {word} was received by {mockedService}"
+    },
+    {
+      "kind": "step",
+      "pack": "mock",
+      "keyword": "Then",
+      "expression": "within {duration} the mocked request named {word} was received exactly {int} time(s)"
+    },
+    {
+      "kind": "step",
+      "pack": "mock",
+      "keyword": "Then",
+      "expression": "within {duration} the mocked request named {word} on {mockedService} was received exactly {int} time(s)"
+    },
+    {
+      "kind": "step",
+      "pack": "mock",
+      "keyword": "Then",
+      "expression": "within {duration} the mocked request named {word} was received at least {int} time(s)"
+    },
+    {
+      "kind": "step",
+      "pack": "mock",
+      "keyword": "Then",
+      "expression": "within {duration} the mocked request named {word} on {mockedService} was received at least {int} time(s)"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Then",
+      "expression": "within {duration} a selection of at least {int} row(s) is retrieved from the {word} table where the {word} jsonb column contains:"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Then",
+      "expression": "within {duration} a {ordinal} selection of at least {int} row(s) is retrieved from the {word} table where the {word} jsonb column contains:"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Then",
+      "expression": "within {duration} a selection of at least {int} row(s) is retrieved from the {word} table on {dbService} where the {word} jsonb column contains:"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Then",
+      "expression": "within {duration} a {ordinal} selection of at least {int} row(s) is retrieved from the {word} table on {dbService} where the {word} jsonb column contains:"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Then",
+      "expression": "within {duration} the {word} table has no rows where:"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Then",
+      "expression": "within {duration} the {word} table on {dbService} has no rows where:"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Then",
+      "expression": "within {duration} the before insert trigger on the {word} table was raised {int} time(s)"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Then",
+      "expression": "within {duration} the {ordinal} ordered before insert trigger on the {word} table was raised {int} time(s)"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Then",
+      "expression": "within {duration} the before insert trigger on the {word} table on {dbService} was raised {int} time(s)"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Then",
+      "expression": "within {duration} the {ordinal} ordered before insert trigger on the {word} table on {dbService} was raised {int} time(s)"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Then",
+      "expression": "within {duration} the before update trigger on the {word} table was raised {int} time(s)"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Then",
+      "expression": "within {duration} the {ordinal} ordered before update trigger on the {word} table was raised {int} time(s)"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Then",
+      "expression": "within {duration} the before update trigger on the {word} table on {dbService} was raised {int} time(s)"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Then",
+      "expression": "within {duration} the {ordinal} ordered before update trigger on the {word} table on {dbService} was raised {int} time(s)"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Then",
+      "expression": "within {duration} the before delete trigger on the {word} table was raised {int} time(s)"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Then",
+      "expression": "within {duration} the {ordinal} ordered before delete trigger on the {word} table was raised {int} time(s)"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Then",
+      "expression": "within {duration} the before delete trigger on the {word} table on {dbService} was raised {int} time(s)"
+    },
+    {
+      "kind": "step",
+      "pack": "sql",
+      "keyword": "Then",
+      "expression": "within {duration} the {ordinal} ordered before delete trigger on the {word} table on {dbService} was raised {int} time(s)"
+    },
+    {
+      "kind": "step",
+      "pack": "mongo",
+      "keyword": "Then",
+      "expression": "within {duration} the {word} collection has no documents where:"
+    },
+    {
+      "kind": "step",
+      "pack": "mongo",
+      "keyword": "Then",
+      "expression": "within {duration} the {word} collection on {mongoService} has no documents where:"
+    },
+    {
+      "kind": "step",
+      "pack": "aws-s3",
+      "keyword": "Then",
+      "expression": "the {word} s3 bucket has no object named {path}"
+    },
+    {
+      "kind": "step",
+      "pack": "aws-s3",
+      "keyword": "Then",
+      "expression": "within {duration} the {word} s3 bucket has no object named {path}"
+    },
+    {
+      "kind": "step",
+      "pack": "gcp-storage",
+      "keyword": "Then",
+      "expression": "the {word} gcs bucket has no object named {path}"
+    },
+    {
+      "kind": "step",
+      "pack": "gcp-storage",
+      "keyword": "Then",
+      "expression": "within {duration} the {word} gcs bucket has no object named {path}"
+    },
+    {
+      "kind": "step",
+      "pack": "gcp-firestore",
+      "keyword": "Then",
+      "expression": "the {word} firestore collection has no document where:"
+    },
+    {
+      "kind": "step",
+      "pack": "gcp-firestore",
+      "keyword": "Then",
+      "expression": "within {duration} the {word} firestore collection has no document where:"
+    },
+    {
+      "kind": "step",
+      "pack": "azure-blob",
+      "keyword": "Then",
+      "expression": "the {word} blob container has no blob named {path}"
+    },
+    {
+      "kind": "step",
+      "pack": "azure-blob",
+      "keyword": "Then",
+      "expression": "within {duration} the {word} blob container has no blob named {path}"
     }
   ]
 }

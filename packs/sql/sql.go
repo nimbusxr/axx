@@ -184,15 +184,39 @@ func steps() []core.StepDef {
 			Doc: "Select the rows whose JSONB column contains the properties (`@>`), and keep them as the next selection.\n\n" +
 				"- The database must be PostgreSQL.\n" +
 				"- " + numbered,
-			Table: &core.TableDoc{
-				Columns: []string{"property", "value"},
-				Note:    "Each row names a property, dotted (`recipient.city`) for one inside an object, and the JSON value it holds.",
-				Values:  core.JSONValues,
-			},
+			Table: jsonbTable,
 			Examples: []string{"Then a selection of rows is retrieved from the parcels.parcels table where the details jsonb column contains:\n" +
 				"  | manifestId | M-KESTREL-0412 |\n" +
 				"  | source     | manifest       |"},
 			Run: jsonbStep,
+		},
+		core.StepDef{
+			ID: "sql.select.jsonb.poll", Keyword: "Then", Arg: core.ArgTable, Since: "0.6.9",
+			Expr: "within {duration} a[[ {ordinal}]] selection of at least {int} row(s) is retrieved from the {word} table[[ on {dbService}]] where the {word} jsonb column contains:",
+			Doc: "Select the rows whose JSONB column contains the properties (`@>`), again every 500ms, until at least that many come back, " +
+				"and keep them as the next selection: for rows a service writes in the background.\n\n" +
+				"- The step fails when the time is up with fewer rows.\n" +
+				"- The database must be PostgreSQL.\n" +
+				"- " + numbered,
+			Table: jsonbTable,
+			Examples: []string{"Then within 20s a selection of at least 2 rows is retrieved from the parcels.parcels table where the details jsonb column contains:\n" +
+				"  | manifestId | M-HERON-0601 |\n" +
+				"  | source     | manifest     |"},
+			Run: jsonbPollStep,
+		},
+		core.StepDef{
+			ID: "sql.rows.none", Keyword: "Then", Arg: core.ArgTable, Since: "0.6.9", Absence: true,
+			Expr: "within {duration} the {word} table[[ on {dbService}]] has no rows where:",
+			Doc: "Check that no row of the table matches, again every 500ms until none does: for rows a service deletes, " +
+				"or changes so that they no longer match, in the background.\n\n" +
+				"- The step fails when rows still match when the time is up.\n" +
+				"- It also passes when no row ever matched, as when the service never wrote them: check what the service did too, " +
+				"like the rows it wrote instead.",
+			Table: whereTable("the rows that must be gone hold"),
+			Examples: []string{"Then within 20s the parcels.manifest_lines table has no rows where:\n" +
+				"  | manifest_id | M-MAPLE-0019 |\n" +
+				"  | status      | PENDING      |"},
+			Run: noRowsStep,
 		},
 		core.StepDef{
 			ID: "sql.json.are", Keyword: "Then", Arg: core.ArgTable,
@@ -430,38 +454,172 @@ func pollStep(sc *core.Scenario, a core.Args) error {
 	return nil
 }
 
+// jsonbTable is the table of the steps that select rows by what a JSONB column contains.
+var jsonbTable = &core.TableDoc{
+	Columns: []string{"property", "value"},
+	Note:    "Each row names a property, dotted (`recipient.city`) for one inside an object, and the JSON value it holds.",
+	Values:  core.JSONValues,
+}
+
 func jsonbStep(sc *core.Scenario, a core.Args) error {
 	svc, err := service(sc, a, 2)
 	if err != nil {
 		return err
 	}
-	if !svc.Target.Dialect.Postgres {
-		return fmt.Errorf("JSONB containment requires PostgreSQL (db service %s is %s)", svc.Name, svc.Target.Dialect.Name)
-	}
-	table, err := Ident(a.String(1))
+	c, err := containing(svc, a.String(1), a.String(3), a.Table)
 	if err != nil {
 		return err
 	}
-	column, err := Ident(a.String(3))
-	if err != nil {
-		return err
-	}
-	pairs, err := a.Table.Pairs()
-	if err != nil {
-		return err
-	}
-	doc, err := containmentJSON(pairs)
-	if err != nil {
-		return err
-	}
-	q := "SELECT * FROM " + table + " WHERE " + column + " @> " + svc.Target.Dialect.Literal(doc) + "::jsonb"
-	sel, err := svc.query(sc.Context(), table, q)
+	sel, err := c.query(sc.Context(), svc)
 	if err != nil {
 		return fmt.Errorf("Could not perform JSONB containment selection: %w", err) //nolint:staticcheck // user-facing message
 	}
-	keepContaining(sel, column, pairs)
 	svc.addSelection(sel)
 	return nil
+}
+
+func jsonbPollStep(sc *core.Scenario, a core.Args) error {
+	svc, err := service(sc, a, 4)
+	if err != nil {
+		return err
+	}
+	c, err := containing(svc, a.String(3), a.String(5), a.Table)
+	if err != nil {
+		return err
+	}
+	d := a.Value(0).(time.Duration)
+	minRows := a.Int(2)
+	var last *Selection
+	err = poll(sc, d, func() (bool, error) {
+		sel, err := c.query(sc.Context(), svc)
+		if err != nil {
+			return false, err
+		}
+		last = sel
+		return len(sel.Rows) >= minRows, nil
+	})
+	if last == nil {
+		return fmt.Errorf("Could not perform JSONB containment selection; no result was obtained within %s: %w", d, err) //nolint:staticcheck // user-facing message
+	}
+	svc.addSelection(last)
+	if len(last.Rows) < minRows {
+		return core.Fail(fmt.Sprintf("expected at least %d row(s) from %s whose %s contains the properties within %s%s", minRows, last.Table, c.column, d, last.hints()), minRows, len(last.Rows))
+	}
+	return nil
+}
+
+// containment is a selection of the rows whose JSONB column contains properties.
+type containment struct {
+	table, column, q string
+	pairs            []core.Pair
+}
+
+func containing(svc *Service, table, column string, t *core.Table) (containment, error) {
+	if !svc.Target.Dialect.Postgres {
+		return containment{}, fmt.Errorf("JSONB containment requires PostgreSQL (db service %s is %s)", svc.Name, svc.Target.Dialect.Name)
+	}
+	tbl, err := Ident(table)
+	if err != nil {
+		return containment{}, err
+	}
+	col, err := Ident(column)
+	if err != nil {
+		return containment{}, err
+	}
+	pairs, err := t.Pairs()
+	if err != nil {
+		return containment{}, err
+	}
+	doc, err := containmentJSON(pairs)
+	if err != nil {
+		return containment{}, err
+	}
+	q := "SELECT * FROM " + tbl + " WHERE " + col + " @> " + svc.Target.Dialect.Literal(doc) + "::jsonb"
+	return containment{table: tbl, column: col, q: q, pairs: pairs}, nil
+}
+
+func (c containment) query(ctx context.Context, svc *Service) (*Selection, error) {
+	sel, err := svc.query(ctx, c.table, c.q)
+	if err != nil {
+		return nil, err
+	}
+	keepContaining(sel, c.column, c.pairs)
+	return sel, nil
+}
+
+func noRowsStep(sc *core.Scenario, a core.Args) error {
+	svc, err := service(sc, a, 2)
+	if err != nil {
+		return err
+	}
+	d := a.Value(0).(time.Duration)
+	var last *Selection
+	err = poll(sc, d, func() (bool, error) {
+		// Each time, as the selection that waits does: the table may be one the service has
+		// yet to create, and a lost connection may come back. A value of the wrong type
+		// fails at once, as no wait can mend it.
+		f, err := tableAndWhere(sc.Context(), svc, a.String(1), a.Table)
+		var lookup *columnTypesError
+		switch {
+		case errors.As(err, &lookup):
+			return false, err
+		case err != nil:
+			return false, stop{err}
+		}
+		sel, err := svc.queryTyped(sc.Context(), f.table, "SELECT * FROM "+f.table+" WHERE "+f.where, f.types)
+		if err != nil {
+			return false, err
+		}
+		keepStored(sel, f.untyped)
+		last = sel
+		return len(sel.Rows) == 0, nil
+	})
+	var st stop
+	switch {
+	case errors.As(err, &st):
+		return st.error
+	case last == nil:
+		return fmt.Errorf("Could not check the rows of %s; no result was obtained within %s: %w", a.String(1), d, typeMismatch(err)) //nolint:staticcheck // user-facing message
+	}
+	if n := len(last.Rows); n > 0 {
+		return core.Fail(fmt.Sprintf("expected no rows of %s to match within %s, but %d still %s%s", last.Table, d, n, pluralVerb(n, "does", "do"), last.hints()), 0, n)
+	}
+	return nil
+}
+
+// poll calls check every 500ms until it reports done or d has passed. An error
+// from check ends the wait only when it is a stop, which poll returns as it is;
+// otherwise the last one is returned when the time is up.
+func poll(sc *core.Scenario, d time.Duration, check func() (bool, error)) error {
+	deadline := time.Now().Add(d)
+	for {
+		done, err := check()
+		if done {
+			return nil
+		}
+		var st stop
+		if errors.As(err, &st) {
+			return err
+		}
+		if time.Now().Add(500 * time.Millisecond).After(deadline) {
+			return err
+		}
+		select {
+		case <-sc.Context().Done():
+			return sc.Context().Err()
+		case <-time.After(500 * time.Millisecond):
+		}
+	}
+}
+
+// stop is an error no wait can mend, which ends a poll at once.
+type stop struct{ error }
+
+func pluralVerb(n int, one, many string) string {
+	if n == 1 {
+		return one
+	}
+	return many
 }
 
 // containmentJSON builds {"a":{"b":"v","n":3}} from dotted keys; each leaf is

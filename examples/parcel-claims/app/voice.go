@@ -67,9 +67,9 @@ func isVoiceNote(key string) bool {
 }
 
 // hear reads a voice note: its transcript is the claim's description, when
-// it has none, and the triage reads it as it reads a typed one. The claim
-// still waits for its photo, unless the description reports no damage in
-// transit: then it goes to a person.
+// it has none, and the triage reads it as it reads a typed one, and the
+// recording is deleted. The claim still waits for its photo, unless the
+// description reports no damage in transit: then it goes to a person.
 func (s *service) hear(ctx context.Context, c Claim, bucket, key string) error {
 	if s.voice == nil {
 		s.log.Warn("voice note ignored: no transcriber", "claim", c.ID, "key", key)
@@ -91,6 +91,11 @@ func (s *service) hear(ctx context.Context, c Claim, bucket, key string) error {
 	c.Description = text
 	s.triageDescription(&c)
 	if err := s.saveClaim(ctx, c); err != nil {
+		return err
+	}
+	// The transcript is the claim's description: the customer's recording is
+	// not kept.
+	if err := s.removeObject(ctx, bucket, key); err != nil {
 		return err
 	}
 	if c.Status == Referred {

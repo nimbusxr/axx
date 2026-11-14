@@ -24,7 +24,7 @@ on a queue, and the decision on a topic and a bus. The service knows nothing abo
 
 | Feature | Acceptance criteria | What axx uses |
 | --- | --- | --- |
-| `damage-claims` | A damage claim waits for its photo. A claim within the auto-approval limit is settled when its photo arrives and shows a parcel. A larger one, or a photo that shows no parcel, goes to a person, with the photo copied for the reviewer. A claim whose description reports no damage in transit goes to a person when it is filed. A customer's voice note is the claim's description, and one that reports no damage in transit sends the claim to a person. A parcel is claimed once. | REST with OpenAPI, S3 uploads and objects (JSON properties, a letter's text, identical to a file), DynamoDB items and counts, SQS, SNS and EventBridge checks, stubs of the photo check's model, the triage's language model and the voice notes' speech recognizer |
+| `damage-claims` | A damage claim waits for its photo. A claim within the auto-approval limit is settled when its photo arrives and shows a parcel. A larger one, or a photo that shows no parcel, goes to a person, with the photo copied for the reviewer. A claim whose description reports no damage in transit goes to a person when it is filed. A customer's voice note is the claim's description, and the recording is deleted; one that reports no damage in transit sends the claim to a person. A parcel is claimed once. | REST with OpenAPI, S3 uploads and objects (JSON properties, a letter's text, identical to a file) and an object that is gone, DynamoDB items and counts, SQS, SNS and EventBridge checks, stubs of the photo check's model, the triage's language model and the voice notes' speech recognizer |
 | `lost-claims` | A lost parcel is paid out unless the parcels platform reported it delivered. A parcel event without a type is set aside. | publishing to SNS, with and without attributes, a CSV row in an S3 object, and a log entry that proves an event was ignored |
 | `carrier-reports` | A carrier's damage report settles the claim without a photo. | putting an event on an EventBridge bus |
 | `refunds` | Paid refunds close claims. Failed ones are flagged with the reason payments gives. | sending to SQS, with and without attributes |
@@ -114,7 +114,7 @@ credentials come from your environment.
 | Resource | Kind | Purpose |
 | --- | --- | --- |
 | `insured-parcels`, `claims` | DynamoDB tables | insured parcels (seeded by the scenarios) and claims |
-| `claim-evidence` | S3 bucket | shops' photos and voice notes; new objects notify the `evidence-uploads` queue |
+| `claim-evidence` | S3 bucket | shops' photos and voice notes, each voice note until it is transcribed; new objects notify the `evidence-uploads` queue |
 | `claim-letters`, `claim-reviews` | S3 buckets | settlement letters, as JSON for the shop's systems and text for its staff; photos copied for reviewers |
 | `claim-settlements` | S3 bucket | the settlement of every approved claim, as CSV for finance to book |
 | `refund-requests` | SQS queue | refunds for payments to pay (the service writes it; axx checks it) |

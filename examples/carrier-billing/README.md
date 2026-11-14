@@ -4,7 +4,7 @@
 runs on Google Cloud:
 
 - **Cloud Storage:** carriers upload invoices to a bucket. A new invoice is announced on a
-  Pub/Sub topic, and the service reconciles it.
+  Pub/Sub topic, and the service reconciles it and moves it to an archive bucket.
 - **Firestore and BigQuery:** the service prices every line at the carrier's rate from
   BigQuery, for the weight the parcels platform measured (kept in Firestore). It writes
   the priced lines to BigQuery and the invoice's summary to Firestore.
@@ -25,8 +25,8 @@ Firestore, the files in Cloud Storage, the events on Pub/Sub, and what the servi
 
 | Feature | Acceptance criteria | What axx uses |
 | --- | --- | --- |
-| `invoices` | An invoice at the agreed rates is reconciled. Overcharged lines and unknown parcels are disputed. A repack is paid only with a photo of the repacked parcel. An invoice uploaded twice is reconciled once. | Cloud Storage uploads, objects (a CSV row, identical to a file, JSON properties, a letter's text), BigQuery seeds, rows and counts, Firestore seeds (with timestamps) and documents, Pub/Sub checks, a log entry, a stub of the repack photo check's model |
-| `shipments` | A weighed parcel is kept for pricing. A shipment event without a type is set aside. | publishing to Pub/Sub, with and without attributes, a Firestore collection query, a log entry |
+| `invoices` | An invoice at the agreed rates is reconciled, and archived. Overcharged lines and unknown parcels are disputed. A repack is paid only with a photo of the repacked parcel. An invoice uploaded twice is reconciled once. | Cloud Storage uploads, objects (a CSV row, identical to a file, JSON properties, a letter's text) and objects that are gone, BigQuery seeds, rows and counts, Firestore seeds (with timestamps) and documents, Pub/Sub checks, a log entry, a stub of the repack photo check's model |
+| `shipments` | A weighed parcel is kept for pricing, and a cancelled one no longer is. A shipment event without a type is set aside. | publishing to Pub/Sub, with and without attributes, Firestore seeds and collection queries, one for a document that is gone, a log entry |
 
 ## Run it
 

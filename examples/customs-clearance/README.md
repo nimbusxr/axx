@@ -5,8 +5,8 @@
 - **Filing:** brokers upload a parcel's commercial invoice to Blob Storage and file its
   declaration on a Service Bus queue.
 - **Low-value parcels:** a parcel worth up to 150 EUR is cleared. The service writes a
-  clearance certificate (JSON, and text to print), archives the invoice, and announces the
-  decision on a Service Bus topic.
+  clearance certificate (JSON, and text to print), moves the invoice to its archive, and
+  announces the decision on a Service Bus topic.
 - **Parcels that owe duties:** the service works out the duties on every line of the
   invoice and archives the breakdown. It sends a payment request for the duties on a
   queue, and the parcel is held.
@@ -25,7 +25,7 @@ the duty requests on their queue, and the events on the topic.
 
 | Feature | Acceptance criteria | What axx uses |
 | --- | --- | --- |
-| `declarations` | A low-value parcel is cleared. A parcel above the de minimis value owes duties. A declaration without its invoice is held. | Blob Storage uploads and blobs (JSON properties, a certificate's text, identical to a file, a CSV row), Service Bus queue sends (with application properties) and checks, topic checks |
+| `declarations` | A low-value parcel is cleared, and its invoice archived. A parcel above the de minimis value owes duties. A declaration without its invoice is held. | Blob Storage uploads and blobs (JSON properties, a certificate's text, identical to a file, a CSV row) and a blob that is gone, Service Bus queue sends (with application properties) and checks, topic checks |
 | `border` | A cleared parcel is released when it reaches the border. One that is not is held. An inspected parcel is released when its contents match its invoice, and held when they differ. | sending to a Service Bus topic, Blob Storage uploads under another name, a stub of the contents check's model |
 
 ## Run it

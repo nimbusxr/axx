@@ -34,7 +34,7 @@ func (pack) Manifest() core.Manifest {
 		Requires:  []string{gcpcore.Name},
 		Steps: cloudstep.Objects{
 			Pack: name, Container: "gcs bucket", Object: "object", Example: "carrier-invoices",
-			Store: store,
+			Store: store, AbsentSince: "0.6.9",
 		}.Steps(),
 	}
 }

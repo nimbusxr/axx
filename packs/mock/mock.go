@@ -161,6 +161,32 @@ func steps() []core.StepDef {
 			Run:      receivedPath,
 		},
 		{
+			ID: "mock.received.within", Keyword: "Then", Since: "0.6.9",
+			Expr: "within {duration} the mocked {word} request to {word} named {word} was received by {mockedService}",
+			Doc: "Check that the mocked service received a request at least once, counting its requests again every 500ms until it has, " +
+				"and name it for the steps that follow: for a request the service sends in the background, like from a job or for a message " +
+				"it consumes, after the step that made it act has ended.\n\n" +
+				"- The step fails when the time is up without the request.\n" +
+				"- The request is its method and its exact URL, query string included.\n" +
+				receivedRules,
+			Examples: []string{"Then within 10s the mocked POST request to /webhooks/linden-and-lace named delivered was received by shops"},
+			Run: func(sc *core.Scenario, a core.Args) error {
+				return receive(sc, a, 1, false, a.Value(0).(time.Duration))
+			},
+		},
+		{
+			ID: "mock.received.path.within", Keyword: "Then", Since: "0.6.9",
+			Expr: "within {duration} the mocked {word} request to path {word} named {word} was received by {mockedService}",
+			Doc: "Check that the mocked service received a request to a path at least once, whatever its query string, counting its requests " +
+				"again every 500ms until it has, and name it for the steps that follow: for a request the service sends in the background.\n\n" +
+				"- The step fails when the time is up without the request.\n" +
+				receivedRules,
+			Examples: []string{"Then within 10s the mocked POST request to path /webhooks/linden-and-lace named delivered was received by shops"},
+			Run: func(sc *core.Scenario, a core.Args) error {
+				return receive(sc, a, 1, true, a.Value(0).(time.Duration))
+			},
+		},
+		{
 			ID: "mock.openapi.levels", Keyword: "Given", Arg: core.ArgTable,
 			Expr: "the OpenAPI validation levels for the mocked {mockedService} service are:",
 			Doc: "Relax the mocked service's OpenAPI contract for this scenario: a finding that would fail the mock step " +
@@ -185,6 +211,11 @@ func steps() []core.StepDef {
 		countStep("mock.count.exactly", "exactly", func(got, n int) bool { return got == n }),
 		countStep("mock.count.atLeast", "at least", func(got, n int) bool { return got >= n }),
 		countStep("mock.count.atMost", "at most", func(got, n int) bool { return got <= n }),
+		// No wait for at most: waiting cannot show that a request will not come.
+		countWithin("mock.count.exactly.within", "exactly", "\n- It fails at once with more, since a count only grows.",
+			func(got, n int) bool { return got == n }, func(got, n int) bool { return got > n }),
+		countWithin("mock.count.atLeast.within", "at least", "",
+			func(got, n int) bool { return got >= n }, func(int, int) bool { return false }),
 		{
 			ID: "mock.notReceived", Keyword: "Then", Absence: true,
 			Expr: "the mocked {word} request to {word} named {word}[[ on {mockedService}]] was not received",
@@ -406,6 +437,33 @@ func countStep(id, words string, ok func(got, n int) bool) core.StepDef {
 	}
 }
 
+// countWithin is a count step that counts the requests again every 500ms until
+// the count is what it wants, or past it (over), since a count only grows.
+func countWithin(id, words, more string, ok, over func(got, n int) bool) core.StepDef {
+	return core.StepDef{
+		ID: id, Keyword: "Then", Since: "0.6.9",
+		Expr: "within {duration} the mocked request named {word}[[ on {mockedService}]] was received " + words + " {int} time(s)",
+		Doc: fmt.Sprintf("Check that the mocked service received the named request %s that many times, counting its requests again every 500ms "+
+			"until it has: for requests the service sends in the background.\n\n"+
+			"- The step fails when the time is up with fewer.%s", words, more),
+		Examples: []string{fmt.Sprintf("Then within 10s the mocked request named delivered on shops was received %s 1 time", words)},
+		Run: func(sc *core.Scenario, a core.Args) error {
+			svc, err := service(sc, a, 2)
+			if err != nil {
+				return err
+			}
+			name := a.String(1)
+			p, err := named(svc, name)
+			if err != nil {
+				return err
+			}
+			n := a.Int(3)
+			return verifyWithin(sc, svc, name, p, fmt.Sprintf("%s %d", words, n),
+				func(got int) bool { return ok(got, n) }, func(got int) bool { return over(got, n) }, a.Value(0).(time.Duration))
+		},
+	}
+}
+
 func addService(sc *core.Scenario, a core.Args) error {
 	pairs, err := a.Table.Pairs()
 	if err != nil {
@@ -469,34 +527,33 @@ func warnUnusedLevels(sc *core.Scenario) error {
 	return nil
 }
 
-func received(sc *core.Scenario, a core.Args) error {
-	method, path, name := a.String(0), a.String(1), a.String(2)
-	svc := a.Value(3).(*Service)
-	switch method {
-	case "GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD":
-	default:
-		return fmt.Errorf("Unsupported method: %s", method) //nolint:staticcheck // user-facing message
-	}
-	p := &pattern{Method: method, URL: path}
-	svc.requests[name] = p
-	return verify(sc, svc, name, p, "at least 1", func(got int) bool { return got >= 1 })
-}
+func received(sc *core.Scenario, a core.Args) error { return receive(sc, a, 0, false, 0) }
 
-func receivedPath(sc *core.Scenario, a core.Args) error {
-	method, path, name := a.String(0), a.String(1), a.String(2)
-	svc := a.Value(3).(*Service)
+func receivedPath(sc *core.Scenario, a core.Args) error { return receive(sc, a, 0, true, 0) }
+
+// receive checks that the mocked service received a request, its method, path,
+// name and service the arguments from off on, at least once: at once, or
+// counting again until within has passed.
+func receive(sc *core.Scenario, a core.Args, off int, pathOnly bool, within time.Duration) error {
+	method, path, name := a.String(off), a.String(off+1), a.String(off+2)
+	svc := a.Value(off + 3).(*Service)
 	switch method {
 	case "GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD":
 	default:
 		return fmt.Errorf("Unsupported method: %s", method) //nolint:staticcheck // user-facing message
 	}
-	if strings.Contains(path, "?") {
+	if pathOnly && strings.Contains(path, "?") {
 		return fmt.Errorf("the path %s has a query string: check its query parameters with the query parameters step", path)
 	}
-	p := &pattern{Method: method, URL: path, PathOnly: true}
+	p := &pattern{Method: method, URL: path, PathOnly: pathOnly}
 	svc.requests[name] = p
-	return verify(sc, svc, name, p, "at least 1", func(got int) bool { return got >= 1 })
+	once := func(got int) bool { return got >= 1 }
+	return verifyWithin(sc, svc, name, p, "at least 1", once, func(int) bool { return false }, within)
 }
+
+// receivedRules are the rules of the steps that check that a request was received.
+const receivedRules = "- The method is `GET`, `POST`, `PUT`, `DELETE`, `PATCH`, `OPTIONS` or `HEAD`, in capitals.\n" +
+	"- With the axx WireMock image, a call that broke the service's OpenAPI contract fails the step."
 
 func notReceived(sc *core.Scenario, a core.Args) error {
 	svc, err := service(sc, a, 3)
@@ -727,6 +784,28 @@ func named(svc *Service, name string) (*pattern, error) {
 			"\"the mocked GET request to /path named %s was received by %s\"", name, svc.Name, name, svc.Name)
 	}
 	return p, nil
+}
+
+// verifyWithin counts the matching requests again every 500ms until the count
+// is what the step wants (ok), past what it wants (over), or within has
+// passed, and then verifies it. With no time, it verifies at once.
+func verifyWithin(sc *core.Scenario, svc *Service, name string, p *pattern, want string, ok, over func(int) bool, within time.Duration) error {
+	deadline := time.Now().Add(within)
+	for within > 0 {
+		got, err := svc.c.count(sc.Context(), p)
+		if err == nil && (ok(got) || over(got)) {
+			break
+		}
+		if time.Now().Add(500 * time.Millisecond).After(deadline) {
+			break
+		}
+		select {
+		case <-sc.Context().Done():
+			return sc.Context().Err()
+		case <-time.After(500 * time.Millisecond):
+		}
+	}
+	return verify(sc, svc, name, p, want, ok)
 }
 
 func verify(sc *core.Scenario, svc *Service, name string, p *pattern, want string, ok func(int) bool) error {

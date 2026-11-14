@@ -3,7 +3,8 @@ Feature: Carrier invoices
   Carriers upload their monthly invoices to the carrier-invoices bucket. Billing prices
   every line at the rate agreed with the carrier, for the weight the parcels platform
   measured, and disputes the lines billed above it and the parcels it never shipped, in
-  a letter to the carrier. A carrier that repacks a parcel whose packaging gave way
+  a letter to the carrier. A reconciled invoice moves from the carrier-invoices bucket to
+  the invoice-archive bucket. A carrier that repacks a parcel whose packaging gave way
   uploads a photo of the repacked parcel with its invoice: billing pays the repack when
   the photo shows a parcel.
 
@@ -30,6 +31,8 @@ Feature: Carrier invoices
       | attribute eventType | InvoiceReconciled |
       | invoice             | INV-2026-09-KES1  |
       | status              | RECONCILED        |
+    And the invoice-archive gcs bucket has an object named kestrel/INV-2026-09-KES1.csv
+    And the carrier-invoices gcs bucket has no object named kestrel/INV-2026-09-KES1.csv
 
   Scenario: Overcharged lines and unknown parcels are disputed
     Given a seeds/shipments-kes2.yaml firestore seed
@@ -86,5 +89,6 @@ Feature: Carrier invoices
       | status | RECONCILED |
     When the invoices/INV-2026-09-HER1.csv file is uploaded to the carrier-invoices gcs bucket as heron/INV-2026-09-HER1.csv
     Then the console log has an entry matching 'invoice already reconciled.* invoice=INV-2026-09-HER1'
+    And within 10s the carrier-invoices gcs bucket has no object named heron/INV-2026-09-HER1.csv
     And the billing.invoice_lines bigquery table has 1 row where:
       | invoice | INV-2026-09-HER1 |
