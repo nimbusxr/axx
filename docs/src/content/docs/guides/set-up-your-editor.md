@@ -11,6 +11,7 @@ Axx's steps are defined inside the `axx` binary, not in your project, so an edit
 - the step's documentation, and the values of its parameters, on hover;
 - go to a step's definition: the Go code that defines it when that code is on your machine (your custom packs, or axx built from source), otherwise the step's entry in a reference page;
 - the files that steps name: Ctrl/Cmd+click a seed, a payload, a schema, an OpenAPI document or a log's `file://` url to open the file, get its path completed as you type, and a warning when it does not exist (with a pointer to `axx fixtures generate` for a fixture that is not generated yet). These are the steps' `{filepath}` parameters and file properties, and the Examples cells that fill them in; the file is found the way the step finds it, in the `resources` directories, next to `axx.yaml` or at an absolute path. A log's file may appear only during the run, so it is never flagged;
+- the files that steps name, shown without opening them: hover over a path to see the file, and in IntelliJ IDEA, show it under its line too ([Preview the files that steps name](#preview-the-files-that-steps-name));
 - highlighted parameter values and Scenario Outline `<placeholders>`.
 
 The steps are the ones your project loads, custom packs included ([Choose packs](/guides/use-packs/)). The server finds the project's `axx.yaml` itself, even when it is in a subdirectory of the folder you opened.
@@ -42,6 +43,24 @@ The plugin asks again when axx may have changed: when you come back to the IDE a
 If `axx` is not on your `PATH`, set `axx.path` to its location. The **axx** output channel shows the server's log.
 
 With Red Hat's [YAML extension](https://marketplace.visualstudio.com/items?itemName=redhat.vscode-yaml), `axx.yaml`, its `axx.<name>.yaml` overlays and the fixture spec files get completion, documentation and validation from the schemas of the axx your project runs on, as in IntelliJ: the extension asks that axx for them, and asks again when you come back to VS Code, save `axx.yaml` or change `axx.path`. Until axx has answered, it uses the schemas it comes with. A comment at the top of a file goes first there: Red Hat's extension downloads the schema it names, so on a network that blocks that address, remove the comment.
+
+## Preview the files that steps name
+
+A scenario's seeds, payloads, pictures and model stubs are files next to it. You can see them without leaving the feature file. The file you see is the one the step reads, found the same way the step finds it.
+
+- **Hover** over a file's path, in a step or in a table cell. The hover shows the file:
+  - a text file's first 40 lines, highlighted. JSON written on one long line, like a model stub or a minified payload, is shown indented;
+  - a picture's thumbnail (PNG, JPEG or GIF), with its size in pixels;
+  - for any other file, such as a video or a PDF, its size.
+
+  This works in IntelliJ IDEA, in VS Code and in any editor that runs `axx lsp`.
+- **In IntelliJ IDEA**, each line that names a file ends with a **▸ preview** toggle. A line that names several files has a toggle for each, labeled with the file's name.
+  1. Click the toggle to show the file under the line: a text file's first 20 lines, highlighted as the IDE highlights that kind of file, or a picture's thumbnail.
+  2. Click the toggle again to hide it.
+
+  The preview follows the file as it changes, saved or not.
+
+Previews only show a file. To change the file, open it: Ctrl/Cmd+click the path, or click the preview.
 
 ## Format feature files
 

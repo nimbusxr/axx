@@ -4,7 +4,9 @@ package us.nimbusxr.axx.idea.lsp;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.platform.lsp.api.LspClient;
+import com.intellij.platform.lsp.api.LspClientManager;
 import com.intellij.platform.lsp.api.LspIntegrationProvider;
+import com.intellij.platform.lsp.api.LspServerState;
 import com.intellij.platform.lsp.api.lsWidget.LspClientWidgetItem;
 
 import org.jetbrains.annotations.NotNull;
@@ -32,6 +34,19 @@ public final class AxxLspIntegrationProvider implements LspIntegrationProvider {
         if (AxxLspClientDescriptor.isFeatureFile(file) && AxxProject.isAxxProject(project)) {
             clientStarter.ensureClientStarted(new AxxLspClientDescriptor(project));
         }
+    }
+
+    /** The project's axx language server, when it runs and serves the file. */
+    public static @Nullable LspClient runningServer(
+            @NotNull Project project, @NotNull VirtualFile file) {
+        for (LspClient server :
+                LspClientManager.getInstance(project).getClients(AxxLspIntegrationProvider.class)) {
+            if (server.getState() == LspServerState.Running
+                    && server.getDescriptor().isSupportedFile(file)) {
+                return server;
+            }
+        }
+        return null;
     }
 
     /** The server's entry in the Language Services status bar widget, linking to the settings. */

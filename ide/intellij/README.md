@@ -56,6 +56,10 @@ directory, over stdio. One server serves the whole project. It gives feature fil
   in a step or in a table cell, is shown as a link, and Go to Declaration on it opens the file.
   Its path completes as you type, and a file a step reads that does not exist is flagged (not a
   log's, which may appear only during the run).
+- **Previews** of the files steps name. A line that names a file ends with a *▸ preview* toggle:
+  click it to show the file under the line (a text file's first 20 lines, highlighted, or a
+  picture's thumbnail), and again to hide it. Hovering over the path shows the file too, and
+  a click on a preview opens the file. A preview only shows the file; it changes in the file.
 - **Highlighting** of step parameter values and of `<placeholders>` in Scenario Outline steps, in
   the Gherkin plugin's *Step parameter* and *Scenario outline parameter* colors (*Settings |
   Editor | Color Scheme | Cucumber*).

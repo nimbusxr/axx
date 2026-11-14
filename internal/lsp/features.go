@@ -12,13 +12,21 @@ import (
 // the editor asks again as the user types.
 const maxCompletions = 200
 
-// hoverAt documents the step under the cursor: the step it matches with its
-// documentation and the values of its parameters, or why it matches none.
-func (d *document) hoverAt(reg *match.Registry, pos position) *hover {
+// hoverAt documents what is under the cursor: a file a value names, shown
+// (preview), or else the step, the one it matches with its documentation and
+// the values of its parameters, or why it matches none.
+func (d *document) hoverAt(pr *project, pos position) *hover {
+	for _, l := range d.fileLinks(pr, pos.Line) {
+		if l.rng.Start.Character <= pos.Character && pos.Character <= l.rng.End.Character {
+			r := l.rng
+			return &hover{Contents: markupContent{Kind: "markdown", Value: pr.preview(l.path)}, Range: &r}
+		}
+	}
 	st, ok := d.stepAt(pos.Line)
-	if !ok || reg == nil {
+	if !ok || pr == nil || pr.reg == nil {
 		return nil
 	}
+	reg := pr.reg
 	ms := reg.Match(d.matchText(st))
 	var b strings.Builder
 	switch len(ms) {
