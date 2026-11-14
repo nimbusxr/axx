@@ -43,11 +43,17 @@ func resolveValues(spec *Spec, fixtureKey string, ctx *ExpansionContext) (*jsonx
 // resolveFixture is FixtureTree.resolve: resolveValues, then each identity
 // pinned by presence (a value at the path is the fixture's authored identity)
 // or derived from the fixture key, and claimed module-wide in its group.
+// What the fixture leaves out (undefined) is taken out of the tree, and
+// kept in ctx for the family, which fills none of it.
 func resolveFixture(spec *Spec, fixtureKey string, ctx *ExpansionContext) (*jsonx.Object, error) {
 	tree, err := resolveValues(spec, fixtureKey, ctx)
 	if err != nil {
 		return nil, err
 	}
+	if ctx.removed == nil {
+		ctx.removed = removals{}
+	}
+	takeUndefined(tree, ctx.removed)
 	for _, id := range spec.Identity {
 		present, err := pathGet(tree, id.Path)
 		if err != nil {

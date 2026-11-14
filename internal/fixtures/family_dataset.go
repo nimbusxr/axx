@@ -89,54 +89,109 @@ func (d datasetFamily) Expand(spec *Spec, baseDir string, ctx *ExpansionContext)
 }
 
 // resolveTables is one fixture's tables as the family renders them: each
-// row its template, expressions, identities and columns applied.
+// row its template, $refs, expressions, identities and columns applied.
+//
+// A row, or a column's value, can be a $ref. One to another document
+// resolves first, and a row it brings lies between the template and the
+// row's own columns. One into this fixture ("#/sessions/0/id") resolves
+// once every row has its template, its expressions and the identities
+// derived for it, so that it sees the rows as they are generated; a row it
+// brings has its template already.
 func (d datasetFamily) resolveTables(spec *Spec, schema *ddlSchema, key string, ctx *ExpansionContext, unresolved *[]string) (*jsonx.Object, error) {
 	fx := spec.Fixtures.Get(key)
 	templates := spec.PrototypeFor(fx.Dir)
 	w := where(spec, key)
-	resolved := jsonx.NewObject()
+	type tableRows struct {
+		raw, name string
+		columns   *ddlTable
+		rows      []any // each a *jsonx.Object
+	}
+	var tables []*tableRows
+	// The fixture as its own $refs see it: the tables by the names it gives
+	// them, their rows the ones being resolved.
+	document := jsonx.NewObject()
 	for _, rawTable := range fx.Data.Keys() {
-		table := strings.ToLower(rawTable)
-		var columns *ddlTable
+		t := &tableRows{raw: rawTable, name: strings.ToLower(rawTable)}
 		if schema != nil {
-			if columns = schema.table(table); columns == nil {
+			if t.columns = schema.table(t.name); t.columns == nil {
 				return nil, genError("%s: table '%s' not found in DDL (tables: %s)", w, rawTable, schema.tableNames())
 			}
 		}
 		rows, ok := get(fx.Data, rawTable).([]any)
 		if !ok {
-			return nil, genError("%s: table '%s' must map to a list of rows", w, table)
+			return nil, genError("%s: table '%s' must map to a list of rows", w, t.name)
 		}
 		template, _ := get(templates, rawTable).(*jsonx.Object)
-		var resolvedRows []any
 		for i, raw := range rows {
-			rowMap, ok := raw.(*jsonx.Object)
+			if _, ok := raw.(*jsonx.Object); !ok {
+				return nil, genError("%s: table '%s' row %d must be a map", w, t.name, i+1)
+			}
+			at := w + " " + t.name + "[" + itoa(i) + "]"
+			row := copyValue(raw)
+			if ctx.eval.references != nil {
+				var err error
+				if row, err = resolveRefValue(row, fx.Dir, ctx.eval.references, false); err != nil {
+					return nil, naming(err, at)
+				}
+			}
+			rowMap, ok := row.(*jsonx.Object)
 			if !ok {
-				return nil, genError("%s: table '%s' row %d must be a map", w, table, i+1)
+				return nil, genError("%s: its %s brings a value, not a row", at, refKeyword)
 			}
-			merged := deepMerge(template, rowMap)
-			if err := ctx.eval.evaluateTree(merged, w+" "+table+"["+itoa(i)+"]", nil); err != nil {
+			merged := rowMap
+			if !has(rowMap, refKeyword) { // a row of this fixture has its template
+				merged = deepMerge(template, rowMap)
+			}
+			if err := ctx.eval.evaluateTree(merged, at, nil); err != nil {
 				return nil, err
 			}
-			if err := d.applyIdentities(spec, ctx, key, table, merged, i); err != nil {
+			t.rows = append(t.rows, merged)
+		}
+		if t.rows == nil {
+			t.rows = []any{}
+		}
+		document.Set(rawTable, t.rows)
+		tables = append(tables, t)
+	}
+	// The identities the rows can have before their own $refs resolve, which
+	// those may name.
+	for _, t := range tables {
+		for i, r := range t.rows {
+			if err := d.applyIdentities(spec, ctx, key, t.name, r.(*jsonx.Object), i, true); err != nil {
 				return nil, err
 			}
-			var row *jsonx.Object
-			var err error
-			if columns == nil {
-				row, err = resolveRowSchemaFree(spec, table, merged, key)
+		}
+	}
+	here := func(_, pointer string) (any, error) {
+		return copyValue(jsonPointer(document, pointer)), nil
+	}
+	resolved := jsonx.NewObject()
+	for _, t := range tables {
+		for i := range t.rows {
+			at := w + " " + t.name + "[" + itoa(i) + "]"
+			row, err := resolveRefValue(t.rows[i], "", here, true)
+			if err != nil {
+				return nil, naming(err, at)
+			}
+			merged, ok := row.(*jsonx.Object)
+			if !ok {
+				return nil, genError("%s: its %s brings a value, not a row", at, refKeyword)
+			}
+			t.rows[i] = merged
+			if err := d.applyIdentities(spec, ctx, key, t.name, merged, i, false); err != nil {
+				return nil, err
+			}
+			if t.columns == nil {
+				row, err = resolveRowSchemaFree(spec, t.name, merged, key)
 			} else {
-				row, err = resolveRow(spec, columns, table, merged, key, unresolved)
+				row, err = resolveRow(spec, t.columns, t.name, merged, key, unresolved)
 			}
 			if err != nil {
 				return nil, err
 			}
-			resolvedRows = append(resolvedRows, row)
+			t.rows[i] = row
 		}
-		if resolvedRows == nil {
-			resolvedRows = []any{}
-		}
-		resolved.Set(table, resolvedRows)
+		resolved.Set(t.name, t.rows)
 	}
 	return resolved, nil
 }
@@ -188,14 +243,24 @@ func orderedTables(schema *ddlSchema, resolved *jsonx.Object) *jsonx.Object {
 	return out
 }
 
-func (datasetFamily) applyIdentities(spec *Spec, ctx *ExpansionContext, key, table string, row *jsonx.Object, index int) error {
+// applyIdentities gives a row its table's identities: the value it has, or
+// one derived for it, claimed. With early, a row that waits for a $ref into
+// its own fixture (the row itself, or the identity's column) is left for
+// later: the call after those resolve.
+func (datasetFamily) applyIdentities(spec *Spec, ctx *ExpansionContext, key, table string, row *jsonx.Object, index int, early bool) error {
+	if early && has(row, refKeyword) {
+		return nil
+	}
 	for _, id := range spec.Identity {
 		dot := strings.LastIndexByte(id.Path, '.')
 		if dot < 0 || strings.ToLower(id.Path[:dot]) != table {
 			continue
 		}
 		column := id.Path[dot+1:]
-		present := get(row, column)
+		present := defined(get(row, column))
+		if o, ok := present.(*jsonx.Object); ok && early && has(o, refKeyword) {
+			continue
+		}
 		var value string
 		switch {
 		case present != nil:
@@ -225,7 +290,13 @@ func resolveRow(spec *Spec, columns *ddlTable, table string, merged *jsonx.Objec
 		present := remaining.Has(name)
 		value := get(remaining, name)
 		remaining.Delete(name)
-		if !present {
+		// A column the row leaves out (undefined) is not in it: no default
+		// of the factory fills it, and the database's does.
+		leftOut := isUndefined(value)
+		if leftOut {
+			present = false
+		}
+		if !present && !leftOut {
 			dotted := table + "." + name
 			switch {
 			case spec.Defaults.Has(dotted):
@@ -251,8 +322,13 @@ func resolveRow(spec *Spec, columns *ddlTable, table string, merged *jsonx.Objec
 
 func resolveRowSchemaFree(spec *Spec, table string, merged *jsonx.Object, key string) (*jsonx.Object, error) {
 	row := jsonx.NewObject()
+	leftOut := map[string]bool{}
 	for _, col := range merged.Keys() {
 		v := get(merged, col)
+		if isUndefined(v) {
+			leftOut[col] = true
+			continue
+		}
 		if err := scalarOnly(spec, col, v, key); err != nil {
 			return nil, err
 		}
@@ -262,7 +338,7 @@ func resolveRowSchemaFree(spec *Spec, table string, merged *jsonx.Object, key st
 	for _, k := range spec.Defaults.Keys() {
 		switch {
 		case strings.HasPrefix(k, prefix):
-			if c := k[len(prefix):]; !row.Has(c) || get(row, c) == nil {
+			if c := k[len(prefix):]; !leftOut[c] && (!row.Has(c) || get(row, c) == nil) {
 				row.Set(c, get(spec.Defaults, k))
 			}
 		case !strings.Contains(k, "."):
@@ -273,6 +349,9 @@ func resolveRowSchemaFree(spec *Spec, table string, merged *jsonx.Object, key st
 }
 
 func scalarOnly(spec *Spec, column string, v any, key string) error {
+	if o, ok := v.(*jsonx.Object); ok && has(o, refKeyword) {
+		return genError("column '%s' in fixtures.%s: its %s names a value that is a %s into this fixture too - name the row that sets the value (%s)", column, key, refKeyword, refKeyword, spec.SourceName)
+	}
 	switch v.(type) {
 	case *jsonx.Object, []any:
 		return genError("column '%s' in fixtures.%s must be a scalar (encode JSON columns as strings) (%s)", column, key, spec.SourceName)

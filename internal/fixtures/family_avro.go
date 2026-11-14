@@ -111,7 +111,7 @@ func (a avroFamily) Expand(spec *Spec, baseDir string, ctx *ExpansionContext) (m
 		if err != nil {
 			return nil, err
 		}
-		r := &avroResolver{spec: spec, key: key, unresolved: &unresolved}
+		r := &avroResolver{spec: spec, key: key, unresolved: &unresolved, removed: ctx.removed}
 		node, err := r.record(schema, tree, "")
 		if err != nil {
 			return nil, err
@@ -208,6 +208,10 @@ type avroResolver struct {
 	spec       *Spec
 	key        string
 	unresolved *[]string
+	// removed are the fields the fixture leaves out: no defaults: entry
+	// fills them. A record has every field all the same: the schema's
+	// default stands for one left out, and without one it is unresolved.
+	removed removals
 }
 
 func (r *avroResolver) suffix() string {
@@ -225,7 +229,7 @@ func (r *avroResolver) record(schema *avro.RecordSchema, values *jsonx.Object, p
 		present := remaining.Has(f.Name())
 		value := get(remaining, f.Name())
 		remaining.Delete(f.Name())
-		if !present {
+		if !present && !r.removed.has(values, f.Name()) {
 			if fb := defaultsLookup(r.spec.Defaults, fieldPath, f.Name()); fb != nil {
 				value, present = fb, true
 			}

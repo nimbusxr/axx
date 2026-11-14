@@ -26,6 +26,11 @@ the skills instead: `axx skills install`.
   steps' forms with the ordinal first (`<id>.leading`).
 - `fixtures`: the public package a pack makes data with: one fixture's values for an instance the pack
   names, deterministically, as `axx fixtures check` resolves them (`internal/fixtures/instance.go`).
+  A spec's `${ name(args) }` calls an expression function: axx's own are for hashing and encoding only
+  (`internal/fixtures/functions.go`; keep it so), and a project's come from its packs
+  (`core.FixtureFunction`, `Manifest.FixtureFunctions`). A spec's bare `undefined` leaves a field out
+  (ADR 0014): it stays in the tree until the fixture's values resolve, then `takeUndefined` takes it
+  out and the families fill none of what it names (`removals`).
 - `packs/*`: the step packs (rest, mock, sql, mongo, kafka, logs, files, faults, otel; `web/*`, `aws/*` and
   `gcp/*`: a core pack and the packs that build on it; `azure/*`), each with its public context. `internal/packset/catalog.go` lists them.
   Packs that build on another (`aws-s3` on `aws-core`, `web-screenshots` on `web-core`) declare it in

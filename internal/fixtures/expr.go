@@ -288,7 +288,7 @@ func (e *evaluator) functionNames() []string {
 func (e *evaluator) invoke(name string, args []string, where string) (string, error) {
 	fn, ok := e.functions[name]
 	if !ok {
-		return "", genError("%s: unknown expression function '%s' (available: %s)", where, name, javaListString(e.functionNames()))
+		return "", genError("%s: unknown expression function '%s' (available: %s; a pack of the project adds its own)", where, name, javaListString(e.functionNames()))
 	}
 	if !fn.Recorded() {
 		if err := e.ensureStarted(fn, where); err != nil {
@@ -369,16 +369,32 @@ func (e *evaluator) finish() error {
 	return nil
 }
 
-// functionMap indexes functions by name, refusing duplicates.
+// functionMap indexes axx's own functions and fns by name, refusing
+// duplicates.
 func functionMap(fns []Function) (map[string]Function, error) {
 	out := map[string]Function{}
+	for _, fn := range builtinFunctions() {
+		out[fn.Name()] = fn
+	}
 	for _, fn := range fns {
 		if prev, ok := out[fn.Name()]; ok {
+			if _, own := prev.(pureFunction); own {
+				return nil, configError("an expression function is named '%s', as one of axx's own is: give it another name (axx has %s)", fn.Name(), javaListString(builtinNames()))
+			}
 			return nil, configError("two expression functions claim the name '%s': %T and %T", fn.Name(), prev, fn)
 		}
 		out[fn.Name()] = fn
 	}
 	return out, nil
+}
+
+func builtinNames() []string {
+	var names []string
+	for _, fn := range builtinFunctions() {
+		names = append(names, fn.Name())
+	}
+	sortStrings(names)
+	return names
 }
 
 var _ = fmt.Sprint

@@ -287,3 +287,74 @@ func javaListString(items []string) string {
 
 // javaSetString renders keys like a key set's toString.
 func javaSetString(o *jsonx.Object) string { return javaListString(keys(o)) }
+
+// Undefined: no such property (ADR 0014). A fixture, or a prototype over
+// another, writes the word bare where it leaves out a value a layer below
+// sets: no prototype, defaults: entry or schema default fills it then. In
+// quotes it is the string. It stays in a tree until the fixture's values
+// are resolved (so that it overrides what a $ref brings too), and is taken
+// out before a family reads them.
+
+type undefinedValue struct{}
+
+// undefined is the one value of its kind.
+var undefined = undefinedValue{}
+
+const undefinedWord = "undefined"
+
+func isUndefined(v any) bool {
+	_, ok := v.(undefinedValue)
+	return ok
+}
+
+// plainWord reads a spec file's plain scalars that mean what YAML has no
+// value for.
+func plainWord(text string) (any, bool) {
+	if text == undefinedWord {
+		return undefined, true
+	}
+	return nil, false
+}
+
+// removals are the fields fixtures leave out, by the object each stood in:
+// a family asks them before it fills a field nothing sets.
+type removals map[*jsonx.Object]map[string]bool
+
+// has reports whether the fixture left key of o out.
+func (r removals) has(o *jsonx.Object, key string) bool {
+	return o != nil && r[o][key]
+}
+
+// takeUndefined takes every undefined out of v, in place, and records in r
+// (when not nil) where each stood.
+func takeUndefined(v any, r removals) {
+	switch x := v.(type) {
+	case *jsonx.Object:
+		for _, k := range x.Keys() {
+			e := get(x, k)
+			if !isUndefined(e) {
+				takeUndefined(e, r)
+				continue
+			}
+			x.Delete(k)
+			if r != nil {
+				if r[x] == nil {
+					r[x] = map[string]bool{}
+				}
+				r[x][k] = true
+			}
+		}
+	case []any:
+		for _, e := range x {
+			takeUndefined(e, r)
+		}
+	}
+}
+
+// defined is v, or nil for undefined: a value a reader takes as absent.
+func defined(v any) any {
+	if isUndefined(v) {
+		return nil
+	}
+	return v
+}

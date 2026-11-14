@@ -38,6 +38,20 @@ rules:
   description: Identity declared by features/register-parcels/requests/registrations.factory.yaml;
     every fixture in the directory must own a unique value
   validation: cross-file-unique
+- name: "features/shop-emails/seeds/shop-mail.factory.yaml: parcels.shop_settings.shop\
+    \ uniqueness"
+  filePatterns:
+  - features/shop-emails/seeds/*.yaml
+  - features/shop-emails/seeds/*.yml
+  excludePatterns:
+  - '**.factory.yaml'
+  - '**.fixture.yaml'
+  - '**.prototype.yaml'
+  type: jsonpath
+  jsonPath: "$['parcels.shop_settings'][*]['shop']"
+  description: Identity declared by features/shop-emails/seeds/shop-mail.factory.yaml;
+    every fixture in the directory must own a unique value
+  validation: cross-file-unique
 - name: "kafka/depot-scans.factory.yaml: scanId uniqueness"
   filePatterns:
   - kafka/*.json

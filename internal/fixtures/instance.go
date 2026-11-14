@@ -132,6 +132,9 @@ func (g *Generator) Instance(spec *Spec, fixtureKey string, in InstanceInput) (*
 	if err := resolveSelfRefs(data); err != nil {
 		return nil, naming(err, w)
 	}
+	// What the fixture leaves out is no value of the instance: an identity
+	// there derives.
+	takeUndefined(data, nil)
 	ids := make(map[string]string, len(spec.Identity))
 	for _, id := range spec.Identity {
 		present, err := pathGet(data, id.Path)
@@ -165,6 +168,7 @@ func (g *Generator) Instance(spec *Spec, fixtureKey string, in InstanceInput) (*
 	if err := eval.evaluateTree(meta, w+" -> metadata", map[string]*jsonx.Object{ScopeData: data, ScopeMetadata: meta}); err != nil {
 		return nil, naming(err, w)
 	}
+	takeUndefined(meta, nil)
 	return &Instance{Data: data, Metadata: meta, Identities: ids}, nil
 }
 

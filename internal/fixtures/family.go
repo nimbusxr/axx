@@ -143,6 +143,9 @@ func (f *FieldShape) Nested() bool { return f.Children != nil }
 type ExpansionContext struct {
 	identities *identities
 	eval       *evaluator
+	// removed are the fields the fixtures resolved so far leave out
+	// (undefined): a family fills none of them.
+	removed removals
 }
 
 // families indexes families by name.

@@ -1,0 +1,11 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nimbusxr/axx/main/schemas/v0/axx-factory.schema.json
+# The shops the service emails, and the parcels it emails them about, checked against the
+# database schema. A seed names its shop once: the parcel's sender is a $ref to the shop its
+# settings are of.
+factory:
+  family: dataset
+  schema: ../../../../infra/postgres/init/01-schema.sql
+# Every seed has a shop of its own; `axx lint` checks hand-written seeds here against them.
+identity:
+  - path: parcels.shop_settings.shop
+    derive: authored

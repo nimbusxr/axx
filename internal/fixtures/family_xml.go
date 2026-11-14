@@ -73,7 +73,7 @@ func (f xmlFamily) Expand(spec *Spec, baseDir string, ctx *ExpansionContext) (ma
 		if err != nil {
 			return nil, err
 		}
-		applyDottedDefaults(spec.Defaults, tree)
+		applyDottedDefaults(spec.Defaults, tree, ctx.removed)
 		w := where(spec, key)
 		var b strings.Builder
 		b.WriteString("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n")
@@ -205,8 +205,9 @@ func xmlElement(b *strings.Builder, name string, value any, depth int, where str
 	return nil
 }
 
-// applyDottedDefaults fills absent dotted paths (order.@id works).
-func applyDottedDefaults(defaults, tree *jsonx.Object) {
+// applyDottedDefaults fills absent dotted paths (order.@id works), but for
+// those the fixture leaves out (removed).
+func applyDottedDefaults(defaults, tree *jsonx.Object, removed removals) {
 	for _, path := range defaults.Keys() {
 		if !strings.Contains(path, ".") {
 			continue
@@ -223,7 +224,7 @@ func applyDottedDefaults(defaults, tree *jsonx.Object) {
 			node = next
 		}
 		last := segs[len(segs)-1]
-		if ok && (!node.Has(last) || get(node, last) == nil) {
+		if ok && !removed.has(node, last) && (!node.Has(last) || get(node, last) == nil) {
 			node.Set(last, get(defaults, path))
 		}
 	}
