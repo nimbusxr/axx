@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.9](https://github.com/nimbusxr/axx/compare/intellij-v0.3.8...intellij-v0.3.9) (2026-11-14)
+
+
+### Features
+
+* hovering over a file's path in a feature file shows the file, its first lines or a picture's thumbnail, in every editor that runs axx lsp ([8bf72c2](https://github.com/nimbusxr/axx/commit/8bf72c260b44d8dcd4501ec3c199d703628538df))
+* **ide:** IntelliJ shows the files a feature names under the lines that name them, read-only, with a toggle on each line, and on hover ([8bf72c2](https://github.com/nimbusxr/axx/commit/8bf72c260b44d8dcd4501ec3c199d703628538df))
+
 ## [0.3.8](https://github.com/nimbusxr/axx/compare/intellij-v0.3.7...intellij-v0.3.8) (2026-11-13)
 
 
