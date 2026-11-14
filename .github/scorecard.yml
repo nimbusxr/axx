@@ -1,0 +1,16 @@
+# What the maintainers tell OpenSSF Scorecard about its checks (workflows/scorecard.yml runs it).
+#
+# Dangerous-Workflow: mac-mini.yml and reatan.yml run on pull_request_target and check out the
+# pull request's code, which the check reports whatever stands around it. Both run main's copy of
+# the workflow only, their first job admits only this repository's own branches (no forks, no
+# bots), and their runner groups accept main's copy of each file and no other.
+#
+# An annotation covers its whole check, not a line: Scorecard keeps the check's score, publishes
+# the reason with it, and leaves the check's findings out of what it sends to code scanning.
+# Without it, they come back as new alerts each time a flagged line changes (a new
+# actions/checkout pin). zizmor goes on checking every workflow in CI (ci.yml's workflows job).
+annotations:
+  - checks:
+      - dangerous-workflow
+    reasons:
+      - reason: remediated
