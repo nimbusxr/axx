@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.7.0](https://github.com/nimbusxr/axx/compare/v0.6.13...v0.7.0) (2026-11-14)
+
+
+### ⚠ BREAKING CHANGES
+
+* **fixtures:** a fixture spec's bare undefined was the string "undefined". It now leaves the field out; write it in quotes for the string.
+
+### Features
+
+* **fixtures:** a fixture leaves a value out with undefined ([0f18d92](https://github.com/nimbusxr/axx/commit/0f18d923cd9095070890e2aeed3a27db69433797))
+* **fixtures:** a spec's expressions hash and encode with axx's own functions, and a project's pack adds its own ([0f18d92](https://github.com/nimbusxr/axx/commit/0f18d923cd9095070890e2aeed3a27db69433797))
+* **fixtures:** adoption leaves out, with undefined, a field a file lacks ([0f18d92](https://github.com/nimbusxr/axx/commit/0f18d923cd9095070890e2aeed3a27db69433797))
+
+
+### Bug Fixes
+
+* **fixtures:** a dataset row's value, or a whole row, can be a $ref ([0f18d92](https://github.com/nimbusxr/axx/commit/0f18d923cd9095070890e2aeed3a27db69433797))
+
 ## [0.6.13](https://github.com/nimbusxr/axx/compare/v0.6.12...v0.6.13) (2026-11-14)
 
 
