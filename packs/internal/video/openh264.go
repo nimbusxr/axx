@@ -1,7 +1,7 @@
 // Package video keeps what a scenario's desktop showed as a video: H.264 in
 // an MP4 file, which plays wherever a video plays. Cisco's OpenH264 encodes
 // it: axx downloads Cisco's build from Cisco the first time it keeps a video,
-// as Cisco's binary license has it, and packs.desktop-core.videos (never)
+// as Cisco's binary license has it, and the packs' videos setting (never)
 // turns it off. OpenH264 Video Codec provided by Cisco Systems, Inc.
 package video
 

@@ -49,10 +49,26 @@ A run that pauses has no timeouts, however long you look. With `packs.web-core.p
 - The failed step attaches a screenshot of the page; the [HTML report](/guides/reports/) shows it with the step.
 - The failure report says which page each web app was on, and the dialog it shows (the `context` of `axx run --json`), and lists the pages' script errors.
 - A Playwright **trace** of each web app, in `.axx/web/traces/` and attached to the report: the scenario step by step, each step's browser actions under it with a snapshot of the page before and after them, the console and the network. The trace keeps the feature file: its Source tab shows the step. Your editor opens it in Playwright's trace viewer, where elements have the names steps give them; `npx playwright show-trace <file>` and [trace.playwright.dev](https://trace.playwright.dev) open it too, with Playwright's names.
-- A **video** of each browser tab, when `videos` says so, in `.axx/web/videos/`, and in the report, where it plays.
+- A **video** of the scenario, when `videos` says so, in `.axx/web/videos/`, and in the report. [Videos](#videos) says what it shows.
 - The files the browser **downloaded** that its steps checked, in `.axx/web/downloads/`.
 
 Secrets stay out of all of them but the screenshot and the videos, which show the page as it is ([Keep secrets out of reports](/guides/web-sign-in/#keep-secrets-out-of-reports)).
+
+## Videos
+
+A **video** is the scenario's browser as it ran, with the scenario's steps beside it. Turn videos on with `videos` (`axx run --set packs.web-core.videos=always` for one run).
+
+- **The page:** the tab the scenario acts on. When a link opens another tab, or a step acts on another web app, the video shows that one.
+- **The pointer:** drawn where a step clicked, typed or moved it, with a mark where it pressed. Nothing is added to the page itself.
+- **The steps:** each one to run, running, passed, failed (its error under it) or skipped, and the lines the running step logs. So what happens off the page shows too: a call to a service, a row in a database.
+
+A video opens on its first frame for a moment, with the steps from the first, and its last frame shows for two seconds, the steps as they ended. It is an MP4 file (H.264) that plays wherever videos play, with a chapter for each step. A failed scenario's video is attached to the report too.
+
+The run keeps one more, `run.mp4`: its kept scenarios one after another, each after a card with its name and whether it passed, and a chapter for each. To post it on a pull request, upload it from CI as any file a job keeps.
+
+The first tab of each web app is recorded at up to 1280 by 720. A tab that a page opens is recorded smaller, and shown at the same size.
+
+Videos are encoded with Cisco's OpenH264. OpenH264 Video Codec provided by Cisco Systems, Inc. The first time a scenario keeps a video, axx downloads Cisco's build for your OS from Cisco (about half a megabyte), checks it, and keeps it in its cache; `videos: never`, the default, turns it off, and axx then downloads nothing. Cisco's terms are in axx's `THIRD_PARTY_NOTICES.md`.
 
 ## Settings
 
@@ -61,7 +77,7 @@ What scenarios keep, and how browsers run, is up to `packs.web-core` in `axx.yam
 | Setting | |
 | --- | --- |
 | `traces` | which scenarios keep a trace: `failed` (the default), `always` or `never` |
-| `videos` | which scenarios keep a video of each browser tab: `never` (the default), `failed` or `always` |
+| `videos` | which scenarios keep a [video](#videos): `never` (the default), `failed` or `always` |
 | `watch` | `true` shows the browsers in windows on your screen instead of running them unseen |
 | `slowdown` | a wait after every action, like `300ms` |
 | `pauseOnFailure` | pause a failed scenario where it failed, in Playwright's Inspector |

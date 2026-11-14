@@ -99,7 +99,7 @@ A proxy that inspects HTTPS traffic presents its own certificate, which the mach
 
 ## OpenH264
 
-Scenarios keep no videos unless you turn them on (`videos`, under the desktop and mobile packs' settings). When they do, or when an Android emulator's camera plays a video, Axx encodes it with Cisco's OpenH264, which it downloads once from `ciscobinary.openh264.org`.
+Scenarios keep no videos unless you turn them on (`videos`, under the web, desktop and mobile packs' settings). When they do, or when an Android emulator's camera plays a video, Axx encodes it with Cisco's OpenH264, which it downloads once from `ciscobinary.openh264.org`.
 
 Cisco's license covers OpenH264 only when each machine downloads it from Cisco, so no mirror can serve it. Let your proxy server reach that host. If that isn't possible, keep `videos: never`, the default; an emulator's camera can still show pictures.
 

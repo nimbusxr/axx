@@ -17,7 +17,7 @@ func portalRules() *Rules {
 	return &Rules{
 		Commands: map[string][]string{
 			"Root.initialize":                {"sdkLanguage"},
-			"Browser.newContext":             {"locale", "recordVideo.size.height", "recordVideo.size.width", "timezoneId", "viewport.height", "viewport.width"},
+			"Browser.newContext":             {"locale", "timezoneId", "viewport.height", "viewport.width"},
 			"Tracing.harStart":               {"options.content", "options.mode"},
 			"Frame.goto":                     {"url", "waitUntil"},
 			"Frame.click":                    {"selector", "strict"},
@@ -206,23 +206,24 @@ func TestWhatAPageAskedForIsRecordedInTheServersFolder(t *testing.T) {
 	}
 }
 
-func TestAVideoIsKeptInTheServersFolder(t *testing.T) {
-	g := created(t)
-	pass, refused := g.fromRun([]byte(`{"id":1,"guid":"browser@1","method":"newContext","params":{"locale":"en-GB","recordVideo":{"dir":"/Users/dana/Movies","size":{"width":800,"height":600}}}}`))
-	if refused != nil {
-		t.Fatalf("refused: %s", refusal(t, refused))
+// A video is made by the run, of the frames a page sends it: the server
+// records none, in its folder or any other.
+func TestTheServerRecordsNoVideo(t *testing.T) {
+	g := New(Default(), nil)
+	g.types["browser@1"], g.types["page@1"] = "Browser", "Page"
+	for _, c := range []string{
+		`{"id":1,"guid":"browser@1","method":"newContext","params":{"locale":"en-GB","recordVideo":{"dir":"/Users/dana/Movies"}}}`,
+		`{"id":2,"guid":"browser@1","method":"newContext","params":{"locale":"en-GB","recordVideo":{"size":{"width":800,"height":600}}}}`,
+		`{"id":3,"guid":"page@1","method":"screencastStart","params":{"sendFrames":true,"record":true}}`,
+		`{"id":4,"guid":"page@1","method":"screencastStart","params":{"sendFrames":true,"path":"/Users/dana/Movies/a.webm"}}`,
+	} {
+		if _, refused := g.fromRun([]byte(c)); refused == nil {
+			t.Errorf("passed to the server: %s", c)
+		}
 	}
-	var c struct {
-		Params struct {
-			Locale      string         `json:"locale"`
-			RecordVideo map[string]any `json:"recordVideo"`
-		} `json:"params"`
-	}
-	if err := json.Unmarshal(pass, &c); err != nil {
-		t.Fatal(err)
-	}
-	if _, named := c.Params.RecordVideo["dir"]; named || c.Params.RecordVideo["size"] == nil || c.Params.Locale != "en-GB" {
-		t.Errorf("the server got %s: want the video's size and the rest, and no folder", pass)
+	pass, refused := g.fromRun([]byte(`{"id":5,"guid":"page@1","method":"screencastStart","params":{"sendFrames":true,"size":{"width":1280,"height":720}}}`))
+	if refused != nil || pass == nil {
+		t.Errorf("a page's frames for the run's video were refused: %s", refusal(t, refused))
 	}
 }
 
@@ -329,8 +330,8 @@ func TestTheRulesNameNoCommandThatReachesTheMachine(t *testing.T) {
 		for _, p := range params {
 			for _, part := range strings.FieldsFunc(p, func(r rune) bool { return r == '.' || r == '[' || r == ']' }) {
 				switch part {
-				case "localPaths", "localDirectory", "proxy", "recordHar", "path", "dir", "harPath", "resourcesDir", "executablePath",
-					"downloadsPath", "tracesDir", "artifactsDir", "userDataDir", "args", "env", "clientCertificates", "outputFile":
+				case "localPaths", "localDirectory", "proxy", "recordHar", "recordVideo", "record", "path", "dir", "harPath", "resourcesDir",
+					"executablePath", "downloadsPath", "tracesDir", "artifactsDir", "userDataDir", "args", "env", "clientCertificates", "outputFile":
 					t.Errorf("rules.json allows %s its %s", command, p)
 				}
 			}

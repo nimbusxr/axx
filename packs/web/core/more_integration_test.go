@@ -268,13 +268,15 @@ func TestWhatScenariosKeep(t *testing.T) {
 			t.Fatal(err)
 		}
 		traces, _ = filepath.Glob(filepath.Join(h.Dir, ".axx", "web", "traces", "*.zip"))
-		videos, _ = filepath.Glob(filepath.Join(h.Dir, ".axx", "web", "videos", "*.webm"))
+		videos, _ = filepath.Glob(filepath.Join(h.Dir, ".axx", "web", "videos", "*.mp4"))
+		videos = slices.DeleteFunc(videos, func(v string) bool { return filepath.Base(v) == "run.mp4" })
 		return traces, videos
 	}
 	if traces, videos := run(&Config{Traces: "always"}, "passed"); len(traces) != 1 || len(videos) != 0 {
 		t.Errorf("traces always, passed: %v %v", traces, videos)
 	}
-	if traces, videos := run(&Config{Traces: "never", Videos: "failed"}, "failed"); len(traces) != 0 || len(videos) != 2 {
+	// One video of the scenario, whatever tabs it opened.
+	if traces, videos := run(&Config{Traces: "never", Videos: "failed"}, "failed"); len(traces) != 0 || len(videos) != 1 {
 		t.Errorf("videos failed, failed: %v %v", traces, videos)
 	}
 	if traces, videos := run(&Config{Videos: "failed"}, "passed"); len(traces) != 0 || len(videos) != 0 {

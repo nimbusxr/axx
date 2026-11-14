@@ -88,3 +88,34 @@ func TestRemake(t *testing.T) {
 		t.Errorf("the right half is not black: Y %d", y)
 	}
 }
+
+func TestFramesReadsAVideoBack(t *testing.T) {
+	e, err := NewEncoderOf(320, 240, 10, StreamQuality)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i, f := range frames(320, 240, 6) {
+		if err := e.Encode(f, time.Duration(i)*100*time.Millisecond); err != nil {
+			t.Fatal(err)
+		}
+	}
+	var in bytes.Buffer
+	if err := WriteMP4(&in, []Clip{e.Finish(time.Second)}); err != nil {
+		t.Fatal(err)
+	}
+	got, err := Frames(in.Bytes())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 6 {
+		t.Fatalf("%d frames, want 6", len(got))
+	}
+	for i, f := range got {
+		if b := f.Bounds(); b.Dx() != 320 || b.Dy() != 240 {
+			t.Errorf("frame %d is %dx%d, want 320x240", i, b.Dx(), b.Dy())
+		}
+	}
+	if _, err := Frames([]byte("not a video")); err == nil {
+		t.Error("what is no video was read as one")
+	}
+}

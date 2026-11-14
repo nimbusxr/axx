@@ -18,7 +18,7 @@ const configSchema = `{
     "slowdown": {"type": "string", "description": "Wait this long after each browser action, to follow what happens (like 500ms)."},
     "pauseOnFailure": {"type": "boolean", "description": "Pause a failed scenario where it failed, in Playwright's Inspector, until you resume it; the browsers show."},
     "traces": {"type": "string", "enum": ["failed", "always", "never"], "description": "Which scenarios keep a Playwright trace in .axx/web/traces (default failed)."},
-    "videos": {"type": "string", "enum": ["failed", "always", "never"], "description": "Which scenarios keep a video in .axx/web/videos (default never)."},
+    "videos": {"type": "string", "enum": ["failed", "always", "never"], "description": "Which scenarios keep a video in .axx/web/videos: the tab the scenario acts on, with its steps beside it (default never)."},
     "testIdAttribute": {"type": "string", "description": "The attribute testid= selectors look at (default data-testid)."},
     "scriptErrors": {"type": "string", "enum": ["report", "fail"], "description": "What errors in the pages' scripts do: report lists them with a failed scenario (the default), fail fails the scenario."}
   }
