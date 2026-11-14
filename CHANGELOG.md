@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.12](https://github.com/nimbusxr/axx/compare/v0.6.11...v0.6.12) (2026-11-14)
+
+
+### Bug Fixes
+
+* **web-core:** a page at a name under localhost opens in a browser the axx host started for a sandboxed run ([#338](https://github.com/nimbusxr/axx/issues/338)) ([db82515](https://github.com/nimbusxr/axx/commit/db825150867a66c8126f133b6267195092ca4d0f))
+
 ## [0.6.11](https://github.com/nimbusxr/axx/compare/v0.6.10...v0.6.11) (2026-11-14)
 
 
