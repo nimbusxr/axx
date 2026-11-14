@@ -21,6 +21,7 @@ import (
 	"github.com/mxschmitt/playwright-go"
 
 	"github.com/nimbusxr/axx/core"
+	"github.com/nimbusxr/axx/internal/axxerr"
 	"github.com/nimbusxr/axx/internal/cloudstep"
 	"github.com/nimbusxr/axx/internal/secrets"
 	"github.com/nimbusxr/axx/packs/web/internal/driver"
@@ -154,24 +155,38 @@ func browserFor(s *core.Suite, a *App) (playwright.Browser, error) {
 			opts.Args = append(opts.Args, "--enable-unsafe-webgpu")
 		}
 		bt := map[string]playwright.BrowserType{"chromium": pw.Chromium, "firefox": pw.Firefox, "webkit": pw.WebKit}[a.Engine]
+		shell := false
 		switch {
 		case branded(a.Engine):
 			bt, opts.Channel = pw.Chromium, playwright.String(a.Engine)
+			opts.Env = chromiumEnv()
 		case a.Engine == "chromium":
-			// The whole of Chromium, with a window or without: not Playwright's
-			// smaller headless build, which behaves otherwise (it never asks
-			// a site for its icon, say), so that a run behaves the same
-			// whether someone watches it or not.
-			opts.Channel = playwright.String("chromium")
+			why := fullChromiumRefused()
+			var channel string
+			channel, shell, err = chromiumBuild(why, *opts.Headless)
+			if err != nil {
+				return nil, launchError(a, err)
+			}
+			if channel != "" {
+				opts.Channel = playwright.String(channel)
+				opts.Env = chromiumEnv()
+			}
+			if shell {
+				// Once a run, whatever the apps that use Chromium.
+				_, _ = core.Cached(s, Name+"/shell", func() (bool, error) {
+					s.Logger().Warn(fmt.Sprintf("%s: Playwright's headless shell runs the scenarios instead (%s)", why, sandboxGuide))
+					return true, nil
+				})
+			}
 		}
-		if !branded(a.Engine) {
+		if !branded(a.Engine) && !shell {
 			if err := wholeBrowser(s, a.Engine, bt); err != nil {
 				return nil, launchError(a, err)
 			}
 		}
 		b, err := bt.Launch(opts)
 		if err != nil && !branded(a.Engine) && strings.Contains(err.Error(), "Executable doesn't exist") {
-			if err = installBrowser(s, a.Engine); err == nil {
+			if err = installBrowser(s, a.Engine, shell); err == nil {
 				b, err = bt.Launch(opts)
 			}
 		}
@@ -207,7 +222,7 @@ func wholeBrowser(s *core.Suite, engine string, bt playwright.BrowserType) error
 		if installedWhole(bt.ExecutablePath(), engine) {
 			return true, nil
 		}
-		return true, installBrowser(s, engine)
+		return true, installBrowser(s, engine, false)
 	})
 	return err
 }
@@ -229,10 +244,32 @@ func installedWhole(executable, engine string) bool {
 // Google Chrome or Microsoft Edge, rather than one of Playwright's.
 func branded(engine string) bool { return engine == "chrome" || engine == "msedge" }
 
+// sandboxGuide is the guide's section on browsers in an agent's sandbox.
+var sandboxGuide = axxerr.Docs("/guides/run-from-a-sandbox/#browsers-in-the-sandbox")
+
+// chromiumBuild is the Chromium a run starts: the whole of it (channel
+// "chromium"), with a window or without, and not Playwright's smaller headless
+// build, which behaves otherwise (it never asks a site for its icon, say), so
+// that a run behaves the same whether someone watches it or not. In a sandbox
+// that keeps the whole of Chromium from starting (why), the headless build
+// (shell) runs the scenarios, as no one watches there; a run that would show
+// its browsers cannot.
+func chromiumBuild(why string, headless bool) (channel string, shell bool, err error) {
+	switch {
+	case why == "":
+		return "chromium", false, nil
+	case !headless:
+		return "", false, fmt.Errorf("%s, and browser windows need the whole of Chromium: run without watching or pausing in the sandbox, or run outside it (%s)", why, sandboxGuide)
+	}
+	return "", true, nil
+}
+
 // installBrowser downloads Playwright's browser of an engine, where
 // Playwright keeps its browsers ($PLAYWRIGHT_BROWSERS_PATH, or its folder in
-// the user's cache), for the runs after this one too.
-func installBrowser(s *core.Suite, engine string) error {
+// the user's cache), for the runs after this one too: for chromium, the whole
+// of it, or, in a sandbox that keeps that from starting, only its headless
+// shell.
+func installBrowser(s *core.Suite, engine string, shell bool) error {
 	dir, err := driverDir(s)
 	if err != nil {
 		return err
@@ -241,10 +278,16 @@ func installBrowser(s *core.Suite, engine string) error {
 	if err != nil {
 		return err
 	}
-	s.Logger().Warn(fmt.Sprintf("downloading the %s browser of Playwright %s, once", engine, PlaywrightVersion))
+	what := engine
+	// Chromium without Playwright's headless build, which the pack runs only
+	// where the whole of Chromium cannot start.
+	only := "--no-shell"
+	if shell {
+		what, only = "chromium headless shell", "--only-shell"
+	}
+	s.Logger().Warn(fmt.Sprintf("downloading the %s browser of Playwright %s, once", what, PlaywrightVersion))
 	var out bytes.Buffer
-	// Chromium without Playwright's headless build, which the pack does not run.
-	cmd := d.Command("install", "--no-shell", engine)
+	cmd := d.Command("install", only, engine)
 	cmd.Stdout, cmd.Stderr = &out, &out
 	if err := cmd.Run(); err != nil {
 		lines := strings.Split(strings.TrimSpace(out.String()), "\n")
