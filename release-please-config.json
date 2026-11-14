@@ -11,7 +11,9 @@
       "exclude-paths": [
         "extensions",
         "ide",
-        "docs"
+        "docs",
+        ".github",
+        "examples"
       ],
       "changelog-path": "CHANGELOG.md"
     },
