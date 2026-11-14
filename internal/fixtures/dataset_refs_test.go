@@ -134,18 +134,28 @@ func TestExplainFollowsADatasetRowsRefs(t *testing.T) {
 		"    - id: EV-2\n      session_id:\n        $ref: ./alpha.fixture.yaml#/sessions/0/id\n")
 	w.generate()
 	runExplain(t, w, []explainCase{
-		{"seeds/beta.yaml", "events[0].session_id", `"SES-beta"`,
-			"reference | seeds/beta.fixture.yaml | data.events[0].session_id.$ref | #/sessions/0/id > identity | seeds/sessions.factory.yaml | sessions.id | derived from the fixture key \"beta\" with the prefix \"SES-\""},
-		{"seeds/beta.yaml", "events[1].session_id", `"SES-A"`,
-			"reference | seeds/beta.fixture.yaml | data.events[1].session_id.$ref | ./alpha.fixture.yaml#/sessions/0/id > identity | seeds/sessions.factory.yaml | sessions.id | the value its sources set > fixture | seeds/alpha.fixture.yaml | data.sessions[0].id"},
+		{
+			"seeds/beta.yaml", "events[0].session_id", `"SES-beta"`,
+			"reference | seeds/beta.fixture.yaml | data.events[0].session_id.$ref | #/sessions/0/id > identity | seeds/sessions.factory.yaml | sessions.id | derived from the fixture key \"beta\" with the prefix \"SES-\"",
+		},
+		{
+			"seeds/beta.yaml", "events[1].session_id", `"SES-A"`,
+			"reference | seeds/beta.fixture.yaml | data.events[1].session_id.$ref | ./alpha.fixture.yaml#/sessions/0/id > identity | seeds/sessions.factory.yaml | sessions.id | the value its sources set > fixture | seeds/alpha.fixture.yaml | data.sessions[0].id",
+		},
 		{"seeds/beta.yaml", "events[0].kind", `"VIEW"`, "prototype | seeds/sessions.prototype.yaml | data.events.kind"},
 		// A row another document's row lies under: its own column, the row's, then the template's.
-		{"seeds/beta.yaml", "sessions[1].id", `"SES-B"`,
-			"identity | seeds/sessions.factory.yaml | sessions.id | the value its sources set > fixture | seeds/beta.fixture.yaml | data.sessions[1].id"},
-		{"seeds/beta.yaml", "sessions[1].plan", `"team"`,
-			"reference | seeds/beta.fixture.yaml | data.sessions[1].$ref | ./alpha.fixture.yaml#/sessions/0 > fixture | seeds/alpha.fixture.yaml | data.sessions[0].plan"},
+		{
+			"seeds/beta.yaml", "sessions[1].id", `"SES-B"`,
+			"identity | seeds/sessions.factory.yaml | sessions.id | the value its sources set > fixture | seeds/beta.fixture.yaml | data.sessions[1].id",
+		},
+		{
+			"seeds/beta.yaml", "sessions[1].plan", `"team"`,
+			"reference | seeds/beta.fixture.yaml | data.sessions[1].$ref | ./alpha.fixture.yaml#/sessions/0 > fixture | seeds/alpha.fixture.yaml | data.sessions[0].plan",
+		},
 		// A row of this fixture: the row it names has its template.
-		{"seeds/beta.yaml", "sessions[2].plan", `"free"`,
-			"reference | seeds/beta.fixture.yaml | data.sessions[2].$ref | #/sessions/0 > prototype | seeds/sessions.prototype.yaml | data.sessions.plan"},
+		{
+			"seeds/beta.yaml", "sessions[2].plan", `"free"`,
+			"reference | seeds/beta.fixture.yaml | data.sessions[2].$ref | #/sessions/0 > prototype | seeds/sessions.prototype.yaml | data.sessions.plan",
+		},
 	})
 }

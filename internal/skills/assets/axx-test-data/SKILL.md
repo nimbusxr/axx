@@ -56,7 +56,7 @@ data:
       status: IN_TRANSIT
 ```
 
-Maps merge; lists and scalars replace. Each identity also becomes a rule in `axx-lint.generated.yaml`: include it with `lint: {include: [axx-lint.generated.yaml]}` once it exists.
+Maps merge; lists and scalars replace. `undefined` (no quotes) leaves out a field the prototype sets; `null` is the value null. A value can be `$ref` to another fixture or to its own (`"#/table/0/column"`), or computed: `${ sha256(api_key) }` (never write a hash or an encoding out by hand). `references/factories.md` has each. Each identity also becomes a rule in `axx-lint.generated.yaml`: include it with `lint: {include: [axx-lint.generated.yaml]}` once it exists.
 
 `references/factories.md` has the rest: every factory key, the families and their schemas, `$ref` to another fixture, identities, adopting, ignored outputs, settings, CI and the error codes. `references/spec-files.md` has the files' JSON Schemas (`axx schema --kind factory|fixture|prototype` prints them).
 

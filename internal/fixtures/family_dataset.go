@@ -127,7 +127,7 @@ func (d datasetFamily) resolveTables(spec *Spec, schema *ddlSchema, key string, 
 				return nil, genError("%s: table '%s' row %d must be a map", w, t.name, i+1)
 			}
 			at := w + " " + t.name + "[" + itoa(i) + "]"
-			var row any = copyValue(raw)
+			row := copyValue(raw)
 			if ctx.eval.references != nil {
 				var err error
 				if row, err = resolveRefValue(row, fx.Dir, ctx.eval.references, false); err != nil {

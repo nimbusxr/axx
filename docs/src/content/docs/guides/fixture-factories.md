@@ -82,6 +82,74 @@ data:
 
 A reference sees the fixture as it is generated: its prototype, its defaults, and the identities derived for it. Keys next to `$ref` override what it brings. References that loop fail and name the loop; a path that names no fixture says what it was resolved to, and the fixtures it most likely meant.
 
+A reference with no path before the `#` points into the fixture it is written in. A dataset uses it to say a value once: each scan below belongs to the manifest of the same seed, whose id is derived from the fixture's name.
+
+```yaml title="seeds/handover.fixture.yaml"
+data:
+  manifests:
+    - shop: fjord-outdoor
+  scans:
+    - location: Leipzig
+      manifest_id:
+        $ref: "#/manifests/0/id"                          # a value of this fixture's own row
+    - location: Munich
+      manifest_id:
+        $ref: "#/manifests/0/id"
+    - $ref: ../scans/damaged.fixture.yaml#/scans/0        # a whole row of another seed
+      id: SC-HANDOVER-DAMAGED                             # with an id of its own
+      manifest_id:
+        $ref: "#/manifests/0/id"
+```
+
+In a dataset, a column's value or a whole row can be a reference. A row taken from another seed lies over the table's row template and under the columns written next to the `$ref`. It comes with that row's identities, so give it its own: two rows with one id fail generation.
+
+## Leave a value out
+
+A fixture overrides what its prototype sets, and `null` is a value like any other: it writes `null`. To leave a field out, write `undefined`, without quotes:
+
+```yaml title="mocks/parcels/parcel-registered.fixture.yaml"
+data:
+  reference: PX-MOCK-0007
+  status: REGISTERED
+  lastLocation: undefined    # no such field in the body, whatever the prototype says
+  deliveredAt: null          # the value null
+  note: "undefined"          # the string
+```
+
+- **Nothing fills a field that is left out:** not the prototype, not a `defaults:` entry and not the schema's default. A field the schema requires cannot be left out, and generation says so.
+- **It works wherever a fixture's values are:** in a fixture's or a prototype's `data` and `metadata`, at any depth, and next to a `$ref`, where it leaves out a key the reference brings. A prototype in another directory can leave out what the factory's prototype sets. It cannot stand for an element of a list: leave the element out.
+- **An Avro record has every field,** so a field left out takes the schema's default, never the factory's. Without a schema default, generation fails.
+- **In a dataset, the row has no such column,** and the database's default fills it. `null` is SQL's NULL. Only the YAML format tells the two apart: flat XML leaves both out, and CSV writes `null` for both.
+
+This is the rule every value in axx follows ([how values are read](/references/steps/#values)): `null` is null, `undefined` is no such property, and either word in quotes is the string.
+
+## Compute a value
+
+A value that is `${ name(arguments) }`, and nothing else, is computed by a function when the fixtures are generated. The generated file has the result:
+
+```yaml title="seeds/shops/shops.prototype.yaml"
+data:
+  shops:
+    api_key_hash: ${ sha256(api_key) }        # the hash of this row's api_key column
+    webhook_auth: ${ base64(shop_id, ":", "s3cret") }
+```
+
+An argument is a literal in quotes, a number, or the name of a field of the same fixture, as a dotted path (`recipient.postcode`). In a dataset, it names a column of the same row. A field that is itself computed cannot be an argument.
+
+axx has functions for hashing and encoding. Each takes one or more arguments and works on them joined together, one after another:
+
+| Function | Gives |
+| --- | --- |
+| `sha256`, `sha512`, `sha1`, `md5` | the hash, in lowercase hexadecimal |
+| `base64` | Base64 |
+| `base64url` | URL-safe Base64 without padding, as the parts of a JWT are |
+| `hex` | lowercase hexadecimal |
+
+Anything else is a function of your own, which a pack of the project adds: a check digit, a token in your service's format, a value only a running service can issue. [Compute a fixture's value](/guides/write-custom-steps/#compute-a-fixtures-value) shows how. There are two kinds:
+
+- **A pure function** depends only on its arguments. axx calls it again on every `axx fixtures generate` and `axx fixtures check`. axx's own functions are pure.
+- **A recorded function** may ask something that runs, such as a tokenization service of your local stack. `axx fixtures generate` calls it and writes each result to `axx-fixtures.pairings.yaml`, which you commit. `axx fixtures check` reads that file and never calls the function, so CI needs nothing running. When the function's version changes, generate records its results again.
+
 ## Generate and check
 
 ```sh

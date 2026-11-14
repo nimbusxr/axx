@@ -192,6 +192,33 @@ for i := range count {
 
 The same fixture and scope give the same bytes. An identity the data has no value for derives one from the scope, so give each instance a discriminator of its own: `Instance` claims no identity, and keeping them unique is the pack's to do. `Input.Overrides` sets values, `Input.Documents` resolves `$ref`s to other documents, and a reference that names no fixture fails with `AXX-E0911`.
 
+## Compute a fixture's value
+
+A value of a fixture that is `${ name(arguments) }` is computed by a function as the fixtures are generated ([Compute a value](/guides/fixture-factories/#compute-a-value)). axx has functions for hashing and encoding; a pack adds the project's own with `FixtureFunctions` in its manifest. This one gives a parcel reference its check digit:
+
+```go
+FixtureFunctions: []core.FixtureFunction{{
+	Name: "checkDigit",
+	Doc:  "the check digit of a parcel's reference",
+	Apply: func(call *core.FixtureCall) (string, error) {
+		if len(call.Args) != 1 {
+			return "", errors.New("checkDigit takes one argument: the reference")
+		}
+		return checkDigit(call.Args[0]), nil
+	},
+}},
+```
+
+```yaml title="labels/labels.prototype.yaml"
+data:
+  check: ${ checkDigit(reference) }
+```
+
+- **The arguments arrive as text:** a literal as written, and a field's name as that field's value. `call.Instance` names the fixture the value is for: derive from it a value that must differ from one fixture to the next, so that it is the same on every run.
+- **A function is pure unless it says otherwise.** It must give the same value for the same call: `axx fixtures check` calls it again and compares.
+- **A recorded function** (`Recorded: true`, with a `Version`) may ask a running service. Only `axx fixtures generate` calls it, between its `Before` and `After`, which start and stop what it needs. Its results go to `axx-fixtures.pairings.yaml`, and everything else reads them from there. Change `Version` when the same arguments give another value: generate then records them again.
+- **The name is the project's:** a function named like one of axx's own, or like another pack's, stops the command.
+
 ## Produce to a Kafka service
 
 Steps that publish in a way of their own can still reach a Kafka service the scenario declared as the publish steps do, with its connection, its security and its serializers:

@@ -125,6 +125,9 @@ type Manifest struct {
 	Commands []Command `json:"commands,omitempty"`
 	// CommandHooks run before or after axx's commands, and those packs add.
 	CommandHooks []CommandHook `json:"commandHooks,omitempty"`
+	// FixtureFunctions are the expression functions the pack adds to the
+	// project's fixture factories: "${ name(args) }".
+	FixtureFunctions []FixtureFunction `json:"fixtureFunctions,omitempty"`
 	// ConfigSchema is a JSON Schema for the pack's section in axx.yaml.
 	ConfigSchema json.RawMessage `json:"configSchema,omitempty"`
 	// Checks are what `axx doctor` checks for the pack, in a project that
