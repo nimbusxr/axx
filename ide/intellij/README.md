@@ -406,8 +406,22 @@ plugin.
 ```sh
 ./gradlew test          # unit tests, and headless IDE tests (run configurations, gutter, navigation)
 ./gradlew buildPlugin   # build/distributions/axx-intellij-<version>.zip
-./gradlew verifyPlugin  # IntelliJ Plugin Verifier against recommended IDE versions
+./gradlew verifyPlugin  # JetBrains' plugin verifier, against the newest IDE of each supported version
 ```
+
+Run `./gradlew verifyPlugin` before you push a change that uses a platform API the plugin did not
+use before. It is what the JetBrains Marketplace checks a plugin with, and CI runs it for every
+pull request and before every release. It fails for the platform's internal API, which the
+Marketplace refuses a plugin for, for an API the plugin may not extend or may only override, for
+a deprecated one or one scheduled for removal, and for a plugin that needs a restart to load
+(`failureLevel` in `build.gradle.kts`). It reports experimental API without failing. The first
+run downloads each IDE.
+
+The plugin supports every IDE from 2026.1 on, so an API must be there, and not deprecated, in
+each of them. Where a later IDE deprecates what an earlier one needs, look for another supported
+way that all of them have before raising the lowest IDE (`sinceBuild`): the coverage reads its
+own report (`AxxCoverageSuite`) and the trace and video tabs open as a place in an editor
+(`AxxBrowserTabs`) for that reason.
 
 To try the plugin, run `mise run intellij` at the repository root. It starts a sandbox IntelliJ
 IDEA with the plugin, the Gherkin and Go plugins, and Axx built from this tree with every pack

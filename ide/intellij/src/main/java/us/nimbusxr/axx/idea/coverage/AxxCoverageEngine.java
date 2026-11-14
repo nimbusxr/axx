@@ -10,7 +10,6 @@ import com.intellij.coverage.CoverageSuitesBundle;
 import com.intellij.execution.configurations.RunConfigurationBase;
 import com.intellij.execution.configurations.coverage.CoverageEnabledConfiguration;
 import com.intellij.openapi.project.Project;
-import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.PsiFile;
 
 import org.jetbrains.annotations.NotNull;
@@ -50,15 +49,16 @@ public final class AxxCoverageEngine extends CoverageEngine {
         return new AxxCoverageSuite(name, project, runner, fileProvider, timestamp);
     }
 
+    /** A run's suite knows its run configuration: the report's relative paths are its project's. */
     @Override
-    public @Nullable CoverageSuite createCoverageSuite(@NotNull CoverageEnabledConfiguration config) {
-        AxxCoverageSuite suite =
-                new AxxCoverageSuite(
-                        config.createSuiteName(),
-                        config.getConfiguration().getProject(),
-                        config.getCoverageRunner(),
-                        config.createFileProvider(),
-                        config.createTimestamp());
+    public @Nullable CoverageSuite createCoverageSuite(
+            @NotNull String name,
+            @NotNull Project project,
+            @NotNull CoverageRunner runner,
+            @NotNull CoverageFileProvider fileProvider,
+            long timestamp,
+            @NotNull CoverageEnabledConfiguration config) {
+        AxxCoverageSuite suite = new AxxCoverageSuite(name, project, runner, fileProvider, timestamp);
         suite.setConfiguration(config.getConfiguration());
         return suite;
     }
@@ -82,10 +82,5 @@ public final class AxxCoverageEngine extends CoverageEngine {
     @Override
     public boolean acceptedByFilters(@NotNull PsiFile file, @NotNull CoverageSuitesBundle suite) {
         return true;
-    }
-
-    @Override
-    public boolean coverageProjectViewStatisticsApplicableTo(@NotNull VirtualFile file) {
-        return !file.isDirectory();
     }
 }

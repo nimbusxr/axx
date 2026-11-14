@@ -45,9 +45,9 @@ class AxxCoverageRunnerTest {
                         "end_of_record",
                         ""));
 
-        Path root = AxxCoverageRunner.projectOf(lcov, null);
+        Path root = LcovReport.projectOf(lcov, null);
         assertEquals(project.toAbsolutePath(), root);
-        ProjectData data = AxxCoverageRunner.load(lcov, root);
+        ProjectData data = LcovReport.load(lcov, root);
         ClassData orders =
                 data.getClassData(
                         project.resolve("services/orders/src/main/kotlin/Orders.kt").toString());
@@ -62,7 +62,7 @@ class AxxCoverageRunnerTest {
     void reportOutsideTheProject() throws Exception {
         Path lcov = Files.createDirectories(project.resolve("out")).resolve("lcov.info");
         Path work = project.resolve("work");
-        assertEquals(work, AxxCoverageRunner.projectOf(lcov, work));
+        assertEquals(work, LcovReport.projectOf(lcov, work));
     }
 
     @Test

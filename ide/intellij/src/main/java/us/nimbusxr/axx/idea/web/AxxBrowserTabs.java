@@ -7,6 +7,7 @@ import com.intellij.openapi.fileEditor.FileEditorManager;
 import com.intellij.openapi.fileEditor.FileEditorPolicy;
 import com.intellij.openapi.fileEditor.FileEditorProvider;
 import com.intellij.openapi.fileEditor.FileEditorState;
+import com.intellij.openapi.fileEditor.OpenFileDescriptor;
 import com.intellij.openapi.fileTypes.FileTypes;
 import com.intellij.openapi.project.DumbAware;
 import com.intellij.openapi.project.Project;
@@ -53,6 +54,15 @@ public final class AxxBrowserTabs {
             BrowserUtil.browse(url);
             return;
         }
+        showTab(project, tab, title, url);
+    }
+
+    /** Shows a page in the tab of its kind: the tab that is open for the kind, or a new one. */
+    static void showTab(
+            @NotNull Project project,
+            @NotNull Tab tab,
+            @NotNull String title,
+            @NotNull String url) {
         FileEditorManager manager = FileEditorManager.getInstance(project);
         for (VirtualFile open : manager.getOpenFiles()) {
             if (open instanceof BrowserFile file && file.tab == tab) {
@@ -64,11 +74,21 @@ public final class AxxBrowserTabs {
                         browserEditor.browser.loadURL(url);
                     }
                 }
-                manager.openFile(file, true);
+                open(project, file);
                 return;
             }
         }
-        manager.openFile(new BrowserFile(tab, title, url), true);
+        open(project, new BrowserFile(tab, title, url));
+    }
+
+    /**
+     * Opens the tab's file among the editors of the window that has the focus, and gives it the
+     * focus. As a place to go to in an editor, which every IDE the plugin supports opens the same
+     * way: 2026.3 deprecates the editor manager's own methods for one only it has. Not as a place
+     * to navigate to ({@code navigate}), which asks what a file without a type is.
+     */
+    private static void open(@NotNull Project project, @NotNull BrowserFile file) {
+        new OpenFileDescriptor(project, file).setUseCurrentWindow(true).navigateInEditor(project, true);
     }
 
     /** The file an editor tab shows a page for. */

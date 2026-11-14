@@ -7,6 +7,7 @@
 // configuration, and it starts the axx host (`axx host --ide`) and asks its questions.
 // Standalone build: see settings.gradle.kts.
 import org.jetbrains.intellij.platform.gradle.models.ProductRelease
+import org.jetbrains.intellij.platform.gradle.tasks.VerifyPluginTask
 
 plugins {
     java
@@ -175,13 +176,34 @@ intellijPlatform {
     }
 
     pluginVerification {
+        // What fails verifyPlugin, which CI runs for every pull request and before every release
+        // (intellij-plugin.yml). The Marketplace refuses a plugin that uses the platform's
+        // internal API, so that fails here first. So do an API the plugin may not extend, one it
+        // may only override, a deprecated one, one scheduled for removal, and a plugin that needs
+        // a restart. Experimental API is reported only: the LSP API's customizations are.
+        failureLevel =
+            listOf(
+                VerifyPluginTask.FailureLevel.COMPATIBILITY_PROBLEMS,
+                VerifyPluginTask.FailureLevel.INVALID_PLUGIN,
+                VerifyPluginTask.FailureLevel.INTERNAL_API_USAGES,
+                VerifyPluginTask.FailureLevel.NON_EXTENDABLE_API_USAGES,
+                VerifyPluginTask.FailureLevel.OVERRIDE_ONLY_API_USAGES,
+                VerifyPluginTask.FailureLevel.DEPRECATED_API_USAGES,
+                VerifyPluginTask.FailureLevel.SCHEDULED_FOR_REMOVAL_API_USAGES,
+                VerifyPluginTask.FailureLevel.NOT_DYNAMIC,
+            )
         ides {
             // The newest released IDE of each version the plugin supports, as recommended() less
-            // the EAP: they gate a release. With -PverifyEap, the newest EAP instead, which
+            // the EAP: `./gradlew printProductsReleases` lists them. CI verifies against each in a
+            // job of its own, with -PverifyIde (IU-2026.3, say): together they take too long and
+            // too much disk for one. With -PverifyEap, the newest EAP instead, which
             // intellij-plugin.yml reports without failing: the Marketplace lists an EAP's builds of
             // the optional plugins (Gherkin) on and off, and the verifier counts their classes as
             // missing when it finds none.
-            if (providers.gradleProperty("verifyEap").isPresent) {
+            val one = providers.gradleProperty("verifyIde")
+            if (one.isPresent) {
+                create(one.get().substringBefore('-'), one.get().substringAfter('-'))
+            } else if (providers.gradleProperty("verifyEap").isPresent) {
                 latest { channels = listOf(ProductRelease.Channel.EAP) }
             } else {
                 select { channels = listOf(ProductRelease.Channel.RELEASE) }
