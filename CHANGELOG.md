@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.6.9](https://github.com/nimbusxr/axx/compare/v0.6.8...v0.6.9) (2026-11-14)
+
+
+### Features
+
+* hovering over a file's path in a feature file shows the file, its first lines or a picture's thumbnail, in every editor that runs axx lsp ([8bf72c2](https://github.com/nimbusxr/axx/commit/8bf72c260b44d8dcd4501ec3c199d703628538df))
+* **ide:** IntelliJ shows the files a feature names under the lines that name them, read-only, with a toggle on each line, and on hover ([8bf72c2](https://github.com/nimbusxr/axx/commit/8bf72c260b44d8dcd4501ec3c199d703628538df))
+* **mock:** within {duration} a mocked request was received, or received exactly or at least that many times, for requests a service sends in the background ([4d12093](https://github.com/nimbusxr/axx/commit/4d12093c41f069877bc4350d08d8a5cd70b19f39))
+* **mongo:** within {duration} a collection has no documents where a table's conditions hold ([4d12093](https://github.com/nimbusxr/axx/commit/4d12093c41f069877bc4350d08d8a5cd70b19f39))
+* **sql:** within {duration} a selection by JSONB containment, a trigger's count, and a table that has no rows where a table's conditions hold ([4d12093](https://github.com/nimbusxr/axx/commit/4d12093c41f069877bc4350d08d8a5cd70b19f39))
+* the S3, Cloud Storage and Blob Storage packs check that an object or a blob is gone, Firestore that no document matches, and the files pack's check takes a name with * ([4d12093](https://github.com/nimbusxr/axx/commit/4d12093c41f069877bc4350d08d8a5cd70b19f39))
+
+
+### Bug Fixes
+
+* **web-core:** in an agent's sandbox that keeps the full Chromium from starting, Playwright's headless shell runs the scenarios ([1a82b47](https://github.com/nimbusxr/axx/commit/1a82b47bca44577b66434f1d1e77ba9fa579503e))
+* **web-core:** the full Chromium makes its profile's lock in axx's temp folder on macOS, which a sandbox lets it write ([1a82b47](https://github.com/nimbusxr/axx/commit/1a82b47bca44577b66434f1d1e77ba9fa579503e))
+
 ## [0.6.8](https://github.com/nimbusxr/axx/compare/v0.6.7...v0.6.8) (2026-11-13)
 
 
