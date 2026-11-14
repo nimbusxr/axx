@@ -26,6 +26,18 @@ Feature: Manifest import
     And the 1st row details property for the 2nd selection json properties are:
       | source | manifest |
 
+  Scenario: A manifest's parcels are registered as the service imports them
+    Given a seeds/manifest-kestrel-0601.yaml db seed
+    When within 10s a selection of at least 2 rows is retrieved from the parcels.parcels table where the details jsonb column contains:
+      | manifestId | M-KESTREL-0601 |
+      | source     | manifest       |
+    Then the selection has 2 rows
+    And a 2nd selection of rows is retrieved from the parcels.parcels table where:
+      | reference | PX-KES-1602 |
+    And the 1st row details property for the 2nd selection json properties are:
+      | lineId | ML-KES-0601-2 |
+      | zone   | DE-1          |
+
   Scenario: Invalid manifest lines are rejected with the reason
     Given a seeds/manifests/xml/rejected-lines.xml db seed
     When within 10s a selection of at least 1 row is retrieved from the parcels.manifest_lines table where:
@@ -55,7 +67,10 @@ Feature: Manifest import
 
   Scenario: A large manifest is imported completely
     Given a seeds/manifests/csv/bulk-manifest/parcels.manifest_lines.csv db seed
-    When within 20s a selection of at least 5 rows is retrieved from the parcels.manifest_lines table where:
+    When within 20s the parcels.manifest_lines table has no rows where:
+      | manifest_id | M-MAPLE-0019 |
+      | status      | PENDING      |
+    Then a selection of rows is retrieved from the parcels.manifest_lines table where:
       | manifest_id | M-MAPLE-0019 |
       | status      | IMPORTED     |
-    Then the selection has 5 rows
+    And the selection has 5 rows

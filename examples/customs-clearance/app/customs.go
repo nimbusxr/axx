@@ -57,6 +57,11 @@ type service struct {
 // declaration without its invoice is held.
 func (s *service) clear(ctx context.Context, f Filing, broker string) error {
 	raw, found, err := s.download(ctx, s.names.Invoices, f.Invoice)
+	if err == nil && !found {
+		// A declaration filed again, or handled again after a failure: the
+		// invoice may be in the archive already.
+		raw, found, err = s.download(ctx, s.names.Archive, f.Declaration+"/invoice.json")
+	}
 	if err != nil {
 		return err
 	}
@@ -68,7 +73,11 @@ func (s *service) clear(ctx context.Context, f Filing, broker string) error {
 	if err := json.Unmarshal(raw, &inv); err != nil {
 		return s.announce(ctx, "DeclarationHeld", map[string]any{"declaration": f.Declaration, "parcel": f.Parcel, "reason": "UNREADABLE_INVOICE"})
 	}
+	// The invoice moves to the archive: the broker's upload is not kept.
 	if err := s.upload(ctx, s.names.Archive, f.Declaration+"/invoice.json", "application/json", raw); err != nil {
+		return err
+	}
+	if err := s.remove(ctx, s.names.Invoices, f.Invoice); err != nil {
 		return err
 	}
 	if inv.Total > s.deMinimis {
@@ -189,6 +198,18 @@ func (s *service) download(ctx context.Context, container, name string) ([]byte,
 	defer out.Body.Close()
 	b, err := io.ReadAll(out.Body)
 	return b, true, err
+}
+
+// remove deletes a blob; one that is gone already is gone.
+func (s *service) remove(ctx context.Context, container, name string) error {
+	if name == "" {
+		return nil
+	}
+	_, err := s.azure.blob.DeleteBlob(ctx, container, name, nil)
+	if err != nil && !bloberror.HasCode(err, bloberror.BlobNotFound) {
+		return fmt.Errorf("remove %s from %s: %w", name, container, err)
+	}
+	return nil
 }
 
 func (s *service) upload(ctx context.Context, container, name, contentType string, body []byte) error {

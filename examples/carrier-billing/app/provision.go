@@ -27,7 +27,7 @@ func provision(ctx context.Context, c *clients, n names, log *slog.Logger) error
 	if err := waitForGCP(ctx, c); err != nil {
 		return err
 	}
-	for _, b := range []string{n.Invoices, n.Disputes} {
+	for _, b := range []string{n.Invoices, n.Disputes, n.Archive} {
 		if err := c.gcs.Bucket(b).Create(ctx, c.project, nil); err != nil && !conflict(err) {
 			return fmt.Errorf("bucket %s: %w", b, err)
 		}
@@ -82,7 +82,7 @@ func provision(ctx context.Context, c *clients, n names, log *slog.Logger) error
 			return fmt.Errorf("table %s: %w", name, err)
 		}
 	}
-	log.Info("provisioned", "buckets", 2, "topics", 3, "subscriptions", 2, "tables", len(tables))
+	log.Info("provisioned", "buckets", 3, "topics", 3, "subscriptions", 2, "tables", len(tables))
 	return nil
 }
 
@@ -102,6 +102,24 @@ func waitForGCP(ctx context.Context, c *clients) error {
 			return nil
 		}
 		if time.Now().After(deadline) {
+			return err
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
+}
+
+// waitForBigQuery waits until BigQuery answers a query, for five minutes at
+// most: an emulator's SQL engine may still be starting.
+func waitForBigQuery(ctx context.Context, c *clients) error {
+	deadline := time.Now().Add(5 * time.Minute)
+	for {
+		try, cancel := context.WithTimeout(ctx, 5*time.Second)
+		_, err := c.bq.Query("SELECT 1").Read(try)
+		cancel()
+		if err == nil {
+			return nil
+		}
+		if ctx.Err() != nil || time.Now().After(deadline) {
 			return err
 		}
 		time.Sleep(500 * time.Millisecond)

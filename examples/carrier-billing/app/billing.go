@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"cloud.google.com/go/pubsub/v2"
+	"cloud.google.com/go/storage"
 	"google.golang.org/api/iterator"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -75,11 +76,16 @@ func (s *service) reconcile(ctx context.Context, bucket, object string) error {
 	doc := s.gcp.fs.Collection(s.names.InvoiceDocs).Doc(invoice)
 	if _, err := doc.Get(ctx); err == nil {
 		s.log.Info("invoice already reconciled", "invoice", invoice)
-		return nil
+		// The archive has it: the carrier's second upload leaves the inbox too.
+		return s.remove(ctx, bucket, object)
 	} else if status.Code(err) != codes.NotFound {
 		return err
 	}
 	rows, err := s.readInvoice(ctx, bucket, object)
+	if errors.Is(err, storage.ErrObjectNotExist) {
+		// An earlier try archived it, and failed after.
+		rows, err = s.readInvoice(ctx, s.names.Archive, object)
+	}
 	if err != nil {
 		return err
 	}
@@ -141,8 +147,12 @@ func (s *service) reconcile(ctx context.Context, bucket, object string) error {
 			return err
 		}
 	}
+	// The reconciled invoice moves from the carriers' inbox to the archive.
+	if err := s.archive(ctx, bucket, object); err != nil {
+		return err
+	}
 	summary := map[string]any{
-		"carrier": carrier, "status": state, "lines": len(lines), "source": "gs://" + bucket + "/" + object,
+		"carrier": carrier, "status": state, "lines": len(lines), "source": "gs://" + s.names.Archive + "/" + object,
 		"totals": map[string]any{"billed": cents(billed), "expected": cents(expected), "disputed": cents(overcharge)},
 	}
 	if _, err := doc.Set(ctx, summary); err != nil {
@@ -295,6 +305,29 @@ func (s *service) put(ctx context.Context, name, contentType string, body []byte
 	return w.Close()
 }
 
+// archive moves an invoice from the carriers' inbox to the archive, under
+// the same name.
+func (s *service) archive(ctx context.Context, bucket, object string) error {
+	src := s.gcp.gcs.Bucket(bucket).Object(object)
+	_, err := s.gcp.gcs.Bucket(s.names.Archive).Object(object).CopierFrom(src).Run(ctx)
+	switch {
+	case errors.Is(err, storage.ErrObjectNotExist):
+		return nil // an earlier try archived it
+	case err != nil:
+		return fmt.Errorf("archive %s: %w", object, err)
+	}
+	return s.remove(ctx, bucket, object)
+}
+
+// remove deletes an upload from the carriers' inbox; one already gone is gone.
+func (s *service) remove(ctx context.Context, bucket, object string) error {
+	err := s.gcp.gcs.Bucket(bucket).Object(object).Delete(ctx)
+	if err != nil && !errors.Is(err, storage.ErrObjectNotExist) {
+		return fmt.Errorf("remove %s from %s: %w", object, bucket, err)
+	}
+	return nil
+}
+
 func cents(c int64) float64 { return float64(c) / 100 }
 
 func money(v float64) string { return strconv.FormatFloat(v, 'f', 2, 64) }
@@ -338,7 +371,8 @@ func (s *service) invoiceUploaded(ctx context.Context, m *pubsub.Message) error 
 	return s.reconcile(ctx, m.Attributes["bucketId"], m.Attributes["objectId"])
 }
 
-// shipmentEvent records the weights the parcels platform measures.
+// shipmentEvent records the weights the parcels platform measures, and
+// forgets the parcels it cancels.
 func (s *service) shipmentEvent(ctx context.Context, m *pubsub.Message) error {
 	var e Shipment
 	_ = json.Unmarshal(m.Data, &e)
@@ -347,12 +381,23 @@ func (s *service) shipmentEvent(ctx context.Context, m *pubsub.Message) error {
 		s.log.Warn("shipment event ignored: no eventType", "parcel", e.Parcel)
 		return nil
 	}
-	if eventType != "ShipmentWeighed" || e.Parcel == "" {
+	if e.Parcel == "" {
 		return nil
 	}
-	if _, err := s.gcp.fs.Collection(s.names.Shipments).Doc(e.Parcel).Set(ctx, e); err != nil {
-		return err
+	shipment := s.gcp.fs.Collection(s.names.Shipments).Doc(e.Parcel)
+	switch eventType {
+	case "ShipmentWeighed":
+		if _, err := shipment.Set(ctx, e); err != nil {
+			return err
+		}
+		s.log.Info("shipment weighed", "parcel", e.Parcel, "weightKg", e.WeightKg)
+	case "ShipmentCancelled":
+		// A cancelled parcel is not priced: a carrier that bills it is disputed,
+		// as one billing a parcel nobody shipped.
+		if _, err := shipment.Delete(ctx); err != nil {
+			return err
+		}
+		s.log.Info("shipment cancelled", "parcel", e.Parcel)
 	}
-	s.log.Info("shipment weighed", "parcel", e.Parcel, "weightKg", e.WeightKg)
 	return nil
 }

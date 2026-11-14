@@ -197,14 +197,58 @@ func TestObjectStepsSince(t *testing.T) {
 	}
 	o.Since = "0.1.1"
 	for id, v := range since(o) {
-		if v != "0.1.1" {
+		// The check that an object is gone came later than every pack, in a
+		// release it does not name yet.
+		if v != "0.1.1" && id != "absent" {
 			t.Errorf("%s of a pack introduced in 0.1.1 is since %s", id, v)
 		}
 	}
 	checks := o.Checks()
-	if len(checks) != 5 || checks[0].ID != "p.has" {
+	if len(checks) != 6 || checks[0].ID != "p.has" {
 		t.Errorf("the checks: %d, first %s", len(checks), checks[0].ID)
 	}
+}
+
+func TestObjectGone(t *testing.T) {
+	st := &memory{objects: map[string][]byte{}}
+	put := func(name string) { _ = st.Put(context.Background(), "carrier-drops", name, []byte("x"), "") }
+	del := func(name string) {
+		st.mu.Lock()
+		delete(st.objects, "carrier-drops/"+name)
+		st.mu.Unlock()
+	}
+	put("incoming/kestrel-2026-09.csv")
+	put("incoming/heron-2026-09.csv")
+	put("incoming/heron-2026-10.csv")
+	put("archive/kestrel-2026-08.csv")
+
+	h := cloudtest.New(t, storagePack{cloudstep.Objects{
+		Pack: "storage", Container: "s3 bucket", Object: "object", Example: "carrier-drops",
+		Store: func(*core.Scenario) (cloudstep.ObjectStore, error) { return st, nil },
+	}})
+	h.NewScenario()
+
+	// One that was never there, at once; one a service moves away, once it is gone.
+	h.OK("the carrier-drops s3 bucket has no object named incoming/linden-2026-09.csv")
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		time.Sleep(500 * time.Millisecond)
+		del("incoming/kestrel-2026-09.csv")
+	}()
+	start := time.Now()
+	h.OK("within 10s the carrier-drops s3 bucket has no object named incoming/kestrel-2026-09.csv")
+	if time.Since(start) > 5*time.Second {
+		t.Error("the wait should end as soon as the object is gone")
+	}
+	<-done
+
+	// A name with a *: no object may match it.
+	_ = h.Fails("within 1s the carrier-drops s3 bucket has no object named incoming/heron-*.csv",
+		"still has 2 objects named incoming/heron-*.csv after 1s: incoming/heron-2026-09.csv, incoming/heron-2026-10.csv")
+	h.OK("the carrier-drops s3 bucket has no object named incoming/kestrel-*.csv")
+	_ = h.Fails("within 1s the carrier-drops s3 bucket has no object named archive/kestrel-2026-08.csv",
+		"still has an object named archive/kestrel-2026-08.csv after 1s")
 }
 
 func workbook(t *testing.T, rows [][]any) []byte {

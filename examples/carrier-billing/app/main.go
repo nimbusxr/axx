@@ -17,6 +17,7 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -29,7 +30,7 @@ import (
 
 // names are the Google Cloud resources the service uses.
 type names struct {
-	Invoices, Disputes            string // Cloud Storage buckets
+	Invoices, Disputes, Archive   string // Cloud Storage buckets
 	InvoiceUploads, InvoiceEvents string // Pub/Sub topics
 	ShipmentEvents                string
 	UploadsSub, ShipmentsSub      string // the service's subscriptions
@@ -38,7 +39,7 @@ type names struct {
 }
 
 var defaults = names{
-	Invoices: "carrier-invoices", Disputes: "billing-disputes",
+	Invoices: "carrier-invoices", Disputes: "billing-disputes", Archive: "invoice-archive",
 	InvoiceUploads: "invoice-uploads", InvoiceEvents: "invoice-events", ShipmentEvents: "shipment-events",
 	UploadsSub: "billing-invoice-uploads", ShipmentsSub: "billing-shipment-events",
 	Dataset: "billing", Rates: "carrier_rates", Lines: "invoice_lines",
@@ -118,8 +119,26 @@ func run(log *slog.Logger) error {
 	}
 	svc.startSubscribers(ctx)
 
+	// The service is ready once BigQuery answers a query: it reads every
+	// carrier's rates there before it reconciles an invoice.
+	var ready atomic.Bool
+	go func() {
+		if err := waitForBigQuery(ctx, c); err != nil {
+			log.Error("BigQuery does not answer", "error", err)
+			return
+		}
+		ready.Store(true)
+		log.Info("BigQuery answers")
+	}()
+
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /health", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
+	mux.HandleFunc("GET /health", func(w http.ResponseWriter, _ *http.Request) {
+		if !ready.Load() {
+			http.Error(w, "waiting for BigQuery", http.StatusServiceUnavailable)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+	})
 	srv := &http.Server{Addr: env("BILLING_ADDR", ":8600"), Handler: mux, ReadHeaderTimeout: 5 * time.Second}
 	go func() {
 		<-ctx.Done()

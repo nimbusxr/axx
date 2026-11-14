@@ -196,6 +196,42 @@ func TestSeedAgainstRealMongo(t *testing.T) {
 		t.Fatalf("context: %d selections: %v", len(svc.Selections()), err)
 	}
 
+	// No document left that matches: a job in the background marks them, or deletes them.
+	scans := svc.db.Collection("scans")
+	if _, err := scans.InsertMany(ctx, []any{
+		bson.M{"parcelRef": "PX-1", "status": "IN_TRANSIT"},
+		bson.M{"parcelRef": "PX-1", "status": "DELIVERED"},
+		bson.M{"parcelRef": "PX-2", "status": "IN_TRANSIT"},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		time.Sleep(700 * time.Millisecond)
+		_, _ = scans.UpdateMany(ctx, bson.M{"parcelRef": "PX-1"}, bson.M{"$set": bson.M{"projected": true}})
+		_, _ = scans.DeleteMany(ctx, bson.M{"parcelRef": "PX-2"})
+	}()
+	start := time.Now()
+	if err := run("within 10s the scans collection has no documents where:", []string{"parcelRef", "PX-1"}, []string{"projected", "undefined"}); err != nil {
+		t.Errorf("documents a job marks: %v", err)
+	}
+	if err := run("within 10s the scans collection on space-mongodb has no documents where:", []string{"parcelRef", "PX-2"}); err != nil {
+		t.Errorf("documents a job deletes: %v", err)
+	}
+	if time.Since(start) > 5*time.Second {
+		t.Errorf("the wait should end as soon as no document matches")
+	}
+	<-done
+	err = run("within 1s the scans collection has no documents where:", []string{"parcelRef", "PX-1"}, []string{"projected", "true"})
+	if !core.IsAssertion(err) || !strings.Contains(err.Error(), "but 2 still do") {
+		t.Errorf("documents that still match should fail the step: %v", err)
+	}
+	// A value means what it says: the string "true" is not true, so none match.
+	if err := run("within 1s the scans collection has no documents where:", []string{"projected", `"true"`}); err != nil {
+		t.Errorf(`"true" should not match true: %v`, err)
+	}
+
 	var doc bson.M
 	if err := svc.db.Collection("telemetry").FindOne(ctx, bson.M{"mission": "m1"}).Decode(&doc); err != nil {
 		t.Fatal(err)

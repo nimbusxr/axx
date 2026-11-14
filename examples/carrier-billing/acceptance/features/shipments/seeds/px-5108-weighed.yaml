@@ -1,0 +1,2 @@
+shipments:
+  PX-5108: { parcel: PX-5108, carrier: HERON, service: economy, weightKg: 2.4, weighedAt: 2026-09-04T09:15:00Z }

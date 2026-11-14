@@ -115,6 +115,20 @@ And the query parameters for mocked request named collection on courier are:
 
 A request named by its path matches whatever its query string; its query parameters narrow it, and its counts, like its body's properties.
 
+### Requests sent in the background
+
+A service often calls a dependency after it has answered, or for a message it consumes: a webhook to the shop when a depot scans a delivery, say. The step that checks the request can run before it arrives, so wait for it:
+
+```gherkin
+When the depot-scans kafka event is published using schema schemas/depot-scan.avsc
+Then within 20s the mocked POST request to path /webhooks/fennel-and-flint named delivered was received by shops
+And the payload properties for mocked request named delivered on shops are:
+  | type      | parcel.delivered |
+  | reference | PX-TRK-3004      |
+```
+
+The step counts the matching requests again every 500 ms, and moves on as soon as one has arrived. The counts wait the same way: `within 10s the mocked request named delivered on shops was received exactly 1 time` waits for the first, and fails at once on a second, since a count only grows. `was not received` and `at most` have no wait: waiting longer cannot show that a request will not come.
+
 ### What your service did not send
 
 A check that something did not happen also passes when the service never got that far, so check what it did do too, like the response. Every scenario's requests count, so the check names the scenario's own data:

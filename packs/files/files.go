@@ -64,7 +64,7 @@ func (pack) Manifest() core.Manifest {
 }
 
 var objects = cloudstep.Objects{
-	Pack: "files", Container: "folder", Object: "file", Example: "exports", Since: since,
+	Pack: "files", Container: "folder", Object: "file", Example: "exports", Since: since, AbsentSince: folderSince,
 	Store: func(sc *core.Scenario) (cloudstep.ObjectStore, error) { return store{Folders(sc)}, nil },
 }
 

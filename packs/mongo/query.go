@@ -89,6 +89,23 @@ func querySteps() []core.StepDef {
 				return find(sc, a, 4, a.String(3), a.Table, a.Value(0).(time.Duration), a.Int(2))
 			},
 		},
+		{
+			ID: "mongo.docs.none", Keyword: "Then", Arg: core.ArgTable, Absence: true,
+			Expr: "within {duration} the {word} collection[[ on {mongoService}]] has no documents where:",
+			Doc: "Check that no document of the collection matches, again every 500ms until none does: for documents a service deletes, " +
+				"or changes so that they no longer match, in the background.\n\n" +
+				"- The step fails when documents still match when the time is up.\n" +
+				"- An error from MongoDB fails the step only when the time is up.\n" +
+				"- It also passes when no document ever matched, as when the service never wrote them: check what the service did too, " +
+				"like the documents it wrote instead.",
+			Table: filterTable,
+			Examples: []string{"Then within 10s the scans collection has no documents where:\n" +
+				"  | parcelRef | PX-TRK-3003 |\n" +
+				"  | projected | undefined   |"},
+			Run: func(sc *core.Scenario, a core.Args) error {
+				return none(sc, a, 2, a.String(1), a.Table, a.Value(0).(time.Duration))
+			},
+		},
 		docCount("mongo.docs.eq", "has {int} document(s)", "exactly", func(got, want int) bool { return got == want }),
 		docCount("mongo.docs.gt", "has more than {int} document(s)", "more than", func(got, want int) bool { return got > want }),
 		docCount("mongo.docs.lt", "has fewer than {int} document(s)", "fewer than", func(got, want int) bool { return got < want }),
@@ -215,6 +232,55 @@ func find(sc *core.Scenario, a core.Args, svcArg int, collection string, t *core
 		case <-time.After(500 * time.Millisecond):
 		}
 	}
+}
+
+// none waits until no document of the collection matches the table, or
+// within has passed.
+func none(sc *core.Scenario, a core.Args, svcArg int, collection string, t *core.Table, within time.Duration) error {
+	svc, err := service(sc, a, svcArg)
+	if err != nil {
+		return err
+	}
+	filter, conditions, err := filterOf(sc, t)
+	if err != nil {
+		return err
+	}
+	coll := svc.db.Collection(collection)
+	deadline := time.Now().Add(within)
+	matched := -1
+	var lastErr error
+	for {
+		var docs []bson.D
+		cur, err := coll.Find(sc.Context(), filter)
+		if err == nil {
+			err = cur.All(sc.Context(), &docs)
+		}
+		if err == nil {
+			docs, _ = keepStrict(docs, conditions)
+			matched = len(docs)
+			if matched == 0 {
+				return nil
+			}
+		} else {
+			lastErr = err
+		}
+		if time.Now().Add(500 * time.Millisecond).After(deadline) {
+			break
+		}
+		select {
+		case <-sc.Context().Done():
+			return sc.Context().Err()
+		case <-time.After(500 * time.Millisecond):
+		}
+	}
+	if matched < 0 {
+		return fmt.Errorf("could not retrieve documents from %s: %w", collection, lastErr)
+	}
+	verb := "do"
+	if matched == 1 {
+		verb = "does"
+	}
+	return core.Fail(fmt.Sprintf("expected no documents of %s to match within %s, but %d still %s", collection, within, matched, verb), 0, matched)
 }
 
 func (svc *Service) addSelection(sel *Selection) {

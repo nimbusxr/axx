@@ -4,8 +4,9 @@
 Feature: Database failures
 
   The database can briefly refuse to store a parcel, for example when two transactions
-  conflict. The service retries such failures, and when they persist it tells the shop
-  to try again later instead of failing with an internal error.
+  conflict. The service retries such failures, whether a shop registers the parcel or the
+  service imports it from a manifest, and when they persist it tells the shop to try again
+  later instead of failing with an internal error.
 
   Background:
     Given the parcels service with the following properties:
@@ -33,6 +34,16 @@ Feature: Database failures
     And a selection of rows is retrieved from the parcels.parcels table where:
       | reference | PX-DBF-3001 |
     And the selection has 1 row
+
+  Scenario: A brief database failure does not stop a manifest's import
+    Given a before insert trigger on the parcels.parcels table will raise a 40001 exception 1 time where:
+      | reference | PX-DBF-3011 |
+    And a seeds/manifest-retried.yaml db seed
+    When within 10s the before insert trigger on the parcels.parcels table was raised 1 time
+    Then within 10s a selection of at least 1 row is retrieved from the parcels.manifest_lines table where:
+      | id     | ML-DBF-3011-1 |
+      | status | IMPORTED      |
+    And the parcels log has 1 entry matching 'msg="storing parcel failed, retrying" reference=PX-DBF-3011'
 
   Scenario: A lasting database failure asks the shop to try again later
     Given a before insert trigger on the parcels.parcels table will raise a 40001 exception where:

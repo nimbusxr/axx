@@ -45,6 +45,7 @@ var ordinalSteps = map[string]ordinalUse{
 	"sql.select":                    {list: "selection", create: true, ordinal: 0, service: 2},
 	"sql.select.poll":               {list: "selection", create: true, ordinal: 1, service: 4},
 	"sql.select.jsonb":              {list: "selection", create: true, ordinal: 0, service: 2},
+	"sql.select.jsonb.poll":         {list: "selection", create: true, ordinal: 1, service: 4},
 	"sql.json.are":                  {list: "selection", ordinal: 2, service: 3},
 	"sql.json.match":                {list: "selection", ordinal: 2, service: 3},
 	"sql.column.is":                 {list: "selection", ordinal: 2, service: 3},
@@ -56,13 +57,16 @@ var ordinalSteps = map[string]ordinalUse{
 	"sql.trigger.insertRaise":       {list: "trigger", create: true, ordinal: 0, service: 2},
 	"sql.trigger.insertRaise.times": {list: "trigger", create: true, ordinal: 0, service: 2},
 	"sql.trigger.raised":            {list: "trigger", ordinal: 0, service: 2},
+	"sql.trigger.raised.within":     {list: "trigger", ordinal: 1, service: 3},
 
-	"sql.trigger.update.raise":       {list: "before update trigger", create: true, ordinal: 0, service: 2},
-	"sql.trigger.update.raise.times": {list: "before update trigger", create: true, ordinal: 0, service: 2},
-	"sql.trigger.update.raised":      {list: "before update trigger", ordinal: 0, service: 2},
-	"sql.trigger.delete.raise":       {list: "before delete trigger", create: true, ordinal: 0, service: 2},
-	"sql.trigger.delete.raise.times": {list: "before delete trigger", create: true, ordinal: 0, service: 2},
-	"sql.trigger.delete.raised":      {list: "before delete trigger", ordinal: 0, service: 2},
+	"sql.trigger.update.raise":         {list: "before update trigger", create: true, ordinal: 0, service: 2},
+	"sql.trigger.update.raise.times":   {list: "before update trigger", create: true, ordinal: 0, service: 2},
+	"sql.trigger.update.raised":        {list: "before update trigger", ordinal: 0, service: 2},
+	"sql.trigger.update.raised.within": {list: "before update trigger", ordinal: 1, service: 3},
+	"sql.trigger.delete.raise":         {list: "before delete trigger", create: true, ordinal: 0, service: 2},
+	"sql.trigger.delete.raise.times":   {list: "before delete trigger", create: true, ordinal: 0, service: 2},
+	"sql.trigger.delete.raised":        {list: "before delete trigger", ordinal: 0, service: 2},
+	"sql.trigger.delete.raised.within": {list: "before delete trigger", ordinal: 1, service: 3},
 }
 
 // OrdinalRuleID is the id of the builtin SQL ordinals check.

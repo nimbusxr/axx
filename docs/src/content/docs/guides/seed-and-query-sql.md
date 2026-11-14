@@ -161,6 +161,31 @@ And the selection has 2 rows
 
 The step queries again every 500 ms until the selection has at least that many rows, and moves on as soon as the rows appear; it fails when the time runs out with fewer. `the selection has 2 rows` then checks that no more than those came back.
 
+The selection by JSONB containment waits the same way, for the rows a service writes in the background:
+
+```gherkin
+When within 10s a selection of at least 2 rows is retrieved from the parcels.parcels table where the details jsonb column contains:
+  | manifestId | M-KESTREL-0601 |
+  | source     | manifest       |
+Then the selection has 2 rows
+```
+
+To wait until rows are gone, or no longer match, check that the table has none that do. This step waits until no pending line of the manifest is left, for an import in the background:
+
+```gherkin
+When within 20s the parcels.manifest_lines table has no rows where:
+  | manifest_id | M-MAPLE-0019 |
+  | status      | PENDING      |
+Then a selection of rows is retrieved from the parcels.manifest_lines table where:
+  | manifest_id | M-MAPLE-0019 |
+  | status      | IMPORTED     |
+And the selection has 5 rows
+```
+
+It queries again every 500 ms, and fails when rows still match when the time is up. It also passes when no row ever matched, for example when the service never wrote them, so check what the service did too, as the selection of imported lines does here. `axx lint` points out a scenario whose only checks are of this kind.
+
+A trigger's count waits the same way, for writes the service makes in the background: `within 10s the before insert trigger on the parcels.parcels table was raised 1 time`. It fails at once when the trigger raised more times than that, since the count only grows ([Inject faults with triggers](#inject-faults-with-triggers)).
+
 ## Oracle
 
 The steps are the same on Oracle, with a few of its own ways:
@@ -205,6 +230,20 @@ And a before delete trigger on the parcels.parcels table will raise a 40001 exce
 ```
 
 Triggers need PostgreSQL or Oracle. Each kind is numbered on its own, so `the before update trigger on the parcels.parcels table was raised 1 time` means the first before update trigger, whatever else the scenario created.
+
+When the service writes in the background, like a job that imports a manifest, wait for the trigger to have raised its error:
+
+```gherkin
+@isolated
+Scenario: A brief database failure does not stop a manifest's import
+  Given a before insert trigger on the parcels.parcels table will raise a 40001 exception 1 time where:
+    | reference | PX-DBF-3011 |
+  And a seeds/manifest-retried.yaml db seed
+  When within 10s the before insert trigger on the parcels.parcels table was raised 1 time
+  Then within 10s a selection of at least 1 row is retrieved from the parcels.manifest_lines table where:
+    | id     | ML-DBF-3011-1 |
+    | status | IMPORTED      |
+```
 
 ## Row locks
 

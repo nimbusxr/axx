@@ -135,6 +135,15 @@ A service that Pub/Sub pushes to gets what a push subscription sends: an envelop
     | reason | weight differs |
   ```
 
+- **What a service takes away can be checked too.** An object store's check that an object is gone, and Firestore's that no document of a collection matches, wait for it to go: a service that moves an invoice to an archive, or deletes a recording once it is transcribed. A name with a `*` stands for any characters but a slash. DynamoDB and BigQuery count with `has 0 items where:` and `has 0 rows where:`.
+
+  ```gherkin
+  Then within 10s the carrier-invoices gcs bucket has no object named kestrel/INV-2026-09-KES1.csv
+  And the invoice-archive gcs bucket has an object named kestrel/INV-2026-09-KES1.csv
+  ```
+
+  Such a check passes too when the service did nothing at all, so check what it did as well, like the archived copy here.
+
 ## Examples
 
 Each of these examples tests a service built on one cloud, with that cloud running in floci:

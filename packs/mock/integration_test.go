@@ -260,4 +260,29 @@ func TestAgainstRealWireMock(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "received 2") {
 		t.Fatalf("expected count failure with near misses, got %v", err)
 	}
+
+	// A request the service sends in the background, after the step that made
+	// it act: the wait counts again until it is there.
+	sent := make(chan error, 1)
+	go func() {
+		time.Sleep(700 * time.Millisecond)
+		r, err := http.Post(base+"/v1/handovers?depot=leipzig", "application/json", strings.NewReader(`{"reference":"PX-1"}`))
+		if err == nil {
+			_ = r.Body.Close()
+		}
+		sent <- err
+	}()
+	start := time.Now()
+	if err := run("within 10s the mocked POST request to path /v1/handovers named handover was received by spacex"); err != nil {
+		t.Fatal(err)
+	}
+	if time.Since(start) > 5*time.Second {
+		t.Error("the wait should end as soon as the request is there")
+	}
+	if err := <-sent; err != nil {
+		t.Fatal(err)
+	}
+	if err := run("within 1s the mocked request named handover on spacex was received exactly 1 time"); err != nil {
+		t.Fatal(err)
+	}
 }

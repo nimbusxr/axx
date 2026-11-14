@@ -101,6 +101,21 @@ func (pack) Manifest() core.Manifest {
 				},
 				Run: collection,
 			},
+			{
+				ID: name + ".collection.none", Keyword: "Then", Arg: core.ArgTable, Absence: true,
+				Expr: "[[within {duration} ]]the {word} firestore collection has no document where:",
+				Doc: "Check that no document of the collection has those values in those fields, or wait for the last to go: 10 seconds, " +
+					"or `within {duration}`, for a service that deletes them, or changes them so that they no longer match.\n\n" +
+					"- It also passes when no document ever matched, as when the service never wrote them: check what the service did too.\n" +
+					"- The check reads up to 5,000 documents of the collection.",
+				Table: fieldTable,
+				Examples: []string{
+					"Then within 30s the disputes firestore collection has no document where:\n" +
+						"  | invoice | INV-2026-09-KES2 |\n" +
+						"  | status  | OPEN             |",
+				},
+				Run: func(sc *core.Scenario, a core.Args) error { return records(sc, a, 0) },
+			},
 		},
 	}
 }
@@ -215,7 +230,11 @@ func document(sc *core.Scenario, a core.Args) error {
 	})
 }
 
-func collection(sc *core.Scenario, a core.Args) error {
+func collection(sc *core.Scenario, a core.Args) error { return records(sc, a, -1) }
+
+// records waits until the collection has a document that matches the table,
+// or, with count >= 0, exactly count of them.
+func records(sc *core.Scenario, a core.Args, count int) error {
 	rs, err := cloudstep.Conditions(a.Table)
 	if err != nil {
 		return err
@@ -240,7 +259,7 @@ func collection(sc *core.Scenario, a core.Args) error {
 			out = append(out, docJSON(snap.Data()))
 		}
 	}
-	return cloudstep.ExpectRecords(sc, cloudstep.Wait(a, 0), fetch, rs, -1, "document", "the "+coll+" firestore collection")
+	return cloudstep.ExpectRecords(sc, cloudstep.Wait(a, 0), fetch, rs, count, "document", "the "+coll+" firestore collection")
 }
 
 // docJSON renders a document's fields as JSON, its numbers of their types

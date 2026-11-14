@@ -121,6 +121,13 @@ func (s *service) object(ctx context.Context, bucket, key string) ([]byte, error
 	return io.ReadAll(out.Body)
 }
 
+// removeObject deletes an object; S3 answers a delete of one already gone as
+// it answers any other.
+func (s *service) removeObject(ctx context.Context, bucket, key string) error {
+	_, err := s.aws.s3.DeleteObject(ctx, &s3.DeleteObjectInput{Bucket: aws.String(bucket), Key: aws.String(key)})
+	return err
+}
+
 func (s *service) copyObject(ctx context.Context, fromBucket, fromKey, toBucket, toKey string) error {
 	_, err := s.aws.s3.CopyObject(ctx, &s3.CopyObjectInput{
 		Bucket: aws.String(toBucket), Key: aws.String(toKey), CopySource: aws.String(fromBucket + "/" + url.PathEscape(fromKey)),

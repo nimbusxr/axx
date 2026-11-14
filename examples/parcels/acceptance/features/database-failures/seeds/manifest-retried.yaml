@@ -1,0 +1,8 @@
+parcels.manifest_lines:
+  - id: "ML-DBF-3011-1"
+    manifest_id: "M-DBF-3011"
+    reference: "PX-DBF-3011"
+    sender: "kestrel-books"
+    weight_grams: 1200
+    service_level: "STANDARD"
+    recipient: '{"name": "Emmy Noether", "street": "Bunsenstrasse 3", "city": "Goettingen", "postcode": "37073", "country": "DE"}'
