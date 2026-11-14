@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"net"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
@@ -82,8 +83,9 @@ func TestNoWebKitFromAHostOnAMac(t *testing.T) {
 // host's, for every engine: its proxy is the relay, what it keeps is in its
 // own folder, and it has no window.
 func TestAHostedBrowserStartsWithTheHostsOptions(t *testing.T) {
+	lease := t.TempDir()
 	for _, engine := range engines {
-		name, config := hostedLaunch(engine, "/tmp/axx-host-browser-1", "127.0.0.1:4321", "s3cret")
+		name, config := hostedLaunch(engine, lease, "127.0.0.1:4321", "s3cret")
 		if want := map[string]string{"chromium": "chromium", "chrome": "chromium", "msedge": "chromium", "firefox": "firefox", "webkit": "webkit"}[engine]; name != want {
 			t.Errorf("%s: Playwright's %s starts it, want %s", engine, name, want)
 		}
@@ -92,7 +94,7 @@ func TestAHostedBrowserStartsWithTheHostsOptions(t *testing.T) {
 			t.Errorf("%s: its proxy is %v, want the relay and no address past it", engine, proxy)
 		}
 		for _, dir := range []string{"artifactsDir", "tracesDir", "downloadsPath"} {
-			if d, _ := config[dir].(string); !strings.HasPrefix(d, "/tmp/axx-host-browser-1/") {
+			if d, _ := config[dir].(string); filepath.Dir(d) != lease {
 				t.Errorf("%s: its %s is %q, want a folder of its own", engine, dir, d)
 			}
 		}
