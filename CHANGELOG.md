@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.6.10](https://github.com/nimbusxr/axx/compare/v0.6.9...v0.6.10) (2026-11-14)
+
+
+### Features
+
+* **host:** a pack can have a side in the axx host, and axx host starts for a project without services ([a04ed93](https://github.com/nimbusxr/axx/commit/a04ed936467c946b8e06076466a98ca9aa047a38))
+* **web-core:** with an axx host running, a sandboxed run's browser is one the host starts, with its network going through the run and no access to the machine's files ([a04ed93](https://github.com/nimbusxr/axx/commit/a04ed936467c946b8e06076466a98ca9aa047a38))
+
 ## [0.6.9](https://github.com/nimbusxr/axx/compare/v0.6.8...v0.6.9) (2026-11-14)
 
 
