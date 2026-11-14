@@ -52,5 +52,5 @@ Elsewhere: the install script (`curl -fsSL https://raw.githubusercontent.com/nim
 - `axx init` writes the skills to `.agents/skills` (linked into `.claude/skills` for Claude Code) and connects the axx MCP server for the agents the repository uses, in their own files. `axx mcp install --agent claude|codex|cursor|vscode|gemini` connects one; Codex's servers live in `~/.codex/config.toml`: `axx mcp install --agent codex --scope user`.
 - `axx upgrade` upgrades axx and updates the skills; after any other upgrade, `axx skills update`.
   They stay out of the repository (`.gitignore`): a fresh clone runs `axx skills install`.
-- An agent whose sandbox keeps it from Docker gets its services from `axx host`, which the person runs on their own machine; runs find it in `.axx/host.json`.
+- An agent whose sandbox keeps it from Docker, or keeps a browser from starting, gets its services and its web scenarios' browsers from `axx host`, which the person runs on their own machine; runs find it in `.axx/host.json`.
 - `axx doctor` warns when an agent lacks the skills or the MCP server.

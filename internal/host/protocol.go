@@ -16,7 +16,7 @@ import (
 
 // Protocol is the version of what a run and the host send each other: one
 // JSON object per line, over one TCP connection per run.
-const Protocol = 2
+const Protocol = 3
 
 // Announcement is what a host writes to .axx/host.json for the runs of its
 // project to find it.
@@ -57,6 +57,10 @@ type Request struct {
 	Token    string `json:"token"`
 	// Command is what the run is, for the person: "axx run --compact features/orders".
 	Command string `json:"command"`
+	// Pack makes the connection a pack's: once the host accepted it, its
+	// side in the run and its side in the host (core.HostServer) speak
+	// their own protocol over it, and the rest of the request is not read.
+	Pack string `json:"pack,omitempty"`
 	// IDE is the editor that started the run (AXX_IDE): an editor shows its
 	// own runs, and the host's others.
 	IDE string `json:"ide,omitempty"`

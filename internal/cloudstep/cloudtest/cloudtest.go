@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"log/slog"
 	"maps"
+	"net"
 	"os"
 	"path/filepath"
 	"slices"
@@ -31,6 +32,37 @@ import (
 	"github.com/nimbusxr/axx/internal/interp"
 	"github.com/nimbusxr/axx/internal/match"
 )
+
+// HostedEnv, when set, gives every harness an axx host: the packs with a
+// side in one (core.HostServer) do there what a run in a sandbox has the
+// host do (web-core: start the browser), in this process, so the packs'
+// tests run that way too.
+const HostedEnv = "AXX_TEST_HOSTED"
+
+// hosted serves the suite's connections to a pack's side in the host with
+// that pack, over a pipe.
+func hosted(t *testing.T, suite *core.Suite, packs []core.Pack) {
+	ctx, cancel := context.WithCancel(context.Background())
+	var wg sync.WaitGroup
+	t.Cleanup(func() {
+		cancel()
+		wg.Wait()
+	})
+	suite.UseHost(func(_ context.Context, name string) (net.Conn, error) {
+		for _, p := range packs {
+			hs, ok := p.(core.HostServer)
+			if !ok || p.Manifest().Name != name {
+				continue
+			}
+			run, host := net.Pipe()
+			wg.Go(func() {
+				_ = hs.ServeHost(ctx, core.HostRun{ProjectDir: suite.ProjectDir(), Command: "go test", Logger: suite.Logger(), Tell: func(string) {}}, host)
+			})
+			return run, nil
+		}
+		return nil, fmt.Errorf("the test's host has no %s pack", name)
+	})
+}
 
 // Harness runs step text against a set of packs, one scenario at a time.
 type Harness struct {
@@ -176,6 +208,9 @@ func newHarness(t *testing.T, config map[string]any, services map[string]string,
 		},
 	})
 	h = &Harness{t: t, reg: reg, packs: packs, Suite: suite, Dir: dir, Sink: sink, hooks: hooks}
+	if os.Getenv(HostedEnv) != "" {
+		hosted(t, suite, packs)
+	}
 	t.Cleanup(func() {
 		for i := len(packs) - 1; i >= 0; i-- {
 			if c, ok := packs[i].(core.Closer); ok {

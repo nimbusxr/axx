@@ -698,6 +698,9 @@ func TestAPausedScenarioTakesAnIDEsRequests(t *testing.T) {
 // Packs that build on the web-core pack reach Chromium's remote debugging port,
 // and open tabs of their own beside the scenario's.
 func TestToolsDriveTheBrowserBeside(t *testing.T) {
+	// A browser the run starts: one the axx host starts takes no other tool
+	// (TestOtherToolsCannotDriveAHostedBrowser).
+	t.Setenv(cloudtest.HostedEnv, "")
 	h, app := newHarness(t, "chromium")
 	RemoteDebugging(h.Suite)
 	h.OK("the portal web app with the following properties:", app)
@@ -779,8 +782,10 @@ func TestAgentsLookAtThePage(t *testing.T) {
 		t.Fatal(err)
 	}
 	v := res.Data.(pageView)
-	for _, want := range []string{`the "Get a quote" button`, `the "Weight (grams)" field`, `the "Destination country" field`,
-		`the "Express" option`, `the "Insure this parcel" checkbox`, `the "Track a parcel" link`} {
+	for _, want := range []string{
+		`the "Get a quote" button`, `the "Weight (grams)" field`, `the "Destination country" field`,
+		`the "Express" option`, `the "Insure this parcel" checkbox`, `the "Track a parcel" link`,
+	} {
 		if !slices.Contains(v.Elements, want) {
 			t.Errorf("the elements lack %s: %q", want, v.Elements)
 		}

@@ -198,11 +198,17 @@ func (a *App) run(ctx context.Context, f *runFlags, args []string) error {
 		return a.EmitResult(map[string]any{"scenarios": 0}, true, nil)
 	}
 
-	// An axx host serving the project starts the services for this run.
+	// An axx host serving the project starts the services for this run, and
+	// does for its packs what they cannot in a sandbox (web-core: a browser).
 	var hostAnn *host.Announcement
-	if !f.dryRun && !f.noStart && len(cfg.Services) > 0 {
-		if hostAnn, err = a.hostFor(cfg); err != nil {
+	if !f.dryRun {
+		ann, err := host.Find(cfg.Dir)
+		if err != nil {
 			return err
+		}
+		a.useHost(e, ann)
+		if _, up := liveUp(cfg); !up && !f.noStart && len(cfg.Services) > 0 {
+			hostAnn = ann
 		}
 	}
 	reporters, agentBuf, needsMsgs, closeReporters, err := a.reporters(cfg, f, cov != nil)

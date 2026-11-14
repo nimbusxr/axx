@@ -69,6 +69,8 @@ type Suite struct {
 	pauses map[string][]int
 	// owners give the files of the owners of a kind (SetFileOwner).
 	owners map[string]FileOwner
+	// host reaches the axx host that serves the project (UseHost).
+	host HostDialer
 }
 
 type cacheEntry struct {

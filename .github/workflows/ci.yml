@@ -333,13 +333,19 @@ jobs:
     # watching test opens browser windows, on a virtual screen. web-core's tests are two jobs,
     # by their names, the other web packs a third, and the Lighthouse audits a fourth: a score
     # measures the machine's load too, and other packages' browsers would take its CPU.
+    # The hosted parts run the first three again through an axx host, in the tests' process
+    # (AXX_TEST_HOSTED): the browsers start as for a run in an agent's sandbox, behind the guard
+    # and the relay, so a step that sends Playwright a command the guard's rules lack fails here
+    # (packs/web/internal/guard/rules.json), and so does a browser whose network goes past the run.
     name: web (${{ matrix.part }})
     runs-on: ubuntu-26.04
     strategy:
       fail-fast: false
       matrix:
         # On main, only the part that keeps the browsers' cache.
-        part: ${{ fromJSON(needs.changes.outputs.tests == 'true' && '["core-a-g", "core-h-z", "packs", "lighthouse"]' || '["packs"]') }}
+        part: ${{ fromJSON(needs.changes.outputs.tests == 'true' && '["core-a-g", "core-h-z", "packs", "lighthouse", "hosted-core-a-g", "hosted-core-h-z", "hosted-packs"]' || '["packs"]') }}
+    env:
+      AXX_TEST_HOSTED: ${{ startsWith(matrix.part, 'hosted-') && '1' || '' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -359,19 +365,19 @@ jobs:
           list() { go test -tags integration -list "$1" ./packs/web/core | grep -cE '^(Test|Example|Fuzz)'; }
           all=$(list '.*') a=$(list '^Test[A-G]') b=$(list '^Test[H-Z]')
           [ "$all" -eq $((a + b)) ] || { echo "::error::$((all - a - b)) of web-core's tests are in neither half: name each Test and a capital letter"; exit 1; }
-      - if: matrix.part == 'core-a-g'
+      - if: endsWith(matrix.part, 'core-a-g')
         run: xvfb-run -a scripts/gotest.sh -race -tags integration -timeout 10m -run '^Test[A-G]' ./packs/web/core
-      - if: matrix.part == 'core-h-z'
+      - if: endsWith(matrix.part, 'core-h-z')
         run: xvfb-run -a scripts/gotest.sh -race -tags integration -timeout 10m -run '^Test[H-Z]' ./packs/web/core
       # A sound server, of a sink that plays to nothing, for the microphone's tests: with none,
       # Firefox's Web Audio never runs (its AudioContext stays suspended).
-      - if: matrix.part == 'packs'
+      - if: endsWith(matrix.part, 'packs')
         name: a sound server
         run: |
           sudo apt-get install -y -qq pulseaudio > /dev/null
           pulseaudio --start --exit-idle-time=-1
           pactl load-module module-null-sink sink_name=axx > /dev/null
-      - if: matrix.part == 'packs'
+      - if: endsWith(matrix.part, 'packs')
         run: |
           mapfile -t packs < <(go list ./packs/web/... | grep -v -e /packs/web/lighthouse -e '/packs/web/core$')
           xvfb-run -a scripts/gotest.sh -race -tags integration -timeout 10m "${packs[@]}" ./packs/models/web/...

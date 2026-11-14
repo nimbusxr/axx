@@ -23,3 +23,4 @@ CLI JSON output or exit codes, the `axx.yaml` schema, or release/versioning poli
 | [0015](0015-a-project-names-the-axx-version-it-runs-on.md) | A project names the axx version it runs on; the installed axx hands over to it | Accepted |
 | [0016](0016-a-macos-launcher-is-the-one-identity-a-person-allows.md) | On macOS, axx runs desktop scenarios under a launcher of its own, the one identity a person allows | Proposed |
 | [0017](0017-a-run-measures-the-coverage-of-the-system-under-test.md) | A run measures the coverage of the system under test, through one pack per runtime | Accepted |
+| [0018](0018-a-pack-has-a-side-in-the-axx-host.md) | A pack has a side in the axx host, and web-core's starts the browser a sandbox keeps from starting | Accepted |

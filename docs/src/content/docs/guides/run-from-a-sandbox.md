@@ -1,16 +1,21 @@
 ---
 title: Run tests from an agent's sandbox
-description: Let an agent whose sandbox keeps it from Docker run acceptance tests on clean services. You start axx host on your machine; each run the agent starts gets its services from it, and runs only what you approved.
+description: Let an agent whose sandbox keeps it from Docker, or keeps a browser from starting, run acceptance tests. You start axx host on your machine; each run the agent starts gets its services and its browser from it, and runs only what you approved.
 ---
 
-Some agent harnesses run the agent in a sandbox that may not use Docker, because the Docker socket would let it out of the sandbox. Its `axx run` then cannot start your services, and you end up running the tests yourself and pasting the output back. `axx host` starts the services on your machine for the agent's runs, without giving the agent that way out.
+Some agent harnesses run the agent in a sandbox. Two things then stop its `axx run`:
+
+- **The sandbox may not use Docker,** because the Docker socket would let the agent out of the sandbox. The run cannot start your services.
+- **The sandbox keeps a browser from starting.** On macOS, such a sandbox refuses what Chromium asks of the system as it starts, and Chromium quits. The run cannot open a page.
+
+You end up running the tests yourself and pasting the output back. `axx host` starts the services and the browsers on your machine for the agent's runs, without giving the agent a way out of its sandbox.
 
 ## How it works
 
 - You start `axx host` in the project, on your machine, outside the sandbox. Your editor can start it for you ([below](#start-it-from-your-editor)). It listens on a loopback port and writes `.axx/host.json`.
 - The agent runs `axx run` as it always does. Axx finds `.axx/host.json` in the project folder you share with the sandbox, and asks the host for the services the run needs.
 - The host cleans up anything an earlier run left behind, then starts the services as `axx.yaml` says: `docker compose ... up --build`, so the agent's changes are built. It waits until they are ready and sends their output back to the run's `.axx/logs/services.log`.
-- The scenarios run in the sandbox, under its rules: every request a step sends, every browser it opens ([below](#browsers-in-the-sandbox)).
+- The scenarios run in the sandbox, under its rules: every request a step sends, and every request a browser makes. The browsers of web scenarios are started by the host and driven by the run ([below](#browsers-in-the-sandbox)).
 - When the run ends, the host stops the services and runs their cleanup. It does the same when the run's connection ends, so a run that is killed leaves nothing behind.
 - Runs take turns. While one has the services, the next waits and says which run it waits for.
 
@@ -105,21 +110,53 @@ The project folder the agent edits must be the one on your disk, not a copy: the
 
 ## Browsers in the sandbox
 
-The browsers of web scenarios run in the sandbox too, under its rules. Some sandboxes keep Playwright's full Chromium from starting:
+When a host serves the project, it starts the browsers of web scenarios, outside the sandbox, and the run drives them from inside it. You set nothing up, and `axx.yaml` doesn't change: with `axx host` running, a web scenario in the sandbox runs as it does outside, on the full Chromium.
 
-- **Claude Code's sandbox on macOS refuses a read the full Chromium makes as it starts.** Chromium asks macOS whether the Mac is a virtual machine, and it quits when the sandbox refuses to answer.
-- **Axx checks that read before it starts the browser.** When the sandbox refuses it, Axx runs Playwright's headless shell instead, a smaller build of Chromium that doesn't make the read. The run's log says so once:
+```console
+$ axx host
+axx host: serving /Users/you/shop on 127.0.0.1:53123 (Ctrl-C stops it)
+  approved: axx.yaml's services: api, db; compose.yaml
+  web-core: the browsers of web scenarios, for runs in a sandbox that keeps a browser from starting
+waiting for runs
+run 1: axx run --compact features/checkout
+web-core: started chromium (axx run --compact features/checkout)
+```
+
+A project needs no services for this. `axx host` also starts in a project whose `axx.yaml` declares none, as long as it uses the web packs.
+
+### What the run gets, and what it doesn't
+
+A browser outside the sandbox could be a way out of it, since the agent writes the scenarios that drive it. So the host gives the run a browser, and nothing else of your machine:
+
+- **The host starts the browser, with its own options.** It is Playwright's Chromium or Firefox, or the Chrome or Edge installed on your machine, without a window and with a profile of its own that is deleted when the run ends. The run says which engine it wants. It cannot name a program, an argument or a folder.
+- **The browser's network goes through the run.** Every request the browser makes travels to `axx run` in the sandbox, which makes it from there, through the proxy the sandbox gives its processes if it gives one. So the browser reaches exactly what the sandbox lets the run reach, and your harness's rules go on deciding that. There is no list of addresses to keep.
+- **The browser opens no file of your machine.** A page opens `http` and `https` addresses, never a `file://` one, and never the browser's own settings pages.
+- **Files travel through the run.** When a scenario uploads a file, the run reads it in the sandbox and sends its contents. Downloads, screenshots, videos and traces go back to the run, which writes them in the project. The browser itself reads and writes nothing outside a folder of its own, which is deleted with it.
+- **The host passes only the commands the web steps use.** The connection between a run and Playwright can do more than a person at a browser can: save a file at any path, or send the browser raw DevTools commands. The host stands between the two and refuses every command the web packs' steps don't use.
+- **The browser has a clipboard of its own.** A scenario that pastes doesn't get what you copied, and a scenario that copies doesn't replace it.
+
+### What works differently there
+
+- **A site the sandbox blocks is blocked for the browser too.** A page that loads a font or a script from it loads without it. A page at an address the run cannot reach shows "the run cannot reach" and the address. That is the same rule a request step meets.
+- **[Lighthouse audits](/guides/web-lighthouse/) run outside the sandbox.** Lighthouse drives Chromium itself, through a port that takes every DevTools command, which the host doesn't open. A Lighthouse step in a sandboxed run says so.
+- **WebKit on a Mac is started by the run, not by the host.** macOS sends WebKit's requests to your machine's own addresses itself, whatever proxy the browser has, so the host cannot send them through the run. The run starts WebKit in the sandbox, as it does without a host. If your sandbox keeps it from starting, run the WebKit scenarios outside the sandbox.
+- **Watching or pausing a run starts the browsers where the run is.** Their windows are yours to look at. Watch the scenarios yourself, outside the sandbox: from your terminal, or from your editor ([Watch web browsers](/guides/watch-web-browsers/)).
+- **A pack of your own that calls Playwright** through the web pack's context is refused the commands the web packs' steps don't use. The error names the command.
+
+### Without a host
+
+Without a host, the run starts its browsers itself, in the sandbox, and some sandboxes keep Playwright's full Chromium from starting:
+
+- **Some sandboxes on macOS refuse a read the full Chromium makes as it starts.** Chromium asks macOS whether the Mac is a virtual machine, and it quits when the sandbox refuses to answer. Axx checks that read first. When the sandbox refuses it, Axx runs Playwright's headless shell instead, a smaller build of Chromium that doesn't make the read, and the run's log says so once:
 
   ```console
   WARN this sandbox refuses a read that the full Chromium makes as it starts (kern.hv_vmm_present): Playwright's headless shell runs the scenarios instead
   ```
 
-- **The headless shell behaves a little differently from the full Chromium.** For example, it never asks a site for its icon. Outside the sandbox, your own runs and your CI keep using the full Chromium.
-- **Watching or pausing a run needs browser windows, which need the full Chromium.** In such a sandbox, a run that watches or pauses stops at its first page and says why. Watch the scenarios yourself, outside the sandbox: from your terminal, or from your editor ([Watch web browsers](/guides/watch-web-browsers/)).
-- **The full Chromium makes a lock in macOS's per-user temp folder as it starts, whatever `$TMPDIR` says,** and some sandboxes keep it from writing there. Axx tells the full Chromium to use the temp folder Axx itself uses (`MAC_CHROMIUM_TMPDIR`), which the sandbox lets it write. Outside a sandbox, that is the same per-user folder. The headless shell makes no such lock.
-- **The headless shell is downloaded the first time a sandboxed run needs it,** into Playwright's folder of browsers, like the other browsers ([The browsers](/guides/test-web-apps/#the-browsers)). If the sandbox can't write there, set `PLAYWRIGHT_BROWSERS_PATH` to a folder it can write.
-
-Only Chromium has this fallback. If Firefox or WebKit doesn't start in your sandbox, run those scenarios outside it.
+- **The headless shell behaves a little differently from the full Chromium.** For example, it never asks a site for its icon.
+- **The full Chromium makes a lock in macOS's per-user temp folder as it starts, whatever `$TMPDIR` says,** and some sandboxes keep it from writing there. Axx tells the full Chromium to use the temp folder Axx itself uses (`MAC_CHROMIUM_TMPDIR`), which the sandbox lets it write.
+- **The headless shell is downloaded the first time a sandboxed run needs it,** into Playwright's folder of browsers ([The browsers](/guides/test-web-apps/#the-browsers)). If the sandbox can't write there, set `PLAYWRIGHT_BROWSERS_PATH` to a folder it can write.
+- **A sandbox can still keep the headless shell from starting.** Chromium reaches its own processes through a service it registers with macOS, and a sandbox that refuses that ends every build of Chromium. The run then says to start `axx host`.
 
 ## Start it from your editor
 
@@ -142,6 +179,7 @@ The host's errors are [`AXX-E0500` to `AXX-E0506`](/references/error-codes/#axx-
 ## What your security team should know
 
 - The agent can reach one more loopback port. What it can send there is a run's request: names of services from `axx.yaml`, and the configuration file, profile and settings it runs with. The host reads the configuration from the project itself, and runs only a definition you approved.
+- With web scenarios, the agent's run also drives a browser the host starts. The host chooses the program and its options. The browser's network goes through the run in the sandbox, so the sandbox's network rules apply to it. The host passes Playwright only the commands the web steps use, none of which names a file of the machine or runs a program ([above](#what-the-run-gets-and-what-it-doesnt)). Each browser listens on loopback ports of its own, behind addresses and keys made for that run.
 - `.axx/host.json` holds a token, readable only by your user. The agent, which runs as you, reads it; other users' processes can't.
 - Approvals come only from you: from the host's terminal, or from the editor that started the host. Never through the port.
 - The app's code, which the agent writes, runs in containers on your machine, with what the approved compose file gives those containers. Containers can reach the network unless the compose file keeps them from it, for example with an `internal: true` network.
