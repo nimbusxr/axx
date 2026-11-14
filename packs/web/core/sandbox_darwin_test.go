@@ -40,3 +40,29 @@ func TestFullChromiumRefused(t *testing.T) {
 		t.Errorf("in a sandbox that refuses the read: %s", out)
 	}
 }
+
+// The full Chromium makes its profile's lock in axx's temp folder, which a
+// sandbox lets it write, unless it is told another or the folder's path is
+// too long for the lock's socket.
+func TestChromiumEnv(t *testing.T) {
+	t.Setenv("MAC_CHROMIUM_TMPDIR", "")
+	t.Setenv("TMPDIR", "/tmp/claude-501/")
+	env := chromiumEnv()
+	if env["MAC_CHROMIUM_TMPDIR"] != "/tmp/claude-501" || env["PATH"] != os.Getenv("PATH") {
+		t.Errorf("a sandbox's temp folder: %q, PATH %q", env["MAC_CHROMIUM_TMPDIR"], env["PATH"])
+	}
+	// macOS's own per-user temp folder fits, as its paths are as long as this.
+	t.Setenv("TMPDIR", "/var/folders/5p/gycz56fd7gl56dyzyhmn1lnw0000gn/T/")
+	if env := chromiumEnv(); env["MAC_CHROMIUM_TMPDIR"] != "/var/folders/5p/gycz56fd7gl56dyzyhmn1lnw0000gn/T" {
+		t.Errorf("the per-user temp folder: %q", env["MAC_CHROMIUM_TMPDIR"])
+	}
+	t.Setenv("TMPDIR", "/private/tmp/claude-501/-Users-someone-Projects-shop/0a1b2c3d/scratchpad")
+	if env := chromiumEnv(); env != nil {
+		t.Errorf("a temp folder too long for the lock's socket: %q", env["MAC_CHROMIUM_TMPDIR"])
+	}
+	t.Setenv("TMPDIR", "/tmp/claude-501/")
+	t.Setenv("MAC_CHROMIUM_TMPDIR", "/tmp/chromium")
+	if env := chromiumEnv(); env != nil {
+		t.Errorf("one set already: %q", env["MAC_CHROMIUM_TMPDIR"])
+	}
+}

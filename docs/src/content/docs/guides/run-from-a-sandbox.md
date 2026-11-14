@@ -116,6 +116,7 @@ The browsers of web scenarios run in the sandbox too, under its rules. Some sand
 
 - **The headless shell behaves a little differently from the full Chromium.** For example, it never asks a site for its icon. Outside the sandbox, your own runs and your CI keep using the full Chromium.
 - **Watching or pausing a run needs browser windows, which need the full Chromium.** In such a sandbox, a run that watches or pauses stops at its first page and says why. Watch the scenarios yourself, outside the sandbox: from your terminal, or from your editor ([Watch web browsers](/guides/watch-web-browsers/)).
+- **The full Chromium makes a lock in macOS's per-user temp folder as it starts, whatever `$TMPDIR` says,** and some sandboxes keep it from writing there. Axx tells the full Chromium to use the temp folder Axx itself uses (`MAC_CHROMIUM_TMPDIR`), which the sandbox lets it write. Outside a sandbox, that is the same per-user folder. The headless shell makes no such lock.
 - **The headless shell is downloaded the first time a sandboxed run needs it,** into Playwright's folder of browsers, like the other browsers ([The browsers](/guides/test-web-apps/#the-browsers)). If the sandbox can't write there, set `PLAYWRIGHT_BROWSERS_PATH` to a folder it can write.
 
 Only Chromium has this fallback. If Firefox or WebKit doesn't start in your sandbox, run those scenarios outside it.

@@ -5,3 +5,7 @@ package webcore
 // fullChromiumRefused says why Playwright's full Chromium cannot start on this
 // machine: no sandbox elsewhere is known to keep it from starting.
 func fullChromiumRefused() string { return "" }
+
+// chromiumEnv is the environment of the full Chromium: elsewhere than on
+// macOS, axx's own.
+func chromiumEnv() map[string]string { return nil }

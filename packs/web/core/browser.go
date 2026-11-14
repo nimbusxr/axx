@@ -159,6 +159,7 @@ func browserFor(s *core.Suite, a *App) (playwright.Browser, error) {
 		switch {
 		case branded(a.Engine):
 			bt, opts.Channel = pw.Chromium, playwright.String(a.Engine)
+			opts.Env = chromiumEnv()
 		case a.Engine == "chromium":
 			why := fullChromiumRefused()
 			var channel string
@@ -168,6 +169,7 @@ func browserFor(s *core.Suite, a *App) (playwright.Browser, error) {
 			}
 			if channel != "" {
 				opts.Channel = playwright.String(channel)
+				opts.Env = chromiumEnv()
 			}
 			if shell {
 				// Once a run, whatever the apps that use Chromium.
