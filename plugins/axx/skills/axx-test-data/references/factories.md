@@ -139,6 +139,7 @@ axx fixtures adopt --family json --schema openapi/address.yaml#/components/schem
 - **Identities are yours to declare.** The report lists identity candidates (string fields distinct in every file, with how many files they were compared across), and the factory lists them as comments. Declare the ones that really identify a fixture: `--identity reference` (repeatable). An email distinct in three examples is not an identity. Check the `prefix:` adoption gives each declared identity: a new fixture without a value gets that prefix and its name.
 - `--prototype common` takes each field's most common value instead of only what every file shares.
 - `--into <factory> --files '<glob>'` adds more files to an existing factory, with its prototype and identities.
+- A field a file lacks stays out: where generating would fill it (the schema's default; with `--into`, the factory's prototype), the fixture gets `undefined`, and the report counts them.
 - A refusal lists the paths that would change. Seed layouts keyed by document id often cause it: adopt the records as a factory of their own, then reference them from the layout with `$ref`.
 - Files a factory already generates cannot be adopted again.
 

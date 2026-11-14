@@ -254,6 +254,46 @@ func TestAdoptKeepsTheStringUndefined(t *testing.T) {
 	mustContain(t, string(w.expand()["legacy/one.json"]), `"kind": "undefined"`, `"started_at": "undefined"`)
 }
 
+// A file that lacks a field the schema gives a default was refused: its
+// fixture could not say so. Adoption leaves the field out, and the files
+// come out as they were.
+func TestAdoptLeavesOutWhatAFileLacks(t *testing.T) {
+	w := newWorkspace(t)
+	w.write("events/event.schema.json", eventSchema)
+	w.write("legacy/one.json", `{"id": "one", "kind": "VIEW", "actor": {"name": "Ada"}}`+"\n")
+	w.write("legacy/two.json", `{"id": "two", "kind": "VIEW", "region": "us", "actor": {"name": "Ada", "role": "owner"}}`+"\n")
+	res, err := w.adopter().Adopt("json", "events/event.schema.json", "legacy/*.json", "adopted", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mustContain(t, joinLines(res.Report), "1 field(s) left out with undefined", "2/2 deep-equal")
+	mustContain(t, w.read("legacy/one.fixture.yaml"), "region: undefined")
+	if strings.Contains(w.read("legacy/two.fixture.yaml"), "undefined") {
+		t.Errorf("two has a region:\n%s", w.read("legacy/two.fixture.yaml"))
+	}
+	one := string(w.expand()["legacy/one.json"])
+	if strings.Contains(one, "region") {
+		t.Errorf("one has no region, and its generated file does:\n%s", one)
+	}
+
+	// Into a factory whose prototype sets what a file lacks.
+	w.write("legacy/adopted.prototype.yaml", "data:\n  kind: VIEW\n  actor:\n    name: Ada\n    role: owner\n")
+	w.write("legacy/one.fixture.yaml", "factory: adopted\ndata:\n  id: one\n  region: undefined\n  actor:\n    role: undefined\n")
+	w.write("legacy/two.fixture.yaml", "factory: adopted\ndata:\n  id: two\n  region: us\n")
+	w.generate()
+	w.write("more/three.json", `{"id": "three", "kind": "VIEW", "region": "eu", "actor": {"name": "Ada"}}`+"\n")
+	res, err = w.adopter().AdoptInto("adopted", "more/*.json", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mustContain(t, joinLines(res.Report), "1 field(s) left out with undefined", "1/1 deep-equal")
+	mustContain(t, w.read("more/three.fixture.yaml"), "role: undefined")
+	three := string(w.expand()["more/three.json"])
+	if strings.Contains(three, "role") {
+		t.Errorf("three has no role, and its generated file does:\n%s", three)
+	}
+}
+
 // Explain says the fixture leaves the value out.
 func TestExplainAValueLeftOut(t *testing.T) {
 	w := eventsWorkspace(t)

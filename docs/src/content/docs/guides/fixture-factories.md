@@ -274,6 +274,7 @@ axx fixtures adopt --family json --schema openapi/parcels.yaml#/components/schem
 
 - **The prototype takes only what every file shares.** A value two files of three happen to have stays in those two files, so no fixture's customer or tenant becomes every new fixture's default. `--prototype common` takes each field's most common value instead.
 - **Identities are yours to declare.** A candidate is a string field whose value is distinct in every file, which is what an identity looks like, but not proof of one: an email or a domain can be distinct in three examples by chance. Declare the ones that identify a fixture with `--identity` (repeatable); the factory file lists the others as comments.
+- **A field a file lacks stays out.** When generating would fill in a field a file does not have, from the schema's default or, with `--into`, from the factory's prototype, its fixture gets `undefined` there ([Leave a value out](#leave-a-value-out)). The report says how many fields were left out.
 - **A refusal says what would change.** When regenerating would not reproduce the originals, adoption lists the paths that would differ and writes nothing. Seed layouts whose maps are keyed by document ID (`orgs: {alpha: {...}}`) often do this: adopt the records as a factory of their own, then reference them from the layout with `$ref`.
 
 ```sh

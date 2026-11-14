@@ -27,6 +27,9 @@ type Options struct {
 	// those a reader of the file gives another meaning when they are
 	// written plain (UnmarshalPlain).
 	Quoted func(text string) bool
+	// Plain writes the values it has a word for as that word, plain: those
+	// a reader of the file reads back from it (UnmarshalPlain).
+	Plain func(v any) (text string, ok bool)
 }
 
 // Marshal writes v as Jackson's ObjectMapper(new YAMLFactory()) configured
@@ -95,6 +98,12 @@ func (g *generator) value(v any) error {
 		}
 		g.events = append(g.events, event{kind: evSequenceEnd})
 	default:
+		if g.opts.Plain != nil {
+			if text, ok := g.opts.Plain(v); ok {
+				g.scalar(text, stylePlain)
+				return nil
+			}
+		}
 		return fmt.Errorf("jyaml: cannot write %T", v)
 	}
 	return nil
