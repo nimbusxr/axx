@@ -352,10 +352,13 @@ func announce(sc *core.Scenario, kind, path string) {
 type session struct {
 	app *App
 	ctx playwright.BrowserContext
+	// video is the scenario's video, when it keeps one: the session's tabs
+	// send it their frames.
+	video *webVideo
 
 	mu     sync.Mutex
 	tabs   []playwright.Page // open, in the order they opened
-	opened []playwright.Page // every tab the session had, for videos
+	opened []playwright.Page // every tab the session had
 	aside  []playwright.Page // tabs set aside for tools (AsideTab)
 	asking int               // tabs asked for tools, not opened yet
 
@@ -411,6 +414,10 @@ func (s *session) addTab(p playwright.Page) {
 	s.tabs = append(s.tabs, p)
 	s.opened = append(s.opened, p)
 	p.OnClose(s.removeTab)
+	if s.video != nil {
+		// Not on Playwright's dispatcher, which brings a tab a page opened.
+		go s.video.watch(p)
+	}
 	// What happens in a tab set aside for a tool is not the scenario's.
 	p.OnDownload(func(d playwright.Download) {
 		s.mu.Lock()
@@ -449,7 +456,7 @@ func (s *session) claimAside(p playwright.Page) bool {
 }
 
 // setAside makes a tab one of the tabs set aside for tools (AsideTab): not
-// one of the scenario's tabs, with no video.
+// one of the scenario's tabs, and not in its video.
 func (s *session) setAside(p playwright.Page) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -593,6 +600,9 @@ type pages struct {
 	// onPage are what they do with each page, before it loads anything
 	// (OnPage).
 	onPage pageHooks
+	// video is the scenario's video, when the settings keep one: started
+	// with its first session.
+	video *webVideo
 }
 
 // pageHooks run what packs that build on the web-core pack do with each page,
@@ -658,6 +668,9 @@ func open(sc *core.Scenario, a *App) (*session, error) {
 	defer st.mu.Unlock()
 	if s, ok := st.byApp[a.Name]; ok {
 		st.current = s
+		if st.video != nil {
+			st.video.shown.Store(s)
+		}
 		return s, nil
 	}
 	cfg, err := settingsFor(sc.Suite())
@@ -672,7 +685,7 @@ func open(sc *core.Scenario, a *App) (*session, error) {
 	if err != nil {
 		return nil, err
 	}
-	opts, err := contextOptions(pw, a, cfg)
+	opts, err := contextOptions(pw, a)
 	if err != nil {
 		return nil, err
 	}
@@ -683,9 +696,23 @@ func open(sc *core.Scenario, a *App) (*session, error) {
 	ctx.SetDefaultTimeout(float64(actionTimeout.Milliseconds()))
 	ctx.SetDefaultNavigationTimeout(float64(navigationTimeout.Milliseconds()))
 	s := &session{app: a, ctx: ctx, dialogOpened: make(chan struct{})}
-	if cfg.traces != "never" {
-		err := ctx.Tracing().Start(playwright.TracingStartOptions{Screenshots: playwright.Bool(true), Snapshots: playwright.Bool(true)})
-		s.tracing = err == nil
+	if cfg.videos != "never" {
+		if st.video == nil {
+			st.video = newVideo(sc)
+		}
+		s.video = st.video
+	}
+	trace := func() {
+		if cfg.traces != "never" {
+			err := ctx.Tracing().Start(playwright.TracingStartOptions{Screenshots: playwright.Bool(true), Snapshots: playwright.Bool(true)})
+			s.tracing = err == nil
+		}
+	}
+	// With a video, the trace starts once the first tab sends the video its
+	// frames (below): a tab's frames have the size their first taker asked
+	// for, and a trace asks for small ones.
+	if s.video == nil {
+		trace()
 	}
 	// A page a page opens loads at once: the hooks run beside it. (Page
 	// events come on Playwright's dispatcher, which must not wait.)
@@ -737,6 +764,10 @@ func open(sc *core.Scenario, a *App) (*session, error) {
 		}
 		return nil
 	}
+	if s.video != nil {
+		s.video.watch(pg)
+		trace()
+	}
 	if err := st.onPage.prepare(Context{BrowserContext: ctx, app: a}, pg, present); err != nil {
 		_ = ctx.Close()
 		return nil, err
@@ -751,6 +782,9 @@ func open(sc *core.Scenario, a *App) (*session, error) {
 		}
 	}
 	st.byApp[a.Name], st.current = s, s
+	if st.video != nil {
+		st.video.shown.Store(s)
+	}
 	st.order = append(st.order, s)
 	sc.Describe(Name, func() any { return describe(sc, st) })
 	return s, nil
@@ -796,7 +830,7 @@ func (s *session) present(p playwright.Page) error {
 }
 
 // contextOptions present the browser as the app's properties say.
-func contextOptions(pw *playwright.Playwright, a *App, cfg *settings) (playwright.BrowserNewContextOptions, error) {
+func contextOptions(pw *playwright.Playwright, a *App) (playwright.BrowserNewContextOptions, error) {
 	var o playwright.BrowserNewContextOptions
 	if a.Device != "" {
 		d, ok := pw.Devices[a.Device]
@@ -867,13 +901,6 @@ func contextOptions(pw *playwright.Playwright, a *App, cfg *settings) (playwrigh
 			state.Origins = append(state.Origins, o)
 		}
 		o.StorageState = state
-	}
-	if cfg.videos != "never" {
-		dir, err := os.MkdirTemp("", "axx-web-video-")
-		if err != nil {
-			return o, err
-		}
-		o.RecordVideo = &playwright.RecordVideo{Dir: playwright.String(dir)}
 	}
 	return o, nil
 }
@@ -990,8 +1017,8 @@ func describe(sc *core.Scenario, st *pages) any {
 }
 
 // closePages ends the scenario's browser contexts. A failed scenario may
-// pause first, and keeps what the settings say: its traces (secrets
-// masked), videos and downloads.
+// pause first, and keeps what the settings say: its video, its traces
+// (secrets masked) and its downloads.
 func closePages(sc *core.Scenario, st *pages) error {
 	cfg, err := settingsFor(sc.Suite())
 	if err != nil {
@@ -1003,6 +1030,14 @@ func closePages(sc *core.Scenario, st *pages) error {
 	}
 	scrubber := secrets.Replacer(sc)
 	mask := scrubber
+	// The video ends on the pages as the scenario left them, before they
+	// close; its recorder looks at the sessions, so not under their lock.
+	st.mu.Lock()
+	recorded := st.video
+	st.mu.Unlock()
+	if recorded != nil {
+		recorded.keep(sc, cfg.videos, failed)
+	}
 	st.mu.Lock()
 	defer st.mu.Unlock()
 	if mask == nil {
@@ -1031,9 +1066,6 @@ func closePages(sc *core.Scenario, st *pages) error {
 		}
 		if err := s.ctx.Close(); err != nil {
 			errs = append(errs, err)
-		}
-		if cfg.videos != "never" {
-			keepVideos(sc, s, keep(cfg.videos, failed))
 		}
 		keepDownloads(sc, s, failed)
 	}
@@ -1075,40 +1107,6 @@ func keepTrace(sc *core.Scenario, s *session, mask *strings.Replacer) {
 func attachFile(sc *core.Scenario, path, mediaType, name string) {
 	if b, err := os.ReadFile(path); err == nil {
 		sc.Attach(mediaType, b, name)
-	}
-}
-
-// keepVideos saves (or drops) the videos of the session's tabs, complete
-// once the context is closed.
-func keepVideos(sc *core.Scenario, s *session, save bool) {
-	s.mu.Lock()
-	tabs := slices.Clone(s.opened)
-	aside := slices.Clone(s.aside)
-	s.mu.Unlock()
-	for _, p := range aside {
-		if v := p.Video(); v != nil {
-			_ = v.Delete()
-		}
-	}
-	for i, p := range tabs {
-		v := p.Video()
-		if v == nil {
-			continue
-		}
-		if !save {
-			_ = v.Delete()
-			continue
-		}
-		ext := ".webm"
-		if len(tabs) > 1 {
-			ext = fmt.Sprintf("-tab%d.webm", i+1)
-		}
-		path := artifactPath(sc, "videos", s.app, ext)
-		if err := v.SaveAs(path); err == nil {
-			sc.Log("the %s web app's video: %s", s.app.Name, relative(sc, path))
-			attachFile(sc, path, "video/webm", s.app.Name+" video")
-			announce(sc, "video", path)
-		}
 	}
 }
 

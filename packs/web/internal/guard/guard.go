@@ -340,20 +340,6 @@ func (g *Guard) check(command string, params map[string]json.RawMessage) (change
 		if why := pageAddress(address); why != "" {
 			return false, why
 		}
-	case "Browser.newContext", "Browser.newContextForReuse":
-		// A video is kept in the server's own folder, and the run takes it
-		// from there: never in a folder the run names.
-		if raw, ok := params["recordVideo"]; ok {
-			var video map[string]json.RawMessage
-			if err := json.Unmarshal(raw, &video); err != nil {
-				return false, "its recordVideo is not an object"
-			}
-			if _, named := video["dir"]; named {
-				delete(video, "dir")
-				params["recordVideo"], _ = json.Marshal(video)
-				changed = true
-			}
-		}
 	case "Tracing.harStart":
 		// What a page asked for is recorded in the server's own folder, and
 		// the run takes it from there: never at a path the run names.

@@ -71,14 +71,15 @@ browser starts. What stands between the run and the machine:
   a page, and send the browser raw DevTools commands that read and write files. So the guard
   passes a command only when the rules name it and every parameter in it, to any depth, and
   checks what reaches the machine: a page opens `http`, `https`, `about:blank`, `data:` and
-  `blob:` addresses; a DevTools session sends the commands the rules name; a video is kept in the
-  server's own folder; an upload has a name in the server's own folder.
+  `blob:` addresses; a DevTools session sends the commands the rules name; the server records
+  no video (the run makes its own, of the frames a page sends it); an upload has a name in the
+  server's own folder.
 - **The rules are recorded, and refuse by default** (`rules.json`). They are the commands the web
   packs' own tests send, run through the host. A command or a parameter that a later Playwright
   adds is refused until someone looked at it and recorded it.
 - **Files travel through the run.** What a scenario uploads, the run reads in the sandbox and
-  sends. What it downloads, records or traces, the run takes from Playwright's server and writes
-  in the project. The server keeps them in a folder of its own, which goes when the browser does.
+  sends. What it downloads or traces, the run takes from Playwright's server and writes in the
+  project. The server keeps them in a folder of its own, which goes when the browser does.
 - **Only the guard reaches Playwright's server.** The server listens on a loopback port, at an
   address made for the run. The host gives the server its options, the address among them,
   through its standard input, so the address is in no file: a run's agent is the same user, and

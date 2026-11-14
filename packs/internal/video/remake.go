@@ -89,6 +89,51 @@ func Remake(data []byte, out io.Writer, width, height int, q Quality, draw func(
 	return WriteMP4(out, []Clip{enc.Finish(t.Duration)})
 }
 
+// Frames are the frames of an MP4 file's H.264 video, in the order they show: what a test
+// reads a video back with.
+func Frames(data []byte) ([]*image.YCbCr, error) {
+	t, err := ReadMP4(data)
+	if err != nil {
+		return nil, err
+	}
+	dec, err := NewDecoder()
+	if err != nil {
+		return nil, err
+	}
+	defer dec.Close()
+	var sets []byte
+	for _, nal := range append(slices.Clone(t.SPS), t.PPS...) {
+		sets = append(append(sets, 0, 0, 0, 1), nal...)
+	}
+	if _, err := dec.Decode(sets); err != nil {
+		return nil, err
+	}
+	var out []*image.YCbCr
+	for _, s := range t.Samples {
+		au, err := annexB(s.Data, t.LengthSize)
+		if err != nil {
+			return nil, err
+		}
+		frame, err := dec.Decode(au)
+		if err != nil {
+			return nil, err
+		}
+		if frame != nil {
+			out = append(out, frame)
+		}
+	}
+	for {
+		frame, err := dec.Flush()
+		if err != nil {
+			return nil, err
+		}
+		if frame == nil {
+			return out, nil
+		}
+		out = append(out, frame)
+	}
+}
+
 // annexB is a sample's NAL units, each after its length, as a stream of them each after a
 // start code.
 func annexB(sample []byte, lengthSize int) ([]byte, error) {

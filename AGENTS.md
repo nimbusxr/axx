@@ -44,6 +44,10 @@ the skills instead: `axx skills install`.
   (`packs/web/internal/driver/patch.go`, `patches/*.js`) so that Playwright's Inspector, recorder
   and trace viewer speak the pack's steps: each patch has an anchor in the pinned playwright-core,
   so upgrading Playwright means checking every anchor; bump `patchRevision` whenever a patch changes.
+  A scenario's video (`videos`) is the tab it acts on, from Playwright's screencast of each tab,
+  with its steps beside it, made in the run as the desktop and mobile packs make theirs
+  (`packs/web/core/video.go`, `packs/internal/recording`): Playwright's own video recording is
+  not used, and the axx host's rules refuse it.
   For a run in a sandbox that keeps a browser from starting, the pack's side in the axx host
   (`hosted.go`, ADR 0018) starts the browser with the host's own options, and the run drives it:
   its network goes through the run (`packs/web/internal/relay`), and Playwright's server gets only

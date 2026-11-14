@@ -7098,7 +7098,7 @@
               "always",
               "never"
             ],
-            "description": "Which scenarios keep a video in .axx/web/videos (default never)."
+            "description": "Which scenarios keep a video in .axx/web/videos: the tab the scenario acts on, with its steps beside it (default never)."
           },
           "testIdAttribute": {
             "type": "string",

@@ -704,6 +704,7 @@ func act(sc *core.Scenario, s *session, k kind, name, verb string, do func(playw
 	if err != nil {
 		return err
 	}
+	s.pointAt(loc, verb)
 	if err := do(loc); err != nil {
 		return fmt.Errorf("cannot %s the %q %s: %s", verb, name, k.noun, firstLine(err))
 	}

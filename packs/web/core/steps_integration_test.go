@@ -259,7 +259,7 @@ func TestFailuresAttachTheirTraceAndVideo(t *testing.T) {
 	for _, a := range h.Sink.Attachments {
 		types[a.MediaType]++
 	}
-	if types["application/zip"] != 1 || types["video/webm"] != 1 {
+	if types["application/zip"] != 1 || types["video/mp4"] != 1 {
 		t.Errorf("attachments: %v", types)
 	}
 	announced := strings.Join(h.Sink.Announced, "\n")
