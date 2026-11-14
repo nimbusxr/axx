@@ -87,6 +87,53 @@ func TestAHostedBrowsersNetworkGoesThroughTheRun(t *testing.T) {
 	}
 }
 
+// A page at a name under localhost (portal.localhost) opens in a browser the
+// axx host started, as it does in a browser with no proxy: the run takes
+// the name for this machine. Where the run is, DNS has no such name (a
+// sandbox's has none), and only addresses connect.
+func TestAHostedBrowserOpensANameUnderLocalhost(t *testing.T) {
+	t.Setenv(cloudtest.HostedEnv, "1")
+	for _, engine := range bundled {
+		t.Run(engine, func(t *testing.T) {
+			if why := notHosted(engine, runtime.GOOS); why != "" {
+				t.Skip(why)
+			}
+			u, err := url.Parse(environment(t))
+			if err != nil {
+				t.Fatal(err)
+			}
+			var carried atomic.Int64
+			before := hostedNetwork
+			t.Cleanup(func() { hostedNetwork = before })
+			hostedNetwork = func(s *core.Suite) relay.Options {
+				return relay.Options{
+					Logger: s.Logger(),
+					Proxy:  func(*url.URL) (*url.URL, error) { return nil, nil },
+					Dial: func(ctx context.Context, network, addr string) (net.Conn, error) {
+						host, port, _ := net.SplitHostPort(addr)
+						if net.ParseIP(host) == nil {
+							return nil, &net.DNSError{Err: "no such host", Name: host, IsNotFound: true}
+						}
+						if port == u.Port() {
+							carried.Add(1)
+						}
+						var d net.Dialer
+						return d.DialContext(ctx, network, addr)
+					},
+				}
+			}
+			h := cloudtest.NewWith(t, nil, Pack())
+			h.OK("the portal web app with the following properties:", [][]string{{"url", "http://portal.localhost:" + u.Port()}, {"engine", engine}})
+			h.OK(`the "/quote.html" page is opened`)
+			h.OK(`the "Get a quote" button is clicked`)
+			h.OK(`the page shows "Enter a weight"`)
+			if carried.Load() == 0 {
+				t.Error("the browser did not ask the run for the page")
+			}
+		})
+	}
+}
+
 // On a Mac, the host starts no WebKit: macOS would send its requests to the
 // machine's own addresses past the run. The run starts its own, as it does
 // without a host.

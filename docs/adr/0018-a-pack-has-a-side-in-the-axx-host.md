@@ -59,6 +59,11 @@ browser starts. What stands between the run and the machine:
   (`HTTP_PROXY`, `HTTPS_PROXY`, `ALL_PROXY`, `NO_PROXY`). So the browser reaches what the sandbox
   lets the run reach, the machine's own loopback addresses included, and the harness's rules go
   on deciding it. There is no list of addresses to keep in `axx.yaml`.
+  The run's side takes `localhost` and every name under it (`shop.localhost`) for the machine
+  itself and connects to its loopback addresses, IPv6's and then IPv4's, as a browser does
+  (RFC 6761). A browser with a proxy leaves its names to the proxy, and where the run is, DNS
+  need not have these: a sandbox's has none, and its proxy would look for them on its own
+  machine.
 - **Playwright's server gets the web steps' commands and no other** (`packs/web/internal/guard`).
   The run's Playwright connects to the guard, never to Playwright's server. Playwright's server,
   started with `launch-server`, already refuses a connected client to start a program or to name
