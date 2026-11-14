@@ -47,8 +47,11 @@ func TestAScenariosVideoShowsItsPagesWithItsStepsBeside(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			// A chapter a step: the steps that ran in one moment share one.
-			for _, want := range []string{"avcC", "chpl", `* the "/parcel.html" page is opened`} {
+			// A chapter a step, the first of them the scenario's first step.
+			// (The steps the video first saw in one look share a chapter, so
+			// which of the later ones have their own is a matter of the
+			// machine's pace.)
+			for _, want := range []string{"avcC", "chpl", "* the portal web app with the following properties:"} {
 				if !bytes.Contains(movie, []byte(want)) {
 					t.Errorf("the video lacks %q: no H.264 in an MP4 file with a chapter a step", want)
 				}
