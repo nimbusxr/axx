@@ -79,11 +79,29 @@ func heroJPEG(t *testing.T) []byte {
 	return b.Bytes()
 }
 
+// unhosted keeps a test's browser the run's own: Lighthouse drives Chromium
+// itself, which a browser the axx host started does not let a tool do
+// (TestLighthouseSaysItCannotAuditAHostedBrowser).
+func unhosted(t *testing.T) { t.Setenv(cloudtest.HostedEnv, "") }
+
+// A run in a sandbox, whose browser the axx host started, says why
+// Lighthouse cannot audit there.
+func TestLighthouseSaysItCannotAuditAHostedBrowser(t *testing.T) {
+	site := newSite(t)
+	t.Setenv(cloudtest.HostedEnv, "1")
+	h := cloudtest.NewWith(t, map[string]any{Name: Config{}}, webcore.Pack(), Pack())
+	t.Cleanup(func() { _ = h.End("passed") })
+	h.OK("the shop web app with the following properties:", [][]string{{"url", site.URL}})
+	h.OK(`the "/quote" page is opened`)
+	_ = h.Fails(`the "/quote" page scores at least:`, "is one the axx host started for this run", [][]string{{"performance", "50"}})
+}
+
 // newHarness is a scenario with the site registered as the shop web app,
 // with more properties, and the pack's settings.
 func newHarness(t *testing.T, cfg Config, props ...[]string) *cloudtest.Harness {
 	t.Helper()
 	site := newSite(t)
+	unhosted(t)
 	h := cloudtest.NewWith(t, map[string]any{Name: cfg}, webcore.Pack(), Pack())
 	h.OK("the shop web app with the following properties:", append([][]string{{"url", site.URL}}, props...))
 	t.Cleanup(func() { _ = h.End("passed") })
@@ -228,6 +246,7 @@ func TestLighthouseAuditsChromiumOnly(t *testing.T) {
 // while other scenarios open theirs and close them as they end.
 func TestAnAuditKeepsToItsTabWhileOtherScenariosRun(t *testing.T) {
 	site := newSite(t)
+	unhosted(t)
 	h := cloudtest.NewWith(t, map[string]any{Name: Config{}}, webcore.Pack(), Pack())
 	app := [][]string{{"url", site.URL}}
 	const others = 6

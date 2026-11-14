@@ -44,6 +44,15 @@ the skills instead: `axx skills install`.
   (`packs/web/internal/driver/patch.go`, `patches/*.js`) so that Playwright's Inspector, recorder
   and trace viewer speak the pack's steps: each patch has an anchor in the pinned playwright-core,
   so upgrading Playwright means checking every anchor; bump `patchRevision` whenever a patch changes.
+  For a run in a sandbox that keeps a browser from starting, the pack's side in the axx host
+  (`hosted.go`, ADR 0018) starts the browser with the host's own options, and the run drives it:
+  its network goes through the run (`packs/web/internal/relay`), and Playwright's server gets only
+  the commands in `packs/web/internal/guard/rules.json`, with every parameter named. The rules are
+  recorded from the web packs' integration tests run through a host (`AXX_TEST_HOSTED=1
+  AXX_WEB_GUARD_RECORD=<file>`, a line per command): after upgrading Playwright, or when a step
+  sends a new command, look at each command the rules lack before adding it, and never add one
+  that names a path, a program or a network of the run's choosing (`guard_test.go` lists them).
+  The host starts no WebKit on a Mac (`notHosted`): macOS sends its requests to loopback past any proxy.
 - `internal/npm`: a pinned Node.js (`EnsureNode`, `WriteNode`) and the npm packages a
   package-lock.json pins (`Install`: integrity-checked, each platform's builds on that platform
   only, no lifecycle scripts), for the packs that run Node.js tools (web-core, web-lighthouse).
@@ -223,6 +232,12 @@ the skills instead: `axx skills install`.
   loopback port (`axx run`, `axx up`'s supervisor, the MCP session's `steps_try`); it starts only a definition
   the person approved (`Define`: axx.yaml's services, what their compose projects resolve to, the files their
   commands run), asking in its terminal or the editor that started it (`--ide`), never over the port.
+  A pack can have a side in the host (`core.HostServer`, ADR 0018): its side in a run opens a connection
+  with `Suite.HostDial`, which the host hands to the pack once the run gave the host's token, and the two
+  speak the pack's own protocol (web-core: a browser). What a pack's host side does for a run must give the
+  run nothing its sandbox would not: nothing it sends is run, names a file of the machine, or reaches an
+  address past the sandbox. `cloudtest` runs a pack's tests through an in-process host when
+  `AXX_TEST_HOSTED` is set.
 - `internal/packbuild`, `internal/gotool`: axx builds itself with the packs a project lists in
   `axx-packs.yaml`, using a Go toolchain it downloads itself, as the go command downloads one (`golang.org/toolchain`
   through GOPROXY, checked against Go's checksum database, which GOSUMDB=off does not skip), so an organization's Go proxy serves it.

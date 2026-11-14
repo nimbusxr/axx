@@ -21,6 +21,8 @@ Scenario: The quote page is quick and sound on a phone
 
 The page is a path below the web app's `url`, or a whole URL. A page of the web app must be open first: the audit runs beside it.
 
+Lighthouse drives Chromium itself. In an agent's sandbox, where an axx host starts the browser, it cannot: the host's browser takes the web steps' commands and no other tool's. The step says so there, and the audits run outside the sandbox ([Browsers in the sandbox](/guides/run-from-a-sandbox/#what-works-differently-there)).
+
 ## Scores
 
 `the {string} page scores at least:` checks the page's Lighthouse scores, from 0 to 100: `performance`, `accessibility`, `best practices` and `seo`, a row each, with the lowest score each may have. Lighthouse audits the categories listed only. A score below its minimum fails the step, which lists the audits that cost the page the most:

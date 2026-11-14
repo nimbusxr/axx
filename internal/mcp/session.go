@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"path/filepath"
 	"strings"
@@ -61,6 +62,13 @@ func (s *server) live(restart bool) (*runner.Session, error) {
 		return nil, err
 	}
 	ctx, cancel := context.WithCancel(context.Background())
+	// The host does for the session's packs what they cannot in a sandbox
+	// (web-core: a browser), whether or not it starts services for it.
+	if ann, err := host.Find(cfg.Dir); err == nil && ann != nil {
+		e.Suite.UseHost(func(ctx context.Context, pack string) (net.Conn, error) {
+			return host.Dial(ctx, ann, pack, "axx mcp: steps_try")
+		})
+	}
 	lease, log, err := s.hostServices(ctx, cfg, e)
 	if err != nil {
 		cancel()

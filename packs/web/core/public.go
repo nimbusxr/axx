@@ -224,6 +224,9 @@ func (c *Current) DebuggingURL() (string, error) {
 	if !chromiumFamily(c.s.app.Engine) {
 		return "", fmt.Errorf("the %s web app's browser is %s: only Chromium, Chrome and Edge can be driven by other tools", c.s.app.Name, c.s.app.Engine)
 	}
+	if isHosted(c.suite, c.s.app) {
+		return "", fmt.Errorf("the %s web app's browser is one the axx host started for this run, which takes the web steps' commands and no other tool's: run the scenarios that need one (a Lighthouse audit) outside the sandbox (%s)", c.s.app.Name, sandboxGuide)
+	}
 	port := debuggingFor(c.suite).port(c.s.app.key())
 	if port == 0 {
 		return "", fmt.Errorf("the %s web app's browser was launched without its remote debugging port", c.s.app.Name)

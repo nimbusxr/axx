@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"os"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -84,6 +85,38 @@ func Open(ctx context.Context, a *Announcement, req Request, out, status io.Writ
 			return ls, nil
 		}
 	}
+}
+
+// Dial opens a connection to pack's side in the host a announced
+// (core.HostServer): what the pack's two sides send each other goes over
+// it. command is what the run is, for the person.
+func Dial(ctx context.Context, a *Announcement, pack, command string) (net.Conn, error) {
+	d := net.Dialer{Timeout: 3 * time.Second}
+	conn, err := d.DialContext(ctx, "tcp", a.Addr)
+	if err != nil {
+		return nil, hostErr(CodeNotListening, "the axx host that .axx/host.json names (%s, pid %d) does not answer: %v", a.Addr, a.PID, err).
+			WithHint("start `axx host` again")
+	}
+	l := newLines(conn)
+	_ = conn.SetDeadline(time.Now().Add(10 * time.Second))
+	if err := l.write(Request{Protocol: Protocol, Token: a.Token, Command: command, IDE: os.Getenv("AXX_IDE"), Pack: pack}); err != nil {
+		_ = conn.Close()
+		return nil, lost(err)
+	}
+	var m Message
+	if err := l.read(&m); err != nil {
+		_ = conn.Close()
+		return nil, lost(err)
+	}
+	if m.Type != MsgHello {
+		_ = conn.Close()
+		if m.Error == nil {
+			m.Error = &Failure{Message: "the axx host refused the " + pack + " pack's connection"}
+		}
+		return nil, m.Error.err()
+	}
+	_ = conn.SetDeadline(time.Time{})
+	return &packConn{Conn: conn, r: l.r}, nil
 }
 
 func lost(err error) error {

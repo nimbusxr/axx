@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/nimbusxr/axx/core"
 	"github.com/nimbusxr/axx/internal/axxerr"
 	"github.com/nimbusxr/axx/internal/config"
 )
@@ -100,6 +101,8 @@ type fixture struct {
 	stop      func()
 	// launch readies the services of a run with coverage (Options.Launch).
 	launch Launch
+	// packs are the packs with a side in the host (Options.Packs).
+	packs map[string]core.HostServer
 }
 
 func service(t *testing.T, dir, name, extra string) string {
@@ -144,6 +147,7 @@ func (f *fixture) start(t *testing.T) {
 		Approvals: f.approvals,
 		Env:       append(os.Environ(), helperEnv+"=1"),
 		Launch:    f.launch,
+		Packs:     f.packs,
 	})
 	if err != nil {
 		t.Fatal(err)

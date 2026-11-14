@@ -17,6 +17,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/nimbusxr/axx/core"
 	"github.com/nimbusxr/axx/internal/axxerr"
 	"github.com/nimbusxr/axx/internal/config"
 	"github.com/nimbusxr/axx/internal/exitcode"
@@ -51,6 +52,12 @@ type Options struct {
 	// Launch readies the services a run with coverage measures (the
 	// project's coverage packs); nil when this axx has none.
 	Launch Launch
+	// Packs are the packs of this axx with a side in the host, by name:
+	// what each does for the runs that ask it (web-core: their browser).
+	Packs map[string]core.HostServer
+	// Serves says, a line each, what those packs do for runs, for the
+	// person who starts the host.
+	Serves []string
 }
 
 // Approver asks the person whether runs may start services by a changed
@@ -74,7 +81,7 @@ type Question struct {
 // Event is something that happened in the host, for its terminal or editor
 // (`axx host --ide` writes each one as a line of JSON).
 type Event struct {
-	// Event is serving, run, report, approval or answered.
+	// Event is serving, run, report, approval, answered or pack.
 	Event string `json:"event"`
 
 	// serving: where the host listens, and the definition starting it
@@ -86,6 +93,9 @@ type Event struct {
 	Sources  []string `json:"sources,omitempty"`
 	Warnings []string `json:"warnings,omitempty"`
 	Changed  bool     `json:"changed,omitempty"`
+	// Packs are, in words, what the packs with a side in the host do for
+	// runs: web-core's "web-core: the browsers of web scenarios".
+	Packs []string `json:"packs,omitempty"`
 
 	// run: a run's state (queued, waiting, approval, starting, started,
 	// stopping, ended), with its error and result once it ended. report:
@@ -111,6 +121,11 @@ type Event struct {
 	Proposed string `json:"proposed,omitempty"`
 	Diff     string `json:"diff,omitempty"`
 	Answer   string `json:"answer,omitempty"`
+
+	// pack: what a pack's side in the host does for a run (Command), in
+	// words: web-core's "started chromium".
+	Pack string `json:"pack,omitempty"`
+	Text string `json:"text,omitempty"`
 }
 
 // Run states.
@@ -292,6 +307,7 @@ func (s *Server) Serve(ctx context.Context) error {
 	s.event(Event{
 		Event: "serving", Addr: ann.Addr, Dir: s.dir,
 		Services: s.start.Services, Sources: s.start.Sources, Warnings: s.start.Warnings, Changed: s.changed,
+		Packs: s.opts.Serves,
 	})
 	if s.changed {
 		// It changed since the person last approved one: ask now, while they
@@ -370,6 +386,10 @@ func (s *Server) handle(ctx context.Context, conn net.Conn) {
 	if req.Protocol != Protocol {
 		refuse(hostErr(CodeRefused, "the axx host speaks protocol %d, and this axx %d", Protocol, req.Protocol).
 			WithHint("use the same version of axx for the host and the runs"))
+		return
+	}
+	if req.Pack != "" {
+		s.servePack(ctx, conn, l, req)
 		return
 	}
 	s.mu.Lock()
@@ -508,6 +528,44 @@ func (s *Server) handle(ctx context.Context, conn net.Conn) {
 	_ = l.write(m)
 	ended(err, stopping)
 }
+
+// servePack hands a run's connection to the host side of the pack it names,
+// until the run closes it or the host stops.
+func (s *Server) servePack(ctx context.Context, conn net.Conn, l *lines, req Request) {
+	srv := s.opts.Packs[req.Pack]
+	if srv == nil {
+		_ = l.write(Message{Type: MsgError, Error: failure(hostErr(CodeRefused, "the axx host has no %s pack to serve the run with", req.Pack).
+			WithHint("start `axx host` again in the project, with the axx its runs use: its axx-packs.yaml lists the pack"))})
+		return
+	}
+	if err := l.write(Message{Type: MsgHello}); err != nil {
+		return
+	}
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	// A host that stops ends the connection, and with it what the pack
+	// started for the run.
+	defer context.AfterFunc(ctx, func() { _ = conn.Close() })()
+	run := core.HostRun{
+		ProjectDir: s.dir, Command: req.Command, Logger: s.log,
+		Tell: func(text string) {
+			s.event(Event{Event: "pack", Pack: req.Pack, Command: req.Command, IDE: req.IDE, Text: text})
+		},
+	}
+	// What the run sent after its request is the pack's: the reader has it.
+	if err := srv.ServeHost(ctx, run, &packConn{Conn: conn, r: l.r}); err != nil && ctx.Err() == nil {
+		s.log.Warn("the "+req.Pack+" pack stopped serving a run", "run", req.Command, "error", err)
+	}
+}
+
+// packConn is a pack's connection: it reads what the request's reader read
+// ahead first.
+type packConn struct {
+	net.Conn
+	r io.Reader
+}
+
+func (c *packConn) Read(p []byte) (int, error) { return c.r.Read(p) }
 
 // approved returns nil once the person approved def: before, or now. A run
 // waits for their answer up to s.wait; the question stays open after, so

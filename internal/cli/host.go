@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -16,8 +17,10 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 
+	"github.com/nimbusxr/axx/core"
 	"github.com/nimbusxr/axx/internal/axxerr"
 	"github.com/nimbusxr/axx/internal/config"
+	"github.com/nimbusxr/axx/internal/engine"
 	"github.com/nimbusxr/axx/internal/exitcode"
 	"github.com/nimbusxr/axx/internal/host"
 	"github.com/nimbusxr/axx/internal/version"
@@ -29,7 +32,7 @@ func newHostCmd(app *App) *cobra.Command {
 	var addr string
 	cmd := &cobra.Command{
 		Use:   "host",
-		Short: "Start the services for runs that cannot start them, like an agent's in a sandbox without Docker",
+		Short: "Start the services and the browsers for runs that cannot start them, like an agent's in a sandbox",
 		Long: `Serve the project's runs that cannot start its services themselves: an agent's,
 in a sandbox that keeps it from Docker. Start it in the project, on your own
 machine, and leave it running. It listens on a loopback port and writes
@@ -49,6 +52,13 @@ or n; the question stays open after, and the next run has your answer. A change 
 refuse is refused again until the host restarts. Approvals are kept in your
 configuration directory, outside the project.
 
+The host also starts the browsers of web scenarios for those runs, where a
+sandbox keeps a browser from starting: Playwright's own, or the Chrome or Edge
+installed here, with the host's options. A run drives its browser and gets nothing
+else of this machine: the browser's network goes through the run, so the sandbox's
+rules apply to it, it opens no file of this machine, and the host passes it only the
+commands of the web steps. A project needs no services for that.
+
 With --ide, an editor that started the host asks instead: the host writes its
 events as lines of JSON and reads the editor's answers on its standard input.`,
 		Args: wrapArgs(cobra.NoArgs),
@@ -57,8 +67,9 @@ events as lines of JSON and reads the editor's answers on its standard input.`,
 			if err != nil {
 				return err
 			}
-			if len(cfg.Services) == 0 {
-				return axxerr.New("AXX-E0001", exitcode.Usage, "axx.yaml declares no services: an axx host has nothing to start").
+			packs, serves := hostPacks()
+			if len(cfg.Services) == 0 && len(packs) == 0 {
+				return axxerr.New("AXX-E0001", exitcode.Usage, "axx.yaml declares no services, and the project has no pack that an axx host does something for (web-core: browsers): an axx host has nothing to do").
 					WithHint("declare the services runs start under services: in %s", relPath(filepath.Join(cfg.Dir, "axx.yaml")))
 			}
 			props, err := cf.properties()
@@ -100,6 +111,8 @@ events as lines of JSON and reads the editor's answers on its standard input.`,
 				Version:  version.Get().Version,
 				Logger:   app.logger(),
 				Launch:   hostLaunch(),
+				Packs:    packs,
+				Serves:   serves,
 			})
 			if err != nil {
 				return err
@@ -113,18 +126,35 @@ events as lines of JSON and reads the editor's answers on its standard input.`,
 	return cmd
 }
 
+// hostPacks are the packs of this axx with a side in the host
+// (core.HostServer), by name, and what each does there, a line each.
+func hostPacks() (map[string]core.HostServer, []string) {
+	packs := map[string]core.HostServer{}
+	var serves []string
+	for _, p := range engine.CompiledPacks() {
+		if hs, ok := p.Pack.(core.HostServer); ok {
+			packs[p.Name] = hs
+			serves = append(serves, p.Name+": "+hs.HostServes())
+		}
+	}
+	return packs, serves
+}
+
+// useHost gives the run's packs the axx host that serves the project
+// (core.Suite.HostDial), for what they cannot do in a sandbox.
+func (a *App) useHost(e *engine.Engine, ann *host.Announcement) {
+	if ann == nil {
+		return
+	}
+	command := a.commandLine()
+	e.Suite.UseHost(func(ctx context.Context, pack string) (net.Conn, error) {
+		return host.Dial(ctx, ann, pack, command)
+	})
+}
+
 // stdinIsTerminal reports whether a person types into standard input
 // (/dev/null is a character device too).
 func stdinIsTerminal() bool { return term.IsTerminal(int(os.Stdin.Fd())) }
-
-// hostFor is the axx host serving the project of cfg, when its runs should
-// have their services from one: not when `axx up` keeps them running here.
-func (a *App) hostFor(cfg *config.Config) (*host.Announcement, error) {
-	if _, up := liveUp(cfg); up {
-		return nil, nil
-	}
-	return host.Find(cfg.Dir)
-}
 
 // hostRequest is what a run asks a host for: the services it needs, from
 // the configuration it loaded.

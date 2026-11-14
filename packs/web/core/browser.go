@@ -13,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"slices"
 	"strings"
 	"sync"
@@ -134,6 +135,23 @@ func browserFor(s *core.Suite, a *App) (playwright.Browser, error) {
 		}
 		if st.slowdown > 0 {
 			opts.SlowMo = playwright.Float(float64(st.slowdown.Milliseconds()))
+		}
+		// An axx host that serves the project starts the browser, where a
+		// sandbox cannot keep it from starting, and the run drives it from
+		// here. Windows on the screen are a person's, who runs outside one.
+		if s.Hosted() && *opts.Headless && notHosted(a.Engine, runtime.GOOS) == "" {
+			b, err := connectHosted(s, pw, a)
+			var none noHostedBrowser
+			switch {
+			case err == nil:
+				return b, nil
+			case !errors.As(err, &none):
+				return nil, launchError(a, fmt.Errorf("the axx host: %w", err))
+			}
+			_, _ = core.Cached(s, Name+"/unhosted", func() (bool, error) {
+				s.Logger().Warn(fmt.Sprintf("the axx host that serves the project starts no browser for this run (%s): starting it here", firstLine(none)))
+				return true, nil
+			})
 		}
 		port, err := debuggingPort(s, a)
 		if err != nil {
@@ -307,6 +325,14 @@ func launchError(a *App, err error) error {
 		return fmt.Errorf("%s\n  the browser needs system libraries this machine lacks: install them with `sudo npx playwright@%s install-deps %s`", msg, PlaywrightVersion, a.Engine)
 	case strings.Contains(low, "xserver") || strings.Contains(low, "$display"):
 		return fmt.Errorf("%s\n  watching opens browser windows, and this machine has no screen: run without packs.web-core.watch", msg)
+	}
+	// In an agent's sandbox, what the sandbox refuses a browser may be what
+	// ended it: outside the sandbox, an axx host starts it for the run.
+	if why := fullChromiumRefused(); why != "" && !strings.HasPrefix(err.Error(), "the axx host: ") {
+		if not := notHosted(a.Engine, runtime.GOOS); not != "" {
+			return fmt.Errorf("%s\n  %s, and what else it refuses can keep a browser from starting. %s: run the %s scenarios outside the sandbox (%s)", msg, why, not, a.Engine, sandboxGuide)
+		}
+		return fmt.Errorf("%s\n  %s, and what else it refuses can keep a browser from starting: start `axx host` in the project, on this machine and outside the sandbox, and the run drives a browser the host starts (%s)", msg, why, sandboxGuide)
 	}
 	return errors.New(msg)
 }

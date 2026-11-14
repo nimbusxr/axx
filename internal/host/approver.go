@@ -162,11 +162,14 @@ func (t *Terminal) Event(e Event) {
 		if len(e.Sources) > 0 {
 			what += "; " + strings.Join(e.Sources, ", ")
 		}
-		if !e.Changed { // else it asks, with the warnings
+		if !e.Changed && len(e.Services) > 0 { // else it asks, with the warnings
 			lines = append(lines, "  approved: "+what)
 			for _, w := range e.Warnings {
 				lines = append(lines, t.warning(w))
 			}
+		}
+		for _, p := range e.Packs {
+			lines = append(lines, "  "+p)
 		}
 		if !t.interactive {
 			lines = append(lines, t.warning("no one can answer here (this is not a terminal): runs whose services' definition changed are refused; start `axx host` in a terminal to approve changes"))
@@ -199,6 +202,8 @@ func (t *Terminal) Event(e Event) {
 			}
 			t.println(fmt.Sprintf("run %d: %s", e.Run, strings.Join(parts, "; ")))
 		}
+	case "pack":
+		t.println(fmt.Sprintf("%s: %s (%s)", e.Pack, e.Text, e.Command))
 	}
 }
 
