@@ -638,6 +638,17 @@ func TestDocumentLinks(t *testing.T) {
 	if locs := definition(31, links[6].Range.Start.Character+2); len(locs) != 1 || uriToPath(locs[0].URI) != filepath.Join(dir, "data", "seeds", "parcels.yaml") {
 		t.Errorf("definition on an Examples cell: %+v", locs)
 	}
+
+	// No answer about a document the editor has not opened yet, which an editor
+	// that asks as it opens one tells from a document without links.
+	unopened := fileLocation(filepath.Join(dir, "features", "b.feature"), 0).URI
+	if raw := c.request("textDocument/documentLink", map[string]any{"textDocument": map[string]any{"uri": unopened}}); string(raw) != "null" {
+		t.Errorf("links of an unopened document: %s", raw)
+	}
+	c.open(unopened, "Feature: none\n")
+	if raw := c.request("textDocument/documentLink", map[string]any{"textDocument": map[string]any{"uri": unopened}}); string(raw) != "[]" {
+		t.Errorf("links of a document without links: %s", raw)
+	}
 }
 
 func TestMissingFiles(t *testing.T) {

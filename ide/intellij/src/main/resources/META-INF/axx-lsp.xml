@@ -5,6 +5,19 @@
   <extensions defaultExtensionNs="com.intellij">
     <platform.lsp.integrationProvider
         implementation="us.nimbusxr.axx.idea.lsp.AxxLspIntegrationProvider"/>
+    <!-- Previews of the files a feature names (seeds, payloads, pictures, stubs), from the
+         server's links: a toggle at the end of each line that names one opens the file's
+         preview under the line, and closes it. A preview only shows the file; a click on it
+         opens the file. -->
+    <editorFactoryListener implementation="us.nimbusxr.axx.idea.preview.FileToggles"/>
+    <!-- The same on hover, before the link's own target, which has no documentation. -->
+    <platform.backend.documentation.targetProvider
+        id="axxFilePreview"
+        order="first"
+        implementation="us.nimbusxr.axx.idea.preview.FilePreviewDocumentation"/>
+    <editorFactoryMouseListener implementation="us.nimbusxr.axx.idea.preview.FilePreviewMouse"/>
+    <editorFactoryMouseMotionListener
+        implementation="us.nimbusxr.axx.idea.preview.FilePreviewMouse"/>
   </extensions>
 
   <applicationListeners>

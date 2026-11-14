@@ -213,7 +213,7 @@ func (s *server) handle(req *request) (bool, error) {
 		if s.decode(req, &p) {
 			var h *hover
 			if d, pr := s.doc(p.TextDocument.URI); d != nil {
-				h = d.hoverAt(pr.reg, p.Position)
+				h = d.hoverAt(pr, p.Position)
 			}
 			s.reply(req.ID, h, nil)
 		}
@@ -229,10 +229,15 @@ func (s *server) handle(req *request) (bool, error) {
 	case "textDocument/documentLink":
 		var p documentLinkParams
 		if s.decode(req, &p) {
-			links := []documentLink{}
-			if d, pr := s.doc(p.TextDocument.URI); d != nil {
-				links = append(links, d.documentLinks(pr)...)
+			// No answer (null) about a document the editor has not opened yet, which an editor
+			// that asks as it opens one can tell from a document without links ([]).
+			d, pr := s.doc(p.TextDocument.URI)
+			if d == nil {
+				s.reply(req.ID, nil, nil)
+				break
 			}
+			links := []documentLink{}
+			links = append(links, d.documentLinks(pr)...)
 			s.reply(req.ID, links, nil)
 		}
 	case "textDocument/formatting", "textDocument/rangeFormatting":

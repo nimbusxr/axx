@@ -108,7 +108,8 @@ intellijPlatform {
               <li><b>Feature files.</b> In projects with an <code>axx.yaml</code>, runs the axx
               language server (<code>axx lsp</code>) for <code>.feature</code> files: step
               completion, step documentation on hover, go to a step's definition, links to, path
-              completion for and checks of the files steps name, highlighted step parameters,
+              completion for and checks of the files steps name, previews of those files under
+              their lines and on hover, highlighted step parameters,
               and diagnostics for undefined or ambiguous steps and Gherkin syntax errors. The Gherkin plugin no longer reports axx steps as undefined there. Needs the
               <code>axx</code> executable (found on <code>PATH</code> or where axx's installers
               put it, or set in <i>Settings | Tools | axx</i>) and an IDE that includes the LSP

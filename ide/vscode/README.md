@@ -11,7 +11,8 @@ In `.feature` files you get:
 - **Diagnostics:** undefined and ambiguous steps (with suggestions), Gherkin syntax errors, and
   steps that need a data table but don't have one.
 - **Completion:** step text, with placeholders to fill in.
-- **Hover:** the documentation of the step under the cursor.
+- **Hover:** the documentation of the step under the cursor, or, over a file's path, the file:
+  a text file's first lines, or a picture's thumbnail.
 - **Go to Definition:** the Go code that defines a step, or a page about it.
 - **`axx.yaml`:** completion, documentation and validation in `axx.yaml` and the fixture spec files
   (`*.factory.yaml`, `*.fixture.yaml`, `*.prototype.yaml`), from the schemas of the axx your
