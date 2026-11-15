@@ -336,6 +336,47 @@ func TestACourierFollowsNotificationsOnAnEmulator(t *testing.T) {
 	h.OK(`the courier app shows "No deliveries left today."`)
 }
 
+// A courier attaches a file that is further down Android's file picker than its first screen.
+// The picker has its grid of files in a view that scrolls too: asked for a page, that view only
+// folds the picker's header away, and has no more to scroll, while the grid has pages left. The
+// step asks each of them in turn (a look that asked the outer view alone stopped a page short of
+// the file, on CI).
+func TestACourierAttachesADocumentFurtherDownThePickerOnAnEmulator(t *testing.T) {
+	api := courierapi.Start(t)
+	t.Setenv("COURIER_PIN", "4711")
+	h := cloudtest.New(t, appcore.Pack(), mobilecore.Pack(), Pack())
+	logsOnFailure(t, h)
+	// The parcels example's documents: nine, more than the picker's grid shows at once.
+	dir, err := filepath.Abs(filepath.Join("..", "..", "..", "examples", "parcels", "acceptance", "features", "courier-app-documents", "documents"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var documents []string
+	for _, name := range []string{
+		"safe-place-PX-MOB-9481.pdf", "parcel-at-door.jpg", "house-number.jpg", "label-PX-MOB-9489.jpg", "parcel-and-dog.jpg",
+		"parcel-and-person.jpg", "safe-place-PX-MOB-9487.jpg", "parcel-cut-off.jpg", "crushed-parcel.jpg",
+	} {
+		documents = append(documents, filepath.Join(dir, name))
+	}
+	h.OK("the courier android app with the following properties:", [][]string{
+		{"apk", apk(t)}, {"device", avd(t)}, {"permissions", "POST_NOTIFICATIONS"}, {"host ports", "8400"}, {"documents", strings.Join(documents, ", ")},
+	})
+	signIn(h)
+	h.OK(`the "PX-MOB-9401" list item is tapped in the courier app`)
+	h.OK(`the "Attach document" button is tapped in the courier app`)
+	h.OK(`the "Show roots" button is tapped in the courier app`)
+	h.OK(`the "Downloads" text is tapped in the courier app`)
+	h.OK(`the "crushed-parcel.jpg" text is scrolled into view in the courier app`)
+	h.OK(`the "crushed-parcel.jpg" text is tapped in the courier app`)
+	h.OK(`within 30s the courier app shows "crushed-parcel.jpg attached"`)
+	if docs := api.Documents(); len(docs) != 1 || docs[0].Name != "crushed-parcel.jpg" {
+		t.Errorf("the service has %+v, want crushed-parcel.jpg", docs)
+	}
+	if err := h.End("passed"); err != nil {
+		t.Fatal(err)
+	}
+}
+
 // A courier attaches a document from the phone's files to a delivery: the recipient's leave to
 // put the parcel in his garage, which the documents property put in Downloads, picked in the
 // system's file picker as a courier picks it.
