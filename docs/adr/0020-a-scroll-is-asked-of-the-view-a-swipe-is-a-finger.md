@@ -57,9 +57,17 @@ A step scrolls by asking, and swipes only where a view cannot be asked.
 - It performs "show this control" and "scroll this view a page that way" for the control axx
   names (its class, text, description, resource ID and place, as the screen's source gave them),
   waits until the view is at rest, and says whether anything moved.
-- axx builds it with the SDK's build-tools and a JDK, into its cache; installs it; names it in
-  the device's `enabled_accessibility_services` beside what is there, for the run; and talks to
-  it over adb, on a socket of the device.
+- A release of axx builds it (`release.yml`'s `android-scroll` job), signs it with NimbusXR's
+  key for it, and publishes it beside its archives, in its checksums: with them it has the
+  release's signature and its build provenance. That release's axx downloads it, once, checked
+  against the checksums, from GitHub or the mirror `AXX_DOWNLOAD_URL` names. An axx that is no
+  release (built from a commit) has none to download, and builds it on the machine, with the
+  SDK's build-tools and a JDK, signed with a key it makes there.
+- axx installs it; names it in the device's `enabled_accessibility_services` beside what is
+  there, for the run; and talks to it over adb, on a socket of the device.
+- It is installed over adb, as the UiAutomator2 server and the app under test are. It is not
+  an app of the Play Store, and needs nothing of Google's: Android asks only that an app is
+  signed, and that its updates have the key of the one installed.
 - The UiAutomator2 server is started with `DISABLE_SUPPRESS_ACCESSIBILITY_SERVICES`, its own
   switch for leaving other accessibility services running. Without it, Android pauses every
   service while the server has the device's accessibility.
@@ -81,9 +89,9 @@ is a swipe: a drag axx places, at a set speed and held at its end, a second or s
 **Both.** The steps remember which controls went off the top as they paged down a screen, and
 look up first for one of those.
 
-**Where a view cannot be asked**, the step swipes: a device without the scroll service (no JDK
-or build-tools to build it with, which the run says once; a device another Appium server
-drives), and a view that offers no scroll action. On a device axx drives itself, that swipe is
+**Where a view cannot be asked**, the step swipes: a device without the scroll service (axx has
+none, which the run says once, with why; a device another Appium server drives), and a view
+that offers no scroll action. On a device axx drives itself, that swipe is
 a drag axx places: from a point to a point, held a moment so that nothing is flung, above the
 lowest twelfth of the screen.
 
@@ -93,9 +101,12 @@ lowest twelfth of the screen.
   switched on while it runs, and other accessibility services a device has on keep running
   during a run, where the server used to pause them. An app that asks whether accessibility is
   on was already told yes, by the server.
-- **A JDK and build-tools.** Without them a run still passes, by swiping, and says so. A
-  prebuilt service that axx downloads, pinned by its hash as the server's APKs are, would take
-  the requirement away; that is left open.
+- **A file more in a release, and a key.** A release has the service to build and sign, and
+  NimbusXR a key for it to keep (a keystore and its password, secrets of the release
+  environment). A release cut without them signs with a key of its own and warns: axx installs
+  the service afresh on a device that has one of another key.
+- **A JDK and build-tools, for an axx that is no release.** Without them such an axx's run
+  still passes, by swiping, and says so.
 - **Device farms.** A device another Appium server drives has no scroll service and keeps the
   gestures.
 - **The driver's selectors see the whole screen.** With what is out of view listed, an

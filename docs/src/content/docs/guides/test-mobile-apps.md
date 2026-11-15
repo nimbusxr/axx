@@ -206,7 +206,9 @@ A tap or a fill scrolls to its control when the control is out of view, so a for
 
 How Axx asks a view to scroll:
 
-1. **On Android**, through a small accessibility service of its own. Axx builds it with the Android SDK's build-tools and a JDK, installs it on the device, and switches it on in the device's settings for the run. It takes it out of the settings again when the run ends. Other accessibility services that are on keep running during the run.
+1. **On Android**, through a small accessibility service of its own, an app named "axx scroll". Axx installs it on the device and switches it on in the device's settings for the run. It takes it out of the settings again when the run ends. Other accessibility services that are on keep running during the run.
+
+   Where the service comes from depends on your Axx. A release of Axx downloads the service that its release built and signed, once, and checks it against the release's checksums (a [mirror](/guides/use-mirrors/) works for it too). An Axx built from a commit has no release to download from, so it builds the service on your machine, which needs the Android SDK's build-tools and a JDK. `axx doctor` says which of the two your Axx does.
 2. **On iOS**, through the scroll to an element that Apple's test framework (XCTest) has.
 
 Both phones tell Axx what a screen has out of view, so a step knows where a control is and has its view show it at once.
@@ -215,7 +217,7 @@ A list that makes its rows as it scrolls (a `LazyColumn`, a `RecyclerView`, a Sw
 
 Where a view cannot be asked, Axx swipes instead, which is slower:
 
-- on Android, when Axx cannot build the service (it says so once, with what is missing), when the device is one another Appium server drives, or when a view offers no scrolling to a screen reader;
+- on Android, when Axx has no service (it says so once, with why), when the device is one another Appium server drives, or when a view offers no scrolling to a screen reader;
 - on iOS, when XCTest refuses, in a SwiftUI scroll view of plain text, and for each page of a list that makes its rows as it scrolls. A control far down a long text is reached in one move: Axx grabs the scroll bar and drags it there.
 
 **A control under the keyboard** is scrolled above it. When the page is at its end and no scroll frees the control, the step closes the keyboard, as a person does:

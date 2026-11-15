@@ -23,7 +23,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/nimbusxr/axx/internal/mirror"
 	"github.com/nimbusxr/axx/internal/npm"
+	"github.com/nimbusxr/axx/internal/selfupdate"
+	axxversion "github.com/nimbusxr/axx/internal/version"
 )
 
 // A scroll is what a view does when it is asked to; a swipe is a finger on the glass. Android's
@@ -31,10 +34,14 @@ import (
 // of its controls onto the screen: in a tenth of a second, by exactly what the view takes for a
 // page, with nothing touched (no key of a keyboard, no edge that pulls the notifications down or
 // goes home). The UiAutomator2 server has no command for them, so axx has a small accessibility
-// service of its own perform them beside it (scroll/Scrolls.java): axx builds it with the SDK's
-// tools, installs it, switches it on in the device's settings for the run, and talks to it over
-// adb. Where it cannot (no JDK or build-tools to build it with, a device another Appium server
-// drives), the steps swipe, as they did.
+// service of its own perform them beside it (scroll/Scrolls.java): axx installs it, switches it
+// on in the device's settings for the run, and talks to it over adb.
+//
+// Where the service comes from: a release of axx builds it and publishes it beside its
+// archives, in its checksums (release.yml's android-scroll job), and that release's axx
+// downloads it, checked against them. An axx that is no release (built from a commit) builds
+// it on the machine, with the SDK's build-tools and a JDK. Where a device has none (neither
+// worked, or another Appium server drives the device), the steps swipe, as they did.
 
 //go:embed scroll/AndroidManifest.xml scroll/Scrolls.java scroll/res/xml/service.xml
 var scrollSource embed.FS
@@ -112,24 +119,149 @@ func exe(name, windows string) string {
 	return name
 }
 
-// buildScroll builds the scroll service's APK, once, into axx's cache, and gives the APK and its
-// version: what it was built from, which the device says of the one it has.
-func buildScroll(ctx context.Context, sdk string) (apk, version string, err error) {
-	b, err := scrollTools(ctx, sdk)
-	if err != nil {
-		return "", "", err
-	}
-	h := sha256.New()
+// ScrollBuild is how the scroll service's APK is built: by a release, for every axx of that
+// release, or by an axx that is no release, for itself.
+type ScrollBuild struct {
+	// SDK is the Android SDK's folder: its build-tools and a platform build the service.
+	SDK string
+	// Out is the APK to write.
+	Out string
+	// Version is the service's version name, which a device says of the service it has: the
+	// release's version, or what a build of an axx that is no release was made from.
+	Version string
+	// Keystore signs the APK, with the key Alias names and the password Password (the store's
+	// and the key's). Android asks that an app's updates have the key of the one installed: a
+	// release signs with NimbusXR's.
+	Keystore, Alias, Password string
+}
+
+// scrollFiles are the service's sources, in order.
+func scrollFiles() ([]string, error) {
 	var files []string
-	if err := fs.WalkDir(scrollSource, "scroll", func(path string, d fs.DirEntry, err error) error {
+	err := fs.WalkDir(scrollSource, "scroll", func(path string, d fs.DirEntry, err error) error {
 		if err == nil && !d.IsDir() {
 			files = append(files, path)
 		}
 		return err
+	})
+	slices.Sort(files)
+	return files, err
+}
+
+// BuildScrollService builds the scroll service's APK.
+func BuildScrollService(ctx context.Context, b ScrollBuild) error {
+	t, err := scrollTools(ctx, b.SDK)
+	if err != nil {
+		return err
+	}
+	files, err := scrollFiles()
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(b.Out), 0o755); err != nil {
+		return err
+	}
+	tmp, err := os.MkdirTemp(filepath.Dir(b.Out), "prepare-")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(tmp)
+	for _, f := range files {
+		data, err := scrollSource.ReadFile(f)
+		if err != nil {
+			return err
+		}
+		to := filepath.Join(tmp, filepath.FromSlash(f))
+		if err := os.MkdirAll(filepath.Dir(to), 0o755); err != nil {
+			return err
+		}
+		if err := os.WriteFile(to, data, 0o644); err != nil {
+			return err
+		}
+	}
+	src, classes := filepath.Join(tmp, "scroll"), filepath.Join(tmp, "classes")
+	if err := os.MkdirAll(classes, 0o755); err != nil {
+		return err
+	}
+	run := func(tool string, args ...string) error {
+		cmd := exec.CommandContext(ctx, tool, args...)
+		// The keystore's password goes to the tools in the environment, never on a command line.
+		cmd.Env = append(os.Environ(), "JAVA_HOME="+t.javaHome, "AXX_SCROLL_KEYSTORE_PASSWORD="+b.Password)
+		if out, err := cmd.CombinedOutput(); err != nil {
+			return fmt.Errorf("%s: %w: %s", filepath.Base(tool), err, out)
+		}
+		return nil
+	}
+	if err := run(filepath.Join(t.javaHome, "bin", exe("javac", ".exe")), "--release", "8", "-Xlint:-options", "-classpath", t.platform, "-d", classes, filepath.Join(src, "Scrolls.java")); err != nil {
+		return err
+	}
+	dex := []string{"--min-api", "26", "--lib", t.platform, "--output", tmp}
+	if err := filepath.WalkDir(classes, func(path string, _ os.DirEntry, err error) error {
+		if err == nil && strings.HasSuffix(path, ".class") {
+			dex = append(dex, path)
+		}
+		return err
 	}); err != nil {
+		return err
+	}
+	if err := run(filepath.Join(t.tools, exe("d8", ".bat")), dex...); err != nil {
+		return err
+	}
+	aapt2 := filepath.Join(t.tools, exe("aapt2", ".exe"))
+	res, linked := filepath.Join(tmp, "res.zip"), filepath.Join(tmp, "linked.apk")
+	if err := run(aapt2, "compile", "--dir", filepath.Join(src, "res"), "-o", res); err != nil {
+		return err
+	}
+	if err := run(aapt2, "link", "-I", t.platform, "--manifest", filepath.Join(src, "AndroidManifest.xml"), "--version-name", b.Version, "-o", linked, res); err != nil {
+		return err
+	}
+	// The service's code goes into the package aapt2 made, which is then aligned and signed.
+	unsigned, aligned, signed := filepath.Join(tmp, "unsigned.apk"), filepath.Join(tmp, "aligned.apk"), filepath.Join(tmp, "signed.apk")
+	if err := addToZip(linked, unsigned, "classes.dex", filepath.Join(tmp, "classes.dex")); err != nil {
+		return err
+	}
+	if err := run(filepath.Join(t.tools, exe("zipalign", ".exe")), "-f", "4", unsigned, aligned); err != nil {
+		return err
+	}
+	if err := run(filepath.Join(t.tools, exe("apksigner", ".bat")), "sign", "--ks", b.Keystore, "--ks-key-alias", b.Alias,
+		"--ks-pass", "env:AXX_SCROLL_KEYSTORE_PASSWORD", "--key-pass", "env:AXX_SCROLL_KEYSTORE_PASSWORD", "--out", signed, aligned); err != nil {
+		return err
+	}
+	return os.Rename(signed, b.Out)
+}
+
+// MakeScrollKeystore makes a keystore with a new key to sign the scroll service with: the one
+// an axx that is no release keeps in its cache, for the services it builds itself.
+func MakeScrollKeystore(ctx context.Context, keystore, alias, password, name string) error {
+	home := javaHome(ctx)
+	if home == "" {
+		return errors.New("a JDK missing")
+	}
+	cmd := exec.CommandContext(ctx, filepath.Join(home, "bin", exe("keytool", ".exe")), "-genkeypair", "-keystore", keystore,
+		"-storepass:env", "AXX_SCROLL_KEYSTORE_PASSWORD", "-keypass:env", "AXX_SCROLL_KEYSTORE_PASSWORD",
+		// A comma ends a part of a distinguished name: one in the name is written escaped.
+		"-alias", alias, "-dname", "CN="+strings.ReplaceAll(name, ",", `\,`), "-keyalg", "RSA", "-keysize", "2048", "-validity", "10000")
+	cmd.Env = append(os.Environ(), "JAVA_HOME="+home, "AXX_SCROLL_KEYSTORE_PASSWORD="+password)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("keytool: %w: %s", err, out)
+	}
+	return nil
+}
+
+// buildScroll builds the scroll service's APK for an axx that is no release, once, into axx's
+// cache, and gives the APK and its version: what it was built from, which the device says of
+// the one it has. Its key is one axx makes for this machine, and keeps: a device that has the
+// service of another machine's is given this one afresh.
+func buildScroll(ctx context.Context, sdk string) (apk, version string, err error) {
+	t, err := scrollTools(ctx, sdk)
+	if err != nil {
 		return "", "", err
 	}
-	slices.Sort(files)
+	files, err := scrollFiles()
+	if err != nil {
+		return "", "", err
+	}
+	h := sha256.New()
 	for _, f := range files {
 		data, err := scrollSource.ReadFile(f)
 		if err != nil {
@@ -138,7 +270,7 @@ func buildScroll(ctx context.Context, sdk string) (apk, version string, err erro
 		_, _ = fmt.Fprintf(h, "%s %d\n", f, len(data))
 		h.Write(data)
 	}
-	_, _ = io.WriteString(h, b.tools+b.platform+b.javaHome)
+	_, _ = io.WriteString(h, t.tools+t.platform+t.javaHome)
 	version = fmt.Sprintf("%x", h.Sum(nil)[:8])
 	cache := npm.CacheDir("mobile")
 	apk = filepath.Join(cache, "scroll-"+version, "axx-scroll.apk")
@@ -148,88 +280,83 @@ func buildScroll(ctx context.Context, sdk string) (apk, version string, err erro
 	if err := os.MkdirAll(cache, 0o755); err != nil {
 		return "", "", err
 	}
-	tmp, err := os.MkdirTemp(cache, "prepare-")
-	if err != nil {
-		return "", "", err
-	}
-	defer os.RemoveAll(tmp)
-	for _, f := range files {
-		data, _ := scrollSource.ReadFile(f)
-		to := filepath.Join(tmp, filepath.FromSlash(f))
-		if err := os.MkdirAll(filepath.Dir(to), 0o755); err != nil {
-			return "", "", err
-		}
-		if err := os.WriteFile(to, data, 0o644); err != nil {
-			return "", "", err
-		}
-	}
-	src, classes := filepath.Join(tmp, "scroll"), filepath.Join(tmp, "classes")
-	if err := os.MkdirAll(classes, 0o755); err != nil {
-		return "", "", err
-	}
-	run := func(tool string, args ...string) error {
-		cmd := exec.CommandContext(ctx, tool, args...)
-		cmd.Env = append(os.Environ(), "JAVA_HOME="+b.javaHome)
-		if out, err := cmd.CombinedOutput(); err != nil {
-			return fmt.Errorf("%s: %w: %s", filepath.Base(tool), err, out)
-		}
-		return nil
-	}
-	if err := run(filepath.Join(b.javaHome, "bin", exe("javac", ".exe")), "--release", "8", "-Xlint:-options", "-classpath", b.platform, "-d", classes, filepath.Join(src, "Scrolls.java")); err != nil {
-		return "", "", err
-	}
-	dex := []string{"--min-api", "26", "--lib", b.platform, "--output", tmp}
-	if err := filepath.WalkDir(classes, func(path string, _ os.DirEntry, err error) error {
-		if err == nil && strings.HasSuffix(path, ".class") {
-			dex = append(dex, path)
-		}
-		return err
-	}); err != nil {
-		return "", "", err
-	}
-	if err := run(filepath.Join(b.tools, exe("d8", ".bat")), dex...); err != nil {
-		return "", "", err
-	}
-	aapt2 := filepath.Join(b.tools, exe("aapt2", ".exe"))
-	res, linked := filepath.Join(tmp, "res.zip"), filepath.Join(tmp, "linked.apk")
-	if err := run(aapt2, "compile", "--dir", filepath.Join(src, "res"), "-o", res); err != nil {
-		return "", "", err
-	}
-	if err := run(aapt2, "link", "-I", b.platform, "--manifest", filepath.Join(src, "AndroidManifest.xml"), "--version-name", version, "-o", linked, res); err != nil {
-		return "", "", err
-	}
-	// The service's code goes into the package aapt2 made, which is then aligned and signed. The
-	// key is one axx makes for this machine: Android asks only that an app's updates have its
-	// key, and axx installs the service afresh when another machine's is on the device.
-	unsigned, aligned := filepath.Join(tmp, "unsigned.apk"), filepath.Join(tmp, "aligned.apk")
-	if err := addToZip(linked, unsigned, "classes.dex", filepath.Join(tmp, "classes.dex")); err != nil {
-		return "", "", err
-	}
-	if err := run(filepath.Join(b.tools, exe("zipalign", ".exe")), "-f", "4", unsigned, aligned); err != nil {
-		return "", "", err
-	}
+	// The local key is no secret: it signs what this machine builds for its own devices.
+	const alias, password = "axx", "android"
 	keystore := filepath.Join(cache, "scroll.keystore")
 	if _, err := os.Stat(keystore); err != nil {
-		made := filepath.Join(tmp, "scroll.keystore")
-		if err := run(filepath.Join(b.javaHome, "bin", exe("keytool", ".exe")), "-genkeypair", "-keystore", made, "-storepass", "android", "-keypass", "android",
-			"-alias", "axx", "-dname", "CN=axx scroll service", "-keyalg", "RSA", "-keysize", "2048", "-validity", "10000"); err != nil {
+		made := filepath.Join(cache, fmt.Sprintf("scroll.keystore.%d", os.Getpid()))
+		_ = os.Remove(made)
+		if err := MakeScrollKeystore(ctx, made, alias, password, "axx scroll service, built on this machine"); err != nil {
 			return "", "", err
 		}
 		if err := os.Rename(made, keystore); err != nil {
 			return "", "", err
 		}
 	}
-	signed := filepath.Join(tmp, "axx-scroll.apk")
-	if err := run(filepath.Join(b.tools, exe("apksigner", ".bat")), "sign", "--ks", keystore, "--ks-pass", "pass:android", "--out", signed, aligned); err != nil {
-		return "", "", err
-	}
-	if err := os.MkdirAll(filepath.Dir(apk), 0o755); err != nil {
-		return "", "", err
-	}
-	if err := os.Rename(signed, apk); err != nil {
+	if err := BuildScrollService(ctx, ScrollBuild{SDK: sdk, Out: apk, Version: version, Keystore: keystore, Alias: alias, Password: password}); err != nil {
 		return "", "", err
 	}
 	return apk, version, nil
+}
+
+// scrollFetcher downloads a release's scroll service into a folder, checked against the
+// release's checksums: selfupdate.Client.FetchAndroidScroll.
+type scrollFetcher interface {
+	FetchAndroidScroll(ctx context.Context, tag, dir string) (string, error)
+}
+
+// releasedScroll is the scroll service the release v of axx published, in axx's cache:
+// downloaded the first time, from GitHub's releases or the mirror AXX_DOWNLOAD_URL names, and
+// kept. Its version is the release's.
+func releasedScroll(ctx context.Context, f scrollFetcher, v, cache string) (apk string, err error) {
+	apk = filepath.Join(cache, "scroll-"+v, selfupdate.AndroidScrollName(v))
+	if _, err := os.Stat(apk); err == nil {
+		return apk, nil
+	}
+	if err := os.MkdirAll(cache, 0o755); err != nil {
+		return "", err
+	}
+	tmp, err := os.MkdirTemp(cache, "download-")
+	if err != nil {
+		return "", err
+	}
+	defer os.RemoveAll(tmp)
+	got, err := f.FetchAndroidScroll(ctx, "v"+v, tmp)
+	if err != nil {
+		return "", mirror.RedactErr(err)
+	}
+	if err := os.MkdirAll(filepath.Dir(apk), 0o755); err != nil {
+		return "", err
+	}
+	if err := os.Rename(got, apk); err != nil {
+		if _, serr := os.Stat(apk); serr == nil {
+			return apk, nil // another axx downloaded it first
+		}
+		return "", err
+	}
+	return apk, nil
+}
+
+// scrollAPK is the scroll service for this axx, and its version, which a device says of the
+// one it has. A release's axx takes its release's, as that release built and signed it. An axx
+// that is no release has none to take, and builds one. A release whose service cannot be had
+// (no network to GitHub or the mirror, a release without one) builds one too, where it can,
+// and the error says why it did not take the release's.
+func scrollAPK(ctx context.Context, sdk string) (apk, version string, err error) {
+	info := axxversion.Get()
+	var why error
+	if info.Channel != "dev" {
+		apk, err := releasedScroll(ctx, selfupdate.New(), info.Version, npm.CacheDir("mobile"))
+		if err == nil {
+			return apk, info.Version, nil
+		}
+		why = fmt.Errorf("axx %s's is not to be had (%w)", info.Version, err)
+	}
+	apk, version, err = buildScroll(ctx, sdk)
+	if err != nil && why != nil {
+		return "", "", fmt.Errorf("%w, and axx cannot build one: %w", why, err)
+	}
+	return apk, version, err
 }
 
 // addToZip copies a zip archive with one more file in it.
@@ -358,9 +485,9 @@ func (p *pool) ensureScrolls(ctx context.Context, d *device) {
 		d.scrolls = nil
 	}
 	err := func() error {
-		apk, version, err := buildScroll(ctx, filepath.Dir(filepath.Dir(p.sdk.adb)))
+		apk, version, err := scrollAPK(ctx, filepath.Dir(filepath.Dir(p.sdk.adb)))
 		if err != nil {
-			return fmt.Errorf("cannot build it: %w", err)
+			return fmt.Errorf("axx has none: %w", err)
 		}
 		out, _ := p.sdk.shell(ctx, d.serial, "dumpsys", "package", scrollPackage)
 		if m := versionName.FindStringSubmatch(out); m == nil || m[1] != version {

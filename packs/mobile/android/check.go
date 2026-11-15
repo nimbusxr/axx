@@ -8,6 +8,8 @@ import (
 	"strings"
 
 	"github.com/nimbusxr/axx/core"
+	"github.com/nimbusxr/axx/internal/selfupdate"
+	axxversion "github.com/nimbusxr/axx/internal/version"
 )
 
 // checks are what `axx doctor` checks for the pack: the Android SDK, the
@@ -42,9 +44,14 @@ func checkSDK(ctx context.Context) core.CheckResult {
 	return core.CheckResult{Status: core.CheckOK, Detail: "adb and the emulator; devices (AVDs): " + strings.Join(avds, ", ")}
 }
 
-// checkScroll says whether axx can build its scroll service (scrolls.go): without it a run
-// passes all the same, scrolling by swiping, which is slower.
+// checkScroll says where axx's scroll service comes from (scrolls.go): a release's axx
+// downloads its release's, and an axx that is no release builds one. Without it a run passes
+// all the same, scrolling by swiping, which is slower.
 func checkScroll(ctx context.Context) core.CheckResult {
+	info := axxversion.Get()
+	if info.Channel != "dev" {
+		return core.CheckResult{Status: core.CheckOK, Detail: "axx " + info.Version + " downloads its release's scroll service (" + selfupdate.AndroidScrollName(info.Version) + "), from GitHub or the mirror AXX_DOWNLOAD_URL names"}
+	}
 	s, err := findSDK()
 	if err != nil {
 		return core.CheckResult{Status: core.CheckWarn, Detail: "no Android SDK to build axx's scroll service with"}
@@ -52,11 +59,11 @@ func checkScroll(ctx context.Context) core.CheckResult {
 	b, err := scrollTools(ctx, filepath.Dir(filepath.Dir(s.adb)))
 	if err != nil {
 		return core.CheckResult{
-			Status: core.CheckWarn, Detail: "axx cannot build its scroll service (" + err.Error() + "): steps scroll by swiping, which is slower",
-			Hint: "install the SDK's build-tools and a platform (sdkmanager --install \"build-tools;36.0.0\" \"platforms;android-36\"), and a JDK (set JAVA_HOME to it)",
+			Status: core.CheckWarn, Detail: "this axx is no release, so it builds its scroll service, and cannot (" + err.Error() + "): steps scroll by swiping, which is slower",
+			Hint: "install the SDK's build-tools and a platform (sdkmanager --install \"build-tools;36.0.0\" \"platforms;android-36\"), and a JDK (set JAVA_HOME to it); a release of axx downloads the service instead",
 		}
 	}
-	return core.CheckResult{Status: core.CheckOK, Detail: "axx builds its scroll service with " + b.tools + " and the JDK at " + b.javaHome}
+	return core.CheckResult{Status: core.CheckOK, Detail: "this axx is no release: it builds its scroll service with " + b.tools + " and the JDK at " + b.javaHome}
 }
 
 func checkKVM(context.Context) core.CheckResult {

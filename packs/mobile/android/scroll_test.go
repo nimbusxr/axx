@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"reflect"
 	"runtime"
@@ -364,5 +365,106 @@ func TestADeviceIsReadyOnceItsUserIsUnlocked(t *testing.T) {
 		if got := (&sdk{adb: adb}).userUnlocked(t.Context(), "emulator-5554"); got != want {
 			t.Errorf("a device whose user is %q is taken for unlocked: %v", state, got)
 		}
+	}
+}
+
+// fetchedScroll stands in for a release's files: it gives the service it has, and counts.
+type fetchedScroll struct {
+	apk   []byte
+	err   error
+	asked int
+}
+
+func (f *fetchedScroll) FetchAndroidScroll(_ context.Context, tag, dir string) (string, error) {
+	f.asked++
+	if f.err != nil {
+		return "", f.err
+	}
+	path := filepath.Join(dir, "axx_"+strings.TrimPrefix(tag, "v")+"_android-scroll.apk")
+	return path, os.WriteFile(path, f.apk, 0o644)
+}
+
+// A release's axx takes the scroll service its release published, once: it is kept in axx's
+// cache. One that cannot be had is said, with why.
+func TestAReleasesScrollServiceIsDownloadedOnce(t *testing.T) {
+	cache := t.TempDir()
+	f := &fetchedScroll{apk: []byte("the service of 0.7.0")}
+	for range 2 {
+		apk, err := releasedScroll(t.Context(), f, "0.7.0", cache)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if b, _ := os.ReadFile(apk); string(b) != "the service of 0.7.0" || filepath.Base(apk) != "axx_0.7.0_android-scroll.apk" {
+			t.Fatalf("the service is %s, holding %q", apk, b)
+		}
+	}
+	if f.asked != 1 {
+		t.Errorf("the release was asked %d times for a service axx keeps, want once", f.asked)
+	}
+	// Another release's is another file.
+	if _, err := releasedScroll(t.Context(), &fetchedScroll{apk: []byte("the service of 0.7.1")}, "0.7.1", cache); err != nil {
+		t.Fatal(err)
+	}
+	if b, _ := os.ReadFile(filepath.Join(cache, "scroll-0.7.0", "axx_0.7.0_android-scroll.apk")); string(b) != "the service of 0.7.0" {
+		t.Errorf("the service of 0.7.0 is %q after 0.7.1's came", b)
+	}
+	if _, err := releasedScroll(t.Context(), &fetchedScroll{err: fmt.Errorf("no route to github.com")}, "0.7.2", cache); err == nil || !strings.Contains(err.Error(), "no route to github.com") {
+		t.Errorf("a service that cannot be downloaded: %v", err)
+	}
+	if left, _ := filepath.Glob(filepath.Join(cache, "download-*")); len(left) != 0 {
+		t.Errorf("a download left %v in the cache", left)
+	}
+}
+
+// The scroll service builds with the SDK's tools and a JDK, where a machine has them: an app
+// of axx's package and of the version it was built as, signed with the key it was given, that
+// Android's own tools take for an installable app.
+func TestTheScrollServiceBuilds(t *testing.T) {
+	s, err := findSDK()
+	if err != nil {
+		t.Skipf("no Android SDK: %v", err)
+	}
+	sdk := filepath.Dir(filepath.Dir(s.adb))
+	tools, err := scrollTools(t.Context(), sdk)
+	if err != nil {
+		t.Skipf("the scroll service cannot be built here: %v", err)
+	}
+	dir := t.TempDir()
+	keystore, apk := filepath.Join(dir, "test.keystore"), filepath.Join(dir, "out", "axx-scroll.apk")
+	if err := MakeScrollKeystore(t.Context(), keystore, "release", "a password, with spaces", "axx scroll service, a test's"); err != nil {
+		t.Fatal(err)
+	}
+	if err := BuildScrollService(t.Context(), ScrollBuild{SDK: sdk, Out: apk, Version: "0.7.0", Keystore: keystore, Alias: "release", Password: "a password, with spaces"}); err != nil {
+		t.Fatal(err)
+	}
+	run := func(tool string, args ...string) string {
+		cmd := exec.CommandContext(t.Context(), tool, args...)
+		cmd.Env = append(os.Environ(), "JAVA_HOME="+tools.javaHome)
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Fatalf("%s %v: %v\n%s", filepath.Base(tool), args, err, out)
+		}
+		return string(out)
+	}
+	badging := run(filepath.Join(tools.tools, exe("aapt2", ".exe")), "dump", "badging", apk)
+	for _, want := range []string{"package: name='" + scrollPackage + "'", "versionName='0.7.0'"} {
+		if !strings.Contains(badging, want) {
+			t.Errorf("the service's badging lacks %s:\n%s", want, badging)
+		}
+	}
+	signed := run(filepath.Join(tools.tools, exe("apksigner", ".bat")), "verify", "--print-certs", apk)
+	if !strings.Contains(signed, `CN="axx scroll service, a test's"`) && !strings.Contains(signed, `CN=axx scroll service\, a test's`) {
+		t.Errorf("the service is not signed with the key it was given:\n%s", signed)
+	}
+	if left, _ := filepath.Glob(filepath.Join(dir, "out", "prepare-*")); len(left) != 0 {
+		t.Errorf("the build left %v beside the service", left)
+	}
+	// A password that is not the keystore's fails the build, and leaves no service.
+	wrong := filepath.Join(dir, "wrong", "axx-scroll.apk")
+	if err := BuildScrollService(t.Context(), ScrollBuild{SDK: sdk, Out: wrong, Version: "0.7.0", Keystore: keystore, Alias: "release", Password: "another"}); err == nil {
+		t.Error("a service was signed with a password that is not the keystore's")
+	}
+	if _, err := os.Stat(wrong); err == nil {
+		t.Error("a build that failed left a service")
 	}
 }
