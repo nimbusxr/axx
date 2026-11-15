@@ -130,6 +130,18 @@ func (a *API) Locations() []Location {
 // serve it: the Android and the iOS packs' tests, run at once, take turns.
 func Start(t *testing.T) *API {
 	t.Helper()
+	return start(t, 2)
+}
+
+// LongRound is Start with a round of forty parcels, PX-MOB-9401 to PX-MOB-9440: more than a
+// screen of them, in a list that makes its rows as it scrolls.
+func LongRound(t *testing.T) *API {
+	t.Helper()
+	return start(t, 40)
+}
+
+func start(t *testing.T, round int) *API {
+	t.Helper()
 	var l net.Listener
 	var err error
 	for deadline := time.Now().Add(5 * time.Minute); ; time.Sleep(time.Second) {
@@ -147,6 +159,15 @@ func Start(t *testing.T) *API {
 	parcels := map[string]recipient{
 		"PX-MOB-9401": {"Jonas Weber", "Karl-Liebknecht-Str. 12", "Leipzig", "04107", "DE"},
 		"PX-MOB-9402": {"Lena Vogel", "Prager Str. 3", "Leipzig", "04103", "DE"},
+	}
+	references := []string{"PX-MOB-9401", "PX-MOB-9402"}
+	// A longer round goes on down one street, a house a parcel.
+	first := []string{"Anna", "Paul", "Marie", "Felix", "Clara", "Emil", "Ida", "Oskar"}
+	last := []string{"Krause", "Lehmann", "Schubert", "Franke", "Albrecht"}
+	for i := 3; i <= round; i++ {
+		ref := fmt.Sprintf("PX-MOB-94%02d", i)
+		references = append(references, ref)
+		parcels[ref] = recipient{first[i%len(first)] + " " + last[i%len(last)], fmt.Sprintf("Kochstr. %d", i), "Leipzig", "04275", "DE"}
 	}
 	api := &API{}
 	mux := http.NewServeMux()
@@ -171,7 +192,7 @@ func Start(t *testing.T) *API {
 		mu.Lock()
 		defer mu.Unlock()
 		out := []map[string]any{}
-		for _, ref := range []string{"PX-MOB-9401", "PX-MOB-9402"} {
+		for _, ref := range references {
 			if !delivered[ref] {
 				p := parcels[ref]
 				out = append(out, map[string]any{"reference": ref, "serviceLevel": "STANDARD", "recipient": map[string]string{

@@ -109,11 +109,11 @@ func reportsAPK(t *testing.T) string {
 }
 
 // A courier reports a delivery problem in a form the app shows in a web view, longer than the
-// screen. UiAutomator2 lists nothing of the page past what shows, so the steps scroll for what is
-// further down themselves: a field found by its name is scrolled to and filled, and so is a
-// control only a selector finds, down the page and back up it. The app draws under the status
-// bar, as Android 15 has apps do: a scroll's finger starts below the bar, where it moves the page
-// and not the notifications. The feature reads as the iOS one does.
+// screen. The steps scroll to what is out of view themselves, by asking the page (axx's scroll
+// service): a field found by its name is shown and filled, and so is a control only a selector
+// finds, down the page and back up it, with nothing swiped. A number field is typed into, which
+// brings the keyboard up: a control the page will not stay on with the keyboard up has the
+// keyboard closed, and is scrolled to again. The feature reads as the iOS one does.
 func TestACourierReportsAProblemInAWebViewOnAnEmulator(t *testing.T) {
 	device := avd(t)
 	app := reportsAPK(t)
@@ -143,16 +143,18 @@ func TestACourierReportsAProblemInAWebViewOnAnEmulator(t *testing.T) {
 	// label comes as its text, with no hint, and UiAutomator2 will not set its text, so the step
 	// taps it and types, as a person does.
 	h.OK(`the "How many parcels are still in the van?" field in the reports app is filled with '"3"'`)
-	// The keyboard is up now. A control back up the page is paged to: the keyboard is closed
-	// once, with Back, and no page after that presses Back again, which would leave the app.
-	h.OK(radio("Did you ring the bell?", "Yes"))
+	// The keyboard is up now, and the page keeps the field being typed in on the screen: asked
+	// to show a control back up the page, it goes back to the field a moment later. The step
+	// closes the keyboard, with one Back, which Android gives to the keyboard, and scrolls
+	// again. The answer changes, so a tap that missed would show.
+	h.OK(radio("Did you ring the bell?", "No"))
 	// The filled number field is still found by its label.
 	h.OK(`the "How many parcels are still in the van?" field is tapped in the reports app`)
 	// A button at the page's end, found by its name.
 	h.OK(`the "Send report" button is tapped in the reports app`)
 	h.OK(`within 10s the reports app shows "Report sent"`)
 	for _, answer := range []string{
-		"Did you ring the bell? Yes", "Did you call the recipient? No", "What did the neighbour say? Nobody home since Monday",
+		"Did you ring the bell? No", "Did you call the recipient? No", "What did the neighbour say? Nobody home since Monday",
 		"Is the parcel back in the van? Yes", "Who did you speak to? Mara Lindqvist", "How many parcels are still in the van? 3",
 	} {
 		h.OK(`the reports app shows "` + answer + `"`)

@@ -55,11 +55,14 @@ func tapWhereItIs(ctx context.Context, sc *core.Scenario, d Device, el *appium.E
 }
 
 // bringIntoView scrolls until the control shows, as the scroll step does for a control found by
-// its name, and closes the keyboard when the control is under it and no scroll frees it. The
-// control is at rest when it returns: a tap on one still moving lands where it was.
+// its name. Where no scroll shows it while a keyboard is up (it is under the keyboard and the
+// page is at its end, or the page goes back to the field being typed in), the keyboard is
+// closed, and the control scrolled to again. The control is at rest when it returns: a tap on
+// one still moving lands where it was.
 func bringIntoView(ctx context.Context, d Device, el *appium.Element) error {
 	// A control that moves between reading the screen and scrolling to it (a page still laying
 	// itself out) is read again, a few times.
+	closed := false
 	for range 5 {
 		r, err := el.Rect(ctx)
 		if err != nil {
@@ -85,9 +88,15 @@ func bringIntoView(ctx context.Context, d Device, el *appium.Element) error {
 		if err != nil {
 			return err
 		}
-		if !shown {
-			if _, err := d.HideKeyboard(ctx); err != nil {
+		if !shown && !closed {
+			closed = true
+			hid, err := d.HideKeyboard(ctx)
+			if err != nil {
 				return err
+			}
+			if hid {
+				// The screen without the keyboard is another: the control is scrolled to again.
+				continue
 			}
 		}
 		break

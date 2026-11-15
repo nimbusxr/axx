@@ -1050,10 +1050,13 @@ func predicateString(s string) string {
 const springboard = "com.apple.springboard"
 
 // SystemBars is the status bar, with its clock, in the screenshot's pixels.
-// ScrollToShow drags the node's scroll view until the node shows, as a finger does: steady
-// drags (no flick), each as far as the node still is from the view's middle, at most most of the
-// view's height, watching where the node is. XCUITest's own scroll to an element works through
-// table cells only; a SwiftUI scroll view of plain text has none.
+// ScrollToShow has the node's scroll view show the node. The view is asked to scroll to it
+// first: XCTest's own scroll to an element, which moves the view at once, with no finger on the
+// glass (a web page's control a screen and a half away shows in a twentieth of a second). It
+// does not work everywhere (it refuses now and then, and a SwiftUI scroll view of plain text has
+// nothing for it to work through), so what it leaves is done by swiping: steady drags (no
+// flick), each as far as the node still is from the view's middle, at most most of the view's
+// height, watching where the node is.
 func (d *running) ScrollToShow(ctx context.Context, n *mobilecore.Node, _ string) (bool, error) {
 	if n == nil {
 		return false, nil
@@ -1071,6 +1074,9 @@ func (d *running) ScrollToShow(ctx context.Context, n *mobilecore.Node, _ string
 	}
 	v := uncovered(view)
 	x, middle, reach := v.X+v.Width/2, v.Y+v.Height/2, v.Height*0.6
+	// Asked first. Whether it showed the node is read below, as after a drag: a node it left out
+	// of view, or under the keyboard, is brought the rest of the way by swiping.
+	d.scrollTo(ctx, el)
 	if err := d.scrub(ctx, el, view, v); err != nil {
 		return false, err
 	}
@@ -1094,6 +1100,16 @@ func (d *running) ScrollToShow(ctx context.Context, n *mobilecore.Node, _ string
 		}
 	}
 	return false, nil
+}
+
+// scrollTo asks XCTest to scroll to an element, as it does itself before it taps one out of
+// view. An element it cannot scroll to is left where it is.
+func (d *running) scrollTo(ctx context.Context, el *appium.Element) {
+	if d.dev == nil {
+		_ = d.session.Mobile(ctx, "scrollToElement", map[string]any{"elementId": el.ID}, nil)
+		return
+	}
+	_ = d.session.Command(ctx, http.MethodPost, "/wda/element/"+el.ID+"/scrollTo", map[string]any{}, nil)
 }
 
 // uncovered is the part of a scroll view the keyboard leaves showing: a finger that lands on the

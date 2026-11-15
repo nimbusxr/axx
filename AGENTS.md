@@ -184,6 +184,12 @@ the skills instead: `axx skills install`.
   emulator in CI's mobile job, and on simulators in its ios job (macOS). mobile-ios installs
   Appium's prebuilt WebDriverAgent (pinned, with its SHA-256 sums, in `install.go`) instead of
   building it with Xcode; mobile-android, Appium's UiAutomator2 server APKs (pinned in `uia2.go`).
+  A step scrolls by asking the view, and swipes only where it cannot (ADR 0020): on Android
+  through axx's scroll service (`packs/mobile/android/scroll`, an accessibility service of
+  axx's own, built with the SDK's build-tools and a JDK and switched on for the run, beside the
+  UiAutomator2 server, which is started so that it leaves it running; `scrolls.go`, `scroll.go`),
+  with what the screen has out of view listed too; on iOS through XCTest's scroll to an element.
+  Keep the two words apart, in code and docs: a swipe is a finger on the glass, a scroll is not.
   What an app's camera sees, and its AR, are played from a picture, a video or a glTF scene: on
   a simulator, by a library mobile-ios builds with Xcode (`packs/mobile/ios/ar`); on an emulator,
   by the emulator's own camera, which renders its AVD's environment as axx sets it

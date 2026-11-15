@@ -3,6 +3,7 @@ package mobileandroid
 import (
 	"context"
 	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 
@@ -10,9 +11,10 @@ import (
 )
 
 // checks are what `axx doctor` checks for the pack: the Android SDK, the
-// emulator's devices, and KVM, which Linux emulators need.
+// emulator's devices, what axx builds its scroll service with, and KVM, which Linux emulators
+// need.
 func checks() []core.Check {
-	out := []core.Check{{Name: "Android SDK", Run: checkSDK}}
+	out := []core.Check{{Name: "Android SDK", Run: checkSDK}, {Name: "Android scrolling", Run: checkScroll}}
 	if runtime.GOOS == "linux" {
 		out = append(out, core.Check{Name: "KVM", Run: checkKVM})
 	}
@@ -38,6 +40,23 @@ func checkSDK(ctx context.Context) core.CheckResult {
 		}
 	}
 	return core.CheckResult{Status: core.CheckOK, Detail: "adb and the emulator; devices (AVDs): " + strings.Join(avds, ", ")}
+}
+
+// checkScroll says whether axx can build its scroll service (scrolls.go): without it a run
+// passes all the same, scrolling by swiping, which is slower.
+func checkScroll(ctx context.Context) core.CheckResult {
+	s, err := findSDK()
+	if err != nil {
+		return core.CheckResult{Status: core.CheckWarn, Detail: "no Android SDK to build axx's scroll service with"}
+	}
+	b, err := scrollTools(ctx, filepath.Dir(filepath.Dir(s.adb)))
+	if err != nil {
+		return core.CheckResult{
+			Status: core.CheckWarn, Detail: "axx cannot build its scroll service (" + err.Error() + "): steps scroll by swiping, which is slower",
+			Hint: "install the SDK's build-tools and a platform (sdkmanager --install \"build-tools;36.0.0\" \"platforms;android-36\"), and a JDK (set JAVA_HOME to it)",
+		}
+	}
+	return core.CheckResult{Status: core.CheckOK, Detail: "axx builds its scroll service with " + b.tools + " and the JDK at " + b.javaHome}
 }
 
 func checkKVM(context.Context) core.CheckResult {

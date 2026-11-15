@@ -193,9 +193,33 @@ Controls are found by the names people see: a button by its text, a field by its
 
 `swiped down` pulls a list to refresh; `up`, `left` and `right` swipe too. The back button is Android's; on iOS, tap the back button the screen shows, by its text.
 
-`scrolled into view` scrolls the list or text that holds the control until it shows, as a person does. A control far down a long text, like the end of a terms of service, is reached in one move on iOS, which grabs the scroll bar and drags it there, and in a few flings on Android.
+`scrolled into view` has the list, page or text that holds the control show it.
 
-A tap or a fill scrolls to its control when the control is further down the screen, so a form longer than the screen needs no scroll step, on Android or iOS. The step looks first, and gives a control that is only late a moment to come (a second and a half). When the control is still not there and the screen is at rest, it scrolls for it as `scrolled into view` does, until its name shows (or its `id=` or `xpath=` selector finds it), and then uses it. On Android it closes the keyboard to scroll, with Back, which Android gives to the keyboard while one is up; with no keyboard up it presses nothing, so the app stays on its screen. On iOS it scrolls above the keyboard. When no scroll brings a control out from under an iPhone's keyboard (the page is at its end), the step closes the keyboard as a person does: with the Done of the bar over it when it has one, as a web form's keyboard and a number pad do, and with return otherwise. `scrolled into view` is for the rest, like a check of something further down, and it takes a selector as the other steps do. A check never scrolls: it asks what the screen shows.
+**Scrolling and swiping are two things in Axx.**
+
+- A **swipe** is a finger on the screen. The `swiped` step swipes.
+- A **scroll** is the view moving because it was asked to, with nothing touched. A screen reader scrolls this way. `scrolled into view` scrolls, and so do a tap and a fill when their control is out of view.
+
+A scroll takes about a tenth of a second, moves the view by exactly what is needed, and cannot land on a key of the keyboard or on an edge of the screen that goes home or pulls the notifications down.
+
+A tap or a fill scrolls to its control when the control is out of view, so a form longer than the screen needs no scroll step, on Android or iOS. The step looks first, and gives a control that is only late a moment to come. `scrolled into view` is for the rest, like a check of something further down, and it takes a selector as the other steps do. A check never scrolls: it asks what the screen shows.
+
+How Axx asks a view to scroll:
+
+1. **On Android**, through a small accessibility service of its own. Axx builds it with the Android SDK's build-tools and a JDK, installs it on the device, and switches it on in the device's settings for the run. It takes it out of the settings again when the run ends. Other accessibility services that are on keep running during the run.
+2. **On iOS**, through the scroll to an element that Apple's test framework (XCTest) has.
+
+Android also tells Axx what a screen has out of view, so a step knows where a control is and has its view show it at once. A list that makes its rows as it scrolls (a `LazyColumn`, a `RecyclerView`) only has the rows it has made. For a row further on, Axx asks the list for a page at a time and looks: down and then up, or up first for a row it saw go off the top.
+
+Where a view cannot be asked, Axx swipes instead, which is slower:
+
+- on Android, when Axx cannot build the service (it says so once, with what is missing), when the device is one another Appium server drives, or when a view offers no scrolling to a screen reader;
+- on iOS, when XCTest refuses, and in a SwiftUI scroll view of plain text. A control far down such a text is reached in one move: Axx grabs the scroll bar and drags it there.
+
+**A control under the keyboard** is scrolled above it. When the page is at its end and no scroll frees the control, the step closes the keyboard, as a person does:
+
+- on Android with Back, which Android gives to the keyboard while one is up. With no keyboard up Axx presses nothing, so the app stays on its screen;
+- on an iPhone with the Done of the bar over the keyboard when it has one, as a web form's keyboard and a number pad do, and with return otherwise.
 
 **Web pages in an app.** A page an app shows in a web view (`WKWebView` on iOS, `WebView` on Android) works with the same steps. Its controls are found by what the page says of them: a field by its label, a button by its text. A radio button or a checkbox has the same name as the label beside it, and a form often has several with one name ("Yes"), so name the one you mean by its question:
 

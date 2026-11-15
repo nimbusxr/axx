@@ -192,6 +192,11 @@ func lookFor(sc *core.Scenario, d Device, app string, k kind, name string, wait 
 				return false, fmt.Errorf("closing the keyboard over the %s %s: %w", quoted(name), k.noun, err)
 			}
 			if closed {
+				// A control that is still out of view without the keyboard (the page had gone
+				// back to the field being typed in) is scrolled to once more.
+				if reach {
+					reached = false
+				}
 				return false, nil
 			}
 		}
@@ -377,6 +382,22 @@ func targetFor(sc *core.Scenario, d Device, app string, k kind, name string, wai
 		}
 		if !found {
 			return nil, nil, false, core.Failf("No %s in the %s app matches %q", k.noun, app, name)
+		}
+		// A driver that finds what the screen has out of view, and does not scroll to it to use
+		// it (Android's): the step has the control's view show it, and finds it again where it
+		// then is.
+		if o, ok := d.(outOfViewer); ok && reach && o.OutOfView(sc.Context(), el) {
+			if err := bringIntoView(sc.Context(), d, el); err != nil {
+				return nil, nil, false, fmt.Errorf("scrolling to the %s %s: %w", quoted(name), k.noun, err)
+			}
+			if _, err := find(); err != nil {
+				return nil, nil, false, err
+			}
+			// One that still does not show is not tapped where the driver would tap it, off the
+			// screen: the step says so.
+			if o.OutOfView(sc.Context(), el) {
+				return nil, nil, false, core.Failf("The %s in the %s app that matches %q is out of view, and its view does not scroll it into view", k.noun, app, name)
+			}
 		}
 		return el, nil, false, nil
 	}

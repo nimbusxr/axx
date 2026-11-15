@@ -105,6 +105,32 @@ func signIn(h *cloudtest.Harness) {
 	h.OK(`the "Sign in" button is tapped in the courier app`)
 }
 
+// A courier finds a parcel far down a long round. The round is a list that makes its rows as it
+// scrolls (a LazyColumn), so the screen has nothing of a row further on: the step asks the list
+// for a page at a time until the row shows. A row that went off the top on the way is looked for
+// up first, with no trip to the round's end.
+func TestACourierFindsAParcelFarDownTheRoundOnAnEmulator(t *testing.T) {
+	courierapi.LongRound(t)
+	t.Setenv("COURIER_PIN", "4711")
+	h := cloudtest.New(t, appcore.Pack(), mobilecore.Pack(), Pack())
+	logsOnFailure(t, h)
+	h.OK("the courier android app with the following properties:", [][]string{
+		{"apk", apk(t)}, {"device", avd(t)}, {"permissions", "POST_NOTIFICATIONS"}, {"host ports", "8400"},
+	})
+	signIn(h)
+	h.OK(`the courier app shows "Hello, Hanna Wolf"`)
+	h.OK(`the "PX-MOB-9401" list item is shown in the courier app`)
+	h.OK(`the "PX-MOB-9436" list item is scrolled into view in the courier app`)
+	h.OK(`the "PX-MOB-9436" list item is shown in the courier app`)
+	// Back up the round, by a tap: the step scrolls to its row itself.
+	h.OK(`the "PX-MOB-9403" list item is tapped in the courier app`)
+	h.OK(`the "Mark delivered" button is disabled in the courier app`)
+	h.OK(`the courier app shows "PX-MOB-9403"`)
+	if err := h.End("passed"); err != nil {
+		t.Fatal(err)
+	}
+}
+
 // A courier delivers a parcel on an emulator, with every step of the packs;
 // the next scenario, on the same emulator, starts signed out, without the
 // permission the first had, and Android asks for it. One emulator for both,
