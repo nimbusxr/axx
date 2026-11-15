@@ -247,6 +247,16 @@ the skills instead: `axx skills install`.
   run nothing its sandbox would not: nothing it sends is run, names a file of the machine, or reaches an
   address past the sandbox. `cloudtest` runs a pack's tests through an in-process host when
   `AXX_TEST_HOSTED` is set.
+  A pack with a side in the host (`core.HostServer`, ADR 0018) does there what a sandbox keeps a run from:
+  web-core its browsers, the mobile and desktop packs their devices and apps (ADR 0019). The run's side asks
+  for what a step does, by name (`packs/internal/hostwire`), in a scenario of the host's own for each of the
+  run's (`packs/internal/hostscenario`), in a suite confined to the project's repository (`Suite.Confine`).
+  An app is the agent's code outside its sandbox: the pack's side asks the person first (`HostRun.Approve`),
+  with everything of the registration. A pack that builds on a platform pack sets up its launch hook in the
+  host's scenario too (a hook of phase `core.HostScenario`), and what its two sides must know of each other is
+  a note of the scenario (`Scenario.Note`). A new platform pack gets a host side with its first version, and a
+  new operation never names a program or a file outside the project. The platform packs' tests run again
+  through a host in the tests' process (`AXX_TEST_HOSTED`, `cloudtest.AgainHosted`).
 - `internal/packbuild`, `internal/gotool`: axx builds itself with the packs a project lists in
   `axx-packs.yaml`, using a Go toolchain it downloads itself, as the go command downloads one (`golang.org/toolchain`
   through GOPROXY, checked against Go's checksum database, which GOSUMDB=off does not skip), so an organization's Go proxy serves it.
