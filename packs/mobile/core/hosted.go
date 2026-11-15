@@ -3,15 +3,14 @@ package mobilecore
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"path/filepath"
 	"slices"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/nimbusxr/axx/core"
+	"github.com/nimbusxr/axx/packs/internal/hostscenario"
 	"github.com/nimbusxr/axx/packs/internal/hostwire"
 	"github.com/nimbusxr/axx/packs/mobile/internal/appium"
 	"github.com/nimbusxr/axx/packs/mobile/internal/scene"
@@ -57,10 +56,10 @@ func Hosted(sc *core.Scenario, pack, app string, rows []Property, local Platform
 	if !sc.Suite().Hosted() || !local.RunsHere() {
 		return local
 	}
-	// The scenario's place in the host is made now, with the app's
+	// The scenario's place in the host is kept from now, the app's
 	// registration: it ends after what the scenario makes later, its
 	// running apps among it, which are stopped in the host first.
-	hostedScenario.Of(sc)
+	hostscenario.Key(sc)
 	p := &hostedPlatform{pack: pack, app: app, rows: rows, local: local}
 	if _, ok := local.(Camera); ok {
 		return &hostedCameraPlatform{hostedPlatform: p}
@@ -83,43 +82,24 @@ func (p *hostedPlatform) RunsHere() bool { return true }
 // hostLink is a run's connection to a platform pack's side in the host: one
 // for the run, which its scenarios share.
 type hostLink struct {
-	pack   string
-	client *hostwire.Client
+	*hostscenario.Link
 
-	mu        sync.Mutex
-	scenarios map[string]*core.Scenario
-	devices   map[string]*hostedDevice // by scenario key and app
+	mu      sync.Mutex
+	devices map[string]*hostedDevice // by scenario key and app
 }
 
-// link is the suite's connection to pack's side in the host, opened when a
-// scenario first needs it and closed with the suite: the host then stops
-// the devices it ran for the run.
+// link is the suite's connection to pack's side in the host.
 func link(sc *core.Scenario, pack string) (*hostLink, error) {
 	return core.Cached(sc.Suite(), Name+"/host/"+pack, func() (*hostLink, error) {
-		// The connection outlives the scenario that opens it.
-		conn, err := sc.Suite().HostDial(context.WithoutCancel(sc.Context()), pack)
-		if err != nil {
-			return nil, fmt.Errorf("the axx host's %s pack: %w", pack, err)
-		}
-		l := &hostLink{pack: pack, scenarios: map[string]*core.Scenario{}, devices: map[string]*hostedDevice{}}
-		l.client = hostwire.NewClient(conn, l.told)
-		sc.Suite().OnClose(func(context.Context) error { return l.client.Close() })
-		return l, nil
+		l := &hostLink{devices: map[string]*hostedDevice{}}
+		var err error
+		l.Link, err = hostscenario.Open(sc, pack, l.told)
+		return l, err
 	})
 }
 
-// What the host tells the run.
+// What the host tells the run of a device.
 type (
-	toldLog struct {
-		Scenario string `json:"scenario"`
-		Text     string `json:"text"`
-	}
-	toldAttachment struct {
-		Scenario  string `json:"scenario"`
-		MediaType string `json:"mediaType"`
-		Body      []byte `json:"body"`
-		Name      string `json:"name"`
-	}
 	toldTouch struct {
 		Scenario string       `json:"scenario"`
 		App      string       `json:"app"`
@@ -134,42 +114,11 @@ type (
 
 func (l *hostLink) told(op string, params json.RawMessage) {
 	switch op {
-	case "log":
-		var m toldLog
-		if hostwire.Read(params, &m) == nil {
-			if sc := l.scenario(m.Scenario); sc != nil {
-				sc.Log("%s", m.Text)
-			}
-		}
-	case "attach":
-		var m toldAttachment
-		if hostwire.Read(params, &m) == nil {
-			if sc := l.scenario(m.Scenario); sc != nil {
-				sc.Attach(m.MediaType, m.Body, m.Name)
-			}
-		}
 	case "touch":
 		var m toldTouch
 		if hostwire.Read(params, &m) == nil {
 			if d := l.device(m.Scenario, m.App); d != nil {
 				d.touched(m.Touch)
-			}
-		}
-	case "hold", "release":
-		// The host's side waits for what the run's scenarios share (a device
-		// another one has): that is not the step's own time.
-		var m scenarioRef
-		if hostwire.Read(params, &m) == nil {
-			if sc := l.scenario(m.Scenario); sc != nil {
-				st := hostedScenario.Of(sc)
-				st.toldMu.Lock()
-				if op == "hold" {
-					st.holds = append(st.holds, sc.Hold())
-				} else if n := len(st.holds); n > 0 {
-					st.holds[n-1]()
-					st.holds = st.holds[:n-1]
-				}
-				st.toldMu.Unlock()
 			}
 		}
 	case "arrived":
@@ -179,21 +128,7 @@ func (l *hostLink) told(op string, params json.RawMessage) {
 				d.arrived(m.Journey)
 			}
 		}
-	case "notes":
-		// What a pack noted of the scenario in the host (core.Scenario.Note).
-		var m notesParams
-		if hostwire.Read(params, &m) == nil {
-			if sc := l.scenario(m.Scenario); sc != nil {
-				hostedScenario.Of(sc).heard(sc, l, m.Notes)
-			}
-		}
 	}
-}
-
-func (l *hostLink) scenario(key string) *core.Scenario {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	return l.scenarios[key]
 }
 
 func (l *hostLink) device(scenario, app string) *hostedDevice {
@@ -202,121 +137,19 @@ func (l *hostLink) device(scenario, app string) *hostedDevice {
 	return l.devices[scenario+"\x00"+app]
 }
 
-// hostedScenarios numbers a run's scenarios for the host: a scenario's ID
-// is its feature's, and a scenario that runs again (a retry, an outline's
-// row) is another scenario there.
-var hostedScenarios atomic.Uint64
-
-// hostedState is what a scenario has in the host: its key there, and the
-// apps the host registered for it.
-type hostedState struct {
-	key string
-
+// hostedApps are the apps a scenario registered in the host, by the link
+// each registered through.
+type hostedApps struct {
 	// mu is held while an app registers in the host, a call.
-	mu    sync.Mutex
-	links map[*hostLink]map[string]bool // the apps each link registered
-
-	// toldMu guards what the host tells the run of while the run waits for
-	// a call's answer: it is never held over a call.
-	toldMu sync.Mutex
-	holds  []func() // the step's clock, stopped for the host's waits
-	// noted is what each link's side in the host knows of the scenario's
-	// notes.
-	noted map[*hostLink]map[string]string
+	mu   sync.Mutex
+	apps map[*hostLink]map[string]bool
 }
 
-// notesParams are a scenario's notes (core.Scenario.Note) that one side has
-// and the other does not know yet.
-type notesParams struct {
-	Scenario string            `json:"scenario"`
-	Notes    map[string]string `json:"notes"`
-}
-
-// unsent are the scenario's notes that l's side in the host does not know
-// yet, which the caller sends it now.
-func (s *hostedState) unsent(sc *core.Scenario, l *hostLink) map[string]string {
-	notes := sc.Notes()
-	s.toldMu.Lock()
-	defer s.toldMu.Unlock()
-	if s.noted == nil {
-		s.noted = map[*hostLink]map[string]string{}
-	}
-	known := s.noted[l]
-	if known == nil {
-		known = map[string]string{}
-		s.noted[l] = known
-	}
-	var out map[string]string
-	for name, value := range notes {
-		if v, ok := known[name]; ok && v == value {
-			continue
-		}
-		if out == nil {
-			out = map[string]string{}
-		}
-		out[name], known[name] = value, value
-	}
-	return out
-}
-
-// heard notes in the run's scenario what a pack noted in the host's.
-func (s *hostedState) heard(sc *core.Scenario, l *hostLink, notes map[string]string) {
-	s.toldMu.Lock()
-	if s.noted == nil {
-		s.noted = map[*hostLink]map[string]string{}
-	}
-	if s.noted[l] == nil {
-		s.noted[l] = map[string]string{}
-	}
-	for name, value := range notes {
-		s.noted[l][name] = value
-	}
-	s.toldMu.Unlock()
-	for name, value := range notes {
-		sc.Note(name, value)
-	}
-}
-
-// tell sends the host's side of l what the scenario's packs noted since it
-// last heard, before a call that may depend on it.
-func (s *hostedState) tell(ctx context.Context, sc *core.Scenario, l *hostLink) error {
-	notes := s.unsent(sc, l)
-	if len(notes) == 0 {
-		return nil
-	}
-	return l.client.Call(ctx, "notes", notesParams{Scenario: s.key, Notes: notes}, nil)
-}
-
-var hostedScenario = core.NewStateKey(Name+"/hosted", func(sc *core.Scenario) *hostedState {
-	return &hostedState{key: fmt.Sprintf("%d %s", hostedScenarios.Add(1), sc.ID), links: map[*hostLink]map[string]bool{}}
-}, func(sc *core.Scenario, s *hostedState) error {
-	// The scenario ends in the host too: what it kept there for it goes.
-	s.mu.Lock()
-	links := make([]*hostLink, 0, len(s.links))
-	for l := range s.links {
-		links = append(links, l)
-	}
-	s.mu.Unlock()
-	var first error
-	for _, l := range links {
-		ctx, cancel := context.WithTimeout(context.WithoutCancel(sc.Context()), 2*time.Minute)
-		err := l.client.Call(ctx, "end", scenarioRef{Scenario: s.key}, nil)
-		cancel()
-		l.mu.Lock()
-		delete(l.scenarios, s.key)
-		l.mu.Unlock()
-		if err != nil && first == nil {
-			first = err
-		}
-	}
-	return first
-})
+var hostedScenario = core.NewStateKey(Name+"/hosted", func(*core.Scenario) *hostedApps {
+	return &hostedApps{apps: map[*hostLink]map[string]bool{}}
+}, nil)
 
 // What every call says: the scenario, as the host knows it, and the app.
-type scenarioRef struct {
-	Scenario string `json:"scenario"`
-}
-
 type appRef struct {
 	Scenario string `json:"scenario"`
 	App      string `json:"app"`
@@ -326,13 +159,7 @@ type appRef struct {
 // registered it in the run's.
 type registerParams struct {
 	appRef
-	Info core.ScenarioInfo `json:"info"`
-	// Dir is the feature file's folder, where the files the registration
-	// names are looked for first.
-	Dir  string     `json:"dir"`
 	Rows []Property `json:"rows"`
-	// Notes are what the scenario's packs noted of it (core.Scenario.Note).
-	Notes map[string]string `json:"notes,omitempty"`
 }
 
 // in gives the scenario's link to the host with the app registered there.
@@ -341,23 +168,20 @@ func (p *hostedPlatform) in(sc *core.Scenario) (*hostLink, appRef, error) {
 	if err != nil {
 		return nil, appRef{}, err
 	}
+	ref := appRef{Scenario: hostscenario.Key(sc), App: p.app}
 	st := hostedScenario.Of(sc)
-	ref := appRef{Scenario: st.key, App: p.app}
 	st.mu.Lock()
 	defer st.mu.Unlock()
-	if st.links[l][p.app] {
-		return l, ref, st.tell(sc.Context(), sc, l)
+	if st.apps[l][p.app] {
+		return l, ref, nil
 	}
-	l.mu.Lock()
-	l.scenarios[st.key] = sc
-	l.mu.Unlock()
-	if err := l.client.Call(sc.Context(), "register", registerParams{appRef: ref, Info: sc.ScenarioInfo, Dir: sc.Dir, Rows: p.rows, Notes: st.unsent(sc, l)}, nil); err != nil {
+	if err := l.Call(sc.Context(), sc, "register", registerParams{appRef: ref, Rows: p.rows}, nil); err != nil {
 		return nil, appRef{}, err
 	}
-	if st.links[l] == nil {
-		st.links[l] = map[string]bool{}
+	if st.apps[l] == nil {
+		st.apps[l] = map[string]bool{}
 	}
-	st.links[l][p.app] = true
+	st.apps[l][p.app] = true
 	return l, ref, nil
 }
 
@@ -382,7 +206,7 @@ func (p *hostedPlatform) Start(sc *core.Scenario) (Device, error) {
 		return nil, err
 	}
 	var a startAnswer
-	if err := l.client.Call(sc.Context(), "start", ref, &a); err != nil {
+	if err := l.Call(sc.Context(), sc, "start", ref, &a); err != nil {
 		return nil, err
 	}
 	d := &hostedDevice{link: l, ref: ref, platform: p, stream: a.Stream, screenKey: a.ScreenKey, journeys: map[int]chan struct{}{}}
@@ -414,7 +238,7 @@ func (p *hostedCameraPlatform) See(sc *core.Scenario, path string) error {
 		Scene bool       `json:"scene"`
 		Pose  scene.Mat4 `json:"pose"`
 	}
-	if err := l.client.Call(sc.Context(), "see", seeParams{appRef: ref, Path: abs}, &a); err != nil {
+	if err := l.Call(sc.Context(), sc, "see", seeParams{appRef: ref, Path: abs}, &a); err != nil {
 		return err
 	}
 	var phone *hostedPhone
@@ -466,7 +290,7 @@ type moveParams struct {
 }
 
 func (p *hostedPhone) Move(ctx context.Context, pose scene.Mat4) error {
-	if err := p.link.client.Call(ctx, "phone.move", moveParams{appRef: p.ref, Pose: pose}, nil); err != nil {
+	if err := p.link.Call(ctx, p.link.Scenario(p.ref.Scenario), "phone.move", moveParams{appRef: p.ref, Pose: pose}, nil); err != nil {
 		return err
 	}
 	p.mu.Lock()
@@ -509,7 +333,7 @@ func (d *hostedDevice) attach(s sessionInfo) {
 // under the session, and takes the session the host then has.
 func (d *hostedDevice) revive(ctx context.Context) error {
 	var s sessionInfo
-	if err := d.link.client.Call(ctx, "revive", d.ref, &s); err != nil {
+	if err := d.link.Call(ctx, d.link.Scenario(d.ref.Scenario), "revive", d.ref, &s); err != nil {
 		return err
 	}
 	d.attach(s)
@@ -549,15 +373,10 @@ func (d *hostedDevice) call(ctx context.Context, op string, params, result any) 
 	if params == nil {
 		params = d.ref
 	}
-	// What the scenario's packs noted since goes first: the host's side may
-	// act on it in this call.
-	if sc := d.link.scenario(d.ref.Scenario); sc != nil {
-		if err := hostedScenario.Of(sc).tell(ctx, sc, d.link); err != nil {
-			return err
-		}
-	}
+	// What the scenario's packs noted since goes first (hostscenario): the
+	// host's side may act on it in this call.
 	var a deviceAnswer
-	if err := d.link.client.Call(ctx, op, params, &a); err != nil {
+	if err := d.link.Call(ctx, d.link.Scenario(d.ref.Scenario), op, params, &a); err != nil {
 		return err
 	}
 	if a.Session != "" {

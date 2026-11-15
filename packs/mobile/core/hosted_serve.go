@@ -9,7 +9,7 @@ import (
 	"sync"
 
 	"github.com/nimbusxr/axx/core"
-	appcore "github.com/nimbusxr/axx/packs/app/core"
+	"github.com/nimbusxr/axx/packs/internal/hostscenario"
 	"github.com/nimbusxr/axx/packs/internal/hostwire"
 	"github.com/nimbusxr/axx/packs/mobile/internal/appium"
 	"github.com/nimbusxr/axx/packs/mobile/internal/scene"
@@ -31,15 +31,27 @@ import (
 // is stopped. register registers an app in a scenario from its
 // registration's table, as the pack's registration step does.
 func ServeHost(ctx context.Context, run core.HostRun, conn net.Conn, register func(sc *core.Scenario, app string, t *core.Table) error) error {
-	defer conn.Close()
-	h := &hostSide{ctx: ctx, run: run, register: register, scenarios: map[string]*mirror{}}
-	h.srv = hostwire.NewServer(conn, map[string]hostwire.Handler{
+	h := &hostSide{ctx: ctx, run: run, register: register}
+	return hostscenario.Serve(ctx, run, conn, hostscenario.Side{
+		Ops: func(host *hostscenario.Host) map[string]hostwire.Handler {
+			h.host = host
+			return h.ops()
+		},
+		Begin: func(m *hostscenario.Mirror) any {
+			return &mirror{key: m.Key, sc: m.SC, devices: map[string]*served{}}
+		},
+		End: func(_ context.Context, m *hostscenario.Mirror) error { return m.Data.(*mirror).end() },
+	})
+}
+
+// ops are the operations the run asks of the phones: what a Device does,
+// and nothing else.
+func (h *hostSide) ops() map[string]hostwire.Handler {
+	return map[string]hostwire.Handler{
 		"register":   hostwire.Op(h.registerApp),
-		"notes":      hostwire.Op(h.notes),
 		"see":        hostwire.Op(h.see),
 		"phone.move": hostwire.Op(h.movePhone),
 		"start":      hostwire.Op(h.start),
-		"end":        hostwire.Op(h.end),
 		"revive":     hostwire.Op(h.revive),
 		"stop":       hostwire.Op(h.stop),
 
@@ -125,190 +137,54 @@ func ServeHost(ctx context.Context, run core.HostRun, conn net.Conn, register fu
 			return "", nil
 		}),
 
-		"files": fileOp(h, true, func(_ context.Context, f core.Files, _ filesParams) (any, error) { return f.Where(), nil }),
-		"files.read": fileOp(h, false, func(ctx context.Context, f core.Files, p filesParams) (any, error) {
+		"files": fileOp(h, func(_ context.Context, f core.Files, _ filesParams) (any, error) { return f.Where(), nil }),
+		"files.read": fileOp(h, func(ctx context.Context, f core.Files, p filesParams) (any, error) {
 			body, found, err := f.Read(ctx, p.Name)
 			return struct {
 				Body  []byte `json:"body"`
 				Found bool   `json:"found"`
 			}{body, found}, err
 		}),
-		"files.write": fileOp(h, false, func(ctx context.Context, f core.Files, p filesParams) (any, error) {
+		"files.write": fileOp(h, func(ctx context.Context, f core.Files, p filesParams) (any, error) {
 			return nil, f.Write(ctx, p.Name, p.Body)
 		}),
-		"files.list":  fileOp(h, false, func(ctx context.Context, f core.Files, p filesParams) (any, error) { return f.List(ctx, p.Max) }),
-		"files.empty": fileOp(h, false, func(ctx context.Context, f core.Files, _ filesParams) (any, error) { return nil, f.Empty(ctx) }),
-	})
-	err := h.srv.Serve(ctx, conn)
-	h.close()
-	if ctx.Err() != nil {
-		return ctx.Err()
+		"files.list":  fileOp(h, func(ctx context.Context, f core.Files, p filesParams) (any, error) { return f.List(ctx, p.Max) }),
+		"files.empty": fileOp(h, func(ctx context.Context, f core.Files, _ filesParams) (any, error) { return nil, f.Empty(ctx) }),
 	}
-	return err
 }
 
 // hostSide is one run's connection, in the host.
 type hostSide struct {
 	ctx      context.Context
+	host     *hostscenario.Host
 	run      core.HostRun
-	srv      *hostwire.Server
 	register func(sc *core.Scenario, app string, t *core.Table) error
-
-	mu        sync.Mutex
-	scenarios map[string]*mirror
 }
 
-// mirror is one of the run's scenarios, in the host: the apps it registered
-// and the devices they run on.
+// mirror is one of the run's scenarios, in the host (hostscenario.Mirror):
+// the apps it registered and the devices they run on.
 type mirror struct {
-	key    string
-	sc     *core.Scenario
-	cancel context.CancelFunc
-	// op is held by the call that works in the scenario: a scenario's steps
-	// come one after the other, and the scenario's context is the call's.
-	op sync.Mutex
+	key string
+	sc  *core.Scenario
 
 	mu      sync.Mutex
 	devices map[string]*served
-	holds   []func()
-	// noted is what the run knows of the scenario's notes.
-	noted map[string]string
 }
 
 // served is an app on the device the host started for it.
 type served struct {
 	Device
-	// sc is the host's scenario the app runs in.
-	sc            *core.Scenario
 	notifications Notifications
-	// files are the app's files by their path, as the device gives them.
-	files map[string]core.Files
+	files         map[string]core.Files
 }
 
-// sink sends what the host's scenario logs and attaches to the run's.
-type sink struct {
-	srv *hostwire.Server
-	key string
-}
-
-func (s sink) Log(_ *core.Scenario, msg string) {
-	s.srv.Tell("log", toldLog{Scenario: s.key, Text: msg})
-}
-
-func (s sink) Attach(_ *core.Scenario, mediaType string, body []byte, name string) {
-	s.srv.Tell("attach", toldAttachment{Scenario: s.key, MediaType: mediaType, Body: body, Name: name})
-}
-
-func (h *hostSide) mirror(key string) (*mirror, error) {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-	m := h.scenarios[key]
-	if m == nil {
-		return nil, fmt.Errorf("the axx host has no scenario %q of this run: it registers an app first", key)
-	}
-	return m, nil
-}
-
-// in runs fn in the run's scenario: alone in it, with the scenario's
-// context the call's, so that what the pack's code does for the step ends
-// when the run no longer waits for it.
+// in runs fn in the run's scenario, alone in it (hostscenario.Host.In).
 func (h *hostSide) in(ctx context.Context, key string, fn func(m *mirror) (any, error)) (any, error) {
-	m, err := h.mirror(key)
-	if err != nil {
-		return nil, err
-	}
-	m.op.Lock()
-	defer m.op.Unlock()
-	m.sc.SetContext(ctx)
-	defer m.sc.SetContext(h.ctx)
-	// What a pack notes of the scenario here reaches the run before the
-	// call's answer does.
-	defer h.tellNotes(m)
-	return fn(m)
-}
-
-// tellNotes tells the run what the packs noted of the scenario in the host
-// (core.Scenario.Note) since it last heard.
-func (h *hostSide) tellNotes(m *mirror) {
-	notes := m.sc.Notes()
-	m.mu.Lock()
-	var news map[string]string
-	for name, value := range notes {
-		if v, ok := m.noted[name]; ok && v == value {
-			continue
-		}
-		if news == nil {
-			news = map[string]string{}
-		}
-		news[name], m.noted[name] = value, value
-	}
-	m.mu.Unlock()
-	if len(news) > 0 {
-		h.srv.Tell("notes", notesParams{Scenario: m.key, Notes: news})
-	}
-}
-
-// notes takes what the run's packs noted of the scenario.
-func (h *hostSide) notes(ctx context.Context, p notesParams) (any, error) {
-	return h.in(ctx, p.Scenario, func(m *mirror) (any, error) {
-		m.take(p.Notes)
-		return nil, nil
-	})
-}
-
-func (m *mirror) take(notes map[string]string) {
-	m.mu.Lock()
-	for name, value := range notes {
-		m.noted[name] = value
-	}
-	m.mu.Unlock()
-	for name, value := range notes {
-		m.sc.Note(name, value)
-	}
+	return h.host.In(ctx, key, func(m *hostscenario.Mirror) (any, error) { return fn(m.Data.(*mirror)) })
 }
 
 func (h *hostSide) registerApp(ctx context.Context, p registerParams) (any, error) {
-	suite, err := h.run.Suite()
-	if err != nil {
-		return nil, err
-	}
-	h.mu.Lock()
-	m := h.scenarios[p.Scenario]
-	made := m == nil
-	if made {
-		if p.Dir != "" {
-			if err := suite.Admits(p.Dir); err != nil {
-				h.mu.Unlock()
-				return nil, fmt.Errorf("the scenario's feature file: %w", err)
-			}
-		}
-		info := p.Info
-		info.Dir = p.Dir
-		scCtx, cancel := context.WithCancel(h.ctx)
-		m = &mirror{key: p.Scenario, cancel: cancel, devices: map[string]*served{}, noted: map[string]string{}}
-		m.sc = core.NewScenario(scCtx, info, suite, sink{srv: h.srv, key: p.Scenario})
-		// A wait for what the run's scenarios share (a device another one
-		// has) is no part of the step's own time, in the run either.
-		m.sc.SetHold(func() func() {
-			h.srv.Tell("hold", scenarioRef{Scenario: m.key})
-			return func() { h.srv.Tell("release", scenarioRef{Scenario: m.key}) }
-		})
-		h.scenarios[p.Scenario] = m
-	}
-	h.mu.Unlock()
 	return h.in(ctx, p.Scenario, func(m *mirror) (any, error) {
-		m.take(p.Notes)
-		if made {
-			// The packs that build on this one set up in the host's
-			// scenario what they set up in the run's (core.HostScenario).
-			if err := suite.BeginHostScenario(m.sc); err != nil {
-				h.mu.Lock()
-				delete(h.scenarios, p.Scenario)
-				h.mu.Unlock()
-				m.cancel()
-				return nil, err
-			}
-		}
 		return nil, h.register(m.sc, p.App, Table(p.Rows))
 	})
 }
@@ -380,7 +256,7 @@ func (h *hostSide) start(ctx context.Context, p appRef) (any, error) {
 		if err != nil {
 			return nil, err
 		}
-		sd := &served{Device: d, sc: m.sc, files: map[string]core.Files{}}
+		sd := &served{Device: d, files: map[string]core.Files{}}
 		m.mu.Lock()
 		m.devices[p.App] = sd
 		m.mu.Unlock()
@@ -412,7 +288,7 @@ func session(s *appium.Session) sessionInfo {
 func (h *hostSide) hear(m *mirror, app string, d *served) {
 	if s := d.Session(); s != nil && s.Touched == nil {
 		s.Touched = func(t appium.Touch) {
-			h.srv.Tell("touch", toldTouch{Scenario: m.key, App: app, Touch: t})
+			h.host.Tell("touch", toldTouch{Scenario: m.key, App: app, Touch: t})
 		}
 	}
 }
@@ -436,12 +312,9 @@ func (h *hostSide) revive(ctx context.Context, p appRef) (any, error) {
 }
 
 func (h *hostSide) stop(ctx context.Context, p stopParams) (any, error) {
-	h.mu.Lock()
-	ended := h.scenarios[p.Scenario] == nil
-	h.mu.Unlock()
-	if ended {
+	if _, err := h.host.Mirror(p.Scenario); err != nil {
 		// The scenario ended here already, and its apps with it.
-		return deviceAnswer{}, nil
+		return deviceAnswer{}, nil //nolint:nilerr // a scenario that ended has nothing to stop
 	}
 	return h.in(ctx, p.Scenario, func(m *mirror) (any, error) {
 		m.mu.Lock()
@@ -456,32 +329,12 @@ func (h *hostSide) stop(ctx context.Context, p stopParams) (any, error) {
 	})
 }
 
-// end ends one of the run's scenarios in the host: an app it left running
-// is stopped, and what the pack kept for the scenario goes.
-func (h *hostSide) end(_ context.Context, p scenarioRef) (any, error) {
-	h.mu.Lock()
-	m := h.scenarios[p.Scenario]
-	delete(h.scenarios, p.Scenario)
-	h.mu.Unlock()
-	if m == nil {
-		return nil, nil
-	}
-	return nil, m.end(h.ctx)
-}
-
-func (m *mirror) end(ctx context.Context) error {
-	m.op.Lock()
-	defer m.op.Unlock()
-	m.sc.SetContext(context.WithoutCancel(ctx))
+// end stops the apps a scenario left running, as it ends in the host.
+func (m *mirror) end() error {
 	m.mu.Lock()
 	devices := m.devices
 	m.devices = map[string]*served{}
-	holds := m.holds
-	m.holds = nil
 	m.mu.Unlock()
-	for _, release := range holds {
-		release()
-	}
 	var errs []error
 	for name, d := range devices {
 		m.forget(name)
@@ -489,24 +342,7 @@ func (m *mirror) end(ctx context.Context) error {
 			errs = append(errs, fmt.Errorf("the %s app: %w", name, err))
 		}
 	}
-	if err := m.sc.Close(); err != nil {
-		errs = append(errs, err)
-	}
-	m.cancel()
 	return errors.Join(errs...)
-}
-
-// close ends every scenario the run left: its connection ended.
-func (h *hostSide) close() {
-	h.mu.Lock()
-	scenarios := h.scenarios
-	h.scenarios = map[string]*mirror{}
-	h.mu.Unlock()
-	for _, m := range scenarios {
-		if err := m.end(context.WithoutCancel(h.ctx)); err != nil && h.run.Logger != nil {
-			h.run.Logger.Warn("ending a scenario the run left", "scenario", m.key, "error", err)
-		}
-	}
 }
 
 // forget takes an app's device out of the host's scenario as it stops.
@@ -576,25 +412,12 @@ func notificationOp(h *hostSide, fn func(ctx context.Context, n Notifications, p
 	})
 }
 
-// fileOp makes a handler of an operation on an app's files at a path. The
-// files are the app's in the host's scenario (appcore.Files), which keeps
-// what the scenario wrote there: a pack that builds on this one reads the
-// app's files in the host as it does in a run (the model stubs an app starts
-// with). where is for the one operation that asks where the files are, on
-// the device.
-func fileOp(h *hostSide, where bool, fn func(ctx context.Context, f core.Files, p filesParams) (any, error)) hostwire.Handler {
+func fileOp(h *hostSide, fn func(ctx context.Context, f core.Files, p filesParams) (any, error)) hostwire.Handler {
 	return deviceOp(h, func(ctx context.Context, d *served, p filesParams) (any, error) {
 		// The path is one in the app's own files, whoever asks.
 		rel, err := sandboxPath("./" + p.Path)
 		if err != nil {
 			return nil, err
-		}
-		if !where {
-			f, err := appcore.Files(d.sc, p.App, "./"+rel)
-			if err != nil {
-				return nil, err
-			}
-			return fn(ctx, f, p)
 		}
 		f := d.files[rel]
 		if f == nil {
@@ -620,7 +443,7 @@ func (h *hostSide) travel(_ context.Context, d *served, p travelParams) (any, er
 	go func() {
 		select {
 		case <-arrived:
-			h.srv.Tell("arrived", toldArrival{Scenario: p.Scenario, App: p.App, Journey: p.Journey})
+			h.host.Tell("arrived", toldArrival{Scenario: p.Scenario, App: p.App, Journey: p.Journey})
 		case <-h.ctx.Done():
 		}
 	}()
