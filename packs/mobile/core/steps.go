@@ -182,8 +182,10 @@ func lookFor(sc *core.Scenario, d Device, app string, k kind, name string, wait 
 			return false, sc.Context().Err()
 		}
 		// The control is there but not shown: the keyboard may cover it. A person closes the
-		// keyboard to reach it, and so does axx, once.
-		if len(found) == 0 && !hid && hidden(s, k, name) != nil {
+		// keyboard to reach it, and so does axx, once. A step that scrolls to its control has
+		// scrolled first: a control the scroll brought above the keyboard needs no keyboard
+		// closed, and closing one can act (a return key sends a web form).
+		if len(found) == 0 && !hid && (!reach || reached) && hidden(s, k, name) != nil {
 			hid = true
 			closed, err := d.HideKeyboard(sc.Context())
 			if err != nil {

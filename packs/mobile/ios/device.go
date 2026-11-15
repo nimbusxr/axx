@@ -1189,6 +1189,12 @@ func (d *running) HideKeyboard(ctx context.Context) (bool, error) {
 	if err != nil || !shown {
 		return false, err
 	}
+	// A bar over the keyboard with a Done button (a web form's, with its arrows; a number pad's,
+	// which has no key that closes it) closes the keyboard and does nothing else: it is tapped
+	// in place of a key, since return sends a web form.
+	if closed, err := d.closeWithBar(ctx, false); err != nil || closed {
+		return closed, err
+	}
 	keys := []string{"return", "Return", "done", "Done"}
 	// WebDriverAgent taps one of these keys and gives the keyboard three seconds to go. When the
 	// keyboard is still there, it says it knows no way to close it: the keyboard may be still
@@ -1201,7 +1207,15 @@ func (d *running) HideKeyboard(ctx context.Context) (bool, error) {
 			err = d.session.Command(ctx, http.MethodPost, "/wda/keyboard/dismiss", map[string]any{"keyNames": keys}, nil)
 		}
 		var ae *appium.Error
-		if err == nil || !errors.As(err, &ae) || !strings.Contains(ae.Message, "Did not know how to dismiss the keyboard") || !time.Now().Before(deadline) {
+		if err == nil || !errors.As(err, &ae) || !strings.Contains(ae.Message, "Did not know how to dismiss the keyboard") {
+			break
+		}
+		// No key closes this keyboard (a number pad): the last button of the bar over it does,
+		// whatever the bar calls it.
+		if closed, berr := d.closeWithBar(ctx, true); berr != nil || closed {
+			return closed, berr
+		}
+		if !time.Now().Before(deadline) {
 			break
 		}
 		gone, gerr := d.keyboardGone(ctx, 2*time.Second)
@@ -1216,6 +1230,74 @@ func (d *running) HideKeyboard(ctx context.Context) (bool, error) {
 		return false, err
 	}
 	return true, nil
+}
+
+// closeWithBar taps the button that closes the keyboard in the bar over it, and reports whether
+// the keyboard went: the bar's Done, or, when any is true, the bar's last button.
+func (d *running) closeWithBar(ctx context.Context, any bool) (bool, error) {
+	src, err := d.session.Source(ctx)
+	if err != nil {
+		return false, err
+	}
+	s, err := parseSource(src)
+	if err != nil || len(s.Nodes) == 0 {
+		return false, err
+	}
+	done := barDone(s, any)
+	if done == nil {
+		return false, nil
+	}
+	x, y := done.Bounds.Center()
+	if err := d.session.Drag(ctx, x, y, x, y, 0); err != nil {
+		return false, err
+	}
+	return d.keyboardGone(ctx, 3*time.Second)
+}
+
+// barDone is the button that closes the keyboard in the bar over it: the one named Done, or,
+// when any is true, the bar's last button (a bar in another language). The bar is a toolbar
+// that sits on the keyboard's top edge; nil when the keyboard has none.
+func barDone(s *mobilecore.Screen, any bool) *mobilecore.Node {
+	var keyboard *mobilecore.Node
+	for _, n := range s.Nodes {
+		if n.Class == "XCUIElementTypeKeyboard" && n.Bounds.Height > 0 {
+			keyboard = n
+		}
+	}
+	if keyboard == nil {
+		return nil
+	}
+	for _, bar := range s.Nodes {
+		// On the keyboard's top edge: its bottom within a row's height of the keyboard's top.
+		if gap := keyboard.Bounds.Y - (bar.Bounds.Y + bar.Bounds.Height); bar.Class != "XCUIElementTypeToolbar" || gap < -8 || gap > 60 {
+			continue
+		}
+		// Its buttons are some views deep in it.
+		var done, last *mobilecore.Node
+		var walk func(n *mobilecore.Node)
+		walk = func(n *mobilecore.Node) {
+			for _, b := range n.Children {
+				walk(b)
+				if b.Class != "XCUIElementTypeButton" || b.Bounds.Width <= 0 {
+					continue
+				}
+				if done == nil && strings.EqualFold(b.Name(), "done") {
+					done = b
+				}
+				if last == nil || b.Bounds.X > last.Bounds.X {
+					last = b
+				}
+			}
+		}
+		walk(bar)
+		if done != nil {
+			return done
+		}
+		if any && last != nil {
+			return last
+		}
+	}
+	return nil
 }
 
 // keyboardGone waits, up to within, for the keyboard to go, and reports whether it did.

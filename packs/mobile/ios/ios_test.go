@@ -732,3 +732,89 @@ func TestAControlTheDriverCannotPlaceIsTappedWhereItIs(t *testing.T) {
 		t.Errorf("a control the driver can hit: the app shows %s after %v", app.Screen(), app.Commands())
 	}
 }
+
+// padScreen is a screen with a number pad up over a button, as WebDriverAgent reads a web form's
+// phone field being typed in: the pad has no key that closes it, and over it is the form's bar,
+// its buttons some views deep, the last one closing the keyboard. done names that button.
+func padScreen(done string) string {
+	return `<AppiumAUT><XCUIElementTypeApplication type="XCUIElementTypeApplication" name="Reports" label="Reports" x="0" y="0" width="402" height="874" visible="true">
+<XCUIElementTypeWindow type="XCUIElementTypeWindow" x="0" y="0" width="402" height="874" visible="true">
+<XCUIElementTypeButton type="XCUIElementTypeButton" name="Send report" label="Send report" x="16" y="727" width="370" height="48" visible="false"/>
+</XCUIElementTypeWindow>
+<XCUIElementTypeWindow type="XCUIElementTypeWindow" x="0" y="0" width="402" height="874" visible="false">
+<XCUIElementTypeToolbar type="XCUIElementTypeToolbar" name="Toolbar" label="Toolbar" x="0" y="514" width="402" height="48" visible="true">
+<XCUIElementTypeOther type="XCUIElementTypeOther" x="0" y="514" width="402" height="48" visible="true">
+<XCUIElementTypeButton type="XCUIElementTypeButton" name="Previous" label="Previous" x="21" y="519" width="40" height="38" visible="true"/>
+<XCUIElementTypeButton type="XCUIElementTypeButton" name="Next" label="Next" x="75" y="519" width="40" height="38" visible="false"/>
+<XCUIElementTypeButton type="XCUIElementTypeButton" name="` + done + `" label="` + done + `" x="341" y="519" width="40" height="38" visible="false"/>
+</XCUIElementTypeOther></XCUIElementTypeToolbar></XCUIElementTypeWindow>
+<XCUIElementTypeWindow type="XCUIElementTypeWindow" x="0" y="0" width="402" height="874" visible="true">
+<XCUIElementTypeKeyboard type="XCUIElementTypeKeyboard" x="0" y="589" width="402" height="227" visible="true">
+<XCUIElementTypeKey type="XCUIElementTypeKey" name="0" label="0" x="137" y="758" width="133" height="54" visible="true"/>
+</XCUIElementTypeKeyboard></XCUIElementTypeWindow>
+</XCUIElementTypeApplication></AppiumAUT>`
+}
+
+// The bar over a keyboard closes it with its Done, which does nothing else: the bar is the
+// toolbar on the keyboard's top edge, and no other. A bar in another language has a last button
+// all the same, for a keyboard no key closes.
+func TestTheBarOverAKeyboardClosesIt(t *testing.T) {
+	read := func(src string) *mobilecore.Screen {
+		t.Helper()
+		s, err := parseSource(src)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return s
+	}
+	if b := barDone(read(padScreen("Done")), false); b == nil || b.Bounds != (mobilecore.Rect{X: 341, Y: 519, Width: 40, Height: 38}) {
+		t.Errorf("the bar's Done: %+v", b)
+	}
+	german := read(padScreen("Fertig"))
+	if b := barDone(german, false); b != nil {
+		t.Errorf("a button not named Done was taken for it: %+v", b)
+	}
+	if b := barDone(german, true); b == nil || b.Name() != "Fertig" {
+		t.Errorf("the bar's last button: %+v", b)
+	}
+	// An app's own toolbar, away from the keyboard, is not the keyboard's bar; nor is any bar
+	// one with no keyboard on the screen.
+	away := read(strings.Replace(padScreen("Done"), `label="Toolbar" x="0" y="514"`, `label="Toolbar" x="0" y="100"`, 1))
+	if b := barDone(away, true); b != nil {
+		t.Errorf("a toolbar away from the keyboard: %+v", b)
+	}
+	closed := read(strings.ReplaceAll(padScreen("Done"), "XCUIElementTypeKeyboard", "XCUIElementTypeOther"))
+	if b := barDone(closed, true); b != nil {
+		t.Errorf("a bar with no keyboard: %+v", b)
+	}
+}
+
+// A number pad has no key that closes it: WebDriverAgent says it does not know how to close the
+// keyboard, and the step failed on that. The bar over the pad closes it, so a control under the
+// pad is reached as a person reaches it: Done, then the control.
+func TestAControlUnderANumberPadIsReachedThroughTheBar(t *testing.T) {
+	open := strings.ReplaceAll(strings.Replace(padScreen("Done"), `y="727" width="370" height="48" visible="false"`, `y="727" width="370" height="48" visible="true"`, 1),
+		"XCUIElementTypeKeyboard", "XCUIElementTypeOther")
+	sent := `<AppiumAUT><XCUIElementTypeApplication type="XCUIElementTypeApplication" name="Reports" label="Reports" x="0" y="0" width="402" height="874" visible="true">` +
+		`<XCUIElementTypeStaticText type="XCUIElementTypeStaticText" name="Report sent" label="Report sent" x="16" y="300" width="361" height="44" visible="true"/>` +
+		`</XCUIElementTypeApplication></AppiumAUT>`
+	screens := map[string]string{"pad": padScreen("Done"), "open": open, "sent": sent}
+	app := appiumtest.Start(t, appiumtest.App{
+		Screens: screens,
+		Start:   "pad",
+		// A finger on the bar's Done closes the pad; the button, in view by then, sends the report.
+		Taps: map[string]string{"tap pad": "open", at(t, screens, "open", mobilecore.RoleButton, "Send report"): "sent"},
+	})
+	// WebDriverAgent never learns how to close this keyboard.
+	app.KeyboardComingIn(100)
+	h := cloudtest.New(t, appcore.Pack(), mobilecore.Pack(), Pack())
+	register(h, app.URL)
+	h.OK("the courier app is launched")
+	h.OK(`the "Send report" button is tapped in the courier app`)
+	if app.Screen() != "sent" {
+		t.Errorf("the button under the pad was not reached: the app shows %s after %v", app.Screen(), app.Commands())
+	}
+	if n := app.KeyboardClosings(); n != 0 {
+		t.Errorf("the pad was closed with a key %d times: it has none", n)
+	}
+}
