@@ -136,12 +136,16 @@ func TestACourierReportsAProblemInAWebViewOnAnEmulator(t *testing.T) {
 	// The scroll step takes a selector too.
 	h.OK(`the 'xpath=//android.widget.EditText[@hint="What did the neighbour say?"]' field is scrolled into view in the reports app`)
 	h.OK(`the "What did the neighbour say?" field in the reports app is filled with "Nobody home since Monday"`)
+	// A number field, found by its label. Chrome presents it as a control with a range: its
+	// label comes as its text, with no hint, and UiAutomator2 will not set its text, so the step
+	// taps it and types, as a person does.
+	h.OK(`the "How many parcels are still in the van?" field in the reports app is filled with '"3"'`)
 	// A button at the page's end, found by its name.
 	h.OK(`the "Send report" button is tapped in the reports app`)
 	h.OK(`within 10s the reports app shows "Report sent"`)
 	for _, answer := range []string{
 		"Did you ring the bell? Yes", "Did you call the recipient? No", "What did the neighbour say? Nobody home since Monday",
-		"Is the parcel back in the van? Yes", "Who did you speak to? Mara Lindqvist",
+		"Is the parcel back in the van? Yes", "Who did you speak to? Mara Lindqvist", "How many parcels are still in the van? 3",
 	} {
 		h.OK(`the reports app shows "` + answer + `"`)
 	}

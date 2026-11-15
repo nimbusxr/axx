@@ -205,6 +205,8 @@ When the 'xpath=(//*[@label="Can the parcel go to a neighbour?"]/following::*[@l
 
 That is iOS's page; on Android the same radio button is `xpath=(//*[@text="Can the parcel go to a neighbour?"]/following::android.widget.RadioButton[@text="No"])[1]`.
 
+On Android, a page's number field (`<input type="number">`) is found by its label and filled like any other field. Chrome presents it as a slider-like control whose text is its label, so Axx taps it and types, as a person does. What it holds cannot be read back there: check what the page shows of the number, not the field's value.
+
 On iOS, the test framework cannot place its own tap on some of a page's controls, like a radio button past the page's first screen. Axx asks first, and taps such a control where it is on the screen, as a finger does. The step's log says when it did.
 
 ## Check what it shows

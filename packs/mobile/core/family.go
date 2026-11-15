@@ -179,14 +179,30 @@ func (family) Fill(sc *core.Scenario, app *appcore.App, field, text string) erro
 		if err != nil {
 			return err
 		}
-		if err := el.Clear(ctx); err != nil {
+		if err := el.Clear(ctx); err != nil && !appium.IsNoTextField(err) {
 			return fmt.Errorf("cannot empty the %s field: %w", quoted(field), err)
 		}
-		if err := el.Type(ctx, text); err != nil {
+		err = el.Type(ctx, text)
+		if appium.IsNoTextField(err) {
+			// A field the driver takes for a slider (a web page's number field on Android): a
+			// person taps it and types. What it held is selected and typed over.
+			err = typeOver(ctx, d, el, text)
+		}
+		if err != nil {
 			return fmt.Errorf("cannot type into the %s field: %w", quoted(field), err)
 		}
 		return nil
 	})
+}
+
+// typeOver taps a field and types text over what it holds, a key at a time: the end of the
+// line, back over what is there (such a field holds a number, a few keys long), then the text.
+func typeOver(ctx context.Context, d Device, el *appium.Element, text string) error {
+	if err := el.Click(ctx); err != nil {
+		return err
+	}
+	const end, backspace = "\uE010", "\uE003"
+	return d.Session().Keys(ctx, end+strings.Repeat(backspace, 32)+text)
 }
 
 func (family) ScrollIntoView(sc *core.Scenario, app *appcore.App, ak appcore.Kind, name string) error {

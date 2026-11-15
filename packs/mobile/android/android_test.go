@@ -1162,3 +1162,59 @@ func TestATapAndAFillScrollForAControlFurtherDown(t *testing.T) {
 		t.Errorf("a control that is nowhere leaves the screen on %s", app.Screen())
 	}
 }
+
+// A web page's number field comes from Chrome as a control with a range: its label is its text,
+// empty or not, it has no hint, and UiAutomator2 will not set its text. It is a field named by
+// that label all the same, and filled as a person fills it: tapped, and typed into. A text
+// field beside it holds what its text says, and a number field of the app's own too.
+func TestAWebPagesNumberFieldIsNamedByItsLabelAndTypedInto(t *testing.T) {
+	page := func(inside string) string {
+		return `<?xml version='1.0' encoding='UTF-8' standalone='yes' ?>
+<hierarchy index="0" class="hierarchy" rotation="0" width="1080" height="2400">
+<android.widget.FrameLayout index="0" package="example.parcels.courier" class="android.widget.FrameLayout" text="" clickable="false" enabled="true" scrollable="false" bounds="[0,0][1080,2400]" displayed="true">
+` + inside + `
+</android.widget.FrameLayout></hierarchy>`
+	}
+	number := `<android.widget.EditText index="1" package="example.parcels.courier" class="android.widget.EditText" text="How many parcels are still in the van?" resource-id="q20" clickable="true" enabled="true" scrollable="false" bounds="[42,1777][1039,1897]" displayed="true" hint="" input-type="2" showing-hint="false"/>`
+	text := `<android.widget.EditText index="0" package="example.parcels.courier" class="android.widget.EditText" text="Mara Lindqvist" resource-id="q19" clickable="true" enabled="true" scrollable="false" bounds="[42,1500][1039,1620]" displayed="true" hint="Who did you speak to?" input-type="1" showing-hint="false"/>`
+	web := page(`<android.webkit.WebView index="0" package="example.parcels.courier" class="android.webkit.WebView" text="Report a delivery problem" clickable="false" enabled="true" scrollable="true" bounds="[0,0][1080,2400]" displayed="true">` + text + number + `</android.webkit.WebView>`)
+	s, err := parseSource(web)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var names []string
+	for _, n := range s.Visible() {
+		if n.Role == mobilecore.RoleField {
+			names = append(names, n.Hint+"="+n.Text)
+		}
+	}
+	if got := strings.Join(names, "; "); got != "Who did you speak to?=Mara Lindqvist; How many parcels are still in the van?=" {
+		t.Errorf("the page's fields, by their labels and what they hold: %s", got)
+	}
+	// A number field of the app's own holds what its text says.
+	own, err := parseSource(page(number))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, n := range own.Visible() {
+		if n.Role == mobilecore.RoleField && (n.Hint != "" || n.Text != "How many parcels are still in the van?") {
+			t.Errorf("a number field outside a web view: hint %q, text %q", n.Hint, n.Text)
+		}
+	}
+
+	field := `//android.widget.EditText[@bounds="[42,1777][1039,1897]" and @text="How many parcels are still in the van?"]`
+	app := appiumtest.Start(t, appiumtest.App{Screens: map[string]string{"report": web}, Start: "report", Ranged: []string{field}})
+	h := cloudtest.New(t, appcore.Pack(), mobilecore.Pack(), Pack())
+	register(h, app.URL)
+	h.OK("the courier app is launched")
+	h.OK(`the "How many parcels are still in the van?" field in the courier app is filled with '"3"'`)
+	var did []string
+	for _, c := range app.Commands() {
+		if strings.HasPrefix(c, "tap ") || strings.HasPrefix(c, "keys ") {
+			did = append(did, c)
+		}
+	}
+	if got := strings.Join(did, "; "); got != "tap "+field+"; keys 3" {
+		t.Errorf("the number field was filled with: %s", got)
+	}
+}

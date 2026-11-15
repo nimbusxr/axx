@@ -76,6 +76,8 @@ func TestACourierReportsAProblemInAWebViewOnASimulator(t *testing.T) {
 	// The scroll step takes a selector, up the page and back down it.
 	h.OK(`the 'xpath=//XCUIElementTypeStaticText[@label="Did you call the recipient?"]' text is scrolled into view in the reports app`)
 	h.OK(radio("Did you call the recipient?", "No"))
+	// A number field, found by its label as any field is.
+	h.OK(`the "How many parcels are still in the van?" field in the reports app is filled with '"3"'`)
 	h.OK(`the 'xpath=//XCUIElementTypeTextField[@label="What number can the depot call?"]' field is scrolled into view in the reports app`)
 	// The phone number is typed last, on the number pad, which has no key that closes it. (A
 	// number that is text is written in both quotes: ADR 0014.)
@@ -89,7 +91,7 @@ func TestACourierReportsAProblemInAWebViewOnASimulator(t *testing.T) {
 	for _, answer := range []string{
 		"Did you ring the bell? Yes", "Did you call the recipient? No", "What did the neighbour say? Nobody home since Monday",
 		"Can the parcel go to a neighbour? No", "Is the parcel back in the van? Yes", "Anything the depot should know? Ring twice",
-		"What number can the depot call? 03415550142",
+		"How many parcels are still in the van? 3", "What number can the depot call? 03415550142",
 	} {
 		h.OK(`the reports app shows "` + answer + `"`)
 	}
