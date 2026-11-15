@@ -99,7 +99,10 @@ data:
 
 - axx's own functions: `sha256`, `sha512`, `sha1`, `md5` (lowercase hexadecimal), `base64`, `base64url` (no padding) and `hex`. Each works on its arguments joined together.
 - Any other function is the project's own, added by one of its packs (`FixtureFunctions` in the pack's manifest; the docs guide "Write custom steps" shows one). An unknown function's error lists the ones there are. When the project needs one it lacks, add it to its pack rather than writing computed values by hand.
-- A recorded function (one that asks a running service) is called only by `axx fixtures generate`; its results are in `axx-fixtures.pairings.yaml`, which is committed and never edited by hand. `axx fixtures check` reads it.
+- A recorded function (one that asks a running service) is called only by `axx fixtures generate`, once for each set of arguments. Its results are in `axx-fixtures.pairings.yaml`, in `fixtures.baseDir`: each function's version, and each call's arguments and value. `axx fixtures check` reads it and never calls the function.
+  - Commit it, also when generated fixtures are gitignored. Never edit it by hand: its checksum is in the manifest, and an edited file is refused (`AXX-E0903`); revert it, or delete it and generate again with the stack running.
+  - A fixture that calls a recorded function with new arguments fails `axx fixtures check` ("no recorded pairing") until `axx fixtures generate` runs with whatever the function asks running. Tell the person when that is needed rather than writing a value in by hand.
+  - A new function version records every entry again; entries no fixture uses are dropped.
 
 ## Identities
 
