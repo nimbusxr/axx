@@ -91,6 +91,13 @@ func (t *Terminal) Approve(ctx context.Context, q Question) (bool, error) {
 	if q.Run > 0 {
 		head = fmt.Sprintf("run %d (%s): %s", q.Run, q.Command, head)
 	}
+	if q.What != "" {
+		// A pack's: something it would start on this machine for runs.
+		head = fmt.Sprintf("%s asks to start %s on this machine", q.Command, q.What)
+		if q.Approved != "" {
+			head += ", which changed since you last approved it"
+		}
+	}
 	out := []string{"", head}
 	for _, line := range strings.Split(strings.TrimSuffix(Diff(q.Approved, q.Proposed.Text), "\n"), "\n") {
 		switch {
@@ -280,6 +287,7 @@ func (a *IDE) Approve(ctx context.Context, q Question) (bool, error) {
 	a.events(Event{
 		Event: "approval", ID: id, Run: q.Run, Command: q.Command,
 		Approved: q.Approved, Proposed: q.Proposed.Text, Diff: Diff(q.Approved, q.Proposed.Text), Warnings: q.Proposed.Warnings,
+		Text: q.What,
 	})
 	select {
 	case ok := <-ch:

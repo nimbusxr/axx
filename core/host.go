@@ -38,6 +38,28 @@ type HostRun struct {
 	// Tell says in the host's terminal, or the editor that started it, what
 	// the pack does for the run: "started chromium".
 	Tell func(text string)
+	// Approve asks the person who runs the host whether the pack may start,
+	// for runs, what a describes. It returns nil once they approved it: now,
+	// or before, with the same text. Otherwise its error says why not, for
+	// the run: they refused, they have not answered yet (the question stays
+	// open where the host runs), or no one can answer there. They are asked
+	// where the host runs, never over the connection.
+	Approve func(ctx context.Context, a HostApproval) error
+}
+
+// HostApproval is what a pack's side in the axx host asks the person to
+// approve: something that runs on their machine for an agent's runs, past
+// the agent's sandbox, which the agent has a say in (an app it builds).
+type HostApproval struct {
+	// Subject names it among the pack's: "the courier app". A later
+	// approval of the subject shows what changed since this one.
+	Subject string
+	// Text is all they approve, as lines: what starts, from which files of
+	// the project, with which of its settings. A text that differs in
+	// anything asks again.
+	Text string
+	// Warnings say what it reaches past the sandbox, each a sentence.
+	Warnings []string
 }
 
 // HostDialer opens a connection to a pack's side in the axx host that

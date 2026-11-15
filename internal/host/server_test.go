@@ -156,12 +156,13 @@ func (f *fixture) start(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	served := make(chan error, 1)
 	go func() { served <- srv.Serve(ctx) }()
-	f.stop = func() {
+	// Once: a test that starts the host again leaves two cleanups to stop it.
+	f.stop = sync.OnceFunc(func() {
 		cancel()
 		if err := <-served; err != nil {
 			t.Errorf("serve: %v", err)
 		}
-	}
+	})
 	t.Cleanup(func() {
 		if f.stop != nil {
 			f.stop()

@@ -76,6 +76,9 @@ type Question struct {
 	// ("" when there is none); Proposed the one the run would start.
 	Approved string
 	Proposed *Definition
+	// What is what a pack asks about, in words ("mobile-ios: the courier
+	// app"); "" for the services' definition.
+	What string
 }
 
 // Event is something that happened in the host, for its terminal or editor
@@ -312,7 +315,7 @@ func (s *Server) Serve(ctx context.Context) error {
 	if s.changed {
 		// It changed since the person last approved one: ask now, while they
 		// are here, rather than when a run needs it.
-		s.ask(s.start, 0, "")
+		s.ask(s.start, 0, "", "")
 	}
 
 	var wg sync.WaitGroup
@@ -551,6 +554,9 @@ func (s *Server) servePack(ctx context.Context, conn net.Conn, l *lines, req Req
 		Tell: func(text string) {
 			s.event(Event{Event: "pack", Pack: req.Pack, Command: req.Command, IDE: req.IDE, Text: text})
 		},
+		Approve: func(ctx context.Context, a core.HostApproval) error {
+			return s.packApproved(ctx, req.Pack, req.Command, a)
+		},
 	}
 	// What the run sent after its request is the pack's: the reader has it.
 	if err := srv.ServeHost(ctx, run, &packConn{Conn: conn, r: l.r}); err != nil && ctx.Err() == nil {
@@ -582,7 +588,7 @@ func (s *Server) approved(ctx context.Context, def *Definition, run int, command
 		return hostErr(CodeNotApproved, "the person running the axx host refused this change of the services' definition").
 			WithHint("change axx.yaml's services and compose files back, or ask them; the host asks again about a newer change, or after it restarts")
 	}
-	q := s.ask(def, run, command)
+	q := s.ask(def, run, command, "")
 	_ = l.write(Message{Type: MsgWaiting, Reason: fmt.Sprintf(
 		"the services' definition changed since it was approved: waiting up to %s for the person running the axx host to approve it", about(s.wait))})
 	waiting()
@@ -610,6 +616,75 @@ func (s *Server) approved(ctx context.Context, def *Definition, run int, command
 	return nil
 }
 
+// packApproved returns nil once the person approved what a pack would start
+// for runs: before, with the same text, or now. As for the services'
+// definition, a run waits for their answer up to s.wait, the question stays
+// open after, and what they refused is refused again until the host
+// restarts. A question about something else that is open is answered first:
+// two apps' scenarios that start at once are each asked about, one after the
+// other.
+func (s *Server) packApproved(ctx context.Context, pack, command string, a core.HostApproval) error {
+	what := pack + ": " + a.Subject
+	// The text names the pack and the subject, so that two subjects' texts
+	// never are one approval.
+	def := &Definition{Key: what, Text: what + "\n" + strings.TrimRight(a.Text, "\n") + "\n", Warnings: a.Warnings}
+	if s.approvals.has(def.Text) {
+		return nil
+	}
+	timer := time.NewTimer(s.wait)
+	defer timer.Stop()
+	notAnswered := func() error {
+		return hostErr(CodeNotAnswered, "the person running the axx host has not answered yet whether runs may start %s", a.Subject).
+			WithHint("the question is open where the host runs; tell them, and run again once they answered")
+	}
+	for {
+		s.mu.Lock()
+		refused := s.refused[def.Text]
+		other := s.open
+		if other != nil && other.text == def.Text {
+			other = nil
+		}
+		s.mu.Unlock()
+		if refused {
+			return hostErr(CodeNotApproved, "the person running the axx host refused to start %s for runs", a.Subject).
+				WithHint("ask them; the host asks again when what it would start changes, or after it restarts")
+		}
+		if other == nil {
+			break
+		}
+		select {
+		case <-other.done:
+		case <-timer.C:
+			return notAnswered()
+		case <-ctx.Done():
+			return axxerr.Wrap(ctx.Err(), CodeInterrupted, exitcode.Interrupted, "the run stopped waiting for the approval of %s", a.Subject)
+		}
+	}
+	q := s.ask(def, 0, command, what)
+	select {
+	case <-q.done:
+	case <-timer.C:
+		return notAnswered()
+	case <-ctx.Done():
+		return axxerr.Wrap(ctx.Err(), CodeInterrupted, exitcode.Interrupted, "the run stopped waiting for the approval of %s; the question stays open where the host runs", a.Subject)
+	}
+	switch {
+	case !q.answered:
+		if s.approvals.has(def.Text) {
+			return nil
+		}
+		why := context.Cause(s.serving)
+		if why == nil {
+			why = errors.New("another question took its place; run again")
+		}
+		return hostErr(CodeInterrupted, "the axx host no longer asks about %s: %v", a.Subject, why)
+	case !q.ok:
+		return hostErr(CodeNotApproved, "the person running the axx host refused to start %s for runs", a.Subject).
+			WithHint("they saw what it is and what it reaches where they run the host; ask them")
+	}
+	return nil
+}
+
 // about says how long d is, for a person: "a minute", "30 seconds".
 func about(d time.Duration) string {
 	switch {
@@ -626,7 +701,7 @@ func about(d time.Duration) string {
 // ask asks the person about def, unless they are asked about it already:
 // a question about another definition is no longer asked. Run is the run
 // that asks (0: the host, as it starts).
-func (s *Server) ask(def *Definition, run int, command string) *question {
+func (s *Server) ask(def *Definition, run int, command, what string) *question {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.open != nil && s.open.text == def.Text {
@@ -640,7 +715,7 @@ func (s *Server) ask(def *Definition, run int, command string) *question {
 	s.open = q
 	approved, _ := s.approvals.last(def.Key)
 	go func() {
-		ok, err := s.opts.Approver.Approve(ctx, Question{Run: run, Command: command, Approved: approved, Proposed: def})
+		ok, err := s.opts.Approver.Approve(ctx, Question{Run: run, Command: command, Approved: approved, Proposed: def, What: what})
 		asked := err == nil && ctx.Err() == nil // an answer, not a question no longer asked
 		cancel(nil)
 		s.mu.Lock()
