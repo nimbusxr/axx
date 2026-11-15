@@ -195,6 +195,18 @@ Controls are found by the names people see: a button by its text, a field by its
 
 `scrolled into view` scrolls the list or text that holds the control until it shows, as a person does. A control far down a long text, like the end of a terms of service, is reached in one move on iOS, which grabs the scroll bar and drags it there, and in a few flings on Android.
 
+A tap or a fill scrolls to its control when the control is further down the screen, so a form longer than the screen needs no scroll step, on Android or iOS. The step looks first, and gives a control that is only late a moment to come (a second and a half). When the control is still not there and the screen is at rest, it scrolls for it as `scrolled into view` does, until its name shows (or its `id=` or `xpath=` selector finds it), and then uses it. On Android it closes the keyboard to scroll; on iOS it scrolls above the keyboard. `scrolled into view` is for the rest, like a check of something further down, and it takes a selector as the other steps do. A check never scrolls: it asks what the screen shows.
+
+**Web pages in an app.** A page an app shows in a web view (`WKWebView` on iOS, `WebView` on Android) works with the same steps. Its controls are found by what the page says of them: a field by its label, a button by its text. A radio button or a checkbox has the same name as the label beside it, and a form often has several with one name ("Yes"), so name the one you mean by its question:
+
+```gherkin
+When the 'xpath=(//*[@label="Can the parcel go to a neighbour?"]/following::*[@label="No"])[1]' element is tapped in the courier app
+```
+
+That is iOS's page; on Android the same radio button is `xpath=(//*[@text="Can the parcel go to a neighbour?"]/following::android.widget.RadioButton[@text="No"])[1]`.
+
+On iOS, the test framework cannot place its own tap on some of a page's controls, like a radio button past the page's first screen. Axx asks first, and taps such a control where it is on the screen, as a finger does. The step's log says when it did.
+
 ## Check what it shows
 
 ```gherkin

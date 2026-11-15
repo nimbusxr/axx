@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"regexp"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -27,8 +28,10 @@ type App struct {
 	Start   string
 	// Taps moves to a screen when an element is tapped: by the XPath the
 	// packs find it with, or by the text it shows; on "tap <screen>"
-	// when a finger taps a point of the screen; and on "drag left <screen>"
-	// or "drag right <screen>" when a finger drags across it.
+	// when a finger taps a point of the screen; on "drag left <screen>"
+	// or "drag right <screen>" when a finger drags across it; and on
+	// "scroll down <screen>" or "scroll up <screen>" when the screen is
+	// scrolled (Android's scroll gesture).
 	Taps map[string]string
 	// Links moves to a screen when a deep link opens.
 	Links map[string]string
@@ -38,6 +41,10 @@ type App struct {
 	// AlertButtons are the buttons of a screen's dialog, in order, as WebDriverAgent lists them; a
 	// screen without is a dialog the server lists no buttons of, as the UiAutomator2 server.
 	AlertButtons map[string][]string
+	// Unplaced are controls XCTest cannot place a tap on, by the XPath the packs find them with
+	// (a web page's radio button past its first screen): WebDriverAgent says they are not
+	// hittable, and its tap of one taps nothing and answers that it tapped.
+	Unplaced []string
 	// Notifications is the screen of the device's notifications: opened over
 	// the app (Android's shade, or a finger from iOS's top edge), and closed
 	// by back or by activating the app.
@@ -272,8 +279,9 @@ func (s *Server) Capabilities() map[string]any {
 }
 
 var (
-	sessionRE = regexp.MustCompile(`^/session/([^/]+)(/.*)?$`)
-	elementRE = regexp.MustCompile(`^/element/([^/]+)/([a-z]+)$`)
+	sessionRE   = regexp.MustCompile(`^/session/([^/]+)(/.*)?$`)
+	elementRE   = regexp.MustCompile(`^/element/([^/]+)/([a-z]+)$`)
+	attributeRE = regexp.MustCompile(`^/element/([^/]+)/attribute/([A-Za-z]+)$`)
 	// The iOS pack finds an element by its type and where it is.
 	containsRE = regexp.MustCompile(`^label CONTAINS\[c\] '((?:[^'\\]|\\.)*)'`)
 	nameRE     = regexp.MustCompile(`^name == '([^']*)'$`)
@@ -497,6 +505,16 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 			reply(map[string]any{"statusBarSize": map[string]any{"width": 54, "height": 5}, "scale": 2})
 			return
 		case "mobile: scrollGesture":
+			// "scroll down <screen>" in Taps is a screen that scrolls, to the screen it shows
+			// next; UiAutomator2 answers whether the view can scroll further.
+			if len(args) > 0 {
+				way, _ := args[0].(map[string]any)["direction"].(string)
+				if next, ok := s.app.Taps["scroll "+way+" "+s.screen]; ok {
+					s.screen = next
+					reply(true)
+					return
+				}
+			}
 			reply(false)
 			return
 		case "mobile: swipe":
@@ -510,6 +528,23 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 		}
 		reply(nil)
 	default:
+		if am := attributeRE.FindStringSubmatch(path); am != nil {
+			xpath := s.elements[am[1]]
+			e := first(s.app.Screens[s.screen], xpath)
+			if e == nil {
+				fail("stale element reference", "The element '"+am[1]+"' does not exist in DOM anymore")
+				return
+			}
+			switch am[2] {
+			case "hittable":
+				shown, _ := e.attr("visible")
+				reply(shown != "false" && !slices.Contains(s.app.Unplaced, xpath))
+			default:
+				v, _ := e.attr(am[2])
+				reply(v)
+			}
+			return
+		}
 		em := elementRE.FindStringSubmatch(path)
 		if em == nil {
 			fail("unknown command", path)
@@ -518,6 +553,12 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 		xpath := s.elements[em[1]]
 		switch em[2] {
 		case "click":
+			if slices.Contains(s.app.Unplaced, xpath) {
+				// XCTest finds no point to tap, and WebDriverAgent keeps that to itself.
+				s.commands = append(s.commands, "lost tap "+xpath)
+				reply(nil)
+				return
+			}
 			if s.expiring > 0 {
 				s.expiring--
 				fail("no such element", "The element identified by '"+em[1]+"' is not present in the cache or has expired. Try to find it again")

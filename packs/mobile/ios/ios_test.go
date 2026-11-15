@@ -653,3 +653,82 @@ func TestAControlPastTheEndOfARowIsScrolledIntoView(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+// webForm is a web page an app shows in a web view, as WebDriverAgent reads it: the page's
+// controls are the web view's, which has no scroll view among its elements, and a radio button is
+// an element with the label beside it. The field further down the page is not on the screen.
+const webForm = `<AppiumAUT><XCUIElementTypeApplication type="XCUIElementTypeApplication" name="Reports" label="Reports" x="0" y="0" width="402" height="874" visible="true">
+<XCUIElementTypeWindow type="XCUIElementTypeWindow" x="0" y="0" width="402" height="874" visible="true">
+<XCUIElementTypeWebView type="XCUIElementTypeWebView" x="0" y="62" width="402" height="778" visible="true">
+<XCUIElementTypeOther type="XCUIElementTypeOther" name="Report a delivery problem" label="Report a delivery problem" x="0" y="62" width="402" height="1700" visible="true">
+<XCUIElementTypeOther type="XCUIElementTypeOther" name="Can the parcel go to a neighbour?" label="Can the parcel go to a neighbour?" x="16" y="393" width="370" height="138" visible="true">
+<XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="Can the parcel go to a neighbour?" name="Can the parcel go to a neighbour?" label="Can the parcel go to a neighbour?" x="16" y="395" width="260" height="21" visible="true"/>
+<XCUIElementTypeOther type="XCUIElementTypeOther" value="0" name="Leave it next door" label="Leave it next door" x="28" y="428" width="356" height="45" visible="true" traits="ToggleButton"/>
+<XCUIElementTypeOther type="XCUIElementTypeOther" value="0" name="Take it back" label="Take it back" x="28" y="480" width="356" height="45" visible="true" traits="ToggleButton"/>
+</XCUIElementTypeOther>
+<XCUIElementTypeTextField type="XCUIElementTypeTextField" name="Who did you speak to?" label="Who did you speak to?" x="16" y="1525" width="370" height="45" visible="false"/>
+</XCUIElementTypeOther></XCUIElementTypeWebView></XCUIElementTypeWindow></XCUIElementTypeApplication></AppiumAUT>`
+
+// A web view scrolls its page: a control further down the page is one the screen has out of
+// view, in something that scrolls, so a step scrolls to it.
+func TestAWebViewScrollsItsPage(t *testing.T) {
+	s, err := parseSource(webForm)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var field *mobilecore.Node
+	for _, n := range s.Nodes {
+		if n.Name() == "Who did you speak to?" {
+			field = n
+		}
+	}
+	if field == nil || field.Displayed {
+		t.Fatalf("the field further down the page: %+v", field)
+	}
+	view := field.Parent
+	for view != nil && !view.Scrolling {
+		view = view.Parent
+	}
+	if view == nil || view.Class != "XCUIElementTypeWebView" {
+		t.Errorf("the field is in nothing that scrolls: the web view is %+v", view)
+	}
+}
+
+// XCTest cannot place its own tap on some controls: a web page's radio button past the page's
+// first screen is one. WebDriverAgent's tap of it taps nothing and answers that it tapped. It
+// does say the control is not hittable, so the step asks, and taps such a control where it is on
+// the screen, as a finger does; a control it can hit keeps WebDriverAgent's own tap.
+func TestAControlTheDriverCannotPlaceIsTappedWhereItIs(t *testing.T) {
+	const next, back = `//XCUIElementTypeOther[@label="Leave it next door"]`, `//XCUIElementTypeOther[@label="Take it back"]`
+	chosen := strings.Replace(webForm, `value="0" name="Leave it next door"`, `value="1" name="Leave it next door"`, 1)
+	app := appiumtest.Start(t, appiumtest.App{
+		Screens:  map[string]string{"form": webForm, "chosen": chosen},
+		Start:    "form",
+		Taps:     map[string]string{"tap form": "chosen", back: "form"},
+		Unplaced: []string{next},
+	})
+	h := cloudtest.New(t, appcore.Pack(), mobilecore.Pack(), Pack())
+	register(h, app.URL)
+	h.OK("the courier app is launched")
+	count := func(prefix string) int {
+		n := 0
+		for _, c := range app.Commands() {
+			if c == prefix || strings.HasPrefix(c, prefix+" ") {
+				n++
+			}
+		}
+		return n
+	}
+	h.OK(`the 'xpath=` + next + `' element is tapped in the courier app`)
+	if app.Screen() != "chosen" || count("drag") != 1 || count("lost tap") != 0 {
+		t.Errorf("the radio button the driver cannot place: the app shows %s after %v", app.Screen(), app.Commands())
+	}
+	if !slices.ContainsFunc(h.Sink.Logs, func(l string) bool { return strings.Contains(l, "it is tapped where it is, at 206, 450") }) {
+		t.Errorf("the step does not say where it tapped: %v", h.Sink.Logs)
+	}
+	// One the driver can hit is the driver's to tap.
+	h.OK(`the 'xpath=` + back + `' element is tapped in the courier app`)
+	if app.Screen() != "form" || count("drag") != 1 || count("tap") != 1 {
+		t.Errorf("a control the driver can hit: the app shows %s after %v", app.Screen(), app.Commands())
+	}
+}
