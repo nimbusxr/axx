@@ -1191,6 +1191,23 @@ func TestAWebPagesNumberFieldIsNamedByItsLabelAndTypedInto(t *testing.T) {
 	if got := strings.Join(names, "; "); got != "Who did you speak to?=Mara Lindqvist; How many parcels are still in the van?=" {
 		t.Errorf("the page's fields, by their labels and what they hold: %s", got)
 	}
+	// Another build of Chrome says nothing of the field's input type: the label the page shows
+	// just before the field says its text is that label. A field whose text is not the text
+	// before it holds what was typed.
+	label := `<android.view.View index="0" package="example.parcels.courier" class="android.view.View" text="How many parcels are still in the van?" clickable="false" enabled="true" scrollable="false" bounds="[42,1700][1039,1765]" displayed="true"/>`
+	untyped := strings.Replace(number, ` input-type="2"`, "", 1)
+	typed := strings.Replace(untyped, `text="How many parcels are still in the van?"`, `text="3"`, 1)
+	for src, want := range map[string]string{untyped: "How many parcels are still in the van?=", typed: "=3"} {
+		s, err := parseSource(page(`<android.webkit.WebView index="0" package="example.parcels.courier" class="android.webkit.WebView" text="" clickable="false" enabled="true" scrollable="true" bounds="[0,0][1080,2400]" displayed="true">` + label + src + `</android.webkit.WebView>`))
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, n := range s.Visible() {
+			if n.Role == mobilecore.RoleField && n.Hint+"="+n.Text != want {
+				t.Errorf("a field after its label, with no input type: hint %q, text %q, want %s", n.Hint, n.Text, want)
+			}
+		}
+	}
 	// A number field of the app's own holds what its text says.
 	own, err := parseSource(page(number))
 	if err != nil {

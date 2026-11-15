@@ -39,7 +39,9 @@ func parseSource(src string) (*mobilecore.Screen, error) {
 				continue
 			}
 			n := nodeOf(t)
-			if attr(t.Attr, "input-type") == "2" {
+			// The class of what a field takes is the low bits of its input type; a number's
+			// is 2, with flags above it for a sign or a decimal point.
+			if kind, err := strconv.Atoi(attr(t.Attr, "input-type")); err == nil && kind&0xf == 2 {
 				numbers[n] = true
 			}
 			bounds := attr(t.Attr, "bounds")
@@ -67,12 +69,34 @@ func parseSource(src string) (*mobilecore.Screen, error) {
 	// or not, and no hint: Chrome presents it as a control with a range, whose text is its name
 	// and whose number is the range's. A text field's label is its hint. So the text is what
 	// the field is called, not what it holds. (Its locator, made above, finds it by that text.)
-	for n := range numbers {
-		if n.Class == "android.widget.EditText" && n.Hint == "" && n.Label == "" && n.Text != "" && inWebView(n) {
+	// Not every WebView says a field's input type (Android 15's says none, of any field), so
+	// the page's own label counts as well: a field whose text is the text just before it on the
+	// page shows its label, not something typed.
+	for _, n := range s.Nodes {
+		if n.Class != "android.widget.EditText" || n.Hint != "" || n.Label != "" || n.Text == "" || !inWebView(n) {
+			continue
+		}
+		if numbers[n] || before(n) == n.Text {
 			n.Hint, n.Text = n.Text, ""
 		}
 	}
 	return s, nil
+}
+
+// before is the text of what comes just before a node in what holds it: a field's label, on a
+// web page that puts one before its field.
+func before(n *mobilecore.Node) string {
+	if n.Parent == nil {
+		return ""
+	}
+	prev := ""
+	for _, c := range n.Parent.Children {
+		if c == n {
+			return prev
+		}
+		prev = c.Text
+	}
+	return ""
 }
 
 // inWebView reports whether a node is part of a web page an app shows.
