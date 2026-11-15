@@ -43,8 +43,9 @@ const HostedEnv = "AXX_TEST_HOSTED"
 // that pack, over a pipe. A pack's side that works with a suite
 // (core.HostRun.Suite) has one of its own, made as the harness's is; what it
 // asks the host's person to approve is approved (a test's host has no one to
-// ask, and the tests of the host itself ask).
-func hosted(t *testing.T, suite *core.Suite, packs []core.Pack, opts core.SuiteOptions) {
+// ask, and the tests of the host itself ask), unless the harness answers
+// (Harness.HostAnswer); the harness keeps what was asked.
+func hosted(t *testing.T, h *Harness, suite *core.Suite, packs []core.Pack, opts core.SuiteOptions) {
 	ctx, cancel := context.WithCancel(context.Background())
 	var wg sync.WaitGroup
 	var hostSuite struct {
@@ -68,7 +69,16 @@ func hosted(t *testing.T, suite *core.Suite, packs []core.Pack, opts core.SuiteO
 			wg.Go(func() {
 				_ = hs.ServeHost(ctx, core.HostRun{
 					ProjectDir: suite.ProjectDir(), Command: "go test", Logger: suite.Logger(), Tell: func(string) {},
-					Approve: func(context.Context, core.HostApproval) error { return nil },
+					Approve: func(_ context.Context, a core.HostApproval) error {
+						h.hostMu.Lock()
+						h.hostAsked = append(h.hostAsked, a)
+						answer := h.HostAnswer
+						h.hostMu.Unlock()
+						if answer == nil {
+							return nil
+						}
+						return answer(a)
+					},
 					Suite: func() (*core.Suite, error) {
 						hostSuite.once.Do(func() { hostSuite.s = core.NewSuite(opts) })
 						return hostSuite.s, nil
@@ -96,6 +106,20 @@ type Harness struct {
 	hooks []core.Hook
 	// line is the line of the scenario's last step in its feature file.
 	line int
+
+	// HostAnswer answers what a pack's side in the test's host asks its
+	// person to approve; nil approves.
+	HostAnswer func(core.HostApproval) error
+	hostMu     sync.Mutex
+	hostAsked  []core.HostApproval
+}
+
+// HostAsked are what the packs' sides in the test's host asked its person
+// to approve, in order.
+func (h *Harness) HostAsked() []core.HostApproval {
+	h.hostMu.Lock()
+	defer h.hostMu.Unlock()
+	return append([]core.HostApproval(nil), h.hostAsked...)
 }
 
 // Sink records scenario logs and attachments, and what packs announce to
@@ -239,7 +263,7 @@ func newHarness(t *testing.T, config map[string]any, services map[string]string,
 	suite := core.NewSuite(opts)
 	h = &Harness{t: t, reg: reg, packs: packs, Suite: suite, Dir: dir, Sink: sink, hooks: hooks}
 	if os.Getenv(HostedEnv) != "" {
-		hosted(t, suite, packs, opts)
+		hosted(t, h, suite, packs, opts)
 	}
 	t.Cleanup(func() {
 		for i := len(packs) - 1; i >= 0; i-- {

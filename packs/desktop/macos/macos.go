@@ -61,16 +61,31 @@ func steps() []core.StepDef {
 			},
 			Examples: []string{"Given the depot macos app with the following properties:\n  | app | ../depot-desk/appkit/build/Depot desk.app |"},
 			Run: func(sc *core.Scenario, a core.Args) error {
-				app, err := desktopcore.Parse(sc, "macos", a.String(0), a.Table, "preferences")
+				rows, err := desktopcore.Properties(sc, a.Table)
 				if err != nil {
 					return err
 				}
-				if _, err := preferenceDomains(app); err != nil {
+				app, err := parseApp(sc, a.String(0), rows)
+				if err != nil {
 					return err
 				}
-				app.Driver = driver{}
-				return desktopcore.Register(sc, app)
+				// Where an axx host serves the project, it runs the app.
+				return desktopcore.Register(sc, desktopcore.Hosted(sc, Name, app, rows))
 			},
 		},
 	}
+}
+
+// parseApp reads a macOS app's registration from its rows, for this pack's
+// driver: in a run, and in the axx host.
+func parseApp(sc *core.Scenario, name string, rows []desktopcore.Property) (*desktopcore.App, error) {
+	app, err := desktopcore.ParseRows(sc, "macos", name, rows, "preferences")
+	if err != nil {
+		return nil, err
+	}
+	if _, err := preferenceDomains(app); err != nil {
+		return nil, err
+	}
+	app.Driver = driver{}
+	return app, nil
 }

@@ -102,14 +102,41 @@ var (
 // app, args, env.<name>, locale and timezone, and the OS's own properties,
 // extra (registry, on Windows).
 func Parse(sc *core.Scenario, platform, name string, t *core.Table, extra ...string) (*App, error) {
+	rows, err := Properties(sc, t)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRows(sc, platform, name, rows, extra...)
+}
+
+// Property is a row of an app's registration: a property and its value, as
+// the step read it (references to the environment and to secrets filled in).
+type Property struct {
+	Name  string `json:"name"`
+	Value string `json:"value"`
+}
+
+// Properties are the rows of an app's registration, as the step reads them.
+func Properties(sc *core.Scenario, t *core.Table) ([]Property, error) {
 	pairs, err := t.Pairs()
 	if err != nil {
 		return nil, err
 	}
+	rows := make([]Property, 0, len(pairs))
+	for _, p := range pairs {
+		rows = append(rows, Property{Name: p.Key, Value: strings.TrimSpace(secrets.Expand(sc, p.Value))})
+	}
+	return rows, nil
+}
+
+// ParseRows reads a registration from its rows: Parse, for a pack's side in
+// the axx host, which registers an app from the rows the run's step read.
+func ParseRows(sc *core.Scenario, platform, name string, rows []Property, extra ...string) (*App, error) {
+	var err error
 	a := &App{Name: appcore.Named(sc, name), Env: map[string]string{}, Extra: map[string]string{}, Dir: sc.Suite().ProjectDir()}
 	supported := append([]string{"app", "args", "env.<name>", "locale", "timezone", "owner"}, extra...)
-	for _, p := range pairs {
-		key, value := p.Key, strings.TrimSpace(secrets.Expand(sc, p.Value))
+	for _, p := range rows {
+		key, value := p.Name, p.Value
 		if env, ok := strings.CutPrefix(key, "env."); ok {
 			if !envNameRE.MatchString(env) {
 				return nil, fmt.Errorf("the %s %s app's %s: %q is not an environment variable's name", name, platform, key, env)
@@ -176,6 +203,11 @@ func appPath(sc *core.Scenario, value string) (string, error) {
 		if _, err := os.Stat(p); err == nil {
 			return p, nil
 		}
+	}
+	// A file the axx host does not read for a run: one outside the project.
+	var outside *core.OutsideError
+	if errors.As(err, &outside) {
+		return "", err
 	}
 	if strings.ContainsAny(value, `/\`) {
 		return "", fmt.Errorf("%s is not there (%s): build it first", value, p)
@@ -375,9 +407,13 @@ func process(sc *core.Scenario, app *App, start bool) (Process, error) {
 	if err != nil {
 		return nil, err
 	}
-	started, err := launching(sc, app, desk, h)
-	if err != nil {
-		return nil, err
+	started := app
+	if _, hosted := desk.(*hostedDesktop); !hosted {
+		// On a desktop the axx host runs, the host starts the app, with
+		// what the scenario's launch hooks do there.
+		if started, err = launching(sc, app, desk, h); err != nil {
+			return nil, err
+		}
 	}
 	p, err = desk.Start(sc, started)
 	if err != nil {

@@ -182,9 +182,19 @@ func Within(dir, path string) error {
 	}
 	real = filepath.Join(real, rest)
 	if rel, err := filepath.Rel(dir, real); err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) || filepath.IsAbs(rel) {
-		return fmt.Errorf("%s is not in the project (%s): the axx host reads the project's files only", path, dir)
+		return &OutsideError{Path: path, Dir: dir}
 	}
 	return nil
+}
+
+// OutsideError is the error for a file a confined suite does not read
+// (Suite.Confine): one outside the project.
+type OutsideError struct {
+	Path, Dir string
+}
+
+func (e *OutsideError) Error() string {
+	return fmt.Sprintf("%s is not in the project (%s): the axx host reads the project's files only", e.Path, e.Dir)
 }
 
 // ResolvePathFrom resolves a path in dir first (the directory of the feature

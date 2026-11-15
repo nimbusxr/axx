@@ -39,7 +39,12 @@ func (pack) Manifest() core.Manifest {
 		Name: Name, Namespace: Name, Doc: packDoc,
 		Requires: []string{modelscore.Name, desktopmacos.Name, appcore.Name},
 		Steps:    []core.StepDef{},
-		Hooks:    []core.Hook{{ID: Name + ".prepare", Phase: core.BeforeStep, Run: prepare}},
+		// The launch hook is set up in a run's scenario and, where the axx
+		// host starts the app, in the host's.
+		Hooks: []core.Hook{
+			{ID: Name + ".prepare", Phase: core.BeforeStep, Run: prepare},
+			{ID: Name + ".prepare.host", Phase: core.HostScenario, Run: prepare},
+		},
 	}
 }
 
