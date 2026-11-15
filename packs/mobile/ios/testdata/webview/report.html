@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Report a delivery problem</title>
+<style>
+:root { color-scheme: light; --ink: #2b2d31; --muted: #676b74; --line: #8b8f98; --primary: #3d70d6; --danger: #b00020; --unit: 8px; }
+* { box-sizing: border-box; }
+body { margin: 0; font: 1rem/1.5 system-ui, sans-serif; color: var(--ink); background: #fff; overflow-wrap: break-word; }
+#app { max-width: 42rem; margin: 0 auto; padding: calc(var(--unit) * 2); }
+header h1 { font-size: 1.25rem; line-height: 1.3; margin: 0 0 0.5rem; }
+.courier { margin: 0 0 0.5rem; color: var(--muted); }
+.steps { display: flex; gap: 0.25rem; list-style: none; padding: 0; margin: 0 0 1rem; font-size: 0.8rem; color: var(--muted); }
+.steps li { flex: 1; border-top: 4px solid var(--line); padding-top: 0.25rem; min-width: 0; }
+.steps li.current { border-color: var(--primary); color: var(--ink); font-weight: 600; }
+h2 { font-size: 1.3rem; line-height: 1.25; margin: 0.5rem 0 0.75rem; outline: none; }
+.field { border: 0; margin: 0 0 1.25rem; padding: 0; min-width: 0; }
+.field:has(> .error:not(:empty)) { border-left: 4px solid var(--danger); padding-left: var(--unit); }
+label, legend { display: block; font-weight: 600; margin-bottom: 0.35rem; padding: 0; }
+input:not([type="radio"]), textarea {
+  display: block; width: 100%; min-height: 44px; font: inherit; color: var(--ink); background: #fff;
+  padding: calc(var(--unit) * 0.75) var(--unit); border: 2px solid var(--line); border-radius: 8px;
+}
+textarea { min-height: 6rem; resize: vertical; }
+.option { display: flex; align-items: center; min-height: 44px; margin: calc(var(--unit) / 2) 0; border: 2px solid var(--line); border-radius: 8px; background: #fff; }
+.option:has(input:checked) { border-color: var(--ink); background: #f0f2f4; }
+.option label { flex: 1; font-weight: 400; margin: 0; cursor: pointer; padding: calc(var(--unit) * 1.25) var(--unit) calc(var(--unit) * 1.25) calc(var(--unit) * 0.5); }
+.option input { flex: none; width: 1.5rem; height: 1.5rem; margin: 0 0 0 calc(var(--unit) * 1.25); accent-color: var(--primary); cursor: pointer; }
+.error { color: var(--danger); margin: 0.35rem 0 0; font-weight: 600; }
+.error:empty { display: none; }
+.buttons { display: flex; flex-wrap: wrap; gap: var(--unit); margin: 1rem 0; }
+.btn { font: inherit; font-weight: 600; min-height: 44px; padding: 0.6rem 1.1rem; cursor: pointer; border: 2px solid var(--ink); border-radius: 8px; background: #fff; color: var(--ink); flex: 1 1 100%; }
+.btn.primary { background: var(--primary); border-color: var(--primary); color: #fff; }
+</style>
+</head>
+<body>
+<main id="app" aria-live="polite">
+  <header>
+    <h1>Report a delivery problem</h1>
+    <p class="courier">Reporting as Hanna Wolf</p>
+    <ol class="steps" aria-label="Steps">
+      <li>Parcel</li><li>Problem</li><li aria-current="step" class="current">Details</li><li>Send</li>
+    </ol>
+  </header>
+  <section class="step">
+    <h2 tabindex="-1">Nobody at the door</h2>
+    <p class="courier">PX-MOB-9401 · Karl-Liebknecht-Str. 14, Leipzig</p>
+    <form class="details" novalidate></form>
+  </section>
+</main>
+<script>
+// The questions of a report, in its order: every one needs an answer. The choices and the fields past the first screen are
+// the ones a courier reaches by scrolling.
+const QUESTIONS = [
+  { text: 'Did you ring the bell?', choices: ['Yes', 'No'] },
+  { text: 'Did you call the recipient?', choices: ['Yes', 'No'] },
+  { text: 'Did you leave a card?', choices: ['Yes', 'No'] },
+  { text: 'Where did you leave the card?', type: 'text' },
+  { text: 'What did the neighbour say?', type: 'text' },
+  { text: 'Can the parcel go to a neighbour?', choices: ['Yes', 'No'] },
+  { text: 'Is the parcel back in the van?', choices: ['Yes', 'No'] },
+  { text: 'Anything the depot should know?', type: 'long_text' },
+  { text: 'Who did you speak to?', type: 'text' },
+  { text: 'What number can the depot call?', type: 'phone' },
+]
+let n = 0
+const uid = (p) => `${p}${++n}`
+function h(tag, attrs = {}, ...children) {
+  const el = document.createElement(tag)
+  for (const [k, v] of Object.entries(attrs)) if (v != null && v !== false) el.setAttribute(k, v === true ? '' : String(v))
+  for (const c of children) if (c != null) el.append(c)
+  return el
+}
+const answers = {}, errors = new Map(), parts = new Map()
+const onAnswer = (key, value) => { answers[key] = value; errors.get(key).replaceChildren() }
+function questionEl(q) {
+  const id = uid('q')
+  const error = h('p', { class: 'error', id: `${id}-error`, role: 'alert' })
+  if (q.choices) {
+    return [h('fieldset', { class: 'field choice', 'aria-describedby': `${id}-error` },
+      h('legend', {}, q.text),
+      ...q.choices.map((o) => {
+        const oid = uid('o')
+        const input = h('input', { type: 'radio', id: oid, name: `${id}-choice`, value: o })
+        input.addEventListener('change', () => onAnswer(q.text, o))
+        return h('div', { class: 'option' }, input, h('label', { for: oid }, o))
+      }),
+      error), error]
+  }
+  const input = q.type === 'long_text' ? h('textarea', { id, rows: 4 })
+    : q.type === 'phone' ? h('input', { id, type: 'tel', autocomplete: 'tel', inputmode: 'tel' })
+    : h('input', { id, type: 'text' })
+  input.setAttribute('aria-describedby', `${id}-error`)
+  input.addEventListener('input', () => onAnswer(q.text, input.value))
+  return [h('div', { class: 'field' }, h('label', { for: id }, q.text), input, error), error]
+}
+const form = document.querySelector('form.details')
+for (const q of QUESTIONS) {
+  const [el, error] = questionEl(q)
+  parts.set(q.text, el); errors.set(q.text, error); form.append(el)
+}
+form.append(h('div', { class: 'buttons' }, h('button', { type: 'submit', class: 'btn primary' }, 'Send report')))
+// Sending says which answers the report has, so a test reads what the page took.
+form.addEventListener('submit', (e) => {
+  e.preventDefault()
+  const given = QUESTIONS.filter((q) => (answers[q.text] ?? '').trim()).map((q) => `${q.text} ${answers[q.text]}`)
+  document.querySelector('section.step').replaceChildren(h('h2', {}, 'Report sent'), ...given.map((g) => h('p', {}, g)))
+  scrollTo(0, 0)
+})
+for (const type of ['pointerdown', 'keydown', 'input']) document.addEventListener(type, () => {}, { capture: true, passive: true })
+document.querySelector('h2').focus({ preventScroll: true })
+</script>
+</body>
+</html>

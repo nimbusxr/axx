@@ -472,7 +472,7 @@ jobs:
           two='TestCouriersOnAnEmulator|TestACourierScansALabelOnAnEmulator'
           three='TestACourierAttachesADocumentOnAnEmulator|TestACourierSharesTheVanOnAnEmulator'
           four='TestACourierWalksUpToAParcelAndMeasuresItOnAnEmulator|TestACourierPhotographsAParcelAtTheDoorOnAnEmulator'
-          five='TestACourierMeasuresAParcelOnAnEmulator|TestRecordingsOnAnEmulator'
+          five='TestACourierMeasuresAParcelOnAnEmulator|TestRecordingsOnAnEmulator|TestACourierReportsAProblemInAWebViewOnAnEmulator'
           case "${PART#hosted-}" in
             emulator-1) select=(-run "^($one)\$") ;;
             emulator-2) select=(-run "^($two)\$") ;;
@@ -700,8 +700,8 @@ jobs:
     # some 4.5 of setting up (the simulator's first boot takes 2 to 3; a part's first test takes a
     # minute longer, as the simulator's first app does), so that no job runs past 10:
     # TestCouriersOnASimulator, two scenarios long, and TestRecordingsOnASimulator on one; the
-    # camera's on four; the notifications' and the reminder's on one each; sharing the van on
-    # one; the others on the ninth.
+    # camera's on four; the notifications' and the reminder's on one each; sharing the van, with
+    # the web view's, on one; the others on the ninth.
     name: ios (${{ matrix.tests }})
     runs-on: macos-latest
     timeout-minutes: 60
@@ -724,9 +724,9 @@ jobs:
           - tests: reminder
             select: -test.run=^TestACourierIsRemindedOfTheRoundOnASimulator$
           - tests: shares
-            select: -test.run=^TestACourierSharesTheVanOnASimulator$
+            select: -test.run=^(TestACourierSharesTheVanOnASimulator|TestACourierReportsAProblemInAWebViewOnASimulator)$
           - tests: others
-            select: -test.skip=^(TestCouriersOnASimulator|TestRecordingsOnASimulator|TestThePhoneMovesThroughTheScene|TestACourierReadsATornLabelOnASimulator|TestACourierScansALabelOnASimulator|TestTheCameraSeesASceneAnImageOrAVideo|TestACourierMeasuresAParcelOnASimulator|TestACourierWalksUpToAParcelAndMeasuresItOnASimulator|TestACourierPhotographsAParcelAtTheDoorOnASimulator|TestACourierFollowsNotificationsOnASimulator|TestACourierIsRemindedOfTheRoundOnASimulator|TestACourierSharesTheVanOnASimulator)$
+            select: -test.skip=^(TestCouriersOnASimulator|TestRecordingsOnASimulator|TestThePhoneMovesThroughTheScene|TestACourierReadsATornLabelOnASimulator|TestACourierScansALabelOnASimulator|TestTheCameraSeesASceneAnImageOrAVideo|TestACourierMeasuresAParcelOnASimulator|TestACourierWalksUpToAParcelAndMeasuresItOnASimulator|TestACourierPhotographsAParcelAtTheDoorOnASimulator|TestACourierFollowsNotificationsOnASimulator|TestACourierIsRemindedOfTheRoundOnASimulator|TestACourierSharesTheVanOnASimulator|TestACourierReportsAProblemInAWebViewOnASimulator)$
           # Four of them again through an axx host, in the tests' process (AXX_TEST_HOSTED): the
           # host's side of the pack leases the simulator and starts the app, as for a run in an
           # agent's sandbox. They read the builds of the part whose tests they run.

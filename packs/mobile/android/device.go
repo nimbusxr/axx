@@ -755,8 +755,14 @@ func (d *running) Swipe(ctx context.Context, direction string) error {
 	}, nil)
 }
 
-// Scroll scrolls the first thing on the screen that scrolls.
+// Scroll scrolls the first thing on the screen that scrolls. A keyboard that shows is closed
+// first, as a person closes it to scroll a page: it covers the lower part of the view, where the
+// gesture would land on its keys, and a page keeps the field being typed in on the screen, so it
+// scrolls back to it.
 func (d *running) Scroll(ctx context.Context, direction string) (bool, error) {
+	if _, err := d.HideKeyboard(ctx); err != nil {
+		return false, err
+	}
 	s, err := d.Screen(ctx)
 	if err != nil {
 		return false, err
@@ -785,6 +791,19 @@ func (d *running) scrollView(ctx context.Context, s *mobilecore.Screen, n *mobil
 	b := n.Bounds
 	in := 0.05
 	area := appium.Area{Left: b.X + b.Width*in, Top: b.Y + b.Height*in, Width: b.Width * (1 - 2*in), Height: b.Height * (1 - 2*in)}
+	if direction == "up" || direction == "down" {
+		// An app that draws under the status bar (edge to edge, as Android 15 has apps do) has a
+		// view that starts at the screen's top: a finger that starts there pulls the
+		// notifications down, and the view does not move. The gesture starts below the bar.
+		if bars, err := d.SystemBars(ctx); err == nil {
+			for _, bar := range bars {
+				if clear := bar.Y + bar.Height*1.5; bar.Y == 0 && bar.Height > 0 && area.Top < clear && clear < area.Top+area.Height {
+					area.Height -= clear - area.Top
+					area.Top = clear
+				}
+			}
+		}
+	}
 	if direction == "left" || direction == "right" {
 		// A sideways one keeps clear of the screen's sides too, where gesture navigation
 		// takes a swipe for Back (32dp: a tenth of a phone's width, at most).

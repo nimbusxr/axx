@@ -1090,3 +1090,75 @@ func TestTheAppEndsWithItsScenario(t *testing.T) {
 		t.Errorf("adb calls:\n%s\nwant the app stopped", b)
 	}
 }
+
+// reportScreen is a screen of a form longer than the screen, as UiAutomator2 lists it: what
+// shows, and nothing of what is further down.
+func reportScreen(shown string) string {
+	return `<?xml version='1.0' encoding='UTF-8' standalone='yes' ?>
+<hierarchy index="0" class="hierarchy" rotation="0" width="1080" height="2400">
+<android.widget.FrameLayout index="0" package="example.parcels.courier" class="android.widget.FrameLayout" text="" clickable="false" enabled="true" scrollable="false" bounds="[0,0][1080,2400]" displayed="true">
+<android.widget.ScrollView index="0" package="example.parcels.courier" class="android.widget.ScrollView" text="" clickable="false" enabled="true" scrollable="true" bounds="[0,200][1080,2400]" displayed="true">
+` + shown + `
+</android.widget.ScrollView></android.widget.FrameLayout></hierarchy>`
+}
+
+// A tap or a fill scrolls for a control the screen does not list, as the scroll step does:
+// UiAutomator2 lists nothing of a screen past what shows, so a field or a button further down a
+// form is found by scrolling until its name shows. A check does not scroll: it asks what shows.
+func TestATapAndAFillScrollForAControlFurtherDown(t *testing.T) {
+	top := reportScreen(`<android.widget.TextView index="0" package="example.parcels.courier" class="android.widget.TextView" text="Did you ring the bell?" clickable="false" enabled="true" scrollable="false" bounds="[48,260][1032,340]" displayed="true"/>`)
+	bottom := reportScreen(`<android.widget.EditText index="0" package="example.parcels.courier" class="android.widget.EditText" text="" hint="Who did you speak to?" clickable="true" enabled="true" scrollable="false" bounds="[48,900][1032,1040]" displayed="true"/>
+<android.widget.Button index="1" package="example.parcels.courier" class="android.widget.Button" text="Send report" clickable="true" enabled="true" scrollable="false" bounds="[48,1200][1032,1340]" displayed="true"/>`)
+	sent := reportScreen(`<android.widget.TextView index="0" package="example.parcels.courier" class="android.widget.TextView" text="Report sent" clickable="false" enabled="true" scrollable="false" bounds="[48,260][1032,340]" displayed="true"/>`)
+	button := at(t, map[string]string{"bottom": bottom}, "bottom", "Send report")
+	scrolls := func(app *appiumtest.Server) int {
+		n := 0
+		for _, c := range app.Commands() {
+			if strings.HasPrefix(c, "mobile: scrollGesture") {
+				n++
+			}
+		}
+		return n
+	}
+	for _, c := range []struct{ name, step string }{
+		{"a fill", `the "Who did you speak to?" field in the courier app is filled with "Mara Lindqvist"`},
+		{"a tap", `the "Send report" button is tapped in the courier app`},
+	} {
+		app := appiumtest.Start(t, appiumtest.App{
+			Screens: map[string]string{"top": top, "bottom": bottom, "sent": sent},
+			Start:   "top",
+			Taps:    map[string]string{"scroll down top": "bottom", button: "sent"},
+		})
+		h := cloudtest.New(t, appcore.Pack(), mobilecore.Pack(), Pack())
+		register(h, app.URL)
+		h.OK("the courier app is launched")
+		// A check asks what shows, and scrolls nothing.
+		_ = h.Fails(`within 1s the "Send report" button is shown in the courier app`, "No button named")
+		if app.Screen() != "top" || scrolls(app) != 0 {
+			t.Fatalf("%s: a check scrolled the screen to %s (%d scrolls)", c.name, app.Screen(), scrolls(app))
+		}
+		h.OK(c.step)
+		if scrolls(app) == 0 || app.Screen() == "top" {
+			t.Errorf("%s did not scroll for its control: the app shows %s after %v", c.name, app.Screen(), app.Commands())
+		}
+		if c.name == "a tap" && app.Screen() != "sent" {
+			t.Errorf("the button further down was not tapped: the app shows %s", app.Screen())
+		}
+	}
+
+	// A control that is nowhere is still a failure that says so, the screen scrolled back.
+	app := appiumtest.Start(t, appiumtest.App{
+		Screens: map[string]string{"top": top, "bottom": bottom},
+		Start:   "top",
+		Taps:    map[string]string{"scroll down top": "bottom", "scroll up bottom": "top"},
+	})
+	restore := mobilecore.SetActionTimeout(time.Second)
+	defer restore()
+	h := cloudtest.New(t, appcore.Pack(), mobilecore.Pack(), Pack())
+	register(h, app.URL)
+	h.OK("the courier app is launched")
+	_ = h.Fails(`the "Cancel report" button is tapped in the courier app`, `No button named "Cancel report"`)
+	if app.Screen() != "top" {
+		t.Errorf("a control that is nowhere leaves the screen on %s", app.Screen())
+	}
+}
