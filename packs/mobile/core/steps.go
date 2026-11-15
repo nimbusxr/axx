@@ -135,6 +135,18 @@ func lookFor(sc *core.Scenario, d Device, app string, k kind, name string, wait 
 	var last *Screen
 	hid := false
 	looks := 0
+	// again reads the screen once a scroll has moved it, and reports whether the control is the
+	// one on it. A scroll takes what time it takes, the wait's own among it (a long list, a slow
+	// device): what it brought onto the screen is looked at there and then, not at a next look
+	// the wait may no longer have time for.
+	again := func() (bool, error) {
+		s, err := d.Screen(sc.Context())
+		if err != nil {
+			return false, err
+		}
+		last, found = s, matches(s, k, name)
+		return len(found) == 1, nil
+	}
 	ok, err := waitUntil(sc, wait, func() (bool, error) {
 		looks++
 		s, err := d.Screen(sc.Context())
@@ -160,7 +172,7 @@ func lookFor(sc *core.Scenario, d Device, app string, k kind, name string, wait 
 				return false, fmt.Errorf("scrolling to the %s %s: %w", quoted(name), k.noun, err)
 			}
 			if shown {
-				return false, nil
+				return again()
 			}
 		}
 		// The screen does not list the control at all, and the step is about to use it. A phone
@@ -179,7 +191,10 @@ func lookFor(sc *core.Scenario, d Device, app string, k kind, name string, wait 
 			if _, err := scrollFor(sc, d, k, name, false); err != nil && sc.Context().Err() == nil {
 				note(sc, "scrolling for a control the screen does not list", name, err)
 			}
-			return false, sc.Context().Err()
+			if err := sc.Context().Err(); err != nil {
+				return false, err
+			}
+			return again()
 		}
 		// The control is there but not shown: the keyboard may cover it. A person closes the
 		// keyboard to reach it, and so does axx, once. A step that scrolls to its control has

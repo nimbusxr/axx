@@ -49,6 +49,8 @@ public class Scrolls extends AccessibilityService {
     private static final Object MOVES = new Object();
     private static long moved; // how many scroll events came, guarded by MOVES
     private static long movedAt; // when the last one came, guarded by MOVES
+    private static long counted; // how many had come when the last action was asked, guarded by MOVES
+    private static long firstAt; // when the first one after it came, guarded by MOVES
     private static volatile Scrolls connected; // the instance Android has reading the screen now
     private static boolean serving; // whether the socket is served, guarded by MOVES
 
@@ -80,8 +82,10 @@ public class Scrolls extends AccessibilityService {
     public void onAccessibilityEvent(AccessibilityEvent event) {
         if (event.getEventType() == AccessibilityEvent.TYPE_VIEW_SCROLLED) {
             synchronized (MOVES) {
-                moved++;
                 movedAt = SystemClock.uptimeMillis();
+                if (moved++ == counted) {
+                    firstAt = movedAt;
+                }
                 MOVES.notifyAll();
             }
         }
@@ -174,10 +178,18 @@ public class Scrolls extends AccessibilityService {
         long before;
         synchronized (MOVES) {
             before = moved;
+            counted = moved;
         }
+        long asked = SystemClock.uptimeMillis();
         boolean performed = node.performAction(action);
         answer.put("performed", performed);
         answer.put("moved", performed && settled(before));
+        // How long the view took to say it scrolled, for whoever reads the device's log.
+        synchronized (MOVES) {
+            if (moved != before) {
+                answer.put("after", firstAt - asked);
+            }
+        }
         node.refresh();
         return answer.put("bounds", bounds(node));
     }

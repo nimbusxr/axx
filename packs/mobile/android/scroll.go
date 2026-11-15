@@ -43,6 +43,17 @@ func request(n *mobilecore.Node, op string) map[string]any {
 	return req
 }
 
+// unanswered says, in the run's log, that the scroll service did not answer a request, or
+// answered that it could not: the step then swipes, which is slower, and the log says why.
+func (d *running) unanswered(ctx context.Context, err error) {
+	if ctx.Err() != nil || d.pool == nil || d.pool.suite == nil || d.dev == nil {
+		return
+	}
+	if l := d.pool.suite.Logger(); l != nil {
+		l.Warn("axx's scroll service did not scroll the Android device's view: the step swipes", "device", d.dev.serial, "error", err)
+	}
+}
+
 // page asks a view to scroll a page toward direction, and reports whether it moved. asked is
 // false when the view could not be asked: the device has no scroll service, the service does not
 // find the view, or the view offers no scroll at all (a view only a finger scrolls).
@@ -55,7 +66,11 @@ func (d *running) page(ctx context.Context, n *mobilecore.Node, direction string
 	req["direction"] = direction
 	for try := 0; ; try++ {
 		a, err := sv.ask(ctx, req)
-		if err != nil || !a.Found || !a.Scrolls {
+		if err != nil {
+			d.unanswered(ctx, err)
+			return false, false
+		}
+		if !a.Found || !a.Scrolls {
 			return false, false
 		}
 		// A view that took the action and did not move was still busy with the scroll before
@@ -84,7 +99,11 @@ func (d *running) show(ctx context.Context, n *mobilecore.Node) bool {
 	var at []float64
 	for range 3 {
 		a, err := sv.ask(ctx, req)
-		if err != nil || !a.Found || !a.Offered || !a.Performed || len(a.Bounds) != 4 {
+		if err != nil {
+			d.unanswered(ctx, err)
+			return false
+		}
+		if !a.Found || !a.Offered || !a.Performed || len(a.Bounds) != 4 {
 			return false
 		}
 		// Where it is now is where the service finds it next.
