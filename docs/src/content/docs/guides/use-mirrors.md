@@ -13,7 +13,7 @@ Axx downloads each of these the first time something needs it, and keeps it.
 
 | What | Needed by | Comes from | Setting |
 | --- | --- | --- | --- |
-| Axx's releases | the install scripts, a project's [pinned version](/guides/install/#keep-a-project-on-one-version), `axx upgrade`, [`axx docs serve`](/guides/read-docs-offline/), desktop-macos's launcher | Axx's releases on github.com | `AXX_DOWNLOAD_URL` |
+| Axx's releases | the install scripts, a project's [pinned version](/guides/install/#keep-a-project-on-one-version), `axx upgrade`, [`axx docs serve`](/guides/read-docs-offline/), desktop-macos's launcher, mobile-android's scroll service | Axx's releases on github.com | `AXX_DOWNLOAD_URL` |
 | Go | preparing a project's [packs](/guides/use-packs/) | the Go module proxy | `GOPROXY`, `GOSUMDB` |
 | The packs' Go modules | preparing a project's packs | the Go module proxy | `GOPROXY`, `GOSUMDB`, `GOPRIVATE` |
 | Node.js | the web packs | nodejs.org | `NODE_MIRROR` |

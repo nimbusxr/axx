@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<!-- Every event type, as a screen reader asks for: a web view (Chrome) gives its page's whole
+     accessibility tree only while a service that asks for them all runs. With one that asks for
+     a few, it takes the device to have a password manager only, and reports the page's form
+     controls and nothing of its text (Android 13's, a while into a scenario). -->
+<accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:accessibilityEventTypes="typeAllMask"
+    android:accessibilityFeedbackType="feedbackGeneric"
+    android:accessibilityFlags="flagIncludeNotImportantViews|flagReportViewIds|flagRetrieveInteractiveWindows"
+    android:canRetrieveWindowContent="true"
+    android:notificationTimeout="0" />

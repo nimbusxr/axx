@@ -162,6 +162,30 @@ func signIn(h *cloudtest.Harness) {
 	h.OK(`the "Sign in" button is tapped in the courier app`)
 }
 
+// A courier finds a parcel far down a long round. The round is a list that makes its rows as it
+// scrolls, so the screen has nothing of a row further on: the step looks for it a page at a time
+// until the row shows, and scrolls back up to a row it passed.
+func TestACourierFindsAParcelFarDownTheRoundOnASimulator(t *testing.T) {
+	device := simulator(t)
+	courierapi.LongRound(t)
+	t.Setenv("COURIER_PIN", "4711")
+	h := harness(t)
+	warm(t, h, device)
+	h.OK("the courier ios app with the following properties:", [][]string{{"app", courierBuild(t)}, {"device", device}})
+	signIn(h)
+	h.OK(`the courier app's dialog is accepted`)
+	h.OK(`the courier app shows "Hello, Hanna Wolf"`)
+	h.OK(`the "PX-MOB-9401" list item is shown in the courier app`)
+	h.OK(`the "PX-MOB-9436" list item is scrolled into view in the courier app`)
+	h.OK(`the "PX-MOB-9436" list item is shown in the courier app`)
+	h.OK(`the "PX-MOB-9403" list item is tapped in the courier app`)
+	h.OK(`the "Mark delivered" button is disabled in the courier app`)
+	h.OK(`the courier app shows "PX-MOB-9403"`)
+	if err := h.End("passed"); err != nil {
+		t.Fatal(err)
+	}
+}
+
 // A courier delivers a parcel on a simulator, with every step of the packs;
 // the next scenario, on the same simulator, starts signed out (the first kept
 // its sign-in in the keychain, which outlives the app), and iOS asks again

@@ -62,6 +62,7 @@ const QUESTIONS = [
   { text: 'Is the parcel back in the van?', choices: ['Yes', 'No'] },
   { text: 'Anything the depot should know?', type: 'long_text' },
   { text: 'Who did you speak to?', type: 'text' },
+  { text: 'How many parcels are still in the van?', type: 'number' },
   { text: 'What number can the depot call?', type: 'phone' },
 ]
 let n = 0
@@ -90,6 +91,7 @@ function questionEl(q) {
   }
   const input = q.type === 'long_text' ? h('textarea', { id, rows: 4 })
     : q.type === 'phone' ? h('input', { id, type: 'tel', autocomplete: 'tel', inputmode: 'tel' })
+    : q.type === 'number' ? h('input', { id, type: 'number', min: 0 })
     : h('input', { id, type: 'text' })
   input.setAttribute('aria-describedby', `${id}-error`)
   input.addEventListener('input', () => onAnswer(q.text, input.value))

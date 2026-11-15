@@ -369,6 +369,42 @@ func TestFetchDocsChecksTheDocsArchive(t *testing.T) {
 	}
 }
 
+// A release's scroll service for Android devices is taken only as its checksums have it; a
+// release from before axx published one has none.
+func TestFetchAndroidScrollChecksTheService(t *testing.T) {
+	apk, name := []byte("an APK"), "axx_0.7.0_android-scroll.apk"
+	if got := AndroidScrollName("v0.7.0"); got != name {
+		t.Fatalf("AndroidScrollName: %s", got)
+	}
+	srv := files(t, map[string]string{}, map[string][]byte{
+		"/v0.7.0/checksums.txt": []byte(sum([]byte("a binary")) + "  axx_0.7.0_linux_amd64.tar.gz\n" + sum(apk) + "  " + name + "\n"),
+		"/v0.7.0/" + name:       apk,
+	})
+	c := &Client{Downloads: srv.URL, HTTP: srv.Client()}
+	got, err := c.FetchAndroidScroll(context.Background(), "v0.7.0", t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if b, _ := os.ReadFile(got); !bytes.Equal(b, apk) || filepath.Base(got) != name {
+		t.Fatalf("fetched %s", got)
+	}
+	srv = files(t, map[string]string{}, map[string][]byte{
+		"/v0.7.0/checksums.txt": []byte(sum([]byte("another APK")) + "  " + name + "\n"),
+		"/v0.7.0/" + name:       apk,
+	})
+	c = &Client{Downloads: srv.URL, HTTP: srv.Client()}
+	if _, err := c.FetchAndroidScroll(context.Background(), "v0.7.0", t.TempDir()); !errors.Is(err, ErrChecksum) {
+		t.Fatalf("a service that is not the checksummed one: %v", err)
+	}
+	srv = files(t, map[string]string{}, map[string][]byte{
+		"/v0.6.6/checksums.txt": []byte(sum([]byte("a binary")) + "  axx_0.6.6_linux_amd64.tar.gz\n"),
+	})
+	c = &Client{Downloads: srv.URL, HTTP: srv.Client()}
+	if _, err := c.FetchAndroidScroll(context.Background(), "v0.6.6", t.TempDir()); !errors.Is(err, ErrNotListed) {
+		t.Fatalf("a release without a scroll service: %v", err)
+	}
+}
+
 func TestFetchDocsOfAReleaseWithoutThem(t *testing.T) {
 	srv := files(t, map[string]string{}, map[string][]byte{
 		"/v0.6.6/checksums.txt": []byte(sum([]byte("a binary")) + "  axx_0.6.6_linux_amd64.tar.gz\n"),

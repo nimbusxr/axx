@@ -404,6 +404,28 @@ func (s *Session) DragAndHold(ctx context.Context, fromX, fromY, toX, toY float6
 	return s.do(ctx, http.MethodPost, "/actions", map[string]any{"actions": []any{finger}}, nil)
 }
 
+// Keys types text on the keyboard, a key at a time, into whatever has the focus: for a field the
+// driver cannot set a value of.
+func (s *Session) Keys(ctx context.Context, text string) error {
+	var actions []any
+	for _, r := range text {
+		actions = append(actions, map[string]any{"type": "keyDown", "value": string(r)}, map[string]any{"type": "keyUp", "value": string(r)})
+	}
+	if len(actions) == 0 {
+		return nil
+	}
+	keyboard := map[string]any{"type": "key", "id": "keyboard", "actions": actions}
+	return s.do(ctx, http.MethodPost, "/actions", map[string]any{"actions": []any{keyboard}}, nil)
+}
+
+// IsNoTextField reports that the driver would not set a field's text because it takes the field
+// for a control with a range, like a slider: UiAutomator2 does so with a web page's number
+// field, which Chrome presents as one. Its keys still type into it.
+func IsNoTextField(err error) bool {
+	var e *Error
+	return errors.As(err, &e) && strings.Contains(e.Message, "ACTION_SET_PROGRESS")
+}
+
 // Tap taps a point of the screen, in points, as a finger does.
 func (s *Session) Tap(ctx context.Context, x, y float64) error {
 	return s.Drag(ctx, x, y, x, y, 0)

@@ -555,8 +555,13 @@ func (d *running) Scroll(ctx context.Context, direction string) (bool, error) {
 		}
 	}
 	if len(views) == 0 {
+		// One that has some of the screen: a SwiftUI List's collection view is the screen's
+		// size until it has scrolled, and a point taller after (853 of 852), so one asked to
+		// be on the screen all of it was no scroll view from the second page on, and a look
+		// down a long list stopped a page in.
 		for _, n := range s.Nodes {
-			if n.Scrolling && onScreen(n, s.Size) {
+			b := n.Bounds
+			if n.Scrolling && b.Width > 0 && b.Height > 0 && b.X < s.Size.X+s.Size.Width && b.Y < s.Size.Y+s.Size.Height && b.X+b.Width > s.Size.X && b.Y+b.Height > s.Size.Y {
 				views = append(views, n)
 			}
 		}
@@ -564,9 +569,37 @@ func (d *running) Scroll(ctx context.Context, direction string) (bool, error) {
 	if len(views) == 0 {
 		return false, nil
 	}
-	// With the keyboard up, the finger goes in the part of the view above it: the platform's own
-	// scroll swipes low in the view, on the keys, and types.
-	if v := uncovered(views[0]); v.Height > 0 && v.Height < views[0].Bounds.Height {
+	// A list that makes its rows as it scrolls has nothing for XCTest to scroll to, so a page of
+	// it is swiped: a finger drags the view by half of what shows of it (the part the keyboard
+	// leaves, when one is up: lower, it would type), at a walking pace and held a moment at the
+	// end, so that the view does not coast past rows a step has yet to see. (WebDriverAgent's
+	// own scroll took seven to eight seconds a page of a SwiftUI list, and now and then moved
+	// nothing with more of the list to go; this takes a second or so.)
+	if d.dev != nil {
+		v := uncovered(views[0])
+		if low := s.Size.Y + s.Size.Height; v.Y+v.Height > low {
+			v.Height = low - v.Y
+		}
+		if v.Height > 0 && (direction == "up" || direction == "down") {
+			x, from, to := v.X+v.Width/2, v.Y+v.Height*0.75, v.Y+v.Height*0.25 // down: the finger pushes the view up
+			if direction == "up" {
+				from, to = to, from
+			}
+			args := map[string]any{"fromX": x, "fromY": from, "toX": x, "toY": to, "pressDuration": 0.05, "velocity": 800, "holdDuration": 0.2}
+			if err := d.session.Gesture(ctx, "/wda/pressAndDragWithVelocity", "dragFromToWithVelocity", args); err != nil {
+				return false, err
+			}
+			after, err := d.Screen(ctx)
+			if err != nil {
+				return false, err
+			}
+			return placed(after) != placed(s), nil
+		}
+	}
+	// A device another Appium server drives is scrolled with that server's commands. With the
+	// keyboard up, the finger goes in the part of the view above it: the platform's own scroll
+	// swipes low in the view, on the keys, and types.
+	if v := uncovered(views[0]); d.dev == nil && v.Height > 0 && v.Height < views[0].Bounds.Height {
 		x, top, bottom := v.X+v.Width/2, v.Y+v.Height*0.2, v.Y+v.Height*0.8
 		from, to := bottom, top // down: the finger pushes the view up
 		if direction == "up" {
@@ -593,6 +626,16 @@ func (d *running) Scroll(ctx context.Context, direction string) (bool, error) {
 	}
 	after, err := d.session.Source(ctx)
 	return after != before, err
+}
+
+// placed is what a screen shows and where, in order: two screens with the same are where a
+// scroll left them.
+func placed(s *mobilecore.Screen) string {
+	var b strings.Builder
+	for _, n := range s.Visible() {
+		fmt.Fprintf(&b, "%s@%.0f,%.0f\n", n.Name(), n.Bounds.X, n.Bounds.Y)
+	}
+	return b.String()
 }
 
 // ScrollRow scrolls a row that scrolls sideways by most of its width, and tells whether the
@@ -1050,10 +1093,13 @@ func predicateString(s string) string {
 const springboard = "com.apple.springboard"
 
 // SystemBars is the status bar, with its clock, in the screenshot's pixels.
-// ScrollToShow drags the node's scroll view until the node shows, as a finger does: steady
-// drags (no flick), each as far as the node still is from the view's middle, at most most of the
-// view's height, watching where the node is. XCUITest's own scroll to an element works through
-// table cells only; a SwiftUI scroll view of plain text has none.
+// ScrollToShow has the node's scroll view show the node. The view is asked to scroll to it
+// first: XCTest's own scroll to an element, which moves the view at once, with no finger on the
+// glass (a web page's control a screen and a half away shows in a twentieth of a second). It
+// does not work everywhere (it refuses now and then, and a SwiftUI scroll view of plain text has
+// nothing for it to work through), so what it leaves is done by swiping: steady drags (no
+// flick), each as far as the node still is from the view's middle, at most most of the view's
+// height, watching where the node is.
 func (d *running) ScrollToShow(ctx context.Context, n *mobilecore.Node, _ string) (bool, error) {
 	if n == nil {
 		return false, nil
@@ -1071,6 +1117,9 @@ func (d *running) ScrollToShow(ctx context.Context, n *mobilecore.Node, _ string
 	}
 	v := uncovered(view)
 	x, middle, reach := v.X+v.Width/2, v.Y+v.Height/2, v.Height*0.6
+	// Asked first. Whether it showed the node is read below, as after a drag: a node it left out
+	// of view, or under the keyboard, is brought the rest of the way by swiping.
+	d.scrollTo(ctx, el)
 	if err := d.scrub(ctx, el, view, v); err != nil {
 		return false, err
 	}
@@ -1094,6 +1143,16 @@ func (d *running) ScrollToShow(ctx context.Context, n *mobilecore.Node, _ string
 		}
 	}
 	return false, nil
+}
+
+// scrollTo asks XCTest to scroll to an element, as it does itself before it taps one out of
+// view. An element it cannot scroll to is left where it is.
+func (d *running) scrollTo(ctx context.Context, el *appium.Element) {
+	if d.dev == nil {
+		_ = d.session.Mobile(ctx, "scrollToElement", map[string]any{"elementId": el.ID}, nil)
+		return
+	}
+	_ = d.session.Command(ctx, http.MethodPost, "/wda/element/"+el.ID+"/scrollTo", map[string]any{}, nil)
 }
 
 // uncovered is the part of a scroll view the keyboard leaves showing: a finger that lands on the
@@ -1189,6 +1248,12 @@ func (d *running) HideKeyboard(ctx context.Context) (bool, error) {
 	if err != nil || !shown {
 		return false, err
 	}
+	// A bar over the keyboard with a Done button (a web form's, with its arrows; a number pad's,
+	// which has no key that closes it) closes the keyboard and does nothing else: it is tapped
+	// in place of a key, since return sends a web form.
+	if closed, err := d.closeWithBar(ctx, false); err != nil || closed {
+		return closed, err
+	}
 	keys := []string{"return", "Return", "done", "Done"}
 	// WebDriverAgent taps one of these keys and gives the keyboard three seconds to go. When the
 	// keyboard is still there, it says it knows no way to close it: the keyboard may be still
@@ -1201,7 +1266,15 @@ func (d *running) HideKeyboard(ctx context.Context) (bool, error) {
 			err = d.session.Command(ctx, http.MethodPost, "/wda/keyboard/dismiss", map[string]any{"keyNames": keys}, nil)
 		}
 		var ae *appium.Error
-		if err == nil || !errors.As(err, &ae) || !strings.Contains(ae.Message, "Did not know how to dismiss the keyboard") || !time.Now().Before(deadline) {
+		if err == nil || !errors.As(err, &ae) || !strings.Contains(ae.Message, "Did not know how to dismiss the keyboard") {
+			break
+		}
+		// No key closes this keyboard (a number pad): the last button of the bar over it does,
+		// whatever the bar calls it.
+		if closed, berr := d.closeWithBar(ctx, true); berr != nil || closed {
+			return closed, berr
+		}
+		if !time.Now().Before(deadline) {
 			break
 		}
 		gone, gerr := d.keyboardGone(ctx, 2*time.Second)
@@ -1216,6 +1289,74 @@ func (d *running) HideKeyboard(ctx context.Context) (bool, error) {
 		return false, err
 	}
 	return true, nil
+}
+
+// closeWithBar taps the button that closes the keyboard in the bar over it, and reports whether
+// the keyboard went: the bar's Done, or, when any is true, the bar's last button.
+func (d *running) closeWithBar(ctx context.Context, any bool) (bool, error) {
+	src, err := d.session.Source(ctx)
+	if err != nil {
+		return false, err
+	}
+	s, err := parseSource(src)
+	if err != nil || len(s.Nodes) == 0 {
+		return false, err
+	}
+	done := barDone(s, any)
+	if done == nil {
+		return false, nil
+	}
+	x, y := done.Bounds.Center()
+	if err := d.session.Drag(ctx, x, y, x, y, 0); err != nil {
+		return false, err
+	}
+	return d.keyboardGone(ctx, 3*time.Second)
+}
+
+// barDone is the button that closes the keyboard in the bar over it: the one named Done, or,
+// when any is true, the bar's last button (a bar in another language). The bar is a toolbar
+// that sits on the keyboard's top edge; nil when the keyboard has none.
+func barDone(s *mobilecore.Screen, any bool) *mobilecore.Node {
+	var keyboard *mobilecore.Node
+	for _, n := range s.Nodes {
+		if n.Class == "XCUIElementTypeKeyboard" && n.Bounds.Height > 0 {
+			keyboard = n
+		}
+	}
+	if keyboard == nil {
+		return nil
+	}
+	for _, bar := range s.Nodes {
+		// On the keyboard's top edge: its bottom within a row's height of the keyboard's top.
+		if gap := keyboard.Bounds.Y - (bar.Bounds.Y + bar.Bounds.Height); bar.Class != "XCUIElementTypeToolbar" || gap < -8 || gap > 60 {
+			continue
+		}
+		// Its buttons are some views deep in it.
+		var done, last *mobilecore.Node
+		var walk func(n *mobilecore.Node)
+		walk = func(n *mobilecore.Node) {
+			for _, b := range n.Children {
+				walk(b)
+				if b.Class != "XCUIElementTypeButton" || b.Bounds.Width <= 0 {
+					continue
+				}
+				if done == nil && strings.EqualFold(b.Name(), "done") {
+					done = b
+				}
+				if last == nil || b.Bounds.X > last.Bounds.X {
+					last = b
+				}
+			}
+		}
+		walk(bar)
+		if done != nil {
+			return done
+		}
+		if any && last != nil {
+			return last
+		}
+	}
+	return nil
 }
 
 // keyboardGone waits, up to within, for the keyboard to go, and reports whether it did.
