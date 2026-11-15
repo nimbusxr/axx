@@ -5,7 +5,6 @@ import (
 	"errors"
 	"net"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -101,24 +100,6 @@ func skipHosted(t *testing.T, why string) {
 	t.Helper()
 	if hostedTests() {
 		t.Skip(why)
-	}
-}
-
-// The package's tests pass with their apps on the host's desktop too: every
-// step crosses to the host's side and back, with the failures the layer
-// acts on by their kind (a place off its control, a control that lost its
-// place) and the pictures (a window, a screen, a trace's capture).
-func TestThePackagesTestsOnTheHostsDesktop(t *testing.T) {
-	if hostedTests() {
-		t.Skip("this is that run")
-	}
-	if testing.Short() {
-		t.Skip("runs the package's tests again")
-	}
-	cmd := exec.Command(os.Args[0], "-test.count=1") //nolint:gosec // the test binary itself
-	cmd.Env = append(os.Environ(), cloudtest.HostedEnv+"=1")
-	if out, err := cmd.CombinedOutput(); err != nil {
-		t.Fatalf("the tests, hosted: %v\n%s", err, out)
 	}
 }
 

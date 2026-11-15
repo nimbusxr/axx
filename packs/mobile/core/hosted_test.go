@@ -695,3 +695,27 @@ func TestAPackThatBuildsOnPhonesWorksInTheHostsScenario(t *testing.T) {
 	}
 	_ = sc.Close()
 }
+
+// A run a person watches, or pauses, starts its phones itself: their
+// windows are for the person who started the run, where they started it.
+func TestAWatchedRunStartsItsPhonesItself(t *testing.T) {
+	served := func(context.Context, string) (net.Conn, error) { return nil, errors.New("the host is not asked") }
+	local := &testPhones{app: "courier", log: &deviceLog{}}
+	watched := core.NewSuite(core.SuiteOptions{Watch: true})
+	watched.UseHost(served)
+	paused := core.NewSuite(core.SuiteOptions{})
+	paused.UseHost(served)
+	paused.PauseAt(map[string][]int{"features/round.feature": {7}})
+	for name, suite := range map[string]*core.Suite{"watched": watched, "paused": paused} {
+		sc := core.NewScenario(t.Context(), core.ScenarioInfo{ID: name}, suite, nil)
+		if got := Hosted(sc, "mobile-phones", "courier", nil, local); got != Platform(local) {
+			t.Errorf("a %s run's phones are the host's", name)
+		}
+	}
+	headless := core.NewSuite(core.SuiteOptions{})
+	headless.UseHost(served)
+	sc := core.NewScenario(t.Context(), core.ScenarioInfo{ID: "headless"}, headless, nil)
+	if got := Hosted(sc, "mobile-phones", "courier", nil, local); got == Platform(local) {
+		t.Error("a run nobody watches has its phones from the host that serves it")
+	}
+}

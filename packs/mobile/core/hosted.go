@@ -56,6 +56,11 @@ func Hosted(sc *core.Scenario, pack, app string, rows []Property, local Platform
 	if !sc.Suite().Hosted() || !local.RunsHere() {
 		return local
 	}
+	// A run a person watches or pauses shows its devices where it runs, to
+	// the person who started it: it is theirs, outside any sandbox.
+	if watching, _ := sc.Suite().Watching(); watching || sc.Suite().Pausing() {
+		return local
+	}
 	// The scenario's place in the host is kept from now, the app's
 	// registration: it ends after what the scenario makes later, its
 	// running apps among it, which are stopped in the host first.

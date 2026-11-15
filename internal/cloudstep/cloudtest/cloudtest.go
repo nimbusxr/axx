@@ -12,6 +12,7 @@ import (
 	"maps"
 	"net"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -38,6 +39,26 @@ import (
 // host do (web-core: start the browser), in this process, so the packs'
 // tests run that way too.
 const HostedEnv = "AXX_TEST_HOSTED"
+
+// AgainHosted runs the package's tests again with HostedEnv set, in a
+// process of their own: every step of a pack with a side in the host then
+// crosses to the test's host and back. A package calls it from one test, in
+// a file its integration build leaves out (a device's tests run hosted in
+// CI's own parts). It does nothing in that second run, nor with -short.
+func AgainHosted(t *testing.T) {
+	t.Helper()
+	if os.Getenv(HostedEnv) != "" {
+		t.Skip("this is that run")
+	}
+	if testing.Short() {
+		t.Skip("runs the package's tests again")
+	}
+	cmd := exec.Command(os.Args[0], "-test.count=1") //nolint:gosec // the test binary itself
+	cmd.Env = append(os.Environ(), HostedEnv+"=1")
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("the package's tests, through the test's host: %v\n%s", err, out)
+	}
+}
 
 // hosted serves the suite's connections to a pack's side in the host with
 // that pack, over a pipe. A pack's side that works with a suite
