@@ -57,6 +57,10 @@ func Hosted(sc *core.Scenario, pack, app string, rows []Property, local Platform
 	if !sc.Suite().Hosted() || !local.RunsHere() {
 		return local
 	}
+	// The scenario's place in the host is made now, with the app's
+	// registration: it ends after what the scenario makes later, its
+	// running apps among it, which are stopped in the host first.
+	hostedScenario.Of(sc)
 	p := &hostedPlatform{pack: pack, app: app, rows: rows, local: local}
 	if _, ok := local.(Camera); ok {
 		return &hostedCameraPlatform{hostedPlatform: p}
@@ -843,8 +847,8 @@ func wireScreenOf(n *Node) (*wireScreen, int) {
 	return wireNodes(nodes, Rect{}), slices.Index(nodes, n)
 }
 
-// table is an app's registration as the step's table had it.
-func table(rows []Property) *core.Table {
+// Table is an app's registration as a step's table has it, from its rows.
+func Table(rows []Property) *core.Table {
 	t := &core.Table{}
 	for _, r := range rows {
 		t.Rows = append(t.Rows, []string{r.Name, r.Value})

@@ -555,3 +555,23 @@ func TestTheHostStopsWhatAScenarioAndARunLeave(t *testing.T) {
 		t.Errorf("the run's end: %s", got)
 	}
 }
+
+// A scenario ends as the pack ends it: its running apps are stopped, in the
+// host, and only then does the scenario end there.
+func TestAScenariosEndStopsItsAppsBeforeItEndsInTheHost(t *testing.T) {
+	f := newHosted(t)
+	sc, _ := f.scenario(t, "a courier delivers a parcel")
+	if err := f.register(sc, "courier", courierRows()); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := device(sc, "courier", true); err != nil {
+		t.Fatal(err)
+	}
+	sc.SetStatus("failed")
+	if err := sc.Close(); err != nil {
+		t.Fatalf("the scenario's end: %v", err)
+	}
+	if got := f.log.all(); got != "start courier on parcels-pixel; stop (failed: true)" {
+		t.Errorf("what the host's device did: %s", got)
+	}
+}

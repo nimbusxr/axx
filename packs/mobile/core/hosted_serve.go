@@ -246,7 +246,7 @@ func (h *hostSide) registerApp(ctx context.Context, p registerParams) (any, erro
 	}
 	h.mu.Unlock()
 	return h.in(ctx, p.Scenario, func(m *mirror) (any, error) {
-		return nil, h.register(m.sc, p.App, table(p.Rows))
+		return nil, h.register(m.sc, p.App, Table(p.Rows))
 	})
 }
 
@@ -365,6 +365,10 @@ func (h *hostSide) revive(ctx context.Context, p appRef) (any, error) {
 }
 
 func (h *hostSide) stop(ctx context.Context, p stopParams) (any, error) {
+	if _, err := h.mirror(p.Scenario); err != nil {
+		// The scenario ended here already, and its apps with it.
+		return deviceAnswer{}, nil
+	}
 	return h.in(ctx, p.Scenario, func(m *mirror) (any, error) {
 		m.mu.Lock()
 		d := m.devices[p.App]
