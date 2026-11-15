@@ -353,34 +353,10 @@ static NSUInteger picture(NSDictionary *a, id source, NSError **error) {
     AXXFrame *frame = source;
     CVPixelBufferLockBaseAddress(frame.buffer, kCVPixelBufferLock_ReadOnly);
     NSUInteger at = NSNotFound;
-    CFAbsoluteTime t0 = CFAbsoluteTimeGetCurrent(); // TEMP
     BOOL read = reads(frame.buffer, frame.orientation, &p);
     if (read)
       at = sampled(a, &p, error);
-    CFAbsoluteTime direct = CFAbsoluteTimeGetCurrent() - t0; // TEMP
     CVPixelBufferUnlockBaseAddress(frame.buffer, kCVPixelBufferLock_ReadOnly);
-    static atomic_int compared; // TEMP
-    if (read && atomic_fetch_add(&compared, 1) < 4) { // TEMP
-      CFAbsoluteTime t1 = CFAbsoluteTimeGetCurrent(); // TEMP
-      CIImage *was = [frame image]; // TEMP
-      CGImageRef cg = [decoder() createCGImage:was fromRect:was.extent]; // TEMP
-      CFAbsoluteTime t2 = CFAbsoluteTimeGetCurrent(); // TEMP
-      NSUInteger sw = CGImageGetWidth(cg), sh = CGImageGetHeight(cg); // TEMP
-      unsigned char *pixels = calloc(sw * sh, 4); // TEMP
-      CGColorSpaceRef color = CGColorSpaceCreateDeviceRGB(); // TEMP
-      CGContextRef ctx = CGBitmapContextCreate(pixels, sw, sh, 8, sw * 4, color, kCGImageAlphaPremultipliedLast | kCGBitmapByteOrder32Big); // TEMP
-      CGContextDrawImage(ctx, CGRectMake(0, 0, sw, sh), cg); // TEMP
-      CGContextRelease(ctx); // TEMP
-      CGColorSpaceRelease(color); // TEMP
-      CGImageRelease(cg); // TEMP
-      CFAbsoluteTime t3 = CFAbsoluteTimeGetCurrent(); // TEMP
-      AXXPixels q; // TEMP
-      memset(&q, 0, sizeof(q)); // TEMP
-      q.sw = sw; q.sh = sh; q.rgba = pixels; q.rgbaRow = sw * 4; // TEMP
-      NSUInteger old = sampled(a, &q, NULL); // TEMP
-      free(pixels); // TEMP
-      NSLog(@"axx models: TEMP a frame read from its buffer in %.1f ms (mapping %lu); through Core Image: render %.0f ms, draw %.0f ms, sample %.1f ms (mapping %lu)", direct * 1000, (unsigned long)at, (t2 - t1) * 1000, (t3 - t2) * 1000, (CFAbsoluteTimeGetCurrent() - t3) * 1000, (unsigned long)old); // TEMP
-    } // TEMP
     if (read)
       return at;
     ci = [frame image];

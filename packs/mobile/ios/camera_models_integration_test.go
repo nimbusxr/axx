@@ -42,5 +42,4 @@ func TestACourierReadsATornLabelOnASimulator(t *testing.T) {
 	h.OK(`the courier app's dialog is dismissed`)
 	h.OK(`the "Scan label" button is tapped in the courier app`)
 	h.OK(`the courier app shows "Jonas Weber"`)
-	t.Error("TEMP: failed on purpose, to print the simulator's log") // TEMP
 }
