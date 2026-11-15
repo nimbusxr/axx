@@ -1146,6 +1146,24 @@ func TestATapAndAFillScrollForAControlFurtherDown(t *testing.T) {
 		}
 	}
 
+	// The search takes what time it takes: a control it brings onto the screen after the step's
+	// own time is up (a slow device, a long list) is still the one the step uses. The step's time
+	// here ends just after the search starts.
+	late := appiumtest.Start(t, appiumtest.App{
+		Screens: map[string]string{"top": top, "bottom": bottom, "sent": sent},
+		Start:   "top",
+		Taps:    map[string]string{"scroll down top": "bottom", button: "sent"},
+	})
+	short := mobilecore.SetActionTimeout(1600 * time.Millisecond)
+	h := cloudtest.New(t, appcore.Pack(), mobilecore.Pack(), Pack())
+	register(h, late.URL)
+	h.OK("the courier app is launched")
+	h.OK(`the "Send report" button is tapped in the courier app`)
+	short()
+	if late.Screen() != "sent" {
+		t.Errorf("the button the search reached late was not tapped: the app shows %s", late.Screen())
+	}
+
 	// A control that is nowhere is still a failure that says so, the screen scrolled back.
 	app := appiumtest.Start(t, appiumtest.App{
 		Screens: map[string]string{"top": top, "bottom": bottom},
@@ -1154,7 +1172,7 @@ func TestATapAndAFillScrollForAControlFurtherDown(t *testing.T) {
 	})
 	restore := mobilecore.SetActionTimeout(time.Second)
 	defer restore()
-	h := cloudtest.New(t, appcore.Pack(), mobilecore.Pack(), Pack())
+	h = cloudtest.New(t, appcore.Pack(), mobilecore.Pack(), Pack())
 	register(h, app.URL)
 	h.OK("the courier app is launched")
 	_ = h.Fails(`the "Cancel report" button is tapped in the courier app`, `No button named "Cancel report"`)
