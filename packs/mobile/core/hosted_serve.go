@@ -71,6 +71,14 @@ func (h *hostSide) ops() map[string]hostwire.Handler {
 		"scrollToShow": deviceOp(h, func(ctx context.Context, d *served, p nodeParams) (any, error) {
 			return d.ScrollToShow(ctx, p.node(), p.Text)
 		}),
+		// Whether a control the run's selector found is out of view, for a device whose driver
+		// finds such controls (outOfViewer): the device answers, of the element the run names
+		// by its ID in the session both sides are in.
+		"outOfView": deviceOp(h, func(ctx context.Context, d *served, p textParams) (any, error) {
+			o, ok := d.Device.(outOfViewer)
+			s := d.Session()
+			return ok && s != nil && o.OutOfView(ctx, s.Element(p.Text)), nil
+		}),
 		"scrollRow": deviceOp(h, func(ctx context.Context, d *served, p nodeParams) (any, error) {
 			row := p.node()
 			if row == nil {

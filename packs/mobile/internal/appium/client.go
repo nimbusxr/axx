@@ -210,6 +210,10 @@ type Element struct {
 	ID string
 }
 
+// Element is the session's element of that ID: one another client of the session found, as an
+// axx host has for a run's.
+func (s *Session) Element(id string) *Element { return &Element{s: s, ID: id} }
+
 // Find finds the first element a locator strategy matches.
 func (s *Session) Find(ctx context.Context, using, value string) (*Element, error) {
 	var out map[string]string
