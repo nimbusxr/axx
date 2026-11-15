@@ -145,7 +145,7 @@ func TestAHostedAppStartsOnceItsPersonApproved(t *testing.T) {
 	}
 	a := asked[0]
 	wantText := "app: build/depot\nargs: --depot Leipzig\nenv.PARCELS_API: http://127.0.0.1:8400\n"
-	if !strings.HasPrefix(a.Subject, "the depot app, ") || a.Text != wantText {
+	if !strings.HasPrefix(a.Subject, "the depot app") || a.Text != wantText {
 		t.Errorf("asked to approve %q:\n%s\nwant:\n%s", a.Subject, a.Text, wantText)
 	}
 	if w := strings.Join(a.Warnings, " "); !strings.Contains(w, "past the agent's sandbox") || !strings.Contains(w, "whatever is built there from now on") {

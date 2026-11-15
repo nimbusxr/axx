@@ -94,8 +94,11 @@ type Event struct {
 	// serving: where the host listens, and the definition starting it
 	// approved, or that changed since the last approved one (Changed: the
 	// first run asks).
-	Addr     string   `json:"addr,omitempty"`
-	Dir      string   `json:"dir,omitempty"`
+	Addr string `json:"addr,omitempty"`
+	Dir  string `json:"dir,omitempty"`
+	// Files is the folder the packs' sides read the files a run names in:
+	// the project's repository.
+	Files    string   `json:"files,omitempty"`
 	Services []string `json:"services,omitempty"`
 	Sources  []string `json:"sources,omitempty"`
 	Warnings []string `json:"warnings,omitempty"`
@@ -148,8 +151,10 @@ const (
 
 // Server is a host: it serves one project's runs.
 type Server struct {
-	opts      Options
-	dir       string
+	opts Options
+	dir  string
+	// files is the folder whose files are the project's: its repository.
+	files     string
 	env       []string
 	approvals *approvals
 	// told is where the services tell their properties: the host's own
@@ -217,7 +222,7 @@ func New(ctx context.Context, opts Options) (*Server, error) {
 		return nil, err
 	}
 	s := &Server{
-		opts: opts, dir: cfg.Dir, env: opts.Env, log: logger, turn: make(chan struct{}, 1),
+		opts: opts, dir: cfg.Dir, files: repository(cfg.Dir), env: opts.Env, log: logger, turn: make(chan struct{}, 1),
 		wait: time.Minute, serving: context.Background(), refused: map[string]bool{},
 	}
 	path := opts.Approvals
@@ -247,6 +252,26 @@ func New(ctx context.Context, opts Options) (*Server, error) {
 
 // Dir is the project the host serves.
 func (s *Server) Dir() string { return s.dir }
+
+// repository is the folder whose files are the project's, for a pack's side
+// that reads the files a run names: the project's repository, the nearest
+// folder at or above dir that has a .git, or dir itself when none has. An
+// app is often built beside the folder of axx.yaml, in the same repository;
+// what is outside the repository is not the project's. The host settles it
+// as it starts, when the person starts it: nothing a run does moves it.
+func repository(dir string) string {
+	dir = realPath(dir)
+	for d := dir; ; {
+		if _, err := os.Lstat(filepath.Join(d, ".git")); err == nil {
+			return d
+		}
+		parent := filepath.Dir(d)
+		if parent == d {
+			return dir
+		}
+		d = parent
+	}
+}
 
 // key names a configuration: its file, relative to the project, and its
 // profile.
@@ -312,7 +337,7 @@ func (s *Server) Serve(ctx context.Context) error {
 	defer stop(errStopping)
 	s.serving = serving
 	s.event(Event{
-		Event: "serving", Addr: ann.Addr, Dir: s.dir,
+		Event: "serving", Addr: ann.Addr, Dir: s.dir, Files: s.files,
 		Services: s.start.Services, Sources: s.start.Sources, Warnings: s.start.Warnings, Changed: s.changed,
 		Packs: s.opts.Serves,
 	})
@@ -582,7 +607,7 @@ func (s *Server) servePack(ctx context.Context, conn net.Conn, l *lines, req Req
 				return
 			}
 			if suite.s, suite.close, suite.err = s.opts.Suite(cfg); suite.err == nil {
-				suite.s.Confine(s.dir)
+				suite.s.Confine(s.files)
 			}
 		})
 		return suite.s, suite.err

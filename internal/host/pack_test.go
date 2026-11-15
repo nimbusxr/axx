@@ -390,10 +390,17 @@ func TestTheTerminalAsksAboutAPacksApproval(t *testing.T) {
 	}
 	for _, want := range []string{
 		"axx run features/round asks to start mobile-ios: the courier app on this machine",
-		"+app: build/Courier.app", "warning: the app is a process on this Mac",
+		"\n  app: build/Courier.app\n", "warning: the app is a process on this Mac",
 	} {
 		if !strings.Contains(out.String(), want) {
 			t.Errorf("missing %q in:\n%s", want, out.String())
+		}
+	}
+	// A first question shows what would start as it is: there is nothing to
+	// compare it with yet.
+	for _, not := range []string{"--- approved", "+app:", "  mobile-ios: the courier app"} {
+		if strings.Contains(out.String(), not) {
+			t.Errorf("a first question has %q:\n%s", not, out.String())
 		}
 	}
 }
@@ -477,5 +484,65 @@ func TestAPacksSideHasASuiteAsTheRunLoadedIt(t *testing.T) {
 	case <-closed:
 	case <-time.After(10 * time.Second):
 		t.Fatal("the suite was not closed when the connection ended")
+	}
+}
+
+// The files a run names are the project's: those of its repository, where
+// an app is built beside the folder of axx.yaml, and none outside it. The
+// host settles the repository as it starts, and says so.
+func TestAPacksSuiteReadsTheProjectsRepository(t *testing.T) {
+	repo := realPath(t.TempDir())
+	dir := filepath.Join(repo, "acceptance")
+	for _, d := range []string{dir, filepath.Join(repo, ".git"), filepath.Join(repo, "courier", "build")} {
+		if err := os.MkdirAll(d, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	other := realPath(t.TempDir())
+	for path, body := range map[string]string{
+		filepath.Join(dir, "axx.yaml"):                         "version: 1\n",
+		filepath.Join(repo, "courier", "build", "courier.apk"): "apk",
+		filepath.Join(other, "notes.txt"):                      "not the project's",
+	} {
+		if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// A link in the repository to a file outside it is a file outside it.
+	if err := os.Symlink(filepath.Join(other, "notes.txt"), filepath.Join(repo, "courier", "notes.txt")); err != nil {
+		t.Fatal(err)
+	}
+	f := &fixture{
+		dir: dir, cleanups: filepath.Join(dir, "cleanups"), approvals: filepath.Join(t.TempDir(), "approvals.json"),
+		approver: &fakeApprover{}, events: &events{}, packs: map[string]core.HostServer{"depot": depot{}},
+		suite: func(cfg *config.Config) (*core.Suite, func(context.Context) error, error) {
+			s := core.NewSuite(core.SuiteOptions{ProjectDir: cfg.Dir, ResolvePath: func(p string) (string, error) {
+				if filepath.IsAbs(p) {
+					return p, nil
+				}
+				return filepath.Join(cfg.Dir, p), nil
+			}})
+			return s, func(context.Context) error { return nil }, nil
+		},
+	}
+	f.start(t)
+	if got := repository(dir); got != repo {
+		t.Errorf("the repository of %s is %s, want %s", dir, got, repo)
+	}
+	if got := repository(other); got != other {
+		t.Errorf("a project in no repository reads its own folder: %s", got)
+	}
+	conn, err := DialAs(context.Background(), f.announcement(t), Request{Pack: "depot", Command: "axx run"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+	if got := said(t, conn, "../courier/build/courier.apk"); !strings.HasPrefix(got, filepath.Join(repo, "courier", "build", "courier.apk")) {
+		t.Errorf("an app beside the folder of axx.yaml, in its repository: %q", got)
+	}
+	for _, outside := range []string{filepath.Join(other, "notes.txt"), "../courier/notes.txt", "../../" + filepath.Base(other) + "/notes.txt"} {
+		if got := said(t, conn, outside); !strings.HasPrefix(got, "refused: ") || !strings.Contains(got, "is not in the project") {
+			t.Errorf("%s, outside the repository: %q", outside, got)
+		}
 	}
 }

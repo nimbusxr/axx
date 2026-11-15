@@ -260,12 +260,10 @@ func approval(sc *core.Scenario, app *App) core.HostApproval {
 		return p
 	}
 	platform := app.Driver.Platform()
-	subject := "the " + app.Name + " app, on this machine's desktop"
-	switch platform {
-	case "macos":
-		subject = "the " + app.Name + " app, on this Mac's desktop"
-	case "linux":
-		subject = "the " + app.Name + " app, in a Linux desktop of axx's own"
+	// The host asks to start it "on this machine".
+	subject := "the " + app.Name + " app"
+	if platform == "linux" {
+		subject += ", in a desktop of axx's own"
 	}
 	var b strings.Builder
 	if app.System {
