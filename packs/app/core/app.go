@@ -77,11 +77,10 @@ type registry struct {
 	mu    sync.Mutex
 	apps  map[string]*registration
 	files map[string]func(string) (core.Files, error)
-	index map[string]map[string]map[string]bool
 }
 
 var apps = core.NewStateKey(Name+"/apps", func(*core.Scenario) *registry {
-	return &registry{apps: map[string]*registration{}, files: map[string]func(string) (core.Files, error){}, index: map[string]map[string]map[string]bool{}}
+	return &registry{apps: map[string]*registration{}, files: map[string]func(string) (core.Files, error){}}
 }, nil)
 
 // Register adds an app its platform's pack registered (ADR 0012). runsHere

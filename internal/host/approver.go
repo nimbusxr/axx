@@ -91,8 +91,21 @@ func (t *Terminal) Approve(ctx context.Context, q Question) (bool, error) {
 	if q.Run > 0 {
 		head = fmt.Sprintf("run %d (%s): %s", q.Run, q.Command, head)
 	}
+	if q.What != "" {
+		// A pack's: something it would start on this machine for runs.
+		head = fmt.Sprintf("%s asks to start %s on this machine", q.Command, q.What)
+		if q.Approved != "" {
+			head += ", which changed since you last approved it"
+		}
+	}
 	out := []string{"", head}
-	for _, line := range strings.Split(strings.TrimSuffix(Diff(q.Approved, q.Proposed.Text), "\n"), "\n") {
+	shown := Diff(q.Approved, q.Proposed.Text)
+	if q.What != "" && q.Approved == "" {
+		// A pack's first question has nothing to compare with: what it
+		// would start, as it is, without the line that names it again.
+		shown = strings.TrimPrefix(q.Proposed.Text, q.What+"\n")
+	}
+	for _, line := range strings.Split(strings.TrimSuffix(shown, "\n"), "\n") {
 		switch {
 		case t.color && strings.HasPrefix(line, "+") && !strings.HasPrefix(line, "+++"):
 			line = "\x1b[32m" + line + "\x1b[0m"
@@ -170,6 +183,9 @@ func (t *Terminal) Event(e Event) {
 		}
 		for _, p := range e.Packs {
 			lines = append(lines, "  "+p)
+		}
+		if len(e.Packs) > 0 && e.Files != "" && e.Files != e.Dir {
+			lines = append(lines, "  the files a run names are read in "+e.Files+", the project's repository, and nowhere else")
 		}
 		if !t.interactive {
 			lines = append(lines, t.warning("no one can answer here (this is not a terminal): runs whose services' definition changed are refused; start `axx host` in a terminal to approve changes"))
@@ -280,6 +296,7 @@ func (a *IDE) Approve(ctx context.Context, q Question) (bool, error) {
 	a.events(Event{
 		Event: "approval", ID: id, Run: q.Run, Command: q.Command,
 		Approved: q.Approved, Proposed: q.Proposed.Text, Diff: Diff(q.Approved, q.Proposed.Text), Warnings: q.Proposed.Warnings,
+		Text: q.What,
 	})
 	select {
 	case ok := <-ch:

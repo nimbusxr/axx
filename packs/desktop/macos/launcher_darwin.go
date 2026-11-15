@@ -41,9 +41,10 @@ const (
 )
 
 // relaunched are the commands that drive Mac apps: a run, the MCP server
-// (an agent's steps_try runs steps in its process) and doctor, which checks
-// the launcher's permissions.
-var relaunched = []string{"run", "mcp", "doctor"}
+// (an agent's steps_try runs steps in its process), the axx host, which
+// drives them for the runs of an agent in a sandbox, and doctor, which
+// checks the launcher's permissions.
+var relaunched = []string{"run", "mcp", "host", "doctor"}
 
 // Relaunch runs the command again under axx's launcher, when there is one
 // and the command drives Mac apps.

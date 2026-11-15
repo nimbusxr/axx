@@ -62,7 +62,8 @@ public record HostEvent(
         @NotNull String diff,
         @NotNull String answer,
         int holder,
-        @NotNull String holderCommand) {
+        @NotNull String holderCommand,
+        @NotNull String text) {
 
     // The kinds of events.
     public static final String SERVING = "serving";
@@ -108,6 +109,7 @@ public record HostEvent(
         diff = text(diff);
         answer = text(answer);
         holderCommand = text(holderCommand);
+        text = text(text);
     }
 
     /**

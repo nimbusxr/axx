@@ -103,6 +103,8 @@ type fixture struct {
 	launch Launch
 	// packs are the packs with a side in the host (Options.Packs).
 	packs map[string]core.HostServer
+	// suite makes the suites packs' sides work with (Options.Suite).
+	suite func(cfg *config.Config) (*core.Suite, func(context.Context) error, error)
 }
 
 func service(t *testing.T, dir, name, extra string) string {
@@ -148,6 +150,7 @@ func (f *fixture) start(t *testing.T) {
 		Env:       append(os.Environ(), helperEnv+"=1"),
 		Launch:    f.launch,
 		Packs:     f.packs,
+		Suite:     f.suite,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -156,12 +159,13 @@ func (f *fixture) start(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	served := make(chan error, 1)
 	go func() { served <- srv.Serve(ctx) }()
-	f.stop = func() {
+	// Once: a test that starts the host again leaves two cleanups to stop it.
+	f.stop = sync.OnceFunc(func() {
 		cancel()
 		if err := <-served; err != nil {
 			t.Errorf("serve: %v", err)
 		}
-	}
+	})
 	t.Cleanup(func() {
 		if f.stop != nil {
 			f.stop()

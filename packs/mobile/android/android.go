@@ -69,11 +69,7 @@ func steps() []core.StepDef {
 			},
 			Examples: []string{"Given the courier android app with the following properties:\n  | apk         | ../courier/android/app/build/outputs/apk/debug/app-debug.apk |\n  | device      | Pixel_9                                                      |\n  | permissions | POST_NOTIFICATIONS                                           |"},
 			Run: func(sc *core.Scenario, a core.Args) error {
-				app, err := parseApp(sc, func(v string) string { return secrets.Expand(sc, v) }, a.String(0), a.Table)
-				if err != nil {
-					return err
-				}
-				return mobilecore.Register(sc, &mobilecore.App{Name: app.name, Platform: runner{app: app}})
+				return registerApp(sc, a.String(0), a.Table, func(v string) string { return secrets.Expand(sc, v) })
 			},
 		},
 		{
@@ -88,4 +84,25 @@ func steps() []core.StepDef {
 			},
 		},
 	}
+}
+
+// registerApp registers an Android app in a scenario from its
+// registration's table: the step does, in a run, and the pack's side in the
+// axx host, in the scenario it has for a run's (host.go), from the same
+// rows. In a run that an axx host serves, the app's device is the host's to
+// run (mobilecore.Hosted); a device of an Appium server's is that server's.
+func registerApp(sc *core.Scenario, name string, t *core.Table, expand func(string) string) error {
+	rows, err := mobilecore.Properties(t, expand)
+	if err != nil {
+		return err
+	}
+	app, err := parseApp(sc, func(v string) string { return v }, name, mobilecore.Table(rows))
+	if err != nil {
+		return err
+	}
+	var platform mobilecore.Platform = runner{app: app}
+	if app.server == "" {
+		platform = mobilecore.Hosted(sc, Name, app.name, rows, platform)
+	}
+	return mobilecore.Register(sc, &mobilecore.App{Name: app.name, Platform: platform})
 }

@@ -217,4 +217,39 @@ class HostEventTest {
     void rejectsOthers(String line) {
         assertNull(HostEvent.parse(line));
     }
+
+    /** What a pack asks to start for a run: an app, with what it reaches. */
+    static final String PACK_APPROVAL =
+            "{\"event\":\"approval\",\"id\":2,\"command\":\"axx run features/courier-app\","
+                    + "\"text\":\"mobile-ios: the courier app, in the iOS Simulator\","
+                    + "\"proposed\":\"mobile-ios: the courier app, in the iOS Simulator\\n"
+                    + "app: build/Courier.app\\n\","
+                    + "\"warnings\":[\"an app in the iOS Simulator is a process of this Mac\"]}";
+
+    @Test
+    @DisplayName("a pack's question says which run asks to start what, and what it reaches")
+    void asksAboutAPacksApp() {
+        HostEvent approval = HostEvent.parse(PACK_APPROVAL);
+        assertNotNull(approval);
+        assertEquals("mobile-ios: the courier app, in the iOS Simulator", approval.text());
+        assertEquals(
+                "axx host: start the courier app, in the iOS Simulator?",
+                AxxHost.questionTitle(approval));
+        assertEquals(
+                "axx run features/courier-app asks to start mobile-ios: the courier app, in the"
+                        + " iOS Simulator on this machine. Approve?<ul><li>an app in the iOS"
+                        + " Simulator is a process of this Mac</li></ul>",
+                AxxHost.questionText(approval));
+        assertEquals(
+                "axx run features/courier-app asks to start mobile-ios: the courier app, in the"
+                        + " iOS Simulator on this machine.\n\nWhat it reaches:\n• an app in the"
+                        + " iOS Simulator is a process of this Mac\n\nShow Diff shows what it"
+                        + " would start.",
+                AxxHost.questionDialogText(approval));
+        // The services' question reads as it did.
+        HostEvent services = HostEvent.parse(START_APPROVAL);
+        assertNotNull(services);
+        assertEquals("", services.text());
+        assertEquals("axx host: approve the services?", AxxHost.questionTitle(services));
+    }
 }

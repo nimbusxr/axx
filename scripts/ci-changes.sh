@@ -49,6 +49,8 @@ while ! $all && ! $none && IFS= read -r f; do
         packs/app/*) desktop=true integration=true web=true mobile=true ;;
         # Desktop videos, and the videos an Android emulator's camera sees.
         packs/internal/video/*) desktop=true mobile=true integration=true ;;
+        # What the mobile and desktop packs' sides in a run and in the axx host speak.
+        packs/internal/hostwire/* | packs/internal/hostscenario/*) mobile=true desktop=true ;;
         # Coverage: web-coverage's tests run in the web job, the services' in the integration job.
         packs/internal/v8cov/* | packs/coverage/*) web=true integration=true ;;
         core/* | internal/* | go.mod | go.sum | mise.toml) web=true mobile=true desktop=true integration=true ;;

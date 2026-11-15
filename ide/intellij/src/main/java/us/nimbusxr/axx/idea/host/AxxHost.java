@@ -310,9 +310,26 @@ public final class AxxHost implements Disposable {
 
     /** A question's title: the run that asked, if one did. */
     static @NotNull String questionTitle(@NotNull HostEvent question) {
+        if (!question.text().isEmpty()) {
+            // A pack's question: an app it would start on this machine.
+            return "axx host: start " + packSubject(question) + "?";
+        }
         return question.run() == 0
                 ? "axx host: approve the services?"
                 : "axx host: approve run " + question.run() + "?";
+    }
+
+    /** What a pack asks to start, without the pack's name: "the courier app, on Android". */
+    private static @NotNull String packSubject(@NotNull HostEvent question) {
+        String text = question.text();
+        int colon = text.indexOf(": ");
+        return colon < 0 ? text : text.substring(colon + 2);
+    }
+
+    /** A pack's question, as the host's terminal asks it. */
+    private static @NotNull String packQuestion(@NotNull HostEvent question) {
+        String asks = question.command().isEmpty() ? "A run" : question.command();
+        return asks + " asks to start " + question.text() + " on this machine.";
     }
 
     /**
@@ -321,7 +338,9 @@ public final class AxxHost implements Disposable {
      */
     static @NotNull String questionText(@NotNull HostEvent question) {
         StringBuilder html = new StringBuilder();
-        if (question.run() == 0) {
+        if (!question.text().isEmpty()) {
+            html.append(StringUtil.escapeXmlEntities(packQuestion(question))).append(" Approve?");
+        } else if (question.run() == 0) {
             html.append("The services' definition changed since you last approved it. Approve?");
         } else {
             html.append("Run ").append(question.run());
@@ -339,6 +358,16 @@ public final class AxxHost implements Disposable {
     /** A question's text in the dialog, which shows text: as {@link #questionText}, in lines. */
     static @NotNull String questionDialogText(@NotNull HostEvent question) {
         StringBuilder text = new StringBuilder();
+        if (!question.text().isEmpty()) {
+            text.append(packQuestion(question));
+            if (!question.warnings().isEmpty()) {
+                text.append("\n\nWhat it reaches:");
+                for (String warning : question.warnings()) {
+                    text.append("\n• ").append(warning);
+                }
+            }
+            return text.append("\n\nShow Diff shows what it would start.").toString();
+        }
         if (question.run() == 0) {
             text.append("The services' definition changed since you last approved it.");
         } else {

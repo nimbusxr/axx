@@ -3,17 +3,21 @@ package host
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/nimbusxr/axx/core"
 	"github.com/nimbusxr/axx/internal/axxerr"
+	"github.com/nimbusxr/axx/internal/config"
 )
 
 // scanner is a pack's side in the host: it answers each line a run's side
@@ -113,7 +117,7 @@ func TestWhatFollowsTheRequestIsThePacks(t *testing.T) {
 	defer conn.Close()
 	_ = conn.SetDeadline(time.Now().Add(10 * time.Second))
 	l := newLines(conn)
-	req := `{"protocol":3,"token":"` + ann.Token + `","command":"axx run","pack":"depot-scanners"}` + "\n" + "px-4101 at leeds\n"
+	req := fmt.Sprintf(`{"protocol":%d,"token":%q,"command":"axx run","pack":"depot-scanners"}`, Protocol, ann.Token) + "\n" + "px-4101 at leeds\n"
 	if _, err := io.WriteString(conn, req); err != nil {
 		t.Fatal(err)
 	}
@@ -196,5 +200,356 @@ func TestARunThatGoesEndsItsPacksConnection(t *testing.T) {
 		}
 	case <-time.After(10 * time.Second):
 		t.Fatal("the pack's side goes on after the run closed its connection")
+	}
+}
+
+// couriers is a pack's side in the host that starts a project's app for
+// runs: each line a run sends names an app, which the person approves
+// before it "starts". It answers the line "started", or why not.
+type couriers struct{}
+
+func (couriers) HostServes() string { return "the couriers' apps" }
+
+func (couriers) ServeHost(ctx context.Context, run core.HostRun, conn net.Conn) error {
+	defer conn.Close()
+	sc := bufio.NewScanner(conn)
+	for sc.Scan() {
+		subject, path, _ := strings.Cut(sc.Text(), "=")
+		answer := "started"
+		if err := run.Approve(ctx, core.HostApproval{
+			Subject:  subject,
+			Text:     "app: " + path,
+			Warnings: []string{"the app is a process on this machine: it reads and writes your files"},
+		}); err != nil {
+			answer = err.Error()
+			var ae *axxerr.Error
+			if errors.As(err, &ae) {
+				answer = ae.Code + " " + answer
+			}
+		}
+		if _, err := io.WriteString(conn, answer+"\n"); err != nil {
+			break
+		}
+	}
+	return ctx.Err()
+}
+
+func appsFixture(t *testing.T, answer func(Question) bool) *fixture {
+	t.Helper()
+	dir := realPath(t.TempDir())
+	if err := os.WriteFile(filepath.Join(dir, "axx.yaml"), []byte("version: 1\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	f := &fixture{
+		dir: dir, cleanups: filepath.Join(dir, "cleanups"), approvals: filepath.Join(t.TempDir(), "approvals.json"),
+		approver: &fakeApprover{answer: answer}, events: &events{}, packs: map[string]core.HostServer{"depot-apps": couriers{}},
+	}
+	f.start(t)
+	return f
+}
+
+func (f *fixture) apps(t *testing.T) net.Conn {
+	t.Helper()
+	conn, err := Dial(context.Background(), f.announcement(t), "depot-apps", "axx run features/round")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = conn.Close() })
+	return conn
+}
+
+// A pack's side in the host asks the person before it starts something of
+// the project's for runs. They are asked once for a text: the same text is
+// approved from then on, by a host started again too, and a text that
+// changed asks again, with what they approved before to compare.
+func TestAPackAsksThePersonBeforeItStartsSomething(t *testing.T) {
+	f := appsFixture(t, func(Question) bool { return true })
+	conn := f.apps(t)
+	if got := said(t, conn, "the courier app=build/Courier.app"); got != "started" {
+		t.Fatalf("approved, and the pack answered %q", got)
+	}
+	asked := f.approver.asked()
+	if len(asked) != 1 {
+		t.Fatalf("asked %d times", len(asked))
+	}
+	q := asked[0]
+	if q.What != "depot-apps: the courier app" || q.Command != "axx run features/round" || q.Approved != "" ||
+		q.Proposed.Text != "depot-apps: the courier app\napp: build/Courier.app\n" || len(q.Proposed.Warnings) != 1 {
+		t.Errorf("the question: %+v, proposed %+v", q, q.Proposed)
+	}
+	// The same text again, and on another connection: no question.
+	if got := said(t, conn, "the courier app=build/Courier.app"); got != "started" {
+		t.Errorf("the second time: %q", got)
+	}
+	if got := said(t, f.apps(t), "the courier app=build/Courier.app"); got != "started" {
+		t.Errorf("another run: %q", got)
+	}
+	if n := len(f.approver.asked()); n != 1 {
+		t.Errorf("asked %d times for one text", n)
+	}
+	// Another path for the same app: asked again, with the approved text.
+	if got := said(t, conn, "the courier app=build/Release/Courier.app"); got != "started" {
+		t.Errorf("the changed app: %q", got)
+	}
+	asked = f.approver.asked()
+	if len(asked) != 2 || asked[1].Approved != q.Proposed.Text || !strings.Contains(asked[1].Proposed.Text, "build/Release/Courier.app") {
+		t.Errorf("the second question: %+v", asked)
+	}
+	// A host started again keeps the approval.
+	f.stop()
+	f.stop = nil
+	f.approver = &fakeApprover{answer: func(Question) bool { return false }}
+	f.start(t)
+	if got := said(t, f.apps(t), "the courier app=build/Release/Courier.app"); got != "started" {
+		t.Errorf("after the host started again: %q", got)
+	}
+	if n := len(f.approver.asked()); n != 0 {
+		t.Errorf("the new host asked %d times about what was approved", n)
+	}
+}
+
+// What the person refused is refused again without asking, and says so to
+// the run; another app is still asked about.
+func TestAPacksApprovalRefused(t *testing.T) {
+	f := appsFixture(t, func(q Question) bool { return !strings.Contains(q.Proposed.Text, "Courier.app") })
+	conn := f.apps(t)
+	for range 2 {
+		got := said(t, conn, "the courier app=build/Courier.app")
+		if !strings.HasPrefix(got, CodeNotApproved) || !strings.Contains(got, "refused to start the courier app") {
+			t.Fatalf("refused, and the pack answered %q", got)
+		}
+	}
+	if n := len(f.approver.asked()); n != 1 {
+		t.Errorf("asked %d times about what was refused", n)
+	}
+	if got := said(t, conn, "the depot app=build/Depot.app"); got != "started" {
+		t.Errorf("another app: %q", got)
+	}
+}
+
+// Two apps asked about at once are each answered: the second question waits
+// for the first, and neither is dropped.
+func TestTwoPacksQuestionsAreAskedOneAfterTheOther(t *testing.T) {
+	release := make(chan struct{})
+	f := appsFixture(t, func(Question) bool { <-release; return true })
+	answers := make(chan string, 2)
+	for _, line := range []string{"the courier app=build/Courier.app", "the depot app=build/Depot.app"} {
+		conn := f.apps(t)
+		go func() { answers <- said(t, conn, line) }()
+	}
+	waitFor(t, "the first question", func() bool { return len(f.approver.asked()) == 1 })
+	time.Sleep(100 * time.Millisecond)
+	if n := len(f.approver.asked()); n != 1 {
+		t.Fatalf("%d questions open at once", n)
+	}
+	close(release)
+	for range 2 {
+		if got := <-answers; got != "started" {
+			t.Errorf("an app answered %q", got)
+		}
+	}
+	if n := len(f.approver.asked()); n != 2 {
+		t.Errorf("asked %d times for two apps", n)
+	}
+}
+
+// A person who does not answer in time leaves the question open: the run is
+// told, and the next one has their answer.
+func TestAPacksApprovalNotAnsweredYet(t *testing.T) {
+	answer := make(chan bool, 1)
+	f := appsFixture(t, func(Question) bool { return <-answer })
+	f.srv.wait = 200 * time.Millisecond
+	conn := f.apps(t)
+	got := said(t, conn, "the courier app=build/Courier.app")
+	if !strings.HasPrefix(got, CodeNotAnswered) || !strings.Contains(got, "has not answered yet whether runs may start the courier app") {
+		t.Fatalf("not answered, and the pack answered %q", got)
+	}
+	answer <- true
+	waitFor(t, "the approval kept", func() bool { return said(t, f.apps(t), "the courier app=build/Courier.app") == "started" })
+	if n := len(f.approver.asked()); n != 1 {
+		t.Errorf("asked %d times", n)
+	}
+}
+
+// The terminal says which run's pack asks, about what, and what it reaches.
+func TestTheTerminalAsksAboutAPacksApproval(t *testing.T) {
+	var out syncBuffer
+	in, w := io.Pipe()
+	term := NewTerminal(in, &out, false, true)
+	done := make(chan bool, 1)
+	go func() {
+		ok, _ := term.Approve(context.Background(), Question{
+			Command: "axx run features/round", What: "mobile-ios: the courier app",
+			Proposed: &Definition{Text: "mobile-ios: the courier app\napp: build/Courier.app\n", Warnings: []string{"the app is a process on this Mac"}},
+		})
+		done <- ok
+	}()
+	waitFor(t, "the question", func() bool { return strings.Contains(out.String(), "approve? [y/N]") })
+	_, _ = io.WriteString(w, "y\n")
+	if !<-done {
+		t.Error("y did not approve")
+	}
+	for _, want := range []string{
+		"axx run features/round asks to start mobile-ios: the courier app on this machine",
+		"\n  app: build/Courier.app\n", "warning: the app is a process on this Mac",
+	} {
+		if !strings.Contains(out.String(), want) {
+			t.Errorf("missing %q in:\n%s", want, out.String())
+		}
+	}
+	// A first question shows what would start as it is: there is nothing to
+	// compare it with yet.
+	for _, not := range []string{"--- approved", "+app:", "  mobile-ios: the courier app"} {
+		if strings.Contains(out.String(), not) {
+			t.Errorf("a first question has %q:\n%s", not, out.String())
+		}
+	}
+}
+
+// depot is a pack's side in the host that works with a suite: it answers
+// each line a run sends with how the suite resolves the file it names.
+type depot struct{}
+
+func (depot) HostServes() string { return "the depot's devices" }
+
+func (depot) ServeHost(ctx context.Context, run core.HostRun, conn net.Conn) error {
+	defer conn.Close()
+	sc := bufio.NewScanner(conn)
+	for sc.Scan() {
+		answer := ""
+		if suite, err := run.Suite(); err != nil {
+			answer = "no suite: " + err.Error()
+		} else if path, err := suite.ResolvePath(sc.Text()); err != nil {
+			answer = "refused: " + err.Error()
+		} else {
+			var settings struct {
+				Devices int `json:"devices"`
+			}
+			_ = suite.PackConfig("depot", &settings)
+			answer = fmt.Sprintf("%s (devices: %d)", path, settings.Devices)
+		}
+		if _, err := io.WriteString(conn, answer+"\n"); err != nil {
+			break
+		}
+	}
+	return ctx.Err()
+}
+
+// A pack's side in the host has a suite of the project's packs, loaded as
+// the run loaded its own (its profile's settings), confined to the project,
+// made when the pack asks and closed when the connection ends.
+func TestAPacksSideHasASuiteAsTheRunLoadedIt(t *testing.T) {
+	dir := realPath(t.TempDir())
+	if err := os.WriteFile(filepath.Join(dir, "axx.yaml"), []byte("version: 1\npacks:\n  depot:\n    devices: 1\nprofiles:\n  night:\n    packs:\n      depot:\n        devices: 3\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	made, closed := make(chan *config.Config, 4), make(chan struct{}, 4)
+	f := &fixture{
+		dir: dir, cleanups: filepath.Join(dir, "cleanups"), approvals: filepath.Join(t.TempDir(), "approvals.json"),
+		approver: &fakeApprover{}, events: &events{}, packs: map[string]core.HostServer{"depot": depot{}},
+		suite: func(cfg *config.Config) (*core.Suite, func(context.Context) error, error) {
+			made <- cfg
+			s := core.NewSuite(core.SuiteOptions{
+				ProjectDir: cfg.Dir, PackConfig: map[string]json.RawMessage{"depot": cfg.Packs["depot"]},
+				ResolvePath: func(p string) (string, error) {
+					if filepath.IsAbs(p) {
+						return p, nil
+					}
+					return filepath.Join(cfg.Dir, p), nil
+				},
+			})
+			return s, func(context.Context) error { closed <- struct{}{}; return nil }, nil
+		},
+	}
+	f.start(t)
+	conn, err := DialAs(context.Background(), f.announcement(t), Request{Pack: "depot", Command: "axx run --profile night", Profile: "night"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-made:
+		t.Fatal("the suite was made before the pack asked for it")
+	case <-time.After(100 * time.Millisecond):
+	}
+	if got := said(t, conn, "labels/label.png"); got != filepath.Join(dir, "labels", "label.png")+" (devices: 3)" {
+		t.Errorf("the pack's suite answered %q", got)
+	}
+	// A file of the system's, by its whole path (on Windows, /etc/hosts has no drive, and is
+	// read from the project's folder).
+	system := "/etc/hosts"
+	if runtime.GOOS == "windows" {
+		system = `C:\Windows\System32\drivers\etc\hosts`
+	}
+	if got := said(t, conn, system); !strings.HasPrefix(got, "refused: ") || !strings.Contains(got, "is not in the project") {
+		t.Errorf("a file outside the project: %q", got)
+	}
+	if n := len(made); n != 1 {
+		t.Errorf("%d suites made for one connection", n-0)
+	}
+	_ = conn.Close()
+	select {
+	case <-closed:
+	case <-time.After(10 * time.Second):
+		t.Fatal("the suite was not closed when the connection ended")
+	}
+}
+
+// The files a run names are the project's: those of its repository, where
+// an app is built beside the folder of axx.yaml, and none outside it. The
+// host settles the repository as it starts, and says so.
+func TestAPacksSuiteReadsTheProjectsRepository(t *testing.T) {
+	repo := realPath(t.TempDir())
+	dir := filepath.Join(repo, "acceptance")
+	for _, d := range []string{dir, filepath.Join(repo, ".git"), filepath.Join(repo, "courier", "build")} {
+		if err := os.MkdirAll(d, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	other := realPath(t.TempDir())
+	for path, body := range map[string]string{
+		filepath.Join(dir, "axx.yaml"):                         "version: 1\n",
+		filepath.Join(repo, "courier", "build", "courier.apk"): "apk",
+		filepath.Join(other, "notes.txt"):                      "not the project's",
+	} {
+		if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// A link in the repository to a file outside it is a file outside it.
+	if err := os.Symlink(filepath.Join(other, "notes.txt"), filepath.Join(repo, "courier", "notes.txt")); err != nil {
+		t.Fatal(err)
+	}
+	f := &fixture{
+		dir: dir, cleanups: filepath.Join(dir, "cleanups"), approvals: filepath.Join(t.TempDir(), "approvals.json"),
+		approver: &fakeApprover{}, events: &events{}, packs: map[string]core.HostServer{"depot": depot{}},
+		suite: func(cfg *config.Config) (*core.Suite, func(context.Context) error, error) {
+			s := core.NewSuite(core.SuiteOptions{ProjectDir: cfg.Dir, ResolvePath: func(p string) (string, error) {
+				if filepath.IsAbs(p) {
+					return p, nil
+				}
+				return filepath.Join(cfg.Dir, p), nil
+			}})
+			return s, func(context.Context) error { return nil }, nil
+		},
+	}
+	f.start(t)
+	if got := repository(dir); got != repo {
+		t.Errorf("the repository of %s is %s, want %s", dir, got, repo)
+	}
+	if got := repository(other); got != other {
+		t.Errorf("a project in no repository reads its own folder: %s", got)
+	}
+	conn, err := DialAs(context.Background(), f.announcement(t), Request{Pack: "depot", Command: "axx run"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+	if got := said(t, conn, "../courier/build/courier.apk"); !strings.HasPrefix(got, filepath.Join(repo, "courier", "build", "courier.apk")) {
+		t.Errorf("an app beside the folder of axx.yaml, in its repository: %q", got)
+	}
+	for _, outside := range []string{filepath.Join(other, "notes.txt"), "../courier/notes.txt", "../../" + filepath.Base(other) + "/notes.txt"} {
+		if got := said(t, conn, outside); !strings.HasPrefix(got, "refused: ") || !strings.Contains(got, "is not in the project") {
+			t.Errorf("%s, outside the repository: %q", outside, got)
+		}
 	}
 }

@@ -5,6 +5,7 @@ package mobileandroid
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
@@ -95,11 +96,42 @@ func near(t *testing.T, h *cloudtest.Harness, lat, lon float64) {
 	t.Helper()
 	want := "location " + strconv.FormatFloat(lat, 'f', -1, 64) + ", " + strconv.FormatFloat(lon, 'f', -1, 64)
 	_ = mobilecore.OnDevice(h.SC, "courier", func(_ context.Context, d mobilecore.Device) error {
-		if resets, _ := d.Describe()["resets"].([]string); !slices.Contains(resets, want) {
+		if resets := resetsOf(d); !slices.Contains(resets, want) {
 			t.Errorf("the device's resets are %v, want %q among them", resets, want)
 		}
 		return nil
 	})
+}
+
+// resetsOf are what the scenario's device says it reset: the device may be
+// one the axx host runs, which says it over the wire.
+func resetsOf(d mobilecore.Device) []string {
+	switch r := d.Describe()["resets"].(type) {
+	case []string:
+		return r
+	case []any:
+		out := make([]string, 0, len(r))
+		for _, v := range r {
+			out = append(out, fmt.Sprint(v))
+		}
+		return out
+	}
+	return nil
+}
+
+// adbOf is the SDK and the serial of the scenario's device, for what a test
+// does to it behind the pack's back.
+func adbOf(t *testing.T, d mobilecore.Device) (*sdk, string) {
+	t.Helper()
+	s, err := findSDK()
+	if err != nil {
+		t.Fatal(err)
+	}
+	serial, _ := d.Describe()["device"].(string)
+	if serial == "" {
+		t.Fatalf("the courier app's device names no serial: %v", d.Describe())
+	}
+	return s, serial
 }
 
 func signIn(h *cloudtest.Harness) {
@@ -160,13 +192,13 @@ func TestCouriersOnAnEmulator(t *testing.T) {
 	// The UiAutomator2 server crashes now and then, its own process: the scenario goes on, on
 	// a server started again.
 	_ = mobilecore.OnDevice(h.SC, "courier", func(ctx context.Context, d mobilecore.Device) error {
-		r := d.(*running)
-		_, err := r.sdk.shell(ctx, r.dev.serial, "am", "force-stop", uia2Package)
+		s, serial := adbOf(t, d)
+		_, err := s.shell(ctx, serial, "am", "force-stop", uia2Package)
 		return err
 	})
 	h.OK(`the "PX-MOB-9401" list item is shown in the courier app`)
 	_ = mobilecore.OnDevice(h.SC, "courier", func(_ context.Context, d mobilecore.Device) error {
-		if resets, _ := d.Describe()["resets"].([]string); !slices.Contains(resets, "the UiAutomator2 server started again after it crashed") {
+		if resets := resetsOf(d); !slices.Contains(resets, "the UiAutomator2 server started again after it crashed") {
 			t.Errorf("the server was not started again: the device's resets are %v", resets)
 		}
 		return nil
@@ -175,14 +207,14 @@ func TestCouriersOnAnEmulator(t *testing.T) {
 	// the app reached as localhost go with it: the scenario goes on, and the app reaches this
 	// machine again (it delivers the parcel below through localhost:8400).
 	_ = mobilecore.OnDevice(h.SC, "courier", func(ctx context.Context, d mobilecore.Device) error {
-		r := d.(*running)
-		_, err := r.sdk.run(ctx, r.dev.serial, "reconnect")
+		s, serial := adbOf(t, d)
+		_, err := s.run(ctx, serial, "reconnect")
 		return err
 	})
 	h.OK(`the "PX-MOB-9401" list item is tapped in the courier app`)
 	_ = mobilecore.OnDevice(h.SC, "courier", func(ctx context.Context, d mobilecore.Device) error {
-		r := d.(*running)
-		if out, err := r.sdk.run(ctx, r.dev.serial, "reverse", "--list"); err != nil || !strings.Contains(out, "tcp:8400") {
+		s, serial := adbOf(t, d)
+		if out, err := s.run(ctx, serial, "reverse", "--list"); err != nil || !strings.Contains(out, "tcp:8400") {
 			t.Errorf("the app does not reach localhost:8400 after adb lost the device: %q, %v", out, err)
 		}
 		return nil

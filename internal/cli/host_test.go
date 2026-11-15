@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"encoding/json"
+	"net"
 	"os"
 	"path/filepath"
 	"strings"
@@ -10,7 +11,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/nimbusxr/axx/core"
 	"github.com/nimbusxr/axx/internal/config"
+	"github.com/nimbusxr/axx/internal/engine"
 	"github.com/nimbusxr/axx/internal/exitcode"
 	"github.com/nimbusxr/axx/internal/host"
 )
@@ -128,5 +131,65 @@ func TestRunStartsServicesWhenTheHostIsGone(t *testing.T) {
 	}
 	if b, _ := os.ReadFile(cleanups); strings.TrimSpace(string(b)) != "api" {
 		t.Errorf("cleanups: %q", b)
+	}
+}
+
+// deviceProbe is a pack with a side in the host, whose check fails where the
+// test runs, as a simulator's does in an agent's sandbox.
+type deviceProbe struct{}
+
+func (deviceProbe) Manifest() core.Manifest {
+	return core.Manifest{Name: "device-probe", Checks: []core.Check{{Name: "the probe's devices", Run: func(context.Context) core.CheckResult {
+		return core.CheckResult{Status: core.CheckFail, Detail: "the device service cannot be reached", Hint: "install the devices"}
+	}}}}
+}
+func (deviceProbe) HostServes() string { return "the probe's devices" }
+func (deviceProbe) ServeHost(_ context.Context, _ core.HostRun, conn net.Conn) error {
+	return conn.Close()
+}
+
+func init() { engine.Register("./device-probe", deviceProbe{}) }
+
+// A pack with a side in the axx host does its machine work there: where a
+// host answers, what `axx doctor` cannot reach itself (in a sandbox) does
+// not stop the project's runs, and doctor says so instead of failing; with
+// no host, the check fails as it did.
+func TestDoctorKnowsTheHostDoesAPacksWork(t *testing.T) {
+	dir := t.TempDir()
+	t.Chdir(dir)
+	writeFiles(t, dir, map[string]string{"axx.yaml": "version: 1\n", "axx-packs.yaml": "packs:\n  - ./device-probe\n"})
+	check := func(out, name string) (status, hint, detail string) {
+		t.Helper()
+		var rep struct {
+			Data struct {
+				Checks []DoctorCheck `json:"checks"`
+			} `json:"data"`
+		}
+		if err := json.Unmarshal([]byte(out), &rep); err != nil {
+			t.Fatalf("%v\n%s", err, out)
+		}
+		for _, c := range rep.Data.Checks {
+			if c.Name == name {
+				return c.Status, c.Hint, c.Detail
+			}
+		}
+		return "", "", ""
+	}
+	out, _, _ := run(t, "doctor", "--json")
+	if status, hint, _ := check(out, "the probe's devices"); status != "fail" || hint != "install the devices" {
+		t.Errorf("with no host: %s, %q", status, hint)
+	}
+	if status, _, _ := check(out, "axx host"); status != "" {
+		t.Errorf("with no host, doctor says of one: %s", status)
+	}
+
+	serveHost(t, dir)
+	out, _, _ = run(t, "doctor", "--json")
+	status, hint, _ := check(out, "the probe's devices")
+	if status != "warn" || !strings.Contains(hint, "install the devices; the axx host at ") || !strings.Contains(hint, "does the device-probe pack's work") {
+		t.Errorf("with a host: %s, %q", status, hint)
+	}
+	if status, _, detail := check(out, "axx host"); status != "ok" || !strings.Contains(detail, "does the machine's work of device-probe") {
+		t.Errorf("the host's line: %s, %q", status, detail)
 	}
 }

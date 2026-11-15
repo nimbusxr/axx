@@ -100,6 +100,7 @@ export interface ApprovalEvent {
   proposed: string;
   diff: string;
   warnings: string[];
+  text: string; // what a pack asks to start on this machine ('' for the services' definition)
 }
 
 export interface AnsweredEvent {
@@ -162,6 +163,7 @@ export function parseHostEvent(line: string): HostEvent | undefined {
         proposed: text('proposed'),
         diff: text('diff'),
         warnings: texts('warnings'),
+        text: text('text'),
       };
     case 'answered': {
       const answer = text('answer');
@@ -318,6 +320,8 @@ export function hostStatus(phase: HostPhase, state: HostState, detail = '', name
 // The question of an approval's notification.
 export function approvalMessage(a: ApprovalEvent): string {
   const warnings = a.warnings.length > 0 ? ` Warnings: ${a.warnings.join('; ')}.` : '';
+  // A pack's question, as the host's terminal asks it: an app it would start on this machine.
+  if (a.text) return `axx host: ${a.command || 'a run'} asks to start ${a.text} on this machine. Approve?${warnings}`;
   if (!a.run) return `axx host: the services' definition changed since you last approved it. Approve?${warnings}`;
   return `axx host: run ${a.run} (${a.command}) needs services whose definition changed. Approve?${warnings}`;
 }

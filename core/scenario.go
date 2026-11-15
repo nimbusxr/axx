@@ -65,6 +65,7 @@ type Scenario struct {
 	step           *StepInfo
 	progress       []StepProgress
 	hold           func() func()
+	notes          map[string]string
 }
 
 type namedCloser struct {
@@ -239,6 +240,40 @@ func (sc *Scenario) Attach(mediaType string, body []byte, name string) {
 	if sc.sink != nil {
 		sc.sink.Attach(sc, mediaType, body, name)
 	}
+}
+
+// Note states something of the scenario under a name, for a pack's other
+// side. When the axx host does a pack's work on the machine ([HostServer]),
+// the host has a scenario of its own for each of the run's, and what a pack
+// keeps in a scenario (a [StateKey]) stays on the side that made it. What a
+// pack notes in the run's scenario it reads with [Scenario.Noted] in the
+// host's, and the other way round: the pack whose side the host serves
+// carries the notes across with its calls. A note is a short text, like
+// that the scenario's steps use the microphone; name it after the pack.
+func (sc *Scenario) Note(name, value string) {
+	sc.mu.Lock()
+	if sc.notes == nil {
+		sc.notes = map[string]string{}
+	}
+	sc.notes[name] = value
+	sc.mu.Unlock()
+}
+
+// Noted is what was noted of the scenario under the name, on this side or
+// on the other.
+func (sc *Scenario) Noted(name string) (string, bool) {
+	sc.mu.Lock()
+	defer sc.mu.Unlock()
+	v, ok := sc.notes[name]
+	return v, ok
+}
+
+// Notes are all the scenario's notes: what a pack that carries them to its
+// other side sends.
+func (sc *Scenario) Notes() map[string]string {
+	sc.mu.Lock()
+	defer sc.mu.Unlock()
+	return maps.Clone(sc.notes)
 }
 
 // Describe registers fn to describe pack state when the scenario fails, for

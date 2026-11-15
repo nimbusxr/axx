@@ -403,9 +403,14 @@ jobs:
         # models-android pack's on one of their own: in nine parts of some 2.5 to 3.5 minutes each
         # on these runners, after some 3 of setting up (no job runs past 10). With no tests to run,
         # one part builds them, and keeps the couriers' app and the emulator's device for the rest.
-        part: ${{ fromJSON(needs.changes.outputs.tests == 'true' && '["emulator-1", "emulator-2", "emulator-3", "emulator-4", "emulator-5", "emulator-6", "models-1", "models-2", "models-3"]' || '["emulator-1"]') }}
+        # The hosted parts run four of the emulator's parts again through an axx host, in the
+        # tests' process (AXX_TEST_HOSTED): the host's side of the pack leases the emulator and
+        # starts the app, as for a run in an agent's sandbox. They are the parts with the model
+        # stubs and the camera (1), a whole delivery (2), documents (3) and notifications (6).
+        part: ${{ fromJSON(needs.changes.outputs.tests == 'true' && '["emulator-1", "emulator-2", "emulator-3", "emulator-4", "emulator-5", "emulator-6", "models-1", "models-2", "models-3", "hosted-emulator-1", "hosted-emulator-2", "hosted-emulator-3", "hosted-emulator-6"]' || '["emulator-1"]') }}
     env:
       PART: ${{ matrix.part }}
+      AXX_TEST_HOSTED: ${{ startsWith(matrix.part, 'hosted-') && '1' || '' }}
     steps:
       - name: KVM, for the emulator, and where its devices are
         run: |
@@ -414,6 +419,9 @@ jobs:
           sudo udevadm trigger --name-match=kvm
           # avdmanager would go by the runner's XDG_CONFIG_HOME, and the emulator not.
           echo "ANDROID_AVD_HOME=$HOME/.android/avd" >> "$GITHUB_ENV"
+      # A hosted part runs a part's tests: it reads that part's builds.
+      - id: part
+        run: echo "tests=${PART#hosted-}" >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
@@ -456,8 +464,8 @@ jobs:
       - if: needs.changes.outputs.tests == 'true'
         uses: ./.github/actions/android-builds
         with:
-          part: mobile-${{ matrix.part }}
-      - if: needs.changes.outputs.tests == 'true' && startsWith(matrix.part, 'emulator-')
+          part: mobile-${{ steps.part.outputs.tests }}
+      - if: needs.changes.outputs.tests == 'true' && contains(matrix.part, 'emulator-')
         run: |
           # The parts, by their tests' times here (gotestsum's slowest): the sixth runs the rest.
           one='TestACourierReadsATornLabelOnAnEmulator|TestACourierFindsAParcelFarDownTheRoundOnAnEmulator|TestACourierAttachesADocumentFurtherDownThePickerOnAnEmulator'
@@ -465,7 +473,7 @@ jobs:
           three='TestACourierAttachesADocumentOnAnEmulator|TestACourierSharesTheVanOnAnEmulator'
           four='TestACourierWalksUpToAParcelAndMeasuresItOnAnEmulator|TestACourierPhotographsAParcelAtTheDoorOnAnEmulator'
           five='TestACourierMeasuresAParcelOnAnEmulator|TestRecordingsOnAnEmulator|TestACourierReportsAProblemInAWebViewOnAnEmulator'
-          case "$PART" in
+          case "${PART#hosted-}" in
             emulator-1) select=(-run "^($one)\$") ;;
             emulator-2) select=(-run "^($two)\$") ;;
             emulator-3) select=(-run "^($three)\$") ;;
@@ -493,7 +501,7 @@ jobs:
             *) select=(-skip '^(TestAndroidSpeechTellsOneSpeakersPhrasesApart|TestAndroidAppLaunchHook)$') ;;
           esac
           AXX_MODELS_ANDROID_SERIAL=emulator-5580 GOTEST_SLOWEST=1s scripts/gotest.sh -race -tags integration -timeout 10m "${select[@]}" ./packs/models/android/...
-      - if: ${{ !cancelled() && needs.changes.outputs.tests == 'true' }}
+      - if: ${{ !cancelled() && needs.changes.outputs.tests == 'true' && !startsWith(matrix.part, 'hosted-') }}
         uses: ./.github/actions/android-builds
         with:
           part: mobile-${{ matrix.part }}
@@ -719,6 +727,25 @@ jobs:
             select: -test.run=^(TestACourierSharesTheVanOnASimulator|TestACourierReportsAProblemInAWebViewOnASimulator)$
           - tests: others
             select: -test.skip=^(TestCouriersOnASimulator|TestRecordingsOnASimulator|TestThePhoneMovesThroughTheScene|TestACourierReadsATornLabelOnASimulator|TestACourierScansALabelOnASimulator|TestTheCameraSeesASceneAnImageOrAVideo|TestACourierMeasuresAParcelOnASimulator|TestACourierWalksUpToAParcelAndMeasuresItOnASimulator|TestACourierPhotographsAParcelAtTheDoorOnASimulator|TestACourierFollowsNotificationsOnASimulator|TestACourierIsRemindedOfTheRoundOnASimulator|TestACourierSharesTheVanOnASimulator|TestACourierReportsAProblemInAWebViewOnASimulator|TestACourierFindsAParcelFarDownTheRoundOnASimulator)$
+          # Four of them again through an axx host, in the tests' process (AXX_TEST_HOSTED): the
+          # host's side of the pack leases the simulator and starts the app, as for a run in an
+          # agent's sandbox. They read the builds of the part whose tests they run.
+          - tests: hosted-couriers
+            builds: couriers
+            hosted: "1"
+            select: -test.run=^(TestCouriersOnASimulator|TestRecordingsOnASimulator)$
+          - tests: hosted-camera-2
+            builds: camera-2
+            hosted: "1"
+            select: -test.run=^TestACourierMeasuresAParcelOnASimulator$
+          - tests: hosted-camera-4
+            builds: camera-4
+            hosted: "1"
+            select: -test.run=^(TestACourierReadsATornLabelOnASimulator|TestACourierScansALabelOnASimulator)$
+          - tests: hosted-notifications
+            builds: notifications
+            hosted: "1"
+            select: -test.run=^TestACourierFollowsNotificationsOnASimulator$
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -737,7 +764,7 @@ jobs:
       - uses: ./.github/actions/courier-ios
       - uses: ./.github/actions/simulator-builds
         with:
-          part: ios-${{ matrix.tests }}
+          part: ios-${{ matrix.builds || matrix.tests }}
       # The simulator the tests keep (scripts/ios-simulator.sh), made and booted once everything
       # else is ready: its first boot takes a minute or more on these runners, and slowed whatever
       # ran beside it far more than it saved. Restoring the caches took fifty times as long (218 s
@@ -753,8 +780,9 @@ jobs:
       # of this runner's size), and the Android jobs run the shared mobile code with it.
       - env:
           SELECT: ${{ matrix.select }}
+          AXX_TEST_HOSTED: ${{ matrix.hosted }}
         run: GOTEST_FORMAT=standard-verbose GOTEST_SLOWEST=1s scripts/gotest.sh packs/mobile/ios/ios.test -test.timeout=10m "$SELECT"
-      - if: ${{ !cancelled() }}
+      - if: ${{ !cancelled() && !matrix.hosted }}
         uses: ./.github/actions/simulator-builds
         with:
           part: ios-${{ matrix.tests }}
@@ -1014,6 +1042,9 @@ jobs:
         # On main, only the entry that keeps the build cache.
         build: ${{ fromJSON(needs.changes.outputs.tests == 'true' && '["gtk3", "gtk4", "qt6", "qt5", "swing", "electron", "tauri", "flutter"]' || '["gtk3"]') }}
         display: ${{ fromJSON(needs.changes.outputs.tests == 'true' && '["x11", "wayland"]' || '["x11"]') }}
+        # And one build through an axx host, which starts and drives the desk for the run as it
+        # does for a run in an agent's sandbox, once what stands in for its person approved it.
+        include: ${{ fromJSON(needs.changes.outputs.tests == 'true' && '[{"build":"gtk3","display":"x11-hosted"}]' || '[]') }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:

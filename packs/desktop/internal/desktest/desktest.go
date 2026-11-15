@@ -135,7 +135,12 @@ func Journey(t *testing.T, platform string, pack core.Pack) {
 	}
 	value := func(want string) {
 		t.Helper()
-		either(valueReported, `the "`+field+`" field in the depot app has the value "`+want+`"`, "does not say what it holds")
+		// The empty text is written '""': an empty value is none (ADR 0014).
+		quoted := `"` + want + `"`
+		if want == "" {
+			quoted = `'""'`
+		}
+		either(valueReported, `the "`+field+`" field in the depot app has the value `+quoted, "does not say what it holds")
 	}
 	menuItem := func(state string) {
 		t.Helper()

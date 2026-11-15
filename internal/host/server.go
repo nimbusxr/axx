@@ -58,6 +58,10 @@ type Options struct {
 	// Serves says, a line each, what those packs do for runs, for the
 	// person who starts the host.
 	Serves []string
+	// Suite makes a suite of this axx's packs from a configuration, for a
+	// pack's side that works with one (core.HostRun.Suite), and what closes
+	// it. Nil: the packs get none.
+	Suite func(cfg *config.Config) (*core.Suite, func(context.Context) error, error)
 }
 
 // Approver asks the person whether runs may start services by a changed
@@ -76,6 +80,9 @@ type Question struct {
 	// ("" when there is none); Proposed the one the run would start.
 	Approved string
 	Proposed *Definition
+	// What is what a pack asks about, in words ("mobile-ios: the courier
+	// app"); "" for the services' definition.
+	What string
 }
 
 // Event is something that happened in the host, for its terminal or editor
@@ -87,8 +94,11 @@ type Event struct {
 	// serving: where the host listens, and the definition starting it
 	// approved, or that changed since the last approved one (Changed: the
 	// first run asks).
-	Addr     string   `json:"addr,omitempty"`
-	Dir      string   `json:"dir,omitempty"`
+	Addr string `json:"addr,omitempty"`
+	Dir  string `json:"dir,omitempty"`
+	// Files is the folder the packs' sides read the files a run names in:
+	// the project's repository.
+	Files    string   `json:"files,omitempty"`
 	Services []string `json:"services,omitempty"`
 	Sources  []string `json:"sources,omitempty"`
 	Warnings []string `json:"warnings,omitempty"`
@@ -141,8 +151,10 @@ const (
 
 // Server is a host: it serves one project's runs.
 type Server struct {
-	opts      Options
-	dir       string
+	opts Options
+	dir  string
+	// files is the folder whose files are the project's: its repository.
+	files     string
 	env       []string
 	approvals *approvals
 	// told is where the services tell their properties: the host's own
@@ -210,7 +222,7 @@ func New(ctx context.Context, opts Options) (*Server, error) {
 		return nil, err
 	}
 	s := &Server{
-		opts: opts, dir: cfg.Dir, env: opts.Env, log: logger, turn: make(chan struct{}, 1),
+		opts: opts, dir: cfg.Dir, files: repository(cfg.Dir), env: opts.Env, log: logger, turn: make(chan struct{}, 1),
 		wait: time.Minute, serving: context.Background(), refused: map[string]bool{},
 	}
 	path := opts.Approvals
@@ -240,6 +252,26 @@ func New(ctx context.Context, opts Options) (*Server, error) {
 
 // Dir is the project the host serves.
 func (s *Server) Dir() string { return s.dir }
+
+// repository is the folder whose files are the project's, for a pack's side
+// that reads the files a run names: the project's repository, the nearest
+// folder at or above dir that has a .git, or dir itself when none has. An
+// app is often built beside the folder of axx.yaml, in the same repository;
+// what is outside the repository is not the project's. The host settles it
+// as it starts, when the person starts it: nothing a run does moves it.
+func repository(dir string) string {
+	dir = realPath(dir)
+	for d := dir; ; {
+		if _, err := os.Lstat(filepath.Join(d, ".git")); err == nil {
+			return d
+		}
+		parent := filepath.Dir(d)
+		if parent == d {
+			return dir
+		}
+		d = parent
+	}
+}
 
 // key names a configuration: its file, relative to the project, and its
 // profile.
@@ -305,14 +337,14 @@ func (s *Server) Serve(ctx context.Context) error {
 	defer stop(errStopping)
 	s.serving = serving
 	s.event(Event{
-		Event: "serving", Addr: ann.Addr, Dir: s.dir,
+		Event: "serving", Addr: ann.Addr, Dir: s.dir, Files: s.files,
 		Services: s.start.Services, Sources: s.start.Sources, Warnings: s.start.Warnings, Changed: s.changed,
 		Packs: s.opts.Serves,
 	})
 	if s.changed {
 		// It changed since the person last approved one: ask now, while they
 		// are here, rather than when a run needs it.
-		s.ask(s.start, 0, "")
+		s.ask(s.start, 0, "", "")
 	}
 
 	var wg sync.WaitGroup
@@ -551,7 +583,43 @@ func (s *Server) servePack(ctx context.Context, conn net.Conn, l *lines, req Req
 		Tell: func(text string) {
 			s.event(Event{Event: "pack", Pack: req.Pack, Command: req.Command, IDE: req.IDE, Text: text})
 		},
+		Approve: func(ctx context.Context, a core.HostApproval) error {
+			return s.packApproved(ctx, req.Pack, req.Command, a)
+		},
 	}
+	// The pack's suite: the project's packs as the run loaded them, made
+	// when the pack first asks, and closed with the connection.
+	var suite struct {
+		once  sync.Once
+		s     *core.Suite
+		close func(context.Context) error
+		err   error
+	}
+	run.Suite = func() (*core.Suite, error) {
+		suite.once.Do(func() {
+			if s.opts.Suite == nil {
+				suite.err = hostErr(CodeRefused, "the axx host has no suite for the %s pack", req.Pack)
+				return
+			}
+			cfg, err := s.load(req)
+			if err != nil {
+				suite.err = err
+				return
+			}
+			if suite.s, suite.close, suite.err = s.opts.Suite(cfg); suite.err == nil {
+				suite.s.Confine(s.files)
+			}
+		})
+		return suite.s, suite.err
+	}
+	defer func() {
+		suite.once.Do(func() {}) // none made after this
+		if suite.close != nil {
+			if err := suite.close(context.WithoutCancel(ctx)); err != nil {
+				s.log.Warn("closing the "+req.Pack+" pack's suite", "run", req.Command, "error", err)
+			}
+		}
+	}()
 	// What the run sent after its request is the pack's: the reader has it.
 	if err := srv.ServeHost(ctx, run, &packConn{Conn: conn, r: l.r}); err != nil && ctx.Err() == nil {
 		s.log.Warn("the "+req.Pack+" pack stopped serving a run", "run", req.Command, "error", err)
@@ -582,7 +650,7 @@ func (s *Server) approved(ctx context.Context, def *Definition, run int, command
 		return hostErr(CodeNotApproved, "the person running the axx host refused this change of the services' definition").
 			WithHint("change axx.yaml's services and compose files back, or ask them; the host asks again about a newer change, or after it restarts")
 	}
-	q := s.ask(def, run, command)
+	q := s.ask(def, run, command, "")
 	_ = l.write(Message{Type: MsgWaiting, Reason: fmt.Sprintf(
 		"the services' definition changed since it was approved: waiting up to %s for the person running the axx host to approve it", about(s.wait))})
 	waiting()
@@ -610,6 +678,75 @@ func (s *Server) approved(ctx context.Context, def *Definition, run int, command
 	return nil
 }
 
+// packApproved returns nil once the person approved what a pack would start
+// for runs: before, with the same text, or now. As for the services'
+// definition, a run waits for their answer up to s.wait, the question stays
+// open after, and what they refused is refused again until the host
+// restarts. A question about something else that is open is answered first:
+// two apps' scenarios that start at once are each asked about, one after the
+// other.
+func (s *Server) packApproved(ctx context.Context, pack, command string, a core.HostApproval) error {
+	what := pack + ": " + a.Subject
+	// The text names the pack and the subject, so that two subjects' texts
+	// never are one approval.
+	def := &Definition{Key: what, Text: what + "\n" + strings.TrimRight(a.Text, "\n") + "\n", Warnings: a.Warnings}
+	if s.approvals.has(def.Text) {
+		return nil
+	}
+	timer := time.NewTimer(s.wait)
+	defer timer.Stop()
+	notAnswered := func() error {
+		return hostErr(CodeNotAnswered, "the person running the axx host has not answered yet whether runs may start %s", a.Subject).
+			WithHint("the question is open where the host runs; tell them, and run again once they answered")
+	}
+	for {
+		s.mu.Lock()
+		refused := s.refused[def.Text]
+		other := s.open
+		if other != nil && other.text == def.Text {
+			other = nil
+		}
+		s.mu.Unlock()
+		if refused {
+			return hostErr(CodeNotApproved, "the person running the axx host refused to start %s for runs", a.Subject).
+				WithHint("ask them; the host asks again when what it would start changes, or after it restarts")
+		}
+		if other == nil {
+			break
+		}
+		select {
+		case <-other.done:
+		case <-timer.C:
+			return notAnswered()
+		case <-ctx.Done():
+			return axxerr.Wrap(ctx.Err(), CodeInterrupted, exitcode.Interrupted, "the run stopped waiting for the approval of %s", a.Subject)
+		}
+	}
+	q := s.ask(def, 0, command, what)
+	select {
+	case <-q.done:
+	case <-timer.C:
+		return notAnswered()
+	case <-ctx.Done():
+		return axxerr.Wrap(ctx.Err(), CodeInterrupted, exitcode.Interrupted, "the run stopped waiting for the approval of %s; the question stays open where the host runs", a.Subject)
+	}
+	switch {
+	case !q.answered:
+		if s.approvals.has(def.Text) {
+			return nil
+		}
+		why := context.Cause(s.serving)
+		if why == nil {
+			why = errors.New("another question took its place; run again")
+		}
+		return hostErr(CodeInterrupted, "the axx host no longer asks about %s: %v", a.Subject, why)
+	case !q.ok:
+		return hostErr(CodeNotApproved, "the person running the axx host refused to start %s for runs", a.Subject).
+			WithHint("they saw what it is and what it reaches where they run the host; ask them")
+	}
+	return nil
+}
+
 // about says how long d is, for a person: "a minute", "30 seconds".
 func about(d time.Duration) string {
 	switch {
@@ -626,7 +763,7 @@ func about(d time.Duration) string {
 // ask asks the person about def, unless they are asked about it already:
 // a question about another definition is no longer asked. Run is the run
 // that asks (0: the host, as it starts).
-func (s *Server) ask(def *Definition, run int, command string) *question {
+func (s *Server) ask(def *Definition, run int, command, what string) *question {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.open != nil && s.open.text == def.Text {
@@ -640,7 +777,7 @@ func (s *Server) ask(def *Definition, run int, command string) *question {
 	s.open = q
 	approved, _ := s.approvals.last(def.Key)
 	go func() {
-		ok, err := s.opts.Approver.Approve(ctx, Question{Run: run, Command: command, Approved: approved, Proposed: def})
+		ok, err := s.opts.Approver.Approve(ctx, Question{Run: run, Command: command, Approved: approved, Proposed: def, What: what})
 		asked := err == nil && ctx.Err() == nil // an answer, not a question no longer asked
 		cancel(nil)
 		s.mu.Lock()
@@ -694,29 +831,9 @@ func (s *Server) take(ctx context.Context, run int, command string, l *lines, wa
 // define loads the configuration the run loaded, as the host's machine
 // gives it, and reads its definition.
 func (s *Server) define(ctx context.Context, req Request) (*config.Config, *Definition, *hostCoverage, error) {
-	opts := config.LoadOptions{
-		WorkDir: s.dir, Profile: req.Profile, Properties: req.Properties, Settings: req.Settings,
-		// The run's profile, not the host's environment's.
-		LookupEnv: func(k string) (string, bool) {
-			if k == "AXX_PROFILE" {
-				return "", false
-			}
-			return os.LookupEnv(k)
-		},
-	}
-	if req.Config != "" {
-		if !filepath.IsLocal(filepath.FromSlash(req.Config)) {
-			return nil, nil, nil, hostErr(CodeRefused, "the run's configuration %s is not in the project the axx host serves (%s)", req.Config, s.dir)
-		}
-		opts.Path = filepath.Join(s.dir, filepath.FromSlash(req.Config))
-	}
-	cfg, err := config.Load(opts)
+	cfg, err := s.load(req)
 	if err != nil {
-		return nil, nil, nil, axxerr.Wrap(err, CodeDefinition, exitcode.Environment,
-			"axx.yaml cannot be loaded on the axx host's machine with this run's configuration, profile and settings")
-	}
-	if realPath(cfg.Dir) != realPath(s.dir) {
-		return nil, nil, nil, hostErr(CodeRefused, "the run's configuration is in %s, not in the project the axx host serves (%s)", cfg.Dir, s.dir)
+		return nil, nil, nil, err
 	}
 	cov, err := s.coverage(ctx, cfg, req)
 	if err != nil {
@@ -732,6 +849,37 @@ func (s *Server) define(ctx context.Context, req Request) (*config.Config, *Defi
 		def.Text += cov.text()
 	}
 	return cfg, def, cov, nil
+}
+
+// load loads the configuration the run loaded, as the host's machine gives
+// it: the project's axx.yaml (or the run's own file, in the project) with
+// the run's profile, properties and settings.
+func (s *Server) load(req Request) (*config.Config, error) {
+	opts := config.LoadOptions{
+		WorkDir: s.dir, Profile: req.Profile, Properties: req.Properties, Settings: req.Settings,
+		// The run's profile, not the host's environment's.
+		LookupEnv: func(k string) (string, bool) {
+			if k == "AXX_PROFILE" {
+				return "", false
+			}
+			return os.LookupEnv(k)
+		},
+	}
+	if req.Config != "" {
+		if !filepath.IsLocal(filepath.FromSlash(req.Config)) {
+			return nil, hostErr(CodeRefused, "the run's configuration %s is not in the project the axx host serves (%s)", req.Config, s.dir)
+		}
+		opts.Path = filepath.Join(s.dir, filepath.FromSlash(req.Config))
+	}
+	cfg, err := config.Load(opts)
+	if err != nil {
+		return nil, axxerr.Wrap(err, CodeDefinition, exitcode.Environment,
+			"axx.yaml cannot be loaded on the axx host's machine with this run's configuration, profile and settings")
+	}
+	if realPath(cfg.Dir) != realPath(s.dir) {
+		return nil, hostErr(CodeRefused, "the run's configuration is in %s, not in the project the axx host serves (%s)", cfg.Dir, s.dir)
+	}
+	return cfg, nil
 }
 
 // private is what a run is told of an error reading its definition: what

@@ -136,11 +136,24 @@ func warm(t *testing.T, h *cloudtest.Harness, device string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	d, err := p.lease(ctx)
-	if err != nil {
-		t.Fatal(err)
+	if os.Getenv(cloudtest.HostedEnv) != "" {
+		// Through an axx host, the host's side has the simulators, in a pool of its own, and
+		// leases one as the scenario starts: the simulator this machine keeps (CI's is made
+		// before the tests, scripts/ios-simulator.sh), or a clone it makes. A simulator leased
+		// here would stay this side's, and the host's side then made a second one beside it,
+		// from a simulator to clone it had to set up first: a first boot, which takes a hosted
+		// runner most of the job's ten minutes. So only what both sides share and no scenario
+		// has time for is made ready here: WebDriverAgent's first download.
+		if _, err := wdaFor(ctx, h.SC.Suite()); err != nil {
+			t.Fatal(err)
+		}
+	} else {
+		d, err := p.lease(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		p.release(d)
 	}
-	p.release(d)
 	// The scenario starts now, with all of its time. It ends before the test's other cleanups
 	// run: a failure's report is made before it does, while the app runs.
 	h.NewScenarioWithin(scenarioLimit)
@@ -417,9 +430,13 @@ func TestACourierMeasuresAParcelOnASimulator(t *testing.T) {
 	// processors from the scenarios running beside it, for the rest of the run.
 	var udid string
 	_ = mobilecore.OnDevice(h.SC, "courier", func(_ context.Context, d mobilecore.Device) error {
-		udid = d.(*running).dev.udid
+		// What the device says of itself: the simulator may be one the axx host runs.
+		udid, _ = d.Describe()["udid"].(string)
 		return nil
 	})
+	if udid == "" {
+		t.Fatal("the courier app's device names no simulator")
+	}
 	if err := h.End("passed"); err != nil {
 		t.Fatal(err)
 	}
