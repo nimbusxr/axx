@@ -216,7 +216,7 @@ data:
 
 - **The arguments arrive as text:** a literal as written, and a field's name as that field's value. `call.Instance` names the fixture the value is for: derive from it a value that must differ from one fixture to the next, so that it is the same on every run.
 - **A function is pure unless it says otherwise.** It must give the same value for the same call: `axx fixtures check` calls it again and compares.
-- **A recorded function** (`Recorded: true`, with a `Version`) may ask a running service. Only `axx fixtures generate` calls it, between its `Before` and `After`, which start and stop what it needs. Its results go to `axx-fixtures.pairings.yaml`, and everything else reads them from there. Change `Version` when the same arguments give another value: generate then records them again.
+- **A recorded function** (`Recorded: true`, with a `Version`) may ask a running service. Only `axx fixtures generate` calls it, between its `Before` and `After`, which start and stop what it needs. Its results go to `axx-fixtures.pairings.yaml`, and everything else reads them from there ([The recorded results file](/guides/fixture-factories/#the-recorded-results-file)). Change `Version` when the same arguments give another value: generate then records them again.
 - **The name is the project's:** a function named like one of axx's own, or like another pack's, stops the command.
 
 ## Produce to a Kafka service
