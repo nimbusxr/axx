@@ -260,19 +260,26 @@ func approval(sc *core.Scenario, app *App) core.HostApproval {
 		return p
 	}
 	platform := app.Driver.Platform()
+	subject := "the " + app.Name + " app, on this machine's desktop"
+	switch platform {
+	case "macos":
+		subject = "the " + app.Name + " app, on this Mac's desktop"
+	case "linux":
+		subject = "the " + app.Name + " app, in a Linux desktop of axx's own"
+	}
 	var b strings.Builder
 	if app.System {
 		fmt.Fprintf(&b, "app: %s (the system's: read as it runs, never started, reset or stopped)\n", app.App)
 		return core.HostApproval{
-			Subject: "the " + app.Name + " app",
-			Text:    fmt.Sprintf("platform: %s\n", platform) + b.String(),
+			Subject: subject,
+			Text:    b.String(),
 			Warnings: []string{
-				"The run reads what this app of yours shows from the scenario's start on, and clicks and types in it as a person does.",
-				"The windows it shows during a scenario are closed as the scenario ends.",
+				"the run reads what this app of yours shows from the scenario's start on, and clicks and types in it as a person does",
+				"the windows it shows during a scenario are closed as the scenario ends",
 			},
 		}
 	}
-	fmt.Fprintf(&b, "platform: %s\napp: %s\n", platform, rel(app.App))
+	fmt.Fprintf(&b, "app: %s\n", rel(app.App))
 	if len(app.Args) > 0 {
 		fmt.Fprintf(&b, "args: %s\n", strings.Join(app.Arguments(), " "))
 	}
@@ -294,19 +301,16 @@ func approval(sc *core.Scenario, app *App) core.HostApproval {
 	if app.Timezone != "" {
 		fmt.Fprintf(&b, "timezone: %s\n", app.Timezone)
 	}
-	a := core.HostApproval{Subject: "the " + app.Name + " app", Text: b.String()}
+	a := core.HostApproval{Subject: subject, Text: b.String()}
 	a.Warnings = append(a.Warnings,
-		"The app is a program of the project's. It runs on this machine as you, outside the agent's sandbox, with your files and your network.",
-		"The approval is for what is written here, not for one build of the app: the agent can change the app, and the next run starts what it built.")
-	switch platform {
-	case "linux":
-		a.Warnings = append(a.Warnings, "It runs in a desktop of axx's own, not on yours.")
-	default:
-		a.Warnings = append(a.Warnings, "It runs on your desktop: while a scenario has it, the screen, the pointer and the keyboard are the scenario's.")
+		"the app is the code of the agent that builds it: it runs on this machine as you, with your files and your network, past the agent's sandbox")
+	if platform != "linux" {
+		a.Warnings = append(a.Warnings, "it runs on your desktop: while a scenario has it, the screen, the pointer and the keyboard are the scenario's")
 	}
 	if len(extra) > 0 {
-		a.Warnings = append(a.Warnings, "What the registration names of your settings ("+strings.Join(extra, ", ")+") is emptied before each scenario; yours are kept aside and put back when the run ends.")
+		a.Warnings = append(a.Warnings, "what the registration names of your settings ("+strings.Join(extra, ", ")+") is emptied before each scenario: yours are kept aside, and put back when the run ends")
 	}
+	a.Warnings = append(a.Warnings, "the approval is for the app as it is registered here, whatever is built there from now on")
 	return a
 }
 

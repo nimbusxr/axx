@@ -163,11 +163,11 @@ func TestAHostedAppStartsOnceItsPersonApproved(t *testing.T) {
 		t.Fatal("the host's person was not asked")
 	}
 	a := asked[0]
-	wantText := "platform: " + appcore.Host() + "\napp: build/depot\nargs: --depot Leipzig\nenv.PARCELS_API: http://127.0.0.1:8400\n"
-	if a.Subject != "the depot app" || a.Text != wantText {
+	wantText := "app: build/depot\nargs: --depot Leipzig\nenv.PARCELS_API: http://127.0.0.1:8400\n"
+	if !strings.HasPrefix(a.Subject, "the depot app, ") || a.Text != wantText {
 		t.Errorf("asked to approve %q:\n%s\nwant:\n%s", a.Subject, a.Text, wantText)
 	}
-	if w := strings.Join(a.Warnings, " "); !strings.Contains(w, "outside the agent's sandbox") || !strings.Contains(w, "not for one build") {
+	if w := strings.Join(a.Warnings, " "); !strings.Contains(w, "past the agent's sandbox") || !strings.Contains(w, "whatever is built there from now on") {
 		t.Errorf("the warnings: %q", a.Warnings)
 	}
 
