@@ -53,6 +53,7 @@ func (pack) Manifest() core.Manifest {
 		Namespace: "models",
 		Doc:       packDoc,
 		Steps:     append(microphoneSteps(), speakerSteps()...),
+		Hooks:     []core.Hook{{ID: Name + ".microphone", Phase: core.BeforeStep, Run: noteMicrophone}},
 		Commands:  []core.Command{modelsCommand()},
 	}
 }

@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/nimbusxr/axx/core"
+	appcore "github.com/nimbusxr/axx/packs/app/core"
 	"github.com/nimbusxr/axx/packs/mobile/internal/appium"
 )
 
@@ -63,15 +64,23 @@ func (p *testPhones) Start(sc *core.Scenario) (Device, error) {
 	release()
 	sc.Log("the %s app's device is ready", p.app)
 	c := &appium.Client{URL: p.driver}
-	return &phone{p: p, session: c.Attach("session-1", map[string]any{"platformName": "Android"}), files: map[string][]byte{}}, nil
+	return &phone{p: p, sc: sc, session: c.Attach("session-1", map[string]any{"platformName": "Android"}), files: map[string][]byte{}}, nil
 }
 
 type phone struct {
 	p       *testPhones
+	sc      *core.Scenario
 	session *appium.Session
 	files   map[string][]byte
 	stopped bool
 }
+
+// beforeLaunch are what the packs that build on the test's phones do as an
+// app launches, in the scenario the app's device is in: a platform pack's
+// OnLaunch.
+var beforeLaunch = core.NewStateKey("mobile-phones/launch", func(*core.Scenario) *[]func(app string) error {
+	return &[]func(app string) error{}
+}, nil)
 
 func (d *phone) Session() *appium.Session { return d.session }
 func (d *phone) Screen(context.Context) (*Screen, error) {
@@ -81,7 +90,15 @@ func (d *phone) Screen(context.Context) (*Screen, error) {
 	list.Children = []*Node{row, far}
 	return &Screen{Nodes: []*Node{list, row, far}, Size: Rect{0, 0, 400, 800}}, nil
 }
-func (d *phone) Launch(context.Context) error { d.p.log.say("launch"); return nil }
+func (d *phone) Launch(context.Context) error {
+	for _, fn := range *beforeLaunch.Of(d.sc) {
+		if err := fn(d.p.app); err != nil {
+			return err
+		}
+	}
+	d.p.log.say("launch")
+	return nil
+}
 func (d *phone) Restart(context.Context) error {
 	d.p.log.say("restart")
 	d.session.Renew("session-2") // the app is in a new session of its driver
@@ -222,6 +239,8 @@ type hostedFixture struct {
 	run      *core.Suite
 	hostSide *core.Suite
 	served   chan error
+	// hostScenario is the packs' hooks for a scenario the host makes.
+	hostScenario func(sc *core.Scenario) error
 }
 
 func newHosted(t *testing.T) *hostedFixture {
@@ -248,7 +267,12 @@ func newHosted(t *testing.T) *hostedFixture {
 		}
 		return filepath.Join(project, filepath.FromSlash(p)), nil
 	}
-	f.hostSide = core.NewSuite(core.SuiteOptions{ProjectDir: project, ResolvePath: resolve})
+	f.hostSide = core.NewSuite(core.SuiteOptions{ProjectDir: project, ResolvePath: resolve, HostScenario: func(sc *core.Scenario) error {
+		if f.hostScenario == nil {
+			return nil
+		}
+		return f.hostScenario(sc)
+	}})
 	f.hostSide.Confine(project)
 	f.run = core.NewSuite(core.SuiteOptions{ProjectDir: project, ResolvePath: resolve})
 	f.run.UseHost(func(ctx context.Context, pack string) (net.Conn, error) {
@@ -574,4 +598,100 @@ func TestAScenariosEndStopsItsAppsBeforeItEndsInTheHost(t *testing.T) {
 	if got := f.log.all(); got != "start courier on parcels-pixel; stop (failed: true)" {
 		t.Errorf("what the host's device did: %s", got)
 	}
+}
+
+// A pack that builds on the phones (the model stubs) does its work as an app
+// launches, where the app's device is: in the host. Its hook is set up in
+// the scenario the host makes for the run's; there it finds the app's files
+// with what the run's steps wrote, and its device; and what its two sides
+// note of the scenario reaches the other.
+func TestAPackThatBuildsOnPhonesWorksInTheHostsScenario(t *testing.T) {
+	f := newHosted(t)
+	var hostScenarios []string
+	f.hostScenario = func(sc *core.Scenario) error {
+		hostScenarios = append(hostScenarios, sc.Name)
+		hooks := beforeLaunch.Of(sc)
+		*hooks = append(*hooks, func(app string) error {
+			files, err := appcore.Files(sc, app, "./axx-models")
+			if err != nil {
+				return err
+			}
+			wrote := files.(interface{ Written() []string }).Written()
+			body, _, err := files.Read(sc.Context(), "labels.axxmodel")
+			if err != nil {
+				return err
+			}
+			microphone, _ := sc.Noted("stubs/microphone")
+			late, _ := sc.Noted("stubs/late")
+			var screenKey string
+			if err := OnDevice(sc, app, func(_ context.Context, d Device) error {
+				screenKey = d.ScreenKey()
+				return nil
+			}); err != nil {
+				return err
+			}
+			f.log.say("stubs %v (%s) microphone %s late %s on %s", wrote, body, microphone, late, screenKey)
+			sc.Note("stubs/fed/"+app, "true")
+			return nil
+		})
+		return nil
+	}
+	sc, _ := f.scenario(t, "a courier reads a torn label")
+	sc.Note("stubs/microphone", "true")
+	if err := f.register(sc, "courier", courierRows()); err != nil {
+		t.Fatal(err)
+	}
+	// The run's steps write the app's stubs before the app starts.
+	files, err := appcore.Files(sc, "courier", "./axx-models")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := files.Write(t.Context(), "labels.axxmodel", []byte("a stub")); err != nil {
+		t.Fatal(err)
+	}
+	if _, fed := sc.Noted("stubs/fed/courier"); fed {
+		t.Error("the app is fed before it launched")
+	}
+	sc.Note("stubs/late", "noted after the app registered")
+	d, err := device(sc, "courier", true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := d.Launch(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	if want := "stubs [labels.axxmodel] (a stub) microphone true late noted after the app registered on android-parcels-pixel; launch"; !strings.Contains(f.log.all(), want) {
+		t.Errorf("the pack's work as the app launched in the host:\n got %s\nwant %s", f.log.all(), want)
+	}
+	if v, _ := sc.Noted("stubs/fed/courier"); v != "true" {
+		t.Errorf("what the pack noted in the host did not reach the run's scenario: %q", v)
+	}
+	if len(hostScenarios) != 1 || hostScenarios[0] != "a courier reads a torn label" {
+		t.Errorf("the host's scenarios the packs were set up in: %v", hostScenarios)
+	}
+	// A second app of the scenario registers in the same scenario of the host's.
+	if err := f.register(sc, "depot", courierRows()); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := device(sc, "depot", true); err != nil {
+		t.Fatal(err)
+	}
+	if len(hostScenarios) != 1 {
+		t.Errorf("the packs were set up again for the scenario's second app: %v", hostScenarios)
+	}
+	if err := sc.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	// A pack that cannot set up fails the registration, and the scenario
+	// has nothing in the host.
+	f.hostScenario = func(*core.Scenario) error { return errors.New("the stubs' library does not build") }
+	sc, _ = f.scenario(t, "another")
+	if err := f.register(sc, "courier", courierRows()); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := device(sc, "courier", true); err == nil || !strings.Contains(err.Error(), "the stubs' library does not build") {
+		t.Errorf("a pack that cannot set up in the host's scenario: %v", err)
+	}
+	_ = sc.Close()
 }

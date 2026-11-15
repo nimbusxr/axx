@@ -29,8 +29,13 @@ type pack struct{}
 func (pack) Manifest() core.Manifest {
 	return core.Manifest{
 		Name: Name, Namespace: Name, Requires: []string{modelscore.Name, mobileios.Name, appcore.Name}, Steps: []core.StepDef{},
-		Doc:   "Answer supported Speech and Vision calls in debug iOS Simulator apps from prebuilt .axxmodel files in the app's axx-models folder. Speech uses log-mel matching for app-provided audio and the microphone step's precomputed matches for queued recordings. Microphone scenarios feed AVAudioEngine input taps and connections, AVAudioRecorder files (including duration, pause and metering), and AVCaptureSession audio data outputs, then silence. A tap-fed recognition shares its capture's recording and finishes when that recording ends or the app ends audio. Input nodes use 48 kHz mono float PCM independently of the host microphone; taps receive their requested PCM format. Audio data output requires a simulator audio capture device and microphone permission. Foundation Models text sessions, of the system model and of Apple's server model (PrivateCloudComputeLanguageModel; a session of a model of the app's own is left as it is), use the public provider API on iOS 27 or later; a stub whose contract gives format.details.availability (deviceNotEligible, appleIntelligenceNotEnabled or modelNotReady) is an iPhone without the system model, which reports it unavailable. Copy stubs before launching the app; restarting reloads them.",
-		Hooks: []core.Hook{{ID: Name + ".prepare", Phase: core.BeforeStep, Run: prepare}},
+		Doc: "Answer supported Speech and Vision calls in debug iOS Simulator apps from prebuilt .axxmodel files in the app's axx-models folder. Speech uses log-mel matching for app-provided audio and the microphone step's precomputed matches for queued recordings. Microphone scenarios feed AVAudioEngine input taps and connections, AVAudioRecorder files (including duration, pause and metering), and AVCaptureSession audio data outputs, then silence. A tap-fed recognition shares its capture's recording and finishes when that recording ends or the app ends audio. Input nodes use 48 kHz mono float PCM independently of the host microphone; taps receive their requested PCM format. Audio data output requires a simulator audio capture device and microphone permission. Foundation Models text sessions, of the system model and of Apple's server model (PrivateCloudComputeLanguageModel; a session of a model of the app's own is left as it is), use the public provider API on iOS 27 or later; a stub whose contract gives format.details.availability (deviceNotEligible, appleIntelligenceNotEnabled or modelNotReady) is an iPhone without the system model, which reports it unavailable. Copy stubs before launching the app; restarting reloads them.",
+		// The launch hook is set up in a run's scenario and, where the axx
+		// host starts the app, in the host's.
+		Hooks: []core.Hook{
+			{ID: Name + ".prepare", Phase: core.BeforeStep, Run: prepare},
+			{ID: Name + ".prepare.host", Phase: core.HostScenario, Run: prepare},
+		},
 	}
 }
 

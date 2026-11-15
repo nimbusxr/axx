@@ -393,9 +393,13 @@ func TestACourierMeasuresAParcelOnASimulator(t *testing.T) {
 	// processors from the scenarios running beside it, for the rest of the run.
 	var udid string
 	_ = mobilecore.OnDevice(h.SC, "courier", func(_ context.Context, d mobilecore.Device) error {
-		udid = d.(*running).dev.udid
+		// What the device says of itself: the simulator may be one the axx host runs.
+		udid, _ = d.Describe()["udid"].(string)
 		return nil
 	})
+	if udid == "" {
+		t.Fatal("the courier app's device names no simulator")
+	}
 	if err := h.End("passed"); err != nil {
 		t.Fatal(err)
 	}

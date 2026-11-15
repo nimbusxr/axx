@@ -162,14 +162,14 @@ func (l *hostLink) told(op string, params json.RawMessage) {
 		if hostwire.Read(params, &m) == nil {
 			if sc := l.scenario(m.Scenario); sc != nil {
 				st := hostedScenario.Of(sc)
-				st.mu.Lock()
+				st.toldMu.Lock()
 				if op == "hold" {
 					st.holds = append(st.holds, sc.Hold())
 				} else if n := len(st.holds); n > 0 {
 					st.holds[n-1]()
 					st.holds = st.holds[:n-1]
 				}
-				st.mu.Unlock()
+				st.toldMu.Unlock()
 			}
 		}
 	case "arrived":
@@ -177,6 +177,14 @@ func (l *hostLink) told(op string, params json.RawMessage) {
 		if hostwire.Read(params, &m) == nil {
 			if d := l.device(m.Scenario, m.App); d != nil {
 				d.arrived(m.Journey)
+			}
+		}
+	case "notes":
+		// What a pack noted of the scenario in the host (core.Scenario.Note).
+		var m notesParams
+		if hostwire.Read(params, &m) == nil {
+			if sc := l.scenario(m.Scenario); sc != nil {
+				hostedScenario.Of(sc).heard(sc, l, m.Notes)
 			}
 		}
 	}
@@ -204,9 +212,79 @@ var hostedScenarios atomic.Uint64
 type hostedState struct {
 	key string
 
+	// mu is held while an app registers in the host, a call.
 	mu    sync.Mutex
 	links map[*hostLink]map[string]bool // the apps each link registered
-	holds []func()                      // the step's clock, stopped for the host's waits
+
+	// toldMu guards what the host tells the run of while the run waits for
+	// a call's answer: it is never held over a call.
+	toldMu sync.Mutex
+	holds  []func() // the step's clock, stopped for the host's waits
+	// noted is what each link's side in the host knows of the scenario's
+	// notes.
+	noted map[*hostLink]map[string]string
+}
+
+// notesParams are a scenario's notes (core.Scenario.Note) that one side has
+// and the other does not know yet.
+type notesParams struct {
+	Scenario string            `json:"scenario"`
+	Notes    map[string]string `json:"notes"`
+}
+
+// unsent are the scenario's notes that l's side in the host does not know
+// yet, which the caller sends it now.
+func (s *hostedState) unsent(sc *core.Scenario, l *hostLink) map[string]string {
+	notes := sc.Notes()
+	s.toldMu.Lock()
+	defer s.toldMu.Unlock()
+	if s.noted == nil {
+		s.noted = map[*hostLink]map[string]string{}
+	}
+	known := s.noted[l]
+	if known == nil {
+		known = map[string]string{}
+		s.noted[l] = known
+	}
+	var out map[string]string
+	for name, value := range notes {
+		if v, ok := known[name]; ok && v == value {
+			continue
+		}
+		if out == nil {
+			out = map[string]string{}
+		}
+		out[name], known[name] = value, value
+	}
+	return out
+}
+
+// heard notes in the run's scenario what a pack noted in the host's.
+func (s *hostedState) heard(sc *core.Scenario, l *hostLink, notes map[string]string) {
+	s.toldMu.Lock()
+	if s.noted == nil {
+		s.noted = map[*hostLink]map[string]string{}
+	}
+	if s.noted[l] == nil {
+		s.noted[l] = map[string]string{}
+	}
+	for name, value := range notes {
+		s.noted[l][name] = value
+	}
+	s.toldMu.Unlock()
+	for name, value := range notes {
+		sc.Note(name, value)
+	}
+}
+
+// tell sends the host's side of l what the scenario's packs noted since it
+// last heard, before a call that may depend on it.
+func (s *hostedState) tell(ctx context.Context, sc *core.Scenario, l *hostLink) error {
+	notes := s.unsent(sc, l)
+	if len(notes) == 0 {
+		return nil
+	}
+	return l.client.Call(ctx, "notes", notesParams{Scenario: s.key, Notes: notes}, nil)
 }
 
 var hostedScenario = core.NewStateKey(Name+"/hosted", func(sc *core.Scenario) *hostedState {
@@ -253,6 +331,8 @@ type registerParams struct {
 	// names are looked for first.
 	Dir  string     `json:"dir"`
 	Rows []Property `json:"rows"`
+	// Notes are what the scenario's packs noted of it (core.Scenario.Note).
+	Notes map[string]string `json:"notes,omitempty"`
 }
 
 // in gives the scenario's link to the host with the app registered there.
@@ -266,12 +346,12 @@ func (p *hostedPlatform) in(sc *core.Scenario) (*hostLink, appRef, error) {
 	st.mu.Lock()
 	defer st.mu.Unlock()
 	if st.links[l][p.app] {
-		return l, ref, nil
+		return l, ref, st.tell(sc.Context(), sc, l)
 	}
 	l.mu.Lock()
 	l.scenarios[st.key] = sc
 	l.mu.Unlock()
-	if err := l.client.Call(sc.Context(), "register", registerParams{appRef: ref, Info: sc.ScenarioInfo, Dir: sc.Dir, Rows: p.rows}, nil); err != nil {
+	if err := l.client.Call(sc.Context(), "register", registerParams{appRef: ref, Info: sc.ScenarioInfo, Dir: sc.Dir, Rows: p.rows, Notes: st.unsent(sc, l)}, nil); err != nil {
 		return nil, appRef{}, err
 	}
 	if st.links[l] == nil {
@@ -468,6 +548,13 @@ func (d *hostedDevice) Session() *appium.Session {
 func (d *hostedDevice) call(ctx context.Context, op string, params, result any) error {
 	if params == nil {
 		params = d.ref
+	}
+	// What the scenario's packs noted since goes first: the host's side may
+	// act on it in this call.
+	if sc := d.link.scenario(d.ref.Scenario); sc != nil {
+		if err := hostedScenario.Of(sc).tell(ctx, sc, d.link); err != nil {
+			return err
+		}
 	}
 	var a deviceAnswer
 	if err := d.link.client.Call(ctx, op, params, &a); err != nil {
