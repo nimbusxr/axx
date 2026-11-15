@@ -766,19 +766,43 @@ func (d *running) Swipe(ctx context.Context, direction string) error {
 	}, nil)
 }
 
-// Scroll scrolls the first thing on the screen that scrolls a page toward direction, and reports
-// whether it moved.
+// Scroll scrolls what the screen has that scrolls a page toward direction, and reports whether
+// anything moved. A screen can have one view that scrolls inside another: Android's file picker
+// has its grid of files in a view that only folds its header away, and then has no more to
+// scroll, while the grid has pages left. A finger on the screen moves whichever of them can
+// still move; a view that is asked moves only itself. So each view the screen shows is asked in
+// turn, from the outermost, until one moves. A row that scrolls sideways is not asked to scroll
+// up or down: one that knows only forward and backward would take that for its own way.
 func (d *running) Scroll(ctx context.Context, direction string) (bool, error) {
 	s, err := d.Screen(ctx)
 	if err != nil {
 		return false, err
 	}
+	vertical := direction == "up" || direction == "down"
+	var first *mobilecore.Node
+	asked := false
 	for _, n := range s.Visible() {
-		if n.Scrolling {
-			return d.scrollView(ctx, s, n, direction)
+		if !n.Scrolling {
+			continue
 		}
+		if first == nil {
+			first = n
+		}
+		if vertical && n.Bounds.Height > 0 && n.Bounds.Width >= 2*n.Bounds.Height {
+			continue
+		}
+		moved, ok := d.page(ctx, n, direction)
+		if moved {
+			return true, nil
+		}
+		asked = asked || ok
 	}
-	return false, nil
+	// None moved: the screen is at its end that way. Where none could be asked (a device
+	// without the scroll service, views that offer no scroll), the first is swiped.
+	if asked || first == nil {
+		return false, nil
+	}
+	return d.swipeView(ctx, s, first, direction)
 }
 
 // ScrollRow scrolls a row that scrolls sideways (left or right) a page of its own.
