@@ -3,7 +3,9 @@ package host
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"os"
@@ -14,6 +16,7 @@ import (
 
 	"github.com/nimbusxr/axx/core"
 	"github.com/nimbusxr/axx/internal/axxerr"
+	"github.com/nimbusxr/axx/internal/config"
 )
 
 // scanner is a pack's side in the host: it answers each line a run's side
@@ -392,5 +395,87 @@ func TestTheTerminalAsksAboutAPacksApproval(t *testing.T) {
 		if !strings.Contains(out.String(), want) {
 			t.Errorf("missing %q in:\n%s", want, out.String())
 		}
+	}
+}
+
+// depot is a pack's side in the host that works with a suite: it answers
+// each line a run sends with how the suite resolves the file it names.
+type depot struct{}
+
+func (depot) HostServes() string { return "the depot's devices" }
+
+func (depot) ServeHost(ctx context.Context, run core.HostRun, conn net.Conn) error {
+	defer conn.Close()
+	sc := bufio.NewScanner(conn)
+	for sc.Scan() {
+		answer := ""
+		if suite, err := run.Suite(); err != nil {
+			answer = "no suite: " + err.Error()
+		} else if path, err := suite.ResolvePath(sc.Text()); err != nil {
+			answer = "refused: " + err.Error()
+		} else {
+			var settings struct {
+				Devices int `json:"devices"`
+			}
+			_ = suite.PackConfig("depot", &settings)
+			answer = fmt.Sprintf("%s (devices: %d)", path, settings.Devices)
+		}
+		if _, err := io.WriteString(conn, answer+"\n"); err != nil {
+			break
+		}
+	}
+	return ctx.Err()
+}
+
+// A pack's side in the host has a suite of the project's packs, loaded as
+// the run loaded its own (its profile's settings), confined to the project,
+// made when the pack asks and closed when the connection ends.
+func TestAPacksSideHasASuiteAsTheRunLoadedIt(t *testing.T) {
+	dir := realPath(t.TempDir())
+	if err := os.WriteFile(filepath.Join(dir, "axx.yaml"), []byte("version: 1\npacks:\n  depot:\n    devices: 1\nprofiles:\n  night:\n    packs:\n      depot:\n        devices: 3\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	made, closed := make(chan *config.Config, 4), make(chan struct{}, 4)
+	f := &fixture{
+		dir: dir, cleanups: filepath.Join(dir, "cleanups"), approvals: filepath.Join(t.TempDir(), "approvals.json"),
+		approver: &fakeApprover{}, events: &events{}, packs: map[string]core.HostServer{"depot": depot{}},
+		suite: func(cfg *config.Config) (*core.Suite, func(context.Context) error, error) {
+			made <- cfg
+			s := core.NewSuite(core.SuiteOptions{
+				ProjectDir: cfg.Dir, PackConfig: map[string]json.RawMessage{"depot": cfg.Packs["depot"]},
+				ResolvePath: func(p string) (string, error) {
+					if filepath.IsAbs(p) {
+						return p, nil
+					}
+					return filepath.Join(cfg.Dir, p), nil
+				},
+			})
+			return s, func(context.Context) error { closed <- struct{}{}; return nil }, nil
+		},
+	}
+	f.start(t)
+	conn, err := DialAs(context.Background(), f.announcement(t), Request{Pack: "depot", Command: "axx run --profile night", Profile: "night"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-made:
+		t.Fatal("the suite was made before the pack asked for it")
+	case <-time.After(100 * time.Millisecond):
+	}
+	if got := said(t, conn, "labels/label.png"); got != filepath.Join(dir, "labels", "label.png")+" (devices: 3)" {
+		t.Errorf("the pack's suite answered %q", got)
+	}
+	if got := said(t, conn, "/etc/hosts"); !strings.HasPrefix(got, "refused: ") || !strings.Contains(got, "is not in the project") {
+		t.Errorf("a file outside the project: %q", got)
+	}
+	if n := len(made); n != 1 {
+		t.Errorf("%d suites made for one connection", n-0)
+	}
+	_ = conn.Close()
+	select {
+	case <-closed:
+	case <-time.After(10 * time.Second):
+		t.Fatal("the suite was not closed when the connection ended")
 	}
 }

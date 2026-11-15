@@ -59,7 +59,9 @@ type Request struct {
 	Command string `json:"command"`
 	// Pack makes the connection a pack's: once the host accepted it, its
 	// side in the run and its side in the host (core.HostServer) speak
-	// their own protocol over it, and the rest of the request is not read.
+	// their own protocol over it. Of the rest of the request, the host
+	// reads the configuration (Config, Profile, Properties, Settings): a
+	// pack's side that works with a suite has the run's.
 	Pack string `json:"pack,omitempty"`
 	// IDE is the editor that started the run (AXX_IDE): an editor shows its
 	// own runs, and the host's others.

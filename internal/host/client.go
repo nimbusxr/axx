@@ -91,6 +91,14 @@ func Open(ctx context.Context, a *Announcement, req Request, out, status io.Writ
 // (core.HostServer): what the pack's two sides send each other goes over
 // it. command is what the run is, for the person.
 func Dial(ctx context.Context, a *Announcement, pack, command string) (net.Conn, error) {
+	return DialAs(ctx, a, Request{Pack: pack, Command: command})
+}
+
+// DialAs is Dial for a run that tells the host its configuration too (req's
+// Config, Profile, Properties and Settings, with its Pack and Command), for
+// a pack's side that works with a suite of the project's packs: the host
+// loads it as the run loaded its own.
+func DialAs(ctx context.Context, a *Announcement, req Request) (net.Conn, error) {
 	d := net.Dialer{Timeout: 3 * time.Second}
 	conn, err := d.DialContext(ctx, "tcp", a.Addr)
 	if err != nil {
@@ -99,7 +107,8 @@ func Dial(ctx context.Context, a *Announcement, pack, command string) (net.Conn,
 	}
 	l := newLines(conn)
 	_ = conn.SetDeadline(time.Now().Add(10 * time.Second))
-	if err := l.write(Request{Protocol: Protocol, Token: a.Token, Command: command, IDE: os.Getenv("AXX_IDE"), Pack: pack}); err != nil {
+	req.Protocol, req.Token, req.IDE = Protocol, a.Token, os.Getenv("AXX_IDE")
+	if err := l.write(req); err != nil {
 		_ = conn.Close()
 		return nil, lost(err)
 	}
@@ -111,7 +120,7 @@ func Dial(ctx context.Context, a *Announcement, pack, command string) (net.Conn,
 	if m.Type != MsgHello {
 		_ = conn.Close()
 		if m.Error == nil {
-			m.Error = &Failure{Message: "the axx host refused the " + pack + " pack's connection"}
+			m.Error = &Failure{Message: "the axx host refused the " + req.Pack + " pack's connection"}
 		}
 		return nil, m.Error.err()
 	}

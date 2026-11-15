@@ -103,6 +103,8 @@ type fixture struct {
 	launch Launch
 	// packs are the packs with a side in the host (Options.Packs).
 	packs map[string]core.HostServer
+	// suite makes the suites packs' sides work with (Options.Suite).
+	suite func(cfg *config.Config) (*core.Suite, func(context.Context) error, error)
 }
 
 func service(t *testing.T, dir, name, extra string) string {
@@ -148,6 +150,7 @@ func (f *fixture) start(t *testing.T) {
 		Env:       append(os.Environ(), helperEnv+"=1"),
 		Launch:    f.launch,
 		Packs:     f.packs,
+		Suite:     f.suite,
 	})
 	if err != nil {
 		t.Fatal(err)

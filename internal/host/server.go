@@ -58,6 +58,10 @@ type Options struct {
 	// Serves says, a line each, what those packs do for runs, for the
 	// person who starts the host.
 	Serves []string
+	// Suite makes a suite of this axx's packs from a configuration, for a
+	// pack's side that works with one (core.HostRun.Suite), and what closes
+	// it. Nil: the packs get none.
+	Suite func(cfg *config.Config) (*core.Suite, func(context.Context) error, error)
 }
 
 // Approver asks the person whether runs may start services by a changed
@@ -558,6 +562,39 @@ func (s *Server) servePack(ctx context.Context, conn net.Conn, l *lines, req Req
 			return s.packApproved(ctx, req.Pack, req.Command, a)
 		},
 	}
+	// The pack's suite: the project's packs as the run loaded them, made
+	// when the pack first asks, and closed with the connection.
+	var suite struct {
+		once  sync.Once
+		s     *core.Suite
+		close func(context.Context) error
+		err   error
+	}
+	run.Suite = func() (*core.Suite, error) {
+		suite.once.Do(func() {
+			if s.opts.Suite == nil {
+				suite.err = hostErr(CodeRefused, "the axx host has no suite for the %s pack", req.Pack)
+				return
+			}
+			cfg, err := s.load(req)
+			if err != nil {
+				suite.err = err
+				return
+			}
+			if suite.s, suite.close, suite.err = s.opts.Suite(cfg); suite.err == nil {
+				suite.s.Confine(s.dir)
+			}
+		})
+		return suite.s, suite.err
+	}
+	defer func() {
+		suite.once.Do(func() {}) // none made after this
+		if suite.close != nil {
+			if err := suite.close(context.WithoutCancel(ctx)); err != nil {
+				s.log.Warn("closing the "+req.Pack+" pack's suite", "run", req.Command, "error", err)
+			}
+		}
+	}()
 	// What the run sent after its request is the pack's: the reader has it.
 	if err := srv.ServeHost(ctx, run, &packConn{Conn: conn, r: l.r}); err != nil && ctx.Err() == nil {
 		s.log.Warn("the "+req.Pack+" pack stopped serving a run", "run", req.Command, "error", err)
@@ -769,29 +806,9 @@ func (s *Server) take(ctx context.Context, run int, command string, l *lines, wa
 // define loads the configuration the run loaded, as the host's machine
 // gives it, and reads its definition.
 func (s *Server) define(ctx context.Context, req Request) (*config.Config, *Definition, *hostCoverage, error) {
-	opts := config.LoadOptions{
-		WorkDir: s.dir, Profile: req.Profile, Properties: req.Properties, Settings: req.Settings,
-		// The run's profile, not the host's environment's.
-		LookupEnv: func(k string) (string, bool) {
-			if k == "AXX_PROFILE" {
-				return "", false
-			}
-			return os.LookupEnv(k)
-		},
-	}
-	if req.Config != "" {
-		if !filepath.IsLocal(filepath.FromSlash(req.Config)) {
-			return nil, nil, nil, hostErr(CodeRefused, "the run's configuration %s is not in the project the axx host serves (%s)", req.Config, s.dir)
-		}
-		opts.Path = filepath.Join(s.dir, filepath.FromSlash(req.Config))
-	}
-	cfg, err := config.Load(opts)
+	cfg, err := s.load(req)
 	if err != nil {
-		return nil, nil, nil, axxerr.Wrap(err, CodeDefinition, exitcode.Environment,
-			"axx.yaml cannot be loaded on the axx host's machine with this run's configuration, profile and settings")
-	}
-	if realPath(cfg.Dir) != realPath(s.dir) {
-		return nil, nil, nil, hostErr(CodeRefused, "the run's configuration is in %s, not in the project the axx host serves (%s)", cfg.Dir, s.dir)
+		return nil, nil, nil, err
 	}
 	cov, err := s.coverage(ctx, cfg, req)
 	if err != nil {
@@ -807,6 +824,37 @@ func (s *Server) define(ctx context.Context, req Request) (*config.Config, *Defi
 		def.Text += cov.text()
 	}
 	return cfg, def, cov, nil
+}
+
+// load loads the configuration the run loaded, as the host's machine gives
+// it: the project's axx.yaml (or the run's own file, in the project) with
+// the run's profile, properties and settings.
+func (s *Server) load(req Request) (*config.Config, error) {
+	opts := config.LoadOptions{
+		WorkDir: s.dir, Profile: req.Profile, Properties: req.Properties, Settings: req.Settings,
+		// The run's profile, not the host's environment's.
+		LookupEnv: func(k string) (string, bool) {
+			if k == "AXX_PROFILE" {
+				return "", false
+			}
+			return os.LookupEnv(k)
+		},
+	}
+	if req.Config != "" {
+		if !filepath.IsLocal(filepath.FromSlash(req.Config)) {
+			return nil, hostErr(CodeRefused, "the run's configuration %s is not in the project the axx host serves (%s)", req.Config, s.dir)
+		}
+		opts.Path = filepath.Join(s.dir, filepath.FromSlash(req.Config))
+	}
+	cfg, err := config.Load(opts)
+	if err != nil {
+		return nil, axxerr.Wrap(err, CodeDefinition, exitcode.Environment,
+			"axx.yaml cannot be loaded on the axx host's machine with this run's configuration, profile and settings")
+	}
+	if realPath(cfg.Dir) != realPath(s.dir) {
+		return nil, hostErr(CodeRefused, "the run's configuration is in %s, not in the project the axx host serves (%s)", cfg.Dir, s.dir)
+	}
+	return cfg, nil
 }
 
 // private is what a run is told of an error reading its definition: what

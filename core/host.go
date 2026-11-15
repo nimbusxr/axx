@@ -45,6 +45,12 @@ type HostRun struct {
 	// open where the host runs), or no one can answer there. They are asked
 	// where the host runs, never over the connection.
 	Approve func(ctx context.Context, a HostApproval) error
+	// Suite is a suite of the project's packs for the pack's side to do
+	// its work with: its settings, its caches, scenarios of its own. The
+	// host loads it as the run loaded its own (the same axx.yaml, profile,
+	// properties and settings), confined to the project ([Suite.Confine]),
+	// when it is first asked for, and closes it when the connection ends.
+	Suite func() (*Suite, error)
 }
 
 // HostApproval is what a pack's side in the axx host asks the person to

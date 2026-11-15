@@ -113,6 +113,7 @@ events as lines of JSON and reads the editor's answers on its standard input.`,
 				Launch:   hostLaunch(),
 				Packs:    packs,
 				Serves:   serves,
+				Suite:    app.hostSuite,
 			})
 			if err != nil {
 				return err
@@ -141,15 +142,31 @@ func hostPacks() (map[string]core.HostServer, []string) {
 }
 
 // useHost gives the run's packs the axx host that serves the project
-// (core.Suite.HostDial), for what they cannot do in a sandbox.
-func (a *App) useHost(e *engine.Engine, ann *host.Announcement) {
+// (core.Suite.HostDial), for what they cannot do in a sandbox. The host is
+// told the run's configuration with each connection: a pack's side there
+// that works with a suite has the run's settings.
+func (a *App) useHost(e *engine.Engine, ann *host.Announcement, cf configFlags) {
 	if ann == nil {
 		return
 	}
-	command := a.commandLine()
 	e.Suite.UseHost(func(ctx context.Context, pack string) (net.Conn, error) {
-		return host.Dial(ctx, ann, pack, command)
+		req, err := a.hostRequest(e.Config, cf, nil)
+		if err != nil {
+			return nil, err
+		}
+		req.Pack, req.Dir = pack, ""
+		return host.DialAs(ctx, ann, req)
 	})
+}
+
+// hostSuite is a suite of this axx's packs for a pack's side in the host
+// (host.Options.Suite): the project's packs with cfg, as a run has them.
+func (a *App) hostSuite(cfg *config.Config) (*core.Suite, func(context.Context) error, error) {
+	e, err := engine.New(engine.Options{Config: cfg, Logger: a.logger()})
+	if err != nil {
+		return nil, nil, err
+	}
+	return e.Suite, e.Close, nil
 }
 
 // stdinIsTerminal reports whether a person types into standard input

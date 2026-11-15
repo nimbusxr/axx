@@ -71,6 +71,8 @@ type Suite struct {
 	owners map[string]FileOwner
 	// host reaches the axx host that serves the project (UseHost).
 	host HostDialer
+	// confined is the folder the files steps name must be in (Confine).
+	confined string
 }
 
 type cacheEntry struct {
@@ -110,23 +112,85 @@ func (s *Suite) PackConfig(pack string, v any) error {
 func (s *Suite) Interpolate(v string) string { return s.opts.Interpolate(v) }
 
 // ResolvePath resolves a resource path referenced from a feature file.
-func (s *Suite) ResolvePath(p string) (string, error) { return s.opts.ResolvePath(p) }
+func (s *Suite) ResolvePath(p string) (string, error) {
+	return s.within(s.opts.ResolvePath(p))
+}
+
+// Confine keeps the files steps name to dir: from then on ResolvePath and
+// ResolvePathFrom refuse a file that is not in it, once every link on its
+// path is followed. A suite the axx host makes for an agent's run is
+// confined to the project: the run names files, and the host reads them
+// outside the agent's sandbox.
+func (s *Suite) Confine(dir string) {
+	if real, err := filepath.EvalSymlinks(dir); err == nil {
+		dir = real
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.confined = filepath.Clean(dir)
+}
+
+// within passes a resolved path on when the suite is not confined, or the
+// path is in the folder it is confined to.
+func (s *Suite) within(path string, err error) (string, error) {
+	if err != nil {
+		return path, err
+	}
+	s.mu.Lock()
+	dir := s.confined
+	s.mu.Unlock()
+	if dir == "" {
+		return path, nil
+	}
+	if err := Within(dir, path); err != nil {
+		return "", err
+	}
+	return path, nil
+}
+
+// Within reports whether path is in dir once the links on it are followed:
+// nil when it is, and an error that names both otherwise. A path that does
+// not exist yet is judged by the nearest folder above it that does.
+func Within(dir, path string) error {
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		return fmt.Errorf("%s: %w", path, err)
+	}
+	real, rest := abs, ""
+	for {
+		r, err := filepath.EvalSymlinks(real)
+		if err == nil {
+			real = r
+			break
+		}
+		parent := filepath.Dir(real)
+		if parent == real {
+			break
+		}
+		rest, real = filepath.Join(filepath.Base(real), rest), parent
+	}
+	real = filepath.Join(real, rest)
+	if rel, err := filepath.Rel(dir, real); err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) || filepath.IsAbs(rel) {
+		return fmt.Errorf("%s is not in the project (%s): the axx host reads the project's files only", path, dir)
+	}
+	return nil
+}
 
 // ResolvePathFrom resolves a path in dir first (the directory of the feature
 // file that names it), then as ResolvePath. An empty dir is ResolvePath.
 func (s *Suite) ResolvePathFrom(dir, p string) (string, error) {
 	if dir == "" {
-		return s.opts.ResolvePath(p)
+		return s.within(s.opts.ResolvePath(p))
 	}
 	if s.opts.ResolvePathFrom != nil {
-		return s.opts.ResolvePathFrom(dir, p)
+		return s.within(s.opts.ResolvePathFrom(dir, p))
 	}
 	if rel := strings.TrimPrefix(p, "classpath:"); !filepath.IsAbs(rel) {
 		if cand := filepath.Join(dir, filepath.FromSlash(rel)); fileExists(cand) {
-			return cand, nil
+			return s.within(cand, nil)
 		}
 	}
-	return s.opts.ResolvePath(p)
+	return s.within(s.opts.ResolvePath(p))
 }
 
 func fileExists(p string) bool {
