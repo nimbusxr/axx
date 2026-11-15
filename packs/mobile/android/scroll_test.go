@@ -90,6 +90,12 @@ const formPage = `<?xml version='1.0' encoding='UTF-8' standalone='yes' ?>
 // of the keyboard what windows gives (dumpsys window's lines of the input method).
 func deviceWith(t *testing.T, sv *scrolls, windows string) *running {
 	t.Helper()
+	return deviceShowing(t, sv, windows, formPage)
+}
+
+// deviceShowing is deviceWith, for a screen of the test's.
+func deviceShowing(t *testing.T, sv *scrolls, windows, page string) *running {
+	t.Helper()
 	if runtime.GOOS == "windows" {
 		t.Skip("the stand-in adb is a shell script")
 	}
@@ -97,7 +103,7 @@ func deviceWith(t *testing.T, sv *scrolls, windows string) *running {
 	if err := os.WriteFile(adb, []byte("#!/bin/sh\ncase \"$*\" in\n*'dumpsys window'*) printf '%s\\n' '"+windows+"' ;;\nesac\n"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	server := appiumtest.Start(t, appiumtest.App{Screens: map[string]string{"form": formPage}, Start: "form"})
+	server := appiumtest.Start(t, appiumtest.App{Screens: map[string]string{"form": page}, Start: "form"})
 	session, err := (&appium.Client{URL: server.URL, HTTP: &http.Client{}}).NewSession(t.Context(), map[string]any{"platformName": "Android"})
 	if err != nil {
 		t.Fatal(err)
@@ -265,6 +271,62 @@ func TestAViewIsAskedToScrollAPage(t *testing.T) {
 	d := deviceWith(t, nil, "")
 	if moved, asked := d.page(t.Context(), node(t, d, "Report a delivery problem"), "down"); moved || asked {
 		t.Errorf("a device without the scroll service: moved %v, asked %v", moved, asked)
+	}
+}
+
+// filePicker is Android's file picker on Downloads: its grid of files scrolls inside a view that
+// scrolls too (it folds the header away), under a row of chips that scrolls sideways.
+const filePicker = `<?xml version='1.0' encoding='UTF-8' standalone='yes' ?>
+<hierarchy index="0" class="hierarchy" rotation="0" width="1080" height="2400">
+<android.widget.FrameLayout index="0" package="com.google.android.documentsui" class="android.widget.FrameLayout" text="" clickable="false" enabled="true" scrollable="false" bounds="[0,0][1080,2400]" displayed="true">
+<android.view.ViewGroup index="0" package="com.google.android.documentsui" class="android.view.ViewGroup" text="" resource-id="com.google.android.documentsui:id/coordinator_layout" clickable="false" enabled="true" scrollable="true" bounds="[0,130][1080,2400]" displayed="true">
+<android.widget.HorizontalScrollView index="0" package="com.google.android.documentsui" class="android.widget.HorizontalScrollView" text="" resource-id="com.google.android.documentsui:id/search_chip_group" clickable="false" enabled="true" scrollable="true" bounds="[0,270][1080,400]" displayed="true"/>
+<androidx.recyclerview.widget.RecyclerView index="1" package="com.google.android.documentsui" class="androidx.recyclerview.widget.RecyclerView" text="" resource-id="com.google.android.documentsui:id/dir_list" clickable="false" enabled="true" scrollable="true" bounds="[0,500][1080,2400]" displayed="true">
+<android.widget.TextView index="0" package="com.google.android.documentsui" class="android.widget.TextView" text="parcel-at-door.jpg" clickable="false" enabled="true" scrollable="false" bounds="[540,940][1040,1000]" displayed="true"/>
+</androidx.recyclerview.widget.RecyclerView>
+</android.view.ViewGroup>
+</android.widget.FrameLayout></hierarchy>`
+
+// A screen with one scrolling view inside another is paged through both: the outer one is asked
+// first, and when it has no more to move, the one inside it is. A finger would move whichever
+// can still move; a view that is asked moves only itself, so a search that asked the outer view
+// alone stopped once the picker's header had folded away, a page short of the file. A row that
+// scrolls sideways is not asked to scroll down.
+func TestAPageIsAskedOfEachScrollingViewInTurn(t *testing.T) {
+	left := map[string]int{"com.google.android.documentsui:id/coordinator_layout": 1, "com.google.android.documentsui:id/dir_list": 2}
+	sv, in := standInScrolls(t, func(_ int, req map[string]any) map[string]any {
+		id, _ := req["id"].(string)
+		if left[id] == 0 {
+			return map[string]any{"found": true, "scrolls": true, "offered": false, "performed": false, "moved": false}
+		}
+		left[id]--
+		return map[string]any{"found": true, "scrolls": true, "offered": true, "performed": true, "moved": true}
+	})
+	d := deviceShowing(t, sv, "", filePicker)
+	var moves []string
+	for range 4 {
+		moved, err := d.Scroll(t.Context(), "down")
+		if err != nil {
+			t.Fatal(err)
+		}
+		moves = append(moves, fmt.Sprint(moved))
+	}
+	if got := strings.Join(moves, " "); got != "true true true false" {
+		t.Errorf("four pages down the picker moved: %s, want the header's page, the grid's two, and then none", got)
+	}
+	var asks []string
+	for _, a := range in.asked() {
+		id, _ := a["id"].(string)
+		asks = append(asks, id[strings.LastIndex(id, "/")+1:])
+	}
+	want := "coordinator_layout coordinator_layout dir_list coordinator_layout dir_list coordinator_layout dir_list"
+	if got := strings.Join(asks, " "); got != want {
+		t.Errorf("the views asked, in order:\n got %s\nwant %s", got, want)
+	}
+	// A device without the scroll service swipes the first of them, as it did.
+	d = deviceShowing(t, nil, "", filePicker)
+	if _, err := d.Scroll(t.Context(), "down"); err != nil {
+		t.Fatal(err)
 	}
 }
 
