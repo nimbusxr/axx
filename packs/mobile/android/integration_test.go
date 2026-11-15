@@ -73,6 +73,10 @@ func logsOnFailure(t *testing.T, h *cloudtest.Harness) {
 		for _, serial := range serials {
 			out, _ := s.run(ctx, serial, "logcat", "-d", "-b", "crash")
 			t.Logf("%s's crash log:\n%s", serial, out)
+			// What axx's scroll service was asked and answered: which view, whether it took the
+			// scroll, whether it moved, and how many milliseconds after.
+			out, _ = s.run(ctx, serial, "logcat", "-d", "-v", "time", "-t", "60", "-s", "axx-scroll")
+			t.Logf("%s's scroll service's log:\n%s", serial, out)
 			// Which window has the focus, where a tap goes: the app's, or the notification shade's.
 			out, _ = s.shell(ctx, serial, "dumpsys", "window", "displays")
 			for _, line := range strings.Split(out, "\n") {
