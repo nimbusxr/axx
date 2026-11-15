@@ -136,11 +136,28 @@ func warm(t *testing.T, h *cloudtest.Harness, device string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	d, err := p.lease(ctx)
-	if err != nil {
-		t.Fatal(err)
+	if os.Getenv(cloudtest.HostedEnv) != "" {
+		// Through an axx host, the host's side has the simulators, in a pool of its own. A
+		// simulator leased here would stay this side's: the host's side then made a second
+		// one beside it, new, which boots with everything iOS sets up on a first boot. Two
+		// simulators and a first boot are more than a hosted runner carries (three jobs ran
+		// out of their ten minutes at a first fill, the machine's load over 400). So only what
+		// both sides share is made ready here: the simulator axx clones, and WebDriverAgent.
+		if p.typeID != "" {
+			if _, err := p.templateOf(ctx); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if _, err := wdaFor(ctx, h.SC.Suite()); err != nil {
+			t.Fatal(err)
+		}
+	} else {
+		d, err := p.lease(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		p.release(d)
 	}
-	p.release(d)
 	// The scenario starts now, with all of its time. It ends before the test's other cleanups
 	// run: a failure's report is made before it does, while the app runs.
 	h.NewScenarioWithin(scenarioLimit)
