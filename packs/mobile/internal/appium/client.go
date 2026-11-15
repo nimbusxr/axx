@@ -138,6 +138,23 @@ func (c *Client) NewSession(ctx context.Context, caps map[string]any) (*Session,
 	return &Session{c: c, ID: out.SessionID, Capabilities: out.Capabilities}, nil
 }
 
+// Attach is a session the server has already: one another process started
+// on it (the axx host, for a run in a sandbox), which this one drives too.
+func (c *Client) Attach(id string, caps map[string]any) *Session {
+	return &Session{c: c, ID: id, Capabilities: caps}
+}
+
+// Server is the server the session is on, and whether it is a UiAutomator2
+// server (Client.Selectors): what another process needs to attach to it.
+func (s *Session) Server() (url string, selectors bool) { return s.c.URL, s.c.Selectors }
+
+// Identity is the session's ID, as the server knows it now.
+func (s *Session) Identity() string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.ID
+}
+
 // Status reports whether the server is up.
 func (c *Client) Status(ctx context.Context) error {
 	return c.do(ctx, http.MethodGet, "/status", nil, nil)

@@ -32,7 +32,8 @@ func pair(t *testing.T, ops map[string]Handler, told func(string, json.RawMessag
 		_ = c.Close()
 		_ = host.Close()
 		select {
-		case <-served:
+		case err := <-served:
+			_ = err // the pipe's end, or none
 		case <-time.After(10 * time.Second):
 			t.Error("the host's side did not end with the connection")
 		}
@@ -108,14 +109,14 @@ func TestCallsAtOnceEachGetTheirOwnAnswer(t *testing.T) {
 // A call the run no longer waits for is ended in the host; the host's
 // telling reaches the run in the order it told.
 func TestACallNoLongerWaitedForEndsInTheHost(t *testing.T) {
-	began, ended := make(chan struct{}), make(chan error, 1)
+	began, ended := make(chan struct{}), make(chan struct{}, 1)
 	var told []string
 	var mu sync.Mutex
 	c, srv := pair(t, map[string]Handler{
 		"wait": func(ctx context.Context, _ json.RawMessage) (any, error) {
 			close(began)
 			<-ctx.Done()
-			ended <- ctx.Err()
+			ended <- struct{}{}
 			return nil, ctx.Err()
 		},
 	}, func(op string, params json.RawMessage) {

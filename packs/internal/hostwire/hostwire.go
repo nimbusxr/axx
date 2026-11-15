@@ -144,7 +144,7 @@ func (c *Client) read(r io.Reader) {
 	if err == nil {
 		err = ErrClosed
 	} else {
-		err = fmt.Errorf("%w: %v", ErrClosed, err)
+		err = fmt.Errorf("%w: %w", ErrClosed, err)
 	}
 	c.mu.Lock()
 	c.closed = err
@@ -189,7 +189,7 @@ func (c *Client) Call(ctx context.Context, op string, params, result any) error 
 		c.mu.Lock()
 		delete(c.waiting, id)
 		c.mu.Unlock()
-		return fmt.Errorf("%w: %v", ErrClosed, err)
+		return fmt.Errorf("%w: %w", ErrClosed, err)
 	}
 	select {
 	case m, ok := <-ch:
@@ -323,3 +323,6 @@ func Op[P, R any](fn func(ctx context.Context, p P) (R, error)) Handler {
 		return fn(ctx, p)
 	}
 }
+
+// Read reads what crossed as JSON into v.
+func Read(raw json.RawMessage, v any) error { return json.Unmarshal(raw, v) }
