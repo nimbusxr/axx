@@ -137,17 +137,13 @@ func warm(t *testing.T, h *cloudtest.Harness, device string) {
 		t.Fatal(err)
 	}
 	if os.Getenv(cloudtest.HostedEnv) != "" {
-		// Through an axx host, the host's side has the simulators, in a pool of its own. A
-		// simulator leased here would stay this side's: the host's side then made a second
-		// one beside it, new, which boots with everything iOS sets up on a first boot. Two
-		// simulators and a first boot are more than a hosted runner carries (three jobs ran
-		// out of their ten minutes at a first fill, the machine's load over 400). So only what
-		// both sides share is made ready here: the simulator axx clones, and WebDriverAgent.
-		if p.typeID != "" {
-			if _, err := p.templateOf(ctx); err != nil {
-				t.Fatal(err)
-			}
-		}
+		// Through an axx host, the host's side has the simulators, in a pool of its own, and
+		// leases one as the scenario starts: the simulator this machine keeps (CI's is made
+		// before the tests, scripts/ios-simulator.sh), or a clone it makes. A simulator leased
+		// here would stay this side's, and the host's side then made a second one beside it,
+		// from a simulator to clone it had to set up first: a first boot, which takes a hosted
+		// runner most of the job's ten minutes. So only what both sides share and no scenario
+		// has time for is made ready here: WebDriverAgent's first download.
 		if _, err := wdaFor(ctx, h.SC.Suite()); err != nil {
 			t.Fatal(err)
 		}
