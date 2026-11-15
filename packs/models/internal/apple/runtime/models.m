@@ -138,10 +138,12 @@ static void slow(NSString *api, CFAbsoluteTime took) {
 //
 // A camera's frames come many a second, and all the stub needs of one is a few
 // thousand of its two million pixels. Decoded through Core Image, each frame
-// was drawn whole, by the GPU: 5 ms on a Mac, and from 1.4 to 8.7 seconds on
-// CI's virtual Macs, where a 3-second video of a label then went by in too few
-// frames to show the label held still. So a frame's pixels are read from its
-// buffer, and only those the stub samples.
+// was drawn whole: 3 ms on a Mac, and from 0.6 to 1.1 seconds on a calm one of
+// CI's virtual Macs (measured there, a 1920 by 1080 frame), more on a busy one,
+// where the stub took up to 8.7 seconds over a frame and a 3-second video of a
+// label went by in too few frames to show the label held still. Read from its
+// buffer, a frame took 0.8 ms there. So a frame's pixels are read where they
+// are, and only those the stub samples.
 typedef struct {
   NSUInteger sw, sh; // the picture's size, turned
   const unsigned char *rgba;
