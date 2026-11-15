@@ -11,8 +11,14 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-func tryLock(f *os.File) error {
-	err := unix.Flock(int(f.Fd()), unix.LOCK_EX|unix.LOCK_NB)
+func tryLock(f *os.File) error { return flock(f, unix.LOCK_EX) }
+
+// tryShared takes the lock with others that take it shared, unless a process
+// holds it alone.
+func tryShared(f *os.File) error { return flock(f, unix.LOCK_SH) }
+
+func flock(f *os.File, how int) error {
+	err := unix.Flock(int(f.Fd()), how|unix.LOCK_NB)
 	if errors.Is(err, unix.EWOULDBLOCK) {
 		return errBusy
 	}

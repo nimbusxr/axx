@@ -55,6 +55,8 @@ axx down          # stop the services and run their cleanup
 
 The services keep their data from run to run, and `axx run` warns so when it reuses them: a scenario that creates something (registers a parcel by its reference, say) finds what an earlier run created and fails where a fresh start would pass. `axx down`, then `axx up`, starts them afresh; check a change on fresh services before you trust its result.
 
+Runs of a project take turns with its services, whether `axx up` keeps them or each run starts them. A run that starts while another is going says that it waits, and goes on when the other is done.
+
 ## When a run cannot start them
 
 An agent whose sandbox keeps it from Docker cannot start services that run with `docker compose`. `axx host`, started in the project on your machine, starts them for its runs: each run asks the host for its services, the host starts them as `axx.yaml` says and cleans up after the run, and it starts only a definition you approved. [Run tests from an agent's sandbox](/guides/run-from-a-sandbox/) shows how.

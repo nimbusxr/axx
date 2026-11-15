@@ -2,13 +2,10 @@ package cli
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"slices"
-	"strconv"
 	"strings"
 
 	"github.com/nimbusxr/axx/core"
@@ -16,6 +13,7 @@ import (
 	"github.com/nimbusxr/axx/internal/config"
 	"github.com/nimbusxr/axx/internal/engine"
 	"github.com/nimbusxr/axx/internal/exitcode"
+	"github.com/nimbusxr/axx/internal/filelock"
 	"github.com/nimbusxr/axx/internal/lifecycle"
 )
 
@@ -151,31 +149,20 @@ func (k *kept) take(ctx context.Context, runDir string) ([]lifecycle.Exit, error
 
 // lockCoverage takes the project's lock of the coverage of the services axx
 // up keeps, for a run that resets and reads them: a run that holds it
-// shares them with no other. A lock whose run has gone is taken over.
+// shares them with no other. The lock goes with the run's process, so a run
+// that was killed leaves none, and another run is told by the file, wherever
+// it runs: a run in a sandbox may not signal one outside it.
 func lockCoverage(cfg *config.Config) (func(), error) {
 	p := filepath.Join(runDir(cfg), "coverage.lock")
-	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+	release, ok, err := filelock.TryLock(p)
+	if err != nil {
 		return nil, err
 	}
-	for range 2 {
-		f, err := os.OpenFile(p, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o644)
-		if err == nil {
-			_, _ = fmt.Fprintln(f, os.Getpid())
-			_ = f.Close()
-			return func() { _ = os.Remove(p) }, nil
-		}
-		if !errors.Is(err, os.ErrExist) {
-			return nil, err
-		}
-		b, _ := os.ReadFile(p)
-		pid, _ := strconv.Atoi(strings.TrimSpace(string(b)))
-		if pid > 0 && processAlive(pid) {
-			return nil, axxerr.New(codeKeptUnmeasured, exitcode.Environment, "another run (pid %d) measures the coverage of the services axx up keeps", pid).
-				WithHint("run again once it is done: two runs would reset each other's coverage")
-		}
-		_ = os.Remove(p) // its run has gone
+	if !ok {
+		return nil, axxerr.New(codeKeptUnmeasured, exitcode.Environment, "another run measures the coverage of the services axx up keeps").
+			WithHint("run again once it is done: two runs would reset each other's coverage")
 	}
-	return nil, fmt.Errorf("cannot take %s", p)
+	return release, nil
 }
 
 // concludeAtDown writes, once axx down stopped the services axx up kept,

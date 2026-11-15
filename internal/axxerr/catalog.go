@@ -249,8 +249,8 @@ func init() {
 		"Active startup is on with `onNoTags: error`, and the selected scenarios carry no tags, so axx cannot tell which services to start.",
 		"Tag the scenarios, set `active.onNoTags: fallback` (start everything), or disable active startup.")
 	add("AXX-E0413", env, "Run state file error",
-		"`.axx/run/state.json` (used by `axx up`/`axx down` to find running services) could not be read or written.",
-		"Check permissions on `.axx/`; deleting the stale file is safe when no services are running.")
+		"`.axx/run/state.json` (used by `axx up`/`axx down` to find running services) could not be read or written, or a lock beside it could not be taken: `up.lock`, which `axx up` holds for as long as it keeps services, or `turn.lock`, which a run holds while it has the services.",
+		"Check permissions on `.axx/`; deleting the stale file is safe when no services are running. When another `axx up` keeps the services, `axx down` stops them.")
 	add("AXX-E0414", exitcode.Interrupted, "Startup interrupted",
 		"Starting services was interrupted (Ctrl-C). Every service that had started was stopped and cleaned up.",
 		"Nothing to fix; re-run when ready.")

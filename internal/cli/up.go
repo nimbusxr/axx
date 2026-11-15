@@ -24,6 +24,7 @@ import (
 	"github.com/nimbusxr/axx/internal/engine"
 	"github.com/nimbusxr/axx/internal/exitcode"
 	"github.com/nimbusxr/axx/internal/feature"
+	"github.com/nimbusxr/axx/internal/filelock"
 	"github.com/nimbusxr/axx/internal/host"
 	"github.com/nimbusxr/axx/internal/lifecycle"
 )
@@ -37,6 +38,20 @@ type upState struct {
 	// Coverage are the kept services axx up --coverage measures, each
 	// one's runtime.
 	Coverage map[string]string `json:"coverage,omitempty"`
+	// locked says the supervisor holds the lock its running is told by
+	// (lifecycle.UpLock): up.json's own, which no command prints.
+	locked bool
+}
+
+// upRecord is upState as up.json has it.
+type upRecord struct {
+	upState
+	Locked bool `json:"locked,omitempty"`
+}
+
+// running reports whether the supervisor that wrote st runs.
+func (st upState) running(cfg *config.Config) bool {
+	return lifecycle.SupervisorRuns(cfg.Dir, st.PID, st.locked)
 }
 
 const (
@@ -237,6 +252,14 @@ func newSuperviseCmd(app *App) *cobra.Command {
 				return supervisorError(err)
 			}
 			_ = os.Remove(stopFile(cfg))
+			// The lock that says this supervisor runs, until its process ends.
+			holding, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			err = lifecycle.HoldUp(holding, cfg.Dir)
+			cancel()
+			if err != nil {
+				return supervisorError(axxerr.New(lifecycle.CodeStateFile, exitcode.Environment, "another `axx up` keeps this project's services, or %s cannot be locked: %v", relPath(lifecycle.UpLock(cfg.Dir)), err).
+					WithHint("`axx down` stops the services `axx up` keeps"))
+			}
 			logw, err := os.OpenFile(filepath.Join(cfg.Dir, ".axx", "logs", "services.log"), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
 			if err != nil {
 				return supervisorError(err)
@@ -344,7 +367,7 @@ func newSuperviseCmd(app *App) *cobra.Command {
 				svcs, started = mgr, mgr.Started()
 			}
 			st := upState{PID: os.Getpid(), Services: started, Started: time.Now(), Profile: cf.profile, Coverage: measured}
-			b, _ := json.MarshalIndent(st, "", "  ")
+			b, _ := json.MarshalIndent(upRecord{upState: st, Locked: true}, "", "  ")
 			err = os.MkdirAll(runDir(cfg), 0o755)
 			if err == nil {
 				err = os.WriteFile(upFile(cfg), b, 0o644)
@@ -407,7 +430,7 @@ func newDownCmd(app *App) *cobra.Command {
 				_ = os.WriteFile(stopFile(cfg), []byte("stop\n"), 0o644)
 				signalTerm(st.PID)
 				deadline := time.Now().Add(3 * time.Minute)
-				for processAlive(st.PID) && time.Now().Before(deadline) {
+				for st.running(cfg) && time.Now().Before(deadline) {
 					select {
 					case <-cmd.Context().Done():
 						return cmd.Context().Err()
@@ -422,6 +445,9 @@ func newDownCmd(app *App) *cobra.Command {
 			_ = os.Remove(downCoverageFile(cfg))
 			_ = os.Remove(upFile(cfg))
 			_ = os.Remove(stopFile(cfg))
+			if held, _ := filelock.Held(lifecycle.UpLock(cfg.Dir)); !held {
+				_ = os.Remove(lifecycle.UpLock(cfg.Dir))
+			}
 			// Reap anything a killed run or supervisor left behind, and run
 			// the cleanups that failed: unless an axx host serves the
 			// project, which cleans up after its runs itself (the state
@@ -471,12 +497,14 @@ func allScenarios(e *engine.Engine) ([]*feature.Pickle, error) {
 }
 
 func readUp(cfg *config.Config) (upState, error) {
-	var st upState
+	var r upRecord
 	b, err := os.ReadFile(upFile(cfg))
 	if err != nil {
-		return st, err
+		return r.upState, err
 	}
-	return st, json.Unmarshal(b, &st)
+	err = json.Unmarshal(b, &r)
+	r.locked = r.Locked
+	return r.upState, err
 }
 
 // liveUp returns the `axx up` state when its supervisor is still running.
@@ -488,7 +516,7 @@ func liveUp(cfg *config.Config) (upState, bool) {
 		}
 		return st, false
 	}
-	if st.PID <= 0 || !processAlive(st.PID) {
+	if st.PID <= 0 || !st.running(cfg) {
 		_ = os.Remove(upFile(cfg))
 		return st, false
 	}

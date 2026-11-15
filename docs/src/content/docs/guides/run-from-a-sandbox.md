@@ -234,7 +234,7 @@ The [VS Code extension and the IntelliJ plugin](/guides/set-up-your-editor/#the-
 ## Everyone's runs share the host
 
 - Your own runs go through the host while it runs, whether you start them in a terminal or in your editor. All runs use the same ports and the same compose project, so they take turns.
-- `axx up` asks the host for the services and keeps them until `axx down`. Runs in between reuse them, as they do without a host.
+- `axx up` asks the host for the services and keeps them until `axx down`. Runs in between reuse them, as they do without a host, and still take turns: a run waits for the run that is using them, not for `axx up`. That holds whichever side of the sandbox each command runs on: you can run `axx up` in your terminal, and the agent's runs in the sandbox reuse those services.
 - With the [MCP server](/guides/set-up-agents/), `steps_try` gets services of its own from the host when none are up, and `scenarios_run` ends them first, so that every run starts clean. `env` works through `axx up` and `axx down`.
 - `axx doctor` says when a host serves the project, and leaves the checks of the services' commands and of Docker to the machine the host runs on.
 - If the host stops during a run, the run loses its services ([`AXX-E0502`](/references/error-codes/#axx-e0502)). A host that was killed leaves `.axx/host.json` behind. Runs then warn that it doesn't answer, and start the services themselves.

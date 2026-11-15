@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/nimbusxr/axx/internal/exitcode"
+	"github.com/nimbusxr/axx/internal/filelock"
 	coveragecore "github.com/nimbusxr/axx/packs/coverage/core"
 	"github.com/nimbusxr/axx/packs/coverage/core/istanbul"
 )
@@ -105,12 +106,17 @@ func TestARunWithCoverageOfKeptServices(t *testing.T) {
 	if parts["api"] != "1/2" || !strings.Contains(parts["batch"], "axx down writes it") {
 		t.Errorf("parts: %v", parts)
 	}
-	if _, err := os.Stat(filepath.Join(dir, ".axx", "run", "coverage.lock")); !os.IsNotExist(err) {
-		t.Errorf("the lock outlived the run: %v", err)
+	lock := filepath.Join(dir, ".axx", "run", "coverage.lock")
+	if held, err := filelock.Held(lock); err != nil || held {
+		t.Errorf("the lock outlived the run: %v %v", held, err)
 	}
 
 	// Another run that measures them holds the lock: this one says so.
-	writeFiles(t, dir, map[string]string{".axx/run/coverage.lock": strconv.Itoa(os.Getpid()) + "\n"})
+	release, ok, err := filelock.TryLock(lock)
+	if err != nil || !ok {
+		t.Fatalf("the other run's lock: %v %v", ok, err)
+	}
+	defer release()
 	if _, stderr, code := run(t, "run", "--coverage"); code != int(exitcode.Environment) || !strings.Contains(stderr, "another run") {
 		t.Errorf("a held lock: exit %d:\n%s", code, stderr)
 	}
