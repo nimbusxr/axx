@@ -15,6 +15,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/nimbusxr/axx/core"
 	"github.com/nimbusxr/axx/internal/agents"
 	"github.com/nimbusxr/axx/internal/config"
 	"github.com/nimbusxr/axx/internal/engine"
@@ -217,13 +218,28 @@ func (a *App) doctor(ctx context.Context, cf *configFlags) (rep DoctorReport) {
 		add(name, status, detail, hint)
 	}
 
+	// An axx host that serves the project does, on this machine, what a run
+	// in an agent's sandbox cannot: it starts the services, and the packs
+	// with a side in it start their browsers, devices and apps there.
+	ann, hostErr := host.Find(cfg.Dir)
+	hostAnswers := hostErr == nil && ann != nil && host.Answers(ctx, ann.Addr)
+
 	// What the project's packs need of the machine.
 	for _, p := range e.Packs {
+		_, hosted := p.Pack.(core.HostServer)
 		for _, c := range p.Pack.Manifest().Checks {
 			cctx, cancel := context.WithTimeout(ctx, time.Minute)
 			r := c.Run(cctx)
 			cancel()
-			add(c.Name, string(r.Status), r.Detail, r.Hint)
+			status, hint := string(r.Status), r.Hint
+			if hosted && hostAnswers && r.Status == core.CheckFail {
+				// The host does this pack's work for runs here: what this
+				// command cannot reach (in a sandbox), the host may.
+				status = "warn"
+				hint = strings.TrimSpace(hint + fmt.Sprintf("; the axx host at %s does the %s pack's work on this machine for runs here, so a sandbox this command runs in does not stop them: run `axx doctor` where the host runs for the machine's own answer", ann.Addr, p.Name))
+				hint = strings.TrimPrefix(hint, "; ")
+			}
+			add(c.Name, status, r.Detail, hint)
 		}
 	}
 
@@ -246,16 +262,29 @@ func (a *App) doctor(ctx context.Context, cf *configFlags) (rep DoctorReport) {
 	// An axx host serving the project starts its services on its own
 	// machine: what they need is there, not here.
 	hostServes := false
-	if ann, err := host.Find(cfg.Dir); err != nil {
-		add("axx host", "fail", err.Error(), "")
-	} else if ann != nil && len(cfg.Services) > 0 {
-		if host.Answers(ctx, ann.Addr) {
-			hostServes = true
-			add("axx host", "ok", fmt.Sprintf("%s (pid %d) starts the services for runs here", ann.Addr, ann.PID), "")
-		} else {
-			add("axx host", "warn", fmt.Sprintf(".axx/host.json names %s, which does not answer: runs start the services themselves", ann.Addr),
-				"start `axx host` again where it ran, or delete .axx/host.json")
+	var hostPacks []string
+	for _, p := range e.Packs {
+		if _, ok := p.Pack.(core.HostServer); ok {
+			hostPacks = append(hostPacks, p.Name)
 		}
+	}
+	switch {
+	case hostErr != nil:
+		add("axx host", "fail", hostErr.Error(), "")
+	case ann == nil || len(cfg.Services) == 0 && len(hostPacks) == 0:
+	case hostAnswers:
+		hostServes = len(cfg.Services) > 0
+		var does []string
+		if hostServes {
+			does = append(does, "starts the services")
+		}
+		if len(hostPacks) > 0 {
+			does = append(does, "does the machine's work of "+strings.Join(hostPacks, ", ")+" (browsers, devices, apps)")
+		}
+		add("axx host", "ok", fmt.Sprintf("%s (pid %d) %s for runs here", ann.Addr, ann.PID, strings.Join(does, " and ")), "")
+	default:
+		add("axx host", "warn", fmt.Sprintf(".axx/host.json names %s, which does not answer: runs start everything themselves", ann.Addr),
+			"start `axx host` again where it ran, or delete .axx/host.json")
 	}
 	if !hostServes {
 		for _, ap := range cfg.Services {

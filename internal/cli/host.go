@@ -59,6 +59,16 @@ else of this machine: the browser's network goes through the run, so the sandbox
 rules apply to it, it opens no file of this machine, and the host passes it only the
 commands of the web steps. A project needs no services for that.
 
+The host starts the devices and the apps of mobile and desktop scenarios for those
+runs too, where a sandbox keeps a simulator, an emulator or a desktop app from
+starting: the simulators and emulators of phone scenarios, and the Mac, Windows
+and Linux apps of desktop scenarios, with the packs' own code. A run asks for what
+a step does with a device or an app, by name, and names no program; the files it
+hands over are the project's. An app is the agent's code, and it starts outside
+the agent's sandbox, on this machine and as you: the host asks you about each app
+first, with everything of its registration, and starts it once you said y. The
+approval is for what it shows you, not for one build of the app.
+
 With --ide, an editor that started the host asks instead: the host writes its
 events as lines of JSON and reads the editor's answers on its standard input.`,
 		Args: wrapArgs(cobra.NoArgs),
@@ -69,7 +79,7 @@ events as lines of JSON and reads the editor's answers on its standard input.`,
 			}
 			packs, serves := hostPacks()
 			if len(cfg.Services) == 0 && len(packs) == 0 {
-				return axxerr.New("AXX-E0001", exitcode.Usage, "axx.yaml declares no services, and the project has no pack that an axx host does something for (web-core: browsers): an axx host has nothing to do").
+				return axxerr.New("AXX-E0001", exitcode.Usage, "axx.yaml declares no services, and the project has no pack that an axx host does something for (web-core: browsers; the mobile and desktop packs: devices and apps): an axx host has nothing to do").
 					WithHint("declare the services runs start under services: in %s", relPath(filepath.Join(cfg.Dir, "axx.yaml")))
 			}
 			props, err := cf.properties()
